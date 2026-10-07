@@ -28,6 +28,8 @@ bytemuck = { version = "1.25", features = ["derive"] }
 glyphon = "0.12.0"
 lyon = "1.0.19"
 glam = { version = "0.33", features = ["bytemuck", "serde"] }
+# Decoding image files for the file kind. Only the formats that are drawn.
+image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "webp", "gif"] }
 # Snapshot assertions. Tests reach it through `specular-testkit`.
 insta = "1.49"
 # macOS `proc_pid_rusage` for per-process physical footprint (bench memory).

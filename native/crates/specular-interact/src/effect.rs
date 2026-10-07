@@ -4,6 +4,8 @@ use glam::Vec2;
 use specular_core::{CssSize, InputEvent};
 use specular_doc::EntityId;
 
+use crate::ImageKey;
+
 /// One thing for the shell to do after an [`update`](crate::update). Effects
 /// run in the order they are returned.
 #[derive(Debug, Clone, PartialEq)]
@@ -53,6 +55,17 @@ pub enum Effect {
     /// Put text on the system clipboard. Nothing returns this until copy and
     /// cut (task S6) do.
     WriteClipboard(String),
+    /// Decode an image file and upload it under `image`, then answer with
+    /// [`Event::Image`](crate::Event::Image).
+    LoadImage {
+        /// The key the answer and the renderer use.
+        image: ImageKey,
+        /// The path as the document writes it: relative to the space folder,
+        /// absolute, or a URL.
+        file: String,
+    },
+    /// Forget an image: nothing shows it any more.
+    DropImage(ImageKey),
 }
 
 /// A pointer cursor.

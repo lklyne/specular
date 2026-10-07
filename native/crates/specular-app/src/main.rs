@@ -8,6 +8,7 @@
 mod app;
 mod bench_run;
 mod cli;
+mod images;
 mod latency;
 mod paint_lod;
 mod persist;

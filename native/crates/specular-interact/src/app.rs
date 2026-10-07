@@ -4,6 +4,7 @@ use glam::Vec2;
 use specular_core::Camera;
 use specular_doc::{Document, Entity, EntityId, History, ItemId, Kind, Page};
 
+use crate::images::Images;
 use crate::page_input::ButtonCapture;
 use crate::{Cursor, Gesture, PagePlacement, Tool};
 
@@ -66,6 +67,12 @@ impl App {
             rect: entity.rect,
             viewport: PagePlacement::viewport_for(laid_out_at),
         })
+    }
+
+    /// What is known about the image file a file entity names by `file`, or
+    /// `None` when it is not an image or has not been asked for.
+    pub fn image(&self, file: &str) -> Option<&crate::Image> {
+        self.session.images.get(file)
     }
 
     /// The pages, back-to-front, each with its placement.
@@ -137,6 +144,8 @@ pub struct Session {
     pub(crate) pointer_page: Option<EntityId>,
     /// Which page got each held button's press.
     pub(crate) captured: ButtonCapture,
+    /// The images file entities show, and how far each has loaded.
+    pub(crate) images: Images,
     /// State of the id sequence.
     id_state: u64,
 }

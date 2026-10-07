@@ -6,9 +6,10 @@
 
 mod effects;
 mod gpu_window;
+mod image_run;
 mod input;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -17,7 +18,7 @@ use specular_bench::{BenchLine, GestureProfile, InputLatencyLine, PaintPolicy, S
 use specular_compositor::{FrameObserver as _, FrameSample};
 use specular_core::{Camera, PageEvent, PageId, PageSource};
 use specular_doc::{Document, EntityId, ItemId};
-use specular_interact::{Action, App, Event, PageNotice, to_canvas_rect};
+use specular_interact::{Action, App, Event, ImageKey, PageNotice, to_canvas_rect};
 use winit::application::ApplicationHandler;
 use winit::event::WindowEvent;
 use winit::event_loop::{ActiveEventLoop, ControlFlow};
@@ -26,6 +27,7 @@ use winit::window::WindowId;
 
 use self::gpu_window::GpuWindow;
 use crate::bench_run::{BenchRun, BenchTick, RunSource};
+use crate::images::ImageLoader;
 use crate::latency::InputLatencyProbe;
 use crate::paint_lod::{LodChange, PageLod};
 use crate::persist::{self, Persistence};
@@ -81,6 +83,11 @@ pub(crate) struct Shell {
     app: App,
     /// The hosted page behind each page entity.
     hosts: HashMap<EntityId, PageHost>,
+    /// The decode thread. `None` if it could not be started; every image
+    /// then stays a placeholder.
+    image_loader: Option<ImageLoader>,
+    /// The images the app has asked for and not let go of.
+    images: HashSet<ImageKey>,
     /// The zoom the previous frame was drawn at, to tell when a zoom is in
     /// flight.
     drawn_zoom: f32,
@@ -121,6 +128,8 @@ impl Shell {
             persist: canvas.map(Persistence::open),
             app: App::new(unix_ms()),
             hosts: HashMap::new(),
+            image_loader: image_run::start_loader(options.canvas.as_deref()),
+            images: HashSet::new(),
             drawn_zoom: start_camera.zoom,
             gpu: None,
             events: Vec::new(),
@@ -462,6 +471,7 @@ impl ApplicationHandler for Shell {
         }
         self.dispatch(Event::Tick { unix_ms: unix_ms() });
         self.sync_file();
+        self.take_loaded_image();
         if let Some(gpu) = self.gpu.as_ref() {
             gpu.window.request_redraw();
         }

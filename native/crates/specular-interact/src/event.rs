@@ -4,7 +4,7 @@ use glam::Vec2;
 use specular_core::{Camera, ImeEvent, Modifiers, PixelRect, PointerEventKind};
 use specular_doc::{Document, EntityId, ItemId};
 
-use crate::Tool;
+use crate::{ImageKey, ImageNotice, Tool};
 
 /// One input to [`update`](crate::update). Window input arrives in logical
 /// screen pixels, origin at the canvas viewport's top-left.
@@ -30,6 +30,14 @@ pub enum Event {
         page: EntityId,
         /// What it reported.
         notice: PageNotice,
+    },
+    /// The shell finished with an image an
+    /// [`Effect::LoadImage`](crate::Effect::LoadImage) asked for.
+    Image {
+        /// The image.
+        image: ImageKey,
+        /// How it went.
+        notice: ImageNotice,
     },
     /// The wall clock, sent once per loop turn. Milliseconds since the Unix
     /// epoch.

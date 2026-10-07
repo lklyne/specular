@@ -64,6 +64,8 @@ impl Pipelines {
             label: Some("page-sampler"),
             mag_filter: wgpu::FilterMode::Linear,
             min_filter: wgpu::FilterMode::Linear,
+            // Images carry mip levels; page textures have one and ignore it.
+            mipmap_filter: wgpu::MipmapFilterMode::Linear,
             ..wgpu::SamplerDescriptor::default()
         });
         Self {

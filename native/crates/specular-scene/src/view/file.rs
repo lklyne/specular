@@ -1,12 +1,15 @@
-//! File entities. Until each file type has its renderer, a file is a card
-//! with a file glyph and its name.
+//! File entities. An image file that has loaded is its pixels. Every other
+//! file, and an image that is loading, missing or unreadable, is a card with
+//! a file glyph and its name.
 
-use specular_doc::{Entity, FileRef};
+use specular_doc::{Entity, FileRef, ObjectFit};
+use specular_interact::{Image, ImageState};
 
-use super::frame::canvas_rect;
-use super::palette;
+use super::frame::{Frame, canvas_rect};
+use super::{image, palette};
 use crate::{
-    Color, Item, PathCommand, PathDraw, PathStroke, Point, RectDraw, Scene, TextAlign, TextRun,
+    Color, ImageId, Item, PathCommand, PathDraw, PathStroke, Point, RectDraw, Scene, TextAlign,
+    TextRun,
 };
 
 const CORNER_RADIUS: f32 = 4.0;
@@ -19,8 +22,20 @@ const GLYPH_STROKE: f32 = 1.5;
 const GAP: f32 = 8.0;
 const NAME_SIZE: f32 = 11.0;
 
-pub(crate) fn draw(entity: &Entity, file: &FileRef, scene: &mut Scene) {
+pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, file: &FileRef, scene: &mut Scene) {
     let rect = canvas_rect(entity.rect);
+    if let Some(Image { key, state }) = frame.app.image(&file.file) {
+        match *state {
+            ImageState::Ready { width, height } => {
+                // An `<img>` with no `object-fit` set contains.
+                let fit = file.object_fit.unwrap_or(ObjectFit::Contain);
+                let draw = image::fitted(ImageId(key.0), rect, width, height, fit);
+                scene.push(Item::canvas(draw));
+                return;
+            }
+            ImageState::Loading | ImageState::Missing | ImageState::Failed => {}
+        }
+    }
     scene.push(Item::canvas(
         RectDraw::filled(rect, palette::CARD).with_corner_radius(CORNER_RADIUS),
     ));

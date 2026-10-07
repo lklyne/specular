@@ -1,0 +1,8 @@
+---
+source: crates/specular-scene/tests/images.rs
+expression: app.scene_snapshot()
+---
+canvas image 0 150,100 100x100
+canvas image 1 450,100 100x100
+canvas image 2 700,100 200x100 source=0,0.25 1x0.5
+canvas image 3 1000,100 200x100

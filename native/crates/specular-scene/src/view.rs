@@ -17,6 +17,7 @@ mod file;
 mod frame;
 mod freehand;
 mod group;
+mod image;
 mod page;
 mod palette;
 mod session;
@@ -76,7 +77,7 @@ fn draw_entity(frame: &Frame<'_>, entity: &Entity, scene: &mut Scene) {
     match &entity.kind {
         Kind::Page(page) => page::draw(frame, entity, page, scene),
         Kind::Text(text) => text::draw(entity, text, scene),
-        Kind::File(file) => file::draw(entity, file, scene),
+        Kind::File(file) => file::draw(frame, entity, file, scene),
         Kind::Group(group) => group::draw(frame, entity, group, scene),
         Kind::Drawing(drawing) => drawing::draw(frame, entity, drawing, scene),
         Kind::Shape(shape) => shape::draw(entity, shape, scene),

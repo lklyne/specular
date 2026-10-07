@@ -75,6 +75,12 @@ with the task that made it.
 - S5: copies keep their group unless the group is copied too, lose a page anchor unless that page is copied, and take an edge only when both its ends are copied. They go in front of the stack.
 - S5: duplicate places the copy 80 units to the right, else below, else at the first free spot of a grid scan. Every entity counts as occupied.
 - S5: the cursor is recomputed after every event but a tick and returned as `Effect::SetCursor` only when it changes. `Session::cursor` holds the last one.
+- K6: images are a table in `Session` keyed by the `file` string, each with an `ImageKey` that `update` allocates. `update` returns `Effect::LoadImage` when a document is opened and after any history step; the shell answers with `Event::Image`. The scene's `ImageId` is the key's number.
+- K6: an image nothing shows any more is kept until another document is opened, so undoing a delete does not reload it. `Effect::DropImage` is only returned on `DocumentOpened`.
+- K6: which files are images is Electron's `IMAGE_EXTENSIONS`, checked in `update`. What can be decoded is the shell's business: svg, bmp and ico are asked for, fail, and stay cards. An `http(s)` path is not fetched and fails too.
+- K6: the decode thread also premultiplies and builds the mip levels (`ImageMips::build`, in the compositor crate but pure CPU). The main thread only uploads, one image per loop turn.
+- K6: an image larger than the device's texture limit is scaled down on the decode thread. EXIF orientation is applied, as a browser does for an `<img>`.
+- K6: `contain` draws only the image, with nothing in the letterbox bars. `cover` crops with `ImageDraw::source`. No corner radius.
 
 ## Needs a human at a Mac
 
@@ -88,6 +94,7 @@ Things an agent could not verify headless.
 - S1 and S2: nothing was run. With `specular-app fixtures/input.canvas`, check that one click selects a page without the page reacting, a second click or a double-click lets you type into it, Escape leaves it, and a drag from empty canvas does not scroll or select text in a page.
 - S9: nothing was run. Open a copy of a canvas, move something, and check the file changes about a third of a second later with the camera in `appState`. Edit the file in an editor while the app is idle and check the canvas follows, keeping the camera. Quit within 350 ms of a change and check it was written.
 - S3 to S5: nothing was run. Check drag feel against the grid, Shift mid-drag, Option-drag (the copy preview is not drawn yet), each handle on each kind, a two-item resize, Backspace, Cmd+D, arrows, and the corner cursors.
+- K6: nothing was run. Open a canvas with png, jpeg, webp and gif files beside it (relative `assets/...` paths), one missing file and one svg. Check each image appears a moment after the card, keeps its aspect, stays smooth when zoomed far out, and that the missing file and the svg stay cards.
 
 ## Entries
 
@@ -214,3 +221,15 @@ Things an agent could not verify headless.
 - `tests/gestures.rs`, the testkit's `driver.rs` and doc example, and the example in `native/CLAUDE.md` no longer use Alt+drag as a move.
 - I ran `cargo fmt --all` once, which may have reformatted another agent's uncommitted compositor files.
 - Gate: fmt, clippy and tests pass for `specular-doc`, `specular-interact` and `specular-testkit` on this commit alone, checked in an exported copy (302 tests). The workspace gate passed its tests once (759) and then failed in `specular-compositor`, `specular-scene` and `specular-app`, which other agents had mid-edit. Their image hunks in `specular-interact` are not in this commit.
+
+### K6 — see `git log -- native/crates/specular-app/src/images`
+
+- Interact: `images.rs` (`ImageKey`, `Image`, `ImageState`, `ImageNotice`, `is_image_file`), `Effect::LoadImage` and `DropImage`, `Event::Image`, `App::image(file)`. `tests/images.rs` covers the requests, the answers and the drop on reopen.
+- Scene: `view/file.rs` emits an `ImageDraw` for a ready image and the card otherwise. `view/image.rs` is the `object-fit` math (contain by default, cover, fill). Two snapshots in `tests/images.rs`.
+- Compositor: `ImageMips` and `ImageSpec` in `scene_pass/mips.rs`, `Compositor::image_spec` and `set_image_mips`; `set_image` now goes through them. The shared sampler filters between mip levels. A readback test in `scene_gpu.rs` draws a striped image at an eighth of its size and fails if the levels are missing.
+- Shell: `images/resolve.rs` (space folder, absolute, `local-file://`), `images/decode.rs` (the `image` crate with png, jpeg, webp, gif only), `images/mod.rs` (`ImageLoader`, one thread), `app/image_run.rs` (the effects and the upload). The space folder is the `.canvas` file's directory; a demo grid has none, so only absolute paths load there.
+- Not done from the plan's K6 line: dropping a file on the canvas and copying it into `assets/`. Nothing creates a file entity yet.
+- Not done: reloading an image when its file changes on disk, animated GIFs, svg. A file entity that changes its `file` path through a command loads the new one and keeps the old texture until the next open.
+- A load that can never be answered (no GPU window yet, or the thread failed to start) leaves the image `Loading`, which draws the card.
+- `specular-app/src/app/mod.rs` is about 480 lines. The bench and LOD methods are the part to move out.
+- Gate: fmt, clippy and `cargo test --workspace` pass, GPU tests included on this machine.

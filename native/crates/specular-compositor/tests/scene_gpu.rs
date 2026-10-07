@@ -300,6 +300,38 @@ fn an_uploaded_image_is_drawn_and_can_be_cropped() {
 }
 
 #[test]
+fn an_image_drawn_small_is_sampled_from_its_mip_levels() {
+    // Two white columns then six black, across 64 texels. Drawn at an eighth
+    // of its size, every pixel covers one period and its centre lands on
+    // black, so the full-size level alone would read black. Three levels
+    // down each texel is the mean: a quarter white.
+    const SIDE: u32 = 64;
+    let Some(mut harness) = Harness::new() else {
+        return;
+    };
+    let texels: Vec<u8> = (0..SIDE * SIDE)
+        .flat_map(|index| {
+            let value = if index % SIDE % 8 < 2 { 255 } else { 0 };
+            [value, value, value, 255]
+        })
+        .collect();
+    harness
+        .compositor
+        .set_image(ImageId(1), PixelSize::new(SIDE, SIDE), &texels)
+        .unwrap();
+    let small = ImageDraw::new(ImageId(1), Rect::new(16.0, 16.0, 8.0, 8.0));
+    let pixels = harness.render(vec![Item::canvas(small)]);
+    for (x, y) in [(17, 17), (20, 20), (22, 19)] {
+        let [r, g, b, a] = pixel(&pixels, x, y);
+        assert!(
+            r.abs_diff(64) <= 6 && r == g && g == b && a == 255,
+            "pixel ({x}, {y}) is {:?}",
+            [r, g, b, a]
+        );
+    }
+}
+
+#[test]
 fn a_hidpi_frame_draws_and_clips_in_physical_pixels() {
     let Some(mut harness) = Harness::new() else {
         return;
