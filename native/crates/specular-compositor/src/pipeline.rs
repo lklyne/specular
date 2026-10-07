@@ -1,17 +1,31 @@
 //! Render pipelines, layouts and the shared sampler, built once per
 //! compositor.
 
-use crate::gpu_types::{FRAME_UNIFORMS_SIZE, QuadInstance, ShapeInstance};
+use crate::gpu_types::{FRAME_UNIFORMS_SIZE, MeshVertex, QuadInstance, ShapeInstance};
 
 /// WGSL source for all pipelines.
 pub(crate) const SHADER_SOURCE: &str = include_str!("shaders/canvas.wgsl");
 
-/// Long-lived GPU objects that do not depend on scene content.
+/// Samples per pixel of the scene pass. Tessellated edges have no
+/// antialiasing of their own (ADR 0039).
+pub(crate) const SCENE_SAMPLES: u32 = 4;
+
+/// The pipelines of one pass, all built for the same sample count.
 #[derive(Debug)]
-pub(crate) struct Pipelines {
+pub(crate) struct PassPipelines {
     pub(crate) grid: wgpu::RenderPipeline,
     pub(crate) quad: wgpu::RenderPipeline,
     pub(crate) shape: wgpu::RenderPipeline,
+    pub(crate) mesh: wgpu::RenderPipeline,
+}
+
+/// Long-lived GPU objects that do not depend on scene content.
+#[derive(Debug)]
+pub(crate) struct Pipelines {
+    /// For a pass straight into the target.
+    pub(crate) single: PassPipelines,
+    /// For the multisampled scene pass.
+    pub(crate) multisampled: PassPipelines,
     pub(crate) frame_layout: wgpu::BindGroupLayout,
     pub(crate) texture_layout: wgpu::BindGroupLayout,
     pub(crate) sampler: wgpu::Sampler,
@@ -25,72 +39,29 @@ impl Pipelines {
         });
         let frame_layout = frame_layout(device);
         let texture_layout = texture_layout(device);
-        let grid_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("grid-pipeline-layout"),
+        let untextured = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("untextured-pipeline-layout"),
             bind_group_layouts: &[Some(&frame_layout)],
             immediate_size: 0,
         });
-        let quad_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("quad-pipeline-layout"),
+        let textured = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("textured-pipeline-layout"),
             bind_group_layouts: &[Some(&frame_layout), Some(&texture_layout)],
             immediate_size: 0,
         });
-        let shape_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("shape-pipeline-layout"),
-            bind_group_layouts: &[Some(&frame_layout)],
-            immediate_size: 0,
-        });
-        let instance_layout = wgpu::VertexBufferLayout {
-            array_stride: size_of::<QuadInstance>() as u64,
-            step_mode: wgpu::VertexStepMode::Instance,
-            attributes: &QuadInstance::ATTRIBUTES,
+        let pass = |samples| {
+            PassPipelines::new(
+                device,
+                &PassSpec {
+                    shader: &shader,
+                    untextured: &untextured,
+                    textured: &textured,
+                    target_format,
+                    samples,
+                },
+            )
         };
-        let grid = render_pipeline(
-            device,
-            &PipelineSpec {
-                label: "grid-pipeline",
-                layout: &grid_layout,
-                shader: &shader,
-                vertex_entry: "vs_grid",
-                fragment_entry: "fs_grid",
-                buffers: &[],
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                blend: None,
-                target_format,
-            },
-        );
-        let quad = render_pipeline(
-            device,
-            &PipelineSpec {
-                label: "quad-pipeline",
-                layout: &quad_layout,
-                shader: &shader,
-                vertex_entry: "vs_quad",
-                fragment_entry: "fs_quad",
-                buffers: &[Some(instance_layout)],
-                topology: wgpu::PrimitiveTopology::TriangleStrip,
-                blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
-                target_format,
-            },
-        );
-        let shape = render_pipeline(
-            device,
-            &PipelineSpec {
-                label: "shape-pipeline",
-                layout: &shape_layout,
-                shader: &shader,
-                vertex_entry: "vs_shape",
-                fragment_entry: "fs_shape",
-                buffers: &[Some(wgpu::VertexBufferLayout {
-                    array_stride: size_of::<ShapeInstance>() as u64,
-                    step_mode: wgpu::VertexStepMode::Instance,
-                    attributes: &ShapeInstance::ATTRIBUTES,
-                })],
-                topology: wgpu::PrimitiveTopology::TriangleStrip,
-                blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
-                target_format,
-            },
-        );
+        let (single, multisampled) = (pass(1), pass(SCENE_SAMPLES));
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             label: Some("page-sampler"),
             mag_filter: wgpu::FilterMode::Linear,
@@ -98,9 +69,8 @@ impl Pipelines {
             ..wgpu::SamplerDescriptor::default()
         });
         Self {
-            grid,
-            quad,
-            shape,
+            single,
+            multisampled,
             frame_layout,
             texture_layout,
             sampler,
@@ -131,25 +101,97 @@ impl Pipelines {
     }
 }
 
+/// What every pipeline of one pass shares.
+struct PassSpec<'a> {
+    shader: &'a wgpu::ShaderModule,
+    untextured: &'a wgpu::PipelineLayout,
+    textured: &'a wgpu::PipelineLayout,
+    target_format: wgpu::TextureFormat,
+    samples: u32,
+}
+
+impl PassPipelines {
+    fn new(device: &wgpu::Device, pass: &PassSpec<'_>) -> Self {
+        let instanced = |stride: usize, attributes| wgpu::VertexBufferLayout {
+            array_stride: stride as u64,
+            step_mode: wgpu::VertexStepMode::Instance,
+            attributes,
+        };
+        let blend = Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING);
+        let strip = wgpu::PrimitiveTopology::TriangleStrip;
+        let list = wgpu::PrimitiveTopology::TriangleList;
+        let grid = PipelineSpec {
+            label: "grid-pipeline",
+            layout: pass.untextured,
+            entries: ("vs_grid", "fs_grid"),
+            buffers: &[],
+            topology: list,
+            blend: None,
+        };
+        let quad = PipelineSpec {
+            label: "quad-pipeline",
+            layout: pass.textured,
+            entries: ("vs_quad", "fs_quad"),
+            buffers: &[Some(instanced(
+                size_of::<QuadInstance>(),
+                &QuadInstance::ATTRIBUTES,
+            ))],
+            topology: strip,
+            blend,
+        };
+        let shape = PipelineSpec {
+            label: "shape-pipeline",
+            layout: pass.untextured,
+            entries: ("vs_shape", "fs_shape"),
+            buffers: &[Some(instanced(
+                size_of::<ShapeInstance>(),
+                &ShapeInstance::ATTRIBUTES,
+            ))],
+            topology: strip,
+            blend,
+        };
+        let mesh = PipelineSpec {
+            label: "mesh-pipeline",
+            layout: pass.untextured,
+            entries: ("vs_mesh", "fs_mesh"),
+            buffers: &[Some(wgpu::VertexBufferLayout {
+                array_stride: size_of::<MeshVertex>() as u64,
+                step_mode: wgpu::VertexStepMode::Vertex,
+                attributes: &MeshVertex::ATTRIBUTES,
+            })],
+            topology: list,
+            blend,
+        };
+        Self {
+            grid: render_pipeline(device, pass, &grid),
+            quad: render_pipeline(device, pass, &quad),
+            shape: render_pipeline(device, pass, &shape),
+            mesh: render_pipeline(device, pass, &mesh),
+        }
+    }
+}
+
 struct PipelineSpec<'a> {
     label: &'static str,
     layout: &'a wgpu::PipelineLayout,
-    shader: &'a wgpu::ShaderModule,
-    vertex_entry: &'static str,
-    fragment_entry: &'static str,
+    /// Vertex and fragment entry points.
+    entries: (&'static str, &'static str),
     buffers: &'a [Option<wgpu::VertexBufferLayout<'a>>],
     topology: wgpu::PrimitiveTopology,
     blend: Option<wgpu::BlendState>,
-    target_format: wgpu::TextureFormat,
 }
 
-fn render_pipeline(device: &wgpu::Device, spec: &PipelineSpec<'_>) -> wgpu::RenderPipeline {
+fn render_pipeline(
+    device: &wgpu::Device,
+    pass: &PassSpec<'_>,
+    spec: &PipelineSpec<'_>,
+) -> wgpu::RenderPipeline {
     device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
         label: Some(spec.label),
         layout: Some(spec.layout),
         vertex: wgpu::VertexState {
-            module: spec.shader,
-            entry_point: Some(spec.vertex_entry),
+            module: pass.shader,
+            entry_point: Some(spec.entries.0),
             compilation_options: wgpu::PipelineCompilationOptions::default(),
             buffers: spec.buffers,
         },
@@ -158,13 +200,16 @@ fn render_pipeline(device: &wgpu::Device, spec: &PipelineSpec<'_>) -> wgpu::Rend
             ..wgpu::PrimitiveState::default()
         },
         depth_stencil: None,
-        multisample: wgpu::MultisampleState::default(),
+        multisample: wgpu::MultisampleState {
+            count: pass.samples,
+            ..wgpu::MultisampleState::default()
+        },
         fragment: Some(wgpu::FragmentState {
-            module: spec.shader,
-            entry_point: Some(spec.fragment_entry),
+            module: pass.shader,
+            entry_point: Some(spec.entries.1),
             compilation_options: wgpu::PipelineCompilationOptions::default(),
             targets: &[Some(wgpu::ColorTargetState {
-                format: spec.target_format,
+                format: pass.target_format,
                 blend: spec.blend,
                 write_mask: wgpu::ColorWrites::ALL,
             })],

@@ -77,15 +77,8 @@ pub(crate) fn build_draw_list(
             page: draw.page,
             layer: LayerKind::View,
         });
-        if let Some(popup) = info.popup
-            && !info.view_size.is_empty()
-        {
-            let texel_to_canvas = draw.rect.size()
-                / Vec2::new(info.view_size.width as f32, info.view_size.height as f32);
-            let origin =
-                draw.rect.origin() + Vec2::new(popup.x as f32, popup.y as f32) * texel_to_canvas;
-            let size = Vec2::new(popup.width as f32, popup.height as f32) * texel_to_canvas;
-            instances.push(QuadInstance::new(origin, size, 0.0));
+        if let Some(quad) = popup_quad(draw.rect.origin(), draw.rect.size(), &info) {
+            instances.push(quad);
             items.push(DrawItem {
                 page: draw.page,
                 layer: LayerKind::Popup,
@@ -93,6 +86,19 @@ pub(crate) fn build_draw_list(
         }
     }
     counts
+}
+
+/// The quad for a page's visible popup, given where the page's view is drawn
+/// in canvas space. The popup's placement is in view texels.
+pub(crate) fn popup_quad(origin: Vec2, size: Vec2, info: &PageLayersInfo) -> Option<QuadInstance> {
+    let popup = info.popup.filter(|_| !info.view_size.is_empty())?;
+    let texel_to_canvas =
+        size / Vec2::new(info.view_size.width as f32, info.view_size.height as f32);
+    Some(QuadInstance::new(
+        origin + Vec2::new(popup.x as f32, popup.y as f32) * texel_to_canvas,
+        Vec2::new(popup.width as f32, popup.height as f32) * texel_to_canvas,
+        0.0,
+    ))
 }
 
 #[cfg(test)]

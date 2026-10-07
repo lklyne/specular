@@ -1,24 +1,37 @@
-//! A growable per-instance vertex buffer.
+//! A growable GPU buffer of plain values: instances, vertices or indices.
 
 use bytemuck::Pod;
 
 /// Instance capacity of a new buffer; it doubles on demand.
 const INITIAL_CAPACITY: usize = 64;
 
-/// One vertex buffer of `T` instances, rewritten every frame.
+/// One buffer of `T` values, rewritten every frame.
 #[derive(Debug)]
 pub(crate) struct InstanceBuffer<T> {
     label: &'static str,
+    usage: wgpu::BufferUsages,
     buffer: wgpu::Buffer,
     capacity: usize,
     marker: std::marker::PhantomData<T>,
 }
 
 impl<T: Pod> InstanceBuffer<T> {
+    /// A vertex buffer.
     pub(crate) fn new(device: &wgpu::Device, label: &'static str) -> Self {
+        Self::with_usage(device, label, wgpu::BufferUsages::VERTEX)
+    }
+
+    /// A buffer bound as `usage` (vertex or index).
+    pub(crate) fn with_usage(
+        device: &wgpu::Device,
+        label: &'static str,
+        usage: wgpu::BufferUsages,
+    ) -> Self {
+        let usage = usage | wgpu::BufferUsages::COPY_DST;
         Self {
             label,
-            buffer: create_buffer::<T>(device, label, INITIAL_CAPACITY),
+            usage,
+            buffer: create_buffer::<T>(device, label, usage, INITIAL_CAPACITY),
             capacity: INITIAL_CAPACITY,
             marker: std::marker::PhantomData,
         }
@@ -29,7 +42,7 @@ impl<T: Pod> InstanceBuffer<T> {
     pub(crate) fn write(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, instances: &[T]) {
         if instances.len() > self.capacity {
             let capacity = instances.len().next_power_of_two();
-            self.buffer = create_buffer::<T>(device, self.label, capacity);
+            self.buffer = create_buffer::<T>(device, self.label, self.usage, capacity);
             self.capacity = capacity;
         }
         if !instances.is_empty() {
@@ -42,11 +55,16 @@ impl<T: Pod> InstanceBuffer<T> {
     }
 }
 
-fn create_buffer<T>(device: &wgpu::Device, label: &'static str, capacity: usize) -> wgpu::Buffer {
+fn create_buffer<T>(
+    device: &wgpu::Device,
+    label: &'static str,
+    usage: wgpu::BufferUsages,
+    capacity: usize,
+) -> wgpu::Buffer {
     device.create_buffer(&wgpu::BufferDescriptor {
         label: Some(label),
         size: (capacity * size_of::<T>()) as u64,
-        usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+        usage,
         mapped_at_creation: false,
     })
 }

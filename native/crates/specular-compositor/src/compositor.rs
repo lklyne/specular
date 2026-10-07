@@ -20,6 +20,7 @@ use crate::layers::{LayerTexture, PageLayers};
 use crate::pipeline::Pipelines;
 use crate::retire::RetiredTextures;
 use crate::scene::{RenderStats, SceneView};
+use crate::scene_pass::ScenePass;
 use crate::shape_list::build_shape_list;
 use crate::upload;
 
@@ -50,15 +51,15 @@ struct IngestCounts {
 /// The wgpu compositor; see the crate docs.
 #[derive(Debug)]
 pub struct Compositor {
-    device: wgpu::Device,
-    queue: wgpu::Queue,
-    target_format: wgpu::TextureFormat,
-    pipelines: Pipelines,
-    frame_uniforms: wgpu::Buffer,
-    frame_bind_group: wgpu::BindGroup,
-    instance_buffer: InstanceBuffer<QuadInstance>,
-    shape_buffer: InstanceBuffer<ShapeInstance>,
-    pages: HashMap<PageId, PageLayers>,
+    pub(crate) device: wgpu::Device,
+    pub(crate) queue: wgpu::Queue,
+    pub(crate) target_format: wgpu::TextureFormat,
+    pub(crate) pipelines: Pipelines,
+    pub(crate) frame_uniforms: wgpu::Buffer,
+    pub(crate) frame_bind_group: wgpu::BindGroup,
+    pub(crate) instance_buffer: InstanceBuffer<QuadInstance>,
+    pub(crate) shape_buffer: InstanceBuffer<ShapeInstance>,
+    pub(crate) pages: HashMap<PageId, PageLayers>,
     retired: RetiredTextures<SharedTexture>,
     imports: HashMap<(PageId, LayerKind), ImportCache<SurfaceKey, ImportedTexture>>,
     /// Serial of the most recent submit; 0 before the first.
@@ -66,9 +67,10 @@ pub struct Compositor {
     /// Highest serial the GPU has reported complete.
     completed: Arc<AtomicU64>,
     ingested: IngestCounts,
-    instances: Vec<QuadInstance>,
-    shape_instances: Vec<ShapeInstance>,
-    draw_items: Vec<DrawItem>,
+    pub(crate) instances: Vec<QuadInstance>,
+    pub(crate) shape_instances: Vec<ShapeInstance>,
+    pub(crate) draw_items: Vec<DrawItem>,
+    pub(crate) scene_pass: ScenePass,
 }
 
 impl Compositor {
@@ -96,6 +98,7 @@ impl Compositor {
         });
         let instance_buffer = InstanceBuffer::new(&device, "quad-instances");
         let shape_buffer = InstanceBuffer::new(&device, "shape-instances");
+        let scene_pass = ScenePass::new(&device);
         Self {
             device,
             queue,
@@ -114,6 +117,7 @@ impl Compositor {
             instances: Vec::new(),
             shape_instances: Vec::new(),
             draw_items: Vec::new(),
+            scene_pass,
         }
     }
 
@@ -199,7 +203,14 @@ impl Compositor {
         let max_paint_to_submit = self.mark_shown(started);
 
         let grid = grid_metrics(&scene.camera, &scene.grid, scene.scale_factor);
-        let uniforms = FrameUniforms::new(scene, &grid, !self.target_format.is_srgb());
+        let uniforms = FrameUniforms::new(
+            &scene.camera,
+            scene.viewport,
+            scene.scale_factor,
+            &scene.grid,
+            &grid,
+            !self.target_format.is_srgb(),
+        );
         self.queue
             .write_buffer(&self.frame_uniforms, 0, bytemuck::bytes_of(&uniforms));
         self.instance_buffer
@@ -214,6 +225,16 @@ impl Compositor {
                 label: Some("specular-frame"),
             });
         self.encode_pass(&mut encoder, target);
+        self.submit(encoder);
+        let mut stats = self.take_frame_stats(max_paint_to_submit);
+        stats.pages_without_texture = counts.pages_without_texture;
+        stats.cpu_textures = counts.cpu_textures;
+        stats
+    }
+
+    /// Submits a frame's commands and asks to hear when the GPU has finished
+    /// them, if any retired surface is waiting on that.
+    pub(crate) fn submit(&mut self, encoder: wgpu::CommandEncoder) {
         self.queue.submit([encoder.finish()]);
         self.submitted += 1;
         if !self.retired.is_empty() {
@@ -223,7 +244,14 @@ impl Compositor {
                 completed.fetch_max(serial, Ordering::Release);
             });
         }
+    }
 
+    /// The counters every render reports, taking the ingest counts gathered
+    /// since the previous one. The page counts are the caller's to fill in.
+    pub(crate) fn take_frame_stats(
+        &mut self,
+        max_paint_to_submit: Option<Duration>,
+    ) -> RenderStats {
         let ingested = std::mem::take(&mut self.ingested);
         let (outstanding_textures, max_outstanding_textures) = self
             .pages
@@ -231,8 +259,8 @@ impl Compositor {
             .map(|&page| self.outstanding_textures(page))
             .fold((0, 0), |(total, max), held| (total + held, max.max(held)));
         RenderStats {
-            pages_without_texture: counts.pages_without_texture,
-            cpu_textures: counts.cpu_textures,
+            pages_without_texture: 0,
+            cpu_textures: 0,
             shapes_drawn: self.shape_instances.len() as u32,
             max_paint_to_submit,
             frames_received: ingested.frames_received,
@@ -261,10 +289,10 @@ impl Compositor {
             ..wgpu::RenderPassDescriptor::default()
         });
         pass.set_bind_group(0, &self.frame_bind_group, &[]);
-        pass.set_pipeline(&self.pipelines.grid);
+        pass.set_pipeline(&self.pipelines.single.grid);
         pass.draw(0..3, 0..1);
         if !self.draw_items.is_empty() {
-            pass.set_pipeline(&self.pipelines.quad);
+            pass.set_pipeline(&self.pipelines.single.quad);
             pass.set_vertex_buffer(0, self.instance_buffer.slice());
             for (instance, item) in (0_u32..).zip(&self.draw_items) {
                 let Some(layer) = self
@@ -279,7 +307,7 @@ impl Compositor {
             }
         }
         if !self.shape_instances.is_empty() {
-            pass.set_pipeline(&self.pipelines.shape);
+            pass.set_pipeline(&self.pipelines.single.shape);
             pass.set_vertex_buffer(0, self.shape_buffer.slice());
             pass.draw(0..4, 0..self.shape_instances.len() as u32);
         }
@@ -287,7 +315,7 @@ impl Compositor {
 
     /// Flags this frame's layers as shown; returns the longest
     /// paint-to-submit wait among those shown for the first time.
-    fn mark_shown(&mut self, now: Instant) -> Option<Duration> {
+    pub(crate) fn mark_shown(&mut self, now: Instant) -> Option<Duration> {
         let mut longest: Option<Duration> = None;
         for item in &self.draw_items {
             let Some(layer) = self
@@ -427,7 +455,7 @@ impl Compositor {
     }
 
     /// Runs GPU completion callbacks and releases surfaces they cover.
-    fn reclaim(&mut self) {
+    pub(crate) fn reclaim(&mut self) {
         if self.retired.is_empty() {
             return;
         }

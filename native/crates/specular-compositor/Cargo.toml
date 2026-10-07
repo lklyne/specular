@@ -9,8 +9,12 @@ publish.workspace = true
 
 [dependencies]
 specular-core = { workspace = true }
+specular-doc = { workspace = true }
+specular-scene = { workspace = true }
 bytemuck = { workspace = true }
 glam = { workspace = true }
+glyphon = { workspace = true }
+lyon = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 wgpu = { workspace = true }

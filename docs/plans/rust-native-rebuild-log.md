@@ -37,12 +37,21 @@ with the task that made it.
 - F6: a document snapshot is the canonical save with one compact JSON line per node, edge and annotation. It needs no per-kind code, so a new kind or field shows up in snapshots without touching the testkit.
 - F6: `hold(mods)` keeps modifiers down until `let_go()`. `key` and `chord` send the press and the release. `release()` is always at the pointer's last position.
 - F6: the golden-image helper in the plan's F6 line is left for the task that makes the renderer draw a `Scene`.
+- F5a: `Scene` names a page by its `EntityId`, as events and effects do. `render_scene` takes a closure from `EntityId` to the backend `PageId`, so `view` needs no handle table. Images are named by `ImageId(u64)`, uploaded with `Compositor::set_image`.
+- F5a: every item is in canvas space or screen space. There is no "canvas rect with a pixel-wide stroke" item. Chrome that hugs an entity at a fixed pixel size is a screen-space item that `view` projects with the camera.
+- F5a: scene colors are 8-bit sRGB with straight alpha. Clip and opacity are per item, with no push and pop. A clip is a rect in the item's own space.
+- F5a: a text run has an origin plus an optional wrap width and box height. An axis with an extent aligns inside it, an axis without one aligns against the origin. The renderer shapes and measures, so `view` never needs text metrics.
+- F5a: batches do not always break at a page. An item joins the earliest batch of its kind at or after the last batch it overlaps, and a page is a batch of its own. An item over a page still paints after it. Border and title chrome beside 40 pages is one shape batch and one text batch, not 40 of each.
+- F5a: dashed borders and dashed edges are paths with a `Dash`. The SDF layer draws solid rects and ellipses only. Rect and ellipse strokes can sit inside, centred or outside.
+- F5a: a stroke thinner than one device pixel is drawn one pixel wide and faded by the same ratio.
+- F5a: the caller says when the camera is zooming (`FrameView::zooming`). While it is, canvas glyphs keep their raster size until the zoom has moved 0.75x to 1.25x from it, and the pass viewport stretches them. The shell must render one frame with `zooming: false` when the gesture ends.
 
 ## Needs a human at a Mac
 
 Things an agent could not verify headless.
 
 - M1: the four checks at the end of ADR 0039 (sharpness on a real display, glyph shimmer while zooming, egui's look, IME into an egui field).
+- F5a: zoom with canvas text on screen once `view` lands. glyphon samples its atlas with a nearest filter, so held glyphs stretched up to 1.25x may look blocky or shimmer mid-gesture. If so, narrow `MIN_STRETCH` and `MAX_STRETCH` in `scene_pass/raster_hold.rs`.
 - F4: nothing was run. Agents may not start `specular-app`, so check `specular-app fixtures/input.canvas` by hand (click, type, Alt+drag, corner resize, C then drag, Escape, Cmd+Z and Cmd+Shift+Z with no page focused) and one `--bench` run against an older build for output shape and frame times.
 
 ## Entries
@@ -104,3 +113,18 @@ Things an agent could not verify headless.
 - `cargo-insta` is not installed on this machine. Inline snapshots were written by hand from the failure output; `cargo install cargo-insta` makes that one command.
 - Gate: fmt and `cargo test --workspace` pass. Clippy passes for `specular-doc`, `specular-interact` and `specular-testkit`; it fails on dead code in `specular-compositor`, which the F5 agent was editing (retried once).
 - The commit includes all of `Cargo.lock` as it stood, which has the F5 agent's `specular-scene`, glyphon and lyon entries. Only the testkit and insta lines of `Cargo.toml` are staged.
+
+### F5a — see `git log -- native/crates/specular-scene`
+
+- New crate `specular-scene` (dep: `specular-doc`, for `EntityId`). Types only: `Scene`, `Item` (`Space`, clip, opacity), `Draw` with `PageDraw`, `RectDraw`, `EllipseDraw`, `PolygonDraw`, `PathDraw`, `TextRun`, `ImageDraw`. `Draw::bounds()` gives the extent of everything but text. There is no `view` yet.
+- `Compositor::render_scene(target, &FrameView, &Scene, page_of)` is the new entry point and returns `SceneStats`. `render`, `SceneView`, `ShapeDraw` and `RenderStats` are unchanged and `specular-app` still uses them. The code is in `specular-compositor/src/scene_pass/`.
+- One 4x MSAA pass that resolves into the target: grid, then batches in order. Rects and ellipses go to the SDF shader, polygons and paths through lyon 1.0.19, text through glyphon 0.12.0, pages and images through the quad shader. Text under 2.5 logical px is skipped and counted.
+- Placement, batching, shape instances, meshes, dashes, text placement and the raster hold are pure, with 69 new unit tests. 22 GPU readback tests in `tests/scene_gpu.rs` and `tests/scene_text_gpu.rs` skip with no adapter. They cover page z-order, clips, opacity, HiDPI, an sRGB target and the held-glyph stretch.
+- The text tests need a system font and only check where the ink is. A machine with an adapter and no fonts would fail them.
+- For F5b (`view`): the shell's page table goes in as `page_of`. A page with no host or no frame is counted in `render.pages_without_texture` and skipped. Give sticky text a wrap width and a clip so off-screen notes are culled without being shaped. Pass the old `PAGE_CORNER_RADIUS` as `PageDraw::corner_radius`.
+- For F5b: when the shell switches to `render_scene`, delete `SceneView`, `ShapeDraw`, `shape_list.rs`, `build_draw_list` and the single-sample pipelines. They are kept only for `specular-app`.
+- Shared internals changed, with the old output kept: `QuadInstance` has a uv rect and an opacity, `ShapeInstance` has a stroke offset and a kind, and `fs_shape` composites the stroke over the fill. All 15 old smoke tests pass.
+- Cost to know about: batching tests an item against the items of earlier batches, which is quadratic when shapes and text alternate. About 1,000 visible notes with readable text is roughly a million rect tests a frame. A grid would fix it if a bench shows it.
+- Not measured: frame times. Nothing was run but the tests, and no `--release` build was made. Tessellation runs every frame for visible paths, as in the bake-off's default mode.
+- The FontSystem loads on the first frame that has text, which takes a moment. The shell may want to warm it at startup.
+- Gate: fmt, clippy and `cargo test --workspace` all pass.

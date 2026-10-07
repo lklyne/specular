@@ -3,8 +3,10 @@
 use bytemuck::{Pod, Zeroable};
 use glam::Vec2;
 
+use specular_core::Camera;
+
 use crate::grid::GridMetrics;
-use crate::scene::SceneView;
+use crate::scene::DotGrid;
 
 /// The `Frame` uniform block. Field order and padding follow WGSL's uniform
 /// layout rules; `FRAME_UNIFORMS_SIZE` pins the total.
@@ -29,54 +31,76 @@ pub(crate) const FRAME_UNIFORMS_SIZE: u64 = 144;
 const _: () = assert!(size_of::<FrameUniforms>() as u64 == FRAME_UNIFORMS_SIZE);
 
 impl FrameUniforms {
-    /// Uniforms for `scene`. `encode_srgb` is set when the target is a
-    /// non-sRGB format, so the shader encodes the linear grid colours itself.
-    pub(crate) fn new(scene: &SceneView<'_>, grid: &GridMetrics, encode_srgb: bool) -> Self {
-        let [r, g, b, a] = scene.grid.dot;
-        let viewport_px = scene.viewport * scene.scale_factor;
+    /// Uniforms for one frame. `viewport` is in logical pixels. `encode_srgb`
+    /// is set when the target is a non-sRGB format, so the shaders encode
+    /// linear colours themselves.
+    pub(crate) fn new(
+        camera: &Camera,
+        viewport: Vec2,
+        scale_factor: f32,
+        grid: &DotGrid,
+        metrics: &GridMetrics,
+        encode_srgb: bool,
+    ) -> Self {
+        let [r, g, b, a] = grid.dot;
         Self {
-            view_proj: scene
-                .camera
-                .view_projection(scene.viewport)
-                .to_cols_array_2d(),
-            viewport_px: viewport_px.to_array(),
-            scale_factor: scene.scale_factor,
-            zoom: scene.camera.zoom,
-            grid_origin: grid.origin.to_array(),
-            grid_spacing: grid.spacing,
-            dot_radius: grid.radius,
-            background: scene.grid.background,
-            dot: [r, g, b, a * grid.alpha],
+            view_proj: camera.view_projection(viewport).to_cols_array_2d(),
+            viewport_px: (viewport * scale_factor).to_array(),
+            scale_factor,
+            zoom: camera.zoom,
+            grid_origin: metrics.origin.to_array(),
+            grid_spacing: metrics.spacing,
+            dot_radius: metrics.radius,
+            background: grid.background,
+            dot: [r, g, b, a * metrics.alpha],
             encode_srgb: if encode_srgb { 1.0 } else { 0.0 },
             padding: [0.0; 3],
         }
     }
 }
 
-/// One textured quad: a page view or a popup, in canvas space.
+/// One textured quad in canvas space: a page view, a popup or an image.
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Pod, Zeroable)]
 pub(crate) struct QuadInstance {
     /// `x, y, width, height` in canvas units.
     pub(crate) rect: [f32; 4],
+    /// The part of the texture to show: `u, v, width, height` as fractions.
+    pub(crate) uv_rect: [f32; 4],
     /// Corner radius in canvas units (scaled by zoom in the shader).
     pub(crate) corner_radius: f32,
-    padding: [f32; 3],
+    /// Multiplies the premultiplied texel.
+    pub(crate) opacity: f32,
+    padding: [f32; 2],
 }
 
 impl QuadInstance {
-    /// A quad at `origin`/`size` with rounded corners.
+    /// An opaque quad at `origin`/`size` showing the whole texture, with
+    /// rounded corners.
     pub(crate) fn new(origin: Vec2, size: Vec2, corner_radius: f32) -> Self {
         Self {
             rect: [origin.x, origin.y, size.x, size.y],
+            uv_rect: [0.0, 0.0, 1.0, 1.0],
             corner_radius,
-            padding: [0.0; 3],
+            opacity: 1.0,
+            padding: [0.0; 2],
         }
     }
 
-    /// Vertex attributes: `@location(0) rect`, `@location(1) corner_radius`.
-    pub(crate) const ATTRIBUTES: [wgpu::VertexAttribute; 2] =
-        wgpu::vertex_attr_array![0 => Float32x4, 1 => Float32];
+    /// The same quad showing only `uv_rect` of the texture.
+    pub(crate) fn with_uv_rect(self, uv_rect: [f32; 4]) -> Self {
+        Self { uv_rect, ..self }
+    }
+
+    /// The same quad faded to `opacity`.
+    pub(crate) fn with_opacity(self, opacity: f32) -> Self {
+        Self { opacity, ..self }
+    }
+
+    /// Vertex attributes: `@location(0) rect`, `@location(1) uv_rect`,
+    /// `@location(2)` corner radius and opacity.
+    pub(crate) const ATTRIBUTES: [wgpu::VertexAttribute; 3] =
+        wgpu::vertex_attr_array![0 => Float32x4, 1 => Float32x4, 2 => Float32x2];
 }
 
 /// One untextured shape, resolved against the camera on the CPU so the
@@ -94,13 +118,22 @@ pub(crate) struct ShapeInstance {
     pub(crate) stroke: [f32; 4],
     /// Corner radius in logical pixels.
     pub(crate) corner_radius: f32,
-    /// Outside stroke width in logical pixels.
+    /// Stroke width in logical pixels.
     pub(crate) stroke_width: f32,
-    padding: [f32; 2],
+    /// Where the stroke band starts, in logical pixels outwards from the
+    /// edge: 0 puts the stroke outside, `-stroke_width` inside.
+    pub(crate) stroke_offset: f32,
+    /// [`Self::RECT`] or [`Self::ELLIPSE`].
+    pub(crate) kind: f32,
 }
 
 impl ShapeInstance {
-    /// An instance with every field resolved.
+    /// `kind` of a rounded rect.
+    pub(crate) const RECT: f32 = 0.0;
+    /// `kind` of an ellipse inscribed in the rect.
+    pub(crate) const ELLIPSE: f32 = 1.0;
+
+    /// A rounded rect with an outside stroke and every field resolved.
     pub(crate) fn new(
         centre: Vec2,
         half_size: Vec2,
@@ -116,14 +149,32 @@ impl ShapeInstance {
             stroke,
             corner_radius,
             stroke_width,
-            padding: [0.0; 2],
+            stroke_offset: 0.0,
+            kind: Self::RECT,
         }
     }
 
     /// Vertex attributes: `@location(0)` centre and half size, `@location(1)`
-    /// fill, `@location(2)` stroke, `@location(3)` radius and stroke width.
+    /// fill, `@location(2)` stroke, `@location(3)` radius, stroke width,
+    /// stroke offset and kind.
     pub(crate) const ATTRIBUTES: [wgpu::VertexAttribute; 4] =
-        wgpu::vertex_attr_array![0 => Float32x4, 1 => Float32x4, 2 => Float32x4, 3 => Float32x2];
+        wgpu::vertex_attr_array![0 => Float32x4, 1 => Float32x4, 2 => Float32x4, 3 => Float32x4];
+}
+
+/// One vertex of a tessellated path or polygon.
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, Pod, Zeroable)]
+pub(crate) struct MeshVertex {
+    /// Position in logical screen pixels.
+    pub(crate) position: [f32; 2],
+    /// Colour, linear RGBA, straight alpha.
+    pub(crate) color: [f32; 4],
+}
+
+impl MeshVertex {
+    /// Vertex attributes: `@location(0) position`, `@location(1) color`.
+    pub(crate) const ATTRIBUTES: [wgpu::VertexAttribute; 2] =
+        wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x4];
 }
 
 #[cfg(test)]

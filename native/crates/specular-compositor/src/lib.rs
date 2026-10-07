@@ -7,6 +7,11 @@
 //! corners clipped in the fragment shader. Shapes ([`ShapeDraw`]) are
 //! untextured SDF rounded rects drawn above every page in one instanced draw.
 //!
+//! [`Compositor::render_scene`] is the second entry point and the one the
+//! rebuild is moving to. It draws a [`specular_scene::Scene`], where pages and
+//! every other item share one z-order, in a 4x multisampled pass: SDF rects
+//! and ellipses, glyphon text and lyon-tessellated paths (ADR 0039).
+//!
 //! Frame ingestion: [`Compositor::handle_page_event`] takes every
 //! [`PageEvent`](specular_core::PageEvent) a source emits. GPU shared frames
 //! are imported zero-copy (macOS: IOSurface -> `MTLTexture` -> wgpu-hal Metal
@@ -31,6 +36,7 @@ mod layers;
 mod pipeline;
 mod retire;
 mod scene;
+mod scene_pass;
 mod shape_list;
 mod upload;
 
@@ -40,3 +46,4 @@ pub use error::{CompositorError, FrameImportError};
 pub use gpu::GpuContext;
 pub use instrumentation::{FrameObserver, FrameSample};
 pub use scene::{DotGrid, PageDraw, RenderStats, SceneView, ShapeDraw, ShapeExtent};
+pub use scene_pass::{FrameView, SceneStats};
