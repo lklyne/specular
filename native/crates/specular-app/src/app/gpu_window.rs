@@ -20,6 +20,8 @@ pub(super) struct GpuWindow {
     config: wgpu::SurfaceConfiguration,
     context: GpuContext,
     pub(super) compositor: Compositor,
+    /// Whether the last render presented, so a change is logged once.
+    presenting: bool,
 }
 
 impl GpuWindow {
@@ -68,6 +70,7 @@ impl GpuWindow {
             config,
             context,
             compositor,
+            presenting: true,
         })
     }
 
@@ -94,6 +97,20 @@ impl GpuWindow {
 
     /// Renders and presents one frame; `None` when the surface had no frame
     /// to give (minimised, or reconfigured after loss).
+    /// Logs when frames stop or resume reaching the screen. A bench phase run
+    /// while nothing presents records no frames, so the log has to say why.
+    fn note_presenting(&mut self, presenting: bool, reason: &str) {
+        if presenting == self.presenting {
+            return;
+        }
+        self.presenting = presenting;
+        if presenting {
+            tracing::info!("presenting frames again");
+        } else {
+            tracing::warn!(reason, "not presenting frames");
+        }
+    }
+
     pub(super) fn render(
         &mut self,
         camera: Camera,
@@ -108,10 +125,23 @@ impl GpuWindow {
             }
             wgpu::CurrentSurfaceTexture::Outdated | wgpu::CurrentSurfaceTexture::Lost => {
                 self.surface.configure(&self.context.device, &self.config);
+                self.note_presenting(false, "surface outdated or lost");
                 return None;
             }
-            _ => return None,
+            wgpu::CurrentSurfaceTexture::Occluded => {
+                self.note_presenting(false, "window occluded");
+                return None;
+            }
+            wgpu::CurrentSurfaceTexture::Timeout => {
+                self.note_presenting(false, "surface timed out");
+                return None;
+            }
+            wgpu::CurrentSurfaceTexture::Validation => {
+                self.note_presenting(false, "surface validation error");
+                return None;
+            }
         };
+        self.note_presenting(true, "");
         let view = frame
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
