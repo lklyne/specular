@@ -13,6 +13,7 @@ repository = "https://github.com/lklyne/specular"
 # Every third-party dependency the spike may use is declared here so crate
 # builders only ever write `dep = { workspace = true }` in their own manifests.
 [workspace.dependencies]
+specular-doc = { path = "crates/specular-doc" }
 specular-core = { path = "crates/specular-core" }
 specular-compositor = { path = "crates/specular-compositor" }
 specular-cef = { path = "crates/specular-cef" }
