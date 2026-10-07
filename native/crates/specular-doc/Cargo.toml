@@ -9,7 +9,9 @@ publish.workspace = true
 
 [dependencies]
 serde = { workspace = true }
-serde_json = { workspace = true }
+# `float_roundtrip` keeps `zoom`, the one number the `.canvas` writer does not
+# round, bit-exact across a load and save.
+serde_json = { workspace = true, features = ["float_roundtrip"] }
 thiserror = { workspace = true }
 
 [lints]

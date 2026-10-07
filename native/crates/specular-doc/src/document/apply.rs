@@ -34,8 +34,12 @@ impl Document {
                 Ok(Command::SetParent { id, parent })
             }
             Command::SetAnchor { id, anchor } => {
+                let anchor = anchor.map(|anchor| *anchor);
                 let anchor = mem::replace(&mut self.entity_mut(&id)?.anchor, anchor);
-                Ok(Command::SetAnchor { id, anchor })
+                Ok(Command::SetAnchor {
+                    id,
+                    anchor: anchor.map(Box::new),
+                })
             }
             Command::SetKind { id, kind } => self.set_kind(id, kind),
             Command::InsertEdge { edge, at } => self.insert_edge(*edge, at),

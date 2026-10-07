@@ -171,7 +171,7 @@ fn set_parent_round_trips_and_updates_children() {
 fn set_anchor_round_trips() {
     assert_round_trips(Command::SetAnchor {
         id: EntityId::new("sh1"),
-        anchor: Some(PageAnchor::new(EntityId::new("p1"))),
+        anchor: Some(Box::new(PageAnchor::new(EntityId::new("p1")))),
     });
 }
 

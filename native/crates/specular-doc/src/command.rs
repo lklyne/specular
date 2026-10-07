@@ -51,7 +51,7 @@ pub enum Command {
         /// The entity.
         id: EntityId,
         /// Its new anchor.
-        anchor: Option<PageAnchor>,
+        anchor: Option<Box<PageAnchor>>,
     },
     /// Replaces an entity's kind fields. The variant must not change.
     SetKind {
