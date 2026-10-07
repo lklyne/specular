@@ -4,7 +4,7 @@ use glam::Vec2;
 use specular_core::InputEvent;
 use specular_doc::{CommandError, Document, EntityId, ItemId};
 
-use crate::focus::set_focus;
+use crate::focus::{leave_unless_selected, set_focus};
 use crate::{Action, App, Effect, Event, Focus, PageNotice, camera, gesture, keys, pages, pointer};
 
 /// Applies `event` to `app` and returns what the shell must now do, in
@@ -29,15 +29,26 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         Event::DocumentOpened(document) => open_document(app, *document, &mut effects),
         Event::Action(action) => run_action(app, action, &mut effects),
     }
+    leave_unless_selected(app, &mut effects);
     effects
 }
 
 pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect>) {
     match action {
         Action::Cancel => {
+            // Escape is staged: it first backs out of whatever is in flight
+            // (a drag, an armed tool, an entered page) and leaves the
+            // selection alone. With nothing in flight it deselects.
+            let session = &app.session;
+            let idle = session.gesture.is_none()
+                && session.tool == crate::Tool::Select
+                && session.focus == Focus::Canvas;
             gesture::cancel(app);
             set_tool(app, crate::Tool::Select, effects);
             set_focus(app, None, effects);
+            if idle {
+                app.session.selection.set([]);
+            }
         }
         Action::SetTool(tool) => {
             if app.session.gesture.is_none() {
@@ -99,11 +110,14 @@ fn drop_dangling(app: &mut App, effects: &mut Vec<Effect>) {
         ItemId::Edge(id) => document.edge(id).is_some(),
     });
     let gone = |page: Option<&EntityId>| page.is_some_and(|id| app.page_placement(id).is_none());
-    let (hover_gone, focus_gone) = (
-        gone(app.session.hover.as_ref()),
+    let (pointer_gone, focus_gone) = (
+        gone(app.session.pointer_page.as_ref()),
         gone(app.session.focus.page()),
     );
-    if hover_gone {
+    if pointer_gone {
+        app.session.pointer_page = None;
+    }
+    if (app.session.hover.as_ref()).is_some_and(|id| app.document.entity(id).is_none()) {
         app.session.hover = None;
     }
     if focus_gone {

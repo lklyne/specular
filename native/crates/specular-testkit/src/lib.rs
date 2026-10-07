@@ -32,7 +32,7 @@ mod input;
 mod snapshot;
 
 pub use app::TestApp;
-pub use fixtures::{document, page, pages};
+pub use fixtures::{connected, document, drawing, file, group, inside, page, pages, shape, text};
 pub use input::{ALT, CMD, CMD_SHIFT, CTRL, SHIFT};
 pub use snapshot::doc_snapshot;
 

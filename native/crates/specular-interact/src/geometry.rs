@@ -1,8 +1,8 @@
-//! Bridges between the document's `f64` rects, glam vectors, and the `f32`
-//! canvas rects the compositor draws.
+//! Bridges between the document's `f64` rects, glam vectors, the `f32`
+//! canvas rects the compositor draws, and rects on screen.
 
-use glam::DVec2;
-use specular_core::CanvasRect;
+use glam::{DVec2, Vec2};
+use specular_core::{Camera, CanvasRect};
 use specular_doc::Rect;
 
 /// The rect's top-left corner.
@@ -43,4 +43,67 @@ pub fn to_canvas_rect(rect: Rect) -> CanvasRect {
         rect.width as f32,
         rect.height as f32,
     )
+}
+
+/// The smallest rect holding both `a` and `b`.
+pub(crate) fn union(a: Rect, b: Rect) -> Rect {
+    let low = origin(a).min(origin(b));
+    let high = (origin(a) + size(a)).max(origin(b) + size(b));
+    rect(low, high - low)
+}
+
+/// An axis-aligned rect in logical screen pixels, the space hit-testing
+/// works in: handles, anchors and labels keep their size at any zoom.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct ScreenRect {
+    /// The top-left corner.
+    pub(crate) min: Vec2,
+    /// Width and height.
+    pub(crate) size: Vec2,
+}
+
+impl ScreenRect {
+    pub(crate) const fn new(x: f32, y: f32, width: f32, height: f32) -> Self {
+        Self {
+            min: Vec2::new(x, y),
+            size: Vec2::new(width, height),
+        }
+    }
+
+    /// The square of side `side` centred on `centre`.
+    pub(crate) fn square(centre: Vec2, side: f32) -> Self {
+        Self {
+            min: centre - Vec2::splat(side / 2.0),
+            size: Vec2::splat(side),
+        }
+    }
+
+    /// `rect` as `camera` shows it.
+    pub(crate) fn of(camera: &Camera, rect: Rect) -> Self {
+        Self {
+            min: camera.world_to_screen(origin(rect).as_vec2()),
+            size: size(rect).as_vec2() * camera.zoom,
+        }
+    }
+
+    pub(crate) fn max(self) -> Vec2 {
+        self.min + self.size
+    }
+
+    pub(crate) fn centre(self) -> Vec2 {
+        self.min + self.size / 2.0
+    }
+
+    /// Whether `point` is inside, all four edges included.
+    pub(crate) fn contains(self, point: Vec2) -> bool {
+        point.cmpge(self.min).all() && point.cmple(self.max()).all()
+    }
+
+    /// The rect grown by `by` on every side. A negative `by` shrinks it.
+    pub(crate) fn inflated(self, by: f32) -> Self {
+        Self {
+            min: self.min - Vec2::splat(by),
+            size: self.size + Vec2::splat(by * 2.0),
+        }
+    }
 }

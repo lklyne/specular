@@ -1,18 +1,20 @@
-//! The four resize handles of the selected entity: where they are, which one
-//! the pointer is on, and the rect a drag of one produces.
+//! The resize handles of the selection: where they are, which one the
+//! pointer is on, and the rect a drag of one produces.
 
 use glam::{DVec2, Vec2};
-use specular_core::Camera;
-use specular_doc::{EntityId, Kind, Rect};
+use specular_doc::{EdgeSide, EntityId, Rect};
 
-use crate::{App, geometry};
+use crate::App;
+use crate::geometry::{self, ScreenRect};
 
 /// Handle square size in logical pixels. It does not scale with zoom.
 pub const HANDLE_SIZE: f32 = 8.0;
-/// Extra logical pixels around a handle that still count as a hit.
-const HIT_SLOP: f32 = 4.0;
-/// Smallest canvas size a page resize may produce.
-const MIN_PAGE_SIZE: DVec2 = DVec2::new(120.0, 80.0);
+/// Side of the square, and thickness of the strip, where a press counts as a
+/// handle. Larger than the drawn handle.
+const HANDLE_HIT: f32 = 12.0;
+/// How far outside an item's bounds its selection outline is drawn, in
+/// logical pixels. Handles centre on the outline, not the bounds.
+pub const OUTLINE_PADDING: f32 = 1.0;
 
 /// A corner of an entity rect.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -64,56 +66,97 @@ impl Corner {
     }
 }
 
-/// The smallest size a resize may give an entity of this kind, or `None`
-/// when the kind has no resize handles yet.
-fn min_size(kind: &Kind) -> Option<DVec2> {
-    match kind {
-        Kind::Page(_) => Some(MIN_PAGE_SIZE),
-        Kind::Text(_) | Kind::File(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Shape(_) => None,
+/// One of the eight resize handles: a corner square or a strip along a side.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Handle {
+    /// A corner, resizing both axes.
+    Corner(Corner),
+    /// A side, resizing one axis.
+    Side(EdgeSide),
+}
+
+impl Handle {
+    /// Every handle in hit order. Corners come first, so a press at the very
+    /// corner resizes diagonally and not along the side strip under it.
+    pub const ALL: [Self; 8] = [
+        Self::Corner(Corner::TopLeft),
+        Self::Corner(Corner::TopRight),
+        Self::Corner(Corner::BottomRight),
+        Self::Corner(Corner::BottomLeft),
+        Self::Side(EdgeSide::Top),
+        Self::Side(EdgeSide::Right),
+        Self::Side(EdgeSide::Bottom),
+        Self::Side(EdgeSide::Left),
+    ];
+
+    /// Where a press counts as this handle, given the selection outline on
+    /// screen. A side strip runs the outline's full length.
+    fn hit_rect(self, outline: ScreenRect) -> ScreenRect {
+        let (min, max, half) = (outline.min, outline.max(), HANDLE_HIT / 2.0);
+        match self {
+            Self::Corner(corner) => {
+                let unit = (corner.sign() * 0.5 + DVec2::splat(0.5)).as_vec2();
+                ScreenRect::square(min + outline.size * unit, HANDLE_HIT)
+            }
+            Self::Side(EdgeSide::Top) => {
+                ScreenRect::new(min.x, min.y - half, outline.size.x, HANDLE_HIT)
+            }
+            Self::Side(EdgeSide::Bottom) => {
+                ScreenRect::new(min.x, max.y - half, outline.size.x, HANDLE_HIT)
+            }
+            Self::Side(EdgeSide::Left) => {
+                ScreenRect::new(min.x - half, min.y, HANDLE_HIT, outline.size.y)
+            }
+            Self::Side(EdgeSide::Right) => {
+                ScreenRect::new(max.x - half, min.y, HANDLE_HIT, outline.size.y)
+            }
+        }
     }
 }
 
-/// What a handle drag would resize.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub(crate) struct ResizeTarget<'a> {
-    pub(crate) entity: &'a EntityId,
-    pub(crate) rect: Rect,
-    pub(crate) min_size: DVec2,
+/// What a set of handles resizes.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum HandleOwner {
+    /// The one selected entity.
+    Entity(EntityId),
+    /// Everything selected, scaled together inside the selection bounds.
+    Selection,
 }
 
 impl App {
-    /// The entity showing resize handles, with its rect: the selection when
-    /// it is one resizable entity.
+    /// The selected entity and its rect, when exactly one entity is selected.
     pub fn handle_target(&self) -> Option<(&EntityId, Rect)> {
-        resize_target(self).map(|target| (target.entity, target.rect))
+        let entity = self
+            .document
+            .entity(self.session.selection.single_entity()?)?;
+        Some((&entity.id, entity.rect))
+    }
+
+    /// What shows resize handles, and the canvas rect they sit around: the
+    /// selected entity, or the bounds of a selection of several. A selection
+    /// of several whose bounds cannot form (an entity and an edge, say) has
+    /// no handles.
+    pub fn handles(&self) -> Option<(HandleOwner, Rect)> {
+        if self.session.selection.items().len() > 1 {
+            let scope = self.selection_scope();
+            return (scope.operands.len() > 1)
+                .then_some(scope.bounds)
+                .flatten()
+                .map(|bounds| (HandleOwner::Selection, bounds));
+        }
+        self.handle_target()
+            .map(|(entity, rect)| (HandleOwner::Entity(entity.clone()), rect))
     }
 }
 
-pub(crate) fn resize_target(app: &App) -> Option<ResizeTarget<'_>> {
-    let entity = app
-        .document
-        .entity(app.session.selection.single_entity()?)?;
-    Some(ResizeTarget {
-        entity: &entity.id,
-        rect: entity.rect,
-        min_size: min_size(&entity.kind)?,
-    })
-}
-
-/// The handle of `rect` under `screen`, nearest first when handles overlap
-/// on a small entity. Hit-tested in screen space so the target size is
-/// constant at any zoom.
-pub(crate) fn hit(rect: Rect, camera: &Camera, screen: Vec2) -> Option<Corner> {
-    let reach = HANDLE_SIZE / 2.0 + HIT_SLOP;
-    Corner::ALL
+/// The handle of `bounds` under `screen`. Hit-tested in screen space, around
+/// the outline the selection draws, so the target size is constant at any
+/// zoom.
+pub(crate) fn hit(bounds: ScreenRect, screen: Vec2) -> Option<Handle> {
+    let outline = bounds.inflated(OUTLINE_PADDING);
+    Handle::ALL
         .into_iter()
-        .map(|corner| {
-            let at = camera.world_to_screen(corner.point(rect).as_vec2());
-            (corner, (at - screen).abs())
-        })
-        .filter(|(_, offset)| offset.x <= reach && offset.y <= reach)
-        .min_by(|a, b| a.1.length_squared().total_cmp(&b.1.length_squared()))
-        .map(|(corner, _)| corner)
+        .find(|handle| handle.hit_rect(outline).contains(screen))
 }
 
 /// `start` resized by dragging `corner` to `target` (canvas space): the
@@ -136,6 +179,7 @@ mod tests {
     use super::*;
 
     const RECT: Rect = Rect::new(100.0, 100.0, 400.0, 300.0);
+    const MIN_SIZE: DVec2 = DVec2::new(120.0, 80.0);
 
     #[test]
     fn corner_points_are_the_rect_corners() {
@@ -152,65 +196,25 @@ mod tests {
     }
 
     #[test]
-    fn handle_hits_within_slop_of_its_screen_centre() {
-        let camera = Camera::new(Vec2::new(10.0, 20.0), 0.5);
-        // Bottom-right is at canvas (500, 400) -> screen (260, 220).
-        let near = Vec2::new(260.0 + 7.0, 220.0 - 7.0);
-        assert_eq!(hit(RECT, &camera, near), Some(Corner::BottomRight));
-    }
-
-    #[test]
-    fn handle_misses_beyond_slop() {
-        let camera = Camera::new(Vec2::ZERO, 1.0);
-        assert_eq!(hit(RECT, &camera, Vec2::new(500.0 + 9.0, 400.0)), None);
-    }
-
-    #[test]
-    fn handle_reach_is_constant_in_screen_pixels_at_any_zoom() {
-        let camera = Camera::new(Vec2::ZERO, 0.1);
-        let corner = camera.world_to_screen(Vec2::new(500.0, 100.0));
-        assert_eq!(
-            hit(RECT, &camera, corner + Vec2::new(7.5, 0.0)),
-            Some(Corner::TopRight)
-        );
-    }
-
-    #[test]
-    fn overlapping_handles_pick_the_nearest() {
-        // An entity 6 logical px wide: every handle is within reach.
-        let tiny = Rect::new(0.0, 0.0, 6.0, 6.0);
-        let camera = Camera::new(Vec2::ZERO, 1.0);
-        assert_eq!(
-            hit(tiny, &camera, Vec2::new(5.0, 1.0)),
-            Some(Corner::TopRight)
-        );
-    }
-
-    #[test]
     fn dragging_bottom_right_grows_from_the_top_left() {
         let next = resized(
             RECT,
             Corner::BottomRight,
             DVec2::new(600.0, 500.0),
-            MIN_PAGE_SIZE,
+            MIN_SIZE,
         );
         assert_eq!(next, Rect::new(100.0, 100.0, 500.0, 400.0));
     }
 
     #[test]
     fn dragging_top_left_holds_the_bottom_right_fixed() {
-        let next = resized(RECT, Corner::TopLeft, DVec2::new(0.0, 50.0), MIN_PAGE_SIZE);
+        let next = resized(RECT, Corner::TopLeft, DVec2::new(0.0, 50.0), MIN_SIZE);
         assert_eq!(next, Rect::new(0.0, 50.0, 500.0, 350.0));
     }
 
     #[test]
     fn resize_stops_at_the_minimum_size_instead_of_flipping() {
-        let next = resized(
-            RECT,
-            Corner::TopLeft,
-            DVec2::new(900.0, 900.0),
-            MIN_PAGE_SIZE,
-        );
+        let next = resized(RECT, Corner::TopLeft, DVec2::new(900.0, 900.0), MIN_SIZE);
         assert_eq!(next, Rect::new(380.0, 320.0, 120.0, 80.0));
     }
 }

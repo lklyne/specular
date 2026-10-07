@@ -46,9 +46,9 @@ fn opening_effects_are_dropped_by_constructors_and_kept_by_open() {
 }
 
 #[test]
-fn a_click_focuses_the_page_and_typed_text_reaches_it() {
+fn a_double_click_enters_the_page_and_typed_text_reaches_it() {
     let mut app = TestApp::with_pages(2);
-    app.click((800.0, 200.0)).take_effects();
+    app.double_click((800.0, 200.0)).take_effects();
     let effects = app.type_text("Hi there").take_effects();
     assert_eq!(
         (

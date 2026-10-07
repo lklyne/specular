@@ -1,20 +1,53 @@
 //! [`hit_test`]: what is under a screen point.
 
-use glam::{DVec2, Vec2};
-use specular_doc::EntityId;
+use glam::Vec2;
+use specular_doc::{EdgeId, EdgeSide, Entity, EntityId, ItemId, Kind};
 
 use crate::app::page_of;
-use crate::{App, Corner, PagePlacement, geometry, handles};
+use crate::edge_path::{hit_scale, outward, side_point};
+use crate::geometry::ScreenRect;
+use crate::{App, Handle, HandleOwner, PagePlacement, caps, geometry, handles};
 
-/// What a screen point lands on, topmost first.
+/// A drawing's box is only as thick as its ink (zero for a flat line), so it
+/// is widened to at least this many logical pixels each way.
+const DRAWING_MIN_HIT: f32 = 12.0;
+/// How far in from a group's edge a press still counts as its border.
+const GROUP_BORDER: f32 = 8.0;
+/// The box of the group title above its top-left corner: one line of 11 px
+/// text and the gap under it.
+const GROUP_LABEL_HEIGHT: f32 = 16.5 + 4.0;
+/// Average advance of the title's glyphs, standing in for measured text.
+const GROUP_LABEL_CHAR_WIDTH: f32 = 6.1;
+/// An anchor's hit box: this long along its side and this deep, starting
+/// this far outside the entity. The first two follow [`hit_scale`].
+const ANCHOR_ALONG: f32 = 68.0;
+const ANCHOR_ACROSS: f32 = 32.0;
+const ANCHOR_GAP: f32 = 4.0;
+
+/// What a screen point lands on.
+///
+/// Match on this without a wildcard arm, so a new target makes the compiler
+/// list every place that must handle it.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Hit {
-    /// A resize handle of the selected entity.
+    /// A group's title, above its top-left corner.
+    GroupLabel {
+        /// The group.
+        group: EntityId,
+    },
+    /// A resize handle of the selection.
     Handle {
-        /// The entity the handle resizes.
-        entity: EntityId,
+        /// What the handle resizes.
+        owner: HandleOwner,
         /// Which handle.
-        corner: Corner,
+        handle: Handle,
+    },
+    /// An edge anchor beside the selected or hovered entity.
+    Anchor {
+        /// The entity an edge would start from.
+        entity: EntityId,
+        /// The side the anchor is on.
+        side: EdgeSide,
     },
     /// A page's content.
     PageContent {
@@ -23,38 +56,218 @@ pub enum Hit {
         /// The point in the page's CSS pixels.
         local: Vec2,
     },
+    /// The body of any other entity. For a group this is its interior, where
+    /// no member is.
+    EntityBody {
+        /// The entity.
+        entity: EntityId,
+    },
+    /// The band just inside a group's edge.
+    GroupBorder {
+        /// The group.
+        group: EntityId,
+    },
+    /// An edge's line.
+    Edge {
+        /// The edge.
+        edge: EdgeId,
+    },
     /// Empty canvas.
     Empty,
 }
 
-/// What is under `screen`. Handles sit above everything, then entities in
-/// stack order from the front.
+/// What is under `screen`. Chrome comes first (group titles, then the
+/// selection's resize handles, then edge anchors), then the bodies as
+/// [`body_at`] orders them.
 pub fn hit_test(app: &App, screen: Vec2) -> Hit {
     let camera = &app.session.camera;
-    if let Some(target) = handles::resize_target(app)
-        && let Some(corner) = handles::hit(target.rect, camera, screen)
-    {
-        return Hit::Handle {
-            entity: target.entity.clone(),
-            corner,
+    let document = &app.document;
+
+    let label = document.entities().rev().find(|entity| {
+        group_label_rect(entity, ScreenRect::of(camera, entity.rect))
+            .is_some_and(|rect| rect.contains(screen))
+    });
+    if let Some(group) = label {
+        return Hit::GroupLabel {
+            group: group.id.clone(),
         };
     }
-    let world = camera.screen_to_world(screen).as_dvec2();
-    match page_at(app, world) {
-        Some((page, placement)) => Hit::PageContent {
-            page,
-            local: placement.page_local(world).as_vec2(),
-        },
-        None => Hit::Empty,
+
+    if let Some((owner, bounds)) = app.handles()
+        && let Some(handle) = handles::hit(ScreenRect::of(camera, bounds), screen)
+    {
+        return Hit::Handle { owner, handle };
+    }
+
+    // Starting an edge is a one-entity affordance, so a selection of several
+    // shows no anchors. The hovered entity shows its own, which is how the
+    // end of an existing edge is reached without selecting first.
+    let selection = &app.session.selection;
+    let eligible = [selection.single_entity(), app.session.hover.as_ref()]
+        .into_iter()
+        .flatten()
+        .filter(|_| selection.items().len() <= 1)
+        .filter_map(|id| document.entity(id))
+        .filter(|entity| caps::has_anchors(&entity.kind));
+    for entity in eligible {
+        let rect = ScreenRect::of(camera, entity.rect);
+        let side = [
+            EdgeSide::Top,
+            EdgeSide::Right,
+            EdgeSide::Bottom,
+            EdgeSide::Left,
+        ]
+        .into_iter()
+        .find(|side| anchor_rect(rect, *side, camera.zoom).contains(screen));
+        if let Some(side) = side {
+            return Hit::Anchor {
+                entity: entity.id.clone(),
+                side,
+            };
+        }
+    }
+
+    body_at(app, screen)
+}
+
+/// The entity `hit` belongs to: the one whose body, title, handles or anchors
+/// the point is on.
+pub(crate) const fn entity_of(hit: &Hit) -> Option<&EntityId> {
+    match hit {
+        Hit::GroupLabel { group: entity }
+        | Hit::GroupBorder { group: entity }
+        | Hit::Handle {
+            owner: HandleOwner::Entity(entity),
+            ..
+        }
+        | Hit::Anchor { entity, .. }
+        | Hit::PageContent { page: entity, .. }
+        | Hit::EntityBody { entity } => Some(entity),
+        Hit::Handle {
+            owner: HandleOwner::Selection,
+            ..
+        }
+        | Hit::Edge { .. }
+        | Hit::Empty => None,
     }
 }
 
-/// The frontmost page containing the canvas point `world`.
-pub(crate) fn page_at(app: &App, world: DVec2) -> Option<(EntityId, PagePlacement)> {
+/// The body under `screen`, ignoring chrome: entities and edges in stack
+/// order from the front, then groups. Groups come last whatever their place
+/// in the order, because they are containers and a member inside one must be
+/// reachable.
+pub(crate) fn body_at(app: &App, screen: Vec2) -> Hit {
+    let camera = &app.session.camera;
+    let document = &app.document;
+    let mut groups = Vec::new();
+    for item in document.order().iter().rev() {
+        match item {
+            ItemId::Edge(id) => {
+                if app
+                    .edge_curve(id)
+                    .is_some_and(|curve| curve.hit(screen, camera.zoom))
+                {
+                    return Hit::Edge { edge: id.clone() };
+                }
+            }
+            ItemId::Entity(id) => {
+                let Some(entity) = document.entity(id) else {
+                    continue;
+                };
+                let rect = ScreenRect::of(camera, entity.rect);
+                let body = match &entity.kind {
+                    Kind::Group(_) => {
+                        groups.push((id, rect));
+                        continue;
+                    }
+                    Kind::Drawing(_) => drawing_rect(rect),
+                    Kind::Page(_) | Kind::Text(_) | Kind::File(_) | Kind::Shape(_) => rect,
+                };
+                if body.contains(screen) {
+                    return entity_hit(app, entity, screen);
+                }
+            }
+        }
+    }
+    groups
+        .into_iter()
+        .find(|(_, rect)| rect.contains(screen))
+        .map_or(Hit::Empty, |(id, rect)| {
+            let inside = rect.inflated(-GROUP_BORDER);
+            let interior = screen.cmpgt(inside.min).all() && screen.cmplt(inside.max()).all();
+            if interior {
+                Hit::EntityBody { entity: id.clone() }
+            } else {
+                Hit::GroupBorder { group: id.clone() }
+            }
+        })
+}
+
+fn entity_hit(app: &App, entity: &Entity, screen: Vec2) -> Hit {
+    match app.page_placement(&entity.id) {
+        Some(placement) => {
+            let world = app.session.camera.screen_to_world(screen).as_dvec2();
+            Hit::PageContent {
+                page: entity.id.clone(),
+                local: placement.page_local(world).as_vec2(),
+            }
+        }
+        None => Hit::EntityBody {
+            entity: entity.id.clone(),
+        },
+    }
+}
+
+/// The frontmost page containing the canvas point `world`, whatever is on
+/// top of it.
+pub(crate) fn page_at(app: &App, world: glam::DVec2) -> Option<(EntityId, PagePlacement)> {
     let entity = app
         .document
         .entities()
         .rev()
         .find(|entity| page_of(entity).is_some() && geometry::contains(entity.rect, world))?;
     Some((entity.id.clone(), app.page_placement(&entity.id)?))
+}
+
+fn drawing_rect(rect: ScreenRect) -> ScreenRect {
+    let size = rect.size.max(Vec2::splat(DRAWING_MIN_HIT));
+    ScreenRect {
+        min: rect.min - (size - rect.size) / 2.0,
+        size,
+    }
+}
+
+/// The title box of a labelled group whose rect is `rect` on screen.
+fn group_label_rect(entity: &Entity, rect: ScreenRect) -> Option<ScreenRect> {
+    let label = match &entity.kind {
+        Kind::Group(_) => entity.label.as_deref().filter(|label| !label.is_empty())?,
+        Kind::Page(_) | Kind::Text(_) | Kind::File(_) | Kind::Drawing(_) | Kind::Shape(_) => {
+            return None;
+        }
+    };
+    let width = label.chars().count() as f32 * GROUP_LABEL_CHAR_WIDTH;
+    Some(ScreenRect::new(
+        rect.min.x,
+        rect.min.y - GROUP_LABEL_HEIGHT,
+        width,
+        GROUP_LABEL_HEIGHT,
+    ))
+}
+
+/// The hit box of the anchor on `side` of an entity whose rect is `rect` on
+/// screen: centred on the side, just outside it.
+fn anchor_rect(rect: ScreenRect, side: EdgeSide, zoom: f32) -> ScreenRect {
+    let scale = hit_scale(zoom);
+    let (along, across) = (ANCHOR_ALONG * scale, ANCHOR_ACROSS * scale);
+    let out = outward(side);
+    let size = if out.x == 0.0 {
+        Vec2::new(along, across)
+    } else {
+        Vec2::new(across, along)
+    };
+    let centre = side_point(rect, side) + out * (ANCHOR_GAP + across / 2.0);
+    ScreenRect {
+        min: centre - size / 2.0,
+        size,
+    }
 }

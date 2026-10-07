@@ -27,15 +27,6 @@ pub(super) fn set<T: Serialize>(
     Ok(())
 }
 
-/// Writes an optional field, or nothing when it is absent.
-pub(super) fn put<T: Serialize>(
-    map: &mut JsonMap,
-    key: &str,
-    value: Option<&T>,
-) -> Result<(), CanvasError> {
-    value.map_or(Ok(()), |value| set(map, key, value))
-}
-
 /// Adds the entries of `extra` whose keys `map` does not already hold, so a
 /// typed field always wins over a leftover with the same name.
 pub(super) fn fill(map: &mut JsonMap, extra: &JsonMap) {

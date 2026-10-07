@@ -4,7 +4,10 @@
 use glam::{DVec2, Vec2};
 use specular_doc::{Command, Document, EntityId, Rect};
 
-use crate::{App, Corner, Effect, PagePlacement, comment, geometry, handles};
+use crate::marquee::MarqueeMode;
+use crate::{
+    App, Corner, Effect, PagePlacement, PointerInput, comment, geometry, handles, marquee,
+};
 
 /// A pointer drag between a press and its release. It owns the pointer: no
 /// page sees the moves or the release.
@@ -34,6 +37,23 @@ pub enum Gesture {
         /// The smallest size the drag may produce.
         min_size: DVec2,
     },
+    /// Pressed on empty canvas, or through a body with Command or Control
+    /// held: a marquee once the pointer has travelled, a click until then.
+    Marquee {
+        /// The canvas point the press landed on.
+        start: DVec2,
+        /// The same point on screen, to tell a drag from a click.
+        start_screen: Vec2,
+        /// The canvas point the pointer is at.
+        current: DVec2,
+        /// The entity the press went through. The marquee leaves it out, and
+        /// a click selects it.
+        origin: Option<EntityId>,
+        /// Whether the pointer has travelled far enough to be a drag.
+        dragged: bool,
+        /// What the rect takes, from the modifiers at the latest move.
+        mode: MarqueeMode,
+    },
     /// Dragging out a comment region.
     CommentRegion {
         /// The canvas point the drag started at.
@@ -47,9 +67,9 @@ pub enum Gesture {
     },
 }
 
-/// The pointer moved to `screen` mid-drag.
-pub(crate) fn drag(app: &mut App, screen: Vec2) {
-    let world = app.session.camera.screen_to_world(screen).as_dvec2();
+/// The pointer moved mid-drag.
+pub(crate) fn drag(app: &mut App, input: &PointerInput) {
+    let world = app.session.camera.screen_to_world(input.screen).as_dvec2();
     match &mut app.session.gesture {
         None => {}
         Some(Gesture::Move { origin, items }) => {
@@ -68,15 +88,29 @@ pub(crate) fn drag(app: &mut App, screen: Vec2) {
             let rect = handles::resized(*start, *corner, world + *grab, *min_size);
             set_rect(&mut app.document, entity, rect);
         }
+        Some(Gesture::Marquee { .. }) => marquee::drag(app, input),
         Some(Gesture::CommentRegion { current, .. }) => *current = world,
     }
 }
 
-/// The button came up at `screen`, ending `gesture`. A move or resize becomes
-/// one undo step; a resized page is re-laid-out; a comment drag long enough
-/// to not be a click creates its annotation.
-pub(crate) fn finish(app: &mut App, gesture: Gesture, screen: Vec2, effects: &mut Vec<Effect>) {
+/// The button came up, ending `gesture`. A move or resize becomes one undo
+/// step; a resized page is re-laid-out; a marquee changes the selection; a
+/// comment drag long enough to not be a click creates its annotation.
+pub(crate) fn finish(
+    app: &mut App,
+    gesture: Gesture,
+    input: &PointerInput,
+    effects: &mut Vec<Effect>,
+) {
+    let screen = input.screen;
     match gesture {
+        Gesture::Marquee {
+            start,
+            start_screen,
+            origin,
+            dragged,
+            ..
+        } => marquee::finish(app, start, start_screen, origin, dragged, input),
         Gesture::Move { items, .. } => commit_rects(app, &items),
         Gesture::Resize { entity, start, .. } => {
             let laid_out_at = PagePlacement::viewport_for(start);
@@ -104,11 +138,11 @@ pub(crate) fn finish(app: &mut App, gesture: Gesture, screen: Vec2, effects: &mu
     }
 }
 
-/// Abandons the gesture in flight: a move or resize snaps back and a comment
-/// region is dropped.
+/// Abandons the gesture in flight: a move or resize snaps back, and a marquee
+/// or a comment region is dropped.
 pub(crate) fn cancel(app: &mut App) {
     match app.session.gesture.take() {
-        None | Some(Gesture::CommentRegion { .. }) => {}
+        None | Some(Gesture::Marquee { .. } | Gesture::CommentRegion { .. }) => {}
         Some(Gesture::Move { items, .. }) => {
             for (id, start) in &items {
                 set_rect(&mut app.document, id, *start);

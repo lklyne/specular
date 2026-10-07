@@ -59,7 +59,12 @@ impl App {
         page_of(entity)?;
         let laid_out_at = match &self.session.gesture {
             Some(Gesture::Resize { entity, start, .. }) if entity == id => *start,
-            Some(Gesture::Resize { .. } | Gesture::Move { .. } | Gesture::CommentRegion { .. })
+            Some(
+                Gesture::Resize { .. }
+                | Gesture::Move { .. }
+                | Gesture::Marquee { .. }
+                | Gesture::CommentRegion { .. },
+            )
             | None => entity.rect,
         };
         Some(PagePlacement {
@@ -108,7 +113,8 @@ pub struct Session {
     pub tool: Tool,
     /// The drag in flight, which owns the pointer until the button comes up.
     pub gesture: Option<Gesture>,
-    /// The page under the pointer.
+    /// The entity under the pointer: its body, or its title, handles or
+    /// anchors.
     pub hover: Option<EntityId>,
     /// What keys go to.
     pub focus: Focus,
@@ -118,6 +124,8 @@ pub struct Session {
     /// The wall clock at the latest tick, in milliseconds since the Unix
     /// epoch.
     pub now_ms: u64,
+    /// The page the pointer's moves are going to, which is owed a leave.
+    pub(crate) pointer_page: Option<EntityId>,
     /// Which page got each held button's press.
     pub(crate) captured: ButtonCapture,
     /// State of the id sequence.
@@ -131,7 +139,8 @@ impl Session {
             Some(Gesture::CommentRegion { start, current, .. }) => {
                 Some(crate::geometry::spanning(*start, *current))
             }
-            Some(Gesture::Move { .. } | Gesture::Resize { .. }) | None => None,
+            Some(Gesture::Move { .. } | Gesture::Resize { .. } | Gesture::Marquee { .. })
+            | None => None,
         }
     }
 
@@ -151,7 +160,9 @@ pub enum Focus {
     /// The canvas: keys are bindings.
     #[default]
     Canvas,
-    /// A page: keys are forwarded to it, apart from Escape.
+    /// The entered page (ADR 0022): keys are forwarded to it, apart from
+    /// Escape, and so is the pointer over its body. A page stays entered
+    /// only while it is the whole selection.
     Page(EntityId),
 }
 
@@ -209,6 +220,16 @@ impl Selection {
             if !self.0.contains(&item) {
                 self.0.push(item);
             }
+        }
+    }
+
+    /// Selects `item` if it is not selected, and deselects it if it is.
+    pub(crate) fn toggle(&mut self, item: ItemId) {
+        match self.0.iter().position(|selected| *selected == item) {
+            Some(index) => {
+                self.0.remove(index);
+            }
+            None => self.0.push(item),
         }
     }
 

@@ -1,6 +1,6 @@
 //! [`TestApp`]: construction, accessors, undo and the undo assertion.
 
-use specular_doc::{Document, Entity, EntityId, Rect};
+use specular_doc::{Document, Entity, EntityId, ItemId, Rect};
 use specular_interact::{Action, App, Effect, Event, Selection, Session, update};
 
 use crate::{doc_snapshot, fixtures};
@@ -94,6 +94,15 @@ impl TestApp {
     /// What is selected.
     pub fn selection(&self) -> &Selection {
         &self.app.session().selection
+    }
+
+    /// The ids of everything selected, in the order it was selected.
+    pub fn selected_ids(&self) -> Vec<&str> {
+        self.selection()
+            .items()
+            .iter()
+            .map(ItemId::as_str)
+            .collect()
     }
 
     /// The selected entity's id, when exactly one entity is selected.

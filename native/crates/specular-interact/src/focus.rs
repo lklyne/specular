@@ -1,5 +1,5 @@
-//! Keyboard focus and hover: the two places a page is told about the
-//! pointer and keys coming or going.
+//! Keyboard focus and the forwarded pointer: the two places a page is told
+//! about keys and the pointer coming or going.
 
 use glam::Vec2;
 use specular_core::{InputEvent, Modifiers, PointerEvent, PointerEventKind};
@@ -18,19 +18,28 @@ pub(crate) fn set_focus(app: &mut App, page: Option<EntityId>, effects: &mut Vec
     app.session.focus = page.map_or(Focus::Canvas, Focus::Page);
 }
 
-/// Tracks the hovered page, telling the one the pointer left. `local` is the
-/// pointer in the new page's CSS pixels.
-pub(crate) fn set_hover(
+/// Leaves the entered page when it is no longer the whole selection.
+pub(crate) fn leave_unless_selected(app: &mut App, effects: &mut Vec<Effect>) {
+    if let Some(page) = app.session.focus.page()
+        && app.session.selection.single_entity() != Some(page)
+    {
+        set_focus(app, None, effects);
+    }
+}
+
+/// Tracks which page the pointer is being forwarded to, telling the one it
+/// left. `local` is the pointer in the new page's CSS pixels.
+pub(crate) fn set_pointer_page(
     app: &mut App,
     page: Option<EntityId>,
     local: Vec2,
     modifiers: Modifiers,
     effects: &mut Vec<Effect>,
 ) {
-    if app.session.hover == page {
+    if app.session.pointer_page == page {
         return;
     }
-    if let Some(previous) = app.session.hover.take() {
+    if let Some(previous) = app.session.pointer_page.take() {
         effects.push(pointer_to(
             previous,
             PointerEventKind::Leave,
@@ -38,7 +47,7 @@ pub(crate) fn set_hover(
             modifiers,
         ));
     }
-    app.session.hover = page;
+    app.session.pointer_page = page;
 }
 
 /// A pointer event for `page` at `position` in its CSS pixels.

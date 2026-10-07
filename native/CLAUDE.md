@@ -63,14 +63,17 @@ fn alt_drag_moves_the_page() {
 ```
 
 - Start from `TestApp::with_pages(n)`, `TestApp::with_entities([..])` or
-  `TestApp::from_canvas(json)`.
+  `TestApp::from_canvas(json)`. Entities come from `page`, `text`, `shape`,
+  `file`, `drawing` and `group`, each taking an id and a rect.
+  `inside("g", entity)` puts one in a group, and
+  `connected(document(entities), "e1", "a", "b")` adds an edge.
 - Input chains: `pointer_move`, `press`, `drag_to`, `release`, `drag`,
   `click`, `double_click`, `key`, `chord(CMD, Key::Char('z'))`,
   `type_text("hi")`, `wheel`, `pinch`, `tick`. `hold(mods)` keeps modifiers
   down until `let_go()`. `select`, `tool`, `zoom`, `undo`, `redo` and `act`
   run `Action`s. Anything else goes through `send(Event)`.
 - Read back with `document()`, `session()`, `selection()`, `selected()`,
-  `rect("p1")` and `entity("p1")`. `take_effects()` drains the effects
+  `selected_ids()`, `rect("p1")` and `entity("p1")`. `take_effects()` drains the effects
   returned since the last drain; call it before the step whose effects the
   test asserts on.
 - `assert_doc_snapshot!(app)` keeps its snapshot in
@@ -78,6 +81,8 @@ fn alt_drag_moves_the_page() {
   it. Prefer the inline form for small documents: a failing run prints the
   new text, and `cargo insta accept` (from `cargo install cargo-insta`)
   writes it into the source. Read the snapshot before accepting it.
+- A page is select-first (ADR 0022). `click` selects it, a second `click`
+  or a `double_click` enters it, and only an entered page gets input.
 - The scene snapshot is `assert_scene_snapshot!`, which is not written yet.
   `specular-testkit/src/snapshot.rs` says where it goes.
 

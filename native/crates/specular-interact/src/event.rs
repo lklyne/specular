@@ -142,7 +142,8 @@ pub enum PageNotice {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Action {
     /// Escape: abandon the gesture in flight, return to the select tool and
-    /// take keyboard focus back from the page.
+    /// leave the entered page. With none of those to back out of, clear the
+    /// selection.
     Cancel,
     /// Switch tool.
     SetTool(Tool),

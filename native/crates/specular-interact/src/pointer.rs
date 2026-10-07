@@ -1,16 +1,17 @@
 //! Pointer routing.
 //!
 //! A left press goes to the active tool first. A gesture it starts owns the
-//! pointer until the button comes up, and the page under it sees none of it.
-//! Every other press focuses the page under it and is forwarded, and a
-//! release goes to the page that got the press.
+//! pointer until the button comes up, and no page sees any of it. Only the
+//! entered page (the one with keyboard focus) hears the pointer: moves over
+//! its body, presses on it, and everything up to the release of a press it
+//! got.
 
 use glam::Vec2;
 use specular_core::{PointerButton, PointerEventKind};
-use specular_doc::{EntityId, ItemId};
+use specular_doc::EntityId;
 
-use crate::focus::{pointer_to, set_focus, set_hover};
-use crate::{App, Effect, Gesture, Hit, PointerInput, Tool, gesture, handles, hit};
+use crate::focus::{pointer_to, set_pointer_page};
+use crate::{App, Effect, Gesture, Hit, PointerInput, Tool, gesture, hit, select};
 
 pub(crate) fn on_pointer(app: &mut App, input: &PointerInput, effects: &mut Vec<Effect>) {
     match input.kind {
@@ -19,7 +20,8 @@ pub(crate) fn on_pointer(app: &mut App, input: &PointerInput, effects: &mut Vec<
             // A drag that leaves the window still ends at its release.
             if app.session.gesture.is_none() {
                 app.session.pointer = None;
-                set_hover(app, None, Vec2::ZERO, input.modifiers, effects);
+                app.session.hover = None;
+                set_pointer_page(app, None, Vec2::ZERO, input.modifiers, effects);
             }
         }
         PointerEventKind::Down {
@@ -36,14 +38,21 @@ pub(crate) fn on_pointer(app: &mut App, input: &PointerInput, effects: &mut Vec<
 fn on_move(app: &mut App, input: &PointerInput, effects: &mut Vec<Effect>) {
     app.session.pointer = Some(input.screen);
     if app.session.gesture.is_some() {
-        gesture::drag(app, input.screen);
+        gesture::drag(app, input);
         return;
     }
-    let world = app.session.camera.screen_to_world(input.screen).as_dvec2();
-    match hit::page_at(app, world) {
-        Some((page, placement)) => {
-            let local = placement.page_local(world).as_vec2();
-            set_hover(app, Some(page.clone()), local, input.modifiers, effects);
+    let hit = hit::hit_test(app, input.screen);
+    app.session.hover = hit::entity_of(&hit).cloned();
+    // A page that got a press keeps the pointer until the release, so a drag
+    // inside it (a text selection, a slider) carries on past its edge.
+    let held = app.session.captured.holder().and_then(|page| {
+        let world = app.session.camera.screen_to_world(input.screen).as_dvec2();
+        let local = app.page_placement(page)?.page_local(world).as_vec2();
+        Some((page.clone(), local))
+    });
+    match held.or_else(|| entered_page(app, hit)) {
+        Some((page, local)) => {
+            set_pointer_page(app, Some(page.clone()), local, input.modifiers, effects);
             effects.push(pointer_to(
                 page,
                 PointerEventKind::Move,
@@ -51,7 +60,7 @@ fn on_move(app: &mut App, input: &PointerInput, effects: &mut Vec<Effect>) {
                 input.modifiers,
             ));
         }
-        None => set_hover(app, None, Vec2::ZERO, input.modifiers, effects),
+        None => set_pointer_page(app, None, Vec2::ZERO, input.modifiers, effects),
     }
 }
 
@@ -63,16 +72,10 @@ fn on_down(
     effects: &mut Vec<Effect>,
 ) {
     app.session.pointer = Some(input.screen);
-    if button == PointerButton::Left && tool_takes_press(app, input) {
+    if button == PointerButton::Left && tool_takes_press(app, input, click_count, effects) {
         return;
     }
-    let world = app.session.camera.screen_to_world(input.screen).as_dvec2();
-    let under = hit::page_at(app, world);
-    if button == PointerButton::Left {
-        let page = under.as_ref().map(|(page, _)| page.clone());
-        set_focus(app, page, effects);
-    }
-    if let Some((page, placement)) = under {
+    if let Some((page, local)) = entered_page(app, hit::hit_test(app, input.screen)) {
         app.session.captured.press(button, page.clone());
         effects.push(pointer_to(
             page,
@@ -80,9 +83,26 @@ fn on_down(
                 button,
                 click_count,
             },
-            placement.page_local(world).as_vec2(),
+            local,
             input.modifiers,
         ));
+    }
+}
+
+/// The entered page and the point in its CSS pixels, when `hit` is its body.
+fn entered_page(app: &App, hit: Hit) -> Option<(EntityId, Vec2)> {
+    match hit {
+        Hit::PageContent { page, local } if app.session.focus.page() == Some(&page) => {
+            Some((page, local))
+        }
+        Hit::PageContent { .. }
+        | Hit::GroupLabel { .. }
+        | Hit::Handle { .. }
+        | Hit::Anchor { .. }
+        | Hit::EntityBody { .. }
+        | Hit::GroupBorder { .. }
+        | Hit::Edge { .. }
+        | Hit::Empty => None,
     }
 }
 
@@ -97,7 +117,7 @@ fn on_up(
     if button == PointerButton::Left
         && let Some(gesture) = app.session.gesture.take()
     {
-        gesture::finish(app, gesture, input.screen, effects);
+        gesture::finish(app, gesture, input, effects);
         return;
     }
     // The release goes to the page that got the press even if the pointer
@@ -122,15 +142,16 @@ fn on_up(
 }
 
 /// Offers a left press to the active tool. Returns whether the tool took it,
-/// in which case nothing is focused or forwarded.
-///
-/// With the select tool: a handle of the selected entity starts a resize,
-/// Alt+press on a page starts a move, and any other press selects the page
-/// under it (or clears the selection) and carries on to the page.
-fn tool_takes_press(app: &mut App, input: &PointerInput) -> bool {
-    let world = app.session.camera.screen_to_world(input.screen).as_dvec2();
+/// in which case nothing is forwarded.
+fn tool_takes_press(
+    app: &mut App,
+    input: &PointerInput,
+    click_count: u8,
+    effects: &mut Vec<Effect>,
+) -> bool {
     match app.session.tool {
         Tool::Comment => {
+            let world = app.session.camera.screen_to_world(input.screen).as_dvec2();
             app.session.gesture = Some(Gesture::CommentRegion {
                 start: world,
                 start_screen: input.screen,
@@ -139,40 +160,7 @@ fn tool_takes_press(app: &mut App, input: &PointerInput) -> bool {
             });
             true
         }
-        Tool::Select => match hit::hit_test(app, input.screen) {
-            Hit::Handle { corner, .. } => {
-                let Some(target) = handles::resize_target(app) else {
-                    return false;
-                };
-                app.session.gesture = Some(Gesture::Resize {
-                    entity: target.entity.clone(),
-                    corner,
-                    grab: corner.point(target.rect) - world,
-                    start: target.rect,
-                    min_size: target.min_size,
-                });
-                true
-            }
-            Hit::PageContent { page, .. } if input.modifiers.alt => {
-                let Some(start) = app.document.entity(&page).map(|entity| entity.rect) else {
-                    return false;
-                };
-                select_only(app, Some(page.clone()));
-                app.session.gesture = Some(Gesture::Move {
-                    origin: world,
-                    items: vec![(page, start)],
-                });
-                true
-            }
-            Hit::PageContent { page, .. } => {
-                select_only(app, Some(page));
-                false
-            }
-            Hit::Empty => {
-                select_only(app, None);
-                false
-            }
-        },
+        Tool::Select => select::press(app, input, click_count, effects),
         // Placement and drawing arrive with each kind's slice. Until then
         // these tools hold the press so it does not reach a page.
         Tool::AddPage
@@ -182,8 +170,4 @@ fn tool_takes_press(app: &mut App, input: &PointerInput) -> bool {
         | Tool::AddShape
         | Tool::Draw => true,
     }
-}
-
-fn select_only(app: &mut App, entity: Option<EntityId>) {
-    app.session.selection.set(entity.map(ItemId::Entity));
 }

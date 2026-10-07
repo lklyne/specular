@@ -2,7 +2,7 @@
 
 use glam::Vec2;
 use specular_core::{Camera, Modifiers, PointerButton, PointerEventKind};
-use specular_doc::{EntityId, ItemId};
+use specular_doc::{EdgeId, EntityId, ItemId};
 use specular_interact::{Action, Event, Key, KeyInput, PointerInput, Tool, WheelInput};
 
 use crate::TestApp;
@@ -239,9 +239,24 @@ impl TestApp {
         self.act(Action::SetTool(tool))
     }
 
-    /// Selects these entities, replacing the selection.
+    /// Selects these entities and edges, replacing the selection.
     pub fn select(&mut self, ids: &[&str]) -> &mut Self {
-        let items = ids.iter().map(|id| ItemId::Entity(EntityId::from(*id)));
+        let items = ids.iter().map(|id| {
+            if self.document().edge(&EdgeId::from(*id)).is_some() {
+                ItemId::Edge(EdgeId::from(*id))
+            } else {
+                ItemId::Entity(EntityId::from(*id))
+            }
+        });
         self.act(Action::Select(items.collect()))
+    }
+
+    /// Presses a button other than the left one at `at`.
+    pub fn press_button(&mut self, button: PointerButton, at: impl Into<Vec2>) -> &mut Self {
+        self.input.pointer = at.into();
+        self.pointer(PointerEventKind::Down {
+            button,
+            click_count: 1,
+        })
     }
 }

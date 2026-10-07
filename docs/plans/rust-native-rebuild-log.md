@@ -45,6 +45,13 @@ with the task that made it.
 - F5a: dashed borders and dashed edges are paths with a `Dash`. The SDF layer draws solid rects and ellipses only. Rect and ellipse strokes can sit inside, centred or outside.
 - F5a: a stroke thinner than one device pixel is drawn one pixel wide and faded by the same ratio.
 - F5a: the caller says when the camera is zooming (`FrameView::zooming`). While it is, canvas glyphs keep their raster size until the zoom has moved 0.75x to 1.25x from it, and the pass viewport stretches them. The shell must render one frame with `zooming: false` when the gesture ends.
+- S1: hit-testing runs in screen space with Electron's sizes (12 px handle squares and side strips on the outline 1 px outside the bounds, first match wins). Pages and other items share one stack order, so a page in front of a note covers it; Electron always puts notes above pages. Groups are still hit after everything else.
+- S1: `Hit` has no reorder dots or gap handles. They arrive with auto-layout (ADR 0015). A group title's width is estimated at 6.1 px a character until text is measured.
+- S1: the per-kind rules are `min_size`, `aspect_mode` and `has_anchors` in `caps.rs`. The page minimum is now Electron's 320x200, up from the spike's 120x80.
+- S2: the entered page of ADR 0022 is `Focus::Page`. It stays entered only while it is the whole selection, which `update` checks once after every event. Only the entered page gets pointer and key input, and a page that got a press keeps the pointer until the release.
+- S2: Escape is staged. It first backs out of a drag, an armed tool or an entered page and keeps the selection. With none of those it deselects.
+- S2: a marquee changes the selection on release. Until then `App::marquee()` and `App::marquee_items()` give the rect and what it would take.
+- S2: `Session::hover` is the entity under the pointer, of any kind. The hovered entity shows anchors, as in Electron.
 
 ## Needs a human at a Mac
 
@@ -53,6 +60,7 @@ Things an agent could not verify headless.
 - M1: the four checks at the end of ADR 0039 (sharpness on a real display, glyph shimmer while zooming, egui's look, IME into an egui field).
 - F5a: zoom with canvas text on screen once `view` lands. glyphon samples its atlas with a nearest filter, so held glyphs stretched up to 1.25x may look blocky or shimmer mid-gesture. If so, narrow `MIN_STRETCH` and `MAX_STRETCH` in `scene_pass/raster_hold.rs`.
 - F4: nothing was run. Agents may not start `specular-app`, so check `specular-app fixtures/input.canvas` by hand (click, type, Alt+drag, corner resize, C then drag, Escape, Cmd+Z and Cmd+Shift+Z with no page focused) and one `--bench` run against an older build for output shape and frame times.
+- S1 and S2: nothing was run. With `specular-app fixtures/input.canvas`, check that one click selects a page without the page reacting, a second click or a double-click lets you type into it, Escape leaves it, and a drag from empty canvas does not scroll or select text in a page.
 
 ## Entries
 
@@ -128,3 +136,17 @@ Things an agent could not verify headless.
 - Not measured: frame times. Nothing was run but the tests, and no `--release` build was made. Tessellation runs every frame for visible paths, as in the bake-off's default mode.
 - The FontSystem loads on the first frame that has text, which takes a moment. The shell may want to warm it at startup.
 - Gate: fmt, clippy and `cargo test --workspace` all pass.
+
+### S1, S2 and the `.canvas` writer gap. See `git log -- native/crates/specular-interact/src/select.rs`
+
+- `hit_test` returns `Hit::{GroupLabel, Handle, Anchor, PageContent, EntityBody, GroupBorder, Edge, Empty}` for every kind and for edges, in stack order. `Handle` is a corner or a side, and its `HandleOwner` is one entity or the whole selection. `tests/hit_test.rs` ports the cases from `tests/unit/hit-test.test.ts`, apart from reorder dots and gap handles.
+- The select tool does click, Shift-click toggle, click on empty canvas to clear, click on an edge, and marquee with group promotion (Command or Control takes only what the rect encloses, and can start on a body). Pages are select-first. A double-click enters a page, as in Electron, and the entering click is not forwarded.
+- ADR 0034 is in. `App::selection_scope()` returns `members`, `operands` (groups expanded, page-hooked items attached) and `bounds`. `holds(id)` is the rule that a press on any operand keeps the selection.
+- `.canvas`: a leftover such as `"syncId": null` is written in its typed field's slot. `Welcome.canvas` now saves byte-identical and is in the byte test.
+- `src/tests/` is gone. The routing tests are `tests/routing.rs` on the testkit, which gained `text`, `shape`, `file`, `drawing`, `group`, `inside`, `connected`, `selected_ids` and `press_button`.
+- For S3: a press on a body selects and nothing else. The only move is still Alt+drag on one page. Build the move from `selection_scope().operands` and `marquee::DRAG_THRESHOLD`. A click (no drag) on one of several selected items should select it alone, and does not yet.
+- For S4: only a page corner starts a resize. Every other handle takes the press and does nothing. `Gesture::Resize` still carries a `Corner`.
+- For the edge task: an anchor press falls through to the body under it (`select::press`). `App::edge_curve(id)` is the bezier on screen, ported from `edge-geometry.ts`, and the edge view should draw from it so the line and its hit band agree.
+- For the scene: draw `App::handles()` (eight handles, `OUTLINE_PADDING` outside the rect), `App::marquee()` and outlines for `marquee_items()`. The shell's `chrome.rs` still draws four corners from `handle_target()`, which now answers for any kind.
+- Not done: double-click to edit text or a shape, to enter a group or to rename its title. Pressing or releasing Command mid-marquee changes the mode only at the next pointer move. No cursor feedback over handles.
+- Gate: fmt, clippy and `cargo test --workspace` pass (624 tests). `Cargo.lock` and `specular-scene` had another agent's uncommitted changes, which are not in this commit.

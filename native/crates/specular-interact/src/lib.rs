@@ -21,7 +21,9 @@
 
 mod app;
 mod camera;
+mod caps;
 mod comment;
+mod edge_path;
 mod effect;
 mod event;
 mod focus;
@@ -30,24 +32,29 @@ mod gesture;
 mod handles;
 mod hit;
 mod keys;
+mod marquee;
 mod page_input;
 mod pages;
 mod placement;
 mod pointer;
-#[cfg(test)]
-mod tests;
+mod scope;
+mod select;
 mod time;
 mod tool;
 mod update;
 
 pub use app::{App, Focus, Selection, Session};
+pub use caps::{AspectMode, aspect_mode, has_anchors, min_size};
 pub use comment::{region_annotation, region_on_canvas};
+pub use edge_path::EdgeCurve;
 pub use effect::{Cursor, Effect};
 pub use event::{Action, Event, Key, KeyInput, PageNotice, PointerInput, WheelInput};
 pub use geometry::to_canvas_rect;
 pub use gesture::Gesture;
-pub use handles::{Corner, HANDLE_SIZE};
+pub use handles::{Corner, HANDLE_SIZE, Handle, HandleOwner, OUTLINE_PADDING};
 pub use hit::{Hit, hit_test};
+pub use marquee::MarqueeMode;
 pub use placement::PagePlacement;
+pub use scope::SelectionScope;
 pub use tool::Tool;
 pub use update::update;

@@ -96,9 +96,10 @@ fn every_canvas_in_the_repo_loads_and_saves_to_the_same_json_value() {
 }
 
 /// Files the Electron app wrote that are already in the writer's canonical
-/// form: every key in the Electron writer's order and nothing the reader
-/// has to move.
-const CANONICAL: [&str; 2] = [
+/// form: every key in the Electron writer's order. `Welcome.canvas` has
+/// `"syncId": null` nodes, which must stay in the `syncId` slot.
+const CANONICAL: [&str; 3] = [
+    "resources/starter-space/Welcome.canvas",
     "tests/integration/__snapshots__/rich-workspace.canvas",
     "native/crates/specular-doc/tests/fixtures/rich-workspace.canvas",
 ];

@@ -27,6 +27,11 @@ impl ButtonCapture {
         self.pages[Self::slot(button)] = Some(page);
     }
 
+    /// The page that got the press of a button still held, if any.
+    pub(crate) fn holder(&self) -> Option<&EntityId> {
+        self.pages.iter().flatten().next()
+    }
+
     /// The page owed `button`'s release, if a page received its press.
     pub(crate) fn release(&mut self, button: PointerButton) -> Option<EntityId> {
         self.pages[Self::slot(button)].take()
