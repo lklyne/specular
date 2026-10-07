@@ -6,7 +6,7 @@ use specular_doc::{Document, Entity, EntityId, History, ItemId, Kind, Page};
 
 use crate::images::Images;
 use crate::page_input::ButtonCapture;
-use crate::{Cursor, Gesture, PagePlacement, Tool};
+use crate::{Cursor, Gesture, PagePlacement, Tool, ToolDefaults};
 
 /// Everything the app knows. Only [`update`](crate::update) changes it.
 #[derive(Debug, Clone, Default)]
@@ -14,6 +14,7 @@ pub struct App {
     pub(crate) document: Document,
     pub(crate) history: History,
     pub(crate) session: Session,
+    pub(crate) tool_defaults: ToolDefaults,
 }
 
 impl App {
@@ -39,6 +40,30 @@ impl App {
         &self.session
     }
 
+    /// What each creation tool stamps on the next entity it makes. App
+    /// settings: not in the document and not in undo.
+    pub fn tool_defaults(&self) -> &ToolDefaults {
+        &self.tool_defaults
+    }
+
+    /// The entity the gesture in flight is creating: a shape being dragged
+    /// out or a stroke being drawn. It is in the document already, in front
+    /// of everything, and is drawn like any other entity. Releasing makes it
+    /// an undo step and cancelling takes it back.
+    pub fn creating(&self) -> Option<&EntityId> {
+        match &self.session.gesture {
+            Some(Gesture::Place(drag)) => drag.live(),
+            Some(Gesture::Draw(stroke)) => Some(stroke.drawing()),
+            Some(
+                Gesture::Move(_)
+                | Gesture::Resize(_)
+                | Gesture::Marquee { .. }
+                | Gesture::CommentRegion { .. },
+            )
+            | None => None,
+        }
+    }
+
     /// Whether there is a step to undo.
     pub fn can_undo(&self) -> bool {
         self.history.can_undo()
@@ -60,7 +85,13 @@ impl App {
         page_of(entity)?;
         let laid_out_at = match &self.session.gesture {
             Some(Gesture::Resize(drag)) => drag.start_rect(id).unwrap_or(entity.rect),
-            Some(Gesture::Move(_) | Gesture::Marquee { .. } | Gesture::CommentRegion { .. })
+            Some(
+                Gesture::Move(_)
+                | Gesture::Marquee { .. }
+                | Gesture::CommentRegion { .. }
+                | Gesture::Place(_)
+                | Gesture::Draw(_),
+            )
             | None => entity.rect,
         };
         Some(PagePlacement {
@@ -132,6 +163,9 @@ pub struct Session {
     pub hover: Option<EntityId>,
     /// What keys go to.
     pub focus: Focus,
+    /// The text or sticky whose content is being edited. It stays in editing
+    /// only while it is the whole selection, and Escape ends it.
+    pub editing: Option<EntityId>,
     /// The cursor the shell was last asked to show.
     pub cursor: Cursor,
     /// Where the pointer is, in logical screen pixels. `None` when it is
@@ -157,7 +191,14 @@ impl Session {
             Some(Gesture::CommentRegion { start, current, .. }) => {
                 Some(crate::geometry::spanning(*start, *current))
             }
-            Some(Gesture::Move(_) | Gesture::Resize(_) | Gesture::Marquee { .. }) | None => None,
+            Some(
+                Gesture::Move(_)
+                | Gesture::Resize(_)
+                | Gesture::Marquee { .. }
+                | Gesture::Place(_)
+                | Gesture::Draw(_),
+            )
+            | None => None,
         }
     }
 

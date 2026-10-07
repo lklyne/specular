@@ -4,7 +4,7 @@ use glam::Vec2;
 use specular_core::{CssSize, InputEvent};
 use specular_doc::EntityId;
 
-use crate::ImageKey;
+use crate::{ImageKey, ToolDefaults};
 
 /// One thing for the shell to do after an [`update`](crate::update). Effects
 /// run in the order they are returned.
@@ -66,6 +66,9 @@ pub enum Effect {
     },
     /// Forget an image: nothing shows it any more.
     DropImage(ImageKey),
+    /// Write the tool defaults to the preferences file, under `toolDefaults`,
+    /// as [`ToolDefaults::to_json`] gives them.
+    SaveToolDefaults(Box<ToolDefaults>),
 }
 
 /// A pointer cursor.

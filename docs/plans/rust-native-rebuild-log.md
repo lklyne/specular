@@ -82,6 +82,15 @@ with the task that made it.
 - K6: an image larger than the device's texture limit is scaled down on the decode thread. EXIF orientation is applied, as a browser does for an `<img>`.
 - K6: `contain` draws only the image, with nothing in the letterbox bars. `cover` crops with `ImageDraw::source`. No corner radius.
 
+- Tools: a gesture that creates an entity puts it in the document while it runs, as a move writes rects. `App::creating()` names it. Release takes it out and inserts it as one `History` step; Escape takes it out.
+- Tools: each stroke is its own drawing entity and its own undo step, which is what Electron's pointer-up does. `useDrawingSession` can hold several strokes but nothing adds a second one.
+- Tools: tool defaults are `App::tool_defaults()`, beside the document and the session. `Effect::SaveToolDefaults` carries the whole value and `Event::ToolDefaultsLoaded` sets it. `ToolDefaults::to_json` and `from_json` are the preferences file's `toolDefaults` shape.
+- Tools: a variant key (R, O, Shift+R, M, Shift+M) is `Action::SetToolVariant(patch)`, which arms the patch's tool and writes the default. A tool's key pressed again does nothing, so C no longer toggles the comment tool off.
+- Tools: a chord's `cmd` is Command or Control, as Electron's `CmdOrCtrl`. Escape matches whatever modifiers are held, so it cancels a Shift or Option drag.
+- Tools: `Session::editing` holds only while that entity is the whole selection. While it is set the plain-key bindings do not fire; undo, redo and Escape do. Only text and stickies set it. Electron also opens a new shape's label for editing.
+- Tools: a new page is Electron's `P` then click: preset 0 (375x667), `about:blank`, with the device metadata Electron writes.
+- Tools: an anchor written at placement has `pageId` and `pageUrl` and no scroll offset. `canonical_page_url` trims and strips the hash; it does not normalise the URL as Electron's `new URL()` does.
+
 ## Needs a human at a Mac
 
 Things an agent could not verify headless.
@@ -95,6 +104,8 @@ Things an agent could not verify headless.
 - S9: nothing was run. Open a copy of a canvas, move something, and check the file changes about a third of a second later with the camera in `appState`. Edit the file in an editor while the app is idle and check the canvas follows, keeping the camera. Quit within 350 ms of a change and check it was written.
 - S3 to S5: nothing was run. Check drag feel against the grid, Shift mid-drag, Option-drag (the copy preview is not drawn yet), each handle on each kind, a two-item resize, Backspace, Cmd+D, arrows, and the corner cursors.
 - K6: nothing was run. Open a canvas with png, jpeg, webp and gif files beside it (relative `assets/...` paths), one missing file and one svg. Check each image appears a moment after the card, keeps its aspect, stays smooth when zoomed far out, and that the missing file and the svg stay cards.
+
+- Tools: nothing was run. Check R then drag (with and without Shift), R then click, M and Shift+M strokes, T and S then click, P then click, and that a sticky placed on a page follows it when the page is dragged. After T or S the letter keys are dead until Escape, because there is no editor yet.
 
 ## Entries
 
@@ -233,3 +244,18 @@ Things an agent could not verify headless.
 - A load that can never be answered (no GPU window yet, or the thread failed to start) leaves the image `Loading`, which draws the card.
 - `specular-app/src/app/mod.rs` is about 480 lines. The bench and LOD methods are the part to move out.
 - Gate: fmt, clippy and `cargo test --workspace` pass, GPU tests included on this machine.
+
+### Creation tools: S8, the interact half of K1, K2 and K3, and K7 on placement. See `git log -- native/crates/specular-interact/src/place.rs`
+
+- S8: `keys.rs` is gone. `bindings.rs` holds `BINDINGS`, one const table of `Binding { chord, context, action, repeats }`, and `binding_for(app, input)`. The first row whose chord matches and whose `Context` holds wins. A key with no row goes to the entered page.
+- Not in the table, because no `Action` exists for them: H and I (no hand or inspect tool), Cmd+1, Cmd+W, Cmd+G, Cmd+Shift+G, Cmd+Shift+A, Cmd+A, Cmd+T, the four stack-order chords and Enter. `src/shared/app-menu-shortcuts.ts` is the menu's accelerators (quit, hide, settings, devtools), which belong to the shell's menu.
+- `tool_defaults.rs` ports `tool-defaults.ts`. `Action::SetToolDefault(patch)` is for the tool popup.
+- `place.rs` is `Gesture::Place`, the one-shot tools. A click places the default size with its top-left on the grid. A shape drag of 24 units or more each way sizes the shape, and Shift squares it. The entity is selected and the tool returns to select. `add-document` still only holds the press.
+- `draw.rs` is `Gesture::Draw`. Points are in canvas space, Shift holds them to 45 degrees from the first, and the rect is the points grown by half the width. The selection is cleared and the tool stays.
+- No pressure: `PointerInput` has none and neither has the stroke on disk. Add both together.
+- `anchor.rs`: `page_anchor_for(document, entity)` is `pageAnchorFor`. `live::create` calls it for every placement. Text, drawings and shapes anchor; pages, files, groups and grouped entities do not. A move still does not re-anchor on release.
+- For the scene: nothing to draw for a preview. The shape or stroke in flight is an entity in `App::document()`. `App::creating()` gives its id if it should look different, for example no hover outline.
+- For the shell: one arm was added to `specular-app/src/app/effects.rs` so `Effect::SaveToolDefaults` compiles, and it only logs. Write `defaults.to_json()` under `toolDefaults` in the preferences file, and send `Event::ToolDefaultsLoaded` at startup.
+- For T1: start from `Session::editing`. An empty text left when editing ends is not deleted yet.
+- Tests: `tests/bindings.rs`, `tools.rs`, `draw.rs`, `anchoring.rs`. `routing.rs` lost the C toggle test.
+- Gate: fmt, clippy and tests pass for `specular-interact`, `specular-testkit` and `specular-scene` on HEAD plus this change, in an exported copy (362 tests). The working tree had two other agents' work in it, including notes hunks in `app.rs`, `effect.rs`, `event.rs`, `lib.rs` and `update.rs`, which are not in this commit.

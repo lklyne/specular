@@ -8,8 +8,8 @@ use specular_doc::{Command, CommandError, Document, EntityId, ItemId};
 use crate::focus::{leave_unless_selected, set_focus};
 use crate::images;
 use crate::{
-    Action, App, Effect, Event, Focus, PageNotice, camera, cursor, gesture, keys, pages, pointer,
-    verbs,
+    Action, App, Effect, Event, Focus, PageNotice, ToolDefaultPatch, bindings, camera, cursor,
+    gesture, pages, pointer, verbs,
 };
 
 /// Applies `event` to `app` and returns what the shell must now do, in
@@ -23,7 +23,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         Event::Pointer(input) => pointer::on_pointer(app, &input, &mut effects),
         Event::Wheel(input) => camera::on_wheel(app, &input, &mut effects),
         Event::Pinch { delta } => camera::on_pinch(app, delta),
-        Event::Key(input) => keys::on_key(app, &input, &mut effects),
+        Event::Key(input) => bindings::on_key(app, &input, &mut effects),
         Event::Ime(ime) => match &app.session.focus {
             Focus::Page(page) => effects.push(Effect::ForwardInput {
                 page: page.clone(),
@@ -36,6 +36,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         Event::Tick { unix_ms } => app.session.now_ms = unix_ms,
         Event::ViewportResized(size) => app.session.viewport = size,
         Event::DocumentOpened(document) => open_document(app, *document, &mut effects),
+        Event::ToolDefaultsLoaded(defaults) => app.tool_defaults = *defaults,
         Event::Action(action) => run_action(app, action, &mut effects),
     }
     leave_unless_selected(app, &mut effects);
@@ -56,14 +57,17 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
     match action {
         Action::Cancel => {
             // Escape is staged: it first backs out of whatever is in flight
-            // (a drag, an armed tool, an entered page) and leaves the
-            // selection alone. With nothing in flight it deselects.
+            // (a drag, an armed tool, a text edit, an entered page) and
+            // leaves the selection alone. With nothing in flight it
+            // deselects.
             let session = &app.session;
             let idle = session.gesture.is_none()
                 && session.tool == crate::Tool::Select
+                && session.editing.is_none()
                 && session.focus == Focus::Canvas;
             gesture::cancel(app);
             app.session.tool = crate::Tool::Select;
+            app.session.editing = None;
             set_focus(app, None, effects);
             if idle {
                 app.session.selection.set([]);
@@ -72,6 +76,13 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         Action::SetTool(tool) => {
             if app.session.gesture.is_none() {
                 app.session.tool = tool;
+            }
+        }
+        Action::SetToolDefault(patch) => set_tool_default(app, patch, effects),
+        Action::SetToolVariant(patch) => {
+            if app.session.gesture.is_none() {
+                app.session.tool = patch.tool();
+                set_tool_default(app, patch, effects);
             }
         }
         Action::Undo => step_history(app, effects, |app| app.history.undo(&mut app.document)),
@@ -86,6 +97,18 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         Action::Nudge { dx, dy } => verb(app, effects, |app, effects| {
             verbs::nudge(app, DVec2::new(dx, dy), effects);
         }),
+    }
+}
+
+/// Changes one tool default, and asks for the defaults to be saved if that
+/// changed anything.
+fn set_tool_default(app: &mut App, patch: ToolDefaultPatch, effects: &mut Vec<Effect>) {
+    let before = app.tool_defaults.clone();
+    app.tool_defaults.apply(patch);
+    if app.tool_defaults != before {
+        effects.push(Effect::SaveToolDefaults(Box::new(
+            app.tool_defaults.clone(),
+        )));
     }
 }
 

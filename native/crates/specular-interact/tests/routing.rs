@@ -272,16 +272,16 @@ fn pinch_zooms_about_the_viewport_centre_when_the_pointer_is_outside() {
 }
 
 #[test]
-fn c_toggles_the_comment_tool_and_its_cursor() {
+fn c_arms_the_comment_tool_and_its_cursor_and_a_second_c_changes_nothing() {
     let mut app = TestApp::with_pages(2);
     let on = app.key(Key::Char('c')).take_effects();
-    let off = app.key(Key::Char('c')).take_effects();
+    let again = app.key(Key::Char('c')).take_effects();
     assert_eq!(
-        (on, off, app.session().tool),
+        (on, again, app.session().tool),
         (
             vec![Effect::SetCursor(Cursor::Crosshair)],
-            vec![Effect::SetCursor(Cursor::Default)],
-            Tool::Select
+            vec![],
+            Tool::Comment
         )
     );
 }

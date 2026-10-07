@@ -7,6 +7,7 @@ use specular_doc::{
     JsonMap, PageAnchor, Rect, RegionAnchor,
 };
 
+use crate::anchor::canonical_page_url;
 use crate::app::page_of;
 use crate::gesture::apply_step;
 use crate::{App, geometry, time};
@@ -75,7 +76,7 @@ pub(crate) fn create_region(app: &mut App, region: Rect, page: Option<EntityId>)
                 geometry::size(region) / placement.canvas_per_css().max(DVec2::splat(f64::EPSILON)),
             );
             let page_anchor = PageAnchor {
-                page_url: document_url(&url),
+                page_url: canonical_page_url(&url),
                 ..PageAnchor::new(id)
             };
             (RegionAnchor::Document { doc_rect }, Some(page_anchor))
@@ -101,11 +102,4 @@ pub(crate) fn create_region(app: &mut App, region: Rect, page: Option<EntityId>)
             at,
         },
     );
-}
-
-/// `url` with its hash stripped, the form a page anchor records. `None` for
-/// a page with no URL yet.
-fn document_url(url: &str) -> Option<String> {
-    let document = url.split('#').next().unwrap_or_default();
-    (!document.is_empty()).then(|| document.to_owned())
 }

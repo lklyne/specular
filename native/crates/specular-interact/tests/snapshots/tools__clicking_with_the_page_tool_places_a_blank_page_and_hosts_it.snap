@@ -1,0 +1,8 @@
+---
+source: crates/specular-interact/tests/tools.rs
+expression: app.doc_snapshot()
+---
+nodes:
+  {"id":"e220a8397b1dcdaf","type":"link","x":220,"y":140,"width":375,"height":667,"url":"about:blank","presetIndex":0,"source":"manual","metadata":{"createdFrom":"add_from_toolbar","deviceOrientation":"portrait","showDeviceFrame":true,"deviceId":"iphone-se"}}
+edges:
+specular: {"entityOrder":["e220a8397b1dcdaf"]}

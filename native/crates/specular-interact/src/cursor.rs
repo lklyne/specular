@@ -20,7 +20,13 @@ fn wanted(app: &App) -> Cursor {
         // The handle's cursor stays for the whole drag, wherever the pointer
         // goes.
         Some(Gesture::Resize(drag)) => return of_handle(drag.handle()),
-        Some(Gesture::Move(_) | Gesture::Marquee { .. } | Gesture::CommentRegion { .. }) => {
+        Some(
+            Gesture::Move(_)
+            | Gesture::Marquee { .. }
+            | Gesture::CommentRegion { .. }
+            | Gesture::Place(_)
+            | Gesture::Draw(_),
+        ) => {
             return session.tool.cursor();
         }
         None => {}

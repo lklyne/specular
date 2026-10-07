@@ -1,0 +1,8 @@
+---
+source: crates/specular-interact/tests/tools.rs
+expression: app.doc_snapshot()
+---
+nodes:
+  {"id":"e220a8397b1dcdaf","type":"shape","x":100,"y":100,"width":140,"height":80,"shapeKind":"rectangle","text":"","color":"1","strokeWidth":2,"specular":{"textSize":14}}
+edges:
+specular: {"entityOrder":["e220a8397b1dcdaf"]}

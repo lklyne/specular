@@ -11,7 +11,7 @@ use specular_core::{PointerButton, PointerEventKind};
 use specular_doc::EntityId;
 
 use crate::focus::{pointer_to, set_pointer_page};
-use crate::{App, Effect, Gesture, Hit, PointerInput, Tool, gesture, hit, select};
+use crate::{App, Effect, Gesture, Hit, PointerInput, Tool, draw, gesture, hit, place, select};
 
 pub(crate) fn on_pointer(app: &mut App, input: &PointerInput, effects: &mut Vec<Effect>) {
     match input.kind {
@@ -147,9 +147,9 @@ fn on_up(
 /// Offers a left press to the active tool. Returns whether the tool took it,
 /// in which case nothing is forwarded.
 fn tool_takes_press(app: &mut App, input: &PointerInput, click_count: u8) -> bool {
+    let world = app.session.camera.screen_to_world(input.screen).as_dvec2();
     match app.session.tool {
         Tool::Comment => {
-            let world = app.session.camera.screen_to_world(input.screen).as_dvec2();
             app.session.gesture = Some(Gesture::CommentRegion {
                 start: world,
                 start_screen: input.screen,
@@ -159,13 +159,17 @@ fn tool_takes_press(app: &mut App, input: &PointerInput, click_count: u8) -> boo
             true
         }
         Tool::Select => select::press(app, input, click_count),
-        // Placement and drawing arrive with each kind's slice. Until then
-        // these tools hold the press so it does not reach a page.
-        Tool::AddPage
-        | Tool::AddText
-        | Tool::AddSticky
-        | Tool::AddDocument
-        | Tool::AddShape
-        | Tool::Draw => true,
+        tool @ (Tool::AddPage | Tool::AddText | Tool::AddSticky | Tool::AddShape) => {
+            app.session.gesture = place::begin(tool, world).map(Gesture::Place);
+            true
+        }
+        Tool::Draw => {
+            let stroke = draw::begin(app, world);
+            app.session.gesture = Some(Gesture::Draw(stroke));
+            true
+        }
+        // A document needs its file made first. Until that exists the tool
+        // holds the press so it does not reach a page.
+        Tool::AddDocument => true,
     }
 }

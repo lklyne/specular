@@ -1,0 +1,8 @@
+---
+source: crates/specular-interact/tests/draw.rs
+expression: app.doc_snapshot()
+---
+nodes:
+  {"id":"e220a8397b1dcdaf","type":"drawing","x":99,"y":89,"width":82,"height":32,"strokes":[{"id":"6e789e6aa1b965f4","color":"1","width":2,"points":[{"x":100,"y":100},{"x":140,"y":120},{"x":180,"y":90}],"brushType":"pen"}]}
+edges:
+specular: {"entityOrder":["e220a8397b1dcdaf"]}

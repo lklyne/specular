@@ -84,7 +84,7 @@ impl Shell {
             }
             Effect::LoadImage { image, file } => self.load_image(image, &file),
             Effect::DropImage(image) => self.drop_image(image),
-            Effect::WriteClipboard(_) => {
+            Effect::WriteClipboard(_) | Effect::SaveToolDefaults(_) => {
                 tracing::debug!(?effect, "effect has no runner yet");
             }
         }

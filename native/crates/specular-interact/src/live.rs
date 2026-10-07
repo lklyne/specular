@@ -1,10 +1,11 @@
 //! The entities a drag is changing: what they started as, writing each frame
-//! into the document, and turning the result into one undo step.
+//! into the document, and turning the result into one undo step. And the
+//! entity a drag is creating, which sits in the document while it grows.
 
 use glam::DVec2;
 use specular_doc::{Command, Document, Drawing, Entity, EntityId, Kind, Rect};
 
-use crate::{App, gesture, strokes};
+use crate::{App, Effect, anchor, gesture, strokes, update};
 
 /// An entity as a drag found it.
 #[derive(Debug, Clone, PartialEq)]
@@ -132,4 +133,41 @@ pub(crate) fn batch(mut commands: Vec<Command>) -> Command {
     } else {
         Command::Batch(commands)
     }
+}
+
+/// Puts the entity a gesture is creating into the document, in front of
+/// everything, replacing the one it put there a frame ago. No undo step.
+pub(crate) fn put(document: &mut Document, entity: Entity) {
+    take(document, &entity.id);
+    let command = Command::InsertEntity {
+        entity: Box::new(entity),
+        at: document.stack_len(),
+    };
+    if let Err(error) = document.apply(command) {
+        tracing::warn!("creation refused: {error}");
+    }
+}
+
+/// Takes the entity a gesture was creating back out of the document, with no
+/// undo step.
+pub(crate) fn take(document: &mut Document, id: &EntityId) -> Option<Entity> {
+    let entity = document.entity(id)?.clone();
+    match document.apply(Command::RemoveEntity(id.clone())) {
+        Ok(_) => Some(entity),
+        Err(error) => {
+            tracing::warn!("creation not taken back: {error}");
+            None
+        }
+    }
+}
+
+/// Adds `entity` in front of everything as one undo step, hooked to the page
+/// its centre is on, if any.
+pub(crate) fn create(app: &mut App, mut entity: Entity, effects: &mut Vec<Effect>) {
+    entity.anchor = anchor::page_anchor_for(&app.document, &entity);
+    let command = Command::InsertEntity {
+        entity: Box::new(entity),
+        at: app.document.stack_len(),
+    };
+    update::document_step(app, command, effects);
 }

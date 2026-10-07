@@ -18,8 +18,12 @@ pub(crate) fn set_focus(app: &mut App, page: Option<EntityId>, effects: &mut Vec
     app.session.focus = page.map_or(Focus::Canvas, Focus::Page);
 }
 
-/// Leaves the entered page when it is no longer the whole selection.
+/// Leaves the entered page, and ends the text edit, when what they are on is
+/// no longer the whole selection.
 pub(crate) fn leave_unless_selected(app: &mut App, effects: &mut Vec<Effect>) {
+    if app.session.editing.as_ref() != app.session.selection.single_entity() {
+        app.session.editing = None;
+    }
     if let Some(page) = app.session.focus.page()
         && app.session.selection.single_entity() != Some(page)
     {

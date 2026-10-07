@@ -73,7 +73,9 @@ impl App {
             Some(
                 crate::Gesture::Resize(_)
                 | crate::Gesture::Marquee { .. }
-                | crate::Gesture::CommentRegion { .. },
+                | crate::Gesture::CommentRegion { .. }
+                | crate::Gesture::Place(_)
+                | crate::Gesture::Draw(_),
             )
             | None => Vec::new(),
         }

@@ -58,7 +58,9 @@ impl App {
                 Gesture::Marquee { .. }
                 | Gesture::Move(_)
                 | Gesture::Resize(_)
-                | Gesture::CommentRegion { .. },
+                | Gesture::CommentRegion { .. }
+                | Gesture::Place(_)
+                | Gesture::Draw(_),
             )
             | None => None,
         }

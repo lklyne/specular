@@ -4,7 +4,7 @@ use glam::Vec2;
 use specular_core::{Camera, ImeEvent, Modifiers, PixelRect, PointerEventKind};
 use specular_doc::{Document, EntityId, ItemId};
 
-use crate::{ImageKey, ImageNotice, Tool};
+use crate::{ImageKey, ImageNotice, Tool, ToolDefaultPatch, ToolDefaults};
 
 /// One input to [`update`](crate::update). Window input arrives in logical
 /// screen pixels, origin at the canvas viewport's top-left.
@@ -50,6 +50,9 @@ pub enum Event {
     /// A document was loaded: at startup, on switching canvas, or when the
     /// file changed on disk. Replaces the current one and clears the history.
     DocumentOpened(Box<Document>),
+    /// The tool defaults were read from the preferences file. Replaces the
+    /// current ones and asks for no save.
+    ToolDefaultsLoaded(Box<ToolDefaults>),
     /// A command from a key binding, a menu, a panel or the HTTP API.
     Action(Action),
 }
@@ -155,6 +158,11 @@ pub enum Action {
     Cancel,
     /// Switch tool.
     SetTool(Tool),
+    /// Change one tool default and save the defaults.
+    SetToolDefault(ToolDefaultPatch),
+    /// Switch to the tool a default belongs to and change that default: what
+    /// a variant key such as Shift+R or Shift+M does.
+    SetToolVariant(ToolDefaultPatch),
     /// Undo the latest document step.
     Undo,
     /// Redo the latest undone step.

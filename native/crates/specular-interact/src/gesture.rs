@@ -4,8 +4,10 @@
 use glam::{DVec2, Vec2};
 use specular_doc::{Command, EntityId};
 
+use crate::draw::{self, DrawStroke};
 use crate::marquee::MarqueeMode;
 use crate::move_drag::{self, MoveDrag};
+use crate::place::{self, PlaceDrag};
 use crate::resize_drag::{self, ResizeDrag};
 use crate::{App, Effect, PointerInput, comment, geometry, marquee};
 
@@ -49,6 +51,11 @@ pub enum Gesture {
         /// The page the drag started over, which the comment binds to.
         page: Option<EntityId>,
     },
+    /// Pressed with a one-shot creation tool: the release places a page, a
+    /// text, a sticky or a shape.
+    Place(PlaceDrag),
+    /// Drawing a freehand stroke.
+    Draw(DrawStroke),
 }
 
 /// The pointer moved mid-drag, or a modifier changed under it.
@@ -82,13 +89,21 @@ pub(crate) fn drag(app: &mut App, input: &PointerInput) {
                 page,
             });
         }
+        Some(Gesture::Place(mut drag)) => {
+            place::drag(app, &mut drag, world, input.modifiers);
+            app.session.gesture = Some(Gesture::Place(drag));
+        }
+        Some(Gesture::Draw(mut stroke)) => {
+            draw::drag(app, &mut stroke, world, input.modifiers.shift);
+            app.session.gesture = Some(Gesture::Draw(stroke));
+        }
     }
 }
 
 /// The button came up, ending `gesture`. A move, a copy or a resize becomes
 /// one undo step; a resized page is re-laid-out; a marquee changes the
 /// selection; a comment drag long enough to not be a click creates its
-/// annotation.
+/// annotation; a placement or a stroke creates its entity.
 pub(crate) fn finish(
     app: &mut App,
     gesture: Gesture,
@@ -117,16 +132,21 @@ pub(crate) fn finish(
                 comment::create_region(app, geometry::spanning(start, end), page);
             }
         }
+        Gesture::Place(drag) => place::finish(app, drag, effects),
+        Gesture::Draw(stroke) => draw::finish(app, &stroke, effects),
     }
 }
 
-/// Abandons the gesture in flight: a move or resize snaps back, and a marquee
-/// or a comment region is dropped.
+/// Abandons the gesture in flight: a move or resize snaps back, a marquee or
+/// a comment region is dropped, and what a placement or a stroke was making
+/// is taken back.
 pub(crate) fn cancel(app: &mut App) {
     match app.session.gesture.take() {
         None | Some(Gesture::Marquee { .. } | Gesture::CommentRegion { .. }) => {}
         Some(Gesture::Move(drag)) => move_drag::cancel(app, &drag),
         Some(Gesture::Resize(drag)) => crate::live::restore(&mut app.document, drag.starts()),
+        Some(Gesture::Place(drag)) => place::cancel(app, &drag),
+        Some(Gesture::Draw(stroke)) => draw::cancel(app, &stroke),
     }
 }
 
