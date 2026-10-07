@@ -1,0 +1,16 @@
+[package]
+name = "gpui-proof"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[dependencies]
+gpui = { version = "=0.2.2", features = ["runtime_shaders"] }
+core-foundation = "=0.10.0"
+core-video = { version = "0.4.3", features = ["metal"] }
+io-surface = "0.16"
+
+[profile.dev]
+opt-level = 3

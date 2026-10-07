@@ -1,0 +1,13 @@
+[package]
+name = "bakeoff-vello"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+bakeoff-scene.workspace = true
+bakeoff-ui.workspace = true
+parley.workspace = true
+vello.workspace = true
+wgpu.workspace = true

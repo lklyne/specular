@@ -1,0 +1,13 @@
+[package]
+name = "bakeoff-ui"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+egui.workspace = true
+egui-wgpu = { workspace = true, features = ["winit"] }
+egui-winit.workspace = true
+bakeoff-scene.workspace = true
+wgpu.workspace = true
+winit.workspace = true

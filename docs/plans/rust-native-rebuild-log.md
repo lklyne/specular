@@ -17,10 +17,15 @@ with the task that made it.
 - F2: commands are primitive and never cascade. References may dangle (files from other tools can contain them). Delete builds a `Command::Batch` from `Document::children` and `Document::edges_touching`.
 - F2: `History` is a separate struct from `Document`. `Document::apply` alone is not an undo step, which is how loading and non-undoable changes are done.
 - F2: `label` sits on `Entity`, not in each kind. Five of six kinds have one, and the file kind has it under `specular.label`.
+- M1: canvas items are SDF shapes + glyphon 0.12 (cosmic-text 0.19) + lyon in the compositor's pass; panels are egui 0.36; vello and GPUI are turned down. ADR 0039, Proposed.
+- M1: text editing uses cosmic-text's `Editor`, not parley's `PlainEditor`, because glyphon renders cosmic-text buffers.
+- M1: `native/bakeoff/` sets `opt-level = 3` on its dev profile so timings mean something without `--release`.
 
 ## Needs a human at a Mac
 
 Things an agent could not verify headless.
+
+- M1: the four checks at the end of ADR 0039 (sharpness on a real display, glyph shimmer while zooming, egui's look, IME into an egui field).
 
 ## Entries
 
@@ -35,3 +40,14 @@ Things an agent could not verify headless.
 - For F3: `Annotation.replies` is required and anchor variants have no `extra`. Loosen if a real file disagrees.
 - For S3: drawing stroke points are in canvas space, so moving a drawing is `Batch[SetRect, SetKind]`.
 - Not done from the plan's F2 line: porting the spike's fixture round-trip tests. They need the reader, so they belong to F3.
+
+### M1. Render and UI bake-off
+
+- Commit: see `git log -- native/bakeoff`.
+- Exists now: `native/bakeoff/`, a standalone workspace with a vello candidate, an SDF + glyphon + lyon candidate, an egui panel crate and a GPUI proof in its own workspace. `docs/adr/0039-rust-canvas-render-stack.md` has the numbers and the verdict.
+- vello 0.11.0, glyphon 0.12.0 and egui-wgpu 0.36.2 all build on wgpu 30.0.1 with winit 0.30.13. Add them to `[workspace.dependencies]` at those versions when K1 needs them.
+- For K1 to K6: `Scene` carries shapes, text runs and paths, with no renderer types. `specular-render` owns the glyphon atlas and the lyon tessellator, in a 4x MSAA pass.
+- For whoever builds `specular-render`: pages and items share one z-order, so batches break at each page. Glyphon draws all prepared text in one call, so use one `TextRenderer` per run of items, or depth. The bake-off did not build this.
+- Skip text under about 2.5 px on screen. It removes the worst frame times.
+- Zooming re-rasterises glyphs at each scale and misses 8.3 ms at p95. Hold the raster size during a zoom gesture and refresh on settle.
+- `gpui-proof` needs the `runtime_shaders` feature here because the Xcode Metal toolchain is not installed. Its `target/` is 2.6 GB and can be deleted.

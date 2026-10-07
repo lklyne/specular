@@ -1,0 +1,45 @@
+# Throwaway render and UI bake-off for task M1 of docs/plans/rust-native-rebuild.md.
+# A standalone workspace on purpose: it is not a member of native/Cargo.toml, has
+# its own Cargo.lock and target dir, and is exempt from the main workspace gate.
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[workspace.dependencies]
+bakeoff-scene = { path = "crates/scene" }
+bakeoff-ui = { path = "crates/ui" }
+
+# Pinned to what native/Cargo.toml uses.
+wgpu = "30.0"
+winit = "0.30.13"
+
+# Candidate A.
+vello = "0.11.0"
+parley = "0.11.1"
+
+# Candidate B.
+glyphon = "0.12.0"
+cosmic-text = "0.19.0"
+lyon = "1.0.19"
+
+# Panels.
+egui = "0.36.2"
+egui-wgpu = "0.36.2"
+egui-winit = "0.36.2"
+
+anyhow = "1.0.100"
+bytemuck = { version = "1.25", features = ["derive"] }
+png = "0.18"
+pollster = "1.0"
+
+# Frame times from an unoptimised build say nothing about either candidate, and
+# native/CLAUDE.md rules out `--release` while a benchmark may be running, so the
+# default profile is optimised instead.
+[profile.dev]
+opt-level = 3
+debug = false

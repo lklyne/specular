@@ -1,0 +1,11 @@
+[package]
+name = "bakeoff-scene"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+png.workspace = true
+pollster.workspace = true
+wgpu.workspace = true
