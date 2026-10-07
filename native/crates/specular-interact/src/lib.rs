@@ -23,13 +23,16 @@
 
 mod anchor;
 mod app;
+mod asset;
 mod bindings;
 mod camera;
 mod caps;
+mod clipboard;
 mod clone;
 mod comment;
 mod cursor;
 mod draw;
+mod drop;
 mod edge_path;
 mod edit;
 mod effect;
@@ -43,6 +46,7 @@ mod hit;
 mod images;
 mod live;
 mod marquee;
+mod menu;
 mod move_drag;
 mod notes;
 mod page_input;
@@ -54,19 +58,25 @@ mod resize;
 mod resize_drag;
 mod scope;
 mod select;
+mod select_all;
 mod strokes;
 mod time;
 mod tool;
 mod tool_defaults;
 mod update;
+mod url;
 mod verbs;
+mod zoom;
 
 pub use anchor::{anchors_to_pages, page_anchor_for};
 pub use app::{App, Focus, Selection, Session};
+pub use asset::AssetBytes;
 pub use bindings::{BINDINGS, Binding, Chord, Context, binding_for};
 pub use caps::{AspectMode, aspect_mode, has_anchors, min_size};
+pub use clipboard::{ClipboardContent, ClipboardImage, Paste};
 pub use comment::{region_annotation, region_on_canvas};
 pub use draw::DrawStroke;
+pub use drop::DroppedFile;
 pub use edge_path::EdgeCurve;
 pub use edit::{
     CaretStop, LayoutLine, TextEdit, TextFrame, TextLayout, TextMeasure, TextSelectDrag, TextSpec,
@@ -79,6 +89,7 @@ pub use handles::{Corner, HANDLE_SIZE, Handle, HandleOwner, OUTLINE_PADDING};
 pub use hit::{Hit, hit_test};
 pub use images::{Image, ImageKey, ImageNotice, ImageState, is_image_file};
 pub use marquee::MarqueeMode;
+pub use menu::{Menu, MenuEntry, MenuItem, binding_of, menus};
 pub use move_drag::MoveDrag;
 pub use notes::{NoteNotice, NoteState, is_note_file};
 pub use place::{PlaceDrag, Placing};
@@ -90,3 +101,4 @@ pub use tool_defaults::{
     DrawDefaults, ShapeDefaults, StickyDefaults, TextDefaults, ToolDefaultPatch, ToolDefaults,
 };
 pub use update::update;
+pub use url::{looks_like_url, normalize_user_url};

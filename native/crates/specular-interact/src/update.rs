@@ -12,6 +12,7 @@ use crate::{
     Action, App, Effect, Event, Focus, PageNotice, ToolDefaultPatch, bindings, camera, cursor,
     edit, gesture, pages, pointer, verbs,
 };
+use crate::{clipboard, drop, select_all, zoom};
 
 /// Applies `event` to `app` and returns what the shell must now do, in
 /// order. No I/O happens here.
@@ -36,13 +37,14 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
             }),
             Focus::Canvas => edit::on_ime(app, &ime, &mut effects),
         },
-        Event::Paste(text) => edit::paste(app, &text),
         Event::Page { page, notice } => on_page_notice(app, &page, &notice, &mut effects),
         Event::Image { image, notice } => images::on_notice(app, image, notice),
         Event::Note { file, notice } => notes::on_notice(app, &file, notice),
         Event::Tick { unix_ms } => app.session.now_ms = unix_ms,
         Event::ViewportResized(size) => app.session.viewport = size,
         Event::DocumentOpened(document) => open_document(app, *document, &mut effects),
+        Event::Clipboard(content) => clipboard::on_read(app, content, &mut effects),
+        Event::FilesDropped { files, screen } => drop::on_drop(app, &files, screen, &mut effects),
         Event::ToolDefaultsLoaded(defaults) => app.tool_defaults = *defaults,
         Event::Action(action) => run_action(app, action, &mut effects),
     }
@@ -113,6 +115,14 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         Action::Nudge { dx, dy } => verb(app, effects, |app, effects| {
             verbs::nudge(app, DVec2::new(dx, dy), effects);
         }),
+        Action::Copy => clipboard::copy(app, effects),
+        Action::Cut => verb(app, effects, clipboard::cut),
+        Action::Paste => clipboard::request(app, effects),
+        Action::SelectAll => verb(app, effects, |app, _| select_all::run(app)),
+        Action::ZoomIn => zoom::zoom_in(app),
+        Action::ZoomOut => zoom::zoom_out(app),
+        Action::ZoomReset => zoom::reset(app),
+        Action::ZoomToFit => zoom::to_fit(app),
     }
 }
 

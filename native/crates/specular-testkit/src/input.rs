@@ -3,7 +3,9 @@
 use glam::Vec2;
 use specular_core::{Camera, ImeEvent, Modifiers, PointerButton, PointerEventKind};
 use specular_doc::{EdgeId, EntityId, ItemId};
-use specular_interact::{Action, Event, Key, KeyInput, PointerInput, Tool, WheelInput};
+use specular_interact::{
+    Action, ClipboardContent, Event, Key, KeyInput, PointerInput, Tool, WheelInput,
+};
 
 use crate::TestApp;
 
@@ -233,7 +235,10 @@ impl TestApp {
 
     /// The shell answers a paste with the clipboard's text.
     pub fn paste(&mut self, text: &str) -> &mut Self {
-        self.send(Event::Paste(text.to_owned()))
+        self.send(Event::Clipboard(ClipboardContent {
+            text: Some(text.to_owned()),
+            image: None,
+        }))
     }
 
     /// Scrolls by `delta` logical pixels where the pointer is. Positive `y`

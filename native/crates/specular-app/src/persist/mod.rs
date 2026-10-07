@@ -14,7 +14,7 @@ use specular_doc::Document;
 use specular_interact::App;
 
 pub(crate) use self::app_state::camera_of;
-pub(crate) use self::disk::stamp;
+pub(crate) use self::disk::{stamp, write_atomic};
 pub(crate) use self::file_sync::Stamp;
 use self::file_sync::{DiskChange, FileSync, Step};
 
@@ -61,7 +61,12 @@ impl Persistence {
         }
     }
 
-    /// Writes a pending save now, because the app is closing.
+    /// Whether a change is waiting to be written.
+    pub(crate) fn has_unsaved(&self) -> bool {
+        self.sync.has_unsaved()
+    }
+
+    /// Writes a pending save now: the app is closing, or Save was chosen.
     pub(crate) fn flush(&mut self, app: &App) {
         if self.sync.take_unsaved() {
             self.save(app);

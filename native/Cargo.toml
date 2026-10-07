@@ -23,10 +23,14 @@ specular-bench = { path = "crates/specular-bench" }
 specular-testkit = { path = "crates/specular-testkit" }
 
 anyhow = "1.0.100"
+# The system clipboard, text and images.
+arboard = "3.6.1"
 bytemuck = { version = "1.25", features = ["derive"] }
 # Canvas text and paths (ADR 0039). glyphon re-exports cosmic-text 0.19.
 glyphon = "0.12.0"
 lyon = "1.0.19"
+# The native menu bar.
+muda = "0.21.1"
 glam = { version = "0.33", features = ["bytemuck", "serde"] }
 # Decoding image files for the file kind. Only the formats that are drawn.
 image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "webp", "gif"] }
@@ -38,6 +42,8 @@ pollster = "1.0"
 # Markdown for Documents. Only the parser: no HTML output, no CLI.
 pulldown-cmark = { version = "0.13.4", default-features = false }
 raw-window-handle = "0.6"
+# The native open dialog.
+rfd = "0.17.2"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "2.0"

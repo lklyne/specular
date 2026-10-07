@@ -1,9 +1,10 @@
-//! Copies of the selection, for Option-drag and duplicate.
+//! Copies of entities and the edges between them, for Option-drag, duplicate
+//! and paste.
 
 use std::collections::HashMap;
 
 use glam::DVec2;
-use specular_doc::{Command, Edge, EdgeId, Entity, EntityId, ItemId};
+use specular_doc::{Command, Document, Edge, EdgeId, Entity, EntityId, ItemId};
 
 use crate::live::Start;
 use crate::{App, SelectionScope};
@@ -17,6 +18,15 @@ pub(crate) struct Copies {
     pub(crate) members: Vec<ItemId>,
 }
 
+/// What a copy does about a group that is not copied with it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Orphan {
+    /// It stays in the group: the copy sits beside its original.
+    Stays,
+    /// It has no group: the copy came from another document.
+    Leaves,
+}
+
 /// Copies of everything in `scope`, `delta` away from the originals, with
 /// fresh ids. `None` when there is nothing to copy.
 ///
@@ -25,35 +35,70 @@ pub(crate) struct Copies {
 /// group's copy. An edge is copied when both its ends are. A copy hooked to a
 /// page stays hooked only when that page is copied with it.
 pub(crate) fn copies(app: &mut App, scope: &SelectionScope, delta: DVec2) -> Option<Copies> {
-    let originals: Vec<Entity> = (app.document.entities())
-        .filter(|entity| scope.operands.contains(&entity.id))
-        .cloned()
-        .collect();
-    if originals.is_empty() {
+    let copied = |id: &EntityId| scope.operands.contains(id);
+    let ids = fresh_ids(app, |app| needed(&app.document, copied));
+    let at = app.document.stack_len();
+    let (commands, renamed) = insertions(&app.document, copied, ids, at, delta, Orphan::Stays);
+    if commands.is_empty() {
         return None;
     }
-    let ids: HashMap<EntityId, EntityId> = originals
-        .iter()
-        .map(|entity| (entity.id.clone(), EntityId::new(app.fresh_id())))
+    let members = (scope.members.iter())
+        .filter_map(|id| renamed.get(id).cloned())
+        .map(ItemId::Entity)
         .collect();
-    let edges: Vec<Edge> = (app.document.edges())
-        .filter(|edge| ids.contains_key(&edge.from) && ids.contains_key(&edge.to))
-        .cloned()
+    Some(Copies {
+        command: Command::Batch(commands),
+        members,
+    })
+}
+
+/// As many ids as `count` asks for, none of them in `app`'s document.
+pub(crate) fn fresh_ids(app: &mut App, count: impl FnOnce(&App) -> usize) -> Vec<String> {
+    let count = count(app);
+    (0..count).map(|_| app.fresh_id()).collect()
+}
+
+/// How many ids [`insertions`] takes for the entities of `source` that
+/// `copied` accepts: one each, and one for each edge between two of them.
+pub(crate) fn needed(source: &Document, copied: impl Fn(&EntityId) -> bool) -> usize {
+    let entities = source.entities().filter(|entity| copied(&entity.id));
+    let edges = (source.edges()).filter(|edge| copied(&edge.from) && copied(&edge.to));
+    entities.count() + edges.count()
+}
+
+/// The commands that insert copies of the entities of `source` that `copied`
+/// accepts, `delta` away, from stack position `at` up, and the id each
+/// original's copy got. `ids` are the copies' ids: the entities' first, in
+/// stack order, then the edges'.
+pub(crate) fn insertions(
+    source: &Document,
+    copied: impl Fn(&EntityId) -> bool,
+    ids: Vec<String>,
+    at: usize,
+    delta: DVec2,
+    orphan: Orphan,
+) -> (Vec<Command>, HashMap<EntityId, EntityId>) {
+    let mut ids = ids.into_iter();
+    let entity_ids: HashMap<EntityId, EntityId> = (source.entities())
+        .filter(|entity| copied(&entity.id))
+        .zip(ids.by_ref())
+        .map(|(entity, id)| (entity.id.clone(), EntityId::new(id)))
         .collect();
-    let edge_ids: HashMap<EdgeId, EdgeId> = edges
-        .iter()
-        .map(|edge| (edge.id.clone(), EdgeId::new(app.fresh_id())))
+    let edge_ids: HashMap<EdgeId, EdgeId> = (source.edges())
+        .filter(|edge| entity_ids.contains_key(&edge.from) && entity_ids.contains_key(&edge.to))
+        .zip(ids)
+        .map(|(edge, id)| (edge.id.clone(), EdgeId::new(id)))
         .collect();
 
-    let renamed = |id: &EntityId| ids.get(id).cloned();
+    let renamed = |id: &EntityId| entity_ids.get(id).cloned();
     let mut commands = Vec::new();
     // Entities and edges share the stack, so the copies are walked in its
     // order and each goes in front of the one before.
-    for item in app.document.order() {
-        let at = app.document.stack_len() + commands.len();
+    for item in source.order() {
+        let at = at + commands.len();
         match item {
             ItemId::Entity(id) => {
-                let (Some(new_id), Some(entity)) = (renamed(id), app.document.entity(id)) else {
+                let (Some(new_id), Some(entity)) = (renamed(id), source.entity(id)) else {
                     continue;
                 };
                 let (rect, kind) = Start::of(entity).moved(delta);
@@ -63,12 +108,17 @@ pub(crate) fn copies(app: &mut App, scope: &SelectionScope, delta: DVec2) -> Opt
                         ..anchor
                     })
                 });
+                let parent = entity.parent.as_ref().and_then(|parent| {
+                    renamed(parent).or_else(|| match orphan {
+                        Orphan::Stays => Some(parent.clone()),
+                        Orphan::Leaves => None,
+                    })
+                });
                 let copy = Entity {
                     id: new_id,
                     rect,
                     kind: kind.unwrap_or_else(|| entity.kind.clone()),
-                    parent: (entity.parent.as_ref())
-                        .map(|parent| renamed(parent).unwrap_or_else(|| parent.clone())),
+                    parent,
                     anchor,
                     ..entity.clone()
                 };
@@ -78,7 +128,7 @@ pub(crate) fn copies(app: &mut App, scope: &SelectionScope, delta: DVec2) -> Opt
                 });
             }
             ItemId::Edge(id) => {
-                let (Some(new_id), Some(edge)) = (edge_ids.get(id), app.document.edge(id)) else {
+                let (Some(new_id), Some(edge)) = (edge_ids.get(id), source.edge(id)) else {
                     continue;
                 };
                 let (Some(from), Some(to)) = (renamed(&edge.from), renamed(&edge.to)) else {
@@ -97,12 +147,5 @@ pub(crate) fn copies(app: &mut App, scope: &SelectionScope, delta: DVec2) -> Opt
             }
         }
     }
-    let members = (scope.members.iter())
-        .filter_map(renamed)
-        .map(ItemId::Entity)
-        .collect();
-    Some(Copies {
-        command: Command::Batch(commands),
-        members,
-    })
+    (commands, entity_ids)
 }

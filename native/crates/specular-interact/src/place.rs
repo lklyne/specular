@@ -204,7 +204,7 @@ fn shape(app: &App, id: EntityId, rect: Rect) -> Entity {
     Entity::new(id, rect, Kind::Shape(shape))
 }
 
-fn text(app: &App, id: EntityId, at: DVec2, style: TextStyle) -> Entity {
+pub(crate) fn text(app: &App, id: EntityId, at: DVec2, style: TextStyle) -> Entity {
     let defaults = &app.tool_defaults;
     // Plain text's color is its ink, which follows the theme unless one was
     // picked. A sticky's is its card.

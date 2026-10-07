@@ -13,6 +13,7 @@ mod latency;
 mod notes;
 mod paint_lod;
 mod persist;
+mod prefs;
 mod scene;
 mod source_select;
 mod translate;
@@ -51,7 +52,14 @@ fn main() -> anyhow::Result<()> {
     let document = scene::load_document(run.canvas.as_deref(), demo_pages, run.annotations)?;
     // winit must create the macOS application object before CEF initializes,
     // or CEF installs its own and winit panics.
-    let event_loop = EventLoop::new().context("creating event loop")?;
+    let mut event_loop = EventLoop::builder();
+    // The shell installs its own menu bar, except in a benchmark.
+    #[cfg(target_os = "macos")]
+    winit::platform::macos::EventLoopBuilderExtMacOS::with_default_menu(
+        &mut event_loop,
+        run.bench.is_some(),
+    );
+    let event_loop = event_loop.build().context("creating event loop")?;
     let source = source_select::create_source(run.source)?;
     tracing::info!(
         backend = source.name(),

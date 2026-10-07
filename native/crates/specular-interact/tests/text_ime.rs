@@ -162,7 +162,7 @@ fn the_input_method_stays_on_when_an_edit_starts_from_an_entered_page() {
 fn with_nothing_edited_and_no_page_entered_the_input_method_goes_nowhere() {
     let mut app = TestApp::with_entities([sticky("n", NOTE, "ab")]);
     app.click((150.0, 250.0)).take_effects();
-    app.compose("x").commit("y").paste("z");
+    app.compose("x").commit("y");
     assert_eq!(app.take_effects(), []);
     assert_eq!(text_of(app.entity("n")), "ab");
 }

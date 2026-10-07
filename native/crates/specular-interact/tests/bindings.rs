@@ -48,13 +48,14 @@ fn no_two_rows_can_fire_for_the_same_key() {
 }
 
 #[test]
-fn only_escape_fires_inside_an_entered_page() {
+fn only_zoom_to_fit_and_escape_fire_inside_an_entered_page() {
     let everywhere: Vec<_> = BINDINGS
         .iter()
         .filter(|binding| binding.context == Context::Always)
         .map(|binding| &binding.action)
         .collect();
-    assert_eq!(everywhere, [&Action::Cancel]);
+    // Both are ways back out to the canvas. Every other key is the page's.
+    assert_eq!(everywhere, [&Action::ZoomToFit, &Action::Cancel]);
 }
 
 #[test]

@@ -4,7 +4,10 @@ use glam::Vec2;
 use specular_core::{Camera, ImeEvent, Modifiers, PixelRect, PointerEventKind};
 use specular_doc::{Document, EntityId, ItemId};
 
-use crate::{ImageKey, ImageNotice, NoteNotice, Tool, ToolDefaultPatch, ToolDefaults};
+use crate::{
+    ClipboardContent, DroppedFile, ImageKey, ImageNotice, NoteNotice, Tool, ToolDefaultPatch,
+    ToolDefaults,
+};
 
 /// One input to [`update`](crate::update). Window input arrives in logical
 /// screen pixels, origin at the canvas viewport's top-left.
@@ -24,10 +27,6 @@ pub enum Event {
     Key(KeyInput),
     /// The OS input method composed or committed text.
     Ime(ImeEvent),
-    /// Text from the system clipboard: the answer to an
-    /// [`Effect::ReadClipboard`](crate::Effect::ReadClipboard), or a paste
-    /// from the menu. It goes into the text being edited.
-    Paste(String),
     /// A hosted page reported something.
     Page {
         /// The page entity.
@@ -63,6 +62,19 @@ pub enum Event {
     /// A document was loaded: at startup, on switching canvas, or when the
     /// file changed on disk. Replaces the current one and clears the history.
     DocumentOpened(Box<Document>),
+    /// What the system clipboard holds: the answer to an
+    /// [`Effect::ReadClipboard`](crate::Effect::ReadClipboard). Its text goes
+    /// into the text being edited. With no edit open,
+    /// [`Paste::of`](crate::Paste::of) decides what lands on the canvas.
+    Clipboard(ClipboardContent),
+    /// Files were dropped on the canvas.
+    FilesDropped {
+        /// The files, in the order they arrived.
+        files: Vec<DroppedFile>,
+        /// Where they were dropped, in logical screen pixels, when the shell
+        /// knows.
+        screen: Option<Vec2>,
+    },
     /// The tool defaults were read from the preferences file. Replaces the
     /// current ones and asks for no save.
     ToolDefaultsLoaded(Box<ToolDefaults>),
@@ -194,6 +206,22 @@ pub enum Action {
     Delete,
     /// Copy the selection into free space beside it and select the copies.
     Duplicate,
+    /// Put the selection on the clipboard.
+    Copy,
+    /// Put the selection on the clipboard and remove it.
+    Cut,
+    /// Paste the clipboard at the pointer.
+    Paste,
+    /// Select everything that is not inside a group.
+    SelectAll,
+    /// Zoom in one step about the middle of the viewport.
+    ZoomIn,
+    /// Zoom out one step about the middle of the viewport.
+    ZoomOut,
+    /// Zoom to 100% about the middle of the viewport.
+    ZoomReset,
+    /// Show everything on the canvas, centred.
+    ZoomToFit,
     /// Move the selection by exactly this many canvas units.
     Nudge {
         /// Along x. Positive is right.

@@ -4,7 +4,7 @@ use glam::Vec2;
 use specular_core::{CssSize, InputEvent};
 use specular_doc::EntityId;
 
-use crate::{ImageKey, ToolDefaults};
+use crate::{AssetBytes, ImageKey, ToolDefaults};
 
 /// One thing for the shell to do after an [`update`](crate::update). Effects
 /// run in the order they are returned.
@@ -52,12 +52,28 @@ pub enum Effect {
     /// Write the document to its file. Nothing returns this until autosave
     /// (task S9) does.
     Save,
-    /// Put text on the system clipboard. Copy and cut in the text editor
-    /// return it.
+    /// Put text on the system clipboard: the selected text of an edit, or
+    /// the selected entities as [`copy`](crate::Action::Copy) writes them.
     WriteClipboard(String),
     /// Read the system clipboard and answer with
-    /// [`Event::Paste`](crate::Event::Paste) if it holds text.
+    /// [`Event::Clipboard`](crate::Event::Clipboard).
     ReadClipboard,
+    /// Write `bytes` to a new file in the space folder. It comes before the
+    /// effect that loads the file.
+    WriteAsset {
+        /// Where, relative to the space folder.
+        file: String,
+        /// The file's contents.
+        bytes: AssetBytes,
+    },
+    /// Copy a file from outside the space folder into it. It comes before
+    /// the effect that loads the copy.
+    CopyAsset {
+        /// The absolute path of the file to copy.
+        from: String,
+        /// Where the copy goes, relative to the space folder.
+        file: String,
+    },
     /// Decode an image file and upload it under `image`, then answer with
     /// [`Event::Image`](crate::Event::Image).
     LoadImage {

@@ -86,9 +86,11 @@ impl Shell {
             Effect::DropImage(image) => self.drop_image(image),
             Effect::LoadNote { file } => self.load_note(&file),
             Effect::DropNote { file } => self.drop_note(&file),
-            Effect::WriteClipboard(_) | Effect::ReadClipboard | Effect::SaveToolDefaults(_) => {
-                tracing::debug!(?effect, "effect has no runner yet");
-            }
+            Effect::WriteClipboard(text) => self.write_clipboard(text),
+            Effect::ReadClipboard => self.read_clipboard(),
+            Effect::WriteAsset { file, bytes } => self.write_asset(&file, bytes.as_slice()),
+            Effect::CopyAsset { from, file } => self.copy_asset(&from, &file),
+            Effect::SaveToolDefaults(defaults) => self.save_tool_defaults(&defaults),
         }
         Ok(())
     }

@@ -1,0 +1,194 @@
+//! The preferences file: app settings that are not part of any canvas.
+//!
+//! One JSON object in the app's config folder. This shell reads and writes
+//! `toolDefaults` and keeps every other key as it found it. The file is the
+//! native app's own: the Electron app keeps its settings in memory and
+//! rewrites its file whole, so two writers on one file would lose changes.
+
+use std::ffi::OsString;
+use std::io;
+use std::path::{Path, PathBuf};
+
+use serde_json::{Map, Value};
+use specular_interact::ToolDefaults;
+
+use crate::persist::write_atomic;
+
+const FILE_NAME: &str = "preferences.json";
+const TOOL_DEFAULTS_KEY: &str = "toolDefaults";
+/// Overrides the config folder, for a run that must not touch the real one.
+const CONFIG_DIR_VARIABLE: &str = "SPECULAR_NATIVE_CONFIG_DIR";
+
+/// Where the preferences file is, or `None` when the environment names no
+/// home to put it under.
+pub(crate) fn file() -> Option<PathBuf> {
+    let folder = config_dir(|name| std::env::var_os(name), cfg!(target_os = "macos"))?;
+    Some(folder.join(FILE_NAME))
+}
+
+/// The app's config folder: the override, else Application Support on macOS,
+/// else the XDG config folder.
+fn config_dir(variable: impl Fn(&str) -> Option<OsString>, macos: bool) -> Option<PathBuf> {
+    let set = |name: &str| variable(name).filter(|value| !value.is_empty());
+    if let Some(folder) = set(CONFIG_DIR_VARIABLE) {
+        return Some(PathBuf::from(folder));
+    }
+    let home = set("HOME").map(PathBuf::from);
+    if macos {
+        return Some(home?.join("Library/Application Support/Specular Native"));
+    }
+    let config =
+        (set("XDG_CONFIG_HOME").map(PathBuf::from)).or(home.map(|home| home.join(".config")));
+    Some(config?.join("specular-native"))
+}
+
+/// The file's top-level object. A missing file is an empty one.
+fn read(path: &Path) -> io::Result<Map<String, Value>> {
+    let text = match std::fs::read_to_string(path) {
+        Ok(text) => text,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(Map::new()),
+        Err(error) => return Err(error),
+    };
+    match serde_json::from_str(&text) {
+        Ok(Value::Object(preferences)) => Ok(preferences),
+        Ok(_) => Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "preferences are not a JSON object",
+        )),
+        Err(error) => Err(io::Error::new(io::ErrorKind::InvalidData, error)),
+    }
+}
+
+/// The saved tool defaults, or `None` when there are none to read.
+pub(crate) fn load_tool_defaults(path: &Path) -> Option<ToolDefaults> {
+    match read(path) {
+        Ok(preferences) => preferences
+            .get(TOOL_DEFAULTS_KEY)
+            .map(ToolDefaults::from_json),
+        Err(error) => {
+            tracing::warn!(path = %path.display(), "preferences not read: {error}");
+            None
+        }
+    }
+}
+
+/// Writes `defaults` under `toolDefaults`, keeping the file's other keys. A
+/// file that cannot be read as preferences is left alone.
+pub(crate) fn save_tool_defaults(path: &Path, defaults: &ToolDefaults) -> io::Result<()> {
+    let mut preferences = read(path)?;
+    preferences.insert(TOOL_DEFAULTS_KEY.to_owned(), defaults.to_json());
+    let text = serde_json::to_string_pretty(&Value::Object(preferences))?;
+    if let Some(folder) = path.parent() {
+        std::fs::create_dir_all(folder)?;
+    }
+    write_atomic(path, &format!("{text}\n"))
+}
+
+#[cfg(test)]
+mod tests {
+    use specular_doc::ShapeKind;
+    use specular_interact::ToolDefaultPatch;
+
+    use super::*;
+
+    /// A fresh folder under the system temp dir, removed on drop.
+    struct TempDir(PathBuf);
+
+    impl TempDir {
+        fn new(name: &str) -> Self {
+            let dir =
+                std::env::temp_dir().join(format!("specular-prefs-{name}-{}", std::process::id()));
+            let _ = std::fs::remove_dir_all(&dir);
+            Self(dir)
+        }
+    }
+
+    impl Drop for TempDir {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    fn diamonds() -> ToolDefaults {
+        let mut defaults = ToolDefaults::default();
+        defaults.apply(ToolDefaultPatch::ShapeKind(ShapeKind::Diamond));
+        defaults
+    }
+
+    fn environment(
+        pairs: &'static [(&'static str, &'static str)],
+    ) -> impl Fn(&str) -> Option<OsString> {
+        move |name| {
+            (pairs.iter())
+                .find(|(key, _)| *key == name)
+                .map(|(_, value)| OsString::from(value))
+        }
+    }
+
+    #[test]
+    fn the_config_folder_follows_the_platform() {
+        let home = environment(&[("HOME", "/Users/me")]);
+        assert_eq!(
+            config_dir(&home, true),
+            Some(PathBuf::from(
+                "/Users/me/Library/Application Support/Specular Native"
+            ))
+        );
+        assert_eq!(
+            config_dir(&home, false),
+            Some(PathBuf::from("/Users/me/.config/specular-native"))
+        );
+        let xdg = environment(&[("HOME", "/home/me"), ("XDG_CONFIG_HOME", "/cfg")]);
+        assert_eq!(
+            config_dir(xdg, false),
+            Some(PathBuf::from("/cfg/specular-native"))
+        );
+    }
+
+    #[test]
+    fn the_override_wins_and_no_home_means_no_folder() {
+        let overridden = environment(&[("HOME", "/Users/me"), (CONFIG_DIR_VARIABLE, "/tmp/cfg")]);
+        assert_eq!(
+            config_dir(overridden, true),
+            Some(PathBuf::from("/tmp/cfg"))
+        );
+        assert_eq!(config_dir(environment(&[]), true), None);
+        assert_eq!(config_dir(environment(&[("HOME", "")]), false), None);
+    }
+
+    #[test]
+    fn saved_defaults_are_read_back() {
+        let dir = TempDir::new("round-trip");
+        let path = dir.0.join("nested").join(FILE_NAME);
+        assert_eq!(load_tool_defaults(&path), None);
+        save_tool_defaults(&path, &diamonds()).unwrap();
+        assert_eq!(load_tool_defaults(&path), Some(diamonds()));
+    }
+
+    #[test]
+    fn a_save_keeps_the_other_preferences() {
+        let dir = TempDir::new("other-keys");
+        std::fs::create_dir_all(&dir.0).unwrap();
+        let path = dir.0.join(FILE_NAME);
+        std::fs::write(
+            &path,
+            r#"{"spacePath":"/Users/me/Space","toolDefaults":{"draw":{}}}"#,
+        )
+        .unwrap();
+        save_tool_defaults(&path, &diamonds()).unwrap();
+        let saved: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(saved["spacePath"], "/Users/me/Space");
+        assert_eq!(saved["toolDefaults"]["add-shape"]["shapeKind"], "diamond");
+    }
+
+    #[test]
+    fn a_file_that_is_not_preferences_is_left_alone() {
+        let dir = TempDir::new("damaged");
+        std::fs::create_dir_all(&dir.0).unwrap();
+        let path = dir.0.join(FILE_NAME);
+        std::fs::write(&path, "[1, 2").unwrap();
+        assert_eq!(load_tool_defaults(&path), None);
+        assert!(save_tool_defaults(&path, &diamonds()).is_err());
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "[1, 2");
+    }
+}
