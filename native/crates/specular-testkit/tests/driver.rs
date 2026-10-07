@@ -1,7 +1,8 @@
 //! The driver itself: what each scripted input sends and what the assert
 //! helpers catch.
 
-use specular_core::{InputEvent, KeyEventKind};
+use specular_core::{CssSize, InputEvent, KeyEventKind};
+use specular_doc::EntityId;
 use specular_interact::{Effect, Focus};
 use specular_testkit::{ALT, TestApp, assert_doc_snapshot, document, pages};
 
@@ -63,10 +64,12 @@ fn a_double_click_enters_the_page_and_typed_text_reaches_it() {
 #[test]
 fn held_modifiers_apply_until_let_go() {
     let mut app = TestApp::with_pages(1);
-    app.hold(ALT).drag((200.0, 150.0), (210.0, 150.0)).let_go();
-    let moved = app.rect("p1").x;
-    app.drag((210.0, 150.0), (300.0, 150.0));
-    assert_eq!((moved, app.rect("p1").x), (110.0, 110.0));
+    // With Option held a drag leaves a copy; without it the drag moves.
+    app.hold(ALT).drag((200.0, 150.0), (200.0, 550.0)).let_go();
+    let copied = (app.document().entities().count(), app.rect("p1").x);
+    app.drag((200.0, 150.0), (300.0, 150.0));
+    let moved = (app.document().entities().count(), app.rect("p1").x);
+    assert_eq!((copied, moved), ((2, 100.0), (2, 200.0)));
 }
 
 #[test]
@@ -84,13 +87,16 @@ fn the_undo_assertion_leaves_the_document_and_the_effects_as_they_were() {
     let (before, effects) = (app.doc_snapshot(), app.effects().to_vec());
     app.assert_undo_returns_to_start();
     assert_eq!((app.doc_snapshot(), app.effects()), (before, &effects[..]));
-    assert_eq!(effects.len(), 1);
+    assert!(effects.contains(&Effect::SetPageViewport {
+        page: EntityId::from("p1"),
+        viewport: CssSize::new(500, 360)
+    }));
 }
 
 #[test]
 #[should_panic(expected = "a gesture is in flight")]
 fn the_undo_assertion_refuses_to_run_mid_drag() {
     let mut app = TestApp::with_pages(1);
-    app.hold(ALT).press((200.0, 150.0)).drag_to((300.0, 150.0));
+    app.press((200.0, 150.0)).drag_to((300.0, 150.0));
     app.assert_undo_returns_to_start();
 }

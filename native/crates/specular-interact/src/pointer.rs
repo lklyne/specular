@@ -72,7 +72,7 @@ fn on_down(
     effects: &mut Vec<Effect>,
 ) {
     app.session.pointer = Some(input.screen);
-    if button == PointerButton::Left && tool_takes_press(app, input, click_count, effects) {
+    if button == PointerButton::Left && tool_takes_press(app, input, click_count) {
         return;
     }
     if let Some((page, local)) = entered_page(app, hit::hit_test(app, input.screen)) {
@@ -114,9 +114,12 @@ fn on_up(
     effects: &mut Vec<Effect>,
 ) {
     app.session.pointer = Some(input.screen);
-    if button == PointerButton::Left
-        && let Some(gesture) = app.session.gesture.take()
-    {
+    if button == PointerButton::Left && app.session.gesture.is_some() {
+        // The release counts as the drag's last frame.
+        gesture::drag(app, input);
+        let Some(gesture) = app.session.gesture.take() else {
+            return;
+        };
         gesture::finish(app, gesture, input, effects);
         return;
     }
@@ -143,12 +146,7 @@ fn on_up(
 
 /// Offers a left press to the active tool. Returns whether the tool took it,
 /// in which case nothing is forwarded.
-fn tool_takes_press(
-    app: &mut App,
-    input: &PointerInput,
-    click_count: u8,
-    effects: &mut Vec<Effect>,
-) -> bool {
+fn tool_takes_press(app: &mut App, input: &PointerInput, click_count: u8) -> bool {
     match app.session.tool {
         Tool::Comment => {
             let world = app.session.camera.screen_to_world(input.screen).as_dvec2();
@@ -160,7 +158,7 @@ fn tool_takes_press(
             });
             true
         }
-        Tool::Select => select::press(app, input, click_count, effects),
+        Tool::Select => select::press(app, input, click_count),
         // Placement and drawing arrive with each kind's slice. Until then
         // these tools hold the press so it does not reach a page.
         Tool::AddPage

@@ -2,12 +2,12 @@
 //! cancelling it does.
 
 use glam::{DVec2, Vec2};
-use specular_doc::{Command, Document, EntityId, Rect};
+use specular_doc::{Command, EntityId};
 
 use crate::marquee::MarqueeMode;
-use crate::{
-    App, Corner, Effect, PagePlacement, PointerInput, comment, geometry, handles, marquee,
-};
+use crate::move_drag::{self, MoveDrag};
+use crate::resize_drag::{self, ResizeDrag};
+use crate::{App, Effect, PointerInput, comment, geometry, marquee};
 
 /// A pointer drag between a press and its release. It owns the pointer: no
 /// page sees the moves or the release.
@@ -16,27 +16,11 @@ use crate::{
 /// list every place that must handle it.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Gesture {
-    /// Moving entities.
-    Move {
-        /// The canvas point the drag started at.
-        origin: DVec2,
-        /// Each moved entity and the rect it started with.
-        items: Vec<(EntityId, Rect)>,
-    },
+    /// Pressed on a body: a move of the selection once the pointer has
+    /// travelled, a click until then.
+    Move(MoveDrag),
     /// Dragging a resize handle.
-    Resize {
-        /// The entity being resized.
-        entity: EntityId,
-        /// The handle being dragged.
-        corner: Corner,
-        /// The handle's offset from the pointer at the press, so the rect
-        /// does not jump.
-        grab: DVec2,
-        /// The rect the entity started with.
-        start: Rect,
-        /// The smallest size the drag may produce.
-        min_size: DVec2,
-    },
+    Resize(ResizeDrag),
     /// Pressed on empty canvas, or through a body with Command or Control
     /// held: a marquee once the pointer has travelled, a click until then.
     Marquee {
@@ -67,35 +51,44 @@ pub enum Gesture {
     },
 }
 
-/// The pointer moved mid-drag.
+/// The pointer moved mid-drag, or a modifier changed under it.
 pub(crate) fn drag(app: &mut App, input: &PointerInput) {
     let world = app.session.camera.screen_to_world(input.screen).as_dvec2();
-    match &mut app.session.gesture {
+    // Taken out while it runs, so it can change the document it sits beside.
+    match app.session.gesture.take() {
         None => {}
-        Some(Gesture::Move { origin, items }) => {
-            let delta = world - *origin;
-            for (id, start) in items.iter() {
-                set_rect(&mut app.document, id, start.translated(delta.x, delta.y));
-            }
+        Some(Gesture::Move(mut drag)) => {
+            move_drag::drag(app, &mut drag, input);
+            app.session.gesture = Some(Gesture::Move(drag));
         }
-        Some(Gesture::Resize {
-            entity,
-            corner,
-            grab,
+        Some(Gesture::Resize(drag)) => {
+            resize_drag::drag(app, &drag, world, input.modifiers);
+            app.session.gesture = Some(Gesture::Resize(drag));
+        }
+        Some(gesture @ Gesture::Marquee { .. }) => {
+            app.session.gesture = Some(gesture);
+            marquee::drag(app, input);
+        }
+        Some(Gesture::CommentRegion {
             start,
-            min_size,
+            start_screen,
+            page,
+            ..
         }) => {
-            let rect = handles::resized(*start, *corner, world + *grab, *min_size);
-            set_rect(&mut app.document, entity, rect);
+            app.session.gesture = Some(Gesture::CommentRegion {
+                start,
+                start_screen,
+                current: world,
+                page,
+            });
         }
-        Some(Gesture::Marquee { .. }) => marquee::drag(app, input),
-        Some(Gesture::CommentRegion { current, .. }) => *current = world,
     }
 }
 
-/// The button came up, ending `gesture`. A move or resize becomes one undo
-/// step; a resized page is re-laid-out; a marquee changes the selection; a
-/// comment drag long enough to not be a click creates its annotation.
+/// The button came up, ending `gesture`. A move, a copy or a resize becomes
+/// one undo step; a resized page is re-laid-out; a marquee changes the
+/// selection; a comment drag long enough to not be a click creates its
+/// annotation.
 pub(crate) fn finish(
     app: &mut App,
     gesture: Gesture,
@@ -111,19 +104,8 @@ pub(crate) fn finish(
             dragged,
             ..
         } => marquee::finish(app, start, start_screen, origin, dragged, input),
-        Gesture::Move { items, .. } => commit_rects(app, &items),
-        Gesture::Resize { entity, start, .. } => {
-            let laid_out_at = PagePlacement::viewport_for(start);
-            commit_rects(app, &[(entity.clone(), start)]);
-            if let Some(placement) = app.page_placement(&entity)
-                && placement.viewport != laid_out_at
-            {
-                effects.push(Effect::SetPageViewport {
-                    page: entity,
-                    viewport: placement.viewport,
-                });
-            }
-        }
+        Gesture::Move(drag) => move_drag::finish(app, drag, effects),
+        Gesture::Resize(drag) => resize_drag::finish(app, &drag, effects),
         Gesture::CommentRegion {
             start,
             start_screen,
@@ -143,14 +125,8 @@ pub(crate) fn finish(
 pub(crate) fn cancel(app: &mut App) {
     match app.session.gesture.take() {
         None | Some(Gesture::Marquee { .. } | Gesture::CommentRegion { .. }) => {}
-        Some(Gesture::Move { items, .. }) => {
-            for (id, start) in &items {
-                set_rect(&mut app.document, id, *start);
-            }
-        }
-        Some(Gesture::Resize { entity, start, .. }) => {
-            set_rect(&mut app.document, &entity, start);
-        }
+        Some(Gesture::Move(drag)) => move_drag::cancel(app, &drag),
+        Some(Gesture::Resize(drag)) => crate::live::restore(&mut app.document, drag.starts()),
     }
 }
 
@@ -159,50 +135,4 @@ pub(crate) fn apply_step(app: &mut App, command: Command) {
     if let Err(error) = app.history.apply(&mut app.document, command) {
         tracing::warn!("command refused: {error}");
     }
-}
-
-/// Changes a rect without an undo step, for the frames of a drag.
-fn set_rect(document: &mut Document, id: &EntityId, rect: Rect) {
-    let command = Command::SetRect {
-        id: id.clone(),
-        rect,
-    };
-    if let Err(error) = document.apply(command) {
-        tracing::warn!("drag refused: {error}");
-    }
-}
-
-/// Turns the rects a drag left in the document into one undo step whose
-/// inverse restores `starts`.
-fn commit_rects(app: &mut App, starts: &[(EntityId, Rect)]) {
-    let (mut restore, mut commit) = (Vec::new(), Vec::new());
-    for (id, start) in starts {
-        let Some(entity) = app.document.entity(id) else {
-            continue;
-        };
-        if entity.rect == *start {
-            continue;
-        }
-        restore.push(Command::SetRect {
-            id: id.clone(),
-            rect: *start,
-        });
-        commit.push(Command::SetRect {
-            id: id.clone(),
-            rect: entity.rect,
-        });
-    }
-    if commit.is_empty() {
-        return;
-    }
-    if let Err(error) = app.document.apply(Command::Batch(restore)) {
-        tracing::warn!("drag could not be recorded: {error}");
-        return;
-    }
-    let step = if commit.len() == 1 {
-        commit.remove(0)
-    } else {
-        Command::Batch(commit)
-    };
-    apply_step(app, step);
 }

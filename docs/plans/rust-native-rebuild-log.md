@@ -65,6 +65,16 @@ with the task that made it.
 - S9: nothing is saved or reloaded while a gesture is in flight. The document holds the drag's unfinished rects, which Escape takes back.
 - S9: the camera is written only when a document change saves. Panning alone does not write the file. A pending save is flushed on exit.
 - S9: a run with `--bench` or `--annotations N` never writes the file or reads its camera. A file with no `appState` camera opens at the old fixed start camera.
+- S3: a plain drag on a body moves the selection. Option held during the drag makes it a copy, as in Electron. The spike's Alt+drag move is gone.
+- S3: a move snaps to the 20-unit grid, as Electron's does. The pressed entity's top-left lands on a grid line and every other operand moves by the same delta, so a selection keeps its layout. Electron snaps each entity on its own. A pressed drawing does not snap.
+- S3: entering a page (ADR 0022) happens when the click is released, not on the press, because a press on the selected page may turn into a drag.
+- S4: resize is computed from the start rect and the pointer each frame, not from accumulated deltas as in `resize-accumulator.ts`. The results match except past a limit, where Electron's version drifts from the pointer.
+- S4: Option does nothing in a resize, as in Electron. Shift follows the kind's `AspectMode`: shapes and non-media files lock with Shift, text and image or video files unlock with it.
+- S4: text height is content-sized and nothing measures text headless. A scaling drag that keeps the ratio writes the scaled height as a stand-in; reflow and Shift drags leave the height alone.
+- S4: resizing a page writes no `pageSizeMode` or device metadata and leaves `preset_index`. The viewport is still the rect's size (F4).
+- S5: copies keep their group unless the group is copied too, lose a page anchor unless that page is copied, and take an edge only when both its ends are copied. They go in front of the stack.
+- S5: duplicate places the copy 80 units to the right, else below, else at the first free spot of a grid scan. Every entity counts as occupied.
+- S5: the cursor is recomputed after every event but a tick and returned as `Effect::SetCursor` only when it changes. `Session::cursor` holds the last one.
 
 ## Needs a human at a Mac
 
@@ -77,6 +87,7 @@ Things an agent could not verify headless.
 - F4: nothing was run. Agents may not start `specular-app`, so check `specular-app fixtures/input.canvas` by hand (click, type, Alt+drag, corner resize, C then drag, Escape, Cmd+Z and Cmd+Shift+Z with no page focused) and one `--bench` run against an older build for output shape and frame times.
 - S1 and S2: nothing was run. With `specular-app fixtures/input.canvas`, check that one click selects a page without the page reacting, a second click or a double-click lets you type into it, Escape leaves it, and a drag from empty canvas does not scroll or select text in a page.
 - S9: nothing was run. Open a copy of a canvas, move something, and check the file changes about a third of a second later with the camera in `appState`. Edit the file in an editor while the app is idle and check the canvas follows, keeping the camera. Quit within 350 ms of a change and check it was written.
+- S3 to S5: nothing was run. Check drag feel against the grid, Shift mid-drag, Option-drag (the copy preview is not drawn yet), each handle on each kind, a two-item resize, Backspace, Cmd+D, arrows, and the corner cursors.
 
 ## Entries
 
@@ -188,3 +199,18 @@ Things an agent could not verify headless.
 - For S6 and later effects: `Effect::WriteClipboard` still only logs.
 - Not done: a max wait on the debounce. Someone who changes the document at least every 350 ms for a long time is not saved until they pause.
 - Gate: fmt, clippy and tests pass for `specular-doc` and `specular-app`, and for `specular-interact` on HEAD plus this change (checked in an exported copy). The working tree had another agent's move and resize work in `specular-interact`, whose `tests/moves.rs` fails clippy; none of it is in this commit.
+
+### S3, S4 and S5. See `git log -- native/crates/specular-interact/src/move_drag.rs`
+
+- Move: `Gesture::Move(MoveDrag)` in `move_drag.rs`. Any selection, built from `selection_scope().operands`, with the grid, Shift's axis lock and drawing points. A click on one of several selected items selects it alone.
+- Resize: `Gesture::Resize(ResizeDrag)` in `resize_drag.rs`, math in `resize.rs`. All eight handles for one entity and for a selection. Text reflows from the sides and scales its size from the rest. Drawings scale their points. Pages get one `SetPageViewport` on release.
+- Verbs in `verbs.rs`: `Action::Delete` (Backspace, Delete), `Action::Duplicate` (Cmd+D), `Action::Nudge` (arrows 5, Shift+arrows 20). Option-drag copy shares `clone.rs` with duplicate.
+- `live.rs` is the shared drag plumbing: `Start` captures an entity, `write` is one frame with no undo step, `commit` makes the one step. New gestures should use it.
+- `update::document_step` runs a command as one step and reconciles page hosts and the selection. Use it for any command that can add or remove pages.
+- A modifier pressed or released mid-drag takes effect at once, marquee included. That closes the S2 note about Command mid-marquee.
+- Not done: side handles show no resize cursor. `Cursor` needs `ResizeNs` and `ResizeEw`, and `specular-app/src/translate.rs` matches on `Cursor` with no wildcard, so adding them breaks the shell until it gets two arms. Then change `cursor::of_handle`.
+- For the scene: `App::copy_preview()` gives the rects an Option-drag would leave copies at. Nothing draws them.
+- Not done: dropping into or out of a group on release, re-resolving a page anchor after a move, alignment guides.
+- `tests/gestures.rs`, the testkit's `driver.rs` and doc example, and the example in `native/CLAUDE.md` no longer use Alt+drag as a move.
+- I ran `cargo fmt --all` once, which may have reformatted another agent's uncommitted compositor files.
+- Gate: fmt, clippy and tests pass for `specular-doc`, `specular-interact` and `specular-testkit` on this commit alone, checked in an exported copy (302 tests). The workspace gate passed its tests once (759) and then failed in `specular-compositor`, `specular-scene` and `specular-app`, which other agents had mid-edit. Their image hunks in `specular-interact` are not in this commit.

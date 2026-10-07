@@ -5,7 +5,7 @@ use specular_core::Camera;
 use specular_doc::{Document, Entity, EntityId, History, ItemId, Kind, Page};
 
 use crate::page_input::ButtonCapture;
-use crate::{Gesture, PagePlacement, Tool};
+use crate::{Cursor, Gesture, PagePlacement, Tool};
 
 /// Everything the app knows. Only [`update`](crate::update) changes it.
 #[derive(Debug, Clone, Default)]
@@ -58,13 +58,8 @@ impl App {
         let entity = self.document.entity(id)?;
         page_of(entity)?;
         let laid_out_at = match &self.session.gesture {
-            Some(Gesture::Resize { entity, start, .. }) if entity == id => *start,
-            Some(
-                Gesture::Resize { .. }
-                | Gesture::Move { .. }
-                | Gesture::Marquee { .. }
-                | Gesture::CommentRegion { .. },
-            )
+            Some(Gesture::Resize(drag)) => drag.start_rect(id).unwrap_or(entity.rect),
+            Some(Gesture::Move(_) | Gesture::Marquee { .. } | Gesture::CommentRegion { .. })
             | None => entity.rect,
         };
         Some(PagePlacement {
@@ -79,6 +74,18 @@ impl App {
             let page = page_of(entity)?;
             Some((&entity.id, page, self.page_placement(&entity.id)?))
         })
+    }
+
+    /// An id no entity or edge in the document uses.
+    pub(crate) fn fresh_id(&mut self) -> String {
+        loop {
+            let id = self.session.next_id();
+            let taken = self.document.entity(&EntityId::from(id.as_str())).is_some()
+                || (self.document.edge(&specular_doc::EdgeId::from(id.as_str()))).is_some();
+            if !taken {
+                return id;
+            }
+        }
     }
 
     /// An annotation id nothing in the document uses.
@@ -118,6 +125,8 @@ pub struct Session {
     pub hover: Option<EntityId>,
     /// What keys go to.
     pub focus: Focus,
+    /// The cursor the shell was last asked to show.
+    pub cursor: Cursor,
     /// Where the pointer is, in logical screen pixels. `None` when it is
     /// outside the window.
     pub pointer: Option<Vec2>,
@@ -139,8 +148,7 @@ impl Session {
             Some(Gesture::CommentRegion { start, current, .. }) => {
                 Some(crate::geometry::spanning(*start, *current))
             }
-            Some(Gesture::Move { .. } | Gesture::Resize { .. } | Gesture::Marquee { .. })
-            | None => None,
+            Some(Gesture::Move(_) | Gesture::Resize(_) | Gesture::Marquee { .. }) | None => None,
         }
     }
 

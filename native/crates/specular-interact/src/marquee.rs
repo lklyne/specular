@@ -56,8 +56,8 @@ impl App {
             }) => Some(geometry::spanning(*start, *current)),
             Some(
                 Gesture::Marquee { .. }
-                | Gesture::Move { .. }
-                | Gesture::Resize { .. }
+                | Gesture::Move(_)
+                | Gesture::Resize(_)
                 | Gesture::CommentRegion { .. },
             )
             | None => None,

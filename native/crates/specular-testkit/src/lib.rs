@@ -2,10 +2,10 @@
 //! assert on the document, the session and the effects.
 //!
 //! ```
-//! use specular_testkit::{ALT, TestApp};
+//! use specular_testkit::TestApp;
 //!
 //! let mut app = TestApp::with_pages(2);
-//! app.hold(ALT).drag((200.0, 150.0), (260.0, 130.0)).let_go();
+//! app.drag((200.0, 150.0), (260.0, 130.0));
 //! assert_eq!(app.rect("p1").x, 160.0);
 //! app.assert_undo_returns_to_start();
 //! ```

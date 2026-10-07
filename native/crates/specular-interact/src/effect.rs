@@ -56,9 +56,10 @@ pub enum Effect {
 }
 
 /// A pointer cursor.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum Cursor {
     /// The arrow.
+    #[default]
     Default,
     /// A creation tool is armed.
     Crosshair,

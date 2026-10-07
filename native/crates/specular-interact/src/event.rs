@@ -155,4 +155,16 @@ pub enum Action {
     Select(Vec<ItemId>),
     /// Move the camera.
     SetCamera(Camera),
+    /// Remove the selection, with what is inside its groups, what is hooked
+    /// to its pages and the edges that would lose an end.
+    Delete,
+    /// Copy the selection into free space beside it and select the copies.
+    Duplicate,
+    /// Move the selection by exactly this many canvas units.
+    Nudge {
+        /// Along x. Positive is right.
+        dx: f64,
+        /// Along y. Positive is down.
+        dy: f64,
+    },
 }

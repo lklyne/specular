@@ -89,6 +89,24 @@ impl Handle {
         Self::Side(EdgeSide::Left),
     ];
 
+    /// `-1` on the axes where this handle moves the low edge, `1` the high
+    /// edge, `0` where it moves neither.
+    pub(crate) fn sign(self) -> DVec2 {
+        match self {
+            Self::Corner(corner) => corner.sign(),
+            Self::Side(EdgeSide::Top) => DVec2::new(0.0, -1.0),
+            Self::Side(EdgeSide::Right) => DVec2::new(1.0, 0.0),
+            Self::Side(EdgeSide::Bottom) => DVec2::new(0.0, 1.0),
+            Self::Side(EdgeSide::Left) => DVec2::new(-1.0, 0.0),
+        }
+    }
+
+    /// Where this handle sits on `rect`, in canvas space: the corner, or the
+    /// middle of the side.
+    pub fn point(self, rect: Rect) -> DVec2 {
+        geometry::origin(rect) + geometry::size(rect) * (self.sign() * 0.5 + DVec2::splat(0.5))
+    }
+
     /// Where a press counts as this handle, given the selection outline on
     /// screen. A side strip runs the outline's full length.
     fn hit_rect(self, outline: ScreenRect) -> ScreenRect {
@@ -159,27 +177,11 @@ pub(crate) fn hit(bounds: ScreenRect, screen: Vec2) -> Option<Handle> {
         .find(|handle| handle.hit_rect(outline).contains(screen))
 }
 
-/// `start` resized by dragging `corner` to `target` (canvas space): the
-/// opposite corner stays fixed, and the rect never goes below `min_size` or
-/// flips.
-pub(crate) fn resized(start: Rect, corner: Corner, target: DVec2, min_size: DVec2) -> Rect {
-    let fixed = corner.opposite().point(start);
-    let sign = corner.sign();
-    let size = ((target - fixed) * sign).max(min_size);
-    let origin = fixed
-        + DVec2::new(
-            if sign.x > 0.0 { 0.0 } else { -size.x },
-            if sign.y > 0.0 { 0.0 } else { -size.y },
-        );
-    geometry::rect(origin, size)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     const RECT: Rect = Rect::new(100.0, 100.0, 400.0, 300.0);
-    const MIN_SIZE: DVec2 = DVec2::new(120.0, 80.0);
 
     #[test]
     fn corner_points_are_the_rect_corners() {
@@ -193,28 +195,5 @@ mod tests {
                 DVec2::new(100.0, 400.0),
             ]
         );
-    }
-
-    #[test]
-    fn dragging_bottom_right_grows_from_the_top_left() {
-        let next = resized(
-            RECT,
-            Corner::BottomRight,
-            DVec2::new(600.0, 500.0),
-            MIN_SIZE,
-        );
-        assert_eq!(next, Rect::new(100.0, 100.0, 500.0, 400.0));
-    }
-
-    #[test]
-    fn dragging_top_left_holds_the_bottom_right_fixed() {
-        let next = resized(RECT, Corner::TopLeft, DVec2::new(0.0, 50.0), MIN_SIZE);
-        assert_eq!(next, Rect::new(0.0, 50.0, 500.0, 350.0));
-    }
-
-    #[test]
-    fn resize_stops_at_the_minimum_size_instead_of_flipping() {
-        let next = resized(RECT, Corner::TopLeft, DVec2::new(900.0, 900.0), MIN_SIZE);
-        assert_eq!(next, Rect::new(380.0, 320.0, 120.0, 80.0));
     }
 }

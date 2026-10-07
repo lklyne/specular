@@ -52,12 +52,12 @@ use the testkit on that crate's own types.
 
 ```rust
 use specular_interact::Key;
-use specular_testkit::{ALT, CMD, TestApp, assert_doc_snapshot};
+use specular_testkit::{SHIFT, TestApp, assert_doc_snapshot};
 
 #[test]
-fn alt_drag_moves_the_page() {
+fn shift_drag_moves_the_page_along_one_axis() {
     let mut app = TestApp::with_pages(2); // p1 at (100, 100), p2 at (700, 100), 400x300
-    app.hold(ALT).drag((200.0, 150.0), (260.0, 130.0)).let_go();
+    app.press((200.0, 150.0)).hold(SHIFT).drag_to((260.0, 130.0)).release().let_go();
     assert_doc_snapshot!(app, @"");       // the failure prints the text to put here
     app.assert_undo_returns_to_start();   // every test that changes the document ends with this
 }

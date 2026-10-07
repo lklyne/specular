@@ -17,31 +17,40 @@
 //! A drag changes the document as it goes, through
 //! [`Document::apply`](specular_doc::Document::apply), so everything that
 //! reads the document sees the live rect. Releasing the drag records one
-//! undo step; cancelling it puts the start rects back.
+//! undo step; cancelling it puts everything back as the drag found it.
 
 mod app;
 mod camera;
 mod caps;
+mod clone;
 mod comment;
+mod cursor;
 mod edge_path;
 mod effect;
 mod event;
 mod focus;
 mod geometry;
 mod gesture;
+mod grid;
 mod handles;
 mod hit;
 mod keys;
+mod live;
 mod marquee;
+mod move_drag;
 mod page_input;
 mod pages;
 mod placement;
 mod pointer;
+mod resize;
+mod resize_drag;
 mod scope;
 mod select;
+mod strokes;
 mod time;
 mod tool;
 mod update;
+mod verbs;
 
 pub use app::{App, Focus, Selection, Session};
 pub use caps::{AspectMode, aspect_mode, has_anchors, min_size};
@@ -54,7 +63,9 @@ pub use gesture::Gesture;
 pub use handles::{Corner, HANDLE_SIZE, Handle, HandleOwner, OUTLINE_PADDING};
 pub use hit::{Hit, hit_test};
 pub use marquee::MarqueeMode;
+pub use move_drag::MoveDrag;
 pub use placement::PagePlacement;
+pub use resize_drag::ResizeDrag;
 pub use scope::SelectionScope;
 pub use tool::Tool;
 pub use update::update;

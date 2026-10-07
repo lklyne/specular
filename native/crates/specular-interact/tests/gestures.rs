@@ -3,7 +3,7 @@
 
 use specular_core::CssSize;
 use specular_doc::{AnnotationAnchor, EntityId, Rect, RegionAnchor};
-use specular_interact::{Effect, Gesture, Key, Tool, region_on_canvas};
+use specular_interact::{Cursor, Effect, Gesture, Key, Tool, region_on_canvas};
 use specular_testkit::{ALT, CMD, CMD_SHIFT, TestApp, assert_doc_snapshot, page};
 
 const P1: Rect = Rect::new(100.0, 100.0, 400.0, 300.0);
@@ -27,9 +27,9 @@ fn armed() -> TestApp {
 }
 
 #[test]
-fn alt_drag_moves_the_page_by_the_pointer_delta() {
+fn a_drag_on_a_page_selects_it_and_moves_it_by_the_pointer_delta() {
     let mut app = TestApp::with_pages(2);
-    app.hold(ALT).press((200.0, 150.0)).drag_to((260.0, 130.0));
+    app.press((200.0, 150.0)).drag_to((260.0, 130.0));
     assert_eq!(
         (app.take_effects(), app.rect("p1"), app.selected()),
         (Vec::new(), Rect::new(160.0, 80.0, 400.0, 300.0), Some("p1"))
@@ -39,7 +39,7 @@ fn alt_drag_moves_the_page_by_the_pointer_delta() {
 #[test]
 fn move_is_a_drag_until_release_and_the_page_sees_none_of_it() {
     let mut app = TestApp::with_pages(2);
-    app.hold(ALT).press((200.0, 150.0)).drag_to((210.0, 150.0));
+    app.press((200.0, 150.0)).drag_to((210.0, 150.0));
     let during = app.session().gesture.is_some();
     app.release();
     assert_eq!(
@@ -51,7 +51,7 @@ fn move_is_a_drag_until_release_and_the_page_sees_none_of_it() {
 #[test]
 fn move_keeps_the_page_size_and_viewport() {
     let mut app = TestApp::with_pages(2);
-    app.hold(ALT).press((200.0, 150.0)).drag_to((900.0, 900.0));
+    app.press((200.0, 150.0)).drag_to((900.0, 900.0));
     let placement = app.app().page_placement(&EntityId::from("p1")).unwrap();
     assert_eq!(
         (
@@ -66,22 +66,17 @@ fn move_keeps_the_page_size_and_viewport() {
 #[test]
 fn move_follows_the_camera_zoom() {
     let mut app = TestApp::with_pages(2);
-    app.zoom(0.5)
-        .hold(ALT)
-        .press((100.0, 75.0))
-        .drag_to((110.0, 75.0));
+    app.zoom(0.5).press((100.0, 75.0)).drag_to((110.0, 75.0));
     assert_eq!(app.rect("p1").x, 120.0);
 }
 
 #[test]
 fn a_move_is_one_undo_step_however_many_frames_it_took() {
     let mut app = TestApp::with_pages(2);
-    app.hold(ALT)
-        .press((200.0, 150.0))
+    app.press((200.0, 150.0))
         .drag_to((220.0, 150.0))
         .drag_to((260.0, 130.0))
-        .release()
-        .let_go();
+        .release();
     assert_doc_snapshot!(app, @r#"
     nodes:
       {"id":"p1","type":"link","x":160,"y":80,"width":400,"height":300,"url":"https://example.com/p1"}
@@ -100,7 +95,7 @@ fn a_move_is_one_undo_step_however_many_frames_it_took() {
 #[test]
 fn a_press_and_release_without_movement_is_not_an_undo_step() {
     let mut app = TestApp::with_pages(2);
-    app.hold(ALT).click((200.0, 150.0));
+    app.click((200.0, 150.0));
     assert!(!app.app().can_undo());
 }
 
@@ -112,33 +107,28 @@ fn handle_press_resizes_instead_of_selecting_the_page_under_it() {
         page("p2", Rect::new(450.0, 350.0, 400.0, 300.0)),
     ]);
     app.select(&["p1"]).press(P1_CORNER);
-    assert!(matches!(
-        app.session().gesture,
-        Some(Gesture::Resize { .. })
-    ));
-    assert_eq!(
-        (app.take_effects(), app.selected()),
-        (Vec::new(), Some("p1"))
-    );
+    assert!(matches!(app.session().gesture, Some(Gesture::Resize(_))));
+    assert_eq!(app.selected(), Some("p1"));
 }
 
 #[test]
 fn handles_only_exist_on_the_selected_page() {
     let mut app = TestApp::with_pages(2);
     app.press(P1_CORNER);
-    assert_eq!(app.session().gesture, None);
+    assert!(matches!(app.session().gesture, Some(Gesture::Move(_))));
 }
 
 #[test]
 fn resize_drag_changes_the_rect_but_not_the_viewport() {
     let mut app = p1_selected();
-    app.press(P1_CORNER).drag_to((600.0, 450.0));
+    app.press(P1_CORNER).take_effects();
+    app.drag_to((600.0, 460.0));
     let placement = app.app().page_placement(&EntityId::from("p1")).unwrap();
     assert_eq!(
         (app.take_effects(), placement.rect, placement.viewport),
         (
             Vec::new(),
-            Rect::new(100.0, 100.0, 500.0, 350.0),
+            Rect::new(100.0, 100.0, 500.0, 360.0),
             CssSize::new(400, 300)
         )
     );
@@ -147,9 +137,8 @@ fn resize_drag_changes_the_rect_but_not_the_viewport() {
 #[test]
 fn resize_release_sets_the_viewport_once() {
     let mut app = p1_selected();
-    app.press(P1_CORNER)
-        .drag_to((600.0, 450.0))
-        .drag_to((620.0, 470.0));
+    app.press(P1_CORNER).take_effects();
+    app.drag_to((600.0, 460.0)).drag_to((620.0, 480.0));
     let first = app.release().take_effects();
     let second = app.release().take_effects();
     assert_eq!(
@@ -158,7 +147,7 @@ fn resize_release_sets_the_viewport_once() {
             vec![
                 Effect::SetPageViewport {
                     page: EntityId::from("p1"),
-                    viewport: CssSize::new(520, 370)
+                    viewport: CssSize::new(520, 380)
                 },
                 Effect::Save
             ],
@@ -170,8 +159,8 @@ fn resize_release_sets_the_viewport_once() {
 #[test]
 fn resize_from_the_top_left_moves_the_origin() {
     let mut app = p1_selected();
-    app.press((102.0, 98.0)).drag_to((52.0, 48.0));
-    assert_eq!(app.rect("p1"), Rect::new(50.0, 50.0, 450.0, 350.0));
+    app.press((102.0, 98.0)).drag_to((42.0, 38.0));
+    assert_eq!(app.rect("p1"), Rect::new(40.0, 40.0, 460.0, 360.0));
 }
 
 #[test]
@@ -184,6 +173,7 @@ fn handle_grab_offset_prevents_a_jump_on_press() {
 #[test]
 fn resize_without_a_size_change_does_nothing() {
     let mut app = p1_selected();
+    app.pointer_move(P1_CORNER).take_effects();
     app.click(P1_CORNER);
     assert_eq!(
         (app.take_effects(), app.app().can_undo()),
@@ -194,8 +184,9 @@ fn resize_without_a_size_change_does_nothing() {
 #[test]
 fn undoing_a_resize_lays_the_page_out_at_its_old_viewport() {
     let mut app = p1_selected();
-    app.drag(P1_CORNER, (600.0, 450.0)).take_effects();
+    app.drag(P1_CORNER, (600.0, 460.0)).take_effects();
     let effects = app.chord(CMD, Key::Char('z')).take_effects();
+    // The handle goes back with the corner, out from under the pointer.
     assert_eq!(
         (effects, app.rect("p1")),
         (
@@ -204,7 +195,8 @@ fn undoing_a_resize_lays_the_page_out_at_its_old_viewport() {
                     page: EntityId::from("p1"),
                     viewport: CssSize::new(400, 300)
                 },
-                Effect::Save
+                Effect::Save,
+                Effect::SetCursor(Cursor::Default)
             ],
             P1
         )
@@ -215,10 +207,8 @@ fn undoing_a_resize_lays_the_page_out_at_its_old_viewport() {
 #[test]
 fn escape_snaps_a_move_back_and_leaves_no_undo_step() {
     let mut app = TestApp::with_pages(2);
-    app.hold(ALT)
-        .press((200.0, 150.0))
+    app.press((200.0, 150.0))
         .drag_to((300.0, 300.0))
-        .let_go()
         .key(Key::Escape);
     assert_eq!(
         (
@@ -233,11 +223,9 @@ fn escape_snaps_a_move_back_and_leaves_no_undo_step() {
 #[test]
 fn undo_is_ignored_while_a_drag_is_in_flight() {
     let mut app = TestApp::with_pages(2);
-    app.hold(ALT)
-        .drag((200.0, 150.0), (260.0, 150.0))
+    app.drag((200.0, 150.0), (260.0, 150.0))
         .press((260.0, 150.0))
         .drag_to((300.0, 150.0))
-        .let_go()
         .chord(CMD, Key::Char('z'));
     assert_eq!(app.rect("p1").x, 200.0);
 }
@@ -299,7 +287,6 @@ fn a_page_region_travels_with_its_page() {
     let mut app = armed();
     app.drag((200.0, 200.0), (300.0, 250.0))
         .key(Key::Escape)
-        .hold(ALT)
         .press((150.0, 150.0))
         .drag_to((650.0, 350.0));
     let note = &app.document().annotations()[0];

@@ -1,17 +1,23 @@
 //! [`update`]: the one function that changes an [`App`].
 
+use glam::DVec2;
 use glam::Vec2;
 use specular_core::InputEvent;
-use specular_doc::{CommandError, Document, EntityId, ItemId};
+use specular_doc::{Command, CommandError, Document, EntityId, ItemId};
 
 use crate::focus::{leave_unless_selected, set_focus};
-use crate::{Action, App, Effect, Event, Focus, PageNotice, camera, gesture, keys, pages, pointer};
+use crate::{
+    Action, App, Effect, Event, Focus, PageNotice, camera, cursor, gesture, keys, pages, pointer,
+    verbs,
+};
 
 /// Applies `event` to `app` and returns what the shell must now do, in
 /// order. No I/O happens here.
 pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
     let mut effects = Vec::new();
     let revision = app.history.revision();
+    // The clock moves nothing the cursor depends on.
+    let ticks = matches!(event, Event::Tick { .. });
     match event {
         Event::Pointer(input) => pointer::on_pointer(app, &input, &mut effects),
         Event::Wheel(input) => camera::on_wheel(app, &input, &mut effects),
@@ -36,6 +42,9 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
     if app.history.revision() != revision {
         effects.push(Effect::Save);
     }
+    if !ticks {
+        cursor::refresh(app, &mut effects);
+    }
     effects
 }
 
@@ -50,7 +59,7 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
                 && session.tool == crate::Tool::Select
                 && session.focus == Focus::Canvas;
             gesture::cancel(app);
-            set_tool(app, crate::Tool::Select, effects);
+            app.session.tool = crate::Tool::Select;
             set_focus(app, None, effects);
             if idle {
                 app.session.selection.set([]);
@@ -58,7 +67,7 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         }
         Action::SetTool(tool) => {
             if app.session.gesture.is_none() {
-                set_tool(app, tool, effects);
+                app.session.tool = tool;
             }
         }
         Action::Undo => step_history(app, effects, |app| app.history.undo(&mut app.document)),
@@ -68,14 +77,28 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
             drop_dangling(app, effects);
         }
         Action::SetCamera(camera) => app.session.camera = camera,
+        Action::Delete => verb(app, effects, verbs::delete),
+        Action::Duplicate => verb(app, effects, verbs::duplicate),
+        Action::Nudge { dx, dy } => verb(app, effects, |app, effects| {
+            verbs::nudge(app, DVec2::new(dx, dy), effects);
+        }),
     }
 }
 
-fn set_tool(app: &mut App, tool: crate::Tool, effects: &mut Vec<Effect>) {
-    if app.session.tool != tool {
-        app.session.tool = tool;
-        effects.push(Effect::SetCursor(tool.cursor()));
+/// Runs a verb on the selection, unless a drag is in flight.
+fn verb(app: &mut App, effects: &mut Vec<Effect>, run: impl FnOnce(&mut App, &mut Vec<Effect>)) {
+    if app.session.gesture.is_none() {
+        run(app, effects);
     }
+}
+
+/// Runs `command` as one undo step, then brings the page hosts and the
+/// session back in step with the document.
+pub(crate) fn document_step(app: &mut App, command: Command, effects: &mut Vec<Effect>) {
+    let before = pages::snapshot(&app.document);
+    gesture::apply_step(app, command);
+    drop_dangling(app, effects);
+    pages::reconcile(&before, &app.document, effects);
 }
 
 /// Runs an undo or a redo, unless a drag is in flight, and brings the page

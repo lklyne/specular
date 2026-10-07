@@ -2,17 +2,21 @@
 //!
 //! Pages are select-first, interact-second (ADR 0022). The first press on a
 //! page selects it. A press on the page that is already the whole selection
-//! *enters* it: it takes keyboard focus, and from then on presses on its
-//! body go to the page, modifiers and all. The entering press itself is not
-//! forwarded. Escape, or selecting anything else, leaves the page.
+//! *enters* it once it is released without having become a drag: the page
+//! takes keyboard focus, and from then on presses on its body go to the
+//! page, modifiers and all. The entering click itself is not forwarded.
+//! Escape, or selecting anything else, leaves the page.
+//!
+//! A press on a body also starts a move of the selection, which stays a
+//! click until the pointer travels.
 
 use glam::DVec2;
 use specular_core::Modifiers;
-use specular_doc::{EntityId, ItemId, Kind};
+use specular_doc::{EntityId, ItemId};
 
-use crate::focus::set_focus;
 use crate::marquee::MarqueeMode;
-use crate::{App, Effect, Gesture, Handle, HandleOwner, Hit, PointerInput, caps, hit};
+use crate::move_drag::{self, Click};
+use crate::{App, Gesture, Hit, PointerInput, hit, resize_drag};
 
 /// Whether a click with these modifiers changes the selection item by item
 /// instead of replacing it.
@@ -22,12 +26,7 @@ pub(crate) const fn is_additive(modifiers: Modifiers) -> bool {
 
 /// Offers a left press to the select tool. Returns `false` only when the
 /// press is on the body of the entered page, which gets it instead.
-pub(crate) fn press(
-    app: &mut App,
-    input: &PointerInput,
-    click_count: u8,
-    effects: &mut Vec<Effect>,
-) -> bool {
+pub(crate) fn press(app: &mut App, input: &PointerInput, click_count: u8) -> bool {
     let world = app.session.camera.screen_to_world(input.screen).as_dvec2();
     let hit = match hit::hit_test(app, input.screen) {
         // Edges cannot be drawn yet, so an anchor passes the press to what
@@ -37,9 +36,14 @@ pub(crate) fn press(
     };
     match hit {
         Hit::PageContent { page, .. } if app.session.focus.page() == Some(&page) => return false,
-        Hit::PageContent { page, .. } => press_page(app, page, world, input, click_count, effects),
-        Hit::Handle { owner, handle } => press_handle(app, &owner, handle, world),
-        Hit::GroupLabel { group } | Hit::GroupBorder { group } => select_unless_held(app, group),
+        Hit::PageContent { page, .. } => press_page(app, page, world, input, click_count),
+        Hit::Handle { owner, handle } => {
+            app.session.gesture =
+                resize_drag::begin(app, owner, handle, world).map(Gesture::Resize);
+        }
+        Hit::GroupLabel { group } | Hit::GroupBorder { group } => {
+            begin_move(app, &group, world, input, false);
+        }
         Hit::EntityBody { entity } => press_body(app, entity, world, input),
         Hit::Edge { edge } => {
             let item = ItemId::Edge(edge);
@@ -56,35 +60,17 @@ pub(crate) fn press(
     true
 }
 
-fn press_page(
-    app: &mut App,
-    page: EntityId,
-    world: DVec2,
-    input: &PointerInput,
-    click_count: u8,
-    effects: &mut Vec<Effect>,
-) {
+fn press_page(app: &mut App, page: EntityId, world: DVec2, input: &PointerInput, click_count: u8) {
     let modifiers = input.modifiers;
     if modifiers.meta || modifiers.control {
         begin_marquee(app, Some(page), world, input);
     } else if modifiers.shift {
         app.session.selection.toggle(ItemId::Entity(page));
-    } else if modifiers.alt {
-        let Some(start) = app.document.entity(&page).map(|entity| entity.rect) else {
-            return;
-        };
-        select_unless_held(app, page.clone());
-        app.session.gesture = Some(Gesture::Move {
-            origin: world,
-            items: vec![(page, start)],
-        });
-    } else if click_count > 1 || app.session.selection.single_entity() == Some(&page) {
+    } else {
         // The second click of a double-click enters however fast the two
         // landed, and whatever the first one found selected.
-        app.session.selection.set([ItemId::Entity(page.clone())]);
-        set_focus(app, Some(page), effects);
-    } else {
-        select_unless_held(app, page);
+        let enters = click_count > 1 || app.session.selection.single_entity() == Some(&page);
+        begin_move(app, &page, world, input, enters);
     }
 }
 
@@ -100,39 +86,33 @@ fn press_body(app: &mut App, entity: EntityId, world: DVec2, input: &PointerInpu
         // marquees what is inside, and a click selects the group.
         begin_marquee(app, Some(entity), world, input);
     } else {
-        select_unless_held(app, entity);
+        begin_move(app, &entity, world, input, false);
     }
 }
 
-/// A handle press resizes a page from a corner. Every other handle holds the
-/// press until its resize exists.
-fn press_handle(app: &mut App, owner: &HandleOwner, handle: Handle, world: DVec2) {
-    let (HandleOwner::Entity(id), Handle::Corner(corner)) = (owner, handle) else {
-        return;
-    };
-    let Some(entity) = app.document.entity(id) else {
-        return;
-    };
-    match &entity.kind {
-        Kind::Page(_) => {
-            app.session.gesture = Some(Gesture::Resize {
-                entity: id.clone(),
-                corner,
-                grab: corner.point(entity.rect) - world,
-                start: entity.rect,
-                min_size: caps::min_size(&entity.kind),
-            });
-        }
-        Kind::Text(_) | Kind::File(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Shape(_) => {}
+/// Selects `pressed` alone, unless the press is on the selection already (a
+/// member, or anything that moves with one), which it then keeps. Either way
+/// a drag from here moves the selection.
+///
+/// A press on one of several selected entities keeps them all for the drag.
+/// If it turns out to be a click, it narrows the selection to that one.
+/// `enters` makes the click enter the page pressed.
+fn begin_move(app: &mut App, pressed: &EntityId, world: DVec2, input: &PointerInput, enters: bool) {
+    let item = ItemId::Entity(pressed.clone());
+    let held = app.selection_scope().holds(pressed);
+    let alone = app.session.selection.items() == [item.clone()];
+    if !held {
+        app.session.selection.set([item]);
     }
-}
-
-/// Selects `entity` alone, unless the press is on the selection already (a
-/// member, or anything that moves with one), which it then keeps.
-fn select_unless_held(app: &mut App, entity: EntityId) {
-    if !app.selection_scope().holds(&entity) {
-        app.session.selection.set([ItemId::Entity(entity)]);
-    }
+    let click = if enters {
+        Click::Enter(pressed.clone())
+    } else if held && !alone {
+        Click::SelectAlone(pressed.clone())
+    } else {
+        Click::Keep
+    };
+    app.session.gesture =
+        move_drag::begin(app, pressed, world, input.screen, click).map(Gesture::Move);
 }
 
 fn begin_marquee(app: &mut App, origin: Option<EntityId>, world: DVec2, input: &PointerInput) {

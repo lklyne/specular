@@ -1,0 +1,583 @@
+//! Resizing from the handles: one entity from each of its eight, the
+//! per-kind minimum and aspect rules, text and drawings, a selection of
+//! several scaled together, and the cursor over a handle.
+
+use specular_core::CssSize;
+use specular_doc::{
+    Color, Drawing, Entity, EntityId, FileRef, JsonMap, Kind, Point, Rect, Stroke, Text, WidthMode,
+};
+use specular_interact::{Cursor, Effect, Key};
+use specular_testkit::{
+    SHIFT, TestApp, assert_doc_snapshot, drawing, file, group, inside, page, shape, text,
+};
+
+const S: Rect = Rect::new(100.0, 100.0, 200.0, 100.0);
+/// The handles of [`S`]: corners clockwise from the top left, then the
+/// middles of the sides clockwise from the top.
+const TOP_LEFT: (f32, f32) = (100.0, 100.0);
+const TOP_RIGHT: (f32, f32) = (300.0, 100.0);
+const BOTTOM_RIGHT: (f32, f32) = (300.0, 200.0);
+const BOTTOM_LEFT: (f32, f32) = (100.0, 200.0);
+const TOP: (f32, f32) = (200.0, 100.0);
+const RIGHT: (f32, f32) = (300.0, 150.0);
+const BOTTOM: (f32, f32) = (200.0, 200.0);
+const LEFT: (f32, f32) = (100.0, 150.0);
+
+/// `entity` alone on the canvas, selected, so its handles exist.
+fn selected(entity: Entity) -> TestApp {
+    let id = entity.id.as_str().to_owned();
+    let mut app = TestApp::with_entities([entity]);
+    app.select(&[id.as_str()]);
+    app
+}
+
+fn ink(id: &str, rect: Rect, points: &[(f64, f64)]) -> Entity {
+    let stroke = Stroke {
+        id: format!("{id}-stroke"),
+        color: Color::Neutral,
+        width: 2.0,
+        points: points.iter().map(|(x, y)| Point::new(*x, *y)).collect(),
+        brush: None,
+        extra: JsonMap::new(),
+    };
+    Entity {
+        kind: Kind::Drawing(Drawing {
+            strokes: vec![stroke],
+        }),
+        ..drawing(id, rect)
+    }
+}
+
+fn points(app: &TestApp, id: &str) -> Vec<(f64, f64)> {
+    let Kind::Drawing(drawing) = &app.entity(id).kind else {
+        return Vec::new();
+    };
+    (drawing.strokes.iter())
+        .flat_map(|stroke| stroke.points.iter().map(|point| (point.x, point.y)))
+        .collect()
+}
+
+/// A text's size and width mode.
+fn type_of(app: &TestApp, id: &str) -> (Option<f64>, Option<WidthMode>) {
+    let Kind::Text(text) = &app.entity(id).kind else {
+        return (None, None);
+    };
+    (text.size, text.width_mode)
+}
+
+fn viewport_effects(app: &mut TestApp) -> Vec<Effect> {
+    let lays_out = |effect: &Effect| matches!(effect, Effect::SetPageViewport { .. });
+    app.take_effects().into_iter().filter(lays_out).collect()
+}
+
+fn cursor_effects(app: &mut TestApp) -> Vec<Cursor> {
+    (app.take_effects().into_iter())
+        .filter_map(|effect| match effect {
+            Effect::SetCursor(cursor) => Some(cursor),
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn each_handle_moves_its_own_edges_and_holds_the_others() {
+    // Every handle is dragged 40 right and 20 down.
+    let cases = [
+        (TOP_LEFT, Rect::new(140.0, 120.0, 160.0, 80.0)),
+        (TOP_RIGHT, Rect::new(100.0, 120.0, 240.0, 80.0)),
+        (BOTTOM_RIGHT, Rect::new(100.0, 100.0, 240.0, 120.0)),
+        (BOTTOM_LEFT, Rect::new(140.0, 100.0, 160.0, 120.0)),
+        (TOP, Rect::new(100.0, 120.0, 200.0, 80.0)),
+        (RIGHT, Rect::new(100.0, 100.0, 240.0, 100.0)),
+        (BOTTOM, Rect::new(100.0, 100.0, 200.0, 120.0)),
+        (LEFT, Rect::new(140.0, 100.0, 160.0, 100.0)),
+    ];
+    for (handle, expected) in cases {
+        let mut app = selected(shape("s", S));
+        app.drag(handle, (handle.0 + 40.0, handle.1 + 20.0));
+        assert_eq!(app.rect("s"), expected, "from the handle at {handle:?}");
+        app.assert_undo_returns_to_start();
+    }
+}
+
+#[test]
+fn the_moving_edges_land_on_the_grid() {
+    let mut app = selected(shape("s", S));
+    app.drag(BOTTOM_RIGHT, (347.0, 251.0));
+    assert_eq!(app.rect("s"), Rect::new(100.0, 100.0, 240.0, 160.0));
+    app.assert_undo_returns_to_start();
+}
+
+#[test]
+fn a_press_off_the_centre_of_a_handle_does_not_make_the_rect_jump() {
+    let mut app = selected(shape("s", S));
+    app.press((303.0, 203.0)).drag_to((304.0, 204.0)).release();
+    assert_eq!((app.rect("s"), app.app().can_undo()), (S, false));
+}
+
+#[test]
+fn a_resize_is_one_undo_step_however_many_frames_it_took() {
+    let mut app = selected(shape("s", S));
+    app.press(BOTTOM_RIGHT)
+        .drag_to((320.0, 220.0))
+        .drag_to((360.0, 260.0))
+        .drag_to((400.0, 300.0))
+        .release()
+        .undo();
+    assert_eq!((app.rect("s"), app.app().can_undo()), (S, false));
+    app.redo().assert_undo_returns_to_start();
+}
+
+#[test]
+fn every_kind_stops_at_its_own_minimum_size() {
+    let square = Rect::new(100.0, 100.0, 400.0, 400.0);
+    let cases = [
+        (page("e", square), (320.0, 200.0)),
+        (text("e", square), (100.0, 100.0)),
+        (file("e", square), (80.0, 80.0)),
+        (group("e", square), (120.0, 80.0)),
+        // 16 is the limit, and the grid line past it is the first place the
+        // edge can stop.
+        (drawing("e", square), (20.0, 20.0)),
+        (shape("e", square), (24.0, 24.0)),
+    ];
+    for (entity, minimum) in cases {
+        let kind = entity.kind.name();
+        let mut app = selected(entity);
+        app.drag((500.0, 500.0), (0.0, 0.0));
+        let rect = app.rect("e");
+        assert_eq!((rect.width, rect.height), minimum, "for a {kind}");
+        assert_eq!((rect.x, rect.y), (100.0, 100.0), "for a {kind}");
+        app.assert_undo_returns_to_start();
+    }
+}
+
+#[test]
+fn a_shape_keeps_its_ratio_only_with_shift() {
+    let mut free = selected(shape("s", S));
+    free.drag(BOTTOM_RIGHT, (400.0, 220.0));
+    let mut locked = selected(shape("s", S));
+    locked
+        .hold(SHIFT)
+        .drag(BOTTOM_RIGHT, (400.0, 220.0))
+        .let_go();
+    assert_eq!(
+        (free.rect("s"), locked.rect("s")),
+        (
+            Rect::new(100.0, 100.0, 300.0, 120.0),
+            Rect::new(100.0, 100.0, 300.0, 150.0)
+        )
+    );
+    locked.assert_undo_returns_to_start();
+}
+
+#[test]
+fn shift_can_change_mid_resize() {
+    let mut app = selected(shape("s", S));
+    app.press(BOTTOM_RIGHT).drag_to((400.0, 220.0));
+    let locked = app.hold(SHIFT).key_down(Key::Other).rect("s");
+    let free = app.let_go().key_up(Key::Other).rect("s");
+    app.release();
+    assert_eq!(
+        (locked, free),
+        (
+            Rect::new(100.0, 100.0, 300.0, 150.0),
+            Rect::new(100.0, 100.0, 300.0, 120.0)
+        )
+    );
+    app.assert_undo_returns_to_start();
+}
+
+#[test]
+fn a_picture_keeps_its_ratio_unless_shift_is_held() {
+    let mut locked = selected(file("f", S));
+    locked.drag(BOTTOM_RIGHT, (400.0, 220.0));
+    let mut free = selected(file("f", S));
+    free.hold(SHIFT).drag(BOTTOM_RIGHT, (400.0, 220.0)).let_go();
+    assert_eq!(
+        (locked.rect("f"), free.rect("f")),
+        (
+            Rect::new(100.0, 100.0, 300.0, 150.0),
+            Rect::new(100.0, 100.0, 300.0, 120.0)
+        )
+    );
+    locked.assert_undo_returns_to_start();
+}
+
+#[test]
+fn any_other_file_resizes_freely_and_shift_locks_it() {
+    let notes = || Entity {
+        kind: Kind::File(FileRef {
+            file: "notes.md".to_owned(),
+            ..FileRef::default()
+        }),
+        ..file("f", S)
+    };
+    let mut free = selected(notes());
+    free.drag(BOTTOM_RIGHT, (400.0, 220.0));
+    let mut locked = selected(notes());
+    locked
+        .hold(SHIFT)
+        .drag(BOTTOM_RIGHT, (400.0, 220.0))
+        .let_go();
+    assert_eq!(
+        (free.rect("f"), locked.rect("f")),
+        (
+            Rect::new(100.0, 100.0, 300.0, 120.0),
+            Rect::new(100.0, 100.0, 300.0, 150.0)
+        )
+    );
+    free.assert_undo_returns_to_start();
+}
+
+#[test]
+fn a_locked_side_handle_grows_the_other_axis_too() {
+    let mut app = selected(file("f", S));
+    app.drag(RIGHT, (400.0, 150.0));
+    assert_eq!(app.rect("f"), Rect::new(100.0, 100.0, 300.0, 150.0));
+    app.assert_undo_returns_to_start();
+}
+
+// Text: the sides reflow, everything else scales the type.
+
+#[test]
+fn a_text_side_handle_changes_the_width_and_keeps_the_type_size() {
+    let mut app = selected(text("t", S));
+    app.drag(RIGHT, (400.0, 150.0));
+    assert_eq!(
+        (app.rect("t"), type_of(&app, "t")),
+        (
+            Rect::new(100.0, 100.0, 300.0, 100.0),
+            (None, Some(WidthMode::Fixed))
+        )
+    );
+    app.assert_undo_returns_to_start();
+}
+
+#[test]
+fn a_text_corner_scales_the_type_with_the_width() {
+    let mut app = selected(text("t", S));
+    app.drag(BOTTOM_RIGHT, (500.0, 300.0));
+    assert_doc_snapshot!(app, @r#"
+    nodes:
+      {"id":"t","type":"text","x":100,"y":100,"width":400,"height":200,"text":"t","specular":{"widthMode":"fixed","textSize":28}}
+    edges:
+    specular: {"entityOrder":["t"]}
+    "#);
+    app.assert_undo_returns_to_start();
+}
+
+#[test]
+fn a_text_top_or_bottom_handle_scales_it_too() {
+    let mut app = selected(text("t", S));
+    app.drag(BOTTOM, (200.0, 260.0));
+    // 14 px type at 1.6 times the width.
+    assert_eq!(
+        (app.rect("t"), type_of(&app, "t")),
+        (
+            Rect::new(100.0, 100.0, 320.0, 160.0),
+            (Some(22.0), Some(WidthMode::Fixed))
+        )
+    );
+    app.assert_undo_returns_to_start();
+}
+
+#[test]
+fn the_type_size_stays_within_its_limits() {
+    let sized = |size: f64| Entity {
+        kind: Kind::Text(Text {
+            text: "t".to_owned(),
+            size: Some(size),
+            ..Text::default()
+        }),
+        ..text("t", S)
+    };
+    let mut grown = selected(sized(200.0));
+    grown.drag(BOTTOM_RIGHT, (500.0, 300.0));
+    let mut shrunk = selected(sized(10.0));
+    shrunk.drag(BOTTOM_RIGHT, (100.0, 100.0));
+    assert_eq!(
+        (type_of(&grown, "t").0, type_of(&shrunk, "t").0),
+        (Some(256.0), Some(8.0))
+    );
+    grown.assert_undo_returns_to_start();
+}
+
+#[test]
+fn with_shift_a_text_corner_changes_the_width_and_leaves_the_height_to_the_content() {
+    let mut app = selected(text("t", S));
+    app.hold(SHIFT).drag(BOTTOM_RIGHT, (400.0, 400.0)).let_go();
+    assert_eq!(
+        (app.rect("t"), type_of(&app, "t").0),
+        (Rect::new(100.0, 100.0, 300.0, 100.0), Some(21.0))
+    );
+    app.assert_undo_returns_to_start();
+}
+
+#[test]
+fn a_click_on_a_text_handle_changes_nothing() {
+    let mut app = selected(text("t", S));
+    app.click(BOTTOM_RIGHT).click(RIGHT);
+    assert_eq!(
+        (type_of(&app, "t"), app.app().can_undo()),
+        ((None, None), false)
+    );
+}
+
+#[test]
+fn escape_puts_a_resized_text_back_as_it_was() {
+    let mut app = selected(text("t", S));
+    app.press(BOTTOM_RIGHT)
+        .drag_to((500.0, 300.0))
+        .key(Key::Escape);
+    assert_eq!(
+        (app.rect("t"), type_of(&app, "t"), app.app().can_undo()),
+        (S, (None, None), false)
+    );
+}
+
+// Drawings and groups.
+
+#[test]
+fn a_drawing_stretches_its_points_into_the_new_box() {
+    let box_ = Rect::new(100.0, 100.0, 100.0, 100.0);
+    let mut app = selected(ink(
+        "d",
+        box_,
+        &[(100.0, 100.0), (150.0, 100.0), (200.0, 200.0)],
+    ));
+    app.drag((200.0, 200.0), (300.0, 160.0));
+    assert_eq!(
+        (app.rect("d"), points(&app, "d")),
+        (
+            Rect::new(100.0, 100.0, 200.0, 60.0),
+            vec![(100.0, 100.0), (200.0, 100.0), (300.0, 160.0)]
+        )
+    );
+    app.assert_undo_returns_to_start();
+}
+
+#[test]
+fn resizing_a_group_alone_moves_its_border_and_not_its_members() {
+    let mut app = TestApp::with_entities([
+        group("g", Rect::new(100.0, 100.0, 400.0, 300.0)),
+        inside("g", shape("a", Rect::new(200.0, 200.0, 100.0, 100.0))),
+    ]);
+    app.select(&["g"]).drag((100.0, 100.0), (60.0, 40.0));
+    assert_eq!(
+        (app.rect("g"), app.rect("a")),
+        (
+            Rect::new(60.0, 40.0, 440.0, 360.0),
+            Rect::new(200.0, 200.0, 100.0, 100.0)
+        )
+    );
+    app.assert_undo_returns_to_start();
+}
+
+// A page is laid out again once, when the handle is let go.
+
+#[test]
+fn a_page_side_handle_changes_its_viewport_on_release_only() {
+    let mut app = selected(page("p", Rect::new(100.0, 100.0, 400.0, 300.0)));
+    app.press((500.0, 250.0))
+        .drag_to((600.0, 250.0))
+        .drag_to((700.0, 250.0));
+    let during = viewport_effects(&mut app);
+    let stretched = app.app().page_placement(&EntityId::from("p")).unwrap();
+    let after = viewport_effects(app.release());
+    assert_eq!(
+        (during, stretched.viewport, stretched.rect.width, after),
+        (
+            Vec::new(),
+            CssSize::new(400, 300),
+            600.0,
+            vec![Effect::SetPageViewport {
+                page: EntityId::from("p"),
+                viewport: CssSize::new(600, 300)
+            }]
+        )
+    );
+    app.assert_undo_returns_to_start();
+}
+
+// A selection of several scales inside its bounds.
+
+/// Two shapes side by side, both selected. Their bounds are 300 by 100 with
+/// the bottom-right corner at (400, 200).
+fn pair() -> TestApp {
+    let mut app = TestApp::with_entities([
+        shape("a", Rect::new(100.0, 100.0, 100.0, 100.0)),
+        shape("b", Rect::new(300.0, 100.0, 100.0, 100.0)),
+    ]);
+    app.select(&["a", "b"]);
+    app
+}
+
+#[test]
+fn a_selection_of_several_scales_every_entity_inside_its_bounds() {
+    let mut app = pair();
+    app.drag((400.0, 200.0), (700.0, 300.0));
+    assert_eq!(
+        (app.rect("a"), app.rect("b")),
+        (
+            Rect::new(100.0, 100.0, 200.0, 200.0),
+            Rect::new(500.0, 100.0, 200.0, 200.0)
+        )
+    );
+    assert_eq!(app.selected_ids(), ["a", "b"]);
+    app.assert_undo_returns_to_start();
+}
+
+#[test]
+fn the_bounds_follow_the_pointer_off_the_grid_and_edges_land_on_whole_units() {
+    let mut app = pair();
+    app.drag((400.0, 200.0), (551.0, 251.0));
+    assert_eq!(
+        (app.rect("a"), app.rect("b")),
+        (
+            Rect::new(100.0, 100.0, 150.0, 151.0),
+            Rect::new(401.0, 100.0, 150.0, 151.0)
+        )
+    );
+    app.assert_undo_returns_to_start();
+}
+
+#[test]
+fn a_side_handle_of_the_bounds_scales_one_axis() {
+    let mut app = pair();
+    // The left side of the bounds, dragged 300 further left.
+    app.drag((100.0, 150.0), (-200.0, 150.0));
+    assert_eq!(
+        (app.rect("a"), app.rect("b")),
+        (
+            Rect::new(-200.0, 100.0, 200.0, 100.0),
+            Rect::new(200.0, 100.0, 200.0, 100.0)
+        )
+    );
+    app.assert_undo_returns_to_start();
+}
+
+#[test]
+fn the_bounds_stop_at_twenty_units_and_nothing_inside_vanishes() {
+    let mut app = pair();
+    app.drag((400.0, 200.0), (-900.0, -900.0));
+    let (a, b) = (app.rect("a"), app.rect("b"));
+    assert_eq!(
+        (a, b),
+        (
+            Rect::new(100.0, 100.0, 7.0, 20.0),
+            Rect::new(113.0, 100.0, 7.0, 20.0)
+        )
+    );
+    app.assert_undo_returns_to_start();
+}
+
+#[test]
+fn a_group_in_the_selection_scales_with_everything_inside_it() {
+    let box_ = Rect::new(120.0, 220.0, 100.0, 50.0);
+    let mut app = TestApp::with_entities([
+        group("g", Rect::new(100.0, 100.0, 300.0, 200.0)),
+        inside("g", shape("a", Rect::new(120.0, 120.0, 100.0, 80.0))),
+        inside("g", ink("d", box_, &[(120.0, 220.0), (220.0, 270.0)])),
+        shape("x", Rect::new(500.0, 100.0, 100.0, 100.0)),
+    ]);
+    // Bounds (100, 100) to (600, 300); the corner is dragged to double them.
+    app.select(&["g", "x"])
+        .drag((600.0, 300.0), (1100.0, 500.0));
+    assert_doc_snapshot!(app, @r#"
+    nodes:
+      {"id":"g","type":"group","x":100,"y":100,"width":600,"height":400}
+      {"id":"a","type":"shape","x":140,"y":140,"width":200,"height":160,"shapeKind":"rectangle","text":"","parentGroupId":"g"}
+      {"id":"d","type":"drawing","x":140,"y":340,"width":200,"height":100,"strokes":[{"id":"d-stroke","color":"neutral","width":2,"points":[{"x":140,"y":340},{"x":340,"y":440}]}],"parentGroupId":"g"}
+      {"id":"x","type":"shape","x":900,"y":100,"width":200,"height":200,"shapeKind":"rectangle","text":""}
+    edges:
+    specular: {"entityOrder":["g","a","d","x"]}
+    "#);
+    app.assert_undo_returns_to_start();
+}
+
+#[test]
+fn pages_in_a_scaled_selection_are_laid_out_again_on_release_only() {
+    let mut app = TestApp::with_entities([
+        page("p", Rect::new(100.0, 100.0, 400.0, 300.0)),
+        shape("s", Rect::new(600.0, 100.0, 100.0, 100.0)),
+    ]);
+    app.select(&["p", "s"])
+        .press((700.0, 400.0))
+        .drag_to((1300.0, 700.0));
+    let during = viewport_effects(&mut app);
+    let after = viewport_effects(app.release());
+    assert_eq!(
+        (during, after, app.rect("p")),
+        (
+            Vec::new(),
+            vec![Effect::SetPageViewport {
+                page: EntityId::from("p"),
+                viewport: CssSize::new(800, 600)
+            }],
+            Rect::new(100.0, 100.0, 800.0, 600.0)
+        )
+    );
+    app.assert_undo_returns_to_start();
+}
+
+#[test]
+fn escape_puts_a_scaled_selection_back() {
+    let mut app = pair();
+    app.press((400.0, 200.0))
+        .drag_to((700.0, 300.0))
+        .key(Key::Escape);
+    assert_eq!(
+        (
+            app.rect("b"),
+            app.app().can_undo(),
+            app.selected_ids().len()
+        ),
+        (Rect::new(300.0, 100.0, 100.0, 100.0), false, 2)
+    );
+}
+
+// The cursor says which way a corner resizes.
+
+#[test]
+fn the_cursor_follows_the_corner_under_the_pointer() {
+    let mut app = selected(shape("s", S));
+    app.pointer_move(BOTTOM_RIGHT)
+        .pointer_move((302.0, 202.0))
+        .pointer_move(TOP_RIGHT)
+        .pointer_move(TOP_LEFT)
+        .pointer_move(BOTTOM_LEFT)
+        .pointer_move((200.0, 150.0));
+    assert_eq!(
+        cursor_effects(&mut app),
+        [
+            Cursor::ResizeNwse,
+            Cursor::ResizeNesw,
+            Cursor::ResizeNwse,
+            Cursor::ResizeNesw,
+            Cursor::Default
+        ]
+    );
+}
+
+#[test]
+fn the_cursor_keeps_the_handles_shape_for_the_whole_drag() {
+    let mut app = selected(shape("s", S));
+    app.pointer_move(BOTTOM_RIGHT).press(BOTTOM_RIGHT);
+    // The rect stops at its minimum, so the pointer leaves the handle behind.
+    app.drag_to((0.0, 0.0));
+    let during = cursor_effects(&mut app);
+    let after = cursor_effects(app.release());
+    assert_eq!(
+        (during, after),
+        (vec![Cursor::ResizeNwse], vec![Cursor::Default])
+    );
+    app.assert_undo_returns_to_start();
+}
+
+#[test]
+fn an_unselected_entity_has_no_handles_to_point_at() {
+    let mut app = TestApp::with_entities([shape("s", S)]);
+    app.pointer_move(BOTTOM_RIGHT);
+    assert_eq!(cursor_effects(&mut app), []);
+}
