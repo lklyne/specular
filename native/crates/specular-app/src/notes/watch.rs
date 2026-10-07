@@ -7,7 +7,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use crate::images::resolve::resolve;
-use crate::persist::{Stamp, stamp};
+use crate::persist::{Stamp, stamp, write_atomic};
 
 /// Why a Document has no text.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -105,6 +105,91 @@ impl Watcher {
                 });
             }
         }
+    }
+}
+
+/// What became of a write.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum Written {
+    /// The file holds the text.
+    Done,
+    /// The file holds `disk`, which nobody here has seen, so it was left
+    /// alone.
+    Refused {
+        /// What the file holds.
+        disk: String,
+    },
+    /// The file could not be written.
+    Failed,
+}
+
+/// The name a new Document's file takes, before `.md` and a number.
+const NEW_NOTE_NAME: &str = "Untitled Note";
+
+impl Watcher {
+    /// Writes `text` to `file` unless the file holds a text that was never
+    /// reported from here or written from here: an edit from outside that
+    /// the app has not heard of yet. That text is then what is known of the
+    /// file, so the app can decide and write again.
+    pub(super) fn write(&mut self, file: &str, text: &str) -> Written {
+        let Some(path) = resolve(file, self.space.as_deref()) else {
+            tracing::warn!(file, "document is not a file on disk; not written");
+            return Written::Failed;
+        };
+        let known = (self.watched.iter()).find(|watched| watched.file == file);
+        let known = known.map(|watched| watched.reported);
+        let (_, disk) = read(Some(&path));
+        let mut seen = |reported: Result<u64, ReadFailure>| {
+            if let Some(watched) = self.watched.iter_mut().find(|it| it.file == file) {
+                watched.reported = reported;
+                watched.stamp = stamp(&path);
+            }
+        };
+        match disk {
+            Ok(disk) if disk == text => {
+                seen(Ok(hash(text)));
+                Written::Done
+            }
+            Ok(disk) if known != Some(Ok(hash(&disk))) => {
+                seen(Ok(hash(&disk)));
+                Written::Refused { disk }
+            }
+            Ok(_) | Err(_) => match write_atomic(&path, text) {
+                Ok(()) => {
+                    seen(Ok(hash(text)));
+                    Written::Done
+                }
+                Err(error) => {
+                    tracing::warn!(path = %path.display(), "document not written: {error}");
+                    Written::Failed
+                }
+            },
+        }
+    }
+
+    /// Makes an empty markdown file in the space folder under the first of
+    /// `Untitled Note.md`, `Untitled Note 2.md` and so on that no file has,
+    /// and returns its name.
+    pub(super) fn create(&self) -> io::Result<String> {
+        let space = (self.space.as_deref())
+            .ok_or_else(|| io::Error::other("the canvas has no folder to put a document in"))?;
+        for number in 1..=u32::MAX {
+            let name = if number == 1 {
+                format!("{NEW_NOTE_NAME}.md")
+            } else {
+                format!("{NEW_NOTE_NAME} {number}.md")
+            };
+            let made = std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(space.join(&name));
+            match made {
+                Ok(_) => return Ok(name),
+                Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {}
+                Err(error) => return Err(error),
+            }
+        }
+        Err(io::Error::other("every document name is taken"))
     }
 }
 
@@ -254,5 +339,52 @@ mod tests {
         assert_eq!(watch(&mut watcher, "a.md")[0].result.as_deref(), Ok("one"));
         space.write("a.md", "one, two");
         assert_eq!(check(&mut watcher), [text("a.md", "one, two")]);
+    }
+
+    #[test]
+    fn a_write_is_refused_over_a_text_nobody_has_read() {
+        let space = Space::new("refuse");
+        let path = space.0.join("a.md");
+        std::fs::write(&path, "one").unwrap();
+        let mut watcher = Watcher::new(Some(space.0.clone()));
+        watcher.watch("a.md".to_owned(), &mut |_| {});
+        assert_eq!(watcher.write("a.md", "ours"), Written::Done);
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "ours");
+
+        std::fs::write(&path, "theirs, from outside").unwrap();
+        let refused = Written::Refused {
+            disk: "theirs, from outside".to_owned(),
+        };
+        assert_eq!(watcher.write("a.md", "ours again"), refused);
+        assert_eq!(
+            std::fs::read_to_string(&path).unwrap(),
+            "theirs, from outside"
+        );
+        // The refusal told the app, which may now write over it. Neither
+        // that text nor our own write is reported a second time.
+        assert_eq!(watcher.write("a.md", "ours again"), Written::Done);
+        let mut reads = Vec::new();
+        watcher.check(&mut |read| reads.push(read));
+        assert_eq!(reads, []);
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "ours again");
+    }
+
+    #[test]
+    fn a_new_document_takes_the_first_name_no_file_has() {
+        let space = Space::new("create");
+        let watcher = Watcher::new(Some(space.0.clone()));
+        std::fs::write(space.0.join("Untitled Note 2.md"), "kept").unwrap();
+        let names: Vec<_> = (0..3).map(|_| watcher.create().unwrap()).collect();
+        assert_eq!(
+            names,
+            [
+                "Untitled Note.md",
+                "Untitled Note 3.md",
+                "Untitled Note 4.md"
+            ]
+        );
+        let kept = std::fs::read_to_string(space.0.join("Untitled Note 2.md")).unwrap();
+        assert_eq!(kept, "kept");
+        assert!(Watcher::new(None).create().is_err());
     }
 }

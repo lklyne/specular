@@ -10,9 +10,11 @@ use specular_core::Modifiers;
 use super::buffer::{Target, TextEdit};
 use super::history::Change;
 use super::lists;
-use super::measure::TextLayout;
-use super::motion::{self, Motion};
+use super::motion::{self, Motion, Seen};
 use crate::{App, Effect, Key, KeyInput, bindings};
+
+/// What Tab types in a Document outside a list.
+const TAB: &str = "  ";
 
 /// One thing a key does to the text being edited.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -49,6 +51,10 @@ fn motion_for(key: Key, modifiers: Modifiers) -> Option<Motion> {
         Key::ArrowRight => Motion::Right,
         Key::ArrowUp | Key::Home if cmd => Motion::DocStart,
         Key::ArrowDown | Key::End if cmd => Motion::DocEnd,
+        Key::ArrowUp if modifiers.alt => Motion::ParagraphUp,
+        Key::ArrowDown if modifiers.alt => Motion::ParagraphDown,
+        Key::PageUp => Motion::PageUp,
+        Key::PageDown => Motion::PageDown,
         Key::ArrowUp => Motion::Up,
         Key::ArrowDown => Motion::Down,
         Key::Home => Motion::LineStart,
@@ -98,21 +104,27 @@ fn op_for(input: &KeyInput) -> Option<Op> {
         | Key::ArrowDown
         | Key::Home
         | Key::End
+        | Key::PageUp
+        | Key::PageDown
         | Key::Char(_)
         | Key::Other => return None,
     })
 }
 
 /// Runs `op` on `edit`. Returns whether the text changed.
-fn run(edit: &mut TextEdit, op: Op, layout: &TextLayout, effects: &mut Vec<Effect>) -> bool {
-    let lists = edit.target == Target::Text;
+fn run(edit: &mut TextEdit, op: Op, seen: Seen<'_>, effects: &mut Vec<Effect>) -> bool {
+    let (lists, tabs) = match edit.target {
+        Target::Text => (true, false),
+        Target::Note => (true, true),
+        Target::Label => (false, false),
+    };
     match op {
         Op::Move { motion, extend } => {
-            motion::apply(edit, motion, extend, layout);
+            motion::apply(edit, motion, extend, seen);
             false
         }
         Op::Delete(Motion::Left) if lists && lists::unbullet(edit) => true,
-        Op::Delete(motion) => motion::delete(edit, motion, layout),
+        Op::Delete(motion) => motion::delete(edit, motion, seen),
         Op::SelectAll => {
             edit.select(0..edit.text.len());
             false
@@ -130,7 +142,8 @@ fn run(edit: &mut TextEdit, op: Op, layout: &TextLayout, effects: &mut Vec<Effec
         }
         Op::Newline if lists => lists::newline(edit),
         Op::Newline => edit.insert("\n", Change::Single),
-        Op::Indent => lists && lists::indent(edit),
+        // Outside a list, Tab in a Document is the indent it types.
+        Op::Indent => (lists && lists::indent(edit)) || (tabs && edit.insert(TAB, Change::Typing)),
         Op::Outdent => lists && lists::outdent(edit),
     }
 }
@@ -161,7 +174,11 @@ pub(crate) fn on_key(app: &mut App, input: &KeyInput, effects: &mut Vec<Effect>)
     } else if let Some(op) = op {
         if input.pressed {
             let layout = super::layout_of(app, &edit).unwrap_or_default();
-            changed = run(&mut edit, op, &layout, effects);
+            let seen = Seen {
+                layout: &layout,
+                page: super::page_height(app, &edit),
+            };
+            changed = run(&mut edit, op, seen, effects);
         }
         true
     } else {

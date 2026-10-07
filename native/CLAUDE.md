@@ -67,6 +67,8 @@ fn shift_drag_moves_the_page_along_one_axis() {
   `TestApp::from_canvas(json)`. Entities come from `page`, `text`, `shape`,
   `file`, `drawing` and `group`, each taking an id and a rect. `sticky`,
   `plain_text` and `labelled` also take the text.
+  `note(id, rect, "plan.md")` is a Document; its text arrives with
+  `note_text("plan.md", "..")`, and a double click then edits its source.
   `inside("g", entity)` puts one in a group, and
   `connected(document(entities), "e1", "a", "b")` adds an edge.
 - Input chains: `pointer_move`, `press`, `drag_to`, `release`, `drag`,

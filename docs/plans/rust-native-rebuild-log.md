@@ -135,6 +135,20 @@ with the task that made it.
 - Visual check: a headless run's clock starts at a fixed time and only `wait` moves it, so one script draws the same frame every run. `--snapshot-scale` is an addition to the task's flags.
 - Visual check: the hover outline is not drawn while a gesture is in flight. `Session::hover` is only refreshed by a move with no button down, so it went stale during a drag.
 
+- T4: a Document is edited as its source, one row a source line (`source_rows`), not in the read view's layout. Read, markers are gone and lists and tables are cells, so nothing maps back to a byte. Both views share `ColumnDraw`, the sizes and the colours. The text shifts a little when an edit opens.
+- T4: the syntax styler is `edit/source.rs` in `specular-interact`, by hand and one line at a time (a code fence is the only state between lines). The editor has to measure styled text, and pulldown-cmark lives above it in `specular-scene`.
+- T4: `TextMeasure::layout_styled(text, spec, spans)` measures one styled line. `edit/stack.rs` stacks the lines into one `TextLayout`, so motion, clicks, the caret and selection rects are the T1 code unchanged. `TextRun::source` is the one place a styled line becomes a run, for the measure and for `view`.
+- T4: the renderer reports each owned column's height (`ColumnDraw::owner`, `Compositor::column_heights`) and the shell sends `Event::NoteHeights` when one changes. `update` stops a Document's scroll at its end with it. While edited, the end comes from the source's own layout.
+- T4: saving is debounced in `update`, 350 ms after the last change on `Event::Tick`, as `Effect::WriteNote`. Ending the edit, opening another canvas and quitting write at once.
+- T4: the shell refuses a `WriteNote` when the file holds a text it never read or wrote, and answers `NoteNotice::Refused`. That closes the half second between an outside edit and the watcher seeing it.
+- T4: an outside change while editing, or a refused write, keeps both texts. Ours takes the file. Theirs is written to `<name> (conflict <id>).md` and gets a Document beside the first entity showing the file, as one undo step. A text equal to what is already known of the file is ignored.
+- T4: undo, with ADR 0023. `Document` holds a transient `notes` map and `Command::SetNote`, never written to `.canvas`. A finished edit that changed the text is one history step (not one a commit, as Electron's is). The text the edit started from is seeded first with no step. An undo or redo that changes a held text writes the file. An outside change while not editing resyncs the held text with no step, so undo goes back from it and redo returns it.
+- T4: `add-document` is two-phase because only the shell knows what names are taken: `Effect::CreateNote { rect }`, then `Event::NoteCreated { file, rect }` places the entity as one step and opens the edit. Names are Electron's `Untitled Note.md`, `Untitled Note 2.md`. An empty Document stays.
+- T4: a double click on a Document puts the caret where it landed with nothing selected. A text or sticky still opens with everything selected.
+- T5: formatting is `Action::Format`, bound in `BINDINGS` under a new `Context::Editing`. Cmd+B, I, E, Shift+X and Shift+8 are Electron's. It has none for these, so: Cmd+Shift+7 numbered, Cmd+Shift+9 task, Cmd+Option+1 to 6 heading, Cmd+Option+0 body. A text or sticky takes bold, italic, strike and bullets, as Electron's sticky does. A shape label takes none.
+- T5: Enter keeps a list's own marker (`*` stays `*`), continues a number and adds an empty task box. Tab outside a list types two spaces in a Document and does nothing in a sticky.
+- T1 leftovers: a resize floor is the kind's minimum or the size the entity started at, whichever is less. Page Up and Down move the caret by the Document's window, or the viewport for a text. A selection drag held past a Document's window scrolls it on each tick, and one held at the viewport's edge pans the canvas when the text runs off that side.
+
 ## Needs a human at a Mac
 
 Things an agent could not verify headless.
@@ -161,6 +175,7 @@ Things an agent could not verify headless.
 
 - Visual check, done headless, so no longer open: text colour and weight (the F5b grey text was the sRGB target), every kind at zoom 0.25, 1 and 3, the caret and the text selection, selection handles, a marquee, a shape and a pen stroke in flight. The real window was started once on the kitchen sink for 16 seconds: no panic, no wgpu validation error, `format=Bgra8Unorm`. Nobody has looked at that window. Still for a human: everything about feel, input, menus, clipboard, drop, IME and files in the entries above.
 - Visual check, still off against Electron. Hand and mono fall back to system fonts: Electron bundles Kalam and Geist Mono and `fonts.rs` loads neither. An edge label has the line running through it; Electron cuts a gap of the text's width plus 6 units a side. No shadow under stickies, file cards and Documents, so a card (`#fafaf9`) is hard to see on the canvas (`#edebea`). The highlighter is a flat 30% with no gradient or grain. The edit selection is grey where a browser's is blue. A comment badge has no icon. A label that overflows a small shape is clipped to its middle line.
+- T4 and T5: nothing was run in a window. `--snapshot` of a Document mid-edit looked right: source rows, faint markers, heading sizes, the selection on its glyphs. By hand: pick Tools > Document (the tool has no key), click, type, and check `Untitled Note.md` appears in the space folder and fills in a third of a second after you stop. Double-click an existing Document and check the caret lands near the click, the wheel and Page keys scroll, and scrolling back from the end has no dead travel. Edit the file in another editor while the edit is open and check a conflict copy appears beside it. Escape, then Cmd+Z twice, and check the file goes back. Quit mid-edit and check the last keys are in the file. Try each formatting chord. Cmd+Option+digit may be taken by macOS or the menu.
 
 ## Entries
 
@@ -383,3 +398,16 @@ Things an agent could not verify headless.
 - Another agent's unfinished work in `specular-doc` and `specular-interact` did not compile for most of this task. Everything here was built, snapshotted, launched and gated in a detached worktree of `763283f2` plus this change. `Cargo.lock` in the commit is that worktree's: HEAD's plus the testkit line.
 - Gate: fmt, clippy and `cargo test --workspace` (1057 tests, GPU ones included) pass there.
 
+### T4, T5 and the T1 leftovers. See `git log -- native/crates/specular-interact/src/edit/note.rs`
+
+- Doc: `Command::SetNote`, `Document::note` and `notes`, transient.
+- Interact, new under `edit/`: `source` (styler), `stack` (`source_rows`, the stacked layout and its cache on `App`), `note` (save, undo step, conflict, creation), `format` and `formatting` (the transforms and `Format`). `lists` knows numbered and task lines. `Target::Note`, `Key::PageUp` and `PageDown`, `Motion::{ParagraphUp, ParagraphDown, PageUp, PageDown}`.
+- New: `Effect::{WriteNote, CreateNote}`, `Event::{NoteCreated, NoteHeights}`, `NoteNotice::Refused`, `Action::Format`, `Context::Editing`, `Placing::Document`.
+- Scene: `TextRun::source`, `ColumnDraw::owner`, the edit view in `view/document.rs`. Compositor: `GlyphMeasure::layout_styled`, `column_heights`.
+- Shell: the note thread also writes and creates (`notes/watch.rs`), `NoteLoader::finish` drains it on exit, `report_note_heights` runs after each frame. Two arms were added to the other agent's `headless/mod.rs` so it compiles; it ignores both effects.
+- Testkit: `note(id, rect, path)` and `TestApp::note_text(file, text)`.
+- Tests: `tests/note_edit.rs` (19), unit tests in `source`, `stack`, `note`, `format_tests`, `lists`, two scene snapshots in `tests/documents.rs`, three shell tests for refused writes, new names and the exit drain.
+- For whoever is next: `assert_undo_returns_to_start` compares whole documents, held note texts included, so it fails after a Document edit. Compare entities instead, or teach it to ignore `notes`.
+- Rows of the edit view are all emitted and the renderer culls them. `view` restyles the source every frame. Fine for notes, untested on a file of thousands of lines.
+- Not done: the formats are not in the menu or a popup, links do not open, no drag-and-drop of selected text, no smart paste, `Cmd+K` link, no rename of the file, and a Document off screen reports no height. The undone file of a removed `add-document` stays on disk.
+- Gate: fmt, clippy and `cargo test --workspace` pass (1112 tests), GPU tests included on this machine.

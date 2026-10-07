@@ -29,6 +29,11 @@ const STICKY_PADDING: f32 = 8.0;
 /// floor scales with the size.
 const STICKY_BASE_HEIGHT: f32 = 200.0;
 const LABEL_LINE_HEIGHT: f32 = 1.4;
+/// Room between a Document's edge and its text. It scrolls with the text.
+pub const NOTE_PADDING: f32 = 12.0;
+/// A Document's body text: its size, and its line height as a multiple.
+const NOTE_SIZE: f32 = 14.0;
+const NOTE_LINE_HEIGHT: f32 = 1.5;
 const LABEL_PADDING: DVec2 = DVec2::new(12.0, 8.0);
 
 /// Where an entity's text is laid out, in canvas space.
@@ -116,6 +121,31 @@ fn label_frame(rect: Rect, shape: &Shape) -> TextFrame {
         box_height: Some(inner.y.max(0.0) as f32),
         vertical: shape.text_vertical_align.unwrap_or(VerticalAlign::Middle),
     }
+}
+
+/// Where the text of a Document at `rect` sits when it is scrolled down by
+/// `scroll`, and how its body text is set. Both its views use this: the
+/// markdown as read, and its source as edited.
+pub fn note_frame(rect: Rect, scroll: f32) -> TextFrame {
+    let padding = f64::from(NOTE_PADDING);
+    TextFrame {
+        origin: DVec2::new(rect.x + padding, rect.y + padding - f64::from(scroll)),
+        spec: TextSpec {
+            font: TextFont::Sans,
+            size: NOTE_SIZE,
+            line_height: NOTE_SIZE * NOTE_LINE_HEIGHT,
+            wrap_width: Some((rect.width as f32 - NOTE_PADDING * 2.0).max(0.0)),
+            align: TextAlign::Left,
+        },
+        box_height: None,
+        vertical: VerticalAlign::Top,
+    }
+}
+
+/// How much of a Document at `rect` shows text: its height inside the
+/// padding.
+pub(crate) fn note_window(rect: Rect) -> f32 {
+    (rect.height as f32 - NOTE_PADDING * 2.0).max(0.0)
 }
 
 /// The frame of `entity`'s text, or `None` for a kind with no text to edit.

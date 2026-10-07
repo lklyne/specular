@@ -4,7 +4,7 @@ use glam::Vec2;
 use specular_core::{Camera, ImeEvent, Modifiers, PointerButton, PointerEventKind};
 use specular_doc::{EdgeId, EntityId, ItemId};
 use specular_interact::{
-    Action, ClipboardContent, Event, Key, KeyInput, PointerInput, Tool, WheelInput,
+    Action, ClipboardContent, Event, Key, KeyInput, NoteNotice, PointerInput, Tool, WheelInput,
 };
 
 use crate::TestApp;
@@ -164,6 +164,8 @@ impl TestApp {
             | Key::Delete
             | Key::Home
             | Key::End
+            | Key::PageUp
+            | Key::PageDown
             | Key::ArrowLeft
             | Key::ArrowRight
             | Key::ArrowUp
@@ -253,6 +255,15 @@ impl TestApp {
     /// A trackpad pinch. Positive `delta` zooms in.
     pub fn pinch(&mut self, delta: f32) -> &mut Self {
         self.send(Event::Pinch { delta })
+    }
+
+    /// The shell read the markdown file `file`, or saw it change: it holds
+    /// `text`.
+    pub fn note_text(&mut self, file: &str, text: &str) -> &mut Self {
+        self.send(Event::Note {
+            file: file.to_owned(),
+            notice: NoteNotice::Text(text.to_owned()),
+        })
     }
 
     /// Advances the wall clock to `unix_ms`.

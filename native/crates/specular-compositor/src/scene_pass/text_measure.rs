@@ -13,7 +13,7 @@ use std::sync::{Mutex, PoisonError};
 use glyphon::Buffer;
 use glyphon::cosmic_text::LayoutGlyph;
 use specular_doc::TextAlign;
-use specular_interact::{CaretStop, LayoutLine, TextLayout, TextMeasure, TextSpec};
+use specular_interact::{CaretStop, LayoutLine, SourceSpan, TextLayout, TextMeasure, TextSpec};
 use specular_scene::{Color, Point, TextRun};
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -31,8 +31,12 @@ const KEPT: usize = 32;
 #[derive(Debug, Default)]
 pub struct GlyphMeasure {
     fonts: Fonts,
-    recent: Mutex<VecDeque<(String, TextSpec, TextLayout)>>,
+    recent: Mutex<VecDeque<Kept>>,
 }
+
+/// A layout with what it is of: the text, how it is set, and the spans
+/// styled over it.
+type Kept = (String, TextSpec, Vec<SourceSpan>, TextLayout);
 
 impl GlyphMeasure {
     /// A measure on its own font system. The system fonts are loaded by the
@@ -51,21 +55,28 @@ impl GlyphMeasure {
 
 impl TextMeasure for GlyphMeasure {
     fn layout(&self, text: &str, spec: &TextSpec) -> TextLayout {
+        self.layout_styled(text, spec, &[])
+    }
+
+    fn layout_styled(&self, text: &str, spec: &TextSpec, spans: &[SourceSpan]) -> TextLayout {
         let mut recent = self.recent.lock().unwrap_or_else(PoisonError::into_inner);
         let kept = recent
             .iter()
-            .position(|(kept_text, kept_spec, _)| kept_spec == spec && kept_text == text);
+            .position(|(kept_text, kept_spec, kept_spans, _)| {
+                kept_spec == spec && kept_text == text && kept_spans == spans
+            });
         if let Some(entry) = kept.and_then(|at| recent.remove(at)) {
-            let layout = entry.2.clone();
+            let layout = entry.3.clone();
             recent.push_front(entry);
             return layout;
         }
-        let run = TextRun::set(text, spec, Point::default(), Color::BLACK);
+        // The colours change no glyph's place.
+        let run = TextRun::source(text, spec, spans, Point::default(), [Color::BLACK; 3]);
         let layout = match self.fonts.with(|fonts| shape(fonts, &run)) {
             Some(shaped) => lines_of(&shaped.buffer, spec, shaped.size.width),
             None => unshaped(text, spec),
         };
-        recent.push_front((text.to_owned(), *spec, layout.clone()));
+        recent.push_front((text.to_owned(), *spec, spans.to_vec(), layout.clone()));
         recent.truncate(KEPT);
         layout
     }

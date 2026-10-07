@@ -24,6 +24,9 @@ pub struct Document {
     order: Vec<ItemId>,
     annotations: Vec<Annotation>,
     extra: JsonMap,
+    /// The text of markdown files that have been edited, by the `file` path
+    /// file entities name them with. Not saved: see [`Document::note`].
+    notes: HashMap<String, String>,
 }
 
 impl Document {
@@ -47,6 +50,19 @@ impl Document {
         self.annotations
             .iter()
             .find(|annotation| annotation.id == *id)
+    }
+
+    /// The text the document holds for the markdown file `file`: what its
+    /// latest edit left, or what an undo or a redo put back. `None` for a
+    /// file never edited here. The file on disk is the source of truth and
+    /// this is never written to the `.canvas` (ADR 0023).
+    pub fn note(&self, file: &str) -> Option<&str> {
+        self.notes.get(file).map(String::as_str)
+    }
+
+    /// Every markdown file the document holds a text for, with the text.
+    pub fn notes(&self) -> impl Iterator<Item = (&str, &str)> {
+        (self.notes.iter()).map(|(file, text)| (file.as_str(), text.as_str()))
     }
 
     /// The stack order, back-to-front. Every entity and edge has one slot.

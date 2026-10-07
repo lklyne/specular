@@ -17,6 +17,7 @@ use glyphon::{
     Buffer, Cache, ColorMode, Metrics, Resolution, SwashCache, TextArea, TextAtlas, TextBounds,
     TextRenderer, Viewport,
 };
+use specular_doc::EntityId;
 use specular_scene::{Point, Size, Space, TextRun};
 
 use super::place::ViewTransform;
@@ -51,6 +52,9 @@ pub(crate) struct TextSystem {
     stretch: f32,
     /// Canvas text's layout resolution this frame, in held physical pixels.
     canvas_resolution: [u32; 2],
+    /// How tall each owned column drawn this frame came out, in its own
+    /// units.
+    column_heights: Vec<(EntityId, f32)>,
 }
 
 impl std::fmt::Debug for TextSystem {
@@ -93,6 +97,7 @@ impl TextSystem {
             hold: RasterHold::default(),
             stretch: 1.0,
             canvas_resolution: [1, 1],
+            column_heights: Vec::new(),
         }
     }
 
@@ -105,6 +110,7 @@ impl TextSystem {
         zooming: bool,
     ) {
         self.frame += 1;
+        self.column_heights.clear();
         let zoom = view.camera.zoom;
         let limit = device.limits().max_texture_dimension_2d as f32;
         let held = |stretch: f32| {
@@ -205,7 +211,8 @@ impl TextSystem {
                 }
             }
         }
-        let (areas, lines) = areas.finish();
+        let (areas, lines, heights) = areas.finish();
+        self.column_heights.extend(heights);
         let blank = &self.blank;
         let areas = areas.iter().map(|area| {
             let origin = view.point(space, area.origin);
@@ -253,6 +260,12 @@ impl TextSystem {
         if let Err(error) = renderer.render(&self.atlas, viewport, pass) {
             tracing::warn!("text batch not drawn: {error}");
         }
+    }
+
+    /// The height of the rows of each column drawn this frame that names an
+    /// owner.
+    pub(crate) fn column_heights(&self) -> &[(EntityId, f32)] {
+        &self.column_heights
     }
 
     /// Ends a frame: frees atlas space and buffers no run has used lately.

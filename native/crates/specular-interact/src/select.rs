@@ -16,7 +16,7 @@ use specular_doc::{EntityId, ItemId};
 
 use crate::marquee::MarqueeMode;
 use crate::move_drag::{self, Click};
-use crate::{App, Effect, Gesture, Hit, PointerInput, edit, hit, resize_drag};
+use crate::{App, Effect, Gesture, Hit, PointerInput, TextEdit, edit, hit, resize_drag};
 
 /// Whether a click with these modifiers changes the selection item by item
 /// instead of replacing it.
@@ -49,11 +49,18 @@ pub(crate) fn press(
         Hit::GroupLabel { group } | Hit::GroupBorder { group } => {
             begin_move(app, &group, world, input, false);
         }
-        // A double click on a text, a sticky or a shape edits its text.
+        // A double click on a text, a sticky, a shape or a Document edits
+        // its text.
         Hit::EntityBody { entity }
             if click_count > 1 && !is_additive(input.modifiers) && has_text(app, &entity) =>
         {
             edit::begin(app, &entity, false, effects);
+            // A Document opens with the caret where it was clicked.
+            if app.text_edit().is_some_and(TextEdit::is_note)
+                && let Some(drag) = edit::press(app, input, 1)
+            {
+                app.session.gesture = Some(drag.into());
+            }
         }
         Hit::EntityBody { entity } => press_body(app, entity, world, input),
         Hit::Edge { edge } => {

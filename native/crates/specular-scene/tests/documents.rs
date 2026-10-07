@@ -2,8 +2,8 @@
 //! a card, and the card's status line until the text arrives.
 
 use specular_doc::{Entity, FileRef, Kind, Rect};
-use specular_interact::{Event, NoteNotice};
-use specular_testkit::{TestApp, assert_scene_snapshot};
+use specular_interact::{Event, Key, NoteNotice};
+use specular_testkit::{CMD, SHIFT, TestApp, assert_scene_snapshot};
 
 fn note(id: &str, x: f64) -> Entity {
     let file = FileRef {
@@ -76,5 +76,34 @@ fn a_scrolled_document_keeps_its_rows_and_says_how_far() {
     let mut app = showing("one\n\ntwo\n");
     app.click((300.0, 250.0)).pointer_move((300.0, 250.0));
     app.wheel((0.0, -40.0));
+    assert_scene_snapshot!(app);
+}
+
+/// The Document `doc` double-clicked on its first character.
+fn editing(markdown: &str) -> TestApp {
+    let mut app = showing(markdown);
+    app.tick(1_000).double_click((113.0, 117.0));
+    app
+}
+
+#[test]
+fn an_edited_document_is_its_source_with_the_syntax_styled_over_it() {
+    let mut app = editing(
+        "# Title\n\nSome **bold**, *soft* and `code`.\n\n- [ ] a [link](https://x.test)\n\
+         ```\nlet x = 1;\n```\n",
+    );
+    // Into the heading, so the caret stands a heading row tall.
+    app.key(Key::ArrowRight).key(Key::ArrowRight);
+    assert_scene_snapshot!(app);
+}
+
+#[test]
+fn an_edited_document_scrolls_its_rows_selection_and_caret_together() {
+    let source: Vec<String> = (0..30).map(|line| format!("line {line}")).collect();
+    let mut app = editing(&source.join("\n"));
+    app.chord(CMD, Key::ArrowDown)
+        .hold(SHIFT)
+        .key(Key::ArrowUp)
+        .let_go();
     assert_scene_snapshot!(app);
 }

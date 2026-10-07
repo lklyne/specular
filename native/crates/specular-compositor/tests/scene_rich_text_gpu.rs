@@ -179,6 +179,7 @@ fn column(scroll: f32, height: f32) -> ColumnDraw {
                 ..Row::default()
             },
         ],
+        owner: None,
     }
 }
 

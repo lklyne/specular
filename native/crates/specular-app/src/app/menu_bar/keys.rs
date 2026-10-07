@@ -70,6 +70,8 @@ fn code(key: Key) -> Option<Code> {
         Key::Delete => Code::Delete,
         Key::Home => Code::Home,
         Key::End => Code::End,
+        Key::PageUp => Code::PageUp,
+        Key::PageDown => Code::PageDown,
         Key::Space => Code::Space,
         Key::ArrowLeft => Code::ArrowLeft,
         Key::ArrowRight => Code::ArrowRight,

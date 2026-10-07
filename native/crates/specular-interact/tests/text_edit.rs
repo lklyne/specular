@@ -311,7 +311,7 @@ fn keys_with_command_held_type_nothing_and_tool_keys_are_just_letters() {
     let mut app = editing("");
     app.type_text("vprc")
         .chord(CMD, Key::Char('d'))
-        .chord(CMD, Key::Char('b'));
+        .chord(CMD, Key::Char('g'));
     assert_eq!(app.editing_text(), "vprc");
     assert_eq!(app.document().entities().count(), 1);
 }

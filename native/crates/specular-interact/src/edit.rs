@@ -1,5 +1,5 @@
-//! In-place text editing: a text or sticky entity's text, or a shape's
-//! label.
+//! In-place text editing: a text or sticky entity's text, a shape's label,
+//! or the markdown source of a Document.
 //!
 //! [`Session::editing`](crate::Session::editing) holds the [`TextEdit`]: the
 //! working text, the caret and the selection. The document keeps the old
@@ -11,12 +11,18 @@
 //! rects, so the outline, the handles and hit-testing follow. Ending the
 //! session puts the old rect back and makes the step.
 //!
+//! A Document's text is a file's, not the document's. It is edited the same
+//! way; [`note`] has what differs: writing the file as the text changes, and
+//! what ending the session records.
+//!
 //! Nothing here knows about fonts. Whatever depends on where glyphs land
 //! goes through the [`TextMeasure`] the [`App`] holds.
 
 mod blink;
 mod buffer;
-mod frame;
+mod format;
+mod formatting;
+pub(crate) mod frame;
 mod history;
 mod ime;
 mod keys;
@@ -24,8 +30,11 @@ mod layout;
 mod lists;
 mod measure;
 mod motion;
+pub(crate) mod note;
 mod pointer;
 mod segment;
+mod source;
+mod stack;
 
 use std::sync::Arc;
 
@@ -36,22 +45,32 @@ use specular_doc::{Command, Entity, EntityId, ItemId, Kind, Rect, Text};
 pub(crate) use blink::{caret_state, restart_blink};
 pub use buffer::TextEdit;
 use buffer::{Origin, Target};
-pub use frame::TextFrame;
+pub use formatting::Format;
+pub(crate) use formatting::run as format;
+pub use frame::{NOTE_PADDING, TextFrame, note_frame};
 use history::Change;
 pub(crate) use keys::on_key;
 pub(crate) use measure::Measurer;
 pub use measure::{CaretStop, LayoutLine, TextLayout, TextMeasure, TextSpec};
 pub use pointer::TextSelectDrag;
-pub(crate) use pointer::{drag, is_over_text, press};
+pub(crate) use pointer::{autoscroll, drag, is_over_text, press};
+pub use source::{SourceLine, SourceSpan, SourceStyle, style_lines};
+pub(crate) use stack::StackCache;
+pub use stack::{SourceRow, source_rows};
 
 use crate::{App, Effect, live, update};
 
-/// The text of `entity` that can be edited in place, and what it is.
-fn editable(entity: &Entity) -> Option<(Target, &str)> {
+/// The text of `entity` that can be edited in place, and what it is. A
+/// Document can be edited once its file has been read.
+fn editable<'a>(app: &'a App, entity: &'a Entity) -> Option<(Target, &'a str)> {
     match &entity.kind {
         Kind::Text(text) => Some((Target::Text, &text.text)),
         Kind::Shape(shape) => Some((Target::Label, &shape.text)),
-        Kind::Page(_) | Kind::File(_) | Kind::Group(_) | Kind::Drawing(_) => None,
+        Kind::File(_) => {
+            let file = note::file_of(entity)?;
+            Some((Target::Note, note::text_of(app.session.notes.get(file))?))
+        }
+        Kind::Page(_) | Kind::Group(_) | Kind::Drawing(_) => None,
     }
 }
 
@@ -67,14 +86,37 @@ fn with_text(kind: &Kind, text: String) -> Kind {
 }
 
 /// Where `edit`'s text sits and how its lines fall, as it stands now.
-fn geometry(app: &App, edit: &TextEdit) -> Option<(TextFrame, TextLayout)> {
-    let frame = frame::of(app.document.entity(&edit.entity)?)?;
-    let layout = app.measure.0.layout(&edit.text, &frame.spec);
-    Some((frame, layout))
+fn geometry(app: &App, edit: &TextEdit) -> Option<(TextFrame, Arc<TextLayout>)> {
+    let entity = app.document.entity(&edit.entity)?;
+    let measure = app.measure.0.as_ref();
+    match edit.target {
+        Target::Text | Target::Label => {
+            let frame = frame::of(entity)?;
+            let layout = measure.layout(&edit.text, &frame.spec);
+            Some((frame, Arc::new(layout)))
+        }
+        Target::Note => {
+            let frame = frame::note_frame(entity.rect, app.session.notes.scroll(&entity.id));
+            let layout = stack::layout(&edit.text, &frame.spec, measure, &app.stacks);
+            Some((frame, layout))
+        }
+    }
 }
 
-fn layout_of(app: &App, edit: &TextEdit) -> Option<TextLayout> {
+fn layout_of(app: &App, edit: &TextEdit) -> Option<Arc<TextLayout>> {
     geometry(app, edit).map(|(_, layout)| layout)
+}
+
+/// How much of `edit`'s text shows at once, in canvas units: a Document's
+/// window, and for a text that grows with its lines, the viewport.
+fn page_height(app: &App, edit: &TextEdit) -> f32 {
+    let rect = app.document.entity(&edit.entity).map(|entity| entity.rect);
+    match (edit.target, rect) {
+        (Target::Note, Some(rect)) => frame::note_window(rect),
+        (Target::Note | Target::Text | Target::Label, _) => {
+            app.session.viewport.y / app.session.camera.zoom.max(f32::EPSILON)
+        }
+    }
 }
 
 /// Starts editing `id`'s text with all of it selected, if it has text to
@@ -85,7 +127,7 @@ pub(crate) fn begin(app: &mut App, id: &EntityId, created: bool, effects: &mut V
     let Some(entity) = app.document.entity(id) else {
         return;
     };
-    let Some((target, text)) = editable(entity) else {
+    let Some((target, text)) = editable(app, entity) else {
         return;
     };
     let origin = Origin {
@@ -95,6 +137,15 @@ pub(crate) fn begin(app: &mut App, id: &EntityId, created: bool, effects: &mut V
     };
     let mut edit = TextEdit::new(id.clone(), target, text, origin);
     edit.active_ms = app.session.now_ms;
+    if let Some(file) = note::file_of(entity).filter(|_| target == Target::Note) {
+        // A Document is long: the caret starts at the top, with nothing
+        // selected for the first key to replace.
+        edit.select(0..0);
+        edit.note = Some(note::NoteSave {
+            file: file.to_owned(),
+            changed_ms: None,
+        });
+    }
     app.session.editing = Some(edit);
     app.session.selection.set([ItemId::Entity(id.clone())]);
     effects.push(Effect::SetImeAllowed(true));
@@ -104,12 +155,16 @@ pub(crate) fn begin(app: &mut App, id: &EntityId, created: bool, effects: &mut V
     place_candidates(app, effects);
 }
 
-/// Resizes the text entity being edited to fit its working text. No undo
-/// step: the session's end makes one.
+/// The working text changed. A text entity is resized to fit it, with no
+/// undo step: the session's end makes one. A Document is owed a write.
 fn refit(app: &mut App) {
     let Some(edit) = &app.session.editing else {
         return;
     };
+    if edit.target == Target::Note {
+        note::touch(app);
+        return;
+    }
     let Some(entity) = app.document.entity(&edit.entity) else {
         return;
     };
@@ -176,6 +231,10 @@ pub(crate) fn end(app: &mut App, effects: &mut Vec<Effect>) {
         return;
     };
     effects.push(Effect::SetImeAllowed(false));
+    if edit.target == Target::Note {
+        note::finish(app, edit, effects);
+        return;
+    }
     let id = edit.entity.clone();
     let Some(entity) = app.document.entity(&id).cloned() else {
         return;
@@ -221,6 +280,9 @@ pub(crate) fn end(app: &mut App, effects: &mut Vec<Effect>) {
 /// Drops the edit session without keeping any of it: the document it was
 /// editing has been replaced.
 pub(crate) fn discard(app: &mut App, effects: &mut Vec<Effect>) {
+    // A Document's text is its file's and outlives the document: what has
+    // not reached the file yet is written, not dropped.
+    note::flush(app, effects);
     if app.session.editing.take().is_some() {
         effects.push(Effect::SetImeAllowed(false));
     }
@@ -292,6 +354,7 @@ impl App {
     /// gives one that shapes with the renderer's fonts.
     pub fn set_text_measure(&mut self, measure: Arc<dyn TextMeasure>) {
         self.measure = Measurer(measure);
+        self.stacks = StackCache::default();
     }
 
     /// The measure the editor lays text out with.
@@ -312,9 +375,21 @@ impl App {
     }
 
     /// Where `id`'s text is laid out and how it is set, for a text, a
-    /// sticky or a shape.
+    /// sticky, a shape, or a Document whose file has been read.
     pub fn text_frame(&self, id: &EntityId) -> Option<TextFrame> {
-        frame::of(self.document.entity(id)?)
+        let entity = self.document.entity(id)?;
+        match editable(self, entity)? {
+            (Target::Note, _) => Some(frame::note_frame(
+                entity.rect,
+                self.session.notes.scroll(id),
+            )),
+            (Target::Text | Target::Label, _) => frame::of(entity),
+        }
+    }
+
+    /// The layout of the text being edited, as it stands.
+    pub fn editing_layout(&self) -> Option<Arc<TextLayout>> {
+        layout_of(self, self.session.editing.as_ref()?)
     }
 
     /// The caret: a rect with no width, one line tall. It is there whether

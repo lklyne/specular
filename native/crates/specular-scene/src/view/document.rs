@@ -1,4 +1,12 @@
-//! Documents: a markdown file read as rows of text inside a card.
+//! Documents: a markdown file read as rows of text inside a card, and its
+//! source as rows of styled text while it is edited.
+//!
+//! The two views do not share a layout. Read, the markers are gone, a list
+//! item is a marker cell and a text cell and a table is a grid, so nothing
+//! in it maps back to a byte of the file. Edited, every source line is one
+//! row holding exactly its own characters, which is what lets the caret and
+//! the selection be measured. They share the renderer's rows, the sizes and
+//! the colours.
 //!
 //! The sizes and colours are Electron's read-only note: 14 on a 1.5 line,
 //! headings at 1.4, 1.2 and 1.1 times that in weight 600, 12 units of
@@ -6,10 +14,10 @@
 //! stacks them, because only it knows how tall wrapped text comes out.
 
 use specular_doc::Entity;
-use specular_interact::NoteState;
+use specular_interact::{NOTE_PADDING, NoteState, source_rows};
 
 use super::frame::{Frame, canvas_rect};
-use super::palette;
+use super::{editing, palette};
 use crate::markdown::{self, Block, BlockKind, ColumnAlign, Inline, InlineSpan, Marker, Table};
 use crate::{
     Color, ColumnDraw, FontFamily, Item, Point, RectDraw, Row, RowRule, RuleHeight, Scene,
@@ -17,8 +25,6 @@ use crate::{
 };
 
 const CORNER_RADIUS: f32 = 4.0;
-/// Room between the card's edge and the text. It scrolls with the text.
-const PADDING: f32 = 12.0;
 const SIZE: f32 = 14.0;
 /// Line height as a multiple of the font size, headings included.
 const LINE: f32 = 1.5;
@@ -26,7 +32,7 @@ const LINE: f32 = 1.5;
 /// headings are body size.
 const HEADING_SCALE: [f32; 3] = [1.4, 1.2, 1.1];
 /// Weight of headings, strong text and a table's head.
-const HEAVY: u16 = 600;
+const HEAVY: u16 = TextRun::HEAVY;
 /// Space between blocks: one blank line, as the source has between them.
 const BLOCK_GAP: f32 = SIZE * LINE;
 /// How far each list level moves its text right. The marker hangs in it.
@@ -58,7 +64,11 @@ pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, note: &NoteState, scene: 
     scene.push(Item::canvas(
         RectDraw::filled(rect, palette::CARD).with_corner_radius(CORNER_RADIUS),
     ));
-    let inner = rect.outset(-PADDING);
+    if let Some(source) = frame.app.editing_text(&entity.id) {
+        edited(frame, entity, source, scene);
+        return;
+    }
+    let inner = rect.outset(-NOTE_PADDING);
     let status = match note {
         NoteState::Ready(text) => {
             let rows = rows(&markdown::parse(text), inner.width.max(0.0));
@@ -69,6 +79,7 @@ pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, note: &NoteState, scene: 
                     height: inner.height.max(0.0),
                     scroll: frame.app.note_scroll(&entity.id),
                     rows,
+                    owner: Some(entity.id.clone()),
                 };
                 scene.push(Item::canvas(column).clipped(rect));
             }
@@ -84,6 +95,50 @@ pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, note: &NoteState, scene: 
         ..TextRun::new(status, inner.origin(), SIZE, STATUS_INK)
     };
     scene.push(Item::canvas(run).clipped(rect));
+}
+
+/// The Document's source while it is edited: a row for each line, the
+/// selection behind them and the caret over them. The editor has the scroll
+/// in the frame already, so the column is placed and not scrolled again.
+fn edited(frame: &Frame<'_>, entity: &Entity, source: &str, scene: &mut Scene) {
+    let rect = canvas_rect(entity.rect);
+    let id = &entity.id;
+    let Some(text_frame) = frame.app.text_frame(id) else {
+        return;
+    };
+    editing::selection(frame, id, Some(rect), scene);
+    let rows = source_rows(source, &text_frame.spec)
+        .into_iter()
+        .map(|row| {
+            let text = &source[row.range.clone()];
+            let cell = TextRun::source(
+                text,
+                &row.spec,
+                &row.spans,
+                Point::default(),
+                [INK, FAINT_INK, LINK],
+            );
+            Row {
+                min_height: row.spec.line_height,
+                cells: if text.is_empty() {
+                    Vec::new()
+                } else {
+                    vec![cell]
+                },
+                ..Row::default()
+            }
+        })
+        .collect();
+    let column = ColumnDraw {
+        origin: Point::new(text_frame.origin.x as f32, text_frame.origin.y as f32),
+        width: text_frame.spec.wrap_width.unwrap_or(0.0),
+        height: (rect.height - NOTE_PADDING * 2.0).max(0.0),
+        scroll: 0.0,
+        rows,
+        owner: None,
+    };
+    scene.push(Item::canvas(column).clipped(rect));
+    editing::caret(frame, id, Some(rect), INK, scene);
 }
 
 /// The rows of a document `width` units wide.

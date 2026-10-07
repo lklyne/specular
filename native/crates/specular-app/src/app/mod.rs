@@ -109,6 +109,8 @@ pub(crate) struct Shell {
     /// The thread that reads and watches markdown files. `None` if it could
     /// not be started; every Document then stays on its loading line.
     note_loader: Option<NoteLoader>,
+    /// The Document heights the app was last told, to tell it only changes.
+    note_heights: HashMap<EntityId, f32>,
     /// The system clipboard, once something has been copied or pasted.
     clipboard: Option<arboard::Clipboard>,
     /// The preferences file. `None` in a benchmark, which neither reads nor
@@ -165,6 +167,7 @@ impl Shell {
             image_loader: image_run::start_loader(options.canvas.as_deref()),
             images: HashSet::new(),
             note_loader: note_run::start_loader(options.canvas.as_deref()),
+            note_heights: HashMap::new(),
             clipboard: None,
             prefs,
             dropped: Vec::new(),
@@ -204,6 +207,7 @@ impl Shell {
             return;
         }
         self.report_session();
+        self.finish_notes();
         if let Some(persist) = self.persist.as_mut() {
             persist.flush(&self.app);
         }
@@ -291,6 +295,7 @@ impl Shell {
         if let Some(bench) = self.bench.as_mut() {
             bench.on_frame(&sample);
         }
+        self.report_note_heights();
         Ok(())
     }
 

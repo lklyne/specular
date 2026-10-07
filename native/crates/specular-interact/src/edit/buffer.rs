@@ -6,6 +6,7 @@ use std::ops::Range;
 use specular_doc::{EntityId, Rect};
 
 use super::history::{Change, EditHistory, Snapshot};
+use super::note::NoteSave;
 use super::segment;
 
 /// What kind of text is being edited, which decides the keys that apply.
@@ -16,6 +17,9 @@ pub(crate) enum Target {
     Text,
     /// A shape's label.
     Label,
+    /// A Document: the source of a markdown file. It has the list keys, the
+    /// whole formatting set, and it scrolls instead of growing.
+    Note,
 }
 
 /// What the session started from, for ending it as one document step.
@@ -48,6 +52,8 @@ pub struct TextEdit {
     /// When the caret or the text last changed, on the session's clock. The
     /// caret's blink restarts from here, so it stays solid while typing.
     pub(crate) active_ms: u64,
+    /// The file the text is written to as it changes, for a Document.
+    pub(crate) note: Option<NoteSave>,
 }
 
 impl TextEdit {
@@ -65,12 +71,18 @@ impl TextEdit {
             history: EditHistory::default(),
             origin,
             active_ms: 0,
+            note: None,
         }
     }
 
     /// The entity whose text this is.
     pub fn entity(&self) -> &EntityId {
         &self.entity
+    }
+
+    /// Whether this is an edit of a Document's markdown source.
+    pub fn is_note(&self) -> bool {
+        self.target == Target::Note
     }
 
     /// The text as edited so far, with any composition in it.

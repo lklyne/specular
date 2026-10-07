@@ -8,6 +8,7 @@ use glyphon::{
     Buffer, Color as GlyphColor, ContentType, CustomGlyph, RasterizeCustomGlyphRequest,
     RasterizedCustomGlyph, TextBounds,
 };
+use specular_doc::EntityId;
 use specular_scene::{Color, ColumnDraw, Point, Rect, Size, TextRun};
 
 use super::column::{self, rule_rect};
@@ -59,6 +60,8 @@ pub(super) struct Areas<'a> {
     hairline: f32,
     whole: TextBounds,
     to_layout: f32,
+    /// How tall each owned column's rows came out.
+    heights: Vec<(EntityId, f32)>,
 }
 
 impl<'a> Areas<'a> {
@@ -78,12 +81,14 @@ impl<'a> Areas<'a> {
             hairline,
             whole,
             to_layout,
+            heights: Vec::new(),
         }
     }
 
-    /// The areas in paint order, and the lines their ranges index.
-    pub(super) fn finish(self) -> (Vec<Area<'a>>, Vec<CustomGlyph>) {
-        (self.placed, self.lines)
+    /// The areas in paint order, the lines their ranges index, and the
+    /// height of each column that has an owner.
+    pub(super) fn finish(self) -> (Vec<Area<'a>>, Vec<CustomGlyph>, Vec<(EntityId, f32)>) {
+        (self.placed, self.lines, self.heights)
     }
 
     fn shaped(&self, run: &TextRun) -> Option<&'a Shaped> {
@@ -145,6 +150,9 @@ impl<'a> Areas<'a> {
             self.shaped(run)
                 .map_or(Size::default(), |shaped| shaped.size)
         });
+        if let Some(owner) = &column.owner {
+            self.heights.push((owner.clone(), layout.height()));
+        }
         let origin = layout.bounds(column).origin();
         let start = self.lines.len();
         let mut cells = Vec::new();

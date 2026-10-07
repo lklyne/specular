@@ -49,6 +49,7 @@ impl Document {
             Command::InsertAnnotation { annotation, at } => self.insert_annotation(*annotation, at),
             Command::RemoveAnnotation(id) => self.remove_annotation(id),
             Command::ReplaceAnnotation(annotation) => self.replace_annotation(annotation),
+            Command::SetNote { file, text } => Ok(self.set_note(file, text)),
             Command::Batch(commands) => self.apply_batch(commands),
         }
     }
@@ -156,6 +157,14 @@ impl Document {
         };
         mem::swap(current, &mut *annotation);
         Ok(Command::ReplaceAnnotation(annotation))
+    }
+
+    fn set_note(&mut self, file: String, text: Option<String>) -> Command {
+        let before = match text {
+            Some(text) => self.notes.insert(file.clone(), text),
+            None => self.notes.remove(&file),
+        };
+        Command::SetNote { file, text: before }
     }
 
     fn apply_batch(&mut self, commands: Vec<Command>) -> Result<Command, CommandError> {

@@ -261,6 +261,8 @@ impl Headless {
             | Effect::ReadClipboard
             | Effect::WriteAsset { .. }
             | Effect::CopyAsset { .. }
+            | Effect::WriteNote { .. }
+            | Effect::CreateNote { .. }
             | Effect::SaveToolDefaults(_) => {}
         }
         Ok(())

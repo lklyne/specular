@@ -6,6 +6,7 @@ use std::ops::Range;
 
 use glam::DVec2;
 
+use super::buffer::Target;
 use super::segment;
 use crate::{App, Gesture, Hit, PointerInput, hit};
 
@@ -103,6 +104,77 @@ pub(crate) fn drag(app: &mut App, drag: &TextSelectDrag, world: DVec2) {
     } else {
         edit.select(drag.origin.start..under.end.max(drag.origin.end));
     }
+}
+
+/// How close to the viewport's edge, in logical pixels, a selection drag
+/// starts to pan the canvas.
+const PAN_EDGE: f32 = 24.0;
+/// How fast a selection drag scrolls, in logical pixels a second for each
+/// pixel the pointer is past the edge, and the most it reaches.
+const SCROLL_RATE: f32 = 12.0;
+const SCROLL_MAX: f32 = 1500.0;
+/// The longest stretch of time one tick scrolls for, so a stalled loop does
+/// not jump.
+const TICK_MAX_MS: u64 = 100;
+
+/// How far past the span from `low` to `high` the value `at` is: negative
+/// below it, positive above, zero inside.
+fn past(at: f32, low: f32, high: f32) -> f32 {
+    (at - high).max(0.0) + (at - low).min(0.0)
+}
+
+/// The clock moved by `elapsed_ms` with a selection drag in flight. A
+/// pointer held past the top or bottom of a Document's window scrolls it,
+/// and one held at the viewport's edge pans the canvas, when the text goes
+/// on that way. The selection follows.
+pub(crate) fn autoscroll(app: &mut App, elapsed_ms: u64) {
+    let (Some(Gesture::TextSelect(drag)), Some(pointer)) =
+        (app.session.gesture.clone(), app.session.pointer)
+    else {
+        return;
+    };
+    let Some(edit) = &app.session.editing else {
+        return;
+    };
+    let Some(rect) = app.document.entity(&edit.entity).map(|entity| entity.rect) else {
+        return;
+    };
+    let entity = edit.entity.clone();
+    let camera = app.session.camera;
+    let seconds = elapsed_ms.min(TICK_MAX_MS) as f32 / 1000.0;
+    let step = |past: f32| (past * SCROLL_RATE).clamp(-SCROLL_MAX, SCROLL_MAX) * seconds;
+    let corner = |x: f64, y: f64| camera.world_to_screen(glam::Vec2::new(x as f32, y as f32));
+    let (top_left, bottom_right) = (
+        corner(rect.x, rect.y),
+        corner(rect.x + rect.width, rect.y + rect.height),
+    );
+    if edit.target == Target::Note {
+        let by = step(past(pointer.y, top_left.y, bottom_right.y));
+        if by == 0.0 {
+            return;
+        }
+        let offset = app.session.notes.scroll(&entity) + by / camera.zoom.max(f32::EPSILON);
+        crate::notes::scroll_to(app, &entity, offset);
+    } else {
+        let viewport = app.session.viewport;
+        let mut by = glam::Vec2::new(
+            step(past(pointer.x, PAN_EDGE, viewport.x - PAN_EDGE)),
+            step(past(pointer.y, PAN_EDGE, viewport.y - PAN_EDGE)),
+        );
+        // Only towards text that is off screen.
+        if (by.x < 0.0 && top_left.x >= 0.0) || (by.x > 0.0 && bottom_right.x <= viewport.x) {
+            by.x = 0.0;
+        }
+        if (by.y < 0.0 && top_left.y >= 0.0) || (by.y > 0.0 && bottom_right.y <= viewport.y) {
+            by.y = 0.0;
+        }
+        if by == glam::Vec2::ZERO {
+            return;
+        }
+        app.session.camera.pan -= by;
+    }
+    let world = app.session.camera.screen_to_world(pointer).as_dvec2();
+    self::drag(app, &drag, world);
 }
 
 /// Whether the pointer is over the body of the entity being edited, where

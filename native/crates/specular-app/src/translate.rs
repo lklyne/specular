@@ -205,6 +205,8 @@ pub(crate) fn key(code: KeyCode) -> Key {
         KeyCode::Delete => Key::Delete,
         KeyCode::Home => Key::Home,
         KeyCode::End => Key::End,
+        KeyCode::PageUp => Key::PageUp,
+        KeyCode::PageDown => Key::PageDown,
         KeyCode::Space => Key::Space,
         KeyCode::ArrowLeft => Key::ArrowLeft,
         KeyCode::ArrowRight => Key::ArrowRight,

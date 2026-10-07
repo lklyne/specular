@@ -86,6 +86,8 @@ impl Shell {
             Effect::DropImage(image) => self.drop_image(image),
             Effect::LoadNote { file } => self.load_note(&file),
             Effect::DropNote { file } => self.drop_note(&file),
+            Effect::WriteNote { file, text } => self.write_note(file, text),
+            Effect::CreateNote { rect } => self.create_note(rect),
             Effect::WriteClipboard(text) => self.write_clipboard(text),
             Effect::ReadClipboard => self.read_clipboard(),
             Effect::WriteAsset { file, bytes } => self.write_asset(&file, bytes.as_slice()),

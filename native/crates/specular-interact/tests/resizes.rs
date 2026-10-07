@@ -619,3 +619,13 @@ fn an_unselected_entity_has_no_handles_to_point_at() {
     app.pointer_move(BOTTOM_RIGHT);
     assert_eq!(cursor_effects(&mut app), []);
 }
+
+#[test]
+fn a_click_on_the_handle_of_a_narrow_auto_width_text_leaves_it_alone() {
+    // Narrower than the 100 a text's width may be dragged down to.
+    let rect = Rect::new(100.0, 100.0, 64.0, 20.0);
+    let mut app = TestApp::with_entities([specular_testkit::plain_text("t", rect, "hi")]);
+    app.select(&["t"]).press((165.0, 110.0)).release();
+    assert_eq!(app.rect("t"), rect);
+    assert!(!app.app().can_undo());
+}

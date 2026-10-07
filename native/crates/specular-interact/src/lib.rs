@@ -79,7 +79,9 @@ pub use draw::DrawStroke;
 pub use drop::DroppedFile;
 pub use edge_path::EdgeCurve;
 pub use edit::{
-    CaretStop, LayoutLine, TextEdit, TextFrame, TextLayout, TextMeasure, TextSelectDrag, TextSpec,
+    CaretStop, Format, LayoutLine, NOTE_PADDING, SourceLine, SourceRow, SourceSpan, SourceStyle,
+    TextEdit, TextFrame, TextLayout, TextMeasure, TextSelectDrag, TextSpec, note_frame,
+    source_rows, style_lines,
 };
 pub use effect::{Cursor, Effect};
 pub use event::{Action, Event, Key, KeyInput, PageNotice, PointerInput, WheelInput};

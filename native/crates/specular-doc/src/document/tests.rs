@@ -390,3 +390,28 @@ fn a_refused_command_is_not_an_undo_step() {
     assert!(refused.is_err());
     assert!(!history.can_undo());
 }
+
+#[test]
+fn set_note_round_trips_and_is_not_saved() {
+    let mut doc = Document::new();
+    let seed = Command::SetNote {
+        file: "plan.md".to_owned(),
+        text: Some("# Plan".to_owned()),
+    };
+    let forget = doc.apply(seed).unwrap();
+    assert_eq!(doc.note("plan.md"), Some("# Plan"));
+    let saved = doc.to_canvas_string().unwrap();
+    assert!(!saved.contains("Plan"), "{saved}");
+
+    let edit = Command::SetNote {
+        file: "plan.md".to_owned(),
+        text: Some("# Plan\n\n- one".to_owned()),
+    };
+    let back = doc.apply(edit).unwrap();
+    assert_eq!(doc.note("plan.md"), Some("# Plan\n\n- one"));
+    doc.apply(back).unwrap();
+    assert_eq!(doc.note("plan.md"), Some("# Plan"));
+    doc.apply(forget).unwrap();
+    assert_eq!(doc.note("plan.md"), None);
+    assert_eq!(doc, Document::new());
+}

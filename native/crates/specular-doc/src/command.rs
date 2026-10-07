@@ -85,6 +85,16 @@ pub enum Command {
     RemoveAnnotation(AnnotationId),
     /// Replaces the annotation that has this annotation's id.
     ReplaceAnnotation(Box<Annotation>),
+    /// Sets the text the document holds for a markdown file, or forgets it.
+    /// The file is the source of truth and the text is never written to the
+    /// `.canvas`; it is here so that an edit of a Document is an undo step
+    /// (ADR 0023).
+    SetNote {
+        /// The file, as file entities name it.
+        file: String,
+        /// Its text, or `None` to hold none.
+        text: Option<String>,
+    },
     /// Runs the commands in order as one step. If one fails, the ones before
     /// it are undone and the document is left as it was.
     Batch(Vec<Command>),

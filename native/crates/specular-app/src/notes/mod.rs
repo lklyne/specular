@@ -13,8 +13,10 @@ use std::path::PathBuf;
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::time::Duration;
 
-use self::watch::Watcher;
+use specular_doc::Rect;
+
 pub(crate) use self::watch::{NoteRead, ReadFailure};
+use self::watch::{Watcher, Written};
 
 /// How often the watched files are looked at for an edit from outside.
 const CHECK_EVERY: Duration = Duration::from_millis(500);
@@ -22,13 +24,41 @@ const CHECK_EVERY: Duration = Duration::from_millis(500);
 enum Command {
     Watch(String),
     Unwatch(String),
+    Write { file: String, text: String },
+    Create { rect: Rect },
 }
 
-/// The reading thread and the queue of what it has read.
+/// What the thread did with a write it could not carry out, or a file it
+/// was asked to make.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum NoteOutcome {
+    /// A write was left out: the file holds `disk`, an edit from outside
+    /// that had not been read yet.
+    Refused {
+        /// The path as the file entity names it.
+        file: String,
+        /// What the file holds.
+        disk: String,
+        /// What the write would have put there.
+        ours: String,
+    },
+    /// A new, empty markdown file, for the Document that goes at `rect`.
+    Created {
+        /// The file's name in the space folder.
+        file: String,
+        /// Where its Document goes.
+        rect: Rect,
+    },
+}
+
+/// The note thread, the queue of what it has read and the queue of what
+/// became of the writes and creations asked of it.
 #[derive(Debug)]
 pub(crate) struct NoteLoader {
     commands: Sender<Command>,
     read: Receiver<NoteRead>,
+    outcomes: Receiver<NoteOutcome>,
+    thread: std::thread::JoinHandle<()>,
 }
 
 impl NoteLoader {
@@ -37,7 +67,8 @@ impl NoteLoader {
     pub(crate) fn new(space: Option<PathBuf>) -> io::Result<Self> {
         let (commands, command_queue) = mpsc::channel::<Command>();
         let (read_tx, read) = mpsc::channel();
-        std::thread::Builder::new()
+        let (outcome_tx, outcomes) = mpsc::channel();
+        let thread = std::thread::Builder::new()
             .name("note-read".to_owned())
             .spawn(move || {
                 let mut watcher = Watcher::new(space);
@@ -49,12 +80,55 @@ impl NoteLoader {
                     match command_queue.recv_timeout(CHECK_EVERY) {
                         Ok(Command::Watch(file)) => watcher.watch(file, &mut send),
                         Ok(Command::Unwatch(file)) => watcher.unwatch(&file),
+                        Ok(Command::Write { file, text }) => {
+                            if let Written::Refused { disk } = watcher.write(&file, &text) {
+                                let ours = text;
+                                let _ = outcome_tx.send(NoteOutcome::Refused { file, disk, ours });
+                            }
+                        }
+                        Ok(Command::Create { rect }) => match watcher.create() {
+                            Ok(file) => {
+                                let _ = outcome_tx.send(NoteOutcome::Created { file, rect });
+                            }
+                            Err(error) => tracing::warn!("no document made: {error}"),
+                        },
                         Err(RecvTimeoutError::Timeout) => watcher.check(&mut send),
                         Err(RecvTimeoutError::Disconnected) => break,
                     }
                 }
             })?;
-        Ok(Self { commands, read })
+        Ok(Self {
+            commands,
+            read,
+            outcomes,
+            thread,
+        })
+    }
+
+    /// Writes `text` to `file`, unless the file holds an edit from outside
+    /// that has not been read yet. That comes back from
+    /// [`take_outcome`](Self::take_outcome).
+    pub(crate) fn write(&self, file: String, text: String) {
+        self.send(Command::Write { file, text });
+    }
+
+    /// Makes an empty markdown file under a new name. The name comes back
+    /// from [`take_outcome`](Self::take_outcome) with `rect`.
+    pub(crate) fn create(&self, rect: Rect) {
+        self.send(Command::Create { rect });
+    }
+
+    /// One refused write or made file, if there is one.
+    pub(crate) fn take_outcome(&self) -> Option<NoteOutcome> {
+        self.outcomes.try_recv().ok()
+    }
+
+    /// Carries out every write asked for so far, then stops the thread.
+    pub(crate) fn finish(self) {
+        drop(self.commands);
+        if self.thread.join().is_err() {
+            tracing::warn!("the note thread ended badly; a document may not be written");
+        }
     }
 
     /// Reads `file`, as a file entity names it, and keeps watching it. Each
@@ -130,5 +204,30 @@ mod tests {
         // Longer, so the stamp moves even on a coarse clock.
         std::fs::write(space.0.join("plan.md"), "# one and two").unwrap();
         assert_eq!(wait(&loader).result, Ok("# one and two".to_owned()));
+    }
+
+    #[test]
+    fn a_write_lands_before_the_thread_is_finished() {
+        let space = Space::new("finish");
+        let loader = NoteLoader::new(Some(space.0.clone())).unwrap();
+        loader.create(Rect::new(0.0, 0.0, 300.0, 300.0));
+        let deadline = Instant::now() + Duration::from_secs(10);
+        let made = loop {
+            if let Some(outcome) = loader.take_outcome() {
+                break outcome;
+            }
+            assert!(Instant::now() < deadline, "the note thread never answered");
+            std::thread::sleep(Duration::from_millis(2));
+        };
+        let NoteOutcome::Created { file, .. } = made else {
+            panic!("a file was asked for: {made:?}");
+        };
+        assert_eq!(file, "Untitled Note.md");
+        // As the app does: watch the new file, then write what is typed.
+        loader.watch(&file);
+        loader.write(file, "typed".to_owned());
+        loader.finish();
+        let written = std::fs::read_to_string(space.0.join("Untitled Note.md")).unwrap();
+        assert_eq!(written, "typed");
     }
 }

@@ -112,6 +112,11 @@ impl ScenePass {
             .get_or_insert_with(|| TextSystem::new(device, queue, target_format, fonts.clone()));
     }
 
+    /// The height of each owned column the latest frame drew.
+    pub(crate) fn column_heights(&self) -> &[(specular_doc::EntityId, f32)] {
+        (self.text.as_ref()).map_or(&[], TextSystem::column_heights)
+    }
+
     /// A text measure on the fonts this pass draws with.
     pub(crate) fn text_measure(&self) -> GlyphMeasure {
         GlyphMeasure::sharing(self.fonts.clone())

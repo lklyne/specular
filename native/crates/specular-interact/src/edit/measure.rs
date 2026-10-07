@@ -12,6 +12,8 @@ use std::sync::Arc;
 use specular_doc::{TextAlign, TextFont};
 use unicode_segmentation::UnicodeSegmentation;
 
+use super::source::SourceSpan;
+
 /// How a block of text is set: what a [`TextMeasure`] needs besides the
 /// text. Lengths are in canvas units.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -37,6 +39,14 @@ pub trait TextMeasure: Debug + Send + Sync {
     /// Where every line and caret position of `text` falls when set as
     /// `spec` says. See [`TextLayout`] for what must hold.
     fn layout(&self, text: &str, spec: &TextSpec) -> TextLayout;
+
+    /// The layout of one line of markdown source set with `spans` styled
+    /// over it: heavy, italic and monospace stretches are as wide as they
+    /// are drawn. An estimate that knows no fonts can leave this as it is.
+    fn layout_styled(&self, text: &str, spec: &TextSpec, spans: &[SourceSpan]) -> TextLayout {
+        let _ = spans;
+        self.layout(text, spec)
+    }
 
     /// Whether the layouts are what the renderer draws. A document's text
     /// entities are given their measured size on load only when they are:

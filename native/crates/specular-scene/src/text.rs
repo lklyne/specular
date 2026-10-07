@@ -4,7 +4,7 @@
 use std::ops::Range;
 
 use specular_doc::TextFont;
-use specular_interact::{TextFrame, TextSpec};
+use specular_interact::{SourceSpan, TextFrame, TextSpec};
 
 use crate::{Color, Point};
 
@@ -118,6 +118,8 @@ pub struct TextRun {
 impl TextRun {
     /// Line height used by [`new`](Self::new), as a multiple of the size.
     pub const DEFAULT_LINE_HEIGHT: f32 = 1.4;
+    /// Weight of headings and strong text in a Document.
+    pub const HEAVY: u16 = 600;
 
     /// `text` set as `spec` says, starting at `origin`. `view` draws an
     /// entity's text with this run and the editor's measure shapes the same
@@ -137,6 +139,47 @@ impl TextRun {
                 specular_doc::TextAlign::Right => TextAlign::Right,
             },
             ..Self::new(text, origin, spec.size, color)
+        }
+    }
+
+    /// One line of markdown source set as `spec` says with `spans` styled
+    /// over it, starting at `origin`. A Document being edited is drawn in
+    /// these and the editor's measure shapes the same ones. `faint` is the
+    /// colour of syntax and `link` of a link's text; neither changes where
+    /// a glyph lands.
+    pub fn source(
+        text: impl Into<String>,
+        spec: &TextSpec,
+        spans: &[SourceSpan],
+        origin: Point,
+        [ink, faint, link]: [Color; 3],
+    ) -> Self {
+        let spans = spans
+            .iter()
+            .map(|span| {
+                let style = span.style;
+                TextSpan {
+                    range: span.range.clone(),
+                    style: SpanStyle {
+                        family: style.code.then_some(FontFamily::Monospace),
+                        weight: style.strong.then_some(Self::HEAVY),
+                        italic: style.emphasis.then_some(true),
+                        color: if style.faint {
+                            Some(faint)
+                        } else if style.link {
+                            Some(link)
+                        } else {
+                            None
+                        },
+                        underline: style.link && !style.faint,
+                        strike: style.strike && !style.faint,
+                    },
+                }
+            })
+            .collect();
+        Self {
+            spans,
+            ..Self::set(text, spec, origin, ink)
         }
     }
 

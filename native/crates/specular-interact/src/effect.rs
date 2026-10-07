@@ -2,7 +2,7 @@
 
 use glam::Vec2;
 use specular_core::{CssSize, InputEvent};
-use specular_doc::EntityId;
+use specular_doc::{EntityId, Rect};
 
 use crate::{AssetBytes, ImageKey, ToolDefaults};
 
@@ -91,6 +91,24 @@ pub enum Effect {
     LoadNote {
         /// The path as the document writes it, which the answer repeats.
         file: String,
+    },
+    /// Write `text` to a markdown file, making the file if there is none.
+    /// The shell must not overwrite a text it has not seen: if the file
+    /// holds something other than what was last read from it or written to
+    /// it, the write is left out and answered with
+    /// [`NoteNotice::Refused`](crate::NoteNotice::Refused).
+    WriteNote {
+        /// The path as the document writes it.
+        file: String,
+        /// The whole text of the file.
+        text: String,
+    },
+    /// Make an empty markdown file in the space folder under a name no file
+    /// there has, and answer with
+    /// [`Event::NoteCreated`](crate::Event::NoteCreated).
+    CreateNote {
+        /// Where the Document for the file goes, which the answer repeats.
+        rect: Rect,
     },
     /// Stop watching a markdown file: nothing shows it any more.
     DropNote {

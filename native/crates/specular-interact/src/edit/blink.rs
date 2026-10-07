@@ -26,13 +26,15 @@ pub(crate) fn caret_state(app: &App) -> CaretState {
 }
 
 /// Restarts the blink if the event just handled moved the caret or changed
-/// the text.
-pub(crate) fn restart_blink(app: &mut App, before: &CaretState) {
+/// the text, and says whether it did.
+pub(crate) fn restart_blink(app: &mut App, before: &CaretState) -> bool {
     if caret_state(app) != *before
         && let Some(edit) = &mut app.session.editing
     {
         edit.active_ms = app.session.now_ms;
+        return true;
     }
+    false
 }
 
 impl App {

@@ -128,6 +128,7 @@ fn has_target(app: &App, action: &Action) -> bool {
         | Action::ZoomIn
         | Action::ZoomOut
         | Action::ZoomReset => true,
+        Action::Format(_) => app.session.editing.is_some(),
     }
 }
 

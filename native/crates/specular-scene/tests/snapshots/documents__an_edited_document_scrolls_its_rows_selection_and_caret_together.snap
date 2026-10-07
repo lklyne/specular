@@ -1,0 +1,69 @@
+---
+source: crates/specular-scene/tests/documents.rs
+expression: app.scene_snapshot()
+---
+canvas rect 100,100 400x300 r=4 fill=#fafaf9
+canvas rect 182,347 6x20 fill=#3b82f64d clip=100,100 400x300
+canvas rect 112,368 70x20 fill=#3b82f64d clip=100,100 400x300
+canvas column 112,-241 376x276
+  row min-h=21
+    text "line 0" 0,0 wrap=376 14/21 #1c1917
+  row min-h=21
+    text "line 1" 0,0 wrap=376 14/21 #1c1917
+  row min-h=21
+    text "line 2" 0,0 wrap=376 14/21 #1c1917
+  row min-h=21
+    text "line 3" 0,0 wrap=376 14/21 #1c1917
+  row min-h=21
+    text "line 4" 0,0 wrap=376 14/21 #1c1917
+  row min-h=21
+    text "line 5" 0,0 wrap=376 14/21 #1c1917
+  row min-h=21
+    text "line 6" 0,0 wrap=376 14/21 #1c1917
+  row min-h=21
+    text "line 7" 0,0 wrap=376 14/21 #1c1917
+  row min-h=21
+    text "line 8" 0,0 wrap=376 14/21 #1c1917
+  row min-h=21
+    text "line 9" 0,0 wrap=376 14/21 #1c1917
+  row min-h=21
+    text "line 10" 0,0 wrap=376 14/21 #1c1917
+  row min-h=21
+    text "line 11" 0,0 wrap=376 14/21 #1c1917
+  row min-h=21
+    text "line 12" 0,0 wrap=376 14/21 #1c1917
+  row min-h=21
+    text "line 13" 0,0 wrap=376 14/21 #1c1917
+  row min-h=21
+    text "line 14" 0,0 wrap=376 14/21 #1c1917
+  row min-h=21
+    text "line 15" 0,0 wrap=376 14/21 #1c1917
+  row min-h=21
+    text "line 16" 0,0 wrap=376 14/21 #1c1917
+  row min-h=21
+    text "line 17" 0,0 wrap=376 14/21 #1c1917
+  row min-h=21
+    text "line 18" 0,0 wrap=376 14/21 #1c1917
+  row min-h=21
+    text "line 19" 0,0 wrap=376 14/21 #1c1917
+  row min-h=21
+    text "line 20" 0,0 wrap=376 14/21 #1c1917
+  row min-h=21
+    text "line 21" 0,0 wrap=376 14/21 #1c1917
+  row min-h=21
+    text "line 22" 0,0 wrap=376 14/21 #1c1917
+  row min-h=21
+    text "line 23" 0,0 wrap=376 14/21 #1c1917
+  row min-h=21
+    text "line 24" 0,0 wrap=376 14/21 #1c1917
+  row min-h=21
+    text "line 25" 0,0 wrap=376 14/21 #1c1917
+  row min-h=21
+    text "line 26" 0,0 wrap=376 14/21 #1c1917
+  row min-h=21
+    text "line 27" 0,0 wrap=376 14/21 #1c1917
+  row min-h=21
+    text "line 28" 0,0 wrap=376 14/21 #1c1917
+  row min-h=21
+    text "line 29" 0,0 wrap=376 14/21 #1c1917 clip=100,100 400x300
+screen rect 99,99 402x302 stroke=#3b82f6/1/inside

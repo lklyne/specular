@@ -53,6 +53,11 @@ pub(crate) fn layout(
 }
 
 impl ColumnLayout {
+    /// Height of all the rows and gaps.
+    pub(crate) fn height(&self) -> f32 {
+        self.height
+    }
+
     /// Everything the column draws, in the item's space.
     pub(crate) fn bounds(&self, column: &ColumnDraw) -> Rect {
         Rect::new(
@@ -115,6 +120,7 @@ mod tests {
             height: 50.0,
             scroll,
             rows,
+            owner: None,
         }
     }
 

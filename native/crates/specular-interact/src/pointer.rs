@@ -175,7 +175,11 @@ fn tool_takes_press(
             true
         }
         Tool::Select => select::press(app, input, click_count, effects),
-        tool @ (Tool::AddPage | Tool::AddText | Tool::AddSticky | Tool::AddShape) => {
+        tool @ (Tool::AddPage
+        | Tool::AddText
+        | Tool::AddSticky
+        | Tool::AddShape
+        | Tool::AddDocument) => {
             app.session.gesture = place::begin(tool, world).map(Gesture::Place);
             true
         }
@@ -184,8 +188,5 @@ fn tool_takes_press(
             app.session.gesture = Some(Gesture::Draw(stroke));
             true
         }
-        // A document needs its file made first. Until that exists the tool
-        // holds the press so it does not reach a page.
-        Tool::AddDocument => true,
     }
 }

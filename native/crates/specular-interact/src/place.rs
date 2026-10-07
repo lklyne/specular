@@ -26,6 +26,8 @@ const DEFAULT_PILL_SIZE: DVec2 = DVec2::new(200.0, 88.0);
 /// The size a new text or sticky gets. The height is a sticky's height at
 /// the default text size.
 const DEFAULT_TEXT_SIZE: DVec2 = DVec2::new(200.0, 200.0);
+/// The size a new Document gets: Electron's default for a file entity.
+const DEFAULT_DOCUMENT_SIZE: DVec2 = DVec2::new(300.0, 300.0);
 /// The viewport a new page gets: the first preset, an iPhone SE.
 const DEFAULT_PAGE_SIZE: DVec2 = DVec2::new(375.0, 667.0);
 const DEFAULT_PAGE_PRESET: u32 = 0;
@@ -42,6 +44,8 @@ pub enum Placing {
     Text(TextStyle),
     /// A shape.
     Shape,
+    /// A Document: a new markdown file and the file entity that shows it.
+    Document,
 }
 
 /// A press with a one-shot creation tool, up to its release.
@@ -73,7 +77,8 @@ pub(crate) fn begin(tool: Tool, world: DVec2) -> Option<PlaceDrag> {
         Tool::AddText => Placing::Text(TextStyle::Plain),
         Tool::AddSticky => Placing::Text(TextStyle::Sticky),
         Tool::AddShape => Placing::Shape,
-        Tool::Select | Tool::AddDocument | Tool::Draw | Tool::Comment => return None,
+        Tool::AddDocument => Placing::Document,
+        Tool::Select | Tool::Draw | Tool::Comment => return None,
     };
     Some(PlaceDrag {
         what,
@@ -118,7 +123,7 @@ fn dragged_rect(start: DVec2, end: DVec2, square: bool) -> Option<Rect> {
 /// The pointer moved, or Shift changed, with `drag` in flight.
 pub(crate) fn drag(app: &mut App, drag: &mut PlaceDrag, world: DVec2, modifiers: Modifiers) {
     match drag.what {
-        Placing::Page | Placing::Text(_) => {}
+        Placing::Page | Placing::Text(_) | Placing::Document => {}
         Placing::Shape => match dragged_rect(drag.start, world, modifiers.shift) {
             Some(rect) => {
                 let id = match drag.live.take() {
@@ -141,8 +146,19 @@ pub(crate) fn drag(app: &mut App, drag: &mut PlaceDrag, world: DVec2, modifiers:
 /// The button came up: the entity is placed and selected, and the tool goes
 /// back to select. A page or a shape is one undo step. A text or a sticky is
 /// left being edited, and becomes a step when the edit ends with something
-/// typed in it.
+/// typed in it. A Document asks the shell for its file and is placed when
+/// the file exists.
 pub(crate) fn finish(app: &mut App, mut drag: PlaceDrag, effects: &mut Vec<Effect>) {
+    app.session.tool = Tool::Select;
+    if drag.what == Placing::Document {
+        // The file comes first, and only the shell can make it. The entity
+        // is placed when it answers.
+        let at = DVec2::new(grid::snap(drag.start.x), grid::snap(drag.start.y));
+        effects.push(Effect::CreateNote {
+            rect: geometry::rect(at, DEFAULT_DOCUMENT_SIZE),
+        });
+        return;
+    }
     let dragged = (drag.live.take()).and_then(|id| live::take(&mut app.document, &id));
     let mut entity = dragged.unwrap_or_else(|| at_default_size(app, &drag));
     let id = entity.id.clone();
@@ -152,12 +168,11 @@ pub(crate) fn finish(app: &mut App, mut drag: PlaceDrag, effects: &mut Vec<Effec
             live::put(&mut app.document, entity);
             edit::begin(app, &id, true, effects);
         }
-        Placing::Page | Placing::Shape => {
+        Placing::Page | Placing::Shape | Placing::Document => {
             live::create(app, entity, effects);
             app.session.selection.set([ItemId::Entity(id)]);
         }
     }
-    app.session.tool = Tool::Select;
 }
 
 /// The placement was abandoned: a shape being dragged out is taken back.
@@ -173,7 +188,8 @@ fn at_default_size(app: &mut App, drag: &PlaceDrag) -> Entity {
     let id = EntityId::from(app.fresh_id().as_str());
     let at = DVec2::new(grid::snap(drag.start.x), grid::snap(drag.start.y));
     match drag.what {
-        Placing::Page => page(id, at),
+        // A Document is placed by the shell's answer, not from here.
+        Placing::Page | Placing::Document => page(id, at),
         Placing::Text(style) => text(app, id, at, style),
         Placing::Shape => {
             let size = match app.tool_defaults.shape.kind {

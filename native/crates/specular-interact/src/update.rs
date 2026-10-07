@@ -40,8 +40,15 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         },
         Event::Page { page, notice } => on_page_notice(app, &page, &notice, &mut effects),
         Event::Image { image, notice } => images::on_notice(app, image, notice),
-        Event::Note { file, notice } => notes::on_notice(app, &file, notice),
-        Event::Tick { unix_ms } => app.session.now_ms = unix_ms,
+        Event::Note { file, notice } => notes::on_notice(app, &file, notice, &mut effects),
+        Event::NoteCreated { file, rect } => edit::note::created(app, file, rect, &mut effects),
+        Event::NoteHeights(heights) => notes::on_heights(app, heights),
+        Event::Tick { unix_ms } => {
+            let elapsed = unix_ms.saturating_sub(app.session.now_ms);
+            app.session.now_ms = unix_ms;
+            edit::note::autosave(app, &mut effects);
+            edit::autoscroll(app, elapsed);
+        }
         Event::ViewportResized(size) => app.session.viewport = size,
         Event::DocumentOpened(document) => open_document(app, *document, &mut effects),
         Event::Clipboard(content) => clipboard::on_read(app, content, &mut effects),
@@ -50,7 +57,9 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         Event::Action(action) => run_action(app, action, &mut effects),
     }
     leave_unless_selected(app, &mut effects);
-    edit::restart_blink(app, &caret);
+    if edit::restart_blink(app, &caret) {
+        notes::reveal_caret(app);
+    }
     // Every undoable change, undo and redo moves the history's revision, so
     // this is the one place a save is asked for, and the place to ask for
     // the images and markdown files of file entities that just appeared.
@@ -117,6 +126,11 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         Action::Nudge { dx, dy } => verb(app, effects, |app, effects| {
             verbs::nudge(app, DVec2::new(dx, dy), effects);
         }),
+        Action::Format(format) => {
+            if app.session.gesture.is_none() {
+                edit::format(app, format);
+            }
+        }
         Action::Copy => clipboard::copy(app, effects),
         Action::Cut => verb(app, effects, clipboard::cut),
         Action::Paste => clipboard::request(app, effects),
@@ -169,11 +183,13 @@ fn step_history(
         return;
     }
     let before = pages::snapshot(&app.document);
+    let notes_before = edit::note::held(app);
     match step(app) {
         Ok(true) => {}
         Ok(false) => return,
         Err(error) => tracing::warn!("history step dropped: {error}"),
     }
+    edit::note::write_stepped(app, &notes_before, effects);
     drop_dangling(app, effects);
     pages::reconcile(&before, &app.document, effects);
 }

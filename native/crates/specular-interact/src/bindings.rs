@@ -10,8 +10,8 @@ use specular_doc::{BrushType, ShapeKind};
 
 use crate::update::run_action;
 use crate::{
-    Action, App, Effect, Focus, Key, KeyInput, PointerInput, Tool, ToolDefaultPatch, edit, gesture,
-    grid, page_input,
+    Action, App, Effect, Focus, Format, Key, KeyInput, PointerInput, Tool, ToolDefaultPatch, edit,
+    gesture, grid, page_input,
 };
 
 /// How far an arrow key moves the selection, in canvas units. Shift moves it
@@ -62,6 +62,12 @@ impl Chord {
         }
     }
 
+    /// The same key with Option held as well.
+    #[must_use]
+    pub const fn alt(self) -> Self {
+        Self { alt: true, ..self }
+    }
+
     /// The chord `input` is, whether it is a press or a release.
     ///
     /// Escape is Escape whatever is held with it, so it cancels a drag that
@@ -90,6 +96,8 @@ pub enum Context {
     Canvas,
     /// While keys go to the canvas, text being edited or not.
     CanvasOrEditing,
+    /// While text is being edited.
+    Editing,
 }
 
 impl Context {
@@ -100,6 +108,7 @@ impl Context {
             Self::Always => true,
             Self::Canvas => session.focus == Focus::Canvas && session.editing.is_none(),
             Self::CanvasOrEditing => session.focus == Focus::Canvas,
+            Self::Editing => session.editing.is_some(),
         }
     }
 }
@@ -147,6 +156,16 @@ const fn variant(chord: Chord, patch: ToolDefaultPatch) -> Binding {
     once(chord, Context::Canvas, Action::SetToolVariant(patch))
 }
 
+const fn format(chord: Chord, format: Format) -> Binding {
+    once(chord, Context::Editing, Action::Format(format))
+}
+
+/// Command+Option+digit: a heading of that level, and 0 for body text.
+const fn heading(level: u8) -> Binding {
+    let digit = (b'0' + level) as char;
+    format(Chord::char(digit).cmd().alt(), Format::Heading(level))
+}
+
 /// An arrow key's nudge: `dx` and `dy` are the direction, and `chord` holding
 /// Shift makes the step a grid step.
 const fn nudge(chord: Chord, dx: f64, dy: f64) -> Binding {
@@ -171,6 +190,10 @@ const fn nudge(chord: Chord, dx: f64, dy: f64) -> Binding {
 /// A tool's key does nothing while that tool is active; Escape is the only
 /// key back to select. A variant key (Shift+R, Shift+M) arms the tool and
 /// writes the variant to the tool defaults (ADR 0009).
+///
+/// The formatting rows are the Electron editor's keys. It has none for a
+/// numbered list, a task list or a heading: those take the digits beside
+/// its Command+Shift+8, and Command+Option+digit.
 pub const BINDINGS: &[Binding] = &[
     tool('v', Tool::Select),
     tool('p', Tool::AddPage),
@@ -239,6 +262,20 @@ pub const BINDINGS: &[Binding] = &[
     nudge(Chord::key(Key::ArrowRight).shift(), 1.0, 0.0),
     nudge(Chord::key(Key::ArrowUp).shift(), 0.0, -1.0),
     nudge(Chord::key(Key::ArrowDown).shift(), 0.0, 1.0),
+    format(Chord::char('b').cmd(), Format::Bold),
+    format(Chord::char('i').cmd(), Format::Italic),
+    format(Chord::char('e').cmd(), Format::Code),
+    format(Chord::char('x').cmd().shift(), Format::Strike),
+    format(Chord::char('8').cmd().shift(), Format::BulletList),
+    format(Chord::char('7').cmd().shift(), Format::NumberedList),
+    format(Chord::char('9').cmd().shift(), Format::TaskList),
+    heading(0),
+    heading(1),
+    heading(2),
+    heading(3),
+    heading(4),
+    heading(5),
+    heading(6),
     once(Chord::key(Key::Escape), Context::Always, Action::Cancel),
 ];
 

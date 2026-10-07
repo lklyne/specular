@@ -85,7 +85,11 @@ pub(crate) fn drag(app: &mut App, drag: &ResizeDrag, world: DVec2, modifiers: Mo
                 return;
             };
             let lock = caps::aspect_mode(&entity.kind).locks(modifiers.shift);
-            let min = caps::min_size(&entity.kind);
+            // An entity already under its kind's floor keeps its size until
+            // the drag changes it: an auto-width text is narrower than the
+            // floor a fixed one has.
+            let size = DVec2::new(start.rect.width, start.rect.height);
+            let min = caps::min_size(&entity.kind).min(size);
             // A text's height is its content's: only its width has a floor,
             // and a handle that reflows it has no ratio to keep.
             let (lock, min) = match &entity.kind {

@@ -2,11 +2,11 @@
 
 use glam::Vec2;
 use specular_core::{Camera, ImeEvent, Modifiers, PixelRect, PointerEventKind};
-use specular_doc::{Document, EntityId, ItemId};
+use specular_doc::{Document, EntityId, ItemId, Rect};
 
 use crate::{
-    ClipboardContent, DroppedFile, ImageKey, ImageNotice, NoteNotice, Tool, ToolDefaultPatch,
-    ToolDefaults,
+    ClipboardContent, DroppedFile, Format, ImageKey, ImageNotice, NoteNotice, Tool,
+    ToolDefaultPatch, ToolDefaults,
 };
 
 /// One input to [`update`](crate::update). Window input arrives in logical
@@ -51,6 +51,17 @@ pub enum Event {
         /// What the file holds now.
         notice: NoteNotice,
     },
+    /// The shell made the file an
+    /// [`Effect::CreateNote`](crate::Effect::CreateNote) asked for.
+    NoteCreated {
+        /// The new file, relative to the space folder.
+        file: String,
+        /// Where its Document goes.
+        rect: Rect,
+    },
+    /// The renderer stacked the rows of the Documents it drew and found how
+    /// tall each one's text is, in canvas units. Sent when a height changes.
+    NoteHeights(Vec<(EntityId, f32)>),
     /// The wall clock, sent once per loop turn. Milliseconds since the Unix
     /// epoch.
     Tick {
@@ -141,6 +152,10 @@ pub enum Key {
     Home,
     /// End.
     End,
+    /// Page Up.
+    PageUp,
+    /// Page Down.
+    PageDown,
     /// The space bar.
     Space,
     /// Left arrow.
@@ -222,6 +237,9 @@ pub enum Action {
     ZoomReset,
     /// Show everything on the canvas, centred.
     ZoomToFit,
+    /// Toggle markdown formatting on the selection of the text being
+    /// edited. Does nothing where the text does not take that format.
+    Format(Format),
     /// Move the selection by exactly this many canvas units.
     Nudge {
         /// Along x. Positive is right.

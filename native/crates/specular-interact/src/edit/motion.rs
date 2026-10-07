@@ -31,6 +31,22 @@ pub(crate) enum Motion {
     Up,
     /// One visual line down, keeping the column.
     Down,
+    /// To the start of the paragraph, or of the one before from there.
+    ParagraphUp,
+    /// To the end of the paragraph, or of the one after from there.
+    ParagraphDown,
+    /// Up by what the text's window shows, keeping the column.
+    PageUp,
+    /// Down by what the text's window shows, keeping the column.
+    PageDown,
+}
+
+/// The text as the motions see it: its lines, and how much of them shows at
+/// once, which is what Page Up and Page Down move by.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Seen<'a> {
+    pub(crate) layout: &'a TextLayout,
+    pub(crate) page: f32,
 }
 
 /// Where `motion` takes the caret, and the column it is aiming for if it
@@ -38,9 +54,10 @@ pub(crate) enum Motion {
 fn destination(
     edit: &TextEdit,
     motion: Motion,
-    layout: &TextLayout,
+    seen: Seen<'_>,
     from: usize,
 ) -> (usize, Option<f32>) {
+    let layout = seen.layout;
     let text = edit.text.as_str();
     let vertical = |onto: Option<usize>, edge: usize| {
         let x = edit.preferred_x.unwrap_or_else(|| layout.x_of(from));
@@ -63,6 +80,26 @@ fn destination(
             Some(line + 1).filter(|next| *next < layout.lines.len()),
             text.len(),
         ),
+        Motion::ParagraphUp => {
+            let start = segment::paragraph_at(text, from).start;
+            let before = segment::paragraph_at(text, start.saturating_sub(1)).start;
+            (if from > start { start } else { before }, None)
+        }
+        Motion::ParagraphDown => {
+            let end = segment::paragraph_at(text, from).end;
+            let after = segment::paragraph_at(text, (end + 1).min(text.len())).end;
+            (if from < end { end } else { after }, None)
+        }
+        Motion::PageUp | Motion::PageDown => {
+            let top = layout.lines.get(line).map_or(0.0, |line| line.top);
+            let (aim, edge) = if motion == Motion::PageUp {
+                (top - seen.page, 0)
+            } else {
+                (top + seen.page, text.len())
+            };
+            // A page that moves no line has reached the first or the last.
+            vertical(Some(layout.line_at(aim)).filter(|onto| *onto != line), edge)
+        }
     }
 }
 
@@ -70,17 +107,25 @@ fn destination(
 /// selection collapses: left and up leave from its start, right and down
 /// from its end, and a single step left or right goes no further than that
 /// edge.
-pub(crate) fn apply(edit: &mut TextEdit, motion: Motion, extend: bool, layout: &TextLayout) {
+pub(crate) fn apply(edit: &mut TextEdit, motion: Motion, extend: bool, seen: Seen<'_>) {
     let selection = edit.selection();
     let collapses = !extend && !selection.is_empty();
     let from = match motion {
         _ if !collapses => edit.caret,
-        Motion::Left | Motion::WordLeft | Motion::LineStart | Motion::DocStart | Motion::Up => {
-            selection.start
-        }
-        Motion::Right | Motion::WordRight | Motion::LineEnd | Motion::DocEnd | Motion::Down => {
-            selection.end
-        }
+        Motion::Left
+        | Motion::WordLeft
+        | Motion::LineStart
+        | Motion::DocStart
+        | Motion::Up
+        | Motion::ParagraphUp
+        | Motion::PageUp => selection.start,
+        Motion::Right
+        | Motion::WordRight
+        | Motion::LineEnd
+        | Motion::DocEnd
+        | Motion::Down
+        | Motion::ParagraphDown
+        | Motion::PageDown => selection.end,
     };
     let (to, column) = match motion {
         Motion::Left | Motion::Right if collapses => (from, None),
@@ -93,7 +138,11 @@ pub(crate) fn apply(edit: &mut TextEdit, motion: Motion, extend: bool, layout: &
         | Motion::DocStart
         | Motion::DocEnd
         | Motion::Up
-        | Motion::Down => destination(edit, motion, layout, from),
+        | Motion::Down
+        | Motion::ParagraphUp
+        | Motion::ParagraphDown
+        | Motion::PageUp
+        | Motion::PageDown => destination(edit, motion, seen, from),
     };
     edit.move_to(to, extend);
     edit.preferred_x = column;
@@ -102,14 +151,14 @@ pub(crate) fn apply(edit: &mut TextEdit, motion: Motion, extend: bool, layout: &
 /// What a delete key with `motion` removes: the selection, or from the
 /// caret to where the motion goes. A line delete with nothing on its side
 /// of the caret takes the line break instead.
-fn doomed(edit: &TextEdit, motion: Motion, layout: &TextLayout) -> Range<usize> {
+fn doomed(edit: &TextEdit, motion: Motion, seen: Seen<'_>) -> Range<usize> {
     let selection = edit.selection();
     if !selection.is_empty() {
         return selection;
     }
     let caret = edit.caret;
     let span = |to: usize| caret.min(to)..caret.max(to);
-    let range = span(destination(edit, motion, layout, caret).0);
+    let range = span(destination(edit, motion, seen, caret).0);
     match motion {
         Motion::LineStart if range.is_empty() => span(segment::previous(&edit.text, caret)),
         Motion::LineEnd if range.is_empty() => span(segment::next(&edit.text, caret)),
@@ -119,11 +168,11 @@ fn doomed(edit: &TextEdit, motion: Motion, layout: &TextLayout) -> Range<usize> 
 
 /// Deletes the selection, or from the caret to where `motion` goes.
 /// Returns whether the text changed.
-pub(crate) fn delete(edit: &mut TextEdit, motion: Motion, layout: &TextLayout) -> bool {
+pub(crate) fn delete(edit: &mut TextEdit, motion: Motion, seen: Seen<'_>) -> bool {
     let change = match motion {
         Motion::Left | Motion::Right if edit.selection().is_empty() => Change::Deleting,
         _ => Change::Single,
     };
-    let range = doomed(edit, motion, layout);
+    let range = doomed(edit, motion, seen);
     edit.delete(range, change)
 }

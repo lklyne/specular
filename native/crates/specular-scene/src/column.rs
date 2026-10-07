@@ -2,6 +2,8 @@
 //! turns out to be. Only the renderer measures text, so `view` says what the
 //! rows hold and the renderer finds where each one starts.
 
+use specular_doc::EntityId;
+
 use crate::{Color, Point, TextRun};
 
 /// Rows of text stacked top to bottom from `origin`.
@@ -23,6 +25,10 @@ pub struct ColumnDraw {
     pub scroll: f32,
     /// The rows, top to bottom.
     pub rows: Vec<Row>,
+    /// The entity whose text this is, when the renderer should report how
+    /// tall the rows came out. Scrolling needs that to know where the text
+    /// ends.
+    pub owner: Option<EntityId>,
 }
 
 /// One row of a [`ColumnDraw`]. It is as tall as its tallest cell.

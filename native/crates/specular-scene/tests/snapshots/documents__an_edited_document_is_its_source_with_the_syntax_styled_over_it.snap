@@ -1,0 +1,23 @@
+---
+source: crates/specular-scene/tests/documents.rs
+expression: app.scene_snapshot()
+---
+canvas rect 100,100 400x300 r=4 fill=#fafaf9
+canvas column 112,112 376x276
+  row min-h=29.4
+    text "# Title" 0,0 wrap=376 19.6/29.4 #1c1917 spans=[0..1 w600 #1c191799, 2..7 w600]
+  row min-h=21
+  row min-h=21
+    text "Some **bold**, *soft* and `code`." 0,0 wrap=376 14/21 #1c1917 spans=[5..7 w600 #1c191799, 7..11 w600, 11..13 w600 #1c191799, 15..16 italic #1c191799, 16..20 italic, 20..21 italic #1c191799, 26..27 mono #1c191799, 27..31 mono, 31..32 mono #1c191799]
+  row min-h=21
+  row min-h=21
+    text "- [ ] a [link](https://x.test)" 0,0 wrap=376 14/21 #1c1917 spans=[0..1 #1c191799, 2..5 #1c191799, 8..9 #1c191799, 9..13 #2563eb underline, 13..30 #1c191799]
+  row min-h=21
+    text "```" 0,0 wrap=376 14/21 #1c1917 spans=[0..3 mono #1c191799]
+  row min-h=21
+    text "let x = 1;" 0,0 wrap=376 14/21 #1c1917 spans=[0..10 mono]
+  row min-h=21
+    text "```" 0,0 wrap=376 14/21 #1c1917 spans=[0..3 mono #1c191799]
+  row min-h=21 clip=100,100 400x300
+screen rect 132,112 1x20 fill=#1c1917 clip=100,100 400x300
+screen rect 99,99 402x302 stroke=#3b82f6/1/inside

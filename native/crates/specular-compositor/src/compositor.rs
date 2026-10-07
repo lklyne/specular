@@ -135,6 +135,14 @@ impl Compositor {
         self.scene_pass.text_measure()
     }
 
+    /// How tall the rows of each Document drawn by the latest
+    /// [`render_scene`](Self::render_scene) came out, in canvas units, for
+    /// [`Event::NoteHeights`](specular_interact::Event::NoteHeights). A
+    /// Document that was off screen is not in it.
+    pub fn column_heights(&self) -> &[(specular_doc::EntityId, f32)] {
+        self.scene_pass.column_heights()
+    }
+
     /// The colour format this compositor renders into.
     pub fn target_format(&self) -> wgpu::TextureFormat {
         self.target_format
