@@ -11,6 +11,7 @@ use crate::{Action, App, Effect, Event, Focus, PageNotice, camera, gesture, keys
 /// order. No I/O happens here.
 pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
     let mut effects = Vec::new();
+    let revision = app.history.revision();
     match event {
         Event::Pointer(input) => pointer::on_pointer(app, &input, &mut effects),
         Event::Wheel(input) => camera::on_wheel(app, &input, &mut effects),
@@ -30,6 +31,11 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         Event::Action(action) => run_action(app, action, &mut effects),
     }
     leave_unless_selected(app, &mut effects);
+    // Every undoable change, undo and redo moves the history's revision, so
+    // this is the one place a save is asked for.
+    if app.history.revision() != revision {
+        effects.push(Effect::Save);
+    }
     effects
 }
 

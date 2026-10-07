@@ -10,6 +10,7 @@ mod bench_run;
 mod cli;
 mod latency;
 mod paint_lod;
+mod persist;
 mod scene;
 mod source_select;
 mod translate;
@@ -58,6 +59,7 @@ fn main() -> anyhow::Result<()> {
     );
 
     let options = app::RunOptions {
+        canvas: run.canvas,
         bench: run.bench,
         warmup: run.warmup,
         representative_source: run.source.is_representative(),

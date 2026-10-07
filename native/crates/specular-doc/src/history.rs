@@ -10,6 +10,7 @@ use crate::{Command, CommandError, Document};
 pub struct History {
     undo: Vec<Command>,
     redo: Vec<Command>,
+    revision: u64,
 }
 
 impl History {
@@ -24,6 +25,7 @@ impl History {
         let inverse = document.apply(command)?;
         self.undo.push(inverse);
         self.redo.clear();
+        self.revision += 1;
         Ok(())
     }
 
@@ -33,13 +35,17 @@ impl History {
     /// (through [`Document::apply`] directly) so the step no longer fits. The
     /// step is dropped and the document is left unchanged.
     pub fn undo(&mut self, document: &mut Document) -> Result<bool, CommandError> {
-        Self::step(document, &mut self.undo, &mut self.redo)
+        let stepped = Self::step(document, &mut self.undo, &mut self.redo)?;
+        self.revision += u64::from(stepped);
+        Ok(stepped)
     }
 
     /// Redoes the latest undone step. Returns `false` when there is nothing
     /// to redo. Errors as [`undo`](Self::undo) does.
     pub fn redo(&mut self, document: &mut Document) -> Result<bool, CommandError> {
-        Self::step(document, &mut self.redo, &mut self.undo)
+        let stepped = Self::step(document, &mut self.redo, &mut self.undo)?;
+        self.revision += u64::from(stepped);
+        Ok(stepped)
     }
 
     /// Whether [`undo`](Self::undo) has a step to run.
@@ -50,6 +56,14 @@ impl History {
     /// Whether [`redo`](Self::redo) has a step to run.
     pub fn can_redo(&self) -> bool {
         !self.redo.is_empty()
+    }
+
+    /// A count that goes up each time a step is applied, undone or redone,
+    /// so a caller can tell that the document changed without comparing it.
+    /// [`clear`](Self::clear) leaves it alone: a freshly loaded document is
+    /// not a change to save.
+    pub fn revision(&self) -> u64 {
+        self.revision
     }
 
     /// Forgets every step, as after loading a different file.

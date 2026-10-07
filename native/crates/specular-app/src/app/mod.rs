@@ -9,6 +9,7 @@ mod gpu_window;
 mod input;
 
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use glam::Vec2;
@@ -27,9 +28,11 @@ use self::gpu_window::GpuWindow;
 use crate::bench_run::{BenchRun, BenchTick, RunSource};
 use crate::latency::InputLatencyProbe;
 use crate::paint_lod::{LodChange, PageLod};
+use crate::persist::{self, Persistence};
 use crate::translate::ClickCounter;
 
-/// Camera the canvas opens at (and each bench profile starts from).
+/// Camera a canvas with no saved one opens at, and each bench profile starts
+/// from.
 const START_CAMERA: Camera = Camera {
     pan: Vec2::new(40.0, 40.0),
     zoom: 0.25,
@@ -38,6 +41,8 @@ const START_CAMERA: Camera = Camera {
 /// How the shell runs, from the command line.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct RunOptions {
+    /// The `.canvas` file the document came from, if it came from one.
+    pub(crate) canvas: Option<PathBuf>,
     /// Profiles to run then exit; `None` stays interactive.
     pub(crate) bench: Option<Vec<GestureProfile>>,
     /// Settle time before the first bench profile.
@@ -67,6 +72,12 @@ pub(crate) struct Shell {
     source: Box<dyn PageSource>,
     /// The document to open once the window exists.
     document: Option<Document>,
+    /// The camera the canvas opens at.
+    start_camera: Camera,
+    /// The file the document is saved to and reloaded from. `None` for a
+    /// demo grid, and for a run that must not write: a benchmark, or one
+    /// with seeded annotations in the document.
+    persist: Option<Persistence>,
     app: App,
     /// The hosted page behind each page entity.
     hosts: HashMap<EntityId, PageHost>,
@@ -96,12 +107,21 @@ impl Shell {
         document: Document,
         options: RunOptions,
     ) -> Self {
+        // A benchmark starts every run from the same camera and leaves the
+        // file as it found it.
+        let editing = options.bench.is_none() && options.annotations == 0;
+        let canvas = options.canvas.as_deref().filter(|_| editing);
+        let start_camera = canvas
+            .and_then(|_| persist::camera_of(&document))
+            .unwrap_or(START_CAMERA);
         Self {
             source,
             document: Some(document),
+            start_camera,
+            persist: canvas.map(Persistence::open),
             app: App::new(unix_ms()),
             hosts: HashMap::new(),
-            drawn_zoom: START_CAMERA.zoom,
+            drawn_zoom: start_camera.zoom,
             gpu: None,
             events: Vec::new(),
             modifiers: ModifiersState::empty(),
@@ -157,6 +177,9 @@ impl Shell {
                 tracing::info!(hits, misses, "shared-surface import cache");
             }
         }
+        if let Some(persist) = self.persist.as_mut() {
+            persist.flush(&self.app);
+        }
         self.hosts.clear();
         self.closing = true;
     }
@@ -171,7 +194,7 @@ impl Shell {
         let step_interval = gpu.refresh_interval().unwrap_or(STEP_INTERVAL);
         self.gpu = Some(gpu);
         self.dispatch(Event::ViewportResized(viewport));
-        self.dispatch(Event::Action(Action::SetCamera(START_CAMERA)));
+        self.dispatch(Event::Action(Action::SetCamera(self.start_camera)));
         if let Some(document) = self.document.take() {
             self.dispatch(Event::DocumentOpened(Box::new(document)));
         }
@@ -307,6 +330,19 @@ impl Shell {
         }
     }
 
+    /// Saves a due autosave, or opens the file again when another tool
+    /// edited it. The camera stays, and `update` drops whatever the selection
+    /// named that the new document lacks.
+    fn sync_file(&mut self) {
+        let reloaded = self
+            .persist
+            .as_mut()
+            .and_then(|persist| persist.turn(&self.app));
+        if let Some(document) = reloaded {
+            self.dispatch(Event::DocumentOpened(Box::new(document)));
+        }
+    }
+
     /// The page entity a backend page is hosting.
     fn entity_of(&self, page: PageId) -> Option<EntityId> {
         let (entity, _) = self.hosts.iter().find(|(_, host)| host.page == page)?;
@@ -425,6 +461,7 @@ impl ApplicationHandler for Shell {
             return;
         }
         self.dispatch(Event::Tick { unix_ms: unix_ms() });
+        self.sync_file();
         if let Some(gpu) = self.gpu.as_ref() {
             gpu.window.request_redraw();
         }

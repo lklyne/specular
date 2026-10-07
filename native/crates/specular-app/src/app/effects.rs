@@ -77,7 +77,12 @@ impl Shell {
                     gpu.window.set_cursor(translate::cursor_icon(cursor));
                 }
             }
-            Effect::Save | Effect::WriteClipboard(_) => {
+            Effect::Save => {
+                if let Some(persist) = self.persist.as_mut() {
+                    persist.request_save();
+                }
+            }
+            Effect::WriteClipboard(_) => {
                 tracing::debug!(?effect, "effect has no runner yet");
             }
         }

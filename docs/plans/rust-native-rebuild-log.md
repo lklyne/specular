@@ -60,6 +60,11 @@ with the task that made it.
 - F5b: a page keeps the 8-unit corner radius and gets a title above it (label, or URL without the scheme) as the title-bar stand-in. Electron draws neither on the canvas.
 - F5b: text is never measured in `view`. An edge label has no gap cut in the line under it, a comment badge has a fixed width per digit, and a file card stacks its glyph and one line of name around the centre.
 - F5b: a comment on a canvas point draws a 12 px dot and a comment on an element draws its badge in the page's top-right corner. Electron shows nothing for the first and needs the element's live position for the second.
+- S9: `History::revision()` counts applied, undone and redone steps. `update` compares it before and after an event and returns `Effect::Save` when it moved, so no command site has to remember to. `clear` does not move it: a document just read is not saved back.
+- S9: the file watch is a `stat` every 500 ms on the loop, not an OS watcher. A moved stamp (mtime or length) means read the file; the text decides. Our own write and a `touch` compare equal to what we hold and are ignored.
+- S9: nothing is saved or reloaded while a gesture is in flight. The document holds the drag's unfinished rects, which Escape takes back.
+- S9: the camera is written only when a document change saves. Panning alone does not write the file. A pending save is flushed on exit.
+- S9: a run with `--bench` or `--annotations N` never writes the file or reads its camera. A file with no `appState` camera opens at the old fixed start camera.
 
 ## Needs a human at a Mac
 
@@ -71,6 +76,7 @@ Things an agent could not verify headless.
 - F5b: one `--bench` run with `--chrome on` against the last build. Each page now has a title (one text run) and each seeded annotation is a dashed path, tessellated per frame, where it was two SDF shapes. `max_shapes_drawn` will read lower.
 - F4: nothing was run. Agents may not start `specular-app`, so check `specular-app fixtures/input.canvas` by hand (click, type, Alt+drag, corner resize, C then drag, Escape, Cmd+Z and Cmd+Shift+Z with no page focused) and one `--bench` run against an older build for output shape and frame times.
 - S1 and S2: nothing was run. With `specular-app fixtures/input.canvas`, check that one click selects a page without the page reacting, a second click or a double-click lets you type into it, Escape leaves it, and a drag from empty canvas does not scroll or select text in a page.
+- S9: nothing was run. Open a copy of a canvas, move something, and check the file changes about a third of a second later with the camera in `appState`. Edit the file in an editor while the app is idle and check the canvas follows, keeping the camera. Quit within 350 ms of a change and check it was written.
 
 ## Entries
 
@@ -172,3 +178,13 @@ Things an agent could not verify headless.
 - For K6 and whoever draws images: a file is a card with a glyph and its name whatever its type. `ImageDraw` is unused by `view`.
 - For E-tasks: an edge whose entity is missing draws nothing. Edge anchors on the selected entity are not drawn.
 - Gate: fmt, clippy and `cargo test --workspace` pass, GPU tests included on this machine.
+
+### S9 — see `git log -- native/crates/specular-app/src/persist`
+
+- `update` returns `Effect::Save` after every history step, undo and redo. `specular-interact/tests/save.rs` checks it, and that a reload keeps the camera and drops dead selection ids. Three assertions in `tests/gestures.rs` gained the `Save`.
+- `specular-app/src/persist/`: `file_sync.rs` is the pure part (350 ms trailing debounce, retry after a failed write, the disk-check timer, and the reload decision), `app_state.rs` reads and writes the camera in `appState`, `disk.rs` is `stat` and the temp-file-then-rename write, `mod.rs` is `Persistence`, which the shell calls once per loop turn.
+- The shell opens at the file's camera, runs `Effect::Save`, and sends `Event::DocumentOpened` when the file changed and nothing of ours is unsaved. With unsaved changes it logs a warning and our save overwrites theirs. A file that no longer parses is logged and ignored.
+- For whoever adds panels: `appState.selectedEntityIds` and the sidebar keys are kept as read but not updated.
+- For S6 and later effects: `Effect::WriteClipboard` still only logs.
+- Not done: a max wait on the debounce. Someone who changes the document at least every 350 ms for a long time is not saved until they pause.
+- Gate: fmt, clippy and tests pass for `specular-doc` and `specular-app`, and for `specular-interact` on HEAD plus this change (checked in an exported copy). The working tree had another agent's move and resize work in `specular-interact`, whose `tests/moves.rs` fails clippy; none of it is in this commit.

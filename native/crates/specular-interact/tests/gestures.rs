@@ -44,7 +44,7 @@ fn move_is_a_drag_until_release_and_the_page_sees_none_of_it() {
     app.release();
     assert_eq!(
         (during, app.session().gesture.is_none(), app.take_effects()),
-        (true, true, Vec::new())
+        (true, true, vec![Effect::Save])
     );
 }
 
@@ -155,10 +155,13 @@ fn resize_release_sets_the_viewport_once() {
     assert_eq!(
         (first, second),
         (
-            vec![Effect::SetPageViewport {
-                page: EntityId::from("p1"),
-                viewport: CssSize::new(520, 370)
-            }],
+            vec![
+                Effect::SetPageViewport {
+                    page: EntityId::from("p1"),
+                    viewport: CssSize::new(520, 370)
+                },
+                Effect::Save
+            ],
             Vec::new()
         )
     );
@@ -196,10 +199,13 @@ fn undoing_a_resize_lays_the_page_out_at_its_old_viewport() {
     assert_eq!(
         (effects, app.rect("p1")),
         (
-            vec![Effect::SetPageViewport {
-                page: EntityId::from("p1"),
-                viewport: CssSize::new(400, 300)
-            }],
+            vec![
+                Effect::SetPageViewport {
+                    page: EntityId::from("p1"),
+                    viewport: CssSize::new(400, 300)
+                },
+                Effect::Save
+            ],
             P1
         )
     );
