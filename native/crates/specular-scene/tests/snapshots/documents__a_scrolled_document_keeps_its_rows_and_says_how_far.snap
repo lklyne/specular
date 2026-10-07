@@ -1,0 +1,15 @@
+---
+source: crates/specular-scene/tests/documents.rs
+expression: app.scene_snapshot()
+---
+canvas rect 100,100 400x300 r=4 fill=#fafaf9
+canvas column 112,112 376x276 scroll=40
+  row
+    text "one" 0,0 wrap=376 14/21 #1c1917
+  row gap=21
+    text "two" 0,0 wrap=376 14/21 #1c1917 clip=100,100 400x300
+screen rect 99,99 402x302 stroke=#3b82f6/1/inside
+screen rect 95,95 8x8 fill=#ffffff stroke=#3b82f6/1/inside
+screen rect 497,95 8x8 fill=#ffffff stroke=#3b82f6/1/inside
+screen rect 497,397 8x8 fill=#ffffff stroke=#3b82f6/1/inside
+screen rect 95,397 8x8 fill=#ffffff stroke=#3b82f6/1/inside

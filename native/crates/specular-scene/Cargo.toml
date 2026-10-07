@@ -12,6 +12,7 @@ specular-doc = { workspace = true }
 specular-core = { workspace = true }
 specular-interact = { workspace = true }
 glam = { workspace = true }
+pulldown-cmark = { workspace = true }
 
 [dev-dependencies]
 specular-testkit = { workspace = true }

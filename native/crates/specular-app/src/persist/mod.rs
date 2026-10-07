@@ -14,6 +14,8 @@ use specular_doc::Document;
 use specular_interact::App;
 
 pub(crate) use self::app_state::camera_of;
+pub(crate) use self::disk::stamp;
+pub(crate) use self::file_sync::Stamp;
 use self::file_sync::{DiskChange, FileSync, Step};
 
 /// The `.canvas` file the document was opened from.

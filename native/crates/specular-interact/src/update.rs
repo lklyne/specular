@@ -7,6 +7,7 @@ use specular_doc::{Command, CommandError, Document, EntityId, ItemId};
 
 use crate::focus::{leave_unless_selected, set_focus};
 use crate::images;
+use crate::notes;
 use crate::{
     Action, App, Effect, Event, Focus, PageNotice, ToolDefaultPatch, bindings, camera, cursor,
     gesture, pages, pointer, verbs,
@@ -21,7 +22,11 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
     let ticks = matches!(event, Event::Tick { .. });
     match event {
         Event::Pointer(input) => pointer::on_pointer(app, &input, &mut effects),
-        Event::Wheel(input) => camera::on_wheel(app, &input, &mut effects),
+        Event::Wheel(input) => {
+            if !notes::on_wheel(app, &input) {
+                camera::on_wheel(app, &input, &mut effects);
+            }
+        }
         Event::Pinch { delta } => camera::on_pinch(app, delta),
         Event::Key(input) => bindings::on_key(app, &input, &mut effects),
         Event::Ime(ime) => match &app.session.focus {
@@ -33,6 +38,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         },
         Event::Page { page, notice } => on_page_notice(app, &page, &notice, &mut effects),
         Event::Image { image, notice } => images::on_notice(app, image, notice),
+        Event::Note { file, notice } => notes::on_notice(app, &file, notice),
         Event::Tick { unix_ms } => app.session.now_ms = unix_ms,
         Event::ViewportResized(size) => app.session.viewport = size,
         Event::DocumentOpened(document) => open_document(app, *document, &mut effects),
@@ -42,9 +48,10 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
     leave_unless_selected(app, &mut effects);
     // Every undoable change, undo and redo moves the history's revision, so
     // this is the one place a save is asked for, and the place to ask for
-    // the images of file entities that just appeared.
+    // the images and markdown files of file entities that just appeared.
     if app.history.revision() != revision {
         images::request_new(app, &mut effects);
+        notes::request_new(app, &mut effects);
         effects.push(Effect::Save);
     }
     if !ticks {
@@ -156,6 +163,7 @@ fn open_document(app: &mut App, document: Document, effects: &mut Vec<Effect>) {
     drop_dangling(app, effects);
     pages::reconcile(&before, &app.document, effects);
     images::reopen(app, effects);
+    notes::reopen(app, effects);
 }
 
 /// Forgets selection, hover and focus that name something the document no

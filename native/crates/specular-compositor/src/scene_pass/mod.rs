@@ -10,6 +10,7 @@
 mod batch;
 mod build;
 mod color;
+mod column;
 mod dash;
 mod images;
 mod mesh;
@@ -20,7 +21,9 @@ mod render;
 mod shapes;
 mod target;
 mod text;
+mod text_areas;
 mod text_layout;
+mod text_shape;
 
 use std::collections::HashMap;
 

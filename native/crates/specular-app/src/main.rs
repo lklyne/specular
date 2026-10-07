@@ -10,6 +10,7 @@ mod bench_run;
 mod cli;
 mod images;
 mod latency;
+mod notes;
 mod paint_lod;
 mod persist;
 mod scene;

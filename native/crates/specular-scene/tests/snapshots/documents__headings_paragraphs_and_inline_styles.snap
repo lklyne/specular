@@ -1,0 +1,16 @@
+---
+source: crates/specular-scene/tests/documents.rs
+expression: app.scene_snapshot()
+---
+canvas rect 100,100 400x300 r=4 fill=#fafaf9
+canvas column 112,112 376x276
+  row
+    text "Title" 0,0 wrap=376 19.6/29.4 w600 #1c1917
+  row gap=21
+    text "Some bold, soft, gone, code and a link." 0,0 wrap=376 14/21 #1c1917 spans=[5..9 w600, 11..15 italic, 17..21 strike, 23..27 mono, 34..38 #2563eb underline]
+  row gap=21
+    text "Section" 0,0 wrap=376 16.8/25.2 w600 #1c1917
+  row gap=21
+    text "Small heading" 0,0 wrap=376 14/21 w600 #1c1917
+  row gap=21
+    text "[image: diagram]" 0,0 wrap=376 14/21 #1c1917 spans=[0..16 #1c191799] clip=100,100 400x300

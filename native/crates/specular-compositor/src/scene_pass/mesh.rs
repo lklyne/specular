@@ -69,7 +69,12 @@ impl Mesher {
                 path.fill,
                 path.stroke,
             ),
-            Draw::Page(_) | Draw::Rect(_) | Draw::Ellipse(_) | Draw::Text(_) | Draw::Image(_) => {
+            Draw::Page(_)
+            | Draw::Rect(_)
+            | Draw::Ellipse(_)
+            | Draw::Text(_)
+            | Draw::Column(_)
+            | Draw::Image(_) => {
                 return;
             }
         };

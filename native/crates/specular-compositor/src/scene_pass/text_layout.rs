@@ -31,8 +31,9 @@ pub(crate) fn text_rect(run: &TextRun, measured: Size) -> Rect {
     Rect::new(x, y, width, measured.height)
 }
 
-/// Whether two runs shape and wrap to the same lines. Position, colour and
-/// vertical alignment do not change the shaping.
+/// Whether two runs shape and wrap to the same lines. Position, the run's own
+/// colour and vertical alignment do not change the shaping. A span's colour
+/// does: it is set on the shaped glyphs.
 pub(crate) fn same_shaping(a: &TextRun, b: &TextRun) -> bool {
     a.text == b.text
         && a.family == b.family
@@ -42,6 +43,7 @@ pub(crate) fn same_shaping(a: &TextRun, b: &TextRun) -> bool {
         && a.weight == b.weight
         && a.italic == b.italic
         && a.align == b.align
+        && a.spans == b.spans
 }
 
 /// A hash of exactly the fields [`same_shaping`] compares.
@@ -55,12 +57,13 @@ pub(crate) fn shaping_hash(run: &TextRun) -> u64 {
     run.weight.hash(&mut hasher);
     run.italic.hash(&mut hasher);
     run.align.hash(&mut hasher);
+    run.spans.hash(&mut hasher);
     hasher.finish()
 }
 
 #[cfg(test)]
 mod tests {
-    use specular_scene::{Color, Point};
+    use specular_scene::{Color, Point, SpanStyle, TextSpan};
 
     use super::*;
 
@@ -130,6 +133,29 @@ mod tests {
             ..run()
         };
         assert!(same_shaping(&run(), &moved) && shaping_hash(&run()) == shaping_hash(&moved));
+    }
+
+    #[test]
+    fn a_restyled_span_is_a_new_shaping() {
+        let span = |weight| TextSpan {
+            range: 0..2,
+            style: SpanStyle {
+                weight: Some(weight),
+                ..SpanStyle::default()
+            },
+        };
+        let (bold, black) = (
+            TextRun {
+                spans: vec![span(700)],
+                ..run()
+            },
+            TextRun {
+                spans: vec![span(900)],
+                ..run()
+            },
+        );
+        assert!(!same_shaping(&run(), &bold) && !same_shaping(&bold, &black));
+        assert_ne!(shaping_hash(&bold), shaping_hash(&black));
     }
 
     #[test]

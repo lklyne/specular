@@ -1,0 +1,11 @@
+---
+source: crates/specular-scene/tests/documents.rs
+expression: app.scene_snapshot()
+---
+canvas rect 100,100 400x300 r=4 fill=#fafaf9
+canvas text "Loading…" 112,112 wrap=376 14/21 #1c191766 clip=100,100 400x300
+canvas rect 600,100 400x300 r=4 fill=#fafaf9
+canvas text "File not found" 612,112 wrap=376 14/21 #1c191766 clip=600,100 400x300
+canvas rect 1100,100 400x300 r=4 fill=#fafaf9
+canvas text "Could not read file" 1112,112 wrap=376 14/21 #1c191766 clip=1100,100 400x300
+canvas rect 1600,100 400x300 r=4 fill=#fafaf9

@@ -1,6 +1,8 @@
 //! [`Scene`], [`Item`] and the [`Draw`] variants.
 
-use crate::{EllipseDraw, ImageDraw, PageDraw, PathDraw, PolygonDraw, Rect, RectDraw, TextRun};
+use crate::{
+    ColumnDraw, EllipseDraw, ImageDraw, PageDraw, PathDraw, PolygonDraw, Rect, RectDraw, TextRun,
+};
 
 /// The coordinate space an item's geometry is in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -29,6 +31,8 @@ pub enum Draw {
     Path(PathDraw),
     /// A block of text.
     Text(TextRun),
+    /// Rows of text stacked top to bottom.
+    Column(ColumnDraw),
     /// An image.
     Image(ImageDraw),
 }
@@ -50,6 +54,7 @@ draw_from!(
     Polygon(PolygonDraw),
     Path(PathDraw),
     Text(TextRun),
+    Column(ColumnDraw),
     Image(ImageDraw),
 );
 

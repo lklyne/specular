@@ -1,0 +1,20 @@
+---
+source: crates/specular-scene/tests/documents.rs
+expression: app.scene_snapshot()
+---
+canvas rect 100,100 400x300 r=4 fill=#fafaf9
+canvas column 112,112 376x276
+  row min-h=29 pad-b=4
+    rule x=0 w=376 bottom=1 #1c191740
+    text "Name" 6,4 wrap=113.33 14/21 w600 #1c1917
+    text "Qty" 131.33,4 wrap=113.33 14/21 w600 #1c1917 right
+    text "Note" 256.67,4 wrap=113.33 14/21 w600 #1c1917 centre
+  row min-h=29 pad-b=4
+    rule x=0 w=376 bottom=1 #1c19171f
+    text "a" 6,4 wrap=113.33 14/21 #1c1917 spans=[0..1 w600]
+    text "1" 131.33,4 wrap=113.33 14/21 #1c1917 right
+    text "x" 256.67,4 wrap=113.33 14/21 #1c1917 centre spans=[0..1 mono]
+  row min-h=29 pad-b=4
+    rule x=0 w=376 bottom=1 #1c19171f
+    text "b" 6,4 wrap=113.33 14/21 #1c1917
+    text "22" 131.33,4 wrap=113.33 14/21 #1c1917 right clip=100,100 400x300

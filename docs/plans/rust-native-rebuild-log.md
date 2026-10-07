@@ -90,6 +90,13 @@ with the task that made it.
 - Tools: `Session::editing` holds only while that entity is the whole selection. While it is set the plain-key bindings do not fire; undo, redo and Escape do. Only text and stickies set it. Electron also opens a new shape's label for editing.
 - Tools: a new page is Electron's `P` then click: preset 0 (375x667), `about:blank`, with the device metadata Electron writes.
 - Tools: an anchor written at placement has `pageId` and `pageUrl` and no scroll offset. `canonical_page_url` trims and strips the hash; it does not normalise the URL as Electron's `new URL()` does.
+- T3: `view` cannot measure text, so it cannot stack a document's blocks. The scene has a new draw, `Draw::Column`: rows of `TextRun` cells that the renderer stacks, each row as tall as its tallest cell. A list item is a marker cell and a text cell, a table row is one cell per column.
+- T3: `TextRun::spans` sets weight, italic, family, colour, underline and strike on byte ranges. There is no per-span size. A heading is its own row.
+- T3: glyphon draws glyphs only. Underlines, strikes, quote bars, dividers and table lines go through its custom-glyph path as solid masks, so they keep the text's batch, clip and order. They are for thin lines. A fill that way would eat the glyph atlas.
+- T3: the markdown parser is `specular-scene/src/markdown`, and `view` parses the text on every frame a Document is on screen. `App` holds only the text, as `NoteState`, keyed by the `file` string.
+- T3: the note thread polls stamps every 500 ms, as S9 does, and reports a file only when its text reads differently. `Effect::LoadNote` means read it and keep watching until `Effect::DropNote`.
+- T3: table columns are equal widths. A code block wraps and has no background, as in Electron. An image is the text `[image: alt]`.
+- T3: Document scroll is `App::note_scroll(entity)`, in canvas units. `update` does not know the text's height, so it stops the offset at the top only. The renderer stops drawing at the end of the text.
 
 ## Needs a human at a Mac
 
@@ -106,6 +113,7 @@ Things an agent could not verify headless.
 - K6: nothing was run. Open a canvas with png, jpeg, webp and gif files beside it (relative `assets/...` paths), one missing file and one svg. Check each image appears a moment after the card, keeps its aspect, stays smooth when zoomed far out, and that the missing file and the svg stay cards.
 
 - Tools: nothing was run. Check R then drag (with and without Shift), R then click, M and Shift+M strokes, T and S then click, P then click, and that a sticky placed on a page follows it when the page is dragged. After T or S the letter keys are dead until Escape, because there is no editor yet.
+- T3: nothing was run in the app. Open a canvas with a `.md` file entity. Check the text appears, edit the file in an editor and check the card follows within a second, select the card and scroll it with the wheel. Scrolling past the end leaves dead travel on the way back, see the T3 entry. An offscreen render of headings, lists, a quote, code, a rule and a table looked right at 2x.
 
 ## Entries
 
@@ -259,3 +267,18 @@ Things an agent could not verify headless.
 - For T1: start from `Session::editing`. An empty text left when editing ends is not deleted yet.
 - Tests: `tests/bindings.rs`, `tools.rs`, `draw.rs`, `anchoring.rs`. `routing.rs` lost the C toggle test.
 - Gate: fmt, clippy and tests pass for `specular-interact`, `specular-testkit` and `specular-scene` on HEAD plus this change, in an exported copy (362 tests). The working tree had two other agents' work in it, including notes hunks in `app.rs`, `effect.rs`, `event.rs`, `lib.rs` and `update.rs`, which are not in this commit.
+
+### T3 — see `git log -- native/crates/specular-scene/src/markdown`
+
+- Scene: `TextSpan` and `SpanStyle` on `TextRun`. `ColumnDraw`, `Row`, `RowRule` in `column.rs`. `markdown/` turns text into a flat `Block` list with quote and list depth on each block (18 tests). `view/document.rs` turns blocks into rows with Electron's sizes and colours. Six snapshots in `tests/documents.rs`.
+- Compositor: `text_shape.rs` shapes spans with `set_rich_text` and reads underline and strike rects from cosmic-text's decoration spans. `column.rs` is the pure row stacking. `text_areas.rs` builds the glyphon areas. `tests/scene_rich_text_gpu.rs` has nine readbacks: span colour, weight, monospace, both lines, row stacking, scroll, clip, paint order.
+- Interact: `notes.rs`, `Effect::LoadNote` and `DropNote`, `Event::Note`, `App::note` and `App::note_scroll`, and one branch in `update` so the wheel over a selected Document scrolls it. `tests/notes.rs`.
+- Shell: `notes/watch.rs` (which files, what was last read) and `notes/mod.rs` (the thread). `app/note_run.rs` runs the effects. Paths resolve as image paths do.
+- Testkit: the scene snapshot prints spans on a text line and a column as indented row, rule and cell lines.
+- Dead travel: wheel past the end of a Document and the offset keeps growing, so scrolling back does nothing until it comes back under the end. The fix is for the renderer to report each column's height and `update` to clamp with it.
+- A span's colour is set on the shaped glyphs, so item opacity does not fade it. Nothing fades a Document yet.
+- The file card's drop shadow is not drawn. The scene has no shadow.
+- Links do not open and nothing in a Document can be selected. T4 owns editing. `add-document` still creates nothing.
+- For T4: parsing per frame is fine for notes. Cache the blocks beside the text if a large file shows up in a trace.
+- `specular-app/src/app/mod.rs` is now 486 lines.
+- Gate: fmt, clippy and `cargo test --workspace` pass, GPU tests included on this machine.

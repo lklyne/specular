@@ -4,7 +4,7 @@ use glam::Vec2;
 use specular_core::{Camera, ImeEvent, Modifiers, PixelRect, PointerEventKind};
 use specular_doc::{Document, EntityId, ItemId};
 
-use crate::{ImageKey, ImageNotice, Tool, ToolDefaultPatch, ToolDefaults};
+use crate::{ImageKey, ImageNotice, NoteNotice, Tool, ToolDefaultPatch, ToolDefaults};
 
 /// One input to [`update`](crate::update). Window input arrives in logical
 /// screen pixels, origin at the canvas viewport's top-left.
@@ -38,6 +38,15 @@ pub enum Event {
         image: ImageKey,
         /// How it went.
         notice: ImageNotice,
+    },
+    /// The shell read a markdown file an
+    /// [`Effect::LoadNote`](crate::Effect::LoadNote) asked for, or saw it
+    /// change on disk.
+    Note {
+        /// The path as the document writes it.
+        file: String,
+        /// What the file holds now.
+        notice: NoteNotice,
     },
     /// The wall clock, sent once per loop turn. Milliseconds since the Unix
     /// epoch.

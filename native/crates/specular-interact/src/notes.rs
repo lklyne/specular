@@ -1,0 +1,175 @@
+//! The Documents file entities show: the text of each markdown file, and
+//! how far each Document is scrolled.
+//!
+//! A Document is a file entity whose `.md` file lives in the space folder.
+//! The file is the source of truth (ADR 0023): its text is not in the
+//! `.canvas`, so `update` asks the shell for it with [`Effect::LoadNote`] and
+//! the shell answers with [`Event::Note`](crate::Event::Note), once when it
+//! has read the file and again each time the file changes on disk.
+
+use std::collections::BTreeMap;
+use std::sync::Arc;
+
+use specular_doc::{Document, EntityId, Kind};
+
+use crate::{App, Effect, Hit, WheelInput, hit_test};
+
+/// What is known about one markdown file.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum NoteState {
+    /// Asked for; no answer yet.
+    Loading,
+    /// The file's text as last read.
+    Ready(Arc<str>),
+    /// There is no file at the path.
+    Missing,
+    /// The file could not be read, or is not text.
+    Failed,
+}
+
+/// What the shell reports about a markdown file it was asked to load.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum NoteNotice {
+    /// The file's text now: the first read, or a change on disk.
+    Text(String),
+    /// There is no file at the path.
+    Missing,
+    /// The file could not be read, or is not text.
+    Failed,
+}
+
+/// The markdown files asked for so far, by the `file` path as the document
+/// writes it, and the scroll offset of each Document that has one.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub(crate) struct Notes {
+    by_file: BTreeMap<String, NoteState>,
+    /// Canvas units each Document is scrolled down by, keyed by its entity.
+    /// Two entities showing one file scroll apart.
+    scroll: BTreeMap<EntityId, f32>,
+}
+
+impl Notes {
+    pub(crate) fn get(&self, file: &str) -> Option<&NoteState> {
+        self.by_file.get(file)
+    }
+
+    pub(crate) fn scroll(&self, entity: &EntityId) -> f32 {
+        self.scroll.get(entity).copied().unwrap_or(0.0)
+    }
+}
+
+/// Whether `file` is shown as a Document: Electron's `MARKDOWN_EXTENSIONS`.
+pub fn is_note_file(file: &str) -> bool {
+    (file.rsplit_once('.')).is_some_and(|(_, extension)| extension.eq_ignore_ascii_case("md"))
+}
+
+/// The markdown files `document` shows, each once per entity showing it.
+fn wanted(document: &Document) -> impl Iterator<Item = &str> {
+    document
+        .entities()
+        .filter_map(|entity| note_file(&entity.kind))
+}
+
+fn note_file(kind: &Kind) -> Option<&str> {
+    match kind {
+        Kind::File(file) if is_note_file(&file.file) => Some(file.file.as_str()),
+        Kind::File(_)
+        | Kind::Page(_)
+        | Kind::Text(_)
+        | Kind::Group(_)
+        | Kind::Drawing(_)
+        | Kind::Shape(_) => None,
+    }
+}
+
+/// Asks for every markdown file the document shows that has not been asked
+/// for. Files nothing shows any more are kept: an undo can bring them back.
+pub(crate) fn request_new(app: &mut App, effects: &mut Vec<Effect>) {
+    let notes = &mut app.session.notes;
+    for file in wanted(&app.document) {
+        if notes.by_file.contains_key(file) {
+            continue;
+        }
+        notes.by_file.insert(file.to_owned(), NoteState::Loading);
+        effects.push(Effect::LoadNote {
+            file: file.to_owned(),
+        });
+    }
+}
+
+/// A different document was opened: lets go of the files it does not show
+/// and the scroll of the entities it does not hold, and asks for the files
+/// that are new.
+pub(crate) fn reopen(app: &mut App, effects: &mut Vec<Effect>) {
+    let document = &app.document;
+    let notes = &mut app.session.notes;
+    notes.by_file.retain(|file, _| {
+        let shown = wanted(document).any(|wanted| wanted == file);
+        if !shown {
+            effects.push(Effect::DropNote { file: file.clone() });
+        }
+        shown
+    });
+    notes.scroll.retain(|entity, _| {
+        (document.entity(entity)).is_some_and(|entity| note_file(&entity.kind).is_some())
+    });
+    request_new(app, effects);
+}
+
+/// The shell answered for `file`. An answer for a file since let go of is
+/// ignored.
+pub(crate) fn on_notice(app: &mut App, file: &str, notice: NoteNotice) {
+    if let Some(state) = app.session.notes.by_file.get_mut(file) {
+        *state = match notice {
+            NoteNotice::Text(text) => NoteState::Ready(text.into()),
+            NoteNotice::Missing => NoteState::Missing,
+            NoteNotice::Failed => NoteState::Failed,
+        };
+    }
+}
+
+/// Scrolls the Document under the pointer when it is the whole selection,
+/// and says whether it took the wheel. Cmd or Ctrl+wheel is a zoom and is
+/// left for the canvas.
+///
+/// Nothing here knows how tall the text is, so the offset only stops at the
+/// top. The renderer stops drawing at the end of the text.
+pub(crate) fn on_wheel(app: &mut App, input: &WheelInput) -> bool {
+    if input.modifiers.meta || input.modifiers.control {
+        return false;
+    }
+    let session = &app.session;
+    let Some(Hit::EntityBody { entity }) = session.pointer.map(|at| hit_test(app, at)) else {
+        return false;
+    };
+    let selected = session.selection.single_entity() == Some(&entity);
+    let is_note = (app.document.entity(&entity)).is_some_and(|it| note_file(&it.kind).is_some());
+    if !selected || !is_note {
+        return false;
+    }
+    // Positive `y` moves content down, which is scrolling back up.
+    let by = -input.delta.y / session.camera.zoom.max(f32::EPSILON);
+    let scroll = &mut app.session.notes.scroll;
+    let offset = (scroll.get(&entity).copied().unwrap_or(0.0) + by).max(0.0);
+    if offset == 0.0 {
+        scroll.remove(&entity);
+    } else {
+        scroll.insert(entity, offset);
+    }
+    true
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_note_file;
+
+    #[test]
+    fn markdown_files_are_told_by_their_extension_in_any_case() {
+        for file in ["notes.md", "docs/Plan.MD", "/abs/a.b.md"] {
+            assert!(is_note_file(file), "{file}");
+        }
+        for file in ["md", "notes.mdx", "notes.md.bak", "shot.png", ""] {
+            assert!(!is_note_file(file), "{file}");
+        }
+    }
+}

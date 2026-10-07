@@ -11,6 +11,7 @@
 //! is projected with the camera and emitted in screen space.
 
 mod annotations;
+mod document;
 mod drawing;
 mod edge;
 mod file;

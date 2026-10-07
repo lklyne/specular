@@ -10,7 +10,7 @@ use super::batch::{Batch, batch};
 use super::build::{DrawOp, Op, Output, QuadTexture, build};
 use super::place::{PlaceCounts, Prim, Scissor, ViewTransform, place};
 use super::target::MultisampledTarget;
-use super::text::{TextDraw, TextSystem};
+use super::text::{TextDraw, TextItem, TextSystem};
 use super::{FrameView, ScenePass, SceneStats};
 use crate::Compositor;
 use crate::draw_list::DrawCounts;
@@ -133,7 +133,7 @@ impl Compositor {
         let has_text = scene
             .items
             .iter()
-            .any(|item| matches!(item.draw, Draw::Text(_)));
+            .any(|item| matches!(item.draw, Draw::Text(_) | Draw::Column(_)));
         if has_text && text.is_none() {
             *text = Some(TextSystem::new(device, queue, *target_format));
         }
@@ -304,7 +304,7 @@ impl Compositor {
     }
 }
 
-/// The runs of a text batch, in paint order.
+/// The runs and columns of a text batch, in paint order.
 fn text_draws<'a>(
     scene: &'a Scene,
     placed: &'a [super::place::Placed],
@@ -313,18 +313,20 @@ fn text_draws<'a>(
     batch.members.iter().filter_map(|&at| {
         let placed = &placed[at];
         let item = &scene.items[placed.item];
-        match &item.draw {
-            Draw::Text(run) => Some(TextDraw {
-                run,
-                clip: placed.clip,
-                opacity: item.opacity,
-            }),
+        let text = match &item.draw {
+            Draw::Text(run) => TextItem::Run(run),
+            Draw::Column(column) => TextItem::Column(column),
             Draw::Page(_)
             | Draw::Rect(_)
             | Draw::Ellipse(_)
             | Draw::Polygon(_)
             | Draw::Path(_)
-            | Draw::Image(_) => None,
-        }
+            | Draw::Image(_) => return None,
+        };
+        Some(TextDraw {
+            text,
+            clip: placed.clip,
+            opacity: item.opacity,
+        })
     })
 }

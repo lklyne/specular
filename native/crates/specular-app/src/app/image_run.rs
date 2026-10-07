@@ -22,7 +22,7 @@ pub(super) fn start_loader(canvas: Option<&Path>) -> Option<ImageLoader> {
 }
 
 /// The absolute folder `canvas` is in.
-fn space_folder(canvas: &Path) -> Option<PathBuf> {
+pub(super) fn space_folder(canvas: &Path) -> Option<PathBuf> {
     let folder = std::path::absolute(canvas).ok()?.parent()?.to_owned();
     Some(folder)
 }

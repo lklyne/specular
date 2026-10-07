@@ -5,6 +5,7 @@ use specular_core::Camera;
 use specular_doc::{Document, Entity, EntityId, History, ItemId, Kind, Page};
 
 use crate::images::Images;
+use crate::notes::Notes;
 use crate::page_input::ButtonCapture;
 use crate::{Cursor, Gesture, PagePlacement, Tool, ToolDefaults};
 
@@ -106,6 +107,17 @@ impl App {
         self.session.images.get(file)
     }
 
+    /// What is known about the markdown file a file entity names by `file`,
+    /// or `None` when it is not a Document or has not been asked for.
+    pub fn note(&self, file: &str) -> Option<&crate::NoteState> {
+        self.session.notes.get(file)
+    }
+
+    /// How far the Document `entity` is scrolled down, in canvas units.
+    pub fn note_scroll(&self, entity: &EntityId) -> f32 {
+        self.session.notes.scroll(entity)
+    }
+
     /// The pages, back-to-front, each with its placement.
     pub fn pages(&self) -> impl Iterator<Item = (&EntityId, &Page, PagePlacement)> {
         self.document.entities().filter_map(|entity| {
@@ -180,6 +192,8 @@ pub struct Session {
     pub(crate) captured: ButtonCapture,
     /// The images file entities show, and how far each has loaded.
     pub(crate) images: Images,
+    /// The text of the Documents file entities show, and their scroll.
+    pub(crate) notes: Notes,
     /// State of the id sequence.
     id_state: u64,
 }

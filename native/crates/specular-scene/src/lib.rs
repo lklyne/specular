@@ -14,8 +14,10 @@
 
 mod bounds;
 mod color;
+mod column;
 mod geometry;
 mod item;
+mod markdown;
 mod media;
 mod path;
 mod shape;
@@ -23,10 +25,11 @@ mod text;
 mod view;
 
 pub use color::Color;
+pub use column::{ColumnDraw, Row, RowRule, RuleHeight};
 pub use geometry::{Point, Rect, Size};
 pub use item::{Draw, Item, Scene, Space};
 pub use media::{ImageDraw, ImageId, PageDraw};
 pub use path::{Dash, LineCap, LineJoin, PathCommand, PathDraw, PathStroke, PolygonDraw};
 pub use shape::{EllipseDraw, RectDraw, Stroke, StrokeAlign};
-pub use text::{FontFamily, TextAlign, TextRun, VerticalAlign};
+pub use text::{FontFamily, SpanStyle, TextAlign, TextRun, TextSpan, VerticalAlign};
 pub use view::{view, view_without_chrome};

@@ -3,8 +3,9 @@
 
 use glam::Vec2;
 use specular_core::Camera;
-use specular_scene::{Draw, Point, Rect, Scene, Size, Space, TextRun, VerticalAlign};
+use specular_scene::{ColumnDraw, Draw, Point, Rect, Scene, Size, Space, TextRun, VerticalAlign};
 
+use super::column;
 use super::text_layout::text_rect;
 
 /// Text whose font size is under this many logical pixels on screen is not
@@ -53,6 +54,18 @@ impl ViewTransform {
     }
 
     /// The whole viewport in logical pixels.
+    /// A rect in logical pixels, back in `space`.
+    pub(crate) fn rect_to(&self, space: Space, rect: Rect) -> Rect {
+        match space {
+            Space::Canvas => {
+                let origin = (self.camera).screen_to_world(Vec2::new(rect.x, rect.y));
+                let zoom = self.camera.zoom;
+                Rect::new(origin.x, origin.y, rect.width / zoom, rect.height / zoom)
+            }
+            Space::Screen => rect,
+        }
+    }
+
     pub(crate) fn viewport_rect(&self) -> Rect {
         Rect::new(0.0, 0.0, self.viewport.x, self.viewport.y)
     }
@@ -155,6 +168,18 @@ pub(crate) fn place(
                     .then(|| text_rect(run, measure(run)));
                 (Prim::Text(item.space), bounds)
             }
+            Draw::Column(column) => {
+                let size = (column.rows.iter())
+                    .flat_map(|row| &row.cells)
+                    .fold(0.0, |size, cell| cell.size.max(size));
+                if size * view.scale(item.space) < MIN_TEXT_PX {
+                    counts.text_too_small += 1;
+                    continue;
+                }
+                let bounds = column_may_show(column, item.space, view, region)
+                    .then(|| column::layout(column, &mut measure).bounds(column));
+                (Prim::Text(item.space), bounds)
+            }
             Draw::Page(_) => (Prim::Page, item.draw.bounds()),
             Draw::Image(_) => (Prim::Image, item.draw.bounds()),
             Draw::Rect(_) | Draw::Ellipse(_) => (Prim::Shape, item.draw.bounds()),
@@ -191,6 +216,15 @@ fn text_may_show(run: &TextRun, space: Space, view: &ViewTransform, region: Rect
     }
     // Top-aligned lines only ever run downwards from the origin.
     !(run.vertical_align == VerticalAlign::Top && origin.y >= region.bottom())
+}
+
+/// Whether a column could reach `region`, told without measuring it: it
+/// spans its width and only ever runs downwards from where scrolling leaves
+/// its top, which is never below its origin.
+fn column_may_show(column: &ColumnDraw, space: Space, view: &ViewTransform, region: Rect) -> bool {
+    let origin = view.point(space, column.origin);
+    let right = origin.x + column.width * view.scale(space);
+    right > region.x && origin.x < region.right() && origin.y < region.bottom()
 }
 
 #[cfg(test)]

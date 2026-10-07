@@ -1,0 +1,32 @@
+---
+source: crates/specular-scene/tests/documents.rs
+expression: app.scene_snapshot()
+---
+canvas rect 100,100 400x300 r=4 fill=#fafaf9
+canvas column 112,112 376x276
+  row
+    text "•" 18,0 14/21 #1c191799 right
+    text "one" 24,0 wrap=352 14/21 #1c1917
+  row
+    text "•" 18,0 14/21 #1c191799 right
+    text "two" 24,0 wrap=352 14/21 #1c1917
+  row
+    text "1." 42,0 14/21 #1c1917 right
+    text "first" 48,0 wrap=328 14/21 #1c1917
+  row
+    text "2." 42,0 14/21 #1c1917 right
+    text "second" 48,0 wrap=328 14/21 #1c1917
+  row
+    text "☐" 18,0 14/21 #1c191799 right
+    text "todo" 24,0 wrap=352 14/21 #1c1917
+  row
+    text "☑" 18,0 14/21 #1c191799 right
+    text "done" 24,0 wrap=352 14/21 #1c1917
+  row gap=21
+    text "9." 18,0 14/21 #1c1917 right
+    text "loose" 24,0 wrap=352 14/21 #1c1917
+  row gap=21
+    text "10." 18,0 14/21 #1c1917 right
+    text "list" 24,0 wrap=352 14/21 #1c1917
+  row gap=21
+    text "continued" 24,0 wrap=352 14/21 #1c1917 clip=100,100 400x300

@@ -7,8 +7,8 @@ impl Draw {
     /// The rect that holds everything this draws, strokes included, in the
     /// item's space.
     ///
-    /// `None` when the extent is not known from the geometry alone: text,
-    /// whose size depends on shaping, and paths and polygons with no points.
+    /// `None` when the extent is not known from the geometry alone: text and
+    /// columns of it, whose size depends on shaping, and paths and polygons with no points.
     pub fn bounds(&self) -> Option<Rect> {
         match self {
             Self::Page(page) => Some(page.rect),
@@ -21,7 +21,7 @@ impl Draw {
                 Rect::bounding(path.commands.iter().flat_map(|command| command.points()))
                     .map(|rect| rect.outset(path_outset(path.stroke)))
             }
-            Self::Text(_) => None,
+            Self::Text(_) | Self::Column(_) => None,
         }
     }
 }

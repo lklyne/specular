@@ -1,12 +1,12 @@
-//! File entities. An image file that has loaded is its pixels. Every other
-//! file, and an image that is loading, missing or unreadable, is a card with
-//! a file glyph and its name.
+//! File entities. A markdown file is a Document. An image file that has
+//! loaded is its pixels. Every other file, and an image that is loading,
+//! missing or unreadable, is a card with a file glyph and its name.
 
 use specular_doc::{Entity, FileRef, ObjectFit};
 use specular_interact::{Image, ImageState};
 
 use super::frame::{Frame, canvas_rect};
-use super::{image, palette};
+use super::{document, image, palette};
 use crate::{
     Color, ImageId, Item, PathCommand, PathDraw, PathStroke, Point, RectDraw, Scene, TextAlign,
     TextRun,
@@ -23,6 +23,10 @@ const GAP: f32 = 8.0;
 const NAME_SIZE: f32 = 11.0;
 
 pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, file: &FileRef, scene: &mut Scene) {
+    if let Some(note) = frame.app.note(&file.file) {
+        document::draw(frame, entity, note, scene);
+        return;
+    }
     let rect = canvas_rect(entity.rect);
     if let Some(Image { key, state }) = frame.app.image(&file.file) {
         match *state {

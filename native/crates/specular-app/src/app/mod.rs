@@ -8,6 +8,7 @@ mod effects;
 mod gpu_window;
 mod image_run;
 mod input;
+mod note_run;
 
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
@@ -29,6 +30,7 @@ use self::gpu_window::GpuWindow;
 use crate::bench_run::{BenchRun, BenchTick, RunSource};
 use crate::images::ImageLoader;
 use crate::latency::InputLatencyProbe;
+use crate::notes::NoteLoader;
 use crate::paint_lod::{LodChange, PageLod};
 use crate::persist::{self, Persistence};
 use crate::translate::ClickCounter;
@@ -88,6 +90,9 @@ pub(crate) struct Shell {
     image_loader: Option<ImageLoader>,
     /// The images the app has asked for and not let go of.
     images: HashSet<ImageKey>,
+    /// The thread that reads and watches markdown files. `None` if it could
+    /// not be started; every Document then stays on its loading line.
+    note_loader: Option<NoteLoader>,
     /// The zoom the previous frame was drawn at, to tell when a zoom is in
     /// flight.
     drawn_zoom: f32,
@@ -130,6 +135,7 @@ impl Shell {
             hosts: HashMap::new(),
             image_loader: image_run::start_loader(options.canvas.as_deref()),
             images: HashSet::new(),
+            note_loader: note_run::start_loader(options.canvas.as_deref()),
             drawn_zoom: start_camera.zoom,
             gpu: None,
             events: Vec::new(),
@@ -472,6 +478,7 @@ impl ApplicationHandler for Shell {
         self.dispatch(Event::Tick { unix_ms: unix_ms() });
         self.sync_file();
         self.take_loaded_image();
+        self.take_read_notes();
         if let Some(gpu) = self.gpu.as_ref() {
             gpu.window.request_redraw();
         }

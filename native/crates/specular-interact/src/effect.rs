@@ -66,6 +66,18 @@ pub enum Effect {
     },
     /// Forget an image: nothing shows it any more.
     DropImage(ImageKey),
+    /// Read a markdown file and answer with
+    /// [`Event::Note`](crate::Event::Note), then again whenever the file
+    /// changes on disk.
+    LoadNote {
+        /// The path as the document writes it, which the answer repeats.
+        file: String,
+    },
+    /// Stop watching a markdown file: nothing shows it any more.
+    DropNote {
+        /// The path as the document writes it.
+        file: String,
+    },
     /// Write the tool defaults to the preferences file, under `toolDefaults`,
     /// as [`ToolDefaults::to_json`] gives them.
     SaveToolDefaults(Box<ToolDefaults>),

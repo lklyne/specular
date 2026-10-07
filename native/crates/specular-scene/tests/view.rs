@@ -382,7 +382,11 @@ fn without_chrome_only_the_content_is_drawn() {
             Draw::Page(_) => "page",
             Draw::Rect(_) => "rect",
             Draw::Text(_) => "text",
-            Draw::Ellipse(_) | Draw::Polygon(_) | Draw::Path(_) | Draw::Image(_) => "other",
+            Draw::Ellipse(_)
+            | Draw::Polygon(_)
+            | Draw::Path(_)
+            | Draw::Column(_)
+            | Draw::Image(_) => "other",
         })
         .collect();
     assert_eq!(kinds, ["page", "rect", "text"]);

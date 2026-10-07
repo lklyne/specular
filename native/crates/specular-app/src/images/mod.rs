@@ -5,7 +5,7 @@
 //! result.
 
 mod decode;
-mod resolve;
+pub(crate) mod resolve;
 
 use std::io;
 use std::path::{Path, PathBuf};

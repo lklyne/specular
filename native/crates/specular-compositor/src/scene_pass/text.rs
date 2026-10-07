@@ -5,39 +5,30 @@
 //! [`RasterHold`] picks; when that differs from the camera's zoom the batch
 //! is laid out as if the camera were at the held zoom and the render pass
 //! viewport stretches it to where it belongs.
+//!
+//! glyphon draws glyphs and nothing else. The straight lines that go with
+//! text (underlines, strikes, and the rules of a column's rows) are sent
+//! through its custom-glyph path as solid masks, so they share the batch, the
+//! clip and the paint order of the text they belong to.
 
 use std::collections::HashMap;
 
 use glyphon::{
-    Attrs, Buffer, Cache, Color as GlyphColor, ColorMode, Family, FontSystem, Metrics, Resolution,
-    Shaping, Style, SwashCache, TextArea, TextAtlas, TextBounds, TextRenderer, Viewport, Weight,
-    Wrap, cosmic_text::Align,
+    Buffer, Cache, ColorMode, FontSystem, Metrics, Resolution, SwashCache, TextArea, TextAtlas,
+    TextBounds, TextRenderer, Viewport,
 };
-use specular_scene::{FontFamily, Rect, Size, Space, TextAlign, TextRun};
+use specular_scene::{Point, Size, Space, TextRun};
 
 use super::place::ViewTransform;
 use super::raster_hold::RasterHold;
-use super::text_layout::{same_shaping, shaping_hash, text_rect};
+use super::text_areas::{Areas, Shaped, solid};
+pub(crate) use super::text_areas::{TextDraw, TextItem};
+use super::text_layout::{same_shaping, shaping_hash};
+use super::text_shape::shape;
 use crate::pipeline::SCENE_SAMPLES;
 
 /// Frames a shaped buffer outlives the last frame its run appeared in.
 const KEEP_FRAMES: u64 = 240;
-
-/// One run of a text batch, resolved for drawing.
-#[derive(Debug, Clone, Copy)]
-pub(crate) struct TextDraw<'a> {
-    pub(crate) run: &'a TextRun,
-    /// The item's clip in logical pixels, if it has one.
-    pub(crate) clip: Option<Rect>,
-    pub(crate) opacity: f32,
-}
-
-struct Shaped {
-    run: TextRun,
-    buffer: Buffer,
-    size: Size,
-    last_used: u64,
-}
 
 /// Everything glyph text needs. Built on the first frame that shows text,
 /// because loading the system fonts takes a moment.
@@ -50,6 +41,8 @@ pub(crate) struct TextSystem {
     screen_viewport: Viewport,
     renderers: Vec<TextRenderer>,
     shaped: HashMap<u64, Shaped>,
+    /// The buffer of an area that draws lines and no glyphs.
+    blank: Buffer,
     frame: u64,
     hold: RasterHold,
     /// `camera zoom / raster zoom` for this frame's canvas text.
@@ -90,6 +83,7 @@ impl TextSystem {
             screen_viewport: Viewport::new(device, &cache),
             renderers: Vec::new(),
             shaped: HashMap::new(),
+            blank: Buffer::new_empty(Metrics::new(1.0, 1.0)),
             frame: 0,
             hold: RasterHold::default(),
             stretch: 1.0,
@@ -142,15 +136,17 @@ impl TextSystem {
             shaped.last_used = frame;
             return shaped.size;
         }
-        let Some((buffer, size)) = shape(&mut self.fonts, run) else {
+        let Some(shaped) = shape(&mut self.fonts, run) else {
             return Size::default();
         };
+        let size = shaped.size;
         self.shaped.insert(
             key,
             Shaped {
                 run: run.clone(),
-                buffer,
+                buffer: shaped.buffer,
                 size,
+                lines: shaped.lines,
                 last_used: frame,
             },
         );
@@ -192,30 +188,33 @@ impl TextSystem {
             right: resolution[0] as i32,
             bottom: resolution[1] as i32,
         };
-        let shaped = &self.shaped;
-        let areas = draws.filter_map(|draw| {
-            let shaped = shaped
-                .get(&shaping_hash(draw.run))
-                .filter(|shaped| same_shaping(&shaped.run, draw.run))?;
-            let rect = view.rect(space, text_rect(draw.run, shaped.size));
-            let color = draw.run.color;
-            let alpha = (f32::from(color.a) * draw.opacity.clamp(0.0, 1.0)).round() as u8;
-            Some(TextArea {
-                buffer: &shaped.buffer,
-                left: rect.x * to_layout,
-                top: rect.y * to_layout,
-                scale: view.scale(space) * to_layout,
-                bounds: draw.clip.map_or(whole, |clip| TextBounds {
-                    left: (clip.x * to_layout).round() as i32,
-                    top: (clip.y * to_layout).round() as i32,
-                    right: (clip.right() * to_layout).round() as i32,
-                    bottom: (clip.bottom() * to_layout).round() as i32,
-                }),
-                default_color: GlyphColor::rgba(color.r, color.g, color.b, alpha),
-                custom_glyphs: &[],
-            })
+        let scale = view.scale(space) * to_layout;
+        let hairline = 1.0 / scale.max(f32::EPSILON);
+        let mut areas = Areas::new(&self.shaped, hairline, whole, to_layout);
+        for draw in draws {
+            match draw.text {
+                TextItem::Run(run) => areas.run(run, Point::default(), &draw),
+                TextItem::Column(column) => {
+                    let visible = draw.clip.map(|clip| view.rect_to(space, clip));
+                    areas.column(column, visible, &draw);
+                }
+            }
+        }
+        let (areas, lines) = areas.finish();
+        let blank = &self.blank;
+        let areas = areas.iter().map(|area| {
+            let origin = view.point(space, area.origin);
+            TextArea {
+                buffer: area.buffer.unwrap_or(blank),
+                left: origin.x * to_layout,
+                top: origin.y * to_layout,
+                scale,
+                bounds: area.bounds,
+                default_color: area.color,
+                custom_glyphs: &lines[area.lines.clone()],
+            }
         });
-        let result = self.renderers[slot].prepare(
+        let result = self.renderers[slot].prepare_with_custom(
             device,
             queue,
             &mut self.fonts,
@@ -223,6 +222,7 @@ impl TextSystem {
             viewport,
             areas,
             &mut self.swash,
+            solid,
         );
         if let Err(error) = result {
             tracing::warn!("text batch not prepared: {error}");
@@ -262,59 +262,4 @@ impl TextSystem {
         self.shaped
             .retain(|_, shaped| frame - shaped.last_used <= KEEP_FRAMES);
     }
-}
-
-/// Shapes and wraps `run`; `None` when its metrics cannot be shaped.
-fn shape(fonts: &mut FontSystem, run: &TextRun) -> Option<(Buffer, Size)> {
-    let usable = |value: f32| value.is_finite() && value > 0.0;
-    if !usable(run.size) || !usable(run.line_height) {
-        return None;
-    }
-    let family = match &run.family {
-        FontFamily::SansSerif => Family::SansSerif,
-        FontFamily::Serif => Family::Serif,
-        FontFamily::Monospace => Family::Monospace,
-        FontFamily::Named(name) => Family::Name(name),
-    };
-    let attrs = Attrs::new()
-        .family(family)
-        .weight(Weight(run.weight))
-        .style(if run.italic {
-            Style::Italic
-        } else {
-            Style::Normal
-        });
-    let align = match run.align {
-        // `None` lets right-to-left text start from the right.
-        TextAlign::Left => None,
-        TextAlign::Centre => Some(Align::Center),
-        TextAlign::Right => Some(Align::Right),
-    };
-    let mut buffer = Buffer::new_empty(Metrics::new(run.size, run.line_height));
-    buffer.set_wrap(if run.wrap_width.is_some() {
-        Wrap::WordOrGlyph
-    } else {
-        Wrap::None
-    });
-    buffer.set_size(run.wrap_width, None);
-    buffer.set_text(&run.text, &attrs, Shaping::Advanced, align);
-    buffer.shape_until_scroll(fonts, false);
-    let mut size = measure(&buffer);
-    if run.wrap_width.is_none() && align.is_some() {
-        // Lines align inside a width, so an unwrapped run is given the width
-        // of its longest line and laid out again.
-        buffer.set_size(Some(size.width), None);
-        buffer.shape_until_scroll(fonts, false);
-        size = Size::new(size.width, measure(&buffer).height);
-    }
-    Some((buffer, size))
-}
-
-fn measure(buffer: &Buffer) -> Size {
-    buffer
-        .layout_runs()
-        .fold(Size::default(), |size, line| Size {
-            width: size.width.max(line.line_w),
-            height: size.height.max(line.line_top + line.line_height),
-        })
 }

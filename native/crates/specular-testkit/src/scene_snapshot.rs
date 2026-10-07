@@ -3,8 +3,8 @@
 use std::fmt::Write as _;
 
 use specular_scene::{
-    Color, Dash, Draw, FontFamily, Item, PathCommand, PathStroke, Point, Rect, Scene, Space,
-    Stroke, StrokeAlign, TextAlign, TextRun, VerticalAlign,
+    Color, ColumnDraw, Dash, Draw, FontFamily, Item, PathCommand, PathStroke, Point, Rect,
+    RuleHeight, Scene, Space, SpanStyle, Stroke, StrokeAlign, TextAlign, TextRun, VerticalAlign,
 };
 
 /// A path longer than this is summarised by its length and bounds. A
@@ -12,7 +12,8 @@ use specular_scene::{
 const LONGEST_SPELLED_PATH: usize = 12;
 
 /// The scene as stable text: one line per item in paint order, back to
-/// front. Numbers are rounded to a hundredth, colours are CSS hex.
+/// front. Numbers are rounded to a hundredth, colours are CSS hex. A column
+/// is followed by a line for each row, cell and rule, indented under it.
 ///
 /// ```text
 /// canvas page p1 100,100 400x300 r=8
@@ -78,6 +79,7 @@ fn write_draw(out: &mut String, draw: &Draw) -> std::fmt::Result {
             write_path_stroke(out, path.stroke)
         }
         Draw::Text(run) => write_text(out, run),
+        Draw::Column(column) => write_column(out, column),
         Draw::Image(image) => {
             write!(out, "image {} {}", image.image.0, rect(image.rect))?;
             if image.source != specular_scene::ImageDraw::WHOLE {
@@ -97,12 +99,7 @@ fn write_text(out: &mut String, run: &TextRun) -> std::fmt::Result {
         write!(out, " box-h={}", num(height))?;
     }
     write!(out, " {}/{}", num(run.size), num(run.line_height))?;
-    match &run.family {
-        FontFamily::SansSerif => {}
-        FontFamily::Serif => write!(out, " serif")?,
-        FontFamily::Monospace => write!(out, " mono")?,
-        FontFamily::Named(name) => write!(out, " {name:?}")?,
-    }
+    write_family(out, Some(&run.family))?;
     if run.weight != 400 {
         write!(out, " w{}", run.weight)?;
     }
@@ -116,10 +113,94 @@ fn write_text(out: &mut String, run: &TextRun) -> std::fmt::Result {
         TextAlign::Right => write!(out, " right")?,
     }
     match run.vertical_align {
-        VerticalAlign::Top => Ok(()),
-        VerticalAlign::Middle => write!(out, " middle"),
-        VerticalAlign::Bottom => write!(out, " bottom"),
+        VerticalAlign::Top => {}
+        VerticalAlign::Middle => write!(out, " middle")?,
+        VerticalAlign::Bottom => write!(out, " bottom")?,
     }
+    if run.spans.is_empty() {
+        return Ok(());
+    }
+    let spans: Vec<String> = (run.spans.iter())
+        .map(|span| {
+            let range = &span.range;
+            format!("{}..{}{}", range.start, range.end, span_style(&span.style))
+        })
+        .collect();
+    write!(out, " spans=[{}]", spans.join(", "))
+}
+
+/// What a span changes, each part led by a space.
+fn span_style(style: &SpanStyle) -> String {
+    let mut out = String::new();
+    // Writing to a `String` cannot fail.
+    let _ = write_family(&mut out, style.family.as_ref());
+    if let Some(weight) = style.weight {
+        let _ = write!(out, " w{weight}");
+    }
+    match style.italic {
+        Some(true) => out.push_str(" italic"),
+        Some(false) => out.push_str(" upright"),
+        None => {}
+    }
+    if let Some(ink) = style.color {
+        let _ = write!(out, " {}", color(ink));
+    }
+    if style.underline {
+        out.push_str(" underline");
+    }
+    if style.strike {
+        out.push_str(" strike");
+    }
+    out
+}
+
+fn write_family(out: &mut String, family: Option<&FontFamily>) -> std::fmt::Result {
+    match family {
+        Some(FontFamily::SansSerif) | None => Ok(()),
+        Some(FontFamily::Serif) => write!(out, " serif"),
+        Some(FontFamily::Monospace) => write!(out, " mono"),
+        Some(FontFamily::Named(name)) => write!(out, " {name:?}"),
+    }
+}
+
+fn write_column(out: &mut String, column: &ColumnDraw) -> std::fmt::Result {
+    write!(
+        out,
+        "column {} {}x{}",
+        point(column.origin),
+        num(column.width),
+        num(column.height)
+    )?;
+    if column.scroll != 0.0 {
+        write!(out, " scroll={}", num(column.scroll))?;
+    }
+    for row in &column.rows {
+        write!(out, "\n  row")?;
+        if row.gap != 0.0 {
+            write!(out, " gap={}", num(row.gap))?;
+        }
+        if row.min_height != 0.0 {
+            write!(out, " min-h={}", num(row.min_height))?;
+        }
+        if row.bottom_padding != 0.0 {
+            write!(out, " pad-b={}", num(row.bottom_padding))?;
+        }
+        for rule in &row.rules {
+            write!(out, "\n    rule x={} w={}", num(rule.x), num(rule.width))?;
+            match rule.height {
+                RuleHeight::Row => write!(out, " row")?,
+                RuleHeight::RowAndGap => write!(out, " row+gap")?,
+                RuleHeight::Middle(height) => write!(out, " middle={}", num(height))?,
+                RuleHeight::Bottom(height) => write!(out, " bottom={}", num(height))?,
+            }
+            write!(out, " {}", color(rule.color))?;
+        }
+        for cell in &row.cells {
+            write!(out, "\n    ")?;
+            write_text(out, cell)?;
+        }
+    }
+    Ok(())
 }
 
 fn write_radius(out: &mut String, radius: f32) -> std::fmt::Result {

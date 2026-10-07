@@ -24,7 +24,12 @@ pub(crate) fn shape_instance(item: &Item, view: &ViewTransform) -> Option<ShapeI
             draw.stroke,
             ShapeInstance::ELLIPSE,
         ),
-        Draw::Page(_) | Draw::Polygon(_) | Draw::Path(_) | Draw::Text(_) | Draw::Image(_) => {
+        Draw::Page(_)
+        | Draw::Polygon(_)
+        | Draw::Path(_)
+        | Draw::Text(_)
+        | Draw::Column(_)
+        | Draw::Image(_) => {
             return None;
         }
     };

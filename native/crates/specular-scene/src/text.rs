@@ -1,6 +1,8 @@
 //! Text runs. The scene says what to set and where; shaping, wrapping and
 //! glyph rasterising belong to the renderer.
 
+use std::ops::Range;
+
 use crate::{Color, Point};
 
 /// Which typeface a run is set in.
@@ -41,7 +43,36 @@ pub enum VerticalAlign {
     Bottom,
 }
 
-/// One block of text in a single style.
+/// How a stretch of a run differs from the run's own style. A field left
+/// `None` keeps the run's value.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+pub struct SpanStyle {
+    /// Typeface.
+    pub family: Option<FontFamily>,
+    /// Font weight on the CSS scale.
+    pub weight: Option<u16>,
+    /// Whether the stretch is italic.
+    pub italic: Option<bool>,
+    /// Text colour. The item's opacity fades the run's own colour and the
+    /// lines under and through a span, but not a span's glyphs.
+    pub color: Option<Color>,
+    /// A line under the text, in the text's colour.
+    pub underline: bool,
+    /// A line through the text, in the text's colour.
+    pub strike: bool,
+}
+
+/// A stretch of a run set in its own [`SpanStyle`].
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct TextSpan {
+    /// The bytes of the run's text it covers.
+    pub range: Range<usize>,
+    /// How it is set.
+    pub style: SpanStyle,
+}
+
+/// One block of text. It has one style, which [`spans`](Self::spans) can
+/// override for parts of it.
 ///
 /// `origin`, `wrap_width` and `box_height` describe a layout box. An axis
 /// with an extent aligns the text inside that extent. An axis without one
@@ -75,6 +106,10 @@ pub struct TextRun {
     pub align: TextAlign,
     /// Vertical alignment.
     pub vertical_align: VerticalAlign,
+    /// The stretches set differently from the rest, in text order and not
+    /// overlapping. A span that overlaps the one before it, runs past the
+    /// text or cuts a character in two is ignored.
+    pub spans: Vec<TextSpan>,
 }
 
 impl TextRun {
@@ -96,6 +131,7 @@ impl TextRun {
             color,
             align: TextAlign::Left,
             vertical_align: VerticalAlign::Top,
+            spans: Vec::new(),
         }
     }
 }
