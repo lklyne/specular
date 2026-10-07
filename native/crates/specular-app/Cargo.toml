@@ -13,7 +13,9 @@ default = []
 cef = ["specular-cef/cef"]
 
 [dependencies]
+specular-doc = { workspace = true }
 specular-core = { workspace = true }
+specular-interact = { workspace = true }
 specular-compositor = { workspace = true }
 specular-cef = { workspace = true }
 specular-bench = { workspace = true }

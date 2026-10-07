@@ -15,6 +15,7 @@ repository = "https://github.com/lklyne/specular"
 [workspace.dependencies]
 specular-doc = { path = "crates/specular-doc" }
 specular-core = { path = "crates/specular-core" }
+specular-interact = { path = "crates/specular-interact" }
 specular-compositor = { path = "crates/specular-compositor" }
 specular-cef = { path = "crates/specular-cef" }
 specular-bench = { path = "crates/specular-bench" }
@@ -33,7 +34,6 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 wgpu = "30.0"
 winit = "0.30.13"
-yrs = "0.28"
 
 # CEF: only ever compiled with `--features cef` (its build script downloads the
 # CEF binary distribution). `accelerated_osr` is deliberately not enabled: the

@@ -14,21 +14,18 @@
 //! - [`source`] — the [`PageSource`] trait every page backend implements.
 //! - [`synthetic`] — [`SyntheticPageSource`], a CEF-free backend that paints
 //!   animated CPU frames so the app and bench run anywhere.
-//! - [`document`] / [`json_canvas`] — the yrs-backed canvas document and its
-//!   JSON Canvas v1.0 on-disk shape.
+//!
+//! The canvas document is not here: it is `specular-doc`.
 
 pub mod camera;
-pub mod document;
 pub mod frame;
 pub mod geometry;
 pub mod input;
-pub mod json_canvas;
 pub mod page;
 pub mod source;
 pub mod synthetic;
 
 pub use camera::{Camera, ViewportInputDelta};
-pub use document::{CanvasDocument, DocumentError};
 pub use frame::{
     CpuFrame, FrameEvent, FrameLayer, MAX_OUTSTANDING_TEXTURES, NativeSurface, PageFrame,
     PixelFormat, SharedTexture,

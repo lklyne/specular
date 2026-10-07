@@ -1,13 +1,14 @@
-//! Translates winit input into the page input contract (CEF field layout).
+//! Translates winit input into [`Event`](specular_interact::Event) payloads.
 
 use std::time::{Duration, Instant};
 
 use glam::Vec2;
-use specular_core::{
-    ImeEvent, InputEvent, KeyEvent, KeyEventKind, Modifiers, PageId, PointerButton,
-};
-use winit::event::{Ime, MouseButton};
-use winit::keyboard::{KeyCode, ModifiersState};
+use specular_core::{ImeEvent, Modifiers, PointerButton};
+use specular_interact::{Cursor, Key, KeyInput};
+use winit::event::{ElementState, Ime, KeyEvent, MouseButton};
+use winit::keyboard::{KeyCode, ModifiersState, PhysicalKey};
+use winit::platform::scancode::PhysicalKeyExtScancode as _;
+use winit::window::CursorIcon;
 
 /// Presses closer together than this (and [`CLICK_SLOP`]) extend a click run.
 const MULTI_CLICK_INTERVAL: Duration = Duration::from_millis(500);
@@ -31,6 +32,20 @@ pub(crate) fn pointer_button(button: MouseButton) -> Option<PointerButton> {
         MouseButton::Middle => Some(PointerButton::Middle),
         MouseButton::Right => Some(PointerButton::Right),
         MouseButton::Back | MouseButton::Forward | MouseButton::Other(_) => None,
+    }
+}
+
+/// The winit icon for a cursor.
+pub(crate) fn cursor_icon(cursor: Cursor) -> CursorIcon {
+    match cursor {
+        Cursor::Default => CursorIcon::Default,
+        Cursor::Crosshair => CursorIcon::Crosshair,
+        Cursor::Grab => CursorIcon::Grab,
+        Cursor::Grabbing => CursorIcon::Grabbing,
+        Cursor::Move => CursorIcon::Move,
+        Cursor::Text => CursorIcon::Text,
+        Cursor::ResizeNwse => CursorIcon::NwseResize,
+        Cursor::ResizeNesw => CursorIcon::NeswResize,
     }
 }
 
@@ -62,33 +77,6 @@ impl ClickCounter {
     /// The count of the most recent press, for its release.
     pub(crate) fn current(&self) -> u8 {
         self.count.max(1)
-    }
-}
-
-/// Which page received each held button's press, so its release goes to the
-/// same page (pointer capture per button) wherever the pointer ends up.
-#[derive(Debug, Clone, Copy, Default)]
-pub(crate) struct ButtonCapture {
-    pages: [Option<PageId>; 3],
-}
-
-impl ButtonCapture {
-    fn slot(button: PointerButton) -> usize {
-        match button {
-            PointerButton::Left => 0,
-            PointerButton::Middle => 1,
-            PointerButton::Right => 2,
-        }
-    }
-
-    /// Records that `page` received `button`'s press.
-    pub(crate) fn press(&mut self, button: PointerButton, page: PageId) {
-        self.pages[Self::slot(button)] = Some(page);
-    }
-
-    /// The page owed `button`'s release, if a page received its press.
-    pub(crate) fn release(&mut self, button: PointerButton) -> Option<PageId> {
-        self.pages[Self::slot(button)].take()
     }
 }
 
@@ -185,54 +173,73 @@ const WINDOWS_KEY_CODES: &[(KeyCode, i32)] = &[
 ];
 
 /// Windows virtual-key code for `code`, or 0 when unmapped.
-pub(crate) fn windows_key_code(code: KeyCode) -> i32 {
+fn windows_key_code(code: KeyCode) -> i32 {
     WINDOWS_KEY_CODES
         .iter()
         .find(|(known, _)| *known == code)
         .map_or(0, |&(_, vk)| vk)
 }
 
-/// One physical key transition, already extracted from winit's `KeyEvent`
-/// (which tests cannot construct).
-#[derive(Debug, Clone, Copy)]
-pub(crate) struct KeyPress<'a> {
-    pub(crate) code: Option<KeyCode>,
-    pub(crate) native_key_code: i32,
-    pub(crate) pressed: bool,
-    pub(crate) text: Option<&'a str>,
-    pub(crate) modifiers: Modifiers,
+/// Punctuation keys as their unshifted US-layout character.
+const PUNCTUATION: &[(KeyCode, char)] = &[
+    (KeyCode::Minus, '-'),
+    (KeyCode::Equal, '='),
+    (KeyCode::BracketLeft, '['),
+    (KeyCode::BracketRight, ']'),
+    (KeyCode::Backslash, '\\'),
+    (KeyCode::Semicolon, ';'),
+    (KeyCode::Quote, '\''),
+    (KeyCode::Comma, ','),
+    (KeyCode::Period, '.'),
+    (KeyCode::Slash, '/'),
+    (KeyCode::Backquote, '`'),
+];
+
+/// The binding identity of a physical key.
+pub(crate) fn key(code: KeyCode) -> Key {
+    match code {
+        KeyCode::Escape => Key::Escape,
+        KeyCode::Enter | KeyCode::NumpadEnter => Key::Enter,
+        KeyCode::Tab => Key::Tab,
+        KeyCode::Backspace => Key::Backspace,
+        KeyCode::Delete => Key::Delete,
+        KeyCode::Space => Key::Space,
+        KeyCode::ArrowLeft => Key::ArrowLeft,
+        KeyCode::ArrowRight => Key::ArrowRight,
+        KeyCode::ArrowUp => Key::ArrowUp,
+        KeyCode::ArrowDown => Key::ArrowDown,
+        other => {
+            // Letter and digit keys have their ASCII character as their
+            // virtual-key code.
+            let character = match u8::try_from(windows_key_code(other)) {
+                Ok(vk @ (b'A'..=b'Z' | b'0'..=b'9')) => Some(char::from(vk.to_ascii_lowercase())),
+                _ => PUNCTUATION
+                    .iter()
+                    .find(|(known, _)| *known == other)
+                    .map(|&(_, character)| character),
+            };
+            character.map_or(Key::Other, Key::Char)
+        }
+    }
 }
 
-/// Appends the CEF key sequence for `press`: `RawDown` + one `Char` per
-/// produced character on press, `Up` on release. Command-key chords produce
-/// no `Char`, as on macOS where they are shortcuts rather than text.
-pub(crate) fn key_events(press: &KeyPress<'_>, out: &mut Vec<InputEvent>) {
-    let windows_key_code = press.code.map_or(0, windows_key_code);
-    let key = |kind, character| {
-        InputEvent::Key(KeyEvent {
-            kind,
-            windows_key_code,
-            native_key_code: press.native_key_code,
-            character,
-            modifiers: press.modifiers,
-        })
+/// One winit key transition as a [`KeyInput`].
+pub(crate) fn key_input(event: &KeyEvent, modifiers: Modifiers) -> KeyInput {
+    let code = match event.physical_key {
+        PhysicalKey::Code(code) => Some(code),
+        PhysicalKey::Unidentified(_) => None,
     };
-    if !press.pressed {
-        out.push(key(KeyEventKind::Up, None));
-        return;
-    }
-    out.push(key(KeyEventKind::RawDown, None));
-    if press.modifiers.meta {
-        return;
-    }
-    for character in press.text.unwrap_or_default().chars() {
-        out.push(InputEvent::Key(KeyEvent {
-            kind: KeyEventKind::Char,
-            windows_key_code: character as i32,
-            native_key_code: press.native_key_code,
-            character: Some(character),
-            modifiers: press.modifiers,
-        }));
+    KeyInput {
+        key: code.map_or(Key::Other, key),
+        pressed: event.state == ElementState::Pressed,
+        repeat: event.repeat,
+        text: event.text.as_ref().map(ToString::to_string),
+        modifiers,
+        windows_key_code: code.map_or(0, windows_key_code),
+        native_key_code: event
+            .physical_key
+            .to_scancode()
+            .map_or(0, |code| code as i32),
     }
 }
 
@@ -277,65 +284,6 @@ fn utf16_offset(text: &str, byte: usize) -> u32 {
 mod tests {
     use super::*;
 
-    fn press(code: KeyCode, text: Option<&str>, modifiers: Modifiers) -> Vec<InputEvent> {
-        let mut out = Vec::new();
-        key_events(
-            &KeyPress {
-                code: Some(code),
-                native_key_code: 0,
-                pressed: true,
-                text,
-                modifiers,
-            },
-            &mut out,
-        );
-        out
-    }
-
-    fn kinds(events: &[InputEvent]) -> Vec<KeyEventKind> {
-        events
-            .iter()
-            .filter_map(|event| match event {
-                InputEvent::Key(key) => Some(key.kind),
-                _ => None,
-            })
-            .collect()
-    }
-
-    #[test]
-    fn letter_press_sends_raw_down_then_char() {
-        let events = press(KeyCode::KeyA, Some("a"), Modifiers::default());
-        assert_eq!(kinds(&events), [KeyEventKind::RawDown, KeyEventKind::Char]);
-    }
-
-    #[test]
-    fn command_chord_sends_no_char() {
-        let meta = Modifiers {
-            meta: true,
-            ..Modifiers::default()
-        };
-        assert_eq!(
-            kinds(&press(KeyCode::KeyC, Some("c"), meta)),
-            [KeyEventKind::RawDown]
-        );
-    }
-
-    #[test]
-    fn release_sends_single_up() {
-        let mut out = Vec::new();
-        key_events(
-            &KeyPress {
-                code: Some(KeyCode::KeyA),
-                native_key_code: 0,
-                pressed: false,
-                text: None,
-                modifiers: Modifiers::default(),
-            },
-            &mut out,
-        );
-        assert_eq!(kinds(&out), [KeyEventKind::Up]);
-    }
-
     #[test]
     fn letters_map_to_uppercase_virtual_keys() {
         assert_eq!(windows_key_code(KeyCode::KeyQ), i32::from(b'Q'));
@@ -344,6 +292,30 @@ mod tests {
     #[test]
     fn unmapped_key_code_is_zero() {
         assert_eq!(windows_key_code(KeyCode::MediaPlayPause), 0);
+    }
+
+    #[test]
+    fn binding_keys_are_the_unshifted_lowercase_character() {
+        let keys = [
+            KeyCode::KeyZ,
+            KeyCode::Digit1,
+            KeyCode::Slash,
+            KeyCode::Escape,
+            KeyCode::NumpadEnter,
+            KeyCode::F5,
+        ]
+        .map(key);
+        assert_eq!(
+            keys,
+            [
+                Key::Char('z'),
+                Key::Char('1'),
+                Key::Char('/'),
+                Key::Escape,
+                Key::Enter,
+                Key::Other
+            ]
+        );
     }
 
     #[test]
@@ -417,22 +389,6 @@ mod tests {
         counter.press(PointerButton::Left, Vec2::ZERO, start);
         let count = counter.press(PointerButton::Left, Vec2::new(30.0, 0.0), start);
         assert_eq!(count, 1);
-    }
-
-    #[test]
-    fn release_goes_to_the_page_that_got_the_press() {
-        let mut capture = ButtonCapture::default();
-        capture.press(PointerButton::Right, PageId(2));
-        capture.press(PointerButton::Left, PageId(1));
-        assert_eq!(capture.release(PointerButton::Right), Some(PageId(2)));
-    }
-
-    #[test]
-    fn release_without_press_goes_nowhere() {
-        let mut capture = ButtonCapture::default();
-        capture.press(PointerButton::Left, PageId(1));
-        capture.release(PointerButton::Left);
-        assert_eq!(capture.release(PointerButton::Left), None);
     }
 
     #[test]

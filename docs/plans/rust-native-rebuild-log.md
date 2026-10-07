@@ -24,12 +24,22 @@ with the task that made it.
 - F3: a node, edge or annotation that cannot be typed (unknown node `type` or `shapeKind`, missing required field, duplicate id) is kept as raw JSON in `Document::extra` under `nodes`, `edges` or `annotations` and written back after the typed items. The app does not see it. A load fails only on invalid JSON, a non-object top level, or one of those three keys not being an array.
 - F3: group `pageIds`/`entityIds` are dropped on load and not regenerated. The Electron reader and writer no longer use them; membership is each member's `parent`. Page `groupId` and group `groupColor` are still written beside `parentGroupId` and `color`.
 - F3: `Command::SetAnchor` carries `Option<Box<PageAnchor>>`, like the other boxed payloads, so the enum stays small.
+- F4: `Event` and `Effect` name a page by its `EntityId`. The shell keeps the table from entity to backend `PageId`.
+- F4: a drag writes rects into the document as it goes, through `Document::apply`. The release puts the start rects back and records one `History` step; Escape just puts them back.
+- F4: a page's viewport is not stored. It is the rect's rounded size, held at the starting size while a handle is dragged. Undo, redo and opening a document diff the pages before and after and return create, close and viewport effects.
+- F4: `Tool` has eight variants: Electron's ten without `hand` and `inspect`. `Gesture` has only the three that work (`Move`, `Resize`, `CommentRegion`); each slice adds its own.
+- F4: time comes in as `Event::Tick { unix_ms }` once per loop turn, so there is no timer effect. S9 can debounce against it. New ids come from a seeded sequence in `Session`.
+- F4: a comment region over a page is stored the way Electron stores it: a `docRect` in the page's CSS pixels plus a `pageAnchor`. Scroll is taken as zero until pages report it.
+- F4: `Action` is the command enum for key bindings, menus, panels and API "act" routes. There is no reply effect; A1 adds what it needs.
+- F4: canvas bindings (C, Cmd+Z) go to the page while a page has keyboard focus, as Electron's undo binding does. Escape always cancels.
+- F4: `--chrome off` only stops the drawing. Gestures and keys still act.
 
 ## Needs a human at a Mac
 
 Things an agent could not verify headless.
 
 - M1: the four checks at the end of ADR 0039 (sharpness on a real display, glyph shimmer while zooming, egui's look, IME into an egui field).
+- F4: nothing was run. Agents may not start `specular-app`, so check `specular-app fixtures/input.canvas` by hand (click, type, Alt+drag, corner resize, C then drag, Escape, Cmd+Z and Cmd+Shift+Z with no page focused) and one `--bench` run against an older build for output shape and frame times.
 
 ## Entries
 
@@ -66,3 +76,16 @@ Things an agent could not verify headless.
 - Saved keys come out alphabetical, not in Electron's order, so the first native save of an Electron file is a large diff with the same JSON value. The writer already inserts fields in Electron's order. To get that order in the file, turn on `serde_json`'s `preserve_order` and change `remove` to `shift_remove` under `src/canvas`. It cannot go on yet: it reorders the yrs document's output and fails `saving_a_reloaded_document_is_byte_stable` in `specular-core`. Do it when F4 deletes that document. With it on, `rich-workspace.canvas` saved byte-identical to what Electron wrote.
 - No repo fixture has annotations, so annotation reading is tested on hand-written JSON only. `replies` is still required; an annotation without it is kept raw.
 - Gate: fmt, clippy and tests pass for every crate except `specular-interact`, which another agent had half-written at the time (module files missing).
+
+### F4 — see `git log -- native/crates/specular-interact`
+
+- New crate `specular-interact` (deps: `specular-doc`, `specular-core`, glam, tracing): `App`, `Session`, `Selection`, `Focus`, `Event`, `Action`, `Effect`, `Cursor`, `Tool`, `Gesture`, `Hit`, `hit_test`, `PagePlacement` and `update(&mut App, Event) -> Vec<Effect>`. 69 tests, all scripted events through `update`.
+- Ported onto it: page move (Alt+drag), corner resize, the comment-region drag, click to select and focus, pointer, wheel, key and IME forwarding with per-button capture, pan, zoom, pinch, Escape. New: Cmd+Z and Cmd+Shift+Z through `History`, covering moves, resizes and comment regions.
+- `specular-app` is now `Shell`: `translate.rs` and `app/input.rs` turn winit into `Event`s, `app/effects.rs` runs `Effect`s. `chrome_state`, `annotation`, `placement`, `handles` and `input_map` are gone from it.
+- F3 landed mid-task, so the shell loads with `Document::from_canvas_str`, and the yrs document, `json_canvas`, its tests and the `yrs` dependency are deleted from `specular-core`. Next agent in `specular-doc`: turn on `serde_json`'s `preserve_order` now, as F3's entry describes.
+- The camera still starts at the shell's fixed `START_CAMERA`, not the file's `appState`, so bench runs stay comparable. Nothing saves yet: `Effect::Save` and `Effect::WriteClipboard` exist for S9 and S6 and the runner only logs them.
+- For F5: `chrome.rs` in the shell is the stand-in for `view`. It reads `App::pages`, `App::handle_target`, `Session::comment_preview` and `region_on_canvas`; move it into `specular-scene` and delete it. Non-page kinds load but are not drawn or hit.
+- For S1 and S2: `hit_test` knows handles and pages only. A click on a page still selects, focuses and forwards at once; select-first (ADR 0022) is not in. Only pages get handles (`min_size` in `handles.rs` is the per-kind `match`).
+- For S8: `keys.rs` is three hard-coded bindings behind a `Route`; replace it with the table.
+- For F6: `src/tests/mod.rs` has the press, drag, release and key helpers to lift into the testkit.
+- A page whose URL changes is closed and created again, and loses keyboard focus on the way. P3 needs a navigate effect.

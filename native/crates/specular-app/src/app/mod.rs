@@ -4,33 +4,31 @@
 //! events to the compositor, render, present, then report a
 //! [`FrameSample`].
 
+mod effects;
 mod gpu_window;
 mod input;
 
-use std::time::{Duration, Instant};
+use std::collections::HashMap;
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use anyhow::Context as _;
 use glam::Vec2;
 use specular_bench::{BenchLine, GestureProfile, InputLatencyLine, PaintPolicy, STEP_INTERVAL};
 use specular_compositor::{FrameObserver as _, FrameSample, PageDraw, ShapeDraw};
-use specular_core::document::PageNode;
-use specular_core::{Camera, CssSize, InputEvent, PageEvent, PageId, PageSource, PageSpec};
+use specular_core::{Camera, PageEvent, PageId, PageSource};
+use specular_doc::{Document, EntityId, ItemId};
+use specular_interact::{Action, App, Event, PageNotice, to_canvas_rect};
 use winit::application::ApplicationHandler;
-use winit::dpi::{LogicalPosition, LogicalSize};
 use winit::event::WindowEvent;
 use winit::event_loop::{ActiveEventLoop, ControlFlow};
 use winit::keyboard::ModifiersState;
 use winit::window::WindowId;
 
 use self::gpu_window::GpuWindow;
-use crate::annotation;
 use crate::bench_run::{BenchRun, BenchTick, RunSource};
-use crate::chrome::{self, ChromeScene};
-use crate::chrome_state::ChromeState;
-use crate::input_map::{ButtonCapture, ClickCounter};
+use crate::chrome;
 use crate::latency::InputLatencyProbe;
-use crate::paint_lod::LodChange;
-use crate::placement::PlacedPage;
+use crate::paint_lod::{LodChange, PageLod};
+use crate::translate::ClickCounter;
 
 /// Camera the canvas opens at (and each bench profile starts from).
 const START_CAMERA: Camera = Camera {
@@ -38,9 +36,9 @@ const START_CAMERA: Camera = Camera {
     zoom: 0.25,
 };
 
-/// How the session runs, from the command line.
+/// How the shell runs, from the command line.
 #[derive(Debug, Clone, PartialEq)]
-pub(crate) struct Session {
+pub(crate) struct RunOptions {
     /// Profiles to run then exit; `None` stays interactive.
     pub(crate) bench: Option<Vec<GestureProfile>>,
     /// Settle time before the first bench profile.
@@ -57,64 +55,63 @@ pub(crate) struct Session {
     pub(crate) annotations: usize,
 }
 
-/// Application state driven by winit.
-pub(crate) struct App {
+/// The backend's side of one page entity.
+#[derive(Debug, Clone, Copy)]
+struct PageHost {
+    page: PageId,
+    lod: PageLod,
+}
+
+/// The winit shell: turns window and page events into [`Event`]s for the
+/// [`App`], runs the effects that come back, and draws.
+pub(crate) struct Shell {
     source: Box<dyn PageSource>,
-    initial_pages: Vec<PageNode>,
-    placed: Vec<PlacedPage>,
-    /// Per-frame scratch rebuilt from `placed`.
+    /// The document to open once the window exists.
+    document: Option<Document>,
+    app: App,
+    /// The hosted page behind each page entity.
+    hosts: HashMap<EntityId, PageHost>,
+    /// Per-frame page quads, reused across frames.
     draws: Vec<PageDraw>,
     /// Per-frame chrome shapes, reused across frames.
     shapes: Vec<ShapeDraw>,
-    /// `None` with `--chrome off`: no shapes, no tool, no selection.
-    chrome: Option<ChromeState>,
-    camera: Camera,
     gpu: Option<GpuWindow>,
     events: Vec<PageEvent>,
-    key_scratch: Vec<InputEvent>,
     modifiers: ModifiersState,
-    /// Cursor position in logical window pixels.
+    /// The pointer's latest position in logical window pixels.
     cursor: Option<Vec2>,
-    hovered: Option<PageId>,
-    focused: Option<PageId>,
-    captured: ButtonCapture,
     clicks: ClickCounter,
     latency: InputLatencyProbe,
-    session: Session,
+    options: RunOptions,
     bench: Option<BenchRun>,
     error: Option<anyhow::Error>,
     /// Set once exit starts; the loop ends when the source has shut down.
     closing: bool,
 }
 
-impl App {
-    /// An app hosting `initial_pages` in `source`; with bench profiles in
-    /// `session` it runs them after the warmup and exits instead of staying
+impl Shell {
+    /// A shell showing `document` in `source`; with bench profiles in
+    /// `options` it runs them after the warmup and exits instead of staying
     /// interactive.
     pub(crate) fn new(
         source: Box<dyn PageSource>,
-        initial_pages: Vec<PageNode>,
-        session: Session,
+        document: Document,
+        options: RunOptions,
     ) -> Self {
         Self {
             source,
-            initial_pages,
-            placed: Vec::new(),
+            document: Some(document),
+            app: App::new(unix_ms()),
+            hosts: HashMap::new(),
             draws: Vec::new(),
             shapes: Vec::new(),
-            chrome: None,
-            camera: START_CAMERA,
             gpu: None,
             events: Vec::new(),
-            key_scratch: Vec::new(),
             modifiers: ModifiersState::empty(),
             cursor: None,
-            hovered: None,
-            focused: None,
-            captured: ButtonCapture::default(),
             clicks: ClickCounter::default(),
             latency: InputLatencyProbe::default(),
-            session,
+            options,
             bench: None,
             error: None,
             closing: false,
@@ -163,58 +160,51 @@ impl App {
                 tracing::info!(hits, misses, "shared-surface import cache");
             }
         }
-        self.placed.clear();
+        self.hosts.clear();
         self.closing = true;
     }
 
     fn init(&mut self, event_loop: &ActiveEventLoop) -> anyhow::Result<()> {
         let gpu = GpuWindow::new(
             event_loop,
-            self.session.window,
-            self.session.bench.is_some(),
+            self.options.window,
+            self.options.bench.is_some(),
         )?;
-        let texture_scale = gpu.scale_factor();
-        for node in std::mem::take(&mut self.initial_pages) {
-            let viewport = CssSize::new(
-                node.rect.width.round().max(1.0) as u32,
-                node.rect.height.round().max(1.0) as u32,
-            );
-            let mut spec = PageSpec::new(&node.url, viewport);
-            spec.texture_scale = texture_scale;
-            let page = self
-                .source
-                .create_page(&spec)
-                .with_context(|| format!("creating page for {}", node.url))?;
-            self.placed.push(PlacedPage::new(page, node.rect, viewport));
-        }
-        if self.session.chrome {
-            let mut chrome =
-                ChromeState::new(annotation::seed(self.session.annotations, &self.placed));
-            if self.session.bench.is_some() {
-                // The selection outline and handles belong in every measured frame.
-                chrome.select(self.placed.first().map(|placed| placed.page));
-            }
-            self.chrome = Some(chrome);
-        }
-        if let Some(profiles) = self.session.bench.take() {
-            let step_interval = gpu.refresh_interval().unwrap_or(STEP_INTERVAL);
-            self.bench = Some(BenchRun::new(
-                profiles,
-                self.session.warmup,
-                step_interval,
-                START_CAMERA,
-                RunSource {
-                    name: self.source.name(),
-                    representative: self.session.representative_source,
-                    pages: self.placed.len(),
-                    paint_policy: self.session.paint_policy,
-                    chrome: self.session.chrome,
-                    annotations: self.session.annotations,
-                },
-                Instant::now(),
-            ));
-        }
+        let viewport = gpu.logical_viewport();
+        let step_interval = gpu.refresh_interval().unwrap_or(STEP_INTERVAL);
         self.gpu = Some(gpu);
+        self.dispatch(Event::ViewportResized(viewport));
+        self.dispatch(Event::Action(Action::SetCamera(START_CAMERA)));
+        if let Some(document) = self.document.take() {
+            self.dispatch(Event::DocumentOpened(Box::new(document)));
+        }
+        let Some(profiles) = self.options.bench.take() else {
+            return Ok(());
+        };
+        if self.closing {
+            return Ok(());
+        }
+        if self.options.chrome {
+            // The selection outline and handles belong in every measured frame.
+            let first = self.app.pages().next().map(|(id, ..)| id.clone());
+            let selection = first.into_iter().map(ItemId::Entity).collect();
+            self.dispatch(Event::Action(Action::Select(selection)));
+        }
+        self.bench = Some(BenchRun::new(
+            profiles,
+            self.options.warmup,
+            step_interval,
+            START_CAMERA,
+            RunSource {
+                name: self.source.name(),
+                representative: self.options.representative_source,
+                pages: self.hosts.len(),
+                paint_policy: self.options.paint_policy,
+                chrome: self.options.chrome,
+                annotations: self.options.annotations,
+            },
+            Instant::now(),
+        ));
         Ok(())
     }
 
@@ -222,14 +212,18 @@ impl App {
         let Some(viewport) = self.gpu.as_ref().map(GpuWindow::logical_viewport) else {
             return Ok(());
         };
-        if let Some(bench) = self.bench.as_mut()
-            && bench.tick(Instant::now(), &mut self.camera, viewport / 2.0) == BenchTick::Finished
-        {
-            self.finish_bench()?;
-            return Ok(());
+        if let Some(bench) = self.bench.as_mut() {
+            let mut camera = self.app.session().camera;
+            if bench.tick(Instant::now(), &mut camera, viewport / 2.0) == BenchTick::Finished {
+                self.finish_bench()?;
+                return Ok(());
+            }
+            if camera != self.app.session().camera {
+                self.dispatch(Event::Action(Action::SetCamera(camera)));
+            }
         }
 
-        if self.session.paint_policy == PaintPolicy::ElectronLod {
+        if self.options.paint_policy == PaintPolicy::ElectronLod {
             self.update_paint_lod(viewport, Instant::now());
         }
         self.source.pump();
@@ -244,16 +238,17 @@ impl App {
             return Ok(());
         };
         self.draws.clear();
-        self.draws.extend(self.placed.iter().map(PlacedPage::draw));
-        let scene = self.chrome.as_ref().map(|chrome| ChromeScene {
-            placed: &self.placed,
-            selected: chrome.selected(),
-            hovered: self.hovered,
-            annotations: chrome.annotations(),
-            preview: chrome.preview(),
-        });
-        chrome::build_shapes(scene.as_ref(), &mut self.shapes);
-        let Some(stats) = gpu.render(self.camera, &self.draws, &self.shapes) else {
+        for (id, _, placement) in self.app.pages() {
+            if let Some(host) = self.hosts.get(id) {
+                self.draws.push(PageDraw {
+                    page: host.page,
+                    rect: to_canvas_rect(placement.rect),
+                });
+            }
+        }
+        chrome::build_shapes(self.options.chrome.then_some(&self.app), &mut self.shapes);
+        let camera = self.app.session().camera;
+        let Some(stats) = gpu.render(camera, &self.draws, &self.shapes) else {
             return Ok(());
         };
         let presented_at = Instant::now();
@@ -271,26 +266,41 @@ impl App {
         Ok(())
     }
 
+    /// Logs what a page reported, tells the app what it acts on, and hands
+    /// the event to the compositor for its frames.
     fn handle_page_event(&mut self, event: PageEvent) {
         self.latency.observe(&event);
-        match &event {
+        let notice = match &event {
             PageEvent::Loaded { page, http_status } => {
                 tracing::info!(%page, http_status, "page loaded");
+                Some((
+                    *page,
+                    PageNotice::Loaded {
+                        http_status: *http_status,
+                    },
+                ))
             }
             PageEvent::Crashed { page, reason } => {
                 tracing::error!(%page, reason, "page host crashed");
+                Some((
+                    *page,
+                    PageNotice::Crashed {
+                        reason: reason.clone(),
+                    },
+                ))
             }
             PageEvent::ImeCompositionBounds { page, bounds } => {
-                if self.focused == Some(*page)
-                    && let Some(bounds) = bounds
-                {
-                    self.place_ime_candidates(*page, *bounds);
-                }
+                Some((*page, PageNotice::ImeCompositionBounds(*bounds)))
             }
             PageEvent::Frame(_)
             | PageEvent::FrameDropped { .. }
             | PageEvent::PopupVisibility { .. }
-            | PageEvent::PopupRect { .. } => {}
+            | PageEvent::PopupRect { .. } => None,
+        };
+        if let Some((host, notice)) = notice
+            && let Some(page) = self.entity_of(host)
+        {
+            self.dispatch(Event::Page { page, notice });
         }
         if let Some(gpu) = self.gpu.as_mut()
             && let Err(error) = gpu.compositor.handle_page_event(event)
@@ -299,23 +309,10 @@ impl App {
         }
     }
 
-    /// Moves the OS candidate window next to the page's composition.
-    fn place_ime_candidates(&self, page: PageId, bounds: specular_core::PixelRect) {
-        let (Some(gpu), Some(placed)) = (
-            self.gpu.as_ref(),
-            self.placed.iter().find(|placed| placed.page == page),
-        ) else {
-            return;
-        };
-        let scale = placed.canvas_per_css() * self.camera.zoom;
-        let world = placed.rect.origin()
-            + Vec2::new(bounds.x as f32, bounds.y as f32) * placed.canvas_per_css();
-        let screen = self.camera.world_to_screen(world);
-        let size = Vec2::new(bounds.width as f32, bounds.height as f32) * scale;
-        gpu.window.set_ime_cursor_area(
-            LogicalPosition::new(screen.x, screen.y),
-            LogicalSize::new(size.x, size.y),
-        );
+    /// The page entity a backend page is hosting.
+    fn entity_of(&self, page: PageId) -> Option<EntityId> {
+        let (entity, _) = self.hosts.iter().find(|(_, host)| host.page == page)?;
+        Some(entity.clone())
     }
 
     fn finish_bench(&mut self) -> anyhow::Result<()> {
@@ -329,9 +326,9 @@ impl App {
     }
 
     fn on_scale_factor_changed(&mut self, scale_factor: f64) {
-        for placed in &self.placed {
-            let scale = scale_factor as f32 * placed.lod.texture().factor();
-            if let Err(error) = self.source.set_texture_scale(placed.page, scale) {
+        for host in self.hosts.values() {
+            let scale = scale_factor as f32 * host.lod.texture().factor();
+            if let Err(error) = self.source.set_texture_scale(host.page, scale) {
                 tracing::warn!("{error}");
             }
         }
@@ -341,13 +338,25 @@ impl App {
     /// its on-screen scale and visibility and applies what changed.
     fn update_paint_lod(&mut self, viewport: Vec2, now: Instant) {
         let window_scale = self.gpu.as_ref().map_or(1.0, GpuWindow::scale_factor);
-        for placed in &mut self.placed {
-            let on_screen = self.camera.is_visible(placed.rect, viewport);
-            let display_scale = placed.display_scale(&self.camera);
-            let change = placed.lod.update(display_scale, on_screen, now);
-            apply_lod_change(self.source.as_mut(), placed.page, change, window_scale);
+        let camera = self.app.session().camera;
+        for (id, _, placement) in self.app.pages() {
+            let Some(host) = self.hosts.get_mut(id) else {
+                continue;
+            };
+            let on_screen = camera.is_visible(to_canvas_rect(placement.rect), viewport);
+            let display_scale = placement.display_scale(&camera);
+            let change = host.lod.update(display_scale, on_screen, now);
+            apply_lod_change(self.source.as_mut(), host.page, change, window_scale);
         }
     }
+}
+
+/// Milliseconds since the Unix epoch, for the app's clock.
+fn unix_ms() -> u64 {
+    let since_epoch = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or(Duration::ZERO);
+    since_epoch.as_millis() as u64
 }
 
 /// Applies `change` in the order Electron's layout pass does: scale before
@@ -377,7 +386,7 @@ fn apply_lod_change(
     }
 }
 
-impl ApplicationHandler for App {
+impl ApplicationHandler for Shell {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         if self.gpu.is_some() {
             return;
@@ -394,6 +403,8 @@ impl ApplicationHandler for App {
             WindowEvent::Resized(size) => {
                 if let Some(gpu) = self.gpu.as_mut() {
                     gpu.resize(size);
+                    let viewport = gpu.logical_viewport();
+                    self.dispatch(Event::ViewportResized(viewport));
                 }
             }
             WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
@@ -415,6 +426,7 @@ impl ApplicationHandler for App {
             }
             return;
         }
+        self.dispatch(Event::Tick { unix_ms: unix_ms() });
         if let Some(gpu) = self.gpu.as_ref() {
             gpu.window.request_redraw();
         }

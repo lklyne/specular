@@ -8,11 +8,8 @@
 
 use glam::Vec2;
 use specular_compositor::{PAGE_CORNER_RADIUS, ShapeDraw, ShapeExtent};
-use specular_core::{CanvasRect, PageId};
-
-use crate::annotation::Annotation;
-use crate::handles::{Corner, HANDLE_SIZE};
-use crate::placement::PlacedPage;
+use specular_core::CanvasRect;
+use specular_interact::{App, Corner, HANDLE_SIZE, region_on_canvas, to_canvas_rect};
 
 /// Linear RGBA, straight alpha (the compositor's convention).
 type Rgba = [f32; 4];
@@ -40,47 +37,42 @@ const REGION_STROKE: f32 = 1.5;
 const PIN_SIZE: f32 = 20.0;
 const PIN_STROKE: f32 = 1.5;
 
-/// What the chrome layer draws this frame.
-#[derive(Debug, Clone, Copy)]
-pub(crate) struct ChromeScene<'a> {
-    pub(crate) placed: &'a [PlacedPage],
-    pub(crate) selected: Option<PageId>,
-    pub(crate) hovered: Option<PageId>,
-    pub(crate) annotations: &'a [Annotation],
-    /// The comment tool's region while it is being dragged.
-    pub(crate) preview: Option<CanvasRect>,
-}
-
-/// Replaces the contents of `out` with the shapes for `scene`; `None` (chrome
-/// off) leaves it empty. `out` keeps its capacity across frames.
-pub(crate) fn build_shapes(scene: Option<&ChromeScene<'_>>, out: &mut Vec<ShapeDraw>) {
+/// Replaces the contents of `out` with the chrome shapes for `app`; `None`
+/// (chrome off) leaves it empty. `out` keeps its capacity across frames.
+pub(crate) fn build_shapes(app: Option<&App>, out: &mut Vec<ShapeDraw>) {
     out.clear();
-    let Some(scene) = scene else {
+    let Some(app) = app else {
         return;
     };
-    for page in scene.placed {
-        let hovered = scene.hovered == Some(page.page);
-        let (stroke, stroke_width) = if hovered {
+    let session = app.session();
+    for (id, _, placement) in app.pages() {
+        let (stroke, stroke_width) = if session.hover.as_ref() == Some(id) {
             (BORDER_HOVER, BORDER_HOVER_WIDTH)
         } else {
             (BORDER, BORDER_WIDTH)
         };
-        out.push(page_outline(page.rect, stroke, stroke_width));
+        out.push(page_outline(
+            to_canvas_rect(placement.rect),
+            stroke,
+            stroke_width,
+        ));
     }
-    for annotation in scene.annotations {
-        if let Some(region) = annotation.rect(scene.placed) {
-            push_annotation(region, out);
+    for annotation in app.document().annotations() {
+        if let Some(region) = region_on_canvas(app, annotation) {
+            push_annotation(to_canvas_rect(region), out);
         }
     }
-    if let Some(region) = scene.preview {
-        push_annotation(region, out);
+    if let Some(region) = session.comment_preview() {
+        push_annotation(to_canvas_rect(region), out);
     }
-    let selected = scene
-        .selected
-        .and_then(|id| scene.placed.iter().find(|page| page.page == id));
-    if let Some(page) = selected {
-        out.push(page_outline(page.rect, SELECTION, SELECTION_WIDTH));
-        out.extend(Corner::ALL.map(|corner| handle(corner.point(page.rect))));
+    for id in session.selection.entities() {
+        if let Some(entity) = app.document().entity(id) {
+            let rect = to_canvas_rect(entity.rect);
+            out.push(page_outline(rect, SELECTION, SELECTION_WIDTH));
+        }
+    }
+    if let Some((_, rect)) = app.handle_target() {
+        out.extend(Corner::ALL.map(|corner| handle(corner.point(rect).as_vec2())));
     }
 }
 
@@ -133,38 +125,73 @@ fn push_annotation(region: CanvasRect, out: &mut Vec<ShapeDraw>) {
 
 #[cfg(test)]
 mod tests {
-    use specular_core::CssSize;
+    use specular_core::{Modifiers, PointerButton, PointerEventKind};
+    use specular_doc::{EntityId, ItemId, Rect};
+    use specular_interact::{Action, Event, Key, KeyInput, PointerInput, update};
 
     use super::*;
+    use crate::scene::{document_of, page_entity};
 
-    fn pages() -> Vec<PlacedPage> {
-        vec![
-            PlacedPage::new(
-                PageId(1),
-                CanvasRect::new(0.0, 0.0, 400.0, 300.0),
-                CssSize::new(400, 300),
-            ),
-            PlacedPage::new(
-                PageId(2),
-                CanvasRect::new(500.0, 0.0, 400.0, 300.0),
-                CssSize::new(400, 300),
-            ),
-        ]
+    /// Two 400x300 pages, `p1` at the origin and `p2` 500 to its right.
+    fn app() -> App {
+        let pages = [("p1", 0.0), ("p2", 500.0)].map(|(id, x)| {
+            page_entity(id, "https://example.com/", Rect::new(x, 0.0, 400.0, 300.0))
+        });
+        let mut app = App::new(0);
+        let document = document_of(pages.into()).unwrap();
+        update(&mut app, Event::DocumentOpened(Box::new(document)));
+        app
     }
 
-    fn scene<'a>(placed: &'a [PlacedPage], annotations: &'a [Annotation]) -> ChromeScene<'a> {
-        ChromeScene {
-            placed,
-            selected: None,
-            hovered: None,
-            annotations,
-            preview: None,
+    fn pointer(app: &mut App, kind: PointerEventKind, at: (f32, f32)) {
+        update(
+            app,
+            Event::Pointer(PointerInput {
+                kind,
+                screen: Vec2::new(at.0, at.1),
+                modifiers: Modifiers::default(),
+            }),
+        );
+    }
+
+    fn left(pressed: bool) -> PointerEventKind {
+        let (button, click_count) = (PointerButton::Left, 1);
+        if pressed {
+            PointerEventKind::Down {
+                button,
+                click_count,
+            }
+        } else {
+            PointerEventKind::Up {
+                button,
+                click_count,
+            }
         }
     }
 
-    fn built(scene: &ChromeScene<'_>) -> Vec<ShapeDraw> {
+    fn select(app: &mut App, id: &str) {
+        let item = ItemId::Entity(EntityId::from(id));
+        update(app, Event::Action(Action::Select(vec![item])));
+    }
+
+    /// Arms the comment tool and presses at `from`.
+    fn start_region(app: &mut App, from: (f32, f32)) {
+        let key = KeyInput {
+            key: Key::Char('c'),
+            pressed: true,
+            repeat: false,
+            text: None,
+            modifiers: Modifiers::default(),
+            windows_key_code: 0,
+            native_key_code: 0,
+        };
+        update(app, Event::Key(key));
+        pointer(app, left(true), from);
+    }
+
+    fn built(app: &App) -> Vec<ShapeDraw> {
         let mut out = Vec::new();
-        build_shapes(Some(scene), &mut out);
+        build_shapes(Some(app), &mut out);
         out
     }
 
@@ -177,30 +204,30 @@ mod tests {
 
     #[test]
     fn every_page_gets_a_border_matching_its_rect_and_corners() {
-        let placed = pages();
-        let shapes = built(&scene(&placed, &[]));
+        let shapes = built(&app());
         assert_eq!(shapes.len(), 2);
-        assert_eq!(canvas_rect(&shapes[1]), Some(placed[1].rect));
+        assert_eq!(
+            canvas_rect(&shapes[1]),
+            Some(CanvasRect::new(500.0, 0.0, 400.0, 300.0))
+        );
         assert_eq!(shapes[1].corner_radius, PAGE_CORNER_RADIUS);
         assert_eq!(shapes[1].fill[3], 0.0);
     }
 
     #[test]
     fn the_hovered_page_has_a_stronger_border() {
-        let placed = pages();
-        let mut hover = scene(&placed, &[]);
-        hover.hovered = Some(PageId(2));
-        let shapes = built(&hover);
+        let mut app = app();
+        pointer(&mut app, PointerEventKind::Move, (600.0, 100.0));
+        let shapes = built(&app);
         assert_eq!((shapes[0].stroke, shapes[1].stroke), (BORDER, BORDER_HOVER));
         assert!(shapes[1].stroke_width > shapes[0].stroke_width);
     }
 
     #[test]
     fn selection_adds_an_outline_and_four_corner_handles() {
-        let placed = pages();
-        let mut selecting = scene(&placed, &[]);
-        selecting.selected = Some(PageId(1));
-        let shapes = built(&selecting);
+        let mut app = app();
+        select(&mut app, "p1");
+        let shapes = built(&app);
         // Two borders, one outline, four handles.
         assert_eq!(shapes.len(), 7);
         assert_eq!(shapes[2].stroke, SELECTION);
@@ -227,13 +254,11 @@ mod tests {
 
     #[test]
     fn selection_paints_above_annotations() {
-        let placed = pages();
-        let notes = [Annotation::canvas_bound(CanvasRect::new(
-            10.0, 10.0, 50.0, 50.0,
-        ))];
-        let mut selecting = scene(&placed, &notes);
-        selecting.selected = Some(PageId(1));
-        let shapes = built(&selecting);
+        let mut app = app();
+        start_region(&mut app, (410.0, 310.0));
+        pointer(&mut app, left(false), (460.0, 360.0));
+        select(&mut app, "p1");
+        let shapes = built(&app);
         // Borders (2), region, pin, outline, handles (4).
         assert_eq!(shapes.len(), 9);
         assert_eq!(shapes[2].stroke, COMMENT);
@@ -241,30 +266,15 @@ mod tests {
     }
 
     #[test]
-    fn a_page_bound_annotation_follows_its_page() {
-        let mut placed = pages();
-        let note = Annotation::page_bound(&placed[0], CanvasRect::new(40.0, 30.0, 100.0, 60.0));
-        placed[0].rect = CanvasRect::new(1000.0, 500.0, 800.0, 600.0);
-        let shapes = built(&scene(&placed, &[note]));
-        // Region at 10%/10% of the new rect, twice the size.
-        assert_eq!(
-            canvas_rect(&shapes[2]),
-            Some(CanvasRect::new(1080.0, 560.0, 200.0, 120.0))
-        );
-    }
-
-    #[test]
     fn the_pin_is_a_screen_sized_circle_at_the_region_corner() {
-        let placed = pages();
-        let notes = [Annotation::canvas_bound(CanvasRect::new(
-            10.0, 20.0, 50.0, 50.0,
-        ))];
-        let shapes = built(&scene(&placed, &notes));
-        let pin = shapes[3];
+        let mut app = app();
+        start_region(&mut app, (410.0, 320.0));
+        pointer(&mut app, left(false), (460.0, 370.0));
+        let pin = built(&app)[3];
         assert_eq!(
             pin.extent,
             ShapeExtent::Screen {
-                anchor: Vec2::new(10.0, 20.0),
+                anchor: Vec2::new(410.0, 320.0),
                 size: Vec2::splat(PIN_SIZE)
             }
         );
@@ -273,28 +283,31 @@ mod tests {
 
     #[test]
     fn the_tool_preview_draws_like_an_annotation() {
-        let placed = pages();
-        let mut drawing = scene(&placed, &[]);
-        drawing.preview = Some(CanvasRect::new(5.0, 5.0, 30.0, 30.0));
-        assert_eq!(built(&drawing).len(), 4);
+        let mut app = app();
+        start_region(&mut app, (5.0, 5.0));
+        pointer(&mut app, PointerEventKind::Move, (35.0, 35.0));
+        let shapes = built(&app);
+        assert_eq!(shapes.len(), 4);
+        assert_eq!(
+            canvas_rect(&shapes[2]),
+            Some(CanvasRect::new(5.0, 5.0, 30.0, 30.0))
+        );
     }
 
     #[test]
     fn chrome_off_draws_nothing_and_clears_the_previous_frame() {
-        let placed = pages();
-        let mut out = Vec::new();
-        build_shapes(Some(&scene(&placed, &[])), &mut out);
+        let app = app();
+        let mut out = built(&app);
         build_shapes(None, &mut out);
         assert_eq!(out.len(), 0);
     }
 
     #[test]
     fn rebuilding_reuses_the_buffer() {
-        let placed = pages();
-        let mut out = Vec::new();
-        build_shapes(Some(&scene(&placed, &[])), &mut out);
+        let app = app();
+        let mut out = built(&app);
         let capacity = out.capacity();
-        build_shapes(Some(&scene(&placed, &[])), &mut out);
+        build_shapes(Some(&app), &mut out);
         assert_eq!((out.len(), out.capacity()), (2, capacity));
     }
 }

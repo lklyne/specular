@@ -5,19 +5,15 @@
 //! source (non-representative CPU frames). `--bench` replays the Electron
 //! pan/zoom profiles and prints frame timing; see `cli::USAGE`.
 
-mod annotation;
 mod app;
 mod bench_run;
 mod chrome;
-mod chrome_state;
 mod cli;
-mod handles;
-mod input_map;
 mod latency;
 mod paint_lod;
-mod placement;
 mod scene;
 mod source_select;
+mod translate;
 
 use std::io::IsTerminal as _;
 
@@ -50,19 +46,19 @@ fn main() -> anyhow::Result<()> {
         .init();
 
     let demo_pages = run.pages.unwrap_or(scene::DEMO_PAGE_COUNT);
-    let pages = scene::load_pages(run.canvas.as_deref(), demo_pages)?;
+    let document = scene::load_document(run.canvas.as_deref(), demo_pages, run.annotations)?;
     // winit must create the macOS application object before CEF initializes,
     // or CEF installs its own and winit panics.
     let event_loop = EventLoop::new().context("creating event loop")?;
     let source = source_select::create_source(run.source)?;
     tracing::info!(
         backend = source.name(),
-        pages = pages.len(),
+        pages = document.entities().count(),
         paint_policy = run.paint_policy.name(),
         "starting"
     );
 
-    let session = app::Session {
+    let options = app::RunOptions {
         bench: run.bench,
         warmup: run.warmup,
         representative_source: run.source.is_representative(),
@@ -71,7 +67,7 @@ fn main() -> anyhow::Result<()> {
         chrome: run.chrome,
         annotations: run.annotations,
     };
-    let mut app = app::App::new(source, pages, session);
+    let mut app = app::Shell::new(source, document, options);
     event_loop.run_app(&mut app).context("running event loop")?;
     app.into_result()
 }

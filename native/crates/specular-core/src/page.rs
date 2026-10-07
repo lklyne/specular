@@ -10,8 +10,7 @@ use crate::source::PageSourceError;
 /// Identity of a page within one running [`PageSource`](crate::PageSource).
 ///
 /// Allocated by the source on [`create_page`](crate::PageSource::create_page);
-/// it is a process-local handle, not the persisted `.canvas` node id (which
-/// lives on [`PageNode`](crate::document::PageNode)).
+/// it is a process-local handle, not the persisted `.canvas` node id.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct PageId(pub u64);
 

@@ -15,14 +15,17 @@ one Rust process with wgpu), not the compositing model.
 
 | Crate | Kind | Owns |
 |---|---|---|
-| `specular-core` | lib | Camera math, page model, `PageFrame` / `PageSource` contracts, input model, yrs-backed canvas document (lossless `.canvas` round trip), JSON Canvas types, synthetic page source |
+| `specular-core` | lib | Camera math, page model, `PageFrame` / `PageSource` contracts, input model, synthetic page source |
+| `specular-doc` | lib | The typed `Document`: entities, edges, annotations, `Command`s with inverses, `History`, and the lossless `.canvas` reader and writer |
+| `specular-interact` | lib | `App` (document, history, session), `Event`, `Effect`, `Tool`, `Gesture`, hit-test and the pure `update(&mut App, Event) -> Vec<Effect>` |
 | `specular-compositor` | lib | wgpu renderer: dot grid + page textures under the camera, one-draw SDF shape overlay (borders, outlines, handles, pins), popup layers, shared-texture retirement and the per-page cap of 6; IOSurface -> Metal -> wgpu import on macOS |
 | `specular-cef` | lib | CEF OSR `PageSource` (`--features cef`) and the CEF-free helpers it is built from (input translation, coords, config). See [`crates/specular-cef/README.md`](crates/specular-cef/README.md) |
 | `specular-bench` | lib + bin | Gesture profiles ported from `src/shared/pan-zoom-perf-test.ts`, frame stats in the ADR 0038 lab's field names, input latency, process-tree footprint and RSS, Electron trace converter, `compare`. See [`crates/specular-bench/README.md`](crates/specular-bench/README.md) |
-| `specular-app` | bin | winit shell wiring a page source, the compositor, the camera, input forwarding, and `--bench` |
+| `specular-app` | bin | winit shell: translates window and page events into `Event`s, runs the `Effect`s that come back, draws through the compositor, and runs `--bench` |
 
-Dependency direction: `core` <- `compositor`, `cef`, `bench` <- `app`. Only
-`core` types cross crate boundaries; `core` has no GPU, window, or CEF deps.
+Dependency direction: `core` <- `compositor`, `cef`, `bench` <- `app`, and
+`doc` <- `interact` <- `app`. `core`, `doc` and `interact` have no GPU,
+window, or CEF deps.
 
 `fixtures/` holds the bench canvases both shells load: `static-9`,
 `static-20`, `static-40` (real sites, 1280x800 CSS each), `animated-20`
