@@ -168,7 +168,11 @@ impl App {
     }
 
     fn init(&mut self, event_loop: &ActiveEventLoop) -> anyhow::Result<()> {
-        let gpu = GpuWindow::new(event_loop, self.session.window)?;
+        let gpu = GpuWindow::new(
+            event_loop,
+            self.session.window,
+            self.session.bench.is_some(),
+        )?;
         let texture_scale = gpu.scale_factor();
         for node in std::mem::take(&mut self.initial_pages) {
             let viewport = CssSize::new(

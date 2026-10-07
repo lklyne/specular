@@ -11,7 +11,7 @@ use specular_compositor::{
 use specular_core::Camera;
 use winit::dpi::{LogicalSize, PhysicalSize};
 use winit::event_loop::ActiveEventLoop;
-use winit::window::Window;
+use winit::window::{Window, WindowLevel};
 
 /// Everything needed to put a frame on screen.
 pub(super) struct GpuWindow {
@@ -26,8 +26,14 @@ impl GpuWindow {
     pub(super) fn new(
         event_loop: &ActiveEventLoop,
         size: Option<(u32, u32)>,
+        always_on_top: bool,
     ) -> anyhow::Result<Self> {
         let mut attributes = Window::default_attributes().with_title("Specular (Rust spike)");
+        if always_on_top {
+            // macOS stops presenting a fully covered window, which a bench
+            // run would record as phases with no frames.
+            attributes = attributes.with_window_level(WindowLevel::AlwaysOnTop);
+        }
         if let Some((width, height)) = size {
             attributes = attributes.with_inner_size(LogicalSize::new(width, height));
         }
