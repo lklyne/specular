@@ -94,3 +94,20 @@ fn every_canvas_in_the_repo_loads_and_saves_to_the_same_json_value() {
         );
     }
 }
+
+/// Files the Electron app wrote that are already in the writer's canonical
+/// form: every key in the Electron writer's order and nothing the reader
+/// has to move.
+const CANONICAL: [&str; 2] = [
+    "tests/integration/__snapshots__/rich-workspace.canvas",
+    "native/crates/specular-doc/tests/fixtures/rich-workspace.canvas",
+];
+
+#[test]
+fn a_canonical_electron_file_loads_and_saves_to_the_same_bytes() {
+    for name in CANONICAL {
+        let text = std::fs::read_to_string(repo_root().join(name)).unwrap();
+        let document = Document::from_canvas_str(&text).unwrap();
+        assert_eq!(document.to_canvas_string().unwrap(), text, "{name}");
+    }
+}

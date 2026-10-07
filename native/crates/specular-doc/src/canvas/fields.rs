@@ -12,7 +12,7 @@ use crate::{Annotation, Edge, JsonMap};
 /// the item's `extra`, so the writer puts it back as it was.
 pub(super) fn take<T: DeserializeOwned>(map: &mut JsonMap, key: &str) -> Option<T> {
     let value = T::deserialize(map.get(key)?).ok()?;
-    map.remove(key);
+    map.shift_remove(key);
     Some(value)
 }
 
@@ -99,7 +99,7 @@ pub(super) fn read_loose<T: Loose>(raw: &Value) -> Option<T> {
     let mut fit = object.clone();
     let mut optional = Vec::new();
     for key in T::OPTIONAL {
-        if let Some(value) = fit.remove(*key) {
+        if let Some(value) = fit.shift_remove(*key) {
             optional.push((*key, value));
         }
     }
@@ -114,7 +114,7 @@ pub(super) fn read_loose<T: Loose>(raw: &Value) -> Option<T> {
                 continue;
             }
             if let Some(object) = fit.as_object_mut() {
-                object.remove(key);
+                object.shift_remove(key);
             }
         }
         misfits.insert(key.to_owned(), value);

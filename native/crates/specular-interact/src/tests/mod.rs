@@ -1,7 +1,7 @@
-//! Scripted events through [`update`], asserting on the document, the
-//! session and the returned effects.
+//! Routing tests: scripted events through [`update`] with the local helpers
+//! below, asserting on the session and the returned effects. Gesture and
+//! feature tests are under `tests/`, on `specular-testkit`.
 
-mod gestures;
 mod routing;
 
 use glam::Vec2;
@@ -18,12 +18,6 @@ const ALT: Modifiers = Modifiers {
 };
 const CMD: Modifiers = Modifiers {
     shift: false,
-    control: false,
-    alt: false,
-    meta: true,
-};
-const CMD_SHIFT: Modifiers = Modifiers {
-    shift: true,
     control: false,
     alt: false,
     meta: true,
@@ -75,10 +69,6 @@ fn app() -> App {
 
 fn id(id: &str) -> EntityId {
     EntityId::from(id)
-}
-
-fn rect_of(app: &App, entity: &str) -> Rect {
-    app.document().entity(&id(entity)).unwrap().rect
 }
 
 fn selected(app: &App) -> Option<EntityId> {

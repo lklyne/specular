@@ -33,6 +33,10 @@ with the task that made it.
 - F4: `Action` is the command enum for key bindings, menus, panels and API "act" routes. There is no reply effect; A1 adds what it needs.
 - F4: canvas bindings (C, Cmd+Z) go to the page while a page has keyboard focus, as Electron's undo binding does. Escape always cancels.
 - F4: `--chrome off` only stops the drawing. Gestures and keys still act.
+- F6: tests on the testkit are integration tests under a crate's `tests/`. A `src/` unit test would see two copies of its own crate's types, because the testkit links the library build.
+- F6: a document snapshot is the canonical save with one compact JSON line per node, edge and annotation. It needs no per-kind code, so a new kind or field shows up in snapshots without touching the testkit.
+- F6: `hold(mods)` keeps modifiers down until `let_go()`. `key` and `chord` send the press and the release. `release()` is always at the pointer's last position.
+- F6: the golden-image helper in the plan's F6 line is left for the task that makes the renderer draw a `Scene`.
 
 ## Needs a human at a Mac
 
@@ -89,3 +93,14 @@ Things an agent could not verify headless.
 - For S8: `keys.rs` is three hard-coded bindings behind a `Route`; replace it with the table.
 - For F6: `src/tests/mod.rs` has the press, drag, release and key helpers to lift into the testkit.
 - A page whose URL changes is closed and created again, and loses keyboard focus on the way. P3 needs a navigate effect.
+
+### F6 and the `preserve_order` cleanup — see `git log -- native/crates/specular-testkit`
+
+- `specular-doc` turns on `serde_json`'s `preserve_order` and uses `shift_remove` under `src/canvas`. Saved keys are in Electron's order. `canvas_repo.rs` checks that both `rich-workspace.canvas` copies load and save to the same bytes.
+- Not byte-identical yet: `Welcome.canvas` (and `tests/fixtures/pages.canvas`, which also lacks `entityOrder`). A `"syncId": null` goes to `extra` and is written after the typed fields, so it moves down its node. The fix is for the writer's `put` to write an `extra` value in the typed field's slot when the typed field is absent. The `native/fixtures` files differ because they have no `specular.entityOrder`.
+- New dev-only crate `specular-testkit` (deps: doc, core, interact, glam, insta, serde_json): `TestApp` with `from_canvas`, `with_pages`, `with_entities`, `from_document`, `empty` + `open`; chainable input in `src/input.rs`; `take_effects`; `undo`/`redo`; `doc_snapshot`, `assert_doc_snapshot!` and `assert_undo_returns_to_start`. `native/CLAUDE.md` "Adding a feature" lists the calls.
+- `specular-interact/src/tests/gestures.rs` is now `specular-interact/tests/gestures.rs` on the testkit (26 tests). `src/tests/routing.rs` still uses the helpers in `src/tests/mod.rs`; move it over and delete them when someone is next in there.
+- For F5: the scene hook is the comment at the end of `specular-testkit/src/snapshot.rs`. Add the `specular-scene` dependency, `scene_snapshot`, `TestApp::scene_snapshot` and `assert_scene_snapshot!` there.
+- `cargo-insta` is not installed on this machine. Inline snapshots were written by hand from the failure output; `cargo install cargo-insta` makes that one command.
+- Gate: fmt and `cargo test --workspace` pass. Clippy passes for `specular-doc`, `specular-interact` and `specular-testkit`; it fails on dead code in `specular-compositor`, which the F5 agent was editing (retried once).
+- The commit includes all of `Cargo.lock` as it stood, which has the F5 agent's `specular-scene`, glyphon and lyon entries. Only the testkit and insta lines of `Cargo.toml` are staged.

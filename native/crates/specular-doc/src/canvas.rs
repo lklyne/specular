@@ -209,7 +209,7 @@ impl Document {
 
 /// Removes a top-level array. A missing one reads as empty.
 fn take_array(top: &mut JsonMap, key: &'static str) -> Result<Vec<Value>, CanvasError> {
-    match top.remove(key) {
+    match top.shift_remove(key) {
         Some(Value::Array(items)) => Ok(items),
         None => Ok(Vec::new()),
         Some(_) => Err(CanvasError::NotAnArray(key)),

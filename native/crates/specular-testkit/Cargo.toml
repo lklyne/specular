@@ -1,6 +1,6 @@
 [package]
-name = "specular-interact"
-description = "Interaction: App, Session, Event, Effect, Tool, Gesture, hit-test and the pure update function."
+name = "specular-testkit"
+description = "Dev-only: a headless App driver with scripted input, snapshots and the undo assertion every feature test uses."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,11 +10,10 @@ publish.workspace = true
 [dependencies]
 specular-doc = { workspace = true }
 specular-core = { workspace = true }
+specular-interact = { workspace = true }
 glam = { workspace = true }
-tracing = { workspace = true }
-
-[dev-dependencies]
-specular-testkit = { workspace = true }
+insta = { workspace = true }
+serde_json = { workspace = true }
 
 [lints]
 workspace = true

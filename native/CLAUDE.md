@@ -35,12 +35,51 @@ A feature is one vertical slice. It touches the same places every time:
    `.canvas` read and write.
 2. `specular-interact`: the `Tool` or `Gesture` arm and the hit-test arm.
 3. `specular-scene`: the `view` arm.
-4. Tests, three per slice: a command round trip (apply, undo, compare), a
-   scripted gesture through `specular-testkit` asserting on the document,
-   and a scene snapshot.
+4. Tests, three per slice: a command round trip (apply, undo, compare) in
+   `specular-doc`, a scripted gesture through `specular-testkit` asserting
+   on the document, and a scene snapshot.
 
 Adding an enum variant should make the compiler list every `match` that
 needs a new arm. Do not add wildcard arms over `Kind`, `Tool` or `Gesture`.
+
+### The gesture test
+
+It goes in the `tests/` directory of the crate that owns the behavior
+(`specular-interact/tests/gestures.rs` is the model), with
+`specular-testkit` as a dev-dependency. A crate's `src/` unit tests cannot
+use the testkit on that crate's own types.
+
+```rust
+use specular_interact::Key;
+use specular_testkit::{ALT, CMD, TestApp, assert_doc_snapshot};
+
+#[test]
+fn alt_drag_moves_the_page() {
+    let mut app = TestApp::with_pages(2); // p1 at (100, 100), p2 at (700, 100), 400x300
+    app.hold(ALT).drag((200.0, 150.0), (260.0, 130.0)).let_go();
+    assert_doc_snapshot!(app, @"");       // the failure prints the text to put here
+    app.assert_undo_returns_to_start();   // every test that changes the document ends with this
+}
+```
+
+- Start from `TestApp::with_pages(n)`, `TestApp::with_entities([..])` or
+  `TestApp::from_canvas(json)`.
+- Input chains: `pointer_move`, `press`, `drag_to`, `release`, `drag`,
+  `click`, `double_click`, `key`, `chord(CMD, Key::Char('z'))`,
+  `type_text("hi")`, `wheel`, `pinch`, `tick`. `hold(mods)` keeps modifiers
+  down until `let_go()`. `select`, `tool`, `zoom`, `undo`, `redo` and `act`
+  run `Action`s. Anything else goes through `send(Event)`.
+- Read back with `document()`, `session()`, `selection()`, `selected()`,
+  `rect("p1")` and `entity("p1")`. `take_effects()` drains the effects
+  returned since the last drain; call it before the step whose effects the
+  test asserts on.
+- `assert_doc_snapshot!(app)` keeps its snapshot in
+  `tests/snapshots/<test>.snap`; `INSTA_UPDATE=always cargo test` writes
+  it. Prefer the inline form for small documents: a failing run prints the
+  new text, and `cargo insta accept` (from `cargo install cargo-insta`)
+  writes it into the source. Read the snapshot before accepting it.
+- The scene snapshot is `assert_scene_snapshot!`, which is not written yet.
+  `specular-testkit/src/snapshot.rs` says where it goes.
 
 ## Gate
 

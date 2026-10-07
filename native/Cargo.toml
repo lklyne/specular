@@ -19,10 +19,13 @@ specular-interact = { path = "crates/specular-interact" }
 specular-compositor = { path = "crates/specular-compositor" }
 specular-cef = { path = "crates/specular-cef" }
 specular-bench = { path = "crates/specular-bench" }
+specular-testkit = { path = "crates/specular-testkit" }
 
 anyhow = "1.0.100"
 bytemuck = { version = "1.25", features = ["derive"] }
 glam = { version = "0.33", features = ["bytemuck", "serde"] }
+# Snapshot assertions. Tests reach it through `specular-testkit`.
+insta = "1.49"
 # macOS `proc_pid_rusage` for per-process physical footprint (bench memory).
 libc = "0.2"
 pollster = "1.0"

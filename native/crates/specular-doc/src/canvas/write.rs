@@ -7,8 +7,8 @@ use super::fields::{fill, put, set};
 use crate::{Color, ColorPreset, Entity, JsonMap, Kind};
 
 /// Writes an entity as a node. Fields are written in the order the Electron
-/// writer uses, which is the order they land in the file once `serde_json`
-/// keeps insertion order (its `preserve_order` feature).
+/// writer uses, which is the order they land in the file: `serde_json` keeps
+/// insertion order (its `preserve_order` feature).
 pub(super) fn write_node(entity: &Entity) -> Result<JsonMap, CanvasError> {
     let mut node = JsonMap::new();
     let mut ext = JsonMap::new();

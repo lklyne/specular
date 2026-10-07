@@ -25,7 +25,7 @@ pub(super) fn read_node(mut node: JsonMap) -> Result<Entity, JsonMap> {
     ) else {
         return Err(node);
     };
-    node.remove("type");
+    node.shift_remove("type");
 
     let mut entity = Entity::new(id, Rect::new(x, y, width, height), kind);
     // `text` and `file` are JSON Canvas node types, so their Specular fields
@@ -72,8 +72,8 @@ pub(super) fn read_node(mut node: JsonMap) -> Result<Entity, JsonMap> {
             group.source_task_id = take(&mut node, "sourceTaskId");
             group.metadata = take(&mut node, "groupMetadata");
             // Legacy copies of the membership each member's `parent` holds.
-            node.remove("pageIds");
-            node.remove("entityIds");
+            node.shift_remove("pageIds");
+            node.shift_remove("entityIds");
         }
         Kind::Drawing(_) => {
             entity.label = take(&mut node, "label");
@@ -141,8 +141,8 @@ fn read_required(node: &mut JsonMap) -> Option<Kind> {
 /// valid color.
 fn take_node_color(node: &mut JsonMap, ext: &mut JsonMap) -> Option<Color> {
     if ext.get("colorRole").and_then(Value::as_str) == Some("neutral") {
-        ext.remove("colorRole");
-        node.remove("color");
+        ext.shift_remove("colorRole");
+        node.shift_remove("color");
         return Some(Color::Neutral);
     }
     take(node, "color")

@@ -10,8 +10,10 @@ publish.workspace = true
 [dependencies]
 serde = { workspace = true }
 # `float_roundtrip` keeps `zoom`, the one number the `.canvas` writer does not
-# round, bit-exact across a load and save.
-serde_json = { workspace = true, features = ["float_roundtrip"] }
+# round, bit-exact across a load and save. `preserve_order` makes a JSON
+# object keep insertion order, so saved keys land in the order the Electron
+# writer uses instead of alphabetically.
+serde_json = { workspace = true, features = ["float_roundtrip", "preserve_order"] }
 thiserror = { workspace = true }
 
 [lints]
