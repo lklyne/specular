@@ -3,13 +3,15 @@
 //! with a printed skip on machines with no GPU adapter.
 
 mod common;
+mod ink;
 mod scene_harness;
 
 use std::time::Instant;
 
 use common::pixel;
 use glam::Vec2;
-use scene_harness::{BACKGROUND, Harness, PAGE, RED, RED_TEXEL, frame, ink, rect};
+use ink::{RED, RED_TEXEL, ink, rect};
+use scene_harness::{BACKGROUND, Harness, PAGE, frame};
 use specular_compositor::FrameView;
 use specular_core::{Camera, CpuFrame, FrameEvent, FrameLayer, PageEvent, PageFrame, PixelSize};
 use specular_doc::EntityId;

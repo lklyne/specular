@@ -1,0 +1,12 @@
+---
+source: crates/specular-scene/tests/view.rs
+expression: "TestApp::from_document(dangling).scene_snapshot()"
+---
+canvas rect 100,100 100x100 fill=#b5b9c0 stroke=#464a53/2/centre
+canvas rect 500,150 100x100 fill=#b5b9c0 stroke=#464a53/2/centre
+canvas rect 100,500 100x100 fill=#b5b9c0 stroke=#464a53/2/centre
+screen path M208,150 C323.35,150 376.65,200 492,200 stroke=#94a3b8/1.5 cap=Butt join=Miter
+screen polygon 485.63,204.5 493.13,200 485.63,195.5 fill=#94a3b8
+screen path M150,208 C150,321.6 150,378.4 150,492 stroke=#9414b9/3 cap=Butt join=Miter dash=9/6
+screen polygon 159,220.75 150,205.75 141,220.75 fill=#9414b9
+screen text "then" 150,350 16/22.4 #1c1917 centre middle

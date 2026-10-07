@@ -90,6 +90,17 @@ pub(crate) struct ScenePass {
 }
 
 impl ScenePass {
+    /// Builds the text system if no frame has needed it yet.
+    pub(crate) fn warm_text(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        target_format: wgpu::TextureFormat,
+    ) {
+        self.text
+            .get_or_insert_with(|| TextSystem::new(device, queue, target_format));
+    }
+
     pub(crate) fn new(device: &wgpu::Device) -> Self {
         Self {
             placed: Vec::new(),

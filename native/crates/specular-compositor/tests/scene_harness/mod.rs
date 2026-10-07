@@ -3,16 +3,14 @@
 use glam::Vec2;
 use specular_compositor::{Compositor, DotGrid, FrameView, GpuContext, SceneStats};
 use specular_core::{Camera, PageId};
-use specular_scene::{Color, Item, Rect, RectDraw, Scene};
+use specular_scene::{Item, Scene};
 
-use crate::common::{TARGET_SIZE, gpu_or_skip, pixel, read_pixels, render_target};
+use crate::common::{TARGET_SIZE, gpu_or_skip, read_pixels, render_target};
 
 /// The page host behind the entity id `"page"`.
 pub(crate) const PAGE: PageId = PageId(1);
 /// Linear blue; encodes to exactly (0, 0, 255).
 pub(crate) const BACKGROUND: [u8; 4] = [0, 0, 255, 255];
-pub(crate) const RED: Color = Color::rgb(255, 0, 0);
-pub(crate) const RED_TEXEL: [u8; 4] = [255, 0, 0, 255];
 
 pub(crate) struct Harness {
     pub(crate) gpu: GpuContext,
@@ -73,23 +71,4 @@ pub(crate) fn frame(camera: Camera) -> FrameView {
         },
         zooming: false,
     }
-}
-
-pub(crate) fn rect(x: f32, y: f32, width: f32, height: f32, fill: Color) -> RectDraw {
-    RectDraw::filled(Rect::new(x, y, width, height), fill)
-}
-
-/// The columns and rows holding any pixel that is not the background, as
-/// `(left, top, right, bottom)`.
-pub(crate) fn ink(pixels: &[[u8; 4]]) -> Option<(u32, u32, u32, u32)> {
-    let mut bounds: Option<(u32, u32, u32, u32)> = None;
-    for y in 0..TARGET_SIZE {
-        for x in 0..TARGET_SIZE {
-            if pixel(pixels, x, y) != BACKGROUND {
-                let (left, top, right, bottom) = bounds.unwrap_or((x, y, x, y));
-                bounds = Some((left.min(x), top.min(y), right.max(x), bottom.max(y)));
-            }
-        }
-    }
-    bounds
 }

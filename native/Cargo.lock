@@ -2640,6 +2640,7 @@ dependencies = [
  "specular-core",
  "specular-doc",
  "specular-interact",
+ "specular-scene",
  "tracing",
  "tracing-subscriber",
  "wgpu",
@@ -2726,7 +2727,11 @@ dependencies = [
 name = "specular-scene"
 version = "0.1.0"
 dependencies = [
+ "glam",
+ "specular-core",
  "specular-doc",
+ "specular-interact",
+ "specular-testkit",
 ]
 
 [[package]]
@@ -2739,6 +2744,7 @@ dependencies = [
  "specular-core",
  "specular-doc",
  "specular-interact",
+ "specular-scene",
 ]
 
 [[package]]

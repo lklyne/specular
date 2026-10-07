@@ -18,7 +18,8 @@ Event -> update(&mut App, Event) -> Vec<Effect>     pure, no I/O
   `apply` returns the inverse, and undo is a stack of inverses.
 - `specular-interact` owns `App`, `Session`, `Event`, `Effect`, `Tool`,
   `Gesture`, hit-test and `update`.
-- `specular-scene` owns the `Scene` display list and `view`.
+- `specular-scene` owns the `Scene` display list and `view`, one module per
+  kind under `src/view/`.
 - Only the shell and the CEF crate do I/O. Everything else is testable with
   no window, GPU or CEF.
 
@@ -83,8 +84,10 @@ fn alt_drag_moves_the_page() {
   writes it into the source. Read the snapshot before accepting it.
 - A page is select-first (ADR 0022). `click` selects it, a second `click`
   or a `double_click` enters it, and only an entered page gets input.
-- The scene snapshot is `assert_scene_snapshot!`, which is not written yet.
-  `specular-testkit/src/snapshot.rs` says where it goes.
+- The scene snapshot is `assert_scene_snapshot!(app)`, in
+  `specular-scene/tests/view.rs`. It prints one line per display-list item
+  in paint order. `TestApp::scene_snapshot()` returns the same text, and
+  `specular_scene::view(app.app(), viewport)` the `Scene` itself.
 
 ## Gate
 

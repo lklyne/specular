@@ -1,0 +1,7 @@
+---
+source: crates/specular-scene/tests/view.rs
+expression: app.scene_snapshot()
+---
+canvas text "Unwrapped heading" 100,100 32/45.19 #1c1917
+canvas text "Wraps at its width" 100,200 wrap=192 14/21 mono #cd0000
+canvas text "By hand" 100,300 14/21 "Kalam" #336699

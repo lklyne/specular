@@ -16,6 +16,7 @@ cef = ["specular-cef/cef"]
 specular-doc = { workspace = true }
 specular-core = { workspace = true }
 specular-interact = { workspace = true }
+specular-scene = { workspace = true }
 specular-compositor = { workspace = true }
 specular-cef = { workspace = true }
 specular-bench = { workspace = true }

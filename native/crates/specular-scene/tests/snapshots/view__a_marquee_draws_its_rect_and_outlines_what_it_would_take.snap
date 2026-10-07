@@ -1,0 +1,8 @@
+---
+source: crates/specular-scene/tests/view.rs
+expression: app.scene_snapshot()
+---
+canvas rect 100,100 100x100 fill=#b5b9c0 stroke=#464a53/2/centre
+canvas rect 600,100 100x100 fill=#b5b9c0 stroke=#464a53/2/centre
+screen rect 99,99 102x102 stroke=#3b82f6/1/inside
+screen rect 50,50 200x200 fill=#3b82f61f stroke=#3b82f6e6/1/inside

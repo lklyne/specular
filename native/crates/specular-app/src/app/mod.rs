@@ -13,7 +13,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use glam::Vec2;
 use specular_bench::{BenchLine, GestureProfile, InputLatencyLine, PaintPolicy, STEP_INTERVAL};
-use specular_compositor::{FrameObserver as _, FrameSample, PageDraw, ShapeDraw};
+use specular_compositor::{FrameObserver as _, FrameSample};
 use specular_core::{Camera, PageEvent, PageId, PageSource};
 use specular_doc::{Document, EntityId, ItemId};
 use specular_interact::{Action, App, Event, PageNotice, to_canvas_rect};
@@ -25,7 +25,6 @@ use winit::window::WindowId;
 
 use self::gpu_window::GpuWindow;
 use crate::bench_run::{BenchRun, BenchTick, RunSource};
-use crate::chrome;
 use crate::latency::InputLatencyProbe;
 use crate::paint_lod::{LodChange, PageLod};
 use crate::translate::ClickCounter;
@@ -71,10 +70,9 @@ pub(crate) struct Shell {
     app: App,
     /// The hosted page behind each page entity.
     hosts: HashMap<EntityId, PageHost>,
-    /// Per-frame page quads, reused across frames.
-    draws: Vec<PageDraw>,
-    /// Per-frame chrome shapes, reused across frames.
-    shapes: Vec<ShapeDraw>,
+    /// The zoom the previous frame was drawn at, to tell when a zoom is in
+    /// flight.
+    drawn_zoom: f32,
     gpu: Option<GpuWindow>,
     events: Vec<PageEvent>,
     modifiers: ModifiersState,
@@ -103,8 +101,7 @@ impl Shell {
             document: Some(document),
             app: App::new(unix_ms()),
             hosts: HashMap::new(),
-            draws: Vec::new(),
-            shapes: Vec::new(),
+            drawn_zoom: START_CAMERA.zoom,
             gpu: None,
             events: Vec::new(),
             modifiers: ModifiersState::empty(),
@@ -237,24 +234,25 @@ impl Shell {
         let Some(gpu) = self.gpu.as_mut() else {
             return Ok(());
         };
-        self.draws.clear();
-        for (id, _, placement) in self.app.pages() {
-            if let Some(host) = self.hosts.get(id) {
-                self.draws.push(PageDraw {
-                    page: host.page,
-                    rect: to_canvas_rect(placement.rect),
-                });
-            }
-        }
-        chrome::build_shapes(self.options.chrome.then_some(&self.app), &mut self.shapes);
+        let scene = if self.options.chrome {
+            specular_scene::view(&self.app, viewport)
+        } else {
+            specular_scene::view_without_chrome(&self.app, viewport)
+        };
         let camera = self.app.session().camera;
-        let Some(stats) = gpu.render(camera, &self.draws, &self.shapes) else {
+        // Text keeps its raster size while the zoom moves, and the first
+        // frame at a steady zoom sharpens it.
+        let zooming = (camera.zoom - self.drawn_zoom).abs() > f32::EPSILON;
+        self.drawn_zoom = camera.zoom;
+        let hosts = &self.hosts;
+        let page_of = |entity: &EntityId| hosts.get(entity).map(|host| host.page);
+        let Some(stats) = gpu.render(camera, zooming, &scene, page_of) else {
             return Ok(());
         };
         let presented_at = Instant::now();
         let sample = FrameSample {
             presented_at,
-            stats,
+            stats: stats.render,
             input_to_present: self.latency.presented(presented_at),
         };
         if let Some(latency) = sample.input_to_present {

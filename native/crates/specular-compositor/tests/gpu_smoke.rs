@@ -1,35 +1,24 @@
-//! Offscreen renders checked pixel by pixel. Each test passes with a printed
-//! skip on machines with no GPU adapter (the Linux CI runner).
+//! Frame ingestion checked on offscreen renders, pixel by pixel: CPU frames,
+//! dirty rects, popups, and the counters a render reports. Each test passes
+//! with a printed skip on machines with no GPU adapter (the Linux CI runner).
 
 mod common;
+mod scene_harness;
 
 use std::time::Instant;
 
-use common::{TARGET_SIZE, gpu_or_skip, pixel, read_pixels, render_target};
+use common::pixel;
 use glam::Vec2;
-use specular_compositor::{
-    Compositor, CompositorError, DotGrid, FrameImportError, PageDraw, RenderStats, SceneView,
-    ShapeDraw, ShapeExtent,
-};
+use scene_harness::{BACKGROUND as BACKGROUND_TEXEL, Harness, PAGE, frame};
+use specular_compositor::{CompositorError, DotGrid, FrameImportError, RenderStats};
 use specular_core::{
-    Camera, CanvasRect, CpuFrame, FrameEvent, FrameLayer, PageEvent, PageFrame, PageId, PixelRect,
-    PixelSize,
+    Camera, CpuFrame, FrameEvent, FrameLayer, PageEvent, PageFrame, PixelRect, PixelSize,
 };
+use specular_doc::EntityId;
+use specular_scene::{Item, PageDraw, Rect};
 
-const FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
-const PAGE: PageId = PageId(1);
-const PAGE_RECT: CanvasRect = CanvasRect::new(8.0, 8.0, 48.0, 48.0);
-/// Linear blue; encodes to exactly (0, 0, 255).
-const BACKGROUND: [f32; 4] = [0.0, 0.0, 1.0, 1.0];
-const BACKGROUND_TEXEL: [u8; 4] = [0, 0, 255, 255];
-
-fn plain_grid() -> DotGrid {
-    DotGrid {
-        spacing: 0.0,
-        background: BACKGROUND,
-        ..DotGrid::default()
-    }
-}
+/// Corner radius the page is drawn with, in canvas units.
+const CORNER_RADIUS: f32 = 8.0;
 
 fn solid_frame(size: PixelSize, bgra: [u8; 4]) -> CpuFrame {
     CpuFrame {
@@ -49,77 +38,28 @@ fn frame_event(layer: FrameLayer, frame: CpuFrame) -> PageEvent {
     })
 }
 
-struct Harness {
-    gpu: specular_compositor::GpuContext,
-    compositor: Compositor,
-    target: wgpu::Texture,
+/// The page at canvas (8, 8), 48 units square.
+fn page() -> Vec<Item> {
+    vec![Item::canvas(PageDraw {
+        page: EntityId::new("page"),
+        rect: Rect::new(8.0, 8.0, 48.0, 48.0),
+        corner_radius: CORNER_RADIUS,
+    })]
 }
 
-impl Harness {
-    fn new() -> Option<Self> {
-        let gpu = gpu_or_skip()?;
-        let compositor = Compositor::new(gpu.device.clone(), gpu.queue.clone(), FORMAT);
-        let target = render_target(&gpu, FORMAT);
-        Some(Self {
-            gpu,
-            compositor,
-            target,
-        })
-    }
-
-    fn render(&mut self, camera: Camera, grid: DotGrid, pages: &[PageDraw]) -> RenderStats {
-        self.render_with_shapes(camera, grid, pages, &[])
-    }
-
-    fn render_with_shapes(
-        &mut self,
-        camera: Camera,
-        grid: DotGrid,
-        pages: &[PageDraw],
-        shapes: &[ShapeDraw],
-    ) -> RenderStats {
-        let view = self
-            .target
-            .create_view(&wgpu::TextureViewDescriptor::default());
-        let size = TARGET_SIZE as f32;
-        self.compositor.render(
-            &view,
-            &SceneView {
-                camera,
-                viewport: Vec2::new(size, size),
-                scale_factor: 1.0,
-                pages,
-                shapes,
-                grid,
-            },
-        )
-    }
-
-    fn render_page(&mut self) -> Vec<[u8; 4]> {
-        let pages = [PageDraw {
-            page: PAGE,
-            rect: PAGE_RECT,
-        }];
-        self.render(Camera::default(), plain_grid(), &pages);
-        read_pixels(&self.gpu, &self.target)
-    }
-
-    fn send_view(&mut self, frame: CpuFrame) {
-        let result = self
-            .compositor
-            .handle_page_event(frame_event(FrameLayer::View, frame));
-        assert!(result.is_ok(), "frame rejected: {result:?}");
-    }
+/// Renders `items` and returns the page and frame counters.
+fn stats(harness: &mut Harness, items: Vec<Item>) -> RenderStats {
+    harness
+        .render_frame(&frame(Camera::default()), items)
+        .1
+        .render
 }
 
-#[test]
-fn render_empty_scene_fills_background() {
-    let Some(mut harness) = Harness::new() else {
-        return;
-    };
-    harness.render(Camera::default(), plain_grid(), &[]);
-    let pixels = read_pixels(&harness.gpu, &harness.target);
-    assert_eq!(pixel(&pixels, 40, 3), BACKGROUND_TEXEL);
+fn send_view(harness: &mut Harness, frame: CpuFrame) {
+    let result = harness
+        .compositor
+        .handle_page_event(frame_event(FrameLayer::View, frame));
+    assert!(result.is_ok(), "frame rejected: {result:?}");
 }
 
 #[test]
@@ -127,17 +67,17 @@ fn grid_draws_a_dot_at_the_world_origin() {
     let Some(mut harness) = Harness::new() else {
         return;
     };
-    let grid = DotGrid {
-        dot: [1.0, 0.0, 0.0, 1.0],
-        ..plain_grid()
-    };
-    let grid = DotGrid {
-        spacing: 20.0,
-        ..grid
-    };
     // Pan puts the world origin on pixel (10, 10)'s centre.
-    harness.render(Camera::new(Vec2::splat(10.5), 1.0), grid, &[]);
-    let pixels = read_pixels(&harness.gpu, &harness.target);
+    let view = frame(Camera::new(Vec2::splat(10.5), 1.0));
+    let view = specular_compositor::FrameView {
+        grid: DotGrid {
+            spacing: 20.0,
+            dot: [1.0, 0.0, 0.0, 1.0],
+            ..view.grid
+        },
+        ..view
+    };
+    let (pixels, _) = harness.render_frame(&view, Vec::new());
     assert_eq!(
         [pixel(&pixels, 10, 10), pixel(&pixels, 20, 10)],
         [[255, 0, 0, 255], BACKGROUND_TEXEL]
@@ -145,25 +85,15 @@ fn grid_draws_a_dot_at_the_world_origin() {
 }
 
 #[test]
-fn page_without_frame_counts_as_missing_texture() {
-    let Some(mut harness) = Harness::new() else {
-        return;
-    };
-    let pages = [PageDraw {
-        page: PAGE,
-        rect: PAGE_RECT,
-    }];
-    let stats = harness.render(Camera::default(), plain_grid(), &pages);
-    assert_eq!(stats.pages_without_texture, 1);
-}
-
-#[test]
 fn cpu_frame_is_drawn_inside_page_rect() {
     let Some(mut harness) = Harness::new() else {
         return;
     };
-    harness.send_view(solid_frame(PixelSize::new(48, 48), [10, 20, 200, 255]));
-    let pixels = harness.render_page();
+    send_view(
+        &mut harness,
+        solid_frame(PixelSize::new(48, 48), [10, 20, 200, 255]),
+    );
+    let pixels = harness.render(page());
     assert_eq!(pixel(&pixels, 32, 32), [200, 20, 10, 255]);
 }
 
@@ -172,83 +102,12 @@ fn rounded_corner_reveals_background() {
     let Some(mut harness) = Harness::new() else {
         return;
     };
-    harness.send_view(solid_frame(PixelSize::new(48, 48), [10, 20, 200, 255]));
-    let pixels = harness.render_page();
+    send_view(
+        &mut harness,
+        solid_frame(PixelSize::new(48, 48), [10, 20, 200, 255]),
+    );
+    let pixels = harness.render(page());
     assert_eq!(pixel(&pixels, 8, 8), BACKGROUND_TEXEL);
-}
-
-#[test]
-fn shape_fill_covers_its_rect_and_leaves_the_rest() {
-    let Some(mut harness) = Harness::new() else {
-        return;
-    };
-    let shapes = [ShapeDraw {
-        extent: ShapeExtent::Canvas(CanvasRect::new(16.0, 16.0, 32.0, 32.0)),
-        corner_radius: 0.0,
-        fill: [1.0, 0.0, 0.0, 1.0],
-        stroke: [0.0; 4],
-        stroke_width: 0.0,
-    }];
-    let stats = harness.render_with_shapes(Camera::default(), plain_grid(), &[], &shapes);
-    let pixels = read_pixels(&harness.gpu, &harness.target);
-    assert_eq!(
-        (
-            pixel(&pixels, 32, 32),
-            pixel(&pixels, 4, 4),
-            stats.shapes_drawn
-        ),
-        ([255, 0, 0, 255], BACKGROUND_TEXEL, 1)
-    );
-}
-
-#[test]
-fn shape_stroke_sits_outside_the_rect_edge() {
-    let Some(mut harness) = Harness::new() else {
-        return;
-    };
-    let shapes = [ShapeDraw {
-        extent: ShapeExtent::Canvas(CanvasRect::new(16.0, 16.0, 32.0, 32.0)),
-        corner_radius: 0.0,
-        fill: [1.0, 0.0, 0.0, 1.0],
-        stroke: [0.0, 1.0, 0.0, 1.0],
-        stroke_width: 2.0,
-    }];
-    harness.render_with_shapes(Camera::default(), plain_grid(), &[], &shapes);
-    let pixels = read_pixels(&harness.gpu, &harness.target);
-    // Pixel 15 is the first outside the rect; 17 is inside it, 13 is clear.
-    assert_eq!(
-        [
-            pixel(&pixels, 32, 15),
-            pixel(&pixels, 32, 16),
-            pixel(&pixels, 32, 13)
-        ],
-        [[0, 255, 0, 255], [255, 0, 0, 255], BACKGROUND_TEXEL]
-    );
-}
-
-#[test]
-fn screen_sized_shape_keeps_its_size_when_zoomed() {
-    let Some(mut harness) = Harness::new() else {
-        return;
-    };
-    // Zoom 0.5 puts canvas (64, 64) at pixel (32, 32).
-    let shapes = [ShapeDraw {
-        extent: ShapeExtent::Screen {
-            anchor: glam::Vec2::new(64.0, 64.0),
-            size: glam::Vec2::splat(16.0),
-        },
-        corner_radius: 8.0,
-        fill: [1.0, 0.0, 0.0, 1.0],
-        stroke: [0.0; 4],
-        stroke_width: 0.0,
-    }];
-    harness.render_with_shapes(Camera::new(Vec2::ZERO, 0.5), plain_grid(), &[], &shapes);
-    let pixels = read_pixels(&harness.gpu, &harness.target);
-    // 6 px from the centre is inside a 16 px circle; 12 px is outside.
-    assert_eq!(
-        [pixel(&pixels, 38, 32), pixel(&pixels, 44, 32)],
-        [[255, 0, 0, 255], BACKGROUND_TEXEL]
-    );
 }
 
 #[test]
@@ -256,10 +115,16 @@ fn ingested_view_frames_are_counted_once_per_render() {
     let Some(mut harness) = Harness::new() else {
         return;
     };
-    harness.send_view(solid_frame(PixelSize::new(48, 48), [0, 0, 0, 255]));
-    harness.send_view(solid_frame(PixelSize::new(48, 48), [0, 0, 0, 255]));
-    let first = harness.render(Camera::default(), plain_grid(), &[]);
-    let second = harness.render(Camera::default(), plain_grid(), &[]);
+    send_view(
+        &mut harness,
+        solid_frame(PixelSize::new(48, 48), [0, 0, 0, 255]),
+    );
+    send_view(
+        &mut harness,
+        solid_frame(PixelSize::new(48, 48), [0, 0, 0, 255]),
+    );
+    let first = stats(&mut harness, Vec::new());
+    let second = stats(&mut harness, Vec::new());
     assert_eq!((first.frames_received, second.frames_received), (2, 0));
 }
 
@@ -272,7 +137,7 @@ fn dropped_frame_events_are_counted() {
         .compositor
         .handle_page_event(PageEvent::FrameDropped { page: PAGE })
         .unwrap();
-    let stats = harness.render(Camera::default(), plain_grid(), &[]);
+    let stats = stats(&mut harness, Vec::new());
     assert_eq!(stats.frames_dropped_for_pool_pressure, 1);
 }
 
@@ -281,13 +146,12 @@ fn first_render_after_frame_reports_its_paint_wait_once() {
     let Some(mut harness) = Harness::new() else {
         return;
     };
-    harness.send_view(solid_frame(PixelSize::new(48, 48), [0, 0, 0, 255]));
-    let pages = [PageDraw {
-        page: PAGE,
-        rect: PAGE_RECT,
-    }];
-    let first = harness.render(Camera::default(), plain_grid(), &pages);
-    let second = harness.render(Camera::default(), plain_grid(), &pages);
+    send_view(
+        &mut harness,
+        solid_frame(PixelSize::new(48, 48), [0, 0, 0, 255]),
+    );
+    let first = stats(&mut harness, page());
+    let second = stats(&mut harness, page());
     assert_eq!(
         (
             first.max_paint_to_submit.is_some(),
@@ -303,11 +167,11 @@ fn dirty_rect_update_leaves_clean_region_untouched() {
         return;
     };
     let size = PixelSize::new(48, 48);
-    harness.send_view(solid_frame(size, [0, 0, 100, 255]));
+    send_view(&mut harness, solid_frame(size, [0, 0, 100, 255]));
     let mut update = solid_frame(size, [0, 0, 250, 255]);
     update.dirty = vec![PixelRect::new(0, 0, 24, 48)];
-    harness.send_view(update);
-    let pixels = harness.render_page();
+    send_view(&mut harness, update);
+    let pixels = harness.render(page());
     // Left half of the page (screen x 8..32) updated, right half kept.
     assert_eq!(
         [pixel(&pixels, 20, 32), pixel(&pixels, 44, 32)],
@@ -320,7 +184,10 @@ fn popup_frame_draws_over_view_until_hidden() {
     let Some(mut harness) = Harness::new() else {
         return;
     };
-    harness.send_view(solid_frame(PixelSize::new(48, 48), [0, 0, 100, 255]));
+    send_view(
+        &mut harness,
+        solid_frame(PixelSize::new(48, 48), [0, 0, 100, 255]),
+    );
     let popup_rect = PixelRect::new(16, 16, 16, 16);
     harness
         .compositor
@@ -329,7 +196,7 @@ fn popup_frame_draws_over_view_until_hidden() {
             solid_frame(PixelSize::new(16, 16), [0, 200, 0, 255]),
         ))
         .unwrap();
-    let shown = pixel(&harness.render_page(), 32, 32);
+    let shown = pixel(&harness.render(page()), 32, 32);
     harness
         .compositor
         .handle_page_event(PageEvent::PopupVisibility {
@@ -337,7 +204,7 @@ fn popup_frame_draws_over_view_until_hidden() {
             visible: false,
         })
         .unwrap();
-    let hidden = pixel(&harness.render_page(), 32, 32);
+    let hidden = pixel(&harness.render(page()), 32, 32);
     assert_eq!([shown, hidden], [[0, 200, 0, 255], [100, 0, 0, 255]]);
 }
 
@@ -346,9 +213,12 @@ fn removed_page_is_no_longer_drawn() {
     let Some(mut harness) = Harness::new() else {
         return;
     };
-    harness.send_view(solid_frame(PixelSize::new(48, 48), [0, 0, 100, 255]));
+    send_view(
+        &mut harness,
+        solid_frame(PixelSize::new(48, 48), [0, 0, 100, 255]),
+    );
     harness.compositor.remove_page(PAGE);
-    let pixels = harness.render_page();
+    let pixels = harness.render(page());
     assert_eq!(pixel(&pixels, 32, 32), BACKGROUND_TEXEL);
 }
 

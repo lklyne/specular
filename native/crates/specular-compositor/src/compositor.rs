@@ -1,4 +1,5 @@
-//! The renderer: page frames + dot grid under a camera, one pass per frame.
+//! The compositor's state: page frames and how they are ingested. Drawing
+//! is in `scene_pass`.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -9,19 +10,17 @@ use specular_core::{
     CpuFrame, FrameEvent, FrameLayer, PageEvent, PageFrame, PageId, PixelSize, SharedTexture,
 };
 
-use crate::draw_list::{DrawItem, LayerKind, build_draw_list};
+use crate::draw_list::{DrawItem, LayerKind};
 use crate::error::CompositorError;
-use crate::gpu_types::{FRAME_UNIFORMS_SIZE, FrameUniforms, QuadInstance, ShapeInstance};
-use crate::grid::grid_metrics;
+use crate::gpu_types::{FRAME_UNIFORMS_SIZE, QuadInstance, ShapeInstance};
 use crate::import::{import_shared, surface_identity};
 use crate::import_cache::ImportCache;
 use crate::instance_buffer::InstanceBuffer;
 use crate::layers::{LayerTexture, PageLayers};
 use crate::pipeline::Pipelines;
 use crate::retire::RetiredTextures;
-use crate::scene::{RenderStats, SceneView};
+use crate::scene::RenderStats;
 use crate::scene_pass::ScenePass;
-use crate::shape_list::build_shape_list;
 use crate::upload;
 
 /// Identity of an imported shared surface: the same surface at the same
@@ -121,6 +120,13 @@ impl Compositor {
         }
     }
 
+    /// Loads the system fonts and builds the glyph atlas now, so the first
+    /// frame that shows text does not stall on it.
+    pub fn warm_text(&mut self) {
+        self.scene_pass
+            .warm_text(&self.device, &self.queue, self.target_format);
+    }
+
     /// The colour format this compositor renders into.
     pub fn target_format(&self) -> wgpu::TextureFormat {
         self.target_format
@@ -188,50 +194,6 @@ impl Compositor {
         displayed + self.retired.count_for(page)
     }
 
-    /// Draws `scene` into `target` and submits the work.
-    pub fn render(&mut self, target: &wgpu::TextureView, scene: &SceneView<'_>) -> RenderStats {
-        let started = Instant::now();
-        self.reclaim();
-
-        let pages = &self.pages;
-        let counts = build_draw_list(
-            scene,
-            |page| pages.get(&page).and_then(PageLayers::info),
-            &mut self.instances,
-            &mut self.draw_items,
-        );
-        let max_paint_to_submit = self.mark_shown(started);
-
-        let grid = grid_metrics(&scene.camera, &scene.grid, scene.scale_factor);
-        let uniforms = FrameUniforms::new(
-            &scene.camera,
-            scene.viewport,
-            scene.scale_factor,
-            &scene.grid,
-            &grid,
-            !self.target_format.is_srgb(),
-        );
-        self.queue
-            .write_buffer(&self.frame_uniforms, 0, bytemuck::bytes_of(&uniforms));
-        self.instance_buffer
-            .write(&self.device, &self.queue, &self.instances);
-        build_shape_list(scene, &mut self.shape_instances);
-        self.shape_buffer
-            .write(&self.device, &self.queue, &self.shape_instances);
-
-        let mut encoder = self
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("specular-frame"),
-            });
-        self.encode_pass(&mut encoder, target);
-        self.submit(encoder);
-        let mut stats = self.take_frame_stats(max_paint_to_submit);
-        stats.pages_without_texture = counts.pages_without_texture;
-        stats.cpu_textures = counts.cpu_textures;
-        stats
-    }
-
     /// Submits a frame's commands and asks to hear when the GPU has finished
     /// them, if any retired surface is waiting on that.
     pub(crate) fn submit(&mut self, encoder: wgpu::CommandEncoder) {
@@ -268,48 +230,6 @@ impl Compositor {
             frames_dropped_for_pool_pressure: ingested.frames_dropped_for_pool_pressure,
             outstanding_textures: outstanding_textures as u32,
             max_outstanding_textures: max_outstanding_textures as u32,
-        }
-    }
-
-    fn encode_pass(&self, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView) {
-        let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("specular-canvas"),
-            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: target,
-                depth_slice: None,
-                resolve_target: None,
-                ops: wgpu::Operations {
-                    // Clear rather than Load: the grid overwrites every pixel,
-                    // and Clear lets tile-based GPUs skip reading the
-                    // previous frame back.
-                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
-                    store: wgpu::StoreOp::Store,
-                },
-            })],
-            ..wgpu::RenderPassDescriptor::default()
-        });
-        pass.set_bind_group(0, &self.frame_bind_group, &[]);
-        pass.set_pipeline(&self.pipelines.single.grid);
-        pass.draw(0..3, 0..1);
-        if !self.draw_items.is_empty() {
-            pass.set_pipeline(&self.pipelines.single.quad);
-            pass.set_vertex_buffer(0, self.instance_buffer.slice());
-            for (instance, item) in (0_u32..).zip(&self.draw_items) {
-                let Some(layer) = self
-                    .pages
-                    .get(&item.page)
-                    .and_then(|layers| layers.get(item.layer))
-                else {
-                    continue;
-                };
-                pass.set_bind_group(1, &layer.bind_group, &[]);
-                pass.draw(0..4, instance..instance + 1);
-            }
-        }
-        if !self.shape_instances.is_empty() {
-            pass.set_pipeline(&self.pipelines.single.shape);
-            pass.set_vertex_buffer(0, self.shape_buffer.slice());
-            pass.draw(0..4, 0..self.shape_instances.len() as u32);
         }
     }
 

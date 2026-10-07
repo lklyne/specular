@@ -7,7 +7,6 @@
 
 mod app;
 mod bench_run;
-mod chrome;
 mod cli;
 mod latency;
 mod paint_lod;

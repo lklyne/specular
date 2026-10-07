@@ -1,0 +1,6 @@
+---
+source: crates/specular-scene/tests/view.rs
+expression: "TestApp::with_entities([drawing]).scene_snapshot()"
+---
+canvas path 51 commands in 96.82,96.8 126.37x46.39 fill=#008000
+canvas path 15 commands in 99.73,196.75 120.33x8.25 fill=#b8d8c84d

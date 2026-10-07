@@ -1,5 +1,6 @@
 //! [`TestApp`]: construction, accessors, undo and the undo assertion.
 
+use glam::Vec2;
 use specular_doc::{Document, Entity, EntityId, ItemId, Rect};
 use specular_interact::{Action, App, Effect, Event, Selection, Session, update};
 
@@ -153,6 +154,17 @@ impl TestApp {
     /// The document as stable text. See [`doc_snapshot`].
     pub fn doc_snapshot(&self) -> String {
         doc_snapshot(self.document())
+    }
+
+    /// What the app draws, as stable text. See
+    /// [`scene_snapshot`](crate::scene_snapshot). A test that never set a
+    /// viewport gets a 1600x1000 one, so nothing near the origin is culled.
+    pub fn scene_snapshot(&self) -> String {
+        let viewport = match self.app.session().viewport {
+            Vec2::ZERO => Vec2::new(1600.0, 1000.0),
+            viewport => viewport,
+        };
+        crate::scene_snapshot(&specular_scene::view(&self.app, viewport))
     }
 
     /// Asserts that undoing every step gives back the document the test

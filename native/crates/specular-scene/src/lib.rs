@@ -7,9 +7,10 @@
 //! selection outlines, resize handles, the marquee, comment badges and comment
 //! regions.
 //!
-//! The crate depends on `specular-doc` alone and names no renderer type, so a scene can be
-//! built and compared in a test with no GPU, and one item kind can move to a
-//! different renderer later (ADR 0039).
+//! [`view`] builds the scene for an [`App`](specular_interact::App). The crate
+//! names no renderer type, so a scene can be built and compared in a test
+//! with no GPU, and one item kind can move to a different renderer later
+//! (ADR 0039).
 
 mod bounds;
 mod color;
@@ -19,6 +20,7 @@ mod media;
 mod path;
 mod shape;
 mod text;
+mod view;
 
 pub use color::Color;
 pub use geometry::{Point, Rect, Size};
@@ -27,3 +29,4 @@ pub use media::{ImageDraw, ImageId, PageDraw};
 pub use path::{Dash, LineCap, LineJoin, PathCommand, PathDraw, PathStroke, PolygonDraw};
 pub use shape::{EllipseDraw, RectDraw, Stroke, StrokeAlign};
 pub use text::{FontFamily, TextAlign, TextRun, VerticalAlign};
+pub use view::{view, view_without_chrome};

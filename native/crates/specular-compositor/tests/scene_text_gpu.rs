@@ -3,10 +3,12 @@
 //! the ink is. Each passes with a printed skip when there is no GPU adapter.
 
 mod common;
+mod ink;
 mod scene_harness;
 
 use glam::Vec2;
-use scene_harness::{Harness, RED, RED_TEXEL, frame, ink, rect};
+use ink::{RED, RED_TEXEL, ink, rect};
+use scene_harness::{Harness, frame};
 use specular_compositor::FrameView;
 use specular_core::Camera;
 use specular_scene::{Color, Item, Point, Rect, TextRun};

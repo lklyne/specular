@@ -5,10 +5,10 @@ use std::time::Duration;
 
 use anyhow::Context as _;
 use glam::Vec2;
-use specular_compositor::{
-    Compositor, DotGrid, GpuContext, PageDraw, RenderStats, SceneView, ShapeDraw,
-};
-use specular_core::Camera;
+use specular_compositor::{Compositor, DotGrid, FrameView, GpuContext, SceneStats};
+use specular_core::{Camera, PageId};
+use specular_doc::EntityId;
+use specular_scene::Scene;
 use winit::dpi::{LogicalSize, PhysicalSize};
 use winit::event_loop::ActiveEventLoop;
 use winit::window::{Window, WindowLevel};
@@ -56,8 +56,11 @@ impl GpuWindow {
         // Vsync, like Electron's compositor, so frame intervals compare.
         config.present_mode = wgpu::PresentMode::AutoVsync;
         surface.configure(&context.device, &config);
-        let compositor =
+        let mut compositor =
             Compositor::new(context.device.clone(), context.queue.clone(), config.format);
+        // Loading the system fonts takes a moment. Better here than on the
+        // first frame that shows text.
+        compositor.warm_text();
         tracing::info!(
             adapter = %context.adapter.get_info().name,
             format = ?config.format,
@@ -95,8 +98,6 @@ impl GpuWindow {
         (millihertz > 0).then(|| Duration::from_secs_f64(1_000.0 / f64::from(millihertz)))
     }
 
-    /// Renders and presents one frame; `None` when the surface had no frame
-    /// to give (minimised, or reconfigured after loss).
     /// Logs when frames stop or resume reaching the screen. A bench phase run
     /// while nothing presents records no frames, so the log has to say why.
     fn note_presenting(&mut self, presenting: bool, reason: &str) {
@@ -111,12 +112,15 @@ impl GpuWindow {
         }
     }
 
+    /// Renders and presents one frame; `None` when the surface had no frame
+    /// to give (minimised, or reconfigured after loss).
     pub(super) fn render(
         &mut self,
         camera: Camera,
-        pages: &[PageDraw],
-        shapes: &[ShapeDraw],
-    ) -> Option<RenderStats> {
+        zooming: bool,
+        scene: &Scene,
+        page_of: impl Fn(&EntityId) -> Option<PageId>,
+    ) -> Option<SceneStats> {
         let frame = match self.surface.get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(frame) => frame,
             wgpu::CurrentSurfaceTexture::Suboptimal(frame) => {
@@ -145,17 +149,16 @@ impl GpuWindow {
         let view = frame
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
-        let stats = self.compositor.render(
-            &view,
-            &SceneView {
-                camera,
-                viewport: self.logical_viewport(),
-                scale_factor: self.scale_factor(),
-                pages,
-                shapes,
-                grid: DotGrid::default(),
-            },
-        );
+        let frame_view = FrameView {
+            camera,
+            viewport: self.logical_viewport(),
+            scale_factor: self.scale_factor(),
+            grid: DotGrid::default(),
+            zooming,
+        };
+        let stats = self
+            .compositor
+            .render_scene(&view, &frame_view, scene, page_of);
         self.window.pre_present_notify();
         self.context.queue.present(frame);
         Some(stats)

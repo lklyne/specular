@@ -53,12 +53,22 @@ with the task that made it.
 - S2: a marquee changes the selection on release. Until then `App::marquee()` and `App::marquee_items()` give the rect and what it would take.
 - S2: `Session::hover` is the entity under the pointer, of any kind. The hovered entity shows anchors, as in Electron.
 
+- F5b: `view(&App, viewport)` culls entities outside the viewport (plus 64 px for chrome), so a frame costs what is on screen. `view_without_chrome` is what `--chrome off` draws: entities and edges, with no page border or title and no session layer.
+- F5b: `specular-scene` depends on `specular-interact` (and so does the compositor, through it). Edges are drawn from `App::edge_curve`, the curve hit-testing uses, in screen space.
+- F5b: colours are the light theme only. The vivid inks are the CSS `oklch(from hue 0.5 c h)` values clipped to sRGB and written as constants in `view/palette.rs`. Blue is stored as `"7"`, which `specular-doc` reads as `Color::Custom("7")`; the palette maps it.
+- F5b: drawings are outlined in canvas space (Electron outlines them in screen space), so a stroke has the same shape at every zoom. The highlighter is a flat 30% alpha with no gradient or grain: the scene has neither.
+- F5b: a page keeps the 8-unit corner radius and gets a title above it (label, or URL without the scheme) as the title-bar stand-in. Electron draws neither on the canvas.
+- F5b: text is never measured in `view`. An edge label has no gap cut in the line under it, a comment badge has a fixed width per digit, and a file card stacks its glyph and one line of name around the centre.
+- F5b: a comment on a canvas point draws a 12 px dot and a comment on an element draws its badge in the page's top-right corner. Electron shows nothing for the first and needs the element's live position for the second.
+
 ## Needs a human at a Mac
 
 Things an agent could not verify headless.
 
 - M1: the four checks at the end of ADR 0039 (sharpness on a real display, glyph shimmer while zooming, egui's look, IME into an egui field).
 - F5a: zoom with canvas text on screen once `view` lands. glyphon samples its atlas with a nearest filter, so held glyphs stretched up to 1.25x may look blocky or shimmer mid-gesture. If so, narrow `MIN_STRETCH` and `MAX_STRETCH` in `scene_pass/raster_hold.rs`.
+- F5b: run `specular-app` on `resources/starter-space/Welcome.canvas` and on `fixtures/input.canvas`. An offscreen render of the first looked right, but the shell switch itself was not run. Check the page titles, the 8 px handles on the outline, a marquee, and that text sharpens one frame after a zoom stops. Small canvas text came out grey rather than near-black in the offscreen render; compare on a real display.
+- F5b: one `--bench` run with `--chrome on` against the last build. Each page now has a title (one text run) and each seeded annotation is a dashed path, tessellated per frame, where it was two SDF shapes. `max_shapes_drawn` will read lower.
 - F4: nothing was run. Agents may not start `specular-app`, so check `specular-app fixtures/input.canvas` by hand (click, type, Alt+drag, corner resize, C then drag, Escape, Cmd+Z and Cmd+Shift+Z with no page focused) and one `--bench` run against an older build for output shape and frame times.
 - S1 and S2: nothing was run. With `specular-app fixtures/input.canvas`, check that one click selects a page without the page reacting, a second click or a double-click lets you type into it, Escape leaves it, and a drag from empty canvas does not scroll or select text in a page.
 
@@ -150,3 +160,15 @@ Things an agent could not verify headless.
 - For the scene: draw `App::handles()` (eight handles, `OUTLINE_PADDING` outside the rect), `App::marquee()` and outlines for `marquee_items()`. The shell's `chrome.rs` still draws four corners from `handle_target()`, which now answers for any kind.
 - Not done: double-click to edit text or a shape, to enter a group or to rename its title. Pressing or releasing Command mid-marquee changes the mode only at the next pointer move. No cursor feedback over handles.
 - Gate: fmt, clippy and `cargo test --workspace` pass (624 tests). `Cargo.lock` and `specular-scene` had another agent's uncommitted changes, which are not in this commit.
+
+### F5b — see `git log -- native/crates/specular-scene/src/view.rs`
+
+- `specular_scene::view(&App, viewport) -> Scene` and `view_without_chrome`. `src/view.rs` holds the exhaustive `match` on `Kind`; `src/view/{page,text,shape,drawing,group,edge,file}.rs` draw the kinds and `session.rs` and `annotations.rs` the layer over them. `palette.rs` is `canvas-colors.ts`, `shape_path.rs` is `shapes.ts`, `freehand.rs` is perfect-freehand 1.2.3's `getStroke` for the drawing layer's options, tested against the library's own output.
+- The shell calls `view` and `Compositor::render_scene`. `chrome.rs`, `SceneView`, `ShapeDraw`, `ShapeExtent`, `shape_list.rs`, `build_draw_list`, `Compositor::render` and the single-sample pipelines are deleted. `Compositor::warm_text` loads the fonts at startup. `FrameView::zooming` is true on any frame whose zoom differs from the last one drawn.
+- `gpu_smoke.rs` is the frame-ingestion tests moved onto `render_scene`; its five shape tests went, `scene_gpu.rs` covers them. `tests/ink/` holds the helpers only the shape and text tests use.
+- Testkit: `scene_snapshot`, `TestApp::scene_snapshot` and `assert_scene_snapshot!` in `src/scene_snapshot.rs`. 18 tests in `specular-scene/tests/view.rs`, one snapshot per kind and per session state, as `.snap` files (the lines are long).
+- Session layer: 1 px outline per selected entity, four corner handles from `App::handles`, marquee rect plus outlines of `App::marquee_items`, an outline on `Session::hover`, the comment preview, and a selected edge in the selection colour. Nothing was added to `specular-interact`.
+- For K1 to K6: the constants in each kind's module are Electron's light-theme values. Stickies have no shadow and nothing has a dark theme. `text_vertical_align` on a shape is honoured, which Electron does not do.
+- For K6 and whoever draws images: a file is a card with a glyph and its name whatever its type. `ImageDraw` is unused by `view`.
+- For E-tasks: an edge whose entity is missing draws nothing. Edge anchors on the selected entity are not drawn.
+- Gate: fmt, clippy and `cargo test --workspace` pass, GPU tests included on this machine.

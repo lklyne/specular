@@ -1,0 +1,14 @@
+---
+source: crates/specular-scene/tests/view.rs
+expression: "TestApp::from_document(document).scene_snapshot()"
+---
+canvas page p1 100,100 400x300 r=8
+screen rect 100,100 400x300 r=8 stroke=#a6a09b/1/outside
+screen text "example.com/p1" 100,79.5 box-h=16.5 11/15.4 w500 #6b6b6b middle clip=100,79.5 400x20.5
+screen rect 600,100 200x100 r=4 fill=#ff637e0d opacity=0.5
+screen path M605,101 L795,101 C797.21,101 799,102.79 799,105 L799,195 C799,197.21 797.21,199 795,199 L605,199 C602.79,199 601,197.21 601,195 L601,105 C601,102.79 602.79,101 605,101 Z stroke=#ff637eb3/2 dash=6/4 opacity=0.5
+screen rect 460,237 32x26 r=13 fill=#2b7fff stroke=#8ec5ffe6/1/inside
+screen text "12" 476,250 10/10 w600 #ffffff centre middle
+screen rect 466,108 26x26 r=13 fill=#2b7fff stroke=#8ec5ffe6/1/inside
+screen text "1" 479,121 10/10 w600 #ffffff centre middle
+screen ellipse 894,394 12x12 fill=#2b7fff33 stroke=#2b7ffff2/2/inside

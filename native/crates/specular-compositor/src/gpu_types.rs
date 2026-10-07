@@ -133,27 +133,6 @@ impl ShapeInstance {
     /// `kind` of an ellipse inscribed in the rect.
     pub(crate) const ELLIPSE: f32 = 1.0;
 
-    /// A rounded rect with an outside stroke and every field resolved.
-    pub(crate) fn new(
-        centre: Vec2,
-        half_size: Vec2,
-        corner_radius: f32,
-        fill: [f32; 4],
-        stroke: [f32; 4],
-        stroke_width: f32,
-    ) -> Self {
-        Self {
-            centre: centre.to_array(),
-            half_size: half_size.to_array(),
-            fill,
-            stroke,
-            corner_radius,
-            stroke_width,
-            stroke_offset: 0.0,
-            kind: Self::RECT,
-        }
-    }
-
     /// Vertex attributes: `@location(0)` centre and half size, `@location(1)`
     /// fill, `@location(2)` stroke, `@location(3)` radius, stroke width,
     /// stroke offset and kind.

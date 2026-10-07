@@ -1,0 +1,15 @@
+---
+source: crates/specular-scene/tests/view.rs
+expression: "TestApp::with_entities(shapes).scene_snapshot()"
+---
+canvas rect 100,100 120x80 fill=#b5b9c0 stroke=#464a53/2/centre
+canvas rect 240,100 120x80 r=24 fill=#b5b9c0 stroke=#464a53/2/centre
+canvas ellipse 380,100 120x80 fill=#b5b9c0 stroke=#464a53/2/centre
+canvas polygon 580,100 640,140 580,180 520,140 fill=#b5b9c0 stroke=#464a53/2
+canvas polygon 720,105.36 780,174.64 660,174.64 fill=#b5b9c0 stroke=#464a53/2
+canvas polygon 830,105.36 890,105.36 920,140 890,174.64 830,174.64 800,140 fill=#b5b9c0 stroke=#464a53/2
+canvas rect 940,100 120x80 r=40 fill=#b5b9c0 stroke=#464a53/2/centre
+canvas polygon 1106.4,100 1200,100 1173.6,180 1080,180 fill=#b5b9c0 stroke=#464a53/2
+canvas polygon 1220,100 1304,100 1340,140 1304,180 1220,180 1256,140 fill=#b5b9c0 stroke=#464a53/2
+canvas path M1360,112 C1360,105.37 1386.86,100 1420,100 C1453.14,100 1480,105.37 1480,112 L1480,168 C1480,174.63 1453.14,180 1420,180 C1386.86,180 1360,174.63 1360,168 Z fill=#b5b9c0 stroke=#464a53/2
+canvas path M1360,112 C1360,118.63 1386.86,124 1420,124 C1453.14,124 1480,118.63 1480,112 stroke=#464a53/2

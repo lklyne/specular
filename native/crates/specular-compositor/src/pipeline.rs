@@ -22,8 +22,6 @@ pub(crate) struct PassPipelines {
 /// Long-lived GPU objects that do not depend on scene content.
 #[derive(Debug)]
 pub(crate) struct Pipelines {
-    /// For a pass straight into the target.
-    pub(crate) single: PassPipelines,
     /// For the multisampled scene pass.
     pub(crate) multisampled: PassPipelines,
     pub(crate) frame_layout: wgpu::BindGroupLayout,
@@ -61,7 +59,7 @@ impl Pipelines {
                 },
             )
         };
-        let (single, multisampled) = (pass(1), pass(SCENE_SAMPLES));
+        let multisampled = pass(SCENE_SAMPLES);
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             label: Some("page-sampler"),
             mag_filter: wgpu::FilterMode::Linear,
@@ -69,7 +67,6 @@ impl Pipelines {
             ..wgpu::SamplerDescriptor::default()
         });
         Self {
-            single,
             multisampled,
             frame_layout,
             texture_layout,

@@ -9,6 +9,12 @@ publish.workspace = true
 
 [dependencies]
 specular-doc = { workspace = true }
+specular-core = { workspace = true }
+specular-interact = { workspace = true }
+glam = { workspace = true }
+
+[dev-dependencies]
+specular-testkit = { workspace = true }
 
 [lints]
 workspace = true

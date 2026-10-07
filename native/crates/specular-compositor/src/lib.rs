@@ -1,16 +1,10 @@
-//! wgpu compositor for the Rust CEF spike.
+//! The wgpu compositor.
 //!
-//! Draws every page's latest frame at its camera-projected rect over a dot
-//! grid, in one render pass per window frame — the Rust analogue of
-//! canvas-bg's `CanvasItemSurface` (CONTEXT.md, "Page textures"). The grid is
-//! one procedural full-screen fill; pages are instanced quads with rounded
-//! corners clipped in the fragment shader. Shapes ([`ShapeDraw`]) are
-//! untextured SDF rounded rects drawn above every page in one instanced draw.
-//!
-//! [`Compositor::render_scene`] is the second entry point and the one the
-//! rebuild is moving to. It draws a [`specular_scene::Scene`], where pages and
-//! every other item share one z-order, in a 4x multisampled pass: SDF rects
-//! and ellipses, glyphon text and lyon-tessellated paths (ADR 0039).
+//! [`Compositor::render_scene`] draws a [`specular_scene::Scene`] over a dot
+//! grid in one 4x multisampled pass per window frame. Pages and every other
+//! item share one z-order: page frames are textured quads with rounded
+//! corners, rects and ellipses are distance fields, text is glyphon, and
+//! polygons and paths are tessellated by lyon (ADR 0039).
 //!
 //! Frame ingestion: [`Compositor::handle_page_event`] takes every
 //! [`PageEvent`](specular_core::PageEvent) a source emits. GPU shared frames
@@ -37,13 +31,11 @@ mod pipeline;
 mod retire;
 mod scene;
 mod scene_pass;
-mod shape_list;
 mod upload;
 
 pub use compositor::Compositor;
-pub use draw_list::PAGE_CORNER_RADIUS;
 pub use error::{CompositorError, FrameImportError};
 pub use gpu::GpuContext;
 pub use instrumentation::{FrameObserver, FrameSample};
-pub use scene::{DotGrid, PageDraw, RenderStats, SceneView, ShapeDraw, ShapeExtent};
+pub use scene::{DotGrid, RenderStats};
 pub use scene_pass::{FrameView, SceneStats};

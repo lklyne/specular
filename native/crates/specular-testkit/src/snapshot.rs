@@ -61,16 +61,3 @@ macro_rules! assert_doc_snapshot {
         $crate::insta::assert_snapshot!($app.doc_snapshot() $(, $($rest)*)?)
     };
 }
-
-// Scene snapshots go here, beside the document's, once `specular-scene`
-// exports `view(&App) -> Scene` (task F5):
-//
-// 1. Add `specular-scene` to this crate's dependencies.
-// 2. Add `pub fn scene_snapshot(scene: &Scene) -> String`, one line per
-//    display-list item in paint order, with the same rounding as above.
-// 3. Add `TestApp::scene_snapshot(&self)`, which calls `view(self.app())`.
-// 4. Add `assert_scene_snapshot!`, a copy of `assert_doc_snapshot!` that
-//    calls `scene_snapshot()`.
-//
-// The golden-image helper from the plan's F6 line belongs with the renderer
-// that draws a `Scene`, and is not here either.
