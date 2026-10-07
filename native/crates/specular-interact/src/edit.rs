@@ -14,6 +14,7 @@
 //! Nothing here knows about fonts. Whatever depends on where glyphs land
 //! goes through the [`TextMeasure`] the [`App`] holds.
 
+mod blink;
 mod buffer;
 mod frame;
 mod history;
@@ -30,8 +31,9 @@ use std::sync::Arc;
 
 use glam::Vec2;
 use specular_core::ImeEvent;
-use specular_doc::{Command, Entity, EntityId, ItemId, Kind, Rect};
+use specular_doc::{Command, Entity, EntityId, ItemId, Kind, Rect, Text};
 
+pub(crate) use blink::{caret_state, restart_blink};
 pub use buffer::TextEdit;
 use buffer::{Origin, Target};
 pub use frame::TextFrame;
@@ -91,7 +93,9 @@ pub(crate) fn begin(app: &mut App, id: &EntityId, created: bool, effects: &mut V
         rect: entity.rect,
         created,
     };
-    app.session.editing = Some(TextEdit::new(id.clone(), target, text, origin));
+    let mut edit = TextEdit::new(id.clone(), target, text, origin);
+    edit.active_ms = app.session.now_ms;
+    app.session.editing = Some(edit);
     app.session.selection.set([ItemId::Entity(id.clone())]);
     effects.push(Effect::SetImeAllowed(true));
     if created {
@@ -110,13 +114,39 @@ fn refit(app: &mut App) {
         return;
     };
     let rect = match &entity.kind {
-        Kind::Text(text) => frame::fitted(entity, text, &edit.text, app.measure.0.as_ref()),
+        Kind::Text(text) => frame::fitted(entity.rect, text, &edit.text, app.measure.0.as_ref()),
         Kind::Shape(_) | Kind::Page(_) | Kind::File(_) | Kind::Group(_) | Kind::Drawing(_) => {
             return;
         }
     };
     let id = edit.entity.clone();
     set_rect(app, &id, rect);
+}
+
+/// The size `text` takes at `rect` to fit its own text: what a resize and a
+/// load give a text entity, so its height is its content's.
+pub(crate) fn fitted(app: &App, rect: Rect, text: &Text) -> Rect {
+    frame::fitted(rect, text, &text.text, app.measure.0.as_ref())
+}
+
+/// Gives every text entity the size its text takes, with no undo step. A
+/// document from disk carries heights measured with another renderer's
+/// fonts. Nothing happens unless the measure is the renderer's own.
+pub(crate) fn fit_all(app: &mut App) {
+    if !app.measure.0.is_exact() {
+        return;
+    }
+    let fits: Vec<(EntityId, Rect)> = (app.document.entities())
+        .filter_map(|entity| match &entity.kind {
+            Kind::Text(text) => Some((entity.id.clone(), fitted(app, entity.rect, text))),
+            Kind::Shape(_) | Kind::Page(_) | Kind::File(_) | Kind::Group(_) | Kind::Drawing(_) => {
+                None
+            }
+        })
+        .collect();
+    for (id, rect) in fits {
+        set_rect(app, &id, rect);
+    }
 }
 
 /// Writes `rect` into the document with no undo step.

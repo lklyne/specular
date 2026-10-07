@@ -4,7 +4,8 @@
 
 use specular_core::CssSize;
 use specular_doc::{
-    Color, Drawing, Entity, EntityId, FileRef, JsonMap, Kind, Point, Rect, Stroke, Text, WidthMode,
+    Color, Drawing, Entity, EntityId, FileRef, JsonMap, Kind, Point, Rect, Stroke, Text, TextStyle,
+    WidthMode,
 };
 use specular_interact::{Cursor, Effect, Key};
 use specular_testkit::{
@@ -133,7 +134,8 @@ fn every_kind_stops_at_its_own_minimum_size() {
     let square = Rect::new(100.0, 100.0, 400.0, 400.0);
     let cases = [
         (page("e", square), (320.0, 200.0)),
-        (text("e", square), (100.0, 100.0)),
+        // 8 px type, and a note that small is 115 tall.
+        (text("e", square), (100.0, 115.0)),
         (file("e", square), (80.0, 80.0)),
         (group("e", square), (120.0, 80.0)),
         // 16 is the limit, and the grid line past it is the first place the
@@ -238,7 +240,8 @@ fn a_locked_side_handle_grows_the_other_axis_too() {
     app.assert_undo_returns_to_start();
 }
 
-// Text: the sides reflow, everything else scales the type.
+// Text: the sides reflow, everything else scales the type, and the height
+// is the content's either way. A sticky is at least 200 tall at 14 px type.
 
 #[test]
 fn a_text_side_handle_changes_the_width_and_keeps_the_type_size() {
@@ -247,10 +250,45 @@ fn a_text_side_handle_changes_the_width_and_keeps_the_type_size() {
     assert_eq!(
         (app.rect("t"), type_of(&app, "t")),
         (
-            Rect::new(100.0, 100.0, 300.0, 100.0),
+            Rect::new(100.0, 100.0, 300.0, 200.0),
             (None, Some(WidthMode::Fixed))
         )
     );
+    app.assert_undo_returns_to_start();
+}
+
+#[test]
+fn a_narrowed_text_grows_as_tall_as_its_wrapped_lines_in_one_undo_step() {
+    // 24 characters at 10 units each: one 20-unit line until it has to wrap.
+    let words = Kind::Text(Text {
+        text: "aaaa bbbb cccc dddd eeee".to_owned(),
+        style: Some(TextStyle::Plain),
+        width_mode: Some(WidthMode::Fixed),
+        ..Text::default()
+    });
+    let mut app = selected(Entity::new(
+        "t",
+        Rect::new(100.0, 100.0, 300.0, 20.0),
+        words,
+    ));
+    // 120 wide wraps at 112: two words a line, three lines.
+    app.press((400.0, 110.0)).drag_to((220.0, 110.0));
+    assert_eq!(app.rect("t"), Rect::new(100.0, 100.0, 120.0, 60.0));
+    app.release().undo();
+    assert_eq!(
+        (app.rect("t"), app.app().can_undo()),
+        (Rect::new(100.0, 100.0, 300.0, 20.0), false)
+    );
+    app.redo().assert_undo_returns_to_start();
+}
+
+#[test]
+fn a_text_scaled_from_the_top_keeps_its_bottom_edge() {
+    let mut app = selected(text("t", Rect::new(100.0, 100.0, 200.0, 200.0)));
+    app.drag((200.0, 100.0), (200.0, 0.0));
+    let rect = app.rect("t");
+    // 21 px type, so the note is at least 300 tall.
+    assert_eq!((rect.height, rect.y + rect.height), (300.0, 300.0));
     app.assert_undo_returns_to_start();
 }
 
@@ -260,7 +298,7 @@ fn a_text_corner_scales_the_type_with_the_width() {
     app.drag(BOTTOM_RIGHT, (500.0, 300.0));
     assert_doc_snapshot!(app, @r#"
     nodes:
-      {"id":"t","type":"text","x":100,"y":100,"width":400,"height":200,"text":"t","specular":{"widthMode":"fixed","textSize":28}}
+      {"id":"t","type":"text","x":100,"y":100,"width":400,"height":400,"text":"t","specular":{"widthMode":"fixed","textSize":28}}
     edges:
     specular: {"entityOrder":["t"]}
     "#);
@@ -275,7 +313,7 @@ fn a_text_top_or_bottom_handle_scales_it_too() {
     assert_eq!(
         (app.rect("t"), type_of(&app, "t")),
         (
-            Rect::new(100.0, 100.0, 320.0, 160.0),
+            Rect::new(100.0, 100.0, 320.0, 315.0),
             (Some(22.0), Some(WidthMode::Fixed))
         )
     );
@@ -304,12 +342,12 @@ fn the_type_size_stays_within_its_limits() {
 }
 
 #[test]
-fn with_shift_a_text_corner_changes_the_width_and_leaves_the_height_to_the_content() {
+fn with_shift_a_text_corner_changes_the_width_and_the_height_follows_the_type() {
     let mut app = selected(text("t", S));
     app.hold(SHIFT).drag(BOTTOM_RIGHT, (400.0, 400.0)).let_go();
     assert_eq!(
         (app.rect("t"), type_of(&app, "t").0),
-        (Rect::new(100.0, 100.0, 300.0, 100.0), Some(21.0))
+        (Rect::new(100.0, 100.0, 300.0, 300.0), Some(21.0))
     );
     app.assert_undo_returns_to_start();
 }

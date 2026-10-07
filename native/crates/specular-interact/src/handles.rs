@@ -153,8 +153,12 @@ impl App {
     /// What shows resize handles, and the canvas rect they sit around: the
     /// selected entity, or the bounds of a selection of several. A selection
     /// of several whose bounds cannot form (an entity and an edge, say) has
-    /// no handles.
+    /// no handles. Nothing has them while text is edited: the entity's size
+    /// follows its text, and a press beside it ends the edit.
     pub fn handles(&self) -> Option<(HandleOwner, Rect)> {
+        if self.session.editing.is_some() {
+            return None;
+        }
         if self.session.selection.items().len() > 1 {
             let scope = self.selection_scope();
             return (scope.operands.len() > 1)

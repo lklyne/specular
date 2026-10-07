@@ -4,8 +4,10 @@
 //! Entities and edges are drawn in the document's stack order, one module per
 //! kind. The session layer goes over them: comment regions and badges, the
 //! hover border, selection outlines, resize handles, the marquee and the
-//! comment tool's preview. Nothing here measures text or touches a GPU, so a
-//! scene can be built and compared in a test.
+//! comment tool's preview. An entity whose text is being edited draws the
+//! working text with its selection and caret. Nothing here touches a GPU,
+//! and the only text measured is the one being edited, through the app's
+//! own measure, so a scene can be built and compared in a test.
 //!
 //! Content is in canvas space. Chrome that keeps its pixel size at any zoom
 //! is projected with the camera and emitted in screen space.
@@ -14,6 +16,7 @@ mod annotations;
 mod document;
 mod drawing;
 mod edge;
+mod editing;
 mod file;
 mod frame;
 mod freehand;
@@ -77,10 +80,10 @@ fn build(frame: &Frame<'_>) -> Scene {
 fn draw_entity(frame: &Frame<'_>, entity: &Entity, scene: &mut Scene) {
     match &entity.kind {
         Kind::Page(page) => page::draw(frame, entity, page, scene),
-        Kind::Text(text) => text::draw(entity, text, scene),
+        Kind::Text(text) => text::draw(frame, entity, text, scene),
         Kind::File(file) => file::draw(frame, entity, file, scene),
         Kind::Group(group) => group::draw(frame, entity, group, scene),
         Kind::Drawing(drawing) => drawing::draw(frame, entity, drawing, scene),
-        Kind::Shape(shape) => shape::draw(entity, shape, scene),
+        Kind::Shape(shape) => shape::draw(frame, entity, shape, scene),
     }
 }

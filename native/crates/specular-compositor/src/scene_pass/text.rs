@@ -14,8 +14,8 @@
 use std::collections::HashMap;
 
 use glyphon::{
-    Buffer, Cache, ColorMode, FontSystem, Metrics, Resolution, SwashCache, TextArea, TextAtlas,
-    TextBounds, TextRenderer, Viewport,
+    Buffer, Cache, ColorMode, Metrics, Resolution, SwashCache, TextArea, TextAtlas, TextBounds,
+    TextRenderer, Viewport,
 };
 use specular_scene::{Point, Size, Space, TextRun};
 
@@ -25,6 +25,7 @@ use super::text_areas::{Areas, Shaped, solid};
 pub(crate) use super::text_areas::{TextDraw, TextItem};
 use super::text_layout::{same_shaping, shaping_hash};
 use super::text_shape::shape;
+use crate::fonts::Fonts;
 use crate::pipeline::SCENE_SAMPLES;
 
 /// Frames a shaped buffer outlives the last frame its run appeared in.
@@ -33,7 +34,8 @@ const KEEP_FRAMES: u64 = 240;
 /// Everything glyph text needs. Built on the first frame that shows text,
 /// because loading the system fonts takes a moment.
 pub(crate) struct TextSystem {
-    fonts: FontSystem,
+    /// Shared with the editor's measure, so both shape with the same fonts.
+    fonts: Fonts,
     swash: SwashCache,
     atlas: TextAtlas,
     /// Sized so the pass viewport can stretch held canvas text.
@@ -66,7 +68,10 @@ impl TextSystem {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         target_format: wgpu::TextureFormat,
+        fonts: Fonts,
     ) -> Self {
+        // Loads the system fonts now, if nothing has yet.
+        fonts.with(|_| ());
         let cache = Cache::new(device);
         // An sRGB target blends in linear light; any other takes the colours
         // as written, like the shapes around the text.
@@ -76,7 +81,7 @@ impl TextSystem {
             ColorMode::Web
         };
         Self {
-            fonts: FontSystem::new(),
+            fonts,
             swash: SwashCache::new(),
             atlas: TextAtlas::with_color_mode(device, queue, &cache, target_format, color_mode),
             canvas_viewport: Viewport::new(device, &cache),
@@ -136,7 +141,7 @@ impl TextSystem {
             shaped.last_used = frame;
             return shaped.size;
         }
-        let Some(shaped) = shape(&mut self.fonts, run) else {
+        let Some(shaped) = self.fonts.with(|fonts| shape(fonts, run)) else {
             return Size::default();
         };
         let size = shaped.size;
@@ -214,16 +219,11 @@ impl TextSystem {
                 custom_glyphs: &lines[area.lines.clone()],
             }
         });
-        let result = self.renderers[slot].prepare_with_custom(
-            device,
-            queue,
-            &mut self.fonts,
-            &mut self.atlas,
-            viewport,
-            areas,
-            &mut self.swash,
-            solid,
-        );
+        let (renderer, atlas, swash) =
+            (&mut self.renderers[slot], &mut self.atlas, &mut self.swash);
+        let result = self.fonts.with(|fonts| {
+            renderer.prepare_with_custom(device, queue, fonts, atlas, viewport, areas, swash, solid)
+        });
         if let Err(error) = result {
             tracing::warn!("text batch not prepared: {error}");
         }

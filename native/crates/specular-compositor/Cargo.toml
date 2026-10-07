@@ -10,6 +10,7 @@ publish.workspace = true
 [dependencies]
 specular-core = { workspace = true }
 specular-doc = { workspace = true }
+specular-interact = { workspace = true }
 specular-scene = { workspace = true }
 bytemuck = { workspace = true }
 glam = { workspace = true }
@@ -17,6 +18,7 @@ glyphon = { workspace = true }
 lyon = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
+unicode-segmentation = { workspace = true }
 wgpu = { workspace = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
@@ -26,6 +28,7 @@ objc2-metal = { workspace = true }
 
 [dev-dependencies]
 pollster = { workspace = true }
+specular-testkit = { workspace = true }
 
 [lints]
 workspace = true

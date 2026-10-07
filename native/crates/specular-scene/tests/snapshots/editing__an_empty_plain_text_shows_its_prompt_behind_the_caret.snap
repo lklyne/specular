@@ -1,0 +1,7 @@
+---
+source: crates/specular-scene/tests/editing.rs
+expression: app.scene_snapshot()
+---
+canvas text "Add text" 100,100 14/21 #1c191766
+screen rect 100,100 1x20 fill=#1c1917
+screen rect 99,99 90x22 stroke=#3b82f6/1/inside

@@ -3,6 +3,9 @@
 
 use std::ops::Range;
 
+use specular_doc::TextFont;
+use specular_interact::{TextFrame, TextSpec};
+
 use crate::{Color, Point};
 
 /// Which typeface a run is set in.
@@ -115,6 +118,41 @@ pub struct TextRun {
 impl TextRun {
     /// Line height used by [`new`](Self::new), as a multiple of the size.
     pub const DEFAULT_LINE_HEIGHT: f32 = 1.4;
+
+    /// `text` set as `spec` says, starting at `origin`. `view` draws an
+    /// entity's text with this run and the editor's measure shapes the same
+    /// one, so a caret measured on it sits on the drawn glyphs.
+    pub fn set(text: impl Into<String>, spec: &TextSpec, origin: Point, color: Color) -> Self {
+        Self {
+            wrap_width: spec.wrap_width,
+            family: match spec.font {
+                TextFont::Sans => FontFamily::SansSerif,
+                TextFont::Mono => FontFamily::Monospace,
+                TextFont::Hand => FontFamily::Named("Kalam".to_owned()),
+            },
+            line_height: spec.line_height,
+            align: match spec.align {
+                specular_doc::TextAlign::Left => TextAlign::Left,
+                specular_doc::TextAlign::Center => TextAlign::Centre,
+                specular_doc::TextAlign::Right => TextAlign::Right,
+            },
+            ..Self::new(text, origin, spec.size, color)
+        }
+    }
+
+    /// `text` laid out in `frame`, the place an entity's text sits.
+    pub fn framed(text: impl Into<String>, frame: &TextFrame, color: Color) -> Self {
+        let origin = Point::new(frame.origin.x as f32, frame.origin.y as f32);
+        Self {
+            box_height: frame.box_height,
+            vertical_align: match frame.vertical {
+                specular_doc::VerticalAlign::Top => VerticalAlign::Top,
+                specular_doc::VerticalAlign::Middle => VerticalAlign::Middle,
+                specular_doc::VerticalAlign::Bottom => VerticalAlign::Bottom,
+            },
+            ..Self::set(text, &frame.spec, origin, color)
+        }
+    }
 
     /// A regular sans-serif run starting at `origin`, unwrapped.
     pub fn new(text: impl Into<String>, origin: Point, size: f32, color: Color) -> Self {

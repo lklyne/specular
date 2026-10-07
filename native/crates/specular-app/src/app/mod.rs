@@ -219,6 +219,9 @@ impl Shell {
         )?;
         let viewport = gpu.logical_viewport();
         let step_interval = gpu.refresh_interval().unwrap_or(STEP_INTERVAL);
+        // Before the document opens, so its text is sized with these fonts.
+        self.app
+            .set_text_measure(std::sync::Arc::new(gpu.compositor.text_measure()));
         self.gpu = Some(gpu);
         self.dispatch(Event::ViewportResized(viewport));
         self.dispatch(Event::Action(Action::SetCamera(self.start_camera)));

@@ -126,6 +126,7 @@ impl Compositor {
             mesh_vertices,
             mesh_indices,
             text,
+            fonts,
             images,
             ..
         } = scene_pass;
@@ -135,7 +136,12 @@ impl Compositor {
             .iter()
             .any(|item| matches!(item.draw, Draw::Text(_) | Draw::Column(_)));
         if has_text && text.is_none() {
-            *text = Some(TextSystem::new(device, queue, *target_format));
+            *text = Some(TextSystem::new(
+                device,
+                queue,
+                *target_format,
+                fonts.clone(),
+            ));
         }
         if let Some(text) = text {
             text.begin_frame(device, queue, view, zooming);

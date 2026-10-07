@@ -23,6 +23,7 @@ mod target;
 mod text;
 mod text_areas;
 mod text_layout;
+mod text_measure;
 mod text_shape;
 
 use std::collections::HashMap;
@@ -38,6 +39,8 @@ pub use self::mips::{ImageMips, ImageSpec};
 use self::place::Placed;
 use self::target::MultisampledTarget;
 use self::text::TextSystem;
+pub use self::text_measure::GlyphMeasure;
+use crate::fonts::Fonts;
 use crate::gpu_types::MeshVertex;
 use crate::instance_buffer::InstanceBuffer;
 use crate::scene::{DotGrid, RenderStats};
@@ -90,6 +93,8 @@ pub(crate) struct ScenePass {
     mesh_indices: InstanceBuffer<u32>,
     /// Built on the first frame that shows text.
     text: Option<TextSystem>,
+    /// The fonts the text system shapes with, and any measure handed out.
+    fonts: Fonts,
     multisampled: Option<MultisampledTarget>,
     images: HashMap<ImageId, ImageTexture>,
 }
@@ -102,8 +107,14 @@ impl ScenePass {
         queue: &wgpu::Queue,
         target_format: wgpu::TextureFormat,
     ) {
+        let fonts = &self.fonts;
         self.text
-            .get_or_insert_with(|| TextSystem::new(device, queue, target_format));
+            .get_or_insert_with(|| TextSystem::new(device, queue, target_format, fonts.clone()));
+    }
+
+    /// A text measure on the fonts this pass draws with.
+    pub(crate) fn text_measure(&self) -> GlyphMeasure {
+        GlyphMeasure::sharing(self.fonts.clone())
     }
 
     pub(crate) fn new(device: &wgpu::Device) -> Self {
@@ -119,6 +130,7 @@ impl ScenePass {
                 wgpu::BufferUsages::INDEX,
             ),
             text: None,
+            fonts: Fonts::default(),
             multisampled: None,
             images: HashMap::new(),
         }

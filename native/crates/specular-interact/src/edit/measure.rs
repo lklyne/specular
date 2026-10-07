@@ -37,6 +37,13 @@ pub trait TextMeasure: Debug + Send + Sync {
     /// Where every line and caret position of `text` falls when set as
     /// `spec` says. See [`TextLayout`] for what must hold.
     fn layout(&self, text: &str, spec: &TextSpec) -> TextLayout;
+
+    /// Whether the layouts are what the renderer draws. A document's text
+    /// entities are given their measured size on load only when they are:
+    /// an estimate knows less than the heights the file carries.
+    fn is_exact(&self) -> bool {
+        false
+    }
 }
 
 /// `text` as laid-out lines.

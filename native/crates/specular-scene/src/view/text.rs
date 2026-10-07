@@ -1,87 +1,58 @@
 //! Text entities: plain text, and sticky notes.
+//!
+//! Where the text sits and how it is set comes from the editor's
+//! [`TextFrame`](specular_interact::TextFrame), so the caret is measured on
+//! the run that is drawn. While the entity is edited the run is the working
+//! text, with the selection behind it and the caret over it.
 
-use specular_doc::{ColorPreset, Entity, Text, TextFont, TextStyle, WidthMode};
+use specular_doc::{ColorPreset, Entity, Text, TextStyle};
 
-use super::frame::canvas_rect;
+use super::editing;
+use super::frame::{Frame, canvas_rect};
 use super::palette::{self, Palette, Role};
-use crate::{FontFamily, Item, Point, RectDraw, Scene, TextRun};
+use crate::{Item, RectDraw, Scene, TextRun};
 
-/// Text size when the entity sets none.
-const DEFAULT_SIZE: f32 = 14.0;
-/// Room kept clear on the right of plain text, so a caret fits.
-const PLAIN_RIGHT_PADDING: f32 = 8.0;
-/// Space between a sticky note's edge and its text.
-const STICKY_PADDING: f32 = 8.0;
 /// A sticky note with no colour is yellow.
 const STICKY_DEFAULT: specular_doc::Color = specular_doc::Color::Preset(ColorPreset::Yellow);
+/// What a plain text with nothing in it shows, faded.
+const PLACEHOLDER: &str = "Add text";
+const PLACEHOLDER_ALPHA: f32 = 0.4;
 
-pub(crate) fn draw(entity: &Entity, text: &Text, scene: &mut Scene) {
+pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, text: &Text, scene: &mut Scene) {
+    let Some(text_frame) = frame.app.text_frame(&entity.id) else {
+        return;
+    };
+    let id = &entity.id;
     let rect = canvas_rect(entity.rect);
+    let shown = frame.app.editing_text(id).unwrap_or(&text.text);
     match text.resolved_style() {
         TextStyle::Plain => {
             let color = palette::resolve_or_neutral(text.color.as_ref(), Palette::Vivid, Role::Ink);
-            let wrap_width = match text.resolved_width_mode() {
-                WidthMode::Auto => None,
-                WidthMode::Fixed => Some((rect.width - PLAIN_RIGHT_PADDING).max(0.0)),
-            };
-            if let Some(run) = run(text, rect.origin(), wrap_width, color) {
-                scene.push(Item::canvas(run));
+            editing::selection(frame, id, None, scene);
+            if shown.is_empty() {
+                let faded = palette::with_alpha(color, PLACEHOLDER_ALPHA);
+                scene.push(Item::canvas(TextRun::framed(
+                    PLACEHOLDER,
+                    &text_frame,
+                    faded,
+                )));
+            } else {
+                scene.push(Item::canvas(TextRun::framed(shown, &text_frame, color)));
             }
+            editing::caret(frame, id, None, color, scene);
         }
         TextStyle::Sticky => {
             let stored = text.color.as_ref().unwrap_or(&STICKY_DEFAULT);
             let fill = palette::resolve(stored, Palette::Soft, Role::Fill);
             scene.push(Item::canvas(RectDraw::filled(rect, fill)));
-            let inner = rect.outset(-STICKY_PADDING);
-            // Clipped, so the renderer can cull a note without shaping it and
-            // long text cannot spill over its neighbours.
-            if let Some(run) = run(text, inner.origin(), Some(inner.width), palette::INK) {
+            editing::selection(frame, id, Some(rect), scene);
+            if !shown.is_empty() {
+                // Clipped, so the renderer can cull a note without shaping it
+                // and long text cannot spill over its neighbours.
+                let run = TextRun::framed(shown, &text_frame, palette::INK);
                 scene.push(Item::canvas(run).clipped(rect));
             }
+            editing::caret(frame, id, Some(rect), palette::INK, scene);
         }
-    }
-}
-
-/// The entity's text as one run, or `None` when there is nothing to set.
-fn run(
-    text: &Text,
-    origin: Point,
-    wrap_width: Option<f32>,
-    color: crate::Color,
-) -> Option<TextRun> {
-    if text.text.is_empty() {
-        return None;
-    }
-    let size = text.size.map_or(DEFAULT_SIZE, |size| size as f32);
-    Some(TextRun {
-        wrap_width,
-        family: family(text.font),
-        line_height: size * line_height(size),
-        ..TextRun::new(text.text.clone(), origin, size, color)
-    })
-}
-
-/// Line height as a multiple of the size: roomy for body text, tightening
-/// as headings grow.
-fn line_height(size: f32) -> f32 {
-    (1.5 - (size - 14.0) / 82.0 * 0.4).clamp(1.1, 1.5)
-}
-
-fn family(font: Option<TextFont>) -> FontFamily {
-    match font {
-        Some(TextFont::Sans) | None => FontFamily::SansSerif,
-        Some(TextFont::Mono) => FontFamily::Monospace,
-        Some(TextFont::Hand) => FontFamily::Named("Kalam".to_owned()),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn line_height_tightens_as_text_grows() {
-        let heights = [14.0, 32.0, 96.0, 144.0].map(|size| (line_height(size) * 1000.0).round());
-        assert_eq!(heights, [1500.0, 1412.0, 1100.0, 1100.0]);
     }
 }

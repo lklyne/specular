@@ -157,18 +157,12 @@ impl TextFrame {
     }
 }
 
-/// The rect a text entity takes to fit `working`, its text as edited so
-/// far: a sticky and a fixed-width text grow downward, and an auto-width
+/// The rect a text entity at `rect` takes to fit `working`, its text as
+/// edited so far: a sticky and a fixed-width text grow downward, and an auto-width
 /// text hugs its lines both ways. Sizes are whole canvas units.
-pub(crate) fn fitted(
-    entity: &Entity,
-    text: &Text,
-    working: &str,
-    measure: &dyn TextMeasure,
-) -> Rect {
-    let frame = text_frame(entity.rect, text);
+pub(crate) fn fitted(rect: Rect, text: &Text, working: &str, measure: &dyn TextMeasure) -> Rect {
+    let frame = text_frame(rect, text);
     let layout = measure.layout(working, &frame.spec);
-    let rect = entity.rect;
     let (width, height) = match (text.resolved_style(), text.resolved_width_mode()) {
         (TextStyle::Plain, WidthMode::Auto) => {
             let floor = if working.is_empty() {

@@ -122,6 +122,14 @@ with the task that made it.
 - Shell batch: File has Open, Save and Close. Open goes through an empty document so no image or note carries over from the old space folder. Save writes a pending autosave now. There is no Save As and no New.
 - Shell batch: the window title is the file name without `.canvas`, plus ` — Edited` while a save is pending, with AppKit's edited dot. A canvas with no file is titled Specular.
 
+- T1 scene: the compositor's `GlyphMeasure` and its `TextSystem` share one `FontSystem` behind a mutex. `TextRun::set(text, spec, ..)` in `specular-scene` is the only place a `TextSpec` becomes a run, and both the measure and `view` go through it and then through `text_shape::shape`.
+- T1 scene: `TextMeasure::is_exact()` says the layouts are the renderer's. A loaded document's texts and stickies get their fitted rect, with no undo step and no save, only when it is true. The default estimate and the testkit's `FixedAdvance` return false, so a test's fixture rects stay as written.
+- T1 scene: a text resize measures the height on every frame of the drag, and the edge the handle does not move stays put. A text has a width floor and no height floor, and a left or right handle keeps no ratio. This replaces S4's stand-in height.
+- T1 scene: `App::handles()` is `None` while text is edited, so the handles are neither drawn nor hit. The outline stays. Electron's outline layer has no editing condition that I could find, so this follows the task and not the code.
+- T1 scene: the caret and the composition underline are screen-space rects `max(1, round(zoom))` pixels thick, in the text's colour. The selection is canvas-space rects behind the glyphs. A selection hides the caret.
+- T1 scene: the blink is 500 ms shown and 500 ms hidden, counted from `TextEdit::active_ms`. `update` stamps it after any event that changed the caret, the anchor, the text's length or the composition. No tick effect was needed: the shell polls and sends `Event::Tick` every loop turn.
+- T1 scene: an empty plain text draws "Add text" at 40% alpha, edited or not.
+
 ## Needs a human at a Mac
 
 Things an agent could not verify headless.
@@ -138,7 +146,7 @@ Things an agent could not verify headless.
 
 - Tools: nothing was run. Check R then drag (with and without Shift), R then click, M and Shift+M strokes, T and S then click, P then click, and that a sticky placed on a page follows it when the page is dragged. After T or S the letter keys are dead until Escape, because there is no editor yet.
 - T3: nothing was run in the app. Open a canvas with a `.md` file entity. Check the text appears, edit the file in an editor and check the card follows within a second, select the card and scroll it with the wheel. Scrolling past the end leaves dead travel on the way back, see the T3 entry. An offscreen render of headings, lists, a quote, code, a rule and a table looked right at 2x.
-- T1 and T2: nothing was run, and the caret is not drawn yet. Once it is: double-click a sticky, a plain text and a shape; type past the bottom of a sticky and watch it grow; Option and Command arrows; double and triple click; drag a selection; Cmd+Z inside the edit and after Escape. With a Japanese or Pinyin input method, check the marked text shows, the candidate window sits by the caret, and typed letters arrive once, not twice (as a key's text and as a commit).
+- T1 and T2: nothing was run in the app. Double-click a sticky, a plain text and a shape. Check the caret sits between the glyphs at zoom 0.25, 1 and 3 and on a 1x and a 2x display, that it blinks about once a second and stays solid while you type or hold an arrow key, and that typing does not lag in a sticky with a few hundred words. Check the selection highlight lines up with the glyphs across a wrapped line, Option and Command arrows, double and triple click, a dragged selection, Cmd+Z inside the edit and after Escape. Type past the bottom of a sticky and watch it grow. Drag a text's side handle and watch the height follow the wrap. Open a canvas saved by the Electron app and check each text's outline hugs its text. With a Japanese or Pinyin input method, check the marked text is underlined just under its glyphs, the candidate window sits by the caret, and typed letters arrive once, not twice.
 - Shell batch: nothing was run. The menu bar first: it shows Specular, File, Edit, Tools, View, Window, with no second menu from winit, with CEF (`--source cef`) and without. Cmd+Q and Cmd+W quit and a change made just before is in the file.
 - Shell batch, shortcuts through the menu. Each of Cmd+Z, Cmd+D, Cmd+A, Cmd+=, Cmd+1 acts once, not twice (menu and key). Enter a page and check Cmd+C, Cmd+V, Cmd+A and Cmd+Z reach the page: those items should be grey while it is entered. Plain keys (V, R, Backspace) still work on the canvas and still type into a page and into a sticky. If AppKit takes plain keys for the menu while typing, drop the accelerator for chords with no Command in `menu_bar/keys.rs`.
 - Shell batch, menu state. The active tool is checked and follows R, T, Escape. Undo, Copy and Delete grey out with nothing to act on.
@@ -342,3 +350,16 @@ Things an agent could not verify headless.
 - Tests: `specular-interact/tests/clipboard.rs`, `drop.rs`, `menus.rs`, `view_actions.rs` (35), unit tests in `url.rs`, `zoom.rs`, `asset.rs`, and in the shell for the preferences file, the PNG encode, asset paths, drop paths, the title and the shortcut mapping.
 - `tests/text_ime.rs`: one test no longer pastes with no edit open, since that now makes a sticky.
 - Gate: fmt for the workspace, and clippy and tests for `specular-interact`, `specular-testkit`, `specular-scene` and `specular-app` (635 tests), pass on HEAD plus this change in an exported copy. The working tree had another agent's text-measure work in `specular-compositor`, `specular-scene`, `edit/`, and single hunks in `update.rs` and `app/mod.rs`, none of it in this commit. `Cargo.lock` is the one cargo wrote for the exported copy.
+
+### T1 and T2, the scene and compositor half. See `git log -- native/crates/specular-compositor/src/scene_pass/text_measure.rs`
+
+- Compositor: `fonts.rs` (`Fonts`, the shared font system), `scene_pass/text_measure.rs` (`GlyphMeasure`), `Compositor::text_measure()`. It caches the last 32 layouts. `GlyphMeasure::new()` loads fonts for itself and needs no GPU.
+- Stops are read off glyph clusters. A ligature's width is split evenly across its graphemes, right-to-left glyphs lead from their right edge, and a space dropped at a wrap keeps the x of the glyph before it.
+- Scene: `view/editing.rs` draws the selection, the caret and the underline. `view/text.rs` and `view/shape.rs` take the `TextFrame` from interact and draw `App::editing_text` when there is one. Eight tests in `tests/editing.rs`, seven of them snapshots.
+- Interact: `edit/blink.rs`, `App::caret_visible()`, `edit::fit_all` on `DocumentOpened`, measured height in `resize_drag.rs`. Three small hunks in `update.rs`. `tests/text_fit.rs`, and `tests/resizes.rs` updated for measured heights.
+- Shell: one hunk in `app/mod.rs` installs the measure before the document opens. Testkit: `TestApp::measure_with`.
+- Tests: `tests/text_measure.rs` (14, no GPU: lines, wrapping, emoji, CJK, alignment, clicks through a `TestApp` on the real measure) and `tests/scene_caret_gpu.rs` (3 readbacks at zoom 0.5, 1 and 2). Moving the caret 5 px fails all three.
+- Not done: the Document scroll dead travel. The measure sets plain text in one style, and a Document is rows of rich cells that `specular-scene` builds and the compositor stacks, so `update` still cannot know the column's height. It needs the T3 entry's fix: the renderer reports each column's height.
+- Found, not fixed: `caps::min_size` gives text a 100 width floor but an auto-width text can be 64 wide, so a press and release on its handle with no movement widens it to 100.
+- Still missing from T1: autoscroll, drag-and-drop of selected text, Option+Up and Down, Page Up and Down. The drag-copy preview is still not drawn.
+- Gate: fmt, clippy and `cargo test --workspace` pass, GPU tests included on this machine.

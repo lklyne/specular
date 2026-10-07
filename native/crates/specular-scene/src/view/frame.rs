@@ -62,6 +62,17 @@ impl<'a> Frame<'a> {
         vec_point(self.camera.world_to_screen(point.as_vec2()))
     }
 
+    /// A scene rect in canvas space, on screen.
+    pub(crate) fn project(&self, rect: Rect) -> Rect {
+        let origin = vec_point(self.camera.world_to_screen(Vec2::new(rect.x, rect.y)));
+        Rect::new(
+            origin.x,
+            origin.y,
+            rect.width * self.camera.zoom,
+            rect.height * self.camera.zoom,
+        )
+    }
+
     /// A canvas rect on screen.
     pub(crate) fn screen_rect(&self, rect: specular_doc::Rect) -> Rect {
         let origin = self.screen_point(DVec2::new(rect.x, rect.y));

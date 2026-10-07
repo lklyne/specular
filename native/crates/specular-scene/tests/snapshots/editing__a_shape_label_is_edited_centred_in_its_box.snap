@@ -1,0 +1,8 @@
+---
+source: crates/specular-scene/tests/editing.rs
+expression: app.scene_snapshot()
+---
+canvas rect 100,100 200x200 fill=#b5b9c0 stroke=#464a53/2/centre
+canvas text "abc" 112,108 wrap=176 box-h=184 14/19.6 #141414 centre middle clip=100,100 200x200
+screen rect 215,190 1x20 fill=#141414 clip=100,100 200x200
+screen rect 99,99 202x202 stroke=#3b82f6/1/inside

@@ -1,0 +1,9 @@
+---
+source: crates/specular-scene/tests/editing.rs
+expression: app.scene_snapshot()
+---
+canvas rect 100,100 200x200 fill=#ffe18e
+canvas text "abにほ" 108,108 wrap=184 14/21 #1c1917 clip=100,100 200x200
+screen rect 128,126 20x1 fill=#1c1917 clip=100,100 200x200
+screen rect 148,108 1x20 fill=#1c1917 clip=100,100 200x200
+screen rect 99,99 202x202 stroke=#3b82f6/1/inside

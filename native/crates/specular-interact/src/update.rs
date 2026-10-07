@@ -21,6 +21,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
     let revision = app.history.revision();
     // The clock moves nothing the cursor depends on.
     let ticks = matches!(event, Event::Tick { .. });
+    let caret = edit::caret_state(app);
     match event {
         Event::Pointer(input) => pointer::on_pointer(app, &input, &mut effects),
         Event::Wheel(input) => {
@@ -49,6 +50,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         Event::Action(action) => run_action(app, action, &mut effects),
     }
     leave_unless_selected(app, &mut effects);
+    edit::restart_blink(app, &caret);
     // Every undoable change, undo and redo moves the history's revision, so
     // this is the one place a save is asked for, and the place to ask for
     // the images and markdown files of file entities that just appeared.
@@ -181,6 +183,7 @@ fn open_document(app: &mut App, document: Document, effects: &mut Vec<Effect>) {
     app.session.gesture = None;
     edit::discard(app, effects);
     app.document = document;
+    edit::fit_all(app);
     app.history.clear();
     drop_dangling(app, effects);
     pages::reconcile(&before, &app.document, effects);

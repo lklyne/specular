@@ -45,6 +45,9 @@ pub struct TextEdit {
     pub(crate) preferred_x: Option<f32>,
     pub(crate) history: EditHistory,
     pub(crate) origin: Origin,
+    /// When the caret or the text last changed, on the session's clock. The
+    /// caret's blink restarts from here, so it stays solid while typing.
+    pub(crate) active_ms: u64,
 }
 
 impl TextEdit {
@@ -61,6 +64,7 @@ impl TextEdit {
             preferred_x: None,
             history: EditHistory::default(),
             origin,
+            active_ms: 0,
         }
     }
 

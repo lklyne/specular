@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use glam::Vec2;
 use specular_doc::{Document, Entity, EntityId, ItemId, Rect};
-use specular_interact::{Action, App, Effect, Event, Selection, Session, update};
+use specular_interact::{Action, App, Effect, Event, Selection, Session, TextMeasure, update};
 
 use crate::{FixedAdvance, doc_snapshot, fixtures};
 
@@ -65,6 +65,13 @@ impl TestApp {
             input: crate::input::InputState::default(),
             start: Document::new(),
         }
+    }
+
+    /// Lays text out with `measure` from here on, in place of the default
+    /// [`FixedAdvance`].
+    pub fn measure_with(&mut self, measure: Arc<dyn TextMeasure>) -> &mut Self {
+        self.app.set_text_measure(measure);
+        self
     }
 
     /// Replaces the document, as a load does. It becomes the start that

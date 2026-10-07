@@ -20,7 +20,7 @@ use crate::layers::{LayerTexture, PageLayers};
 use crate::pipeline::Pipelines;
 use crate::retire::RetiredTextures;
 use crate::scene::RenderStats;
-use crate::scene_pass::ScenePass;
+use crate::scene_pass::{GlyphMeasure, ScenePass};
 use crate::upload;
 
 /// Identity of an imported shared surface: the same surface at the same
@@ -125,6 +125,14 @@ impl Compositor {
     pub fn warm_text(&mut self) {
         self.scene_pass
             .warm_text(&self.device, &self.queue, self.target_format);
+    }
+
+    /// A text measure on the fonts this compositor draws with, for
+    /// [`App::set_text_measure`](specular_interact::App::set_text_measure):
+    /// the editor's caret, selection and wrapping then agree with the drawn
+    /// glyphs.
+    pub fn text_measure(&self) -> GlyphMeasure {
+        self.scene_pass.text_measure()
     }
 
     /// The colour format this compositor renders into.

@@ -79,6 +79,7 @@ fn shift_drag_moves_the_page_along_one_axis() {
   and `paste("..")`. Read back with `editing_text()` and `caret()`, which is
   `(caret, anchor)` in bytes. Text is measured by `FixedAdvance`: 10 units a
   character and 20 a line, so `App::caret_rect()` is in round numbers.
+  `measure_with(Arc::new(..))` swaps the measure, for a test on real fonts.
 - Read back with `document()`, `session()`, `selection()`, `selected()`,
   `selected_ids()`, `rect("p1")` and `entity("p1")`. `take_effects()` drains the effects
   returned since the last drain; call it before the step whose effects the

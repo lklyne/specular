@@ -1,15 +1,14 @@
 //! Shape entities: a silhouette from the catalog, its border and its label.
 
-use specular_doc::{
-    BorderStyle, Entity, FillStyle, Shape, TextAlign as LabelAlign, VerticalAlign as LabelVertical,
-};
+use specular_doc::{BorderStyle, Entity, FillStyle, Shape};
 
-use super::frame::canvas_rect;
+use super::editing;
+use super::frame::{Frame, canvas_rect};
 use super::palette::{self, Palette, Role};
 use super::shape_path::{self, Silhouette};
 use crate::{
     Color, Dash, EllipseDraw, Item, PathDraw, PathStroke, PolygonDraw, Rect, RectDraw, Scene,
-    Stroke, StrokeAlign, TextAlign, TextRun, VerticalAlign,
+    Stroke, StrokeAlign, TextRun,
 };
 
 /// The hue of a shape with no colour.
@@ -23,12 +22,8 @@ const DEFAULT_BORDER_WIDTH: f32 = 2.0;
 const DASH_ON: f32 = 2.0;
 const DASH_OFF: f32 = 1.5;
 const LABEL_COLOR: Color = Color::rgb(20, 20, 20);
-const LABEL_SIZE: f32 = 14.0;
-const LABEL_LINE_HEIGHT: f32 = 1.4;
-const LABEL_PADDING_X: f32 = 12.0;
-const LABEL_PADDING_Y: f32 = 8.0;
 
-pub(crate) fn draw(entity: &Entity, shape: &Shape, scene: &mut Scene) {
+pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, shape: &Shape, scene: &mut Scene) {
     let rect = canvas_rect(entity.rect);
     let base = shape.color.as_ref().map_or(DEFAULT_BASE, |color| {
         palette::resolve(color, Palette::Soft, Role::Fill)
@@ -70,9 +65,19 @@ pub(crate) fn draw(entity: &Entity, shape: &Shape, scene: &mut Scene) {
             }));
         }
     }
-    if !shape.text.is_empty() {
-        scene.push(label(shape, shape_path::label_box(shape.shape, rect)));
+    // The label is set in the editor's frame, so the caret is measured on
+    // the run that is drawn.
+    let Some(label) = frame.app.text_frame(&entity.id) else {
+        return;
+    };
+    let within = shape_path::label_box(shape.shape, rect);
+    let shown = frame.app.editing_text(&entity.id).unwrap_or(&shape.text);
+    editing::selection(frame, &entity.id, Some(within), scene);
+    if !shown.is_empty() {
+        let run = TextRun::framed(shown, &label, LABEL_COLOR);
+        scene.push(Item::canvas(run).clipped(within));
     }
+    editing::caret(frame, &entity.id, Some(within), LABEL_COLOR, scene);
 }
 
 /// The silhouette as the cheapest draw that can show it. A solid rect or
@@ -113,32 +118,4 @@ fn body(
         }
         .into(),
     }
-}
-
-fn label(shape: &Shape, within: Rect) -> Item {
-    let size = shape.text_size.map_or(LABEL_SIZE, |size| size as f32);
-    let width = (within.width - LABEL_PADDING_X * 2.0).max(0.0);
-    let height = (within.height - LABEL_PADDING_Y * 2.0).max(0.0);
-    let run = TextRun {
-        wrap_width: Some(width),
-        box_height: Some(height),
-        line_height: size * LABEL_LINE_HEIGHT,
-        align: match shape.text_align.unwrap_or(LabelAlign::Center) {
-            LabelAlign::Left => TextAlign::Left,
-            LabelAlign::Center => TextAlign::Centre,
-            LabelAlign::Right => TextAlign::Right,
-        },
-        vertical_align: match shape.text_vertical_align.unwrap_or(LabelVertical::Middle) {
-            LabelVertical::Top => VerticalAlign::Top,
-            LabelVertical::Middle => VerticalAlign::Middle,
-            LabelVertical::Bottom => VerticalAlign::Bottom,
-        },
-        ..TextRun::new(
-            shape.text.clone(),
-            crate::Point::new(within.x + LABEL_PADDING_X, within.y + LABEL_PADDING_Y),
-            size,
-            LABEL_COLOR,
-        )
-    };
-    Item::canvas(run).clipped(within)
 }

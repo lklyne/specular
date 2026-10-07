@@ -6,7 +6,7 @@ use specular_core::Modifiers;
 use specular_doc::{Drawing, EdgeSide, EntityId, Kind, Rect, Text, WidthMode};
 
 use crate::live::{self, Start};
-use crate::{App, Effect, Handle, HandleOwner, PagePlacement, caps, resize, strokes};
+use crate::{App, Corner, Effect, Handle, HandleOwner, PagePlacement, caps, edit, resize, strokes};
 
 /// The size a text is drawn at when it has none of its own, and the limits a
 /// resize keeps it within.
@@ -86,13 +86,23 @@ pub(crate) fn drag(app: &mut App, drag: &ResizeDrag, world: DVec2, modifiers: Mo
             };
             let lock = caps::aspect_mode(&entity.kind).locks(modifiers.shift);
             let min = caps::min_size(&entity.kind);
+            // A text's height is its content's: only its width has a floor,
+            // and a handle that reflows it has no ratio to keep.
+            let (lock, min) = match &entity.kind {
+                Kind::Text(_) => (lock && !reflows(drag.handle), DVec2::new(min.x, 0.0)),
+                Kind::Page(_)
+                | Kind::File(_)
+                | Kind::Group(_)
+                | Kind::Drawing(_)
+                | Kind::Shape(_) => (lock, min),
+            };
             let rect = resize::resized(start.rect, drag.handle, target, min, lock);
             // A handle that has not moved its edges changes nothing, so a
             // click on one is not an undo step.
             let (rect, kind) = if rect == start.rect {
                 (rect, start.kind.clone())
             } else {
-                resized_kind(start, drag.handle, rect, lock)
+                resized_kind(app, start, drag.handle, rect)
             };
             live::write(&mut app.document, start, rect, kind);
         }
@@ -119,10 +129,10 @@ pub(crate) fn drag(app: &mut App, drag: &ResizeDrag, world: DVec2, modifiers: Mo
 
 /// What a single-entity resize to `rect` means for the kinds whose fields
 /// follow their size.
-fn resized_kind(start: &Start, handle: Handle, rect: Rect, lock: bool) -> (Rect, Option<Kind>) {
+fn resized_kind(app: &App, start: &Start, handle: Handle, rect: Rect) -> (Rect, Option<Kind>) {
     match &start.kind {
         Some(Kind::Drawing(drawing)) => (rect, Some(scaled(drawing, start.rect, rect))),
-        Some(Kind::Text(text)) => resized_text(text, start.rect, handle, rect, lock),
+        Some(Kind::Text(text)) => resized_text(app, text, start.rect, handle, rect),
         Some(Kind::Page(_) | Kind::File(_) | Kind::Group(_) | Kind::Shape(_)) | None => {
             (rect, None)
         }
@@ -133,38 +143,46 @@ fn resized_kind(start: &Start, handle: Handle, rect: Rect, lock: bool) -> (Rect,
 /// right handles reflow: the width changes and the text keeps its size. Every
 /// other handle scales: the size follows the width, as in `FigJam`.
 ///
-/// Nothing measures text here, so a scaling drag that keeps the ratio writes
-/// the scaled height as the best guess, and any other drag leaves the height
-/// as it was.
+/// Either way the height is measured from the text as it is now set, and the
+/// edge the handle is not moving stays where it was.
 fn resized_text(
+    app: &App,
     text: &Text,
     start: Rect,
     handle: Handle,
     rect: Rect,
-    lock: bool,
 ) -> (Rect, Option<Kind>) {
-    let reflows = match handle {
-        Handle::Side(EdgeSide::Left | EdgeSide::Right) => true,
-        Handle::Side(EdgeSide::Top | EdgeSide::Bottom) | Handle::Corner(_) => false,
-    };
-    let size = if reflows || start.width <= 0.0 {
+    let size = if reflows(handle) || start.width <= 0.0 {
         text.size
     } else {
         let scaled = text.size.unwrap_or(TEXT_SIZE_DEFAULT) * rect.width / start.width;
         Some(crate::grid::round(scaled).clamp(TEXT_SIZE_MIN, TEXT_SIZE_MAX))
     };
-    let height = if lock && !reflows {
-        rect.height
-    } else {
-        start.height
-    };
-    let kind = Kind::Text(Text {
+    let text = Text {
         size,
         // A text that grows with its content would undo the new width.
         width_mode: Some(WidthMode::Fixed),
         ..text.clone()
-    });
-    (Rect { height, ..rect }, Some(kind))
+    };
+    let height = edit::fitted(app, rect, &text).height;
+    let moves_top = matches!(
+        handle,
+        Handle::Side(EdgeSide::Top) | Handle::Corner(Corner::TopLeft | Corner::TopRight)
+    );
+    let y = if moves_top {
+        start.y + start.height - height
+    } else {
+        start.y
+    };
+    (Rect { y, height, ..rect }, Some(Kind::Text(text)))
+}
+
+/// Whether `handle` changes a text's width and leaves its type size alone.
+fn reflows(handle: Handle) -> bool {
+    match handle {
+        Handle::Side(EdgeSide::Left | EdgeSide::Right) => true,
+        Handle::Side(EdgeSide::Top | EdgeSide::Bottom) | Handle::Corner(_) => false,
+    }
 }
 
 fn scaled(drawing: &Drawing, from: Rect, to: Rect) -> Kind {
