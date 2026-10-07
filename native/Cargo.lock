@@ -3290,6 +3290,7 @@ dependencies = [
  "specular-doc",
  "specular-interact",
  "specular-scene",
+ "specular-testkit",
  "tracing",
  "tracing-subscriber",
  "wgpu",

@@ -32,7 +32,8 @@ pub(crate) fn draw(frame: &Frame<'_>, scene: &mut Scene) {
             ItemId::Entity(id) => Some(id),
             ItemId::Edge(_) => None,
         })
-        .chain(session.hover.as_ref())
+        // A drag has the pointer; what it passes over is not a target.
+        .chain(session.hover.as_ref().filter(|_| session.gesture.is_none()))
         .filter(|id| !selected(id))
         .chain(session.selection.entities());
     for id in outlined {

@@ -21,8 +21,10 @@ impl Default for DotGrid {
         Self {
             spacing: 20.0,
             radius: 0.7,
-            background: [0.91, 0.91, 0.91, 1.0],
-            dot: [0.45, 0.45, 0.45, 1.0],
+            // Electron's light theme: stone-200 at 60% over the window's
+            // stone-100 is #edebea, and the dots are #a8a29e.
+            background: [0.847, 0.831, 0.823, 1.0],
+            dot: [0.392, 0.361, 0.342, 1.0],
         }
     }
 }

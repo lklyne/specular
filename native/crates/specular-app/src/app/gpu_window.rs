@@ -53,6 +53,17 @@ impl GpuWindow {
         let mut config = surface
             .get_default_config(&context.adapter, size.width.max(1), size.height.max(1))
             .context("surface unsupported by adapter")?;
+        // Not an sRGB format: the compositor then blends encoded colours, as
+        // a browser does. In linear light dark text on a light ground comes
+        // out thin and grey, and a see-through fill over it far too bright.
+        let plain = config.format.remove_srgb_suffix();
+        if surface
+            .get_capabilities(&context.adapter)
+            .formats
+            .contains(&plain)
+        {
+            config.format = plain;
+        }
         // Vsync, like Electron's compositor, so frame intervals compare.
         config.present_mode = wgpu::PresentMode::AutoVsync;
         surface.configure(&context.device, &config);

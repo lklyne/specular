@@ -7,6 +7,8 @@ use std::time::Duration;
 use anyhow::{Context as _, bail};
 use specular_bench::{GestureProfile, PaintPolicy, ProfileId, select_profiles};
 
+use crate::headless::{self, HeadlessArgs};
+
 /// Usage text for `--help` and argument errors.
 pub(crate) const USAGE: &str = "\
 usage: specular-app [OPTIONS] [FILE.canvas]
@@ -33,6 +35,19 @@ usage: specular-app [OPTIONS] [FILE.canvas]
                       --bench and chrome on, the first page starts selected
   --annotations N     seed N page-bound comment annotations, spread over the
                       pages (needs --chrome on)
+  --snapshot OUT.png  draw the canvas into a PNG with no window, on the
+                      synthetic source, once its images and Documents have
+                      loaded, then exit. Nothing else is written
+  --snapshot-size WxH       the snapshot's viewport in logical pixels
+                            (default 1600x1000)
+  --snapshot-scale N        device pixels per logical pixel (default 1)
+  --snapshot-camera x,y,zoom | fit
+                            pan and zoom, or fit the document (the default)
+  --script FILE       with or without --snapshot: scripted input run first,
+                      one step a line: click, double-click, move, press,
+                      drag-to (x y), release, drag x1 y1 x2 y2, hold MODS,
+                      key CHORD, type TEXT, tool NAME, select ID.., camera,
+                      wait MS, snapshot OUT.png
   -h, --help          print this help
 
 keys:
@@ -103,6 +118,8 @@ pub(crate) struct RunArgs {
     pub(crate) chrome: bool,
     /// Page-bound annotations to seed at startup.
     pub(crate) annotations: usize,
+    /// Snapshots to draw instead of opening a window.
+    pub(crate) headless: HeadlessArgs,
 }
 
 /// Parses arguments (without the program name).
@@ -117,6 +134,7 @@ pub(crate) fn parse(args: impl IntoIterator<Item = OsString>) -> anyhow::Result<
         window: None,
         chrome: true,
         annotations: 0,
+        headless: HeadlessArgs::default(),
     };
     let mut annotations_given = false;
     let mut args = args.into_iter();
@@ -170,6 +188,21 @@ pub(crate) fn parse(args: impl IntoIterator<Item = OsString>) -> anyhow::Result<
                 annotations_given = true;
             }
             "--window" => run.window = Some(window_size(&value_of(flag, args.next())?)?),
+            "--snapshot" => run.headless.snapshot = Some(path_of(flag, args.next())?),
+            "--script" => run.headless.script = Some(path_of(flag, args.next())?),
+            "--snapshot-size" => {
+                run.headless.size = window_size(&value_of(flag, args.next())?)?;
+            }
+            "--snapshot-scale" => {
+                let value = value_of(flag, args.next())?;
+                run.headless.scale = match value.parse::<f32>() {
+                    Ok(scale) if (0.25..=8.0).contains(&scale) => scale,
+                    _ => bail!("--snapshot-scale expects a number from 0.25 to 8, got `{value}`"),
+                };
+            }
+            "--snapshot-camera" => {
+                run.headless.camera = headless::camera_arg(&value_of(flag, args.next())?)?;
+            }
             _ if flag.starts_with('-') => bail!("unknown option `{flag}`"),
             _ => set_canvas(&mut run, arg)?,
         }
@@ -191,6 +224,12 @@ fn set_canvas(run: &mut RunArgs, path: OsString) -> anyhow::Result<()> {
     Ok(())
 }
 
+fn path_of(flag: &str, value: Option<OsString>) -> anyhow::Result<PathBuf> {
+    Ok(PathBuf::from(
+        value.with_context(|| format!("{flag} needs a value"))?,
+    ))
+}
+
 fn value_of(flag: &str, value: Option<OsString>) -> anyhow::Result<String> {
     value
         .with_context(|| format!("{flag} needs a value"))?
@@ -198,14 +237,14 @@ fn value_of(flag: &str, value: Option<OsString>) -> anyhow::Result<String> {
         .map_err(|value| anyhow::anyhow!("{flag} value is not UTF-8: {}", value.display()))
 }
 
-/// A `WxH` window size in logical pixels, both sides at least 1.
+/// A `WxH` size in logical pixels, both sides at least 1.
 fn window_size(value: &str) -> anyhow::Result<(u32, u32)> {
     let parsed = value
         .split_once('x')
         .and_then(|(width, height)| Some((width.parse().ok()?, height.parse().ok()?)));
     match parsed {
         Some((width, height)) if width > 0 && height > 0 => Ok((width, height)),
-        _ => bail!("--window expects WIDTHxHEIGHT, e.g. 1600x1000, got `{value}`"),
+        _ => bail!("a size is WIDTHxHEIGHT, e.g. 1600x1000, got `{value}`"),
     }
 }
 
@@ -223,181 +262,4 @@ fn profiles_for(selection: &str) -> anyhow::Result<Vec<GestureProfile>> {
 }
 
 #[cfg(test)]
-mod tests {
-    use specular_bench::PROFILES;
-
-    use super::*;
-
-    fn parse_strs(args: &[&str]) -> anyhow::Result<Command> {
-        parse(args.iter().map(OsString::from))
-    }
-
-    fn run_args(args: &[&str]) -> RunArgs {
-        match parse_strs(args).unwrap() {
-            Command::Run(run) => run,
-            Command::Help => panic!("expected a run"),
-        }
-    }
-
-    #[test]
-    fn no_arguments_runs_default_demo() {
-        let run = run_args(&[]);
-        assert_eq!((run.canvas, run.pages, run.bench), (None, None, None));
-    }
-
-    #[test]
-    fn pages_flag_sets_demo_page_count() {
-        assert_eq!(run_args(&["--pages", "20"]).pages, Some(20));
-    }
-
-    #[test]
-    fn zero_pages_is_rejected() {
-        assert!(parse_strs(&["--pages", "0"]).is_err());
-    }
-
-    #[test]
-    fn source_flag_selects_synthetic() {
-        assert_eq!(
-            run_args(&["--source", "synthetic"]).source,
-            SourceKind::Synthetic
-        );
-    }
-
-    #[test]
-    fn unknown_source_is_rejected() {
-        assert!(parse_strs(&["--source", "webkit"]).is_err());
-    }
-
-    #[test]
-    fn bench_all_selects_every_profile_in_order() {
-        let ids: Vec<_> = run_args(&["--bench", "all"])
-            .bench
-            .unwrap()
-            .iter()
-            .map(|profile| profile.id)
-            .collect();
-        assert_eq!(ids, PROFILES.map(|profile| profile.id));
-    }
-
-    #[test]
-    fn bench_accepts_electron_profile_id() {
-        let bench = run_args(&["--bench", "fast-pan-zoom"]).bench.unwrap();
-        assert_eq!(bench[0].id, ProfileId::FastPanZoom);
-    }
-
-    #[test]
-    fn bench_list_runs_in_electron_order() {
-        let ids: Vec<_> = run_args(&["--bench", "slow-zoom,slow-pan"])
-            .bench
-            .unwrap()
-            .iter()
-            .map(|profile| profile.id)
-            .collect();
-        assert_eq!(ids, [ProfileId::SlowPan, ProfileId::SlowZoom]);
-    }
-
-    #[test]
-    fn warmup_ms_sets_bench_warmup() {
-        let run = run_args(&["--bench", "all", "--warmup-ms", "8000"]);
-        assert_eq!(run.warmup, Duration::from_secs(8));
-    }
-
-    #[test]
-    fn window_flag_sets_logical_size() {
-        assert_eq!(
-            run_args(&["--window", "1600x1000"]).window,
-            Some((1600, 1000))
-        );
-    }
-
-    #[test]
-    fn window_flag_rejects_a_zero_side() {
-        assert!(parse_strs(&["--window", "0x600"]).is_err());
-    }
-
-    #[test]
-    fn chrome_defaults_on_without_annotations() {
-        let run = run_args(&[]);
-        assert_eq!((run.chrome, run.annotations), (true, 0));
-    }
-
-    #[test]
-    fn chrome_flag_turns_the_layer_off() {
-        assert!(!run_args(&["--chrome", "off"]).chrome);
-    }
-
-    #[test]
-    fn unknown_chrome_value_is_rejected() {
-        assert!(parse_strs(&["--chrome", "maybe"]).is_err());
-    }
-
-    #[test]
-    fn annotations_flag_sets_the_seed_count() {
-        assert_eq!(run_args(&["--annotations", "40"]).annotations, 40);
-    }
-
-    #[test]
-    fn annotations_with_chrome_off_is_rejected() {
-        assert!(parse_strs(&["--chrome", "off", "--annotations", "5"]).is_err());
-        assert!(parse_strs(&["--annotations", "5", "--chrome", "off"]).is_err());
-    }
-
-    #[test]
-    fn annotations_must_be_a_number() {
-        assert!(parse_strs(&["--annotations", "lots"]).is_err());
-    }
-
-    #[test]
-    fn paint_policy_defaults_to_electron_lod() {
-        assert_eq!(run_args(&[]).paint_policy, PaintPolicy::ElectronLod);
-    }
-
-    #[test]
-    fn paint_policy_flag_selects_full_rate() {
-        assert_eq!(
-            run_args(&["--paint-policy", "full-rate"]).paint_policy,
-            PaintPolicy::FullRate
-        );
-    }
-
-    #[test]
-    fn unknown_paint_policy_is_rejected() {
-        assert!(parse_strs(&["--paint-policy", "fast"]).is_err());
-    }
-
-    #[test]
-    fn only_cef_frames_are_representative() {
-        assert_eq!(
-            [SourceKind::Cef, SourceKind::Synthetic].map(SourceKind::is_representative),
-            [true, false]
-        );
-    }
-
-    #[test]
-    fn unknown_bench_profile_is_rejected() {
-        assert!(parse_strs(&["--bench", "spin"]).is_err());
-    }
-
-    #[test]
-    fn positional_argument_is_canvas_path() {
-        assert_eq!(
-            run_args(&["demo.canvas"]).canvas,
-            Some(PathBuf::from("demo.canvas"))
-        );
-    }
-
-    #[test]
-    fn pages_with_canvas_file_is_rejected() {
-        assert!(parse_strs(&["demo.canvas", "--pages", "3"]).is_err());
-    }
-
-    #[test]
-    fn flag_missing_value_is_rejected() {
-        assert!(parse_strs(&["--pages"]).is_err());
-    }
-
-    #[test]
-    fn help_flag_wins_over_other_arguments() {
-        assert_eq!(parse_strs(&["--pages", "3", "-h"]).unwrap(), Command::Help);
-    }
-}
+mod tests;

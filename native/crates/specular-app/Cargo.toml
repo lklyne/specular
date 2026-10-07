@@ -20,6 +20,8 @@ specular-scene = { workspace = true }
 specular-compositor = { workspace = true }
 specular-cef = { workspace = true }
 specular-bench = { workspace = true }
+# The scripted driver behind `--snapshot` and `--script`.
+specular-testkit = { workspace = true }
 anyhow = { workspace = true }
 arboard = { workspace = true }
 glam = { workspace = true }

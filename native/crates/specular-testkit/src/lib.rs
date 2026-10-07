@@ -16,8 +16,9 @@
 //! return `&mut TestApp` and chain. The effects each `update` returns pile up
 //! until [`TestApp::take_effects`] drains them.
 //!
-//! This crate is a dev-dependency only. A crate's own unit tests cannot use
-//! it on that crate's types (the testkit links the crate's library build,
+//! This crate is a dev-dependency everywhere but the shell, whose headless
+//! `--snapshot` and `--script` runs drive a [`TestApp`]. A crate's own unit
+//! tests cannot use it on that crate's types (the testkit links the crate's library build,
 //! whose types differ from the test build's), so tests that use it live
 //! under `tests/`.
 #![expect(

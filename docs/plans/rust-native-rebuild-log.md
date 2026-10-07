@@ -129,6 +129,11 @@ with the task that made it.
 - T1 scene: the caret and the composition underline are screen-space rects `max(1, round(zoom))` pixels thick, in the text's colour. The selection is canvas-space rects behind the glyphs. A selection hides the caret.
 - T1 scene: the blink is 500 ms shown and 500 ms hidden, counted from `TextEdit::active_ms`. `update` stamps it after any event that changed the caret, the anchor, the text's length or the composition. No tick effect was needed: the shell polls and sends `Event::Tick` every loop turn.
 - T1 scene: an empty plain text draws "Add text" at 40% alpha, edited or not.
+- Visual check: the window's surface and the snapshot target are not sRGB formats (`Bgra8Unorm`, `Rgba8Unorm`), so colours blend encoded, as in a browser. On an sRGB target dark text came out thin and grey and a 30% highlight over text turned the text olive.
+- Visual check: paths and polygons fill with the non-zero rule, as a 2D canvas does. A freehand outline crosses itself at its caps and corners, and even-odd left holes there.
+- Visual check: `specular-app` depends on `specular-testkit` outside tests. A headless run is a `TestApp` plus the three effects that load things (pages, images, Documents); every other effect is dropped, so it never writes the canvas, the clipboard or preferences. `insta` comes along in the binary's dependency tree.
+- Visual check: a headless run's clock starts at a fixed time and only `wait` moves it, so one script draws the same frame every run. `--snapshot-scale` is an addition to the task's flags.
+- Visual check: the hover outline is not drawn while a gesture is in flight. `Session::hover` is only refreshed by a move with no button down, so it went stale during a drag.
 
 ## Needs a human at a Mac
 
@@ -153,6 +158,9 @@ Things an agent could not verify headless.
 - Shell batch, clipboard. Copy two shapes and an edge, paste at the pointer, paste in a second window of the app. Copy a URL in a browser and paste: a Desktop page. Paste a sentence: a sticky. Take a screenshot to the clipboard (Cmd+Ctrl+Shift+4) and paste: a file appears in `assets/` and draws. Cmd+V inside a text edit still pastes text.
 - Shell batch, drop. Drag a png and a `.md` from Finder onto the canvas, from outside the space folder and from inside it. winit gives a drop no position, so the files land at the pointer's last position before the drag entered the window. If that is wrong in practice the drop needs `NSEvent.mouseLocation`. A phone photo with EXIF rotation gets its unrotated size.
 - Shell batch, File and title. Open… shows a dialog while CEF pages keep painting, and the chosen canvas replaces this one with its own images. The title is the canvas name and shows ` — Edited` for about a third of a second after a change. Pick R then Shift+R, quit, start again: the shape tool is still a diamond, from `preferences.json`.
+
+- Visual check, done headless, so no longer open: text colour and weight (the F5b grey text was the sRGB target), every kind at zoom 0.25, 1 and 3, the caret and the text selection, selection handles, a marquee, a shape and a pen stroke in flight. The real window was started once on the kitchen sink for 16 seconds: no panic, no wgpu validation error, `format=Bgra8Unorm`. Nobody has looked at that window. Still for a human: everything about feel, input, menus, clipboard, drop, IME and files in the entries above.
+- Visual check, still off against Electron. Hand and mono fall back to system fonts: Electron bundles Kalam and Geist Mono and `fonts.rs` loads neither. An edge label has the line running through it; Electron cuts a gap of the text's width plus 6 units a side. No shadow under stickies, file cards and Documents, so a card (`#fafaf9`) is hard to see on the canvas (`#edebea`). The highlighter is a flat 30% with no gradient or grain. The edit selection is grey where a browser's is blue. A comment badge has no icon. A label that overflows a small shape is clipped to its middle line.
 
 ## Entries
 
@@ -363,3 +371,15 @@ Things an agent could not verify headless.
 - Found, not fixed: `caps::min_size` gives text a 100 width floor but an auto-width text can be 64 wide, so a press and release on its handle with no movement widens it to 100.
 - Still missing from T1: autoscroll, drag-and-drop of selected text, Option+Up and Down, Page Up and Down. The drag-copy preview is still not drawn.
 - Gate: fmt, clippy and `cargo test --workspace` pass, GPU tests included on this machine.
+
+### Visual check: headless snapshots, the kitchen sink, and what looking at them found. See `git log -- native/crates/specular-app/src/headless`
+
+- `specular-app --snapshot OUT.png [--snapshot-size WxH] [--snapshot-scale N] [--snapshot-camera x,y,zoom|fit] [--script FILE] FILE.canvas` draws on the real adapter with no window. `src/headless/`: `mod.rs` (the run), `script.rs` (the line format), `target.rs` (texture to PNG). `native/CLAUDE.md` has a "Looking at what it draws" section; use it after any scene or compositor change.
+- `native/fixtures/kitchen-sink.canvas` (163 entities, 18 edges, 8 annotations) with `kitchen-sink.md` and `assets/kitchen-sink.png`. It is in the writer's canonical form and in both tests of `specular-doc/tests/canvas_repo.rs`, byte test included. It was generated by a script that is not checked in; edit the JSON by hand or regenerate and re-save through `Document`.
+- Fixed: holes in pen strokes at round caps, sharp corners and dots (fill rule, `scene_pass/mesh.rs`). Thin grey text and over-bright translucent fills (sRGB target, `gpu_window.rs`). The canvas was `#f4f4f4` with grey dots; it is now Electron's `#edebea` with `#a8a29e` dots (`DotGrid::default`). A stale hover outline during a drag (`view/session.rs`). The startup log said `pages=163` for 163 entities.
+- Looked right against Electron's numbers and left alone: sticky, shape, group, edge, file card, Document, selection, marquee and badge colours and sizes; arrowheads; dashes; z-order; text baseline and line height; mips at zoom 0.25; glyph sharpness at zoom 3 and at scale factor 3.
+- Not bugs, but they look like it: a sticky's height floor is `200 * size / 14`, as in Electron, so a size-32 sticky is 457 tall. Sparse stroke points shrink and round off, because streamline is 0.75. Resolved and dismissed comments are not drawn. `Welcome.canvas` opened from `resources/` shows "File not found" for its Document: the path is `__SPECULAR_SPACE__/Welcome.md`, which Electron's `starter-space.ts` rewrites when it copies the space.
+- A page annotation's `offsetX`/`offsetY` are fractions of the page, not pixels.
+- Another agent's unfinished work in `specular-doc` and `specular-interact` did not compile for most of this task. Everything here was built, snapshotted, launched and gated in a detached worktree of `763283f2` plus this change. `Cargo.lock` in the commit is that worktree's: HEAD's plus the testkit line.
+- Gate: fmt, clippy and `cargo test --workspace` (1057 tests, GPU ones included) pass there.
+

@@ -3,11 +3,13 @@
 //! Hosts pages from a `.canvas` file (or a demo grid) on a pannable, zoomable
 //! canvas, in CEF (`--source cef`, needs `--features cef`) or the synthetic
 //! source (non-representative CPU frames). `--bench` replays the Electron
-//! pan/zoom profiles and prints frame timing; see `cli::USAGE`.
+//! pan/zoom profiles and prints frame timing. `--snapshot` and `--script`
+//! draw into PNG files with no window. See `cli::USAGE`.
 
 mod app;
 mod bench_run;
 mod cli;
+mod headless;
 mod images;
 mod latency;
 mod notes;
@@ -50,6 +52,9 @@ fn main() -> anyhow::Result<()> {
 
     let demo_pages = run.pages.unwrap_or(scene::DEMO_PAGE_COUNT);
     let document = scene::load_document(run.canvas.as_deref(), demo_pages, run.annotations)?;
+    if run.headless.is_requested() {
+        return headless::run(document, run.canvas.as_deref(), &run.headless);
+    }
     // winit must create the macOS application object before CEF initializes,
     // or CEF installs its own and winit panics.
     let mut event_loop = EventLoop::builder();
@@ -63,7 +68,7 @@ fn main() -> anyhow::Result<()> {
     let source = source_select::create_source(run.source)?;
     tracing::info!(
         backend = source.name(),
-        pages = document.entities().count(),
+        entities = document.entities().count(),
         paint_policy = run.paint_policy.name(),
         "starting"
     );

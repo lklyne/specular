@@ -9,8 +9,8 @@ use lyon::math::{Point as LyonPoint, point};
 use lyon::path::iterator::PathIterator as _;
 use lyon::path::{Path, PathEvent};
 use lyon::tessellation::{
-    BuffersBuilder, FillOptions, FillTessellator, FillVertex, StrokeOptions, StrokeTessellator,
-    StrokeVertex, VertexBuffers,
+    BuffersBuilder, FillOptions, FillRule, FillTessellator, FillVertex, StrokeOptions,
+    StrokeTessellator, StrokeVertex, VertexBuffers,
 };
 use specular_scene::{Draw, Item, LineCap, LineJoin, PathCommand, PathStroke, Point};
 
@@ -86,7 +86,9 @@ impl Mesher {
             let color = linear(fill, item.opacity);
             let result = self.fill.tessellate_path(
                 &path,
-                &FillOptions::tolerance(tolerance),
+                // As a 2D canvas fills: a freehand outline crosses itself at
+                // its caps and corners, and the overlap is still ink.
+                &FillOptions::tolerance(tolerance).with_fill_rule(FillRule::NonZero),
                 &mut BuffersBuilder::new(mesh, |vertex: FillVertex<'_>| MeshVertex {
                     position: vertex.position().to_array(),
                     color,
@@ -293,6 +295,25 @@ mod tests {
         assert_eq!(
             (mesh.indices.len(), extent(&mesh)),
             (3, (Vec2::new(10.0, 0.0), Vec2::new(210.0, 200.0)))
+        );
+    }
+
+    #[test]
+    fn where_an_outline_overlaps_itself_it_is_still_filled() {
+        let square = [(0.0, 0.0), (100.0, 0.0), (100.0, 100.0), (0.0, 100.0)];
+        let twice_round = PolygonDraw {
+            points: square
+                .iter()
+                .chain(&square)
+                .map(|&(x, y)| Point::new(x, y))
+                .collect(),
+            fill: Some(RED),
+            stroke: None,
+        };
+        let mesh = mesh_of(&Item::canvas(twice_round), 1.0);
+        assert_eq!(
+            extent(&mesh),
+            (Vec2::new(10.0, 0.0), Vec2::new(110.0, 100.0))
         );
     }
 

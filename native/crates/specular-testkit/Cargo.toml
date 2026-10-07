@@ -1,6 +1,6 @@
 [package]
 name = "specular-testkit"
-description = "Dev-only: a headless App driver with scripted input, snapshots and the undo assertion every feature test uses."
+description = "A headless App driver with scripted input, snapshots and the undo assertion every feature test uses."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

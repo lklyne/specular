@@ -61,7 +61,12 @@ fn expected(mut file: Value) -> Value {
 #[test]
 fn every_canvas_in_the_repo_loads_and_saves_to_the_same_json_value() {
     let files = canvases();
-    for name in ["rich-workspace.canvas", "Welcome.canvas", "static-9.canvas"] {
+    for name in [
+        "rich-workspace.canvas",
+        "Welcome.canvas",
+        "static-9.canvas",
+        "kitchen-sink.canvas",
+    ] {
         assert!(
             files.iter().any(|path| path.ends_with(name)),
             "{name} was not found"
@@ -95,17 +100,19 @@ fn every_canvas_in_the_repo_loads_and_saves_to_the_same_json_value() {
     }
 }
 
-/// Files the Electron app wrote that are already in the writer's canonical
-/// form: every key in the Electron writer's order. `Welcome.canvas` has
-/// `"syncId": null` nodes, which must stay in the `syncId` slot.
-const CANONICAL: [&str; 3] = [
+/// Files already in the writer's canonical form: every key in the Electron
+/// writer's order. The Electron app wrote the first three. `Welcome.canvas`
+/// has `"syncId": null` nodes, which must stay in the `syncId` slot.
+/// `kitchen-sink.canvas` has every kind in every style, annotations included.
+const CANONICAL: [&str; 4] = [
     "resources/starter-space/Welcome.canvas",
     "tests/integration/__snapshots__/rich-workspace.canvas",
     "native/crates/specular-doc/tests/fixtures/rich-workspace.canvas",
+    "native/fixtures/kitchen-sink.canvas",
 ];
 
 #[test]
-fn a_canonical_electron_file_loads_and_saves_to_the_same_bytes() {
+fn a_canonical_file_loads_and_saves_to_the_same_bytes() {
     for name in CANONICAL {
         let text = std::fs::read_to_string(repo_root().join(name)).unwrap();
         let document = Document::from_canvas_str(&text).unwrap();

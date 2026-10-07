@@ -96,6 +96,31 @@ fn shift_drag_moves_the_page_along_one_axis() {
   in paint order. `TestApp::scene_snapshot()` returns the same text, and
   `specular_scene::view(app.app(), viewport)` the `Scene` itself.
 
+## Looking at what it draws
+
+`specular-app` draws a canvas into a PNG with no window, on the real GPU
+with the synthetic page source. Nothing else is written.
+
+```sh
+cargo run -p specular-app -- --snapshot out.png fixtures/kitchen-sink.canvas
+cargo run -p specular-app -- --snapshot out.png --snapshot-size 1200x800 \
+    --snapshot-camera -400,-900,2 --snapshot-scale 2 FILE.canvas
+cargo run -p specular-app -- --script steps.txt FILE.canvas
+```
+
+- The camera is `fit` (the default) or `x,y,zoom`: the pan in screen
+  pixels, so canvas point `(cx, cy)` at the top-left is `-cx*zoom,-cy*zoom,zoom`.
+- A script is one step a line, in the testkit's words: `click x y`,
+  `double-click x y`, `move`, `press`, `drag-to`, `release`,
+  `drag x1 y1 x2 y2`, `hold shift+cmd` (`hold none`), `key cmd+z`,
+  `type some text`, `tool shape`, `select id ..`, `camera ..`, `wait ms`,
+  `snapshot out.png`. Positions are screen pixels. A snapshot between
+  `press` and `release` shows a gesture in flight.
+- `fixtures/kitchen-sink.canvas` has every kind in every style. Snapshot it
+  after changing `specular-scene` or `specular-compositor` and open the PNG
+  with the Read tool. A scene snapshot test cannot see a wrong colour or a
+  hole in a fill.
+
 ## Gate
 
 Run from `native/` before every commit:
