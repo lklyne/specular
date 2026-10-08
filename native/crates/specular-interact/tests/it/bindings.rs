@@ -21,6 +21,7 @@ fn auto_repeat(app: &mut TestApp, key: Key) {
         pressed: true,
         repeat: true,
         text: None,
+        character: None,
         modifiers: Modifiers::default(),
         windows_key_code: 0,
         native_key_code: 0,

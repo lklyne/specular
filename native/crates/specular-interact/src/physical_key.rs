@@ -155,6 +155,77 @@ impl PhysicalKey {
         }
     }
 
+    /// The key that `key` names on a US keyboard, for input that starts from
+    /// a binding key: a script or a test. `None` for [`Key::Other`].
+    pub fn for_key(key: Key) -> Option<Self> {
+        if key == Key::Other {
+            return None;
+        }
+        KEYS.iter()
+            .map(|&(physical, _, _)| physical)
+            .find(|physical| physical.key() == key)
+    }
+
+    /// The macOS virtual key code, `kVK_*`.
+    pub fn mac_key_code(self) -> u16 {
+        KEYS.iter()
+            .find(|&&(key, _, _)| key == self)
+            .map_or(0, |&(_, mac, _)| mac)
+    }
+
+    /// Whether this is a modifier key, whose press and release are a change
+    /// of modifiers and carry no character.
+    fn is_modifier(self) -> bool {
+        matches!(
+            self,
+            Self::ShiftLeft
+                | Self::ShiftRight
+                | Self::ControlLeft
+                | Self::ControlRight
+                | Self::AltLeft
+                | Self::AltRight
+                | Self::SuperLeft
+                | Self::SuperRight
+                | Self::CapsLock
+        )
+    }
+
+    /// The character `AppKit` gives a key that types nothing, which is the
+    /// same on every layout: `NSEvent.characters` for it.
+    fn function_character(self) -> Option<char> {
+        let code = match self {
+            Self::Backspace => 0x7F,
+            Self::Tab => 0x09,
+            Self::Enter => 0x0D,
+            Self::NumpadEnter => 0x03,
+            Self::Escape => 0x1B,
+            Self::ArrowUp => 0xF700,
+            Self::ArrowDown => 0xF701,
+            Self::ArrowLeft => 0xF702,
+            Self::ArrowRight => 0xF703,
+            Self::F1 => 0xF704,
+            Self::F2 => 0xF705,
+            Self::F3 => 0xF706,
+            Self::F4 => 0xF707,
+            Self::F5 => 0xF708,
+            Self::F6 => 0xF709,
+            Self::F7 => 0xF70A,
+            Self::F8 => 0xF70B,
+            Self::F9 => 0xF70C,
+            Self::F10 => 0xF70D,
+            Self::F11 => 0xF70E,
+            Self::F12 => 0xF70F,
+            Self::Insert => 0xF746,
+            Self::Delete => 0xF728,
+            Self::Home => 0xF729,
+            Self::End => 0xF72B,
+            Self::PageUp => 0xF72C,
+            Self::PageDown => 0xF72D,
+            _ => return None,
+        };
+        char::from_u32(code)
+    }
+
     /// The unshifted US-layout character of a letter, digit or punctuation
     /// key, in lower case.
     fn us_character(self) -> Option<char> {
@@ -202,9 +273,27 @@ fn typed(physical: Option<PhysicalKey>, characters: &str) -> Option<String> {
     types.then(|| characters.to_owned())
 }
 
+/// The character a key's press and release carry to a page. A key that
+/// types nothing has its own; any other has the first of the characters the
+/// platform's event carried, or its US-layout one when the event had none (a
+/// dead key, or a shell that is not told on release). `None` for a modifier
+/// key and for a key that is not known and carried nothing.
+fn character(physical: Option<PhysicalKey>, characters: &str) -> Option<char> {
+    if physical.is_some_and(PhysicalKey::is_modifier) {
+        return None;
+    }
+    let own = physical.and_then(PhysicalKey::function_character);
+    let us = || match physical?.key() {
+        Key::Char(character) => Some(character),
+        Key::Space => Some(' '),
+        _ => None,
+    };
+    own.or_else(|| characters.chars().next()).or_else(us)
+}
+
 /// One key transition as a [`KeyInput`], from the macOS virtual key code of
 /// the platform's event (`kVK_*`, `NSEvent.keyCode`) and the characters it
-/// carried (`NSEvent.characters`).
+/// carried (`NSEvent.characters`), on a press and on a release.
 pub fn mac_key_input(
     key_code: u16,
     pressed: bool,
@@ -218,6 +307,7 @@ pub fn mac_key_input(
         pressed,
         repeat,
         text: pressed.then(|| typed(physical, characters)).flatten(),
+        character: character(physical, characters),
         modifiers,
         windows_key_code: physical.map_or(0, PhysicalKey::windows_key_code),
         native_key_code: i32::from(key_code),

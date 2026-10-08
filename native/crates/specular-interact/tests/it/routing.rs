@@ -211,6 +211,41 @@ fn keys_go_to_the_entered_page_instead_of_the_bindings() {
     );
 }
 
+/// CEF on macOS reads a key event with no character as a change of
+/// modifiers, and a change of modifiers on a key that is not one as a press.
+/// So a release without its character was a second press: one Backspace
+/// deleted twice, and no key ever came up.
+#[test]
+fn a_key_reaches_the_entered_page_as_one_press_and_one_release_with_its_character() {
+    let cases = [
+        (Key::Backspace, 51, '\u{7f}'),
+        (Key::ArrowLeft, 123, '\u{f702}'),
+        (Key::Enter, 36, '\r'),
+        (Key::Char('a'), 0, 'a'),
+    ];
+    for (key, key_code, character) in cases {
+        let mut app = entered("p1");
+        app.key(key);
+        let events: Vec<_> = forwarded(app.effects())
+            .into_iter()
+            .filter_map(|(_, event)| match event {
+                InputEvent::Key(key) if key.kind != KeyEventKind::Char => {
+                    Some((key.kind, key.native_key_code, key.character))
+                }
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            events,
+            [
+                (KeyEventKind::RawDown, key_code, Some(character)),
+                (KeyEventKind::Up, key_code, Some(character)),
+            ],
+            "{key:?}"
+        );
+    }
+}
+
 #[test]
 fn ime_text_goes_to_the_entered_page_only() {
     let commit = || {

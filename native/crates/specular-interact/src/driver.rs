@@ -12,8 +12,8 @@ use specular_core::{Camera, ImeEvent, Modifiers, PointerButton, PointerEventKind
 use specular_doc::{Document, EdgeId, EntityId, ItemId};
 
 use crate::{
-    Action, App, ClipboardContent, Effect, Event, Key, KeyInput, NoteNotice, PointerInput, Session,
-    SidebarAction, TextMeasure, Tool, WheelInput, update,
+    Action, App, ClipboardContent, Effect, Event, Key, KeyInput, NoteNotice, PhysicalKey,
+    PointerInput, Session, SidebarAction, TextMeasure, Tool, WheelInput, mac_key_input, update,
 };
 
 const NONE: Modifiers = Modifiers {
@@ -248,15 +248,30 @@ impl Driver {
         };
         // Command and Control turn a key into a shortcut, which types nothing.
         let types = pressed && !modifiers.meta && !modifiers.control;
-        self.send(Event::Key(KeyInput {
-            key,
-            pressed,
-            repeat: false,
-            text: typed.filter(|_| types).map(String::from),
-            modifiers,
-            windows_key_code: 0,
-            native_key_code: 0,
-        }))
+        let text = typed.filter(|_| types).map(String::from);
+        // The codes and the character a US keyboard sends for the key, so a
+        // page gets the event a shell would give it.
+        let input = match PhysicalKey::for_key(key) {
+            Some(physical) => {
+                let characters = typed.map(String::from).unwrap_or_default();
+                let code = physical.mac_key_code();
+                KeyInput {
+                    text,
+                    ..mac_key_input(code, pressed, false, &characters, modifiers)
+                }
+            }
+            None => KeyInput {
+                key,
+                pressed,
+                repeat: false,
+                text,
+                character: None,
+                modifiers,
+                windows_key_code: 0,
+                native_key_code: 0,
+            },
+        };
+        self.send(Event::Key(input))
     }
 
     /// Presses `key` and leaves it down.

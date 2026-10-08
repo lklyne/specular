@@ -212,6 +212,12 @@ pub struct KeyInput {
     pub repeat: bool,
     /// The text the press produced, if any.
     pub text: Option<String>,
+    /// The character the key carries to a page, on its press and on its
+    /// release: what it types, or the platform's own character for a key
+    /// that types nothing. `None` for a modifier key. A page host tells a
+    /// key from a change of modifiers by it, so a key without one is not
+    /// pressed and released in the page.
+    pub character: Option<char>,
     /// Modifier keys held.
     pub modifiers: Modifiers,
     /// The Windows virtual-key code, which Chromium derives DOM `keyCode`

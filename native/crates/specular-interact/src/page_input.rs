@@ -42,6 +42,10 @@ impl ButtonCapture {
 /// character event per produced character on press, a key-up on release.
 /// Command-key chords produce no character events, as on macOS where they
 /// are shortcuts rather than text.
+///
+/// The key-down and the key-up carry the key's own character. CEF on macOS
+/// builds an `NSEvent` from each, and one with no character is a change of
+/// modifiers, which on a key that is not a modifier it reads as a press.
 pub(crate) fn forward_key(page: &EntityId, input: &KeyInput, effects: &mut Vec<Effect>) {
     let mut push = |kind, windows_key_code, character| {
         effects.push(Effect::ForwardInput {
@@ -56,10 +60,14 @@ pub(crate) fn forward_key(page: &EntityId, input: &KeyInput, effects: &mut Vec<E
         });
     };
     if !input.pressed {
-        push(KeyEventKind::Up, input.windows_key_code, None);
+        push(KeyEventKind::Up, input.windows_key_code, input.character);
         return;
     }
-    push(KeyEventKind::RawDown, input.windows_key_code, None);
+    push(
+        KeyEventKind::RawDown,
+        input.windows_key_code,
+        input.character,
+    );
     if input.modifiers.meta {
         return;
     }
@@ -81,6 +89,7 @@ mod tests {
             pressed,
             repeat: false,
             text: text.map(str::to_owned),
+            character: None,
             modifiers,
             windows_key_code: 0x41,
             native_key_code: 0,

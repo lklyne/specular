@@ -82,22 +82,25 @@ impl ClickCounter {
 
 /// One winit key transition as a [`KeyInput`]. winit's scancode is the
 /// platform's own key code (the `kVK_*` code on macOS), which is what the
-/// key tables read.
+/// key tables read. A release has no text in winit, so its characters are
+/// the logical key's.
 pub(crate) fn key_input(event: &KeyEvent, modifiers: Modifiers) -> KeyInput {
     let pressed = event.state == ElementState::Pressed;
-    let text = event.text.as_deref().unwrap_or_default();
+    let characters = match (&event.text, &event.logical_key) {
+        (Some(text), _) | (None, winit::keyboard::Key::Character(text)) => text.as_str(),
+        (None, _) => "",
+    };
     let code = (event.physical_key.to_scancode()).and_then(|code| u16::try_from(code).ok());
     match code {
         Some(code) => {
-            specular_interact::mac_key_input(code, pressed, event.repeat, text, modifiers)
+            specular_interact::mac_key_input(code, pressed, event.repeat, characters, modifiers)
         }
         None => KeyInput {
             key: Key::Other,
             pressed,
             repeat: event.repeat,
-            text: pressed
-                .then(|| text.to_owned())
-                .filter(|text| !text.is_empty()),
+            text: event.text.as_ref().map(ToString::to_string),
+            character: None,
             modifiers,
             windows_key_code: 0,
             native_key_code: 0,

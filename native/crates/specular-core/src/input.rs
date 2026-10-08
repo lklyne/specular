@@ -104,7 +104,8 @@ pub struct KeyEvent {
     pub windows_key_code: i32,
     /// Platform scan/key code (macOS `keyCode`).
     pub native_key_code: i32,
-    /// Character produced, for [`KeyEventKind::Char`].
+    /// The character produced, for [`KeyEventKind::Char`]. For a key-down
+    /// and a key-up, the key's own character, and `None` for a modifier key.
     pub character: Option<char>,
     /// Modifier keys.
     pub modifiers: Modifiers,
