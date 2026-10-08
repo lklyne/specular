@@ -1,0 +1,6 @@
+Options { layout: Layout { order: Below, drive: Link }, pass_through: false, gpui_animates: false, scenario: "timer", out: "/Users/lyleklyne/.herdr/worktrees/telescope/claude-rust-cef-spike/native/bakeoff/gpui-kit-hybrid/out", tag: "timer-below", canvas: "/Users/lyleklyne/.herdr/worktrees/telescope/claude-rust-cef-spike/native/bakeoff/gpui-kit-hybrid/../../fixtures/kitchen-sink.canvas", cef: false, pump_from_gpui: false, seconds: 8.0 }
+window number Some(13143)
+canvas adapter=Apple M3 Max format=Bgra8Unorm present=AutoVsync scale=2 size=(1200.0, 760.0)
+canvas hosting https://example.com/ as PageId(1)
+canvas hosting https://example.org/docs#intro as PageId(2)
+gpui foreground timer, 4 ms asked: 1446 frames in 8.00 s = 180.9 fps; interval ms mean 5.53 p50 5.04 p95 7.77 p99 8.34 max 8.85; over 1.5 frames: 466 (32.23%), over 2.5 frames: 0

@@ -1,0 +1,38 @@
+{
+  "nodes": [
+    {
+      "id": "page-live",
+      "type": "link",
+      "x": 0,
+      "y": 0,
+      "width": 800,
+      "height": 500,
+      "url": "data:text/html,<body style='margin:0;font:28px system-ui;background:%23102a43;color:white'><div style='padding:24px 24px 24px 330px'>A live CEF page in a GPUI Kit window<br><input autofocus placeholder='type here' style='font:24px system-ui;margin-top:16px;width:380px'></div><div style='position:absolute;bottom:40px;width:80px;height:80px;background:%23f0b429;animation:m 2s linear infinite alternate'></div><style>@keyframes m{from{left:0}to{left:720px}}</style></body>",
+      "label": "Live page",
+      "source": "manual"
+    },
+    {
+      "id": "page-example",
+      "type": "link",
+      "x": 880,
+      "y": 0,
+      "width": 600,
+      "height": 500,
+      "url": "https://example.com/",
+      "label": "example.com",
+      "source": "manual"
+    },
+    {
+      "id": "sticky-over",
+      "type": "text",
+      "x": 700,
+      "y": 380,
+      "width": 240,
+      "height": 200,
+      "text": "A sticky above both pages, in one z-order",
+      "color": "3",
+      "textStyle": "sticky"
+    }
+  ],
+  "edges": []
+}

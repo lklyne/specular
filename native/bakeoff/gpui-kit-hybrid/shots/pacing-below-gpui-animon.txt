@@ -1,0 +1,10 @@
+Options { layout: Layout { order: Below, drive: Gpui }, pass_through: false, gpui_animates: true, scenario: "pacing", out: "/Users/lyleklyne/.herdr/worktrees/telescope/claude-rust-cef-spike/native/bakeoff/gpui-kit-hybrid/out", tag: "pacing-below-gpui-animon", canvas: "/Users/lyleklyne/.herdr/worktrees/telescope/claude-rust-cef-spike/native/bakeoff/gpui-kit-hybrid/../../fixtures/kitchen-sink.canvas", cef: false, pump_from_gpui: false, seconds: 8.0 }
+window number Some(13086)
+canvas adapter=Apple M3 Max format=Bgra8Unorm present=AutoVsync scale=2 size=(1200.0, 760.0)
+canvas hosting https://example.com/ as PageId(1)
+canvas hosting https://example.org/docs#intro as PageId(2)
+canvas no drawable (Discriminant(3)) after 0 frames
+canvas (wgpu child view): 1004 frames in 8.38 s = 119.9 fps; interval ms mean 8.34 p50 8.32 p95 8.78 p99 8.99 max 14.61; over 1.5 frames: 1 (0.10%), over 2.5 frames: 0
+canvas time in frame(), drawable wait included: 7.45 ms over 1005 frames; page frames 1036 (0 zero-copy); display-link ticks 0, frames without a drawable 0
+gpui (kit shell): 1004 frames in 8.37 s = 119.9 fps; interval ms mean 8.34 p50 8.31 p95 8.81 p99 9.04 max 14.59; over 1.5 frames: 1 (0.10%), over 2.5 frames: 0
+shot pacing

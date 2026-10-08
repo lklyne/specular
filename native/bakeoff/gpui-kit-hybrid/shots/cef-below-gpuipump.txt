@@ -1,0 +1,39 @@
+Options { layout: Layout { order: Below, drive: Link }, pass_through: false, gpui_animates: false, scenario: "cef", out: "/Users/lyleklyne/.herdr/worktrees/telescope/claude-rust-cef-spike/native/bakeoff/gpui-kit-hybrid/out", tag: "cef-below-gpuipump", canvas: "/Users/lyleklyne/.herdr/worktrees/telescope/claude-rust-cef-spike/native/bakeoff/gpui-kit-hybrid/fixtures/cef.canvas", cef: true, pump_from_gpui: true, seconds: 8.0 }
+window number Some(13166)
+canvas adapter=Apple M3 Max format=Bgra8Unorm present=AutoVsync scale=2 size=(1200.0, 760.0)
+canvas hosting data:text/html,<body style='margin:0;font:28px system-ui;background:%23102a43;color:white'><div style='padding:24px 24px 24px 330px'>A live CEF page in a GPUI Kit window<br><input autofocus placeholder='type here' style='font:24px system-ui;margin-top:16px;width:380px'></div><div style='position:absolute;bottom:40px;width:80px;height:80px;background:%23f0b429;animation:m 2s linear infinite alternate'></div><style>@keyframes m{from{left:0}to{left:720px}}</style></body> as PageId(1)
+canvas hosting https://example.com/ as PageId(2)
+canvas (wgpu child view): 958 frames in 8.00 s = 119.8 fps; interval ms mean 8.35 p50 8.33 p95 8.61 p99 8.84 max 17.04; over 1.5 frames: 2 (0.21%), over 2.5 frames: 0
+canvas time in frame(), drawable wait included: 1.28 ms over 959 frames; page frames 820 (820 zero-copy); display-link ticks 959, frames without a drawable 0
+gpui (kit shell): 0 frames, too few to summarise
+shot pacing
+-- page focused: true
+shot composing
+page   <- Pointer(PointerEvent { kind: Move, position: Vec2(420.0, 100.0), modifiers: Modifiers { shift: false, control: false, alt: false, meta: false } })
+page   <- Pointer(PointerEvent { kind: Down { button: Left, click_count: 1 }, position: Vec2(420.0, 100.0), modifiers: Modifiers { shift: false, control: false, alt: false, meta: false } })
+page   <- Pointer(PointerEvent { kind: Up { button: Left, click_count: 1 }, position: Vec2(420.0, 100.0), modifiers: Modifiers { shift: false, control: false, alt: false, meta: false } })
+gpui   mouseDown Left at=Point { x: 760px, y: 420px } clicks=1 mods=Modifiers { control: false, alt: false, shift: false, platform: false, function: false }
+gpui   mouseUp Left at=Point { x: 760px, y: 420px }
+monitor keyDown keyCode=4 mods=0x0 repeat=false chars="h" unmodified="h"
+gpui   keyDown key="h" key_char=Some("h") mods=Modifiers { control: false, alt: false, shift: false, platform: false, function: false } held=false
+ime    commit text="h" replacing=None
+monitor keyUp keyCode=4 mods=0x0 repeat=false chars="h" unmodified="h"
+page   <- Key(KeyEvent { kind: Up, windows_key_code: 72, native_key_code: 4, character: None, modifiers: Modifiers { shift: false, control: false, alt: false, meta: false } })
+gpui   keyUp key="h"
+monitor keyDown keyCode=34 mods=0x0 repeat=false chars="i" unmodified="i"
+gpui   keyDown key="i" key_char=Some("i") mods=Modifiers { control: false, alt: false, shift: false, platform: false, function: false } held=false
+ime    commit text="i" replacing=None
+monitor keyUp keyCode=34 mods=0x0 repeat=false chars="i" unmodified="i"
+page   <- Key(KeyEvent { kind: Up, windows_key_code: 73, native_key_code: 34, character: None, modifiers: Modifiers { shift: false, control: false, alt: false, meta: false } })
+gpui   keyUp key="i"
+monitor keyDown keyCode=49 mods=0x0 repeat=false chars=" " unmodified=" "
+gpui   keyDown key="space" key_char=Some(" ") mods=Modifiers { control: false, alt: false, shift: false, platform: false, function: false } held=false
+ime    commit text=" " replacing=None
+monitor keyUp keyCode=49 mods=0x0 repeat=false chars=" " unmodified=" "
+page   <- Key(KeyEvent { kind: Up, windows_key_code: 0, native_key_code: 49, character: None, modifiers: Modifiers { shift: false, control: false, alt: false, meta: false } })
+gpui   keyUp key="space"
+ime    compose marked="にほ" selection=Some(2..2) replacing=None
+page   <- Ime(SetComposition { text: "にほ", selection: 2..2, replacement: None })
+ime    commit text="日本" replacing=None
+page   <- Ime(Commit { text: "日本", replacement: None })
+shot typed

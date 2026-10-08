@@ -1,0 +1,28 @@
+resize-above-drag-03.png                 width  2400 stripe 606..612 (6 px)      magenta  12 px at 618..630
+resize-above-drag-09.png                 width  2400 stripe 686..692 (6 px)      magenta  11 px at 698..709
+resize-above-drag-15.png                 width  2400 stripe 760..766 (6 px)      magenta  12 px at 772..2046
+resize-above-drag-21.png                 width  2400 stripe 839..845 (6 px)      magenta  11 px at 851..2087
+resize-above-drag-27.png                 width  2400 stripe 913..919 (6 px)      magenta  26 px at 925..2101
+resize-above-drag-33.png                 width  2400 stripe 951..957 (6 px)      magenta   2 px at 963..965
+resize-above-drag-39.png                 width  2400 stripe 979..985 (6 px)      magenta   0 px
+resize-above-drag-45.png                 width  2400 stripe 986..992 (6 px)      magenta   0 px
+resize-above-drag-51.png                 width  2400 stripe 972..975 (3 px)      magenta   0 px
+resize-above-drag-57.png                 width  2400 stripe hidden               magenta   0 px
+resize-above-drag-63.png                 width  2400 stripe hidden               magenta   0 px
+resize-above-drag-69.png                 width  2400 stripe hidden               magenta   0 px
+resize-above-drag-75.png                 width  2400 stripe hidden               magenta   0 px
+resize-above-drag-81.png                 width  2400 stripe hidden               magenta   0 px
+resize-above-drag-87.png                 width  2400 stripe hidden               magenta   0 px
+resize-above-window-02.png               width  2536 stripe 541..548 (7 px)      magenta   5 px at 551..556
+resize-above-window-07.png               width  2660 stripe 562..570 (8 px)      magenta   0 px
+resize-above-window-12.png               width  2768 stripe 585..593 (8 px)      magenta   0 px
+resize-above-window-17.png               width  2852 stripe 603..611 (8 px)      magenta   0 px
+resize-above-window-22.png               width  2896 stripe 612..620 (8 px)      magenta   0 px
+resize-above-window-27.png               width  2920 stripe 617..625 (8 px)      magenta   0 px
+resize-above-window-32.png               width  2896 stripe 612..620 (8 px)      magenta   0 px
+resize-above-window-37.png               width  2852 stripe 603..611 (8 px)      magenta   0 px
+resize-above-window-42.png               width  2768 stripe 585..593 (8 px)      magenta   0 px
+resize-above-window-47.png               width  2660 stripe 562..570 (8 px)      magenta   0 px
+resize-above-window-52.png               width  2536 stripe 535..543 (8 px)      magenta   0 px
+resize-above-window-57.png               width  2400 stripe 506..514 (8 px)      magenta   2 px at 1881..1911
+worst disagreement on the row: 28 device px

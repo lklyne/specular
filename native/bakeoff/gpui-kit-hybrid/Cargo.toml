@@ -1,0 +1,39 @@
+# A spike, not a member of native/Cargo.toml: GPUI Kit as the window and the
+# UI around the canvas, with our wgpu compositor drawing into a child NSView.
+# See docs/adr/0040-gpui-kit-hybrid-shell.md.
+[package]
+name = "gpui-kit-hybrid"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[features]
+default = []
+# Real pages. Needs CEF_PATH for the build and `scripts/bundle.sh` to run.
+cef = ["specular-cef/cef"]
+
+[dependencies]
+gpui-kit = "=0.7.1"
+wgpu = "30.0"
+raw-window-handle = "0.6"
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", features = ["NSGeometry", "NSString", "NSRunLoop", "NSObjCRuntime"] }
+block2 = "0.6"
+glam = "0.33"
+pollster = "1.0"
+anyhow = "1"
+
+# The real compositor, document, interaction and page-source crates, used
+# unchanged. They resolve their own dependencies from native/Cargo.toml.
+specular-core = { path = "../../crates/specular-core" }
+specular-doc = { path = "../../crates/specular-doc" }
+specular-interact = { path = "../../crates/specular-interact" }
+specular-scene = { path = "../../crates/specular-scene" }
+specular-compositor = { path = "../../crates/specular-compositor" }
+specular-testkit = { path = "../../crates/specular-testkit" }
+specular-cef = { path = "../../crates/specular-cef" }
+
+[profile.dev]
+opt-level = 2

@@ -1,0 +1,35 @@
+Options { layout: Layout { order: Below, drive: Link }, pass_through: false, gpui_animates: false, scenario: "resize", out: "/Users/lyleklyne/.herdr/worktrees/telescope/claude-rust-cef-spike/native/bakeoff/gpui-kit-hybrid/out", tag: "resize-below", canvas: "/Users/lyleklyne/.herdr/worktrees/telescope/claude-rust-cef-spike/native/bakeoff/gpui-kit-hybrid/../../fixtures/kitchen-sink.canvas", cef: false, pump_from_gpui: false, seconds: 8.0 }
+window number Some(13121)
+canvas adapter=Apple M3 Max format=Bgra8Unorm present=AutoVsync scale=2 size=(1200.0, 760.0)
+canvas hosting https://example.com/ as PageId(1)
+canvas hosting https://example.org/docs#intro as PageId(2)
+shot before
+shot after-drag
+shot after-window
+surface reconfigured 58 times, 0.94 ms each on average
+gpui   mouseDrag at=Point { x: 276.74155px, y: 400px }
+gpui   mouseDrag at=Point { x: 285.08682px, y: 400px }
+gpui   mouseDrag at=Point { x: 293.40155px, y: 400px }
+gpui   mouseDrag at=Point { x: 301.67557px, y: 400px }
+gpui   mouseDrag at=Point { x: 309.8988px, y: 400px }
+gpui   mouseDrag at=Point { x: 318.06125px, y: 400px }
+gpui   mouseDrag at=Point { x: 326.15295px, y: 400px }
+gpui   mouseDrag at=Point { x: 334.1641px, y: 400px }
+gpui   mouseDrag at=Point { x: 342.08484px, y: 400px }
+gpui   mouseDrag at=Point { x: 349.90558px, y: 400px }
+gpui   mouseDrag at=Point { x: 357.6168px, y: 400px }
+gpui   mouseDrag at=Point { x: 365.20908px, y: 400px }
+gpui   mouseDrag at=Point { x: 372.6732px, y: 400px }
+gpui   mouseDrag at=Point { x: 380px, y: 400px }
+gpui   mouseDrag at=Point { x: 387.18063px, y: 400px }
+gpui   mouseDrag at=Point { x: 394.2063px, y: 400px }
+gpui   mouseDrag at=Point { x: 401.06845px, y: 400px }
+gpui   mouseDrag at=Point { x: 407.75876px, y: 400px }
+gpui   mouseDrag at=Point { x: 414.269px, y: 400px }
+gpui   mouseDrag at=Point { x: 420.59134px, y: 400px }
+gpui   mouseDrag at=Point { x: 426.71802px, y: 400px }
+gpui   mouseDrag at=Point { x: 432.64154px, y: 400px }
+gpui   mouseDrag at=Point { x: 438.35477px, y: 400px }
+gpui   mouseDrag at=Point { x: 443.85068px, y: 400px }
+gpui   mouseDrag at=Point { x: 449.1226px, y: 400px }
+gpui   mouseDrag at=Point { x: 454.1641px, y: 400px }

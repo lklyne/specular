@@ -1,0 +1,81 @@
+Options { layout: Layout { order: Below, drive: Link }, pass_through: false, gpui_animates: false, scenario: "input", out: "/Users/lyleklyne/.herdr/worktrees/telescope/claude-rust-cef-spike/native/bakeoff/gpui-kit-hybrid/out", tag: "input-below", canvas: "/Users/lyleklyne/.herdr/worktrees/telescope/claude-rust-cef-spike/native/bakeoff/gpui-kit-hybrid/../../fixtures/kitchen-sink.canvas", cef: false, pump_from_gpui: false, seconds: 8.0 }
+window number Some(13051)
+canvas adapter=Apple M3 Max format=Bgra8Unorm present=AutoVsync scale=2 size=(1200.0, 760.0)
+canvas hosting https://example.com/ as PageId(1)
+canvas hosting https://example.org/docs#intro as PageId(2)
+-- click on the canvas (takes focus)
+gpui   mouseDown Left at=Point { x: 760px, y: 420px } clicks=1 mods=Modifiers { control: false, alt: false, shift: false, platform: false, function: false }
+gpui   mouseUp Left at=Point { x: 760px, y: 420px }
+-- drag on the canvas
+gpui   mouseDown Left at=Point { x: 760px, y: 420px } clicks=1 mods=Modifiers { control: false, alt: false, shift: false, platform: false, function: false }
+gpui   mouseDrag at=Point { x: 780px, y: 430px }
+gpui   mouseDrag at=Point { x: 800px, y: 440px }
+gpui   mouseUp Left at=Point { x: 800px, y: 440px }
+-- precise scroll, dx=3 dy=-12
+monitor scrollWheel dx=3 dy=-12 precise=true phase=0 momentum=0 mods=0x0 at=(760,340) window=0
+route  to GPUIView
+gpui   scroll delta=Pixels(Point { x: 3px, y: -12px }) phase=Moved mods=Modifiers { control: false, alt: false, shift: false, platform: false, function: false }
+-- magnify +0.2
+monitor magnify magnification=0 phase=1
+route  to GPUIView
+gpui   pinch delta=0 phase=Started
+monitor magnify magnification=0.20000000298023224 phase=4
+route  to GPUIView
+gpui   pinch delta=0.2 phase=Moved
+monitor magnify magnification=0 phase=8
+route  to GPUIView
+gpui   pinch delta=0 phase=Ended
+-- key a (keyCode 0): down, two repeats, up
+monitor keyDown keyCode=0 mods=0x0 repeat=false chars="a" unmodified="a"
+gpui   keyDown key="a" key_char=Some("a") mods=Modifiers { control: false, alt: false, shift: false, platform: false, function: false } held=false
+ime    commit text="a" replacing=None
+monitor keyDown keyCode=0 mods=0x0 repeat=true chars="a" unmodified="a"
+gpui   keyDown key="a" key_char=Some("a") mods=Modifiers { control: false, alt: false, shift: false, platform: false, function: false } held=true
+ime    commit text="a" replacing=None
+monitor keyDown keyCode=0 mods=0x0 repeat=true chars="a" unmodified="a"
+gpui   keyDown key="a" key_char=Some("a") mods=Modifiers { control: false, alt: false, shift: false, platform: false, function: false } held=true
+ime    commit text="a" replacing=None
+monitor keyUp keyCode=0 mods=0x0 repeat=false chars="a" unmodified="a"
+gpui   keyUp key="a"
+-- shift+a
+monitor keyDown keyCode=0 mods=0x20000 repeat=false chars="A" unmodified="a"
+gpui   keyDown key="a" key_char=Some("A") mods=Modifiers { control: false, alt: false, shift: true, platform: false, function: false } held=false
+ime    commit text="A" replacing=None
+monitor keyUp keyCode=0 mods=0x20000 repeat=false chars="A" unmodified="a"
+gpui   keyUp key="a"
+-- cmd+z (keyCode 6)
+monitor keyDown keyCode=6 mods=0x100000 repeat=false chars="z" unmodified="z"
+gpui   keyDown key="z" key_char=None mods=Modifiers { control: false, alt: false, shift: false, platform: true, function: false } held=false
+monitor keyUp keyCode=6 mods=0x100000 repeat=false chars="z" unmodified="z"
+-- left arrow (keyCode 123)
+monitor keyDown keyCode=123 mods=0x800000 repeat=false chars="\u{f702}" unmodified="\u{f702}"
+gpui   keyDown key="left" key_char=None mods=Modifiers { control: false, alt: false, shift: false, platform: false, function: false } held=false
+monitor keyUp keyCode=123 mods=0x800000 repeat=false chars="\u{f702}" unmodified="\u{f702}"
+gpui   keyUp key="left"
+-- numpad 1 (keyCode 83) against digit 1 (keyCode 18)
+monitor keyDown keyCode=83 mods=0x200000 repeat=false chars="1" unmodified="1"
+gpui   keyDown key="1" key_char=Some("1") mods=Modifiers { control: false, alt: false, shift: false, platform: false, function: false } held=false
+ime    commit text="1" replacing=None
+monitor keyUp keyCode=83 mods=0x200000 repeat=false chars="1" unmodified="1"
+gpui   keyUp key="1"
+monitor keyDown keyCode=18 mods=0x0 repeat=false chars="1" unmodified="1"
+gpui   keyDown key="1" key_char=Some("1") mods=Modifiers { control: false, alt: false, shift: false, platform: false, function: false } held=false
+ime    commit text="1" replacing=None
+monitor keyUp keyCode=18 mods=0x0 repeat=false chars="1" unmodified="1"
+gpui   keyUp key="1"
+-- dead key: option+e then e, through the system input context
+monitor keyDown keyCode=14 mods=0x80000 repeat=false chars="" unmodified="e"
+gpui   keyDown key="e" key_char=Some("´\u{a0}") mods=Modifiers { control: false, alt: true, shift: false, platform: false, function: false } held=false
+ime    compose marked="´" selection=Some(1..1) replacing=None
+monitor keyUp keyCode=14 mods=0x80000 repeat=false chars="´" unmodified="e"
+gpui   keyUp key="e"
+monitor keyDown keyCode=14 mods=0x0 repeat=false chars="e" unmodified="e"
+ime    unmark
+ime    commit text="e" replacing=None
+monitor keyUp keyCode=14 mods=0x0 repeat=false chars="e" unmodified="e"
+gpui   keyUp key="e"
+-- input method: setMarkedText then insertText on GPUI's NSTextInputClient
+ime    compose marked="に" selection=Some(1..1) replacing=None
+ime    compose marked="にほ" selection=Some(2..2) replacing=None
+ime    commit text="日本" replacing=None
+shot input

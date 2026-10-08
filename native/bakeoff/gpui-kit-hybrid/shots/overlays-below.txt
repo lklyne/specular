@@ -1,0 +1,29 @@
+Options { layout: Layout { order: Below, drive: Link }, pass_through: false, gpui_animates: false, scenario: "overlays", out: "/Users/lyleklyne/.herdr/worktrees/telescope/claude-rust-cef-spike/native/bakeoff/gpui-kit-hybrid/out", tag: "overlays-below", canvas: "/Users/lyleklyne/.herdr/worktrees/telescope/claude-rust-cef-spike/native/bakeoff/gpui-kit-hybrid/../../fixtures/kitchen-sink.canvas", cef: false, pump_from_gpui: false, seconds: 8.0 }
+window number Some(13034)
+canvas adapter=Apple M3 Max format=Bgra8Unorm present=AutoVsync scale=2 size=(1200.0, 760.0)
+canvas hosting https://example.com/ as PageId(1)
+canvas hosting https://example.org/docs#intro as PageId(2)
+shot base
+shot dropdown
+-- click on the canvas with the dropdown open
+gpui   mouseDown Left at=Point { x: 760px, y: 420px } clicks=1 mods=Modifiers { control: false, alt: false, shift: false, platform: false, function: false }
+gpui   mouseUp Left at=Point { x: 760px, y: 420px }
+shot dropdown-dismissed
+shot popover
+-- right click on the canvas
+monitor keyDown keyCode=53 mods=0x0 repeat=false chars="\u{1b}" unmodified="\u{1b}"
+monitor keyUp keyCode=53 mods=0x0 repeat=false chars="\u{1b}" unmodified="\u{1b}"
+gpui   keyUp key="escape"
+monitor rightDown at=(760,340) clicks=1 mods=0x0
+route  to GPUIView
+gpui   mouseDown Right at=Point { x: 760px, y: 420px } clicks=1 mods=Modifiers { control: false, alt: false, shift: false, platform: false, function: false }
+monitor rightUp at=(760,340) clicks=1 mods=0x0
+route  to GPUIView
+gpui   mouseUp Right at=Point { x: 760px, y: 420px }
+shot context-menu
+shot dialog
+-- click on the canvas with the dialog open
+monitor keyDown keyCode=53 mods=0x0 repeat=false chars="\u{1b}" unmodified="\u{1b}"
+monitor keyUp keyCode=53 mods=0x0 repeat=false chars="\u{1b}" unmodified="\u{1b}"
+gpui   keyUp key="escape"
+shot dialog-after-click

@@ -621,3 +621,15 @@ Known gaps against Electron, not checks: the hand and mono fonts fall back to sy
 - Still off against Electron: no hand, inspect or theme buttons; the page tool has no preset list; the page popup has no navigation, URL or sync (`Action::PageBack`, `PageForward`, `PageReload` and `PageStop` landed beside this work and are not in the model yet); no annotate, focus or arrange-as-layout anywhere; formatting buttons show no on state; gradients in the tool glyphs are flat and their drop shadows are missing; tool buttons sit at y 8, not 7.5.
 - For the next agent: a new popup control is a line in its `popup/*.rs` and, if it needs one, a `Property` variant. `layout` is rebuilt about three times per pointer move with text measured each time; cache it if a trace shows it. Changing a sticky's text size scales its height by the ratio, which is the S4 stand-in.
 - Built in a detached worktree in four steps by subagents and rebased onto the pages, comments and spaces commits; the merge needed `Hit::Comment`, `Gesture::Comment` and `Target::Comment` arms. Gate: fmt, clippy and `cargo test --workspace` pass there (1711 tests); all twelve scenarios pass `check.py`.
+
+### GPUI-HYBRID: GPUI Kit as the shell around our canvas view. See `git log -- native/bakeoff/gpui-kit-hybrid`
+
+- A spike outside the task list. [ADR 0040](../adr/0040-gpui-kit-hybrid-shell.md), Proposed, verdict: works with named caveats. Nothing under `native/crates` changed.
+- `native/bakeoff/gpui-kit-hybrid/`: its own workspace and target dir. gpui-kit 0.7.1 on gpui-pre 0.3.8 opens the window and draws toolbar, sidebar, menus and dialogs. `specular-compositor`, `specular-scene`, `specular-interact` and `specular-cef` are linked by path, unchanged, and draw into a child `NSView` under GPUI's.
+- Measured: 120 fps for both renderers in every combination, with synthetic and with real CEF pages (zero-copy). Keys reach a CEF field from an `NSEvent` monitor and a composition from GPUI's input handler.
+- The canvas view goes below GPUI's view, with a transparent GPUI window and the Kit root's background cleared. Above, overlays are hidden and the view leads GPUI by a frame on resize.
+- `toolbar(&App)` and `sidebar(&App)` drove Kit buttons and sidebar rows with no adapter. Popups anchored to the canvas should stay in our pass.
+- `scripts/run-all.sh` reruns every scenario into `out/` and copies the cited evidence to `shots/`. Each run opens a floating window for a few seconds. The CEF runs need `CEF_PATH`, a `--features cef` build into `target/cef` and `scripts/bundle.sh`.
+- Pitfalls met: a covered window gets no drawables (the spike floats its window); objc2's debug checks reject a wrong struct encoding at the first send; events posted with `CGEventPostToPid` arrive with no window.
+- Not in the gate: the spike is not a workspace member, has no tests and does not follow the workspace lints. It builds with no warnings and `cargo fmt` is clean.
+- Needs a human at a Mac: the list at the end of the ADR (live window resize, real trackpad and input method, shortcuts with a page entered, VoiceOver, 40 pages).

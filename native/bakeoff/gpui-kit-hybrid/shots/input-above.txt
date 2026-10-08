@@ -1,0 +1,70 @@
+Options { layout: Layout { order: Above, drive: Link }, pass_through: false, gpui_animates: false, scenario: "input", out: "/Users/lyleklyne/.herdr/worktrees/telescope/claude-rust-cef-spike/native/bakeoff/gpui-kit-hybrid/out", tag: "input-above", canvas: "/Users/lyleklyne/.herdr/worktrees/telescope/claude-rust-cef-spike/native/bakeoff/gpui-kit-hybrid/../../fixtures/kitchen-sink.canvas", cef: false, pump_from_gpui: false, seconds: 8.0 }
+window number Some(13058)
+canvas adapter=Apple M3 Max format=Bgra8Unorm present=AutoVsync scale=2 size=(1200.0, 760.0)
+canvas hosting https://example.com/ as PageId(1)
+canvas hosting https://example.org/docs#intro as PageId(2)
+-- click on the canvas (takes focus)
+view   mouseDown at=(760,340) clicks=1 mods=0x0
+view   mouseUp at=(760,340) clicks=1 mods=0x0
+-- drag on the canvas
+view   mouseDown at=(760,340) clicks=1 mods=0x0
+view   dragged at=(780,330) clicks=0 mods=0x0
+view   dragged at=(800,320) clicks=0 mods=0x0
+view   mouseUp at=(800,320) clicks=1 mods=0x0
+-- precise scroll, dx=3 dy=-12
+monitor scrollWheel dx=3 dy=-12 precise=true phase=0 momentum=0 mods=0x0 at=(760,340) window=0
+route  to SpikeCanvasView
+view   scrollWheel dx=3 dy=-12 precise=true phase=0 momentum=0 mods=0x0 at=(760,340) window=0
+-- magnify +0.2
+monitor magnify magnification=0 phase=1
+route  to SpikeCanvasView
+view   magnify magnification=0 phase=1
+monitor magnify magnification=0.20000000298023224 phase=4
+route  to SpikeCanvasView
+view   magnify magnification=0.20000000298023224 phase=4
+monitor magnify magnification=0 phase=8
+route  to SpikeCanvasView
+view   magnify magnification=0 phase=8
+-- key a (keyCode 0): down, two repeats, up
+monitor keyDown keyCode=0 mods=0x0 repeat=false chars="a" unmodified="a"
+view   keyDown keyCode=0 mods=0x0 repeat=false chars="a" unmodified="a"
+monitor keyDown keyCode=0 mods=0x0 repeat=true chars="a" unmodified="a"
+view   keyDown keyCode=0 mods=0x0 repeat=true chars="a" unmodified="a"
+monitor keyDown keyCode=0 mods=0x0 repeat=true chars="a" unmodified="a"
+view   keyDown keyCode=0 mods=0x0 repeat=true chars="a" unmodified="a"
+monitor keyUp keyCode=0 mods=0x0 repeat=false chars="a" unmodified="a"
+view   keyUp keyCode=0 mods=0x0 repeat=false chars="a" unmodified="a"
+-- shift+a
+monitor keyDown keyCode=0 mods=0x20000 repeat=false chars="A" unmodified="a"
+view   keyDown keyCode=0 mods=0x20000 repeat=false chars="A" unmodified="a"
+monitor keyUp keyCode=0 mods=0x20000 repeat=false chars="A" unmodified="a"
+view   keyUp keyCode=0 mods=0x20000 repeat=false chars="A" unmodified="a"
+-- cmd+z (keyCode 6)
+monitor keyDown keyCode=6 mods=0x100000 repeat=false chars="z" unmodified="z"
+view   keyDown keyCode=6 mods=0x100000 repeat=false chars="z" unmodified="z"
+monitor keyUp keyCode=6 mods=0x100000 repeat=false chars="z" unmodified="z"
+-- left arrow (keyCode 123)
+monitor keyDown keyCode=123 mods=0x800000 repeat=false chars="\u{f702}" unmodified="\u{f702}"
+view   keyDown keyCode=123 mods=0x800000 repeat=false chars="\u{f702}" unmodified="\u{f702}"
+monitor keyUp keyCode=123 mods=0x800000 repeat=false chars="\u{f702}" unmodified="\u{f702}"
+view   keyUp keyCode=123 mods=0x800000 repeat=false chars="\u{f702}" unmodified="\u{f702}"
+-- numpad 1 (keyCode 83) against digit 1 (keyCode 18)
+monitor keyDown keyCode=83 mods=0x200000 repeat=false chars="1" unmodified="1"
+view   keyDown keyCode=83 mods=0x200000 repeat=false chars="1" unmodified="1"
+monitor keyUp keyCode=83 mods=0x200000 repeat=false chars="1" unmodified="1"
+view   keyUp keyCode=83 mods=0x200000 repeat=false chars="1" unmodified="1"
+monitor keyDown keyCode=18 mods=0x0 repeat=false chars="1" unmodified="1"
+view   keyDown keyCode=18 mods=0x0 repeat=false chars="1" unmodified="1"
+monitor keyUp keyCode=18 mods=0x0 repeat=false chars="1" unmodified="1"
+view   keyUp keyCode=18 mods=0x0 repeat=false chars="1" unmodified="1"
+-- dead key: option+e then e, through the system input context
+monitor keyDown keyCode=14 mods=0x80000 repeat=false chars="" unmodified="e"
+view   keyDown keyCode=14 mods=0x80000 repeat=false chars="" unmodified="e"
+monitor keyUp keyCode=14 mods=0x80000 repeat=false chars="" unmodified="e"
+view   keyUp keyCode=14 mods=0x80000 repeat=false chars="" unmodified="e"
+monitor keyDown keyCode=14 mods=0x0 repeat=false chars="e" unmodified="e"
+view   keyDown keyCode=14 mods=0x0 repeat=false chars="e" unmodified="e"
+monitor keyUp keyCode=14 mods=0x0 repeat=false chars="e" unmodified="e"
+view   keyUp keyCode=14 mods=0x0 repeat=false chars="e" unmodified="e"
+-- input method: setMarkedText then insertText on GPUI's NSTextInputClient
+shot input

@@ -1,0 +1,28 @@
+resize-above-gpuidrive-drag-03.png       width  2400 stripe 606..612 (6 px)      magenta  12 px at 618..630
+resize-above-gpuidrive-drag-09.png       width  2400 stripe 670..676 (6 px)      magenta  12 px at 682..694
+resize-above-gpuidrive-drag-15.png       width  2400 stripe 774..780 (6 px)      magenta  13 px at 786..2055
+resize-above-gpuidrive-drag-21.png       width  2400 stripe 851..857 (6 px)      magenta  10 px at 863..2086
+resize-above-gpuidrive-drag-27.png       width  2400 stripe 904..910 (6 px)      magenta   6 px at 916..2094
+resize-above-gpuidrive-drag-33.png       width  2400 stripe 957..963 (6 px)      magenta   2 px at 969..971
+resize-above-gpuidrive-drag-39.png       width  2400 stripe 983..989 (6 px)      magenta   0 px
+resize-above-gpuidrive-drag-45.png       width  2400 stripe 986..992 (6 px)      magenta   0 px
+resize-above-gpuidrive-drag-51.png       width  2400 stripe 967..971 (4 px)      magenta   0 px
+resize-above-gpuidrive-drag-57.png       width  2400 stripe hidden               magenta   0 px
+resize-above-gpuidrive-drag-63.png       width  2400 stripe hidden               magenta   0 px
+resize-above-gpuidrive-drag-69.png       width  2400 stripe hidden               magenta   0 px
+resize-above-gpuidrive-drag-75.png       width  2400 stripe hidden               magenta   0 px
+resize-above-gpuidrive-drag-81.png       width  2400 stripe hidden               magenta   0 px
+resize-above-gpuidrive-drag-87.png       width  2400 stripe hidden               magenta   0 px
+resize-above-gpuidrive-window-02.png     width  2536 stripe hidden               magenta   0 px
+resize-above-gpuidrive-window-07.png     width  2660 stripe 562..570 (8 px)      magenta   0 px
+resize-above-gpuidrive-window-12.png     width  2748 stripe 581..589 (8 px)      magenta   0 px
+resize-above-gpuidrive-window-17.png     width  2852 stripe 603..611 (8 px)      magenta   0 px
+resize-above-gpuidrive-window-22.png     width  2896 stripe 614..620 (6 px)      magenta   0 px
+resize-above-gpuidrive-window-27.png     width  2920 stripe 617..625 (8 px)      magenta   0 px
+resize-above-gpuidrive-window-32.png     width  2904 stripe 614..622 (8 px)      magenta   0 px
+resize-above-gpuidrive-window-37.png     width  2852 stripe 602..610 (8 px)      magenta   0 px
+resize-above-gpuidrive-window-42.png     width  2748 stripe 581..589 (8 px)      magenta   0 px
+resize-above-gpuidrive-window-47.png     width  2660 stripe 562..570 (8 px)      magenta  21 px at 1931..1952
+resize-above-gpuidrive-window-52.png     width  2536 stripe 535..543 (8 px)      magenta   1 px at 1924..1925
+resize-above-gpuidrive-window-57.png     width  2400 stripe 506..514 (8 px)      magenta   1 px at 1927..1928
+worst disagreement on the row: 21 device px
