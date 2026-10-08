@@ -46,6 +46,9 @@ pub fn popup_snapshot(popup: Option<&PopupModel>) -> String {
         PopupAnchor::Toolbar { gap } => {
             let _ = writeln!(out, "anchor toolbar gap={gap}");
         }
+        PopupAnchor::Point(at) => {
+            let _ = writeln!(out, "anchor point {},{}", at.x, at.y);
+        }
         PopupAnchor::Canvas {
             bounds,
             placement,
@@ -195,11 +198,12 @@ fn sections(out: &mut String, content: &[DropdownSection], depth: usize) {
                     };
                     let _ = writeln!(
                         out,
-                        "option {} {} {:?}{shown}{trailing}{} -> {:?}",
+                        "option {} {} {:?}{shown}{trailing}{}{} -> {:?}",
                         mark(option.selected),
                         option.id,
                         option.label,
                         chord(option.chord),
+                        if option.enabled { "" } else { " disabled" },
                         option.action
                     );
                 }
@@ -269,6 +273,15 @@ fn chord(chord: Option<Chord>) -> String {
 macro_rules! assert_toolbar_snapshot {
     ($app:expr, $($rest:tt)*) => {
         $crate::insta::assert_snapshot!($app.toolbar_snapshot(), $($rest)*)
+    };
+}
+
+/// Asserts the context menu of a [`TestApp`](crate::TestApp) against an
+/// inline snapshot, `none` while none is open.
+#[macro_export]
+macro_rules! assert_menu_snapshot {
+    ($app:expr, $($rest:tt)*) => {
+        $crate::insta::assert_snapshot!($app.menu_snapshot(), $($rest)*)
     };
 }
 

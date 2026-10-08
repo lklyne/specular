@@ -49,6 +49,8 @@ fn a_page_has_size_frame_rotation_and_color_scheme() {
     button page.rotate "Rotate viewport" icon=Rotate -> SetProperty(Orientation(Landscape))
     ---
     button page.scheme "Color scheme: System. Click to change." icon=SchemeSystem -> SetProperty(ColorScheme(Some(Light)))
+    ---
+    button item.focus "Focus page" icon=Focus -> FocusSelection
     "#);
 }
 
@@ -75,6 +77,11 @@ fn several_pages_share_a_size_list_without_custom() {
         option [ ] page.size.8 "Desktop XL" trailing="1920×1080" -> SetProperty(ViewportPreset(8))
     ---
     toggle [ ] page.frame "Toggle device frame for selected pages" icon=Device -> SetProperty(DeviceFrame(true))
+    ---
+    button item.arrange.row "Arrange in a row" icon=ArrangeRow -> Arrange(Row)
+    button item.arrange.column "Arrange in a column" icon=ArrangeColumn -> Arrange(Column)
+    button item.arrange.grid "Arrange in a grid" icon=ArrangeGrid -> Arrange(Grid)
+    button item.annotate "Annotate 2 pages" icon=Annotate -> AnnotateSelection
     "#);
 }
 
@@ -83,7 +90,9 @@ fn an_image_file_has_nothing_to_offer() {
     let mut app = TestApp::with_entities([file("f", A)]);
     app.select(&["f"]);
     assert_popup_snapshot!(app, @r#"
-    none
+    anchor canvas 100,100 200x100 Above Stretch gap=14
+    button item.annotate "Annotate file" icon=Annotate -> AnnotateSelection
+    button item.focus "Focus file" icon=Focus -> FocusSelection
     "#);
 }
 
@@ -114,6 +123,8 @@ fn a_selected_edge_has_color_stroke_arrowheads_and_delete() {
     ---
     toggle [x] edge.start "Toggle start arrowhead" icon=ArrowStart -> SetProperty(FromEnd(None))
     toggle [x] edge.end "Toggle end arrowhead" icon=ArrowEnd -> SetProperty(ToEnd(None))
+    ---
+    field edge.label "Edge label" value="" placeholder="Label…" Medium submit=EdgeLabel
     ---
     button edge.delete "Delete edge" icon=Trash chord=backspace -> Delete
     "#);
@@ -173,6 +184,12 @@ fn shapes_of_one_kind_get_the_shape_popup_for_all_of_them() {
         toggle [ ] shape.border.w4 "Set border width to 4px" text="4" -> SetProperty(StrokeWidth(4.0))
       controls
         swatches shape.border.color Soft/Fill: neutral purple blue cyan green yellow orange red
+    ---
+    button item.arrange.row "Arrange in a row" icon=ArrangeRow -> Arrange(Row)
+    button item.arrange.column "Arrange in a column" icon=ArrangeColumn -> Arrange(Column)
+    button item.arrange.grid "Arrange in a grid" icon=ArrangeGrid -> Arrange(Grid)
+    button item.annotate "Annotate 2 shapes" icon=Annotate -> AnnotateSelection
+    button item.focus "Focus 2 shapes" icon=Focus -> FocusSelection
     "#);
 }
 
@@ -181,7 +198,12 @@ fn a_selection_across_kinds_has_no_popup_yet() {
     let mut app = TestApp::with_entities([shape("a", A), sticky("b", B, "two")]);
     app.select(&["a", "b"]);
     assert_popup_snapshot!(app, @r#"
-    none
+    anchor canvas 100,100 500x100 Above Center gap=14
+    button item.arrange.row "Arrange in a row" icon=ArrangeRow -> Arrange(Row)
+    button item.arrange.column "Arrange in a column" icon=ArrangeColumn -> Arrange(Column)
+    button item.arrange.grid "Arrange in a grid" icon=ArrangeGrid -> Arrange(Grid)
+    button item.annotate "Annotate 2 items" icon=Annotate -> AnnotateSelection
+    button item.focus "Focus 2 items" icon=Focus -> FocusSelection
     "#);
 }
 
@@ -241,9 +263,12 @@ fn a_sticky_being_edited_adds_the_formatting_buttons() {
       controls
         swatches text.color.swatches Soft/Fill: neutral purple blue cyan green yellow orange red
     ---
-    button format.bold "Bold" icon=Bold chord=cmd+b -> Format(Bold)
-    button format.strikethrough "Strikethrough" icon=Strikethrough chord=cmd+shift+x -> Format(Strike)
-    button format.bullets "Bullet list" icon=BulletList chord=cmd+shift+8 -> Format(BulletList)
+    toggle [ ] format.bold "Bold" icon=Bold chord=cmd+b -> Format(Bold)
+    toggle [ ] format.strikethrough "Strikethrough" icon=Strikethrough chord=cmd+shift+x -> Format(Strike)
+    toggle [ ] format.bullets "Bullet list" icon=BulletList chord=cmd+shift+8 -> Format(BulletList)
+    ---
+    button item.annotate "Annotate sticky note" icon=Annotate -> AnnotateSelection
+    button item.focus "Focus sticky note" icon=Focus -> FocusSelection
     "#);
 }
 
@@ -264,14 +289,23 @@ fn a_document_being_edited_has_the_formatting_buttons() {
     app.note_text("plan.md", "hello");
     app.select(&["n"]);
     assert_popup_snapshot!(app, @r#"
-    none
+    anchor canvas 100,100 300x300 Above Stretch gap=14
+    toggle [ ] format.bold "Bold" icon=Bold chord=cmd+b disabled -> Format(Bold)
+    toggle [ ] format.strikethrough "Strikethrough" icon=Strikethrough chord=cmd+shift+x disabled -> Format(Strike)
+    toggle [ ] format.bullets "Bullet list" icon=BulletList chord=cmd+shift+8 disabled -> Format(BulletList)
+    ---
+    button item.annotate "Annotate file" icon=Annotate -> AnnotateSelection
+    button item.focus "Focus file" icon=Focus -> FocusSelection
     "#);
     app.double_click((150.0, 200.0));
     assert!(app.app().session().editing.is_some());
     assert_popup_snapshot!(app, @r#"
     anchor canvas 100,100 300x300 Above Stretch gap=14
-    button format.bold "Bold" icon=Bold chord=cmd+b -> Format(Bold)
-    button format.strikethrough "Strikethrough" icon=Strikethrough chord=cmd+shift+x -> Format(Strike)
-    button format.bullets "Bullet list" icon=BulletList chord=cmd+shift+8 -> Format(BulletList)
+    toggle [ ] format.bold "Bold" icon=Bold chord=cmd+b -> Format(Bold)
+    toggle [ ] format.strikethrough "Strikethrough" icon=Strikethrough chord=cmd+shift+x -> Format(Strike)
+    toggle [ ] format.bullets "Bullet list" icon=BulletList chord=cmd+shift+8 -> Format(BulletList)
+    ---
+    button item.annotate "Annotate file" icon=Annotate -> AnnotateSelection
+    button item.focus "Focus file" icon=Focus -> FocusSelection
     "#);
 }

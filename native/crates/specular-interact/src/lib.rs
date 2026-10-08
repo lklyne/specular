@@ -25,6 +25,7 @@ mod anchor;
 mod anchors;
 mod api;
 mod app;
+mod arrange;
 mod asset;
 mod bindings;
 mod camera;
@@ -88,6 +89,7 @@ pub use anchor::{anchors_to_pages, matches_page_url};
 pub use anchors::Anchor;
 pub use api::{ApiCall, ApiOutcome, ApiRun};
 pub use app::{App, Focus, Selection, Session};
+pub use arrange::ArrangeMode;
 pub use asset::AssetBytes;
 pub use bindings::{BINDINGS, Binding, Chord, Context, binding_for};
 pub use caps::{AspectMode, aspect_mode, has_anchors, min_size};
@@ -123,9 +125,9 @@ pub use page_state::PageState;
 pub use panel::builtin::PanelUi;
 pub use panel::{
     Align, Button, Choices, Control, ControlId, Dropdown, DropdownOption, DropdownSection, Entries,
-    Face, Field, FieldSubmit, FieldWidth, Icon, Label, OptionLayout, PaintRole, Palette, Placement,
-    PopupAnchor, PopupModel, SidebarButton, Stepper, Swatch, Swatches, Toggle, ToolButton,
-    ToolbarModel, ToolbarSection, popup_for, toolbar,
+    Face, Field, FieldSubmit, FieldWidth, Icon, Label, MenuTarget, OptionLayout, PaintRole,
+    Palette, Placement, PopupAnchor, PopupModel, SidebarButton, Stepper, Swatch, Swatches, Toggle,
+    ToolButton, ToolbarModel, ToolbarSection, context_menu, popup_for, toolbar,
 };
 pub use place::{PlaceDrag, Placing};
 pub use placement::PagePlacement;

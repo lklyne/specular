@@ -6,7 +6,7 @@ use specular_doc::TextAlign;
 use super::super::{ControlId, Field, FieldWidth};
 use super::controls::text;
 use super::metrics::{
-    CONTROL_RADIUS, FIELD_HEIGHT, FIELD_PAD, FIELD_SHORT, FIELD_WIDE, GAP, TEXT_LINE,
+    CONTROL_RADIUS, FIELD_HEIGHT, FIELD_MEDIUM, FIELD_PAD, FIELD_SHORT, FIELD_WIDE, GAP, TEXT_LINE,
 };
 use super::node::{Chrome, Input, InputFocus, Node, PanelRect, Part, Tone};
 use super::{Ctx, PanelLayout};
@@ -18,6 +18,7 @@ fn box_width(field: &Field) -> f32 {
     match field.width {
         FieldWidth::Wide => FIELD_WIDE,
         FieldWidth::Short => FIELD_SHORT,
+        FieldWidth::Medium => FIELD_MEDIUM,
     }
 }
 

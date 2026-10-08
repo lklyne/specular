@@ -53,6 +53,9 @@ fn a_sticky_has_size_font_color_and_no_formatting_until_edited() {
     dropdown text.color "Set sticky note color" shows hollow
       controls
         swatches text.color.swatches Soft/Fill: neutral purple blue cyan green yellow orange red
+    ---
+    button item.annotate "Annotate sticky note" icon=Annotate -> AnnotateSelection
+    button item.focus "Focus sticky note" icon=Focus -> FocusSelection
     "#);
 }
 
@@ -80,6 +83,9 @@ fn plain_text_offers_the_ink_palette() {
     dropdown text.color "Set text color" shows hollow
       controls
         swatches text.color.swatches Vivid/Ink: neutral purple blue cyan green yellow orange red
+    ---
+    button item.annotate "Annotate text" icon=Annotate -> AnnotateSelection
+    button item.focus "Focus text" icon=Focus -> FocusSelection
     "#);
 }
 
@@ -142,6 +148,9 @@ fn a_shape_has_kind_size_alignment_fill_and_border() {
         toggle [ ] shape.border.w4 "Set border width to 4px" text="4" -> SetProperty(StrokeWidth(4.0))
       controls
         swatches shape.border.color Soft/Fill: neutral purple blue cyan green yellow orange red
+    ---
+    button item.annotate "Annotate shape" icon=Annotate -> AnnotateSelection
+    button item.focus "Focus shape" icon=Focus -> FocusSelection
     "#);
 }
 
@@ -204,6 +213,9 @@ fn a_transparent_shape_shows_the_clear_swatch_and_a_borderless_one_disables_the_
         toggle [ ] shape.border.w4 "Set border width to 4px" text="4" disabled -> SetProperty(StrokeWidth(4.0))
       controls
         swatches shape.border.color Soft/Fill disabled: neutral purple blue cyan green yellow orange red
+    ---
+    button item.annotate "Annotate shape" icon=Annotate -> AnnotateSelection
+    button item.focus "Focus shape" icon=Focus -> FocusSelection
     "#);
 }
 
@@ -222,6 +234,9 @@ fn a_drawing_has_brush_width_and_color() {
     dropdown drawing.color "Set drawing color" shows color=1
       controls
         swatches drawing.color.swatches Soft/Ink: neutral purple blue cyan green yellow orange *red
+    ---
+    button item.annotate "Annotate drawing" icon=Annotate -> AnnotateSelection
+    button item.focus "Focus drawing" icon=Focus -> FocusSelection
     "#);
 }
 
@@ -234,5 +249,8 @@ fn a_group_has_its_color() {
     dropdown group.color "Set group color" shows hollow
       controls
         swatches group.color.swatches Vivid/Fill: neutral purple blue cyan green yellow orange red
+    ---
+    button item.annotate "Annotate group" icon=Annotate -> AnnotateSelection
+    button item.focus "Focus group" icon=Focus -> FocusSelection
     "#);
 }

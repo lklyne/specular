@@ -298,6 +298,17 @@ impl TestApp {
         self.act(Action::Select(items.collect()))
     }
 
+    /// Moves the pointer to `at` and presses and releases the right button
+    /// there.
+    pub fn right_click(&mut self, at: impl Into<Vec2>) -> &mut Self {
+        let at = at.into();
+        self.pointer_move(at).press_button(PointerButton::Right, at);
+        self.pointer(PointerEventKind::Up {
+            button: PointerButton::Right,
+            click_count: 1,
+        })
+    }
+
     /// Presses a button other than the left one at `at`.
     pub fn press_button(&mut self, button: PointerButton, at: impl Into<Vec2>) -> &mut Self {
         self.input.pointer = at.into();

@@ -5,8 +5,9 @@ use specular_core::{Camera, ImeEvent, Modifiers, PageElement, PixelRect, Pointer
 use specular_doc::{AnnotationId, Document, EntityId, ItemId, Rect};
 
 use crate::{
-    ApiCall, CanvasId, ClipboardContent, DroppedFile, Format, ImageKey, ImageNotice, NoteNotice,
-    OpenedSpace, PageGrab, Property, SidebarAction, Tool, ToolDefaultPatch, ToolDefaults,
+    ApiCall, ArrangeMode, CanvasId, ClipboardContent, DroppedFile, Format, ImageKey, ImageNotice,
+    NoteNotice, OpenedSpace, PageGrab, Property, SidebarAction, Tool, ToolDefaultPatch,
+    ToolDefaults,
 };
 
 /// One input to [`update`](crate::update). Window input arrives in logical
@@ -338,6 +339,12 @@ pub enum Action {
     Ungroup,
     /// Open a comment draft on the region the selected entities span.
     AnnotateSelection,
+    /// Lay the selected items out in a row, a column or a grid, keeping the
+    /// footprint they have and evening the spacing inside it. Does nothing
+    /// for fewer than two.
+    Arrange(ArrangeMode),
+    /// Zoom and pan to frame the selected items, as large as fits.
+    FocusSelection,
     /// Give a comment the focus, taking the selection away, or with `None`
     /// let go of the focus. An id that is not shown does nothing.
     FocusComment(Option<AnnotationId>),
@@ -389,6 +396,9 @@ pub enum CanvasAction {
         /// The new name.
         name: String,
     },
+    /// Start typing a new name for a canvas in its row of the sidebar. `None`
+    /// is the active canvas. Does nothing while the sidebar is hidden.
+    BeginRename(Option<CanvasId>),
     /// Copy a canvas into a new one beside it and show the copy. `None` is
     /// the active canvas.
     Duplicate(Option<CanvasId>),

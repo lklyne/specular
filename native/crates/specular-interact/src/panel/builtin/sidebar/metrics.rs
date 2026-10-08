@@ -59,11 +59,3 @@ pub(super) const INPUT_TOP: f32 = 3.0;
 pub(super) const INPUT_PAD: f32 = 2.0;
 pub(super) const INPUT_HEIGHT: f32 = 22.0;
 pub(super) const INPUT_RADIUS: f32 = 4.0;
-
-/// The context menu: `min-w-40 p-1 border`, items `px-2.5 py-1.5` in
-/// `rounded-[7px]`.
-pub(super) const MENU_WIDTH: f32 = 160.0;
-pub(super) const MENU_ITEM: f32 = 28.0;
-pub(super) const MENU_INSET: f32 = 5.0;
-pub(super) const MENU_PAD: f32 = 10.0;
-pub(super) const MENU_RADIUS: f32 = 7.0;

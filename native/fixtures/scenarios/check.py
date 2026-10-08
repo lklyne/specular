@@ -175,6 +175,27 @@ expect(l, SINK, saved(l, "00-start.canvas"))
 # Canvases added, renamed and deleted, folds, rows that select and reveal,
 # and a zoom to fit are all views: the kitchen sink is as it was.
 expect(l, SINK, saved(l, "99-end.canvas"))
+m = "m-context-menu-and-arrange"
+if m in RAN:
+    nodes = lambda c: {n["id"]: n for n in c["nodes"]}
+    start = saved(m, "00-start.canvas")
+    duplicated, row, column = (saved(m, f) for f in ["02-duplicated.canvas", "08-arranged-row.canvas", "10-arranged-column.canvas"])
+    bold = nodes(saved(m, "16-bold.canvas"))["sticky-list"]["text"]
+    at = lambda c, id: (nodes(c)[id]["x"], nodes(c)[id]["y"])
+    checks = {
+        # The sticky under the pointer was selected and copied by the menu.
+        "the menu's duplicate adds one sticky": len(duplicated["nodes"]) == len(start["nodes"]) + 1,
+        # Evened gaps across the row's footprint, tops lined up.
+        "a row evens the gaps": [at(row, i) for i in ("shape-rectangle", "shape-ellipse", "shape-pill")] == [(0, 1300), (600, 1300), (1200, 1300)],
+        "a column lines the left edges up": [at(column, i) for i in ("shape-rectangle", "shape-rounded", "shape-ellipse")] == [(0, 1300), (0, 1520), (0, 1740)],
+        "a press on the bold button wraps the selected text": bold.startswith("**") and bold.endswith("**"),
+    }
+    for name, held in checks.items():
+        print(f"{'ok  ' if held else 'FAIL'} {m}: {name}")
+        if not held:
+            failures.append(f"{m}: {name}")
+    for undone in ["03-duplicate-undone", "09-row-undone", "11-column-undone", "17-bold-undone"]:
+        expect(m, SINK, saved(m, f"{undone}.canvas"))
 f1 = "f1-reload-own-save"
 expect(f"{a}+{f1}", saved(a, "08-arranged.canvas"), saved(f1, "01-reloaded.canvas"))
 f2 = "f2-electron-file-one-change"

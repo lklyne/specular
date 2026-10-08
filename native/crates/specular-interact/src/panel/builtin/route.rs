@@ -4,7 +4,7 @@
 use glam::Vec2;
 use specular_core::{PointerButton, PointerEventKind};
 
-use super::super::ControlId;
+use super::super::{ControlId, MenuTarget};
 use super::node::{Run, Surface};
 use super::{ContextMenu, PanelHit, layout, sidebar};
 use crate::focus::set_pointer_page;
@@ -58,7 +58,8 @@ pub(crate) fn swallows_scroll(app: &App) -> bool {
 
 /// Escape with a dropdown open closes it and does nothing else.
 pub(crate) fn cancel(app: &mut App) -> bool {
-    app.session.panel.open.take().is_some()
+    let ui = &mut app.session.panel;
+    ui.menu.take().is_some() | ui.open.take().is_some()
 }
 
 /// Forgets the open dropdown, the hover and the press when the control they
@@ -74,14 +75,8 @@ pub(crate) fn tidy(app: &mut App) {
             edit::follow_field_caret(app);
         }
     }
-    let sidebar_shown = app.session.sidebar.shown();
-    let menu_gone = (app.session.panel.menu.as_ref()).is_some_and(|open| {
-        !sidebar_shown
-            || !crate::sidebar(app)
-                .canvases
-                .iter()
-                .any(|row| row.id == open.canvas)
-    });
+    let menu_gone = (app.session.panel.menu.as_ref())
+        .is_some_and(|open| crate::panel::context_menu(app, &open.target, open.at).is_none());
     if menu_gone {
         app.session.panel.menu = None;
     }
@@ -94,6 +89,12 @@ pub(crate) fn tidy(app: &mut App) {
     let mut listed = toolbar.entries();
     if let Some(popup) = &popup {
         listed.extend(popup.entries());
+    }
+    // A hovered or pressed row of the context menu is shown while it is open.
+    let menu = (app.session.panel.menu.as_ref())
+        .and_then(|open| crate::panel::context_menu(app, &open.target, open.at));
+    if let Some(menu) = &menu {
+        listed.extend(menu.entries());
     }
     let shown = listed;
     // The sidebar's rows come and go with the canvas; one that has gone
@@ -215,7 +216,7 @@ fn on_down(
     let canvas = hit.control.as_ref().and_then(|id| canvas_of(app, id));
     if let (PointerButton::Right, Some(canvas)) = (button, &canvas) {
         app.session.panel.menu = Some(ContextMenu {
-            canvas: canvas.id.clone(),
+            target: MenuTarget::Canvas(canvas.id.clone()),
             at: input.screen,
         });
         return true;
@@ -246,7 +247,7 @@ fn on_up(app: &mut App, input: &PointerInput, effects: &mut Vec<Effect>) -> bool
     };
     app.session.pointer = Some(input.screen);
     let layout = layout(app);
-    app.session.panel.menu = None;
+    let menu = app.session.panel.menu.take();
     let released_on = layout.hit(input.screen).and_then(|hit| hit.control);
     if released_on.as_ref() != Some(&pressed) {
         return true;
@@ -260,12 +261,15 @@ fn on_up(app: &mut App, input: &PointerInput, effects: &mut Vec<Effect>) -> bool
         (true, Some(Run::Toggle)) => toggle(app, pressed, in_toolbar, effects),
         (true, Some(Run::Act { action, closes })) => {
             let action = sidebar::picked(app, &pressed, action, input.modifiers);
+            // A paste lands where the menu was opened, not where its item is.
+            if let (Action::Paste, Some(menu)) = (&action, &menu) {
+                app.session.pointer = Some(menu.at);
+            }
             run_action(app, action, effects);
             if closes {
                 app.session.panel.open = None;
             }
         }
-        (true, Some(Run::Edit(field))) => edit::begin_field(app, &field, effects),
         (false, _) | (true, None) => {}
     }
     true

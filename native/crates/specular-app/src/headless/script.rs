@@ -17,7 +17,7 @@ use std::path::PathBuf;
 use anyhow::{Context as _, bail};
 use glam::Vec2;
 use specular_core::{Camera, Modifiers};
-use specular_interact::{Action, Key, Tool};
+use specular_interact::{Action, ArrangeMode, Key, Tool};
 
 /// Where the camera is put.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -260,6 +260,10 @@ fn tool_named(name: &str) -> anyhow::Result<Tool> {
 fn action_named(name: &str) -> anyhow::Result<Action> {
     Ok(match name {
         "annotate-selection" => Action::AnnotateSelection,
+        "arrange-row" => Action::Arrange(ArrangeMode::Row),
+        "arrange-column" => Action::Arrange(ArrangeMode::Column),
+        "arrange-grid" => Action::Arrange(ArrangeMode::Grid),
+        "focus-selection" => Action::FocusSelection,
         "resolve-comment" => Action::ResolveComment(None),
         "page-back" => Action::PageBack,
         "page-forward" => Action::PageForward,
@@ -319,6 +323,16 @@ mod tests {
             [
                 Step::Act(Action::AnnotateSelection),
                 Step::Act(Action::ResolveComment(None))
+            ]
+        );
+        assert_eq!(
+            parse("act arrange-row\nact arrange-column\nact arrange-grid\nact focus-selection")
+                .unwrap(),
+            [
+                Step::Act(Action::Arrange(ArrangeMode::Row)),
+                Step::Act(Action::Arrange(ArrangeMode::Column)),
+                Step::Act(Action::Arrange(ArrangeMode::Grid)),
+                Step::Act(Action::FocusSelection)
             ]
         );
         assert!(parse("act nonsense").is_err());

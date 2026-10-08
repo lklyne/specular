@@ -3,6 +3,7 @@
 //! The tool's popup wins over the selection's (ADR 0008 §2). A selection of
 //! one kind gets that kind's popup, acting on all of it (§4).
 
+mod actions;
 mod drawing;
 mod edge;
 mod file;
@@ -37,7 +38,7 @@ enum Subject<'a> {
     /// Entities of one kind are the whole selection.
     Entities(Family, Vec<&'a Entity>),
     /// The selection spans kinds.
-    Mixed,
+    Mixed(Vec<&'a Entity>),
 }
 
 /// The kinds of entity, one popup each.
@@ -115,7 +116,13 @@ fn subject(app: &App) -> Subject<'_> {
                 })
                 .collect();
             let Some(entities) = entities else {
-                return Subject::Mixed;
+                let entities = (items.iter())
+                    .filter_map(|item| match item {
+                        ItemId::Entity(id) => app.document.entity(id),
+                        ItemId::Edge(_) => None,
+                    })
+                    .collect();
+                return Subject::Mixed(entities);
             };
             let Some(first) = entities.first().map(|entity| family(&entity.kind)) else {
                 return Subject::Nothing;
@@ -123,7 +130,7 @@ fn subject(app: &App) -> Subject<'_> {
             if entities.iter().all(|entity| family(&entity.kind) == first) {
                 Subject::Entities(first, entities)
             } else {
-                Subject::Mixed
+                Subject::Mixed(entities)
             }
         }
     }
@@ -140,13 +147,26 @@ pub fn popup_for(app: &App) -> Option<PopupModel> {
             Family::Shape => Some(shape::popup(app, &entities)),
             Family::Drawing => Some(drawing::popup(app, &entities)),
             Family::Group => Some(group::popup(app, &entities)),
-            Family::File => file::popup(app, &entities),
+            Family::File => Some(file::popup(app, &entities)),
             Family::Page => Some(page::popup(app, &entities)),
         },
-        // A mixed selection's popup is arranging in a row, a column or a grid,
-        // annotating and focusing. None of them exists here yet.
-        Subject::Nothing | Subject::Busy | Subject::Mixed => None,
+        Subject::Mixed(entities) => mixed(&entities),
+        Subject::Nothing | Subject::Busy => None,
     }
+}
+
+/// The popup of a selection that spans kinds (`MultiSelectPopup.tsx`): what
+/// every kind shares, arranging, annotating and focusing. One item alone has
+/// nothing to arrange with, and an edge with it nothing to annotate.
+fn mixed(entities: &[&Entity]) -> Option<PopupModel> {
+    if entities.len() < 2 {
+        return None;
+    }
+    let noun = format!("{} items", entities.len());
+    Some(PopupModel {
+        anchor: over(entities, Align::Center),
+        controls: actions::Actions::all(&noun, entities.len()).controls(),
+    })
 }
 
 /// An anchor over the union of `entities`.
@@ -175,7 +195,7 @@ fn over_titled(entities: &[&Entity], align: Align) -> PopupAnchor {
             align,
             gap: TITLE_CLEARANCE + TITLE_LINE + TITLE_GAP,
         },
-        anchor @ PopupAnchor::Toolbar { .. } => anchor,
+        anchor @ (PopupAnchor::Toolbar { .. } | PopupAnchor::Point(_)) => anchor,
     }
 }
 

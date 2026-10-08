@@ -117,7 +117,7 @@ impl Lists<'_, '_> {
             rect,
             radius: CONTROL_RADIUS,
             chrome,
-            state: self.ctx.state(&option.id, true, option.selected),
+            state: self.ctx.state(&option.id, option.enabled, option.selected),
             parts: Vec::new(),
             run: Some(Run::Act {
                 action: option.action.clone(),
@@ -348,6 +348,14 @@ pub(super) struct Body {
     /// The size of the sections, without a frame around them.
     pub(super) size: Vec2,
     style: ListStyle,
+}
+
+impl Body {
+    /// Whether the choices are a list of words marked with checks, which is
+    /// drawn as a menu rather than on the surface the popups share.
+    pub(super) fn is_menu(&self) -> bool {
+        self.style == ListStyle::Menu
+    }
 }
 
 /// `content` stacked in a column, set apart by lines.

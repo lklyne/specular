@@ -64,6 +64,23 @@ impl TextEdit {
     }
 }
 
+impl TextEdit {
+    /// Whether the caret, or the selection, is in text `format` applies to:
+    /// what a formatting button shows as on.
+    pub(crate) fn is_on(&self, format: Format) -> bool {
+        match format {
+            Format::Bold => format::wrapped(self, Wrap::Bold),
+            Format::Italic => format::wrapped(self, Wrap::Italic),
+            Format::Code => format::wrapped(self, Wrap::Code),
+            Format::Strike => format::wrapped(self, Wrap::Strike),
+            Format::BulletList => format::in_list(self, ListKind::Bullet),
+            Format::NumberedList => format::in_list(self, ListKind::Numbered),
+            Format::TaskList => format::in_list(self, ListKind::Task),
+            Format::Heading(level) => format::heading_level(self) == Some(level),
+        }
+    }
+}
+
 /// Toggles `format` on the selection of the text being edited.
 pub(crate) fn run(app: &mut App, format: Format) {
     let Some(edit) = &mut app.session.editing else {

@@ -123,6 +123,38 @@ fn the_page_tool_popup_is_a_list_of_presets() {
 }
 
 #[test]
+fn formatting_buttons_show_on_where_the_caret_is_in_bold_text() {
+    let mut app = TestApp::with_entities([sticky(
+        "t",
+        Rect::new(500.0, 300.0, 200.0, 200.0),
+        "a **bold** word",
+    )]);
+    app.viewport((1200.0, 800.0)).with_panels();
+    app.double_click((550.0, 350.0))
+        .chord(CMD, Key::ArrowUp)
+        .key(Key::ArrowRight)
+        .key(Key::ArrowRight)
+        .key(Key::ArrowRight)
+        .key(Key::ArrowRight);
+    assert_snapshot!("formatting_on", app.panel_scene_snapshot());
+}
+
+#[test]
+fn the_context_menu_of_a_page_has_a_disabled_row_and_keys() {
+    let mut app = TestApp::with_entities([page("p", Rect::new(300.0, 200.0, 375.0, 400.0))]);
+    app.viewport((1200.0, 800.0)).with_panels();
+    app.right_click((400.0, 400.0)).hover_control("menu.reload");
+    assert_snapshot!("page_menu", app.panel_scene_snapshot());
+}
+
+#[test]
+fn the_context_menu_of_empty_canvas_is_drawn_as_a_menu_of_words() {
+    let mut app = app();
+    app.right_click((100.0, 600.0));
+    assert_snapshot!("empty_menu", app.panel_scene_snapshot());
+}
+
+#[test]
 fn the_panels_are_not_in_the_scene_view_builds() {
     let mut with = app();
     with.select(&["t"]).click_control("text.color");

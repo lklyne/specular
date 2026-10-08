@@ -63,6 +63,8 @@ pub enum Property {
     Brush(BrushType),
     /// An edge's line style.
     LineStyle(LineStyle),
+    /// An edge's label. Empty takes the label off.
+    Label(String),
     /// The endpoint shape at an edge's start.
     FromEnd(EdgeEnd),
     /// The endpoint shape at an edge's end.

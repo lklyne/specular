@@ -45,6 +45,8 @@ pub const FIELD_HEIGHT: f32 = 26.0;
 pub(super) const FIELD_PAD: f32 = 8.0;
 pub(super) const FIELD_WIDE: f32 = 280.0;
 pub(super) const FIELD_SHORT: f32 = 56.0;
+/// An edge's label: `w-28`.
+pub(super) const FIELD_MEDIUM: f32 = 112.0;
 /// The size of a field's text.
 pub const FIELD_TEXT: f32 = 12.0;
 /// The height of a field's line of text.

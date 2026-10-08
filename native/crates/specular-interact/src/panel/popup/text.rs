@@ -2,8 +2,9 @@
 
 use specular_doc::{Entity, Kind, TextStyle};
 
-use super::super::build::{button, color_dropdown, font_dropdown, groups, size_dropdown};
+use super::super::build::{color_dropdown, font_dropdown, groups, size_dropdown, toggle};
 use super::super::{Align, Control, ControlId, Face, Icon, PaintRole, Palette, PopupModel};
+use super::actions::Actions;
 use crate::property::read;
 use crate::{Action, Format, Property};
 
@@ -51,7 +52,8 @@ pub(super) fn popup(app: &crate::App, entities: &[&Entity]) -> PopupModel {
             None,
             |color| Action::SetProperty(Property::Color(color)),
         )],
-        formats(app),
+        formats(app, false),
+        Actions::all(&noun, entities.len()).controls(),
     ]);
     PopupModel {
         anchor: super::over(entities, Align::Center),
@@ -59,12 +61,11 @@ pub(super) fn popup(app: &crate::App, entities: &[&Entity]) -> PopupModel {
     }
 }
 
-/// The formatting buttons of the text being edited: the ones the Electron
-/// popup has, for the formats that text takes. Outside an edit there are none.
-pub(super) fn formats(app: &crate::App) -> Vec<Control> {
-    let Some(edit) = &app.session.editing else {
-        return Vec::new();
-    };
+/// The formatting buttons: the ones the Electron popup has, for the formats
+/// the text being edited takes, each on where the caret is in text it
+/// applies to. With no edit there are none, or with `idle` the same buttons
+/// that cannot be pressed, so a Document's popup keeps its shape.
+pub(super) fn formats(app: &crate::App, idle: bool) -> Vec<Control> {
     let all = [
         (Format::Bold, "bold", "Bold", Icon::Bold),
         (
@@ -80,15 +81,22 @@ pub(super) fn formats(app: &crate::App) -> Vec<Control> {
             Icon::BulletList,
         ),
     ];
+    let edit = app.session.editing.as_ref();
+    if edit.is_none() && !idle {
+        return Vec::new();
+    }
     (all.into_iter())
-        .filter(|(format, ..)| edit.takes(*format))
+        .filter(|(format, ..)| edit.is_none_or(|edit| edit.takes(*format)))
         .map(|(format, name, label, icon)| {
-            button(
+            let mut format_toggle = toggle(
                 ControlId::new("format").child(name),
                 label,
                 Face::icon(icon),
+                edit.is_some_and(|edit| edit.is_on(format)),
                 Action::Format(format),
-            )
+            );
+            format_toggle.enabled = edit.is_some();
+            Control::Toggle(format_toggle)
         })
         .collect()
 }

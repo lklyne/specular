@@ -1,6 +1,7 @@
 //! The two models themselves: the toolbar, and a popup with where it
 //! belongs. Their controls are in [`model`](super::model).
 
+use glam::Vec2;
 use specular_doc::{Color, Rect};
 
 use super::model::{Control, Dropdown, Entries, Label};
@@ -124,6 +125,9 @@ pub enum PopupAnchor {
         /// The space between the region and the popup, in screen pixels.
         gap: f32,
     },
+    /// At a point of the viewport, in screen pixels: a context menu, which
+    /// opens where the pointer was.
+    Point(Vec2),
 }
 
 /// The popup of the tool in hand or of the selection.

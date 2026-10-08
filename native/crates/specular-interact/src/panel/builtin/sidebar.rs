@@ -4,7 +4,6 @@
 //! `left-sidebar/App.tsx` is the spec. The frame and the list are two
 //! panels because the list's box is the clip its nodes are drawn through.
 
-mod menu;
 mod metrics;
 mod rows;
 
@@ -12,7 +11,6 @@ use glam::Vec2;
 use specular_core::Modifiers;
 use specular_doc::{ItemId, TextFont};
 
-pub(super) use self::menu::layout as context_menu;
 use self::metrics::{CONTENT, HEAD, ROW, SCROLLBAR, THUMB_MIN};
 use super::Ctx;
 use super::metrics::TOOLBAR_HEIGHT;

@@ -27,6 +27,7 @@ have been looked at.
 | `e-clipboard` | Text between stickies, a cut, a copied entity, a pasted URL, pasted text with nothing selected. |
 | `k-page-chrome` | The page popup: a page placed at the preset the page tool was set to, an address typed, entered, scrolled and abandoned, a custom width and height typed into the size list, undone. |
 | `l-sidebar` | The kitchen sink with the left sidebar: shown from the toolbar, canvases added, renamed in place (Enter, Escape) and deleted from the menu, sections folded, the list scrolled and a group opened, rows that bring a page and a comment into view, zoom to fit beside the sidebar and without it. |
+| `m-context-menu-and-arrange` | The kitchen sink with the right-click menu on a sticky (a duplicate chosen and undone), on empty canvas, on a page, in the corner and beside the sidebar, the multi-select and mixed popups, a row and a column arranged and undone, and bold put on a sticky mid-edit with the popup's button. |
 | `f1-reload-own-save` | The canvas `a-first-session` saved, reopened and saved untouched. Run `a-first-session` first. |
 | `f2-electron-file-one-change` | The starter space's `Welcome.canvas`, which Electron wrote, with one shape nudged. |
 | `f3-fixture-one-change` | The integration suite's `rich-workspace.canvas` with one shape nudged. |

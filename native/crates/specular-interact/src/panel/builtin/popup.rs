@@ -34,6 +34,9 @@ pub(super) fn layout(ctx: &Ctx<'_>, model: &PopupModel, viewport: Vec2) -> Optio
                 TOOLBAR_HEIGHT + gap,
             )
         }
+        // A point is where a context menu opens, which is laid out by
+        // `context`.
+        PopupAnchor::Point(_) => return None,
         PopupAnchor::Canvas {
             bounds,
             placement,

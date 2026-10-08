@@ -21,7 +21,7 @@ use std::sync::Arc;
 use anyhow::Context as _;
 use glam::Vec2;
 use specular_compositor::{Compositor, DotGrid, FrameView, GpuContext};
-use specular_core::{PageId, PageSource, PointerButton};
+use specular_core::{PageId, PageSource};
 use specular_doc::{Document, EntityId};
 use specular_interact::{Action, ControlId, Event, ImageKey};
 use specular_testkit::TestApp;
@@ -210,11 +210,7 @@ impl Headless {
             Step::Click(at) => self.drive(|app| app.pointer_move(at).click(at)),
             Step::DoubleClick(at) => self.drive(|app| app.pointer_move(at).double_click(at)),
             Step::TripleClick(at) => self.drive(|app| app.pointer_move(at).triple_click(at)),
-            Step::RightClick(at) => self.drive(|app| {
-                app.pointer_move(at)
-                    .press_button(PointerButton::Right, at)
-                    .release()
-            }),
+            Step::RightClick(at) => self.drive(|app| app.right_click(at)),
             Step::Drag(from, to) => self.drive(|app| {
                 app.pointer_move(from)
                     .press(from)

@@ -18,6 +18,8 @@ pub enum FieldWidth {
     Wide,
     /// Room for a few characters, such as a number.
     Short,
+    /// Room for a word or two, such as a label.
+    Medium,
 }
 
 /// What a field's text means once a person has entered it.
@@ -29,6 +31,8 @@ pub enum FieldSubmit {
     ViewportWidth,
     /// A custom page height, in pixels.
     ViewportHeight,
+    /// An edge's label. Empty takes it off.
+    EdgeLabel,
     /// A canvas's name, to rename it to.
     CanvasName(CanvasId),
 }
@@ -46,6 +50,7 @@ impl FieldSubmit {
             Self::ViewportHeight => {
                 size(text).map(|px| Action::SetProperty(Property::ViewportHeight(px)))
             }
+            Self::EdgeLabel => Some(Action::SetProperty(Property::Label(text.trim().to_owned()))),
             Self::CanvasName(canvas) => {
                 let name = text.trim();
                 (!name.is_empty()).then(|| {
@@ -141,6 +146,18 @@ mod tests {
         for text in ["", "wide", "0", "-4", "10001", "NaN", "inf"] {
             assert_eq!(width(text), None, "{text:?}");
         }
+    }
+
+    #[test]
+    fn an_edge_label_is_trimmed_and_an_empty_one_takes_the_label_off() {
+        assert_eq!(
+            FieldSubmit::EdgeLabel.action(" depends "),
+            Some(Action::SetProperty(Property::Label("depends".to_owned())))
+        );
+        assert_eq!(
+            FieldSubmit::EdgeLabel.action("  "),
+            Some(Action::SetProperty(Property::Label(String::new())))
+        );
     }
 
     #[test]

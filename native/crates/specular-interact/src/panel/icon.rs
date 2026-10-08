@@ -71,6 +71,16 @@ pub enum Icon {
     Strikethrough,
     /// A bullet list. Lucide `List`.
     BulletList,
+    /// Arrange in a row. Lucide `Columns2`: side-by-side bars read as a row.
+    ArrangeRow,
+    /// Arrange in a column. Lucide `Rows2`.
+    ArrangeColumn,
+    /// Arrange in a grid. Lucide `Grid2x2`.
+    ArrangeGrid,
+    /// Annotate. Lucide `MessageCircle`.
+    Annotate,
+    /// Focus. Lucide `Maximize2`.
+    Focus,
     /// A device frame. Lucide `Smartphone`.
     Device,
     /// Rotate the viewport. `RotateIcon` in `shared/CustomIcons.tsx`.

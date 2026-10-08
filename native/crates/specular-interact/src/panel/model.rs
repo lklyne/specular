@@ -182,6 +182,8 @@ pub struct DropdownOption {
     pub chord: Option<Chord>,
     /// Whether it is the current value.
     pub selected: bool,
+    /// Whether it can be chosen now.
+    pub enabled: bool,
     /// What choosing it does.
     pub action: Action,
 }

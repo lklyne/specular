@@ -1,0 +1,73 @@
+# canvas: ../kitchen-sink.canvas
+# The right-click menu and the arrange buttons on the kitchen sink: the menu
+# on a sticky, on empty canvas, on a page and beside the window's edge, a
+# choice from it, the multi-select popup, a row and a column arranged and
+# undone, and bold put on a sticky while it is edited, which keeps the edit.
+camera -100,-400,1
+save 00-start.canvas
+
+# the menu on a sticky selects it, and a choice runs on it as one step
+right-click 200 250
+snapshot 01-menu-sticky.png
+control menu.duplicate
+snapshot 02-duplicated.png
+save 02-duplicated.canvas
+key cmd+z
+save 03-duplicate-undone.canvas
+
+# empty canvas: paste and select all, and the menu stays inside the window
+right-click 1590 990
+snapshot 04-menu-corner.png
+key escape
+right-click 1400 700
+snapshot 05-menu-empty.png
+key escape
+
+# several selected: the menu keeps them, the popup arranges and annotates
+select shape-rectangle shape-ellipse shape-pill
+camera -100,-1100,1
+snapshot 06-multi-popup.png
+right-click 380 260
+snapshot 07-menu-multi.png
+key escape
+control item.arrange.row
+snapshot 08-arranged-row.png
+save 08-arranged-row.canvas
+key cmd+z
+save 09-row-undone.canvas
+select shape-rectangle shape-rounded shape-ellipse
+control item.arrange.column
+snapshot 10-arranged-column.png
+save 10-arranged-column.canvas
+key cmd+z
+save 11-column-undone.canvas
+
+# mixed kinds get a popup of their own
+select sticky-color-1 shape-rectangle
+camera -100,-400,1
+snapshot 12-mixed-popup.png
+key escape
+
+# a page: its history first, and the sidebar's width kept clear
+camera -2300,-1600,1
+right-click 300 300
+snapshot 13-menu-page.png
+key escape
+sidebar on
+right-click 250 700
+snapshot 14-menu-beside-sidebar.png
+key escape
+sidebar off
+
+# bold while editing: the button shows on where the caret is in bold text,
+# a press keeps the edit and the selection
+camera -500,-400,1
+double-click 900 420
+snapshot 15-editing.png
+key cmd+a
+control format.bold
+snapshot 16-bold-on.png
+key escape
+save 16-bold.canvas
+key cmd+z
+save 17-bold-undone.canvas

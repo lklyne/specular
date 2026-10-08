@@ -5,8 +5,8 @@ use specular_doc::{Edge, EdgeEnd, LineStyle};
 
 use super::super::build::{button, color_dropdown, groups, toggle};
 use super::super::{
-    Align, Control, ControlId, Dropdown, DropdownSection, Face, Icon, PaintRole, Palette,
-    Placement, PopupAnchor, PopupModel,
+    Align, Control, ControlId, Dropdown, DropdownSection, Face, Field, FieldSubmit, FieldWidth,
+    Icon, PaintRole, Palette, Placement, PopupAnchor, PopupModel,
 };
 use crate::property::read;
 use crate::{Action, App, Property};
@@ -79,6 +79,19 @@ fn arrowheads(app: &App) -> Vec<Control> {
     ]
 }
 
+/// The label to type, as `Label…` in the Electron popup.
+fn label(app: &App) -> Control {
+    Control::Field(Field {
+        id: ControlId::new("edge.label"),
+        label: "Edge label".into(),
+        caption: None,
+        value: read::edge_label(app).unwrap_or_default(),
+        placeholder: Some("Label\u{2026}".into()),
+        width: FieldWidth::Medium,
+        submit: FieldSubmit::EdgeLabel,
+    })
+}
+
 pub(super) fn popup(app: &App, edge: &Edge) -> Option<PopupModel> {
     let curve = app.edge_curve(&edge.id)?;
     let middle = app
@@ -98,6 +111,7 @@ pub(super) fn popup(app: &App, edge: &Edge) -> Option<PopupModel> {
         )],
         vec![stroke_dropdown(app)],
         arrowheads(app),
+        vec![label(app)],
         vec![button(
             ControlId::new("edge.delete"),
             "Delete edge",

@@ -65,3 +65,22 @@ pub(super) const SMARTPHONE: Glyph = lucide(&[
     Layer::stroke(Shape::Rect(5.0, 2.0, 14.0, 20.0, 2.0), Paint::Current, 2.0),
     line("M12 18h.01"),
 ]);
+/// `columns-2`.
+pub(super) const COLUMNS_2: Glyph = lucide(&[
+    Layer::stroke(Shape::Rect(3.0, 3.0, 18.0, 18.0, 2.0), Paint::Current, 2.0),
+    line("M12 3v18"),
+]);
+/// `rows-2`.
+pub(super) const ROWS_2: Glyph = lucide(&[
+    Layer::stroke(Shape::Rect(3.0, 3.0, 18.0, 18.0, 2.0), Paint::Current, 2.0),
+    line("M3 12h18"),
+]);
+/// `grid-2x2`.
+pub(super) const GRID_2X2: Glyph = lucide(&[
+    line("M12 3v18M3 12h18"),
+    Layer::stroke(Shape::Rect(3.0, 3.0, 18.0, 18.0, 2.0), Paint::Current, 2.0),
+]);
+/// `message-circle`.
+pub(super) const MESSAGE_CIRCLE: Glyph = lucide(&[line("M7.9 20A9 9 0 1 0 4 16.1L2 22Z")]);
+/// `maximize-2`.
+pub(super) const MAXIMIZE_2: Glyph = lucide(&[line("M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7")]);

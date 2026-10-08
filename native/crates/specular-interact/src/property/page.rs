@@ -50,6 +50,7 @@ pub(super) fn set(property: &Property, page: &mut Page, rect: &mut Rect) -> bool
         }
         Property::ColorScheme(scheme) => page.color_scheme = *scheme,
         Property::Color(_)
+        | Property::Label(_)
         | Property::BorderColor(_)
         | Property::TextSize(_)
         | Property::TextFont(_)

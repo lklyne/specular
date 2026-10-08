@@ -42,52 +42,66 @@ screen text "100%" 744,8 box-h=28 12/16 #52525c middle
 screen path M780.5,20.75 L783,23.25 L785.5,20.75 stroke=#45403c66/0.83
 screen path M24.92,16.75 L33.08,16.75 C33.73,16.75 34.25,17.27 34.25,17.92 L34.25,26.08 C34.25,26.73 33.73,27.25 33.08,27.25 L24.92,27.25 C24.27,27.25 23.75,26.73 23.75,26.08 L23.75,17.92 C23.75,17.27 24.27,16.75 24.92,16.75 Z stroke=#52525c/1.17 opacity=0.5
 screen path M27.25,16.75 L27.25,27.25 stroke=#52525c/1.17 opacity=0.5
-screen shadow 705,256 391x34 r=10 blur=16 fill=#c7c1bc80
-screen shadow 711,268 379x22 r=4 blur=8 fill=#0000002e
-screen rect 705,252 391x34 r=10 fill=#fafaf9 stroke=#cac6c3/1/inside
-screen path M716.86,261.86 L731.14,261.86 L731.14,276.14 L716.86,276.14 Z stroke=#30303094/1.14
-screen path M739,267.5 L742,270.5 L745,267.5 stroke=#30303094/1
-screen rect 762,261 1x16 fill=#18181b33
-screen text "Small" 777,257 box-h=24 12/16 #30303094 middle
-screen path M834,267.5 L837,270.5 L840,267.5 stroke=#30303094/1
-screen rect 857,261 1x16 fill=#18181b33
-screen path M884.25,264.92 L873.75,264.92 M881.92,269 L876.08,269 M883.08,273.08 L874.92,273.08 stroke=#30303094/1.17
-screen path M893,267.5 L896,270.5 L899,267.5 stroke=#30303094/1
-screen rect 914,261 1x16 fill=#18181b33
-screen ellipse 927,261 16x16 fill=#fafaf9 stroke=#cac6c3/1/inside
-screen path M950,267.5 L953,270.5 L956,267.5 stroke=#30303094/1
-screen rect 973,261 1x16 fill=#18181b33
-screen rect 982,257 40x24 r=6 fill=#e7e5e4
-screen path M1000.25,264.42 C1000.53,264.42 1000.75,264.64 1000.75,264.92 C1000.75,265.19 1000.53,265.42 1000.25,265.42 L989.75,265.42 C989.47,265.42 989.25,265.19 989.25,264.92 C989.25,264.64 989.47,264.42 989.75,264.42 L1000.25,264.42 Z fill=#303030
-screen path M990,267 L1000,267 C1000.28,267 1000.5,267.22 1000.5,267.5 L1000.5,268.5 C1000.5,268.78 1000.28,269 1000,269 L990,269 C989.72,269 989.5,268.78 989.5,268.5 L989.5,267.5 C989.5,267.22 989.72,267 990,267 Z stroke=#303030/1
-screen path M990,271 L1000,271 C1000.28,271 1000.5,271.22 1000.5,271.5 L1000.5,273.5 C1000.5,273.78 1000.28,274 1000,274 L990,274 C989.72,274 989.5,273.78 989.5,273.5 L989.5,271.5 C989.5,271.22 989.72,271 990,271 Z stroke=#303030/1
-screen path M1009,267.5 L1012,270.5 L1015,267.5 stroke=#303030/1
-screen rect 1030,261 1x16 fill=#18181b33
-screen path M1048.61,273.67 C1050.91,274.85 1053.73,274.18 1055.25,272.09 C1056.77,270 1056.54,267.11 1054.72,265.28 C1052.89,263.46 1050,263.23 1047.91,264.75 C1045.82,266.27 1045.15,269.09 1046.33,271.39 L1045.17,274.83 Z stroke=#30303094/1.17
-screen path M1080.75,263.75 L1084.25,263.75 L1084.25,267.25 M1077.25,274.25 L1073.75,274.25 L1073.75,270.75 M1084.25,263.75 L1080.17,267.83 M1073.75,274.25 L1077.83,270.17 stroke=#30303094/1.17
-screen shadow 852,293 300x75 r=10 blur=16 fill=#c7c1bc80
-screen shadow 858,305 288x63 r=4 blur=8 fill=#0000002e
-screen rect 852,289 300x75 r=10 fill=#fafaf9 stroke=#cac6c3/1/inside
-screen path M858,306 L870,306 stroke=#30303094/2
-screen text "Solid" 875,294 box-h=24 12/16 #30303094 middle
-screen path M930.5,305 L931.5,305 C932.05,305 932.5,305.45 932.5,306 L932.5,306 C932.5,306.55 932.05,307 931.5,307 L930.5,307 C929.95,307 929.5,306.55 929.5,306 L929.5,306 C929.5,305.45 929.95,305 930.5,305 Z fill=#30303094
-screen path M935.5,305 L936.5,305 C937.05,305 937.5,305.45 937.5,306 L937.5,306 C937.5,306.55 937.05,307 936.5,307 L935.5,307 C934.95,307 934.5,306.55 934.5,306 L934.5,306 C934.5,305.45 934.95,305 935.5,305 Z fill=#30303094
-screen path M940.5,305 L941.5,305 C942.05,305 942.5,305.45 942.5,306 L942.5,306 C942.5,306.55 942.05,307 941.5,307 L940.5,307 C939.95,307 939.5,306.55 939.5,306 L939.5,306 C939.5,305.45 939.95,305 940.5,305 Z fill=#30303094
-screen text "Dashed" 947,294 box-h=24 12/16 #30303094 middle
-screen rect 1011,294 58x24 r=6 fill=#e7e5e4
-screen path M1018,300.17 L1018,300.17 C1021.22,300.17 1023.83,302.78 1023.83,306 L1023.83,306 C1023.83,309.22 1021.22,311.83 1018,311.83 L1018,311.83 C1014.78,311.83 1012.17,309.22 1012.17,306 L1012.17,306 C1012.17,302.78 1014.78,300.17 1018,300.17 Z stroke=#303030/1.17
-screen path M1013.88,301.88 L1022.12,310.12 stroke=#303030/1.17
-screen text "None" 1029,294 box-h=24 12/16 #303030 middle
-screen text "1" 1086,294 box-h=24 12/16 #30303094 centre middle opacity=0.3
-screen text "2" 1116,294 box-h=24 12/16 #30303094 centre middle opacity=0.3
-screen text "3" 1146,294 box-h=24 12/16 #30303094 centre middle opacity=0.3
-screen text "4" 1176,294 box-h=24 12/16 #30303094 centre middle opacity=0.3
-screen rect 857,326 290x1 fill=#e4e4e7
-screen ellipse 861,341 12x12 fill=#fdf8f5 stroke=#0000001f/1/inside opacity=0.3
-screen ellipse 899.57,341 12x12 fill=#c8b8d8 stroke=#0000001f/1/inside opacity=0.3
-screen ellipse 938.14,341 12x12 fill=#b0c4d8 stroke=#0000001f/1/inside opacity=0.3
-screen ellipse 976.71,341 12x12 fill=#b0d0d8 stroke=#0000001f/1/inside opacity=0.3
-screen ellipse 1015.29,341 12x12 fill=#b8d8c8 stroke=#0000001f/1/inside opacity=0.3
-screen ellipse 1053.86,341 12x12 fill=#ffe18e stroke=#0000001f/1/inside opacity=0.3
-screen ellipse 1092.43,341 12x12 fill=#e8ccb0 stroke=#0000001f/1/inside opacity=0.3
-screen ellipse 1131,341 12x12 fill=#e8b4b8 stroke=#0000001f/1/inside opacity=0.3
+screen shadow 165,140 645x36 r=10 blur=16 fill=#c7c1bc80
+screen shadow 171,152 633x24 r=4 blur=8 fill=#0000002e
+screen rect 165,136 645x36 r=10 fill=#fafaf9 stroke=#cac6c3/1/inside
+screen path M183.75,157.5 L180.25,154 L183.75,150.5 stroke=#30303094/1.17 opacity=0.3
+screen path M208.25,157.5 L211.75,154 L208.25,150.5 stroke=#30303094/1.17 opacity=0.3
+screen path M242.5,154 C242.5,156.49 240.49,158.5 238,158.5 C235.51,158.5 233.5,156.49 233.5,154 C233.5,151.51 235.51,149.5 238,149.5 C239.26,149.5 240.46,150 241.37,150.87 L242.5,152 M242.5,149.5 L242.5,152 L240,152 stroke=#30303094/1
+screen rect 258,146 1x16 fill=#18181b33
+screen rect 267,141 280x26 r=6 fill=#ffffff stroke=#d4d4d8/1/inside
+screen text "https://example.com/p" 276,142 box-h=24 12/16 #303030 middle clip=276,142 262x24
+screen rect 555,146 1x16 fill=#18181b33
+screen text "Custom" 572,142 box-h=24 12/16 #30303094 middle
+screen path M638.5,152.75 L641,155.25 L643.5,152.75 stroke=#30303094/0.83
+screen rect 662,146 1x16 fill=#18181b33
+screen path M680.08,148.17 L685.92,148.17 C686.56,148.17 687.08,148.69 687.08,149.33 L687.08,158.67 C687.08,159.31 686.56,159.83 685.92,159.83 L680.08,159.83 C679.44,159.83 678.92,159.31 678.92,158.67 L678.92,149.33 C678.92,148.69 679.44,148.17 680.08,148.17 Z stroke=#30303094/1.17
+screen path M683,157.5 L683.01,157.5 stroke=#30303094/1.17
+screen path 22 commands in 705,147.44 7x7.06 fill=#30303094
+screen path 22 commands in 710,152.5 7x7.06 fill=#30303094
+screen rect 731,146 1x16 fill=#18181b33
+screen path 76 commands in 746.35,147.82 11.83x11.83 fill=#45403c
+screen path 20 commands in 747.06,152.69 6.25x6.25 fill=#e8e8e8
+screen rect 772,146 1x16 fill=#18181b33
+screen path M794.75,148.75 L798.25,148.75 L798.25,152.25 M791.25,159.25 L787.75,159.25 L787.75,155.75 M798.25,148.75 L794.17,152.83 M787.75,159.25 L791.83,155.17 stroke=#30303094/1.17
+screen shadow 400,404 170x358 r=10 blur=16 fill=#c7c1bc80
+screen shadow 406,416 158x346 r=4 blur=8 fill=#0000002e
+screen rect 400,400 170x358 r=10 fill=#fafaf9 stroke=#cac6c3/1/inside
+screen text "Back" 413,405 box-h=24 12/16 w500 #30303094 middle opacity=0.3
+screen text "Forward" 413,429 box-h=24 12/16 w500 #30303094 middle opacity=0.3
+screen rect 405,453 160x24 r=6 fill=#f5f5f4
+screen text "Reload" 413,453 box-h=24 12/16 w500 #303030 middle
+screen rect 525,457 32x16 r=4 fill=#e7e5e4
+screen text "⌘R" 541,457 box-h=16 12/16 #57534d centre middle
+screen rect 405,481 160x1 fill=#18181b33
+screen text "Cut" 413,486 box-h=24 12/16 w500 #30303094 middle
+screen rect 525,490 32x16 r=4 fill=#e7e5e4
+screen text "⌘X" 541,490 box-h=16 12/16 #57534d centre middle
+screen text "Copy" 413,510 box-h=24 12/16 w500 #30303094 middle
+screen rect 525,514 32x16 r=4 fill=#e7e5e4
+screen text "⌘C" 541,514 box-h=16 12/16 #57534d centre middle
+screen text "Paste" 413,534 box-h=24 12/16 w500 #30303094 middle
+screen rect 525,538 32x16 r=4 fill=#e7e5e4
+screen text "⌘V" 541,538 box-h=16 12/16 #57534d centre middle
+screen text "Duplicate" 413,558 box-h=24 12/16 w500 #30303094 middle
+screen rect 525,562 32x16 r=4 fill=#e7e5e4
+screen text "⌘D" 541,562 box-h=16 12/16 #57534d centre middle
+screen rect 405,586 160x1 fill=#18181b33
+screen text "Bring forward" 413,591 box-h=24 12/16 w500 #30303094 middle
+screen rect 525,595 32x16 r=4 fill=#e7e5e4
+screen text "⌘]" 541,595 box-h=16 12/16 #57534d centre middle
+screen text "Send backward" 413,615 box-h=24 12/16 w500 #30303094 middle
+screen rect 525,619 32x16 r=4 fill=#e7e5e4
+screen text "⌘[" 541,619 box-h=16 12/16 #57534d centre middle
+screen text "Bring to front" 413,639 box-h=24 12/16 w500 #30303094 middle
+screen rect 515,643 42x16 r=4 fill=#e7e5e4
+screen text "⇧⌘]" 536,643 box-h=16 12/16 #57534d centre middle
+screen text "Send to back" 413,663 box-h=24 12/16 w500 #30303094 middle
+screen rect 515,667 42x16 r=4 fill=#e7e5e4
+screen text "⇧⌘[" 536,667 box-h=16 12/16 #57534d centre middle
+screen rect 405,691 160x1 fill=#18181b33
+screen text "Annotate selection" 413,696 box-h=24 12/16 w500 #30303094 middle
+screen rect 405,724 160x1 fill=#18181b33
+screen text "Delete" 413,729 box-h=24 12/16 w500 #30303094 middle
+screen rect 535,733 22x16 r=4 fill=#e7e5e4
+screen text "⌫" 546,733 box-h=16 12/16 #57534d centre middle

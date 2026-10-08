@@ -9,6 +9,7 @@ use super::super::{
     Align, Button, Control, ControlId, Dropdown, DropdownOption, DropdownSection, Face, Field,
     FieldSubmit, FieldWidth, Icon, OptionLayout, PopupModel,
 };
+use super::actions::Actions;
 use crate::property::read;
 use crate::{Action, App, Orientation, Property, binding_of};
 
@@ -53,6 +54,7 @@ pub(super) fn preset_sections(
                         trailing: Some(format!("{}\u{d7}{}", row.width, row.height).into()),
                         chord: None,
                         selected: selected == Some(index),
+                        enabled: true,
                         action: pick(index),
                     })
                 })
@@ -69,6 +71,7 @@ pub(super) fn preset_sections(
                 trailing: None,
                 chord: None,
                 selected,
+                enabled: true,
                 action,
             }],
         });
@@ -275,11 +278,21 @@ pub(super) fn popup(app: &App, entities: &[&Entity]) -> PopupModel {
             vec![size_dropdown(app, single)],
             vec![frame_toggle(app, "Device frame"), rotate(app)],
             vec![scheme(app)],
+            Actions {
+                annotate: false,
+                ..Actions::all("page", 1)
+            }
+            .controls(),
         ])
     } else {
         groups(vec![
             vec![size_dropdown(app, None)],
             vec![frame_toggle(app, "Toggle device frame for selected pages")],
+            Actions {
+                focus: false,
+                ..Actions::all(&format!("{} pages", entities.len()), entities.len())
+            }
+            .controls(),
         ])
     };
     let align = if single.is_some() {

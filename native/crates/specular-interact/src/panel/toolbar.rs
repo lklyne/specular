@@ -74,6 +74,7 @@ fn zoom(app: &App) -> Dropdown {
                 trailing: None,
                 chord: binding_of(&action).map(|binding| binding.chord),
                 selected: (percent - f32::from(level)).abs() < 0.5,
+                enabled: true,
                 action,
             }
         })

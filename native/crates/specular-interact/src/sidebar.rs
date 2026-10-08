@@ -296,3 +296,23 @@ fn opened(mut row: SidebarRow, section: SidebarSection, view: &SidebarView) -> S
         .collect();
     row
 }
+
+/// Starts typing a new name in the sidebar's row for `canvas`. With the
+/// sidebar hidden there is no row to type in.
+pub(crate) fn begin_rename(
+    app: &mut App,
+    canvas: &crate::CanvasId,
+    effects: &mut Vec<crate::Effect>,
+) {
+    if !app.session.sidebar.shown() {
+        return;
+    }
+    let field = crate::sidebar(app)
+        .canvases
+        .into_iter()
+        .find(|row| row.id == *canvas)
+        .map(|row| row.rename.id);
+    if let Some(field) = field {
+        crate::edit::begin_field(app, &field, effects);
+    }
+}

@@ -8,6 +8,7 @@ use super::super::{
     Align, Control, ControlId, Dropdown, DropdownOption, DropdownSection, Face, Icon, OptionLayout,
     PaintRole, Palette, PopupModel,
 };
+use super::actions::Actions;
 use crate::property::read;
 use crate::{Action, Property};
 
@@ -43,6 +44,7 @@ pub(super) fn kind_dropdown(
             trailing: None,
             chord: None,
             selected: selected == Some(kind),
+            enabled: true,
             action: set(kind),
         })
         .collect();
@@ -86,6 +88,7 @@ fn align_dropdown(app: &crate::App) -> Control {
             trailing: None,
             chord: None,
             selected: Some(align) == current,
+            enabled: true,
             action: Action::SetProperty(Property::TextAlign(align)),
         })
         .collect();
@@ -188,6 +191,7 @@ pub(super) fn popup(app: &crate::App, entities: &[&Entity]) -> PopupModel {
             |color| Action::SetProperty(Property::Color(color)),
         )],
         vec![border_dropdown(app)],
+        Actions::all(&noun, entities.len()).controls(),
     ]);
     PopupModel {
         anchor: super::over(entities, Align::Center),

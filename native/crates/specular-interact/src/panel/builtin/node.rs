@@ -323,8 +323,6 @@ pub(crate) enum Run {
         /// again.
         closes: bool,
     },
-    /// Starts editing the text field named so.
-    Edit(ControlId),
 }
 
 /// One rect of a panel: a control, or a line between controls.

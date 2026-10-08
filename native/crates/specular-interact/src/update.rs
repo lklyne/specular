@@ -15,7 +15,7 @@ use crate::{
     camera, comment, cursor, edit, gesture, groups, page_state, pages, pointer, property, reveal,
     space, verbs,
 };
-use crate::{clipboard, drop, select_all, zoom};
+use crate::{arrange, clipboard, drop, select_all, zoom};
 
 /// Applies `event` to `app` and returns what the shell must now do, in
 /// order. No I/O happens here.
@@ -210,16 +210,15 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
             verbs::nudge(app, DVec2::new(dx, dy), effects);
         }),
         Action::SetProperty(property) => property::set(app, &property, effects),
-        Action::Format(format) => {
-            if app.session.gesture.is_none() {
-                edit::format(app, format);
-            }
-        }
+        Action::Format(format) if app.session.gesture.is_none() => edit::format(app, format),
+        Action::Format(_) => {}
         Action::BringForward => stack(app, Move::Forward, effects),
         Action::SendBackward => stack(app, Move::Backward, effects),
         Action::BringToFront => stack(app, Move::ToFront, effects),
         Action::SendToBack => stack(app, Move::ToBack, effects),
         Action::AnnotateSelection => verb(app, effects, comment::annotate_selection),
+        Action::Arrange(mode) => verb(app, effects, |app, fx| arrange::run(app, mode, fx)),
+        Action::FocusSelection => verb(app, effects, |app, _| zoom::focus_selection(app)),
         Action::FocusComment(id) => verb(app, effects, |app, _| comment::focus(app, id.as_ref())),
         Action::ResolveComment(id) => verb(app, effects, |app, effects| {
             comment::resolve(app, id.as_ref(), effects);

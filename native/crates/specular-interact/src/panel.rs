@@ -11,6 +11,7 @@
 
 mod build;
 pub mod builtin;
+mod context;
 mod field;
 mod icon;
 mod id;
@@ -19,6 +20,7 @@ mod models;
 mod popup;
 mod toolbar;
 
+pub use context::{MenuTarget, context_menu};
 pub(crate) use field::field_named;
 pub use field::{Field, FieldSubmit, FieldWidth};
 pub use icon::Icon;

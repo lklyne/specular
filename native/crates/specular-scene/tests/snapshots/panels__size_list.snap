@@ -42,29 +42,32 @@ screen text "100%" 744,8 box-h=28 12/16 #52525c middle
 screen path M780.5,20.75 L783,23.25 L785.5,20.75 stroke=#45403c66/0.83
 screen path M24.92,16.75 L33.08,16.75 C33.73,16.75 34.25,17.27 34.25,17.92 L34.25,26.08 C34.25,26.73 33.73,27.25 33.08,27.25 L24.92,27.25 C24.27,27.25 23.75,26.73 23.75,26.08 L23.75,17.92 C23.75,17.27 24.27,16.75 24.92,16.75 Z stroke=#52525c/1.17 opacity=0.5
 screen path M27.25,16.75 L27.25,27.25 stroke=#52525c/1.17 opacity=0.5
-screen shadow 491,256 219x34 r=10 blur=16 fill=#c7c1bc80
-screen shadow 497,268 207x22 r=4 blur=8 fill=#0000002e
-screen rect 491,252 219x34 r=10 fill=#fafaf9 stroke=#cac6c3/1/inside
-screen rect 496,257 78x24 r=6 fill=#e7e5e4
-screen text "Small" 502,257 box-h=24 12/16 #303030 middle
-screen path M559,267.5 L562,270.5 L565,267.5 stroke=#303030/1
-screen text "Sans" 584,257 box-h=24 12/16 #30303094 middle
-screen path M631,267.5 L634,270.5 L637,267.5 stroke=#30303094/1
-screen rect 654,261 1x16 fill=#18181b33
-screen ellipse 667,261 16x16 fill=#fafaf9 stroke=#cac6c3/1/inside
-screen path M690,267.5 L693,270.5 L696,267.5 stroke=#30303094/1
-screen shadow 501,312 150x157 r=5 blur=25 fill=#0000001a
-screen shadow 502,301 148x155 r=4 blur=10 fill=#0000001a
-screen rect 496,287 160x167 r=10 fill=#ffffff stroke=#e4e4e7/1/inside
-screen text "Small" 509,292 box-h=24 12/16 #303030 middle
-screen path M641,301 L635.5,306.5 L633,304 stroke=#303030/1
-screen text "Medium" 509,316 box-h=24 12/16 #303030 middle
-screen rect 501,340 150x24 r=7 fill=#f4f4f5
-screen text "Large" 509,340 box-h=24 12/16 #303030 middle
-screen text "Extra large" 509,364 box-h=24 12/16 #303030 middle
-screen text "Huge" 509,388 box-h=24 12/16 #303030 middle
-screen rect 505,416 142x1 fill=#e4e4e7
-screen rect 505,421 142x24 r=6 stroke=#d4d4d8/1/inside
-screen text "14" 576,421 box-h=24 12/16 #303030 centre middle
-screen text "−" 517,421 box-h=24 12/16 #30303094 centre middle
-screen text "+" 635,421 box-h=24 12/16 #30303094 centre middle
+screen shadow 456,256 288x34 r=10 blur=16 fill=#c7c1bc80
+screen shadow 462,268 276x22 r=4 blur=8 fill=#0000002e
+screen rect 456,252 288x34 r=10 fill=#fafaf9 stroke=#cac6c3/1/inside
+screen rect 461,257 78x24 r=6 fill=#e7e5e4
+screen text "Small" 467,257 box-h=24 12/16 #303030 middle
+screen path M524,267.5 L527,270.5 L530,267.5 stroke=#303030/1
+screen text "Sans" 549,257 box-h=24 12/16 #30303094 middle
+screen path M596,267.5 L599,270.5 L602,267.5 stroke=#30303094/1
+screen rect 619,261 1x16 fill=#18181b33
+screen ellipse 632,261 16x16 fill=#fafaf9 stroke=#cac6c3/1/inside
+screen path M655,267.5 L658,270.5 L661,267.5 stroke=#30303094/1
+screen rect 678,261 1x16 fill=#18181b33
+screen path M696.61,273.67 C698.91,274.85 701.73,274.18 703.25,272.09 C704.77,270 704.54,267.11 702.72,265.28 C700.89,263.46 698,263.23 695.91,264.75 C693.82,266.27 693.15,269.09 694.33,271.39 L693.17,274.83 Z stroke=#30303094/1.17
+screen path M728.75,263.75 L732.25,263.75 L732.25,267.25 M725.25,274.25 L721.75,274.25 L721.75,270.75 M732.25,263.75 L728.17,267.83 M721.75,274.25 L725.83,270.17 stroke=#30303094/1.17
+screen shadow 466,312 150x157 r=5 blur=25 fill=#0000001a
+screen shadow 467,301 148x155 r=4 blur=10 fill=#0000001a
+screen rect 461,287 160x167 r=10 fill=#ffffff stroke=#e4e4e7/1/inside
+screen text "Small" 474,292 box-h=24 12/16 #303030 middle
+screen path M606,301 L600.5,306.5 L598,304 stroke=#303030/1
+screen text "Medium" 474,316 box-h=24 12/16 #303030 middle
+screen rect 466,340 150x24 r=7 fill=#f4f4f5
+screen text "Large" 474,340 box-h=24 12/16 #303030 middle
+screen text "Extra large" 474,364 box-h=24 12/16 #303030 middle
+screen text "Huge" 474,388 box-h=24 12/16 #303030 middle
+screen rect 470,416 142x1 fill=#e4e4e7
+screen rect 470,421 142x24 r=6 stroke=#d4d4d8/1/inside
+screen text "14" 541,421 box-h=24 12/16 #303030 centre middle
+screen text "−" 482,421 box-h=24 12/16 #30303094 centre middle
+screen text "+" 600,421 box-h=24 12/16 #30303094 centre middle
