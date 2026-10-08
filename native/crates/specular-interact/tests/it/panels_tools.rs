@@ -1,8 +1,9 @@
 //! The toolbar, and the popup of each tool that has one. A tool's popup
 //! reads and writes the tool defaults.
 
+use glam::Vec2;
 use specular_doc::BrushType;
-use specular_interact::{Action, Tool, ToolDefaultPatch};
+use specular_interact::{Action, ControlId, Tool, ToolDefaultPatch, toolbar};
 use specular_testkit::{TestApp, assert_popup_snapshot, assert_toolbar_snapshot, shape};
 
 #[test]
@@ -23,13 +24,13 @@ fn the_toolbar_at_rest_has_the_eight_tools_in_groups_and_the_zoom_levels() {
     ---
     dropdown zoom "Zoom" shows text="100%"
       options list
-        option [ ] zoom.10 "Zoom to 10%" text="10%" -> SetCamera(Camera { pan: Vec2(0.0, 0.0), zoom: 0.1 })
-        option [ ] zoom.25 "Zoom to 25%" text="25%" -> SetCamera(Camera { pan: Vec2(0.0, 0.0), zoom: 0.25 })
-        option [ ] zoom.50 "Zoom to 50%" text="50%" -> SetCamera(Camera { pan: Vec2(0.0, 0.0), zoom: 0.5 })
-        option [ ] zoom.75 "Zoom to 75%" text="75%" -> SetCamera(Camera { pan: Vec2(0.0, 0.0), zoom: 0.75 })
+        option [ ] zoom.10 "Zoom to 10%" text="10%" -> ZoomTo(10)
+        option [ ] zoom.25 "Zoom to 25%" text="25%" -> ZoomTo(25)
+        option [ ] zoom.50 "Zoom to 50%" text="50%" -> ZoomTo(50)
+        option [ ] zoom.75 "Zoom to 75%" text="75%" -> ZoomTo(75)
         option [x] zoom.100 "Zoom to 100%" text="100%" chord=cmd+0 -> ZoomReset
-        option [ ] zoom.150 "Zoom to 150%" text="150%" -> SetCamera(Camera { pan: Vec2(0.0, 0.0), zoom: 1.5 })
-        option [ ] zoom.200 "Zoom to 200%" text="200%" -> SetCamera(Camera { pan: Vec2(0.0, 0.0), zoom: 2.0 })
+        option [ ] zoom.150 "Zoom to 150%" text="150%" -> ZoomTo(150)
+        option [ ] zoom.200 "Zoom to 200%" text="200%" -> ZoomTo(200)
     "#);
 }
 
@@ -58,14 +59,37 @@ fn the_toolbar_follows_the_active_tool_the_defaults_and_the_zoom() {
     ---
     dropdown zoom "Zoom" shows text="80%"
       options list
-        option [ ] zoom.10 "Zoom to 10%" text="10%" -> SetCamera(Camera { pan: Vec2(0.0, 0.0), zoom: 0.1 })
-        option [ ] zoom.25 "Zoom to 25%" text="25%" -> SetCamera(Camera { pan: Vec2(0.0, 0.0), zoom: 0.25 })
-        option [ ] zoom.50 "Zoom to 50%" text="50%" -> SetCamera(Camera { pan: Vec2(0.0, 0.0), zoom: 0.5 })
-        option [ ] zoom.75 "Zoom to 75%" text="75%" -> SetCamera(Camera { pan: Vec2(0.0, 0.0), zoom: 0.75 })
+        option [ ] zoom.10 "Zoom to 10%" text="10%" -> ZoomTo(10)
+        option [ ] zoom.25 "Zoom to 25%" text="25%" -> ZoomTo(25)
+        option [ ] zoom.50 "Zoom to 50%" text="50%" -> ZoomTo(50)
+        option [ ] zoom.75 "Zoom to 75%" text="75%" -> ZoomTo(75)
         option [ ] zoom.100 "Zoom to 100%" text="100%" chord=cmd+0 -> ZoomReset
-        option [ ] zoom.150 "Zoom to 150%" text="150%" -> SetCamera(Camera { pan: Vec2(0.0, 0.0), zoom: 1.5 })
-        option [ ] zoom.200 "Zoom to 200%" text="200%" -> SetCamera(Camera { pan: Vec2(0.0, 0.0), zoom: 2.0 })
+        option [ ] zoom.150 "Zoom to 150%" text="150%" -> ZoomTo(150)
+        option [ ] zoom.200 "Zoom to 200%" text="200%" -> ZoomTo(200)
     "#);
+}
+
+#[test]
+fn a_pan_leaves_the_toolbar_as_it_was_and_each_zoom_option_zooms_about_the_middle() {
+    let mut app = TestApp::empty();
+    app.act(Action::ZoomOut);
+    let before = toolbar(app.app());
+    app.wheel((120.0, -340.0));
+    let panned = app.session().camera;
+    assert_ne!(panned.pan, Vec2::ZERO);
+    // A renderer that compares models has nothing to redraw for a pan.
+    assert_eq!(toolbar(app.app()), before);
+
+    let middle = app.session().viewport / 2.0;
+    for level in [10_u16, 25, 50, 75, 100, 150, 200] {
+        app.act(Action::SetCamera(panned));
+        let id = ControlId::new("zoom").child(level);
+        let action = toolbar(app.app()).action(&id).expect("a zoom option");
+        app.act(action);
+        let mut expected = panned;
+        expected.zoom_about(middle, f32::from(level) / 100.0);
+        assert_eq!(app.session().camera, expected, "{level}%");
+    }
 }
 
 #[test]

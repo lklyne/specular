@@ -30,8 +30,13 @@ pub(crate) fn zoom_out(app: &mut App) {
 
 /// Zooms to 100%, about the middle of the viewport.
 pub(crate) fn reset(app: &mut App) {
+    to(app, 100);
+}
+
+/// Zooms to `percent`, about the middle of the viewport.
+pub(crate) fn to(app: &mut App, percent: u16) {
     let about = centre(app);
-    app.session.camera.zoom_about(about, 1.0);
+    (app.session.camera).zoom_about(about, f32::from(percent) / 100.0);
 }
 
 fn scale(app: &mut App, by: f32) {

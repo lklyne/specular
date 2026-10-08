@@ -239,7 +239,8 @@ fn has_target(app: &App, action: &Action) -> bool {
         | Action::Paste
         | Action::ZoomIn
         | Action::ZoomOut
-        | Action::ZoomReset => true,
+        | Action::ZoomReset
+        | Action::ZoomTo(_) => true,
         Action::SetProperty(property) => property.applies_to(app),
         Action::Format(_) => app.session.editing.is_some(),
         Action::PageBack => page_can(app, |state| state.can_go_back),

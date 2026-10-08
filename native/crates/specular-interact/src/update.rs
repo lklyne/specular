@@ -220,6 +220,7 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         Action::ZoomIn => zoom::zoom_in(app),
         Action::ZoomOut => zoom::zoom_out(app),
         Action::ZoomReset => zoom::reset(app),
+        Action::ZoomTo(percent) => zoom::to(app, percent),
         Action::ZoomToFit => zoom::to_fit(app),
         Action::PageBack => page_state::navigate(app, PageNav::Back, effects),
         Action::PageForward => page_state::navigate(app, PageNav::Forward, effects),

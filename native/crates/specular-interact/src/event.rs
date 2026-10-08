@@ -403,6 +403,10 @@ pub enum Action {
     ZoomOut,
     /// Zoom to 100% about the middle of the viewport.
     ZoomReset,
+    /// Zoom to this many percent about the middle of the viewport. It names
+    /// the level and not the camera it lands on, so the control that holds
+    /// it is the same wherever the canvas is panned.
+    ZoomTo(u16),
     /// Show everything on the canvas, centred.
     ZoomToFit,
     /// Toggle markdown formatting on the selection of the text being

@@ -57,8 +57,7 @@ fn glyph(app: &App, tool: Tool) -> (Icon, Option<Color>) {
 }
 
 fn zoom(app: &App) -> Dropdown {
-    let camera = app.session.camera;
-    let percent = (camera.zoom * 100.0).round();
+    let percent = (app.session.camera.zoom * 100.0).round();
     let id = ControlId::new("zoom");
     let options = (ZOOM_LEVELS.into_iter())
         .map(|level| {
@@ -66,9 +65,7 @@ fn zoom(app: &App) -> Dropdown {
             let action = if level == 100 {
                 Action::ZoomReset
             } else {
-                let mut zoomed = camera;
-                zoomed.zoom_about(crate::viewport::centre(app), f32::from(level) / 100.0);
-                Action::SetCamera(zoomed)
+                Action::ZoomTo(level)
             };
             DropdownOption {
                 id: id.child(level),
