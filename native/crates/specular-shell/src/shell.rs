@@ -29,6 +29,7 @@ use crate::{debug_input, keys, menus, pins, refresh, spaces};
 const DEFAULT_SIZE: (u32, u32) = (1600, 1000);
 /// How long the canvas may go without a frame before GPUI gives it a turn:
 /// a display link stops while its window is covered, and autosave must not.
+/// A canvas at rest pauses its own link and asks for its turns sooner.
 const IDLE_TURN: Duration = Duration::from_millis(250);
 
 /// The window and its root view, for an action that needs them.
@@ -236,9 +237,10 @@ pub(crate) fn open(launch: Launch, cx: &mut App) -> anyhow::Result<()> {
     .detach();
     cx.spawn(async move |cx| {
         loop {
-            cx.background_executor().timer(IDLE_TURN).await;
+            let wait = canvas::with(|canvas| canvas.timer_wait(IDLE_TURN)).unwrap_or(IDLE_TURN);
+            cx.background_executor().timer(wait).await;
             canvas::with(|canvas| {
-                if canvas.last_frame().elapsed() >= IDLE_TURN {
+                if canvas.last_frame().elapsed() >= wait {
                     canvas.frame();
                 }
             });

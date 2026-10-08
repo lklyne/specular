@@ -57,6 +57,32 @@ impl ModelGate {
     }
 }
 
+/// How long after the last owed frame the display link is paused. A page
+/// painting a few times a second keeps it running; a canvas nobody touches
+/// stops being woken every refresh.
+const REST_BEFORE_PAUSE: Duration = Duration::from_secs(1);
+
+/// Whether the display link should be running: it is paused once no frame
+/// has been owed for [`REST_BEFORE_PAUSE`].
+#[derive(Debug)]
+struct LinkRest {
+    owed_at: Instant,
+    /// Whether the link is paused now. The shell's timer then turns the
+    /// canvas.
+    paused: bool,
+}
+
+impl LinkRest {
+    /// A frame is owed, or the app changed and one may be.
+    fn owed(&mut self, now: Instant) {
+        self.owed_at = now;
+    }
+
+    fn is_over(&self, now: Instant) -> bool {
+        now.duration_since(self.owed_at) >= REST_BEFORE_PAUSE
+    }
+}
+
 /// What GPUI draws from, as `update` last left it.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Models {
@@ -109,10 +135,11 @@ pub(crate) struct Canvas {
     last_frame: Instant,
     /// The benchmark, in a `--bench` run.
     bench: Option<Bench>,
-    /// While nothing is owed, when the next full turn is due. The display
-    /// link fires every refresh all the same, and until then a turn only
-    /// looks at the pages.
+    /// While nothing is owed, when the next full turn is due. Until then a
+    /// turn only looks at the pages.
     rest_until: Option<Instant>,
+    /// When to pause the display link, and whether it is.
+    rest: LinkRest,
     /// Set once the page backend has shut down after an exit.
     finished: bool,
     /// A folder dialog the app asked for, until GPUI shows it: whether it
@@ -153,6 +180,10 @@ pub(crate) fn install(
         last_frame: Instant::now(),
         bench,
         rest_until: None,
+        rest: LinkRest {
+            owed_at: Instant::now(),
+            paused: false,
+        },
         finished: false,
         space_dialog: None,
     };
@@ -199,15 +230,56 @@ impl Canvas {
         }
         self.rest_until = None;
         self.runtime.dispatch(event);
+        let paused = self.rest.paused;
         self.refresh_models();
+        if paused {
+            // The link's next tick may be a while off on a display that
+            // slowed down while nothing was presented.
+            self.frame();
+        }
     }
 
     /// The app may have changed: brings the models in step and wakes GPUI
     /// if one changed, now or when the gate next opens.
     pub(crate) fn refresh_models(&mut self) {
+        let now = Instant::now();
+        self.rest.owed(now);
+        self.pause_link(false);
         self.stale = true;
         self.gate.ask();
-        self.sync_models(Instant::now());
+        self.sync_models(now);
+    }
+
+    /// Pauses the display link once the canvas has rested a while, and
+    /// starts it again when a frame is owed.
+    fn pace_link(&mut self, now: Instant, wanted: bool) {
+        if wanted {
+            self.rest.owed(now);
+        }
+        self.pause_link(self.rest.is_over(now));
+    }
+
+    fn pause_link(&mut self, paused: bool) {
+        if paused == self.rest.paused {
+            return;
+        }
+        self.rest.paused = paused;
+        if let Some(surface) = self.runtime.window() {
+            surface.native().set_link_paused(paused);
+        }
+    }
+
+    /// How long the shell's timer waits before it turns the canvas: the
+    /// time to the next turn while the link is paused, and `otherwise`
+    /// while the link runs and the timer only covers for a window the
+    /// system gives no refreshes.
+    pub(crate) fn timer_wait(&self, otherwise: Duration) -> Duration {
+        match self.rest_until {
+            Some(until) if self.rest.paused => {
+                (until.saturating_duration_since(Instant::now())).min(otherwise)
+            }
+            _ => otherwise,
+        }
     }
 
     /// Reads the models if the gate lets it and wakes GPUI when one changed
@@ -277,6 +349,7 @@ impl Canvas {
             self.runtime.take_pages();
             if !self.runtime.frame_wanted() {
                 self.sync_models(now);
+                self.pace_link(now, false);
                 return;
             }
         }
@@ -315,6 +388,7 @@ impl Canvas {
         if let Some(bench) = self.bench.as_mut() {
             bench.worked(started.elapsed());
         }
+        self.pace_link(now, wanted);
         if !wanted {
             let turn = self.runtime.next_turn();
             // The link's ticks are not exact, and a step due at the next
@@ -364,5 +438,25 @@ mod tests {
             readings.last().is_some_and(|&last| last >= 119),
             "{readings:?}"
         );
+    }
+
+    #[test]
+    fn the_display_link_is_paused_a_second_after_the_last_owed_frame_and_no_sooner() {
+        let start = Instant::now();
+        let mut rest = LinkRest {
+            owed_at: start,
+            paused: false,
+        };
+        // A page painting twice a second keeps the link running.
+        for half_seconds in 1..=4_u32 {
+            let now = start + Duration::from_millis(500) * half_seconds;
+            assert!(!rest.is_over(now));
+            rest.owed(now);
+        }
+        let last = start + Duration::from_secs(2);
+        assert!(!rest.is_over(last + Duration::from_millis(999)));
+        assert!(rest.is_over(last + REST_BEFORE_PAUSE));
+        rest.owed(last + Duration::from_secs(5));
+        assert!(!rest.is_over(last + Duration::from_secs(5)));
     }
 }

@@ -256,6 +256,18 @@ impl NativeCanvas {
         }
     }
 
+    /// Stops the display link firing, or lets it fire again. A canvas at
+    /// rest has nothing for a refresh to do.
+    pub(crate) fn set_link_paused(&self, paused: bool) {
+        if self.link.is_null() {
+            return;
+        }
+        // SAFETY: the link is ours and retained until `close`.
+        unsafe {
+            let _: () = msg_send![self.link, setPaused: paused];
+        }
+    }
+
     /// Stops the display link and takes the view out of the window.
     pub(crate) fn close(&mut self) {
         // SAFETY: the link and the view are ours and still retained.
