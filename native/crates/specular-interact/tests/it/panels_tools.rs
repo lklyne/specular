@@ -67,6 +67,12 @@ fn the_toolbar_follows_the_active_tool_the_defaults_and_the_zoom() {
         option [ ] zoom.150 "Zoom to 150%" text="150%" -> ZoomTo(150)
         option [ ] zoom.200 "Zoom to 200%" text="200%" -> ZoomTo(200)
     "#);
+    // The readout rounds to the nearest percent.
+    app.act(Action::SetCamera(specular_core::Camera::new(
+        glam::Vec2::ZERO,
+        0.797,
+    )));
+    assert!(app.toolbar_snapshot().contains(r#"shows text="80%""#));
 }
 
 #[test]
@@ -144,7 +150,7 @@ fn the_draw_tool_popup_offers_the_highlighter_its_own_widths_and_pastels() {
 }
 
 #[test]
-fn the_page_tool_has_no_popup_and_still_hides_the_selections() {
+fn the_page_tool_offers_the_size_presets_and_hides_the_selections() {
     let mut app =
         TestApp::with_entities([shape("s", specular_doc::Rect::new(0.0, 0.0, 100.0, 100.0))]);
     app.select(&["s"]);

@@ -58,7 +58,7 @@ fn making_auto_layout_wraps_the_selection_and_packs_it_in_the_order_it_reads() {
     // Spread along x, out of stack order, uneven and not level.
     let mut app = TestApp::with_entities([
         shape("c", Rect::new(520.0, 130.0, 100.0, 100.0)),
-        shape("a", Rect::new(100.0, 100.0, 100.0, 100.0)),
+        shape("a", Rect::new(103.0, 100.0, 100.0, 100.0)),
         shape("b", Rect::new(260.0, 110.0, 100.0, 100.0)),
     ]);
     app.select(&["a", "b", "c"])
@@ -72,7 +72,7 @@ fn making_auto_layout_wraps_the_selection_and_packs_it_in_the_order_it_reads() {
         (Some(true), Some(LayoutMode::Row), None)
     );
     assert_eq!(app.entity(&made).label.as_deref(), Some("Auto-layout"));
-    // Packed 80 apart from the least corner, all level with it.
+    // Packed 80 apart from the least corner, on the grid, all level with it.
     assert_eq!(lefts(&app, &["a", "b", "c"]), [100.0, 280.0, 460.0]);
     assert_eq!(tops(&app, &["a", "b", "c"]), [100.0, 100.0, 100.0]);
     assert_eq!(app.rect(&made), Rect::new(76.0, 76.0, 508.0, 148.0));
@@ -166,11 +166,19 @@ fn whatever_changes_a_managed_row_lays_it_out_again_in_the_same_step() {
 }
 
 #[test]
-fn an_item_dropped_into_a_row_takes_the_last_slot() {
-    let mut app = row();
-    app.press((130.0, 530.0)).drag_to((270.0, 170.0)).release();
-    assert_eq!(app.rect("d"), Rect::new(520.0, 100.0, 60.0, 60.0));
-    app.assert_undo_returns_to_start();
+fn an_item_dropped_into_a_row_takes_the_slot_its_stack_position_gives() {
+    // The layout sequence is the group's run of the stack (ADR 0015 D2): an
+    // item in front of everything joins last, one behind everything first.
+    let slots = [(None, 520.0), (Some(Action::SendToBack), 100.0)];
+    for (send, want_x) in slots {
+        let mut app = row();
+        if let Some(send) = send {
+            app.select(&["d"]).act(send);
+        }
+        app.press((130.0, 530.0)).drag_to((270.0, 170.0)).release();
+        assert_eq!(app.rect("d"), Rect::new(want_x, 100.0, 60.0, 60.0));
+        app.assert_undo_returns_to_start();
+    }
 }
 
 #[test]
@@ -233,6 +241,10 @@ fn the_group_popup_turns_the_layout_round_and_steps_its_gap() {
     app.click_control("group.gap.inc");
     assert_eq!(layout(&app).2, Some(60.0));
     assert_eq!(lefts(&app, &["a", "b", "c"]), [100.0, 260.0, 420.0]);
+    app.click_control("group.gap.dec");
+    assert_eq!(layout(&app).2, Some(40.0));
+    assert_eq!(lefts(&app, &["a", "b", "c"]), [100.0, 240.0, 380.0]);
+    app.click_control("group.gap.inc");
     app.click_control("group.layout.column");
     assert_eq!(layout(&app).1, Some(LayoutMode::Column));
     assert_eq!(tops(&app, &["a", "b", "c"]), [100.0, 260.0, 420.0]);
@@ -245,7 +257,7 @@ fn the_group_popup_turns_the_layout_round_and_steps_its_gap() {
         !shown.iter().any(|id| id.starts_with("group.gap")),
         "no gap without a layout: {shown:?}"
     );
-    app.undo().undo().undo();
+    app.undo().undo().undo().undo().undo();
     assert_eq!(lefts(&app, &["a", "b", "c"]), [100.0, 240.0, 380.0]);
     assert!(!app.app().can_undo());
 }

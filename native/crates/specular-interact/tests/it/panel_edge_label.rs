@@ -31,7 +31,7 @@ fn label(app: &TestApp) -> Option<String> {
 #[test]
 fn a_label_typed_in_the_popup_is_kept_with_enter() {
     let mut app = app();
-    app.enter_in_field("edge.label", "depends on");
+    app.enter_in_field("edge.label", "  depends on ");
     assert_eq!(label(&app), Some("depends on".to_owned()));
     app.undo();
     assert_eq!(label(&app), None);
@@ -61,4 +61,29 @@ fn an_emptied_label_takes_the_label_off() {
         .key(Key::Enter);
     assert_eq!(label(&app), None);
     app.assert_undo_returns_to_start();
+}
+
+#[test]
+fn escape_puts_the_old_label_back() {
+    let doc = with_edge(
+        document([
+            shape("a", Rect::new(100.0, 300.0, 100.0, 80.0)),
+            shape("b", Rect::new(500.0, 300.0, 100.0, 80.0)),
+        ]),
+        Edge {
+            label: Some("old".to_owned()),
+            ..Edge::new("e", "a", "b")
+        },
+    );
+    let mut app = TestApp::empty();
+    app.with_panels();
+    app.open(doc);
+    app.select(&["e"]);
+    app.click_control("edge.label")
+        .chord(specular_testkit::CMD, Key::Char('a'))
+        .type_text("new")
+        .key(Key::Escape);
+    assert_eq!(label(&app), Some("old".to_owned()));
+    assert_eq!(app.field_edit(), None);
+    assert!(!app.app().can_undo());
 }

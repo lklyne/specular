@@ -30,6 +30,10 @@ fn a_drag_from_an_edge_where_it_crosses_an_entity_moves_the_entity() {
     assert_eq!(app.rect("s").y, 260.0, "the sticky went with the drag");
     assert_eq!(app.selected_ids(), ["s"]);
     app.assert_undo_returns_to_start();
+
+    // A click in the same place selects the edge.
+    app.click(on_both);
+    assert_eq!(app.selected_ids(), ["e1"]);
 }
 
 /// A diagonal pen stroke from (100, 100) to (300, 300), unselected.
@@ -53,6 +57,7 @@ fn a_drawing_is_hit_on_its_ink_and_not_in_the_empty_corner_of_its_box() {
     let at = |app: &TestApp, x, y| hit_test(app.app(), Vec2::new(x, y));
     assert_eq!(at(&app, 200.0, 200.0), body, "on the line");
     assert_eq!(at(&app, 204.0, 198.0), body, "a few pixels off it");
+    assert_eq!(at(&app, 220.0, 180.0), Hit::Empty, "28 pixels off it");
     assert_eq!(at(&app, 280.0, 120.0), Hit::Empty, "the empty corner");
 
     app.pointer_move((280.0, 120.0));
@@ -113,17 +118,32 @@ fn a_group_title_is_hit_where_it_is_drawn_when_zoomed_out() {
         label: Some("A long title for a small group".to_owned()),
         ..group("g", Rect::new(400.0, 400.0, 120.0, 80.0))
     };
-    let mut app = TestApp::with_entities([titled]);
+    let short = Entity {
+        label: Some("abcd".to_owned()),
+        ..group("h", Rect::new(800.0, 400.0, 400.0, 80.0))
+    };
+    let mut app = TestApp::with_entities([titled, short]);
     let label = Hit::GroupLabel { group: "g".into() };
     let at = |app: &TestApp, x, y| hit_test(app.app(), Vec2::new(x, y));
     // At full size the title is a 20.5 px box above the corner, and never
     // wider than the group: 30 characters would run to 183 px.
     assert_eq!(at(&app, 510.0, 390.0), label);
     assert_eq!(at(&app, 560.0, 390.0), Hit::Empty);
+    assert_eq!(
+        at(&app, 510.0, 365.0),
+        Hit::Empty,
+        "and no taller than drawn"
+    );
     // At a quarter zoom the group is at (100, 100) and 30 px wide, and the
     // title is half its size: about 10 px tall.
     app.zoom(0.25);
     assert_eq!(at(&app, 110.0, 95.0), label);
+    assert_eq!(at(&app, 110.0, 92.0), label, "about 10 px above the corner");
     assert_eq!(at(&app, 110.0, 85.0), Hit::Empty);
     assert_eq!(at(&app, 140.0, 95.0), Hit::Empty);
+    // A short title at a quarter zoom is about 12 px wide, under the group's
+    // 100: its width follows the zoom, not only the group.
+    let short = Hit::GroupLabel { group: "h".into() };
+    assert_eq!(at(&app, 205.0, 97.0), short);
+    assert_eq!(at(&app, 218.0, 97.0), Hit::Empty);
 }

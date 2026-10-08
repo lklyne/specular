@@ -36,6 +36,16 @@ fn option_deletes_a_word_and_command_deletes_to_the_end_of_the_line() {
     // With nothing left on its side of the caret, it takes the line break.
     app.chord(CMD, Key::Delete);
     assert_eq!(app.editing_text(), "otwo");
+
+    // On the second line, Command+Backspace stops at the line's start, and
+    // from there takes the line break.
+    let mut app = editing("one\ntwo");
+    app.chord(CMD, Key::ArrowDown)
+        .key(Key::ArrowLeft)
+        .chord(CMD, Key::Backspace);
+    assert_eq!(app.editing_text(), "one\no");
+    app.chord(CMD, Key::Backspace);
+    assert_eq!(app.editing_text(), "oneo");
 }
 
 #[test]
@@ -52,10 +62,12 @@ fn the_arrows_move_by_grapheme_word_line_and_document() {
     assert_eq!(at(&mut app, CMD, Key::ArrowLeft), 8);
     app.key(Key::End);
     assert_eq!(app.caret(), (18, 18));
+    assert_eq!(at(&mut app, CMD, Key::Home), 0, "the document's start");
+    app.key(Key::End);
+    assert_eq!(app.caret(), (7, 7), "the first line's end");
+    assert_eq!(at(&mut app, CMD, Key::End), 18);
     app.key(Key::Home).key(Key::ArrowLeft);
     assert_eq!(app.caret(), (7, 7));
-    assert_eq!(at(&mut app, CMD, Key::Home), 0);
-    assert_eq!(at(&mut app, CMD, Key::End), 18);
 }
 
 #[test]
@@ -173,9 +185,13 @@ fn tab_nests_the_bullet_lines_in_the_selection_and_backspace_takes_a_marker_off(
     app.chord(CMD, Key::Char('a')).key(Key::Tab);
     assert_eq!(app.editing_text(), "    - one\ntext\n    - two");
     assert_eq!(app.caret(), (24, 2), "the selection moves with its text");
-    app.chord(SHIFT, Key::Tab)
-        .chord(SHIFT, Key::Tab)
-        .chord(SHIFT, Key::Tab);
+    app.chord(SHIFT, Key::Tab);
+    assert_eq!(
+        app.editing_text(),
+        "  - one\ntext\n  - two",
+        "one level at a time"
+    );
+    app.chord(SHIFT, Key::Tab).chord(SHIFT, Key::Tab);
     assert_eq!(app.editing_text(), "- one\ntext\n- two");
 
     app.chord(CMD, Key::ArrowUp)
@@ -194,6 +210,11 @@ fn tab_nests_the_bullet_lines_in_the_selection_and_backspace_takes_a_marker_off(
         (app.editing_text(), app.caret()),
         ("one\ntext\n- two", (0, 0))
     );
+    // Further into the item it is a plain backspace.
+    app.chord(CMD, Key::ArrowDown)
+        .key(Key::ArrowLeft)
+        .key(Key::Backspace);
+    assert_eq!(app.editing_text(), "one\ntext\n- to");
 }
 
 #[test]
@@ -228,6 +249,9 @@ fn undo_inside_an_edit_steps_through_runs_of_typing() {
 
     app.chord(CMD_SHIFT, Key::Char('z'))
         .chord(CMD_SHIFT, Key::Char('z'));
+    assert_eq!(app.editing_text(), "abcxd");
+    assert_eq!(undo(&mut app), "abcd", "a redone step can be undone again");
+    app.chord(CMD_SHIFT, Key::Char('z'));
     assert_eq!(app.editing_text(), "abcxd");
     app.type_text("!").chord(CMD_SHIFT, Key::Char('z'));
     assert_eq!(

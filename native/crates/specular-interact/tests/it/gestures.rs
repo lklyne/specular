@@ -39,8 +39,12 @@ fn a_drag_on_a_page_selects_it_and_moves_it_by_the_pointer_delta() {
 #[test]
 fn move_follows_the_camera_zoom() {
     let mut app = TestApp::with_pages(2);
-    app.zoom(0.5).press((100.0, 75.0)).drag_to((110.0, 75.0));
-    assert_eq!(app.rect("p1").x, 120.0);
+    app.zoom(0.5).press((100.0, 75.0)).drag_to((120.0, 75.0));
+    assert_eq!(
+        app.rect("p1").x,
+        140.0,
+        "20 screen pixels are 40 canvas units"
+    );
 }
 
 #[test]
@@ -74,6 +78,12 @@ fn undo_is_ignored_while_a_drag_is_in_flight() {
         .drag_to((300.0, 150.0))
         .chord(CMD, Key::Char('z'));
     assert_eq!(app.rect("p1").x, 200.0);
+    // The refused undo took nothing from the history: both moves are in it.
+    app.release().let_go();
+    assert_eq!(app.rect("p1").x, 200.0);
+    app.undo();
+    assert_eq!(app.rect("p1").x, 160.0);
+    app.assert_undo_returns_to_start();
 }
 
 #[test]

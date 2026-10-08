@@ -161,7 +161,10 @@ fn a_new_canvas_is_named_in_sequence_shown_and_written() {
 
 #[test]
 fn renaming_moves_the_file_and_a_taken_or_empty_name_is_refused() {
-    let mut app = two();
+    let mut app = TestApp::with_space([
+        ("Home", document(pages(2))),
+        (" Notes ", note("n1", "hello")),
+    ]);
     let home = app.canvas_id("Home");
     let rename = |name: &str| {
         Action::Canvas(CanvasAction::Rename {
@@ -170,7 +173,7 @@ fn renaming_moves_the_file_and_a_taken_or_empty_name_is_refused() {
         })
     };
     app.act(rename("  Landing page "));
-    assert_eq!(app.canvas_names(), ["Landing page", "Notes"]);
+    assert_eq!(app.canvas_names(), ["Landing page", " Notes "]);
     assert_eq!(
         app.take_effects(),
         [
@@ -185,11 +188,15 @@ fn renaming_moves_the_file_and_a_taken_or_empty_name_is_refused() {
     // Taken, empty, and the name it already has.
     for refused in ["Notes", " Notes ", "   ", "Landing page"] {
         app.act(rename(refused));
-        let renamed = (app.take_effects().iter())
-            .any(|effect| matches!(effect, Effect::RenameCanvasFile { .. }));
-        assert!(!renamed, "{refused:?}");
+        assert_eq!(app.take_effects(), [], "{refused:?}");
     }
-    assert_eq!(app.canvas_names(), ["Landing page", "Notes"]);
+    assert_eq!(app.canvas_names(), ["Landing page", " Notes "]);
+    // Two names that make the same file stem: the name changes, no file moves.
+    app.act(rename("No/tes"));
+    app.take_effects();
+    app.act(rename("No:tes"));
+    assert_eq!(app.canvas_names(), ["No:tes", " Notes "]);
+    assert_eq!(app.take_effects(), [Effect::SaveSpaceMeta]);
 }
 
 #[test]
@@ -206,12 +213,21 @@ fn a_duplicate_sits_after_its_source_is_shown_and_starts_with_no_history() {
     let copy = app.canvas_id("Home Copy");
     assert!(app.effects().contains(&Effect::WriteCanvas(copy)));
 
+    // The copy goes on from where it was; a copy of Home is Home as it is.
+    app.act(select("p1"))
+        .act(Action::Nudge { dx: 20.0, dy: 0.0 });
     let home = app.canvas_id("Home");
     app.act(Action::Canvas(CanvasAction::Duplicate(Some(home))));
     assert_eq!(
         app.canvas_names(),
         ["Home", "Home Copy 2", "Home Copy", "Notes"]
     );
+    assert_eq!(app.active_canvas(), "Home Copy 2");
+    assert_eq!(app.rect("p1").x, 140.0);
+
+    let mut spaced = TestApp::with_space([(" Notes ", note("n1", "hello"))]);
+    spaced.act(Action::Canvas(CanvasAction::Duplicate(None)));
+    assert_eq!(spaced.canvas_names(), [" Notes ", "Notes Copy"]);
 }
 
 #[test]
@@ -220,11 +236,12 @@ fn deleting_the_active_canvas_shows_its_neighbour_and_trashes_the_file() {
         ("One", note("a", "1")),
         ("Two", note("b", "2")),
         ("Three", note("c", "3")),
+        ("Four", note("d", "4")),
     ]);
     app.switch_to("Two").take_effects();
     let two = app.canvas_id("Two");
     app.act(Action::Canvas(CanvasAction::Delete(None)));
-    assert_eq!(app.canvas_names(), ["One", "Three"]);
+    assert_eq!(app.canvas_names(), ["One", "Three", "Four"]);
     assert_eq!(app.active_canvas(), "Three");
     assert_eq!(entity_ids(app.document()), ["c"]);
     let trashed = Effect::TrashCanvasFile {
@@ -234,12 +251,13 @@ fn deleting_the_active_canvas_shows_its_neighbour_and_trashes_the_file() {
     assert!(app.take_effects().contains(&trashed));
 
     // The last in the list falls back to the one before it.
+    app.switch_to("Four");
     app.act(Action::Canvas(CanvasAction::Delete(None)));
     assert_eq!(
         (app.canvas_names(), app.active_canvas()),
-        (vec!["One"], "One")
+        (vec!["One", "Three"], "Three")
     );
-    assert_eq!(entity_ids(app.document()), ["a"]);
+    assert_eq!(entity_ids(app.document()), ["c"]);
 }
 
 #[test]

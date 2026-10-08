@@ -154,7 +154,9 @@ fn a_drag_on_a_group_title_or_border_moves_it() {
     };
     let mut app = TestApp::with_entities([labelled, inside("g", text("a", A))]);
     app.drag((90.0, 70.0), (130.0, 70.0));
-    // The band just inside the border, past the handle strip on the outline.
+    // The band just inside the border, past the handle strip on the outline,
+    // with the group not selected: its interior would marquee instead.
+    app.click((900.0, 900.0));
     app.drag((127.0, 150.0), (167.0, 150.0));
     assert_eq!(
         (app.selected(), app.rect("g").x, app.rect("a").x),

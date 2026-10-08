@@ -72,15 +72,15 @@ fn lines(count: usize) -> String {
 
 #[test]
 fn a_double_click_edits_the_source_with_the_caret_where_it_landed() {
-    let mut app = shown("# Plan\n\nbody text");
+    let mut app = shown("# Plan\n\nbody text\nmore");
     // The fourth character of the third row, under a heading row 1.4 times
     // as tall as a body row.
-    app.double_click((TEXT.0 + 42.0, TEXT.1 + 21.0 * 2.4 + 5.0));
-    assert_eq!(app.editing_text(), "# Plan\n\nbody text");
+    app.double_click((TEXT.0 + 42.0, TEXT.1 + 21.0 * 2.4 + 17.0));
+    assert_eq!(app.editing_text(), "# Plan\n\nbody text\nmore");
     assert_eq!(app.caret(), (12, 12));
     assert_eq!(app.selected(), Some("n"));
     app.type_text("!");
-    assert_eq!(app.editing_text(), "# Plan\n\nbody! text");
+    assert_eq!(app.editing_text(), "# Plan\n\nbody! text\nmore");
 }
 
 #[test]
@@ -190,6 +190,10 @@ fn the_same_text_from_disk_is_not_a_conflict() {
         .type_text("b")
         .note_text(FILE, "aone");
     assert_eq!(writes(&app.take_effects()), []);
+    // The disk holding what the edit holds, though it is not what was last
+    // written: nothing is owed to either side.
+    app.note_text(FILE, "abone").tick(9_000);
+    assert_eq!(writes(&app.take_effects()), []);
     assert_eq!(app.document().entities().count(), 1);
     assert_eq!(app.editing_text(), "abone");
 }
@@ -271,7 +275,10 @@ fn the_caret_is_kept_in_view_and_page_keys_move_by_the_window() {
     app.key(Key::PageUp);
     assert_eq!(app.caret().0, lines(15).len() + 1 + "line 15".len());
     assert_eq!(scroll(&app), 315.0, "the caret's row is at the top");
-    app.key(Key::PageDown).key(Key::PageDown);
+    app.key(Key::PageDown);
+    assert_eq!(app.caret().0, lines(28).len() + 1 + "line 28".len());
+    assert_eq!(scroll(&app), 332.0, "the caret's row is at the bottom");
+    app.key(Key::PageDown);
     assert_eq!(app.caret().0, lines(30).len());
     app.chord(CMD, Key::ArrowUp);
     assert_eq!(scroll(&app), 0.0);
@@ -307,6 +314,12 @@ fn a_sticky_takes_bold_italic_strike_and_bullets_only() {
     let rect = Rect::new(100.0, 100.0, 200.0, 200.0);
     let mut app = TestApp::with_entities([sticky("s", rect, "word")]);
     app.double_click((150.0, 150.0));
+    app.key(Key::Tab);
+    assert_eq!(
+        app.editing_text(),
+        "word",
+        "outside a list Tab types nothing"
+    );
     app.chord(CMD, Key::Char('e'))
         .chord(CMD_SHIFT, Key::Char('7'));
     assert_eq!(app.editing_text(), "word");

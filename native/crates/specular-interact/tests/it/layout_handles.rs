@@ -41,6 +41,17 @@ fn loose() -> TestApp {
     app
 }
 
+/// Three boxes selected with `c` at `x`: its gap is `x - 340`, against 40.
+fn nearly(x: f64) -> TestApp {
+    let mut app = TestApp::with_entities([
+        shape("a", A),
+        shape("b", B),
+        shape("c", Rect::new(x, 100.0, 100.0, 100.0)),
+    ]);
+    app.select(&["a", "b", "c"]);
+    app
+}
+
 /// Sets a line up.
 type Setup = fn() -> TestApp;
 /// Name, the line, the dot pressed, the x it is dragged to, and the lefts
@@ -56,6 +67,10 @@ fn lefts(app: &TestApp) -> [f64; 3] {
     ["a", "b", "c"].map(|id| app.rect(id).x)
 }
 
+fn tops(app: &TestApp) -> [f64; 3] {
+    ["a", "b", "c"].map(|id| app.rect(id).y)
+}
+
 fn dots(app: &TestApp) -> Vec<String> {
     (app.app().reorder_dots().iter())
         .map(|dot| dot.entity.to_string())
@@ -65,7 +80,7 @@ fn dots(app: &TestApp) -> Vec<String> {
 #[test]
 fn a_line_shows_its_handles_while_it_or_a_member_is_selected() {
     // (what is selected, the dots, how many gap strips).
-    let rows: [(&str, Setup, &[&str], usize); 6] = [
+    let rows: [(&str, Setup, &[&str], usize); 12] = [
         ("a managed row, nothing selected", managed, &[], 0),
         (
             "a managed row, selected",
@@ -112,6 +127,53 @@ fn a_line_shows_its_handles_while_it_or_a_member_is_selected() {
             &[],
             0,
         ),
+        (
+            "a managed row, a tool armed",
+            || {
+                let mut app = managed();
+                app.select(&["g"]).tool(specular_interact::Tool::AddText);
+                app
+            },
+            &[],
+            0,
+        ),
+        (
+            "two members of a managed row",
+            || {
+                let mut app = managed();
+                app.select(&["a", "c"]);
+                app
+            },
+            &["a", "b", "c"],
+            2,
+        ),
+        (
+            "one loose box",
+            || {
+                let mut app = loose();
+                app.select(&["a"]);
+                app
+            },
+            &[],
+            0,
+        ),
+        (
+            "an even row of groups",
+            || {
+                let mut app = TestApp::with_entities([group("g1", A), group("g2", B)]);
+                app.select(&["g1", "g2"]);
+                app
+            },
+            &[],
+            0,
+        ),
+        (
+            "gaps 4 apart are even",
+            || nearly(384.0),
+            &["a", "b", "c"],
+            2,
+        ),
+        ("gaps 5 apart are not", || nearly(385.0), &[], 0),
     ];
     for (name, setup, want, strips) in rows {
         let app = setup();
@@ -135,8 +197,13 @@ fn a_dot_is_over_its_box_and_a_strip_fills_the_gap() {
             axis: LayoutAxis::X
         })
     );
-    // Off the dot the box is a body again.
+    // Off the dot the box is a body again: the dot is a 14-pixel square.
     assert_eq!(at((120.0, 120.0)), Hit::EntityBody { entity: "a".into() });
+    assert_eq!(
+        at((156.0, 144.0)),
+        Hit::Layout(LayoutHandle::Reorder { entity: "a".into() })
+    );
+    assert_eq!(at((158.0, 150.0)), Hit::EntityBody { entity: "a".into() });
     let strip = &app.app().gap_handles()[0].rect;
     assert_eq!(
         (strip.min, strip.size),
@@ -180,6 +247,11 @@ fn dragging_a_dot_moves_its_box_to_the_slot_under_the_pointer() {
         assert_eq!(lefts(&app), want.unwrap_or(START), "{name}, in flight");
         app.release();
         assert_eq!(lefts(&app), want.unwrap_or(START), "{name}");
+        assert_eq!(
+            tops(&app),
+            [100.0; 3],
+            "{name}: across the line nothing moves"
+        );
         if want.is_some() {
             app.assert_undo_returns_to_start();
         } else {
@@ -240,7 +312,7 @@ fn dragging_a_gap_strip_changes_the_gap_by_the_pointers_travel() {
     };
     // (the line, where the strip is dragged, the lefts after, the gap the
     // group stores).
-    let rows: [Regap; 4] = [
+    let rows: [Regap; 6] = [
         (
             "managed, wider",
             selected_group,
@@ -257,6 +329,22 @@ fn dragging_a_gap_strip_changes_the_gap_by_the_pointers_travel() {
         ),
         ("loose, narrower", loose, 205.0, [100.0, 225.0, 350.0], None),
         ("loose, wider", loose, 260.0, [100.0, 280.0, 460.0], None),
+        // Whole units: a half unit of travel is rounded.
+        (
+            "managed, rounded",
+            selected_group,
+            240.4,
+            [100.0, 260.0, 420.0],
+            Some(60.0),
+        ),
+        // Gaps of 40 and 43 start from their mean, 41.5, taken as 42.
+        (
+            "loose, uneven by 3",
+            || nearly(383.0),
+            240.0,
+            [100.0, 262.0, 424.0],
+            None,
+        ),
     ];
     for (name, setup, to, want, stored) in rows {
         let mut app = setup();
