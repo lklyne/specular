@@ -15,6 +15,7 @@ repository = "https://github.com/lklyne/specular"
 [workspace.dependencies]
 specular-api = { path = "crates/specular-api" }
 specular-doc = { path = "crates/specular-doc" }
+specular-agent = { path = "crates/specular-agent" }
 specular-core = { path = "crates/specular-core" }
 specular-interact = { path = "crates/specular-interact" }
 specular-scene = { path = "crates/specular-scene" }

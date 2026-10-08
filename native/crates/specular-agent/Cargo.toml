@@ -1,0 +1,16 @@
+[package]
+name = "specular-agent"
+description = "Pure model of the canvas agent thread: threads, prompts, the claude stream, and the run rules."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde = { workspace = true }
+# `preserve_order` keeps a thread file's keys in the order the Electron writer uses.
+serde_json = { workspace = true, features = ["preserve_order"] }
+
+[lints]
+workspace = true
