@@ -2,7 +2,7 @@
 
 /// `unix_ms` as an ISO 8601 UTC timestamp with milliseconds, the form
 /// JavaScript's `Date.toISOString` writes.
-pub(crate) fn iso8601(unix_ms: u64) -> String {
+pub fn iso8601(unix_ms: u64) -> String {
     let millis = unix_ms % 1000;
     let seconds = unix_ms / 1000;
     let (hour, minute, second) = (seconds / 3600 % 24, seconds / 60 % 60, seconds % 60);

@@ -13,6 +13,8 @@ use winit::dpi::{LogicalSize, PhysicalSize};
 use winit::event_loop::ActiveEventLoop;
 use winit::window::{Window, WindowLevel};
 
+use crate::offscreen::Target;
+
 /// Everything needed to put a frame on screen.
 pub(super) struct GpuWindow {
     pub(super) window: Arc<Window>,
@@ -125,6 +127,34 @@ impl GpuWindow {
 
     /// Renders and presents one frame; `None` when the surface had no frame
     /// to give (minimised, or reconfigured after loss).
+    /// Draws `scene` as the window would show it into a texture, and
+    /// returns the PNG with its size in device pixels. The window itself is
+    /// not touched, so this works while it is covered or minimised.
+    pub(super) fn capture(
+        &mut self,
+        camera: Camera,
+        scene: &Scene,
+        page_of: impl Fn(&EntityId) -> Option<PageId>,
+    ) -> anyhow::Result<(Vec<u8>, u32, u32)> {
+        let target = Target::new(
+            &self.context,
+            self.config.width,
+            self.config.height,
+            self.config.format,
+        );
+        let frame_view = FrameView {
+            camera,
+            viewport: self.logical_viewport(),
+            scale_factor: self.scale_factor(),
+            grid: DotGrid::default(),
+            zooming: false,
+        };
+        self.compositor
+            .render_scene(&target.view(), &frame_view, scene, page_of);
+        let (width, height) = target.size();
+        Ok((target.png(&self.context)?, width, height))
+    }
+
     pub(super) fn render(
         &mut self,
         camera: Camera,

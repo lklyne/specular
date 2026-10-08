@@ -2,11 +2,11 @@
 //! duplicate, nudge and reorder. Each is one undo step.
 
 use glam::DVec2;
-use specular_doc::{Command, EdgeId, ItemId, Rect};
+use specular_doc::{Command, Document, EdgeId, EntityId, ItemId, Rect};
 
 use crate::live::{self, Start};
 use crate::stack_order::{self, Move};
-use crate::{App, Effect, anchor, clone, geometry, grid, update, zoom};
+use crate::{App, Effect, anchor, clone, geometry, grid, scope, update, zoom};
 
 /// The gap left between placed items, in canvas units.
 const PLACEMENT_GAP: f64 = 80.0;
@@ -17,32 +17,52 @@ const SCAN_MARGIN: f64 = 2000.0;
 /// everything inside their groups and hooked to their pages, and every edge
 /// that would be left with a missing end.
 pub(crate) fn delete(app: &mut App, effects: &mut Vec<Effect>) {
-    let scope = app.selection_scope();
-    let document = &app.document;
-    let mut edges: Vec<EdgeId> = Vec::new();
-    let selected = app
-        .session
-        .selection
-        .items()
-        .iter()
+    let selection = &app.session.selection;
+    let entities: Vec<EntityId> = selection.entities().cloned().collect();
+    let edges: Vec<EdgeId> = (selection.items().iter())
         .filter_map(|item| match item {
-            ItemId::Edge(id) => document.edge(id).map(|edge| &edge.id),
+            ItemId::Edge(id) => Some(id.clone()),
             ItemId::Entity(_) => None,
-        });
-    let touching = (scope.operands.iter())
-        .flat_map(|id| document.edges_touching(id))
-        .map(|edge| &edge.id);
-    for id in selected.chain(touching) {
-        if !edges.contains(id) {
-            edges.push(id.clone());
-        }
-    }
-    let commands: Vec<Command> = (edges.into_iter().map(Command::RemoveEdge))
-        .chain(scope.operands.into_iter().map(Command::RemoveEntity))
+        })
         .collect();
+    let commands = delete_commands(&app.document, &entities, &edges);
     if !commands.is_empty() {
         update::document_step(app, Command::Batch(commands), effects);
     }
+}
+
+/// The commands that remove `edges` and `entities`, with everything inside
+/// the entities' groups and hooked to their pages, and every edge that would
+/// be left with a missing end. Ids that name nothing are skipped.
+pub fn delete_commands(
+    document: &Document,
+    entities: &[EntityId],
+    edges: &[EdgeId],
+) -> Vec<Command> {
+    let operands = scope::operands(document, entities);
+    let mut doomed: Vec<EdgeId> = Vec::new();
+    let named = edges.iter().filter(|id| document.edge(id).is_some());
+    let touching = (operands.iter())
+        .flat_map(|id| document.edges_touching(id))
+        .map(|edge| &edge.id);
+    for id in named.chain(touching) {
+        if !doomed.contains(id) {
+            doomed.push(id.clone());
+        }
+    }
+    (doomed.into_iter().map(Command::RemoveEdge))
+        .chain(operands.into_iter().map(Command::RemoveEntity))
+        .collect()
+}
+
+/// The commands that move `entities` by `delta` canvas units, with
+/// everything inside their groups and hooked to their pages. A drawing's
+/// points travel with it.
+pub fn move_commands(document: &Document, entities: &[EntityId], delta: DVec2) -> Vec<Command> {
+    let operands = scope::operands(document, entities);
+    (live::starts(document, &operands).iter())
+        .flat_map(|start| moved(start, delta))
+        .collect()
 }
 
 /// Copies the selection into free space beside it, selects the copies and

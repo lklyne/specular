@@ -4,12 +4,21 @@ use glam::Vec2;
 use specular_core::{CssSize, InputEvent};
 use specular_doc::{EntityId, Rect};
 
-use crate::{AssetBytes, ImageKey, ToolDefaults};
+use crate::{ApiOutcome, AssetBytes, ImageKey, ToolDefaults};
 
 /// One thing for the shell to do after an [`update`](crate::update). Effects
 /// run in the order they are returned.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Effect {
+    /// Answer the [`Event::Api`](crate::Event::Api) that carried `ticket`,
+    /// once the event's other effects have run. The document and the
+    /// session are by then as the call left them.
+    ApiReply {
+        /// The call's ticket.
+        ticket: u64,
+        /// How it went.
+        outcome: ApiOutcome,
+    },
     /// Start hosting a page entity.
     CreatePage {
         /// The page entity.

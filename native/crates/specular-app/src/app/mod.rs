@@ -4,6 +4,7 @@
 //! events to the compositor, render, present, then report a
 //! [`FrameSample`].
 
+mod api_run;
 mod asset_run;
 mod bench;
 mod clipboard_run;
@@ -31,14 +32,16 @@ use specular_bench::{GestureProfile, PaintPolicy, STEP_INTERVAL};
 use specular_compositor::{FrameObserver as _, FrameSample};
 use specular_core::{Camera, PageEvent, PageId, PageSource};
 use specular_doc::{Document, EntityId};
-use specular_interact::{Action, App, Event, ImageKey};
+use specular_interact::{Action, ApiOutcome, App, Event, ImageKey};
 use winit::application::ApplicationHandler;
 use winit::event::WindowEvent;
-use winit::event_loop::{ActiveEventLoop, ControlFlow};
+use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoopProxy};
 use winit::keyboard::ModifiersState;
 use winit::window::WindowId;
 
+pub(crate) use self::api_run::ShellEvent;
 use self::gpu_window::GpuWindow;
+use crate::api::ApiHost;
 use crate::bench_run::BenchRun;
 use crate::images::ImageLoader;
 use crate::latency::InputLatencyProbe;
@@ -118,6 +121,12 @@ pub(crate) struct Shell {
     prefs: Option<PathBuf>,
     /// Files dropped on the window this turn, not yet sent to the app.
     dropped: Vec<PathBuf>,
+    /// Wakes the event loop from another thread.
+    wake: EventLoopProxy<ShellEvent>,
+    /// The HTTP API. `None` in a benchmark, and when it could not start.
+    api: Option<ApiHost>,
+    /// How the API call being run went, from its reply effect.
+    api_outcome: Option<ApiOutcome>,
     #[cfg(target_os = "macos")]
     menu: Option<menu_bar::MenuBar>,
     /// The window title as last set.
@@ -147,6 +156,7 @@ impl Shell {
         source: Box<dyn PageSource>,
         document: Document,
         options: RunOptions,
+        wake: EventLoopProxy<ShellEvent>,
     ) -> Self {
         // A benchmark starts every run from the same camera and leaves the
         // file as it found it.
@@ -171,6 +181,9 @@ impl Shell {
             clipboard: None,
             prefs,
             dropped: Vec::new(),
+            wake,
+            api: None,
+            api_outcome: None,
             #[cfg(target_os = "macos")]
             menu: None,
             title: String::new(),
@@ -207,6 +220,8 @@ impl Shell {
             return;
         }
         self.report_session();
+        // The discovery file goes with the server.
+        self.api = None;
         self.finish_notes();
         if let Some(persist) = self.persist.as_mut() {
             persist.flush(&self.app);
@@ -238,6 +253,8 @@ impl Shell {
             // a measured run.
             #[cfg(target_os = "macos")]
             self.install_menu();
+            let wake = self.wake.clone();
+            self.start_api(&wake);
             return Ok(());
         };
         if !self.closing {
@@ -321,7 +338,13 @@ fn unix_ms() -> u64 {
     since_epoch.as_millis() as u64
 }
 
-impl ApplicationHandler for Shell {
+impl ApplicationHandler<ShellEvent> for Shell {
+    fn user_event(&mut self, _event_loop: &ActiveEventLoop, event: ShellEvent) {
+        match event {
+            ShellEvent::Api => self.serve_api(),
+        }
+    }
+
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         if self.gpu.is_some() {
             return;

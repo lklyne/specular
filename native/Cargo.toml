@@ -13,6 +13,7 @@ repository = "https://github.com/lklyne/specular"
 # Every third-party dependency the spike may use is declared here so crate
 # builders only ever write `dep = { workspace = true }` in their own manifests.
 [workspace.dependencies]
+specular-api = { path = "crates/specular-api" }
 specular-doc = { path = "crates/specular-doc" }
 specular-core = { path = "crates/specular-core" }
 specular-interact = { path = "crates/specular-interact" }
@@ -25,6 +26,8 @@ specular-testkit = { path = "crates/specular-testkit" }
 anyhow = "1.0.100"
 # The system clipboard, text and images.
 arboard = "3.6.1"
+# PNGs in API responses.
+base64 = "0.23"
 bytemuck = { version = "1.25", features = ["derive"] }
 # Canvas text and paths (ADR 0039). glyphon re-exports cosmic-text 0.19.
 glyphon = "0.12.0"
@@ -47,6 +50,8 @@ rfd = "0.17.2"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "2.0"
+# The HTTP API's server: blocking, one thread, no async runtime.
+tiny_http = "0.12"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 # Grapheme and word boundaries for the text editor.

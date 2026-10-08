@@ -207,6 +207,31 @@ impl Document {
     }
 }
 
+impl Entity {
+    /// Reads one `.canvas` node. A node that cannot be typed (an unknown
+    /// `type`, or a required field missing or malformed) comes back untouched
+    /// as the error.
+    pub fn from_node(node: JsonMap) -> Result<Self, JsonMap> {
+        read::read_node(node)
+    }
+
+    /// The entity as a `.canvas` node, as a save writes it.
+    pub fn to_node(&self) -> Result<JsonMap, CanvasError> {
+        let mut node = Value::Object(write::write_node(self)?);
+        tidy_numbers(&mut node, true);
+        match node {
+            Value::Object(node) => Ok(node),
+            _ => Ok(JsonMap::new()),
+        }
+    }
+}
+
+/// Writes the numbers in `value` as a save writes them: floats rounded to a
+/// hundredth, whole floats as integers, and a `zoom` left as it is.
+pub fn tidy_json(value: &mut Value) {
+    tidy_numbers(value, true);
+}
+
 /// Removes a top-level array. A missing one reads as empty.
 fn take_array(top: &mut JsonMap, key: &'static str) -> Result<Vec<Value>, CanvasError> {
     match top.shift_remove(key) {

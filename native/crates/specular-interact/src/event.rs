@@ -5,7 +5,7 @@ use specular_core::{Camera, ImeEvent, Modifiers, PixelRect, PointerEventKind};
 use specular_doc::{Document, EntityId, ItemId, Rect};
 
 use crate::{
-    ClipboardContent, DroppedFile, Format, ImageKey, ImageNotice, NoteNotice, Tool,
+    ApiCall, ClipboardContent, DroppedFile, Format, ImageKey, ImageNotice, NoteNotice, Tool,
     ToolDefaultPatch, ToolDefaults,
 };
 
@@ -89,8 +89,11 @@ pub enum Event {
     /// The tool defaults were read from the preferences file. Replaces the
     /// current ones and asks for no save.
     ToolDefaultsLoaded(Box<ToolDefaults>),
-    /// A command from a key binding, a menu, a panel or the HTTP API.
+    /// A command from a key binding, a menu or a panel.
     Action(Action),
+    /// A change the HTTP API asked for. It is answered with an
+    /// [`Effect::ApiReply`](crate::Effect::ApiReply) carrying its ticket.
+    Api(ApiCall),
 }
 
 /// A pointer event at a screen position.

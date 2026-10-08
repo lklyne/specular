@@ -31,7 +31,7 @@ mod kinds;
 
 pub use anchor::{AnchorElement, PageAnchor};
 pub use annotation::{Annotation, AnnotationAnchor, AnnotationStatus, Author, RegionAnchor, Reply};
-pub use canvas::CanvasError;
+pub use canvas::{CanvasError, tidy_json};
 pub use color::{Color, ColorPreset};
 pub use command::{Command, CommandError};
 pub use document::Document;

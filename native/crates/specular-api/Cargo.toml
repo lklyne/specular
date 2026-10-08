@@ -1,0 +1,21 @@
+[package]
+name = "specular-api"
+description = "The headless mutation surface: HTTP requests turned into read answers or events for update()."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+specular-doc = { workspace = true }
+specular-core = { workspace = true }
+specular-interact = { workspace = true }
+glam = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+specular-testkit = { workspace = true }
+
+[lints]
+workspace = true

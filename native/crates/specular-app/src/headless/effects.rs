@@ -81,8 +81,9 @@ impl Headless {
                 self.drive(|app| app.send(Event::NoteCreated { file, rect }))?;
             }
             // A headless run has no window to focus, no cursor and no input
-            // method, and it leaves the disk alone.
-            Effect::FocusPage(_)
+            // method, it leaves the disk alone, and it hosts no API.
+            Effect::ApiReply { .. }
+            | Effect::FocusPage(_)
             | Effect::ForwardInput { .. }
             | Effect::SetImeAllowed(_)
             | Effect::SetImeCursorArea { .. }

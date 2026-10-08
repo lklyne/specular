@@ -93,6 +93,7 @@ impl Shell {
             Effect::WriteAsset { file, bytes } => self.write_asset(&file, bytes.as_slice()),
             Effect::CopyAsset { from, file } => self.copy_asset(&from, &file),
             Effect::SaveToolDefaults(defaults) => self.save_tool_defaults(&defaults),
+            Effect::ApiReply { outcome, .. } => self.api_outcome = Some(outcome),
         }
         Ok(())
     }

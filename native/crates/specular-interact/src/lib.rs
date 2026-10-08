@@ -23,6 +23,7 @@
 
 mod anchor;
 mod anchors;
+mod api;
 mod app;
 mod asset;
 mod bindings;
@@ -77,6 +78,7 @@ mod zoom;
 
 pub use anchor::{anchors_to_pages, page_anchor_for};
 pub use anchors::Anchor;
+pub use api::{ApiCall, ApiOutcome, ApiRun};
 pub use app::{App, Focus, Selection, Session};
 pub use asset::AssetBytes;
 pub use bindings::{BINDINGS, Binding, Chord, Context, binding_for};
@@ -96,6 +98,7 @@ pub use effect::{Cursor, Effect};
 pub use event::{Action, Event, Key, KeyInput, PageNotice, PointerInput, WheelInput};
 pub use geometry::to_canvas_rect;
 pub use gesture::Gesture;
+pub use groups::group_command;
 pub use handles::{Corner, HANDLE_SIZE, Handle, HandleOwner, OUTLINE_PADDING};
 pub use hit::{Hit, hit_test, title_scale};
 pub use images::{Image, ImageKey, ImageNotice, ImageState, is_image_file};
@@ -107,9 +110,12 @@ pub use place::{PlaceDrag, Placing};
 pub use placement::PagePlacement;
 pub use resize_drag::ResizeDrag;
 pub use scope::SelectionScope;
+pub use time::iso8601;
 pub use tool::Tool;
 pub use tool_defaults::{
     DrawDefaults, ShapeDefaults, StickyDefaults, TextDefaults, ToolDefaultPatch, ToolDefaults,
 };
 pub use update::update;
 pub use url::{looks_like_url, normalize_user_url};
+pub use verbs::{delete_commands, move_commands};
+pub use zoom::fitting as fit_camera;

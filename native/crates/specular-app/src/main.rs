@@ -6,6 +6,7 @@
 //! pan/zoom profiles and prints frame timing. `--snapshot` and `--script`
 //! draw into PNG files with no window. See `cli::USAGE`.
 
+mod api;
 mod app;
 mod bench_run;
 mod cli;
@@ -13,6 +14,7 @@ mod headless;
 mod images;
 mod latency;
 mod notes;
+mod offscreen;
 mod paint_lod;
 mod persist;
 mod prefs;
@@ -57,7 +59,7 @@ fn main() -> anyhow::Result<()> {
     }
     // winit must create the macOS application object before CEF initializes,
     // or CEF installs its own and winit panics.
-    let mut event_loop = EventLoop::builder();
+    let mut event_loop = EventLoop::<app::ShellEvent>::with_user_event();
     // The shell installs its own menu bar, except in a benchmark.
     #[cfg(target_os = "macos")]
     winit::platform::macos::EventLoopBuilderExtMacOS::with_default_menu(
@@ -83,7 +85,7 @@ fn main() -> anyhow::Result<()> {
         chrome: run.chrome,
         annotations: run.annotations,
     };
-    let mut app = app::Shell::new(source, document, options);
+    let mut app = app::Shell::new(source, document, options, event_loop.create_proxy());
     event_loop.run_app(&mut app).context("running event loop")?;
     app.into_result()
 }

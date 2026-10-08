@@ -13,6 +13,7 @@ default = []
 cef = ["specular-cef/cef"]
 
 [dependencies]
+specular-api = { workspace = true }
 specular-doc = { workspace = true }
 specular-core = { workspace = true }
 specular-interact = { workspace = true }
@@ -24,10 +25,12 @@ specular-bench = { workspace = true }
 specular-testkit = { workspace = true }
 anyhow = { workspace = true }
 arboard = { workspace = true }
+base64 = { workspace = true }
 glam = { workspace = true }
 image = { workspace = true }
 pollster = { workspace = true }
 serde_json = { workspace = true }
+tiny_http = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 wgpu = { workspace = true }

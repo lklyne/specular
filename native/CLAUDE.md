@@ -20,6 +20,9 @@ Event -> update(&mut App, Event) -> Vec<Effect>     pure, no I/O
   `Gesture`, hit-test and `update`.
 - `specular-scene` owns the `Scene` display list and `view`, one module per
   kind under `src/view/`.
+- `specular-api` turns an HTTP request and `&App` into a read answer or an
+  `Event::Api`, so an agent's write goes through `update` like a key press.
+  The shell hosts the server (`specular-app/src/api/`).
 - Only the shell and the CEF crate do I/O. Everything else is testable with
   no window, GPU or CEF.
 
@@ -134,6 +137,22 @@ cargo run -p specular-app -- --script steps.txt FILE.canvas
   after changing `specular-scene` or `specular-compositor` and open the PNG
   with the Read tool. A scene snapshot test cannot see a wrong colour or a
   hole in a fill.
+
+## Driving it from outside
+
+The running app answers the Electron app's HTTP routes, so the `specular`
+CLI and the skill file work against it. It listens on 29979 and writes
+`~/.specular/specular-mcp.json` unless the Electron app has them. Then it
+logs the port it took and the `SPECULAR_DISCOVERY_FILE=` to pass the CLI.
+
+- A route is an arm in `specular_api::Api::route` and a handler returning
+  `Step`. A read answers from `&App`. A write returns an `ApiRun`: an
+  `Action` the window already has, or one `Command` for one undo step.
+- Test a route in `specular-api/tests/api/` through `Scripted`, which runs
+  the planned event through `update`. `specular-app/src/api/tests.rs` is the
+  same over a real socket.
+- A route the CLI can call and this app lacks gets a row in `unported.rs`,
+  so the caller reads which verb is missing instead of a 404.
 
 ## Gate
 

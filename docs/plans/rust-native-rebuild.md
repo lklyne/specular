@@ -118,7 +118,7 @@ specular-scene      Scene display list types and view(&App) -> Scene.
 specular-render     wgpu: draws a Scene. Absorbs specular-compositor.
 specular-pages      CEF page hosts. The current specular-cef.
 specular-ui         Panels and popups.
-specular-api        HTTP routes and the CLI verbs, as Events in and JSON out.
+specular-api        HTTP routes as Events in and JSON out. No socket: the shell hosts the server. The CLI is the Electron one.
 specular-shell      winit, effect runner, autosave, file watch. The only binary.
 specular-testkit    Headless App driver, scene snapshot helpers, golden images.
 specular-bench      Unchanged.

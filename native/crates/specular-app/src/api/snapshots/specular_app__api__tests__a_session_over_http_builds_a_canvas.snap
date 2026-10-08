@@ -1,0 +1,12 @@
+---
+source: crates/specular-app/src/api/tests.rs
+expression: server.seat.0.doc_snapshot()
+---
+nodes:
+  {"id":"text_e220a8397b1dcdaf","type":"text","x":80,"y":80,"width":200,"height":200,"text":"ship it today","color":"4","specular":{"textStyle":"sticky"}}
+  {"id":"page_6e789e6aa1b965f4","type":"link","x":400,"y":80,"width":393,"height":852,"url":"http://localhost:4321/garden","presetIndex":1,"source":"generated"}
+edges:
+  {"id":"edge_06c45d188009454f","fromNode":"text_e220a8397b1dcdaf","toNode":"page_6e789e6aa1b965f4","label":"about","edgeKind":"connection"}
+specular: {"entityOrder":["text_e220a8397b1dcdaf","page_6e789e6aa1b965f4","edge_06c45d188009454f"]}
+annotations:
+  {"id":"ann_f88bb8a8724c81ec","anchor":{"type":"region","canvasRect":{"x":400,"y":80,"width":393,"height":852}},"author":"user","text":"check the hero","status":"pending","replies":[],"createdAt":"1970-01-01T00:00:00.000Z","metadata":{"selectionEntityIds":["page_6e789e6aa1b965f4"],"selectionTarget":{"entityId":"page_6e789e6aa1b965f4","kind":"page","url":"http://localhost:4321/garden"}}}

@@ -11,7 +11,6 @@
 mod effects;
 mod script;
 mod stand_ins;
-mod target;
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -28,9 +27,9 @@ use specular_testkit::TestApp;
 pub(crate) use self::script::CameraArg;
 use self::script::Step;
 use self::stand_ins::StandIns;
-use self::target::Target;
 use crate::images::ImageLoader;
 use crate::notes::NoteLoader;
+use crate::offscreen::{self, Target};
 use crate::persist::canvas_text;
 
 /// The clock a run starts at, so two runs of one script draw the same frame.
@@ -128,11 +127,12 @@ struct Headless {
 impl Headless {
     fn new(canvas: Option<&Path>, args: &HeadlessArgs) -> anyhow::Result<Self> {
         let gpu = pollster::block_on(GpuContext::headless()).context("no GPU to draw with")?;
-        let mut compositor = Compositor::new(gpu.device.clone(), gpu.queue.clone(), target::FORMAT);
+        let mut compositor =
+            Compositor::new(gpu.device.clone(), gpu.queue.clone(), offscreen::FORMAT);
         compositor.warm_text();
         let (width, height) = args.size;
         let pixels = |side: u32| ((side as f32 * args.scale).round() as u32).max(1);
-        let target = Target::new(&gpu, pixels(width), pixels(height));
+        let target = Target::new(&gpu, pixels(width), pixels(height), offscreen::FORMAT);
         let space = canvas
             .and_then(|canvas| std::path::absolute(canvas).ok())
             .and_then(|canvas| canvas.parent().map(Path::to_owned));

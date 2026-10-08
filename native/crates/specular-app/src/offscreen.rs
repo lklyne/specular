@@ -1,5 +1,7 @@
-//! The offscreen texture a headless run draws into, and its PNG.
+//! An offscreen texture to draw the canvas into, and its PNG: what a
+//! headless run and an API screenshot read back.
 
+use std::io::Cursor;
 use std::path::Path;
 use std::sync::mpsc;
 
@@ -8,17 +10,24 @@ use specular_compositor::GpuContext;
 
 /// Not an sRGB format, as the window's surface is not: colours blend
 /// encoded, as a browser's do. The bytes are in PNG order.
-pub(super) const FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
+pub(crate) const FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
 
 /// A render target that can be read back.
-pub(super) struct Target {
+pub(crate) struct Target {
     texture: wgpu::Texture,
     width: u32,
     height: u32,
 }
 
 impl Target {
-    pub(super) fn new(gpu: &GpuContext, width: u32, height: u32) -> Self {
+    /// A target of `width` by `height` device pixels in `format`, which
+    /// must be the format the compositor drawing into it was made for.
+    pub(crate) fn new(
+        gpu: &GpuContext,
+        width: u32,
+        height: u32,
+        format: wgpu::TextureFormat,
+    ) -> Self {
         let texture = gpu.device.create_texture(&wgpu::TextureDescriptor {
             label: Some("snapshot-target"),
             size: wgpu::Extent3d {
@@ -29,7 +38,7 @@ impl Target {
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: FORMAT,
+            format,
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
             view_formats: &[],
         });
@@ -40,13 +49,24 @@ impl Target {
         }
     }
 
-    pub(super) fn view(&self) -> wgpu::TextureView {
+    pub(crate) fn view(&self) -> wgpu::TextureView {
         self.texture
             .create_view(&wgpu::TextureViewDescriptor::default())
     }
 
     /// Reads the texture back and writes it to `path` as a PNG.
-    pub(super) fn save(&self, gpu: &GpuContext, path: &Path) -> anyhow::Result<()> {
+    pub(crate) fn save(&self, gpu: &GpuContext, path: &Path) -> anyhow::Result<()> {
+        let png = self.png(gpu)?;
+        std::fs::write(path, png).with_context(|| format!("writing {}", path.display()))
+    }
+
+    /// The size in device pixels.
+    pub(crate) const fn size(&self) -> (u32, u32) {
+        (self.width, self.height)
+    }
+
+    /// Reads the texture back as a PNG.
+    pub(crate) fn png(&self, gpu: &GpuContext) -> anyhow::Result<Vec<u8>> {
         let row_bytes = self.width * 4;
         let padded = row_bytes.div_ceil(wgpu::COPY_BYTES_PER_ROW_ALIGNMENT)
             * wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
@@ -90,18 +110,30 @@ impl Target {
             .slice(..)
             .get_mapped_range()
             .context("reading the snapshot readback")?;
-        let rgba: Vec<u8> = data
+        let mut rgba: Vec<u8> = data
             .chunks_exact(padded as usize)
             .flat_map(|row| &row[..row_bytes as usize])
             .copied()
             .collect();
-        image::save_buffer(
-            path,
+        // A window's surface is usually BGRA; a PNG is RGBA.
+        if matches!(
+            self.texture.format(),
+            wgpu::TextureFormat::Bgra8Unorm | wgpu::TextureFormat::Bgra8UnormSrgb
+        ) {
+            for pixel in rgba.as_chunks_mut::<4>().0 {
+                pixel.swap(0, 2);
+            }
+        }
+        let mut png = Cursor::new(Vec::new());
+        image::write_buffer_with_format(
+            &mut png,
             &rgba,
             self.width,
             self.height,
             image::ExtendedColorType::Rgba8,
+            image::ImageFormat::Png,
         )
-        .with_context(|| format!("writing {}", path.display()))
+        .context("encoding the PNG")?;
+        Ok(png.into_inner())
     }
 }

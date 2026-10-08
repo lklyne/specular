@@ -35,11 +35,15 @@ impl App {
     /// The selection resolved for gestures and verbs. Edges are not part of
     /// it: they follow the entities they connect.
     pub fn selection_scope(&self) -> SelectionScope {
+        let selected: Vec<EntityId> = self.session.selection.entities().cloned().collect();
+        self.scope_of(&selected)
+    }
+
+    /// `entities` resolved as a selection of them would be. Ids that name
+    /// nothing are dropped.
+    pub fn scope_of(&self, entities: &[EntityId]) -> SelectionScope {
         let document = &self.document;
-        let members: Vec<EntityId> = self
-            .session
-            .selection
-            .entities()
+        let members: Vec<EntityId> = (entities.iter())
             .filter(|id| document.entity(id).is_some())
             .cloned()
             .collect();
@@ -59,7 +63,7 @@ impl App {
 
 /// `members` with every group expanded to its descendants, then everything
 /// hooked to a page in that set.
-fn operands(document: &Document, members: &[EntityId]) -> Vec<EntityId> {
+pub(crate) fn operands(document: &Document, members: &[EntityId]) -> Vec<EntityId> {
     let mut out: Vec<EntityId> = Vec::new();
     // A stack, so a parent cycle in a hand-edited file ends at the first
     // repeat.

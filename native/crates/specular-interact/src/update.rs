@@ -10,8 +10,8 @@ use crate::images;
 use crate::notes;
 use crate::stack_order::Move;
 use crate::{
-    Action, App, Effect, Event, Focus, PageNotice, Selection, ToolDefaultPatch, bindings, camera,
-    cursor, edit, gesture, groups, pages, pointer, verbs,
+    Action, App, Effect, Event, Focus, PageNotice, Selection, ToolDefaultPatch, api, bindings,
+    camera, cursor, edit, gesture, groups, pages, pointer, verbs,
 };
 use crate::{clipboard, drop, select_all, zoom};
 
@@ -61,6 +61,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         Event::FilesDropped { files, screen } => drop::on_drop(app, &files, screen, &mut effects),
         Event::ToolDefaultsLoaded(defaults) => app.tool_defaults = *defaults,
         Event::Action(action) => run_action(app, action, &mut effects),
+        Event::Api(call) => api::run(app, call, &mut effects),
     }
     let moved = app.history.revision() != revision || app.session.camera != camera;
     let drag_ended = dragging && app.session.gesture.is_none();
@@ -246,7 +247,7 @@ fn open_document(app: &mut App, document: Document, effects: &mut Vec<Effect>) {
 
 /// Forgets selection, hover and focus that name something the document no
 /// longer holds.
-fn drop_dangling(app: &mut App, effects: &mut Vec<Effect>) {
+pub(crate) fn drop_dangling(app: &mut App, effects: &mut Vec<Effect>) {
     let document = &app.document;
     app.session.selection.retain(|item| match item {
         ItemId::Entity(id) => document.entity(id).is_some(),

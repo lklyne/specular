@@ -73,7 +73,7 @@ pub(crate) fn reveal(app: &mut App, bounds: Rect) {
 
 /// The camera that centres `bounds` in a viewport of `viewport` logical
 /// pixels with [`FIT_PADDING`] around it.
-fn fitting(bounds: Rect, viewport: DVec2) -> Camera {
+pub fn fitting(bounds: Rect, viewport: DVec2) -> Camera {
     let room = (viewport - DVec2::splat(f64::from(FIT_PADDING) * 2.0)).max(DVec2::ONE);
     let size = geometry::size(bounds).max(DVec2::ONE);
     let zoom = (room / size).min_element().min(f64::from(FIT_MAX_ZOOM)) as f32;

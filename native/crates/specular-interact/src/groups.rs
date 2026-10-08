@@ -45,15 +45,34 @@ pub(crate) fn group(app: &mut App, effects: &mut Vec<Effect>) {
     if selected.len() < 2 {
         return;
     }
-    let document = &app.document;
-    let roots = roots_to_group(document, &selected);
-    let Some(content) = (roots.iter())
-        .filter_map(|id| document.entity(id))
-        .map(|entity| entity.rect)
-        .reduce(crate::geometry::union)
-    else {
+    let id = EntityId::from(app.fresh_id().as_str());
+    let label = DEFAULT_LABEL.to_owned();
+    let Some(command) = group_command(&app.document, &selected, &id, label) else {
         return;
     };
+    update::document_step(app, command, effects);
+    app.session.selection.set([ItemId::Entity(id)]);
+}
+
+/// The command that wraps `members` in a new group `id` called `label`,
+/// with 24 units of room round them. The group goes where the frontmost of
+/// its run was, and the run is gathered there. `None` when no member names
+/// an entity.
+pub fn group_command(
+    document: &Document,
+    members: &[EntityId],
+    id: &EntityId,
+    label: String,
+) -> Option<Command> {
+    let members: Vec<EntityId> = (members.iter())
+        .filter(|id| document.entity(id).is_some())
+        .cloned()
+        .collect();
+    let roots = roots_to_group(document, &members);
+    let content = (roots.iter())
+        .filter_map(|id| document.entity(id))
+        .map(|entity| entity.rect)
+        .reduce(crate::geometry::union)?;
     let parent = roots
         .first()
         .and_then(|id| document.entity(id)?.parent.clone());
@@ -69,7 +88,6 @@ pub(crate) fn group(app: &mut App, effects: &mut Vec<Effect>) {
         .max()
         .map_or(document.stack_len(), |frontmost| frontmost + 1);
 
-    let id = EntityId::from(app.fresh_id().as_str());
     let rect = Rect::new(
         content.x - GROUP_PADDING,
         content.y - GROUP_PADDING,
@@ -77,7 +95,7 @@ pub(crate) fn group(app: &mut App, effects: &mut Vec<Effect>) {
         content.height + GROUP_PADDING * 2.0,
     );
     let entity = Entity {
-        label: Some(DEFAULT_LABEL.to_owned()),
+        label: Some(label),
         parent,
         ..Entity::new(
             id.clone(),
@@ -97,9 +115,8 @@ pub(crate) fn group(app: &mut App, effects: &mut Vec<Effect>) {
         id: root,
         parent: Some(id.clone()),
     }));
-    commands.extend(group_drop::contiguity_after(&app.document, &commands));
-    update::document_step(app, Command::Batch(commands), effects);
-    app.session.selection.set([ItemId::Entity(id)]);
+    commands.extend(group_drop::contiguity_after(document, &commands));
+    Some(Command::Batch(commands))
 }
 
 /// Every item inside `group`, nested groups' too.
