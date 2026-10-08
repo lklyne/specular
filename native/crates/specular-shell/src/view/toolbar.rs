@@ -88,6 +88,7 @@ fn panel_toggle(model: &SidebarButton) -> impl IntoElement {
                     PANEL_GLYPH,
                 )),
         )
+        .child(mark(&model.id))
         .on_click(move |_, window, cx| run(&action, window, cx))
 }
 
