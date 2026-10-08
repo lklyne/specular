@@ -54,7 +54,7 @@ right-click 300 300
 snapshot 13-menu-page.png
 key escape
 sidebar on
-right-click 250 700
+right-click 258 700
 snapshot 14-menu-beside-sidebar.png
 key escape
 sidebar off
