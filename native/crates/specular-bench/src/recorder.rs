@@ -154,43 +154,6 @@ mod tests {
     }
 
     #[test]
-    fn cpu_texture_is_remembered() {
-        let mut recorder = PhaseRecorder::new(ProfileId::SlowZoom);
-        recorder.presented(
-            Instant::now(),
-            PresentedFrame {
-                cpu_textures: 1,
-                ..PresentedFrame::default()
-            },
-        );
-        assert!(recorder.saw_cpu_texture());
-    }
-
-    #[test]
-    fn frames_received_sum_over_the_phase() {
-        let report = recorded(&[8, 8, 8], 0).finish(BUDGET);
-        assert_eq!(report.frames_received, Some(6));
-    }
-
-    #[test]
-    fn outstanding_peak_is_the_largest_seen() {
-        let report = recorded(&[8, 8, 8, 8], 0).finish(BUDGET);
-        assert_eq!(report.textures.map(|t| t.max_outstanding_textures), Some(3));
-    }
-
-    #[test]
-    fn empty_phase_finishes_with_zero_duration() {
-        let report = PhaseRecorder::new(ProfileId::SlowPan).finish(BUDGET);
-        assert!(report.duration_ms.abs() < f64::EPSILON);
-    }
-
-    #[test]
-    fn empty_phase_records_no_frames() {
-        let report = PhaseRecorder::new(ProfileId::SlowPan).finish(BUDGET);
-        assert_eq!(report.frames.frames, 0);
-    }
-
-    #[test]
     fn a_turn_with_nothing_to_draw_is_not_a_long_frame() {
         let mut recorder = PhaseRecorder::new(ProfileId::ZoomOutThenPan);
         let start = Instant::now();

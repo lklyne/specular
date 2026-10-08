@@ -136,23 +136,22 @@ mod tests {
         ] {
             assert!(looks_like_url(url), "{url}");
         }
-    }
 
-    #[test]
-    fn prose_other_schemes_and_single_words_do_not() {
-        for text in [
-            "",
-            "hello",
-            "hello world.com",
-            "mailto:me@example.com",
-            "file:///tmp/a.png",
-            "javascript:alert(1)",
-            "https://",
-            ".com",
-            "example.",
-            "a sentence. With a dot",
-        ] {
-            assert!(!looks_like_url(text), "{text}");
+        {
+            for text in [
+                "",
+                "hello",
+                "hello world.com",
+                "mailto:me@example.com",
+                "file:///tmp/a.png",
+                "javascript:alert(1)",
+                "https://",
+                ".com",
+                "example.",
+                "a sentence. With a dot",
+            ] {
+                assert!(!looks_like_url(text), "{text}");
+            }
         }
     }
 
@@ -176,17 +175,16 @@ mod tests {
             normalize_user_url("//example.com/a"),
             "https://example.com/a"
         );
-    }
 
-    #[test]
-    fn a_url_with_a_scheme_keeps_it() {
-        assert_eq!(
-            normalize_user_url(" HTTP://Example.com?x=1 "),
-            "http://example.com/?x=1"
-        );
-        assert_eq!(
-            normalize_user_url("https://example.com/a#b"),
-            "https://example.com/a#b"
-        );
+        {
+            assert_eq!(
+                normalize_user_url(" HTTP://Example.com?x=1 "),
+                "http://example.com/?x=1"
+            );
+            assert_eq!(
+                normalize_user_url("https://example.com/a#b"),
+                "https://example.com/a#b"
+            );
+        }
     }
 }

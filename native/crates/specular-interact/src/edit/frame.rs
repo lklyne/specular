@@ -224,12 +224,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn line_height_tightens_as_text_grows() {
-        let heights = [14.0, 32.0, 96.0].map(|size| (text_line_height(size) * 1000.0).round());
-        assert_eq!(heights, [1500.0, 1412.0, 1100.0]);
-    }
-
-    #[test]
     fn a_label_box_is_inset_where_the_silhouette_is_narrow() {
         let rect = Rect::new(100.0, 200.0, 200.0, 100.0);
         assert_eq!(

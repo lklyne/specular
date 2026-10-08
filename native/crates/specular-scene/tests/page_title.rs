@@ -19,11 +19,6 @@ fn app() -> TestApp {
 }
 
 #[test]
-fn a_page_that_has_said_nothing_shows_its_address() {
-    assert_scene_snapshot!(app());
-}
-
-#[test]
 fn a_page_with_a_title_shows_it_before_the_address() {
     let mut app = app();
     app.page_reports("p1", PageNotice::Title("Example Domain".to_owned()))

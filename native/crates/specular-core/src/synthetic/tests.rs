@@ -26,27 +26,25 @@ fn pump_paints_frame_at_texture_scaled_size() {
     let mut events = Vec::new();
     source.drain_events(&mut events);
     assert_eq!(frames(&events)[0].frame.size(), PixelSize::new(20, 10));
-}
 
-#[test]
-fn pump_respects_frame_rate_interval() {
-    let (mut source, _) = source_with_page(1.0);
-    let start = Instant::now();
-    source.pump_at(start);
-    source.pump_at(start + Duration::from_millis(1));
-    let mut events = Vec::new();
-    source.drain_events(&mut events);
-    assert_eq!(frames(&events).len(), 1);
-}
+    {
+        let (mut source, _) = source_with_page(1.0);
+        let start = Instant::now();
+        source.pump_at(start);
+        source.pump_at(start + Duration::from_millis(1));
+        let mut events = Vec::new();
+        source.drain_events(&mut events);
+        assert_eq!(frames(&events).len(), 1);
+    }
 
-#[test]
-fn page_with_painting_off_produces_no_frames() {
-    let (mut source, id) = source_with_page(1.0);
-    source.set_painting(id, false).unwrap();
-    source.pump_at(Instant::now());
-    let mut events = Vec::new();
-    source.drain_events(&mut events);
-    assert!(frames(&events).is_empty());
+    {
+        let (mut source, id) = source_with_page(1.0);
+        source.set_painting(id, false).unwrap();
+        source.pump_at(Instant::now());
+        let mut events = Vec::new();
+        source.drain_events(&mut events);
+        assert!(frames(&events).is_empty());
+    }
 }
 
 #[test]
@@ -57,16 +55,15 @@ fn closed_page_reports_unknown_page() {
         source.set_frame_rate(id, 30),
         Err(PageSourceError::UnknownPage(_))
     ));
-}
 
-#[test]
-fn create_page_rejects_empty_viewport() {
-    let mut source = SyntheticPageSource::new();
-    let spec = PageSpec::new("https://example.com/", CssSize::new(0, 10));
-    assert!(matches!(
-        source.create_page(&spec),
-        Err(PageSourceError::InvalidSpec(_))
-    ));
+    {
+        let mut source = SyntheticPageSource::new();
+        let spec = PageSpec::new("https://example.com/", CssSize::new(0, 10));
+        assert!(matches!(
+            source.create_page(&spec),
+            Err(PageSourceError::InvalidSpec(_))
+        ));
+    }
 }
 
 #[test]
@@ -80,26 +77,24 @@ fn element_at_is_the_grid_cell_holding_the_point() {
             bounding_box: PixelRect::new(160, 96, 160, 48),
         })
     );
-}
 
-#[test]
-fn a_cell_at_the_edge_is_cut_off_at_the_viewport() {
-    let element = synthetic_element_at(CssSize::new(400, 300), Vec2::new(399.0, 299.0));
-    assert_eq!(
-        element.map(|element| element.bounding_box),
-        Some(PixelRect::new(320, 288, 80, 12))
-    );
-}
+    {
+        let element = synthetic_element_at(CssSize::new(400, 300), Vec2::new(399.0, 299.0));
+        assert_eq!(
+            element.map(|element| element.bounding_box),
+            Some(PixelRect::new(320, 288, 80, 12))
+        );
+    }
 
-#[test]
-fn a_point_outside_the_viewport_is_on_no_element() {
-    let viewport = CssSize::new(400, 300);
-    for point in [
-        Vec2::new(-1.0, 10.0),
-        Vec2::new(400.0, 10.0),
-        Vec2::new(10.0, 300.0),
-    ] {
-        assert_eq!(synthetic_element_at(viewport, point), None, "{point}");
+    {
+        let viewport = CssSize::new(400, 300);
+        for point in [
+            Vec2::new(-1.0, 10.0),
+            Vec2::new(400.0, 10.0),
+            Vec2::new(10.0, 300.0),
+        ] {
+            assert_eq!(synthetic_element_at(viewport, point), None, "{point}");
+        }
     }
 }
 

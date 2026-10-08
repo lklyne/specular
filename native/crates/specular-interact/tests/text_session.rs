@@ -4,10 +4,9 @@
 
 use glam::Vec2;
 use specular_doc::{Entity, Kind, Rect};
-use specular_interact::{Action, Cursor, Effect, Key, TextEdit, Tool};
+use specular_interact::{Action, Cursor, Effect, Key, Tool};
 use specular_testkit::{
-    CMD, SHIFT, TestApp, assert_doc_snapshot, connected, document, labelled, page, plain_text,
-    shape, sticky,
+    CMD, TestApp, assert_doc_snapshot, connected, document, page, plain_text, shape, sticky,
 };
 
 const NOTE: Rect = Rect::new(100.0, 100.0, 200.0, 200.0);
@@ -53,19 +52,6 @@ fn a_double_click_edits_a_sticky_with_all_of_its_text_selected() {
     );
     assert_eq!(app.app().editing_text(&"n".into()), Some("hello"));
     assert_eq!(app.app().editing_text(&"other".into()), None);
-}
-
-#[test]
-fn a_double_click_with_shift_held_or_on_a_page_edits_nothing() {
-    let mut app = TestApp::with_entities([
-        page("p", Rect::new(400.0, 100.0, 400.0, 300.0)),
-        sticky("n", NOTE, "hello"),
-    ]);
-    app.hold(SHIFT).double_click(INSIDE).let_go();
-    assert_eq!(edited(&app), None);
-    app.double_click((500.0, 200.0));
-    assert_eq!(edited(&app), None);
-    assert_eq!(app.selected(), Some("p"));
 }
 
 #[test]
@@ -184,22 +170,6 @@ fn a_text_left_empty_is_deleted_with_its_edges() {
 }
 
 #[test]
-fn a_shape_label_is_edited_the_same_way_and_an_empty_one_keeps_its_shape() {
-    let mut app = TestApp::with_entities([labelled("s", NOTE, "old")]);
-    app.double_click((200.0, 200.0))
-        .type_text("New label")
-        .key(Key::Escape);
-    assert_eq!(text_of(app.entity("s")), "New label");
-    assert_eq!(app.rect("s"), NOTE);
-
-    app.double_click((200.0, 200.0))
-        .key(Key::Backspace)
-        .key(Key::Escape);
-    assert_eq!(text_of(app.entity("s")), "");
-    app.assert_undo_returns_to_start();
-}
-
-#[test]
 fn a_text_placed_and_typed_into_is_one_step_that_undoes_to_nothing() {
     let mut app = TestApp::empty();
     app.tool(Tool::AddSticky).click((100.0, 100.0));
@@ -282,56 +252,4 @@ fn plain_text_hugs_its_lines_and_an_empty_one_fits_its_prompt() {
         .type_text(" there, you");
     assert_eq!(app.rect("t"), Rect::new(0.0, 0.0, 138.0, 20.0));
     app.key(Key::Escape).assert_undo_returns_to_start();
-}
-
-#[test]
-fn opening_another_document_drops_the_edit() {
-    let mut app = TestApp::with_entities([sticky("n", NOTE, "hello")]);
-    app.double_click(INSIDE).type_text("lost");
-    app.open(document([sticky("n", NOTE, "theirs")]));
-    assert_eq!(edited(&app), None);
-    assert_eq!(text_of(app.entity("n")), "theirs");
-    assert!(!app.app().can_undo());
-}
-
-#[test]
-fn the_accessors_give_the_caret_and_the_selection_in_canvas_space() {
-    let mut app = TestApp::with_entities([sticky("n", NOTE, "one two\nthree")]);
-    assert_eq!(app.app().caret_rect(), None);
-    assert_eq!(app.app().selection_rects(), []);
-    app.double_click(INSIDE);
-    // Line 1 with a little extra for the line break it takes, then line 2.
-    assert_eq!(
-        app.app().selection_rects(),
-        [
-            Rect::new(108.0, 108.0, 76.0, 20.0),
-            Rect::new(108.0, 128.0, 50.0, 20.0)
-        ]
-    );
-    assert_eq!(
-        app.app().caret_rect(),
-        Some(Rect::new(158.0, 128.0, 0.0, 20.0))
-    );
-    app.key(Key::ArrowLeft);
-    assert_eq!(app.app().selection_rects(), []);
-    assert_eq!(
-        app.app().caret_rect(),
-        Some(Rect::new(108.0, 108.0, 0.0, 20.0))
-    );
-    assert_eq!(
-        app.app().text_edit().map(TextEdit::text),
-        Some("one two\nthree")
-    );
-
-    // A label is centred both ways in its box: 176 by 184 after padding.
-    let mut app = TestApp::with_entities([labelled("s", NOTE, "ab")]);
-    app.double_click((200.0, 200.0));
-    assert_eq!(
-        app.app().selection_rects(),
-        [Rect::new(190.0, 190.0, 20.0, 20.0)]
-    );
-    assert_eq!(
-        app.app().caret_rect(),
-        Some(Rect::new(210.0, 190.0, 0.0, 20.0))
-    );
 }

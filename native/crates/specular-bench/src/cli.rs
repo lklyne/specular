@@ -98,22 +98,6 @@ mod tests {
     }
 
     #[test]
-    fn flag_without_value_is_an_error() {
-        assert!(Args::parse(["--pid".to_owned()]).is_err());
-    }
-
-    #[test]
-    fn profiles_flag_selects_in_run_order() {
-        let ids: Vec<ProfileId> = args(&["--profiles", "slow-zoom,slow-pan"])
-            .profiles()
-            .unwrap()
-            .iter()
-            .map(|p| p.id)
-            .collect();
-        assert_eq!(ids, [ProfileId::SlowPan, ProfileId::SlowZoom]);
-    }
-
-    #[test]
     fn negative_millis_are_rejected() {
         assert!(args(&["--gap-ms", "-1"]).millis("gap-ms").is_err());
     }

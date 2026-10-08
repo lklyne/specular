@@ -85,7 +85,7 @@ mod tests {
     }
 
     #[test]
-    fn a_scroll_offset_is_passed_on_in_css_pixels() {
+    fn a_scroll_is_a_notice_and_an_answer_is_not() {
         let event = PageEvent::Scrolled {
             page: PAGE,
             offset: Vec2::new(0.0, 120.5),
@@ -94,10 +94,6 @@ mod tests {
             notice_of(&event, None),
             Some((PAGE, PageNotice::Scrolled { x: 0.0, y: 120.5 }))
         );
-    }
-
-    #[test]
-    fn answers_to_questions_are_not_notices() {
         let answer = PageEvent::ElementsInRect {
             page: PAGE,
             request: 1,

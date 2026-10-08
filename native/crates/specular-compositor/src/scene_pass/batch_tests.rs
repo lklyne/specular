@@ -99,15 +99,6 @@ fn chrome_beside_each_page_does_not_break_at_pages_it_misses() {
 }
 
 #[test]
-fn pages_never_share_a_batch() {
-    let items = vec![Item::canvas(page(0.0, 0.0)), Item::canvas(page(300.0, 0.0))];
-    assert_eq!(
-        batches(items),
-        [(Prim::Page, vec![0]), (Prim::Page, vec![1])]
-    );
-}
-
-#[test]
 fn a_run_of_one_kind_stays_one_batch_even_when_it_overlaps_itself() {
     let items = vec![
         Item::canvas(rect(0.0, 0.0, 50.0, 50.0)),

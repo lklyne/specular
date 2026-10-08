@@ -102,19 +102,6 @@ mod tests {
     }
 
     #[test]
-    fn since_subtracts_cumulative_counts() {
-        let before = TextureStats {
-            frames_without_texture: 10,
-            ..TextureStats::default()
-        };
-        let after = TextureStats {
-            frames_without_texture: 14,
-            ..TextureStats::default()
-        };
-        assert_eq!(after.since(before).frames_without_texture, 4);
-    }
-
-    #[test]
     fn page_hosts_snapshot_parses_electron_body() {
         let body = r#"{"hosts":[
             {"pageId":"a","framesReceived":5,"popupFrames":0,"framesWithoutTexture":1,

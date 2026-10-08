@@ -189,15 +189,14 @@ mod tests {
             [0, 0, 1, 1, 2, 2]
         );
         assert_eq!(layout.x_of(3), 0.0);
-    }
 
-    #[test]
-    fn a_wrapped_line_ends_before_the_stop_it_shares_with_the_next() {
-        let layout = layout();
-        assert_eq!(layout.line_end(1), 2);
-        assert_eq!(layout.line_end(3), 5, "a hard break ends at its last byte");
-        assert_eq!(layout.offset_at(0, 500.0), 2);
-        assert_eq!(layout.offset_at(1, 500.0), 5);
+        {
+            let layout = self::layout();
+            assert_eq!(layout.line_end(1), 2);
+            assert_eq!(layout.line_end(3), 5, "a hard break ends at its last byte");
+            assert_eq!(layout.offset_at(0, 500.0), 2);
+            assert_eq!(layout.offset_at(1, 500.0), 5);
+        }
     }
 
     #[test]

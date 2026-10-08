@@ -125,19 +125,18 @@ mod tests {
             bounds(&stroke(4.0, &[(10.0, 20.0), (50.0, 5.0), (30.0, 40.0)])),
             Rect::new(8.0, 3.0, 44.0, 39.0)
         );
-    }
 
-    #[test]
-    fn a_dot_and_a_hairline_still_have_a_body() {
-        assert_eq!(
-            bounds(&stroke(2.0, &[(10.0, 10.0)])),
-            Rect::new(9.0, 9.0, 2.0, 2.0)
-        );
-        assert_eq!(
-            bounds(&stroke(0.0, &[(0.0, 0.0), (10.0, 0.0)])),
-            Rect::new(0.0, 0.0, 10.0, 1.0)
-        );
-        assert_eq!(bounds(&stroke(2.0, &[])), Rect::new(0.0, 0.0, 1.0, 1.0));
+        {
+            assert_eq!(
+                bounds(&stroke(2.0, &[(10.0, 10.0)])),
+                Rect::new(9.0, 9.0, 2.0, 2.0)
+            );
+            assert_eq!(
+                bounds(&stroke(0.0, &[(0.0, 0.0), (10.0, 0.0)])),
+                Rect::new(0.0, 0.0, 10.0, 1.0)
+            );
+            assert_eq!(bounds(&stroke(2.0, &[])), Rect::new(0.0, 0.0, 1.0, 1.0));
+        }
     }
 
     #[test]

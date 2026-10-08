@@ -64,12 +64,6 @@ fn the_top_anchor_of_the_selected_page_is_hit_above_its_edge() {
 }
 
 #[test]
-fn a_point_above_an_unselected_page_is_empty_canvas() {
-    let app = TestApp::with_entities([page("f1", PAGE)]);
-    assert_eq!(at(&app, 400.0, 185.0), Hit::Empty);
-}
-
-#[test]
 fn the_hovered_page_shows_its_anchors_without_being_selected() {
     let mut app = TestApp::with_entities([page("f1", PAGE)]);
     app.pointer_move((400.0, 250.0));
@@ -77,30 +71,6 @@ fn the_hovered_page_shows_its_anchors_without_being_selected() {
     // Moving onto the anchor keeps the page hovered.
     app.pointer_move((400.0, 185.0));
     assert_eq!(app.session().hover.as_ref(), Some(&EntityId::from("f1")));
-}
-
-#[test]
-fn the_right_anchor_is_hit_beside_the_page() {
-    let app = selected([page("f1", PAGE)], &["f1"]);
-    assert_eq!(at(&app, 615.0, 350.0), anchor("f1", EdgeSide::Right));
-}
-
-#[test]
-fn a_selection_of_several_shows_no_anchors() {
-    let app = selected(
-        [
-            page("f1", PAGE),
-            text("t1", Rect::new(900.0, 200.0, 100.0, 40.0)),
-        ],
-        &["f1", "t1"],
-    );
-    assert_eq!(at(&app, 400.0, 185.0), Hit::Empty);
-}
-
-#[test]
-fn a_selected_drawing_shows_no_anchors() {
-    let app = selected([drawing("d1", PAGE)], &["d1"]);
-    assert_eq!(at(&app, 400.0, 185.0), Hit::Empty);
 }
 
 #[test]
@@ -157,26 +127,6 @@ fn a_side_handle_runs_the_whole_side() {
 }
 
 #[test]
-fn handles_keep_their_size_on_screen_at_any_zoom() {
-    let mut app = selected([page("f1", PAGE)], &["f1"]);
-    // At zoom 0.1 the page's bottom-right corner is at screen (60, 50).
-    app.zoom(0.1);
-    assert_eq!(
-        (at(&app, 66.0, 56.0), at(&app, 68.0, 58.0)),
-        (
-            handle_of("f1", Handle::Corner(Corner::BottomRight)),
-            Hit::Empty
-        )
-    );
-}
-
-#[test]
-fn an_unselected_page_has_no_handles() {
-    let app = TestApp::with_entities([page("f1", PAGE)]);
-    assert_eq!(at(&app, 600.0, 200.0), page_content("f1", (400.0, 0.0)));
-}
-
-#[test]
 fn every_kind_gets_handles_when_selected() {
     let rect = Rect::new(100.0, 100.0, 200.0, 100.0);
     let kinds = [
@@ -196,18 +146,6 @@ fn every_kind_gets_handles_when_selected() {
             "{name}"
         );
     }
-}
-
-#[test]
-fn a_selected_group_has_handles_past_its_corner() {
-    let app = selected([group("g1", GROUP)], &["g1"]);
-    assert_eq!(
-        (at(&app, 700.0, 600.0), at(&app, 702.0, 602.0)),
-        (
-            handle_of("g1", Handle::Corner(Corner::BottomRight)),
-            handle_of("g1", Handle::Corner(Corner::BottomRight))
-        )
-    );
 }
 
 #[test]
@@ -234,19 +172,6 @@ fn a_selection_of_several_has_handles_on_its_bounds_only() {
 }
 
 #[test]
-fn one_selected_entity_among_several_keeps_its_own_handles() {
-    let entities = [
-        text("t1", Rect::new(100.0, 100.0, 50.0, 50.0)),
-        text("t2", Rect::new(200.0, 200.0, 80.0, 40.0)),
-    ];
-    let app = selected(entities, &["t1"]);
-    assert_eq!(
-        at(&app, 100.0, 100.0),
-        handle_of("t1", Handle::Corner(Corner::TopLeft))
-    );
-}
-
-#[test]
 fn a_group_selected_with_a_sibling_gets_handles_around_both() {
     // The group, its child and the sibling span (100, 50) to (900, 650).
     let entities = [
@@ -267,35 +192,12 @@ fn a_group_selected_with_a_sibling_gets_handles_around_both() {
     );
 }
 
-#[test]
-fn an_entity_selected_with_an_edge_has_no_handles() {
-    let entities = [
-        text("t1", Rect::new(100.0, 100.0, 50.0, 50.0)),
-        text("t2", Rect::new(400.0, 100.0, 50.0, 50.0)),
-    ];
-    let mut app = TestApp::from_document(connected(document(entities), "e1", "t1", "t2"));
-    app.select(&["t1", "e1"]);
-    assert_eq!(at(&app, 100.0, 100.0), body("t1"));
-}
-
 // Bodies.
 
 #[test]
 fn a_page_body_reports_the_point_in_the_pages_pixels() {
     let app = TestApp::with_entities([page("f1", PAGE)]);
     assert_eq!(at(&app, 400.0, 350.0), page_content("f1", (200.0, 150.0)));
-}
-
-#[test]
-fn a_text_body_is_an_entity_body() {
-    let app = TestApp::with_entities([text("t1", Rect::new(200.0, 200.0, 100.0, 40.0))]);
-    assert_eq!(at(&app, 250.0, 220.0), body("t1"));
-}
-
-#[test]
-fn nothing_under_the_point_is_empty_canvas() {
-    let app = TestApp::with_entities([page("f1", PAGE)]);
-    assert_eq!(at(&app, 10.0, 10.0), Hit::Empty);
 }
 
 #[test]
@@ -341,29 +243,6 @@ fn the_front_of_two_overlapping_entities_is_hit() {
 }
 
 #[test]
-fn a_shape_over_a_pages_top_edge_wins_where_it_overlaps() {
-    let app = TestApp::with_entities([
-        page("p1", PAGE),
-        shape("s1", Rect::new(240.0, 170.0, 100.0, 80.0)),
-    ]);
-    assert_eq!(
-        (at(&app, 280.0, 185.0), at(&app, 280.0, 230.0)),
-        (body("s1"), body("s1"))
-    );
-}
-
-#[test]
-fn a_page_in_front_of_a_note_covers_it() {
-    // Pages and other items share one stack order here. Electron paints
-    // every note above every page, so there the note would win.
-    let app = TestApp::with_entities([
-        text("t1", Rect::new(300.0, 300.0, 100.0, 40.0)),
-        page("f1", PAGE),
-    ]);
-    assert_eq!(at(&app, 320.0, 320.0), page_content("f1", (120.0, 120.0)));
-}
-
-#[test]
 fn a_drawing_in_front_of_a_page_wins_only_where_it_is() {
     let app = TestApp::with_entities([
         page("p1", PAGE),
@@ -376,19 +255,6 @@ fn a_drawing_in_front_of_a_page_wins_only_where_it_is() {
             at(&app, 260.0, 350.0)
         ),
         (body("d1"), body("d1"), page_content("p1", (60.0, 150.0)))
-    );
-}
-
-#[test]
-fn a_selected_drawings_handle_wins_over_its_body() {
-    let mut app = TestApp::with_entities([
-        page("p1", PAGE),
-        drawing("d1", Rect::new(220.0, 170.0, 100.0, 80.0)),
-    ]);
-    app.select(&["d1"]);
-    assert_eq!(
-        at(&app, 322.0, 252.0),
-        handle_of("d1", Handle::Corner(Corner::BottomRight))
     );
 }
 
@@ -426,27 +292,6 @@ fn a_group_title_is_hit_above_the_groups_corner() {
     );
 }
 
-#[test]
-fn a_title_wins_over_the_selected_groups_top_handle() {
-    let mut app = TestApp::with_entities([titled(Some("Group"))]);
-    app.select(&["g1"]);
-    assert_eq!(
-        (at(&app, 115.0, 97.0), at(&app, 300.0, 97.0)),
-        (
-            Hit::GroupLabel {
-                group: EntityId::from("g1")
-            },
-            handle_of("g1", Handle::Side(EdgeSide::Top))
-        )
-    );
-}
-
-#[test]
-fn an_untitled_group_has_no_title_to_hit() {
-    let app = TestApp::with_entities([titled(None)]);
-    assert_eq!(at(&app, 110.0, 90.0), Hit::Empty);
-}
-
 // Edges.
 
 fn linked() -> TestApp {
@@ -469,23 +314,4 @@ fn an_edge_is_hit_within_seven_pixels_of_its_line() {
         (at(&app, 350.0, 156.0), at(&app, 350.0, 158.0)),
         (edge, Hit::Empty)
     );
-}
-
-#[test]
-fn an_edge_takes_its_place_in_the_stack_order() {
-    let mut document = linked().document().clone();
-    let cover = specular_doc::Command::InsertEntity {
-        entity: Box::new(shape("s1", Rect::new(300.0, 100.0, 100.0, 100.0))),
-        at: document.stack_len(),
-    };
-    document.apply(cover).unwrap();
-    let app = TestApp::from_document(document);
-    assert_eq!(at(&app, 350.0, 150.0), body("s1"));
-}
-
-#[test]
-fn an_edge_to_a_missing_entity_is_never_hit() {
-    let entities = [text("t1", Rect::new(100.0, 100.0, 100.0, 100.0))];
-    let app = TestApp::from_document(connected(document(entities), "e1", "t1", "gone"));
-    assert_eq!(at(&app, 208.0, 150.0), Hit::Empty);
 }

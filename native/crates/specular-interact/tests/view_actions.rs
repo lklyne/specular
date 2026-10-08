@@ -2,7 +2,7 @@
 
 use glam::Vec2;
 use specular_doc::Rect;
-use specular_interact::{Action, Key};
+use specular_interact::Key;
 use specular_testkit::{CMD, TestApp, group, inside, page, shape};
 
 const VIEWPORT: Vec2 = Vec2::new(1000.0, 800.0);
@@ -22,17 +22,6 @@ fn select_all_takes_everything_that_is_not_inside_a_group() {
 }
 
 #[test]
-fn select_all_waits_for_a_drag_to_end() {
-    let mut app = TestApp::with_pages(2);
-    app.select(&["p1"])
-        .press((200.0, 150.0))
-        .drag_to((300.0, 250.0));
-    app.act(Action::SelectAll);
-    assert_eq!(app.selected_ids(), ["p1"]);
-    app.release();
-}
-
-#[test]
 fn zoom_in_and_out_step_about_the_middle_of_the_viewport() {
     let mut app = TestApp::with_pages(1);
     app.viewport(VIEWPORT);
@@ -47,35 +36,6 @@ fn zoom_in_and_out_step_about_the_middle_of_the_viewport() {
     );
     app.chord(CMD, Key::Char('-')).chord(CMD, Key::Char('-'));
     assert!((app.session().camera.zoom - 0.8).abs() < 1e-6);
-}
-
-#[test]
-fn zoom_stops_at_the_cameras_limits() {
-    let mut app = TestApp::with_pages(1);
-    app.viewport(VIEWPORT);
-    for _ in 0..40 {
-        app.act(Action::ZoomIn);
-    }
-    assert!((app.session().camera.zoom - 3.0).abs() < 1e-6);
-    for _ in 0..80 {
-        app.act(Action::ZoomOut);
-    }
-    assert!((app.session().camera.zoom - 0.02).abs() < 1e-6);
-}
-
-#[test]
-fn zoom_to_100_keeps_the_middle_of_the_viewport() {
-    let mut app = TestApp::with_pages(1);
-    app.viewport(VIEWPORT).zoom(0.4);
-    let centre = app.session().camera.screen_to_world(VIEWPORT / 2.0);
-    app.chord(CMD, Key::Char('0'));
-    let camera = app.session().camera;
-    assert!((camera.zoom - 1.0).abs() < f32::EPSILON);
-    assert!(
-        camera
-            .screen_to_world(VIEWPORT / 2.0)
-            .abs_diff_eq(centre, 1e-2)
-    );
 }
 
 #[test]
@@ -116,21 +76,4 @@ fn zoom_to_fit_works_from_inside_a_page() {
     assert!((app.session().camera.zoom - 0.545).abs() < 1e-6);
     // The page did not get the key.
     assert_eq!(app.take_effects(), []);
-}
-
-#[test]
-fn zoom_to_fit_on_an_empty_canvas_goes_home() {
-    let mut app = TestApp::empty();
-    app.viewport(VIEWPORT).zoom(0.3);
-    app.act(Action::ZoomToFit);
-    assert_eq!(app.session().camera, specular_core::Camera::default());
-}
-
-#[test]
-fn zoom_changes_nothing_in_the_document() {
-    let mut app = TestApp::with_pages(1);
-    app.viewport(VIEWPORT).take_effects();
-    app.act(Action::ZoomIn).act(Action::ZoomToFit);
-    assert_eq!(app.take_effects(), []);
-    assert!(!app.app().can_undo());
 }

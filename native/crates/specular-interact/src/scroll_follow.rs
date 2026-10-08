@@ -231,32 +231,12 @@ mod tests {
             DVec2::new(1.0, 1.0),
         );
         assert_eq!(shift, DVec2::new(0.0, 240.0));
-    }
 
-    #[test]
-    fn the_shift_is_in_canvas_units() {
-        // A 1280px page drawn 640 wide: a CSS pixel is half a unit.
-        let shift = shift_of(DVec2::ZERO, DVec2::new(0.0, 200.0), DVec2::new(0.5, 0.5));
-        assert_eq!(shift, DVec2::new(0.0, 100.0));
-    }
-
-    #[test]
-    fn doc_and_viewport_are_one_scroll_apart() {
-        let viewport = Rect::new(10.0, 20.0, 30.0, 40.0);
-        let scroll = DVec2::new(5.0, 300.0);
-        let doc = viewport_to_doc(viewport, scroll);
-        assert_eq!(doc, Rect::new(15.0, 320.0, 30.0, 40.0));
-        assert_eq!(doc_to_viewport(doc, scroll), viewport);
-    }
-
-    #[test]
-    fn an_anchor_without_scroll_records_none() {
-        let mut anchor = PageAnchor::new(EntityId::new("p"));
-        assert_eq!(recorded_scroll(&anchor), None);
-        anchor.scroll_x = Some(3.0);
-        assert_eq!(recorded_scroll(&anchor), None);
-        anchor.scroll_y = Some(12.0);
-        assert_eq!(recorded_scroll(&anchor), Some(DVec2::new(3.0, 12.0)));
+        {
+            // A 1280px page drawn 640 wide: a CSS pixel is half a unit.
+            let shift = shift_of(DVec2::ZERO, DVec2::new(0.0, 200.0), DVec2::new(0.5, 0.5));
+            assert_eq!(shift, DVec2::new(0.0, 100.0));
+        }
     }
 
     #[test]

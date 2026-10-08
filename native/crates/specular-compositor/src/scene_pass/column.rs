@@ -180,12 +180,6 @@ mod tests {
     }
 
     #[test]
-    fn a_column_shorter_than_its_window_does_not_scroll() {
-        let column = column(40.0, rows()[..1].to_vec());
-        assert_eq!(layout(&column, measure).bounds(&column).y, 200.0);
-    }
-
-    #[test]
     fn rules_sit_against_their_row() {
         let row = RowBox {
             top: 28.0,

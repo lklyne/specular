@@ -217,10 +217,7 @@ mod tests {
         assert_eq!(digit.key, Key::Char('1'));
         assert_eq!((digit.native_key_code, numpad.native_key_code), (18, 83));
         assert_ne!(digit.windows_key_code, numpad.windows_key_code);
-    }
-
-    #[test]
-    fn return_types_a_carriage_return_and_an_arrow_types_nothing() {
+        // Return types a carriage return and an arrow types nothing.
         let enter = key_input(&down(36, 0, "\r"));
         assert_eq!((enter.key, enter.text.as_deref()), (Key::Enter, Some("\r")));
         let left = key_input(&down(123, 0, "\u{f702}"));
@@ -238,10 +235,7 @@ mod tests {
         assert!(key_input(&flags(SHIFT)).pressed);
         assert!(!key_input(&flags(0)).pressed);
         assert_eq!(key_input(&flags(SHIFT)).text, None);
-    }
-
-    #[test]
-    fn a_release_carries_no_text() {
+        // A release carries no text.
         let up = RawKey {
             kind: RawKind::Up,
             ..down(0, 0, "a")

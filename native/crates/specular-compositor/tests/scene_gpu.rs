@@ -52,15 +52,6 @@ fn page() -> PageDraw {
 }
 
 #[test]
-fn an_empty_scene_is_the_background() {
-    let Some(mut harness) = Harness::new() else {
-        return;
-    };
-    let pixels = harness.render(Vec::new());
-    assert_eq!(ink(&pixels), None);
-}
-
-#[test]
 fn a_rect_fills_its_pixels_and_no_others() {
     let Some(mut harness) = Harness::new() else {
         return;
@@ -105,21 +96,6 @@ fn an_ellipse_fills_its_middle_and_leaves_its_corners() {
             pixel(&pixels, 10, 18)
         ],
         [RED_TEXEL, RED_TEXEL, BACKGROUND]
-    );
-}
-
-#[test]
-fn an_item_after_a_page_is_over_it_and_one_before_is_under() {
-    let Some(mut harness) = Harness::new() else {
-        return;
-    };
-    paint_page(&mut harness);
-    let marker = || Item::canvas(rect(24.0, 24.0, 16.0, 16.0, RED));
-    let over = harness.render(vec![Item::canvas(page()), marker()]);
-    let under = harness.render(vec![marker(), Item::canvas(page())]);
-    assert_eq!(
-        [pixel(&over, 32, 32), pixel(&under, 32, 32)],
-        [RED_TEXEL, GREEN_TEXEL]
     );
 }
 

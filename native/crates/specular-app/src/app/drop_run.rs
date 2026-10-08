@@ -74,11 +74,6 @@ mod tests {
             space_path(Path::new("/Users/me/Space/Plan.md"), space).as_deref(),
             Some("Plan.md")
         );
-    }
-
-    #[test]
-    fn a_file_anywhere_else_is_outside() {
-        let space = Path::new("/Users/me/Space");
         assert_eq!(
             space_path(Path::new("/Users/me/Desktop/shot.png"), space),
             None

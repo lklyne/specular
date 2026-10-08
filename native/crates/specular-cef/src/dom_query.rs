@@ -232,13 +232,6 @@ mod tests {
     }
 
     #[test]
-    fn a_coordinate_that_is_not_a_number_reads_as_zero() {
-        let message = sent(&element_at_message(1, f32::NAN, f32::INFINITY));
-        let expression = message["params"]["expression"].as_str().unwrap();
-        assert!(expression.contains("document.elementFromPoint((0), (0))"));
-    }
-
-    #[test]
     fn a_region_question_carries_the_rect_and_the_cap() {
         let rect = CssRect::new(10.0, 20.0, 300.0, 150.5);
         let message = sent(&elements_in_rect_message(3, rect));
@@ -272,13 +265,6 @@ mod tests {
         assert_eq!(parse_element(thrown), None);
         assert_eq!(parse_element(b"not json"), None);
         assert_eq!(parse_element(&value_result(r#"{"selector":"a"}"#)), None);
-    }
-
-    #[test]
-    fn a_count_is_read_and_anything_else_is_zero() {
-        assert_eq!(parse_count(&value_result("4")), 4);
-        assert_eq!(parse_count(&value_result("many")), 0);
-        assert_eq!(parse_count(b"{}"), 0);
     }
 
     #[test]

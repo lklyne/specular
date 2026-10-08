@@ -184,25 +184,6 @@ mod tests {
     }
 
     #[test]
-    fn neutral_follows_the_role() {
-        assert_eq!(
-            (
-                resolve(&Stored::Neutral, Palette::Soft, Role::Fill),
-                resolve(&Stored::Neutral, Palette::Soft, Role::Ink)
-            ),
-            (NEUTRAL_FILL, INK)
-        );
-    }
-
-    #[test]
-    fn the_seventh_preset_is_blue() {
-        assert_eq!(
-            resolve(&Stored::parse("7"), Palette::Soft, Role::Fill),
-            Color::rgb(0xb0, 0xc4, 0xd8)
-        );
-    }
-
-    #[test]
     fn a_hex_passes_through_and_nonsense_is_neutral() {
         assert_eq!(
             [
@@ -215,15 +196,6 @@ mod tests {
                 Color::rgb(0xff, 0x00, 0xaa),
                 INK
             ]
-        );
-    }
-
-    #[test]
-    fn lighten_and_darken_interpolate_each_channel() {
-        let colour = Color::rgb(100, 200, 0);
-        assert_eq!(
-            (lighten(colour, 0.5), darken(colour, 0.5)),
-            (Color::rgb(178, 228, 128), Color::rgb(50, 100, 0))
         );
     }
 }

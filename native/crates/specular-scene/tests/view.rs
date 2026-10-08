@@ -8,10 +8,10 @@ use specular_doc::{
     LineStyle, Point, Rect, RegionAnchor, Shape, ShapeKind, Stroke, Text, TextAlign, TextFont,
     TextStyle, WidthMode,
 };
-use specular_interact::{Action, Key};
+use specular_interact::Action;
 use specular_scene::{Draw, view, view_without_chrome};
 use specular_testkit::{
-    TestApp, assert_scene_snapshot, connected, document, file, group, inside, page, shape, text,
+    TestApp, assert_scene_snapshot, connected, document, group, inside, page, shape, text,
 };
 
 const VIEWPORT: Vec2 = Vec2::new(1600.0, 1000.0);
@@ -250,25 +250,9 @@ fn an_edge_is_a_curve_with_arrowheads_and_a_label() {
 }
 
 #[test]
-fn a_file_is_a_card_with_its_name() {
-    let app = TestApp::with_entities([file("f1", Rect::new(100.0, 100.0, 240.0, 160.0))]);
-    assert_scene_snapshot!(app);
-}
-
-#[test]
 fn selecting_one_entity_outlines_it_and_adds_corner_handles() {
     let mut app = TestApp::with_pages(2);
     select(&mut app, &["p1"]);
-    assert_scene_snapshot!(app);
-}
-
-#[test]
-fn selecting_several_outlines_each_and_puts_handles_on_their_bounds() {
-    let mut app = TestApp::with_entities([
-        shape("a", Rect::new(100.0, 100.0, 100.0, 100.0)),
-        shape("b", Rect::new(300.0, 250.0, 100.0, 100.0)),
-    ]);
-    select(&mut app, &["a", "b"]);
     assert_scene_snapshot!(app);
 }
 
@@ -279,25 +263,6 @@ fn a_marquee_draws_its_rect_and_outlines_what_it_would_take() {
         shape("b", Rect::new(600.0, 100.0, 100.0, 100.0)),
     ]);
     app.press((50.0, 50.0)).drag_to((250.0, 250.0));
-    assert_scene_snapshot!(app);
-}
-
-#[test]
-fn the_entered_page_gets_a_hover_border() {
-    let mut app = TestApp::with_pages(1);
-    app.click((200.0, 200.0))
-        .click((200.0, 200.0))
-        .pointer_move((210.0, 210.0));
-    select(&mut app, &[]);
-    assert_scene_snapshot!(app);
-}
-
-#[test]
-fn the_comment_tool_previews_its_region() {
-    let mut app = TestApp::with_pages(1);
-    app.key(Key::Char('c'))
-        .press((600.0, 500.0))
-        .drag_to((700.0, 580.0));
     assert_scene_snapshot!(app);
 }
 

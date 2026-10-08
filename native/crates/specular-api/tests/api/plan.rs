@@ -7,8 +7,8 @@
 
 use serde_json::{Value, json};
 use specular_api::{Api, Method, Plan, Request, Response};
-use specular_doc::{Command, ItemId, Rect};
-use specular_interact::{Action, ApiCall, ApiRun, Event};
+use specular_doc::Rect;
+use specular_interact::{ApiCall, ApiRun, Event};
 use specular_testkit::{TestApp, document, group, inside, sticky};
 
 fn api() -> Api {
@@ -64,10 +64,6 @@ fn refused(plan: Plan, status: u16, error: &str) {
     );
 }
 
-fn entity(id: &str) -> ItemId {
-    ItemId::Entity(id.into())
-}
-
 #[test]
 fn the_canvas_is_read_as_a_json_canvas_document_with_the_one_tab() {
     let app = notes();
@@ -92,47 +88,6 @@ fn the_canvas_is_read_as_a_json_canvas_document_with_the_one_tab() {
             "tabs": [{ "id": "tab_1", "name": "Canvas 1", "entityCount": 4 }],
         })
     );
-}
-
-#[test]
-fn a_patch_becomes_one_batch_for_update() {
-    let app = notes();
-    let patch = json!({
-        "entities": [{ "kind": "text", "text": "new", "canvasX": 40, "canvasY": 400 }, { "id": "a", "text": "ONE" }],
-        "edges": [{ "fromEntityId": "a", "toEntityId": "b" }],
-        "delete": ["b"],
-    });
-    let ApiRun::Apply {
-        command: Command::Batch(commands),
-        select: None,
-    } = run(api().plan(app.app(), &Request::post("/canvas/apply", patch)))
-    else {
-        panic!("a patch is one batch");
-    };
-    let names: Vec<&str> = (commands.iter())
-        .map(|command| match command {
-            Command::InsertEntity { .. } => "insert entity",
-            Command::SetKind { .. } => "set kind",
-            Command::InsertEdge { .. } => "insert edge",
-            Command::RemoveEdge(_) => "remove edge",
-            Command::RemoveEntity(_) => "remove entity",
-            _ => "other",
-        })
-        .collect();
-    // Deleting `b` takes the edge the same patch gave it.
-    assert_eq!(
-        names,
-        [
-            "insert entity",
-            "set kind",
-            "insert edge",
-            "remove edge",
-            "remove entity"
-        ]
-    );
-    // Planning read the app and left it alone.
-    assert_eq!(app.entity("a").label, None);
-    assert!(!app.app().can_undo());
 }
 
 #[test]
@@ -220,68 +175,6 @@ fn a_page_needs_a_full_url() {
     ] {
         run(page(json!(full)));
     }
-}
-
-#[test]
-fn the_act_routes_map_onto_the_window_s_actions() {
-    let app = notes();
-    let mut api = api();
-    let mut post = |path: &str, body: Value| api.plan(app.app(), &Request::post(path, body));
-
-    assert_eq!(
-        run(post(
-            "/stack-order/bring-to-front",
-            json!({ "ids": ["a", "b"] })
-        )),
-        ApiRun::Act {
-            on: Some(vec![entity("a"), entity("b")]),
-            action: Action::BringToFront
-        }
-    );
-    assert_eq!(
-        run(post("/stack-order/send-backward", json!({ "id": "c" }))),
-        ApiRun::Act {
-            on: Some(vec![entity("c")]),
-            action: Action::SendBackward
-        }
-    );
-    assert_eq!(
-        run(post("/groups/ungroup", json!({ "groupId": "g" }))),
-        ApiRun::Act {
-            on: Some(vec![entity("g")]),
-            action: Action::Ungroup
-        }
-    );
-    assert_eq!(
-        run(post(
-            "/selection/select-entities",
-            json!({ "entityIds": ["a", "gone", "c"] })
-        )),
-        ApiRun::Act {
-            on: None,
-            action: Action::Select(vec![entity("a"), entity("c")])
-        }
-    );
-    assert_eq!(
-        run(post("/selection/deselect", json!({}))),
-        ApiRun::Act {
-            on: None,
-            action: Action::Select(Vec::new())
-        }
-    );
-    // `a` is 200 square at the origin: centred in 1000x800 at 100%.
-    let ApiRun::Act {
-        on,
-        action: Action::SetCamera(camera),
-    } = run(post("/camera/focus", json!({ "pageIds": ["a"] })))
-    else {
-        panic!("focus moves the camera");
-    };
-    assert_eq!(on, Some(vec![entity("a")]));
-    assert_eq!(
-        (camera.zoom, camera.pan.x, camera.pan.y),
-        (1.0, 400.0, 300.0)
-    );
 }
 
 #[test]

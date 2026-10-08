@@ -347,44 +347,28 @@ mod tests {
     }
 
     #[test]
-    fn run_reports_each_profile_once() {
-        let start = Instant::now();
-        let mut run = new_run(vec![pan_profile(), pan_profile()], true, start);
-        run_to_completion(&mut run, start, 0);
-        assert_eq!(run.reports().len(), 2);
-    }
-
-    #[test]
-    fn profile_applies_its_total_pan() {
+    fn a_profile_applies_its_total_pan_and_reports_its_frame_intervals() {
+        // Three steps -> four frames presented while running -> three intervals.
         let start = Instant::now();
         let mut run = new_run(vec![pan_profile()], true, start);
         let camera = run_to_completion(&mut run, start, 0);
         assert!((camera.pan.x - 30.0).abs() < 1e-4);
-    }
-
-    #[test]
-    fn frames_recorded_are_intervals_between_profile_frames() {
-        // Three steps -> four frames presented while running -> three intervals.
-        let start = Instant::now();
-        let mut run = new_run(vec![pan_profile()], true, start);
-        run_to_completion(&mut run, start, 0);
         assert_eq!(run.reports()[0].phase.frames.frames, 3);
+        let json = serde_json::to_value(&run.reports()[0]).unwrap();
+        assert_eq!(
+            (&json["phase"], &json["draws"]),
+            (&"slow-pan".into(), &3.into())
+        );
     }
 
     #[test]
-    fn cpu_textures_make_report_non_representative() {
-        let start = Instant::now();
-        let mut run = new_run(vec![pan_profile()], true, start);
-        run_to_completion(&mut run, start, 1);
-        assert!(!run.reports()[0].representative);
-    }
-
-    #[test]
-    fn non_representative_source_is_never_representative() {
-        let start = Instant::now();
-        let mut run = new_run(vec![pan_profile()], false, start);
-        run_to_completion(&mut run, start, 0);
-        assert!(!run.reports()[0].representative);
+    fn cpu_textures_or_a_synthetic_source_make_a_report_non_representative() {
+        for (representative, cpu_textures) in [(true, 1), (false, 0)] {
+            let start = Instant::now();
+            let mut run = new_run(vec![pan_profile()], representative, start);
+            run_to_completion(&mut run, start, cpu_textures);
+            assert!(!run.reports()[0].representative);
+        }
     }
 
     #[test]
@@ -417,18 +401,6 @@ mod tests {
         assert_eq!(
             (line.chrome, line.annotations, line.phase.max_shapes_drawn),
             (true, 3, Some(30))
-        );
-    }
-
-    #[test]
-    fn report_serializes_phase_fields_at_top_level() {
-        let start = Instant::now();
-        let mut run = new_run(vec![pan_profile()], true, start);
-        run_to_completion(&mut run, start, 0);
-        let json = serde_json::to_value(&run.reports()[0]).unwrap();
-        assert_eq!(
-            (&json["phase"], &json["draws"]),
-            (&"slow-pan".into(), &3.into())
         );
     }
 

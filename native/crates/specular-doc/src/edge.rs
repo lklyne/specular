@@ -142,11 +142,10 @@ mod tests {
         assert_eq!(edge.kind, Some(EdgeKind::BreakpointVariant));
         assert_eq!(edge.extra.get("otherTool"), Some(&json!([1, 2])));
         assert_eq!(serde_json::to_value(&edge).unwrap(), json);
-    }
 
-    #[test]
-    fn bare_edge_writes_only_its_required_fields() {
-        let value: Value = serde_json::to_value(Edge::new("e", "a", "b")).unwrap();
-        assert_eq!(value, json!({"id": "e", "fromNode": "a", "toNode": "b"}));
+        {
+            let value: Value = serde_json::to_value(Edge::new("e", "a", "b")).unwrap();
+            assert_eq!(value, json!({"id": "e", "fromNode": "a", "toNode": "b"}));
+        }
     }
 }

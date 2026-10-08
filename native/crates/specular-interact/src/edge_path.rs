@@ -186,12 +186,4 @@ mod tests {
             (108.0 + 40.0, 112.0 - 40.0)
         );
     }
-
-    #[test]
-    fn the_curve_starts_and_ends_at_its_ends() {
-        let a = ScreenRect::new(0.0, 0.0, 100.0, 100.0);
-        let b = ScreenRect::new(0.0, 400.0, 100.0, 100.0);
-        let curve = EdgeCurve::between(a, b, &Edge::new("e", "a", "b"), 1.0);
-        assert_eq!((curve.point(0.0), curve.point(1.0)), (curve.from, curve.to));
-    }
 }

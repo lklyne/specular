@@ -232,65 +232,38 @@ mod tests {
     use super::*;
 
     #[test]
-    fn half_zoom_earns_full_rate() {
-        assert_eq!(frame_rate_for_display_scale(0.5, 30), FULL_FRAME_RATE);
+    fn frame_rate_tiers_have_a_hysteresis_margin() {
+        for (scale, current, expected) in [
+            (0.5, 30, FULL_FRAME_RATE),
+            (0.25, FULL_FRAME_RATE, 30),
+            (0.1, 30, 15),
+            // Boundary 0.44; the down-switch waits until 0.4.
+            (0.42, FULL_FRAME_RATE, FULL_FRAME_RATE),
+            // The up-switch waits until ~0.49.
+            (0.46, 30, 30),
+        ] {
+            assert_eq!(
+                frame_rate_for_display_scale(scale, current),
+                expected,
+                "{scale} from {current}"
+            );
+        }
     }
 
     #[test]
-    fn quarter_zoom_from_full_rate_drops_to_30() {
-        assert_eq!(frame_rate_for_display_scale(0.25, FULL_FRAME_RATE), 30);
-    }
-
-    #[test]
-    fn tiny_scale_paints_at_15() {
-        assert_eq!(frame_rate_for_display_scale(0.1, 30), 15);
-    }
-
-    #[test]
-    fn zooming_out_holds_full_rate_inside_the_margin() {
-        // Boundary 0.44; the down-switch waits until 0.4.
-        assert_eq!(
-            frame_rate_for_display_scale(0.42, FULL_FRAME_RATE),
-            FULL_FRAME_RATE
-        );
-    }
-
-    #[test]
-    fn zooming_in_needs_to_pass_the_margin_to_regain_full_rate() {
-        // The up-switch waits until ~0.49.
-        assert_eq!(frame_rate_for_display_scale(0.46, 30), 30);
-    }
-
-    #[test]
-    fn texture_grows_without_margin() {
-        assert_eq!(
-            texture_tier_for_display_scale(0.3, TextureTier::Quarter),
-            TextureTier::Half
-        );
-    }
-
-    #[test]
-    fn texture_shrink_waits_for_the_margin() {
-        // 0.45 is under the 0.5 boundary but not by the 0.8 margin.
-        assert_eq!(
-            texture_tier_for_display_scale(0.45, TextureTier::Full),
-            TextureTier::Full
-        );
-    }
-
-    #[test]
-    fn texture_shrinks_past_the_margin() {
-        assert_eq!(
-            texture_tier_for_display_scale(0.2, TextureTier::Full),
-            TextureTier::Quarter
-        );
-    }
-
-    #[test]
-    fn first_pass_at_quarter_zoom_drops_frame_rate_at_once() {
-        let mut lod = PageLod::default();
-        let change = lod.update(0.25, true, Instant::now());
-        assert_eq!(change.frame_rate, Some(30));
+    fn texture_grows_without_margin_and_shrinks_past_one() {
+        for (scale, current, expected) in [
+            (0.3, TextureTier::Quarter, TextureTier::Half),
+            // 0.45 is under the 0.5 boundary but not by the 0.8 margin.
+            (0.45, TextureTier::Full, TextureTier::Full),
+            (0.2, TextureTier::Full, TextureTier::Quarter),
+        ] {
+            assert_eq!(
+                texture_tier_for_display_scale(scale, current),
+                expected,
+                "{scale} from {current:?}"
+            );
+        }
     }
 
     #[test]
@@ -329,17 +302,11 @@ mod tests {
     }
 
     #[test]
-    fn off_screen_page_stops_painting() {
-        let mut lod = PageLod::default();
-        let change = lod.update(1.0, false, Instant::now());
-        assert_eq!(change.painting, Some(false));
-    }
-
-    #[test]
     fn rate_change_while_hidden_is_deferred_to_wake() {
         let start = Instant::now();
         let mut lod = PageLod::default();
-        lod.update(1.0, false, start);
+        let stopped = lod.update(1.0, false, start);
+        assert_eq!(stopped.painting, Some(false));
         let hidden = lod.update(0.25, false, start);
         let woken = lod.update(0.25, true, start);
         assert_eq!((hidden.frame_rate, woken.frame_rate), (None, Some(30)));

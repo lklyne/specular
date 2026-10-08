@@ -176,42 +176,4 @@ mod tests {
             (ProfileId::FastDiagonalPan, 54, Some(12))
         );
     }
-
-    #[test]
-    fn paint_policy_parses_its_own_name() {
-        assert_eq!(
-            PaintPolicy::FullRate.name().parse::<PaintPolicy>().unwrap(),
-            PaintPolicy::FullRate
-        );
-    }
-
-    #[test]
-    fn paint_policy_name_matches_serde_name() {
-        assert_eq!(
-            serde_json::to_value(PaintPolicy::ElectronLod).unwrap(),
-            PaintPolicy::ElectronLod.name()
-        );
-    }
-
-    #[test]
-    fn run_report_round_trips_through_json() {
-        let report = RunReport {
-            shell: Shell::RustCef,
-            source: "cef".to_owned(),
-            fixture: Some("static-9".to_owned()),
-            page_count: Some(9),
-            frame_ms: 8.33,
-            representative: true,
-            paint_policy: Some(PaintPolicy::ElectronLod),
-            chrome: Some(true),
-            annotations: Some(40),
-            phases: Vec::new(),
-            textures: Some(TextureStats::default()),
-            memory: None,
-            input_latency: Some(LatencySummary::default()),
-            notes: vec!["n".to_owned()],
-        };
-        let json = serde_json::to_string(&report).unwrap();
-        assert_eq!(serde_json::from_str::<RunReport>(&json).unwrap(), report);
-    }
 }

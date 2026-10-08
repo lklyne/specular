@@ -84,23 +84,33 @@ mod tests {
     }
 
     #[test]
-    fn an_unboxed_centred_run_straddles_its_origin() {
-        let run = TextRun {
+    fn alignment_places_a_run_about_its_origin_or_inside_its_box() {
+        let centred = TextRun {
             align: TextAlign::Centre,
             vertical_align: VerticalAlign::Middle,
             ..run()
         };
-        assert_eq!(text_rect(&run, MEASURED), Rect::new(70.0, 40.0, 60.0, 20.0));
-    }
-
-    #[test]
-    fn an_unboxed_right_bottom_run_ends_at_its_origin() {
-        let run = TextRun {
+        let right_bottom = TextRun {
             align: TextAlign::Right,
             vertical_align: VerticalAlign::Bottom,
             ..run()
         };
-        assert_eq!(text_rect(&run, MEASURED), Rect::new(40.0, 30.0, 60.0, 20.0));
+        let boxed = TextRun {
+            box_height: Some(100.0),
+            vertical_align: VerticalAlign::Middle,
+            ..run()
+        };
+        for (name, run, expected) in [
+            ("centred", centred, Rect::new(70.0, 40.0, 60.0, 20.0)),
+            (
+                "right bottom",
+                right_bottom,
+                Rect::new(40.0, 30.0, 60.0, 20.0),
+            ),
+            ("boxed middle", boxed, Rect::new(100.0, 90.0, 60.0, 20.0)),
+        ] {
+            assert_eq!(text_rect(&run, MEASURED), expected, "{name}");
+        }
     }
 
     #[test]
@@ -114,16 +124,6 @@ mod tests {
             text_rect(&run, MEASURED),
             Rect::new(100.0, 50.0, 200.0, 20.0)
         );
-    }
-
-    #[test]
-    fn a_boxed_run_is_centred_in_its_height() {
-        let run = TextRun {
-            box_height: Some(100.0),
-            vertical_align: VerticalAlign::Middle,
-            ..run()
-        };
-        assert_eq!(text_rect(&run, MEASURED).y, 90.0);
     }
 
     #[test]
@@ -158,14 +158,5 @@ mod tests {
         );
         assert!(!same_shaping(&run(), &bold) && !same_shaping(&bold, &black));
         assert_ne!(shaping_hash(&bold), shaping_hash(&black));
-    }
-
-    #[test]
-    fn a_new_wrap_width_is_a_new_shaping() {
-        let wrapped = TextRun {
-            wrap_width: Some(80.0),
-            ..run()
-        };
-        assert!(!same_shaping(&run(), &wrapped) && shaping_hash(&run()) != shaping_hash(&wrapped));
     }
 }

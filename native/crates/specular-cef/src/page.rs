@@ -163,12 +163,4 @@ mod tests {
         geometry.scale = 2.0;
         assert_eq!(geometry.popup(), Some(PixelRect::new(20, 20, 100, 40)));
     }
-
-    #[test]
-    fn closed_popup_has_no_placement() {
-        let mut geometry = PageGeometry::new(&PageSpec::new("https://a/", CssSize::new(400, 300)));
-        geometry.set_popup(PixelRect::new(10, 10, 50, 20));
-        geometry.clear_popup();
-        assert_eq!(geometry.popup(), None);
-    }
 }

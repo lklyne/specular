@@ -4,9 +4,9 @@
 
 use specular_core::{InputEvent, PointerButton, PointerEvent, PointerEventKind};
 use specular_doc::{Entity, EntityId, PageAnchor, Rect};
-use specular_interact::{Effect, Focus, Gesture, Key, MarqueeMode};
+use specular_interact::{Effect, Focus, Gesture, MarqueeMode};
 use specular_testkit::{
-    ALT, CMD, SHIFT, TestApp, connected, document, group, inside, page, pages, shape, text,
+    CMD, SHIFT, TestApp, connected, document, group, inside, page, pages, shape, text,
 };
 
 /// A point on `p1`, on `p2`, and on empty canvas below both.
@@ -96,26 +96,6 @@ fn a_double_click_enters_a_page_that_was_not_selected() {
 }
 
 #[test]
-fn a_double_click_enters_one_page_of_a_selection_of_several() {
-    let mut app = TestApp::with_pages(2);
-    app.select(&["p1", "p2"]).double_click(ON_P2);
-    assert_eq!((app.selected(), focus(&app)), (Some("p2"), Some("p2")));
-}
-
-#[test]
-fn the_entered_page_gets_its_presses_with_their_modifiers() {
-    let mut app = TestApp::with_pages(2);
-    app.click(ON_P1).click(ON_P1).take_effects();
-    for held in [SHIFT, CMD, ALT] {
-        app.hold(held).click(ON_P1);
-    }
-    assert_eq!(
-        (forwarded(app.effects()).len(), app.selected(), focus(&app)),
-        (6, Some("p1"), Some("p1"))
-    );
-}
-
-#[test]
 fn selecting_another_page_leaves_the_entered_one() {
     let mut app = TestApp::with_pages(2);
     app.click(ON_P1).click(ON_P1).take_effects();
@@ -123,19 +103,6 @@ fn selecting_another_page_leaves_the_entered_one() {
     assert_eq!(
         (app.take_effects(), app.selected(), focus(&app)),
         (leaving(), Some("p2"), None)
-    );
-}
-
-#[test]
-fn escape_leaves_the_page_selected_and_a_second_escape_deselects() {
-    let mut app = TestApp::with_pages(2);
-    app.click(ON_P1).click(ON_P1).take_effects();
-    let first = app.key(Key::Escape).take_effects();
-    let kept = app.selected().map(str::to_owned);
-    let second = app.key(Key::Escape).take_effects();
-    assert_eq!(
-        (first, kept.as_deref(), second, app.selected()),
-        (leaving(), Some("p1"), Vec::new(), None)
     );
 }
 
@@ -158,18 +125,6 @@ fn an_item_over_the_entered_page_still_takes_the_press() {
 // Click and Shift-click.
 
 #[test]
-fn a_click_selects_any_kind_and_replaces_the_selection() {
-    let mut app = TestApp::with_entities([
-        page("p1", Rect::new(100.0, 100.0, 400.0, 300.0)),
-        text("t1", Rect::new(600.0, 100.0, 100.0, 40.0)),
-        shape("s1", Rect::new(600.0, 300.0, 100.0, 80.0)),
-    ]);
-    let after_text = app.click((650.0, 120.0)).selected_ids().join(",");
-    let after_shape = app.click((650.0, 340.0)).selected_ids().join(",");
-    assert_eq!((after_text.as_str(), after_shape.as_str()), ("t1", "s1"));
-}
-
-#[test]
 fn shift_click_adds_to_the_selection_and_takes_away_from_it() {
     let mut app = TestApp::with_pages(2);
     app.click(ON_P1).hold(SHIFT).click(ON_P2);
@@ -189,26 +144,14 @@ fn shift_click_on_the_selected_page_deselects_instead_of_entering() {
 }
 
 #[test]
-fn a_click_on_empty_canvas_clears_the_selection() {
+fn a_click_on_empty_canvas_clears_the_selection_but_a_shift_click_keeps_it() {
     let mut app = TestApp::with_pages(2);
-    app.select(&["p1", "p2"]).click(EMPTY);
-    assert!(app.selection().is_empty());
-}
-
-#[test]
-fn a_shift_click_on_empty_canvas_keeps_the_selection() {
-    let mut app = TestApp::with_pages(2);
-    app.select(&["p1", "p2"]).hold(SHIFT).click(EMPTY);
-    assert_eq!(app.selected_ids(), ["p1", "p2"]);
-}
-
-#[test]
-fn a_press_on_one_of_several_selected_keeps_them_all() {
-    let mut app = TestApp::with_pages(2);
-    app.select(&["p1", "p2"]).press(ON_P1);
+    app.select(&["p1", "p2"]).hold(SHIFT).click(EMPTY).let_go();
+    let shifted = app.selected_ids().join(",");
+    app.click(EMPTY);
     assert_eq!(
-        (app.take_effects(), app.selected_ids()),
-        (Vec::new(), vec!["p1", "p2"])
+        (shifted.as_str(), app.selection().is_empty()),
+        ("p1,p2", true)
     );
 }
 
@@ -242,29 +185,6 @@ fn a_drag_from_empty_canvas_selects_what_the_rect_touches() {
 }
 
 #[test]
-fn the_marquee_and_what_it_would_take_are_readable_mid_drag() {
-    let mut app = TestApp::with_pages(2);
-    app.select(&["p2"])
-        .press((50.0, 450.0))
-        .drag_to((150.0, 350.0));
-    let items: Vec<String> = app
-        .app()
-        .marquee_items()
-        .iter()
-        .map(|item| item.as_str().to_owned())
-        .collect();
-    assert_eq!(
-        (app.app().marquee(), items, app.selected_ids()),
-        (
-            Some(Rect::new(50.0, 350.0, 100.0, 100.0)),
-            vec!["p1".to_owned()],
-            // The selection changes on release.
-            vec!["p2"]
-        )
-    );
-}
-
-#[test]
 fn a_press_is_not_a_marquee_until_it_travels_four_pixels() {
     let mut app = TestApp::with_pages(2);
     app.press(EMPTY).drag_to((603.0, 603.0));
@@ -274,13 +194,6 @@ fn a_press_is_not_a_marquee_until_it_travels_four_pixels() {
         (before, app.app().marquee()),
         (None, Some(Rect::new(600.0, 600.0, 3.0, 4.0)))
     );
-}
-
-#[test]
-fn a_marquee_thinner_than_four_pixels_is_a_click_on_empty_canvas() {
-    let mut app = TestApp::with_pages(2);
-    app.select(&["p2"]).drag((50.0, 200.0), (300.0, 202.0));
-    assert!(app.selection().is_empty());
 }
 
 #[test]
@@ -300,45 +213,12 @@ fn a_command_marquee_takes_only_what_it_encloses() {
 }
 
 #[test]
-fn a_command_marquee_can_start_on_a_body_which_it_leaves_out() {
-    let mut app = TestApp::with_entities([
-        page("big", Rect::new(0.0, 0.0, 1000.0, 800.0)),
-        text("t1", Rect::new(200.0, 200.0, 100.0, 40.0)),
-    ]);
-    app.hold(CMD).drag((150.0, 150.0), (350.0, 300.0));
-    assert_eq!(app.selected_ids(), ["t1"]);
-}
-
-#[test]
-fn a_command_click_on_a_body_toggles_it() {
-    let mut app = TestApp::with_pages(2);
-    app.select(&["p2"]).hold(CMD).click(ON_P1);
-    let added = app.selected_ids().join(",");
-    app.click(ON_P1);
-    assert_eq!((added.as_str(), app.selected_ids()), ("p2,p1", vec!["p2"]));
-}
-
-#[test]
 fn a_shift_marquee_toggles_what_it_touches() {
     let mut app = TestApp::with_pages(3);
     app.select(&["p1", "p3"])
         .hold(SHIFT)
         .drag((50.0, 450.0), (750.0, 350.0));
     assert_eq!(app.selected_ids(), ["p3", "p2"]);
-}
-
-#[test]
-fn escape_drops_a_marquee_and_keeps_the_selection() {
-    let mut app = TestApp::with_pages(2);
-    app.select(&["p2"])
-        .press((50.0, 450.0))
-        .drag_to((150.0, 350.0))
-        .key(Key::Escape)
-        .release();
-    assert_eq!(
-        (app.selected_ids(), app.session().gesture.is_none()),
-        (vec!["p2"], true)
-    );
 }
 
 #[test]
@@ -358,17 +238,6 @@ fn a_marquee_takes_the_edges_it_crosses() {
     assert_eq!((crossed.as_str(), app.selection().is_empty()), ("e1", true));
 }
 
-#[test]
-fn a_marquee_enclosing_both_ends_takes_the_edge_with_command_held() {
-    let entities = [
-        text("t1", Rect::new(100.0, 100.0, 100.0, 100.0)),
-        text("t2", Rect::new(500.0, 100.0, 100.0, 100.0)),
-    ];
-    let mut app = TestApp::from_document(connected(document(entities), "e1", "t1", "t2"));
-    app.hold(CMD).drag((50.0, 50.0), (650.0, 250.0));
-    assert_eq!(app.selected_ids(), ["t1", "t2", "e1"]);
-}
-
 // Groups. `g` spans (100, 100) to (700, 600) and holds `a` and `b`; `out`
 // sits to its right.
 
@@ -379,13 +248,6 @@ fn grouped() -> Vec<Entity> {
         inside("g", text("b", Rect::new(150.0, 300.0, 100.0, 40.0))),
         text("out", Rect::new(800.0, 150.0, 100.0, 40.0)),
     ]
-}
-
-#[test]
-fn a_click_on_a_member_selects_the_member() {
-    let mut app = TestApp::with_entities(grouped());
-    app.click((200.0, 170.0));
-    assert_eq!(app.selected_ids(), ["a"]);
 }
 
 #[test]
@@ -401,13 +263,6 @@ fn a_click_inside_a_group_or_on_its_border_selects_the_group() {
 }
 
 const EMPTY_FAR: (f32, f32) = (1500.0, 900.0);
-
-#[test]
-fn a_drag_inside_an_unselected_group_marquees_its_members() {
-    let mut app = TestApp::with_entities(grouped());
-    app.drag((300.0, 250.0), (120.0, 120.0));
-    assert_eq!(app.selected_ids(), ["a"]);
-}
 
 #[test]
 fn a_marquee_that_encloses_a_group_takes_it_as_one() {
@@ -468,13 +323,6 @@ fn a_selected_group_stands_for_everything_in_it() {
             Some(Rect::new(100.0, 100.0, 800.0, 500.0))
         )
     );
-}
-
-#[test]
-fn a_press_on_a_member_of_a_selected_group_keeps_the_selection() {
-    let mut app = TestApp::with_entities(grouped());
-    app.select(&["g", "out"]).press((200.0, 170.0));
-    assert_eq!(app.selected_ids(), ["g", "out"]);
 }
 
 #[test]

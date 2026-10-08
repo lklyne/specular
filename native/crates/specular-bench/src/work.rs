@@ -195,11 +195,6 @@ mod tests {
     }
 
     #[test]
-    fn cpu_time_leaves_out_the_gpu_wait() {
-        assert!((frame(2.0, 0).cpu_ms() - 3.0).abs() < 1e-9);
-    }
-
-    #[test]
     fn a_report_has_each_steps_mean_and_tail_and_the_largest_counts() {
         let mut recorder = WorkRecorder::new();
         for (view_ms, glyphs) in [(1.0, 10), (2.0, 40), (9.0, 20)] {

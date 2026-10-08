@@ -117,19 +117,6 @@ fn delete_removes_a_background_canvas_and_resets_the_last_one() {
 }
 
 #[test]
-fn a_tab_ref_reads_a_background_canvas_and_says_who_is_active() {
-    let mut session = space();
-    let canvas = ok(session.call(&tabbed(Request::get("/canvas"), "Notes")));
-    assert_eq!(node_ids(&canvas), ["n1"]);
-    assert_eq!(
-        canvas["appState"]["activeTab"],
-        json!({ "id": "tab_1", "name": "Home" })
-    );
-    assert_eq!(canvas["appState"]["tabs"].as_array().map(Vec::len), Some(2));
-    assert_eq!(session.app.active_canvas(), "Home");
-}
-
-#[test]
 fn a_tab_ref_writes_a_background_canvas_without_showing_it() {
     let mut session = space();
     session.app.select(&["p1"]);

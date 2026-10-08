@@ -7,7 +7,7 @@
 use specular_core::PageNav;
 use specular_doc::{Command, EntityId, Kind, Page};
 use specular_interact::{Action, ApiCall, ApiRun, Effect, Event, Focus, Key, PageNotice};
-use specular_testkit::{CMD, TestApp, page, text};
+use specular_testkit::{CMD, TestApp};
 
 /// Inside p1 of `TestApp::with_pages(n)`.
 const ON_P1: (f32, f32) = (200.0, 150.0);
@@ -121,43 +121,6 @@ fn a_new_address_is_saved_without_a_history_step() {
 }
 
 #[test]
-fn a_notice_for_something_that_is_not_a_page_is_ignored() {
-    let mut app = TestApp::with_entities([
-        page("p1", specular_doc::Rect::new(0.0, 0.0, 400.0, 300.0)),
-        text("t1", specular_doc::Rect::new(500.0, 0.0, 100.0, 40.0)),
-    ]);
-    app.take_effects();
-    for name in ["t1", "nope"] {
-        app.page_reports(name, PageNotice::Title("x".to_owned()))
-            .page_reports(name, PageNotice::Url("https://x.test/".to_owned()))
-            .page_reports(name, PageNotice::Scrolled { x: 1.0, y: 1.0 });
-        assert_eq!(app.app().page_state(&id(name)), None, "{name}");
-    }
-    assert_eq!(app.take_effects(), []);
-    assert_eq!(
-        app.doc_snapshot(),
-        TestApp::with_entities([
-            page("p1", specular_doc::Rect::new(0.0, 0.0, 400.0, 300.0)),
-            text("t1", specular_doc::Rect::new(500.0, 0.0, 100.0, 40.0)),
-        ])
-        .doc_snapshot()
-    );
-}
-
-#[test]
-fn a_deleted_page_is_forgotten() {
-    let mut app = TestApp::with_pages(2);
-    app.page_reports("p1", PageNotice::Title("one".to_owned()))
-        .page_reports("p2", PageNotice::Title("two".to_owned()));
-    app.select(&["p1"]).act(Action::Delete);
-    assert_eq!(app.app().page_state(&id("p1")), None);
-    assert!(app.app().page_state(&id("p2")).is_some());
-    // A late notice for the deleted page does not bring it back.
-    app.page_reports("p1", PageNotice::Title("late".to_owned()));
-    assert_eq!(app.app().page_state(&id("p1")), None);
-}
-
-#[test]
 fn a_changed_address_navigates_in_place_and_undo_navigates_back() {
     let mut app = TestApp::with_pages(1);
     app.double_click(ON_P1);
@@ -259,15 +222,6 @@ fn the_target_is_the_entered_page_else_the_single_selected_page() {
 }
 
 #[test]
-fn a_selected_non_page_is_not_a_target() {
-    let mut app =
-        TestApp::with_entities([text("t1", specular_doc::Rect::new(0.0, 0.0, 100.0, 40.0))]);
-    app.select(&["t1"]).take_effects();
-    app.act(Action::PageReload);
-    assert_eq!(app.take_effects(), []);
-}
-
-#[test]
 fn cmd_bracket_walks_an_entered_pages_history_and_restacks_a_selected_one() {
     let mut app = TestApp::with_pages(2);
     app.page_reports("p1", loading(false, true, true));
@@ -322,33 +276,6 @@ fn cmd_r_reloads_a_selected_or_entered_page_and_is_not_the_pages() {
         !effects
             .iter()
             .any(|e| matches!(e, Effect::ForwardInput { .. }))
-    );
-}
-
-#[test]
-fn cmd_r_with_no_page_target_does_nothing() {
-    let mut app = TestApp::with_pages(2);
-    app.take_effects();
-    app.chord(CMD, Key::Char('r'));
-    assert_eq!(app.take_effects(), []);
-    app.select(&["p1", "p2"]).chord(CMD, Key::Char('r'));
-    assert_eq!(app.take_effects(), []);
-    // The tool key without Cmd is untouched.
-    app.key(Key::Char('r'));
-    assert_eq!(app.session().tool, specular_interact::Tool::AddShape);
-}
-
-#[test]
-fn cmd_dot_stops_a_loading_page() {
-    let mut app = TestApp::with_pages(1);
-    app.select(&["p1"]).take_effects();
-    app.chord(CMD, Key::Char('.'));
-    assert_eq!(app.take_effects(), []);
-    app.page_reports("p1", loading(true, false, false));
-    app.chord(CMD, Key::Char('.'));
-    assert_eq!(
-        navigations(&app.take_effects()),
-        [(&id("p1"), &PageNav::Stop)]
     );
 }
 

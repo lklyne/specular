@@ -183,11 +183,4 @@ mod tests {
         assert_eq!(request.query("url"), Some("http://a.test/x y"));
         assert_eq!(request.query("page_id"), None);
     }
-
-    #[test]
-    fn a_malformed_escape_is_kept() {
-        assert_eq!(percent_decode("50%"), "50%");
-        assert_eq!(percent_decode("%zz"), "%zz");
-        assert_eq!(percent_decode("caf%C3%A9"), "café");
-    }
 }

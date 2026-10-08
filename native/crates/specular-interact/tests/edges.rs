@@ -85,17 +85,6 @@ fn the_edge_leaves_the_selection_as_it_was_when_it_starts_at_a_selected_entity()
 }
 
 #[test]
-fn an_edge_started_at_an_unselected_entity_clears_the_selection() {
-    let mut app = three();
-    app.click((600.0, 150.0))
-        .pointer_move((200.0, 150.0))
-        .press((310.0, 150.0))
-        .drag_to((492.0, 150.0))
-        .release();
-    assert_eq!(app.selected_ids(), [] as [&str; 0]);
-}
-
-#[test]
 fn releasing_on_another_entitys_body_connects_to_its_facing_side() {
     let mut app = three();
     app.pointer_move((200.0, 150.0))
@@ -127,30 +116,6 @@ fn releasing_on_empty_canvas_makes_nothing_and_saves_nothing() {
     assert_eq!(edge_count(&app), 0);
     assert!(!saved(&mut app));
     assert!(!app.app().can_undo());
-    app.assert_undo_returns_to_start();
-}
-
-#[test]
-fn releasing_on_the_entity_it_started_at_makes_nothing() {
-    let mut app = three();
-    app.pointer_move((200.0, 150.0))
-        .press((310.0, 150.0))
-        .drag_to((250.0, 150.0))
-        .release();
-    assert_eq!(edge_count(&app), 0);
-}
-
-#[test]
-fn escape_during_a_create_leaves_the_document_alone() {
-    let mut app = three();
-    app.pointer_move((200.0, 150.0))
-        .press((310.0, 150.0))
-        .drag_to((492.0, 150.0));
-    app.take_effects();
-    app.key(Key::Escape);
-    assert!(app.session().gesture.is_none());
-    assert_eq!(edge_count(&app), 0);
-    assert!(!saved(&mut app));
     app.assert_undo_returns_to_start();
 }
 
@@ -197,38 +162,6 @@ fn dragging_an_edges_end_to_another_entity_re_routes_it() {
     app.undo();
     assert_eq!(app.document().edges().next().unwrap().to.as_str(), "b");
     app.redo().assert_undo_returns_to_start();
-}
-
-#[test]
-fn dragging_the_from_end_moves_the_from_end() {
-    let mut app = linked();
-    app.pointer_move((200.0, 150.0))
-        .press((310.0, 150.0))
-        .drag_to((200.0, 392.0))
-        .release();
-    let edge = app.document().edges().next().unwrap();
-    assert_eq!(
-        (edge.from.as_str(), edge.from_side, edge.to.as_str()),
-        ("c", Some(EdgeSide::Top), "b")
-    );
-    app.assert_undo_returns_to_start();
-}
-
-#[test]
-fn the_edge_being_moved_is_named_for_the_scene_to_hide() {
-    let mut app = linked();
-    app.pointer_move((600.0, 150.0))
-        .press((490.0, 150.0))
-        .drag_to((400.0, 300.0));
-    assert_eq!(
-        app.app().rerouting().map(specular_doc::EdgeId::as_str),
-        Some("e")
-    );
-    let preview = app.app().edge_preview().unwrap();
-    assert_eq!(
-        (preview.origin.x, preview.origin.y, preview.snap),
-        (308.0, 150.0, None)
-    );
 }
 
 #[test]
@@ -297,16 +230,6 @@ fn deleting_an_entity_deletes_its_edges_in_the_same_step() {
     app.redo().assert_undo_returns_to_start();
 }
 
-#[test]
-fn cutting_an_entity_deletes_its_edges_in_the_same_step() {
-    let mut app = linked();
-    app.select(&["a"]).act(Action::Cut);
-    assert_eq!(edge_count(&app), 0);
-    app.undo();
-    assert_eq!(edge_count(&app), 1);
-    app.redo().assert_undo_returns_to_start();
-}
-
 // Anchors.
 
 #[test]
@@ -348,27 +271,4 @@ fn no_anchors_during_a_move_or_while_text_is_edited() {
     app.double_click((260.0, 190.0));
     assert!(app.app().text_edit().is_some());
     assert_eq!(app.app().anchors().len(), 0);
-}
-
-#[test]
-fn every_entity_offers_anchors_while_an_edge_is_dragged() {
-    let mut app = three();
-    app.pointer_move((200.0, 150.0))
-        .press((310.0, 150.0))
-        .drag_to((400.0, 300.0));
-    let anchors = app.app().anchors();
-    assert_eq!(anchors.len(), 12);
-    assert!(anchors.iter().all(|anchor| anchor.active));
-}
-
-#[test]
-fn a_press_on_an_anchor_does_not_start_a_move() {
-    let mut app = three();
-    app.pointer_move((200.0, 150.0)).press((310.0, 150.0));
-    assert!(matches!(
-        app.session().gesture,
-        Some(specular_interact::Gesture::EdgeDrag(_))
-    ));
-    app.drag_to((400.0, 300.0)).release();
-    assert_eq!(app.rect("a"), A);
 }

@@ -97,15 +97,13 @@ mod tests {
             bound(&[grab("p1", 0), grab("p2", 3), grab("p3", 5)]),
             Some("p2")
         );
-    }
 
-    #[test]
-    fn lying_over_a_page_is_not_a_grab() {
-        assert_eq!(bound(&[grab("p1", 0), grab("p2", 0)]), None);
-    }
+        {
+            assert_eq!(bound(&[grab("p1", 0), grab("p2", 0)]), None);
+        }
 
-    #[test]
-    fn a_region_over_no_page_is_bound_to_none() {
-        assert_eq!(bound(&[]), None);
+        {
+            assert_eq!(bound(&[]), None);
+        }
     }
 }

@@ -39,33 +39,21 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_title_is_the_canvas_name() {
-        assert_eq!(window_title(Some("Home page"), false, false), "Home page");
-    }
-
-    #[test]
-    fn unsaved_changes_are_marked() {
-        assert_eq!(
-            window_title(Some("Welcome"), false, true),
-            "Welcome — Edited"
-        );
-    }
-
-    #[test]
-    fn the_scratch_space_is_named_in_the_title() {
-        assert_eq!(
-            window_title(Some("Welcome"), true, false),
-            "Welcome (scratch space)"
-        );
-        assert_eq!(
-            window_title(Some("Welcome"), true, true),
-            "Welcome (scratch space) — Edited"
-        );
-    }
-
-    #[test]
-    fn a_canvas_with_no_file_is_named_after_the_app() {
-        assert_eq!(window_title(None, false, false), "Specular");
-        assert_eq!(window_title(None, true, true), "Specular");
+    fn the_title_names_the_canvas_scratch_space_and_unsaved_changes() {
+        for (name, scratch, edited, expected) in [
+            (Some("Home page"), false, false, "Home page"),
+            (Some("Welcome"), false, true, "Welcome — Edited"),
+            (Some("Welcome"), true, false, "Welcome (scratch space)"),
+            (
+                Some("Welcome"),
+                true,
+                true,
+                "Welcome (scratch space) — Edited",
+            ),
+            (None, false, false, "Specular"),
+            (None, true, true, "Specular"),
+        ] {
+            assert_eq!(window_title(name, scratch, edited), expected);
+        }
     }
 }

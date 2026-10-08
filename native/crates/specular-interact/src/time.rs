@@ -35,18 +35,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_epoch_is_midnight_on_new_years_day_1970() {
-        assert_eq!(iso8601(0), "1970-01-01T00:00:00.000Z");
-    }
-
-    #[test]
     fn a_leap_day_formats_with_its_milliseconds() {
         // 2024-02-29T12:34:56.789Z.
         assert_eq!(iso8601(1_709_210_096_789), "2024-02-29T12:34:56.789Z");
-    }
 
-    #[test]
-    fn the_last_millisecond_of_a_year_does_not_roll_over() {
-        assert_eq!(iso8601(1_767_225_599_999), "2025-12-31T23:59:59.999Z");
+        {
+            assert_eq!(iso8601(0), "1970-01-01T00:00:00.000Z");
+        }
+
+        {
+            assert_eq!(iso8601(1_767_225_599_999), "2025-12-31T23:59:59.999Z");
+        }
     }
 }

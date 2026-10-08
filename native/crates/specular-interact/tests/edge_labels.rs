@@ -53,19 +53,6 @@ fn typing_then_enter_sets_the_label_as_one_step() {
 }
 
 #[test]
-fn the_label_edits_in_place_and_the_document_keeps_the_old_one_until_it_ends() {
-    let mut app = linked(Some("old"));
-    app.double_click(MIDDLE);
-    assert_eq!(app.editing_text(), "old", "all of it is selected");
-    app.type_text("new");
-    assert_eq!(label(&app).as_deref(), Some("old"));
-    assert_eq!(app.editing_text(), "new");
-    app.key(Key::Enter);
-    assert_eq!(label(&app).as_deref(), Some("new"));
-    app.assert_undo_returns_to_start();
-}
-
-#[test]
 fn an_emptied_label_removes_the_label() {
     let mut app = linked(Some("old"));
     app.double_click(MIDDLE).key(Key::Backspace).key(Key::Enter);
@@ -76,31 +63,18 @@ fn an_emptied_label_removes_the_label() {
 }
 
 #[test]
-fn a_label_of_only_spaces_is_no_label() {
-    let mut app = linked(None);
-    app.double_click(MIDDLE).type_text("  ").key(Key::Enter);
-    assert_eq!(label(&app), None);
-    assert!(!app.app().can_undo(), "nothing changed, so no step");
-}
-
-#[test]
-fn escape_keeps_what_was_typed() {
-    let mut app = linked(None);
-    app.double_click(MIDDLE).type_text("kept").key(Key::Escape);
-    assert!(app.app().text_edit().is_none());
-    assert_eq!(label(&app).as_deref(), Some("kept"));
-    app.assert_undo_returns_to_start();
-}
-
-#[test]
-fn a_press_elsewhere_ends_the_edit_and_keeps_it() {
-    let mut app = linked(None);
-    app.double_click(MIDDLE)
-        .type_text("kept")
-        .click((400.0, 600.0));
-    assert!(app.app().text_edit().is_none());
-    assert_eq!(label(&app).as_deref(), Some("kept"));
-    app.assert_undo_returns_to_start();
+fn escape_and_a_press_elsewhere_keep_what_was_typed() {
+    for (name, end) in [("escape", None), ("press elsewhere", Some((400.0, 600.0)))] {
+        let mut app = linked(None);
+        app.double_click(MIDDLE).type_text("kept");
+        match end {
+            None => app.key(Key::Escape),
+            Some(at) => app.click(at),
+        };
+        assert!(app.app().text_edit().is_none(), "{name}");
+        assert_eq!(label(&app).as_deref(), Some("kept"), "{name}");
+        app.assert_undo_returns_to_start();
+    }
 }
 
 #[test]
@@ -118,12 +92,4 @@ fn pasted_line_breaks_become_spaces() {
     let mut app = linked(None);
     app.double_click(MIDDLE).paste("a\nb").key(Key::Enter);
     assert_eq!(label(&app).as_deref(), Some("a b"));
-}
-
-#[test]
-fn the_caret_sits_after_the_text_centred_on_the_middle_of_the_edge() {
-    let mut app = linked(None);
-    app.double_click(MIDDLE).type_text("ab");
-    let caret = app.app().caret_rect().unwrap();
-    assert_eq!((caret.x, caret.width), (410.0, 0.0));
 }

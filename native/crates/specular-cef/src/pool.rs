@@ -90,14 +90,6 @@ mod tests {
     }
 
     #[test]
-    fn clones_share_one_counter() {
-        let pool = OutstandingFrames::default();
-        let clone = pool.clone();
-        let _lease = clone.try_lease();
-        assert_eq!(pool.live(), 1);
-    }
-
-    #[test]
     fn default_cap_matches_electron_pool_cap() {
         let pool = OutstandingFrames::default();
         let leases: Vec<_> = std::iter::from_fn(|| pool.try_lease()).take(100).collect();

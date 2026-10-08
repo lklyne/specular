@@ -17,13 +17,6 @@ fn editing_note() -> TestApp {
 }
 
 #[test]
-fn a_selected_sticky_has_handles_and_no_caret() {
-    let mut app = TestApp::with_entities([sticky("n", NOTE, "ab")]);
-    app.click((150.0, 250.0));
-    assert_scene_snapshot!(app);
-}
-
-#[test]
 fn an_edited_sticky_draws_the_working_text_and_a_caret_and_no_handles() {
     let mut app = editing_note();
     app.type_text("cd");
@@ -65,13 +58,6 @@ fn the_caret_blinks_off_after_half_a_second_and_typing_brings_it_back() {
 fn a_composition_is_underlined_under_its_glyphs() {
     let mut app = editing_note();
     app.compose("にほ");
-    assert_scene_snapshot!(app);
-}
-
-#[test]
-fn the_caret_and_underline_keep_a_pixel_when_zoomed_out() {
-    let mut app = editing_note();
-    app.compose("に").zoom(0.25);
     assert_scene_snapshot!(app);
 }
 

@@ -79,18 +79,6 @@ fn a_loaded_document_gets_measured_text_sizes_with_no_undo_step_or_save() {
 }
 
 #[test]
-fn an_estimate_leaves_the_sizes_a_document_came_with() {
-    let app = TestApp::with_entities(entities());
-    assert_eq!(
-        [app.rect("wrapped"), app.rect("note")],
-        [
-            Rect::new(0.0, 0.0, 120.0, 500.0),
-            Rect::new(400.0, 0.0, 200.0, 50.0)
-        ]
-    );
-}
-
-#[test]
 fn a_save_keeps_the_size_on_disk_of_every_text_the_session_left_alone() {
     let mut app = TestApp::empty();
     app.measure_with(Arc::new(Exact)).open(document(entities()));

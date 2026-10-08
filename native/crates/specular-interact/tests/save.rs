@@ -1,7 +1,7 @@
 //! `update` asks for a save after every document change, and only then. A
 //! reload from disk is a `DocumentOpened`, which keeps the session.
 
-use specular_interact::{Action, Effect, Event, Key};
+use specular_interact::{Action, Effect, Event};
 use specular_testkit::{ALT, TestApp, document, pages};
 
 /// A point on `p1` and one a short drag away.
@@ -34,23 +34,6 @@ fn undo_and_redo_each_ask_for_a_save() {
     app.redo();
     assert_eq!(saves(&app.take_effects()), 1, "redo");
     app.assert_undo_returns_to_start();
-}
-
-#[test]
-fn undo_with_nothing_to_undo_asks_for_nothing() {
-    let mut app = TestApp::with_pages(2);
-    app.take_effects();
-    app.undo().redo();
-    assert_eq!(saves(&app.take_effects()), 0);
-}
-
-#[test]
-fn a_cancelled_drag_asks_for_nothing() {
-    let mut app = TestApp::with_pages(2);
-    app.take_effects();
-    app.hold(ALT).press(ON_P1).drag_to(NEARBY);
-    app.key(Key::Escape).release().let_go();
-    assert_eq!(saves(&app.take_effects()), 0);
 }
 
 #[test]

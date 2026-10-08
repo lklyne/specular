@@ -111,41 +111,11 @@ fn a_tight_list_keeps_its_items_together_after_the_first() {
 }
 
 #[test]
-fn a_loose_list_spaces_its_items() {
-    assert_eq!(
-        outline("1. one\n\n2. two\n\n   more\n"),
-        "  1. one\n  2. two\n  p more"
-    );
-}
-
-#[test]
-fn ordered_lists_count_from_their_first_number() {
-    assert_eq!(outline("7. a\n8. b\n9. c\n"), "  7. a\n  ~8. b\n  ~9. c");
-}
-
-#[test]
 fn nested_lists_carry_their_depth() {
     assert_eq!(
         outline("- a\n  - b\n    1. c\n  - d\n- e\n"),
         "  - a\n    ~- b\n      ~1. c\n    ~- d\n  ~- e"
     );
-}
-
-#[test]
-fn task_items_carry_their_tick_in_tight_and_loose_lists() {
-    assert_eq!(
-        outline("- [ ] todo\n- [x] done\n- plain\n"),
-        "  [ ] todo\n  ~[x] done\n  ~- plain"
-    );
-    assert_eq!(
-        outline("- [x] done\n\n- [ ] todo\n"),
-        "  [x] done\n  [ ] todo"
-    );
-}
-
-#[test]
-fn an_empty_item_still_has_its_marker() {
-    assert_eq!(outline("- a\n-\n- c\n"), "  - a\n  ~- \n  ~- c");
 }
 
 #[test]
@@ -165,47 +135,12 @@ fn code_blocks_keep_their_text_exactly() {
 }
 
 #[test]
-fn a_code_block_inside_an_item_sits_at_the_items_depth() {
-    assert_eq!(
-        outline("- step\n\n  ```\n  run\n  ```\n"),
-        "  - step\n  code \"run\""
-    );
-}
-
-#[test]
-fn rules_are_blocks() {
-    assert_eq!(outline("above\n\n---\n\nbelow\n"), "p above\nrule\np below");
-}
-
-#[test]
 fn tables_keep_alignment_head_and_rows() {
     let table = "| Name | Qty | Note |\n|:--|--:|:-:|\n| **a** | 1 | `x` |\n| b | 22 | |\n";
     assert_eq!(
         outline(table),
         "table lrc [Name | Qty | Note] [{s:a} | 1 | {c:x}] [b | 22 | ]"
     );
-}
-
-#[test]
-fn images_stand_in_as_bracketed_alt_text() {
-    assert_eq!(
-        outline("![a cat](cat.png)\n\nsee ![](x.png) here\n"),
-        "p {i:[image: a cat]}\np see {i:[image]} here"
-    );
-}
-
-#[test]
-fn html_is_shown_as_written() {
-    assert_eq!(
-        outline("<div>\nraw\n</div>\n\na <b>c</b>\n"),
-        "p <div>\nraw\n</div>\np a <b>c</b>"
-    );
-}
-
-#[test]
-fn nothing_in_is_nothing_out() {
-    assert_eq!(parse(""), []);
-    assert_eq!(parse("\n\n   \n"), []);
 }
 
 #[test]

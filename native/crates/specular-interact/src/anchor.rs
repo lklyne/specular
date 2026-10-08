@@ -204,29 +204,27 @@ mod tests {
         assert!(matches_page_url(Some("https://example.com/a"), None));
         assert!(matches_page_url(Some("  "), Some("https://example.com/a")));
         assert!(matches_page_url(None, None));
-    }
 
-    #[test]
-    fn the_hash_is_ignored() {
-        assert!(matches_page_url(
-            Some("https://example.com/a#x"),
-            Some("https://example.com/a#y")
-        ));
-        assert!(matches_page_url(
-            Some("https://example.com/a"),
-            Some(" https://example.com/a#top ")
-        ));
-    }
+        {
+            assert!(matches_page_url(
+                Some("https://example.com/a#x"),
+                Some("https://example.com/a#y")
+            ));
+            assert!(matches_page_url(
+                Some("https://example.com/a"),
+                Some(" https://example.com/a#top ")
+            ));
+        }
 
-    #[test]
-    fn a_different_query_or_path_is_a_different_document() {
-        assert!(!matches_page_url(
-            Some("https://example.com/a?tab=1"),
-            Some("https://example.com/a?tab=2")
-        ));
-        assert!(!matches_page_url(
-            Some("https://example.com/a"),
-            Some("https://example.com/b")
-        ));
+        {
+            assert!(!matches_page_url(
+                Some("https://example.com/a?tab=1"),
+                Some("https://example.com/a?tab=2")
+            ));
+            assert!(!matches_page_url(
+                Some("https://example.com/a"),
+                Some("https://example.com/b")
+            ));
+        }
     }
 }

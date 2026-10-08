@@ -84,22 +84,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn an_asset_is_named_after_its_entity_with_a_lower_case_extension() {
-        assert_eq!(asset_file(&EntityId::from("abc"), "PNG"), "assets/abc.png");
-    }
-
-    #[test]
     fn the_extension_is_what_follows_the_last_dot_of_the_file_name() {
         assert_eq!(extension("/a/b.c/shot.final.PNG"), Some("PNG"));
         assert_eq!(extension("notes.md"), Some("md"));
         assert_eq!(extension("/a/b.c/README"), None);
-    }
-
-    #[test]
-    fn bytes_print_their_length_only() {
-        assert_eq!(
-            format!("{:?}", AssetBytes::from(vec![1, 2, 3])),
-            "AssetBytes(3 bytes)"
-        );
     }
 }

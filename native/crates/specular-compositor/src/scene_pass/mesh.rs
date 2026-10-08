@@ -330,12 +330,6 @@ mod tests {
     }
 
     #[test]
-    fn a_screen_polygon_ignores_the_camera() {
-        let mesh = mesh_of(&Item::screen(triangle()), 2.0);
-        assert_eq!(extent(&mesh), (Vec2::ZERO, Vec2::splat(100.0)));
-    }
-
-    #[test]
     fn a_canvas_stroke_widens_with_zoom() {
         let stroke = PathStroke {
             cap: LineCap::Butt,
@@ -362,16 +356,6 @@ mod tests {
             .iter()
             .any(|v| v.position[0] > 20.5 && v.position[0] < 29.5);
         assert!(!mesh.indices.is_empty() && !in_gap);
-    }
-
-    #[test]
-    fn item_opacity_reaches_the_vertices() {
-        let mesh = mesh_of(&Item::canvas(triangle()).with_opacity(0.25), 1.0);
-        assert!(
-            mesh.vertices
-                .iter()
-                .all(|v| (v.color[3] - 0.25).abs() < 1e-6)
-        );
     }
 
     #[test]

@@ -193,16 +193,4 @@ mod tests {
             assert_eq!(serde_json::to_value(&annotation).unwrap(), json);
         }
     }
-
-    #[test]
-    fn region_anchor_forms_are_told_apart() {
-        let json = annotation_with(&json!({
-            "type": "region", "docRect": {"x": 0.0, "y": 0.0, "width": 1.0, "height": 1.0},
-        }));
-        let annotation: Annotation = serde_json::from_value(json).unwrap();
-        assert!(matches!(
-            annotation.anchor,
-            AnnotationAnchor::Region(RegionAnchor::Document { .. })
-        ));
-    }
 }

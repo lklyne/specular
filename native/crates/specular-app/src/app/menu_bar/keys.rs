@@ -127,10 +127,6 @@ mod tests {
             accelerator(Chord::key(Key::Backspace)),
             Some(Accelerator::new(Modifiers::empty(), Code::Backspace))
         );
-    }
-
-    #[test]
-    fn a_key_with_no_name_has_no_shortcut() {
         assert_eq!(accelerator(Chord::key(Key::Other)), None);
         assert_eq!(accelerator(Chord::char('é')), None);
     }

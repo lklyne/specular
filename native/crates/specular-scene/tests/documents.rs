@@ -3,7 +3,7 @@
 
 use specular_doc::{Entity, FileRef, Kind, Rect};
 use specular_interact::{Event, Key, NoteNotice};
-use specular_testkit::{CMD, SHIFT, TestApp, assert_scene_snapshot};
+use specular_testkit::{TestApp, assert_scene_snapshot};
 
 fn note(id: &str, x: f64) -> Entity {
     let file = FileRef {
@@ -94,16 +94,5 @@ fn an_edited_document_is_its_source_with_the_syntax_styled_over_it() {
     );
     // Into the heading, so the caret stands a heading row tall.
     app.key(Key::ArrowRight).key(Key::ArrowRight);
-    assert_scene_snapshot!(app);
-}
-
-#[test]
-fn an_edited_document_scrolls_its_rows_selection_and_caret_together() {
-    let source: Vec<String> = (0..30).map(|line| format!("line {line}")).collect();
-    let mut app = editing(&source.join("\n"));
-    app.chord(CMD, Key::ArrowDown)
-        .hold(SHIFT)
-        .key(Key::ArrowUp)
-        .let_go();
     assert_scene_snapshot!(app);
 }

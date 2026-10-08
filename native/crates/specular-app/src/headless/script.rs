@@ -266,88 +266,70 @@ mod tests {
     use super::*;
 
     #[test]
-    fn comments_and_blank_lines_are_skipped() {
-        let steps = parse("# a marquee\n\n  press 10 20\nrelease\n").unwrap();
-        assert_eq!(steps, [Step::Press(Vec2::new(10.0, 20.0)), Step::Release]);
-    }
-
-    #[test]
-    fn a_key_chord_splits_into_modifiers_and_a_key() {
+    fn lines_parse_into_steps() {
         let held = Modifiers {
             shift: true,
             meta: true,
             ..NO_MODIFIERS
         };
-        assert_eq!(
-            parse("key cmd+shift+z\nkey escape").unwrap(),
-            [
-                Step::Key(held, Key::Char('z')),
-                Step::Key(NO_MODIFIERS, Key::Escape)
-            ]
-        );
-    }
-
-    #[test]
-    fn type_keeps_the_rest_of_the_line() {
-        assert_eq!(
-            parse("type Hello,  world").unwrap(),
-            [Step::Type("Hello,  world".to_owned())]
-        );
-    }
-
-    #[test]
-    fn clipboard_text_takes_escapes() {
-        assert_eq!(
-            parse(r"clipboard one\ntwo\\n").unwrap(),
-            [Step::Clipboard("one\ntwo\\n".to_owned())]
-        );
-    }
-
-    #[test]
-    fn act_names_the_commands_that_have_no_key() {
-        assert_eq!(
-            parse("act annotate-selection\nact resolve-comment").unwrap(),
-            [
-                Step::Act(Action::AnnotateSelection),
-                Step::Act(Action::ResolveComment(None))
-            ]
-        );
-        assert!(parse("act nonsense").is_err());
-    }
-
-    #[test]
-    fn a_camera_is_fit_or_three_numbers() {
         let at = CameraArg::At(Camera::new(Vec2::new(40.0, -20.0), 0.5));
-        assert_eq!(
-            parse("camera fit\ncamera 40,-20,0.5").unwrap(),
-            [Step::Camera(CameraArg::Fit), Step::Camera(at)]
-        );
+        for (script, expected) in [
+            (
+                "# a marquee\n\n  press 10 20\nrelease\n",
+                vec![Step::Press(Vec2::new(10.0, 20.0)), Step::Release],
+            ),
+            (
+                "key cmd+shift+z\nkey escape",
+                vec![
+                    Step::Key(held, Key::Char('z')),
+                    Step::Key(NO_MODIFIERS, Key::Escape),
+                ],
+            ),
+            (
+                "type Hello,  world",
+                vec![Step::Type("Hello,  world".to_owned())],
+            ),
+            (
+                r"clipboard one\ntwo\\n",
+                vec![Step::Clipboard("one\ntwo\\n".to_owned())],
+            ),
+            (
+                "act annotate-selection\nact resolve-comment",
+                vec![
+                    Step::Act(Action::AnnotateSelection),
+                    Step::Act(Action::ResolveComment(None)),
+                ],
+            ),
+            (
+                "camera fit\ncamera 40,-20,0.5",
+                vec![Step::Camera(CameraArg::Fit), Step::Camera(at)],
+            ),
+            (
+                "control shape.color\nhover-control tool.draw\npanels off",
+                vec![
+                    Step::Control("shape.color".to_owned()),
+                    Step::HoverControl("tool.draw".to_owned()),
+                    Step::Panels(false),
+                ],
+            ),
+        ] {
+            assert_eq!(parse(script).unwrap(), expected, "{script:?}");
+        }
     }
 
     #[test]
-    fn a_control_is_named_and_the_panels_go_on_and_off() {
-        assert_eq!(
-            parse("control shape.color\nhover-control tool.draw\npanels off").unwrap(),
-            [
-                Step::Control("shape.color".to_owned()),
-                Step::HoverControl("tool.draw".to_owned()),
-                Step::Panels(false)
-            ]
-        );
-        assert!(parse("panels maybe").is_err());
-        assert!(parse("control").is_err());
-    }
-
-    #[test]
-    fn a_bad_line_is_reported_with_its_number() {
+    fn bad_lines_are_rejected_with_their_number() {
+        for script in [
+            "act nonsense",
+            "panels maybe",
+            "control",
+            "tool hammer",
+            "key f13",
+            "hold hyper",
+        ] {
+            assert!(parse(script).is_err(), "{script:?}");
+        }
         let error = parse("click 1 2\nclick 1").unwrap_err();
         assert!(format!("{error:#}").starts_with("line 2"));
-    }
-
-    #[test]
-    fn unknown_tools_keys_and_modifiers_are_rejected() {
-        assert!(parse("tool hammer").is_err());
-        assert!(parse("key f13").is_err());
-        assert!(parse("hold hyper").is_err());
     }
 }

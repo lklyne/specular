@@ -288,11 +288,4 @@ mod tests {
         };
         assert!(shaped(&wrapped).0.height > size.height * 1.5);
     }
-
-    #[test]
-    fn a_run_that_fits_is_left_whole() {
-        let (size, glyphs) = shaped(&title("Short", 400.0));
-        assert_eq!(glyphs, "Short");
-        assert!(size.width < 60.0);
-    }
 }

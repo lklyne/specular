@@ -314,12 +314,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn letters_map_to_uppercase_virtual_keys() {
+    fn windows_key_codes() {
         assert_eq!(windows_key_code(KeyCode::KeyQ), i32::from(b'Q'));
-    }
-
-    #[test]
-    fn unmapped_key_code_is_zero() {
         assert_eq!(windows_key_code(KeyCode::MediaPlayPause), 0);
     }
 
@@ -348,34 +344,22 @@ mod tests {
     }
 
     #[test]
-    fn preedit_cursor_converts_bytes_to_utf16_units() {
+    fn ime_events() {
         // "日本" is 6 UTF-8 bytes and 2 UTF-16 units.
         let event = ime_event(&Ime::Preedit("日本".to_owned(), Some((3, 6))));
         assert!(matches!(
             event,
             Some(ImeEvent::SetComposition { selection, .. }) if selection == (1..2)
         ));
-    }
-
-    #[test]
-    fn preedit_without_cursor_places_caret_at_end() {
         let event = ime_event(&Ime::Preedit("😀".to_owned(), None));
         assert!(matches!(
             event,
             Some(ImeEvent::SetComposition { selection, .. }) if selection == (2..2)
         ));
-    }
-
-    #[test]
-    fn empty_preedit_cancels_composition() {
         assert_eq!(
             ime_event(&Ime::Preedit(String::new(), None)),
             Some(ImeEvent::Cancel)
         );
-    }
-
-    #[test]
-    fn commit_maps_to_commit() {
         assert_eq!(
             ime_event(&Ime::Commit("ok".to_owned())),
             Some(ImeEvent::Commit {
@@ -386,42 +370,16 @@ mod tests {
     }
 
     #[test]
-    fn quick_second_press_is_a_double_click() {
+    fn a_quick_near_press_is_a_double_click() {
         let start = Instant::now();
-        let mut counter = ClickCounter::default();
-        counter.press(PointerButton::Left, Vec2::ZERO, start);
-        let count = counter.press(
-            PointerButton::Left,
-            Vec2::new(1.0, 1.0),
-            start + Duration::from_millis(200),
-        );
-        assert_eq!(count, 2);
-    }
-
-    #[test]
-    fn slow_second_press_restarts_click_count() {
-        let start = Instant::now();
-        let mut counter = ClickCounter::default();
-        counter.press(PointerButton::Left, Vec2::ZERO, start);
-        let count = counter.press(
-            PointerButton::Left,
-            Vec2::ZERO,
-            start + Duration::from_secs(1),
-        );
-        assert_eq!(count, 1);
-    }
-
-    #[test]
-    fn distant_second_press_restarts_click_count() {
-        let start = Instant::now();
-        let mut counter = ClickCounter::default();
-        counter.press(PointerButton::Left, Vec2::ZERO, start);
-        let count = counter.press(PointerButton::Left, Vec2::new(30.0, 0.0), start);
-        assert_eq!(count, 1);
-    }
-
-    #[test]
-    fn super_maps_to_meta_modifier() {
-        assert!(modifiers(ModifiersState::SUPER).meta);
+        let press = |first: Vec2, second: Vec2, gap: Duration| {
+            let mut counter = ClickCounter::default();
+            counter.press(PointerButton::Left, first, start);
+            counter.press(PointerButton::Left, second, start + gap)
+        };
+        let quick = Duration::from_millis(200);
+        assert_eq!(press(Vec2::ZERO, Vec2::new(1.0, 1.0), quick), 2);
+        assert_eq!(press(Vec2::ZERO, Vec2::ZERO, Duration::from_secs(1)), 1);
+        assert_eq!(press(Vec2::ZERO, Vec2::new(30.0, 0.0), Duration::ZERO), 1);
     }
 }

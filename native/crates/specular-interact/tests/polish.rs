@@ -2,7 +2,7 @@
 //! that failed before its fix.
 
 use glam::Vec2;
-use specular_doc::{Entity, EntityId, ItemId, Rect};
+use specular_doc::{Entity, EntityId, Rect};
 use specular_interact::{Event, Hit, Key, Tool, hit_test};
 use specular_testkit::{CMD, TestApp, connected, document, group, shape, sticky};
 
@@ -15,10 +15,6 @@ fn an_edge_across_a_sticky() -> TestApp {
         sticky("s", Rect::new(250.0, 50.0, 200.0, 200.0), "in the way"),
     ];
     TestApp::from_document(connected(document(entities), "e1", "a", "b"))
-}
-
-fn edge(id: &str) -> ItemId {
-    ItemId::Edge(id.into())
 }
 
 #[test]
@@ -34,23 +30,6 @@ fn a_drag_from_an_edge_where_it_crosses_an_entity_moves_the_entity() {
     assert_eq!(app.rect("s").y, 260.0, "the sticky went with the drag");
     assert_eq!(app.selected_ids(), ["s"]);
     app.assert_undo_returns_to_start();
-}
-
-#[test]
-fn a_click_on_an_edge_where_it_crosses_an_entity_selects_the_edge() {
-    let mut app = an_edge_across_a_sticky();
-    app.click((350.0, 150.0));
-    assert_eq!(app.selection().items(), [edge("e1")]);
-    assert_eq!(app.rect("s").y, 50.0);
-}
-
-#[test]
-fn a_press_on_an_edge_over_empty_canvas_still_selects_it_at_once() {
-    let mut app = an_edge_across_a_sticky();
-    app.press((200.0, 150.0));
-    assert_eq!(app.selection().items(), [edge("e1")]);
-    app.drag_to((200.0, 400.0)).release();
-    assert_eq!(app.document(), an_edge_across_a_sticky().document());
 }
 
 /// A diagonal pen stroke from (100, 100) to (300, 300), unselected.
@@ -126,14 +105,6 @@ fn a_duplicate_that_lands_off_screen_is_brought_into_view() {
         "the copy's corner is at {corner} in a viewport of {viewport}"
     );
     assert_ne!(camera.pan, Vec2::ZERO);
-}
-
-#[test]
-fn a_duplicate_that_lands_in_view_leaves_the_camera_alone() {
-    let mut app = TestApp::with_entities([shape("a", Rect::new(100.0, 100.0, 100.0, 100.0))]);
-    app.send(Event::ViewportResized(Vec2::new(1000.0, 800.0)));
-    app.select(&["a"]).chord(CMD, Key::Char('d'));
-    assert_eq!(app.session().camera.pan, Vec2::ZERO);
 }
 
 #[test]

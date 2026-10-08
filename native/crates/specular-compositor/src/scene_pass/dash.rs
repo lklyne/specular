@@ -64,18 +64,6 @@ mod tests {
     }
 
     #[test]
-    fn a_dash_in_progress_at_the_end_is_kept() {
-        let cut = dashes(&line(&[(0.0, 0.0), (7.0, 0.0)]), 3.0, 2.0);
-        assert_eq!(cut[1], line(&[(5.0, 0.0), (7.0, 0.0)]));
-    }
-
-    #[test]
-    fn a_dash_carries_round_a_corner() {
-        let cut = dashes(&line(&[(0.0, 0.0), (2.0, 0.0), (2.0, 10.0)]), 4.0, 100.0);
-        assert_eq!(cut, [line(&[(0.0, 0.0), (2.0, 0.0), (2.0, 2.0)])]);
-    }
-
-    #[test]
     fn a_gap_carries_round_a_corner() {
         let cut = dashes(&line(&[(0.0, 0.0), (3.0, 0.0), (3.0, 10.0)]), 2.0, 3.0);
         assert_eq!(

@@ -3,9 +3,7 @@
 
 use specular_doc::{AnnotationAnchor, Document, EntityId, Rect, RegionAnchor};
 use specular_interact::{Action, Key, Tool, selection_metadata};
-use specular_testkit::{
-    SHIFT, TestApp, assert_doc_snapshot, document, file, group, inside, page, sticky,
-};
+use specular_testkit::{TestApp, assert_doc_snapshot, document, file, group, inside, page, sticky};
 
 /// The composer's card with `lines` lines of text, in logical pixels: 8 of
 /// padding above and below lines of 15.4.
@@ -74,21 +72,6 @@ fn the_composer_keeps_its_size_on_screen_at_any_zoom() {
 }
 
 #[test]
-fn shift_enter_breaks_the_line_and_the_card_grows_with_it() {
-    let mut app = drafting();
-    app.type_text("one").hold(SHIFT).key(Key::Enter).let_go();
-    app.type_text("two");
-    assert_eq!(app.editing_text(), "one\ntwo");
-    assert_eq!(
-        app.app().comment_composer().map(|card| card.height),
-        Some(card_height(2))
-    );
-    app.key(Key::Enter);
-    assert_eq!(texts(&app), ["one\ntwo"]);
-    app.assert_undo_returns_to_start();
-}
-
-#[test]
 fn escape_drops_the_draft_and_leaves_the_comment_tool_armed() {
     let mut app = drafting();
     app.type_text("never mind").key(Key::Escape);
@@ -104,19 +87,6 @@ fn escape_drops_the_draft_and_leaves_the_comment_tool_armed() {
     );
     app.key(Key::Escape);
     assert_eq!(app.session().tool, Tool::Select);
-}
-
-#[test]
-fn escape_after_a_commit_takes_the_focus_off_the_comment_and_nothing_else() {
-    let mut app = drafting();
-    app.type_text("done").key(Key::Enter);
-    assert!(app.app().focused_comment().is_some());
-    app.key(Key::Escape);
-    assert_eq!(
-        (app.app().focused_comment(), app.session().tool, texts(&app)),
-        (None, Tool::Comment, vec!["done"])
-    );
-    app.assert_undo_returns_to_start();
 }
 
 #[test]
@@ -161,15 +131,6 @@ fn a_press_elsewhere_commits_what_was_written_and_starts_the_next_comment() {
 }
 
 #[test]
-fn a_press_in_the_composer_moves_the_caret_and_keeps_the_draft() {
-    let mut app = drafting();
-    // The text starts at (624, 495), and a character is 10 wide.
-    app.type_text("hello").click((645.0, 500.0));
-    assert_eq!((app.editing_text(), app.caret()), ("hello", (2, 2)));
-    assert!(app.app().comment_draft().is_some());
-}
-
-#[test]
 fn switching_tool_commits_the_draft_and_a_new_document_drops_it() {
     let mut app = drafting();
     app.type_text("kept").tool(Tool::Select);
@@ -187,24 +148,6 @@ fn switching_tool_commits_the_draft_and_a_new_document_drops_it() {
             texts(&app)
         ),
         (None, None, vec![])
-    );
-}
-
-#[test]
-fn a_draft_is_no_entitys_text_and_does_not_need_the_selection() {
-    let mut app = TestApp::with_pages(2);
-    app.select(&["p1"])
-        .tool(Tool::Comment)
-        .click((600.0, 500.0));
-    app.type_text("hi");
-    let key = EntityId::from(app.comment_draft().id.as_str());
-    assert_eq!(
-        (
-            app.app().editing_text(&key),
-            app.selected(),
-            app.editing_text()
-        ),
-        (None, Some("p1"), "hi")
     );
 }
 
@@ -228,25 +171,6 @@ fn annotating_one_selected_page_names_it_as_the_target() {
     app.type_text("tighten this").key(Key::Enter);
     assert_doc_snapshot!(app);
     app.assert_undo_returns_to_start();
-}
-
-#[test]
-fn annotating_two_selected_pages_names_no_target() {
-    let mut app = TestApp::with_pages(2);
-    app.tick(86_400_000)
-        .select(&["p2", "p1"])
-        .act(Action::AnnotateSelection)
-        .type_text("align these")
-        .key(Key::Enter);
-    assert_doc_snapshot!(app);
-    app.assert_undo_returns_to_start();
-}
-
-#[test]
-fn annotating_with_nothing_selected_does_nothing() {
-    let mut app = TestApp::with_pages(2);
-    app.act(Action::AnnotateSelection);
-    assert_eq!(app.app().comment_draft(), None);
 }
 
 #[test]

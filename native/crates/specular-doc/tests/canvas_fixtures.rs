@@ -71,11 +71,10 @@ fn remove_with_edges(document: &Document, id: &str) -> Command {
 #[test]
 fn rich_workspace_round_trips_to_same_json_value() {
     assert_eq!(saved(&load(RICH_WORKSPACE)), parse(RICH_WORKSPACE));
-}
 
-#[test]
-fn pages_fixture_round_trips_to_same_json_value() {
-    assert_eq!(saved(&load(PAGES)), pages_saved());
+    {
+        assert_eq!(saved(&load(PAGES)), pages_saved());
+    }
 }
 
 #[test]
@@ -153,35 +152,33 @@ fn undoing_move_restores_fixture_exactly() {
     history.apply(&mut document, moved).unwrap();
     assert!(history.undo(&mut document).unwrap().is_some());
     assert_eq!(saved(&document), pages_saved());
-}
 
-#[test]
-fn undoing_add_restores_fixture_exactly() {
-    let mut document = load(PAGES);
-    let mut history = History::new();
-    let page = Kind::Page(Page {
-        url: "http://localhost:4321/garden".to_owned(),
-        ..Page::default()
-    });
-    let entity = Entity::new("page_new", Rect::new(5000.0, 360.0, 1440.0, 900.0), page);
-    let add = Command::InsertEntity {
-        entity: Box::new(entity),
-        at: document.stack_len(),
-    };
-    history.apply(&mut document, add).unwrap();
-    assert_eq!(saved(&document)["nodes"].as_array().unwrap().len(), 5);
-    assert!(history.undo(&mut document).unwrap().is_some());
-    assert_eq!(saved(&document), pages_saved());
-}
+    {
+        let mut document = load(PAGES);
+        let mut history = History::new();
+        let page = Kind::Page(Page {
+            url: "http://localhost:4321/garden".to_owned(),
+            ..Page::default()
+        });
+        let entity = Entity::new("page_new", Rect::new(5000.0, 360.0, 1440.0, 900.0), page);
+        let add = Command::InsertEntity {
+            entity: Box::new(entity),
+            at: document.stack_len(),
+        };
+        history.apply(&mut document, add).unwrap();
+        assert_eq!(saved(&document)["nodes"].as_array().unwrap().len(), 5);
+        assert!(history.undo(&mut document).unwrap().is_some());
+        assert_eq!(saved(&document), pages_saved());
+    }
 
-#[test]
-fn undoing_remove_restores_fixture_exactly() {
-    let mut document = load(PAGES);
-    let mut history = History::new();
-    let remove = remove_with_edges(&document, SPECULAR_PHONE);
-    history.apply(&mut document, remove).unwrap();
-    assert!(history.undo(&mut document).unwrap().is_some());
-    assert_eq!(saved(&document), pages_saved());
+    {
+        let mut document = load(PAGES);
+        let mut history = History::new();
+        let remove = remove_with_edges(&document, SPECULAR_PHONE);
+        history.apply(&mut document, remove).unwrap();
+        assert!(history.undo(&mut document).unwrap().is_some());
+        assert_eq!(saved(&document), pages_saved());
+    }
 }
 
 #[test]

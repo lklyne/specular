@@ -194,13 +194,12 @@ mod tests {
         assert_eq!(enter("9) a"), "9) a\n10) ");
         assert_eq!(enter("- [x] a"), "- [x] a\n- [ ] ");
         assert_eq!(enter("  * [ ] a"), "  * [ ] a\n  * [ ] ");
-    }
 
-    #[test]
-    fn enter_on_an_empty_item_removes_the_marker() {
-        assert_eq!(enter("a\n2. "), "a\n");
-        assert_eq!(enter("a\n- [ ] "), "a\n");
-        assert_eq!(enter("a\n* "), "a\n");
+        {
+            assert_eq!(enter("a\n2. "), "a\n");
+            assert_eq!(enter("a\n- [ ] "), "a\n");
+            assert_eq!(enter("a\n* "), "a\n");
+        }
     }
 
     #[test]

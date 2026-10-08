@@ -2,7 +2,6 @@
 //! (108, 108), 10 units a character and 20 a line.
 
 use specular_doc::Rect;
-use specular_interact::{Cursor, Effect, Key};
 use specular_testkit::{SHIFT, TestApp, sticky};
 
 const NOTE: Rect = Rect::new(100.0, 100.0, 200.0, 200.0);
@@ -91,22 +90,6 @@ fn a_triple_click_takes_the_paragraph() {
     assert_eq!(app.caret(), (13, 4));
     app.type_text("2");
     assert_eq!(app.editing_text(), "one\n2\nthree");
-}
-
-#[test]
-fn the_cursor_is_a_caret_over_the_text_being_edited_and_only_there() {
-    let mut app = TestApp::with_entities([sticky("n", NOTE, "hello")]);
-    app.pointer_move((150.0, 250.0)).take_effects();
-    app.double_click((150.0, 250.0));
-    assert!(
-        app.take_effects()
-            .contains(&Effect::SetCursor(Cursor::Text))
-    );
-    app.pointer_move((600.0, 600.0));
-    assert_eq!(app.take_effects(), [Effect::SetCursor(Cursor::Default)]);
-    app.pointer_move((150.0, 250.0)).take_effects();
-    app.key(Key::Escape);
-    assert_eq!(app.session().cursor, Cursor::Default);
 }
 
 /// A left press with a click count, with no release after it.

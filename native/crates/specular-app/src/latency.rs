@@ -81,19 +81,12 @@ mod tests {
     }
 
     #[test]
-    fn frames_from_other_pages_do_not_complete_the_probe() {
+    fn another_pages_frame_or_a_present_before_paint_yields_nothing() {
         let start = Instant::now();
         let mut probe = InputLatencyProbe::default();
         probe.input_sent(PageId(1), start);
-        probe.observe(&frame_from(PageId(2)));
         assert_eq!(probe.presented(start), None);
-    }
-
-    #[test]
-    fn present_before_paint_yields_nothing() {
-        let start = Instant::now();
-        let mut probe = InputLatencyProbe::default();
-        probe.input_sent(PageId(1), start);
+        probe.observe(&frame_from(PageId(2)));
         assert_eq!(probe.presented(start), None);
     }
 

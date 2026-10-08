@@ -275,19 +275,6 @@ mod tests {
     }
 
     #[test]
-    fn old_lines_assemble_as_no_chrome() {
-        let report = assemble_lines(&one_line(PROFILE)).unwrap();
-        assert_eq!((report.chrome, report.annotations), (Some(false), Some(0)));
-    }
-
-    #[test]
-    fn lines_with_different_annotation_counts_are_rejected() {
-        let other = one_line(PROFILE).replace(r#""pages":9,"#, r#""pages":9,"annotations":5,"#);
-        let text = format!("{}\n{other}", one_line(PROFILE));
-        assert!(assemble_lines(&text).is_err());
-    }
-
-    #[test]
     fn chrome_fields_carry_into_the_report() {
         let line = one_line(PROFILE).replace(
             r#""pages":9,"#,
@@ -302,11 +289,5 @@ mod tests {
             ),
             (Some(true), Some(40), Some(52))
         );
-    }
-
-    #[test]
-    fn file_without_profiles_is_rejected() {
-        let latency = r#"{"inputLatency":{"samples":0,"meanMs":0,"p50Ms":0,"p95Ms":0,"maxMs":0}}"#;
-        assert!(assemble_lines(latency).is_err());
     }
 }

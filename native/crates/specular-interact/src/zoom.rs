@@ -111,6 +111,18 @@ mod tests {
         assert!((camera.zoom - 0.5).abs() < 1e-6);
         // The contents' centre (1100, 300) lands on the viewport's (564, 400).
         assert_eq!(camera.pan, glam::Vec2::new(14.0, 250.0));
+
+        {
+            let camera = fitting(Rect::new(0.0, 0.0, 200.0, 100.0), DVec2::new(1000.0, 800.0));
+            assert!((camera.zoom - 1.0).abs() < f32::EPSILON);
+            assert_eq!(camera.pan, glam::Vec2::new(400.0, 350.0));
+        }
+
+        {
+            let camera = fitting(Rect::new(0.0, 0.0, 1.0e7, 1.0e7), DVec2::new(1000.0, 800.0));
+            let smallest = Camera::new(glam::Vec2::ZERO, 0.0).zoom;
+            assert!((camera.zoom - smallest).abs() < f32::EPSILON);
+        }
     }
 
     fn revealed(bounds: Rect) -> glam::Vec2 {
@@ -118,14 +130,6 @@ mod tests {
         app.session.viewport = glam::Vec2::new(1000.0, 800.0);
         reveal(&mut app, bounds);
         app.session.camera.pan
-    }
-
-    #[test]
-    fn revealing_what_is_in_view_moves_nothing() {
-        assert_eq!(
-            revealed(Rect::new(100.0, 100.0, 200.0, 200.0)),
-            glam::Vec2::ZERO
-        );
     }
 
     #[test]
@@ -140,27 +144,19 @@ mod tests {
             revealed(Rect::new(-500.0, -300.0, 200.0, 200.0)),
             glam::Vec2::new(548.0, 348.0)
         );
-    }
 
-    #[test]
-    fn revealing_something_larger_than_the_viewport_shows_its_top_left() {
-        assert_eq!(
-            revealed(Rect::new(2000.0, 100.0, 3000.0, 200.0)),
-            glam::Vec2::new(-1952.0, 0.0)
-        );
-    }
+        {
+            assert_eq!(
+                revealed(Rect::new(100.0, 100.0, 200.0, 200.0)),
+                glam::Vec2::ZERO
+            );
+        }
 
-    #[test]
-    fn small_contents_are_centred_at_full_size() {
-        let camera = fitting(Rect::new(0.0, 0.0, 200.0, 100.0), DVec2::new(1000.0, 800.0));
-        assert!((camera.zoom - 1.0).abs() < f32::EPSILON);
-        assert_eq!(camera.pan, glam::Vec2::new(400.0, 350.0));
-    }
-
-    #[test]
-    fn huge_contents_stop_at_the_smallest_zoom() {
-        let camera = fitting(Rect::new(0.0, 0.0, 1.0e7, 1.0e7), DVec2::new(1000.0, 800.0));
-        let smallest = Camera::new(glam::Vec2::ZERO, 0.0).zoom;
-        assert!((camera.zoom - smallest).abs() < f32::EPSILON);
+        {
+            assert_eq!(
+                revealed(Rect::new(2000.0, 100.0, 3000.0, 200.0)),
+                glam::Vec2::new(-1952.0, 0.0)
+            );
+        }
     }
 }

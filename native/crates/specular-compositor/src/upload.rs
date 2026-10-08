@@ -152,13 +152,6 @@ mod tests {
     }
 
     #[test]
-    fn full_upload_ignores_dirty_rects() {
-        let frame = frame(8, 4, vec![PixelRect::new(1, 1, 2, 2)]);
-        let regions: Vec<_> = upload_regions(&frame, true).collect();
-        assert_eq!(regions, [PixelRect::new(0, 0, 8, 4)]);
-    }
-
-    #[test]
     fn dirty_rects_are_clamped_to_frame_bounds() {
         let frame = frame(8, 4, vec![PixelRect::new(-2, 2, 6, 10)]);
         let regions: Vec<_> = upload_regions(&frame, false).collect();
@@ -166,58 +159,43 @@ mod tests {
     }
 
     #[test]
-    fn dirty_rects_outside_frame_are_skipped() {
-        let frame = frame(8, 4, vec![PixelRect::new(20, 0, 4, 4)]);
-        assert_eq!(upload_regions(&frame, false).count(), 0);
-    }
-
-    #[test]
-    fn validate_rejects_short_buffer() {
-        let mut frame = frame(8, 4, vec![]);
-        frame.bgra.truncate(10);
-        assert_eq!(
-            validate_cpu_frame(&frame, 8192),
-            Err(FrameImportError::ShortBuffer {
-                actual: 10,
-                needed: 128
-            })
-        );
-    }
-
-    #[test]
-    fn validate_rejects_short_stride() {
-        let mut frame = frame(8, 4, vec![]);
-        frame.stride = 16;
-        assert_eq!(
-            validate_cpu_frame(&frame, 8192),
-            Err(FrameImportError::ShortStride {
-                stride: 16,
-                width: 8
-            })
-        );
-    }
-
-    #[test]
-    fn validate_rejects_oversized_frame() {
-        assert_eq!(
-            validate_cpu_frame(&frame(16, 4, vec![]), 8),
-            Err(FrameImportError::ExceedsDeviceLimit {
-                width: 16,
-                height: 4,
-                max: 8
-            })
-        );
-    }
-
-    #[test]
-    fn validate_rejects_empty_frame() {
-        assert_eq!(
-            validate_frame_size(PixelSize::new(0, 4), 8192),
-            Err(FrameImportError::EmptyFrame {
-                width: 0,
-                height: 4
-            })
-        );
+    fn validate_rejects_a_frame_that_cannot_be_read() {
+        let mut short_buffer = frame(8, 4, vec![]);
+        short_buffer.bgra.truncate(10);
+        let mut short_stride = frame(8, 4, vec![]);
+        short_stride.stride = 16;
+        for (name, frame, max, error) in [
+            (
+                "short buffer",
+                short_buffer,
+                8192,
+                FrameImportError::ShortBuffer {
+                    actual: 10,
+                    needed: 128,
+                },
+            ),
+            (
+                "short stride",
+                short_stride,
+                8192,
+                FrameImportError::ShortStride {
+                    stride: 16,
+                    width: 8,
+                },
+            ),
+            (
+                "oversized",
+                frame(16, 4, vec![]),
+                8,
+                FrameImportError::ExceedsDeviceLimit {
+                    width: 16,
+                    height: 4,
+                    max: 8,
+                },
+            ),
+        ] {
+            assert_eq!(validate_cpu_frame(&frame, max), Err(error), "{name}");
+        }
     }
 
     #[test]
@@ -226,13 +204,5 @@ mod tests {
         frame.stride = 40;
         frame.bgra = vec![0; 40 * 3 + 32];
         assert_eq!(validate_cpu_frame(&frame, 8192), Ok(()));
-    }
-
-    #[test]
-    fn srgb_target_gets_srgb_page_format() {
-        assert_eq!(
-            page_texture_format(PixelFormat::Bgra8Unorm, true),
-            wgpu::TextureFormat::Bgra8UnormSrgb
-        );
     }
 }

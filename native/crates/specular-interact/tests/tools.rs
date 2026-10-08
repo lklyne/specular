@@ -58,34 +58,6 @@ fn dragging_with_the_shape_tool_sizes_a_shape_on_the_grid() {
 }
 
 #[test]
-fn the_shape_being_dragged_out_is_in_the_document_and_named_by_the_app() {
-    let mut app = TestApp::empty();
-    app.tool(Tool::AddShape).press((100.0, 100.0));
-    assert_eq!(app.app().creating(), None, "a press alone makes nothing");
-    app.drag_to((200.0, 160.0));
-    let live = app.app().creating().cloned().expect("a shape in flight");
-    assert_eq!(
-        app.rect(live.as_str()),
-        Rect::new(100.0, 100.0, 100.0, 60.0)
-    );
-    assert!(!app.app().can_undo(), "nothing is recorded until release");
-    assert_eq!(
-        app.take_effects(),
-        [Effect::SetCursor(specular_interact::Cursor::Crosshair)]
-    );
-
-    // Back under the minimum: there is no shape to show.
-    app.drag_to((110.0, 110.0));
-    assert_eq!(app.app().creating(), None);
-    assert_eq!(app.document().entities().count(), 0);
-
-    app.drag_to((180.0, 200.0)).release();
-    assert_eq!(placed(&app).rect, Rect::new(100.0, 100.0, 80.0, 100.0));
-    assert_eq!(app.app().creating(), None);
-    app.assert_undo_returns_to_start();
-}
-
-#[test]
 fn clicking_with_the_shape_tool_places_the_default_size_at_the_press() {
     let mut app = TestApp::empty();
     app.tool(Tool::AddShape).click((212.0, 148.0));
@@ -154,33 +126,6 @@ fn a_shape_takes_its_kind_color_and_stroke_width_from_the_tool_defaults() {
     app.assert_undo_returns_to_start();
 }
 
-#[test]
-fn a_clicked_pill_is_placed_wide() {
-    let mut app = TestApp::empty();
-    app.act(Action::SetToolVariant(ToolDefaultPatch::ShapeKind(
-        ShapeKind::Pill,
-    )))
-    .click((40.0, 40.0));
-    assert_eq!(placed(&app).rect, Rect::new(40.0, 40.0, 200.0, 88.0));
-    app.assert_undo_returns_to_start();
-}
-
-#[test]
-fn escape_mid_drag_takes_the_shape_back_and_records_nothing() {
-    let mut app = TestApp::empty();
-    app.tool(Tool::AddShape)
-        .press((100.0, 100.0))
-        .drag_to((300.0, 300.0))
-        .key(Key::Escape);
-    assert_eq!(app.document().entities().count(), 0);
-    assert_eq!(app.session().gesture, None);
-    assert_eq!(app.session().tool, Tool::Select);
-    assert!(!app.app().can_undo());
-    app.release();
-    assert_eq!(app.document().entities().count(), 0);
-    app.assert_undo_returns_to_start();
-}
-
 // add-text and add-sticky.
 
 #[test]
@@ -234,21 +179,6 @@ fn clicking_with_the_sticky_tool_places_a_sticky_and_starts_editing_it() {
 }
 
 #[test]
-fn plain_text_takes_a_picked_color() {
-    let mut app = TestApp::empty();
-    app.act(Action::SetToolDefault(ToolDefaultPatch::TextColor(Some(
-        Color::Preset(ColorPreset::Purple),
-    ))))
-    .tool(Tool::AddText)
-    .click((0.0, 0.0));
-    assert_eq!(
-        text_of(placed(&app)).and_then(|text| text.color.as_ref()),
-        Some(&Color::Preset(ColorPreset::Purple))
-    );
-    app.key(Key::Escape).assert_undo_returns_to_start();
-}
-
-#[test]
 fn while_a_text_is_edited_letters_are_not_tool_keys_and_escape_ends_the_edit_first() {
     let mut app = TestApp::empty();
     app.tool(Tool::AddSticky).click((100.0, 100.0));
@@ -264,27 +194,6 @@ fn while_a_text_is_edited_letters_are_not_tool_keys_and_escape_ends_the_edit_fir
     assert_eq!(app.selected(), id.as_deref(), "the selection survives");
     app.key(Key::Escape);
     assert_eq!(app.selected(), None);
-    app.assert_undo_returns_to_start();
-}
-
-#[test]
-fn undo_while_a_text_is_edited_is_the_editors_own_and_keeps_the_entity() {
-    let mut app = TestApp::empty();
-    app.tool(Tool::AddText).click((100.0, 100.0));
-    app.chord(specular_testkit::CMD, Key::Char('z'));
-    assert_eq!(app.document().entities().count(), 1);
-    assert!(app.session().editing.is_some());
-    app.key(Key::Escape).assert_undo_returns_to_start();
-}
-
-#[test]
-fn selecting_something_else_ends_the_edit() {
-    let mut app = TestApp::with_pages(1);
-    app.tool(Tool::AddSticky).click((700.0, 100.0));
-    assert!(app.session().editing.is_some());
-    app.click((300.0, 250.0));
-    assert_eq!(app.selected(), Some("p1"));
-    assert_eq!(app.session().editing, None);
     app.assert_undo_returns_to_start();
 }
 

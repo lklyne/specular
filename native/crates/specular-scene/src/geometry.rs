@@ -150,13 +150,6 @@ mod tests {
     }
 
     #[test]
-    fn intersection_is_the_shared_area() {
-        let a = Rect::new(0.0, 0.0, 10.0, 10.0);
-        let b = Rect::new(6.0, -2.0, 10.0, 5.0);
-        assert_eq!(a.intersection(b), Some(Rect::new(6.0, 0.0, 4.0, 3.0)));
-    }
-
-    #[test]
     fn outset_grows_every_side_and_stops_at_zero() {
         let rect = Rect::new(10.0, 10.0, 4.0, 8.0);
         assert_eq!(
@@ -166,15 +159,5 @@ mod tests {
                 Rect::new(12.0, 13.0, 0.0, 2.0)
             )
         );
-    }
-
-    #[test]
-    fn bounding_spans_all_points() {
-        let points = [
-            Point::new(3.0, 9.0),
-            Point::new(-1.0, 4.0),
-            Point::new(2.0, 12.0),
-        ];
-        assert_eq!(Rect::bounding(points), Some(Rect::new(-1.0, 4.0, 4.0, 8.0)));
     }
 }

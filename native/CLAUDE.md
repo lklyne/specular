@@ -48,12 +48,39 @@ A feature is one vertical slice. It touches the same places every time:
    `.canvas` read and write.
 2. `specular-interact`: the `Tool` or `Gesture` arm and the hit-test arm.
 3. `specular-scene`: the `view` arm.
-4. Tests, three per slice: a command round trip (apply, undo, compare) in
-   `specular-doc`, a scripted gesture through `specular-testkit` asserting
-   on the document, and a scene snapshot.
+4. One behavior test: a scripted gesture through `specular-testkit` that
+   asserts on the document and ends with the undo check. See "Tests" below
+   for what else earns a test.
 
 Adding an enum variant should make the compiler list every `match` that
 needs a new arm. Do not add wildcard arms over `Kind`, `Tool` or `Gesture`.
+
+### Tests
+
+The suite stays small on purpose. A test has to clear the four-criterion
+bar in [`tests/README.md`](../tests/README.md): it catches a regression you
+can name, asserts on an observable outcome, survives a refactor, and reads
+on its own.
+
+- One behavior test per user-visible behavior. When the same gesture or
+  verb runs on several kinds, handles or modifiers, that is one
+  table-driven test with a row per case, not a test per case.
+- A scene snapshot only for a new draw rule. A new state of a rule that
+  is already drawn does not need one.
+- A GPU readback only for a rendering rule a snapshot cannot see (a
+  colour, coverage, a blend).
+- A performance pin when a change exists to make something cheaper: a
+  cache hit, a draw-call count, an idle frame that is not drawn.
+- A `.canvas` round trip or byte test for anything read or written.
+- An API contract case for a new route.
+- No unit tests on trivial helpers, none that restate the type system,
+  and none that pin how a private function is called. If a pure rule is
+  hard enough to get wrong (resize math, text segmentation, markdown), it
+  gets one or two tests on its inputs and outputs.
+- A bug that only showed up in use goes into `fixtures/scenarios/`.
+
+Before adding a test, look for the one that already covers the behavior
+and extend its table.
 
 ### The gesture test
 

@@ -127,19 +127,17 @@ mod tests {
             ["one ", "two ", "three"]
         );
         assert_eq!(lines("one two", None), ["one two"]);
-    }
 
-    #[test]
-    fn a_word_longer_than_the_line_breaks_inside() {
-        assert_eq!(
-            lines("abcdefgh ij", Some(30.0)),
-            ["abc", "def", "gh ", "ij"]
-        );
-    }
+        {
+            assert_eq!(
+                lines("abcdefgh ij", Some(30.0)),
+                ["abc", "def", "gh ", "ij"]
+            );
+        }
 
-    #[test]
-    fn line_breaks_are_kept_and_a_trailing_one_leaves_an_empty_line() {
-        assert_eq!(lines("a\n\nb\n", Some(80.0)), ["a", "", "b", ""]);
-        assert_eq!(lines("", None), [""]);
+        {
+            assert_eq!(lines("a\n\nb\n", Some(80.0)), ["a", "", "b", ""]);
+            assert_eq!(lines("", None), [""]);
+        }
     }
 }

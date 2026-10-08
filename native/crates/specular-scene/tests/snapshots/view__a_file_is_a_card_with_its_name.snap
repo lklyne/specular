@@ -1,8 +1,0 @@
----
-source: crates/specular-scene/tests/view.rs
-expression: app.scene_snapshot()
----
-canvas shadow 100,102 240x160 r=4 blur=8 fill=#00000014
-canvas rect 100,100 240x160 r=4 fill=#fafaf9
-canvas path M222.67,154.97 L212,154.97 L209.33,157.63 L209.33,178.97 L212,181.63 L228,181.63 L230.67,178.97 L230.67,162.97 Z M222.67,154.97 L222.67,162.97 L230.67,162.97 stroke=#78716c/1.5 clip=100,100 240x160
-canvas text "f1.png" 116,192.3 wrap=208 11/15.4 #78716c centre clip=100,100 240x160

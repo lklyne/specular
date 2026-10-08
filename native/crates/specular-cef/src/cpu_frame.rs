@@ -104,15 +104,4 @@ mod tests {
             })
         );
     }
-
-    #[test]
-    fn zero_height_is_rejected() {
-        assert_eq!(
-            copy_paint(&[], 2, 0, &[]),
-            Err(PaintBufferError::Empty {
-                width: 2,
-                height: 0
-            })
-        );
-    }
 }

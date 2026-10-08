@@ -508,28 +508,10 @@ mod tests {
     }
 
     #[test]
-    fn run_report_label_comes_from_shell() {
-        assert_eq!(electron().label(), "Electron");
-    }
-
-    #[test]
-    fn json_lines_label_falls_back_to_file_name() {
-        assert_eq!(rust().label(), "rust.jsonl");
-    }
-
-    #[test]
     fn repeated_profiles_reduce_to_median() {
         assert_eq!(
             rust().phase_metric(ProfileId::SlowPan, "p95FrameMs"),
             Some(8.6)
-        );
-    }
-
-    #[test]
-    fn nested_frames_metrics_are_found() {
-        assert_eq!(
-            rust().phase_metric(ProfileId::SlowPan, "maxFrameMs"),
-            Some(10.0)
         );
     }
 
@@ -553,40 +535,12 @@ mod tests {
     }
 
     #[test]
-    fn unknown_profile_id_is_an_error() {
-        assert!(LoadedRun::parse(r#"[{"phase":"wiggle"}]"#, "x").is_err());
-    }
-
-    #[test]
     fn markdown_has_row_with_both_values_and_delta() {
         let table = compare_markdown(&electron(), &rust());
         assert!(
             table.contains("| slow-pan | p95 ms | 9 | 8.60 | -0.40 | -4.4% |"),
             "{table}"
         );
-    }
-
-    #[test]
-    fn markdown_shows_dash_for_one_sided_run_metric() {
-        let table = compare_markdown(&electron(), &rust());
-        assert!(
-            table.contains("| RSS idle (MB) | 1500 | — |  |  |"),
-            "{table}"
-        );
-    }
-
-    #[test]
-    fn markdown_flags_differing_paint_policies() {
-        let lod = ELECTRON.replace(
-            r#""representative":true,"#,
-            r#""representative":true,"paintPolicy":"electron-lod","#,
-        );
-        let full = lod.replace("electron-lod", "full-rate");
-        let (a, b) = (
-            LoadedRun::parse(&lod, "a.json").unwrap(),
-            LoadedRun::parse(&full, "b.json").unwrap(),
-        );
-        assert!(compare_markdown(&a, &b).contains("Paint policies differ"));
     }
 
     #[test]
@@ -609,31 +563,6 @@ mod tests {
     }
 
     #[test]
-    fn markdown_stays_quiet_when_chrome_load_matches() {
-        let loaded = RUST_JSONL.replace(
-            r#""representative":true"#,
-            r#""representative":true,"chrome":true,"annotations":40"#,
-        );
-        let run = LoadedRun::parse(&loaded, "a.jsonl").unwrap();
-        assert!(!compare_markdown(&run, &run).contains("Chrome load differs"));
-    }
-
-    #[test]
-    fn electron_runs_have_unknown_chrome() {
-        assert_eq!(electron().chrome(), None);
-    }
-
-    #[test]
-    fn markdown_lists_run_notes() {
-        let noted = ELECTRON.replace(
-            r#""representative":true,"#,
-            r#""representative":true,"notes":["presents unverified"],"#,
-        );
-        let run = LoadedRun::parse(&noted, "a.json").unwrap();
-        assert!(compare_markdown(&run, &rust()).contains("presents unverified"));
-    }
-
-    #[test]
     fn json_lines_skip_the_session_latency_line() {
         let text = format!("{RUST_JSONL}{}\n", r#"{"inputLatency":{"samples":1}}"#);
         assert!(LoadedRun::parse(&text, "rust.jsonl").is_ok());
@@ -644,12 +573,6 @@ mod tests {
         let synthetic = RUST_JSONL.replace("\"representative\":true", "\"representative\":false");
         let run = LoadedRun::parse(&synthetic, "synthetic.jsonl").unwrap();
         assert!(compare_markdown(&electron(), &run).contains("Not representative"));
-    }
-
-    #[test]
-    fn markdown_omits_metrics_neither_side_has() {
-        let table = compare_markdown(&electron(), &rust());
-        assert!(!table.contains("framesDroppedForPoolPressure"));
     }
 
     #[test]

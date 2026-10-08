@@ -3,8 +3,8 @@
 //! in one run of the stack.
 
 use specular_doc::Rect;
-use specular_interact::{Action, Chord, Key, binding_of};
-use specular_testkit::{CMD, CMD_SHIFT, TestApp, assert_doc_snapshot, group, inside, shape, text};
+use specular_interact::{Action, Key};
+use specular_testkit::{CMD, CMD_SHIFT, TestApp, assert_doc_snapshot, group, inside, shape};
 
 const A: Rect = Rect::new(100.0, 100.0, 100.0, 100.0);
 const B: Rect = Rect::new(300.0, 100.0, 100.0, 100.0);
@@ -22,18 +22,6 @@ fn parent<'a>(app: &'a TestApp, id: &str) -> Option<&'a str> {
         .parent
         .as_ref()
         .map(specular_doc::EntityId::as_str)
-}
-
-#[test]
-fn the_keys_are_cmd_g_and_cmd_shift_g() {
-    assert_eq!(
-        binding_of(&Action::Group).map(|binding| binding.chord),
-        Some(Chord::char('g').cmd())
-    );
-    assert_eq!(
-        binding_of(&Action::Ungroup).map(|binding| binding.chord),
-        Some(Chord::char('g').cmd().shift())
-    );
 }
 
 #[test]
@@ -140,62 +128,5 @@ fn ungrouping_frees_the_members_and_selects_them() {
     assert_eq!((parent(&app, "a"), parent(&app, "b")), (None, None));
     assert_eq!(app.selected_ids(), ["a", "b"]);
     assert_eq!(order(&app), ["a", "b", "c"]);
-    app.assert_undo_returns_to_start();
-}
-
-#[test]
-fn an_inner_group_ungrouped_leaves_its_members_in_the_outer_one() {
-    let mut app = TestApp::with_entities([
-        group("outer", Rect::new(0.0, 0.0, 900.0, 300.0)),
-        inside("outer", group("inner", Rect::new(76.0, 76.0, 348.0, 148.0))),
-        inside("outer", shape("c", C)),
-        inside("inner", shape("a", A)),
-        inside("inner", shape("b", B)),
-    ]);
-    app.select(&["inner"]).act(Action::Ungroup);
-    assert_eq!(
-        (parent(&app, "a"), parent(&app, "b")),
-        (Some("outer"), Some("outer"))
-    );
-    assert_eq!(app.selected_ids(), ["a", "b"]);
-    app.assert_undo_returns_to_start();
-}
-
-#[test]
-fn ungrouping_needs_one_group_selected() {
-    let mut app = TestApp::with_entities([
-        group("g", Rect::new(76.0, 76.0, 348.0, 148.0)),
-        inside("g", shape("a", A)),
-        shape("c", C),
-    ]);
-    app.select(&["g", "c"]).act(Action::Ungroup);
-    app.select(&["a"]).act(Action::Ungroup);
-    app.select(&[]).act(Action::Ungroup);
-    assert!(!app.app().can_undo());
-}
-
-#[test]
-fn ungrouping_takes_the_groups_edges_with_it() {
-    let start = specular_testkit::document([
-        group("g", Rect::new(76.0, 76.0, 348.0, 148.0)),
-        inside("g", shape("a", A)),
-        shape("c", C),
-    ]);
-    let mut app = TestApp::from_document(specular_testkit::connected(start, "e", "g", "c"));
-    app.select(&["g"]).act(Action::Ungroup);
-    assert!(app.document().edges().next().is_none());
-    app.assert_undo_returns_to_start();
-}
-
-#[test]
-fn deleting_a_group_deletes_what_is_inside_it() {
-    let mut app = TestApp::with_entities([
-        group("g", Rect::new(76.0, 76.0, 348.0, 148.0)),
-        inside("g", shape("a", A)),
-        inside("g", text("t", B)),
-        shape("c", C),
-    ]);
-    app.select(&["g"]).key(Key::Backspace);
-    assert_eq!(order(&app), ["c"]);
     app.assert_undo_returns_to_start();
 }

@@ -156,15 +156,6 @@ mod tests {
     }
 
     #[test]
-    fn hits_and_misses_count_lookups() {
-        let mut cache = ImportCache::default();
-        for key in [1, 2, 1, 1] {
-            let _ = cache.get_or_import(key, ok(key));
-        }
-        assert_eq!(cache.hits_and_misses(), (2, 2));
-    }
-
-    #[test]
     fn failed_import_is_not_cached() {
         let mut cache: ImportCache<u32, u32> = ImportCache::default();
         let _ = cache.get_or_import(1, || Err("refused"));

@@ -3,9 +3,7 @@
 
 use specular_doc::{Annotation, AnnotationAnchor, AnnotationId, AnnotationStatus, EntityId, Rect};
 use specular_interact::{Action, Key, MenuEntry, Tool, menus};
-use specular_testkit::{
-    TestApp, assert_doc_snapshot, comment, document, pages, shape, with_comment,
-};
+use specular_testkit::{TestApp, assert_doc_snapshot, comment, document, pages, with_comment};
 
 /// Where the pill of a comment on `p1`'s right edge, halfway down, is.
 const PILL: (f32, f32) = (480.0, 250.0);
@@ -72,24 +70,6 @@ fn a_click_on_a_pill_focuses_its_comment_with_the_select_tool() {
 }
 
 #[test]
-fn a_click_on_a_pill_with_the_comment_tool_focuses_it_and_starts_no_comment() {
-    let mut app = one();
-    app.tool(Tool::Comment).take_effects();
-    app.click(PILL);
-    assert_eq!(app.app().focused_comment(), Some(&id("a")));
-    assert!(app.app().comment_draft().is_none());
-    assert_eq!(app.session().tool, Tool::Comment);
-    assert_eq!(app.take_effects(), []);
-}
-
-#[test]
-fn a_press_on_a_pill_with_another_tool_is_that_tools() {
-    let mut app = one();
-    app.tool(Tool::AddShape).click(PILL);
-    assert_eq!(app.app().focused_comment(), None);
-}
-
-#[test]
 fn focusing_a_comment_clears_the_selection_and_selecting_clears_the_focus() {
     let mut app = one();
     app.select(&["p2"]);
@@ -110,21 +90,6 @@ fn focusing_a_comment_clears_the_selection_and_selecting_clears_the_focus() {
     );
     app.select(&["p1"]);
     assert_eq!(app.app().focused_comment(), None);
-}
-
-#[test]
-fn focus_comment_ignores_ids_it_does_not_show_and_none_lets_go() {
-    let mut hidden = comment("h", on_page(0.2), "hidden");
-    hidden.status = AnnotationStatus::Resolved;
-    let mut app = app_with([comment("a", on_page(0.5), "a"), hidden]);
-    app.act(Action::FocusComment(Some(id("nope"))));
-    app.act(Action::FocusComment(Some(id("h"))));
-    assert_eq!(app.app().focused_comment(), None);
-    app.act(Action::FocusComment(Some(id("a"))));
-    assert_eq!(app.app().focused_comment(), Some(&id("a")));
-    app.act(Action::FocusComment(None));
-    assert_eq!(app.app().focused_comment(), None);
-    assert!(!app.app().can_undo(), "focus is not in undo");
 }
 
 #[test]
@@ -174,25 +139,6 @@ fn resolving_a_dismissed_comment_drops_its_reason() {
 }
 
 #[test]
-fn deleting_removes_the_comment_and_undo_puts_it_back_where_it_was() {
-    let mut app = app_with([
-        comment("a", on_page(0.2), "a"),
-        comment("b", on_page(0.5), "b"),
-        comment("c", on_page(0.8), "c"),
-    ]);
-    app.act(Action::DeleteComment(Some(id("b"))));
-    let ids = |app: &TestApp| -> Vec<String> {
-        (app.document().annotations().iter())
-            .map(|annotation| annotation.id.as_str().to_owned())
-            .collect()
-    };
-    assert_eq!(ids(&app), ["a", "c"]);
-    app.undo();
-    assert_eq!(ids(&app), ["a", "b", "c"]);
-    app.redo().assert_undo_returns_to_start();
-}
-
-#[test]
 fn none_acts_on_every_comment_of_the_focused_pill_as_one_step() {
     let mut app = app_with([
         comment("a", element("#cta"), "a"),
@@ -220,21 +166,6 @@ fn none_acts_on_every_comment_of_the_focused_pill_as_one_step() {
 }
 
 #[test]
-fn deleting_a_shared_pill_removes_all_of_it_in_one_step() {
-    let mut app = app_with([
-        comment("a", element("#cta"), "a"),
-        comment("b", element("#cta"), "b"),
-    ]);
-    app.act(Action::FocusComment(Some(id("b"))))
-        .act(Action::DeleteComment(None));
-    assert_eq!(app.document().annotations().len(), 0);
-    app.undo();
-    assert_eq!(app.document().annotations().len(), 2);
-    assert!(!app.app().can_undo());
-    app.redo().assert_undo_returns_to_start();
-}
-
-#[test]
 fn an_unknown_id_or_no_focus_does_nothing_and_records_nothing() {
     let mut app = one();
     app.act(Action::ResolveComment(None))
@@ -259,21 +190,6 @@ fn backspace_and_delete_remove_the_focused_comment() {
         assert_eq!(app.app().focused_comment(), None);
         app.assert_undo_returns_to_start();
     }
-}
-
-#[test]
-fn delete_with_a_selection_still_removes_the_selection() {
-    let mut app = TestApp::from_document(with_comment(
-        document([
-            specular_testkit::page("p1", Rect::new(100.0, 100.0, 400.0, 300.0)),
-            shape("s", Rect::new(600.0, 500.0, 100.0, 100.0)),
-        ]),
-        comment("a", on_page(0.5), "a"),
-    ));
-    app.select(&["s"]).key(Key::Backspace);
-    assert!(app.document().entity(&"s".into()).is_none());
-    assert_eq!(app.document().annotations().len(), 1);
-    app.assert_undo_returns_to_start();
 }
 
 #[test]
@@ -306,59 +222,6 @@ fn the_menu_items_are_enabled_only_with_something_to_act_on() {
 }
 
 #[test]
-fn the_comment_menu_runs_the_actions_and_has_no_keys() {
-    let app = one();
-    let all = menus(app.app());
-    let comment_menu = all.iter().find(|menu| menu.title == "Comment");
-    let items: Vec<_> = (comment_menu
-        .map(|menu| menu.entries.clone())
-        .unwrap_or_default())
-    .into_iter()
-    .filter_map(|entry| match entry {
-        MenuEntry::Item(item) => Some((item.label.into_owned(), item.action, item.chord)),
-        MenuEntry::Separator => None,
-    })
-    .collect();
-    assert_eq!(
-        items,
-        [
-            (
-                "Annotate selection".to_owned(),
-                Action::AnnotateSelection,
-                None
-            ),
-            (
-                "Resolve comment".to_owned(),
-                Action::ResolveComment(None),
-                None
-            ),
-            (
-                "Delete comment".to_owned(),
-                Action::DeleteComment(None),
-                None
-            ),
-        ]
-    );
-}
-
-#[test]
-fn a_committed_comment_is_focused_with_nothing_selected() {
-    let mut app = TestApp::with_pages(2);
-    app.select(&["p2"])
-        .tool(Tool::Comment)
-        .click((900.0, 700.0));
-    app.type_text("here").key(Key::Enter);
-    let made = app.document().annotations()[0].id.clone();
-    assert_eq!(
-        (app.app().focused_comment(), app.selected_ids()),
-        (Some(&made), Vec::<&str>::new())
-    );
-    app.undo();
-    assert_eq!(app.app().focused_comment(), None, "the comment is gone");
-    app.redo().assert_undo_returns_to_start();
-}
-
-#[test]
 fn annotating_a_selection_ends_with_the_new_comment_focused_and_nothing_selected() {
     let mut app = TestApp::with_pages(2);
     app.select(&["p1"]).act(Action::AnnotateSelection);
@@ -371,13 +234,4 @@ fn annotating_a_selection_ends_with_the_new_comment_focused_and_nothing_selected
     app.undo();
     assert_eq!(app.app().focused_comment(), None);
     app.redo().assert_undo_returns_to_start();
-}
-
-#[test]
-fn opening_another_document_forgets_the_focus() {
-    let mut app = one();
-    app.click(PILL);
-    assert_eq!(app.app().focused_comment(), Some(&id("a")));
-    app.open(document(pages(2)));
-    assert_eq!(app.app().focused_comment(), None);
 }

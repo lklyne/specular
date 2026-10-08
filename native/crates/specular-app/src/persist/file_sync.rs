@@ -222,10 +222,7 @@ mod tests {
         assert!(sync.has_unsaved());
         assert_ne!(sync.step(5_349, false), Step::Save);
         assert_eq!(sync.step(5_350, false), Step::Save);
-    }
-
-    #[test]
-    fn a_failed_save_does_not_delay_a_newer_change() {
+        // A newer change after a failure is not delayed.
         let mut sync = synced();
         sync.request_save(1_000);
         sync.save_failed(1_000);

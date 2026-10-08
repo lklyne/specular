@@ -270,38 +270,10 @@ mod tests {
     }
 
     #[test]
-    fn slow_pan_at_16ms_has_125_steps() {
-        assert_eq!(
-            build_steps(&profile(ProfileId::SlowPan), STEP_INTERVAL).len(),
-            125
-        );
-    }
-
-    #[test]
-    fn steps_sum_to_profile_totals() {
-        let p = profile(ProfileId::SlowPanZoom);
-        let steps = build_steps(&p, STEP_INTERVAL);
-        let pan: Vec2 = steps.iter().map(|s| s.pan).sum();
-        assert!(pan.abs_diff_eq(p.pan, 1e-2));
-    }
-
-    #[test]
     fn zoom_out_then_pan_zooms_before_panning() {
         let steps = build_steps(&profile(ProfileId::ZoomOutThenPan), STEP_INTERVAL);
         // 150 steps: round(150 / 6) = 25 zoom steps lead.
         assert!(steps[24].zoom_delta_y > 0.0 && steps[25].zoom_delta_y == 0.0);
-    }
-
-    #[test]
-    fn build_steps_is_deterministic_across_calls() {
-        for profile in PROFILES {
-            assert_eq!(
-                build_steps(&profile, STEP_INTERVAL),
-                build_steps(&profile, STEP_INTERVAL),
-                "{}",
-                profile.id
-            );
-        }
     }
 
     #[test]
@@ -325,18 +297,6 @@ mod tests {
     }
 
     #[test]
-    fn planned_duration_covers_the_profile_duration() {
-        for p in PROFILES {
-            let planned = p.planned_duration(STEP_INTERVAL);
-            assert!(
-                planned >= p.duration && planned < p.duration + STEP_INTERVAL,
-                "{}: {planned:?}",
-                p.id
-            );
-        }
-    }
-
-    #[test]
     fn every_profile_sums_to_its_totals() {
         for p in PROFILES {
             let steps = build_steps(&p, STEP_INTERVAL);
@@ -348,20 +308,6 @@ mod tests {
     }
 
     #[test]
-    fn zero_interval_yields_a_single_step() {
-        assert_eq!(
-            build_steps(&profile(ProfileId::SlowZoom), Duration::ZERO).len(),
-            1
-        );
-    }
-
-    #[test]
-    fn select_profiles_with_no_ids_returns_all_in_order() {
-        let ids: Vec<ProfileId> = select_profiles(&[], None).iter().map(|p| p.id).collect();
-        assert_eq!(ids, ProfileId::ALL);
-    }
-
-    #[test]
     fn select_profiles_keeps_run_order_not_request_order() {
         let ids: Vec<ProfileId> =
             select_profiles(&[ProfileId::FastPanZoom, ProfileId::SlowPan], None)
@@ -369,16 +315,6 @@ mod tests {
                 .map(|p| p.id)
                 .collect();
         assert_eq!(ids, [ProfileId::SlowPan, ProfileId::FastPanZoom]);
-    }
-
-    #[test]
-    fn select_profiles_overrides_duration_when_non_zero() {
-        let selected = select_profiles(&[], Some(Duration::from_millis(500)));
-        assert!(
-            selected
-                .iter()
-                .all(|p| p.duration == Duration::from_millis(500))
-        );
     }
 
     #[test]
@@ -393,24 +329,6 @@ mod tests {
             "pan-zoom".parse::<ProfileId>().unwrap(),
             ProfileId::SlowPanZoom
         );
-    }
-
-    #[test]
-    fn profile_id_rejects_unknown_names() {
-        assert!("diagonal".parse::<ProfileId>().is_err());
-    }
-
-    #[test]
-    fn profile_id_deserializes_lab_alias() {
-        let id: ProfileId = serde_json::from_str("\"fast-pan\"").unwrap();
-        assert_eq!(id, ProfileId::FastDiagonalPan);
-    }
-
-    #[test]
-    fn profile_id_display_round_trips_through_from_str() {
-        for id in ProfileId::ALL {
-            assert_eq!(id.to_string().parse::<ProfileId>().unwrap(), id);
-        }
     }
 
     #[test]

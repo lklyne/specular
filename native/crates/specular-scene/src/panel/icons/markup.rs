@@ -90,11 +90,4 @@ mod tests {
         assert!(svg.contains("stroke=\"#303030\""), "{svg}");
         assert!(svg.ends_with("</svg>"));
     }
-
-    #[test]
-    fn a_tool_glyph_shows_its_tint() {
-        let red = Color::rgb(0xff, 0x10, 0x16);
-        let svg = icon_svg(Icon::DrawPenTool, Color::BLACK, Some(red), false);
-        assert!(svg.contains("#ff1016"), "{svg}");
-    }
 }

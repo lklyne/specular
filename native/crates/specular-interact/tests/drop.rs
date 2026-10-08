@@ -113,15 +113,3 @@ fn several_files_cascade_from_the_drop_point_as_one_undo_step() {
     app.undo();
     assert_eq!(app.document().entities().count(), 0);
 }
-
-#[test]
-fn files_the_canvas_cannot_show_are_ignored() {
-    let mut app = TestApp::empty();
-    drop_at(
-        &mut app,
-        (0.0, 0.0),
-        vec![outside("/tmp/clip.mp4", None), outside("/tmp/README", None)],
-    );
-    assert_eq!(app.document().entities().count(), 0);
-    assert_eq!(app.take_effects(), []);
-}

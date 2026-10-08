@@ -742,3 +742,39 @@ Measured at `61630e20` with scripts over `native/crates` (inline `#[cfg(test)]` 
 - Dependency direction against `doc <- interact <- scene <- render/ui <- shell`: `specular-compositor` depends on `specular-interact` (it implements `TextMeasure`) and on `specular-doc` (`EntityId`, `TextAlign`), though the plan says the renderer knows nothing about entities. `specular-app` depends on `specular-testkit` outside tests (the headless runner is built on `TestApp`). `specular-shell` depends on `specular-app`. There is no `specular-ui`: panel models and layout live in interact, panel drawing in scene. `specular-core` is not in the plan and sits under interact.
 - Caches: `Scene` holds none. `scene/panel/icons.rs:219` has a process-wide parsed-icon map, and `App` holds `StackCache` (`interact/edit/stack.rs`, a `Mutex` over text layouts), which is a cache inside the state `update` owns.
 - Tests: 963 in `tests/` directories, 815 inline, 167 snapshot assertions over 99 `.snap` files. Of the 704 the prune removed, by the pruning agents' own classing (it overlaps, so it sums past 704): about 250 restated another test, 215 were folded into a table or a neighbouring test, 95 tested a trivial helper, 85 restated a scenario script, 80 pinned an implementation detail, 13 restated the type system.
+
+### AUDIT, part 2: the test prune
+
+1,778 tests to 1,074 (31,123 test lines to 24,737). Six agents pruned one crate group each against `tests/README.md`'s bar and the brief's keep list; the scenario scripts, `check.py`, the fixtures and every `.canvas` round-trip and byte test are untouched. `native/CLAUDE.md` now says one behavior test per feature, a snapshot only for a new draw rule, no unit tests on trivial helpers.
+
+| crate | before | after |
+|---|---|---|
+| specular-interact | 864 | 482 |
+| specular-compositor | 218 | 168 |
+| specular-app | 199 | 122 |
+| specular-scene | 167 | 101 (86 `.snap` files to 58) |
+| specular-bench | 113 | 60 |
+| specular-doc | 60 | 35 |
+| specular-api | 51 | 46 |
+| specular-cef | 46 | 32 |
+| specular-core | 39 | 15 |
+| specular-shell, specular-testkit | 21 | 13 |
+
+What each deleted group is still covered by:
+
+- Escape at each stage of each gesture (21): scenario `h`, and `escape_steps_out_one_level_at_a_time`.
+- Undo, redo and "no step recorded" restated per verb (14): the `assert_undo_returns_to_start` that ends each remaining test, and scenarios `a` and `b`.
+- One gesture repeated per kind, handle, side, modifier or tool (about 95 in select, hit_test, resizes, moves, gestures, routing, groups): the table or neighbour in the same file (`every_kind_gets_handles_when_selected`, `each_handle_moves_its_own_edges...`, `shift_flips_whether_a_resize_keeps_the_ratio`), and scenario `g` for the zoom limits.
+- Comment drafts, pills, focus and delete variants (27): scenario `i`, `a_pill_sits_by_its_anchor_and_stays_inside_its_page`, `backspace_and_delete_remove...`.
+- Edge create, re-route and label variants (11) and the edge-drag controller's states (9): `tests/edges.rs` and `tests/edge_labels.rs`.
+- Text editor keys, IME and session variants (13) and Document edits (10): scenarios `c` and `d`, `a_document_takes_every_format...`, `ending_the_edit_writes...`.
+- Property, popup and built-in panel variants and per-kind layout snapshots (39): scenario `j`, `a_color_reaches_every_kind...`, `a_sticky_has_size_font_color...`, `the_toolbar_and_a_sticky_popup`.
+- Canvas, sidebar, menu and page-notice variants (22): `switching_closes_the_pages_left...`, `every_shortcut_is_the_binding_tables_chord...`, `each_notice_lands...`.
+- Per-command apply and undo, refusals and history in `specular-doc` (21): one round-trip test over every command, one refusal test, and the fixture undo tests.
+- Camera, page-spec, resize, stack-order, format and small-helper unit tests in core and interact `src/` (about 95): folded into one test per rule, with `tests/resizes.rs` and `tests/stack_order.rs` covering the behavior end to end.
+- Scene snapshots of a rule already drawn in another state or kind (26) and helper tests in scene (40): the kept snapshot of the rule in the same file, and `documents.rs` for markdown.
+- Compositor helper tests (50): one test per rule. Every performance pin and all but two GPU readbacks are kept.
+- CLI flags (36 to 7 tables), script steps (9 to 2), paint tiers, key translation, titles in `specular-app` (77): the tables in the same files.
+- Bench statistics, compare, profile, memory and report tests (53) and cef translate, config and coords checks (14): one or two per rule.
+
+Known weak spots. In `specular-doc`, `specular-core` and interact `src/`, about 100 tests were folded by pasting their bodies into one test as blocks, not by writing a table: every assertion survives, so the count fell more than the code did. The scene and compositor group stopped at 30% because the pins and readbacks are most of what is left. No test was mutation-checked. The scenario scripts assert on saved canvases only, so a deleted test that a scenario "covers" is covered for the document it leaves, not for cursors or mid-gesture state.

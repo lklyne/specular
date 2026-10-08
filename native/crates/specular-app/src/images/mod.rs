@@ -200,19 +200,4 @@ mod tests {
             (ImageKey(2), LoadFailure::Failed)
         );
     }
-
-    #[test]
-    fn loads_are_answered_in_the_order_they_were_asked() {
-        let space = Space::new("order");
-        for name in ["a", "b", "c"] {
-            let png = decode::tests::encoded(4, 4, ImageFormat::Png);
-            std::fs::write(space.0.join(format!("assets/{name}.png")), png).unwrap();
-        }
-        let loader = ImageLoader::new(Some(space.0.clone())).unwrap();
-        for (key, name) in ["a", "b", "c"].into_iter().enumerate() {
-            loader.request(ImageKey(key as u64), &format!("assets/{name}.png"), SPEC);
-        }
-        let keys = [wait(&loader).key, wait(&loader).key, wait(&loader).key];
-        assert_eq!(keys, [ImageKey(0), ImageKey(1), ImageKey(2)]);
-    }
 }

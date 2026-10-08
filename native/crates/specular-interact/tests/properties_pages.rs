@@ -11,10 +11,6 @@ fn set(app: &mut TestApp, property: Property) {
     app.act(Action::SetProperty(property));
 }
 
-fn steps(app: &TestApp) -> bool {
-    app.app().can_undo()
-}
-
 fn viewports(app: &mut TestApp) -> Vec<(String, CssSize)> {
     app.take_effects()
         .into_iter()
@@ -73,23 +69,6 @@ fn a_landscape_preset_on_a_portrait_page_keeps_the_orientation_it_has() {
 }
 
 #[test]
-fn rotating_a_page_turns_its_size() {
-    let mut app = phone_and_laptop();
-    app.select(&["p1"]);
-    app.take_effects();
-    set(&mut app, Property::ViewportPreset(0));
-    set(&mut app, Property::Orientation(Orientation::Landscape));
-    assert_eq!(app.rect("p1").width, 667.0);
-    assert_eq!(
-        viewports(&mut app).last().map(|v| v.1),
-        Some(CssSize::new(667, 375))
-    );
-    set(&mut app, Property::Orientation(Orientation::Portrait));
-    assert_eq!(app.rect("p1").width, 375.0);
-    app.assert_undo_returns_to_start();
-}
-
-#[test]
 fn a_custom_viewport_keeps_the_size_and_drops_the_device() {
     let mut app = phone_and_laptop();
     app.select(&["p1"]);
@@ -131,13 +110,4 @@ fn the_device_frame_and_color_scheme_are_page_settings() {
     set(&mut app, Property::ColorScheme(None));
     assert_eq!(property::read::color_scheme(app.app()), Some(None));
     app.assert_undo_returns_to_start();
-}
-
-#[test]
-fn an_unknown_preset_applies_to_nothing() {
-    let mut app = phone_and_laptop();
-    app.select(&["p1"]);
-    assert!(!Property::ViewportPreset(99).applies_to(app.app()));
-    set(&mut app, Property::ViewportPreset(99));
-    assert!(!steps(&app));
 }

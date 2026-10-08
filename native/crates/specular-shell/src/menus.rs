@@ -297,10 +297,8 @@ mod tests {
             Some("backspace")
         );
         assert_eq!(keystroke(Chord::key(Key::Other)), None);
-    }
 
-    #[test]
-    fn gpui_parses_every_key_of_the_binding_table() {
+        // And gpui parses every key of the binding table.
         for binding in BINDINGS {
             let Some(keys) = keystroke(binding.chord) else {
                 continue;

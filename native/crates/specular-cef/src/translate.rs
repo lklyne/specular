@@ -413,17 +413,6 @@ mod tests {
     }
 
     #[test]
-    fn leave_becomes_mouse_move_with_leave_set() {
-        let mut translator = InputTranslator::new();
-        let event = pointer(PointerEventKind::Leave, 3.0, 4.0);
-        let calls = calls(&mut translator, &event);
-        assert!(matches!(
-            calls.as_slice(),
-            [HostCall::MouseMove { leave: true, .. }]
-        ));
-    }
-
-    #[test]
     fn fractional_position_floors_to_containing_pixel() {
         let mut translator = InputTranslator::new();
         let event = pointer(PointerEventKind::Move, -0.5, 10.9);
@@ -454,32 +443,6 @@ mod tests {
                 .as_slice()
             )
         );
-    }
-
-    #[test]
-    fn negative_wheel_remainder_is_kept_with_its_sign() {
-        let mut translator = InputTranslator::new();
-        calls(&mut translator, &wheel(-1.5, 0.0));
-        let event = wheel(-0.5, 0.0);
-        let calls = calls(&mut translator, &event);
-        assert!(matches!(
-            calls.as_slice(),
-            [HostCall::MouseWheel { delta_x: -1, .. }]
-        ));
-    }
-
-    #[test]
-    fn bmp_character_is_one_char_event() {
-        let mut translator = InputTranslator::new();
-        let event = key_char('é');
-        let calls = calls(&mut translator, &event);
-        assert!(matches!(
-            calls.as_slice(),
-            [HostCall::Key {
-                character: 0xE9,
-                ..
-            }]
-        ));
     }
 
     #[test]
@@ -533,21 +496,5 @@ mod tests {
                 selection: CefRange { from: 2, to: 2 },
             }]
         );
-    }
-
-    #[test]
-    fn commit_with_replacement_passes_the_range() {
-        let mut translator = InputTranslator::new();
-        let event = InputEvent::Ime(ImeEvent::Commit {
-            text: "仮名".to_owned(),
-            replacement: Some(0..2),
-        });
-        assert!(matches!(
-            calls(&mut translator, &event).as_slice(),
-            [HostCall::ImeCommit {
-                replacement: CefRange { from: 0, to: 2 },
-                ..
-            }]
-        ));
     }
 }

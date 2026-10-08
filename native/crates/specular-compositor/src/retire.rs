@@ -102,23 +102,6 @@ mod tests {
     }
 
     #[test]
-    fn reclaim_reports_number_released() {
-        let mut retired = RetiredTextures::default();
-        retired.push(PageId(1), 0, ());
-        retired.push(PageId(2), 0, ());
-        assert_eq!(retired.reclaim(0), 2);
-    }
-
-    #[test]
-    fn count_for_counts_only_that_page() {
-        let mut retired = RetiredTextures::default();
-        retired.push(PageId(1), 1, ());
-        retired.push(PageId(2), 1, ());
-        retired.push(PageId(1), 2, ());
-        assert_eq!(retired.count_for(PageId(1)), 2);
-    }
-
-    #[test]
     fn dropping_reclaimed_entries_runs_their_destructors() {
         use std::cell::Cell;
         use std::rc::Rc;

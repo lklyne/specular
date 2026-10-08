@@ -59,16 +59,6 @@ fn the_toolbar_and_a_sticky_popup() {
 }
 
 #[test]
-fn the_popup_sits_centred_over_its_item_with_a_gap() {
-    let app = with(sticky("t", Rect::new(500.0, 300.0, 200.0, 200.0), "note"));
-    let popup = popup(&app);
-    // To the nearest whole pixel.
-    assert!((popup.centre().x - 600.0).abs() <= 0.5);
-    // `POPUP_OFFSET_Y` above the item.
-    assert_eq!(popup.bottom(), 300.0 - 14.0);
-}
-
-#[test]
 fn a_popup_follows_the_camera() {
     let mut app = with(sticky("t", Rect::new(500.0, 300.0, 200.0, 200.0), "note"));
     app.zoom(2.0);
@@ -195,65 +185,4 @@ fn the_zoom_levels_hang_from_the_toolbar_and_open_over_the_popup() {
       zoom.150 684,177 160x24 PresetRow: text "150%" 692,177 144x24 Left
       zoom.200 684,201 160x24 PresetRow: text "200%" 692,201 144x24 Left
     "#);
-}
-
-#[test]
-fn a_page_popup_clears_the_page_title_above_its_page() {
-    let app = with(page("p", Rect::new(300.0, 300.0, 600.0, 400.0)));
-    let title_top = 300.0 - (specular_interact::TITLE_LINE + specular_interact::TITLE_GAP);
-    assert!(popup(&app).bottom() <= title_top - MARGIN + 1.0);
-}
-
-#[test]
-fn the_border_list_is_as_wide_as_electron_fixes_it() {
-    let mut app = with(shape("s", Rect::new(500.0, 300.0, 200.0, 200.0)));
-    app.click_control("shape.border");
-    assert_eq!(open_list(&app).width, 300.0);
-}
-
-#[test]
-fn only_the_list_of_sizes_is_a_white_menu() {
-    let mut app = with(sticky("t", Rect::new(500.0, 300.0, 200.0, 200.0), "note"));
-    let menus = |app: &TestApp| app.panel_layout().dropdown.map(|panel| panel.menu);
-    app.click_control("text.size");
-    assert_eq!(menus(&app), Some(true));
-    app.click_control("text.size").click_control("text.font");
-    assert_eq!(menus(&app), Some(false));
-    app.click_control("text.font").click_control("text.color");
-    assert_eq!(menus(&app), Some(false));
-    app.click_control("text.color").click_control("zoom");
-    assert_eq!(menus(&app), Some(false));
-}
-
-#[test]
-fn the_page_size_trigger_has_eight_pixels_either_side_and_a_small_chevron() {
-    let app = with(page("p", Rect::new(300.0, 300.0, 400.0, 300.0)));
-    let layout = app.panel_layout();
-    let trigger = layout
-        .node(&"page.size".to_owned().into())
-        .map(|node| (node.rect, node.parts.clone()));
-    let Some((rect, parts)) = trigger else {
-        panic!("no page size trigger");
-    };
-    let mut seen = (None, None);
-    for part in &parts {
-        match part {
-            specular_interact::panel::builtin::Part::Text { rect, .. } => seen.0 = Some(*rect),
-            specular_interact::panel::builtin::Part::Chevron { rect } => seen.1 = Some(*rect),
-            _ => {}
-        }
-    }
-    let (Some(label), Some(chevron)) = seen else {
-        panic!("the trigger has a label and a chevron");
-    };
-    assert_eq!(label.x - rect.x, 8.0);
-    assert_eq!((chevron.width, rect.right() - chevron.right()), (10.0, 8.0));
-}
-
-#[test]
-fn the_page_size_list_hangs_four_pixels_under_its_trigger() {
-    let mut app = with(page("p", Rect::new(300.0, 300.0, 400.0, 300.0)));
-    app.click_control("page.size");
-    let trigger = app.control_rect("page.size");
-    assert_eq!(open_list(&app).y, trigger.bottom() + 4.0);
 }

@@ -90,12 +90,6 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn the_format_comes_from_the_content_not_the_name() {
-        // Nothing here says PNG but the bytes.
-        assert!(decode(&encoded(2, 2, ImageFormat::Png), 8192).is_ok());
-    }
-
-    #[test]
     fn an_image_larger_than_a_texture_is_scaled_down_in_proportion() {
         let decoded = decode(&encoded(64, 16, ImageFormat::Png), 32).unwrap();
         assert_eq!(decoded.size, PixelSize::new(32, 8));

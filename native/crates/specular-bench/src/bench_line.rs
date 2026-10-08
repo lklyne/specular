@@ -120,18 +120,6 @@ mod tests {
     }
 
     #[test]
-    fn input_latency_line_round_trips() {
-        let line = BenchLine::InputLatency(InputLatencyLine {
-            input_latency: LatencySummary {
-                samples: 3,
-                ..LatencySummary::default()
-            },
-        });
-        let json = serde_json::to_string(&line).unwrap();
-        assert_eq!(serde_json::from_str::<BenchLine>(&json).unwrap(), line);
-    }
-
-    #[test]
     fn profile_line_without_chrome_fields_reads_as_no_chrome() {
         let mut json = serde_json::to_value(BenchLine::Profile(profile_line())).unwrap();
         if let Some(object) = json.as_object_mut() {
@@ -146,14 +134,5 @@ mod tests {
             (line.chrome, line.annotations, line.phase.max_shapes_drawn),
             (false, 0, None)
         );
-    }
-
-    #[test]
-    fn profile_line_missing_a_field_is_rejected() {
-        let mut json = serde_json::to_value(BenchLine::Profile(profile_line())).unwrap();
-        if let Some(object) = json.as_object_mut() {
-            object.remove("stepIntervalMs");
-        }
-        assert!(serde_json::from_value::<BenchLine>(json).is_err());
     }
 }

@@ -159,30 +159,35 @@ mod tests {
             target(&document, 250.0, 250.0, &[]).as_deref(),
             Some("inner")
         );
-    }
 
-    #[test]
-    fn outside_the_inner_group_the_outer_one_holds() {
-        let document = nested();
-        assert_eq!(
-            target(&document, 450.0, 450.0, &[]).as_deref(),
-            Some("outer")
-        );
-    }
+        {
+            let document = nested();
+            assert_eq!(
+                target(&document, 450.0, 450.0, &[]).as_deref(),
+                Some("outer")
+            );
+        }
 
-    #[test]
-    fn outside_every_group_there_is_no_target() {
-        let document = nested();
-        assert_eq!(target(&document, 50.0, 50.0, &[]), None);
-    }
+        {
+            let document = nested();
+            assert_eq!(target(&document, 50.0, 50.0, &[]), None);
+        }
 
-    #[test]
-    fn a_group_travelling_with_the_drag_is_never_the_target() {
-        let document = nested();
-        assert_eq!(
-            target(&document, 250.0, 250.0, &["inner"]).as_deref(),
-            Some("outer")
-        );
+        {
+            let document = nested();
+            assert_eq!(
+                target(&document, 250.0, 250.0, &["inner"]).as_deref(),
+                Some("outer")
+            );
+        }
+
+        {
+            let document = nested();
+            assert_eq!(
+                target(&document, 600.0, 600.0, &[]).as_deref(),
+                Some("outer")
+            );
+        }
     }
 
     #[test]
@@ -197,14 +202,5 @@ mod tests {
             document.apply(insert).expect("inserts");
         }
         assert_eq!(target(&document, 10.0, 10.0, &[]).as_deref(), Some("b"));
-    }
-
-    #[test]
-    fn the_edge_belongs_to_the_group() {
-        let document = nested();
-        assert_eq!(
-            target(&document, 600.0, 600.0, &[]).as_deref(),
-            Some("outer")
-        );
     }
 }

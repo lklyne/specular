@@ -283,13 +283,12 @@ mod tests {
             dragged_rect(START, DVec2::new(-10.0, 30.0), false),
             Some(Rect::new(0.0, 40.0, 120.0, 60.0))
         );
-    }
 
-    #[test]
-    fn a_drag_under_the_minimum_on_either_axis_sizes_nothing() {
-        assert_eq!(dragged_rect(START, DVec2::new(300.0, 110.0), false), None);
-        assert_eq!(dragged_rect(START, DVec2::new(120.0, 300.0), false), None);
-        assert_eq!(dragged_rect(START, START, true), None);
+        {
+            assert_eq!(dragged_rect(START, DVec2::new(300.0, 110.0), false), None);
+            assert_eq!(dragged_rect(START, DVec2::new(120.0, 300.0), false), None);
+            assert_eq!(dragged_rect(START, START, true), None);
+        }
     }
 
     #[test]

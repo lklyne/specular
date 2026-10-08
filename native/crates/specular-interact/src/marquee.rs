@@ -327,32 +327,29 @@ mod tests {
             DVec2::new(150.0, 50.0),
             RECT
         ));
-    }
 
-    #[test]
-    fn a_segment_wholly_inside_counts() {
-        assert!(segment_crosses(
-            DVec2::new(10.0, 10.0),
-            DVec2::new(20.0, 30.0),
-            RECT
-        ));
-    }
+        {
+            assert!(segment_crosses(
+                DVec2::new(10.0, 10.0),
+                DVec2::new(20.0, 30.0),
+                RECT
+            ));
+        }
 
-    #[test]
-    fn a_segment_passing_a_corner_outside_misses() {
-        assert!(!segment_crosses(
-            DVec2::new(-50.0, 20.0),
-            DVec2::new(20.0, -50.0),
-            RECT
-        ));
-    }
+        {
+            assert!(!segment_crosses(
+                DVec2::new(-50.0, 20.0),
+                DVec2::new(20.0, -50.0),
+                RECT
+            ));
+        }
 
-    #[test]
-    fn a_segment_parallel_to_a_side_and_outside_misses() {
-        assert!(!segment_crosses(
-            DVec2::new(-10.0, 0.0),
-            DVec2::new(-10.0, 100.0),
-            RECT
-        ));
+        {
+            assert!(!segment_crosses(
+                DVec2::new(-10.0, 0.0),
+                DVec2::new(-10.0, 100.0),
+                RECT
+            ));
+        }
     }
 }

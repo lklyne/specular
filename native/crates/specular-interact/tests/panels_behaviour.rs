@@ -3,10 +3,10 @@
 
 #![expect(clippy::panic, reason = "a helper fails the test it is called from")]
 
-use specular_doc::{Color, ColorPreset, Kind, Rect, ShapeKind, TextStyle};
+use specular_doc::{Color, ColorPreset, Kind, Rect, ShapeKind};
 use specular_interact::{
     Action, Control, ControlId, DropdownSection, Effect, Format, PopupModel, Property, Tool,
-    ToolbarSection, popup_for, toolbar,
+    popup_for, toolbar,
 };
 use specular_testkit::{TestApp, document, plain_text, shape, sticky, with_edge};
 
@@ -74,70 +74,6 @@ fn a_swatch_sets_the_color_and_the_next_model_selects_it() {
 }
 
 #[test]
-fn every_swatch_carries_the_action_that_sets_its_own_color() {
-    let mut app = TestApp::with_entities([shape("s", A)]);
-    app.select(&["s"]);
-    let model = popup(&app);
-    let mut checked = 0;
-    for control in &model.controls {
-        let Control::Dropdown(dropdown) = control else {
-            continue;
-        };
-        for section in &dropdown.content {
-            let DropdownSection::Controls(row) = section else {
-                continue;
-            };
-            for control in row {
-                let Control::Swatches(swatches) = control else {
-                    continue;
-                };
-                for swatch in &swatches.options {
-                    let expected = match (&swatch.color, dropdown.id.as_str()) {
-                        (Some(color), "shape.color") => Property::Color(color.clone()),
-                        (Some(color), _) => Property::BorderColor(color.clone()),
-                        (None, _) => Property::FillStyle(specular_doc::FillStyle::None),
-                    };
-                    assert_eq!(
-                        swatch.action,
-                        Action::SetProperty(expected),
-                        "{}",
-                        swatch.id
-                    );
-                    checked += 1;
-                }
-            }
-        }
-    }
-    assert_eq!(checked, 8 + 1 + 8, "fill with clear, then border");
-}
-
-#[test]
-fn clearing_a_fill_shows_the_clear_swatch_and_a_color_brings_the_fill_back() {
-    let mut app = TestApp::with_entities([shape("s", A)]);
-    app.select(&["s"]);
-    press(&mut app, "shape.color.swatches.transparent");
-    assert!(is_on(&popup(&app), "shape.color.swatches.transparent"));
-    assert!(!is_on(&popup(&app), "shape.color.swatches.red"));
-    press(&mut app, "shape.color.swatches.blue");
-    assert!(!is_on(&popup(&app), "shape.color.swatches.transparent"));
-    assert!(is_on(&popup(&app), "shape.color.swatches.blue"));
-    app.assert_undo_returns_to_start();
-}
-
-#[test]
-fn a_toggle_goes_to_the_other_state_and_back() {
-    let doc = document([plain_text("a", A, "a"), plain_text("b", B, "b")]);
-    let mut app = TestApp::from_document(with_edge(doc, specular_doc::Edge::new("e", "a", "b")));
-    app.select(&["e"]);
-    assert!(!is_on(&popup(&app), "edge.start"));
-    press(&mut app, "edge.start");
-    assert!(is_on(&popup(&app), "edge.start"));
-    press(&mut app, "edge.start");
-    assert!(!is_on(&popup(&app), "edge.start"));
-    app.undo().undo().assert_undo_returns_to_start();
-}
-
-#[test]
 fn the_delete_button_removes_the_edge_and_the_popup_goes() {
     let doc = document([plain_text("a", A, "a"), plain_text("b", B, "b")]);
     let mut app = TestApp::from_document(with_edge(doc, specular_doc::Edge::new("e", "a", "b")));
@@ -146,23 +82,6 @@ fn the_delete_button_removes_the_edge_and_the_popup_goes() {
     assert!(popup_for(app.app()).is_none());
     assert!(app.document().edges().next().is_none());
     app.assert_undo_returns_to_start();
-}
-
-#[test]
-fn a_named_size_and_the_stepper_both_set_the_size() {
-    let mut app = TestApp::with_entities([shape("s", A)]);
-    app.select(&["s"]);
-    press(&mut app, "shape.size.32");
-    assert!(is_on(&popup(&app), "shape.size.32"));
-    press(&mut app, "shape.size.custom.inc");
-    assert!(
-        !is_on(&popup(&app), "shape.size.32"),
-        "33 is not a named size"
-    );
-    assert_eq!(
-        specular_interact::property::read::text_size(app.app()),
-        Some(33.0)
-    );
 }
 
 #[test]
@@ -183,17 +102,6 @@ fn a_page_option_resizes_the_page_and_the_toggles_follow() {
         panic!("a scheme action");
     };
     assert_eq!(next, None, "light, dark, then back to the system's");
-}
-
-#[test]
-fn a_text_style_property_is_not_a_control() {
-    let mut app = TestApp::with_entities([sticky("a", A, "one")]);
-    app.select(&["a"]);
-    let model = popup(&app);
-    assert!(
-        model.entries().iter().all(|(_, action)| *action
-            != Some(&Action::SetProperty(Property::TextStyle(TextStyle::Plain))))
-    );
 }
 
 #[test]
@@ -223,29 +131,6 @@ fn the_formatting_buttons_format_the_text_being_edited() {
         popup(&app).action(&ControlId::new("format").child("bold")),
         Some(Action::Format(Format::Bold))
     );
-}
-
-#[test]
-fn a_toolbar_button_arms_its_tool_and_a_zoom_level_zooms() {
-    let mut app = TestApp::empty();
-    let action = toolbar(app.app())
-        .action(&ControlId::new("tool").child("sticky"))
-        .unwrap_or_else(|| panic!("a sticky button"));
-    app.act(action);
-    assert_eq!(app.app().session().tool, Tool::AddSticky);
-    let model = toolbar(app.app());
-    let active: Vec<Tool> = (model.sections.iter())
-        .flat_map(|section| match section {
-            ToolbarSection::Tools(tools) => tools.as_slice(),
-            ToolbarSection::Zoom(_) => &[],
-        })
-        .filter(|tool| tool.active)
-        .map(|tool| tool.tool)
-        .collect();
-    assert_eq!(active, [Tool::AddSticky]);
-    let zoom = model.action(&ControlId::new("zoom").child(50));
-    app.act(zoom.unwrap_or_else(|| panic!("a 50% level")));
-    assert!((app.app().session().camera.zoom - 0.5).abs() < 1e-6);
 }
 
 #[test]

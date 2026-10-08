@@ -349,14 +349,20 @@ mod tests {
             spans("**a *b* c**"),
             ["**:s.", "a :s", "*:se.", "b:se", "*:se.", " c:s", "**:s."]
         );
-    }
 
-    #[test]
-    fn a_marker_left_open_or_inside_a_word_is_plain_text() {
-        for line in ["2 * 3 * 4", "**open", "snake_case_name", "a ` b"] {
-            assert_eq!(spans(line), Vec::<String>::new(), "{line}");
+        {
+            for line in ["2 * 3 * 4", "**open", "snake_case_name", "a ` b"] {
+                assert_eq!(spans(line), Vec::<String>::new(), "{line}");
+            }
+            assert_eq!(spans("`**x**`"), ["`:c.", "**x**:c", "`:c."]);
         }
-        assert_eq!(spans("`**x**`"), ["`:c.", "**x**:c", "`:c."]);
+
+        {
+            assert_eq!(
+                spans("**日本** と *語*"),
+                ["**:s.", "日本:s", "**:s.", "*:e.", "語:e", "*:e."]
+            );
+        }
     }
 
     #[test]
@@ -369,23 +375,22 @@ mod tests {
             [">:.", ">:.", "*:e.", "it:e", "*:e."]
         );
         assert_eq!(spans("-not a list"), Vec::<String>::new());
-    }
 
-    #[test]
-    fn a_rule_and_a_link_target_are_faint() {
-        assert_eq!(spans("---"), ["---:."]);
-        assert_eq!(spans("* * *"), ["* * *:."]);
-        assert_eq!(
-            spans("see [the **docs**](https://x.y)"),
-            [
-                "[:.",
-                "the :l",
-                "**:sl.",
-                "docs:sl",
-                "**:sl.",
-                "](https://x.y):."
-            ]
-        );
+        {
+            assert_eq!(spans("---"), ["---:."]);
+            assert_eq!(spans("* * *"), ["* * *:."]);
+            assert_eq!(
+                spans("see [the **docs**](https://x.y)"),
+                [
+                    "[:.",
+                    "the :l",
+                    "**:sl.",
+                    "docs:sl",
+                    "**:sl.",
+                    "](https://x.y):."
+                ]
+            );
+        }
     }
 
     #[test]
@@ -397,13 +402,5 @@ mod tests {
         assert!(all(&lines[0], true) && all(&lines[3], true));
         assert!(all(&lines[1], false) && all(&lines[2], false));
         assert_eq!((lines[1].heading, lines[4].heading), (0, 1));
-    }
-
-    #[test]
-    fn spans_stay_on_character_boundaries() {
-        assert_eq!(
-            spans("**日本** と *語*"),
-            ["**:s.", "日本:s", "**:s.", "*:e.", "語:e", "*:e."]
-        );
     }
 }

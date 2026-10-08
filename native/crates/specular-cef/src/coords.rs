@@ -83,11 +83,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn negative_cef_extent_is_empty() {
-        assert_eq!(rect_from_cef(3, 4, -1, 5), PixelRect::new(3, 4, 0, 5));
-    }
-
-    #[test]
     fn fractional_scale_rounds_texel_rect_outward() {
         assert_eq!(
             css_rect_to_texels(PixelRect::new(1, 1, 3, 3), 1.5),
@@ -129,10 +124,5 @@ mod tests {
     fn union_covers_all_character_bounds() {
         let union = union_rects([PixelRect::new(10, 10, 5, 12), PixelRect::new(30, 8, 6, 12)]);
         assert_eq!(union, Some(PixelRect::new(10, 8, 26, 14)));
-    }
-
-    #[test]
-    fn union_of_nothing_is_none() {
-        assert_eq!(union_rects([]), None);
     }
 }

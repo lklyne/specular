@@ -165,10 +165,7 @@ mod tests {
             config_dir(xdg, false),
             Some(PathBuf::from("/cfg/specular-native"))
         );
-    }
 
-    #[test]
-    fn the_override_wins_and_no_home_means_no_folder() {
         let overridden = environment(&[("HOME", "/Users/me"), (CONFIG_DIR_VARIABLE, "/tmp/cfg")]);
         assert_eq!(
             config_dir(overridden, true),

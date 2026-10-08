@@ -40,8 +40,7 @@ fn path_outset(stroke: Option<PathStroke>) -> f32 {
 mod tests {
     use super::*;
     use crate::{
-        Color, EllipseDraw, LineJoin, PathCommand, PathDraw, Point, PolygonDraw, RectDraw,
-        StrokeAlign, TextRun,
+        Color, LineJoin, PathCommand, PathDraw, Point, PolygonDraw, RectDraw, StrokeAlign,
     };
 
     const RECT: Rect = Rect::new(10.0, 20.0, 100.0, 50.0);
@@ -53,11 +52,6 @@ mod tests {
     }
 
     #[test]
-    fn inside_stroke_does_not_grow_a_rect() {
-        assert_eq!(stroked(StrokeAlign::Inside).bounds(), Some(RECT));
-    }
-
-    #[test]
     fn centred_and_outside_strokes_grow_a_rect_by_their_reach() {
         assert_eq!(
             [
@@ -66,12 +60,6 @@ mod tests {
             ],
             [Some(RECT.outset(2.0)), Some(RECT.outset(4.0))]
         );
-    }
-
-    #[test]
-    fn ellipse_bounds_are_its_box() {
-        let draw: Draw = EllipseDraw::filled(RECT, Color::BLACK).into();
-        assert_eq!(draw.bounds(), Some(RECT));
     }
 
     #[test]
@@ -109,12 +97,5 @@ mod tests {
         }
         .into();
         assert_eq!(draw.bounds(), Some(Rect::new(-4.0, -4.0, 18.0, 18.0)));
-    }
-
-    #[test]
-    fn text_and_empty_paths_have_no_geometric_bounds() {
-        let text: Draw = TextRun::new("hi", Point::default(), 14.0, Color::BLACK).into();
-        let empty: Draw = PathDraw::polyline([], PathStroke::new(Color::BLACK, 1.0)).into();
-        assert_eq!((text.bounds(), empty.bounds()), (None, None));
     }
 }

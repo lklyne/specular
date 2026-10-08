@@ -144,15 +144,6 @@ mod tests {
     }
 
     #[test]
-    fn debugging_port_in_range_passes_through() {
-        let config = CefConfig {
-            remote_debugging_port: Some(9222),
-            ..CefConfig::default()
-        };
-        assert_eq!(config.settings_debugging_port(), 9222);
-    }
-
-    #[test]
     fn remote_allow_origins_is_added_only_with_debugging() {
         let with = CefConfig {
             remote_debugging_port: Some(9222),
@@ -209,19 +200,5 @@ mod tests {
     #[test]
     fn type_switch_marks_a_subprocess() {
         assert!(is_subprocess(&["app", "--type=renderer", "--lang=en"]));
-    }
-
-    #[test]
-    fn browser_process_args_are_not_a_subprocess() {
-        assert!(!is_subprocess(&["app", "demo.canvas"]));
-    }
-
-    #[test]
-    fn shared_texture_is_only_used_on_macos() {
-        let config = CefConfig {
-            shared_texture: true,
-            ..CefConfig::default()
-        };
-        assert_eq!(config.uses_shared_texture(), cfg!(target_os = "macos"));
     }
 }

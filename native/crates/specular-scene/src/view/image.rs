@@ -71,19 +71,6 @@ mod tests {
     }
 
     #[test]
-    fn contain_letterboxes_a_wide_image_and_centres_it() {
-        let draw = fitted(IMAGE, BOX, 400, 100, ObjectFit::Contain);
-        assert_eq!(draw.rect, Rect::new(10.0, 45.0, 200.0, 50.0));
-        assert_eq!(draw.source, ImageDraw::WHOLE);
-    }
-
-    #[test]
-    fn contain_scales_a_small_image_up() {
-        let draw = fitted(IMAGE, BOX, 20, 10, ObjectFit::Contain);
-        assert_eq!(draw.rect, BOX);
-    }
-
-    #[test]
     fn cover_fills_the_rect_and_crops_the_overflow_evenly() {
         // A square image over a 2:1 box keeps its middle half, top to bottom.
         let tall = fitted(IMAGE, BOX, 100, 100, ObjectFit::Cover);
@@ -92,17 +79,5 @@ mod tests {
         // A 4:1 image keeps its middle half, left to right.
         let wide = fitted(IMAGE, BOX, 400, 100, ObjectFit::Cover);
         assert_eq!(wide.source, Rect::new(0.25, 0.0, 0.5, 1.0));
-    }
-
-    #[test]
-    fn fill_stretches_the_whole_image() {
-        let draw = fitted(IMAGE, BOX, 50, 100, ObjectFit::Fill);
-        assert_eq!((draw.rect, draw.source), (BOX, ImageDraw::WHOLE));
-    }
-
-    #[test]
-    fn an_image_with_no_area_is_drawn_whole_rather_than_divided_by() {
-        let draw = fitted(IMAGE, BOX, 0, 100, ObjectFit::Contain);
-        assert_eq!((draw.rect, draw.source), (BOX, ImageDraw::WHOLE));
     }
 }

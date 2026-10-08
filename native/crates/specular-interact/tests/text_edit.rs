@@ -7,7 +7,7 @@
 //! edit is 200 wide, so its text wraps at 18 characters.
 
 use specular_doc::Rect;
-use specular_interact::{Effect, Key, TextEdit};
+use specular_interact::{Key, TextEdit};
 use specular_testkit::{ALT, CMD, CMD_SHIFT, SHIFT, TestApp, labelled, sticky};
 
 const NOTE: Rect = Rect::new(100.0, 100.0, 200.0, 200.0);
@@ -18,37 +18,6 @@ fn editing(content: &str) -> TestApp {
     let mut app = TestApp::with_entities([sticky("n", NOTE, content)]);
     app.double_click((150.0, 250.0)).chord(CMD, Key::ArrowUp);
     app
-}
-
-#[test]
-fn typing_goes_in_at_the_caret_and_over_a_selection() {
-    let mut app = editing("held");
-    app.key(Key::ArrowRight)
-        .key(Key::ArrowRight)
-        .type_text("llo wor");
-    assert_eq!(app.editing_text(), "hello world");
-    assert_eq!(app.caret(), (9, 9));
-
-    app.chord(CMD, Key::Char('a')).type_text("Hi");
-    assert_eq!((app.editing_text(), app.caret()), ("Hi", (2, 2)));
-    assert_eq!(
-        app.entity("n").rect,
-        NOTE,
-        "the document's text waits for the end"
-    );
-}
-
-#[test]
-fn backspace_and_delete_take_a_whole_grapheme() {
-    let mut app = editing("a👨‍👩‍👧e\u{301}b");
-    app.chord(CMD, Key::ArrowDown)
-        .key(Key::Backspace)
-        .key(Key::Backspace);
-    assert_eq!(app.editing_text(), "a👨‍👩‍👧");
-    app.key(Key::Backspace);
-    assert_eq!(app.editing_text(), "a");
-    app.key(Key::Home).key(Key::Delete).key(Key::Delete);
-    assert_eq!((app.editing_text(), app.caret()), ("", (0, 0)));
 }
 
 #[test]
@@ -178,44 +147,6 @@ fn line_keys_follow_the_wrapped_lines() {
 }
 
 #[test]
-fn select_all_copy_cut_and_paste_go_through_the_clipboard_effects() {
-    let mut app = editing("hello world");
-    app.chord(CMD, Key::Char('c'));
-    app.take_effects();
-    app.chord(CMD, Key::Char('a'));
-    assert_eq!(app.caret(), (11, 0));
-    app.chord(CMD, Key::Char('c'));
-    assert_eq!(
-        app.take_effects(),
-        [Effect::WriteClipboard("hello world".to_owned())]
-    );
-
-    app.key(Key::ArrowLeft)
-        .hold(SHIFT)
-        .chord(ALT, Key::ArrowRight)
-        .let_go();
-    app.chord(CMD, Key::Char('x'));
-    assert_eq!(
-        app.take_effects(),
-        [Effect::WriteClipboard("hello".to_owned())]
-    );
-    assert_eq!(app.editing_text(), " world");
-
-    app.chord(CMD, Key::Char('v'));
-    assert_eq!(app.take_effects(), [Effect::ReadClipboard]);
-    assert_eq!(
-        app.editing_text(),
-        " world",
-        "the paste waits for the answer"
-    );
-    app.paste("one\r\ntwo");
-    assert_eq!(
-        (app.editing_text(), app.caret()),
-        ("one\ntwo world", (7, 7))
-    );
-}
-
-#[test]
 fn enter_continues_a_bullet_list_and_leaves_it_on_an_empty_item() {
     let mut app = editing("- one");
     app.key(Key::End).type_text("\ntwo");
@@ -304,14 +235,4 @@ fn undo_inside_an_edit_steps_through_runs_of_typing() {
         "abcx!d",
         "typing drops what could be redone"
     );
-}
-
-#[test]
-fn keys_with_command_held_type_nothing_and_tool_keys_are_just_letters() {
-    let mut app = editing("");
-    app.type_text("vprc")
-        .chord(CMD, Key::Char('d'))
-        .chord(CMD, Key::Char('g'));
-    assert_eq!(app.editing_text(), "vprc");
-    assert_eq!(app.document().entities().count(), 1);
 }

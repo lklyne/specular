@@ -106,23 +106,21 @@ mod tests {
     fn letter_press_sends_raw_down_then_char() {
         let input = key(true, Some("a"), Modifiers::default());
         assert_eq!(kinds(&input), [KeyEventKind::RawDown, KeyEventKind::Char]);
-    }
 
-    #[test]
-    fn command_chord_sends_no_char() {
-        let meta = Modifiers {
-            meta: true,
-            ..Modifiers::default()
-        };
-        assert_eq!(kinds(&key(true, Some("a"), meta)), [KeyEventKind::RawDown]);
-    }
+        {
+            let meta = Modifiers {
+                meta: true,
+                ..Modifiers::default()
+            };
+            assert_eq!(kinds(&key(true, Some("a"), meta)), [KeyEventKind::RawDown]);
+        }
 
-    #[test]
-    fn release_sends_single_up() {
-        assert_eq!(
-            kinds(&key(false, None, Modifiers::default())),
-            [KeyEventKind::Up]
-        );
+        {
+            assert_eq!(
+                kinds(&key(false, None, Modifiers::default())),
+                [KeyEventKind::Up]
+            );
+        }
     }
 
     #[test]
@@ -134,13 +132,12 @@ mod tests {
             capture.release(PointerButton::Right),
             Some(EntityId::from("p2"))
         );
-    }
 
-    #[test]
-    fn release_without_press_goes_nowhere() {
-        let mut capture = ButtonCapture::default();
-        capture.press(PointerButton::Left, EntityId::from("p1"));
-        capture.release(PointerButton::Left);
-        assert_eq!(capture.release(PointerButton::Left), None);
+        {
+            let mut capture = ButtonCapture::default();
+            capture.press(PointerButton::Left, EntityId::from("p1"));
+            capture.release(PointerButton::Left);
+            assert_eq!(capture.release(PointerButton::Left), None);
+        }
     }
 }

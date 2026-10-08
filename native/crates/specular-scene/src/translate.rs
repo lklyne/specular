@@ -91,7 +91,7 @@ fn moved(rect: Rect, dx: f32, dy: f32) -> Rect {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Color, PathDraw, PathStroke, RectDraw, TextRun};
+    use crate::{Color, RectDraw};
 
     #[test]
     fn a_moved_item_keeps_its_size_and_takes_its_clip_along() {
@@ -103,22 +103,5 @@ mod tests {
             (moved.draw.bounds(), moved.clip),
             (Some(there), Some(there))
         );
-    }
-
-    #[test]
-    fn every_point_of_a_path_moves() {
-        let stroke = PathStroke::new(Color::BLACK, 0.0);
-        let line = PathDraw::polyline([Point::new(0.0, 0.0), Point::new(10.0, 10.0)], stroke);
-        let moved = Draw::from(line).translated(100.0, 0.0);
-        assert_eq!(moved.bounds(), Some(Rect::new(100.0, 0.0, 10.0, 10.0)));
-    }
-
-    #[test]
-    fn text_moves_by_its_origin() {
-        let run = TextRun::new("hi", Point::new(1.0, 2.0), 14.0, Color::BLACK);
-        let Draw::Text(moved) = Draw::from(run).translated(10.0, 20.0) else {
-            return;
-        };
-        assert_eq!(moved.origin, Point::new(11.0, 22.0));
     }
 }

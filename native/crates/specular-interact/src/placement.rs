@@ -87,19 +87,6 @@ mod tests {
     }
 
     #[test]
-    fn page_local_goes_negative_left_of_the_page() {
-        // A release captured by a page after the pointer left it.
-        let page = placed(
-            Rect::new(100.0, 0.0, 1440.0, 900.0),
-            CssSize::new(1440, 900),
-        );
-        assert_eq!(
-            page.page_local(DVec2::new(90.0, 10.0)),
-            DVec2::new(-10.0, 10.0)
-        );
-    }
-
-    #[test]
     fn page_local_scales_canvas_rect_to_css_viewport() {
         // A 1280px-wide page shown 640 canvas units wide: 2 CSS px per unit.
         let page = placed(
@@ -110,17 +97,28 @@ mod tests {
             page.page_local(DVec2::new(110.0, 120.0)),
             DVec2::new(20.0, 40.0)
         );
-    }
 
-    #[test]
-    fn to_canvas_inverts_page_local() {
-        let page = placed(
-            Rect::new(100.0, 100.0, 640.0, 400.0),
-            CssSize::new(1280, 800),
-        );
-        assert_eq!(
-            page.to_canvas(DVec2::new(20.0, 40.0)),
-            DVec2::new(110.0, 120.0)
-        );
+        {
+            // A release captured by a page after the pointer left it.
+            let page = placed(
+                Rect::new(100.0, 0.0, 1440.0, 900.0),
+                CssSize::new(1440, 900),
+            );
+            assert_eq!(
+                page.page_local(DVec2::new(90.0, 10.0)),
+                DVec2::new(-10.0, 10.0)
+            );
+        }
+
+        {
+            let page = placed(
+                Rect::new(100.0, 100.0, 640.0, 400.0),
+                CssSize::new(1280, 800),
+            );
+            assert_eq!(
+                page.to_canvas(DVec2::new(20.0, 40.0)),
+                DVec2::new(110.0, 120.0)
+            );
+        }
     }
 }

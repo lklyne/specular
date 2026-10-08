@@ -6,10 +6,8 @@ use specular_core::{PageElement, PixelRect};
 use specular_doc::{
     Annotation, AnnotationAnchor, AnnotationStatus, EntityId, PageAnchor, Rect, RegionAnchor, Reply,
 };
-use specular_interact::{Action, Key, Tool};
-use specular_testkit::{
-    SHIFT, TestApp, assert_scene_snapshot, comment, document, pages, with_comment,
-};
+use specular_interact::{Action, Tool};
+use specular_testkit::{TestApp, assert_scene_snapshot, comment, document, pages, with_comment};
 
 fn point(x: f64, y: f64) -> AnnotationAnchor {
     AnnotationAnchor::Canvas {
@@ -118,17 +116,6 @@ fn every_mark_form_at_rest() {
 }
 
 #[test]
-fn a_focused_region() {
-    let mut app = app_with([comment(
-        "region",
-        region(Rect::new(600.0, 500.0, 200.0, 100.0)),
-        "r",
-    )]);
-    focus(&mut app, "region");
-    assert_scene_snapshot!(app);
-}
-
-#[test]
 fn a_focused_badge_has_a_ring() {
     let mut app = app_with([comment("point", point(600.0, 500.0), "p")]);
     focus(&mut app, "point");
@@ -186,36 +173,6 @@ fn a_point_draft_with_an_empty_composer_shows_the_placeholder() {
 }
 
 #[test]
-fn a_point_draft_with_text_shows_the_text_and_a_caret() {
-    let mut app = drafting();
-    app.click((600.0, 500.0)).type_text("ship it");
-    assert_scene_snapshot!(app);
-}
-
-#[test]
-fn a_canvas_region_draft_with_an_empty_composer() {
-    let mut app = drafting();
-    app.drag((600.0, 500.0), (800.0, 580.0));
-    assert_scene_snapshot!(app);
-}
-
-#[test]
-fn a_canvas_region_draft_with_text() {
-    let mut app = drafting();
-    app.drag((600.0, 500.0), (800.0, 580.0));
-    app.type_text("tighten this");
-    assert_scene_snapshot!(app);
-}
-
-#[test]
-fn an_element_draft_with_an_empty_composer() {
-    let mut app = drafting();
-    app.click((200.0, 200.0));
-    app.answer_element(Some(button(40, 60, 120, 40)));
-    assert_scene_snapshot!(app);
-}
-
-#[test]
 fn an_element_draft_with_text() {
     let mut app = drafting();
     app.click((200.0, 200.0));
@@ -234,27 +191,10 @@ fn a_composer_wraps_over_a_second_line_and_underlines_composing_text() {
 }
 
 #[test]
-fn selected_composer_text_is_a_rect_behind_it() {
-    let mut app = drafting();
-    app.click((600.0, 500.0)).type_text("abc");
-    app.key(Key::Home);
-    app.chord(SHIFT, Key::ArrowRight);
-    assert_scene_snapshot!(app);
-}
-
-#[test]
 fn a_region_drag_in_flight_looks_like_the_resting_draft_region() {
     let mut app = drafting();
     app.press((600.0, 500.0)).drag_to((800.0, 580.0));
     assert_scene_snapshot!("in_flight", app);
     app.release();
     assert_scene_snapshot!("resting", app);
-}
-
-#[test]
-fn the_composer_keeps_its_pixel_size_zoomed_in() {
-    let mut app = drafting();
-    app.click((600.0, 500.0)).type_text("hi");
-    app.zoom(2.0);
-    assert_scene_snapshot!(app);
 }

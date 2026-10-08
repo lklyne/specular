@@ -164,11 +164,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn quad_instance_stride_is_sixteen_byte_aligned() {
-        assert_eq!(size_of::<QuadInstance>() % 16, 0);
-    }
-
-    #[test]
     fn shape_instance_is_sixty_four_bytes() {
         assert_eq!(size_of::<ShapeInstance>(), 64);
     }

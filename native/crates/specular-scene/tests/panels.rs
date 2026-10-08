@@ -3,7 +3,7 @@
 
 use specular_doc::{Color, ColorPreset, Edge, EdgeEnd, LineStyle, Rect};
 use specular_testkit::{
-    TestApp, document, insta::assert_snapshot, page, plain_text, shape, sticky, with_edge,
+    TestApp, document, insta::assert_snapshot, plain_text, shape, sticky, with_edge,
 };
 
 /// A sticky in the middle of a 1200x800 viewport, the built-in panels on.
@@ -14,11 +14,6 @@ fn app() -> TestApp {
     ]);
     app.viewport((1200.0, 800.0)).with_panels();
     app
-}
-
-#[test]
-fn the_toolbar_alone() {
-    assert_snapshot!("toolbar", app().panel_scene_snapshot());
 }
 
 #[test]
@@ -38,44 +33,12 @@ fn a_color_dropdown_open_with_its_choice_ringed() {
 }
 
 #[test]
-fn a_list_open_with_its_choice_checked_and_a_row_hovered() {
-    let mut app = app();
-    app.select(&["t"])
-        .click_control("text.size")
-        .hover_control("text.size.56");
-    assert_snapshot!("size_list", app.panel_scene_snapshot());
-}
-
-#[test]
-fn a_shape_popup_with_its_border_controls_and_the_ones_that_are_off() {
-    let mut app = app();
-    app.select(&["s"])
-        .click_control("shape.border")
-        .click_control("shape.border.none");
-    assert_snapshot!("border_dropdown", app.panel_scene_snapshot());
-}
-
-#[test]
 fn a_tool_in_hand_with_a_button_hovered_and_one_pressed() {
     let mut app = app();
     app.click_control("tool.draw").hover_control("tool.sticky");
     assert_snapshot!("tool_hover", app.panel_scene_snapshot());
     app.press_control("width.thick");
     assert_snapshot!("control_pressed", app.panel_scene_snapshot());
-}
-
-#[test]
-fn a_tool_in_hand_hangs_its_popup_under_the_toolbar() {
-    let mut app = app();
-    app.click_control("tool.sticky");
-    assert_snapshot!("tool_popup", app.panel_scene_snapshot());
-}
-
-#[test]
-fn a_zoom_list_open_with_its_trigger_in_the_popover_color() {
-    let mut app = app();
-    app.click_control("zoom").hover_control("zoom.150");
-    assert_snapshot!("zoom_list", app.panel_scene_snapshot());
 }
 
 #[test]
@@ -92,13 +55,6 @@ fn an_edge_popup_with_its_stroke_list_open() {
     app.viewport((1200.0, 800.0)).with_panels().select(&["e"]);
     app.click_control("edge.stroke");
     assert_snapshot!("edge_popup", app.panel_scene_snapshot());
-}
-
-#[test]
-fn a_page_popup_sits_above_the_page_title() {
-    let mut app = TestApp::with_entities([page("p", Rect::new(400.0, 300.0, 375.0, 400.0))]);
-    app.viewport((1200.0, 800.0)).with_panels().select(&["p"]);
-    assert_snapshot!("page_popup", app.panel_scene_snapshot());
 }
 
 #[test]

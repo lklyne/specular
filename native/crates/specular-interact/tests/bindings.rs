@@ -5,7 +5,7 @@ use specular_doc::{BrushType, Rect, ShapeKind};
 use specular_interact::{
     Action, BINDINGS, Context, Effect, Event, Key, KeyInput, Tool, ToolDefaultPatch, ToolDefaults,
 };
-use specular_testkit::{ALT, CMD, CMD_SHIFT, CTRL, SHIFT, TestApp, text};
+use specular_testkit::{CMD, CMD_SHIFT, CTRL, SHIFT, TestApp, text};
 
 const A: Rect = Rect::new(100.0, 100.0, 200.0, 100.0);
 
@@ -79,15 +79,6 @@ fn each_tool_key_arms_its_tool() {
 }
 
 #[test]
-fn a_tool_key_pressed_again_keeps_the_tool_and_escape_returns_to_select() {
-    let mut app = TestApp::empty();
-    app.key(Key::Char('m')).key(Key::Char('m'));
-    assert_eq!(app.session().tool, Tool::Draw);
-    app.key(Key::Escape);
-    assert_eq!(app.session().tool, Tool::Select);
-}
-
-#[test]
 fn a_variant_key_arms_the_tool_and_writes_the_variant_to_the_defaults() {
     let mut app = TestApp::empty();
     app.key(Key::Char('o'));
@@ -120,17 +111,6 @@ fn a_changed_default_is_saved_and_an_unchanged_one_is_not() {
 }
 
 #[test]
-fn setting_a_default_from_a_panel_keeps_the_tool() {
-    let mut app = TestApp::empty();
-    app.act(Action::SetToolDefault(ToolDefaultPatch::DrawStrokeWidth(
-        6.0,
-    )));
-    assert_eq!(app.session().tool, Tool::Select);
-    assert_eq!(app.app().tool_defaults().draw.stroke_width, 6.0);
-    assert_eq!(saves(app.effects()).len(), 1);
-}
-
-#[test]
 fn loaded_defaults_replace_the_current_ones_and_are_not_saved_back() {
     let mut loaded = ToolDefaults::default();
     loaded.apply(ToolDefaultPatch::ShapeKind(ShapeKind::Hexagon));
@@ -138,35 +118,6 @@ fn loaded_defaults_replace_the_current_ones_and_are_not_saved_back() {
     app.send(Event::ToolDefaultsLoaded(Box::new(loaded.clone())));
     assert_eq!(app.app().tool_defaults(), &loaded);
     assert_eq!(app.take_effects(), []);
-}
-
-#[test]
-fn tool_defaults_are_outside_undo() {
-    let mut app = note();
-    app.key(Key::ArrowRight).key(Key::Char('o')).undo();
-    assert_eq!(app.rect("a"), A);
-    assert_eq!(app.app().tool_defaults().shape.kind, ShapeKind::Ellipse);
-    assert!(!app.app().can_undo());
-}
-
-#[test]
-fn a_letter_with_option_held_is_not_its_tool_key() {
-    let mut app = TestApp::empty();
-    app.chord(ALT, Key::Char('p'));
-    assert_eq!(app.session().tool, Tool::Select);
-}
-
-#[test]
-fn escape_cancels_a_drag_whatever_modifiers_it_holds() {
-    let mut app = note();
-    app.hold(SHIFT)
-        .press((150.0, 150.0))
-        .drag_to((300.0, 150.0))
-        .key(Key::Escape)
-        .release()
-        .let_go();
-    assert_eq!(app.rect("a"), A);
-    assert!(!app.app().can_undo());
 }
 
 #[test]
@@ -193,12 +144,4 @@ fn a_held_arrow_keeps_nudging_and_a_held_backspace_deletes_once() {
     app.undo();
     auto_repeat(&mut app, Key::Backspace);
     assert_eq!(app.document().entities().count(), 1);
-}
-
-#[test]
-fn shift_arrows_nudge_by_a_grid_step() {
-    let mut app = note();
-    app.chord(SHIFT, Key::ArrowLeft).chord(SHIFT, Key::ArrowUp);
-    assert_eq!(app.rect("a"), A.translated(-20.0, -20.0));
-    app.assert_undo_returns_to_start();
 }

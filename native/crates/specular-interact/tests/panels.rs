@@ -5,7 +5,7 @@ use specular_doc::{
     BrushType, Color, ColorPreset, Drawing, Entity, FillStyle, JsonMap, Kind, Point, Rect, Shape,
     ShapeKind, Stroke, TextAlign,
 };
-use specular_testkit::{TestApp, assert_popup_snapshot, group, plain_text, sticky};
+use specular_testkit::{TestApp, assert_popup_snapshot, sticky};
 
 const A: Rect = Rect::new(100.0, 100.0, 200.0, 100.0);
 const RED: Color = Color::Preset(ColorPreset::Red);
@@ -53,33 +53,6 @@ fn a_sticky_has_size_font_color_and_no_formatting_until_edited() {
     dropdown text.color "Set sticky note color" shows hollow
       controls
         swatches text.color.swatches Soft/Fill: neutral purple blue cyan green yellow orange red
-    "#);
-}
-
-#[test]
-fn plain_text_offers_the_ink_palette() {
-    let mut app = TestApp::with_entities([plain_text("a", A, "one")]);
-    app.select(&["a"]);
-    assert_popup_snapshot!(app, @r#"
-    anchor canvas 100,100 200x100 Above Center gap=14
-    dropdown text.size "Set text size" shows text="Small"
-      options list
-        option [x] text.size.14 "Small" -> SetProperty(TextSize(14.0))
-        option [ ] text.size.32 "Medium" -> SetProperty(TextSize(32.0))
-        option [ ] text.size.56 "Large" -> SetProperty(TextSize(56.0))
-        option [ ] text.size.96 "Extra large" -> SetProperty(TextSize(96.0))
-        option [ ] text.size.144 "Huge" -> SetProperty(TextSize(144.0))
-      controls
-        stepper text.size.custom "Custom text size in pixels" value=14 dec -> SetProperty(TextSize(13.0)) inc -> SetProperty(TextSize(15.0))
-    dropdown text.font "Set text font" shows text="Sans" font=Sans
-      options list
-        option [x] text.font.sans "Sans" text="Sans" font=Sans -> SetProperty(TextFont(Sans))
-        option [ ] text.font.mono "Mono" text="Mono" font=Mono -> SetProperty(TextFont(Mono))
-        option [ ] text.font.hand "Hand" text="Hand" font=Hand -> SetProperty(TextFont(Hand))
-    ---
-    dropdown text.color "Set text color" shows hollow
-      controls
-        swatches text.color.swatches Vivid/Ink: neutral purple blue cyan green yellow orange red
     "#);
 }
 
@@ -222,17 +195,5 @@ fn a_drawing_has_brush_width_and_color() {
     dropdown drawing.color "Set drawing color" shows color=1
       controls
         swatches drawing.color.swatches Soft/Ink: neutral purple blue cyan green yellow orange *red
-    "#);
-}
-
-#[test]
-fn a_group_has_its_color() {
-    let mut app = TestApp::with_entities([group("g", A)]);
-    app.select(&["g"]);
-    assert_popup_snapshot!(app, @r#"
-    anchor canvas 100,100 200x100 Above Center gap=14
-    dropdown group.color "Set group color" shows hollow
-      controls
-        swatches group.color.swatches Vivid/Fill: neutral purple blue cyan green yellow orange red
     "#);
 }

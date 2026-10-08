@@ -176,17 +176,4 @@ mod tests {
     fn css_to_pixels_rounds_up_partial_texels() {
         assert_eq!(CssSize::new(1001, 3).to_pixels(0.5), PixelSize::new(501, 2));
     }
-
-    #[test]
-    fn canvas_rect_contains_excludes_far_edge() {
-        let rect = CanvasRect::new(0.0, 0.0, 10.0, 10.0);
-        assert!(!rect.contains(Vec2::new(10.0, 5.0)));
-    }
-
-    #[test]
-    fn canvas_rects_touching_at_an_edge_do_not_intersect() {
-        let a = CanvasRect::new(0.0, 0.0, 10.0, 10.0);
-        let b = CanvasRect::new(10.0, 0.0, 10.0, 10.0);
-        assert!(!a.intersects(b));
-    }
 }

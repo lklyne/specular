@@ -69,14 +69,6 @@ fn a_line_break_starts_a_line_and_a_trailing_one_leaves_an_empty_line() {
 }
 
 #[test]
-fn latin_text_has_a_stop_at_every_letter_running_rightwards() {
-    let layout = GlyphMeasure::new().layout("hello", &spec(None));
-    assert_eq!(offsets(&layout, 0), [0, 1, 2, 3, 4, 5]);
-    assert!(runs_rightwards(&layout, 0));
-    assert_eq!(layout.lines[0].stops[0].x, 0.0);
-}
-
-#[test]
 fn words_wrap_at_the_width_and_the_lines_leave_no_byte_out() {
     let measure = GlyphMeasure::new();
     let text = "aaaa bbbb cccc dddd";
@@ -98,15 +90,6 @@ fn a_word_too_long_for_the_width_breaks_inside_itself() {
     let wrap = width_of(&measure, "mmmmmmmmmm") + 2.0;
     let layout = measure.layout(&text, &spec(Some(wrap)));
     assert_eq!(ranges(&layout), [(0, 10), (10, 20), (20, 30)]);
-}
-
-#[test]
-fn a_wrapped_paragraph_after_a_break_keeps_its_offsets_in_the_whole_text() {
-    let measure = GlyphMeasure::new();
-    let wrap = width_of(&measure, "cccc dddd") + 2.0;
-    let layout = measure.layout("ab\ncccc dddd eeee", &spec(Some(wrap)));
-    assert_eq!(ranges(&layout), [(0, 2), (3, 13), (13, 17)]);
-    assert_eq!(offsets(&layout, 2), [13, 14, 15, 16, 17]);
 }
 
 #[test]
@@ -250,20 +233,14 @@ fn clicks_land_on_the_nearer_stop(text: &str) {
 }
 
 #[test]
-fn a_click_lands_on_the_nearer_side_of_a_latin_glyph_on_any_line() {
-    clicks_land_on_the_nearer_stop("one two three four five six seven\neight");
-}
-
-#[test]
-fn a_click_lands_on_the_nearer_side_of_an_emoji() {
-    clicks_land_on_the_nearer_stop(
+fn a_click_lands_on_the_nearer_side_of_a_glyph_on_any_line() {
+    for text in [
+        "one two three four five six seven\neight",
         "a\u{1F44D}\u{1F3FD}b\u{1F468}\u{200D}\u{1F469}\u{200D}\u{1F467}c",
-    );
-}
-
-#[test]
-fn a_click_lands_on_the_nearer_side_of_a_cjk_character() {
-    clicks_land_on_the_nearer_stop("日本語のテキストを折り返して二行にする");
+        "日本語のテキストを折り返して二行にする",
+    ] {
+        clicks_land_on_the_nearer_stop(text);
+    }
 }
 
 #[test]

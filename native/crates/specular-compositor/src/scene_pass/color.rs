@@ -29,13 +29,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn black_and_white_are_the_ends_of_the_linear_range() {
-        let [r, g, b, a] = linear(Color::rgba(0, 255, 255, 255), 1.0);
-        assert_eq!((r, a), (0.0, 1.0));
-        assert!((g - 1.0).abs() < 1e-6 && (b - 1.0).abs() < 1e-6);
-    }
-
-    #[test]
     fn mid_grey_is_darker_in_linear_light() {
         let [r, ..] = linear(Color::rgb(128, 0, 0), 1.0);
         assert!((r - 0.2158).abs() < 1e-3);

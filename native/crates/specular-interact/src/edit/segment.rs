@@ -111,15 +111,14 @@ mod tests {
         assert_eq!(previous(FAMILY, FAMILY.len()), 19);
         assert_eq!(previous(FAMILY, 19), 1);
         assert_eq!((previous(FAMILY, 0), next(FAMILY, 22)), (0, 22));
-    }
 
-    #[test]
-    fn floor_pulls_an_offset_back_onto_a_boundary() {
-        assert_eq!(
-            [0, 1, 2, 7, 19, 20].map(|at| floor(FAMILY, at)),
-            [0, 1, 1, 1, 19, 19]
-        );
-        assert_eq!(floor(FAMILY, 900), FAMILY.len());
+        {
+            assert_eq!(
+                [0, 1, 2, 7, 19, 20].map(|at| floor(FAMILY, at)),
+                [0, 1, 1, 1, 19, 19]
+            );
+            assert_eq!(floor(FAMILY, 900), FAMILY.len());
+        }
     }
 
     #[test]
@@ -154,13 +153,12 @@ mod tests {
             [0, 3, 4, 7, 8].map(|at| paragraph_at(text, at)),
             [0..3, 0..3, 4..7, 4..7, 8..8]
         );
-    }
 
-    #[test]
-    fn utf16_units_count_a_surrogate_pair_as_two() {
-        assert_eq!(
-            [0, 1, 3, 4, 99].map(|units| from_utf16("a😀b", units)),
-            [0, 1, 5, 6, 6]
-        );
+        {
+            assert_eq!(
+                [0, 1, 3, 4, 99].map(|units| from_utf16("a😀b", units)),
+                [0, 1, 5, 6, 6]
+            );
+        }
     }
 }

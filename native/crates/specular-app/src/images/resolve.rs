@@ -67,41 +67,23 @@ mod tests {
     }
 
     #[test]
-    fn the_starter_spaces_token_is_the_space_folder() {
-        assert_eq!(
-            resolved("__SPECULAR_SPACE__/Welcome.md"),
-            resolved("Welcome.md")
-        );
-    }
-
-    #[test]
-    fn a_relative_path_is_inside_the_space_folder() {
-        assert_eq!(
-            resolved("assets/shot.png").as_deref(),
-            Some("/Users/me/Specular/assets/shot.png")
-        );
-    }
-
-    #[test]
-    fn an_absolute_path_is_itself() {
-        assert_eq!(
-            resolved("/tmp/photo.jpg").as_deref(),
-            Some("/tmp/photo.jpg")
-        );
-    }
-
-    #[test]
-    fn a_local_file_url_is_its_decoded_path_without_the_query() {
-        assert_eq!(
-            resolved("local-file:///tmp/my%20photo%231.png?v=3").as_deref(),
-            Some("/tmp/my photo#1.png")
-        );
-    }
-
-    #[test]
-    fn a_web_url_is_not_on_disk() {
-        assert_eq!(resolved("https://example.com/a.png"), None);
-        assert_eq!(resolved("http://example.com/a.png"), None);
+    fn a_file_names_a_path_in_the_space_or_not_on_disk() {
+        for (file, expected) in [
+            ("__SPECULAR_SPACE__/Welcome.md", resolved("Welcome.md")),
+            (
+                "assets/shot.png",
+                Some("/Users/me/Specular/assets/shot.png".to_owned()),
+            ),
+            ("/tmp/photo.jpg", Some("/tmp/photo.jpg".to_owned())),
+            (
+                "local-file:///tmp/my%20photo%231.png?v=3",
+                Some("/tmp/my photo#1.png".to_owned()),
+            ),
+            ("https://example.com/a.png", None),
+            ("http://example.com/a.png", None),
+        ] {
+            assert_eq!(resolved(file), expected, "{file}");
+        }
     }
 
     #[test]

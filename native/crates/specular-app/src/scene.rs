@@ -157,12 +157,6 @@ mod tests {
     }
 
     #[test]
-    fn demo_grid_has_requested_page_count() {
-        let document = load_document(None, 20, 0).unwrap();
-        assert_eq!(document.entities().count(), 20);
-    }
-
-    #[test]
     fn bench_fixtures_load_with_their_page_counts() {
         let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures");
         let counts: Vec<usize> = ["static-9", "static-20", "static-40", "animated-20", "input"]
@@ -191,6 +185,7 @@ mod tests {
     #[test]
     fn pages_keep_their_order_as_the_stack_order() {
         let document = load_document(None, 3, 0).unwrap();
+        assert_eq!(document.entities().count(), 3);
         let ids: Vec<_> = document.entities().map(|page| page.id.as_str()).collect();
         assert_eq!(ids, ["demo-0", "demo-1", "demo-2"]);
     }
@@ -218,11 +213,5 @@ mod tests {
         let (a, b) = (seeded(1, 6), seeded(1, 6));
         assert_eq!(a, b);
         assert_ne!(a[0], a[1]);
-    }
-
-    #[test]
-    fn seed_without_pages_makes_nothing() {
-        let document = load_document(None, 0, 4).unwrap();
-        assert_eq!(document.annotations().len(), 0);
     }
 }

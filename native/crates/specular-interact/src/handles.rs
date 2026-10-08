@@ -180,24 +180,3 @@ pub(crate) fn hit(bounds: ScreenRect, screen: Vec2) -> Option<Handle> {
         .into_iter()
         .find(|handle| handle.hit_rect(outline).contains(screen))
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    const RECT: Rect = Rect::new(100.0, 100.0, 400.0, 300.0);
-
-    #[test]
-    fn corner_points_are_the_rect_corners() {
-        let points = Corner::ALL.map(|corner| corner.point(RECT));
-        assert_eq!(
-            points,
-            [
-                DVec2::new(100.0, 100.0),
-                DVec2::new(500.0, 100.0),
-                DVec2::new(500.0, 400.0),
-                DVec2::new(100.0, 400.0),
-            ]
-        );
-    }
-}

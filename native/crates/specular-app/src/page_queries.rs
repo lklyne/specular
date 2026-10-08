@@ -212,11 +212,6 @@ mod tests {
         let settled = queries.settled();
         assert_eq!(grabs(&settled[0]), [("front", 0), ("back", 2)]);
         assert_eq!(queries.settled(), []);
-    }
-
-    #[test]
-    fn a_region_over_no_page_is_settled_at_once() {
-        let mut queries = PageQueries::default();
         let requests = queries.ask_grab(Rect::new(0.0, 0.0, 5.0, 5.0), Vec::new());
         assert_eq!(requests, Vec::<u64>::new());
         assert_eq!(grabs(&queries.settled()[0]), []);

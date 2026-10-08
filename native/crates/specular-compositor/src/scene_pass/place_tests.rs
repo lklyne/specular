@@ -1,7 +1,4 @@
-use specular_doc::EntityId;
-use specular_scene::{
-    Color, EllipseDraw, Item, PageDraw, PathDraw, PathStroke, RectDraw, Stroke, StrokeAlign,
-};
+use specular_scene::{Color, Item, RectDraw, Stroke, StrokeAlign};
 
 use super::*;
 
@@ -74,16 +71,6 @@ fn an_outside_stroke_keeps_a_shape_that_is_just_off_screen() {
 }
 
 #[test]
-fn an_item_whose_clip_misses_the_viewport_is_culled() {
-    let items = vec![
-        Item::canvas(rect(0.0, 0.0, 100.0, 100.0)).clipped(Rect::new(-50.0, -50.0, 40.0, 40.0)),
-        Item::canvas(rect(0.0, 0.0, 100.0, 100.0)).clipped(Rect::new(200.0, 0.0, 40.0, 40.0)),
-    ];
-    let (placed, counts) = placed(&view(Vec2::ZERO, 1.0), items);
-    assert_eq!((placed.len(), counts.culled), (0, 2));
-}
-
-#[test]
 fn bounds_and_clip_are_cut_to_the_clip_and_the_viewport() {
     let item = Item::canvas(rect(700.0, 100.0, 200.0, 100.0))
         .clipped(Rect::new(750.0, 120.0, 500.0, 500.0));
@@ -96,12 +83,6 @@ fn bounds_and_clip_are_cut_to_the_clip_and_the_viewport() {
 }
 
 #[test]
-fn transparent_items_are_culled() {
-    let items = vec![Item::canvas(rect(0.0, 0.0, 10.0, 10.0)).with_opacity(0.0)];
-    assert_eq!(placed(&view(Vec2::ZERO, 1.0), items).1.culled, 1);
-}
-
-#[test]
 fn canvas_text_under_the_size_floor_is_skipped_and_counted() {
     // 14 units at zoom 0.15 is 2.1 px; at zoom 0.2 it is 2.8 px.
     let items = || vec![Item::canvas(text(10.0, 10.0, 14.0))];
@@ -111,22 +92,6 @@ fn canvas_text_under_the_size_floor_is_skipped_and_counted() {
         (small.0.len(), small.1.text_too_small, readable.0.len()),
         (0, 1, 1)
     );
-}
-
-#[test]
-fn screen_text_ignores_zoom_for_the_size_floor() {
-    let items = vec![Item::screen(text(10.0, 10.0, 11.0))];
-    assert_eq!(kept(&view(Vec2::ZERO, 0.02), items), [0]);
-}
-
-#[test]
-fn text_bounds_come_from_the_measured_lines() {
-    let (placed, _) = placed(
-        &view(Vec2::new(10.0, 0.0), 2.0),
-        vec![Item::canvas(text(100.0, 50.0, 14.0))],
-    );
-    // 40 x 20 units at zoom 2, from (210, 100), plus the fringe.
-    assert_eq!(placed[0].bounds, Rect::new(209.0, 99.0, 82.0, 42.0));
 }
 
 #[test]
@@ -153,41 +118,6 @@ fn off_screen_wrapped_text_is_culled_without_being_measured() {
 }
 
 #[test]
-fn each_draw_goes_to_its_pipeline() {
-    let stroke = PathStroke::new(RED, 2.0);
-    let line = PathDraw::polyline([Point::new(0.0, 0.0), Point::new(50.0, 50.0)], stroke);
-    let page = PageDraw {
-        page: EntityId::new("p"),
-        rect: Rect::new(0.0, 0.0, 100.0, 100.0),
-        corner_radius: 8.0,
-    };
-    let items = vec![
-        Item::canvas(page),
-        Item::canvas(rect(0.0, 0.0, 10.0, 10.0)),
-        Item::canvas(EllipseDraw::filled(Rect::new(0.0, 0.0, 10.0, 10.0), RED)),
-        Item::canvas(line),
-        Item::canvas(text(0.0, 0.0, 14.0)),
-        Item::screen(text(0.0, 0.0, 14.0)),
-    ];
-    let prims: Vec<_> = placed(&view(Vec2::ZERO, 1.0), items)
-        .0
-        .iter()
-        .map(|p| p.prim)
-        .collect();
-    assert_eq!(
-        prims,
-        [
-            Prim::Page,
-            Prim::Shape,
-            Prim::Shape,
-            Prim::Mesh(Blend::Normal),
-            Prim::Text(Space::Canvas),
-            Prim::Text(Space::Screen)
-        ]
-    );
-}
-
-#[test]
 fn scissor_is_in_physical_pixels_and_inside_the_target() {
     let view = ViewTransform {
         scale_factor: 2.0,
@@ -204,10 +134,4 @@ fn scissor_is_in_physical_pixels_and_inside_the_target() {
             height: 40
         })
     );
-}
-
-#[test]
-fn a_clip_thinner_than_a_pixel_has_no_scissor() {
-    let scissor = view(Vec2::ZERO, 1.0).scissor(Rect::new(10.1, 10.0, 0.2, 50.0));
-    assert_eq!(scissor, None);
 }

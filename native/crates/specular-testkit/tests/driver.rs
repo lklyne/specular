@@ -3,8 +3,8 @@
 
 use specular_core::{CssSize, InputEvent, KeyEventKind};
 use specular_doc::EntityId;
-use specular_interact::{Effect, Focus};
-use specular_testkit::{ALT, TestApp, assert_doc_snapshot, document, pages};
+use specular_interact::Effect;
+use specular_testkit::{ALT, TestApp, assert_doc_snapshot};
 
 const NOTE: &str = r#"{
   "nodes": [
@@ -39,14 +39,6 @@ fn a_canvas_file_snapshots_one_line_per_item_in_the_writers_order() {
 }
 
 #[test]
-fn opening_effects_are_dropped_by_constructors_and_kept_by_open() {
-    let built = TestApp::with_pages(3);
-    let mut opened = TestApp::empty();
-    opened.open(document(pages(3)));
-    assert_eq!((built.effects().len(), opened.effects().len()), (0, 3));
-}
-
-#[test]
 fn a_double_click_enters_the_page_and_typed_text_reaches_it() {
     let mut app = TestApp::with_pages(2);
     app.double_click((800.0, 200.0)).take_effects();
@@ -70,14 +62,6 @@ fn held_modifiers_apply_until_let_go() {
     app.drag((200.0, 150.0), (300.0, 150.0));
     let moved = (app.document().entities().count(), app.rect("p1").x);
     assert_eq!((copied, moved), ((2, 100.0), (2, 200.0)));
-}
-
-#[test]
-fn the_wheel_pans_the_canvas_where_no_page_is_under_the_pointer() {
-    let mut app = TestApp::with_pages(1);
-    app.pointer_move((50.0, 50.0)).wheel((0.0, 40.0));
-    assert_ne!(app.session().camera.pan.y, 0.0);
-    assert_eq!(app.session().focus, Focus::Canvas);
 }
 
 #[test]

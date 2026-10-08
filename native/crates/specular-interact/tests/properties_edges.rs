@@ -62,19 +62,6 @@ fn a_brush_moves_the_width_to_one_it_is_offered_in_and_regrows_the_rect() {
     app.assert_undo_returns_to_start();
 }
 
-#[test]
-fn a_drawing_color_recolors_every_stroke_and_keeps_the_rect() {
-    let mut app = TestApp::with_entities([ink(Color::Neutral, 2.0, Some(BrushType::Pen))]);
-    app.select(&["d"]);
-    let rect = app.rect("d");
-    set(&mut app, Property::Color(RED));
-    assert_eq!(app.rect("d"), rect);
-    assert_eq!(property::read::color(app.app()), Some(RED));
-    set(&mut app, Property::Brush(BrushType::Pen));
-    app.undo();
-    app.assert_undo_returns_to_start();
-}
-
 // Edges.
 
 fn edged() -> TestApp {

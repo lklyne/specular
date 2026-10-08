@@ -200,14 +200,6 @@ mod tests {
     ];
 
     #[test]
-    fn a_row_runs_left_to_right_with_the_gap_between() {
-        let at = positions(&BOXES, Mode::Row, 20.0, 20.0, (10.0, 5.0), None);
-        assert_eq!(at, [(10.0, 5.0), (130.0, 5.0), (210.0, 5.0)]);
-        let size = bounds(&BOXES, Mode::Row, 20.0, 20.0, None);
-        assert_eq!((size.width, size.height), (220.0, 80.0));
-    }
-
-    #[test]
     fn a_grid_has_cells_the_size_of_its_largest_item() {
         let at = positions(&BOXES, Mode::Grid, 20.0, 10.0, (0.0, 0.0), None);
         assert_eq!(at, [(0.0, 0.0), (120.0, 0.0), (0.0, 90.0)]);

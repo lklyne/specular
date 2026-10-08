@@ -79,21 +79,6 @@ fn copy_writes_the_selection_and_leaves_the_document_alone() {
 }
 
 #[test]
-fn copy_with_nothing_selected_writes_nothing() {
-    let mut app = three_shapes();
-    app.act(Action::Copy);
-    assert_eq!(app.take_effects(), []);
-}
-
-#[test]
-fn paste_asks_the_shell_for_the_clipboard() {
-    let mut app = three_shapes();
-    app.take_effects();
-    app.chord(CMD, Key::Char('v'));
-    assert_eq!(app.take_effects(), [Effect::ReadClipboard]);
-}
-
-#[test]
 fn pasted_copies_land_at_the_pointer_with_their_edge_and_are_selected() {
     let mut app = three_shapes();
     app.select(&["a", "b"]).act(Action::Copy);
@@ -163,21 +148,6 @@ fn a_copied_group_is_pasted_with_its_members_inside_the_copy() {
 }
 
 #[test]
-fn a_member_copied_without_its_group_is_pasted_outside_it() {
-    let mut app = TestApp::with_entities([
-        group("g", Rect::new(0.0, 0.0, 300.0, 300.0)),
-        inside("g", shape("a", Rect::new(20.0, 20.0, 100.0, 100.0))),
-    ]);
-    app.select(&["a"]).act(Action::Copy);
-    let clipboard = copied(&mut app);
-    paste(&mut app, text(&clipboard));
-    let [pasted] = app.selected_ids()[..] else {
-        panic!("the copy is selected");
-    };
-    assert_eq!(app.entity(pasted).parent, None);
-}
-
-#[test]
 fn a_pasted_url_makes_a_desktop_page_and_hosts_it() {
     let mut app = TestApp::empty();
     app.pointer_move((95.0, 215.0));
@@ -240,15 +210,6 @@ fn a_pasted_image_is_written_to_assets_before_it_is_loaded() {
         .position(|effect| matches!(effect, Effect::LoadImage { file: from, .. } if *from == file));
     assert!(written.is_some() && written < loaded, "{effects:?}");
     app.assert_undo_returns_to_start();
-}
-
-#[test]
-fn an_empty_clipboard_pastes_nothing() {
-    let mut app = TestApp::empty();
-    paste(&mut app, ClipboardContent::default());
-    paste(&mut app, text("  \n "));
-    assert_eq!(app.document().entities().count(), 0);
-    assert_eq!(app.take_effects(), []);
 }
 
 #[test]

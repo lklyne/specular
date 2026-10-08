@@ -129,7 +129,7 @@ Dependencies point one way: `doc` <- `interact` <- `scene` <- `render`/`ui` <- `
 ### Rules that keep it easy for agents
 
 - One feature is one vertical slice: a `Kind` variant or `Tool` variant, its commands, its hit-test arm, its `view` arm, its tests. A slice touches the same five files every time, and `native/CLAUDE.md` lists them.
-- Every slice ships three tests. A command round trip (apply, undo, compare). A scripted gesture through `testkit` asserting on the document. A scene snapshot (`insta`) of the resulting display list.
+- Every slice ships one behavior test: a scripted gesture through `testkit` asserting on the document. A scene snapshot (`insta`) only for a new draw rule, and no unit tests on trivial helpers. `native/CLAUDE.md` has the full rule. (This replaced "three tests per slice", which produced 1,778 tests in a day.)
 - The gate is `cargo fmt --check && cargo clippy -- -D warnings && cargo test`. It runs in seconds, with no Mac, GPU or CEF needed.
 - Keep the spike's lints: no `unwrap` outside tests, unsafe only in the IOSurface import and CEF callbacks.
 - Files stay under about 400 lines. One enum arm growing past 80 lines moves to its own module.

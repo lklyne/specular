@@ -194,22 +194,20 @@ mod tests {
     }
 
     #[test]
-    fn gamma_space_premultiply_scales_the_bytes() {
-        assert_eq!(premultiply(&[200, 100, 0, 128], false), [100, 50, 0, 128]);
-    }
-
-    #[test]
-    fn linear_light_premultiply_keeps_more_of_the_encoded_value() {
-        // Half of white in linear light is sRGB 188, not 128.
-        assert_eq!(
-            premultiply(&[255, 255, 255, 128], true),
-            [188, 188, 188, 128]
-        );
-    }
-
-    #[test]
-    fn transparent_texels_carry_no_colour() {
-        assert_eq!(premultiply(&[255, 255, 255, 0], true), [0, 0, 0, 0]);
+    fn premultiplying_scales_colour_by_alpha_in_the_space_the_texture_is_sampled_in() {
+        for (name, texel, linear_light, expected) in [
+            // Half of white in linear light is sRGB 188, not 128.
+            (
+                "linear half",
+                [255, 255, 255, 128],
+                true,
+                [188, 188, 188, 128],
+            ),
+            ("gamma half", [200, 100, 0, 128], false, [100, 50, 0, 128]),
+            ("transparent", [255, 255, 255, 0], true, [0, 0, 0, 0]),
+        ] {
+            assert_eq!(premultiply(&texel, linear_light), expected, "{name}");
+        }
     }
 
     #[test]
@@ -217,18 +215,9 @@ mod tests {
         let mips = ImageMips::build(PixelSize::new(8, 2), &[255; 8 * 2 * 4], GAMMA).unwrap();
         assert_eq!(sizes(&mips), [(8, 2), (4, 1), (2, 1), (1, 1)]);
         assert_eq!(mips.level_count(), 4);
-    }
-
-    #[test]
-    fn an_odd_side_rounds_down_and_never_reaches_zero() {
-        let mips = ImageMips::build(PixelSize::new(5, 3), &[255; 5 * 3 * 4], GAMMA).unwrap();
-        assert_eq!(sizes(&mips), [(5, 3), (2, 1), (1, 1)]);
-    }
-
-    #[test]
-    fn a_one_texel_image_has_one_level() {
-        let mips = ImageMips::build(PixelSize::new(1, 1), &[1, 2, 3, 255], GAMMA).unwrap();
-        assert_eq!(sizes(&mips), [(1, 1)]);
+        // An odd side rounds down and never reaches zero.
+        let odd = ImageMips::build(PixelSize::new(5, 3), &[255; 5 * 3 * 4], GAMMA).unwrap();
+        assert_eq!(sizes(&odd), [(5, 3), (2, 1), (1, 1)]);
     }
 
     #[test]

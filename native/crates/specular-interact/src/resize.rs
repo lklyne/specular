@@ -173,38 +173,36 @@ mod tests {
             resized(START, TOP_LEFT, at(53.0, 69.0), MIN, false),
             Rect::new(60.0, 60.0, 440.0, 240.0)
         );
-    }
 
-    #[test]
-    fn a_side_moves_one_edge_and_leaves_the_other_axis_alone() {
-        assert_eq!(
-            resized(
-                START,
-                Handle::Side(EdgeSide::Right),
-                at(600.0, 900.0),
-                MIN,
-                false
-            ),
-            Rect::new(100.0, 100.0, 500.0, 200.0)
-        );
-        assert_eq!(
-            resized(
-                START,
-                Handle::Side(EdgeSide::Top),
-                at(900.0, 40.0),
-                MIN,
-                false
-            ),
-            Rect::new(100.0, 40.0, 400.0, 260.0)
-        );
-    }
+        {
+            assert_eq!(
+                resized(
+                    START,
+                    Handle::Side(EdgeSide::Right),
+                    at(600.0, 900.0),
+                    MIN,
+                    false
+                ),
+                Rect::new(100.0, 100.0, 500.0, 200.0)
+            );
+            assert_eq!(
+                resized(
+                    START,
+                    Handle::Side(EdgeSide::Top),
+                    at(900.0, 40.0),
+                    MIN,
+                    false
+                ),
+                Rect::new(100.0, 40.0, 400.0, 260.0)
+            );
+        }
 
-    #[test]
-    fn a_drag_past_the_far_edge_stops_at_the_minimum_and_does_not_flip() {
-        assert_eq!(
-            resized(START, TOP_LEFT, at(900.0, 900.0), MIN, false),
-            Rect::new(420.0, 220.0, 80.0, 80.0)
-        );
+        {
+            assert_eq!(
+                resized(START, TOP_LEFT, at(900.0, 900.0), MIN, false),
+                Rect::new(420.0, 220.0, 80.0, 80.0)
+            );
+        }
     }
 
     #[test]
@@ -219,47 +217,44 @@ mod tests {
             resized(START, BOTTOM_RIGHT, at(510.0, 400.0), MIN, true),
             Rect::new(100.0, 100.0, 600.0, 300.0)
         );
-    }
 
-    #[test]
-    fn a_locked_top_left_corner_holds_the_bottom_right() {
-        assert_eq!(
-            resized(START, TOP_LEFT, at(0.0, 95.0), MIN, true),
-            Rect::new(0.0, 50.0, 500.0, 250.0)
-        );
-    }
+        {
+            assert_eq!(
+                resized(START, TOP_LEFT, at(0.0, 95.0), MIN, true),
+                Rect::new(0.0, 50.0, 500.0, 250.0)
+            );
+        }
 
-    #[test]
-    fn a_locked_side_takes_the_other_axis_with_it_from_the_top_left() {
-        assert_eq!(
-            resized(
-                START,
-                Handle::Side(EdgeSide::Right),
-                at(600.0, 0.0),
-                MIN,
-                true
-            ),
-            Rect::new(100.0, 100.0, 500.0, 250.0)
-        );
-        assert_eq!(
-            resized(
-                START,
-                Handle::Side(EdgeSide::Bottom),
-                at(0.0, 400.0),
-                MIN,
-                true
-            ),
-            Rect::new(100.0, 100.0, 600.0, 300.0)
-        );
-    }
+        {
+            assert_eq!(
+                resized(
+                    START,
+                    Handle::Side(EdgeSide::Right),
+                    at(600.0, 0.0),
+                    MIN,
+                    true
+                ),
+                Rect::new(100.0, 100.0, 500.0, 250.0)
+            );
+            assert_eq!(
+                resized(
+                    START,
+                    Handle::Side(EdgeSide::Bottom),
+                    at(0.0, 400.0),
+                    MIN,
+                    true
+                ),
+                Rect::new(100.0, 100.0, 600.0, 300.0)
+            );
+        }
 
-    #[test]
-    fn a_locked_resize_keeps_both_axes_above_their_minimum() {
-        // 2:1 with an 80 minimum each way: the width cannot go under 160.
-        assert_eq!(
-            resized(START, BOTTOM_RIGHT, at(110.0, 110.0), MIN, true),
-            Rect::new(100.0, 100.0, 160.0, 80.0)
-        );
+        {
+            // 2:1 with an 80 minimum each way: the width cannot go under 160.
+            assert_eq!(
+                resized(START, BOTTOM_RIGHT, at(110.0, 110.0), MIN, true),
+                Rect::new(100.0, 100.0, 160.0, 80.0)
+            );
+        }
     }
 
     #[test]
@@ -290,15 +285,14 @@ mod tests {
         let left = placed(Rect::new(0.0, 0.0, 101.0, 100.0), from, to);
         let right = placed(Rect::new(101.0, 0.0, 199.0, 100.0), from, to);
         assert_eq!(left.x + left.width, right.x);
-    }
 
-    #[test]
-    fn an_entity_squeezed_flat_keeps_one_unit() {
-        let from = Rect::new(0.0, 0.0, 1000.0, 1000.0);
-        let to = Rect::new(0.0, 0.0, 20.0, 20.0);
-        assert_eq!(
-            placed(Rect::new(500.0, 500.0, 10.0, 10.0), from, to),
-            Rect::new(10.0, 10.0, 1.0, 1.0)
-        );
+        {
+            let from = Rect::new(0.0, 0.0, 1000.0, 1000.0);
+            let to = Rect::new(0.0, 0.0, 20.0, 20.0);
+            assert_eq!(
+                placed(Rect::new(500.0, 500.0, 10.0, 10.0), from, to),
+                Rect::new(10.0, 10.0, 1.0, 1.0)
+            );
+        }
     }
 }

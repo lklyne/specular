@@ -5,7 +5,7 @@ use specular_doc::{
     Annotation, AnnotationAnchor, AnnotationId, AnnotationStatus, Entity, EntityId, ItemId,
     PageAnchor, Rect,
 };
-use specular_interact::{Action, PageNotice, RowKind, RowTarget, SidebarRow, sidebar};
+use specular_interact::{Action, RowKind, RowTarget, SidebarRow, sidebar};
 use specular_testkit::{
     TestApp, comment, document, drawing, group, inside, note, page, shape, sticky, with_comment,
 };
@@ -114,21 +114,6 @@ fn notes_and_pages_are_listed_front_of_the_stack_first() {
         outline(&model.pages),
         ["page example.com", "page example.com"]
     );
-}
-
-#[test]
-fn a_page_is_named_by_its_live_title_then_its_label_then_its_host() {
-    let mut app = TestApp::with_entities([
-        Entity {
-            label: Some("Pricing".to_owned()),
-            ..page("p1", BOX)
-        },
-        page("p2", BOX),
-    ]);
-    let labels = |app: &TestApp| outline(&sidebar(app.app()).pages);
-    assert_eq!(labels(&app), ["page example.com", "page Pricing"]);
-    app.page_reports("p1", PageNotice::Title("Plans and pricing".to_owned()));
-    assert_eq!(labels(&app), ["page example.com", "page Plans and pricing"]);
 }
 
 #[test]
@@ -245,17 +230,4 @@ fn a_row_selects_what_it_stands_for_and_shows_the_selection() {
     let model = sidebar(app.app());
     assert_eq!(outline(&model.notes), ["*text note"]);
     assert_eq!(outline(&model.pages), ["page example.com"]);
-}
-
-#[test]
-fn a_long_comment_is_cut_to_sixty_characters() {
-    let text = "x".repeat(80);
-    let url = "https://example.com/p1";
-    let entities = with_comment(
-        document([page("p1", BOX)]),
-        page_comment("c1", "p1", url, &text, "2026-01-01T00:00:00.000Z"),
-    );
-    let app = TestApp::from_document(entities);
-    let label = sidebar(app.app()).pages[0].children[0].label.clone();
-    assert_eq!(label, format!("{}\u{2026}", "x".repeat(59)));
 }

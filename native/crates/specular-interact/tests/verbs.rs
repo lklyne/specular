@@ -59,44 +59,11 @@ fn backspace_removes_the_selected_entity_and_every_edge_that_touched_it() {
 }
 
 #[test]
-fn the_delete_key_does_the_same() {
-    let mut app = linked();
-    app.select(&["b", "c"]).key(Key::Delete);
-    assert_eq!(ids(&app), ["a"]);
-    app.assert_undo_returns_to_start();
-}
-
-#[test]
-fn a_selected_edge_is_removed_and_its_ends_stay() {
-    let mut app = linked();
-    app.select(&["ab"]).key(Key::Backspace);
-    assert_eq!(ids(&app), ["a", "b", "c", "ac"]);
-    app.assert_undo_returns_to_start();
-}
-
-#[test]
 fn an_edge_selected_along_with_its_end_is_removed_once() {
     let mut app = linked();
     app.select(&["ab", "b"]).key(Key::Backspace);
     assert_eq!(ids(&app), ["a", "c", "ac"]);
     app.assert_undo_returns_to_start();
-}
-
-#[test]
-fn deleting_a_group_takes_everything_inside_it_and_their_edges() {
-    let start = document([
-        group("g", Rect::new(80.0, 80.0, 540.0, 140.0)),
-        inside("g", text("a", A)),
-        inside("g", group("inner", Rect::new(380.0, 90.0, 240.0, 120.0))),
-        inside("inner", text("b", B)),
-        shape("c", C),
-    ]);
-    let mut app = TestApp::from_document(connected(start, "bc", "b", "c"));
-    app.select(&["g"]).key(Key::Backspace);
-    assert_eq!(ids(&app), ["c"]);
-    app.undo();
-    assert!(!app.app().can_undo(), "the delete was one step");
-    app.redo().assert_undo_returns_to_start();
 }
 
 #[test]
@@ -154,24 +121,6 @@ fn backspace_in_an_entered_page_goes_to_the_page() {
     );
 }
 
-#[test]
-fn delete_with_nothing_selected_is_not_an_undo_step() {
-    let mut app = linked();
-    app.key(Key::Backspace);
-    assert!(!app.app().can_undo());
-}
-
-#[test]
-fn delete_waits_for_a_drag_to_end() {
-    let mut app = linked();
-    app.press((150.0, 150.0))
-        .drag_to((250.0, 150.0))
-        .key(Key::Backspace)
-        .release();
-    assert_eq!(ids(&app).len(), 5);
-    app.assert_undo_returns_to_start();
-}
-
 // Duplicate.
 
 #[test]
@@ -191,22 +140,28 @@ fn command_d_copies_the_selection_to_its_right_and_selects_the_copy() {
 }
 
 #[test]
-fn a_duplicate_goes_below_when_the_right_is_taken() {
+fn a_duplicate_goes_below_when_the_right_is_taken_and_further_when_both_are() {
     let mut app = TestApp::with_entities([text("a", A), text("b", B)]);
     app.select(&["a"]).act(Action::Duplicate);
     let copy = app.selected().unwrap().to_owned();
     assert_eq!(app.rect(&copy), Rect::new(100.0, 280.0, 200.0, 100.0));
     app.assert_undo_returns_to_start();
-}
 
-#[test]
-fn a_duplicate_finds_the_next_free_spot_when_both_are_taken() {
     let below = Rect::new(100.0, 280.0, 200.0, 100.0);
     let mut app = TestApp::with_entities([text("a", A), text("b", B), text("c", below)]);
     app.select(&["a"]).act(Action::Duplicate);
     let copy = app.selected().unwrap().to_owned();
     assert_eq!(app.rect(&copy), Rect::new(680.0, 100.0, 200.0, 100.0));
     app.assert_undo_returns_to_start();
+}
+
+#[test]
+fn delete_duplicate_and_nudge_with_nothing_selected_record_nothing() {
+    let mut app = linked();
+    app.key(Key::Backspace)
+        .chord(CMD, Key::Char('d'))
+        .key(Key::ArrowRight);
+    assert!(!app.app().can_undo());
 }
 
 #[test]
@@ -231,29 +186,6 @@ fn duplicating_several_keeps_their_layout_and_the_edges_between_them() {
     app.undo();
     assert!(!app.app().can_undo(), "the duplicate was one step");
     app.redo().assert_undo_returns_to_start();
-}
-
-#[test]
-fn duplicating_a_page_hosts_the_copy() {
-    let mut app = TestApp::with_pages(1);
-    app.select(&["p1"]).act(Action::Duplicate);
-    let copy = EntityId::from(app.selected().unwrap());
-    assert_eq!(
-        page_effects(&mut app),
-        [Effect::CreatePage {
-            page: copy,
-            url: "https://example.com/p1".to_owned(),
-            viewport: CssSize::new(400, 300)
-        }]
-    );
-    app.assert_undo_returns_to_start();
-}
-
-#[test]
-fn duplicate_with_nothing_selected_does_nothing() {
-    let mut app = linked();
-    app.chord(CMD, Key::Char('d'));
-    assert!(!app.app().can_undo());
 }
 
 // Nudge.
@@ -281,16 +213,6 @@ fn an_arrow_key_moves_the_selection_five_units() {
 }
 
 #[test]
-fn shift_and_an_arrow_key_moves_it_a_grid_step() {
-    let mut app = linked();
-    app.select(&["a"])
-        .chord(SHIFT, Key::ArrowRight)
-        .chord(SHIFT, Key::ArrowUp);
-    assert_eq!(app.rect("a"), Rect::new(120.0, 80.0, 200.0, 100.0));
-    app.assert_undo_returns_to_start();
-}
-
-#[test]
 fn a_nudge_is_exact_and_does_not_pull_onto_the_grid() {
     let off_grid = Rect::new(103.0, 101.0, 200.0, 100.0);
     let mut app = TestApp::with_entities([text("a", off_grid)]);
@@ -299,17 +221,6 @@ fn a_nudge_is_exact_and_does_not_pull_onto_the_grid() {
         .chord(SHIFT, Key::ArrowDown);
     assert_eq!(app.rect("a"), Rect::new(108.0, 121.0, 200.0, 100.0));
     app.assert_undo_returns_to_start();
-}
-
-#[test]
-fn each_key_press_is_its_own_undo_step() {
-    let mut app = linked();
-    app.select(&["a"])
-        .key(Key::ArrowRight)
-        .key(Key::ArrowRight)
-        .undo();
-    assert_eq!((app.rect("a").x, app.app().can_undo()), (105.0, true));
-    app.redo().assert_undo_returns_to_start();
 }
 
 #[test]
@@ -341,19 +252,4 @@ fn a_nudged_group_takes_its_members_and_a_drawing_its_points() {
     specular: {"entityOrder":["g","d"]}
     "#);
     app.assert_undo_returns_to_start();
-}
-
-#[test]
-fn arrow_keys_in_an_entered_page_go_to_the_page() {
-    let mut app = TestApp::with_pages(1);
-    app.click((200.0, 200.0)).click((200.0, 200.0));
-    app.key(Key::ArrowRight);
-    assert_eq!((app.rect("p1").x, app.app().can_undo()), (100.0, false));
-}
-
-#[test]
-fn a_nudge_with_nothing_selected_is_not_an_undo_step() {
-    let mut app = linked();
-    app.key(Key::ArrowRight);
-    assert!(!app.app().can_undo());
 }

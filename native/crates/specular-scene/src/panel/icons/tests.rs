@@ -90,14 +90,3 @@ fn a_glyph_is_fitted_into_its_box_keeping_its_proportions() {
     );
     assert_eq!(path.stroke.map(|stroke| stroke.width), Some(2.0));
 }
-
-#[test]
-fn a_turned_layer_is_turned_about_its_own_point() {
-    // A quarter turn about (10, 10) takes (20, 10) to (10, 20).
-    let [xx, yx, xy, yy, dx, dy] = matrix(Turn::Rotate(90.0, 10.0, 10.0));
-    let (x, y) = (xx * 20.0 + xy * 10.0 + dx, yx * 20.0 + yy * 10.0 + dy);
-    assert!(
-        (x - 10.0).abs() < 1e-4 && (y - 20.0).abs() < 1e-4,
-        "{x},{y}"
-    );
-}

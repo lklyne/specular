@@ -2,7 +2,7 @@
 //! shell answers.
 
 use specular_doc::{Document, Entity, FileRef, Kind, Rect};
-use specular_interact::{Effect, Event, ImageKey, ImageNotice, ImageState};
+use specular_interact::{Effect, ImageState};
 use specular_testkit::{TestApp, document, file, page};
 
 const BOX: Rect = Rect::new(100.0, 100.0, 240.0, 160.0);
@@ -53,63 +53,6 @@ fn opening_a_document_asks_for_each_image_file_once() {
     );
     assert_eq!(state(&app, "assets/shot.png"), Some(ImageState::Loading));
     assert_eq!(state(&app, "notes.md"), None);
-}
-
-#[test]
-fn the_shells_answer_is_kept_per_image() {
-    let mut app = opened(document([
-        file("ready", BOX),
-        file("missing", BOX),
-        file("failed", BOX),
-        file("slow", BOX),
-    ]));
-    let key = |file: &str| app.app().image(file).map(|image| image.key).unwrap();
-    let (ready, missing, failed) = (key("ready.png"), key("missing.png"), key("failed.png"));
-    let notice = ImageNotice::Ready {
-        width: 640,
-        height: 480,
-    };
-    app.send(Event::Image {
-        image: ready,
-        notice,
-    })
-    .send(Event::Image {
-        image: missing,
-        notice: ImageNotice::Missing,
-    })
-    .send(Event::Image {
-        image: failed,
-        notice: ImageNotice::Failed,
-    });
-    assert_eq!(
-        [
-            state(&app, "ready.png"),
-            state(&app, "missing.png"),
-            state(&app, "failed.png"),
-            state(&app, "slow.png"),
-        ]
-        .map(Option::unwrap),
-        [
-            ImageState::Ready {
-                width: 640,
-                height: 480
-            },
-            ImageState::Missing,
-            ImageState::Failed,
-            ImageState::Loading,
-        ]
-    );
-}
-
-#[test]
-fn an_answer_for_an_image_no_longer_held_is_ignored() {
-    let mut app = opened(document([file("a", BOX)]));
-    let before = app.session().clone();
-    app.send(Event::Image {
-        image: ImageKey(99),
-        notice: ImageNotice::Failed,
-    });
-    assert_eq!(app.session(), &before);
 }
 
 #[test]

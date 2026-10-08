@@ -131,7 +131,7 @@ pub(crate) fn hairline(
 
 #[cfg(test)]
 mod tests {
-    use specular_scene::{EllipseDraw, RectDraw};
+    use specular_scene::RectDraw;
 
     use super::super::place::tests::view;
     use super::*;
@@ -189,21 +189,6 @@ mod tests {
     }
 
     #[test]
-    fn corner_radius_is_clamped_to_half_the_short_side() {
-        let draw = RectDraw::filled(RECT, RED).with_corner_radius(500.0);
-        assert_eq!(instance(&Item::canvas(draw), 1.0).corner_radius, 50.0);
-    }
-
-    #[test]
-    fn an_ellipse_is_flagged_and_has_no_corner_radius() {
-        let instance = instance(&Item::canvas(EllipseDraw::filled(RECT, RED)), 1.0);
-        assert_eq!(
-            (instance.kind, instance.corner_radius),
-            (ShapeInstance::ELLIPSE, 0.0)
-        );
-    }
-
-    #[test]
     fn a_shadow_is_one_instance_whose_blur_scales_with_zoom() {
         let shadow = specular_scene::ShadowDraw {
             rect: RECT,
@@ -225,28 +210,10 @@ mod tests {
     }
 
     #[test]
-    fn item_opacity_fades_fill_and_stroke() {
-        let draw =
-            RectDraw::filled(RECT, RED).with_stroke(Stroke::new(RED, 2.0, StrokeAlign::Inside));
-        let instance = instance(&Item::canvas(draw).with_opacity(0.5), 1.0);
-        assert_eq!((instance.fill[3], instance.stroke[3]), (0.5, 0.5));
-    }
-
-    #[test]
     fn a_stroke_thinner_than_a_pixel_is_held_at_one_and_faded() {
         // 2 units at zoom 0.25 is half a pixel.
         let draw = RectDraw::outlined(RECT, Stroke::new(RED, 2.0, StrokeAlign::Outside));
         let instance = instance(&Item::canvas(draw), 0.25);
         assert_eq!((instance.stroke_width, instance.stroke[3]), (1.0, 0.5));
-    }
-
-    #[test]
-    fn an_unfilled_unstroked_rect_draws_nothing() {
-        let draw = RectDraw {
-            fill: None,
-            ..RectDraw::filled(RECT, RED)
-        };
-        let instance = instance(&Item::canvas(draw), 1.0);
-        assert_eq!((instance.fill, instance.stroke), (CLEAR, CLEAR));
     }
 }

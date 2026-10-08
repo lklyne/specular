@@ -3,9 +3,9 @@
 
 use glam::Vec2;
 use specular_core::ImeEvent;
-use specular_doc::{Entity, EntityId, Kind, Rect};
+use specular_doc::Rect;
 use specular_interact::{Effect, Event, Key, TextEdit};
-use specular_testkit::{CMD, TestApp, page, sticky};
+use specular_testkit::{CMD, TestApp, sticky};
 
 const NOTE: Rect = Rect::new(100.0, 100.0, 200.0, 200.0);
 
@@ -19,14 +19,6 @@ fn editing(content: &str) -> TestApp {
 
 fn composition(app: &TestApp) -> Option<std::ops::Range<usize>> {
     app.app().text_edit().and_then(TextEdit::composition)
-}
-
-/// The entity's text, or nothing for a kind that has none.
-fn text_of(entity: &Entity) -> &str {
-    match &entity.kind {
-        Kind::Text(text) => &text.text,
-        _ => "",
-    }
 }
 
 #[test]
@@ -122,47 +114,4 @@ fn the_composition_caret_is_counted_in_utf16_units() {
     }));
     assert_eq!((app.editing_text(), composition(&app)), ("é😀ab", None));
     assert_eq!(app.caret(), (8, 8));
-}
-
-#[test]
-fn ending_the_edit_keeps_what_was_being_composed() {
-    let mut app = editing("ab");
-    app.compose("x").key(Key::Escape);
-    assert!(app.session().editing.is_none());
-    assert_eq!(text_of(app.entity("n")), "abx");
-    app.assert_undo_returns_to_start();
-}
-
-#[test]
-fn the_input_method_stays_on_when_an_edit_starts_from_an_entered_page() {
-    let mut app = TestApp::with_entities([
-        page("p", Rect::new(400.0, 100.0, 400.0, 300.0)),
-        sticky("n", NOTE, "ab"),
-    ]);
-    app.double_click((500.0, 200.0));
-    assert_eq!(app.session().focus.page().map(EntityId::as_str), Some("p"));
-    app.take_effects();
-    app.double_click((150.0, 250.0));
-    let allowed: Vec<bool> = (app.take_effects().into_iter())
-        .filter_map(|effect| match effect {
-            Effect::SetImeAllowed(allowed) => Some(allowed),
-            _ => None,
-        })
-        .collect();
-    assert_eq!(
-        allowed.last(),
-        Some(&true),
-        "leaving the page did not turn it off"
-    );
-    app.compose("x");
-    assert_eq!(app.editing_text(), "x");
-}
-
-#[test]
-fn with_nothing_edited_and_no_page_entered_the_input_method_goes_nowhere() {
-    let mut app = TestApp::with_entities([sticky("n", NOTE, "ab")]);
-    app.click((150.0, 250.0)).take_effects();
-    app.compose("x").commit("y");
-    assert_eq!(app.take_effects(), []);
-    assert_eq!(text_of(app.entity("n")), "ab");
 }

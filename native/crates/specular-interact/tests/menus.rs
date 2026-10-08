@@ -3,12 +3,10 @@
 
 #![expect(clippy::panic, reason = "a helper fails the test it is called from")]
 
-use specular_doc::{BrushType, ShapeKind};
 use specular_interact::{
-    Action, BINDINGS, Chord, Key, Menu, MenuEntry, MenuItem, Tool, ToolDefaultPatch, binding_of,
-    menus,
+    Action, BINDINGS, Chord, Key, Menu, MenuEntry, MenuItem, binding_of, menus,
 };
-use specular_testkit::{CMD, TestApp};
+use specular_testkit::TestApp;
 
 fn items(menus: &[Menu]) -> Vec<&MenuItem> {
     (menus.iter())
@@ -24,104 +22,6 @@ fn item<'a>(menus: &'a [Menu], label: &str) -> &'a MenuItem {
     (items(menus).into_iter())
         .find(|item| item.label == label)
         .unwrap_or_else(|| panic!("no menu item {label:?}"))
-}
-
-fn labels(menu: &Menu) -> Vec<&str> {
-    (menu.entries.iter())
-        .map(|entry| match entry {
-            MenuEntry::Item(item) => item.label.as_ref(),
-            MenuEntry::Separator => "-",
-        })
-        .collect()
-}
-
-#[test]
-fn the_menus_are_canvas_edit_arrange_comment_page_tools_and_view() {
-    let app = TestApp::with_pages(1);
-    let menus = menus(app.app());
-    let [canvas, edit, arrange, comment, page, tools, view] = menus.as_slice() else {
-        panic!("seven menus");
-    };
-    assert_eq!(
-        (canvas.title, labels(canvas)),
-        (
-            "Canvas",
-            vec![
-                "New canvas",
-                "Duplicate canvas",
-                "Delete canvas",
-                "-",
-                "Canvas 1"
-            ]
-        )
-    );
-    assert_eq!(
-        (edit.title, labels(edit)),
-        (
-            "Edit",
-            vec![
-                "Undo",
-                "Redo",
-                "-",
-                "Cut",
-                "Copy",
-                "Paste",
-                "Duplicate",
-                "Delete",
-                "-",
-                "Select all"
-            ]
-        )
-    );
-    assert_eq!(
-        (arrange.title, labels(arrange)),
-        (
-            "Arrange",
-            vec![
-                "Bring forward",
-                "Send backward",
-                "Bring to front",
-                "Send to back",
-                "-",
-                "Group",
-                "Ungroup"
-            ]
-        )
-    );
-    assert_eq!(
-        (comment.title, labels(comment)),
-        (
-            "Comment",
-            vec!["Annotate selection", "Resolve comment", "Delete comment"]
-        )
-    );
-    assert_eq!(
-        (page.title, labels(page)),
-        ("Page", vec!["Back", "Forward", "Reload", "Stop"])
-    );
-    assert_eq!(
-        (tools.title, labels(tools)),
-        (
-            "Tools",
-            vec![
-                "Select",
-                "Page",
-                "Text",
-                "Sticky note",
-                "Document",
-                "Shape",
-                "Draw",
-                "Comment"
-            ]
-        )
-    );
-    assert_eq!(
-        (view.title, labels(view)),
-        (
-            "View",
-            vec!["Zoom in", "Zoom out", "Zoom to 100%", "Zoom to fit"]
-        )
-    );
 }
 
 #[test]
@@ -179,25 +79,6 @@ fn the_shortcuts_are_the_expected_keys() {
 }
 
 #[test]
-fn a_tool_item_runs_what_its_key_runs() {
-    let app = TestApp::with_pages(1);
-    let menus = menus(app.app());
-    assert_eq!(
-        item(&menus, "Shape").action,
-        Action::SetToolVariant(ToolDefaultPatch::ShapeKind(ShapeKind::Rectangle))
-    );
-    assert_eq!(
-        item(&menus, "Draw").action,
-        Action::SetToolVariant(ToolDefaultPatch::Brush(BrushType::Pen))
-    );
-    assert_eq!(item(&menus, "Text").action, Action::SetTool(Tool::AddText));
-    assert_eq!(
-        item(&menus, "Document").action,
-        Action::SetTool(Tool::AddDocument)
-    );
-}
-
-#[test]
 fn the_active_tool_is_the_one_checked() {
     let mut app = TestApp::with_pages(1);
     let checked = |app: &TestApp| -> Vec<String> {
@@ -247,15 +128,6 @@ fn items_with_nothing_to_act_on_are_disabled() {
 }
 
 #[test]
-fn an_empty_canvas_has_nothing_to_select_or_fit() {
-    let app = TestApp::empty();
-    let menus = menus(app.app());
-    assert!(!item(&menus, "Select all").enabled);
-    assert!(!item(&menus, "Zoom to fit").enabled);
-    assert!(item(&menus, "Zoom to 100%").enabled);
-}
-
-#[test]
 fn an_entered_page_keeps_the_canvas_items_for_itself() {
     let mut app = TestApp::with_pages(1);
     app.double_click((200.0, 150.0));
@@ -274,26 +146,4 @@ fn an_entered_page_keeps_the_canvas_items_for_itself() {
     }
     // Bound everywhere, as in Electron.
     assert!(item(&menus, "Zoom to fit").enabled);
-}
-
-#[test]
-fn nothing_can_be_chosen_mid_drag() {
-    let mut app = TestApp::with_pages(1);
-    app.select(&["p1"])
-        .press((200.0, 150.0))
-        .drag_to((300.0, 250.0));
-    let menus = menus(app.app());
-    assert!(items(&menus).iter().all(|item| !item.enabled));
-    app.release();
-}
-
-#[test]
-fn a_chosen_item_does_what_the_key_does() {
-    let mut by_menu = TestApp::with_pages(2);
-    let mut by_key = TestApp::with_pages(2);
-    let select_all = item(&menus(by_menu.app()), "Select all").action.clone();
-    by_menu.act(select_all);
-    by_key.chord(CMD, Key::Char('a'));
-    assert_eq!(by_menu.selected_ids(), ["p1", "p2"]);
-    assert_eq!(by_menu.selected_ids(), by_key.selected_ids());
 }

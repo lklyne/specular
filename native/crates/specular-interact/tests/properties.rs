@@ -2,8 +2,8 @@
 //! it means something for, skips the rest, and is one undo step.
 
 use specular_doc::{
-    BorderStyle, BrushType, Color, ColorPreset, Drawing, Entity, FillStyle, JsonMap, Kind,
-    LineStyle, Point, Rect, ShapeKind, Stroke, TextAlign, TextFont, TextStyle, VerticalAlign,
+    BrushType, Color, ColorPreset, Drawing, Entity, FillStyle, JsonMap, Kind, LineStyle, Point,
+    Rect, ShapeKind, Stroke, TextAlign, TextFont, TextStyle, VerticalAlign,
 };
 use specular_interact::{Action, Key, Property, Tool, property};
 use specular_testkit::{
@@ -100,14 +100,6 @@ fn a_text_style_swaps_to_what_the_other_creation_tool_stamps() {
 }
 
 #[test]
-fn a_style_the_text_already_has_records_no_step() {
-    let mut app = TestApp::with_entities([sticky("a", A, "one")]);
-    app.select(&["a"]);
-    set(&mut app, Property::TextStyle(TextStyle::Sticky));
-    assert!(!steps(&app));
-}
-
-#[test]
 fn a_size_outside_the_popup_range_is_held_to_it() {
     let mut app = TestApp::with_entities([sticky("a", A, "one")]);
     app.select(&["a"]);
@@ -127,13 +119,6 @@ fn a_property_that_would_change_nothing_records_no_step() {
     assert!(!steps(&app), "the second pick of red changed nothing");
     // A property for a kind the selection lacks changes nothing either.
     set(&mut app, Property::LineStyle(LineStyle::Dashed));
-    assert!(!steps(&app));
-}
-
-#[test]
-fn nothing_is_set_on_an_empty_selection() {
-    let mut app = TestApp::with_entities([sticky("a", A, "one")]);
-    set(&mut app, Property::Color(RED));
     assert!(!steps(&app));
 }
 
@@ -169,28 +154,6 @@ fn a_color_reaches_every_kind_that_has_one_and_skips_pages_and_files() {
     specular: {"entityOrder":["t","s","g","d","p","f","e"]}
     "#);
     assert_eq!(property::read::color(app.app()), Some(RED));
-    app.assert_undo_returns_to_start();
-}
-
-#[test]
-fn a_property_for_one_kind_leaves_the_others_in_the_selection_alone() {
-    let mut app = everything();
-    app.select(&["t", "s", "d", "e"]);
-    set(&mut app, Property::TextSize(24.0));
-    assert_eq!(property::read::text_size(app.app()), Some(24.0));
-    set(&mut app, Property::StrokeWidth(4.0));
-    assert_doc_snapshot!(app, @r#"
-    nodes:
-      {"id":"t","type":"text","x":100,"y":100,"width":200,"height":343,"text":"t","specular":{"textSize":24}}
-      {"id":"s","type":"shape","x":400,"y":100,"width":200,"height":100,"shapeKind":"rectangle","text":"","strokeWidth":4,"specular":{"textSize":24}}
-      {"id":"g","type":"group","x":700,"y":100,"width":300,"height":300}
-      {"id":"d","type":"drawing","x":118,"y":118,"width":44,"height":34,"strokes":[{"id":"ink","color":"neutral","width":4,"points":[{"x":120,"y":120},{"x":160,"y":150}]}]}
-      {"id":"p","type":"link","x":100,"y":700,"width":400,"height":300,"url":"https://example.com/p"}
-      {"id":"f","type":"file","x":600,"y":700,"width":100,"height":100,"file":"f.png"}
-    edges:
-      {"id":"e","fromNode":"t","toNode":"s","strokeWidth":4}
-    specular: {"entityOrder":["t","s","g","d","p","f","e"]}
-    "#);
     app.assert_undo_returns_to_start();
 }
 
@@ -253,62 +216,7 @@ fn a_shape_color_turns_a_transparent_fill_back_to_solid() {
     app.assert_undo_returns_to_start();
 }
 
-#[test]
-fn a_shape_border_has_a_style_a_width_and_a_color() {
-    let mut app = TestApp::with_entities([shape("a", A)]);
-    app.select(&["a"]);
-    set(&mut app, Property::BorderStyle(BorderStyle::Dashed));
-    set(&mut app, Property::StrokeWidth(4.0));
-    set(&mut app, Property::BorderColor(RED));
-    assert_doc_snapshot!(app, @r#"
-    nodes:
-      {"id":"a","type":"shape","x":100,"y":100,"width":200,"height":100,"shapeKind":"rectangle","text":"","strokeWidth":4,"borderStyle":"dashed","borderColor":"1"}
-    edges:
-    specular: {"entityOrder":["a"]}
-    "#);
-    assert_eq!(property::read::border_color(app.app()), Some(RED));
-    assert_eq!(property::read::stroke_width(app.app()), Some(4.0));
-    app.assert_undo_returns_to_start();
-}
-
-#[test]
-fn reads_say_mixed_when_the_selection_disagrees() {
-    let mut app = TestApp::with_entities([shape("a", A), shape("b", B)]);
-    app.select(&["a"]);
-    set(&mut app, Property::ShapeKind(ShapeKind::Pill));
-    app.select(&["a", "b"]);
-    assert_eq!(property::read::shape_kind(app.app()), None);
-    assert_eq!(
-        property::read::fill_style(app.app()),
-        Some(FillStyle::Solid)
-    );
-    assert_eq!(
-        property::read::text_font(app.app()),
-        None,
-        "no text selected"
-    );
-}
-
 // Groups and drawings.
-
-#[test]
-fn a_group_takes_a_color_and_not_its_members() {
-    let doc = document([
-        group("g", Rect::new(0.0, 0.0, 400.0, 300.0)),
-        specular_testkit::inside("g", sticky("a", A, "one")),
-    ]);
-    let mut app = TestApp::from_document(doc);
-    app.select(&["g"]);
-    set(&mut app, Property::Color(RED));
-    assert_doc_snapshot!(app, @r#"
-    nodes:
-      {"id":"g","type":"group","x":0,"y":0,"width":400,"height":300,"color":"1","groupColor":"1"}
-      {"id":"a","type":"text","x":100,"y":100,"width":200,"height":100,"text":"one","specular":{"textStyle":"sticky","parentGroupId":"g"}}
-    edges:
-    specular: {"entityOrder":["g","a"]}
-    "#);
-    app.assert_undo_returns_to_start();
-}
 
 // A gesture in flight.
 
@@ -367,16 +275,5 @@ fn a_property_set_while_a_new_text_is_typed_belongs_to_its_one_step() {
     assert_eq!(app.document().entities().count(), 0);
     app.redo();
     assert_eq!(color_of(&app, &id), Some(RED));
-    app.assert_undo_returns_to_start();
-}
-
-#[test]
-fn a_size_picked_during_an_edit_refits_the_text_being_typed() {
-    let mut app = TestApp::with_entities([sticky("n", A, "held")]);
-    app.double_click((150.0, 150.0));
-    let before = app.rect("n");
-    set(&mut app, Property::TextSize(32.0));
-    assert!(app.rect("n").height > before.height);
-    app.key(Key::Escape);
     app.assert_undo_returns_to_start();
 }

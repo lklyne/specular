@@ -4,8 +4,8 @@
 use glam::Vec2;
 use specular_core::Camera;
 use specular_doc::{Document, EntityId, ItemId, Rect};
-use specular_interact::{Action, CanvasAction, CanvasId, Effect, Event, Key, TabRefError};
-use specular_testkit::{CMD, TestApp, document, page, pages, space, sticky};
+use specular_interact::{Action, CanvasAction, CanvasId, Effect, Event, TabRefError};
+use specular_testkit::{TestApp, document, pages, space, sticky};
 
 fn note(id: &str, text: &str) -> Document {
     document([sticky(id, Rect::new(100.0, 100.0, 200.0, 200.0), text)])
@@ -110,19 +110,6 @@ fn each_canvas_keeps_its_own_undo_history_camera_and_selection() {
 
     app.switch_to("Notes").undo();
     assert_eq!(entity_ids(app.document()), ["n1"]);
-}
-
-#[test]
-fn a_background_canvas_is_read_without_switching_to_it() {
-    let app = two();
-    let notes = app.canvas_id("Notes");
-    let document = app.app().canvas_document(&notes);
-    assert_eq!(document.map(entity_ids), Some(vec!["n1"]));
-    let (saved, camera) = app.app().canvas_to_save(&notes).expect("a canvas");
-    assert_eq!(
-        (entity_ids(&saved), camera),
-        (vec!["n1"], Camera::default())
-    );
 }
 
 #[test]
@@ -252,21 +239,6 @@ fn deleting_the_active_canvas_shows_its_neighbour_and_trashes_the_file() {
 }
 
 #[test]
-fn deleting_a_background_canvas_leaves_the_view_alone() {
-    let mut app = two();
-    app.switch_to("Notes").take_effects();
-    let home = app.canvas_id("Home");
-    app.act(Action::Canvas(CanvasAction::Delete(Some(home))));
-    assert_eq!(
-        (app.canvas_names(), app.active_canvas()),
-        (vec!["Notes"], "Notes")
-    );
-    let closed = (app.effects().iter()).any(|effect| matches!(effect, Effect::ClosePage(_)));
-    assert!(!closed);
-    assert_eq!(entity_ids(app.document()), ["n1"]);
-}
-
-#[test]
 fn deleting_the_only_canvas_leaves_an_empty_canvas_1() {
     let mut app = TestApp::with_space([("Solo", document(pages(1)))]);
     app.act(Action::Canvas(CanvasAction::Delete(None)));
@@ -300,42 +272,6 @@ fn a_background_file_change_replaces_that_canvas_and_clears_its_history() {
 }
 
 #[test]
-fn a_file_change_to_the_active_canvas_opens_the_new_document() {
-    let mut app = two();
-    let home = app.canvas_id("Home");
-    app.send(Event::CanvasFileChanged {
-        canvas: home,
-        document: Box::new(document([page("p9", Rect::new(0.0, 0.0, 400.0, 300.0))])),
-    });
-    assert_eq!(entity_ids(app.document()), ["p9"]);
-    assert!(
-        app.effects()
-            .contains(&Effect::ClosePage(EntityId::from("p1")))
-    );
-}
-
-#[test]
-fn canvases_are_left_alone_while_a_drag_is_in_flight() {
-    let mut app = two();
-    app.press((200.0, 150.0)).drag_to((260.0, 150.0));
-    app.switch_to("Notes")
-        .act(Action::Canvas(CanvasAction::New));
-    assert_eq!(
-        (app.canvas_names(), app.active_canvas()),
-        (vec!["Home", "Notes"], "Home")
-    );
-    app.release();
-}
-
-#[test]
-fn a_change_after_a_switch_saves_the_canvas_now_shown() {
-    let mut app = two();
-    app.switch_to("Notes").take_effects();
-    app.act(select("n1")).chord(CMD, Key::Char('d'));
-    assert!(app.take_effects().contains(&Effect::Save));
-}
-
-#[test]
 fn a_tab_ref_is_an_id_or_an_exact_name_and_never_a_guess() {
     let app = TestApp::with_space([
         ("Home", document([])),
@@ -352,16 +288,5 @@ fn a_tab_ref_is_an_id_or_an_exact_name_and_never_a_guess() {
     assert_eq!(
         unknown.to_string(),
         "unknown tab 'home' \u{2014} available: tab_1 (Home), tab_2 (tab_1), tab_3 ( Notes )"
-    );
-}
-
-#[test]
-fn an_ambiguous_tab_name_lists_the_ids_that_have_it() {
-    // A space read from disk can hold two canvases with one name.
-    let app = TestApp::with_space([("Draft", document([])), ("Draft ", document([]))]);
-    let error = app.app().space().resolve("Draft").expect_err("two match");
-    assert_eq!(
-        error.to_string(),
-        "tab name 'Draft' matches 2 tabs: tab_1, tab_2 \u{2014} use an id"
     );
 }

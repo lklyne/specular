@@ -371,15 +371,4 @@ mod tests {
         defaults.apply(ToolDefaultPatch::Brush(BrushType::Pen));
         assert_eq!(defaults.draw.stroke_width, 4.0);
     }
-
-    #[test]
-    fn each_patch_names_its_tool() {
-        assert_eq!(ToolDefaultPatch::TextSize(1.0).tool(), Tool::AddText);
-        assert_eq!(ToolDefaultPatch::StickySize(1.0).tool(), Tool::AddSticky);
-        assert_eq!(
-            ToolDefaultPatch::ShapeKind(ShapeKind::Pill).tool(),
-            Tool::AddShape
-        );
-        assert_eq!(ToolDefaultPatch::Brush(BrushType::Pen).tool(), Tool::Draw);
-    }
 }

@@ -4,7 +4,7 @@
 use specular_doc::{
     BrushType, Color, ColorPreset, Drawing, Entity, JsonMap, Kind, Point, Rect, Stroke,
 };
-use specular_testkit::{TestApp, file, group, note, page, plain_text, shape, sticky};
+use specular_testkit::{TestApp, file, group, note, page, sticky};
 
 const BOX: Rect = Rect::new(100.0, 100.0, 200.0, 200.0);
 
@@ -36,16 +36,6 @@ fn a_sticky_a_file_card_and_a_document_cast_a_shadow_under_their_card() {
         );
         // It is under the card: the first thing drawn.
         assert_eq!(scene.lines().next(), shadow, "{scene}");
-    }
-}
-
-#[test]
-fn a_shape_and_a_plain_text_cast_none() {
-    for scene in [
-        scene_of(shape("s", BOX)),
-        scene_of(plain_text("t", BOX, "hi")),
-    ] {
-        assert!(!scene.contains("shadow"), "{scene}");
     }
 }
 

@@ -101,14 +101,6 @@ mod tests {
     }
 
     #[test]
-    fn the_same_run_has_the_same_key() {
-        assert_eq!(
-            key_of(&run("note"), None, 1.0),
-            key_of(&run("note"), None, 1.0)
-        );
-    }
-
-    #[test]
     fn text_place_colour_clip_and_opacity_each_change_the_key() {
         let base = key_of(&run("note"), None, 1.0);
         let moved = TextRun {

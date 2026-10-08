@@ -108,11 +108,10 @@ mod tests {
         for stored in ["neutral", "1", "6", "#ff00aa", "7"] {
             assert_eq!(Color::parse(stored).as_str(), stored);
         }
-    }
 
-    #[test]
-    fn presets_and_neutral_are_typed() {
-        assert_eq!(Color::parse("3"), Color::Preset(ColorPreset::Yellow));
-        assert_eq!(Color::parse("neutral"), Color::Neutral);
+        {
+            assert_eq!(Color::parse("3"), Color::Preset(ColorPreset::Yellow));
+            assert_eq!(Color::parse("neutral"), Color::Neutral);
+        }
     }
 }

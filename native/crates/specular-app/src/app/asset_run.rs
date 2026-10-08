@@ -86,10 +86,6 @@ mod tests {
         for file in ["../shot.png", "/tmp/shot.png", "assets/../../shot.png"] {
             assert!(destination(Some(&space.0), file).is_err(), "{file}");
         }
-    }
-
-    #[test]
-    fn a_canvas_with_no_file_has_nowhere_to_put_assets() {
         assert!(destination(None, "assets/shot.png").is_err());
     }
 }

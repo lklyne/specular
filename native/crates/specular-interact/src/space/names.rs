@@ -77,12 +77,11 @@ mod tests {
     fn a_file_is_named_after_the_canvas_and_four_characters_of_its_id() {
         let id = CanvasId::new("tab_9f3c1b2a-0000");
         assert_eq!(canvas_file_name("Home page", &id), "Home page-9f3c.canvas");
-    }
 
-    #[test]
-    fn characters_a_file_name_cannot_hold_become_underscores() {
-        let id = CanvasId::new("tab_abcd");
-        assert_eq!(canvas_file_name(" a/b:c? ", &id), "a_b_c_-abcd.canvas");
-        assert_eq!(canvas_file_name("   ", &id), "Untitled-abcd.canvas");
+        {
+            let id = CanvasId::new("tab_abcd");
+            assert_eq!(canvas_file_name(" a/b:c? ", &id), "a_b_c_-abcd.canvas");
+            assert_eq!(canvas_file_name("   ", &id), "Untitled-abcd.canvas");
+        }
     }
 }

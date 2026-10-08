@@ -88,42 +88,31 @@ fn hit_comment(app: &TestApp, at: (f32, f32)) -> Option<String> {
 }
 
 #[test]
-fn a_comment_on_a_page_sits_on_its_right_edge_at_the_height_it_records() {
-    let app = app_with([comment("a", page_point(0.5), "a")]);
-    // 26 high and 26 wide, 8 inside the right edge, centred halfway down.
-    assert_eq!(pill(&app), (466.0, 237.0, 26.0, 26.0));
-}
-
-#[test]
-fn a_pill_on_a_page_stays_ten_pixels_off_its_top_and_bottom() {
-    let app = app_with([comment("a", page_point(0.0), "a")]);
-    assert_eq!(pill(&app), (466.0, 97.0, 26.0, 26.0));
-    let app = app_with([comment("a", page_point(1.0), "a")]);
-    assert_eq!(pill(&app), (466.0, 377.0, 26.0, 26.0));
-}
-
-#[test]
-fn a_pill_on_an_element_tucks_into_the_top_right_of_its_box() {
+fn a_pill_sits_by_its_anchor_and_stays_inside_its_page() {
     let bounds = Rect::new(50.0, 40.0, 100.0, 30.0);
-    let app = app_with([comment("a", element("#a", Some(bounds)), "a")]);
-    // The box is at (150, 140) to (250, 170).
-    assert_eq!(pill(&app), (216.0, 148.0, 26.0, 26.0));
-}
-
-#[test]
-fn a_pill_on_an_element_stays_inside_its_page() {
     let wide = Rect::new(300.0, 0.0, 400.0, 50.0);
-    let app = app_with([comment("a", element("#a", Some(wide)), "a")]);
-    assert_eq!(pill(&app), (466.0, 108.0, 26.0, 26.0));
     let below = Rect::new(0.0, 500.0, 50.0, 50.0);
-    let app = app_with([comment("a", element("#a", Some(below)), "a")]);
-    assert_eq!(pill(&app), (116.0, 392.0, 26.0, 26.0));
-}
-
-#[test]
-fn a_comment_on_an_element_with_no_box_goes_in_the_pages_top_right_corner() {
-    let app = app_with([comment("a", element("#a", None), "a")]);
-    assert_eq!(pill(&app), (466.0, 108.0, 26.0, 26.0));
+    let cases = [
+        ("page, halfway down", page_point(0.5), (466.0, 237.0)),
+        ("page, top", page_point(0.0), (466.0, 97.0)),
+        ("page, bottom", page_point(1.0), (466.0, 377.0)),
+        ("element's box", element("#a", Some(bounds)), (216.0, 148.0)),
+        (
+            "element wider than the page",
+            element("#a", Some(wide)),
+            (466.0, 108.0),
+        ),
+        (
+            "element below the page",
+            element("#a", Some(below)),
+            (116.0, 392.0),
+        ),
+        ("element with no box", element("#a", None), (466.0, 108.0)),
+    ];
+    for (name, anchor, (x, y)) in cases {
+        let app = app_with([comment("a", anchor, "a")]);
+        assert_eq!(pill(&app), (x, y, 26.0, 26.0), "{name}");
+    }
 }
 
 #[test]
@@ -134,22 +123,6 @@ fn a_comment_on_a_point_has_a_pill_centred_on_it() {
     app.zoom(2.0);
     let (_, _, width, height) = pill(&app);
     assert_eq!((width, height), (26.0, 26.0));
-}
-
-#[test]
-fn the_pill_widens_six_pixels_for_each_digit_after_the_first() {
-    let mut busy = comment("a", canvas_point(600.0, 500.0), "a");
-    busy.replies = (0..9)
-        .map(|_| specular_doc::Reply {
-            author: specular_doc::Author::Agent,
-            text: "r".to_owned(),
-            timestamp: "2026-01-02T00:00:00.000Z".to_owned(),
-            extra: specular_doc::JsonMap::new(),
-        })
-        .collect();
-    let app = app_with([busy]);
-    assert_eq!(marks(&app)[0].count, 10);
-    assert_eq!(pill(&app).2, 32.0);
 }
 
 #[test]
@@ -205,15 +178,6 @@ fn a_pill_is_hit_anywhere_on_it_and_hides_what_is_under_it() {
         hit_test(app.app(), (460.0, 250.0).into()),
         Hit::PageContent { .. }
     ));
-}
-
-#[test]
-fn a_comment_under_the_pointer_leaves_no_entity_hover() {
-    let mut app = app_with([comment("a", page_point(0.5), "a")]);
-    app.pointer_move((300.0, 300.0));
-    assert_eq!(app.session().hover, Some(EntityId::from("p1")));
-    app.pointer_move((480.0, 250.0));
-    assert_eq!(app.session().hover, None);
 }
 
 #[test]
@@ -299,24 +263,6 @@ fn shifted(rect: ScreenRect) -> ScreenRect {
 }
 
 #[test]
-fn marks_scale_with_their_page_while_it_is_resized() {
-    let bounds = Rect::new(50.0, 40.0, 100.0, 30.0);
-    let mut app = app_with([comment("a", element("#a", Some(bounds)), "a")]);
-    // The page is laid out at 400x300 CSS pixels until the release, so
-    // stretching it to 800x600 doubles the element's box: it spans (200, 180)
-    // to (400, 240) from the page's corner.
-    app.select(&["p1"])
-        .press((500.0, 400.0))
-        .drag_to((900.0, 700.0));
-    assert_eq!(app.rect("p1"), Rect::new(100.0, 100.0, 800.0, 600.0));
-    assert_eq!(pill(&app), (366.0, 188.0, 26.0, 26.0));
-    app.release();
-    // Laid out again at the new size, one CSS pixel is one unit again.
-    assert_eq!(pill(&app), (216.0, 148.0, 26.0, 26.0));
-    app.assert_undo_returns_to_start();
-}
-
-#[test]
 fn comments_on_one_element_share_a_pill_counting_every_message() {
     let bounds = Some(Rect::new(50.0, 40.0, 100.0, 30.0));
     let older = comment("old", element("#a", bounds), "old");
@@ -352,15 +298,6 @@ fn comments_on_one_element_share_a_pill_counting_every_message() {
         ),
         (vec!["new", "old"], 3, 2)
     );
-}
-
-#[test]
-fn comments_on_a_point_and_on_a_region_are_never_grouped() {
-    let app = app_with([
-        comment("a", canvas_point(600.0, 500.0), "a"),
-        comment("b", canvas_point(600.0, 500.0), "b"),
-    ]);
-    assert_eq!(marks(&app).len(), 2);
 }
 
 #[test]

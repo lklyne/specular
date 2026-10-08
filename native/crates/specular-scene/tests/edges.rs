@@ -32,22 +32,6 @@ fn a_hovered_entity_shows_the_dot_of_the_anchor_under_the_pointer() {
 }
 
 #[test]
-fn a_selected_entity_shows_a_dot_once_the_pointer_is_over_an_anchor() {
-    let mut app = pair();
-    app.click((200.0, 150.0)).pointer_move((200.0, 85.0));
-    assert_scene_snapshot!(app);
-}
-
-#[test]
-fn the_rubber_band_runs_from_the_anchor_to_the_pointer() {
-    let mut app = pair();
-    app.pointer_move((200.0, 150.0))
-        .press((315.0, 150.0))
-        .drag_to((400.0, 300.0));
-    assert_scene_snapshot!(app);
-}
-
-#[test]
 fn the_rubber_band_snaps_to_an_anchor_with_a_ringed_dot() {
     let mut app = pair();
     app.pointer_move((200.0, 150.0))

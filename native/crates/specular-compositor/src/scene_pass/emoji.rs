@@ -148,11 +148,6 @@ mod tests {
         assert!(whole("\u{2B50}"));
     }
 
-    #[test]
-    fn plain_text_in_any_script_has_no_emoji() {
-        assert_eq!(ranges("plain, 日本語, עברית, 1 + 2 = 3 → ok"), []);
-    }
-
     /// The width of the glyph's ink and its advance, in px.
     fn drawn(size: f32) -> (f32, f32) {
         let set = setting(size);

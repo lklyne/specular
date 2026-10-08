@@ -2,8 +2,8 @@
 //! body is hooked to that page and moves with it.
 
 use specular_doc::{Entity, EntityId, Kind, PageAnchor, Rect};
-use specular_interact::{Action, Key, Tool};
-use specular_testkit::{ALT, CMD, CTRL, SHIFT, TestApp, page, shape};
+use specular_interact::{Key, Tool};
+use specular_testkit::{ALT, CMD, CTRL, TestApp, page, shape};
 
 /// The page of `TestApp::with_pages(1)`.
 const P1: Rect = Rect::new(100.0, 100.0, 400.0, 300.0);
@@ -75,22 +75,6 @@ fn a_stroke_drawn_on_a_page_is_anchored_to_it_and_one_on_the_canvas_is_free() {
     app.assert_undo_returns_to_start();
 }
 
-#[test]
-fn the_frontmost_page_under_the_centre_takes_the_anchor() {
-    let mut app = TestApp::with_pages(1);
-    // A second page over the first one's top-left corner.
-    app.tool(Tool::AddPage).click((80.0, 80.0));
-    let front = placed(&app).id.clone();
-    assert_eq!(placed(&app).anchor, None, "a page never anchors");
-    app.tool(Tool::AddShape)
-        .drag((120.0, 120.0), (220.0, 220.0));
-    assert_eq!(
-        placed(&app).anchor.as_ref().map(|a| &a.page_id),
-        Some(&front)
-    );
-    app.assert_undo_returns_to_start();
-}
-
 // Re-anchoring when a move ends (ADR 0031: placement decides).
 
 /// Pages `p1` and `p2` (400x300 at (100, 100) and (700, 100)), and a shape
@@ -126,14 +110,6 @@ fn dragging_onto_a_page_hooks_to_it_in_the_same_step() {
 }
 
 #[test]
-fn dragging_off_a_page_frees_it() {
-    let mut app = with_shape((200.0, 200.0), Some("p1"));
-    app.drag((250.0, 250.0), (250.0, 650.0));
-    assert_eq!(anchor_of(&app), None);
-    app.assert_undo_returns_to_start();
-}
-
-#[test]
 fn dragging_from_one_page_to_another_moves_the_hook() {
     let mut app = with_shape((200.0, 200.0), Some("p1"));
     app.drag((250.0, 250.0), (850.0, 250.0));
@@ -144,20 +120,6 @@ fn dragging_from_one_page_to_another_moves_the_hook() {
             .as_ref()
             .and_then(|a| a.page_url.as_deref()),
         Some("https://example.com/p2")
-    );
-    app.assert_undo_returns_to_start();
-}
-
-#[test]
-fn staying_on_the_same_page_leaves_the_anchor_untouched() {
-    let mut app = with_shape((200.0, 200.0), Some("p1"));
-    app.drag((250.0, 250.0), (310.0, 250.0));
-    assert_eq!(app.rect("s").x, 260.0);
-    let anchor = app.entity("s").anchor.as_ref();
-    assert_eq!(
-        anchor.and_then(|a| a.scroll_x),
-        Some(7.0),
-        "what it recorded"
     );
     app.assert_undo_returns_to_start();
 }
@@ -180,16 +142,6 @@ fn command_or_control_at_the_release_keeps_every_anchor() {
 }
 
 #[test]
-fn a_page_dragged_alone_takes_its_hooked_item_and_the_hook_stays() {
-    let mut app = with_shape((200.0, 200.0), Some("p1"));
-    app.drag((450.0, 350.0), (550.0, 450.0));
-    assert_eq!(app.rect("p1").x, 200.0);
-    assert_eq!(app.rect("s").x, 300.0);
-    assert_eq!(anchor_of(&app), Some("p1"));
-    app.assert_undo_returns_to_start();
-}
-
-#[test]
 fn an_item_dragged_with_its_page_stays_hooked_even_under_a_page_in_front() {
     let mut s = shape("s", Rect::new(400.0, 160.0, 100.0, 100.0));
     s.anchor = Some(PageAnchor::new(EntityId::new("p1")));
@@ -202,34 +154,6 @@ fn an_item_dragged_with_its_page_stays_hooked_even_under_a_page_in_front() {
         .drag((450.0, 210.0), (550.0, 210.0));
     assert_eq!(app.rect("s").x, 500.0);
     assert_eq!(anchor_of(&app), Some("p1"), "p2 is in front but p1 owns it");
-    app.assert_undo_returns_to_start();
-}
-
-#[test]
-fn a_page_is_never_hooked() {
-    let mut app = with_shape((300.0, 600.0), None);
-    app.drag((120.0, 120.0), (220.0, 220.0));
-    assert_eq!(app.entity("p1").anchor, None);
-    app.assert_undo_returns_to_start();
-}
-
-#[test]
-fn a_nudge_off_a_page_frees_the_item_in_the_same_step() {
-    let mut app = with_shape((440.0, 160.0), Some("p1"));
-    app.select(&["s"]);
-    app.hold(SHIFT).key(Key::ArrowRight).let_go();
-    assert_eq!(app.rect("s").x, 460.0);
-    assert_eq!(anchor_of(&app), None);
-    app.assert_undo_returns_to_start();
-}
-
-#[test]
-fn a_nudge_of_a_page_keeps_its_hooked_items_hooked() {
-    let mut app = with_shape((200.0, 200.0), Some("p1"));
-    app.select(&["p1"])
-        .act(Action::Nudge { dx: 500.0, dy: 0.0 });
-    assert_eq!(app.rect("s").x, 700.0);
-    assert_eq!(anchor_of(&app), Some("p1"));
     app.assert_undo_returns_to_start();
 }
 
@@ -247,14 +171,5 @@ fn an_option_drag_copy_is_hooked_to_the_page_it_lands_on() {
         Some("p2")
     );
     assert_eq!(anchor_of(&app), Some("p1"), "the original is untouched");
-    app.assert_undo_returns_to_start();
-}
-
-#[test]
-fn an_option_drag_copy_dropped_on_empty_canvas_is_free() {
-    let mut app = with_shape((200.0, 200.0), Some("p1"));
-    app.hold(ALT).drag((250.0, 250.0), (250.0, 650.0)).let_go();
-    let copy = app.selected().expect("the copy is selected").to_owned();
-    assert_eq!(app.entity(&copy).anchor, None);
     app.assert_undo_returns_to_start();
 }

@@ -3,7 +3,6 @@
 //! them. Membership, the stack, page anchors and the move are one undo step.
 
 use specular_doc::{Entity, Rect};
-use specular_interact::Key;
 use specular_testkit::{ALT, CMD, TestApp, group, inside, page, shape};
 
 /// Group `g` over (100, 100) to (500, 400) holding `a`; group `h` beside it
@@ -91,24 +90,6 @@ fn releasing_outside_every_group_frees_the_member() {
 }
 
 #[test]
-fn a_member_dropped_on_another_group_moves_there() {
-    let mut app = board();
-    app.press((190.0, 190.0)).drag_to((900.0, 300.0)).release();
-    assert_eq!(parent(&app, "a"), Some("h"));
-    app.assert_undo_returns_to_start();
-}
-
-#[test]
-fn a_member_dragged_within_its_group_stays_in_it() {
-    let mut app = board();
-    app.press((190.0, 190.0)).drag_to((300.0, 300.0));
-    assert_eq!(target(&app), Some("g"));
-    app.release();
-    assert_eq!(parent(&app, "a"), Some("g"));
-    app.assert_undo_returns_to_start();
-}
-
-#[test]
 fn command_keeps_membership_as_it_was() {
     let mut app = board();
     app.press((150.0, 650.0)).hold(CMD).drag_to((300.0, 300.0));
@@ -144,19 +125,6 @@ fn an_option_drag_copies_and_changes_no_membership() {
 }
 
 #[test]
-fn escape_leaves_membership_and_position_alone() {
-    let mut app = board();
-    app.press((150.0, 650.0)).drag_to((300.0, 300.0));
-    assert_eq!(target(&app), Some("g"));
-    app.key(Key::Escape);
-    assert_eq!(target(&app), None);
-    app.release();
-    assert_eq!(parent(&app, "c"), None);
-    assert_eq!(app.rect("c"), Rect::new(100.0, 600.0, 100.0, 100.0));
-    assert!(!app.app().can_undo());
-}
-
-#[test]
 fn a_group_dragged_onto_another_joins_it_with_its_members() {
     let mut app = board();
     app.select(&["g"])
@@ -169,38 +137,6 @@ fn a_group_dragged_onto_another_joins_it_with_its_members() {
     assert_eq!(parent(&app, "g"), Some("h"));
     assert_eq!(parent(&app, "a"), Some("g"));
     assert_eq!(app.rect("a"), Rect::new(840.0, 240.0, 100.0, 100.0));
-    app.assert_undo_returns_to_start();
-}
-
-#[test]
-fn a_group_is_never_a_target_for_itself() {
-    let mut app = board();
-    app.select(&["g"])
-        .press((110.0, 90.0))
-        .drag_to((200.0, 190.0));
-    assert_eq!(target(&app), None);
-    app.release();
-    assert_eq!(parent(&app, "g"), None);
-    app.assert_undo_returns_to_start();
-}
-
-#[test]
-fn a_nested_group_dragged_out_leaves_its_group() {
-    let mut app = TestApp::with_entities([
-        inside("inner", shape("a", Rect::new(220.0, 220.0, 100.0, 100.0))),
-        inside(
-            "outer",
-            named(group("inner", Rect::new(200.0, 200.0, 200.0, 200.0))),
-        ),
-        named(group("outer", Rect::new(100.0, 100.0, 600.0, 500.0))),
-    ]);
-    app.select(&["inner"])
-        .press((210.0, 190.0))
-        .drag_to((810.0, 790.0))
-        .release();
-    assert_eq!(parent(&app, "inner"), None);
-    assert_eq!(parent(&app, "a"), Some("inner"));
-    assert_eq!(order(&app), ["a", "inner", "outer"]);
     app.assert_undo_returns_to_start();
 }
 

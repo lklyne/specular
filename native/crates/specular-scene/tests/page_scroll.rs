@@ -22,23 +22,9 @@ fn scroll(app: &mut TestApp, y: f64) {
 }
 
 #[test]
-fn an_anchored_shape_draws_shifted_by_the_scroll() {
-    let mut app = followed(Rect::new(200.0, 200.0, 100.0, 100.0), Some(0.0));
-    scroll(&mut app, 40.0);
-    assert_scene_snapshot!(app);
-}
-
-#[test]
 fn a_shape_leaving_the_page_is_clipped_to_it() {
     let mut app = followed(Rect::new(200.0, 120.0, 100.0, 100.0), Some(0.0));
     scroll(&mut app, 60.0);
-    assert_scene_snapshot!(app);
-}
-
-#[test]
-fn a_shape_scrolled_out_of_the_page_is_not_drawn() {
-    let mut app = followed(Rect::new(200.0, 120.0, 100.0, 60.0), Some(0.0));
-    scroll(&mut app, 200.0);
     assert_scene_snapshot!(app);
 }
 

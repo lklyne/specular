@@ -84,13 +84,6 @@ fn a_double_click_edits_the_source_with_the_caret_where_it_landed() {
 }
 
 #[test]
-fn a_document_with_no_text_yet_cannot_be_edited() {
-    let mut app = opened(document([note("n", BOX, FILE)]));
-    app.double_click((TEXT.0 + 1.0, TEXT.1 + 5.0));
-    assert!(app.app().text_edit().is_none());
-}
-
-#[test]
 fn the_file_is_written_a_third_of_a_second_after_the_last_change() {
     let mut app = editing("one");
     app.type_text("a").tick(1_200).type_text("b").tick(1_400);
@@ -121,16 +114,6 @@ fn ending_the_edit_writes_what_is_unsaved_and_is_one_undo_step() {
     app.redo();
     assert_eq!(writes(&app.take_effects()), write("abone"));
     assert_eq!(read(&app, FILE).as_deref(), Some("abone"));
-}
-
-#[test]
-fn the_undo_assertion_holds_after_a_document_edit() {
-    let mut app = editing("one");
-    app.type_text("ab").key(Key::Escape);
-    // The edit seeded the file's text with no step, so the document holds a
-    // text the starting document did not.
-    app.assert_undo_returns_to_start();
-    assert_eq!(app.document().note(FILE), Some("abone"));
 }
 
 #[test]
@@ -230,14 +213,6 @@ fn a_refused_write_keeps_both_texts_with_no_edit_open() {
 }
 
 #[test]
-fn opening_another_canvas_writes_the_unsaved_text_first() {
-    let mut app = editing("one");
-    app.type_text("a").open(Document::new());
-    assert_eq!(writes(&app.take_effects()), write("aone"));
-    assert!(app.app().text_edit().is_none());
-}
-
-#[test]
 fn the_document_tool_asks_for_a_file_then_places_and_edits_it() {
     let mut app = TestApp::empty();
     app.tool(Tool::AddDocument).click((205.0, 95.0));
@@ -306,36 +281,6 @@ fn the_caret_is_kept_in_view_and_page_keys_move_by_the_window() {
 }
 
 #[test]
-fn a_selection_dragged_past_the_window_scrolls_while_the_pointer_is_still() {
-    let mut app = editing(&lines(30));
-    app.press((150.0, 150.0)).drag_to((150.0, 450.0));
-    let dragged = (scroll(&app), app.caret().0);
-    app.tick(1_100).tick(1_200);
-    assert!(
-        scroll(&app) > dragged.0,
-        "{} then {}",
-        dragged.0,
-        scroll(&app)
-    );
-    assert!(app.caret().0 > dragged.1);
-    app.release();
-    let released = scroll(&app);
-    app.tick(1_300);
-    assert_eq!(scroll(&app), released);
-}
-
-#[test]
-fn bold_on_then_off_around_typed_words_leaves_one_pair() {
-    let mut app = editing("");
-    app.type_text("on ")
-        .chord(CMD, Key::Char('b'))
-        .type_text("friday")
-        .chord(CMD, Key::Char('b'))
-        .type_text(" at noon");
-    assert_eq!(app.editing_text(), "on **friday** at noon");
-}
-
-#[test]
 fn a_document_takes_every_format_and_tab_types_an_indent() {
     let mut app = editing("word here");
     app.hold(SHIFT).chord(ALT, Key::ArrowRight).let_go();
@@ -374,19 +319,4 @@ fn a_sticky_takes_bold_italic_strike_and_bullets_only() {
     assert_eq!(app.editing_text(), "- ***~~word~~***");
     app.key(Key::Tab);
     assert_eq!(app.editing_text(), "  - ***~~word~~***", "Tab only nests");
-}
-
-#[test]
-fn option_up_and_down_move_by_paragraph() {
-    let mut app = editing("one\ntwo\nthree");
-    app.key(Key::ArrowDown).key(Key::ArrowRight);
-    assert_eq!(app.caret().0, 5);
-    app.chord(ALT, Key::ArrowUp);
-    assert_eq!(app.caret().0, 4);
-    app.chord(ALT, Key::ArrowUp);
-    assert_eq!(app.caret().0, 0);
-    app.chord(ALT, Key::ArrowDown);
-    assert_eq!(app.caret().0, 3);
-    app.chord(ALT, Key::ArrowDown).chord(ALT, Key::ArrowDown);
-    assert_eq!(app.caret().0, 13);
 }

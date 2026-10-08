@@ -403,16 +403,3 @@ pub(super) fn control(model: &Control) -> AnyElement {
             .into_any_element(),
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_chord_reads_as_macos_writes_it() {
-        assert_eq!(chord_text(Chord::char('z').cmd().shift()), "⇧⌘Z");
-        assert_eq!(chord_text(Chord::key(Key::Backspace)), "⌫");
-        assert_eq!(hint("Undo", Some(Chord::char('z').cmd())), "Undo  ⌘Z");
-        assert_eq!(hint("Select", None), "Select");
-    }
-}

@@ -94,10 +94,6 @@ mod tests {
         assert_eq!((encoded.width, encoded.height), (2, 1));
         let decoded = image::load_from_memory(encoded.png.as_slice()).unwrap();
         assert_eq!(decoded.to_rgba8().into_raw(), red_then_blue);
-    }
-
-    #[test]
-    fn pixels_that_do_not_fill_the_size_are_not_an_image() {
         assert!(encode(&pixels(2, 2, vec![0; 4])).is_none());
     }
 

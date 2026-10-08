@@ -299,30 +299,28 @@ mod tests {
             delta(DVec2::new(33.0, -8.0), ANCHOR, true, false),
             DVec2::new(35.0, 0.0)
         );
-    }
 
-    #[test]
-    fn ink_follows_the_pointer_exactly() {
-        assert_eq!(
-            delta(DVec2::new(33.0, -8.0), ANCHOR, false, false),
-            DVec2::new(33.0, -8.0)
-        );
-    }
+        {
+            assert_eq!(
+                delta(DVec2::new(33.0, -8.0), ANCHOR, false, false),
+                DVec2::new(33.0, -8.0)
+            );
+        }
 
-    #[test]
-    fn shift_keeps_the_axis_the_pointer_took_further() {
-        assert_eq!(
-            delta(DVec2::new(33.0, -8.0), ANCHOR, true, true),
-            DVec2::new(35.0, 0.0)
-        );
-        assert_eq!(
-            delta(DVec2::new(8.0, 33.0), ANCHOR, true, true),
-            DVec2::new(0.0, 40.0)
-        );
-        // A tie goes to horizontal.
-        assert_eq!(
-            delta(DVec2::new(30.0, 30.0), ANCHOR, false, true),
-            DVec2::new(30.0, 0.0)
-        );
+        {
+            assert_eq!(
+                delta(DVec2::new(33.0, -8.0), ANCHOR, true, true),
+                DVec2::new(35.0, 0.0)
+            );
+            assert_eq!(
+                delta(DVec2::new(8.0, 33.0), ANCHOR, true, true),
+                DVec2::new(0.0, 40.0)
+            );
+            // A tie goes to horizontal.
+            assert_eq!(
+                delta(DVec2::new(30.0, 30.0), ANCHOR, false, true),
+                DVec2::new(30.0, 0.0)
+            );
+        }
     }
 }

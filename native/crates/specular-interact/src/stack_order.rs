@@ -171,40 +171,34 @@ mod tests {
     #[test]
     fn a_multi_selection_moves_forward_as_one_block() {
         assert_eq!(moved("abcd", "bc", Move::Forward), "adbc");
-    }
 
-    #[test]
-    fn a_multi_selection_moves_backward_as_one_block() {
-        assert_eq!(moved("abcd", "bc", Move::Backward), "bcad");
-    }
+        {
+            assert_eq!(moved("abcd", "bc", Move::Backward), "bcad");
+        }
 
-    #[test]
-    fn to_front_keeps_the_relative_order() {
-        assert_eq!(moved("abcd", "bd", Move::ToFront), "acbd");
-        assert_eq!(moved("abcd", "db", Move::ToFront), "acbd");
-    }
+        {
+            assert_eq!(moved("abcd", "bd", Move::ToFront), "acbd");
+            assert_eq!(moved("abcd", "db", Move::ToFront), "acbd");
+        }
 
-    #[test]
-    fn to_back_keeps_the_relative_order() {
-        assert_eq!(moved("abcd", "bd", Move::ToBack), "bdac");
-    }
+        {
+            assert_eq!(moved("abcd", "bd", Move::ToBack), "bdac");
+        }
 
-    #[test]
-    fn the_front_item_cannot_go_forward_and_the_back_one_cannot_go_backward() {
-        assert_eq!(moved("abcd", "d", Move::Forward), "abcd");
-        assert_eq!(moved("abcd", "a", Move::Backward), "abcd");
-        assert_eq!(moved("abcd", "cd", Move::Forward), "abcd");
-        assert_eq!(moved("abcd", "ab", Move::Backward), "abcd");
-    }
+        {
+            assert_eq!(moved("abcd", "d", Move::Forward), "abcd");
+            assert_eq!(moved("abcd", "a", Move::Backward), "abcd");
+            assert_eq!(moved("abcd", "cd", Move::Forward), "abcd");
+            assert_eq!(moved("abcd", "ab", Move::Backward), "abcd");
+        }
 
-    #[test]
-    fn a_split_block_gathers_past_one_outsider() {
-        assert_eq!(moved("abcde", "ac", Move::Forward), "bdace");
-    }
+        {
+            assert_eq!(moved("abcde", "ac", Move::Forward), "bdace");
+        }
 
-    #[test]
-    fn ids_not_in_the_order_are_ignored() {
-        assert_eq!(moved("abc", "z", Move::ToFront), "abc");
+        {
+            assert_eq!(moved("abc", "z", Move::ToFront), "abc");
+        }
     }
 
     #[test]

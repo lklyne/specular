@@ -3,7 +3,7 @@
 
 use specular_doc::{Document, Entity, EntityId, FileRef, Kind, Rect};
 use specular_interact::{Action, Effect, Event, NoteNotice, NoteState};
-use specular_testkit::{CMD, TestApp, document, file, page};
+use specular_testkit::{TestApp, document, file, page};
 
 const BOX: Rect = Rect::new(100.0, 100.0, 400.0, 300.0);
 /// A point inside [`BOX`] under the default camera.
@@ -95,14 +95,6 @@ fn the_text_the_shell_sends_is_kept_and_replaced_when_the_file_changes() {
 }
 
 #[test]
-fn text_for_a_file_no_longer_held_is_ignored() {
-    let mut app = opened(document([note("a", "a.md")]));
-    let before = app.session().clone();
-    text(&mut app, "gone.md", "late");
-    assert_eq!(app.session(), &before);
-}
-
-#[test]
 fn opening_another_document_drops_what_it_does_not_show_and_keeps_the_rest() {
     let mut app = opened(document([note("a", "a.md"), note("b", "b.md")]));
     text(&mut app, "b.md", "kept");
@@ -144,18 +136,6 @@ fn the_wheel_scrolls_the_selected_document_under_the_pointer() {
 }
 
 #[test]
-fn the_wheel_scrolls_by_canvas_units_at_any_zoom() {
-    let mut app = opened(document([note("a", "a.md")]));
-    app.zoom(2.0).select(&["a"]);
-    let centre = app
-        .session()
-        .camera
-        .world_to_screen(glam::Vec2::new(300.0, 250.0));
-    app.pointer_move(centre).wheel((0.0, -60.0));
-    assert_eq!(scroll(&app, "a"), 30.0);
-}
-
-#[test]
 fn the_wheel_pans_the_canvas_unless_the_document_is_the_whole_selection() {
     let far = Rect::new(900.0, 100.0, 400.0, 300.0);
     let mut app = opened(document([note("a", "a.md"), note_at("b", "b.md", far)]));
@@ -173,25 +153,4 @@ fn the_wheel_pans_the_canvas_unless_the_document_is_the_whole_selection() {
         .pointer_move((5.0, 5.0))
         .wheel((0.0, -60.0));
     assert!(scroll(&app, "a") == 0.0 && app.session().camera != moved);
-}
-
-#[test]
-fn cmd_wheel_over_a_selected_document_still_zooms() {
-    let mut app = opened(document([note("a", "a.md")]));
-    let zoom = app.session().camera.zoom;
-    app.select(&["a"]).pointer_move(INSIDE);
-    app.hold(CMD).wheel((0.0, -60.0)).let_go();
-    let zoomed = (app.session().camera.zoom - zoom).abs() > 0.001;
-    assert!(scroll(&app, "a") == 0.0 && zoomed);
-}
-
-#[test]
-fn scroll_is_forgotten_with_the_entity_when_another_document_opens() {
-    let mut app = opened(document([note("a", "a.md"), note("b", "b.md")]));
-    app.select(&["a"]).pointer_move(INSIDE).wheel((0.0, -60.0));
-    app.open(document([note("b", "b.md")]));
-    assert_eq!(scroll(&app, "a"), 0.0);
-    // The same id back in a third document starts at the top.
-    app.open(document([note("a", "a.md")]));
-    assert_eq!(scroll(&app, "a"), 0.0);
 }

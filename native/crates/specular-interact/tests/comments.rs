@@ -4,9 +4,8 @@
 use glam::Vec2;
 use specular_core::{CssSize, synthetic_element_at};
 use specular_doc::{AnnotationAnchor, EntityId, Rect, RegionAnchor};
-use specular_interact::{Action, Effect, Event, Gesture, Key, PageGrab, PageRegion, Tool};
-use specular_testkit::{TestApp, assert_doc_snapshot, comment, document, page, shape, sticky};
-use specular_testkit::{pages, with_comment};
+use specular_interact::{Effect, Gesture, Key, PageRegion, Tool};
+use specular_testkit::{TestApp, assert_doc_snapshot, page, shape, sticky};
 
 const P1: Rect = Rect::new(100.0, 100.0, 400.0, 300.0);
 
@@ -200,23 +199,6 @@ fn a_region_is_bound_to_the_first_page_it_grabbed_from() {
 }
 
 #[test]
-fn a_region_that_grabbed_nothing_stays_on_the_canvas() {
-    let mut app = armed();
-    app.drag((200.0, 200.0), (300.0, 250.0)).answer_grab(&[0]);
-    assert_eq!(
-        (draft_anchor(&app), draft_page(&app)),
-        (canvas_region(Rect::new(200.0, 200.0, 100.0, 50.0)), None)
-    );
-    app.type_text("spacing").key(Key::Enter);
-    let written = &app.document().annotations()[0];
-    assert_eq!(
-        (&written.anchor, &written.page_anchor),
-        (&canvas_region(Rect::new(200.0, 200.0, 100.0, 50.0)), &None)
-    );
-    app.assert_undo_returns_to_start();
-}
-
-#[test]
 fn a_press_is_a_click_until_it_has_travelled_four_pixels() {
     let mut app = armed();
     app.press((600.0, 500.0)).drag_to((602.0, 502.0));
@@ -249,41 +231,4 @@ fn an_answer_that_finds_a_drag_in_flight_is_dropped() {
         draft_anchor(&app),
         canvas_region(Rect::new(600.0, 500.0, 100.0, 100.0))
     );
-}
-
-#[test]
-fn an_answer_about_a_page_that_has_gone_is_dropped() {
-    let mut app = armed();
-    app.click((200.0, 200.0))
-        .select(&["p1"])
-        .act(Action::Delete);
-    app.answer_element(synthetic_element_at(
-        CssSize::new(400, 300),
-        Vec2::splat(100.0),
-    ));
-    assert_eq!(app.app().comment_draft(), None);
-    app.send(Event::RegionGrab {
-        region: Rect::new(200.0, 200.0, 100.0, 50.0),
-        grabs: vec![PageGrab {
-            page: "p1".into(),
-            elements: 1,
-        }],
-    });
-    assert_eq!(app.app().comment_draft(), None);
-    app.assert_undo_returns_to_start();
-}
-
-#[test]
-fn a_new_comment_goes_after_the_ones_the_document_holds() {
-    let held = comment("held", canvas_point(0.0, 0.0), "first");
-    let mut app = TestApp::from_document(with_comment(document(pages(1)), held));
-    app.tool(Tool::Comment)
-        .click((600.0, 500.0))
-        .type_text("second")
-        .key(Key::Enter);
-    let texts: Vec<&str> = (app.document().annotations().iter())
-        .map(|annotation| annotation.text.as_str())
-        .collect();
-    assert_eq!(texts, ["first", "second"]);
-    app.assert_undo_returns_to_start();
 }

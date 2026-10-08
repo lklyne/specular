@@ -56,13 +56,10 @@ mod tests {
         );
         let camera = camera_of(&document).unwrap();
         assert_eq!((camera.zoom, camera.pan), (0.5, Vec2::new(-200.0, -100.0)));
-    }
-
-    #[test]
-    fn a_zoom_outside_the_canvas_range_is_clamped() {
-        let document =
-            document(r#"{"nodes":[],"edges":[],"appState":{"zoom":40,"pan":{"x":0,"y":0}}}"#);
-        assert_eq!(camera_of(&document).unwrap().zoom, 3.0);
+        // A zoom outside the canvas range is clamped.
+        let far =
+            self::document(r#"{"nodes":[],"edges":[],"appState":{"zoom":40,"pan":{"x":0,"y":0}}}"#);
+        assert_eq!(camera_of(&far).unwrap().zoom, 3.0);
     }
 
     #[test]
@@ -103,14 +100,10 @@ mod tests {
     #[test]
     fn saving_a_file_without_app_state_adds_one() {
         let camera = Camera::new(Vec2::new(3.0, 4.0), 2.0);
-        let text = canvas_text(&document(r#"{"nodes":[],"edges":[]}"#), camera).unwrap();
+        let bare = document(r#"{"nodes":[],"edges":[]}"#);
+        let text = canvas_text(&bare, camera).unwrap();
         assert_eq!(camera_of(&document(&text)), Some(camera));
-    }
-
-    #[test]
-    fn saving_leaves_the_document_it_was_given_alone() {
-        let document = document(r#"{"nodes":[],"edges":[]}"#);
-        canvas_text(&document, Camera::default()).unwrap();
-        assert!(document.extra().get(APP_STATE).is_none());
+        // The document it was given is left alone.
+        assert!(bare.extra().get(APP_STATE).is_none());
     }
 }

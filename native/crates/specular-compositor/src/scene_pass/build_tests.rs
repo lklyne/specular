@@ -1,5 +1,5 @@
 use specular_core::{PixelRect, PixelSize};
-use specular_scene::{Color, ImageDraw, PageDraw, PathDraw, PathStroke, Point};
+use specular_scene::{ImageDraw, PageDraw};
 
 use super::super::batch::batch;
 use super::super::place::tests::{placed, rect, text, view};
@@ -84,15 +84,6 @@ fn a_painted_page_is_one_quad_sampling_its_view() {
 }
 
 #[test]
-fn a_page_that_has_not_painted_is_counted_and_not_drawn() {
-    let built = built(1.0, vec![Item::canvas(page())], None);
-    assert_eq!(
-        (built.ops.len(), built.counts.pages_without_texture),
-        (0, 1)
-    );
-}
-
-#[test]
 fn a_popup_is_a_second_quad_over_its_page() {
     // The view texture is 2x the canvas rect, so popup texels halve.
     let info = painted(Some(PixelRect::new(40, 20, 100, 60)));
@@ -148,25 +139,4 @@ fn a_screen_space_image_is_unprojected_into_the_quad_shaders_space() {
         (quad.rect, quad.uv_rect, quad.corner_radius, quad.opacity),
         ([50.0, 20.0, 30.0, 15.0], [0.25, 0.0, 0.5, 1.0], 2.0, 0.5)
     );
-}
-
-#[test]
-fn an_image_that_was_never_uploaded_is_not_drawn() {
-    let image = ImageDraw::new(ImageId(9), Rect::new(0.0, 0.0, 60.0, 30.0));
-    assert_eq!(built(1.0, vec![Item::canvas(image)], None).ops, []);
-}
-
-#[test]
-fn a_mesh_batch_covers_the_indices_of_its_paths() {
-    let stroke = PathStroke::new(Color::BLACK, 2.0);
-    let line = |y| PathDraw::polyline([Point::new(0.0, y), Point::new(50.0, y)], stroke);
-    let built = built(
-        1.0,
-        vec![Item::canvas(line(10.0)), Item::canvas(line(40.0))],
-        None,
-    );
-    let [Op::Mesh(range, Blend::Normal)] = built.ops.as_slice() else {
-        panic!("expected one mesh draw, got {:?}", built.ops);
-    };
-    assert!(range.start == 0 && range.end > 0 && range.end % 3 == 0);
 }

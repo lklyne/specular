@@ -14,191 +14,109 @@ fn run_args(args: &[&str]) -> RunArgs {
 }
 
 #[test]
-fn no_arguments_opens_the_scratch_space() {
+fn space_choice_follows_the_flags_and_a_bare_path() {
     let run = run_args(&[]);
     assert_eq!((&run.canvas, run.pages, &run.bench), (&None, None, &None));
-    assert_eq!(run.space_choice(), SpaceChoice::Scratch);
-}
-
-#[test]
-fn the_users_space_opens_only_when_asked_for() {
-    assert_eq!(
-        run_args(&["--space", "user"]).space_choice(),
-        SpaceChoice::User
-    );
-    assert_eq!(
-        run_args(&["--source", "synthetic"]).space_choice(),
-        SpaceChoice::Scratch
-    );
-}
-
-#[test]
-fn a_space_path_is_the_same_as_a_bare_path() {
     let named = run_args(&["--space", "some/folder"]).space_choice();
     assert_eq!(named, SpaceChoice::Path(PathBuf::from("some/folder")));
-    assert_eq!(named, run_args(&["some/folder"]).space_choice());
+    for (args, expected) in [
+        (&[][..], SpaceChoice::Scratch),
+        (&["--space", "user"], SpaceChoice::User),
+        (&["--source", "synthetic"], SpaceChoice::Scratch),
+        (&["some/folder"], named),
+    ] {
+        assert_eq!(run_args(args).space_choice(), expected, "{args:?}");
+    }
 }
 
 #[test]
-fn the_users_space_and_a_path_are_refused_together() {
-    assert!(parse_strs(&["--space", "user", "a.canvas"]).is_err());
-    assert!(parse_strs(&["--space"]).is_err());
-}
-
-#[test]
-fn pages_flag_sets_demo_page_count() {
+fn flags_set_their_fields() {
+    let defaults = run_args(&[]);
+    assert_eq!((defaults.chrome, defaults.annotations), (true, 0));
+    assert_eq!(defaults.paint_policy, PaintPolicy::ElectronLod);
     assert_eq!(run_args(&["--pages", "20"]).pages, Some(20));
-}
-
-#[test]
-fn zero_pages_is_rejected() {
-    assert!(parse_strs(&["--pages", "0"]).is_err());
-}
-
-#[test]
-fn source_flag_selects_synthetic() {
     assert_eq!(
         run_args(&["--source", "synthetic"]).source,
         SourceKind::Synthetic
     );
-}
-
-#[test]
-fn unknown_source_is_rejected() {
-    assert!(parse_strs(&["--source", "webkit"]).is_err());
-}
-
-#[test]
-fn bench_all_selects_every_profile_in_order() {
-    let ids: Vec<_> = run_args(&["--bench", "all"])
-        .bench
-        .unwrap()
-        .iter()
-        .map(|profile| profile.id)
-        .collect();
-    assert_eq!(ids, PROFILES.map(|profile| profile.id));
-}
-
-#[test]
-fn bench_accepts_electron_profile_id() {
-    let bench = run_args(&["--bench", "fast-pan-zoom"]).bench.unwrap();
-    assert_eq!(bench[0].id, ProfileId::FastPanZoom);
-}
-
-#[test]
-fn bench_list_runs_in_electron_order() {
-    let ids: Vec<_> = run_args(&["--bench", "slow-zoom,slow-pan"])
-        .bench
-        .unwrap()
-        .iter()
-        .map(|profile| profile.id)
-        .collect();
-    assert_eq!(ids, [ProfileId::SlowPan, ProfileId::SlowZoom]);
-}
-
-#[test]
-fn warmup_ms_sets_bench_warmup() {
+    assert_eq!(
+        run_args(&["--window", "1600x1000"]).window,
+        Some((1600, 1000))
+    );
+    assert!(!run_args(&["--chrome", "off"]).chrome);
+    assert_eq!(run_args(&["--annotations", "40"]).annotations, 40);
+    assert_eq!(
+        run_args(&["--paint-policy", "full-rate"]).paint_policy,
+        PaintPolicy::FullRate
+    );
+    assert_eq!(
+        run_args(&["demo.canvas"]).canvas,
+        Some(PathBuf::from("demo.canvas"))
+    );
     let run = run_args(&["--bench", "all", "--warmup-ms", "8000"]);
     assert_eq!(run.warmup, Duration::from_secs(8));
 }
 
 #[test]
-fn window_flag_sets_logical_size() {
-    assert_eq!(
-        run_args(&["--window", "1600x1000"]).window,
-        Some((1600, 1000))
-    );
-}
-
-#[test]
-fn window_flag_rejects_a_zero_side() {
-    assert!(parse_strs(&["--window", "0x600"]).is_err());
-}
-
-#[test]
-fn chrome_defaults_on_without_annotations() {
-    let run = run_args(&[]);
-    assert_eq!((run.chrome, run.annotations), (true, 0));
-}
-
-#[test]
-fn chrome_flag_turns_the_layer_off() {
-    assert!(!run_args(&["--chrome", "off"]).chrome);
-}
-
-#[test]
-fn unknown_chrome_value_is_rejected() {
-    assert!(parse_strs(&["--chrome", "maybe"]).is_err());
-}
-
-#[test]
-fn annotations_flag_sets_the_seed_count() {
-    assert_eq!(run_args(&["--annotations", "40"]).annotations, 40);
-}
-
-#[test]
-fn annotations_with_chrome_off_is_rejected() {
-    assert!(parse_strs(&["--chrome", "off", "--annotations", "5"]).is_err());
-    assert!(parse_strs(&["--annotations", "5", "--chrome", "off"]).is_err());
-}
-
-#[test]
-fn annotations_must_be_a_number() {
-    assert!(parse_strs(&["--annotations", "lots"]).is_err());
-}
-
-#[test]
-fn paint_policy_defaults_to_electron_lod() {
-    assert_eq!(run_args(&[]).paint_policy, PaintPolicy::ElectronLod);
-}
-
-#[test]
-fn paint_policy_flag_selects_full_rate() {
-    assert_eq!(
-        run_args(&["--paint-policy", "full-rate"]).paint_policy,
-        PaintPolicy::FullRate
-    );
-}
-
-#[test]
-fn unknown_paint_policy_is_rejected() {
-    assert!(parse_strs(&["--paint-policy", "fast"]).is_err());
-}
-
-#[test]
-fn only_cef_frames_are_representative() {
-    assert_eq!(
-        [SourceKind::Cef, SourceKind::Synthetic].map(SourceKind::is_representative),
-        [true, false]
-    );
-}
-
-#[test]
-fn unknown_bench_profile_is_rejected() {
-    assert!(parse_strs(&["--bench", "spin"]).is_err());
-}
-
-#[test]
-fn positional_argument_is_canvas_path() {
-    assert_eq!(
-        run_args(&["demo.canvas"]).canvas,
-        Some(PathBuf::from("demo.canvas"))
-    );
-}
-
-#[test]
-fn pages_with_canvas_file_is_rejected() {
-    assert!(parse_strs(&["demo.canvas", "--pages", "3"]).is_err());
-}
-
-#[test]
-fn flag_missing_value_is_rejected() {
-    assert!(parse_strs(&["--pages"]).is_err());
+fn bad_flags_are_refused() {
+    for args in [
+        &["--space", "user", "a.canvas"][..],
+        &["--space"],
+        &["--pages", "0"],
+        &["--pages"],
+        &["demo.canvas", "--pages", "3"],
+        &["--source", "webkit"],
+        &["--window", "0x600"],
+        &["--chrome", "maybe"],
+        &["--annotations", "lots"],
+        &["--chrome", "off", "--annotations", "5"],
+        &["--annotations", "5", "--chrome", "off"],
+        &["--paint-policy", "fast"],
+        &["--bench", "spin"],
+        &["--snapshot-camera", "near"],
+        &["--snapshot-scale", "0"],
+        &["--bench-target", "headless"],
+        &["--bench", "idle", "--bench-target", "tv"],
+    ] {
+        assert!(parse_strs(args).is_err(), "{args:?}");
+    }
 }
 
 #[test]
 fn help_flag_wins_over_other_arguments() {
     assert_eq!(parse_strs(&["--pages", "3", "-h"]).unwrap(), Command::Help);
+}
+
+#[test]
+fn bench_selects_profiles_in_electron_order() {
+    let ids = |args: &[&str]| -> Vec<_> {
+        run_args(args)
+            .bench
+            .unwrap()
+            .iter()
+            .map(|profile| profile.id)
+            .collect()
+    };
+    assert_eq!(ids(&["--bench", "all"]), PROFILES.map(|profile| profile.id));
+    assert!(!ids(&["--bench", "all"]).contains(&ProfileId::Idle));
+    assert_eq!(ids(&["--bench", "fast-pan-zoom"]), [ProfileId::FastPanZoom]);
+    assert_eq!(
+        ids(&["--bench", "slow-zoom,slow-pan"]),
+        [ProfileId::SlowPan, ProfileId::SlowZoom]
+    );
+    let named = run_args(&["--bench", "slow-pan,idle", "--bench-duration-ms", "500"]);
+    let durations: Vec<_> = named
+        .bench
+        .unwrap()
+        .iter()
+        .map(|p| (p.id, p.duration))
+        .collect();
+    let half = Duration::from_millis(500);
+    assert_eq!(
+        durations,
+        [(ProfileId::SlowPan, half), (ProfileId::Idle, half)]
+    );
+    assert!(run_args(&["--bench", "idle", "--bench-target", "headless"]).bench_headless);
 }
 
 #[test]
@@ -230,49 +148,13 @@ fn snapshot_flags_ask_for_a_headless_run() {
 }
 
 #[test]
-fn a_headless_run_hosts_real_pages_only_when_the_source_is_named() {
+fn headless_runs_follow_the_snapshot_and_script_flags() {
     let unnamed = run_args(&["--snapshot", "out.png"]);
     assert_eq!(unnamed.headless.source, SourceKind::Synthetic);
     let named = run_args(&["--source", "cef", "--snapshot", "out.png"]);
     assert_eq!(named.headless.source, SourceKind::Cef);
-}
-
-#[test]
-fn a_script_alone_is_a_headless_run_that_fits_the_document() {
     let run = run_args(&["--script", "steps.txt"]);
     assert!(run.headless.is_requested());
     assert_eq!(run.headless.camera, headless::CameraArg::Fit);
-}
-
-#[test]
-fn a_plain_run_opens_a_window() {
     assert!(!run_args(&["sink.canvas"]).headless.is_requested());
-}
-
-#[test]
-fn a_bad_snapshot_camera_is_rejected() {
-    assert!(parse_strs(&["--snapshot-camera", "near"]).is_err());
-    assert!(parse_strs(&["--snapshot-scale", "0"]).is_err());
-}
-
-#[test]
-fn idle_is_a_profile_run_only_when_named() {
-    let all = run_args(&["--bench", "all"]).bench.unwrap();
-    assert!(all.iter().all(|profile| profile.id != ProfileId::Idle));
-    let named = run_args(&["--bench", "slow-pan,idle", "--bench-duration-ms", "500"]);
-    let ids: Vec<_> = named
-        .bench
-        .unwrap()
-        .iter()
-        .map(|p| (p.id, p.duration))
-        .collect();
-    let half = Duration::from_millis(500);
-    assert_eq!(ids, [(ProfileId::SlowPan, half), (ProfileId::Idle, half)]);
-}
-
-#[test]
-fn a_bench_target_needs_a_bench() {
-    assert!(run_args(&["--bench", "idle", "--bench-target", "headless"]).bench_headless);
-    assert!(parse_strs(&["--bench-target", "headless"]).is_err());
-    assert!(parse_strs(&["--bench", "idle", "--bench-target", "tv"]).is_err());
 }

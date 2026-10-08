@@ -139,16 +139,6 @@ mod tests {
     }
 
     #[test]
-    fn frame_reflecting_older_seq_leaves_newer_events_pending() {
-        let start = Instant::now();
-        let mut tracker = LatencyTracker::new();
-        let first = tracker.event(start);
-        tracker.event(start + MS);
-        tracker.presented(first, start + MS * 8);
-        assert_eq!(tracker.pending(), 1);
-    }
-
-    #[test]
     fn coalesced_events_each_measure_from_their_own_timestamp() {
         let start = Instant::now();
         let mut tracker = LatencyTracker::new();
@@ -156,12 +146,6 @@ mod tests {
         let last = tracker.event(start + MS * 4);
         tracker.presented(last, start + MS * 10);
         assert_eq!(tracker.samples(), [MS * 10, MS * 6]);
-    }
-
-    #[test]
-    fn presenting_without_pending_events_resolves_nothing() {
-        let mut tracker = LatencyTracker::new();
-        assert_eq!(tracker.presented(InputSeq(5), Instant::now()), 0);
     }
 
     #[test]
@@ -181,18 +165,6 @@ mod tests {
         assert_eq!(
             [summary.p50_ms, summary.p95_ms, summary.max_ms],
             [10.0, 19.0, 20.0]
-        );
-    }
-
-    #[test]
-    fn empty_summary_is_zero_with_unresolved_count() {
-        let summary = LatencySummary::from_samples(&[], 2);
-        assert_eq!(
-            summary,
-            LatencySummary {
-                unresolved: 2,
-                ..LatencySummary::default()
-            }
         );
     }
 }

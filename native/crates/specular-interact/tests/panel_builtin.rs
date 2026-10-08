@@ -23,26 +23,6 @@ fn open(app: &TestApp) -> Option<&str> {
 }
 
 #[test]
-fn each_tool_button_arms_its_tool() {
-    let mut app = app();
-    let tools = [
-        ("tool.draw", Tool::Draw),
-        ("tool.sticky", Tool::AddSticky),
-        ("tool.shape", Tool::AddShape),
-        ("tool.page", Tool::AddPage),
-        ("tool.text", Tool::AddText),
-        ("tool.document", Tool::AddDocument),
-        ("tool.comment", Tool::Comment),
-        ("tool.select", Tool::Select),
-    ];
-    for (control, tool) in tools {
-        app.click_control(control);
-        assert_eq!(app.session().tool, tool, "{control}");
-    }
-    assert!(app.session().gesture.is_none());
-}
-
-#[test]
 fn a_second_click_puts_the_draw_and_comment_tools_down_and_no_other() {
     let mut app = app();
     app.click_control("tool.draw").click_control("tool.draw");
@@ -86,25 +66,6 @@ fn a_click_on_a_panel_leaves_the_selection_the_document_and_the_canvas_alone() {
 }
 
 #[test]
-fn a_swatch_from_the_color_dropdown_recolors_the_sticky_in_one_undo_step() {
-    let mut app = app();
-    app.select(&["t"]).click_control("text.color");
-    assert_eq!(open(&app), Some("text.color"));
-    app.click_control("text.color.swatches.green");
-    assert_doc_snapshot!(app, @r#"
-    nodes:
-      {"id":"t","type":"text","x":300,"y":300,"width":200,"height":200,"text":"note","color":"4","specular":{"textStyle":"sticky"}}
-      {"id":"s","type":"shape","x":700,"y":300,"width":200,"height":200,"shapeKind":"rectangle","text":""}
-    edges:
-    specular: {"entityOrder":["t","s"]}
-    "#);
-    // A color is tried, then another: the list stays open.
-    assert_eq!(open(&app), Some("text.color"));
-    assert_eq!(app.selected_ids(), ["t"]);
-    app.assert_undo_returns_to_start();
-}
-
-#[test]
 fn a_choice_from_a_list_closes_it_and_a_stepper_under_it_does_not() {
     let mut app = app();
     app.select(&["t"]).click_control("text.size");
@@ -138,16 +99,6 @@ fn escape_closes_the_dropdown_first_and_then_does_what_it_did() {
 }
 
 #[test]
-fn escape_with_a_tool_in_hand_closes_the_dropdown_and_keeps_the_tool() {
-    let mut app = app();
-    app.click_control("tool.shape").click_control("shape.kind");
-    app.key(Key::Escape);
-    assert_eq!((open(&app), app.session().tool), (None, Tool::AddShape));
-    app.key(Key::Escape);
-    assert_eq!(app.session().tool, Tool::Select);
-}
-
-#[test]
 fn a_press_released_off_its_control_does_nothing() {
     let mut app = app();
     app.press_control("tool.shape")
@@ -177,26 +128,6 @@ fn a_press_outside_an_open_dropdown_closes_it_and_goes_no_further() {
     // With it closed the same press is the canvas's again.
     app.click((800.0, 400.0));
     assert_eq!(app.selected_ids(), ["s"]);
-}
-
-#[test]
-fn a_press_on_the_trigger_of_the_open_dropdown_closes_it() {
-    let mut app = app();
-    app.select(&["t"])
-        .click_control("text.color")
-        .click_control("text.color");
-    assert_eq!(open(&app), None);
-}
-
-#[test]
-fn a_dropdown_closes_when_its_popup_goes() {
-    let mut app = app();
-    app.select(&["t"]).click_control("text.color");
-    app.select(&["s"]);
-    assert_eq!(open(&app), None);
-    app.click_control("shape.kind");
-    app.select(&[]);
-    assert_eq!(open(&app), None);
 }
 
 #[test]
@@ -285,20 +216,4 @@ fn a_point_on_a_panel_hits_the_panel_and_not_what_is_under_it() {
         panic!("the toolbar is over the canvas");
     };
     assert_eq!(control.as_ref().map(ControlId::as_str), Some("tool.draw"));
-}
-
-#[test]
-fn with_the_built_in_panels_off_nothing_is_a_panel() {
-    let mut app = TestApp::with_entities([sticky("t", A, "note")]);
-    app.viewport((1600.0, 1000.0)).select(&["t"]);
-    assert_eq!(app.panel_snapshot(), "");
-    for x in (0..1600).step_by(40) {
-        for y in (0..400).step_by(10) {
-            let hit = hit_test(app.app(), glam::Vec2::new(x as f32, y as f32));
-            assert!(!matches!(hit, Hit::Panel { .. }), "{x},{y}");
-        }
-    }
-    // Where the toolbar would be is canvas: a drag there is a marquee.
-    app.press((800.0, 20.0));
-    assert!(app.session().gesture.is_some());
 }

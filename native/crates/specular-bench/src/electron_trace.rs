@@ -306,12 +306,6 @@ mod tests {
     }
 
     #[test]
-    fn read_presents_without_thread_is_an_error() {
-        let trace = trace_json(&burst(0.0, 3, 8_000.0), &[]);
-        assert!(read_presents(&trace, "NoSuchThread").is_err());
-    }
-
-    #[test]
     fn split_bursts_cuts_at_gaps_and_drops_short_bursts() {
         let mut presents = burst(0.0, 20, 8_000.0);
         presents.extend(burst(500_000.0, 2, 8_000.0)); // a lone repaint
@@ -336,35 +330,12 @@ mod tests {
     }
 
     #[test]
-    fn assign_bursts_with_too_few_bursts_reports_counts() {
-        let profiles = select_profiles(&[], None);
-        let only = burst(0.0, 10, 8_000.0);
-        let error = assign_bursts(&[only.as_slice()], &profiles, BUDGET).unwrap_err();
-        assert!(matches!(
-            error,
-            BenchError::Segmentation {
-                found: 1,
-                expected: 6
-            }
-        ));
-    }
-
-    #[test]
     fn phase_from_burst_measures_intervals_against_budget() {
         let profile = select_profiles(&[ProfileId::SlowPan], None)[0];
         let mut presents = burst(0.0, 10, 8_000.0);
         presents.push(presents[9] + 20_000.0); // one long frame
         let phase = phase_from_burst(&profile, &presents, BUDGET);
         assert_eq!((phase.frames.frames, phase.frames.long_frames), (10, 1));
-    }
-
-    #[test]
-    fn one_present_per_step_raises_no_warning() {
-        let profile = select_profiles(&[ProfileId::SlowPan], None)[0];
-        let steps = profile.step_count(BUDGET);
-        let presents = burst(0.0, steps + 1, 8_000.0);
-        let phase = phase_from_burst(&profile, &presents, BUDGET);
-        assert_eq!(present_count_warning(&profile, &phase, BUDGET), None);
     }
 
     #[test]

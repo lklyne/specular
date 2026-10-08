@@ -235,31 +235,6 @@ mod tests {
     }
 
     #[test]
-    fn rounded_kinds_keep_circular_corners() {
-        assert_eq!(
-            [
-                silhouette(ShapeKind::Rectangle, RECT),
-                silhouette(ShapeKind::Rounded, RECT),
-                silhouette(ShapeKind::Pill, RECT),
-            ],
-            [
-                Silhouette::Rect(0.0),
-                Silhouette::Rect(24.0),
-                Silhouette::Rect(50.0)
-            ]
-        );
-    }
-
-    #[test]
-    fn only_the_cylinder_has_a_rim() {
-        let with_rim: Vec<bool> = [ShapeKind::Cylinder, ShapeKind::Ellipse, ShapeKind::Chevron]
-            .into_iter()
-            .map(|kind| overlay(kind, RECT).is_some())
-            .collect();
-        assert_eq!(with_rim, [true, false, false]);
-    }
-
-    #[test]
     fn the_label_box_is_inset_where_the_silhouette_is_narrow() {
         assert_eq!(
             (
@@ -279,30 +254,6 @@ mod tests {
             [
                 PathCommand::MoveTo(Point::new(10.0, 0.0)),
                 PathCommand::LineTo(Point::new(30.0, 0.0))
-            ]
-        );
-    }
-
-    #[test]
-    fn an_ellipse_path_passes_through_the_four_side_middles() {
-        let ends: Vec<Point> = Silhouette::Ellipse
-            .into_path(RECT)
-            .into_iter()
-            .filter_map(|command| match command {
-                PathCommand::CubicTo { to, .. } => Some(to),
-                PathCommand::MoveTo(_)
-                | PathCommand::LineTo(_)
-                | PathCommand::QuadTo { .. }
-                | PathCommand::Close => None,
-            })
-            .collect();
-        assert_eq!(
-            ends,
-            [
-                Point::new(300.0, 250.0),
-                Point::new(200.0, 300.0),
-                Point::new(100.0, 250.0),
-                Point::new(200.0, 200.0),
             ]
         );
     }

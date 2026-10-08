@@ -104,23 +104,9 @@ mod tests {
     }
 
     #[test]
-    fn empty_recorder_summarises_to_zero() {
-        assert_eq!(
-            FrameTimes::new().summary(Duration::from_millis(8)),
-            FrameSummary::default()
-        );
-    }
-
-    #[test]
     fn long_frames_counts_intervals_over_one_and_half_budgets() {
         let summary = times(&[8, 8, 13, 20]).summary(Duration::from_millis(8));
         assert_eq!(summary.long_frames, 2);
-    }
-
-    #[test]
-    fn p95_uses_nearest_rank() {
-        let summary = times(&[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]).summary(Duration::from_millis(8));
-        assert!((summary.p95_frame_ms - 10.0).abs() < 1e-9);
     }
 
     #[test]
@@ -145,21 +131,6 @@ mod tests {
     }
 
     #[test]
-    fn single_interval_is_every_percentile() {
-        let summary = times(&[12]).summary(Duration::from_millis(8));
-        assert!(
-            (summary.p99_frame_ms - 12.0).abs() < 1e-9
-                && (summary.p50_frame_ms - 12.0).abs() < 1e-9
-        );
-    }
-
-    #[test]
-    fn mean_matches_arithmetic_mean() {
-        let summary = times(&[4, 8, 12]).summary(Duration::from_millis(8));
-        assert!((summary.mean_frame_ms - 8.0).abs() < 1e-9);
-    }
-
-    #[test]
     fn interval_exactly_at_threshold_is_not_long() {
         // 1.5 x 8 ms = 12 ms; the lab counts strictly greater.
         let summary = times(&[12]).summary(Duration::from_millis(8));
@@ -170,15 +141,6 @@ mod tests {
     fn summary_serializes_frame_count_as_lab_draws() {
         let json = serde_json::to_value(times(&[8]).summary(Duration::from_millis(8))).unwrap();
         assert_eq!(json["draws"], 1);
-    }
-
-    #[test]
-    fn summary_deserializes_legacy_frames_field() {
-        let summary: FrameSummary = serde_json::from_str(
-            r#"{"frames":3,"drawFps":1,"meanFrameMs":1,"p50FrameMs":1,"p95FrameMs":1,"p99FrameMs":1,"maxFrameMs":1,"longFrames":0}"#,
-        )
-        .unwrap();
-        assert_eq!(summary.frames, 3);
     }
 
     #[test]

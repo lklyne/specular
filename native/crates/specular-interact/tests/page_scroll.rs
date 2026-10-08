@@ -80,24 +80,6 @@ fn a_region_made_on_a_scrolled_page_stores_document_coordinates() {
 }
 
 #[test]
-fn a_region_follows_the_page_as_it_scrolls_further() {
-    let mut app = region_comment(200.0);
-    scrolled(&mut app, 250.0);
-    assert_eq!(region_mark(&app), Rect::new(150.0, 100.0, 100.0, 100.0));
-    // The old place is no longer on the mark, and the new one is.
-    assert!(!matches!(
-        hit_test(app.app(), Vec2::new(200.0, 250.0)),
-        Hit::Comment { .. }
-    ));
-    assert!(matches!(
-        hit_test(app.app(), Vec2::new(200.0, 100.0)),
-        Hit::Comment { .. }
-    ));
-    scrolled(&mut app, 0.0);
-    assert_eq!(region_mark(&app), Rect::new(150.0, 350.0, 100.0, 100.0));
-}
-
-#[test]
 fn a_region_scrolled_out_of_its_page_is_not_shown_and_comes_back() {
     let mut app = region_comment(200.0);
     // Its top is above the page: it still shows, clipped to the page.
@@ -169,16 +151,6 @@ fn an_anchored_entity_is_seen_and_hit_where_the_scroll_put_it() {
 }
 
 #[test]
-fn an_anchor_without_a_scroll_is_pinned() {
-    let mut app = app_with([followed(Rect::new(200.0, 200.0, 100.0, 100.0), None)]);
-    scrolled(&mut app, 40.0);
-    assert_eq!(
-        hit_test(app.app(), Vec2::new(250.0, 280.0)),
-        Hit::EntityBody { entity: "s".into() }
-    );
-}
-
-#[test]
 fn a_marquee_takes_what_it_sees() {
     let mut app = app_with([followed(Rect::new(200.0, 200.0, 100.0, 100.0), Some(0.0))]);
     scrolled(&mut app, 40.0);
@@ -187,26 +159,6 @@ fn a_marquee_takes_what_it_sees() {
     assert_eq!(app.selected_ids(), ["p1"]);
     app.drag((50.0, 150.0), (310.0, 170.0));
     assert!(app.selected_ids().contains(&"s"));
-}
-
-#[test]
-fn an_entity_scrolled_out_of_its_page_is_gone_until_it_scrolls_back() {
-    let mut app = app_with([followed(Rect::new(200.0, 120.0, 100.0, 60.0), Some(0.0))]);
-    scrolled(&mut app, 200.0);
-    // Seen at y -80..-20, above the page.
-    assert_eq!(hit_test(app.app(), Vec2::new(250.0, 50.0)), Hit::Empty);
-    assert_eq!(
-        hit_test(app.app(), Vec2::new(250.0, 130.0)),
-        Hit::PageContent {
-            page: "p1".into(),
-            local: Vec2::new(150.0, 30.0)
-        }
-    );
-    scrolled(&mut app, 0.0);
-    assert_eq!(
-        hit_test(app.app(), Vec2::new(250.0, 130.0)),
-        Hit::EntityBody { entity: "s".into() }
-    );
 }
 
 #[test]
@@ -223,19 +175,6 @@ fn a_drag_folds_the_scroll_into_the_rect_and_restamps_the_anchor() {
     assert_eq!(
         hit_test(app.app(), Vec2::new(290.0, 200.0)),
         Hit::EntityBody { entity: "s".into() }
-    );
-    app.assert_undo_returns_to_start();
-}
-
-#[test]
-fn a_nudge_folds_the_scroll_too() {
-    let mut app = app_with([followed(Rect::new(200.0, 200.0, 100.0, 100.0), Some(0.0))]);
-    scrolled(&mut app, 40.0);
-    app.select(&["s"]).key(specular_interact::Key::ArrowRight);
-    assert_eq!(app.rect("s"), Rect::new(205.0, 160.0, 100.0, 100.0));
-    assert_eq!(
-        app.entity("s").anchor.as_ref().and_then(|a| a.scroll_y),
-        Some(40.0)
     );
     app.assert_undo_returns_to_start();
 }

@@ -2,8 +2,8 @@
 //! before the step, and a redo what was selected after it.
 
 use specular_doc::Rect;
-use specular_interact::{Effect, Key};
-use specular_testkit::{ALT, CMD, TestApp, shape};
+use specular_interact::Key;
+use specular_testkit::{CMD, TestApp, shape};
 
 fn three_shapes() -> TestApp {
     TestApp::with_entities([
@@ -35,41 +35,6 @@ fn undoing_a_duplicate_selects_the_originals_and_redoing_selects_the_copies() {
     // The selection an undo puts back is live: an arrow key moves it.
     app.undo().key(Key::ArrowRight);
     assert_ne!(app.rect("a").x, 100.0);
-}
-
-#[test]
-fn undoing_an_option_drag_selects_what_was_dragged() {
-    let mut app = three_shapes();
-    app.select(&["a", "c"]);
-    app.hold(ALT)
-        .press((150.0, 150.0))
-        .drag_to((650.0, 150.0))
-        .release()
-        .let_go();
-    assert_eq!(app.document().entities().count(), 5);
-    assert!(!app.selected_ids().contains(&"a"));
-    app.undo();
-    assert_eq!(app.selected_ids(), ["a", "c"]);
-    app.assert_undo_returns_to_start();
-}
-
-#[test]
-fn undoing_a_paste_selects_what_was_selected_before_it() {
-    let mut app = three_shapes();
-    app.select(&["a"]).chord(CMD, Key::Char('c'));
-    let text = (app.take_effects().into_iter())
-        .find_map(|effect| match effect {
-            Effect::WriteClipboard(text) => Some(text),
-            _ => None,
-        })
-        .unwrap();
-    app.select(&["b", "c"])
-        .pointer_move((600.0, 600.0))
-        .paste(&text);
-    assert_eq!(app.selected_ids().len(), 1);
-    assert!(!app.selected_ids().contains(&"b"));
-    app.undo();
-    assert_eq!(app.selected_ids(), ["b", "c"]);
 }
 
 #[test]

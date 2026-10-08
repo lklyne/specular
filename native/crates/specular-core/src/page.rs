@@ -90,32 +90,27 @@ mod tests {
             spec.validate(),
             Err(PageSourceError::InvalidSpec(_))
         ));
-    }
 
-    #[test]
-    fn spec_with_zero_width_viewport_is_invalid() {
-        let spec = PageSpec::new("https://example.com/", CssSize::new(0, 10));
-        assert!(spec.validate().is_err());
-    }
+        {
+            let spec = PageSpec::new("https://example.com/", CssSize::new(0, 10));
+            assert!(spec.validate().is_err());
+        }
 
-    #[test]
-    fn default_spec_is_valid() {
-        let spec = PageSpec::new("https://example.com/", CssSize::new(1440, 900));
-        assert!(spec.validate().is_ok());
-    }
+        {
+            let spec = PageSpec::new("https://example.com/", CssSize::new(1440, 900));
+            assert!(spec.validate().is_ok());
+        }
 
-    #[test]
-    fn nan_texture_scale_is_invalid() {
-        assert!(validate_texture_scale(f32::NAN).is_err());
-    }
+        {
+            assert!(validate_texture_scale(f32::NAN).is_err());
+        }
 
-    #[test]
-    fn infinite_texture_scale_is_invalid() {
-        assert!(validate_texture_scale(f32::INFINITY).is_err());
-    }
+        {
+            assert!(validate_texture_scale(f32::INFINITY).is_err());
+        }
 
-    #[test]
-    fn zero_texture_scale_is_invalid() {
-        assert!(validate_texture_scale(0.0).is_err());
+        {
+            assert!(validate_texture_scale(0.0).is_err());
+        }
     }
 }

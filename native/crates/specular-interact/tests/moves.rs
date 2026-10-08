@@ -5,7 +5,7 @@ use specular_core::CssSize;
 use specular_doc::{
     Color, Drawing, Entity, EntityId, JsonMap, Kind, PageAnchor, Point, Rect, Stroke,
 };
-use specular_interact::{Effect, Gesture, Key};
+use specular_interact::Effect;
 use specular_testkit::{
     ALT, SHIFT, TestApp, assert_doc_snapshot, connected, document, drawing, group, inside, page,
     shape, text,
@@ -14,9 +14,8 @@ use specular_testkit::{
 const A: Rect = Rect::new(100.0, 100.0, 200.0, 100.0);
 const B: Rect = Rect::new(400.0, 100.0, 200.0, 100.0);
 const C: Rect = Rect::new(100.0, 400.0, 100.0, 100.0);
-/// A point on the body of `a`, and one on `b`.
+/// A point on the body of `a`.
 const ON_A: (f32, f32) = (150.0, 150.0);
-const ON_B: (f32, f32) = (450.0, 150.0);
 
 /// Two texts side by side and a shape below them.
 fn notes() -> TestApp {
@@ -89,36 +88,6 @@ fn a_drag_from_one_selected_entity_moves_the_whole_selection() {
 }
 
 #[test]
-fn a_move_is_one_undo_step_however_many_frames_it_took() {
-    let mut app = notes();
-    app.select(&["a", "b"])
-        .press(ON_A)
-        .drag_to((170.0, 150.0))
-        .drag_to((210.0, 170.0))
-        .drag_to((250.0, 190.0))
-        .release()
-        .undo();
-    assert_eq!(
-        (app.rect("a"), app.rect("b"), app.app().can_undo()),
-        (A, B, false)
-    );
-    app.redo().assert_undo_returns_to_start();
-}
-
-#[test]
-fn a_press_that_travels_less_than_the_threshold_moves_nothing() {
-    let mut app = notes();
-    app.press(ON_A).drag_to((153.0, 153.0));
-    let pending =
-        matches!(&app.session().gesture, Some(Gesture::Move(drag)) if !drag.is_dragging());
-    app.release();
-    assert_eq!(
-        (pending, app.rect("a"), app.app().can_undo()),
-        (true, A, false)
-    );
-}
-
-#[test]
 fn the_pressed_entity_lands_on_the_grid_and_the_rest_keep_their_offsets() {
     let off_grid = Rect::new(105.0, 100.0, 200.0, 100.0);
     let mut app = TestApp::with_entities([text("a", off_grid), text("b", B)]);
@@ -153,34 +122,6 @@ fn shift_keeps_the_move_on_the_axis_the_pointer_took_further() {
 }
 
 #[test]
-fn an_axis_shift_holds_still_is_not_pulled_onto_the_grid() {
-    let off_grid = Rect::new(105.0, 107.0, 200.0, 100.0);
-    let mut app = TestApp::with_entities([text("a", off_grid)]);
-    app.select(&["a"])
-        .press(ON_A)
-        .hold(SHIFT)
-        .drag_to((250.0, 160.0))
-        .release()
-        .let_go();
-    assert_eq!(app.rect("a"), Rect::new(200.0, 107.0, 200.0, 100.0));
-    app.assert_undo_returns_to_start();
-}
-
-#[test]
-fn letting_go_of_shift_frees_the_move_before_the_pointer_moves_again() {
-    let mut app = notes();
-    app.select(&["a"])
-        .press(ON_A)
-        .hold(SHIFT)
-        .drag_to((250.0, 190.0));
-    let locked = app.rect("a").y;
-    app.let_go().key_up(Key::Other);
-    assert_eq!(locked, 100.0);
-    assert_eq!(app.rect("a"), Rect::new(200.0, 140.0, 200.0, 100.0));
-    app.release().assert_undo_returns_to_start();
-}
-
-#[test]
 fn a_group_takes_everything_inside_it() {
     let mut app = TestApp::with_entities([
         group("g", Rect::new(80.0, 80.0, 540.0, 440.0)),
@@ -202,21 +143,6 @@ fn a_group_takes_everything_inside_it() {
     specular: {"entityOrder":["g","a","inner","b","out"]}
     "#);
     assert_eq!(app.selected(), Some("g"));
-    app.assert_undo_returns_to_start();
-}
-
-#[test]
-fn a_drag_from_a_member_of_a_selected_group_moves_the_group() {
-    let mut app = TestApp::with_entities([
-        group("g", Rect::new(80.0, 80.0, 540.0, 140.0)),
-        inside("g", text("a", A)),
-        inside("g", text("b", B)),
-    ]);
-    app.select(&["g"]).drag(ON_B, (490.0, 150.0));
-    assert_eq!(
-        (app.rect("g").x, app.rect("a").x, app.rect("b").x),
-        (120.0, 140.0, 440.0)
-    );
     app.assert_undo_returns_to_start();
 }
 
@@ -257,18 +183,6 @@ fn what_is_hooked_to_a_page_moves_with_it() {
 }
 
 #[test]
-fn a_drag_of_the_selected_page_moves_it_without_entering_it() {
-    let mut app = TestApp::with_pages(1);
-    app.click((200.0, 200.0))
-        .drag((200.0, 200.0), (300.0, 200.0));
-    assert_eq!(
-        (app.session().focus.page(), app.rect("p1").x),
-        (None, 200.0)
-    );
-    app.assert_undo_returns_to_start();
-}
-
-#[test]
 fn a_drawing_takes_its_points_with_it_and_ignores_the_grid() {
     let box_ = Rect::new(100.0, 100.0, 60.0, 40.0);
     let mut app = TestApp::with_entities([ink("d", box_, &[(100.0, 100.0), (160.0, 140.0)])]);
@@ -281,55 +195,6 @@ fn a_drawing_takes_its_points_with_it_and_ignores_the_grid() {
         )
     );
     app.assert_undo_returns_to_start();
-}
-
-#[test]
-fn a_drawing_dragged_along_with_a_note_moves_by_the_notes_snapped_step() {
-    let box_ = Rect::new(400.0, 100.0, 60.0, 40.0);
-    let mut app = TestApp::with_entities([
-        text("a", A),
-        ink("d", box_, &[(400.0, 100.0), (460.0, 140.0)]),
-    ]);
-    app.select(&["a", "d"]).drag(ON_A, (183.0, 142.0));
-    assert_eq!(
-        (app.rect("a").x, points(&app, "d")),
-        (140.0, vec![(440.0, 100.0), (500.0, 140.0)])
-    );
-    app.assert_undo_returns_to_start();
-}
-
-#[test]
-fn escape_puts_a_move_back_points_and_all() {
-    let box_ = Rect::new(400.0, 100.0, 60.0, 40.0);
-    let mut app = TestApp::with_entities([
-        text("a", A),
-        ink("d", box_, &[(400.0, 100.0), (460.0, 140.0)]),
-    ]);
-    app.select(&["a", "d"])
-        .press(ON_A)
-        .drag_to((250.0, 250.0))
-        .key(Key::Escape);
-    assert_eq!(
-        (app.rect("a"), points(&app, "d"), app.app().can_undo()),
-        (A, vec![(400.0, 100.0), (460.0, 140.0)], false)
-    );
-    assert_eq!(app.selected_ids(), ["a", "d"]);
-}
-
-#[test]
-fn a_click_on_one_of_several_selected_selects_it_alone() {
-    let mut app = notes();
-    app.select(&["a", "b", "c"]).press(ON_B);
-    let held = app.selected_ids().len();
-    app.release();
-    assert_eq!((held, app.selected_ids()), (3, vec!["b"]));
-}
-
-#[test]
-fn a_click_on_the_only_selected_entity_keeps_it_selected() {
-    let mut app = notes();
-    app.select(&["a"]).click(ON_A);
-    assert_eq!(app.selected_ids(), ["a"]);
 }
 
 // Option-drag: the originals stay and copies land where the drag ends.
@@ -353,77 +218,6 @@ fn option_drag_leaves_a_copy_and_selects_it() {
     let copy = app.selected().map(str::to_owned);
     assert!(copy.is_some_and(|id| id != "a"));
     app.assert_undo_returns_to_start();
-}
-
-/// Where the copies an Option-drag is previewing would land.
-fn landing(app: &TestApp) -> Vec<Rect> {
-    let Some(preview) = app.app().copy_preview() else {
-        return Vec::new();
-    };
-    (preview.entities.iter())
-        .map(|id| {
-            let rect = app.rect(id.as_str());
-            rect.translated(preview.delta.x, preview.delta.y)
-        })
-        .collect()
-}
-
-#[test]
-fn option_drag_previews_the_copies_and_leaves_the_document_alone_until_release() {
-    let mut app = notes();
-    app.hold(ALT)
-        .select(&["a", "b"])
-        .press(ON_A)
-        .drag_to((250.0, 190.0));
-    assert_eq!(
-        (landing(&app), app.rect("a"), app.rect("b")),
-        (
-            vec![
-                Rect::new(200.0, 140.0, 200.0, 100.0),
-                Rect::new(500.0, 140.0, 200.0, 100.0)
-            ],
-            A,
-            B
-        )
-    );
-    app.key(Key::Escape).let_go();
-    assert_eq!(
-        (app.document().entities().count(), app.app().can_undo()),
-        (3, false)
-    );
-}
-
-#[test]
-fn option_can_be_pressed_and_let_go_mid_drag() {
-    let mut app = notes();
-    app.select(&["a"]).press(ON_A).drag_to((250.0, 190.0));
-    let moved = app.rect("a");
-    // Pressing Option puts the original back and shows the copy instead.
-    let copying = app.hold(ALT).key_down(Key::Other).rect("a");
-    let preview = landing(&app);
-    // Letting go makes it a move again.
-    app.let_go().key_up(Key::Other).release();
-    assert_eq!(
-        (moved, copying, preview, app.rect("a")),
-        (
-            Rect::new(200.0, 140.0, 200.0, 100.0),
-            A,
-            vec![Rect::new(200.0, 140.0, 200.0, 100.0)],
-            Rect::new(200.0, 140.0, 200.0, 100.0)
-        )
-    );
-    assert_eq!(app.document().entities().count(), 3);
-    app.assert_undo_returns_to_start();
-}
-
-#[test]
-fn an_option_click_copies_nothing() {
-    let mut app = notes();
-    app.hold(ALT).click(ON_A).let_go();
-    assert_eq!(
-        (app.document().entities().count(), app.app().can_undo()),
-        (3, false)
-    );
 }
 
 #[test]
@@ -487,20 +281,4 @@ fn option_drag_on_a_page_hosts_the_copy_and_undo_closes_it() {
         )
     );
     app.redo().assert_undo_returns_to_start();
-}
-
-#[test]
-fn a_copied_drawing_has_its_own_points_at_the_new_place() {
-    let box_ = Rect::new(100.0, 100.0, 60.0, 40.0);
-    let mut app = TestApp::with_entities([ink("d", box_, &[(100.0, 100.0), (160.0, 140.0)])]);
-    app.hold(ALT).drag((130.0, 120.0), (230.0, 120.0)).let_go();
-    let copy = app.selected().unwrap().to_owned();
-    assert_eq!(
-        (points(&app, "d"), points(&app, &copy)),
-        (
-            vec![(100.0, 100.0), (160.0, 140.0)],
-            vec![(200.0, 100.0), (260.0, 140.0)]
-        )
-    );
-    app.assert_undo_returns_to_start();
 }

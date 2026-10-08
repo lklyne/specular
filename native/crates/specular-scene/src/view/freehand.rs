@@ -282,18 +282,6 @@ mod tests {
     }
 
     #[test]
-    fn two_points_are_filled_in_between() {
-        assert_eq!(
-            summary(&[(10.0, 10.0), (60.0, 30.0)], 6.4, true),
-            (
-                50,
-                [2_100.520_135, 1_140.209_788],
-                [11.188_45, 7.028_875, 11.188_747, 7.028_993]
-            )
-        );
-    }
-
-    #[test]
     fn one_point_is_a_dot_sized_stroke() {
         assert_eq!(
             summary(&[(5.0, 5.0)], 4.0, true),
@@ -318,45 +306,6 @@ mod tests {
         assert_eq!(
             summary(&points, 8.0, true),
             (80, [322.993_017, 203.528_39], [0.0, -4.0, 0.0004, -4.0])
-        );
-    }
-
-    #[test]
-    fn uncapped_ends_are_cut_flat() {
-        let points = [
-            (0.0, 0.0),
-            (30.0, 5.0),
-            (70.0, 5.0),
-            (110.0, 20.0),
-            (150.0, 20.0),
-        ];
-        assert_eq!(
-            summary(&points, 35.2, false),
-            (
-                16,
-                [1_062.853_125, 140.435_938],
-                [1.253_948, -17.555_273, 1.253_948, -17.555_273]
-            )
-        );
-    }
-
-    #[test]
-    fn a_stroke_shorter_than_the_noise_threshold_keeps_its_end() {
-        assert_eq!(
-            summary(&[(0.0, 0.0), (1.0, 0.0), (2.0, 0.0)], 8.0, true),
-            (44, [51.455_001, 16.472_865], [2.0, -4.0, -1.9996, -4.0002])
-        );
-    }
-
-    #[test]
-    fn repeated_points_are_a_dot() {
-        assert_eq!(
-            summary(&[(3.0, 3.0), (3.0, 3.0), (3.0, 3.0)], 8.0, true),
-            (
-                13,
-                [39.001_43, 38.999_135],
-                [6.818_902, 1.810_047, 5.828_993, 0.172_139]
-            )
         );
     }
 

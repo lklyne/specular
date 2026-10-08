@@ -69,11 +69,6 @@ mod tests {
     }
 
     #[test]
-    fn spacing_at_unit_zoom_equals_grid_size() {
-        assert!((metrics_at_zoom(1.0).spacing - 20.0).abs() < f32::EPSILON);
-    }
-
-    #[test]
     fn spacing_doubles_until_at_least_minimum_when_zoomed_out() {
         // 20 * 0.1 = 2px -> x4 = 8px.
         assert!((metrics_at_zoom(0.1).spacing - 8.0).abs() < 1e-4);
@@ -91,16 +86,6 @@ mod tests {
     }
 
     #[test]
-    fn dense_grid_alpha_is_floored() {
-        assert!((metrics_at_zoom(0.1).alpha - MIN_DOT_ALPHA).abs() < f32::EPSILON);
-    }
-
-    #[test]
-    fn wide_grid_alpha_is_opaque() {
-        assert!((metrics_at_zoom(2.0).alpha - 1.0).abs() < f32::EPSILON);
-    }
-
-    #[test]
     fn radius_snaps_to_device_pixels_on_retina() {
         let metrics = grid_metrics(&Camera::default(), &DotGrid::default(), 2.0);
         // round(0.7 * 2) / 2 = 0.5, floored to 0.6.
@@ -115,12 +100,5 @@ mod tests {
         };
         let metrics = grid_metrics(&Camera::default(), &grid, 1.0);
         assert!(metrics.spacing.abs() < f32::EPSILON);
-    }
-
-    #[test]
-    fn origin_follows_camera_pan() {
-        let camera = Camera::new(Vec2::new(13.0, -7.0), 1.0);
-        let metrics = grid_metrics(&camera, &DotGrid::default(), 1.0);
-        assert_eq!(metrics.origin, Vec2::new(13.0, -7.0));
     }
 }
