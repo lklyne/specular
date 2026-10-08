@@ -133,6 +133,24 @@ fn window_options(launch: &Launch) -> WindowOptions {
     }
 }
 
+/// Tells the app which of its chrome this shell draws itself.
+fn say_what_the_kit_draws(runtime: &mut Runtime<CanvasSurface>, benching: bool) {
+    // The Kit draws the toolbar and what hangs from it. A popup beside a
+    // canvas item stays in the canvas's own pass, except in a benchmark,
+    // which draws the canvas alone as the winit shell's does.
+    runtime.dispatch(if benching {
+        Event::BuiltinPanels(false)
+    } else {
+        Event::BuiltinCanvasPopups
+    });
+    if !benching {
+        // The Kit draws a right panel, so a comment is written there and
+        // the canvas keeps only its marker.
+        runtime.dispatch(Event::ChatPanel(true));
+    }
+    runtime.dispatch(Event::About(pins::about(runtime.source_name())));
+}
+
 /// Opens the window on `launch` and starts everything that runs with it.
 pub(crate) fn open(launch: Launch, cx: &mut App) -> anyhow::Result<()> {
     // GPUI has made `NSApp` by now, which CEF needs before it starts.
@@ -179,19 +197,7 @@ pub(crate) fn open(launch: Launch, cx: &mut App) -> anyhow::Result<()> {
             "starting the GPUI Kit shell"
         );
         runtime.attach_window(surface);
-        // The Kit draws the toolbar and what hangs from it. A popup beside
-        // a canvas item stays in the canvas's own pass, except in a
-        // benchmark, which draws the canvas alone as the winit shell's does.
-        runtime.dispatch(match bench {
-            Some(_) => Event::BuiltinPanels(false),
-            None => Event::BuiltinCanvasPopups,
-        });
-        if bench.is_none() {
-            // The Kit draws a right panel, so a comment is written there
-            // and the canvas keeps only its marker.
-            runtime.dispatch(Event::ChatPanel(true));
-        }
-        runtime.dispatch(Event::About(pins::about(runtime.source_name())));
+        say_what_the_kit_draws(&mut runtime, bench.is_some());
         runtime.open(opening)?;
         // Finder's file, when the app was launched to open one.
         if let Some(file) = spaces::take_waiting() {
