@@ -119,19 +119,18 @@ fn address_of(input: &str) -> Result<(String, String), String> {
     let page = response.body["pageIds"][0].as_str().unwrap_or_default();
     let group = response.body["groupId"].as_str().unwrap_or_default();
     let document = session.app.document();
-    let Some(Kind::Page(page)) = document
-        .entity(&EntityId::from(page))
-        .map(|e| e.kind.clone())
-    else {
-        panic!("not a page");
+    let url = match document.entity(&EntityId::from(page)).map(|e| &e.kind) {
+        Some(Kind::Page(page)) => page.url.clone(),
+        _ => String::new(),
     };
     let title = document
         .entity(&EntityId::from(group))
         .and_then(|e| e.label.clone());
-    Ok((page.url, title.unwrap_or_default()))
+    Ok((url, title.unwrap_or_default()))
 }
 
 #[test]
+#[expect(clippy::too_many_lines, reason = "one table of addresses")]
 fn breakpoints_make_the_url_whole_the_way_electron_does() {
     let rows = [
         (
@@ -277,6 +276,7 @@ fn breakpoints_make_the_url_whole_the_way_electron_does() {
 }
 
 #[test]
+#[expect(clippy::too_many_lines, reason = "one session of options")]
 fn breakpoints_follow_their_options_and_describe_the_cluster() {
     let mut session = Scripted::empty();
     let post = |session: &mut Scripted, body: Value| {
@@ -457,7 +457,7 @@ fn breakpoints_follow_their_options_and_describe_the_cluster() {
         json!({ "taskKind": "breakpoint_map", "input": { "url": "https://quiet.example/" }, "options": { "focus": false } }),
     );
     assert_eq!(response.status, 200);
-    assert!(session.app.selected_ids().is_empty());
+    assert_eq!(session.app.selected_ids(), [] as [&str; 0]);
 
     for (body, error) in [
         (json!({ "input": {} }), "input.url is required"),

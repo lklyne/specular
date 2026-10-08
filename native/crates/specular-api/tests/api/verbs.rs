@@ -162,7 +162,7 @@ fn focus_fits_the_named_entities_and_selects_the_first() {
         "/camera/focus",
         json!({ "pageIds": ["a"], "bounds": { "x": 0, "y": 0, "width": 500, "height": 400 } }),
     );
-    assert!(session.app.selected_ids().is_empty());
+    assert_eq!(session.app.selected_ids(), [] as [&str; 0]);
 }
 
 #[test]
@@ -440,6 +440,7 @@ fn a_selection_comment_carries_what_it_is_about() {
 }
 
 #[test]
+#[expect(clippy::too_many_lines, reason = "one session of placements")]
 fn new_things_are_placed_clear_of_what_is_there() {
     let mut session = three_notes();
     // Nothing selected: the first free spot from the top-left, a gutter
