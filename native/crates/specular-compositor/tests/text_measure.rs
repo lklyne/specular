@@ -202,6 +202,25 @@ fn editing(text: &str) -> (TestApp, TextLayout) {
 /// and checks the caret goes to the stop on that side.
 fn clicks_land_on_the_nearer_stop(text: &str) {
     let (mut app, layout) = editing(text);
+    // The stops the clicks are checked against are real: inside their own
+    // line, on character boundaries, and the lines stack and cover the text.
+    assert_eq!(
+        layout.lines.last().map(|line| line.range.end),
+        Some(text.len())
+    );
+    for line in &layout.lines {
+        for stop in &line.stops {
+            assert!(
+                line.range.contains(&stop.offset) || stop.offset == line.range.end,
+                "{stop:?} outside {:?} in {text:?}",
+                line.range
+            );
+            assert!(text.is_char_boundary(stop.offset), "{stop:?} in {text:?}");
+        }
+    }
+    for pair in layout.lines.windows(2) {
+        assert_eq!(pair[1].top, pair[0].top + pair[0].height, "{text:?}");
+    }
     let origin = Vec2::new(108.0, 108.0);
     for line in &layout.lines {
         let y = line.top + line.height / 2.0;
@@ -254,9 +273,14 @@ fn the_edited_text_wraps_where_the_measure_says_and_the_note_grows_to_fit() {
         .type_text("x");
     let fitted = app.rect("n").height;
     let typed = format!("{}x", long.trim_end());
-    let frame = app.app().text_frame(&"n".into());
-    let lines = (frame.map(|frame| app.app().text_measure().layout(&typed, &frame.spec)))
-        .map_or(0.0, |layout| layout.height());
+    let frame = app
+        .app()
+        .text_frame(&"n".into())
+        .expect("the note is edited");
+    let layout = app.app().text_measure().layout(&typed, &frame.spec);
+    let lines = layout.height();
+    // Every line is one line height tall.
+    assert_eq!(lines, frame.spec.line_height * layout.lines.len() as f32);
     assert_eq!(fitted, f64::from((lines + 16.0).ceil()));
     assert!(fitted > 200.0);
 }

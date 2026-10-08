@@ -104,3 +104,25 @@ fn text_is_drawn_on_an_srgb_target_and_at_two_pixels_per_point() {
         "{left} {top}"
     );
 }
+
+#[test]
+fn text_keeps_its_colour_on_an_srgb_target() {
+    let Some(mut harness) = Harness::with_format(wgpu::TextureFormat::Rgba8UnormSrgb) else {
+        return;
+    };
+    // Inside a large glyph the ink is the text colour alone, whatever the
+    // blend: a mid grey reads as that grey, not a lighter one.
+    let grey = Color::rgb(128, 128, 128);
+    let text = TextRun::new("MM", Point::new(4.0, 4.0), 40.0, grey);
+    let pixels = harness.render(vec![Item::canvas(text)]);
+    let solid: Vec<u8> = pixels
+        .iter()
+        .filter(|[r, g, b, _]| r == g && g == b)
+        .map(|texel| texel[0])
+        .collect();
+    assert!(
+        !solid.is_empty() && solid.iter().all(|value| value.abs_diff(128) <= 2),
+        "grey ink reads {:?}",
+        solid.iter().max()
+    );
+}

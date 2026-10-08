@@ -326,11 +326,22 @@ fn a_hidpi_frame_draws_and_clips_in_physical_pixels() {
 
 #[test]
 fn an_srgb_target_shows_the_same_colours() {
-    let Some(mut harness) = Harness::with_format(wgpu::TextureFormat::Rgba8UnormSrgb) else {
-        return;
-    };
-    let grey = Color::rgb(128, 128, 128);
-    let pixels = harness.render(vec![Item::canvas(rect(16.0, 16.0, 32.0, 32.0, grey))]);
-    let [r, g, b, _] = pixel(&pixels, 32, 32);
-    assert!(r.abs_diff(128) <= 1 && g.abs_diff(128) <= 1 && b.abs_diff(128) <= 1);
+    // The same mid grey on a target the shader encodes for and on one the
+    // hardware encodes for.
+    for format in [
+        wgpu::TextureFormat::Rgba8Unorm,
+        wgpu::TextureFormat::Rgba8UnormSrgb,
+    ] {
+        let Some(mut harness) = Harness::with_format(format) else {
+            return;
+        };
+        let grey = Color::rgb(128, 128, 128);
+        let pixels = harness.render(vec![Item::canvas(rect(16.0, 16.0, 32.0, 32.0, grey))]);
+        let [r, g, b, _] = pixel(&pixels, 32, 32);
+        assert!(
+            r.abs_diff(128) <= 1 && g.abs_diff(128) <= 1 && b.abs_diff(128) <= 1,
+            "{format:?} shows {:?}",
+            [r, g, b]
+        );
+    }
 }

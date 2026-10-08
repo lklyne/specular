@@ -116,13 +116,15 @@ fn a_multiplied_fill_at_part_alpha_tints_part_way() {
     let Some(mut harness) = Harness::new() else {
         return;
     };
+    // On mid grey, half-covering yellow multiplied keeps red and green and
+    // halves blue; laid over as ordinary paint it would lighten red and green.
     let pixels = harness.render(vec![
-        Item::canvas(rect(8.0, 8.0, 48.0, 48.0, Color::WHITE)),
+        Item::canvas(rect(8.0, 8.0, 48.0, 48.0, Color::rgb(200, 200, 200))),
         Item::canvas(band(16.0, Color::rgba(255, 255, 0, 128))).with_blend(Blend::Multiply),
     ]);
     let [r, g, b, a] = pixel(&pixels, 20, 24);
-    assert_eq!((r, g, a), (255, 255, 255));
-    assert!((120..=135).contains(&b), "blue {b}");
+    assert_eq!((r, g, a), (200, 200, 255));
+    assert!((95..=105).contains(&b), "blue {b}");
 }
 
 /// The page of the band the tests draw through: columns 16 to 48 and rows
