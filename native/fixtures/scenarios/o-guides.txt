@@ -1,0 +1,46 @@
+# canvas: guides.canvas
+# Alignment and distribution guides: a shape dragged level with two others
+# shows the lines along its edges and the measures of the even gaps, a copy
+# lines up with its original, a resize confirms the edge its handle moves,
+# and the lines keep their weight zoomed out. Nothing pulls: the grid does.
+camera 0,0,1
+save 00-start.canvas
+
+# level with left and right, midway: lines top and bottom, two gap measures
+press 450 550
+drag-to 450 250
+snapshot 01-aligned-and-even.png
+# a little off the row: the grid has not put it on the line, so no guides
+drag-to 450 262
+snapshot 02-off-the-line.png
+drag-to 450 250
+release
+save 03-moved.canvas
+key cmd+z
+save 04-move-undone.canvas
+
+# an Option-drag: the copy below lines up with the original's sides
+press 450 550
+hold alt
+drag-to 450 750
+snapshot 05-copy-under-original.png
+hold none
+drag-to 450 550
+release
+
+# a resize: the right handle reaching the tall shape's left edge
+select left
+press 300 250
+drag-to 900 250
+snapshot 06-resize-right-edge.png
+release
+key cmd+z
+
+# zoomed out the lines are still a pixel and the caps the same height
+camera 100,100,0.5
+press 325 375
+drag-to 325 225
+snapshot 07-half-zoom.png
+release
+key cmd+z
+save 08-end.canvas

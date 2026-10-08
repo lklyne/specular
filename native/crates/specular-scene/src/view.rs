@@ -26,6 +26,7 @@ mod file;
 mod frame;
 mod freehand;
 mod group;
+mod guides;
 mod image;
 mod page;
 pub(crate) mod palette;

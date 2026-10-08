@@ -270,6 +270,9 @@ with the task that made it.
 - P3/P4: the context menu is `context_menu(&App, &MenuTarget, at)`, a `PopupModel` of `Control::Choices` at `PopupAnchor::Point`. A right press selects its target first, because native actions act on the selection. Electron's is an OS menu with fewer items; this one adds the Edit items and a menu on empty canvas.
 - P3/P4: arrange is one-shot (`Action::Arrange`, `span-arrange.ts` ported), one undo step. Focus is the camera framing only; Electron's focus session is deferred.
 - P3/P4: the built-in layout is kept in `PanelUi.cache` behind a value stamp of everything cheap to compare, and forgotten at the end of every `update` except idle moves, wheels, pinches and ticks. Hover and press are patched into the kept layout.
+- ARRANGE: guides do not pull. The task asked for snapping within a screen-pixel threshold and a modifier that suppresses it; Electron has neither (ADR 0012, `alignmentGuideDetector(…, tolerance = 0.5)` after `snapToGrid`). The grid stays the only magnet, the tolerance is 0.5 canvas units at every zoom, and Shift's axis lock is the one modifier that takes an axis off the grid.
+- ARRANGE: guides are not stored. `App::guides()` derives them from the gesture's capture of its neighbours and the rects in the document, so there is nothing to clear on release, cancel or undo.
+- ARRANGE: a selection resized by its shared bounds shows no guides, as in Electron, whose resize guides follow one entity.
 
 ## Needs a human at a Mac
 
@@ -924,3 +927,11 @@ One commit a task, in that order. Each part lists what moved or was renamed, for
 - For the next agent: interaction sync skips pages with no origin (`file:`, `data:`), as Electron does, so test it over http. A candidates answer is the whole visible DOM as JSON when the bundle has no unique id; nothing caps it.
 - Gate: fmt, clippy for the workspace and with `specular-app/cef`, `cargo test --workspace` (1246 after the rebase onto cleanup tasks 9 and 10), `fixtures/scenarios/run.sh`. Built with two Sonnet subagents (the locator port, the breakpoints route).
 - Needs a human at a Mac: hover a menu on one page of a set in a window and watch the peers' `:hover`; scroll with a trackpad and judge whether followers need Electron's lerp; press the chain button in the GPUI shell.
+
+### ARRANGE, part A: alignment and distribution guides. See `git log -- native/crates/specular-interact/src/guides.rs`
+
+- `specular-interact/src/guides/`: `alignment_guides` and `distribution_guides`, ported with Electron's unit cases as two tables, and `GuideCapture`, the neighbours a move or a resize takes once at its press: what is in the viewport, not the selection, a group in view standing for its members.
+- `App::guides() -> Guides` for the gesture in flight: a move's rects where they are, an Option-drag's copies with each original as a neighbour, a resize's moving edges only. Empty before a press travels.
+- `specular-scene/src/view/guides.rs` draws them in the session layer, in screen space: a 1 px line in the selection colour, and `#ec4899` 1.5 px measures with 18 px caps in each even gap.
+- Tests: `tests/it/guides.rs` (the grid and guides composing, Shift, the capture, copies, resize, even gaps), one scene snapshot at half zoom, `fixtures/scenarios/o-guides.txt` with seven PNGs read.
+- Left out: the half-second flash of guides after an arrow-key nudge, and leaving the sidebar's width out of the viewport the neighbours are taken from.

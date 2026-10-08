@@ -1,5 +1,6 @@
 //! The session layer, drawn over every entity: the hover border, selection
-//! outlines, the copies an Option-drag is about to leave, resize handles,
+//! outlines, the copies an Option-drag is about to leave, alignment and
+//! distribution guides, resize handles,
 //! the marquee and the comment tool's preview. Apart from those copies it
 //! is all in screen space, so it keeps its pixel size at any zoom.
 
@@ -9,6 +10,7 @@ use specular_interact::{CopyPreview, Corner, HANDLE_SIZE, HandleOwner, OUTLINE_P
 use super::annotations::region_items;
 use super::edge_chrome;
 use super::frame::Frame;
+use super::guides;
 use super::palette;
 use super::shape_path::Silhouette;
 use crate::{
@@ -82,6 +84,8 @@ pub(crate) fn draw(frame: &Frame<'_>, scene: &mut Scene) {
             scene.push(Item::screen(RectDraw::outlined(ring, stroke)));
         }
     }
+
+    guides::draw(frame, scene);
 
     if let Some((owner, bounds)) = app.handles() {
         match owner {

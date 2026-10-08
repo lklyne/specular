@@ -6,6 +6,7 @@ use specular_core::Modifiers;
 use specular_doc::{Command, EdgeId, EntityId, ItemId, Kind, Rect};
 
 use crate::focus::set_focus;
+use crate::guides::{self, GuideCapture, Guides};
 use crate::live::{self, Start};
 use crate::marquee::DRAG_THRESHOLD;
 use crate::scroll_follow::Scrolls;
@@ -40,6 +41,8 @@ pub struct MoveDrag {
     /// group, which takes them out of theirs, and while Option, Command or
     /// Control is held, which leaves membership alone.
     drop_target: Option<EntityId>,
+    /// The neighbours the move can line up with, as the press found them.
+    guides: GuideCapture,
 }
 
 /// What releasing a press that never became a drag does.
@@ -68,6 +71,18 @@ impl MoveDrag {
             entities: self.starts.iter().map(|start| start.id.clone()).collect(),
             delta: self.delta,
         })
+    }
+
+    /// The guides for where the selection is, or for where its copies would
+    /// land.
+    pub(crate) fn guides(&self, app: &App) -> Guides {
+        if !self.dragged {
+            Guides::default()
+        } else if self.copying {
+            self.guides.copy_guides(app, self.delta)
+        } else {
+            self.guides.guides(app, None)
+        }
     }
 }
 
@@ -133,8 +148,10 @@ pub(crate) fn begin(
         Kind::Drawing(_) => false,
         Kind::Page(_) | Kind::Text(_) | Kind::File(_) | Kind::Group(_) | Kind::Shape(_) => true,
     };
-    let starts = live::starts(&app.document, &app.selection_scope().operands);
+    let operands = app.selection_scope().operands;
+    let starts = live::starts(&app.document, &operands);
     Some(MoveDrag {
+        guides: guides::capture(app, &operands, &operands),
         followers: live::followers_of(&app.document, &starts),
         group_rects: group_drop::group_rects(&app.document),
         origin: world,

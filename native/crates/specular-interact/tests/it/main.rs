@@ -23,6 +23,7 @@ mod groups_drag;
 mod groups_enter;
 mod groups_fit;
 mod groups_verbs;
+mod guides;
 mod history_selection;
 mod hit_test;
 mod images;

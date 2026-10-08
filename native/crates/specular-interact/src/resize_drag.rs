@@ -5,6 +5,7 @@ use glam::DVec2;
 use specular_core::Modifiers;
 use specular_doc::{Drawing, EdgeSide, EntityId, Kind, Rect, Text, WidthMode};
 
+use crate::guides::{self, GuideCapture};
 use crate::live::{self, Start};
 use crate::{App, Corner, Effect, Handle, HandleOwner, PagePlacement, caps, edit, resize, strokes};
 
@@ -28,9 +29,16 @@ pub struct ResizeDrag {
     /// The groups above what is resized, refitted around it as the drag
     /// goes.
     followers: Vec<Start>,
+    /// The neighbours the moving edges can line up with, as the press found
+    /// them.
+    guides: GuideCapture,
 }
 
 impl ResizeDrag {
+    pub(crate) fn guide_capture(&self) -> &GuideCapture {
+        &self.guides
+    }
+
     /// What is being resized.
     pub fn owner(&self) -> &HandleOwner {
         &self.owner
@@ -74,7 +82,13 @@ pub(crate) fn begin(
             (scope.bounds?, live::starts(&app.document, &scope.operands))
         }
     };
+    // Neither the selection nor anything inside what is resized is a
+    // neighbour.
+    let resized: Vec<EntityId> = starts.iter().map(|start| start.id.clone()).collect();
+    let mut excluded = app.scope_of(&resized).operands;
+    excluded.extend(app.selection_scope().operands);
     Some(ResizeDrag {
+        guides: guides::capture(app, &excluded, &resized),
         followers: live::followers_of(&app.document, &starts),
         owner,
         handle,

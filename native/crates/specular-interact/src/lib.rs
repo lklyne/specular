@@ -50,6 +50,7 @@ mod grid;
 mod group_drop;
 mod group_fit;
 mod groups;
+mod guides;
 mod handles;
 mod hit;
 mod images;
@@ -123,6 +124,9 @@ pub use event::{Action, CanvasAction, Event, Key, KeyInput, PageNotice, PointerI
 pub use geometry::{ScreenRect, to_canvas_rect};
 pub use gesture::Gesture;
 pub use groups::group_command;
+pub use guides::{
+    AlignmentGuide, DistributionGap, DistributionGuide, GuideAxis, GuideReference, Guides,
+};
 pub use handles::{Corner, HANDLE_SIZE, Handle, HandleOwner, OUTLINE_PADDING};
 pub use hit::{Hit, hit_test, title_scale};
 pub use images::{Image, ImageKey, ImageNotice, ImageState, is_image_file};

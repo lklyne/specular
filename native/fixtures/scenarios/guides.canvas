@@ -1,0 +1,68 @@
+{
+  "nodes": [
+    {
+      "id": "left",
+      "type": "shape",
+      "x": 200,
+      "y": 200,
+      "width": 100,
+      "height": 100,
+      "shapeKind": "rectangle",
+      "text": "",
+      "color": "1",
+      "strokeWidth": 2
+    },
+    {
+      "id": "right",
+      "type": "shape",
+      "x": 600,
+      "y": 200,
+      "width": 100,
+      "height": 100,
+      "shapeKind": "rectangle",
+      "text": "",
+      "color": "1",
+      "strokeWidth": 2
+    },
+    {
+      "id": "tall",
+      "type": "shape",
+      "x": 900,
+      "y": 200,
+      "width": 100,
+      "height": 300,
+      "shapeKind": "rectangle",
+      "text": "",
+      "color": "1",
+      "strokeWidth": 2
+    },
+    {
+      "id": "a",
+      "type": "shape",
+      "x": 400,
+      "y": 500,
+      "width": 100,
+      "height": 100,
+      "shapeKind": "rectangle",
+      "text": "",
+      "color": "1",
+      "strokeWidth": 2
+    }
+  ],
+  "edges": [],
+  "specular": {
+    "entityOrder": [
+      "left",
+      "right",
+      "tall",
+      "a"
+    ]
+  },
+  "appState": {
+    "zoom": 1,
+    "pan": {
+      "x": 0,
+      "y": 0
+    }
+  }
+}
