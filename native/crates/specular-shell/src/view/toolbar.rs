@@ -16,6 +16,7 @@ use specular_interact::{
 use super::controls::hint;
 use super::dropdown::dropdown;
 use super::glyphs::{self, glyph, ink};
+use super::named::mark;
 use super::run;
 use crate::menus::Preferences;
 use crate::theme;
@@ -56,6 +57,7 @@ fn tool(model: &ToolButton) -> impl IntoElement {
         .when(model.active, |this| this.bg(theme::solid(theme::TOOL_FILL)))
         .tooltip(hint(&model.label, model.chord))
         .child(glyph(model.icon, current, tint, model.active, TOOL_GLYPH))
+        .child(mark(&model.id))
         .on_click(move |_, window, cx| run(&action, window, cx))
 }
 
@@ -99,6 +101,7 @@ fn sidebar_button(model: &SidebarButton) -> impl IntoElement {
         .rounded(px(6.0))
         .tooltip(hint(&model.label, None))
         .child(glyph(model.icon, current, None, false, 16.0))
+        .child(mark(&model.id))
         .on_click(move |_, window, cx| run(&action, window, cx))
 }
 

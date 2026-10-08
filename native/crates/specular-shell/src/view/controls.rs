@@ -31,6 +31,7 @@ use specular_interact::{
 use super::dropdown::{choices, dropdown};
 use super::field::field;
 use super::glyphs::{self, glyph, ink};
+use super::named::mark;
 use super::run;
 use crate::theme;
 
@@ -126,6 +127,7 @@ fn button(model: &specular_interact::Button) -> AnyElement {
         .tooltip(hint(&model.label, model.chord))
         .disabled(!model.enabled)
         .child(face(&model.face, false))
+        .child(mark(&model.id))
         .on_click(move |_, window, cx| run(&action, window, cx))
         .into_any_element()
 }
@@ -141,6 +143,7 @@ fn toggle(model: &specular_interact::Toggle) -> AnyElement {
         .tooltip(hint(&model.label, model.chord))
         .disabled(!model.enabled)
         .child(face(&model.face, model.on))
+        .child(mark(&model.id))
         .on_click(move |_, window, cx| run(&action, window, cx))
         .into_any_element()
 }
@@ -175,6 +178,7 @@ fn swatch(model: &Swatch, palette: Palette, role: PaintRole, enabled: bool) -> A
         })
         .tooltip(move |window, cx| Tooltip::new(label.clone()).build(window, cx))
         .child(dot(model.color.as_ref(), palette, role, DOT))
+        .child(mark(&model.id))
         .into_any_element()
 }
 
@@ -190,13 +194,17 @@ fn swatches(model: &Swatches) -> AnyElement {
 
 fn stepper(model: &Stepper) -> AnyElement {
     let (decrement, increment) = (model.decrement.clone(), model.increment.clone());
+    // The mark is beside the button and not in it: a Kit button with a
+    // child is no longer drawn as an icon alone.
     let step = |part: &str, icon: IconName, enabled: bool, action: Action| {
-        Button::new(element_id(&model.id.child(part)))
+        let id = model.id.child(part);
+        let button = Button::new(element_id(&id))
             .ghost()
             .xsmall()
             .icon(icon)
             .disabled(!enabled)
-            .on_click(move |_, window, cx| run(&action, window, cx))
+            .on_click(move |_, window, cx| run(&action, window, cx));
+        div().child(button).child(mark(&id))
     };
     h_flex()
         .id(element_id(&model.id))

@@ -9,6 +9,7 @@ use gpui_kit::component::menu::{PopupMenu, PopupMenuItem};
 use gpui_kit::{InteractiveElement as _, ParentElement as _, SharedString, Styled as _, div, px};
 use specular_interact::{Chord, Control, DropdownSection, PopupModel};
 
+use super::named::mark;
 use super::run;
 use crate::theme;
 
@@ -27,6 +28,7 @@ pub(super) fn filled(mut menu: PopupMenu, model: &PopupModel) -> PopupMenu {
         for option in options {
             let action = option.action.clone();
             let id = SharedString::from(option.id.as_str().to_owned());
+            let name = option.id.clone();
             let label = SharedString::from(option.label.to_string());
             let keys = option.chord.map(Chord::text).map(SharedString::from);
             let item = PopupMenuItem::element(move |_, _| {
@@ -42,6 +44,7 @@ pub(super) fn filled(mut menu: PopupMenu, model: &PopupModel) -> PopupMenu {
                             .text_color(theme::tinted(theme::TEXT_MUTED))
                             .child(keys)
                     }))
+                    .child(mark(&name))
             })
             .disabled(!option.enabled)
             .on_click(move |_, window, cx| run(&action, window, cx));

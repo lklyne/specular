@@ -19,6 +19,7 @@ use gpui_kit::{
 use specular_interact::{ControlId, Event, Field, FieldWidth};
 
 use super::focus_canvas;
+use super::named::mark;
 use crate::{canvas, shell};
 
 /// A field being shown: the Kit's input, and the model it was made from.
@@ -129,6 +130,7 @@ pub(super) fn input(model: &Field, window: &mut Window, cx: &mut App) -> AnyElem
         .capture_action(move |_: &Escape, _, cx| end(&id, End::Cancel, cx))
         .tooltip(move |window, cx| Tooltip::new(label.clone()).build(window, cx))
         .child(Input::new(&input).xsmall())
+        .child(mark(&model.id))
         .into_any_element()
 }
 

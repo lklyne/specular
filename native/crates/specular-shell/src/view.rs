@@ -26,6 +26,7 @@ mod field;
 mod glyphs;
 mod ime;
 mod menu;
+mod named;
 mod onboarding;
 mod pick;
 mod popup;
@@ -46,6 +47,7 @@ use gpui_kit::{
 use specular_doc::ItemId;
 use specular_interact::{Action, CanvasAction, Event, SidebarAction};
 
+pub(crate) use self::named::shown as shown_controls;
 use self::slot::Pointer;
 use crate::canvas::{self, Models};
 use crate::surface::WindowAsks;
@@ -156,6 +158,7 @@ impl Render for ShellView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<'_, Self>) -> impl IntoElement {
         // What effects asked of the window is applied by this render.
         self.asks.changed.set(false);
+        named::begin_frame();
         let models = canvas::models();
         let title = self.asks.title.borrow().clone();
         if let Some(model) = models

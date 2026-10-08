@@ -22,6 +22,7 @@ use specular_interact::{
 
 use super::controls::{CONTROL, control, element_id, face};
 use super::glyphs::{glyph, ink};
+use super::named::mark;
 use super::run;
 use crate::canvas;
 use crate::theme;
@@ -85,6 +86,7 @@ fn option(model: &DropdownOption, list: Option<Rows>, dismiss: Dismiss) -> AnyEl
                 })
         })
         .child(face(&model.face, model.selected || menu))
+        .child(mark(&model.id))
         .when(model.selected && menu, |this| {
             this.child(glyph(Icon::Check, ink(theme::TEXT), None, false, 12.0))
         })
@@ -228,7 +230,9 @@ pub(super) fn dropdown(model: &Dropdown, toolbar: bool) -> AnyElement {
         .xsmall()
         .h(px(if toolbar { 28.0 } else { CONTROL }))
         .dropdown_caret(true)
-        .child(face(&model.summary, false));
+        .child(face(&model.summary, false))
+        // The trigger is what the model's name for the dropdown opens.
+        .child(mark(&model.id));
     Popover::new(element_id(&model.id))
         .trigger(trigger)
         .on_open_change(move |open, window, cx| {

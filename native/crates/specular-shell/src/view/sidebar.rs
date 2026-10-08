@@ -25,6 +25,7 @@ use specular_interact::{
 };
 
 use super::glyphs::{glyph, ink};
+use super::named::mark;
 use super::{ShellView, field, menu, pick, run};
 use crate::canvas;
 use crate::theme;
@@ -81,6 +82,7 @@ fn head(model: &SectionHead) -> impl IntoElement {
                 .child(SharedString::from(model.title.clone())),
         )
         .child(small(chevron, theme::TEXT, FOLD))
+        .child(mark(&model.id))
         .on_click(move |_, window, cx| run(&toggle, window, cx))
 }
 
@@ -101,6 +103,7 @@ fn row_shell(id: &ControlId, selected: bool, depth: u8) -> gpui_kit::Stateful<gp
         .when(!selected, |this| {
             this.hover(|this| this.bg(theme::tinted(theme::ROW_HOVER)))
         })
+        .child(mark(id))
 }
 
 fn label(text: &str) -> impl IntoElement {
@@ -130,6 +133,7 @@ fn fold(row: &SidebarRow, toggle: &Action, open: bool) -> impl IntoElement {
         .items_center()
         .justify_center()
         .child(small(chevron, theme::GLYPH_MUTED, FOLD))
+        .child(mark(&row.id.child("toggle")))
         .on_click(move |_, window, cx| {
             cx.stop_propagation();
             run(&toggle, window, cx);
@@ -320,6 +324,7 @@ impl ShellView {
                             .hover(|this| this.bg(theme::tinted(theme::ROW_SELECTED)))
                             .tooltip(|window, cx| Tooltip::new("New canvas").build(window, cx))
                             .child(small(Icon::Plus, theme::TEXT, ICON))
+                            .child(mark(&ControlId::new("sidebar.add")))
                             .on_click(move |_, window, cx| run(&add, window, cx)),
                     ),
             )
