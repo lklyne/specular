@@ -1,11 +1,15 @@
 //! Shaping a [`TextRun`] into a glyphon buffer: its style, the spans set
 //! differently, and the underlines and strikes those spans ask for.
 
+use std::ops::Range;
+
 use glyphon::cosmic_text::{Align, TextDecoration, UnderlineStyle};
 use glyphon::{
     Attrs, Buffer, Color as GlyphColor, Family, FontSystem, Metrics, Shaping, Style, Weight, Wrap,
 };
 use specular_scene::{Color, FontFamily, Rect, Size, SpanStyle, TextAlign, TextRun};
+
+use super::emoji;
 
 /// The thinnest an underline or strike is drawn, as a fraction of the font
 /// size, for a font that reports no thickness.
@@ -50,10 +54,12 @@ pub(crate) fn shape(fonts: &mut FontSystem, run: &TextRun) -> Option<ShapedText>
         Wrap::None
     });
     buffer.set_size(run.wrap_width, None);
-    if run.spans.is_empty() {
+    let emoji = emoji::ranges(&run.text);
+    if run.spans.is_empty() && emoji.is_empty() {
         buffer.set_text(&run.text, &attrs, Shaping::Advanced, align);
     } else {
-        buffer.set_rich_text(pieces(run, &attrs), &attrs, Shaping::Advanced, align);
+        let pieces = with_emoji(run, pieces(run, &attrs), &emoji);
+        buffer.set_rich_text(pieces, &attrs, Shaping::Advanced, align);
     }
     buffer.shape_until_scroll(fonts, false);
     let mut size = measure(&buffer);
@@ -90,6 +96,9 @@ fn style(italic: bool) -> Style {
 /// is skipped, and its text keeps the run's style.
 fn pieces<'a>(run: &'a TextRun, base: &Attrs<'a>) -> Vec<(&'a str, Attrs<'a>)> {
     let text = run.text.as_str();
+    if run.spans.is_empty() {
+        return vec![(text, base.clone())];
+    }
     let mut pieces = Vec::with_capacity(run.spans.len() * 2 + 1);
     let mut at = 0;
     for span in &run.spans {
@@ -112,6 +121,46 @@ fn pieces<'a>(run: &'a TextRun, base: &Attrs<'a>) -> Vec<(&'a str, Attrs<'a>)> {
         pieces.push((&text[at..], base.clone()));
     }
     pieces
+}
+
+/// `pieces` cut again at each emoji range, with the emoji set at their own
+/// size. They keep the line height, so a line with one is no taller.
+fn with_emoji<'a>(
+    run: &TextRun,
+    pieces: Vec<(&'a str, Attrs<'a>)>,
+    emoji: &[Range<usize>],
+) -> Vec<(&'a str, Attrs<'a>)> {
+    if emoji.is_empty() {
+        return pieces;
+    }
+    let set = emoji::setting(run.size);
+    let mut out = Vec::with_capacity(pieces.len() + emoji.len() * 2);
+    let mut start = 0;
+    for (piece, attrs) in pieces {
+        let end = start + piece.len();
+        let mut at = start;
+        for range in emoji {
+            let (from, to) = (range.start.max(at), range.end.min(end));
+            if from >= to {
+                continue;
+            }
+            if from > at {
+                out.push((&piece[at - start..from - start], attrs.clone()));
+            }
+            let coloured = attrs
+                .clone()
+                .family(Family::Name(emoji::FAMILY))
+                .metrics(Metrics::new(set.size, run.line_height))
+                .letter_spacing(set.spacing);
+            out.push((&piece[from - start..to - start], coloured));
+            at = to;
+        }
+        if at < end {
+            out.push((&piece[at - start..], attrs));
+        }
+        start = end;
+    }
+    out
 }
 
 fn span_attrs<'a>(base: &Attrs<'a>, span: &'a SpanStyle) -> Attrs<'a> {

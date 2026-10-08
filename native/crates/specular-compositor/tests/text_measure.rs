@@ -282,3 +282,26 @@ fn the_edited_text_wraps_where_the_measure_says_and_the_note_grows_to_fit() {
     assert_eq!(fitted, f64::from((lines + 16.0).ceil()));
     assert!(fitted > 200.0);
 }
+
+#[test]
+fn an_emoji_is_set_larger_than_its_em_in_small_text_and_at_its_em_in_large() {
+    let measure = GlyphMeasure::new();
+    let advance = |size: f32, text: &str| {
+        let spec = TextSpec {
+            size,
+            line_height: size * 1.5,
+            ..spec(None)
+        };
+        let layout = measure.layout(text, &spec);
+        (layout.width(), layout.height())
+    };
+    // What CoreText measures: 21 px at 16, the em itself from 28 up.
+    for emoji in ["\u{1F389}", "\u{2764}\u{FE0F}", "\u{1F1EF}\u{1F1F5}"] {
+        assert_eq!(advance(16.0, emoji), (21.0, 24.0), "{emoji}");
+        assert_eq!(advance(40.0, emoji), (40.0, 60.0), "{emoji}");
+    }
+    // The text around an emoji is set as it was.
+    let (alone, _) = advance(16.0, "ab");
+    let (around, _) = advance(16.0, "a\u{1F389}b");
+    assert!((around - alone - 21.0).abs() < 0.01, "{around} {alone}");
+}

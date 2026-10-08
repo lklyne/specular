@@ -12,6 +12,7 @@ mod build;
 mod color;
 mod column;
 mod dash;
+mod emoji;
 mod images;
 mod mesh;
 mod mips;
