@@ -22,6 +22,9 @@ use crate::{canvas, shell};
 const CONTROL_WAIT: Duration = Duration::from_millis(1500);
 const CONTROL_POLL: Duration = Duration::from_millis(40);
 
+/// How often a `pan` scrolls: a 120 Hz display's refresh.
+const REFRESH: Duration = Duration::from_micros(8333);
+
 thread_local! {
     /// The modifier flags `hold` set for the pointer steps after it.
     static HELD: Cell<usize> = const { Cell::new(0) };
@@ -89,6 +92,16 @@ fn state() -> String {
             app.can_undo(),
             app.can_redo()
         );
+        for (id, _, _) in app.pages() {
+            if let Some(page) = app.page_state(id) {
+                let scroll = page.scroll;
+                let _ = writeln!(
+                    out,
+                    "page {id} scroll {:.0} {:.0} title {}",
+                    scroll.x, scroll.y, page.title
+                );
+            }
+        }
         for entity in app.document().entities() {
             let rect = entity.rect;
             let _ = writeln!(
@@ -159,25 +172,9 @@ fn show_sidebar(shown: bool) {
     });
 }
 
-/// Does `step`. An error is why it could not be done.
-pub(super) async fn step(
-    step: Do,
-    window: AnyWindowHandle,
-    cx: &mut AsyncApp,
-) -> Result<(), String> {
-    if steps::is_clipboard_key(&step) && !canvas_has_keys(window, cx) {
-        return Err(
-            "a Kit text field has the keys, and its copy, cut and paste use the system \
-             clipboard, which a script must not touch"
-                .to_owned(),
-        );
-    }
+/// Does a step of the pointer, the wheel or the trackpad.
+async fn pointer(step: Do, cx: &AsyncApp) -> Result<(), String> {
     match step {
-        Do::Wait(ms) => {
-            (cx.background_executor())
-                .timer(Duration::from_millis(ms))
-                .await;
-        }
         Do::Move(place) => point(locate(place, cx).await?),
         Do::Press(place) => {
             let at = locate(place, cx).await?;
@@ -210,6 +207,63 @@ pub(super) async fn step(
             mouse(DRAGGED, to, 0);
             mouse(LEFT_UP, to, 1);
         }
+        Do::Scroll(place, by) => {
+            let at = locate(place, cx).await?;
+            POINTER.set(at);
+            let (x, y) = (f64::from(at.x), f64::from(at.y));
+            events::scroll(x, y, by.x as i32, by.y as i32, HELD.get());
+        }
+        Do::Pan(by, ms) => {
+            let at = POINTER.get();
+            let (x, y) = (f64::from(at.x), f64::from(at.y));
+            let until = Instant::now() + Duration::from_millis(ms);
+            while Instant::now() < until {
+                events::scroll(x, y, by.x as i32, by.y as i32, HELD.get());
+                cx.background_executor().timer(REFRESH).await;
+            }
+        }
+        Do::Pinch(delta) => {
+            let at = POINTER.get();
+            let (x, y) = (f64::from(at.x), f64::from(at.y));
+            for (amount, phase) in [(0.0, 1), (f64::from(delta), 2), (0.0, 4)] {
+                events::magnify(x, y, amount, phase);
+            }
+        }
+        // `step` hands over only the steps above.
+        _ => {}
+    }
+    Ok(())
+}
+
+/// Does `step`. An error is why it could not be done.
+pub(super) async fn step(
+    step: Do,
+    window: AnyWindowHandle,
+    cx: &mut AsyncApp,
+) -> Result<(), String> {
+    if steps::is_clipboard_key(&step) && !canvas_has_keys(window, cx) {
+        return Err(
+            "a Kit text field has the keys, and its copy, cut and paste use the system \
+             clipboard, which a script must not touch"
+                .to_owned(),
+        );
+    }
+    match step {
+        Do::Wait(ms) => {
+            (cx.background_executor())
+                .timer(Duration::from_millis(ms))
+                .await;
+        }
+        step @ (Do::Move(_)
+        | Do::Press(_)
+        | Do::DragTo(_)
+        | Do::Release(_)
+        | Do::Click(..)
+        | Do::RightClick(_)
+        | Do::Drag(..)
+        | Do::Scroll(..)
+        | Do::Pan(..)
+        | Do::Pinch(_)) => pointer(step, cx).await?,
         Do::Hold(held) => HELD.set(held),
         Do::Key {
             code,
@@ -222,19 +276,6 @@ pub(super) async fn step(
         Do::Commit(text) => window::insert_text(&text)?,
         Do::Clipboard(text) => {
             canvas::with(|canvas| canvas.runtime.script_clipboard(Some(text)));
-        }
-        Do::Scroll(place, by) => {
-            let at = locate(place, cx).await?;
-            POINTER.set(at);
-            let (x, y) = (f64::from(at.x), f64::from(at.y));
-            events::scroll(x, y, by.x as i32, by.y as i32, HELD.get());
-        }
-        Do::Pinch(delta) => {
-            let at = POINTER.get();
-            let (x, y) = (f64::from(at.x), f64::from(at.y));
-            for (amount, phase) in [(0.0, 1), (f64::from(delta), 2), (0.0, 4)] {
-                events::magnify(x, y, amount, phase);
-            }
         }
         Do::Act(action) => canvas::dispatch(Event::Action(action)),
         Do::Select(ids) => select(&ids),

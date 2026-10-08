@@ -29,6 +29,7 @@
 //! | `keycode CODE [CHARS]`, `cmd-key CODE [CHARS]`, `shift-key CODE [CHARS]` | a key by its `kVK_*` code; Return, Tab, Space, Delete, Escape and the arrows carry their own characters |
 //! | `paste-image PATH` | the right panel's composer takes the image file as a paste would hand it over; the system pasteboard is not touched |
 //! | `keys shift+cmd CODE [CHARS]` | the same with any modifiers |
+//! | `pan DX DY MS` | a scroll by that much every refresh for that long, where the pointer is |
 //! | `drop PATH.. X Y`, `drop PATH.. nowhere` | files dropped at a point, or off the canvas |
 //! | `resize W H` | the window's content resized, its top-left corner kept |
 //! | `full-screen` | into full screen, or back out |

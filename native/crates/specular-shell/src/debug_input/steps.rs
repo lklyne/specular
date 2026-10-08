@@ -61,6 +61,9 @@ pub(super) enum Do {
     Clipboard(String),
     /// A pixel scroll.
     Scroll(Place, Vec2),
+    /// A scroll by this much every refresh for this many milliseconds,
+    /// where the pointer is: a pan to read the frame log under.
+    Pan(Vec2, u64),
     /// A trackpad pinch where the pointer is.
     Pinch(f32),
     Act(Action),
@@ -200,6 +203,9 @@ fn window_step(verb: &str, rest: &str, dialect: Dialect) -> Option<Result<Do, St
         "scroll" => point(0)
             .zip(point(2))
             .map(|(at, by)| Do::Scroll(Place::At(at), by)),
+        "pan" => point(0)
+            .zip(number(2))
+            .map(|(by, ms)| Do::Pan(by, ms as u64)),
         "key" if dialect == Dialect::Inline && number(0).is_some() => coded(0, 0),
         "keycode" => coded(0, 0),
         "cmd-key" => coded(COMMAND, 0),
@@ -358,6 +364,7 @@ mod tests {
                 Do::Drop(vec![PathBuf::from("/a.png")], None),
             ),
             ("resize 1200 800", Do::Resize(Vec2::new(1200.0, 800.0))),
+            ("pan -6 0 2000", Do::Pan(Vec2::new(-6.0, 0.0), 2000)),
             (
                 "menu-choose Edit > Undo",
                 Do::MenuChoose("Edit > Undo".to_owned()),
