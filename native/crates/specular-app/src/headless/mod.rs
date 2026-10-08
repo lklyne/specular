@@ -54,6 +54,8 @@ pub(crate) struct HeadlessArgs {
     pub(crate) script: Option<PathBuf>,
     /// The page backend. Synthetic unless the command line names another.
     pub(crate) source: SourceKind,
+    /// Whether the built-in panels are on when the script starts.
+    pub(crate) panels: bool,
 }
 
 impl Default for HeadlessArgs {
@@ -65,6 +67,7 @@ impl Default for HeadlessArgs {
             camera: CameraArg::Fit,
             script: None,
             source: SourceKind::Synthetic,
+            panels: true,
         }
     }
 }
@@ -98,10 +101,10 @@ pub(crate) fn run(
         None => Vec::new(),
     };
     let mut run = Headless::new(source, canvas, args)?;
-    let viewport = run.viewport;
+    let (viewport, panels) = (run.viewport, args.panels);
     run.drive(|app| {
         app.viewport(viewport)
-            .send(Event::BuiltinPanels(true))
+            .send(Event::BuiltinPanels(panels))
             .send(Event::DocumentOpened(Box::new(document)))
     })?;
     // A script's first step may ask a page something, and a real page has
@@ -216,7 +219,8 @@ impl Headless {
             Step::Click(at) => self.drive(|app| app.pointer_move(at).click(at)),
             Step::DoubleClick(at) => self.drive(|app| app.pointer_move(at).double_click(at)),
             Step::TripleClick(at) => self.drive(|app| app.pointer_move(at).triple_click(at)),
-            Step::RightClick(at) => self.drive(|app| app.right_click(at)),
+            Step::RightClick(at) if self.laid_out() => self.drive(|app| app.right_click(at)),
+            Step::RightClick(at) => self.drive(|app| app.context_menu(at)),
             Step::Drag(from, to) => self.drive(|app| {
                 app.pointer_move(from)
                     .press(from)
@@ -258,14 +262,34 @@ impl Headless {
                 self.drive(|app| app.tick(now))?;
                 self.settle()
             }
-            Step::Control(id) => self.control(&id, |app, at| app.pointer_move(at).click(at)),
-            Step::HoverControl(id) => self.control(&id, Driver::pointer_move),
-            Step::PressControl(id) => self.control(&id, |app, at| app.pointer_move(at).press(at)),
+            Step::Control(id) if self.laid_out() => {
+                self.control(&id, |app, at| app.pointer_move(at).click(at))
+            }
+            Step::HoverControl(id) if self.laid_out() => self.control(&id, Driver::pointer_move),
+            Step::PressControl(id) if self.laid_out() => {
+                self.control(&id, |app, at| app.pointer_move(at).press(at))
+            }
+            Step::Control(id) => {
+                self.app.control(&id)?;
+                self.drive(|app| app)
+            }
+            // With nothing laid out there is nothing to point at or hold
+            // down. The name must still be a control's.
+            Step::HoverControl(id) | Step::PressControl(id) => {
+                specular_interact::control_named(self.app.app(), &id)?;
+                Ok(())
+            }
             Step::Panels(on) => self.drive(|app| app.send(Event::BuiltinPanels(on))),
             Step::Sidebar(shown) => self.drive(|app| app.show_sidebar(shown)),
             Step::Snapshot(path) => self.snapshot(&path),
             Step::Save(path) => self.save(&path),
         }
+    }
+
+    /// Whether the built-in panels are on: a control is then clicked where
+    /// they lay it out. Off, a control is activated from the models.
+    fn laid_out(&self) -> bool {
+        self.app.session().panel.built_in
     }
 
     /// Points at the middle of the control named `id` and does `input`

@@ -17,6 +17,7 @@ mod icon;
 mod id;
 mod model;
 mod models;
+mod named;
 mod popup;
 mod toolbar;
 
@@ -33,5 +34,7 @@ pub use models::{
     Align, Placement, PopupAnchor, PopupModel, SidebarButton, ToolButton, ToolbarModel,
     ToolbarSection,
 };
+pub use named::{UnknownControl, control_named, named_controls};
+pub(crate) use named::{activate as activate_control, open_menu as open_menu_at};
 pub use popup::popup_for;
 pub use toolbar::toolbar;

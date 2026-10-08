@@ -35,7 +35,7 @@ pub(crate) use self::cache::{
     forget as forget_layout, forget_unless as forget_layout_unless, keeps_layout,
 };
 pub use self::context::ContextMenu;
-pub(crate) use self::context::open as open_menu;
+pub(crate) use self::context::{open as open_menu, open_for_press as open_menu_for_press};
 pub(crate) use self::field::{field_box, field_text_area};
 pub use self::metrics::{FIELD_HEIGHT, FIELD_LINE, FIELD_TEXT, TOOLBAR_HEIGHT};
 pub use self::node::{
@@ -44,6 +44,7 @@ pub use self::node::{
 };
 pub(crate) use self::route::{cancel, hit, on_pointer, over, over_field, swallows_scroll, tidy};
 pub(crate) use self::scroll::on_wheel;
+pub(crate) use self::sidebar::picked;
 use super::{Control, ControlId, Dropdown, PopupAnchor, PopupModel, ToolbarModel, ToolbarSection};
 use crate::App;
 

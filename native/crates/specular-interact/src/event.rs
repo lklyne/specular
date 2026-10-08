@@ -142,6 +142,15 @@ pub enum Event {
     SpaceNeeded(SpaceAsk),
     /// A command from a key binding, a menu or a panel.
     Action(Action),
+    /// A click on the control with this name, from a caller that has no
+    /// layout to click in: a script or a test run with the panels off. The
+    /// names are the models' ([`named_controls`](crate::named_controls)),
+    /// and a name no control has does nothing. The keys are the ones held,
+    /// which a row of the sidebar reads.
+    Control(crate::ControlId, Modifiers),
+    /// A right press at this screen point from such a caller: the context
+    /// menu opens for what is there, to be picked from by name.
+    ContextMenu(Vec2),
     /// Turns the built-in toolbar and popup on or off. A shell that draws
     /// them through `specular-scene` sends `true` once at startup; one that
     /// draws the panel models itself never does.

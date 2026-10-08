@@ -219,7 +219,7 @@ pub(super) fn ellipsize(ctx: &Ctx<'_>, text: &str, max: f32) -> String {
 /// command- or control-click adds the row to the selection or takes it out,
 /// and a plain click selects only it (`sidebarSelectionIntent`). Anything
 /// that is not a row of the list is sent as it is.
-pub(super) fn picked(
+pub(crate) fn picked(
     app: &mut App,
     pressed: &ControlId,
     action: Action,

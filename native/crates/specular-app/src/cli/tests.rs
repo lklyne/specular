@@ -133,6 +133,8 @@ fn snapshot_flags_ask_for_a_headless_run() {
         "10,20,3",
         "--snapshot-scale",
         "2",
+        "--script-panels",
+        "off",
         "sink.canvas",
     ]);
     let camera = specular_core::Camera::new(glam::Vec2::new(10.0, 20.0), 3.0);
@@ -146,6 +148,7 @@ fn snapshot_flags_ask_for_a_headless_run() {
             camera: headless::CameraArg::At(camera),
             script: None,
             source: SourceKind::Synthetic,
+            panels: false,
         }
     );
 }
@@ -159,5 +162,6 @@ fn headless_runs_follow_the_snapshot_and_script_flags() {
     let run = run_args(&["--script", "steps.txt"]);
     assert!(run.headless.is_requested());
     assert_eq!(run.headless.camera, headless::CameraArg::Fit);
+    assert!(run.headless.panels);
     assert!(!run_args(&["sink.canvas"]).headless.is_requested());
 }

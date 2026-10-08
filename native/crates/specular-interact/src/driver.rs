@@ -13,7 +13,8 @@ use specular_doc::{Document, EdgeId, EntityId, ItemId};
 
 use crate::{
     Action, App, ClipboardContent, Effect, Event, Key, KeyInput, NoteNotice, PhysicalKey,
-    PointerInput, Session, SidebarAction, TextMeasure, Tool, WheelInput, mac_key_input, update,
+    PointerInput, Session, SidebarAction, TextMeasure, Tool, UnknownControl, WheelInput,
+    control_named, mac_key_input, update,
 };
 
 const NONE: Modifiers = Modifiers {
@@ -396,6 +397,26 @@ impl Driver {
             button: PointerButton::Right,
             click_count: 1,
         })
+    }
+
+    /// Does what a click on the control named `name` does, with the held
+    /// modifiers and no layout: the path a run with the panels off takes.
+    /// A name no control has is an error that lists the ones there are.
+    pub fn control(&mut self, name: &str) -> Result<&mut Self, UnknownControl> {
+        let control = control_named(&self.app, name)?;
+        Ok(self.send(Event::Control(control, self.held)))
+    }
+
+    /// A right click at `at` with no layout: the context menu opens for
+    /// what is there, and a press that opens none goes where a right press
+    /// goes.
+    pub fn context_menu(&mut self, at: impl Into<Vec2>) -> &mut Self {
+        let at = at.into();
+        self.pointer_move(at).send(Event::ContextMenu(at));
+        if self.session().panel.menu.is_none() {
+            self.right_click(at);
+        }
+        self
     }
 
     /// Presses a button other than the left one at `at`.

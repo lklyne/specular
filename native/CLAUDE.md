@@ -196,6 +196,10 @@ fn shift_drag_moves_the_page_along_one_axis() {
   `menu_open()` says whether one is open, and `click_control("menu.duplicate")`
   picks an item (`menu.<label in lower case, dashes>`; a canvas row's menu is
   `sidebar.canvas.<id>.menu.rename|delete`).
+  `app.control("text.color")` does what a click on a control does from the
+  models alone, with no `with_panels`, and `context_menu(at)` is the right
+  click that goes with it. `tests/it/named_controls.rs` holds the two paths
+  to the same result.
 - A page is select-first (ADR 0022). `click` selects it, a second `click`
   or a `double_click` enters it, and only an entered page gets input.
 - The scene snapshot is `assert_scene_snapshot!(app)`, in
@@ -239,7 +243,13 @@ cargo run -p specular-app -- --script steps.txt FILE.canvas
   name wherever it is (`hover-control`, `press-control` likewise), and a
   wrong name fails the run with the names that are shown. A field takes
   `control page.url`, `key cmd+a`, `type ..`, `key enter`. A dropdown's
-  options have names once it is open. `panels off` runs without them.
+  options have names once it is open. `panels off` runs without them, and
+  `--script-panels off` runs a whole script that way. A `control NAME` step
+  then does what the control does from the models alone
+  (`specular_interact::named_controls`, `Event::Control`): an option is
+  named whether or not its list is open, a sidebar row whether or not it is
+  scrolled into view, and `hover-control` and `press-control` only check
+  the name. A raw `click x y` aimed at a panel's pixels lands on the canvas.
 - The clipboard and the Documents a run makes are kept in memory:
   `clipboard some\ntext` is another app copying, `key cmd+v` pastes it,
   and `tool document` then a click makes `Untitled Note.md` with no file.
@@ -247,7 +257,8 @@ cargo run -p specular-app -- --script steps.txt FILE.canvas
 - `fixtures/scenarios/` holds whole sessions as scripts, with a `run.sh`
   that runs them all into `runs/qa/` and checks the canvases they save.
   Run it after a change that crosses features, and add to it when a bug
-  only showed up in use.
+  only showed up in use. `PANELS=off fixtures/scenarios/run.sh` runs them
+  with the panels off into `runs/qa-panels-off/`.
 - `fixtures/kitchen-sink.canvas` has every kind in every style. Snapshot it
   after changing `specular-scene` or `specular-compositor` and open the PNG
   with the Read tool. A scene snapshot test cannot see a wrong colour or a

@@ -84,6 +84,8 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         }
         Event::ToolDefaultsLoaded(defaults) => app.tool_defaults = *defaults,
         Event::Action(action) => run_action(app, action, &mut effects),
+        Event::Control(id, keys) => crate::panel::activate_control(app, &id, keys, &mut effects),
+        Event::ContextMenu(screen) => crate::panel::open_menu_at(app, screen),
         Event::BuiltinPanels(built_in) => builtin::turn(app, built_in),
         Event::BuiltinCanvasPopups => app.session.panel = builtin::PanelUi::canvas_popups(),
         Event::ChatPanel(available) => app.session.chat.set_available(available),

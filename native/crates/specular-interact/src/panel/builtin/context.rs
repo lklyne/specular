@@ -63,12 +63,14 @@ pub(super) fn layout(ctx: &Ctx<'_>, model: &PopupModel, viewport: Vec2) -> Optio
 /// page, and so does any press while a tool, a drag or a text edit has the
 /// pointer.
 pub(crate) fn open(app: &mut App, screen: Vec2, hit: &Hit) -> bool {
+    app.session.panel.built_in && open_for_press(app, screen, hit)
+}
+
+/// [`open`] whether or not the built-in panels are on: the menu is then
+/// someone else's to show, or nobody's.
+pub(crate) fn open_for_press(app: &mut App, screen: Vec2, hit: &Hit) -> bool {
     let session = &app.session;
-    if !session.panel.built_in
-        || session.tool != Tool::Select
-        || session.gesture.is_some()
-        || session.editing.is_some()
-    {
+    if session.tool != Tool::Select || session.gesture.is_some() || session.editing.is_some() {
         return false;
     }
     let on = match hit {

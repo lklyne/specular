@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use glam::Vec2;
 use specular_core::{Modifiers, PointerButton};
-use specular_interact::{Action, Driver, Event, Key, TextMeasure, Tool};
+use specular_interact::{Action, Driver, Event, Key, TextMeasure, Tool, UnknownControl};
 
 use crate::TestApp;
 
@@ -58,9 +58,20 @@ driven! {
     fn tool(tool: Tool);
     fn select(ids: &[&str]);
     fn right_click(at: impl Into<Vec2>);
+    fn context_menu(at: impl Into<Vec2>);
     fn press_button(button: PointerButton, at: impl Into<Vec2>);
     fn show_sidebar(shown: bool);
     fn send(event: Event);
     fn act(action: Action);
     fn measure_with(measure: Arc<dyn TextMeasure>);
+}
+
+impl TestApp {
+    /// [`Driver::control`], on the app under test: what a click on the
+    /// control named `name` does, from the models alone. It needs no
+    /// `with_panels`, and a name no control has is the error.
+    pub fn control(&mut self, name: &str) -> Result<&mut Self, UnknownControl> {
+        self.driver.control(name)?;
+        Ok(self)
+    }
 }

@@ -152,7 +152,8 @@ pub use panel::{
     Align, Button, Choices, Control, ControlId, Dropdown, DropdownOption, DropdownSection, Entries,
     Face, Field, FieldSubmit, FieldWidth, Icon, Label, MenuTarget, OptionLayout, PaintRole,
     Palette, Placement, PopupAnchor, PopupModel, SidebarButton, Stepper, Swatch, Swatches, Toggle,
-    ToolButton, ToolbarModel, ToolbarSection, context_menu, popup_for, toolbar,
+    ToolButton, ToolbarModel, ToolbarSection, UnknownControl, context_menu, control_named,
+    named_controls, popup_for, toolbar,
 };
 pub use physical_key::{PhysicalKey, mac_key_input};
 pub use place::{PlaceDrag, Placing};

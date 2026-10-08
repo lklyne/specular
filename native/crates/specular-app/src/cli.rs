@@ -75,6 +75,11 @@ usage: specular-app [OPTIONS] [FOLDER | FILE.canvas]
                       drag-to (x y), release, drag x1 y1 x2 y2, hold MODS,
                       key CHORD, type TEXT, tool NAME, select ID.., camera,
                       wait MS, snapshot OUT.png
+  --script-panels on | off
+                      whether the built-in toolbar, popup and sidebar are
+                      laid out, drawn and clicked (default on). Off, a
+                      `control NAME` step does what the control does from
+                      the models alone, and no PNG shows a panel
   -h, --help          print this help
 
 keys:
@@ -270,6 +275,13 @@ fn snapshot_flag(
     match flag {
         "--snapshot" => headless.snapshot = Some(path_of(flag, args.next())?),
         "--script" => headless.script = Some(path_of(flag, args.next())?),
+        "--script-panels" => {
+            headless.panels = match value_of(flag, args.next())?.as_str() {
+                "on" => true,
+                "off" => false,
+                other => bail!("--script-panels expects on or off, got `{other}`"),
+            };
+        }
         "--snapshot-size" => {
             headless.size = window_size(&value_of(flag, args.next())?)?;
         }

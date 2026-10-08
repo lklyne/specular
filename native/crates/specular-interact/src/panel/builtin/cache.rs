@@ -150,6 +150,8 @@ pub(crate) fn keeps_layout(app: &App, event: &Event) -> bool {
         | Event::RegionGrab { .. }
         | Event::ToolDefaultsLoaded(_)
         | Event::Action(_)
+        | Event::Control(..)
+        | Event::ContextMenu(_)
         | Event::BuiltinPanels(_)
         | Event::BuiltinCanvasPopups
         | Event::ChatPanel(_)

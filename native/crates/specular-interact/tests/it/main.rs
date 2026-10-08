@@ -33,6 +33,7 @@ mod inspect;
 mod layout_handles;
 mod menus;
 mod moves;
+mod named_controls;
 mod note_edit;
 mod notes;
 mod page_lifecycle;
