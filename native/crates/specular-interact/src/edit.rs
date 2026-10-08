@@ -29,7 +29,6 @@ pub(crate) mod frame;
 mod history;
 mod ime;
 mod keys;
-mod layout;
 mod lists;
 mod measure;
 mod motion;

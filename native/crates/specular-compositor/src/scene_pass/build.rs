@@ -6,7 +6,7 @@ use std::ops::Range;
 
 use glam::Vec2;
 use specular_core::PageId;
-use specular_doc::EntityId;
+use specular_scene::OwnerId;
 use specular_scene::{Blend, Draw, ImageId, Item, Rect, Scene, Space};
 
 use super::batch::Batch;
@@ -80,7 +80,7 @@ pub(crate) fn build(
     placed: &[Placed],
     batches: &[Batch],
     view: &ViewTransform,
-    page: impl Fn(&EntityId) -> Option<(PageId, PageLayersInfo)>,
+    page: impl Fn(&OwnerId) -> Option<(PageId, PageLayersInfo)>,
     has_image: impl Fn(ImageId) -> bool,
     out: &mut Output<'_>,
 ) -> DrawCounts {

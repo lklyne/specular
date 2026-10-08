@@ -130,7 +130,7 @@ impl Compositor {
     }
 
     /// A text measure on the fonts this compositor draws with, for
-    /// [`App::set_text_measure`](specular_interact::App::set_text_measure):
+    /// `App::set_text_measure`:
     /// the editor's caret, selection and wrapping then agree with the drawn
     /// glyphs.
     pub fn text_measure(&self) -> GlyphMeasure {
@@ -139,9 +139,9 @@ impl Compositor {
 
     /// How tall the rows of each Document drawn by the latest
     /// [`render_scene`](Self::render_scene) came out, in canvas units, for
-    /// [`Event::NoteHeights`](specular_interact::Event::NoteHeights). A
+    /// `Event::NoteHeights`. A
     /// Document that was off screen is not in it.
-    pub fn column_heights(&self) -> &[(specular_doc::EntityId, f32)] {
+    pub fn column_heights(&self) -> &[(specular_scene::OwnerId, f32)] {
         self.scene_pass.column_heights()
     }
 

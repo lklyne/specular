@@ -6,9 +6,9 @@
 //! [`EntityId`] holding the draft's id, which no entity or edge has.
 
 use glam::Vec2;
+use specular_core::text::{TextAlign, TextFont};
 use specular_doc::{
-    Annotation, AnnotationAnchor, AnnotationId, Command, EntityId, Rect, TextAlign, TextFont,
-    VerticalAlign,
+    Annotation, AnnotationAnchor, AnnotationId, Command, EntityId, Rect, VerticalAlign,
 };
 
 use crate::edit::{self, Origin, Target, TextEdit};

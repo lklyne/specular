@@ -13,8 +13,9 @@ use std::sync::{Mutex, PoisonError};
 use glyphon::Buffer;
 use glyphon::cosmic_text::LayoutGlyph;
 use rustc_hash::{FxHashMap, FxHasher};
-use specular_doc::TextAlign;
-use specular_interact::{CaretStop, LayoutLine, SourceSpan, TextLayout, TextMeasure, TextSpec};
+use specular_core::text::{
+    CaretStop, LayoutLine, SourceSpan, TextAlign, TextLayout, TextMeasure, TextSpec,
+};
 use specular_scene::{Color, Point, TextRun};
 use unicode_segmentation::UnicodeSegmentation;
 

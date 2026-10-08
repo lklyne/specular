@@ -7,7 +7,8 @@ use std::sync::Arc;
 
 use glam::Vec2;
 use specular_compositor::GlyphMeasure;
-use specular_doc::{Entity, Kind, Rect, Text, TextAlign, TextFont, TextStyle, WidthMode};
+use specular_core::text::{TextAlign, TextFont};
+use specular_doc::{Entity, Kind, Rect, Text, TextStyle, WidthMode};
 use specular_interact::{TextLayout, TextMeasure, TextSpec};
 use specular_testkit::TestApp;
 

@@ -9,35 +9,7 @@
 
 use std::ops::Range;
 
-/// How a stretch of markdown source is set.
-#[expect(
-    clippy::struct_excessive_bools,
-    reason = "the styles are independent and nest in any combination"
-)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
-pub struct SourceStyle {
-    /// Strong text and headings: set heavy.
-    pub strong: bool,
-    /// Emphasis: set italic.
-    pub emphasis: bool,
-    /// Inline code and fenced code: set in the monospace face.
-    pub code: bool,
-    /// Struck-through text.
-    pub strike: bool,
-    /// A link's text.
-    pub link: bool,
-    /// Syntax, not prose: a marker, a fence or a link's target. Set faint.
-    pub faint: bool,
-}
-
-/// A stretch of one source line set in its own [`SourceStyle`].
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct SourceSpan {
-    /// The bytes of the line it covers.
-    pub range: Range<usize>,
-    /// How it is set.
-    pub style: SourceStyle,
-}
+pub use specular_core::text::{SourceSpan, SourceStyle};
 
 /// One line of markdown source, styled.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]

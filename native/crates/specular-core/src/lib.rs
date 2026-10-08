@@ -12,6 +12,8 @@
 //! - [`input`] — [`InputEvent`]: pointer / wheel / key / IME events forwarded
 //!   into a page, in page-local CSS pixels.
 //! - [`source`] — the [`PageSource`] trait every page backend implements.
+//! - [`text`]: how text is set, and the [`TextMeasure`](text::TextMeasure)
+//!   the renderer implements for the editor.
 //! - [`synthetic`] — [`SyntheticPageSource`], a CEF-free backend that paints
 //!   animated CPU frames so the app and bench run anywhere.
 //!
@@ -24,6 +26,7 @@ pub mod input;
 pub mod page;
 pub mod source;
 pub mod synthetic;
+pub mod text;
 
 pub use camera::{Camera, ViewportInputDelta};
 pub use frame::{

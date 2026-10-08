@@ -3,7 +3,7 @@
 
 use std::ops::Range;
 
-use specular_doc::TextFont;
+use specular_core::text::{self, TextFont};
 use specular_interact::{SourceSpan, TextFrame, TextSpec};
 
 use crate::{Color, Point};
@@ -147,9 +147,9 @@ impl TextRun {
             },
             line_height: spec.line_height,
             align: match spec.align {
-                specular_doc::TextAlign::Left => TextAlign::Left,
-                specular_doc::TextAlign::Center => TextAlign::Centre,
-                specular_doc::TextAlign::Right => TextAlign::Right,
+                text::TextAlign::Left => TextAlign::Left,
+                text::TextAlign::Center => TextAlign::Centre,
+                text::TextAlign::Right => TextAlign::Right,
             },
             ..Self::new(text, origin, spec.size, color)
         }

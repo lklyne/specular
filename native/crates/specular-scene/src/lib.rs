@@ -27,6 +27,12 @@ mod text;
 mod translate;
 mod view;
 
+/// The entity an item was drawn for, where whoever renders the scene has to
+/// recognise it again: a page, to find the host that paints it, and a
+/// Document, to report how tall its rows came out. A renderer hands it back
+/// and reads nothing from it.
+pub type OwnerId = specular_doc::EntityId;
+
 pub use cache::ViewCache;
 pub use color::Color;
 pub use column::{ColumnDraw, Row, RowRule, RuleHeight};

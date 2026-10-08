@@ -11,7 +11,8 @@ use specular_doc::{
     WidthMode,
 };
 
-use super::layout::LineBox;
+use specular_core::text::{self, LineBox};
+
 use super::measure::{TextLayout, TextMeasure, TextSpec};
 
 /// Text size when the entity sets none.
@@ -94,14 +95,31 @@ fn text_frame(rect: Rect, text: &Text) -> TextFrame {
     TextFrame {
         origin: DVec2::new(rect.x, rect.y) + DVec2::splat(f64::from(inset)),
         spec: TextSpec {
-            font: text.font.unwrap_or(TextFont::Sans),
+            font: font(text.font.unwrap_or(TextFont::Sans)),
             size,
             line_height: size * text_line_height(size),
             wrap_width: wrap_width.map(|width| width.max(0.0)),
-            align: TextAlign::Left,
+            align: text::TextAlign::Left,
         },
         box_height: None,
         vertical: VerticalAlign::Top,
+    }
+}
+
+/// The document's font token as the one a [`TextSpec`] is set in.
+pub(crate) fn font(font: TextFont) -> text::TextFont {
+    match font {
+        TextFont::Sans => text::TextFont::Sans,
+        TextFont::Mono => text::TextFont::Mono,
+        TextFont::Hand => text::TextFont::Hand,
+    }
+}
+
+fn align(align: TextAlign) -> text::TextAlign {
+    match align {
+        TextAlign::Left => text::TextAlign::Left,
+        TextAlign::Center => text::TextAlign::Center,
+        TextAlign::Right => text::TextAlign::Right,
     }
 }
 
@@ -112,11 +130,11 @@ fn label_frame(rect: Rect, shape: &Shape) -> TextFrame {
     TextFrame {
         origin: DVec2::new(within.x, within.y) + LABEL_PADDING,
         spec: TextSpec {
-            font: TextFont::Sans,
+            font: text::TextFont::Sans,
             size,
             line_height: size * LABEL_LINE_HEIGHT,
             wrap_width: Some(inner.x.max(0.0) as f32),
-            align: shape.text_align.unwrap_or(TextAlign::Center),
+            align: align(shape.text_align.unwrap_or(TextAlign::Center)),
         },
         box_height: Some(inner.y.max(0.0) as f32),
         vertical: shape.text_vertical_align.unwrap_or(VerticalAlign::Middle),
@@ -131,11 +149,11 @@ pub fn note_frame(rect: Rect, scroll: f32) -> TextFrame {
     TextFrame {
         origin: DVec2::new(rect.x + padding, rect.y + padding - f64::from(scroll)),
         spec: TextSpec {
-            font: TextFont::Sans,
+            font: text::TextFont::Sans,
             size: NOTE_SIZE,
             line_height: NOTE_SIZE * NOTE_LINE_HEIGHT,
             wrap_width: Some((rect.width as f32 - NOTE_PADDING * 2.0).max(0.0)),
-            align: TextAlign::Left,
+            align: text::TextAlign::Left,
         },
         box_height: None,
         vertical: VerticalAlign::Top,

@@ -29,7 +29,7 @@ use glyphon::{
     Viewport,
 };
 use specular_core::Camera;
-use specular_doc::EntityId;
+use specular_scene::OwnerId;
 use specular_scene::{Size, Space, TextRun};
 
 use super::place::ViewTransform;
@@ -77,7 +77,7 @@ struct Slot {
     placement: Option<Placement>,
     glyphs: u32,
     /// How tall each owned column of the layout came out.
-    heights: Vec<(EntityId, f32)>,
+    heights: Vec<(OwnerId, f32)>,
 }
 
 /// The text of one space: its glyph atlas and a slot for each batch.
@@ -108,7 +108,7 @@ pub(crate) struct TextSystem {
     last_camera: Option<Camera>,
     /// How tall each owned column drawn this frame came out, in its own
     /// units.
-    column_heights: Vec<(EntityId, f32)>,
+    column_heights: Vec<(OwnerId, f32)>,
     /// Time spent shaping this frame.
     shaping_time: Duration,
 }
@@ -294,7 +294,7 @@ impl TextSystem {
 
     /// The height of the rows of each column drawn this frame that names an
     /// owner.
-    pub(crate) fn column_heights(&self) -> &[(EntityId, f32)] {
+    pub(crate) fn column_heights(&self) -> &[(OwnerId, f32)] {
         &self.column_heights
     }
 

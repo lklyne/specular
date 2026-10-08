@@ -8,15 +8,19 @@
 
 use std::ops::Range;
 
-use super::measure::{CaretStop, LayoutLine, TextLayout};
+use super::{CaretStop, LayoutLine, TextLayout};
 
 /// A box on one line, in the layout's own space.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub(crate) struct LineBox {
-    pub(crate) left: f32,
-    pub(crate) right: f32,
-    pub(crate) top: f32,
-    pub(crate) height: f32,
+pub struct LineBox {
+    /// The left edge.
+    pub left: f32,
+    /// The right edge.
+    pub right: f32,
+    /// The top of the line.
+    pub top: f32,
+    /// The height of the line.
+    pub height: f32,
 }
 
 impl TextLayout {
@@ -32,7 +36,7 @@ impl TextLayout {
     }
 
     /// The index of the line `offset` is on.
-    pub(crate) fn line_of(&self, offset: usize) -> usize {
+    pub fn line_of(&self, offset: usize) -> usize {
         let after = self
             .lines
             .partition_point(|line| line.range.start <= offset);
@@ -64,7 +68,7 @@ impl TextLayout {
     }
 
     /// Where the caret is drawn for `offset`.
-    pub(crate) fn x_of(&self, offset: usize) -> f32 {
+    pub fn x_of(&self, offset: usize) -> f32 {
         let Some(line) = self.line(self.line_of(offset)) else {
             return 0.0;
         };
@@ -74,7 +78,7 @@ impl TextLayout {
     }
 
     /// The offset on line `index` whose caret is nearest `x`.
-    pub(crate) fn offset_at(&self, index: usize, x: f32) -> usize {
+    pub fn offset_at(&self, index: usize, x: f32) -> usize {
         let nearest = (self.resting_stops(index).iter())
             .min_by(|a, b| (a.x - x).abs().total_cmp(&(b.x - x).abs()));
         match (nearest, self.line(index)) {
@@ -85,24 +89,24 @@ impl TextLayout {
     }
 
     /// The index of the line at height `y`, held to the first and last.
-    pub(crate) fn line_at(&self, y: f32) -> usize {
+    pub fn line_at(&self, y: f32) -> usize {
         let below = self.lines.partition_point(|line| line.top <= y);
         below.saturating_sub(1)
     }
 
     /// The offset nearest the point `(x, y)`.
-    pub(crate) fn offset_at_point(&self, x: f32, y: f32) -> usize {
+    pub fn offset_at_point(&self, x: f32, y: f32) -> usize {
         self.offset_at(self.line_at(y), x)
     }
 
     /// The first offset of the line `offset` is on.
-    pub(crate) fn line_start(&self, offset: usize) -> usize {
+    pub fn line_start(&self, offset: usize) -> usize {
         let line = self.line(self.line_of(offset));
         line.map_or(0, |line| line.range.start)
     }
 
     /// The last offset the caret can rest at on the line `offset` is on.
-    pub(crate) fn line_end(&self, offset: usize) -> usize {
+    pub fn line_end(&self, offset: usize) -> usize {
         let index = self.line_of(offset);
         match (self.resting_stops(index).last(), self.line(index)) {
             (Some(stop), _) => stop.offset,
@@ -112,7 +116,7 @@ impl TextLayout {
     }
 
     /// The caret's box at `offset`: no width, one line tall.
-    pub(crate) fn caret_box(&self, offset: usize) -> Option<LineBox> {
+    pub fn caret_box(&self, offset: usize) -> Option<LineBox> {
         let line = self.line(self.line_of(offset))?;
         let x = self.x_of(offset);
         Some(LineBox {
@@ -125,7 +129,7 @@ impl TextLayout {
 
     /// One box per line `range` touches. A line whose break is inside the
     /// range reaches a little past its last glyph, to show the break taken.
-    pub(crate) fn range_boxes(&self, range: &Range<usize>) -> Vec<LineBox> {
+    pub fn range_boxes(&self, range: &Range<usize>) -> Vec<LineBox> {
         let mut boxes = Vec::new();
         if range.is_empty() {
             return boxes;

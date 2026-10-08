@@ -1,8 +1,6 @@
 //! Items whose pixels come from elsewhere: live pages and decoded images.
 
-use specular_doc::EntityId;
-
-use crate::Rect;
+use crate::{OwnerId, Rect};
 
 /// A live page's latest frame, with its popup layer over it when one is
 /// showing.
@@ -12,7 +10,7 @@ use crate::Rect;
 #[derive(Debug, Clone, PartialEq)]
 pub struct PageDraw {
     /// Which page.
-    pub page: EntityId,
+    pub page: OwnerId,
     /// Where the page's viewport is drawn.
     pub rect: Rect,
     /// Corner radius the frame is clipped to.

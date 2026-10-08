@@ -141,7 +141,7 @@ fn row_height(measured: &TextLayout, spec: &TextSpec) -> f32 {
 
 #[cfg(test)]
 mod tests {
-    use specular_doc::{TextAlign, TextFont};
+    use specular_core::text::{TextAlign, TextFont};
 
     use super::*;
     use crate::edit::measure::Measurer;

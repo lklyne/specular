@@ -1,5 +1,5 @@
 use glam::Vec2;
-use specular_doc::EntityId;
+use specular_scene::OwnerId;
 use specular_scene::{Item, PageDraw, Scene, Size, Space, TextRun};
 
 use super::super::place::place;
@@ -8,7 +8,7 @@ use super::*;
 
 fn page(x: f32, y: f32) -> PageDraw {
     PageDraw {
-        page: EntityId::new("page"),
+        page: OwnerId::new("page"),
         rect: Rect::new(x, y, 200.0, 200.0),
         corner_radius: 0.0,
     }

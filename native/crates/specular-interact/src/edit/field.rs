@@ -12,7 +12,8 @@
 //! text that asks for nothing leaves the field as the model has it.
 
 use glam::Vec2;
-use specular_doc::{EntityId, Rect, TextAlign, TextFont, VerticalAlign};
+use specular_core::text::{TextAlign, TextFont};
+use specular_doc::{EntityId, Rect, VerticalAlign};
 
 use super::buffer::{Origin, Target, TextEdit};
 use super::frame::TextFrame;

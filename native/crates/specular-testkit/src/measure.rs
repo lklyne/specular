@@ -1,7 +1,7 @@
 //! [`FixedAdvance`]: a text measure with no fonts in it, so a test can say
 //! where a caret is in round numbers.
 
-use specular_doc::TextAlign;
+use specular_core::text::TextAlign;
 use specular_interact::{CaretStop, LayoutLine, TextLayout, TextMeasure, TextSpec};
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -101,7 +101,7 @@ impl TextMeasure for FixedAdvance {
 
 #[cfg(test)]
 mod tests {
-    use specular_doc::TextFont;
+    use specular_core::text::TextFont;
 
     use super::*;
 

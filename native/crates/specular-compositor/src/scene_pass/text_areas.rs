@@ -8,7 +8,7 @@ use glyphon::{
     Buffer, Color as GlyphColor, ContentType, CustomGlyph, RasterizeCustomGlyphRequest,
     RasterizedCustomGlyph, TextBounds,
 };
-use specular_doc::EntityId;
+use specular_scene::OwnerId;
 use specular_scene::{Color, ColumnDraw, Point, Rect, Size, TextRun};
 
 use super::column::{self, rule_rect};
@@ -64,7 +64,7 @@ pub(super) struct Areas<'a> {
     /// Where the batch is laid out: its space in layout pixels.
     laid: &'a Laid,
     /// How tall each owned column's rows came out.
-    heights: Vec<(EntityId, f32)>,
+    heights: Vec<(OwnerId, f32)>,
     glyphs: u32,
 }
 
@@ -84,7 +84,7 @@ impl<'a> Areas<'a> {
 
     /// The areas in paint order, the lines their ranges index, and the
     /// height of each column that has an owner.
-    pub(super) fn finish(self) -> (Vec<Area<'a>>, Vec<CustomGlyph>, Vec<(EntityId, f32)>) {
+    pub(super) fn finish(self) -> (Vec<Area<'a>>, Vec<CustomGlyph>, Vec<(OwnerId, f32)>) {
         (self.placed, self.lines, self.heights)
     }
 

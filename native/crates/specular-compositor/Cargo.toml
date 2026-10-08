@@ -9,8 +9,6 @@ publish.workspace = true
 
 [dependencies]
 specular-core = { workspace = true }
-specular-doc = { workspace = true }
-specular-interact = { workspace = true }
 specular-scene = { workspace = true }
 bytemuck = { workspace = true }
 glam = { workspace = true }
@@ -29,6 +27,9 @@ objc2-metal = { workspace = true }
 
 [dev-dependencies]
 pollster = { workspace = true }
+# The GPU tests build documents and drive them through the testkit.
+specular-doc = { workspace = true }
+specular-interact = { workspace = true }
 specular-testkit = { workspace = true }
 
 [lints]

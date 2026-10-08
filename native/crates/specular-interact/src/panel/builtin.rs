@@ -192,11 +192,11 @@ impl Ctx<'_> {
     /// label never sits on a fraction.
     fn text_width(&self, text: &str, font: specular_doc::TextFont) -> f32 {
         let spec = crate::TextSpec {
-            font,
+            font: crate::edit::frame::font(font),
             size: metrics::TEXT_SIZE,
             line_height: metrics::TEXT_LINE,
             wrap_width: None,
-            align: specular_doc::TextAlign::Left,
+            align: specular_core::text::TextAlign::Left,
         };
         let layout = self.app.text_measure().layout(text, &spec);
         let width = layout.lines.first().map_or(0.0, |line| {

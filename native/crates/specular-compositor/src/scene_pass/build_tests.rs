@@ -52,7 +52,7 @@ fn built(zoom: f32, items: Vec<Item>, info: Option<PageLayersInfo>) -> Built {
 
 fn page() -> PageDraw {
     PageDraw {
-        page: EntityId::new("page"),
+        page: OwnerId::new("page"),
         rect: Rect::new(10.0, 0.0, 200.0, 100.0),
         corner_radius: 8.0,
     }

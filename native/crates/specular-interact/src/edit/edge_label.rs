@@ -7,7 +7,8 @@
 //! and entity ids share one namespace, so the key names the edge alone.
 
 use glam::{DVec2, Vec2};
-use specular_doc::{Command, EdgeId, EntityId, ItemId, Rect, TextAlign, TextFont, VerticalAlign};
+use specular_core::text::{TextAlign, TextFont};
+use specular_doc::{Command, EdgeId, EntityId, ItemId, Rect, VerticalAlign};
 
 use super::buffer::{Origin, Target, TextEdit};
 use super::frame::TextFrame;

@@ -3,7 +3,7 @@
 use std::time::{Duration, Instant};
 
 use specular_core::PageId;
-use specular_doc::EntityId;
+use specular_scene::OwnerId;
 use specular_scene::{Blend, Draw, Scene, Size};
 
 use super::batch::Batch;
@@ -48,7 +48,7 @@ impl Compositor {
         target: &wgpu::TextureView,
         frame: &FrameView,
         scene: &Scene,
-        page_of: impl Fn(&EntityId) -> Option<PageId>,
+        page_of: impl Fn(&OwnerId) -> Option<PageId>,
     ) -> SceneStats {
         let started = Instant::now();
         self.reclaim();
@@ -116,7 +116,7 @@ impl Compositor {
         view: &ViewTransform,
         zooming: bool,
         scene: &Scene,
-        page_of: &impl Fn(&EntityId) -> Option<PageId>,
+        page_of: &impl Fn(&OwnerId) -> Option<PageId>,
     ) -> Prepared {
         let Self {
             device,

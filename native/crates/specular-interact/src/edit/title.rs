@@ -3,7 +3,8 @@
 //! is derived from the camera, and it ends as a label change.
 
 use glam::DVec2;
-use specular_doc::{Command, Entity, Kind, TextAlign, TextFont, VerticalAlign};
+use specular_core::text::{TextAlign, TextFont};
+use specular_doc::{Command, Entity, Kind, VerticalAlign};
 
 use super::buffer::{Target, TextEdit};
 use super::frame::TextFrame;

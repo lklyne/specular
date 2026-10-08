@@ -139,7 +139,7 @@ impl ScenePass {
     }
 
     /// The height of each owned column the latest frame drew.
-    pub(crate) fn column_heights(&self) -> &[(specular_doc::EntityId, f32)] {
+    pub(crate) fn column_heights(&self) -> &[(specular_scene::OwnerId, f32)] {
         (self.text.as_ref()).map_or(&[], TextSystem::column_heights)
     }
 
