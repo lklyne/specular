@@ -1,12 +1,82 @@
 # Rust native rebuild
 
-**Status:** Draft plan, nothing built yet.
-**Builds on:** [`rust-cef-spike.md`](./rust-cef-spike.md) and the five crates in [`native/`](../../native/README.md).
-**Scope:** the core canvas. Pages, text, sticky notes, documents, shapes, drawings, edges, groups, comments, selection, undo, persistence. Agent chat, sync sets, MCP and auto-update come after.
+**Status:** Built, and mostly unchecked by a person. Every wave below has landed on `claude/rust-chrome-spike`, along with most of what this plan deferred. The work was done in about a day by agents and verified by tests, headless scenario scripts and scripted window captures. Almost nothing has been used by hand. Start with the [handoff](./rust-native-rebuild-handoff.md).
+**Builds on:** [`rust-cef-spike.md`](./rust-cef-spike.md).
+**Scope as planned:** the core canvas. Pages, text, sticky notes, documents, shapes, drawings, edges, groups, comments, selection, undo, persistence. Agent chat, sync sets and auto-update were to come after.
+**See also:** the [run log](./rust-native-rebuild-log.md), [`native/README.md`](../../native/README.md), and ADRs [0039](../adr/0039-rust-canvas-render-stack.md) to [0044](../adr/0044-ui-as-pure-models-with-replaceable-renderers.md).
 
-## Where the spike stands
+## Status
 
-`native/` is 15.6k lines of Rust in five crates. It already has:
+As of commit `07285583` (2026-10-08). "Done" means built, gated and, where the log says so, run by script. It does not mean a person has tried it. "By hand" marks tasks whose feel nobody has judged. The run log entry of the same name has the detail.
+
+| Task | Status | What is missing |
+|---|---|---|
+| **Wave 0, foundation** | | |
+| F1 crate split | Done differently | Folded into F4 and F5. The crates are not the ones this plan named (see "Crates") |
+| F2 typed document, undo | Done | |
+| F3 `.canvas` reader and writer | Done | Electron files save byte for byte |
+| F4 `Event`, `Effect`, `update` | Done | |
+| F5 `Scene` and `view` | Done | |
+| F6 testkit | Partial | No golden-image helper. GPU readback tests and headless PNGs do that job |
+| F7 `native/CLAUDE.md` | Done | |
+| **Wave 1, decisions and measurement** | | |
+| M1 render bake-off | Done | ADR 0039, still Proposed. Its by-hand look was never done, and its egui choice was overtaken by ADR 0040 |
+| M2 memory | Done | The extra memory was a 6 second sample. Settled, Rust is lighter (log, "Performance, part 2") |
+| M3 results table in `rust-cef-spike.md` | Not done | The table is still empty. The numbers are in the log |
+| **Wave 2, select tool** | | |
+| S1 hit-test | Done | |
+| S2 click, shift-click, marquee | Done | |
+| S3 move | Done | By hand |
+| S4 resize | Done | By hand |
+| S5 delete, duplicate, option-drag, nudge | Done | |
+| S6 clipboard | Partial | Not ported: copied file references, SVG, HTML and JSON text, long text becoming a Document, files copied in Finder. The two apps do not paste each other's entities |
+| S7 stack order | Done | |
+| S8 binding table | Done | |
+| S9 autosave and file watch | Partial | No maximum wait on the debounce. An outside edit made while there are unsaved changes is overwritten with a logged warning |
+| **Wave 3, kinds** | | |
+| K1 shape | Done | A label that overflows a small shape is clipped to its middle line |
+| K2 drawing | Done | No pressure. The highlighter has no gradient or grain |
+| K3 text | Done | Hand and mono fonts fall back to system fonts |
+| K4 group | Done | By hand |
+| K5 edge | Done | The line runs through its label. By hand |
+| K6 image file | Partial | png, jpeg, webp and gif only. No svg, no animated gif, no reload when the file changes |
+| K7 page anchoring | Done, and past the plan | Scroll-follow is in. Element attachment (ADR 0032) is not. A resize does not fold the scroll shift |
+| **Wave 4, text editing and documents** | | |
+| T1 edit text in place | Done | By hand. No drag and drop of selected text, no caret affinity at a wrapped line's end |
+| T2 IME | Done | Never typed with a real input method |
+| T3 markdown, read only | Done | Links do not open. An image is the text `[image: alt]` |
+| T4 markdown editing | Done | By hand. No rename of the file, no smart paste |
+| T5 formatting shortcuts | Done | The built-in popup has the buttons. Not in a menu |
+| **Wave 5, panels** | | |
+| P1 toolbar | Done in both renderers | No hand or theme button |
+| P2 item popup | Done | By hand |
+| P3 page chrome | Done | No spin on reload. The address shows the old URL until the page reports the new one |
+| P4 left sidebar | Done in the built-in renderer, partial in the GPUI shell | The GPUI shell lacks the toggle, folds and the newer row fields. No drag-reorder or favicons in either |
+| P5 tabs and space folder | Done | Never run in a window when it landed. A `.canvas` another tool adds is not seen until the space reopens |
+| P6 menu bar and context menu | Partial | Menu bar in both shells. The context menu exists only in the built-in renderer. GPUI menu items are never greyed |
+| **Wave 6, comments and API** | | |
+| C1 annotation model | Done | |
+| C2 comment tool | Done | No way to edit a kept comment's text or to dismiss one from the canvas |
+| C3 badges and regions | Done | A badge has no icon. Deleting a page leaves its comments bound to it |
+| A1 HTTP server | Done | |
+| A2 CLI verbs | Done | No second CLI. The Electron CLI runs against this app unchanged |
+| A3 page snapshot and screenshot | Done | `print-pdf`, `record`, `component-states` and `design-system` answer 501 |
+| **Built beyond this plan** | | |
+| GPUI Kit shell (`specular`) | Done, behind parity | ADR 0040. Not at parity with the winit shell (see P4, P6). It never rests when idle |
+| Performance pass | Done | Long frames not settled. The numbers were taken on the winit shell |
+| Audit and test prune | Done | 1,778 tests cut to 1,074. Later work brought the suite to about 1,300 |
+| Cleanup tasks 5, 6, 9, 10, 13 | Done | See "Cleanup tasks" |
+| Agent chat (right panel) | Done in the GPUI shell | No thread routes in the HTTP API, no model chip |
+| Sync sets, scroll and interaction sync | Done | No synced cursor. Followers jump where Electron eases. No text input sync |
+| Alignment guides, auto-layout groups | Done | By hand |
+| Inspect tool, repo bindings, auto-fix | Done | No inspect tree or box-model strips |
+| First run, settings, `Specular Native.app` | Done | Ad hoc signed. Settings and the canvas after first run were never seen on a capture |
+| **Not started** | | |
+| Themes, presence cursors, auto-update, signing and notarization, element attachment, the focus session | Not done | Themes were in progress on another branch when this was written |
+
+## Where the spike stood
+
+This section and the next describe the starting point and are kept as written. When this plan was drafted, `native/` was 15.6k lines of Rust in five crates. It had:
 
 - a winit window, a wgpu compositor, and CEF offscreen pages imported as IOSurfaces with no copy
 - camera math that matches the Electron app
@@ -16,7 +86,7 @@
 - page move, page resize, and a comment-region drag
 - a bench that compares against Electron
 
-It has no text rendering at all. No toolbar, no panels, no entity kinds other than pages, no saving from the UI, no HTTP API.
+It had no text rendering at all. No toolbar, no panels, no entity kinds other than pages, no saving from the UI, no HTTP API. At `07285583` the crates under `native/crates` are about 112k lines of Rust with their tests, in twelve crates.
 
 ### What the measurements say
 
@@ -27,6 +97,8 @@ The runs in `native/runs/` are in, though the results table in the spike plan is
 - Idle memory is higher in Rust, by 16 to 20 percent (`static-20`: 4333 MB vs 3623 MB). The spike predicted the opposite.
 
 By the spike's own criteria that is a "neutral" result. Performance alone does not pay for a rewrite. The case for continuing rests on the other things: one process instead of nine renderers and an IPC layer, working `<select>` and IME, and a codebase an agent can change without tracing a broadcast through four files. I think that case is real, but the memory number deserves an hour of attention before the rebuild gets big (task M2 below).
+
+**Corrected since.** The memory finding was wrong. The idle sample was taken at 6 seconds, while the process tree still held about 500 MB it lets go of by 10. Sampled at 12 seconds after three fixes, the Rust shell's idle footprint for `static-20` was 2,546 MB against Electron's recorded 3,623 MB. Frame times stayed at parity. Long frames are not settled: the machine was busy during the reruns (log, "Performance, part 2").
 
 ## What the Electron app spends its code on
 
@@ -39,9 +111,11 @@ About 97k lines of TypeScript in `src/`, plus 31k of tests.
 | `src/shared` | 13.4k | The pure math ports almost line for line. |
 | `src/preload` | 5.0k | No. There is no bridge. |
 
-Whole categories go away when state, input and drawing live in one process: the preload bridges, `ipc-contract.ts`, the diffed runtime store and patch broadcast, forward and reverse sync, overlay window management, the above-view input authority rules, page-host texture transfer and its timeout handling. My estimate for the core canvas in Rust is 25k to 35k lines including tests.
+Whole categories go away when state, input and drawing live in one process: the preload bridges, `ipc-contract.ts`, the diffed runtime store and patch broadcast, forward and reverse sync, overlay window management, the above-view input authority rules, page-host texture transfer and its timeout handling. My estimate for the core canvas in Rust was 25k to 35k lines including tests. The audit measured 58k of source and 31k of tests before the prune, with more built than the core.
 
 ## Greenfield architecture
+
+Corrected to match the code at `07285583`. Where the plan said one thing and the build did another, the text says what was built.
 
 ### One loop, three pure functions
 
@@ -50,41 +124,42 @@ winit / CEF / HTTP ──> Event
                          │
         update(&mut App, Event) -> Vec<Effect>      pure, no I/O
                          │
-        view(&App) -> Scene                         pure, no GPU
+        view(&App, viewport, &ViewCache) -> Scene   pure, no GPU
                          │
         render(&Scene)                              wgpu
 ```
 
-- **`App`** is one struct. It holds the `Document` (persisted, undoable) and `Session` (camera, selection, active tool, in-flight gesture, hover, focus).
-- **`Event`** is one enum. Pointer, key, wheel, IME, page events from CEF, timer ticks, API requests.
-- **`update`** changes `App` and returns `Effect`s. Effects are the only way I/O happens: save the file, create a page host, forward input to a page, set the cursor, write the clipboard.
-- **`view`** turns `App` into a `Scene`, a flat display list in canvas and screen coordinates. Rects, paths, text runs, page quads, images.
+- **`App`** is one struct. It holds the active canvas's `Document` and `History` (persisted, undoable) and `Session` (camera, selection, active tool, in-flight gesture, hover, focus), plus the `Space` with every other canvas of the folder, the agent threads, repo bindings, tool defaults and settings ([ADR 0043](../adr/0043-per-canvas-state-in-a-space.md)).
+- **`Event`** is one enum, 31 variants today. Pointer, key, wheel, IME, page events from CEF, a clock tick each loop turn, file and clipboard answers, API requests.
+- **`update`** changes `App` and returns `Effect`s. Effects are the only way I/O happens: save the file, create a page host, forward input to a page, set the cursor, write the clipboard, run an agent. There are 46 ([ADR 0042](../adr/0042-update-view-render-loop-effects-only-io.md)).
+- **`view`** turns `App` into a `Scene`, a flat display list in canvas and screen coordinates. Rects, ellipses, polygons, paths, text runs, columns of text rows, shadows, page quads, images. Its caller owns a `ViewCache` for parsed markdown and stroke outlines.
 - **`render`** draws the `Scene`. It knows nothing about entities or tools.
 
-The consequence that matters for agents: every feature is testable with no window, no GPU and no CEF. A test builds an `App`, feeds events, and asserts on the document, the effects and the scene. The spike's `chrome_state.rs` already works this way. This plan makes it the rule.
+The consequence that matters for agents: every feature is testable with no window, no GPU and no CEF. A test builds an `App`, feeds events, and asserts on the document, the effects and the scene. The spike's `chrome_state.rs` already worked this way. This plan made it the rule, and the audit found no file, network, process, environment or clock read in `specular-doc`, `specular-interact`, `specular-scene` or `specular-api`.
 
 ### Document
 
 Typed all the way down.
 
 ```rust
-pub struct Document { entities: SlotMap<EntityId, Entity>, order: Vec<EntityId>, edges: Vec<Edge>, annotations: Vec<Annotation>, extra: JsonMap }
+pub struct Document { entities, edges, annotations, order: Vec<ItemId>, notes, extra: JsonMap }
 
-pub struct Entity { id: EntityId, rect: CanvasRect, anchor: Option<PageAnchor>, parent: Option<EntityId>, kind: Kind, extra: JsonMap }
+pub struct Entity { id: EntityId, rect: Rect, label: Option<String>, anchor: Option<PageAnchor>, parent: Option<EntityId>, kind: Kind, extra: JsonMap }
 
 pub enum Kind { Page(Page), Text(Text), File(FileRef), Group(Group), Drawing(Drawing), Shape(Shape) }
 ```
 
-- Every mutation is a `Command` value passed to `Document::apply`. `apply` returns the inverse command. Undo is a stack of inverses. One user action is one command (or one `Command::Batch`), so one undo step.
+- Every mutation is a `Command` value passed to `Document::apply`. `apply` returns the inverse command. Undo is a stack of inverses, kept in a separate `History`. One user action is one command (or one `Command::Batch`), so one undo step.
+- Ids are the `.canvas` id strings, not slot-map keys as first sketched. Undo has to restore the same identity. The stack order is a `Vec<ItemId>` because edges interleave with entities. Rects are `f64`, as the file's numbers are.
 - Adding a kind means adding an enum variant. The compiler then lists every `match` that needs a new arm: serialize, hit-test, view, popup. That replaces the entity-kind registry and the capability table.
-- `extra` keeps unknown JSON fields so a load and save never drops another tool's data. The spike already proves this approach.
+- `extra` keeps unknown JSON fields so a load and save never drops another tool's data.
 - `.canvas` stays JSON Canvas v1.0 with the `specular: {}` extension object. No format change.
 
-**Decision to confirm: drop yrs.** The spike keeps the document in a yrs doc, as the Electron app does. In Rust that means string-keyed map access with runtime errors, and the typed structs become a second copy that must stay in sync. That is the two-layer model again. The Electron app uses Yjs for undo, and inverse commands do that job in a tenth of the code. If cloud sync (ADR 0018) comes back, the command log is the place to attach it. I recommend dropping yrs. The overnight list assumes it. If you want to keep it, D1 and D2 change and nothing else does.
+**Decided: yrs is dropped.** The spike kept the document in a yrs doc, as the Electron app does. In Rust that meant string-keyed map access with runtime errors, and typed structs as a second copy to keep in sync. Inverse commands do the undo job. If cloud sync (ADR 0018) comes back, the command log is the place to attach it. See [ADR 0041](../adr/0041-typed-document-inverse-command-undo.md), Proposed.
 
 ### Interaction
 
-One `Tool` enum, same as ADR 0005. One `Gesture` enum for the drag in flight (`Move`, `Resize`, `Marquee`, `DrawStroke`, `PlaceShape`, `EdgeDrag`, `CommentRegion`, `PanCanvas`). Pointer routing is one function.
+One `Tool` enum, as ADR 0005 has it, with nine variants (`Select`, `AddPage`, `AddText`, `AddSticky`, `AddDocument`, `AddShape`, `Draw`, `Comment`, `Inspect`). One `Gesture` enum for the drag in flight (`Move`, `Resize`, `Marquee`, `Comment`, `Place`, `Draw`, `TextSelect`, `EdgeDrag`, `Line`). There is no pan gesture: a pan is a wheel event. Pointer routing is one function, in this spirit:
 
 ```rust
 fn on_pointer(app: &mut App, ev: PointerEvent) -> Vec<Effect> {
@@ -92,68 +167,70 @@ fn on_pointer(app: &mut App, ev: PointerEvent) -> Vec<Effect> {
 }
 ```
 
-Hit-test returns a typed `Hit` (`Handle`, `EntityBody`, `PageContent`, `EdgeAnchor`, `Popup`, `Panel`, `Empty`). There is no "input authority" question because nothing else receives input. Select-first, interact-second (ADR 0022) is one match arm.
+Hit-test returns a typed `Hit` (`Comment`, `GroupLabel`, `Handle`, `Anchor`, `Layout`, `PageContent`, `EntityBody`, `GroupBorder`, `Edge`, `Empty`, `Panel`). There is no "input authority" question because nothing else receives input. Select-first, interact-second (ADR 0022) is `Focus::Page`, the entered page, checked once after every event.
+
+Keys, menu items, panel controls and API act routes all ask for an `Action`. Key bindings are one const table of chord, context and action.
 
 ### Rendering and text
 
-This is the part with a real choice in it, and the first overnight task is a bake-off to settle it.
+The bake-off (task M1) settled the canvas renderer, and a later spike changed the panel choice.
 
-Canvas items need text and vector paths that stay sharp from zoom 0.02 to 3. Two candidates:
-
-- **Vello.** A wgpu 2D renderer. Paths, strokes, gradients, images and text (through parley) at any zoom, in one draw. Drawings, shapes, edges and text all become "push a path". Risk: its wgpu version may not match the workspace's wgpu 30.
-- **Keep the SDF shape layer, add glyph atlas text** (cosmic-text plus a wgpu atlas such as glyphon) and tessellate strokes with lyon. More pieces, each small, and no dependency on vello's release schedule.
-
-For panels (toolbar, sidebar, popups, later the chat pane) I recommend **egui**. Immediate mode suits this architecture: the panel code reads `&App` and returns `Event`s, with no widget state to keep in sync. It is also the UI library agents write most reliably. The same version risk applies.
-
-Fallback if the Rust UI crates fight wgpu 30: draw panels as local HTML in CEF offscreen browsers. The shell already hosts those. It works, but it brings back a JS bridge, so it is the fallback and not the plan.
-
-Text editing uses the layout crate's editor (parley `PlainEditor` or cosmic-text `Editor`) with IME events the shell already receives from winit. Markdown documents are edited as plain text with syntax-styled spans, parsed by pulldown-cmark. That replaces CodeMirror and react-markdown. It will be plainer than CodeMirror on day one.
+- **Canvas items** draw in the compositor's own wgpu pass: rounded rects and ellipses on the SDF shape layer, text through glyphon on cosmic-text, strokes and paths tessellated by lyon, in one 4x multisampled pass with the page quads. Vello was turned down: it was 2 to 3 times slower with dense text and copies page textures into its atlas ([ADR 0039](../adr/0039-rust-canvas-render-stack.md), Proposed).
+- **Panels** are not egui. ADR 0039 chose egui and it was never built. Panels are pure models with two renderers: a built-in one that paints scene items, and GPUI Kit in the `specular` shell ([ADR 0044](../adr/0044-ui-as-pure-models-with-replaceable-renderers.md) and [ADR 0040](../adr/0040-gpui-kit-hybrid-shell.md), both Proposed). The CEF-HTML fallback was not needed.
+- **Text editing** is the app's own editor in `specular-interact/src/edit/`, not a layout crate's. It asks a `TextMeasure` for a layout as plain data and computes carets, selections and motion from that. The compositor implements the measure on the font system glyphon draws with, so the caret sits where the glyphs are. IME events come from the shell.
+- **Markdown documents** are read through pulldown-cmark into rows of styled text. An edit shows the source, one row a line, styled by a small hand-written styler. That replaces CodeMirror and react-markdown, and it is plainer than CodeMirror.
 
 ### Crates
 
 ```
-specular-doc        Document, Entity, Command, undo, .canvas read/write. No deps on anything below.
-specular-interact   App, Session, Event, Effect, Tool, Gesture, hit-test, update().
-specular-scene      Scene display list types and view(&App) -> Scene.
-specular-render     wgpu: draws a Scene. Absorbs specular-compositor.
-specular-pages      CEF page hosts. The current specular-cef.
-specular-ui         Panels and popups.
-specular-api        HTTP routes as Events in and JSON out. No socket: the shell hosts the server. The CLI is the Electron one.
-specular-shell      winit, effect runner, autosave, file watch. The only binary.
-specular-testkit    Headless App driver, scene snapshot helpers, golden images.
-specular-bench      Unchanged.
+specular-core        Camera, f32 geometry, the page and input model, PageSource, the text-measure trait.
+specular-doc         Document, Entity, Command, undo, .canvas read/write.
+specular-agent       The agent thread model, prompts, the claude stream parser, repo bindings. Pure.
+specular-interact    App, Session, Space, Event, Effect, Action, Tool, Gesture, hit-test, update(), the text editor, the panel models.
+specular-scene       Scene display list types, view(), the markdown parser, the built-in panel painter.
+specular-api         HTTP routes as Events in and JSON out. No socket: the shell hosts the server. The CLI is the Electron one.
+specular-compositor  wgpu: draws a Scene. Kept its spike name; the plan called it specular-render.
+specular-cef         CEF page hosts. The plan called it specular-pages.
+specular-app         Runtime (every effect runner), the command line, headless modes, --bench, and the winit window.
+specular-shell       The GPUI Kit window, binary `specular`. Uses specular-app's Runtime.
+specular-testkit     TestApp, snapshot macros, entity builders. Dev-dependency only.
+specular-bench       Profiles, frame stats, memory, the Electron comparison.
 ```
 
-Dependencies point one way: `doc` <- `interact` <- `scene` <- `render`/`ui` <- `shell`. Only `shell` and `pages` do I/O.
+Dependencies point one way: `core`, `doc`, `agent` <- `interact` <- `scene` <- `compositor`, with `api` beside `scene`, then `app`, then `shell`. Only `app`, `shell` and `cef` do I/O. There is no `specular-ui`: panel models are in `interact` and panel painting in `scene`. `native/README.md` has the full table.
 
 ### Rules that keep it easy for agents
 
-- One feature is one vertical slice: a `Kind` variant or `Tool` variant, its commands, its hit-test arm, its `view` arm, its tests. A slice touches the same five files every time, and `native/CLAUDE.md` lists them.
+- One feature is one vertical slice: a `Kind` variant or `Tool` variant, its commands, its hit-test arm, its `view` arm, its test. A slice touches the same places every time, and `native/CLAUDE.md` lists them.
 - Every slice ships one behavior test: a scripted gesture through `testkit` asserting on the document. A scene snapshot (`insta`) only for a new draw rule, and no unit tests on trivial helpers. `native/CLAUDE.md` has the full rule. (This replaced "three tests per slice", which produced 1,778 tests in a day.)
-- The gate is `cargo fmt --check && cargo clippy -- -D warnings && cargo test`. It runs in seconds, with no Mac, GPU or CEF needed.
-- Keep the spike's lints: no `unwrap` outside tests, unsafe only in the IOSurface import and CEF callbacks.
-- Files stay under about 400 lines. One enum arm growing past 80 lines moves to its own module.
+- The gate is `cargo fmt --all --check`, `cargo clippy --workspace --all-targets -- -D warnings` and `cargo test --workspace`. It needs no window or CEF, and the GPU tests skip without an adapter. A change that crosses features also runs `fixtures/scenarios/run.sh`.
+- Keep the spike's lints: no `unwrap` outside tests, unsafe only where it is needed (the IOSurface import, CEF callbacks, AppKit calls in the shells).
+- Files stay under about 400 lines. One enum arm growing past 80 lines moves to its own module. At the audit, six files and 18 functions were over (cleanup tasks 11 and 12).
 
 ### What to leave out
 
-Cut for good, I think. These exist in the Electron app mostly because of its architecture or as experiments:
+Cut, as planned. These exist in the Electron app mostly because of its architecture or as experiments, and none was built:
 
 - the diffed runtime store, patch broadcast, preload bridges, overlay manager, page-host transfer pool
 - lifecycle freeze, idle throttle and focus emulation (workarounds for Electron OSR)
 - the component renderer, design-system store, video recorder and trimmer
-- the debug window (a `--dump-state` flag and the HTTP API cover it)
+- the debug window (the HTTP API and the headless modes cover it)
 - MCP server (the CLI replaced it)
 
-Defer until the core is solid, then decide each one fresh:
+This plan deferred the following "until the core is solid". The run did not wait, and built them:
 
-- agent chat pane and agent-fix (spawn the `claude` CLI with stream-json output, no SDK)
+- the agent chat pane and auto-fix (spawning the `claude` CLI with stream-json output, no SDK)
 - sync sets, scroll sync, interaction sync
-- element attachment and scroll-follow for anchored items
-- auto-layout groups, gap handles, reorder dots
+- scroll-follow for anchored items
+- auto-layout groups, gap strips, reorder dots
 - alignment and distribution guides
-- presence cursors, onboarding, settings window, auto-update, packaging and notarization
+- first run, the settings dialog, and an ad hoc signed app bundle
+
+Still not built: element attachment (ADR 0032), presence cursors, the focus session, themes, auto-update, Developer ID signing and notarization.
 
 ## What the full core takes
+
+The estimate as drafted, kept for the record. All six phases have landed. The "needs a human" column turned out right, and that checking has not happened yet.
 
 Six phases. Sizes are my estimate of Rust lines including tests.
 
@@ -164,11 +241,13 @@ Six phases. Sizes are my estimate of Rust lines including tests.
 | 2 | Kinds: text, sticky, shape, drawing (pen, highlight), group, edge, image file | 7k | Smoke |
 | 3 | Text editing, markdown document, IME in editors | 4k | Yes. Editing feel cannot be judged headless. |
 | 4 | Panels: toolbar, item popups, left sidebar, tabs, space folder | 5k | Yes |
-| 5 | Comments (three anchor types), page chrome (URL bar, back/forward, viewport presets), HTTP API and CLI verbs | 5k | Smoke |
+| 5 | **Done.** Comments (three anchor types), page chrome (URL bar, back/forward, viewport presets), HTTP API and CLI verbs | 5k | Smoke |
 
 Phases 0 to 2 and most of 5 are headless-verifiable, so agents can run them unattended. Phases 3 and 4 produce code overnight but need your eyes before anyone calls them done.
 
 ## Overnight list
+
+The task list as drafted. The status of each task is in the table at the top.
 
 Ordered in waves. Tasks within a wave touch different files and can run in parallel. Each task is one PR into a `rust-rebuild` feature branch and passes the gate above. Tasks marked (Mac) also need the morning check.
 
@@ -236,34 +315,40 @@ Ordered in waves. Tasks within a wave touch different files and can run in paral
 - **A2.** `specular` CLI verbs against A1, so the existing skill file works unchanged against the Rust app.
 - **A3.** Page snapshot and screenshot routes through CEF.
 
-### Morning checklist
+### What a person still has to do
 
-1. Read the M1 bake-off note and pick the renderer. Wave 3 onward depends on it.
-2. Read the M2 memory breakdown.
-3. Build on the Mac and run `specular-app fixtures/input.canvas`. Check that pages still load and take input.
-4. Open a real canvas from your space. Check it draws every kind and saves without a diff in `git`.
-5. Try each (Mac) task by hand. Text editing first, since it is the one most likely to feel wrong.
+The morning checklist this section held is done or overtaken. The renderer was picked without a person (ADR 0039), the memory breakdown is in the log, and pages load and take input under script.
 
-### What to expect by morning
+What is left is all by hand, and it is the merged checklist in the [handoff](./rust-native-rebuild-handoff.md): open a real canvas and check it saves without a diff, type with a real input method, use a trackpad, resize the window, and try each interaction once. Text editing first, since it is the one most likely to feel wrong.
 
-Waves 0, 1 and 2 should land, with M1 and M2 written up. Those are well-specified ports with fast tests. Wave 3 and wave 6 can start only if M1 gives a clear answer without you, so plan for some of K1 to K6 and all of C1, A1, A2. Waves 4 and 5 are a second night. One night will not reach parity. It should reach a Rust app that opens your real canvases, selects, moves, resizes, undoes and saves, and draws most kinds.
+### Where it stands
+
+One day of agent work reached further than this plan expected of two nights: every wave, a second shell, and most of the deferred list. The cost is in verification. The agents checked their work with tests, headless scripts and scripted captures, and the log says in each entry what was not run or not seen. Treat the app as a working draft that has never had a user.
+
+The next steps, in order:
+
+1. The by-hand checklist in the handoff. It will find bugs that scripts cannot.
+2. The decisions only the user can make: ADR sign-offs, the four cleanup cuts below, distribution.
+3. GPUI shell parity (context menu, sidebar folds, greyed menu items, resting when idle), then the cleanup cuts that depend on it.
 
 ## Cleanup tasks
 
-From the audit in the run log ("AUDIT, part 1"). The audit cut the tests from 1,778 to about half, removed dead public items, put the f32 rects on one type and split the files it could. These are the larger cuts it left, ranked by lines removed for the risk taken. Each needs a decision or would have collided with work in flight. Line counts are source lines without tests, measured after the chrome branch landed.
+From the audit in the run log ("AUDIT, part 1"). The audit cut the tests from 1,778 to about half, removed dead public items, put the f32 rects on one type and split the files it could. These are the larger cuts it left, ranked by lines removed for the risk taken. Line counts are source lines without tests, measured after the chrome branch landed.
+
+**Status.** Tasks 5, 6, 9, 10 and 13 are done (log, "CLEANUP-A"). Tasks 1 to 4 wait on a decision from the user. Tasks 7, 8, 11 and 12 are open and need only a quiet tree.
 
 | # | Task | Removes | Risk and what it needs |
 |---|---|---|---|
-| 1 | Retire the built-in toolbar, popup and sidebar renderer once the GPUI Kit shell draws everything it does. `interact/panel/builtin` (3,524), most of `scene/panel` (1,876; the Kit still uses its icon paths and colours), testkit's panel helpers (564) and eight `panel_builtin*` test files (1,660). The panel models in `interact/panel` stay: both renderers read them. | about 7,000 | The headless runner draws and clicks these panels. Scenario `j`, the chrome scenario, `control NAME` script steps and the bench's "after" rows all depend on them, and the Kit cannot run headless. Needs a decision: either scripts name controls through the models with no drawn panel, or the built-in renderer stays as the headless one and the duplication is accepted. |
-| 2 | Retire `specular-app`'s winit window once the Kit shell is at parity (ADR 0040's list). Nine files name `winit`: `translate.rs`, `app/menu_bar/`, `app/gpu_window.rs`, `app/mod.rs`, `launch.rs`, `app/input.rs`, `app/turn.rs`, `app/drop_run.rs`. Drops the `winit` and `muda` dependencies. | about 1,700 | `--bench` only runs in the winit window, so every performance number in the log comes from it. The key tables use `winit::keyboard::KeyCode`. Port `--bench` and the key tables first, then compare one bench run across both shells before deleting. |
-| 3 | One shell crate. After 2, `specular-app` is a `Runtime` library plus a headless runner, and `specular-shell` is the only window. Merge them, or rename `specular-app` to what it is. | under 200, and one crate | Mechanical, but it touches every import in both. Do it when nobody else has a branch open on either. |
-| 4 | Retire the Electron comparison half of `specular-bench`: `compare`, `electron_trace`, `profile` aliases and the commands that read Electron's output. | about 1,200 | The spike's question is answered (run log, "Performance"). Keep it if another Electron comparison is planned. Decision only. |
+| 1 | **Needs a decision.** Retire the built-in toolbar, popup and sidebar renderer once the GPUI Kit shell draws everything it does. `interact/panel/builtin` (3,524), most of `scene/panel` (1,876; the Kit still uses its icon paths and colours), testkit's panel helpers (564) and eight `panel_builtin*` test files (1,660). The panel models in `interact/panel` stay: both renderers read them. | about 7,000 | The headless runner draws and clicks these panels. Scenario `j`, the chrome scenario, `control NAME` script steps and the bench's "after" rows all depend on them, and the Kit cannot run headless. Needs a decision: either scripts name controls through the models with no drawn panel, or the built-in renderer stays as the headless one and the duplication is accepted. |
+| 2 | **Needs a decision.** Retire `specular-app`'s winit window once the Kit shell is at parity (ADR 0040's list). Nine files name `winit`: `translate.rs`, `app/menu_bar/`, `app/gpu_window.rs`, `app/mod.rs`, `launch.rs`, `app/input.rs`, `app/turn.rs`, `app/drop_run.rs`. Drops the `winit` and `muda` dependencies. | about 1,700 | `--bench` only runs in the winit window, so every performance number in the log comes from it. The key tables use `winit::keyboard::KeyCode`. Port `--bench` and the key tables first, then compare one bench run across both shells before deleting. |
+| 3 | **Needs a decision.** One shell crate. After 2, `specular-app` is a `Runtime` library plus a headless runner, and `specular-shell` is the only window. Merge them, or rename `specular-app` to what it is. | under 200, and one crate | Mechanical, but it touches every import in both. Do it when nobody else has a branch open on either. |
+| 4 | **Needs a decision.** Retire the Electron comparison half of `specular-bench`: `compare`, `electron_trace`, `profile` aliases and the commands that read Electron's output. | about 1,200 | The spike's question is answered (run log, "Performance"). Keep it if another Electron comparison is planned. Decision only. |
 | 5 | Take `specular-testkit` out of `specular-app`'s normal dependencies. The headless runner is built on `TestApp`, so test support ships in the binary. Move the script driver's core (press, drag, key, type) into `specular-interact` as a small `Driver`, and let testkit and the runner both wrap it. | about 300 of duplication | Touches every test's import path if done carelessly. Keep `TestApp`'s API as it is and change what is under it. |
-| 6 | Fix the renderer's dependency direction. `specular-compositor` depends on `specular-interact` for `TextMeasure`, `TextLayout` and `CaretStop`, and on `specular-doc` for `EntityId` and `TextAlign`. Move the text-measure trait and its layout types into `specular-scene` (or a small text crate under interact), and key the compositor's text areas by an opaque `u64`. | 0, but the plan's rule holds again | A wide rename across interact, scene, compositor and both shells. Collides with any text work in flight. |
+| 6 | **Done**, with an `OwnerId` alias in place of the opaque `u64`. Fix the renderer's dependency direction. `specular-compositor` depends on `specular-interact` for `TextMeasure`, `TextLayout` and `CaretStop`, and on `specular-doc` for `EntityId` and `TextAlign`. Move the text-measure trait and its layout types into `specular-scene` (or a small text crate under interact), and key the compositor's text areas by an opaque `u64`. | 0, but the plan's rule holds again | A wide rename across interact, scene, compositor and both shells. Collides with any text work in flight. |
 | 7 | The remaining rect types. `interact::PanelRect` (x, y, width, height in f32) is `core::Rect` under another name; `interact::ScreenRect` (min and size) differs only in shape. `interact/geometry.rs` has free functions `union`, `intersection` and `contains` over `doc::Rect` that belong on the type. | about 150 | `PanelRect` is in 12 panel files and goes away with task 1, so do this after deciding 1. `ScreenRect`'s `contains` includes all four edges and `Rect`'s does not: check each hit-test caller. |
 | 8 | Narrow the public API. 219 `pub` items are never named outside their crate (interact 92 of 359, cef 45 of 56, bench 42 of 90, scene 19, compositor 9, core 8). Make them `pub(crate)` and let the compiler report what is then dead. | unknown until done; the name scan found only 5 dead | Safe, but it edits a line in about 150 files, so it conflicts with every open branch. Run it in one sitting on a quiet tree. |
-| 9 | One test binary for `specular-interact`. Its 63 files in `tests/` are 63 binaries, each linking the crate. Move them under `tests/it/` with one `main.rs`. | 0 lines, most of the suite's link time | File moves conflict with any branch that adds a test. Snapshot names change (`it__file__test.snap`), so rename the `.snap` files in the same commit. |
-| 10 | A second pass on the tests. The suite is at about half. What is left to cut: the blocks pasted together in `specular-doc`, `specular-core` and interact `src/` (make them real tables or drop the repeats), compositor helper tests next to GPU readbacks of the same rule, and the 15 near-duplicate cases in `api/contract.rs`. | 150 to 250 tests | Low. Mutation-check what stays: break the code a test names and see it fail. Nobody has done that for any test here. |
+| 9 | **Done.** One test binary for `specular-interact`. Its 63 files in `tests/` are 63 binaries, each linking the crate. Move them under `tests/it/` with one `main.rs`. | 0 lines, most of the suite's link time | File moves conflict with any branch that adds a test. Snapshot names change (`it__file__test.snap`), so rename the `.snap` files in the same commit. |
+| 10 | **Done**, with a mutation check on 386 tests. A second pass on the tests. The suite is at about half. What is left to cut: the blocks pasted together in `specular-doc`, `specular-core` and interact `src/` (make them real tables or drop the repeats), compositor helper tests next to GPU readbacks of the same rule, and the 15 near-duplicate cases in `api/contract.rs`. | 150 to 250 tests | Low. Mutation-check what stays: break the code a test names and see it fail. Nobody has done that for any test here. |
 | 11 | Split the files still over 400 lines: `cef/source.rs` (497) and `cef/client.rs` (418) were left because `specular-cef` had a branch open. `shell/view/controls.rs` (413), `interact/event.rs` (408), `interact/space/ops.rs` (405) and `interact/panel/builtin/dropdown.rs` (402) are at the line and have no clean seam; `controls.rs` and its dropdown code call each other both ways. | 0 | None for the cef pair once that branch lands. |
 | 12 | The 18 functions over 80 lines, largest first: `Runtime::render` (132), `Runtime::capture` (122), `scene_pass::build` (110), `update` (109), `run_action` (106). `render` and `capture` share most of a frame's setup. | about 100 | `Runtime` is shared by both shells and had a branch open. `update` and `run_action` are flat matches and read fine long. |
-| 13 | Caches in the wrong place. `App` holds `StackCache`, a text-layout cache behind a `Mutex`, inside state that `update` owns; and `view` parses markdown and rebuilds freehand outlines every frame (0.6 to 0.9 ms). Give `view` one cache argument owned by the shell, and move `StackCache` into it. | 0, and a faster frame | Changes `view`'s signature, which every scene test calls. |
+| 13 | **Done.** Caches in the wrong place. `App` holds `StackCache`, a text-layout cache behind a `Mutex`, inside state that `update` owns; and `view` parses markdown and rebuilds freehand outlines every frame (0.6 to 0.9 ms). Give `view` one cache argument owned by the shell, and move `StackCache` into it. | 0, and a faster frame | Changes `view`'s signature, which every scene test calls. |

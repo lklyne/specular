@@ -5,297 +5,268 @@ Appended by each agent as it finishes a task from
 
 ## Decisions
 
-Choices made during the run that the plan did not settle. One line each,
-with the task that made it.
+Choices made during the run that the plan did not settle, grouped by area. The task that made each is in brackets, and its entry below has the detail. This section was condensed on 2026-10-08 from about 290 one-line decisions. A decision that a later one reversed is left out of its area and listed under "Reversed" at the end, so the areas describe the code as it is. The full original list is in git history before that date.
 
-- Orchestrator: yrs is dropped. The document is typed structs with inverse-command undo.
-- Orchestrator: task F1 (rename and split crates up front) is folded into F4 and F5. New crates are created fresh beside the spike's crates; the old ones are renamed or absorbed when their replacement lands.
-- Orchestrator: no PRs or pushes during the run. One commit per task on the current branch.
-- F2: ids are the `.canvas` id strings (`EntityId`, `EdgeId`, `AnnotationId`), not slotmap keys. An undo has to restore the same identity, and edges, `parent` and anchors refer to ids by string on disk.
-- F2: `specular-doc` has its own `Rect` and `Point` in `f64`. `.canvas` numbers are JSON doubles and `specular-core`'s `f32` `CanvasRect` would change them on a load and save.
-- F2: the stack order is `Vec<ItemId>` where `ItemId` is `Entity(id)` or `Edge(id)`, because edges interleave with entities in `specular.entityOrder` (ADR 0014). Entity and edge ids share one namespace.
-- F2: commands are primitive and never cascade. References may dangle (files from other tools can contain them). Delete builds a `Command::Batch` from `Document::children` and `Document::edges_touching`.
-- F2: `History` is a separate struct from `Document`. `Document::apply` alone is not an undo step, which is how loading and non-undoable changes are done.
-- F2: `label` sits on `Entity`, not in each kind. Five of six kinds have one, and the file kind has it under `specular.label`.
-- M1: canvas items are SDF shapes + glyphon 0.12 (cosmic-text 0.19) + lyon in the compositor's pass; panels are egui 0.36; vello and GPUI are turned down. ADR 0039, Proposed.
-- M1: text editing uses cosmic-text's `Editor`, not parley's `PlainEditor`, because glyphon renders cosmic-text buffers.
-- M1: `native/bakeoff/` sets `opt-level = 3` on its dev profile so timings mean something without `--release`.
-- F3: the `.canvas` writer is canonical, not byte-preserving. It writes what the Electron writer would: `specular.entityOrder` whenever the stack is non-empty, `annotations` only when there are some, nodes and edges in stack order, every float rounded to a hundredth except under a `zoom` key, whole floats as integers.
-- F3: a node, edge or annotation that cannot be typed (unknown node `type` or `shapeKind`, missing required field, duplicate id) is kept as raw JSON in `Document::extra` under `nodes`, `edges` or `annotations` and written back after the typed items. The app does not see it. A load fails only on invalid JSON, a non-object top level, or one of those three keys not being an array.
-- F3: group `pageIds`/`entityIds` are dropped on load and not regenerated. The Electron reader and writer no longer use them; membership is each member's `parent`. Page `groupId` and group `groupColor` are still written beside `parentGroupId` and `color`.
-- F3: `Command::SetAnchor` carries `Option<Box<PageAnchor>>`, like the other boxed payloads, so the enum stays small.
-- F4: `Event` and `Effect` name a page by its `EntityId`. The shell keeps the table from entity to backend `PageId`.
-- F4: a drag writes rects into the document as it goes, through `Document::apply`. The release puts the start rects back and records one `History` step; Escape just puts them back.
-- F4: a page's viewport is not stored. It is the rect's rounded size, held at the starting size while a handle is dragged. Undo, redo and opening a document diff the pages before and after and return create, close and viewport effects.
-- F4: `Tool` has eight variants: Electron's ten without `hand` and `inspect`. `Gesture` has only the three that work (`Move`, `Resize`, `CommentRegion`); each slice adds its own.
-- F4: time comes in as `Event::Tick { unix_ms }` once per loop turn, so there is no timer effect. S9 can debounce against it. New ids come from a seeded sequence in `Session`.
-- F4: a comment region over a page is stored the way Electron stores it: a `docRect` in the page's CSS pixels plus a `pageAnchor`. Scroll is taken as zero until pages report it.
-- F4: `Action` is the command enum for key bindings, menus, panels and API "act" routes. There is no reply effect; A1 adds what it needs.
-- F4: canvas bindings (C, Cmd+Z) go to the page while a page has keyboard focus, as Electron's undo binding does. Escape always cancels.
-- F4: `--chrome off` only stops the drawing. Gestures and keys still act.
-- F6: tests on the testkit are integration tests under a crate's `tests/`. A `src/` unit test would see two copies of its own crate's types, because the testkit links the library build.
-- F6: a document snapshot is the canonical save with one compact JSON line per node, edge and annotation. It needs no per-kind code, so a new kind or field shows up in snapshots without touching the testkit.
-- F6: `hold(mods)` keeps modifiers down until `let_go()`. `key` and `chord` send the press and the release. `release()` is always at the pointer's last position.
-- F6: the golden-image helper in the plan's F6 line is left for the task that makes the renderer draw a `Scene`.
-- F5a: `Scene` names a page by its `EntityId`, as events and effects do. `render_scene` takes a closure from `EntityId` to the backend `PageId`, so `view` needs no handle table. Images are named by `ImageId(u64)`, uploaded with `Compositor::set_image`.
-- F5a: every item is in canvas space or screen space. There is no "canvas rect with a pixel-wide stroke" item. Chrome that hugs an entity at a fixed pixel size is a screen-space item that `view` projects with the camera.
-- F5a: scene colors are 8-bit sRGB with straight alpha. Clip and opacity are per item, with no push and pop. A clip is a rect in the item's own space.
-- F5a: a text run has an origin plus an optional wrap width and box height. An axis with an extent aligns inside it, an axis without one aligns against the origin. The renderer shapes and measures, so `view` never needs text metrics.
-- F5a: batches do not always break at a page. An item joins the earliest batch of its kind at or after the last batch it overlaps, and a page is a batch of its own. An item over a page still paints after it. Border and title chrome beside 40 pages is one shape batch and one text batch, not 40 of each.
-- F5a: dashed borders and dashed edges are paths with a `Dash`. The SDF layer draws solid rects and ellipses only. Rect and ellipse strokes can sit inside, centred or outside.
-- F5a: a stroke thinner than one device pixel is drawn one pixel wide and faded by the same ratio.
-- F5a: the caller says when the camera is zooming (`FrameView::zooming`). While it is, canvas glyphs keep their raster size until the zoom has moved 0.75x to 1.25x from it, and the pass viewport stretches them. The shell must render one frame with `zooming: false` when the gesture ends.
-- S1: hit-testing runs in screen space with Electron's sizes (12 px handle squares and side strips on the outline 1 px outside the bounds, first match wins). Pages and other items share one stack order, so a page in front of a note covers it; Electron always puts notes above pages. Groups are still hit after everything else.
-- S1: `Hit` has no reorder dots or gap handles. They arrive with auto-layout (ADR 0015). A group title's width is estimated at 6.1 px a character until text is measured.
-- S1: the per-kind rules are `min_size`, `aspect_mode` and `has_anchors` in `caps.rs`. The page minimum is now Electron's 320x200, up from the spike's 120x80.
-- S2: the entered page of ADR 0022 is `Focus::Page`. It stays entered only while it is the whole selection, which `update` checks once after every event. Only the entered page gets pointer and key input, and a page that got a press keeps the pointer until the release.
-- S2: Escape is staged. It first backs out of a drag, an armed tool or an entered page and keeps the selection. With none of those it deselects.
-- S2: a marquee changes the selection on release. Until then `App::marquee()` and `App::marquee_items()` give the rect and what it would take.
-- S2: `Session::hover` is the entity under the pointer, of any kind. The hovered entity shows anchors, as in Electron.
+### How the run worked
 
-- F5b: `view(&App, viewport)` culls entities outside the viewport (plus 64 px for chrome), so a frame costs what is on screen. `view_without_chrome` is what `--chrome off` draws: entities and edges, with no page border or title and no session layer.
-- F5b: `specular-scene` depends on `specular-interact` (and so does the compositor, through it). Edges are drawn from `App::edge_curve`, the curve hit-testing uses, in screen space.
-- F5b: colours are the light theme only. The vivid inks are the CSS `oklch(from hue 0.5 c h)` values clipped to sRGB and written as constants in `view/palette.rs`. Blue is stored as `"7"`, which `specular-doc` reads as `Color::Custom("7")`; the palette maps it.
-- F5b: drawings are outlined in canvas space (Electron outlines them in screen space), so a stroke has the same shape at every zoom. The highlighter is a flat 30% alpha with no gradient or grain: the scene has neither.
-- F5b: a page keeps the 8-unit corner radius and gets a title above it (label, or URL without the scheme) as the title-bar stand-in. Electron draws neither on the canvas.
-- F5b: text is never measured in `view`. An edge label has no gap cut in the line under it, a comment badge has a fixed width per digit, and a file card stacks its glyph and one line of name around the centre.
-- F5b: a comment on a canvas point draws a 12 px dot and a comment on an element draws its badge in the page's top-right corner. Electron shows nothing for the first and needs the element's live position for the second.
-- S9: `History::revision()` counts applied, undone and redone steps. `update` compares it before and after an event and returns `Effect::Save` when it moved, so no command site has to remember to. `clear` does not move it: a document just read is not saved back.
-- S9: the file watch is a `stat` every 500 ms on the loop, not an OS watcher. A moved stamp (mtime or length) means read the file; the text decides. Our own write and a `touch` compare equal to what we hold and are ignored.
-- S9: nothing is saved or reloaded while a gesture is in flight. The document holds the drag's unfinished rects, which Escape takes back.
-- S9: the camera is written only when a document change saves. Panning alone does not write the file. A pending save is flushed on exit.
-- S9: a run with `--bench` or `--annotations N` never writes the file or reads its camera. A file with no `appState` camera opens at the old fixed start camera.
-- S3: a plain drag on a body moves the selection. Option held during the drag makes it a copy, as in Electron. The spike's Alt+drag move is gone.
-- S3: a move snaps to the 20-unit grid, as Electron's does. The pressed entity's top-left lands on a grid line and every other operand moves by the same delta, so a selection keeps its layout. Electron snaps each entity on its own. A pressed drawing does not snap.
-- S3: entering a page (ADR 0022) happens when the click is released, not on the press, because a press on the selected page may turn into a drag.
-- S4: resize is computed from the start rect and the pointer each frame, not from accumulated deltas as in `resize-accumulator.ts`. The results match except past a limit, where Electron's version drifts from the pointer.
-- S4: Option does nothing in a resize, as in Electron. Shift follows the kind's `AspectMode`: shapes and non-media files lock with Shift, text and image or video files unlock with it.
-- S4: text height is content-sized and nothing measures text headless. A scaling drag that keeps the ratio writes the scaled height as a stand-in; reflow and Shift drags leave the height alone.
-- S4: resizing a page writes no `pageSizeMode` or device metadata and leaves `preset_index`. The viewport is still the rect's size (F4).
-- S5: copies keep their group unless the group is copied too, lose a page anchor unless that page is copied, and take an edge only when both its ends are copied. They go in front of the stack.
-- S5: duplicate places the copy 80 units to the right, else below, else at the first free spot of a grid scan. Every entity counts as occupied.
-- S5: the cursor is recomputed after every event but a tick and returned as `Effect::SetCursor` only when it changes. `Session::cursor` holds the last one.
-- K6: images are a table in `Session` keyed by the `file` string, each with an `ImageKey` that `update` allocates. `update` returns `Effect::LoadImage` when a document is opened and after any history step; the shell answers with `Event::Image`. The scene's `ImageId` is the key's number.
-- K6: an image nothing shows any more is kept until another document is opened, so undoing a delete does not reload it. `Effect::DropImage` is only returned on `DocumentOpened`.
-- K6: which files are images is Electron's `IMAGE_EXTENSIONS`, checked in `update`. What can be decoded is the shell's business: svg, bmp and ico are asked for, fail, and stay cards. An `http(s)` path is not fetched and fails too.
-- K6: the decode thread also premultiplies and builds the mip levels (`ImageMips::build`, in the compositor crate but pure CPU). The main thread only uploads, one image per loop turn.
-- K6: an image larger than the device's texture limit is scaled down on the decode thread. EXIF orientation is applied, as a browser does for an `<img>`.
-- K6: `contain` draws only the image, with nothing in the letterbox bars. `cover` crops with `ImageDraw::source`. No corner radius.
+- No PRs or pushes during the run. One commit a task on the current branch. [Orchestrator]
+- Task F1, the up-front crate split, was folded into F4 and F5. New crates were made beside the spike's and the old ones renamed or absorbed as their replacement landed. [Orchestrator]
+- `native/bakeoff/` builds its dev profile at `opt-level = 3` so timings mean something without `--release`. [M1]
+- Tests on the testkit live under a crate's `tests/`. A `src/` unit test would see two copies of its own crate's types. `specular-interact`'s are one binary, `tests/it/`, and a new file needs its `mod` line in `main.rs`. [F6, CLEANUP-A]
 
-- Tools: a gesture that creates an entity puts it in the document while it runs, as a move writes rects. `App::creating()` names it. Release takes it out and inserts it as one `History` step; Escape takes it out.
-- Tools: each stroke is its own drawing entity and its own undo step, which is what Electron's pointer-up does. `useDrawingSession` can hold several strokes but nothing adds a second one.
-- Tools: tool defaults are `App::tool_defaults()`, beside the document and the session. `Effect::SaveToolDefaults` carries the whole value and `Event::ToolDefaultsLoaded` sets it. `ToolDefaults::to_json` and `from_json` are the preferences file's `toolDefaults` shape.
-- Tools: a variant key (R, O, Shift+R, M, Shift+M) is `Action::SetToolVariant(patch)`, which arms the patch's tool and writes the default. A tool's key pressed again does nothing, so C no longer toggles the comment tool off.
-- Tools: a chord's `cmd` is Command or Control, as Electron's `CmdOrCtrl`. Escape matches whatever modifiers are held, so it cancels a Shift or Option drag.
-- Tools: `Session::editing` holds only while that entity is the whole selection. While it is set the plain-key bindings do not fire; undo, redo and Escape do. Only text and stickies set it. Electron also opens a new shape's label for editing.
-- Tools: a new page is Electron's `P` then click: preset 0 (375x667), `about:blank`, with the device metadata Electron writes.
-- Tools: an anchor written at placement has `pageId` and `pageUrl` and no scroll offset. `canonical_page_url` trims and strips the hash; it does not normalise the URL as Electron's `new URL()` does.
-- T3: `view` cannot measure text, so it cannot stack a document's blocks. The scene has a new draw, `Draw::Column`: rows of `TextRun` cells that the renderer stacks, each row as tall as its tallest cell. A list item is a marker cell and a text cell, a table row is one cell per column.
-- T3: `TextRun::spans` sets weight, italic, family, colour, underline and strike on byte ranges. There is no per-span size. A heading is its own row.
-- T3: glyphon draws glyphs only. Underlines, strikes, quote bars, dividers and table lines go through its custom-glyph path as solid masks, so they keep the text's batch, clip and order. They are for thin lines. A fill that way would eat the glyph atlas.
-- T3: the markdown parser is `specular-scene/src/markdown`, and `view` parses the text on every frame a Document is on screen. `App` holds only the text, as `NoteState`, keyed by the `file` string.
-- T3: the note thread polls stamps every 500 ms, as S9 does, and reports a file only when its text reads differently. `Effect::LoadNote` means read it and keep watching until `Effect::DropNote`.
-- T3: table columns are equal widths. A code block wraps and has no background, as in Electron. An image is the text `[image: alt]`.
-- T3: Document scroll is `App::note_scroll(entity)`, in canvas units. `update` does not know the text's height, so it stops the offset at the top only. The renderer stops drawing at the end of the text.
-- T1: `Session::editing` is a `TextEdit`, not an id. The working text lives only there until the edit ends; the document keeps the old text, and `App::editing_text(id)` is what to draw.
-- T1: the rect is the exception. A text entity's fitted rect is written into the document while typing, as a drag writes rects, so the outline, handles and hit-testing follow. Ending the edit puts the old rect back and makes one step of text plus rect.
-- T1: a text or sticky placed by its tool is in the document with no undo step until the edit ends. Ended with text in it, it is one step that undoes to nothing. Ended empty, it is taken out and no step or save happens.
-- T1: "empty" is whitespace only. An emptied text entity is removed with its edges. An emptied shape label keeps its shape.
-- T1: Escape, a press anywhere but the edited body, a tool change, a verb and a selection change all keep the edit. Only `DocumentOpened` throws it away.
-- T1: `TextMeasure` is one method, `layout(text, spec) -> TextLayout`, which is plain data: lines with a byte range, a top, a height and a caret stop per grapheme boundary. Up and down, line ends, point to offset, the caret and selection rects and the fitted size are computed from it in `edit/layout.rs` and `edit/frame.rs`. `App` holds it as `Arc<dyn TextMeasure>`; the default estimates half an em a character with no wrapping.
-- T1: no caret affinity. An offset where a wrapped line ends belongs to the next line, so End and a click past the last glyph stop one grapheme short on a wrapped line, usually before the space it broke at.
-- T1: the editor's keys are the macOS set, with Command meaning Command or Control as in the binding table. CodeMirror's Emacs keys (Ctrl+A, E, K and friends) are not in.
-- T1: the editor's undo joins consecutive typing into one step and consecutive deletes into another. A caret move, a paste, a cut, a line break and a composition each start a new one. `Action::Undo` and `Redo` go to it while an edit is open.
-- T1: bullet lists (Enter continues, Enter on an empty item leaves, Backspace after a marker removes it, Tab and Shift+Tab nest) apply to text and stickies, not shape labels. Bold, italic and strike are T5's.
-- T1: where an entity's text sits (`App::text_frame`) is in `specular-interact`, with the padding, sizes, line heights and the shape label box copied from `specular-scene`'s `view/text.rs` and `view/shape.rs`. The scene should read the frame from interact so the two cannot drift.
-- T2: while the input method is composing, every key but Escape is ignored. A composition is one editor undo step from its first marked character, and a cancelled one leaves none. A click or ending the edit keeps the composed text as it stands.
-- Shell batch: copied entities go on the clipboard as text, `specular:canvas:` followed by a compact `.canvas` of the selection's operands and the edges between them. It is not Electron's `web-canvas:entities:` payload, so the two apps do not paste each other's entities.
-- Shell batch: `Effect::ReadClipboard` is answered with `Event::Clipboard(ClipboardContent)`, the text and a PNG of the image. With an edit open the text goes to `edit::paste`. Otherwise `Paste::of` decides in Electron's order: copied entities, an image, a one-line URL (a Desktop page), other text (a sticky). `Event::Paste` is gone.
-- Shell batch: not ported from `clipboard-paste.ts`: copied file references, SVG, HTML and JSON text, and long text becoming a Document.
-- Shell batch: `update` names a pasted or dropped file `assets/<entity id>.<ext>` and returns `Effect::WriteAsset` or `Effect::CopyAsset` ahead of the `LoadImage`. A dropped file already inside the space folder is shown by its relative path with no copy. Only images and `.md` are taken.
-- Shell batch: one drop is one undo step for all its files. Electron makes a step per file.
-- Shell batch: preferences are the native app's own file, `preferences.json` in `~/Library/Application Support/Specular Native` (the XDG config folder elsewhere, `SPECULAR_NATIVE_CONFIG_DIR` overrides). Not Electron's file: it rewrites its own from memory, so two writers would lose changes. A save keeps the file's other keys. A `--bench` run neither reads nor writes it.
-- Shell batch: the Edit, Tools and View menus are data, `specular_interact::menus(&App)`. An item's shortcut is the first `BINDINGS` row with its action, and a tool's item runs what its key runs (Shape is R's rectangle variant). An item is enabled when that row's `Context` holds, no drag is in flight and it has something to act on.
-- Shell batch: new rows in `BINDINGS`: Cmd+X, C, V, A, Cmd+= and Cmd+- (1.25x about the viewport's middle), Cmd+0 (100%) and Cmd+1 (zoom to fit, 64 px of room, never above 100%). Cmd+1 is `Context::Always`, as Electron's reset-viewport fires from inside a page. Backspace now comes before Delete so the menu shows it.
-- Shell batch: select all takes every entity with no parent. Edges are not selected.
-- Shell batch: on macOS the shell turns winit's default menu off (`with_default_menu(false)`) and installs muda's with `init_for_nsapp` from `resumed`. `app_protocol.rs` adds two methods and three protocols to winit's `NSApplication` class and never touches `mainMenu`, so the two do not meet. Quit and Close are the shell's own items, not AppKit's `terminate:`, so the pending save is written. A `--bench` run keeps winit's menu.
-- Shell batch: File has Open, Save and Close. Open goes through an empty document so no image or note carries over from the old space folder. Save writes a pending autosave now. There is no Save As and no New.
-- Shell batch: the window title is the file name without `.canvas`, plus ` — Edited` while a save is pending, with AppKit's edited dot. A canvas with no file is titled Specular.
+### Document and `.canvas`
 
-- T1 scene: the compositor's `GlyphMeasure` and its `TextSystem` share one `FontSystem` behind a mutex. `TextRun::set(text, spec, ..)` in `specular-scene` is the only place a `TextSpec` becomes a run, and both the measure and `view` go through it and then through `text_shape::shape`.
-- T1 scene: `TextMeasure::is_exact()` says the layouts are the renderer's. A loaded document's texts and stickies get their fitted rect, with no undo step and no save, only when it is true. The default estimate and the testkit's `FixedAdvance` return false, so a test's fixture rects stay as written.
-- T1 scene: a text resize measures the height on every frame of the drag, and the edge the handle does not move stays put. A text has a width floor and no height floor, and a left or right handle keeps no ratio. This replaces S4's stand-in height.
-- T1 scene: `App::handles()` is `None` while text is edited, so the handles are neither drawn nor hit. The outline stays. Electron's outline layer has no editing condition that I could find, so this follows the task and not the code.
-- T1 scene: the caret and the composition underline are screen-space rects `max(1, round(zoom))` pixels thick, in the text's colour. The selection is canvas-space rects behind the glyphs. A selection hides the caret.
-- T1 scene: the blink is 500 ms shown and 500 ms hidden, counted from `TextEdit::active_ms`. `update` stamps it after any event that changed the caret, the anchor, the text's length or the composition. No tick effect was needed: the shell polls and sends `Event::Tick` every loop turn.
-- T1 scene: an empty plain text draws "Add text" at 40% alpha, edited or not.
-- Visual check: the window's surface and the snapshot target are not sRGB formats (`Bgra8Unorm`, `Rgba8Unorm`), so colours blend encoded, as in a browser. On an sRGB target dark text came out thin and grey and a 30% highlight over text turned the text olive.
-- Visual check: paths and polygons fill with the non-zero rule, as a 2D canvas does. A freehand outline crosses itself at its caps and corners, and even-odd left holes there.
-- Visual check: `specular-app` depends on `specular-testkit` outside tests. A headless run is a `TestApp` plus the three effects that load things (pages, images, Documents); every other effect is dropped, so it never writes the canvas, the clipboard or preferences. `insta` comes along in the binary's dependency tree.
-- Visual check: a headless run's clock starts at a fixed time and only `wait` moves it, so one script draws the same frame every run. `--snapshot-scale` is an addition to the task's flags.
-- Visual check: the hover outline is not drawn while a gesture is in flight. `Session::hover` is only refreshed by a move with no button down, so it went stale during a drag.
+- yrs is dropped. The document is typed structs with inverse-command undo ([ADR 0041](../adr/0041-typed-document-inverse-command-undo.md)). [Orchestrator]
+- Ids are the `.canvas` id strings, and entity and edge ids share one namespace. The stack order is `Vec<ItemId>`, because edges interleave with entities in `specular.entityOrder` (ADR 0014). [F2]
+- `specular-doc` has its own `Rect` and `Point` in `f64`. An `f32` rect changed numbers on a load and save. [F2]
+- Commands are primitive and never cascade. References may dangle. Delete builds a `Command::Batch` from `Document::children` and `Document::edges_touching`. [F2]
+- `History` is separate from `Document`. `Document::apply` alone is not an undo step, which is how loading and a drag's frames are done. [F2]
+- `History<S>` carries the caller's state from each side of a step, and the app's `S` is the selection. Undo restores the selection from before the step and redo the one after. Select what a step made after `document_step`, never before. [Polish]
+- `label` sits on `Entity`, not in each kind. [F2]
+- The writer is canonical, not byte-preserving. It writes what the Electron writer would: `entityOrder` whenever the stack is non-empty, `annotations` only when there are some, floats rounded to a hundredth except under `zoom`, keys in Electron's order (`preserve_order`). [F3, F6]
+- A node, edge or annotation that cannot be typed is kept as raw JSON in `Document::extra` and written back after the typed items. A leftover such as `"syncId": null` is written in its typed field's slot. A load fails only on invalid JSON, a non-object top level, or `nodes`, `edges` or `annotations` not being an array. [F3, S1]
+- Group `pageIds` and `entityIds` are dropped on load and not regenerated. Membership is each member's `parent`. Page `groupId` and group `groupColor` are still written. [F3]
+- A save writes `App::document_to_save()`, not `App::document()`. A text measured at open goes back to the size it was read with unless the session changed its rect, so the first change to an Electron file does not rewrite every text. [QA]
+- A Document's text is a transient `notes` map on `Document`, changed by `Command::SetNote` and never written to `.canvas` (ADR 0023 without a Y.Doc). [T4]
+- A page annotation's `offsetX` and `offsetY` are fractions of the page, not pixels. [Visual check]
 
-- T4: a Document is edited as its source, one row a source line (`source_rows`), not in the read view's layout. Read, markers are gone and lists and tables are cells, so nothing maps back to a byte. Both views share `ColumnDraw`, the sizes and the colours. The text shifts a little when an edit opens.
-- T4: the syntax styler is `edit/source.rs` in `specular-interact`, by hand and one line at a time (a code fence is the only state between lines). The editor has to measure styled text, and pulldown-cmark lives above it in `specular-scene`.
-- T4: `TextMeasure::layout_styled(text, spec, spans)` measures one styled line. `edit/stack.rs` stacks the lines into one `TextLayout`, so motion, clicks, the caret and selection rects are the T1 code unchanged. `TextRun::source` is the one place a styled line becomes a run, for the measure and for `view`.
-- T4: the renderer reports each owned column's height (`ColumnDraw::owner`, `Compositor::column_heights`) and the shell sends `Event::NoteHeights` when one changes. `update` stops a Document's scroll at its end with it. While edited, the end comes from the source's own layout.
-- T4: saving is debounced in `update`, 350 ms after the last change on `Event::Tick`, as `Effect::WriteNote`. Ending the edit, opening another canvas and quitting write at once.
-- T4: the shell refuses a `WriteNote` when the file holds a text it never read or wrote, and answers `NoteNotice::Refused`. That closes the half second between an outside edit and the watcher seeing it.
-- T4: an outside change while editing, or a refused write, keeps both texts. Ours takes the file. Theirs is written to `<name> (conflict <id>).md` and gets a Document beside the first entity showing the file, as one undo step. A text equal to what is already known of the file is ignored.
-- T4: undo, with ADR 0023. `Document` holds a transient `notes` map and `Command::SetNote`, never written to `.canvas`. A finished edit that changed the text is one history step (not one a commit, as Electron's is). The text the edit started from is seeded first with no step. An undo or redo that changes a held text writes the file. An outside change while not editing resyncs the held text with no step, so undo goes back from it and redo returns it.
-- T4: `add-document` is two-phase because only the shell knows what names are taken: `Effect::CreateNote { rect }`, then `Event::NoteCreated { file, rect }` places the entity as one step and opens the edit. Names are Electron's `Untitled Note.md`, `Untitled Note 2.md`. An empty Document stays.
-- T4: a double click on a Document puts the caret where it landed with nothing selected. A text or sticky still opens with everything selected.
-- T5: formatting is `Action::Format`, bound in `BINDINGS` under a new `Context::Editing`. Cmd+B, I, E, Shift+X and Shift+8 are Electron's. It has none for these, so: Cmd+Shift+7 numbered, Cmd+Shift+9 task, Cmd+Option+1 to 6 heading, Cmd+Option+0 body. A text or sticky takes bold, italic, strike and bullets, as Electron's sticky does. A shape label takes none.
-- T5: Enter keeps a list's own marker (`*` stays `*`), continues a number and adds an empty task box. Tab outside a list types two spaces in a Document and does nothing in a sticky.
-- T1 leftovers: a resize floor is the kind's minimum or the size the entity started at, whichever is less. Page Up and Down move the caret by the Document's window, or the viewport for a text. A selection drag held past a Document's window scrolls it on each tick, and one held at the viewport's edge pans the canvas when the text runs off that side.
+### The loop: events, effects and time
 
-- QA: a save writes `App::document_to_save()`, not `App::document()`. A text measured when the file was opened goes back to the size it was read with unless the session changed its rect. Without this, the first change to an Electron file rewrote every text's width and height.
-- QA: the formatting shortcut with the caret just before a run's closing marker steps past the marker. Cmd+B, a word, Cmd+B leaves one pair. Electron's `toggleWrap` nests a second pair there, so this differs on purpose.
-- QA: changing the brush moves the stroke width to the nearest width that brush is offered in (pen 2 and 4, highlight 8 and 16). Electron does this in the popup only, so its Shift+M draws a 2 wide highlight.
-- QA: after any event that moved the camera or the document, or ended a drag, `update` runs the pointer again where it stands (`pointer::settle`). A drag in flight follows a wheel or a pinch, and the hover is found again after an undo. `Session` keeps the last modifiers for it.
-- QA: a headless run keeps the clipboard and the Documents it makes in memory (`headless/stand_ins.rs`), and reports Document heights after each snapshot as the shell does after each frame. New script steps are `triple-click`, `compose`, `commit`, `clipboard`, `wheel`, `pinch` and `save`.
-- QA: an Option-drag draws each copy as a tinted outline where it will land. The originals stay put until the release.
+- `Event` and `Effect` name a page by its `EntityId`. The shell keeps the table to the backend `PageId`. [F4]
+- Time comes in as `Event::Tick { unix_ms }` once a loop turn, so there is no timer effect. New ids come from a seeded sequence in `Session`. [F4]
+- `Action` is the one enum for key bindings, menus, panels and API act routes. [F4]
+- A drag writes rects into the document as it goes, through `Document::apply`. The release puts the start rects back and records one `History` step. Escape just puts them back. A gesture that creates an entity works the same way, and `App::creating()` names it. `live.rs` is the shared plumbing. [F4, Tools, S3]
+- A page's viewport is not stored. It is the rect's rounded size, held at the starting size while a handle is dragged. Undo, redo and opening a document diff the pages and return create, close and viewport effects. [F4]
+- `update` compares `History::revision()` before and after an event and returns `Effect::Save` when it moved, so no command site has to remember to. [S9]
+- After any event that moved the camera or the document, or ended a drag, `update` runs the pointer again where it stands (`pointer::settle`). A drag follows a wheel or a pinch, and the hover is found again after an undo. [QA]
+- The cursor is recomputed after every event but a tick and returned as `Effect::SetCursor` only when it changes. [S5]
+- A question to a page is an `Effect` answered by an `Event` that repeats the question, so nothing waits in the session. [C2]
+- `update` holds no cache. `view` takes a `ViewCache` its caller owns, and the text-layout memo is in the shell's `GlyphMeasure`. [CLEANUP-A]
 
-- Groups/edges/S7: stack-order verbs have no Notes and Pages sections, because the native stack is one (S1). A selected group is moved as its whole run; Electron's math given only the group id leaves the children behind on a backward move.
-- Groups/edges/S7: a new group goes just in front of its frontmost member's run and the run is gathered there in the same step. Electron appends it at the top and leaves it scattered until the next reorder.
-- Groups/edges/S7: a freeform group's rect follows its members (union plus 24), in the same undo step as the change and frame by frame during a drag. Electron only refits auto-layout groups; the task asked for this. `group_fit::then_fit` runs from `gesture::apply_fitted`, which every step goes through. Not refitted: an empty group, a group moved or resized as a whole, a group no step touched. So a hand-sized group tightens the first time a member changes.
-- Groups/edges/S7: the group drop target is tested against the group rects captured when the drag began, as CONTEXT.md says, since the live rects now follow the drag.
-- Groups/edges/S7: Electron has no entered-group state; its double click selects the group's direct members. That is kept, with `Session::entered_group` on top: it holds while the selection stays inside the group, Escape steps out one level (selecting the group left), and only then deselects.
-- Groups/edges/S7: delete takes a group with its descendants and their edges (ADR 0034's operands). Electron's `deleteGroups` removes member pages only. Ungroup acts on one selected group, and group needs two items, as in Electron.
-- Groups/edges/S7: `hit::body_at` picks the innermost group under the point, then the frontmost. The outer group used to win, so a nested group's interior could not be reached. Group tints are drawn before every entity, as in Electron, with the border and title left in the group's stack slot.
-- Groups/edges/S7: a group title and an edge label are edited with the text editor as `Target::Title` and `Target::EdgeLabel`, one line each, ended by Enter. The edge label's `TextEdit::entity` holds the edge's id; the two id types share a namespace (F2). Escape cancels a title rename, as Electron's inline label does, and commits an edge label, as its popup field does.
-- Groups/edges/S7: Electron edits an edge label only in its popup. Here a double click on the edge opens it in place.
-- Groups/edges/S7: an edge drag changes nothing in the document until the release. A drop with no anchor in reach but over another item's body connects to the side facing the fixed end; Electron snaps to anchors only. Drawings are not targets. A re-route that ends where it began records no step.
-- Groups/edges/S7: an anchor dot shows only for the side the pointer is over, on the hovered or selected item, and all four dots show on every item during an edge drag, as in Electron. `anchors.rs` is the one set for hit-testing and drawing.
-- Groups/edges/S7: re-anchoring on a move's release covers the selected entities only. One whose page moved with it keeps its anchor, and an unchanged page and URL writes nothing, so scroll and element fields survive. Nudge re-anchors too, as Electron's does. An Option-drag copy is placed like a paste.
-- Polish: `History<S>` carries the caller's state from either side of each step, and the app's `S` is the selection. `apply_step` records the selection before; `update` settles the selection after, once the event that made the step is done. Undo restores the first and redo the second. Electron also keeps a selection on each stack item, but it is the one from after the action, restored without checking the ids exist, so undoing a duplicate there selects copies that are gone. A step made by ending a text edit carries the selection the edit set, so undoing a placed sticky leaves nothing selected.
-- Polish: an unselected drawing is hit within 6 px of its ink (or half its drawn width, if more), not anywhere in its box as in Electron. Selected, the whole box is the drawing, so it drags from anywhere inside its outline.
-- Polish: an edge and an entity it crosses are still hit in stack order, as Electron's DOM stacking does. Where the line is over an entity the press is shared: a drag moves the entity and a click selects the edge. Electron selects the edge on click and a drag from there does nothing.
-- Polish: Cmd+D pans the camera by the least that shows the copies with 48 px around them. Electron leaves the camera, so on a crowded canvas a duplicate there looks like nothing happened.
-- Polish: Escape while composing is left as T2 had it (it ends the edit and keeps the marked text). Electron's editors do the same, with no composition check. A real input method takes Escape before the app sees it, which only a person can check.
-- Polish: `Draw::Shadow` is a rounded rect's blurred shadow. The compositor draws it as one more instance of the SDF shape shader, the edge under a Gaussian by the error function, so it joins its card's batch and nothing is blurred. Stickies, file cards and Documents get Electron's `0 2px 8px rgba(0,0,0,0.08)` in canvas units. The whole kitchen sink went from 22 batches to 24.
-- Polish: `Item::blend` is `Normal` or `Multiply`, and only paths and polygons honour `Multiply` (a second mesh pipeline). The highlighter is multiplied in at 70%, so text under it keeps its colour. Electron paints it over with an alpha gradient and grain and no blend mode, which greys the text.
-- Polish: group and page titles keep 11 px down to zoom 0.5 and shrink with the canvas below it (`title_scale`), and end in an ellipsis at the entity's width (`TextOverflow::Ellipsis`, cosmic-text's `Ellipsize`). The group title's hit box follows both. Electron's group title is a fixed 11 px with no truncation, and it has no page title on the canvas at all.
-- Polish: selected text is `#b3d7ff`, the macOS highlight. Electron sets no selection colour, so Chromium paints the system's.
-- Polish: emoji are cut out of a run and set to what CoreText measures: 1.25 em wide up to 16 px, down to 1 em at 24 px, with a pixel of tracking that is gone by 28 px, asked for from Apple Color Emoji by name so `U+FE0F` gets the colour glyph. The shaper alone draws them 0.8 em wide. The family emoji was right all along: one boxed silhouette is Apple's current glyph for it.
-- Polish: a `file` that starts with `__SPECULAR_SPACE__/` is read from the canvas's own folder, so the starter space opens where it lies. Electron rewrites the token when it copies the space.
-- Polish: an Option-drag's ghost is the entity drawn again at half opacity where the copy will land (`Item::translated`), inside the outline it will have. Electron draws empty boxes.
-- A1: the reply slot on `Event::Api` is a ticket number, answered by `Effect::ApiReply`. `Event` stays plain data that can be cloned and compared, and the shell keeps the channel beside the ticket.
-- A1: an act route selects what it acts on and leaves it selected, as a user who pressed the key would. Electron's stack-order routes leave the selection alone. A patch (`/canvas/apply`) does not touch the selection.
-- A1: a patch item is turned into a `.canvas` node and read with the file reader (`Entity::from_node`), so the API and a saved file cannot disagree about a field. A value the reader cannot type is a 400 naming the field. Electron stores it.
-- A1: ids are `<kind>_<16 hex>`, `edge_` and `ann_`, from a sequence in `specular_api::Api`. `auto-layout` in the CLI tells a group by its `group_` prefix.
-- A1: deleting a group takes what is inside it, and deleting an entity takes the edges that lose an end (ADR 0034, what Delete does in the window). Electron's `delete <groupId>` removes the container only.
-- A1: an edge to an entity the canvas does not hold is a 400. Electron stores it, and SKILL.md lists that as a known limitation.
-- A1: a text the API adds or changes is resized to fit its words in the same undo step. A sticky only grows, so `--size` holds when the text fits. A group made in a patch is not refitted to a member moved later in the same patch (`group_fit` skips new groups).
-- A1: a write while a drag is in flight is refused with 409. The user's drag owns the document until the button comes up.
-- A1: the server is `tiny_http` on one thread with no async runtime. Requests queue on a channel and a winit user event (`ShellEvent::Api`) wakes the loop. A benchmark run and a headless run start no server.
-- A1: port and discovery. The app takes `SPECULAR_PORT` or 29979 and `~/.specular/specular-mcp.json` unless a Specular already answers `/health` on the port that file names, or the port is taken. Then it binds a port the system picks, writes `~/.specular/specular-native-mcp.json`, and logs the `SPECULAR_DISCOVERY_FILE=` line that points the CLI at it. Started first, the Rust app holds 29979 and the Electron app then starts with no API.
-- A1: `--tab` is accepted on the tab-scoped routes when it names the one open canvas (id is the file name, name is its stem). `tab new`, `switch` and `delete` are 501.
-- A1: undo and redo are `POST /history/undo` and `/history/redo`. Electron has no route for either and the CLI has no verb. The canvas screenshot is Electron's `POST /window/screenshot`, drawn offscreen from the scene, with an optional `path` in the body to get a file instead of base64.
-- A2: no second CLI. `src/main/cli.ts` is a thin HTTP client and runs against the Rust app unchanged. `tests/` holds no recorded HTTP requests, so the contract test replays the patch bodies of `tests/integration/canvas-apply.test.ts` case by case (`specular-api/tests/api/contract.rs`).
-- C2: the agent chat panel is deferred, so a comment's text is typed in a small composer on the canvas beside its pin. It stands in for the right-panel composer and goes when that lands. Enter keeps the comment, Shift+Enter breaks the line, a press elsewhere keeps it if it has text, Escape drops it.
-- C2: a draft is an `Annotation` in the session, not in the document. Keeping it is one `InsertAnnotation` step; an empty or escaped one leaves no step.
-- C2: annotations are undoable, as in Electron (`DOC_MAP_ANNOTATIONS` is in the undo manager's scope). Create, resolve and delete are one step each.
-- C2: page questions are an `Effect` answered by an `Event` that repeats the question, so nothing waits in the session. `QueryElement` is answered from `PageSource::element_at`, a synchronous probe only the synthetic source implements (a 160x48 grid of fake cells). `QueryRegionGrab` is answered with no grab by both shells. The CEF answers are marked `FOLLOW-UP(C2)`.
-- C2: a click that finds no element on a page makes a canvas point, as Electron's does. Until CEF answers, every click on a real page is a canvas point and every region is canvas-bound.
-- C2: Escape is staged: an open draft is dropped, else a focused comment loses focus, else what it did before. The comment tool stays armed after a comment is kept.
-- C2: a comment and the selection are never both the target. Focusing a comment clears the selection, selecting clears the focus, so Delete deletes whichever there is. Delete on a grouped badge removes every comment under it, as Electron's popover does.
-- C2: Electron has no key for annotate-selection or resolve (a popup button, a popover button, a route and a CLI verb). They are items in a Comment menu with no key.
-- C3: a canvas-point comment draws the count pill centred on its point, replacing F5b's dot. Electron draws nothing there and lists it in the right panel, which is deferred.
-- C3: the badge number is the message count of its group (`1 + replies`, summed over comments on the same element or page point), as in Electron. It is not an index.
-- C3: a region is hit within 6 px of its edge, not across its interior, so what is under it stays reachable. Electron takes the whole rect.
-- C3: focus is native chrome, since Electron shows it in the panel: a 2 px blue ring 3 px outside a pill, and a region at full opacity with a 10% fill (Electron's hover).
-- C3: `App::comment_marks()` is the one set the hit-test and the scene share. It holds the status filter, the URL gate, the grouping and the geometry.
-- CEF: a page says things about itself as `PageNotice`s into `Session.pages` (`App::page_state`): title, address, load, can-go-back and forward, scroll, devtools websocket. Only the address is saved: it is written to the page entity with no undo step, as Electron's `page.url = url` is.
-- CEF: a changed page URL is `Effect::Navigate`, never a close and a create. Back, forward, reload and stop are the same effect, from `Action::Page*`. Cmd+[ and Cmd+] walk the history only of an entered page, because on the canvas they restack; `Context::overlaps` is what lets two rows share a key.
-- CEF: a page is asked about its DOM over CEF's in-process devtools channel, one `Runtime.evaluate` a question, and answers as a `PageEvent`. The shell's `PageQueries` holds the question until then, and answers for a page that closed or crashed. `PageSource::element_at` is gone; the synthetic source answers the same way from its grid.
-- CEF: a headless run hosts real pages when `--source cef` is named, with CEF pumped by the caller (`Pump::Caller`). A window still pumps from the run-loop timer.
-- CEF: each process gets its own CEF root cache folder in the temp directory. On a shared root a second launch handed itself to the first and crashed it.
-- CEF: `GET /pages/<id>/cdp-target` answers only while the canvas has one page. agent-browser drives the first page on the port whatever socket it is given, so with several pages the CLI's verbs would act on the wrong one. Electron's per-page CDP proxy is the missing piece.
-- A3: that limit is gone. Each page has its own CDP websocket, `ws://127.0.0.1:<port>/cdp/page/<token>`, and `cdp-target` answers with it for any number of pages. Of the two ways to build it, per-browser devtools routing won over a port of Electron's proxy. Electron's proxy keeps a second socket to the browser's debugging port, resolves each page's target id from `/json`, and filters every `Target.*` message so a client sees one page. Here CEF already gives each browser its own devtools channel (`SendDevToolsMessage` and an observer), so a message sent on a page's socket can only reach that page. There is no upstream socket, no target lookup and no filter to get wrong, and 20 pages are 20 channels with nothing shared. The cost is that the proxy answers the browser-level `Target` domain itself (`getTargets`, `attachToTarget`, `setAutoAttach`, `setDiscoverTargets`, `Browser.getVersion`), about 150 lines in `specular_api::cdp`.
-- A3: the websocket server is hand-written on std sockets and threads (`specular-app/src/cdp`), with `sha1_smol` as the only new dependency. tiny_http's upgrade returns one stream that cannot be split for a reader and a writer thread, and an async runtime for one endpoint was not worth it. It listens on its own port beside the API's.
-- A3: a client's message ids are rewritten to ids at or above `DEVTOOLS_CLIENT_ID_BASE` (2^30). The backend's own questions on the same channel count up from 1, so the observer tells the two apart by id. Two clients on one page share its enabled domains, as two DevTools windows would.
-- A3: `Page.close`, `Target.closeTarget`, `Target.createTarget` and `Browser.close` are refused by the proxy. `Page.navigate` is allowed, and the page entity's URL follows it through the page's own address event, which Electron's does not.
-- A3: page and region screenshots go through the compositor, not CEF. It is one synchronous draw into a texture of the right size, it works with the synthetic source, and a region needs the canvas items anyway. The cost is that a page is drawn from the frame the compositor holds, so a page at half texture scale under the LOD policy comes out soft. `Page.captureScreenshot` over the socket (what `specular screenshot -f` uses) paints afresh.
-- A3: a region comment's picture is drawn when `GET /annotations/<id>` is asked, not stored in the `.canvas` at creation as Electron does. It shows the region as it is now and keeps base64 out of the file.
-- A3: `print-pdf` and `record` stay 501. `print-pdf` needs an API answer that waits for the page (`Page.printToPDF` on the page's channel, answered turns later), and the API answers inside one turn. `record` needs a frame tap on the compositor and an encoder.
-- Scroll: a page-bound region's `docRect` is in document pixels and is drawn less the live scroll. An anchored entity or an element comment follows from the scroll stamped at placement; with no stamp it stays pinned, so older files draw as before. Out of the page it is hidden, and clipped at the edge, with no fade.
-- P5: `App` owns one `Space`: the folder and every canvas in it, each whole (`Document`, `History`, camera, selection). The active canvas's three are `App`'s own `document`, `history` and `session` fields, so nothing that reads the app changed. The others are parked in their `Canvas` entry. A switch moves three structs out and three in, and a parked canvas keeps its undo stack. Electron serialises the tab it leaves and throws its history away.
-- P5: every canvas of the space is read at open, not on first switch. The listing, the sidebar's entity counts and a `--tab` read then need no I/O, and a background canvas can follow its file.
-- P5: a background canvas has no page hosts. A switch closes every page of the canvas left and creates every page of the one entered, even where two canvases share a page id. Nothing was measured. A page reloads when its canvas comes back and loses its scroll and its history.
-- P5: the space's index is the Electron app's file, `.specular/workspace-meta.json`, read for ids, names, order and the last active canvas, and written on every switch, new, rename, duplicate and delete. Keys this app does not use are kept. Canvas files are named as Electron names them, `<name>-<4 of id>.canvas`, and an unsuffixed file from before that is read where it lies and not renamed. A `.canvas` file the index does not list is adopted with an id made from its file name, so the id is the same on every launch.
-- P5: which space opens. A path on the command line wins: a folder is the space, a `.canvas` file opens its folder as the space and shows that file. Then `spacePath` in the Electron app's `preferences.json` (read, never written), then its old `workspaces/default`, then the folder last chosen here with File > Open space…, which this app keeps in its own preferences. With none of those, the demo grid. A folder from settings that is not there is not made or opened: Electron prompts for a missing space, and making an empty one would answer for the user.
-- P5: a `--bench`, `--snapshot`, `--script`, `--pages` or `--annotations` run opens no space. It shows one document and writes nothing, as before.
-- P5: canvas names are unique once trimmed, everywhere. Electron refuses a duplicate only in `tab new`. Here a rename to a taken name is refused too, a new canvas takes the next free `Canvas N`, and a copy is `<name> Copy`, then `Copy 2`.
-- P5: a duplicated canvas keeps its entity and annotation ids. Electron remaps page ids because its page hosts are global. Ids here belong to a canvas.
-- P5: deleting a canvas is not undoable. Its file goes to the system trash (the `trash` crate), which is the way back.
-- P5: a `--tab` write to a background canvas runs with that canvas standing where the active one does and the user's whole session set aside, then everything is put back. It is one undo step in that canvas's own history, it may add pages (they are hosted when the canvas is shown), and it goes through while the user drags. Electron refuses pages there and keeps the write out of undo. A `--tab` read builds a one-canvas `App` from a copy of that document, so every route handler reads it unchanged.
-- P5: the five canvas operations are one `Action::Canvas(CanvasAction)`. Rename, duplicate and delete take `None` for the active canvas, so their menu items never change.
-- P5: `menus` now starts with a Canvas menu that ends in the space's canvases, and `MenuItem::label` is a `Cow`. The shell rebuilds a menu whose labels or actions changed and only updates states otherwise.
-- P5: the menu's Rename canvas… opens the system save panel with the name filled in and takes what is typed. No system dialog asks for a line of text. It goes when the sidebar renames in place.
-- P4: the sidebar is `sidebar(&App) -> SidebarModel`, with no renderer yet (the built-in chrome renderer had not landed). A group with notes and pages has a row in each section, as CONTEXT.md says. An entity whose `parent` names nothing is listed at the top level. Electron hides it.
-- Scratch space: with no path the app opens a copy of the starter space in its own data folder. The user's space needs `--space user` or a path, because it is their real work and autosave writes into it. The folder remembered from File > Open space… counts as the user's space, so it also needs the flag.
-- P1/P2: a property change is `Action::SetProperty(Property)`. One variant per property, not per kind: a colour, size or stroke-width pick goes to every selected item it means something for and skips the rest, as one `Command::Batch`. A pick that changes nothing records no step. Selection picks never write tool defaults; only the tool popup does (ADR 0008).
-- P1/P2: a property set during a text edit does not end the edit. The edit's commit rebuilds the kind from the entity as it then is, so the property survives.
-- P1/P2: a viewport preset keeps the page's recorded orientation, as Electron's `setDevicePreset` does, and no recorded orientation counts as portrait. Electron has no lock-aspect property and no sticky-versus-plain control; `Property::TextStyle` exists with no control in the popup.
-- P1/P2: the models (`toolbar`, `popup_for`) hold no pixels, colours or hover state, and icons are named by an enum, so egui, GPUI or the built-in renderer can draw them. A mixed-kind selection, several edges and the page tool have no popup: everything Electron puts there needs an action this app lacks.
-- P1/P2: built-in panels are off in a new `App` and turned on by `Event::BuiltinPanels(true)`, which the window and a headless run send. `view()` never draws them; the shell calls `draw_panels` after it. Existing tests and scene snapshots are untouched, and a UI-library shell sends nothing.
-- P1/P2: layout and pointer state for the built-in panels live in `specular-interact` (`panel/builtin`), because `hit_test` needs the rects and the scene crate depends on interact. The scene side only paints the layout.
-- P1/P2: a popup clamps under the toolbar and to the viewport edges and never flips below its item, as Electron's `popupStyle` does. Wheel and pinch over a popup move the canvas; the toolbar and an open list swallow them. A press outside an open list closes it and goes no further. Escape closes an open list before anything else.
-- P1/P2: toolbar buttons run `SetTool`, and Draw and Comment switch back to Select on a second click, as in Electron. The Tools menu keeps running the key binding's action.
-- P1/P2: text size in the popup is the named sizes and a stepper. Electron's typed field needs a text input the panels do not have.
-- GPUI-SHELL: the effect runners are `specular_app::Runtime<W: ShellWindow>`, and `specular-app` is a library with a thin `main`. The files stayed where they were (`app/*_run.rs`) so the other agents' edits still apply. A new crate would have moved twenty files under them.
-- GPUI-SHELL: the canvas view fills the window and never moves. The slot GPUI leaves unpainted is the app's viewport, and the surface draws with the camera and the screen-space items shifted by the slot's corner. The compositor is unchanged.
-- GPUI-SHELL: the slot runs up under the Kit toolbar, because the app's layout already assumes a 44 px toolbar over the top of its viewport. Only the sidebar's width offsets it.
-- GPUI-SHELL: `Event::BuiltinCanvasPopups` turns on the built-in popups beside a canvas item and nothing else. The Kit draws the toolbar and `PopupAnchor::Toolbar` popups. `PopupAnchor` is the dividing line, as ADR 0040 said.
-- GPUI-SHELL: a model menu item's key is bound in GPUI under a context no element has. macOS shows it in the menu, and over the canvas the key goes to `update` as `Event::Key`, so the binding table decides, as in the winit shell. The shell's own keys (Cmd+Q, W, O, S, comma) are real GPUI bindings.
-- GPUI-SHELL: the `NSEvent` monitor only notes each key event. GPUI still routes the key, and the slot's key handler turns the note into a `KeyInput` through `translate.rs`'s tables by way of winit's `PhysicalKey::from_scancode`. Composition comes through GPUI's input handler as `Event::Ime`.
-- GPUI-SHELL: sidebar rows and swatches are plain GPUI elements in the Electron metrics. The Kit's `SidebarMenuItem` takes a string label, so it cannot hold the rename field, and the Kit has a colour picker but no swatch row. A `Stepper` is two Kit buttons around the value: the model has no action for a typed number.
-- RIGHT-PANEL: the thread model is its own crate, `specular-agent`, with no dependency on the document or the app. Interact owns the state and re-exports the vocabulary.
-- RIGHT-PANEL: Close archives (`status: closed`) and the thread stays on disk, as CONTEXT.md says. The Electron app has since replaced Close with Delete and reads `closed` as `open`, so a thread closed here shows up open there.
-- RIGHT-PANEL: threads and the active thread are per canvas. `index.json` keeps Electron's single `activeThreadId` (the active canvas's) and adds `activeByCanvas`, which Electron ignores and drops when it writes.
-- RIGHT-PANEL: no SDK. The runner spawns `claude -p --output-format stream-json --verbose --include-partial-messages` with the prompt on stdin, and with pasted images one `--input-format stream-json` user message. A failed resume is retried fresh by `update`, not by the runner.
-- RIGHT-PANEL: the prompt adds one line per comment in the turn with its anchor and page, which Electron's thread prompt leaves to the fix prompt.
-- RIGHT-PANEL: Electron has no key for the right panel, only the toolbar button, so native has none either.
-- RIGHT-PANEL: the panel sits beside the canvas slot, so the viewport gets narrower and nothing is offset in canvas coordinates. There is no `covered_right`.
-- RIGHT-PANEL: the person's bubble sits at the leading edge, as `CommentBubble` lays it out (an inline block, no right alignment). `USER_SIDE` in `view/chat/transcript.rs` is the one constant to change.
-- RIGHT-PANEL: the panel's width is the model's, so its edge is a 12 px strip that sends `ChatAction::Resize` and not the Kit's `h_resizable`, which keeps sizes in a state of its own. Stop sits in the run bar. After New, Back or a chosen thread the keys stay in the field; after Close, Stop, Resolve or a bubble they go to the canvas.
-- Performance: caches live in the compositor behind named types (`MeshCache`, `Laid` text layouts, `Batcher`) and in the shell (`FrameDemand`). `Scene`, `view` and `update` are untouched and still pure.
-- Performance: a frame is drawn only when something it shows changed. Every `dispatch` owes one; the clock goes through `demand::tick`, which owes one only when the caret blinked or a held selection scrolled. Frames keep coming for 250 ms after input so a ProMotion display does not drop its rate inside a gesture.
-- Performance: kept text is placed by moving the pass viewport, which lands on whole pixels. A pan by part of a pixel draws text up to half a pixel off while it moves, and the next frame at rest lays it out again.
-- Performance: the idle memory sample is taken at 12 seconds, not 6. The spike's "16 to 20 percent more than Electron" was the 6 second sample.
-- P3/P4: a typed value is `Control::Field` with a `FieldSubmit` that turns the text into an `Action`, so the model holds no editor. The built-in renderer edits it with the text editor as `Target::Field`; the GPUI shell uses its own input. Enter and a press elsewhere commit, Escape restores.
-- P3/P4: Electron has no key or menu item for the left sidebar, only the toolbar button, and starts with it hidden. Native does the same. `Session.sidebar` holds shown, folds and opened rows outside `Session.panel`, and `App::covered_left()` is the width every fit, reveal and popup clamp reads. The canvas coordinates are not shifted.
-- P3/P4: a sidebar row sends `Action::Reveal`, which selects and pans only when the item is not wholly in the uncovered area, keeping the zoom, as Electron's `focusCanvasBounds` does. The move is instant.
-- P3/P4: the context menu is `context_menu(&App, &MenuTarget, at)`, a `PopupModel` of `Control::Choices` at `PopupAnchor::Point`. A right press selects its target first, because native actions act on the selection. Electron's is an OS menu with fewer items; this one adds the Edit items and a menu on empty canvas.
-- P3/P4: arrange is one-shot (`Action::Arrange`, `span-arrange.ts` ported), one undo step. Focus is the camera framing only; Electron's focus session is deferred.
-- P3/P4: the built-in layout is kept in `PanelUi.cache` behind a value stamp of everything cheap to compare, and forgotten at the end of every `update` except idle moves, wheels, pinches and ticks. Hover and press are patched into the kept layout.
-- ARRANGE: guides do not pull. The task asked for snapping within a screen-pixel threshold and a modifier that suppresses it; Electron has neither (ADR 0012, `alignmentGuideDetector(…, tolerance = 0.5)` after `snapToGrid`). The grid stays the only magnet, the tolerance is 0.5 canvas units at every zoom, and Shift's axis lock is the one modifier that takes an axis off the grid.
-- ARRANGE: guides are not stored. `App::guides()` derives them from the gesture's capture of its neighbours and the rects in the document, so there is nothing to clear on release, cancel or undo.
-- ARRANGE: a selection resized by its shared bounds shows no guides, as in Electron, whose resize guides follow one entity.
-- ARRANGE: a managed group's layout is not a command of its own. `group_fit::then_fit` already adds the refit of touched groups to every step; it now lays a managed group out first, when its members, their rects, the stack order or its own fields change. So no caller can forget it, and the document never holds an unresolved rect.
-- ARRANGE: the layout sequence is the stack order of the group's members (ADR 0015 D2), so "send to back" on a member moves it to the front of its row. There is no child-order field.
-- ARRANGE: no padding field and no managed grid. Electron has neither: the group's rect is its members plus the fixed 24, and `managedLineAxis` is `null` for a grid. The file shape stays `managedLayout`, `layoutMode`, `layoutGap`.
-- ARRANGE: the group popup's row and column toggles and gap stepper are new. Electron's popup has no layout controls, only Shift+Cmd+A, the CLI and the gap strip. They are existing control kinds, so both shells draw them unchanged.
-- ARRANGE: a body drag from a member of a managed group moves the whole group (ADR 0015 D4), through `App::move_scope`. Only the dot reorders.
-- ARRANGE: a reorder or gap drag writes the line as it would be into the document each frame, like a move, and the release records one step. Electron previews in the renderer and writes once; here `view` has only the document to draw from.
-- ARRANGE: `Cursor` gained no column or row resize arrow, which would have meant an arm in `specular-shell` while another agent was in it. A gap strip shows the grab hand.
-- INSPECT-LOOP: the inspect tool asks the page once a whole CSS pixel of pointer movement (`Effect::InspectAt`, answered by `PageNotice::Inspected`), over any page, entered or not. Electron's page-locked mode (one selected page inspects, the rest do not) is not ported. While the tool is in hand nothing is forwarded into an entered page, and a press off page content selects as the select tool does.
-- INSPECT-LOOP: Electron binds `H` to the hand tool, which this app does not have, so `I` is the inspect tool's only key.
-- INSPECT-LOOP: the picked node outlives the tool, because it is the chat's pill. It goes when its page leaves the document or shows another address, when the canvas switches, and on an Escape with nothing else to back out of.
-- INSPECT-LOOP: the popover's size is computed from its rows at fixed metrics (`InspectPopover` consts), not measured, so `update` and the scene agree without a text measure. It also shows the node's size, which Electron's does not.
-- INSPECT-LOOP: bindings live in the Electron app's `repos.json` (`~/Library/Application Support/Specular/`), read at startup and rewritten whole on each change, in Electron's shape with Electron's repo id (16 hex digits of the path's SHA-256). Both apps keep the file in memory, so a change made in one while the other runs is lost when the other next writes. `SPECULAR_REPOS_FILE`, or `SPECULAR_NATIVE_CONFIG_DIR`, points a run at another file.
-- INSPECT-LOOP: the write target follows a DOM node's origin or a page-bound comment's, and nothing else. Electron's `resolveWriteTarget` also takes a selected page's origin and, for other selections, the first page's. A selection here always writes to the space folder.
-- INSPECT-LOOP: a run on a bound origin starts in the repo, where Electron starts every thread run in the space folder and only names the repo in the prompt. The prompt's first lines say so (`Working directory (linked repo)`, then `Space folder`), and image paths are written whole. A thread whose turns move between the two folders cannot resume its `claude` session, which is kept per folder, so it falls back to the full prompt as a failed resume does.
-- INSPECT-LOOP: a repo is inferred for a page only from a binding. Electron also matches a running dev server's base URL, and this app starts no dev servers.
-- INSPECT-LOOP: the agent's canvas cursor chip is left out. There is no presence layer to say where the agent's cursor is (see the A3 entry), so the run bar would have nothing to show.
-- APP-BUNDLE: with no path and no `--space`, `specular` (GPUI) opens the folder chosen in it and otherwise asks; it no longer opens the scratch space. `--space scratch` names it. `specular-app` (winit) has no view to ask in and keeps scratch as its default. `launch` takes `Unnamed::{Scratch, Chosen}` for this.
-- APP-BUNDLE: reverses INSPECT-LOOP's repos decision. Bindings are written to this app's own `repos.json` in its data folder. Electron's is read only while this app has none, and never written.
-- APP-BUNDLE: a folder dialog the app asks for is the shell's to show (`Runtime::take_space_dialog`, answered by `choose_space`). A modal dialog opened inside a GPUI event would run window callbacks under the event still being handled. `PickRepoFolder` still calls `rfd` from the runtime and has that risk.
-- APP-BUNDLE: Settings > General > Change… opens another folder and leaves the old one. ADR 0033's "Move my canvases" is not built, so nothing is ever moved.
-- APP-BUNDLE: "show and hide defaults" was read as what is shown at launch: the sidebar and the right panel, kept as `show` in this app's preferences. Electron's cursor switches have nothing to hide here yet.
-- APP-BUNDLE: the page profile is kept on disk only for a launch with no path argument, and only by the process that holds the lock file in it. Fixture, path and scratch runs stay in memory so any number run at once.
-- APP-BUNDLE: `.canvas` is claimed as an Editor with rank Alternate under an imported type `org.jsoncanvas.canvas`. No URL scheme is registered, because Electron registers none.
+### Scene and rendering
+
+- Canvas items are SDF shapes, glyphon 0.12 (cosmic-text 0.19) and lyon in the compositor's pass. Vello is turned down. ADR 0039, Proposed. [M1]
+- Every scene item is in canvas space or screen space. Chrome that hugs an entity at a fixed pixel size is a screen-space item that `view` projects. Colours are 8-bit sRGB with straight alpha. Clip and opacity are per item. [F5a]
+- `Scene` names a page by `EntityId` and an image by `ImageId(u64)`. `render_scene` takes a closure from entity to backend page. [F5a]
+- A text run has an origin plus an optional wrap width and box height. The renderer shapes and measures, and `view` never measures text. [F5a, F5b]
+- An item joins the earliest batch of its kind at or after the last batch it overlaps, and a page is a batch of its own. Border and title chrome beside 40 pages is one shape batch and one text batch. The overlap test goes through a grid. [F5a, Performance]
+- Dashed borders and edges are paths with a `Dash`. The SDF layer draws solid rects and ellipses. A stroke thinner than a device pixel is drawn one pixel wide and faded by the same ratio. [F5a]
+- While the camera is zooming, canvas glyphs keep their raster size until the zoom has moved 0.75x to 1.25x from it, and the pass viewport stretches them. The shell renders one frame with `zooming: false` when the gesture ends. [F5a]
+- `view` culls entities outside the viewport plus 64 px. `view_without_chrome` is what `--chrome off` draws. `--chrome off` only stops the drawing, and gestures and keys still act. [F5b, F4]
+- `specular-scene` depends on `specular-interact`. Edges are drawn from `App::edge_curve`, the curve hit-testing uses. The compositor no longer depends on interact or doc outside its tests: the text types moved to `specular_core::text`, and the id on a page or column draw is `specular_scene::OwnerId`. [F5b, CLEANUP-A]
+- Colours are the light theme only. The vivid inks are constants in `view/palette.rs`. Blue is stored as `"7"`, read as `Color::Custom("7")`, and the palette maps it. [F5b]
+- Drawings are outlined in canvas space, so a stroke has the same shape at every zoom. Electron outlines them in screen space. [F5b]
+- A page keeps the 8-unit corner radius and gets a title above it as the title-bar stand-in. Electron draws neither on the canvas. [F5b]
+- The window surface and the snapshot target are not sRGB formats, so colours blend encoded, as in a browser. Paths and polygons fill with the non-zero rule. [Visual check]
+- `Draw::Shadow` is a rounded rect's blurred shadow drawn as one more SDF instance. `Item::blend` is `Normal` or `Multiply`, and only paths and polygons honour `Multiply`. The highlighter is multiplied in at 70%, so text under it keeps its colour. [Polish]
+- Group and page titles keep 11 px down to zoom 0.5, shrink below it, and end in an ellipsis at the entity's width. Selected text is `#b3d7ff`. Emoji are set to what CoreText measures. [Polish]
+- A markdown Document is `Draw::Column`: rows of text cells the renderer stacks. `TextRun::spans` sets weight, italic, family, colour, underline and strike on byte ranges, with no per-span size. Underlines, strikes, quote bars and table lines go through glyphon's custom-glyph path. [T3]
+- Page and region screenshots go through the compositor, not CEF. A page at half texture scale comes out soft. [A3]
+
+### Selection, hit-testing, move and resize
+
+- Hit-testing runs in screen space with Electron's sizes. Pages and other items share one stack order, so a page in front of a note covers it, where Electron always puts notes above pages. [S1]
+- `hit::body_at` picks the innermost group under the point, then the frontmost. Group tints are drawn before every entity. [Groups/edges/S7]
+- The per-kind rules are `min_size`, `aspect_mode` and `has_anchors` in `caps.rs`. The page minimum is Electron's 320x200. [S1]
+- The entered page of ADR 0022 is `Focus::Page`. It stays entered only while it is the whole selection. Entering happens when the click is released, because a press on the selected page may become a drag. [S2, S3]
+- Escape is staged. It backs out of a drag, an open draft, an armed tool, an entered page or an entered group one level at a time and keeps the selection. With none of those it deselects. It matches whatever modifiers are held. [S2, Tools, C2, Groups/edges/S7]
+- A marquee changes the selection on release. `Session::hover` is the entity under the pointer, and the hover outline is not drawn during a gesture. [S2, Visual check]
+- A plain drag on a body moves the selection, and Option makes it a copy. A move snaps the pressed entity's top-left to the 20-unit grid and moves every other operand by the same delta. Electron snaps each on its own. A pressed drawing does not snap. [S3]
+- Resize is computed from the start rect and the pointer each frame, not from accumulated deltas. Option does nothing. Shift follows the kind's `AspectMode`. A resize floor is the kind's minimum or the size the entity started at, whichever is less. [S4, T1 leftovers]
+- A text resize measures the height on every frame of the drag. A text has a width floor and no height floor. [T1 scene]
+- Resizing a page writes no `pageSizeMode` or device metadata. [S4]
+- Copies keep their group unless the group is copied too, lose a page anchor unless that page is copied, and take an edge only when both ends are copied. Duplicate places the copy 80 units right, else below, else at the first free grid spot, and pans the camera by the least that shows it. [S5, Polish]
+- An Option-drag's ghost is the entity drawn again at half opacity where the copy will land. [Polish]
+- An unselected drawing is hit within 6 px of its ink, not anywhere in its box. Where an edge crosses an entity the press is shared: a drag moves the entity and a click selects the edge. [Polish]
+- Select all takes every entity with no parent. Edges are not selected. [Shell batch]
+- Guides do not pull (ADR 0012). The grid is the only magnet, the tolerance is 0.5 canvas units at every zoom, and guides are derived each frame, not stored. A selection resized by its shared bounds shows none. [ARRANGE]
+
+### Tools, keys and creation
+
+- A new page is Electron's `P` then click: preset 0 (375x667), `about:blank`, with Electron's device metadata. [Tools]
+- Each stroke is its own drawing entity and its own undo step. Changing the brush moves the stroke width to the nearest width that brush is offered in. [Tools, QA]
+- Tool defaults are `App::tool_defaults()`. A variant key (R, O, Shift+R, M, Shift+M) is `Action::SetToolVariant`, which arms the tool and writes the default. A tool's key pressed again does nothing. [Tools]
+- A chord's `cmd` is Command or Control. `BINDINGS` is one const table, first matching row wins, and `Context::overlaps` lets two rows share a key. Canvas bindings go to the page while a page is entered. Cmd+1 is `Context::Always`. [Tools, F4, Shell batch, CEF]
+- `I` is the inspect tool's only key. Electron's `H` is the hand tool, which this app does not have. [INSPECT-LOOP]
+
+### Text editing and input methods
+
+- The editor is the app's own, in `specular-interact/src/edit/`. `Session::editing` is a `TextEdit`. The working text lives only there until the edit ends, and `App::editing_text(id)` is what to draw. [T1]
+- A text entity's fitted rect is the exception: it is written into the document while typing, so the outline and hit-testing follow. Ending the edit makes one step of text plus rect. [T1]
+- A text or sticky placed by its tool has no undo step until the edit ends. Ended with text, it is one step that undoes to nothing. Ended empty (whitespace only), it is taken out with no step. An emptied shape label keeps its shape. [T1]
+- Escape, a press elsewhere, a tool change, a verb and a selection change all keep the edit. Only `DocumentOpened` throws it away. [T1]
+- `TextMeasure` is one method returning a `TextLayout` of plain data. The compositor's `GlyphMeasure` shares one `FontSystem` with the text renderer, and `TextRun::set` is the only place a `TextSpec` becomes a run. `is_exact()` says the layouts are the renderer's, and only then are a loaded file's texts refitted. The testkit's `FixedAdvance` returns false. [T1, T1 scene]
+- No caret affinity. End on a wrapped line stops one grapheme short. The keys are the macOS set. CodeMirror's Emacs keys are not in. [T1]
+- The editor's own undo joins consecutive typing into one step and consecutive deletes into another. `Action::Undo` goes to it while an edit is open. [T1]
+- Bullet lists apply to text and stickies, not shape labels. Formatting is `Action::Format` under `Context::Editing`. Cmd+B, I, E, Shift+X and Shift+8 are Electron's, and the numbered, task and heading chords are new. [T1, T5]
+- The formatting shortcut with the caret just before a closing marker steps past it, where Electron nests a second pair. [QA]
+- While an input method is composing, every key but Escape is ignored. A composition is one editor undo step. Escape while composing ends the edit and keeps the marked text, as Electron's editors do. A real input method takes Escape first, which only a person can check. [T2, Polish]
+- `App::handles()` is `None` while text is edited. The caret is a screen-space rect in the text's colour, blinking 500 ms on and off. An empty plain text draws "Add text" at 40% alpha. [T1 scene]
+- A property set during a text edit does not end the edit. [P1/P2]
+
+### Documents
+
+- A Document is edited as its source, one row a source line, not in the read view's layout. The syntax styler is by hand in `edit/source.rs`. The text shifts a little when an edit opens. [T4]
+- The renderer reports each column's height and the shell sends `Event::NoteHeights`, which `update` uses to stop a scroll at the end. [T4]
+- Saving is debounced in `update`, 350 ms after the last change, as `Effect::WriteNote`. Ending the edit, opening another canvas and quitting write at once. [T4]
+- The shell refuses a `WriteNote` when the file holds a text it never read or wrote. An outside change while editing keeps both texts: ours takes the file, theirs goes to `<name> (conflict <id>).md` with a Document beside the first. [T4]
+- A finished edit that changed the text is one history step. An outside change while not editing resyncs the held text with no step. [T4]
+- `add-document` is two-phase because only the shell knows what names are taken: `Effect::CreateNote`, then `Event::NoteCreated`. [T4]
+- The note thread polls stamps every 500 ms and reports a file only when its text reads differently. Table columns are equal widths, a code block has no background, an image is the text `[image: alt]`. [T3]
+
+### Groups, edges, stack order and auto-layout
+
+- Stack-order verbs have no Notes and Pages sections, because the native stack is one. A selected group moves as its whole run. A new group goes just in front of its frontmost member's run. [Groups/edges/S7]
+- A freeform group's rect follows its members (union plus 24) in the same undo step, through `group_fit::then_fit`, which every step goes through. Electron only refits auto-layout groups. A hand-sized group tightens the first time a member changes. [Groups/edges/S7]
+- The group drop target is tested against the group rects captured when the drag began. [Groups/edges/S7]
+- `Session::entered_group` holds while the selection stays inside the group. Electron has no such state. [Groups/edges/S7]
+- Delete takes a group with its descendants and their edges (ADR 0034's operands), in the window and through the API. Electron removes the container or member pages only. [Groups/edges/S7, A1]
+- A group title and an edge label are edited with the text editor, one line each. A double click on an edge opens its label in place, where Electron edits it only in a popup. [Groups/edges/S7]
+- An edge drag changes nothing in the document until the release. A drop over another item's body connects to the side facing the fixed end. Cancel, Escape and a drop on nothing during a re-route remove the edge as one step, by design. [Groups/edges/S7]
+- Re-anchoring on a move's release covers the selected entities only. Command or Control at the release suppresses it and the group drop. [Groups/edges/S7]
+- A managed group's layout is not a command of its own. `then_fit` lays it out before refitting, so no caller can forget and the document never holds an unresolved rect. A member's rect is an output. [ARRANGE]
+- The layout sequence is the stack order of the group's members (ADR 0015 D2). There is no child-order field, no padding field and no managed grid. [ARRANGE]
+- A body drag from a member of a managed group moves the whole group. Only the dot reorders. A reorder or gap drag writes the line into the document each frame. [ARRANGE]
+- The group popup's row and column toggles and gap stepper are new. Electron's popup has none. [ARRANGE]
+- Arrange is one-shot, one undo step. Focus is the camera framing only. [P3/P4]
+
+### Clipboard, drop, assets and images
+
+- Copied entities go on the clipboard as text, `specular:canvas:` plus a small `.canvas`. It is not Electron's payload, so the two apps do not paste each other's entities. [Shell batch]
+- `Paste::of` decides in Electron's order: copied entities, an image, a one-line URL (a page), other text (a sticky). Not ported: copied file references, SVG, HTML and JSON text, long text becoming a Document. [Shell batch]
+- `update` names a pasted or dropped file `assets/<entity id>.<ext>`. A dropped file already inside the space folder is shown by its relative path with no copy. Only images and `.md` are taken. One drop is one undo step. [Shell batch]
+- Images are a table in `Session` keyed by the `file` string. Which files are images is Electron's extension list. What can be decoded is the shell's business: svg, bmp and ico fail and stay cards. An image nothing shows is kept until another document opens. [K6]
+- The decode thread premultiplies, builds mips and scales down an image over the texture limit. `contain` draws nothing in the letterbox bars. [K6]
+- A `file` that starts with `__SPECULAR_SPACE__/` is read from the canvas's own folder. [Polish]
+
+### Persistence, spaces and canvases
+
+- The file watch is a `stat` every 500 ms on the loop, not an OS watcher. Our own write compares equal to what we hold and is ignored. Nothing is saved or reloaded while a gesture is in flight. [S9]
+- The camera is written only when a document change saves. Panning alone does not write the file. A pending save is flushed on exit. [S9]
+- Preferences are the native app's own `preferences.json` in `~/Library/Application Support/Specular Native` (`SPECULAR_NATIVE_CONFIG_DIR` overrides), not Electron's. A save keeps the file's other keys. [Shell batch]
+- `App` owns one `Space`, every canvas whole ([ADR 0043](../adr/0043-per-canvas-state-in-a-space.md)). Every canvas is read at open. A background canvas has no page hosts, and a switch closes and recreates them. Nothing was measured. [P5]
+- The space index is Electron's `.specular/workspace-meta.json`, with unknown keys kept and Electron's file names. A `.canvas` the index does not list is adopted with an id made from its file name. [P5]
+- Canvas names are unique once trimmed, everywhere. A duplicated canvas keeps its entity ids. Deleting a canvas is not undoable, and its file goes to the system trash. [P5]
+- A `--tab` write to a background canvas runs as one undo step in that canvas's own history, may add pages, and goes through while the user drags. [P5]
+- A `--bench`, `--snapshot`, `--script`, `--pages` or `--annotations` run opens no space and writes nothing. [P5, S9]
+- With no path and no `--space`, `specular-app` (winit) opens the scratch space, and `specular` (GPUI) opens the folder chosen in it or asks. The user's real space needs `--space user`, a path, or a choice made in the first-run view, because autosave writes into it. Electron's `preferences.json` is read for `spacePath` and never written. [Scratch space, APP-BUNDLE]
+- A folder from settings that is not there is not made or opened. The app asks. [P5, APP-BUNDLE]
+
+### Pages, CEF and sync sets
+
+- A page says things about itself as `PageNotice`s into `Session.pages`. Only the address is saved, written to the page entity with no undo step. [CEF]
+- A changed page URL is `Effect::Navigate`, never a close and a create. Cmd+[ and Cmd+] walk the history only of an entered page, because on the canvas they restack. [CEF]
+- A page is asked about its DOM over CEF's in-process devtools channel, one `Runtime.evaluate` a question. The synthetic source answers the same way from its grid. [CEF]
+- Each process gets its own CEF root cache folder in the temp directory. On a shared root a second launch crashed the first. [CEF]
+- A headless run hosts real pages when `--source cef` is named, with CEF pumped by the caller. [CEF]
+- A page-bound region's `docRect` is in document pixels and drawn less the live scroll. An anchored entity follows from the scroll stamped at placement, and with no stamp it stays pinned. Out of the page it is hidden, clipped at the edge with no fade. [Scroll]
+- The page profile is on disk only for a launch with no path argument, and only for the process that holds its lock file. [APP-BUNDLE]
+- A synced page has no mark on the canvas. One `Action::ToggleSync` serves the chain button and the unsync button. A set of one reads as unsynced. [SYNC-SETS]
+- Navigation is followed from any page of a set, with Electron's 1500 ms quiet window. Scroll, hover and click are followed only from the entered page. Followers jump, where Electron eases. [SYNC-SETS]
+- Capture is a long poll over the devtools channel, not `Runtime.addBinding`, so it keeps no state a CLI client could reset. Candidates are scored in Rust (`specular_core::locator`). A replayed click gets 1000 ms to navigate a peer before navigation sync does. [SYNC-SETS]
+
+### Comments
+
+- A comment region over a page is stored as Electron stores it: a `docRect` in the page's CSS pixels plus a `pageAnchor`. [F4]
+- A draft is an `Annotation` in the session, not the document. Keeping it is one `InsertAnnotation` step. Annotations are undoable, as in Electron. [C2]
+- A comment and the selection are never both the target. Delete removes whichever there is. The comment tool stays armed after a comment is kept. [C2]
+- A click that finds no element on a page makes a canvas point, as Electron's does. [C2]
+- A canvas-point comment draws its count pill on the point. Electron draws nothing there. The badge number is the message count of its group. A region is hit within 6 px of its edge, so what is under it stays reachable. [C3]
+- `App::comment_marks()` is the one set the hit-test and the scene share. [C3]
+- With a chat panel, a comment draft is a passive marker and the panel's field is its composer. The winit shell keeps a small composer on the canvas. [C2, RIGHT-PANEL]
+- A region comment's picture is drawn when `GET /annotations/<id>` is asked, not stored in the `.canvas`. [A3]
+
+### HTTP API and CDP
+
+- The reply slot on `Event::Api` is a ticket number, answered by `Effect::ApiReply`, so `Event` stays plain data. [A1]
+- No second CLI. `src/main/cli.ts` runs against the Rust app unchanged. [A2]
+- An act route selects what it acts on and leaves it selected. A patch does not touch the selection. [A1]
+- A patch item is turned into a `.canvas` node and read with the file reader, so the API and a saved file cannot disagree. A value the reader cannot type is a 400 naming the field. An edge to an entity the canvas does not hold is a 400. Electron stores both. [A1]
+- A text the API adds or changes is resized to fit in the same undo step. A sticky only grows. [A1]
+- A write while a drag is in flight is refused with 409. [A1]
+- The server is `tiny_http` on one thread with no async runtime. A benchmark run and a headless run start none. [A1]
+- The app takes `SPECULAR_PORT` or 29979 and `~/.specular/specular-mcp.json` unless a Specular already answers there. Then it binds a free port and writes `specular-native-mcp.json`. Started first, it holds 29979 and Electron starts with no API. [A1]
+- Undo and redo are `POST /history/undo` and `/history/redo`. Electron has neither. [A1]
+- Each page has its own CDP websocket backed by that browser's CEF devtools channel. The proxy answers the browser-level `Target` domain itself and refuses `Page.close`, `Target.closeTarget`, `Target.createTarget` and `Browser.close`. The websocket server is hand-written on std sockets. [A3]
+- `print-pdf` and `record` stay 501. The first needs an API answer that waits across turns. [A3]
+
+### Panels, menus and the sidebar
+
+- Panels are pure models with no pixels, colours or hover state ([ADR 0044](../adr/0044-ui-as-pure-models-with-replaceable-renderers.md)). [P1/P2]
+- A property change is `Action::SetProperty`, one variant a property, applied to every selected item it means something for as one batch. Selection picks never write tool defaults (ADR 0008). [P1/P2]
+- Built-in panels are off in a new `App` and turned on by `Event::BuiltinPanels(true)`. `view()` never draws them. Their layout and pointer state live in `specular-interact`, because `hit_test` needs the rects. [P1/P2]
+- A popup clamps under the toolbar and to the viewport edges and never flips below its item. Toolbar buttons run `SetTool`, and Draw and Comment switch back to Select on a second click. [P1/P2]
+- A typed value is `Control::Field` with a `FieldSubmit`. Enter and a press elsewhere commit, Escape restores. [P3/P4]
+- The sidebar starts hidden and has no key, as in Electron. `App::covered_left()` is the width every fit, reveal and popup clamp reads. Canvas coordinates are not shifted. A row sends `Action::Reveal`, which pans only when the item is not wholly in view. [P3/P4]
+- The context menu is a `PopupModel` of choices at a point. A right press selects its target first. [P3/P4]
+- The built-in layout is cached behind a value stamp and forgotten at the end of every `update` except idle moves, wheels, pinches and ticks. [P3/P4]
+- The Edit, Tools, View, Canvas, Arrange, Comment and Page menus are data, `menus(&App)`. An item's shortcut is the first `BINDINGS` row with its action, and it is enabled when that row's `Context` holds. [Shell batch, P5]
+- Electron has no key for annotate-selection, resolve, the sidebar or the right panel, so native has none either. [C2, P3/P4, RIGHT-PANEL]
+
+### The two shells
+
+- The effect runners are `specular_app::Runtime<W: ShellWindow>`, shared by both shells. `specular-app` is a library with a thin `main`. [GPUI-SHELL]
+- In the GPUI shell the canvas view fills the window and never moves. The slot GPUI leaves unpainted is the app's viewport, and it runs up under the Kit toolbar. Only the sidebar's width offsets it. [GPUI-SHELL]
+- `PopupAnchor` is the dividing line. The Kit draws the toolbar and its popups, and `Event::BuiltinCanvasPopups` keeps the built-in popups beside a canvas item. [GPUI-SHELL]
+- A model menu item's key is bound in GPUI under a context no element has, so macOS shows it and the key still goes to `update`. The shell's own keys (Cmd+Q, W, O, S, comma) are real GPUI bindings. [GPUI-SHELL]
+- The `NSEvent` monitor only notes each key event, and the slot's key handler turns the note into a `KeyInput`. Composition comes through GPUI's input handler. [GPUI-SHELL]
+- Sidebar rows and swatches are plain GPUI elements, because the Kit's row takes a string label and has no swatch row. [GPUI-SHELL]
+- A folder dialog the app asks for is the shell's to show, not the runtime's, because a modal dialog inside a GPUI event would run window callbacks under it. `PickRepoFolder` still calls `rfd` from the runtime and has that risk. [APP-BUNDLE]
+- In the winit shell, muda's menu replaces winit's default. Quit and Close are the shell's own items so the pending save is written. [Shell batch]
+- The window title is the canvas name, plus ` — Edited` while a save is pending. [Shell batch]
+- A headless run's clock starts at a fixed time and only `wait` moves it. It keeps the clipboard and new Documents in memory. [Visual check, QA]
+
+### Agent chat, inspect and repos
+
+- The thread model is its own pure crate, `specular-agent`. Threads and the active thread are per canvas. `index.json` adds `activeByCanvas`, which Electron ignores and drops when it writes. [RIGHT-PANEL]
+- Close archives (`status: closed`) and the thread stays on disk. Electron has since replaced Close with Delete and reads `closed` as `open`, so a thread closed here shows up open there. [RIGHT-PANEL]
+- No SDK. The runner spawns `claude -p --output-format stream-json`. A failed resume is retried fresh by `update`. [RIGHT-PANEL]
+- The panel sits beside the canvas slot, so the viewport gets narrower and nothing is offset in canvas coordinates. [RIGHT-PANEL]
+- The inspect tool asks the page once per whole CSS pixel of pointer movement, over any page, entered or not. Electron's page-locked mode is not ported. The picked node outlives the tool, because it is the chat's pill. [INSPECT-LOOP]
+- The write target follows a DOM node's origin or a page-bound comment's, and nothing else. A selection always writes to the space folder. A repo is inferred only from a binding. [INSPECT-LOOP]
+- A run on a bound origin starts in the repo, where Electron starts every run in the space folder. A thread whose turns move between the two folders cannot resume its session and falls back to the full prompt. [INSPECT-LOOP]
+- Repo bindings are written to this app's own `repos.json`. Electron's is read only while this app has none, and never written. [APP-BUNDLE]
+- The agent's canvas cursor chip is left out. There is no presence layer. [INSPECT-LOOP]
+
+### Settings, first run and the bundle
+
+- Settings > General > Change… opens another folder and leaves the old one. ADR 0033's "Move my canvases" is not built. [APP-BUNDLE]
+- "Show and hide defaults" was read as what is shown at launch: the sidebar and the right panel. [APP-BUNDLE]
+- `.canvas` is claimed as an Editor with rank Alternate under an imported type `org.jsoncanvas.canvas`. No URL scheme is registered. [APP-BUNDLE]
+
+### Performance
+
+- Caches live in the compositor behind named types (`MeshCache`, `Laid` text layouts, `Batcher`) and in the shell (`FrameDemand`). `Scene`, `view` and `update` stay pure. [Performance]
+- A frame is drawn only when something it shows changed. Frames keep coming for 250 ms after input so a ProMotion display does not drop its rate inside a gesture. [Performance]
+- Kept text is placed by moving the pass viewport, which lands on whole pixels. A pan by part of a pixel draws text up to half a pixel off while it moves. [Performance]
+- The idle memory sample is taken at 12 seconds, not 6. [Performance]
+
+### Reversed
+
+Decisions a later one replaced. The areas above have the later one.
+
+- **Panels are egui 0.36** [M1]. Never built. Panels became pure models with a built-in renderer [P1/P2] and GPUI Kit [GPUI-SHELL, ADR 0040]. GPUI was turned down as the canvas renderer and that still holds.
+- **Text editing uses cosmic-text's `Editor`** [M1]. The editor is the app's own, on a `TextMeasure` trait [T1].
+- **`Tool` has eight variants without `inspect`, and `Gesture` three** [F4]. `Inspect` came with INSPECT-LOOP, and there are nine gestures.
+- **The spike's Alt+drag move, and C toggling the comment tool off** [F4]. A plain drag moves [S3] and a tool's key pressed again does nothing [Tools].
+- **Groups are hit after everything else** [S1]. The innermost group under the point wins [Groups/edges/S7].
+- **`Hit` has no reorder dots or gap handles** [S1]. `Hit::Layout` came with ARRANGE.
+- **A scaling text resize writes a stand-in height** [S4]. The height is measured each frame [T1 scene].
+- **Scroll is taken as zero**, and **an anchor written at placement has no scroll offset** [F4, Tools]. Pages report scroll and anchored items follow it [CEF, Scroll].
+- **A canvas-point comment draws a 12 px dot, and the highlighter is a flat 30% alpha** [F5b]. The first is a count pill [C3], the second is multiplied in at 70% [Polish].
+- **`update` stops a Document's scroll at the top only** [T3]. The renderer reports heights and it stops at the end too [T4].
+- **`Event::Paste(String)`** [T1]. Replaced by `Event::Clipboard` [Shell batch].
+- **`specular-app` depends on `specular-testkit` outside tests** [Visual check]. The headless runner holds a `specular_interact::Driver` and the testkit is a dev-dependency [CLEANUP-A].
+- **Page questions are answered from a synchronous `PageSource::element_at`, and every click on a real page is a canvas point** [C2]. CEF answers over the devtools channel and `element_at` is gone [CEF].
+- **`cdp-target` answers only while the canvas has one page** [CEF]. Each page has its own socket [A3].
+- **`--tab` only names the one open canvas, and `tab new`, `switch` and `delete` are 501** [A1]. All three are routes [P5].
+- **A mixed-kind selection has no popup** [P1/P2]. It has one, with arrange, annotate and focus [P3/P4].
+- **With no path the app opens the user's real space** [P5]. It opens the scratch space [Scratch space], and the GPUI shell then changed again to open the folder chosen in it or ask [APP-BUNDLE].
+- **The menu's Rename canvas… opens the system save panel** [P5]. Still true in the winit shell. The GPUI shell renames in the sidebar [GPUI-SHELL].
+- **The sidebar is a model with no renderer** [P4]. Both renderers draw it [P3/P4, GPUI-SHELL].
+- **The write target is always the space folder** [RIGHT-PANEL]. It follows a bound origin [INSPECT-LOOP].
+- **Repo bindings are read from and written to Electron's `repos.json`** [INSPECT-LOOP]. This app writes its own file [APP-BUNDLE].
+- **`App` holds `StackCache` behind a `Mutex`, and the compositor depends on `specular-interact`** [T4, F5b]. Both undone by cleanup tasks 13 and 6 [CLEANUP-A].
 
 ## Needs a human at a Mac
 
@@ -336,13 +307,7 @@ What nobody has done by hand. The scenario scripts (`native/fixtures/scenarios`)
 Known gaps against Electron, not checks: the hand and mono fonts fall back to system fonts (Kalam and Geist Mono are not loaded), an edge label has the line running through it, a comment badge has no icon, a label that overflows a small shape is clipped to its middle line, and the highlighter has no gradient or grain.
 
 - Groups, edges, S7: nothing was run in a window. Check Cmd+] and Cmd+[ with and without Shift, and the Arrange menu. Cmd+G on two items, Cmd+Shift+G, a child dragged out of and into a group (ring on the target, the group hugging what is left), double click into a group, Escape back out, double click a title and type. Hover an item and drag from the dot to another item's dot and to its body; grab an edge's end, drop it on nothing and check the edge goes and Cmd+Z brings it back; double click an edge and type a label. Drag a sticky onto a page and off it, and with Command held.
-- SYNC-SETS: a synced page has no mark on the canvas. Electron draws none (ADR 0027 defers it); the chain button is on in the popup of a synced selection, and that is all.
-- SYNC-SETS: one `Action::ToggleSync` serves the multi-select chain button and the single page's unsync button. Orphan sets dissolve in the same `Command::Batch`. Deleting a page does not dissolve what is left: `App::is_synced` reads a set of one as unsynced.
-- SYNC-SETS: navigation is followed from any page of a set, with Electron's 1500 ms quiet window on the session clock. Scroll, hover and click are followed only from the entered page, so they need no window. The first address a page reports is its load and is not followed.
-- SYNC-SETS: a page's scroll is reported in pixels, so the app asks the entered page for its fraction (`Effect::AskScrollProgress`) and sends that to the peers (`Effect::ScrollPage`). Followers jump; Electron's lerp is not ported.
-- SYNC-SETS: capture is a long poll over the devtools channel (`Runtime.evaluate` with `awaitPromise`), not `Runtime.addBinding`. It keeps no state in the devtools session, which a CLI client shares and can reset. Candidates are listed by the page and scored in Rust (`specular_core::locator`).
-- SYNC-SETS: a click replayed on a peer gets 1000 ms to navigate it before navigation sync sends the peer there, so a mirrored link click loads each peer once.
-- SYNC-SETS: a headless `wait` runs the pages before it moves the clock. It moved the clock first, which made every quiet window end before the pages reported.
+- SYNC-SETS: the seven decision lines that sat here are under "Decisions", in "Pages, CEF and sync sets". One was about the headless runner: a `wait` runs the pages before it moves the clock.
 
 ## Entries
 

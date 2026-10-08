@@ -1,241 +1,284 @@
-# native/ — Rust + CEF shell spike
+# native/: Specular in Rust
 
-A measurement vehicle, not a rewrite. It answers one question: **would a Rust
-shell that embeds Chromium through CEF offscreen rendering (OSR) beat the
-Electron app on pan/zoom frame times, memory, and input latency?** The plan,
-hypothesis, and results table live in
-[`docs/plans/rust-cef-spike.md`](../docs/plans/rust-cef-spike.md).
+A rebuild of Specular's canvas as one Rust process. It opens the same space
+folders and `.canvas` files as the Electron app under `../src`, hosts pages
+through CEF offscreen rendering, and answers the same HTTP routes, so the
+`specular` CLI drives it.
 
-The shape mirrors what ADR 0038 shipped in Electron — every page is an
-offscreen browser painting GPU shared textures, composited on one surface —
-so the comparison isolates the shell (Electron main + canvas-bg renderer vs.
-one Rust process with wgpu), not the compositing model.
+It started as a spike that measured a Rust and CEF shell against Electron.
+That question is answered, and the measurement tools are still here (see
+"Bench"). Everything since is the rebuild, done in about a day by agents and
+checked almost entirely by script. Read these before trusting any of it:
+
+- [`docs/plans/rust-native-rebuild-handoff.md`](../docs/plans/rust-native-rebuild-handoff.md):
+  what works, what no person has checked, known bugs and open decisions.
+- [`docs/plans/rust-native-rebuild.md`](../docs/plans/rust-native-rebuild.md):
+  the plan, with a status table for every task.
+- [`docs/plans/rust-native-rebuild-log.md`](../docs/plans/rust-native-rebuild-log.md):
+  the run log, one entry a task.
+- [`CLAUDE.md`](CLAUDE.md): how to add a feature and write its test.
+- ADRs [0039](../docs/adr/0039-rust-canvas-render-stack.md) to
+  [0044](../docs/adr/0044-ui-as-pure-models-with-replaceable-renderers.md):
+  the decisions that are hard to reverse.
+
+macOS on Apple Silicon is the only platform anything has run on. The GPUI
+Kit shell and the menus are macOS only.
+
+## The shape
+
+```
+Event -> update(&mut App, Event) -> Vec<Effect>     no I/O
+         view(&App, viewport, &ViewCache) -> Scene  no GPU
+         render(&Scene)                             wgpu
+```
+
+`update` is the only thing that changes the app. Anything outside it, such as
+a file write or a page host, is an `Effect` the shell runs. That is why the
+tests and the headless modes below need no window.
 
 ## Crates
 
 | Crate | Kind | Owns |
 |---|---|---|
-| `specular-core` | lib | Camera math, page model, `PageFrame` / `PageSource` contracts, input model, synthetic page source |
-| `specular-doc` | lib | The typed `Document`: entities, edges, annotations, `Command`s with inverses, `History`, and the lossless `.canvas` reader and writer |
-| `specular-interact` | lib | `App` (document, history, session), `Event`, `Effect`, `Tool`, `Gesture`, hit-test and the pure `update(&mut App, Event) -> Vec<Effect>` |
-| `specular-api` | lib | The HTTP API with the socket taken off: a request and `&App` in, a read answer or an `Event::Api` out. The Electron app's routes, so its CLI drives this app |
-| `specular-compositor` | lib | wgpu renderer: dot grid + page textures under the camera, one-draw SDF shape overlay (borders, outlines, handles, pins), popup layers, shared-texture retirement and the per-page cap of 6; IOSurface -> Metal -> wgpu import on macOS |
-| `specular-cef` | lib | CEF OSR `PageSource` (`--features cef`) and the CEF-free helpers it is built from (input translation, coords, config). See [`crates/specular-cef/README.md`](crates/specular-cef/README.md) |
-| `specular-bench` | lib + bin | Gesture profiles ported from `src/shared/pan-zoom-perf-test.ts`, frame stats in the ADR 0038 lab's field names, input latency, process-tree footprint and RSS, Electron trace converter, `compare`. See [`crates/specular-bench/README.md`](crates/specular-bench/README.md) |
-| `specular-app` | bin | winit shell: translates window and page events into `Event`s, runs the `Effect`s that come back, draws through the compositor, and runs `--bench` |
+| `specular-core` | lib | Camera math, the f32 `Point`, `Size` and `Rect`, the page model, the `PageSource` and `PageFrame` contracts, the input model, the text-measure trait, the synthetic page source, the locator scoring for interaction sync |
+| `specular-doc` | lib | The typed `Document`: entities, edges, annotations, `Command`s with inverses, `History`, and the `.canvas` reader and writer |
+| `specular-agent` | lib | The agent thread model: the `Threads` store, the thread files' shape, the prompts, the `claude` stream parser, repo bindings. Pure |
+| `specular-interact` | lib | `App`, `Session`, `Space`, `Event`, `Effect`, `Action`, `Tool`, `Gesture`, hit-test, `update`, the text editor, the key binding table, and every panel model (toolbar, popups, sidebar, menus, chat, settings, first run) |
+| `specular-scene` | lib | The `Scene` display list, `view` with one module a kind, the markdown parser, and the built-in panel painter |
+| `specular-api` | lib | The HTTP API with the socket taken off: a request and `&App` in, a read answer or an `Event::Api` out. Also the per-page CDP routing |
+| `specular-compositor` | lib | The wgpu renderer. Draws a `Scene` over the dot grid in one 4x multisampled pass: page textures, SDF shapes, glyphon text, lyon paths. Imports page IOSurfaces with no copy on macOS. Implements the text measure |
+| `specular-cef` | lib | The CEF offscreen `PageSource` (feature `cef`) and the CEF-free helpers it is built from. See [`crates/specular-cef/README.md`](crates/specular-cef/README.md) |
+| `specular-app` | lib + bin | `Runtime`, which owns the `App` and runs every effect: page hosts, space files, images, Documents, clipboard, the HTTP and CDP servers, the agent runner. Also the command line, the headless `--snapshot` and `--script` modes, `--bench`, and the winit window (binary `specular-app`) |
+| `specular-shell` | bin | The GPUI Kit window (binary `specular`, ADR 0040). The Kit draws toolbar, sidebar, menus, settings, first run and the chat panel from the models. The compositor draws the canvas in a view under GPUI's. It uses `specular-app`'s `Runtime` and command line |
+| `specular-bench` | lib + bin | Gesture profiles, frame stats, per-frame work times, process-tree memory, the Electron trace converter and `compare`. See [`crates/specular-bench/README.md`](crates/specular-bench/README.md) |
+| `specular-testkit` | lib, dev only | `TestApp`, snapshot macros and entity builders for tests |
 
-Dependency direction: `core` <- `compositor`, `cef`, `bench` <- `app`, and
-`doc` <- `interact` <- `app`. `core`, `doc` and `interact` have no GPU,
-window, or CEF deps.
+### Dependency direction
 
-`fixtures/` holds the bench canvases both shells load: `static-9`,
-`static-20`, `static-40` (real sites, 1280x800 CSS each), `animated-20`
-(a `data:` page with a rAF counter and a CSS animation) and `input` (a
-`data:` page that flips its background on `pointerdown`/`keydown`, with a
-`<select>` and a text input for the popup and IME checks).
+As the manifests have it, each crate depending only on crates to its left:
 
-## Build, lint, test (any platform)
+```
+core, doc, agent  <-  interact  <-  scene  <-  compositor
+                                \-  api
+core  <-  cef, bench
+everything above  <-  app  <-  shell
+```
+
+- `core`, `doc` and `agent` depend on no other crate here.
+- `interact` depends on `doc`, `core` and `agent`. `scene` and `api` each
+  depend on `interact`, `doc` and `core`.
+- `compositor` depends on `scene` and `core`. It names `doc` and `interact`
+  only in its tests.
+- `app` depends on all of the above except the testkit. `shell` depends on
+  `app`.
+- `core`, `doc`, `agent`, `interact`, `scene` and `api` have no GPU, window,
+  CEF or file I/O.
+
+Two things differ from the plan's diagram. There is no `specular-ui` or
+`specular-render` crate: panel models live in `interact`, panel painting in
+`scene`, and the renderer kept the name `specular-compositor`. And the GPUI
+shell sits on top of the winit shell's crate, not beside it.
+
+## Build and gate
 
 ```sh
 cd native
 cargo fmt --all --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
-RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps
 ```
 
-The default build uses the synthetic page source (animated CPU frames). It
-runs anywhere, and it is **not representative**: never put its numbers in the
-results table. The compositor's GPU tests skip with a message when no wgpu
-adapter exists.
+This needs no CEF and no window. The compositor's GPU tests skip with a
+message when there is no wgpu adapter, and the text tests need a system font.
 
-Type-checking the CEF code without downloading CEF (cef's docs.rs mode; it
-cannot link or run):
+The default build hosts synthetic pages, which are animated stand-ins. Real
+pages need the `cef` feature and an app bundle:
+
+```sh
+export CEF_PATH="$HOME/.local/share/cef"   # the first build downloads about 300 MB here
+cargo build -p specular-shell --features cef
+crates/specular-cef/scripts/bundle-macos.sh debug specular
+"target/debug/specular.app/Contents/MacOS/specular" fixtures/input.canvas
+```
+
+For the winit shell, build `-p specular-app --features cef` and bundle with
+`bundle-macos.sh debug` (the binary name defaults to `specular-app`). CEF only
+runs from the `.app` layout. Run the inner binary directly so stdout, stderr
+and the arguments are kept, and bundle again after every rebuild, because the
+bundle holds copies.
+
+To type-check the CEF code without downloading CEF:
 
 ```sh
 cargo clippy --workspace --all-targets --features specular-app/cef,specular-cef/cef-dox -- -D warnings
-# macOS-only code from a Linux box:
-rustup target add aarch64-apple-darwin
-cargo clippy --target aarch64-apple-darwin --workspace --all-targets \
-  --features specular-app/cef,specular-cef/cef-dox -- -D warnings
 ```
 
-## App
+## Run
 
-```
-specular-app [--source synthetic|cef] [--pages N | FOLDER | FILE.canvas]
-             [--space user|PATH]
-             [--bench all|id,id,... [--warmup-ms N]] [--window WxH]
-             [--paint-policy electron-lod|full-rate]
-             [--chrome on|off] [--annotations N]
-```
-
-With no path and no `--space`, the app opens the **scratch space**: a copy
-of the starter space in its own data folder (`~/Library/Application
-Support/Specular Native/scratch-space` on macOS, or under
-`SPECULAR_NATIVE_CONFIG_DIR`). The startup log and the window title say so.
-Your real space opens, and is autosaved into, only when you ask for it:
-`--space user` is the space the Electron app has in Settings (else the
-folder last chosen with File > Open space…), and `--space PATH` or a bare
-`FOLDER` or `FILE.canvas` is that folder.
-
-`--snapshot OUT.png` and `--script FILE` draw into PNG files with no window
-(see `CLAUDE.md`, "Looking at what it draws"). They host synthetic pages
-unless `--source cef` is given; then the real pages load first, and a
-script's clicks, wheel and keys reach an entered page:
+There are two shells over one runtime.
 
 ```sh
-"$APP" --source cef --snapshot out.png --snapshot-size 1400x800 FILE.canvas
+cargo run -p specular-shell -- [OPTIONS] [FOLDER | FILE.canvas]   # binary `specular`, GPUI Kit
+cargo run -p specular-app   -- [OPTIONS] [FOLDER | FILE.canvas]   # winit, built-in panels
 ```
 
-Scroll pans; Cmd/Ctrl+scroll and pinch zoom about the cursor (same factor as
-the Electron app: `zoom -= deltaY * 0.002`, clamped to 0.02..3). Click a page
-to focus it; pointer, wheel, keys and IME then go to that page. Click empty
-canvas to clear focus. Logs go to stderr (`RUST_LOG=debug` for more); on
-exit an interactive session logs its input-to-present latency summary.
+`specular` is the app: Kit toolbar, sidebar, settings, the chat panel. It is
+macOS only and refuses `--bench`. `specular-app` is the older window with the
+built-in panels. It stays because `--bench` runs only there and the headless
+modes draw its panels. Both take the same command line. `--help` prints all
+of it.
 
-With the chrome layer on (the default), Alt+drag on a page moves it and
-dragging a corner handle of the selected page resizes it (the page's CSS
-viewport changes once, on release). `C` toggles the comment tool while no
-page has keyboard focus (a focused page gets the key); with the tool armed,
-drag on the canvas to draw a region, which is bound to the page the drag
-started over or, off any page, to the canvas; a click creates nothing.
-`Escape` always cancels the drag, leaves the tool and clears page focus, and
-is not forwarded to pages.
+| Flag | What it does |
+|---|---|
+| `FOLDER` | Open the folder as the space. A folder with no canvas gets the starter space |
+| `FILE.canvas` | Open the file's folder as the space and show that file |
+| `--space user\|scratch\|PATH` | See "Which space opens" |
+| `--pages N` | A demo grid of N pages and no space (default 9, not with a path) |
+| `--source synthetic\|cef` | Page backend. Default is `cef` when built with the feature |
+| `--window WxH` | Window size in logical pixels |
+| `--paint-policy electron-lod\|full-rate` | Page frame-rate and texture-scale tiers. Default is Electron's |
+| `--chrome on\|off` | `off` draws no page borders, selection or comments. Keys and gestures still act |
+| `--annotations N` | Seed N page-bound comments for a bench run |
+| `--snapshot`, `--script` and their options | See "Snapshot and script" |
+| `--bench` and its options | See "Bench". `specular-app` only |
 
-### Chrome layer
+### Which space opens
 
-`--chrome on|off` (default on) switches the per-frame canvas UI the real app
-draws: a border on every page (stronger under the cursor), the selection
-outline with four screen-sized resize handles, and comment annotations (a
-translucent region plus a circular pin at its top-left corner; page-bound
-ones move and scale with their page). It exists so the benchmark can answer
-whether the shell's frame-time advantage survives UI drawn every frame:
-everything goes through the compositor's one-draw shape layer, `--chrome off`
-draws no shapes and has no selection or tool, and `--annotations N` (chrome
-on only) seeds N page-bound annotations so a run draws a known amount.
-`--bench` with chrome on starts with the first page selected. Each bench line
-records `chrome`, `annotations` and `maxShapesDrawn`; `compare` prints them
-and warns when two runs differ.
+Your real space is opt-in, because autosave writes into whatever is open.
 
-It is a cost model, not the product's UI: there is no text (pins are plain
-circles), no toolbar or panels, no cursor changes beyond the tool crosshair,
-and annotations are not persisted.
+- **A path wins.** `FOLDER`, `FILE.canvas` or `--space PATH`.
+- **`--space scratch`** opens the scratch space: a copy of the starter space
+  in this app's data folder, kept between launches. The title reads
+  `Welcome (scratch space)`.
+- **`--space user`** opens the space the Electron app has in Settings
+  (`spacePath` in its `preferences.json`, read and never written), else the
+  folder last chosen in this app. It is refused together with a path.
+- **With none of those**, the two shells differ. `specular-app` opens the
+  scratch space. `specular` opens the folder you chose in it, and shows the
+  first-run view when there is none or the folder is gone.
+- A `--bench`, `--snapshot`, `--script`, `--pages` or `--annotations` run
+  opens no space. It shows one document and writes nothing.
 
-`--bench` waits `--warmup-ms` (default 2000) for pages to load, runs each
-profile from the same start camera, one step per presented frame at the
-monitor's refresh interval, and prints one JSON line per profile to stdout
-(the bench crate's `PhaseReport` fields plus `source`, `pages`,
-`representative`, `stepIntervalMs`, `maxPaintToSubmitMs`, `chrome`,
-`annotations`). Then it exits.
+The data folder is `~/Library/Application Support/Specular Native`.
+`SPECULAR_NATIVE_CONFIG_DIR` moves it, which is how to try things without
+touching your own preferences. Opening `fixtures/x.canvas` in a window makes
+`fixtures/.specular/`, so copy a fixture out before opening it.
 
-### What a frame costs
+Do not run this app and the Electron app on one space at the same time. Each
+rewrites the canvas index in `.specular/`.
 
-`--bench` runs on any canvas, and each line it prints has a `work` object:
-mean, p95 and max milliseconds a frame in `update`, `view`, `cull`,
-`shaping`, `batching`, `tessellation`, `build`, `glyphs` (glyph layout and
-raster), `upload` and `submit`, with the most items, batches, draw calls,
-glyphs and triangles one frame drew, and how many frames were drawn and how
-many loop turns drew nothing.
+### Driving it from outside
+
+The running app answers the Electron app's HTTP routes. It takes port 29979
+and `~/.specular/specular-mcp.json` unless an Electron app already has them.
+Then it binds another port, writes `~/.specular/specular-native-mcp.json`,
+and logs the `SPECULAR_DISCOVERY_FILE=` to pass the CLI. Started first, it
+holds 29979 and the Electron app then starts with no API. A bench run and a
+headless run start no server.
+
+## Snapshot and script
+
+Either binary draws a canvas into a PNG with no window, on the real GPU.
+Nothing else is written.
+
+```sh
+cargo run -p specular-app -- --snapshot out.png fixtures/kitchen-sink.canvas
+cargo run -p specular-app -- --snapshot out.png --snapshot-size 1200x800 \
+    --snapshot-camera -400,-900,2 --snapshot-scale 2 FILE.canvas
+cargo run -p specular-app -- --script steps.txt FILE.canvas
+```
+
+- The camera is `fit` (the default) or `x,y,zoom`, with the pan in screen
+  pixels.
+- A script is one step a line: `click x y`, `drag x1 y1 x2 y2`, `key cmd+z`,
+  `type some text`, `tool shape`, `control shape.color`, `snapshot out.png`,
+  `save out.canvas` and more. [`CLAUDE.md`](CLAUDE.md), "Looking at what it
+  draws", has the whole list.
+- The toolbar and popups are the built-in ones, drawn and clickable.
+- Pages are synthetic unless the bundled binary is run with `--source cef`.
+  Then the real pages load first and a script's input reaches an entered
+  page.
+- The clipboard and new Documents are kept in memory, and the clock moves
+  only on `wait`, so a script draws the same frames every run.
+
+The GPUI window has its own script driver for an agent with no hands:
+`SPECULAR_SHELL_SCRIPT="wait 2000; click 587 22; shot /tmp/a.png; quit"`
+posts real `NSEvent`s and captures the window. Set `SPECULAR_FLOAT_WINDOW=1`
+with it. A covered window, a locked screen or a sleeping display draws
+nothing, and the capture then looks like blank pages.
+
+## Fixtures and scenarios
+
+- `fixtures/kitchen-sink.canvas`: every kind in every style, with edges,
+  comments, a Document and an image. Snapshot it after any change to
+  `specular-scene` or `specular-compositor` and look at the PNG.
+- `fixtures/input.canvas`: one page that flips its background on a press,
+  with a `<select>` and a text input. For input, popup and IME checks.
+- `fixtures/pages.canvas`: real pages beside stickies, for the CEF scenario.
+- `fixtures/static-9`, `static-20`, `static-40`, `animated-20`: the spike's
+  bench canvases.
+- `fixtures/bench/`: canvases that each load one part of the renderer (500
+  and 2,000 stickies, 300 drawings, 200 edges, 50 Documents, `mixed`), with
+  `generate.py` and the run scripts.
+- `fixtures/scenarios/`: eighteen whole sessions as scripts, `a` to `p`.
+  `run.sh` runs them headless into `runs/qa/` and `check.py` compares the
+  canvases they save. A PNG has no check, so open it. The
+  [README there](fixtures/scenarios/README.md) lists each session.
+- `fixtures/scenarios/cef/`: sessions that need the bundled CEF app.
+  `pages.txt` is real pages, comments and scroll. `cli-pages.sh` runs every
+  browse verb of the CLI against two pages. `sync.sh` runs a sync set of two
+  widths against its own web server.
+- `fixtures/scenarios/app/first-run.sh`: the first run of the release bundle
+  on a throwaway home folder.
+
+`runs/` is where all of these write. It is not in git.
+
+## Bench
+
+`--bench` runs in `specular-app` only. Each profile prints one JSON line with
+frame stats and a `work` object: milliseconds a frame in update, view, cull,
+shaping, batching, tessellation, build, glyphs, upload and submit, and the
+most items, batches, draw calls, glyphs and triangles one frame drew.
 
 ```
-specular-app --bench slow-pan,slow-zoom,idle [--bench-target window|headless]
-             [--bench-duration-ms N] [--snapshot-size WxH] [--snapshot-scale N]
-             FILE.canvas
+specular-app --bench all|slow-pan,slow-zoom,idle [--bench-target window|headless]
+             [--bench-duration-ms N] [--warmup-ms N] [--window WxH] FILE.canvas
 ```
 
-- `--bench-target headless` draws into a texture with no window and no
-  vsync and times each frame until the GPU is done. It always draws, so its
-  `idle` rows are the cost of a frame with the camera still, as when a page
-  is painting. `window` (the default) presents in a window, where a frame
-  nothing changed for is not drawn at all.
+- `--bench-target headless` draws into a texture with no vsync and times each
+  frame until the GPU is done. Its frame intervals mean nothing. Read `work`.
 - `idle` is a seventh profile, run only when named. In a window it should
   report `framesDrawn: 0`.
-- `fixtures/bench/` holds canvases built to load one part of the renderer
-  each (`generate.py` writes them): 500 and 2,000 stickies, 300 drawings,
-  200 edges, 50 Documents, and `mixed` with 20 pages and 300 items.
-- `fixtures/bench/run.sh LABEL headless|window synthetic|cef` runs pan,
-  zoom and idle over all of them into `runs/perf/LABEL/` and prints the
-  table (`table.py`). `idle.py` is a 30 second idle run with the process
-  tree's CPU. `memory.py` prints the tree's footprint by kind of process at
-  set times after launch, through `specular-bench rss --per-process true`.
-- Time these on a quiet machine. A build running elsewhere doubles the
-  numbers.
+- `fixtures/bench/run.sh LABEL headless|window synthetic|cef` runs pan, zoom
+  and idle over the bench canvases into `runs/perf/LABEL/` and prints a
+  table. `idle.py` is a 30 second idle run with the process tree's CPU.
+  `memory.py` prints the tree's footprint by kind of process.
+- Synthetic pages upload on the CPU and always animate. Their numbers are
+  not the real cost, and a canvas with them is never idle.
 
-## The app
-
-`crates/specular-shell/scripts/bundle-app.sh` builds `Specular Native.app`:
-the GPUI Kit shell with CEF, the starter space and an icon, signed ad hoc.
-It opens on a first-run view until you choose a space folder.
-[`docs/native-app-bundle.md`](../docs/native-app-bundle.md) has the layout,
-what it shares with the Electron app, and what distribution still needs.
-
-From cargo, `cargo run -p specular-shell` with no path does the same: it
-opens the space chosen in the app, or asks. Pass a path, or `--space
-scratch` for a throwaway copy of the starter space.
-
-## Morning run on macOS (Apple Silicon)
-
-The representative configuration. Same Mac, built-in 120 Hz display, power
-adapter connected, other apps closed, for both shells. Every block is
-copy-paste from the repo root unless it says otherwise.
-
-### 1. Build
+For numbers worth keeping, use a release build with CEF on a quiet machine:
+power connected, display awake, window uncovered, nothing else building. A
+build running elsewhere doubles the numbers.
 
 ```sh
-cd native
-export CEF_PATH="$HOME/.local/share/cef"   # first cef build downloads ~300 MB here
-cargo fmt --all --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace
 cargo build --release -p specular-bench
 cargo build --release -p specular-app --features cef
 crates/specular-cef/scripts/bundle-macos.sh release
 APP="$PWD/target/release/specular-app.app/Contents/MacOS/specular-app"
 BENCH="$PWD/target/release/specular-bench"
-mkdir -p runs
-```
-
-CEF must run from the `.app` bundle (framework and helper apps); run the
-inner binary directly so stdout, stderr and argv are kept. Re-run
-`bundle-macos.sh` after every rebuild: the bundle holds copies.
-
-### 2. Smoke: synthetic, then CEF interactive
-
-```sh
-"$APP" --source synthetic --pages 9 --bench slow-pan   # one JSON line, "representative":false
-"$APP" fixtures/input.canvas                            # interactive; close the window when done
-```
-
-In the interactive window check, and note the answers for the capability
-table in the plan: the page loads; clicking it flips the background (that
-proves input forwarding); the `<select>` opens a popup drawn over the page
-at the right place; typing with a Japanese/Chinese IME into the text input
-shows marked (underlined) text before commit; the candidate window sits next
-to the caret. Then confirm the zero-copy path is the one in use:
-
-```sh
 "$APP" --pages 4 --bench slow-pan --warmup-ms 5000   # want "representative":true, "drawsWithoutTexture":0
 ```
 
-`representative` turns false when any presented frame came through a CPU
-upload (CEF fell back to `OnPaint`). A failing IOSurface import instead
-shows up as `drawsWithoutTexture` > 0 with `failed to import` warnings on
-stderr.
+`representative` is false when a presented frame came through a CPU upload.
+A failing IOSurface import shows as `drawsWithoutTexture` above 0.
 
-Closing the interactive window prints an `inputLatency` JSON line on
-stdout and logs `shared-surface import cache` hits/misses on stderr. Keep
-the latency line: `"$APP" fixtures/input.canvas >> runs/rust-input.jsonl`,
-click and type in the page for a minute, close, then append it to a bench
-file before `assemble` (`cat runs/rust-static-9.jsonl runs/rust-input.jsonl`).
-Misses should stay near Chromium's pool size (a handful per page); misses
-close to the number of paints mean the import cache is not hitting.
+### The spike's comparison against Electron
 
-If CEF fails to start, read "Known risks to check first" in
-`crates/specular-cef/README.md` (`CefAppProtocol` on winit's `NSApp`,
-retained IOSurface tearing, coded vs visible size, 120 fps).
-
-### 3. Rust/CEF runs: 9, 20, 40 static pages and 20 animated, three runs each
+The spike's fixtures were last run three times each during the performance
+pass, on the Rust side only. This is that loop:
 
 ```sh
+mkdir -p runs
 for fx in static-9 static-20 static-40 animated-20; do
   pages="${fx##*-}"
   : > "runs/rust-$fx.jsonl"
@@ -251,80 +294,51 @@ for fx in static-9 static-20 static-40 animated-20; do
     --memory-idle "runs/rust-$fx-mem-idle-1.json" --memory-peak "runs/rust-$fx-mem-peak-1.json" \
     > "runs/rust-$fx.json"
 done
-grep -h '"representative":false' runs/rust-*.jsonl && echo "NON-REPRESENTATIVE LINES ABOVE: fix before comparing"
 ```
 
-`--window` sets the window's logical size; match it to the Electron window
-you compare against (the platform default is far smaller, so each frame
-composites fewer pixels).
+Take the idle memory sample at 12 seconds, not 6. At 6 the process tree still
+holds about 500 MB it lets go of by 10, and that early sample is what made
+the spike read as heavier than Electron.
 
-The app runs Electron's page-host paint LOD by default (`--paint-policy
-electron-lod`: 60/30/15 fps by on-screen scale, texture scale after the
-camera settles, no painting off-screen), so both shells do the same work per
-page; the policy is recorded in every line and `compare` warns on a
-mismatch. `--paint-policy full-rate` is there to measure the LOD's own cost.
+The Electron half (capture a trace from a release Electron build over HTTP,
+convert it with `specular-bench electron-trace`, then `specular-bench
+compare`) is written up in
+[`crates/specular-bench/README.md`](crates/specular-bench/README.md). It has
+not been rerun since the spike, so check it against the current Electron app
+before relying on it. The spike's results table in
+[`docs/plans/rust-cef-spike.md`](../docs/plans/rust-cef-spike.md) was never
+filled in. The numbers are in the run log under "Performance".
 
-The idle sample must land after the pages have loaded and settled, about
-ten seconds in: at six seconds the tree still holds some 500 MB it lets go
-of by ten, which is what made the first runs read heavier than Electron.
-Use `--warmup-ms 14000` with the `sleep 12` above. The
-peak sampler covers the rest of the run (it samples for 30 s, longer than
-the six profiles take). Each `rust-*.json` holds
-all three runs' phases; `compare` takes the median per cell.
-
-### 4. Electron baseline (Specular release build on `main`)
-
-Copy `native/fixtures/*.canvas` into your Specular space folder. For each
-fixture: open it as the active tab, zoom so the camera roughly matches the
-Rust start camera (pan 40,40, zoom 0.25), wait for pages to settle, then run
-this from `native/` (set `fx` each time):
+## Bundle
 
 ```sh
-fx=static-20; pages="${fx##*-}"
-SECRET=$(jq -r .secret ~/.specular/specular-mcp.json); H="x-specular-secret: $SECRET"
-PID=$(pgrep -xo Specular)    # `pgrep -xo Electron` under pnpm dev
-for i in 1 2 3; do
-  "$BENCH" rss --pid "$PID" > "runs/e-$fx-mem-idle-$i.json"
-  curl -s -H "$H" localhost:29979/perf/page-hosts > "runs/e-$fx-hosts-before-$i.json"
-  "$BENCH" rss --pid "$PID" --peak-ms 30000 > "runs/e-$fx-mem-peak-$i.json" &
-  curl -s -X POST localhost:29979/perf/pan-zoom/run -H "$H" \
-    -H 'Content-Type: application/json' -d '{}' > "runs/e-$fx-run-$i.json"
-  wait
-  curl -s -H "$H" localhost:29979/perf/page-hosts > "runs/e-$fx-hosts-after-$i.json"
-  "$BENCH" electron-trace --response "runs/e-$fx-run-$i.json" --fixture "$fx" --pages "$pages" \
-    --memory-idle "runs/e-$fx-mem-idle-$i.json" --memory-peak "runs/e-$fx-mem-peak-$i.json" \
-    --page-hosts-before "runs/e-$fx-hosts-before-$i.json" \
-    --page-hosts-after "runs/e-$fx-hosts-after-$i.json" > "runs/e-$fx-$i.json"
-done
-jq -s '.[0] + {phases: (map(.phases) | add)}' runs/e-$fx-[123].json > "runs/electron-$fx.json"
+export CEF_PATH="$HOME/.local/share/cef"
+crates/specular-shell/scripts/bundle-app.sh
+open "target/release/bundle/Specular Native.app"
 ```
 
-For `animated-20` the trace has no quiet gaps between profiles, so run one
-profile per request instead (`-d '{"profiles":["slow-pan"]}'` and
-`electron-trace ... --profiles slow-pan`), once per profile id; see
-`crates/specular-bench/README.md`.
+This builds `Specular Native.app`: the GPUI Kit shell with CEF, the starter
+space and an icon, signed ad hoc, so it runs on the Mac that built it. It
+opens on a first-run view until you choose a space folder.
+[`docs/native-app-bundle.md`](../docs/native-app-bundle.md) has the layout,
+what it shares with the Electron app, and what distribution still needs.
 
-### 5. Compare
-
-```sh
-for fx in static-9 static-20 static-40 animated-20; do
-  "$BENCH" compare "runs/electron-$fx.json" "runs/rust-$fx.json" > "runs/compare-$fx.md"
-done
-cat runs/compare-*.md
-```
-
-Copy the worst-profile numbers into the results table in
-[`docs/plans/rust-cef-spike.md`](../docs/plans/rust-cef-spike.md) and attach
-`runs/`. A run that `compare` flags "Not representative" does not count.
+`crates/specular-cef/scripts/bundle-macos.sh` is the plain development
+bundle used above. It wraps a built binary in the layout CEF needs and adds
+no icon, starter space or signature.
 
 ## Conventions
 
-- Workspace lints in `Cargo.toml` are the contract: no `unwrap`/`expect`
-  outside tests, `#[expect(lint, reason = "...")]` instead of `#[allow]`,
+- Workspace lints in `Cargo.toml` are the contract: no `unwrap` or `expect`
+  outside tests, `#[expect(lint, reason = "...")]` in place of `#[allow]`,
   docs on every public item, `// SAFETY:` on every `unsafe` block, and unsafe
-  confined to the smallest module that needs it (the macOS IOSurface import
-  and CEF callbacks).
-- `thiserror` in libraries, `anyhow` only in `specular-app` / `specular-bench`'s bin.
-- Every third-party dependency is declared once in `[workspace.dependencies]`.
-- Vocabulary follows [`CONTEXT.md`](../CONTEXT.md): page, canvas item,
-  entity, page host, texture scale, frame-rate LOD, painting policy.
+  kept to the smallest module that needs it.
+- `thiserror` in libraries, `anyhow` only in binaries.
+- Every third-party dependency is declared once in
+  `[workspace.dependencies]`. `gpui-kit` and `gpui-pre` are pinned with `=`,
+  and a test fails if the lockfile has other versions.
+- No wildcard arms over `Kind`, `Tool` or `Gesture`.
+- Vocabulary follows [`CONTEXT.md`](../CONTEXT.md), which has a "Rust
+  rebuild" section mapping its terms to the Rust names.
+- The Electron app under `../src` is the behavior spec, not the structure
+  spec. Do not edit it from here.
