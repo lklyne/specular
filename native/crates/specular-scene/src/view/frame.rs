@@ -5,7 +5,7 @@ use glam::{DVec2, Vec2};
 use specular_core::Camera;
 use specular_interact::App;
 
-use crate::{Point, Rect};
+use crate::{Point, Rect, ViewCache};
 
 /// How far outside the viewport, in logical pixels, an entity may sit and
 /// still be drawn. It covers the chrome around a rect: a group's title, a
@@ -17,6 +17,8 @@ const CULL_MARGIN: f32 = 64.0;
 pub(crate) struct Frame<'a> {
     /// The app the frame shows.
     pub(crate) app: &'a App,
+    /// What earlier frames built that this one can use.
+    pub(crate) cache: &'a ViewCache,
     /// Whether chrome is drawn.
     pub(crate) chrome: bool,
     camera: Camera,
@@ -27,12 +29,13 @@ pub(crate) struct Frame<'a> {
 }
 
 impl<'a> Frame<'a> {
-    pub(crate) fn new(app: &'a App, viewport: Vec2, chrome: bool) -> Self {
+    pub(crate) fn new(app: &'a App, viewport: Vec2, chrome: bool, cache: &'a ViewCache) -> Self {
         let camera = app.session().camera;
         let visible = (camera.visible_world_rect(viewport))
             .outset(CULL_MARGIN / camera.zoom.max(f32::EPSILON));
         Self {
             app,
+            cache,
             chrome,
             camera,
             visible,

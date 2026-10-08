@@ -6,6 +6,7 @@ use specular_doc::{BrushType, Drawing, Entity, Stroke};
 use super::frame::Frame;
 use super::freehand;
 use super::palette::{self, Palette, Role};
+use crate::cache::StrokeOutline;
 use crate::{Blend, Item, PathCommand, PathDraw, Point, Scene};
 
 /// The outline is this much wider than the stroke's nominal width.
@@ -17,17 +18,35 @@ const MIN_SCREEN_WIDTH: f64 = 1.0;
 /// which painting it over at any alpha cannot do.
 const HIGHLIGHT_ALPHA: f32 = 0.7;
 
-pub(crate) fn draw(frame: &Frame<'_>, _entity: &Entity, drawing: &Drawing, scene: &mut Scene) {
+pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, drawing: &Drawing, scene: &mut Scene) {
     let min_width = MIN_SCREEN_WIDTH / f64::from(frame.zoom().max(f32::EPSILON));
-    scene.extend(
-        drawing
-            .strokes
-            .iter()
-            .filter_map(|stroke| stroke_item(stroke, min_width)),
-    );
+    // A stroke is outlined again only when it, or the width it draws at,
+    // is not what the frame before drew.
+    let mut kept = frame.cache.strokes.take(&entity.id).unwrap_or_default();
+    kept.truncate(drawing.strokes.len());
+    for (at, stroke) in drawing.strokes.iter().enumerate() {
+        let size = stroke.width.max(min_width) * OUTLINE_SCALE;
+        let fresh = (kept.get(at))
+            .is_some_and(|kept| kept.size.to_bits() == size.to_bits() && kept.stroke == *stroke);
+        if !fresh {
+            frame.cache.count_built();
+            let outline = StrokeOutline {
+                stroke: stroke.clone(),
+                size,
+                item: stroke_item(stroke, size),
+            };
+            match kept.get_mut(at) {
+                Some(slot) => *slot = outline,
+                None => kept.push(outline),
+            }
+        }
+        scene.extend(kept[at].item.clone());
+    }
+    frame.cache.strokes.put(&entity.id, kept);
 }
 
-fn stroke_item(stroke: &Stroke, min_width: f64) -> Option<Item> {
+/// The filled outline of `stroke`, `size` units wide.
+fn stroke_item(stroke: &Stroke, size: f64) -> Option<Item> {
     let brush = stroke.brush.unwrap_or(BrushType::Pen);
     // The pen has round ends. The highlighter's are cut flat, like a marker.
     let (palette, round_ends, alpha, blend) = match brush {
@@ -39,7 +58,6 @@ fn stroke_item(stroke: &Stroke, min_width: f64) -> Option<Item> {
         .iter()
         .map(|point| DVec2::new(point.x, point.y))
         .collect();
-    let size = stroke.width.max(min_width) * OUTLINE_SCALE;
     let outline = freehand::outline(&path, size, round_ends);
     if outline.len() < 3 {
         return None;

@@ -8,7 +8,9 @@
 //! and last the composer that comment is typed in. An entity whose text is being edited draws the
 //! working text with its selection and caret. Nothing here touches a GPU,
 //! and the only text measured is the one being edited, through the app's
-//! own measure, so a scene can be built and compared in a test.
+//! own measure, so a scene can be built and compared in a test. What costs
+//! most to build (a Document's rows, a stroke's outline, the edited
+//! Document's layout) is kept in the caller's [`ViewCache`].
 //!
 //! Content is in canvas space. Chrome that keeps its pixel size at any zoom
 //! is projected with the camera and emitted in screen space.
@@ -37,24 +39,27 @@ use specular_doc::{Entity, ItemId, Kind};
 use specular_interact::App;
 
 use self::frame::Frame;
-use crate::Scene;
+use crate::{Scene, ViewCache};
 
 /// Everything `app` shows in a `viewport` of logical pixels, back to front.
 ///
 /// Entities wholly outside the viewport are left out, so the cost of a frame
-/// follows what is on screen and not the size of the document.
-pub fn view(app: &App, viewport: Vec2) -> Scene {
-    build(&Frame::new(app, viewport, true))
+/// follows what is on screen and not the size of the document. `cache` is
+/// the caller's, kept from one frame to the next; the scene is the same
+/// whatever it holds.
+pub fn view(app: &App, viewport: Vec2, cache: &ViewCache) -> Scene {
+    build(&Frame::new(app, viewport, true, cache))
 }
 
 /// [`view`] with the chrome left out: no page borders or titles and no
 /// session layer. Entities and edges are still drawn. A benchmark uses it to
 /// time the content alone.
-pub fn view_without_chrome(app: &App, viewport: Vec2) -> Scene {
-    build(&Frame::new(app, viewport, false))
+pub fn view_without_chrome(app: &App, viewport: Vec2, cache: &ViewCache) -> Scene {
+    build(&Frame::new(app, viewport, false, cache))
 }
 
 fn build(frame: &Frame<'_>) -> Scene {
+    frame.cache.begin();
     let mut scene = Scene::new();
     let document = frame.app.document();
     // Tints go behind everything; a group's border and title wait for its

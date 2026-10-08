@@ -7,12 +7,14 @@
 //! selection outlines, resize handles, the marquee, comment badges and comment
 //! regions.
 //!
-//! [`view`] builds the scene for an [`App`](specular_interact::App). The crate
+//! [`view`] builds the scene for an [`App`](specular_interact::App), with a
+//! [`ViewCache`] its caller keeps between frames. The crate
 //! names no renderer type, so a scene can be built and compared in a test
 //! with no GPU, and one item kind can move to a different renderer later
 //! (ADR 0039).
 
 mod bounds;
+mod cache;
 mod color;
 mod column;
 mod item;
@@ -25,6 +27,7 @@ mod text;
 mod translate;
 mod view;
 
+pub use cache::ViewCache;
 pub use color::Color;
 pub use column::{ColumnDraw, Row, RowRule, RuleHeight};
 pub use item::{Blend, Draw, Item, Scene, Space};

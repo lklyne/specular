@@ -832,3 +832,15 @@ Known weak spots. In `specular-doc`, `specular-core` and interact `src/`, about 
 - Seen and not chased: the CLI leaves one agent-browser daemon per page for 60 seconds after its last command. A canvas switch gives a page a new host, and its old socket address stops working until the next `cdp-target`, which the CLI asks for on every command.
 - Built with two Sonnet subagents in their own worktrees (the websocket transport, the two file verbs) while the proxy, the CEF channel and the routes were written here. Gate: fmt, clippy for the workspace and with `--features cef`, `cargo test --workspace` (1193 after the audit's prune), `fixtures/scenarios/run.sh`.
 - Needs a human at a Mac: watch a page while `specular click` and `specular fill` run on it, to see the change arrive in the window. Run `specular snapshot -f` against a real site with iframes.
+
+### CLEANUP-A: cleanup tasks 13, 6, 5, 9 and 10. See `git log --grep 'cleanup task'`
+
+One commit a task, in that order. Each part lists what moved or was renamed, for the branches that rebase onto it.
+
+**Task 13, the caches.** `App` holds no cache, and `view` takes one.
+
+- `specular_scene::view(app, viewport)` is `view(app, viewport, &ViewCache)`, and `view_without_chrome` likewise. `ViewCache` is new (`specular-scene/src/cache.rs`, `Default`). Whoever draws frames owns one: `Runtime::view_cache` and `Headless::view_cache`. A one-off frame (a test, `TestApp::scene_snapshot`, a page screenshot of another view) passes `&ViewCache::default()`.
+- It keeps a Document's markdown rows by text and width, each stroke's outline by the stroke and the width it draws at, and the edited Document's layout. An entry is used only while what it was made from is equal to what the app holds, and what a frame does not draw is dropped on the next. `ViewCache::built()` counts what the latest `view` had to build; `a_frame_like_the_last_parses_no_document_and_outlines_no_stroke` pins it at 0 and compares every scene against one from an empty cache.
+- `App::stacks` is gone. `specular_interact::StackCache` is public, holds a `RefCell` (it was a `Mutex`) and starts again when the measure is a different `Arc`. `App::edit_marks(&StackCache) -> EditMarks` is new and is what `view` reads; `caret_rect`, `selection_rects`, `composition_rects` and `editing_layout` are unchanged and keep nothing. `edit::geometry` is split into `frame_of` (no measuring; `App::edit_frame` uses it) and `geometry_in(app, edit, &StackCache)`.
+- Decision: `update` lays a Document out with nothing kept, 2 times for a typed character and 3 for an arrow key (counted with a counting measure on 101 rows: 202 and 303 row layouts). So the row memo is where the shell owns it: `GlyphMeasure` keeps 4,096 layouts in a hash map (it was 32 in a list scanned in order), cleared when full. `update` stays a pure function of its arguments.
+- Not measured: the frame time in a window. The 0.6 to 0.9 ms came from the bench in "Performance, part 2"; nobody has run it since.

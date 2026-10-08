@@ -105,9 +105,9 @@ pub use drop::{DroppedFile, default_size as dropped_size, shown_path};
 pub use edge_drag::{EdgeDrag, EdgePreview};
 pub use edge_path::EdgeCurve;
 pub use edit::{
-    CaretStop, EDGE_LABEL_SIZE, Format, LayoutLine, NOTE_PADDING, SourceLine, SourceRow,
-    SourceSpan, SourceStyle, TITLE_GAP, TITLE_LINE, TITLE_SIZE, TextEdit, TextFrame, TextLayout,
-    TextMeasure, TextSelectDrag, TextSpec, note_frame, source_rows, style_lines,
+    CaretStop, EDGE_LABEL_SIZE, EditMarks, Format, LayoutLine, NOTE_PADDING, SourceLine, SourceRow,
+    SourceSpan, SourceStyle, StackCache, TITLE_GAP, TITLE_LINE, TITLE_SIZE, TextEdit, TextFrame,
+    TextLayout, TextMeasure, TextSelectDrag, TextSpec, note_frame, source_rows, style_lines,
 };
 pub use effect::{Cursor, Effect};
 pub use event::{Action, CanvasAction, Event, Key, KeyInput, PageNotice, PointerInput, WheelInput};

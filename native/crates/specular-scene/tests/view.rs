@@ -8,8 +8,8 @@ use specular_doc::{
     LineStyle, Point, Rect, RegionAnchor, Shape, ShapeKind, Stroke, Text, TextAlign, TextFont,
     TextStyle, WidthMode,
 };
-use specular_interact::Action;
-use specular_scene::{Draw, view, view_without_chrome};
+use specular_interact::{Action, ApiCall, ApiRun, Event};
+use specular_scene::{Draw, ViewCache, view, view_without_chrome};
 use specular_testkit::{
     TestApp, assert_scene_snapshot, connected, document, group, inside, page, shape, text,
 };
@@ -339,7 +339,7 @@ fn without_chrome_only_the_content_is_drawn() {
         text("s1", Rect::new(600.0, 100.0, 200.0, 200.0)),
     ]);
     select(&mut app, &["p1"]);
-    let scene = view_without_chrome(app.app(), VIEWPORT);
+    let scene = view_without_chrome(app.app(), VIEWPORT, &ViewCache::default());
     let kinds: Vec<&str> = scene
         .items
         .iter()
@@ -365,5 +365,50 @@ fn entities_outside_the_viewport_are_left_out() {
         text("far", Rect::new(9000.0, 100.0, 200.0, 200.0)),
     ]);
     // A sticky is a shadow, a card and its text.
-    assert_eq!(view(app.app(), VIEWPORT).items.len(), 3);
+    assert_eq!(
+        view(app.app(), VIEWPORT, &ViewCache::default()).items.len(),
+        3
+    );
+}
+
+#[test]
+fn a_frame_like_the_last_parses_no_document_and_outlines_no_stroke() {
+    let line = [(100.0, 100.0), (160.0, 140.0), (220.0, 100.0)];
+    let strokes = vec![stroke("s1", None, &line), stroke("s2", None, &line)];
+    let drawing = Entity::new(
+        "ink",
+        Rect::new(100.0, 100.0, 120.0, 40.0),
+        Kind::Drawing(Drawing { strokes }),
+    );
+    let doc = specular_testkit::note("doc", Rect::new(400.0, 100.0, 400.0, 300.0), "doc.md");
+    let mut app = TestApp::with_entities([drawing, doc]);
+    app.note_text("doc.md", "# Title\n\nbody");
+    let fresh = |app: &TestApp| view(app.app(), VIEWPORT, &ViewCache::default());
+
+    let cache = ViewCache::default();
+    assert_eq!(view(app.app(), VIEWPORT, &cache), fresh(&app));
+    assert_eq!(cache.built(), 3, "two strokes and a document");
+    assert_eq!(view(app.app(), VIEWPORT, &cache), fresh(&app));
+    assert_eq!(cache.built(), 0);
+
+    // What changed is built again, and only that.
+    app.note_text("doc.md", "# Other title");
+    assert_eq!(view(app.app(), VIEWPORT, &cache), fresh(&app));
+    assert_eq!(cache.built(), 1);
+    let mut longer = line.to_vec();
+    longer.push((280.0, 140.0));
+    let strokes = vec![stroke("s1", None, &line), stroke("s2", None, &longer)];
+    app.send(Event::Api(ApiCall {
+        ticket: 1,
+        canvas: None,
+        run: ApiRun::Apply {
+            command: Command::SetKind {
+                id: EntityId::new("ink"),
+                kind: Box::new(Kind::Drawing(Drawing { strokes })),
+            },
+            select: None,
+        },
+    }));
+    assert_eq!(view(app.app(), VIEWPORT, &cache), fresh(&app));
+    assert_eq!(cache.built(), 1);
 }

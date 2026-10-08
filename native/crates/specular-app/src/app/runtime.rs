@@ -151,6 +151,8 @@ pub struct Runtime<W> {
     pub(crate) note_loader: Option<NoteLoader>,
     /// The Document heights the app was last told, to tell it only changes.
     pub(crate) note_heights: HashMap<EntityId, f32>,
+    /// What `view` keeps from one frame to the next.
+    pub(crate) view_cache: specular_scene::ViewCache,
     /// The system clipboard, once something has been copied or pasted.
     pub(crate) clipboard: Option<arboard::Clipboard>,
     /// The preferences file. `None` when settings are off, and when there
@@ -216,6 +218,7 @@ impl<W: ShellWindow> Runtime<W> {
             images: HashSet::new(),
             note_loader: note_run::start_loader(space_folder),
             note_heights: HashMap::new(),
+            view_cache: specular_scene::ViewCache::default(),
             clipboard: None,
             prefs,
             dropped: Vec::new(),

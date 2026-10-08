@@ -72,7 +72,7 @@ impl<W: ShellWindow> Runtime<W> {
 
     fn shoot_window(&mut self) -> Result<Png, String> {
         let gpu = self.gpu.as_mut().ok_or("the window is not open yet")?;
-        let scene = specular_scene::view(&self.app, gpu.logical_viewport());
+        let scene = specular_scene::view(&self.app, gpu.logical_viewport(), &self.view_cache);
         let hosts = &self.hosts;
         let page_of = |entity: &EntityId| hosts.get(entity).map(|host| host.page);
         gpu.capture(self.app.session().camera, &scene, &page_of)
@@ -96,10 +96,12 @@ impl<W: ShellWindow> Runtime<W> {
         let mut app = self.app.clone();
         update(&mut app, Event::ViewportResized(viewport));
         update(&mut app, Event::Action(Action::SetCamera(camera)));
+        // One frame of another view: nothing of the window's is worth keeping.
+        let cache = specular_scene::ViewCache::default();
         let scene = match only {
-            None => specular_scene::view(&app, viewport),
+            None => specular_scene::view(&app, viewport, &cache),
             Some(page) => {
-                let mut scene = specular_scene::view_without_chrome(&app, viewport);
+                let mut scene = specular_scene::view_without_chrome(&app, viewport, &cache);
                 (scene.items)
                     .retain(|item| matches!(&item.draw, Draw::Page(draw) if draw.page == *page));
                 for item in &mut scene.items {

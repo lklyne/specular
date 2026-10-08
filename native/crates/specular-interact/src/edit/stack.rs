@@ -6,9 +6,10 @@
 //! query works on a Document as it does on a sticky, and `view` draws the
 //! same rows, so the caret sits on the glyphs.
 
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ops::Range;
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::Arc;
 
 use super::measure::{LayoutLine, TextLayout, TextMeasure, TextSpec};
 use super::source::{self, SourceSpan};
@@ -63,6 +64,9 @@ fn row_key(text: &str, spec: &TextSpec) -> RowKey {
 
 #[derive(Debug, Default)]
 struct Kept {
+    /// The measure the layouts below came from. A different one starts
+    /// again.
+    measure: Option<Arc<dyn TextMeasure>>,
     /// The latest whole layout, with the text and body spec it is of.
     whole: Option<(String, TextSpec, Arc<TextLayout>)>,
     /// The rows of that layout, so a keystroke measures only the row it
@@ -71,25 +75,26 @@ struct Kept {
 }
 
 /// The layouts of the Document being edited, kept between the many times a
-/// frame asks for them. It changes no answer, so a clone starts empty.
+/// frame asks for them. It changes no answer. Whoever draws frames owns
+/// one; `update` works without.
 #[derive(Debug, Default)]
-pub(crate) struct StackCache(Mutex<Kept>);
-
-impl Clone for StackCache {
-    fn clone(&self) -> Self {
-        Self::default()
-    }
-}
+pub struct StackCache(RefCell<Kept>);
 
 /// `text` as stacked source rows, in one layout: offsets are into the whole
 /// text and tops are measured from the first row.
 pub(crate) fn layout(
     text: &str,
     body: &TextSpec,
-    measure: &dyn TextMeasure,
+    measure: &Arc<dyn TextMeasure>,
     cache: &StackCache,
 ) -> Arc<TextLayout> {
-    let mut kept = cache.0.lock().unwrap_or_else(PoisonError::into_inner);
+    let mut kept = cache.0.borrow_mut();
+    if !(kept.measure.as_ref()).is_some_and(|kept| Arc::ptr_eq(kept, measure)) {
+        *kept = Kept {
+            measure: Some(Arc::clone(measure)),
+            ..Kept::default()
+        };
+    }
     if let Some((kept_text, kept_body, whole)) = &kept.whole
         && kept_body == body
         && kept_text == text
@@ -162,7 +167,7 @@ mod tests {
             [(0..5, 14.0), (6..10, 10.0), (11..11, 10.0), (12..18, 12.0)]
         );
         let measure = Measurer::default();
-        let layout = layout(text, &body(), measure.0.as_ref(), &StackCache::default());
+        let layout = layout(text, &body(), &measure.0, &StackCache::default());
         let lines: Vec<_> = (layout.lines.iter())
             .map(|line| (line.range.clone(), line.top, line.height))
             .collect();
@@ -186,11 +191,17 @@ mod tests {
     fn the_same_text_and_spec_is_laid_out_once() {
         let cache = StackCache::default();
         let measure = Measurer::default();
-        let first = layout("a\nb", &body(), measure.0.as_ref(), &cache);
-        let again = layout("a\nb", &body(), measure.0.as_ref(), &cache);
+        let first = layout("a\nb", &body(), &measure.0, &cache);
+        let again = layout("a\nb", &body(), &measure.0, &cache);
         assert!(Arc::ptr_eq(&first, &again));
-        let edited = layout("a\nbc", &body(), measure.0.as_ref(), &cache);
+        let edited = layout("a\nbc", &body(), &measure.0, &cache);
         assert_eq!(edited.lines.len(), 2);
         assert!(!Arc::ptr_eq(&first, &edited));
+        let other = Measurer::default();
+        let remeasured = layout("a\nbc", &body(), &other.0, &cache);
+        assert!(
+            !Arc::ptr_eq(&edited, &remeasured),
+            "another measure starts again"
+        );
     }
 }

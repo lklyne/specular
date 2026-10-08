@@ -6,12 +6,13 @@
 //! off the shaped glyphs, in the run's own units, so they are where the
 //! glyphs land at any zoom.
 
-use std::collections::VecDeque;
+use std::hash::{Hash, Hasher};
 use std::ops::Range;
 use std::sync::{Mutex, PoisonError};
 
 use glyphon::Buffer;
 use glyphon::cosmic_text::LayoutGlyph;
+use rustc_hash::{FxHashMap, FxHasher};
 use specular_doc::TextAlign;
 use specular_interact::{CaretStop, LayoutLine, SourceSpan, TextLayout, TextMeasure, TextSpec};
 use specular_scene::{Color, Point, TextRun};
@@ -20,9 +21,10 @@ use unicode_segmentation::UnicodeSegmentation;
 use super::text_shape::shape;
 use crate::fonts::Fonts;
 
-/// Layouts kept. The editor asks for the same one several times a frame and
-/// for a new one on every key.
-const KEPT: usize = 32;
+/// Layouts kept, and all let go of at once when there are this many. The
+/// editor asks for the same one several times an event, and for every row
+/// of a Document on each key, of which all but one are as they were.
+const KEPT: usize = 4096;
 
 /// Lays text out with the renderer's fonts and shaping.
 /// [`Compositor::text_measure`](crate::Compositor::text_measure) gives one
@@ -31,7 +33,7 @@ const KEPT: usize = 32;
 #[derive(Debug, Default)]
 pub struct GlyphMeasure {
     fonts: Fonts,
-    recent: Mutex<VecDeque<Kept>>,
+    recent: Mutex<FxHashMap<u64, Kept>>,
 }
 
 /// A layout with what it is of: the text, how it is set, and the spans
@@ -60,15 +62,13 @@ impl TextMeasure for GlyphMeasure {
 
     fn layout_styled(&self, text: &str, spec: &TextSpec, spans: &[SourceSpan]) -> TextLayout {
         let mut recent = self.recent.lock().unwrap_or_else(PoisonError::into_inner);
-        let kept = recent
-            .iter()
-            .position(|(kept_text, kept_spec, kept_spans, _)| {
-                kept_spec == spec && kept_text == text && kept_spans == spans
-            });
-        if let Some(entry) = kept.and_then(|at| recent.remove(at)) {
-            let layout = entry.3.clone();
-            recent.push_front(entry);
-            return layout;
+        let key = key_of(text, spec);
+        if let Some((kept_text, kept_spec, kept_spans, layout)) = recent.get(&key)
+            && kept_spec == spec
+            && kept_text == text
+            && kept_spans == spans
+        {
+            return layout.clone();
         }
         // The colours change no glyph's place.
         let run = TextRun::source(text, spec, spans, Point::default(), [Color::BLACK; 3]);
@@ -76,14 +76,32 @@ impl TextMeasure for GlyphMeasure {
             Some(shaped) => lines_of(&shaped.buffer, spec, shaped.size.width),
             None => unshaped(text, spec),
         };
-        recent.push_front((text.to_owned(), *spec, spans.to_vec(), layout.clone()));
-        recent.truncate(KEPT);
+        if recent.len() >= KEPT {
+            recent.clear();
+        }
+        recent.insert(
+            key,
+            (text.to_owned(), *spec, spans.to_vec(), layout.clone()),
+        );
         layout
     }
 
     fn is_exact(&self) -> bool {
         true
     }
+}
+
+/// Where a layout of `text` set as `spec` says is kept. Two that differ only
+/// in their spans share a place, and the later one has it.
+fn key_of(text: &str, spec: &TextSpec) -> u64 {
+    let mut hasher = FxHasher::default();
+    text.hash(&mut hasher);
+    std::mem::discriminant(&spec.font).hash(&mut hasher);
+    std::mem::discriminant(&spec.align).hash(&mut hasher);
+    spec.size.to_bits().hash(&mut hasher);
+    spec.line_height.to_bits().hash(&mut hasher);
+    spec.wrap_width.map(f32::to_bits).hash(&mut hasher);
+    hasher.finish()
 }
 
 /// The layout of text whose metrics cannot be shaped: a line a paragraph,

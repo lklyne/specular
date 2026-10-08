@@ -6,7 +6,7 @@ use specular_doc::{
     Annotation, AnnotationId, Document, Entity, EntityId, History, ItemId, Kind, Page,
 };
 
-use crate::edit::{Measurer, StackCache, TextEdit};
+use crate::edit::{Measurer, TextEdit};
 use crate::images::Images;
 use crate::notes::Notes;
 use crate::page_input::ButtonCapture;
@@ -28,8 +28,6 @@ pub struct App {
     pub(crate) tool_defaults: ToolDefaults,
     /// Lays text out for the editor.
     pub(crate) measure: Measurer,
-    /// The layouts of the Document being edited, kept between frames.
-    pub(crate) stacks: StackCache,
 }
 
 impl App {

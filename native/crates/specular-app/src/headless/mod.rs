@@ -142,6 +142,8 @@ struct Headless {
     stand_ins: StandIns,
     /// The row heights last reported for each Document on screen.
     note_heights: HashMap<EntityId, f32>,
+    /// What `view` keeps from one frame to the next.
+    view_cache: specular_scene::ViewCache,
     viewport: Vec2,
     scale: f32,
     now_ms: u64,
@@ -183,6 +185,7 @@ impl Headless {
             loading_notes: HashSet::new(),
             stand_ins: StandIns::default(),
             note_heights: HashMap::new(),
+            view_cache: specular_scene::ViewCache::default(),
             viewport: Vec2::new(width as f32, height as f32),
             scale: args.scale,
             now_ms: START_MS,
@@ -279,7 +282,7 @@ impl Headless {
     /// Draws the app as it stands and writes the frame to `path`.
     fn snapshot(&mut self, path: &Path) -> anyhow::Result<()> {
         self.settle()?;
-        let mut scene = specular_scene::view(self.app.app(), self.viewport);
+        let mut scene = specular_scene::view(self.app.app(), self.viewport, &self.view_cache);
         specular_scene::draw_panels(self.app.app(), &mut scene);
         let frame = FrameView {
             camera: self.app.session().camera,

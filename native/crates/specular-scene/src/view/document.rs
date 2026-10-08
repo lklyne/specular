@@ -13,11 +13,14 @@
 //! padding that scroll with the text. Each block is a [`Row`]; the renderer
 //! stacks them, because only it knows how tall wrapped text comes out.
 
-use specular_doc::Entity;
+use std::sync::Arc;
+
+use specular_doc::{Entity, EntityId};
 use specular_interact::{NOTE_PADDING, NoteState, source_rows};
 
 use super::frame::{Frame, canvas_rect};
 use super::{editing, palette};
+use crate::cache::NoteRows;
 use crate::markdown::{self, Block, BlockKind, ColumnAlign, Inline, InlineSpan, Marker, Table};
 use crate::{
     Color, ColumnDraw, FontFamily, Item, Point, RectDraw, Row, RowRule, RuleHeight, Scene,
@@ -72,7 +75,7 @@ pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, note: &NoteState, scene: 
     let inner = rect.outset(-NOTE_PADDING);
     let status = match note {
         NoteState::Ready(text) => {
-            let rows = rows(&markdown::parse(text), inner.width.max(0.0));
+            let rows = kept_rows(frame, &entity.id, text, inner.width.max(0.0));
             if !rows.is_empty() {
                 let column = ColumnDraw {
                     origin: inner.origin(),
@@ -140,6 +143,27 @@ fn edited(frame: &Frame<'_>, entity: &Entity, source: &str, scene: &mut Scene) {
     };
     scene.push(Item::canvas(column).clipped(rect));
     editing::caret(frame, id, Some(rect), INK, scene);
+}
+
+/// The rows of `text` in a column `width` units wide, parsed only when
+/// the frame before did not draw the same.
+fn kept_rows(frame: &Frame<'_>, id: &EntityId, text: &Arc<str>, width: f32) -> Vec<Row> {
+    let notes = &frame.cache.notes;
+    let kept = notes.take(id).filter(|kept| {
+        kept.width.to_bits() == width.to_bits()
+            && (Arc::ptr_eq(&kept.text, text) || kept.text == *text)
+    });
+    let kept = kept.unwrap_or_else(|| {
+        frame.cache.count_built();
+        NoteRows {
+            text: Arc::clone(text),
+            width,
+            rows: rows(&markdown::parse(text), width),
+        }
+    });
+    let rows = kept.rows.clone();
+    notes.put(id, kept);
+    rows
 }
 
 /// The rows of a document `width` units wide.

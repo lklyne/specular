@@ -46,7 +46,7 @@ pub(crate) fn selection(frame: &Frame<'_>, id: &EntityId, clip: Option<Rect>, sc
         return;
     }
     let fill = palette::TEXT_SELECTION;
-    for rect in frame.app.selection_rects() {
+    for rect in frame.app.edit_marks(&frame.cache.stacks).selection {
         let item = Item::canvas(RectDraw::filled(canvas_rect(rect), fill));
         scene.push(clipped(item, clip));
     }
@@ -69,7 +69,8 @@ pub(crate) fn caret(
     // As thick as a CSS pixel under the camera, and never under one pixel.
     let thickness = frame.zoom().round().max(1.0);
     let size = (app.edit_frame()).map_or(0.0, |text| text.spec.size) * frame.zoom();
-    for rect in app.composition_rects() {
+    let marks = app.edit_marks(&frame.cache.stacks);
+    for rect in marks.composition {
         let line = frame.screen_rect(rect);
         let top = line.y + (line.height - size) / 2.0 + size * UNDERLINE_DROP;
         let under = Rect::new(line.x, top.round(), line.width, thickness);
@@ -81,7 +82,7 @@ pub(crate) fn caret(
     if selecting || !app.caret_visible() {
         return;
     }
-    if let Some(rect) = app.caret_rect() {
+    if let Some(rect) = marks.caret {
         let line = frame.screen_rect(rect);
         let bar = Rect::new(line.x.round(), line.y, thickness, line.height);
         scene.push(clipped(Item::screen(RectDraw::filled(bar, color)), clip));

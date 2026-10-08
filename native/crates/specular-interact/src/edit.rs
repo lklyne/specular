@@ -66,9 +66,9 @@ pub(crate) use measure::Measurer;
 pub use measure::{CaretStop, LayoutLine, TextLayout, TextMeasure, TextSpec};
 pub use pointer::TextSelectDrag;
 pub(crate) use pointer::{autoscroll, drag, is_over_text, press};
+pub use read::EditMarks;
 pub use source::{SourceLine, SourceSpan, SourceStyle, style_lines};
-pub(crate) use stack::StackCache;
-pub use stack::{SourceRow, source_rows};
+pub use stack::{SourceRow, StackCache, source_rows};
 pub use title::{TITLE_GAP, TITLE_LINE, TITLE_SIZE};
 pub(crate) use title::{is_editing as is_editing_title, on_key};
 
@@ -100,34 +100,45 @@ fn with_text(kind: &Kind, text: String) -> Kind {
     kind
 }
 
-/// Where `edit`'s text sits and how its lines fall, as it stands now.
-fn geometry(app: &App, edit: &TextEdit) -> Option<(TextFrame, Arc<TextLayout>)> {
-    let measure = app.measure.0.as_ref();
-    let plain = |frame: TextFrame| {
-        let layout = measure.layout(&edit.text, &frame.spec);
-        (frame, Arc::new(layout))
-    };
-    if edit.target == Target::EdgeLabel {
-        return edge_label::frame(app, &edit.entity).map(plain);
-    }
-    if edit.target == Target::Comment {
-        return comment::frame(app).map(plain);
-    }
-    if edit.target == Target::Field {
-        return field::frame(app, edit).map(plain);
-    }
-    let entity = app.document.entity(&edit.entity)?;
+/// Where `edit`'s text sits and how it is set. Nothing is measured.
+fn frame_of(app: &App, edit: &TextEdit) -> Option<TextFrame> {
     match edit.target {
-        Target::Text | Target::Label => frame::of(entity).map(plain),
-        Target::Title | Target::EdgeLabel | Target::Comment | Target::Field => {
-            title::frame(app, entity).map(plain)
-        }
+        Target::EdgeLabel => edge_label::frame(app, &edit.entity),
+        Target::Comment => comment::frame(app),
+        Target::Field => field::frame(app, edit),
+        Target::Text | Target::Label => frame::of(app.document.entity(&edit.entity)?),
+        Target::Title => title::frame(app, app.document.entity(&edit.entity)?),
         Target::Note => {
-            let frame = frame::note_frame(entity.rect, app.session.notes.scroll(&entity.id));
-            let layout = stack::layout(&edit.text, &frame.spec, measure, &app.stacks);
-            Some((frame, layout))
+            let entity = app.document.entity(&edit.entity)?;
+            let scroll = app.session.notes.scroll(&entity.id);
+            Some(frame::note_frame(entity.rect, scroll))
         }
     }
+}
+
+/// Where `edit`'s text sits and how its lines fall, as it stands now. A
+/// Document's rows are looked up in `stacks` before they are measured.
+fn geometry_in(
+    app: &App,
+    edit: &TextEdit,
+    stacks: &StackCache,
+) -> Option<(TextFrame, Arc<TextLayout>)> {
+    let frame = frame_of(app, edit)?;
+    let layout = match edit.target {
+        Target::Note => stack::layout(&edit.text, &frame.spec, &app.measure.0, stacks),
+        Target::Text
+        | Target::Label
+        | Target::Title
+        | Target::EdgeLabel
+        | Target::Comment
+        | Target::Field => Arc::new(app.measure.0.layout(&edit.text, &frame.spec)),
+    };
+    Some((frame, layout))
+}
+
+/// [`geometry_in`] with nothing kept, which is how `update` asks.
+fn geometry(app: &App, edit: &TextEdit) -> Option<(TextFrame, Arc<TextLayout>)> {
+    geometry_in(app, edit, &StackCache::default())
 }
 
 fn layout_of(app: &App, edit: &TextEdit) -> Option<Arc<TextLayout>> {

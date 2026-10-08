@@ -107,6 +107,6 @@ impl App {
     /// Where the text being edited is laid out, and how it is set.
     pub fn edit_frame(&self) -> Option<TextFrame> {
         let edit = self.session.editing.as_ref()?;
-        super::geometry(self, edit).map(|(frame, _)| frame)
+        super::frame_of(self, edit)
     }
 }

@@ -6,9 +6,33 @@ use specular_doc::{EntityId, Rect};
 
 use super::{
     Measurer, StackCache, Target, TextEdit, TextFrame, TextLayout, TextMeasure, editable, frame,
-    geometry, layout_of,
+    geometry, geometry_in, layout_of,
 };
 use crate::App;
+
+/// What is drawn with the text being edited besides its glyphs. Rects are
+/// in canvas space.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct EditMarks {
+    /// The selected text, one rect per line it touches.
+    pub selection: Vec<Rect>,
+    /// The text the input method is composing, one rect per line, to
+    /// underline.
+    pub composition: Vec<Rect>,
+    /// The caret: a rect with no width, one line tall.
+    pub caret: Option<Rect>,
+}
+
+/// The rect of each line `range` touches.
+fn range_rects(
+    frame: &TextFrame,
+    layout: &TextLayout,
+    range: &std::ops::Range<usize>,
+) -> Vec<Rect> {
+    (layout.range_boxes(range).into_iter())
+        .map(|line| frame.rect_of(layout, line))
+        .collect()
+}
 
 /// What the scene draws for the text being edited. Rects are in canvas
 /// space.
@@ -17,7 +41,6 @@ impl App {
     /// gives one that shapes with the renderer's fonts.
     pub fn set_text_measure(&mut self, measure: Arc<dyn TextMeasure>) {
         self.measure = Measurer(measure);
-        self.stacks = StackCache::default();
         crate::panel::builtin::forget_layout(self);
     }
 
@@ -70,25 +93,29 @@ impl App {
     /// The selected text, one rect per line it touches. Empty when nothing
     /// is selected.
     pub fn selection_rects(&self) -> Vec<Rect> {
-        self.range_rects(TextEdit::selection)
+        self.edit_marks(&StackCache::default()).selection
     }
 
     /// The text the input method is composing, one rect per line it
     /// touches, to underline.
     pub fn composition_rects(&self) -> Vec<Rect> {
-        self.range_rects(|edit| edit.composition().unwrap_or_default())
+        self.edit_marks(&StackCache::default()).composition
     }
 
-    fn range_rects(&self, range: impl FnOnce(&TextEdit) -> std::ops::Range<usize>) -> Vec<Rect> {
+    /// The selection, the composition and the caret of the text being
+    /// edited, for a frame. A Document's layout is looked up in `stacks`,
+    /// which the caller keeps from one frame to the next.
+    pub fn edit_marks(&self, stacks: &StackCache) -> EditMarks {
         let Some(edit) = &self.session.editing else {
-            return Vec::new();
+            return EditMarks::default();
         };
-        let Some((frame, layout)) = geometry(self, edit) else {
-            return Vec::new();
+        let Some((frame, layout)) = geometry_in(self, edit, stacks) else {
+            return EditMarks::default();
         };
-        let boxes = layout.range_boxes(&range(edit));
-        (boxes.into_iter())
-            .map(|line| frame.rect_of(&layout, line))
-            .collect()
+        EditMarks {
+            selection: range_rects(&frame, &layout, &edit.selection()),
+            composition: range_rects(&frame, &layout, &edit.composition().unwrap_or_default()),
+            caret: (layout.caret_box(edit.caret)).map(|caret| frame.rect_of(&layout, caret)),
+        }
     }
 }

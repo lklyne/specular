@@ -120,9 +120,9 @@ impl Headless {
         let started = Instant::now();
         // No panels: a benchmark measures the canvas, in a window too.
         let scene = if chrome {
-            specular_scene::view(self.app.app(), self.viewport)
+            specular_scene::view(self.app.app(), self.viewport, &self.view_cache)
         } else {
-            specular_scene::view_without_chrome(self.app.app(), self.viewport)
+            specular_scene::view_without_chrome(self.app.app(), self.viewport, &self.view_cache)
         };
         let view = started.elapsed();
         let frame = FrameView {

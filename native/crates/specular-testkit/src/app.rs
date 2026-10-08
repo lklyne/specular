@@ -217,7 +217,8 @@ impl TestApp {
             Vec2::ZERO => Vec2::new(1600.0, 1000.0),
             viewport => viewport,
         };
-        crate::scene_snapshot(&specular_scene::view(&self.app, viewport))
+        let cache = specular_scene::ViewCache::default();
+        crate::scene_snapshot(&specular_scene::view(&self.app, viewport, &cache))
     }
 
     /// Asserts that undoing every step gives back the document the test

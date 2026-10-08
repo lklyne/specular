@@ -101,9 +101,9 @@ impl<W: ShellWindow> Runtime<W> {
         }
         let started = Instant::now();
         let mut scene = if self.options.chrome {
-            specular_scene::view(&self.app, viewport)
+            specular_scene::view(&self.app, viewport, &self.view_cache)
         } else {
-            specular_scene::view_without_chrome(&self.app, viewport)
+            specular_scene::view_without_chrome(&self.app, viewport, &self.view_cache)
         };
         specular_scene::draw_panels(&self.app, &mut scene);
         let view = started.elapsed();

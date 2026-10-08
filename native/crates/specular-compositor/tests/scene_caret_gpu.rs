@@ -15,7 +15,7 @@ use scene_harness::{BACKGROUND, Harness, frame};
 use specular_core::Camera;
 use specular_doc::{Entity, Kind, Rect, Text, TextStyle, WidthMode};
 use specular_interact::Key;
-use specular_scene::view_without_chrome;
+use specular_scene::{ViewCache, view_without_chrome};
 use specular_testkit::{TestApp, document};
 
 /// The runs of neighbouring columns `has` accepts, left to right.
@@ -69,7 +69,11 @@ fn shoot(harness: &mut Harness, text: &str, size: f64, zoom: f32, offset: usize)
     assert_eq!(app.caret(), (offset, offset), "the text is ASCII");
     let camera = app.session().camera;
     let mut render = |app: &TestApp| {
-        let scene = view_without_chrome(app.app(), Vec2::splat(TARGET_SIZE as f32));
+        let scene = view_without_chrome(
+            app.app(),
+            Vec2::splat(TARGET_SIZE as f32),
+            &ViewCache::default(),
+        );
         if camera == Camera::default() {
             harness.render(scene.items)
         } else {
