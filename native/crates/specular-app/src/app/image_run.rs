@@ -3,8 +3,8 @@
 
 use std::path::{Path, PathBuf};
 
+use specular_core::PixelSize;
 use specular_interact::{Event, ImageKey, ImageNotice};
-use specular_scene::ImageId;
 
 use super::runtime::{Runtime, ShellWindow};
 use crate::images::{ImageLoader, LoadFailure};
@@ -36,16 +36,43 @@ impl<W: ShellWindow> Runtime<W> {
         }
     }
 
+    /// Draws an svg again at `width` by `height` logical pixels, which are
+    /// scaled to the window's. The picture on screen stays until it is done.
+    pub(super) fn raster_image(&mut self, image: ImageKey, file: &str, size: PixelSize) {
+        let spec = self.gpu.as_ref().map(|gpu| gpu.compositor().image_spec());
+        let scale = self.gpu.as_ref().map_or(1.0, W::scale_factor);
+        let device = |logical: u32| ((logical as f32 * scale).ceil() as u32).max(1);
+        if let (Some(loader), Some(spec)) = (self.image_loader.as_ref(), spec) {
+            let want = PixelSize::new(device(size.width), device(size.height));
+            loader.redraw(image, file, spec, want);
+        }
+    }
+
     pub(super) fn drop_image(&mut self, image: ImageKey) {
         self.images.remove(&image);
+        if let Some(loader) = self.image_loader.as_ref() {
+            loader.forget(image);
+        }
         if let Some(gpu) = self.gpu.as_mut() {
-            gpu.compositor_mut().remove_image(ImageId(image.0));
+            self.uploaded.remove(gpu.compositor_mut(), image);
         }
     }
 
     /// Uploads one image the decode thread finished and tells the app. One a
     /// turn, so a folder of large images does not land in a single frame.
+    /// Also tells the app of a file that changed on disk.
     pub(super) fn take_loaded_image(&mut self) {
+        if let Some(image) = self
+            .image_loader
+            .as_ref()
+            .and_then(ImageLoader::take_changed)
+            && self.images.contains(&image)
+        {
+            self.dispatch(Event::Image {
+                image,
+                notice: ImageNotice::Changed,
+            });
+        }
         let Some(loaded) = self.image_loader.as_ref().and_then(ImageLoader::take) else {
             return;
         };
@@ -54,15 +81,12 @@ impl<W: ShellWindow> Runtime<W> {
             return;
         }
         let notice = match (loaded.result, self.gpu.as_mut()) {
-            (Ok(mips), Some(gpu)) => {
-                match gpu
-                    .compositor_mut()
-                    .set_image_mips(ImageId(loaded.key.0), &mips)
+            (Ok(content), Some(gpu)) => {
+                match self
+                    .uploaded
+                    .install(gpu.compositor_mut(), loaded.key, &content)
                 {
-                    Ok(()) => ImageNotice::Ready {
-                        width: mips.size().width,
-                        height: mips.size().height,
-                    },
+                    Ok(notice) => notice,
                     Err(error) => {
                         tracing::warn!("image cannot be uploaded: {error}");
                         ImageNotice::Failed

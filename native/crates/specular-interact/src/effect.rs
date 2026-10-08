@@ -165,6 +165,18 @@ pub enum Effect {
         /// absolute, or a URL.
         file: String,
     },
+    /// Draw the svg at `image` again at a new size and upload it over the
+    /// old raster, then answer with [`Event::Image`](crate::Event::Image).
+    /// The size is what the svg is drawn at in logical pixels, which the
+    /// shell scales to the window's pixels.
+    RasterImage {
+        /// The key of the svg's earlier load.
+        image: ImageKey,
+        /// The path as the document writes it.
+        file: String,
+        /// What to draw at, in logical pixels.
+        size: specular_core::PixelSize,
+    },
     /// Forget an image: nothing shows it any more.
     DropImage(ImageKey),
     /// Read a markdown file and answer with

@@ -30,7 +30,7 @@ pub(crate) use self::script::CameraArg;
 use self::script::Step;
 use self::stand_ins::StandIns;
 use crate::cli::SourceKind;
-use crate::images::ImageLoader;
+use crate::images::{ImageLoader, Uploaded};
 use crate::notes::NoteLoader;
 use crate::offscreen::{self, Target};
 use crate::page_queries::PageQueries;
@@ -152,6 +152,7 @@ struct Headless {
     /// What pages have been asked and not yet answered.
     queries: PageQueries,
     images: ImageLoader,
+    uploaded: Uploaded,
     notes: NoteLoader,
     /// Asked for and not yet answered.
     loading_images: HashSet<ImageKey>,
@@ -197,6 +198,7 @@ impl Headless {
             hosts: HashMap::new(),
             queries: PageQueries::default(),
             images: ImageLoader::new(space.clone()).context("starting the decode thread")?,
+            uploaded: Uploaded::default(),
             notes: NoteLoader::new(space).context("starting the note thread")?,
             loading_images: HashSet::new(),
             loading_notes: HashSet::new(),
@@ -321,6 +323,10 @@ impl Headless {
 
     /// Draws the app as it stands and writes the frame to `path`.
     fn snapshot(&mut self, path: &Path) -> anyhow::Result<()> {
+        // Two ticks with the camera held still: svgs are drawn at the size
+        // they are shown at once the zoom has stopped.
+        let now = self.now_ms;
+        self.drive(|app| app.tick(now).tick(now))?;
         self.settle()?;
         let mut scene = specular_scene::view(self.app.app(), self.viewport, &self.view_cache);
         specular_scene::draw_panels(self.app.app(), &mut scene);

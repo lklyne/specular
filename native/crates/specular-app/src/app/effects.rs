@@ -111,6 +111,7 @@ impl<W: ShellWindow> Runtime<W> {
             Effect::TrashCanvasFile { canvas, file } => self.trash_canvas_file(&canvas, &file),
             Effect::SaveSpaceMeta => self.save_space_meta(),
             Effect::LoadImage { image, file } => self.load_image(image, &file),
+            Effect::RasterImage { image, file, size } => self.raster_image(image, &file, size),
             Effect::DropImage(image) => self.drop_image(image),
             Effect::LoadNote { file } => self.load_note(&file),
             Effect::DropNote { file } => self.drop_note(&file),

@@ -6,10 +6,11 @@ use std::time::{Duration, Instant};
 
 use anyhow::Context as _;
 use glam::Vec2;
-use specular_core::{PageEvent, PageId, PageSource, PageSourceError, PageSpec};
+use specular_core::{PageEvent, PageId, PageSource, PageSourceError, PageSpec, PixelSize};
 use specular_doc::{ColorScheme, EntityId, Rect};
-use specular_interact::{ClipboardContent, Effect, Event, ImageNotice, NoteNotice, PageRegion};
-use specular_scene::ImageId;
+use specular_interact::{
+    ClipboardContent, Effect, Event, ImageKey, ImageNotice, NoteNotice, PageRegion,
+};
 
 use super::Headless;
 use crate::app::{page_color_scheme, page_own_scheme};
@@ -70,10 +71,8 @@ impl Headless {
                 self.images
                     .request(image, &file, self.compositor.image_spec());
             }
-            Effect::DropImage(image) => {
-                self.loading_images.remove(&image);
-                self.compositor.remove_image(ImageId(image.0));
-            }
+            Effect::RasterImage { image, file, size } => self.raster_image(image, &file, size),
+            Effect::DropImage(image) => self.drop_image(image),
             Effect::LoadNote { file } => {
                 if let Some(text) = self.stand_ins.note(&file) {
                     let notice = NoteNotice::Text(text.to_owned());
@@ -397,19 +396,38 @@ impl Headless {
         Some(entity.clone())
     }
 
+    fn raster_image(&mut self, image: ImageKey, file: &str, size: PixelSize) {
+        self.loading_images.insert(image);
+        let device = |logical: u32| ((logical as f32 * self.scale).ceil() as u32).max(1);
+        let want = PixelSize::new(device(size.width), device(size.height));
+        self.images
+            .redraw(image, file, self.compositor.image_spec(), want);
+    }
+
+    fn drop_image(&mut self, image: ImageKey) {
+        self.loading_images.remove(&image);
+        self.images.forget(image);
+        self.uploaded.remove(&mut self.compositor, image);
+    }
+
     fn take_images(&mut self) -> anyhow::Result<()> {
+        while let Some(image) = self.images.take_changed() {
+            if self.loading_images.insert(image) {
+                self.drive(|app| {
+                    app.send(Event::Image {
+                        image,
+                        notice: ImageNotice::Changed,
+                    })
+                })?;
+            }
+        }
         while let Some(loaded) = self.images.take() {
             if !self.loading_images.remove(&loaded.key) {
                 continue;
             }
             let notice = match loaded.result {
-                Ok(mips) => {
-                    self.compositor
-                        .set_image_mips(ImageId(loaded.key.0), &mips)?;
-                    ImageNotice::Ready {
-                        width: mips.size().width,
-                        height: mips.size().height,
-                    }
+                Ok(content) => {
+                    (self.uploaded).install(&mut self.compositor, loaded.key, &content)?
                 }
                 Err(LoadFailure::Missing) => ImageNotice::Missing,
                 Err(LoadFailure::Failed) => ImageNotice::Failed,

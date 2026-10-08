@@ -51,6 +51,9 @@ objc2-foundation = { version = "0.3", features = ["NSGeometry", "NSString", "NSR
 glam = { version = "0.33", features = ["bytemuck", "serde"] }
 # Decoding image files for the file kind. Only the formats that are drawn.
 image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "webp", "gif"] }
+# SVG files for the file kind. Text and system fonts so an svg's labels draw;
+# no embedded raster images, which an svg in a canvas does not need.
+resvg = { version = "0.46", default-features = false, features = ["text", "system-fonts"] }
 # Snapshot assertions. Tests reach it through `specular-testkit`.
 insta = "1.49"
 # macOS `proc_pid_rusage` for per-process physical footprint (bench memory).

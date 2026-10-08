@@ -106,7 +106,12 @@ impl FrameDemand {
         } else {
             IDLE_TURN
         };
-        let wake = now + turn;
+        let mut wake = now + turn;
+        // A gif on screen is the one thing the clock alone redraws, and it
+        // is woken for at its next frame and not at every refresh.
+        if let Some(ms) = app.next_frame_in_ms() {
+            wake = wake.min(now + Duration::from_millis(ms));
+        }
         match self.not_before {
             Some(until) if self.owed => wake.min(until),
             _ => wake,
@@ -124,6 +129,7 @@ impl FrameDemand {
 struct Pulse {
     caret_shown: bool,
     camera: Camera,
+    animation_frames: u64,
 }
 
 impl Pulse {
@@ -131,6 +137,7 @@ impl Pulse {
         Self {
             caret_shown: app.caret_visible(),
             camera: app.session().camera,
+            animation_frames: app.animation_epoch(),
         }
     }
 }
@@ -151,7 +158,8 @@ pub(crate) fn tick(app: &mut App, unix_ms: u64) -> (Vec<Effect>, bool) {
 #[cfg(test)]
 mod tests {
     use specular_doc::Rect;
-    use specular_testkit::{TestApp, sticky};
+    use specular_interact::ImageNotice;
+    use specular_testkit::{TestApp, file, sticky};
 
     use super::*;
 
@@ -188,6 +196,39 @@ mod tests {
         app.tick(START_MS).select(&["s1"]);
         let mut app = app.app().clone();
         assert_eq!(frames_drawn(&mut app, START_MS, 30), 0);
+    }
+
+    /// A gif of three 30 ms frames at the document's one file entity.
+    fn gif_at(x: f64) -> TestApp {
+        let rect = Rect::new(x, 100.0, 200.0, 200.0);
+        let mut app = TestApp::with_entities([file("g", rect)]);
+        app.viewport((1000.0, 800.0)).tick(START_MS);
+        let image = app.app().image("g.png").map(|image| image.key);
+        let delays_ms: std::sync::Arc<[u32]> = std::sync::Arc::from([30, 30, 30]);
+        let notice = ImageNotice::Animated {
+            width: 8,
+            height: 8,
+            delays_ms,
+        };
+        if let Some(image) = image {
+            app.send(Event::Image { image, notice });
+        }
+        app
+    }
+
+    #[test]
+    fn a_gif_on_screen_draws_a_frame_at_each_of_its_delays_and_one_off_screen_draws_none() {
+        // Two seconds at 120 Hz: about 67 frame changes, not 240 refreshes.
+        let mut app = gif_at(100.0).app().clone();
+        let drawn = frames_drawn(&mut app, START_MS, 2);
+        assert!((60..=72).contains(&drawn), "{drawn} frames");
+        let mut off_screen = gif_at(5_000.0).app().clone();
+        assert_eq!(frames_drawn(&mut off_screen, START_MS, 2), 0);
+        // And the loop sleeps until the next frame, not the idle turn.
+        let demand = FrameDemand::default();
+        let now = Instant::now();
+        assert!(demand.next_turn(&app, now) <= now + Duration::from_millis(30));
+        assert_eq!(demand.next_turn(&off_screen, now), now + IDLE_TURN);
     }
 
     #[test]

@@ -23,7 +23,7 @@ use super::{START_CAMERA, agent_run, image_run, note_run, repos_run};
 use crate::agent::AgentRuns;
 use crate::api::ApiHost;
 use crate::cdp::CdpHost;
-use crate::images::ImageLoader;
+use crate::images::{ImageLoader, Uploaded};
 use crate::latency::InputLatencyProbe;
 use crate::notes::NoteLoader;
 use crate::page_queries::PageQueries;
@@ -149,6 +149,8 @@ pub struct Runtime<W> {
     pub(crate) image_loader: Option<ImageLoader>,
     /// The images the app has asked for and not let go of.
     pub(crate) images: HashSet<ImageKey>,
+    /// The textures those images hold on the GPU.
+    pub(crate) uploaded: Uploaded,
     /// The thread that reads and watches markdown files. `None` if it could
     /// not be started; every Document then stays on its loading line.
     pub(crate) note_loader: Option<NoteLoader>,
@@ -230,6 +232,7 @@ impl<W: ShellWindow> Runtime<W> {
             queries: PageQueries::default(),
             image_loader: image_run::start_loader(space_folder.clone()),
             images: HashSet::new(),
+            uploaded: Uploaded::default(),
             note_loader: note_run::start_loader(space_folder),
             note_heights: HashMap::new(),
             view_cache: specular_scene::ViewCache::default(),

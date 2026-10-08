@@ -37,7 +37,7 @@ fn a_loaded_image_is_its_pixels_fitted_to_the_rect() {
         height: 100,
     };
     for id in ["default", "contain", "cover", "fill"] {
-        answer(&mut app, id, square);
+        answer(&mut app, id, square.clone());
     }
     assert_scene_snapshot!(app);
 }

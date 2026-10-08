@@ -256,6 +256,12 @@ Choices made during the run that the plan did not settle, grouped by area. The t
 - Deleting a page no longer deletes what is hooked to it (S5's reading of ADR 0034). It frees it, as Electron does, and an entity is first stored where it is seen so it does not jump; Electron leaves the stored rect. A freed region keeps its `docRect` and stops drawing, as in Electron. `delete_commands`, which the API calls with a bare document, frees without the fold. [ANCHORING]
 - A copy is made of what is seen, and the clipboard holds anchors as page and URL only, as Electron's payload does. A copy that came with its page is hooked to the page's copy at scroll zero; any other is hooked by where it lands. [ANCHORING]
 
+### Images
+
+- An svg is rastered by `resvg` (text and system fonts on, embedded raster images off) on the loader thread at the size it is drawn, in logical pixels that the shell scales to device pixels, capped at 4096 on the long side. `update` asks with `Effect::RasterImage` and remembers the width it asked for (`Image::raster_width`); the raster is kept while the drawn width is 0.75x to 1.5x of it. Nothing is asked for while the zoom is moving: it must be the same at two looks in a row (two ticks, or a tick and an answer), so a gesture rasters once when it ends. Only svgs in the viewport are looked at. [IMAGES]
+- A gif's frames are separate textures, frame `n` under `ImageKey::texture(n)` (frame 0 is the key itself, so stills are unchanged). The frame comes from `Event::Tick` time in `update`, only for gifs in the viewport, and `App::next_frame_in_ms` lets the loop sleep until the next frame, so an idle canvas or an off-screen gif draws nothing. A delay of 10 ms or less is shown as 100 ms, as browsers do. Frames are held at full canvas size; over 64 MiB of RGBA the frames are scaled down together as they are read. Mips are built for every frame. [IMAGES]
+- A changed file is found by a stamp (mtime and length) every 500 ms on the decode thread, as the note thread does; `notify` is not a dependency. `ImageNotice::Changed` makes `update` return `LoadImage` again and leave the state alone, so the old texture draws until the new one lands. A failure while a picture is on screen keeps the picture (a file caught half written, or deleted); the next change tries again. [IMAGES]
+
 ### Performance
 
 - Caches live in the compositor behind named types (`MeshCache`, `Laid` text layouts, `Batcher`) and in the shell (`FrameDemand`). `Scene`, `view` and `update` stay pure. [Performance]
@@ -1040,3 +1046,13 @@ Nothing was retired. Cleanup rows 1 and 2 in the plan say what now stands betwee
 - Needs a human at a Mac: none of this has run against a real page. The capture and tracker scripts are only parsed in tests, and the bundle was not built. Check on a real site: a sticky placed on a heading follows it when the page is resized to another preset; one on a fixed header stays on it while scrolling; the poll does not keep an idle page awake.
 - Not done: the synthetic grid does not reflow. Selection outlines and handles of a carried item are not faded. Sidebar reveal does not scroll the page to an anchored item.
 - Gate: fmt, clippy with and without `specular-app/cef`, `cargo test --workspace` (1298 pass), `fixtures/scenarios/run.sh` (all pass).
+
+### IMAGES: svg, animated gifs and reloading a changed file. See `git log -- native/crates/specular-interact/src/images`
+
+- Interact: `images/vector.rs` (the raster band and `Effect::RasterImage`), `images/animation.rs` (frame choice from the clock), `ImageNotice::{Animated, Changed}`, `App::{image_frame, animation_epoch, next_frame_in_ms}`. `ImageNotice` is no longer `Copy`.
+- Scene: `view/file.rs` draws the current frame's texture. Shell: `images/{svg,gif,upload}.rs`, `Content` (still, animated, vector) out of the loader, `Uploaded` counting each image's textures for both the window and the headless run; the loader thread watches loaded files. `demand.rs` wakes for a gif at its next frame and counts frame changes as a reason to draw.
+- Tests: svg band, reload keeps the picture, gif frames and off-screen silence in `tests/it/images.rs`; the gif performance pin in `demand.rs` (67 frames in 2 s for 30 ms delays, 0 off screen); `svg.rs` and `gif.rs` decode; the loader reports a rewritten file once. Each was mutation-checked.
+- Fixture: the kitchen sink's Files row has `kitchen-sink.svg` and a four-frame `kitchen-sink.gif` (250 ms a frame).
+- Looked at: svg at 3x zoom and 2x scale is sharp (text, dashes, edges), light and dark; the gif on different frames across `wait` steps in a script. The headless runner cannot overwrite a file between snapshots, so the live reload is tested only at the loader and pure halves.
+- Not checked: a window (gif animating, a live reload, an svg re-raster during a real pinch), bmp and ico (still cards), svg text in fonts the system lacks, an svg with embedded raster images (they do not draw).
+- Gate: fmt, clippy (also with `specular-app/cef`), `cargo test --workspace` (0 failed), `fixtures/scenarios/run.sh` all ok.

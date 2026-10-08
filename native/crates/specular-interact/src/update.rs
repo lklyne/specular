@@ -63,7 +63,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
             Focus::Canvas => edit::on_ime(app, &ime, &mut effects),
         },
         Event::Page { page, notice } => on_page_event(app, &page, &notice, &mut effects),
-        Event::Image { image, notice } => images::on_notice(app, image, notice),
+        Event::Image { image, notice } => images::on_notice(app, image, notice, &mut effects),
         Event::Note { file, notice } => notes::on_notice(app, &file, notice, &mut effects),
         Event::NoteCreated { file, rect } => edit::note::created(app, file, rect, &mut effects),
         Event::NoteHeights(heights) => notes::on_heights(app, heights),
@@ -390,6 +390,7 @@ fn on_tick(app: &mut App, unix_ms: u64, effects: &mut Vec<Effect>) {
     let elapsed = unix_ms.saturating_sub(app.session.now_ms);
     app.session.now_ms = unix_ms;
     sync::on_tick(app, effects);
+    images::on_tick(app, effects);
     edit::note::autosave(app, effects);
     edit::autoscroll(app, elapsed);
 }

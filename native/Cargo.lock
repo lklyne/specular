@@ -7598,6 +7598,7 @@ dependencies = [
  "image",
  "muda",
  "pollster 1.0.1",
+ "resvg 0.46.0",
  "rfd",
  "serde_json",
  "sha1_smol",

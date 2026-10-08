@@ -27,12 +27,14 @@ pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, file: &FileRef, scene: &m
         return;
     }
     let rect = canvas_rect(entity.rect);
-    if let Some(Image { key, state }) = frame.app.image(&file.file) {
+    if let Some(Image { key, state, .. }) = frame.app.image(&file.file) {
         match *state {
             ImageState::Ready { width, height } => {
                 // An `<img>` with no `object-fit` set contains.
                 let fit = file.object_fit.unwrap_or(ObjectFit::Contain);
-                let draw = image::fitted(ImageId(key.0), rect, width, height, fit);
+                // A gif is its frames, each its own texture.
+                let texture = key.texture(frame.app.image_frame(&file.file));
+                let draw = image::fitted(ImageId(texture), rect, width, height, fit);
                 scene.push(Item::canvas(draw));
                 return;
             }
