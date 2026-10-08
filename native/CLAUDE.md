@@ -88,7 +88,7 @@ and extend its table.
 ### The gesture test
 
 It goes in the `tests/` directory of the crate that owns the behavior
-(`specular-interact/tests/gestures.rs` is the model), with
+(`specular-interact/tests/it/gestures.rs` is the model), with
 `specular-testkit` as a dev-dependency. A crate's `src/` unit tests cannot
 use the testkit on that crate's own types.
 

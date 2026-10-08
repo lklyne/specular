@@ -868,9 +868,11 @@ One commit a task, in that order. Each part lists what moved or was renamed, for
 - `TestApp` is `{ driver, start }`. Its API is unchanged: `specular-testkit/src/input.rs` is now a macro that declares each `Driver` method on `TestApp` and returns the `TestApp`. No test changed.
 - The headless runner (`specular-app/src/headless/`) holds a `Driver`. It opens a document with `Event::BuiltinPanels(true)` and `Event::DocumentOpened`, and reads the panel layout from `panel::builtin::layout`.
 
-**Not done: tasks 9 and 10, and `fixtures/scenarios/run.sh`.** The run stopped at its usage limit after task 5. The scenarios have not been run against tasks 13, 6 or 5; task 5 changed the runner they go through, so run them before building on this.
+**Task 9, one test binary for `specular-interact`.** Its 66 files in `tests/` (63, and the three `chat_*` files the right panel added) are modules of one binary, `it`.
 
-- Not measured: the frame time in a window. The 0.6 to 0.9 ms came from the bench in "Performance, part 2"; nobody has run it since.
+- Every `specular-interact/tests/<name>.rs` is `tests/it/<name>.rs`, unchanged, and `tests/it/main.rs` is a `mod` line for each. A new test file needs its line there, or it is not compiled.
+- Snapshots moved from `tests/snapshots/<file>__<test>.snap` to `tests/it/snapshots/it__<file>__<test>.snap`, with the `source:` line in each updated. `native/CLAUDE.md` points at `tests/it/gestures.rs`.
+- A branch that added a file under `tests/` moves it to `tests/it/` and adds the `mod` line; one that changed an existing file follows the rename.
 
 ### RIGHT-PANEL: the canvas agent chat. See `git log -- native/crates/specular-agent`
 

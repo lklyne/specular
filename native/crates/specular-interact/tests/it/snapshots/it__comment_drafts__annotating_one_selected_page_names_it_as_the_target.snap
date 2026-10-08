@@ -1,5 +1,5 @@
 ---
-source: crates/specular-interact/tests/comment_drafts.rs
+source: crates/specular-interact/tests/it/comment_drafts.rs
 expression: app.doc_snapshot()
 ---
 nodes:
