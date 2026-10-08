@@ -1,5 +1,6 @@
 //! Scene snapshots for groups: the drop-target ring while items are dragged
-//! over one, and a group's title while it is renamed.
+//! over one, a group's title while it is renamed, and the reorder dots and
+//! gap bars of an auto-layout row.
 
 use specular_doc::{Entity, Rect};
 use specular_testkit::{TestApp, assert_scene_snapshot, group, inside, shape};
@@ -48,4 +49,31 @@ fn a_group_that_follows_its_dragged_member_is_drawn_at_its_live_size() {
     let mut app = board();
     app.press((190.0, 190.0)).drag_to((220.0, 220.0));
     assert_scene_snapshot!(app);
+}
+
+#[test]
+fn a_selected_auto_layout_row_shows_a_dot_on_each_member_and_a_bar_in_each_gap() {
+    let mut app = TestApp::with_entities([
+        shape("a", Rect::new(100.0, 100.0, 100.0, 100.0)),
+        shape("b", Rect::new(240.0, 100.0, 100.0, 100.0)),
+        shape("c", Rect::new(380.0, 100.0, 100.0, 100.0)),
+    ]);
+    app.select(&["a", "b", "c"])
+        .act(specular_interact::Action::AutoLayout);
+    assert_scene_snapshot!(app);
+}
+
+#[test]
+fn a_box_being_reordered_floats_at_half_strength_over_the_line_as_it_would_be() {
+    let mut app = TestApp::with_entities([
+        shape("a", Rect::new(100.0, 100.0, 100.0, 100.0)),
+        shape("b", Rect::new(240.0, 100.0, 100.0, 100.0)),
+        shape("c", Rect::new(380.0, 100.0, 100.0, 100.0)),
+    ]);
+    app.select(&["a", "b", "c"]);
+    // The pointer rests on the dot of `b`, which fills out, then drags `a`.
+    app.pointer_move((290.0, 150.0));
+    assert_scene_snapshot!("reorder_dot_under_the_pointer", app);
+    app.press((150.0, 150.0)).drag_to((450.0, 190.0));
+    assert_scene_snapshot!("reorder_in_flight", app);
 }

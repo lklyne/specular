@@ -44,6 +44,21 @@ impl App {
         self.scope_of(&selected)
     }
 
+    /// The selection as a body drag takes it: a member of an auto-layout
+    /// group stands for the whole group, since its own place is the
+    /// layout's to give (ADR 0015 D4).
+    pub(crate) fn move_scope(&self) -> SelectionScope {
+        let mut members: Vec<EntityId> = Vec::new();
+        for id in self.session.selection.entities() {
+            let moved = crate::layout::line_holding(&self.document, id)
+                .map_or_else(|| id.clone(), |line| line.group);
+            if !members.contains(&moved) {
+                members.push(moved);
+            }
+        }
+        self.scope_of(&members)
+    }
+
     /// `entities` resolved as a selection of them would be. Ids that name
     /// nothing are dropped.
     pub fn scope_of(&self, entities: &[EntityId]) -> SelectionScope {

@@ -6,6 +6,7 @@
 //! The math is the Electron app's (`workspace-placement.ts`,
 //! `layout-math.ts`), with every entity counted as occupied.
 
+pub(crate) mod arrange;
 mod layout;
 
 use serde_json::{Value, json};

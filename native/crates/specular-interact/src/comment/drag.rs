@@ -78,6 +78,7 @@ fn click(app: &mut App, drag: &CommentDrag, effects: &mut Vec<Effect>) {
         | Hit::Comment { .. }
         | Hit::EntityBody { .. }
         | Hit::GroupBorder { .. }
+        | Hit::Layout(_)
         | Hit::Edge { .. }
         | Hit::Panel { .. }
         | Hit::Empty => {
@@ -128,7 +129,8 @@ impl Session {
                 | Gesture::Place(_)
                 | Gesture::Draw(_)
                 | Gesture::TextSelect(_)
-                | Gesture::EdgeDrag(_),
+                | Gesture::EdgeDrag(_)
+                | Gesture::Line(_),
             )
             | None => None,
         }

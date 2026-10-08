@@ -80,6 +80,7 @@ pub(crate) fn press(
             | Hit::Comment { .. }
             | Hit::PageContent { .. }
             | Hit::GroupBorder { .. }
+            | Hit::Layout(_)
             | Hit::Edge { .. }
             | Hit::Empty
             | Hit::Panel { .. } => return None,
@@ -206,6 +207,7 @@ pub(crate) fn is_over_text(app: &App) -> bool {
         | Hit::Comment { .. }
         | Hit::PageContent { .. }
         | Hit::GroupBorder { .. }
+        | Hit::Layout(_)
         | Hit::Edge { .. }
         | Hit::Empty
         | Hit::Panel { .. } => false,

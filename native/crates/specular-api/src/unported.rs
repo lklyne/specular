@@ -25,9 +25,7 @@ fn verbs(method: Method, segments: &[&str]) -> Option<(&'static str, &'static st
             "use `specular snapshot -f <page>` and the other browse verbs, which go through \
              `/pages/<id>/cdp-target`",
         ),
-        (_, ["selection", "arrange"]) => ("`arrange`", LATER),
         (_, ["selection", "enter-group" | "overlay-state"]) => ("entering a group", LATER),
-        (_, ["groups", "auto-layout" | "reorder-child"]) => ("`auto-layout`", LATER),
         (_, ["groups", "delete"]) => ("group delete by route", "use `specular delete <id>`"),
         (_, ["tasks", "component-states"]) => ("`component-states`", LATER),
         (_, ["recording", ..]) => (

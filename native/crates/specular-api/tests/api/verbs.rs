@@ -378,3 +378,100 @@ fn a_session_of_verbs_builds_a_canvas() {
     assert_doc_snapshot!("a_session_of_verbs_builds_a_canvas", session.app);
     session.app.assert_undo_returns_to_start();
 }
+
+#[test]
+fn arrange_tidies_in_place_or_packs_at_a_gap_and_each_is_one_step() {
+    // (the body, where a, b and c land along x).
+    let rows = [
+        // The footprint is kept: the ends stay and the middle evens out.
+        (json!({ "mode": "row", "entityIds": ["a", "b", "c"] }), None),
+        // A gap packs from the top-left.
+        (
+            json!({ "mode": "row", "entityIds": ["c", "a", "b"], "gap": 20 }),
+            Some([0.0, 220.0, 440.0]),
+        ),
+        (
+            json!({ "mode": "column", "entityIds": ["a", "b", "c"], "gap": "m" }),
+            Some([0.0, 0.0, 0.0]),
+        ),
+    ];
+    for (body, want) in rows {
+        let mut session = three_notes();
+        let done = ok(&mut session, "/selection/arrange", body.clone());
+        let lefts = ["a", "b", "c"].map(|id| session.app.rect(id).x);
+        match want {
+            // Already even: nothing to do, and nothing to undo.
+            None => {
+                assert_eq!(done, json!({ "changed": false }), "{body}");
+                assert!(!session.app.app().can_undo(), "{body}");
+            }
+            Some(want) => {
+                assert_eq!(done, json!({ "changed": true }), "{body}");
+                assert_eq!(lefts, want, "{body}");
+                session.app.assert_undo_returns_to_start();
+            }
+        }
+    }
+    let mut session = three_notes();
+    let bad = session.post("/selection/arrange", json!({ "mode": "pile" }));
+    assert_eq!(bad.status, 400, "{}", bad.body);
+}
+
+#[test]
+fn auto_layout_makes_a_managed_group_and_reorder_child_moves_a_member() {
+    let mut session = three_notes();
+    let made = ok(
+        &mut session,
+        "/groups/auto-layout",
+        json!({ "entityIds": ["a", "b", "c"], "gap": 40, "label": "Row" }),
+    );
+    let id = made["id"].as_str().unwrap_or_default().to_owned();
+    assert_eq!(
+        made,
+        json!({
+            "id": id, "label": "Row", "canvasX": -24, "canvasY": -24,
+            "width": 728, "height": 248, "layoutMode": "row", "managedLayout": true,
+            "layoutGap": 40, "entityIds": ["a", "b", "c"],
+        })
+    );
+    assert_eq!(
+        ["a", "b", "c"].map(|id| session.app.rect(id).x),
+        [0.0, 240.0, 480.0]
+    );
+    assert_eq!(
+        session.get("/selection").body,
+        json!({ "selectedGroupId": id })
+    );
+
+    let moved = ok(
+        &mut session,
+        "/groups/reorder-child",
+        json!({ "groupId": id, "childId": "c", "toIndex": 0 }),
+    );
+    assert_eq!(moved, json!({ "changed": true }));
+    assert_eq!(
+        ["c", "a", "b"].map(|id| session.app.rect(id).x),
+        [0.0, 240.0, 480.0]
+    );
+    let again = ok(
+        &mut session,
+        "/groups/reorder-child",
+        json!({ "groupId": id, "childId": "c", "toIndex": 0 }),
+    );
+    assert_eq!(again, json!({ "changed": false }));
+    // Two steps: the reorder, then the group and its layout.
+    session.app.undo().undo();
+    assert!(!session.app.app().can_undo());
+    assert_eq!(session.app.rect("c").x, 600.0);
+
+    for (body, status) in [
+        (json!({}), 400),
+        (json!({ "groupId": "a" }), 404),
+        (json!({ "entityIds": ["a"] }), 404),
+    ] {
+        let refused = session.post("/groups/auto-layout", body.clone());
+        assert_eq!(refused.status, status, "{body}: {}", refused.body);
+    }
+    let refused = session.post("/groups/reorder-child", json!({ "groupId": "g" }));
+    assert_eq!(refused.status, 400, "{}", refused.body);
+}

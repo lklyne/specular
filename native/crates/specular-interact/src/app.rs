@@ -78,7 +78,8 @@ impl App {
                 | Gesture::Marquee { .. }
                 | Gesture::Comment(_)
                 | Gesture::TextSelect(_)
-                | Gesture::EdgeDrag(_),
+                | Gesture::EdgeDrag(_)
+                | Gesture::Line(_),
             )
             | None => None,
         }
@@ -118,7 +119,8 @@ impl App {
                 | Gesture::Place(_)
                 | Gesture::Draw(_)
                 | Gesture::TextSelect(_)
-                | Gesture::EdgeDrag(_),
+                | Gesture::EdgeDrag(_)
+                | Gesture::Line(_),
             )
             | None => entity.rect,
         };

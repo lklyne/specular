@@ -98,6 +98,7 @@ pub fn menus(app: &App) -> Vec<Menu> {
         MenuEntry::Separator,
         item("Group", Action::Group),
         item("Ungroup", Action::Ungroup),
+        item("Auto-layout", Action::AutoLayout),
     ];
     let comment = vec![
         item("Annotate selection", Action::AnnotateSelection),
@@ -210,7 +211,12 @@ fn has_target(app: &App, action: &Action) -> bool {
         }
         Action::AnnotateSelection | Action::FocusSelection => selection.entities().next().is_some(),
         Action::Arrange(_) | Action::Group => selection.entities().nth(1).is_some(),
-        Action::Ungroup => groups::lone_group(app).is_some(),
+        Action::Ungroup | Action::GroupLayout(_) | Action::GroupGap(_) => {
+            groups::lone_group(app).is_some()
+        }
+        Action::AutoLayout => {
+            groups::lone_group(app).is_some() || selection.entities().nth(1).is_some()
+        }
         Action::SelectAll | Action::ZoomToFit => app.document.entities().next().is_some(),
         // Choosing the canvas already showing is harmless, and its item
         // has to stay enabled to keep its check mark readable.

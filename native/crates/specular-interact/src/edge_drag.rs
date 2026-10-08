@@ -68,7 +68,8 @@ impl App {
                 | Gesture::Comment(_)
                 | Gesture::Place(_)
                 | Gesture::Draw(_)
-                | Gesture::TextSelect(_),
+                | Gesture::TextSelect(_)
+                | Gesture::Line(_),
             )
             | None => None,
         }

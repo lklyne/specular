@@ -18,6 +18,8 @@ pub(crate) enum Reply {
     StackOrder,
     /// What the ungrouped group held, which is now the selection.
     Ungrouped,
+    /// A group as it now stands.
+    Group(specular_doc::EntityId),
     /// What can be undone and redone now.
     History,
     /// An annotation as it now stands.
@@ -84,6 +86,10 @@ impl Pending {
                     .collect();
                 Response::ok(json!({ "entityIds": freed }))
             }
+            Reply::Group(id) => match crate::placement::arrange::group_json(app, &id) {
+                Some(group) => Response::ok(group),
+                None => Response::not_found("Nothing to manage"),
+            },
             Reply::History => Response::ok(act::history_state(app, true)),
             Reply::Annotation(id) => match app.document().annotation(&id) {
                 Some(annotation) => Response::ok(annotations::json(annotation)),

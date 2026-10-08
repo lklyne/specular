@@ -161,7 +161,8 @@ fn a_selection_of_several_has_handles_on_its_bounds_only() {
             at(&app, 280.0, 240.0),
             at(&app, 100.0, 100.0),
             // t1's own bottom-right corner is inside the bounds, not on them.
-            at(&app, 150.0, 150.0),
+            // A pixel in from it, clear of the gap strip the pair shows.
+            at(&app, 149.0, 149.0),
         ),
         (
             selection_handle(Corner::BottomRight),

@@ -273,6 +273,13 @@ with the task that made it.
 - ARRANGE: guides do not pull. The task asked for snapping within a screen-pixel threshold and a modifier that suppresses it; Electron has neither (ADR 0012, `alignmentGuideDetector(…, tolerance = 0.5)` after `snapToGrid`). The grid stays the only magnet, the tolerance is 0.5 canvas units at every zoom, and Shift's axis lock is the one modifier that takes an axis off the grid.
 - ARRANGE: guides are not stored. `App::guides()` derives them from the gesture's capture of its neighbours and the rects in the document, so there is nothing to clear on release, cancel or undo.
 - ARRANGE: a selection resized by its shared bounds shows no guides, as in Electron, whose resize guides follow one entity.
+- ARRANGE: a managed group's layout is not a command of its own. `group_fit::then_fit` already adds the refit of touched groups to every step; it now lays a managed group out first, when its members, their rects, the stack order or its own fields change. So no caller can forget it, and the document never holds an unresolved rect.
+- ARRANGE: the layout sequence is the stack order of the group's members (ADR 0015 D2), so "send to back" on a member moves it to the front of its row. There is no child-order field.
+- ARRANGE: no padding field and no managed grid. Electron has neither: the group's rect is its members plus the fixed 24, and `managedLineAxis` is `null` for a grid. The file shape stays `managedLayout`, `layoutMode`, `layoutGap`.
+- ARRANGE: the group popup's row and column toggles and gap stepper are new. Electron's popup has no layout controls, only Shift+Cmd+A, the CLI and the gap strip. They are existing control kinds, so both shells draw them unchanged.
+- ARRANGE: a body drag from a member of a managed group moves the whole group (ADR 0015 D4), through `App::move_scope`. Only the dot reorders.
+- ARRANGE: a reorder or gap drag writes the line as it would be into the document each frame, like a move, and the release records one step. Electron previews in the renderer and writes once; here `view` has only the document to draw from.
+- ARRANGE: `Cursor` gained no column or row resize arrow, which would have meant an arm in `specular-shell` while another agent was in it. A gap strip shows the grab hand.
 
 ## Needs a human at a Mac
 
@@ -935,3 +942,14 @@ One commit a task, in that order. Each part lists what moved or was renamed, for
 - `specular-scene/src/view/guides.rs` draws them in the session layer, in screen space: a 1 px line in the selection colour, and `#ec4899` 1.5 px measures with 18 px caps in each even gap.
 - Tests: `tests/it/guides.rs` (the grid and guides composing, Shift, the capture, copies, resize, even gaps), one scene snapshot at half zoom, `fixtures/scenarios/o-guides.txt` with seven PNGs read.
 - Left out: the half-second flash of guides after an arrow-key nudge, and leaving the sidebar's width out of the viewport the neighbours are taken from.
+
+### ARRANGE, part B: auto-layout groups, gap strips and reorder dots. See `git log -- native/crates/specular-interact/src/layout.rs`
+
+- `specular-interact/src/layout/`: `reflow` packs a managed row or column from its members' least corner (snapped) at the group's gap, a member group travelling whole; `row.rs` is Electron's reorderable-row kernel with its unit cases as three tables; `act.rs` the verbs; `handles.rs` the dots and strips both hit-testing and `view` read; `drag.rs` the `Gesture::Line` for both.
+- Actions: `AutoLayout` (Shift+Cmd+A, Arrange menu), `GroupLayout(Option<LayoutAxis>)`, `GroupGap(f64)`. `Hit::Layout(LayoutHandle)` sits under the anchors and over bodies.
+- A loose selection that reads as an even row (gaps within 4) gets the same dots and strips with no group, and commits positions only. Two items always qualify, as in Electron.
+- API: `POST /selection/arrange` (tidy in place, or pack at `gap` in reading order), `/groups/auto-layout`, `/groups/reorder-child`. Their `unported.rs` rows are gone. `arrange_command`, `place_command`, `auto_layout_command`, `gap_command` and `reorder_command` are the shared builders.
+- Tests: `tests/it/auto_layout.rs` (one table of six changes that each re-lay the row in one step), `tests/it/layout_handles.rs`, three scene snapshots in `tests/groups.rs`, two API cases, `fixtures/scenarios/p-auto-layout.txt` with ten PNGs read and a `check.py` block on the saved file shape. Mutation-checked: without the reflow in `then_fit` eight tests fail; with the guide tolerance at 12 three do.
+- Left out: the grayscale placeholder in a reordered box's slot (no desaturating draw; the box shows in its slot and floats at half strength), the dot's hover growing by animation, re-anchoring to a page after a loose reorder or regap, `specular update <group> --gap` through `/canvas/apply`, and live reflow of siblings while a member is resized (they settle at the release, as in Electron).
+- For the next agent: a member's rect is an output. Change the group (`SetKind`), the order (`SetOrder`) or a member's size and let the step lay it out; a `SetRect` that only moves a member is put back. `fit_in_place`, which a drag calls every frame, never lays out.
+- Needs a human at a Mac: the feel of the half-slot swap threshold while dragging a dot, and whether the 2 px gap bar is findable at 50% zoom.

@@ -1,0 +1,20 @@
+---
+source: crates/specular-scene/tests/groups.rs
+expression: app.scene_snapshot()
+---
+canvas rect 380,100 100x100 fill=#b5b9c0 stroke=#464a53/2/centre
+canvas rect 100,100 100x100 fill=#b5b9c0 stroke=#464a53/2/centre
+canvas rect 240,100 100x100 fill=#b5b9c0 stroke=#464a53/2/centre
+screen rect 379,99 102x102 stroke=#3b82f6/1/inside
+screen rect 99,99 102x102 stroke=#3b82f6/1/inside
+screen rect 239,99 102x102 stroke=#3b82f6/1/inside
+canvas rect 400,140 100x100 fill=#b5b9c0 stroke=#464a53/2/centre opacity=0.5
+screen rect 219,138 2x24 fill=#ec4899 stroke=#ffffff/1/outside opacity=0.6
+screen rect 359,138 2x24 fill=#ec4899 stroke=#ffffff/1/outside opacity=0.6
+screen ellipse 146,146 8x8 stroke=#ec4899/2.5/centre
+screen ellipse 286,146 8x8 stroke=#ec4899/2.5/centre
+screen rect 99,99 382x102 stroke=#3b82f6/1/inside
+screen rect 95,95 8x8 fill=#ffffff stroke=#3b82f6/1/inside
+screen rect 477,95 8x8 fill=#ffffff stroke=#3b82f6/1/inside
+screen rect 477,197 8x8 fill=#ffffff stroke=#3b82f6/1/inside
+screen rect 95,197 8x8 fill=#ffffff stroke=#3b82f6/1/inside

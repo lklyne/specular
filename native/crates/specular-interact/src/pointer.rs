@@ -147,6 +147,7 @@ fn entered_page(app: &App, hit: Hit) -> Option<(EntityId, Vec2)> {
         | Hit::Comment { .. }
         | Hit::EntityBody { .. }
         | Hit::GroupBorder { .. }
+        | Hit::Layout(_)
         | Hit::Edge { .. }
         | Hit::Empty
         | Hit::Panel { .. } => None,

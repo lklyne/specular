@@ -60,8 +60,16 @@ pub fn delete_commands(
 /// everything inside their groups and hooked to their pages. A drawing's
 /// points travel with it.
 pub fn move_commands(document: &Document, entities: &[EntityId], delta: DVec2) -> Vec<Command> {
-    let operands = scope::operands(document, entities);
-    (live::starts(document, &operands).iter())
+    translate_commands(document, &scope::operands(document, entities), delta)
+}
+
+/// The commands that move exactly `entities` by `delta` canvas units.
+pub(crate) fn translate_commands(
+    document: &Document,
+    entities: &[EntityId],
+    delta: DVec2,
+) -> Vec<Command> {
+    (live::starts(document, entities).iter())
         .flat_map(|start| moved(start, delta))
         .collect()
 }

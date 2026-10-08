@@ -1,0 +1,20 @@
+---
+source: crates/specular-scene/tests/groups.rs
+expression: app.scene_snapshot()
+---
+screen rect 76,76 508x148 r=2 fill=#f4f4f573
+canvas rect 100,100 100x100 fill=#b5b9c0 stroke=#464a53/2/centre
+canvas rect 280,100 100x100 fill=#b5b9c0 stroke=#464a53/2/centre
+canvas rect 460,100 100x100 fill=#b5b9c0 stroke=#464a53/2/centre
+screen rect 76,76 508x148 r=2 stroke=#71717a40/1.5/inside
+screen text "Auto-layout" 76,55.5 wrap=508 ellipsis box-h=16.5 11/15.4 w500 #3f3f46 middle clip=76,55.5 508x20.5
+screen rect 75,75 510x150 stroke=#3b82f6/1/inside
+screen rect 239,138 2x24 fill=#ec4899 stroke=#ffffff/1/outside opacity=0.6
+screen rect 419,138 2x24 fill=#ec4899 stroke=#ffffff/1/outside opacity=0.6
+screen ellipse 146,146 8x8 stroke=#ec4899/2.5/centre
+screen ellipse 326,146 8x8 stroke=#ec4899/2.5/centre
+screen ellipse 506,146 8x8 stroke=#ec4899/2.5/centre
+screen rect 71,71 8x8 fill=#ffffff stroke=#3b82f6/1/inside
+screen rect 581,71 8x8 fill=#ffffff stroke=#3b82f6/1/inside
+screen rect 581,221 8x8 fill=#ffffff stroke=#3b82f6/1/inside
+screen rect 71,221 8x8 fill=#ffffff stroke=#3b82f6/1/inside

@@ -395,6 +395,16 @@ pub enum Action {
     /// footprint they have and evening the spacing inside it. Does nothing
     /// for fewer than two.
     Arrange(ArrangeMode),
+    /// Make the selection an auto-layout group (ADR 0015) and select it: a
+    /// lone group manages its members as a row or a column, whichever they
+    /// are spread along, and two or more items are grouped first.
+    AutoLayout,
+    /// Pack the selected group's members along an axis, or with `None` let
+    /// them sit where they are.
+    GroupLayout(Option<crate::LayoutAxis>),
+    /// Set the gap the selected auto-layout group packs with, in canvas
+    /// units.
+    GroupGap(f64),
     /// Zoom and pan to frame the selected items, as large as fits.
     FocusSelection,
     /// Give a comment the focus, taking the selection away, or with `None`

@@ -7,8 +7,9 @@
 //! throw away the layout the person built. One arrange is one undo step.
 
 use glam::DVec2;
-use specular_doc::{EntityId, Rect};
+use specular_doc::{Command, EntityId, Rect};
 
+use crate::layout::Axis;
 use crate::{App, Effect, anchor, grid, live, scroll_follow::Scrolls, update, verbs};
 
 /// The least gap the arrange leaves between items, so a footprint that is too
@@ -34,42 +35,6 @@ pub(crate) struct Placed {
     pub(crate) id: EntityId,
     /// Its rect.
     pub(crate) rect: Rect,
-}
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum Axis {
-    X,
-    Y,
-}
-
-impl Axis {
-    const fn other(self) -> Self {
-        match self {
-            Self::X => Self::Y,
-            Self::Y => Self::X,
-        }
-    }
-
-    /// The leading edge (left or top) of `rect` along this axis.
-    const fn lead(self, rect: Rect) -> f64 {
-        match self {
-            Self::X => rect.x,
-            Self::Y => rect.y,
-        }
-    }
-
-    /// The size of `rect` along this axis.
-    const fn size(self, rect: Rect) -> f64 {
-        match self {
-            Self::X => rect.width,
-            Self::Y => rect.height,
-        }
-    }
-
-    /// The far edge of `rect` along this axis.
-    const fn trail(self, rect: Rect) -> f64 {
-        self.lead(rect) + self.size(rect)
-    }
 }
 
 fn least(values: impl Iterator<Item = f64>) -> f64 {
@@ -205,20 +170,36 @@ fn bands(boxes: &[Placed], axis: Axis) -> Vec<f64> {
 /// Arranges the selected entities, as one undo step. Does nothing for fewer
 /// than two, or when every one is already where the arrangement puts it.
 pub(crate) fn run(app: &mut App, mode: ArrangeMode, effects: &mut Vec<Effect>) {
-    let scope = app.selection_scope();
-    let boxes: Vec<Placed> = (scope.members.iter())
+    let members = app.selection_scope().members;
+    if let Some(step) = arrange_command(app, &members, mode) {
+        update::document_step(app, step, effects);
+    }
+}
+
+/// The step that arranges `entities`, keeping the footprint they have. `None`
+/// for fewer than two, or when every one is already where the arrangement
+/// puts it.
+pub fn arrange_command(app: &App, entities: &[EntityId], mode: ArrangeMode) -> Option<Command> {
+    let boxes: Vec<Placed> = (entities.iter())
         .filter_map(|id| app.document.entity(id))
         .map(|entity| Placed {
             id: entity.id.clone(),
             rect: entity.rect,
         })
         .collect();
-    let Some(targets) = targets(&boxes, mode) else {
-        return;
-    };
-    let commands: Vec<_> = (targets.iter().zip(&boxes))
-        .flat_map(|((id, to), item)| {
-            let by = *to - DVec2::new(item.rect.x, item.rect.y);
+    place_command(app, &targets(&boxes, mode)?)
+}
+
+/// The step that moves each entity to the top-left given, with everything
+/// inside its group and hooked to its page, and hooks what moved to the page
+/// it lands on. `None` when every one is there already.
+pub fn place_command(app: &App, targets: &[(EntityId, DVec2)]) -> Option<Command> {
+    let commands: Vec<Command> = (targets.iter())
+        .flat_map(|(id, to)| {
+            let Some(entity) = app.document.entity(id) else {
+                return Vec::new();
+            };
+            let by = *to - DVec2::new(entity.rect.x, entity.rect.y);
             if by == DVec2::ZERO {
                 return Vec::new();
             }
@@ -226,17 +207,17 @@ pub(crate) fn run(app: &mut App, mode: ArrangeMode, effects: &mut Vec<Effect>) {
         })
         .collect();
     if commands.is_empty() {
-        return;
+        return None;
     }
-    let scrolls = Scrolls::of(app);
-    let step = anchor::then_reanchor(
-        &mut app.document,
-        &scrolls,
+    let members: Vec<EntityId> = targets.iter().map(|(id, _)| id.clone()).collect();
+    let mut trial = app.document.clone();
+    Some(anchor::then_reanchor(
+        &mut trial,
+        &Scrolls::of(app),
         live::batch(commands),
-        &scope.members,
-        &scope.operands,
-    );
-    update::document_step(app, step, effects);
+        &members,
+        &app.scope_of(&members).operands,
+    ))
 }
 
 #[cfg(test)]

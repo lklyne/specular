@@ -307,6 +307,11 @@ pub const BINDINGS: &[Binding] = &[
         Context::Canvas,
         Action::SendToBack,
     ),
+    once(
+        Chord::char('a').cmd().shift(),
+        Context::Canvas,
+        Action::AutoLayout,
+    ),
     once(Chord::char('g').cmd(), Context::Canvas, Action::Group),
     once(
         Chord::char('g').cmd().shift(),

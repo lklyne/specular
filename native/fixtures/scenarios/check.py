@@ -125,6 +125,35 @@ if i in RAN:
     print(f"{'ok  ' if ok else 'FAIL'} {i}: six comments in Electron's shape")
     if not ok:
         failures.append(i)
+GUIDES = load(HERE / "guides.canvas")
+o = "o-guides"
+expect(o, GUIDES, saved(o, "04-move-undone.canvas"))
+expect(o, GUIDES, saved(o, "08-end.canvas"))
+p = "p-auto-layout"
+if p in RAN:
+    expect(p, GUIDES, saved(p, "08-undone.canvas"))
+    expect(p, GUIDES, saved(p, "11-end.canvas"))
+    nodes = lambda canvas: {n["id"]: n for n in canvas["nodes"]}
+    made, gap, moved = (saved(p, f) for f in ["01-made-a-row.canvas", "05-gap-40.canvas", "07-reordered.canvas"])
+    group = next(n for n in made["nodes"] if n["type"] == "group")
+    row = lambda c, ids: [nodes(c)[id]["x"] for id in ids]
+    in_group = lambda c: [n["id"] for n in c["nodes"] if n.get("parentGroupId") == group["id"]]
+    loose = saved(p, "10-loose-reordered.canvas")
+    ok = (
+        # Electron's shape: the three fields on the group, resolved rects on the members.
+        (group["managedLayout"], group["layoutMode"], group.get("layoutGap")) == (True, "row", None)
+        and row(made, ["left", "a", "right"]) == [200, 380, 560]
+        and nodes(gap)[group["id"]]["layoutGap"] == 40
+        and row(gap, ["left", "a", "right"]) == [200, 340, 480]
+        # The sequence is the stack order.
+        and in_group(moved) == ["right", "left", "a"]
+        and row(moved, ["right", "left", "a"]) == [200, 340, 480]
+        and row(loose, ["right", "left"]) == [200, 600]
+        and not any(n["type"] == "group" for n in loose["nodes"])
+    )
+    print(f"{'ok  ' if ok else 'FAIL'} {p}: a managed row in Electron's shape, regapped and reordered")
+    if not ok:
+        failures.append(p)
 j = "j-toolbar-and-popups"
 if j in RAN:
     nodes = lambda canvas: {n["id"]: n for n in canvas["nodes"]}

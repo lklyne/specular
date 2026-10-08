@@ -4,6 +4,7 @@
 
 mod anchoring;
 mod arrange;
+mod auto_layout;
 mod bindings;
 mod chat_comments;
 mod chat_pill;
@@ -27,6 +28,7 @@ mod guides;
 mod history_selection;
 mod hit_test;
 mod images;
+mod layout_handles;
 mod menus;
 mod moves;
 mod note_edit;

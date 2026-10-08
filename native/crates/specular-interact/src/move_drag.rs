@@ -110,7 +110,8 @@ impl App {
                 | crate::Gesture::Place(_)
                 | crate::Gesture::Draw(_)
                 | crate::Gesture::TextSelect(_)
-                | crate::Gesture::EdgeDrag(_),
+                | crate::Gesture::EdgeDrag(_)
+                | crate::Gesture::Line(_),
             )
             | None => None,
         }
@@ -128,7 +129,8 @@ impl App {
                 | crate::Gesture::Place(_)
                 | crate::Gesture::Draw(_)
                 | crate::Gesture::TextSelect(_)
-                | crate::Gesture::EdgeDrag(_),
+                | crate::Gesture::EdgeDrag(_)
+                | crate::Gesture::Line(_),
             )
             | None => None,
         }
@@ -148,7 +150,7 @@ pub(crate) fn begin(
         Kind::Drawing(_) => false,
         Kind::Page(_) | Kind::Text(_) | Kind::File(_) | Kind::Group(_) | Kind::Shape(_) => true,
     };
-    let operands = app.selection_scope().operands;
+    let operands = app.move_scope().operands;
     let starts = live::starts(&app.document, &operands);
     Some(MoveDrag {
         guides: guides::capture(app, &operands, &operands),
@@ -256,7 +258,7 @@ pub(crate) fn finish(
     let rebind = !(modifiers.meta || modifiers.control);
     let scrolls = Scrolls::of(app);
     if !drag.copying {
-        let scope = app.selection_scope();
+        let scope = app.move_scope();
         live::commit_following(app, &drag.starts, &drag.followers, |app| {
             if !rebind {
                 return Vec::new();
@@ -281,7 +283,7 @@ pub(crate) fn finish(
     if drag.delta == DVec2::ZERO {
         return;
     }
-    let scope = app.selection_scope();
+    let scope = app.move_scope();
     if let Some(copies) = clone::copies(app, &scope, drag.delta) {
         let command = if rebind {
             anchor::placed_copies(&mut app.document, &scrolls, copies.command)

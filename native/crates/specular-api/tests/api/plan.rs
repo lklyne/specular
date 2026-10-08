@@ -248,10 +248,10 @@ fn what_is_not_ported_says_so_by_name() {
     );
 
     refused(
-        plan(Method::Post, "/selection/arrange"),
+        plan(Method::Post, "/tasks/component-states"),
         501,
-        "not implemented in the native app (not ported yet): `arrange`. \
-         Route: POST /selection/arrange",
+        "not implemented in the native app (not ported yet): `component-states`. \
+         Route: POST /tasks/component-states",
     );
     refused(
         plan(Method::Post, "/nope"),

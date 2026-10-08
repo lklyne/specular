@@ -22,6 +22,7 @@ fn wanted(app: &App) -> Cursor {
         Some(Gesture::Resize(drag)) => return of_handle(drag.handle()),
         Some(Gesture::TextSelect(_)) => return Cursor::Text,
         Some(Gesture::EdgeDrag(_)) => return Cursor::Crosshair,
+        Some(Gesture::Line(_)) => return Cursor::Grabbing,
         Some(
             Gesture::Move(_)
             | Gesture::Marquee { .. }
@@ -47,6 +48,8 @@ fn wanted(app: &App) -> Cursor {
         (Tool::Select, Some(pointer)) => match hit::hit_test(app, pointer) {
             Hit::Handle { handle, .. } => of_handle(handle),
             Hit::Anchor { .. } => Cursor::Crosshair,
+            // `Cursor` has no column or row resize arrow for a gap strip.
+            Hit::Layout(_) => Cursor::Grab,
             Hit::Comment { .. }
             | Hit::GroupLabel { .. }
             | Hit::PageContent { .. }

@@ -28,6 +28,7 @@ mod freehand;
 mod group;
 mod guides;
 mod image;
+mod layout_handles;
 mod page;
 pub(crate) mod palette;
 mod session;

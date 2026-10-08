@@ -84,7 +84,8 @@ fn subject(app: &App) -> Subject<'_> {
             | Gesture::Comment(_)
             | Gesture::Place(_)
             | Gesture::Draw(_)
-            | Gesture::EdgeDrag(_),
+            | Gesture::EdgeDrag(_)
+            | Gesture::Line(_),
         ) => true,
     };
     // A tool's popup stays while its tool is drawing.

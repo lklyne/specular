@@ -8,6 +8,7 @@ use crate::comment::{self, CommentDrag};
 use crate::draw::{self, DrawStroke};
 use crate::edge_drag::{self, EdgeDrag};
 use crate::edit::{self, TextSelectDrag};
+use crate::layout::drag::{self as line_drag, LineDrag};
 use crate::marquee::MarqueeMode;
 use crate::move_drag::{self, MoveDrag};
 use crate::place::{self, PlaceDrag};
@@ -57,6 +58,8 @@ pub enum Gesture {
     /// Dragging an edge out of an anchor, or one end of an existing edge off
     /// its anchor.
     EdgeDrag(EdgeDrag),
+    /// Dragging a reorder dot or a gap strip of a line (ADR 0015).
+    Line(LineDrag),
 }
 
 /// The pointer moved mid-drag, or a modifier changed under it.
@@ -97,6 +100,10 @@ pub(crate) fn drag(app: &mut App, input: &PointerInput) {
             edge_drag::drag(app, &mut drag, input.screen);
             app.session.gesture = Some(Gesture::EdgeDrag(drag));
         }
+        Some(Gesture::Line(mut drag)) => {
+            line_drag::drag(app, &mut drag, world);
+            app.session.gesture = Some(Gesture::Line(drag));
+        }
     }
 }
 
@@ -126,6 +133,7 @@ pub(crate) fn finish(
         // The selection is already where the drag left it.
         Gesture::TextSelect(_) => {}
         Gesture::EdgeDrag(drag) => edge_drag::finish(app, &drag, effects),
+        Gesture::Line(drag) => line_drag::finish(app, &drag, effects),
     }
 }
 
@@ -143,6 +151,7 @@ pub(crate) fn cancel(app: &mut App, effects: &mut Vec<Effect>) {
         Some(Gesture::Place(drag)) => place::cancel(app, &drag),
         Some(Gesture::Draw(stroke)) => draw::cancel(app, &stroke),
         Some(Gesture::EdgeDrag(drag)) => edge_drag::cancel(app, &drag, effects),
+        Some(Gesture::Line(drag)) => line_drag::cancel(app, &drag),
     }
 }
 

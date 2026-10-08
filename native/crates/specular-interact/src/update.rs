@@ -194,6 +194,13 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         Action::DeleteComment(id) => verb(app, effects, |app, effects| {
             comment::delete(app, id.as_ref(), effects);
         }),
+        Action::AutoLayout => verb(app, effects, crate::layout::act::make),
+        Action::GroupLayout(axis) => verb(app, effects, |app, fx| {
+            crate::layout::act::set_axis(app, axis, fx);
+        }),
+        Action::GroupGap(gap) => verb(app, effects, |app, fx| {
+            crate::layout::act::set_gap(app, gap, fx);
+        }),
         Action::Group => verb(app, effects, groups::group),
         Action::Ungroup => verb(app, effects, groups::ungroup),
         Action::Copy => clipboard::copy(app, effects),

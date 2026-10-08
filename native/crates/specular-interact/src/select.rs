@@ -18,7 +18,8 @@ use crate::comment;
 use crate::marquee::MarqueeMode;
 use crate::move_drag::{self, Click};
 use crate::{
-    App, Effect, Gesture, Hit, PointerInput, TextEdit, edge_drag, edit, groups, hit, resize_drag,
+    App, Effect, Gesture, Hit, PointerInput, TextEdit, edge_drag, edit, groups, hit, layout,
+    resize_drag,
 };
 
 /// Whether a click with these modifiers changes the selection item by item
@@ -42,6 +43,9 @@ pub(crate) fn press(
         Hit::Handle { owner, handle } => {
             app.session.gesture =
                 resize_drag::begin(app, owner, handle, world).map(Gesture::Resize);
+        }
+        Hit::Layout(handle) => {
+            app.session.gesture = layout::drag::begin(app, &handle, world).map(Gesture::Line);
         }
         // A double click on a group's title renames it.
         Hit::GroupLabel { group } if click_count > 1 && !is_additive(input.modifiers) => {

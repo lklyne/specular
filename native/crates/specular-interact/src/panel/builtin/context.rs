@@ -79,7 +79,7 @@ pub(crate) fn open(app: &mut App, screen: Vec2, hit: &Hit) -> bool {
         | Hit::GroupBorder { group: entity } => Some(ItemId::Entity(entity.clone())),
         Hit::Edge { edge } => Some(ItemId::Edge(edge.clone())),
         // A handle and an anchor belong to what is already selected.
-        Hit::Handle { .. } | Hit::Anchor { .. } => None,
+        Hit::Handle { .. } | Hit::Anchor { .. } | Hit::Layout(_) => None,
         Hit::Empty => {
             app.session.selection.set([]);
             None

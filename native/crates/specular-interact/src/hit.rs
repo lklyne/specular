@@ -6,6 +6,7 @@ use specular_doc::{AnnotationId, Drawing, EdgeId, EdgeSide, Entity, EntityId, It
 use crate::app::page_of;
 use crate::edge_path::distance_to_segment;
 use crate::geometry::ScreenRect;
+use crate::layout::handles::LayoutHandle;
 use crate::{
     App, ControlId, Handle, HandleOwner, PagePlacement, anchors, comment, geometry, handles,
 };
@@ -64,6 +65,8 @@ pub enum Hit {
         /// The side the anchor is on.
         side: EdgeSide,
     },
+    /// A reorder dot or a gap strip of a line (ADR 0015).
+    Layout(LayoutHandle),
     /// A page's content.
     PageContent {
         /// The page entity.
@@ -99,7 +102,8 @@ pub enum Hit {
 
 /// What is under `screen`. The built-in panels come first, being drawn over
 /// everything. Then chrome (comment marks, group titles, then the
-/// selection's resize handles, then edge anchors), then the bodies as
+/// selection's resize handles, edge anchors, and a line's reorder dots and
+/// gap strips), then the bodies as
 /// [`body_at`] orders them.
 pub fn hit_test(app: &App, screen: Vec2) -> Hit {
     if let Some(panel) = crate::panel::builtin::hit(app, screen) {
@@ -134,6 +138,10 @@ pub fn hit_test(app: &App, screen: Vec2) -> Hit {
         return Hit::Anchor { entity, side };
     }
 
+    if let Some(handle) = app.layout_handle_at(screen) {
+        return Hit::Layout(handle);
+    }
+
     body_at(app, screen)
 }
 
@@ -149,11 +157,13 @@ pub(crate) const fn entity_of(hit: &Hit) -> Option<&EntityId> {
         }
         | Hit::Anchor { entity, .. }
         | Hit::PageContent { page: entity, .. }
+        | Hit::Layout(LayoutHandle::Reorder { entity })
         | Hit::EntityBody { entity } => Some(entity),
         Hit::Handle {
             owner: HandleOwner::Selection,
             ..
         }
+        | Hit::Layout(LayoutHandle::Gap { .. })
         | Hit::Comment { .. }
         | Hit::Edge { .. }
         | Hit::Empty
@@ -187,6 +197,7 @@ pub(crate) fn entity_under_edges(app: &App, screen: Vec2) -> Option<EntityId> {
         | Hit::Handle { .. }
         | Hit::Anchor { .. }
         | Hit::GroupBorder { .. }
+        | Hit::Layout(_)
         | Hit::Edge { .. }
         | Hit::Empty
         | Hit::Panel { .. } => None,
