@@ -4,7 +4,7 @@
 use specular_interact::panel::builtin::{Panel, Surface};
 
 use super::colors::{
-    MENU, MENU_BORDER, MENU_SHADOW, POPUP, POPUP_BORDER, SHADOW_FAR, SHADOW_NEAR, TOOLBAR,
+    MENU, MENU_BORDER, MENU_SHADOW, POPUP, POPUP_BORDER, SHADOW_FAR, SHADOW_NEAR, SIDEBAR, TOOLBAR,
     TOOLBAR_BORDER,
 };
 use crate::{Item, Rect, RectDraw, ShadowDraw, Stroke, StrokeAlign};
@@ -21,6 +21,12 @@ pub(super) fn draw(panel: &Panel, out: &mut Vec<Item>) {
             let line = Rect::new(rect.x, rect.bottom() - 1.0, rect.width, 1.0);
             out.push(Item::screen(RectDraw::filled(line, TOOLBAR_BORDER)));
         }
+        Surface::Sidebar => {
+            out.push(Item::screen(RectDraw::filled(rect, SIDEBAR)));
+            let edge = Rect::new(rect.right() - 1.0, rect.y, 1.0, rect.height);
+            out.push(Item::screen(RectDraw::filled(edge, POPUP_BORDER)));
+        }
+        Surface::SidebarList => {}
         Surface::Popup | Surface::Dropdown if panel.menu => menu(rect, out),
         Surface::Popup | Surface::Dropdown => floating(rect, out),
     }

@@ -15,6 +15,7 @@ use crate::theme;
 pub(super) fn tool_popup(model: &PopupModel, _cx: &App) -> impl IntoElement {
     let gap = match model.anchor {
         PopupAnchor::Toolbar { gap } | PopupAnchor::Canvas { gap, .. } => gap,
+        PopupAnchor::Point(_) => 0.0,
     };
     // The row spans the window only to centre the popup. It takes no
     // pointer events, so the canvas under its empty ends still does.

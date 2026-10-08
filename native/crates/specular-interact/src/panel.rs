@@ -11,6 +11,8 @@
 
 mod build;
 pub mod builtin;
+mod context;
+mod field;
 mod icon;
 mod id;
 mod model;
@@ -18,14 +20,18 @@ mod models;
 mod popup;
 mod toolbar;
 
+pub use context::{MenuTarget, context_menu};
+pub(crate) use field::field_named;
+pub use field::{Field, FieldSubmit, FieldWidth};
 pub use icon::Icon;
 pub use id::ControlId;
 pub use model::{
-    Button, Control, Dropdown, DropdownOption, DropdownSection, Entries, Face, Label, OptionLayout,
-    PaintRole, Palette, Stepper, Swatch, Swatches, Toggle,
+    Button, Choices, Control, Dropdown, DropdownOption, DropdownSection, Entries, Face, Label,
+    OptionLayout, PaintRole, Palette, Stepper, Swatch, Swatches, Toggle,
 };
 pub use models::{
-    Align, Placement, PopupAnchor, PopupModel, ToolButton, ToolbarModel, ToolbarSection,
+    Align, Placement, PopupAnchor, PopupModel, SidebarButton, ToolButton, ToolbarModel,
+    ToolbarSection,
 };
 pub use popup::popup_for;
 pub use toolbar::toolbar;

@@ -50,11 +50,15 @@ fn the_toolbar_and_a_sticky_popup() {
       tool.comment 686,8 32x28 ToolButton: icon CommentTool 692,12 20x20
       - 726,14 1x16 Divider
       zoom 735,8 58x28 ToolMenu: text "100%" 744,8 34x28 Left; chevron 778,17 10x10
-    popup 491,252 219x34
-      text.size 496,257 78x24 Button: text "Small" 502,257 50x24 Left; chevron 556,263 12x12
-      text.font 578,257 68x24 Button: text "Sans" 584,257 40x24 Left; chevron 628,263 12x12
-      - 654,261 1x16 Divider
-      text.color 663,257 42x24 Button: dot none 667,261 16x16; chevron 687,263 12x12
+      sidebar.toggle 16,9 26x26 Subtle dimmed: glyph PanelLeft 22,15 14x14 Follow
+    popup 456,252 288x34
+      text.size 461,257 78x24 Button: text "Small" 467,257 50x24 Left; chevron 521,263 12x12
+      text.font 543,257 68x24 Button: text "Sans" 549,257 40x24 Left; chevron 593,263 12x12
+      - 619,261 1x16 Divider
+      text.color 628,257 42x24 Button: dot none 632,261 16x16; chevron 652,263 12x12
+      - 678,261 1x16 Divider
+      item.annotate 687,257 24x24 Button: icon Annotate 692,262 14x14
+      item.focus 715,257 24x24 Button: icon Focus 720,262 14x14
     "#);
 }
 
@@ -104,9 +108,13 @@ fn a_popup_goes_when_its_item_leaves_the_canvas() {
 
 #[test]
 fn a_page_popup_is_as_wide_as_its_page_and_no_wider_than_the_viewport() {
-    let app = with(page("p", Rect::new(300.0, 300.0, 600.0, 400.0)));
+    let app = with(page("p", Rect::new(300.0, 300.0, 700.0, 400.0)));
     let popup = popup(&app);
-    assert_eq!((popup.x, popup.width), (300.0, 600.0));
+    assert_eq!((popup.x, popup.width), (300.0, 700.0));
+    // A page narrower than the address field and its neighbours is still
+    // given the room they need.
+    let narrow = with(page("p", Rect::new(300.0, 300.0, 300.0, 400.0)));
+    assert!(self::popup(&narrow).width > 550.0);
     let wide = with(page("p", Rect::new(-500.0, 300.0, 3000.0, 400.0)));
     let popup = self::popup(&wide);
     assert_eq!((popup.x, popup.width), (MARGIN, VIEWPORT.0 - MARGIN * 2.0));
@@ -171,11 +179,15 @@ fn the_zoom_levels_hang_from_the_toolbar_and_open_over_the_popup() {
       tool.comment 686,8 32x28 ToolButton: icon CommentTool 692,12 20x20
       - 726,14 1x16 Divider
       zoom 735,8 58x28 ToolMenu on hover: text "100%" 744,8 34x28 Left; chevron 778,17 10x10
-    popup 491,52 219x34
-      text.size 496,57 78x24 Button: text "Small" 502,57 50x24 Left; chevron 556,63 12x12
-      text.font 578,57 68x24 Button: text "Sans" 584,57 40x24 Left; chevron 628,63 12x12
-      - 654,61 1x16 Divider
-      text.color 663,57 42x24 Button: dot none 667,61 16x16; chevron 687,63 12x12
+      sidebar.toggle 16,9 26x26 Subtle dimmed: glyph PanelLeft 22,15 14x14 Follow
+    popup 456,52 288x34
+      text.size 461,57 78x24 Button: text "Small" 467,57 50x24 Left; chevron 521,63 12x12
+      text.font 543,57 68x24 Button: text "Sans" 549,57 40x24 Left; chevron 593,63 12x12
+      - 619,61 1x16 Divider
+      text.color 628,57 42x24 Button: dot none 632,61 16x16; chevron 652,63 12x12
+      - 678,61 1x16 Divider
+      item.annotate 687,57 24x24 Button: icon Annotate 692,62 14x14
+      item.focus 715,57 24x24 Button: icon Focus 720,62 14x14
     dropdown 679,52 170x178
       zoom.10 684,57 160x24 PresetRow: text "10%" 692,57 144x24 Left
       zoom.25 684,81 160x24 PresetRow: text "25%" 692,81 144x24 Left

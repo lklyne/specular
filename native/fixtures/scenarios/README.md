@@ -25,6 +25,10 @@ have been looked at.
 | `c-document` | Add a Document, write markdown with the formatting shortcuts, end, reopen, scroll to the end and back, undo. |
 | `d-text-edge-cases` | Emoji, CJK through the input method, a long word, empty lines, replace-all, a multi-line paste, a shape label, editing at zoom 0.25 and 3. |
 | `e-clipboard` | Text between stickies, a cut, a copied entity, a pasted URL, pasted text with nothing selected. |
+| `k-page-chrome` | The page popup: a page placed at the preset the page tool was set to, an address typed, entered, scrolled and abandoned, a custom width and height typed into the size list, undone. |
+| `l-sidebar` | The kitchen sink with the left sidebar: shown from the toolbar, canvases added, renamed in place (Enter, Escape) and deleted from the menu, sections folded, the list scrolled and a group opened, rows that bring a page and a comment into view, zoom to fit beside the sidebar and without it. |
+| `m-context-menu-and-arrange` | The kitchen sink with the right-click menu on a sticky (a duplicate chosen and undone), on empty canvas, on a page, in the corner and beside the sidebar, the multi-select and mixed popups, a row and a column arranged and undone, and bold put on a sticky mid-edit with the popup's button. |
+| `n-chrome-session` | One session through the chrome with the sidebar shown: a page picked from its row, the popup's address and size list, the right-click menu duplicating a sticky, a second canvas added and given a sticky, the first canvas switched back to and saved. |
 | `f1-reload-own-save` | The canvas `a-first-session` saved, reopened and saved untouched. Run `a-first-session` first. |
 | `f2-electron-file-one-change` | The starter space's `Welcome.canvas`, which Electron wrote, with one shape nudged. |
 | `f3-fixture-one-change` | The integration suite's `rich-workspace.canvas` with one shape nudged. |
@@ -40,6 +44,7 @@ have been looked at.
 - In h, an escaped gesture leaves nothing.
 - In i, undoing every step gives back the kitchen sink, and the six
   comments it saved have Electron's field shape.
+- In l, the kitchen sink is as it was after everything the sidebar does.
 - In f1, a canvas saved, reopened and saved again is the same.
 - In f2 and f3, one change to a canvas from the Electron app changes one
   field in the file. Every text keeps the size it was read with, though

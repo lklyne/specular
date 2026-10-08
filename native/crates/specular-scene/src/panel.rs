@@ -12,11 +12,12 @@
 
 mod colors;
 mod icons;
+mod input;
 mod node;
 mod surface;
 
 use specular_interact::App;
-use specular_interact::panel::builtin::{PanelRect, layout};
+use specular_interact::panel::builtin::{PanelRect, Surface, layout};
 
 use crate::{Rect, Scene};
 
@@ -54,7 +55,22 @@ pub fn draw_panels(app: &App, scene: &mut Scene) {
     for panel in layout.panels() {
         surface::draw(panel, &mut scene.items);
         for node in &panel.nodes {
+            let first = scene.items.len();
             node::draw(panel.surface, node, &mut scene.items);
+            if panel.surface == Surface::SidebarList {
+                clip(&mut scene.items[first..], rect(panel.rect));
+            }
         }
+    }
+}
+
+/// Cuts `items` off at `window`, inside any clip they already have.
+fn clip(items: &mut [crate::Item], window: Rect) {
+    for item in items {
+        item.clip = match item.clip {
+            Some(own) => own.intersection(window),
+            None => Some(window),
+        }
+        .or(Some(Rect::new(0.0, 0.0, 0.0, 0.0)));
     }
 }

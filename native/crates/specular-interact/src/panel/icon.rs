@@ -71,14 +71,64 @@ pub enum Icon {
     Strikethrough,
     /// A bullet list. Lucide `List`.
     BulletList,
+    /// Arrange in a row. Lucide `Columns2`: side-by-side bars read as a row.
+    ArrangeRow,
+    /// Arrange in a column. Lucide `Rows2`.
+    ArrangeColumn,
+    /// Arrange in a grid. Lucide `Grid2x2`.
+    ArrangeGrid,
+    /// Annotate. Lucide `MessageCircle`.
+    Annotate,
+    /// Focus. Lucide `Maximize2`.
+    Focus,
     /// A device frame. Lucide `Smartphone`.
     Device,
     /// Rotate the viewport. `RotateIcon` in `shared/CustomIcons.tsx`.
     Rotate,
+    /// Back in a page's history. Lucide `ChevronLeft`.
+    ChevronLeft,
+    /// Forward in a page's history. Lucide `ChevronRight`.
+    ChevronRight,
+    /// Load a page again. Lucide `RotateCw`.
+    Reload,
+    /// Abandon a page's load. Lucide `X`.
+    Stop,
     /// The system color scheme. `shared/icons/toolbar/sun-moon.svg`.
     SchemeSystem,
     /// The light color scheme. `shared/icons/toolbar/sun.svg`.
     SchemeLight,
     /// The dark color scheme. `shared/icons/toolbar/moon.svg`.
     SchemeDark,
+    /// The down chevron of an open section. Lucide `ChevronDown`.
+    ChevronDown,
+    /// The mark beside the active canvas. Lucide `Check`.
+    Check,
+    /// Add a canvas. Lucide `Plus`.
+    Plus,
+    /// The sidebar's toggle. Lucide `PanelRight`, mirrored.
+    PanelLeft,
+    /// A canvas, and a file of no known kind. Lucide `File`.
+    File,
+    /// A markdown document. Lucide `FileText`.
+    FileText,
+    /// An image file. Lucide `Image`.
+    Image,
+    /// A video file. Lucide `Video`.
+    Video,
+    /// A web document. Lucide `Code`.
+    Code,
+    /// A closed group. Lucide `Folder`.
+    Folder,
+    /// An open group. Lucide `FolderOpen`.
+    FolderOpen,
+    /// Plain text and sticky notes. Lucide `StickyNote`.
+    StickyNote,
+    /// A freehand drawing. Lucide `PenLine`.
+    PenLine,
+    /// A comment. Lucide `MessageSquare`.
+    MessageSquare,
+    /// A tablet-sized page. Lucide `Tablet`.
+    Tablet,
+    /// A desktop-sized page. Lucide `Laptop`.
+    Laptop,
 }

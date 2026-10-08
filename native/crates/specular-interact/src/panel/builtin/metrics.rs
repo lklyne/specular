@@ -16,6 +16,12 @@ pub(super) const ZOOM_CHEVRON: f32 = 10.0;
 /// The corner of a tool button and of a popup control: `rounded-[6px]`.
 pub(super) const CONTROL_RADIUS: f32 = 6.0;
 
+/// The sidebar's button at the toolbar's left: `p-1.5` around a 14 px
+/// glyph with `rounded-[8px]`, set in by the bar's `px-4`.
+pub(super) const SIDEBAR_BUTTON: f32 = 26.0;
+pub(super) const SIDEBAR_BUTTON_LEFT: f32 = 16.0;
+pub(super) const SIDEBAR_BUTTON_RADIUS: f32 = 8.0;
+
 /// The space between neighbours in a row: `gap-1`.
 pub(super) const GAP: f32 = 4.0;
 /// A divider between groups: `mx-1 h-4 w-px`.
@@ -30,6 +36,21 @@ pub(super) const RULE_MARGIN: f32 = 2.0;
 pub(super) const INSET: f32 = 5.0;
 /// How near a viewport edge a panel may come: `POPUP_EDGE_MARGIN`.
 pub(super) const EDGE_MARGIN: f32 = 8.0;
+
+/// The height of a text field: `border px-2 py-1 text-xs`, a 16 px line
+/// between a pixel of border and 4 px of padding each side. Its side padding
+/// is `FIELD_PAD`. The address field is at least `URL_INPUT_MIN_WIDTH` wide;
+/// a number is a few characters.
+pub const FIELD_HEIGHT: f32 = 26.0;
+pub(super) const FIELD_PAD: f32 = 8.0;
+pub(super) const FIELD_WIDE: f32 = 280.0;
+pub(super) const FIELD_SHORT: f32 = 56.0;
+/// An edge's label: `w-28`.
+pub(super) const FIELD_MEDIUM: f32 = 112.0;
+/// The size of a field's text.
+pub const FIELD_TEXT: f32 = 12.0;
+/// The height of a field's line of text.
+pub const FIELD_LINE: f32 = 16.0;
 
 /// A popup control: `h-6 w-6` in `popupIconButtonClass`.
 pub(super) const CONTROL: f32 = 24.0;

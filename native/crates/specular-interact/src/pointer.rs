@@ -115,7 +115,12 @@ fn on_down(
     if button == PointerButton::Left && tool_takes_press(app, input, click_count, effects) {
         return;
     }
-    if let Some((page, local)) = entered_page(app, hit::hit_test(app, input.screen)) {
+    let under = hit::hit_test(app, input.screen);
+    if button == PointerButton::Right && crate::panel::builtin::open_menu(app, input.screen, &under)
+    {
+        return;
+    }
+    if let Some((page, local)) = entered_page(app, under) {
         app.session.captured.press(button, page.clone());
         effects.push(pointer_to(
             page,

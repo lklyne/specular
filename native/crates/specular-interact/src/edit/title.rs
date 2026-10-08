@@ -76,7 +76,7 @@ pub(crate) fn is_editing(app: &App) -> bool {
 /// the line: always for one line, and unless Shift is held for a comment.
 fn enter_ends(app: &App, input: &KeyInput) -> bool {
     (app.session.editing.as_ref()).is_some_and(|edit| match edit.target {
-        Target::Title | Target::EdgeLabel => true,
+        Target::Title | Target::EdgeLabel | Target::Field => true,
         Target::Comment => !input.modifiers.shift,
         Target::Text | Target::Label | Target::Note => false,
     })
@@ -85,7 +85,7 @@ fn enter_ends(app: &App, input: &KeyInput) -> bool {
 /// A title is one line: breaks in pasted text become spaces.
 pub(super) fn single_line(target: Target, text: String) -> String {
     match target {
-        Target::Title | Target::EdgeLabel => text.replace('\n', " "),
+        Target::Title | Target::EdgeLabel | Target::Field => text.replace('\n', " "),
         Target::Text | Target::Label | Target::Note | Target::Comment => text,
     }
 }

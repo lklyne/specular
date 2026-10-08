@@ -13,6 +13,7 @@ mod paths_pens;
 mod paths_popup;
 mod paths_tools;
 mod popup;
+mod sidebar;
 mod svg;
 mod tools;
 
@@ -186,11 +187,36 @@ fn glyph(icon: Icon) -> Glyph {
         Icon::Bold => lucide::BOLD,
         Icon::Strikethrough => lucide::STRIKETHROUGH,
         Icon::BulletList => lucide::LIST,
+        Icon::ArrangeRow => lucide::COLUMNS_2,
+        Icon::ArrangeColumn => lucide::ROWS_2,
+        Icon::ArrangeGrid => lucide::GRID_2X2,
+        Icon::Annotate => lucide::MESSAGE_CIRCLE,
+        Icon::Focus => lucide::MAXIMIZE_2,
         Icon::Device => lucide::SMARTPHONE,
         Icon::Rotate => popup::ROTATE,
+        Icon::ChevronLeft => lucide::CHEVRON_LEFT,
+        Icon::ChevronRight => lucide::CHEVRON_RIGHT,
+        Icon::Reload => lucide::ROTATE_CW,
+        Icon::Stop => lucide::X,
         Icon::SchemeSystem => popup::SCHEME_SYSTEM,
         Icon::SchemeLight => popup::SCHEME_LIGHT,
         Icon::SchemeDark => popup::SCHEME_DARK,
+        Icon::ChevronDown => lucide::CHEVRON,
+        Icon::Check => lucide::CHECK,
+        Icon::Plus => sidebar::PLUS,
+        Icon::PanelLeft => sidebar::PANEL_LEFT,
+        Icon::File => sidebar::FILE,
+        Icon::FileText => sidebar::FILE_TEXT,
+        Icon::Image => sidebar::IMAGE,
+        Icon::Video => sidebar::VIDEO,
+        Icon::Code => sidebar::CODE,
+        Icon::Folder => sidebar::FOLDER,
+        Icon::FolderOpen => sidebar::FOLDER_OPEN,
+        Icon::StickyNote => sidebar::STICKY_NOTE,
+        Icon::PenLine => sidebar::PEN_LINE,
+        Icon::MessageSquare => sidebar::MESSAGE_SQUARE,
+        Icon::Tablet => sidebar::TABLET,
+        Icon::Laptop => sidebar::LAPTOP,
     }
 }
 

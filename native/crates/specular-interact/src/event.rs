@@ -5,8 +5,9 @@ use specular_core::{Camera, ImeEvent, Modifiers, PageElement, PixelRect, Pointer
 use specular_doc::{AnnotationId, Document, EntityId, ItemId, Rect};
 
 use crate::{
-    ApiCall, CanvasId, ClipboardContent, DroppedFile, Format, ImageKey, ImageNotice, NoteNotice,
-    OpenedSpace, PageGrab, Property, Tool, ToolDefaultPatch, ToolDefaults,
+    ApiCall, ArrangeMode, CanvasId, ClipboardContent, DroppedFile, Format, ImageKey, ImageNotice,
+    NoteNotice, OpenedSpace, PageGrab, Property, SidebarAction, Tool, ToolDefaultPatch,
+    ToolDefaults,
 };
 
 /// One input to [`update`](crate::update). Window input arrives in logical
@@ -283,6 +284,21 @@ pub enum Action {
     Redo,
     /// Replace the selection. Ids that name nothing are dropped.
     Select(Vec<ItemId>),
+    /// Select `select`, as [`Action::Select`] does, and bring `focus` into
+    /// view: nothing moves when it is all in the part of the viewport the
+    /// sidebar leaves free, and otherwise the camera pans, at the zoom it
+    /// has, to centre it there. What a sidebar row sends.
+    Reveal {
+        /// What the selection becomes.
+        select: Vec<ItemId>,
+        /// What the camera shows.
+        focus: ItemId,
+    },
+    /// Give a comment the focus, as [`Action::FocusComment`] does, and bring
+    /// what it is on into view as [`Action::Reveal`] does.
+    RevealComment(AnnotationId),
+    /// Show or hide the sidebar, fold a section or open a row.
+    Sidebar(SidebarAction),
     /// Move the camera.
     SetCamera(Camera),
     /// Remove the selection, with what is inside its groups, what is hooked
@@ -323,6 +339,12 @@ pub enum Action {
     Ungroup,
     /// Open a comment draft on the region the selected entities span.
     AnnotateSelection,
+    /// Lay the selected items out in a row, a column or a grid, keeping the
+    /// footprint they have and evening the spacing inside it. Does nothing
+    /// for fewer than two.
+    Arrange(ArrangeMode),
+    /// Zoom and pan to frame the selected items, as large as fits.
+    FocusSelection,
     /// Give a comment the focus, taking the selection away, or with `None`
     /// let go of the focus. An id that is not shown does nothing.
     FocusComment(Option<AnnotationId>),
@@ -341,6 +363,8 @@ pub enum Action {
     PageReload,
     /// Abandon that page's load in flight.
     PageStop,
+    /// Take that page to an address, as one typed in its address field.
+    PageNavigate(String),
     /// Change the space's canvases: show another, add, rename, copy or
     /// remove one.
     Canvas(CanvasAction),
@@ -372,6 +396,9 @@ pub enum CanvasAction {
         /// The new name.
         name: String,
     },
+    /// Start typing a new name for a canvas in its row of the sidebar. `None`
+    /// is the active canvas. Does nothing while the sidebar is hidden.
+    BeginRename(Option<CanvasId>),
     /// Copy a canvas into a new one beside it and show the copy. `None` is
     /// the active canvas.
     Duplicate(Option<CanvasId>),

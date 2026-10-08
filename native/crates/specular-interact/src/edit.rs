@@ -21,6 +21,7 @@
 mod blink;
 mod buffer;
 mod edge_label;
+mod field;
 mod format;
 mod formatting;
 pub(crate) mod frame;
@@ -50,6 +51,9 @@ pub(crate) use buffer::{Origin, Target};
 pub use edge_label::LABEL_SIZE as EDGE_LABEL_SIZE;
 pub(crate) use edge_label::begin as begin_edge_label;
 pub(crate) use edge_label::selected_key as selected_edge_key;
+pub(crate) use field::{
+    begin as begin_field, cancel as cancel_field, follow_caret as follow_field_caret,
+};
 pub use formatting::Format;
 pub(crate) use formatting::run as format;
 pub use frame::{NOTE_PADDING, TextFrame, note_frame};
@@ -106,10 +110,15 @@ fn geometry(app: &App, edit: &TextEdit) -> Option<(TextFrame, Arc<TextLayout>)> 
     if edit.target == Target::Comment {
         return comment::frame(app).map(plain);
     }
+    if edit.target == Target::Field {
+        return field::frame(app, edit).map(plain);
+    }
     let entity = app.document.entity(&edit.entity)?;
     match edit.target {
         Target::Text | Target::Label => frame::of(entity).map(plain),
-        Target::Title | Target::EdgeLabel | Target::Comment => title::frame(app, entity).map(plain),
+        Target::Title | Target::EdgeLabel | Target::Comment | Target::Field => {
+            title::frame(app, entity).map(plain)
+        }
         Target::Note => {
             let frame = frame::note_frame(entity.rect, app.session.notes.scroll(&entity.id));
             let layout = stack::layout(&edit.text, &frame.spec, measure, &app.stacks);
@@ -134,7 +143,8 @@ fn page_height(app: &App, edit: &TextEdit) -> f32 {
             | Target::Label
             | Target::Title
             | Target::EdgeLabel
-            | Target::Comment,
+            | Target::Comment
+            | Target::Field,
             _,
         ) => app.session.viewport.y / app.session.camera.zoom.max(f32::EPSILON),
     }
@@ -290,6 +300,9 @@ pub(crate) fn end(app: &mut App, effects: &mut Vec<Effect>) {
     if edit.target == Target::Comment {
         return comment::end(app, &edit);
     }
+    if edit.target == Target::Field {
+        return field::end(app, &edit, effects);
+    }
     let id = edit.entity.clone();
     let Some(entity) = app.document.entity(&id).cloned() else {
         return;
@@ -414,6 +427,7 @@ impl App {
     pub fn set_text_measure(&mut self, measure: Arc<dyn TextMeasure>) {
         self.measure = Measurer(measure);
         self.stacks = StackCache::default();
+        crate::panel::builtin::forget_layout(self);
     }
 
     /// The measure the editor lays text out with.
@@ -443,7 +457,7 @@ impl App {
                 self.session.notes.scroll(id),
             )),
             // A title sits outside the body; `edit_frame` places it.
-            (Target::Title | Target::EdgeLabel | Target::Comment, _) => None,
+            (Target::Title | Target::EdgeLabel | Target::Comment | Target::Field, _) => None,
             (Target::Text | Target::Label, _) => frame::of(entity),
         }
     }

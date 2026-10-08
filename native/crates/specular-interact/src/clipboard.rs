@@ -182,10 +182,13 @@ pub(crate) fn on_read(app: &mut App, content: ClipboardContent, effects: &mut Ve
 }
 
 /// Where a paste lands: the grid point nearest the pointer, or nearest the
-/// middle of the viewport when the pointer is outside the window.
+/// middle of the viewport the sidebar leaves free when the pointer is
+/// outside the window.
 pub(crate) fn paste_point(app: &App) -> DVec2 {
     let session = &app.session;
-    let screen = session.pointer.unwrap_or(session.viewport / 2.0);
+    let screen = session
+        .pointer
+        .unwrap_or_else(|| crate::viewport::centre(app));
     let world = session.camera.screen_to_world(screen).as_dvec2();
     DVec2::new(grid::snap(world.x), grid::snap(world.y))
 }

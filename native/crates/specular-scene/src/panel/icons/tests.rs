@@ -48,6 +48,22 @@ fn glyphs() -> Vec<Glyph> {
         Icon::SchemeSystem,
         Icon::SchemeLight,
         Icon::SchemeDark,
+        Icon::ChevronDown,
+        Icon::Check,
+        Icon::Plus,
+        Icon::PanelLeft,
+        Icon::File,
+        Icon::FileText,
+        Icon::Image,
+        Icon::Video,
+        Icon::Code,
+        Icon::Folder,
+        Icon::FolderOpen,
+        Icon::StickyNote,
+        Icon::PenLine,
+        Icon::MessageSquare,
+        Icon::Tablet,
+        Icon::Laptop,
     ];
     (icons.into_iter())
         .chain(shapes.into_iter().map(Icon::Shape))

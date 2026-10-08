@@ -184,6 +184,7 @@ pub(super) fn size_dropdown(
             trailing: None,
             chord: None,
             selected: named.is_some_and(|(label, _)| *label == name),
+            enabled: true,
             action: set(size),
         })
         .collect();
@@ -230,6 +231,7 @@ pub(super) fn font_dropdown(
             trailing: None,
             chord: None,
             selected: value == Some(font),
+            enabled: true,
             action: set(font),
         })
         .collect();

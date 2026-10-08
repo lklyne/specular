@@ -6,7 +6,7 @@ use std::borrow::Cow;
 
 use specular_doc::{Color, TextFont};
 
-use super::{ControlId, Icon};
+use super::{ControlId, Field, Icon};
 use crate::{Action, Chord};
 
 /// Text a model carries: a literal, or a line made for this selection.
@@ -182,6 +182,8 @@ pub struct DropdownOption {
     pub chord: Option<Chord>,
     /// Whether it is the current value.
     pub selected: bool,
+    /// Whether it can be chosen now.
+    pub enabled: bool,
     /// What choosing it does.
     pub action: Action,
 }
@@ -210,6 +212,18 @@ pub struct Dropdown {
     /// The current value, shown on the closed control.
     pub summary: Face,
     /// What opens under it.
+    pub content: Vec<DropdownSection>,
+}
+
+/// Choices shown in place, a list that fills its popup, rather than behind
+/// a control.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Choices {
+    /// Its name.
+    pub id: ControlId,
+    /// What it is called.
+    pub label: Label,
+    /// The blocks of choices, set apart from each other.
     pub content: Vec<DropdownSection>,
 }
 
@@ -245,6 +259,10 @@ pub enum Control {
     Dropdown(Dropdown),
     /// A number to step up and down.
     Stepper(Stepper),
+    /// A line of text to type.
+    Field(Field),
+    /// Choices that fill a popup. It is the only control of its popup.
+    Choices(Choices),
     /// A dividing line between groups.
     Separator,
 }
@@ -269,6 +287,10 @@ impl Control {
                 out.push((stepper.id.child("dec"), Some(&stepper.decrement)));
                 out.push((stepper.id.child("inc"), Some(&stepper.increment)));
             }
+            // What a field runs depends on the text, so it has no action to
+            // list.
+            Self::Field(field) => out.push((field.id.clone(), None)),
+            Self::Choices(choices) => section_entries(&choices.content, out),
             Self::Separator => {}
         }
     }
@@ -278,15 +300,19 @@ impl Dropdown {
     /// Adds this dropdown, and the options and controls inside it, to `out`.
     pub fn entries<'a>(&'a self, out: &mut Entries<'a>) {
         out.push((self.id.clone(), None));
-        for section in &self.content {
-            match section {
-                DropdownSection::Options { options, .. } => {
-                    out.extend(options.iter().map(|o| (o.id.clone(), Some(&o.action))));
-                }
-                DropdownSection::Controls(controls) => {
-                    for control in controls {
-                        control.entries(out);
-                    }
+        section_entries(&self.content, out);
+    }
+}
+
+fn section_entries<'a>(content: &'a [DropdownSection], out: &mut Entries<'a>) {
+    for section in content {
+        match section {
+            DropdownSection::Options { options, .. } => {
+                out.extend(options.iter().map(|o| (o.id.clone(), Some(&o.action))));
+            }
+            DropdownSection::Controls(controls) => {
+                for control in controls {
+                    control.entries(out);
                 }
             }
         }

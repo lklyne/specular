@@ -63,6 +63,8 @@ pub enum Property {
     Brush(BrushType),
     /// An edge's line style.
     LineStyle(LineStyle),
+    /// An edge's label. Empty takes the label off.
+    Label(String),
     /// The endpoint shape at an edge's start.
     FromEnd(EdgeEnd),
     /// The endpoint shape at an edge's end.
@@ -73,6 +75,10 @@ pub enum Property {
     ViewportPreset(u32),
     /// A page keeps the size it has as a custom size, with no device.
     CustomViewport,
+    /// A page's width as a custom size, in pixels. Its height stays.
+    ViewportWidth(f64),
+    /// A page's height as a custom size, in pixels. Its width stays.
+    ViewportHeight(f64),
     /// A page's orientation.
     Orientation(Orientation),
     /// Whether a page is drawn in its device frame.
@@ -131,6 +137,11 @@ impl Property {
         }
         commands
     }
+}
+
+/// Makes `page` a page of custom size, keeping the size `rect` has.
+pub(crate) fn make_custom(page: &mut specular_doc::Page, rect: &mut specular_doc::Rect) {
+    page::set(&Property::CustomViewport, page, rect);
 }
 
 fn entity_changes(before: &Entity, after: &Entity) -> Vec<Command> {

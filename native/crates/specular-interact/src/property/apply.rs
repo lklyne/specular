@@ -39,6 +39,9 @@ pub(super) fn edge(property: &Property, edge: &Edge) -> Option<Edge> {
         Property::Color(color) => next.color = Some(color.clone()),
         Property::StrokeWidth(width) => next.stroke_width = Some(*width),
         Property::LineStyle(style) => next.line_style = Some(*style),
+        Property::Label(label) => {
+            next.label = Some(label.clone()).filter(|label| !label.is_empty());
+        }
         Property::FromEnd(end) => next.from_end = Some(*end),
         Property::ToEnd(end) => next.to_end = Some(*end),
         Property::BorderColor(_)
@@ -53,6 +56,8 @@ pub(super) fn edge(property: &Property, edge: &Edge) -> Option<Edge> {
         | Property::Brush(_)
         | Property::ViewportPreset(_)
         | Property::CustomViewport
+        | Property::ViewportWidth(_)
+        | Property::ViewportHeight(_)
         | Property::Orientation(_)
         | Property::DeviceFrame(_)
         | Property::ColorScheme(_) => return None,

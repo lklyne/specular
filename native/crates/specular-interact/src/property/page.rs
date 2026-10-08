@@ -32,16 +32,9 @@ pub(super) fn set(property: &Property, page: &mut Page, rect: &mut Rect) -> bool
             let size = sized_for((chosen.width, chosen.height), orientation_of(meta));
             *rect = Rect::new(rect.x, rect.y, size.0, size.1);
         }
-        Property::CustomViewport => {
-            let meta = page.metadata.get_or_insert_with(JsonMap::new);
-            meta.insert(SIZE_MODE.to_owned(), json!("custom"));
-            meta.insert(
-                CUSTOM_SIZE.to_owned(),
-                json!({"width": number(rect.width), "height": number(rect.height)}),
-            );
-            meta.remove(LEGACY_CUSTOM_SIZE);
-            meta.remove(DEVICE_ID);
-        }
+        Property::CustomViewport => resize(page, rect, rect.width, rect.height),
+        Property::ViewportWidth(width) => resize(page, rect, *width, rect.height),
+        Property::ViewportHeight(height) => resize(page, rect, rect.width, *height),
         Property::Orientation(orientation) => {
             let base = base_size(page);
             let meta = page.metadata.get_or_insert_with(JsonMap::new);
@@ -57,6 +50,7 @@ pub(super) fn set(property: &Property, page: &mut Page, rect: &mut Rect) -> bool
         }
         Property::ColorScheme(scheme) => page.color_scheme = *scheme,
         Property::Color(_)
+        | Property::Label(_)
         | Property::BorderColor(_)
         | Property::TextSize(_)
         | Property::TextFont(_)
@@ -73,6 +67,20 @@ pub(super) fn set(property: &Property, page: &mut Page, rect: &mut Rect) -> bool
         | Property::ToEnd(_) => return false,
     }
     true
+}
+
+/// Gives the page the custom size `width` by `height`, which no preset
+/// names any more.
+fn resize(page: &mut Page, rect: &mut Rect, width: f64, height: f64) {
+    let meta = page.metadata.get_or_insert_with(JsonMap::new);
+    meta.insert(SIZE_MODE.to_owned(), json!("custom"));
+    meta.insert(
+        CUSTOM_SIZE.to_owned(),
+        json!({"width": number(width), "height": number(height)}),
+    );
+    meta.remove(LEGACY_CUSTOM_SIZE);
+    meta.remove(DEVICE_ID);
+    *rect = Rect::new(rect.x, rect.y, width, height);
 }
 
 /// The page's orientation. A page that never recorded one is portrait.

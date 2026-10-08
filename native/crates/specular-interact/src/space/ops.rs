@@ -41,6 +41,11 @@ pub(crate) fn act(app: &mut App, action: CanvasAction, effects: &mut Vec<Effect>
             let canvas = target(app, canvas);
             rename(app, &canvas, &name, effects)
         }
+        CanvasAction::BeginRename(canvas) => {
+            let canvas = target(app, canvas);
+            crate::sidebar::begin_rename(app, &canvas, effects);
+            Ok(())
+        }
         CanvasAction::Duplicate(canvas) => {
             let canvas = target(app, canvas);
             duplicate(app, &canvas, effects);

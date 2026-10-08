@@ -156,6 +156,36 @@ pub(crate) fn toggle_wrap(edit: &mut TextEdit, wrap: Wrap) -> bool {
     })
 }
 
+/// Whether the caret, or the selection, is in a run of `wrap`: wrapped by
+/// its markers just outside, holding them as its first and last characters,
+/// or between an opening marker and a closing one on its line.
+pub(crate) fn wrapped(edit: &TextEdit, wrap: Wrap) -> bool {
+    let marker = wrap.marker();
+    let italic = wrap == Wrap::Italic;
+    let selection = edit.selection();
+    let (start, end) = (selection.start, selection.end);
+    let (head, tail) = (&edit.text[..start], &edit.text[end..]);
+    let outside = head.ends_with(marker)
+        && tail.starts_with(marker)
+        && (!italic || italic_pair(stars_before(head), stars_after(tail)));
+    let inner = &edit.text[start..end];
+    let inside = inner.len() >= marker.len() * 2
+        && inner.starts_with(marker)
+        && inner.ends_with(marker)
+        && (!italic || italic_pair(stars_after(inner), stars_before(inner)));
+    let line = segment::paragraph_at(&edit.text, start);
+    let before =
+        &edit.text[(line.start + block_markup_end(&edit.text[line.clone()])).min(start)..start];
+    let after = &edit.text[end..line.end.max(end)];
+    outside || inside || (in_open_run(before, wrap) && after.contains(marker))
+}
+
+/// Whether the line the caret is on is an item of a `kind` list.
+pub(crate) fn in_list(edit: &TextEdit, kind: ListKind) -> bool {
+    let line = segment::paragraph_at(&edit.text, edit.caret);
+    list_line(&edit.text[line]).is_some_and(|(_, _, mark)| has(kind, mark))
+}
+
 /// The lines the selection spans, first to last. A selection that ends
 /// exactly at the start of a line has not selected anything on it.
 fn selected_lines(edit: &TextEdit) -> Vec<Range<usize>> {
@@ -248,6 +278,12 @@ fn heading(line: &str) -> Option<(Range<usize>, u8)> {
     let hashes = line[indent..].bytes().take_while(|&b| b == b'#').count();
     let marked = (1..=6).contains(&hashes) && line[indent + hashes..].starts_with(' ');
     marked.then(|| (indent..indent + hashes + 1, hashes as u8))
+}
+
+/// The heading level of the line the caret is on.
+pub(crate) fn heading_level(edit: &TextEdit) -> Option<u8> {
+    let line = segment::paragraph_at(&edit.text, edit.caret);
+    heading(&edit.text[line]).map(|(_, level)| level)
 }
 
 /// Sets heading `level` (1 to 6) on every non-blank line the selection

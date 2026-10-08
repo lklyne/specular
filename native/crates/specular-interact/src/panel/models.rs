@@ -1,6 +1,7 @@
 //! The two models themselves: the toolbar, and a popup with where it
 //! belongs. Their controls are in [`model`](super::model).
 
+use glam::Vec2;
 use specular_doc::{Color, Rect};
 
 use super::model::{Control, Dropdown, Entries, Label};
@@ -39,9 +40,26 @@ pub enum ToolbarSection {
     Zoom(Dropdown),
 }
 
+/// The button at the toolbar's left edge that shows and hides the sidebar.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SidebarButton {
+    /// Its name.
+    pub id: ControlId,
+    /// What it is called: it says what pressing it does.
+    pub label: Label,
+    /// The glyph.
+    pub icon: Icon,
+    /// Whether the sidebar is shown.
+    pub open: bool,
+    /// What pressing it does.
+    pub action: Action,
+}
+
 /// The toolbar as it is now.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ToolbarModel {
+    /// The button for the sidebar, at the left edge.
+    pub sidebar: SidebarButton,
     /// The blocks, left to right.
     pub sections: Vec<ToolbarSection>,
 }
@@ -49,7 +67,7 @@ pub struct ToolbarModel {
 impl ToolbarModel {
     /// Every control and option with its action.
     pub fn entries(&self) -> Entries<'_> {
-        let mut out = Vec::new();
+        let mut out = vec![(self.sidebar.id.clone(), Some(&self.sidebar.action))];
         for section in &self.sections {
             match section {
                 ToolbarSection::Tools(tools) => {
@@ -107,6 +125,9 @@ pub enum PopupAnchor {
         /// The space between the region and the popup, in screen pixels.
         gap: f32,
     },
+    /// At a point of the viewport, in screen pixels: a context menu, which
+    /// opens where the pointer was.
+    Point(Vec2),
 }
 
 /// The popup of the tool in hand or of the selection.

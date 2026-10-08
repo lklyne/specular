@@ -23,9 +23,10 @@ pub(crate) fn set_focus(app: &mut App, page: Option<EntityId>, effects: &mut Vec
 /// Leaves the entered page, and ends the text edit, when what they are on is
 /// no longer the whole selection.
 pub(crate) fn leave_unless_selected(app: &mut App, effects: &mut Vec<Effect>) {
-    // A comment draft is on no item, so the selection has no say in it.
+    // A comment draft or a panel field is on no item, so the selection has
+    // no say in it.
     let editing = (app.session.editing.as_ref())
-        .filter(|edit| !edit.is_comment())
+        .filter(|edit| !edit.is_comment() && !edit.is_field())
         .map(TextEdit::entity);
     let selected =
         (app.session.selection.single_entity().cloned()).or_else(|| edit::selected_edge_key(app));

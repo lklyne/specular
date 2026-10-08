@@ -56,6 +56,37 @@ pub fn normalize_user_url(value: &str) -> String {
     )
 }
 
+/// What an address field does with `value`: a URL is completed as
+/// [`normalize_user_url`] does, anything else becomes a web search for it.
+/// `None` for an empty field. Ported from `resolveAddressInput`.
+pub fn resolve_address_input(value: &str) -> Option<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    if looks_like_url(trimmed) {
+        return Some(normalize_user_url(trimmed));
+    }
+    Some(format!(
+        "https://www.google.com/search?q={}",
+        encode_component(trimmed)
+    ))
+}
+
+/// `value` as `encodeURIComponent` writes it.
+fn encode_component(value: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    for byte in value.bytes() {
+        if byte.is_ascii_alphanumeric() || b"-_.!~*'()".contains(&byte) {
+            out.push(char::from(byte));
+        } else {
+            let _ = write!(out, "%{byte:02X}");
+        }
+    }
+    out
+}
+
 fn strip_prefix_ignoring_case<'a>(text: &'a str, prefix: &str) -> Option<&'a str> {
     let head = text.get(..prefix.len())?;
     head.eq_ignore_ascii_case(prefix)
@@ -186,5 +217,18 @@ mod tests {
                 "https://example.com/a#b"
             );
         }
+    }
+
+    #[test]
+    fn an_address_field_searches_for_what_is_not_a_url() {
+        assert_eq!(resolve_address_input("   "), None);
+        assert_eq!(
+            resolve_address_input("example.com").as_deref(),
+            Some("https://example.com/")
+        );
+        assert_eq!(
+            resolve_address_input("blue shoes & socks").as_deref(),
+            Some("https://www.google.com/search?q=blue%20shoes%20%26%20socks")
+        );
     }
 }

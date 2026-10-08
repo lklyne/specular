@@ -5,7 +5,7 @@ use glam::DVec2;
 use specular_core::Camera;
 use specular_doc::Rect;
 
-use crate::panel::builtin::TOOLBAR_HEIGHT;
+use crate::viewport::{area, centre};
 use crate::{App, geometry};
 
 /// How much one zoom in or out changes the zoom.
@@ -30,56 +30,67 @@ pub(crate) fn zoom_out(app: &mut App) {
 
 /// Zooms to 100%, about the middle of the viewport.
 pub(crate) fn reset(app: &mut App) {
-    let session = &mut app.session;
-    session.camera.zoom_about(session.viewport / 2.0, 1.0);
+    let about = centre(app);
+    app.session.camera.zoom_about(about, 1.0);
 }
 
 fn scale(app: &mut App, by: f32) {
-    let session = &mut app.session;
-    let zoom = session.camera.zoom * by;
-    session.camera.zoom_about(session.viewport / 2.0, zoom);
+    let about = centre(app);
+    let camera = &mut app.session.camera;
+    let zoom = camera.zoom * by;
+    camera.zoom_about(about, zoom);
 }
 
 /// Shows every entity, centred, as large as fits. An empty canvas goes back
 /// to its origin at 100%. With the built-in toolbar over the top of the
-/// viewport, the fit is of what is left under it, as the Electron app's
-/// canvas view starts below its toolbar.
+/// viewport and the sidebar over its left edge, the fit is of what is left
+/// free, as the Electron app's canvas view starts below its toolbar and
+/// right of its sidebar.
 pub(crate) fn to_fit(app: &mut App) {
     let bounds = (app.document.entities())
         .map(|entity| entity.rect)
         .reduce(geometry::union);
-    let top = if app.session.panel.built_in {
-        f64::from(TOOLBAR_HEIGHT)
-    } else {
-        0.0
-    };
+    let free = area(app);
     app.session.camera = match bounds {
         Some(bounds) => {
-            let below = app.session.viewport.as_dvec2() - DVec2::new(0.0, top);
-            let mut camera = fitting(bounds, below);
-            camera.pan.y += top as f32;
+            let mut camera = fitting(bounds, free.size);
+            camera.pan += free.min.as_vec2();
             camera
         }
         None => Camera::default(),
     };
 }
 
+/// Frames the selected items, as large as fits in the part of the viewport
+/// the toolbar and the sidebar leave free. Does nothing with nothing
+/// selected.
+pub(crate) fn focus_selection(app: &mut App) {
+    let Some(bounds) = app.selection_scope().bounds else {
+        return;
+    };
+    let free = area(app);
+    let mut camera = fitting(bounds, free.size);
+    camera.pan += free.min.as_vec2();
+    app.session.camera = camera;
+}
+
 /// Pans, without zooming, by the least that brings `bounds` into the
 /// viewport with [`REVEAL_PADDING`] around it. Something larger than the
 /// viewport shows its top-left corner. Already in view, nothing moves.
 pub(crate) fn reveal(app: &mut App, bounds: Rect) {
-    let camera = &mut app.session.camera;
-    let zoom = f64::from(camera.zoom);
-    let viewport = app.session.viewport.as_dvec2();
-    if viewport.min_element() <= 0.0 {
+    let free = area(app);
+    if free.is_empty() {
         return;
     }
-    let pad = DVec2::splat(f64::from(REVEAL_PADDING)).min(viewport / 4.0);
-    let low = geometry::origin(bounds) * zoom + camera.pan.as_dvec2();
+    let camera = &mut app.session.camera;
+    let zoom = f64::from(camera.zoom);
+    let pad = DVec2::splat(f64::from(REVEAL_PADDING)).min(free.size / 4.0);
+    // Measured from the free part's own corner.
+    let low = geometry::origin(bounds) * zoom + camera.pan.as_dvec2() - free.min;
     let high = low + geometry::size(bounds) * zoom;
     // Past the far side, come back by the overshoot; then never leave the
     // near side cut off.
-    let back = (high - (viewport - pad)).max(DVec2::ZERO);
+    let back = (high - (free.size - pad)).max(DVec2::ZERO);
     let shift = (pad - (low - back)).max(DVec2::ZERO) - back;
     camera.pan += shift.as_vec2();
 }

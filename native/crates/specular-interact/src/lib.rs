@@ -25,6 +25,7 @@ mod anchor;
 mod anchors;
 mod api;
 mod app;
+mod arrange;
 mod asset;
 mod bindings;
 mod camera;
@@ -65,6 +66,7 @@ mod pointer;
 pub mod property;
 mod resize;
 mod resize_drag;
+mod reveal;
 mod saved;
 mod scope;
 mod scroll_follow;
@@ -80,12 +82,14 @@ mod tool_defaults;
 mod update;
 mod url;
 mod verbs;
+mod viewport;
 mod zoom;
 
 pub use anchor::{anchors_to_pages, matches_page_url};
 pub use anchors::Anchor;
 pub use api::{ApiCall, ApiOutcome, ApiRun};
 pub use app::{App, Focus, Selection, Session};
+pub use arrange::ArrangeMode;
 pub use asset::AssetBytes;
 pub use bindings::{BINDINGS, Binding, Chord, Context, binding_for};
 pub use caps::{AspectMode, aspect_mode, has_anchors, min_size};
@@ -120,9 +124,10 @@ pub use notes::{NoteNotice, NoteState, is_note_file};
 pub use page_state::PageState;
 pub use panel::builtin::PanelUi;
 pub use panel::{
-    Align, Button, Control, ControlId, Dropdown, DropdownOption, DropdownSection, Entries, Face,
-    Icon, Label, OptionLayout, PaintRole, Palette, Placement, PopupAnchor, PopupModel, Stepper,
-    Swatch, Swatches, Toggle, ToolButton, ToolbarModel, ToolbarSection, popup_for, toolbar,
+    Align, Button, Choices, Control, ControlId, Dropdown, DropdownOption, DropdownSection, Entries,
+    Face, Field, FieldSubmit, FieldWidth, Icon, Label, MenuTarget, OptionLayout, PaintRole,
+    Palette, Placement, PopupAnchor, PopupModel, SidebarButton, Stepper, Swatch, Swatches, Toggle,
+    ToolButton, ToolbarModel, ToolbarSection, context_menu, popup_for, toolbar,
 };
 pub use place::{PlaceDrag, Placing};
 pub use placement::PagePlacement;
@@ -133,7 +138,10 @@ pub use scroll_follow::{
     Seen, doc_to_viewport, hittable_rect, left_page, recorded_scroll, seen, shift_of, shown_rect,
     viewport_to_doc,
 };
-pub use sidebar::{CanvasRow, RowKind, RowTarget, SidebarModel, SidebarRow, sidebar};
+pub use sidebar::{
+    CanvasRow, RowKind, RowTarget, SIDEBAR_WIDTH, SectionHead, SidebarAction, SidebarModel,
+    SidebarRow, SidebarSection, SidebarView, sidebar,
+};
 pub use space::{
     Canvas, CanvasId, DEFAULT_CANVAS_NAME, OpenedCanvas, OpenedSpace, Space, TabRefError,
     canvas_file_name, legacy_canvas_file_name, resolve_tab_ref,
@@ -141,9 +149,10 @@ pub use space::{
 pub use time::iso8601;
 pub use tool::Tool;
 pub use tool_defaults::{
-    DrawDefaults, ShapeDefaults, StickyDefaults, TextDefaults, ToolDefaultPatch, ToolDefaults,
+    DrawDefaults, PageDefaults, ShapeDefaults, StickyDefaults, TextDefaults, ToolDefaultPatch,
+    ToolDefaults,
 };
 pub use update::update;
-pub use url::{looks_like_url, normalize_user_url};
+pub use url::{looks_like_url, normalize_user_url, resolve_address_input};
 pub use verbs::{delete_commands, move_commands};
 pub use zoom::fitting as fit_camera;

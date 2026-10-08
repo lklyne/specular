@@ -11,28 +11,44 @@
 //! on, so a shell that draws the models itself is not hit-tested against
 //! panels it does not show.
 
+mod cache;
+mod context;
 mod controls;
 mod dropdown;
+mod field;
 mod metrics;
 mod node;
 mod place;
 mod popup;
 mod route;
+mod scroll;
+mod sidebar;
 mod toolbar;
 mod trigger;
 
+use std::sync::Arc;
+
 use glam::Vec2;
 
-pub use self::metrics::TOOLBAR_HEIGHT;
-pub use self::node::{
-    Chrome, Node, NodeState, Panel, PanelRect, Part, Pointing, Surface, Tint, Tone,
+pub use self::cache::LayoutCache;
+pub(crate) use self::cache::{
+    forget as forget_layout, forget_unless as forget_layout_unless, keeps_layout,
 };
-pub(crate) use self::route::{cancel, hit, on_pointer, over, swallows_scroll, tidy};
+pub use self::context::ContextMenu;
+pub(crate) use self::context::open as open_menu;
+pub(crate) use self::field::{field_box, field_text_area};
+pub use self::metrics::{FIELD_HEIGHT, FIELD_LINE, FIELD_TEXT, TOOLBAR_HEIGHT};
+pub use self::node::{
+    Chrome, Input, InputFocus, Node, NodeState, Panel, PanelRect, Part, Pointing, Surface, Tint,
+    Tone,
+};
+pub(crate) use self::route::{cancel, hit, on_pointer, over, over_field, swallows_scroll, tidy};
+pub(crate) use self::scroll::on_wheel;
 use super::{Control, ControlId, Dropdown, PopupAnchor, PopupModel, ToolbarModel, ToolbarSection};
 use crate::App;
 
 /// What the built-in panels remember between events.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct PanelUi {
     /// Whether the built-in panels are shown, hit and clicked at all.
     pub built_in: bool,
@@ -45,6 +61,24 @@ pub struct PanelUi {
     pub hover: Option<ControlId>,
     /// The control a press landed on and has not been released from.
     pub pressed: Option<ControlId>,
+    /// How far the sidebar's list is scrolled, in pixels. It is kept inside
+    /// what the list's content allows whenever the list is laid out.
+    pub sidebar_scroll: f32,
+    /// The context menu that is open, if one is.
+    pub menu: Option<ContextMenu>,
+    /// The item last picked in the sidebar, which a shift-click selects a
+    /// run from.
+    pub anchor: Option<specular_doc::ItemId>,
+    /// The layout kept between reads.
+    pub(crate) cache: LayoutCache,
+}
+
+/// Turns the built-in panels on or off, forgetting everything they held.
+pub(crate) fn turn(app: &mut App, built_in: bool) {
+    app.session.panel = PanelUi {
+        built_in,
+        ..PanelUi::default()
+    };
 }
 
 impl PanelUi {
@@ -62,11 +96,15 @@ impl PanelUi {
 /// off.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct PanelLayout {
+    /// The sidebar's frame, while it is shown.
+    pub sidebar: Option<Panel>,
+    /// The sidebar's scrolling list, seen through its box.
+    pub sidebar_list: Option<Panel>,
     /// The toolbar, a strip across the top of the viewport.
     pub toolbar: Option<Panel>,
     /// The popup of the tool in hand or of the selection.
     pub popup: Option<Panel>,
-    /// The list under the open dropdown.
+    /// The list under the open dropdown, or the open context menu.
     pub dropdown: Option<Panel>,
 }
 
@@ -82,9 +120,15 @@ pub struct PanelHit {
 impl PanelLayout {
     /// The panels from the back to the front.
     pub fn panels(&self) -> impl Iterator<Item = &Panel> {
-        [&self.toolbar, &self.popup, &self.dropdown]
-            .into_iter()
-            .flatten()
+        [
+            &self.sidebar,
+            &self.sidebar_list,
+            &self.toolbar,
+            &self.popup,
+            &self.dropdown,
+        ]
+        .into_iter()
+        .flatten()
     }
 
     /// The names of the controls shown, from the back panel to the front.
@@ -126,20 +170,21 @@ pub(super) struct Ctx<'a> {
 }
 
 impl Ctx<'_> {
+    /// How much of the viewport's left edge the sidebar covers.
+    fn left(&self) -> f32 {
+        self.app.covered_left()
+    }
+
     /// How a control is drawn now. A control that cannot be used takes no
     /// hover or press.
     fn state(&self, id: &ControlId, enabled: bool, on: bool) -> NodeState {
         let over = self.ui.hover.as_ref() == Some(id);
         let held = self.ui.pressed.as_ref() == Some(id);
-        let pointing = match (enabled, over, held) {
-            (true, true, true) => Pointing::Pressed,
-            (true, true, false) => Pointing::Hover,
-            (false, ..) | (true, false, _) => Pointing::Away,
-        };
         NodeState {
             enabled,
             on,
-            pointing,
+            pointing: Pointing::of(enabled, over, held),
+            dimmed: false,
         }
     }
 
@@ -180,17 +225,49 @@ fn open_dropdown<'a>(
             | Control::Toggle(_)
             | Control::Swatches(_)
             | Control::Stepper(_)
+            | Control::Field(_)
+            | Control::Choices(_)
             | Control::Separator => None,
         })
     })
 }
 
+thread_local! {
+    static BUILDS: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+}
+
+/// How many times this thread has laid the panels out from the models, for
+/// a test that pins how often one event does.
+pub fn layout_builds() -> u64 {
+    BUILDS.with(std::cell::Cell::get)
+}
+
 /// The built-in panels for `app` as it is now, in logical screen pixels.
-pub fn layout(app: &App) -> PanelLayout {
+///
+/// The layout is shared with the cache, which lays it out again only when
+/// something it is made from has changed. See [`cache`](self::cache).
+pub fn layout(app: &App) -> Arc<PanelLayout> {
+    field::overlay(app, cache::base(app))
+}
+
+/// The panels laid out afresh, with the cache left alone: what [`layout`]
+/// must always equal.
+#[doc(hidden)]
+pub fn layout_uncached(app: &App) -> PanelLayout {
+    let mut panels = build(app);
+    field::overlay_in_place(app, &mut panels);
+    panels
+}
+
+/// The panels laid out from the models alone, with no field showing an edit.
+/// The editor asks where a field is while it lays the field's text out, so
+/// that answer cannot depend on the editor.
+fn build(app: &App) -> PanelLayout {
     let ui = &app.session.panel;
     if !ui.built_in {
         return PanelLayout::default();
     }
+    BUILDS.with(|builds| builds.set(builds.get() + 1));
     let ctx = Ctx { app, ui };
     let viewport = app.session.viewport;
     let toolbar_model = super::toolbar(app);
@@ -204,7 +281,9 @@ pub fn layout(app: &App) -> PanelLayout {
         let (model, surface) = open_dropdown(id, &toolbar_model, popup_model.as_ref())?;
         let host = match surface {
             Surface::Toolbar => toolbar.as_ref(),
-            Surface::Popup | Surface::Dropdown => popup.as_ref(),
+            Surface::Popup | Surface::Dropdown | Surface::Sidebar | Surface::SidebarList => {
+                popup.as_ref()
+            }
         }?;
         let trigger = host
             .nodes
@@ -214,13 +293,32 @@ pub fn layout(app: &App) -> PanelLayout {
         // the button inset in it.
         let hang = match surface {
             Surface::Toolbar => host.rect.bottom(),
-            Surface::Popup | Surface::Dropdown => trigger.rect.bottom(),
+            Surface::Popup | Surface::Dropdown | Surface::Sidebar | Surface::SidebarList => {
+                trigger.rect.bottom()
+            }
         };
         Some(dropdown::layout(&ctx, model, trigger.rect, hang, viewport))
     });
+    let (sidebar, sidebar_list) = sidebar_panels(&ctx, viewport);
+    let menu = (ui.menu.as_ref())
+        .and_then(|open| context::model(&ctx, open))
+        .and_then(|model| context::layout(&ctx, &model, viewport));
     PanelLayout {
+        sidebar,
+        sidebar_list,
         toolbar,
         popup,
-        dropdown,
+        dropdown: menu.or(dropdown),
     }
+}
+
+/// The sidebar's panels while it is shown.
+fn sidebar_panels(ctx: &Ctx<'_>, viewport: Vec2) -> (Option<Panel>, Option<Panel>) {
+    // A shell that draws its own sidebar keeps only the canvas popups.
+    if ctx.ui.canvas_only || !ctx.app.session.sidebar.shown() {
+        return (None, None);
+    }
+    let model = crate::sidebar(ctx.app);
+    let built = sidebar::layout(ctx, &model, viewport);
+    (Some(built.frame), Some(built.list))
 }

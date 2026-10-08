@@ -7,7 +7,7 @@ use specular_doc::{TextAlign, TextFont};
 use super::super::{Control, Dropdown, DropdownOption, DropdownSection, OptionLayout};
 use super::controls::{self, MEDIUM, RowKind, text};
 use super::metrics::{
-    CELL, CELL_ICON, CHEVRON, CONTROL, CONTROL_RADIUS, CONTROLS_GAP, FONT_LIST_MIN, GAP, GRID_CELL,
+    CELL, CELL_ICON, CHEVRON, CONTROL_RADIUS, CONTROLS_GAP, FONT_LIST_MIN, GAP, GRID_CELL,
     GRID_GAP, GRID_ICON, INSET, KEY_PAD, LIST_MIN, LIST_OFFSET, MENU_OFFSET, PRESET_OFFSET,
     PRESETS, PRESETS_WIDE, ROW, ROW_GAP, ROW_PAD, ROW_RADIUS, ROW_TALL, SECTION_GAP,
     SECTION_RULE_INSET, SEGMENTED_ROW, STEPPER_INSET, TEXT_LINE,
@@ -26,16 +26,16 @@ enum ListStyle {
     Presets,
 }
 
-fn options_of(dropdown: &Dropdown) -> impl Iterator<Item = &DropdownOption> {
-    dropdown.content.iter().flat_map(|section| match section {
+fn options_of(content: &[DropdownSection]) -> impl Iterator<Item = &DropdownOption> {
+    content.iter().flat_map(|section| match section {
         DropdownSection::Options { options, .. } => options.as_slice(),
         DropdownSection::Controls(_) => &[],
     })
 }
 
 /// Whether any option previews a typeface, which a menu of sizes does not.
-fn has_fonts(dropdown: &Dropdown) -> bool {
-    options_of(dropdown).any(|option| option.face.font.is_some())
+fn has_fonts(content: &[DropdownSection]) -> bool {
+    options_of(content).any(|option| option.face.font.is_some())
 }
 
 /// Whether `controls` hold labelled toggles, the segments of a row that is
@@ -45,8 +45,10 @@ fn has_segments(controls: &[Control]) -> bool {
         Control::Toggle(toggle) => toggle.face.icon.is_some() && toggle.face.text.is_some(),
         Control::Button(_)
         | Control::Stepper(_)
+        | Control::Field(_)
         | Control::Swatches(_)
         | Control::Dropdown(_)
+        | Control::Choices(_)
         | Control::Separator => false,
     })
 }
@@ -56,8 +58,10 @@ fn has_stepper(controls: &[Control]) -> bool {
         Control::Stepper(_) => true,
         Control::Button(_)
         | Control::Toggle(_)
+        | Control::Field(_)
         | Control::Swatches(_)
         | Control::Dropdown(_)
+        | Control::Choices(_)
         | Control::Separator => false,
     })
 }
@@ -113,7 +117,7 @@ impl Lists<'_, '_> {
             rect,
             radius: CONTROL_RADIUS,
             chrome,
-            state: self.ctx.state(&option.id, true, option.selected),
+            state: self.ctx.state(&option.id, option.enabled, option.selected),
             parts: Vec::new(),
             run: Some(Run::Act {
                 action: option.action.clone(),
@@ -241,8 +245,9 @@ impl Lists<'_, '_> {
                 let fill = self.width - inset * 2.0;
                 let laid = controls::row(self.ctx, row, RowKind::Dropdown, Some(fill));
                 let by = Vec2::new(inset, top);
+                let height = laid.height;
                 let nodes = laid.nodes.into_iter().map(|node| node.moved(by)).collect();
-                (nodes, CONTROL + inset)
+                (nodes, height + inset)
             }
         }
     }
@@ -337,27 +342,37 @@ const fn is_controls(section: &DropdownSection) -> bool {
     }
 }
 
-/// The list of `dropdown`, hung from `hang` under `trigger`.
-pub(super) fn layout(
-    ctx: &Ctx<'_>,
-    dropdown: &Dropdown,
-    trigger: PanelRect,
-    hang: f32,
-    viewport: Vec2,
-) -> Panel {
-    let style = if options_of(dropdown).any(|it| it.trailing.is_some() || it.chord.is_some()) {
+/// Sections of choices laid out from their own top-left corner.
+pub(super) struct Body {
+    pub(super) nodes: Vec<Node>,
+    /// The size of the sections, without a frame around them.
+    pub(super) size: Vec2,
+    style: ListStyle,
+}
+
+impl Body {
+    /// Whether the choices are a list of words marked with checks, which is
+    /// drawn as a menu rather than on the surface the popups share.
+    pub(super) fn is_menu(&self) -> bool {
+        self.style == ListStyle::Menu
+    }
+}
+
+/// `content` stacked in a column, set apart by lines.
+pub(super) fn body(ctx: &Ctx<'_>, content: &[DropdownSection]) -> Body {
+    let style = if options_of(content).any(|it| it.trailing.is_some() || it.chord.is_some()) {
         ListStyle::Presets
     } else {
         ListStyle::Menu
     };
-    let width = (dropdown.content.iter())
+    let width = (content.iter())
         .map(|section| section_width(ctx, section, style))
         .fold(0.0, f32::max);
     let lists = Lists { ctx, style, width };
     let mut nodes = Vec::new();
     let mut top = 0.0;
     let mut before: Option<&DropdownSection> = None;
-    for section in &dropdown.content {
+    for section in content {
         if let Some(before) = before {
             let both = is_controls(before) && is_controls(section);
             let (line, room) = divider(style, both, top, width);
@@ -369,15 +384,32 @@ pub(super) fn layout(
         top += height;
         before = Some(section);
     }
-    let size = Vec2::new(width, top) + Vec2::splat(INSET * 2.0);
+    Body {
+        nodes,
+        size: Vec2::new(width, top),
+        style,
+    }
+}
+
+/// The list of `dropdown`, hung from `hang` under `trigger`.
+pub(super) fn layout(
+    ctx: &Ctx<'_>,
+    dropdown: &Dropdown,
+    trigger: PanelRect,
+    hang: f32,
+    viewport: Vec2,
+) -> Panel {
+    let content = &dropdown.content;
+    let Body { nodes, size, style } = body(ctx, content);
+    let size = size + Vec2::splat(INSET * 2.0);
     // A list of words lines up with the start of its trigger; anything else
     // is centred under it.
     let words = style == ListStyle::Menu
-        && dropdown.content.iter().any(|section| match section {
+        && content.iter().any(|section| match section {
             DropdownSection::Options { layout, .. } => *layout == OptionLayout::List,
             DropdownSection::Controls(_) => false,
         });
-    let sized = options_of(dropdown).any(|option| option.trailing.is_some());
+    let sized = options_of(content).any(|option| option.trailing.is_some());
     let offset = if words {
         MENU_OFFSET
     } else if sized {
@@ -385,14 +417,12 @@ pub(super) fn layout(
     } else {
         LIST_OFFSET
     };
-    let corner = place::hanging(trigger, hang, offset, size, words, viewport).round();
-    let content = corner + Vec2::splat(INSET);
+    let corner = place::hanging(trigger, hang, offset, size, words, viewport, ctx.left()).round();
+    let inset = corner + Vec2::splat(INSET);
     Panel {
         surface: Surface::Dropdown,
         rect: PanelRect::new(corner.x, corner.y, size.x, size.y),
-        menu: words && !has_fonts(dropdown),
-        nodes: (nodes.into_iter())
-            .map(|node| node.moved(content))
-            .collect(),
+        menu: words && !has_fonts(content),
+        nodes: (nodes.into_iter()).map(|node| node.moved(inset)).collect(),
     }
 }

@@ -8,14 +8,14 @@ use specular_doc::{Command, CommandError, Document, EntityId, ItemId};
 use crate::focus::{leave_unless_selected, set_focus};
 use crate::images;
 use crate::notes;
-use crate::panel::builtin::{self, PanelUi};
+use crate::panel::builtin;
 use crate::stack_order::Move;
 use crate::{
     Action, App, Effect, Event, Focus, PageNotice, Selection, ToolDefaultPatch, api, bindings,
-    camera, comment, cursor, edit, gesture, groups, page_state, pages, pointer, property, space,
-    verbs,
+    camera, comment, cursor, edit, gesture, groups, page_state, pages, pointer, property, reveal,
+    space, verbs,
 };
-use crate::{clipboard, drop, select_all, zoom};
+use crate::{arrange, clipboard, drop, select_all, zoom};
 
 /// Applies `event` to `app` and returns what the shell must now do, in
 /// order. No I/O happens here.
@@ -31,10 +31,14 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
     // A pointer event has already put the drag and the hover where it is,
     // unless it ended the drag: the hover is not kept up during one.
     let pointing = matches!(event, Event::Pointer(_));
+    let keeps_layout = builtin::keeps_layout(app, &event);
     match event {
         Event::Pointer(input) => pointer::on_pointer(app, &input, &mut effects),
         Event::Wheel(input) => {
-            if !builtin::swallows_scroll(app) && !notes::on_wheel(app, &input) {
+            if !builtin::on_wheel(app, &input)
+                && !builtin::swallows_scroll(app)
+                && !notes::on_wheel(app, &input)
+            {
                 camera::on_wheel(app, &input, &mut effects);
             }
         }
@@ -86,15 +90,11 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         }
         Event::ToolDefaultsLoaded(defaults) => app.tool_defaults = *defaults,
         Event::Action(action) => run_action(app, action, &mut effects),
-        Event::BuiltinPanels(built_in) => {
-            app.session.panel = PanelUi {
-                built_in,
-                ..PanelUi::default()
-            };
-        }
-        Event::BuiltinCanvasPopups => app.session.panel = PanelUi::canvas_popups(),
+        Event::BuiltinPanels(built_in) => builtin::turn(app, built_in),
+        Event::BuiltinCanvasPopups => app.session.panel = builtin::PanelUi::canvas_popups(),
         Event::Api(call) => api::run(app, call, &mut effects),
     }
+    builtin::forget_layout_unless(app, keeps_layout);
     // Another canvas has another history: its revision says nothing about
     // whether this event made a step.
     let switched = app.space.switches() != switches;
@@ -131,7 +131,9 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
 
 pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect>) {
     match action {
-        // Escape closes an open dropdown before it backs out of anything.
+        // Escape puts a field's old value back before it does anything else,
+        // and closes an open dropdown before it backs out of anything.
+        Action::Cancel if edit::cancel_field(app, effects) => {}
         Action::Cancel if builtin::cancel(app) => {}
         Action::Cancel => {
             // A comment draft or a focused comment is all one Escape takes.
@@ -188,6 +190,9 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
             app.session.selection.set(items);
             drop_dangling(app, effects);
         }
+        Action::Reveal { select, focus } => reveal::items(app, select, &focus, effects),
+        Action::RevealComment(id) => reveal::comment(app, &id, effects),
+        Action::Sidebar(action) => app.session.sidebar.apply(action),
         Action::SetCamera(camera) => app.session.camera = camera,
         // The focus and the selection are never both set, so Delete has one
         // thing to remove.
@@ -202,16 +207,15 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
             verbs::nudge(app, DVec2::new(dx, dy), effects);
         }),
         Action::SetProperty(property) => property::set(app, &property, effects),
-        Action::Format(format) => {
-            if app.session.gesture.is_none() {
-                edit::format(app, format);
-            }
-        }
+        Action::Format(format) if app.session.gesture.is_none() => edit::format(app, format),
+        Action::Format(_) => {}
         Action::BringForward => stack(app, Move::Forward, effects),
         Action::SendBackward => stack(app, Move::Backward, effects),
         Action::BringToFront => stack(app, Move::ToFront, effects),
         Action::SendToBack => stack(app, Move::ToBack, effects),
         Action::AnnotateSelection => verb(app, effects, comment::annotate_selection),
+        Action::Arrange(mode) => verb(app, effects, |app, fx| arrange::run(app, mode, fx)),
+        Action::FocusSelection => verb(app, effects, |app, _| zoom::focus_selection(app)),
         Action::FocusComment(id) => verb(app, effects, |app, _| comment::focus(app, id.as_ref())),
         Action::ResolveComment(id) => verb(app, effects, |app, effects| {
             comment::resolve(app, id.as_ref(), effects);
@@ -229,7 +233,11 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         Action::ZoomOut => zoom::zoom_out(app),
         Action::ZoomReset => zoom::reset(app),
         Action::ZoomToFit => zoom::to_fit(app),
-        Action::PageBack | Action::PageForward | Action::PageReload | Action::PageStop => {
+        Action::PageBack
+        | Action::PageForward
+        | Action::PageReload
+        | Action::PageStop
+        | Action::PageNavigate(_) => {
             page_state::navigate(app, &action, effects);
         }
         Action::Canvas(action) => space::act(app, action, effects),
@@ -246,8 +254,9 @@ fn stack(app: &mut App, how: Move, effects: &mut Vec<Effect>) {
 /// changed anything.
 fn set_tool_default(app: &mut App, patch: ToolDefaultPatch, effects: &mut Vec<Effect>) {
     let before = app.tool_defaults.clone();
+    let stored = patch.is_stored();
     app.tool_defaults.apply(patch);
-    if app.tool_defaults != before {
+    if stored && app.tool_defaults != before {
         effects.push(Effect::SaveToolDefaults(Box::new(
             app.tool_defaults.clone(),
         )));
@@ -256,7 +265,11 @@ fn set_tool_default(app: &mut App, patch: ToolDefaultPatch, effects: &mut Vec<Ef
 
 /// Runs a verb on the selection, unless a drag is in flight. A text edit
 /// ends first, so the verb acts on its result.
-fn verb(app: &mut App, effects: &mut Vec<Effect>, run: impl FnOnce(&mut App, &mut Vec<Effect>)) {
+pub(crate) fn verb(
+    app: &mut App,
+    effects: &mut Vec<Effect>,
+    run: impl FnOnce(&mut App, &mut Vec<Effect>),
+) {
     if app.session.gesture.is_none() {
         edit::end(app, effects);
         run(app, effects);

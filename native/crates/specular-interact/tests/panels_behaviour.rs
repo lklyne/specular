@@ -45,7 +45,11 @@ fn is_on(model: &PopupModel, id: &str) -> bool {
                         DropdownSection::Controls(row) => find(row, id),
                     })
                 }
-                Control::Button(_) | Control::Stepper(_) | Control::Separator => None,
+                Control::Button(_)
+                | Control::Stepper(_)
+                | Control::Field(_)
+                | Control::Choices(_)
+                | Control::Separator => None,
             };
             if found.is_some() {
                 return found;

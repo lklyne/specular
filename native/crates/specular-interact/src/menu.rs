@@ -156,7 +156,7 @@ pub fn menus(app: &App) -> Vec<Menu> {
     ]
 }
 
-fn item(app: &App, label: &'static str, action: Action) -> MenuItem {
+pub(crate) fn item(app: &App, label: &'static str, action: Action) -> MenuItem {
     let binding = binding_of(&action);
     // An item with no key works where the plain canvas keys do.
     let context = binding.map_or(Context::Canvas, |binding| binding.context);
@@ -173,10 +173,15 @@ fn item(app: &App, label: &'static str, action: Action) -> MenuItem {
 /// entered one, whatever its key's context, and shows a key only where the
 /// key does the same in both: the bracket keys restack a selected page.
 fn page_item(app: &App, label: &'static str, action: Action) -> MenuEntry {
+    MenuEntry::Item(page_menu_item(app, label, action))
+}
+
+/// An item of the Page menu as a [`MenuItem`].
+pub(crate) fn page_menu_item(app: &App, label: &'static str, action: Action) -> MenuItem {
     let chord = binding_of(&action)
         .filter(|binding| binding.context == Context::PageTarget)
         .map(|binding| binding.chord);
-    MenuEntry::Item(MenuItem {
+    MenuItem {
         label: Cow::Borrowed(label),
         chord,
         enabled: Context::PageTarget.holds(app)
@@ -184,7 +189,7 @@ fn page_item(app: &App, label: &'static str, action: Action) -> MenuEntry {
             && has_target(app, &action),
         checked: None,
         action,
-    })
+    }
 }
 
 /// Whether `action` has something to act on.
@@ -203,8 +208,8 @@ fn has_target(app: &App, action: &Action) -> bool {
         Action::BringForward | Action::SendBackward | Action::BringToFront | Action::SendToBack => {
             !selection.is_empty()
         }
-        Action::AnnotateSelection => selection.entities().next().is_some(),
-        Action::Group => selection.entities().nth(1).is_some(),
+        Action::AnnotateSelection | Action::FocusSelection => selection.entities().next().is_some(),
+        Action::Arrange(_) | Action::Group => selection.entities().nth(1).is_some(),
         Action::Ungroup => groups::lone_group(app).is_some(),
         Action::SelectAll | Action::ZoomToFit => app.document.entities().next().is_some(),
         // Choosing the canvas already showing is harmless, and its item
@@ -215,6 +220,9 @@ fn has_target(app: &App, action: &Action) -> bool {
         | Action::SetToolDefault(_)
         | Action::SetToolVariant(_)
         | Action::Select(_)
+        | Action::Reveal { .. }
+        | Action::RevealComment(_)
+        | Action::Sidebar(_)
         | Action::SetCamera(_)
         | Action::FocusComment(_)
         | Action::Nudge { .. }
@@ -227,7 +235,7 @@ fn has_target(app: &App, action: &Action) -> bool {
         Action::PageBack => page_can(app, |state| state.can_go_back),
         Action::PageForward => page_can(app, |state| state.can_go_forward),
         Action::PageStop => page_can(app, |state| state.loading),
-        Action::PageReload => page_state::target(app).is_some(),
+        Action::PageReload | Action::PageNavigate(_) => page_state::target(app).is_some(),
     }
 }
 

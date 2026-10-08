@@ -75,6 +75,12 @@ pub enum Surface {
     Popup,
     /// The floating list under an open dropdown.
     Dropdown,
+    /// The sidebar's frame: its ground, its right edge and the head of the
+    /// Canvases list.
+    Sidebar,
+    /// The sidebar's scrolling list. Its box is the window its nodes are
+    /// seen through.
+    SidebarList,
 }
 
 /// A panel: its box and what is in it, back to front.
@@ -104,6 +110,18 @@ pub enum Pointing {
     Pressed,
 }
 
+impl Pointing {
+    /// How a control is pointed at: a control that cannot be used takes no
+    /// hover or press.
+    pub(super) const fn of(enabled: bool, over: bool, held: bool) -> Self {
+        match (enabled, over, held) {
+            (true, true, true) => Self::Pressed,
+            (true, true, false) => Self::Hover,
+            (false, ..) | (true, false, _) => Self::Away,
+        }
+    }
+}
+
 /// How a node is drawn now.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct NodeState {
@@ -114,6 +132,9 @@ pub struct NodeState {
     pub on: bool,
     /// Where the pointer is.
     pub pointing: Pointing,
+    /// Whether it is drawn at half strength, as a row hooked to a document
+    /// its page has left is.
+    pub dimmed: bool,
 }
 
 impl NodeState {
@@ -122,6 +143,7 @@ impl NodeState {
         enabled: true,
         on: false,
         pointing: Pointing::Away,
+        dimmed: false,
     };
 }
 
@@ -145,10 +167,25 @@ pub enum Chrome {
     Swatch,
     /// The box around a stepper: an outline.
     Field,
+    /// The box of a text field: white, with an outline, and a ring while it
+    /// has the keys.
+    Input,
     /// A line between groups of a bar.
     Divider,
     /// A line between sections of a list.
     Rule,
+    /// A row of the sidebar: filled when it is on, quieter when hovered.
+    Row,
+    /// A button on the sidebar or the toolbar's edge: quiet when hovered,
+    /// firmer when pressed.
+    Subtle,
+    /// A line across a panel in its border color.
+    Edge,
+    /// The thumb of a scrollbar.
+    Scrollbar,
+    /// The box of a name edited where it is read: white with an outline,
+    /// and no ring while it has the keys.
+    InlineInput,
 }
 
 /// Which of a panel's two text colors a part takes.
@@ -171,6 +208,51 @@ pub struct Tint {
     pub palette: Palette,
     /// How it is used.
     pub role: PaintRole,
+}
+
+/// A line of text in a field, and what editing it shows.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Input {
+    /// The line: the field's value, or the text typed so far.
+    pub text: Label,
+    /// What to show instead while `text` is empty.
+    pub hint: Option<Label>,
+    /// The box the line is clipped to. The text starts at its left edge,
+    /// moved by `scroll`.
+    pub area: PanelRect,
+    /// How far the line is scrolled left, in pixels.
+    pub scroll: f32,
+    /// The caret and selection, while the field has the keys.
+    pub focus: Option<InputFocus>,
+}
+
+impl Input {
+    /// Moves the line and everything over it by `by`.
+    fn shift(&mut self, by: Vec2) {
+        self.area = self.area.moved(by);
+        if let Some(focus) = &mut self.focus {
+            let moved = |rects: &mut Vec<PanelRect>| {
+                for rect in rects {
+                    *rect = rect.moved(by);
+                }
+            };
+            moved(&mut focus.selection);
+            moved(&mut focus.composition);
+            focus.caret = focus.caret.map(|caret| caret.moved(by));
+        }
+    }
+}
+
+/// What a field being edited shows over its text.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct InputFocus {
+    /// The selected text, one box a line, to go behind the glyphs.
+    pub selection: Vec<PanelRect>,
+    /// The text the input method is composing, to underline.
+    pub composition: Vec<PanelRect>,
+    /// The caret, when it is in the shown half of its blink and nothing is
+    /// selected.
+    pub caret: Option<PanelRect>,
 }
 
 /// One thing painted inside a node.
@@ -225,6 +307,17 @@ pub enum Part {
         text: Label,
         /// The box.
         rect: PanelRect,
+    },
+    /// The line of a text field.
+    Input(Input),
+    /// A glyph in a color of the panel's text, whatever the node's state.
+    Glyph {
+        /// Which glyph.
+        icon: Icon,
+        /// The box it is fitted into.
+        rect: PanelRect,
+        /// Its color.
+        tone: Tone,
     },
 }
 
@@ -287,7 +380,9 @@ impl Node {
                 | Part::Dot { rect, .. }
                 | Part::Chevron { rect }
                 | Part::Check { rect }
-                | Part::Key { rect, .. } => *rect = rect.moved(by),
+                | Part::Key { rect, .. }
+                | Part::Glyph { rect, .. } => *rect = rect.moved(by),
+                Part::Input(input) => input.shift(by),
             }
         }
         self

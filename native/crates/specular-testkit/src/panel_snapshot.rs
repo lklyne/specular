@@ -46,6 +46,9 @@ pub fn popup_snapshot(popup: Option<&PopupModel>) -> String {
         PopupAnchor::Toolbar { gap } => {
             let _ = writeln!(out, "anchor toolbar gap={gap}");
         }
+        PopupAnchor::Point(at) => {
+            let _ = writeln!(out, "anchor point {},{}", at.x, at.y);
+        }
         PopupAnchor::Canvas {
             bounds,
             placement,
@@ -142,6 +145,21 @@ fn control(out: &mut String, control: &Control, depth: usize) {
                 stepper.increment
             );
         }
+        Control::Field(field) => {
+            let caption = (field.caption.as_ref())
+                .map_or_else(String::new, |caption| format!(" caption={caption:?}"));
+            let placeholder = (field.placeholder.as_ref())
+                .map_or_else(String::new, |text| format!(" placeholder={text:?}"));
+            let _ = writeln!(
+                out,
+                "field {} {:?}{caption} value={:?}{placeholder} {:?} submit={:?}",
+                field.id, field.label, field.value, field.width, field.submit
+            );
+        }
+        Control::Choices(choices) => {
+            let _ = writeln!(out, "choices {} {:?}", choices.id, choices.label);
+            sections(out, &choices.content, depth + 1);
+        }
         Control::Separator => out.push_str("---\n"),
     }
 }
@@ -155,13 +173,17 @@ fn dropdown(out: &mut String, open: &Dropdown, depth: usize) {
         open.label,
         face(&open.summary)
     );
-    for section in &open.content {
-        pad(out, depth + 1);
+    sections(out, &open.content, depth + 1);
+}
+
+fn sections(out: &mut String, content: &[DropdownSection], depth: usize) {
+    for section in content {
+        pad(out, depth);
         match section {
             DropdownSection::Options { layout, options } => {
                 let _ = writeln!(out, "options {}", layout_name(*layout));
                 for option in options {
-                    pad(out, depth + 2);
+                    pad(out, depth + 1);
                     let trailing = option
                         .trailing
                         .as_ref()
@@ -176,18 +198,19 @@ fn dropdown(out: &mut String, open: &Dropdown, depth: usize) {
                     };
                     let _ = writeln!(
                         out,
-                        "option {} {} {:?}{shown}{trailing}{} -> {:?}",
+                        "option {} {} {:?}{shown}{trailing}{}{} -> {:?}",
                         mark(option.selected),
                         option.id,
                         option.label,
                         chord(option.chord),
+                        if option.enabled { "" } else { " disabled" },
                         option.action
                     );
                 }
             }
             DropdownSection::Controls(row) => {
                 out.push_str("controls\n");
-                controls(out, row, depth + 2);
+                controls(out, row, depth + 1);
             }
         }
     }
@@ -250,6 +273,15 @@ fn chord(chord: Option<Chord>) -> String {
 macro_rules! assert_toolbar_snapshot {
     ($app:expr, $($rest:tt)*) => {
         $crate::insta::assert_snapshot!($app.toolbar_snapshot(), $($rest)*)
+    };
+}
+
+/// Asserts the context menu of a [`TestApp`](crate::TestApp) against an
+/// inline snapshot, `none` while none is open.
+#[macro_export]
+macro_rules! assert_menu_snapshot {
+    ($app:expr, $($rest:tt)*) => {
+        $crate::insta::assert_snapshot!($app.menu_snapshot(), $($rest)*)
     };
 }
 

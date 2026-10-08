@@ -7,16 +7,26 @@ use super::{Glyph, Layer, Paint, Shape};
 /// The side of Lucide's view box.
 const VIEW: f32 = 24.0;
 
-const fn line(d: &'static str) -> Layer {
+pub(super) const fn line(d: &'static str) -> Layer {
     Layer::stroke(Shape::Path(d), Paint::Current, 2.0)
 }
 
-const fn lucide(layers: &'static [Layer]) -> Glyph {
+pub(super) const fn lucide(layers: &'static [Layer]) -> Glyph {
     Glyph::square(VIEW, layers)
 }
 
 /// `chevron-down`.
 pub(super) const CHEVRON: Glyph = lucide(&[line("M6 9l6 6 6-6")]);
+/// `chevron-left`.
+pub(super) const CHEVRON_LEFT: Glyph = lucide(&[line("M15 18l-6-6 6-6")]);
+/// `chevron-right`.
+pub(super) const CHEVRON_RIGHT: Glyph = lucide(&[line("M9 18l6-6-6-6")]);
+/// `rotate-cw`.
+pub(super) const ROTATE_CW: Glyph = lucide(&[line(
+    "M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8M21 3v5h-5",
+)]);
+/// `x`.
+pub(super) const X: Glyph = lucide(&[line("M18 6L6 18M6 6l12 12")]);
 /// `check`.
 pub(super) const CHECK: Glyph = lucide(&[line("M20 6 9 17l-5-5")]);
 
@@ -55,3 +65,22 @@ pub(super) const SMARTPHONE: Glyph = lucide(&[
     Layer::stroke(Shape::Rect(5.0, 2.0, 14.0, 20.0, 2.0), Paint::Current, 2.0),
     line("M12 18h.01"),
 ]);
+/// `columns-2`.
+pub(super) const COLUMNS_2: Glyph = lucide(&[
+    Layer::stroke(Shape::Rect(3.0, 3.0, 18.0, 18.0, 2.0), Paint::Current, 2.0),
+    line("M12 3v18"),
+]);
+/// `rows-2`.
+pub(super) const ROWS_2: Glyph = lucide(&[
+    Layer::stroke(Shape::Rect(3.0, 3.0, 18.0, 18.0, 2.0), Paint::Current, 2.0),
+    line("M3 12h18"),
+]);
+/// `grid-2x2`.
+pub(super) const GRID_2X2: Glyph = lucide(&[
+    line("M12 3v18M3 12h18"),
+    Layer::stroke(Shape::Rect(3.0, 3.0, 18.0, 18.0, 2.0), Paint::Current, 2.0),
+]);
+/// `message-circle`.
+pub(super) const MESSAGE_CIRCLE: Glyph = lucide(&[line("M7.9 20A9 9 0 1 0 4 16.1L2 22Z")]);
+/// `maximize-2`.
+pub(super) const MAXIMIZE_2: Glyph = lucide(&[line("M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7")]);

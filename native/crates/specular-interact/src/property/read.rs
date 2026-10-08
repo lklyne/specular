@@ -187,6 +187,11 @@ pub fn line_style(app: &App) -> Option<LineStyle> {
     of_edges(app, |edge| edge.line_style.unwrap_or(LineStyle::Solid))
 }
 
+/// The label of edges, empty when they have none.
+pub fn edge_label(app: &App) -> Option<String> {
+    of_edges(app, |edge| edge.label.clone().unwrap_or_default())
+}
+
 /// The endpoint shape at the start of edges.
 pub fn from_end(app: &App) -> Option<EdgeEnd> {
     of_edges(app, |edge| edge.from_end.unwrap_or(EdgeEnd::None))

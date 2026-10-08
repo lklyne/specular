@@ -53,9 +53,11 @@ fn offset_at(app: &App, world: DVec2) -> Option<usize> {
 }
 
 /// Whether `screen` is on text being edited that sits in no entity's body:
-/// an edge's label or a comment's composer.
+/// an edge's label, a comment's composer or a panel's field.
 fn is_over_floating_text(app: &App, screen: glam::Vec2) -> bool {
-    super::edge_label::is_over(app, screen) || crate::comment::is_over_composer(app, screen)
+    super::edge_label::is_over(app, screen)
+        || crate::comment::is_over_composer(app, screen)
+        || super::field::is_over(app, screen)
 }
 
 /// Offers a left press to the text being edited. Returns the drag it starts

@@ -8,11 +8,11 @@ use super::super::{
     Button, Control, ControlId, Face, Icon, PaintRole, Palette, Stepper, Swatches, Toggle,
 };
 use super::metrics::{
-    CONTROL, CONTROL_RADIUS, DIVIDER, DIVIDER_MARGIN, DOT, GAP, ICON, RULE, RULE_MARGIN,
-    SEGMENT_PAD, STEPPER_VALUE, SWATCH,
+    CONTROL, CONTROL_RADIUS, DIVIDER, DIVIDER_MARGIN, DOT, FIELD_HEIGHT, GAP, ICON, RULE,
+    RULE_MARGIN, SEGMENT_PAD, STEPPER_VALUE, SWATCH,
 };
 use super::node::{Chrome, Node, PanelRect, Part, Run, Tint, Tone};
-use super::{Ctx, trigger};
+use super::{Ctx, field, trigger};
 
 /// The glyph of the choice that paints nothing, inside its ring.
 pub(super) const BAN: f32 = 12.0;
@@ -33,7 +33,11 @@ pub(super) enum RowKind {
 pub(super) struct Row {
     pub(super) nodes: Vec<Node>,
     pub(super) width: f32,
+    pub(super) height: f32,
 }
+
+/// The glyph of reload and stop: `<RotateCw size={12} />`.
+const RELOAD_ICON: f32 = 12.0;
 
 /// The box a glyph is fitted into on a popup control. The stroke samples
 /// are drawn at the size they were designed at.
@@ -41,36 +45,8 @@ fn icon_box(icon: Icon) -> Vec2 {
     match icon {
         Icon::StrokeThin => Vec2::new(17.0, 9.0),
         Icon::StrokeThick => Vec2::new(19.0, 11.0),
-        Icon::SelectTool
-        | Icon::PageTool
-        | Icon::TextTool
-        | Icon::StickyTool
-        | Icon::DocumentTool
-        | Icon::ShapeTool
-        | Icon::DrawPenTool
-        | Icon::DrawHighlightTool
-        | Icon::CommentTool
-        | Icon::Shape(_)
-        | Icon::AlignLeft
-        | Icon::AlignCenter
-        | Icon::AlignRight
-        | Icon::BrushPen
-        | Icon::BrushHighlighter
-        | Icon::Border
-        | Icon::LineSolid
-        | Icon::LineDashed
-        | Icon::Ban
-        | Icon::ArrowStart
-        | Icon::ArrowEnd
-        | Icon::Trash
-        | Icon::Bold
-        | Icon::Strikethrough
-        | Icon::BulletList
-        | Icon::Device
-        | Icon::Rotate
-        | Icon::SchemeSystem
-        | Icon::SchemeLight
-        | Icon::SchemeDark => Vec2::splat(ICON),
+        Icon::Reload | Icon::Stop => Vec2::splat(RELOAD_ICON),
+        _ => Vec2::splat(ICON),
     }
 }
 
@@ -305,19 +281,25 @@ fn natural(ctx: &Ctx<'_>, control: &Control, kind: RowKind) -> f32 {
         Control::Swatches(swatches) => swatches_width(swatches, GAP),
         Control::Dropdown(dropdown) => trigger::width(ctx, dropdown),
         Control::Stepper(stepper) => stepper_width(ctx, stepper),
+        Control::Field(it) => field::natural_width(ctx, it),
+        // A choice list fills a popup alone, which lays it out.
+        Control::Choices(_) => 0.0,
         Control::Separator => separator_width(kind),
     }
 }
 
 /// Whether a control takes a share of the room left over in a row that is
-/// wider than its content: a labelled toggle (`flex-1`), a stepper.
+/// wider than its content: a labelled toggle (`flex-1`), a stepper, a field
+/// (`min-w-0 flex-1`).
 fn stretches(control: &Control) -> bool {
     match control {
         Control::Toggle(toggle) => toggle.face.icon.is_some() && toggle.face.text.is_some(),
-        Control::Stepper(_) => true,
-        Control::Button(_) | Control::Swatches(_) | Control::Dropdown(_) | Control::Separator => {
-            false
-        }
+        Control::Stepper(_) | Control::Field(_) => true,
+        Control::Button(_)
+        | Control::Swatches(_)
+        | Control::Dropdown(_)
+        | Control::Choices(_)
+        | Control::Separator => false,
     }
 }
 
@@ -327,9 +309,10 @@ pub(super) fn natural_width(ctx: &Ctx<'_>, controls: &[Control], kind: RowKind) 
     widths + controls.len().saturating_sub(1) as f32 * GAP
 }
 
-/// `controls` side by side, each `CONTROL` tall. With `fill`, the row is
-/// that wide: the controls that stretch share what is left over, and a row
-/// that is only swatches spreads them from edge to edge.
+/// `controls` side by side, each `CONTROL` tall, or `FIELD_HEIGHT` when the
+/// row holds a field, which the rest are centred against. With `fill`, the
+/// row is that wide: the controls that stretch share what is left over, and
+/// a row that is only swatches spreads them from edge to edge.
 pub(super) fn row(ctx: &Ctx<'_>, controls: &[Control], kind: RowKind, fill: Option<f32>) -> Row {
     let content = natural_width(ctx, controls, kind);
     // Negative when the row is narrower than its content: the controls that
@@ -342,16 +325,25 @@ pub(super) fn row(ctx: &Ctx<'_>, controls: &[Control], kind: RowKind, fill: Opti
     } else {
         slack / stretching as f32
     };
+    let has_field = controls
+        .iter()
+        .any(|control| matches!(control, Control::Field(_)));
+    let height = if has_field { FIELD_HEIGHT } else { CONTROL };
+    let lift = Vec2::new(0.0, (height - CONTROL) / 2.0);
     let mut nodes = Vec::new();
     let mut left = 0.0;
     for control in controls {
         let own = natural(ctx, control, kind);
-        let mut width = if stretches(control) {
+        let mut width = if matches!(control, Control::Field(_)) {
+            // An address never gives up the room it asks for.
+            own + share.max(0.0)
+        } else if stretches(control) {
             (own + share).max(own - SEGMENT_PAD * 2.0)
         } else {
             own
         };
         let rect = PanelRect::new(left, 0.0, width, CONTROL);
+        let first = nodes.len();
         match control {
             Control::Button(it) => nodes.push(button(ctx, it, rect)),
             Control::Toggle(it) => nodes.push(toggle(ctx, it, rect)),
@@ -366,12 +358,22 @@ pub(super) fn row(ctx: &Ctx<'_>, controls: &[Control], kind: RowKind, fill: Opti
             }
             Control::Dropdown(it) => nodes.push(trigger::node(ctx, it, left)),
             Control::Stepper(it) => stepper(ctx, it, left, width, &mut nodes),
+            Control::Field(it) => {
+                field::nodes(ctx, it, left, width, &mut nodes);
+                left += width + GAP;
+                continue;
+            }
+            Control::Choices(_) => {}
             Control::Separator => nodes.push(separator(kind, left)),
+        }
+        for node in &mut nodes[first..] {
+            *node = node.clone().moved(lift);
         }
         left += width + GAP;
     }
     Row {
         nodes,
         width: (left - GAP).max(0.0),
+        height,
     }
 }

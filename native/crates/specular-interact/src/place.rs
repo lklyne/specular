@@ -11,7 +11,7 @@ use serde_json::json;
 use specular_core::Modifiers;
 use specular_doc::{
     Color, Entity, EntityId, ItemId, Kind, Page, PageSource, Rect, Shape, ShapeKind, Text,
-    TextStyle, WidthMode,
+    TextStyle, VIEWPORT_PRESETS, WidthMode, preset,
 };
 
 use crate::scroll_follow::Scrolls;
@@ -29,10 +29,6 @@ const DEFAULT_PILL_SIZE: DVec2 = DVec2::new(200.0, 88.0);
 const DEFAULT_TEXT_SIZE: DVec2 = DVec2::new(200.0, 200.0);
 /// The size a new Document gets: Electron's default for a file entity.
 const DEFAULT_DOCUMENT_SIZE: DVec2 = DVec2::new(300.0, 300.0);
-/// The viewport a new page gets: the first preset, an iPhone SE.
-const DEFAULT_PAGE_SIZE: DVec2 = DVec2::new(375.0, 667.0);
-const DEFAULT_PAGE_PRESET: u32 = 0;
-const DEFAULT_PAGE_DEVICE: &str = "iphone-se";
 /// What a new page shows until it is given a URL.
 const BLANK_URL: &str = "about:blank";
 
@@ -190,7 +186,7 @@ fn at_default_size(app: &mut App, drag: &PlaceDrag) -> Entity {
     let at = DVec2::new(grid::snap(drag.start.x), grid::snap(drag.start.y));
     match drag.what {
         // A Document is placed by the shell's answer, not from here.
-        Placing::Page | Placing::Document => page(id, at),
+        Placing::Page | Placing::Document => page(app, id, at),
         Placing::Text(style) => text(app, id, at, style),
         Placing::Shape => {
             let size = match app.tool_defaults.shape.kind {
@@ -250,21 +246,38 @@ pub(crate) fn text(app: &App, id: EntityId, at: DVec2, style: TextStyle) -> Enti
     Entity::new(id, geometry::rect(at, DEFAULT_TEXT_SIZE), Kind::Text(text))
 }
 
-fn page(id: EntityId, at: DVec2) -> Entity {
+/// A page at the preset the page tool is set to (the first, an iPhone SE,
+/// until another is picked), turned across for a preset wider than it is
+/// tall, as Electron's `defaultOrientationForDevice` has it.
+fn page(app: &App, id: EntityId, at: DVec2) -> Entity {
+    let defaults = app.tool_defaults.page;
+    let (index, chosen) = match preset(u64::from(defaults.preset)) {
+        Some(chosen) => (defaults.preset, chosen),
+        None => (0, &VIEWPORT_PRESETS[0]),
+    };
+    let orientation = if chosen.width > chosen.height {
+        "landscape"
+    } else {
+        "portrait"
+    };
     let metadata = json!({
         "createdFrom": "add_from_toolbar",
-        "deviceOrientation": "portrait",
+        "deviceOrientation": orientation,
         "showDeviceFrame": true,
-        "deviceId": DEFAULT_PAGE_DEVICE,
+        "deviceId": chosen.device_id,
     });
-    let page = Page {
+    let mut page = Page {
         url: BLANK_URL.to_owned(),
-        preset_index: Some(DEFAULT_PAGE_PRESET),
+        preset_index: Some(index),
         source: Some(PageSource::Manual),
         metadata: metadata.as_object().cloned(),
         ..Page::default()
     };
-    Entity::new(id, geometry::rect(at, DEFAULT_PAGE_SIZE), Kind::Page(page))
+    let mut rect = geometry::rect(at, DVec2::new(chosen.width, chosen.height));
+    if defaults.custom {
+        crate::property::make_custom(&mut page, &mut rect);
+    }
+    Entity::new(id, rect, Kind::Page(page))
 }
 
 #[cfg(test)]

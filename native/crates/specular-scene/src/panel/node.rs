@@ -7,11 +7,12 @@ use specular_interact::panel::builtin::{
 use specular_interact::{PaintRole, Palette};
 
 use super::colors::{
-    DISABLED, DIVIDER, DOT_EDGE, FIELD_BORDER, HOVER, KEY, KEY_TEXT, MENU_HOVER, ON, POPUP,
-    POPUP_BORDER, RING_GRAY, RULE, TEXT, TEXT_MUTED, TOOL_FILL, TOOLBAR_CHEVRON, TOOLBAR_TEXT,
-    TOOLBAR_TEXT_STRONG,
+    DIMMED, DISABLED, DIVIDER, DOT_EDGE, FIELD_BORDER, HOVER, INTERACTIVE, INTERACTIVE_HOVER, KEY,
+    KEY_TEXT, MENU_HOVER, ON, POPUP, POPUP_BORDER, RING_GRAY, RULE, SCROLL_THUMB, SIDEBAR_RULE,
+    TEXT, TEXT_MUTED, TOOL_FILL, TOOLBAR_CHEVRON, TOOLBAR_TEXT, TOOLBAR_TEXT_STRONG,
 };
 use super::icons::{self, Inks};
+use super::input;
 use super::rect;
 use crate::view::palette;
 use crate::{
@@ -68,8 +69,21 @@ fn fill(chrome: Chrome, state: NodeState) -> Option<Color> {
         (Chrome::MenuRow, Pointing::Hover | Pointing::Pressed) => Some(MENU_HOVER),
         (Chrome::Divider, _) => Some(DIVIDER),
         (Chrome::Rule, _) => Some(RULE),
-        (Chrome::Button | Chrome::PresetRow | Chrome::MenuRow, Pointing::Away)
-        | (Chrome::Plain | Chrome::Swatch | Chrome::Field, _) => None,
+        (Chrome::Edge, _) => Some(SIDEBAR_RULE),
+        (Chrome::Scrollbar, _) => Some(SCROLL_THUMB),
+        (Chrome::Row, _) if state.on => Some(INTERACTIVE),
+        (Chrome::Subtle, Pointing::Pressed) => Some(INTERACTIVE),
+        (Chrome::Row | Chrome::Subtle, Pointing::Hover | Pointing::Pressed) => {
+            Some(INTERACTIVE_HOVER)
+        }
+        (
+            Chrome::Button | Chrome::PresetRow | Chrome::MenuRow | Chrome::Row | Chrome::Subtle,
+            Pointing::Away,
+        )
+        | (
+            Chrome::Plain | Chrome::Swatch | Chrome::Field | Chrome::Input | Chrome::InlineInput,
+            _,
+        ) => None,
     }
 }
 
@@ -79,8 +93,12 @@ fn follow(surface: Surface, state: NodeState) -> Color {
     match (surface, lit(state)) {
         (Surface::Toolbar, true) => TOOLBAR_TEXT_STRONG,
         (Surface::Toolbar, false) => TOOLBAR_TEXT,
-        (Surface::Popup | Surface::Dropdown, true) => TEXT,
-        (Surface::Popup | Surface::Dropdown, false) => TEXT_MUTED,
+        (Surface::Popup | Surface::Dropdown | Surface::Sidebar | Surface::SidebarList, true) => {
+            TEXT
+        }
+        (Surface::Popup | Surface::Dropdown | Surface::Sidebar | Surface::SidebarList, false) => {
+            TEXT_MUTED
+        }
     }
 }
 
@@ -93,7 +111,7 @@ fn family(font: TextFont) -> FontFamily {
 }
 
 /// One line of `text`, vertically centred in `area`.
-fn line(
+pub(super) fn line(
     text: &str,
     area: PanelRect,
     align: specular_doc::TextAlign,
@@ -125,7 +143,9 @@ fn dot_color(parts: &[Part]) -> Option<Color> {
         | Part::Text { .. }
         | Part::Chevron { .. }
         | Part::Check { .. }
-        | Part::Key { .. } => None,
+        | Part::Key { .. }
+        | Part::Glyph { .. }
+        | Part::Input(_) => None,
     })
 }
 
@@ -153,6 +173,8 @@ fn chrome(node: &Node, out: &mut Vec<Item>) {
                 RectDraw::outlined(area, edge).with_corner_radius(node.radius),
             ));
         }
+        Chrome::Input => input::chrome(node, true, out),
+        Chrome::InlineInput => input::chrome(node, false, out),
         Chrome::Swatch
         | Chrome::Plain
         | Chrome::ToolButton
@@ -161,7 +183,11 @@ fn chrome(node: &Node, out: &mut Vec<Item>) {
         | Chrome::MenuRow
         | Chrome::PresetRow
         | Chrome::Divider
-        | Chrome::Rule => {}
+        | Chrome::Rule
+        | Chrome::Row
+        | Chrome::Subtle
+        | Chrome::Edge
+        | Chrome::Scrollbar => {}
     }
 }
 
@@ -208,14 +234,27 @@ fn part(surface: Surface, node: &Node, part: &Part, out: &mut Vec<Item>) {
                 )),
             ));
         }
+        Part::Glyph {
+            icon,
+            rect: area,
+            tone,
+        } => {
+            let color = match tone {
+                Tone::Follow => own,
+                Tone::Strong => TEXT,
+                Tone::Muted => TEXT_MUTED,
+            };
+            icons::draw(*icon, rect(*area), Inks::plain(color), out);
+        }
         Part::Chevron { rect: area } => {
             let color = match surface {
                 Surface::Toolbar => TOOLBAR_CHEVRON,
-                Surface::Popup | Surface::Dropdown => own,
+                Surface::Popup | Surface::Dropdown | Surface::Sidebar | Surface::SidebarList => own,
             };
             icons::chevron(rect(*area), color, out);
         }
         Part::Check { rect: area } => icons::check(rect(*area), TEXT, out),
+        Part::Input(input) => input::draw(input, out),
         Part::Key { text, rect: area } => {
             out.push(Item::screen(
                 RectDraw::filled(rect(*area), KEY).with_corner_radius(KEY_RADIUS),
@@ -239,9 +278,12 @@ pub(super) fn draw(surface: Surface, node: &Node, out: &mut Vec<Item>) {
     for it in &node.parts {
         part(surface, node, it, out);
     }
-    if !node.state.enabled {
-        for item in out.iter_mut().skip(first) {
-            item.opacity *= DISABLED;
-        }
+    let fade = match (node.state.enabled, node.state.dimmed) {
+        (false, _) => DISABLED,
+        (true, true) => DIMMED,
+        (true, false) => return,
+    };
+    for item in out.iter_mut().skip(first) {
+        item.opacity *= fade;
     }
 }

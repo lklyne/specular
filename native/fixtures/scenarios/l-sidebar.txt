@@ -1,0 +1,72 @@
+# canvas: ../kitchen-sink.canvas
+# The left sidebar on the kitchen sink: hidden, then shown from the toolbar;
+# canvases added, switched to, renamed in place (Enter keeps the name, Escape
+# puts it back) and deleted from the menu; each section folded and opened;
+# the list scrolled and a group opened; rows that select and bring a page and
+# a comment into view; a hovered row; zoom to fit with the sidebar and
+# without. The window is 1600x1000, the toolbar the top 44 pixels and the
+# sidebar the left 256: canvas rows are 28 pixels, the first centred at y 96.
+camera -2150,-1650,1
+save 00-start.canvas
+snapshot 00-hidden.png
+control sidebar.toggle
+snapshot 01-shown.png
+
+# two more canvases, the second shown, then back to the first
+control sidebar.add
+control sidebar.add
+snapshot 02-added.png
+click 100 96
+snapshot 03-first-canvas.png
+
+# a second press renames in place; Enter keeps what was typed
+double-click 100 124
+snapshot 04-rename-open.png
+type Plans
+snapshot 05-rename-typed.png
+key enter
+snapshot 06-renamed.png
+
+# Escape puts the old name back
+double-click 100 152
+type Scratch
+key escape
+snapshot 07-rename-escaped.png
+
+# the menu of a right click, and its Delete
+right-click 100 124
+snapshot 08-menu.png
+click 180 171
+snapshot 09-deleted.png
+click 100 96
+
+# folds
+control sidebar.head.canvases
+snapshot 10-canvases-folded.png
+control sidebar.head.canvases
+control sidebar.head.notes
+snapshot 11-notes-folded.png
+control sidebar.head.notes
+
+# a long list, scrolled to its end, a group opened
+move 100 500
+wheel 0 -5000
+snapshot 12-scrolled.png
+control sidebar.notes.group-a.toggle
+snapshot 13-group-open.png
+
+# rows select what they stand for and bring it into view
+control sidebar.pages.page-desktop
+snapshot 14-page-revealed.png
+control sidebar.pages.comment.note-region-mobile
+snapshot 15-comment-revealed.png
+hover-control sidebar.notes.group-b
+snapshot 16-hover.png
+
+# zoom to fit leaves the sidebar's width out, and takes it back when hidden
+act zoom-to-fit
+snapshot 17-fit-beside-sidebar.png
+sidebar off
+act zoom-to-fit
+snapshot 18-fit-without-sidebar.png
+save 99-end.canvas

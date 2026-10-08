@@ -70,8 +70,9 @@ snapshot 12-zoom-quarter-editing.png
 key escape
 
 # edit at zoom 3
+# one click: a second press at the same point would land on the popup the first opens
 camera -560,-440,3
-double-click 300 200
+click 300 200
 key cmd+down
 type  HUGE
 hold shift

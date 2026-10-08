@@ -151,6 +151,25 @@ fn shift_drag_moves_the_page_along_one_axis() {
   holds the layout as text, and `panel_scene_snapshot()` what the panels
   draw. `view` never draws them, so `scene_snapshot()` is the same either
   way.
+  A text field is clicked like any control and then typed into:
+  `enter_in_field("page.url", "example.org")` replaces its text and presses
+  Enter, `field_edit()` reads what is typed so far, and Escape puts the
+  old value back.
+  The sidebar starts hidden, as in Electron: `show_sidebar(true)` (or the
+  `sidebar.toggle` button) shows it. Its controls are `sidebar.canvas.<id>`
+  (`.name` is the rename field, `.menu.rename` and `.menu.delete` the
+  right-click menu), `sidebar.add`, `sidebar.head.<canvases|notes|pages>`,
+  `sidebar.<notes|pages>.<entity id>` (`.toggle` its chevron) and
+  `sidebar.pages.comment.<id>`. Only rows in the window are laid out, so
+  scroll with `wheel` over the sidebar before clicking one below it.
+  `app.covered_left()` is the width it covers, which zoom to fit, a reveal,
+  zoom steps and popups read.
+  `right_click(at)` opens the context menu, which is a `PopupModel` of
+  choices at a point (`context_menu(app, &target, at)`, drawn in the
+  dropdown slot). `assert_menu_snapshot!(app)` holds its model,
+  `menu_open()` says whether one is open, and `click_control("menu.duplicate")`
+  picks an item (`menu.<label in lower case, dashes>`; a canvas row's menu is
+  `sidebar.canvas.<id>.menu.rename|delete`).
 - A page is select-first (ADR 0022). `click` selects it, a second `click`
   or a `double_click` enters it, and only an entered page gets input.
 - The scene snapshot is `assert_scene_snapshot!(app)`, in
@@ -184,13 +203,16 @@ cargo run -p specular-app -- --script steps.txt FILE.canvas
   `key cmd+z`, `type some text`, `compose にほ`, `commit 日本`,
   `wheel dx dy`, `pinch 0.2`, `tool shape`, `select id ..`,
   `act annotate-selection`, `act resolve-comment`, `act page-back`
-  (`-forward`, `-reload`, `-stop`), `camera ..`, `wait ms`,
+  (`-forward`, `-reload`, `-stop`), `act zoom-to-fit`, `act arrange-row`
+  (`-column`, `-grid`), `act focus-selection`, `right-click x y`,
+  `sidebar on|off`, `camera ..`, `wait ms`,
   `snapshot out.png`, `save out.canvas`. Positions are screen pixels. A snapshot between `press` and `release` shows a gesture in
   flight.
 - The toolbar and the item popup are drawn and take clicks, so the top 44
   pixels are the toolbar. `control shape.color` clicks a control by its
   name wherever it is (`hover-control`, `press-control` likewise), and a
-  wrong name fails the run with the names that are shown. A dropdown's
+  wrong name fails the run with the names that are shown. A field takes
+  `control page.url`, `key cmd+a`, `type ..`, `key enter`. A dropdown's
   options have names once it is open. `panels off` runs without them.
 - The clipboard and the Documents a run makes are kept in memory:
   `clipboard some\ntext` is another app copying, `key cmd+v` pastes it,
