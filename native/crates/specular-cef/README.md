@@ -135,7 +135,9 @@ cargo clippy -p specular-cef --all-targets --features cef-dox \
    ```
 
    Run the inner binary directly (not `open`) to keep stdout/stderr and argv.
-   `bundle-macos.sh` copies the one binary into five helper bundles
+   `bundle-macos.sh` builds `specular-helper` (the crate of that name: it
+   loads the framework and runs `CefExecuteProcess`, and links nothing of
+   the app) and puts it in five helper bundles
    (`specular-app Helper`, `Helper (GPU)`, `Helper (Renderer)`,
    `Helper (Plugin)`, `Helper (Alerts)`), copies
    `Chromium Embedded Framework.framework`, writes the `Info.plist`s

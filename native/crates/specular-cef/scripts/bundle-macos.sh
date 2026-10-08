@@ -10,10 +10,12 @@
 #     Frameworks/specular-app Helper (Plugin).app
 #     Frameworks/specular-app Helper (Alerts).app
 #
-# Every helper is a copy of the same binary: `run_subprocess_if_needed` sees
-# Chromium's `--type=` switch and runs the child. Mirrors
-# cef::build_util::mac::bundle, which this script exists to avoid needing a
-# separate bundler crate and a debug-only `cargo build`.
+# Every helper holds `specular-helper`, a small executable that runs the
+# child Chromium's `--type=` switch names and links nothing of the app. The
+# script builds it for the same profile, so it always matches the CEF the
+# app was built against. Mirrors cef::build_util::mac::bundle, which this
+# script exists to avoid needing a separate bundler crate and a debug-only
+# `cargo build`.
 #
 # Usage: bundle-macos.sh [profile] [binary]   (default: release specular-app)
 # `binary` is `specular` for the GPUI Kit shell (`-p specular-shell`).
@@ -26,10 +28,16 @@ native_dir="$(cd "$(dirname "$0")/../../.." && pwd)"
 target_dir="${CARGO_TARGET_DIR:-$native_dir/target}/$profile"
 name="${2:-specular-app}"
 bin="$target_dir/$name"
+helper_bin="$target_dir/specular-helper"
 app="$target_dir/$name.app"
 
 [[ -x "$bin" ]] || { echo "missing $bin; build it first with --features cef" >&2; exit 1; }
 : "${CEF_PATH:?set CEF_PATH to the CEF binary distribution directory}"
+
+flag=()
+[[ "$profile" == release ]] && flag=(--release)
+(cd "$native_dir" && cargo build "${flag[@]}" -p specular-helper --features cef)
+[[ -x "$helper_bin" ]] || { echo "missing $helper_bin" >&2; exit 1; }
 
 framework=""
 for candidate in "$CEF_PATH" "$CEF_PATH"/*/cef_macos_aarch64 "$CEF_PATH"/*/cef_macos_x86_64; do
@@ -64,8 +72,10 @@ PLIST
 }
 
 make_app() { # bundle_dir executable identifier is_helper
+  local source="$bin"
+  [[ "$4" == 1 ]] && source="$helper_bin"
   mkdir -p "$1/Contents/MacOS" "$1/Contents/Resources"
-  cp "$bin" "$1/Contents/MacOS/$2"
+  cp "$source" "$1/Contents/MacOS/$2"
   write_plist "$1/Contents/Info.plist" "$2" "$3" "$4"
 }
 

@@ -7694,6 +7694,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "specular-helper"
+version = "0.1.0"
+dependencies = [
+ "cef",
+]
+
+[[package]]
 name = "specular-interact"
 version = "0.1.0"
 dependencies = [

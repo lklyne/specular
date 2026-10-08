@@ -7,7 +7,7 @@
 #     Info.plist                                    name, id, icon, .canvas documents
 #     MacOS/Specular Native                         the `specular` binary
 #     Frameworks/Chromium Embedded Framework.framework
-#     Frameworks/Specular Native Helper*.app        five copies of the binary
+#     Frameworks/Specular Native Helper*.app        five, each holding `specular-helper`
 #     Resources/icon.icns                           the Electron app's icon
 #     Resources/starter-space/                      what a new space starts with
 #
@@ -22,7 +22,7 @@
 #
 # Usage: bundle-app.sh [--profile release|debug] [--no-build] [--out DIR]
 #   --profile   which build to wrap (default: release)
-#   --no-build  wrap the binary that is already built
+#   --no-build  wrap the binaries that are already built
 #   --out       where to put the app (default: native/target/<profile>/bundle)
 # Needs CEF_PATH pointing at the CEF distribution; the first build downloads
 # about 300 MB there.
@@ -49,15 +49,18 @@ repo_dir="$(cd "$native_dir/.." && pwd)"
 target_dir="${CARGO_TARGET_DIR:-$native_dir/target}/$profile"
 out="${out:-$target_dir/bundle}"
 bin="$target_dir/specular"
+helper_bin="$target_dir/specular-helper"
 app="$out/$APP_NAME.app"
 : "${CEF_PATH:?set CEF_PATH to the CEF binary distribution directory}"
 
 if [[ "$build" == 1 ]]; then
   flag=()
   [[ "$profile" == release ]] && flag=(--release)
-  (cd "$native_dir" && cargo build "${flag[@]}" -p specular-shell --features cef)
+  (cd "$native_dir" && cargo build "${flag[@]}" -p specular-shell -p specular-helper --features cef)
 fi
-[[ -x "$bin" ]] || { echo "missing $bin; build it, or drop --no-build" >&2; exit 1; }
+for built in "$bin" "$helper_bin"; do
+  [[ -x "$built" ]] || { echo "missing $built; build it, or drop --no-build" >&2; exit 1; }
+done
 
 framework=""
 for candidate in "$CEF_PATH" "$CEF_PATH"/*/cef_macos_aarch64 "$CEF_PATH"/*/cef_macos_x86_64; do
@@ -128,8 +131,10 @@ PLIST
 }
 
 make_app() { # bundle_dir executable identifier is_helper
+  local source="$bin"
+  [[ "$4" == 1 ]] && source="$helper_bin"
   mkdir -p "$1/Contents/MacOS" "$1/Contents/Resources"
-  cp "$bin" "$1/Contents/MacOS/$2"
+  cp "$source" "$1/Contents/MacOS/$2"
   write_plist "$1/Contents/Info.plist" "$2" "$3" "$4"
 }
 
@@ -140,8 +145,8 @@ cp "$repo_dir/build/icon.icns" "$app/Contents/Resources/icon.icns"
 cp -R "$repo_dir/resources/starter-space" "$app/Contents/Resources/starter-space"
 mkdir -p "$app/Contents/Frameworks"
 cp -R "$framework" "$app/Contents/Frameworks/"
-# Every helper is the same binary: Chromium's `--type=` switch makes it a
-# child process (`run_subprocess_if_needed`).
+# Every helper holds `specular-helper`, which runs the child process
+# Chromium's `--type=` switch names and links nothing of the app.
 for suffix in "" " (GPU)" " (Renderer)" " (Plugin)" " (Alerts)"; do
   helper="$APP_NAME Helper$suffix"
   id_suffix="$(echo "$suffix" | tr -d ' ()' | tr '[:upper:]' '[:lower:]')"

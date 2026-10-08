@@ -105,7 +105,8 @@ For the winit shell, build `-p specular-app --features cef` and bundle with
 `bundle-macos.sh debug` (the binary name defaults to `specular-app`). CEF only
 runs from the `.app` layout. Run the inner binary directly so stdout, stderr
 and the arguments are kept, and bundle again after every rebuild, because the
-bundle holds copies.
+bundle holds a copy. The script also builds `specular-helper`, the small
+executable in the five helper bundles that Chromium's child processes run.
 
 To type-check the CEF code without downloading CEF:
 
