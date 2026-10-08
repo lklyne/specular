@@ -798,3 +798,15 @@ What each deleted group is still covered by:
 - Bench statistics, compare, profile, memory and report tests (53) and cef translate, config and coords checks (14): one or two per rule.
 
 Known weak spots. In `specular-doc`, `specular-core` and interact `src/`, about 100 tests were folded by pasting their bodies into one test as blocks, not by writing a table: every assertion survives, so the count fell more than the code did. The scene and compositor group stopped at 30% because the pins and readbacks are most of what is left. No test was mutation-checked. The scenario scripts assert on saved canvases only, so a deleted test that a scenario "covers" is covered for the document it leaves, not for cursors or mid-gesture state.
+
+### AUDIT, parts 3 and 4: the chrome branch landed, structural cuts, and the list of what is left
+
+- `claude/p3p4-chrome` is merged in under the cuts (a merge, not a rebase: the rebase was refused by the session's permission rules). Conflicts were in test files both sides touched; the branch's versions won and were pruned again. Its 177 tests are 98: the context menu per target, arrange and the no-popup cases are one table each. The suite is 1,140 tests, from 1,778 plus the branch's.
+- One f32 rect: `specular_core::{Point, Size, Rect}`, which is what `specular-scene` had. `CanvasRect` is gone, `CssRect` is an alias, and `specular_scene::Rect` is a re-export, so no caller changed.
+- Deleted, with no caller: `Camera::pan_by`, `Space::canvas_camera`, `Tool::is_one_shot`, `Color::TRANSPARENT`, `PlaceDrag::placing`, `MoveDrag::is_dragging`, testkit's `menu_snapshot`.
+- Wildcards: `page_state::navigate` takes a `PageNav` and matches it in full, and `run_action` has an arm per page action. The two `Kind` picks in `api/annotations.rs` are `let ... else`. Left: `menu.rs` `tool_action` and two in testkit, each picking one `Action` or `Effect` variant out of a list.
+- `Chord::text` replaces a copy in the built-in dropdown and one in the Kit's controls. The built-in one now writes `Space` and the Home, End and page keys as the Kit does.
+- Split: `interact/edit.rs` (503 to 342, with `edit/fit.rs` and `edit/read.rs`), `compositor/compositor.rs` (423 to 293, `compositor/ingest.rs`), `scene_pass/text.rs` (439 to 319, `text/prepare.rs`), `bench/compare.rs` (485 to 320, `compare/markdown.rs`). Not split: the two cef files (a branch is open there) and four files at 402 to 413 lines with no clean seam.
+- The larger cuts not made are in the plan under "Cleanup tasks", ranked, with lines and risks. The first two are the built-in panel renderer (about 7,000 lines with its tests) and the winit window (about 1,700).
+- Next agent: rebase onto this. Tests you add follow the new rule in `native/CLAUDE.md` ("Tests"). `specular_core::CanvasRect` is `specular_core::Rect`; `page_state::navigate` takes a `PageNav`.
+- Gate: fmt, clippy for the workspace, `cargo test --workspace` (1,140 pass), `fixtures/scenarios/run.sh` (every check ok). Not run: clippy with `--features cef`, so the `cef`-gated code is unchecked against the `CssRect` alias and the test deletions in `specular-cef`.
