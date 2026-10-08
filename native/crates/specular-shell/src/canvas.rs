@@ -340,7 +340,9 @@ impl Canvas {
         if !std::mem::take(&mut self.stale) {
             return;
         }
+        let started = Instant::now();
         let models = Models::of(&self.runtime);
+        crate::ui_stats::models_built(started.elapsed());
         if models != self.models {
             self.models = models;
             self.unseen = true;
@@ -355,6 +357,11 @@ impl Canvas {
     /// Whether the run is over: exit was asked for and the pages are gone.
     pub(crate) fn is_finished(&self) -> bool {
         self.finished
+    }
+
+    /// The display's refresh interval.
+    pub(crate) fn refresh(&self) -> Duration {
+        self.refresh
     }
 
     /// When the canvas last ran a frame.

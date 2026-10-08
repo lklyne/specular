@@ -29,6 +29,8 @@ mod pins;
 #[cfg(target_os = "macos")]
 mod refresh;
 #[cfg(target_os = "macos")]
+mod screen;
+#[cfg(target_os = "macos")]
 mod settings;
 #[cfg(target_os = "macos")]
 mod settings_repos;
@@ -40,6 +42,10 @@ mod spaces;
 mod surface;
 #[cfg(target_os = "macos")]
 mod theme;
+#[cfg(target_os = "macos")]
+mod ui_bench;
+#[cfg(target_os = "macos")]
+mod ui_stats;
 #[cfg(target_os = "macos")]
 mod view;
 

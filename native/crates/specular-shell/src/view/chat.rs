@@ -116,7 +116,7 @@ fn run_keeping_field(
 
 impl ShellView {
     /// Focuses the composer's field.
-    fn focus_composer(&self, window: &mut Window, cx: &mut Context<'_, Self>) {
+    pub(crate) fn focus_composer(&self, window: &mut Window, cx: &mut Context<'_, Self>) {
         self.chat
             .input
             .update(cx, |state, cx| state.focus(window, cx));

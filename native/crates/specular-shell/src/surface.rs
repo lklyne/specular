@@ -307,6 +307,7 @@ impl ShellWindow for CanvasSurface {
             .compositor
             .render_scene(&view, &frame_view, scene, page_of);
         self.context.queue.present(frame);
+        crate::ui_stats::canvas_presented();
         if let Some(pacing) = self.pacing.as_mut() {
             pacing.mark();
         }

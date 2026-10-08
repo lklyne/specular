@@ -10,6 +10,7 @@ use specular_interact::{PopupAnchor, PopupModel};
 
 use super::controls::control;
 use crate::theme;
+use crate::ui_stats::{self, Part};
 
 /// The popup of the tool in hand, centred under the toolbar.
 pub(super) fn tool_popup(
@@ -17,6 +18,7 @@ pub(super) fn tool_popup(
     window: &mut Window,
     cx: &mut App,
 ) -> impl IntoElement {
+    ui_stats::built(Part::Popup);
     let gap = match model.anchor {
         PopupAnchor::Toolbar { gap } | PopupAnchor::Canvas { gap, .. } => gap,
         PopupAnchor::Point(_) => 0.0,

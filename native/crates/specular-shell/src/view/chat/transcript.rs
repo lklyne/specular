@@ -26,6 +26,7 @@ use specular_interact::{Bubble, ChatModel, RunBar, ThreadId, ThreadRole, Transcr
 
 use super::run_bar::{RunBarView, run_bar};
 use crate::theme;
+use crate::ui_stats::{self, Part};
 use crate::view::{ShellView, run};
 
 /// Where a sent message sits. `CommentBubble` lays the person's bubble out
@@ -265,6 +266,7 @@ impl ShellView {
         transcript: &Transcript,
         cx: &mut Context<'_, Self>,
     ) -> impl IntoElement + use<> {
+        ui_stats::built(Part::Transcript);
         let rows = rows_of(transcript);
         let thread = (model.threads.iter())
             .find(|row| row.active)

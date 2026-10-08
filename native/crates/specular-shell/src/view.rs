@@ -52,6 +52,7 @@ use self::slot::Pointer;
 use crate::canvas::{self, Models};
 use crate::surface::WindowAsks;
 use crate::theme;
+use crate::ui_stats::{self, Part};
 
 /// The canvas slot's focus, so a click on a Kit control can hand the keys
 /// back to the canvas.
@@ -156,6 +157,12 @@ impl ShellView {
 
 impl Render for ShellView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<'_, Self>) -> impl IntoElement {
+        ui_stats::built(Part::Root);
+        if ui_stats::gpui_frame_began() {
+            // The update that draws this frame also presents it, and what
+            // is deferred here runs when that update is over.
+            cx.defer(|_| ui_stats::gpui_frame_ended());
+        }
         // What effects asked of the window is applied by this render.
         self.asks.changed.set(false);
         named::begin_frame();

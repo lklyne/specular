@@ -23,7 +23,7 @@ use crate::native::{Id, NativeCanvas};
 use crate::pacing::Pacing;
 use crate::surface::{CanvasSurface, WindowAsks};
 use crate::view::ShellView;
-use crate::{debug_input, keys, menus, pins, refresh, spaces};
+use crate::{debug_input, keys, menus, pins, refresh, spaces, ui_bench};
 
 /// The window size when the command line names none: the Electron app's.
 const DEFAULT_SIZE: (u32, u32) = (1600, 1000);
@@ -261,6 +261,7 @@ pub(crate) fn open(launch: Launch, cx: &mut App) -> anyhow::Result<()> {
     })
     .detach();
     debug_input::run_from_env(window, cx);
+    ui_bench::run_from_env(window, cx);
     cx.activate(true);
     Ok(())
 }

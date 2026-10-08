@@ -29,6 +29,7 @@ use super::named::mark;
 use super::{ShellView, field, menu, pick, run};
 use crate::canvas;
 use crate::theme;
+use crate::ui_stats::{self, Part};
 
 /// A head: `h-9 px-3`, its chevron `gap-1.5` after the title.
 const HEAD: f32 = 36.0;
@@ -250,6 +251,7 @@ impl ShellView {
         window: &mut Window,
         cx: &mut Context<'_, Self>,
     ) -> impl IntoElement {
+        ui_stats::built(Part::Sidebar);
         let add = model.add_canvas.clone();
         let folded = model.canvases_head.folded;
         let mut list = v_flex()

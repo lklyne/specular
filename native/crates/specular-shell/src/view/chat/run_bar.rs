@@ -14,6 +14,7 @@ use gpui_kit::{
 use specular_interact::RunBar;
 
 use crate::theme;
+use crate::ui_stats::{self, Part};
 use crate::view::{ShellView, run};
 
 /// The strip's wash: the ends of `GrainGradient`'s palette under its white
@@ -62,6 +63,7 @@ fn log(run: &RunBar, bar: &RunBarView, cx: &App) -> impl IntoElement + use<> {
 
 /// The bar for `run`.
 pub(super) fn run_bar(run_bar: &RunBar, bar: &RunBarView, cx: &App) -> impl IntoElement + use<> {
+    ui_stats::built(Part::RunBar);
     let stop = run_bar.stop.clone();
     let (by_label, by_chevron) = (bar.view.clone(), bar.view.clone());
     let strip = h_flex()

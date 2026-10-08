@@ -101,6 +101,33 @@ fn script_from_env() -> Option<Result<(Vec<String>, Dialect), String>> {
     Some(Ok((steps.map(str::to_owned).collect(), Dialect::Inline)))
 }
 
+/// Does one step, written as a script writes it. The UI benchmark sets its
+/// profiles up with these.
+pub(crate) async fn step(
+    text: &str,
+    window: AnyWindowHandle,
+    cx: &mut gpui_kit::AsyncApp,
+) -> Result<(), String> {
+    let step = steps::parse(text, Dialect::Inline)?;
+    run::step(step, window, cx).await
+}
+
+/// A pixel scroll by `by` over `at`, in points from the content's corner.
+pub(crate) fn scroll(at: glam::Vec2, by: glam::Vec2) {
+    let (x, y) = (f64::from(at.x), f64::from(at.y));
+    events::scroll(x, y, by.x as i32, by.y as i32, 0);
+}
+
+/// Types `text` as key presses.
+pub(crate) fn type_text(text: &str) -> Result<(), String> {
+    events::type_text(text)
+}
+
+/// Resizes the window's content to `size` points.
+pub(crate) fn resize(size: glam::Vec2) {
+    window::resize(f64::from(size.x), f64::from(size.y));
+}
+
 /// Reports a failed run and makes its exit status say so.
 fn fail(what: &str) {
     eprintln!("specular: {what}");

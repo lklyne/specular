@@ -26,6 +26,7 @@ use super::chips::{
 };
 use crate::canvas;
 use crate::theme;
+use crate::ui_stats::{self, Part};
 use crate::view::{ShellView, focus_canvas};
 
 /// The field is two lines tall when empty and grows to six: `min-h-[48px]`
@@ -150,6 +151,7 @@ impl ShellView {
         window: &mut Window,
         cx: &mut Context<'_, Self>,
     ) -> impl IntoElement + use<> {
+        ui_stats::built(Part::Composer);
         if self.chat.placeholder != model.placeholder {
             self.chat.placeholder.clone_from(&model.placeholder);
             let placeholder = SharedString::from(model.placeholder.clone());

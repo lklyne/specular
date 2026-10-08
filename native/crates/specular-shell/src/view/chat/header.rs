@@ -20,6 +20,7 @@ use super::date::short_date;
 use super::run_keeping_field;
 use crate::assets::ShellIcon;
 use crate::theme;
+use crate::ui_stats::{self, Part};
 use crate::view::{ShellView, run};
 
 /// What the list says when the canvas has no thread: `ThreadList`'s own
@@ -110,6 +111,7 @@ impl ShellView {
         model: &ChatModel,
         _cx: &mut Context<'_, Self>,
     ) -> impl IntoElement + use<> {
+        ui_stats::built(Part::ChatHeader);
         let (new_thread, input) = (model.new_thread.clone(), self.chat.input.clone());
         let actions = h_flex()
             .flex_shrink_0()

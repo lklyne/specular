@@ -22,6 +22,7 @@ use super::named::mark;
 use super::run;
 use crate::menus::Preferences;
 use crate::theme;
+use crate::ui_stats::{self, Part};
 
 thread_local! {
     /// Whether a press on the bare strip is held and has not moved yet.
@@ -149,6 +150,7 @@ fn bare_strip(id: &'static str) -> Stateful<Div> {
 
 /// The toolbar strip for `model`, with `title` beside the traffic lights.
 pub(super) fn toolbar(model: &ToolbarModel, title: &str, _cx: &App) -> impl IntoElement {
+    ui_stats::built(Part::Toolbar);
     let mut cluster = h_flex().gap_1().items_center();
     for (index, section) in model.sections.iter().enumerate() {
         if index > 0 {
