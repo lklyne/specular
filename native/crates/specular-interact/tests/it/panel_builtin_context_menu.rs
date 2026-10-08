@@ -6,6 +6,7 @@
     reason = "a helper fails the test it is called from"
 )]
 
+use specular_core::PageNav;
 use specular_doc::Rect;
 use specular_interact::panel::builtin::Surface;
 use specular_interact::{Action, ClipboardContent, Effect, Event, Key, PageNotice, Tool};
@@ -18,6 +19,17 @@ fn opened(entities: impl IntoIterator<Item = specular_doc::Entity>) -> TestApp {
     let mut app = TestApp::with_entities(entities);
     app.with_panels();
     app
+}
+
+/// The history moves the effects ask the pages for.
+fn navigations(effects: &[Effect]) -> Vec<PageNav> {
+    effects
+        .iter()
+        .filter_map(|effect| match effect {
+            Effect::Navigate { nav, .. } => Some(nav.clone()),
+            _ => None,
+        })
+        .collect()
 }
 
 fn menu_rect(app: &TestApp) -> specular_interact::panel::builtin::PanelRect {
@@ -135,10 +147,43 @@ fn a_page_menu_has_back_forward_and_reload_that_follow_its_history() {
     assert!(back.state.enabled);
     app.take_effects();
     app.click_control("menu.back");
-    assert!(
-        !app.take_effects().is_empty(),
+    assert_eq!(
+        navigations(&app.take_effects()),
+        [PageNav::Back],
         "the page is asked to go back"
     );
+
+    // Forward follows its own flag: off until the page can go forward.
+    app.right_click((200.0, 500.0));
+    let enabled = |app: &TestApp, id: &str| {
+        app.panel_layout()
+            .node(&id.to_owned().into())
+            .expect("the item is shown")
+            .state
+            .enabled
+    };
+    assert!(!enabled(&app, "menu.forward"), "no forward history yet");
+    app.click_control("menu.forward");
+    assert!(app.menu_open() && navigations(&app.take_effects()).is_empty());
+    app.page_reports(
+        "p",
+        PageNotice::Loading {
+            loading: false,
+            can_go_back: false,
+            can_go_forward: true,
+        },
+    );
+    assert!(enabled(&app, "menu.forward") && !enabled(&app, "menu.back"));
+    app.take_effects();
+    app.click_control("menu.forward");
+    assert_eq!(navigations(&app.take_effects()), [PageNav::Forward]);
+
+    // Reload is always there and asks for a reload.
+    app.right_click((200.0, 500.0));
+    assert!(enabled(&app, "menu.reload"));
+    app.take_effects();
+    app.click_control("menu.reload");
+    assert_eq!(navigations(&app.take_effects()), [PageNav::Reload]);
 }
 
 #[test]
