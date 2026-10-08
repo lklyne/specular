@@ -172,7 +172,10 @@ fn a_closed_page_hangs_up_on_its_clients_and_its_address_stops_working() {
     let two = attach(&mut second, "p2");
     let entity = rig.pages[0].0.clone();
     rig.host.page_closed(&entity);
-    assert!(first.recv().is_err());
+    assert_eq!(
+        first.recv().unwrap_err().kind(),
+        std::io::ErrorKind::ConnectionAborted
+    );
     assert!(WsClient::connect(rig.port(), &path).is_err());
     assert_eq!(
         evaluate(&mut rig, &mut second, &two, "document.readyState"),

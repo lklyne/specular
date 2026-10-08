@@ -281,6 +281,14 @@ mod tests {
         watch(&mut watcher, "a.md");
         watch(&mut watcher, "b.md");
         assert_eq!(check(&mut watcher), []);
+        // A save of the same text moves the stamp and reports nothing.
+        let later = std::time::SystemTime::now() + std::time::Duration::from_secs(5);
+        let b = std::fs::File::options()
+            .write(true)
+            .open(space.0.join("b.md"))
+            .unwrap();
+        b.set_modified(later).unwrap();
+        assert_eq!(check(&mut watcher), []);
         // A different length, so the stamp moves even on a coarse clock.
         space.write("a.md", "one, two");
         assert_eq!(check(&mut watcher), [text("a.md", "one, two")]);

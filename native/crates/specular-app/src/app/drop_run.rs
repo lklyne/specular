@@ -86,6 +86,27 @@ mod tests {
     }
 
     #[test]
+    fn only_the_image_types_the_canvas_draws_are_sized() {
+        use image::ImageFormat;
+
+        let dir = std::env::temp_dir().join(format!("specular-drop-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut bytes = Vec::new();
+        image::DynamicImage::new_rgba8(8, 4)
+            .write_to(&mut std::io::Cursor::new(&mut bytes), ImageFormat::Png)
+            .unwrap();
+        std::fs::write(dir.join("shot.png"), &bytes).unwrap();
+        // A type the decoder reads but the canvas does not draw as an image.
+        std::fs::write(dir.join("not-listed.apng"), &bytes).unwrap();
+        let sized = dropped_file(&dir.join("shot.png"), None);
+        let note = dropped_file(&dir.join("not-listed.apng"), None);
+        let _ = std::fs::remove_dir_all(&dir);
+        assert_eq!(sized.image_size, Some((8, 4)));
+        assert_eq!(note.image_size, None);
+    }
+
+    #[test]
     fn a_dropped_file_that_is_not_an_image_has_no_size() {
         let file = dropped_file(Path::new("/nowhere/Plan.md"), Some(Path::new("/nowhere")));
         assert_eq!(

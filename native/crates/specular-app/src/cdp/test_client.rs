@@ -1,7 +1,7 @@
 //! A minimal blocking WebSocket client, for tests of the server.
 
 use std::io::{self, BufReader, Write as _};
-use std::net::{Shutdown, TcpStream};
+use std::net::TcpStream;
 use std::time::Duration;
 
 use super::frame::{Decoder, Incoming, Opcode, Role, encode};
@@ -70,9 +70,8 @@ impl WsClient {
         }
     }
 
-    /// Sends a close frame and drops the connection.
-    pub(crate) fn close(mut self) {
-        let _ = self.to.write_all(&encode(Opcode::Close, &[], Some(MASK)));
-        let _ = self.to.shutdown(Shutdown::Both);
+    /// Sends a close frame and keeps the connection open for the reply.
+    pub(crate) fn send_close(&mut self) -> io::Result<()> {
+        self.to.write_all(&encode(Opcode::Close, &[], Some(MASK)))
     }
 }

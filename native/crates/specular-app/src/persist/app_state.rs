@@ -70,6 +70,8 @@ mod tests {
             r#"{"nodes":[],"edges":[],"appState":{"zoom":"big","pan":{"x":0,"y":0}}}"#,
             r#"{"nodes":[],"edges":[],"appState":{"zoom":0,"pan":{"x":0,"y":0}}}"#,
             r#"{"nodes":[],"edges":[],"appState":7}"#,
+            r#"{"nodes":[],"edges":[],"appState":{"pan":{"x":0,"y":0}}}"#,
+            r#"{"nodes":[],"edges":[],"appState":{"zoom":1,"pan":{"x":0}}}"#,
         ] {
             assert_eq!(camera_of(&document(json)), None, "{json}");
         }
@@ -105,5 +107,9 @@ mod tests {
         assert_eq!(camera_of(&document(&text)), Some(camera));
         // The document it was given is left alone.
         assert!(bare.extra().get(APP_STATE).is_none());
+        // An appState that is not an object is replaced by one.
+        let broken = document(r#"{"nodes":[],"edges":[],"appState":7}"#);
+        let text = canvas_text(&broken, camera).unwrap();
+        assert_eq!(camera_of(&document(&text)), Some(camera));
     }
 }

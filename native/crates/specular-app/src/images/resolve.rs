@@ -79,6 +79,7 @@ mod tests {
                 "local-file:///tmp/my%20photo%231.png?v=3",
                 Some("/tmp/my photo#1.png".to_owned()),
             ),
+            ("local-file:///tmp/a.png#top", Some("/tmp/a.png".to_owned())),
             ("https://example.com/a.png", None),
             ("http://example.com/a.png", None),
         ] {

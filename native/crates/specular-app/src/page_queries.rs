@@ -242,6 +242,17 @@ mod tests {
         let requests = queries.ask_grab(Rect::new(0.0, 0.0, 5.0, 5.0), Vec::new());
         assert_eq!(requests, Vec::<u64>::new());
         assert_eq!(grabs(&queries.settled()[0]), []);
+        // Several settled at once come oldest first.
+        for width in 1..=6 {
+            queries.ask_grab(Rect::new(0.0, 0.0, f64::from(width), 5.0), Vec::new());
+        }
+        let widths: Vec<f64> = (queries.settled().iter())
+            .map(|event| match event {
+                Event::RegionGrab { region, .. } => region.width,
+                other => panic!("not a region answer: {other:?}"),
+            })
+            .collect();
+        assert_eq!(widths, [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
     }
 
     #[test]
@@ -249,6 +260,8 @@ mod tests {
         let mut queries = PageQueries::default();
         queries.ask_element(id("gone"), Vec2::ZERO);
         let kept = queries.ask_element(id("kept"), Vec2::ZERO);
+        let gone_look = queries.ask_inspect(id("gone"), Vec2::ZERO, false);
+        let kept_look = queries.ask_inspect(id("kept"), Vec2::ZERO, false);
         let requests =
             queries.ask_grab(Rect::new(0.0, 0.0, 5.0, 5.0), vec![id("gone"), id("kept")]);
         let answers = queries.give_up_on(&id("gone"));
@@ -260,5 +273,7 @@ mod tests {
         queries.grab_answer(requests[1], 3);
         assert_eq!(grabs(&queries.settled()[0]), [("gone", 0), ("kept", 3)]);
         assert!(queries.element_answer(kept, None).is_some());
+        assert!(queries.inspect_answer(gone_look, None).is_none());
+        assert!(queries.inspect_answer(kept_look, None).is_some());
     }
 }

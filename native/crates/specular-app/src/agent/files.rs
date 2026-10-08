@@ -135,7 +135,12 @@ mod tests {
         let tab = space.0.join(".specular/threads/tab9");
         fs::create_dir_all(&tab).unwrap();
         fs::write(tab.join("bad.json"), "{nope").unwrap();
-        fs::write(tab.join("notes.txt"), "x").unwrap();
+        // A thread's JSON under another extension is not read.
+        fs::write(
+            tab.join("t3.txt"),
+            r#"{"id":"t3","title":"Hi","status":"open","createdAt":"c","updatedAt":"u","messages":[]}"#,
+        )
+        .unwrap();
         fs::write(
             tab.join("t2.json"),
             r#"{"id":"t2","title":"Hi","status":"open","createdAt":"c","updatedAt":"u","messages":[]}"#,
@@ -152,7 +157,16 @@ mod tests {
     #[test]
     fn an_id_that_could_leave_the_folder_is_refused() {
         let space = Space::new("hostile");
-        for (tab, id) in [("../x", "t"), ("home", "a/b"), ("home", "..\\x"), ("", "t")] {
+        for (tab, id) in [
+            ("../x", "t"),
+            ("home", "a/b"),
+            ("home", "..\\x"),
+            ("", "t"),
+            ("home", "a\\b"),
+            ("home", ".."),
+            ("..", "t"),
+            ("home", ""),
+        ] {
             assert!(
                 write_thread(&space.0, &thread(tab, id)).is_err(),
                 "{tab} {id}"

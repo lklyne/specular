@@ -42,6 +42,7 @@ fn flags_set_their_fields() {
         run_args(&["--source", "synthetic"]).source,
         SourceKind::Synthetic
     );
+    assert_eq!(run_args(&["--source", "cef"]).source, SourceKind::Cef);
     assert_eq!(
         run_args(&["--window", "1600x1000"]).window,
         Some((1600, 1000))
@@ -70,6 +71,9 @@ fn bad_flags_are_refused() {
         &["demo.canvas", "--pages", "3"],
         &["--source", "webkit"],
         &["--window", "0x600"],
+        &["--window", "800x0"],
+        &["--bogus"],
+        &["a.canvas", "b.canvas"],
         &["--chrome", "maybe"],
         &["--annotations", "lots"],
         &["--chrome", "off", "--annotations", "5"],
@@ -78,6 +82,7 @@ fn bad_flags_are_refused() {
         &["--bench", "spin"],
         &["--snapshot-camera", "near"],
         &["--snapshot-scale", "0"],
+        &["--snapshot-scale", "9"],
         &["--bench-target", "headless"],
         &["--bench", "idle", "--bench-target", "tv"],
     ] {

@@ -94,6 +94,8 @@ pub(crate) mod tests {
         let decoded = decode(&encoded(64, 16, ImageFormat::Png), 32).unwrap();
         assert_eq!(decoded.size, PixelSize::new(32, 8));
         assert_eq!(decoded.rgba.len(), 32 * 8 * 4);
+        let tall = decode(&encoded(16, 64, ImageFormat::Png), 32).unwrap();
+        assert_eq!(tall.size, PixelSize::new(8, 32));
     }
 
     #[test]

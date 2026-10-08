@@ -127,6 +127,10 @@ mod tests {
             accelerator(Chord::key(Key::Backspace)),
             Some(Accelerator::new(Modifiers::empty(), Code::Backspace))
         );
+        assert_eq!(
+            accelerator(Chord::char('x').alt()),
+            Some(Accelerator::new(Modifiers::ALT, Code::KeyX))
+        );
         assert_eq!(accelerator(Chord::key(Key::Other)), None);
         assert_eq!(accelerator(Chord::char('é')), None);
     }

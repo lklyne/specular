@@ -273,7 +273,10 @@ mod tests {
         assert!(!demand.wanted(now + Duration::from_millis(10)));
         assert!(demand.wanted(now + RETRY));
         let app = one_sticky().app().clone();
-        assert!(demand.next_turn(&app, now) <= now + IDLE_TURN);
+        // The loop wakes when the retry is due, though that is sooner than
+        // an idle turn from the later time it asks.
+        let later = now + Duration::from_millis(80);
+        assert_eq!(demand.next_turn(&app, later), now + RETRY);
     }
 
     #[test]

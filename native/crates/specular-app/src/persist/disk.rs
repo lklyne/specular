@@ -103,6 +103,18 @@ mod tests {
         let path = dir.0.join("board.canvas");
         assert_eq!(stamp(&path), None);
         fs::write(&path, "four").unwrap();
-        assert_eq!(stamp(&path).unwrap().len, 4);
+        let first = stamp(&path).unwrap();
+        assert_eq!(first.len, 4);
+        // The same bytes with another modification time are another stamp.
+        let later = std::time::SystemTime::now() + std::time::Duration::from_secs(5);
+        File::options()
+            .write(true)
+            .open(&path)
+            .unwrap()
+            .set_modified(later)
+            .unwrap();
+        assert_ne!(stamp(&path).unwrap(), first);
+        fs::write(&path, "longer").unwrap();
+        assert_eq!(stamp(&path).unwrap().len, 6);
     }
 }

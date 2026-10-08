@@ -83,6 +83,12 @@ mod tests {
         assert_eq!(inside.space_path.as_deref(), Some("assets/inside.png"));
         assert_eq!(inside.image_size, Some((30, 20)));
 
+        // Named by its full path through the folder's own spelling (a
+        // symlink on macOS), it is inside all the same.
+        let full = space.0.join("assets/inside.png");
+        let by_path = inspect(full.to_str().unwrap(), Some(&space.0)).unwrap();
+        assert_eq!(by_path.space_path.as_deref(), Some("assets/inside.png"));
+
         let away = outside.0.join("away.png");
         let away = inspect(away.to_str().unwrap(), Some(&space.0)).unwrap();
         assert_eq!(away.space_path, None);

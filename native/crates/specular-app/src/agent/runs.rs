@@ -291,8 +291,9 @@ mod tests {
         let Some(Notice::Failed { error }) = got.last() else {
             panic!("{got:?}")
         };
+        let tail = format!(": {}…", "x".repeat(319));
         assert!(
-            error.contains("exit code 3") && error.contains('x'),
+            error.contains("exit code 3") && error.ends_with(&tail),
             "{error}"
         );
         assert_eq!(
@@ -330,7 +331,7 @@ mod tests {
         let mut r = AgentRuns::new(Box::new(Scripted::from_text("wait 3600000").unwrap()));
         r.start(&request("t"), Some(Path::new("/space")));
         assert_eq!(r.poll(), vec![]);
-        let later = Instant::now() + DEFAULT_TIMEOUT;
+        let later = Instant::now() + Duration::from_mins(10);
         let got: Vec<_> = r.poll_at(later).into_iter().map(|(_, n)| n).collect();
         assert_eq!(
             got,

@@ -344,9 +344,12 @@ mod tests {
     #[test]
     fn a_close_frame_is_answered_and_closes_once() {
         let (echo, server) = start();
-        let client = WsClient::connect(server.port(), "/a").unwrap();
-        client.close();
+        let mut client = WsClient::connect(server.port(), "/a").unwrap();
+        client.send_close().unwrap();
+        let reply = client.recv().unwrap_err();
+        assert_eq!(reply.kind(), std::io::ErrorKind::ConnectionAborted);
         wait_for("closed", || !echo.closed.lock().unwrap().is_empty());
+        thread::sleep(Duration::from_millis(50));
         assert_eq!(echo.closed.lock().unwrap().len(), 1);
         drop(server);
     }
