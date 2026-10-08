@@ -12,8 +12,8 @@ STEPS = ["update", "view", "cull", "shaping", "batching", "tessellation", "build
 
 
 def main():
-    print("| canvas | profile | drawn | skipped | cpu mean | cpu p95 | " + " | ".join(STEPS) + " | gpu | interval p95 | items | batches | draws | glyphs | triangles |")
-    print("|" + "---|" * (len(STEPS) + 14))
+    print("| canvas | shell | profile | drawn | skipped | cpu mean | cpu p95 | " + " | ".join(STEPS) + " | gpu | interval p95 | items | batches | draws | glyphs | triangles | process cpu |")
+    print("|" + "---|" * (len(STEPS) + 16))
     for path in sys.argv[1:]:
         for text in open(path):
             line = json.loads(text)
@@ -22,6 +22,7 @@ def main():
                 continue
             cells = [
                 (line.get("canvas") or "").removesuffix(".canvas"),
+                line.get("shell") or line.get("target") or "",
                 line["phase"],
                 work["framesDrawn"],
                 work["framesSkipped"],
@@ -35,6 +36,8 @@ def main():
                 work["drawCalls"],
                 work["glyphCount"],
                 work["triangles"],
+                # Cores the whole process used; window runs only.
+                f'{work["processCpu"]:.3f}' if "processCpu" in work else "",
             ]
             print("| " + " | ".join(str(cell) for cell in cells) + " |")
 

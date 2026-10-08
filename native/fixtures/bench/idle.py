@@ -4,12 +4,15 @@ many frames it draws while nothing happens.
 
     python3 fixtures/bench/idle.py APP [--source synthetic|cef] CANVAS
 
+APP is either shell's binary: `specular-app` (winit) or `specular` (Kit).
+
 Prints one JSON object: CPU seconds used a second of wall time over the
 middle 20 seconds (1.0 is one core), split into the app and its children,
 and the idle profile's frame counts.
 """
 
 import json
+import os
 import subprocess
 import sys
 import time
@@ -45,7 +48,10 @@ def tree_cpu(root):
 
 def main():
     app, *rest = sys.argv[1:]
-    command = [app, *rest, "--bench", "idle", "--bench-duration-ms", "30000", "--warmup-ms", "5000", "--window", "1600x1000"]
+    # WINDOW=WxH for a screen too short for the default: the system shrinks
+    # a window that does not fit, and each shell's by a different amount.
+    window = os.environ.get("WINDOW", "1600x1000")
+    command = [app, *rest, "--bench", "idle", "--bench-duration-ms", "30000", "--warmup-ms", "5000", "--window", window]
     run = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
     # Keeps the display awake until the app exits; a sleeping display presents nothing.
     subprocess.Popen(["caffeinate", "-d", "-w", str(run.pid)])
