@@ -143,9 +143,12 @@ fn switching_tool_commits_the_draft_and_a_new_document_drops_it() {
     assert_eq!(texts(&app), ["kept"]);
     app.assert_undo_returns_to_start();
 
+    // Away from the comment just placed: a click on its pill would focus it
+    // and open no draft.
     app.tool(Tool::Comment)
-        .click((600.0, 500.0))
+        .click((600.0, 620.0))
         .type_text("lost");
+    assert!(app.app().comment_draft().is_some() && app.editing_text() == "lost");
     app.open(Document::new());
     assert_eq!(
         (
@@ -155,6 +158,7 @@ fn switching_tool_commits_the_draft_and_a_new_document_drops_it() {
         ),
         (None, None, vec![])
     );
+    assert!(app.app().editing_layout().is_none(), "the edit went with it");
 }
 
 #[test]
