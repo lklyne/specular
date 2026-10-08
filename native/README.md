@@ -123,10 +123,9 @@ cargo run -p specular-app   -- [OPTIONS] [FOLDER | FILE.canvas]   # winit, built
 ```
 
 `specular` is the app: Kit toolbar, sidebar, settings, the chat panel. It is
-macOS only and refuses `--bench`. `specular-app` is the older window with the
-built-in panels. It stays because `--bench` runs only there and the headless
-modes draw its panels. Both take the same command line. `--help` prints all
-of it.
+macOS only. `specular-app` is the older window with the built-in panels. It
+stays until the user retires it (plan, "Cleanup tasks", rows 1 and 2). Both
+take the same command line, `--bench` included. `--help` prints all of it.
 
 | Flag | What it does |
 |---|---|
@@ -140,7 +139,7 @@ of it.
 | `--chrome on\|off` | `off` draws no page borders, selection or comments. Keys and gestures still act |
 | `--annotations N` | Seed N page-bound comments for a bench run |
 | `--snapshot`, `--script` and their options | See "Snapshot and script" |
-| `--bench` and its options | See "Bench". `specular-app` only |
+| `--bench` and its options | See "Bench" |
 
 ### Which space opens
 
@@ -235,23 +234,26 @@ nothing, and the capture then looks like blank pages.
 
 ## Bench
 
-`--bench` runs in `specular-app` only. Each profile prints one JSON line with
-frame stats and a `work` object: milliseconds a frame in update, view, cull,
+`--bench` runs in either window, and each line says which (`"shell"`: `winit`
+or `kit`). Each profile prints one JSON line with frame stats and a `work` object: milliseconds a frame in update, view, cull,
 shaping, batching, tessellation, build, glyphs, upload and submit, and the
 most items, batches, draw calls, glyphs and triangles one frame drew.
 
 ```
-specular-app --bench all|slow-pan,slow-zoom,idle [--bench-target window|headless]
+specular     --bench all|slow-pan,slow-zoom,idle [--bench-target window|headless]
              [--bench-duration-ms N] [--warmup-ms N] [--window WxH] FILE.canvas
+specular-app --bench ...        # the same run in the winit window
 ```
 
 - `--bench-target headless` draws into a texture with no vsync and times each
   frame until the GPU is done. Its frame intervals mean nothing. Read `work`.
 - `idle` is a seventh profile, run only when named. In a window it should
   report `framesDrawn: 0`.
-- `fixtures/bench/run.sh LABEL headless|window synthetic|cef` runs pan, zoom
-  and idle over the bench canvases into `runs/perf/LABEL/` and prints a
-  table. `idle.py` is a 30 second idle run with the process tree's CPU.
+- `fixtures/bench/run.sh LABEL headless|window synthetic|cef [winit|kit]`
+  runs pan, zoom and idle over the bench canvases into `runs/perf/LABEL/`
+  and prints a table. To compare the windows pass `--window 1600x960`: on a
+  laptop screen macOS shrinks a 1600x1000 winit window to 968 high and
+  leaves the Kit's alone. `idle.py` is a 30 second idle run with the process tree's CPU.
   `memory.py` prints the tree's footprint by kind of process.
 - Synthetic pages upload on the CPU and always animate. Their numbers are
   not the real cost, and a canvas with them is never idle.

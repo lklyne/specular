@@ -1,6 +1,6 @@
 # ADR 0040 — GPUI Kit as the shell around our own canvas view
 
-**Status:** Proposed. The shell was built on this ADR at the user's direction, as `native/crates/specular-shell` (binary `specular`) beside the winit shell, which stays until parity. The user chose GPUI Kit for the UI around the canvas and has not signed off this ADR's text. Measured on one machine with scripted input. The "Needs a human at a Mac" list is what is still unchecked.
+**Status:** Proposed. The shell was built on this ADR at the user's direction, as `native/crates/specular-shell` (binary `specular`) beside the winit shell, which stays until parity. The user chose GPUI Kit for the UI around the canvas and has not signed off this ADR's text. Measured on one machine with scripted input. The shell now matches the winit one on everything a script can check (run log, "SHELL-PARITY"). The "Needs a human at a Mac" list is what is still unchecked.
 **Date:** 2026-10-07
 **Related:** [ADR 0039](./0039-rust-canvas-render-stack.md), which turned GPUI down as the renderer of pages and canvas items. This ADR tests a different arrangement and does not reverse that finding. [Rust native rebuild plan](../plans/rust-native-rebuild.md).
 **Code:** `native/bakeoff/gpui-kit-hybrid/`, a standalone cargo workspace outside `native/Cargo.toml`. Reports and captures are in its `shots/`. `scripts/run-all.sh` reproduces all of it.
@@ -199,16 +199,18 @@ Adopt this only if the Kit's components are worth more than building panels in o
 
 ## Needs a human at a Mac
 
-The real shell was driven by scripted `NSEvent`s posted to the app's own queue. That covers clicks, keys into the canvas and into a CEF field, the Kit's popovers and dialog over the canvas, and frame pacing. It does not cover anything a hand or a second display does.
+Checked by script on 2026-10-08 in the real shell (run log, "SHELL-PARITY"), with real `NSEvent`s, the CEF bundle and window captures that were read: a scripted window resize, scroll and pinch over the canvas with a Kit list open, composition into a CEF field and a sticky with the caret rect the app answers, Cmd+Z and Tab with a page entered, the menu bar (greyed items, shortcuts, one run per choice), Backspace and arrows in a page field, a drop of three files, a double click on the toolbar strip, full screen in and out, a 60 Hz second display at 1x, and 40 CEF pages with the sidebar and a tool popup open (119.7 fps under a pan, debug build).
 
-- Resize the window by dragging its edge. GPUI presents with the transaction during a live resize and our layer does not. The canvas view no longer moves, so the risk is a stretched frame, not a gap.
-- A real trackpad: scroll with momentum, pinch, and a two-finger pan over the canvas while a Kit popover is open. Scroll and pinch reach the slot through GPUI's handlers and were never sent by script.
-- A real input method (Japanese or Pinyin) typing into a CEF field and into a canvas text item, and the candidate window's position. Plain keys go to the canvas as keys and composition through GPUI's input handler. Which of the two the first key of a composition takes was not seen.
-- Cmd+Z, Cmd+C and Tab with a page entered. They go to `update` as keys and the binding table decides. Check that it feels right, and that a menu shortcut does not also fire.
-- The menu bar: every item's shortcut shows, a chosen item runs once, and what a disabled item looks like. AppKit asks GPUI whether the action is available, and all model items share one action type, so they are probably never greyed.
-- Backspace in a page field. One scripted run removed two characters.
-- Dropping files from Finder onto the canvas, and where they land.
-- VoiceOver. GPUI has accesskit, and our canvas view exposes nothing.
-- Full screen, a second display at 60 Hz, and moving the window between displays of different scale.
-- 40 CEF pages with the Kit's panels open.
-- The traffic lights sit in the toolbar's left padding and the strip is 44 px tall. Check that the window drags by the toolbar and that double-click zooms.
+What is left needs a hand, an eye or a device a script cannot stand in for:
+
+- Resize the window by dragging its edge. A scripted `setFrame` showed nothing stretched or stale, but it does not take GPUI's live-resize path.
+- A real trackpad's momentum scrolling.
+- A real input method (Japanese or Pinyin): which path takes the first key of a composition, and where the candidate window sits. The rect the app answers is inside the field.
+- Cmd+C, Cmd+X and Cmd+V with a page entered. Scripts keep off the real pasteboard.
+- A real drag from Finder, most of all over the toolbar and the sidebar. The scripted drop calls the handler, not AppKit's dragging session.
+- Drag the window by the toolbar strip. The strip now asks for it, but a synthetic press in a title bar starts a tracking loop only a real mouse ends.
+- The frames during the full-screen transition.
+- Drag the window between displays of different scale, and leave it straddling both.
+- VoiceOver. The window exposes one empty group and the traffic lights. Neither the Kit's controls nor the canvas expose anything, so this is a build task before it is a check.
+
+Seen by script and not fixed: Cmd+Z in a page's text field reaches the page and undoes nothing there. One of two shutdowns with 40 pages logged 26 browsers still open. "Delete canvas" trashes through Finder, which blocked the main thread for two minutes and then timed out.
