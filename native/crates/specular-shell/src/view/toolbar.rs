@@ -13,7 +13,8 @@ use specular_interact::{
     PaintRole, Palette, SidebarButton, ToolButton, ToolbarModel, ToolbarSection,
 };
 
-use super::controls::{dropdown, hint};
+use super::controls::hint;
+use super::dropdown::dropdown;
 use super::glyphs::{self, glyph, ink};
 use super::run;
 use crate::menus::Preferences;
@@ -79,6 +80,24 @@ fn panel_toggle(model: &SidebarButton) -> impl IntoElement {
         .on_click(move |_, window, cx| run(&action, window, cx))
 }
 
+/// The button that shows and hides the sidebar, beside the traffic lights.
+fn sidebar_button(model: &SidebarButton) -> impl IntoElement {
+    let action = model.action.clone();
+    let current = ink(if model.open {
+        theme::TOOLBAR_TEXT_STRONG
+    } else {
+        theme::TOOLBAR_TEXT
+    });
+    Button::new(SharedString::from(model.id.as_str().to_owned()))
+        .ghost()
+        .w(px(32.0))
+        .h(px(28.0))
+        .rounded(px(6.0))
+        .tooltip(hint(&model.label, None))
+        .child(glyph(model.icon, current, None, false, 16.0))
+        .on_click(move |_, window, cx| run(&action, window, cx))
+}
+
 fn divider() -> impl IntoElement {
     div()
         .mx_1()
@@ -114,11 +133,18 @@ pub(super) fn toolbar(model: &ToolbarModel, title: &str, _cx: &App) -> impl Into
         .bg(theme::solid(theme::TOOLBAR))
         .text_color(theme::solid(theme::TOOLBAR_TEXT))
         .child(
-            div()
+            h_flex()
                 .flex_1()
                 .min_w_0()
-                .truncate()
-                .child(SharedString::from(title.to_owned())),
+                .gap_2()
+                .items_center()
+                .child(sidebar_button(&model.sidebar))
+                .child(
+                    div()
+                        .min_w_0()
+                        .truncate()
+                        .child(SharedString::from(title.to_owned())),
+                ),
         )
         .child(cluster)
         .child(

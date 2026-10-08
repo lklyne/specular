@@ -1,5 +1,6 @@
-//! The asset source: the Kit's default icons, and the few more the sidebar
-//! and the right panel use from the Kit's full catalog.
+//! The asset source: the Kit's default icons, and the few more the right
+//! panel and the settings use from the Kit's full catalog. The toolbar's and
+//! the sidebar's glyphs are the models' own (`view/glyphs.rs`).
 
 use std::borrow::Cow;
 
@@ -10,8 +11,6 @@ use gpui_kit::{AssetSource, SharedString};
 icon_assets!(
     ExtraIcons,
     [
-        StickyNote,
-        PenLine,
         MessageSquare,
         SquareDashed,
         SquareDashedMousePointer,
@@ -28,10 +27,6 @@ icon_assets!(
 /// An icon of the Kit's catalog that is not in its default set.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ShellIcon {
-    /// A sticky note or a text.
-    StickyNote,
-    /// A drawing.
-    PenLine,
     /// A comment.
     MessageSquare,
     /// A comment on a region or on the selection.
@@ -57,8 +52,6 @@ pub(crate) enum ShellIcon {
 impl IconNamed for ShellIcon {
     fn path(self) -> SharedString {
         match self {
-            Self::StickyNote => IconName::StickyNote.path(),
-            Self::PenLine => IconName::PenLine.path(),
             Self::MessageSquare => IconName::MessageSquare.path(),
             Self::SquareDashed => IconName::SquareDashed.path(),
             Self::SquareDashedMousePointer => IconName::SquareDashedMousePointer.path(),

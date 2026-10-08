@@ -10,13 +10,19 @@
 //! key goes to `update` as a key, where the binding table decides, exactly
 //! as in the winit shell. Elsewhere in the window macOS matches the menu's
 //! key equivalent and the item runs.
+//!
+//! macOS greys an item when GPUI says its action is not available, which
+//! GPUI decides by the action's type: one with a handler is available. So
+//! an item that is enabled is a [`MenuCommand`], which has a handler, and
+//! one that is not is a [`MenuUnavailable`], which has none. macOS then
+//! draws it grey and does not match its key.
 
 use std::collections::HashSet;
 
 use gpui_kit::{
     Action, App, Global, KeyBinding, Menu, MenuItem, PathPromptOptions, SystemMenuType, actions,
 };
-use specular_interact::{Chord, Event, Key, MenuEntry};
+use specular_interact::{CanvasAction, Chord, Event, Key, MenuEntry};
 
 use crate::canvas;
 use crate::shell;
@@ -58,6 +64,24 @@ actions!(
 pub(crate) struct MenuCommand {
     menu: usize,
     item: usize,
+}
+
+/// One item of a model menu that cannot be chosen now. Nothing handles it.
+#[derive(Action, Clone, PartialEq, Debug)]
+#[action(namespace = specular, no_json)]
+pub(crate) struct MenuUnavailable {
+    menu: usize,
+    item: usize,
+}
+
+/// The action of the model item at `(menu, item)`: which of the two types
+/// says whether macOS draws it enabled.
+fn item_action(menu: usize, item: usize, enabled: bool) -> Box<dyn Action> {
+    if enabled {
+        Box::new(MenuCommand { menu, item })
+    } else {
+        Box::new(MenuUnavailable { menu, item })
+    }
 }
 
 /// What the menu bar last showed, to rebuild it only when it changes.
@@ -151,8 +175,11 @@ pub(crate) fn sync(models: &[specular_interact::Menu], cx: &mut App) {
                 continue;
             }
             if let Some(keys) = keystroke(chord) {
+                // Both, so a greyed item still shows its key.
                 let command = MenuCommand { menu, item };
                 bindings.push(KeyBinding::new(&keys, command, Some(MENU_ONLY)));
+                let unavailable = MenuUnavailable { menu, item };
+                bindings.push(KeyBinding::new(&keys, unavailable, Some(MENU_ONLY)));
                 cx.global_mut::<Shown>().bound.insert((menu, item, chord));
             }
         }
@@ -167,9 +194,13 @@ pub(crate) fn sync(models: &[specular_interact::Menu], cx: &mut App) {
             let MenuEntry::Item(entry) = entry else {
                 return MenuItem::separator();
             };
-            MenuItem::action(entry.label.to_string(), MenuCommand { menu, item })
-                .checked(entry.checked.unwrap_or(false))
-                .disabled(!entry.enabled)
+            MenuItem::Action {
+                name: entry.label.to_string().into(),
+                action: item_action(menu, item, entry.enabled),
+                os_action: None,
+                checked: entry.checked.unwrap_or(false),
+                disabled: !entry.enabled,
+            }
         });
         bar.push(Menu::new(model.title).items(items));
     }
@@ -268,7 +299,10 @@ pub(crate) fn install(cx: &mut App) {
         canvas::with(|canvas| canvas.runtime.flush_files());
     });
     cx.on_action(|_: &RenameCanvas, cx| {
-        shell::with_view(cx, crate::view::ShellView::rename_active);
+        shell::with_view(cx, |_, window, cx| {
+            let rename = specular_interact::Action::Canvas(CanvasAction::BeginRename(None));
+            crate::view::run(&rename, window, cx);
+        });
     });
     cx.on_action(|_: &Preferences, cx| {
         shell::with_view(cx, |_, window, cx| crate::settings::open(window, cx));

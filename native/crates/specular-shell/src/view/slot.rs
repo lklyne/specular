@@ -6,6 +6,7 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 use glam::Vec2;
+use gpui_kit::component::ActiveTheme as _;
 use gpui_kit::{
     App, Bounds, Context, CursorStyle, DispatchPhase, ElementInputHandler, Entity, ExternalPaths,
     FocusHandle, Hitbox, HitboxBehavior, InteractiveElement as _, IntoElement, KeyDownEvent,
@@ -33,6 +34,9 @@ pub(super) struct Pointer {
     held: Cell<bool>,
     /// Whether the pointer was over the canvas at its last move.
     inside: Cell<bool>,
+    /// Whether the press now held only closed a Kit list or menu, so its
+    /// release is not the canvas's either.
+    swallowed: Cell<bool>,
 }
 
 fn modifiers(modifiers: Modifiers) -> specular_core::Modifiers {
@@ -96,11 +100,23 @@ struct SlotPaint {
     entity: Entity<ShellView>,
     asks: Rc<WindowAsks>,
     pointer: Rc<Pointer>,
+    /// Whether the right panel's composer has the keys.
+    composing: bool,
 }
 
 impl SlotPaint {
     fn paint(&self, bounds: Bounds<Pixels>, hitbox: &Hitbox, window: &mut Window, cx: &mut App) {
         window.set_cursor_style(cursor_style(self.asks.cursor.get()), hitbox);
+
+        // An open Kit list or menu holds the focus, and a press outside it
+        // closes it. That press must not also start a gesture on the canvas
+        // (the built-in panels swallow it the same way), so a press that
+        // arrives while something other than the canvas or a text field has
+        // the focus only gives the focus back.
+        let closes_a_list = !self.composing
+            && window.focused(cx).is_some_and(|focused| {
+                focused != self.focus && !super::field::holds_focus(&focused, window, cx)
+            });
 
         let (over, press, grab) = (hitbox.clone(), Rc::clone(&self.pointer), self.focus.clone());
         window.on_mouse_event(move |event: &MouseDownEvent, phase, window, cx| {
@@ -108,6 +124,10 @@ impl SlotPaint {
                 return;
             }
             window.focus(&grab, cx);
+            if closes_a_list {
+                press.swallowed.set(true);
+                return;
+            }
             let Some(button) = button(event.button) else {
                 return;
             };
@@ -123,6 +143,9 @@ impl SlotPaint {
         let (over, press) = (hitbox.clone(), Rc::clone(&self.pointer));
         window.on_mouse_event(move |event: &MouseUpEvent, phase, window, _| {
             if phase != DispatchPhase::Bubble {
+                return;
+            }
+            if press.swallowed.replace(false) {
                 return;
             }
             let ours = press.held.replace(false) || over.is_hovered(window);
@@ -187,10 +210,11 @@ impl ShellView {
     /// The slot. Its bounds are the app's viewport.
     pub(super) fn canvas_slot(
         &mut self,
-        _window: &mut Window,
+        window: &mut Window,
         cx: &mut Context<'_, Self>,
     ) -> impl IntoElement {
         let paint = SlotPaint {
+            composing: self.composer_focused(window, cx),
             focus: self.focus.clone(),
             entity: cx.entity(),
             asks: Rc::clone(&self.asks),
@@ -198,9 +222,7 @@ impl ShellView {
         };
         div()
             .id("canvas-slot")
-            .flex_1()
-            .h_full()
-            .min_w_0()
+            .size_full()
             .track_focus(&self.focus)
             .key_context("Canvas")
             // A key that reaches here was not taken by a Kit text field, a
@@ -222,14 +244,14 @@ impl ShellView {
             .on_action(|_: &CanvasKey, _, _| {
                 send_current_key(|kind| matches!(kind, RawKind::Down { .. }));
             })
-            .on_drop(move |paths: &ExternalPaths, window, _| {
+            .drag_over::<ExternalPaths>(|style, _, _, cx| style.bg(cx.theme().drop_target))
+            .on_drop(move |paths: &ExternalPaths, window, cx| {
                 let at = window.mouse_position();
-                canvas::with(|canvas| {
-                    let origin = (canvas.runtime.window())
-                        .map_or(Vec2::ZERO, crate::surface::CanvasSurface::slot_origin);
-                    let screen = Vec2::new(f32::from(at.x), f32::from(at.y)) - origin;
-                    (canvas.runtime).drop_files(paths.paths().iter().cloned(), Some(screen));
-                });
+                super::drop_files(
+                    paths.paths().to_vec(),
+                    Vec2::new(f32::from(at.x), f32::from(at.y)),
+                );
+                cx.stop_propagation();
             })
             .child(
                 canvas(

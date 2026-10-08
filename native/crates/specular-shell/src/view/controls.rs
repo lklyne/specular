@@ -5,44 +5,42 @@
 //! | `Button`    | `Button`, ghost                                          |
 //! | `Toggle`    | `Toggle`                                                 |
 //! | `Swatches`  | a row of round buttons (the Kit has a picker, not a row) |
-//! | `Dropdown`  | `Popover` over a `Button` trigger                        |
+//! | `Dropdown`  | `Popover` over a `Button` trigger (`dropdown.rs`)        |
+//! | `Choices`   | the same sections in place (`dropdown.rs`)               |
 //! | `Stepper`   | two `Button`s around the value                           |
-//! | `Separator` | `Separator`                                              |
+//! | `Field`     | `Input` (`field.rs`)                                     |
+//! | `Separator` | a hairline                                               |
 //!
 //! Nothing here holds state. A control is drawn from the model each frame
-//! and a click sends the model's own `Action` through `update`.
+//! and a click sends the model's own `Action` through `update`. Each
+//! element's id is the model control's name.
 
 use gpui_kit::component::button::{Button, ButtonVariants as _, Toggle, ToggleVariants as _};
-use gpui_kit::component::popover::Popover;
-use gpui_kit::component::separator::Separator;
 use gpui_kit::component::tooltip::Tooltip;
-use gpui_kit::component::{
-    ActiveTheme as _, Disableable as _, IconName, Sizable as _, h_flex, v_flex,
-};
+use gpui_kit::component::{Disableable as _, IconName, Sizable as _, h_flex};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
     AnyElement, App, InteractiveElement as _, IntoElement, ParentElement as _, SharedString,
-    StatefulInteractiveElement as _, Styled as _, div, px,
+    StatefulInteractiveElement as _, Styled as _, Window, div, px,
 };
 use specular_interact::{
-    Action, Choices, Chord, Control, ControlId, Dropdown, DropdownOption, DropdownSection, Face,
-    Field, OptionLayout, PaintRole, Palette, PopupModel, Stepper, Swatch, Swatches, ToolbarModel,
-    ToolbarSection,
+    Action, Chord, Control, ControlId, Face, PaintRole, Palette, Stepper, Swatch, Swatches,
 };
 
+use super::dropdown::{choices, dropdown};
+use super::field::field;
 use super::glyphs::{self, glyph, ink};
 use super::run;
-use crate::canvas;
 use crate::theme;
 
 /// The side of a popup control, and of a swatch button inside one.
-const CONTROL: f32 = 24.0;
+pub(super) const CONTROL: f32 = 24.0;
 const SWATCH: f32 = 20.0;
 const DOT: f32 = 12.0;
 const GLYPH: f32 = 14.0;
 
 /// A stable element id from a control's name.
-fn element_id(id: &ControlId) -> SharedString {
+pub(super) fn element_id(id: &ControlId) -> SharedString {
     SharedString::from(id.as_str().to_owned())
 }
 
@@ -55,7 +53,7 @@ pub(super) fn hint(label: &str, chord: Option<Chord>) -> SharedString {
 }
 
 /// What a control shows: its glyph, its word, or a dot of its colour.
-fn face(face: &Face, on: bool) -> AnyElement {
+pub(super) fn face(face: &Face, on: bool) -> AnyElement {
     let tint =
         (face.color.as_ref()).map(|color| glyphs::resolved(color, Palette::Vivid, PaintRole::Ink));
     let mut row = h_flex().gap_1().items_center();
@@ -199,210 +197,16 @@ fn stepper(model: &Stepper) -> AnyElement {
         .into_any_element()
 }
 
-/// One row of a dropdown's list: the option's face, its small text at the
-/// far end, and a fill when it is the current value.
-fn option(model: &DropdownOption, wide: bool, dismiss: Dismiss) -> AnyElement {
-    let action = model.action.clone();
-    let trailing = (model.trailing.as_ref()).map(|text| SharedString::from(text.to_string()));
-    let keys = model.chord.map(Chord::text);
-    div()
-        .id(element_id(&model.id))
-        .flex()
-        .items_center()
-        .justify_between()
-        .gap_4()
-        .h(px(if wide { CONTROL } else { 32.0 }))
-        .when(wide, |this| this.w_full().px_2())
-        .when(!wide, |this| this.w(px(32.0)).justify_center())
-        .rounded(px(6.0))
-        .cursor_pointer()
-        .when(model.selected, |this| {
-            this.bg(theme::solid(theme::CONTROL_ON))
-        })
-        .hover(|this| this.bg(theme::solid(theme::CONTROL_HOVER)))
-        .child(face(&model.face, model.selected))
-        .when_some(trailing, |this, text| {
-            this.child(
-                div()
-                    .text_color(theme::tinted(theme::TEXT_MUTED))
-                    .child(text),
-            )
-        })
-        .when_some(keys, |this, keys| {
-            this.child(
-                div()
-                    .px_1p5()
-                    .py_0p5()
-                    .rounded(px(4.0))
-                    .bg(theme::solid(theme::CONTROL_ON))
-                    .text_color(theme::solid(0x0057_534d))
-                    .child(SharedString::from(keys)),
-            )
-        })
-        .on_click(move |_, window, cx| {
-            run(&action, window, cx);
-            dismiss(window, cx);
-        })
-        .into_any_element()
-}
-
-/// Closes the list a chosen option was in.
-type Dismiss = std::rc::Rc<dyn Fn(&mut gpui_kit::Window, &mut App)>;
-
-fn section(model: &DropdownSection, dismiss: &Dismiss) -> AnyElement {
-    match model {
-        DropdownSection::Options { layout, options } => match layout {
-            OptionLayout::List => v_flex()
-                .gap_0p5()
-                .min_w(px(140.0))
-                .children(options.iter().map(|one| option(one, true, dismiss.clone())))
-                .into_any_element(),
-            OptionLayout::Row => h_flex()
-                .gap_0p5()
-                .children(
-                    options
-                        .iter()
-                        .map(|one| option(one, false, dismiss.clone())),
-                )
-                .into_any_element(),
-            OptionLayout::Grid { columns } => {
-                let width = f32::from(*columns) * 32.0 + f32::from(columns.saturating_sub(1)) * 2.0;
-                h_flex()
-                    .flex_wrap()
-                    .gap(px(2.0))
-                    .w(px(width))
-                    .children(
-                        options
-                            .iter()
-                            .map(|one| option(one, false, dismiss.clone())),
-                    )
-                    .into_any_element()
-            }
-        },
-        DropdownSection::Controls(controls) => h_flex()
-            .gap_1()
-            .items_center()
-            .children(controls.iter().map(control))
-            .into_any_element(),
-    }
-}
-
-/// The dropdown named `id` as the models have it now. A list stays open
-/// across frames, so it is looked up each time and never kept.
-fn find_dropdown(id: &ControlId) -> Option<Dropdown> {
-    fn among(controls: &[Control], id: &ControlId) -> Option<Dropdown> {
-        controls.iter().find_map(|control| match control {
-            Control::Dropdown(dropdown) if dropdown.id == *id => Some(dropdown.clone()),
-            Control::Dropdown(dropdown) => {
-                dropdown.content.iter().find_map(|section| match section {
-                    DropdownSection::Controls(controls) => among(controls, id),
-                    DropdownSection::Options { .. } => None,
-                })
-            }
-            Control::Choices(choices) => choices.content.iter().find_map(|section| match section {
-                DropdownSection::Controls(controls) => among(controls, id),
-                DropdownSection::Options { .. } => None,
-            }),
-            Control::Button(_)
-            | Control::Toggle(_)
-            | Control::Swatches(_)
-            | Control::Stepper(_)
-            | Control::Field(_)
-            | Control::Separator => None,
-        })
-    }
-    fn in_toolbar(toolbar: &ToolbarModel, id: &ControlId) -> Option<Dropdown> {
-        toolbar.sections.iter().find_map(|section| match section {
-            ToolbarSection::Zoom(dropdown) if dropdown.id == *id => Some(dropdown.clone()),
-            ToolbarSection::Zoom(_) | ToolbarSection::Tools(_) => None,
-        })
-    }
-    let models = canvas::models()?;
-    in_toolbar(&models.toolbar, id).or_else(|| {
-        let popup: &PopupModel = models.popup.as_ref()?;
-        among(&popup.controls, id)
-    })
-}
-
-/// A dropdown: a trigger showing the current value, and its sections in a
-/// Kit popover. It has no tooltip, which would sit over the open list.
-/// `toolbar` is the zoom readout, as tall as a tool button.
-pub(super) fn dropdown(model: &Dropdown, toolbar: bool) -> AnyElement {
-    let id = model.id.clone();
-    let trigger = Button::new(element_id(&model.id.child("trigger")))
-        .ghost()
-        .xsmall()
-        .h(px(if toolbar { 28.0 } else { CONTROL }))
-        .dropdown_caret(true)
-        .child(face(&model.summary, false));
-    Popover::new(element_id(&model.id))
-        .trigger(trigger)
-        .content(move |_, _, cx| {
-            let popover = cx.entity();
-            let dismiss: Dismiss = std::rc::Rc::new(move |window, cx| {
-                popover.update(cx, |state, cx| state.dismiss(window, cx));
-            });
-            let sections = find_dropdown(&id).map(|dropdown| dropdown.content);
-            let sections = sections.unwrap_or_default();
-            let last = sections.len().saturating_sub(1);
-            v_flex()
-                .gap_1()
-                .text_size(px(12.0))
-                .text_color(cx.theme().popover_foreground)
-                .children(sections.iter().enumerate().map(|(index, one)| {
-                    v_flex()
-                        .gap_1()
-                        .child(section(one, &dismiss))
-                        .when(index < last, |this| this.child(Separator::horizontal()))
-                }))
-        })
-        .into_any_element()
-}
-
-/// A field's value as a line of text. Every field the models have sits in a
-/// popup beside a canvas item, which the canvas's own pass draws and edits,
-/// so nothing types into this one.
-fn field(model: &Field) -> AnyElement {
-    let text = match (&model.placeholder, model.value.is_empty()) {
-        (Some(placeholder), true) => placeholder.to_string(),
-        (Some(_), false) | (None, _) => model.value.clone(),
-    };
-    h_flex()
-        .gap_1()
-        .items_center()
-        .text_size(px(12.0))
-        .children(model.caption.as_ref().map(ToString::to_string))
-        .child(text)
-        .into_any_element()
-}
-
-/// A list shown in place: its sections one under another, as an open
-/// dropdown has them. A choice leaves the list where it is.
-fn choices(model: &Choices) -> AnyElement {
-    let stay: Dismiss = std::rc::Rc::new(|_, _| {});
-    let last = model.content.len().saturating_sub(1);
-    v_flex()
-        .gap_1()
-        .text_size(px(12.0))
-        .children(model.content.iter().enumerate().map(|(index, one)| {
-            v_flex()
-                .gap_1()
-                .child(section(one, &stay))
-                .when(index < last, |this| this.child(Separator::horizontal()))
-        }))
-        .into_any_element()
-}
-
 /// Any model control as a Kit component.
-pub(super) fn control(model: &Control) -> AnyElement {
+pub(super) fn control(model: &Control, window: &mut Window, cx: &mut App) -> AnyElement {
     match model {
         Control::Button(model) => button(model),
         Control::Toggle(model) => toggle(model),
         Control::Swatches(model) => swatches(model),
         Control::Dropdown(model) => dropdown(model, false),
         Control::Stepper(model) => stepper(model),
-        Control::Field(model) => field(model),
-        Control::Choices(model) => choices(model),
+        Control::Field(model) => field(model, window, cx),
+        Control::Choices(model) => choices(model, window, cx),
         Control::Separator => div()
             .mx_1()
             .w(px(1.0))
