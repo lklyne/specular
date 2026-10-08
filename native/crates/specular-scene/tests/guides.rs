@@ -27,3 +27,26 @@ fn a_drag_level_with_two_neighbours_draws_lines_and_gap_measures() {
     app.press(middle).drag_to(level);
     assert_scene_snapshot!(app);
 }
+
+#[test]
+fn a_drag_in_line_with_two_neighbours_above_and_below_draws_vertical_lines_and_measures() {
+    let mut app = TestApp::with_entities([
+        shape("top", Rect::new(100.0, 100.0, 100.0, 100.0)),
+        shape("bottom", Rect::new(100.0, 500.0, 100.0, 100.0)),
+        shape("a", Rect::new(400.0, 300.0, 100.0, 100.0)),
+    ]);
+    app.viewport((1600.0, 1000.0));
+    app.zoom(0.5);
+    let middle = app
+        .app()
+        .session()
+        .camera
+        .world_to_screen((450.0, 350.0).into());
+    let level = app
+        .app()
+        .session()
+        .camera
+        .world_to_screen((150.0, 350.0).into());
+    app.press(middle).drag_to(level);
+    assert_scene_snapshot!(app);
+}

@@ -103,13 +103,13 @@ mod tests {
     fn a_lucide_glyph_is_stroked_in_the_current_color() {
         let svg = icon_svg(
             Icon::Trash,
-            Color::rgb(0x30, 0x30, 0x30),
+            Color::rgb(0x30, 0x40, 0x50),
             None,
             false,
             Appearance::Light,
         );
         assert!(svg.starts_with("<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\""));
-        assert!(svg.contains("stroke=\"#303030\""), "{svg}");
+        assert!(svg.contains("stroke=\"#304050\""), "{svg}");
         assert!(svg.ends_with("</svg>"));
     }
 }

@@ -5,7 +5,9 @@ expression: app.scene_snapshot()
 canvas shadow 100,102 400x300 r=4 blur=8 fill=#00000014
 canvas rect 100,100 400x300 r=4 fill=#fafaf9
 canvas column 112,112 376x276
-  row min-h=29 pad-b=4
+  row
+    text "Above." 0,0 wrap=376 14/21 #1c1917
+  row gap=21 min-h=29 pad-b=4
     rule x=0 w=376 bottom=1 #1c191740
     text "Name" 6,4 wrap=113.33 14/21 w600 #1c1917
     text "Qty" 131.33,4 wrap=113.33 14/21 w600 #1c1917 right

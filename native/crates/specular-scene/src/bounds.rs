@@ -56,9 +56,10 @@ mod tests {
         assert_eq!(
             [
                 stroked(StrokeAlign::Centre).bounds(),
-                stroked(StrokeAlign::Outside).bounds()
+                stroked(StrokeAlign::Outside).bounds(),
+                stroked(StrokeAlign::Inside).bounds()
             ],
-            [Some(RECT.outset(2.0)), Some(RECT.outset(4.0))]
+            [Some(RECT.outset(2.0)), Some(RECT.outset(4.0)), Some(RECT)]
         );
     }
 

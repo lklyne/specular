@@ -4,7 +4,7 @@
 use specular_doc::{EntityId, PageAnchor, Rect};
 use specular_interact::Key;
 use specular_testkit::{
-    CMD, TestApp, document, group, inside, insta::assert_snapshot, page, shape, sticky,
+    CMD, SHIFT, TestApp, document, group, inside, insta::assert_snapshot, page, shape, sticky,
 };
 
 /// A sticky in the middle of a 1200x800 viewport, the built-in panels on.
@@ -46,6 +46,12 @@ fn a_field_being_edited_shows_its_text_selection_and_caret_cut_at_its_box() {
         .chord(CMD, Key::Char('a'))
         .type_text(&"long-address/".repeat(20));
     assert_snapshot!("page_url_editing", app.panel_scene_snapshot());
+    app.chord(SHIFT, Key::ArrowLeft)
+        .chord(SHIFT, Key::ArrowLeft)
+        .chord(SHIFT, Key::ArrowLeft);
+    assert_snapshot!("page_url_selected", app.panel_scene_snapshot());
+    app.key(Key::ArrowRight).compose("にほ");
+    assert_snapshot!("page_url_composing", app.panel_scene_snapshot());
 }
 
 #[test]
@@ -73,7 +79,10 @@ fn the_panels_are_not_in_the_scene_view_builds() {
 /// scroll.
 fn sidebar_app() -> TestApp {
     let hooked = specular_doc::Entity {
-        anchor: Some(PageAnchor::new(EntityId::from("p"))),
+        anchor: Some(PageAnchor {
+            page_url: Some("https://elsewhere.test/".to_owned()),
+            ..PageAnchor::new(EntityId::from("p"))
+        }),
         ..sticky("h", Rect::new(0.0, 0.0, 100.0, 100.0), "hooked note")
     };
     let canvas = document([
@@ -117,4 +126,11 @@ fn the_sidebar_scrolled_with_a_name_being_edited() {
         .pointer_move((100.0, 300.0))
         .wheel((0.0, -40.0));
     assert_snapshot!("sidebar_scrolled", app.panel_scene_snapshot());
+}
+
+#[test]
+fn a_dropdown_of_plain_words_is_a_white_menu() {
+    let mut app = app();
+    app.select(&["t"]).click_control("text.size");
+    assert_snapshot!("size_menu", app.panel_scene_snapshot());
 }

@@ -6,7 +6,7 @@ use specular_core::{PageElement, PixelRect};
 use specular_doc::{
     Annotation, AnnotationAnchor, AnnotationStatus, EntityId, PageAnchor, Rect, RegionAnchor, Reply,
 };
-use specular_interact::{Action, Tool};
+use specular_interact::{Action, MarkShape, Tool};
 use specular_testkit::{TestApp, assert_scene_snapshot, comment, document, pages, with_comment};
 
 fn point(x: f64, y: f64) -> AnnotationAnchor {
@@ -197,4 +197,52 @@ fn a_region_drag_in_flight_looks_like_the_resting_draft_region() {
     assert_scene_snapshot!("in_flight", app);
     app.release();
     assert_scene_snapshot!("resting", app);
+}
+
+#[test]
+fn marks_stay_inside_their_page_group_by_spot_and_keep_a_minimum_size() {
+    let on_page = |offset_y: f64| AnnotationAnchor::Page {
+        page_id: EntityId::from("p1"),
+        offset_x: 0.5,
+        offset_y,
+    };
+    let boxless = AnnotationAnchor::Element {
+        page_id: EntityId::from("p1"),
+        selector: "#a".to_owned(),
+        element_path: None,
+        bounding_box: None,
+    };
+    let app = app_with([
+        comment("top", on_page(0.0), "a"),
+        comment("top-again", on_page(0.0), "b"),
+        comment("middle", on_page(0.5), "c"),
+        comment("speck", region(Rect::new(600.0, 500.0, 1.0, 1.0)), "d"),
+        comment("boxless", boxless, "e"),
+    ]);
+    let marks = app.app().comment_marks();
+    let shape = |id: &str| {
+        let mark = marks
+            .iter()
+            .find(|mark| mark.members.iter().any(|member| member.as_str() == id))
+            .expect("a mark");
+        (mark.members.len(), mark.shape)
+    };
+    let rect = |x: f32, y: f32, width: f32, height: f32| specular_interact::ScreenRect {
+        min: glam::Vec2::new(x, y),
+        size: glam::Vec2::new(width, height),
+    };
+    assert_eq!(marks.len(), 4, "the two at one spot share a pill");
+    assert_eq!(
+        shape("top"),
+        (2, MarkShape::Badge(rect(466.0, 97.0, 26.0, 26.0))),
+        "a pill at the very top of a page is kept 10px inside it"
+    );
+    assert_eq!(
+        shape("speck"),
+        (1, MarkShape::Region(rect(600.0, 500.0, 4.0, 4.0)))
+    );
+    assert_eq!(
+        shape("boxless"),
+        (1, MarkShape::Badge(rect(466.0, 108.0, 26.0, 26.0)))
+    );
 }

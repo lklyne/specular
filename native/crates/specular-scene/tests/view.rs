@@ -251,6 +251,22 @@ fn an_edge_is_a_curve_with_arrowheads_and_a_label() {
 }
 
 #[test]
+fn an_edge_line_follows_the_zoom() {
+    let boxes = document([
+        shape("a", Rect::new(100.0, 100.0, 100.0, 100.0)),
+        shape("b", Rect::new(500.0, 150.0, 100.0, 100.0)),
+    ]);
+    let mut app = TestApp::from_document(connected(boxes, "plain", "a", "b"));
+    app.zoom(0.5);
+    let scene = view(app.app(), VIEWPORT, &ViewCache::default());
+    let line = scene.items.iter().find_map(|item| match &item.draw {
+        Draw::Path(path) if path.commands.len() == 2 => path.stroke,
+        _ => None,
+    });
+    assert_eq!(line.map(|stroke| stroke.width), Some(0.75));
+}
+
+#[test]
 fn selecting_one_entity_outlines_it_and_adds_corner_handles() {
     let mut app = TestApp::with_pages(2);
     select(&mut app, &["p1"]);
@@ -412,6 +428,27 @@ fn a_frame_like_the_last_parses_no_document_and_outlines_no_stroke() {
     }));
     assert_eq!(view(app.app(), VIEWPORT, &cache), fresh(&app));
     assert_eq!(cache.built(), 1);
+
+    // A narrower column wraps differently, so the document is parsed again.
+    app.send(Event::Api(ApiCall {
+        ticket: 2,
+        canvas: None,
+        run: ApiRun::Apply {
+            command: Command::SetRect {
+                id: EntityId::new("doc"),
+                rect: Rect::new(400.0, 100.0, 200.0, 300.0),
+            },
+            select: None,
+        },
+    }));
+    assert_eq!(view(app.app(), VIEWPORT, &cache), fresh(&app));
+    assert_eq!(cache.built(), 1);
+
+    // Zoomed far out a thin stroke draws at a minimum width in pixels, so the
+    // same strokes are outlined again.
+    app.zoom(0.1);
+    assert_eq!(view(app.app(), VIEWPORT, &cache), fresh(&app));
+    assert_eq!(cache.built(), 2);
 }
 
 #[test]

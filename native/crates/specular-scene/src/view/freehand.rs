@@ -319,4 +319,48 @@ mod tests {
             (0, 0)
         );
     }
+
+    /// The points in order, folded into one number: a reordered or shifted
+    /// outline changes it where a sum does not.
+    fn signature(out: &[DVec2]) -> f64 {
+        let folded: f64 = (out.iter().enumerate())
+            .map(|(index, point)| (index + 1) as f64 * (point.x * 7.0 + point.y * 13.0))
+            .sum();
+        (folded * 1e4).round() / 1e4
+    }
+
+    const PIN_DENSE: (usize, f64) = (76, 1_052_378.688);
+    const PIN_DOT_LEN: usize = 13;
+    const PIN_DOT: (f64, f64, f64) = (6.909_451, 4.405_023, 8_298.987_4);
+
+    // These two are pinned from this port; the rules they cover are the
+    // library's, but the numbers were not run through it.
+
+    #[test]
+    fn a_dense_path_with_a_hairpin_end_keeps_its_outline_order_and_drops_close_points() {
+        let points: Vec<DVec2> = (0..60_u8)
+            .map(|step| {
+                let x = f64::from(step) * 1.5;
+                DVec2::new(x, 12.0 * (x / 20.0).sin())
+            })
+            .chain([
+                DVec2::new(90.0, 4.0),
+                DVec2::new(93.0, 4.0),
+                DVec2::new(95.0, 4.0),
+                DVec2::new(91.0, 4.5),
+            ])
+            .collect();
+        let out = outline(&points, 8.0, true);
+        assert_eq!((out.len(), signature(&out)), PIN_DENSE);
+    }
+
+    #[test]
+    fn two_points_that_never_part_make_a_circle_round_the_first() {
+        let at = DVec2::new(5.0, 5.0);
+        let out = outline(&[at, at], 4.0, true);
+        assert_eq!(out.len(), PIN_DOT_LEN);
+        assert!(out.iter().all(|p| ((p.distance(at)) - 2.0).abs() < 1e-9));
+        let round = |value: f64| (value * 1e6).round() / 1e6;
+        assert_eq!((round(out[0].x), round(out[0].y), signature(&out)), PIN_DOT);
+    }
 }

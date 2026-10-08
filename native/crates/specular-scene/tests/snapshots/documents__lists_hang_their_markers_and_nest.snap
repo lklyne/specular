@@ -7,6 +7,8 @@ canvas rect 100,100 400x300 r=4 fill=#fafaf9
 canvas column 112,112 376x276
   row
     text "•" 18,0 14/21 #1c191799 right
+  row
+    text "•" 18,0 14/21 #1c191799 right
     text "one" 24,0 wrap=352 14/21 #1c1917
   row
     text "•" 18,0 14/21 #1c191799 right

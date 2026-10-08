@@ -29,3 +29,36 @@ fn an_option_drag_draws_each_copy_where_it_will_land() {
         "no outline at the copy:\n{scene}"
     );
 }
+
+#[test]
+fn a_zoomed_out_copy_of_a_group_and_a_page_is_drawn_without_a_page_border_or_title() {
+    let mut app = TestApp::with_entities([
+        specular_testkit::group("g", Rect::new(100.0, 100.0, 200.0, 100.0)),
+        specular_testkit::page("p", Rect::new(100.0, 400.0, 200.0, 100.0)),
+    ]);
+    app.zoom(0.5);
+    let at = |app: &TestApp, x: f64, y: f64| {
+        let screen = app
+            .app()
+            .session()
+            .camera
+            .world_to_screen((x as f32, y as f32).into());
+        (screen.x, screen.y)
+    };
+    let (from, to) = (at(&app, 150.0, 150.0), at(&app, 450.0, 150.0));
+    app.select(&["g", "p"]);
+    app.hold(ALT).press(from).drag_to(to);
+    let scene = app.scene_snapshot();
+    // The group's border, half a zoom from its original, at half strength.
+    assert!(
+        scene.contains("screen rect 200,50 100x50 r=2 stroke=#71717a40/1.5/inside opacity=0.5"),
+        "{scene}"
+    );
+    // The page is drawn again, but its border and title are not.
+    assert!(
+        scene.contains("canvas page p 400,400 200x100 r=8 opacity=0.5"),
+        "{scene}"
+    );
+    assert!(!scene.contains("screen rect 200,200 100x50"), "{scene}");
+    assert_eq!(scene.matches("example.com/p").count(), 1, "{scene}");
+}

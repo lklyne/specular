@@ -1,0 +1,22 @@
+---
+source: crates/specular-scene/tests/guides.rs
+expression: app.scene_snapshot()
+---
+canvas rect 100,100 100x100 fill=#b5b9c0 stroke=#464a53/2/centre
+canvas rect 100,500 100x100 fill=#b5b9c0 stroke=#464a53/2/centre
+canvas rect 100,300 100x100 fill=#b5b9c0 stroke=#464a53/2/centre
+screen rect 49,149 52x52 stroke=#3b82f6/1/inside
+screen path M50,50 L50,200 stroke=#3b82f6/1
+screen path M100,50 L100,200 stroke=#3b82f6/1
+screen path M50,150 L50,300 stroke=#3b82f6/1
+screen path M100,150 L100,300 stroke=#3b82f6/1
+screen path M75,101 L75,149 stroke=#ec4899/1.5
+screen path M66,101 L84,101 stroke=#ec4899/1.5
+screen path M66,149 L84,149 stroke=#ec4899/1.5
+screen path M75,201 L75,249 stroke=#ec4899/1.5
+screen path M66,201 L84,201 stroke=#ec4899/1.5
+screen path M66,249 L84,249 stroke=#ec4899/1.5
+screen rect 45,145 8x8 fill=#ffffff stroke=#3b82f6/1/inside
+screen rect 97,145 8x8 fill=#ffffff stroke=#3b82f6/1/inside
+screen rect 97,197 8x8 fill=#ffffff stroke=#3b82f6/1/inside
+screen rect 45,197 8x8 fill=#ffffff stroke=#3b82f6/1/inside

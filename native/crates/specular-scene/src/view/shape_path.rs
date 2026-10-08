@@ -239,9 +239,18 @@ mod tests {
         assert_eq!(
             (
                 label_box(ShapeKind::Diamond, RECT),
-                label_box(ShapeKind::Hexagon, RECT)
+                label_box(ShapeKind::Hexagon, RECT),
+                label_box(ShapeKind::Triangle, RECT),
+                label_box(ShapeKind::Chevron, RECT),
+                label_box(ShapeKind::Cylinder, RECT),
             ),
-            (Rect::new(150.0, 225.0, 100.0, 50.0), RECT)
+            (
+                Rect::new(150.0, 225.0, 100.0, 50.0),
+                RECT,
+                Rect::new(140.0, 248.0, 120.0, 42.0),
+                Rect::new(110.0, 215.0, 120.0, 70.0),
+                Rect::new(116.0, 228.0, 168.0, 58.0),
+            )
         );
     }
 
@@ -254,6 +263,47 @@ mod tests {
             [
                 PathCommand::MoveTo(Point::new(10.0, 0.0)),
                 PathCommand::LineTo(Point::new(30.0, 0.0))
+            ]
+        );
+        // The width limits it as well: in a tall box the sides meet.
+        let tall = Silhouette::Rect(500.0).into_path(Rect::new(0.0, 0.0, 20.0, 40.0));
+        assert_eq!(
+            tall[..2],
+            [
+                PathCommand::MoveTo(Point::new(10.0, 0.0)),
+                PathCommand::LineTo(Point::new(10.0, 0.0))
+            ]
+        );
+        // The corner is a quarter ellipse with the usual handle length.
+        let PathCommand::CubicTo {
+            control1,
+            control2,
+            to,
+        } = path[2]
+        else {
+            panic!("a corner is a cubic");
+        };
+        let handle = 10.0 * 0.552_284_8;
+        assert_eq!(
+            (control1, control2, to),
+            (
+                Point::new(30.0 + handle, 0.0),
+                Point::new(40.0, 10.0 - handle),
+                Point::new(40.0, 10.0)
+            )
+        );
+    }
+
+    #[test]
+    fn no_radius_is_a_plain_rectangle_path() {
+        assert_eq!(
+            Silhouette::Rect(0.0).into_path(Rect::new(0.0, 0.0, 40.0, 20.0)),
+            [
+                PathCommand::MoveTo(Point::new(0.0, 0.0)),
+                PathCommand::LineTo(Point::new(40.0, 0.0)),
+                PathCommand::LineTo(Point::new(40.0, 20.0)),
+                PathCommand::LineTo(Point::new(0.0, 20.0)),
+                PathCommand::Close,
             ]
         );
     }

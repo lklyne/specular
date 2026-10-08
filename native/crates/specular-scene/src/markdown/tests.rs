@@ -87,6 +87,14 @@ fn headings_and_paragraphs_are_blocks_in_order() {
 }
 
 #[test]
+fn six_heading_levels_are_six_levels() {
+    assert_eq!(
+        outline("# 1\n\n## 2\n\n### 3\n\n#### 4\n\n##### 5\n\n###### 6\n"),
+        "h1 1\nh2 2\nh3 3\nh4 4\nh5 5\nh6 6"
+    );
+}
+
+#[test]
 fn inline_markup_becomes_spans_with_the_markers_gone() {
     assert_eq!(
         outline("a **b** *c* ~~d~~ `e` [f](https://x.test) ***g***"),
@@ -100,6 +108,9 @@ fn styles_nest_and_neighbours_in_one_style_merge() {
         outline("**bold `code` and [link *em*](u)** end"),
         "p {s:bold }{sc:code}{s: and }{sl:link }{sel:em} end"
     );
+    // A soft break inside one style is part of its span; two spans of one
+    // style with text between stay two.
+    assert_eq!(outline("**a\nb** x **c**"), "p {s:a b} x {s:c}");
 }
 
 #[test]
@@ -108,6 +119,8 @@ fn a_tight_list_keeps_its_items_together_after_the_first() {
         outline("Intro\n\n- one\n- two\n- three\n"),
         "p Intro\n  - one\n  ~- two\n  ~- three"
     );
+    // The first item is never tight, empty or not.
+    assert_eq!(outline("-\n- two\n"), "  - \n  ~- two");
 }
 
 #[test]
@@ -116,6 +129,7 @@ fn nested_lists_carry_their_depth() {
         outline("- a\n  - b\n    1. c\n  - d\n- e\n"),
         "  - a\n    ~- b\n      ~1. c\n    ~- d\n  ~- e"
     );
+    assert_eq!(outline("3. x\n4. y\n"), "  3. x\n  ~4. y");
 }
 
 #[test]
@@ -132,6 +146,7 @@ fn code_blocks_keep_their_text_exactly() {
         outline("```rust\nfn main() {\n    let a = *b*;\n}\n```\n\n    indented\n"),
         "code \"fn main() {\\n    let a = *b*;\\n}\"\ncode \"indented\""
     );
+    assert_eq!(outline("```\n  keep\n```\n"), "code \"  keep\"");
 }
 
 #[test]

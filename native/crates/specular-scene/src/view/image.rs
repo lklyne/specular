@@ -68,6 +68,12 @@ mod tests {
         let draw = fitted(IMAGE, BOX, 50, 100, ObjectFit::Contain);
         assert_eq!(draw.rect, Rect::new(85.0, 20.0, 50.0, 100.0));
         assert_eq!(draw.source, ImageDraw::WHOLE);
+        // A wide one is centred down the box instead.
+        let wide = fitted(IMAGE, BOX, 400, 100, ObjectFit::Contain);
+        assert_eq!(wide.rect, Rect::new(10.0, 45.0, 200.0, 50.0));
+        // With no size to fit, the box is filled.
+        let empty = fitted(IMAGE, BOX, 0, 100, ObjectFit::Contain);
+        assert_eq!(empty.rect, BOX);
     }
 
     #[test]

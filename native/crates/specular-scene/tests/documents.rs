@@ -36,7 +36,7 @@ fn headings_paragraphs_and_inline_styles() {
 #[test]
 fn lists_hang_their_markers_and_nest() {
     let app = showing(
-        "- one\n- two\n  1. first\n  2. second\n- [ ] todo\n- [x] done\n\n\
+        "-\n- one\n- two\n  1. first\n  2. second\n- [ ] todo\n- [x] done\n\n\
          9. loose\n\n10. list\n\n    continued\n",
     );
     assert_scene_snapshot!(app);
@@ -53,7 +53,9 @@ fn quotes_code_and_rules() {
 
 #[test]
 fn a_table_is_rows_of_equal_columns() {
-    let app = showing("| Name | Qty | Note |\n|:--|--:|:-:|\n| **a** | 1 | `x` |\n| b | 22 | |\n");
+    let app = showing(
+        "Above.\n\n| Name | Qty | Note |\n|:--|--:|:-:|\n| **a** | 1 | `x` |\n| b | 22 | |\n",
+    );
     assert_scene_snapshot!(app);
 }
 

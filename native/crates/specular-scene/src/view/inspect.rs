@@ -202,6 +202,10 @@ mod tests {
                 Some(Color::rgba(59, 130, 246, 128)),
             ),
             ("rgb(0 0 0 / 1)", Some(Color::rgb(0, 0, 0))),
+            ("  rgb(1, 2, 3) ", Some(Color::rgb(1, 2, 3))),
+            ("rgba(1, 2, 3, 2)", Some(Color::rgb(1, 2, 3))),
+            ("rgb(300, 0, -5)", Some(Color::rgb(255, 0, 0))),
+            ("rgb(1, 2, 3, 0.5, 9)", None),
             ("red", None),
             ("rgb(1, 2)", None),
         ];

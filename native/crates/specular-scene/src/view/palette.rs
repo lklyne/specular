@@ -176,10 +176,18 @@ mod tests {
         let light = Colors::of(Appearance::Light);
         let ink = |stored: &str| resolve(&Stored::parse(stored), Palette::Vivid, Role::Ink, light);
         assert_eq!(
-            [ink("#ff00aa"), ink("#f0a"), ink("tomato")],
+            [
+                ink("#ff00aa"),
+                ink("#f0a"),
+                ink("tomato"),
+                ink("#12345"),
+                ink("ff00aa")
+            ],
             [
                 Color::rgb(0xff, 0x00, 0xaa),
                 Color::rgb(0xff, 0x00, 0xaa),
+                light.ink,
+                light.ink,
                 light.ink
             ]
         );

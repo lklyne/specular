@@ -13,9 +13,14 @@ fn pair() -> TestApp {
 }
 
 fn linked() -> TestApp {
+    linked_with(None)
+}
+
+fn linked_with(label: Option<&str>) -> TestApp {
     let edge = Edge {
         from_side: Some(EdgeSide::Right),
         to_side: Some(EdgeSide::Left),
+        label: label.map(str::to_owned),
         ..Edge::new("e", "a", "b")
     };
     TestApp::from_document(with_edge(document([shape("a", A), shape("b", B)]), edge))
@@ -58,7 +63,7 @@ fn an_edge_follows_an_entity_dragged_down() {
 
 #[test]
 fn a_label_being_edited_is_drawn_where_the_committed_one_is() {
-    let mut app = linked();
+    let mut app = linked_with(Some("was"));
     app.double_click((400.0, 150.0)).type_text("uses");
     assert_scene_snapshot!(app);
 }

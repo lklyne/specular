@@ -30,6 +30,14 @@ fn a_shape_leaving_the_page_fades_out_above_it() {
 }
 
 #[test]
+fn a_shape_scrolled_wholly_out_of_its_page_is_not_drawn() {
+    let mut app = followed(Rect::new(200.0, 120.0, 100.0, 100.0), Some(0.0));
+    scroll(&mut app, 150.0);
+    let scene = app.scene_snapshot();
+    assert!(!scene.contains("fill=#b5b9c0"), "{scene}");
+}
+
+#[test]
 fn a_shape_with_no_recorded_scroll_stays_pinned() {
     let mut app = followed(Rect::new(200.0, 200.0, 100.0, 100.0), None);
     scroll(&mut app, 40.0);

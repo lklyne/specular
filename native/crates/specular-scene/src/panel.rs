@@ -75,3 +75,29 @@ fn clip(items: &mut [crate::Item], window: Rect) {
         .or(Some(Rect::new(0.0, 0.0, 0.0, 0.0)));
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{Item, RectDraw};
+
+    #[test]
+    fn a_window_cuts_items_inside_their_own_clip_and_hides_those_outside_it() {
+        let card = || RectDraw::filled(Rect::new(0.0, 0.0, 400.0, 400.0), crate::Color::WHITE);
+        let window = Rect::new(0.0, 0.0, 100.0, 100.0);
+        let mut items = [
+            Item::screen(card()),
+            Item::screen(card()).clipped(Rect::new(50.0, 50.0, 100.0, 100.0)),
+            Item::screen(card()).clipped(Rect::new(200.0, 200.0, 10.0, 10.0)),
+        ];
+        clip(&mut items, window);
+        assert_eq!(
+            items.map(|item| item.clip),
+            [
+                Some(window),
+                Some(Rect::new(50.0, 50.0, 50.0, 50.0)),
+                Some(Rect::new(0.0, 0.0, 0.0, 0.0)),
+            ]
+        );
+    }
+}

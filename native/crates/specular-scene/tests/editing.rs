@@ -3,9 +3,9 @@
 //! underline, and the handles that go away. Text is measured by the
 //! testkit's `FixedAdvance`: 10 units a character, 20 a line.
 
-use specular_doc::Rect;
+use specular_doc::{Entity, Kind, Rect, Shape, ShapeKind};
 use specular_interact::Key;
-use specular_testkit::{TestApp, assert_scene_snapshot, labelled, plain_text, sticky};
+use specular_testkit::{TestApp, assert_scene_snapshot, plain_text, sticky};
 
 const NOTE: Rect = Rect::new(100.0, 100.0, 200.0, 200.0);
 
@@ -72,7 +72,14 @@ fn an_empty_plain_text_shows_its_prompt_behind_the_caret() {
 
 #[test]
 fn a_shape_label_is_edited_centred_in_its_box() {
-    let mut app = TestApp::with_entities([labelled("s", NOTE, "ab")]);
+    let mut app = TestApp::with_entities([Entity::new(
+        "s",
+        NOTE,
+        Kind::Shape(Shape {
+            text: "ab".to_owned(),
+            ..Shape::new(ShapeKind::Diamond)
+        }),
+    )]);
     app.double_click((200.0, 200.0))
         .key(Key::ArrowRight)
         .type_text("c");

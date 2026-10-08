@@ -1,6 +1,6 @@
 //! The title line above a page: its label, or its live title and address.
 
-use specular_doc::Rect;
+use specular_doc::{Kind, Rect};
 use specular_interact::PageNotice;
 use specular_testkit::{TestApp, assert_scene_snapshot, page};
 
@@ -21,7 +21,7 @@ fn app() -> TestApp {
 #[test]
 fn a_page_with_a_title_shows_it_before_the_address() {
     let mut app = app();
-    app.page_reports("p1", PageNotice::Title("Example Domain".to_owned()))
+    app.page_reports("p1", PageNotice::Title("  Example Domain\n".to_owned()))
         .page_reports("p1", PageNotice::Url("https://example.com/".to_owned()));
     assert!(text_lines(&app).contains("Example Domain \u{2014} example.com"));
     assert_scene_snapshot!(app);
@@ -55,4 +55,31 @@ fn a_label_wins_over_the_live_title() {
         "{text}"
     );
     assert_scene_snapshot!(app);
+}
+
+#[test]
+fn a_loading_page_with_nothing_to_name_has_no_title_line() {
+    let mut blank = page("p1", BOX);
+    if let Kind::Page(fields) = &mut blank.kind {
+        fields.url = String::new();
+    }
+    let mut app = TestApp::with_entities([blank]);
+    app.page_reports(
+        "p1",
+        PageNotice::Loading {
+            loading: true,
+            can_go_back: false,
+            can_go_forward: false,
+        },
+    );
+    let text = text_lines(&app);
+    assert!(!text.contains("Loading"), "{text}");
+}
+
+#[test]
+fn an_empty_label_falls_back_to_the_address() {
+    let mut named = page("p1", BOX);
+    named.label = Some(String::new());
+    let app = TestApp::with_entities([named]);
+    assert!(text_lines(&app).contains("example.com/p1"));
 }
