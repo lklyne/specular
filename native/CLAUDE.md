@@ -23,6 +23,10 @@ Event -> update(&mut App, Event) -> Vec<Effect>     pure, no I/O
 - `specular-api` turns an HTTP request and `&App` into a read answer or an
   `Event::Api`, so an agent's write goes through `update` like a key press.
   The shell hosts the server (`specular-app/src/api/`).
+- `App` owns one `Space`: every canvas of the open folder, each with its
+  own `Document`, `History`, camera and selection. `app.document` is the
+  active canvas's. Canvas operations are `Action::Canvas`, and the file
+  work comes back as effects.
 - Only the shell and the CEF crate do I/O. Everything else is testable with
   no window, GPU or CEF.
 
@@ -92,6 +96,10 @@ fn shift_drag_moves_the_page_along_one_axis() {
   opens a draft, read back with `comment_draft()`; `type_text` and
   `key(Key::Enter)` commit it. `answer_element(..)` and `answer_grab(&[..])`
   answer the latest `QueryElement` and `QueryRegionGrab` as the shell would.
+- Canvases: `TestApp::with_space([("Home", document), ("Notes", document)])`
+  starts with several, the first active. `switch_to("Notes")` and
+  `act(Action::Canvas(..))` change them; read back with `canvas_names()`,
+  `active_canvas()` and `app().canvas_document(&id)`.
 - Pages: `page_reports("p1", PageNotice::Scrolled { x: 0.0, y: 40.0 })` (or `Title`,
   `Url`, `Loading`, `DevtoolsUrl`) is a page saying something about itself, as
   the shell sends it; read back with `app().page_state(..)` and `page_scroll(..)`.

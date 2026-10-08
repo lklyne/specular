@@ -117,6 +117,10 @@ impl Headless {
             | Effect::SetImeCursorArea { .. }
             | Effect::SetCursor(_)
             | Effect::Save
+            | Effect::WriteCanvas(_)
+            | Effect::RenameCanvasFile { .. }
+            | Effect::TrashCanvasFile { .. }
+            | Effect::SaveSpaceMeta
             | Effect::WriteAsset { .. }
             | Effect::CopyAsset { .. }
             | Effect::SaveToolDefaults(_) => {}

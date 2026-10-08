@@ -11,6 +11,7 @@ use crate::images::Images;
 use crate::notes::Notes;
 use crate::page_input::ButtonCapture;
 use crate::saved::LoadedFits;
+use crate::space::Space;
 use crate::{Cursor, Gesture, PagePlacement, Tool, ToolDefaults};
 
 /// Everything the app knows. Only [`update`](crate::update) changes it.
@@ -21,6 +22,8 @@ pub struct App {
     /// redo put back what was selected along with what changed.
     pub(crate) history: History<Selection>,
     pub(crate) session: Session,
+    /// The folder of canvases. The fields above are its active canvas.
+    pub(crate) space: Space,
     pub(crate) tool_defaults: ToolDefaults,
     /// Lays text out for the editor.
     pub(crate) measure: Measurer,
@@ -246,12 +249,12 @@ pub struct Session {
     /// The text of the Documents file entities show, and their scroll.
     pub(crate) notes: Notes,
     /// State of the id sequence.
-    id_state: u64,
+    pub(crate) id_state: u64,
 }
 
 impl Session {
     /// The next id in the sequence: 16 hex digits from a splitmix64 step.
-    fn next_id(&mut self) -> String {
+    pub(crate) fn next_id(&mut self) -> String {
         self.id_state = self.id_state.wrapping_add(0x9e37_79b9_7f4a_7c15);
         let mut z = self.id_state;
         z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);

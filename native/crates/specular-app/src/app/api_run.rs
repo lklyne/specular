@@ -3,7 +3,7 @@
 
 use base64::Engine as _;
 use serde_json::{Value, json};
-use specular_api::{Host, Screenshot, Tab};
+use specular_api::{Host, Screenshot};
 use specular_doc::EntityId;
 use specular_interact::{ApiOutcome, App, Event};
 use winit::event_loop::EventLoopProxy;
@@ -26,17 +26,8 @@ impl Shell {
         if self.options.bench.is_some() {
             return;
         }
-        let file = self.options.canvas.as_deref();
-        let name =
-            |part: Option<&std::ffi::OsStr>| part.map(|part| part.to_string_lossy().into_owned());
-        let tab = Tab {
-            id: name(file.and_then(|file| file.file_name()))
-                .unwrap_or_else(|| "untitled".to_owned()),
-            name: name(file.and_then(|file| file.file_stem()))
-                .unwrap_or_else(|| "Untitled".to_owned()),
-        };
         let wake = wake.clone();
-        let started = ApiHost::start(tab, unix_ms(), move || {
+        let started = ApiHost::start(unix_ms(), move || {
             // The loop is gone when the app is quitting.
             let _ = wake.send_event(ShellEvent::Api);
         });

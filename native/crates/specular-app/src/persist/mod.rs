@@ -1,7 +1,8 @@
-//! Keeping the open `.canvas` file and the document in step: autosave, and
+//! Keeping one `.canvas` file and its canvas in step: autosave, and
 //! reloading when another tool edits the file.
 //!
-//! [`FileSync`] decides; this module does the file calls it asks for.
+//! [`FileSync`] decides; this module does the file calls it asks for. A
+//! space has one [`Persistence`] a canvas (see `space::files`).
 
 mod app_state;
 mod disk;
@@ -11,14 +12,14 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use specular_doc::Document;
-use specular_interact::App;
+use specular_interact::{App, CanvasId};
 
 pub(crate) use self::app_state::{camera_of, canvas_text};
 pub(crate) use self::disk::{stamp, write_atomic};
 pub(crate) use self::file_sync::Stamp;
 use self::file_sync::{DiskChange, FileSync, Step};
 
-/// The `.canvas` file the document was opened from.
+/// The `.canvas` file of one canvas of the space.
 #[derive(Debug)]
 pub(crate) struct Persistence {
     path: PathBuf,
@@ -41,20 +42,36 @@ impl Persistence {
         }
     }
 
-    /// The document changed: save it once changes stop.
+    /// Follows a file at `path` that is not there yet: a new canvas. The
+    /// first save makes it.
+    pub(crate) fn new_file(path: &Path) -> Self {
+        Self {
+            path: path.to_owned(),
+            sync: FileSync::new(String::new(), None),
+            started: Instant::now(),
+        }
+    }
+
+    /// The file was moved to `path`.
+    pub(crate) fn moved_to(&mut self, path: &Path) {
+        path.clone_into(&mut self.path);
+        self.sync.restamp(disk::stamp(path));
+    }
+
+    /// The canvas changed: save it once changes stop.
     pub(crate) fn request_save(&mut self) {
         self.sync.request_save(self.now_ms());
     }
 
-    /// One loop turn: saves when a save is due, otherwise looks for an edit
-    /// from outside now and then. Returns a document to open in place of
-    /// `app`'s when the file changed and nothing of ours is unsaved.
-    pub(crate) fn turn(&mut self, app: &App) -> Option<Document> {
-        let dragging = app.session().gesture.is_some();
+    /// One loop turn for the canvas `id`: saves when a save is due,
+    /// otherwise looks for an edit from outside now and then. Returns a
+    /// document to put in place of the canvas's when the file changed and
+    /// nothing of ours is unsaved. While `dragging`, nothing happens.
+    pub(crate) fn turn(&mut self, app: &App, id: &CanvasId, dragging: bool) -> Option<Document> {
         match self.sync.step(self.now_ms(), dragging) {
             Step::Idle => None,
             Step::Save => {
-                self.save(app);
+                self.save(app, id);
                 None
             }
             Step::CheckDisk => self.check_disk(),
@@ -67,15 +84,20 @@ impl Persistence {
     }
 
     /// Writes a pending save now: the app is closing, or Save was chosen.
-    pub(crate) fn flush(&mut self, app: &App) {
+    pub(crate) fn flush(&mut self, app: &App, id: &CanvasId) {
         if self.sync.take_unsaved() {
-            self.save(app);
+            self.save(app, id);
         }
     }
 
-    fn save(&mut self, app: &App) {
+    /// Writes the canvas `id` to the file now, pending save or not.
+    pub(crate) fn save(&mut self, app: &App, id: &CanvasId) {
+        self.sync.take_unsaved();
         let path = &self.path;
-        let written = app_state::canvas_text(&app.document_to_save(), app.session().camera)
+        let Some((document, camera)) = app.canvas_to_save(id) else {
+            return;
+        };
+        let written = app_state::canvas_text(&document, camera)
             .map_err(|error| error.to_string())
             .and_then(|text| {
                 disk::write_atomic(path, &text).map_err(|error| error.to_string())?;

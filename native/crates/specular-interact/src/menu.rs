@@ -1,14 +1,19 @@
-//! The menu bar's Edit, Arrange, Comment, Page, Tools and View menus, as
-//! data.
+//! The menu bar's Canvas, Edit, Arrange, Comment, Page, Tools and View
+//! menus, as data.
 //!
 //! Each item is an [`Action`] and takes its shortcut from the row of
 //! [`BINDINGS`] that runs the same action, so a menu and the keyboard cannot
 //! disagree. The shell turns the model into native menus and sends the
 //! action of a chosen item back as an [`Event::Action`](crate::Event).
 
+use std::borrow::Cow;
+
 use specular_doc::ItemId;
 
-use crate::{Action, App, BINDINGS, Binding, Chord, Context, PageState, Tool, groups, page_state};
+use crate::{
+    Action, App, BINDINGS, Binding, CanvasAction, Chord, Context, PageState, Tool, groups,
+    page_state,
+};
 
 /// One menu of the menu bar.
 #[derive(Debug, Clone, PartialEq)]
@@ -32,7 +37,7 @@ pub enum MenuEntry {
 #[derive(Debug, Clone, PartialEq)]
 pub struct MenuItem {
     /// The text.
-    pub label: &'static str,
+    pub label: Cow<'static, str>,
     /// What choosing it does.
     pub action: Action,
     /// The key that does the same, from the binding table.
@@ -48,11 +53,31 @@ pub fn binding_of(action: &Action) -> Option<&'static Binding> {
     BINDINGS.iter().find(|binding| binding.action == *action)
 }
 
-/// The Edit, Arrange, Comment, Page, Tools and View menus for `app` as it is
-/// now. The entries and their order never change, only `enabled` and
-/// `checked`.
+/// The Canvas, Edit, Arrange, Comment, Page, Tools and View menus for `app`
+/// as it is now. The Canvas menu ends in the space's canvases, so its
+/// entries change with the space. In every other menu the entries and
+/// their order never change, only `enabled` and `checked`.
 pub fn menus(app: &App) -> Vec<Menu> {
     let item = |label, action| MenuEntry::Item(item(app, label, action));
+    let mut canvas = vec![
+        item("New canvas", Action::Canvas(CanvasAction::New)),
+        item(
+            "Duplicate canvas",
+            Action::Canvas(CanvasAction::Duplicate(None)),
+        ),
+        item("Delete canvas", Action::Canvas(CanvasAction::Delete(None))),
+        MenuEntry::Separator,
+    ];
+    canvas.extend(app.space.canvases().iter().map(|canvas| {
+        let mut item = self::item(
+            app,
+            "",
+            Action::Canvas(CanvasAction::Switch(canvas.id.clone())),
+        );
+        item.label = Cow::Owned(canvas.name.clone());
+        item.checked = Some(canvas.is_active());
+        MenuEntry::Item(item)
+    }));
     let edit = vec![
         item("Undo", Action::Undo),
         item("Redo", Action::Redo),
@@ -101,6 +126,10 @@ pub fn menus(app: &App) -> Vec<Menu> {
     ];
     vec![
         Menu {
+            title: "Canvas",
+            entries: canvas,
+        },
+        Menu {
             title: "Edit",
             entries: edit,
         },
@@ -132,7 +161,7 @@ fn item(app: &App, label: &'static str, action: Action) -> MenuItem {
     // An item with no key works where the plain canvas keys do.
     let context = binding.map_or(Context::Canvas, |binding| binding.context);
     MenuItem {
-        label,
+        label: Cow::Borrowed(label),
         chord: binding.map(|binding| binding.chord),
         enabled: context.holds(app) && app.session.gesture.is_none() && has_target(app, &action),
         checked: None,
@@ -148,7 +177,7 @@ fn page_item(app: &App, label: &'static str, action: Action) -> MenuEntry {
         .filter(|binding| binding.context == Context::PageTarget)
         .map(|binding| binding.chord);
     MenuEntry::Item(MenuItem {
-        label,
+        label: Cow::Borrowed(label),
         chord,
         enabled: Context::PageTarget.holds(app)
             && app.session.gesture.is_none()
@@ -178,7 +207,10 @@ fn has_target(app: &App, action: &Action) -> bool {
         Action::Group => selection.entities().nth(1).is_some(),
         Action::Ungroup => groups::lone_group(app).is_some(),
         Action::SelectAll | Action::ZoomToFit => app.document.entities().next().is_some(),
-        Action::Cancel
+        // Choosing the canvas already showing is harmless, and its item
+        // has to stay enabled to keep its check mark readable.
+        Action::Canvas(_)
+        | Action::Cancel
         | Action::SetTool(_)
         | Action::SetToolDefault(_)
         | Action::SetToolVariant(_)

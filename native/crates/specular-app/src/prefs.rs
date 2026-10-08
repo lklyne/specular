@@ -16,6 +16,7 @@ use crate::persist::write_atomic;
 
 const FILE_NAME: &str = "preferences.json";
 const TOOL_DEFAULTS_KEY: &str = "toolDefaults";
+const SPACE_PATH_KEY: &str = "spacePath";
 /// Overrides the config folder, for a run that must not touch the real one.
 const CONFIG_DIR_VARIABLE: &str = "SPECULAR_NATIVE_CONFIG_DIR";
 
@@ -75,8 +76,24 @@ pub(crate) fn load_tool_defaults(path: &Path) -> Option<ToolDefaults> {
 /// Writes `defaults` under `toolDefaults`, keeping the file's other keys. A
 /// file that cannot be read as preferences is left alone.
 pub(crate) fn save_tool_defaults(path: &Path, defaults: &ToolDefaults) -> io::Result<()> {
+    save_key(path, TOOL_DEFAULTS_KEY, defaults.to_json())
+}
+
+/// The space folder last chosen in this app, if one was.
+pub(crate) fn load_space_path(path: &Path) -> Option<PathBuf> {
+    let preferences = read(path).ok()?;
+    let folder = preferences.get(SPACE_PATH_KEY)?.as_str()?;
+    (!folder.is_empty()).then(|| PathBuf::from(folder))
+}
+
+/// Writes `folder` under `spacePath`, keeping the file's other keys.
+pub(crate) fn save_space_path(path: &Path, folder: &Path) -> io::Result<()> {
+    save_key(path, SPACE_PATH_KEY, Value::from(folder.to_string_lossy()))
+}
+
+fn save_key(path: &Path, key: &str, value: Value) -> io::Result<()> {
     let mut preferences = read(path)?;
-    preferences.insert(TOOL_DEFAULTS_KEY.to_owned(), defaults.to_json());
+    preferences.insert(key.to_owned(), value);
     let text = serde_json::to_string_pretty(&Value::Object(preferences))?;
     if let Some(folder) = path.parent() {
         std::fs::create_dir_all(folder)?;

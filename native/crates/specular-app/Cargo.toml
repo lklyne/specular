@@ -32,6 +32,7 @@ pollster = { workspace = true }
 serde_json = { workspace = true }
 tiny_http = { workspace = true }
 tracing = { workspace = true }
+trash = { workspace = true }
 tracing-subscriber = { workspace = true }
 wgpu = { workspace = true }
 winit = { workspace = true }

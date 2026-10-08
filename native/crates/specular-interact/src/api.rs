@@ -10,13 +10,16 @@
 use specular_core::PageNav;
 use specular_doc::{Command, Document, EntityId, ItemId, Kind, Rect, TextStyle};
 
-use crate::{Action, App, Effect, edit, live, page_state, update};
+use crate::{Action, App, CanvasId, Effect, edit, live, page_state, space, update};
 
 /// One change the HTTP API asks for.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ApiCall {
     /// Names the reply.
     pub ticket: u64,
+    /// The canvas to run on, which `--tab` named. `None` is the active
+    /// one. A background canvas is changed without being shown.
+    pub canvas: Option<CanvasId>,
     /// What to do.
     pub run: ApiRun,
 }
@@ -49,6 +52,12 @@ pub enum ApiRun {
         /// The items to select once it has run.
         select: Option<Vec<ItemId>>,
     },
+    /// Add an empty canvas with this name and leave the user where they
+    /// are. Refused when the name is empty or taken.
+    NewCanvas {
+        /// The name.
+        name: String,
+    },
 }
 
 /// How an [`ApiCall`] went.
@@ -61,11 +70,25 @@ pub enum ApiOutcome {
 }
 
 pub(crate) fn run(app: &mut App, call: ApiCall, effects: &mut Vec<Effect>) {
-    let outcome = run_call(app, call.run, effects);
-    effects.push(Effect::ApiReply {
-        ticket: call.ticket,
-        outcome,
+    let ApiCall {
+        ticket,
+        canvas,
+        run,
+    } = call;
+    let background = canvas.filter(|id| *id != app.space.active().id);
+    let Some(id) = background else {
+        let outcome = run_call(app, run, effects);
+        effects.push(Effect::ApiReply { ticket, outcome });
+        return;
+    };
+    let ran = space::in_background(app, &id, effects, |app, effects| {
+        let outcome = run_call(app, run, effects);
+        effects.push(Effect::ApiReply { ticket, outcome });
     });
+    if !ran {
+        let outcome = ApiOutcome::Refused(format!("the tab '{id}' is gone"));
+        effects.push(Effect::ApiReply { ticket, outcome });
+    }
 }
 
 fn run_call(app: &mut App, run: ApiRun, effects: &mut Vec<Effect>) -> ApiOutcome {
@@ -101,6 +124,11 @@ fn run_call(app: &mut App, run: ApiRun, effects: &mut Vec<Effect>) -> ApiOutcome
             if let Some(items) = select {
                 app.session.selection.set(items);
                 update::drop_dangling(app, effects);
+            }
+        }
+        ApiRun::NewCanvas { name } => {
+            if let Err(reason) = space::create(app, Some(&name), false, effects) {
+                return ApiOutcome::Refused(reason);
             }
         }
     }

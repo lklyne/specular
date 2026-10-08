@@ -37,20 +37,26 @@ impl App {
     /// The document as a save should write it. Use this, not
     /// [`App::document`], for anything that goes to the `.canvas` file.
     pub fn document_to_save(&self) -> Document {
-        let mut document = self.document.clone();
-        for (id, fit) in &self.session.loaded_fits.0 {
-            let untouched = (document.entity(id)).is_some_and(|entity| entity.rect == fit.fitted);
-            if !untouched {
-                continue;
-            }
-            let command = Command::SetRect {
-                id: id.clone(),
-                rect: fit.read,
-            };
-            if let Err(error) = document.apply(command) {
-                tracing::warn!("a text kept its measured size in the save: {error}");
-            }
-        }
-        document
+        to_save(&self.document, &self.session.loaded_fits)
     }
+}
+
+/// `document` with every text `fits` lists that still has its measured rect
+/// put back to the rect it was read with.
+pub(crate) fn to_save(document: &Document, fits: &LoadedFits) -> Document {
+    let mut document = document.clone();
+    for (id, fit) in &fits.0 {
+        let untouched = (document.entity(id)).is_some_and(|entity| entity.rect == fit.fitted);
+        if !untouched {
+            continue;
+        }
+        let command = Command::SetRect {
+            id: id.clone(),
+            rect: fit.read,
+        };
+        if let Err(error) = document.apply(command) {
+            tracing::warn!("a text kept its measured size in the save: {error}");
+        }
+    }
+    document
 }

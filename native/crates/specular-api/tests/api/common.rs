@@ -1,7 +1,7 @@
 //! A scripted app behind the API: what the shell is to the window, for
 //! tests.
 use serde_json::{Value, json};
-use specular_api::{Api, Host, Method, Request, Response, Screenshot, Tab};
+use specular_api::{Api, Host, Method, Request, Response, Screenshot};
 use specular_interact::{ApiOutcome, App, Effect, Event};
 use specular_testkit::TestApp;
 
@@ -44,13 +44,9 @@ impl Host for Seat<'_> {
 
 impl Scripted {
     pub(crate) fn new(app: TestApp) -> Self {
-        let tab = Tab {
-            id: "tab_1".to_owned(),
-            name: "Canvas".to_owned(),
-        };
         Self {
             app,
-            api: Api::new(tab, 0),
+            api: Api::new(0),
             effects: Vec::new(),
         }
     }

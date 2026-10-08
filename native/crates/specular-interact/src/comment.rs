@@ -33,6 +33,7 @@ pub use marks::{
 };
 pub(crate) use selection::annotate as annotate_selection;
 pub use selection::selection_metadata;
+pub(crate) use shown::is_open;
 
 use crate::{
     App, PagePlacement, doc_to_viewport, geometry, left_page, recorded_scroll, viewport_to_doc,

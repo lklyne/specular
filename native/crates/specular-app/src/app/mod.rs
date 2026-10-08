@@ -21,6 +21,7 @@ mod menu_bar;
 mod note_run;
 mod page_events;
 mod settings;
+mod space_run;
 mod title;
 
 use std::collections::{HashMap, HashSet};
@@ -48,8 +49,8 @@ use crate::latency::InputLatencyProbe;
 use crate::notes::NoteLoader;
 use crate::page_queries::PageQueries;
 use crate::paint_lod::PageLod;
-use crate::persist::{self, Persistence};
 use crate::prefs;
+use crate::space::{SpaceFiles, SpaceStart};
 use crate::translate::ClickCounter;
 
 /// Camera a canvas with no saved one opens at, and each bench profile starts
@@ -62,8 +63,12 @@ const START_CAMERA: Camera = Camera {
 /// How the shell runs, from the command line.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct RunOptions {
-    /// The `.canvas` file the document came from, if it came from one.
+    /// The `.canvas` file the document came from, if it came from one and
+    /// no space is opened: a benchmark's.
     pub(crate) canvas: Option<PathBuf>,
+    /// The space folder to open once the window exists. With one, the
+    /// document the shell was given is not shown.
+    pub(crate) space: Option<SpaceStart>,
     /// Profiles to run then exit; `None` stays interactive.
     pub(crate) bench: Option<Vec<GestureProfile>>,
     /// Settle time before the first bench profile.
@@ -98,10 +103,10 @@ pub(crate) struct Shell {
     /// The folder the document's relative file paths start from, and where
     /// pasted and dropped files go: the folder its `.canvas` file is in.
     space: Option<PathBuf>,
-    /// The file the document is saved to and reloaded from. `None` for a
-    /// demo grid, and for a run that must not write: a benchmark, or one
-    /// with seeded annotations in the document.
-    persist: Option<Persistence>,
+    /// The files of the open space, which its canvases are saved to and
+    /// reloaded from. `None` for a demo grid, and for a run that must not
+    /// write: a benchmark, or one with seeded annotations in the document.
+    files: Option<SpaceFiles>,
     app: App,
     /// The hosted page behind each page entity.
     hosts: HashMap<EntityId, PageHost>,
@@ -163,24 +168,21 @@ impl Shell {
     ) -> Self {
         // A benchmark starts every run from the same camera and leaves the
         // file as it found it.
-        let editing = options.bench.is_none() && options.annotations == 0;
-        let canvas = options.canvas.as_deref().filter(|_| editing);
-        let start_camera = canvas
-            .and_then(|_| persist::camera_of(&document))
-            .unwrap_or(START_CAMERA);
+        let start_camera = START_CAMERA;
+        let space_folder = options.canvas.as_deref().and_then(image_run::space_folder);
         let prefs = (options.bench.is_none()).then(prefs::file).flatten();
         Self {
             source,
             document: Some(document),
             start_camera,
-            space: options.canvas.as_deref().and_then(image_run::space_folder),
-            persist: canvas.map(Persistence::open),
+            space: space_folder.clone(),
+            files: None,
             app: App::new(unix_ms()),
             hosts: HashMap::new(),
             queries: PageQueries::default(),
-            image_loader: image_run::start_loader(options.canvas.as_deref()),
+            image_loader: image_run::start_loader(space_folder.clone()),
             images: HashSet::new(),
-            note_loader: note_run::start_loader(options.canvas.as_deref()),
+            note_loader: note_run::start_loader(space_folder),
             note_heights: HashMap::new(),
             clipboard: None,
             prefs,
@@ -227,9 +229,7 @@ impl Shell {
         // The discovery file goes with the server.
         self.api = None;
         self.finish_notes();
-        if let Some(persist) = self.persist.as_mut() {
-            persist.flush(&self.app);
-        }
+        self.flush_files();
         self.hosts.clear();
         self.closing = true;
     }
@@ -249,8 +249,10 @@ impl Shell {
         self.dispatch(Event::ViewportResized(viewport));
         self.dispatch(Event::Action(Action::SetCamera(self.start_camera)));
         self.load_tool_defaults();
-        if let Some(document) = self.document.take() {
-            self.dispatch(Event::DocumentOpened(Box::new(document)));
+        match (self.options.space.take(), self.document.take()) {
+            (Some(start), _) => self.open_space(&start.folder, start.file.as_deref())?,
+            (None, Some(document)) => self.dispatch(Event::DocumentOpened(Box::new(document))),
+            (None, None) => {}
         }
         let Some(profiles) = self.options.bench.take() else {
             // A benchmark keeps winit's default menu: fewer moving parts in
@@ -319,19 +321,6 @@ impl Shell {
         self.report_note_heights();
         Ok(())
     }
-
-    /// Saves a due autosave, or opens the file again when another tool
-    /// edited it. The camera stays, and `update` drops whatever the selection
-    /// named that the new document lacks.
-    fn sync_file(&mut self) {
-        let reloaded = self
-            .persist
-            .as_mut()
-            .and_then(|persist| persist.turn(&self.app));
-        if let Some(document) = reloaded {
-            self.dispatch(Event::DocumentOpened(Box::new(document)));
-        }
-    }
 }
 
 /// Milliseconds since the Unix epoch, for the app's clock.
@@ -390,7 +379,7 @@ impl ApplicationHandler<ShellEvent> for Shell {
             return;
         }
         self.dispatch(Event::Tick { unix_ms: unix_ms() });
-        self.sync_file();
+        self.sync_files();
         self.take_loaded_image();
         self.take_read_notes();
         self.flush_drops();

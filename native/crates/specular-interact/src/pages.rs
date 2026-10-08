@@ -67,3 +67,14 @@ pub(crate) fn reconcile(before: &[HostedPage], document: &Document, effects: &mu
         }
     }
 }
+
+/// Appends the effects that close every page of `before` and host every
+/// page of `document`: another canvas is being shown. A page is not kept
+/// across the change even when both canvases have its id, as a duplicated
+/// canvas does: its scroll and history belong to the canvas it was in.
+pub(crate) fn replace(before: &[HostedPage], document: &Document, effects: &mut Vec<Effect>) {
+    for page in before {
+        effects.push(Effect::ClosePage(page.id.clone()));
+    }
+    reconcile(&[], document, effects);
+}

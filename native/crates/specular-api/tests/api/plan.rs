@@ -6,17 +6,13 @@
 )]
 
 use serde_json::{Value, json};
-use specular_api::{Api, Method, Plan, Request, Response, Tab};
+use specular_api::{Api, Method, Plan, Request, Response};
 use specular_doc::{Command, ItemId, Rect};
 use specular_interact::{Action, ApiCall, ApiRun, Event};
 use specular_testkit::{TestApp, document, group, inside, sticky};
 
 fn api() -> Api {
-    let tab = Tab {
-        id: "tab_1".to_owned(),
-        name: "Canvas".to_owned(),
-    };
-    Api::new(tab, 0)
+    Api::new(0)
 }
 
 fn notes() -> TestApp {
@@ -45,7 +41,7 @@ fn answer(plan: Plan) -> Response {
 fn run(plan: Plan) -> ApiRun {
     match plan {
         Plan::Run {
-            event: Event::Api(ApiCall { ticket, run }),
+            event: Event::Api(ApiCall { ticket, run, .. }),
             pending,
         } => {
             assert_eq!(
@@ -92,8 +88,8 @@ fn the_canvas_is_read_as_a_json_canvas_document_with_the_one_tab() {
         canvas["appState"],
         json!({
             "zoom": 1, "pan": { "x": 0, "y": 0 },
-            "activeTab": { "id": "tab_1", "name": "Canvas" },
-            "tabs": [{ "id": "tab_1", "name": "Canvas", "entityCount": 4 }],
+            "activeTab": { "id": "tab_1", "name": "Canvas 1" },
+            "tabs": [{ "id": "tab_1", "name": "Canvas 1", "entityCount": 4 }],
         })
     );
 }
@@ -363,12 +359,6 @@ fn what_is_not_ported_says_so_by_name() {
          Route: POST /selection/arrange",
     );
     refused(
-        plan(Method::Post, "/tabs/switch"),
-        501,
-        "not implemented in the native app (this app has one canvas open): \
-         `tab new`, `tab switch` and `tab delete`. Route: POST /tabs/switch",
-    );
-    refused(
         plan(Method::Post, "/nope"),
         404,
         "Unknown route: POST /nope",
@@ -399,15 +389,15 @@ fn a_tab_ref_must_name_the_open_canvas_on_a_route_that_takes_one() {
         };
         api.plan(app.app(), &request)
     };
-    assert_eq!(answer(tabbed("/canvas", "Canvas")).status, 200);
+    assert_eq!(answer(tabbed("/canvas", "Canvas 1")).status, 200);
     assert_eq!(answer(tabbed("/canvas", "tab_1")).status, 200);
     refused(
         tabbed("/canvas", "other"),
         400,
-        "no tab matches 'other'. Open tabs: Canvas (tab_1)",
+        "unknown tab 'other' \u{2014} available: tab_1 (Canvas 1)",
     );
     refused(
-        tabbed("/selection", "Canvas"),
+        tabbed("/selection", "Canvas 1"),
         400,
         "--tab is not supported for GET /selection",
     );

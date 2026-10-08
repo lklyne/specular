@@ -1,19 +1,18 @@
 //! The Document effects: asking the note thread to read and watch a
 //! markdown file, and telling the app what it read.
 
-use std::path::Path;
+use std::path::PathBuf;
 
 use specular_doc::Rect;
 use specular_interact::{Action, Event, NoteNotice};
 
 use super::Shell;
-use super::image_run::space_folder;
 use crate::notes::{NoteLoader, NoteOutcome, ReadFailure};
 
-/// Starts the note thread for a document opened from `canvas`. Relative
-/// paths start from the folder that file is in, its space folder.
-pub(super) fn start_loader(canvas: Option<&Path>) -> Option<NoteLoader> {
-    match NoteLoader::new(canvas.and_then(space_folder)) {
+/// Starts the note thread for the space at `space`, the folder relative
+/// paths start from. With none, only absolute paths resolve.
+pub(super) fn start_loader(space: Option<PathBuf>) -> Option<NoteLoader> {
+    match NoteLoader::new(space) {
         Ok(loader) => Some(loader),
         Err(error) => {
             tracing::warn!("documents will not load: cannot start the note thread: {error}");

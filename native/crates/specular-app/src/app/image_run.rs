@@ -9,10 +9,10 @@ use specular_scene::ImageId;
 use super::Shell;
 use crate::images::{ImageLoader, LoadFailure};
 
-/// Starts the decode thread for a document opened from `canvas`. Relative
-/// image paths start from the folder that file is in, its space folder.
-pub(super) fn start_loader(canvas: Option<&Path>) -> Option<ImageLoader> {
-    match ImageLoader::new(canvas.and_then(space_folder)) {
+/// Starts the decode thread for the space at `space`, the folder relative
+/// paths start from. With none, only absolute paths resolve.
+pub(super) fn start_loader(space: Option<PathBuf>) -> Option<ImageLoader> {
+    match ImageLoader::new(space) {
         Ok(loader) => Some(loader),
         Err(error) => {
             tracing::warn!("images will not load: cannot start the decode thread: {error}");

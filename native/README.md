@@ -63,7 +63,7 @@ cargo clippy --target aarch64-apple-darwin --workspace --all-targets \
 ## App
 
 ```
-specular-app [--source synthetic|cef] [--pages N | FILE.canvas]
+specular-app [--source synthetic|cef] [--pages N | FOLDER | FILE.canvas]
              [--bench all|id,id,... [--warmup-ms N]] [--window WxH]
              [--paint-policy electron-lod|full-rate]
              [--chrome on|off] [--annotations N]

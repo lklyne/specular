@@ -68,6 +68,8 @@ mod scope;
 mod scroll_follow;
 mod select;
 mod select_all;
+mod sidebar;
+mod space;
 mod stack_order;
 mod strokes;
 mod time;
@@ -102,7 +104,7 @@ pub use edit::{
     TextMeasure, TextSelectDrag, TextSpec, note_frame, source_rows, style_lines,
 };
 pub use effect::{Cursor, Effect};
-pub use event::{Action, Event, Key, KeyInput, PageNotice, PointerInput, WheelInput};
+pub use event::{Action, CanvasAction, Event, Key, KeyInput, PageNotice, PointerInput, WheelInput};
 pub use geometry::{ScreenRect, to_canvas_rect};
 pub use gesture::Gesture;
 pub use groups::group_command;
@@ -121,6 +123,11 @@ pub use scope::SelectionScope;
 pub use scroll_follow::{
     Seen, doc_to_viewport, hittable_rect, left_page, recorded_scroll, seen, shift_of, shown_rect,
     viewport_to_doc,
+};
+pub use sidebar::{CanvasRow, RowKind, RowTarget, SidebarModel, SidebarRow, sidebar};
+pub use space::{
+    Canvas, CanvasId, DEFAULT_CANVAS_NAME, OpenedCanvas, OpenedSpace, Space, TabRefError,
+    canvas_file_name, legacy_canvas_file_name, resolve_tab_ref,
 };
 pub use time::iso8601;
 pub use tool::Tool;

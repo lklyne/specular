@@ -156,12 +156,15 @@ fn a_request_needs_the_secret_and_a_json_body() {
 fn a_tab_ref_arrives_decoded() {
     let mut server = Loopback::new();
     let tabbed = |tab: &str| format!("x-specular-secret: {SECRET}\r\nx-specular-tab: {tab}\r\n");
-    assert_eq!(server.send("GET", "/canvas", &tabbed("Canvas"), "").0, 200);
+    assert_eq!(
+        server.send("GET", "/canvas", &tabbed("Canvas%201"), "").0,
+        200
+    );
     assert_eq!(
         server.send("GET", "/canvas", &tabbed("sync%20roads"), ""),
         (
             400,
-            json!({ "error": "no tab matches 'sync roads'. Open tabs: Canvas (tab_1)" })
+            json!({ "error": "unknown tab 'sync roads' \u{2014} available: tab_1 (Canvas 1)" })
         )
     );
 }
@@ -224,7 +227,7 @@ fn a_session_over_http_builds_a_canvas() {
     assert_eq!(canvas["edges"][0]["id"], edge);
     assert_eq!(
         canvas["appState"]["activeTab"],
-        json!({ "id": "tab_1", "name": "Canvas" })
+        json!({ "id": "tab_1", "name": "Canvas 1" })
     );
     let listed = server.ok("GET", "/annotations?status=unresolved", &json!({}));
     assert_eq!(listed["annotations"][0]["text"], "check the hero");

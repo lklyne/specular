@@ -22,6 +22,7 @@ mod persist;
 mod prefs;
 mod scene;
 mod source_select;
+mod space;
 mod translate;
 
 use std::io::IsTerminal as _;
@@ -55,8 +56,14 @@ fn main() -> anyhow::Result<()> {
         .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()))
         .init();
 
+    let space = space_to_open(&run);
     let demo_pages = run.pages.unwrap_or(scene::DEMO_PAGE_COUNT);
-    let document = scene::load_document(run.canvas.as_deref(), demo_pages, run.annotations)?;
+    // With a space to open, the canvases are read once the window exists.
+    let document = if space.is_some() {
+        specular_doc::Document::new()
+    } else {
+        scene::load_document(run.canvas.as_deref(), demo_pages, run.annotations)?
+    };
     if run.headless.is_requested() {
         let source = source_select::create_source(run.headless.source, Host::Headless)?;
         return headless::run(source, document, run.canvas.as_deref(), &run.headless);
@@ -80,7 +87,8 @@ fn main() -> anyhow::Result<()> {
     );
 
     let options = app::RunOptions {
-        canvas: run.canvas,
+        canvas: run.canvas.filter(|_| space.is_none()),
+        space,
         bench: run.bench,
         warmup: run.warmup,
         representative_source: run.source.is_representative(),
@@ -92,4 +100,22 @@ fn main() -> anyhow::Result<()> {
     let mut app = app::Shell::new(source, document, options, event_loop.create_proxy());
     event_loop.run_app(&mut app).context("running event loop")?;
     app.into_result()
+}
+
+/// The space this run opens, or `None` for a run that shows one document
+/// and writes nothing: a snapshot or a script, a benchmark, a demo grid, or
+/// a canvas with seeded annotations.
+fn space_to_open(run: &cli::RunArgs) -> Option<space::SpaceStart> {
+    let one_document = run.headless.is_requested()
+        || run.bench.is_some()
+        || run.pages.is_some()
+        || run.annotations > 0;
+    if one_document {
+        return None;
+    }
+    let electron =
+        space::electron_user_data(|name| std::env::var_os(name), cfg!(target_os = "macos"))
+            .and_then(|user_data| space::electron_space(&user_data));
+    let remembered = prefs::file().and_then(|path| prefs::load_space_path(&path));
+    space::startup(run.canvas.as_deref(), electron, remembered)
 }

@@ -8,7 +8,7 @@ use crate::anchor::matches_page_url;
 use crate::app::page_of;
 
 /// Whether `status` is a thread still being worked on.
-pub(super) const fn is_open(status: AnnotationStatus) -> bool {
+pub(crate) const fn is_open(status: AnnotationStatus) -> bool {
     match status {
         AnnotationStatus::Pending | AnnotationStatus::Acknowledged => true,
         AnnotationStatus::Resolved | AnnotationStatus::Dismissed => false,

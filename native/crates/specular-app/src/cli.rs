@@ -11,8 +11,18 @@ use crate::headless::{self, HeadlessArgs};
 
 /// Usage text for `--help` and argument errors.
 pub(crate) const USAGE: &str = "\
-usage: specular-app [OPTIONS] [FILE.canvas]
+usage: specular-app [OPTIONS] [FOLDER | FILE.canvas]
 
+  FOLDER              open the folder as the space: every .canvas file in it
+                      is a canvas, and a folder with none gets the starter
+                      space
+  FILE.canvas         open the folder the file is in as the space, showing
+                      that file
+                      With neither, the space is the one the Electron app
+                      has open (`spacePath` in its preferences.json), else
+                      the folder last chosen with File > Open space…, else
+                      a demo grid. A --bench, --snapshot or --script run
+                      shows FILE alone and writes nothing
   --pages N           lay out N demo pages (default 9; not with FILE)
   --source KIND       page backend: synthetic | cef (default: cef when built
                       with the `cef` feature, else synthetic)

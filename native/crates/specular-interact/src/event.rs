@@ -5,8 +5,8 @@ use specular_core::{Camera, ImeEvent, Modifiers, PageElement, PixelRect, Pointer
 use specular_doc::{AnnotationId, Document, EntityId, ItemId, Rect};
 
 use crate::{
-    ApiCall, ClipboardContent, DroppedFile, Format, ImageKey, ImageNotice, NoteNotice, PageGrab,
-    Tool, ToolDefaultPatch, ToolDefaults,
+    ApiCall, CanvasId, ClipboardContent, DroppedFile, Format, ImageKey, ImageNotice, NoteNotice,
+    OpenedSpace, PageGrab, Tool, ToolDefaultPatch, ToolDefaults,
 };
 
 /// One input to [`update`](crate::update). Window input arrives in logical
@@ -73,6 +73,18 @@ pub enum Event {
     /// A document was loaded: at startup, on switching canvas, or when the
     /// file changed on disk. Replaces the current one and clears the history.
     DocumentOpened(Box<Document>),
+    /// A space folder was read: at startup, or when another is chosen.
+    /// Replaces every canvas and shows the space's active one.
+    SpaceOpened(Box<OpenedSpace>),
+    /// The file of one canvas of the space changed on disk and was read
+    /// again. Replaces that canvas's document and clears its history,
+    /// whether it is the active one or not.
+    CanvasFileChanged {
+        /// The canvas.
+        canvas: CanvasId,
+        /// What its file holds now.
+        document: Box<Document>,
+    },
     /// What the system clipboard holds: the answer to an
     /// [`Effect::ReadClipboard`](crate::Effect::ReadClipboard). Its text goes
     /// into the text being edited. With no edit open,
@@ -321,6 +333,9 @@ pub enum Action {
     PageReload,
     /// Abandon that page's load in flight.
     PageStop,
+    /// Change the space's canvases: show another, add, rename, copy or
+    /// remove one.
+    Canvas(CanvasAction),
     /// Move the selection by exactly this many canvas units.
     Nudge {
         /// Along x. Positive is right.
@@ -328,4 +343,28 @@ pub enum Action {
         /// Along y. Positive is down.
         dy: f64,
     },
+}
+
+/// Something done to the canvases of the space.
+#[derive(Debug, Clone, PartialEq)]
+pub enum CanvasAction {
+    /// Show another canvas. The one being left keeps its document, its
+    /// undo history, its camera and its selection.
+    Switch(CanvasId),
+    /// Add an empty canvas named `Canvas N` and show it.
+    New,
+    /// Give a canvas another name, and its file with it. `None` is the
+    /// active canvas. Does nothing when the name is empty or taken.
+    Rename {
+        /// The canvas.
+        canvas: Option<CanvasId>,
+        /// The new name.
+        name: String,
+    },
+    /// Copy a canvas into a new one beside it and show the copy. `None` is
+    /// the active canvas.
+    Duplicate(Option<CanvasId>),
+    /// Remove a canvas and send its file to the trash. `None` is the
+    /// active canvas. The space's last canvas is replaced by an empty one.
+    Delete(Option<CanvasId>),
 }

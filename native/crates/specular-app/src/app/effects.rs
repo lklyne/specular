@@ -80,11 +80,13 @@ impl Shell {
                     gpu.window.set_cursor(translate::cursor_icon(cursor));
                 }
             }
-            Effect::Save => {
-                if let Some(persist) = self.persist.as_mut() {
-                    persist.request_save();
-                }
+            Effect::Save => self.request_save(),
+            Effect::WriteCanvas(canvas) => self.write_canvas(&canvas),
+            Effect::RenameCanvasFile { canvas, from, to } => {
+                self.rename_canvas_file(&canvas, &from, &to);
             }
+            Effect::TrashCanvasFile { canvas, file } => self.trash_canvas_file(&canvas, &file),
+            Effect::SaveSpaceMeta => self.save_space_meta(),
             Effect::LoadImage { image, file } => self.load_image(image, &file),
             Effect::DropImage(image) => self.drop_image(image),
             Effect::LoadNote { file } => self.load_note(&file),

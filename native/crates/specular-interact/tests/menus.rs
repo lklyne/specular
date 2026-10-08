@@ -26,22 +26,35 @@ fn item<'a>(menus: &'a [Menu], label: &str) -> &'a MenuItem {
         .unwrap_or_else(|| panic!("no menu item {label:?}"))
 }
 
-fn labels(menu: &Menu) -> Vec<&'static str> {
+fn labels(menu: &Menu) -> Vec<&str> {
     (menu.entries.iter())
         .map(|entry| match entry {
-            MenuEntry::Item(item) => item.label,
+            MenuEntry::Item(item) => item.label.as_ref(),
             MenuEntry::Separator => "-",
         })
         .collect()
 }
 
 #[test]
-fn the_menus_are_edit_arrange_comment_page_tools_and_view() {
+fn the_menus_are_canvas_edit_arrange_comment_page_tools_and_view() {
     let app = TestApp::with_pages(1);
     let menus = menus(app.app());
-    let [edit, arrange, comment, page, tools, view] = menus.as_slice() else {
-        panic!("six menus");
+    let [canvas, edit, arrange, comment, page, tools, view] = menus.as_slice() else {
+        panic!("seven menus");
     };
+    assert_eq!(
+        (canvas.title, labels(canvas)),
+        (
+            "Canvas",
+            vec![
+                "New canvas",
+                "Duplicate canvas",
+                "Delete canvas",
+                "-",
+                "Canvas 1"
+            ]
+        )
+    );
     assert_eq!(
         (edit.title, labels(edit)),
         (
@@ -187,10 +200,12 @@ fn a_tool_item_runs_what_its_key_runs() {
 #[test]
 fn the_active_tool_is_the_one_checked() {
     let mut app = TestApp::with_pages(1);
-    let checked = |app: &TestApp| -> Vec<&'static str> {
-        (items(&menus(app.app())).into_iter())
+    let checked = |app: &TestApp| -> Vec<String> {
+        (menus(app.app()).iter())
+            .filter(|menu| menu.title == "Tools")
+            .flat_map(|menu| items(std::slice::from_ref(menu)))
             .filter(|item| item.checked == Some(true))
-            .map(|item| item.label)
+            .map(|item| item.label.to_string())
             .collect()
     };
     assert_eq!(checked(&app), ["Select"]);

@@ -11,7 +11,7 @@ use crate::notes;
 use crate::stack_order::Move;
 use crate::{
     Action, App, Effect, Event, Focus, PageNotice, Selection, ToolDefaultPatch, api, bindings,
-    camera, comment, cursor, edit, gesture, groups, page_state, pages, pointer, verbs,
+    camera, comment, cursor, edit, gesture, groups, page_state, pages, pointer, space, verbs,
 };
 use crate::{clipboard, drop, select_all, zoom};
 
@@ -20,6 +20,7 @@ use crate::{clipboard, drop, select_all, zoom};
 pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
     let mut effects = Vec::new();
     let revision = app.history.revision();
+    let switches = app.space.switches();
     let camera = app.session.camera;
     let dragging = app.session.gesture.is_some();
     // The clock moves nothing the cursor depends on.
@@ -63,6 +64,10 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         }
         Event::ViewportResized(size) => app.session.viewport = size,
         Event::DocumentOpened(document) => open_document(app, *document, &mut effects),
+        Event::SpaceOpened(opened) => space::open(app, *opened, &mut effects),
+        Event::CanvasFileChanged { canvas, document } => {
+            space::file_changed(app, &canvas, *document, &mut effects);
+        }
         Event::Clipboard(content) => clipboard::on_read(app, content, &mut effects),
         Event::FilesDropped { files, screen } => drop::on_drop(app, &files, screen, &mut effects),
         Event::ElementAt {
@@ -77,7 +82,11 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         Event::Action(action) => run_action(app, action, &mut effects),
         Event::Api(call) => api::run(app, call, &mut effects),
     }
-    let moved = app.history.revision() != revision || app.session.camera != camera;
+    // Another canvas has another history: its revision says nothing about
+    // whether this event made a step.
+    let switched = app.space.switches() != switches;
+    let stepped = !switched && app.history.revision() != revision;
+    let moved = switched || stepped || app.session.camera != camera;
     let drag_ended = dragging && app.session.gesture.is_none();
     if (moved && !pointing) || drag_ended {
         pointer::settle(app);
@@ -95,7 +104,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
     // Every undoable change, undo and redo moves the history's revision, so
     // this is the one place a save is asked for, and the place to ask for
     // the images and markdown files of file entities that just appeared.
-    if app.history.revision() != revision {
+    if stepped {
         images::request_new(app, &mut effects);
         notes::request_new(app, &mut effects);
         effects.push(Effect::Save);
@@ -206,6 +215,7 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         Action::PageBack | Action::PageForward | Action::PageReload | Action::PageStop => {
             page_state::navigate(app, &action, effects);
         }
+        Action::Canvas(action) => space::act(app, action, effects),
     }
 }
 
@@ -268,7 +278,7 @@ fn step_history(
     pages::reconcile(&before, &app.document, effects);
 }
 
-fn open_document(app: &mut App, document: Document, effects: &mut Vec<Effect>) {
+pub(crate) fn open_document(app: &mut App, document: Document, effects: &mut Vec<Effect>) {
     let before = pages::snapshot(&app.document);
     app.session.gesture = None;
     app.session.entered_group = None;

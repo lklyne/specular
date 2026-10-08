@@ -1,19 +1,21 @@
-//! Reading the canvas: `GET /canvas` and `GET /tabs`.
+//! Reading the canvas: `GET /canvas`.
 
-use serde_json::{Value, json};
+use serde_json::json;
 use specular_interact::App;
 
-use crate::{Response, Step, Tab};
+use crate::{Response, Step, tabs};
 
-/// The document as a JSON Canvas file would hold it, with the camera and
-/// the tab identity in `appState` so a reader knows which canvas answered.
-pub(crate) fn read(app: &App, tab: &Tab) -> Result<Step, Response> {
+/// The document of `app`'s canvas as a JSON Canvas file would hold it, with
+/// the camera and the tab identity in `appState`. The identity is the
+/// user's: which canvas they are looking at and every canvas there is, so a
+/// reader can tell which one answered.
+pub(crate) fn read(app: &App, user: &App) -> Result<Step, Response> {
     let mut canvas = app
         .document_to_save()
         .to_canvas_value()
         .map_err(|error| Response::error(500, error.to_string()))?;
     let camera = app.session().camera;
-    let identity = tabs(app, tab);
+    let identity = tabs::identity(user);
     if let Some(top) = canvas.as_object_mut() {
         let state = top.entry("appState").or_insert_with(|| json!({}));
         if !state.is_object() {
@@ -25,18 +27,6 @@ pub(crate) fn read(app: &App, tab: &Tab) -> Result<Step, Response> {
         state["tabs"] = identity["tabs"].clone();
     }
     Ok(Step::Answer(canvas))
-}
-
-/// Every canvas in the workspace, which here is the one that is open.
-pub(crate) fn tabs(app: &App, tab: &Tab) -> Value {
-    json!({
-        "activeTab": { "id": tab.id, "name": tab.name },
-        "tabs": [{
-            "id": tab.id,
-            "name": tab.name,
-            "entityCount": app.document().entities().count(),
-        }],
-    })
 }
 
 /// `value` as the `f64` that prints the same digits, so a zoom of 0.8 is

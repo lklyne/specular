@@ -107,6 +107,12 @@ impl FileSync {
         self.stamp = stamp;
     }
 
+    /// The file was moved and has `stamp` where it is now. Its text is
+    /// what it was.
+    pub(crate) fn restamp(&mut self, stamp: Option<Stamp>) {
+        self.stamp = stamp;
+    }
+
     /// The save could not be written. It is tried again later, unless a
     /// newer change is already waiting.
     pub(crate) fn save_failed(&mut self, now_ms: u64) {

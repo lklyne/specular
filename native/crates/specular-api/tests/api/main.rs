@@ -6,4 +6,5 @@ mod common;
 mod contract;
 mod pages;
 mod plan;
+mod tabs;
 mod verbs;

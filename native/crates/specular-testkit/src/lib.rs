@@ -34,6 +34,7 @@ mod input;
 mod measure;
 mod scene_snapshot;
 mod snapshot;
+mod space;
 
 pub use app::TestApp;
 pub use comments::{comment, with_comment};
@@ -45,6 +46,7 @@ pub use input::{ALT, CMD, CMD_SHIFT, CTRL, SHIFT};
 pub use measure::FixedAdvance;
 pub use scene_snapshot::scene_snapshot;
 pub use snapshot::doc_snapshot;
+pub use space::space;
 
 #[doc(hidden)]
 pub use insta;

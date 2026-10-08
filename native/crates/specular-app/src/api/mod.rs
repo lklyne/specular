@@ -18,7 +18,7 @@ mod tests;
 
 use std::sync::mpsc::{self, Receiver};
 
-use specular_api::{Api, Host, Tab};
+use specular_api::{Api, Host};
 
 use self::discovery::Discovery;
 use self::server::{Job, Server};
@@ -37,11 +37,7 @@ impl ApiHost {
     /// Starts the server and writes the discovery file. `wake` is called on
     /// the server's thread after each request is queued; it must get the
     /// event loop to call [`serve`](Self::serve).
-    pub(crate) fn start(
-        tab: Tab,
-        id_seed: u64,
-        wake: impl Fn() + Send + 'static,
-    ) -> anyhow::Result<Self> {
+    pub(crate) fn start(id_seed: u64, wake: impl Fn() + Send + 'static) -> anyhow::Result<Self> {
         let secret = discovery::new_secret();
         let bound = discovery::bind(discovery::preferred_port())?;
         let (jobs, inbox) = mpsc::channel();
@@ -50,7 +46,7 @@ impl ApiHost {
         let discovery = Discovery::write(bound.file, port, &secret);
         tracing::info!(port, "API listening on http://127.0.0.1:{port}");
         Ok(Self {
-            api: Api::new(tab, id_seed),
+            api: Api::new(id_seed),
             inbox,
             server,
             discovery,
@@ -62,12 +58,8 @@ impl ApiHost {
     fn start_for_test(secret: &str, wake: impl Fn() + Send + 'static) -> anyhow::Result<Self> {
         let listener = tiny_http::Server::http("127.0.0.1:0").map_err(anyhow::Error::from_boxed)?;
         let (jobs, inbox) = mpsc::channel();
-        let tab = Tab {
-            id: "tab_1".to_owned(),
-            name: "Canvas".to_owned(),
-        };
         Ok(Self {
-            api: Api::new(tab, 0),
+            api: Api::new(0),
             inbox,
             server: Server::spawn(listener, secret.to_owned(), jobs, wake)?,
             discovery: None,

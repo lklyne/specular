@@ -315,16 +315,28 @@ fn the_comment_menu_runs_the_actions_and_has_no_keys() {
         .unwrap_or_default())
     .into_iter()
     .filter_map(|entry| match entry {
-        MenuEntry::Item(item) => Some((item.label, item.action, item.chord)),
+        MenuEntry::Item(item) => Some((item.label.into_owned(), item.action, item.chord)),
         MenuEntry::Separator => None,
     })
     .collect();
     assert_eq!(
         items,
         [
-            ("Annotate selection", Action::AnnotateSelection, None),
-            ("Resolve comment", Action::ResolveComment(None), None),
-            ("Delete comment", Action::DeleteComment(None), None),
+            (
+                "Annotate selection".to_owned(),
+                Action::AnnotateSelection,
+                None
+            ),
+            (
+                "Resolve comment".to_owned(),
+                Action::ResolveComment(None),
+                None
+            ),
+            (
+                "Delete comment".to_owned(),
+                Action::DeleteComment(None),
+                None
+            ),
         ]
     );
 }

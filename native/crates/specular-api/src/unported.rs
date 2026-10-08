@@ -9,7 +9,6 @@ use crate::{Method, Request, Response, Step};
 /// The verbs behind an Electron route this app does not have, and why.
 fn verbs(method: Method, segments: &[&str]) -> Option<(&'static str, &'static str)> {
     const PAGES: &str = "needs the CEF page backend";
-    const ONE_CANVAS: &str = "this app has one canvas open";
     const LATER: &str = "not ported yet";
     Some(match (method, segments) {
         (_, ["pages", "create-at-position"]) => (
@@ -24,7 +23,6 @@ fn verbs(method: Method, segments: &[&str]) -> Option<(&'static str, &'static st
              `eval` and the other agent-browser passthroughs)",
             PAGES,
         ),
-        (Method::Post, ["tabs", ..]) => ("`tab new`, `tab switch` and `tab delete`", ONE_CANVAS),
         (_, ["selection", "arrange"]) => ("`arrange`", LATER),
         (_, ["selection", "enter-group" | "overlay-state"]) => ("entering a group", LATER),
         (_, ["groups", "auto-layout" | "reorder-child"]) => ("`auto-layout`", LATER),

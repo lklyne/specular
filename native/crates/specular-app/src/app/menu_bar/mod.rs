@@ -1,7 +1,8 @@
 //! The native menu bar (macOS).
 //!
-//! Edit, Arrange, Comment, Tools and View come from `specular_interact::menus`: each item is
-//! an `Action` whose shortcut is its row in the binding table. The app menu,
+//! Canvas, Edit, Arrange, Comment, Page, Tools and View come from
+//! `specular_interact::menus`: each item is an `Action` whose shortcut is
+//! its row in the binding table. The app menu,
 //! File and Window are the shell's own. Choosing an action item sends the
 //! action through `update`, the same path its key takes.
 //!
@@ -21,8 +22,12 @@ use super::Shell;
 /// A menu item that is the shell's business, not an `Action`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum ShellCommand {
-    /// Choose a `.canvas` file and show it in place of this one.
+    /// Choose a folder and open it as the space.
+    OpenSpace,
+    /// Choose a `.canvas` file and show it, in the space its folder is.
     Open,
+    /// Ask for the active canvas's new name.
+    RenameCanvas,
     /// Write unsaved changes now instead of when the autosave is due.
     Save,
     /// Close the window, which ends the app.
@@ -32,11 +37,18 @@ pub(super) enum ShellCommand {
 }
 
 /// The File menu: label, command and shortcut. `None` is a dividing line.
-const FILE_ITEMS: [Option<(&str, ShellCommand, Chord)>; 4] = [
-    Some(("Open…", ShellCommand::Open, Chord::char('o').cmd())),
-    Some(("Save", ShellCommand::Save, Chord::char('s').cmd())),
+const FILE_ITEMS: [Option<(&str, ShellCommand, Option<Chord>)>; 7] = [
+    Some((
+        "Open space…",
+        ShellCommand::OpenSpace,
+        Some(Chord::char('o').cmd().shift()),
+    )),
+    Some(("Open…", ShellCommand::Open, Some(Chord::char('o').cmd()))),
+    Some(("Save", ShellCommand::Save, Some(Chord::char('s').cmd()))),
     None,
-    Some(("Close", ShellCommand::Close, Chord::char('w').cmd())),
+    Some(("Rename canvas…", ShellCommand::RenameCanvas, None)),
+    None,
+    Some(("Close", ShellCommand::Close, Some(Chord::char('w').cmd()))),
 ];
 
 /// A native item for one `Action`.
@@ -48,26 +60,112 @@ enum ActionItem {
 /// Whether an item can be chosen, and whether it is checked.
 type ItemState = (bool, Option<bool>);
 
-/// The installed menu bar.
-pub(super) struct MenuBar {
-    /// Owns the native menus.
-    _menu: Menu,
-    /// The action items, in the order `menus` lists them.
-    actions: Vec<(MenuId, Action, ActionItem)>,
-    shell: Vec<(MenuId, ShellCommand)>,
-    /// The states the native items were last given.
-    shown: Vec<ItemState>,
+/// What an entry is, apart from its state: a dividing line, or an item's
+/// text and what it runs. A menu whose entries differ in this is built
+/// again; one that differs only in state has its items updated.
+type Shape = Option<(String, Action)>;
+
+fn shape(entries: &[MenuEntry]) -> Vec<Shape> {
+    (entries.iter())
+        .map(|entry| match entry {
+            MenuEntry::Item(item) => Some((item.label.to_string(), item.action.clone())),
+            MenuEntry::Separator => None,
+        })
+        .collect()
 }
 
-/// What `menus` says each action item is now, in order.
-fn states(app: &App) -> Vec<ItemState> {
-    (menus(app).into_iter())
-        .flat_map(|menu| menu.entries)
+fn states(entries: &[MenuEntry]) -> Vec<ItemState> {
+    (entries.iter())
         .filter_map(|entry| match entry {
             MenuEntry::Item(item) => Some((item.enabled, item.checked)),
             MenuEntry::Separator => None,
         })
         .collect()
+}
+
+/// One menu of `menus` as it was last built.
+struct Built {
+    submenu: Submenu,
+    shape: Vec<Shape>,
+    /// The action items, in the order the model lists them.
+    items: Vec<(MenuId, Action, ActionItem)>,
+    /// The states the native items were last given.
+    shown: Vec<ItemState>,
+}
+
+impl Built {
+    fn new(title: &str, entries: Vec<MenuEntry>) -> anyhow::Result<Self> {
+        let mut built = Self {
+            submenu: Submenu::new(title, true),
+            shape: Vec::new(),
+            items: Vec::new(),
+            shown: Vec::new(),
+        };
+        built.fill(entries)?;
+        Ok(built)
+    }
+
+    /// Appends a native item for each of `entries` to the empty submenu.
+    fn fill(&mut self, entries: Vec<MenuEntry>) -> anyhow::Result<()> {
+        self.shape = shape(&entries);
+        self.shown = states(&entries);
+        self.items.clear();
+        for entry in entries {
+            let MenuEntry::Item(item) = entry else {
+                self.submenu.append(&PredefinedMenuItem::separator())?;
+                continue;
+            };
+            let accelerator = item.chord.and_then(keys::accelerator);
+            let (id, native) = if let Some(checked) = item.checked {
+                let native =
+                    CheckMenuItem::new(item.label.as_ref(), item.enabled, checked, accelerator);
+                self.submenu.append(&native)?;
+                (native.id().clone(), ActionItem::Checked(native))
+            } else {
+                let native = MenuItem::new(item.label.as_ref(), item.enabled, accelerator);
+                self.submenu.append(&native)?;
+                (native.id().clone(), ActionItem::Plain(native))
+            };
+            self.items.push((id, item.action, native));
+        }
+        Ok(())
+    }
+
+    /// Brings the native items in step with `entries`. `all` writes every
+    /// item even if nothing changed: a chosen check item has flipped its
+    /// own mark.
+    fn refresh(&mut self, entries: Vec<MenuEntry>, all: bool) {
+        if shape(&entries) != self.shape {
+            while self.submenu.remove_at(0).is_some() {}
+            if let Err(error) = self.fill(entries) {
+                tracing::warn!("menu not rebuilt: {error:#}");
+            }
+            return;
+        }
+        let states = states(&entries);
+        if !all && states == self.shown {
+            return;
+        }
+        for ((_, _, item), (enabled, checked)) in self.items.iter().zip(&states) {
+            match item {
+                ActionItem::Plain(item) => item.set_enabled(*enabled),
+                ActionItem::Checked(item) => {
+                    item.set_enabled(*enabled);
+                    item.set_checked(checked.unwrap_or(false));
+                }
+            }
+        }
+        self.shown = states;
+    }
+}
+
+/// The installed menu bar.
+pub(super) struct MenuBar {
+    /// Owns the native menus.
+    _menu: Menu,
+    /// The menus `menus` describes, in its order.
+    built: Vec<Built>,
+    shell: Vec<(MenuId, ShellCommand)>,
 }
 
 impl MenuBar {
@@ -76,7 +174,6 @@ impl MenuBar {
     fn install(app: &App) -> anyhow::Result<Self> {
         let menu = Menu::new();
         let mut shell = Vec::new();
-        let mut actions = Vec::new();
 
         let quit = MenuItem::new(
             "Quit Specular",
@@ -102,7 +199,7 @@ impl MenuBar {
         for entry in FILE_ITEMS {
             match entry {
                 Some((label, command, chord)) => {
-                    let item = MenuItem::new(label, true, keys::accelerator(chord));
+                    let item = MenuItem::new(label, true, chord.and_then(keys::accelerator));
                     shell.push((item.id().clone(), command));
                     file.append(&item)?;
                 }
@@ -111,26 +208,11 @@ impl MenuBar {
         }
         menu.append(&file)?;
 
+        let mut built = Vec::new();
         for model in menus(app) {
-            let submenu = Submenu::new(model.title, true);
-            for entry in model.entries {
-                let MenuEntry::Item(item) = entry else {
-                    submenu.append(&PredefinedMenuItem::separator())?;
-                    continue;
-                };
-                let accelerator = item.chord.and_then(keys::accelerator);
-                let (id, native) = if let Some(checked) = item.checked {
-                    let native = CheckMenuItem::new(item.label, item.enabled, checked, accelerator);
-                    submenu.append(&native)?;
-                    (native.id().clone(), ActionItem::Checked(native))
-                } else {
-                    let native = MenuItem::new(item.label, item.enabled, accelerator);
-                    submenu.append(&native)?;
-                    (native.id().clone(), ActionItem::Plain(native))
-                };
-                actions.push((id, item.action, native));
-            }
-            menu.append(&submenu)?;
+            let one = Built::new(model.title, model.entries)?;
+            menu.append(&one.submenu)?;
+            built.push(one);
         }
 
         let window = Submenu::new("Window", true);
@@ -144,9 +226,8 @@ impl MenuBar {
         window.set_as_windows_menu_for_nsapp();
         Ok(Self {
             _menu: menu,
-            actions,
+            built,
             shell,
-            shown: states(app),
         })
     }
 
@@ -154,7 +235,8 @@ impl MenuBar {
     fn take_chosen(&self) -> Vec<Chosen> {
         let mut chosen = Vec::new();
         while let Ok(event) = MenuEvent::receiver().try_recv() {
-            let action = (self.actions.iter())
+            let action = (self.built.iter())
+                .flat_map(|built| &built.items)
                 .find(|(id, ..)| id == event.id())
                 .map(|(_, action, _)| Chosen::Action(action.clone()));
             let command = (self.shell.iter())
@@ -165,24 +247,13 @@ impl MenuBar {
         chosen
     }
 
-    /// Enables and checks the items as `app` now has them. `all` writes
-    /// every item even if nothing changed: a chosen check item has flipped
-    /// its own mark.
+    /// Enables and checks the items as `app` now has them, and builds
+    /// again any menu whose entries changed: the Canvas menu lists the
+    /// space's canvases.
     fn refresh(&mut self, app: &App, all: bool) {
-        let states = states(app);
-        if !all && states == self.shown {
-            return;
+        for (built, model) in self.built.iter_mut().zip(menus(app)) {
+            built.refresh(model.entries, all);
         }
-        for ((_, _, item), (enabled, checked)) in self.actions.iter().zip(&states) {
-            match item {
-                ActionItem::Plain(item) => item.set_enabled(*enabled),
-                ActionItem::Checked(item) => {
-                    item.set_enabled(*enabled);
-                    item.set_checked(checked.unwrap_or(false));
-                }
-            }
-        }
-        self.shown = states;
     }
 }
 

@@ -1,10 +1,7 @@
 //! The window title: the canvas's name, and whether it has changes that are
 //! not in its file yet.
 
-use std::path::Path;
-
 use super::Shell;
-use crate::persist::Persistence;
 
 /// The title of a window showing a canvas that is not in a file.
 const APP_NAME: &str = "Specular";
@@ -16,8 +13,9 @@ impl Shell {
         if self.bench.is_some() {
             return;
         }
-        let unsaved = (self.persist.as_ref()).is_some_and(Persistence::has_unsaved);
-        let title = window_title(self.options.canvas.as_deref(), unsaved);
+        let unsaved = self.active_unsaved();
+        let name = (self.files.as_ref()).map(|_| self.app.space().active().name.as_str());
+        let title = window_title(name, unsaved);
         if title == self.title {
             return;
         }
@@ -30,15 +28,11 @@ impl Shell {
     }
 }
 
-/// The canvas's file name without `.canvas`, marked while it has unsaved
-/// changes.
-fn window_title(canvas: Option<&Path>, unsaved: bool) -> String {
-    let name = canvas
-        .and_then(Path::file_stem)
-        .map(|stem| stem.to_string_lossy());
-    match (name, unsaved) {
+/// The active canvas's name, marked while it has unsaved changes.
+fn window_title(canvas: Option<&str>, unsaved: bool) -> String {
+    match (canvas, unsaved) {
         (Some(name), true) => format!("{name} — Edited"),
-        (Some(name), false) => name.into_owned(),
+        (Some(name), false) => name.to_owned(),
         (None, _) => APP_NAME.to_owned(),
     }
 }
@@ -48,15 +42,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_title_is_the_canvas_name_without_its_extension() {
-        let canvas = Path::new("/Users/me/Space/Home page.canvas");
-        assert_eq!(window_title(Some(canvas), false), "Home page");
+    fn the_title_is_the_canvas_name() {
+        assert_eq!(window_title(Some("Home page"), false), "Home page");
     }
 
     #[test]
     fn unsaved_changes_are_marked() {
-        let canvas = Path::new("Welcome.canvas");
-        assert_eq!(window_title(Some(canvas), true), "Welcome — Edited");
+        assert_eq!(window_title(Some("Welcome"), true), "Welcome — Edited");
     }
 
     #[test]

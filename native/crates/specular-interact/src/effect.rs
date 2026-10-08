@@ -4,7 +4,7 @@ use glam::Vec2;
 use specular_core::{CssSize, InputEvent, PageNav};
 use specular_doc::{EntityId, Rect};
 
-use crate::{ApiOutcome, AssetBytes, ImageKey, PageRegion, ToolDefaults};
+use crate::{ApiOutcome, AssetBytes, CanvasId, ImageKey, PageRegion, ToolDefaults};
 
 /// One thing for the shell to do after an [`update`](crate::update). Effects
 /// run in the order they are returned.
@@ -66,9 +66,34 @@ pub enum Effect {
     },
     /// Show this cursor over the canvas.
     SetCursor(Cursor),
-    /// Write the document to its file. Nothing returns this until autosave
-    /// (task S9) does.
+    /// The active canvas changed: write it to its file once changes stop.
     Save,
+    /// Write a canvas of the space to its file now, making the file if
+    /// there is none: a new canvas, a copy, or a background canvas that
+    /// changed. What to write is
+    /// [`App::canvas_to_save`](crate::App::canvas_to_save).
+    WriteCanvas(CanvasId),
+    /// A canvas was renamed: move its file, inside the space folder. What
+    /// is unsaved goes to the old name first.
+    RenameCanvasFile {
+        /// The canvas.
+        canvas: CanvasId,
+        /// The file's name until now.
+        from: String,
+        /// Its name from now on.
+        to: String,
+    },
+    /// A canvas was deleted: send its file to the system trash and stop
+    /// following it.
+    TrashCanvasFile {
+        /// The canvas, which the space no longer lists.
+        canvas: CanvasId,
+        /// Its file's name inside the space folder.
+        file: String,
+    },
+    /// The list of canvases or the active one changed: write the space's
+    /// index from [`App::space`](crate::App::space).
+    SaveSpaceMeta,
     /// Put text on the system clipboard: the selected text of an edit, or
     /// the selected entities as [`copy`](crate::Action::Copy) writes them.
     WriteClipboard(String),
