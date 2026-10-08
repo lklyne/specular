@@ -105,7 +105,10 @@ snapshot 24-annotate-selection-committed.png
 act resolve-comment
 snapshot 25-resolved.png
 
-# undo all of it
+# undo all of it. The click on empty canvas takes the keys back from the
+# right panel's field, where a window with one leaves them after a comment
+# is sent, and where Cmd+Z is the field's own.
+click 40 950
 key cmd+z
 key cmd+z
 key cmd+z
