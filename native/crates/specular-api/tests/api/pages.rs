@@ -186,6 +186,15 @@ fn a_page_screenshot_is_the_named_page_or_the_selected_one() {
 
     let nothing = session.post("/pages/screenshot", json!({}));
     assert_eq!(nothing.status, 400, "{}", nothing.body);
+    session.app.select(&["p1", "p2"]);
+    let two = session.post("/pages/screenshot", json!({}));
+    assert_eq!(two.status, 400, "{}", two.body);
+    let note = session.apply(json!({ "entities": [{ "kind": "text", "text": "not a page" }] }));
+    session
+        .app
+        .select(&[note["created"][0].as_str().unwrap_or_default()]);
+    let not_a_page = session.post("/pages/screenshot", json!({}));
+    assert_eq!(not_a_page.status, 400, "{}", not_a_page.body);
     session.app.select(&["p1"]);
     assert_eq!(session.post("/pages/screenshot", json!({})).status, 200);
     assert_eq!(session.shots[1].area, page("p1", false, 0.0));
@@ -198,6 +207,8 @@ fn a_page_screenshot_is_the_named_page_or_the_selected_one() {
         200
     );
     assert_eq!(session.shots[2].area, page("p1", true, 8.0));
+    session.post("/pages/screenshot-composite", json!({ "pageId": "p2" }));
+    assert_eq!(session.shots[3].area, page("p2", true, 24.0));
     let missing = session.post("/pages/screenshot", json!({ "pageId": "nope" }));
     assert_eq!(missing.status, 404);
 }

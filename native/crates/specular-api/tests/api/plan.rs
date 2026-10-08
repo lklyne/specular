@@ -279,6 +279,10 @@ fn what_is_not_ported_says_so_by_name() {
         json!({ "ok": true })
     );
     assert_eq!(
+        answer(plan(Method::Get, "/session/presence")).body,
+        json!({ "cursors": [] })
+    );
+    assert_eq!(
         answer(plan(Method::Get, "/health")).body,
         json!({ "version": "1" })
     );

@@ -290,3 +290,86 @@ fn auto_attach_at_the_browser_level_attaches_the_one_page_once() {
     assert_eq!(wire.heard(1), [json!({ "id": 1, "result": {} })]);
     assert_eq!(wire.to_page, [] as [Value; 0]);
 }
+
+#[test]
+fn browser_calls_are_answered_by_the_proxy_and_session_calls_go_to_the_page() {
+    let mut wire = Wire::new("p1");
+    let session = wire.attach(1);
+    let call = |id: i64, method: &str, params: Value| json!({ "id": id, "method": method, "params": params });
+
+    // A call for another target is refused, for this one it is answered.
+    wire.client_says(
+        1,
+        &call(2, "Target.getTargetInfo", json!({ "targetId": "p9" })),
+    );
+    wire.client_says(
+        1,
+        &call(3, "Target.getTargetInfo", json!({ "targetId": "p1" })),
+    );
+    // An attach that names no target is refused, discovery switched off sends no event.
+    wire.client_says(
+        1,
+        &call(4, "Target.attachToTarget", json!({ "flatten": true })),
+    );
+    wire.client_says(
+        1,
+        &call(5, "Target.setDiscoverTargets", json!({ "discover": false })),
+    );
+    let heard = wire.heard(1);
+    assert_eq!(
+        heard[0]["error"]["message"],
+        "No target with given id found"
+    );
+    assert_eq!(heard[1]["result"]["targetInfo"]["targetId"], "p1");
+    assert_eq!(
+        heard[2]["error"]["message"],
+        "No target with given id found"
+    );
+    assert_eq!(heard[3], json!({ "id": 5, "result": {} }));
+    assert_eq!(heard.len(), 4);
+
+    // A session-scoped call is the page's own, whatever its name.
+    let mut scoped = call(6, "Target.getTargets", json!({}));
+    scoped["sessionId"] = json!(session);
+    wire.client_says(1, &scoped);
+    assert_eq!(wire.to_page.len(), 1);
+    assert_eq!(wire.heard(1), [] as [Value; 0]);
+    wire.to_page.clear();
+
+    // Each attach is a session of its own, and a detach names one that is held.
+    wire.client_says(
+        1,
+        &call(7, "Target.attachToTarget", json!({ "targetId": "p1" })),
+    );
+    let second = wire.heard(1)[0]["params"]["sessionId"].clone();
+    assert_ne!(second, json!(session));
+    wire.client_says(
+        1,
+        &call(8, "Target.detachFromTarget", json!({ "sessionId": second })),
+    );
+    let detached = wire.heard(1);
+    assert_eq!(detached[0]["method"], "Target.detachedFromTarget");
+    assert_eq!(detached[1], json!({ "id": 8, "result": {} }));
+    wire.client_says(
+        1,
+        &call(9, "Target.detachFromTarget", json!({ "sessionId": second })),
+    );
+    assert_eq!(
+        wire.heard(1)[0]["error"]["message"],
+        "No session with given id"
+    );
+
+    // A refused call is forgotten: a late answer to it goes nowhere.
+    let mut ask = call(10, "DOM.getDocument", json!({}));
+    ask["sessionId"] = json!(session);
+    wire.client_says(1, &ask);
+    let upstream = wire.to_page.pop().unwrap()["id"].as_i64().unwrap();
+    let refused = wire
+        .proxy
+        .refuse(i32::try_from(upstream).unwrap(), "gone")
+        .unwrap();
+    wire.deliver(vec![refused]);
+    wire.heard(1);
+    wire.page_says(&json!({ "id": upstream, "result": {} }));
+    assert_eq!(wire.heard(1), [] as [Value; 0]);
+}
