@@ -8,6 +8,10 @@
 //! until what the batch holds changes, the target shows past the margin, or
 //! the glyphs would be the wrong size.
 //!
+//! An item may leave a kept batch only by going out of sight. One that is
+//! gone from the scene while the target still shows where it was has its
+//! glyphs in the layout, so the batch is laid out again without them.
+//!
 //! A viewport lands on whole pixels only when the pan is a whole number of
 //! them. When it is not, the text is drawn within half a pixel of where it
 //! belongs while the camera moves and laid out again once it stops.
@@ -48,6 +52,9 @@ pub(crate) struct Laid {
     size: [u32; 2],
     /// A key for each item, in paint order.
     members: Vec<u64>,
+    /// Where each item is, in the space's units. An item with none recorded
+    /// counts as in sight.
+    extents: Vec<Rect>,
 }
 
 /// The pass viewport that draws a layout where a frame wants it.
@@ -81,7 +88,15 @@ impl Laid {
             origin: frame.origin / frame.stretch + Vec2::splat(margin),
             size: visible.map(|side| (side + 2.0 * margin) as u32),
             members,
+            extents: Vec::new(),
         }
+    }
+
+    /// This layout knowing where each of its items is, in the order of the
+    /// keys it was made with.
+    pub(crate) fn with_extents(mut self, extents: Vec<Rect>) -> Self {
+        self.extents = extents;
+        self
     }
 
     /// The layout's size in layout pixels.
@@ -112,13 +127,14 @@ impl Laid {
 
     /// The viewport that draws this layout for `frame` holding `members`,
     /// or `None` when it has to be laid out again: the glyphs would be a
-    /// different size, the target shows past what was laid out, or the
-    /// batch holds something it did not. Items that have left are no
-    /// matter: they were culled because they are out of sight.
+    /// different size, the target shows past what was laid out, the batch
+    /// holds something it did not, or something it held is gone from where
+    /// the target still shows. An item that left by going out of sight is
+    /// no matter: its glyphs are out of sight too.
     pub(crate) fn placement(&self, frame: &TextFrame, members: &[u64]) -> Option<Placement> {
         let same_raster =
             self.space == frame.space && self.scale.to_bits() == frame.scale.to_bits();
-        if !same_raster || !is_subsequence(members, &self.members) {
+        if !same_raster || !self.still_holds(frame, members) {
             return None;
         }
         let stretch = frame.stretch;
@@ -144,10 +160,43 @@ impl Laid {
     }
 }
 
-/// Whether every key of `needle` is in `hay`, in the same order.
-fn is_subsequence(needle: &[u64], hay: &[u64]) -> bool {
-    let mut hay = hay.iter();
-    needle.iter().all(|key| hay.any(|held| held == key))
+impl Laid {
+    /// Where the frame this layout was made for draws it.
+    pub(crate) fn own_placement(&self, frame: &TextFrame) -> Option<Placement> {
+        self.placement(frame, &self.members)
+    }
+
+    /// Whether `members` are items of this layout in the same order, and
+    /// every item of it they leave out is out of `frame`'s sight.
+    fn still_holds(&self, frame: &TextFrame, members: &[u64]) -> bool {
+        let mut held = self.members.iter().enumerate();
+        for key in members {
+            loop {
+                match held.next() {
+                    Some((_, other)) if other == key => break,
+                    Some((index, _)) if self.shows(frame, index) => return false,
+                    Some(_) => {}
+                    None => return false,
+                }
+            }
+        }
+        held.all(|(index, _)| !self.shows(frame, index))
+    }
+
+    /// Whether `frame`'s target shows any of where item `index` is.
+    fn shows(&self, frame: &TextFrame, index: usize) -> bool {
+        let Some(extent) = self.extents.get(index) else {
+            return true;
+        };
+        let scale = frame.scale * frame.stretch;
+        let (left, top) = (
+            extent.x * scale + frame.origin.x,
+            extent.y * scale + frame.origin.y,
+        );
+        let (right, bottom) = (left + extent.width * scale, top + extent.height * scale);
+        let [width, height] = frame.target.map(|side| side as f32);
+        right > 0.0 && bottom > 0.0 && left < width && top < height
+    }
 }
 
 #[cfg(test)]
@@ -254,13 +303,38 @@ mod tests {
     }
 
     #[test]
-    fn items_may_leave_a_batch_but_not_join_or_swap() {
+    fn an_item_may_leave_a_batch_by_going_out_of_sight_and_none_may_join_or_swap() {
         let frame = canvas(Vec2::ZERO, 0.25);
-        let laid = Laid::new(&frame, vec![1, 2, 3]);
-        assert!(laid.placement(&frame, &[1, 3]).is_some());
-        assert!(laid.placement(&frame, &[]).is_some());
-        assert!(laid.placement(&frame, &[1, 2, 3, 4]).is_none());
-        assert!(laid.placement(&frame, &[3, 1]).is_none());
+        // Canvas units: the 3200x2000 target shows 6400x4000 of them.
+        let in_sight = Rect::new(100.0, 100.0, 200.0, 40.0);
+        let beside = Rect::new(-900.0, 100.0, 200.0, 40.0);
+        let laid = Laid::new(&frame, vec![1, 2, 3]).with_extents(vec![in_sight, beside, in_sight]);
+        // (the batch now, whether the layout is kept)
+        let cases: [(&[u64], bool); 7] = [
+            (&[1, 2, 3], true),
+            // 2 was culled: it is left of the target.
+            (&[1, 3], true),
+            // 1 and 3 are gone from where the target shows.
+            (&[2, 3], false),
+            (&[1, 2], false),
+            (&[], false),
+            (&[1, 2, 3, 4], false),
+            (&[3, 1], false),
+        ];
+        for (members, kept) in cases {
+            assert_eq!(
+                laid.placement(&frame, members).is_some(),
+                kept,
+                "{members:?}"
+            );
+        }
+        // Panned until 2 shows, a batch without it is no longer this one.
+        let panned = canvas(Vec2::new(190.0, 0.0), 0.25);
+        assert!(laid.placement(&panned, &[1, 2, 3]).is_some());
+        assert!(laid.placement(&panned, &[1, 3]).is_none());
+        // An item nothing is known about counts as in sight.
+        let unknown = Laid::new(&frame, vec![1, 2]);
+        assert!(unknown.placement(&frame, &[1]).is_none());
     }
 
     #[test]

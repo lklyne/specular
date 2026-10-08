@@ -387,6 +387,7 @@ fn text_draws<'a>(
             text,
             clip: item.clip,
             opacity: item.opacity,
+            extent: placed.extent,
         })
     })
 }

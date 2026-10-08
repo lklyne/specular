@@ -97,6 +97,7 @@ mod tests {
             text: TextItem::Run(run),
             clip,
             opacity,
+            extent: Rect::default(),
         })
     }
 
@@ -141,6 +142,7 @@ mod tests {
                 text: TextItem::Column(column),
                 clip: None,
                 opacity: 1.0,
+                extent: Rect::default(),
             })
         };
         let base = key(&column(0.0, "a"));

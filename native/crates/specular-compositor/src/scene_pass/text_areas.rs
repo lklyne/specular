@@ -30,6 +30,8 @@ pub(crate) struct TextDraw<'a> {
     /// The item's clip in its own space, if it has one.
     pub(crate) clip: Option<Rect>,
     pub(crate) opacity: f32,
+    /// Where the item is in its own space, inside its clip.
+    pub(crate) extent: Rect,
 }
 
 /// A shaped run, kept between frames.

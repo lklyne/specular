@@ -115,6 +115,10 @@ pub(crate) struct Placed {
     pub(crate) bounds: Rect,
     /// The item's clip in logical pixels, inside the viewport.
     pub(crate) clip: Option<Rect>,
+    /// Where the item is in its own space, inside its clip and whatever the
+    /// viewport shows of it: what tells an item that went out of sight from
+    /// one that left the scene.
+    pub(crate) extent: Rect,
 }
 
 /// What [`place`] left out.
@@ -175,12 +179,16 @@ pub(crate) fn place(
             Draw::Rect(_) | Draw::Ellipse(_) | Draw::Shadow(_) => (Prim::Shape, item.draw.bounds()),
             Draw::Polygon(_) | Draw::Path(_) => (Prim::Mesh(item.blend), item.draw.bounds()),
         };
+        let extent = bounds.map(|bounds| {
+            let clipped = item.clip.and_then(|clip| clip.intersection(bounds));
+            clipped.unwrap_or(bounds)
+        });
         let bounds = bounds.and_then(|bounds| {
             view.rect(item.space, bounds)
                 .outset(FRINGE_PX)
                 .intersection(region)
         });
-        let Some(bounds) = bounds else {
+        let (Some(bounds), Some(extent)) = (bounds, extent) else {
             counts.culled += 1;
             continue;
         };
@@ -189,6 +197,7 @@ pub(crate) fn place(
             prim,
             bounds,
             clip: clip.map(|_| region),
+            extent,
         });
     }
     counts

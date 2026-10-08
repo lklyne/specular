@@ -87,6 +87,25 @@ fn changed_text_is_laid_out_again() {
 }
 
 #[test]
+fn text_gone_from_the_scene_while_in_sight_is_not_drawn_from_the_kept_layout() {
+    let Some(mut harness) = Harness::new() else {
+        return;
+    };
+    let run = |text: &str, y: f32| TextRun::new(text, Point::new(8.0, y), 16.0, Color::BLACK);
+    // A popup's label beside a readout that stays, in screen space as the
+    // panels draw them, and two notes on the canvas.
+    let spaces: [fn(TextRun) -> Item; 2] = [Item::screen, Item::canvas];
+    for item in spaces {
+        let both = || vec![item(run("MM", 8.0)), item(run("WW", 36.0))];
+        let one = || vec![item(run("MM", 8.0))];
+        harness.render_frame(&at(Vec2::ZERO), both());
+        let (left, stats) = harness.render_frame(&at(Vec2::ZERO), one());
+        assert_eq!(laid_out_and_reused(stats.text), (1, 0));
+        assert_eq!(Some(left), fresh(&at(Vec2::ZERO), one()));
+    }
+}
+
+#[test]
 fn a_pan_by_part_of_a_pixel_is_put_right_by_the_next_frame_at_rest() {
     let Some(mut harness) = Harness::new() else {
         return;

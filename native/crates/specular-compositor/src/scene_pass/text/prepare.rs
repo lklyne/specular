@@ -83,7 +83,8 @@ impl TextSystem {
         members: Vec<u64>,
         batch: &TextBatch<'_>,
     ) {
-        let laid = Laid::new(frame, members);
+        let extents = batch.draws.iter().map(|draw| draw.extent).collect();
+        let laid = Laid::new(frame, members).with_extents(extents);
         let hairline = 1.0 / laid.scale().max(f32::EPSILON);
         let mut areas = Areas::new(&self.shaped, hairline, &laid);
         for draw in &batch.draws {
@@ -122,7 +123,7 @@ impl TextSystem {
         if let Err(error) = result {
             tracing::warn!("text batch not prepared: {error}");
         }
-        slot.placement = laid.placement(frame, &[]);
+        slot.placement = laid.own_placement(frame);
         slot.laid = Some(laid);
         slot.glyphs = glyphs;
         slot.heights = heights;
