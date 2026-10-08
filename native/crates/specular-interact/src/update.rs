@@ -10,8 +10,8 @@ use crate::images;
 use crate::notes;
 use crate::stack_order::Move;
 use crate::{
-    Action, App, Effect, Event, Focus, PageNotice, ToolDefaultPatch, bindings, camera, cursor,
-    edit, gesture, groups, pages, pointer, verbs,
+    Action, App, Effect, Event, Focus, PageNotice, Selection, ToolDefaultPatch, bindings, camera,
+    cursor, edit, gesture, groups, pages, pointer, verbs,
 };
 use crate::{clipboard, drop, select_all, zoom};
 
@@ -66,6 +66,10 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
     let drag_ended = dragging && app.session.gesture.is_none();
     if (moved && !pointing) || drag_ended {
         pointer::settle(app);
+    }
+    // Whatever made a step has selected what it meant to by now.
+    if app.history.is_open() {
+        app.history.settle(app.session.selection.clone());
     }
     leave_unless_selected(app, &mut effects);
     groups::keep_entered_valid(app);
@@ -203,12 +207,13 @@ pub(crate) fn document_step(app: &mut App, command: Command, effects: &mut Vec<E
     pages::reconcile(&before, &app.document, effects);
 }
 
-/// Runs an undo or a redo, unless a drag is in flight, and brings the page
-/// hosts and the session back in step with the document.
+/// Runs an undo or a redo, unless a drag is in flight, puts back the
+/// selection the step carries, and brings the page hosts and the session
+/// back in step with the document.
 fn step_history(
     app: &mut App,
     effects: &mut Vec<Effect>,
-    step: impl FnOnce(&mut App) -> Result<bool, CommandError>,
+    step: impl FnOnce(&mut App) -> Result<Option<Selection>, CommandError>,
 ) {
     if app.session.gesture.is_some() {
         return;
@@ -216,8 +221,8 @@ fn step_history(
     let before = pages::snapshot(&app.document);
     let notes_before = edit::note::held(app);
     match step(app) {
-        Ok(true) => {}
-        Ok(false) => return,
+        Ok(Some(selection)) => app.session.selection = selection,
+        Ok(None) => return,
         Err(error) => tracing::warn!("history step dropped: {error}"),
     }
     edit::note::write_stepped(app, &notes_before, effects);

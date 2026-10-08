@@ -151,7 +151,7 @@ fn undoing_move_restores_fixture_exactly() {
     let mut history = History::new();
     let moved = set_rect(SPECULAR_PHONE, Rect::new(12.5, -40.0, 430.0, 932.0));
     history.apply(&mut document, moved).unwrap();
-    assert!(history.undo(&mut document).unwrap());
+    assert!(history.undo(&mut document).unwrap().is_some());
     assert_eq!(saved(&document), pages_saved());
 }
 
@@ -170,7 +170,7 @@ fn undoing_add_restores_fixture_exactly() {
     };
     history.apply(&mut document, add).unwrap();
     assert_eq!(saved(&document)["nodes"].as_array().unwrap().len(), 5);
-    assert!(history.undo(&mut document).unwrap());
+    assert!(history.undo(&mut document).unwrap().is_some());
     assert_eq!(saved(&document), pages_saved());
 }
 
@@ -180,7 +180,7 @@ fn undoing_remove_restores_fixture_exactly() {
     let mut history = History::new();
     let remove = remove_with_edges(&document, SPECULAR_PHONE);
     history.apply(&mut document, remove).unwrap();
-    assert!(history.undo(&mut document).unwrap());
+    assert!(history.undo(&mut document).unwrap().is_some());
     assert_eq!(saved(&document), pages_saved());
 }
 
@@ -201,8 +201,8 @@ fn undo_then_redo_of_a_mutation_sequence_replays_it() {
     let remove = remove_with_edges(&document, SPECULAR_LAPTOP);
     history.apply(&mut document, remove).unwrap();
     let after = saved(&document);
-    while history.undo(&mut document).unwrap() {}
+    while history.undo(&mut document).unwrap().is_some() {}
     assert_eq!(saved(&document), pages_saved());
-    while history.redo(&mut document).unwrap() {}
+    while history.redo(&mut document).unwrap().is_some() {}
     assert_eq!(saved(&document), after);
 }

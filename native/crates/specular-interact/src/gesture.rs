@@ -175,7 +175,9 @@ pub(crate) fn cancel(app: &mut App, effects: &mut Vec<Effect>) {
     }
 }
 
-/// Runs `command` as one undo step.
+/// Runs `command` as one undo step. Undoing it brings back the selection as
+/// it stands now, so a caller selects what the step made after this, not
+/// before.
 pub(crate) fn apply_step(app: &mut App, command: Command) {
     apply_fitted(app, command, &[]);
 }
@@ -185,7 +187,8 @@ pub(crate) fn apply_step(app: &mut App, command: Command) {
 /// resizes itself, as they are.
 pub(crate) fn apply_fitted(app: &mut App, command: Command, moved: &[EntityId]) {
     let command = group_fit::then_fit(&mut app.document, command, moved);
-    if let Err(error) = app.history.apply(&mut app.document, command) {
+    let selection = app.session.selection.clone();
+    if let Err(error) = (app.history).apply_from(&mut app.document, command, selection) {
         tracing::warn!("command refused: {error}");
     }
 }

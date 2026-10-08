@@ -351,16 +351,16 @@ fn history_undoes_and_redoes_in_order() {
         .unwrap();
     let after_second = document.clone();
 
-    assert!(history.undo(&mut document).unwrap());
+    assert!(history.undo(&mut document).unwrap().is_some());
     assert_eq!(document, after_first);
-    assert!(history.undo(&mut document).unwrap());
+    assert!(history.undo(&mut document).unwrap().is_some());
     assert_eq!(document, start);
-    assert!(!history.undo(&mut document).unwrap());
+    assert!(history.undo(&mut document).unwrap().is_none());
 
-    assert!(history.redo(&mut document).unwrap());
-    assert!(history.redo(&mut document).unwrap());
+    assert!(history.redo(&mut document).unwrap().is_some());
+    assert!(history.redo(&mut document).unwrap().is_some());
     assert_eq!(document, after_second);
-    assert!(!history.redo(&mut document).unwrap());
+    assert!(history.redo(&mut document).unwrap().is_none());
 }
 
 #[test]
@@ -377,6 +377,34 @@ fn a_new_command_clears_the_redo_stack() {
         .apply(&mut document, Command::RemoveEntity(EntityId::new("sh1")))
         .unwrap();
     assert!(!history.can_redo());
+}
+
+#[test]
+fn a_step_carries_the_state_from_either_side_of_it() {
+    let mut document = fixture();
+    let mut history: History<&str> = History::default();
+    let remove = Command::RemoveEntity(EntityId::new("sh1"));
+    history.apply_from(&mut document, remove, "before").unwrap();
+    assert!(history.is_open());
+    history.settle("after");
+    // A later settle is not this step's.
+    history.settle("later");
+
+    assert_eq!(history.undo(&mut document), Ok(Some("before")));
+    assert_eq!(history.redo(&mut document), Ok(Some("after")));
+    assert_eq!(history.undo(&mut document), Ok(Some("before")));
+    assert_eq!(history.undo(&mut document), Ok(None));
+}
+
+#[test]
+fn a_step_never_settled_redoes_to_the_state_it_started_from() {
+    let mut document = fixture();
+    let mut history: History<u8> = History::default();
+    let remove = Command::RemoveEntity(EntityId::new("sh1"));
+    history.apply_from(&mut document, remove, 7).unwrap();
+    assert_eq!(history.undo(&mut document), Ok(Some(7)));
+    history.settle(9);
+    assert_eq!(history.redo(&mut document), Ok(Some(7)));
 }
 
 #[test]

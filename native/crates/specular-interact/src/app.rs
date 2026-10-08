@@ -15,7 +15,9 @@ use crate::{Cursor, Gesture, PagePlacement, Tool, ToolDefaults};
 #[derive(Debug, Clone, Default)]
 pub struct App {
     pub(crate) document: Document,
-    pub(crate) history: History,
+    /// Each step carries the selection from either side of it, so undo and
+    /// redo put back what was selected along with what changed.
+    pub(crate) history: History<Selection>,
     pub(crate) session: Session,
     pub(crate) tool_defaults: ToolDefaults,
     /// Lays text out for the editor.
