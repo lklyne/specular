@@ -3,103 +3,49 @@
 //!
 //! ```text
 //! ┌ header: title (the thread switcher), new, close, back ┐
-//! ├ the thread list, or the open thread's transcript      ┤
+//! ├ the thread list, or the open thread's conversation    ┤
+//! ├ the run bar, while the agent works                    ┤
 //! ├ composer: chips, pasted images, the field, send       ┘
 //! ```
 //!
-//! Every control sends the model's own `Action`. The view keeps only what a
-//! view must: the field's text, the images pasted into it, where the
-//! transcript is scrolled, whether the run log is open, and a drag of the
-//! panel's edge.
+//! Each of the four is a view of its own, holding its part of the model
+//! (`parts`). The header and the body are cached, so a frame that only
+//! moves the run bar's shimmer builds the run bar and nothing above it.
+//! Every control sends the model's own `Action`. The views keep only what
+//! a view must: the field's text, the images pasted into it, where the
+//! conversation is scrolled, and whether the run log is open.
 
 mod chips;
 mod composer;
 mod date;
 mod header;
+mod parts;
 mod paste;
 mod run_bar;
 mod transcript;
 
-use std::cell::Cell;
 use std::rc::Rc;
 
-use gpui_kit::component::input::{InputEvent, TextareaState};
+use gpui_kit::component::input::TextareaState;
 use gpui_kit::component::message_scroller::MessageScrollerState;
 use gpui_kit::component::v_flex;
 use gpui_kit::{
-    App, AppContext as _, Context, CursorStyle, DispatchPhase, Entity, InteractiveElement as _,
-    IntoElement, MouseButton, MouseMoveEvent, MouseUpEvent, ParentElement as _, ScrollHandle,
-    Styled as _, Subscription, Window, canvas, div, px,
+    App, AppContext as _, Context, Entity, Focusable as _, InteractiveElement as _, IntoElement,
+    ParentElement as _, Render, StyleRefinement, Styled as _, Window, div, px,
 };
-use specular_interact::{Action, ChatAction, ChatModel, Event};
+use specular_interact::{Action, ChatModel, Event};
 
-use self::paste::Pasted;
-use self::transcript::Shown;
-use super::{ShellView, focus_canvas};
+pub(super) use self::composer::ComposerView;
+use self::header::HeaderView;
+use self::parts::ChatParts;
+use self::run_bar::RunBarView;
+use self::transcript::BodyView;
 use crate::canvas as app_canvas;
+use crate::models::same;
 use crate::theme;
 
-/// The strip along the panel's left edge that resizes it,
-/// `DEVTOOLS_RESIZE_HANDLE_WIDTH`.
-const RESIZE_HANDLE: f32 = 12.0;
-
-/// What the right panel keeps between frames.
-pub(super) struct ChatUi {
-    /// The composer's field.
-    input: Entity<TextareaState>,
-    _events: Subscription,
-    /// Images pasted into the field, sent with the next message.
-    images: Vec<Pasted>,
-    /// Where the transcript is scrolled, and whether it follows its end.
-    scroller: Entity<MessageScrollerState>,
-    /// What the scroller was last told it shows.
-    shown: Shown,
-    /// Whether the run bar's log is open.
-    log_open: bool,
-    /// The run log's own scroll.
-    log_scroll: ScrollHandle,
-    /// Whether the panel's edge is being dragged.
-    resizing: Rc<Cell<bool>>,
-    /// The comment draft the field was last focused for.
-    draft: Option<String>,
-    /// The hint the field was last given.
-    placeholder: String,
-}
-
-impl ChatUi {
-    pub(super) fn new(window: &mut Window, cx: &mut Context<'_, ShellView>) -> Self {
-        // Enter sends and Shift+Enter opens a line: the field reports a
-        // plain Enter and inserts nothing for it.
-        let input = cx.new(|cx| {
-            TextareaState::new(window, cx)
-                .auto_grow(composer::MIN_ROWS, composer::MAX_ROWS)
-                .submit_on_enter(true)
-        });
-        let events =
-            cx.subscribe_in(
-                &input,
-                window,
-                |this, _, event: &InputEvent, window, cx| match event {
-                    InputEvent::PressEnter { shift: false, .. } => this.send_chat(window, cx),
-                    // Send is live only while there is something to send.
-                    InputEvent::Change => cx.notify(),
-                    InputEvent::PressEnter { .. } | InputEvent::Focus | InputEvent::Blur => {}
-                },
-            );
-        Self {
-            input,
-            _events: events,
-            images: Vec::new(),
-            scroller: cx.new(|cx| MessageScrollerState::new(0, cx)),
-            shown: Shown::default(),
-            log_open: false,
-            log_scroll: ScrollHandle::new(),
-            resizing: Rc::new(Cell::new(false)),
-            draft: None,
-            placeholder: String::new(),
-        }
-    }
-}
+/// The header strip's height.
+const HEADER: f32 = 36.0;
 
 /// Runs a panel control's `action` and leaves the keys in the composer's
 /// field: the panel has one field, and what is clicked beside it (a thread,
@@ -114,123 +60,107 @@ fn run_keeping_field(
     input.update(cx, |state, cx| state.focus(window, cx));
 }
 
-impl ShellView {
-    /// Focuses the composer's field.
-    pub(crate) fn focus_composer(&self, window: &mut Window, cx: &mut Context<'_, Self>) {
-        self.chat
-            .input
-            .update(cx, |state, cx| state.focus(window, cx));
+/// The right panel: where its four views go.
+pub(super) struct ChatView {
+    /// The model the parts were last cut from.
+    model: Option<Rc<ChatModel>>,
+    parts: Option<ChatParts>,
+    /// The composer's field, which the header's buttons give the keys to.
+    input: Entity<TextareaState>,
+    header: Entity<HeaderView>,
+    body: Entity<BodyView>,
+    run_bar: Entity<RunBarView>,
+    composer: Entity<ComposerView>,
+}
+
+impl ChatView {
+    pub(super) fn new(window: &mut Window, cx: &mut Context<'_, Self>) -> Self {
+        let input = composer::field(window, cx);
+        let scroller = cx.new(|cx| MessageScrollerState::new(0, cx));
+        let composer = {
+            let (input, scroller) = (input.clone(), scroller.clone());
+            cx.new(|cx| ComposerView::new(input, scroller, window, cx))
+        };
+        Self {
+            model: None,
+            parts: None,
+            header: cx.new(|_| HeaderView::new(input.clone())),
+            body: cx.new(|_| BodyView::new(input.clone(), scroller)),
+            run_bar: cx.new(|_| RunBarView::new()),
+            composer,
+            input,
+        }
+    }
+
+    /// Shows `model`: each view whose part changed is told to draw again.
+    pub(super) fn set(
+        &mut self,
+        model: &Rc<ChatModel>,
+        window: &mut Window,
+        cx: &mut Context<'_, Self>,
+    ) {
+        if same(self.model.as_ref(), Some(model)) {
+            return;
+        }
+        self.model = Some(Rc::clone(model));
+        let parts = match self.parts.as_mut() {
+            Some(parts) => {
+                parts.refresh(model);
+                parts.clone()
+            }
+            None => self.parts.insert(ChatParts::of(model)).clone(),
+        };
+        // The run bar comes and goes, which moves the views around it.
+        let running = self.run_bar.read(cx).is_running();
+        if running != parts.run.is_some() {
+            cx.notify();
+        }
+        (self.header).update(cx, |view, cx| view.set(&parts.header, cx));
+        (self.body).update(cx, |view, cx| view.set(&parts.body, cx));
+        (self.run_bar).update(cx, |view, cx| view.set(parts.run.as_ref(), cx));
+        let visible = model.visible;
+        (self.composer).update(cx, |view, cx| {
+            view.set(&parts.composer, visible, window, cx);
+        });
     }
 
     /// Whether the keys are in the composer's field.
     pub(super) fn composer_focused(&self, window: &Window, cx: &App) -> bool {
-        use gpui_kit::Focusable as _;
-        self.chat.input.focus_handle(cx).is_focused(window)
+        self.input.focus_handle(cx).is_focused(window)
     }
 
-    /// The right panel for `model`, when it is open.
-    pub(super) fn chat_panel(
-        &mut self,
-        model: &ChatModel,
-        window: &mut Window,
-        cx: &mut Context<'_, Self>,
-    ) -> Option<impl IntoElement + use<>> {
-        self.follow_draft(model, window, cx);
-        if !model.visible {
-            // A hidden field must not keep the keys.
-            if self.composer_focused(window, cx) {
-                focus_canvas(window, cx);
-            }
-            return None;
-        }
-        let body = match &model.transcript {
-            Some(transcript) => self.transcript(model, transcript, cx).into_any_element(),
-            None => self.thread_list(model, cx).into_any_element(),
-        };
-        Some(
-            v_flex()
-                .id("chat-panel")
-                .occlude()
-                .w(px(model.width))
-                .h_full()
-                .flex_shrink_0()
-                .pt(px(theme::TOOLBAR_HEIGHT))
-                .bg(theme::solid(theme::PANEL))
-                .border_l_1()
-                .border_color(theme::solid(theme::CHROME_BORDER))
-                .child(self.chat_header(model, cx))
-                .child(body)
-                .child(self.composer(&model.composer, window, cx)),
-        )
+    /// The composer's field.
+    pub(super) fn field(&self) -> Entity<TextareaState> {
+        self.input.clone()
     }
 
-    /// Gives the field the keys when a comment draft appears, so it can be
-    /// typed at once.
-    fn follow_draft(&mut self, model: &ChatModel, window: &mut Window, cx: &mut Context<'_, Self>) {
-        let draft = (model.composer.draft.as_ref()).map(|draft| draft.label.clone());
-        if draft == self.chat.draft {
-            return;
-        }
-        self.chat.draft = draft;
-        if self.chat.draft.is_some() && model.visible {
-            self.focus_composer(window, cx);
-        }
+    /// The composer.
+    pub(super) fn composer(&self) -> Entity<ComposerView> {
+        self.composer.clone()
     }
+}
 
-    /// The strip over the panel's left edge. Dragging it asks for the width
-    /// that puts the edge under the pointer, and the model keeps that within
-    /// its limits.
-    pub(super) fn chat_resize_handle(&self, model: &ChatModel) -> Option<impl IntoElement + use<>> {
-        if !model.visible {
-            return None;
-        }
-        let (press, drag, lift) = (
-            Rc::clone(&self.chat.resizing),
-            Rc::clone(&self.chat.resizing),
-            Rc::clone(&self.chat.resizing),
-        );
-        Some(
-            div()
-                .id("chat-resize")
-                .occlude()
-                .absolute()
-                .top(px(theme::TOOLBAR_HEIGHT))
-                .bottom_0()
-                .right(px(model.width - RESIZE_HANDLE / 2.0))
-                .w(px(RESIZE_HANDLE))
-                .cursor(CursorStyle::ResizeLeftRight)
-                .on_mouse_down(MouseButton::Left, move |_, _, cx| {
-                    press.set(true);
-                    cx.stop_propagation();
-                })
-                .child(
-                    canvas(
-                        |_, _, _| (),
-                        move |_, (), window, _| {
-                            // The drag is the window's until the button comes
-                            // up: the pointer leaves the strip at once.
-                            window.on_mouse_event(
-                                move |event: &MouseMoveEvent, phase, window, cx| {
-                                    if phase != DispatchPhase::Capture || !drag.get() {
-                                        return;
-                                    }
-                                    let right = window.viewport_size().width;
-                                    let width = f32::from(right - event.position.x);
-                                    app_canvas::dispatch(Event::Action(Action::Chat(
-                                        ChatAction::Resize(width),
-                                    )));
-                                    cx.stop_propagation();
-                                },
-                            );
-                            window.on_mouse_event(move |_: &MouseUpEvent, phase, _, _| {
-                                if phase == DispatchPhase::Capture {
-                                    lift.set(false);
-                                }
-                            });
-                        },
-                    )
-                    .size_full(),
-                ),
-        )
+impl Render for ChatView {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<'_, Self>) -> impl IntoElement {
+        let running = self.run_bar.read(cx).is_running();
+        let header = StyleRefinement::default()
+            .w_full()
+            .h(px(HEADER))
+            .flex_shrink_0();
+        let body = StyleRefinement::default().w_full().flex_1().min_h_0();
+        v_flex()
+            .id("chat-panel")
+            .occlude()
+            .size_full()
+            .pt(px(theme::TOOLBAR_HEIGHT))
+            .bg(theme::solid(theme::PANEL))
+            .border_l_1()
+            .border_color(theme::solid(theme::CHROME_BORDER))
+            .child(self.header.clone().cached(header))
+            .child(self.body.clone().cached(body))
+            // The bar is as tall as its log makes it and the composer as
+            // its text does, so neither can be laid out without being built.
+            .children(running.then(|| div().flex_shrink_0().child(self.run_bar.clone())))
+            .child(div().flex_shrink_0().child(self.composer.clone()))
     }
 }

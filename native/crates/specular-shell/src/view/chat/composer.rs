@@ -8,65 +8,159 @@
 //! draft and leaves what was typed; with no draft it hands the keys back
 //! to the canvas.
 
+use std::rc::Rc;
+
 use gpui_kit::component::button::{Button, ButtonVariants as _};
-use gpui_kit::component::input::{Escape, Textarea};
+use gpui_kit::component::input::{Escape, InputEvent, Textarea, TextareaState};
 use gpui_kit::component::message_scroller::MessageScrollerState;
 use gpui_kit::component::tooltip::Tooltip;
 use gpui_kit::component::{Disableable as _, Icon, IconName, Sizable as _, h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
-    AnyElement, Context, InteractiveElement as _, IntoElement, ObjectFit, ParentElement as _,
-    SharedString, StatefulInteractiveElement as _, Styled as _, StyledImage as _, Window, div, img,
-    px,
+    AnyElement, AppContext as _, Context, Entity, InteractiveElement as _, IntoElement, ObjectFit,
+    ParentElement as _, Render, SharedString, StatefulInteractiveElement as _, Styled as _,
+    StyledImage as _, Subscription, Window, div, img, px,
 };
 use specular_interact::{Action, ChatAction, Composer, Event};
 
 use super::chips::{
     auto_chip, chip, draft_chip, muted, open_comments, pill_icon, queued, remove_button,
 };
+use super::paste::Pasted;
 use crate::canvas;
+use crate::models::same;
 use crate::theme;
 use crate::ui_stats::{self, Part};
-use crate::view::{ShellView, focus_canvas};
+use crate::view::focus_canvas;
 
 /// The field is two lines tall when empty and grows to six: `min-h-[48px]`
 /// and `max-h-[160px]` at a 24 px line.
-pub(super) const MIN_ROWS: usize = 2;
-pub(super) const MAX_ROWS: usize = 6;
+const MIN_ROWS: usize = 2;
+const MAX_ROWS: usize = 6;
 const LINE: f32 = 24.0;
 
-impl ShellView {
-    /// Sends what the composer holds: the field's text and the pasted
-    /// images. The field is emptied and keeps the keys.
-    pub(super) fn send_chat(&mut self, window: &mut Window, cx: &mut Context<'_, Self>) {
-        let text = self.chat.input.read(cx).value().trim().to_owned();
-        let can_send_empty =
-            canvas::models().is_some_and(|models| models.chat.composer.can_send_empty);
-        if text.is_empty() && self.chat.images.is_empty() && !can_send_empty {
+/// The composer's field. Enter sends and Shift+Enter opens a line: the
+/// field reports a plain Enter and inserts nothing for it.
+pub(super) fn field<T: 'static>(
+    window: &mut Window,
+    cx: &mut Context<'_, T>,
+) -> Entity<TextareaState> {
+    cx.new(|cx| {
+        TextareaState::new(window, cx)
+            .auto_grow(MIN_ROWS, MAX_ROWS)
+            .submit_on_enter(true)
+    })
+}
+
+/// The composer: its part of the model, the field, and what was pasted.
+pub(in crate::view) struct ComposerView {
+    model: Option<Rc<Composer>>,
+    input: Entity<TextareaState>,
+    _events: Subscription,
+    /// Images pasted into the field, sent with the next message.
+    pub(super) images: Vec<Pasted>,
+    /// The conversation's scroll, put at its end by a send.
+    scroller: Entity<MessageScrollerState>,
+    /// The comment draft the field was last focused for.
+    draft: Option<String>,
+    /// The hint the field was last given.
+    placeholder: String,
+}
+
+impl ComposerView {
+    pub(super) fn new(
+        input: Entity<TextareaState>,
+        scroller: Entity<MessageScrollerState>,
+        window: &mut Window,
+        cx: &mut Context<'_, Self>,
+    ) -> Self {
+        let events =
+            cx.subscribe_in(
+                &input,
+                window,
+                |this, _, event: &InputEvent, window, cx| match event {
+                    InputEvent::PressEnter { shift: false, .. } => this.send_chat(window, cx),
+                    // Send is live only while there is something to send.
+                    InputEvent::Change => cx.notify(),
+                    InputEvent::PressEnter { .. } | InputEvent::Focus | InputEvent::Blur => {}
+                },
+            );
+        Self {
+            model: None,
+            input,
+            _events: events,
+            images: Vec::new(),
+            scroller,
+            draft: None,
+            placeholder: String::new(),
+        }
+    }
+
+    /// Shows `model`, and draws again if it is not the one shown. The field
+    /// is given the keys when a comment draft appears in a panel that is
+    /// `visible`, so it can be typed at once.
+    pub(super) fn set(
+        &mut self,
+        model: &Rc<Composer>,
+        visible: bool,
+        window: &mut Window,
+        cx: &mut Context<'_, Self>,
+    ) {
+        if same(self.model.as_ref(), Some(model)) {
             return;
         }
-        let images = (self.chat.images.drain(..))
+        self.model = Some(Rc::clone(model));
+        if self.placeholder != model.placeholder {
+            self.placeholder.clone_from(&model.placeholder);
+            let placeholder = SharedString::from(model.placeholder.clone());
+            self.input.update(cx, |state, cx| {
+                state.set_placeholder(placeholder, window, cx);
+            });
+        }
+        let draft = model.draft.as_ref().map(|draft| draft.label.clone());
+        if draft != self.draft {
+            self.draft = draft;
+            if self.draft.is_some() && visible {
+                self.input.update(cx, |state, cx| state.focus(window, cx));
+            }
+        }
+        cx.notify();
+    }
+
+    /// Sends what the composer holds: the field's text and the pasted
+    /// images. The field is emptied and keeps the keys.
+    fn send_chat(&mut self, window: &mut Window, cx: &mut Context<'_, Self>) {
+        let text = self.input.read(cx).value().trim().to_owned();
+        let can_send_empty = self
+            .model
+            .as_ref()
+            .is_some_and(|model| model.can_send_empty);
+        if text.is_empty() && self.images.is_empty() && !can_send_empty {
+            return;
+        }
+        let images = (self.images.drain(..))
             .map(|pasted| pasted.upload)
             .collect();
         canvas::dispatch(Event::Action(Action::Chat(ChatAction::Send {
             text,
             images,
         })));
-        self.chat.input.update(cx, |state, cx| {
+        self.input.update(cx, |state, cx| {
             state.set_value("", window, cx);
             state.focus(window, cx);
         });
         // What was just sent is at the end.
-        self.chat
-            .scroller
-            .update(cx, MessageScrollerState::scroll_to_end);
+        (self.scroller).update(cx, MessageScrollerState::scroll_to_end);
         cx.notify();
     }
 
     /// Escape in the field: drops the comment draft, or with none gives the
     /// keys back to the canvas. What was typed stays.
-    fn leave_composer(window: &mut Window, cx: &mut Context<'_, Self>) {
-        let drafting = canvas::models().is_some_and(|models| models.chat.composer.draft.is_some());
+    fn leave_composer(&self, window: &mut Window, cx: &mut Context<'_, Self>) {
+        let drafting = self
+            .model
+            .as_ref()
+            .is_some_and(|model| model.draft.is_some());
         if drafting {
             canvas::dispatch(Event::Action(Action::Chat(ChatAction::DropDraft)));
         } else {
@@ -76,10 +170,10 @@ impl ShellView {
 
     /// Thumbnails of the pasted images, each removable (`PastedImages`).
     fn pasted_images(&self, cx: &mut Context<'_, Self>) -> Option<impl IntoElement + use<>> {
-        if self.chat.images.is_empty() {
+        if self.images.is_empty() {
             return None;
         }
-        let thumbnails = (self.chat.images.iter().enumerate()).map(|(index, pasted)| {
+        let thumbnails = (self.images.iter().enumerate()).map(|(index, pasted)| {
             let group = SharedString::from(format!("chat-pasted-{index}"));
             div()
                 .group(group.clone())
@@ -106,8 +200,8 @@ impl ShellView {
                     .top(px(2.0))
                     .tooltip(|window, cx| Tooltip::new("Remove image").build(window, cx))
                     .on_click(cx.listener(move |this, _, _, cx| {
-                        if index < this.chat.images.len() {
-                            this.chat.images.remove(index);
+                        if index < this.images.len() {
+                            this.images.remove(index);
                             cx.notify();
                         }
                     })),
@@ -144,28 +238,25 @@ impl ShellView {
         }
     }
 
-    /// The composer for `model`.
-    pub(super) fn composer(
-        &mut self,
-        model: &Composer,
-        window: &mut Window,
-        cx: &mut Context<'_, Self>,
-    ) -> impl IntoElement + use<> {
+    /// Focuses the field.
+    fn focus_field(&self, window: &mut Window, cx: &mut Context<'_, Self>) {
+        self.input.update(cx, |state, cx| state.focus(window, cx));
+    }
+}
+
+impl Render for ComposerView {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<'_, Self>) -> impl IntoElement {
         ui_stats::built(Part::Composer);
-        if self.chat.placeholder != model.placeholder {
-            self.chat.placeholder.clone_from(&model.placeholder);
-            let placeholder = SharedString::from(model.placeholder.clone());
-            self.chat.input.update(cx, |state, cx| {
-                state.set_placeholder(placeholder, window, cx);
-            });
-        }
-        let typed = !self.chat.input.read(cx).value().trim().is_empty();
-        let ready = typed || !self.chat.images.is_empty() || model.can_send_empty;
+        let Some(model) = self.model.clone() else {
+            return div().into_any_element();
+        };
+        let typed = !self.input.read(cx).value().trim().is_empty();
+        let ready = typed || !self.images.is_empty() || model.can_send_empty;
 
         let view = cx.entity().downgrade();
         // The smallest size has the smallest inset around the text; the type
         // is the composer's own.
-        let field = Textarea::new(&self.chat.input)
+        let field = Textarea::new(&self.input)
             .xsmall()
             .appearance(false)
             .bordered(false)
@@ -203,7 +294,7 @@ impl ShellView {
             .child(Self::send_button(ready, cx));
 
         let focus_field = cx.listener(|this, _: &gpui_kit::ClickEvent, window, cx| {
-            this.focus_composer(window, cx);
+            this.focus_field(window, cx);
         });
         let box_ = v_flex()
             .id("chat-composer")
@@ -215,8 +306,8 @@ impl ShellView {
             .py(px(6.0))
             // The field has had its turn by the time Escape reaches here: an
             // input method's composition is closed first.
-            .on_action(cx.listener(|_, _: &Escape, window, cx| {
-                Self::leave_composer(window, cx);
+            .on_action(cx.listener(|this, _: &Escape, window, cx| {
+                this.leave_composer(window, cx);
             }))
             .children(model.draft.as_ref().map(draft_chip))
             .children(model.open_comments.as_ref().map(open_comments))
@@ -240,5 +331,6 @@ impl ShellView {
             .border_t_1()
             .border_color(theme::solid(theme::ZINC_200))
             .child(box_)
+            .into_any_element()
     }
 }

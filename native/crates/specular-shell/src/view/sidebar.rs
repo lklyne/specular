@@ -10,24 +10,28 @@
 //! The sizes are `left-sidebar/App.tsx`'s, as the built-in renderer has
 //! them in `panel/builtin/sidebar/metrics.rs`.
 
+use std::rc::Rc;
+
 use gpui_kit::component::menu::ContextMenuExt as _;
 use gpui_kit::component::tooltip::Tooltip;
 use gpui_kit::component::{h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
     AnyElement, ClickEvent, Context, InteractiveElement as _, IntoElement, Modifiers,
-    ParentElement as _, SharedString, StatefulInteractiveElement as _, Styled as _, Window, div,
-    px,
+    ParentElement as _, Render, SharedString, StatefulInteractiveElement as _, Styled as _, Window,
+    div, px,
 };
+use specular_doc::ItemId;
 use specular_interact::{
     Action, CanvasRow, ControlId, Icon, MenuTarget, SectionHead, SidebarModel, SidebarRow,
     context_menu,
 };
 
 use super::glyphs::{glyph, ink};
-use super::named::mark;
-use super::{ShellView, field, menu, pick, run};
+use super::named::{self, mark};
+use super::{field, menu, pick, run};
 use crate::canvas;
+use crate::models::same;
 use crate::theme;
 use crate::ui_stats::{self, Part};
 
@@ -141,15 +145,38 @@ fn fold(row: &SidebarRow, toggle: &Action, open: bool) -> impl IntoElement {
         })
 }
 
-impl ShellView {
+/// The left sidebar, a view of its own: it is built again when its model
+/// changed or the pointer moved onto another of its rows, and at no other
+/// time.
+pub(super) struct SidebarView {
+    model: Option<Rc<SidebarModel>>,
+    /// The item last picked.
+    picked_last: Option<ItemId>,
+}
+
+impl SidebarView {
+    pub(super) fn new() -> Self {
+        Self {
+            model: None,
+            picked_last: None,
+        }
+    }
+
+    /// Shows `model`, and draws again if it is not the one shown.
+    pub(super) fn set(&mut self, model: &Rc<SidebarModel>, cx: &mut Context<'_, Self>) {
+        if !same(self.model.as_ref(), Some(model)) {
+            self.model = Some(Rc::clone(model));
+            cx.notify();
+        }
+    }
+
     /// What a click on a row sends with `keys` held: the row's own action,
     /// its selection widened or narrowed as the keys ask.
     fn picked(&mut self, action: &Action, keys: Modifiers) -> Action {
         let Action::Reveal { select, focus } = action else {
             return action.clone();
         };
-        let order =
-            canvas::models().map_or_else(Vec::new, |models| pick::selectable(&models.sidebar));
+        let order = (self.model.as_deref()).map_or_else(Vec::new, pick::selectable);
         let current = canvas::with(|canvas| {
             let selection = &canvas.runtime.app().session().selection;
             selection.items().to_vec()
@@ -243,15 +270,14 @@ impl ShellView {
             .into_any_element()
     }
 
-    /// The sidebar for `model`, over the canvas's left edge under the
-    /// toolbar. The app counts that strip as covered whenever the model is
-    /// visible, which is exactly when this is drawn.
-    pub(super) fn sidebar(
+    /// The sidebar for `model`. The root view puts it over the canvas's
+    /// left edge under the toolbar whenever the model is visible, which is
+    /// when the app counts that strip as covered.
+    fn sidebar(
         model: &SidebarModel,
         window: &mut Window,
         cx: &mut Context<'_, Self>,
-    ) -> impl IntoElement {
-        ui_stats::built(Part::Sidebar);
+    ) -> impl IntoElement + use<> {
         let add = model.add_canvas.clone();
         let folded = model.canvases_head.folded;
         let mut list = v_flex()
@@ -297,11 +323,7 @@ impl ShellView {
         v_flex()
             .id("sidebar")
             .occlude()
-            .absolute()
-            .left_0()
-            .top(px(theme::TOOLBAR_HEIGHT))
-            .bottom_0()
-            .w(px(theme::SIDEBAR_WIDTH))
+            .size_full()
             .bg(theme::solid(theme::PANEL))
             .border_r_1()
             .border_color(theme::solid(theme::CHROME_BORDER))
@@ -332,5 +354,16 @@ impl ShellView {
             )
             .when(folded, |this| this.child(rule()))
             .child(list.child(rule()).child(sections))
+    }
+}
+
+impl Render for SidebarView {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<'_, Self>) -> impl IntoElement {
+        ui_stats::built(Part::Sidebar);
+        named::begin(Part::Sidebar);
+        match self.model.clone() {
+            Some(model) => Self::sidebar(&model, window, cx).into_any_element(),
+            None => div().into_any_element(),
+        }
     }
 }

@@ -303,8 +303,10 @@ pub(super) async fn step(
         Do::Choose(name) => {
             let action = canvas::models()
                 .and_then(|models| models.onboarding)
-                .and_then(|view| view.choices.into_iter().find(|choice| choice.name == name))
-                .map(|choice| choice.action)
+                .and_then(|view| {
+                    let chosen = view.choices.iter().find(|choice| choice.name == name);
+                    chosen.map(|choice| choice.action.clone())
+                })
                 .ok_or_else(|| format!("the first-run view has no choice `{name}`"))?;
             canvas::dispatch(Event::Action(action));
         }

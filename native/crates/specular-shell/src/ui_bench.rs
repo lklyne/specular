@@ -100,9 +100,10 @@ fn millis_from_env(name: &str, default: u64) -> Duration {
 
 /// Whether the open thread's run is in flight.
 fn running() -> bool {
-    canvas::models()
-        .and_then(|models| models.chat.transcript)
-        .is_some_and(|transcript| transcript.run.is_some())
+    canvas::models().is_some_and(|models| {
+        let transcript = models.chat.transcript.as_ref();
+        transcript.is_some_and(|transcript| transcript.run.is_some())
+    })
 }
 
 /// Puts the window in the state `profile` measures.

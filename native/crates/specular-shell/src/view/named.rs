@@ -7,24 +7,48 @@
 //! the models' own, so a dropdown's trigger is the dropdown's name and a
 //! stepper's two buttons are its `.dec` and `.inc`.
 //!
-//! The list is of the frame GPUI last laid out. A control scrolled out of
-//! its list is not in it: a click at its centre would land on something
-//! else.
+//! The list is of what GPUI last laid out. Each view that draws controls
+//! keeps its own, replaced when the view is built again: a cached view is
+//! not laid out on a frame that reuses it, and its controls are where they
+//! were. A control scrolled out of its list is not in it: a click at its
+//! centre would land on something else.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 
 use glam::Vec2;
 use gpui_kit::{Bounds, IntoElement, Pixels, Styled as _, canvas};
 use specular_interact::ControlId;
 
+use crate::ui_stats::Part;
+
+/// The views that draw named controls, in paint order.
+const PARTS: [Part; 3] = [Part::Sidebar, Part::Toolbar, Part::Popup];
+
 thread_local! {
-    /// The controls of the frame being laid out, in paint order.
-    static SHOWN: RefCell<Vec<(String, Vec2)>> = const { RefCell::new(Vec::new()) };
+    /// Each part's controls as it last laid them out, in paint order.
+    static SHOWN: RefCell<[Vec<(String, Vec2)>; PARTS.len()]> =
+        const { RefCell::new([Vec::new(), Vec::new(), Vec::new()]) };
+    /// The part whose elements are being made.
+    static BUILDING: Cell<Option<usize>> = const { Cell::new(None) };
 }
 
-/// Forgets the last frame's controls. The root view calls it as it renders.
-pub(super) fn begin_frame() {
-    SHOWN.with(|shown| shown.borrow_mut().clear());
+fn slot(part: Part) -> Option<usize> {
+    PARTS.iter().position(|known| *known == part)
+}
+
+/// `part` is being built again: its controls are forgotten, and the marks
+/// made from here on are its own. Each view that draws named controls calls
+/// this as it renders.
+pub(super) fn begin(part: Part) {
+    forget(part);
+    BUILDING.set(slot(part));
+}
+
+/// `part` is not drawn, so none of its controls is on screen.
+pub(super) fn forget(part: Part) {
+    if let Some(slot) = slot(part) {
+        SHOWN.with(|shown| shown.borrow_mut()[slot].clear());
+    }
 }
 
 fn centre(bounds: Bounds<Pixels>) -> Vec2 {
@@ -36,12 +60,16 @@ fn centre(bounds: Bounds<Pixels>) -> Vec2 {
 /// what it is a child of.
 pub(super) fn mark(id: &ControlId) -> impl IntoElement + use<> {
     let name = id.as_str().to_owned();
+    let part = BUILDING.get();
     canvas(
         move |bounds, window, _| {
             // What an enclosing scroll list cuts off cannot be clicked.
-            if window.content_mask().bounds.contains(&bounds.center()) {
-                SHOWN.with(|shown| shown.borrow_mut().push((name, centre(bounds))));
-            }
+            let Some(part) =
+                part.filter(|_| window.content_mask().bounds.contains(&bounds.center()))
+            else {
+                return;
+            };
+            SHOWN.with(|shown| shown.borrow_mut()[part].push((name, centre(bounds))));
         },
         |_, (), _, _| {},
     )
@@ -54,5 +82,5 @@ pub(super) fn mark(id: &ControlId) -> impl IntoElement + use<> {
 /// The names of the Kit's controls on screen and the middle of each, in
 /// points from the window's content corner, in paint order.
 pub(crate) fn shown() -> Vec<(String, Vec2)> {
-    SHOWN.with(|shown| shown.borrow().clone())
+    SHOWN.with(|shown| shown.borrow().iter().flatten().cloned().collect())
 }

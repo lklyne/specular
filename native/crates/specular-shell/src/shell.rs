@@ -97,7 +97,13 @@ fn on_wake(cx: &mut App) {
         menus::sync(&models.menus, cx);
     }
     if let Some(handle) = cx.try_global::<ShellHandle>().cloned() {
-        handle.view.update(cx, |_, cx| cx.notify());
+        let view = handle.view;
+        let synced = handle.window.update(cx, |_, window, cx| {
+            view.update(cx, |view, cx| view.sync(window, cx));
+        });
+        if let Err(error) = synced {
+            tracing::warn!("the window is gone: {error}");
+        }
     }
 }
 

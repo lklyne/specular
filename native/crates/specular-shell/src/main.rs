@@ -21,6 +21,8 @@ mod keys;
 #[cfg(target_os = "macos")]
 mod menus;
 #[cfg(target_os = "macos")]
+mod models;
+#[cfg(target_os = "macos")]
 mod native;
 #[cfg(target_os = "macos")]
 mod pacing;

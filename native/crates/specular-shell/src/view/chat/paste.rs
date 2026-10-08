@@ -11,7 +11,7 @@ use std::sync::Arc;
 use gpui_kit::{ClipboardEntry, ClipboardItem, Context, Image, ImageFormat};
 use specular_interact::{ImageUpload, MediaType};
 
-use crate::view::ShellView;
+use super::composer::ComposerView;
 
 /// One pasted image, waiting to be sent.
 pub(super) struct Pasted {
@@ -107,22 +107,26 @@ fn images_of(item: &ClipboardItem) -> Vec<Pasted> {
     images
 }
 
-impl ShellView {
+impl ComposerView {
     /// Keeps the images of a paste. `true` means the paste was all images
     /// and is spent; `false` leaves it to the field as text.
-    pub(crate) fn take_pasted(&mut self, item: &ClipboardItem, cx: &mut Context<'_, Self>) -> bool {
+    pub(super) fn take_pasted(&mut self, item: &ClipboardItem, cx: &mut Context<'_, Self>) -> bool {
         let images = images_of(item);
         if images.is_empty() {
             return false;
         }
-        self.chat.images.extend(images);
+        self.images.extend(images);
         cx.notify();
         true
     }
 
     /// Pastes the image file at `path` as if it were on the clipboard, for
     /// the scripted-input driver: the system pasteboard is left alone.
-    pub(crate) fn paste_image_file(&mut self, path: &Path, cx: &mut Context<'_, Self>) -> bool {
+    pub(in crate::view) fn paste_image_file(
+        &mut self,
+        path: &Path,
+        cx: &mut Context<'_, Self>,
+    ) -> bool {
         let Some(media_type) = media_type_of_file(path) else {
             return false;
         };

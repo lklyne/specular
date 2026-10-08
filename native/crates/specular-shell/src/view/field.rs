@@ -75,11 +75,11 @@ fn end(id: &ControlId, how: End, cx: &mut App) {
     {
         canvas::dispatch(Event::Action(action));
     }
-    shell::with_view(cx, move |_, window, cx| {
+    shell::with_view(cx, move |view, window, cx| {
         if how != End::Blur {
             focus_canvas(window, cx);
         }
-        cx.notify();
+        view.fields_changed(cx);
     });
 }
 
@@ -176,4 +176,5 @@ pub(super) fn begin_inline(model: &Field, window: &mut Window, cx: &mut App) {
         state.focus(window, cx);
         state.select_all(window, cx);
     });
+    shell::with_view(cx, |view, _, cx| view.fields_changed(cx));
 }

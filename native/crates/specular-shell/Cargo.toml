@@ -43,5 +43,9 @@ objc2 = { workspace = true }
 objc2-foundation = { workspace = true }
 raw-window-handle = { workspace = true }
 
+[dev-dependencies]
+specular-agent = { workspace = true }
+specular-testkit = { workspace = true }
+
 [lints]
 workspace = true

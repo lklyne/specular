@@ -13,11 +13,9 @@ use std::time::{Duration, Instant};
 
 use futures::channel::mpsc;
 use specular_app::{Bench, Runtime, ShellWindow as _};
-use specular_interact::{
-    ChatModel, Event, Menu, OnboardingModel, PopupAnchor, PopupModel, SidebarModel, ToolbarModel,
-    chat, menus, onboarding, popup_for, sidebar, toolbar,
-};
+use specular_interact::Event;
 
+use crate::models::Models;
 use crate::surface::{CanvasSurface, WindowAsks};
 
 /// The refresh interval taken for a display that does not say its own.
@@ -28,7 +26,7 @@ const TICK_SLACK: Duration = Duration::from_millis(2);
 
 /// The least time between two readings of the models while the app keeps
 /// changing. Building them walks the whole document, every frame of a pan
-/// if nothing held it back, and GPUI lays its whole tree out again when one
+/// if nothing held it back, and GPUI builds the view of each part that
 /// changed, as the toolbar's zoom readout does every frame of a zoom. Both
 /// happen on the thread the canvas draws from.
 const MODELS_INTERVAL: Duration = Duration::from_millis(100);
@@ -83,39 +81,6 @@ impl LinkRest {
 
     fn is_over(&self, now: Instant) -> bool {
         now.duration_since(self.owed_at) >= REST_BEFORE_PAUSE
-    }
-}
-
-/// What GPUI draws from, as `update` last left it.
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) struct Models {
-    /// The tool buttons and the zoom readout.
-    pub(crate) toolbar: ToolbarModel,
-    /// The popup hung from the toolbar, when the tool in hand has one. A
-    /// popup beside a canvas item is drawn in the canvas's own pass.
-    pub(crate) popup: Option<PopupModel>,
-    /// The left sidebar.
-    pub(crate) sidebar: SidebarModel,
-    /// The right panel: the canvas's agent threads and the composer.
-    pub(crate) chat: ChatModel,
-    /// The menu bar's menus that come from the app.
-    pub(crate) menus: Vec<Menu>,
-    /// The first-run view, while no space is open.
-    pub(crate) onboarding: Option<OnboardingModel>,
-}
-
-impl Models {
-    fn of(runtime: &Runtime<CanvasSurface>) -> Self {
-        let app = runtime.app();
-        Self {
-            toolbar: toolbar(app),
-            popup: popup_for(app)
-                .filter(|popup| matches!(popup.anchor, PopupAnchor::Toolbar { .. })),
-            sidebar: sidebar(app),
-            chat: chat(app),
-            menus: menus(app),
-            onboarding: onboarding(app),
-        }
     }
 }
 
@@ -186,7 +151,7 @@ pub(crate) fn install(
     refresh: Option<Duration>,
     bench: Option<Bench>,
 ) {
-    let models = Models::of(&runtime);
+    let models = Models::of(runtime.app());
     let canvas = Canvas {
         runtime,
         asks,
@@ -233,6 +198,12 @@ pub(crate) fn models() -> Option<Models> {
         }
         canvas.models.clone()
     })
+}
+
+/// The models as they were last read, which is what GPUI was told of.
+/// Nothing is built: the gate decides when the app is read again.
+pub(crate) fn models_as_read() -> Option<Models> {
+    with(|canvas| canvas.models.clone())
 }
 
 /// The display link fired: one turn, and a frame if one is owed.
@@ -341,12 +312,10 @@ impl Canvas {
             return;
         }
         let started = Instant::now();
-        let models = Models::of(&self.runtime);
-        crate::ui_stats::models_built(started.elapsed());
-        if models != self.models {
-            self.models = models;
+        if self.models.refresh(self.runtime.app()) {
             self.unseen = true;
         }
+        crate::ui_stats::models_built(started.elapsed());
     }
 
     fn wake_now(&mut self) {

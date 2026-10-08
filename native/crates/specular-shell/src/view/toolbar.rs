@@ -3,13 +3,15 @@
 //! sit in its left padding, as in the Electron app.
 
 use std::cell::Cell;
+use std::rc::Rc;
 
 use gpui_kit::component::button::{Button, ButtonVariants as _};
 use gpui_kit::component::{IconName, Selectable as _, Sizable as _, h_flex};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
-    App, ClickEvent, Div, InteractiveElement as _, IntoElement, MouseButton, ParentElement as _,
-    SharedString, Stateful, StatefulInteractiveElement as _, Styled as _, div, px,
+    ClickEvent, Context, Div, InteractiveElement as _, IntoElement, MouseButton,
+    ParentElement as _, Render, SharedString, Stateful, StatefulInteractiveElement as _,
+    Styled as _, Window, div, px,
 };
 use specular_interact::{
     PaintRole, Palette, SidebarButton, ToolButton, ToolbarModel, ToolbarSection,
@@ -18,9 +20,10 @@ use specular_interact::{
 use super::controls::hint;
 use super::dropdown::dropdown;
 use super::glyphs::{self, glyph, ink};
-use super::named::mark;
+use super::named::{self, mark};
 use super::run;
 use crate::menus::Preferences;
+use crate::models::same;
 use crate::theme;
 use crate::ui_stats::{self, Part};
 
@@ -148,9 +151,53 @@ fn bare_strip(id: &'static str) -> Stateful<Div> {
         })
 }
 
+/// The toolbar strip, a view of its own: it is built again when its model
+/// or the window's title changed.
+pub(super) struct ToolbarView {
+    model: Option<Rc<ToolbarModel>>,
+    /// The window's title, which the strip shows: the title bar is hidden
+    /// under it.
+    title: String,
+}
+
+impl ToolbarView {
+    pub(super) fn new() -> Self {
+        Self {
+            model: None,
+            title: String::new(),
+        }
+    }
+
+    /// Shows `model` and `title`, and draws again if either is not what is
+    /// shown.
+    pub(super) fn set(
+        &mut self,
+        model: &Rc<ToolbarModel>,
+        title: &str,
+        cx: &mut Context<'_, Self>,
+    ) {
+        if same(self.model.as_ref(), Some(model)) && self.title == title {
+            return;
+        }
+        self.model = Some(Rc::clone(model));
+        title.clone_into(&mut self.title);
+        cx.notify();
+    }
+}
+
+impl Render for ToolbarView {
+    fn render(&mut self, _: &mut Window, _: &mut Context<'_, Self>) -> impl IntoElement {
+        ui_stats::built(Part::Toolbar);
+        named::begin(Part::Toolbar);
+        match self.model.as_deref() {
+            Some(model) => toolbar(model, &self.title).into_any_element(),
+            None => div().into_any_element(),
+        }
+    }
+}
+
 /// The toolbar strip for `model`, with `title` beside the traffic lights.
-pub(super) fn toolbar(model: &ToolbarModel, title: &str, _cx: &App) -> impl IntoElement {
-    ui_stats::built(Part::Toolbar);
+fn toolbar(model: &ToolbarModel, title: &str) -> impl IntoElement + use<> {
     let mut cluster = h_flex().gap_1().items_center();
     for (index, section) in model.sections.iter().enumerate() {
         if index > 0 {
@@ -164,11 +211,7 @@ pub(super) fn toolbar(model: &ToolbarModel, title: &str, _cx: &App) -> impl Into
     h_flex()
         .id("toolbar")
         .occlude()
-        .absolute()
-        .top_0()
-        .left_0()
-        .right_0()
-        .h(px(theme::TOOLBAR_HEIGHT))
+        .size_full()
         .pl(px(TRAFFIC_LIGHTS))
         .pr_4()
         .gap_1()
