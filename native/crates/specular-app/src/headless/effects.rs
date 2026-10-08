@@ -7,7 +7,9 @@ use std::time::{Duration, Instant};
 use anyhow::Context as _;
 use specular_core::{PageEvent, PageId, PageSource as _, PageSpec};
 use specular_doc::EntityId;
-use specular_interact::{ClipboardContent, Effect, Event, ImageNotice, NoteNotice, PageNotice};
+use specular_interact::{
+    ClipboardContent, Effect, Event, ImageNotice, NoteNotice, PageGrab, PageNotice,
+};
 use specular_scene::ImageId;
 
 use super::Headless;
@@ -79,6 +81,31 @@ impl Headless {
             Effect::CreateNote { rect } => {
                 let file = self.stand_ins.create_note();
                 self.drive(|app| app.send(Event::NoteCreated { file, rect }))?;
+            }
+            Effect::QueryElement { page, point } => {
+                let host = self.hosts.get(&page);
+                let element = host.and_then(|&host| self.source.element_at(host, point));
+                self.drive(|app| {
+                    app.send(Event::ElementAt {
+                        page,
+                        point,
+                        element,
+                    })
+                })?;
+            }
+            Effect::QueryRegionGrab { region, pages } => {
+                // FOLLOW-UP(C2): no page is asked, so no region grabs and
+                // every one stays on the canvas. The real count is a CEF
+                // devtools query for the elements inside each page's rect
+                // (Electron's `queryElementsInRect`); the synthetic source
+                // will then need a stand-in for it.
+                let grabs = (pages.into_iter())
+                    .map(|covered| PageGrab {
+                        page: covered.page,
+                        elements: 0,
+                    })
+                    .collect();
+                self.drive(|app| app.send(Event::RegionGrab { region, grabs }))?;
             }
             // A headless run has no window to focus, no cursor and no input
             // method, it leaves the disk alone, and it hosts no API.

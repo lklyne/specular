@@ -6,7 +6,7 @@ use std::time::Instant;
 use anyhow::Context as _;
 use specular_core::{InputEvent, PageSpec, PointerEvent, PointerEventKind};
 use specular_doc::EntityId;
-use specular_interact::{Effect, Event, update};
+use specular_interact::{Effect, Event, PageGrab, update};
 use winit::dpi::{LogicalPosition, LogicalSize};
 
 use super::{GpuWindow, PageHost, Shell};
@@ -94,6 +94,29 @@ impl Shell {
             Effect::CopyAsset { from, file } => self.copy_asset(&from, &file),
             Effect::SaveToolDefaults(defaults) => self.save_tool_defaults(&defaults),
             Effect::ApiReply { outcome, .. } => self.api_outcome = Some(outcome),
+            Effect::QueryElement { page, point } => {
+                let host = self.hosts.get(&page);
+                let element = host.and_then(|host| self.source.element_at(host.page, point));
+                self.dispatch(Event::ElementAt {
+                    page,
+                    point,
+                    element,
+                });
+            }
+            Effect::QueryRegionGrab { region, pages } => {
+                // FOLLOW-UP(C2): no page is asked, so no region grabs and
+                // every one stays on the canvas. The real count is a CEF
+                // devtools query for the elements inside each page's rect
+                // (Electron's `queryElementsInRect`), answered as a page
+                // event.
+                let grabs = (pages.into_iter())
+                    .map(|covered| PageGrab {
+                        page: covered.page,
+                        elements: 0,
+                    })
+                    .collect();
+                self.dispatch(Event::RegionGrab { region, grabs });
+            }
         }
         Ok(())
     }

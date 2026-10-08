@@ -95,6 +95,27 @@ if h in RAN:
     print(f"{'ok  ' if ok else 'FAIL'} {h}: one sticky and one shape remain")
     if not ok:
         failures.append(h)
+i = "i-comments"
+if i in RAN:
+    expect(i, SINK, saved(i, "00-start.canvas"))
+    expect(i, SINK, saved(i, "27-undone.canvas"))
+    made = saved(i, "18-commented.canvas")["annotations"][len(SINK["annotations"]):]
+    fields = {"id", "anchor", "author", "text", "status", "replies", "createdAt", "pageAnchor"}
+    kinds = [a["anchor"]["type"] for a in made]
+    elements = [a for a in made if a["anchor"]["type"] == "element"]
+    ok = (
+        kinds == ["canvas", "canvas", "element", "region", "region", "canvas"]
+        and all(set(a) <= fields for a in made)
+        and all(a["author"] == "user" and a["status"] == "pending" and a["replies"] == [] for a in made)
+        and all(set(a["anchor"]) == {"type", "canvasRect"} for a in made if a["anchor"]["type"] == "region")
+        and len(elements) == 1
+        and set(elements[0]["anchor"]) >= {"type", "pageId", "selector", "boundingBox"}
+        and elements[0]["pageAnchor"]["pageId"] == elements[0]["anchor"]["pageId"]
+        and made[-1]["text"] == "first line\nsecond line"
+    )
+    print(f"{'ok  ' if ok else 'FAIL'} {i}: six comments in Electron's shape")
+    if not ok:
+        failures.append(i)
 f1 = "f1-reload-own-save"
 expect(f"{a}+{f1}", saved(a, "08-arranged.canvas"), saved(f1, "01-reloaded.canvas"))
 f2 = "f2-electron-file-one-change"

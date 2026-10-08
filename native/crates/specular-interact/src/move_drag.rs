@@ -95,7 +95,7 @@ impl App {
                 crate::Gesture::Move(_)
                 | crate::Gesture::Resize(_)
                 | crate::Gesture::Marquee { .. }
-                | crate::Gesture::CommentRegion { .. }
+                | crate::Gesture::Comment(_)
                 | crate::Gesture::Place(_)
                 | crate::Gesture::Draw(_)
                 | crate::Gesture::TextSelect(_)
@@ -113,7 +113,7 @@ impl App {
             Some(
                 crate::Gesture::Resize(_)
                 | crate::Gesture::Marquee { .. }
-                | crate::Gesture::CommentRegion { .. }
+                | crate::Gesture::Comment(_)
                 | crate::Gesture::Place(_)
                 | crate::Gesture::Draw(_)
                 | crate::Gesture::TextSelect(_)

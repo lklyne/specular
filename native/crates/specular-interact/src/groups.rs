@@ -120,7 +120,7 @@ pub fn group_command(
 }
 
 /// Every item inside `group`, nested groups' too.
-fn descendants(document: &Document, group: &EntityId) -> Vec<ItemId> {
+pub(crate) fn descendants(document: &Document, group: &EntityId) -> Vec<ItemId> {
     let mut found: Vec<ItemId> = Vec::new();
     // A stack, so a parent cycle in a hand-edited file ends at the first
     // repeat.

@@ -72,25 +72,29 @@ pub(crate) fn is_editing(app: &App) -> bool {
     (app.session.editing.as_ref()).is_some_and(|edit| edit.target == Target::Title)
 }
 
-/// Whether the edit in progress is one line, which Enter ends.
-fn is_single_line(app: &App) -> bool {
-    (app.session.editing.as_ref())
-        .is_some_and(|edit| matches!(edit.target, Target::Title | Target::EdgeLabel))
+/// Whether `input`'s Enter ends the edit in progress instead of breaking
+/// the line: always for one line, and unless Shift is held for a comment.
+fn enter_ends(app: &App, input: &KeyInput) -> bool {
+    (app.session.editing.as_ref()).is_some_and(|edit| match edit.target {
+        Target::Title | Target::EdgeLabel => true,
+        Target::Comment => !input.modifiers.shift,
+        Target::Text | Target::Label | Target::Note => false,
+    })
 }
 
 /// A title is one line: breaks in pasted text become spaces.
 pub(super) fn single_line(target: Target, text: String) -> String {
     match target {
         Target::Title | Target::EdgeLabel => text.replace('\n', " "),
-        Target::Text | Target::Label | Target::Note => text,
+        Target::Text | Target::Label | Target::Note | Target::Comment => text,
     }
 }
 
-/// The text editor's keys, with Enter ending a one-line edit instead of
-/// breaking the line. Returns whether the editor took the key.
+/// The text editor's keys, with Enter ending a one-line edit or a comment
+/// instead of breaking the line. Returns whether the editor took the key.
 pub(crate) fn on_key(app: &mut App, input: &KeyInput, effects: &mut Vec<Effect>) -> bool {
     let composing = (app.session.editing.as_ref()).is_some_and(|edit| edit.composition.is_some());
-    if is_single_line(app) && input.key == Key::Enter && !composing {
+    if input.key == Key::Enter && !composing && enter_ends(app, input) {
         if input.pressed {
             super::end(app, effects);
         }

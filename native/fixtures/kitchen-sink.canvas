@@ -5118,6 +5118,106 @@
         "pageId": "page-mobile",
         "pageUrl": "https://example.org/docs"
       }
+    },
+    {
+      "id": "note-element-second",
+      "anchor": {
+        "type": "element",
+        "pageId": "page-desktop",
+        "selector": "h1",
+        "elementPath": "body > div > h1",
+        "boundingBox": {
+          "x": 60,
+          "y": 140,
+          "width": 300,
+          "height": 48
+        }
+      },
+      "author": "agent",
+      "text": "A second comment on that element",
+      "status": "pending",
+      "replies": [],
+      "createdAt": "2026-01-02T00:00:00.000Z",
+      "elementName": "h1",
+      "pageAnchor": {
+        "pageId": "page-desktop",
+        "pageUrl": "https://example.com/",
+        "element": {
+          "selector": "h1",
+          "docX": 60,
+          "docY": 140
+        }
+      }
+    },
+    {
+      "id": "note-region-stale",
+      "anchor": {
+        "type": "region",
+        "docRect": {
+          "x": 100,
+          "y": 380,
+          "width": 200,
+          "height": 80
+        }
+      },
+      "author": "user",
+      "text": "Made on another page of this frame, so not drawn",
+      "status": "pending",
+      "replies": [],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "pageAnchor": {
+        "pageId": "page-desktop",
+        "pageUrl": "https://other.test/"
+      }
+    },
+    {
+      "id": "note-region-selection",
+      "anchor": {
+        "type": "region",
+        "canvasRect": {
+          "x": 2460,
+          "y": 1858.22,
+          "width": 322,
+          "height": 261.78
+        }
+      },
+      "author": "user",
+      "text": "Annotated selection",
+      "status": "pending",
+      "replies": [],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "metadata": {
+        "selectionEntityIds": [
+          "page-shape",
+          "page-drawing"
+        ]
+      }
+    },
+    {
+      "id": "note-canvas-reply",
+      "anchor": {
+        "type": "canvas",
+        "canvasX": 2320,
+        "canvasY": 2230
+      },
+      "author": "user",
+      "text": "A point with a reply",
+      "status": "pending",
+      "replies": [
+        {
+          "author": "agent",
+          "text": "Seen",
+          "timestamp": "2026-01-01T00:00:00.000Z"
+        }
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z"
     }
-  ]
+  ],
+  "appState": {
+    "zoom": 0.19464286,
+    "pan": {
+      "x": 444.29,
+      "y": 79.57
+    }
+  }
 }

@@ -1,12 +1,12 @@
 //! [`hit_test`]: what is under a screen point.
 
 use glam::Vec2;
-use specular_doc::{Drawing, EdgeId, EdgeSide, Entity, EntityId, ItemId, Kind};
+use specular_doc::{AnnotationId, Drawing, EdgeId, EdgeSide, Entity, EntityId, ItemId, Kind};
 
 use crate::app::page_of;
 use crate::edge_path::distance_to_segment;
 use crate::geometry::ScreenRect;
-use crate::{App, Handle, HandleOwner, PagePlacement, anchors, geometry, handles};
+use crate::{App, Handle, HandleOwner, PagePlacement, anchors, comment, geometry, handles};
 
 /// A drawing's box is only as thick as its ink (zero for a flat line), so it
 /// is widened to at least this many logical pixels each way. A stroke is
@@ -38,6 +38,11 @@ pub fn title_scale(zoom: f32) -> f32 {
 /// list every place that must handle it.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Hit {
+    /// A comment's mark: a count pill, or the edge of a region's frame.
+    Comment {
+        /// The comment the mark stands for.
+        annotation: AnnotationId,
+    },
     /// A group's title, above its top-left corner.
     GroupLabel {
         /// The group.
@@ -84,12 +89,16 @@ pub enum Hit {
     Empty,
 }
 
-/// What is under `screen`. Chrome comes first (group titles, then the
-/// selection's resize handles, then edge anchors), then the bodies as
-/// [`body_at`] orders them.
+/// What is under `screen`. Chrome comes first (comment marks, group titles,
+/// then the selection's resize handles, then edge anchors), then the bodies
+/// as [`body_at`] orders them.
 pub fn hit_test(app: &App, screen: Vec2) -> Hit {
     let camera = &app.session.camera;
     let document = &app.document;
+
+    if let Some(annotation) = comment::mark_at(app, screen) {
+        return Hit::Comment { annotation };
+    }
 
     let label = document.entities().rev().find(|entity| {
         group_label_rect(entity, ScreenRect::of(camera, entity.rect), camera.zoom)
@@ -131,6 +140,7 @@ pub(crate) const fn entity_of(hit: &Hit) -> Option<&EntityId> {
             owner: HandleOwner::Selection,
             ..
         }
+        | Hit::Comment { .. }
         | Hit::Edge { .. }
         | Hit::Empty => None,
     }
@@ -157,7 +167,8 @@ pub(crate) fn entity_under_edges(app: &App, screen: Vec2) -> Option<EntityId> {
                 .is_some_and(crate::scope::is_group);
             (!grouped).then_some(entity)
         }
-        Hit::GroupLabel { .. }
+        Hit::Comment { .. }
+        | Hit::GroupLabel { .. }
         | Hit::Handle { .. }
         | Hit::Anchor { .. }
         | Hit::GroupBorder { .. }

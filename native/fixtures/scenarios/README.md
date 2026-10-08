@@ -30,12 +30,15 @@ have been looked at.
 | `f3-fixture-one-change` | The integration suite's `rich-workspace.canvas` with one shape nudged. |
 | `g-zoom-and-pan` | Both zoom limits, Command-wheel zoom, and a pan or pinch in the middle of a move, a marquee, a resize and a stroke. |
 | `h-tools-and-escape` | Tool keys in a row, Escape at each stage of each gesture, a tool change mid-drag and mid-edit. |
+| `i-comments` | Comments on the kitchen sink: a point, one on a sticky, one on a page's element, a region on empty canvas and one over a page, an empty draft escaped, a two-line draft, focusing a pill, delete and undo, annotating a selection, resolving, undoing all of it. |
 
 ## What `check.py` holds
 
 - In a, b, d, e and g, undoing every step gives back the canvas the session
   opened. In a, redoing gives back what it had.
 - In h, an escaped gesture leaves nothing.
+- In i, undoing every step gives back the kitchen sink, and the six
+  comments it saved have Electron's field shape.
 - In f1, a canvas saved, reopened and saved again is the same.
 - In f2 and f3, one change to a canvas from the Electron app changes one
   field in the file. Every text keeps the size it was read with, though

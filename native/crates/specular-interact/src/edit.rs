@@ -1,5 +1,5 @@
 //! In-place text editing: a text or sticky entity's text, a shape's label,
-//! or the markdown source of a Document.
+//! the markdown source of a Document, a title, or a comment draft.
 //!
 //! [`Session::editing`](crate::Session::editing) holds the [`TextEdit`]: the
 //! working text, the caret and the selection. The document keeps the old
@@ -46,7 +46,7 @@ use specular_doc::{Command, Entity, EntityId, ItemId, Kind, Rect, Text};
 
 pub(crate) use blink::{caret_state, restart_blink};
 pub use buffer::TextEdit;
-use buffer::{Origin, Target};
+pub(crate) use buffer::{Origin, Target};
 pub use edge_label::LABEL_SIZE as EDGE_LABEL_SIZE;
 pub(crate) use edge_label::begin as begin_edge_label;
 pub(crate) use edge_label::selected_key as selected_edge_key;
@@ -65,7 +65,7 @@ pub use title::{TITLE_GAP, TITLE_LINE, TITLE_SIZE};
 pub(crate) use title::{is_editing as is_editing_title, on_key};
 
 use crate::saved::LoadedFits;
-use crate::{App, Effect, live, update};
+use crate::{App, Effect, comment, live, update};
 
 /// The text of `entity` that can be edited in place, and what it is. A
 /// Document can be edited once its file has been read.
@@ -103,10 +103,13 @@ fn geometry(app: &App, edit: &TextEdit) -> Option<(TextFrame, Arc<TextLayout>)> 
     if edit.target == Target::EdgeLabel {
         return edge_label::frame(app, &edit.entity).map(plain);
     }
+    if edit.target == Target::Comment {
+        return comment::frame(app).map(plain);
+    }
     let entity = app.document.entity(&edit.entity)?;
     match edit.target {
         Target::Text | Target::Label => frame::of(entity).map(plain),
-        Target::Title | Target::EdgeLabel => title::frame(app, entity).map(plain),
+        Target::Title | Target::EdgeLabel | Target::Comment => title::frame(app, entity).map(plain),
         Target::Note => {
             let frame = frame::note_frame(entity.rect, app.session.notes.scroll(&entity.id));
             let layout = stack::layout(&edit.text, &frame.spec, measure, &app.stacks);
@@ -125,9 +128,15 @@ fn page_height(app: &App, edit: &TextEdit) -> f32 {
     let rect = app.document.entity(&edit.entity).map(|entity| entity.rect);
     match (edit.target, rect) {
         (Target::Note, Some(rect)) => frame::note_window(rect),
-        (Target::Note | Target::Text | Target::Label | Target::Title | Target::EdgeLabel, _) => {
-            app.session.viewport.y / app.session.camera.zoom.max(f32::EPSILON)
-        }
+        (
+            Target::Note
+            | Target::Text
+            | Target::Label
+            | Target::Title
+            | Target::EdgeLabel
+            | Target::Comment,
+            _,
+        ) => app.session.viewport.y / app.session.camera.zoom.max(f32::EPSILON),
     }
 }
 
@@ -256,6 +265,9 @@ pub(crate) fn end(app: &mut App, effects: &mut Vec<Effect>) {
     if edit.target == Target::EdgeLabel {
         return edge_label::end(app, &edit, effects);
     }
+    if edit.target == Target::Comment {
+        return comment::end(app, &edit);
+    }
     let id = edit.entity.clone();
     let Some(entity) = app.document.entity(&id).cloned() else {
         return;
@@ -361,7 +373,7 @@ pub(crate) fn on_ime(app: &mut App, event: &ImeEvent, effects: &mut Vec<Effect>)
 
 /// Tells the shell where the caret is on screen, so the input method's
 /// candidate window opens beside it.
-fn place_candidates(app: &App, effects: &mut Vec<Effect>) {
+pub(crate) fn place_candidates(app: &App, effects: &mut Vec<Effect>) {
     if let Some(caret) = app.caret_rect() {
         let camera = &app.session.camera;
         let corner = Vec2::new(caret.x as f32, caret.y as f32);
@@ -396,7 +408,7 @@ impl App {
     /// the entity being edited.
     pub fn editing_text(&self, id: &EntityId) -> Option<&str> {
         let edit = self.session.editing.as_ref()?;
-        (edit.entity == *id).then_some(edit.text.as_str())
+        (edit.target.is_entity() && edit.entity == *id).then_some(edit.text.as_str())
     }
 
     /// Where `id`'s text is laid out and how it is set, for a text, a
@@ -409,7 +421,7 @@ impl App {
                 self.session.notes.scroll(id),
             )),
             // A title sits outside the body; `edit_frame` places it.
-            (Target::Title | Target::EdgeLabel, _) => None,
+            (Target::Title | Target::EdgeLabel | Target::Comment, _) => None,
             (Target::Text | Target::Label, _) => frame::of(entity),
         }
     }

@@ -36,11 +36,11 @@ fn labels(menu: &Menu) -> Vec<&'static str> {
 }
 
 #[test]
-fn the_menus_are_edit_arrange_tools_and_view() {
+fn the_menus_are_edit_arrange_comment_tools_and_view() {
     let app = TestApp::with_pages(1);
     let menus = menus(app.app());
-    let [edit, arrange, tools, view] = menus.as_slice() else {
-        panic!("four menus");
+    let [edit, arrange, comment, tools, view] = menus.as_slice() else {
+        panic!("five menus");
     };
     assert_eq!(
         (edit.title, labels(edit)),
@@ -73,6 +73,13 @@ fn the_menus_are_edit_arrange_tools_and_view() {
                 "Group",
                 "Ungroup"
             ]
+        )
+    );
+    assert_eq!(
+        (comment.title, labels(comment)),
+        (
+            "Comment",
+            vec!["Annotate selection", "Resolve comment", "Delete comment"]
         )
     );
     assert_eq!(

@@ -11,7 +11,7 @@ use crate::notes;
 use crate::stack_order::Move;
 use crate::{
     Action, App, Effect, Event, Focus, PageNotice, Selection, ToolDefaultPatch, api, bindings,
-    camera, cursor, edit, gesture, groups, pages, pointer, verbs,
+    camera, comment, cursor, edit, gesture, groups, pages, pointer, verbs,
 };
 use crate::{clipboard, drop, select_all, zoom};
 
@@ -59,6 +59,14 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         Event::DocumentOpened(document) => open_document(app, *document, &mut effects),
         Event::Clipboard(content) => clipboard::on_read(app, content, &mut effects),
         Event::FilesDropped { files, screen } => drop::on_drop(app, &files, screen, &mut effects),
+        Event::ElementAt {
+            page,
+            point,
+            element,
+        } => comment::on_element(app, &page, point, element, &mut effects),
+        Event::RegionGrab { region, grabs } => {
+            comment::on_region_grab(app, region, &grabs, &mut effects);
+        }
         Event::ToolDefaultsLoaded(defaults) => app.tool_defaults = *defaults,
         Event::Action(action) => run_action(app, action, &mut effects),
         Event::Api(call) => api::run(app, call, &mut effects),
@@ -73,6 +81,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         app.history.settle(app.session.selection.clone());
     }
     leave_unless_selected(app, &mut effects);
+    comment::settle(app);
     groups::keep_entered_valid(app);
     if edit::restart_blink(app, &caret) {
         notes::reveal_caret(app);
@@ -94,6 +103,10 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
 pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect>) {
     match action {
         Action::Cancel => {
+            // A comment draft or a focused comment is all one Escape takes.
+            if comment::cancel(app, effects) {
+                return;
+            }
             // Escape is staged: it first backs out of whatever is in flight
             // (a drag, an armed tool, a text edit, an entered page) and
             // leaves the selection alone. Then it steps out of an entered
@@ -145,6 +158,13 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
             drop_dangling(app, effects);
         }
         Action::SetCamera(camera) => app.session.camera = camera,
+        // The focus and the selection are never both set, so Delete has one
+        // thing to remove.
+        Action::Delete if app.session.focused_comment.is_some() => {
+            verb(app, effects, |app, effects| {
+                comment::delete(app, None, effects);
+            });
+        }
         Action::Delete => verb(app, effects, verbs::delete),
         Action::Duplicate => verb(app, effects, verbs::duplicate),
         Action::Nudge { dx, dy } => verb(app, effects, |app, effects| {
@@ -159,6 +179,14 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         Action::SendBackward => stack(app, Move::Backward, effects),
         Action::BringToFront => stack(app, Move::ToFront, effects),
         Action::SendToBack => stack(app, Move::ToBack, effects),
+        Action::AnnotateSelection => verb(app, effects, comment::annotate_selection),
+        Action::FocusComment(id) => verb(app, effects, |app, _| comment::focus(app, id.as_ref())),
+        Action::ResolveComment(id) => verb(app, effects, |app, effects| {
+            comment::resolve(app, id.as_ref(), effects);
+        }),
+        Action::DeleteComment(id) => verb(app, effects, |app, effects| {
+            comment::delete(app, id.as_ref(), effects);
+        }),
         Action::Group => verb(app, effects, groups::group),
         Action::Ungroup => verb(app, effects, groups::ungroup),
         Action::Copy => clipboard::copy(app, effects),
@@ -236,6 +264,7 @@ fn open_document(app: &mut App, document: Document, effects: &mut Vec<Effect>) {
     app.session.gesture = None;
     app.session.entered_group = None;
     edit::discard(app, effects);
+    comment::forget(app);
     app.document = document;
     edit::fit_all(app);
     app.history.clear();

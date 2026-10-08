@@ -4,7 +4,7 @@ use glam::Vec2;
 use specular_core::{CssSize, InputEvent};
 use specular_doc::{EntityId, Rect};
 
-use crate::{ApiOutcome, AssetBytes, ImageKey, ToolDefaults};
+use crate::{ApiOutcome, AssetBytes, ImageKey, PageRegion, ToolDefaults};
 
 /// One thing for the shell to do after an [`update`](crate::update). Effects
 /// run in the order they are returned.
@@ -123,6 +123,25 @@ pub enum Effect {
     DropNote {
         /// The path as the document writes it.
         file: String,
+    },
+    /// Find the element a page has under a point and answer with
+    /// [`Event::ElementAt`](crate::Event::ElementAt), which repeats the page
+    /// and the point. An answer of no element is still an answer.
+    QueryElement {
+        /// The page entity.
+        page: EntityId,
+        /// The point, in the page's viewport CSS pixels.
+        point: Vec2,
+    },
+    /// Count the elements each page has inside a comment region and answer
+    /// with [`Event::RegionGrab`](crate::Event::RegionGrab), which repeats
+    /// the region and lists the pages in this order.
+    QueryRegionGrab {
+        /// The region, in canvas space.
+        region: Rect,
+        /// The pages the region lies over, front to back, each with the
+        /// part of it the region covers.
+        pages: Vec<PageRegion>,
     },
     /// Write the tool defaults to the preferences file, under `toolDefaults`,
     /// as [`ToolDefaults::to_json`] gives them.

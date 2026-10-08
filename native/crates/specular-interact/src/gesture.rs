@@ -4,6 +4,7 @@
 use glam::{DVec2, Vec2};
 use specular_doc::{Command, EntityId};
 
+use crate::comment::{self, CommentDrag};
 use crate::draw::{self, DrawStroke};
 use crate::edge_drag::{self, EdgeDrag};
 use crate::edit::{self, TextSelectDrag};
@@ -11,7 +12,7 @@ use crate::marquee::MarqueeMode;
 use crate::move_drag::{self, MoveDrag};
 use crate::place::{self, PlaceDrag};
 use crate::resize_drag::{self, ResizeDrag};
-use crate::{App, Effect, PointerInput, comment, geometry, group_fit, marquee};
+use crate::{App, Effect, PointerInput, group_fit, marquee};
 
 /// A pointer drag between a press and its release. It owns the pointer: no
 /// page sees the moves or the release.
@@ -42,17 +43,9 @@ pub enum Gesture {
         /// What the rect takes, from the modifiers at the latest move.
         mode: MarqueeMode,
     },
-    /// Dragging out a comment region.
-    CommentRegion {
-        /// The canvas point the drag started at.
-        start: DVec2,
-        /// The same point on screen, to tell a drag from a click.
-        start_screen: Vec2,
-        /// The canvas point the pointer is at.
-        current: DVec2,
-        /// The page the drag started over, which the comment binds to.
-        page: Option<EntityId>,
-    },
+    /// Pressed with the comment tool: a region once the pointer has
+    /// travelled, a click on a point or an element until then.
+    Comment(CommentDrag),
     /// Pressed with a one-shot creation tool: the release places a page, a
     /// text, a sticky or a shape.
     Place(PlaceDrag),
@@ -84,18 +77,9 @@ pub(crate) fn drag(app: &mut App, input: &PointerInput) {
             app.session.gesture = Some(gesture);
             marquee::drag(app, input);
         }
-        Some(Gesture::CommentRegion {
-            start,
-            start_screen,
-            page,
-            ..
-        }) => {
-            app.session.gesture = Some(Gesture::CommentRegion {
-                start,
-                start_screen,
-                current: world,
-                page,
-            });
+        Some(Gesture::Comment(mut drag)) => {
+            comment::drag(app, &mut drag, input.screen);
+            app.session.gesture = Some(Gesture::Comment(drag));
         }
         Some(Gesture::Place(mut drag)) => {
             place::drag(app, &mut drag, world, input.modifiers);
@@ -118,15 +102,14 @@ pub(crate) fn drag(app: &mut App, input: &PointerInput) {
 
 /// The button came up, ending `gesture`. A move, a copy or a resize becomes
 /// one undo step; a resized page is re-laid-out; a marquee changes the
-/// selection; a comment drag long enough to not be a click creates its
-/// annotation; a placement or a stroke creates its entity.
+/// selection; a comment press opens a draft or asks the shell what is under
+/// it; a placement or a stroke creates its entity.
 pub(crate) fn finish(
     app: &mut App,
     gesture: Gesture,
     input: &PointerInput,
     effects: &mut Vec<Effect>,
 ) {
-    let screen = input.screen;
     match gesture {
         Gesture::Marquee {
             start,
@@ -137,17 +120,7 @@ pub(crate) fn finish(
         } => marquee::finish(app, start, start_screen, origin, dragged, input),
         Gesture::Move(drag) => move_drag::finish(app, drag, input.modifiers, effects),
         Gesture::Resize(drag) => resize_drag::finish(app, &drag, effects),
-        Gesture::CommentRegion {
-            start,
-            start_screen,
-            page,
-            ..
-        } => {
-            if (screen - start_screen).length() >= comment::MIN_COMMENT_DRAG {
-                let end = app.session.camera.screen_to_world(screen).as_dvec2();
-                comment::create_region(app, geometry::spanning(start, end), page);
-            }
-        }
+        Gesture::Comment(drag) => comment::finish(app, &drag, effects),
         Gesture::Place(drag) => place::finish(app, drag, effects),
         Gesture::Draw(stroke) => draw::finish(app, &stroke, effects),
         // The selection is already where the drag left it.
@@ -157,13 +130,11 @@ pub(crate) fn finish(
 }
 
 /// Abandons the gesture in flight: a move or resize snaps back, a marquee or
-/// a comment region is dropped, what a placement or a stroke was making is
+/// a comment press is dropped, what a placement or a stroke was making is
 /// taken back, and an edge end being dragged takes its edge with it.
 pub(crate) fn cancel(app: &mut App, effects: &mut Vec<Effect>) {
     match app.session.gesture.take() {
-        None
-        | Some(Gesture::Marquee { .. } | Gesture::CommentRegion { .. } | Gesture::TextSelect(_)) => {
-        }
+        None | Some(Gesture::Marquee { .. } | Gesture::Comment(_) | Gesture::TextSelect(_)) => {}
         Some(Gesture::Move(drag)) => move_drag::cancel(app, &drag),
         Some(Gesture::Resize(drag)) => {
             crate::live::restore(&mut app.document, drag.starts());

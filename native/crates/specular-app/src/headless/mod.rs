@@ -198,6 +198,7 @@ impl Headless {
             Step::Wheel(delta) => self.drive(|app| app.wheel(delta)),
             Step::Pinch(delta) => self.drive(|app| app.pinch(delta)),
             Step::Tool(tool) => self.drive(|app| app.tool(tool)),
+            Step::Act(action) => self.drive(|app| app.act(action)),
             Step::Select(ids) => self.drive(|app| {
                 let ids: Vec<&str> = ids.iter().map(String::as_str).collect();
                 app.select(&ids)

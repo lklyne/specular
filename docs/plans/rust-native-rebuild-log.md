@@ -193,6 +193,19 @@ with the task that made it.
 - A1: `--tab` is accepted on the tab-scoped routes when it names the one open canvas (id is the file name, name is its stem). `tab new`, `switch` and `delete` are 501.
 - A1: undo and redo are `POST /history/undo` and `/history/redo`. Electron has no route for either and the CLI has no verb. The canvas screenshot is Electron's `POST /window/screenshot`, drawn offscreen from the scene, with an optional `path` in the body to get a file instead of base64.
 - A2: no second CLI. `src/main/cli.ts` is a thin HTTP client and runs against the Rust app unchanged. `tests/` holds no recorded HTTP requests, so the contract test replays the patch bodies of `tests/integration/canvas-apply.test.ts` case by case (`specular-api/tests/api/contract.rs`).
+- C2: the agent chat panel is deferred, so a comment's text is typed in a small composer on the canvas beside its pin. It stands in for the right-panel composer and goes when that lands. Enter keeps the comment, Shift+Enter breaks the line, a press elsewhere keeps it if it has text, Escape drops it.
+- C2: a draft is an `Annotation` in the session, not in the document. Keeping it is one `InsertAnnotation` step; an empty or escaped one leaves no step.
+- C2: annotations are undoable, as in Electron (`DOC_MAP_ANNOTATIONS` is in the undo manager's scope). Create, resolve and delete are one step each.
+- C2: page questions are an `Effect` answered by an `Event` that repeats the question, so nothing waits in the session. `QueryElement` is answered from `PageSource::element_at`, a synchronous probe only the synthetic source implements (a 160x48 grid of fake cells). `QueryRegionGrab` is answered with no grab by both shells. The CEF answers are marked `FOLLOW-UP(C2)`.
+- C2: a click that finds no element on a page makes a canvas point, as Electron's does. Until CEF answers, every click on a real page is a canvas point and every region is canvas-bound.
+- C2: Escape is staged: an open draft is dropped, else a focused comment loses focus, else what it did before. The comment tool stays armed after a comment is kept.
+- C2: a comment and the selection are never both the target. Focusing a comment clears the selection, selecting clears the focus, so Delete deletes whichever there is. Delete on a grouped badge removes every comment under it, as Electron's popover does.
+- C2: Electron has no key for annotate-selection or resolve (a popup button, a popover button, a route and a CLI verb). They are items in a Comment menu with no key.
+- C3: a canvas-point comment draws the count pill centred on its point, replacing F5b's dot. Electron draws nothing there and lists it in the right panel, which is deferred.
+- C3: the badge number is the message count of its group (`1 + replies`, summed over comments on the same element or page point), as in Electron. It is not an index.
+- C3: a region is hit within 6 px of its edge, not across its interior, so what is under it stays reachable. Electron takes the whole rect.
+- C3: focus is native chrome, since Electron shows it in the panel: a 2 px blue ring 3 px outside a pill, and a region at full opacity with a 10% fill (Electron's hover).
+- C3: `App::comment_marks()` is the one set the hit-test and the scene share. It holds the status filter, the URL gate, the grouping and the geometry.
 
 ## Needs a human at a Mac
 
@@ -211,6 +224,7 @@ What nobody has done by hand. The scenario scripts (`native/fixtures/scenarios`)
 11. Speed. One `--bench --chrome on` run against an older build.
 12. From M1: the egui checks at the end of ADR 0039.
 13. The API. Quit the Electron app, run `cargo run -p specular-app -- FILE.canvas`, then `specular canvas`, `specular add note "hi"`, `specular add page https://example.com`, `specular focus <id>`: each shows in the window and Cmd+Z takes it back. `curl -X POST -H "x-specular-secret: $SECRET" localhost:29979/window/screenshot -d '{"path":"/tmp/shot.png"}'` writes what the window shows (the BGRA swap and the 2x size are unchecked). Start the Electron app first and the Rust app second: the log names the fallback port and file, and the CLI with that `SPECULAR_DISCOVERY_FILE` reaches the Rust app.
+14. Comments. Press C. Click the canvas, type, Enter: a blue pill with 1 appears and the tool stays armed. Drag a region, type, click away: a dashed rose rect. Click a pill: it gets a ring; Escape takes it off; Delete removes the comment and Cmd+Z brings it back. Select two items, Comment > Annotate selection. Comment > Resolve comment hides one. Type Japanese in the composer. With `--source cef`, a click on a page makes a canvas point for now.
 
 Known gaps against Electron, not checks: the hand and mono fonts fall back to system fonts (Kalam and Geist Mono are not loaded), an edge label has the line running through it, a comment badge has no icon, a label that overflows a small shape is clipped to its middle line, and the highlighter has no gradient or grain.
 
@@ -499,3 +513,18 @@ Known gaps against Electron, not checks: the hand and mono fonts fall back to sy
 - For the next agent: a new route is one arm in `Api::route` and a handler that returns `Step`. A write builds a `Command` or picks an `Action` and never touches the `App`. Add a 501 row in `unported.rs` for anything the CLI can call that you leave out.
 - For the next agent: the page verbs all start with `GET /pages/<id>/cdp-target`, which wants a CDP websocket URL. CEF's remote debugging port is the likely way to answer it.
 - Gate: fmt, clippy and `cargo test --workspace` pass. The scenario scripts were not run, since they start `specular-app`.
+
+### C1, C2 and C3: comments on the canvas. See `git log -- native/crates/specular-interact/src/comment`
+
+- Doc: `Annotation::new`. The model, its three commands and the `.canvas` shape were F2's and F3's; `tests/annotation_shape.rs` holds what this app writes against Electron's fields.
+- Interact, `comment/`: `drag` (the one gesture: a click under 4 px, a region past it; `Gesture::Comment` replaces `CommentRegion`), `create`, `grab` (the pure rule, first page with elements wins), `draft` (the draft and the composer's frame), `selection` (`selectionEntityIds`, `selectionTarget`), `shown`, `marks`, `actions` (focus, resolve, delete).
+- New: `Effect::{QueryElement, QueryRegionGrab}`, `Event::{ElementAt, RegionGrab}`, `PageGrab`, `PageRegion`, `Hit::Comment`, `Target::Comment`, `Action::{AnnotateSelection, FocusComment, ResolveComment, DeleteComment}` (`None` means the focused mark), `App::{comment_draft, comment_composer, comment_marks, focused_comment}`, `matches_page_url`, `ScreenRect` made public. Core: `PageElement`, `PageSource::element_at`.
+- Scene: `view/annotations.rs` draws the marks and `view/comment_draft.rs` the draft marker and the composer. Page-bound marks move and scale with their page and are gone when its URL differs from `pageAnchor.pageUrl` (hash ignored), when the page is gone, and when resolved or dismissed.
+- Shell: both effect runners answer the two questions. The script format has `act annotate-selection` and `act resolve-comment`. A Comment menu holds the three items.
+- Tests: `specular-interact/tests/{comments,comment_drafts,comment_state,comment_marks}.rs`, `specular-scene/tests/comments.rs`, more in `gestures.rs` and `menus.rs`. Testkit: `comment`, `with_comment`, `answer_element`, `answer_grab`, `comment_draft`.
+- Fixtures: four more annotations in the kitchen sink (a grouped element badge, a region on a stale URL, a selection region, a point with a reply) and scenario `i-comments`, with its PNGs looked at.
+- For the next agent: the CEF half is the two `FOLLOW-UP(C2)` notes. The answer should arrive as a page event, and `element_at` then goes. Page scroll is still taken as zero, so a `docRect` and an element box do not follow a scrolled page.
+- Not done: the hover outline still shows on a page under the comment tool. No way to edit a kept comment's text or to dismiss one. No `metadata.pageName`. Deleting a page leaves its comments bound to it, so they stop drawing; Electron frees them. A resting region is faint over a dark page (50%, as Electron). The API crate's routes do not reach comments yet.
+- A headless run's clock starts at zero, so the scenario's comments are dated 1970.
+- Built in a detached worktree in three steps by subagents, squashed and rebased onto the polish and API commits. The rebase needed one `Hit::Comment` arm and re-accepted scene snapshots for the new title and selection lines.
+- Gate: fmt, clippy and `cargo test --workspace` pass on the rebased commit (1459 tests, GPU ones included). `fixtures/scenarios/run.sh` passes.

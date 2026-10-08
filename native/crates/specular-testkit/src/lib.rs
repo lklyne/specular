@@ -28,6 +28,7 @@
 )]
 
 mod app;
+mod comments;
 mod fixtures;
 mod input;
 mod measure;
@@ -35,6 +36,7 @@ mod scene_snapshot;
 mod snapshot;
 
 pub use app::TestApp;
+pub use comments::{comment, with_comment};
 pub use fixtures::{
     connected, document, drawing, file, group, inside, labelled, note, page, pages, plain_text,
     shape, sticky, text, with_edge,

@@ -25,6 +25,20 @@ pub(crate) enum Target {
     /// An edge's label: a single line, ended by Enter, keyed by the edge's
     /// id.
     EdgeLabel,
+    /// A comment draft: lines broken by Shift+Enter, ended by Enter, keyed
+    /// by the draft's id.
+    Comment,
+}
+
+impl Target {
+    /// Whether the session's key is the id of the entity whose text it is.
+    /// The others borrow the key for an id of another kind.
+    pub(crate) const fn is_entity(self) -> bool {
+        match self {
+            Self::Text | Self::Label | Self::Note | Self::Title => true,
+            Self::EdgeLabel | Self::Comment => false,
+        }
+    }
 }
 
 /// What the session started from, for ending it as one document step.
@@ -88,6 +102,11 @@ impl TextEdit {
     /// Whether this is an edit of a Document's markdown source.
     pub fn is_note(&self) -> bool {
         self.target == Target::Note
+    }
+
+    /// Whether this is an edit of a comment draft's text, in the composer.
+    pub fn is_comment(&self) -> bool {
+        self.target == Target::Comment
     }
 
     /// The text as edited so far, with any composition in it.

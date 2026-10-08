@@ -8,11 +8,13 @@
 use std::collections::BTreeMap;
 use std::time::{Duration, Instant};
 
+use glam::Vec2;
+
 use crate::frame::{CpuFrame, FrameEvent, FrameLayer, PageFrame};
-use crate::geometry::CssSize;
+use crate::geometry::{CssSize, PixelRect};
 use crate::input::InputEvent;
 use crate::page::{PageId, PageSpec, validate_texture_scale, validate_viewport};
-use crate::source::{PageEvent, PageSource, PageSourceError};
+use crate::source::{PageElement, PageEvent, PageSource, PageSourceError};
 
 #[derive(Debug)]
 struct SyntheticPage {
@@ -61,6 +63,39 @@ impl SyntheticPageSource {
             .get_mut(&page)
             .ok_or(PageSourceError::UnknownPage(page))
     }
+}
+
+/// The size of one cell of the grid a synthetic page answers
+/// [`element_at`](PageSource::element_at) from, in CSS pixels.
+const CELL: (u32, u32) = (160, 48);
+
+/// The element a synthetic page laid out at `viewport` has under `point`:
+/// the cell of a 160x48 grid holding it, cut off at the viewport's edge.
+/// `None` outside the viewport.
+///
+/// The frames show no such grid. It stands in for a DOM so that what is
+/// built on an element answer runs with no browser, and gives the same
+/// answer every time.
+pub fn synthetic_element_at(viewport: CssSize, point: Vec2) -> Option<PageElement> {
+    let inside = point.x >= 0.0
+        && point.y >= 0.0
+        && point.x < viewport.width as f32
+        && point.y < viewport.height as f32;
+    if !inside {
+        return None;
+    }
+    let (column, row) = (point.x as u32 / CELL.0, point.y as u32 / CELL.1);
+    let (x, y) = (column * CELL.0, row * CELL.1);
+    Some(PageElement {
+        selector: format!("div.cell[data-col=\"{column}\"][data-row=\"{row}\"]"),
+        element_path: Some("body > div.cell".to_owned()),
+        bounding_box: PixelRect::new(
+            x as i32,
+            y as i32,
+            CELL.0.min(viewport.width - x),
+            CELL.1.min(viewport.height - y),
+        ),
+    })
 }
 
 /// Paints a flat colour that cycles with `frame_index` plus a sweeping bar,
@@ -172,6 +207,10 @@ impl PageSource for SyntheticPageSource {
         out.append(&mut self.pending);
     }
 
+    fn element_at(&self, page: PageId, point: Vec2) -> Option<PageElement> {
+        synthetic_element_at(self.pages.get(&page)?.spec.viewport, point)
+    }
+
     fn devtools_port(&self) -> Option<u16> {
         None
     }
@@ -254,5 +293,51 @@ mod tests {
             source.create_page(&spec),
             Err(PageSourceError::InvalidSpec(_))
         ));
+    }
+
+    #[test]
+    fn element_at_is_the_grid_cell_holding_the_point() {
+        let element = synthetic_element_at(CssSize::new(400, 300), Vec2::new(170.0, 100.0));
+        assert_eq!(
+            element,
+            Some(PageElement {
+                selector: "div.cell[data-col=\"1\"][data-row=\"2\"]".to_owned(),
+                element_path: Some("body > div.cell".to_owned()),
+                bounding_box: PixelRect::new(160, 96, 160, 48),
+            })
+        );
+    }
+
+    #[test]
+    fn a_cell_at_the_edge_is_cut_off_at_the_viewport() {
+        let element = synthetic_element_at(CssSize::new(400, 300), Vec2::new(399.0, 299.0));
+        assert_eq!(
+            element.map(|element| element.bounding_box),
+            Some(PixelRect::new(320, 288, 80, 12))
+        );
+    }
+
+    #[test]
+    fn a_point_outside_the_viewport_is_on_no_element() {
+        let viewport = CssSize::new(400, 300);
+        for point in [
+            Vec2::new(-1.0, 10.0),
+            Vec2::new(400.0, 10.0),
+            Vec2::new(10.0, 300.0),
+        ] {
+            assert_eq!(synthetic_element_at(viewport, point), None, "{point}");
+        }
+    }
+
+    #[test]
+    fn a_hosted_page_answers_from_its_viewport_and_a_closed_one_does_not() {
+        let (mut source, id) = source_with_page(1.0);
+        let at = |source: &SyntheticPageSource| source.element_at(id, Vec2::new(10.0, 10.0));
+        assert_eq!(
+            at(&source).map(|element| element.bounding_box),
+            Some(PixelRect::new(0, 0, 40, 20))
+        );
+        source.close_page(id).unwrap();
+        assert_eq!(at(&source), None);
     }
 }

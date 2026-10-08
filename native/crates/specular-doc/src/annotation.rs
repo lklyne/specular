@@ -39,6 +39,26 @@ pub struct Annotation {
     pub extra: JsonMap,
 }
 
+impl Annotation {
+    /// A thread the user has just opened at `anchor`: pending, with no
+    /// text, no replies and no page binding.
+    pub fn new(id: AnnotationId, anchor: AnnotationAnchor, created_at: String) -> Self {
+        Self {
+            id,
+            anchor,
+            author: Author::User,
+            text: String::new(),
+            status: AnnotationStatus::Pending,
+            replies: Vec::new(),
+            created_at,
+            element_name: None,
+            page_anchor: None,
+            metadata: None,
+            extra: JsonMap::new(),
+        }
+    }
+}
+
 /// Where an annotation is pinned.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(

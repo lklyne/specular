@@ -1,0 +1,19 @@
+---
+source: crates/specular-scene/tests/comments.rs
+expression: app.scene_snapshot()
+---
+canvas page p1 300,200 400x300 r=8
+screen rect 300,200 400x300 r=8 stroke=#a6a09b/1/outside
+screen text "example.com/p1" 300,179.5 wrap=400 ellipsis box-h=16.5 11/15.4 w500 #6b6b6b middle clip=300,179.5 400x20.5
+canvas page p2 700,100 400x300 r=8
+screen rect 700,100 400x300 r=8 stroke=#a6a09b/1/outside
+screen text "example.com/p2" 700,79.5 wrap=400 ellipsis box-h=16.5 11/15.4 w500 #6b6b6b middle clip=700,79.5 400x20.5
+screen rect 320,400 120x60 r=4 fill=#ff637e0d opacity=0.5
+screen path M325,401 L435,401 C437.21,401 439,402.79 439,405 L439,455 C439,457.21 437.21,459 435,459 L325,459 C322.79,459 321,457.21 321,455 L321,405 C321,402.79 322.79,401 325,401 Z stroke=#ff637eb3/2 dash=6/4 opacity=0.5
+screen rect 416,248 26x26 r=13 fill=#2b7fff stroke=#8ec5ffe6/1/inside
+screen text "1" 429,261 10/10 w600 #ffffff centre middle
+screen rect 299,199 402x302 stroke=#3b82f6/1/inside
+screen rect 295,195 8x8 fill=#ffffff stroke=#3b82f6/1/inside
+screen rect 697,195 8x8 fill=#ffffff stroke=#3b82f6/1/inside
+screen rect 697,497 8x8 fill=#ffffff stroke=#3b82f6/1/inside
+screen rect 295,497 8x8 fill=#ffffff stroke=#3b82f6/1/inside

@@ -14,6 +14,7 @@ use glam::DVec2;
 use specular_core::Modifiers;
 use specular_doc::{EdgeId, EntityId, ItemId};
 
+use crate::comment;
 use crate::marquee::MarqueeMode;
 use crate::move_drag::{self, Click};
 use crate::{
@@ -69,6 +70,9 @@ pub(crate) fn press(
         }
         Hit::Edge { edge } => press_edge(app, edge, world, input),
         Hit::Empty => begin_marquee(app, None, world, input),
+        // The press was offered to the marks first; a mark here has gone
+        // since.
+        Hit::Comment { annotation } => comment::focus(app, Some(&annotation)),
         // A drag from an anchor draws an edge, or moves the end of one.
         Hit::Anchor { entity, side } => {
             app.session.gesture = Some(edge_drag::begin(app, &entity, side, input.screen).into());

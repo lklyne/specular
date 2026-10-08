@@ -1,0 +1,289 @@
+//! The comment draft and its composer: where the card sits, what commits or
+//! drops the draft, and annotating the selection.
+
+use specular_doc::{AnnotationAnchor, Document, EntityId, Rect, RegionAnchor};
+use specular_interact::{Action, Key, Tool, selection_metadata};
+use specular_testkit::{
+    SHIFT, TestApp, assert_doc_snapshot, document, file, group, inside, page, sticky,
+};
+
+/// The composer's card with `lines` lines of text, in logical pixels: 8 of
+/// padding above and below lines of 15.4.
+fn card_height(lines: u8) -> f64 {
+    f64::from(16.0 + f32::from(lines) * 15.4)
+}
+
+/// Two pages with the comment tool armed and a draft open on the empty
+/// canvas point (600, 500).
+fn drafting() -> TestApp {
+    let mut app = TestApp::with_pages(2);
+    app.tool(Tool::Comment).click((600.0, 500.0)).take_effects();
+    app
+}
+
+fn texts(app: &TestApp) -> Vec<&str> {
+    (app.document().annotations().iter())
+        .map(|annotation| annotation.text.as_str())
+        .collect()
+}
+
+#[test]
+fn the_composer_sits_beside_a_point_under_a_region_and_under_an_element() {
+    let mut app = drafting();
+    let card = |app: &TestApp| app.app().comment_composer();
+    assert_eq!(
+        card(&app),
+        Some(Rect::new(614.0, 487.0, 260.0, card_height(1)))
+    );
+    // Centred under the region, 8 below it.
+    app.drag((550.0, 500.0), (650.0, 560.0));
+    assert_eq!(
+        card(&app),
+        Some(Rect::new(470.0, 568.0, 260.0, card_height(1)))
+    );
+    // From the left edge of the element's box, 8 below it. The box is in
+    // the page's pixels and the page is at (100, 100).
+    app.click((200.0, 200.0));
+    app.answer_element(specular_core::synthetic_element_at(
+        specular_core::CssSize::new(400, 300),
+        glam::Vec2::splat(100.0),
+    ));
+    assert_eq!(
+        card(&app),
+        Some(Rect::new(100.0, 252.0, 260.0, card_height(1)))
+    );
+    app.key(Key::Escape);
+    assert_eq!(card(&app), None);
+}
+
+#[test]
+fn the_composer_keeps_its_size_on_screen_at_any_zoom() {
+    let mut app = TestApp::with_pages(1);
+    app.zoom(2.0).tool(Tool::Comment).click((1200.0, 900.0));
+    // The point is (600, 450) on the canvas, and the card 14 right of it and
+    // 13 above on screen.
+    assert_eq!(
+        app.app().comment_composer(),
+        Some(Rect::new(607.0, 443.5, 130.0, card_height(1) / 2.0))
+    );
+    assert_eq!(
+        app.app().caret_rect().map(|caret| (caret.x, caret.y)),
+        Some((612.0, 447.5)),
+        "the text starts 10 in and 8 down"
+    );
+}
+
+#[test]
+fn shift_enter_breaks_the_line_and_the_card_grows_with_it() {
+    let mut app = drafting();
+    app.type_text("one").hold(SHIFT).key(Key::Enter).let_go();
+    app.type_text("two");
+    assert_eq!(app.editing_text(), "one\ntwo");
+    assert_eq!(
+        app.app().comment_composer().map(|card| card.height),
+        Some(card_height(2))
+    );
+    app.key(Key::Enter);
+    assert_eq!(texts(&app), ["one\ntwo"]);
+    app.assert_undo_returns_to_start();
+}
+
+#[test]
+fn escape_drops_the_draft_and_leaves_the_comment_tool_armed() {
+    let mut app = drafting();
+    app.type_text("never mind").key(Key::Escape);
+    assert_eq!(
+        (
+            app.app().comment_draft(),
+            app.app().text_edit(),
+            texts(&app),
+            app.app().can_undo(),
+            app.session().tool
+        ),
+        (None, None, vec![], false, Tool::Comment)
+    );
+    app.key(Key::Escape);
+    assert_eq!(app.session().tool, Tool::Select);
+}
+
+#[test]
+fn escape_after_a_commit_takes_the_focus_off_the_comment_and_nothing_else() {
+    let mut app = drafting();
+    app.type_text("done").key(Key::Enter);
+    assert!(app.app().focused_comment().is_some());
+    app.key(Key::Escape);
+    assert_eq!(
+        (app.app().focused_comment(), app.session().tool, texts(&app)),
+        (None, Tool::Comment, vec!["done"])
+    );
+    app.assert_undo_returns_to_start();
+}
+
+#[test]
+fn a_draft_with_no_text_commits_nothing_and_leaves_no_undo_step() {
+    let mut app = drafting();
+    app.key(Key::Enter);
+    assert_eq!((app.app().comment_draft(), texts(&app)), (None, vec![]));
+    app.click((600.0, 500.0)).type_text("   ").key(Key::Enter);
+    assert_eq!(
+        (
+            texts(&app),
+            app.app().can_undo(),
+            app.app().focused_comment()
+        ),
+        (vec![], false, None)
+    );
+}
+
+#[test]
+fn a_press_elsewhere_commits_what_was_written_and_starts_the_next_comment() {
+    let mut app = drafting();
+    app.type_text("  one ").press((900.0, 700.0));
+    assert_eq!(
+        texts(&app),
+        ["one"],
+        "trimmed, and in the document at the press"
+    );
+    app.release();
+    assert_eq!(
+        app.app().comment_draft().map(|draft| &draft.anchor),
+        Some(&AnnotationAnchor::Canvas {
+            canvas_x: 900.0,
+            canvas_y: 700.0
+        })
+    );
+    assert_eq!(
+        app.app().focused_comment(),
+        None,
+        "the comment just made does not keep a focus ring under the next draft"
+    );
+    app.key(Key::Escape).assert_undo_returns_to_start();
+}
+
+#[test]
+fn a_press_in_the_composer_moves_the_caret_and_keeps_the_draft() {
+    let mut app = drafting();
+    // The text starts at (624, 495), and a character is 10 wide.
+    app.type_text("hello").click((645.0, 500.0));
+    assert_eq!((app.editing_text(), app.caret()), ("hello", (2, 2)));
+    assert!(app.app().comment_draft().is_some());
+}
+
+#[test]
+fn switching_tool_commits_the_draft_and_a_new_document_drops_it() {
+    let mut app = drafting();
+    app.type_text("kept").tool(Tool::Select);
+    assert_eq!(texts(&app), ["kept"]);
+    app.assert_undo_returns_to_start();
+
+    app.tool(Tool::Comment)
+        .click((600.0, 500.0))
+        .type_text("lost");
+    app.open(Document::new());
+    assert_eq!(
+        (
+            app.app().comment_draft(),
+            app.app().focused_comment(),
+            texts(&app)
+        ),
+        (None, None, vec![])
+    );
+}
+
+#[test]
+fn a_draft_is_no_entitys_text_and_does_not_need_the_selection() {
+    let mut app = TestApp::with_pages(2);
+    app.select(&["p1"])
+        .tool(Tool::Comment)
+        .click((600.0, 500.0));
+    app.type_text("hi");
+    let key = EntityId::from(app.comment_draft().id.as_str());
+    assert_eq!(
+        (
+            app.app().editing_text(&key),
+            app.selected(),
+            app.editing_text()
+        ),
+        (None, Some("p1"), "hi")
+    );
+}
+
+#[test]
+fn annotating_one_selected_page_names_it_as_the_target() {
+    let mut app = TestApp::with_pages(2);
+    app.tick(86_400_000)
+        .select(&["p1"])
+        .act(Action::AnnotateSelection);
+    let draft = app.comment_draft();
+    assert_eq!(
+        (&draft.anchor, &draft.page_anchor),
+        (
+            &AnnotationAnchor::Region(RegionAnchor::Canvas {
+                canvas_rect: Rect::new(100.0, 100.0, 400.0, 300.0)
+            }),
+            &None
+        ),
+        "the region is the canvas's, though a page fills it"
+    );
+    app.type_text("tighten this").key(Key::Enter);
+    assert_doc_snapshot!(app);
+    app.assert_undo_returns_to_start();
+}
+
+#[test]
+fn annotating_two_selected_pages_names_no_target() {
+    let mut app = TestApp::with_pages(2);
+    app.tick(86_400_000)
+        .select(&["p2", "p1"])
+        .act(Action::AnnotateSelection)
+        .type_text("align these")
+        .key(Key::Enter);
+    assert_doc_snapshot!(app);
+    app.assert_undo_returns_to_start();
+}
+
+#[test]
+fn annotating_with_nothing_selected_does_nothing() {
+    let mut app = TestApp::with_pages(2);
+    app.act(Action::AnnotateSelection);
+    assert_eq!(app.app().comment_draft(), None);
+}
+
+#[test]
+fn the_target_is_the_one_page_selected_or_else_the_one_file() {
+    let rect = Rect::new(0.0, 0.0, 100.0, 100.0);
+    let document = document([
+        group("g", rect),
+        inside("g", page("in-group", rect)),
+        page("p", rect),
+        file("f", rect),
+        file("f2", rect),
+        sticky("s", rect, "note"),
+    ]);
+    let target = |ids: &[&str]| {
+        let ids: Vec<EntityId> = ids.iter().map(|id| EntityId::from(*id)).collect();
+        (selection_metadata(&document, &ids).get("selectionTarget")).map(ToString::to_string)
+    };
+    let page = |id: &str| {
+        Some(format!(
+            r#"{{"entityId":"{id}","kind":"page","url":"https://example.com/{id}"}}"#
+        ))
+    };
+    assert_eq!(
+        target(&["p", "s", "f"]),
+        page("p"),
+        "a page comes before a file"
+    );
+    assert_eq!(
+        target(&["g"]),
+        page("in-group"),
+        "a group stands for its page"
+    );
+    assert_eq!(target(&["g", "p"]), None, "two pages");
+    assert_eq!(
+        target(&["f", "s"]).as_deref(),
+        Some(r#"{"entityId":"f","kind":"file","filePath":"f.png"}"#)
+    );
+    assert_eq!(target(&["f", "f2"]), None, "two files");
+    assert_eq!(target(&["s"]), None, "neither");
+}

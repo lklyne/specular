@@ -1,5 +1,5 @@
-//! Move, resize and the comment-region drag, with undo, scripted through
-//! `specular-testkit`.
+//! Move, resize and the comment tool's region drag, with undo, scripted
+//! through `specular-testkit`.
 
 use specular_core::CssSize;
 use specular_doc::{AnnotationAnchor, EntityId, Rect, RegionAnchor};
@@ -241,7 +241,7 @@ fn armed_tool_draws_instead_of_selecting_or_forwarding() {
 fn armed_tool_takes_priority_over_handles_and_alt() {
     let mut app = p1_selected();
     app.key(Key::Char('c')).hold(ALT).press(P1_CORNER);
-    assert!(app.session().comment_preview().is_some());
+    assert!(matches!(app.session().gesture, Some(Gesture::Comment(_))));
 }
 
 #[test]
@@ -257,7 +257,11 @@ fn preview_is_the_normalised_drag_rect() {
 #[test]
 fn comment_drag_over_a_page_makes_a_region_in_that_pages_document() {
     let mut app = armed();
-    app.tick(86_400_000).drag((200.0, 200.0), (300.0, 250.0));
+    app.tick(86_400_000)
+        .drag((200.0, 200.0), (300.0, 250.0))
+        .answer_grab(&[1])
+        .type_text("here")
+        .key(Key::Enter);
     let note = &app.document().annotations()[0];
     let anchor = note.page_anchor.as_ref().unwrap();
     assert_eq!(
@@ -286,7 +290,10 @@ fn comment_drag_over_a_page_makes_a_region_in_that_pages_document() {
 fn a_page_region_travels_with_its_page() {
     let mut app = armed();
     app.drag((200.0, 200.0), (300.0, 250.0))
-        .key(Key::Escape)
+        .answer_grab(&[1])
+        .type_text("here")
+        .key(Key::Enter)
+        .tool(Tool::Select)
         .press((150.0, 150.0))
         .drag_to((650.0, 350.0));
     let note = &app.document().annotations()[0];
@@ -299,7 +306,9 @@ fn a_page_region_travels_with_its_page() {
 #[test]
 fn comment_drag_over_empty_canvas_makes_a_canvas_region() {
     let mut app = armed();
-    app.drag((550.0, 500.0), (650.0, 560.0));
+    app.drag((550.0, 500.0), (650.0, 560.0))
+        .type_text("here")
+        .key(Key::Enter);
     assert_eq!(
         app.document().annotations()[0].anchor,
         AnnotationAnchor::Region(RegionAnchor::Canvas {
@@ -310,10 +319,16 @@ fn comment_drag_over_empty_canvas_makes_a_canvas_region() {
 }
 
 #[test]
-fn a_click_with_the_tool_creates_nothing() {
+fn a_click_with_the_tool_puts_nothing_in_the_document_until_its_text_is_committed() {
     let mut app = armed();
-    app.drag((200.0, 200.0), (201.0, 201.0));
-    assert_eq!(app.document().annotations().len(), 0);
+    app.drag((600.0, 500.0), (601.0, 501.0));
+    assert_eq!(
+        (
+            app.document().annotations().len(),
+            app.app().comment_draft().is_some()
+        ),
+        (0, true)
+    );
 }
 
 #[test]
@@ -330,14 +345,28 @@ fn escape_mid_draw_cancels_without_creating() {
         .drag_to((300.0, 300.0))
         .key(Key::Escape)
         .release();
-    assert_eq!(app.document().annotations().len(), 0);
+    assert_eq!(
+        (
+            app.document().annotations().len(),
+            app.app().comment_draft(),
+            app.effects()
+                .iter()
+                .any(|effect| matches!(effect, Effect::QueryRegionGrab { .. }))
+        ),
+        (0, None, false)
+    );
 }
 
 #[test]
 fn a_comment_is_one_undo_step_and_each_gets_its_own_id() {
     let mut app = armed();
     app.drag((200.0, 200.0), (300.0, 300.0))
-        .drag((550.0, 500.0), (650.0, 560.0));
+        .answer_grab(&[1])
+        .type_text("one")
+        .key(Key::Enter)
+        .drag((550.0, 500.0), (650.0, 560.0))
+        .type_text("two")
+        .key(Key::Enter);
     let ids: Vec<_> = app
         .document()
         .annotations()

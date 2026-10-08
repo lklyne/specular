@@ -270,6 +270,11 @@ fn dispatch(host: &BrowserHost, call: &HostCall<'_>) {
     }
 }
 
+// FOLLOW-UP(C2): `element_at` keeps the trait's default, which finds no
+// element, so a comment clicked on a CEF page lands as a canvas point. The
+// real answer is an async devtools round trip (`DOM.getNodeForLocation`, a
+// selector builder, then `DOM.getBoxModel`), so it will arrive as a page
+// event, replacing this synchronous probe.
 impl PageSource for CefPageSource {
     fn name(&self) -> &'static str {
         "cef"

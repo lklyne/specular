@@ -17,7 +17,7 @@ use std::path::PathBuf;
 use anyhow::{Context as _, bail};
 use glam::Vec2;
 use specular_core::{Camera, Modifiers};
-use specular_interact::{Key, Tool};
+use specular_interact::{Action, Key, Tool};
 
 /// Where the camera is put.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -70,6 +70,9 @@ pub(crate) enum Step {
     Tool(Tool),
     /// `select id id`: replaces the selection.
     Select(Vec<String>),
+    /// `act annotate-selection` or `act resolve-comment`: the commands
+    /// that have a menu item and no key.
+    Act(Action),
     /// `camera fit` or `camera x,y,zoom`.
     Camera(CameraArg),
     /// `wait ms`: the clock moves on and pending loads are waited for.
@@ -121,6 +124,7 @@ fn step(line: &str) -> anyhow::Result<Step> {
         ("wheel", [x, y]) => Step::Wheel(point(x, y)?),
         ("pinch", [delta]) => Step::Pinch(delta.parse().context("pinch expects a number")?),
         ("tool", [name]) => Step::Tool(tool_named(name)?),
+        ("act", [name]) => Step::Act(action_named(name)?),
         ("select", ids) => Step::Select(ids.iter().map(|&id| id.to_owned()).collect()),
         ("camera", [value]) => Step::Camera(camera(value)?),
         ("wait", [ms]) => Step::Wait(ms.parse().context("wait expects milliseconds")?),
@@ -228,6 +232,14 @@ fn tool_named(name: &str) -> anyhow::Result<Tool> {
     })
 }
 
+fn action_named(name: &str) -> anyhow::Result<Action> {
+    Ok(match name {
+        "annotate-selection" => Action::AnnotateSelection,
+        "resolve-comment" => Action::ResolveComment(None),
+        other => bail!("unknown action `{other}`"),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -268,6 +280,18 @@ mod tests {
             parse(r"clipboard one\ntwo\\n").unwrap(),
             [Step::Clipboard("one\ntwo\\n".to_owned())]
         );
+    }
+
+    #[test]
+    fn act_names_the_commands_that_have_no_key() {
+        assert_eq!(
+            parse("act annotate-selection\nact resolve-comment").unwrap(),
+            [
+                Step::Act(Action::AnnotateSelection),
+                Step::Act(Action::ResolveComment(None))
+            ]
+        );
+        assert!(parse("act nonsense").is_err());
     }
 
     #[test]

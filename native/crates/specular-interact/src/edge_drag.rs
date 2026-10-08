@@ -65,7 +65,7 @@ impl App {
                 Gesture::Move(_)
                 | Gesture::Resize(_)
                 | Gesture::Marquee { .. }
-                | Gesture::CommentRegion { .. }
+                | Gesture::Comment(_)
                 | Gesture::Place(_)
                 | Gesture::Draw(_)
                 | Gesture::TextSelect(_),

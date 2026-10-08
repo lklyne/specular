@@ -1,0 +1,124 @@
+# canvas: ../kitchen-sink.canvas
+# Comments on the kitchen sink: a point, a sticky, a page element, two
+# regions, a draft left empty, a draft with two lines, focusing a pill,
+# delete and undo, annotating a selection, resolving, and an undo of all of
+# it. The camera has the page `page-desktop` at screen (250, 50) and the
+# empty canvas left of and below it.
+camera -2150,-1650,1
+snapshot 00-opened.png
+save 00-start.canvas
+
+# a sticky to comment on, made with the sticky tool
+tool sticky
+click 700 760
+type plan
+key escape
+key escape
+snapshot 01-sticky.png
+
+# a point on empty canvas
+tool comment
+click 120 480
+snapshot 02-point-draft-empty.png
+type Spacing feels off here
+snapshot 03-point-draft-typed.png
+key enter
+snapshot 04-point-committed.png
+
+# a comment on the sticky is a canvas point: a sticky is not a page
+click 740 800
+type Make this one bigger
+key enter
+snapshot 05-sticky-committed.png
+
+# a click on a page asks it for the element. The synthetic page answers
+# with a cell of its grid, outlined while the draft is open.
+click 900 480
+snapshot 06-element-draft-empty.png
+type This cell needs a heading
+snapshot 07-element-draft-typed.png
+key enter
+snapshot 08-element-committed.png
+
+# a region dragged on empty canvas
+press 60 600
+drag-to 140 640
+drag-to 220 700
+snapshot 09-region-in-flight.png
+release
+snapshot 10-region-draft-empty.png
+type Move this block up
+key enter
+snapshot 11-region-committed.png
+
+# a region dragged over a page. The headless shell answers "no grab" for
+# every page, so it is canvas-bound, not a region of the page's document.
+press 560 200
+drag-to 700 260
+drag-to 820 330
+release
+snapshot 12-region-over-page-draft.png
+type Over a page, but canvas-bound
+key enter
+snapshot 13-region-over-page-committed.png
+
+# a draft left empty is dropped with Escape and leaves nothing
+click 400 760
+snapshot 14-empty-draft.png
+key escape
+snapshot 15-empty-draft-dropped.png
+
+# Shift+Enter breaks the line, and Enter commits
+click 400 760
+type first line
+key shift+enter
+type second line
+snapshot 16-two-line-draft.png
+key enter
+snapshot 17-two-lines-committed.png
+save 18-commented.canvas
+
+# a click on a pill focuses its comment, Escape lets go of it
+key escape
+click 120 480
+snapshot 19-pill-focused.png
+key escape
+snapshot 20-pill-unfocused.png
+
+# Delete removes the focused comment, undo brings it back
+click 120 480
+key delete
+snapshot 21-pill-deleted.png
+key cmd+z
+snapshot 22-delete-undone.png
+
+# annotate a selection of two items
+tool select
+select page-shape page-drawing
+act annotate-selection
+snapshot 23-annotate-selection-draft.png
+type Both of these
+key enter
+snapshot 24-annotate-selection-committed.png
+
+# resolve the focused comment, which is the one just made
+act resolve-comment
+snapshot 25-resolved.png
+
+# undo all of it
+key cmd+z
+key cmd+z
+key cmd+z
+key cmd+z
+key cmd+z
+key cmd+z
+key cmd+z
+key cmd+z
+key cmd+z
+key cmd+z
+key cmd+z
+key cmd+z
+key cmd+z
+key cmd+z
+snapshot 26-undone.png
+save 27-undone.canvas

@@ -1,6 +1,6 @@
 //! The native menu bar (macOS).
 //!
-//! Edit, Arrange, Tools and View come from `specular_interact::menus`: each item is
+//! Edit, Arrange, Comment, Tools and View come from `specular_interact::menus`: each item is
 //! an `Action` whose shortcut is its row in the binding table. The app menu,
 //! File and Window are the shell's own. Choosing an action item sends the
 //! action through `update`, the same path its key takes.

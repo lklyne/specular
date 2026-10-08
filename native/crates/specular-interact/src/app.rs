@@ -2,7 +2,9 @@
 
 use glam::Vec2;
 use specular_core::{Camera, Modifiers};
-use specular_doc::{Document, Entity, EntityId, History, ItemId, Kind, Page};
+use specular_doc::{
+    Annotation, AnnotationId, Document, Entity, EntityId, History, ItemId, Kind, Page,
+};
 
 use crate::edit::{Measurer, StackCache, TextEdit};
 use crate::images::Images;
@@ -67,7 +69,7 @@ impl App {
                 Gesture::Move(_)
                 | Gesture::Resize(_)
                 | Gesture::Marquee { .. }
-                | Gesture::CommentRegion { .. }
+                | Gesture::Comment(_)
                 | Gesture::TextSelect(_)
                 | Gesture::EdgeDrag(_),
             )
@@ -105,7 +107,7 @@ impl App {
             Some(
                 Gesture::Move(_)
                 | Gesture::Marquee { .. }
-                | Gesture::CommentRegion { .. }
+                | Gesture::Comment(_)
                 | Gesture::Place(_)
                 | Gesture::Draw(_)
                 | Gesture::TextSelect(_)
@@ -156,10 +158,11 @@ impl App {
         }
     }
 
-    /// An annotation id nothing in the document uses.
-    pub(crate) fn fresh_annotation_id(&mut self) -> specular_doc::AnnotationId {
+    /// An annotation id nothing in the document uses, entities and edges
+    /// included: a draft's edit is keyed by it beside theirs.
+    pub(crate) fn fresh_annotation_id(&mut self) -> AnnotationId {
         loop {
-            let id = specular_doc::AnnotationId::new(self.session.next_id());
+            let id = AnnotationId::new(self.fresh_id());
             if self.document.annotation(&id).is_none() {
                 return id;
             }
@@ -198,8 +201,14 @@ pub struct Session {
     pub entered_group: Option<EntityId>,
     /// The text, sticky or shape label being edited, with the edits so far.
     /// It stays in editing only while its entity is the whole selection, and
-    /// Escape ends it.
+    /// Escape ends it. A comment draft's text is edited here too, whatever
+    /// is selected.
     pub editing: Option<TextEdit>,
+    /// The comment being written: an annotation with no text that is not in
+    /// the document. Its text is the edit in `editing`.
+    pub(crate) comment_draft: Option<Annotation>,
+    /// The comment the keys act on.
+    pub(crate) focused_comment: Option<AnnotationId>,
     /// The cursor the shell was last asked to show.
     pub cursor: Cursor,
     /// Where the pointer is, in logical screen pixels. `None` when it is
@@ -226,25 +235,6 @@ pub struct Session {
 }
 
 impl Session {
-    /// The region the comment tool is dragging out, in canvas space.
-    pub fn comment_preview(&self) -> Option<specular_doc::Rect> {
-        match &self.gesture {
-            Some(Gesture::CommentRegion { start, current, .. }) => {
-                Some(crate::geometry::spanning(*start, *current))
-            }
-            Some(
-                Gesture::Move(_)
-                | Gesture::Resize(_)
-                | Gesture::Marquee { .. }
-                | Gesture::Place(_)
-                | Gesture::Draw(_)
-                | Gesture::TextSelect(_)
-                | Gesture::EdgeDrag(_),
-            )
-            | None => None,
-        }
-    }
-
     /// The next id in the sequence: 16 hex digits from a splitmix64 step.
     fn next_id(&mut self) -> String {
         self.id_state = self.id_state.wrapping_add(0x9e37_79b9_7f4a_7c15);

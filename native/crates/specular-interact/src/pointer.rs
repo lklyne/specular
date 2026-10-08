@@ -12,7 +12,7 @@ use specular_doc::EntityId;
 
 use crate::focus::{pointer_to, set_pointer_page};
 use crate::{
-    App, Effect, Gesture, Hit, PointerInput, Tool, draw, edit, gesture, hit, place, select,
+    App, Effect, Gesture, Hit, PointerInput, Tool, comment, draw, edit, gesture, hit, place, select,
 };
 
 pub(crate) fn on_pointer(app: &mut App, input: &PointerInput, effects: &mut Vec<Effect>) {
@@ -132,6 +132,7 @@ fn entered_page(app: &App, hit: Hit) -> Option<(EntityId, Vec2)> {
         | Hit::GroupLabel { .. }
         | Hit::Handle { .. }
         | Hit::Anchor { .. }
+        | Hit::Comment { .. }
         | Hit::EntityBody { .. }
         | Hit::GroupBorder { .. }
         | Hit::Edge { .. }
@@ -187,16 +188,16 @@ fn tool_takes_press(
 ) -> bool {
     let world = app.session.camera.screen_to_world(input.screen).as_dvec2();
     match app.session.tool {
+        // A press on a comment's mark is the mark's, with either tool.
         Tool::Comment => {
-            app.session.gesture = Some(Gesture::CommentRegion {
-                start: world,
-                start_screen: input.screen,
-                current: world,
-                page: hit::page_at(app, world).map(|(page, _)| page),
-            });
+            if !comment::press(app, input.screen) {
+                app.session.gesture = Some(Gesture::Comment(comment::begin(app, input)));
+            }
             true
         }
-        Tool::Select => select::press(app, input, click_count, effects),
+        Tool::Select => {
+            comment::press(app, input.screen) || select::press(app, input, click_count, effects)
+        }
         tool @ (Tool::AddPage
         | Tool::AddText
         | Tool::AddSticky

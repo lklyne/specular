@@ -14,6 +14,20 @@ pub(crate) fn canonical_page_url(url: &str) -> Option<String> {
     (!document.is_empty()).then(|| document.to_owned())
 }
 
+/// Whether a recorded URL still names the page's current document. False
+/// only when both sides carry a URL and they disagree once trimmed and
+/// stripped of their hash. A missing recorded URL always matches, as does a
+/// page with no URL yet.
+pub fn matches_page_url(recorded: Option<&str>, current: Option<&str>) -> bool {
+    match (
+        recorded.and_then(canonical_page_url),
+        current.and_then(canonical_page_url),
+    ) {
+        (Some(recorded), Some(current)) => recorded == current,
+        (None, _) | (_, None) => true,
+    }
+}
+
 /// Whether placement can hook an entity of this kind to a page.
 pub const fn anchors_to_pages(kind: &Kind) -> bool {
     match kind {
@@ -134,4 +148,42 @@ fn follow(step: Command, more: Vec<Command>) -> Command {
     let mut commands = vec![step];
     commands.extend(more);
     Command::Batch(commands)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_missing_side_is_a_match() {
+        assert!(matches_page_url(None, Some("https://example.com/a")));
+        assert!(matches_page_url(Some("https://example.com/a"), Some("")));
+        assert!(matches_page_url(Some("https://example.com/a"), None));
+        assert!(matches_page_url(Some("  "), Some("https://example.com/a")));
+        assert!(matches_page_url(None, None));
+    }
+
+    #[test]
+    fn the_hash_is_ignored() {
+        assert!(matches_page_url(
+            Some("https://example.com/a#x"),
+            Some("https://example.com/a#y")
+        ));
+        assert!(matches_page_url(
+            Some("https://example.com/a"),
+            Some(" https://example.com/a#top ")
+        ));
+    }
+
+    #[test]
+    fn a_different_query_or_path_is_a_different_document() {
+        assert!(!matches_page_url(
+            Some("https://example.com/a?tab=1"),
+            Some("https://example.com/a?tab=2")
+        ));
+        assert!(!matches_page_url(
+            Some("https://example.com/a"),
+            Some("https://example.com/b")
+        ));
+    }
 }

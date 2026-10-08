@@ -76,7 +76,7 @@ mod url;
 mod verbs;
 mod zoom;
 
-pub use anchor::{anchors_to_pages, page_anchor_for};
+pub use anchor::{anchors_to_pages, matches_page_url, page_anchor_for};
 pub use anchors::Anchor;
 pub use api::{ApiCall, ApiOutcome, ApiRun};
 pub use app::{App, Focus, Selection, Session};
@@ -84,7 +84,11 @@ pub use asset::AssetBytes;
 pub use bindings::{BINDINGS, Binding, Chord, Context, binding_for};
 pub use caps::{AspectMode, aspect_mode, has_anchors, min_size};
 pub use clipboard::{ClipboardContent, ClipboardImage, Paste};
-pub use comment::{region_annotation, region_on_canvas};
+pub use comment::{
+    CommentDrag, CommentMark, FOCUS_RING_OUTSET, FOCUS_RING_STROKE, MarkShape, PILL_DIGIT_WIDTH,
+    PILL_EDGE_MARGIN, PILL_HEIGHT, PILL_INSET, PILL_WIDTH, PageGrab, PageRegion, REGION_HIT_BAND,
+    REGION_MIN_SIZE, element_on_canvas, region_annotation, region_on_canvas, selection_metadata,
+};
 pub use draw::DrawStroke;
 pub use drop::DroppedFile;
 pub use edge_drag::{EdgeDrag, EdgePreview};
@@ -96,7 +100,7 @@ pub use edit::{
 };
 pub use effect::{Cursor, Effect};
 pub use event::{Action, Event, Key, KeyInput, PageNotice, PointerInput, WheelInput};
-pub use geometry::to_canvas_rect;
+pub use geometry::{ScreenRect, to_canvas_rect};
 pub use gesture::Gesture;
 pub use groups::group_command;
 pub use handles::{Corner, HANDLE_SIZE, Handle, HandleOwner, OUTLINE_PADDING};

@@ -1,12 +1,12 @@
 //! [`Event`]: everything that can happen to an [`App`](crate::App).
 
 use glam::Vec2;
-use specular_core::{Camera, ImeEvent, Modifiers, PixelRect, PointerEventKind};
-use specular_doc::{Document, EntityId, ItemId, Rect};
+use specular_core::{Camera, ImeEvent, Modifiers, PageElement, PixelRect, PointerEventKind};
+use specular_doc::{AnnotationId, Document, EntityId, ItemId, Rect};
 
 use crate::{
-    ApiCall, ClipboardContent, DroppedFile, Format, ImageKey, ImageNotice, NoteNotice, Tool,
-    ToolDefaultPatch, ToolDefaults,
+    ApiCall, ClipboardContent, DroppedFile, Format, ImageKey, ImageNotice, NoteNotice, PageGrab,
+    Tool, ToolDefaultPatch, ToolDefaults,
 };
 
 /// One input to [`update`](crate::update). Window input arrives in logical
@@ -85,6 +85,28 @@ pub enum Event {
         /// Where they were dropped, in logical screen pixels, when the shell
         /// knows.
         screen: Option<Vec2>,
+    },
+    /// What a page has under a point: the answer to an
+    /// [`Effect::QueryElement`](crate::Effect::QueryElement). The comment
+    /// clicked there becomes a draft on the element, or on the canvas point
+    /// when there is none.
+    ElementAt {
+        /// The page entity.
+        page: EntityId,
+        /// The point asked about, in the page's viewport CSS pixels.
+        point: Vec2,
+        /// The element there, if the page has one.
+        element: Option<PageElement>,
+    },
+    /// What a comment region grabbed in the pages it lies over: the answer
+    /// to an [`Effect::QueryRegionGrab`](crate::Effect::QueryRegionGrab).
+    /// The region becomes a draft in the first page it grabbed an element
+    /// of, or on the canvas when it grabbed none.
+    RegionGrab {
+        /// The region asked about, in canvas space.
+        region: Rect,
+        /// What it grabbed in each page, front to back.
+        grabs: Vec<PageGrab>,
     },
     /// The tool defaults were read from the preferences file. Replaces the
     /// current ones and asks for no save.
@@ -199,9 +221,10 @@ pub enum PageNotice {
 /// toolbar button or an API route asks for.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Action {
-    /// Escape: abandon the gesture in flight, return to the select tool and
-    /// leave the entered page. With none of those to back out of, clear the
-    /// selection.
+    /// Escape, one stage a press. A comment draft is dropped; with none, a
+    /// focused comment loses the focus. Otherwise: abandon the gesture in
+    /// flight, return to the select tool and leave the entered page, and
+    /// with none of those to back out of, clear the selection.
     Cancel,
     /// Switch tool.
     SetTool(Tool),
@@ -255,6 +278,17 @@ pub enum Action {
     Group,
     /// Take the selected group apart and select what was inside it.
     Ungroup,
+    /// Open a comment draft on the region the selected entities span.
+    AnnotateSelection,
+    /// Give a comment the focus, taking the selection away, or with `None`
+    /// let go of the focus. An id that is not shown does nothing.
+    FocusComment(Option<AnnotationId>),
+    /// Mark a comment resolved. With `None`, every comment on the focused
+    /// comment's mark, as one step. Does nothing with no such comment.
+    ResolveComment(Option<AnnotationId>),
+    /// Remove a comment. With `None`, every comment on the focused
+    /// comment's mark, as one step. Does nothing with no such comment.
+    DeleteComment(Option<AnnotationId>),
     /// Move the selection by exactly this many canvas units.
     Nudge {
         /// Along x. Positive is right.

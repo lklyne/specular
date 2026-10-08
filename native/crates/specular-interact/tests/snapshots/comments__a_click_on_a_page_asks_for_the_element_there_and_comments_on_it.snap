@@ -1,0 +1,11 @@
+---
+source: crates/specular-interact/tests/comments.rs
+expression: app.doc_snapshot()
+---
+nodes:
+  {"id":"p1","type":"link","x":100,"y":100,"width":400,"height":300,"url":"https://example.com/p1"}
+  {"id":"p2","type":"link","x":700,"y":100,"width":400,"height":300,"url":"https://example.com/p2"}
+edges:
+specular: {"entityOrder":["p1","p2"]}
+annotations:
+  {"id":"e220a8397b1dcdaf","anchor":{"type":"element","pageId":"p1","selector":"div.cell[data-col=\"0\"][data-row=\"2\"]","elementPath":"body > div.cell","boundingBox":{"x":0,"y":96,"width":160,"height":48}},"author":"user","text":"too small","status":"pending","replies":[],"createdAt":"1970-01-02T00:00:00.000Z","pageAnchor":{"pageId":"p1","pageUrl":"https://example.com/p1"}}

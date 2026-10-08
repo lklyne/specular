@@ -52,6 +52,12 @@ fn offset_at(app: &App, world: DVec2) -> Option<usize> {
     Some(frame.offset_at(&layout, world))
 }
 
+/// Whether `screen` is on text being edited that sits in no entity's body:
+/// an edge's label or a comment's composer.
+fn is_over_floating_text(app: &App, screen: glam::Vec2) -> bool {
+    super::edge_label::is_over(app, screen) || crate::comment::is_over_composer(app, screen)
+}
+
 /// Offers a left press to the text being edited. Returns the drag it starts
 /// when the press is on that entity's body, and `None` when it is anywhere
 /// else, which ends the edit.
@@ -61,7 +67,7 @@ pub(crate) fn press(
     click_count: u8,
 ) -> Option<TextSelectDrag> {
     let editing = app.session.editing.as_ref()?.entity.clone();
-    if !super::edge_label::is_over(app, input.screen) {
+    if !is_over_floating_text(app, input.screen) {
         match hit::hit_test(app, input.screen) {
             Hit::EntityBody { entity } | Hit::GroupLabel { group: entity } if entity == editing => {
             }
@@ -69,6 +75,7 @@ pub(crate) fn press(
             | Hit::GroupLabel { .. }
             | Hit::Handle { .. }
             | Hit::Anchor { .. }
+            | Hit::Comment { .. }
             | Hit::PageContent { .. }
             | Hit::GroupBorder { .. }
             | Hit::Edge { .. }
@@ -186,13 +193,14 @@ pub(crate) fn is_over_text(app: &App) -> bool {
     let (Some(edit), Some(pointer)) = (&app.session.editing, app.session.pointer) else {
         return false;
     };
-    if super::edge_label::is_over(app, pointer) {
+    if is_over_floating_text(app, pointer) {
         return true;
     }
     match hit::hit_test(app, pointer) {
         Hit::EntityBody { entity } | Hit::GroupLabel { group: entity } => entity == edit.entity,
         Hit::Handle { .. }
         | Hit::Anchor { .. }
+        | Hit::Comment { .. }
         | Hit::PageContent { .. }
         | Hit::GroupBorder { .. }
         | Hit::Edge { .. }

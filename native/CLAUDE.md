@@ -87,6 +87,11 @@ fn shift_drag_moves_the_page_along_one_axis() {
   `(caret, anchor)` in bytes. Text is measured by `FixedAdvance`: 10 units a
   character and 20 a line, so `App::caret_rect()` is in round numbers.
   `measure_with(Arc::new(..))` swaps the measure, for a test on real fonts.
+- Comments: `with_comment(document, comment(id, anchor, "text"))` starts
+  with one in the document. A click or a drag with `tool(Tool::Comment)`
+  opens a draft, read back with `comment_draft()`; `type_text` and
+  `key(Key::Enter)` commit it. `answer_element(..)` and `answer_grab(&[..])`
+  answer the latest `QueryElement` and `QueryRegionGrab` as the shell would.
 - Read back with `document()`, `session()`, `selection()`, `selected()`,
   `selected_ids()`, `rect("p1")` and `entity("p1")`. `take_effects()` drains the effects
   returned since the last drain; call it before the step whose effects the
@@ -121,9 +126,9 @@ cargo run -p specular-app -- --script steps.txt FILE.canvas
   `double-click x y`, `triple-click x y`, `move`, `press`, `drag-to`,
   `release`, `drag x1 y1 x2 y2`, `hold shift+cmd` (`hold none`),
   `key cmd+z`, `type some text`, `compose にほ`, `commit 日本`,
-  `wheel dx dy`, `pinch 0.2`, `tool shape`, `select id ..`, `camera ..`,
-  `wait ms`, `snapshot out.png`, `save out.canvas`. Positions are screen
-  pixels. A snapshot between `press` and `release` shows a gesture in
+  `wheel dx dy`, `pinch 0.2`, `tool shape`, `select id ..`,
+  `act annotate-selection`, `act resolve-comment`, `camera ..`, `wait ms`,
+  `snapshot out.png`, `save out.canvas`. Positions are screen pixels. A snapshot between `press` and `release` shows a gesture in
   flight.
 - The clipboard and the Documents a run makes are kept in memory:
   `clipboard some\ntext` is another app copying, `key cmd+v` pastes it,

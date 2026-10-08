@@ -1,5 +1,7 @@
 //! The page backend contract.
 
+use glam::Vec2;
+
 use crate::frame::FrameEvent;
 use crate::geometry::{CssSize, PixelRect};
 use crate::input::InputEvent;
@@ -71,6 +73,17 @@ pub enum PageEvent {
     },
 }
 
+/// A DOM element a page found under a point: what a comment on it records.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PageElement {
+    /// A CSS selector that finds the element in its document.
+    pub selector: String,
+    /// A readable path to the element, when the backend builds one.
+    pub element_path: Option<String>,
+    /// The element's box in the page's viewport, in CSS pixels.
+    pub bounding_box: PixelRect,
+}
+
 /// A backend that hosts offscreen pages and delivers their painted frames.
 ///
 /// Object-safe on purpose: the app holds a `Box<dyn PageSource>` and picks the
@@ -116,6 +129,14 @@ pub trait PageSource {
     /// Moves every pending event into `out` (appending; `out` is not cleared),
     /// so the caller can reuse one buffer across frames.
     fn drain_events(&mut self, out: &mut Vec<PageEvent>);
+
+    /// The element under `point`, in the page's viewport CSS pixels. `None`
+    /// when nothing is there, the page is unknown, or the backend cannot
+    /// answer at once, which is what the default says.
+    fn element_at(&self, page: PageId, point: Vec2) -> Option<PageElement> {
+        let _ = (page, point);
+        None
+    }
 
     /// Port of the backend's remote-debugging (CDP) endpoint, if enabled.
     fn devtools_port(&self) -> Option<u16>;

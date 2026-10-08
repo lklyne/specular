@@ -1,0 +1,11 @@
+---
+source: crates/specular-interact/tests/comment_state.rs
+expression: app.doc_snapshot()
+---
+nodes:
+  {"id":"p1","type":"link","x":100,"y":100,"width":400,"height":300,"url":"https://example.com/p1"}
+  {"id":"p2","type":"link","x":700,"y":100,"width":400,"height":300,"url":"https://example.com/p2"}
+edges:
+specular: {"entityOrder":["p1","p2"]}
+annotations:
+  {"id":"a","anchor":{"type":"page","pageId":"p1","offsetX":0.5,"offsetY":0.5},"author":"user","text":"fix the header","status":"resolved","replies":[],"createdAt":"2026-01-01T00:00:00.000Z","metadata":{"resolvedBy":"user"}}

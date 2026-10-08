@@ -302,7 +302,7 @@ fn the_comment_tool_previews_its_region() {
 }
 
 #[test]
-fn open_comments_show_as_regions_badges_and_dots() {
+fn open_comments_show_as_regions_and_pills() {
     let mut document = document([page("p1", Rect::new(100.0, 100.0, 400.0, 300.0))]);
     let page_id = || EntityId::from("p1");
     let region = AnnotationAnchor::Region(RegionAnchor::Canvas {

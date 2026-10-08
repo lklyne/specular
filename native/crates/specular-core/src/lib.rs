@@ -36,5 +36,5 @@ pub use input::{
     PointerEventKind, WheelEvent,
 };
 pub use page::{PageId, PageSpec, validate_texture_scale, validate_viewport};
-pub use source::{PageEvent, PageSource, PageSourceError};
-pub use synthetic::SyntheticPageSource;
+pub use source::{PageElement, PageEvent, PageSource, PageSourceError};
+pub use synthetic::{SyntheticPageSource, synthetic_element_at};

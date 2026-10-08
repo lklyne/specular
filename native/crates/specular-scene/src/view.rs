@@ -2,9 +2,10 @@
 //! draws.
 //!
 //! Entities and edges are drawn in the document's stack order, one module per
-//! kind. The session layer goes over them: comment regions and badges, the
-//! hover border, selection outlines, resize handles, the marquee and the
-//! comment tool's preview. An entity whose text is being edited draws the
+//! kind. The session layer goes over them: comment regions, badges and the
+//! marker of the comment being written, the hover border, selection
+//! outlines, resize handles, the marquee and the comment tool's preview,
+//! and last the composer that comment is typed in. An entity whose text is being edited draws the
 //! working text with its selection and caret. Nothing here touches a GPU,
 //! and the only text measured is the one being edited, through the app's
 //! own measure, so a scene can be built and compared in a test.
@@ -13,6 +14,7 @@
 //! is projected with the camera and emitted in screen space.
 
 mod annotations;
+mod comment_draft;
 mod document;
 mod drawing;
 mod edge;
@@ -81,6 +83,7 @@ fn build(frame: &Frame<'_>) -> Scene {
     if frame.chrome {
         annotations::draw(frame, &mut scene);
         session::draw(frame, &mut scene);
+        comment_draft::composer(frame, &mut scene);
     }
     scene
 }

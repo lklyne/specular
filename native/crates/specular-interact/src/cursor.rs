@@ -25,7 +25,7 @@ fn wanted(app: &App) -> Cursor {
         Some(
             Gesture::Move(_)
             | Gesture::Marquee { .. }
-            | Gesture::CommentRegion { .. }
+            | Gesture::Comment(_)
             | Gesture::Place(_)
             | Gesture::Draw(_),
         ) => {
@@ -40,7 +40,8 @@ fn wanted(app: &App) -> Cursor {
         (Tool::Select, Some(pointer)) => match hit::hit_test(app, pointer) {
             Hit::Handle { handle, .. } => of_handle(handle),
             Hit::Anchor { .. } => Cursor::Crosshair,
-            Hit::GroupLabel { .. }
+            Hit::Comment { .. }
+            | Hit::GroupLabel { .. }
             | Hit::PageContent { .. }
             | Hit::EntityBody { .. }
             | Hit::GroupBorder { .. }

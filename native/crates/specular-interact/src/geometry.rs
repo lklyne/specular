@@ -52,14 +52,21 @@ pub(crate) fn union(a: Rect, b: Rect) -> Rect {
     rect(low, high - low)
 }
 
+/// The part of `a` that `b` covers, or `None` when they share no area.
+pub(crate) fn intersection(a: Rect, b: Rect) -> Option<Rect> {
+    let low = origin(a).max(origin(b));
+    let high = (origin(a) + size(a)).min(origin(b) + size(b));
+    (high.x > low.x && high.y > low.y).then(|| rect(low, high - low))
+}
+
 /// An axis-aligned rect in logical screen pixels, the space hit-testing
 /// works in: handles, anchors and labels keep their size at any zoom.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub(crate) struct ScreenRect {
+pub struct ScreenRect {
     /// The top-left corner.
-    pub(crate) min: Vec2,
+    pub min: Vec2,
     /// Width and height.
-    pub(crate) size: Vec2,
+    pub size: Vec2,
 }
 
 impl ScreenRect {
@@ -86,16 +93,18 @@ impl ScreenRect {
         }
     }
 
-    pub(crate) fn max(self) -> Vec2 {
+    /// The bottom-right corner.
+    pub fn max(self) -> Vec2 {
         self.min + self.size
     }
 
-    pub(crate) fn centre(self) -> Vec2 {
+    /// The middle.
+    pub fn centre(self) -> Vec2 {
         self.min + self.size / 2.0
     }
 
     /// Whether `point` is inside, all four edges included.
-    pub(crate) fn contains(self, point: Vec2) -> bool {
+    pub fn contains(self, point: Vec2) -> bool {
         point.cmpge(self.min).all() && point.cmple(self.max()).all()
     }
 
