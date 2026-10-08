@@ -29,7 +29,7 @@ fn thread() -> Thread {
         annotation_ids: vec!["c1".into()],
         messages: vec![
             message(Role::User, "Make it blue", Some("c1")),
-            message(Role::Agent, "Done.", None),
+            message(Role::Agent, "Done.", Some("c1")),
             message(Role::User, "And bigger", None),
         ],
     }

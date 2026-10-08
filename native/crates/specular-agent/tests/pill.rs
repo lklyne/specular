@@ -85,6 +85,7 @@ fn pill_labels_fall_back_in_order() {
         (dom(" ", " "), "element".to_owned()),
         (note("hi", Some(" nav "), "page"), "nav".to_owned()),
         (note("  two\n words ", None, "page"), "two words".to_owned()),
+        (note("words", Some("  "), "page"), "words".to_owned()),
         (
             note(&long, None, "page"),
             format!("{}…", &long.trim()[..47]),

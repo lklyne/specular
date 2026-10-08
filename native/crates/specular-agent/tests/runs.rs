@@ -4,7 +4,8 @@ mod common;
 
 use common::{TAB, comment, ctx, id, send};
 use specular_agent::{
-    Notice, Outcome, Progress, ProgressKind, RunState, Status, ThreadId, Threads,
+    Index, Message, Notice, Outcome, Progress, ProgressKind, Role, RunState, Status, ThreadId,
+    Threads,
 };
 
 const NOW: &str = "2026-01-01T00:00:09Z";
@@ -67,6 +68,24 @@ fn a_thread_with_no_user_words_does_not_run() {
     assert!(threads.begin_run(&id("t1"), NOW, &ctx()).is_none());
     assert!(threads.begin_run(&id("nope"), NOW, &ctx()).is_none());
     assert!(!threads.is_running(&id("t1")));
+
+    // A thread read from disk can hold only a blank user message and an answer.
+    let message = |n: &str, role, text: &str| Message {
+        id: n.into(),
+        role,
+        text: text.into(),
+        created_at: NOW.into(),
+        queued: true,
+        annotation_id: None,
+        images: Vec::new(),
+    };
+    let mut blank = threads.get(&id("t1")).unwrap().clone();
+    blank.messages = vec![
+        message("m1", Role::User, "  "),
+        message("m2", Role::Agent, "Earlier answer"),
+    ];
+    threads.load(vec![blank], &Index::default());
+    assert!(threads.begin_run(&id("t1"), NOW, &ctx()).is_none());
 }
 
 #[test]
@@ -175,6 +194,7 @@ fn a_failed_resume_retries_fresh_with_the_full_prompt() {
     let thread = answered(&mut threads);
     send(&mut threads, "and bigger", "tx", "m3");
     threads.begin_run(&thread, NOW, &ctx()).unwrap();
+    threads.on_notice(&thread, Notice::Session("stale".into()), "a2", NOW);
 
     let outcome = threads.on_notice(
         &thread,
@@ -198,6 +218,11 @@ fn a_failed_resume_retries_fresh_with_the_full_prompt() {
         run.events.last().map(|e| e.text.as_str()),
         Some("Could not resume prior session — starting fresh.")
     );
+
+    // The retry reports no session of its own; it does not inherit the failed run's.
+    let mut done = threads.clone();
+    finish(&mut done, &thread, None, "ok", "a3");
+    assert_eq!(done.get(&thread).unwrap().claude_session_id, None);
 
     let outcome = threads.on_notice(
         &thread,
@@ -232,6 +257,19 @@ fn a_failed_first_run_keeps_the_queue_and_shows_the_error() {
     assert!(!threads.is_running(&thread));
     assert_eq!(threads.queued(&thread).len(), 1);
     assert_eq!(threads.get(&thread).unwrap().status, Status::Draft);
+    assert_eq!(
+        threads.on_notice(
+            &thread,
+            Notice::Finished {
+                text: "late".into()
+            },
+            "a2",
+            NOW
+        ),
+        Outcome::Ignored,
+        "a failed run takes no more notices"
+    );
+    assert_eq!(threads.get(&thread).unwrap().messages.len(), 2);
 
     let again = threads.begin_run(&thread, NOW, &ctx()).unwrap();
     assert!(again.request.prompt.contains("[User] later"));
@@ -283,12 +321,30 @@ fn the_run_collects_progress_text_and_a_capped_log() {
         "a",
         NOW,
     );
+    threads.on_notice(
+        &thread,
+        Notice::Progress(line("two".into(), Some("Editing b.ts"))),
+        "a",
+        NOW,
+    );
+    threads.on_notice(
+        &thread,
+        Notice::Progress(line("result".into(), None)),
+        "a",
+        NOW,
+    );
     let run = threads.run(&thread).unwrap();
     assert_eq!(run.text, "Hello");
     assert_eq!(
         run.current_label(),
-        "Reading a.ts",
-        "a result carries no label, so the step in flight stays"
+        "Editing b.ts",
+        "a result carries no label, so the newest step in flight stays"
+    );
+    threads.on_notice(&thread, Notice::Text("Hello there".into()), "a", NOW);
+    assert_eq!(
+        threads.run(&thread).unwrap().text,
+        "Hello there",
+        "a whole-text notice replaces what streamed so far"
     );
 
     for n in 0..250 {

@@ -162,6 +162,12 @@ fn the_index_round_trips_and_garbage_is_empty() {
         (electron.active, electron.by_canvas.len()),
         (Some(ThreadId("t3".into())), 0)
     );
+    let partial = parse_index(r#"{"activeByCanvas":{"tab_a":5,"tab_b":"t2"}}"#);
+    assert_eq!(
+        partial.by_canvas.into_iter().collect::<Vec<_>>(),
+        [("tab_b".to_owned(), ThreadId("t2".into()))],
+        "an entry that is not an id is skipped, the rest stay"
+    );
     for garbage in [
         "",
         "nope",
@@ -182,7 +188,12 @@ fn a_title_is_the_first_user_text_cut_to_48_characters() {
         }],
         ..user("m", "  ")
     };
-    let cases: [(Vec<Message>, String); 5] = [
+    let cases: [(Vec<Message>, String); 7] = [
+        (vec![user("m", &"x".repeat(48))], "x".repeat(48)),
+        (
+            vec![user("m", &"x".repeat(49))],
+            format!("{}…", "x".repeat(47)),
+        ),
         (vec![], "New thread".into()),
         (vec![user("m", "  a   b\n c ")], "a b c".into()),
         (vec![user("m", &long)], format!("{}…", "é".repeat(47))),

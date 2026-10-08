@@ -49,6 +49,10 @@ fn repos_json_round_trips_byte_for_byte_and_drops_junk() {
     assert_eq!(repos.all()[0].label, "site");
     assert_eq!(repos.all()[0].bound_origins.len(), 1);
     assert_eq!(repos.all()[0].bound_origins[0].origin, "http://localhost");
+    assert!(
+        !repos.all()[0].bound_origins[0].auto_fix,
+        "auto-fix is off unless the file says so"
+    );
     assert_eq!(Repos::from_json("not json"), Repos::default());
 }
 
@@ -68,8 +72,31 @@ fn an_origin_is_bound_to_one_repo_and_rebinding_moves_it_with_auto_off() {
         .binding("http://localhost:3000")
         .map(|b| (b.repo_path, b.auto_fix));
     assert_eq!(binding, Some(("/scratch/other", false)));
+
+    repos.bind("http://localhost:3000", "/scratch/other");
+    assert_eq!(
+        repos.all().len(),
+        2,
+        "binding to a connected folder adds no repo"
+    );
+    let id = repos.connect("/scratch/site");
+    assert_eq!(
+        id, "30613715f17b86a6",
+        "the first 16 hex digits of the path's SHA-256"
+    );
+    repos.bind("http://localhost:4000", "/scratch/other");
+    assert!(repos.set_auto_fix("http://localhost:3000", true));
+    assert_eq!(
+        repos.binding("http://localhost:4000").map(|b| b.auto_fix),
+        Some(false),
+        "auto-fix is per origin"
+    );
     assert!(repos.unbind("http://localhost:3000"));
     assert!(repos.binding("http://localhost:3000").is_none());
+    assert!(
+        repos.binding("http://localhost:4000").is_some(),
+        "unbinding one origin keeps the others"
+    );
 }
 
 #[test]
@@ -82,6 +109,12 @@ fn origin_of_keeps_scheme_host_and_a_port_that_is_not_the_default() {
             "https://user@example.com:8443/",
             Some("https://example.com:8443"),
         ),
+        ("http://example.com#top", Some("http://example.com")),
+        ("ws://example.com:80/s", Some("ws://example.com")),
+        ("wss://example.com:443/s", Some("wss://example.com")),
+        ("http://example.com:/x", Some("http://example.com")),
+        ("  http://example.com/x  ", Some("http://example.com")),
+        ("http:///path", None),
         ("data:text/html,hi", None),
         ("file:///a/b.html", None),
         ("about:blank", None),

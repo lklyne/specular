@@ -72,6 +72,10 @@ fn a_pin_maps_to_one_thread() {
     assert_eq!(threads.active(TAB).unwrap().id, first);
     assert_eq!(threads.get(&first).unwrap().annotation_ids, ["pin1"]);
     assert_eq!(threads.all().len(), 2);
+
+    threads.close(&first, NOW);
+    let (after_close, _) = threads.queue_comment(TAB, id("t4"), "m4", "pin1", "once more", NOW);
+    assert_ne!(after_close, first, "a closed thread keeps no pins");
 }
 
 #[test]
@@ -82,12 +86,28 @@ fn the_composer_text_queues_on_the_active_thread_or_starts_one() {
             .queue_message(TAB, id("t1"), "m1", "  ", Vec::new(), NOW)
             .is_none()
     );
-    let first = send(&mut threads, " hello ", "t1", "m1");
+    let (first, started) = threads
+        .queue_message(TAB, id("t1"), "m1", " hello ", Vec::new(), NOW)
+        .unwrap();
     assert_eq!(first, id("t1"));
     assert_eq!(
-        send(&mut threads, "more", "t2", "m2"),
-        first,
-        "the active thread takes it"
+        started,
+        Changed {
+            threads: vec![id("t1")],
+            index: true
+        }
+    );
+    assert_eq!(threads.get(&first).unwrap().messages[0].text, "hello");
+    let (second, joined) = threads
+        .queue_message(TAB, id("t2"), "m2", "more", Vec::new(), NOW)
+        .unwrap();
+    assert_eq!(second, first, "the active thread takes it");
+    assert_eq!(
+        joined,
+        Changed {
+            threads: vec![id("t1")],
+            index: false
+        }
     );
     assert_eq!(threads.queued(&first).len(), 2);
 
@@ -133,6 +153,11 @@ fn new_select_and_deselect_keep_one_active_thread_per_canvas() {
     assert!(threads.active(TAB).is_none());
     assert!(!threads.deselect(TAB).index);
     assert!(threads.select(TAB, &id("t1")).index);
+    assert_eq!(
+        threads.select(TAB, &id("t1")),
+        Changed::default(),
+        "the thread already open needs no write"
+    );
     assert_eq!(threads.active(TAB).unwrap().id, id("t1"));
     assert_eq!(threads.active("tab_b").unwrap().id, id("t2"));
 }
@@ -142,30 +167,44 @@ fn closing_archives_a_thread_out_of_the_list_but_not_the_store() {
     let mut threads = Threads::default();
     threads.new_thread(TAB, id("t1"), "2026-01-01T00:00:01Z");
     threads.new_thread(TAB, id("t2"), "2026-01-01T00:00:02Z");
+    threads.new_thread(TAB, id("t3"), "2026-01-01T00:00:02Z");
+    threads.new_thread("tab_b", id("t4"), "2026-01-01T00:00:03Z");
     let names = |t: &Threads| {
         t.for_canvas(TAB)
             .iter()
             .map(|t| t.id.0.clone())
             .collect::<Vec<_>>()
     };
-    assert_eq!(names(&threads), ["t2", "t1"], "newest first");
+    assert_eq!(
+        names(&threads),
+        ["t3", "t2", "t1"],
+        "newest first, the later made first on a tie, this canvas only"
+    );
 
-    let changed = threads.close(&id("t2"), NOW);
+    assert_eq!(
+        threads.close(&id("t2"), NOW),
+        Changed {
+            threads: vec![id("t2")],
+            index: false
+        },
+        "a thread nobody has open leaves the index alone"
+    );
+    let changed = threads.close(&id("t3"), NOW);
     assert_eq!(
         changed,
         Changed {
-            threads: vec![id("t2")],
+            threads: vec![id("t3")],
             index: true
         }
     );
     assert_eq!(names(&threads), ["t1"]);
-    assert_eq!(threads.get(&id("t2")).unwrap().status, Status::Closed);
+    assert_eq!(threads.get(&id("t3")).unwrap().status, Status::Closed);
     assert!(threads.active(TAB).is_none());
     assert!(
-        threads.select(TAB, &id("t2")) == Changed::default(),
+        threads.select(TAB, &id("t3")) == Changed::default(),
         "a closed thread cannot be opened"
     );
-    assert_eq!(threads.all().len(), 2);
+    assert_eq!(threads.all().len(), 4);
 }
 
 #[test]
@@ -183,6 +222,7 @@ fn load_drops_an_active_id_that_names_nothing_or_a_closed_thread() {
     let mut source = Threads::default();
     source.new_thread(TAB, id("t1"), NOW);
     source.new_thread("tab_b", id("t2"), NOW);
+    source.new_thread("tab_b", id("t5"), NOW);
     source.new_thread("tab_c", id("t3"), NOW);
     source.close(&id("t3"), NOW);
     let files = source.all().to_vec();
@@ -191,12 +231,27 @@ fn load_drops_an_active_id_that_names_nothing_or_a_closed_thread() {
     index.by_canvas.insert(TAB.into(), id("t1"));
     index.by_canvas.insert("tab_b".into(), id("ghost"));
     index.by_canvas.insert("tab_c".into(), id("t3"));
+    index.by_canvas.insert("tab_d".into(), id("t1"));
     let mut threads = Threads::default();
     threads.load(files.clone(), &index);
     assert_eq!(threads.active(TAB).unwrap().id, id("t1"));
     assert!(threads.active("tab_b").is_none());
     assert!(threads.active("tab_c").is_none());
-    assert_eq!(threads.all().len(), 3);
+    assert!(threads.active("tab_d").is_none(), "another canvas's thread");
+    assert!(
+        !threads.index_json(None).contains("ghost"),
+        "a dropped id is not written back"
+    );
+    assert_eq!(threads.all().len(), 4);
+
+    let mut live = source.clone();
+    live.queue_message(TAB, id("t9"), "m1", "go", Vec::new(), NOW);
+    live.begin_run(&id("t1"), NOW, &ctx()).unwrap();
+    live.load(files.clone(), &index);
+    assert!(
+        live.run(&id("t1")).is_none(),
+        "a reload drops runs in flight"
+    );
 
     // Electron's single id still finds its canvas.
     let electron = Index {
@@ -206,6 +261,17 @@ fn load_drops_an_active_id_that_names_nothing_or_a_closed_thread() {
     threads.load(files, &electron);
     assert_eq!(threads.active("tab_b").unwrap().id, id("t2"));
     assert!(threads.active(TAB).is_none());
+    let both = Index {
+        active: Some(id("t2")),
+        by_canvas: [("tab_b".to_owned(), id("t5"))].into(),
+    };
+    threads.load(source.all().to_vec(), &both);
+    assert_eq!(
+        threads.active("tab_b").unwrap().id,
+        id("t5"),
+        "the canvas's own entry beats Electron's id"
+    );
+    threads.load(source.all().to_vec(), &electron);
     assert!(
         threads
             .index_json(Some("tab_b"))
