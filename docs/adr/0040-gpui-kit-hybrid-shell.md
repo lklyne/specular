@@ -1,6 +1,6 @@
 # ADR 0040 — GPUI Kit as the shell around our own canvas view
 
-**Status:** Proposed. A spike, measured on one machine with scripted input. Nothing in `native/crates` changed. The "Needs a human at a Mac" list is the gate to Accepted.
+**Status:** Accepted for the shell, on the user's choice of GPUI Kit for the UI around the canvas. Built as `native/crates/specular-shell` (binary `specular`) beside the winit shell, which stays until parity. Measured on one machine with scripted input. The "Needs a human at a Mac" list is what is still unchecked.
 **Date:** 2026-10-07
 **Related:** [ADR 0039](./0039-rust-canvas-render-stack.md), which turned GPUI down as the renderer of pages and canvas items. This ADR tests a different arrangement and does not reverse that finding. [Rust native rebuild plan](../plans/rust-native-rebuild.md).
 **Code:** `native/bakeoff/gpui-kit-hybrid/`, a standalone cargo workspace outside `native/Cargo.toml`. Reports and captures are in its `shots/`. `scripts/run-all.sh` reproduces all of it.
@@ -199,10 +199,16 @@ Adopt this only if the Kit's components are worth more than building panels in o
 
 ## Needs a human at a Mac
 
-- Resize the window by dragging its edge, both layerings. GPUI presents with the transaction during a live resize and our layer does not.
-- A real trackpad: scroll with momentum, pinch, and a two-finger pan over the canvas while a Kit menu is open.
-- A real input method (Japanese or Pinyin) typing into a CEF field and into a canvas text item, and the candidate window's position.
-- Cmd+Z, Cmd+C and Tab with a page entered: who should get them, and whether the monitor's choice feels right.
+The real shell was driven by scripted `NSEvent`s posted to the app's own queue. That covers clicks, keys into the canvas and into a CEF field, the Kit's popovers and dialog over the canvas, and frame pacing. It does not cover anything a hand or a second display does.
+
+- Resize the window by dragging its edge. GPUI presents with the transaction during a live resize and our layer does not. The canvas view no longer moves, so the risk is a stretched frame, not a gap.
+- A real trackpad: scroll with momentum, pinch, and a two-finger pan over the canvas while a Kit popover is open. Scroll and pinch reach the slot through GPUI's handlers and were never sent by script.
+- A real input method (Japanese or Pinyin) typing into a CEF field and into a canvas text item, and the candidate window's position. Plain keys go to the canvas as keys and composition through GPUI's input handler. Which of the two the first key of a composition takes was not seen.
+- Cmd+Z, Cmd+C and Tab with a page entered. They go to `update` as keys and the binding table decides. Check that it feels right, and that a menu shortcut does not also fire.
+- The menu bar: every item's shortcut shows, a chosen item runs once, and what a disabled item looks like. AppKit asks GPUI whether the action is available, and all model items share one action type, so they are probably never greyed.
+- Backspace in a page field. One scripted run removed two characters.
+- Dropping files from Finder onto the canvas, and where they land.
 - VoiceOver. GPUI has accesskit, and our canvas view exposes nothing.
 - Full screen, a second display at 60 Hz, and moving the window between displays of different scale.
 - 40 CEF pages with the Kit's panels open.
+- The traffic lights sit in the toolbar's left padding and the strip is 44 px tall. Check that the window drags by the toolbar and that double-click zooms.

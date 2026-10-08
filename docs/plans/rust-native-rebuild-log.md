@@ -237,6 +237,13 @@ with the task that made it.
 - P1/P2: a popup clamps under the toolbar and to the viewport edges and never flips below its item, as Electron's `popupStyle` does. Wheel and pinch over a popup move the canvas; the toolbar and an open list swallow them. A press outside an open list closes it and goes no further. Escape closes an open list before anything else.
 - P1/P2: toolbar buttons run `SetTool`, and Draw and Comment switch back to Select on a second click, as in Electron. The Tools menu keeps running the key binding's action.
 - P1/P2: text size in the popup is the named sizes and a stepper. Electron's typed field needs a text input the panels do not have.
+- GPUI-SHELL: the effect runners are `specular_app::Runtime<W: ShellWindow>`, and `specular-app` is a library with a thin `main`. The files stayed where they were (`app/*_run.rs`) so the other agents' edits still apply. A new crate would have moved twenty files under them.
+- GPUI-SHELL: the canvas view fills the window and never moves. The slot GPUI leaves unpainted is the app's viewport, and the surface draws with the camera and the screen-space items shifted by the slot's corner. The compositor is unchanged.
+- GPUI-SHELL: the slot runs up under the Kit toolbar, because the app's layout already assumes a 44 px toolbar over the top of its viewport. Only the sidebar's width offsets it.
+- GPUI-SHELL: `Event::BuiltinCanvasPopups` turns on the built-in popups beside a canvas item and nothing else. The Kit draws the toolbar and `PopupAnchor::Toolbar` popups. `PopupAnchor` is the dividing line, as ADR 0040 said.
+- GPUI-SHELL: a model menu item's key is bound in GPUI under a context no element has. macOS shows it in the menu, and over the canvas the key goes to `update` as `Event::Key`, so the binding table decides, as in the winit shell. The shell's own keys (Cmd+Q, W, O, S, comma) are real GPUI bindings.
+- GPUI-SHELL: the `NSEvent` monitor only notes each key event. GPUI still routes the key, and the slot's key handler turns the note into a `KeyInput` through `translate.rs`'s tables by way of winit's `PhysicalKey::from_scancode`. Composition comes through GPUI's input handler as `Event::Ime`.
+- GPUI-SHELL: sidebar rows and swatches are plain GPUI elements in the Electron metrics. The Kit's `SidebarMenuItem` takes a string label, so it cannot hold the rename field, and the Kit has a colour picker but no swatch row. A `Stepper` is two Kit buttons around the value: the model has no action for a typed number.
 
 ## Needs a human at a Mac
 
@@ -633,3 +640,18 @@ Known gaps against Electron, not checks: the hand and mono fonts fall back to sy
 - Pitfalls met: a covered window gets no drawables (the spike floats its window); objc2's debug checks reject a wrong struct encoding at the first send; events posted with `CGEventPostToPid` arrive with no window.
 - Not in the gate: the spike is not a workspace member, has no tests and does not follow the workspace lints. It builds with no warnings and `cargo fmt` is clean.
 - Needs a human at a Mac: the list at the end of the ADR (live window resize, real trackpad and input method, shortcuts with a page entered, VoiceOver, 40 pages).
+
+### GPUI-SHELL: the GPUI Kit shell as a real crate. See `git log -- native/crates/specular-shell`
+
+- `native/crates/specular-shell`, binary `specular`: one GPUI window, Kit toolbar, sidebar, tool popups, menus and a settings dialog stub from the pure models, and the unchanged compositor drawing the canvas into a view under GPUI's. `specular-app` (winit) still builds and runs, and stays until this one reaches parity.
+- Shared, not copied: `specular_app::{Runtime, ShellWindow, launch, Launch, native_key_input, offscreen}`. `Runtime` has every effect runner, the API server, page hosts and the per-turn work. `launch` parses the command line and runs `--snapshot` and `--script`, so both binaries write the same PNG (compared byte for byte).
+- Layout of the crate: `shell.rs` (open, tasks, exit), `canvas.rs` (the runtime beside GPUI, the model cache, the wake), `surface.rs` (`ShellWindow`), `native.rs` and `keys.rs` (AppKit), `view/` (slot, IME, toolbar, sidebar, popup), `view/controls.rs` (the one adapter from `Control` to Kit components), `menus.rs`, `theme.rs` (Electron light tokens), `pins.rs`.
+- Pins: `gpui-kit = "=0.7.1"`, `gpui-pre = "=0.3.8"` in `native/Cargo.toml`. `NativeCanvas::install` checks the three unpromised macOS facts on the live window and the launch fails with the one that broke. A test fails if the lockfile has other versions.
+- `specular-scene` exports `icon_svg` and `panel_color`, so the Kit draws the built-in renderer's own glyphs and swatch colours.
+- Run and looked at, debug builds: kitchen-sink (synthetic) and pages and input (CEF, bundled with `bundle-macos.sh debug specular`). Canvas pacing, 4 s windows at 120 Hz: synthetic 120.0 fps, p99 9.5 ms, 0 late. CEF 119.6 to 120.0 fps, p99 9.0 ms, 1 late a window. Typed `hi11` into a CEF field with digit 1 and numpad 1. Typed into a sticky, Enter included. Tool popup, zoom list, item popup with handles, rename in place and the settings dialog all captured and read.
+- For an agent with no hands: `SPECULAR_SHELL_SCRIPT="wait 2000; click 587 22; shot /tmp/a.png; quit"` posts real `NSEvent`s and captures the window. `SPECULAR_FLOAT_WINDOW=1` keeps it uncovered, `SPECULAR_FRAME_LOG=4` logs pacing. A covered window logs `window occluded` and draws nothing, which looks like blank pages in a capture.
+- Not done: greyed menu items (one action type means AppKit validates them all as available; a disabled item does nothing when chosen), the context menu, collapsing sidebar groups, drag and drop inside the sidebar, the right panel, Linux and Windows. Rename canvas… in the File menu renames in the sidebar.
+- Seen and not chased: Backspace in a CEF field removed two characters in one scripted run. The key text is winit's own (`\x08`), so check the winit shell before blaming this one. Opening `fixtures/x.canvas` makes `fixtures/.specular/`, as the winit shell does. Copy the fixture out first.
+- `--bench` is refused here and stays in `specular-app`. The winit dependency also stays in the library until the key tables stop using `winit::keyboard::KeyCode`.
+- Gate: fmt, clippy for the workspace and for `specular-shell --features cef`, `cargo test --workspace` (1727), `fixtures/scenarios/run.sh`.
+- Needs a human at a Mac: the list at the end of ADR 0040, which now says what was checked by script.

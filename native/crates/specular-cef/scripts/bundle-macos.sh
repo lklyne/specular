@@ -15,7 +15,8 @@
 # cef::build_util::mac::bundle, which this script exists to avoid needing a
 # separate bundler crate and a debug-only `cargo build`.
 #
-# Usage: bundle-macos.sh [profile]   (default: release)
+# Usage: bundle-macos.sh [profile] [binary]   (default: release specular-app)
+# `binary` is `specular` for the GPUI Kit shell (`-p specular-shell`).
 # Needs CEF_PATH pointing at the CEF distribution the build used (set it for
 # the build too, so the download is reused).
 set -euo pipefail
@@ -23,11 +24,11 @@ set -euo pipefail
 profile="${1:-release}"
 native_dir="$(cd "$(dirname "$0")/../../.." && pwd)"
 target_dir="${CARGO_TARGET_DIR:-$native_dir/target}/$profile"
-name="specular-app"
+name="${2:-specular-app}"
 bin="$target_dir/$name"
 app="$target_dir/$name.app"
 
-[[ -x "$bin" ]] || { echo "missing $bin; build with: cargo build -p specular-app --$profile --features cef" >&2; exit 1; }
+[[ -x "$bin" ]] || { echo "missing $bin; build it first with --features cef" >&2; exit 1; }
 : "${CEF_PATH:?set CEF_PATH to the CEF binary distribution directory}"
 
 framework=""

@@ -29,6 +29,11 @@ Event -> update(&mut App, Event) -> Vec<Effect>     pure, no I/O
   work comes back as effects.
 - Only the shell and the CEF crate do I/O. Everything else is testable with
   no window, GPU or CEF.
+- There are two shells over one `specular_app::Runtime`, which runs every
+  effect. `specular-app` is the winit one. `specular-shell` (binary
+  `specular`) is the GPUI Kit one (ADR 0040): the Kit draws the toolbar and
+  sidebar from the models, and the compositor draws the canvas under it. A
+  new effect gets its runner in `specular-app/src/app/`, once, for both.
 
 The Electron app under `../src` is the behavior spec, not the structure
 spec. Read the TypeScript to learn what a feature does and to port pure
