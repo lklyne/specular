@@ -10,6 +10,7 @@
 //! [`run_window`] is the winit shell, the `specular-app` binary. The GPUI
 //! Kit shell is the `specular-shell` crate (ADR 0040).
 
+pub mod agent;
 mod api;
 mod app;
 mod bench_run;
