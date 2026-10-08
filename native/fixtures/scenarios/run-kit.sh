@@ -7,6 +7,8 @@
 #   fixtures/scenarios/run-kit.sh                    # every scenario
 #   fixtures/scenarios/run-kit.sh j-toolbar-and-popups
 #   KIT_WRAP="lockf /tmp/w.lock" fixtures/scenarios/run-kit.sh   # a wrapper per window
+#   KIT_APP=target/debug/specular.app/Contents/MacOS/specular KIT_ARGS="--source cef" \
+#       fixtures/scenarios/run-kit.sh                # a bundled build, with real pages
 #
 # Output goes to native/runs/qa-kit/<scenario>/ (QA_OUT moves it). A
 # scenario that fails prints the step that failed and the rest still run;
@@ -17,8 +19,12 @@ here=$(cd "$(dirname "$0")" && pwd)
 native=$(cd "$here/../.." && pwd)
 out=${QA_OUT:-$native/runs/qa-kit}
 
-(cd "$native" && cargo build -q -p specular-shell) || exit 1
-app=${CARGO_TARGET_DIR:-$native/target}/debug/specular
+if [ -n "${KIT_APP:-}" ]; then
+    app=$(cd "$(dirname "$KIT_APP")" && pwd)/$(basename "$KIT_APP")
+else
+    (cd "$native" && cargo build -q -p specular-shell) || exit 1
+    app=${CARGO_TARGET_DIR:-$native/target}/debug/specular
+fi
 
 [ $# -gt 0 ] || set -- $(cd "$here" && ls *.txt | sed 's/\.txt$//')
 passed=""
@@ -46,7 +52,7 @@ for name in "$@"; do
         SPECULAR_NATIVE_CONFIG_DIR="$out/$name/config" \
         SPECULAR_PORT=0 SPECULAR_DISCOVERY_FILE="$out/$name/discovery.json" \
         ${KIT_WRAP:-} perl -e 'alarm 300; exec @ARGV' \
-        "$app" "$space/$(basename "$canvas")" 2>"$out/$name/stderr.log"); then
+        "$app" ${KIT_ARGS:-} "$space/$(basename "$canvas")" 2>"$out/$name/stderr.log"); then
         passed="$passed $name"
     else
         failed="$failed $name"

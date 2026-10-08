@@ -77,6 +77,7 @@ fn state() -> String {
         let _ = writeln!(out, "selection {:?}", session.selection.items());
         let _ = writeln!(out, "focus {:?}", session.focus);
         let _ = writeln!(out, "gesture {}", session.gesture.is_some());
+        let _ = writeln!(out, "tool-defaults {:?}", app.tool_defaults());
         let _ = writeln!(
             out,
             "editing {:?}",
