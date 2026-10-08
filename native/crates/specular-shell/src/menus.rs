@@ -337,6 +337,15 @@ mod tests {
     use super::*;
 
     #[test]
+    fn an_item_that_cannot_be_chosen_is_an_action_nothing_handles() {
+        // macOS greys an item by its action's type, so the type is the rule.
+        let enabled = item_action(2, 3, true);
+        let disabled = item_action(2, 3, false);
+        assert!(enabled.as_any().is::<MenuCommand>());
+        assert!(disabled.as_any().is::<MenuUnavailable>());
+    }
+
+    #[test]
     fn a_chord_is_spelled_as_gpui_parses_it() {
         assert_eq!(
             keystroke(Chord::char('z').cmd().shift()).as_deref(),

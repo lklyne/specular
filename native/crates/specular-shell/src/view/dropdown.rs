@@ -259,3 +259,52 @@ pub(super) fn choices(model: &Choices, window: &mut Window, cx: &mut App) -> Any
         .child(sections(&model.content, &stay, window, cx))
         .into_any_element()
 }
+
+#[cfg(test)]
+mod tests {
+    use specular_interact::{Face, Key};
+
+    use super::*;
+
+    fn option(trailing: Option<&'static str>, chord: Option<Chord>) -> DropdownOption {
+        DropdownOption {
+            id: ControlId::new("option"),
+            label: "Option".into(),
+            face: Face::text("Option"),
+            trailing: trailing.map(Into::into),
+            chord,
+            selected: false,
+            enabled: true,
+            action: Action::ZoomReset,
+        }
+    }
+
+    #[test]
+    fn a_list_with_far_end_text_or_a_key_is_drawn_as_presets() {
+        let list = |options| DropdownSection::Options {
+            layout: OptionLayout::List,
+            options,
+        };
+        let cases = [
+            (vec![list(vec![option(None, None)])], Rows::Menu),
+            (
+                vec![list(vec![option(Some("375×667"), None)])],
+                Rows::Presets,
+            ),
+            (
+                vec![list(vec![option(None, Some(Chord::key(Key::Enter)))])],
+                Rows::Presets,
+            ),
+            (
+                vec![
+                    list(vec![option(None, None)]),
+                    DropdownSection::Controls(vec![]),
+                ],
+                Rows::Menu,
+            ),
+        ];
+        for (content, expected) in cases {
+            assert_eq!(rows_of(&content), expected);
+        }
+    }
+}
