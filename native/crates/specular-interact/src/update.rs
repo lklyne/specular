@@ -19,9 +19,14 @@ use crate::{clipboard, drop, select_all, zoom};
 pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
     let mut effects = Vec::new();
     let revision = app.history.revision();
+    let camera = app.session.camera;
+    let dragging = app.session.gesture.is_some();
     // The clock moves nothing the cursor depends on.
     let ticks = matches!(event, Event::Tick { .. });
     let caret = edit::caret_state(app);
+    // A pointer event has already put the drag and the hover where it is,
+    // unless it ended the drag: the hover is not kept up during one.
+    let pointing = matches!(event, Event::Pointer(_));
     match event {
         Event::Pointer(input) => pointer::on_pointer(app, &input, &mut effects),
         Event::Wheel(input) => {
@@ -55,6 +60,11 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         Event::FilesDropped { files, screen } => drop::on_drop(app, &files, screen, &mut effects),
         Event::ToolDefaultsLoaded(defaults) => app.tool_defaults = *defaults,
         Event::Action(action) => run_action(app, action, &mut effects),
+    }
+    let moved = app.history.revision() != revision || app.session.camera != camera;
+    let drag_ended = dragging && app.session.gesture.is_none();
+    if (moved && !pointing) || drag_ended {
+        pointer::settle(app);
     }
     leave_unless_selected(app, &mut effects);
     if edit::restart_blink(app, &caret) {

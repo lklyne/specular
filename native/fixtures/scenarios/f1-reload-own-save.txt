@@ -1,0 +1,6 @@
+# canvas: runs:a-first-session/08-arranged.canvas
+# Save and reload, part one: the canvas the first session saved, opened
+# again and saved untouched, is the same file. Needs a-first-session.
+camera 0,0,1
+snapshot 01-reloaded.png
+save 01-reloaded.canvas

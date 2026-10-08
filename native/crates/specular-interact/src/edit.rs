@@ -58,6 +58,7 @@ pub use source::{SourceLine, SourceSpan, SourceStyle, style_lines};
 pub(crate) use stack::StackCache;
 pub use stack::{SourceRow, source_rows};
 
+use crate::saved::LoadedFits;
 use crate::{App, Effect, live, update};
 
 /// The text of `entity` that can be edited in place, and what it is. A
@@ -186,21 +187,27 @@ pub(crate) fn fitted(app: &App, rect: Rect, text: &Text) -> Rect {
 
 /// Gives every text entity the size its text takes, with no undo step. A
 /// document from disk carries heights measured with another renderer's
-/// fonts. Nothing happens unless the measure is the renderer's own.
+/// fonts. Nothing happens unless the measure is the renderer's own. What
+/// each text was read with is kept for the save (see `saved.rs`).
 pub(crate) fn fit_all(app: &mut App) {
+    app.session.loaded_fits = LoadedFits::default();
     if !app.measure.0.is_exact() {
         return;
     }
-    let fits: Vec<(EntityId, Rect)> = (app.document.entities())
+    let fits: Vec<(EntityId, Rect, Rect)> = (app.document.entities())
         .filter_map(|entity| match &entity.kind {
-            Kind::Text(text) => Some((entity.id.clone(), fitted(app, entity.rect, text))),
+            Kind::Text(text) => {
+                let fitted = fitted(app, entity.rect, text);
+                Some((entity.id.clone(), entity.rect, fitted))
+            }
             Kind::Shape(_) | Kind::Page(_) | Kind::File(_) | Kind::Group(_) | Kind::Drawing(_) => {
                 None
             }
         })
         .collect();
-    for (id, rect) in fits {
-        set_rect(app, &id, rect);
+    for (id, read, fitted) in fits {
+        set_rect(app, &id, fitted);
+        app.session.loaded_fits.insert(id, read, fitted);
     }
 }
 

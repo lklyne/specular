@@ -202,6 +202,11 @@ impl TestApp {
     /// started from, and that redoing them all gives back the document as it
     /// is now. The app ends as it began, and the effects of the undos and
     /// redos are not kept, so this can go anywhere in a test.
+    ///
+    /// A Document's text is held beside the entities once it has been edited
+    /// (seeded with no step, so undo has a text to go back to). The start
+    /// did not hold it, so the way back is compared without texts the start
+    /// never held. The way forward compares them all.
     #[track_caller]
     pub fn assert_undo_returns_to_start(&mut self) -> &mut Self {
         assert!(
@@ -217,30 +222,58 @@ impl TestApp {
             self.undo();
             steps += 1;
         }
+        let message = format!("undoing all {steps} steps did not return to the starting document");
         assert_same(
             self.document(),
             &self.start,
-            &format!("undoing all {steps} steps did not return to the starting document"),
+            Notes::HeldBy(&self.start),
+            &message,
         );
 
         for _ in 0..steps {
             self.redo();
         }
-        assert_same(
-            self.document(),
-            &end,
-            &format!("redoing all {steps} steps did not return to the document before the undos"),
-        );
+        let message =
+            format!("redoing all {steps} steps did not return to the document before the undos");
+        assert_same(self.document(), &end, Notes::All, &message);
 
         self.effects = kept;
         self
     }
 }
 
-/// Fails with the two snapshots, or with the full structs when they differ
+/// Which held Document texts a comparison looks at.
+#[derive(Clone, Copy)]
+enum Notes<'a> {
+    /// Every one.
+    All,
+    /// Only the files this document holds a text for.
+    HeldBy(&'a Document),
+}
+
+/// The held texts of `document` that `notes` looks at, in file order.
+fn held<'a>(document: &'a Document, notes: Notes<'_>) -> Vec<(&'a str, &'a str)> {
+    let mut held: Vec<_> = (document.notes())
+        .filter(|(file, _)| match notes {
+            Notes::All => true,
+            Notes::HeldBy(other) => other.note(file).is_some(),
+        })
+        .collect();
+    held.sort_unstable();
+    held
+}
+
+/// Fails with the two snapshots, or with the parts that differ when it is
 /// by less than a snapshot shows (it rounds to a hundredth).
 #[track_caller]
-fn assert_same(actual: &Document, expected: &Document, message: &str) {
+fn assert_same(actual: &Document, expected: &Document, notes: Notes<'_>, message: &str) {
     assert_eq!(doc_snapshot(actual), doc_snapshot(expected), "{message}");
-    assert_eq!(actual, expected, "{message}");
+    let entities = |document: &'_ Document| document.entities().cloned().collect::<Vec<_>>();
+    let edges = |document: &'_ Document| document.edges().cloned().collect::<Vec<_>>();
+    assert_eq!(entities(actual), entities(expected), "{message}");
+    assert_eq!(edges(actual), edges(expected), "{message}");
+    assert_eq!(actual.order(), expected.order(), "{message}");
+    assert_eq!(actual.annotations(), expected.annotations(), "{message}");
+    assert_eq!(actual.extra(), expected.extra(), "{message}");
+    assert_eq!(held(actual, notes), held(expected, notes), "{message}");
 }

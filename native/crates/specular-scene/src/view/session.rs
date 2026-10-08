@@ -18,6 +18,7 @@ const MARQUEE_BORDER_ALPHA: f32 = 0.9;
 const PREVIEW_COLOR: Color = Color::rgb(0x2b, 0x7f, 0xff);
 const PREVIEW_STROKE_ALPHA: f32 = 0.9;
 const PREVIEW_FILL_ALPHA: f32 = 0.1;
+const COPY_GHOST_FILL_ALPHA: f32 = 0.12;
 
 pub(crate) fn draw(frame: &Frame<'_>, scene: &mut Scene) {
     let app = frame.app;
@@ -40,6 +41,12 @@ pub(crate) fn draw(frame: &Frame<'_>, scene: &mut Scene) {
         if let Some(entity) = app.document().entity(id) {
             push_outline(frame, entity.rect, scene);
         }
+    }
+
+    // An Option-drag leaves the originals where they are until the release,
+    // so the copies are shown as ghosts where they will land.
+    for rect in app.copy_preview() {
+        push_copy_ghost(frame, rect, scene);
     }
 
     if let Some((owner, bounds)) = app.handles() {
@@ -79,6 +86,19 @@ fn push_outline(frame: &Frame<'_>, rect: specular_doc::Rect, scene: &mut Scene) 
     if frame.sees_screen(outline) {
         let stroke = Stroke::new(palette::SELECTION, OUTLINE_WIDTH, StrokeAlign::Inside);
         scene.push(Item::screen(RectDraw::outlined(outline, stroke)));
+    }
+}
+
+/// The outline a copy will have, tinted so it reads as something coming
+/// rather than something selected.
+fn push_copy_ghost(frame: &Frame<'_>, rect: specular_doc::Rect, scene: &mut Scene) {
+    let outline = frame.screen_rect(rect).outset(OUTLINE_PADDING);
+    if frame.sees_screen(outline) {
+        let stroke = Stroke::new(palette::SELECTION, OUTLINE_WIDTH, StrokeAlign::Inside);
+        let fill = palette::with_alpha(palette::SELECTION, COPY_GHOST_FILL_ALPHA);
+        scene.push(Item::screen(
+            RectDraw::filled(outline, fill).with_stroke(stroke),
+        ));
     }
 }
 

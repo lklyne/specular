@@ -1,0 +1,121 @@
+# canvas: empty.canvas
+# A first session on an empty canvas: two stickies, a pen stroke and a
+# highlight over one, three labelled shapes, a move and a resize, then undo
+# to nothing and redo it all.
+camera 0,0,1
+
+tool sticky
+click 200 160
+type Ship the beta
+key escape
+snapshot 01-one-sticky.png
+
+tool sticky
+click 520 160
+type Ask Dana about pricing
+key enter
+type - tiers
+key enter
+type annual
+key escape
+snapshot 02-two-stickies.png
+
+# pen stroke across the first sticky
+key m
+press 215 300
+drag-to 225 312
+drag-to 240 318
+drag-to 255 310
+drag-to 270 298
+drag-to 285 304
+drag-to 300 318
+drag-to 315 322
+drag-to 330 312
+drag-to 345 300
+drag-to 360 306
+drag-to 375 318
+snapshot 03-pen-in-flight.png
+release
+# highlight over its text
+key shift+m
+press 204 180
+drag-to 220 180
+drag-to 240 181
+drag-to 260 180
+drag-to 280 179
+drag-to 292 180
+release
+key escape
+snapshot 04-strokes.png
+
+# three shapes with labels
+key r
+press 200 480
+drag-to 400 600
+release
+double-click 300 540
+type Draft
+key escape
+key o
+press 480 480
+drag-to 680 600
+release
+double-click 580 540
+type Review
+key escape
+key shift+r
+press 760 460
+drag-to 960 620
+release
+double-click 860 540
+type Ship?
+key escape
+snapshot 05-shapes.png
+
+# move the second sticky, resize the rectangle from its bottom-right corner
+drag 600 300 900 240
+click 300 540
+press 401 601
+drag-to 440 660
+snapshot 07-resize-in-flight.png
+release
+key escape
+snapshot 08-arranged.png
+save 08-arranged.canvas
+
+# undo everything, one step at a time
+key cmd+z
+key cmd+z
+key cmd+z
+snapshot 09-undo-3.png
+key cmd+z
+key cmd+z
+key cmd+z
+key cmd+z
+snapshot 09-undo-7.png
+key cmd+z
+key cmd+z
+key cmd+z
+key cmd+z
+key cmd+z
+key cmd+z
+key cmd+z
+snapshot 10-undone.png
+save 10-undone.canvas
+
+key cmd+shift+z
+key cmd+shift+z
+key cmd+shift+z
+key cmd+shift+z
+key cmd+shift+z
+key cmd+shift+z
+key cmd+shift+z
+key cmd+shift+z
+key cmd+shift+z
+key cmd+shift+z
+key cmd+shift+z
+key cmd+shift+z
+key cmd+shift+z
+key cmd+shift+z
+snapshot 12-redone.png
+save 12-redone.canvas

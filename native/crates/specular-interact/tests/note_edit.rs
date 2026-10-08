@@ -124,6 +124,16 @@ fn ending_the_edit_writes_what_is_unsaved_and_is_one_undo_step() {
 }
 
 #[test]
+fn the_undo_assertion_holds_after_a_document_edit() {
+    let mut app = editing("one");
+    app.type_text("ab").key(Key::Escape);
+    // The edit seeded the file's text with no step, so the document holds a
+    // text the starting document did not.
+    app.assert_undo_returns_to_start();
+    assert_eq!(app.document().note(FILE), Some("abone"));
+}
+
+#[test]
 fn an_edit_that_changes_nothing_is_no_step_and_no_write() {
     let mut app = editing("one");
     app.type_text("a")
@@ -312,6 +322,17 @@ fn a_selection_dragged_past_the_window_scrolls_while_the_pointer_is_still() {
     let released = scroll(&app);
     app.tick(1_300);
     assert_eq!(scroll(&app), released);
+}
+
+#[test]
+fn bold_on_then_off_around_typed_words_leaves_one_pair() {
+    let mut app = editing("");
+    app.type_text("on ")
+        .chord(CMD, Key::Char('b'))
+        .type_text("friday")
+        .chord(CMD, Key::Char('b'))
+        .type_text(" at noon");
+    assert_eq!(app.editing_text(), "on **friday** at noon");
 }
 
 #[test]

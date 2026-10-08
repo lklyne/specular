@@ -1,0 +1,109 @@
+#!/usr/bin/env python3
+"""Checks the .canvas files the scenarios saved. Run by run.sh after the
+scripts; exits non-zero and says what differs when a check fails.
+
+Every check compares JSON values, so key order and whitespace do not count.
+"""
+import json
+import sys
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+OUT = Path(sys.argv[1])
+RAN = set(sys.argv[2:])
+
+
+def load(path):
+    return json.loads(Path(path).read_text())
+
+
+def differences(a, b, path=""):
+    """Paths at which `a` and `b` differ, with both values."""
+    if type(a) is not type(b):
+        return [(path, a, b)]
+    if isinstance(a, dict):
+        out = []
+        for key in sorted(set(a) | set(b)):
+            if key not in a or key not in b:
+                out.append((f"{path}/{key}", a.get(key, "<absent>"), b.get(key, "<absent>")))
+            else:
+                out += differences(a[key], b[key], f"{path}/{key}")
+        return out
+    if isinstance(a, list):
+        keyed = all(isinstance(item, dict) and "id" in item for item in a + b)
+        if keyed and [item["id"] for item in a] == [item["id"] for item in b]:
+            return [d for x, y in zip(a, b) for d in differences(x, y, f"{path}/{x['id']}")]
+        if len(a) != len(b) or keyed:
+            return [(path, f"{len(a)} items", f"{len(b)} items, or another order")]
+        return [d for i, (x, y) in enumerate(zip(a, b)) for d in differences(x, y, f"{path}/{i}")]
+    return [] if a == b else [(path, a, b)]
+
+
+failures = []
+
+
+def expect(name, before, after, allowed=()):
+    """`after` differs from `before` only at the `allowed` paths, and at
+    every one of them. The camera is not part of the comparison."""
+    if not RAN.issuperset(name.split("+")):
+        return
+    found = [d for d in differences(before, after) if not d[0].startswith("/appState")]
+    paths = sorted(path for path, _, _ in found)
+    if paths == sorted(allowed):
+        print(f"ok   {name}")
+        return
+    failures.append(name)
+    print(f"FAIL {name}: expected changes at {sorted(allowed)}")
+    for path, x, y in found:
+        print(f"       {path}: {json.dumps(x)[:70]} -> {json.dumps(y)[:70]}")
+
+
+def saved(scenario, file):
+    path = OUT / scenario / file
+    return load(path) if path.exists() else None
+
+
+EMPTY = load(HERE / "empty.canvas")
+SINK = load(HERE / "../kitchen-sink.canvas")
+WELCOME = load(HERE / "../../../resources/starter-space/Welcome.canvas")
+RICH = load(HERE / "../../../tests/integration/__snapshots__/rich-workspace.canvas")
+NUDGED = "shape_10ac9206"
+
+a = "a-first-session"
+expect(a, EMPTY, saved(a, "10-undone.canvas"))
+expect(a, saved(a, "08-arranged.canvas"), saved(a, "12-redone.canvas"))
+b = "b-kitchen-sink-selection"
+expect(b, SINK, saved(b, "02-start.canvas"))
+for undone in ["08-resize", "10-duplicate", "13-option-drag", "15-nudges", "17-delete"]:
+    expect(b, SINK, saved(b, f"{undone}-undone.canvas"))
+d = "d-text-edge-cases"
+expect(d, EMPTY, saved(d, "15-undone.canvas"))
+e = "e-clipboard"
+expect(e, EMPTY, saved(e, "07-undone.canvas"))
+g = "g-zoom-and-pan"
+expect(g, SINK, saved(g, "13-end.canvas"))
+h = "h-tools-and-escape"
+if h in RAN:
+    start, end = saved(h, "00-start.canvas"), saved(h, "14-end.canvas")
+    # Every gesture up to here was escaped.
+    expect(h, start, saved(h, "09-gestures-escaped.canvas"))
+    sticky = start["nodes"][0]["id"]
+    made = [node["id"] for node in end["nodes"] if node["id"] != sticky]
+    # The sticky was typed into and one shape was drawn; every escaped
+    # gesture left nothing.
+    ok = len(made) == 1 and end["nodes"][0]["text"].startswith("keep me")
+    print(f"{'ok  ' if ok else 'FAIL'} {h}: one sticky and one shape remain")
+    if not ok:
+        failures.append(h)
+f1 = "f1-reload-own-save"
+expect(f"{a}+{f1}", saved(a, "08-arranged.canvas"), saved(f1, "01-reloaded.canvas"))
+f2 = "f2-electron-file-one-change"
+if f2 in RAN:
+    node = next(n["id"] for n in WELCOME["nodes"] if n["id"].startswith(NUDGED))
+    expect(f2, WELCOME, saved(f2, "01-untouched.canvas"))
+    expect(f2, WELCOME, saved(f2, "02-one-change.canvas"), [f"/nodes/{node}/x"])
+    expect(f2, WELCOME, saved(f2, "03-undone.canvas"))
+f3 = "f3-fixture-one-change"
+expect(f3, RICH, saved(f3, "01-one-change.canvas"), ["/nodes/generated-id-2/y"])
+
+sys.exit(1 if failures else 0)

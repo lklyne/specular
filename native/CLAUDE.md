@@ -113,11 +113,21 @@ cargo run -p specular-app -- --script steps.txt FILE.canvas
 - The camera is `fit` (the default) or `x,y,zoom`: the pan in screen
   pixels, so canvas point `(cx, cy)` at the top-left is `-cx*zoom,-cy*zoom,zoom`.
 - A script is one step a line, in the testkit's words: `click x y`,
-  `double-click x y`, `move`, `press`, `drag-to`, `release`,
-  `drag x1 y1 x2 y2`, `hold shift+cmd` (`hold none`), `key cmd+z`,
-  `type some text`, `tool shape`, `select id ..`, `camera ..`, `wait ms`,
-  `snapshot out.png`. Positions are screen pixels. A snapshot between
-  `press` and `release` shows a gesture in flight.
+  `double-click x y`, `triple-click x y`, `move`, `press`, `drag-to`,
+  `release`, `drag x1 y1 x2 y2`, `hold shift+cmd` (`hold none`),
+  `key cmd+z`, `type some text`, `compose にほ`, `commit 日本`,
+  `wheel dx dy`, `pinch 0.2`, `tool shape`, `select id ..`, `camera ..`,
+  `wait ms`, `snapshot out.png`, `save out.canvas`. Positions are screen
+  pixels. A snapshot between `press` and `release` shows a gesture in
+  flight.
+- The clipboard and the Documents a run makes are kept in memory:
+  `clipboard some\ntext` is another app copying, `key cmd+v` pastes it,
+  and `tool document` then a click makes `Untitled Note.md` with no file.
+  `save` writes what an autosave would.
+- `fixtures/scenarios/` holds whole sessions as scripts, with a `run.sh`
+  that runs them all into `runs/qa/` and checks the canvases they save.
+  Run it after a change that crosses features, and add to it when a bug
+  only showed up in use.
 - `fixtures/kitchen-sink.canvas` has every kind in every style. Snapshot it
   after changing `specular-scene` or `specular-compositor` and open the PNG
   with the Read tool. A scene snapshot test cannot see a wrong colour or a

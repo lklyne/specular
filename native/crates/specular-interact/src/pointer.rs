@@ -16,6 +16,7 @@ use crate::{
 };
 
 pub(crate) fn on_pointer(app: &mut App, input: &PointerInput, effects: &mut Vec<Effect>) {
+    app.session.modifiers = input.modifiers;
     match input.kind {
         PointerEventKind::Move => on_move(app, input, effects),
         PointerEventKind::Leave => {
@@ -34,6 +35,27 @@ pub(crate) fn on_pointer(app: &mut App, input: &PointerInput, effects: &mut Vec<
             button,
             click_count,
         } => on_up(app, input, button, click_count, effects),
+    }
+}
+
+/// The canvas or the document moved under a pointer that did not: a wheel
+/// or a pinch mid-drag, an undo, a paste. The drag in flight is run again
+/// where the pointer is, so what it holds stays under it, and with no drag
+/// the hover is found again.
+pub(crate) fn settle(app: &mut App) {
+    let Some(screen) = app.session.pointer else {
+        return;
+    };
+    if app.session.gesture.is_some() {
+        let held = PointerInput {
+            kind: PointerEventKind::Move,
+            screen,
+            modifiers: app.session.modifiers,
+        };
+        gesture::drag(app, &held);
+    } else {
+        let hit = hit::hit_test(app, screen);
+        app.session.hover = hit::entity_of(&hit).cloned();
     }
 }
 

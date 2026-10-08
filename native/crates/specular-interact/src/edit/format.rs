@@ -88,11 +88,26 @@ fn italic_pair(before: usize, after: usize) -> bool {
     (before == 1 && after == 1) || (before >= 3 && after >= 3)
 }
 
+/// Whether `head`, the prose of a line up to the caret, ends inside a run
+/// that `wrap`'s marker opened and nothing has closed yet.
+fn in_open_run(head: &str, wrap: Wrap) -> bool {
+    let opened = match wrap {
+        // A lone star, or the odd one of three, is italic. The rest are bold.
+        Wrap::Italic => (head.split(|c| c != '*'))
+            .filter(|stars| stars.len() % 2 == 1)
+            .count(),
+        Wrap::Bold | Wrap::Code | Wrap::Strike => head.matches(wrap.marker()).count(),
+    };
+    opened % 2 == 1
+}
+
 /// Wraps the selection in `wrap`'s markers, or takes them off if it is
 /// already wrapped, whether they sit just outside the selection or are its
 /// first and last characters. Block markup at the head of the selection stays
 /// outside, so selecting a whole `- item` line wraps the item. An empty
-/// selection gets the pair with the caret between.
+/// selection gets the pair with the caret between, and a caret just before
+/// the closing marker of a run steps past it: the shortcut, some words and
+/// the shortcut again leave one pair, as in a rich-text editor.
 pub(crate) fn toggle_wrap(edit: &mut TextEdit, wrap: Wrap) -> bool {
     let marker = wrap.marker();
     let width = marker.len();
@@ -107,6 +122,15 @@ pub(crate) fn toggle_wrap(edit: &mut TextEdit, wrap: Wrap) -> bool {
     let outside = head.ends_with(marker)
         && tail.starts_with(marker)
         && (!italic || italic_pair(stars_before(head), stars_after(tail)));
+    let closes_run = start == end
+        && !outside
+        && tail.starts_with(marker)
+        && (!italic || stars_after(tail) % 2 == 1)
+        && in_open_run(&head[inline_start(&edit.text, start).min(start)..], wrap);
+    if closes_run {
+        edit.move_to(start + width, false);
+        return true;
+    }
     let inner = &edit.text[start..end];
     let inside = inner.len() >= width * 2
         && inner.starts_with(marker)

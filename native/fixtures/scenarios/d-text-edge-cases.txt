@@ -1,0 +1,97 @@
+# canvas: empty.canvas
+# Text editing where it tends to break: emoji, CJK through the input method,
+# a long unbroken word, empty lines, replace-all, a multi-line paste, a
+# shape label, and editing far zoomed out and far zoomed in.
+camera 0,0,1
+
+tool sticky
+click 200 160
+commit 🎉🚀
+type  launch 
+commit 👨‍👩‍👧
+key enter
+compose にほ
+snapshot 01-composing.png
+compose 日本語
+commit 日本語
+type  ok
+key enter
+type Pneumonoultramicroscopicsilicovolcanoconiosis_and_then_some_more_text
+key enter
+key enter
+key enter
+type after two empty lines
+snapshot 02-mixed-scripts.png
+# walk back over the emoji a grapheme at a time
+key cmd+up
+key right
+key right
+snapshot 03-caret-after-two-emoji.png
+key backspace
+key escape
+snapshot 05-sticky-done.png
+
+# reopen (everything selected) and type over it
+double-click 300 200
+snapshot 06-reopened-all-selected.png
+type Replaced
+# select all again and paste several lines over it
+key cmd+a
+clipboard first line\nsecond line\n\nfourth line after a gap\n\ttabbed
+key cmd+v
+snapshot 08-pasted-multiline.png
+key escape
+
+# a plain text
+tool text
+click 520 160
+type Plain text grows as wide as it needs to, with no wrapping at all
+key enter
+type and a second line
+key escape
+
+# a shape label longer than its shape
+key r
+press 200 520
+drag-to 360 600
+release
+double-click 280 560
+type A label that is a good deal longer than the shape is wide
+snapshot 10-label-editing.png
+key escape
+snapshot 11-label-done.png
+
+# edit at zoom 0.25
+camera 0,0,0.25
+double-click 75 70
+key cmd+down
+type  tiny
+snapshot 12-zoom-quarter-editing.png
+key escape
+
+# edit at zoom 3
+camera -560,-440,3
+double-click 300 200
+key cmd+down
+type  HUGE
+hold shift
+key left
+key left
+key left
+key left
+hold none
+snapshot 13-zoom-three-editing.png
+key escape
+camera 0,0,1
+snapshot 14-final.png
+save 14-final.canvas
+
+key cmd+z
+key cmd+z
+key cmd+z
+key cmd+z
+key cmd+z
+key cmd+z
+key cmd+z
+key cmd+z
+save 15-undone.canvas

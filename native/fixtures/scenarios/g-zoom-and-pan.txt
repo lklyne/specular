@@ -1,0 +1,91 @@
+# canvas: ../kitchen-sink.canvas
+# Zoom to both ends, then pan and zoom while a gesture is in flight: the
+# thing under the pointer should stay under the pointer.
+camera fit
+snapshot 01-fit.png
+
+# pinch out as far as it goes, about the middle
+move 800 500
+pinch -1
+pinch -1
+pinch -1
+pinch -1
+pinch -1
+pinch -1
+pinch -1
+pinch -1
+snapshot 02-zoom-min.png
+
+# and in as far as it goes, over the stickies
+camera fit
+move 520 200
+pinch 1
+pinch 1
+pinch 1
+pinch 1
+pinch 1
+pinch 1
+pinch 1
+pinch 1
+pinch 1
+pinch 1
+pinch 1
+pinch 1
+snapshot 03-zoom-max.png
+
+# wheel-zoom with the command key
+camera 32,-368,0.8
+move 112 320
+hold cmd
+wheel 0 120
+wheel 0 120
+hold none
+snapshot 04-cmd-wheel-zoom.png
+
+# a move, with the canvas scrolled under the pointer halfway through
+camera 32,-368,0.8
+press 60 340
+drag-to 248 420
+wheel -200 -150
+snapshot 06-move-after-pan.png
+drag-to 268 440
+release
+snapshot 07-move-released.png
+key cmd+z
+
+# a marquee, with a pan halfway through
+camera 32,-368,0.8
+press 10 225
+drag-to 300 420
+wheel 0 -200
+snapshot 08-marquee-after-pan.png
+drag-to 320 440
+release
+key escape
+
+# a resize, with a pinch halfway through
+camera 32,-368,0.8
+click 96 720
+press 161 769
+drag-to 220 820
+pinch 0.3
+snapshot 10-resize-after-pinch.png
+drag-to 240 840
+release
+key cmd+z
+
+# a pen stroke, with a pan halfway through
+camera 32,-368,0.8
+key m
+press 600 480
+drag-to 700 520
+drag-to 800 480
+wheel -150 0
+drag-to 800 560
+drag-to 900 600
+snapshot 12-stroke-after-pan.png
+release
+key escape
+snapshot 13-stroke-released.png
+key cmd+z
+save 13-end.canvas

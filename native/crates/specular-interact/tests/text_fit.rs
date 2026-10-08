@@ -89,3 +89,32 @@ fn an_estimate_leaves_the_sizes_a_document_came_with() {
         ]
     );
 }
+
+#[test]
+fn a_save_keeps_the_size_on_disk_of_every_text_the_session_left_alone() {
+    let mut app = TestApp::empty();
+    app.measure_with(Arc::new(Exact)).open(document(entities()));
+    // One change: the shape moves 100 to the right.
+    app.drag((500.0, 650.0), (600.0, 650.0));
+    let saved = app.app().document_to_save();
+    let rect = |id: &str| saved.entity(&id.into()).map(|entity| entity.rect);
+    assert_eq!(rect("shape"), Some(Rect::new(500.0, 600.0, 200.0, 100.0)));
+    assert_eq!(rect("wrapped"), Some(Rect::new(0.0, 0.0, 120.0, 500.0)));
+    assert_eq!(rect("hugging"), Some(Rect::new(0.0, 600.0, 300.0, 300.0)));
+    assert_eq!(rect("note"), Some(Rect::new(400.0, 0.0, 200.0, 50.0)));
+
+    // A text the session moved is saved where and as it now is.
+    app.drag((10.0, 610.0), (110.0, 610.0));
+    let moved = Rect::new(100.0, 600.0, 64.0, 20.0);
+    assert_eq!(app.rect("hugging"), moved);
+    let saved = app.app().document_to_save();
+    assert_eq!(saved.entity(&"hugging".into()).map(|e| e.rect), Some(moved));
+
+    // And undone, it is as it was read again.
+    app.undo();
+    let saved = app.app().document_to_save();
+    assert_eq!(
+        saved.entity(&"hugging".into()).map(|e| e.rect),
+        Some(Rect::new(0.0, 600.0, 300.0, 300.0))
+    );
+}

@@ -4,35 +4,35 @@
 //! The app is a [`TestApp`], the driver the feature tests script, with the
 //! compositor's text measure in place of the fixed one. Pages come from the
 //! synthetic source, and images and Documents from the shell's own loader
-//! threads. Nothing is written but the PNGs: saves, the clipboard, assets
-//! and preferences are dropped.
+//! threads. Nothing is written but the PNGs and what a `save` step names:
+//! autosaves, assets and preferences are dropped, and the clipboard and the
+//! Documents a session makes are kept in memory.
 
+mod effects;
 mod script;
+mod stand_ins;
 mod target;
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
 
 use anyhow::Context as _;
 use glam::Vec2;
 use specular_compositor::{Compositor, DotGrid, FrameView, GpuContext};
-use specular_core::{PageEvent, PageId, PageSource, PageSpec, SyntheticPageSource};
+use specular_core::{PageId, PageSource, SyntheticPageSource};
 use specular_doc::{Document, EntityId};
-use specular_interact::{Action, Effect, Event, ImageKey, ImageNotice, NoteNotice, PageNotice};
-use specular_scene::ImageId;
+use specular_interact::{Action, Event, ImageKey};
 use specular_testkit::TestApp;
 
 pub(crate) use self::script::CameraArg;
 use self::script::Step;
+use self::stand_ins::StandIns;
 use self::target::Target;
-use crate::images::{ImageLoader, LoadFailure};
-use crate::notes::{NoteLoader, ReadFailure};
+use crate::images::ImageLoader;
+use crate::notes::NoteLoader;
+use crate::persist::canvas_text;
 
-/// How long a snapshot waits for images and Documents before drawing
-/// without them.
-const LOAD_TIMEOUT: Duration = Duration::from_secs(10);
 /// The clock a run starts at, so two runs of one script draw the same frame.
 const START_MS: u64 = 1_700_000_000_000;
 
@@ -117,6 +117,9 @@ struct Headless {
     /// Asked for and not yet answered.
     loading_images: HashSet<ImageKey>,
     loading_notes: HashSet<String>,
+    stand_ins: StandIns,
+    /// The row heights last reported for each Document on screen.
+    note_heights: HashMap<EntityId, f32>,
     viewport: Vec2,
     scale: f32,
     now_ms: u64,
@@ -147,6 +150,8 @@ impl Headless {
             notes: NoteLoader::new(space).context("starting the note thread")?,
             loading_images: HashSet::new(),
             loading_notes: HashSet::new(),
+            stand_ins: StandIns::default(),
+            note_heights: HashMap::new(),
             viewport: Vec2::new(width as f32, height as f32),
             scale: args.scale,
             now_ms: START_MS,
@@ -173,6 +178,7 @@ impl Headless {
             Step::Release => self.drive(|app| app.release()),
             Step::Click(at) => self.drive(|app| app.pointer_move(at).click(at)),
             Step::DoubleClick(at) => self.drive(|app| app.pointer_move(at).double_click(at)),
+            Step::TripleClick(at) => self.drive(|app| app.pointer_move(at).triple_click(at)),
             Step::Drag(from, to) => self.drive(|app| {
                 app.pointer_move(from)
                     .press(from)
@@ -183,6 +189,14 @@ impl Headless {
             Step::Hold(modifiers) => self.drive(|app| app.hold(modifiers)),
             Step::Key(modifiers, key) => self.drive(|app| app.chord(modifiers, key)),
             Step::Type(text) => self.drive(|app| app.type_text(&text)),
+            Step::Compose(text) => self.drive(|app| app.compose(&text)),
+            Step::Commit(text) => self.drive(|app| app.commit(&text)),
+            Step::Clipboard(text) => {
+                self.stand_ins.clipboard = Some(text);
+                Ok(())
+            }
+            Step::Wheel(delta) => self.drive(|app| app.wheel(delta)),
+            Step::Pinch(delta) => self.drive(|app| app.pinch(delta)),
             Step::Tool(tool) => self.drive(|app| app.tool(tool)),
             Step::Select(ids) => self.drive(|app| {
                 let ids: Vec<&str> = ids.iter().map(String::as_str).collect();
@@ -203,157 +217,8 @@ impl Headless {
                 self.settle()
             }
             Step::Snapshot(path) => self.snapshot(&path),
+            Step::Save(path) => self.save(&path),
         }
-    }
-
-    fn run(&mut self, effect: Effect) -> anyhow::Result<()> {
-        match effect {
-            Effect::CreatePage {
-                page,
-                url,
-                viewport,
-            } => {
-                let mut spec = PageSpec::new(&url, viewport);
-                spec.texture_scale = self.scale;
-                let host = self
-                    .source
-                    .create_page(&spec)
-                    .with_context(|| format!("creating page for {url}"))?;
-                self.hosts.insert(page, host);
-            }
-            Effect::ClosePage(page) => {
-                if let Some(host) = self.hosts.remove(&page) {
-                    self.source.close_page(host)?;
-                    self.compositor.remove_page(host);
-                }
-            }
-            Effect::SetPageViewport { page, viewport } => {
-                if let Some(&host) = self.hosts.get(&page) {
-                    self.source.set_viewport(host, viewport)?;
-                }
-            }
-            Effect::LoadImage { image, file } => {
-                self.loading_images.insert(image);
-                self.images
-                    .request(image, &file, self.compositor.image_spec());
-            }
-            Effect::DropImage(image) => {
-                self.loading_images.remove(&image);
-                self.compositor.remove_image(ImageId(image.0));
-            }
-            Effect::LoadNote { file } => {
-                self.notes.watch(&file);
-                self.loading_notes.insert(file);
-            }
-            Effect::DropNote { file } => {
-                self.notes.unwatch(&file);
-                self.loading_notes.remove(&file);
-            }
-            // A headless run has no window to focus, no cursor and no input
-            // method, and it leaves the disk and the clipboard alone.
-            Effect::FocusPage(_)
-            | Effect::ForwardInput { .. }
-            | Effect::SetImeAllowed(_)
-            | Effect::SetImeCursorArea { .. }
-            | Effect::SetCursor(_)
-            | Effect::Save
-            | Effect::WriteClipboard(_)
-            | Effect::ReadClipboard
-            | Effect::WriteAsset { .. }
-            | Effect::CopyAsset { .. }
-            | Effect::WriteNote { .. }
-            | Effect::CreateNote { .. }
-            | Effect::SaveToolDefaults(_) => {}
-        }
-        Ok(())
-    }
-
-    /// Takes a frame from every page and waits for the images and Documents
-    /// asked for so far.
-    fn settle(&mut self) -> anyhow::Result<()> {
-        let deadline = Instant::now() + LOAD_TIMEOUT;
-        loop {
-            self.take_page_events()?;
-            self.take_images()?;
-            self.take_notes()?;
-            if self.loading_images.is_empty() && self.loading_notes.is_empty() {
-                return Ok(());
-            }
-            if Instant::now() >= deadline {
-                tracing::warn!(
-                    images = self.loading_images.len(),
-                    documents = self.loading_notes.len(),
-                    "drawing without loads that never finished"
-                );
-                return Ok(());
-            }
-            std::thread::sleep(Duration::from_millis(2));
-        }
-    }
-
-    fn take_page_events(&mut self) -> anyhow::Result<()> {
-        let mut events = Vec::new();
-        self.source.pump();
-        self.source.drain_events(&mut events);
-        for event in events {
-            if let PageEvent::Loaded { page, http_status } = &event
-                && let Some(entity) = self.entity_of(*page)
-            {
-                let notice = PageNotice::Loaded {
-                    http_status: *http_status,
-                };
-                self.drive(|app| {
-                    app.send(Event::Page {
-                        page: entity,
-                        notice,
-                    })
-                })?;
-            }
-            self.compositor.handle_page_event(event)?;
-        }
-        Ok(())
-    }
-
-    fn entity_of(&self, page: PageId) -> Option<EntityId> {
-        let (entity, _) = self.hosts.iter().find(|&(_, &host)| host == page)?;
-        Some(entity.clone())
-    }
-
-    fn take_images(&mut self) -> anyhow::Result<()> {
-        while let Some(loaded) = self.images.take() {
-            if !self.loading_images.remove(&loaded.key) {
-                continue;
-            }
-            let notice = match loaded.result {
-                Ok(mips) => {
-                    self.compositor
-                        .set_image_mips(ImageId(loaded.key.0), &mips)?;
-                    ImageNotice::Ready {
-                        width: mips.size().width,
-                        height: mips.size().height,
-                    }
-                }
-                Err(LoadFailure::Missing) => ImageNotice::Missing,
-                Err(LoadFailure::Failed) => ImageNotice::Failed,
-            };
-            let image = loaded.key;
-            self.drive(|app| app.send(Event::Image { image, notice }))?;
-        }
-        Ok(())
-    }
-
-    fn take_notes(&mut self) -> anyhow::Result<()> {
-        while let Some(read) = self.notes.take() {
-            self.loading_notes.remove(&read.file);
-            let notice = match read.result {
-                Ok(text) => NoteNotice::Text(text),
-                Err(ReadFailure::Missing) => NoteNotice::Missing,
-                Err(ReadFailure::Failed) => NoteNotice::Failed,
-            };
-            let file = read.file;
-            self.drive(|app| app.send(Event::Note { file, notice }))?;
-        }
-        Ok(())
     }
 
     /// Draws the app as it stands and writes the frame to `path`.
@@ -375,6 +240,30 @@ impl Headless {
             });
         self.target.save(&self.gpu, path)?;
         tracing::info!(path = %path.display(), items = scene.items.len(), ?stats, "snapshot");
-        Ok(())
+        self.report_note_heights()
+    }
+
+    /// Tells the app how tall each Document's rows came out in the frame
+    /// just drawn, as the shell does after every frame.
+    fn report_note_heights(&mut self) -> anyhow::Result<()> {
+        let changed: Vec<_> = (self.compositor.column_heights().iter())
+            .filter(|(entity, height)| self.note_heights.get(entity) != Some(height))
+            .cloned()
+            .collect();
+        if changed.is_empty() {
+            return Ok(());
+        }
+        self.note_heights.extend(changed.iter().cloned());
+        self.drive(|app| app.send(Event::NoteHeights(changed)))
+    }
+
+    /// Writes the `.canvas` text an autosave would write now to `path`.
+    fn save(&self, path: &Path) -> anyhow::Result<()> {
+        let text = canvas_text(
+            &self.app.app().document_to_save(),
+            self.app.session().camera,
+        )
+        .with_context(|| format!("writing {}", path.display()))?;
+        std::fs::write(path, text).with_context(|| format!("writing {}", path.display()))
     }
 }

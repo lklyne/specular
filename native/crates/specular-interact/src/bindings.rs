@@ -288,6 +288,7 @@ pub fn binding_for(app: &App, input: &KeyInput) -> Option<&'static Binding> {
 }
 
 pub(crate) fn on_key(app: &mut App, input: &KeyInput, effects: &mut Vec<Effect>) {
+    app.session.modifiers = input.modifiers;
     // A drag reads Shift, Option and Command, so one that changes while the
     // pointer is still takes effect at once.
     if let (Some(_), Some(screen)) = (&app.session.gesture, app.session.pointer) {

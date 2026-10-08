@@ -1,0 +1,9 @@
+# canvas: ../../../tests/integration/__snapshots__/rich-workspace.canvas
+# Save and reload, part three: the integration suite's Electron-shaped
+# fixture (a group, a sticky shorter than a sticky's floor, a Document, a
+# drawing), with the shape nudged 20 down.
+camera 0,0,1
+select generated-id-2
+key shift+down
+snapshot 01-nudged.png
+save 01-one-change.canvas

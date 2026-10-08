@@ -162,8 +162,28 @@ impl ToolDefaultPatch {
     }
 }
 
+/// The stroke widths a brush is offered in, thin to thick. A highlighter
+/// is a marker: far wider than a pen.
+fn width_presets(brush: BrushType) -> [f64; 2] {
+    match brush {
+        BrushType::Pen => [2.0, 4.0],
+        BrushType::Highlight => [8.0, 16.0],
+    }
+}
+
+/// The width `brush` is offered in that is closest to `width`.
+fn nearest_width(brush: BrushType, width: f64) -> f64 {
+    let [thin, thick] = width_presets(brush);
+    if (width - thin).abs() <= (width - thick).abs() {
+        thin
+    } else {
+        thick
+    }
+}
+
 impl ToolDefaults {
-    /// Applies one change.
+    /// Applies one change. Changing the brush also moves the stroke width
+    /// to the nearest width that brush is offered in.
     pub fn apply(&mut self, patch: ToolDefaultPatch) {
         match patch {
             ToolDefaultPatch::TextColor(color) => self.text.color = color,
@@ -176,7 +196,10 @@ impl ToolDefaults {
             ToolDefaultPatch::ShapeColor(color) => self.shape.color = color,
             ToolDefaultPatch::ShapeStrokeWidth(width) => self.shape.stroke_width = width,
             ToolDefaultPatch::ShapeTextSize(size) => self.shape.text_size = size,
-            ToolDefaultPatch::Brush(brush) => self.draw.brush = brush,
+            ToolDefaultPatch::Brush(brush) => {
+                self.draw.brush = brush;
+                self.draw.stroke_width = nearest_width(brush, self.draw.stroke_width);
+            }
             ToolDefaultPatch::DrawColor(color) => self.draw.color = color,
             ToolDefaultPatch::DrawStrokeWidth(width) => self.draw.stroke_width = width,
         }
@@ -332,6 +355,21 @@ mod tests {
         }));
         assert_eq!(legacy.text.color, Some(Color::Preset(ColorPreset::Green)));
         assert_eq!(legacy.sticky.color, Color::Preset(ColorPreset::Purple));
+    }
+
+    #[test]
+    fn changing_the_brush_moves_the_width_into_that_brushs_range() {
+        let mut defaults = ToolDefaults::default();
+        defaults.apply(ToolDefaultPatch::Brush(BrushType::Highlight));
+        assert_eq!(
+            defaults.draw.stroke_width, 8.0,
+            "a 2 wide highlight is a hairline"
+        );
+        defaults.apply(ToolDefaultPatch::DrawStrokeWidth(16.0));
+        defaults.apply(ToolDefaultPatch::Brush(BrushType::Highlight));
+        assert_eq!(defaults.draw.stroke_width, 16.0, "a width in range stays");
+        defaults.apply(ToolDefaultPatch::Brush(BrushType::Pen));
+        assert_eq!(defaults.draw.stroke_width, 4.0);
     }
 
     #[test]

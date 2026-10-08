@@ -1,0 +1,15 @@
+# canvas: ../../../resources/starter-space/Welcome.canvas
+# Save and reload, part two: a canvas the Electron app wrote, with one
+# shape nudged 5 to the right. Only that shape's x may differ in the save
+# (check.py compares the JSON); every text keeps the size Electron gave it.
+camera -421,109,0.412
+snapshot 01-opened.png
+save 01-untouched.canvas
+select shape_10ac9206-94f7-442f-b5f7-c79cabb6eb5c
+key right
+camera 60,-180,0.8
+snapshot 02-nudged.png
+camera -421,109,0.412
+save 02-one-change.canvas
+key cmd+z
+save 03-undone.canvas

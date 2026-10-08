@@ -1,13 +1,14 @@
 //! [`App`]: the document, its history, and the [`Session`].
 
 use glam::Vec2;
-use specular_core::Camera;
+use specular_core::{Camera, Modifiers};
 use specular_doc::{Document, Entity, EntityId, History, ItemId, Kind, Page};
 
 use crate::edit::{Measurer, StackCache, TextEdit};
 use crate::images::Images;
 use crate::notes::Notes;
 use crate::page_input::ButtonCapture;
+use crate::saved::LoadedFits;
 use crate::{Cursor, Gesture, PagePlacement, Tool, ToolDefaults};
 
 /// Everything the app knows. Only [`update`](crate::update) changes it.
@@ -191,6 +192,11 @@ pub struct Session {
     /// Where the pointer is, in logical screen pixels. `None` when it is
     /// outside the window.
     pub pointer: Option<Vec2>,
+    /// The size on disk of each text that was measured when the document
+    /// was opened.
+    pub(crate) loaded_fits: LoadedFits,
+    /// The modifier keys held at the latest pointer or key event.
+    pub(crate) modifiers: Modifiers,
     /// The wall clock at the latest tick, in milliseconds since the Unix
     /// epoch.
     pub now_ms: u64,

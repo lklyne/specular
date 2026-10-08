@@ -29,9 +29,16 @@ pub(crate) fn canvas_text(document: &Document, camera: Camera) -> Result<String,
     if !state.is_object() {
         *state = json!({});
     }
-    state["zoom"] = json!(camera.zoom);
-    state["pan"] = json!({ "x": camera.pan.x, "y": camera.pan.y });
+    state["zoom"] = json!(widened(camera.zoom));
+    state["pan"] = json!({ "x": widened(camera.pan.x), "y": widened(camera.pan.y) });
     document.to_canvas_string()
+}
+
+/// `value` as the `f64` that prints the same digits. A plain widening
+/// keeps the `f32`'s rounding error, and 0.8 would be saved as
+/// 0.800000011920929.
+fn widened(value: f32) -> f64 {
+    value.to_string().parse().unwrap_or(f64::from(value))
 }
 
 #[cfg(test)]
@@ -83,6 +90,14 @@ mod tests {
             saved.extra()[APP_STATE]["leftSidebarOpen"],
             Value::Bool(true)
         );
+    }
+
+    #[test]
+    fn the_zoom_is_written_as_the_number_it_is() {
+        let camera = Camera::new(Vec2::new(-168.0, -518.0), 0.8);
+        let text = canvas_text(&document(r#"{"nodes":[],"edges":[]}"#), camera).unwrap();
+        // Not 0.800000011920929, the `f32` widened.
+        assert!(text.contains(r#""zoom": 0.8,"#), "{text}");
     }
 
     #[test]

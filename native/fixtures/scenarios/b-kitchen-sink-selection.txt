@@ -1,0 +1,78 @@
+# canvas: ../kitchen-sink.canvas
+# A mixed selection on the kitchen sink: marquee, move, resize, duplicate,
+# option-drag copy, nudge, delete, and an undo after each.
+camera 32,-368,0.8
+
+# marquee from the gap between the sticky rows down to the first shapes
+press 10 225
+drag-to 300 500
+drag-to 500 790
+snapshot 01-marquee-in-flight.png
+release
+save 02-start.canvas
+
+# move it by a body
+press 96 720
+drag-to 150 740
+drag-to 216 760
+snapshot 03-move-in-flight.png
+release
+snapshot 04-moved.png
+key cmd+z
+snapshot 05-move-undone.png
+
+# resize the whole selection from its bottom-right handle
+press 545 769
+drag-to 600 820
+drag-to 690 905
+snapshot 06-resize-in-flight.png
+release
+snapshot 07-resized.png
+key cmd+z
+save 08-resize-undone.canvas
+
+# duplicate
+key cmd+d
+snapshot 09-duplicated.png
+key cmd+z
+save 10-duplicate-undone.canvas
+
+# undoing the duplicate leaves nothing selected, so marquee again
+press 10 225
+drag-to 500 790
+release
+
+# option-drag a copy
+hold alt
+press 96 720
+drag-to 300 800
+drag-to 700 560
+snapshot 11-option-drag-in-flight.png
+release
+hold none
+snapshot 12-option-drag-copied.png
+key cmd+z
+save 13-option-drag-undone.canvas
+
+# the copies went with the undo and took the selection with them
+press 10 225
+drag-to 500 790
+release
+
+# nudge: three small steps right, one big step down
+key right
+key right
+key right
+key shift+down
+snapshot 14-nudged.png
+key cmd+z
+key cmd+z
+key cmd+z
+key cmd+z
+save 15-nudges-undone.canvas
+
+# delete
+key backspace
+snapshot 16-deleted.png
+key cmd+z
+save 17-delete-undone.canvas

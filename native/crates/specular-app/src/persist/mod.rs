@@ -13,7 +13,7 @@ use std::time::Instant;
 use specular_doc::Document;
 use specular_interact::App;
 
-pub(crate) use self::app_state::camera_of;
+pub(crate) use self::app_state::{camera_of, canvas_text};
 pub(crate) use self::disk::{stamp, write_atomic};
 pub(crate) use self::file_sync::Stamp;
 use self::file_sync::{DiskChange, FileSync, Step};
@@ -75,7 +75,7 @@ impl Persistence {
 
     fn save(&mut self, app: &App) {
         let path = &self.path;
-        let written = app_state::canvas_text(app.document(), app.session().camera)
+        let written = app_state::canvas_text(&app.document_to_save(), app.session().camera)
             .map_err(|error| error.to_string())
             .and_then(|text| {
                 disk::write_atomic(path, &text).map_err(|error| error.to_string())?;

@@ -43,6 +43,8 @@ pub(crate) enum Step {
     Click(Vec2),
     /// `double-click x y`.
     DoubleClick(Vec2),
+    /// `triple-click x y`.
+    TripleClick(Vec2),
     /// `drag x1 y1 x2 y2`: press, move through the middle, release.
     Drag(Vec2, Vec2),
     /// `hold shift+cmd`, or `hold none`: modifiers kept down for the steps
@@ -52,6 +54,18 @@ pub(crate) enum Step {
     Key(Modifiers, Key),
     /// `type some text`: the rest of the line, one key a character.
     Type(String),
+    /// `compose にほ`: the input method shows this as its composition.
+    Compose(String),
+    /// `commit 日本`: the input method commits this, ending any composition.
+    /// Also how an emoji picker's choice arrives.
+    Commit(String),
+    /// `clipboard some text`: another app copied this. `\n`, `\t` and `\\`
+    /// are a line break, a tab and a backslash. `key cmd+v` pastes it.
+    Clipboard(String),
+    /// `wheel dx dy`: scrolls where the pointer is, with the held modifiers.
+    Wheel(Vec2),
+    /// `pinch delta`: a trackpad pinch where the pointer is.
+    Pinch(f32),
     /// `tool shape`.
     Tool(Tool),
     /// `select id id`: replaces the selection.
@@ -62,6 +76,8 @@ pub(crate) enum Step {
     Wait(u64),
     /// `snapshot out.png`.
     Snapshot(PathBuf),
+    /// `save out.canvas`: the text an autosave would write now.
+    Save(PathBuf),
 }
 
 const NO_MODIFIERS: Modifiers = Modifiers {
@@ -91,6 +107,7 @@ fn step(line: &str) -> anyhow::Result<Step> {
         ("release", []) => Step::Release,
         ("click", [x, y]) => Step::Click(point(x, y)?),
         ("double-click", [x, y]) => Step::DoubleClick(point(x, y)?),
+        ("triple-click", [x, y]) => Step::TripleClick(point(x, y)?),
         ("drag", [x1, y1, x2, y2]) => Step::Drag(point(x1, y1)?, point(x2, y2)?),
         ("hold", [chord]) => Step::Hold(modifiers(chord)?),
         ("key", [chord]) => {
@@ -98,13 +115,38 @@ fn step(line: &str) -> anyhow::Result<Step> {
             Step::Key(modifiers(held)?, key_named(key)?)
         }
         ("type", _) if !rest.is_empty() => Step::Type(rest.to_owned()),
+        ("compose", _) if !rest.is_empty() => Step::Compose(rest.to_owned()),
+        ("commit", _) if !rest.is_empty() => Step::Commit(rest.to_owned()),
+        ("clipboard", _) if !rest.is_empty() => Step::Clipboard(unescaped(rest)),
+        ("wheel", [x, y]) => Step::Wheel(point(x, y)?),
+        ("pinch", [delta]) => Step::Pinch(delta.parse().context("pinch expects a number")?),
         ("tool", [name]) => Step::Tool(tool_named(name)?),
         ("select", ids) => Step::Select(ids.iter().map(|&id| id.to_owned()).collect()),
         ("camera", [value]) => Step::Camera(camera(value)?),
         ("wait", [ms]) => Step::Wait(ms.parse().context("wait expects milliseconds")?),
         ("snapshot", [path]) => Step::Snapshot(PathBuf::from(path)),
+        ("save", [path]) => Step::Save(PathBuf::from(path)),
         _ => bail!("not a step, or the wrong number of arguments"),
     })
+}
+
+/// `text` with `\n`, `\t` and `\\` turned into what they name.
+fn unescaped(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut characters = text.chars();
+    while let Some(character) = characters.next() {
+        if character != '\\' {
+            out.push(character);
+            continue;
+        }
+        match characters.next() {
+            Some('n') => out.push('\n'),
+            Some('t') => out.push('\t'),
+            Some(other) => out.push(other),
+            None => out.push('\\'),
+        }
+    }
+    out
 }
 
 fn point(x: &str, y: &str) -> anyhow::Result<Vec2> {
@@ -158,6 +200,8 @@ fn key_named(name: &str) -> anyhow::Result<Key> {
         "delete" => Key::Delete,
         "home" => Key::Home,
         "end" => Key::End,
+        "pageup" => Key::PageUp,
+        "pagedown" => Key::PageDown,
         "space" => Key::Space,
         "left" => Key::ArrowLeft,
         "right" => Key::ArrowRight,
@@ -215,6 +259,14 @@ mod tests {
         assert_eq!(
             parse("type Hello,  world").unwrap(),
             [Step::Type("Hello,  world".to_owned())]
+        );
+    }
+
+    #[test]
+    fn clipboard_text_takes_escapes() {
+        assert_eq!(
+            parse(r"clipboard one\ntwo\\n").unwrap(),
+            [Step::Clipboard("one\ntwo\\n".to_owned())]
         );
     }
 

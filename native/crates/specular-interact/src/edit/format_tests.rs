@@ -54,6 +54,18 @@ fn wrap_on_a_caret_inserts_the_pair_and_sits_between() {
 }
 
 #[test]
+fn wrap_on_a_caret_before_a_runs_closing_marker_steps_out_of_the_run() {
+    assert_eq!(wrapped("a **bold|** b", Wrap::Bold), "a **bold**| b");
+    assert_eq!(wrapped("a *x|* b", Wrap::Italic), "a *x*| b");
+    assert_eq!(wrapped("a `x|` b", Wrap::Code), "a `x`| b");
+    assert_eq!(wrapped("- ~~x|~~", Wrap::Strike), "- ~~x~~|");
+    // Markers that follow a finished run open the next one.
+    assert_eq!(wrapped("**a** b|**c**", Wrap::Bold), "**a** b**|****c**");
+    // A star of a bold pair is not an italic marker.
+    assert_eq!(wrapped("**a|**", Wrap::Italic), "**a*|***");
+}
+
+#[test]
 fn wrap_strips_markers_inside_or_outside_the_selection() {
     assert_eq!(wrapped("a **|bold|** b", Wrap::Bold), "a |bold| b");
     assert_eq!(wrapped("a |**bold**| b", Wrap::Bold), "a |bold| b");

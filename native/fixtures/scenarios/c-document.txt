@@ -1,0 +1,112 @@
+# canvas: empty.canvas
+# A Document from nothing: place it, write markdown with the formatting
+# shortcuts, end the edit, reopen it, scroll, undo.
+camera 0,0,1
+
+tool document
+click 200 100
+snapshot 01-placed-empty.png
+
+# a heading with the shortcut, then body text with bold
+type Launch plan
+key cmd+alt+1
+key enter
+key enter
+type We ship on 
+key cmd+b
+type Friday
+key cmd+b
+type  if the build is green.
+key enter
+key enter
+# a bullet list with the shortcut
+type write the changelog
+key cmd+shift+8
+key enter
+type tag the release
+key enter
+type tell support
+key enter
+key enter
+# a task list
+type smoke test on a clean machine
+key cmd+shift+9
+snapshot 02-typed.png
+
+# select a word and make it italic
+hold shift+alt
+key left
+key left
+hold none
+key cmd+i
+snapshot 03-italic-selection.png
+
+key escape
+snapshot 04-read-view.png
+save 04-document.canvas
+
+# reopen: the caret lands where the double click was
+double-click 300 180
+snapshot 05-reopened.png
+key cmd+down
+key enter
+type line 1
+key enter
+type line 2
+key enter
+type line 3
+key enter
+type line 4
+key enter
+type line 5
+key enter
+type line 6
+key enter
+type line 7
+key enter
+type line 8
+key enter
+type line 9
+key enter
+type line 10
+key enter
+type line 11
+key enter
+type line 12
+key enter
+type line 13
+key enter
+type line 14
+key enter
+type line 15
+key enter
+type line 16
+key enter
+type line 17
+key enter
+type line 18
+key enter
+type line 19
+key enter
+type line 20
+snapshot 06-long-typed.png
+key escape
+snapshot 07-long-read-view.png
+
+# scroll the selected Document with the wheel, to the end and past it
+move 300 300
+wheel 0 -200
+wheel 0 -5000
+snapshot 09-scrolled-to-end.png
+wheel 0 60
+snapshot 10-scrolled-back-a-little.png
+
+# undo the second edit, the first edit, then the Document itself
+key cmd+z
+key cmd+z
+snapshot 12-undo-first-edit.png
+key cmd+z
+key cmd+shift+z
+key cmd+shift+z
+key cmd+shift+z
+snapshot 14-redone.png

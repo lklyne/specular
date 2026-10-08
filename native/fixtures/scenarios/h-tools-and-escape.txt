@@ -1,0 +1,109 @@
+# canvas: empty.canvas
+# Tool keys in quick succession, and Escape at every stage of every
+# gesture. Nothing half-made should be left behind.
+camera 0,0,1
+
+# one sticky to act on
+tool sticky
+click 200 160
+type keep me
+key escape
+key escape
+save 00-start.canvas
+
+# tool keys with no click between them create nothing
+key r
+key o
+key t
+key s
+key m
+key shift+m
+key p
+key c
+key v
+
+# Escape with a tool armed, then mid-drag with each tool
+key r
+key escape
+key r
+press 500 200
+drag-to 620 300
+snapshot 02-shape-in-flight.png
+key escape
+snapshot 03-shape-escaped.png
+release
+key m
+press 500 200
+drag-to 560 260
+drag-to 640 220
+key escape
+release
+key escape
+
+# a text placed and left empty, a Document placed and left
+tool text
+click 500 400
+key escape
+tool sticky
+click 700 400
+key escape
+
+# Escape mid-marquee, mid-move, mid-resize, mid-option-drag
+press 100 100
+drag-to 450 450
+key escape
+snapshot 06-marquee-escaped.png
+release
+press 300 300
+drag-to 500 500
+key escape
+release
+click 300 300
+press 401 361
+drag-to 500 480
+key escape
+release
+hold alt
+press 300 300
+drag-to 600 600
+snapshot 09-option-drag-in-flight.png
+key escape
+release
+hold none
+save 09-gestures-escaped.canvas
+
+# Escape while composing, then while selecting text with the pointer
+double-click 300 300
+key cmd+down
+compose にほ
+key escape
+snapshot 10-compose-escaped.png
+press 215 180
+drag-to 260 180
+key escape
+release
+snapshot 11-text-select-escaped.png
+key escape
+key escape
+
+# switch tools in the middle of a drag
+key r
+press 800 200
+drag-to 900 280
+key m
+drag-to 960 340
+release
+key v
+key escape
+snapshot 12-tool-switch-mid-drag.png
+
+# change tools while a text edit is open
+double-click 300 300
+key cmd+down
+type !
+tool shape
+snapshot 13-tool-change-while-editing.png
+key escape
+key escape
+snapshot 14-end.png
+save 14-end.canvas
