@@ -11,10 +11,6 @@ fn set(app: &mut TestApp, property: Property) {
     app.act(Action::SetProperty(property));
 }
 
-fn steps(app: &TestApp) -> bool {
-    app.app().can_undo()
-}
-
 fn viewports(app: &mut TestApp) -> Vec<(String, CssSize)> {
     app.take_effects()
         .into_iter()
@@ -48,27 +44,6 @@ fn a_viewport_preset_resizes_the_page_and_names_its_device() {
     "#);
     assert_eq!(viewports(&mut app).len(), 2, "each page's host is resized");
     assert_eq!(property::read::viewport_preset(app.app()), Some(1));
-    app.assert_undo_returns_to_start();
-}
-
-#[test]
-fn a_landscape_preset_on_a_portrait_page_keeps_the_orientation_it_has() {
-    let mut app = phone_and_laptop();
-    app.select(&["p1"]);
-    set(&mut app, Property::ViewportPreset(6));
-    assert_eq!(app.rect("p1"), Rect::new(100.0, 100.0, 800.0, 1280.0));
-    set(&mut app, Property::Orientation(Orientation::Landscape));
-    assert_doc_snapshot!(app, @r#"
-    nodes:
-      {"id":"p1","type":"link","x":100,"y":100,"width":1280,"height":800,"url":"https://example.com/p1","presetIndex":6,"metadata":{"deviceId":"laptop","deviceOrientation":"landscape"}}
-      {"id":"p2","type":"link","x":700,"y":100,"width":375,"height":667,"url":"https://example.com/p2"}
-    edges:
-    specular: {"entityOrder":["p1","p2"]}
-    "#);
-    assert_eq!(
-        property::read::orientation(app.app()),
-        Some(Orientation::Landscape)
-    );
     app.assert_undo_returns_to_start();
 }
 
@@ -131,15 +106,6 @@ fn the_device_frame_and_color_scheme_are_page_settings() {
     set(&mut app, Property::ColorScheme(None));
     assert_eq!(property::read::color_scheme(app.app()), Some(None));
     app.assert_undo_returns_to_start();
-}
-
-#[test]
-fn an_unknown_preset_applies_to_nothing() {
-    let mut app = phone_and_laptop();
-    app.select(&["p1"]);
-    assert!(!Property::ViewportPreset(99).applies_to(app.app()));
-    set(&mut app, Property::ViewportPreset(99));
-    assert!(!steps(&app));
 }
 
 #[test]

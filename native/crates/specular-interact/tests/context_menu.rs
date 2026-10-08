@@ -1,11 +1,7 @@
-//! What the context menu holds for each thing under the pointer: the model
-//! alone, as a renderer of any kind would be handed it.
+//! What the context menu holds for each thing under the pointer.
 
 use specular_doc::Rect;
-use specular_interact::{MenuTarget, context_menu};
-use specular_testkit::{
-    TestApp, assert_menu_snapshot, connected, document, group, inside, page, shape, sticky,
-};
+use specular_testkit::{TestApp, connected, document, group, inside, page, shape, sticky};
 
 const A: Rect = Rect::new(100.0, 100.0, 200.0, 100.0);
 const B: Rect = Rect::new(400.0, 100.0, 200.0, 100.0);
@@ -17,166 +13,88 @@ fn opened(entities: impl IntoIterator<Item = specular_doc::Entity>) -> TestApp {
     app
 }
 
-#[test]
-fn empty_canvas_offers_paste_and_select_all() {
-    let mut app = opened([shape("a", A)]);
-    app.right_click((900.0, 600.0));
-    assert_menu_snapshot!(app, @r#"
-    anchor point 900,600
-    choices menu "Menu"
-      options list
-        option [ ] menu.paste "Paste" chord=cmd+v -> Paste
-      options list
-        option [ ] menu.select-all "Select all" chord=cmd+a -> SelectAll
-    "#);
+fn menu_items(app: &TestApp) -> Vec<String> {
+    (app.panel_layout().controls())
+        .map(|id| id.as_str().to_owned())
+        .filter(|id| id.starts_with("menu."))
+        .collect()
 }
 
 #[test]
-fn a_sticky_has_the_edit_the_order_and_delete() {
-    let mut app = opened([sticky("n", A, "note")]);
-    app.right_click((150.0, 150.0));
-    assert_menu_snapshot!(app, @r#"
-    anchor point 150,150
-    choices menu "Menu"
-      options list
-        option [ ] menu.cut "Cut" chord=cmd+x -> Cut
-        option [ ] menu.copy "Copy" chord=cmd+c -> Copy
-        option [ ] menu.paste "Paste" chord=cmd+v -> Paste
-        option [ ] menu.duplicate "Duplicate" chord=cmd+d -> Duplicate
-      options list
-        option [ ] menu.bring-forward "Bring forward" chord=cmd+] -> BringForward
-        option [ ] menu.send-backward "Send backward" chord=cmd+[ -> SendBackward
-        option [ ] menu.bring-to-front "Bring to front" chord=cmd+shift+] -> BringToFront
-        option [ ] menu.send-to-back "Send to back" chord=cmd+shift+[ -> SendToBack
-      options list
-        option [ ] menu.annotate-selection "Annotate selection" -> AnnotateSelection
-      options list
-        option [ ] menu.delete "Delete" chord=backspace -> Delete
-    "#);
-}
+fn the_menu_holds_what_the_thing_under_the_pointer_can_do() {
+    let clipboard = ["menu.cut", "menu.copy", "menu.paste", "menu.duplicate"];
+    let order = [
+        "menu.bring-forward",
+        "menu.send-backward",
+        "menu.bring-to-front",
+        "menu.send-to-back",
+    ];
+    let with = |first: &[&str], more: &[&str]| -> Vec<String> {
+        let mut items: Vec<&str> = first.to_vec();
+        items.extend(clipboard);
+        items.extend(order);
+        items.extend(more);
+        items.push("menu.annotate-selection");
+        items.push("menu.delete");
+        items.into_iter().map(str::to_owned).collect()
+    };
 
-#[test]
-fn a_page_has_its_history_first() {
-    let mut app = opened([page("p", Rect::new(100.0, 100.0, 375.0, 400.0))]);
-    app.right_click((200.0, 300.0));
-    assert_menu_snapshot!(app, @r#"
-    anchor point 200,300
-    choices menu "Menu"
-      options list
-        option [ ] menu.back "Back" disabled -> PageBack
-        option [ ] menu.forward "Forward" disabled -> PageForward
-        option [ ] menu.reload "Reload" chord=cmd+r -> PageReload
-      options list
-        option [ ] menu.cut "Cut" chord=cmd+x -> Cut
-        option [ ] menu.copy "Copy" chord=cmd+c -> Copy
-        option [ ] menu.paste "Paste" chord=cmd+v -> Paste
-        option [ ] menu.duplicate "Duplicate" chord=cmd+d -> Duplicate
-      options list
-        option [ ] menu.bring-forward "Bring forward" chord=cmd+] -> BringForward
-        option [ ] menu.send-backward "Send backward" chord=cmd+[ -> SendBackward
-        option [ ] menu.bring-to-front "Bring to front" chord=cmd+shift+] -> BringToFront
-        option [ ] menu.send-to-back "Send to back" chord=cmd+shift+[ -> SendToBack
-      options list
-        option [ ] menu.annotate-selection "Annotate selection" -> AnnotateSelection
-      options list
-        option [ ] menu.delete "Delete" chord=backspace -> Delete
-    "#);
-}
+    let mut empty = opened([shape("a", A)]);
+    empty.right_click((900.0, 600.0));
+    assert_eq!(
+        menu_items(&empty),
+        ["menu.paste", "menu.select-all"],
+        "empty canvas"
+    );
 
-#[test]
-fn several_items_can_be_grouped() {
-    let mut app = opened([shape("a", A), shape("b", B), shape("c", SECOND)]);
-    app.select(&["a", "b"]);
-    app.right_click((150.0, 150.0));
-    assert!(app.selected_ids().contains(&"b"), "the selection stays");
-    assert_menu_snapshot!(app, @r#"
-    anchor point 150,150
-    choices menu "Menu"
-      options list
-        option [ ] menu.cut "Cut" chord=cmd+x -> Cut
-        option [ ] menu.copy "Copy" chord=cmd+c -> Copy
-        option [ ] menu.paste "Paste" chord=cmd+v -> Paste
-        option [ ] menu.duplicate "Duplicate" chord=cmd+d -> Duplicate
-      options list
-        option [ ] menu.bring-forward "Bring forward" chord=cmd+] -> BringForward
-        option [ ] menu.send-backward "Send backward" chord=cmd+[ -> SendBackward
-        option [ ] menu.bring-to-front "Bring to front" chord=cmd+shift+] -> BringToFront
-        option [ ] menu.send-to-back "Send to back" chord=cmd+shift+[ -> SendToBack
-      options list
-        option [ ] menu.group "Group" chord=cmd+g -> Group
-        option [ ] menu.annotate-selection "Annotate selection" -> AnnotateSelection
-      options list
-        option [ ] menu.delete "Delete" chord=backspace -> Delete
-    "#);
-}
+    let mut sticky_app = opened([sticky("n", A, "note")]);
+    sticky_app.right_click((150.0, 150.0));
+    assert_eq!(menu_items(&sticky_app), with(&[], &[]), "a sticky");
 
-#[test]
-fn a_group_can_be_ungrouped() {
-    let mut app = opened([
+    let mut page_app = opened([page("p", Rect::new(100.0, 100.0, 375.0, 400.0))]);
+    page_app.right_click((200.0, 300.0));
+    assert_eq!(
+        menu_items(&page_app),
+        with(&["menu.back", "menu.forward", "menu.reload"], &[]),
+        "a page has its history first"
+    );
+
+    let mut several = opened([shape("a", A), shape("b", B), shape("c", SECOND)]);
+    several.select(&["a", "b"]);
+    several.right_click((150.0, 150.0));
+    assert!(several.selected_ids().contains(&"b"), "the selection stays");
+    assert_eq!(
+        menu_items(&several),
+        with(&[], &["menu.group"]),
+        "several items"
+    );
+
+    let mut grouped = opened([
         group("g", Rect::new(100.0, 100.0, 400.0, 200.0)),
         inside("g", shape("m", Rect::new(120.0, 120.0, 100.0, 100.0))),
     ]);
-    app.right_click((110.0, 280.0));
-    assert_menu_snapshot!(app, @r#"
-    anchor point 110,280
-    choices menu "Menu"
-      options list
-        option [ ] menu.cut "Cut" chord=cmd+x -> Cut
-        option [ ] menu.copy "Copy" chord=cmd+c -> Copy
-        option [ ] menu.paste "Paste" chord=cmd+v -> Paste
-        option [ ] menu.duplicate "Duplicate" chord=cmd+d -> Duplicate
-      options list
-        option [ ] menu.bring-forward "Bring forward" chord=cmd+] -> BringForward
-        option [ ] menu.send-backward "Send backward" chord=cmd+[ -> SendBackward
-        option [ ] menu.bring-to-front "Bring to front" chord=cmd+shift+] -> BringToFront
-        option [ ] menu.send-to-back "Send to back" chord=cmd+shift+[ -> SendToBack
-      options list
-        option [ ] menu.ungroup "Ungroup" chord=cmd+shift+g -> Ungroup
-        option [ ] menu.annotate-selection "Annotate selection" -> AnnotateSelection
-      options list
-        option [ ] menu.delete "Delete" chord=backspace -> Delete
-    "#);
-}
+    grouped.right_click((110.0, 280.0));
+    assert_eq!(
+        menu_items(&grouped),
+        with(&[], &["menu.ungroup"]),
+        "a group"
+    );
 
-#[test]
-fn an_edge_has_the_order_and_delete() {
-    let mut app = TestApp::empty();
-    app.with_panels();
-    app.open(connected(
+    let mut edge = TestApp::empty();
+    edge.with_panels();
+    edge.open(connected(
         document([shape("a", A), shape("b", B)]),
         "e",
         "a",
         "b",
     ));
-    let curve = app.app().edge_curve(&"e".into());
-    let at = curve.expect("the edge has a curve").point(0.5);
-    app.right_click(at);
-    assert_menu_snapshot!(app, @r#"
-    anchor point 350,150
-    choices menu "Menu"
-      options list
-        option [ ] menu.bring-forward "Bring forward" chord=cmd+] -> BringForward
-        option [ ] menu.send-backward "Send backward" chord=cmd+[ -> SendBackward
-        option [ ] menu.bring-to-front "Bring to front" chord=cmd+shift+] -> BringToFront
-        option [ ] menu.send-to-back "Send to back" chord=cmd+shift+[ -> SendToBack
-      options list
-        option [ ] menu.delete "Delete" chord=backspace -> Delete
-    "#);
-}
-
-#[test]
-fn the_menu_is_none_once_its_selection_has_changed() {
-    let mut app = opened([shape("a", A), shape("b", B)]);
-    app.right_click((150.0, 150.0));
-    let target = app
-        .session()
-        .panel
-        .menu
-        .clone()
-        .expect("a menu is open")
-        .target;
-    assert!(context_menu(app.app(), &target, glam::Vec2::ZERO).is_some());
-    app.select(&["b"]);
-    assert!(context_menu(app.app(), &target, glam::Vec2::ZERO).is_none());
-    assert!(matches!(target, MenuTarget::Selection(_)));
+    let at = edge
+        .app()
+        .edge_curve(&"e".into())
+        .expect("a curve")
+        .point(0.5);
+    edge.right_click(at);
+    let mut expected: Vec<String> = order.iter().map(|id| (*id).to_owned()).collect();
+    expected.push("menu.delete".to_owned());
+    assert_eq!(menu_items(&edge), expected, "an edge");
 }

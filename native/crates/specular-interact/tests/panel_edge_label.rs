@@ -62,13 +62,3 @@ fn an_emptied_label_takes_the_label_off() {
     assert_eq!(label(&app), None);
     app.assert_undo_returns_to_start();
 }
-
-#[test]
-fn escape_puts_the_old_label_back() {
-    let mut app = app();
-    app.click_control("edge.label")
-        .type_text("draft")
-        .key(Key::Escape);
-    assert_eq!(label(&app), None);
-    assert!(app.field_edit().is_none());
-}

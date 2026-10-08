@@ -228,18 +228,6 @@ impl TestApp {
         Some(edit.text())
     }
 
-    /// The open context menu as stable text, `none` while none is open. See
-    /// [`popup_snapshot`](crate::popup_snapshot).
-    pub fn menu_snapshot(&self) -> String {
-        let menu = self
-            .session()
-            .panel
-            .menu
-            .as_ref()
-            .and_then(|open| specular_interact::context_menu(&self.app, &open.target, open.at));
-        crate::popup_snapshot(menu.as_ref())
-    }
-
     /// Whether a context menu is open.
     pub fn menu_open(&self) -> bool {
         self.session().panel.menu.is_some()

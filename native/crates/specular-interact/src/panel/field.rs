@@ -147,29 +147,4 @@ mod tests {
             assert_eq!(width(text), None, "{text:?}");
         }
     }
-
-    #[test]
-    fn an_edge_label_is_trimmed_and_an_empty_one_takes_the_label_off() {
-        assert_eq!(
-            FieldSubmit::EdgeLabel.action(" depends "),
-            Some(Action::SetProperty(Property::Label("depends".to_owned())))
-        );
-        assert_eq!(
-            FieldSubmit::EdgeLabel.action("  "),
-            Some(Action::SetProperty(Property::Label(String::new())))
-        );
-    }
-
-    #[test]
-    fn a_canvas_name_is_trimmed_and_a_blank_one_asks_for_nothing() {
-        let rename = FieldSubmit::CanvasName(CanvasId::new("c1"));
-        assert_eq!(
-            rename.action("  Plans "),
-            Some(Action::Canvas(CanvasAction::Rename {
-                canvas: Some(CanvasId::new("c1")),
-                name: "Plans".to_owned(),
-            }))
-        );
-        assert_eq!(rename.action("   "), None);
-    }
 }

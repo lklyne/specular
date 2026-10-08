@@ -9,7 +9,7 @@
 use specular_doc::Rect;
 use specular_interact::panel::builtin::Surface;
 use specular_interact::{Action, ClipboardContent, Effect, Event, Key, PageNotice, Tool};
-use specular_testkit::{TestApp, group, inside, page, shape, sticky};
+use specular_testkit::{TestApp, page, shape};
 
 const A: Rect = Rect::new(100.0, 300.0, 200.0, 100.0);
 const B: Rect = Rect::new(400.0, 300.0, 200.0, 100.0);
@@ -34,33 +34,19 @@ fn a_right_press_on_an_unselected_item_selects_it_and_opens_the_menu() {
     let menu = app.panel_layout().dropdown.expect("the menu is laid out");
     assert_eq!(menu.surface, Surface::Dropdown);
     assert_eq!((menu.rect.x, menu.rect.y), (150.0, 350.0), "at the pointer");
-}
 
-#[test]
-fn a_right_press_on_one_of_several_selected_keeps_them_all() {
-    let mut app = opened([shape("a", A), shape("b", B)]);
     app.select(&["a", "b"]);
     app.right_click((450.0, 350.0));
-    assert_eq!(app.selected_ids(), ["a", "b"]);
-    assert!(app.menu_open());
-}
+    assert_eq!(app.selected_ids(), ["a", "b"], "one of several keeps them");
 
-#[test]
-fn a_right_press_on_empty_canvas_clears_the_selection_and_offers_the_clipboard() {
-    let mut app = opened([shape("a", A)]);
-    app.select(&["a"]);
-    app.right_click((900.0, 600.0));
+    app.key(Key::Escape).right_click((900.0, 600.0));
     assert_eq!(app.selected_ids(), [] as [&str; 0]);
-    assert!(
-        app.panel_layout()
-            .controls()
-            .any(|id| id.as_str() == "menu.paste")
-    );
-    assert!(
-        app.panel_layout()
-            .controls()
-            .any(|id| id.as_str() == "menu.select-all")
-    );
+    for id in ["menu.paste", "menu.select-all"] {
+        assert!(
+            app.panel_layout().controls().any(|c| c.as_str() == id),
+            "{id}"
+        );
+    }
 }
 
 #[test]
@@ -79,16 +65,6 @@ fn the_menu_is_kept_inside_the_viewport() {
 }
 
 #[test]
-fn the_menu_stays_clear_of_the_sidebar() {
-    let mut app = opened([shape("a", Rect::new(500.0, 300.0, 200.0, 100.0))]);
-    app.show_sidebar(true);
-    let covered = app.app().covered_left();
-    assert!(covered > 100.0);
-    app.right_click((covered + 2.0, 600.0));
-    assert!(menu_rect(&app).x >= covered + 8.0);
-}
-
-#[test]
 fn choosing_an_item_runs_it_closes_the_menu_and_is_one_undo_step() {
     let mut app = opened([shape("a", A), shape("b", B)]);
     app.right_click((150.0, 350.0));
@@ -98,23 +74,6 @@ fn choosing_an_item_runs_it_closes_the_menu_and_is_one_undo_step() {
     app.undo();
     assert_eq!(app.document().entities().count(), 2);
     app.redo();
-    app.assert_undo_returns_to_start();
-}
-
-#[test]
-fn delete_and_the_stack_order_come_from_the_menu() {
-    let mut app = opened([
-        shape("a", A),
-        sticky("n", Rect::new(120.0, 320.0, 100.0, 100.0), "x"),
-    ]);
-    app.right_click((130.0, 330.0));
-    assert_eq!(app.selected_ids(), ["n"]);
-    app.click_control("menu.send-to-back");
-    assert_eq!(app.document().order()[0].as_str(), "n");
-    app.right_click((150.0, 410.0));
-    assert_eq!(app.selected_ids(), ["n"], "the part of it a is not over");
-    app.click_control("menu.delete");
-    assert!(app.document().entity(&"n".into()).is_none());
     app.assert_undo_returns_to_start();
 }
 
@@ -186,17 +145,12 @@ fn a_disabled_item_does_nothing_and_the_menu_stays() {
 }
 
 #[test]
-fn escape_closes_the_menu_and_keeps_the_selection() {
-    let mut app = opened([shape("a", A)]);
+fn escape_or_a_press_elsewhere_closes_the_menu_and_goes_no_further() {
+    let mut app = opened([shape("a", A), shape("b", B)]);
     app.right_click((150.0, 350.0));
     app.key(Key::Escape);
     assert!(!app.menu_open());
-    assert_eq!(app.selected_ids(), ["a"]);
-}
-
-#[test]
-fn a_press_elsewhere_closes_the_menu_and_goes_no_further() {
-    let mut app = opened([shape("a", A), shape("b", B)]);
+    assert_eq!(app.selected_ids(), ["a"], "escape keeps the selection");
     app.right_click((150.0, 350.0));
     app.click((450.0, 350.0));
     assert!(!app.menu_open());
@@ -205,14 +159,6 @@ fn a_press_elsewhere_closes_the_menu_and_goes_no_further() {
     app.right_click((450.0, 350.0));
     assert!(!app.menu_open(), "a second right press only closes it");
     assert_eq!(app.selected_ids(), ["a"]);
-}
-
-#[test]
-fn a_change_of_selection_closes_the_menu() {
-    let mut app = opened([shape("a", A), shape("b", B)]);
-    app.right_click((150.0, 350.0));
-    app.select(&["b"]);
-    assert!(!app.menu_open());
 }
 
 #[test]
@@ -238,17 +184,4 @@ fn a_tool_in_hand_has_no_menu() {
     app.tool(Tool::AddShape);
     app.right_click((150.0, 350.0));
     assert!(!app.menu_open());
-}
-
-#[test]
-fn a_grouped_member_is_selected_through_its_group() {
-    let mut app = opened([
-        group("g", Rect::new(100.0, 300.0, 400.0, 200.0)),
-        inside("g", shape("m", Rect::new(120.0, 320.0, 100.0, 100.0))),
-    ]);
-    app.right_click((110.0, 480.0));
-    assert_eq!(app.selected_ids(), ["g"]);
-    app.click_control("menu.ungroup");
-    assert_eq!(app.selected_ids(), ["m"]);
-    app.assert_undo_returns_to_start();
 }

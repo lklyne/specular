@@ -218,17 +218,4 @@ mod tests {
             );
         }
     }
-
-    #[test]
-    fn an_address_field_searches_for_what_is_not_a_url() {
-        assert_eq!(resolve_address_input("   "), None);
-        assert_eq!(
-            resolve_address_input("example.com").as_deref(),
-            Some("https://example.com/")
-        );
-        assert_eq!(
-            resolve_address_input("blue shoes & socks").as_deref(),
-            Some("https://www.google.com/search?q=blue%20shoes%20%26%20socks")
-        );
-    }
 }

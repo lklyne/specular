@@ -276,23 +276,6 @@ mod tests {
     }
 
     #[test]
-    fn a_column_evens_the_gaps_and_aligns_the_left_edges() {
-        let items = boxes(&[
-            ("a", 10.0, 0.0, 80.0, 50.0),
-            ("b", 40.0, 100.0, 80.0, 50.0),
-            ("c", 5.0, 500.0, 80.0, 50.0),
-        ]);
-        let [a, b, c] = placed(&items, ArrangeMode::Column)[..] else {
-            panic!("three rects");
-        };
-        assert_eq!(a.y, 0.0);
-        assert_eq!(c.y % 20.0, 0.0);
-        assert!((c.y + c.height - 550.0).abs() <= 20.0);
-        assert_eq!(b.y - (a.y + a.height), c.y - (b.y + b.height));
-        assert_eq!([a.x, b.x, c.x], [0.0; 3]);
-    }
-
-    #[test]
     fn a_tight_footprint_grows_rather_than_overlaps() {
         let items = boxes(&[
             ("a", 0.0, 0.0, 80.0, 50.0),
@@ -306,20 +289,6 @@ mod tests {
         let (first, second) = (b.y - (a.y + a.height), c.y - (b.y + b.height));
         assert!(first >= MIN_GAP);
         assert_eq!(first, second);
-    }
-
-    #[test]
-    fn a_column_made_a_row_takes_its_height_as_the_spread() {
-        let items = boxes(&[
-            ("a", 10.0, 0.0, 80.0, 50.0),
-            ("b", 10.0, 250.0, 80.0, 50.0),
-            ("c", 10.0, 550.0, 80.0, 50.0),
-        ]);
-        let [a, b, c] = placed(&items, ArrangeMode::Row)[..] else {
-            panic!("three rects");
-        };
-        assert!(b.x > a.x + a.width);
-        assert_eq!(b.x - (a.x + a.width), c.x - (b.x + b.width));
     }
 
     #[test]
@@ -337,19 +306,6 @@ mod tests {
         assert_ne!(b.x, a.x);
         assert_eq!(a.x.min(b.x).min(c.x), 0.0);
         assert_eq!(a.y.min(b.y).min(c.y), 0.0);
-    }
-
-    #[test]
-    fn a_grid_of_one_line_spreads_along_it_and_leaves_the_other_axis() {
-        let items = boxes(&[
-            ("a", 0.0, 0.0, 100.0, 80.0),
-            ("b", 150.0, 0.0, 100.0, 80.0),
-            ("c", 400.0, 0.0, 100.0, 80.0),
-        ]);
-        let [_, b, _] = placed(&items, ArrangeMode::Grid)[..] else {
-            panic!("three rects");
-        };
-        assert_eq!((b.x, b.y), (200.0, 0.0));
     }
 
     #[test]

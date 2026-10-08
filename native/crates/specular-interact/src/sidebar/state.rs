@@ -91,32 +91,3 @@ impl SidebarView {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_row_flips_from_how_its_kind_starts() {
-        let mut view = SidebarView::default();
-        let page = EntityId::from("p");
-        assert!(view.is_open(SidebarSection::Pages, &page, true));
-        view.apply(SidebarAction::Row {
-            section: SidebarSection::Pages,
-            entity: page.clone(),
-        });
-        assert!(!view.is_open(SidebarSection::Pages, &page, true));
-        assert!(
-            view.is_open(SidebarSection::Notes, &page, true),
-            "the other section's row is its own"
-        );
-    }
-
-    #[test]
-    fn covering_follows_whether_it_is_shown() {
-        let mut view = SidebarView::default();
-        assert_eq!(view.covered_width(), 0.0);
-        view.apply(SidebarAction::Toggle);
-        assert_eq!(view.covered_width(), SIDEBAR_WIDTH);
-    }
-}

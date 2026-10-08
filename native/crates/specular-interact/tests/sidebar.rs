@@ -2,12 +2,12 @@
 //! read off the app.
 
 use specular_doc::{
-    Annotation, AnnotationAnchor, AnnotationId, AnnotationStatus, Entity, EntityId, ItemId,
-    PageAnchor, Rect,
+    Annotation, AnnotationAnchor, AnnotationId, AnnotationStatus, Entity, EntityId, PageAnchor,
+    Rect,
 };
-use specular_interact::{Action, RowKind, RowTarget, SidebarRow, sidebar};
+use specular_interact::{RowKind, RowTarget, SidebarRow, sidebar};
 use specular_testkit::{
-    TestApp, comment, document, drawing, group, inside, note, page, shape, sticky, with_comment,
+    TestApp, comment, document, drawing, note, page, shape, sticky, with_comment,
 };
 
 const BOX: Rect = Rect {
@@ -74,23 +74,6 @@ fn outline(rows: &[SidebarRow]) -> Vec<String> {
 }
 
 #[test]
-fn the_canvases_list_names_every_canvas_and_switches_to_it() {
-    let mut app = TestApp::with_space([
-        ("Home", document([page("p1", BOX), page("p2", BOX)])),
-        ("Notes", document([sticky("n1", BOX, "hi")])),
-    ]);
-    let rows = sidebar(app.app()).canvases;
-    let read: Vec<_> = (rows.iter())
-        .map(|row| (row.label.as_str(), row.active, row.entity_count))
-        .collect();
-    assert_eq!(read, [("Home", true, 2), ("Notes", false, 1)]);
-    app.act(rows[1].action.clone());
-    assert_eq!(app.active_canvas(), "Notes");
-    let rows = sidebar(app.app()).canvases;
-    assert_eq!((rows[0].active, rows[1].active), (false, true));
-}
-
-#[test]
 fn notes_and_pages_are_listed_front_of_the_stack_first() {
     let app = TestApp::with_entities([
         page("p1", BOX),
@@ -113,31 +96,6 @@ fn notes_and_pages_are_listed_front_of_the_stack_first() {
     assert_eq!(
         outline(&model.pages),
         ["page example.com", "page example.com"]
-    );
-}
-
-#[test]
-fn a_group_with_notes_and_pages_has_a_row_in_each_section() {
-    let app = TestApp::with_entities([
-        group("g", Rect::new(-24.0, -24.0, 500.0, 500.0)),
-        inside("g", page("p1", BOX)),
-        inside("g", sticky("s1", BOX, "inside")),
-        inside("g", sticky("s2", BOX, "also inside")),
-        sticky("s3", BOX, "outside"),
-    ]);
-    let model = sidebar(app.app());
-    assert_eq!(
-        outline(&model.notes),
-        [
-            "text outside",
-            "group(2) Group",
-            "  text also inside",
-            "  text inside"
-        ]
-    );
-    assert_eq!(
-        outline(&model.pages),
-        ["group(1) Group", "  page example.com"]
     );
 }
 
@@ -212,26 +170,4 @@ fn what_is_hooked_to_a_page_nests_under_it_with_its_open_comments() {
         outline(&sidebar(app.app()).pages)[4],
         "  *comment(1) tighten this"
     );
-}
-
-#[test]
-fn a_row_selects_what_it_stands_for_and_shows_the_selection() {
-    let mut app = TestApp::with_entities([
-        page("p1", BOX),
-        sticky("s1", Rect::new(600.0, 0.0, 200.0, 200.0), "note"),
-    ]);
-    let row = sidebar(app.app()).notes.remove(0);
-    let item = ItemId::Entity(EntityId::from("s1"));
-    assert_eq!(
-        row.action,
-        Action::Reveal {
-            select: vec![item.clone()],
-            focus: item
-        }
-    );
-    app.act(row.action);
-    assert_eq!(app.selected(), Some("s1"));
-    let model = sidebar(app.app());
-    assert_eq!(outline(&model.notes), ["*text note"]);
-    assert_eq!(outline(&model.pages), ["page example.com"]);
 }

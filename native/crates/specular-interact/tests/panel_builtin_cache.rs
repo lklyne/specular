@@ -14,7 +14,6 @@ use specular_testkit::{TestApp, document, page, sticky};
 /// A free spot on the canvas, clear of the toolbar, the popup and the
 /// sidebar.
 const EMPTY: (f32, f32) = (1000.0, 800.0);
-const EMPTY_TOO: (f32, f32) = (1100.0, 820.0);
 
 fn home() -> Document {
     let mut items = vec![page("p1", Rect::new(400.0, 200.0, 400.0, 300.0))];
@@ -71,47 +70,39 @@ fn the_first_read_builds_and_the_draw_after_a_move_reuses_it() {
 }
 
 #[test]
-fn a_move_over_empty_canvas_builds_nothing() {
-    let mut app = app();
-    draw(&app);
-    assert_eq!(
-        builds(&mut app, |app| {
-            app.pointer_move(EMPTY);
-        }),
-        0
-    );
-    assert_eq!(
-        builds(&mut app, |app| {
-            app.pointer_move(EMPTY_TOO);
-        }),
-        0
-    );
-    assert_eq!(
-        builds(&mut app, |app| {
-            draw(app);
-        }),
-        0
-    );
-}
-
-#[test]
-fn a_move_with_a_selection_popup_shown_builds_nothing() {
-    let mut app = app();
-    app.select(&["s0"]);
-    draw(&app);
-    assert!(layout(app.app()).popup.is_some());
-    assert_eq!(
-        builds(&mut app, |app| {
-            app.pointer_move(EMPTY);
-        }),
-        0
-    );
-    assert_eq!(
-        builds(&mut app, |app| {
-            draw(app);
-        }),
-        0
-    );
+fn a_move_that_changes_nothing_builds_nothing() {
+    for (what, selected, sidebar) in [
+        ("empty canvas", None, false),
+        ("a selection popup shown", Some("s0"), false),
+        ("a sidebar row", None, true),
+    ] {
+        let mut app = app();
+        if let Some(id) = selected {
+            app.select(&[id]);
+        }
+        app.show_sidebar(sidebar);
+        draw(&app);
+        let at = if sidebar {
+            let centre = app.control_rect("sidebar.notes.s59").centre();
+            (centre.x, centre.y)
+        } else {
+            EMPTY
+        };
+        assert_eq!(
+            builds(&mut app, |app| {
+                app.pointer_move(at);
+            }),
+            0,
+            "{what}"
+        );
+        assert_eq!(
+            builds(&mut app, |app| {
+                draw(app);
+            }),
+            0,
+            "{what}"
+        );
+    }
 }
 
 #[test]
@@ -136,26 +127,6 @@ fn a_move_onto_a_popup_control_marks_it_without_a_build() {
     let node = layout.node(&"text.color".to_owned().into());
     assert_eq!(node.map(|node| node.state.pointing), Some(Pointing::Hover));
     fresh(&app, "a hover");
-}
-
-#[test]
-fn a_move_over_a_sidebar_row_builds_nothing() {
-    let mut app = app();
-    app.show_sidebar(true);
-    draw(&app);
-    let at = app.control_rect("sidebar.notes.s59").centre();
-    assert_eq!(
-        builds(&mut app, |app| {
-            app.pointer_move(at);
-        }),
-        0
-    );
-    assert_eq!(
-        builds(&mut app, |app| {
-            draw(app);
-        }),
-        0
-    );
 }
 
 #[test]

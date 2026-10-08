@@ -15,7 +15,7 @@ fn three() -> TestApp {
 }
 
 #[test]
-fn a_row_evens_the_gaps_and_lines_the_tops_up_as_one_step() {
+fn a_row_a_column_and_a_grid_even_the_spacing_as_one_step() {
     let mut app = three();
     app.select(&["a", "b", "c"])
         .act(Action::Arrange(ArrangeMode::Row));
@@ -29,10 +29,7 @@ fn a_row_evens_the_gaps_and_lines_the_tops_up_as_one_step() {
     app.redo();
     assert_eq!(app.rect("b"), Rect::new(200.0, 0.0, 100.0, 80.0));
     app.assert_undo_returns_to_start();
-}
 
-#[test]
-fn a_column_lines_the_left_edges_up() {
     let mut app = TestApp::with_entities([
         shape("a", Rect::new(10.0, 0.0, 80.0, 50.0)),
         shape("b", Rect::new(40.0, 100.0, 80.0, 50.0)),
@@ -41,14 +38,11 @@ fn a_column_lines_the_left_edges_up() {
     app.select(&["a", "b", "c"])
         .act(Action::Arrange(ArrangeMode::Column));
     let lefts = ["a", "b", "c"].map(|id| app.rect(id).x);
-    assert_eq!(lefts, [0.0; 3]);
+    assert_eq!(lefts, [0.0; 3], "a column lines the left edges up");
     let (a, b, c) = (app.rect("a"), app.rect("b"), app.rect("c"));
     assert_eq!(b.y - (a.y + a.height), c.y - (b.y + b.height));
     app.assert_undo_returns_to_start();
-}
 
-#[test]
-fn a_grid_keeps_its_shape() {
     let mut app = TestApp::with_entities([
         shape("a", Rect::new(0.0, 0.0, 100.0, 100.0)),
         shape("b", Rect::new(130.0, 8.0, 100.0, 100.0)),
@@ -56,7 +50,7 @@ fn a_grid_keeps_its_shape() {
     ]);
     app.select(&["a", "b", "c"])
         .act(Action::Arrange(ArrangeMode::Grid));
-    assert_eq!(app.rect("a").x, app.rect("c").x);
+    assert_eq!(app.rect("a").x, app.rect("c").x, "a grid keeps its shape");
     assert_eq!(app.rect("a").y, app.rect("b").y);
     assert_ne!(app.rect("b").x, app.rect("a").x);
     app.assert_undo_returns_to_start();

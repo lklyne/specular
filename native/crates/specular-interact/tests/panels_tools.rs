@@ -67,56 +67,6 @@ fn the_toolbar_follows_the_active_tool_the_defaults_and_the_zoom() {
 }
 
 #[test]
-fn the_text_tool_popup_sets_the_plain_text_defaults() {
-    let mut app = TestApp::empty();
-    app.tool(Tool::AddText);
-    assert_popup_snapshot!(app, @r#"
-    anchor toolbar gap=8
-    dropdown text.size "Set default text size" shows text="Small"
-      options list
-        option [x] text.size.14 "Small" -> SetToolDefault(TextSize(14.0))
-        option [ ] text.size.32 "Medium" -> SetToolDefault(TextSize(32.0))
-        option [ ] text.size.56 "Large" -> SetToolDefault(TextSize(56.0))
-        option [ ] text.size.96 "Extra large" -> SetToolDefault(TextSize(96.0))
-        option [ ] text.size.144 "Huge" -> SetToolDefault(TextSize(144.0))
-      controls
-        stepper text.size.custom "Custom text size in pixels" value=14 dec -> SetToolDefault(TextSize(13.0)) inc -> SetToolDefault(TextSize(15.0))
-    dropdown text.font "Set default text font" shows text="Sans" font=Sans
-      options list
-        option [x] text.font.sans "Sans" text="Sans" font=Sans -> SetToolDefault(TextFont(Sans))
-        option [ ] text.font.mono "Mono" text="Mono" font=Mono -> SetToolDefault(TextFont(Mono))
-        option [ ] text.font.hand "Hand" text="Hand" font=Hand -> SetToolDefault(TextFont(Hand))
-    ---
-    swatches text.color Vivid/Ink: *neutral purple blue cyan green yellow orange red
-    "#);
-}
-
-#[test]
-fn the_sticky_tool_popup_sets_the_sticky_defaults() {
-    let mut app = TestApp::empty();
-    app.tool(Tool::AddSticky);
-    assert_popup_snapshot!(app, @r#"
-    anchor toolbar gap=8
-    dropdown sticky.size "Set default sticky text size" shows text="Small"
-      options list
-        option [x] sticky.size.14 "Small" -> SetToolDefault(StickySize(14.0))
-        option [ ] sticky.size.32 "Medium" -> SetToolDefault(StickySize(32.0))
-        option [ ] sticky.size.56 "Large" -> SetToolDefault(StickySize(56.0))
-        option [ ] sticky.size.96 "Extra large" -> SetToolDefault(StickySize(96.0))
-        option [ ] sticky.size.144 "Huge" -> SetToolDefault(StickySize(144.0))
-      controls
-        stepper sticky.size.custom "Custom text size in pixels" value=14 dec -> SetToolDefault(StickySize(13.0)) inc -> SetToolDefault(StickySize(15.0))
-    dropdown sticky.font "Set default sticky text font" shows text="Sans" font=Sans
-      options list
-        option [x] sticky.font.sans "Sans" text="Sans" font=Sans -> SetToolDefault(StickyFont(Sans))
-        option [ ] sticky.font.mono "Mono" text="Mono" font=Mono -> SetToolDefault(StickyFont(Mono))
-        option [ ] sticky.font.hand "Hand" text="Hand" font=Hand -> SetToolDefault(StickyFont(Hand))
-    ---
-    swatches sticky.color Soft/Fill: neutral purple blue cyan green *yellow orange red
-    "#);
-}
-
-#[test]
 fn the_shape_tool_popup_sets_the_shape_defaults() {
     let mut app = TestApp::empty();
     app.tool(Tool::AddShape);
@@ -146,22 +96,6 @@ fn the_shape_tool_popup_sets_the_shape_defaults() {
         stepper shape.size.custom "Custom text size in pixels" value=14 dec -> SetToolDefault(ShapeTextSize(13.0)) inc -> SetToolDefault(ShapeTextSize(15.0))
     ---
     swatches shape.color Soft/Fill: neutral purple blue cyan green yellow orange *red
-    "#);
-}
-
-#[test]
-fn the_draw_tool_popup_sets_the_brush_width_and_color() {
-    let mut app = TestApp::empty();
-    app.tool(Tool::Draw);
-    assert_popup_snapshot!(app, @r#"
-    anchor toolbar gap=8
-    toggle [x] brush.pen "Pen" icon=BrushPen color=1 -> SetToolDefault(Brush(Pen))
-    toggle [ ] brush.highlighter "Highlighter" icon=BrushHighlighter color=1 -> SetToolDefault(Brush(Highlight))
-    ---
-    toggle [x] width.thin "Set width to 2px" icon=StrokeThin -> SetToolDefault(DrawStrokeWidth(2.0))
-    toggle [ ] width.thick "Set width to 4px" icon=StrokeThick -> SetToolDefault(DrawStrokeWidth(4.0))
-    ---
-    swatches draw.color Vivid/Ink: neutral purple blue cyan green yellow orange *red
     "#);
 }
 

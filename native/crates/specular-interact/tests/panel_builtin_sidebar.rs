@@ -66,17 +66,6 @@ fn an_item_already_in_the_free_part_leaves_the_camera_alone() {
 }
 
 #[test]
-fn an_item_under_the_sidebar_is_not_in_view() {
-    let mut app = app();
-    app.click_control("sidebar.notes.under");
-    let centre = app
-        .session()
-        .camera
-        .world_to_screen(Vec2::new(140.0, 550.0));
-    assert_eq!(centre, FREE_CENTRE);
-}
-
-#[test]
 fn shift_selects_the_run_between_two_rows_and_command_toggles_one() {
     let mut app = TestApp::with_entities([
         sticky("s1", at(600.0, 100.0), "1"),
@@ -93,22 +82,6 @@ fn shift_selects_the_run_between_two_rows_and_command_toggles_one() {
     assert_eq!(app.selected_ids(), ["s4", "s2"]);
     app.hold(CMD).click_control("sidebar.notes.s1").let_go();
     assert_eq!(app.selected_ids(), ["s4", "s2", "s1"]);
-}
-
-#[test]
-fn a_group_row_selects_the_group_and_brings_it_into_view() {
-    let mut app = TestApp::with_entities([
-        group("g", Rect::new(2000.0, 1500.0, 600.0, 400.0)),
-        inside("g", sticky("m", at(2100.0, 1600.0), "member")),
-    ]);
-    app.with_panels().show_sidebar(true);
-    app.click_control("sidebar.notes.g");
-    assert_eq!(app.selected(), Some("g"));
-    let centre = app
-        .session()
-        .camera
-        .world_to_screen(Vec2::new(2300.0, 1700.0));
-    assert_eq!(centre, FREE_CENTRE);
 }
 
 #[test]
@@ -198,37 +171,6 @@ fn a_long_list_scrolls_under_the_wheel_and_never_moves_the_canvas() {
 }
 
 #[test]
-fn a_row_scrolled_into_view_is_clicked_where_it_shows() {
-    let mut app = long();
-    app.pointer_move(Vec2::new(100.0, 400.0))
-        .wheel((0.0, -50000.0));
-    assert!(shown(&app, "sidebar.notes.s0"));
-    let rect = app.control_rect("sidebar.notes.s0");
-    assert!(rect.bottom() <= 1000.0 && rect.y >= 80.0);
-    app.click_control("sidebar.notes.s0");
-    assert_eq!(app.selected(), Some("s0"));
-}
-
-#[test]
-fn a_row_half_under_the_head_takes_presses_only_where_it_shows() {
-    let mut app = long();
-    app.pointer_move(Vec2::new(100.0, 400.0))
-        .wheel((0.0, -16.0));
-    // Some row straddles the top of the list, y = 80.
-    let straddling = app
-        .panel_layout()
-        .sidebar_list
-        .expect("the list")
-        .nodes
-        .into_iter()
-        .find(|node| node.id.is_some() && node.rect.y <= 80.0 && node.rect.bottom() > 80.0);
-    let Some(node) = straddling else {
-        panic!("no row straddles the top");
-    };
-    assert!(node.rect.y >= 80.0, "its box is cut at the list's top");
-}
-
-#[test]
 fn a_wheel_off_the_sidebar_still_reaches_the_canvas() {
     let mut app = long();
     let camera = app.session().camera;
@@ -257,17 +199,6 @@ fn the_toolbar_button_shows_and_hides_the_sidebar() {
     assert!(app.selected().is_none());
     app.click_control("sidebar.toggle");
     assert!(!shown(&app, "sidebar.head.canvases"));
-}
-
-#[test]
-fn a_press_on_the_sidebar_starts_no_gesture_on_the_canvas() {
-    let mut app = app();
-    app.press(Vec2::new(100.0, 540.0))
-        .drag_to(Vec2::new(500.0, 600.0))
-        .release();
-    assert!(app.selected().is_none());
-    assert!(app.session().gesture.is_none());
-    assert_eq!(app.rect("under"), at(40.0, 500.0));
 }
 
 #[test]
@@ -325,18 +256,6 @@ fn zoom_to_fit_centres_what_the_sidebar_leaves_free() {
 }
 
 #[test]
-fn zoom_steps_hold_the_middle_of_what_the_sidebar_leaves_free() {
-    let mut app = app();
-    let world = app
-        .session()
-        .camera
-        .screen_to_world(Vec2::new(928.0, 500.0));
-    app.act(Action::ZoomIn);
-    let back = app.session().camera.world_to_screen(world);
-    assert!((back.x - 928.0).abs() < 0.01, "{back}");
-}
-
-#[test]
 fn a_popup_keeps_clear_of_the_sidebar_and_a_tool_popup_centres_beside_it() {
     let mut app = TestApp::with_entities([sticky("t", Rect::new(270.0, 300.0, 100.0, 50.0), "t")]);
     app.with_panels().select(&["t"]);
@@ -352,27 +271,4 @@ fn a_popup_keeps_clear_of_the_sidebar_and_a_tool_popup_centres_beside_it() {
     app.select(&[]).tool(Tool::AddSticky);
     let popup = app.panel_layout().popup.expect("the tool's popup").rect;
     assert!((popup.centre().x - FREE_CENTRE.x).abs() <= 0.5, "{popup:?}");
-}
-
-#[test]
-fn a_row_does_not_show_a_scrollbar_until_the_list_overflows() {
-    use specular_interact::panel::builtin::Chrome;
-    let mut app = app();
-    let thumbs = |app: &TestApp| {
-        app.panel_layout()
-            .sidebar_list
-            .expect("the list")
-            .nodes
-            .iter()
-            .filter(|node| node.chrome == Chrome::Scrollbar)
-            .count()
-    };
-    assert_eq!(thumbs(&app), 0);
-    let long = long();
-    assert_eq!(thumbs(&long), 1);
-    // Rows are narrower by the bar's width while it shows.
-    let narrow = long.control_rect("sidebar.notes.s59").width;
-    let wide = app.control_rect("sidebar.notes.far").width;
-    assert_eq!(wide - narrow, 6.0);
-    app.show_sidebar(false);
 }

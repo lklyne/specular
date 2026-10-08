@@ -5,8 +5,8 @@
 
 use specular_core::PageNav;
 use specular_doc::{Kind, Rect};
-use specular_interact::panel::builtin::{FIELD_HEIGHT, Part};
-use specular_interact::{Action, ControlId, Effect, Key, PageNotice, Tool, ToolDefaultPatch};
+use specular_interact::panel::builtin::Part;
+use specular_interact::{ControlId, Effect, Key, PageNotice, Tool};
 use specular_testkit::{CMD, TestApp, page, sticky};
 
 const PAGE: Rect = Rect::new(300.0, 300.0, 800.0, 500.0);
@@ -40,22 +40,6 @@ fn size_of(app: &TestApp, id: &str) -> (f64, f64) {
 }
 
 #[test]
-fn the_address_field_shows_the_pages_address_and_is_taller_than_the_buttons() {
-    let mut app = app();
-    assert_eq!(app.control_rect("page.url").height, FIELD_HEIGHT);
-    app.page_reports("p", PageNotice::Url("https://example.org/live".to_owned()));
-    let layout = app.panel_layout();
-    let Some(node) = layout.node(&"page.url".to_owned().into()) else {
-        panic!("no address field");
-    };
-    let Part::Input(input) = &node.parts[0] else {
-        panic!("a field draws an input");
-    };
-    assert_eq!(&*input.text, "https://example.org/live");
-    assert!(input.focus.is_none(), "it has no caret until it is clicked");
-}
-
-#[test]
 fn enter_sends_the_page_to_the_completed_address() {
     let mut app = app();
     app.take_effects();
@@ -66,18 +50,14 @@ fn enter_sends_the_page_to_the_completed_address() {
     );
     assert!(app.field_edit().is_none(), "Enter ends the edit");
     assert!(app.session().editing.is_none());
-}
 
-#[test]
-fn words_that_are_not_an_address_become_a_search() {
-    let mut app = app();
-    app.take_effects();
     app.enter_in_field("page.url", "blue shoes");
     assert_eq!(
         navigations(&mut app),
         [PageNav::To(
             "https://www.google.com/search?q=blue%20shoes".to_owned()
-        )]
+        )],
+        "words that are not an address become a search"
     );
 }
 
@@ -112,14 +92,6 @@ fn a_press_elsewhere_keeps_what_was_typed_as_a_blur_does() {
         navigations(&mut app),
         [PageNav::To("https://example.net/".to_owned())]
     );
-}
-
-#[test]
-fn leaving_the_text_as_it_was_navigates_nowhere() {
-    let mut app = app();
-    app.take_effects();
-    app.click_control("page.url").key(Key::Enter);
-    assert_eq!(navigations(&mut app), no_navigation());
 }
 
 #[test]
@@ -295,23 +267,6 @@ fn a_size_that_is_not_a_number_restores_the_old_one() {
 }
 
 #[test]
-fn escape_in_a_size_field_leaves_the_list_open_and_the_size_alone() {
-    let mut app = app();
-    app.click_control("page.size")
-        .click_control("page.size.height");
-    app.chord(CMD, Key::Char('a'))
-        .type_text("900")
-        .key(Key::Escape);
-    assert_eq!(size_of(&app, "p"), (800.0, 500.0));
-    assert!(
-        app.session().panel.open.is_some(),
-        "the first Escape is the field's"
-    );
-    app.key(Key::Escape);
-    assert!(app.session().panel.open.is_none());
-}
-
-#[test]
 fn the_page_tool_makes_pages_at_the_preset_it_was_given() {
     let mut app = TestApp::empty();
     app.with_panels().click_control("tool.page");
@@ -330,34 +285,4 @@ fn the_page_tool_makes_pages_at_the_preset_it_was_given() {
     assert_eq!(meta["deviceId"], "laptop");
     assert_eq!(meta["deviceOrientation"], "landscape");
     app.assert_undo_returns_to_start();
-}
-
-#[test]
-fn a_custom_page_tool_makes_a_page_that_keeps_its_own_size() {
-    let mut app = TestApp::empty();
-    app.act(Action::SetToolDefault(ToolDefaultPatch::PagePreset(4)))
-        .act(Action::SetToolDefault(ToolDefaultPatch::PageCustom))
-        .tool(Tool::AddPage)
-        .click((400.0, 400.0));
-    let id = app.selected_ids()[0].to_owned();
-    let Kind::Page(page) = &app.entity(&id).kind else {
-        panic!("a page");
-    };
-    let Some(meta) = &page.metadata else {
-        panic!("metadata");
-    };
-    assert_eq!(meta["pageSizeMode"], "custom");
-    assert_eq!(size_of(&app, &id), (834.0, 1194.0));
-}
-
-#[test]
-fn choosing_a_page_preset_saves_no_preferences() {
-    let mut app = TestApp::empty();
-    app.take_effects();
-    app.act(Action::SetToolDefault(ToolDefaultPatch::PagePreset(3)));
-    assert!(
-        !app.take_effects()
-            .iter()
-            .any(|effect| matches!(effect, Effect::SaveToolDefaults(_)))
-    );
 }

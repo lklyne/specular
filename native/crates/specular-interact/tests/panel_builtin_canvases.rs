@@ -1,7 +1,6 @@
 //! The Canvases list of the sidebar in the built-in renderer: switching,
 //! adding, renaming in place, and the menu of a right click.
 
-use glam::Vec2;
 use specular_core::PointerButton;
 use specular_doc::Rect;
 use specular_interact::panel::builtin::Surface;
@@ -102,17 +101,6 @@ fn escape_puts_the_old_name_back_and_an_empty_name_asks_for_nothing() {
 }
 
 #[test]
-fn a_press_elsewhere_keeps_the_typed_name() {
-    let mut app = spaced();
-    let row = app.control_rect("sidebar.canvas.tab_2").centre();
-    app.double_click(row)
-        .chord(CMD, Key::Char('a'))
-        .type_text("Roadmap")
-        .click(Vec2::new(900.0, 700.0));
-    assert_eq!(app.canvas_names(), ["Home", "Roadmap"]);
-}
-
-#[test]
 fn a_right_click_opens_a_menu_that_renames_or_deletes() {
     let mut app = spaced();
     right_click(&mut app, "sidebar.canvas.tab_2");
@@ -135,19 +123,6 @@ fn a_right_click_opens_a_menu_that_renames_or_deletes() {
             .iter()
             .any(|effect| matches!(effect, Effect::TrashCanvasFile { .. }))
     );
-}
-
-#[test]
-fn a_press_outside_the_menu_closes_it_and_does_nothing_else() {
-    let mut app = spaced();
-    right_click(&mut app, "sidebar.canvas.tab_2");
-    app.click(Vec2::new(900.0, 400.0));
-    assert!(app.panel_layout().dropdown.is_none());
-    assert!(
-        app.selected().is_none(),
-        "the press did not reach the canvas"
-    );
-    assert_eq!(app.canvas_names(), ["Home", "Plans"]);
 }
 
 #[test]

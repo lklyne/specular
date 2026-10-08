@@ -276,15 +276,6 @@ macro_rules! assert_toolbar_snapshot {
     };
 }
 
-/// Asserts the context menu of a [`TestApp`](crate::TestApp) against an
-/// inline snapshot, `none` while none is open.
-#[macro_export]
-macro_rules! assert_menu_snapshot {
-    ($app:expr, $($rest:tt)*) => {
-        $crate::insta::assert_snapshot!($app.menu_snapshot(), $($rest)*)
-    };
-}
-
 /// Asserts the popup of a [`TestApp`](crate::TestApp) against an inline
 /// snapshot, `none` for no popup.
 #[macro_export]
