@@ -1,8 +1,8 @@
 //! Headless runs: `--snapshot` and `--script` draw a canvas into PNG files
 //! on the real adapter, with no window.
 //!
-//! The app is a [`TestApp`], the driver the feature tests script, with the
-//! compositor's text measure in place of the fixed one. Pages come from the
+//! The app is a [`Driver`], the scripted hands the feature tests use too,
+//! with the compositor's text measure. Pages come from the
 //! synthetic source, or with `--source cef` from CEF, pumped here until they
 //! have loaded and painted. Images and Documents come from the shell's own
 //! loader threads. Nothing is written but the PNGs and what a `save` step names:
@@ -23,8 +23,7 @@ use glam::Vec2;
 use specular_compositor::{Compositor, DotGrid, FrameView, GpuContext};
 use specular_core::{PageId, PageSource};
 use specular_doc::{Document, EntityId};
-use specular_interact::{Action, ControlId, Event, ImageKey};
-use specular_testkit::TestApp;
+use specular_interact::{Action, App, ControlId, Driver, Event, ImageKey};
 
 pub(crate) use self::bench::{BenchPlan, START_CAMERA, run as run_bench, work_of};
 pub(crate) use self::script::CameraArg;
@@ -100,7 +99,11 @@ pub(crate) fn run(
     };
     let mut run = Headless::new(source, canvas, args)?;
     let viewport = run.viewport;
-    run.drive(|app| app.viewport(viewport).with_panels().open(document))?;
+    run.drive(|app| {
+        app.viewport(viewport)
+            .send(Event::BuiltinPanels(true))
+            .send(Event::DocumentOpened(Box::new(document)))
+    })?;
     // A script's first step may ask a page something, and a real page has
     // nothing to say until it has loaded.
     if run.live {
@@ -129,7 +132,7 @@ struct Headless {
     loading_pages: HashSet<PageId>,
     /// The pages that have not painted since their document loaded.
     unpainted_pages: HashSet<PageId>,
-    app: TestApp,
+    app: Driver,
     /// The hosted page behind each page entity.
     hosts: HashMap<EntityId, PageId>,
     /// What pages have been asked and not yet answered.
@@ -165,7 +168,7 @@ impl Headless {
         let space = canvas
             .and_then(|canvas| std::path::absolute(canvas).ok())
             .and_then(|canvas| canvas.parent().map(Path::to_owned));
-        let mut app = TestApp::empty();
+        let mut app = Driver::new(App::new(0));
         app.measure_with(Arc::new(compositor.text_measure()));
         tracing::info!(adapter = %gpu.adapter.get_info().name, "drawing headless");
         Ok(Self {
@@ -195,7 +198,7 @@ impl Headless {
     /// Scripts input into the app and runs the effects that come back.
     fn drive(
         &mut self,
-        input: impl for<'app> FnOnce(&'app mut TestApp) -> &'app mut TestApp,
+        input: impl for<'app> FnOnce(&'app mut Driver) -> &'app mut Driver,
     ) -> anyhow::Result<()> {
         input(&mut self.app);
         for effect in self.app.take_effects() {
@@ -254,7 +257,7 @@ impl Headless {
                 self.settle()
             }
             Step::Control(id) => self.control(&id, |app, at| app.pointer_move(at).click(at)),
-            Step::HoverControl(id) => self.control(&id, TestApp::pointer_move),
+            Step::HoverControl(id) => self.control(&id, Driver::pointer_move),
             Step::PressControl(id) => self.control(&id, |app, at| app.pointer_move(at).press(at)),
             Step::Panels(on) => self.drive(|app| app.send(Event::BuiltinPanels(on))),
             Step::Sidebar(shown) => self.drive(|app| app.show_sidebar(shown)),
@@ -268,9 +271,9 @@ impl Headless {
     fn control(
         &mut self,
         id: &str,
-        input: impl for<'app> FnOnce(&'app mut TestApp, Vec2) -> &'app mut TestApp,
+        input: impl for<'app> FnOnce(&'app mut Driver, Vec2) -> &'app mut Driver,
     ) -> anyhow::Result<()> {
-        let layout = self.app.panel_layout();
+        let layout = specular_interact::panel::builtin::layout(self.app.app());
         let Some(node) = layout.node(&ControlId::from(id.to_owned())) else {
             let shown: Vec<&str> = layout.controls().map(ControlId::as_str).collect();
             anyhow::bail!("no control `{id}` is shown; these are: {}", shown.join(" "));

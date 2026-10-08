@@ -36,7 +36,7 @@ impl TestApp {
     /// The comment being written, which is not in the document yet.
     #[track_caller]
     pub fn comment_draft(&self) -> &Annotation {
-        match self.app.comment_draft() {
+        match self.app().comment_draft() {
             Some(draft) => draft,
             None => panic!("no comment is being written"),
         }
@@ -47,12 +47,12 @@ impl TestApp {
     /// about.
     #[track_caller]
     pub fn answer_element(&mut self, element: Option<PageElement>) -> &mut Self {
-        let asked = self.effects.iter().rev().find_map(|effect| match effect {
+        let asked = self.effects().iter().rev().find_map(|effect| match effect {
             Effect::QueryElement { page, point } => Some((page.clone(), *point)),
             _ => None,
         });
         let Some((page, point)) = asked else {
-            panic!("no page was asked for an element: {:?}", self.effects);
+            panic!("no page was asked for an element: {:?}", self.effects());
         };
         self.send(Event::ElementAt {
             page,
@@ -66,14 +66,14 @@ impl TestApp {
     /// page asked about, in the order asked, and none in a page left out.
     #[track_caller]
     pub fn answer_grab(&mut self, elements: &[usize]) -> &mut Self {
-        let asked = self.effects.iter().rev().find_map(|effect| match effect {
+        let asked = self.effects().iter().rev().find_map(|effect| match effect {
             Effect::QueryRegionGrab { region, pages } => Some((*region, pages.clone())),
             _ => None,
         });
         let Some((region, pages)) = asked else {
             panic!(
                 "no page was asked what a region grabbed: {:?}",
-                self.effects
+                self.effects()
             );
         };
         let grabs = (pages.into_iter().enumerate())

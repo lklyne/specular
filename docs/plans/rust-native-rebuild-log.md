@@ -852,3 +852,11 @@ One commit a task, in that order. Each part lists what moved or was renamed, for
 - New: `specular_scene::OwnerId`, an alias of `specular_doc::EntityId`, for the id on `PageDraw::page` and `ColumnDraw::owner`. The compositor's `page_of` closures and `column_heights()` are typed with it, so no shell changed.
 - Decision: the plan asked for an opaque `u64` on the text areas. Not done: both shells key page hosts and Document heights by `EntityId`, and scene snapshots print it, so a number would have needed a table back to the id in each shell. The alias gets the manifest right and leaves the compositor reading nothing from the id; a newtype is the step after, if wanted.
 - Decision: the trait went under interact, into `specular-core`, not into `specular-scene` as the plan's first option had it. `App` holds the measure and `update` calls it, and scene sits above interact.
+
+**Task 5, test support out of the binary.** `specular-testkit` is a dev-dependency of `specular-app`; `cargo tree -p specular-app -e normal` names neither it nor `insta`.
+
+- New: `specular_interact::Driver` (`specular-interact/src/driver.rs`, which is `specular-testkit/src/input.rs` moved). It holds the `App`, the effects not yet drained, the pointer and the held modifiers, and has every scripted input (`press`, `drag_to`, `key`, `chord`, `type_text`, `wheel`, `select` and the rest) plus `send`, `act`, `measure_with`, `show_sidebar`, `effects`, `take_effects` and `set_effects`. `SHIFT`, `CTRL`, `ALT`, `CMD` and `CMD_SHIFT` are in `specular_interact::driver`; the testkit re-exports them.
+- `TestApp` is `{ driver, start }`. Its API is unchanged: `specular-testkit/src/input.rs` is now a macro that declares each `Driver` method on `TestApp` and returns the `TestApp`. No test changed.
+- The headless runner (`specular-app/src/headless/`) holds a `Driver`. It opens a document with `Event::BuiltinPanels(true)` and `Event::DocumentOpened`, and reads the panel layout from `panel::builtin::layout`.
+
+**Not done: tasks 9 and 10, and `fixtures/scenarios/run.sh`.** The run stopped at its usage limit after task 5. The scenarios have not been run against tasks 13, 6 or 5; task 5 changed the runner they go through, so run them before building on this.

@@ -4,9 +4,7 @@ use std::sync::Arc;
 
 use glam::Vec2;
 use specular_doc::{Document, Entity, EntityId, ItemId, Rect};
-use specular_interact::{
-    Action, App, Effect, Event, PageNotice, Selection, Session, TextMeasure, update,
-};
+use specular_interact::{Action, App, Driver, Effect, Event, PageNotice, Selection, Session};
 
 use crate::{FixedAdvance, doc_snapshot, fixtures};
 
@@ -17,10 +15,8 @@ const UNDO_LIMIT: usize = 10_000;
 /// An [`App`] with no window, GPU or page backend, driven by scripted input.
 #[derive(Debug, Clone)]
 pub struct TestApp {
-    pub(crate) app: App,
-    /// What `update` has returned since the last drain.
-    pub(crate) effects: Vec<Effect>,
-    pub(crate) input: crate::input::InputState,
+    /// The app, the scripted hands and the effects not yet drained.
+    pub(crate) driver: Driver,
     /// The document the test started from.
     start: Document,
 }
@@ -62,18 +58,9 @@ impl TestApp {
         let mut app = App::new(0);
         app.set_text_measure(Arc::new(FixedAdvance::default()));
         Self {
-            app,
-            effects: Vec::new(),
-            input: crate::input::InputState::default(),
+            driver: Driver::new(app),
             start: Document::new(),
         }
-    }
-
-    /// Lays text out with `measure` from here on, in place of the default
-    /// [`FixedAdvance`].
-    pub fn measure_with(&mut self, measure: Arc<dyn TextMeasure>) -> &mut Self {
-        self.app.set_text_measure(measure);
-        self
     }
 
     /// Replaces the document, as a load does. It becomes the start that
@@ -81,14 +68,6 @@ impl TestApp {
     pub fn open(&mut self, document: Document) -> &mut Self {
         self.start = document.clone();
         self.send(Event::DocumentOpened(Box::new(document)))
-    }
-
-    /// Sends one event through [`update`] and keeps the effects. Every other
-    /// input method ends up here.
-    pub fn send(&mut self, event: Event) -> &mut Self {
-        let effects = update(&mut self.app, event);
-        self.effects.extend(effects);
-        self
     }
 
     /// Has the page `id` report `notice`, as the shell does when its backend
@@ -102,23 +81,23 @@ impl TestApp {
 
     /// The app under test.
     pub fn app(&self) -> &App {
-        &self.app
+        self.driver.app()
     }
 
     /// The document.
     pub fn document(&self) -> &Document {
-        self.app.document()
+        self.app().document()
     }
 
     /// The unsaved state: camera, tool, gesture, hover, focus.
     pub fn session(&self) -> &Session {
-        self.app.session()
+        self.app().session()
     }
 
     /// The text being edited, as edited so far.
     #[track_caller]
     pub fn editing_text(&self) -> &str {
-        match self.app.text_edit() {
+        match self.app().text_edit() {
             Some(edit) => edit.text(),
             None => panic!("no text is being edited"),
         }
@@ -128,7 +107,7 @@ impl TestApp {
     /// byte offsets. They are equal when nothing is selected.
     #[track_caller]
     pub fn caret(&self) -> (usize, usize) {
-        match self.app.text_edit() {
+        match self.app().text_edit() {
             Some(edit) => (edit.caret(), edit.anchor()),
             None => panic!("no text is being edited"),
         }
@@ -136,7 +115,7 @@ impl TestApp {
 
     /// What is selected.
     pub fn selection(&self) -> &Selection {
-        &self.app.session().selection
+        &self.app().session().selection
     }
 
     /// The ids of everything selected, in the order it was selected.
@@ -170,17 +149,12 @@ impl TestApp {
 
     /// The effects returned since the last [`TestApp::take_effects`].
     pub fn effects(&self) -> &[Effect] {
-        &self.effects
+        self.driver.effects()
     }
 
     /// Drains the effects returned since the last drain.
     pub fn take_effects(&mut self) -> Vec<Effect> {
-        std::mem::take(&mut self.effects)
-    }
-
-    /// Runs an [`Action`], as a menu item, a panel or the API would.
-    pub fn act(&mut self, action: Action) -> &mut Self {
-        self.send(Event::Action(action))
+        self.driver.take_effects()
     }
 
     /// Undoes one step.
@@ -200,25 +174,25 @@ impl TestApp {
 
     /// The toolbar as stable text. See [`toolbar_snapshot`].
     pub fn toolbar_snapshot(&self) -> String {
-        crate::toolbar_snapshot(&specular_interact::toolbar(&self.app))
+        crate::toolbar_snapshot(&specular_interact::toolbar(self.app()))
     }
 
     /// The popup as stable text, `none` for no popup. See
     /// [`popup_snapshot`].
     pub fn popup_snapshot(&self) -> String {
-        crate::popup_snapshot(specular_interact::popup_for(&self.app).as_ref())
+        crate::popup_snapshot(specular_interact::popup_for(self.app()).as_ref())
     }
 
     /// What the app draws, as stable text. See
     /// [`scene_snapshot`](crate::scene_snapshot). A test that never set a
     /// viewport gets a 1600x1000 one, so nothing near the origin is culled.
     pub fn scene_snapshot(&self) -> String {
-        let viewport = match self.app.session().viewport {
+        let viewport = match self.app().session().viewport {
             Vec2::ZERO => Vec2::new(1600.0, 1000.0),
             viewport => viewport,
         };
         let cache = specular_scene::ViewCache::default();
-        crate::scene_snapshot(&specular_scene::view(&self.app, viewport, &cache))
+        crate::scene_snapshot(&specular_scene::view(self.app(), viewport, &cache))
     }
 
     /// Asserts that undoing every step gives back the document the test
@@ -240,7 +214,7 @@ impl TestApp {
         let kept = self.take_effects();
 
         let mut steps = 0;
-        while self.app.can_undo() {
+        while self.app().can_undo() {
             assert!(steps < UNDO_LIMIT, "undo never ran out of steps");
             self.undo();
             steps += 1;
@@ -260,7 +234,7 @@ impl TestApp {
             format!("redoing all {steps} steps did not return to the document before the undos");
         assert_same(self.document(), &end, Notes::All, &message);
 
-        self.effects = kept;
+        self.driver.set_effects(kept);
         self
     }
 }

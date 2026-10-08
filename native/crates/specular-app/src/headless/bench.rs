@@ -18,7 +18,7 @@ use specular_bench::{
 use specular_compositor::{DotGrid, FrameView, SceneStats};
 use specular_core::{Camera, PageSource};
 use specular_doc::Document;
-use specular_interact::Action;
+use specular_interact::{Action, Event};
 
 use super::{Headless, HeadlessArgs};
 
@@ -45,7 +45,10 @@ pub(crate) fn run(
 ) -> anyhow::Result<()> {
     let mut run = Headless::new(source, canvas, args)?;
     let viewport = run.viewport;
-    run.drive(|app| app.viewport(viewport).open(document))?;
+    run.drive(|app| {
+        app.viewport(viewport)
+            .send(Event::DocumentOpened(Box::new(document)))
+    })?;
     run.settle()?;
     let name = canvas
         .and_then(Path::file_name)

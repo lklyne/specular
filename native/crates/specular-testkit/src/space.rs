@@ -41,20 +41,20 @@ impl TestApp {
 
     /// The names of the space's canvases, in order.
     pub fn canvas_names(&self) -> Vec<&str> {
-        (self.app.space().canvases().iter())
+        (self.app().space().canvases().iter())
             .map(|canvas| canvas.name.as_str())
             .collect()
     }
 
     /// The name of the canvas the app shows.
     pub fn active_canvas(&self) -> &str {
-        &self.app.space().active().name
+        &self.app().space().active().name
     }
 
     /// The id of the canvas called `name`.
     #[track_caller]
     pub fn canvas_id(&self, name: &str) -> CanvasId {
-        match self.app.space().resolve(name) {
+        match self.app().space().resolve(name) {
             Ok(canvas) => canvas.id.clone(),
             Err(error) => panic!("{error}"),
         }

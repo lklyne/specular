@@ -7,7 +7,7 @@ use glam::Vec2;
 use specular_interact::panel::builtin::{
     Input, Node, Panel, PanelLayout, PanelRect, Part, Pointing, Surface, layout,
 };
-use specular_interact::{Action, ControlId, Event, Key, SidebarAction};
+use specular_interact::{ControlId, Event, Key};
 use specular_scene::Scene;
 
 use crate::{CMD, TestApp};
@@ -159,15 +159,6 @@ impl TestApp {
         self.send(Event::BuiltinPanels(true))
     }
 
-    /// Shows or hides the sidebar, as its toolbar button does. It starts
-    /// hidden.
-    pub fn show_sidebar(&mut self, shown: bool) -> &mut Self {
-        if self.session().sidebar.shown() != shown {
-            self.act(Action::Sidebar(SidebarAction::Toggle));
-        }
-        self
-    }
-
     /// How far the sidebar's list is scrolled.
     pub fn sidebar_scroll(&self) -> f32 {
         self.session().panel.sidebar_scroll
@@ -175,7 +166,7 @@ impl TestApp {
 
     /// The built-in panels as laid out now.
     pub fn panel_layout(&self) -> PanelLayout {
-        PanelLayout::clone(&layout(&self.app))
+        PanelLayout::clone(&layout(self.app()))
     }
 
     /// The box of the control named `id`.
@@ -224,7 +215,7 @@ impl TestApp {
 
     /// Whether a panel field has the keys, and its text as typed so far.
     pub fn field_edit(&self) -> Option<&str> {
-        let edit = self.app.text_edit().filter(|edit| edit.is_field())?;
+        let edit = self.app().text_edit().filter(|edit| edit.is_field())?;
         Some(edit.text())
     }
 
@@ -242,7 +233,7 @@ impl TestApp {
     /// stable text. See [`scene_snapshot`](crate::scene_snapshot).
     pub fn panel_scene_snapshot(&self) -> String {
         let mut scene = Scene::new();
-        specular_scene::draw_panels(&self.app, &mut scene);
+        specular_scene::draw_panels(self.app(), &mut scene);
         crate::scene_snapshot(&scene)
     }
 }

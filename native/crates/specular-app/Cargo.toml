@@ -21,8 +21,6 @@ specular-scene = { workspace = true }
 specular-compositor = { workspace = true }
 specular-cef = { workspace = true }
 specular-bench = { workspace = true }
-# The scripted driver behind `--snapshot` and `--script`.
-specular-testkit = { workspace = true }
 anyhow = { workspace = true }
 arboard = { workspace = true }
 base64 = { workspace = true }
@@ -43,6 +41,9 @@ winit = { workspace = true }
 [target.'cfg(target_os = "macos")'.dependencies]
 muda = { workspace = true }
 rfd = { workspace = true }
+
+[dev-dependencies]
+specular-testkit = { workspace = true }
 
 [lints]
 workspace = true

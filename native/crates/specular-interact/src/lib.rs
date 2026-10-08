@@ -35,6 +35,7 @@ mod clone;
 mod comment;
 mod cursor;
 mod draw;
+pub mod driver;
 mod drop;
 mod edge_drag;
 mod edge_path;
@@ -101,6 +102,7 @@ pub use comment::{
     region_on_canvas, selection_metadata,
 };
 pub use draw::DrawStroke;
+pub use driver::Driver;
 pub use drop::{DroppedFile, default_size as dropped_size, shown_path};
 pub use edge_drag::{EdgeDrag, EdgePreview};
 pub use edge_path::EdgeCurve;
