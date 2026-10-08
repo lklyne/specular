@@ -20,14 +20,17 @@ use specular_interact::{
 
 use crate::surface::{CanvasSurface, WindowAsks};
 
+/// The refresh interval taken for a display that does not say its own.
+const DEFAULT_REFRESH: Duration = Duration::from_nanos(16_666_667);
+
 /// How early a display link's tick may come.
 const TICK_SLACK: Duration = Duration::from_millis(2);
 
 /// The least time between two readings of the models while the app keeps
-/// changing. Building them walks the whole document, and GPUI lays its whole
-/// tree out again when one changed, both on the thread the canvas draws
-/// from. A pan or a zoom changes the toolbar's model every frame: the zoom
-/// readout, and the camera each zoom option would move to.
+/// changing. Building them walks the whole document, every frame of a pan
+/// if nothing held it back, and GPUI lays its whole tree out again when one
+/// changed, as the toolbar's zoom readout does every frame of a zoom. Both
+/// happen on the thread the canvas draws from.
 const MODELS_INTERVAL: Duration = Duration::from_millis(100);
 
 /// Holds the reading of the models to one a [`MODELS_INTERVAL`]: the first
@@ -133,6 +136,13 @@ pub(crate) struct Canvas {
     wake: mpsc::Sender<()>,
     /// When the canvas last ran a frame.
     last_frame: Instant,
+    /// Asks the shell for another frame at once, without waiting for the
+    /// display link.
+    again: mpsc::Sender<()>,
+    /// The display's refresh interval.
+    refresh: Duration,
+    /// When the display link is next expected to fire.
+    next_tick: Instant,
     /// The benchmark, in a `--bench` run.
     bench: Option<Bench>,
     /// While nothing is owed, when the next full turn is due. Until then a
@@ -161,11 +171,13 @@ pub(crate) fn with<R>(with: impl FnOnce(&mut Canvas) -> R) -> Option<R> {
 }
 
 /// Makes `runtime` the canvas. GPUI is told to draw again through `wake`,
-/// and `bench` is stepped a frame.
+/// the shell runs [`Canvas::frame`] once more for each word on `again`, and
+/// `bench` is stepped a frame.
 pub(crate) fn install(
     runtime: Runtime<CanvasSurface>,
     asks: Rc<WindowAsks>,
-    wake: mpsc::Sender<()>,
+    (wake, again): (mpsc::Sender<()>, mpsc::Sender<()>),
+    refresh: Option<Duration>,
     bench: Option<Bench>,
 ) {
     let models = Models::of(&runtime);
@@ -178,6 +190,9 @@ pub(crate) fn install(
         gate: ModelGate::default(),
         wake,
         last_frame: Instant::now(),
+        again,
+        refresh: refresh.unwrap_or(DEFAULT_REFRESH),
+        next_tick: Instant::now(),
         bench,
         rest_until: None,
         rest: LinkRest {
@@ -215,7 +230,10 @@ pub(crate) fn models() -> Option<Models> {
 
 /// The display link fired: one turn, and a frame if one is owed.
 pub(crate) fn on_display_link() {
-    with(Canvas::frame);
+    with(|canvas| {
+        canvas.next_tick = Instant::now() + canvas.refresh;
+        canvas.frame();
+    });
 }
 
 impl Canvas {
@@ -371,11 +389,21 @@ impl Canvas {
             None => self.runtime.refresh_title(),
         }
         let wanted = self.runtime.frame_wanted();
-        if wanted
-            && let Some(sample) = self.runtime.draw()
-            && let Some(bench) = self.bench.as_mut()
-        {
-            bench.presented(&self.runtime, &sample);
+        if wanted && let Some(sample) = self.runtime.draw() {
+            if let Some(bench) = self.bench.as_mut() {
+                bench.presented(&self.runtime, &sample);
+            }
+            let end = Instant::now();
+            if end >= self.next_tick {
+                // This frame ran past the link's next tick, which is lost.
+                // The next frame starts at once and not a refresh later; the
+                // layer's drawables pace it, as they pace a loop that blocks
+                // on the display.
+                while self.next_tick <= end {
+                    self.next_tick += self.refresh;
+                }
+                let _ = self.again.try_send(());
+            }
         }
         // Whatever changes the app owes a frame, so a turn that owed none
         // has nothing new for GPUI either.

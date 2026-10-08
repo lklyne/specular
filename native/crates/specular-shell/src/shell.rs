@@ -160,6 +160,7 @@ pub(crate) fn open(launch: Launch, cx: &mut App) -> anyhow::Result<()> {
 
     let (wake, mut woken) = mpsc::channel::<()>(1);
     let (api_wake, mut api_woken) = mpsc::channel::<()>(1);
+    let (again, mut run_again) = mpsc::channel::<()>(1);
     let opening = launch.into_opening();
     window.update(cx, |_, window, _| -> anyhow::Result<()> {
         let mut native = NativeCanvas::install(gpui_view(window)?)?;
@@ -204,7 +205,7 @@ pub(crate) fn open(launch: Launch, cx: &mut App) -> anyhow::Result<()> {
                 let _ = api_wake.clone().try_send(());
             });
         }
-        canvas::install(runtime, asks, wake, bench);
+        canvas::install(runtime, asks, (wake, again), refresh, bench);
         Ok(())
     })??;
 
@@ -223,6 +224,12 @@ pub(crate) fn open(launch: Launch, cx: &mut App) -> anyhow::Result<()> {
     cx.spawn(async move |cx| {
         while woken.next().await.is_some() {
             cx.update(on_wake);
+        }
+    })
+    .detach();
+    cx.spawn(async move |_| {
+        while run_again.next().await.is_some() {
+            canvas::with(canvas::Canvas::frame);
         }
     })
     .detach();
