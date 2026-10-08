@@ -4,7 +4,7 @@
 use specular_core::{CssSize, synthetic_element_at};
 use specular_doc::{Document, Entity};
 use specular_interact::{
-    Action, AssetBytes, ChatAction, Effect, Event, ImageUpload, MediaType, Notice, Progress,
+    Action, AssetBytes, ChatAction, Effect, Event, ImageUpload, Key, MediaType, Notice, Progress,
     ProgressKind, RunRequest, ThreadId, ThreadStatus, Tool,
 };
 use specular_testkit::{TestApp, assert_chat_snapshot, document, pages};
@@ -173,6 +173,16 @@ fn a_failed_resume_starts_over_and_a_failed_first_run_shows_its_error() {
     assert!(
         retry.prompt.contains("Thread:"),
         "the whole thread goes again"
+    );
+    let thread = app.chat_thread_id().expect("open");
+    assert_eq!(
+        app.app()
+            .threads()
+            .get(&thread)
+            .expect("kept")
+            .claude_session_id,
+        None,
+        "the dead session is forgotten"
     );
 
     app.send_chat("typed meanwhile");
@@ -388,6 +398,8 @@ fn an_auto_fix_comment_placed_during_a_run_is_sent_when_the_run_ends() {
         "a run is in flight"
     );
     assert_eq!(app.chat().composer.queued.len(), 1);
+    // Nothing is focused when the run ends, so the drain is aimed by the queued pin.
+    app.key(Key::Escape);
 
     app.agent_says(finished("done"));
     let [drained] = run_requests(&app.take_effects())

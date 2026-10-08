@@ -63,6 +63,23 @@ fn a_launch_default_is_saved_when_switched_and_shown_when_loaded() {
     // Hiding it by hand does not change the default.
     next.act(Action::Sidebar(SidebarAction::Toggle));
     assert_eq!(next.app().settings(), on);
+
+    // The right panel has its own default, which the sidebar's does not touch.
+    let chat_on = AppSettings {
+        show_sidebar: false,
+        show_chat: true,
+    };
+    let mut other = TestApp::empty();
+    let toggles = settings(other.app()).general.toggles;
+    assert_eq!(
+        other.act(toggles[1].action.clone()).take_effects(),
+        [Effect::SaveSettings(chat_on)]
+    );
+    let mut launched = TestApp::empty();
+    launched.with_chat_panel();
+    launched.send(Event::SettingsLoaded(chat_on));
+    assert!(launched.session().chat.shown());
+    assert!(!launched.session().sidebar.shown());
 }
 
 #[test]
@@ -89,6 +106,10 @@ fn the_shortcuts_are_the_binding_table_row_for_row_each_with_a_name() {
     assert_eq!(named("⌥⌘2", "Text").as_deref(), Some("Heading 2"));
     assert_eq!(named("⌘[", "Inside a page").as_deref(), Some("Back"));
     assert_eq!(named("⎋", "Everywhere").as_deref(), Some("Cancel"));
+    assert_eq!(named("⇧→", "Canvas").as_deref(), Some("Nudge right by 20"));
+    assert_eq!(named("⇧↑", "Canvas").as_deref(), Some("Nudge up by 20"));
+    assert_eq!(named("⇧↓", "Canvas").as_deref(), Some("Nudge down by 20"));
+    assert_eq!(named("⌘R", "Page").as_deref(), Some("Reload"));
 }
 
 #[test]

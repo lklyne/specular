@@ -170,4 +170,9 @@ fn what_is_hooked_to_a_page_nests_under_it_with_its_open_comments() {
         outline(&sidebar(app.app()).pages)[4],
         "  *comment(1) tighten this"
     );
+    // Each comment row asks for its own comment.
+    assert_eq!(
+        model.pages[0].children[2].action,
+        specular_interact::Action::RevealComment(AnnotationId::new("c2"))
+    );
 }

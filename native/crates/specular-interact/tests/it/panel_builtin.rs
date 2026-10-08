@@ -191,7 +191,11 @@ fn the_pointer_over_a_panel_is_an_arrow_and_hovers_nothing_under_it() {
     let mut app = app();
     app.tool(Tool::AddShape).pointer_move((800.0, 600.0));
     assert_eq!(app.session().cursor, Cursor::Crosshair);
+    // The shape under the pointer is hovered until the pointer moves onto a panel.
+    app.pointer_move((800.0, 400.0));
+    assert_eq!(app.session().hover, Some("s".into()));
     app.hover_control("tool.draw");
+    assert!(app.session().hover.is_none());
     assert_eq!(app.session().cursor, Cursor::Default);
     assert_eq!(
         app.session().panel.hover.as_ref().map(ControlId::as_str),

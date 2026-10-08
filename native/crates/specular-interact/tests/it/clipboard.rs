@@ -103,6 +103,13 @@ fn pasted_copies_land_at_the_pointer_with_their_edge_and_are_selected() {
     assert_eq!(app.selected_ids().len(), 2);
     assert!(!app.selected_ids().contains(&"a"));
     assert!(app.take_effects().contains(&Effect::Save));
+    app.undo();
+    assert_eq!(
+        app.document().entities().count(),
+        3,
+        "one undo takes the whole paste back"
+    );
+    app.redo();
     app.assert_undo_returns_to_start();
 }
 
@@ -177,7 +184,7 @@ fn a_pasted_url_makes_a_desktop_page_and_hosts_it() {
 fn other_pasted_text_makes_a_sticky_with_the_sticky_defaults() {
     let mut app = TestApp::empty();
     app.pointer_move((95.0, 215.0));
-    paste(&mut app, text("ship it\non Friday"));
+    paste(&mut app, text("ship it\non Friday\n"));
     assert_doc_snapshot!(app, @r#"
     nodes:
       {"id":"e220a8397b1dcdaf","type":"text","x":100,"y":220,"width":200,"height":200,"text":"ship it\non Friday","color":"3","specular":{"textStyle":"sticky","widthMode":"fixed","textSize":14,"textFont":"sans"}}
@@ -243,6 +250,11 @@ fn a_paste_decides_items_then_image_then_url_then_text() {
     assert_eq!(
         Paste::of(text("specular:canvas:nope")),
         Paste::Text("specular:canvas:nope".to_owned())
+    );
+    // Copied canvas data with nothing in it is text too.
+    assert_eq!(
+        Paste::of(text("specular:canvas:{}")),
+        Paste::Text("specular:canvas:{}".to_owned())
     );
     assert_eq!(Paste::of(ClipboardContent::default()), Paste::Nothing);
 }

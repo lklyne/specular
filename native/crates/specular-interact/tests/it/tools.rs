@@ -149,6 +149,17 @@ fn clicking_with_the_text_tool_places_plain_text_and_starts_editing_it() {
     );
     assert_eq!(editing(&app), Some(&entity.id));
     assert_eq!(app.session().tool, Tool::Select);
+    // A picked ink replaces the theme-following one.
+    app.key(Key::Escape)
+        .act(Action::SetToolDefault(ToolDefaultPatch::TextColor(Some(
+            Color::Preset(ColorPreset::Red),
+        ))))
+        .key(Key::Char('t'))
+        .click((600.0, 400.0));
+    assert_eq!(
+        text_of(placed(&app)).and_then(|text| text.color.clone()),
+        Some(Color::Preset(ColorPreset::Red))
+    );
     app.key(Key::Escape).assert_undo_returns_to_start();
 }
 

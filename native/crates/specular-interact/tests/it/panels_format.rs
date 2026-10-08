@@ -37,6 +37,11 @@ fn bold_is_on_inside_a_bold_run_and_off_outside() {
     move_right(&mut app, 6);
     assert!(!on(&app, "bold"), "after the closing markers");
 
+    // A marker nothing closes opens no run.
+    let mut app = editing("a **open");
+    move_right(&mut app, 5);
+    assert!(!on(&app, "bold"), "inside an unclosed run");
+
     let mut app = editing("a **bold** b");
     move_right(&mut app, 2);
     app.hold(SHIFT);
