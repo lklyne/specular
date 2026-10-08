@@ -40,7 +40,7 @@ pub mod script {
     pub use crate::headless::script::{CameraArg, Step, parse};
 }
 
-pub use crate::app::{Opening, PageOf, Runtime, RuntimeOptions, ShellWindow};
+pub use crate::app::{Opening, PageOf, Runtime, RuntimeOptions, ShellWindow, run_window};
 pub use crate::bench_drive::{Bench, BenchOptions};
-pub use crate::launch::{Launch, Unnamed, launch, run_window};
+pub use crate::launch::{Launch, Unnamed, launch};
 pub use crate::source_select::run_subprocess_if_needed;

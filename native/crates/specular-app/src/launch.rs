@@ -5,14 +5,12 @@ use std::ffi::OsString;
 use std::io::IsTerminal as _;
 use std::path::PathBuf;
 
-use anyhow::Context as _;
 use specular_core::PageSource;
 use specular_doc::Document;
 use specular_interact::SpaceAsk;
 use tracing_subscriber::EnvFilter;
-use winit::event_loop::EventLoop;
 
-use crate::app::{self, Opening, RuntimeOptions};
+use crate::app::{Opening, RuntimeOptions};
 use crate::bench_drive::BenchOptions;
 use crate::cli::{self, Command, RunArgs};
 use crate::source_select::{self, Host};
@@ -26,13 +24,13 @@ const PROFILE_FOLDER: &str = "cef-profile";
 /// show first.
 #[derive(Debug)]
 pub struct Launch {
-    run: RunArgs,
-    space: Option<SpaceStart>,
+    pub(crate) run: RunArgs,
+    pub(crate) space: Option<SpaceStart>,
     /// Why no space opens, when the user is to be asked for one.
     ask: Option<SpaceAsk>,
     /// Where the pages' profile is kept, for a launch that keeps one.
     profile: Option<PathBuf>,
-    document: Document,
+    pub(crate) document: Document,
 }
 
 /// What a launch that names no space opens.
@@ -171,46 +169,6 @@ impl Launch {
             document: Some(self.document),
         }
     }
-}
-
-/// Opens the winit window on `launch` and runs until it closes.
-pub fn run_window(launch: Launch) -> anyhow::Result<()> {
-    let bench = launch.bench();
-    let Launch {
-        run,
-        space,
-        document,
-        ..
-    } = launch;
-    // winit must create the macOS application object before CEF initializes,
-    // or CEF installs its own and winit panics.
-    let mut event_loop = EventLoop::<app::ShellEvent>::with_user_event();
-    // The shell installs its own menu bar, except in a benchmark.
-    #[cfg(target_os = "macos")]
-    winit::platform::macos::EventLoopBuilderExtMacOS::with_default_menu(
-        &mut event_loop,
-        run.bench.is_some(),
-    );
-    let event_loop = event_loop.build().context("creating event loop")?;
-    let source = source_select::create_source(run.source, Host::Window, None)?;
-    tracing::info!(
-        backend = source.name(),
-        entities = document.entities().count(),
-        paint_policy = run.paint_policy.name(),
-        "starting"
-    );
-
-    let options = app::RunOptions {
-        canvas: run.canvas.filter(|_| space.is_none()),
-        space,
-        bench,
-        paint_policy: run.paint_policy,
-        window: run.window,
-        chrome: run.chrome,
-    };
-    let mut app = app::Shell::new(source, document, options, event_loop.create_proxy());
-    event_loop.run_app(&mut app).context("running event loop")?;
-    app.into_result()
 }
 
 /// The space this run opens, or `None` for a run that shows one document
