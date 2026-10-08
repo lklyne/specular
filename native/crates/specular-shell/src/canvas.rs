@@ -237,6 +237,11 @@ pub(crate) fn on_display_link() {
 }
 
 impl Canvas {
+    /// The frame a late one asked for, without waiting for the display link.
+    pub(crate) fn catch_up(&mut self) {
+        self.run_frame(false);
+    }
+
     /// Sends `event` through `update`, then brings the models in step.
     pub(crate) fn dispatch(&mut self, event: Event) {
         if matches!(
@@ -354,6 +359,11 @@ impl Canvas {
     /// frame on screen if any of that, or an event since the last turn,
     /// changed what a frame shows. An idle canvas draws nothing.
     pub(crate) fn frame(&mut self) {
+        self.run_frame(true);
+    }
+
+    /// [`Self::frame`], which may ask for one catch-up frame if it runs late.
+    fn run_frame(&mut self, may_catch_up: bool) {
         let now = Instant::now();
         self.last_frame = now;
         if self.runtime.is_closing() {
@@ -402,7 +412,12 @@ impl Canvas {
                 while self.next_tick <= end {
                     self.next_tick += self.refresh;
                 }
-                let _ = self.again.try_send(());
+                // One catch-up a tick: a second in a row would keep the
+                // main thread from its run loop for as long as frames
+                // overrun, and no input would arrive.
+                if may_catch_up {
+                    let _ = self.again.try_send(());
+                }
             }
         }
         // Whatever changes the app owes a frame, so a turn that owed none

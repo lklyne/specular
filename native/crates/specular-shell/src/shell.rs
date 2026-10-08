@@ -229,7 +229,7 @@ pub(crate) fn open(launch: Launch, cx: &mut App) -> anyhow::Result<()> {
     .detach();
     cx.spawn(async move |_| {
         while run_again.next().await.is_some() {
-            canvas::with(canvas::Canvas::frame);
+            canvas::with(canvas::Canvas::catch_up);
         }
     })
     .detach();
