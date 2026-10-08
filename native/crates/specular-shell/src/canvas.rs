@@ -143,6 +143,8 @@ pub(crate) struct Canvas {
     refresh: Duration,
     /// When the display link is next expected to fire.
     next_tick: Instant,
+    /// When the last frame that was not a catch-up frame started.
+    chain_start: Instant,
     /// The benchmark, in a `--bench` run.
     bench: Option<Bench>,
     /// While nothing is owed, when the next full turn is due. Until then a
@@ -156,6 +158,10 @@ pub(crate) struct Canvas {
     /// is worded for making a space.
     space_dialog: Option<bool>,
 }
+
+/// How long frames may follow one another without waiting for the display
+/// link, from the last frame the link or a timer started.
+const CATCH_UP_SPAN: Duration = Duration::from_millis(100);
 
 thread_local! {
     static CANVAS: RefCell<Option<Canvas>> = const { RefCell::new(None) };
@@ -193,6 +199,7 @@ pub(crate) fn install(
         again,
         refresh: refresh.unwrap_or(DEFAULT_REFRESH),
         next_tick: Instant::now(),
+        chain_start: Instant::now(),
         bench,
         rest_until: None,
         rest: LinkRest {
@@ -239,7 +246,7 @@ pub(crate) fn on_display_link() {
 impl Canvas {
     /// The frame a late one asked for, without waiting for the display link.
     pub(crate) fn catch_up(&mut self) {
-        self.run_frame(false);
+        self.run_frame();
     }
 
     /// Sends `event` through `update`, then brings the models in step.
@@ -359,11 +366,12 @@ impl Canvas {
     /// frame on screen if any of that, or an event since the last turn,
     /// changed what a frame shows. An idle canvas draws nothing.
     pub(crate) fn frame(&mut self) {
-        self.run_frame(true);
+        self.chain_start = Instant::now();
+        self.run_frame();
     }
 
-    /// [`Self::frame`], which may ask for one catch-up frame if it runs late.
-    fn run_frame(&mut self, may_catch_up: bool) {
+    /// [`Self::frame`], which asks for a catch-up frame if it runs late.
+    fn run_frame(&mut self) {
         let now = Instant::now();
         self.last_frame = now;
         if self.runtime.is_closing() {
@@ -412,10 +420,10 @@ impl Canvas {
                 while self.next_tick <= end {
                     self.next_tick += self.refresh;
                 }
-                // One catch-up a tick: a second in a row would keep the
-                // main thread from its run loop for as long as frames
-                // overrun, and no input would arrive.
-                if may_catch_up {
+                // For a tenth of a second and no longer: without the limit
+                // the main thread never gets back to its run loop for as
+                // long as frames overrun, and no input arrives.
+                if end.duration_since(self.chain_start) < CATCH_UP_SPAN {
                     let _ = self.again.try_send(());
                 }
             }
