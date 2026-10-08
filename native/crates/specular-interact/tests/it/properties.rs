@@ -229,7 +229,9 @@ fn a_property_waits_while_a_drag_is_in_flight() {
     set(&mut app, Property::Color(RED));
     app.release();
     assert_eq!(property::read::color(app.app()), None);
-    app.assert_undo_returns_to_start();
+    app.undo();
+    assert!(!steps(&app), "the drag was the only step");
+    app.redo().assert_undo_returns_to_start();
 }
 
 // A text edit in progress.

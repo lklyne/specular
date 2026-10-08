@@ -3,7 +3,7 @@
 
 use specular_doc::{BrushType, Color, ColorPreset, Drawing, Entity, Kind, Point, Rect};
 use specular_interact::{Action, Key, Tool, ToolDefaultPatch};
-use specular_testkit::{SHIFT, TestApp, assert_doc_snapshot};
+use specular_testkit::{SHIFT, TestApp, assert_doc_snapshot, shape};
 
 /// The drawings, back-to-front.
 fn drawings(app: &TestApp) -> Vec<(&Entity, &Drawing)> {
@@ -51,6 +51,12 @@ fn a_press_drag_release_with_the_draw_tool_is_one_stroke_in_one_drawing() {
     assert_eq!(app.session().tool, Tool::Draw, "the tool is persistent");
     assert_eq!(app.selected_ids(), [] as [&str; 0]);
     app.assert_undo_returns_to_start();
+
+    // Something selected beforehand is deselected: drawing only adds.
+    let mut app = TestApp::with_entities([shape("s", Rect::new(500.0, 500.0, 50.0, 50.0))]);
+    app.select(&["s"]);
+    app.tool(Tool::Draw).drag((100.0, 100.0), (140.0, 120.0));
+    assert_eq!(app.selected_ids(), [] as [&str; 0]);
 }
 
 #[test]
@@ -101,5 +107,17 @@ fn shift_keeps_new_points_on_a_45_degree_line_from_the_first() {
     let Point { x, y } = drawn[0].1.strokes[0].points[1];
     assert!((y - 100.0).abs() < 1e-9, "flat, not {y}");
     assert!(x > 200.0, "as far from the start as the pointer, not {x}");
+    // A pointer nearer the diagonal than the axis lands on the diagonal.
+    app.press((300.0, 100.0))
+        .hold(SHIFT)
+        .drag_to((390.0, 170.0))
+        .release()
+        .let_go();
+    let drawn = drawings(&app);
+    let Point { x, y } = drawn[1].1.strokes[0].points[1];
+    assert!(
+        ((x - 300.0) - (y - 100.0)).abs() < 1e-9,
+        "on the diagonal, not ({x}, {y})"
+    );
     app.assert_undo_returns_to_start();
 }

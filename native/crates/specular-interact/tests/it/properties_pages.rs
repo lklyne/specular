@@ -59,8 +59,14 @@ fn rotating_a_page_turns_its_size() {
         viewports(&mut app).last().map(|v| v.1),
         Some(CssSize::new(667, 375))
     );
+    // A preset chosen while turned keeps the turn: 393x852 lies down as 852x393.
+    set(&mut app, Property::ViewportPreset(1));
+    assert_eq!(
+        (app.rect("p1").width, app.rect("p1").height),
+        (852.0, 393.0)
+    );
     set(&mut app, Property::Orientation(Orientation::Portrait));
-    assert_eq!(app.rect("p1").width, 375.0);
+    assert_eq!(app.rect("p1").width, 393.0);
     app.assert_undo_returns_to_start();
 }
 
@@ -80,6 +86,10 @@ fn a_custom_viewport_keeps_the_size_and_drops_the_device() {
     assert_eq!(property::read::viewport_preset(app.app()), None);
     set(&mut app, Property::Orientation(Orientation::Landscape));
     assert_eq!(app.rect("p1").width, 375.0, "a custom size is not turned");
+    // A preset after a custom size is a preset again, and turns.
+    set(&mut app, Property::ViewportPreset(1));
+    set(&mut app, Property::Orientation(Orientation::Portrait));
+    assert_eq!(app.rect("p1").width, 393.0);
     app.assert_undo_returns_to_start();
 }
 
@@ -103,6 +113,8 @@ fn the_device_frame_and_color_scheme_are_page_settings() {
         property::read::color_scheme(app.app()),
         Some(Some(ColorScheme::Dark))
     );
+    set(&mut app, Property::DeviceFrame(false));
+    assert_eq!(property::read::device_frame(app.app()), Some(false));
     set(&mut app, Property::ColorScheme(None));
     assert_eq!(property::read::color_scheme(app.app()), Some(None));
     app.assert_undo_returns_to_start();

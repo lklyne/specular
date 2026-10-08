@@ -8,7 +8,7 @@
 
 use specular_doc::{Document, Rect};
 use specular_interact::panel::builtin::{Pointing, layout, layout_builds, layout_uncached};
-use specular_interact::{Action, PageNotice, Tool};
+use specular_interact::{Action, CanvasAction, PageNotice, Tool};
 use specular_testkit::{TestApp, document, page, sticky};
 
 /// A free spot on the canvas, clear of the toolbar, the popup and the
@@ -173,6 +173,13 @@ fn a_canvas_drag_builds_once_a_frame() {
         draw(app);
     });
     assert_eq!(frame, 1);
+    assert_eq!(
+        builds(&mut app, |app| {
+            draw(app);
+        }),
+        0,
+        "a second draw of the same frame"
+    );
 }
 
 #[test]
@@ -261,6 +268,12 @@ fn the_sidebars_rows_follow_the_page_the_canvases_and_the_document() {
     app.enter_in_field(&format!("{added}.name"), "Roadmap");
     assert!(app.panel_snapshot().contains("Roadmap"));
     fresh(&app, "a rename");
+    app.act(Action::Canvas(CanvasAction::Rename {
+        canvas: None,
+        name: "Plan".to_owned(),
+    }));
+    assert!(app.panel_snapshot().contains("Plan"));
+    fresh(&app, "renaming the active canvas");
     app.tool(Tool::AddSticky).click(EMPTY);
     fresh(&app, "a placed sticky");
     app.undo();

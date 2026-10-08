@@ -190,7 +190,7 @@ fn a_text_placed_and_left_empty_leaves_no_entity_and_no_step() {
     let mut app = TestApp::empty();
     app.tool(Tool::AddText).click((100.0, 100.0)).take_effects();
     assert_eq!(app.document().entities().count(), 1);
-    app.type_text("x").key(Key::Backspace).click((600.0, 600.0));
+    app.type_text("x").key(Key::Backspace).key(Key::Escape);
     assert_eq!(app.document().entities().count(), 0);
     assert_eq!((app.selected(), edited(&app)), (None, None));
     assert!(!app.app().can_undo() && !app.app().can_redo());

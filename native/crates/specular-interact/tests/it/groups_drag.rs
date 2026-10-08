@@ -138,6 +138,16 @@ fn a_group_dragged_onto_another_joins_it_with_its_members() {
     assert_eq!(parent(&app, "a"), Some("g"));
     assert_eq!(app.rect("a"), Rect::new(840.0, 240.0, 100.0, 100.0));
     app.assert_undo_returns_to_start();
+
+    // With the member selected beside its group, it still travels inside it.
+    let mut app = board();
+    app.select(&["g", "a"])
+        .press((110.0, 90.0))
+        .drag_to((810.0, 180.0))
+        .release();
+    assert_eq!(parent(&app, "g"), Some("h"));
+    assert_eq!(parent(&app, "a"), Some("g"));
+    app.assert_undo_returns_to_start();
 }
 
 #[test]
@@ -154,22 +164,18 @@ fn a_grouped_item_has_no_page_anchor_and_a_freed_one_gains_it() {
     assert!(app.entity("a").anchor.is_some());
     app.assert_undo_returns_to_start();
 
-    // From the page into a group: hooked no more.
+    // Into a group that sits over a page: the page does not hook it, because
+    // the group owns its movement.
     let mut app = TestApp::with_entities([
         page("p", Rect::new(1000.0, 100.0, 400.0, 300.0)),
-        named(group("g", Rect::new(100.0, 100.0, 400.0, 300.0))),
-        shape("c", Rect::new(1100.0, 200.0, 100.0, 100.0)),
+        named(group("g", Rect::new(1050.0, 150.0, 300.0, 200.0))),
+        shape("c", Rect::new(1100.0, 600.0, 100.0, 100.0)),
     ]);
     assert!(app.entity("c").anchor.is_none());
-    app.press((1150.0, 250.0))
-        .drag_to((1250.0, 300.0))
+    app.press((1150.0, 650.0))
+        .drag_to((1200.0, 250.0))
         .release();
-    assert!(
-        app.entity("c").anchor.is_some(),
-        "hooked to the page it landed on"
-    );
-    app.press((1250.0, 300.0)).drag_to((300.0, 300.0)).release();
     assert_eq!(parent(&app, "c"), Some("g"));
     assert!(app.entity("c").anchor.is_none());
-    app.undo().undo();
+    app.assert_undo_returns_to_start();
 }

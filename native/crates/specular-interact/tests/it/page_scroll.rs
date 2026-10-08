@@ -23,6 +23,7 @@ fn followed(rect: Rect, at: Option<f64>) -> Entity {
     s.anchor = Some(PageAnchor {
         scroll_x: at.map(|_| 0.0),
         scroll_y: at,
+        page_url: Some("https://example.com/p1".to_owned()),
         ..PageAnchor::new("p1".into())
     });
     s

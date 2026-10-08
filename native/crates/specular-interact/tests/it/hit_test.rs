@@ -3,7 +3,9 @@
 //! so canvas and screen coordinates are the same numbers.
 
 use glam::Vec2;
-use specular_doc::{EdgeId, EdgeSide, Entity, EntityId, Rect};
+use specular_doc::{
+    Color, Drawing, EdgeId, EdgeSide, Entity, EntityId, JsonMap, Kind, Point, Rect, Stroke,
+};
 use specular_interact::{Corner, Handle, HandleOwner, Hit, hit_test};
 use specular_testkit::{TestApp, connected, document, drawing, group, inside, page, shape, text};
 
@@ -116,14 +118,22 @@ fn a_press_a_few_pixels_past_the_corner_still_hits_the_handle() {
 
 #[test]
 fn a_side_handle_runs_the_whole_side() {
+    // The outline is (199, 199) to (601, 501). Each probe sits near the far
+    // end of its strip, clear of the corner squares.
     let app = selected([page("f1", PAGE)], &["f1"]);
-    assert_eq!(
-        (at(&app, 230.0, 195.0), at(&app, 603.0, 480.0)),
-        (
-            handle_of("f1", Handle::Side(EdgeSide::Top)),
-            handle_of("f1", Handle::Side(EdgeSide::Right))
-        )
-    );
+    let probes = [
+        ((560.0, 195.0), EdgeSide::Top),
+        ((603.0, 480.0), EdgeSide::Right),
+        ((560.0, 505.0), EdgeSide::Bottom),
+        ((196.0, 480.0), EdgeSide::Left),
+    ];
+    for ((x, y), side) in probes {
+        assert_eq!(
+            at(&app, x, y),
+            handle_of("f1", Handle::Side(side)),
+            "{side:?}"
+        );
+    }
 }
 
 #[test]
@@ -182,9 +192,15 @@ fn a_group_selected_with_a_sibling_gets_handles_around_both() {
     ];
     let app = selected(entities, &["g1", "t1"]);
     assert_eq!(
-        (at(&app, 900.0, 650.0), at(&app, 700.0, 600.0)),
+        (
+            at(&app, 900.0, 650.0),
+            // x comes from the group, y from the sibling.
+            at(&app, 100.0, 50.0),
+            at(&app, 700.0, 600.0)
+        ),
         (
             selection_handle(Corner::BottomRight),
+            selection_handle(Corner::TopLeft),
             // The group's own corner has no handle of its own.
             Hit::GroupBorder {
                 group: EntityId::from("g1")
@@ -244,18 +260,41 @@ fn the_front_of_two_overlapping_entities_is_hit() {
 }
 
 #[test]
-fn a_drawing_in_front_of_a_page_wins_only_where_it_is() {
-    let app = TestApp::with_entities([
-        page("p1", PAGE),
-        drawing("d1", Rect::new(220.0, 170.0, 100.0, 80.0)),
-    ]);
+fn a_drawing_in_front_of_a_page_wins_only_where_its_ink_is() {
+    // One vertical stroke down the drawing's left side, from above the page's
+    // top edge to inside it. The rest of the drawing's box is empty.
+    let stroke = Stroke {
+        id: "s".to_owned(),
+        color: Color::Neutral,
+        width: 2.0,
+        points: vec![Point::new(230.0, 175.0), Point::new(230.0, 240.0)],
+        brush: None,
+        extra: JsonMap::new(),
+    };
+    let ink = Entity {
+        kind: Kind::Drawing(Drawing {
+            strokes: vec![stroke],
+        }),
+        ..drawing("d1", Rect::new(220.0, 170.0, 100.0, 80.0))
+    };
+    let app = TestApp::with_entities([page("p1", PAGE), ink]);
     assert_eq!(
         (
-            at(&app, 260.0, 185.0),
-            at(&app, 260.0, 215.0),
+            at(&app, 230.0, 185.0),
+            at(&app, 230.0, 215.0),
+            // Inside the drawing's box, off the ink.
+            at(&app, 280.0, 215.0),
+            at(&app, 280.0, 185.0),
+            // Outside the box.
             at(&app, 260.0, 350.0)
         ),
-        (body("d1"), body("d1"), page_content("p1", (60.0, 150.0)))
+        (
+            body("d1"),
+            body("d1"),
+            page_content("p1", (80.0, 15.0)),
+            Hit::Empty,
+            page_content("p1", (60.0, 150.0))
+        )
     );
 }
 
@@ -288,7 +327,7 @@ fn a_group_title_is_hit_above_the_groups_corner() {
         group: EntityId::from("g1"),
     };
     assert_eq!(
-        (at(&app, 110.0, 90.0), at(&app, 140.0, 90.0)),
+        (at(&app, 125.0, 90.0), at(&app, 140.0, 90.0)),
         (title, Hit::Empty)
     );
 }
