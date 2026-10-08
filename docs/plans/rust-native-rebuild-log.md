@@ -244,6 +244,10 @@ with the task that made it.
 - GPUI-SHELL: a model menu item's key is bound in GPUI under a context no element has. macOS shows it in the menu, and over the canvas the key goes to `update` as `Event::Key`, so the binding table decides, as in the winit shell. The shell's own keys (Cmd+Q, W, O, S, comma) are real GPUI bindings.
 - GPUI-SHELL: the `NSEvent` monitor only notes each key event. GPUI still routes the key, and the slot's key handler turns the note into a `KeyInput` through `translate.rs`'s tables by way of winit's `PhysicalKey::from_scancode`. Composition comes through GPUI's input handler as `Event::Ime`.
 - GPUI-SHELL: sidebar rows and swatches are plain GPUI elements in the Electron metrics. The Kit's `SidebarMenuItem` takes a string label, so it cannot hold the rename field, and the Kit has a colour picker but no swatch row. A `Stepper` is two Kit buttons around the value: the model has no action for a typed number.
+- Performance: caches live in the compositor behind named types (`MeshCache`, `Laid` text layouts, `Batcher`) and in the shell (`FrameDemand`). `Scene`, `view` and `update` are untouched and still pure.
+- Performance: a frame is drawn only when something it shows changed. Every `dispatch` owes one; the clock goes through `demand::tick`, which owes one only when the caret blinked or a held selection scrolled. Frames keep coming for 250 ms after input so a ProMotion display does not drop its rate inside a gesture.
+- Performance: kept text is placed by moving the pass viewport, which lands on whole pixels. A pan by part of a pixel draws text up to half a pixel off while it moves, and the next frame at rest lays it out again.
+- Performance: the idle memory sample is taken at 12 seconds, not 6. The spike's "16 to 20 percent more than Electron" was the 6 second sample.
 
 ## Needs a human at a Mac
 
@@ -655,3 +659,54 @@ Known gaps against Electron, not checks: the hand and mono fonts fall back to sy
 - `--bench` is refused here and stays in `specular-app`. The winit dependency also stays in the library until the key tables stop using `winit::keyboard::KeyCode`.
 - Gate: fmt, clippy for the workspace and for `specular-shell --features cef`, `cargo test --workspace` (1727), `fixtures/scenarios/run.sh`.
 - Needs a human at a Mac: the list at the end of ADR 0040, which now says what was checked by script.
+
+### Performance, part 1: the bench and the numbers before any change. See `git log -- native/crates/specular-bench/src/work.rs`
+
+- `--bench` runs on any canvas and each line has a `work` object: mean, p95 and max milliseconds a frame in update, view, cull, shaping, batching, tessellation, build, glyphs (glyphon's layout and raster), upload and submit, plus the most items, batches, draw calls, glyphs and triangles a frame drew. `--bench-target headless` draws into a texture with no vsync and times each frame until the GPU is done; `window` is the old path. `idle` is a seventh profile and `--bench-duration-ms` sets every profile's length.
+- `SceneStats` carries `StageTimes`, `draw_calls`, `glyphs` and `triangles`. `specular-bench` has `work.rs`.
+- Canvases in `native/fixtures/bench/`, written by `generate.py`: 500 and 2,000 stickies, 300 drawings, 200 edges between 400 shapes, 50 Documents over ten markdown files, and `mixed` (20 pages and 300 items). `run.sh LABEL headless|window synthetic|cef` runs pan, zoom and idle on all of them and the kitchen sink into `native/runs/perf/LABEL/`; `table.py` prints the table; `idle.py` is the 30 second idle run with the process tree's CPU.
+- Before any change, M3 Max, 120 Hz, 1600x1000 at 2x, release build, CEF pages in a window. Milliseconds of CPU a frame; the budget is 8.3 and the pages need most of it. The full tables, the headless ones and the synthetic ones are in `native/runs/perf/baseline/table-*.md`.
+
+| canvas | pan cpu mean / p95 | zoom cpu mean / p95 | idle cpu mean | largest steps (pan, ms) | items | batches | glyphs | triangles |
+|---|---|---|---|---|---|---|---|---|
+| documents-50 | 3.40 / 3.65 | 3.04 / 5.38 | 3.54 | glyphs 2.36, view 0.68, cull 0.27 | 150 | 2 | 62720 | 200 |
+| drawings-300 | 6.36 / 7.11 | 4.55 / 6.98 | 7.17 | tessellation 5.06, view 0.86, upload 0.19 | 300 | 2 | 0 | 48186 |
+| edges-200 | 1.71 / 2.68 | 2.19 / 3.05 | 1.87 | tessellation 0.55, batching 0.42, glyphs 0.27 | 1300 | 5 | 3463 | 8270 |
+| kitchen-sink | 1.29 / 2.13 | 2.33 / 4.13 | 1.27 | tessellation 0.54, glyphs 0.24, submit 0.18 | 356 | 27 | 1999 | 6913 |
+| mixed | 0.71 / 0.91 | 2.78 / 3.79 | 0.79 | glyphs 0.37, submit 0.25, view 0.05 | 191 | 62 | 4594 | 258 |
+| stickies-2000 | 2.08 / 2.48 | 1.41 / 2.49 | 2.28 | glyphs 1.35, batching 0.32, view 0.20 | 1280 | 2 | 35653 | 1728 |
+| stickies-500 | 1.94 / 2.27 | 1.35 / 2.09 | 1.83 | glyphs 1.35, batching 0.30, submit 0.10 | 1200 | 2 | 34604 | 1600 |
+
+- Tessellation is the largest cost: 300 strokes take 5 to 6 ms every frame, panned or not. Glyph layout is next: 2.4 ms for 50 Documents (62,720 glyphs) and 1.3 ms for 1,200 sticky runs. Batching is 0.3 to 0.5 ms at 1,200 items, `view` 0.7 to 0.9 ms for Documents and drawings.
+- Nothing is skipped. An idle canvas draws every refresh at full cost: 3,601 frames in 30 seconds, and the app's CPU was kitchen-sink (synthetic) 23%, stickies-500 (synthetic) 32%, drawings-300 (synthetic) 88%, documents-50 (synthetic) 47%, mixed (synthetic) 50%, kitchen-sink (cef) 23%, mixed (cef) 21%, static-20 (cef) 17%.
+- Headless frame intervals are paced by a sleep and mean nothing; read `work`. In a window `gpu` is mostly the wait for vsync. Synthetic pages upload on the CPU, so `mixed` with them is not the real cost.
+
+### Performance, part 2: what the numbers led to, and after. See `git log -- native/crates/specular-app/src/app/demand.rs`
+
+Same machine and settings as part 1: CEF pages in a 1600x1000 window at 2x, milliseconds of CPU a frame. Full tables are in `native/runs/perf/after/` (not in git, like the rest of `runs/`).
+
+| canvas | pan cpu, before → after (mean / p95) | zoom cpu, before → after | idle frames in 5 s | largest steps left in a pan frame |
+|---|---|---|---|---|
+| documents-50 | 3.40 / 3.65 → 1.04 / 1.14 | 3.04 / 5.38 → 0.96 / 1.08 | 601 → 2 | view 0.63, cull 0.19 |
+| drawings-300 | 6.36 / 7.11 → 1.64 / 1.79 | 4.55 / 6.98 → 2.55 / 3.97 | 601 → 2 | view 0.89, upload 0.23 |
+| edges-200 | 1.71 / 2.68 → 0.92 / 1.01 | 2.19 / 3.05 → 1.68 / 2.26 | 601 → 2 | tessellation 0.33, view 0.14 |
+| kitchen-sink | 1.29 / 2.13 → 0.67 / 1.30 | 2.33 / 4.13 → 1.44 / 2.28 | 601 → 5 | submit 0.17, view 0.14 |
+| mixed | 0.71 / 0.91 → 0.42 / 0.50 | 2.78 / 3.79 → 2.37 / 2.84 | 601 → 16 | submit 0.18, glyphs 0.14 |
+| stickies-2000 | 2.08 / 2.48 → 0.51 / 0.61 | 1.41 / 2.49 → 0.45 / 0.52 | 601 → 2 | view 0.19, submit 0.13 |
+| stickies-500 | 1.94 / 2.27 → 0.55 / 0.91 | 1.35 / 2.09 → 0.54 / 0.87 | 601 → 2 | view 0.12, submit 0.15 |
+
+The after rows also draw the toolbar and popups, which did not exist for the before rows.
+
+- Idle (`shell: app/demand.rs`, `app/turn.rs`). The loop slept never and drew every refresh. Now a turn with nothing owed draws nothing and the loop waits 50 ms, or 16 ms while text is edited. 30 second idle, app CPU and frames: 500 stickies 31.9% and 3,601 → 0.1% and 0; 300 drawings 87.9% → 0.2%; kitchen sink with CEF 23.4% → 0.6%, 0 frames; `mixed` with CEF 20.5% → 1.7%, 3 frames. `static-20` drew 664 frames because some of its live sites were animating. Synthetic pages always animate, so canvases with them are never idle.
+- CEF's pump timer fired 240 times a second. It now fires when CEF asks (`OnScheduleMessagePumpWork`) with a 30 Hz fallback. `animated-20` still receives its frames (1,092 in a slow pan against 1,116 before).
+- Tessellation (`scene_pass/mesh_cache.rs`). Canvas polygons and paths are tessellated once at the zoom rounded up to a power of two and copied under the camera each frame. A pan tessellates nothing. A zoom re-tessellates at each power of two, and every frame for strokes thinner than a device pixel and for drawings whose outline `view` widens as the zoom falls.
+- Glyph layout (`scene_pass/text_hold.rs`, `text.rs`, `text_key.rs`). A text batch is laid out once with a 384 px margin and later frames move the pass viewport. It is laid out again when an item joins or changes, the camera passes the margin, or the glyph size changes. Canvas and screen text have an atlas each so each can be trimmed when its batches are all laid out.
+- Batching (`scene_pass/batch.rs`). The overlap test goes through a 32 by 20 grid. 2,400 alternating items compare under 16 pairs each, where the plain rule compared 2.9 million pairs. A test checks the grid against the plain rule on scattered items.
+- Memory, 20 static pages (`fixtures/bench/memory.py`, `specular-bench rss --per-process true`). Before: 4,372 MB at 6 s, 2,944 MB settled (renderers 1,798, GPU process 745, the app 328, others 73). After: 3,127 MB at 6 s and 2,584 MB settled (GPU process 536, the app 239). Electron's recorded idle is 3,623 MB. Three changes: the 4x multisample target is a transient attachment (about 100 MB of the app's), a page that has not painted for 2 s keeps one imported surface and not its pool of up to 8, and a page is created at the texture scale its zoom earns it.
+- The spike's fixtures, three runs each, against the pre-fix build on the same day: worst-profile p95 is 8.78, 8.93, 9.28 and 9.17 ms for `static-9`, `-20`, `-40` and `animated-20`, against 8.81, 9.08, 9.13 and 9.12. No `drawsWithoutTexture`, every line representative. Idle footprint 1,373, 2,546, 4,203 and 2,370 MB against the spike's 2,428, 4,333, 6,522 and 2,683. Output in `native/runs/perf/spike/`.
+- Not settled: long frames. The machine lost power during this task and Spotlight was reindexing for the reruns. Both builds dropped frames that day: 51 long frames over the twelve runs for the old build, 48 for the new, where the spike recorded none. The new build's are bunched in `slow-pan` on 20 and 40 pages (27 of them), the first profile after the warmup. Rerun `native/README.md` step 3 on a quiet machine before trusting either number.
+- Tests that pin each change: `demand.rs` (30 idle seconds draw no frame, an open caret draws two a second, a tail after input), `mesh_cache_tests.rs` (hits on pan and in-octave zoom, misses on change), `text_hold.rs` and `tests/scene_text_hold_gpu.rs` (reuse counts, and a panned frame pixel-equal to a fresh one), `batch_tests.rs`, `import_cache.rs`, `paint_lod.rs`, `target.rs`, `bench_run.rs`, `recorder.rs`, `work.rs`.
+- Known costs left, largest first: `view` rebuilds freehand outlines and parses markdown every frame (0.6 to 0.9 ms; needs a cache inside `specular-scene`, which this task stayed out of). Screen-space text sized by the zoom, page titles and edge labels, is shaped and rasterised at every zoom step (0.5 + 1.4 ms on `mixed`). Edges are screen-space paths, so they are tessellated every frame (0.33 ms for 200). A zoom across a power of two re-tessellates every visible path in one frame. Any input event owes a frame, including a pointer move over nothing. The mesh copy and upload are 0.2 ms each for 48,000 triangles.
+- For a human at a Mac: pan slowly over stickies and Documents and watch whether text shimmers against its note (the half-pixel placement). Pause mid-gesture and resume: the first frames should not stutter. Type in a sticky and watch the caret blink while everything else is still.
+- Rebased onto the `Runtime` refactor and the GPUI shell. The demand lives in `Runtime` (`app/frames.rs`: `turn`, `frame_wanted`, `next_turn`, `input`, `draw`), and the winit shell's `app/turn.rs` sleeps on it. `specular-shell` still calls `turn` and `draw` every frame, which works and never rests: to get the idle saving there, draw only when `frame_wanted()` and call `input()` on pointer, wheel and key events. All the numbers above were taken before the rebase, on the winit shell; after it a pan and an idle run were repeated as a check.
+- Gate: fmt, clippy with and without `specular-app/cef`, `cargo test --workspace`.

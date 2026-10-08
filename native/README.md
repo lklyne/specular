@@ -129,6 +129,39 @@ monitor's refresh interval, and prints one JSON line per profile to stdout
 `representative`, `stepIntervalMs`, `maxPaintToSubmitMs`, `chrome`,
 `annotations`). Then it exits.
 
+### What a frame costs
+
+`--bench` runs on any canvas, and each line it prints has a `work` object:
+mean, p95 and max milliseconds a frame in `update`, `view`, `cull`,
+`shaping`, `batching`, `tessellation`, `build`, `glyphs` (glyph layout and
+raster), `upload` and `submit`, with the most items, batches, draw calls,
+glyphs and triangles one frame drew, and how many frames were drawn and how
+many loop turns drew nothing.
+
+```
+specular-app --bench slow-pan,slow-zoom,idle [--bench-target window|headless]
+             [--bench-duration-ms N] [--snapshot-size WxH] [--snapshot-scale N]
+             FILE.canvas
+```
+
+- `--bench-target headless` draws into a texture with no window and no
+  vsync and times each frame until the GPU is done. It always draws, so its
+  `idle` rows are the cost of a frame with the camera still, as when a page
+  is painting. `window` (the default) presents in a window, where a frame
+  nothing changed for is not drawn at all.
+- `idle` is a seventh profile, run only when named. In a window it should
+  report `framesDrawn: 0`.
+- `fixtures/bench/` holds canvases built to load one part of the renderer
+  each (`generate.py` writes them): 500 and 2,000 stickies, 300 drawings,
+  200 edges, 50 Documents, and `mixed` with 20 pages and 300 items.
+- `fixtures/bench/run.sh LABEL headless|window synthetic|cef` runs pan,
+  zoom and idle over all of them into `runs/perf/LABEL/` and prints the
+  table (`table.py`). `idle.py` is a 30 second idle run with the process
+  tree's CPU. `memory.py` prints the tree's footprint by kind of process at
+  set times after launch, through `specular-bench rss --per-process true`.
+- Time these on a quiet machine. A build running elsewhere doubles the
+  numbers.
+
 ## Morning run on macOS (Apple Silicon)
 
 The representative configuration. Same Mac, built-in 120 Hz display, power
@@ -195,10 +228,10 @@ for fx in static-9 static-20 static-40 animated-20; do
   pages="${fx##*-}"
   : > "runs/rust-$fx.jsonl"
   for i in 1 2 3; do
-    "$APP" --window 1600x1000 --bench all --warmup-ms 8000 "fixtures/$fx.canvas" \
+    "$APP" --window 1600x1000 --bench all --warmup-ms 14000 "fixtures/$fx.canvas" \
       >> "runs/rust-$fx.jsonl" 2>> "runs/rust-$fx.log" &
     pid=$!
-    sleep 6 && "$BENCH" rss --pid "$pid" > "runs/rust-$fx-mem-idle-$i.json"
+    sleep 12 && "$BENCH" rss --pid "$pid" > "runs/rust-$fx-mem-idle-$i.json"
     "$BENCH" rss --pid "$pid" --peak-ms 30000 > "runs/rust-$fx-mem-peak-$i.json" &
     wait "$pid"; wait
   done
@@ -219,7 +252,10 @@ camera settles, no painting off-screen), so both shells do the same work per
 page; the policy is recorded in every line and `compare` warns on a
 mismatch. `--paint-policy full-rate` is there to measure the LOD's own cost.
 
-The idle sample lands inside the 8 s warmup, after pages have loaded; the
+The idle sample must land after the pages have loaded and settled, about
+ten seconds in: at six seconds the tree still holds some 500 MB it lets go
+of by ten, which is what made the first runs read heavier than Electron.
+Use `--warmup-ms 14000` with the `sleep 12` above. The
 peak sampler covers the rest of the run (it samples for 30 s, longer than
 the six profiles take). Each `rust-*.json` holds
 all three runs' phases; `compare` takes the median per cell.
