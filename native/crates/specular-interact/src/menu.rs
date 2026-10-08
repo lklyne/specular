@@ -1,4 +1,5 @@
-//! The menu bar's Edit, Arrange, Comment, Tools and View menus, as data.
+//! The menu bar's Edit, Arrange, Comment, Page, Tools and View menus, as
+//! data.
 //!
 //! Each item is an [`Action`] and takes its shortcut from the row of
 //! [`BINDINGS`] that runs the same action, so a menu and the keyboard cannot
@@ -7,7 +8,7 @@
 
 use specular_doc::ItemId;
 
-use crate::{Action, App, BINDINGS, Binding, Chord, Context, Tool, groups};
+use crate::{Action, App, BINDINGS, Binding, Chord, Context, PageState, Tool, groups, page_state};
 
 /// One menu of the menu bar.
 #[derive(Debug, Clone, PartialEq)]
@@ -47,8 +48,9 @@ pub fn binding_of(action: &Action) -> Option<&'static Binding> {
     BINDINGS.iter().find(|binding| binding.action == *action)
 }
 
-/// The Edit, Arrange, Comment, Tools and View menus for `app` as it is now. The entries and
-/// their order never change, only `enabled` and `checked`.
+/// The Edit, Arrange, Comment, Page, Tools and View menus for `app` as it is
+/// now. The entries and their order never change, only `enabled` and
+/// `checked`.
 pub fn menus(app: &App) -> Vec<Menu> {
     let item = |label, action| MenuEntry::Item(item(app, label, action));
     let edit = vec![
@@ -85,6 +87,12 @@ pub fn menus(app: &App) -> Vec<Menu> {
             MenuEntry::Item(item)
         })
         .collect();
+    let page = vec![
+        page_item(app, "Back", Action::PageBack),
+        page_item(app, "Forward", Action::PageForward),
+        page_item(app, "Reload", Action::PageReload),
+        page_item(app, "Stop", Action::PageStop),
+    ];
     let view = vec![
         item("Zoom in", Action::ZoomIn),
         item("Zoom out", Action::ZoomOut),
@@ -103,6 +111,10 @@ pub fn menus(app: &App) -> Vec<Menu> {
         Menu {
             title: "Comment",
             entries: comment,
+        },
+        Menu {
+            title: "Page",
+            entries: page,
         },
         Menu {
             title: "Tools",
@@ -126,6 +138,24 @@ fn item(app: &App, label: &'static str, action: Action) -> MenuItem {
         checked: None,
         action,
     }
+}
+
+/// An item of the Page menu. It works on a selected page as well as an
+/// entered one, whatever its key's context, and shows a key only where the
+/// key does the same in both: the bracket keys restack a selected page.
+fn page_item(app: &App, label: &'static str, action: Action) -> MenuEntry {
+    let chord = binding_of(&action)
+        .filter(|binding| binding.context == Context::PageTarget)
+        .map(|binding| binding.chord);
+    MenuEntry::Item(MenuItem {
+        label,
+        chord,
+        enabled: Context::PageTarget.holds(app)
+            && app.session.gesture.is_none()
+            && has_target(app, &action),
+        checked: None,
+        action,
+    })
 }
 
 /// Whether `action` has something to act on.
@@ -161,7 +191,18 @@ fn has_target(app: &App, action: &Action) -> bool {
         | Action::ZoomOut
         | Action::ZoomReset => true,
         Action::Format(_) => app.session.editing.is_some(),
+        Action::PageBack => page_can(app, |state| state.can_go_back),
+        Action::PageForward => page_can(app, |state| state.can_go_forward),
+        Action::PageStop => page_can(app, |state| state.loading),
+        Action::PageReload => page_state::target(app).is_some(),
     }
+}
+
+/// Whether the page a navigation action is for has said `allowed`.
+fn page_can(app: &App, allowed: fn(&PageState) -> bool) -> bool {
+    page_state::target(app)
+        .and_then(|page| app.page_state(page))
+        .is_some_and(allowed)
 }
 
 /// What a tool's menu item runs: the action its key runs, so the two cannot

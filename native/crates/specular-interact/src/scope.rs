@@ -20,6 +20,11 @@ pub struct SelectionScope {
     /// its own rect, so the bounds wrap its border. `None` when there are no
     /// operands.
     pub bounds: Option<Rect>,
+    /// The same union of the rects as they are seen, which differ from the
+    /// stored ones for what follows its page's scroll. What the selection's
+    /// outline and handles wrap. Entities scrolled out of their page count
+    /// for nothing.
+    pub shown_bounds: Option<Rect>,
 }
 
 impl SelectionScope {
@@ -53,10 +58,16 @@ impl App {
             .filter_map(|id| document.entity(id))
             .map(|entity| entity.rect)
             .reduce(geometry::union);
+        let shown_bounds = operands
+            .iter()
+            .filter_map(|id| document.entity(id))
+            .filter_map(|entity| crate::shown_rect(self, entity))
+            .reduce(geometry::union);
         SelectionScope {
             members,
             operands,
             bounds,
+            shown_bounds,
         }
     }
 }

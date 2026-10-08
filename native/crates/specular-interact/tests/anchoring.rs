@@ -31,7 +31,8 @@ fn a_sticky_whose_centre_lands_on_a_page_is_anchored_and_moves_with_the_page() {
     let anchor = placed(&app).anchor.clone().expect("an anchor");
     assert_eq!(anchor.page_id.as_str(), "p1");
     assert_eq!(anchor.page_url.as_deref(), Some("https://example.com/p1"));
-    assert_eq!((anchor.scroll_x, anchor.scroll_y), (None, None));
+    // It records the page's scroll, so the entity follows it.
+    assert_eq!((anchor.scroll_x, anchor.scroll_y), (Some(0.0), Some(0.0)));
 
     // The sticky covers the press point, so the page is grabbed beside it.
     // An empty sticky would not outlive its edit.

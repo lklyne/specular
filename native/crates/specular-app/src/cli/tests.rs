@@ -198,8 +198,17 @@ fn snapshot_flags_ask_for_a_headless_run() {
             scale: 2.0,
             camera: headless::CameraArg::At(camera),
             script: None,
+            source: SourceKind::Synthetic,
         }
     );
+}
+
+#[test]
+fn a_headless_run_hosts_real_pages_only_when_the_source_is_named() {
+    let unnamed = run_args(&["--snapshot", "out.png"]);
+    assert_eq!(unnamed.headless.source, SourceKind::Synthetic);
+    let named = run_args(&["--source", "cef", "--snapshot", "out.png"]);
+    assert_eq!(named.headless.source, SourceKind::Cef);
 }
 
 #[test]

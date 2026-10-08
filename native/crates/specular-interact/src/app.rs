@@ -121,6 +121,19 @@ impl App {
         })
     }
 
+    /// What the hosted page `id` last reported of itself: its live title,
+    /// address, load, history and scroll. `None` until it reports anything.
+    pub fn page_state(&self, id: &EntityId) -> Option<&crate::PageState> {
+        self.session.pages.get(id)
+    }
+
+    /// How far the page `id` is scrolled, in its CSS pixels. Zero for a page
+    /// that has not said.
+    pub fn page_scroll(&self, id: &EntityId) -> glam::DVec2 {
+        self.page_state(id)
+            .map_or(glam::DVec2::ZERO, |state| state.scroll)
+    }
+
     /// What is known about the image file a file entity names by `file`, or
     /// `None` when it is not an image or has not been asked for.
     pub fn image(&self, file: &str) -> Option<&crate::Image> {
@@ -226,6 +239,8 @@ pub struct Session {
     pub(crate) pointer_page: Option<EntityId>,
     /// Which page got each held button's press.
     pub(crate) captured: ButtonCapture,
+    /// What each hosted page last reported of itself.
+    pub(crate) pages: crate::page_state::PageStates,
     /// The images file entities show, and how far each has loaded.
     pub(crate) images: Images,
     /// The text of the Documents file entities show, and their scroll.

@@ -5,6 +5,7 @@ use glam::DVec2;
 use specular_doc::{Command, Document, EdgeId, EntityId, ItemId, Rect};
 
 use crate::live::{self, Start};
+use crate::scroll_follow::Scrolls;
 use crate::stack_order::{self, Move};
 use crate::{App, Effect, anchor, clone, geometry, grid, scope, update, zoom};
 
@@ -95,7 +96,14 @@ pub(crate) fn nudge(app: &mut App, delta: DVec2, effects: &mut Vec<Effect>) {
         // Only what was nudged directly re-resolves; what is hooked to a
         // nudged page travels with it.
         let step = live::batch(commands);
-        let step = anchor::then_reanchor(&mut app.document, step, &scope.members, &scope.operands);
+        let scrolls = Scrolls::of(app);
+        let step = anchor::then_reanchor(
+            &mut app.document,
+            &scrolls,
+            step,
+            &scope.members,
+            &scope.operands,
+        );
         update::document_step(app, step, effects);
     }
 }

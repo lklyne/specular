@@ -4,7 +4,9 @@ use std::sync::Arc;
 
 use glam::Vec2;
 use specular_doc::{Document, Entity, EntityId, ItemId, Rect};
-use specular_interact::{Action, App, Effect, Event, Selection, Session, TextMeasure, update};
+use specular_interact::{
+    Action, App, Effect, Event, PageNotice, Selection, Session, TextMeasure, update,
+};
 
 use crate::{FixedAdvance, doc_snapshot, fixtures};
 
@@ -87,6 +89,15 @@ impl TestApp {
         let effects = update(&mut self.app, event);
         self.effects.extend(effects);
         self
+    }
+
+    /// Has the page `id` report `notice`, as the shell does when its backend
+    /// says so.
+    pub fn page_reports(&mut self, id: &str, notice: PageNotice) -> &mut Self {
+        self.send(Event::Page {
+            page: EntityId::new(id),
+            notice,
+        })
     }
 
     /// The app under test.

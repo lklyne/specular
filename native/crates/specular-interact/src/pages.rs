@@ -3,7 +3,7 @@
 
 use std::collections::HashMap;
 
-use specular_core::CssSize;
+use specular_core::{CssSize, PageNav};
 use specular_doc::{Document, EntityId};
 
 use crate::app::page_of;
@@ -33,19 +33,25 @@ pub(crate) fn snapshot(document: &Document) -> Vec<HostedPage> {
 
 /// Appends the effects that take the hosts from `before` to the pages
 /// `document` holds now: closes first, then creates and viewport changes in
-/// stack order. A page whose URL changed is closed and created again.
+/// stack order. A page whose URL changed stays hosted and is sent there.
 pub(crate) fn reconcile(before: &[HostedPage], document: &Document, effects: &mut Vec<Effect>) {
     let after = snapshot(document);
     let was: HashMap<&EntityId, &HostedPage> = before.iter().map(|page| (&page.id, page)).collect();
     let is: HashMap<&EntityId, &HostedPage> = after.iter().map(|page| (&page.id, page)).collect();
     for page in before {
-        if is.get(&page.id).is_none_or(|now| now.url != page.url) {
+        if !is.contains_key(&page.id) {
             effects.push(Effect::ClosePage(page.id.clone()));
         }
     }
     for page in &after {
         match was.get(&page.id) {
-            Some(old) if old.url == page.url => {
+            Some(old) => {
+                if old.url != page.url {
+                    effects.push(Effect::Navigate {
+                        page: page.id.clone(),
+                        nav: PageNav::To(page.url.clone()),
+                    });
+                }
                 if old.viewport != page.viewport {
                     effects.push(Effect::SetPageViewport {
                         page: page.id.clone(),
@@ -53,7 +59,7 @@ pub(crate) fn reconcile(before: &[HostedPage], document: &Document, effects: &mu
                     });
                 }
             }
-            Some(_) | None => effects.push(Effect::CreatePage {
+            None => effects.push(Effect::CreatePage {
                 page: page.id.clone(),
                 url: page.url.clone(),
                 viewport: page.viewport,

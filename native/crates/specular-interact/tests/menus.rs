@@ -36,11 +36,11 @@ fn labels(menu: &Menu) -> Vec<&'static str> {
 }
 
 #[test]
-fn the_menus_are_edit_arrange_comment_tools_and_view() {
+fn the_menus_are_edit_arrange_comment_page_tools_and_view() {
     let app = TestApp::with_pages(1);
     let menus = menus(app.app());
-    let [edit, arrange, comment, tools, view] = menus.as_slice() else {
-        panic!("five menus");
+    let [edit, arrange, comment, page, tools, view] = menus.as_slice() else {
+        panic!("six menus");
     };
     assert_eq!(
         (edit.title, labels(edit)),
@@ -83,6 +83,10 @@ fn the_menus_are_edit_arrange_comment_tools_and_view() {
         )
     );
     assert_eq!(
+        (page.title, labels(page)),
+        ("Page", vec!["Back", "Forward", "Reload", "Stop"])
+    );
+    assert_eq!(
         (tools.title, labels(tools)),
         (
             "Tools",
@@ -112,12 +116,21 @@ fn every_shortcut_is_the_binding_tables_chord_for_the_same_action() {
     let app = TestApp::with_pages(1);
     for item in items(&menus(app.app())) {
         let bound = binding_of(&item.action).map(|binding| binding.chord);
+        // Back and Forward show no key: their chord restacks a selected page.
+        if matches!(item.action, Action::PageBack | Action::PageForward) {
+            assert_eq!(item.chord, None, "{}", item.label);
+            continue;
+        }
         assert_eq!(item.chord, bound, "{}", item.label);
         // No two rows give one action different contexts under one chord,
         // so the menu and the key agree on where it works.
+        // Rows may share a chord only where their contexts cannot both hold.
         if let Some(chord) = item.chord {
-            let rows = BINDINGS.iter().filter(|binding| binding.chord == chord);
-            assert_eq!(rows.count(), 1, "{}", item.label);
+            let own = binding_of(&item.action).map(|binding| binding.context);
+            let rivals = BINDINGS.iter().filter(|binding| {
+                binding.chord == chord && own.is_some_and(|own| own.overlaps(binding.context))
+            });
+            assert_eq!(rivals.count(), 1, "{}", item.label);
         }
     }
 }

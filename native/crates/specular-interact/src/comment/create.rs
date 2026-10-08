@@ -54,8 +54,17 @@ pub(super) fn canvas_point(app: &mut App, at: DVec2) -> Annotation {
 }
 
 /// A comment on `element` of the page that `binding` names.
+///
+/// The element's box is the page's, in its viewport, so the binding records
+/// the scroll it was taken at and the box follows the page from there.
 pub(super) fn element(app: &mut App, binding: PageAnchor, element: PageElement) -> Annotation {
     let bounds = element.bounding_box;
+    let scroll = app.page_scroll(&binding.page_id);
+    let binding = PageAnchor {
+        scroll_x: Some(scroll.x),
+        scroll_y: Some(scroll.y),
+        ..binding
+    };
     let anchor = AnnotationAnchor::Element {
         page_id: binding.page_id.clone(),
         selector: element.selector,
@@ -88,7 +97,7 @@ pub(super) fn canvas_region(app: &mut App, region: Rect) -> Annotation {
 /// without the other.
 pub(super) fn page_region(app: &mut App, page: &EntityId, region: Rect) -> Option<Annotation> {
     let binding = page_anchor(app, page)?;
-    let doc_rect = super::canvas_in_css(app.page_placement(page)?, region);
+    let doc_rect = super::canvas_in_document(app, page, region)?;
     let anchor = AnnotationAnchor::Region(RegionAnchor::Document { doc_rect });
     Some(Annotation {
         page_anchor: Some(binding),

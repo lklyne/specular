@@ -14,6 +14,7 @@ use specular_doc::{
     TextStyle, WidthMode,
 };
 
+use crate::scroll_follow::Scrolls;
 use crate::{App, Effect, Tool, anchor, edit, geometry, grid, live};
 
 /// A shape drag smaller than this on either axis, in canvas units, places
@@ -164,7 +165,7 @@ pub(crate) fn finish(app: &mut App, mut drag: PlaceDrag, effects: &mut Vec<Effec
     let id = entity.id.clone();
     match drag.what {
         Placing::Text(_) => {
-            entity.anchor = anchor::page_anchor_for(&app.document, &entity);
+            entity.anchor = anchor::page_anchor_for(&app.document, &Scrolls::of(app), &entity);
             live::put(&mut app.document, entity);
             edit::begin(app, &id, true, effects);
         }

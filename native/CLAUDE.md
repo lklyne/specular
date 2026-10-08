@@ -92,6 +92,9 @@ fn shift_drag_moves_the_page_along_one_axis() {
   opens a draft, read back with `comment_draft()`; `type_text` and
   `key(Key::Enter)` commit it. `answer_element(..)` and `answer_grab(&[..])`
   answer the latest `QueryElement` and `QueryRegionGrab` as the shell would.
+- Pages: `page_reports("p1", PageNotice::Scrolled { x: 0.0, y: 40.0 })` (or `Title`,
+  `Url`, `Loading`, `DevtoolsUrl`) is a page saying something about itself, as
+  the shell sends it; read back with `app().page_state(..)` and `page_scroll(..)`.
 - Read back with `document()`, `session()`, `selection()`, `selected()`,
   `selected_ids()`, `rect("p1")` and `entity("p1")`. `take_effects()` drains the effects
   returned since the last drain; call it before the step whose effects the
@@ -120,6 +123,12 @@ cargo run -p specular-app -- --snapshot out.png --snapshot-size 1200x800 \
 cargo run -p specular-app -- --script steps.txt FILE.canvas
 ```
 
+- Pages are synthetic stand-ins. To see the real ones, build with
+  `--features cef`, bundle (`crates/specular-cef/scripts/bundle-macos.sh
+  debug`, with `CEF_PATH` set) and run the bundle's inner binary with
+  `--source cef` before `--snapshot` or `--script`. The run waits for every
+  page to load and paint, a script's input reaches an entered page, and
+  `wait ms` lets pages run for that long. See `README.md`.
 - The camera is `fit` (the default) or `x,y,zoom`: the pan in screen
   pixels, so canvas point `(cx, cy)` at the top-left is `-cx*zoom,-cy*zoom,zoom`.
 - A script is one step a line, in the testkit's words: `click x y`,
@@ -127,7 +136,8 @@ cargo run -p specular-app -- --script steps.txt FILE.canvas
   `release`, `drag x1 y1 x2 y2`, `hold shift+cmd` (`hold none`),
   `key cmd+z`, `type some text`, `compose にほ`, `commit 日本`,
   `wheel dx dy`, `pinch 0.2`, `tool shape`, `select id ..`,
-  `act annotate-selection`, `act resolve-comment`, `camera ..`, `wait ms`,
+  `act annotate-selection`, `act resolve-comment`, `act page-back`
+  (`-forward`, `-reload`, `-stop`), `camera ..`, `wait ms`,
   `snapshot out.png`, `save out.canvas`. Positions are screen pixels. A snapshot between `press` and `release` shows a gesture in
   flight.
 - The clipboard and the Documents a run makes are kept in memory:

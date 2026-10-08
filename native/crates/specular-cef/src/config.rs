@@ -13,13 +13,30 @@ pub struct CefConfig {
     /// (agent-browser, Playwright `connectOverCDP`, raw CDP) can attach to
     /// every page, and the bench can drive input-latency probes.
     pub remote_debugging_port: Option<u16>,
-    /// Profile/cache directory; `None` keeps the profile in memory.
+    /// Profile/cache directory; `None` keeps the profile in memory, under a
+    /// root folder in the temp directory that lasts as long as the process.
     pub cache_path: Option<PathBuf>,
     /// Use `OnAcceleratedPaint` shared textures (`shared_texture_enabled`).
     /// Off forces `OnPaint` CPU frames, which are non-representative. Only
     /// honoured on macOS, the one platform whose shared handle (IOSurface)
     /// the compositor imports.
     pub shared_texture: bool,
+    /// Who turns CEF's message loop.
+    pub pump: Pump,
+}
+
+/// Who calls `CefDoMessageLoopWork`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Pump {
+    /// A timer on the main run loop (macOS), for a process whose main
+    /// thread runs a window event loop: the call spins a nested run-loop
+    /// turn, which must not happen inside one of that loop's handlers.
+    /// Elsewhere this is the same as [`Caller`](Self::Caller).
+    #[default]
+    RunLoopTimer,
+    /// [`PageSource::pump`](specular_core::PageSource::pump), for a process
+    /// with no event loop of its own, such as a headless run.
+    Caller,
 }
 
 impl CefConfig {

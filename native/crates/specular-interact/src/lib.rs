@@ -56,6 +56,7 @@ mod menu;
 mod move_drag;
 mod notes;
 mod page_input;
+mod page_state;
 mod pages;
 mod place;
 mod placement;
@@ -64,6 +65,7 @@ mod resize;
 mod resize_drag;
 mod saved;
 mod scope;
+mod scroll_follow;
 mod select;
 mod select_all;
 mod stack_order;
@@ -76,7 +78,7 @@ mod url;
 mod verbs;
 mod zoom;
 
-pub use anchor::{anchors_to_pages, matches_page_url, page_anchor_for};
+pub use anchor::{anchors_to_pages, matches_page_url};
 pub use anchors::Anchor;
 pub use api::{ApiCall, ApiOutcome, ApiRun};
 pub use app::{App, Focus, Selection, Session};
@@ -87,7 +89,8 @@ pub use clipboard::{ClipboardContent, ClipboardImage, Paste};
 pub use comment::{
     CommentDrag, CommentMark, FOCUS_RING_OUTSET, FOCUS_RING_STROKE, MarkShape, PILL_DIGIT_WIDTH,
     PILL_EDGE_MARGIN, PILL_HEIGHT, PILL_INSET, PILL_WIDTH, PageGrab, PageRegion, REGION_HIT_BAND,
-    REGION_MIN_SIZE, element_on_canvas, region_annotation, region_on_canvas, selection_metadata,
+    REGION_MIN_SIZE, element_on_canvas, left_its_page, page_clip, region_annotation,
+    region_on_canvas, selection_metadata,
 };
 pub use draw::DrawStroke;
 pub use drop::DroppedFile;
@@ -110,10 +113,15 @@ pub use marquee::MarqueeMode;
 pub use menu::{Menu, MenuEntry, MenuItem, binding_of, menus};
 pub use move_drag::{CopyPreview, MoveDrag};
 pub use notes::{NoteNotice, NoteState, is_note_file};
+pub use page_state::PageState;
 pub use place::{PlaceDrag, Placing};
 pub use placement::PagePlacement;
 pub use resize_drag::ResizeDrag;
 pub use scope::SelectionScope;
+pub use scroll_follow::{
+    Seen, doc_to_viewport, hittable_rect, left_page, recorded_scroll, seen, shift_of, shown_rect,
+    viewport_to_doc,
+};
 pub use time::iso8601;
 pub use tool::Tool;
 pub use tool_defaults::{

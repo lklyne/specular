@@ -7,9 +7,10 @@
 //! reply channel: [`Event`](crate::Event) stays plain data, and the shell
 //! keeps the channel beside the ticket.
 
-use specular_doc::{Command, Document, ItemId, Kind, Rect, TextStyle};
+use specular_core::PageNav;
+use specular_doc::{Command, Document, EntityId, ItemId, Kind, Rect, TextStyle};
 
-use crate::{Action, App, Effect, edit, live, update};
+use crate::{Action, App, Effect, edit, live, page_state, update};
 
 /// One change the HTTP API asks for.
 #[derive(Debug, Clone, PartialEq)]
@@ -30,6 +31,15 @@ pub enum ApiRun {
         on: Option<Vec<ItemId>>,
         /// The action.
         action: Action,
+    },
+    /// Move a hosted page through its history, or reload it. Refused where
+    /// the page has said there is nowhere to go, and for an id that is not
+    /// a page.
+    Navigate {
+        /// The page entity.
+        page: EntityId,
+        /// Where to.
+        nav: PageNav,
     },
     /// Run a command as one undo step, with the refit of the groups it
     /// touches and the page hosts brought in step.
@@ -71,6 +81,12 @@ fn run_call(app: &mut App, run: ApiRun, effects: &mut Vec<Effect>) -> ApiOutcome
                 update::drop_dangling(app, effects);
             }
             update::run_action(app, action, effects);
+        }
+        ApiRun::Navigate { page, nav } => {
+            if let Err(reason) = page_state::allows(app, &page, &nav) {
+                return ApiOutcome::Refused(reason);
+            }
+            effects.push(Effect::Navigate { page, nav });
         }
         ApiRun::Apply { command, select } => {
             edit::end(app, effects);

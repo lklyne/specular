@@ -196,14 +196,28 @@ fn body_among(app: &App, screen: Vec2, edges: bool) -> Hit {
                 let Some(entity) = document.entity(id) else {
                     continue;
                 };
-                let rect = ScreenRect::of(camera, entity.rect);
+                // An entity scrolled out of its page cannot be pressed.
+                let Some(seen) = crate::seen(app, entity) else {
+                    continue;
+                };
+                let shown = seen.entity;
+                let rect = ScreenRect::of(
+                    camera,
+                    crate::hittable_rect(app, entity).unwrap_or(shown.rect),
+                );
                 let inside = match &entity.kind {
                     Kind::Group(_) => {
                         groups.push((id, rect));
                         continue;
                     }
-                    Kind::Drawing(drawing) => {
-                        drawing_rect(rect).contains(screen) && on_drawing(app, id, drawing, screen)
+                    Kind::Drawing(stored) => {
+                        // The ink is hit where the page's scroll has put it.
+                        let ink = if let Kind::Drawing(ink) = &shown.kind {
+                            ink
+                        } else {
+                            stored
+                        };
+                        drawing_rect(rect).contains(screen) && on_drawing(app, id, ink, screen)
                     }
                     Kind::Page(_) | Kind::Text(_) | Kind::File(_) | Kind::Shape(_) => {
                         rect.contains(screen)

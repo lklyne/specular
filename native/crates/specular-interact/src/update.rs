@@ -11,7 +11,7 @@ use crate::notes;
 use crate::stack_order::Move;
 use crate::{
     Action, App, Effect, Event, Focus, PageNotice, Selection, ToolDefaultPatch, api, bindings,
-    camera, comment, cursor, edit, gesture, groups, pages, pointer, verbs,
+    camera, comment, cursor, edit, gesture, groups, page_state, pages, pointer, verbs,
 };
 use crate::{clipboard, drop, select_all, zoom};
 
@@ -44,7 +44,13 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
             }),
             Focus::Canvas => edit::on_ime(app, &ime, &mut effects),
         },
-        Event::Page { page, notice } => on_page_notice(app, &page, &notice, &mut effects),
+        Event::Page { page, notice } => {
+            // The address is the one thing a page reports that is saved.
+            if page_state::on_notice(app, &page, &notice) {
+                effects.push(Effect::Save);
+            }
+            on_page_notice(app, &page, &notice, &mut effects);
+        }
         Event::Image { image, notice } => images::on_notice(app, image, notice),
         Event::Note { file, notice } => notes::on_notice(app, &file, notice, &mut effects),
         Event::NoteCreated { file, rect } => edit::note::created(app, file, rect, &mut effects),
@@ -197,6 +203,9 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         Action::ZoomOut => zoom::zoom_out(app),
         Action::ZoomReset => zoom::reset(app),
         Action::ZoomToFit => zoom::to_fit(app),
+        Action::PageBack | Action::PageForward | Action::PageReload | Action::PageStop => {
+            page_state::navigate(app, &action, effects);
+        }
     }
 }
 
@@ -296,11 +305,19 @@ pub(crate) fn drop_dangling(app: &mut App, effects: &mut Vec<Effect>) {
     if focus_gone {
         set_focus(app, None, effects);
     }
+    let document = &app.document;
+    (app.session.pages).retain(|page| document.entity(page).is_some());
 }
 
 fn on_page_notice(app: &App, page: &EntityId, notice: &PageNotice, effects: &mut Vec<Effect>) {
     match notice {
-        PageNotice::Loaded { .. } | PageNotice::Crashed { .. } => {}
+        PageNotice::Loaded { .. }
+        | PageNotice::Crashed { .. }
+        | PageNotice::Title(_)
+        | PageNotice::Url(_)
+        | PageNotice::Loading { .. }
+        | PageNotice::Scrolled { .. }
+        | PageNotice::DevtoolsUrl(_) => {}
         PageNotice::ImeCompositionBounds(bounds) => {
             if app.session.focus.page() == Some(page)
                 && let Some(bounds) = bounds

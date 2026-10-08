@@ -3,7 +3,7 @@
 use glam::Vec2;
 
 use crate::frame::FrameEvent;
-use crate::geometry::{CssSize, PixelRect};
+use crate::geometry::{CssRect, CssSize, PixelRect};
 use crate::input::InputEvent;
 use crate::page::{PageId, PageSpec};
 
@@ -71,6 +71,82 @@ pub enum PageEvent {
         /// Backend-provided reason, e.g. `crashed`, `oom`, `killed`.
         reason: String,
     },
+    /// The document's title changed (CEF `OnTitleChange`).
+    Title {
+        /// The page.
+        page: PageId,
+        /// The new title; empty when the document has none.
+        title: String,
+    },
+    /// The main frame shows another address (CEF `OnAddressChange`): a
+    /// navigation committed, or the page changed its own URL in place.
+    Url {
+        /// The page.
+        page: PageId,
+        /// The address now shown.
+        url: String,
+    },
+    /// The page started or stopped loading, or its session history moved
+    /// (CEF `OnLoadingStateChange`).
+    Loading {
+        /// The page.
+        page: PageId,
+        /// Whether a load is in flight.
+        loading: bool,
+        /// Whether [`PageNav::Back`] has somewhere to go.
+        can_go_back: bool,
+        /// Whether [`PageNav::Forward`] has somewhere to go.
+        can_go_forward: bool,
+    },
+    /// The main frame scrolled (CEF `OnScrollOffsetChanged`).
+    Scrolled {
+        /// The page.
+        page: PageId,
+        /// The document's scroll offset, in CSS pixels.
+        offset: Vec2,
+    },
+    /// The answer to a [`PageSource::query_element`].
+    ElementAt {
+        /// The page.
+        page: PageId,
+        /// The `request` the question carried.
+        request: u64,
+        /// The element under the point, or `None` when nothing is there.
+        element: Option<PageElement>,
+    },
+    /// The answer to a [`PageSource::query_elements_in_rect`].
+    ElementsInRect {
+        /// The page.
+        page: PageId,
+        /// The `request` the question carried.
+        request: u64,
+        /// How many elements lie in the rect.
+        count: usize,
+    },
+    /// The page's remote-debugging (CDP) target id is known. With
+    /// [`PageSource::devtools_port`] it names the page's websocket:
+    /// `ws://127.0.0.1:<port>/devtools/page/<id>`.
+    DevtoolsTarget {
+        /// The page.
+        page: PageId,
+        /// The CDP target id.
+        id: String,
+    },
+}
+
+/// A move through a page's session history, or a new address for it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PageNav {
+    /// Load this URL in the page, keeping its history.
+    To(String),
+    /// Go one entry back. Does nothing at the start of the history.
+    Back,
+    /// Go one entry forward. Does nothing at the end of the history.
+    Forward,
+    /// Load the current address again.
+    Reload,
+    /// Abandon the load in flight.
+    Stop,
 }
 
 /// A DOM element a page found under a point: what a comment on it records.
@@ -130,13 +206,31 @@ pub trait PageSource {
     /// so the caller can reuse one buffer across frames.
     fn drain_events(&mut self, out: &mut Vec<PageEvent>);
 
-    /// The element under `point`, in the page's viewport CSS pixels. `None`
-    /// when nothing is there, the page is unknown, or the backend cannot
-    /// answer at once, which is what the default says.
-    fn element_at(&self, page: PageId, point: Vec2) -> Option<PageElement> {
-        let _ = (page, point);
-        None
-    }
+    /// Moves the page through its history or to a new address. What comes
+    /// of it arrives as [`PageEvent::Url`], [`PageEvent::Title`] and
+    /// [`PageEvent::Loading`].
+    fn navigate(&mut self, page: PageId, nav: &PageNav) -> Result<(), PageSourceError>;
+
+    /// Asks which element the page has under `point`, in its viewport CSS
+    /// pixels. Every accepted question is answered once, by a
+    /// [`PageEvent::ElementAt`] carrying `request`, unless the page closes
+    /// or crashes first.
+    fn query_element(
+        &mut self,
+        page: PageId,
+        point: Vec2,
+        request: u64,
+    ) -> Result<(), PageSourceError>;
+
+    /// Asks how many elements the page has inside `rect`, in its viewport
+    /// CSS pixels. Answered like [`query_element`](Self::query_element), by
+    /// a [`PageEvent::ElementsInRect`].
+    fn query_elements_in_rect(
+        &mut self,
+        page: PageId,
+        rect: CssRect,
+        request: u64,
+    ) -> Result<(), PageSourceError>;
 
     /// Port of the backend's remote-debugging (CDP) endpoint, if enabled.
     fn devtools_port(&self) -> Option<u16>;

@@ -11,10 +11,10 @@ use std::time::{Duration, Instant};
 use glam::Vec2;
 
 use crate::frame::{CpuFrame, FrameEvent, FrameLayer, PageFrame};
-use crate::geometry::{CssSize, PixelRect};
+use crate::geometry::{CssRect, CssSize, PixelRect};
 use crate::input::InputEvent;
 use crate::page::{PageId, PageSpec, validate_texture_scale, validate_viewport};
-use crate::source::{PageElement, PageEvent, PageSource, PageSourceError};
+use crate::source::{PageElement, PageEvent, PageNav, PageSource, PageSourceError};
 
 #[derive(Debug)]
 struct SyntheticPage {
@@ -22,6 +22,27 @@ struct SyntheticPage {
     painting: bool,
     frames_painted: u64,
     next_paint: Option<Instant>,
+    /// Every address the page has shown, oldest first.
+    history: Vec<String>,
+    /// Which entry of `history` it shows now.
+    at: usize,
+    /// How far its document is scrolled, in CSS pixels.
+    scroll: Vec2,
+}
+
+impl SyntheticPage {
+    /// The furthest the document scrolls: it is three viewports tall and
+    /// one wide.
+    fn max_scroll(&self) -> Vec2 {
+        Vec2::new(0.0, 2.0 * self.spec.viewport.height as f32)
+    }
+}
+
+/// The title a synthetic page gives the document at `url`: the address
+/// without its scheme.
+fn title_of(url: &str) -> String {
+    let address = url.split_once("://").map_or(url, |(_, rest)| rest);
+    format!("Synthetic {}", address.trim_end_matches('/'))
 }
 
 /// Synthetic page backend; see the module docs.
@@ -58,6 +79,47 @@ impl SyntheticPageSource {
         }
     }
 
+    /// Queues what a page reports when it shows the entry `at` of its
+    /// history: the load starting, the address, the title, the scroll back
+    /// at the top, and the load ending.
+    fn show(&mut self, id: PageId) -> Result<(), PageSourceError> {
+        let page = self.page_mut(id)?;
+        page.scroll = Vec2::ZERO;
+        page.next_paint = None;
+        let url = page.history[page.at].clone();
+        let (can_go_back, can_go_forward) = (page.at > 0, page.at + 1 < page.history.len());
+        let loading = |loading| PageEvent::Loading {
+            page: id,
+            loading,
+            can_go_back,
+            can_go_forward,
+        };
+        self.pending.extend([
+            loading(true),
+            PageEvent::Title {
+                page: id,
+                title: title_of(&url),
+            },
+            PageEvent::Url { page: id, url },
+            PageEvent::Scrolled {
+                page: id,
+                offset: Vec2::ZERO,
+            },
+            PageEvent::Loaded {
+                page: id,
+                http_status: 200,
+            },
+            loading(false),
+        ]);
+        Ok(())
+    }
+
+    fn page(&self, page: PageId) -> Result<&SyntheticPage, PageSourceError> {
+        self.pages
+            .get(&page)
+            .ok_or(PageSourceError::UnknownPage(page))
+    }
+
     fn page_mut(&mut self, page: PageId) -> Result<&mut SyntheticPage, PageSourceError> {
         self.pages
             .get_mut(&page)
@@ -66,7 +128,7 @@ impl SyntheticPageSource {
 }
 
 /// The size of one cell of the grid a synthetic page answers
-/// [`element_at`](PageSource::element_at) from, in CSS pixels.
+/// [`query_element`](PageSource::query_element) from, in CSS pixels.
 const CELL: (u32, u32) = (160, 48);
 
 /// The element a synthetic page laid out at `viewport` has under `point`:
@@ -96,6 +158,42 @@ pub fn synthetic_element_at(viewport: CssSize, point: Vec2) -> Option<PageElemen
             CELL.1.min(viewport.height - y),
         ),
     })
+}
+
+/// The element a synthetic page scrolled by `scroll` has under the viewport
+/// point `point`. The grid is laid out in the document, so its cells move up
+/// as the page scrolls down, and the box is where the cell sits in the
+/// viewport now.
+fn element_scrolled(viewport: CssSize, scroll: Vec2, point: Vec2) -> Option<PageElement> {
+    synthetic_element_at(viewport, point)?;
+    let at = point + scroll;
+    let (column, row) = (at.x as u32 / CELL.0, at.y as u32 / CELL.1);
+    let (x, y) = ((column * CELL.0) as f32, (row * CELL.1) as f32);
+    Some(PageElement {
+        selector: format!("div.cell[data-col=\"{column}\"][data-row=\"{row}\"]"),
+        element_path: Some("body > div.cell".to_owned()),
+        bounding_box: PixelRect::new(
+            (x - scroll.x).round() as i32,
+            (y - scroll.y).round() as i32,
+            CELL.0.min(viewport.width.saturating_sub(x as u32)),
+            CELL.1,
+        ),
+    })
+}
+
+/// How many cells of a synthetic page's grid lie wholly inside `rect`, in
+/// the viewport CSS pixels of a page laid out at `viewport` and scrolled by
+/// `scroll`. A cell the rect only clips is not grabbed.
+pub fn synthetic_elements_in(viewport: CssSize, scroll: Vec2, rect: CssRect) -> usize {
+    let (left, top) = (rect.x + scroll.x, rect.y + scroll.y);
+    let (right, bottom) = (left + rect.width, top + rect.height);
+    let cells = |from: f32, to: f32, cell: u32, limit: f32| {
+        let first = (from.max(0.0) / cell as f32).ceil();
+        let last = (to.min(limit) / cell as f32).floor();
+        (last - first).max(0.0) as usize
+    };
+    let document_height = 3.0 * viewport.height as f32;
+    cells(left, right, CELL.0, viewport.width as f32) * cells(top, bottom, CELL.1, document_height)
 }
 
 /// Paints a flat colour that cycles with `frame_index` plus a sweeping bar,
@@ -138,12 +236,12 @@ impl PageSource for SyntheticPageSource {
                 painting: true,
                 frames_painted: 0,
                 next_paint: None,
+                history: vec![spec.url.clone()],
+                at: 0,
+                scroll: Vec2::ZERO,
             },
         );
-        self.pending.push(PageEvent::Loaded {
-            page: id,
-            http_status: 200,
-        });
+        self.show(id)?;
         Ok(id)
     }
 
@@ -192,10 +290,70 @@ impl PageSource for SyntheticPageSource {
         Ok(())
     }
 
-    fn send_input(&mut self, page: PageId, _event: &InputEvent) -> Result<(), PageSourceError> {
+    fn send_input(&mut self, page: PageId, event: &InputEvent) -> Result<(), PageSourceError> {
         // Input forces the next pump to repaint, standing in for the DOM
         // reacting so input-to-paint latency is measurable end to end.
-        self.page_mut(page)?.next_paint = None;
+        let entry = self.page_mut(page)?;
+        entry.next_paint = None;
+        // A wheel scrolls the document, as a browser's does: a positive
+        // delta is content moving down, so the offset shrinks.
+        if let InputEvent::Wheel(wheel) = event {
+            let next = (entry.scroll - wheel.delta).clamp(Vec2::ZERO, entry.max_scroll());
+            if next != entry.scroll {
+                entry.scroll = next;
+                self.pending
+                    .push(PageEvent::Scrolled { page, offset: next });
+            }
+        }
+        Ok(())
+    }
+
+    fn navigate(&mut self, page: PageId, nav: &PageNav) -> Result<(), PageSourceError> {
+        let entry = self.page_mut(page)?;
+        match nav {
+            PageNav::To(url) => {
+                entry.history.truncate(entry.at + 1);
+                entry.history.push(url.clone());
+                entry.at += 1;
+            }
+            PageNav::Back if entry.at > 0 => entry.at -= 1,
+            PageNav::Forward if entry.at + 1 < entry.history.len() => entry.at += 1,
+            PageNav::Reload => {}
+            // A synthetic load ends as it starts, so there is none to stop.
+            PageNav::Back | PageNav::Forward | PageNav::Stop => return Ok(()),
+        }
+        self.show(page)
+    }
+
+    fn query_element(
+        &mut self,
+        page: PageId,
+        point: Vec2,
+        request: u64,
+    ) -> Result<(), PageSourceError> {
+        let entry = self.page(page)?;
+        let element = element_scrolled(entry.spec.viewport, entry.scroll, point);
+        self.pending.push(PageEvent::ElementAt {
+            page,
+            request,
+            element,
+        });
+        Ok(())
+    }
+
+    fn query_elements_in_rect(
+        &mut self,
+        page: PageId,
+        rect: CssRect,
+        request: u64,
+    ) -> Result<(), PageSourceError> {
+        let entry = self.page(page)?;
+        let count = synthetic_elements_in(entry.spec.viewport, entry.scroll, rect);
+        self.pending.push(PageEvent::ElementsInRect {
+            page,
+            request,
+            count,
+        });
         Ok(())
     }
 
@@ -205,10 +363,6 @@ impl PageSource for SyntheticPageSource {
 
     fn drain_events(&mut self, out: &mut Vec<PageEvent>) {
         out.append(&mut self.pending);
-    }
-
-    fn element_at(&self, page: PageId, point: Vec2) -> Option<PageElement> {
-        synthetic_element_at(self.pages.get(&page)?.spec.viewport, point)
     }
 
     fn devtools_port(&self) -> Option<u16> {
@@ -223,121 +377,4 @@ impl PageSource for SyntheticPageSource {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::geometry::PixelSize;
-
-    fn frames(events: &[PageEvent]) -> Vec<&FrameEvent> {
-        events
-            .iter()
-            .filter_map(|event| match event {
-                PageEvent::Frame(frame) => Some(frame),
-                _ => None,
-            })
-            .collect()
-    }
-
-    fn source_with_page(scale: f32) -> (SyntheticPageSource, PageId) {
-        let mut source = SyntheticPageSource::new();
-        let mut spec = PageSpec::new("https://example.com/", CssSize::new(40, 20));
-        spec.texture_scale = scale;
-        let id = source.create_page(&spec).unwrap();
-        (source, id)
-    }
-
-    #[test]
-    fn pump_paints_frame_at_texture_scaled_size() {
-        let (mut source, _) = source_with_page(0.5);
-        source.pump_at(Instant::now());
-        let mut events = Vec::new();
-        source.drain_events(&mut events);
-        assert_eq!(frames(&events)[0].frame.size(), PixelSize::new(20, 10));
-    }
-
-    #[test]
-    fn pump_respects_frame_rate_interval() {
-        let (mut source, _) = source_with_page(1.0);
-        let start = Instant::now();
-        source.pump_at(start);
-        source.pump_at(start + Duration::from_millis(1));
-        let mut events = Vec::new();
-        source.drain_events(&mut events);
-        assert_eq!(frames(&events).len(), 1);
-    }
-
-    #[test]
-    fn page_with_painting_off_produces_no_frames() {
-        let (mut source, id) = source_with_page(1.0);
-        source.set_painting(id, false).unwrap();
-        source.pump_at(Instant::now());
-        let mut events = Vec::new();
-        source.drain_events(&mut events);
-        assert!(frames(&events).is_empty());
-    }
-
-    #[test]
-    fn closed_page_reports_unknown_page() {
-        let (mut source, id) = source_with_page(1.0);
-        source.close_page(id).unwrap();
-        assert!(matches!(
-            source.set_frame_rate(id, 30),
-            Err(PageSourceError::UnknownPage(_))
-        ));
-    }
-
-    #[test]
-    fn create_page_rejects_empty_viewport() {
-        let mut source = SyntheticPageSource::new();
-        let spec = PageSpec::new("https://example.com/", CssSize::new(0, 10));
-        assert!(matches!(
-            source.create_page(&spec),
-            Err(PageSourceError::InvalidSpec(_))
-        ));
-    }
-
-    #[test]
-    fn element_at_is_the_grid_cell_holding_the_point() {
-        let element = synthetic_element_at(CssSize::new(400, 300), Vec2::new(170.0, 100.0));
-        assert_eq!(
-            element,
-            Some(PageElement {
-                selector: "div.cell[data-col=\"1\"][data-row=\"2\"]".to_owned(),
-                element_path: Some("body > div.cell".to_owned()),
-                bounding_box: PixelRect::new(160, 96, 160, 48),
-            })
-        );
-    }
-
-    #[test]
-    fn a_cell_at_the_edge_is_cut_off_at_the_viewport() {
-        let element = synthetic_element_at(CssSize::new(400, 300), Vec2::new(399.0, 299.0));
-        assert_eq!(
-            element.map(|element| element.bounding_box),
-            Some(PixelRect::new(320, 288, 80, 12))
-        );
-    }
-
-    #[test]
-    fn a_point_outside_the_viewport_is_on_no_element() {
-        let viewport = CssSize::new(400, 300);
-        for point in [
-            Vec2::new(-1.0, 10.0),
-            Vec2::new(400.0, 10.0),
-            Vec2::new(10.0, 300.0),
-        ] {
-            assert_eq!(synthetic_element_at(viewport, point), None, "{point}");
-        }
-    }
-
-    #[test]
-    fn a_hosted_page_answers_from_its_viewport_and_a_closed_one_does_not() {
-        let (mut source, id) = source_with_page(1.0);
-        let at = |source: &SyntheticPageSource| source.element_at(id, Vec2::new(10.0, 10.0));
-        assert_eq!(
-            at(&source).map(|element| element.bounding_box),
-            Some(PixelRect::new(0, 0, 40, 20))
-        );
-        source.close_page(id).unwrap();
-        assert_eq!(at(&source), None);
-    }
-}
+mod tests;

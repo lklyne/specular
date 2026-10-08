@@ -178,7 +178,14 @@ impl Compositor {
             }
             PageEvent::ImeCompositionBounds { .. }
             | PageEvent::Loaded { .. }
-            | PageEvent::Crashed { .. } => Ok(()),
+            | PageEvent::Crashed { .. }
+            | PageEvent::Title { .. }
+            | PageEvent::Url { .. }
+            | PageEvent::Loading { .. }
+            | PageEvent::Scrolled { .. }
+            | PageEvent::ElementAt { .. }
+            | PageEvent::ElementsInRect { .. }
+            | PageEvent::DevtoolsTarget { .. } => Ok(()),
         }
     }
 

@@ -8,6 +8,7 @@ use specular_doc::{Command, EdgeId, EntityId, ItemId, Kind, Rect};
 use crate::focus::set_focus;
 use crate::live::{self, Start};
 use crate::marquee::DRAG_THRESHOLD;
+use crate::scroll_follow::Scrolls;
 use crate::{App, Effect, PointerInput, anchor, clone, geometry, grid, group_drop, update};
 
 /// A press on a body, and the drag it may become.
@@ -143,7 +144,7 @@ pub(crate) fn begin(
         group_rects: group_drop::group_rects(&app.document),
         origin: world,
         origin_screen: screen,
-        anchor: geometry::origin(entity.rect),
+        anchor: geometry::origin(crate::shown_rect(app, entity).unwrap_or(entity.rect)),
         snaps,
         starts,
         click,
@@ -241,6 +242,7 @@ pub(crate) fn finish(
     // Command or Control at the release keeps every anchor and every
     // membership as it was.
     let rebind = !(modifiers.meta || modifiers.control);
+    let scrolls = Scrolls::of(app);
     if !drag.copying {
         let scope = app.selection_scope();
         live::commit_following(app, &drag.starts, &drag.followers, |app| {
@@ -253,7 +255,12 @@ pub(crate) fn finish(
                 group_drop::reparent(&app.document, &scope.members, drag.drop_target.as_ref());
             let mut after = app.document.clone();
             if after.apply(Command::Batch(commands.clone())).is_ok() {
-                commands.extend(anchor::reanchor(&after, &scope.members, &scope.operands));
+                commands.extend(anchor::reanchor(
+                    &after,
+                    &scrolls,
+                    &scope.members,
+                    &scope.operands,
+                ));
             }
             commands
         });
@@ -265,7 +272,7 @@ pub(crate) fn finish(
     let scope = app.selection_scope();
     if let Some(copies) = clone::copies(app, &scope, drag.delta) {
         let command = if rebind {
-            anchor::placed_copies(&mut app.document, copies.command)
+            anchor::placed_copies(&mut app.document, &scrolls, copies.command)
         } else {
             copies.command
         };

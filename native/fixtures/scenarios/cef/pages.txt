@@ -1,0 +1,34 @@
+# canvas: ../../pages.canvas
+# Real pages, so this needs the CEF bundle and is not run by run.sh:
+#   APP=target/debug/specular-app.app/Contents/MacOS/specular-app
+#   (mkdir -p runs/qa/cef-pages && cd runs/qa/cef-pages && "$APP" --source cef \
+#     --snapshot-size 1400x800 --snapshot-camera 40,80,0.75 \
+#     --script ../../../fixtures/scenarios/cef/pages.txt ../../../fixtures/pages.canvas)
+# The tall page is at screen x 715..1315, y 80..455 with that camera.
+snapshot 01-loaded.png
+# A comment on the heading: the page names the element.
+tool comment
+click 760 150
+wait 300
+type On the heading
+key enter
+# A region over the button grabs it, so the region belongs to the page.
+drag 730 200 870 260
+wait 300
+type Region over the button
+key enter
+tool select
+snapshot 02-commented.png
+# Enter the tall page and scroll it: the region and the pin follow.
+click 1000 400
+click 1000 400
+wheel 0 -150
+wait 500
+snapshot 03-scrolled.png
+key escape
+# In-place navigation, then back through the page's history.
+select p-example
+act page-reload
+wait 1000
+snapshot 04-reloaded.png
+save 05-saved.canvas

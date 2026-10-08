@@ -14,9 +14,11 @@ a whole and `docs/plans/rust-cef-spike.md` for what it measures.
 | `pool` | always | per-page cap on retained shared textures (`MAX_OUTSTANDING_TEXTURES` = 6) |
 | `page` | always (`PageContext`: `cef`) | per-page view/popup geometry shared by handlers and the source |
 | `cpu_frame` | always | `OnPaint` buffer -> owned `CpuFrame` |
+| `dom_query` | always | the devtools messages that ask a page for the element under a point, the elements in a rect and its own target id, and reading the answers |
 | `process` | `cef` | `run_subprocess_if_needed`, API-version declaration, macOS framework load/unload |
 | `app_protocol` | `cef` + macOS | adds `CefAppProtocol` (`isHandlingSendEvent` / `setHandlingSendEvent:`) to winit's `NSApp` class before `cef_initialize` |
-| `client` | `cef` | `wrap_*!` handler objects: app (switches), render, load, request, life-span, client |
+| `client` | `cef` | `wrap_*!` handler objects: app (switches), render, display, load, request, life-span, client |
+| `devtools` | `cef` | one page's in-process devtools channel: `SendDevToolsMessage`, the message observer, answers -> `PageEvent` |
 | `paint` | `cef` | `OnPaint` / `OnAcceleratedPaint` -> `FrameEvent` |
 | `iosurface` | `cef` + macOS | the one unsafe IOSurface module: retain/use-count/release and its ownership rules |
 | `source` | `cef` | `CefPageSource`: browser lifecycle, `PageSource` methods, `HostCall` dispatch |
@@ -71,18 +73,43 @@ cargo clippy -p specular-cef --all-targets --features cef-dox \
   `OnRenderProcessTerminated` -> `PageEvent::Crashed` with Electron's
   `render-process-gone` reason strings (`crashed`, `oom`, `killed`,
   `launch-failed`).
+- **Title, address, load and scroll.** `OnTitleChange` -> `PageEvent::Title`,
+  `OnAddressChange` (main frame) -> `PageEvent::Url`, `OnLoadingStateChange`
+  -> `PageEvent::Loading` with can-go-back and can-go-forward,
+  `OnScrollOffsetChanged` -> `PageEvent::Scrolled` in CSS pixels.
+- **Navigation.** `PageSource::navigate` keeps the browser: `Frame::LoadURL`
+  on the main frame, `GoBack`, `GoForward`, `Reload`, `StopLoad`. A URL change
+  never closes and recreates a page, so its history, focus and frames stay.
+- **Questions about the DOM.** `query_element` and `query_elements_in_rect`
+  send one `Runtime.evaluate` each over the page's in-process devtools
+  channel (no socket, no debugging port needed) and the observer turns the
+  result into `PageEvent::ElementAt` / `ElementsInRect`. The expressions
+  follow the Electron preload's rules: an `nth-of-type` selector up to the
+  nearest unique id, a four-segment readable path, and a region grabs the
+  visible interactive elements it wholly contains, 15 at most.
 - **`window.open`** is blocked (`OnBeforePopup` returns 1). Otherwise it would
   open a native window off the canvas.
 - **Agents.** `CefConfig.remote_debugging_port` -> `cef_settings_t.remote_debugging_port`
   (1024..=65535) plus `--remote-allow-origins=*`, so agent-browser,
   Playwright `chromium.connectOverCDP("http://localhost:9222")` and raw CDP
-  clients can attach. Every page shows up as a CDP target.
+  clients can attach. Every page shows up as a CDP target, and each page
+  asks for its own target id at creation (`Target.getTargetInfo`) and
+  reports it as `PageEvent::DevtoolsTarget`, so the app can hand an agent
+  `ws://127.0.0.1:<port>/devtools/page/<id>` for one page. The app asks for
+  port 9222 and takes a free one when that is in use.
+- **One profile root per process.** CEF lets one process own a root cache
+  path; a second launch on the same root passes itself to the first and
+  exits, and that hand-off crashed the first (windowless) app. With
+  `cache_path: None` each process gets `$TMPDIR/specular-cef-<pid>` as its
+  root, keeps the profile in memory, and removes the folder on drop.
 - **Message loop.** `multi_threaded_message_loop = 0`,
   `external_message_pump = 1`. On macOS a 240 Hz main-run-loop timer
   (`pump_timer`) calls `CefDoMessageLoopWork`: the call spins a nested
   run-loop turn, which panics winit if made inside one of its handlers.
   Elsewhere `PageSource::pump` calls it once per winit loop turn.
-  `OnScheduleMessagePumpWork` is not used.
+  `OnScheduleMessagePumpWork` is not used. A process with no event loop (the
+  app's `--snapshot` and `--script` runs) sets `CefConfig.pump` to
+  `Pump::Caller`: no timer, and `pump` makes the call itself.
 
 ## macOS setup (Apple Silicon), the representative configuration
 
@@ -132,11 +159,15 @@ cargo clippy -p specular-cef --all-targets --features cef-dox \
    otherwise create a plain `NSApplication` first, and winit panics when the
    principal class is not its own.
 
-## API calls not compile-verified against a real CEF build
+## CEF calls in use
 
-Every CEF call below has been type-checked against the cef 154.3 bindings
-(`cef-dox`, Linux and `aarch64-apple-darwin`). None has been linked or run
-here (no CEF download, GPU or display in the build container).
+Every CEF call below is type-checked against the cef 154.3 bindings
+(`cef-dox`, Linux and `aarch64-apple-darwin`). A debug build has run them on
+Apple Silicon, windowed and headless: startup and shutdown, shared-texture
+paints, resize and rescale, pointer and wheel input, title, address, load and
+scroll reports, navigation, and the devtools questions. Nobody has yet
+watched key events, IME composition or a `<select>` popup in a window; those
+are on the by-hand checklist in the run log.
 
 - Process: `cef::api_hash(CEF_API_VERSION_LAST, 0)`, `cef::load_library`,
   `cef::unload_library` (macOS), `cef::args::Args::new`,
@@ -165,6 +196,14 @@ here (no CEF download, GPU or display in the build container).
   (`AcceleratedPaintInfo.shared_texture_io_surface`, `.format`,
   `.extra.coded_size`, `.extra.visible_rect`),
   `on_ime_composition_range_changed`.
+- `DisplayHandler::on_address_change` / `on_title_change`,
+  `LoadHandler::on_loading_state_change`,
+  `RenderHandler::on_scroll_offset_changed`.
+- `Browser::main_frame` + `Frame::load_url`, `Browser::go_back`,
+  `go_forward`, `reload`, `stop_load`.
+- `BrowserHost::add_dev_tools_message_observer` (the `Registration` is kept
+  for the page's life), `send_dev_tools_message`,
+  `DevToolsMessageObserver::on_dev_tools_method_result`.
 - `LoadHandler::on_load_end` (`Frame::is_main`),
   `RequestHandler::on_render_process_terminated`,
   `LifeSpanHandler::on_before_popup` / `on_before_close`.
@@ -174,6 +213,10 @@ here (no CEF download, GPU or display in the build container).
   `cef::application_mac` protocols (`app_protocol`).
 
 ## Known risks to check first on a real run
+
+Checked on a real run so far: CEF starts under winit's `NSApp` and under a
+plain one (headless), pages paint through IOSurfaces with no import
+failures, and two apps run side by side. Still open:
 
 1. **`CefAppProtocol` on winit's `NSApp`.** Chromium sends
    `isHandlingSendEvent` / `setHandlingSendEvent:` to `NSApp`, and winit's

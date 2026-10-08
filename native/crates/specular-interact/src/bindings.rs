@@ -11,7 +11,7 @@ use specular_doc::{BrushType, ShapeKind};
 use crate::update::run_action;
 use crate::{
     Action, App, Effect, Focus, Format, Key, KeyInput, PointerInput, Tool, ToolDefaultPatch, edit,
-    gesture, grid, page_input,
+    gesture, grid, page_input, page_state,
 };
 
 /// How far an arrow key moves the selection, in canvas units. Shift moves it
@@ -98,9 +98,24 @@ pub enum Context {
     CanvasOrEditing,
     /// While text is being edited.
     Editing,
+    /// While a page is entered. Its keys reach the page unless a row here
+    /// takes them first.
+    EnteredPage,
+    /// While a page is entered, or is the whole selection with keys going
+    /// to the canvas and no text being edited.
+    PageTarget,
 }
 
 impl Context {
+    /// Whether there is a state of the app in which both contexts hold. Two
+    /// rows of the table may share a key only where this is false.
+    pub fn overlaps(self, other: Self) -> bool {
+        // Keys go either to the canvas or to an entered page, never both.
+        let canvas_only = |context| matches!(context, Self::Canvas | Self::CanvasOrEditing);
+        let page_only = |context| matches!(context, Self::EnteredPage);
+        !(canvas_only(self) && page_only(other) || page_only(self) && canvas_only(other))
+    }
+
     /// Whether a binding with this context fires in `app` as it is now.
     pub fn holds(self, app: &App) -> bool {
         let session = &app.session;
@@ -109,6 +124,11 @@ impl Context {
             Self::Canvas => session.focus == Focus::Canvas && session.editing.is_none(),
             Self::CanvasOrEditing => session.focus == Focus::Canvas,
             Self::Editing => session.editing.is_some(),
+            Self::EnteredPage => matches!(session.focus, Focus::Page(_)),
+            Self::PageTarget => {
+                page_state::target(app).is_some()
+                    && (Self::EnteredPage.holds(app) || Self::Canvas.holds(app))
+            }
         }
     }
 }
@@ -302,6 +322,28 @@ pub const BINDINGS: &[Binding] = &[
     heading(4),
     heading(5),
     heading(6),
+    // A browser's keys. On the canvas the bracket keys restack, so they
+    // only walk the history of a page that is entered.
+    once(
+        Chord::char('[').cmd(),
+        Context::EnteredPage,
+        Action::PageBack,
+    ),
+    once(
+        Chord::char(']').cmd(),
+        Context::EnteredPage,
+        Action::PageForward,
+    ),
+    once(
+        Chord::char('r').cmd(),
+        Context::PageTarget,
+        Action::PageReload,
+    ),
+    once(
+        Chord::char('.').cmd(),
+        Context::PageTarget,
+        Action::PageStop,
+    ),
     once(Chord::key(Key::Escape), Context::Always, Action::Cancel),
 ];
 

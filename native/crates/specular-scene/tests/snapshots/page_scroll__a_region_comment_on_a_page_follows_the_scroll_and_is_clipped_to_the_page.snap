@@ -1,0 +1,9 @@
+---
+source: crates/specular-scene/tests/page_scroll.rs
+expression: app.scene_snapshot()
+---
+canvas page p1 100,100 400x300 r=8
+screen rect 100,100 400x300 r=8 stroke=#a6a09b/1/outside
+screen text "example.com/p1" 100,79.5 wrap=400 ellipsis box-h=16.5 11/15.4 w500 #6b6b6b middle clip=100,79.5 400x20.5
+screen rect 150,70 100x100 r=4 fill=#ff637e1a clip=100,100 400x300
+screen path M155,71 L245,71 C247.21,71 249,72.79 249,75 L249,165 C249,167.21 247.21,169 245,169 L155,169 C152.79,169 151,167.21 151,165 L151,75 C151,72.79 152.79,71 155,71 Z stroke=#ff637eb3/2 dash=6/4 clip=100,100 400x300

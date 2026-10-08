@@ -30,11 +30,11 @@ pub use frame::{
     CpuFrame, FrameEvent, FrameLayer, MAX_OUTSTANDING_TEXTURES, NativeSurface, PageFrame,
     PixelFormat, SharedTexture,
 };
-pub use geometry::{CanvasRect, CssSize, PixelRect, PixelSize};
+pub use geometry::{CanvasRect, CssRect, CssSize, PixelRect, PixelSize};
 pub use input::{
     ImeEvent, InputEvent, KeyEvent, KeyEventKind, Modifiers, PointerButton, PointerEvent,
     PointerEventKind, WheelEvent,
 };
 pub use page::{PageId, PageSpec, validate_texture_scale, validate_viewport};
-pub use source::{PageElement, PageEvent, PageSource, PageSourceError};
-pub use synthetic::{SyntheticPageSource, synthetic_element_at};
+pub use source::{PageElement, PageEvent, PageNav, PageSource, PageSourceError};
+pub use synthetic::{SyntheticPageSource, synthetic_element_at, synthetic_elements_in};

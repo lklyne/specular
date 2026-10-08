@@ -87,7 +87,7 @@ pub(crate) fn install() -> Result<(), CefError> {
         let Some(protocol) = protocol else {
             // Only referenced protocols are registered at runtime; Chromium
             // sends the selectors whether or not NSApp formally conforms.
-            tracing::warn!("CEF app protocol not registered at runtime; methods added only");
+            tracing::debug!("CEF app protocol not registered at runtime; methods added only");
             continue;
         };
         add_protocol(class, class_ref, protocol);

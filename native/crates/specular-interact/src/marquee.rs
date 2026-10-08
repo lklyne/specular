@@ -76,7 +76,7 @@ impl App {
         else {
             return Vec::new();
         };
-        items_in(&self.document, rect, *mode, origin.as_ref())
+        items_in(self, rect, *mode, origin.as_ref())
     }
 }
 
@@ -128,7 +128,7 @@ pub(crate) fn finish(
     }
     let end = app.session.camera.screen_to_world(input.screen).as_dvec2();
     let items = items_in(
-        &app.document,
+        app,
         geometry::spanning(start, end),
         MarqueeMode::held(input.modifiers),
         origin.as_ref(),
@@ -158,12 +158,13 @@ fn is_group_id(document: &Document, id: &EntityId) -> bool {
 /// edges. `excluded` is the entity the drag began on, which a marquee
 /// started through a body leaves out.
 pub(crate) fn items_in(
-    document: &Document,
+    app: &App,
     rect: Rect,
     mode: MarqueeMode,
     excluded: Option<&EntityId>,
 ) -> Vec<ItemId> {
-    let entities = entities_in(document, rect, mode, excluded);
+    let document = &app.document;
+    let entities = entities_in(app, rect, mode, excluded);
     let edges = document
         .edges()
         .filter(|edge| {
@@ -187,11 +188,12 @@ pub(crate) fn items_in(
 }
 
 fn entities_in(
-    document: &Document,
+    app: &App,
     rect: Rect,
     mode: MarqueeMode,
     excluded: Option<&EntityId>,
 ) -> Vec<EntityId> {
+    let document = &app.document;
     let included = |entity: &&Entity| Some(&entity.id) != excluded;
     // Outermost first.
     let chain = |id: &EntityId| -> Vec<&EntityId> {
@@ -209,11 +211,12 @@ fn entities_in(
         .entities()
         .filter(included)
         .filter(|entity| {
+            // What has scrolled out of its page is not there to take.
             !is_group(entity)
-                && match mode {
-                    MarqueeMode::Contain => encloses(rect, entity.rect),
-                    MarqueeMode::Intersect => overlaps(rect, entity.rect),
-                }
+                && crate::shown_rect(app, entity).is_some_and(|seen| match mode {
+                    MarqueeMode::Contain => encloses(rect, seen),
+                    MarqueeMode::Intersect => overlaps(rect, seen),
+                })
         })
         .map(|entity| &entity.id);
 

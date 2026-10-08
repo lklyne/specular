@@ -1,5 +1,5 @@
 //! CEF handler objects: the app (command-line switches) and one client per
-//! page (render, load, request and life-span handlers).
+//! page (render, display, load, request and life-span handlers).
 //!
 //! The `wrap_*!` macros generate the ref-counted C vtables; each handler
 //! holds a [`PageContext`] clone and only translates the callback into page
@@ -13,12 +13,14 @@ use std::os::raw::c_int;
 
 use cef::{
     AcceleratedPaintInfo, App, Browser, BrowserSettings, CefString, Client, CommandLine,
-    DictionaryValue, Frame, ImplApp, ImplClient, ImplCommandLine, ImplFrame, ImplLifeSpanHandler,
-    ImplLoadHandler, ImplRenderHandler, ImplRequestHandler, LifeSpanHandler, LoadHandler,
-    PaintElementType, PopupFeatures, Range, Rect, RenderHandler, RequestHandler, ScreenInfo,
-    TerminationStatus, WindowInfo, WindowOpenDisposition, WrapApp, WrapClient, WrapLifeSpanHandler,
+    DictionaryValue, DisplayHandler, Frame, ImplApp, ImplClient, ImplCommandLine,
+    ImplDisplayHandler, ImplFrame, ImplLifeSpanHandler, ImplLoadHandler, ImplRenderHandler,
+    ImplRequestHandler, LifeSpanHandler, LoadHandler, PaintElementType, PopupFeatures, Range, Rect,
+    RenderHandler, RequestHandler, ScreenInfo, TerminationStatus, WindowInfo,
+    WindowOpenDisposition, WrapApp, WrapClient, WrapDisplayHandler, WrapLifeSpanHandler,
     WrapLoadHandler, WrapRenderHandler, WrapRequestHandler, wrap_app, wrap_client,
-    wrap_life_span_handler, wrap_load_handler, wrap_render_handler, wrap_request_handler,
+    wrap_display_handler, wrap_life_span_handler, wrap_load_handler, wrap_render_handler,
+    wrap_request_handler,
 };
 // The `wrap_*!` expansions call `add_ref` from this trait unqualified.
 use cef::rc::Rc as _;
@@ -182,6 +184,13 @@ wrap_render_handler! {
             }
         }
 
+        fn on_scroll_offset_changed(&self, _browser: Option<&mut Browser>, x: f64, y: f64) {
+            self.ctx.push(PageEvent::Scrolled {
+                page: self.ctx.id,
+                offset: glam::Vec2::new(x as f32, y as f32),
+            });
+        }
+
         fn on_ime_composition_range_changed(
             &self,
             _browser: Option<&mut Browser>,
@@ -208,6 +217,21 @@ wrap_load_handler! {
     }
 
     impl LoadHandler {
+        fn on_loading_state_change(
+            &self,
+            _browser: Option<&mut Browser>,
+            is_loading: c_int,
+            can_go_back: c_int,
+            can_go_forward: c_int,
+        ) {
+            self.ctx.push(PageEvent::Loading {
+                page: self.ctx.id,
+                loading: is_loading != 0,
+                can_go_back: can_go_back != 0,
+                can_go_forward: can_go_forward != 0,
+            });
+        }
+
         fn on_load_end(
             &self,
             _browser: Option<&mut Browser>,
@@ -220,6 +244,36 @@ wrap_load_handler! {
                     http_status: http_status_code,
                 });
             }
+        }
+    }
+}
+
+wrap_display_handler! {
+    struct PageDisplayHandler {
+        ctx: PageContext,
+    }
+
+    impl DisplayHandler {
+        fn on_address_change(
+            &self,
+            _browser: Option<&mut Browser>,
+            frame: Option<&mut Frame>,
+            url: Option<&CefString>,
+        ) {
+            // A subframe's address is not the page's.
+            if frame.is_some_and(|frame| frame.is_main() != 0) {
+                self.ctx.push(PageEvent::Url {
+                    page: self.ctx.id,
+                    url: url.map(ToString::to_string).unwrap_or_default(),
+                });
+            }
+        }
+
+        fn on_title_change(&self, _browser: Option<&mut Browser>, title: Option<&CefString>) {
+            self.ctx.push(PageEvent::Title {
+                page: self.ctx.id,
+                title: title.map(ToString::to_string).unwrap_or_default(),
+            });
         }
     }
 }
@@ -300,6 +354,7 @@ wrap_life_span_handler! {
 wrap_client! {
     struct PageClient {
         render: RenderHandler,
+        display: DisplayHandler,
         load: LoadHandler,
         request: RequestHandler,
         life_span: LifeSpanHandler,
@@ -308,6 +363,10 @@ wrap_client! {
     impl Client {
         fn render_handler(&self) -> Option<RenderHandler> {
             Some(self.render.clone())
+        }
+
+        fn display_handler(&self) -> Option<DisplayHandler> {
+            Some(self.display.clone())
         }
 
         fn load_handler(&self) -> Option<LoadHandler> {
@@ -333,6 +392,7 @@ pub(crate) fn new_app(switches: Vec<Switch>) -> App {
 pub(crate) fn new_client(ctx: &PageContext) -> Client {
     PageClient::new(
         PageRenderHandler::new(ctx.clone()),
+        PageDisplayHandler::new(ctx.clone()),
         PageLoadHandler::new(ctx.clone()),
         PageRequestHandler::new(ctx.clone()),
         PageLifeSpanHandler::new(ctx.clone()),

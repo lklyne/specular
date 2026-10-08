@@ -15,6 +15,8 @@ mod images;
 mod latency;
 mod notes;
 mod offscreen;
+mod page_notice;
+mod page_queries;
 mod paint_lod;
 mod persist;
 mod prefs;
@@ -29,6 +31,7 @@ use tracing_subscriber::EnvFilter;
 use winit::event_loop::EventLoop;
 
 use crate::cli::Command;
+use crate::source_select::Host;
 
 fn main() -> anyhow::Result<()> {
     if let Some(code) = source_select::run_subprocess_if_needed() {
@@ -55,7 +58,8 @@ fn main() -> anyhow::Result<()> {
     let demo_pages = run.pages.unwrap_or(scene::DEMO_PAGE_COUNT);
     let document = scene::load_document(run.canvas.as_deref(), demo_pages, run.annotations)?;
     if run.headless.is_requested() {
-        return headless::run(document, run.canvas.as_deref(), &run.headless);
+        let source = source_select::create_source(run.headless.source, Host::Headless)?;
+        return headless::run(source, document, run.canvas.as_deref(), &run.headless);
     }
     // winit must create the macOS application object before CEF initializes,
     // or CEF installs its own and winit panics.
@@ -67,7 +71,7 @@ fn main() -> anyhow::Result<()> {
         run.bench.is_some(),
     );
     let event_loop = event_loop.build().context("creating event loop")?;
-    let source = source_select::create_source(run.source)?;
+    let source = source_select::create_source(run.source, Host::Window)?;
     tracing::info!(
         backend = source.name(),
         entities = document.entities().count(),

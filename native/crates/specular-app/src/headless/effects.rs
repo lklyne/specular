@@ -5,20 +5,24 @@
 use std::time::{Duration, Instant};
 
 use anyhow::Context as _;
-use specular_core::{PageEvent, PageId, PageSource as _, PageSpec};
-use specular_doc::EntityId;
-use specular_interact::{
-    ClipboardContent, Effect, Event, ImageNotice, NoteNotice, PageGrab, PageNotice,
-};
+use glam::Vec2;
+use specular_core::{PageEvent, PageId, PageSpec};
+use specular_doc::{EntityId, Rect};
+use specular_interact::{ClipboardContent, Effect, Event, ImageNotice, NoteNotice, PageRegion};
 use specular_scene::ImageId;
 
 use super::Headless;
 use crate::images::LoadFailure;
 use crate::notes::ReadFailure;
+use crate::page_notice::notice_of;
+use crate::page_queries::css_rect;
 
-/// How long a snapshot waits for images and Documents before drawing
-/// without them.
+/// How long a snapshot waits for images, Documents and real pages before
+/// drawing without them.
 const LOAD_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// How long real pages are left to paint once they have all loaded.
+const PAGE_SETTLE: Duration = Duration::from_millis(300);
 
 impl Headless {
     pub(super) fn run(&mut self, effect: Effect) -> anyhow::Result<()> {
@@ -35,12 +39,20 @@ impl Headless {
                     .create_page(&spec)
                     .with_context(|| format!("creating page for {url}"))?;
                 self.hosts.insert(page, host);
+                self.loading_pages.insert(host);
+                self.unpainted_pages.insert(host);
             }
             Effect::ClosePage(page) => {
                 if let Some(host) = self.hosts.remove(&page) {
                     self.source.close_page(host)?;
                     self.compositor.remove_page(host);
+                    self.loading_pages.remove(&host);
+                    self.unpainted_pages.remove(&host);
                 }
+                for answer in self.queries.give_up_on(&page) {
+                    self.drive(|app| app.send(answer))?;
+                }
+                self.answer_settled_grabs()?;
             }
             Effect::SetPageViewport { page, viewport } => {
                 if let Some(&host) = self.hosts.get(&page) {
@@ -82,36 +94,25 @@ impl Headless {
                 let file = self.stand_ins.create_note();
                 self.drive(|app| app.send(Event::NoteCreated { file, rect }))?;
             }
-            Effect::QueryElement { page, point } => {
-                let host = self.hosts.get(&page);
-                let element = host.and_then(|&host| self.source.element_at(host, point));
-                self.drive(|app| {
-                    app.send(Event::ElementAt {
-                        page,
-                        point,
-                        element,
-                    })
-                })?;
+            Effect::Navigate { page, nav } => {
+                if let Some(&host) = self.hosts.get(&page) {
+                    self.source.navigate(host, &nav)?;
+                }
             }
-            Effect::QueryRegionGrab { region, pages } => {
-                // FOLLOW-UP(C2): no page is asked, so no region grabs and
-                // every one stays on the canvas. The real count is a CEF
-                // devtools query for the elements inside each page's rect
-                // (Electron's `queryElementsInRect`); the synthetic source
-                // will then need a stand-in for it.
-                let grabs = (pages.into_iter())
-                    .map(|covered| PageGrab {
-                        page: covered.page,
-                        elements: 0,
-                    })
-                    .collect();
-                self.drive(|app| app.send(Event::RegionGrab { region, grabs }))?;
+            Effect::FocusPage(page) => {
+                let host = page.and_then(|page| self.hosts.get(&page).copied());
+                self.source.set_focus(host)?;
             }
-            // A headless run has no window to focus, no cursor and no input
-            // method, it leaves the disk alone, and it hosts no API.
+            Effect::ForwardInput { page, event } => {
+                if let Some(&host) = self.hosts.get(&page) {
+                    self.source.send_input(host, &event)?;
+                }
+            }
+            Effect::QueryElement { page, point } => self.query_element(&page, point)?,
+            Effect::QueryRegionGrab { region, pages } => self.query_region_grab(region, &pages)?,
+            // A headless run has no cursor and no input method, it leaves
+            // the disk alone, and it hosts no API.
             Effect::ApiReply { .. }
-            | Effect::FocusPage(_)
-            | Effect::ForwardInput { .. }
             | Effect::SetImeAllowed(_)
             | Effect::SetImeCursorArea { .. }
             | Effect::SetCursor(_)
@@ -123,21 +124,67 @@ impl Headless {
         Ok(())
     }
 
+    /// Asks the page for the element at `point`; a page that cannot be
+    /// asked has none.
+    fn query_element(&mut self, page: &EntityId, point: Vec2) -> anyhow::Result<()> {
+        let request = self.queries.ask_element(page.clone(), point);
+        let asked = (self.hosts.get(page))
+            .is_some_and(|&host| self.source.query_element(host, point, request).is_ok());
+        if !asked && let Some(answer) = self.queries.element_answer(request, None) {
+            self.drive(|app| app.send(answer))?;
+        }
+        Ok(())
+    }
+
+    /// Asks each page what the region grabbed in it; a page that cannot be
+    /// asked grabbed nothing.
+    fn query_region_grab(&mut self, region: Rect, pages: &[PageRegion]) -> anyhow::Result<()> {
+        let ids = pages.iter().map(|covered| covered.page.clone()).collect();
+        let requests = self.queries.ask_grab(region, ids);
+        for (covered, request) in pages.iter().zip(requests) {
+            let rect = css_rect(covered.rect);
+            let asked = self.hosts.get(&covered.page).is_some_and(|&host| {
+                (self.source.query_elements_in_rect(host, rect, request)).is_ok()
+            });
+            if !asked {
+                self.queries.grab_answer(request, 0);
+            }
+        }
+        self.answer_settled_grabs()
+    }
+
     /// Takes a frame from every page and waits for the images and Documents
-    /// asked for so far.
+    /// asked for so far. Real pages are also waited for: each has to load,
+    /// answer what it was asked and paint, and is then given a moment more,
+    /// since the frame that follows a load is rarely the last.
     pub(super) fn settle(&mut self) -> anyhow::Result<()> {
         let deadline = Instant::now() + LOAD_TIMEOUT;
+        let mut ready_since = None;
         loop {
             self.take_page_events()?;
             self.take_images()?;
             self.take_notes()?;
-            if self.loading_images.is_empty() && self.loading_notes.is_empty() {
-                return Ok(());
+            let pages_ready = !self.live
+                || (self.loading_pages.is_empty()
+                    && self.unpainted_pages.is_empty()
+                    && self.queries.is_idle());
+            if self.loading_images.is_empty() && self.loading_notes.is_empty() && pages_ready {
+                if !self.live {
+                    return Ok(());
+                }
+                let now = Instant::now();
+                if now.duration_since(*ready_since.get_or_insert(now)) >= PAGE_SETTLE {
+                    return Ok(());
+                }
+            } else {
+                ready_since = None;
             }
             if Instant::now() >= deadline {
                 tracing::warn!(
                     images = self.loading_images.len(),
                     documents = self.loading_notes.len(),
+                    pages_loading = self.loading_pages.len(),
+                    pages_unpainted = self.unpainted_pages.len(),
                     "drawing without loads that never finished"
                 );
                 return Ok(());
@@ -146,25 +193,68 @@ impl Headless {
         }
     }
 
+    /// Lets real pages run for `time`: a script's `wait` is their only
+    /// chance to animate, scroll or follow a link. Synthetic pages have
+    /// nothing to wait for.
+    pub(super) fn run_pages_for(&mut self, time: Duration) -> anyhow::Result<()> {
+        if !self.live {
+            return Ok(());
+        }
+        let until = Instant::now() + time.min(LOAD_TIMEOUT);
+        while Instant::now() < until {
+            self.take_page_events()?;
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        Ok(())
+    }
+
+    /// Pumps the source and passes on what its pages reported.
     fn take_page_events(&mut self) -> anyhow::Result<()> {
         let mut events = Vec::new();
         self.source.pump();
         self.source.drain_events(&mut events);
         for event in events {
-            if let PageEvent::Loaded { page, http_status } = &event
-                && let Some(entity) = self.entity_of(*page)
+            match &event {
+                PageEvent::Loading {
+                    page,
+                    loading: true,
+                    ..
+                } => {
+                    self.loading_pages.insert(*page);
+                    self.unpainted_pages.insert(*page);
+                }
+                PageEvent::Loaded { page, .. } | PageEvent::Crashed { page, .. } => {
+                    self.loading_pages.remove(page);
+                }
+                PageEvent::Frame(frame) if !self.loading_pages.contains(&frame.page) => {
+                    self.unpainted_pages.remove(&frame.page);
+                }
+                PageEvent::ElementAt {
+                    request, element, ..
+                } => {
+                    if let Some(answer) = self.queries.element_answer(*request, element.clone()) {
+                        self.drive(|app| app.send(answer))?;
+                    }
+                }
+                PageEvent::ElementsInRect { request, count, .. } => {
+                    self.queries.grab_answer(*request, *count);
+                    self.answer_settled_grabs()?;
+                }
+                _ => {}
+            }
+            if let Some((host, notice)) = notice_of(&event, self.source.devtools_port())
+                && let Some(page) = self.entity_of(host)
             {
-                let notice = PageNotice::Loaded {
-                    http_status: *http_status,
-                };
-                self.drive(|app| {
-                    app.send(Event::Page {
-                        page: entity,
-                        notice,
-                    })
-                })?;
+                self.drive(|app| app.send(Event::Page { page, notice }))?;
             }
             self.compositor.handle_page_event(event)?;
+        }
+        Ok(())
+    }
+
+    fn answer_settled_grabs(&mut self) -> anyhow::Result<()> {
+        for answer in self.queries.settled() {
+            self.drive(|app| app.send(answer))?;
         }
         Ok(())
     }

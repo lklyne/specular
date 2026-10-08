@@ -7,7 +7,8 @@
 //!   options, switches, framework paths), [`coords`] (page CSS -> texel
 //!   mapping, popup placement), [`translate`] (core `InputEvent` -> exact `CefBrowserHost` calls),
 //!   [`pool`] (the per-page shared-texture cap), [`page`] (view and popup
-//!   geometry) and [`cpu_frame`] (`OnPaint` copies).
+//!   geometry), [`cpu_frame`] (`OnPaint` copies) and [`dom_query`] (the
+//!   devtools messages that ask a page about its elements, and their answers).
 //! - **Feature `cef`**: `CefPageSource`, a [`specular_core::PageSource`] on
 //!   windowless CEF browsers, and `run_subprocess_if_needed`:
 //!   - `OnAcceleratedPaint` (macOS IOSurface) -> [`specular_core::PageFrame::GpuShared`],
@@ -24,6 +25,7 @@
 pub mod config;
 pub mod coords;
 pub mod cpu_frame;
+pub mod dom_query;
 pub mod page;
 pub mod pool;
 pub mod translate;
@@ -33,7 +35,11 @@ mod app_protocol;
 #[cfg(feature = "cef")]
 mod client;
 #[cfg(feature = "cef")]
+mod devtools;
+#[cfg(feature = "cef")]
 mod error;
+#[cfg(feature = "cef")]
+mod host_call;
 #[cfg(all(feature = "cef", target_os = "macos"))]
 mod iosurface;
 #[cfg(feature = "cef")]
@@ -45,7 +51,7 @@ mod pump_timer;
 #[cfg(feature = "cef")]
 mod source;
 
-pub use config::CefConfig;
+pub use config::{CefConfig, Pump};
 #[cfg(feature = "cef")]
 pub use error::CefError;
 #[cfg(feature = "cef")]

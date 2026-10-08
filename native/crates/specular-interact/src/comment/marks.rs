@@ -58,11 +58,17 @@ pub struct CommentMark {
     pub shape: MarkShape,
     /// Whether the focused comment is one of the members.
     pub focused: bool,
+    /// The page the mark is on, when it scrolls with that page: it shows
+    /// only through this, and a press outside it misses.
+    pub clip: Option<ScreenRect>,
 }
 
 impl CommentMark {
     /// Whether a press at `screen` lands on the mark.
     fn hit(&self, screen: Vec2) -> bool {
+        if self.clip.is_some_and(|clip| !clip.contains(screen)) {
+            return false;
+        }
         match self.shape {
             MarkShape::Badge(pill) => pill.contains(screen),
             MarkShape::Region(frame) => {
@@ -120,6 +126,8 @@ impl App {
                     count,
                     shape: shape(self, representative, count)?,
                     focused: focused.is_some_and(|id| members.iter().any(|each| each.id == *id)),
+                    clip: super::page_clip(self, representative)
+                        .map(|page| ScreenRect::of(&self.session.camera, page)),
                 })
             })
             .collect();

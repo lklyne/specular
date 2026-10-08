@@ -1,7 +1,7 @@
 //! [`Effect`]: the I/O [`update`](crate::update) asks the shell to do.
 
 use glam::Vec2;
-use specular_core::{CssSize, InputEvent};
+use specular_core::{CssSize, InputEvent, PageNav};
 use specular_doc::{EntityId, Rect};
 
 use crate::{ApiOutcome, AssetBytes, ImageKey, PageRegion, ToolDefaults};
@@ -36,6 +36,14 @@ pub enum Effect {
         page: EntityId,
         /// The new layout viewport in CSS pixels.
         viewport: CssSize,
+    },
+    /// Move a hosted page through its history, or to another address. The
+    /// page stays hosted: it keeps its history, its focus and its frames.
+    Navigate {
+        /// The page entity.
+        page: EntityId,
+        /// Where to.
+        nav: PageNav,
     },
     /// Give a page keyboard focus, or take it from every page.
     FocusPage(Option<EntityId>),

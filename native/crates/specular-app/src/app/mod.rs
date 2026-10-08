@@ -46,6 +46,7 @@ use crate::bench_run::BenchRun;
 use crate::images::ImageLoader;
 use crate::latency::InputLatencyProbe;
 use crate::notes::NoteLoader;
+use crate::page_queries::PageQueries;
 use crate::paint_lod::PageLod;
 use crate::persist::{self, Persistence};
 use crate::prefs;
@@ -104,6 +105,8 @@ pub(crate) struct Shell {
     app: App,
     /// The hosted page behind each page entity.
     hosts: HashMap<EntityId, PageHost>,
+    /// What pages have been asked and not yet answered.
+    queries: PageQueries,
     /// The decode thread. `None` if it could not be started; every image
     /// then stays a placeholder.
     image_loader: Option<ImageLoader>,
@@ -174,6 +177,7 @@ impl Shell {
             persist: canvas.map(Persistence::open),
             app: App::new(unix_ms()),
             hosts: HashMap::new(),
+            queries: PageQueries::default(),
             image_loader: image_run::start_loader(options.canvas.as_deref()),
             images: HashSet::new(),
             note_loader: note_run::start_loader(options.canvas.as_deref()),

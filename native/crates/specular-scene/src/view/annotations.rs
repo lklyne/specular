@@ -68,7 +68,15 @@ fn region(frame: &Frame<'_>, mark: &CommentMark, on_screen: ScreenRect, scene: &
     } else {
         REGION_FILL_ALPHA
     };
-    let items = region_items(on_screen, REGION_COLOR, REGION_STROKE_ALPHA, fill);
+    // On a page, a region shows only through the page it scrolls with.
+    let clip = mark.clip.map(scene_rect);
+    let items =
+        region_items(on_screen, REGION_COLOR, REGION_STROKE_ALPHA, fill).map(
+            move |item| match clip {
+                Some(clip) => item.clipped(clip),
+                None => item,
+            },
+        );
     if mark.focused {
         scene.extend(items);
     } else {

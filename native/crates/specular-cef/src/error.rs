@@ -48,4 +48,10 @@ pub enum CefError {
         /// The URL that was being opened.
         url: String,
     },
+    /// The page has no main frame to load a URL into.
+    #[error("the page has no main frame")]
+    NoMainFrame,
+    /// The page's devtools channel refused a question.
+    #[error("the page's DevTools channel refused: {0}")]
+    Devtools(&'static str),
 }

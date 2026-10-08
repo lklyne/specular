@@ -3352,6 +3352,7 @@ dependencies = [
  "objc2 0.6.4",
  "objc2-core-foundation",
  "objc2-io-surface",
+ "serde_json",
  "specular-core",
  "thiserror 2.0.21",
  "tracing",

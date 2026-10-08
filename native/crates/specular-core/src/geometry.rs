@@ -92,6 +92,31 @@ impl PixelRect {
     }
 }
 
+/// An axis-aligned rect in a page's CSS pixels, with fractional edges.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct CssRect {
+    /// Left edge.
+    pub x: f32,
+    /// Top edge.
+    pub y: f32,
+    /// Width.
+    pub width: f32,
+    /// Height.
+    pub height: f32,
+}
+
+impl CssRect {
+    /// Creates a CSS-pixel rect.
+    pub const fn new(x: f32, y: f32, width: f32, height: f32) -> Self {
+        Self {
+            x,
+            y,
+            width,
+            height,
+        }
+    }
+}
+
 /// An axis-aligned rect in canvas (world) space.
 #[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
 pub struct CanvasRect {

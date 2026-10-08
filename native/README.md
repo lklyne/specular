@@ -69,6 +69,15 @@ specular-app [--source synthetic|cef] [--pages N | FILE.canvas]
              [--chrome on|off] [--annotations N]
 ```
 
+`--snapshot OUT.png` and `--script FILE` draw into PNG files with no window
+(see `CLAUDE.md`, "Looking at what it draws"). They host synthetic pages
+unless `--source cef` is given; then the real pages load first, and a
+script's clicks, wheel and keys reach an entered page:
+
+```sh
+"$APP" --source cef --snapshot out.png --snapshot-size 1400x800 FILE.canvas
+```
+
 Scroll pans; Cmd/Ctrl+scroll and pinch zoom about the cursor (same factor as
 the Electron app: `zoom -= deltaY * 0.002`, clamped to 0.02..3). Click a page
 to focus it; pointer, wheel, keys and IME then go to that page. Click empty

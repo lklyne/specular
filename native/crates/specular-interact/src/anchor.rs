@@ -6,6 +6,7 @@ use specular_doc::{Command, Document, Entity, EntityId, Kind, PageAnchor};
 
 use crate::app::page_of;
 use crate::geometry;
+use crate::scroll_follow::{self, Scrolls};
 
 /// `url` in the form an anchor records and compares: trimmed, with its hash
 /// stripped. `None` for a page with no URL yet.
@@ -40,9 +41,13 @@ pub const fn anchors_to_pages(kind: &Kind) -> bool {
 /// holds the entity's centre, or `None` on empty canvas. An entity in a
 /// group never anchors, because the group already owns its movement.
 ///
-/// The anchor records no scroll offset, so the entity is pinned to the page
-/// and does not follow its scroll.
-pub fn page_anchor_for(document: &Document, entity: &Entity) -> Option<PageAnchor> {
+/// The anchor records the page's scroll, so the entity tracks the document
+/// under it from here on (see [`scroll_follow`](crate::scroll_follow)).
+pub(crate) fn page_anchor_for(
+    document: &Document,
+    scrolls: &Scrolls,
+    entity: &Entity,
+) -> Option<PageAnchor> {
     if entity.parent.is_some() || !anchors_to_pages(&entity.kind) {
         return None;
     }
@@ -50,8 +55,11 @@ pub fn page_anchor_for(document: &Document, entity: &Entity) -> Option<PageAncho
     let centre = geometry::origin(rect) + geometry::size(rect) / 2.0;
     document.entities().rev().find_map(|candidate| {
         let page = page_of(candidate)?;
+        let live = scrolls.live(&candidate.id);
         geometry::contains(candidate.rect, centre).then(|| PageAnchor {
             page_url: canonical_page_url(&page.url),
+            scroll_x: Some(live.x),
+            scroll_y: Some(live.y),
             ..PageAnchor::new(candidate.id.clone())
         })
     })
@@ -59,12 +67,16 @@ pub fn page_anchor_for(document: &Document, entity: &Entity) -> Option<PageAncho
 
 /// The commands that re-resolve the anchor of each of `ids` from where it
 /// sits now: hooked to the page under its centre, or freed when none is.
-/// Nothing is said about an entity whose answer is its current page, so the
-/// anchor keeps what it recorded. An entity that is not anchorable, or whose
-/// anchor page is in `travelling`, is left alone: it moved with its page, so
-/// the page still owns it.
+/// What the page has scrolled since the anchor was written is folded into the
+/// entity's stored position first, and the anchor restamped, so the stored
+/// position is where the entity is seen. Nothing is said about an entity
+/// whose answer is its current page and that has not moved with the scroll.
+/// An entity that is not anchorable, or whose anchor page is in
+/// `travelling`, is left alone: it moved with its page, so the page still
+/// owns it.
 pub(crate) fn reanchor(
     document: &Document,
+    scrolls: &Scrolls,
     ids: &[EntityId],
     travelling: &[EntityId],
 ) -> Vec<Command> {
@@ -74,19 +86,43 @@ pub(crate) fn reanchor(
         .filter(|entity| {
             (entity.anchor.as_ref()).is_none_or(|anchor| !travelling.contains(&anchor.page_id))
         })
-        .filter_map(|entity| {
-            let next = page_anchor_for(document, entity);
-            let same = match (&entity.anchor, &next) {
-                (None, None) => true,
-                (Some(old), Some(new)) => {
-                    old.page_id == new.page_id && old.page_url == new.page_url
+        .flat_map(|entity| {
+            let mut commands = Vec::new();
+            let folded = scroll_follow::fold(scrolls, entity);
+            if let Some(folded) = &folded {
+                commands.push(Command::SetRect {
+                    id: entity.id.clone(),
+                    rect: folded.rect,
+                });
+                if folded.kind != entity.kind {
+                    commands.push(Command::SetKind {
+                        id: entity.id.clone(),
+                        kind: Box::new(folded.kind.clone()),
+                    });
                 }
-                (Some(_), None) | (None, Some(_)) => false,
+            }
+            let seen = folded.as_ref().unwrap_or(entity);
+            let next = page_anchor_for(document, scrolls, seen);
+            let anchor = match (&entity.anchor, next) {
+                (None, None) => None,
+                (Some(old), Some(new))
+                    if old.page_id == new.page_id && old.page_url == new.page_url =>
+                {
+                    // Same page: the anchor keeps what it recorded, but a
+                    // folded shift restamps the scroll it was folded at.
+                    folded
+                        .is_some()
+                        .then(|| Some(scroll_follow::restamped(scrolls, old)))
+                }
+                (_, new) => Some(new),
             };
-            (!same).then(|| Command::SetAnchor {
-                id: entity.id.clone(),
-                anchor: next.map(Box::new),
-            })
+            if let Some(anchor) = anchor {
+                commands.push(Command::SetAnchor {
+                    id: entity.id.clone(),
+                    anchor: anchor.map(Box::new),
+                });
+            }
+            commands
         })
         .collect()
 }
@@ -113,11 +149,14 @@ fn looking_after(
 /// [`reanchor`].
 pub(crate) fn then_reanchor(
     document: &mut Document,
+    scrolls: &Scrolls,
     step: Command,
     ids: &[EntityId],
     travelling: &[EntityId],
 ) -> Command {
-    let more = looking_after(document, &step, |after| reanchor(after, ids, travelling));
+    let more = looking_after(document, &step, |after| {
+        reanchor(after, scrolls, ids, travelling)
+    });
     follow(step, more)
 }
 
@@ -125,7 +164,11 @@ pub(crate) fn then_reanchor(
 /// they land, as placement decides (ADR 0031). A copy that came with its page
 /// keeps the anchor to that page's copy; every other copy is hooked to the
 /// page under its centre, or free.
-pub(crate) fn placed_copies(document: &mut Document, insert: Command) -> Command {
+pub(crate) fn placed_copies(
+    document: &mut Document,
+    scrolls: &Scrolls,
+    insert: Command,
+) -> Command {
     let copies: Vec<EntityId> = match &insert {
         Command::Batch(commands) => commands
             .iter()
@@ -138,7 +181,7 @@ pub(crate) fn placed_copies(document: &mut Document, insert: Command) -> Command
             .collect(),
         _ => Vec::new(),
     };
-    then_reanchor(document, insert, &copies, &[])
+    then_reanchor(document, scrolls, insert, &copies, &[])
 }
 
 fn follow(step: Command, more: Vec<Command>) -> Command {

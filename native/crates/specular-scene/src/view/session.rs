@@ -48,8 +48,10 @@ pub(crate) fn draw(frame: &Frame<'_>, scene: &mut Scene) {
         .filter(|id| !selected(id))
         .chain(session.selection.entities());
     for id in outlined {
-        if let Some(entity) = app.document().entity(id) {
-            push_outline(frame, entity.rect, scene);
+        if let Some(entity) = app.document().entity(id)
+            && let Some(seen) = specular_interact::shown_rect(app, entity)
+        {
+            push_outline(frame, seen, scene);
         }
     }
 
@@ -132,9 +134,12 @@ fn push_copy_ghosts(frame: &Frame<'_>, preview: &CopyPreview, scene: &mut Scene)
     // The copy has no title or border of its own yet.
     let bare = frame.without_chrome();
     for id in &preview.entities {
-        let Some(entity) = frame.app.document().entity(id) else {
+        let Some(entity) = (frame.app.document().entity(id))
+            .and_then(|entity| specular_interact::seen(frame.app, entity))
+        else {
             continue;
         };
+        let entity = &*entity.entity;
         let landing = entity.rect.translated(preview.delta.x, preview.delta.y);
         let outline = frame.screen_rect(landing).outset(OUTLINE_PADDING);
         if !frame.sees_screen(outline) {

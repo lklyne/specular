@@ -67,10 +67,8 @@ fn build(frame: &Frame<'_>) -> Scene {
     for item in document.order() {
         match item {
             ItemId::Entity(id) => {
-                if let Some(entity) = document.entity(id)
-                    && frame.sees(entity.rect)
-                {
-                    draw_entity(frame, entity, &mut scene);
+                if let Some(entity) = document.entity(id) {
+                    draw_in_place(frame, entity, &mut scene);
                 }
             }
             ItemId::Edge(id) => {
@@ -86,6 +84,42 @@ fn build(frame: &Frame<'_>) -> Scene {
         comment_draft::composer(frame, &mut scene);
     }
     scene
+}
+
+/// `entity` where its page's scroll has put it, drawn only through the page
+/// while it is shifted. Nothing is drawn for one that is off screen or has
+/// scrolled out of its page.
+fn draw_in_place(frame: &Frame<'_>, entity: &Entity, scene: &mut Scene) {
+    let Some(seen) = specular_interact::seen(frame.app, entity) else {
+        return;
+    };
+    if !frame.sees(seen.entity.rect) {
+        return;
+    }
+    let first = scene.items.len();
+    draw_entity(frame, &seen.entity, scene);
+    if let Some(page) = seen.clip {
+        clip_from(frame, page, first, scene);
+    }
+}
+
+/// Clips the items from `first` on to the canvas rect `page`, together with
+/// whatever clip they have.
+fn clip_from(frame: &Frame<'_>, page: specular_doc::Rect, first: usize, scene: &mut Scene) {
+    let canvas = frame::canvas_rect(page);
+    let screen = frame.screen_rect(page);
+    for item in &mut scene.items[first..] {
+        let through = match item.space {
+            crate::Space::Canvas => canvas,
+            crate::Space::Screen => screen,
+        };
+        item.clip = Some(match item.clip {
+            Some(own) => own
+                .intersection(through)
+                .unwrap_or(crate::Rect::new(0.0, 0.0, 0.0, 0.0)),
+            None => through,
+        });
+    }
 }
 
 fn draw_entity(frame: &Frame<'_>, entity: &Entity, scene: &mut Scene) {

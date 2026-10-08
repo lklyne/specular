@@ -4,7 +4,7 @@
 
 use glam::DVec2;
 use specular_doc::{AnnotationAnchor, EntityId};
-use specular_interact::{element_on_canvas, region_on_canvas};
+use specular_interact::{element_on_canvas, left_its_page, page_clip, region_on_canvas};
 
 use super::annotations::{BLUE, region_items};
 use super::editing;
@@ -40,6 +40,15 @@ pub(crate) fn marker(frame: &Frame<'_>, scene: &mut Scene) {
     let Some(draft) = app.comment_draft() else {
         return;
     };
+    // What the draft is on may have scrolled out of its page.
+    if left_its_page(app, draft) {
+        return;
+    }
+    let clip = page_clip(app, draft).map(|page| frame.screen_rect(page));
+    let clipped = |item: Item| match clip {
+        Some(clip) => item.clipped(clip),
+        None => item,
+    };
     match &draft.anchor {
         AnnotationAnchor::Canvas { canvas_x, canvas_y } => {
             let centre = frame.screen_point(DVec2::new(*canvas_x, *canvas_y));
@@ -65,12 +74,10 @@ pub(crate) fn marker(frame: &Frame<'_>, scene: &mut Scene) {
             if let Some(region) = region_on_canvas(app, draft) {
                 let on_screen = frame.screen_rect(region);
                 if frame.sees_screen(on_screen) {
-                    scene.extend(region_items(
-                        on_screen,
-                        BLUE,
-                        REGION_STROKE_ALPHA,
-                        REGION_FILL_ALPHA,
-                    ));
+                    scene.extend(
+                        region_items(on_screen, BLUE, REGION_STROKE_ALPHA, REGION_FILL_ALPHA)
+                            .map(clipped),
+                    );
                 }
             }
         }
@@ -78,11 +85,11 @@ pub(crate) fn marker(frame: &Frame<'_>, scene: &mut Scene) {
             if let Some(element) = element_on_canvas(app, draft) {
                 let on_screen = frame.screen_rect(element);
                 if frame.sees_screen(on_screen) {
-                    scene.push(Item::screen(RectDraw::filled(
+                    scene.push(clipped(Item::screen(RectDraw::filled(
                         on_screen,
                         palette::with_alpha(ELEMENT_COLOR, ELEMENT_FILL_ALPHA),
-                    )));
-                    scene.push(Item::screen(PathDraw {
+                    ))));
+                    scene.push(clipped(Item::screen(PathDraw {
                         commands: super::shape_path::Silhouette::Rect(0.0)
                             .into_path(on_screen.outset(-0.5)),
                         fill: None,
@@ -93,7 +100,7 @@ pub(crate) fn marker(frame: &Frame<'_>, scene: &mut Scene) {
                             )
                             .dashed(ELEMENT_DASH),
                         ),
-                    }));
+                    })));
                 }
             }
         }

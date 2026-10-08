@@ -236,6 +236,10 @@ fn action_named(name: &str) -> anyhow::Result<Action> {
     Ok(match name {
         "annotate-selection" => Action::AnnotateSelection,
         "resolve-comment" => Action::ResolveComment(None),
+        "page-back" => Action::PageBack,
+        "page-forward" => Action::PageForward,
+        "page-reload" => Action::PageReload,
+        "page-stop" => Action::PageStop,
         other => bail!("unknown action `{other}`"),
     })
 }

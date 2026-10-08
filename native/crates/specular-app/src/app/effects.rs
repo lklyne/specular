@@ -4,12 +4,14 @@
 use std::time::Instant;
 
 use anyhow::Context as _;
+use glam::Vec2;
 use specular_core::{InputEvent, PageSpec, PointerEvent, PointerEventKind};
-use specular_doc::EntityId;
-use specular_interact::{Effect, Event, PageGrab, update};
+use specular_doc::{EntityId, Rect};
+use specular_interact::{Effect, Event, PageRegion, update};
 use winit::dpi::{LogicalPosition, LogicalSize};
 
 use super::{GpuWindow, PageHost, Shell};
+use crate::page_queries::css_rect;
 use crate::paint_lod::PageLod;
 use crate::translate;
 
@@ -48,6 +50,7 @@ impl Shell {
                         gpu.compositor.remove_page(host.page);
                     }
                 }
+                self.give_up_on_page(&page);
             }
             Effect::SetPageViewport { page, viewport } => {
                 if let Some(host) = self.hosts.get(&page) {
@@ -94,31 +97,59 @@ impl Shell {
             Effect::CopyAsset { from, file } => self.copy_asset(&from, &file),
             Effect::SaveToolDefaults(defaults) => self.save_tool_defaults(&defaults),
             Effect::ApiReply { outcome, .. } => self.api_outcome = Some(outcome),
-            Effect::QueryElement { page, point } => {
-                let host = self.hosts.get(&page);
-                let element = host.and_then(|host| self.source.element_at(host.page, point));
-                self.dispatch(Event::ElementAt {
-                    page,
-                    point,
-                    element,
-                });
+            Effect::Navigate { page, nav } => {
+                if let Some(host) = self.hosts.get(&page) {
+                    warn_on_error(self.source.navigate(host.page, &nav));
+                }
             }
-            Effect::QueryRegionGrab { region, pages } => {
-                // FOLLOW-UP(C2): no page is asked, so no region grabs and
-                // every one stays on the canvas. The real count is a CEF
-                // devtools query for the elements inside each page's rect
-                // (Electron's `queryElementsInRect`), answered as a page
-                // event.
-                let grabs = (pages.into_iter())
-                    .map(|covered| PageGrab {
-                        page: covered.page,
-                        elements: 0,
-                    })
-                    .collect();
-                self.dispatch(Event::RegionGrab { region, grabs });
-            }
+            Effect::QueryElement { page, point } => self.query_element(&page, point),
+            Effect::QueryRegionGrab { region, pages } => self.query_region_grab(region, &pages),
         }
         Ok(())
+    }
+
+    /// Asks the page for the element at `point`. The answer comes back
+    /// through the page's events; a page that cannot be asked has none.
+    fn query_element(&mut self, page: &EntityId, point: Vec2) {
+        let request = self.queries.ask_element(page.clone(), point);
+        let asked = (self.hosts.get(page))
+            .is_some_and(|host| self.source.query_element(host.page, point, request).is_ok());
+        if !asked && let Some(answer) = self.queries.element_answer(request, None) {
+            self.dispatch(answer);
+        }
+    }
+
+    /// Asks each page what the region grabbed in it. The answer goes to the
+    /// app once every page has said; a page that cannot be asked grabbed
+    /// nothing.
+    fn query_region_grab(&mut self, region: Rect, pages: &[PageRegion]) {
+        let ids = pages.iter().map(|covered| covered.page.clone()).collect();
+        let requests = self.queries.ask_grab(region, ids);
+        for (covered, request) in pages.iter().zip(requests) {
+            let rect = css_rect(covered.rect);
+            let asked = self.hosts.get(&covered.page).is_some_and(|host| {
+                (self.source.query_elements_in_rect(host.page, rect, request)).is_ok()
+            });
+            if !asked {
+                self.queries.grab_answer(request, 0);
+            }
+        }
+        self.answer_settled_grabs();
+    }
+
+    /// Tells the app about the regions every page has now answered for.
+    pub(super) fn answer_settled_grabs(&mut self) {
+        for answer in self.queries.settled() {
+            self.dispatch(answer);
+        }
+    }
+
+    /// Answers what was still being asked of a page that will not answer.
+    pub(super) fn give_up_on_page(&mut self, page: &EntityId) {
+        for answer in self.queries.give_up_on(page) {
+            self.dispatch(answer);
+        }
+        self.answer_settled_grabs();
     }
 
     fn send_to_page(&mut self, page: &EntityId, event: &InputEvent) {

@@ -200,7 +200,7 @@ pub enum Key {
 
 /// Something a hosted page reported that the interaction layer acts on.
 /// Painted frames are not here: they go straight to the renderer.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum PageNotice {
     /// The main frame finished loading.
     Loaded {
@@ -215,6 +215,29 @@ pub enum PageNotice {
     /// The IME composition moved. Bounds are in the page's CSS pixels;
     /// `None` when there is no composition.
     ImeCompositionBounds(Option<PixelRect>),
+    /// The document's title changed. Empty for a document with none.
+    Title(String),
+    /// The page shows another address: a navigation committed, or the page
+    /// changed its own URL in place.
+    Url(String),
+    /// A load started or ended, or the page's history moved.
+    Loading {
+        /// Whether a load is in flight.
+        loading: bool,
+        /// Whether there is an entry to go back to.
+        can_go_back: bool,
+        /// Whether there is an entry to go forward to.
+        can_go_forward: bool,
+    },
+    /// The document scrolled to this offset, in the page's CSS pixels.
+    Scrolled {
+        /// Along x.
+        x: f64,
+        /// Along y.
+        y: f64,
+    },
+    /// The page's remote-debugging websocket is known.
+    DevtoolsUrl(String),
 }
 
 /// A command with no pointer position: what a key binding, a menu item, a
@@ -289,6 +312,15 @@ pub enum Action {
     /// Remove a comment. With `None`, every comment on the focused
     /// comment's mark, as one step. Does nothing with no such comment.
     DeleteComment(Option<AnnotationId>),
+    /// Take the entered page, or the one selected page, an entry back in
+    /// its history. Does nothing where there is none.
+    PageBack,
+    /// Take that page an entry forward in its history.
+    PageForward,
+    /// Load that page's address again.
+    PageReload,
+    /// Abandon that page's load in flight.
+    PageStop,
     /// Move the selection by exactly this many canvas units.
     Nudge {
         /// Along x. Positive is right.

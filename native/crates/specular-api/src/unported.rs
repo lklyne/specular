@@ -20,7 +20,7 @@ fn verbs(method: Method, segments: &[&str]) -> Option<(&'static str, &'static st
         (_, ["pages", _, "print-pdf"]) => ("`print-pdf`", PAGES),
         (_, ["pages" | "debug", ..]) => (
             "the page verbs (`snapshot`, `screenshot -f`, `click`, `fill`, `type`, `select`, `scroll`, `wait`, \
-             `back`, `forward`, `reload`, `find`, `get`, `console`, `errors`, `query-elements`, \
+             `find`, `get`, `console`, `errors`, `query-elements`, \
              `eval` and the other agent-browser passthroughs)",
             PAGES,
         ),

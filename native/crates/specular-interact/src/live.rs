@@ -5,6 +5,7 @@
 use glam::DVec2;
 use specular_doc::{Command, Document, Drawing, Entity, EntityId, Kind, Rect};
 
+use crate::scroll_follow::Scrolls;
 use crate::{App, Effect, anchor, gesture, group_fit, strokes, update};
 
 /// An entity as a drag found it.
@@ -197,7 +198,7 @@ pub(crate) fn take(document: &mut Document, id: &EntityId) -> Option<Entity> {
 /// Adds `entity` in front of everything as one undo step, hooked to the page
 /// its centre is on, if any.
 pub(crate) fn create(app: &mut App, mut entity: Entity, effects: &mut Vec<Effect>) {
-    entity.anchor = anchor::page_anchor_for(&app.document, &entity);
+    entity.anchor = anchor::page_anchor_for(&app.document, &Scrolls::of(app), &entity);
     let command = Command::InsertEntity {
         entity: Box::new(entity),
         at: app.document.stack_len(),

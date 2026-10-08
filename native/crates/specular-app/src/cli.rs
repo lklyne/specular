@@ -35,9 +35,10 @@ usage: specular-app [OPTIONS] [FILE.canvas]
                       --bench and chrome on, the first page starts selected
   --annotations N     seed N page-bound comment annotations, spread over the
                       pages (needs --chrome on)
-  --snapshot OUT.png  draw the canvas into a PNG with no window, on the
-                      synthetic source, once its images and Documents have
-                      loaded, then exit. Nothing else is written
+  --snapshot OUT.png  draw the canvas into a PNG with no window, once its
+                      images and Documents have loaded, then exit. Nothing
+                      else is written. Pages are synthetic unless `--source
+                      cef` is given, which loads the real ones first
   --snapshot-size WxH       the snapshot's viewport in logical pixels
                             (default 1600x1000)
   --snapshot-scale N        device pixels per logical pixel (default 1)
@@ -162,6 +163,7 @@ pub(crate) fn parse(args: impl IntoIterator<Item = OsString>) -> anyhow::Result<
                     "cef" => SourceKind::Cef,
                     other => bail!("unknown --source `{other}` (expected synthetic or cef)"),
                 };
+                run.headless.source = run.source;
             }
             "--bench" => run.bench = Some(profiles_for(&value_of(flag, args.next())?)?),
             "--warmup-ms" => {

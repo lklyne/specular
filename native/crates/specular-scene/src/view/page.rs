@@ -1,7 +1,7 @@
 //! Pages: the live frame, and around it a border and a title.
 
 use specular_doc::{Entity, Page};
-use specular_interact::title_scale;
+use specular_interact::{PageState, title_scale};
 
 use super::frame::{Frame, canvas_rect};
 use super::palette;
@@ -35,25 +35,42 @@ pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, page: &Page, scene: &mut 
     scene.push(Item::screen(
         RectDraw::outlined(on_screen, border).with_corner_radius(CORNER_RADIUS * frame.zoom()),
     ));
-    let title = title(entity, page);
+    let title = title(entity, page, frame.app.page_state(&entity.id));
     if !title.is_empty() {
-        scene.push(title_above(frame, on_screen, title, palette::MUTED_TEXT));
+        scene.push(title_above(frame, on_screen, &title, palette::MUTED_TEXT));
     }
 }
 
-/// What a page is called on the canvas: its label, or its address without
-/// the scheme.
-fn title<'a>(entity: &'a Entity, page: &'a Page) -> &'a str {
-    match entity.label.as_deref() {
-        Some(label) if !label.is_empty() => label,
-        Some(_) | None => {
-            let address = page
-                .url
-                .split_once("://")
-                .map_or(&*page.url, |(_, rest)| rest);
-            address.trim_end_matches('/')
+/// What the title line of a page says. A label the user gave wins. Without
+/// one it reads `Title — address` once the page has a title, and the address
+/// alone before that; while a load is in flight it starts `Loading… `.
+fn title(entity: &Entity, page: &Page, state: Option<&PageState>) -> String {
+    let label = entity.label.as_deref().filter(|label| !label.is_empty());
+    let loading = state.is_some_and(|state| state.loading);
+    let line = if let Some(label) = label {
+        label.to_owned()
+    } else {
+        let url = state.and_then(|state| state.url.as_deref());
+        let address = address(url.unwrap_or(&page.url));
+        match state
+            .map(|state| state.title.trim())
+            .filter(|title| !title.is_empty())
+        {
+            Some(title) => format!("{title} \u{2014} {address}"),
+            None => address.to_owned(),
         }
+    };
+    if loading && !line.is_empty() {
+        format!("Loading\u{2026} {line}")
+    } else {
+        line
     }
+}
+
+/// An address without its scheme or trailing slash.
+fn address(url: &str) -> &str {
+    let rest = url.split_once("://").map_or(url, |(_, rest)| rest);
+    rest.trim_end_matches('/')
 }
 
 /// One line of chrome text above the top-left corner of `on_screen`. It is

@@ -24,6 +24,7 @@ mod canvas;
 mod host;
 mod http;
 mod ids;
+mod pages;
 mod patch;
 mod placement;
 mod presets;
@@ -162,6 +163,10 @@ impl Api {
             (Post, ["layout", "find-placement"]) => Ok(placement::find(app, &request.body)),
             (Post, ["layout", "batch-placement"]) => placement::batch(app, &request.body),
             (Post, ["layout", "apply-directive"]) => placement::directive(app, &request.body),
+            (Get, ["pages", id, "cdp-target"]) => pages::cdp_target(app, id),
+            (Post, ["pages", id, verb @ ("back" | "forward" | "reload")]) => {
+                pages::navigate(app, id, verb)
+            }
             (Get, ["annotations"]) => Ok(Step::Answer(annotations::list(app, request))),
             (Get, ["annotations", id]) => annotations::detail(app, id),
             (Post, ["annotations"]) => annotations::create(ids, app, request),

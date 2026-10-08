@@ -206,6 +206,13 @@ with the task that made it.
 - C3: a region is hit within 6 px of its edge, not across its interior, so what is under it stays reachable. Electron takes the whole rect.
 - C3: focus is native chrome, since Electron shows it in the panel: a 2 px blue ring 3 px outside a pill, and a region at full opacity with a 10% fill (Electron's hover).
 - C3: `App::comment_marks()` is the one set the hit-test and the scene share. It holds the status filter, the URL gate, the grouping and the geometry.
+- CEF: a page says things about itself as `PageNotice`s into `Session.pages` (`App::page_state`): title, address, load, can-go-back and forward, scroll, devtools websocket. Only the address is saved: it is written to the page entity with no undo step, as Electron's `page.url = url` is.
+- CEF: a changed page URL is `Effect::Navigate`, never a close and a create. Back, forward, reload and stop are the same effect, from `Action::Page*`. Cmd+[ and Cmd+] walk the history only of an entered page, because on the canvas they restack; `Context::overlaps` is what lets two rows share a key.
+- CEF: a page is asked about its DOM over CEF's in-process devtools channel, one `Runtime.evaluate` a question, and answers as a `PageEvent`. The shell's `PageQueries` holds the question until then, and answers for a page that closed or crashed. `PageSource::element_at` is gone; the synthetic source answers the same way from its grid.
+- CEF: a headless run hosts real pages when `--source cef` is named, with CEF pumped by the caller (`Pump::Caller`). A window still pumps from the run-loop timer.
+- CEF: each process gets its own CEF root cache folder in the temp directory. On a shared root a second launch handed itself to the first and crashed it.
+- CEF: `GET /pages/<id>/cdp-target` answers only while the canvas has one page. agent-browser drives the first page on the port whatever socket it is given, so with several pages the CLI's verbs would act on the wrong one. Electron's per-page CDP proxy is the missing piece.
+- Scroll: a page-bound region's `docRect` is in document pixels and is drawn less the live scroll. An anchored entity or an element comment follows from the scroll stamped at placement; with no stamp it stays pinned, so older files draw as before. Out of the page it is hidden, and clipped at the edge, with no fade.
 
 ## Needs a human at a Mac
 
@@ -215,7 +222,16 @@ What nobody has done by hand. The scenario scripts (`native/fixtures/scenarios`)
 2. Drag. A move snaps to the grid and feels attached. Shift mid-drag, Option-drag (the ghost is the item, faded), every handle on each kind, the corner cursors, a marquee. Drag from where an edge crosses a sticky: the sticky moves. Click there: the edge is selected.
 3. Groups and edges. Drag an item over a group: the ring shows and the release puts it in. Double-click a group to work inside it, double-click its title to rename it, also zoomed out past half. Drag from an anchor dot to another item. Double-click an edge to label it. Cmd+] and Cmd+[ restack.
 4. Keys and menus. Cmd+D, Cmd+Z, then an arrow: the originals move. Cmd+Z, D, A, =, 1 each act once, not twice. The active tool is checked in Tools. Undo, Copy and Delete are grey with nothing to act on.
-5. Pages, with `--source cef`. One click selects, a second enters, typing reaches the page, Escape leaves. Entered, Cmd+C, V, A and Z go to the page. A drag from empty canvas does not scroll a page. V, R and Backspace still work on the canvas and still type into a page.
+5. Pages, with the CEF bundle (`native/README.md`, "Build", with `debug` for `release`) on `native/fixtures/input.canvas`, then on a copy of `native/fixtures/pages.canvas`. In this order:
+   1. One click selects, a second enters, Escape leaves. A click in the page flips its background.
+   2. Type into the text input: letters arrive once, Backspace and the arrows work, Cmd+A, C, V and Z act in the page. V, R and Backspace typed in the page do not switch tool or delete it.
+   3. With a Japanese or Pinyin input method in that input: marked text is underlined before commit and the candidate window is by the caret.
+   4. Open the `<select>`: the list draws over the page at the right place and picking an option closes it. Then the same at zoom 0.5 and 2.
+   5. Scroll the tall page with the trackpad while entered: it feels like a browser, with momentum, and does not pan the canvas. Not entered, the same gesture pans the canvas and the page stays put.
+   6. The title above a page reads `Title — address` and says `Loading…` during a load. Click a link in example.com: the title follows, the saved file has the new URL, and Cmd+[ goes back, Cmd+] forward, Cmd+R reloads, Cmd+. stops. With the page only selected, Cmd+[ restacks it and Page > Back still goes back.
+   7. Press C, click the heading of the tall page: the composer opens with the heading outlined. Drag a region round the button: it belongs to the page. Scroll the page: the region moves with the button, is cut off at the page's edge and gone past it. A drag over blank page makes a canvas region that stays put.
+   8. Drop a sticky on the tall page, scroll: the sticky moves with the content and can be grabbed where it is drawn. Drag it and scroll again.
+   9. Start a second copy of the app while the first runs: both stay up.
 6. Text. Double-click a sticky: the caret sits between glyphs at zoom 0.25, 1 and 3, blinks once a second, and typing does not lag in a few hundred words. With a Japanese or Pinyin input method: the marked text is underlined, the candidate window is by the caret, letters arrive once, and Escape cancels the composition before it ends the edit.
 7. Documents. Tools > Document, click, type: `Untitled Note.md` appears and fills in a third of a second after you stop. Edit the file elsewhere while the edit is open: a conflict copy appears. Quit mid-edit: the last keys are in the file. Try Cmd+Option+1, which macOS may take.
 8. Clipboard. Copy two shapes and their edge, paste, paste in a second window. A URL from a browser pastes as a page, a sentence as a sticky, a screenshot (Cmd+Ctrl+Shift+4) as a file in `assets/`.
@@ -224,7 +240,7 @@ What nobody has done by hand. The scenario scripts (`native/fixtures/scenarios`)
 11. Speed. One `--bench --chrome on` run against an older build.
 12. From M1: the egui checks at the end of ADR 0039.
 13. The API. Quit the Electron app, run `cargo run -p specular-app -- FILE.canvas`, then `specular canvas`, `specular add note "hi"`, `specular add page https://example.com`, `specular focus <id>`: each shows in the window and Cmd+Z takes it back. `curl -X POST -H "x-specular-secret: $SECRET" localhost:29979/window/screenshot -d '{"path":"/tmp/shot.png"}'` writes what the window shows (the BGRA swap and the 2x size are unchecked). Start the Electron app first and the Rust app second: the log names the fallback port and file, and the CLI with that `SPECULAR_DISCOVERY_FILE` reaches the Rust app.
-14. Comments. Press C. Click the canvas, type, Enter: a blue pill with 1 appears and the tool stays armed. Drag a region, type, click away: a dashed rose rect. Click a pill: it gets a ring; Escape takes it off; Delete removes the comment and Cmd+Z brings it back. Select two items, Comment > Annotate selection. Comment > Resolve comment hides one. Type Japanese in the composer. With `--source cef`, a click on a page makes a canvas point for now.
+14. Comments. Press C. Click the canvas, type, Enter: a blue pill with 1 appears and the tool stays armed. Drag a region, type, click away: a dashed rose rect. Click a pill: it gets a ring; Escape takes it off; Delete removes the comment and Cmd+Z brings it back. Select two items, Comment > Annotate selection. Comment > Resolve comment hides one. Type Japanese in the composer.
 
 Known gaps against Electron, not checks: the hand and mono fonts fall back to system fonts (Kalam and Geist Mono are not loaded), an edge label has the line running through it, a comment badge has no icon, a label that overflows a small shape is clipped to its middle line, and the highlighter has no gradient or grain.
 
@@ -528,3 +544,17 @@ Known gaps against Electron, not checks: the hand and mono fonts fall back to sy
 - A headless run's clock starts at zero, so the scenario's comments are dated 1970.
 - Built in a detached worktree in three steps by subagents, squashed and rebased onto the polish and API commits. The rebase needed one `Hit::Comment` arm and re-accepted scene snapshots for the new title and selection lines.
 - Gate: fmt, clippy and `cargo test --workspace` pass on the rebased commit (1459 tests, GPU ones included). `fixtures/scenarios/run.sh` passes.
+
+### CEF path: real pages through the new architecture. See `git log -- native/crates/specular-cef/src/devtools.rs`
+
+- The CEF build had not rotted: clippy and a debug build with `--features cef` passed on HEAD, and the bundled app ran `input.canvas` and a two-page canvas with no panic, import failure or wgpu error. One real bug found by running it: a second launch crashed the first (shared CEF root cache); fixed. The debugging port falls back from 9222 to a free one.
+- Core: `PageEvent::{Title, Url, Loading, Scrolled, ElementAt, ElementsInRect, DevtoolsTarget}`, `PageNav`, `PageSource::{navigate, query_element, query_elements_in_rect}`, `CssRect`. The synthetic source has a history, a scrolling three-viewport document and a grid in document space.
+- CEF crate: `dom_query` (pure, the devtools messages and their answers), `devtools` (the channel), a display handler, loading state and scroll in `client`, `host_call` split out of `source`, `Pump`.
+- Interact: `page_state.rs` (`PageState`, `App::{page_state, page_scroll}`), `PageNotice` variants, `Effect::Navigate`, `Action::Page{Back,Forward,Reload,Stop}`, `Context::{EnteredPage, PageTarget}`, a Page menu, `scroll_follow.rs`. Scene: the title line, shifted and clipped anchored items and marks. Testkit: `page_reports`.
+- Shell: `page_queries.rs`, `page_notice.rs`. `--snapshot` and `--script` take `--source cef`; script actions `act page-back`, `-forward`, `-reload`, `-stop`. `fixtures/pages.canvas` and `fixtures/scenarios/cef/pages.txt` are the real-page scenario (not in `run.sh`, it needs the bundle); its PNGs were looked at: pages beside stickies in stack order, an element comment on `#top`, a region bound by the button it grabbed and following a scroll.
+- API: `POST /pages/<id>/{back,forward,reload}`, `GET /pages/<id>/cdp-target`, and `update --url` navigates in place. Run against the real app: back, forward and reload moved example.com and example.org through one host.
+- Not done: the CLI's browse verbs (`snapshot`, `click`, `scroll`, ...) with more than one page. They reached CDP but drove the first page, so `cdp-target` refuses then (see Decisions); it needs a port of `src/main/cdp-proxy.ts`. `specular back` and friends go the same way, so only the HTTP routes work for those.
+- Not done in scroll-follow: a resize does not fold the shift, the caret of an anchored text edited while shifted is off by the shift, edges attach to stored rects, element attachment (ADR 0032) is not tracked, and the cut at the page edge is hard where Electron fades.
+- Rough edges seen: a `data:` URL fills the title line; sync sets (`syncId`) do not navigate together; the profile is in memory, so logins do not survive a quit.
+- `i-comments`'s check now expects its second region to be page-bound: the synthetic grid answers the grab.
+- Built with one subagent on the pure half (interact, scene, testkit, API) while the CEF half was written and run. Gate: fmt, clippy with and without `specular-app/cef`, `cargo test --workspace` (1526), `fixtures/scenarios/run.sh`.

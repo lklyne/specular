@@ -17,8 +17,9 @@ pub(super) const fn is_open(status: AnnotationStatus) -> bool {
 
 /// Whether `annotation` is drawn and can be hit: it is open and, when it is
 /// bound to a page's document, that page is still there and still shows the
-/// document the comment was made on. A comment left behind by a page that
-/// navigated comes back with the page.
+/// document the comment was made on, and the content it is on has not
+/// scrolled out of the page. A comment left behind by a page that navigated
+/// comes back with the page.
 pub(crate) fn shown(app: &App, annotation: &Annotation) -> bool {
     if !is_open(annotation.status) {
         return false;
@@ -29,4 +30,5 @@ pub(crate) fn shown(app: &App, annotation: &Annotation) -> bool {
     (app.document.entity(&binding.page_id))
         .and_then(page_of)
         .is_some_and(|page| matches_page_url(binding.page_url.as_deref(), Some(&page.url)))
+        && !super::left_its_page(app, annotation)
 }

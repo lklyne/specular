@@ -7,24 +7,27 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use cef::{
-    Browser, BrowserHost, BrowserSettings, CefString, ImplBrowser, ImplBrowserHost,
-    KeyEvent as CefKeyEvent, KeyEventType, MouseButtonType, MouseEvent, PaintElementType,
-    RuntimeStyle, Settings, WindowInfo,
+    Browser, BrowserHost, BrowserSettings, CefString, ImplBrowser, ImplBrowserHost, ImplFrame,
+    PaintElementType, RuntimeStyle, Settings, WindowInfo,
 };
+use glam::Vec2;
 use specular_core::{
-    CssSize, InputEvent, KeyEventKind, PageEvent, PageId, PageSource, PageSourceError, PageSpec,
-    PointerButton, validate_texture_scale, validate_viewport,
+    CssRect, CssSize, InputEvent, PageEvent, PageId, PageNav, PageSource, PageSourceError,
+    PageSpec, validate_texture_scale, validate_viewport,
 };
 
 use crate::client::{new_app, new_client};
-use crate::config::{CefConfig, browser_switches, windowless_frame_rate};
+use crate::config::{CefConfig, Pump, browser_switches, windowless_frame_rate};
+use crate::devtools::{Asked, Devtools};
+use crate::dom_query;
 use crate::error::CefError;
+use crate::host_call::dispatch;
 use crate::page::{PageContext, PageGeometry, clear_events, drain_events, lock_geometry};
 use crate::pool::OutstandingFrames;
 use crate::process::{backend_error, declare_api_version};
 #[cfg(target_os = "macos")]
 use crate::pump_timer::PumpTimer;
-use crate::translate::{CefRange, HostCall, InputTranslator};
+use crate::translate::InputTranslator;
 
 /// Pages paint opaque white under transparent content, like an Electron
 /// `BrowserWindow`, so CPU and GPU frames composite identically.
@@ -34,9 +37,11 @@ const OPAQUE_WHITE: u32 = 0xFFFF_FFFF;
 const CLOSE_TIMEOUT: Duration = Duration::from_secs(2);
 
 struct PageEntry {
-    /// Keeps the browser alive for as long as the page is hosted.
-    _browser: Browser,
+    /// Kept for as long as the page is hosted; navigation goes through it.
+    browser: Browser,
     host: BrowserHost,
+    /// The channel the page's elements are asked about on.
+    devtools: Devtools,
     geometry: Arc<Mutex<PageGeometry>>,
     input: InputTranslator,
     /// Whether the browser is shown (`WasHidden(false)`).
@@ -62,6 +67,9 @@ impl PageEntry {
 /// main-run-loop timer instead, see `pump_timer`).
 pub struct CefPageSource {
     config: CefConfig,
+    /// The root cache folder made for this process alone, removed when the
+    /// source is dropped.
+    scratch_root: Option<std::path::PathBuf>,
     pages: HashMap<PageId, PageEntry>,
     next_id: u64,
     focused: Option<PageId>,
@@ -107,6 +115,15 @@ impl CefPageSource {
         }
         declare_api_version();
 
+        // CEF allows one process per root cache path: a second launch on
+        // the same root hands itself to the first and exits. With no profile
+        // to keep, each process gets a root of its own.
+        let scratch_root = (config.cache_path.is_none())
+            .then(|| std::env::temp_dir().join(format!("specular-cef-{}", std::process::id())));
+        let root = (config.cache_path.as_deref().or(scratch_root.as_deref()))
+            .map(cef_path)
+            .transpose()?;
+        // An empty cache path under the root keeps the profile in memory.
         let cache = config.cache_path.as_deref().map(cef_path).transpose()?;
         let settings = Settings {
             // The helper does not initialise the macOS sandbox
@@ -116,7 +133,7 @@ impl CefPageSource {
             external_message_pump: 1,
             multi_threaded_message_loop: 0,
             remote_debugging_port: config.settings_debugging_port(),
-            root_cache_path: cache.clone().unwrap_or_default(),
+            root_cache_path: root.unwrap_or_default(),
             cache_path: cache.unwrap_or_default(),
             background_color: OPAQUE_WHITE,
             ..Settings::default()
@@ -133,7 +150,6 @@ impl CefPageSource {
             return Err(CefError::Initialize);
         }
         Ok(Self {
-            config,
             pages: HashMap::new(),
             next_id: 0,
             focused: None,
@@ -141,9 +157,14 @@ impl CefPageSource {
             ui_thread: std::thread::current().id(),
             running: true,
             #[cfg(target_os = "macos")]
-            pump_timer: Some(PumpTimer::start()?),
+            pump_timer: match config.pump {
+                Pump::RunLoopTimer => Some(PumpTimer::start()?),
+                Pump::Caller => None,
+            },
             #[cfg(target_os = "macos")]
             close_deadline: None,
+            config,
+            scratch_root,
         })
     }
 
@@ -174,107 +195,11 @@ impl CefPageSource {
     }
 }
 
-fn mouse_event(x: i32, y: i32, flags: u32) -> MouseEvent {
-    MouseEvent {
-        x,
-        y,
-        modifiers: flags,
-    }
+/// A question the page's devtools channel would not take.
+fn refused(what: &'static str) -> PageSourceError {
+    backend_error(CefError::Devtools(what))
 }
 
-fn mouse_button(button: PointerButton) -> MouseButtonType {
-    match button {
-        PointerButton::Left => MouseButtonType::LEFT,
-        PointerButton::Middle => MouseButtonType::MIDDLE,
-        PointerButton::Right => MouseButtonType::RIGHT,
-    }
-}
-
-fn key_event_type(kind: KeyEventKind) -> KeyEventType {
-    match kind {
-        KeyEventKind::RawDown => KeyEventType::RAWKEYDOWN,
-        KeyEventKind::Up => KeyEventType::KEYUP,
-        KeyEventKind::Char => KeyEventType::CHAR,
-    }
-}
-
-fn cef_range(range: CefRange) -> cef::Range {
-    cef::Range {
-        from: range.from,
-        to: range.to,
-    }
-}
-
-/// Performs one translated call; a field-for-field copy by design.
-fn dispatch(host: &BrowserHost, call: &HostCall<'_>) {
-    match *call {
-        HostCall::MouseMove { x, y, flags, leave } => {
-            host.send_mouse_move_event(Some(&mouse_event(x, y, flags)), i32::from(leave));
-        }
-        HostCall::MouseClick {
-            x,
-            y,
-            flags,
-            button,
-            up,
-            click_count,
-        } => host.send_mouse_click_event(
-            Some(&mouse_event(x, y, flags)),
-            mouse_button(button),
-            i32::from(up),
-            click_count,
-        ),
-        HostCall::MouseWheel {
-            x,
-            y,
-            flags,
-            delta_x,
-            delta_y,
-        } => host.send_mouse_wheel_event(Some(&mouse_event(x, y, flags)), delta_x, delta_y),
-        HostCall::Key {
-            kind,
-            flags,
-            windows_key_code,
-            native_key_code,
-            character,
-        } => host.send_key_event(Some(&CefKeyEvent {
-            type_: key_event_type(kind),
-            modifiers: flags,
-            windows_key_code,
-            native_key_code,
-            character,
-            unmodified_character: character,
-            ..CefKeyEvent::default()
-        })),
-        HostCall::ImeSetComposition {
-            text,
-            replacement,
-            selection,
-        } => host.ime_set_composition(
-            Some(&CefString::from(text)),
-            None,
-            Some(&cef_range(replacement)),
-            Some(&cef_range(selection)),
-        ),
-        HostCall::ImeCommit { text, replacement } => {
-            host.ime_commit_text(
-                Some(&CefString::from(text)),
-                Some(&cef_range(replacement)),
-                0,
-            );
-        }
-        HostCall::ImeFinish { keep_selection } => {
-            host.ime_finish_composing_text(i32::from(keep_selection));
-        }
-        HostCall::ImeCancel => host.ime_cancel_composition(),
-    }
-}
-
-// FOLLOW-UP(C2): `element_at` keeps the trait's default, which finds no
-// element, so a comment clicked on a CEF page lands as a canvas point. The
-// real answer is an async devtools round trip (`DOM.getNodeForLocation`, a
-// selector builder, then `DOM.getBoxModel`), so it will arrive as a page
-// event, replacing this synchronous probe.
 impl PageSource for CefPageSource {
     fn name(&self) -> &'static str {
         "cef"
@@ -321,11 +246,18 @@ impl PageSource for CefPageSource {
         .ok_or_else(create_error)?;
         let host = browser.host().ok_or_else(create_error)?;
         self.alive.fetch_add(1, Ordering::AcqRel);
+        let devtools = Devtools::attach(&host, &ctx);
+        // The target id names the page to outside CDP clients; without a
+        // debugging port nobody can use it.
+        if self.devtools_port().is_some() {
+            devtools.send(&host, Asked::Target, dom_query::target_info_message);
+        }
         self.pages.insert(
             id,
             PageEntry {
-                _browser: browser,
+                browser,
                 host,
+                devtools,
                 geometry,
                 input: InputTranslator::new(),
                 painting: true,
@@ -423,11 +355,62 @@ impl PageSource for CefPageSource {
         Ok(())
     }
 
+    fn navigate(&mut self, page: PageId, nav: &PageNav) -> Result<(), PageSourceError> {
+        let browser = &self.entry(page)?.browser;
+        match nav {
+            PageNav::To(url) => {
+                let frame =
+                    (browser.main_frame()).ok_or_else(|| backend_error(CefError::NoMainFrame))?;
+                frame.load_url(Some(&CefString::from(url.as_str())));
+            }
+            PageNav::Back => browser.go_back(),
+            PageNav::Forward => browser.go_forward(),
+            PageNav::Reload => browser.reload(),
+            PageNav::Stop => browser.stop_load(),
+        }
+        Ok(())
+    }
+
+    fn query_element(
+        &mut self,
+        page: PageId,
+        point: Vec2,
+        request: u64,
+    ) -> Result<(), PageSourceError> {
+        let entry = self.entry(page)?;
+        let sent = entry
+            .devtools
+            .send(&entry.host, Asked::Element(request), |id| {
+                dom_query::element_at_message(id, point.x, point.y)
+            });
+        sent.then_some(())
+            .ok_or_else(|| refused("element at point"))
+    }
+
+    fn query_elements_in_rect(
+        &mut self,
+        page: PageId,
+        rect: CssRect,
+        request: u64,
+    ) -> Result<(), PageSourceError> {
+        let entry = self.entry(page)?;
+        let sent = entry
+            .devtools
+            .send(&entry.host, Asked::ElementsInRect(request), |id| {
+                dom_query::elements_in_rect_message(id, rect)
+            });
+        sent.then_some(())
+            .ok_or_else(|| refused("elements in rect"))
+    }
+
     fn pump(&mut self) {
-        // macOS pumps from `pump_timer`: this is called inside a winit
-        // handler, where CEF's nested run-loop turn would re-enter winit.
+        // With a pump timer this is called inside a window event loop's
+        // handler, where CEF's nested run-loop turn would re-enter the loop.
+        #[cfg(target_os = "macos")]
+        let timed = self.pump_timer.is_some();
         #[cfg(not(target_os = "macos"))]
-        if self.running {
+        let timed = false;
+        if self.running && !timed {
             cef::do_message_loop_work();
         }
     }
@@ -504,5 +487,11 @@ pub(crate) fn stop_cef() {
 impl Drop for CefPageSource {
     fn drop(&mut self) {
         self.shutdown();
+        if let Some(root) = self.scratch_root.take()
+            && let Err(error) = std::fs::remove_dir_all(&root)
+            && error.kind() != std::io::ErrorKind::NotFound
+        {
+            tracing::warn!(root = %root.display(), "scratch cache folder not removed: {error}");
+        }
     }
 }

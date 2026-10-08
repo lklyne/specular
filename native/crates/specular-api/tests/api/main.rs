@@ -4,5 +4,6 @@
 
 mod common;
 mod contract;
+mod pages;
 mod plan;
 mod verbs;

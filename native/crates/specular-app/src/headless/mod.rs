@@ -3,8 +3,9 @@
 //!
 //! The app is a [`TestApp`], the driver the feature tests script, with the
 //! compositor's text measure in place of the fixed one. Pages come from the
-//! synthetic source, and images and Documents from the shell's own loader
-//! threads. Nothing is written but the PNGs and what a `save` step names:
+//! synthetic source, or with `--source cef` from CEF, pumped here until they
+//! have loaded and painted. Images and Documents come from the shell's own
+//! loader threads. Nothing is written but the PNGs and what a `save` step names:
 //! autosaves, assets and preferences are dropped, and the clipboard and the
 //! Documents a session makes are kept in memory.
 
@@ -19,7 +20,7 @@ use std::sync::Arc;
 use anyhow::Context as _;
 use glam::Vec2;
 use specular_compositor::{Compositor, DotGrid, FrameView, GpuContext};
-use specular_core::{PageId, PageSource, SyntheticPageSource};
+use specular_core::{PageId, PageSource};
 use specular_doc::{Document, EntityId};
 use specular_interact::{Action, Event, ImageKey};
 use specular_testkit::TestApp;
@@ -27,9 +28,11 @@ use specular_testkit::TestApp;
 pub(crate) use self::script::CameraArg;
 use self::script::Step;
 use self::stand_ins::StandIns;
+use crate::cli::SourceKind;
 use crate::images::ImageLoader;
 use crate::notes::NoteLoader;
 use crate::offscreen::{self, Target};
+use crate::page_queries::PageQueries;
 use crate::persist::canvas_text;
 
 /// The clock a run starts at, so two runs of one script draw the same frame.
@@ -48,6 +51,8 @@ pub(crate) struct HeadlessArgs {
     pub(crate) camera: CameraArg,
     /// The script run before the snapshot, if any.
     pub(crate) script: Option<PathBuf>,
+    /// The page backend. Synthetic unless the command line names another.
+    pub(crate) source: SourceKind,
 }
 
 impl Default for HeadlessArgs {
@@ -58,6 +63,7 @@ impl Default for HeadlessArgs {
             scale: 1.0,
             camera: CameraArg::Fit,
             script: None,
+            source: SourceKind::Synthetic,
         }
     }
 }
@@ -77,6 +83,7 @@ pub(crate) fn camera_arg(value: &str) -> anyhow::Result<CameraArg> {
 /// Opens `document` (read from `canvas`, if from a file), runs the script
 /// and writes the snapshots.
 pub(crate) fn run(
+    source: Box<dyn PageSource>,
     document: Document,
     canvas: Option<&Path>,
     args: &HeadlessArgs,
@@ -89,9 +96,14 @@ pub(crate) fn run(
         }
         None => Vec::new(),
     };
-    let mut run = Headless::new(canvas, args)?;
+    let mut run = Headless::new(source, canvas, args)?;
     let viewport = run.viewport;
     run.drive(|app| app.viewport(viewport).open(document))?;
+    // A script's first step may ask a page something, and a real page has
+    // nothing to say until it has loaded.
+    if run.live {
+        run.settle()?;
+    }
     run.step(Step::Camera(args.camera))?;
     for step in steps {
         run.step(step)?;
@@ -107,10 +119,19 @@ struct Headless {
     gpu: GpuContext,
     compositor: Compositor,
     target: Target,
-    source: SyntheticPageSource,
+    source: Box<dyn PageSource>,
+    /// Whether the pages are real ones, which load and paint in their own
+    /// time.
+    live: bool,
+    /// The pages whose current document has not finished loading.
+    loading_pages: HashSet<PageId>,
+    /// The pages that have not painted since their document loaded.
+    unpainted_pages: HashSet<PageId>,
     app: TestApp,
     /// The hosted page behind each page entity.
     hosts: HashMap<EntityId, PageId>,
+    /// What pages have been asked and not yet answered.
+    queries: PageQueries,
     images: ImageLoader,
     notes: NoteLoader,
     /// Asked for and not yet answered.
@@ -125,7 +146,11 @@ struct Headless {
 }
 
 impl Headless {
-    fn new(canvas: Option<&Path>, args: &HeadlessArgs) -> anyhow::Result<Self> {
+    fn new(
+        source: Box<dyn PageSource>,
+        canvas: Option<&Path>,
+        args: &HeadlessArgs,
+    ) -> anyhow::Result<Self> {
         let gpu = pollster::block_on(GpuContext::headless()).context("no GPU to draw with")?;
         let mut compositor =
             Compositor::new(gpu.device.clone(), gpu.queue.clone(), offscreen::FORMAT);
@@ -143,9 +168,13 @@ impl Headless {
             gpu,
             compositor,
             target,
-            source: SyntheticPageSource::new(),
+            source,
+            live: args.source == SourceKind::Cef,
+            loading_pages: HashSet::new(),
+            unpainted_pages: HashSet::new(),
             app,
             hosts: HashMap::new(),
+            queries: PageQueries::default(),
             images: ImageLoader::new(space.clone()).context("starting the decode thread")?,
             notes: NoteLoader::new(space).context("starting the note thread")?,
             loading_images: HashSet::new(),
@@ -215,6 +244,7 @@ impl Headless {
                 self.now_ms += ms;
                 let now = self.now_ms;
                 self.drive(|app| app.tick(now))?;
+                self.run_pages_for(std::time::Duration::from_millis(ms))?;
                 self.settle()
             }
             Step::Snapshot(path) => self.snapshot(&path),

@@ -40,9 +40,11 @@ fn saves(effects: &[Effect]) -> Vec<&ToolDefaults> {
 #[test]
 fn no_two_rows_can_fire_for_the_same_key() {
     for (index, binding) in BINDINGS.iter().enumerate() {
-        let shadowed = BINDINGS[..index]
-            .iter()
-            .any(|earlier| earlier.chord == binding.chord);
+        // The bracket keys restack on the canvas and walk the history of an
+        // entered page: one key, two rows, never both at once.
+        let shadowed = BINDINGS[..index].iter().any(|earlier| {
+            earlier.chord == binding.chord && earlier.context.overlaps(binding.context)
+        });
         assert!(!shadowed, "{:?} is bound twice", binding.chord);
     }
 }

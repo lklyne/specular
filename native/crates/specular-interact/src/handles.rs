@@ -147,7 +147,7 @@ impl App {
         let entity = self
             .document
             .entity(self.session.selection.single_entity()?)?;
-        Some((&entity.id, entity.rect))
+        Some((&entity.id, crate::shown_rect(self, entity)?))
     }
 
     /// What shows resize handles, and the canvas rect they sit around: the
@@ -162,7 +162,7 @@ impl App {
         if self.session.selection.items().len() > 1 {
             let scope = self.selection_scope();
             return (scope.operands.len() > 1)
-                .then_some(scope.bounds)
+                .then_some(scope.shown_bounds)
                 .flatten()
                 .map(|bounds| (HandleOwner::Selection, bounds));
         }
