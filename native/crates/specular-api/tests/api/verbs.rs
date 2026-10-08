@@ -52,6 +52,18 @@ fn select_then_read_the_selection() {
         partial,
         json!({ "ok": false, "selection": { "selectedEntityId": "b", "selectedEntityIds": ["b"] } })
     );
+    let none = ok(
+        &mut session,
+        "/selection/select-entities",
+        json!({ "entityIds": ["x"] }),
+    );
+    assert_eq!(none, json!({ "ok": false, "selection": {} }));
+    let empty = ok(
+        &mut session,
+        "/selection/select-entities",
+        json!({ "entityIds": [] }),
+    );
+    assert_eq!(empty, json!({ "ok": false, "selection": {} }));
     assert_eq!(
         ok(&mut session, "/selection/deselect", json!({})),
         json!({ "ok": true, "selection": {} })
@@ -134,6 +146,23 @@ fn focus_fits_the_named_entities_and_selects_the_first() {
     assert_eq!(session.app.selected_ids(), ["b"]);
     let canvas = session.canvas();
     assert_eq!(canvas["appState"]["pan"], json!({ "x": -50, "y": 300 }));
+
+    // An id that names nothing is skipped when picking what to select.
+    session.app.select(&[]);
+    ok(
+        &mut session,
+        "/camera/focus",
+        json!({ "pageIds": ["ghost", "c"] }),
+    );
+    assert_eq!(session.app.selected_ids(), ["c"]);
+    // Bounds given by hand are looked at, and nothing is selected.
+    session.app.select(&[]);
+    ok(
+        &mut session,
+        "/camera/focus",
+        json!({ "pageIds": ["a"], "bounds": { "x": 0, "y": 0, "width": 500, "height": 400 } }),
+    );
+    assert!(session.app.selected_ids().is_empty());
 }
 
 #[test]
@@ -175,6 +204,25 @@ fn comments_are_created_answered_and_listed() {
         (&made["author"], &made["status"]),
         (&json!("agent"), &json!("pending"))
     );
+    let anonymous = ok(
+        &mut session,
+        "/annotations",
+        json!({ "text": "mine", "anchor": { "type": "viewport" } }),
+    );
+    assert_eq!(anonymous["author"], "user");
+    let anonymous_id = anonymous["id"].as_str().unwrap_or_default();
+    assert_eq!(
+        session
+            .delete(&format!("/annotations/{anonymous_id}"))
+            .status,
+        200
+    );
+    for missing in [
+        json!({ "anchor": { "type": "viewport" } }),
+        json!({ "text": "no anchor" }),
+    ] {
+        assert_eq!(session.post("/annotations", missing).status, 400);
+    }
 
     let acked = ok(
         &mut session,
@@ -188,6 +236,20 @@ fn comments_are_created_answered_and_listed() {
         json!({ "author": "agent", "text": "done" }),
     );
     assert_eq!(replied["replies"][0]["text"], "done");
+    let unsigned = ok(
+        &mut session,
+        &format!("/annotations/{id}/reply"),
+        json!({ "text": "again" }),
+    );
+    assert_eq!(unsigned["replies"][1]["author"], "agent");
+    let empty = session.post(&format!("/annotations/{id}/reply"), json!({ "text": "" }));
+    assert_eq!(empty.status, 400, "{}", empty.body);
+    let bare = ok(
+        &mut session,
+        &format!("/annotations/{id}/dismiss"),
+        json!({ "reason": "" }),
+    );
+    assert_eq!(bare.get("metadata"), None, "an empty reason is no reason");
     let dismissed = ok(
         &mut session,
         &format!("/annotations/{id}/dismiss"),
@@ -224,6 +286,111 @@ fn comments_are_created_answered_and_listed() {
         400
     );
     session.app.assert_undo_returns_to_start();
+}
+
+#[test]
+fn comments_on_a_page_are_listed_by_page_and_address_and_name_what_they_point_at() {
+    let mut session = Scripted::empty();
+    let made = session.apply(json!({ "entities": [
+        { "kind": "page", "url": "https://example.com/a/", "canvasX": 0, "canvasY": 0 },
+        { "kind": "page", "url": "https://example.com/b", "canvasX": 1400, "canvasY": 0 },
+    ]}));
+    let (one, two) = (made["created"][0].clone(), made["created"][1].clone());
+    // No offsets are given: a page anchor defaults them to the corner.
+    for page in [&one, &two] {
+        ok(
+            &mut session,
+            "/annotations",
+            json!({ "text": "here", "anchor": { "type": "page", "pageId": page } }),
+        );
+    }
+    let ghost = session.post(
+        "/annotations",
+        json!({ "text": "x", "anchor": { "type": "page", "pageId": "ghost" } }),
+    );
+    assert_eq!(ghost.status, 404, "{}", ghost.body);
+
+    let found = |session: &mut Scripted, query: &str| -> Vec<Value> {
+        let body = session.get(&format!("/annotations{query}")).body;
+        body["annotations"].as_array().cloned().unwrap_or_default()
+    };
+    let by_page = found(
+        &mut session,
+        &format!("?page_id={}", one.as_str().unwrap_or_default()),
+    );
+    assert_eq!(by_page.len(), 1);
+    assert_eq!(
+        by_page[0]["pageAnchor"]["pageUrl"],
+        "https://example.com/a/"
+    );
+    // A trailing slash on either side is the same address.
+    assert_eq!(
+        found(&mut session, "?url=https%3A%2F%2Fexample.com%2Fa").len(),
+        1
+    );
+    assert_eq!(
+        found(&mut session, "?url=https%3A%2F%2Fexample.com%2Fb%2F").len(),
+        1
+    );
+    assert_eq!(
+        found(&mut session, "?url=https%3A%2F%2Fexample.com%2Fnope").len(),
+        0
+    );
+    assert_eq!(found(&mut session, "").len(), 2);
+
+    // A comment on one page or one file names it; the detail lists the members.
+    session.disk.files.insert(
+        "/space/a.png".to_owned(),
+        specular_interact::DroppedFile {
+            path: "/space/a.png".to_owned(),
+            space_path: Some("a.png".to_owned()),
+            image_size: Some((10, 10)),
+        },
+    );
+    let file = session.apply(json!({ "entities": [{ "kind": "file", "file": "/space/a.png" }] }))
+        ["created"][0]
+        .clone();
+    let on_page = ok(
+        &mut session,
+        "/selection/annotate",
+        json!({ "text": "p", "entityIds": [one] }),
+    );
+    assert_eq!(
+        on_page["selectionTarget"],
+        json!({ "entityId": one, "kind": "page", "url": "https://example.com/a/" })
+    );
+    let on_file = ok(
+        &mut session,
+        "/selection/annotate",
+        json!({ "text": "f", "entityIds": [file] }),
+    );
+    assert_eq!(
+        on_file["selectionTarget"],
+        json!({ "entityId": file, "kind": "file", "filePath": "a.png" })
+    );
+    let id = on_page["id"].as_str().unwrap_or_default();
+    let detail = session.get(&format!("/annotations/{id}")).body;
+    let member = &detail["selection"]["members"][0];
+    assert_eq!(
+        (&member["url"], &member["kind"]),
+        (&json!("https://example.com/a/"), &json!("page"))
+    );
+    let id = on_file["id"].as_str().unwrap_or_default();
+    let detail = session.get(&format!("/annotations/{id}")).body;
+    assert_eq!(detail["selection"]["members"][0]["filePath"], "a.png");
+    // A region comment that already holds its picture is not photographed again.
+    let region =
+        json!({ "type": "region", "canvasRect": { "x": 0, "y": 0, "width": 50, "height": 50 } });
+    let kept = ok(
+        &mut session,
+        "/annotations",
+        json!({ "text": "r", "anchor": region, "metadata": { "regionScreenshot": "kept" } }),
+    );
+    let taken = session.shots.len();
+    let id = kept["id"].as_str().unwrap_or_default();
+    let detail = session.get(&format!("/annotations/{id}")).body;
+    assert_eq!(detail["metadata"]["regionScreenshot"], "kept");
+    assert_eq!(session.shots.len(), taken);
 }
 
 #[test]
@@ -327,6 +494,90 @@ fn new_things_are_placed_clear_of_what_is_there() {
             { "canvasX": 0, "canvasY": 0 }, { "canvasX": 220, "canvasY": 0 }, { "canvasX": 440, "canvasY": 0 },
         ])
     );
+    // Item sizes and the gap snap to the 20-unit grid.
+    let snapped = ok(
+        &mut session,
+        "/layout/batch-placement",
+        json!({ "items": [{ "width": 190, "height": 190 }, { "width": 190, "height": 190 }], "gap": 30 }),
+    );
+    assert_eq!(
+        snapped["positions"],
+        json!([{ "canvasX": 880, "canvasY": 0 }, { "canvasX": 1120, "canvasY": 0 }])
+    );
+    let directive = |session: &mut Scripted, layout: Value, items: Value| {
+        ok(
+            session,
+            "/layout/apply-directive",
+            json!({ "layout": layout, "items": items }),
+        )["positions"]
+            .clone()
+    };
+    // An origin counts from the first item's inset.
+    assert_eq!(
+        directive(
+            &mut session,
+            json!({ "kind": "row", "originX": 100, "originY": 100, "gap": 20 }),
+            json!([{ "width": 50, "height": 50, "insetX": 10, "insetY": 5 }, { "width": 50, "height": 50 }]),
+        ),
+        json!([{ "canvasX": 100, "canvasY": 100 }, { "canvasX": 160, "canvasY": 95 }])
+    );
+    // Beside a named entity: a column goes below it, a row to its right.
+    assert_eq!(
+        directive(
+            &mut session,
+            json!({ "kind": "column", "near": "a", "gap": 20 }),
+            json!([{ "width": 50, "height": 50 }])
+        ),
+        json!([{ "canvasX": 0, "canvasY": 220 }])
+    );
+    assert_eq!(
+        directive(
+            &mut session,
+            json!({ "kind": "row", "near": "a", "gap": 20 }),
+            json!([{ "width": 50, "height": 50 }])
+        ),
+        json!([{ "canvasX": 220, "canvasY": 0 }])
+    );
+    // Row and column gaps are their own, and a size given for an entity wins.
+    assert_eq!(
+        directive(
+            &mut session,
+            json!({ "kind": "grid", "cols": 2, "colGap": "xs", "rowGap": "l" }),
+            json!([{ "id": "a", "width": 100 }, { "id": "b", "width": 100 }, { "id": "c", "width": 100 }]),
+        ),
+        json!([{ "canvasX": 0, "canvasY": 0 }, { "canvasX": 120, "canvasY": 0 }, { "canvasX": 0, "canvasY": 300 }])
+    );
+    // New items with nothing to go on land beside the selection.
+    session.app.select(&["c"]);
+    assert_eq!(
+        directive(
+            &mut session,
+            json!({ "kind": "row" }),
+            json!([{ "width": 200, "height": 200 }])
+        ),
+        json!([{ "canvasX": 880, "canvasY": 0 }])
+    );
+    for (layout, error) in [
+        (json!("row"), "layout: expected an object"),
+        (
+            json!({ "kind": "row", "originX": "a", "originY": 1 }),
+            "layout.originX: expected number, got \"a\"",
+        ),
+        (
+            json!({ "kind": "row", "near": 4 }),
+            "layout.near: expected entity id string, got 4",
+        ),
+        (
+            json!({ "kind": "grid", "cols": 0 }),
+            "layout.cols: expected positive integer, got 0",
+        ),
+    ] {
+        let refused = session.post(
+            "/layout/apply-directive",
+            json!({ "layout": layout, "items": [] }),
+        );
+        assert_eq!(refused.body, json!({ "error": error }), "{layout}");
+    }
     let bad = session.post(
         "/layout/apply-directive",
         json!({ "layout": { "kind": "pile" }, "items": [] }),
@@ -352,7 +603,34 @@ fn a_note_grows_to_hold_its_text_and_keeps_a_size_it_fits_in() {
     assert_eq!(session.node(&id)["height"], grown);
     session.apply(json!({ "entities": [{ "id": id, "height": grown + 100.0 }] }));
     assert_eq!(session.node(&id)["height"], grown + 100.0);
+    // A size too small for the text is grown to hold it.
+    session.apply(json!({ "entities": [{ "id": id, "height": 40 }] }));
+    assert_eq!(session.node(&id)["height"], 200);
     session.app.assert_undo_returns_to_start();
+}
+
+#[test]
+fn plain_text_is_sized_to_its_words_and_a_write_ends_the_open_text_edit() {
+    let mut session = three_notes();
+    let made = session.apply(json!({ "entities": [
+        { "kind": "text", "textStyle": "plain", "text": "hi", "canvasX": 0, "canvasY": 400 },
+    ]}));
+    let node = session.node(&made["created"][0]);
+    assert_eq!(
+        (node["width"].clone(), node["height"].clone()),
+        (json!(64), json!(20))
+    );
+
+    session.app.double_click((100.0, 100.0));
+    session.app.type_text("!");
+    assert_ne!(session.app.editing_text(), "one");
+    session.apply(json!({ "entities": [{ "id": "c", "text": "x" }] }));
+    assert!(session.app.app().text_edit().is_none());
+    assert!(
+        session.node(&json!("a"))["text"]
+            .as_str()
+            .is_some_and(|text| text.contains('!'))
+    );
 }
 
 #[test]
@@ -412,6 +690,32 @@ fn arrange_tidies_in_place_or_packs_at_a_gap_and_each_is_one_step() {
             }
         }
     }
+    // A grid of three columns lays three notes in one row.
+    let mut session = three_notes();
+    ok(
+        &mut session,
+        "/selection/arrange",
+        json!({ "mode": "grid", "entityIds": ["a", "b", "c"], "gap": 20, "cols": 3 }),
+    );
+    let at = ["a", "b", "c"].map(|id| (session.app.rect(id).x, session.app.rect(id).y));
+    assert_eq!(at, [(0.0, 0.0), (220.0, 0.0), (440.0, 0.0)]);
+    // Notes a little off the line still read as one row, in x order.
+    let mut app = TestApp::from_document(document([
+        sticky("a", Rect::new(0.0, 60.0, 200.0, 200.0), "one"),
+        sticky("b", Rect::new(300.0, 0.0, 200.0, 200.0), "two"),
+        sticky("c", Rect::new(600.0, 30.0, 200.0, 200.0), "three"),
+    ]));
+    app.viewport((1000.0, 800.0));
+    let mut ragged = Scripted::new(app);
+    ok(
+        &mut ragged,
+        "/selection/arrange",
+        json!({ "mode": "row", "entityIds": ["a", "b", "c"], "gap": 20 }),
+    );
+    assert_eq!(
+        ["a", "b", "c"].map(|id| ragged.app.rect(id).x),
+        [0.0, 220.0, 440.0]
+    );
     let mut session = three_notes();
     let bad = session.post("/selection/arrange", json!({ "mode": "pile" }));
     assert_eq!(bad.status, 400, "{}", bad.body);
@@ -474,4 +778,12 @@ fn auto_layout_makes_a_managed_group_and_reorder_child_moves_a_member() {
     }
     let refused = session.post("/groups/reorder-child", json!({ "groupId": "g" }));
     assert_eq!(refused.status, 400, "{}", refused.body);
+
+    let mut fresh = three_notes();
+    let plain = ok(
+        &mut fresh,
+        "/groups/auto-layout",
+        json!({ "entityIds": ["a", "b"] }),
+    );
+    assert_eq!(plain["label"], "Auto-layout");
 }

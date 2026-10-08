@@ -286,6 +286,11 @@ fn a_tab_ref_must_name_the_open_canvas_on_a_route_that_takes_one() {
     };
     assert_eq!(answer(tabbed("/canvas", "Canvas 1")).status, 200);
     assert_eq!(answer(tabbed("/canvas", "tab_1")).status, 200);
+    assert_eq!(
+        answer(tabbed("/selection", "")).status,
+        200,
+        "an empty ref is no ref"
+    );
     refused(
         tabbed("/canvas", "other"),
         400,
