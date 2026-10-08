@@ -710,3 +710,35 @@ The after rows also draw the toolbar and popups, which did not exist for the bef
 - For a human at a Mac: pan slowly over stickies and Documents and watch whether text shimmers against its note (the half-pixel placement). Pause mid-gesture and resume: the first frames should not stutter. Type in a sticky and watch the caret blink while everything else is still.
 - Rebased onto the `Runtime` refactor and the GPUI shell. The demand lives in `Runtime` (`app/frames.rs`: `turn`, `frame_wanted`, `next_turn`, `input`, `draw`), and the winit shell's `app/turn.rs` sleeps on it. `specular-shell` still calls `turn` and `draw` every frame, which works and never rests: to get the idle saving there, draw only when `frame_wanted()` and call `input()` on pointer, wheel and key events. All the numbers above were taken before the rebase, on the winit shell; after it a pan and an idle run were repeated as a check.
 - Gate: fmt, clippy with and without `specular-app/cef`, `cargo test --workspace`.
+
+### AUDIT, part 1: what the tree measures, before any cut
+
+Measured at `61630e20` with scripts over `native/crates` (inline `#[cfg(test)]` modules counted as test lines). `cargo-udeps` and `cargo-machete` are not installed, so unused items come from a name scan.
+
+| crate | source | test lines | tests | pub items | pub items no other crate names |
+|---|---|---|---|---|---|
+| specular-interact | 20,383 | 15,775 | 864 | 359 | 92 |
+| specular-app | 8,325 | 3,003 | 199 | 49 | n/a |
+| specular-compositor | 5,956 | 4,164 | 218 | 34 | 9 |
+| specular-scene | 5,871 | 2,501 | 167 | 89 | 19 |
+| specular-shell | 3,607 | 170 | 11 | 0 | n/a |
+| specular-cef | 2,860 | 579 | 46 | 56 | 45 |
+| specular-bench | 2,649 | 1,255 | 113 | 90 | 42 |
+| specular-api | 2,607 | 1,670 | 51 | 30 | 2 |
+| specular-doc | 2,543 | 1,407 | 60 | 105 | 2 |
+| specular-testkit | 1,926 | 146 | 10 | 103 | n/a |
+| specular-core | 1,384 | 453 | 39 | 71 | 8 |
+| total | 58,111 | 31,123 | 1,778 | 986 | 219 |
+
+- Largest modules, source lines: interact `panel` 3,998, interact `edit` 3,635, compositor `scene_pass` 4,009, app `app` 2,920, scene `view` 2,612, scene `panel` 1,593, app `headless` 1,136, interact `comment` 1,120.
+- Files over 400 source lines: 7. `cef/source.rs` 497, `interact/edit.rs` 489, `bench/compare.rs` 485, `compositor/scene_pass/text.rs` 439, `compositor/compositor.rs` 423, `cef/client.rs` 418, `shell/view/controls.rs` 406.
+- Functions over 80 lines: 18 of 2,533. `Runtime::render` 132, `Runtime::capture` 122, `scene_pass::build` 110, `update` 109, `freehand::outline_points` 108, `run_action` 106.
+- `update()` is 109 lines in a 366-line file and does no I/O: no `std::fs`, `net`, `process`, `env`, `thread` or clock read anywhere in doc, interact, scene or api.
+- `match` blocks naming a variant: `Kind` 40 (27 files), `Tool` 10, `Hit` 9, `Action` 6, `Effect` 4, `Event` 3, `Gesture` 1. Plus 11 `matches!` and 17 `if let` on those enums.
+- Wildcard arms over those enums: 6. `page_state.rs:132` and `menu.rs:244` (`Action`), `api/annotations.rs:273` and `:281` (`Kind`), `testkit/comments.rs:50` and `:69` (`Effect`). All six pick one or two variants out; none hides a missing arm in a full match.
+- Rect types: six. `doc::Rect` (f64, the file's numbers), and five f32 ones: `core::CanvasRect` (2 callers), `core::CssRect`, `scene::Rect`, `interact::ScreenRect`, `interact::PanelRect`. `interact/geometry.rs` re-implements `union`, `intersection` and `contains` as free functions over `doc::Rect`.
+- Two shells: the winit one is 1,781 lines in `specular-app` (9 files that name `winit`), the GPUI Kit one 3,607 in `specular-shell`. Two panel renderers: the built-in one is 1,995 lines in `interact/panel/builtin` and 1,612 in `scene/panel`, and the Kit draws the same models in about 1,300 lines of `shell/view`.
+- Dead, no reference outside the definition: `Camera::pan_by`, `Space::canvas_camera`, `Tool::is_one_shot`, `Color::TRANSPARENT`. Referenced only by tests: `MoveDrag::is_dragging`, `property::text_style`, and testkit's `panel_snapshot`, `layout_snapshot`, `toolbar_snapshot`, `press_button` once the prune ran.
+- Dependency direction against `doc <- interact <- scene <- render/ui <- shell`: `specular-compositor` depends on `specular-interact` (it implements `TextMeasure`) and on `specular-doc` (`EntityId`, `TextAlign`), though the plan says the renderer knows nothing about entities. `specular-app` depends on `specular-testkit` outside tests (the headless runner is built on `TestApp`). `specular-shell` depends on `specular-app`. There is no `specular-ui`: panel models and layout live in interact, panel drawing in scene. `specular-core` is not in the plan and sits under interact.
+- Caches: `Scene` holds none. `scene/panel/icons.rs:219` has a process-wide parsed-icon map, and `App` holds `StackCache` (`interact/edit/stack.rs`, a `Mutex` over text layouts), which is a cache inside the state `update` owns.
+- Tests: 963 in `tests/` directories, 815 inline, 167 snapshot assertions over 99 `.snap` files. Of the 704 the prune removed, by the pruning agents' own classing (it overlaps, so it sums past 704): about 250 restated another test, 215 were folded into a table or a neighbouring test, 95 tested a trivial helper, 85 restated a scenario script, 80 pinned an implementation detail, 13 restated the type system.
