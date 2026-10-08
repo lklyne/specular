@@ -228,8 +228,14 @@ fn new_rename_duplicate_and_delete_are_each_on_disk() {
     assert_eq!(space.names(), ["Landing", "Landing Copy", "Canvas 2"]);
     assert_eq!(node_ids(&dir.read(&copy)), ["a"]);
 
+    let copy_id = space.app.space().active().id.clone();
     space.act(Action::Canvas(CanvasAction::Delete(None)));
     assert!(!dir.0.join(&copy).exists());
+    space.files.request_save(&copy_id);
+    assert!(
+        !space.files.has_unsaved(&copy_id),
+        "a deleted canvas is no longer followed"
+    );
     assert!(
         dir.0.join(".trash").join(&copy).is_file(),
         "it went to the trash"

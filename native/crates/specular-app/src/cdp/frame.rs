@@ -229,16 +229,29 @@ mod tests {
 
     #[test]
     fn length_prefix_widths() {
-        assert_eq!(encode(Opcode::Text, &[0; 125], None)[1], 125);
-        assert_eq!(encode(Opcode::Text, &[0; 126], None)[1], 126);
-        assert_eq!(encode(Opcode::Text, &vec![0; 65_536], None)[1], 127);
+        // The marker byte, then the bytes the length takes before the payload.
+        for (len, marker, prefix) in [
+            (125, 125, 0),
+            (126, 126, 2),
+            (65_535, 126, 2),
+            (65_536, 127, 8),
+        ] {
+            let wire = encode(Opcode::Text, &vec![0; len], None);
+            assert_eq!(wire[1], marker, "{len}");
+            assert_eq!(wire.len(), 2 + prefix + len, "{len}");
+        }
     }
 
     #[test]
     fn masking_scrambles_the_wire_bytes() {
         let wire = encode(Opcode::Text, b"hello", Some(KEY));
         assert_eq!(&wire[2..6], &KEY);
-        assert_ne!(&wire[6..], b"hello");
+        let expected: Vec<u8> = b"hello"
+            .iter()
+            .zip(KEY.iter().cycle())
+            .map(|(b, k)| b ^ k)
+            .collect();
+        assert_eq!(&wire[6..], expected.as_slice());
     }
 
     #[test]

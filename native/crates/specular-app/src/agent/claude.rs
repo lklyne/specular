@@ -330,6 +330,20 @@ mod tests {
             output.last(),
             Some(Output::Exit { success: true, .. })
         ));
+
+        // Output written after the child itself has exited (a grandchild
+        // still holds the pipe) still lands ahead of the exit.
+        let mut process = cli
+            .with_program("/bin/sh")
+            .start_with_args(
+                &request,
+                Path::new("/tmp"),
+                &["-c".into(), "(sleep 0.3; echo late) & exit 0".into()],
+            )
+            .unwrap();
+        let output = drain(&mut *process);
+        assert_eq!(output.first(), Some(&Output::Stdout("late".into())));
+        assert!(matches!(output.last(), Some(Output::Exit { .. })));
     }
 
     #[test]
@@ -338,8 +352,13 @@ mod tests {
         let mut process = cli
             .start_with_args(&request(Vec::new()), Path::new("/tmp"), &["30".into()])
             .unwrap();
+        let started = std::time::Instant::now();
         process.kill();
         process.kill();
+        assert!(
+            started.elapsed() < Duration::from_secs(10),
+            "kill waited for the child to finish by itself"
+        );
         assert!(
             process
                 .poll()
@@ -355,6 +374,7 @@ mod tests {
             .start(&request(Vec::new()), Path::new("/tmp"), Path::new("/tmp"))
             .err()
             .unwrap();
+        assert!(matches!(error, AgentError::NotInstalled));
         assert!(error.to_string().contains("run `claude`"));
     }
 
@@ -362,7 +382,7 @@ mod tests {
     fn images_become_one_stream_json_message_and_missing_files_are_skipped() {
         let dir = std::env::temp_dir().join(format!("specular-agent-img-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
-        std::fs::write(dir.join("a.png"), b"png").unwrap();
+        std::fs::write(dir.join("a.png"), [0xfb, 0xff, 0xfe]).unwrap();
         let images = vec![
             Image {
                 path: "a.png".into(),
@@ -379,7 +399,8 @@ mod tests {
         let value: serde_json::Value = serde_json::from_str(input.text.trim()).unwrap();
         let content = value["message"]["content"].as_array().unwrap();
         assert_eq!(content.len(), 2);
-        assert_eq!(content[0]["source"]["data"], STANDARD.encode(b"png"));
+        assert_eq!(content[0]["source"]["data"], "+//+");
+        assert_eq!(content[0]["source"]["media_type"], "image/png");
         assert_eq!(content[1]["text"], "hello");
     }
 }

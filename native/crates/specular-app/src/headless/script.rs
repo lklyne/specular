@@ -354,6 +354,61 @@ mod tests {
     }
 
     #[test]
+    fn pointer_modifier_and_panel_verbs_and_every_tool_parse() {
+        for (script, expected) in [
+            (
+                "move 1 2\npress 3 4\ndrag-to 5 6\nclick 7 8\ndouble-click 9 10\ntriple-click 11 12\n\
+                 drag 1 2 3 4\nhold shift+cmd\nhold none\ncompose にほ\ncommit 日本\nwheel 3 -7\n\
+                 pinch 0.5\nselect a b\nwait 250\npress-control tool.draw\npanels on\nsidebar off\n\
+                 snapshot out.png\nsave out.canvas",
+                vec![
+                    Step::Move(Vec2::new(1.0, 2.0)),
+                    Step::Press(Vec2::new(3.0, 4.0)),
+                    Step::DragTo(Vec2::new(5.0, 6.0)),
+                    Step::Click(Vec2::new(7.0, 8.0)),
+                    Step::DoubleClick(Vec2::new(9.0, 10.0)),
+                    Step::TripleClick(Vec2::new(11.0, 12.0)),
+                    Step::Drag(Vec2::new(1.0, 2.0), Vec2::new(3.0, 4.0)),
+                    Step::Hold(Modifiers {
+                        shift: true,
+                        meta: true,
+                        ..NO_MODIFIERS
+                    }),
+                    Step::Hold(NO_MODIFIERS),
+                    Step::Compose("にほ".to_owned()),
+                    Step::Commit("日本".to_owned()),
+                    Step::Wheel(Vec2::new(3.0, -7.0)),
+                    Step::Pinch(0.5),
+                    Step::Select(vec!["a".to_owned(), "b".to_owned()]),
+                    Step::Wait(250),
+                    Step::PressControl("tool.draw".to_owned()),
+                    Step::Panels(true),
+                    Step::Sidebar(false),
+                    Step::Snapshot(PathBuf::from("out.png")),
+                    Step::Save(PathBuf::from("out.canvas")),
+                ],
+            ),
+            (
+                "tool select\ntool page\ntool text\ntool sticky\ntool document\ntool shape\n\
+                 tool draw\ntool comment\ntool inspect",
+                vec![
+                    Step::Tool(Tool::Select),
+                    Step::Tool(Tool::AddPage),
+                    Step::Tool(Tool::AddText),
+                    Step::Tool(Tool::AddSticky),
+                    Step::Tool(Tool::AddDocument),
+                    Step::Tool(Tool::AddShape),
+                    Step::Tool(Tool::Draw),
+                    Step::Tool(Tool::Comment),
+                    Step::Tool(Tool::Inspect),
+                ],
+            ),
+        ] {
+            assert_eq!(parse(script).unwrap(), expected, "{script:?}");
+        }
+    }
+
+    #[test]
     fn bad_lines_are_rejected_with_their_number() {
         for script in [
             "act nonsense",

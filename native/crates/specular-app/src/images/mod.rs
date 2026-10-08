@@ -316,13 +316,27 @@ mod tests {
         let png = decode::tests::encoded(8, 4, ImageFormat::Png);
         std::fs::write(space.0.join("assets/shot.png"), png).unwrap();
         let loader = ImageLoader::new(Some(space.0.clone())).unwrap();
-        loader.request(ImageKey(3), "assets/shot.png", SPEC);
+        let spec = ImageSpec {
+            linear_light: true,
+            ..SPEC
+        };
+        loader.request(ImageKey(3), "assets/shot.png", spec);
         let loaded = wait(&loader);
         assert_eq!(loaded.key, ImageKey(3));
         let Ok(Content::Still(mips)) = loaded.result else {
             panic!("a png is a still picture");
         };
         assert_eq!(mips.size(), PixelSize::new(8, 4));
+        // The levels are built for the spec the request carried.
+        let decoded = decode::decode(
+            &std::fs::read(space.0.join("assets/shot.png")).unwrap(),
+            spec.max_dimension,
+        )
+        .unwrap();
+        assert_eq!(
+            mips,
+            ImageMips::build(decoded.size, &decoded.rgba, spec).unwrap()
+        );
     }
 
     #[test]

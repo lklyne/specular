@@ -195,5 +195,17 @@ mod tests {
         assert_eq!(press(Vec2::ZERO, Vec2::new(1.0, 1.0), quick), 2);
         assert_eq!(press(Vec2::ZERO, Vec2::ZERO, Duration::from_secs(1)), 1);
         assert_eq!(press(Vec2::ZERO, Vec2::new(30.0, 0.0), Duration::ZERO), 1);
+        // The edges of the run are inside it.
+        assert_eq!(press(Vec2::ZERO, Vec2::new(CLICK_SLOP, 0.0), quick), 2);
+        assert_eq!(press(Vec2::ZERO, Vec2::ZERO, MULTI_CLICK_INTERVAL), 2);
+
+        let mut counter = ClickCounter::default();
+        let counts = [
+            counter.press(PointerButton::Left, Vec2::ZERO, start),
+            counter.press(PointerButton::Left, Vec2::ZERO, start + quick),
+            counter.press(PointerButton::Left, Vec2::ZERO, start + quick * 2),
+            counter.press(PointerButton::Right, Vec2::ZERO, start + quick * 3),
+        ];
+        assert_eq!(counts, [1, 2, 3, 1], "a different button starts over");
     }
 }

@@ -78,6 +78,9 @@ mod tests {
         probe.observe(&frame_from(PageId(1)));
         let latency = probe.presented(start + Duration::from_millis(30));
         assert_eq!(latency, Some(Duration::from_millis(30)));
+        // A later paint with no new input does not report the old sample again.
+        probe.observe(&frame_from(PageId(1)));
+        assert_eq!(probe.presented(start + Duration::from_millis(50)), None);
     }
 
     #[test]
@@ -97,7 +100,8 @@ mod tests {
         probe.input_sent(PageId(1), start);
         probe.input_sent(PageId(1), start + Duration::from_millis(10));
         probe.observe(&frame_from(PageId(1)));
-        probe.presented(start + Duration::from_millis(20));
+        let newest = probe.presented(start + Duration::from_millis(20));
+        assert_eq!(newest, Some(Duration::from_millis(10)));
         assert!((probe.summary().max_ms - 20.0).abs() < 1e-9);
     }
 }

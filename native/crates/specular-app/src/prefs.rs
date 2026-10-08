@@ -261,6 +261,9 @@ mod tests {
             load_space_path(&path),
             Some(PathBuf::from("/Users/me/Space"))
         );
+        // A cleared choice reads as none.
+        save_space_path(&path, Path::new("")).unwrap();
+        assert_eq!(load_space_path(&path), None);
     }
 
     #[test]

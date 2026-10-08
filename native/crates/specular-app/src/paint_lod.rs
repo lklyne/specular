@@ -283,11 +283,21 @@ mod tests {
         let start = Instant::now();
         let mut lod = PageLod::default();
         let first = lod.update(0.25, true, start);
+        let early = lod.update(0.25, true, start + TEXTURE_SHRINK_SETTLE / 2);
         let settled = lod.update(0.25, true, start + TEXTURE_SHRINK_SETTLE);
         // 0.25 is not 0.8x under the quarter boundary, so half is owed.
         assert_eq!(
-            (first.texture, settled.texture),
-            (None, Some(TextureTier::Half))
+            (first.texture, early.texture, settled.texture),
+            (None, None, Some(TextureTier::Half))
+        );
+        // Growing waits too, but for the shorter wait.
+        let later = start + TEXTURE_SHRINK_SETTLE;
+        let wanted = lod.update(0.6, true, later);
+        let early = lod.update(0.6, true, later + TEXTURE_GROW_SETTLE / 2);
+        let grown = lod.update(0.6, true, later + TEXTURE_GROW_SETTLE);
+        assert_eq!(
+            (wanted.texture, early.texture, grown.texture),
+            (None, None, Some(TextureTier::Full))
         );
     }
 

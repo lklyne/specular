@@ -35,6 +35,11 @@ fn the_electron_apps_data_folder_is_where_electron_puts_it() {
     );
     let linux = electron_user_data(environment(&[("HOME", "/home/me")]), false);
     assert_eq!(linux, Some(PathBuf::from("/home/me/.config/Specular")));
+    let xdg = electron_user_data(
+        environment(&[("HOME", "/home/me"), ("XDG_CONFIG_HOME", "/xdg")]),
+        false,
+    );
+    assert_eq!(xdg, Some(PathBuf::from("/xdg/Specular")));
     assert_eq!(electron_user_data(environment(&[]), true), None);
 }
 
@@ -50,6 +55,10 @@ fn the_space_is_the_electron_apps_space_path() {
         electron_space(&dir.0),
         Some(PathBuf::from("/Users/me/Space"))
     );
+    // A cleared choice is no choice: it falls back to the old folder, not
+    // to an empty path.
+    dir.write("preferences.json", r#"{"spacePath":""}"#);
+    assert_eq!(electron_space(&dir.0), None);
 }
 
 #[test]
@@ -171,6 +180,11 @@ fn with_no_space_chosen_or_the_chosen_one_gone_the_launch_asks_and_makes_nothing
         startup(&SpaceChoice::Chosen, None, None, scratch()),
         ask(&None, &None)
     );
+    // Electron's folder is offered only while it is there.
+    assert_eq!(
+        startup(&SpaceChoice::Chosen, Some(gone.clone()), None, scratch()),
+        ask(&None, &None)
+    );
     // The chosen folder is gone: it is named, and nothing stands in for it.
     assert_eq!(
         startup(
@@ -202,7 +216,8 @@ fn the_starter_space_is_copied_into_a_folder_with_no_canvas() {
         r#"{"nodes":[{"id":"n","type":"file","file":"__SPECULAR_SPACE__/Welcome.md","x":0,"y":0,"width":1,"height":1}],"edges":[]}"#,
     );
     starter_dir.write("Welcome.md", "# Welcome\n");
-    let target = space.0.join("new");
+    // A quote in the path must stay valid JSON inside the canvas.
+    let target = space.0.join("the \"new\" one");
     assert!(starter::seed(&target, &starter_dir.0).unwrap());
     assert_eq!(
         std::fs::read_to_string(target.join("Welcome.md")).unwrap(),
@@ -239,7 +254,8 @@ fn the_listing_is_the_index_in_order_then_the_files_it_does_not_know() {
         r#"{"activeTabId":"tab_bbbb2222","viewMode":"canvas","tabs":[
             {"id":"tab_aaaa1111","name":"Home","updatedAt":"2026-01-01T00:00:00.000Z","expanded":false},
             {"id":"tab_bbbb2222","name":"Old name","updatedAt":"2026-01-02T00:00:00.000Z"},
-            {"id":"tab_cccc3333","name":"Deleted elsewhere","updatedAt":"2026-01-03T00:00:00.000Z"}]}"#,
+            {"id":"tab_cccc3333","name":"Deleted elsewhere","updatedAt":"2026-01-03T00:00:00.000Z"},
+            {"id":"tab_dddd4444","name":"Old name","updatedAt":"2026-01-04T00:00:00.000Z"}]}"#,
     );
     dir.write("Home-aaaa.canvas", &canvas("a"));
     // From before file names carried part of the id.
@@ -248,6 +264,8 @@ fn the_listing_is_the_index_in_order_then_the_files_it_does_not_know() {
     dir.write("Sketch-0f9e.canvas", &canvas("c"));
     dir.write("loose.canvas", &canvas("d"));
     dir.write("notes.md", "not a canvas");
+    dir.write("canvas-notes.md", "not a canvas either");
+    dir.write(".hidden.canvas", &canvas("e"));
 
     let listing = listing::list(&dir.0);
     let read: Vec<(&str, &str)> = (listing.canvases.iter())
@@ -262,6 +280,9 @@ fn the_listing_is_the_index_in_order_then_the_files_it_does_not_know() {
             ("loose", "loose.canvas"),
         ]
     );
+    // The index owns the canvas's id even when the file has the old name,
+    // and two tabs never list one file twice.
+    assert_eq!(listing.canvases[1].id, CanvasId::new("tab_bbbb2222"));
     assert_eq!(listing.active, Some(CanvasId::new("tab_bbbb2222")));
     // An adopted file's id leads back to the file, and is the same on the
     // next launch.
