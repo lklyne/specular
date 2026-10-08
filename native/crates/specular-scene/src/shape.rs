@@ -102,6 +102,26 @@ impl RectDraw {
     }
 }
 
+/// The soft shadow a rounded rect casts, as a CSS `box-shadow` draws it:
+/// the rect's own shape, blurred. It goes in the list before the rect that
+/// casts it, already moved by the shadow's offset.
+///
+/// The renderer draws it from the same distance field as a rect, one
+/// instance in the same batch, so a shadow costs what a second fill would
+/// and nothing is blurred.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ShadowDraw {
+    /// The caster's rect, moved by the shadow's offset.
+    pub rect: Rect,
+    /// The caster's corner radius.
+    pub corner_radius: f32,
+    /// The blur radius, as CSS counts it: the shadow fades from full to
+    /// nothing across about twice this, centred on the rect's edge.
+    pub blur: f32,
+    /// The shadow's colour where it is densest.
+    pub color: Color,
+}
+
 /// A filled and/or stroked ellipse inscribed in `rect`.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct EllipseDraw {

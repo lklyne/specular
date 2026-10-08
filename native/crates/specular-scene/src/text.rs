@@ -46,6 +46,17 @@ pub enum VerticalAlign {
     Bottom,
 }
 
+/// What happens to a line too long for its `wrap_width`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum TextOverflow {
+    /// It wraps onto the next line.
+    #[default]
+    Wrap,
+    /// The run is one line, cut short with an ellipsis where it would have
+    /// wrapped.
+    Ellipsis,
+}
+
 /// How a stretch of a run differs from the run's own style. A field left
 /// `None` keeps the run's value.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
@@ -90,6 +101,8 @@ pub struct TextRun {
     pub origin: Point,
     /// Width to wrap lines at; `None` never wraps.
     pub wrap_width: Option<f32>,
+    /// What a line longer than `wrap_width` does.
+    pub overflow: TextOverflow,
     /// Height of the layout box, used only for vertical alignment. Text
     /// taller than this overflows; clip the item to cut it off.
     pub box_height: Option<f32>,
@@ -203,6 +216,7 @@ impl TextRun {
             text: text.into(),
             origin,
             wrap_width: None,
+            overflow: TextOverflow::Wrap,
             box_height: None,
             family: FontFamily::SansSerif,
             size,

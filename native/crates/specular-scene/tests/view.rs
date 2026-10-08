@@ -380,6 +380,7 @@ fn without_chrome_only_the_content_is_drawn() {
         .iter()
         .map(|item| match item.draw {
             Draw::Page(_) => "page",
+            Draw::Shadow(_) => "shadow",
             Draw::Rect(_) => "rect",
             Draw::Text(_) => "text",
             Draw::Ellipse(_)
@@ -389,7 +390,7 @@ fn without_chrome_only_the_content_is_drawn() {
             | Draw::Image(_) => "other",
         })
         .collect();
-    assert_eq!(kinds, ["page", "rect", "text"]);
+    assert_eq!(kinds, ["page", "shadow", "rect", "text"]);
 }
 
 #[test]
@@ -398,6 +399,6 @@ fn entities_outside_the_viewport_are_left_out() {
         text("near", Rect::new(100.0, 100.0, 200.0, 200.0)),
         text("far", Rect::new(9000.0, 100.0, 200.0, 200.0)),
     ]);
-    // A sticky is a card and its text.
-    assert_eq!(view(app.app(), VIEWPORT).items.len(), 2);
+    // A sticky is a shadow, a card and its text.
+    assert_eq!(view(app.app(), VIEWPORT).items.len(), 3);
 }

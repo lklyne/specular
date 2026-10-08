@@ -2,9 +2,9 @@
 //! that failed before its fix.
 
 use glam::Vec2;
-use specular_doc::{EntityId, ItemId, Rect};
+use specular_doc::{Entity, EntityId, ItemId, Rect};
 use specular_interact::{Event, Hit, Key, Tool, hit_test};
-use specular_testkit::{CMD, TestApp, connected, document, shape, sticky};
+use specular_testkit::{CMD, TestApp, connected, document, group, shape, sticky};
 
 /// Two shapes a long way apart with a sticky between them, and an edge from
 /// one shape to the other that runs across the sticky, in front of it.
@@ -134,4 +134,25 @@ fn a_duplicate_that_lands_in_view_leaves_the_camera_alone() {
     app.send(Event::ViewportResized(Vec2::new(1000.0, 800.0)));
     app.select(&["a"]).chord(CMD, Key::Char('d'));
     assert_eq!(app.session().camera.pan, Vec2::ZERO);
+}
+
+#[test]
+fn a_group_title_is_hit_where_it_is_drawn_when_zoomed_out() {
+    let titled = Entity {
+        label: Some("A long title for a small group".to_owned()),
+        ..group("g", Rect::new(400.0, 400.0, 120.0, 80.0))
+    };
+    let mut app = TestApp::with_entities([titled]);
+    let label = Hit::GroupLabel { group: "g".into() };
+    let at = |app: &TestApp, x, y| hit_test(app.app(), Vec2::new(x, y));
+    // At full size the title is a 20.5 px box above the corner, and never
+    // wider than the group: 30 characters would run to 183 px.
+    assert_eq!(at(&app, 510.0, 390.0), label);
+    assert_eq!(at(&app, 560.0, 390.0), Hit::Empty);
+    // At a quarter zoom the group is at (100, 100) and 30 px wide, and the
+    // title is half its size: about 10 px tall.
+    app.zoom(0.25);
+    assert_eq!(at(&app, 110.0, 95.0), label);
+    assert_eq!(at(&app, 110.0, 85.0), Hit::Empty);
+    assert_eq!(at(&app, 140.0, 95.0), Hit::Empty);
 }

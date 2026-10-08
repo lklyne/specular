@@ -21,6 +21,16 @@ const GROUP_BORDER: f32 = 8.0;
 const GROUP_LABEL_HEIGHT: f32 = crate::edit::TITLE_LINE + crate::edit::TITLE_GAP;
 /// Average advance of the title's glyphs, standing in for measured text.
 const GROUP_LABEL_CHAR_WIDTH: f32 = 6.1;
+/// Below this zoom the titles above groups and pages stop holding their
+/// pixel size and shrink with the canvas, so a title is never much larger
+/// than the thing it names.
+const TITLE_FULL_ZOOM: f32 = 0.5;
+
+/// The size of a group's or a page's title at `zoom`, as a fraction of its
+/// full size. Drawing and hit-testing both use it.
+pub fn title_scale(zoom: f32) -> f32 {
+    (zoom / TITLE_FULL_ZOOM).clamp(0.0, 1.0)
+}
 
 /// What a screen point lands on.
 ///
@@ -82,7 +92,7 @@ pub fn hit_test(app: &App, screen: Vec2) -> Hit {
     let document = &app.document;
 
     let label = document.entities().rev().find(|entity| {
-        group_label_rect(entity, ScreenRect::of(camera, entity.rect))
+        group_label_rect(entity, ScreenRect::of(camera, entity.rect), camera.zoom)
             .is_some_and(|rect| rect.contains(screen))
     });
     if let Some(group) = label {
@@ -287,19 +297,22 @@ fn drawing_rect(rect: ScreenRect) -> ScreenRect {
     }
 }
 
-/// The title box of a labelled group whose rect is `rect` on screen.
-fn group_label_rect(entity: &Entity, rect: ScreenRect) -> Option<ScreenRect> {
+/// The title box of a labelled group whose rect is `rect` on screen. It is
+/// drawn no wider than the group, so it is hit no wider.
+fn group_label_rect(entity: &Entity, rect: ScreenRect, zoom: f32) -> Option<ScreenRect> {
     let label = match &entity.kind {
         Kind::Group(_) => entity.label.as_deref().filter(|label| !label.is_empty())?,
         Kind::Page(_) | Kind::Text(_) | Kind::File(_) | Kind::Drawing(_) | Kind::Shape(_) => {
             return None;
         }
     };
-    let width = label.chars().count() as f32 * GROUP_LABEL_CHAR_WIDTH;
+    let scale = title_scale(zoom);
+    let width = label.chars().count() as f32 * GROUP_LABEL_CHAR_WIDTH * scale;
+    let height = GROUP_LABEL_HEIGHT * scale;
     Some(ScreenRect::new(
         rect.min.x,
-        rect.min.y - GROUP_LABEL_HEIGHT,
-        width,
-        GROUP_LABEL_HEIGHT,
+        rect.min.y - height,
+        width.min(rect.size.x),
+        height,
     ))
 }

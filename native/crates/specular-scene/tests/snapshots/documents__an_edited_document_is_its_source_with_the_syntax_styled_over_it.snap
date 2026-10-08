@@ -2,6 +2,7 @@
 source: crates/specular-scene/tests/documents.rs
 expression: app.scene_snapshot()
 ---
+canvas shadow 100,102 400x300 r=4 blur=8 fill=#00000014
 canvas rect 100,100 400x300 r=4 fill=#fafaf9
 canvas column 112,112 376x276
   row min-h=29.4

@@ -7,7 +7,7 @@ use std::ops::Range;
 use glam::Vec2;
 use specular_core::PageId;
 use specular_doc::EntityId;
-use specular_scene::{Draw, ImageId, Item, Rect, Scene, Space};
+use specular_scene::{Blend, Draw, ImageId, Item, Rect, Scene, Space};
 
 use super::batch::Batch;
 use super::mesh::{Mesh, Mesher};
@@ -30,8 +30,8 @@ pub(crate) enum Op {
     Quad { instance: u32, texture: QuadTexture },
     /// A range of the shape instance buffer.
     Shapes(Range<u32>),
-    /// A range of the mesh index buffer.
-    Mesh(Range<u32>),
+    /// A range of the mesh index buffer, and how it meets the target.
+    Mesh(Range<u32>, Blend),
     /// The glyphs prepared into text renderer `slot`.
     Text { slot: usize, space: Space },
 }
@@ -149,14 +149,14 @@ pub(crate) fn build(
                     .extend(items().filter_map(|item| shape_instance(item, view)));
                 push(Op::Shapes(start..out.shapes.len() as u32));
             }
-            Prim::Mesh => {
+            Prim::Mesh(blend) => {
                 let start = out.mesh.indices.len() as u32;
                 for item in items() {
                     out.mesher.add(out.mesh, item, view);
                 }
                 let end = out.mesh.indices.len() as u32;
                 if end > start {
-                    push(Op::Mesh(start..end));
+                    push(Op::Mesh(start..end, blend));
                 }
             }
             Prim::Text(space) => {

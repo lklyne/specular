@@ -1,5 +1,6 @@
 //! Groups: a tinted background, a border and a title above the top-left
-//! corner. The border and title keep their pixel size at any zoom.
+//! corner. The border keeps its pixel size at any zoom, and the title does
+//! down to half zoom.
 
 use specular_doc::{Document, Entity, Group, Kind};
 
@@ -87,7 +88,7 @@ pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, group: &Group, scene: &mu
         return;
     }
     match entity.label.as_deref() {
-        Some(label) if !label.is_empty() => scene.push(title_above(on_screen, label, title)),
+        Some(label) if !label.is_empty() => scene.push(title_above(frame, on_screen, label, title)),
         Some(_) | None => {}
     }
 }

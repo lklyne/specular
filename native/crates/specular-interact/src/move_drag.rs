@@ -66,15 +66,22 @@ impl MoveDrag {
         self.dragged && self.copying
     }
 
-    /// Where the copies would land, in canvas space, back-to-front.
-    fn copy_rects(&self) -> Vec<Rect> {
-        if !self.is_copying() {
-            return Vec::new();
-        }
-        (self.starts.iter())
-            .map(|start| start.rect.translated(self.delta.x, self.delta.y))
-            .collect()
+    /// What releasing now would copy, and how far from the originals.
+    fn copy_preview(&self) -> Option<CopyPreview> {
+        self.is_copying().then(|| CopyPreview {
+            entities: self.starts.iter().map(|start| start.id.clone()).collect(),
+            delta: self.delta,
+        })
     }
+}
+
+/// The copies an Option-drag would leave if it were released now.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CopyPreview {
+    /// The entities being copied, back-to-front.
+    pub entities: Vec<EntityId>,
+    /// How far from its original each copy lands, in canvas units.
+    pub delta: DVec2,
 }
 
 impl App {
@@ -98,11 +105,11 @@ impl App {
         }
     }
 
-    /// The rects an Option-drag would leave copies at, for drawing the
-    /// preview. Empty when no copy is being dragged.
-    pub fn copy_preview(&self) -> Vec<Rect> {
+    /// What an Option-drag would copy and where, for drawing the preview.
+    /// `None` when no copy is being dragged.
+    pub fn copy_preview(&self) -> Option<CopyPreview> {
         match &self.session.gesture {
-            Some(crate::Gesture::Move(drag)) => drag.copy_rects(),
+            Some(crate::Gesture::Move(drag)) => drag.copy_preview(),
             Some(
                 crate::Gesture::Resize(_)
                 | crate::Gesture::Marquee { .. }
@@ -112,7 +119,7 @@ impl App {
                 | crate::Gesture::TextSelect(_)
                 | crate::Gesture::EdgeDrag(_),
             )
-            | None => Vec::new(),
+            | None => None,
         }
     }
 }

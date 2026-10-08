@@ -180,7 +180,7 @@ fn each_draw_goes_to_its_pipeline() {
             Prim::Page,
             Prim::Shape,
             Prim::Shape,
-            Prim::Mesh,
+            Prim::Mesh(Blend::Normal),
             Prim::Text(Space::Canvas),
             Prim::Text(Space::Screen)
         ]

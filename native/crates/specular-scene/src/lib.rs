@@ -22,14 +22,15 @@ mod media;
 mod path;
 mod shape;
 mod text;
+mod translate;
 mod view;
 
 pub use color::Color;
 pub use column::{ColumnDraw, Row, RowRule, RuleHeight};
 pub use geometry::{Point, Rect, Size};
-pub use item::{Draw, Item, Scene, Space};
+pub use item::{Blend, Draw, Item, Scene, Space};
 pub use media::{ImageDraw, ImageId, PageDraw};
 pub use path::{Dash, LineCap, LineJoin, PathCommand, PathDraw, PathStroke, PolygonDraw};
-pub use shape::{EllipseDraw, RectDraw, Stroke, StrokeAlign};
-pub use text::{FontFamily, SpanStyle, TextAlign, TextRun, TextSpan, VerticalAlign};
+pub use shape::{EllipseDraw, RectDraw, ShadowDraw, Stroke, StrokeAlign};
+pub use text::{FontFamily, SpanStyle, TextAlign, TextOverflow, TextRun, TextSpan, VerticalAlign};
 pub use view::{view, view_without_chrome};

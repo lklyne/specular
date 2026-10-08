@@ -37,10 +37,9 @@ snapshot 09-duplicated.png
 key cmd+z
 save 10-duplicate-undone.canvas
 
-# undoing the duplicate leaves nothing selected, so marquee again
-press 10 225
-drag-to 500 790
-release
+# the duplicate landed off screen and the camera went to it; come back.
+# The undo put the selection back on the originals, so no second marquee.
+camera 32,-368,0.8
 
 # option-drag a copy
 hold alt
@@ -54,10 +53,7 @@ snapshot 12-option-drag-copied.png
 key cmd+z
 save 13-option-drag-undone.canvas
 
-# the copies went with the undo and took the selection with them
-press 10 225
-drag-to 500 790
-release
+# the undo selected the originals again, so the arrows move them
 
 # nudge: three small steps right, one big step down
 key right

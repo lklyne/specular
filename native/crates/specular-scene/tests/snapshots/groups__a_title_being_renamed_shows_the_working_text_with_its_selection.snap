@@ -5,7 +5,7 @@ expression: app.scene_snapshot()
 screen rect 100,100 400x300 r=2 fill=#f4f4f573
 canvas rect 140,140 100x100 fill=#b5b9c0 stroke=#464a53/2/centre
 screen rect 100,100 400x300 r=2 stroke=#71717a40/1.5/inside
-canvas rect 100,77.75 90x20 fill=#3b82f64d
+canvas rect 100,77.75 90x20 fill=#b3d7ff
 screen text "Moodboard" 100,79.5 box-h=16.5 11/16.5 #3f3f46 middle
 canvas rect 100,600 100x100 fill=#b5b9c0 stroke=#464a53/2/centre
 screen rect 99,99 402x302 stroke=#3b82f6/1/inside

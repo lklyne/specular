@@ -305,3 +305,14 @@ fn an_emoji_is_set_larger_than_its_em_in_small_text_and_at_its_em_in_large() {
     let (around, _) = advance(16.0, "a\u{1F389}b");
     assert!((around - alone - 21.0).abs() < 0.01, "{around} {alone}");
 }
+
+#[test]
+fn text_is_measured_the_same_with_and_without_an_emoji_free_fast_path() {
+    // A run with no emoji takes the plain path, one with an emoji the rich
+    // one. The letters must land where they did either way.
+    let measure = GlyphMeasure::new();
+    let plain = measure.layout("wrap these words", &spec(Some(60.0)));
+    let rich = measure.layout("wrap these words \u{1F389}", &spec(Some(60.0)));
+    assert_eq!(ranges(&plain)[0], ranges(&rich)[0]);
+    assert_eq!(plain.lines[0].stops, rich.lines[0].stops);
+}

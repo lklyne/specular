@@ -3,11 +3,13 @@
 
 use std::ops::Range;
 
-use glyphon::cosmic_text::{Align, TextDecoration, UnderlineStyle};
+use glyphon::cosmic_text::{
+    Align, Ellipsize, EllipsizeHeightLimit, TextDecoration, UnderlineStyle,
+};
 use glyphon::{
     Attrs, Buffer, Color as GlyphColor, Family, FontSystem, Metrics, Shaping, Style, Weight, Wrap,
 };
-use specular_scene::{Color, FontFamily, Rect, Size, SpanStyle, TextAlign, TextRun};
+use specular_scene::{Color, FontFamily, Rect, Size, SpanStyle, TextAlign, TextOverflow, TextRun};
 
 use super::emoji;
 
@@ -48,11 +50,14 @@ pub(crate) fn shape(fonts: &mut FontSystem, run: &TextRun) -> Option<ShapedText>
         TextAlign::Right => Some(Align::Right),
     };
     let mut buffer = Buffer::new_empty(Metrics::new(run.size, run.line_height));
-    buffer.set_wrap(if run.wrap_width.is_some() {
-        Wrap::WordOrGlyph
-    } else {
-        Wrap::None
-    });
+    match (run.wrap_width, run.overflow) {
+        (None, _) => buffer.set_wrap(Wrap::None),
+        (Some(_), TextOverflow::Wrap) => buffer.set_wrap(Wrap::WordOrGlyph),
+        (Some(_), TextOverflow::Ellipsis) => {
+            buffer.set_wrap(Wrap::None);
+            buffer.set_ellipsize(Ellipsize::End(EllipsizeHeightLimit::Lines(1)));
+        }
+    }
     buffer.set_size(run.wrap_width, None);
     let emoji = emoji::ranges(&run.text);
     if run.spans.is_empty() && emoji.is_empty() {
@@ -235,4 +240,59 @@ fn lines(buffer: &Buffer) -> Vec<Line> {
         }
     }
     lines
+}
+
+#[cfg(test)]
+mod tests {
+    use specular_scene::Point;
+
+    use super::*;
+
+    fn title(text: &str, width: f32) -> TextRun {
+        TextRun {
+            wrap_width: Some(width),
+            overflow: TextOverflow::Ellipsis,
+            ..TextRun::new(text, Point::default(), 11.0, Color::BLACK)
+        }
+    }
+
+    fn shaped(run: &TextRun) -> (Size, String) {
+        let mut fonts = FontSystem::new();
+        let shaped = shape(&mut fonts, run);
+        let glyphs = shaped.as_ref().map_or_else(String::new, |shaped| {
+            (shaped.buffer.layout_runs())
+                .flat_map(|line| line.glyphs.iter())
+                .map(|glyph| &line_text(&shaped.buffer)[glyph.start..glyph.end])
+                .collect()
+        });
+        (
+            shaped.map_or_else(Size::default, |shaped| shaped.size),
+            glyphs,
+        )
+    }
+
+    fn line_text(buffer: &Buffer) -> &str {
+        buffer.lines.first().map_or("", |line| line.text())
+    }
+
+    #[test]
+    fn an_ellipsised_run_is_one_line_inside_its_width() {
+        let long = "A long title for a small group";
+        let (size, _) = shaped(&title(long, 80.0));
+        assert!(size.width <= 80.0, "{size:?}");
+        assert!((size.height - 11.0 * TextRun::DEFAULT_LINE_HEIGHT).abs() < 0.01);
+        // Wrapping at the same width takes more than one line.
+        let wrapped = TextRun {
+            overflow: TextOverflow::Wrap,
+            ..title(long, 80.0)
+        };
+        assert!(shaped(&wrapped).0.height > size.height * 1.5);
+    }
+
+    #[test]
+    fn a_run_that_fits_is_left_whole() {
+        let (size, glyphs) = shaped(&title("Short", 400.0));
+        assert_eq!(glyphs, "Short");
+        assert!(size.width < 60.0);
+    }
 }

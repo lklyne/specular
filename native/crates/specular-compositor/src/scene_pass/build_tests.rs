@@ -164,7 +164,7 @@ fn a_mesh_batch_covers_the_indices_of_its_paths() {
         vec![Item::canvas(line(10.0)), Item::canvas(line(40.0))],
         None,
     );
-    let [Op::Mesh(range)] = built.ops.as_slice() else {
+    let [Op::Mesh(range, Blend::Normal)] = built.ops.as_slice() else {
         panic!("expected one mesh draw, got {:?}", built.ops);
     };
     assert!(range.start == 0 && range.end > 0 && range.end % 3 == 0);

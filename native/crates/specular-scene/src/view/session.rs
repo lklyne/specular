@@ -1,16 +1,19 @@
 //! The session layer, drawn over every entity: the hover border, selection
-//! outlines, resize handles, the marquee and the comment tool's preview.
-//! Everything is in screen space, so it keeps its pixel size at any zoom.
+//! outlines, the copies an Option-drag is about to leave, resize handles,
+//! the marquee and the comment tool's preview. Apart from those copies it
+//! is all in screen space, so it keeps its pixel size at any zoom.
 
 use specular_doc::{EntityId, ItemId};
-use specular_interact::{Corner, HANDLE_SIZE, HandleOwner, OUTLINE_PADDING};
+use specular_interact::{CopyPreview, Corner, HANDLE_SIZE, HandleOwner, OUTLINE_PADDING};
 
 use super::annotations::region_items;
 use super::edge_chrome;
 use super::frame::Frame;
 use super::palette;
 use super::shape_path::Silhouette;
-use crate::{Color, Dash, Item, PathDraw, PathStroke, Rect, RectDraw, Scene, Stroke, StrokeAlign};
+use crate::{
+    Color, Dash, Item, PathDraw, PathStroke, Rect, RectDraw, Scene, Space, Stroke, StrokeAlign,
+};
 
 const OUTLINE_WIDTH: f32 = 1.0;
 const HANDLE_STROKE: f32 = 1.0;
@@ -25,7 +28,7 @@ const MARQUEE_BORDER_ALPHA: f32 = 0.9;
 const PREVIEW_COLOR: Color = Color::rgb(0x2b, 0x7f, 0xff);
 const PREVIEW_STROKE_ALPHA: f32 = 0.9;
 const PREVIEW_FILL_ALPHA: f32 = 0.1;
-const COPY_GHOST_FILL_ALPHA: f32 = 0.12;
+const COPY_GHOST_OPACITY: f32 = 0.5;
 
 pub(crate) fn draw(frame: &Frame<'_>, scene: &mut Scene) {
     let app = frame.app;
@@ -50,10 +53,8 @@ pub(crate) fn draw(frame: &Frame<'_>, scene: &mut Scene) {
         }
     }
 
-    // An Option-drag leaves the originals where they are until the release,
-    // so the copies are shown as ghosts where they will land.
-    for rect in app.copy_preview() {
-        push_copy_ghost(frame, rect, scene);
+    if let Some(preview) = app.copy_preview() {
+        push_copy_ghosts(frame, &preview, scene);
     }
 
     // The group being worked inside: a dashed ring in the selection colour a
@@ -121,16 +122,36 @@ fn push_outline(frame: &Frame<'_>, rect: specular_doc::Rect, scene: &mut Scene) 
     }
 }
 
-/// The outline a copy will have, tinted so it reads as something coming
-/// rather than something selected.
-fn push_copy_ghost(frame: &Frame<'_>, rect: specular_doc::Rect, scene: &mut Scene) {
-    let outline = frame.screen_rect(rect).outset(OUTLINE_PADDING);
-    if frame.sees_screen(outline) {
+/// An Option-drag leaves the originals where they are until the release,
+/// so each copy is shown where it will land: the entity itself, drawn
+/// again at half strength, inside the outline it will have. `view` is a
+/// pure function of the entity, so the ghost is the real thing and cannot
+/// drift from what the release makes.
+fn push_copy_ghosts(frame: &Frame<'_>, preview: &CopyPreview, scene: &mut Scene) {
+    let (dx, dy) = (preview.delta.x as f32, preview.delta.y as f32);
+    // The copy has no title or border of its own yet.
+    let bare = frame.without_chrome();
+    for id in &preview.entities {
+        let Some(entity) = frame.app.document().entity(id) else {
+            continue;
+        };
+        let landing = entity.rect.translated(preview.delta.x, preview.delta.y);
+        let outline = frame.screen_rect(landing).outset(OUTLINE_PADDING);
+        if !frame.sees_screen(outline) {
+            continue;
+        }
+        let mut ghost = Scene::new();
+        super::draw_entity(&bare, entity, &mut ghost);
+        scene.extend(ghost.items.into_iter().map(|item| {
+            let by = match item.space {
+                Space::Canvas => 1.0,
+                Space::Screen => frame.zoom(),
+            };
+            let opacity = item.opacity * COPY_GHOST_OPACITY;
+            item.translated(dx * by, dy * by).with_opacity(opacity)
+        }));
         let stroke = Stroke::new(palette::SELECTION, OUTLINE_WIDTH, StrokeAlign::Inside);
-        let fill = palette::with_alpha(palette::SELECTION, COPY_GHOST_FILL_ALPHA);
-        scene.push(Item::screen(
-            RectDraw::filled(outline, fill).with_stroke(stroke),
-        ));
+        scene.push(Item::screen(RectDraw::outlined(outline, stroke)));
     }
 }
 

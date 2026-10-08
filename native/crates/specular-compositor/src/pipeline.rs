@@ -17,6 +17,8 @@ pub(crate) struct PassPipelines {
     pub(crate) quad: wgpu::RenderPipeline,
     pub(crate) shape: wgpu::RenderPipeline,
     pub(crate) mesh: wgpu::RenderPipeline,
+    /// Meshes multiplied into the target ([`specular_scene::Blend::Multiply`]).
+    pub(crate) mesh_multiply: wgpu::RenderPipeline,
 }
 
 /// Long-lived GPU objects that do not depend on scene content.
@@ -161,15 +163,36 @@ impl PassPipelines {
             topology: list,
             blend,
         };
+        // The target's colour times the fragment's, and its alpha kept.
+        let multiply = wgpu::BlendState {
+            color: wgpu::BlendComponent {
+                src_factor: wgpu::BlendFactor::Dst,
+                dst_factor: wgpu::BlendFactor::Zero,
+                operation: wgpu::BlendOperation::Add,
+            },
+            alpha: wgpu::BlendComponent {
+                src_factor: wgpu::BlendFactor::Zero,
+                dst_factor: wgpu::BlendFactor::One,
+                operation: wgpu::BlendOperation::Add,
+            },
+        };
+        let mesh_multiply = PipelineSpec {
+            label: "mesh-multiply-pipeline",
+            entries: ("vs_mesh", "fs_mesh_multiply"),
+            blend: Some(multiply),
+            ..mesh
+        };
         Self {
             grid: render_pipeline(device, pass, &grid),
             quad: render_pipeline(device, pass, &quad),
             shape: render_pipeline(device, pass, &shape),
             mesh: render_pipeline(device, pass, &mesh),
+            mesh_multiply: render_pipeline(device, pass, &mesh_multiply),
         }
     }
 }
 
+#[derive(Clone, Copy)]
 struct PipelineSpec<'a> {
     label: &'static str,
     layout: &'a wgpu::PipelineLayout,

@@ -44,6 +44,7 @@ pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, text: &Text, scene: &mut 
         TextStyle::Sticky => {
             let stored = text.color.as_ref().unwrap_or(&STICKY_DEFAULT);
             let fill = palette::resolve(stored, Palette::Soft, Role::Fill);
+            scene.push(palette::card_shadow(rect, 0.0));
             scene.push(Item::canvas(RectDraw::filled(rect, fill)));
             editing::selection(frame, id, Some(rect), scene);
             if !shown.is_empty() {

@@ -4,7 +4,7 @@ expression: app.scene_snapshot()
 ---
 canvas page p1 100,100 400x300 r=8
 screen rect 50,50 200x150 r=4 stroke=#a6a09b/1/outside
-screen text "example.com/p1" 50,29.5 box-h=16.5 11/15.4 w500 #6b6b6b middle clip=50,29.5 200x20.5
+screen text "example.com/p1" 50,29.5 wrap=200 ellipsis box-h=16.5 11/15.4 w500 #6b6b6b middle clip=50,29.5 200x20.5
 screen rect 49,49 202x152 stroke=#3b82f6/1/inside
 screen rect 45,45 8x8 fill=#ffffff stroke=#3b82f6/1/inside
 screen rect 247,45 8x8 fill=#ffffff stroke=#3b82f6/1/inside

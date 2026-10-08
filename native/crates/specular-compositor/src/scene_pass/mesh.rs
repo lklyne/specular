@@ -70,6 +70,7 @@ impl Mesher {
                 path.stroke,
             ),
             Draw::Page(_)
+            | Draw::Shadow(_)
             | Draw::Rect(_)
             | Draw::Ellipse(_)
             | Draw::Text(_)

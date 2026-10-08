@@ -1,7 +1,8 @@
 //! [`Scene`], [`Item`] and the [`Draw`] variants.
 
 use crate::{
-    ColumnDraw, EllipseDraw, ImageDraw, PageDraw, PathDraw, PolygonDraw, Rect, RectDraw, TextRun,
+    ColumnDraw, EllipseDraw, ImageDraw, PageDraw, PathDraw, PolygonDraw, Rect, RectDraw,
+    ShadowDraw, TextRun,
 };
 
 /// The coordinate space an item's geometry is in.
@@ -16,11 +17,26 @@ pub enum Space {
     Screen,
 }
 
+/// How an item's colour meets what is already painted under it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum Blend {
+    /// Painted over, by its alpha.
+    #[default]
+    Normal,
+    /// Multiplied in, as ink on paper: it darkens what is lighter than
+    /// itself and leaves what is darker, so black text under a highlighter
+    /// stays black. Paths and polygons honour it. Every other draw paints
+    /// [`Normal`](Self::Normal).
+    Multiply,
+}
+
 /// What an item draws.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Draw {
     /// A live page's frame.
     Page(PageDraw),
+    /// The blurred shadow of a rounded rect.
+    Shadow(ShadowDraw),
     /// A rounded rect.
     Rect(RectDraw),
     /// An ellipse.
@@ -49,6 +65,7 @@ macro_rules! draw_from {
 
 draw_from!(
     Page(PageDraw),
+    Shadow(ShadowDraw),
     Rect(RectDraw),
     Ellipse(EllipseDraw),
     Polygon(PolygonDraw),
@@ -67,6 +84,8 @@ pub struct Item {
     pub clip: Option<Rect>,
     /// Multiplies the item's alpha; 1 leaves it as drawn.
     pub opacity: f32,
+    /// How it is laid over what is under it.
+    pub blend: Blend,
     /// What to draw.
     pub draw: Draw,
 }
@@ -87,6 +106,7 @@ impl Item {
             space,
             clip: None,
             opacity: 1.0,
+            blend: Blend::Normal,
             draw: draw.into(),
         }
     }
@@ -98,6 +118,12 @@ impl Item {
             clip: Some(clip),
             ..self
         }
+    }
+
+    /// The same item laid over what is under it by `blend`.
+    #[must_use]
+    pub fn with_blend(self, blend: Blend) -> Self {
+        Self { blend, ..self }
     }
 
     /// The same item at `opacity`.

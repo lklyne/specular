@@ -11,7 +11,6 @@ use super::frame::{Frame, canvas_rect};
 use super::palette;
 use crate::{Color, Item, Rect, RectDraw, Scene, TextRun, VerticalAlign};
 
-const SELECTION_ALPHA: f32 = 0.3;
 /// How far below the top of its em box a line of text is underlined, as a
 /// fraction of the text size.
 const UNDERLINE_DROP: f32 = 1.05;
@@ -46,7 +45,7 @@ pub(crate) fn selection(frame: &Frame<'_>, id: &EntityId, clip: Option<Rect>, sc
     if !is_edited(frame, id) {
         return;
     }
-    let fill = palette::with_alpha(palette::SELECTION, SELECTION_ALPHA);
+    let fill = palette::TEXT_SELECTION;
     for rect in frame.app.selection_rects() {
         let item = Item::canvas(RectDraw::filled(canvas_rect(rect), fill));
         scene.push(clipped(item, clip));

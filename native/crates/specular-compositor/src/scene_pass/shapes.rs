@@ -1,7 +1,7 @@
 //! Scene rects and ellipses as SDF shape instances. Pure.
 
 use glam::Vec2;
-use specular_scene::{Color, Draw, Item, Rect, Space, Stroke, StrokeAlign};
+use specular_scene::{Color, Draw, Item, Rect, ShadowDraw, Space, Stroke, StrokeAlign};
 
 use super::color::{CLEAR, linear};
 use super::place::ViewTransform;
@@ -9,6 +9,9 @@ use crate::gpu_types::ShapeInstance;
 
 /// The instance for a rect or ellipse item; `None` for any other draw.
 pub(crate) fn shape_instance(item: &Item, view: &ViewTransform) -> Option<ShapeInstance> {
+    if let Draw::Shadow(shadow) = &item.draw {
+        return Some(shadow_instance(item, shadow, view));
+    }
     let (rect, corner_radius, fill, stroke, kind) = match &item.draw {
         Draw::Rect(draw) => (
             draw.rect,
@@ -25,6 +28,7 @@ pub(crate) fn shape_instance(item: &Item, view: &ViewTransform) -> Option<ShapeI
             ShapeInstance::ELLIPSE,
         ),
         Draw::Page(_)
+        | Draw::Shadow(_)
         | Draw::Polygon(_)
         | Draw::Path(_)
         | Draw::Text(_)
@@ -46,6 +50,21 @@ pub(crate) fn shape_instance(item: &Item, view: &ViewTransform) -> Option<ShapeI
         stroke_offset: stroke.offset,
         kind,
     })
+}
+
+fn shadow_instance(item: &Item, shadow: &ShadowDraw, view: &ViewTransform) -> ShapeInstance {
+    let scale = view.scale(item.space);
+    let half_size = Vec2::new(shadow.rect.width, shadow.rect.height) * (0.5 * scale);
+    ShapeInstance {
+        centre: canvas_centre(shadow.rect, item.space, view).to_array(),
+        half_size: half_size.to_array(),
+        fill: linear(shadow.color, item.opacity),
+        stroke: CLEAR,
+        corner_radius: (shadow.corner_radius.max(0.0) * scale).min(half_size.min_element()),
+        stroke_width: shadow.blur.max(0.0) * scale,
+        stroke_offset: 0.0,
+        kind: ShapeInstance::SHADOW,
+    }
 }
 
 /// The shader projects a shape's centre from canvas space, so a screen-space
@@ -181,6 +200,27 @@ mod tests {
         assert_eq!(
             (instance.kind, instance.corner_radius),
             (ShapeInstance::ELLIPSE, 0.0)
+        );
+    }
+
+    #[test]
+    fn a_shadow_is_one_instance_whose_blur_scales_with_zoom() {
+        let shadow = specular_scene::ShadowDraw {
+            rect: RECT,
+            corner_radius: 4.0,
+            blur: 8.0,
+            color: Color::rgba(0, 0, 0, 20),
+        };
+        let instance = instance(&Item::canvas(shadow), 0.5);
+        assert_eq!(
+            (
+                instance.kind,
+                instance.half_size,
+                instance.corner_radius,
+                instance.stroke_width,
+                instance.stroke,
+            ),
+            (ShapeInstance::SHADOW, [50.0, 25.0], 2.0, 4.0, CLEAR)
         );
     }
 

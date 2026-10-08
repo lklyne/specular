@@ -40,6 +40,7 @@ pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, file: &FileRef, scene: &m
             ImageState::Loading | ImageState::Missing | ImageState::Failed => {}
         }
     }
+    scene.push(palette::card_shadow(rect, CORNER_RADIUS));
     scene.push(Item::canvas(
         RectDraw::filled(rect, palette::CARD).with_corner_radius(CORNER_RADIUS),
     ));

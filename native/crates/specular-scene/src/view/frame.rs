@@ -41,6 +41,14 @@ impl<'a> Frame<'a> {
         }
     }
 
+    /// The same frame with no chrome drawn.
+    pub(crate) fn without_chrome(self) -> Self {
+        Self {
+            chrome: false,
+            ..self
+        }
+    }
+
     /// Logical pixels per canvas unit.
     pub(crate) fn zoom(&self) -> f32 {
         self.camera.zoom

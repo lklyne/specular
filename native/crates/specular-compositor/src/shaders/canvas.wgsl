@@ -119,8 +119,12 @@ fn vs_shape(
 ) -> ShapeOut {
     let corner = vec2<f32>(f32(index & 1u), f32((index >> 1u) & 1u));
     let half_size = centre_and_half.zw;
-    // The quad reaches past the shape edge as far as the stroke does.
-    let reach = max(style.z + style.y, 0.0);
+    // The quad reaches past the shape edge as far as the stroke does, or as
+    // far as a shadow's blur still shows.
+    var reach = max(style.z + style.y, 0.0);
+    if style.w > 1.5 {
+        reach = style.y * 1.5;
+    }
     let local = (corner * 2.0 - 1.0) * (half_size + vec2<f32>(reach));
     let logical_viewport = frame.viewport_px / frame.scale_factor;
     var out: ShapeOut;
@@ -139,7 +143,7 @@ fn vs_shape(
 
 // Signed distance to the shape edge in logical px: negative inside.
 fn shape_distance(local: vec2<f32>, half_size: vec2<f32>, radius: f32, kind: f32) -> f32 {
-    if kind > 0.5 {
+    if kind > 0.5 && kind < 1.5 {
         // Ellipse, by the first-order estimate: exact for a circle, close
         // enough near the edge of any ellipse a canvas shape has.
         let axes = max(half_size, vec2<f32>(0.001));
@@ -154,9 +158,31 @@ fn shape_distance(local: vec2<f32>, half_size: vec2<f32>, radius: f32, kind: f32
     return length(max(q, vec2<f32>(0.0))) + min(max(q.x, q.y), 0.0) - radius;
 }
 
+// The error function, to about 5e-4.
+fn erf(x: f32) -> f32 {
+    let a = abs(x);
+    let t = 1.0 + a * (0.278393 + a * (0.230389 + a * (0.000972 + a * 0.078108)));
+    let t2 = t * t;
+    return sign(x) * (1.0 - 1.0 / (t2 * t2));
+}
+
+// How much of a shadow shows `distance` px outside its caster's edge: a
+// straight edge under a Gaussian blur of the CSS radius `blur`, which is
+// two standard deviations. Following the distance field instead of
+// blurring rounds the corners a little more than a real blur would.
+fn shadow_coverage(distance: f32, blur: f32) -> f32 {
+    let sigma = max(blur * 0.5, 0.5 / frame.scale_factor);
+    return 0.5 - 0.5 * erf(distance / (sigma * 1.41421356));
+}
+
 @fragment
 fn fs_shape(in: ShapeOut) -> @location(0) vec4<f32> {
     let distance = shape_distance(in.local, in.half_size, in.style.x, in.style.w);
+    if in.style.w > 1.5 {
+        let shadow = to_target(in.fill);
+        let alpha = shadow.a * shadow_coverage(distance, in.style.y);
+        return vec4<f32>(shadow.rgb * alpha, alpha);
+    }
     // The stroke is the band from `near` to `far`, measured outwards from
     // the edge: 0 to width sits outside it, -width to 0 inside.
     let near = in.style.z;
@@ -209,4 +235,12 @@ fn vs_mesh(@location(0) position: vec2<f32>, @location(1) color: vec4<f32>) -> M
 fn fs_mesh(in: MeshOut) -> @location(0) vec4<f32> {
     let color = to_target(in.color);
     return vec4<f32>(color.rgb * color.a, color.a);
+}
+
+// For the multiply pipeline, whose blend is `target * this`: the colour at
+// full alpha, white (no change) at none.
+@fragment
+fn fs_mesh_multiply(in: MeshOut) -> @location(0) vec4<f32> {
+    let color = to_target(in.color);
+    return vec4<f32>(mix(vec3<f32>(1.0), color.rgb, color.a), 1.0);
 }

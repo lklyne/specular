@@ -123,7 +123,7 @@ pub(crate) struct ShapeInstance {
     /// Where the stroke band starts, in logical pixels outwards from the
     /// edge: 0 puts the stroke outside, `-stroke_width` inside.
     pub(crate) stroke_offset: f32,
-    /// [`Self::RECT`] or [`Self::ELLIPSE`].
+    /// [`Self::RECT`], [`Self::ELLIPSE`] or [`Self::SHADOW`].
     pub(crate) kind: f32,
 }
 
@@ -132,6 +132,9 @@ impl ShapeInstance {
     pub(crate) const RECT: f32 = 0.0;
     /// `kind` of an ellipse inscribed in the rect.
     pub(crate) const ELLIPSE: f32 = 1.0;
+    /// `kind` of a rounded rect's blurred shadow. `fill` is its colour and
+    /// `stroke_width` its blur radius; it has no stroke.
+    pub(crate) const SHADOW: f32 = 2.0;
 
     /// Vertex attributes: `@location(0)` centre and half size, `@location(1)`
     /// fill, `@location(2)` stroke, `@location(3)` radius, stroke width,

@@ -6,14 +6,16 @@ use specular_doc::{BrushType, Drawing, Entity, Stroke};
 use super::frame::Frame;
 use super::freehand;
 use super::palette::{self, Palette, Role};
-use crate::{Item, PathCommand, PathDraw, Point, Scene};
+use crate::{Blend, Item, PathCommand, PathDraw, Point, Scene};
 
 /// The outline is this much wider than the stroke's nominal width.
 const OUTLINE_SCALE: f64 = 1.6;
 /// A stroke never draws thinner than this many logical pixels.
 const MIN_SCREEN_WIDTH: f64 = 1.0;
-/// The highlighter's ink is see-through, so what it marks stays readable.
-const HIGHLIGHT_ALPHA: f32 = 0.3;
+/// How strongly the highlighter's ink is multiplied into what it marks.
+/// Multiplied, it tints the paper and leaves dark text as dark as it was,
+/// which painting it over at any alpha cannot do.
+const HIGHLIGHT_ALPHA: f32 = 0.7;
 
 pub(crate) fn draw(frame: &Frame<'_>, _entity: &Entity, drawing: &Drawing, scene: &mut Scene) {
     let min_width = MIN_SCREEN_WIDTH / f64::from(frame.zoom().max(f32::EPSILON));
@@ -28,9 +30,9 @@ pub(crate) fn draw(frame: &Frame<'_>, _entity: &Entity, drawing: &Drawing, scene
 fn stroke_item(stroke: &Stroke, min_width: f64) -> Option<Item> {
     let brush = stroke.brush.unwrap_or(BrushType::Pen);
     // The pen has round ends. The highlighter's are cut flat, like a marker.
-    let (palette, round_ends, alpha) = match brush {
-        BrushType::Pen => (Palette::Vivid, true, 1.0),
-        BrushType::Highlight => (Palette::Soft, false, HIGHLIGHT_ALPHA),
+    let (palette, round_ends, alpha, blend) = match brush {
+        BrushType::Pen => (Palette::Vivid, true, 1.0, Blend::Normal),
+        BrushType::Highlight => (Palette::Soft, false, HIGHLIGHT_ALPHA, Blend::Multiply),
     };
     let path: Vec<DVec2> = stroke
         .points
@@ -56,9 +58,10 @@ fn stroke_item(stroke: &Stroke, min_width: f64) -> Option<Item> {
         .collect();
     commands.push(PathCommand::Close);
     let ink = palette::resolve(&stroke.color, palette, Role::Ink);
-    Some(Item::canvas(PathDraw {
+    let path = PathDraw {
         commands,
         fill: Some(palette::with_alpha(ink, alpha)),
         stroke: None,
-    }))
+    };
+    Some(Item::canvas(path).with_blend(blend))
 }

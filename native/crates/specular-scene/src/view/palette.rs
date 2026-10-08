@@ -8,7 +8,7 @@
 
 use specular_doc::{Color as Stored, ColorPreset};
 
-use crate::Color;
+use crate::{Color, Item, Rect, ShadowDraw};
 
 /// Which hue set a surface paints in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -41,6 +41,26 @@ pub(crate) const PAGE_BORDER: Color = Color::rgb(0xa6, 0xa0, 0x9b);
 pub(crate) const MUTED_TEXT: Color = Color::rgb(0x6b, 0x6b, 0x6b);
 /// The inside of a card that stands in for content: a file.
 pub(crate) const CARD: Color = Color::rgb(0xfa, 0xfa, 0xf9);
+/// The highlight behind selected text while it is edited: the system's
+/// own, which is what a browser paints.
+pub(crate) const TEXT_SELECTION: Color = Color::rgb(0xb3, 0xd7, 0xff);
+
+/// The shadow under a sticky note, a file card and a Document, which is
+/// what lifts a pale card off the pale canvas: `0 2px 8px rgba(0, 0, 0,
+/// 0.08)`, in canvas units so it scales with the zoom.
+const CARD_SHADOW: Color = Color::rgba(0, 0, 0, 20);
+const CARD_SHADOW_DROP: f32 = 2.0;
+const CARD_SHADOW_BLUR: f32 = 8.0;
+
+/// The shadow of a card at `rect`, to push before the card itself.
+pub(crate) fn card_shadow(rect: Rect, corner_radius: f32) -> Item {
+    Item::canvas(ShadowDraw {
+        rect: Rect::new(rect.x, rect.y + CARD_SHADOW_DROP, rect.width, rect.height),
+        corner_radius,
+        blur: CARD_SHADOW_BLUR,
+        color: CARD_SHADOW,
+    })
+}
 
 /// The blue slot's stored value. JSON Canvas numbers six presets; blue is
 /// this app's seventh.

@@ -20,10 +20,10 @@ pub const TITLE_GAP: f32 = 4.0;
 
 /// Where `entity`'s title is laid out, for an entity that has one to edit.
 ///
-/// The frame is in canvas space but sized so that the title is
-/// [`TITLE_SIZE`] pixels on screen at the camera's zoom: the layout is
-/// measured at that size over zoom, and the scene draws it back at the
-/// pixel size.
+/// The frame is in canvas space but sized so that the title is its pixel
+/// size on screen at the camera's zoom ([`TITLE_SIZE`], less below half
+/// zoom): the layout is measured at that size over zoom, and the scene
+/// draws it back at the pixel size.
 pub(super) fn frame(app: &App, entity: &Entity) -> Option<TextFrame> {
     match &entity.kind {
         Kind::Group(_) => {}
@@ -32,15 +32,18 @@ pub(super) fn frame(app: &App, entity: &Entity) -> Option<TextFrame> {
         }
     }
     let zoom = app.session.camera.zoom.max(f32::EPSILON);
-    let line = TITLE_LINE / zoom;
+    // Canvas units per title pixel: a title shrinks below half zoom, and
+    // the one being edited is the size of the one at rest.
+    let unit = crate::title_scale(zoom) / zoom;
+    let line = TITLE_LINE * unit;
     Some(TextFrame {
         origin: DVec2::new(
             entity.rect.x,
-            entity.rect.y - f64::from(line + TITLE_GAP / zoom),
+            entity.rect.y - f64::from(line + TITLE_GAP * unit),
         ),
         spec: TextSpec {
             font: TextFont::Sans,
-            size: TITLE_SIZE / zoom,
+            size: TITLE_SIZE * unit,
             line_height: line,
             wrap_width: None,
             align: TextAlign::Left,

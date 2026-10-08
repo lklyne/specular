@@ -6,6 +6,10 @@
 
 use std::path::{Path, PathBuf};
 
+/// What `resources/starter-space/Welcome.canvas` writes for its space
+/// folder.
+const SPACE_TOKEN: &str = "__SPECULAR_SPACE__/";
+
 /// The file to read for `file`, or `None` when there is nothing on disk to
 /// read: a web URL, or a relative path with no space folder to start from.
 pub(crate) fn resolve(file: &str, space: Option<&Path>) -> Option<PathBuf> {
@@ -17,6 +21,10 @@ pub(crate) fn resolve(file: &str, space: Option<&Path>) -> Option<PathBuf> {
         let path = rest.split(['?', '#']).next().unwrap_or(rest);
         return Some(PathBuf::from(percent_decode(path)));
     }
+    // The starter space names its own files this way, and Electron writes
+    // the folder in when it copies the space. Opened where it lies, the
+    // folder is the one the canvas is in.
+    let file = file.strip_prefix(SPACE_TOKEN).unwrap_or(file);
     let path = Path::new(file);
     if path.is_absolute() {
         return Some(path.to_owned());
@@ -59,6 +67,14 @@ mod tests {
     }
 
     #[test]
+    fn the_starter_spaces_token_is_the_space_folder() {
+        assert_eq!(
+            resolved("__SPECULAR_SPACE__/Welcome.md"),
+            resolved("Welcome.md")
+        );
+    }
+
+    #[test]
     fn a_relative_path_is_inside_the_space_folder() {
         assert_eq!(
             resolved("assets/shot.png").as_deref(),
@@ -91,6 +107,7 @@ mod tests {
     #[test]
     fn a_relative_path_needs_a_space_folder() {
         assert_eq!(resolve("assets/shot.png", None), None);
+        assert_eq!(resolve("__SPECULAR_SPACE__/Welcome.md", None), None);
         assert!(resolve("/tmp/photo.jpg", None).is_some());
     }
 

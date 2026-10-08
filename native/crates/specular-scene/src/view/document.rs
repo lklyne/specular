@@ -61,6 +61,7 @@ const FAINT_RULE: Color = INK.with_alpha(31);
 
 pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, note: &NoteState, scene: &mut Scene) {
     let rect = canvas_rect(entity.rect);
+    scene.push(palette::card_shadow(rect, CORNER_RADIUS));
     scene.push(Item::canvas(
         RectDraw::filled(rect, palette::CARD).with_corner_radius(CORNER_RADIUS),
     ));

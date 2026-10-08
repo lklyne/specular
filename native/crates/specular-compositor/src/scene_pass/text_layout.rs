@@ -40,6 +40,7 @@ pub(crate) fn same_shaping(a: &TextRun, b: &TextRun) -> bool {
         && a.size.to_bits() == b.size.to_bits()
         && a.line_height.to_bits() == b.line_height.to_bits()
         && a.wrap_width.map(f32::to_bits) == b.wrap_width.map(f32::to_bits)
+        && a.overflow == b.overflow
         && a.weight == b.weight
         && a.italic == b.italic
         && a.align == b.align
@@ -54,6 +55,7 @@ pub(crate) fn shaping_hash(run: &TextRun) -> u64 {
     run.size.to_bits().hash(&mut hasher);
     run.line_height.to_bits().hash(&mut hasher);
     run.wrap_width.map(f32::to_bits).hash(&mut hasher);
+    run.overflow.hash(&mut hasher);
     run.weight.hash(&mut hasher);
     run.italic.hash(&mut hasher);
     run.align.hash(&mut hasher);

@@ -3,8 +3,9 @@
 use std::fmt::Write as _;
 
 use specular_scene::{
-    Color, ColumnDraw, Dash, Draw, FontFamily, Item, PathCommand, PathStroke, Point, Rect,
-    RuleHeight, Scene, Space, SpanStyle, Stroke, StrokeAlign, TextAlign, TextRun, VerticalAlign,
+    Blend, Color, ColumnDraw, Dash, Draw, FontFamily, Item, PathCommand, PathStroke, Point, Rect,
+    RuleHeight, Scene, Space, SpanStyle, Stroke, StrokeAlign, TextAlign, TextOverflow, TextRun,
+    VerticalAlign,
 };
 
 /// A path longer than this is summarised by its length and bounds. A
@@ -38,6 +39,10 @@ fn item_line(item: &Item) -> String {
     if item.opacity < 1.0 {
         let _ = write!(out, " opacity={}", num(item.opacity));
     }
+    match item.blend {
+        Blend::Normal => {}
+        Blend::Multiply => out.push_str(" blend=multiply"),
+    }
     out
 }
 
@@ -46,6 +51,12 @@ fn write_draw(out: &mut String, draw: &Draw) -> std::fmt::Result {
         Draw::Page(page) => {
             write!(out, "page {} {}", page.page, rect(page.rect))?;
             write_radius(out, page.corner_radius)
+        }
+        Draw::Shadow(shadow) => {
+            write!(out, "shadow {}", rect(shadow.rect))?;
+            write_radius(out, shadow.corner_radius)?;
+            write!(out, " blur={}", num(shadow.blur))?;
+            write_fill(out, Some(shadow.color))
         }
         Draw::Rect(shape) => {
             write!(out, "rect {}", rect(shape.rect))?;
@@ -94,6 +105,10 @@ fn write_text(out: &mut String, run: &TextRun) -> std::fmt::Result {
     write!(out, "text {:?} {}", run.text, point(run.origin))?;
     if let Some(width) = run.wrap_width {
         write!(out, " wrap={}", num(width))?;
+        match run.overflow {
+            TextOverflow::Wrap => {}
+            TextOverflow::Ellipsis => write!(out, " ellipsis")?,
+        }
     }
     if let Some(height) = run.box_height {
         write!(out, " box-h={}", num(height))?;

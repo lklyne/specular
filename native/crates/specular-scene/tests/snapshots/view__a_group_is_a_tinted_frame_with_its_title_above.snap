@@ -7,4 +7,4 @@ screen rect 700,100 400x300 r=2 fill=#0080004d
 screen rect 100,100 400x300 r=2 stroke=#71717a40/1.5/inside
 canvas rect 150,150 100x60 fill=#b5b9c0 stroke=#464a53/2/centre
 screen rect 700,100 400x300 r=2 stroke=#237902/1.5/inside
-screen text "Flows" 700,79.5 box-h=16.5 11/15.4 w500 #18181b middle clip=700,79.5 400x20.5
+screen text "Flows" 700,79.5 wrap=400 ellipsis box-h=16.5 11/15.4 w500 #18181b middle clip=700,79.5 400x20.5

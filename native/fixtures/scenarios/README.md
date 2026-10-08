@@ -50,8 +50,10 @@ The camera in `appState` is left out of every comparison.
   script saved.
 - Start with a `camera x,y,zoom` step, so the positions that follow mean
   something. Positions are screen pixels in a 1600x1000 viewport.
-- A press with no `move` or `click` before it lands on whatever is there,
-  including an edge that crosses the item you meant. Snapshot and look.
+- A press with no `move` or `click` before it lands on whatever is there.
+  Snapshot and look.
+- Cmd+D pans the camera when the copies land off screen. Put a `camera`
+  step after it before going on by position.
 - A headless run keeps the clipboard and new Documents in memory, so
   `key cmd+c`, `key cmd+v`, `clipboard some text` and `tool document` work
   and nothing is written beside the canvas.

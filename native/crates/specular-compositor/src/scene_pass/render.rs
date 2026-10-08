@@ -4,7 +4,7 @@ use std::time::Instant;
 
 use specular_core::PageId;
 use specular_doc::EntityId;
-use specular_scene::{Draw, Scene, Size};
+use specular_scene::{Blend, Draw, Scene, Size};
 
 use super::batch::{Batch, batch};
 use super::build::{DrawOp, Op, Output, QuadTexture, build};
@@ -179,7 +179,7 @@ impl Compositor {
 
         let text_batches = batches.iter().filter_map(|batch| match batch.prim {
             Prim::Text(space) => Some((space, batch)),
-            Prim::Page | Prim::Image | Prim::Shape | Prim::Mesh => None,
+            Prim::Page | Prim::Image | Prim::Shape | Prim::Mesh(_) => None,
         });
         let mut text_batch_count = 0;
         if let Some(text) = text {
@@ -284,8 +284,11 @@ impl Compositor {
                     pass.set_vertex_buffer(0, self.shape_buffer.slice());
                     pass.draw(0..4, range.clone());
                 }
-                Op::Mesh(range) => {
-                    pass.set_pipeline(&pipelines.mesh);
+                Op::Mesh(range, blend) => {
+                    pass.set_pipeline(match blend {
+                        Blend::Normal => &pipelines.mesh,
+                        Blend::Multiply => &pipelines.mesh_multiply,
+                    });
                     pass.set_bind_group(0, &self.frame_bind_group, &[]);
                     pass.set_vertex_buffer(0, mesh_vertices.slice());
                     pass.set_index_buffer(mesh_indices.slice(), wgpu::IndexFormat::Uint32);
@@ -323,6 +326,7 @@ fn text_draws<'a>(
             Draw::Text(run) => TextItem::Run(run),
             Draw::Column(column) => TextItem::Column(column),
             Draw::Page(_)
+            | Draw::Shadow(_)
             | Draw::Rect(_)
             | Draw::Ellipse(_)
             | Draw::Polygon(_)

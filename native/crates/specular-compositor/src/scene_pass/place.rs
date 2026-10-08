@@ -3,7 +3,9 @@
 
 use glam::Vec2;
 use specular_core::Camera;
-use specular_scene::{ColumnDraw, Draw, Point, Rect, Scene, Size, Space, TextRun, VerticalAlign};
+use specular_scene::{
+    Blend, ColumnDraw, Draw, Point, Rect, Scene, Size, Space, TextRun, VerticalAlign,
+};
 
 use super::column;
 use super::text_layout::text_rect;
@@ -106,10 +108,10 @@ pub(crate) enum Prim {
     Page,
     /// An image's textured quad.
     Image,
-    /// An SDF rect or ellipse.
+    /// An SDF rect or ellipse, or a rect's shadow.
     Shape,
-    /// A tessellated polygon or path.
-    Mesh,
+    /// A tessellated polygon or path. Each blend is its own pipeline.
+    Mesh(Blend),
     /// Glyphs. Canvas and screen text rasterise at different scales.
     Text(Space),
 }
@@ -182,8 +184,8 @@ pub(crate) fn place(
             }
             Draw::Page(_) => (Prim::Page, item.draw.bounds()),
             Draw::Image(_) => (Prim::Image, item.draw.bounds()),
-            Draw::Rect(_) | Draw::Ellipse(_) => (Prim::Shape, item.draw.bounds()),
-            Draw::Polygon(_) | Draw::Path(_) => (Prim::Mesh, item.draw.bounds()),
+            Draw::Rect(_) | Draw::Ellipse(_) | Draw::Shadow(_) => (Prim::Shape, item.draw.bounds()),
+            Draw::Polygon(_) | Draw::Path(_) => (Prim::Mesh(item.blend), item.draw.bounds()),
         };
         let bounds = bounds.and_then(|bounds| {
             view.rect(item.space, bounds)

@@ -13,6 +13,8 @@ impl Draw {
         match self {
             Self::Page(page) => Some(page.rect),
             Self::Image(image) => Some(image.rect),
+            // A blur's tail runs a little past its radius.
+            Self::Shadow(shadow) => Some(shadow.rect.outset(shadow.blur.max(0.0) * 1.5)),
             Self::Rect(rect) => Some(rect.rect.outset(shape_outset(rect.stroke))),
             Self::Ellipse(ellipse) => Some(ellipse.rect.outset(shape_outset(ellipse.stroke))),
             Self::Polygon(polygon) => Rect::bounding(polygon.points.iter().copied())

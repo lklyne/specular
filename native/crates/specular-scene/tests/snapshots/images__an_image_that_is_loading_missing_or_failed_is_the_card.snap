@@ -2,12 +2,15 @@
 source: crates/specular-scene/tests/images.rs
 expression: app.scene_snapshot()
 ---
+canvas shadow 100,102 200x100 r=4 blur=8 fill=#00000014
 canvas rect 100,100 200x100 r=4 fill=#fafaf9
 canvas path M202.67,124.97 L192,124.97 L189.33,127.63 L189.33,148.97 L192,151.63 L208,151.63 L210.67,148.97 L210.67,132.97 Z M202.67,124.97 L202.67,132.97 L210.67,132.97 stroke=#78716c/1.5 clip=100,100 200x100
 canvas text "loading.png" 116,162.3 wrap=168 11/15.4 #78716c centre clip=100,100 200x100
+canvas shadow 400,102 200x100 r=4 blur=8 fill=#00000014
 canvas rect 400,100 200x100 r=4 fill=#fafaf9
 canvas path M502.67,124.97 L492,124.97 L489.33,127.63 L489.33,148.97 L492,151.63 L508,151.63 L510.67,148.97 L510.67,132.97 Z M502.67,124.97 L502.67,132.97 L510.67,132.97 stroke=#78716c/1.5 clip=400,100 200x100
 canvas text "missing.png" 416,162.3 wrap=168 11/15.4 #78716c centre clip=400,100 200x100
+canvas shadow 700,102 200x100 r=4 blur=8 fill=#00000014
 canvas rect 700,100 200x100 r=4 fill=#fafaf9
 canvas path M802.67,124.97 L792,124.97 L789.33,127.63 L789.33,148.97 L792,151.63 L808,151.63 L810.67,148.97 L810.67,132.97 Z M802.67,124.97 L802.67,132.97 L810.67,132.97 stroke=#78716c/1.5 clip=700,100 200x100
 canvas text "failed.png" 716,162.3 wrap=168 11/15.4 #78716c centre clip=700,100 200x100

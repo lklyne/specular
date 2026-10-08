@@ -355,6 +355,19 @@ fn option_drag_leaves_a_copy_and_selects_it() {
     app.assert_undo_returns_to_start();
 }
 
+/// Where the copies an Option-drag is previewing would land.
+fn landing(app: &TestApp) -> Vec<Rect> {
+    let Some(preview) = app.app().copy_preview() else {
+        return Vec::new();
+    };
+    (preview.entities.iter())
+        .map(|id| {
+            let rect = app.rect(id.as_str());
+            rect.translated(preview.delta.x, preview.delta.y)
+        })
+        .collect()
+}
+
 #[test]
 fn option_drag_previews_the_copies_and_leaves_the_document_alone_until_release() {
     let mut app = notes();
@@ -363,7 +376,7 @@ fn option_drag_previews_the_copies_and_leaves_the_document_alone_until_release()
         .press(ON_A)
         .drag_to((250.0, 190.0));
     assert_eq!(
-        (app.app().copy_preview(), app.rect("a"), app.rect("b")),
+        (landing(&app), app.rect("a"), app.rect("b")),
         (
             vec![
                 Rect::new(200.0, 140.0, 200.0, 100.0),
@@ -387,7 +400,7 @@ fn option_can_be_pressed_and_let_go_mid_drag() {
     let moved = app.rect("a");
     // Pressing Option puts the original back and shows the copy instead.
     let copying = app.hold(ALT).key_down(Key::Other).rect("a");
-    let preview = app.app().copy_preview();
+    let preview = landing(&app);
     // Letting go makes it a move again.
     app.let_go().key_up(Key::Other).release();
     assert_eq!(

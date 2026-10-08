@@ -97,11 +97,11 @@ pub use event::{Action, Event, Key, KeyInput, PageNotice, PointerInput, WheelInp
 pub use geometry::to_canvas_rect;
 pub use gesture::Gesture;
 pub use handles::{Corner, HANDLE_SIZE, Handle, HandleOwner, OUTLINE_PADDING};
-pub use hit::{Hit, hit_test};
+pub use hit::{Hit, hit_test, title_scale};
 pub use images::{Image, ImageKey, ImageNotice, ImageState, is_image_file};
 pub use marquee::MarqueeMode;
 pub use menu::{Menu, MenuEntry, MenuItem, binding_of, menus};
-pub use move_drag::MoveDrag;
+pub use move_drag::{CopyPreview, MoveDrag};
 pub use notes::{NoteNotice, NoteState, is_note_file};
 pub use place::{PlaceDrag, Placing};
 pub use placement::PagePlacement;
