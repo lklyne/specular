@@ -3,10 +3,11 @@
 
 #![expect(clippy::panic, reason = "a helper fails the test it is called from")]
 
+use specular_doc::{ItemId, Rect};
 use specular_interact::{
     Action, BINDINGS, Chord, Key, Menu, MenuEntry, MenuItem, binding_of, menus,
 };
-use specular_testkit::TestApp;
+use specular_testkit::{TestApp, connected, document, text};
 
 fn items(menus: &[Menu]) -> Vec<&MenuItem> {
     (menus.iter())
@@ -125,6 +126,24 @@ fn items_with_nothing_to_act_on_are_disabled() {
     app.undo();
     assert!(enabled(&app, "Redo"));
     assert!(!enabled(&app, "Undo"));
+
+    // Nothing on the canvas to select or fit.
+    let empty = TestApp::empty();
+    for label in ["Select all", "Zoom to fit"] {
+        assert!(!enabled(&empty, label), "{label}");
+    }
+
+    // An edge alone is deleted but not cut, copied or duplicated.
+    let entities = [
+        text("t1", Rect::new(100.0, 100.0, 100.0, 100.0)),
+        text("t2", Rect::new(500.0, 100.0, 100.0, 100.0)),
+    ];
+    let mut edged = TestApp::from_document(connected(document(entities), "e1", "t1", "t2"));
+    edged.act(Action::Select(vec![ItemId::Edge("e1".into())]));
+    for label in ["Cut", "Copy", "Duplicate"] {
+        assert!(!enabled(&edged, label), "{label}");
+    }
+    assert!(enabled(&edged, "Delete"));
 }
 
 #[test]

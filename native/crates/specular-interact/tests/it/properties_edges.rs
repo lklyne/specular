@@ -60,6 +60,16 @@ fn a_brush_moves_the_width_to_one_it_is_offered_in_and_regrows_the_rect() {
     set(&mut app, Property::StrokeWidth(16.0));
     assert_eq!(app.rect("d"), Rect::new(112.0, 112.0, 56.0, 46.0));
     app.assert_undo_returns_to_start();
+
+    // A color changes no width, so it leaves the drawing's rect as it is.
+    let loose = Entity {
+        rect: Rect::new(100.0, 100.0, 200.0, 200.0),
+        ..ink(Color::Neutral, 2.0, None)
+    };
+    let mut app = TestApp::with_entities([loose]);
+    app.select(&["d"]);
+    set(&mut app, Property::Color(RED));
+    assert_eq!(app.rect("d"), Rect::new(100.0, 100.0, 200.0, 200.0));
 }
 
 // Edges.

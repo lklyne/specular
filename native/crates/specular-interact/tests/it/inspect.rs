@@ -73,6 +73,43 @@ fn hovering_page_content_outlines_the_node_and_shows_its_popover() {
     // Above the outline, one gap over it, lined up with its left edge.
     near(popover.rect.size, (324.7, 70.0));
     near(popover.rect.min, (100.0, 72.0));
+
+    // A bare node: no tag, an empty id, a transparent background and no font.
+    app.pointer_move(CELL_1_1);
+    let node = {
+        let mut node = specular_core::synthetic::synthetic_inspected_at(
+            specular_core::CssSize::new(400, 300),
+            Vec2::new(180.0, 50.0),
+        )
+        .expect("a cell");
+        node.tag_name.clear();
+        node.id_attribute = Some(String::new());
+        node.classes = ["a", "b", "c", "d"].map(String::from).to_vec();
+        node.styles
+            .retain(|(name, _)| name != "font-family" && name != "background");
+        node.styles
+            .push(("background".to_owned(), "rgba(0, 0, 0, 0)".to_owned()));
+        node
+    };
+    app.send(Event::Page {
+        page: EntityId::from("p1"),
+        notice: PageNotice::Inspected {
+            point: Vec2::new(180.0, 50.0),
+            pick: false,
+            node: Some(Box::new(node)),
+        },
+    });
+    let popover = app.inspect_model().expect("the node is shown").popover;
+    assert_eq!(
+        (
+            popover.tag.as_str(),
+            popover.remainder.as_str(),
+            popover.font,
+            popover.swatches.len()
+        ),
+        ("element", ".a.b.c", None, 1),
+        "a fallback tag, no empty id, three classes, no font, no clear background"
+    );
 }
 
 #[test]

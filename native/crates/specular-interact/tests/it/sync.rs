@@ -86,6 +86,10 @@ fn the_chain_button_merges_the_selected_pages_into_one_set_and_takes_one_set_apa
     let before = app.document().clone();
     app.act(Action::ToggleSync);
     assert_eq!(*app.document(), before);
+    // It recorded no step of its own: one undo takes back the page leaving.
+    app.undo();
+    assert_ne!(*app.document(), before);
+    app.redo();
 
     app.assert_undo_returns_to_start();
 }
@@ -105,6 +109,11 @@ fn a_page_that_navigates_takes_its_sync_set_there_and_no_arrival_echoes_back() {
     // p2 arriving, and being redirected on the way, sends nothing back.
     app.page_reports("p2", PageNotice::Url("https://site.test/a".to_owned()));
     app.page_reports("p2", PageNotice::Url("https://m.site.test/a".to_owned()));
+    assert_eq!(asked(&mut app), [] as [String; 0]);
+
+    // Still within the quiet after the first arrival, a move is a redirect.
+    app.tick(1_000);
+    app.page_reports("p2", PageNotice::Url("https://m2.site.test/a".to_owned()));
     assert_eq!(asked(&mut app), [] as [String; 0]);
 
     // Once the load has settled, p2 leads as well as follows.
@@ -127,6 +136,15 @@ fn a_page_that_navigates_takes_its_sync_set_there_and_no_arrival_echoes_back() {
     // A page reporting an address its peers already show sends nobody.
     app.tick(6_000);
     app.page_reports("p2", PageNotice::Url("https://site.test/b#x".to_owned()));
+    assert_eq!(asked(&mut app), [] as [String; 0]);
+
+    // A page reporting the address it already showed is not a move, even
+    // when a peer has gone elsewhere since.
+    app.tick(8_000);
+    app.page_reports("p2", PageNotice::Url("https://site.test/c".to_owned()));
+    app.take_effects();
+    app.tick(12_000);
+    app.page_reports("p1", PageNotice::Url("https://site.test/b#x".to_owned()));
     assert_eq!(asked(&mut app), [] as [String; 0]);
 }
 
@@ -170,6 +188,26 @@ fn the_history_buttons_and_the_address_field_drive_the_whole_sync_set() {
     // What the driven pages then report is not sent round again.
     app.page_reports("p1", PageNotice::Url("https://site.test/z".to_owned()));
     assert_eq!(asked(&mut app), [] as [String; 0]);
+
+    // A peer already at the address is not sent there again.
+    app.tick(10_000);
+    app.page_reports("p2", PageNotice::Url("https://site.test/z".to_owned()));
+    app.take_effects();
+    app.tick(15_000);
+    app.act(Action::PageNavigate("https://site.test/z".to_owned()));
+    assert_eq!(asked(&mut app), ["p1 To(\"https://site.test/z\")"]);
+
+    // A reload reloads only a peer showing the same address; one showing
+    // another is loaded where the page is.
+    app.tick(20_000);
+    app.page_reports("p2", PageNotice::Url("https://site.test/other".to_owned()));
+    app.take_effects();
+    app.tick(30_000);
+    app.act(Action::PageReload);
+    assert_eq!(
+        asked(&mut app),
+        ["p1 Reload", "p2 To(\"https://site.test/z\")"]
+    );
 }
 
 #[test]
@@ -197,6 +235,12 @@ fn the_entered_pages_scroll_moves_its_sync_set_to_the_same_fraction() {
     // The follower's own scroll report goes nowhere.
     app.page_reports("p2", PageNotice::Scrolled { x: 0.0, y: 450.0 });
     app.page_reports("p2", PageNotice::ScrollProgress { x: 0.0, y: 0.5 });
+    assert_eq!(asked(&mut app), [] as [String; 0]);
+
+    // An entered page in no set has nobody to move.
+    app.click((1400.0, 250.0)).click((1400.0, 250.0));
+    app.take_effects();
+    app.page_reports("p3", PageNotice::Scrolled { x: 0.0, y: 300.0 });
     assert_eq!(asked(&mut app), [] as [String; 0]);
 }
 
@@ -242,6 +286,10 @@ fn replays(app: &mut TestApp) -> Vec<(String, PointKind, Vec2)> {
 }
 
 #[test]
+#[expect(
+    clippy::too_many_lines,
+    reason = "one scripted session: each step builds on the state the last left"
+)]
 fn the_entered_pages_hovers_and_clicks_replay_on_a_peers_own_element_or_not_at_all() {
     let mut app = synced_pair();
     let pointed = |kind| PageNotice::Pointed {
@@ -318,6 +366,17 @@ fn the_entered_pages_hovers_and_clicks_replay_on_a_peers_own_element_or_not_at_a
         );
     }
 
+    // A click outranks the hover before it: the hover's late answer is
+    // dropped, the click's lands.
+    app.page_reports("p1", pointed(PointKind::Hover));
+    let hover = asked_candidates(&mut app, "p2").expect("p2 was asked");
+    app.page_reports("p1", pointed(PointKind::Click));
+    let click = asked_candidates(&mut app, "p2").expect("p2 was asked");
+    app.page_reports("p2", answer(hover, menu_at_300.clone()));
+    assert_eq!(replays(&mut app), []);
+    app.page_reports("p2", answer(click, menu_at_300.clone()));
+    assert_eq!(replays(&mut app).len(), 1);
+
     // An answer to a question a newer one replaced is dropped.
     app.page_reports("p1", pointed(PointKind::Click));
     let stale = asked_candidates(&mut app, "p2").expect("p2 was asked");
@@ -326,6 +385,18 @@ fn the_entered_pages_hovers_and_clicks_replay_on_a_peers_own_element_or_not_at_a
     app.page_reports("p2", answer(stale, menu_at_300.clone()));
     assert_eq!(replays(&mut app), []);
 
+    // A replayed hover does not hold the peer back: it cannot be following
+    // a link it did not click.
+    app.tick(5_000);
+    app.page_reports("p1", pointed(PointKind::Hover));
+    let request = asked_candidates(&mut app, "p2").expect("p2 was asked");
+    app.page_reports("p2", answer(request, menu_at_300.clone()));
+    app.take_effects();
+    app.page_reports("p1", PageNotice::Url("https://site.test/hover".to_owned()));
+    assert_eq!(asked(&mut app), ["p2 To(\"https://site.test/hover\")"]);
+    app.page_reports("p2", PageNotice::Url("https://site.test/hover".to_owned()));
+    app.tick(7_000);
+
     // A link clicked on both pages loads the peer once: the peer follows
     // its own click, and is sent there only if that click took it nowhere.
     app.page_reports("p1", pointed(PointKind::Click));
@@ -333,10 +404,12 @@ fn the_entered_pages_hovers_and_clicks_replay_on_a_peers_own_element_or_not_at_a
     app.page_reports("p2", answer(request, menu_at_300.clone()));
     app.page_reports("p1", PageNotice::Url("https://site.test/next".to_owned()));
     assert_eq!(asked(&mut app), [] as [String; 0]);
-    app.tick(2_000);
+    app.tick(7_500);
+    assert_eq!(asked(&mut app), [] as [String; 0], "still given time");
+    app.tick(9_000);
     assert_eq!(asked(&mut app), ["p2 To(\"https://site.test/next\")"]);
     app.page_reports("p2", PageNotice::Url("https://site.test/next".to_owned()));
-    app.tick(5_000);
+    app.tick(12_000);
     app.take_effects();
 
     // What a peer is pointed at is replayed input, and is not sent on.
@@ -350,7 +423,24 @@ fn the_entered_pages_hovers_and_clicks_replay_on_a_peers_own_element_or_not_at_a
     app.page_reports("p1", pointed(PointKind::Click));
     assert_eq!(asked_candidates(&mut app, "p2"), None);
 
-    // Leaving the page ends the capture.
+    // Leaving the page ends the capture, and a question asked before is
+    // forgotten with it.
+    app.tick(30_000);
+    app.page_reports("p2", PageNotice::Url("https://site.test/next".to_owned()));
+    app.page_reports("p1", pointed(PointKind::Click));
+    let forgotten = asked_candidates(&mut app, "p2").expect("p2 was asked");
     app.key(Key::Escape);
     assert!(app.take_effects().contains(&Effect::CapturePage(None)));
+    app.page_reports("p2", answer(forgotten, menu_at_300));
+    assert_eq!(replays(&mut app), []);
+
+    // A page in no set is not captured.
+    app.click((1400.0, 250.0)).click((1400.0, 250.0));
+    let entered = app.take_effects();
+    assert!(
+        !entered
+            .iter()
+            .any(|effect| matches!(effect, Effect::CapturePage(Some(_)))),
+        "{entered:?}"
+    );
 }

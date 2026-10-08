@@ -1,7 +1,7 @@
 //! The comment draft and its composer: where the card sits, what commits or
 //! drops the draft, and annotating the selection.
 
-use specular_doc::{AnnotationAnchor, Document, EntityId, Rect, RegionAnchor};
+use specular_doc::{AnnotationAnchor, Document, EntityId, Kind, Rect, RegionAnchor};
 use specular_interact::{Action, Key, Tool, selection_metadata};
 use specular_testkit::{TestApp, assert_doc_snapshot, document, file, group, inside, page, sticky};
 
@@ -68,6 +68,12 @@ fn the_composer_keeps_its_size_on_screen_at_any_zoom() {
         app.app().caret_rect().map(|caret| (caret.x, caret.y)),
         Some((612.0, 447.5)),
         "the text starts 10 in and 8 down"
+    );
+    let spec = app.app().edit_frame().map(|frame| frame.spec);
+    assert_eq!(
+        spec.map(|spec| (spec.size, spec.line_height, spec.wrap_width)),
+        Some((5.5, 7.7, Some(120.0))),
+        "11 px text on 15.4 px lines wrapped at 240 px, as they are on screen"
     );
 }
 
@@ -171,6 +177,14 @@ fn annotating_one_selected_page_names_it_as_the_target() {
     app.type_text("tighten this").key(Key::Enter);
     assert_doc_snapshot!(app);
     app.assert_undo_returns_to_start();
+    // Two pages: one region spanning both.
+    app.select(&["p1", "p2"]).act(Action::AnnotateSelection);
+    assert_eq!(
+        app.comment_draft().anchor,
+        AnnotationAnchor::Region(RegionAnchor::Canvas {
+            canvas_rect: Rect::new(100.0, 100.0, 1000.0, 300.0)
+        })
+    );
 }
 
 #[test]
@@ -184,6 +198,19 @@ fn the_target_is_the_one_page_selected_or_else_the_one_file() {
         file("f2", rect),
         sticky("s", rect, "note"),
     ]);
+    let mut blank_page = page("blank-page", rect);
+    if let Kind::Page(fields) = &mut blank_page.kind {
+        fields.url.clear();
+    }
+    let mut blank_file = file("blank-file", rect);
+    if let Kind::File(fields) = &mut blank_file.kind {
+        fields.file.clear();
+    }
+    let document = {
+        let mut entities: Vec<_> = document.entities().cloned().collect();
+        entities.extend([blank_page, blank_file]);
+        specular_testkit::document(entities)
+    };
     let target = |ids: &[&str]| {
         let ids: Vec<EntityId> = ids.iter().map(|id| EntityId::from(*id)).collect();
         (selection_metadata(&document, &ids).get("selectionTarget")).map(ToString::to_string)
@@ -210,4 +237,24 @@ fn the_target_is_the_one_page_selected_or_else_the_one_file() {
     );
     assert_eq!(target(&["f", "f2"]), None, "two files");
     assert_eq!(target(&["s"]), None, "neither");
+    assert_eq!(
+        target(&["g", "in-group"]),
+        page("in-group"),
+        "a page selected with its group is one page"
+    );
+    assert_eq!(
+        target(&["p", "in-group", "f"]),
+        None,
+        "two pages are not settled by a file"
+    );
+    assert_eq!(
+        target(&["blank-page"]).as_deref(),
+        Some(r#"{"entityId":"blank-page","kind":"page"}"#),
+        "no address, no url"
+    );
+    assert_eq!(
+        target(&["blank-file"]).as_deref(),
+        Some(r#"{"entityId":"blank-file","kind":"file"}"#),
+        "no path, no filePath"
+    );
 }

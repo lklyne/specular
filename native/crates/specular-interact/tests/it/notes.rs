@@ -3,7 +3,7 @@
 
 use specular_doc::{Document, Entity, EntityId, FileRef, Kind, Rect};
 use specular_interact::{Action, Effect, Event, NoteNotice, NoteState};
-use specular_testkit::{TestApp, document, file, page};
+use specular_testkit::{CMD, TestApp, document, file, page, sticky};
 
 const BOX: Rect = Rect::new(100.0, 100.0, 400.0, 300.0);
 /// A point inside [`BOX`] under the default camera.
@@ -69,8 +69,17 @@ fn opening_a_document_asks_for_each_markdown_file_once() {
 
 #[test]
 fn the_text_the_shell_sends_is_kept_and_replaced_when_the_file_changes() {
-    let mut app = opened(document([note("a", "a.md"), note("b", "b.md")]));
+    let mut app = opened(document([
+        note("a", "a.md"),
+        note("b", "b.md"),
+        note("c", "c.md"),
+    ]));
     text(&mut app, "a.md", "# one");
+    app.send(Event::Note {
+        file: "c.md".to_owned(),
+        notice: NoteNotice::Failed,
+    });
+    assert_eq!(app.app().note("c.md"), Some(&NoteState::Failed));
     app.send(Event::Note {
         file: "b.md".to_owned(),
         notice: NoteNotice::Missing,
@@ -133,6 +142,11 @@ fn the_wheel_scrolls_the_selected_document_under_the_pointer() {
     assert_eq!(scroll(&app, "a"), 35.0);
     app.wheel((0.0, 500.0));
     assert_eq!(scroll(&app, "a"), 0.0);
+    // Zoomed in, a wheel step is fewer canvas units.
+    app.zoom(2.0)
+        .pointer_move((400.0, 400.0))
+        .wheel((0.0, -60.0));
+    assert_eq!(scroll(&app, "a"), 30.0);
 }
 
 #[test]
@@ -153,4 +167,25 @@ fn the_wheel_pans_the_canvas_unless_the_document_is_the_whole_selection() {
         .pointer_move((5.0, 5.0))
         .wheel((0.0, -60.0));
     assert!(scroll(&app, "a") == 0.0 && app.session().camera != moved);
+    // Command held, the wheel is a zoom, not a scroll.
+    let zoom = app.session().camera.zoom;
+    let over_a = app
+        .session()
+        .camera
+        .world_to_screen(glam::Vec2::new(300.0, 250.0));
+    app.select(&["a"])
+        .pointer_move(over_a)
+        .hold(CMD)
+        .wheel((0.0, -60.0))
+        .let_go();
+    assert!(scroll(&app, "a") == 0.0 && (app.session().camera.zoom - zoom).abs() > 0.01);
+    // Selected alone but not a Document: the canvas pans.
+    app.open(document([
+        note("a", "a.md"),
+        sticky("s", Rect::new(900.0, 100.0, 400.0, 300.0), "s"),
+    ]));
+    let before = app.session().camera;
+    let over_s = before.world_to_screen(glam::Vec2::new(1000.0, 250.0));
+    app.select(&["s"]).pointer_move(over_s).wheel((0.0, -60.0));
+    assert_ne!(app.session().camera, before);
 }

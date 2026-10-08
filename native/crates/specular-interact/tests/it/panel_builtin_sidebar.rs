@@ -6,6 +6,7 @@ use glam::Vec2;
 use specular_doc::{
     Annotation, AnnotationAnchor, AnnotationId, Entity, EntityId, PageAnchor, Rect,
 };
+use specular_interact::panel::builtin::Part;
 use specular_interact::{Action, ControlId, SIDEBAR_WIDTH, Tool};
 use specular_testkit::{
     CMD, SHIFT, TestApp, comment, document, group, inside, page, sticky, with_comment,
@@ -63,6 +64,13 @@ fn an_item_already_in_the_free_part_leaves_the_camera_alone() {
     app.click_control("sidebar.notes.near");
     assert_eq!(app.selected(), Some("near"));
     assert_eq!(app.session().camera, before);
+    // One under the sidebar is not in the free part, and is brought out.
+    app.click_control("sidebar.notes.under");
+    let centre = app
+        .session()
+        .camera
+        .world_to_screen(Vec2::new(140.0, 550.0));
+    assert_eq!(centre, FREE_CENTRE);
 }
 
 #[test]
@@ -82,6 +90,10 @@ fn shift_selects_the_run_between_two_rows_and_command_toggles_one() {
     assert_eq!(app.selected_ids(), ["s4", "s2"]);
     app.hold(CMD).click_control("sidebar.notes.s1").let_go();
     assert_eq!(app.selected_ids(), ["s4", "s2", "s1"]);
+    // A run back up the list, from the row picked last.
+    app.click_control("sidebar.notes.s1");
+    app.hold(SHIFT).click_control("sidebar.notes.s3").let_go();
+    assert_eq!(app.selected_ids(), ["s1", "s3", "s2"]);
 }
 
 #[test]
@@ -130,11 +142,21 @@ fn a_group_opens_and_closes_from_its_chevron() {
     assert!(shown(&app, "sidebar.notes.m"));
     assert!(app.selected().is_none(), "the chevron only opens");
     // The member is one level in: its glyph is 14 px further right.
-    let (group_row, member) = (
-        app.control_rect("sidebar.notes.g"),
-        app.control_rect("sidebar.notes.m"),
+    let glyph_x = |app: &TestApp, id: &str| {
+        let layout = app.panel_layout();
+        let node = layout.node(&ControlId::from(id.to_owned())).expect("a row");
+        node.parts
+            .iter()
+            .find_map(|part| match part {
+                Part::Glyph { rect, .. } => Some(rect.x),
+                _ => None,
+            })
+            .expect("a glyph")
+    };
+    assert_eq!(
+        glyph_x(&app, "sidebar.notes.m") - glyph_x(&app, "sidebar.notes.g"),
+        14.0
     );
-    assert_eq!(group_row.width, member.width);
     app.click_control("sidebar.notes.g.toggle");
     assert!(!shown(&app, "sidebar.notes.m"));
 }
@@ -178,6 +200,13 @@ fn a_wheel_off_the_sidebar_still_reaches_the_canvas() {
         .wheel((0.0, -120.0));
     assert_ne!(app.session().camera, camera);
     assert_eq!(app.sidebar_scroll(), 0.0);
+    // Over the toolbar the wheel is the toolbar's: it neither scrolls the
+    // list nor pans.
+    let camera = app.session().camera;
+    app.pointer_move(Vec2::new(900.0, 20.0))
+        .wheel((0.0, -120.0));
+    assert_eq!(app.sidebar_scroll(), 0.0);
+    assert_eq!(app.session().camera, camera);
 }
 
 #[test]
@@ -212,8 +241,14 @@ fn hover_selection_and_dimming_are_marked_on_the_rows() {
         }),
         ..sticky("s", BOX, "hooked")
     };
-    let mut app = TestApp::with_entities([page("p1", BOX), anchored]);
-    let _ = url;
+    let current = Entity {
+        anchor: Some(PageAnchor {
+            page_url: Some(url.to_owned()),
+            ..PageAnchor::new(EntityId::from("p1"))
+        }),
+        ..sticky("t", BOX, "current")
+    };
+    let mut app = TestApp::with_entities([page("p1", BOX), anchored, current]);
     app.with_panels().show_sidebar(true);
     app.page_reports("p1", specular_interact::PageNotice::Url(url.to_owned()));
     let node = |app: &TestApp, id: &str| {
@@ -224,6 +259,7 @@ fn hover_selection_and_dimming_are_marked_on_the_rows() {
     };
     assert!(node(&app, "sidebar.pages.s").state.dimmed);
     assert!(!node(&app, "sidebar.pages.p1").state.dimmed);
+    assert!(!node(&app, "sidebar.pages.t").state.dimmed);
     app.hover_control("sidebar.pages.p1");
     assert_eq!(
         node(&app, "sidebar.pages.p1").state.pointing,

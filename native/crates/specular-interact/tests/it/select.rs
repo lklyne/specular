@@ -2,9 +2,9 @@
 //! and what the selection means for a group (ADR 0034). Nothing here changes
 //! the document.
 
-use specular_core::{InputEvent, PointerButton, PointerEvent, PointerEventKind};
+use specular_core::{InputEvent, Modifiers, PointerButton, PointerEvent, PointerEventKind};
 use specular_doc::{Entity, EntityId, PageAnchor, Rect};
-use specular_interact::{Effect, Focus, Gesture, MarqueeMode};
+use specular_interact::{Effect, Event, Focus, Gesture, MarqueeMode, PointerInput};
 use specular_testkit::{
     CMD, SHIFT, TestApp, connected, document, group, inside, page, pages, shape, text,
 };
@@ -88,7 +88,23 @@ fn clicks_on_the_entered_page_go_to_the_page() {
 #[test]
 fn a_double_click_enters_a_page_that_was_not_selected() {
     let mut app = TestApp::with_pages(2);
-    app.double_click(ON_P1);
+    // Only the second press of the pair arrives: the count alone enters.
+    for kind in [
+        PointerEventKind::Down {
+            button: PointerButton::Left,
+            click_count: 2,
+        },
+        PointerEventKind::Up {
+            button: PointerButton::Left,
+            click_count: 2,
+        },
+    ] {
+        app.send(Event::Pointer(PointerInput {
+            kind,
+            screen: ON_P1.into(),
+            modifiers: Modifiers::default(),
+        }));
+    }
     assert_eq!(
         (app.take_effects(), focus(&app)),
         (entering("p1"), Some("p1"))
@@ -178,10 +194,16 @@ fn a_drag_from_empty_canvas_selects_what_the_rect_touches() {
     let mut app = TestApp::with_pages(3);
     // From below-left of p1 up into p2: touches p1 and p2, not p3.
     app.drag((50.0, 450.0), (750.0, 350.0));
-    assert_eq!(
-        (app.selected_ids(), app.app().can_undo()),
-        (vec!["p1", "p2"], false)
-    );
+    let taken = (app.selected_ids().join(","), app.app().can_undo());
+    // Rects that miss every page on one side each: left, above, between, below.
+    let misses = [
+        ((10.0, 150.0), (90.0, 350.0)),
+        ((50.0, 10.0), (750.0, 90.0)),
+        ((520.0, 150.0), (580.0, 350.0)),
+        ((50.0, 420.0), (750.0, 480.0)),
+    ]
+    .map(|(from, to)| app.drag(from, to).selection().is_empty());
+    assert_eq!((taken, misses), (("p1,p2".to_string(), false), [true; 4]));
 }
 
 #[test]
@@ -231,11 +253,31 @@ fn a_marquee_takes_the_edges_it_crosses() {
     let mut app = TestApp::from_document(connected(document(entities), "e1", "t1", "t2"));
     app.drag((300.0, 50.0), (400.0, 250.0));
     let crossed = app.selected_ids().join(",");
-    // Enclosing only its middle is not enough with Command held.
+    // A rect beside the line takes nothing.
+    app.drag((300.0, 300.0), (400.0, 400.0));
+    let beside = app.selection().is_empty();
+    // Enclosing only its middle is not enough with Command held, nor is
+    // enclosing one end.
     app.click(EMPTY_FAR)
         .hold(CMD)
         .drag((300.0, 50.0), (400.0, 250.0));
-    assert_eq!((crossed.as_str(), app.selection().is_empty()), ("e1", true));
+    let middle = app.selection().is_empty();
+    app.drag((50.0, 50.0), (250.0, 250.0));
+    let one_end = app.selected_ids().join(",");
+    // Both ends enclosed takes it. Command also toggles, so start clear.
+    app.let_go().click(EMPTY_FAR).hold(CMD);
+    app.drag((50.0, 50.0), (650.0, 250.0));
+    let both = app.selected_ids().join(",");
+    assert_eq!(
+        (
+            crossed.as_str(),
+            beside,
+            middle,
+            one_end.as_str(),
+            both.as_str()
+        ),
+        ("e1", true, true, "t1", "t1,t2,e1")
+    );
 }
 
 // Groups. `g` spans (100, 100) to (700, 600) and holds `a` and `b`; `out`

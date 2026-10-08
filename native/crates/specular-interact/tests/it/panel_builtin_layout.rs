@@ -158,6 +158,15 @@ fn a_list_with_no_room_under_its_trigger_opens_above_it() {
 }
 
 #[test]
+fn a_list_with_no_room_above_or_below_stays_under_its_trigger() {
+    let mut app = with(sticky("t", Rect::new(500.0, 50.0, 200.0, 200.0), "note"));
+    app.viewport((1200.0, 160.0)).click_control("text.size");
+    let trigger = app.control_rect("text.size");
+    let list = open_list(&app);
+    assert_eq!(list.y, trigger.bottom() + 6.0);
+}
+
+#[test]
 fn the_zoom_levels_hang_from_the_toolbar_and_open_over_the_popup() {
     let mut app = with(sticky("t", Rect::new(500.0, 60.0, 200.0, 200.0), "note"));
     app.click_control("zoom");
