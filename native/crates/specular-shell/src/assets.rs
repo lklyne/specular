@@ -1,5 +1,5 @@
 //! The asset source: the Kit's default icons, and the few more the sidebar
-//! uses from the Kit's full catalog.
+//! and the right panel use from the Kit's full catalog.
 
 use std::borrow::Cow;
 
@@ -7,7 +7,19 @@ use gpui_kit::assets::{Assets, IconName, icon_assets};
 use gpui_kit::component::IconNamed;
 use gpui_kit::{AssetSource, SharedString};
 
-icon_assets!(ExtraIcons, [StickyNote, PenLine, MessageSquare]);
+icon_assets!(
+    ExtraIcons,
+    [
+        StickyNote,
+        PenLine,
+        MessageSquare,
+        SquareDashed,
+        SquareDashedMousePointer,
+        Code,
+        Archive,
+        Image
+    ]
+);
 
 /// An icon of the Kit's catalog that is not in its default set.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -18,6 +30,16 @@ pub(crate) enum ShellIcon {
     PenLine,
     /// A comment.
     MessageSquare,
+    /// A comment on a region or on the selection.
+    SquareDashed,
+    /// A turn about the selected items.
+    SquareDashedMousePointer,
+    /// A turn about a page element.
+    Code,
+    /// Closing a thread: it is archived, not deleted.
+    Archive,
+    /// A queued message that is only images.
+    Image,
 }
 
 impl IconNamed for ShellIcon {
@@ -26,6 +48,11 @@ impl IconNamed for ShellIcon {
             Self::StickyNote => IconName::StickyNote.path(),
             Self::PenLine => IconName::PenLine.path(),
             Self::MessageSquare => IconName::MessageSquare.path(),
+            Self::SquareDashed => IconName::SquareDashed.path(),
+            Self::SquareDashedMousePointer => IconName::SquareDashedMousePointer.path(),
+            Self::Code => IconName::Code.path(),
+            Self::Archive => IconName::Archive.path(),
+            Self::Image => IconName::Image.path(),
         }
     }
 }

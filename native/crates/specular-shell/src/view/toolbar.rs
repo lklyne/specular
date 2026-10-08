@@ -9,7 +9,9 @@ use gpui_kit::{
     App, InteractiveElement as _, IntoElement, ParentElement as _, SharedString, Styled as _, div,
     px,
 };
-use specular_interact::{PaintRole, Palette, ToolButton, ToolbarModel, ToolbarSection};
+use specular_interact::{
+    PaintRole, Palette, SidebarButton, ToolButton, ToolbarModel, ToolbarSection,
+};
 
 use super::controls::{dropdown, hint};
 use super::glyphs::{self, glyph, ink};
@@ -20,6 +22,7 @@ use crate::theme;
 /// The room the traffic lights take, `toolbarPaddingLeft` on macOS.
 const TRAFFIC_LIGHTS: f32 = 86.0;
 const TOOL_GLYPH: f32 = 20.0;
+const PANEL_GLYPH: f32 = 14.0;
 
 /// The surface a tool glyph's colour is resolved for: the pens show their
 /// ink, the sticky and the shape their fill.
@@ -50,6 +53,29 @@ fn tool(model: &ToolButton) -> impl IntoElement {
         .when(model.active, |this| this.bg(theme::solid(theme::TOOL_FILL)))
         .tooltip(hint(&model.label, model.chord))
         .child(glyph(model.icon, current, tint, model.active, TOOL_GLYPH))
+        .on_click(move |_, window, cx| run(&action, window, cx))
+}
+
+/// The button that shows or hides a side panel: its glyph is faint while
+/// the panel is hidden.
+fn panel_toggle(model: &SidebarButton) -> impl IntoElement {
+    let action = model.action.clone();
+    Button::new(SharedString::from(model.id.as_str().to_owned()))
+        .ghost()
+        .small()
+        .rounded(px(8.0))
+        .tooltip(SharedString::from(model.label.to_string()))
+        .child(
+            div()
+                .when(!model.open, |this| this.opacity(0.6))
+                .child(glyph(
+                    model.icon,
+                    ink(theme::TOOLBAR_TEXT),
+                    None,
+                    false,
+                    PANEL_GLYPH,
+                )),
+        )
         .on_click(move |_, window, cx| run(&action, window, cx))
 }
 
@@ -96,15 +122,20 @@ pub(super) fn toolbar(model: &ToolbarModel, title: &str, _cx: &App) -> impl Into
         )
         .child(cluster)
         .child(
-            h_flex().flex_1().justify_end().child(
-                Button::new("preferences")
-                    .ghost()
-                    .small()
-                    .icon(IconName::Settings)
-                    .tooltip("Settings  ⌘,")
-                    .on_click(|_, window, cx| {
-                        window.dispatch_action(Box::new(Preferences), cx);
-                    }),
-            ),
+            h_flex()
+                .flex_1()
+                .gap_1()
+                .justify_end()
+                .child(
+                    Button::new("preferences")
+                        .ghost()
+                        .small()
+                        .icon(IconName::Settings)
+                        .tooltip("Settings  ⌘,")
+                        .on_click(|_, window, cx| {
+                            window.dispatch_action(Box::new(Preferences), cx);
+                        }),
+                )
+                .children(model.chat.as_ref().map(panel_toggle)),
         )
 }

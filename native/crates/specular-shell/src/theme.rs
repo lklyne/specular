@@ -45,10 +45,25 @@ pub(crate) const RING_GRAY: u32 = 0x0071_717a;
 /// `--surface-focus-ring`, blue-500.
 pub(crate) const FOCUS_RING: u32 = 0x002b_7fff;
 /// `--surface-primary` and its hover: stone-900 and stone-700.
-const PRIMARY: u32 = 0x001c_1917;
-const PRIMARY_HOVER: u32 = 0x0044_403b;
-/// `--surface-input-border`, stone-300.
-const INPUT_BORDER: u32 = 0x00d6_d3d1;
+pub(crate) const PRIMARY: u32 = 0x001c_1917;
+pub(crate) const PRIMARY_HOVER: u32 = 0x0044_403b;
+/// `--surface-input` and `--surface-input-border`, stone-50 and stone-300:
+/// a sent message's bubble and the run bar.
+pub(crate) const INPUT: u32 = 0x00fa_faf9;
+pub(crate) const INPUT_BORDER: u32 = 0x00d6_d3d1;
+/// The zinc scale the right panel's composer is built from: its fill (50),
+/// a chip and a hovered row (100), a divider and a hovered button (200),
+/// its edge (300).
+pub(crate) const ZINC_50: u32 = 0x00fa_fafa;
+pub(crate) const ZINC_100: u32 = 0x00f4_f4f5;
+pub(crate) const ZINC_200: u32 = 0x00e4_e4e7;
+pub(crate) const ZINC_300: u32 = 0x00d4_d4d8;
+/// A queued message's chip and a hovered composer chip: zinc-200 at 60%
+/// and at 70%.
+pub(crate) const QUEUED: u32 = 0xe4e4_e799;
+pub(crate) const CHIP_HOVER: u32 = 0xe4e4_e7b3;
+/// A failed run's words, red-600.
+pub(crate) const ERROR: u32 = 0x00e7_000b;
 
 /// The height of the toolbar strip, `TOOLBAR_HEIGHT` in
 /// `src/shared/constants.ts`. The app's own layout assumes it too.

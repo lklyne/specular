@@ -14,8 +14,8 @@ use std::time::Instant;
 use futures::channel::mpsc;
 use specular_app::{Runtime, ShellWindow as _};
 use specular_interact::{
-    Event, Menu, PopupAnchor, PopupModel, SidebarModel, ToolbarModel, menus, popup_for, sidebar,
-    toolbar,
+    ChatModel, Event, Menu, PopupAnchor, PopupModel, SidebarModel, ToolbarModel, chat, menus,
+    popup_for, sidebar, toolbar,
 };
 
 use crate::surface::{CanvasSurface, WindowAsks};
@@ -30,6 +30,8 @@ pub(crate) struct Models {
     pub(crate) popup: Option<PopupModel>,
     /// The left sidebar.
     pub(crate) sidebar: SidebarModel,
+    /// The right panel: the canvas's agent threads and the composer.
+    pub(crate) chat: ChatModel,
     /// The menu bar's menus that come from the app.
     pub(crate) menus: Vec<Menu>,
 }
@@ -42,6 +44,7 @@ impl Models {
             popup: popup_for(app)
                 .filter(|popup| matches!(popup.anchor, PopupAnchor::Toolbar { .. })),
             sidebar: sidebar(app),
+            chat: chat(app),
             menus: menus(app),
         }
     }

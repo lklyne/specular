@@ -173,6 +173,9 @@ pub(crate) fn open(launch: Launch, cx: &mut App) -> anyhow::Result<()> {
         // The Kit draws the toolbar and what hangs from it. A popup beside
         // a canvas item stays in the canvas's own pass.
         runtime.dispatch(Event::BuiltinCanvasPopups);
+        // The Kit draws a right panel, so a comment is written there and
+        // the canvas keeps only its marker.
+        runtime.dispatch(Event::ChatPanel(true));
         runtime.open(opening)?;
         runtime.start_api(move || {
             // Each clone has a slot of its own, so a wake is never lost.

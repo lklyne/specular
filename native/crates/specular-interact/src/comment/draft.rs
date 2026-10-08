@@ -7,9 +7,7 @@
 
 use glam::Vec2;
 use specular_core::text::{TextAlign, TextFont};
-use specular_doc::{
-    Annotation, AnnotationAnchor, AnnotationId, EntityId, Rect, VerticalAlign,
-};
+use specular_doc::{Annotation, AnnotationAnchor, AnnotationId, EntityId, Rect, VerticalAlign};
 
 use crate::edit::{self, Origin, Target, TextEdit};
 use crate::focus::set_focus;

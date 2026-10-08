@@ -188,6 +188,23 @@ fn chosen(command: &MenuCommand) -> Option<specular_interact::Action> {
     }
 }
 
+/// Whether `action` is one a text field has a meaning of its own for, so
+/// that the canvas leaves it alone while a field has the keys.
+const fn edits_text(action: &specular_interact::Action) -> bool {
+    use specular_interact::Action;
+    matches!(
+        action,
+        Action::Undo
+            | Action::Redo
+            | Action::Cut
+            | Action::Copy
+            | Action::Paste
+            | Action::SelectAll
+            | Action::Delete
+            | Action::Duplicate
+    )
+}
+
 fn choose_space(cx: &mut App) {
     let chosen = cx.prompt_for_paths(PathPromptOptions {
         files: false,
@@ -252,10 +269,21 @@ pub(crate) fn install(cx: &mut App) {
         KeyBinding::new("tab", CanvasKey, Some("Canvas")),
         KeyBinding::new("shift-tab", CanvasKey, Some("Canvas")),
     ]);
-    cx.on_action(|command: &MenuCommand, _| {
-        if let Some(action) = chosen(command) {
+    cx.on_action(|command: &MenuCommand, cx| {
+        let Some(action) = chosen(command) else {
+            return;
+        };
+        if !edits_text(&action) {
             canvas::dispatch(Event::Action(action));
+            return;
         }
+        // A field's own Cmd+Z can still arrive as the menu's item. It must
+        // not undo the canvas under the person typing.
+        shell::with_view(cx, move |view, window, cx| {
+            if !view.typing(window, cx) {
+                canvas::dispatch(Event::Action(action));
+            }
+        });
     });
     cx.on_action(|_: &Quit, cx| shell::begin_exit(cx));
     cx.on_action(|_: &CloseWindow, cx| shell::begin_exit(cx));

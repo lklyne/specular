@@ -18,6 +18,9 @@ Event -> update(&mut App, Event) -> Vec<Effect>     pure, no I/O
   `apply` returns the inverse, and undo is a stack of inverses.
 - `specular-interact` owns `App`, `Session`, `Event`, `Effect`, `Tool`,
   `Gesture`, hit-test and `update`.
+- `specular-agent` owns the canvas agent threads: the `Threads` store, the
+  thread files' shape, the prompts and the `claude` stream. It is pure.
+  Interact holds the state and `chat(&App)` is the right panel's model.
 - `specular-scene` owns the `Scene` display list and `view`, one module per
   kind under `src/view/`.
 - `specular-api` turns an HTTP request and `&App` into a read answer or an

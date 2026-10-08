@@ -2,17 +2,21 @@
 //! canvas shows through.
 //!
 //! ```text
-//! ┌──────────────────────────────────────────────┐
-//! │ toolbar (Kit), across the window             │
-//! ├──────────┬───────────────────────────────────┤
-//! │ sidebar  │ canvas slot: nothing painted, so  │
-//! │ (Kit)    │ the canvas view under GPUI shows  │
-//! └──────────┴───────────────────────────────────┘
+//! ┌───────────────────────────────────────────────────────┐
+//! │ toolbar (Kit), across the window                      │
+//! ├──────────┬───────────────────────────────┬────────────┤
+//! │ sidebar  │ canvas slot: nothing painted, │ right      │
+//! │ (Kit)    │ so the canvas view under      │ panel      │
+//! │          │ GPUI shows                    │ (Kit)      │
+//! └──────────┴───────────────────────────────┴────────────┘
 //! ```
 //!
 //! The slot runs up under the toolbar, as the app's own layout assumes: a
-//! popup beside a canvas item never rises above the toolbar strip.
+//! popup beside a canvas item never rises above the toolbar strip. The
+//! right panel is beside the slot, so opening it or dragging its edge
+//! makes the app's viewport narrower.
 
+mod chat;
 mod controls;
 mod glyphs;
 mod ime;
@@ -73,6 +77,8 @@ pub(crate) struct ShellView {
     /// The input method's marked text, which GPUI asks back for.
     marked: String,
     rename: Option<Rename>,
+    /// What the right panel keeps between frames.
+    chat: chat::ChatUi,
 }
 
 impl ShellView {
@@ -90,7 +96,19 @@ impl ShellView {
             pointer: Rc::new(Pointer::default()),
             marked: String::new(),
             rename: None,
+            chat: chat::ChatUi::new(window, cx),
         }
+    }
+}
+
+impl ShellView {
+    /// Whether the keys are in one of the Kit's text fields: the composer,
+    /// or a canvas's name being typed.
+    pub(crate) fn typing(&self, window: &Window, cx: &App) -> bool {
+        use gpui_kit::Focusable as _;
+        let renaming = (self.rename.as_ref())
+            .is_some_and(|rename| rename.input.focus_handle(cx).is_focused(window));
+        renaming || self.composer_focused(window, cx)
     }
 }
 
@@ -112,13 +130,17 @@ impl Render for ShellView {
                     .when_some(models.as_ref(), |row, models| {
                         row.child(self.sidebar(&models.sidebar, window, cx))
                     })
-                    .child(self.canvas_slot(window, cx)),
+                    .child(self.canvas_slot(window, cx))
+                    .when_some(models.as_ref(), |row, models| {
+                        row.children(self.chat_panel(&models.chat, window, cx))
+                    }),
             )
             .when_some(models.as_ref(), |root, models: &Models| {
                 root.child(toolbar::toolbar(&models.toolbar, &title, cx))
                     .when_some(models.popup.as_ref(), |root, model| {
                         root.child(popup::tool_popup(model, cx))
                     })
+                    .children(self.chat_resize_handle(&models.chat))
             })
             .child(
                 // The hairline under the toolbar is its own, drawn last so
