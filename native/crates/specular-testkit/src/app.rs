@@ -198,6 +198,17 @@ impl TestApp {
         doc_snapshot(self.document())
     }
 
+    /// The toolbar as stable text. See [`toolbar_snapshot`].
+    pub fn toolbar_snapshot(&self) -> String {
+        crate::toolbar_snapshot(&specular_interact::toolbar(&self.app))
+    }
+
+    /// The popup as stable text, `none` for no popup. See
+    /// [`popup_snapshot`].
+    pub fn popup_snapshot(&self) -> String {
+        crate::popup_snapshot(specular_interact::popup_for(&self.app).as_ref())
+    }
+
     /// What the app draws, as stable text. See
     /// [`scene_snapshot`](crate::scene_snapshot). A test that never set a
     /// viewport gets a 1600x1000 one, so nothing near the origin is culled.

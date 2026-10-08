@@ -10,6 +10,7 @@ use crate::edit::{Measurer, StackCache, TextEdit};
 use crate::images::Images;
 use crate::notes::Notes;
 use crate::page_input::ButtonCapture;
+use crate::panel::builtin::PanelUi;
 use crate::saved::LoadedFits;
 use crate::space::Space;
 use crate::{Cursor, Gesture, PagePlacement, Tool, ToolDefaults};
@@ -227,6 +228,9 @@ pub struct Session {
     pub(crate) focused_comment: Option<AnnotationId>,
     /// The cursor the shell was last asked to show.
     pub cursor: Cursor,
+    /// The built-in toolbar and popup: whether they are on, the open
+    /// dropdown, and the control under the pointer.
+    pub panel: PanelUi,
     /// Where the pointer is, in logical screen pixels. `None` when it is
     /// outside the window.
     pub pointer: Option<Vec2>,

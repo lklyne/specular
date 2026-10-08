@@ -222,6 +222,7 @@ fn has_target(app: &App, action: &Action) -> bool {
         | Action::ZoomIn
         | Action::ZoomOut
         | Action::ZoomReset => true,
+        Action::SetProperty(property) => property.applies_to(app),
         Action::Format(_) => app.session.editing.is_some(),
         Action::PageBack => page_can(app, |state| state.can_go_back),
         Action::PageForward => page_can(app, |state| state.can_go_forward),
@@ -239,7 +240,7 @@ fn page_can(app: &App, allowed: fn(&PageState) -> bool) -> bool {
 
 /// What a tool's menu item runs: the action its key runs, so the two cannot
 /// differ, or a plain switch for a tool with no key.
-fn tool_action(tool: Tool) -> Action {
+pub(crate) fn tool_action(tool: Tool) -> Action {
     let bound = BINDINGS.iter().find(|binding| match &binding.action {
         Action::SetTool(bound) => *bound == tool,
         Action::SetToolVariant(patch) => patch.tool() == tool,
@@ -248,7 +249,7 @@ fn tool_action(tool: Tool) -> Action {
     bound.map_or(Action::SetTool(tool), |binding| binding.action.clone())
 }
 
-const fn tool_label(tool: Tool) -> &'static str {
+pub(crate) const fn tool_label(tool: Tool) -> &'static str {
     match tool {
         Tool::Select => "Select",
         Tool::AddPage => "Page",

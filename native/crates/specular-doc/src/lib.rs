@@ -28,6 +28,7 @@ mod geometry;
 mod history;
 mod id;
 mod kinds;
+mod presets;
 
 pub use anchor::{AnchorElement, PageAnchor};
 pub use annotation::{Annotation, AnnotationAnchor, AnnotationStatus, Author, RegionAnchor, Reply};
@@ -45,6 +46,7 @@ pub use kinds::{
     Page, PageSource, Shape, ShapeKind, Stroke, Text, TextAlign, TextFont, TextStyle,
     VerticalAlign, WidthMode,
 };
+pub use presets::{LAPTOP, VIEWPORT_PRESETS, ViewportPreset, preset};
 
 /// A JSON object, used for metadata and for unmodeled passthrough fields.
 pub type JsonMap = serde_json::Map<String, serde_json::Value>;

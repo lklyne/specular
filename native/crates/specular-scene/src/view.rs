@@ -26,7 +26,7 @@ mod freehand;
 mod group;
 mod image;
 mod page;
-mod palette;
+pub(crate) mod palette;
 mod session;
 mod shape;
 mod shape_path;

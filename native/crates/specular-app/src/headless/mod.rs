@@ -22,7 +22,7 @@ use glam::Vec2;
 use specular_compositor::{Compositor, DotGrid, FrameView, GpuContext};
 use specular_core::{PageId, PageSource};
 use specular_doc::{Document, EntityId};
-use specular_interact::{Action, Event, ImageKey};
+use specular_interact::{Action, ControlId, Event, ImageKey};
 use specular_testkit::TestApp;
 
 pub(crate) use self::script::CameraArg;
@@ -98,7 +98,7 @@ pub(crate) fn run(
     };
     let mut run = Headless::new(source, canvas, args)?;
     let viewport = run.viewport;
-    run.drive(|app| app.viewport(viewport).open(document))?;
+    run.drive(|app| app.viewport(viewport).with_panels().open(document))?;
     // A script's first step may ask a page something, and a real page has
     // nothing to say until it has loaded.
     if run.live {
@@ -247,15 +247,36 @@ impl Headless {
                 self.run_pages_for(std::time::Duration::from_millis(ms))?;
                 self.settle()
             }
+            Step::Control(id) => self.control(&id, |app, at| app.pointer_move(at).click(at)),
+            Step::HoverControl(id) => self.control(&id, TestApp::pointer_move),
+            Step::PressControl(id) => self.control(&id, |app, at| app.pointer_move(at).press(at)),
+            Step::Panels(on) => self.drive(|app| app.send(Event::BuiltinPanels(on))),
             Step::Snapshot(path) => self.snapshot(&path),
             Step::Save(path) => self.save(&path),
         }
     }
 
+    /// Points at the middle of the control named `id` and does `input`
+    /// there. A name that is not shown fails the run with the ones that are.
+    fn control(
+        &mut self,
+        id: &str,
+        input: impl for<'app> FnOnce(&'app mut TestApp, Vec2) -> &'app mut TestApp,
+    ) -> anyhow::Result<()> {
+        let layout = self.app.panel_layout();
+        let Some(node) = layout.node(&ControlId::from(id.to_owned())) else {
+            let shown: Vec<&str> = layout.controls().map(ControlId::as_str).collect();
+            anyhow::bail!("no control `{id}` is shown; these are: {}", shown.join(" "));
+        };
+        let at = node.rect.centre();
+        self.drive(|app| input(app, at))
+    }
+
     /// Draws the app as it stands and writes the frame to `path`.
     fn snapshot(&mut self, path: &Path) -> anyhow::Result<()> {
         self.settle()?;
-        let scene = specular_scene::view(self.app.app(), self.viewport);
+        let mut scene = specular_scene::view(self.app.app(), self.viewport);
+        specular_scene::draw_panels(self.app.app(), &mut scene);
         let frame = FrameView {
             camera: self.app.session().camera,
             viewport: self.viewport,

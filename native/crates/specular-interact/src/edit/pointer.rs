@@ -79,7 +79,8 @@ pub(crate) fn press(
             | Hit::PageContent { .. }
             | Hit::GroupBorder { .. }
             | Hit::Edge { .. }
-            | Hit::Empty => return None,
+            | Hit::Empty
+            | Hit::Panel { .. } => return None,
         }
     }
     let world = app.session.camera.screen_to_world(input.screen).as_dvec2();
@@ -204,7 +205,8 @@ pub(crate) fn is_over_text(app: &App) -> bool {
         | Hit::PageContent { .. }
         | Hit::GroupBorder { .. }
         | Hit::Edge { .. }
-        | Hit::Empty => false,
+        | Hit::Empty
+        | Hit::Panel { .. } => false,
     }
 }
 

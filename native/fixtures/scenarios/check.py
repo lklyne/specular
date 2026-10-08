@@ -123,6 +123,38 @@ if i in RAN:
     print(f"{'ok  ' if ok else 'FAIL'} {i}: six comments in Electron's shape")
     if not ok:
         failures.append(i)
+j = "j-toolbar-and-popups"
+if j in RAN:
+    nodes = lambda canvas: {n["id"]: n for n in canvas["nodes"]}
+    edges = lambda canvas: {e["id"]: e for e in canvas.get("edges", [])}
+    note_a, note_b = saved(j, "03-sticky-placed.canvas"), saved(j, "06-sticky-restyled.canvas")
+    note = next(iter(nodes(note_a)))
+    grid, border = saved(j, "08-shape-placed.canvas"), saved(j, "10-shape-restyled.canvas")
+    joined, styled = saved(j, "11-edge-made.canvas"), saved(j, "14-edge-restyled.canvas")
+    undone, redone, end = (saved(j, f) for f in ["15-edge-start-undone.canvas", "16-edge-start-redone.canvas", "23-end.canvas"])
+    shape = next(id for id, n in nodes(border).items() if n["type"] == "shape")
+    edge = next(iter(edges(styled)))
+    sticky = lambda c: {k: nodes(c)[note].get(k) for k in ("color", "text")} | {"size": nodes(c)[note]["specular"]["textSize"]}
+    first = lambda c: {k: nodes(c)[shape].get(k) for k in ("shapeKind", "color", "strokeWidth", "borderStyle", "borderColor")}
+    look = lambda c: {k: edges(c)[edge].get(k) for k in ("color", "strokeWidth", "lineStyle", "fromEnd", "toEnd")}
+    checks = {
+        # The sticky tool's blue default, then green and a larger size from the popup.
+        "sticky takes the tool's color": sticky(note_a) == {"color": "7", "text": "first note", "size": 14},
+        "sticky recolored and resized": sticky(note_b) == {"color": "4", "text": "first note", "size": 33},
+        # The shape tool's diamond and yellow, then a hexagon with a dashed red border.
+        "shape takes the tool's kind and color": first(grid) == {"shapeKind": "diamond", "color": "3", "strokeWidth": 2, "borderStyle": None, "borderColor": None},
+        "shape kind and border changed": first(border) == {"shapeKind": "hexagon", "color": "3", "strokeWidth": 3, "borderStyle": "dashed", "borderColor": "1"},
+        "edge dragged between the shapes is plain": look(joined) == {"color": None, "strokeWidth": None, "lineStyle": None, "fromEnd": None, "toEnd": "arrow"},
+        "edge restyled": look(styled) == {"color": "7", "strokeWidth": 3, "lineStyle": "dashed", "fromEnd": "arrow", "toEnd": "arrow"},
+        "undo takes back the arrowhead only": look(undone) == look(styled) | {"fromEnd": None},
+        "redo puts it back": look(redone) == look(styled),
+        # Picking a zoom level and closing a list change no document.
+        "zoom leaves the document alone": (nodes(end), edges(end)) == (nodes(styled), edges(styled)),
+    }
+    for name, held in checks.items():
+        print(f"{'ok  ' if held else 'FAIL'} {j}: {name}")
+        if not held:
+            failures.append(f"{j}: {name}")
 f1 = "f1-reload-own-save"
 expect(f"{a}+{f1}", saved(a, "08-arranged.canvas"), saved(f1, "01-reloaded.canvas"))
 f2 = "f2-electron-file-one-change"

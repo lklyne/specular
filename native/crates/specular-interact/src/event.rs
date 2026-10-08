@@ -6,7 +6,7 @@ use specular_doc::{AnnotationId, Document, EntityId, ItemId, Rect};
 
 use crate::{
     ApiCall, CanvasId, ClipboardContent, DroppedFile, Format, ImageKey, ImageNotice, NoteNotice,
-    OpenedSpace, PageGrab, Tool, ToolDefaultPatch, ToolDefaults,
+    OpenedSpace, PageGrab, Property, Tool, ToolDefaultPatch, ToolDefaults,
 };
 
 /// One input to [`update`](crate::update). Window input arrives in logical
@@ -125,6 +125,10 @@ pub enum Event {
     ToolDefaultsLoaded(Box<ToolDefaults>),
     /// A command from a key binding, a menu or a panel.
     Action(Action),
+    /// Turns the built-in toolbar and popup on or off. A shell that draws
+    /// them through `specular-scene` sends `true` once at startup; one that
+    /// draws the panel models itself never does.
+    BuiltinPanels(bool),
     /// A change the HTTP API asked for. It is answered with an
     /// [`Effect::ApiReply`](crate::Effect::ApiReply) carrying its ticket.
     Api(ApiCall),
@@ -336,6 +340,9 @@ pub enum Action {
     /// Change the space's canvases: show another, add, rename, copy or
     /// remove one.
     Canvas(CanvasAction),
+    /// Set one field of the selection, as a popup control does. It applies
+    /// to every selected item it means something for, as one undo step.
+    SetProperty(Property),
     /// Move the selection by exactly this many canvas units.
     Nudge {
         /// Along x. Positive is right.

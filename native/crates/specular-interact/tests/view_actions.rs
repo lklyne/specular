@@ -92,6 +92,22 @@ fn zoom_to_fit_centres_everything_with_room_around_it() {
 }
 
 #[test]
+fn zoom_to_fit_leaves_the_toolbar_strip_clear_when_the_built_in_panels_are_on() {
+    // Taller than wide, so the height is what limits the fit.
+    let mut app = TestApp::with_entities([shape("s", Rect::new(0.0, 0.0, 200.0, 2000.0))]);
+    app.viewport(VIEWPORT).with_panels();
+    app.chord(CMD, Key::Char('1'));
+    let camera = app.session().camera;
+    // 2000 tall into 800 - 44 - 2 * 64.
+    assert!((camera.zoom - 0.314).abs() < 1e-6);
+    let top = camera.world_to_screen(Vec2::new(100.0, 0.0)).y;
+    let bottom = camera.world_to_screen(Vec2::new(100.0, 2000.0)).y;
+    // Centred in the 756 under the strip, so the same room above and below.
+    assert!((top - 44.0 - 64.0).abs() < 1e-3);
+    assert!((VIEWPORT.y - bottom - 64.0).abs() < 1e-3);
+}
+
+#[test]
 fn zoom_to_fit_works_from_inside_a_page() {
     let mut app = TestApp::with_pages(3);
     app.viewport(VIEWPORT).double_click((200.0, 150.0));

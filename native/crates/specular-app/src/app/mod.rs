@@ -251,6 +251,10 @@ impl Shell {
             .set_text_measure(std::sync::Arc::new(gpu.compositor.text_measure()));
         self.gpu = Some(gpu);
         self.dispatch(Event::ViewportResized(viewport));
+        // The toolbar and the popup are part of the chrome layer. A
+        // benchmark measures the canvas, so it runs without them.
+        let panels = self.options.chrome && self.options.bench.is_none();
+        self.dispatch(Event::BuiltinPanels(panels));
         self.dispatch(Event::Action(Action::SetCamera(self.start_camera)));
         self.load_tool_defaults();
         match (self.options.space.take(), self.document.take()) {
@@ -305,11 +309,12 @@ impl Shell {
         let Some(gpu) = self.gpu.as_mut() else {
             return Ok(());
         };
-        let scene = if self.options.chrome {
+        let mut scene = if self.options.chrome {
             specular_scene::view(&self.app, viewport)
         } else {
             specular_scene::view_without_chrome(&self.app, viewport)
         };
+        specular_scene::draw_panels(&self.app, &mut scene);
         let camera = self.app.session().camera;
         // Text keeps its raster size while the zoom moves, and the first
         // frame at a steady zoom sharpens it.

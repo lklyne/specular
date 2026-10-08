@@ -79,6 +79,7 @@ fn click(app: &mut App, drag: &CommentDrag, effects: &mut Vec<Effect>) {
         | Hit::EntityBody { .. }
         | Hit::GroupBorder { .. }
         | Hit::Edge { .. }
+        | Hit::Panel { .. }
         | Hit::Empty => {
             let made = create::canvas_point(app, drag.start);
             draft::open(app, made, effects);

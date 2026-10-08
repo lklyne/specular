@@ -31,6 +31,7 @@ have been looked at.
 | `g-zoom-and-pan` | Both zoom limits, Command-wheel zoom, and a pan or pinch in the middle of a move, a marquee, a resize and a stroke. |
 | `h-tools-and-escape` | Tool keys in a row, Escape at each stage of each gesture, a tool change mid-drag and mid-edit. |
 | `i-comments` | Comments on the kitchen sink: a point, one on a sticky, one on a page's element, a region on empty canvas and one over a page, an empty draft escaped, a two-line draft, focusing a pill, delete and undo, annotating a selection, resolving, undoing all of it. |
+| `j-toolbar-and-popups` | Empty canvas, every change made by naming a control: tools picked from the toolbar, a sticky and two shapes placed with their popup defaults, then recolored, resized and restyled, an edge dragged between the shapes and restyled, undo and redo across a property change, Escape and an outside press closing a list, the zoom list. |
 
 ## What `check.py` holds
 
@@ -44,6 +45,11 @@ have been looked at.
   field in the file. Every text keeps the size it was read with, though
   this renderer measures it differently.
 
+- In i, each change the popups make lands in the saved canvas as the
+  property it names (a sticky's color and size, a shape's kind and border, an
+  edge's color, width, dash and arrowheads), undo takes back one of them and
+  redo returns it, and picking a zoom level changes no document.
+
 The camera in `appState` is left out of every comparison.
 
 ## Writing one
@@ -53,6 +59,9 @@ The camera in `appState` is left out of every comparison.
   script saved.
 - Start with a `camera x,y,zoom` step, so the positions that follow mean
   something. Positions are screen pixels in a 1600x1000 viewport.
+- The toolbar is the top 44 pixels and a selection has a popup beside it,
+  and both take the clicks that land on them. Click a control by its name
+  with `control text.color`, not by where it is.
 - A press with no `move` or `click` before it lands on whatever is there.
   Snapshot and look.
 - Cmd+D pans the camera when the copies land off screen. Put a `camera`

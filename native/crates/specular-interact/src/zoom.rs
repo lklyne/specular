@@ -5,6 +5,7 @@ use glam::DVec2;
 use specular_core::Camera;
 use specular_doc::Rect;
 
+use crate::panel::builtin::TOOLBAR_HEIGHT;
 use crate::{App, geometry};
 
 /// How much one zoom in or out changes the zoom.
@@ -40,13 +41,25 @@ fn scale(app: &mut App, by: f32) {
 }
 
 /// Shows every entity, centred, as large as fits. An empty canvas goes back
-/// to its origin at 100%.
+/// to its origin at 100%. With the built-in toolbar over the top of the
+/// viewport, the fit is of what is left under it, as the Electron app's
+/// canvas view starts below its toolbar.
 pub(crate) fn to_fit(app: &mut App) {
     let bounds = (app.document.entities())
         .map(|entity| entity.rect)
         .reduce(geometry::union);
+    let top = if app.session.panel.built_in {
+        f64::from(TOOLBAR_HEIGHT)
+    } else {
+        0.0
+    };
     app.session.camera = match bounds {
-        Some(bounds) => fitting(bounds, app.session.viewport.as_dvec2()),
+        Some(bounds) => {
+            let below = app.session.viewport.as_dvec2() - DVec2::new(0.0, top);
+            let mut camera = fitting(bounds, below);
+            camera.pan.y += top as f32;
+            camera
+        }
         None => Camera::default(),
     };
 }

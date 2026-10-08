@@ -199,6 +199,28 @@ fn refit(app: &mut App) {
     set_rect(app, &id, rect);
 }
 
+/// The entity the edit in progress placed for itself: it is in the document
+/// with no undo step, so a change to it belongs to the step that ends the
+/// session.
+pub(crate) fn unrecorded(app: &App) -> Option<&EntityId> {
+    let edit = app.session.editing.as_ref()?;
+    (edit.origin.created && edit.target != Target::EdgeLabel).then_some(&edit.entity)
+}
+
+/// The entity whose text is being edited in place.
+pub(crate) fn edited(app: &App) -> Option<&EntityId> {
+    let edit = app.session.editing.as_ref()?;
+    matches!(edit.target, Target::Text | Target::Label).then_some(&edit.entity)
+}
+
+/// Refits the text being edited after something other than typing changed
+/// how it sets, such as its size or typeface.
+pub(crate) fn refit_edited(app: &mut App) {
+    if edited(app).is_some() {
+        refit(app);
+    }
+}
+
 /// The size `text` takes at `rect` to fit its own text: what a resize and a
 /// load give a text entity, so its height is its content's.
 pub(crate) fn fitted(app: &App, rect: Rect, text: &Text) -> Rect {

@@ -8,10 +8,12 @@ use specular_doc::{Command, CommandError, Document, EntityId, ItemId};
 use crate::focus::{leave_unless_selected, set_focus};
 use crate::images;
 use crate::notes;
+use crate::panel::builtin::{self, PanelUi};
 use crate::stack_order::Move;
 use crate::{
     Action, App, Effect, Event, Focus, PageNotice, Selection, ToolDefaultPatch, api, bindings,
-    camera, comment, cursor, edit, gesture, groups, page_state, pages, pointer, space, verbs,
+    camera, comment, cursor, edit, gesture, groups, page_state, pages, pointer, property, space,
+    verbs,
 };
 use crate::{clipboard, drop, select_all, zoom};
 
@@ -32,11 +34,15 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
     match event {
         Event::Pointer(input) => pointer::on_pointer(app, &input, &mut effects),
         Event::Wheel(input) => {
-            if !notes::on_wheel(app, &input) {
+            if !builtin::swallows_scroll(app) && !notes::on_wheel(app, &input) {
                 camera::on_wheel(app, &input, &mut effects);
             }
         }
-        Event::Pinch { delta } => camera::on_pinch(app, delta),
+        Event::Pinch { delta } => {
+            if !builtin::swallows_scroll(app) {
+                camera::on_pinch(app, delta);
+            }
+        }
         Event::Key(input) => bindings::on_key(app, &input, &mut effects),
         Event::Ime(ime) => match &app.session.focus {
             Focus::Page(page) => effects.push(Effect::ForwardInput {
@@ -80,6 +86,12 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         }
         Event::ToolDefaultsLoaded(defaults) => app.tool_defaults = *defaults,
         Event::Action(action) => run_action(app, action, &mut effects),
+        Event::BuiltinPanels(built_in) => {
+            app.session.panel = PanelUi {
+                built_in,
+                ..PanelUi::default()
+            };
+        }
         Event::Api(call) => api::run(app, call, &mut effects),
     }
     // Another canvas has another history: its revision says nothing about
@@ -98,6 +110,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
     leave_unless_selected(app, &mut effects);
     comment::settle(app);
     groups::keep_entered_valid(app);
+    builtin::tidy(app);
     if edit::restart_blink(app, &caret) {
         notes::reveal_caret(app);
     }
@@ -117,6 +130,8 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
 
 pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect>) {
     match action {
+        // Escape closes an open dropdown before it backs out of anything.
+        Action::Cancel if builtin::cancel(app) => {}
         Action::Cancel => {
             // A comment draft or a focused comment is all one Escape takes.
             if comment::cancel(app, effects) {
@@ -185,6 +200,7 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         Action::Nudge { dx, dy } => verb(app, effects, |app, effects| {
             verbs::nudge(app, DVec2::new(dx, dy), effects);
         }),
+        Action::SetProperty(property) => property::set(app, &property, effects),
         Action::Format(format) => {
             if app.session.gesture.is_none() {
                 edit::format(app, format);

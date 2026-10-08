@@ -73,6 +73,8 @@ pub(crate) fn press(
         // The press was offered to the marks first; a mark here has gone
         // since.
         Hit::Comment { annotation } => comment::focus(app, Some(&annotation)),
+        // The panels take their presses before a tool is offered one.
+        Hit::Panel { .. } => {}
         // A drag from an anchor draws an edge, or moves the end of one.
         Hit::Anchor { entity, side } => {
             app.session.gesture = Some(edge_drag::begin(app, &entity, side, input.screen).into());

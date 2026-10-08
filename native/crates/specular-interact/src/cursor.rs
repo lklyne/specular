@@ -33,6 +33,10 @@ fn wanted(app: &App) -> Cursor {
         }
         None => {}
     }
+    // A panel is over whatever the canvas would ask a cursor for.
+    if crate::panel::builtin::over(app) {
+        return Cursor::Default;
+    }
     if edit::is_over_text(app) {
         return Cursor::Text;
     }
@@ -46,7 +50,8 @@ fn wanted(app: &App) -> Cursor {
             | Hit::EntityBody { .. }
             | Hit::GroupBorder { .. }
             | Hit::Edge { .. }
-            | Hit::Empty => Cursor::Default,
+            | Hit::Empty
+            | Hit::Panel { .. } => Cursor::Default,
         },
         (
             Tool::Select

@@ -164,7 +164,7 @@ impl ToolDefaultPatch {
 
 /// The stroke widths a brush is offered in, thin to thick. A highlighter
 /// is a marker: far wider than a pen.
-fn width_presets(brush: BrushType) -> [f64; 2] {
+pub(crate) fn width_presets(brush: BrushType) -> [f64; 2] {
     match brush {
         BrushType::Pen => [2.0, 4.0],
         BrushType::Highlight => [8.0, 16.0],
@@ -172,7 +172,7 @@ fn width_presets(brush: BrushType) -> [f64; 2] {
 }
 
 /// The width `brush` is offered in that is closest to `width`.
-fn nearest_width(brush: BrushType, width: f64) -> f64 {
+pub(crate) fn nearest_width(brush: BrushType, width: f64) -> f64 {
     let [thin, thick] = width_presets(brush);
     if (width - thin).abs() <= (width - thick).abs() {
         thin

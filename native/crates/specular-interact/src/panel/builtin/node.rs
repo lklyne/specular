@@ -1,0 +1,295 @@
+//! What [`layout`](super::layout) hands a drawer: panels of nodes, each a
+//! rect with the parts painted in it.
+
+use glam::Vec2;
+use specular_doc::{Color, TextAlign, TextFont};
+
+use super::super::{ControlId, Icon, Label, PaintRole, Palette};
+use crate::Action;
+
+/// An axis-aligned rect in logical screen pixels.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct PanelRect {
+    /// Left edge.
+    pub x: f32,
+    /// Top edge.
+    pub y: f32,
+    /// Width.
+    pub width: f32,
+    /// Height.
+    pub height: f32,
+}
+
+impl PanelRect {
+    /// A rect.
+    pub const fn new(x: f32, y: f32, width: f32, height: f32) -> Self {
+        Self {
+            x,
+            y,
+            width,
+            height,
+        }
+    }
+
+    /// Right edge.
+    pub fn right(self) -> f32 {
+        self.x + self.width
+    }
+
+    /// Bottom edge.
+    pub fn bottom(self) -> f32 {
+        self.y + self.height
+    }
+
+    /// The middle.
+    pub fn centre(self) -> Vec2 {
+        Vec2::new(self.x + self.width / 2.0, self.y + self.height / 2.0)
+    }
+
+    /// Whether `point` is inside: left and top edges count, right and bottom
+    /// do not, so two rects side by side never both claim a point.
+    pub fn contains(self, point: Vec2) -> bool {
+        point.x >= self.x && point.y >= self.y && point.x < self.right() && point.y < self.bottom()
+    }
+
+    /// The rect of `size` centred in this one.
+    #[must_use]
+    pub fn centred(self, size: Vec2) -> Self {
+        let corner = self.centre() - size / 2.0;
+        Self::new(corner.x, corner.y, size.x, size.y)
+    }
+
+    /// The same rect moved by `by`.
+    #[must_use]
+    pub fn moved(self, by: Vec2) -> Self {
+        Self::new(self.x + by.x, self.y + by.y, self.width, self.height)
+    }
+}
+
+/// Which panel a node belongs to, which decides the surface drawn under it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Surface {
+    /// The strip across the top of the viewport.
+    Toolbar,
+    /// The floating popup of a tool or a selection.
+    Popup,
+    /// The floating list under an open dropdown.
+    Dropdown,
+}
+
+/// A panel: its box and what is in it, back to front.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Panel {
+    /// Which panel it is.
+    pub surface: Surface,
+    /// Its box.
+    pub rect: PanelRect,
+    /// Whether it is a list of words painted as a menu: white, with a
+    /// zinc edge and a deeper shadow, as the text size list is, rather than
+    /// on the surface every other floating panel shares.
+    pub menu: bool,
+    /// Its nodes in paint order.
+    pub nodes: Vec<Node>,
+}
+
+/// Where the pointer is against a control.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Pointing {
+    /// Elsewhere.
+    #[default]
+    Away,
+    /// Over it.
+    Hover,
+    /// Over it with the button down, the press having started on it.
+    Pressed,
+}
+
+/// How a node is drawn now.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct NodeState {
+    /// Whether it can be pressed.
+    pub enabled: bool,
+    /// Whether it is on: the active tool, a toggle that is on, the selected
+    /// option, the trigger of the open dropdown.
+    pub on: bool,
+    /// Where the pointer is.
+    pub pointing: Pointing,
+}
+
+impl NodeState {
+    /// A node that is not a control.
+    pub(super) const STILL: Self = Self {
+        enabled: true,
+        on: false,
+        pointing: Pointing::Away,
+    };
+}
+
+/// What is painted in a node's own box, behind its parts.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Chrome {
+    /// Nothing.
+    Plain,
+    /// A toolbar button: filled when hovered or on.
+    ToolButton,
+    /// The trigger of a toolbar list: filled when hovered, and in the
+    /// popover color while its list is open.
+    ToolMenu,
+    /// A popup control: filled when hovered, darker when on.
+    Button,
+    /// A list row that marks its choice with a check: filled when hovered.
+    MenuRow,
+    /// A list row that marks its choice by its fill.
+    PresetRow,
+    /// A color choice: a ring inside its edge when on.
+    Swatch,
+    /// The box around a stepper: an outline.
+    Field,
+    /// A line between groups of a bar.
+    Divider,
+    /// A line between sections of a list.
+    Rule,
+}
+
+/// Which of a panel's two text colors a part takes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Tone {
+    /// The node's own: quiet at rest, full when hovered or on.
+    Follow,
+    /// Always full.
+    Strong,
+    /// Always quiet.
+    Muted,
+}
+
+/// A stored color with the surface it is resolved for.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Tint {
+    /// The color as stored.
+    pub color: Color,
+    /// The hues it is drawn from.
+    pub palette: Palette,
+    /// How it is used.
+    pub role: PaintRole,
+}
+
+/// One thing painted inside a node.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Part {
+    /// A glyph fitted into `rect`.
+    Icon {
+        /// Which glyph.
+        icon: Icon,
+        /// The box it is fitted into, keeping its proportions.
+        rect: PanelRect,
+        /// What a glyph that shows a color is painted in.
+        tint: Option<Tint>,
+    },
+    /// One line of text, vertically centred in `rect`.
+    Text {
+        /// The text.
+        text: Label,
+        /// The box: the text starts at its left, straddles its middle or
+        /// ends at its right, as `align` says.
+        rect: PanelRect,
+        /// Where in the box the line sits.
+        align: TextAlign,
+        /// The typeface.
+        font: TextFont,
+        /// The weight on the CSS scale.
+        weight: u16,
+        /// Its color.
+        tone: Tone,
+    },
+    /// A disc of color with a hairline around it; a ring when `tint` is
+    /// `None`.
+    Dot {
+        /// The disc's box.
+        rect: PanelRect,
+        /// The color, or `None` for the choice that paints nothing.
+        tint: Option<Tint>,
+    },
+    /// The down chevron of a dropdown.
+    Chevron {
+        /// Its box.
+        rect: PanelRect,
+    },
+    /// The mark beside the selected row of a list.
+    Check {
+        /// Its box.
+        rect: PanelRect,
+    },
+    /// A key hint: text on a small filled box.
+    Key {
+        /// The keys.
+        text: Label,
+        /// The box.
+        rect: PanelRect,
+    },
+}
+
+/// What pressing a control does.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum Run {
+    /// Opens the dropdown the control is the trigger of, or closes it.
+    Toggle,
+    /// Runs `action`.
+    Act {
+        /// What to run.
+        action: Action,
+        /// Whether the open dropdown closes afterwards: a choice from a
+        /// list closes it, a control inside it leaves it open to be used
+        /// again.
+        closes: bool,
+    },
+}
+
+/// One rect of a panel: a control, or a line between controls.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Node {
+    /// The control it is, or `None` for something that takes no press.
+    pub id: Option<ControlId>,
+    /// Its box.
+    pub rect: PanelRect,
+    /// The corner radius of what is painted in its box.
+    pub radius: f32,
+    /// What is painted in its box.
+    pub chrome: Chrome,
+    /// How it is drawn now.
+    pub state: NodeState,
+    /// What is painted over that, back to front.
+    pub parts: Vec<Part>,
+    pub(crate) run: Option<Run>,
+}
+
+impl Node {
+    /// A node that takes no press: a line or a box.
+    pub(super) const fn fixed(rect: PanelRect, chrome: Chrome) -> Self {
+        Self {
+            id: None,
+            rect,
+            radius: 0.0,
+            chrome,
+            state: NodeState::STILL,
+            parts: Vec::new(),
+            run: None,
+        }
+    }
+
+    /// The same node moved by `by`, parts and all.
+    #[must_use]
+    pub(super) fn moved(mut self, by: Vec2) -> Self {
+        self.rect = self.rect.moved(by);
+        for part in &mut self.parts {
+            match part {
+                Part::Icon { rect, .. }
+                | Part::Text { rect, .. }
+                | Part::Dot { rect, .. }
+                | Part::Chevron { rect }
+                | Part::Check { rect }
+                | Part::Key { rect, .. } => *rect = rect.moved(by),
+            }
+        }
+        self
+    }
+}

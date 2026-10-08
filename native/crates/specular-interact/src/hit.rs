@@ -6,7 +6,9 @@ use specular_doc::{AnnotationId, Drawing, EdgeId, EdgeSide, Entity, EntityId, It
 use crate::app::page_of;
 use crate::edge_path::distance_to_segment;
 use crate::geometry::ScreenRect;
-use crate::{App, Handle, HandleOwner, PagePlacement, anchors, comment, geometry, handles};
+use crate::{
+    App, ControlId, Handle, HandleOwner, PagePlacement, anchors, comment, geometry, handles,
+};
 
 /// A drawing's box is only as thick as its ink (zero for a flat line), so it
 /// is widened to at least this many logical pixels each way. A stroke is
@@ -87,12 +89,24 @@ pub enum Hit {
     },
     /// Empty canvas.
     Empty,
+    /// A built-in panel: the toolbar, the popup or an open dropdown. Only
+    /// with the built-in panels on.
+    Panel {
+        /// The control there, if the point is on one.
+        control: Option<ControlId>,
+    },
 }
 
-/// What is under `screen`. Chrome comes first (comment marks, group titles,
-/// then the selection's resize handles, then edge anchors), then the bodies
-/// as [`body_at`] orders them.
+/// What is under `screen`. The built-in panels come first, being drawn over
+/// everything. Then chrome (comment marks, group titles, then the
+/// selection's resize handles, then edge anchors), then the bodies as
+/// [`body_at`] orders them.
 pub fn hit_test(app: &App, screen: Vec2) -> Hit {
+    if let Some(panel) = crate::panel::builtin::hit(app, screen) {
+        return Hit::Panel {
+            control: panel.control,
+        };
+    }
     let camera = &app.session.camera;
     let document = &app.document;
 
@@ -142,7 +156,8 @@ pub(crate) const fn entity_of(hit: &Hit) -> Option<&EntityId> {
         }
         | Hit::Comment { .. }
         | Hit::Edge { .. }
-        | Hit::Empty => None,
+        | Hit::Empty
+        | Hit::Panel { .. } => None,
     }
 }
 
@@ -173,7 +188,8 @@ pub(crate) fn entity_under_edges(app: &App, screen: Vec2) -> Option<EntityId> {
         | Hit::Anchor { .. }
         | Hit::GroupBorder { .. }
         | Hit::Edge { .. }
-        | Hit::Empty => None,
+        | Hit::Empty
+        | Hit::Panel { .. } => None,
     }
 }
 

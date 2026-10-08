@@ -1,0 +1,108 @@
+# canvas: empty.canvas
+# A whole session through the toolbar and the item popups, every change made
+# by naming the control. Tools are picked from the toolbar, a sticky and a
+# shape are placed with their popup defaults, then recolored and restyled,
+# joined by an edge that is restyled, undone and redone, with Escape closing
+# a dropdown on the way.
+camera 0,0,1
+snapshot 01-rest.png
+save 00-start.canvas
+
+# the sticky tool: its popup sets what the next sticky is
+control tool.sticky
+snapshot 02-sticky-tool-popup.png
+control sticky.color.blue
+click 300 400
+type first note
+key escape
+snapshot 03-sticky-placed.png
+save 03-sticky-placed.canvas
+
+# the placed sticky's own popup: a new color, then a named size, then the
+# stepper, with Escape closing a list before it does anything else
+control text.color
+snapshot 04-sticky-color-open.png
+control text.color.swatches.green
+key escape
+control text.size
+snapshot 05-sticky-size-open.png
+control text.size.32
+control text.size
+control text.size.custom.inc
+key escape
+snapshot 06-sticky-restyled.png
+save 06-sticky-restyled.canvas
+
+# the shape tool: a diamond is what the next shape is
+control tool.shape
+control shape.kind
+snapshot 07-shape-tool-grid.png
+control shape.kind.diamond
+control shape.color.yellow
+drag 800 400 1000 520
+snapshot 08-shape-placed.png
+save 08-shape-placed.canvas
+
+# the placed shape's own popup: another kind from the grid, then its border
+control shape.kind
+control shape.kind.hexagon
+control shape.border
+snapshot 09-border-open.png
+control shape.border.dashed
+control shape.border.w3
+control shape.border.color.red
+key escape
+snapshot 10-shape-restyled.png
+save 10-shape-restyled.canvas
+
+# a second shape from the toolbar, and an edge dragged between the two
+control tool.shape
+drag 1250 400 1450 520
+move 900 460
+press 1008 460
+drag-to 1300 460
+release
+snapshot 11-edge-made.png
+save 11-edge-made.canvas
+
+# the edge: select it, restyle it
+click 1125 460
+snapshot 12-edge-selected.png
+control edge.color
+control edge.color.swatches.blue
+key escape
+control edge.stroke
+snapshot 13-edge-stroke-open.png
+control edge.stroke.thick
+control edge.stroke.dashed
+key escape
+control edge.start
+snapshot 14-edge-restyled.png
+save 14-edge-restyled.canvas
+
+# undo and redo across a property change
+key cmd+z
+snapshot 15-edge-start-undone.png
+save 15-edge-start-undone.canvas
+key cmd+shift+z
+save 16-edge-start-redone.canvas
+
+# a press on a toolbar button that slides off it does nothing; the
+# hovered and pressed looks are shown on the way
+hover-control tool.draw
+snapshot 17-hover.png
+press-control tool.draw
+snapshot 18-pressed.png
+move 1200 800
+release
+snapshot 19-slid-off.png
+
+# the zoom list: an outside press closes it and goes no further
+control zoom
+snapshot 20-zoom-open.png
+click 700 700
+snapshot 21-zoom-closed-selection-kept.png
+control zoom
+control zoom.50
+snapshot 22-zoomed.png
+save 23-end.canvas

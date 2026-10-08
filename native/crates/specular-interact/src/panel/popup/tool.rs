@@ -1,0 +1,126 @@
+//! The popups of the tools in hand (`TextToolPopup.tsx`,
+//! `ShapeToolPopup.tsx`, `DrawToolPopup.tsx`). Their controls write the
+//! tool defaults.
+
+use specular_doc::Color;
+
+use super::super::build::{font_dropdown, groups, size_dropdown, swatches};
+use super::super::{Control, ControlId, PaintRole, Palette, PopupAnchor, PopupModel};
+use super::{drawing, shape};
+use crate::{Action, App, Tool, ToolDefaultPatch};
+
+/// The space between the toolbar and a tool's popup, in screen pixels.
+const TOOLBAR_GAP: f32 = 8.0;
+
+fn set(patch: ToolDefaultPatch) -> Action {
+    Action::SetToolDefault(patch)
+}
+
+fn at_toolbar(controls: Vec<Control>) -> PopupModel {
+    PopupModel {
+        anchor: PopupAnchor::Toolbar { gap: TOOLBAR_GAP },
+        controls,
+    }
+}
+
+pub(super) fn popup(app: &App, tool: Tool) -> Option<PopupModel> {
+    let defaults = app.tool_defaults();
+    let popup = match tool {
+        Tool::AddText => {
+            let ink = defaults.text.color.clone().unwrap_or(Color::Neutral);
+            at_toolbar(groups(vec![
+                vec![
+                    size_dropdown(
+                        ControlId::new("text.size"),
+                        "Set default text size",
+                        Some(defaults.text.size),
+                        |size| set(ToolDefaultPatch::TextSize(size)),
+                    ),
+                    font_dropdown(
+                        ControlId::new("text.font"),
+                        "Set default text font",
+                        Some(defaults.text.font),
+                        |font| set(ToolDefaultPatch::TextFont(font)),
+                    ),
+                ],
+                vec![Control::Swatches(swatches(
+                    ControlId::new("text.color"),
+                    Palette::Vivid,
+                    PaintRole::Ink,
+                    Some(&ink),
+                    None,
+                    |color| set(ToolDefaultPatch::TextColor(Some(color))),
+                ))],
+            ]))
+        }
+        Tool::AddSticky => at_toolbar(groups(vec![
+            vec![
+                size_dropdown(
+                    ControlId::new("sticky.size"),
+                    "Set default sticky text size",
+                    Some(defaults.sticky.size),
+                    |size| set(ToolDefaultPatch::StickySize(size)),
+                ),
+                font_dropdown(
+                    ControlId::new("sticky.font"),
+                    "Set default sticky text font",
+                    Some(defaults.sticky.font),
+                    |font| set(ToolDefaultPatch::StickyFont(font)),
+                ),
+            ],
+            vec![Control::Swatches(swatches(
+                ControlId::new("sticky.color"),
+                Palette::Soft,
+                PaintRole::Fill,
+                Some(&defaults.sticky.color),
+                None,
+                |color| set(ToolDefaultPatch::StickyColor(color)),
+            ))],
+        ])),
+        Tool::AddShape => at_toolbar(groups(vec![
+            vec![shape::kind_dropdown(
+                ControlId::new("shape.kind"),
+                "Set default shape",
+                Some(defaults.shape.kind),
+                |kind| set(ToolDefaultPatch::ShapeKind(kind)),
+            )],
+            vec![size_dropdown(
+                ControlId::new("shape.size"),
+                "Set default label size",
+                Some(defaults.shape.text_size),
+                |size| set(ToolDefaultPatch::ShapeTextSize(size)),
+            )],
+            vec![Control::Swatches(swatches(
+                ControlId::new("shape.color"),
+                Palette::Soft,
+                PaintRole::Fill,
+                Some(&defaults.shape.color),
+                None,
+                |color| set(ToolDefaultPatch::ShapeColor(color)),
+            ))],
+        ])),
+        Tool::Draw => {
+            let draw = &defaults.draw;
+            at_toolbar(groups(vec![
+                drawing::brushes(Some(&draw.color), Some(draw.brush), |brush| {
+                    set(ToolDefaultPatch::Brush(brush))
+                }),
+                drawing::widths(draw.brush, Some(draw.stroke_width), |width| {
+                    set(ToolDefaultPatch::DrawStrokeWidth(width))
+                }),
+                vec![Control::Swatches(swatches(
+                    ControlId::new("draw.color"),
+                    drawing::palette_of(draw.brush),
+                    PaintRole::Ink,
+                    Some(&draw.color),
+                    None,
+                    |color| set(ToolDefaultPatch::DrawColor(color)),
+                ))],
+            ]))
+        }
+        // The page tool places the first preset. Which preset it places is
+        // not something the tool holds, so there is nothing to choose.
+        Tool::AddPage | Tool::Select | Tool::AddDocument | Tool::Comment => return None,
+    };
+    Some(popup)
+}

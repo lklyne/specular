@@ -77,6 +77,18 @@ pub(crate) enum Step {
     Camera(CameraArg),
     /// `wait ms`: the clock moves on and pending loads are waited for.
     Wait(u64),
+    /// `control shape.color`: clicks the toolbar or popup control with that
+    /// name, wherever it is. A dropdown's options have names once it is
+    /// open.
+    Control(String),
+    /// `hover-control tool.draw`: the pointer moves onto that control.
+    HoverControl(String),
+    /// `press-control tool.draw`: the button goes down on that control and
+    /// stays down until a `release`.
+    PressControl(String),
+    /// `panels off`, or `panels on`: whether the toolbar and the popup are
+    /// drawn and take clicks. They start on.
+    Panels(bool),
     /// `snapshot out.png`.
     Snapshot(PathBuf),
     /// `save out.canvas`: the text an autosave would write now.
@@ -128,6 +140,11 @@ fn step(line: &str) -> anyhow::Result<Step> {
         ("select", ids) => Step::Select(ids.iter().map(|&id| id.to_owned()).collect()),
         ("camera", [value]) => Step::Camera(camera(value)?),
         ("wait", [ms]) => Step::Wait(ms.parse().context("wait expects milliseconds")?),
+        ("control", [id]) => Step::Control((*id).to_owned()),
+        ("hover-control", [id]) => Step::HoverControl((*id).to_owned()),
+        ("press-control", [id]) => Step::PressControl((*id).to_owned()),
+        ("panels", ["on"]) => Step::Panels(true),
+        ("panels", ["off"]) => Step::Panels(false),
         ("snapshot", [path]) => Step::Snapshot(PathBuf::from(path)),
         ("save", [path]) => Step::Save(PathBuf::from(path)),
         _ => bail!("not a step, or the wrong number of arguments"),
@@ -305,6 +322,20 @@ mod tests {
             parse("camera fit\ncamera 40,-20,0.5").unwrap(),
             [Step::Camera(CameraArg::Fit), Step::Camera(at)]
         );
+    }
+
+    #[test]
+    fn a_control_is_named_and_the_panels_go_on_and_off() {
+        assert_eq!(
+            parse("control shape.color\nhover-control tool.draw\npanels off").unwrap(),
+            [
+                Step::Control("shape.color".to_owned()),
+                Step::HoverControl("tool.draw".to_owned()),
+                Step::Panels(false)
+            ]
+        );
+        assert!(parse("panels maybe").is_err());
+        assert!(parse("control").is_err());
     }
 
     #[test]

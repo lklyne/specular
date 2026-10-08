@@ -7,7 +7,7 @@
 use glam::DVec2;
 use specular_doc::{Drawing, Entity, EntityId, JsonMap, Kind, Point, Rect, Stroke};
 
-use crate::{App, Effect, live};
+use crate::{App, Effect, live, strokes};
 
 /// A stroke between its press and its release.
 #[derive(Debug, Clone, PartialEq)]
@@ -35,20 +35,9 @@ impl DrawStroke {
     }
 }
 
-/// The rect a drawing holding `stroke` has: its points, grown by half the
-/// stroke's width so a straight line still has a body to grab.
+/// The rect a drawing holding `stroke` has.
 fn bounds(stroke: &Stroke) -> Rect {
-    let pad = stroke.width / 2.0;
-    let corners = stroke.points.iter().fold(None, |corners, point| {
-        let point = DVec2::new(point.x, point.y);
-        let (low, high) = corners.unwrap_or((point, point));
-        Some((low.min(point), high.max(point)))
-    });
-    let Some((low, high)) = corners else {
-        return Rect::new(0.0, 0.0, 1.0, 1.0);
-    };
-    let size = (high - low + pad * 2.0).max(DVec2::ONE);
-    Rect::new(low.x - pad, low.y - pad, size.x, size.y)
+    strokes::bounds(std::slice::from_ref(stroke))
 }
 
 /// `point` turned about `origin` onto the nearest multiple of 45 degrees,

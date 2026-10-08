@@ -5,6 +5,10 @@
 //! entered page (the one with keyboard focus) hears the pointer: moves over
 //! its body, presses on it, and everything up to the release of a press it
 //! got.
+//!
+//! The built-in panels are offered every event before any of that, and what
+//! they take goes no further: a press on a popup control leaves the
+//! selection, the tool in hand and a text edit as they were.
 
 use glam::Vec2;
 use specular_core::{PointerButton, PointerEventKind};
@@ -17,6 +21,9 @@ use crate::{
 
 pub(crate) fn on_pointer(app: &mut App, input: &PointerInput, effects: &mut Vec<Effect>) {
     app.session.modifiers = input.modifiers;
+    if crate::panel::builtin::on_pointer(app, input, effects) {
+        return;
+    }
     match input.kind {
         PointerEventKind::Move => on_move(app, input, effects),
         PointerEventKind::Leave => {
@@ -136,7 +143,8 @@ fn entered_page(app: &App, hit: Hit) -> Option<(EntityId, Vec2)> {
         | Hit::EntityBody { .. }
         | Hit::GroupBorder { .. }
         | Hit::Edge { .. }
-        | Hit::Empty => None,
+        | Hit::Empty
+        | Hit::Panel { .. } => None,
     }
 }
 

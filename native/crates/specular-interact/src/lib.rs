@@ -58,9 +58,11 @@ mod notes;
 mod page_input;
 mod page_state;
 mod pages;
+pub mod panel;
 mod place;
 mod placement;
 mod pointer;
+pub mod property;
 mod resize;
 mod resize_drag;
 mod saved;
@@ -116,8 +118,15 @@ pub use menu::{Menu, MenuEntry, MenuItem, binding_of, menus};
 pub use move_drag::{CopyPreview, MoveDrag};
 pub use notes::{NoteNotice, NoteState, is_note_file};
 pub use page_state::PageState;
+pub use panel::builtin::PanelUi;
+pub use panel::{
+    Align, Button, Control, ControlId, Dropdown, DropdownOption, DropdownSection, Entries, Face,
+    Icon, Label, OptionLayout, PaintRole, Palette, Placement, PopupAnchor, PopupModel, Stepper,
+    Swatch, Swatches, Toggle, ToolButton, ToolbarModel, ToolbarSection, popup_for, toolbar,
+};
 pub use place::{PlaceDrag, Placing};
 pub use placement::PagePlacement;
+pub use property::{Orientation, Property};
 pub use resize_drag::ResizeDrag;
 pub use scope::SelectionScope;
 pub use scroll_follow::{

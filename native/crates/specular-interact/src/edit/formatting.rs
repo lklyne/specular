@@ -1,7 +1,7 @@
 //! [`Format`]: the markdown formatting a key or a menu item toggles on the
 //! selection of the text being edited, and which texts take which.
 
-use super::buffer::Target;
+use super::buffer::{Target, TextEdit};
 use super::format::{self, ListKind, Wrap};
 use crate::App;
 
@@ -39,6 +39,24 @@ impl Format {
                 self,
                 Self::Bold | Self::Italic | Self::Strike | Self::BulletList
             ),
+        }
+    }
+}
+
+impl TextEdit {
+    /// Whether the text being edited takes `format`.
+    pub(crate) const fn takes(&self, format: Format) -> bool {
+        format.applies_to(self.target)
+    }
+
+    /// Whether the popup of the item being edited stays up during the edit:
+    /// the item's text and a Document's source have formatting to show, and
+    /// an edge's label belongs to a popup the edit does not cover. A shape's
+    /// label and an item's title are edited in place with the popup down.
+    pub(crate) const fn keeps_popup(&self) -> bool {
+        match self.target {
+            Target::Text | Target::Note | Target::EdgeLabel => true,
+            Target::Label | Target::Title | Target::Comment => false,
         }
     }
 }
