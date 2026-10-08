@@ -155,6 +155,7 @@ mod tests {
         for _ in 0..MAX_PENDING + 3 {
             tracker.event(start);
         }
+        assert_eq!(tracker.pending(), MAX_PENDING);
         assert_eq!(tracker.summary().unresolved, MAX_PENDING + 3);
     }
 

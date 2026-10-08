@@ -319,9 +319,16 @@ mod tests {
     }
 
     #[test]
+    fn an_empty_element_path_is_no_path() {
+        let answer = r##"{"selector":"#top","elementPath":"","x":0,"y":0,"width":1,"height":1}"##;
+        let element = parse_element(&value_result(answer)).unwrap();
+        assert_eq!(element.element_path, None);
+    }
+
+    #[test]
     fn no_element_a_thrown_error_and_noise_are_all_no_element() {
         assert_eq!(parse_element(&value_result("null")), None);
-        let thrown = br#"{"result":{"type":"object"},"exceptionDetails":{"text":"Uncaught"}}"#;
+        let thrown = br##"{"result":{"type":"string","value":"{\"selector\":\"#a\",\"x\":0,\"y\":0,\"width\":1,\"height\":1}"},"exceptionDetails":{"text":"Uncaught"}}"##;
         assert_eq!(parse_element(thrown), None);
         assert_eq!(parse_element(b"not json"), None);
         assert_eq!(parse_element(&value_result(r#"{"selector":"a"}"#)), None);
@@ -334,9 +341,11 @@ mod tests {
         assert!(ask.contains("scrollY / maxY"));
         let answer = value_result(r#"{"x":0,"y":0.25}"#);
         assert_eq!(parse_scroll_progress(&answer), Some((0.0, 0.25)));
+        let overshoot = value_result(r#"{"x":-0.5,"y":1.5}"#);
+        assert_eq!(parse_scroll_progress(&overshoot), Some((0.0, 1.0)));
         assert_eq!(parse_scroll_progress(&value_result("nope")), None);
 
-        let go = sent(&scroll_to_message(5, 0.0, 1.5));
+        let go = sent(&scroll_to_message(5, -0.5, 1.5));
         let go = go["params"]["expression"].as_str().unwrap();
         assert!(go.contains("left: maxX * (0), top: maxY * (1)"));
         assert!(!go.contains("__"), "a placeholder was left in");

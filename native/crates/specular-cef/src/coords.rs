@@ -85,8 +85,8 @@ mod tests {
     #[test]
     fn fractional_scale_rounds_texel_rect_outward() {
         assert_eq!(
-            css_rect_to_texels(PixelRect::new(1, 1, 3, 3), 1.5),
-            PixelRect::new(1, 1, 5, 5)
+            css_rect_to_texels(PixelRect::new(1, 1, 4, 4), 1.5),
+            PixelRect::new(1, 1, 7, 7)
         );
     }
 

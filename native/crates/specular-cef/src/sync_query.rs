@@ -292,16 +292,27 @@ mod tests {
         assert_eq!(candidates.len(), 1);
         assert!(candidates[0].interactive);
         assert!((candidates[0].rect.width - 40.0).abs() < f64::EPSILON);
+        assert_eq!(parse_candidates(b"not json").len(), 0);
     }
 
     #[test]
     fn a_click_is_replayed_as_a_press_and_a_release_and_a_hover_as_a_move() {
-        let kinds = |kind| -> Vec<String> {
-            (replay_messages(kind, 30.0, 40.0).iter())
-                .map(|message| message["params"]["type"].as_str().unwrap().to_owned())
-                .collect()
+        let message = |event: &str, button: &str, clicks: u8| {
+            json!({
+                "method": "Input.dispatchMouseEvent",
+                "params": { "type": event, "x": 30.0, "y": 40.0, "button": button, "clickCount": clicks },
+            })
         };
-        assert_eq!(kinds(PointKind::Hover), ["mouseMoved"]);
-        assert_eq!(kinds(PointKind::Click), ["mousePressed", "mouseReleased"]);
+        assert_eq!(
+            replay_messages(PointKind::Hover, 30.0, 40.0),
+            [message("mouseMoved", "none", 0)]
+        );
+        assert_eq!(
+            replay_messages(PointKind::Click, 30.0, 40.0),
+            [
+                message("mousePressed", "left", 1),
+                message("mouseReleased", "left", 1)
+            ]
+        );
     }
 }

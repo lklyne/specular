@@ -210,6 +210,7 @@ mod tests {
         let report = recorder.finish();
         assert_eq!((report.frames_drawn, report.frames_skipped), (3, 1));
         assert!((report.view.mean - 4.0).abs() < 1e-9);
+        assert!((report.view.p95 - 9.0).abs() < 1e-9);
         assert!((report.view.max - 9.0).abs() < 1e-9);
         assert!((report.cpu.max - 10.0).abs() < 1e-9);
         assert_eq!(report.glyph_count, 40);

@@ -126,7 +126,7 @@ mod tests {
 
     #[test]
     fn percentiles_ignore_recording_order() {
-        let summary = times(&[9, 1, 5, 3, 7]).summary(Duration::from_millis(8));
+        let summary = times(&[9, 1, 3, 5, 7]).summary(Duration::from_millis(8));
         assert!((summary.p50_frame_ms - 5.0).abs() < 1e-9);
     }
 

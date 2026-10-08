@@ -329,6 +329,10 @@ mod tests {
             "pan-zoom".parse::<ProfileId>().unwrap(),
             ProfileId::SlowPanZoom
         );
+        assert_eq!(
+            "fast-pan".parse::<ProfileId>().unwrap(),
+            ProfileId::FastDiagonalPan
+        );
     }
 
     #[test]

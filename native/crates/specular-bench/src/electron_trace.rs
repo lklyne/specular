@@ -346,6 +346,11 @@ mod tests {
         let presents = burst(0.0, (steps + 1) * 20, 400.0);
         let phase = phase_from_burst(&profile, &presents, BUDGET);
         assert!(present_count_warning(&profile, &phase, BUDGET).is_some());
+
+        // The canvas window alone: one present per step, plus the first.
+        let presents = burst(0.0, steps + 1, 8_000.0);
+        let phase = phase_from_burst(&profile, &presents, BUDGET);
+        assert_eq!(present_count_warning(&profile, &phase, BUDGET), None);
     }
 
     #[test]
@@ -358,5 +363,7 @@ mod tests {
             phases_from_trace(&trace, DEFAULT_THREAD, &profiles, BUDGET, GAP).unwrap();
         let ids: Vec<ProfileId> = phases.iter().map(|p| p.phase).collect();
         assert_eq!(ids, [ProfileId::SlowPan, ProfileId::FastDiagonalPan]);
+        let frames: Vec<usize> = phases.iter().map(|p| p.frames.frames).collect();
+        assert_eq!(frames, [250, 56]);
     }
 }

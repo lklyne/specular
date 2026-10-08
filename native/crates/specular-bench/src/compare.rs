@@ -383,21 +383,31 @@ mod tests {
 
     #[test]
     fn markdown_flags_differing_chrome_load() {
+        let with = |chrome: &str, annotations: u32| {
+            let text = RUST_JSONL.replace(
+                r#""representative":true"#,
+                &format!(
+                    r#""representative":true,"paintPolicy":"electron-lod","chrome":{chrome},"annotations":{annotations}"#
+                ),
+            );
+            LoadedRun::parse(&text, "x.jsonl").unwrap()
+        };
+        let differs =
+            |a: &LoadedRun, b: &LoadedRun| compare_markdown(a, b).contains("Chrome load differs");
+        assert!(differs(&with("false", 0), &with("true", 0)), "chrome only");
+        assert!(
+            differs(&with("true", 0), &with("true", 40)),
+            "annotations only"
+        );
+        assert!(!differs(&with("true", 40), &with("true", 40)));
+
         // An older Rust-app file: its lines carry a paint policy, no chrome.
         let plain = RUST_JSONL.replace(
             r#""representative":true"#,
             r#""representative":true,"paintPolicy":"electron-lod""#,
         );
-        let loaded = RUST_JSONL.replace(
-            r#""representative":true"#,
-            r#""representative":true,"paintPolicy":"electron-lod","chrome":true,"annotations":40"#,
-        );
-        let (a, b) = (
-            LoadedRun::parse(&plain, "a.jsonl").unwrap(),
-            LoadedRun::parse(&loaded, "b.jsonl").unwrap(),
-        );
-        let table = compare_markdown(&a, &b);
-        assert!(table.contains("Chrome load differs"), "{table}");
+        let plain = LoadedRun::parse(&plain, "a.jsonl").unwrap();
+        assert!(differs(&plain, &with("true", 40)));
     }
 
     #[test]
@@ -410,7 +420,13 @@ mod tests {
     fn markdown_flags_non_representative_runs() {
         let synthetic = RUST_JSONL.replace("\"representative\":true", "\"representative\":false");
         let run = LoadedRun::parse(&synthetic, "synthetic.jsonl").unwrap();
-        assert!(compare_markdown(&electron(), &run).contains("Not representative"));
+        let flagged = "**Not representative:** synthetic.jsonl";
+        assert!(compare_markdown(&electron(), &run).contains(flagged));
+        assert!(!compare_markdown(&electron(), &rust()).contains("Not representative"));
+
+        let run_level = ELECTRON.replace("\"representative\":true", "\"representative\":false");
+        let run = LoadedRun::parse(&run_level, "run-level.json").unwrap();
+        assert!(compare_markdown(&run, &rust()).contains("**Not representative:** Electron"));
     }
 
     #[test]

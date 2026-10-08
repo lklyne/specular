@@ -157,10 +157,30 @@ mod tests {
     }
 
     #[test]
+    fn an_empty_id_attribute_is_no_id() {
+        let answer = json!({
+            "nodeId": "div@0:0", "tagName": "div", "name": "div", "selector": "div", "id": "",
+            "classes": [], "styles": [], "x": 0, "y": 0, "width": 1, "height": 1,
+        })
+        .to_string();
+        let node = parse_inspected(&value_result(&answer)).unwrap();
+        assert_eq!(node.id_attribute, None);
+    }
+
+    #[test]
     fn no_element_a_thrown_error_and_noise_are_all_no_node() {
         assert_eq!(parse_inspected(&value_result("null")), None);
-        let thrown = br#"{"result":{"type":"object"},"exceptionDetails":{"text":"Uncaught"}}"#;
-        assert_eq!(parse_inspected(thrown), None);
+        let readable = json!({
+            "nodeId": "a", "tagName": "div", "name": "div", "selector": "div", "id": "",
+            "classes": [], "styles": [], "x": 0, "y": 0, "width": 1, "height": 1,
+        })
+        .to_string();
+        let thrown = json!({
+            "result": { "type": "string", "value": readable },
+            "exceptionDetails": { "text": "Uncaught" },
+        })
+        .to_string();
+        assert_eq!(parse_inspected(thrown.as_bytes()), None);
         assert_eq!(parse_inspected(b"not json"), None);
         assert_eq!(parse_inspected(&value_result(r#"{"nodeId":"a"}"#)), None);
     }

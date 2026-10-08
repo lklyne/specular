@@ -95,6 +95,20 @@ mod tests {
     }
 
     #[test]
+    fn a_dirty_rect_short_of_the_frame_is_kept() {
+        let rects = [
+            PixelRect::new(0, 0, 2, 1),
+            PixelRect::new(0, 0, 1, 2),
+            PixelRect::new(1, 0, 2, 2),
+            PixelRect::new(0, 1, 2, 2),
+        ];
+        for rect in rects {
+            let frame = copy_paint(&[0; 16], 2, 2, &[rect]);
+            assert_eq!(frame.map(|f| f.dirty), Ok(vec![rect]), "{rect:?}");
+        }
+    }
+
+    #[test]
     fn short_buffer_is_rejected() {
         assert_eq!(
             copy_paint(&[0; 15], 2, 2, &[]),

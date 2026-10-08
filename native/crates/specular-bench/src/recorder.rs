@@ -121,7 +121,11 @@ mod tests {
         recorder.presented(at, PresentedFrame::default());
         for (i, &ms) in intervals_ms.iter().enumerate() {
             at += Duration::from_millis(ms);
-            let pages_without_texture = u32::from(missing_every > 0 && i % missing_every == 0);
+            let pages_without_texture = if missing_every > 0 && i % missing_every == 0 {
+                3
+            } else {
+                0
+            };
             recorder.presented(
                 at,
                 PresentedFrame {

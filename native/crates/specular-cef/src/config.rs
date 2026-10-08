@@ -200,5 +200,6 @@ mod tests {
     #[test]
     fn type_switch_marks_a_subprocess() {
         assert!(is_subprocess(&["app", "--type=renderer", "--lang=en"]));
+        assert!(!is_subprocess(&["app", "--lang=en"]));
     }
 }
