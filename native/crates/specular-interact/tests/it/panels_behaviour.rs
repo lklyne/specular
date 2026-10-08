@@ -74,7 +74,9 @@ fn a_swatch_sets_the_color_and_the_next_model_selects_it() {
         };
         assert_eq!(text.color, Some(RED));
     }
-    app.assert_undo_returns_to_start();
+    app.undo();
+    assert!(!app.app().can_undo(), "both stickies changed in one step");
+    app.redo().assert_undo_returns_to_start();
 }
 
 #[test]

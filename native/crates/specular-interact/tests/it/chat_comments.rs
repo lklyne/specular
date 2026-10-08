@@ -81,6 +81,10 @@ fn a_second_comment_joins_the_draft_and_the_next_after_a_run_starts_another() {
     app.click((600.0, 500.0)).send_chat("one");
     app.click((700.0, 500.0)).send_chat("two");
     assert_eq!(thread_id_of(&app, 0), thread_id_of(&app, 1));
+    let texts: Vec<_> = (app.document().annotations().iter())
+        .map(|annotation| annotation.text.as_str())
+        .collect();
+    assert_eq!(texts, ["one", "two"], "comments keep the order placed");
     assert_eq!(app.app().threads().all()[0].messages.len(), 2);
     app.send_chat("")
         .agent_says(specular_interact::Notice::Finished {
@@ -237,4 +241,6 @@ fn the_toolbar_has_the_panels_toggle_only_when_there_is_a_panel() {
     app.act(Action::Chat(ChatAction::Resize(10.0)));
     assert_eq!(app.chat().width, 280.0);
     assert_eq!(toolbar(app.app()).chat.map(|b| b.open), Some(true));
+    app.act(Action::Chat(ChatAction::Toggle));
+    assert_eq!(toolbar(app.app()).chat.map(|b| b.open), Some(false));
 }

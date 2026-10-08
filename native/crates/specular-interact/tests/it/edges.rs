@@ -254,9 +254,15 @@ fn the_hovered_entity_offers_its_four_anchors_and_lights_the_one_under_the_point
 #[test]
 fn the_selected_entity_offers_anchors_but_a_selection_of_several_does_not() {
     let mut app = three();
-    app.click((200.0, 150.0)).pointer_move((900.0, 900.0));
+    // Selected and hovered at once is still one entity's four anchors.
+    app.click((200.0, 150.0));
+    assert_eq!(app.app().anchors().len(), 4);
+    app.pointer_move((900.0, 900.0));
     assert_eq!(app.app().anchors().len(), 4);
     app.select(&["a", "b"]);
+    assert_eq!(app.app().anchors().len(), 0);
+    // Hovering one of the two offers nothing either.
+    app.pointer_move((200.0, 150.0));
     assert_eq!(app.app().anchors().len(), 0);
 }
 

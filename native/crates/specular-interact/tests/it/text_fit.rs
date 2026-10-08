@@ -41,8 +41,12 @@ fn entities() -> [Entity; 4] {
             Rect::new(0.0, 0.0, 120.0, 500.0),
             "aaaa bbbb cccc dddd eeee",
         ),
-        // Five characters and the 8 kept clear for the caret, on one line.
-        plain_text("hugging", Rect::new(0.0, 600.0, 300.0, 300.0), "hello"),
+        // Seventeen characters of 10 and the 8 kept clear for the caret, on one line.
+        plain_text(
+            "hugging",
+            Rect::new(0.0, 600.0, 300.0, 300.0),
+            "hello there world",
+        ),
         // Fifteen lines of 20 and 8 of padding above and below.
         sticky(
             "note",
@@ -66,7 +70,7 @@ fn a_loaded_document_gets_measured_text_sizes_with_no_undo_step_or_save() {
         ],
         [
             Rect::new(0.0, 0.0, 120.0, 60.0),
-            Rect::new(0.0, 600.0, 64.0, 20.0),
+            Rect::new(0.0, 600.0, 178.0, 20.0),
             Rect::new(400.0, 0.0, 200.0, 316.0),
             Rect::new(400.0, 600.0, 200.0, 100.0),
         ]
@@ -75,6 +79,20 @@ fn a_loaded_document_gets_measured_text_sizes_with_no_undo_step_or_save() {
     assert!(
         !app.take_effects()
             .contains(&specular_interact::Effect::Save)
+    );
+}
+
+#[test]
+fn an_estimating_measure_leaves_the_sizes_the_file_had() {
+    let mut app = TestApp::empty();
+    app.open(document(entities()));
+    assert_eq!(
+        [app.rect("wrapped"), app.rect("hugging"), app.rect("note")],
+        [
+            Rect::new(0.0, 0.0, 120.0, 500.0),
+            Rect::new(0.0, 600.0, 300.0, 300.0),
+            Rect::new(400.0, 0.0, 200.0, 50.0),
+        ]
     );
 }
 
@@ -93,7 +111,7 @@ fn a_save_keeps_the_size_on_disk_of_every_text_the_session_left_alone() {
 
     // A text the session moved is saved where and as it now is.
     app.drag((10.0, 610.0), (110.0, 610.0));
-    let moved = Rect::new(100.0, 600.0, 64.0, 20.0);
+    let moved = Rect::new(100.0, 600.0, 178.0, 20.0);
     assert_eq!(app.rect("hugging"), moved);
     let saved = app.app().document_to_save();
     assert_eq!(saved.entity(&"hugging".into()).map(|e| e.rect), Some(moved));

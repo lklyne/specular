@@ -196,12 +196,21 @@ fn a_region_is_bound_to_the_first_page_it_grabbed_from() {
     app.type_text("fix the header").key(Key::Enter);
     assert_doc_snapshot!(app);
     app.assert_undo_returns_to_start();
+
+    // A region that grabbed nothing from either page stays on the canvas.
+    let mut app = armed();
+    app.drag((450.0, 150.0), (750.0, 250.0))
+        .answer_grab(&[0, 0]);
+    assert_eq!(
+        (draft_anchor(&app), draft_page(&app)),
+        (canvas_region(Rect::new(450.0, 150.0, 300.0, 100.0)), None)
+    );
 }
 
 #[test]
 fn a_press_is_a_click_until_it_has_travelled_four_pixels() {
     let mut app = armed();
-    app.press((600.0, 500.0)).drag_to((602.0, 502.0));
+    app.press((600.0, 500.0)).drag_to((603.5, 500.0));
     assert_eq!(app.session().comment_preview(), None);
     app.release();
     assert_eq!(draft_anchor(&app), canvas_point(600.0, 500.0));
