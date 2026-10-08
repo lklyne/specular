@@ -24,6 +24,13 @@ fn there_is_no_toolbar_and_the_strip_it_would_cover_is_canvas() {
 }
 
 #[test]
+fn the_sidebar_stays_out_even_when_asked_for() {
+    let mut app = app();
+    app.show_sidebar(true);
+    assert!(app.panel_layout().sidebar.is_none());
+}
+
+#[test]
 fn a_selection_still_has_its_popup() {
     let mut app = app();
     app.select(&["t"]);

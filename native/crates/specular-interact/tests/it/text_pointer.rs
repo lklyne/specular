@@ -2,7 +2,7 @@
 //! (108, 108), 10 units a character and 20 a line.
 
 use specular_doc::Rect;
-use specular_testkit::{SHIFT, TestApp, sticky};
+use specular_testkit::{SHIFT, TestApp, shape, sticky};
 
 const NOTE: Rect = Rect::new(100.0, 100.0, 200.0, 200.0);
 
@@ -44,6 +44,37 @@ fn a_click_puts_the_caret_at_the_nearest_boundary() {
 }
 
 #[test]
+fn a_press_on_something_else_ends_the_edit() {
+    let mut app = TestApp::with_entities([
+        sticky("n", NOTE, "hello"),
+        shape("s", Rect::new(500.0, 100.0, 100.0, 100.0)),
+    ]);
+    app.double_click((150.0, 250.0));
+    assert!(app.session().editing.is_some());
+    app.click((550.0, 150.0));
+    assert!(app.session().editing.is_none());
+}
+
+#[test]
+fn a_click_takes_the_text_out_of_the_input_methods_hands() {
+    let mut app = editing("ab");
+    app.compose("に");
+    assert!(
+        app.app()
+            .text_edit()
+            .and_then(specular_interact::TextEdit::composition)
+            .is_some()
+    );
+    app.click(at(0, 0));
+    assert_eq!(
+        app.app()
+            .text_edit()
+            .and_then(specular_interact::TextEdit::composition),
+        None
+    );
+}
+
+#[test]
 fn a_drag_selects_from_the_press_to_the_pointer() {
     let mut app = editing("hello world\nfoo");
     app.press(at(2, 0)).drag_to(at(7, 0));
@@ -81,6 +112,20 @@ fn a_double_click_takes_a_word_and_a_drag_from_it_grows_by_words() {
     assert_eq!(app.caret(), (13, 4), "all of the word under the pointer");
     app.drag_to(at(1, 0)).release();
     assert_eq!(app.caret(), (0, 7), "backwards, keeping the first word");
+
+    // Shift on a double click still takes the word instead of extending.
+    app.click(at(0, 0))
+        .hold(SHIFT)
+        .double_click(at(5, 0))
+        .let_go();
+    assert_eq!(app.caret(), (7, 4));
+
+    // Dragged back to exactly where the word starts: the word stays whole.
+    app.double_click(at(5, 0));
+    app.click(at(5, 0))
+        .send(press_again(at(5, 0), 2))
+        .drag_to(at(4, 0));
+    assert_eq!(app.caret(), (7, 4));
 }
 
 #[test]

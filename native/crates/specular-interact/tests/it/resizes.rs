@@ -104,7 +104,7 @@ fn each_handle_moves_its_own_edges_and_holds_the_others() {
 #[test]
 fn a_press_off_the_centre_of_a_handle_does_not_make_the_rect_jump() {
     let mut app = selected(shape("s", S));
-    app.press((303.0, 203.0)).drag_to((304.0, 204.0)).release();
+    app.press((306.0, 206.0)).drag_to((311.0, 211.0)).release();
     assert_eq!((app.rect("s"), app.app().can_undo()), (S, false));
 }
 
@@ -180,6 +180,16 @@ fn a_text_side_handle_changes_the_width_and_keeps_the_type_size() {
         )
     );
     app.assert_undo_returns_to_start();
+    // The left handle reflows too: the right edge stays at 300.
+    let mut app = selected(text("t", S));
+    app.drag(LEFT, (0.0, 150.0));
+    assert_eq!(
+        (app.rect("t"), type_of(&app, "t")),
+        (
+            Rect::new(0.0, 100.0, 300.0, 200.0),
+            (None, Some(WidthMode::Fixed))
+        )
+    );
 }
 
 #[test]
@@ -188,7 +198,7 @@ fn a_narrowed_text_grows_as_tall_as_its_wrapped_lines_in_one_undo_step() {
     let words = Kind::Text(Text {
         text: "aaaa bbbb cccc dddd eeee".to_owned(),
         style: Some(TextStyle::Plain),
-        width_mode: Some(WidthMode::Fixed),
+        width_mode: Some(WidthMode::Auto),
         ..Text::default()
     });
     let mut app = selected(Entity::new(
@@ -196,7 +206,8 @@ fn a_narrowed_text_grows_as_tall_as_its_wrapped_lines_in_one_undo_step() {
         Rect::new(100.0, 100.0, 300.0, 20.0),
         words,
     ));
-    // 120 wide wraps at 112: two words a line, three lines.
+    // The resize fixes the width mode as well as the rect, and both are the
+    // one undo step. 120 wide wraps at 112: two words a line, three lines.
     app.press((400.0, 110.0)).drag_to((220.0, 110.0));
     assert_eq!(app.rect("t"), Rect::new(100.0, 100.0, 120.0, 60.0));
     app.release().undo();
@@ -251,12 +262,13 @@ fn a_drawing_stretches_its_points_into_the_new_box() {
         box_,
         &[(100.0, 100.0), (150.0, 100.0), (200.0, 200.0)],
     ));
-    app.drag((200.0, 200.0), (300.0, 160.0));
+    // The top-left corner moves, so the points translate as well as scale.
+    app.drag((100.0, 100.0), (60.0, 40.0));
     assert_eq!(
         (app.rect("d"), points(&app, "d")),
         (
-            Rect::new(100.0, 100.0, 200.0, 60.0),
-            vec![(100.0, 100.0), (200.0, 100.0), (300.0, 160.0)]
+            Rect::new(60.0, 40.0, 140.0, 160.0),
+            vec![(60.0, 40.0), (130.0, 40.0), (200.0, 200.0)]
         )
     );
     app.assert_undo_returns_to_start();
@@ -320,13 +332,19 @@ fn pair() -> TestApp {
 
 #[test]
 fn a_selection_of_several_scales_every_entity_inside_its_bounds() {
-    let mut app = pair();
-    app.drag((400.0, 200.0), (700.0, 300.0));
+    // Bounds (100, 100) to (400, 300), the shapes offset on both axes.
+    let mut app = TestApp::with_entities([
+        shape("a", Rect::new(100.0, 100.0, 100.0, 100.0)),
+        shape("b", Rect::new(300.0, 200.0, 100.0, 100.0)),
+    ]);
+    app.select(&["a", "b"]);
+    // Twice as wide and three times as tall.
+    app.drag((400.0, 300.0), (700.0, 700.0));
     assert_eq!(
         (app.rect("a"), app.rect("b")),
         (
-            Rect::new(100.0, 100.0, 200.0, 200.0),
-            Rect::new(500.0, 100.0, 200.0, 200.0)
+            Rect::new(100.0, 100.0, 200.0, 300.0),
+            Rect::new(500.0, 400.0, 200.0, 300.0)
         )
     );
     assert_eq!(app.selected_ids(), ["a", "b"]);
@@ -350,14 +368,20 @@ fn a_side_handle_of_the_bounds_scales_one_axis() {
 
 #[test]
 fn the_bounds_stop_at_twenty_units_and_nothing_inside_vanishes() {
-    let mut app = pair();
+    // A speck between the two shapes rounds to nothing at this scale.
+    let mut app = TestApp::with_entities([
+        shape("a", Rect::new(100.0, 100.0, 100.0, 100.0)),
+        shape("b", Rect::new(300.0, 100.0, 100.0, 100.0)),
+        shape("c", Rect::new(220.0, 100.0, 5.0, 5.0)),
+    ]);
+    app.select(&["a", "b", "c"]);
     app.drag((400.0, 200.0), (-900.0, -900.0));
-    let (a, b) = (app.rect("a"), app.rect("b"));
     assert_eq!(
-        (a, b),
+        (app.rect("a"), app.rect("b"), app.rect("c")),
         (
             Rect::new(100.0, 100.0, 7.0, 20.0),
-            Rect::new(113.0, 100.0, 7.0, 20.0)
+            Rect::new(113.0, 100.0, 7.0, 20.0),
+            Rect::new(108.0, 100.0, 1.0, 1.0)
         )
     );
     app.assert_undo_returns_to_start();
@@ -422,6 +446,8 @@ fn the_cursor_follows_the_corner_under_the_pointer() {
         .pointer_move(TOP_RIGHT)
         .pointer_move(TOP_LEFT)
         .pointer_move(BOTTOM_LEFT)
+        // A side handle has no arrow of its own: the plain cursor.
+        .pointer_move(RIGHT)
         .pointer_move((200.0, 150.0));
     assert_eq!(
         cursor_effects(&mut app),

@@ -6,7 +6,7 @@ use specular_interact::{GuideAxis, GuideReference, Guides};
 use specular_testkit::{ALT, SHIFT, TestApp, group, inside, shape};
 
 use GuideAxis::{Horizontal, Vertical};
-use GuideReference::{Bottom, Left, Right, Top};
+use GuideReference::{Bottom, HCenter, Left, Right, Top};
 
 const VIEWPORT: (f32, f32) = (1600.0, 1000.0);
 
@@ -105,6 +105,40 @@ fn shift_holds_an_off_grid_edge_where_a_guide_can_find_it() {
 }
 
 #[test]
+fn a_guide_tolerates_half_a_unit_and_no_more() {
+    // Shift keeps `a`'s y exactly as it is, so its top is `off` below `b`'s.
+    let tops = |off: f64| {
+        let mut app = TestApp::with_entities([
+            shape("a", Rect::new(100.0, 105.0 + off, 100.0, 100.0)),
+            shape("b", Rect::new(400.0, 105.0, 100.0, 100.0)),
+        ]);
+        app.viewport(VIEWPORT);
+        app.press((150.0, 155.0))
+            .hold(SHIFT)
+            .drag_to((210.0, 155.0));
+        lines(&app.app().guides(), Horizontal)
+    };
+    assert_eq!(tops(0.5), [(Top, Top, 105.0), (Bottom, Bottom, 205.0)]);
+    assert_eq!(tops(0.6), []);
+}
+
+#[test]
+fn a_centre_is_kept_unless_both_edges_agree() {
+    // `a` is twice as tall as `b`: its top is on `b`'s top and its middle on
+    // `b`'s bottom, but its bottom is on nothing.
+    let mut app = TestApp::with_entities([
+        shape("a", Rect::new(100.0, 300.0, 100.0, 200.0)),
+        shape("b", Rect::new(400.0, 100.0, 100.0, 100.0)),
+    ]);
+    app.viewport(VIEWPORT);
+    app.press((150.0, 400.0)).drag_to((150.0, 200.0));
+    assert_eq!(
+        lines(&app.app().guides(), Horizontal),
+        [(Top, Top, 100.0), (HCenter, Bottom, 200.0)]
+    );
+}
+
+#[test]
 fn the_neighbours_are_the_ones_in_view_when_the_drag_began() {
     // `far` is level with `a` but off the right of the viewport at the
     // press. Panning it into view mid-drag does not make it a neighbour.
@@ -115,7 +149,7 @@ fn the_neighbours_are_the_ones_in_view_when_the_drag_began() {
     app.viewport(VIEWPORT);
     app.press((150.0, 150.0)).drag_to((190.0, 150.0));
     assert!(app.app().guides().is_empty());
-    app.wheel((400.0, 0.0));
+    app.wheel((-400.0, 0.0));
     assert!(app.app().guides().is_empty());
 }
 
@@ -165,6 +199,107 @@ fn a_resize_confirms_only_the_edges_its_handle_moves() {
     app.release();
     assert!(app.app().guides().is_empty());
     assert_eq!(app.rect("a"), Rect::new(100.0, 100.0, 300.0, 100.0));
+}
+
+#[test]
+fn every_handle_confirms_the_edges_it_moves_and_no_others() {
+    // `a` is 100 square at (300, 300). Each handle is dragged out, then the
+    // resized rect has a neighbour level with both its top and bottom and
+    // another level with both its left and right.
+    type Case = ((f32, f32), (f32, f32), Rect, &'static [GuideReference]);
+    let cases: [Case; 8] = [
+        (
+            (300.0, 300.0),
+            (200.0, 200.0),
+            Rect::new(200.0, 200.0, 200.0, 200.0),
+            &[Top, Left],
+        ),
+        (
+            (400.0, 300.0),
+            (500.0, 200.0),
+            Rect::new(300.0, 200.0, 200.0, 200.0),
+            &[Top, Right],
+        ),
+        (
+            (400.0, 400.0),
+            (500.0, 500.0),
+            Rect::new(300.0, 300.0, 200.0, 200.0),
+            &[Bottom, Right],
+        ),
+        (
+            (300.0, 400.0),
+            (200.0, 500.0),
+            Rect::new(200.0, 300.0, 200.0, 200.0),
+            &[Bottom, Left],
+        ),
+        (
+            (350.0, 300.0),
+            (350.0, 200.0),
+            Rect::new(300.0, 200.0, 100.0, 200.0),
+            &[Top],
+        ),
+        (
+            (400.0, 350.0),
+            (500.0, 350.0),
+            Rect::new(300.0, 300.0, 200.0, 100.0),
+            &[Right],
+        ),
+        (
+            (350.0, 400.0),
+            (350.0, 500.0),
+            Rect::new(300.0, 300.0, 100.0, 200.0),
+            &[Bottom],
+        ),
+        (
+            (300.0, 350.0),
+            (200.0, 350.0),
+            Rect::new(200.0, 300.0, 200.0, 100.0),
+            &[Left],
+        ),
+    ];
+    for (from, to, r, moved) in cases {
+        let mut app = TestApp::with_entities([
+            shape("a", Rect::new(300.0, 300.0, 100.0, 100.0)),
+            shape("h", Rect::new(900.0, r.y, 100.0, r.height)),
+            shape("v", Rect::new(r.x, 700.0, r.width, 100.0)),
+        ]);
+        app.viewport(VIEWPORT);
+        app.select(&["a"]);
+        app.press(from).drag_to(to);
+        assert_eq!(app.rect("a"), r, "{from:?}");
+        let guides = app.app().guides();
+        let want = |along: [GuideReference; 2]| -> Vec<Line> {
+            along
+                .into_iter()
+                .filter(|reference| moved.contains(reference))
+                .map(|reference| {
+                    let edge = match reference {
+                        Top => r.y,
+                        Bottom => r.y + r.height,
+                        Left => r.x,
+                        _ => r.x + r.width,
+                    };
+                    (reference, reference, edge)
+                })
+                .collect()
+        };
+        assert_eq!(lines(&guides, Horizontal), want([Top, Bottom]), "{from:?}");
+        assert_eq!(lines(&guides, Vertical), want([Left, Right]), "{from:?}");
+    }
+}
+
+#[test]
+fn a_dragged_groups_members_are_spoken_for_by_the_group() {
+    // `m` is level with `b`, but it moves with `g`, whose own edges are not.
+    let mut app = TestApp::with_entities([
+        group("g", Rect::new(100.0, 300.0, 200.0, 200.0)),
+        inside("g", shape("m", Rect::new(120.0, 320.0, 100.0, 100.0))),
+        shape("b", Rect::new(600.0, 320.0, 100.0, 100.0)),
+    ]);
+    app.viewport(VIEWPORT);
+    app.select(&["g"]);
+    app.press((250.0, 480.0)).drag_to((260.0, 480.0));
+    assert_eq!(lines(&app.app().guides(), Horizontal), []);
 }
 
 #[test]

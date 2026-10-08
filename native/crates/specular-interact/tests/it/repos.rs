@@ -55,6 +55,19 @@ fn a_page_is_linked_to_a_repo_through_its_popup_and_the_pane_lists_it() {
     option [ ] page.repo.unlink "Unlink" -> Repo(Unlink("https://example.com"))
     "#);
 
+    // The pane's switch turns auto-fix on, and then offers to turn it off.
+    app.act(pane.repos[0].origins[0].toggle_auto_fix.clone());
+    assert_eq!(app.take_effects(), [Effect::SaveRepos]);
+    let row = &repos_pane(app.app()).repos[0].origins[0];
+    assert!(row.auto_fix);
+    assert_eq!(
+        row.toggle_auto_fix,
+        Action::Repo(RepoAction::SetAutoFix {
+            origin: ORIGIN.to_owned(),
+            on: false
+        })
+    );
+
     app.act(pane.repos[0].origins[0].remove.clone());
     assert_eq!(app.take_effects(), [Effect::SaveRepos]);
     app.act(Action::Repo(RepoAction::Unlink(ORIGIN.to_owned())));

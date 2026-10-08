@@ -2,10 +2,13 @@
 //! the folds, which rows are open, the glyph and trailing text of a row, the
 //! rename field and delete of a canvas, and what a comment row sends.
 
-use specular_doc::{Annotation, AnnotationAnchor, Entity, EntityId, PageAnchor, Rect};
+use specular_doc::{
+    Annotation, AnnotationAnchor, Entity, EntityId, FileRef, Kind, PageAnchor, Rect,
+};
 use specular_interact::{Action, Icon, SidebarAction, SidebarRow, SidebarSection, sidebar};
 use specular_testkit::{
-    TestApp, comment, document, group, inside, note, page, shape, sticky, with_comment,
+    TestApp, comment, document, drawing, file, group, inside, note, page, shape, sticky,
+    with_comment,
 };
 
 const BOX: Rect = Rect {
@@ -123,4 +126,66 @@ fn a_row_ends_in_what_it_counts_or_measures_and_shows_the_glyph_of_its_kind() {
         read(&model.pages[0].children[0]),
         (Icon::MessageSquare, None)
     );
+}
+
+#[test]
+fn a_page_row_wears_the_device_its_width_suggests_and_a_file_row_its_kind() {
+    let named = |id: &str, name: &str| Entity {
+        kind: Kind::File(FileRef {
+            file: name.to_owned(),
+            ..FileRef::default()
+        }),
+        ..file(id, BOX)
+    };
+    let wide = |id: &str, width: f64| Entity {
+        rect: Rect::new(0.0, 0.0, width, 500.0),
+        ..page(id, BOX)
+    };
+    let app = TestApp::from_document(document([
+        wide("narrow", 599.0),
+        wide("tablet", 600.0),
+        wide("tablet-top", 1099.0),
+        wide("laptop", 1100.0),
+        named("img", "a.PNG"),
+        named("vid", "a.mp4"),
+        named("web", "a.html"),
+        named("other", "a.zip"),
+        drawing("ink", BOX),
+        group("g", Rect::new(0.0, 0.0, 900.0, 900.0)),
+        inside("g", group("inner", Rect::new(0.0, 0.0, 800.0, 800.0))),
+        inside("inner", sticky("s1", BOX, "a")),
+        inside("inner", sticky("s2", BOX, "b")),
+        inside("g", sticky("s3", BOX, "c")),
+    ]));
+    let model = sidebar(app.app());
+    let glyphs = |rows: &[SidebarRow]| rows.iter().map(|row| row.glyph).collect::<Vec<_>>();
+    assert_eq!(
+        glyphs(&model.pages),
+        [Icon::Laptop, Icon::Tablet, Icon::Tablet, Icon::Device],
+        "front of the stack first"
+    );
+    assert_eq!(
+        glyphs(&model.notes[1..=5]),
+        [
+            Icon::PenLine,
+            Icon::File,
+            Icon::Code,
+            Icon::Video,
+            Icon::Image
+        ]
+    );
+    assert!(
+        model
+            .pages
+            .iter()
+            .all(|row| row.expanded.is_none() && row.toggle.is_none()),
+        "a page with nothing hooked to it has nothing to open"
+    );
+    let outer = &model.notes[0];
+    assert_eq!(
+        outer.trailing.as_deref(),
+        Some("3"),
+        "every item inside, at any depth"
+    );
+    assert_eq!(glyphs(&outer.children), [Icon::StickyNote, Icon::Folder]);
 }

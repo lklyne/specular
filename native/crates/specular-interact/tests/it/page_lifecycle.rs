@@ -210,7 +210,7 @@ fn the_target_is_the_entered_page_else_the_single_selected_page() {
         navigations(&app.take_effects()),
         [(&id("p2"), &PageNav::Reload)]
     );
-    // Entering p1 while p2 is the selection: the entered page wins.
+    // Entering p1 selects it too, so the target moves to it with the entry.
     app.double_click(ON_P1);
     assert_eq!(app.session().focus, Focus::Page(id("p1")));
     app.take_effects();

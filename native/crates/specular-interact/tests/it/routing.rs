@@ -67,7 +67,14 @@ fn opening_a_document_hosts_its_pages_in_stack_order() {
 
 #[test]
 fn opening_another_document_closes_the_pages_it_does_not_hold() {
-    let mut app = entered("p2");
+    let mut app = TestApp::with_pages(2);
+    // An undo step the other document must not inherit.
+    app.drag((300.0, 300.0), (300.0, 340.0));
+    assert!(app.app().can_undo());
+    app.click((800.0, 200.0))
+        .click((800.0, 200.0))
+        .take_effects();
+    assert_eq!(app.session().focus, Focus::Page(id("p2")));
     app.open(document([page("p1", Rect::new(0.0, 0.0, 800.0, 600.0))]));
     assert_eq!(
         app.take_effects(),
@@ -159,6 +166,28 @@ fn wheel_over_the_entered_page_scrolls_it_in_css_pixels() {
 }
 
 #[test]
+fn a_wheel_over_a_page_mid_resize_scrolls_by_the_css_pixels_it_is_still_laid_out_at() {
+    let mut app = entered("p1");
+    // The corner is dragged in to (300, 200): the page is 320 by 200 canvas
+    // units over a 400 by 300 px viewport until the release lays it out
+    // again, and the pointer is still over it.
+    app.press((500.0, 400.0)).drag_to((300.0, 200.0));
+    app.take_effects();
+    app.wheel((0.0, -30.0));
+    assert_eq!(
+        app.take_effects(),
+        [Effect::ForwardInput {
+            page: id("p1"),
+            event: InputEvent::Wheel(WheelEvent {
+                position: Vec2::new(250.0, 150.0),
+                delta: Vec2::new(0.0, -45.0),
+                modifiers: Modifiers::default()
+            })
+        }]
+    );
+}
+
+#[test]
 fn command_wheel_zooms_about_the_pointer_even_over_the_entered_page() {
     let mut app = entered("p1");
     app.hold(CMD).wheel((0.0, 100.0));
@@ -182,6 +211,17 @@ fn pinch_zooms_about_the_viewport_centre_when_the_pointer_is_outside() {
         camera
             .world_to_screen(Vec2::new(500.0, 400.0))
             .abs_diff_eq(Vec2::new(500.0, 400.0), 1e-3)
+    );
+    // With the pointer in the window the pinch is about it instead.
+    let mut app = TestApp::with_pages(2);
+    app.viewport((1000.0, 800.0))
+        .pointer_move((200.0, 100.0))
+        .pinch(0.5);
+    let camera = app.session().camera;
+    assert!(
+        camera
+            .world_to_screen(Vec2::new(200.0, 100.0))
+            .abs_diff_eq(Vec2::new(200.0, 100.0), 1e-3)
     );
 }
 
@@ -278,4 +318,35 @@ fn the_candidate_window_follows_the_entered_pages_composition() {
             size: Vec2::new(30.0, 8.0)
         }]
     );
+}
+
+#[test]
+fn the_candidate_window_scales_by_the_page_layout_it_has_mid_resize() {
+    let mut app = entered("p1");
+    // Dragged out to 600 by 600 over a 400 by 300 viewport: 1.5 and 2 canvas
+    // units per CSS pixel until the release.
+    app.press((500.0, 400.0)).drag_to((700.0, 700.0));
+    app.take_effects();
+    app.send(Event::Page {
+        page: id("p1"),
+        notice: PageNotice::ImeCompositionBounds(Some(PixelRect::new(20, 40, 60, 16))),
+    });
+    assert_eq!(
+        app.take_effects(),
+        [Effect::SetImeCursorArea {
+            origin: Vec2::new(130.0, 180.0),
+            size: Vec2::new(90.0, 32.0)
+        }]
+    );
+}
+
+#[test]
+fn a_composition_in_a_page_that_is_not_entered_leaves_the_candidate_window_alone() {
+    let mut app = TestApp::with_pages(2);
+    app.click((200.0, 200.0)).take_effects();
+    app.send(Event::Page {
+        page: id("p1"),
+        notice: PageNotice::ImeCompositionBounds(Some(PixelRect::new(20, 40, 60, 16))),
+    });
+    assert_eq!(app.take_effects(), Vec::new());
 }

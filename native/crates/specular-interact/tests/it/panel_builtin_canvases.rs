@@ -137,9 +137,12 @@ fn the_last_canvas_can_be_deleted_and_leaves_a_fresh_one() {
 #[test]
 fn a_head_folds_its_section_and_a_folded_list_is_titled_by_the_canvas() {
     let mut app = spaced();
+    let title = |app: &TestApp| specular_interact::sidebar(app.app()).canvases_head.title;
     assert!(shown(&app, "sidebar.canvas.tab_1"));
+    assert_eq!(title(&app), "Canvases");
     app.click_control("sidebar.head.canvases");
     assert!(!shown(&app, "sidebar.canvas.tab_1"));
+    assert_eq!(title(&app), "Home", "titled by the canvas shown");
     assert!(
         shown(&app, "sidebar.notes.a"),
         "the sections are not folded with it"

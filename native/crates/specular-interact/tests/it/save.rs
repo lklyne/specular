@@ -1,8 +1,10 @@
 //! `update` asks for a save after every document change, and only then. A
 //! reload from disk is a `DocumentOpened`, which keeps the session.
 
+use specular_doc::Rect;
+use specular_interact::CanvasAction;
 use specular_interact::{Action, Effect, Event};
-use specular_testkit::{ALT, TestApp, document, pages};
+use specular_testkit::{ALT, TestApp, document, pages, sticky};
 
 /// A point on `p1` and one a short drag away.
 const ON_P1: (f32, f32) = (200.0, 150.0);
@@ -55,6 +57,20 @@ fn opening_a_document_asks_for_nothing() {
     app.take_effects();
     app.open(document(pages(3)));
     assert_eq!(saves(&app.take_effects()), 0, "what was just read is saved");
+}
+
+#[test]
+fn showing_another_canvas_asks_for_no_document_save() {
+    let at = Rect::new(0.0, 0.0, 200.0, 100.0);
+    let mut app = TestApp::with_space([
+        ("Home", document([sticky("a", at, "a")])),
+        ("Plans", document([sticky("b", at, "b")])),
+    ]);
+    app.take_effects();
+    let plans = specular_interact::sidebar(app.app()).canvases[1].id.clone();
+    app.act(Action::Canvas(CanvasAction::Switch(plans)));
+    assert_eq!(app.active_canvas(), "Plans");
+    assert_eq!(saves(&app.take_effects()), 0);
 }
 
 #[test]

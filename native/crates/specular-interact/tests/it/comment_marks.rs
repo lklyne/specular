@@ -92,6 +92,8 @@ fn a_pill_sits_by_its_anchor_and_stays_inside_its_page() {
     let bounds = Rect::new(50.0, 40.0, 100.0, 30.0);
     let wide = Rect::new(300.0, 0.0, 400.0, 50.0);
     let below = Rect::new(0.0, 500.0, 50.0, 50.0);
+    let left_of = Rect::new(-200.0, 40.0, 50.0, 30.0);
+    let above = Rect::new(50.0, -100.0, 100.0, 30.0);
     let cases = [
         ("page, halfway down", page_point(0.5), (466.0, 237.0)),
         ("page, top", page_point(0.0), (466.0, 97.0)),
@@ -106,6 +108,16 @@ fn a_pill_sits_by_its_anchor_and_stays_inside_its_page() {
             "element below the page",
             element("#a", Some(below)),
             (116.0, 392.0),
+        ),
+        (
+            "element left of the page",
+            element("#a", Some(left_of)),
+            (82.0, 148.0),
+        ),
+        (
+            "element above the page",
+            element("#a", Some(above)),
+            (216.0, 108.0),
         ),
         ("element with no box", element("#a", None), (466.0, 108.0)),
     ];
@@ -164,6 +176,9 @@ fn a_region_is_hit_on_its_edge_and_not_in_its_inside() {
     assert!(hit((650.0, 505.0)));
     assert!(hit((650.0, 584.0)));
     assert!(!hit((650.0, 540.0)), "the inside stays reachable");
+    // The band reaches six pixels in as well.
+    assert!(hit((605.0, 540.0)));
+    assert!(!hit((607.0, 540.0)));
     assert!(!hit((593.0, 540.0)));
     assert!(!hit((650.0, 587.0)));
 }
@@ -174,10 +189,29 @@ fn a_pill_is_hit_anywhere_on_it_and_hides_what_is_under_it() {
     assert_eq!(hit_comment(&app, (480.0, 250.0)).as_deref(), Some("a"));
     assert_eq!(hit_comment(&app, (467.0, 238.0)).as_deref(), Some("a"));
     assert_eq!(hit_comment(&app, (460.0, 250.0)), None);
+    // Just off each side of the 26 by 26 pill at (466, 237).
+    for at in [
+        (464.0, 250.0),
+        (494.0, 250.0),
+        (480.0, 235.0),
+        (480.0, 265.0),
+    ] {
+        assert_eq!(hit_comment(&app, at), None, "{at:?}");
+    }
     assert!(matches!(
         hit_test(app.app(), (460.0, 250.0).into()),
         Hit::PageContent { .. }
     ));
+}
+
+#[test]
+fn where_pills_overlap_a_press_takes_the_newest() {
+    let older = comment("old", canvas_point(600.0, 500.0), "old");
+    let mut newer = comment("new", canvas_point(610.0, 500.0), "new");
+    newer.created_at = "2026-02-01T00:00:00.000Z".to_owned();
+    let app = app_with([older, newer]);
+    assert_eq!(hit_comment(&app, (605.0, 500.0)).as_deref(), Some("new"));
+    assert_eq!(hit_comment(&app, (590.0, 500.0)).as_deref(), Some("old"));
 }
 
 #[test]
@@ -275,7 +309,16 @@ fn comments_on_one_element_share_a_pill_counting_every_message() {
         extra: specular_doc::JsonMap::new(),
     }];
     let other = comment("other", element("#b", bounds), "other");
-    let app = app_with([older, newer, other]);
+    // The same selector with another box is another element's place.
+    let moved = comment(
+        "moved",
+        element("#a", Some(Rect::new(50.0, 200.0, 100.0, 30.0))),
+        "moved",
+    );
+    // Points and regions never share a pill, even on the same spot.
+    let spot_a = comment("spot-a", canvas_point(600.0, 500.0), "spot-a");
+    let spot_b = comment("spot-b", canvas_point(600.0, 500.0), "spot-b");
+    let app = app_with([older, newer, other, moved, spot_a, spot_b]);
     let marks = marks(&app);
     let shared = marks
         .iter()
@@ -296,7 +339,7 @@ fn comments_on_one_element_share_a_pill_counting_every_message() {
             shared.count,
             marks.len()
         ),
-        (vec!["new", "old"], 3, 2)
+        (vec!["new", "old"], 3, 5)
     );
 }
 
