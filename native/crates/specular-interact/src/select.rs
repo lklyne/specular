@@ -16,7 +16,9 @@ use specular_doc::{EntityId, ItemId};
 
 use crate::marquee::MarqueeMode;
 use crate::move_drag::{self, Click};
-use crate::{App, Effect, Gesture, Hit, PointerInput, TextEdit, edit, hit, resize_drag};
+use crate::{
+    App, Effect, Gesture, Hit, PointerInput, TextEdit, edge_drag, edit, groups, hit, resize_drag,
+};
 
 /// Whether a click with these modifiers changes the selection item by item
 /// instead of replacing it.
@@ -33,18 +35,16 @@ pub(crate) fn press(
     effects: &mut Vec<Effect>,
 ) -> bool {
     let world = app.session.camera.screen_to_world(input.screen).as_dvec2();
-    let hit = match hit::hit_test(app, input.screen) {
-        // Edges cannot be drawn yet, so an anchor passes the press to what
-        // is under it.
-        Hit::Anchor { .. } => hit::body_at(app, input.screen),
-        other => other,
-    };
-    match hit {
+    match hit::hit_test(app, input.screen) {
         Hit::PageContent { page, .. } if app.session.focus.page() == Some(&page) => return false,
         Hit::PageContent { page, .. } => press_page(app, page, world, input, click_count),
         Hit::Handle { owner, handle } => {
             app.session.gesture =
                 resize_drag::begin(app, owner, handle, world).map(Gesture::Resize);
+        }
+        // A double click on a group's title renames it.
+        Hit::GroupLabel { group } if click_count > 1 && !is_additive(input.modifiers) => {
+            edit::begin(app, &group, false, effects);
         }
         Hit::GroupLabel { group } | Hit::GroupBorder { group } => {
             begin_move(app, &group, world, input, false);
@@ -62,7 +62,11 @@ pub(crate) fn press(
                 app.session.gesture = Some(drag.into());
             }
         }
-        Hit::EntityBody { entity } => press_body(app, entity, world, input),
+        Hit::EntityBody { entity } => press_body(app, entity, world, input, click_count),
+        // A double click on an edge edits its label.
+        Hit::Edge { edge } if click_count > 1 && !is_additive(input.modifiers) => {
+            edit::begin_edge_label(app, &edge, effects);
+        }
         Hit::Edge { edge } => {
             let item = ItemId::Edge(edge);
             if is_additive(input.modifiers) {
@@ -72,8 +76,10 @@ pub(crate) fn press(
             }
         }
         Hit::Empty => begin_marquee(app, None, world, input),
-        // `body_at` returns bodies only.
-        Hit::Anchor { .. } => {}
+        // A drag from an anchor draws an edge, or moves the end of one.
+        Hit::Anchor { entity, side } => {
+            app.session.gesture = Some(edge_drag::begin(app, &entity, side, input.screen).into());
+        }
     }
     true
 }
@@ -92,9 +98,21 @@ fn press_page(app: &mut App, page: EntityId, world: DVec2, input: &PointerInput,
     }
 }
 
-fn press_body(app: &mut App, entity: EntityId, world: DVec2, input: &PointerInput) {
+fn press_body(
+    app: &mut App,
+    entity: EntityId,
+    world: DVec2,
+    input: &PointerInput,
+    click_count: u8,
+) {
     let modifiers = input.modifiers;
     let item = ItemId::Entity(entity.clone());
+    // A double click on a group steps into it: its members, one level down,
+    // become the selection.
+    let enters = click_count > 1 && !is_additive(modifiers) && is_group(app, &entity);
+    if enters && groups::enter(app, &entity) {
+        return;
+    }
     if modifiers.meta || modifiers.control {
         begin_marquee(app, Some(entity), world, input);
     } else if modifiers.shift {

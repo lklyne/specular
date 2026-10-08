@@ -2,12 +2,13 @@
 //! a copy of it with Option held, or a click if the pointer never travels.
 
 use glam::{DVec2, Vec2};
-use specular_doc::{EntityId, ItemId, Kind, Rect};
+use specular_core::Modifiers;
+use specular_doc::{Command, EntityId, ItemId, Kind, Rect};
 
 use crate::focus::set_focus;
 use crate::live::{self, Start};
 use crate::marquee::DRAG_THRESHOLD;
-use crate::{App, Effect, PointerInput, clone, geometry, grid, update};
+use crate::{App, Effect, PointerInput, anchor, clone, geometry, grid, group_drop, update};
 
 /// A press on a body, and the drag it may become.
 #[derive(Debug, Clone, PartialEq)]
@@ -22,6 +23,11 @@ pub struct MoveDrag {
     /// Whether the pressed entity snaps. Freehand ink does not.
     snaps: bool,
     starts: Vec<Start>,
+    /// The groups above what moves, refitted around it as the drag goes.
+    followers: Vec<Start>,
+    /// Every group's rect as the drag began, which the drop target is read
+    /// from while the groups follow their members.
+    group_rects: Vec<(EntityId, Rect)>,
     click: Click,
     dragged: bool,
     /// How far the selection has moved from where it started.
@@ -29,6 +35,10 @@ pub struct MoveDrag {
     /// Whether Option is held, so the release leaves copies at the pointer
     /// and the originals where they were.
     copying: bool,
+    /// The group a release now would drop the members into. `None` over no
+    /// group, which takes them out of theirs, and while Option, Command or
+    /// Control is held, which leaves membership alone.
+    drop_target: Option<EntityId>,
 }
 
 /// What releasing a press that never became a drag does.
@@ -65,6 +75,26 @@ impl MoveDrag {
 }
 
 impl App {
+    /// The group the items being dragged would be dropped into if released
+    /// now, for outlining it. `None` when the drag is a copy, Command or
+    /// Control is held, or the pointer is over no group.
+    pub fn group_drop_target(&self) -> Option<&EntityId> {
+        match &self.session.gesture {
+            Some(crate::Gesture::Move(drag)) if drag.dragged => drag.drop_target.as_ref(),
+            Some(
+                crate::Gesture::Move(_)
+                | crate::Gesture::Resize(_)
+                | crate::Gesture::Marquee { .. }
+                | crate::Gesture::CommentRegion { .. }
+                | crate::Gesture::Place(_)
+                | crate::Gesture::Draw(_)
+                | crate::Gesture::TextSelect(_)
+                | crate::Gesture::EdgeDrag(_),
+            )
+            | None => None,
+        }
+    }
+
     /// The rects an Option-drag would leave copies at, for drawing the
     /// preview. Empty when no copy is being dragged.
     pub fn copy_preview(&self) -> Vec<Rect> {
@@ -76,7 +106,8 @@ impl App {
                 | crate::Gesture::CommentRegion { .. }
                 | crate::Gesture::Place(_)
                 | crate::Gesture::Draw(_)
-                | crate::Gesture::TextSelect(_),
+                | crate::Gesture::TextSelect(_)
+                | crate::Gesture::EdgeDrag(_),
             )
             | None => Vec::new(),
         }
@@ -96,16 +127,20 @@ pub(crate) fn begin(
         Kind::Drawing(_) => false,
         Kind::Page(_) | Kind::Text(_) | Kind::File(_) | Kind::Group(_) | Kind::Shape(_) => true,
     };
+    let starts = live::starts(&app.document, &app.selection_scope().operands);
     Some(MoveDrag {
+        followers: live::followers_of(&app.document, &starts),
+        group_rects: group_drop::group_rects(&app.document),
         origin: world,
         origin_screen: screen,
         anchor: geometry::origin(entity.rect),
         snaps,
-        starts: live::starts(&app.document, &app.selection_scope().operands),
+        starts,
         click,
         dragged: false,
         delta: DVec2::ZERO,
         copying: false,
+        drop_target: None,
     })
 }
 
@@ -150,6 +185,13 @@ pub(crate) fn drag(app: &mut App, drag: &mut MoveDrag, input: &PointerInput) {
         input.modifiers.shift,
     );
     drag.copying = input.modifiers.alt;
+    let pinned = input.modifiers.meta || input.modifiers.control;
+    drag.drop_target = if drag.copying || pinned {
+        None
+    } else {
+        let travelling: Vec<EntityId> = drag.starts.iter().map(|start| start.id.clone()).collect();
+        group_drop::drop_target(&app.document, &drag.group_rects, world, &travelling)
+    };
     let moved = if drag.copying {
         DVec2::ZERO
     } else {
@@ -159,11 +201,21 @@ pub(crate) fn drag(app: &mut App, drag: &mut MoveDrag, input: &PointerInput) {
         let (rect, kind) = start.moved(moved);
         live::write(&mut app.document, start, rect, kind);
     }
+    if drag.copying {
+        live::restore(&mut app.document, &drag.followers);
+    } else {
+        live::follow(&mut app.document, &drag.followers);
+    }
 }
 
 /// The button came up. A drag becomes one undo step: the move, or the
 /// copies. A press that never travelled is a click.
-pub(crate) fn finish(app: &mut App, drag: MoveDrag, effects: &mut Vec<Effect>) {
+pub(crate) fn finish(
+    app: &mut App,
+    drag: MoveDrag,
+    modifiers: Modifiers,
+    effects: &mut Vec<Effect>,
+) {
     if !drag.dragged {
         match drag.click {
             Click::Keep => {}
@@ -175,8 +227,25 @@ pub(crate) fn finish(app: &mut App, drag: MoveDrag, effects: &mut Vec<Effect>) {
         }
         return;
     }
+    // Command or Control at the release keeps every anchor and every
+    // membership as it was.
+    let rebind = !(modifiers.meta || modifiers.control);
     if !drag.copying {
-        live::commit(app, &drag.starts);
+        let scope = app.selection_scope();
+        live::commit_following(app, &drag.starts, &drag.followers, |app| {
+            if !rebind {
+                return Vec::new();
+            }
+            // Dropped into or out of a group, then hooked to whatever page
+            // they sit on from there: a grouped item never is.
+            let mut commands =
+                group_drop::reparent(&app.document, &scope.members, drag.drop_target.as_ref());
+            let mut after = app.document.clone();
+            if after.apply(Command::Batch(commands.clone())).is_ok() {
+                commands.extend(anchor::reanchor(&after, &scope.members, &scope.operands));
+            }
+            commands
+        });
         return;
     }
     if drag.delta == DVec2::ZERO {
@@ -184,7 +253,12 @@ pub(crate) fn finish(app: &mut App, drag: MoveDrag, effects: &mut Vec<Effect>) {
     }
     let scope = app.selection_scope();
     if let Some(copies) = clone::copies(app, &scope, drag.delta) {
-        update::document_step(app, copies.command, effects);
+        let command = if rebind {
+            anchor::placed_copies(&mut app.document, copies.command)
+        } else {
+            copies.command
+        };
+        update::document_step(app, command, effects);
         app.session.selection.set(copies.members);
     }
 }
@@ -192,6 +266,7 @@ pub(crate) fn finish(app: &mut App, drag: MoveDrag, effects: &mut Vec<Effect>) {
 /// The drag was abandoned: everything goes back where it started.
 pub(crate) fn cancel(app: &mut App, drag: &MoveDrag) {
     live::restore(&mut app.document, &drag.starts);
+    live::restore(&mut app.document, &drag.followers);
 }
 
 #[cfg(test)]

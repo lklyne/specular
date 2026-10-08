@@ -1,0 +1,13 @@
+---
+source: crates/specular-scene/tests/edges.rs
+expression: app.scene_snapshot()
+---
+canvas rect 100,100 200x100 fill=#b5b9c0 stroke=#464a53/2/centre
+canvas rect 500,300 200x100 fill=#b5b9c0 stroke=#464a53/2/centre
+screen path M308,150 C416.71,150 383.29,350 492,350 stroke=#94a3b8/1.5 cap=Butt join=Miter
+screen polygon 485.63,354.5 493.13,350 485.63,345.5 fill=#94a3b8
+screen rect 499,299 202x102 stroke=#3b82f6/1/inside
+screen rect 495,295 8x8 fill=#ffffff stroke=#3b82f6/1/inside
+screen rect 697,295 8x8 fill=#ffffff stroke=#3b82f6/1/inside
+screen rect 697,397 8x8 fill=#ffffff stroke=#3b82f6/1/inside
+screen rect 495,397 8x8 fill=#ffffff stroke=#3b82f6/1/inside

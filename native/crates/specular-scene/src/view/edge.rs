@@ -6,9 +6,10 @@
 //! in screen space; the line width follows the zoom.
 
 use glam::Vec2;
-use specular_doc::{Edge, EdgeEnd, ItemId, LineStyle};
+use specular_doc::{Edge, EdgeEnd, EntityId, ItemId, LineStyle};
 use specular_interact::EdgeCurve;
 
+use super::editing;
 use super::frame::{Frame, vec_point};
 use super::palette::{self, Palette, Role};
 use crate::{
@@ -28,9 +29,13 @@ const ARROW_TIP: f32 = 0.75;
 const ARROW_BACK: f32 = 4.25;
 const ARROW_HALF_WIDTH: f32 = 3.0;
 /// Label size in canvas units.
-const LABEL_SIZE: f32 = 16.0;
+const LABEL_SIZE: f32 = specular_interact::EDGE_LABEL_SIZE;
 
 pub(crate) fn draw(frame: &Frame<'_>, edge: &Edge, scene: &mut Scene) {
+    // The rubber band of a drag stands in for an edge whose end is moving.
+    if frame.app.rerouting() == Some(&edge.id) {
+        return;
+    }
     let Some(curve) = frame.app.edge_curve(&edge.id) else {
         return;
     };
@@ -89,6 +94,13 @@ pub(crate) fn draw(frame: &Frame<'_>, edge: &Edge, scene: &mut Scene) {
     if arrow(edge.to_end, EdgeEnd::Arrow) {
         let heading = heading(curve.to_control, curve.to, curve.from);
         scene.push(arrowhead(curve.to, heading, width, color));
+    }
+    if let Some(shown) = frame.app.editing_edge_label(&edge.id) {
+        let key = EntityId::from(edge.id.as_str());
+        editing::selection(frame, &key, None, scene);
+        scene.extend(editing::edited_line(frame, shown, palette::INK));
+        editing::caret(frame, &key, None, palette::INK, scene);
+        return;
     }
     match edge.label.as_deref() {
         Some(label) if !label.is_empty() => scene.push(self::label(&curve, label, frame.zoom())),

@@ -20,6 +20,11 @@ pub(crate) enum Target {
     /// A Document: the source of a markdown file. It has the list keys, the
     /// whole formatting set, and it scrolls instead of growing.
     Note,
+    /// The title of an item that has one: a single line, ended by Enter.
+    Title,
+    /// An edge's label: a single line, ended by Enter, keyed by the edge's
+    /// id.
+    EdgeLabel,
 }
 
 /// What the session started from, for ending it as one document step.

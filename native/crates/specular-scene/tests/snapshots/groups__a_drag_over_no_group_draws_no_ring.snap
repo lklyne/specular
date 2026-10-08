@@ -1,0 +1,14 @@
+---
+source: crates/specular-scene/tests/groups.rs
+expression: app.scene_snapshot()
+---
+screen rect 100,100 400x300 r=2 fill=#f4f4f573
+canvas rect 140,140 100x100 fill=#b5b9c0 stroke=#464a53/2/centre
+screen rect 100,100 400x300 r=2 stroke=#71717a40/1.5/inside
+screen text "Moodboard" 100,79.5 box-h=16.5 11/15.4 w500 #3f3f46 middle clip=100,79.5 400x20.5
+canvas rect 660,660 100x100 fill=#b5b9c0 stroke=#464a53/2/centre
+screen rect 659,659 102x102 stroke=#3b82f6/1/inside
+screen rect 655,655 8x8 fill=#ffffff stroke=#3b82f6/1/inside
+screen rect 757,655 8x8 fill=#ffffff stroke=#3b82f6/1/inside
+screen rect 757,757 8x8 fill=#ffffff stroke=#3b82f6/1/inside
+screen rect 655,757 8x8 fill=#ffffff stroke=#3b82f6/1/inside

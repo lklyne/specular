@@ -1,8 +1,9 @@
 //! Groups: a tinted background, a border and a title above the top-left
 //! corner. The border and title keep their pixel size at any zoom.
 
-use specular_doc::{Entity, Group};
+use specular_doc::{Document, Entity, Group, Kind};
 
+use super::editing;
 use super::frame::Frame;
 use super::page::title_above;
 use super::palette::{self, Palette, Role};
@@ -20,24 +21,71 @@ const TINT_ALPHA: f32 = 0.3;
 const BORDER_INK: f32 = 0.78;
 const BORDER_MIX: Color = Color::rgb(0xa1, 0x62, 0x07);
 
-pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, group: &Group, scene: &mut Scene) {
-    let on_screen = frame.screen_rect(entity.rect);
-    let (fill, border, title) = match &group.color {
-        None => (PLAIN_FILL, PLAIN_BORDER, PLAIN_TITLE),
+/// How a group looks: its tint, border and title colours.
+struct Look {
+    fill: Color,
+    border: Color,
+    title: Color,
+}
+
+fn look(group: &Group) -> Look {
+    match &group.color {
+        None => Look {
+            fill: PLAIN_FILL,
+            border: PLAIN_BORDER,
+            title: PLAIN_TITLE,
+        },
         Some(color) => {
             let ink = palette::resolve(color, Palette::Vivid, Role::Fill);
-            (
-                palette::with_alpha(ink, TINT_ALPHA),
-                mix(ink, BORDER_MIX, BORDER_INK),
-                TINTED_TITLE,
-            )
+            Look {
+                fill: palette::with_alpha(ink, TINT_ALPHA),
+                border: mix(ink, BORDER_MIX, BORDER_INK),
+                title: TINTED_TITLE,
+            }
         }
+    }
+}
+
+/// The groups to tint, outermost first and in stack order within a depth.
+/// Tints are drawn before every entity, as Electron's group fill sits below
+/// everything it holds and everything that overlaps it, so an item being
+/// dragged onto a group is never washed out by it.
+pub(crate) fn backgrounds(document: &Document) -> Vec<&Entity> {
+    let mut groups: Vec<&Entity> = document
+        .entities()
+        .filter(|entity| matches!(entity.kind, Kind::Group(_)))
+        .collect();
+    // Stable, and `entities` runs in stack order.
+    groups.sort_by_key(|group| document.ancestors(&group.id).count());
+    groups
+}
+
+/// The tint behind a group.
+pub(crate) fn draw_background(frame: &Frame<'_>, entity: &Entity, scene: &mut Scene) {
+    let Kind::Group(group) = &entity.kind else {
+        return;
     };
+    let fill = look(group).fill;
+    let rect =
+        RectDraw::filled(frame.screen_rect(entity.rect), fill).with_corner_radius(CORNER_RADIUS);
+    scene.push(Item::screen(rect));
+}
+
+/// A group's border and title, in front of its members.
+pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, group: &Group, scene: &mut Scene) {
+    let on_screen = frame.screen_rect(entity.rect);
+    let Look { border, title, .. } = look(group);
+    let stroke = Stroke::new(border, BORDER_WIDTH, StrokeAlign::Inside);
     scene.push(Item::screen(
-        RectDraw::filled(on_screen, fill)
-            .with_corner_radius(CORNER_RADIUS)
-            .with_stroke(Stroke::new(border, BORDER_WIDTH, StrokeAlign::Inside)),
+        RectDraw::outlined(on_screen, stroke).with_corner_radius(CORNER_RADIUS),
     ));
+    let id = &entity.id;
+    if let Some(shown) = frame.app.editing_text(id) {
+        editing::selection(frame, id, None, scene);
+        scene.extend(editing::edited_line(frame, shown, title));
+        editing::caret(frame, id, None, title, scene);
+        return;
+    }
     match entity.label.as_deref() {
         Some(label) if !label.is_empty() => scene.push(title_above(on_screen, label, title)),
         Some(_) | None => {}

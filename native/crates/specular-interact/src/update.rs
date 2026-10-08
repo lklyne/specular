@@ -8,9 +8,10 @@ use specular_doc::{Command, CommandError, Document, EntityId, ItemId};
 use crate::focus::{leave_unless_selected, set_focus};
 use crate::images;
 use crate::notes;
+use crate::stack_order::Move;
 use crate::{
     Action, App, Effect, Event, Focus, PageNotice, ToolDefaultPatch, bindings, camera, cursor,
-    edit, gesture, pages, pointer, verbs,
+    edit, gesture, groups, pages, pointer, verbs,
 };
 use crate::{clipboard, drop, select_all, zoom};
 
@@ -67,6 +68,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         pointer::settle(app);
     }
     leave_unless_selected(app, &mut effects);
+    groups::keep_entered_valid(app);
     if edit::restart_blink(app, &caret) {
         notes::reveal_caret(app);
     }
@@ -89,18 +91,25 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         Action::Cancel => {
             // Escape is staged: it first backs out of whatever is in flight
             // (a drag, an armed tool, a text edit, an entered page) and
-            // leaves the selection alone. With nothing in flight it
+            // leaves the selection alone. Then it steps out of an entered
+            // group, selecting it. With nothing to back out of it
             // deselects. A text edit is kept, not thrown away.
             let session = &app.session;
             let idle = session.gesture.is_none()
                 && session.tool == crate::Tool::Select
                 && session.editing.is_none()
                 && session.focus == Focus::Canvas;
-            gesture::cancel(app);
+            gesture::cancel(app, effects);
             app.session.tool = crate::Tool::Select;
+            let stepped_out = idle && groups::step_out(app);
+            // A title edit is abandoned by Escape; other text keeps what
+            // was typed.
+            if edit::is_editing_title(app) {
+                edit::discard(app, effects);
+            }
             edit::end(app, effects);
             set_focus(app, None, effects);
-            if idle {
+            if idle && !stepped_out {
                 app.session.selection.set([]);
             }
         }
@@ -141,6 +150,12 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
                 edit::format(app, format);
             }
         }
+        Action::BringForward => stack(app, Move::Forward, effects),
+        Action::SendBackward => stack(app, Move::Backward, effects),
+        Action::BringToFront => stack(app, Move::ToFront, effects),
+        Action::SendToBack => stack(app, Move::ToBack, effects),
+        Action::Group => verb(app, effects, groups::group),
+        Action::Ungroup => verb(app, effects, groups::ungroup),
         Action::Copy => clipboard::copy(app, effects),
         Action::Cut => verb(app, effects, clipboard::cut),
         Action::Paste => clipboard::request(app, effects),
@@ -150,6 +165,12 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         Action::ZoomReset => zoom::reset(app),
         Action::ZoomToFit => zoom::to_fit(app),
     }
+}
+
+fn stack(app: &mut App, how: Move, effects: &mut Vec<Effect>) {
+    verb(app, effects, |app, effects| {
+        verbs::reorder(app, how, effects);
+    });
 }
 
 /// Changes one tool default, and asks for the defaults to be saved if that
@@ -207,6 +228,7 @@ fn step_history(
 fn open_document(app: &mut App, document: Document, effects: &mut Vec<Effect>) {
     let before = pages::snapshot(&app.document);
     app.session.gesture = None;
+    app.session.entered_group = None;
     edit::discard(app, effects);
     app.document = document;
     edit::fit_all(app);

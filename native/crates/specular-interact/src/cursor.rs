@@ -21,6 +21,7 @@ fn wanted(app: &App) -> Cursor {
         // goes.
         Some(Gesture::Resize(drag)) => return of_handle(drag.handle()),
         Some(Gesture::TextSelect(_)) => return Cursor::Text,
+        Some(Gesture::EdgeDrag(_)) => return Cursor::Crosshair,
         Some(
             Gesture::Move(_)
             | Gesture::Marquee { .. }
@@ -38,8 +39,8 @@ fn wanted(app: &App) -> Cursor {
     match (session.tool, session.pointer) {
         (Tool::Select, Some(pointer)) => match hit::hit_test(app, pointer) {
             Hit::Handle { handle, .. } => of_handle(handle),
+            Hit::Anchor { .. } => Cursor::Crosshair,
             Hit::GroupLabel { .. }
-            | Hit::Anchor { .. }
             | Hit::PageContent { .. }
             | Hit::EntityBody { .. }
             | Hit::GroupBorder { .. }

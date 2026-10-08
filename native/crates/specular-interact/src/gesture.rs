@@ -5,12 +5,13 @@ use glam::{DVec2, Vec2};
 use specular_doc::{Command, EntityId};
 
 use crate::draw::{self, DrawStroke};
+use crate::edge_drag::{self, EdgeDrag};
 use crate::edit::{self, TextSelectDrag};
 use crate::marquee::MarqueeMode;
 use crate::move_drag::{self, MoveDrag};
 use crate::place::{self, PlaceDrag};
 use crate::resize_drag::{self, ResizeDrag};
-use crate::{App, Effect, PointerInput, comment, geometry, marquee};
+use crate::{App, Effect, PointerInput, comment, geometry, group_fit, marquee};
 
 /// A pointer drag between a press and its release. It owns the pointer: no
 /// page sees the moves or the release.
@@ -60,6 +61,9 @@ pub enum Gesture {
     /// Pressed inside the text being edited: placing the caret, and
     /// selecting once the pointer has travelled.
     TextSelect(TextSelectDrag),
+    /// Dragging an edge out of an anchor, or one end of an existing edge off
+    /// its anchor.
+    EdgeDrag(EdgeDrag),
 }
 
 /// The pointer moved mid-drag, or a modifier changed under it.
@@ -105,6 +109,10 @@ pub(crate) fn drag(app: &mut App, input: &PointerInput) {
             edit::drag(app, &drag, world);
             app.session.gesture = Some(Gesture::TextSelect(drag));
         }
+        Some(Gesture::EdgeDrag(mut drag)) => {
+            edge_drag::drag(app, &mut drag, input.screen);
+            app.session.gesture = Some(Gesture::EdgeDrag(drag));
+        }
     }
 }
 
@@ -127,7 +135,7 @@ pub(crate) fn finish(
             dragged,
             ..
         } => marquee::finish(app, start, start_screen, origin, dragged, input),
-        Gesture::Move(drag) => move_drag::finish(app, drag, effects),
+        Gesture::Move(drag) => move_drag::finish(app, drag, input.modifiers, effects),
         Gesture::Resize(drag) => resize_drag::finish(app, &drag, effects),
         Gesture::CommentRegion {
             start,
@@ -144,26 +152,39 @@ pub(crate) fn finish(
         Gesture::Draw(stroke) => draw::finish(app, &stroke, effects),
         // The selection is already where the drag left it.
         Gesture::TextSelect(_) => {}
+        Gesture::EdgeDrag(drag) => edge_drag::finish(app, &drag, effects),
     }
 }
 
 /// Abandons the gesture in flight: a move or resize snaps back, a marquee or
-/// a comment region is dropped, and what a placement or a stroke was making
-/// is taken back.
-pub(crate) fn cancel(app: &mut App) {
+/// a comment region is dropped, what a placement or a stroke was making is
+/// taken back, and an edge end being dragged takes its edge with it.
+pub(crate) fn cancel(app: &mut App, effects: &mut Vec<Effect>) {
     match app.session.gesture.take() {
         None
         | Some(Gesture::Marquee { .. } | Gesture::CommentRegion { .. } | Gesture::TextSelect(_)) => {
         }
         Some(Gesture::Move(drag)) => move_drag::cancel(app, &drag),
-        Some(Gesture::Resize(drag)) => crate::live::restore(&mut app.document, drag.starts()),
+        Some(Gesture::Resize(drag)) => {
+            crate::live::restore(&mut app.document, drag.starts());
+            crate::live::restore(&mut app.document, drag.followers());
+        }
         Some(Gesture::Place(drag)) => place::cancel(app, &drag),
         Some(Gesture::Draw(stroke)) => draw::cancel(app, &stroke),
+        Some(Gesture::EdgeDrag(drag)) => edge_drag::cancel(app, &drag, effects),
     }
 }
 
 /// Runs `command` as one undo step.
 pub(crate) fn apply_step(app: &mut App, command: Command) {
+    apply_fitted(app, command, &[]);
+}
+
+/// Runs `command` as one undo step with the refit of the groups it touched
+/// (see `group_fit`), leaving `moved` groups, which the step moves or
+/// resizes itself, as they are.
+pub(crate) fn apply_fitted(app: &mut App, command: Command, moved: &[EntityId]) {
+    let command = group_fit::then_fit(&mut app.document, command, moved);
     if let Err(error) = app.history.apply(&mut app.document, command) {
         tracing::warn!("command refused: {error}");
     }

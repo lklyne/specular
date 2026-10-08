@@ -5,7 +5,7 @@
 use glam::DVec2;
 use specular_doc::{Command, Document, Drawing, Entity, EntityId, Kind, Rect};
 
-use crate::{App, Effect, anchor, gesture, strokes, update};
+use crate::{App, Effect, anchor, gesture, group_fit, strokes, update};
 
 /// An entity as a drag found it.
 #[derive(Debug, Clone, PartialEq)]
@@ -98,11 +98,41 @@ pub(crate) fn restore(document: &mut Document, starts: &[Start]) {
     }
 }
 
+/// The groups above `starts` that a drag refits as it goes, with the rects
+/// they had when it began.
+pub(crate) fn followers_of(document: &Document, starts: &[Start]) -> Vec<Start> {
+    let mut found: Vec<Start> = Vec::new();
+    for group in starts
+        .iter()
+        .flat_map(|start| document.ancestors(&start.id))
+    {
+        let known = |id: &EntityId| starts.iter().chain(&found).any(|start| start.id == *id);
+        if !known(&group.id) {
+            found.push(Start::of(group));
+        }
+    }
+    found
+}
+
+/// Refits `followers` around what the drag has moved, with no undo step.
+pub(crate) fn follow(document: &mut Document, followers: &[Start]) {
+    let ids: Vec<EntityId> = followers.iter().map(|start| start.id.clone()).collect();
+    group_fit::fit_in_place(document, &ids);
+}
+
 /// Turns what a drag left in the document into one undo step whose inverse
-/// restores `starts`.
-pub(crate) fn commit(app: &mut App, starts: &[Start]) {
+/// restores `starts` and `followers`, the groups the drag refitted as it
+/// went. `extra` commands join the step; it is given the document as the
+/// drag left it, before it is put back. A group among `starts` is moved or
+/// resized by the drag itself and is not refitted by the step.
+pub(crate) fn commit_following(
+    app: &mut App,
+    starts: &[Start],
+    followers: &[Start],
+    extra: impl FnOnce(&App) -> Vec<Command>,
+) {
     let mut commands = Vec::new();
-    for start in starts {
+    for start in starts.iter().chain(followers) {
         let Some(entity) = app.document.entity(&start.id) else {
             continue;
         };
@@ -119,11 +149,14 @@ pub(crate) fn commit(app: &mut App, starts: &[Start]) {
             });
         }
     }
+    commands.extend(extra(app));
     if commands.is_empty() {
         return;
     }
     restore(&mut app.document, starts);
-    gesture::apply_step(app, batch(commands));
+    restore(&mut app.document, followers);
+    let moved: Vec<EntityId> = starts.iter().map(|start| start.id.clone()).collect();
+    gesture::apply_fitted(app, batch(commands), &moved);
 }
 
 /// `commands` as one command.

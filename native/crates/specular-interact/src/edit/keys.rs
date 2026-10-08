@@ -116,7 +116,7 @@ fn run(edit: &mut TextEdit, op: Op, seen: Seen<'_>, effects: &mut Vec<Effect>) -
     let (lists, tabs) = match edit.target {
         Target::Text => (true, false),
         Target::Note => (true, true),
-        Target::Label => (false, false),
+        Target::Label | Target::Title | Target::EdgeLabel => (false, false),
     };
     match op {
         Op::Move { motion, extend } => {

@@ -1,0 +1,8 @@
+---
+source: crates/specular-scene/tests/edges.rs
+expression: app.scene_snapshot()
+---
+canvas rect 100,100 200x100 fill=#b5b9c0 stroke=#464a53/2/centre
+canvas rect 500,100 200x100 fill=#b5b9c0 stroke=#464a53/2/centre
+screen rect 99,99 202x102 stroke=#3b82f6/1/inside
+screen ellipse 304,146 8x8 fill=#ffffff stroke=#3b82f6/1/centre

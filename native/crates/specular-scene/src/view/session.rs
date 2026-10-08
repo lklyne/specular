@@ -6,12 +6,19 @@ use specular_doc::{EntityId, ItemId};
 use specular_interact::{Corner, HANDLE_SIZE, HandleOwner, OUTLINE_PADDING};
 
 use super::annotations::region_items;
+use super::edge_chrome;
 use super::frame::Frame;
 use super::palette;
-use crate::{Color, Item, Rect, RectDraw, Scene, Stroke, StrokeAlign};
+use super::shape_path::Silhouette;
+use crate::{Color, Dash, Item, PathDraw, PathStroke, Rect, RectDraw, Scene, Stroke, StrokeAlign};
 
 const OUTLINE_WIDTH: f32 = 1.0;
 const HANDLE_STROKE: f32 = 1.0;
+const DROP_TARGET_WIDTH: f32 = 2.0;
+/// How far outside an entered group its dashed ring sits, and how it is
+/// dashed.
+const ENTERED_GAP: f32 = 4.0;
+const ENTERED_DASH: Dash = Dash { on: 5.0, off: 3.0 };
 const MARQUEE_FILL_ALPHA: f32 = 0.12;
 const MARQUEE_BORDER_ALPHA: f32 = 0.9;
 /// The comment tool's region while it is dragged out.
@@ -49,6 +56,30 @@ pub(crate) fn draw(frame: &Frame<'_>, scene: &mut Scene) {
         push_copy_ghost(frame, rect, scene);
     }
 
+    // The group being worked inside: a dashed ring in the selection colour a
+    // few pixels outside it, apart from a selected group's solid outline.
+    if let Some(group) = (app.entered_group()).and_then(|id| app.document().entity(id)) {
+        let ring = frame.screen_rect(group.rect).outset(ENTERED_GAP);
+        if frame.sees_screen(ring) {
+            let stroke = PathStroke::new(palette::SELECTION, OUTLINE_WIDTH).dashed(ENTERED_DASH);
+            scene.push(Item::screen(PathDraw {
+                commands: Silhouette::Rect(0.0).into_path(ring),
+                fill: None,
+                stroke: Some(stroke),
+            }));
+        }
+    }
+
+    // The group a release would drop the dragged items into: a square 2 px
+    // ring in the selection colour round it, in place of its thin border.
+    if let Some(group) = (app.group_drop_target()).and_then(|id| app.document().entity(id)) {
+        let ring = frame.screen_rect(group.rect);
+        if frame.sees_screen(ring) {
+            let stroke = Stroke::new(palette::SELECTION, DROP_TARGET_WIDTH, StrokeAlign::Outside);
+            scene.push(Item::screen(RectDraw::outlined(ring, stroke)));
+        }
+    }
+
     if let Some((owner, bounds)) = app.handles() {
         match owner {
             // The entity's own outline is already there.
@@ -78,6 +109,7 @@ pub(crate) fn draw(frame: &Frame<'_>, scene: &mut Scene) {
             PREVIEW_FILL_ALPHA,
         ));
     }
+    edge_chrome::draw(frame, scene);
 }
 
 /// A one-pixel ring just outside `rect`, so it never covers what it frames.

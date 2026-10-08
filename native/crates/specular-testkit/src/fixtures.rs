@@ -134,9 +134,18 @@ pub fn document(entities: impl IntoIterator<Item = Entity>) -> Document {
 /// in front of everything.
 #[track_caller]
 #[must_use]
-pub fn connected(mut document: Document, id: &str, from: &str, to: &str) -> Document {
+pub fn connected(document: Document, id: &str, from: &str, to: &str) -> Document {
+    with_edge(document, Edge::new(id, from, to))
+}
+
+/// `document` with `edge`, in front of everything: for an edge that names
+/// sides, a label or a style.
+#[track_caller]
+#[must_use]
+pub fn with_edge(mut document: Document, edge: Edge) -> Document {
+    let id = edge.id.clone();
     let command = Command::InsertEdge {
-        edge: Box::new(Edge::new(id, from, to)),
+        edge: Box::new(edge),
         at: document.stack_len(),
     };
     if let Err(error) = document.apply(command) {

@@ -1,4 +1,4 @@
-//! The menu bar's Edit, Tools and View menus, as data.
+//! The menu bar's Edit, Arrange, Tools and View menus, as data.
 //!
 //! Each item is an [`Action`] and takes its shortcut from the row of
 //! [`BINDINGS`] that runs the same action, so a menu and the keyboard cannot
@@ -7,7 +7,7 @@
 
 use specular_doc::ItemId;
 
-use crate::{Action, App, BINDINGS, Binding, Chord, Context, Tool};
+use crate::{Action, App, BINDINGS, Binding, Chord, Context, Tool, groups};
 
 /// One menu of the menu bar.
 #[derive(Debug, Clone, PartialEq)]
@@ -47,7 +47,7 @@ pub fn binding_of(action: &Action) -> Option<&'static Binding> {
     BINDINGS.iter().find(|binding| binding.action == *action)
 }
 
-/// The Edit, Tools and View menus for `app` as it is now. The entries and
+/// The Edit, Arrange, Tools and View menus for `app` as it is now. The entries and
 /// their order never change, only `enabled` and `checked`.
 pub fn menus(app: &App) -> Vec<Menu> {
     let item = |label, action| MenuEntry::Item(item(app, label, action));
@@ -62,6 +62,15 @@ pub fn menus(app: &App) -> Vec<Menu> {
         item("Delete", Action::Delete),
         MenuEntry::Separator,
         item("Select all", Action::SelectAll),
+    ];
+    let arrange = vec![
+        item("Bring forward", Action::BringForward),
+        item("Send backward", Action::SendBackward),
+        item("Bring to front", Action::BringToFront),
+        item("Send to back", Action::SendToBack),
+        MenuEntry::Separator,
+        item("Group", Action::Group),
+        item("Ungroup", Action::Ungroup),
     ];
     let tools = Tool::ALL
         .into_iter()
@@ -81,6 +90,10 @@ pub fn menus(app: &App) -> Vec<Menu> {
         Menu {
             title: "Edit",
             entries: edit,
+        },
+        Menu {
+            title: "Arrange",
+            entries: arrange,
         },
         Menu {
             title: "Tools",
@@ -115,7 +128,13 @@ fn has_target(app: &App, action: &Action) -> bool {
         Action::Cut | Action::Copy | Action::Duplicate => {
             (selection.items().iter()).any(|item| matches!(item, ItemId::Entity(_)))
         }
-        Action::Delete => !selection.is_empty(),
+        Action::Delete
+        | Action::BringForward
+        | Action::SendBackward
+        | Action::BringToFront
+        | Action::SendToBack => !selection.is_empty(),
+        Action::Group => selection.entities().nth(1).is_some(),
+        Action::Ungroup => groups::lone_group(app).is_some(),
         Action::SelectAll | Action::ZoomToFit => app.document.entities().next().is_some(),
         Action::Cancel
         | Action::SetTool(_)

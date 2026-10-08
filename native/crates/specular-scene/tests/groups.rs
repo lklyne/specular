@@ -1,0 +1,75 @@
+//! Scene snapshots for groups: the drop-target ring while items are dragged
+//! over one, and a group's title while it is renamed.
+
+use specular_doc::{Entity, Rect};
+use specular_interact::Key;
+use specular_testkit::{TestApp, assert_scene_snapshot, group, inside, shape};
+
+fn named(group: Entity, label: &str) -> Entity {
+    Entity {
+        label: Some(label.to_owned()),
+        ..group
+    }
+}
+
+fn board() -> TestApp {
+    TestApp::with_entities([
+        inside("g", shape("a", Rect::new(140.0, 140.0, 100.0, 100.0))),
+        named(
+            group("g", Rect::new(100.0, 100.0, 400.0, 300.0)),
+            "Moodboard",
+        ),
+        shape("c", Rect::new(100.0, 600.0, 100.0, 100.0)),
+    ])
+}
+
+#[test]
+fn the_group_under_a_drag_gets_a_selection_ring() {
+    let mut app = board();
+    app.press((150.0, 650.0)).drag_to((300.0, 300.0));
+    assert_scene_snapshot!(app);
+}
+
+#[test]
+fn a_drag_over_no_group_draws_no_ring() {
+    let mut app = board();
+    app.press((150.0, 650.0)).drag_to((700.0, 700.0));
+    assert_scene_snapshot!(app);
+}
+
+#[test]
+fn a_title_being_renamed_shows_the_working_text_with_its_selection() {
+    let mut app = board();
+    app.double_click((110.0, 90.0));
+    assert_scene_snapshot!(app);
+}
+
+#[test]
+fn a_title_being_renamed_shows_the_caret_after_what_was_typed() {
+    let mut app = board();
+    app.double_click((110.0, 90.0)).type_text("Ref");
+    assert_scene_snapshot!(app);
+}
+
+#[test]
+fn a_renamed_group_shows_its_new_title() {
+    let mut app = board();
+    app.double_click((110.0, 90.0))
+        .type_text("Ref")
+        .key(Key::Enter);
+    assert_scene_snapshot!(app);
+}
+
+#[test]
+fn an_entered_group_has_a_dashed_ring_round_it() {
+    let mut app = board();
+    app.double_click((300.0, 380.0));
+    assert_scene_snapshot!(app);
+}
+
+#[test]
+fn a_group_that_follows_its_dragged_member_is_drawn_at_its_live_size() {
+    let mut app = board();
+    app.press((190.0, 190.0)).drag_to((220.0, 220.0));
+    assert_scene_snapshot!(app);
+}

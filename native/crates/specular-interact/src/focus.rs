@@ -24,7 +24,9 @@ pub(crate) fn set_focus(app: &mut App, page: Option<EntityId>, effects: &mut Vec
 /// no longer the whole selection.
 pub(crate) fn leave_unless_selected(app: &mut App, effects: &mut Vec<Effect>) {
     let editing = app.session.editing.as_ref().map(TextEdit::entity);
-    if editing.is_some() && editing != app.session.selection.single_entity() {
+    let selected =
+        (app.session.selection.single_entity().cloned()).or_else(|| edit::selected_edge_key(app));
+    if editing.is_some() && editing != selected.as_ref() {
         edit::end(app, effects);
     }
     if let Some(page) = app.session.focus.page()

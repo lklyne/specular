@@ -11,9 +11,9 @@ pub(crate) const CORNER_RADIUS: f32 = 8.0;
 const BORDER_WIDTH: f32 = 1.0;
 /// The title's line box and the gap under it, in logical pixels. A group's
 /// title sits the same way above its rect.
-pub(crate) const TITLE_LINE: f32 = 16.5;
-pub(crate) const TITLE_GAP: f32 = 4.0;
-pub(crate) const TITLE_SIZE: f32 = 11.0;
+pub(crate) const TITLE_LINE: f32 = specular_interact::TITLE_LINE;
+pub(crate) const TITLE_GAP: f32 = specular_interact::TITLE_GAP;
+pub(crate) const TITLE_SIZE: f32 = specular_interact::TITLE_SIZE;
 pub(crate) const TITLE_WEIGHT: u16 = 500;
 
 pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, page: &Page, scene: &mut Scene) {

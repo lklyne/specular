@@ -70,7 +70,9 @@ fn shift_drag_moves_the_page_along_one_axis() {
   `note(id, rect, "plan.md")` is a Document; its text arrives with
   `note_text("plan.md", "..")`, and a double click then edits its source.
   `inside("g", entity)` puts one in a group, and
-  `connected(document(entities), "e1", "a", "b")` adds an edge.
+  `connected(document(entities), "e1", "a", "b")` adds an edge, and
+  `with_edge(document, Edge { from_side, label, ..Edge::new(..) })` one that
+  names sides, a label or a style.
 - Input chains: `pointer_move`, `press`, `drag_to`, `release`, `drag`,
   `click`, `double_click`, `key`, `chord(CMD, Key::Char('z'))`,
   `type_text("hi")`, `wheel`, `pinch`, `tick`. `hold(mods)` keeps modifiers

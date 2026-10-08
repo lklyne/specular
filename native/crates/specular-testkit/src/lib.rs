@@ -37,7 +37,7 @@ mod snapshot;
 pub use app::TestApp;
 pub use fixtures::{
     connected, document, drawing, file, group, inside, labelled, note, page, pages, plain_text,
-    shape, sticky, text,
+    shape, sticky, text, with_edge,
 };
 pub use input::{ALT, CMD, CMD_SHIFT, CTRL, SHIFT};
 pub use measure::FixedAdvance;

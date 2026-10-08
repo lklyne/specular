@@ -33,7 +33,7 @@ impl Format {
     /// shape's label has none.
     const fn applies_to(self, target: Target) -> bool {
         match target {
-            Target::Label => false,
+            Target::Label | Target::Title | Target::EdgeLabel => false,
             Target::Note => true,
             Target::Text => matches!(
                 self,

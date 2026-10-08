@@ -156,6 +156,19 @@ with the task that made it.
 - QA: a headless run keeps the clipboard and the Documents it makes in memory (`headless/stand_ins.rs`), and reports Document heights after each snapshot as the shell does after each frame. New script steps are `triple-click`, `compose`, `commit`, `clipboard`, `wheel`, `pinch` and `save`.
 - QA: an Option-drag draws each copy as a tinted outline where it will land. The originals stay put until the release.
 
+- Groups/edges/S7: stack-order verbs have no Notes and Pages sections, because the native stack is one (S1). A selected group is moved as its whole run; Electron's math given only the group id leaves the children behind on a backward move.
+- Groups/edges/S7: a new group goes just in front of its frontmost member's run and the run is gathered there in the same step. Electron appends it at the top and leaves it scattered until the next reorder.
+- Groups/edges/S7: a freeform group's rect follows its members (union plus 24), in the same undo step as the change and frame by frame during a drag. Electron only refits auto-layout groups; the task asked for this. `group_fit::then_fit` runs from `gesture::apply_fitted`, which every step goes through. Not refitted: an empty group, a group moved or resized as a whole, a group no step touched. So a hand-sized group tightens the first time a member changes.
+- Groups/edges/S7: the group drop target is tested against the group rects captured when the drag began, as CONTEXT.md says, since the live rects now follow the drag.
+- Groups/edges/S7: Electron has no entered-group state; its double click selects the group's direct members. That is kept, with `Session::entered_group` on top: it holds while the selection stays inside the group, Escape steps out one level (selecting the group left), and only then deselects.
+- Groups/edges/S7: delete takes a group with its descendants and their edges (ADR 0034's operands). Electron's `deleteGroups` removes member pages only. Ungroup acts on one selected group, and group needs two items, as in Electron.
+- Groups/edges/S7: `hit::body_at` picks the innermost group under the point, then the frontmost. The outer group used to win, so a nested group's interior could not be reached. Group tints are drawn before every entity, as in Electron, with the border and title left in the group's stack slot.
+- Groups/edges/S7: a group title and an edge label are edited with the text editor as `Target::Title` and `Target::EdgeLabel`, one line each, ended by Enter. The edge label's `TextEdit::entity` holds the edge's id; the two id types share a namespace (F2). Escape cancels a title rename, as Electron's inline label does, and commits an edge label, as its popup field does.
+- Groups/edges/S7: Electron edits an edge label only in its popup. Here a double click on the edge opens it in place.
+- Groups/edges/S7: an edge drag changes nothing in the document until the release. A drop with no anchor in reach but over another item's body connects to the side facing the fixed end; Electron snaps to anchors only. Drawings are not targets. A re-route that ends where it began records no step.
+- Groups/edges/S7: an anchor dot shows only for the side the pointer is over, on the hovered or selected item, and all four dots show on every item during an edge drag, as in Electron. `anchors.rs` is the one set for hit-testing and drawing.
+- Groups/edges/S7: re-anchoring on a move's release covers the selected entities only. One whose page moved with it keeps its anchor, and an unchanged page and URL writes nothing, so scroll and element fields survive. Nudge re-anchors too, as Electron's does. An Option-drag copy is placed like a paste.
+
 ## Needs a human at a Mac
 
 Things an agent could not verify headless.
@@ -185,6 +198,8 @@ Things an agent could not verify headless.
 - T4 and T5: nothing was run in a window. `--snapshot` of a Document mid-edit looked right: source rows, faint markers, heading sizes, the selection on its glyphs. By hand: pick Tools > Document (the tool has no key), click, type, and check `Untitled Note.md` appears in the space folder and fills in a third of a second after you stop. Double-click an existing Document and check the caret lands near the click, the wheel and Page keys scroll, and scrolling back from the end has no dead travel. Edit the file in another editor while the edit is open and check a conflict copy appears beside it. Escape, then Cmd+Z twice, and check the file goes back. Quit mid-edit and check the last keys are in the file. Try each formatting chord. Cmd+Option+digit may be taken by macOS or the menu.
 
 - QA: the real window ran once on a copy of the kitchen sink for 20 seconds with the synthetic source, with no input. No panic, no wgpu validation error, 7 log lines. It logged `not presenting frames reason="window occluded"` once at startup and presented again 66 ms later. Nobody looked at the window, and nothing in this pass was typed or dragged by hand.
+
+- Groups, edges, S7: nothing was run in a window. Check Cmd+] and Cmd+[ with and without Shift, and the Arrange menu. Cmd+G on two items, Cmd+Shift+G, a child dragged out of and into a group (ring on the target, the group hugging what is left), double click into a group, Escape back out, double click a title and type. Hover an item and drag from the dot to another item's dot and to its body; grab an edge's end, drop it on nothing and check the edge goes and Cmd+Z brings it back; double click an edge and type a label. Drag a sticky onto a page and off it, and with Command held.
 
 ## Entries
 
@@ -429,3 +444,17 @@ Things an agent could not verify headless.
 - Rough edges a designer would see in the PNGs. Stickies and Documents have no shadow, so a Document is a pale card with no edge. Group titles and page titles keep their pixel size, so at zoom-to-fit they are larger than what they name and overlap. The highlighter paints over text and greys it. The text selection is grey. The family emoji draws as one small boxed glyph. `Welcome.canvas` shows "File not found" for its Document. The copy ghost is an empty tinted rect, not the item.
 - For the next agent: use `document_to_save()` for anything written to disk. `pointer::settle` is the place to add anything else that must follow a still pointer. The window run and the scenario runs started `specular-app` on purpose, against this file's usual rule, because the task asked for them.
 - Gate: fmt, clippy and `cargo test --workspace` pass (1127 tests, GPU ones included), in a detached worktree of `e85b962c`.
+
+### Interaction half of K4, K5 and S7, with re-anchor on move. See `git log -- native/crates/specular-interact/src/edge_drag.rs`
+
+- S7: `stack_order.rs` (the math from `entity-order-math.ts`, group runs kept contiguous), `Action::{BringForward, SendBackward, BringToFront, SendToBack}` on Cmd+] and Cmd+[ with and without Shift, each one `SetOrder`. A new Arrange menu holds them with Group and Ungroup.
+- Groups: `groups.rs` (`Action::Group` Cmd+G, `Action::Ungroup` Cmd+Shift+G, `enter`, `step_out`), `group_drop.rs` (the drop target, reparenting on a move's release, the contiguity fix-up), `group_fit.rs` (bounds follow members). `App::group_drop_target()` and `App::entered_group()` are for the scene.
+- Edges: `edge_drag.rs` with `edge_drag/controller.rs` (the port of `edge-drag-controller.ts`), `Gesture::EdgeDrag`, `anchors.rs`, `App::anchors()`, `App::edge_preview()`, `App::rerouting()`, `Cursor::Crosshair`. Cancel, Escape and a drop on nothing during a re-route remove the edge as one step, by design.
+- Label editing: `edit/title.rs` and `edit/edge_label.rs`. `App::edit_frame()` is where the edited line sits; `text_frame` stays body text only.
+- Re-anchor: `anchor::then_reanchor` adds `SetAnchor` to the move's step. Command or Control at the release suppresses it and the group drop.
+- Scene: `view/edge_chrome.rs` (anchor dots, the dashed preview, origin dot, snap ring), the drop ring and the entered group's dashed ring in `view/session.rs`, the edited title and edge label through `editing::edited_line`. The Option-drag copy ghost is the QA pass's; a second one drawn here was dropped in the merge.
+- `live::commit` and `commit_with` are gone: `live::commit_following` is the drag commit, and it carries the followed groups. `gesture::cancel` takes `effects`. Testkit: `with_edge`.
+- Tests: `tests/stack_order.rs`, `groups_verbs.rs`, `groups_drag.rs`, `groups_enter.rs`, `groups_fit.rs`, `edges.rs`, `edge_labels.rs`, more in `anchoring.rs` and `menus.rs`, and scene snapshots in `specular-scene/tests/groups.rs` and `edges.rs`. Each interaction was also scripted with `--snapshot --script` and the PNGs looked at.
+- Not done: auto-layout, gap handles and reorder dots (deferred). A gap in the edge line under its label. Live refit of a group while a text inside it grows (it refits when the edit ends). Edge popup actions. Duplicate and paste do not re-anchor.
+- Built in a detached worktree in three steps by subagents, then squashed and rebased onto the markdown-editing and QA commits. The merge needed `Target::Note` arms beside the two new targets.
+- Gate: fmt, clippy and `cargo test --workspace` pass on the rebased commit (1284 tests, GPU ones included).

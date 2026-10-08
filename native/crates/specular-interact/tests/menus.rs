@@ -36,11 +36,11 @@ fn labels(menu: &Menu) -> Vec<&'static str> {
 }
 
 #[test]
-fn the_menus_are_edit_tools_and_view() {
+fn the_menus_are_edit_arrange_tools_and_view() {
     let app = TestApp::with_pages(1);
     let menus = menus(app.app());
-    let [edit, tools, view] = menus.as_slice() else {
-        panic!("three menus");
+    let [edit, arrange, tools, view] = menus.as_slice() else {
+        panic!("four menus");
     };
     assert_eq!(
         (edit.title, labels(edit)),
@@ -57,6 +57,21 @@ fn the_menus_are_edit_tools_and_view() {
                 "Delete",
                 "-",
                 "Select all"
+            ]
+        )
+    );
+    assert_eq!(
+        (arrange.title, labels(arrange)),
+        (
+            "Arrange",
+            vec![
+                "Bring forward",
+                "Send backward",
+                "Bring to front",
+                "Send to back",
+                "-",
+                "Group",
+                "Ungroup"
             ]
         )
     );
@@ -113,6 +128,13 @@ fn the_shortcuts_are_the_expected_keys() {
     assert_eq!(chord("Duplicate"), Some(Chord::char('d').cmd()));
     assert_eq!(chord("Delete"), Some(Chord::key(Key::Backspace)));
     assert_eq!(chord("Select all"), Some(Chord::char('a').cmd()));
+    assert_eq!(chord("Bring forward"), Some(Chord::char(']').cmd()));
+    assert_eq!(chord("Send backward"), Some(Chord::char('[').cmd()));
+    assert_eq!(
+        chord("Bring to front"),
+        Some(Chord::char(']').cmd().shift())
+    );
+    assert_eq!(chord("Send to back"), Some(Chord::char('[').cmd().shift()));
     assert_eq!(chord("Zoom in"), Some(Chord::char('=').cmd()));
     assert_eq!(chord("Zoom out"), Some(Chord::char('-').cmd()));
     assert_eq!(chord("Zoom to 100%"), Some(Chord::char('0').cmd()));
@@ -162,14 +184,26 @@ fn the_active_tool_is_the_one_checked() {
 fn items_with_nothing_to_act_on_are_disabled() {
     let mut app = TestApp::with_pages(2);
     let enabled = |app: &TestApp, label: &str| item(&menus(app.app()), label).enabled;
-    for label in ["Undo", "Redo", "Cut", "Copy", "Duplicate", "Delete"] {
+    let arrange = [
+        "Bring forward",
+        "Send backward",
+        "Bring to front",
+        "Send to back",
+    ];
+    for label in ["Undo", "Redo", "Cut", "Copy", "Duplicate", "Delete"]
+        .into_iter()
+        .chain(arrange)
+    {
         assert!(!enabled(&app, label), "{label}");
     }
     for label in ["Paste", "Select all", "Zoom in", "Zoom to fit", "Shape"] {
         assert!(enabled(&app, label), "{label}");
     }
     app.select(&["p1"]).act(Action::Duplicate);
-    for label in ["Undo", "Cut", "Copy", "Duplicate", "Delete"] {
+    for label in ["Undo", "Cut", "Copy", "Duplicate", "Delete"]
+        .into_iter()
+        .chain(arrange)
+    {
         assert!(enabled(&app, label), "{label}");
     }
     app.undo();

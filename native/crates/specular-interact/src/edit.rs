@@ -20,6 +20,7 @@
 
 mod blink;
 mod buffer;
+mod edge_label;
 mod format;
 mod formatting;
 pub(crate) mod frame;
@@ -35,6 +36,7 @@ mod pointer;
 mod segment;
 mod source;
 mod stack;
+mod title;
 
 use std::sync::Arc;
 
@@ -45,11 +47,13 @@ use specular_doc::{Command, Entity, EntityId, ItemId, Kind, Rect, Text};
 pub(crate) use blink::{caret_state, restart_blink};
 pub use buffer::TextEdit;
 use buffer::{Origin, Target};
+pub use edge_label::LABEL_SIZE as EDGE_LABEL_SIZE;
+pub(crate) use edge_label::begin as begin_edge_label;
+pub(crate) use edge_label::selected_key as selected_edge_key;
 pub use formatting::Format;
 pub(crate) use formatting::run as format;
 pub use frame::{NOTE_PADDING, TextFrame, note_frame};
 use history::Change;
-pub(crate) use keys::on_key;
 pub(crate) use measure::Measurer;
 pub use measure::{CaretStop, LayoutLine, TextLayout, TextMeasure, TextSpec};
 pub use pointer::TextSelectDrag;
@@ -57,6 +61,8 @@ pub(crate) use pointer::{autoscroll, drag, is_over_text, press};
 pub use source::{SourceLine, SourceSpan, SourceStyle, style_lines};
 pub(crate) use stack::StackCache;
 pub use stack::{SourceRow, source_rows};
+pub use title::{TITLE_GAP, TITLE_LINE, TITLE_SIZE};
+pub(crate) use title::{is_editing as is_editing_title, on_key};
 
 use crate::saved::LoadedFits;
 use crate::{App, Effect, live, update};
@@ -71,7 +77,8 @@ fn editable<'a>(app: &'a App, entity: &'a Entity) -> Option<(Target, &'a str)> {
             let file = note::file_of(entity)?;
             Some((Target::Note, note::text_of(app.session.notes.get(file))?))
         }
-        Kind::Page(_) | Kind::Group(_) | Kind::Drawing(_) => None,
+        Kind::Group(_) => Some((Target::Title, entity.label.as_deref().unwrap_or_default())),
+        Kind::Page(_) | Kind::Drawing(_) => None,
     }
 }
 
@@ -88,14 +95,18 @@ fn with_text(kind: &Kind, text: String) -> Kind {
 
 /// Where `edit`'s text sits and how its lines fall, as it stands now.
 fn geometry(app: &App, edit: &TextEdit) -> Option<(TextFrame, Arc<TextLayout>)> {
-    let entity = app.document.entity(&edit.entity)?;
     let measure = app.measure.0.as_ref();
+    let plain = |frame: TextFrame| {
+        let layout = measure.layout(&edit.text, &frame.spec);
+        (frame, Arc::new(layout))
+    };
+    if edit.target == Target::EdgeLabel {
+        return edge_label::frame(app, &edit.entity).map(plain);
+    }
+    let entity = app.document.entity(&edit.entity)?;
     match edit.target {
-        Target::Text | Target::Label => {
-            let frame = frame::of(entity)?;
-            let layout = measure.layout(&edit.text, &frame.spec);
-            Some((frame, Arc::new(layout)))
-        }
+        Target::Text | Target::Label => frame::of(entity).map(plain),
+        Target::Title | Target::EdgeLabel => title::frame(app, entity).map(plain),
         Target::Note => {
             let frame = frame::note_frame(entity.rect, app.session.notes.scroll(&entity.id));
             let layout = stack::layout(&edit.text, &frame.spec, measure, &app.stacks);
@@ -114,7 +125,7 @@ fn page_height(app: &App, edit: &TextEdit) -> f32 {
     let rect = app.document.entity(&edit.entity).map(|entity| entity.rect);
     match (edit.target, rect) {
         (Target::Note, Some(rect)) => frame::note_window(rect),
-        (Target::Note | Target::Text | Target::Label, _) => {
+        (Target::Note | Target::Text | Target::Label | Target::Title | Target::EdgeLabel, _) => {
             app.session.viewport.y / app.session.camera.zoom.max(f32::EPSILON)
         }
     }
@@ -242,10 +253,16 @@ pub(crate) fn end(app: &mut App, effects: &mut Vec<Effect>) {
         note::finish(app, edit, effects);
         return;
     }
+    if edit.target == Target::EdgeLabel {
+        return edge_label::end(app, &edit, effects);
+    }
     let id = edit.entity.clone();
     let Some(entity) = app.document.entity(&id).cloned() else {
         return;
     };
+    if edit.target == Target::Title {
+        return title::end(app, &entity, &edit, effects);
+    }
     let emptied = edit.target == Target::Text && edit.text.trim().is_empty();
     let kind = with_text(&entity.kind, edit.text);
     if edit.origin.created {
@@ -325,6 +342,7 @@ pub(crate) fn paste(app: &mut App, text: &str) {
     };
     edit.composition = None;
     let text = text.replace("\r\n", "\n").replace('\r', "\n");
+    let text = title::single_line(edit.target, text);
     if edit.insert(&text, Change::Single) {
         refit(app);
     }
@@ -390,6 +408,8 @@ impl App {
                 entity.rect,
                 self.session.notes.scroll(id),
             )),
+            // A title sits outside the body; `edit_frame` places it.
+            (Target::Title | Target::EdgeLabel, _) => None,
             (Target::Text | Target::Label, _) => frame::of(entity),
         }
     }

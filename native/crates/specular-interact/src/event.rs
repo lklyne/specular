@@ -240,6 +240,18 @@ pub enum Action {
     /// Toggle markdown formatting on the selection of the text being
     /// edited. Does nothing where the text does not take that format.
     Format(Format),
+    /// Move the selection one slot forward in the stack order.
+    BringForward,
+    /// Move the selection one slot backward in the stack order.
+    SendBackward,
+    /// Move the selection in front of everything.
+    BringToFront,
+    /// Move the selection behind everything.
+    SendToBack,
+    /// Wrap the selected items in a new group and select it.
+    Group,
+    /// Take the selected group apart and select what was inside it.
+    Ungroup,
     /// Move the selection by exactly this many canvas units.
     Nudge {
         /// Along x. Positive is right.

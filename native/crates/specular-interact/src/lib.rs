@@ -22,6 +22,7 @@
 //! document while it is dragged out, and [`App::creating`] names it.
 
 mod anchor;
+mod anchors;
 mod app;
 mod asset;
 mod bindings;
@@ -33,6 +34,7 @@ mod comment;
 mod cursor;
 mod draw;
 mod drop;
+mod edge_drag;
 mod edge_path;
 mod edit;
 mod effect;
@@ -41,6 +43,9 @@ mod focus;
 mod geometry;
 mod gesture;
 mod grid;
+mod group_drop;
+mod group_fit;
+mod groups;
 mod handles;
 mod hit;
 mod images;
@@ -60,6 +65,7 @@ mod saved;
 mod scope;
 mod select;
 mod select_all;
+mod stack_order;
 mod strokes;
 mod time;
 mod tool;
@@ -70,6 +76,7 @@ mod verbs;
 mod zoom;
 
 pub use anchor::{anchors_to_pages, page_anchor_for};
+pub use anchors::Anchor;
 pub use app::{App, Focus, Selection, Session};
 pub use asset::AssetBytes;
 pub use bindings::{BINDINGS, Binding, Chord, Context, binding_for};
@@ -78,11 +85,12 @@ pub use clipboard::{ClipboardContent, ClipboardImage, Paste};
 pub use comment::{region_annotation, region_on_canvas};
 pub use draw::DrawStroke;
 pub use drop::DroppedFile;
+pub use edge_drag::{EdgeDrag, EdgePreview};
 pub use edge_path::EdgeCurve;
 pub use edit::{
-    CaretStop, Format, LayoutLine, NOTE_PADDING, SourceLine, SourceRow, SourceSpan, SourceStyle,
-    TextEdit, TextFrame, TextLayout, TextMeasure, TextSelectDrag, TextSpec, note_frame,
-    source_rows, style_lines,
+    CaretStop, EDGE_LABEL_SIZE, Format, LayoutLine, NOTE_PADDING, SourceLine, SourceRow,
+    SourceSpan, SourceStyle, TITLE_GAP, TITLE_LINE, TITLE_SIZE, TextEdit, TextFrame, TextLayout,
+    TextMeasure, TextSelectDrag, TextSpec, note_frame, source_rows, style_lines,
 };
 pub use effect::{Cursor, Effect};
 pub use event::{Action, Event, Key, KeyInput, PageNotice, PointerInput, WheelInput};

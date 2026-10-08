@@ -238,6 +238,32 @@ pub const BINDINGS: &[Binding] = &[
     once(Chord::key(Key::Backspace), Context::Canvas, Action::Delete),
     once(Chord::key(Key::Delete), Context::Canvas, Action::Delete),
     once(Chord::char('a').cmd(), Context::Canvas, Action::SelectAll),
+    once(
+        Chord::char(']').cmd(),
+        Context::Canvas,
+        Action::BringForward,
+    ),
+    once(
+        Chord::char('[').cmd(),
+        Context::Canvas,
+        Action::SendBackward,
+    ),
+    once(
+        Chord::char(']').cmd().shift(),
+        Context::Canvas,
+        Action::BringToFront,
+    ),
+    once(
+        Chord::char('[').cmd().shift(),
+        Context::Canvas,
+        Action::SendToBack,
+    ),
+    once(Chord::char('g').cmd(), Context::Canvas, Action::Group),
+    once(
+        Chord::char('g').cmd().shift(),
+        Context::Canvas,
+        Action::Ungroup,
+    ),
     held(
         Chord::char('=').cmd(),
         Context::CanvasOrEditing,

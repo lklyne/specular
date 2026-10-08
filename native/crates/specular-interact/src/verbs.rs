@@ -1,11 +1,12 @@
 //! What the selection can be told to do without the pointer: delete,
-//! duplicate and nudge. Each is one undo step.
+//! duplicate, nudge and reorder. Each is one undo step.
 
 use glam::DVec2;
 use specular_doc::{Command, EdgeId, ItemId, Rect};
 
 use crate::live::{self, Start};
-use crate::{App, Effect, clone, geometry, grid, update};
+use crate::stack_order::{self, Move};
+use crate::{App, Effect, anchor, clone, geometry, grid, update};
 
 /// The gap left between placed items, in canvas units.
 const PLACEMENT_GAP: f64 = 80.0;
@@ -67,8 +68,48 @@ pub(crate) fn nudge(app: &mut App, delta: DVec2, effects: &mut Vec<Effect>) {
         .flat_map(|start| moved(start, delta))
         .collect();
     if !commands.is_empty() {
-        update::document_step(app, live::batch(commands), effects);
+        // Only what was nudged directly re-resolves; what is hooked to a
+        // nudged page travels with it.
+        let step = live::batch(commands);
+        let step = anchor::then_reanchor(&mut app.document, step, &scope.members, &scope.operands);
+        update::document_step(app, step, effects);
     }
+}
+
+/// Moves the selection in the stack order, entities and edges alike, and
+/// keeps every group's members in one run (ADR 0014). Does nothing, and
+/// records no step, when the order would not change.
+pub(crate) fn reorder(app: &mut App, how: Move, effects: &mut Vec<Effect>) {
+    let document = &app.document;
+    let order = document.order();
+    let next = stack_order::enforce_contiguity(
+        &stack_order::apply(order, &stacked_selection(app), how),
+        &stack_order::document_runs(document),
+    );
+    if next != order {
+        update::document_step(app, Command::SetOrder(next), effects);
+    }
+}
+
+/// The selection as stack items: each selected group stands for its whole
+/// run, so the group moves as the unit ADR 0014 says it is. A selected
+/// member alone is just itself and moves inside its group's run.
+fn stacked_selection(app: &App) -> Vec<ItemId> {
+    let mut items: Vec<ItemId> = Vec::new();
+    // A stack, so a parent cycle in a hand-edited file ends at the first
+    // repeat.
+    let mut pending: Vec<ItemId> = app.session.selection.items().to_vec();
+    while let Some(item) = pending.pop() {
+        if items.contains(&item) {
+            continue;
+        }
+        if let ItemId::Entity(id) = &item {
+            pending
+                .extend((app.document.children(id)).map(|child| ItemId::Entity(child.id.clone())));
+        }
+        items.push(item);
+    }
+    items
 }
 
 fn moved(start: &Start, delta: DVec2) -> Vec<Command> {

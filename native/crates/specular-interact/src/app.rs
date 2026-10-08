@@ -66,10 +66,17 @@ impl App {
                 | Gesture::Resize(_)
                 | Gesture::Marquee { .. }
                 | Gesture::CommentRegion { .. }
-                | Gesture::TextSelect(_),
+                | Gesture::TextSelect(_)
+                | Gesture::EdgeDrag(_),
             )
             | None => None,
         }
+    }
+
+    /// The group being worked inside, if one was stepped into and the
+    /// selection is still within it.
+    pub fn entered_group(&self) -> Option<&EntityId> {
+        self.session.entered_group.as_ref()
     }
 
     /// Whether there is a step to undo.
@@ -99,7 +106,8 @@ impl App {
                 | Gesture::CommentRegion { .. }
                 | Gesture::Place(_)
                 | Gesture::Draw(_)
-                | Gesture::TextSelect(_),
+                | Gesture::TextSelect(_)
+                | Gesture::EdgeDrag(_),
             )
             | None => entity.rect,
         };
@@ -183,6 +191,9 @@ pub struct Session {
     pub hover: Option<EntityId>,
     /// What keys go to.
     pub focus: Focus,
+    /// The group stepped into by a double click. It stays while the
+    /// selection is inside it, and Escape steps out of it.
+    pub entered_group: Option<EntityId>,
     /// The text, sticky or shape label being edited, with the edits so far.
     /// It stays in editing only while its entity is the whole selection, and
     /// Escape ends it.
@@ -225,7 +236,8 @@ impl Session {
                 | Gesture::Marquee { .. }
                 | Gesture::Place(_)
                 | Gesture::Draw(_)
-                | Gesture::TextSelect(_),
+                | Gesture::TextSelect(_)
+                | Gesture::EdgeDrag(_),
             )
             | None => None,
         }

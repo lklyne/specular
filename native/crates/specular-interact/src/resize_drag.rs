@@ -25,6 +25,9 @@ pub struct ResizeDrag {
     /// The rect the handles sat around at the press.
     bounds: Rect,
     starts: Vec<Start>,
+    /// The groups above what is resized, refitted around it as the drag
+    /// goes.
+    followers: Vec<Start>,
 }
 
 impl ResizeDrag {
@@ -48,6 +51,10 @@ impl ResizeDrag {
     pub(crate) fn starts(&self) -> &[Start] {
         &self.starts
     }
+
+    pub(crate) fn followers(&self) -> &[Start] {
+        &self.followers
+    }
 }
 
 /// A press on `handle` at the canvas point `world`.
@@ -68,6 +75,7 @@ pub(crate) fn begin(
         }
     };
     Some(ResizeDrag {
+        followers: live::followers_of(&app.document, &starts),
         owner,
         handle,
         grab: handle.point(bounds) - world,
@@ -109,6 +117,7 @@ pub(crate) fn drag(app: &mut App, drag: &ResizeDrag, world: DVec2, modifiers: Mo
                 resized_kind(app, start, drag.handle, rect)
             };
             live::write(&mut app.document, start, rect, kind);
+            live::follow(&mut app.document, &drag.followers);
         }
         HandleOwner::Selection => {
             let bounds = resize::resized_bounds(drag.bounds, drag.handle, target);
@@ -127,6 +136,7 @@ pub(crate) fn drag(app: &mut App, drag: &ResizeDrag, world: DVec2, modifiers: Mo
                 };
                 live::write(&mut app.document, start, rect, kind);
             }
+            live::follow(&mut app.document, &drag.followers);
         }
     }
 }
@@ -198,7 +208,7 @@ fn scaled(drawing: &Drawing, from: Rect, to: Rect) -> Kind {
 /// The button came up: the resize becomes one undo step, and each page that
 /// changed size is laid out again, once.
 pub(crate) fn finish(app: &mut App, drag: &ResizeDrag, effects: &mut Vec<Effect>) {
-    live::commit(app, &drag.starts);
+    live::commit_following(app, &drag.starts, &drag.followers, |_| Vec::new());
     for start in &drag.starts {
         if let Some(placement) = app.page_placement(&start.id)
             && placement.viewport != PagePlacement::viewport_for(start.rect)

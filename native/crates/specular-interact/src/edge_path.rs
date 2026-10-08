@@ -8,7 +8,8 @@ use crate::App;
 use crate::geometry::ScreenRect;
 
 /// How far outside its entity an edge starts and ends, in logical pixels.
-const ANCHOR_OFFSET: f32 = 8.0;
+/// An anchor's dot sits here too.
+pub(crate) const ANCHOR_OFFSET: f32 = 8.0;
 /// The control points sit between these distances from their ends, in canvas
 /// units, so a short edge still leaves its entity square-on and a long one
 /// does not balloon.
@@ -46,8 +47,17 @@ impl EdgeCurve {
             (Some(from_side), Some(to_side)) => (from_side, to_side),
             (None, _) | (_, None) => facing_sides(from, to),
         };
-        let start = side_point(from, from_side) + outward(from_side) * ANCHOR_OFFSET;
-        let end = side_point(to, to_side) + outward(to_side) * ANCHOR_OFFSET;
+        Self::joining(
+            (anchor_point(from, from_side), from_side),
+            (anchor_point(to, to_side), to_side),
+            zoom,
+        )
+    }
+
+    /// The curve between two points, each leaving in the direction of the
+    /// side it is on.
+    pub(crate) fn joining(from: (Vec2, EdgeSide), to: (Vec2, EdgeSide), zoom: f32) -> Self {
+        let ((start, from_side), (end, to_side)) = (from, to);
         let reach = (start.distance(end) * 0.4).clamp(CONTROL_MIN * zoom, CONTROL_MAX * zoom);
         Self {
             from: start,
@@ -107,6 +117,12 @@ pub(crate) fn side_point(rect: ScreenRect, side: EdgeSide) -> Vec2 {
     }
 }
 
+/// Where an edge meets `side` of `rect`, and where that side's anchor dot
+/// is: [`ANCHOR_OFFSET`] outside the middle of the side.
+pub(crate) fn anchor_point(rect: ScreenRect, side: EdgeSide) -> Vec2 {
+    side_point(rect, side) + outward(side) * ANCHOR_OFFSET
+}
+
 /// The unit vector pointing away from an entity through `side`.
 pub(crate) const fn outward(side: EdgeSide) -> Vec2 {
     match side {
@@ -118,7 +134,7 @@ pub(crate) const fn outward(side: EdgeSide) -> Vec2 {
 }
 
 /// The sides two entities face each other with, for an edge that names none.
-fn facing_sides(from: ScreenRect, to: ScreenRect) -> (EdgeSide, EdgeSide) {
+pub(crate) fn facing_sides(from: ScreenRect, to: ScreenRect) -> (EdgeSide, EdgeSide) {
     let delta = to.centre() - from.centre();
     if delta.x.abs() > delta.y.abs() {
         if delta.x > 0.0 {

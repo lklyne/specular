@@ -61,16 +61,19 @@ pub(crate) fn press(
     click_count: u8,
 ) -> Option<TextSelectDrag> {
     let editing = app.session.editing.as_ref()?.entity.clone();
-    match hit::hit_test(app, input.screen) {
-        Hit::EntityBody { entity } if entity == editing => {}
-        Hit::EntityBody { .. }
-        | Hit::GroupLabel { .. }
-        | Hit::Handle { .. }
-        | Hit::Anchor { .. }
-        | Hit::PageContent { .. }
-        | Hit::GroupBorder { .. }
-        | Hit::Edge { .. }
-        | Hit::Empty => return None,
+    if !super::edge_label::is_over(app, input.screen) {
+        match hit::hit_test(app, input.screen) {
+            Hit::EntityBody { entity } | Hit::GroupLabel { group: entity } if entity == editing => {
+            }
+            Hit::EntityBody { .. }
+            | Hit::GroupLabel { .. }
+            | Hit::Handle { .. }
+            | Hit::Anchor { .. }
+            | Hit::PageContent { .. }
+            | Hit::GroupBorder { .. }
+            | Hit::Edge { .. }
+            | Hit::Empty => return None,
+        }
     }
     let world = app.session.camera.screen_to_world(input.screen).as_dvec2();
     let offset = offset_at(app, world)?;
@@ -183,10 +186,12 @@ pub(crate) fn is_over_text(app: &App) -> bool {
     let (Some(edit), Some(pointer)) = (&app.session.editing, app.session.pointer) else {
         return false;
     };
+    if super::edge_label::is_over(app, pointer) {
+        return true;
+    }
     match hit::hit_test(app, pointer) {
-        Hit::EntityBody { entity } => entity == edit.entity,
-        Hit::GroupLabel { .. }
-        | Hit::Handle { .. }
+        Hit::EntityBody { entity } | Hit::GroupLabel { group: entity } => entity == edit.entity,
+        Hit::Handle { .. }
         | Hit::Anchor { .. }
         | Hit::PageContent { .. }
         | Hit::GroupBorder { .. }
