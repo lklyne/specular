@@ -2,7 +2,7 @@
 //! drops the draft, and annotating the selection.
 
 use specular_doc::{AnnotationAnchor, Document, EntityId, Kind, Rect, RegionAnchor};
-use specular_interact::{Action, Key, Tool, selection_metadata};
+use specular_interact::{Action, Effect, Key, Tool, selection_metadata};
 use specular_testkit::{TestApp, assert_doc_snapshot, document, file, group, inside, page, sticky};
 
 /// The composer's card with `lines` lines of text, in logical pixels: 8 of
@@ -149,7 +149,12 @@ fn switching_tool_commits_the_draft_and_a_new_document_drops_it() {
         .click((600.0, 620.0))
         .type_text("lost");
     assert!(app.app().comment_draft().is_some() && app.editing_text() == "lost");
+    app.take_effects();
     app.open(Document::new());
+    assert!(
+        app.take_effects().contains(&Effect::SetImeAllowed(false)),
+        "the edit ends with the draft"
+    );
     assert_eq!(
         (
             app.app().comment_draft(),
@@ -158,7 +163,6 @@ fn switching_tool_commits_the_draft_and_a_new_document_drops_it() {
         ),
         (None, None, vec![])
     );
-    assert!(app.app().editing_layout().is_none(), "the edit went with it");
 }
 
 #[test]
