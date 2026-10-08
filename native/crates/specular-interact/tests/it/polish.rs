@@ -31,7 +31,9 @@ fn a_drag_from_an_edge_where_it_crosses_an_entity_moves_the_entity() {
     assert_eq!(app.selected_ids(), ["s"]);
     app.assert_undo_returns_to_start();
 
-    // A click in the same place selects the edge.
+    // A click in the same place selects the edge. On a fresh app, so what
+    // the drag left selected cannot stand in for it.
+    let mut app = an_edge_across_a_sticky();
     app.click(on_both);
     assert_eq!(app.selected_ids(), ["e1"]);
 }
