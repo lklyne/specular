@@ -12,7 +12,7 @@
 
 use glam::DVec2;
 use specular_core::Modifiers;
-use specular_doc::{EntityId, ItemId};
+use specular_doc::{EdgeId, EntityId, ItemId};
 
 use crate::marquee::MarqueeMode;
 use crate::move_drag::{self, Click};
@@ -47,7 +47,7 @@ pub(crate) fn press(
             edit::begin(app, &group, false, effects);
         }
         Hit::GroupLabel { group } | Hit::GroupBorder { group } => {
-            begin_move(app, &group, world, input, false);
+            begin_move(app, &group, world, input, None);
         }
         // A double click on a text, a sticky, a shape or a Document edits
         // its text.
@@ -67,14 +67,7 @@ pub(crate) fn press(
         Hit::Edge { edge } if click_count > 1 && !is_additive(input.modifiers) => {
             edit::begin_edge_label(app, &edge, effects);
         }
-        Hit::Edge { edge } => {
-            let item = ItemId::Edge(edge);
-            if is_additive(input.modifiers) {
-                app.session.selection.toggle(item);
-            } else {
-                app.session.selection.set([item]);
-            }
-        }
+        Hit::Edge { edge } => press_edge(app, edge, world, input),
         Hit::Empty => begin_marquee(app, None, world, input),
         // A drag from an anchor draws an edge, or moves the end of one.
         Hit::Anchor { entity, side } => {
@@ -82,6 +75,20 @@ pub(crate) fn press(
         }
     }
     true
+}
+
+/// A press on an edge's line. Where the line crosses an entity the two
+/// share the press: a drag moves the entity, and a click selects the edge.
+/// The edge alone would make the part of an entity under it dead to a drag.
+fn press_edge(app: &mut App, edge: EdgeId, world: DVec2, input: &PointerInput) {
+    let item = ItemId::Edge(edge.clone());
+    if is_additive(input.modifiers) {
+        app.session.selection.toggle(item);
+    } else if let Some(under) = hit::entity_under_edges(app, input.screen) {
+        begin_move(app, &under, world, input, Some(Click::SelectEdge(edge)));
+    } else {
+        app.session.selection.set([item]);
+    }
 }
 
 fn press_page(app: &mut App, page: EntityId, world: DVec2, input: &PointerInput, click_count: u8) {
@@ -94,7 +101,8 @@ fn press_page(app: &mut App, page: EntityId, world: DVec2, input: &PointerInput,
         // The second click of a double-click enters however fast the two
         // landed, and whatever the first one found selected.
         let enters = click_count > 1 || app.session.selection.single_entity() == Some(&page);
-        begin_move(app, &page, world, input, enters);
+        let click = enters.then(|| Click::Enter(page.clone()));
+        begin_move(app, &page, world, input, click);
     }
 }
 
@@ -122,7 +130,7 @@ fn press_body(
         // marquees what is inside, and a click selects the group.
         begin_marquee(app, Some(entity), world, input);
     } else {
-        begin_move(app, &entity, world, input, false);
+        begin_move(app, &entity, world, input, None);
     }
 }
 
@@ -132,21 +140,27 @@ fn press_body(
 ///
 /// A press on one of several selected entities keeps them all for the drag.
 /// If it turns out to be a click, it narrows the selection to that one.
-/// `enters` makes the click enter the page pressed.
-fn begin_move(app: &mut App, pressed: &EntityId, world: DVec2, input: &PointerInput, enters: bool) {
+/// `click` is what the click does instead, when it has something else to do.
+fn begin_move(
+    app: &mut App,
+    pressed: &EntityId,
+    world: DVec2,
+    input: &PointerInput,
+    click: Option<Click>,
+) {
     let item = ItemId::Entity(pressed.clone());
     let held = app.selection_scope().holds(pressed);
     let alone = app.session.selection.items() == [item.clone()];
     if !held {
         app.session.selection.set([item]);
     }
-    let click = if enters {
-        Click::Enter(pressed.clone())
-    } else if held && !alone {
-        Click::SelectAlone(pressed.clone())
-    } else {
-        Click::Keep
-    };
+    let click = click.unwrap_or_else(|| {
+        if held && !alone {
+            Click::SelectAlone(pressed.clone())
+        } else {
+            Click::Keep
+        }
+    });
     app.session.gesture =
         move_drag::begin(app, pressed, world, input.screen, click).map(Gesture::Move);
 }

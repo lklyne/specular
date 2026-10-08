@@ -6,7 +6,7 @@ use specular_doc::{Command, EdgeId, ItemId, Rect};
 
 use crate::live::{self, Start};
 use crate::stack_order::{self, Move};
-use crate::{App, Effect, anchor, clone, geometry, grid, update};
+use crate::{App, Effect, anchor, clone, geometry, grid, update, zoom};
 
 /// The gap left between placed items, in canvas units.
 const PLACEMENT_GAP: f64 = 80.0;
@@ -45,7 +45,10 @@ pub(crate) fn delete(app: &mut App, effects: &mut Vec<Effect>) {
     }
 }
 
-/// Copies the selection into free space beside it and selects the copies.
+/// Copies the selection into free space beside it, selects the copies and
+/// brings them into view: on a crowded canvas the free space can be a long
+/// way off, and a duplicate that lands off screen looks like nothing
+/// happened.
 pub(crate) fn duplicate(app: &mut App, effects: &mut Vec<Effect>) {
     let scope = app.selection_scope();
     let Some(bounds) = scope.bounds else {
@@ -55,6 +58,7 @@ pub(crate) fn duplicate(app: &mut App, effects: &mut Vec<Effect>) {
     if let Some(copies) = clone::copies(app, &scope, delta) {
         update::document_step(app, copies.command, effects);
         app.session.selection.set(copies.members);
+        zoom::reveal(app, bounds.translated(delta.x, delta.y));
     }
 }
 

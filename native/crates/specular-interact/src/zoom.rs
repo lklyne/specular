@@ -12,6 +12,8 @@ const ZOOM_STEP: f32 = 1.25;
 /// The room left around the canvas's contents by zoom to fit, in logical
 /// pixels on each side.
 const FIT_PADDING: f32 = 64.0;
+/// The room [`reveal`] leaves between what it shows and the viewport's edge.
+const REVEAL_PADDING: f32 = 48.0;
 /// Zoom to fit never magnifies: a single small note stays its real size.
 const FIT_MAX_ZOOM: f32 = 1.0;
 
@@ -49,6 +51,26 @@ pub(crate) fn to_fit(app: &mut App) {
     };
 }
 
+/// Pans, without zooming, by the least that brings `bounds` into the
+/// viewport with [`REVEAL_PADDING`] around it. Something larger than the
+/// viewport shows its top-left corner. Already in view, nothing moves.
+pub(crate) fn reveal(app: &mut App, bounds: Rect) {
+    let camera = &mut app.session.camera;
+    let zoom = f64::from(camera.zoom);
+    let viewport = app.session.viewport.as_dvec2();
+    if viewport.min_element() <= 0.0 {
+        return;
+    }
+    let pad = DVec2::splat(f64::from(REVEAL_PADDING)).min(viewport / 4.0);
+    let low = geometry::origin(bounds) * zoom + camera.pan.as_dvec2();
+    let high = low + geometry::size(bounds) * zoom;
+    // Past the far side, come back by the overshoot; then never leave the
+    // near side cut off.
+    let back = (high - (viewport - pad)).max(DVec2::ZERO);
+    let shift = (pad - (low - back)).max(DVec2::ZERO) - back;
+    camera.pan += shift.as_vec2();
+}
+
 /// The camera that centres `bounds` in a viewport of `viewport` logical
 /// pixels with [`FIT_PADDING`] around it.
 fn fitting(bounds: Rect, viewport: DVec2) -> Camera {
@@ -76,6 +98,43 @@ mod tests {
         assert!((camera.zoom - 0.5).abs() < 1e-6);
         // The contents' centre (1100, 300) lands on the viewport's (564, 400).
         assert_eq!(camera.pan, glam::Vec2::new(14.0, 250.0));
+    }
+
+    fn revealed(bounds: Rect) -> glam::Vec2 {
+        let mut app = App::default();
+        app.session.viewport = glam::Vec2::new(1000.0, 800.0);
+        reveal(&mut app, bounds);
+        app.session.camera.pan
+    }
+
+    #[test]
+    fn revealing_what_is_in_view_moves_nothing() {
+        assert_eq!(
+            revealed(Rect::new(100.0, 100.0, 200.0, 200.0)),
+            glam::Vec2::ZERO
+        );
+    }
+
+    #[test]
+    fn revealing_pans_by_the_least_that_shows_it_with_room_around() {
+        // 300 past the right edge, in view vertically.
+        assert_eq!(
+            revealed(Rect::new(1100.0, 100.0, 200.0, 200.0)),
+            glam::Vec2::new(-348.0, 0.0)
+        );
+        // Above and to the left.
+        assert_eq!(
+            revealed(Rect::new(-500.0, -300.0, 200.0, 200.0)),
+            glam::Vec2::new(548.0, 348.0)
+        );
+    }
+
+    #[test]
+    fn revealing_something_larger_than_the_viewport_shows_its_top_left() {
+        assert_eq!(
+            revealed(Rect::new(2000.0, 100.0, 3000.0, 200.0)),
+            glam::Vec2::new(-1952.0, 0.0)
+        );
     }
 
     #[test]

@@ -149,7 +149,8 @@ pub(crate) fn facing_sides(from: ScreenRect, to: ScreenRect) -> (EdgeSide, EdgeS
     }
 }
 
-fn distance_to_segment(point: Vec2, a: Vec2, b: Vec2) -> f32 {
+/// The distance from `point` to the nearest part of the segment `a` to `b`.
+pub(crate) fn distance_to_segment(point: Vec2, a: Vec2, b: Vec2) -> f32 {
     let along = b - a;
     let length_squared = along.length_squared();
     if length_squared == 0.0 {

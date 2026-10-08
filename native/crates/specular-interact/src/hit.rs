@@ -1,15 +1,19 @@
 //! [`hit_test`]: what is under a screen point.
 
 use glam::Vec2;
-use specular_doc::{EdgeId, EdgeSide, Entity, EntityId, ItemId, Kind};
+use specular_doc::{Drawing, EdgeId, EdgeSide, Entity, EntityId, ItemId, Kind};
 
 use crate::app::page_of;
+use crate::edge_path::distance_to_segment;
 use crate::geometry::ScreenRect;
 use crate::{App, Handle, HandleOwner, PagePlacement, anchors, geometry, handles};
 
 /// A drawing's box is only as thick as its ink (zero for a flat line), so it
-/// is widened to at least this many logical pixels each way.
+/// is widened to at least this many logical pixels each way. A stroke is
+/// hit within half this of its line, however thin it is.
 const DRAWING_MIN_HIT: f32 = 12.0;
+/// A stroke is drawn this much wider than its nominal width.
+const INK_SCALE: f32 = 1.6;
 /// How far in from a group's edge a press still counts as its border.
 const GROUP_BORDER: f32 = 8.0;
 /// The box of the group title above its top-left corner: one line of 11 px
@@ -127,15 +131,42 @@ pub(crate) const fn entity_of(hit: &Hit) -> Option<&EntityId> {
 /// whatever their place in the order, because they are containers and a
 /// member inside one must be reachable.
 pub(crate) fn body_at(app: &App, screen: Vec2) -> Hit {
+    body_among(app, screen, true)
+}
+
+/// The entity a drag from `screen` would move if no edge were in the way: a
+/// page, or a body that is not a group's interior. An edge that crosses an
+/// entity leaves it reachable this way.
+pub(crate) fn entity_under_edges(app: &App, screen: Vec2) -> Option<EntityId> {
+    match body_among(app, screen, false) {
+        Hit::PageContent { page: entity, .. } => Some(entity),
+        Hit::EntityBody { entity } => {
+            let grouped = app
+                .document
+                .entity(&entity)
+                .is_some_and(crate::scope::is_group);
+            (!grouped).then_some(entity)
+        }
+        Hit::GroupLabel { .. }
+        | Hit::Handle { .. }
+        | Hit::Anchor { .. }
+        | Hit::GroupBorder { .. }
+        | Hit::Edge { .. }
+        | Hit::Empty => None,
+    }
+}
+
+fn body_among(app: &App, screen: Vec2, edges: bool) -> Hit {
     let camera = &app.session.camera;
     let document = &app.document;
     let mut groups = Vec::new();
     for item in document.order().iter().rev() {
         match item {
             ItemId::Edge(id) => {
-                if app
-                    .edge_curve(id)
-                    .is_some_and(|curve| curve.hit(screen, camera.zoom))
+                if edges
+                    && app
+                        .edge_curve(id)
+                        .is_some_and(|curve| curve.hit(screen, camera.zoom))
                 {
                     return Hit::Edge { edge: id.clone() };
                 }
@@ -145,15 +176,19 @@ pub(crate) fn body_at(app: &App, screen: Vec2) -> Hit {
                     continue;
                 };
                 let rect = ScreenRect::of(camera, entity.rect);
-                let body = match &entity.kind {
+                let inside = match &entity.kind {
                     Kind::Group(_) => {
                         groups.push((id, rect));
                         continue;
                     }
-                    Kind::Drawing(_) => drawing_rect(rect),
-                    Kind::Page(_) | Kind::Text(_) | Kind::File(_) | Kind::Shape(_) => rect,
+                    Kind::Drawing(drawing) => {
+                        drawing_rect(rect).contains(screen) && on_drawing(app, id, drawing, screen)
+                    }
+                    Kind::Page(_) | Kind::Text(_) | Kind::File(_) | Kind::Shape(_) => {
+                        rect.contains(screen)
+                    }
                 };
-                if body.contains(screen) {
+                if inside {
                     return entity_hit(app, entity, screen);
                 }
             }
@@ -208,6 +243,40 @@ pub(crate) fn page_at(app: &App, world: glam::DVec2) -> Option<(EntityId, PagePl
         .rev()
         .find(|entity| page_of(entity).is_some() && geometry::contains(entity.rect, world))?;
     Some((entity.id.clone(), app.page_placement(&entity.id)?))
+}
+
+/// Whether `screen`, already inside the drawing's box, is on the drawing.
+/// An unselected drawing is hit on its ink only, so what shows through the
+/// empty part of its box can be reached. Once selected the whole box is the
+/// drawing, as its outline shows, so it can be dragged from anywhere in it.
+fn on_drawing(app: &App, id: &EntityId, drawing: &Drawing, screen: Vec2) -> bool {
+    let selected = (app.session.selection).contains(&ItemId::Entity(id.clone()));
+    if selected
+        || drawing
+            .strokes
+            .iter()
+            .all(|stroke| stroke.points.is_empty())
+    {
+        return true;
+    }
+    let camera = &app.session.camera;
+    drawing.strokes.iter().any(|stroke| {
+        let reach = (stroke.width as f32 * INK_SCALE * camera.zoom).max(DRAWING_MIN_HIT) / 2.0;
+        let on_screen = |point: &specular_doc::Point| {
+            camera.world_to_screen(Vec2::new(point.x as f32, point.y as f32))
+        };
+        let mut points = stroke.points.iter().map(on_screen);
+        let Some(mut from) = points.next() else {
+            return false;
+        };
+        // A dot is one point, and has no segment.
+        let mut nearest = screen.distance(from);
+        for to in points {
+            nearest = nearest.min(distance_to_segment(screen, from, to));
+            from = to;
+        }
+        nearest <= reach
+    })
 }
 
 fn drawing_rect(rect: ScreenRect) -> ScreenRect {

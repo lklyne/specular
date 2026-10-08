@@ -3,7 +3,7 @@
 
 use glam::{DVec2, Vec2};
 use specular_core::Modifiers;
-use specular_doc::{Command, EntityId, ItemId, Kind, Rect};
+use specular_doc::{Command, EdgeId, EntityId, ItemId, Kind, Rect};
 
 use crate::focus::set_focus;
 use crate::live::{self, Start};
@@ -50,6 +50,9 @@ pub(crate) enum Click {
     SelectAlone(EntityId),
     /// Enters the page (ADR 0022).
     Enter(EntityId),
+    /// Selects the edge the press landed on, which crosses the entity a
+    /// drag would have moved.
+    SelectEdge(EdgeId),
 }
 
 impl MoveDrag {
@@ -220,6 +223,7 @@ pub(crate) fn finish(
         match drag.click {
             Click::Keep => {}
             Click::SelectAlone(entity) => app.session.selection.set([ItemId::Entity(entity)]),
+            Click::SelectEdge(edge) => app.session.selection.set([ItemId::Edge(edge)]),
             Click::Enter(page) => {
                 app.session.selection.set([ItemId::Entity(page.clone())]);
                 set_focus(app, Some(page), effects);
