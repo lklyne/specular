@@ -19,7 +19,8 @@ use specular_interact::{Action, ApiOutcome, App, Cursor, Event, ImageKey};
 use specular_scene::Scene;
 
 use super::demand::FrameDemand;
-use super::{START_CAMERA, image_run, note_run};
+use super::{START_CAMERA, agent_run, image_run, note_run};
+use crate::agent::AgentRuns;
 use crate::api::ApiHost;
 use crate::cdp::CdpHost;
 use crate::images::ImageLoader;
@@ -153,6 +154,8 @@ pub struct Runtime<W> {
     pub(crate) note_heights: HashMap<EntityId, f32>,
     /// What `view` keeps from one frame to the next.
     pub(crate) view_cache: specular_scene::ViewCache,
+    /// The `claude` runs in flight, one a thread.
+    pub(crate) agents: AgentRuns,
     /// The system clipboard, once something has been copied or pasted.
     pub(crate) clipboard: Option<arboard::Clipboard>,
     /// The preferences file. `None` when settings are off, and when there
@@ -219,6 +222,7 @@ impl<W: ShellWindow> Runtime<W> {
             note_loader: note_run::start_loader(space_folder),
             note_heights: HashMap::new(),
             view_cache: specular_scene::ViewCache::default(),
+            agents: agent_run::start_runs(options.settings),
             clipboard: None,
             prefs,
             dropped: Vec::new(),
