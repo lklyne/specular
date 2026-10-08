@@ -27,6 +27,7 @@ mod api;
 mod app;
 mod arrange;
 mod asset;
+mod attach;
 mod bindings;
 mod camera;
 mod caps;
@@ -164,8 +165,8 @@ pub use repos::{BoundOriginRow, RepoAction, RepoRow, ReposPane, repos_pane};
 pub use resize_drag::ResizeDrag;
 pub use scope::SelectionScope;
 pub use scroll_follow::{
-    Seen, doc_to_viewport, hittable_rect, left_page, recorded_scroll, seen, shift_of, shown_rect,
-    viewport_to_doc,
+    PAGE_FADE, Seen, doc_to_viewport, hittable_rect, left_page, out_of_page, recorded_scroll, seen,
+    shown_rect, viewport_to_doc,
 };
 pub use settings::{
     AboutRow, AppSettings, GeneralPane, SettingAction, SettingToggle, SettingsModel, ShortcutRow,

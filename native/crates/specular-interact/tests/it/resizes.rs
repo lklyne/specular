@@ -4,12 +4,12 @@
 
 use specular_core::CssSize;
 use specular_doc::{
-    Color, Drawing, Entity, EntityId, FileRef, JsonMap, Kind, Point, Rect, Stroke, Text, TextStyle,
-    WidthMode,
+    Color, Drawing, Entity, EntityId, FileRef, JsonMap, Kind, PageAnchor, Point, Rect, Stroke,
+    Text, TextStyle, WidthMode,
 };
-use specular_interact::{Cursor, Effect};
+use specular_interact::{Cursor, Effect, PageNotice, shown_rect};
 use specular_testkit::{
-    SHIFT, TestApp, assert_doc_snapshot, drawing, file, group, inside, page, shape, text,
+    SHIFT, TestApp, assert_doc_snapshot, drawing, file, group, inside, page, shape, sticky, text,
 };
 
 const S: Rect = Rect::new(100.0, 100.0, 200.0, 100.0);
@@ -433,4 +433,90 @@ fn the_cursor_follows_the_corner_under_the_pointer() {
             Cursor::Default
         ]
     );
+}
+
+// Resizing what its page has carried (the scroll rebase).
+
+/// `entity` hooked to the page `p1` (400x300 at (100, 100)) at no scroll,
+/// with the page then scrolled 40 down: it is seen 40 above where it is
+/// stored.
+fn carried(entities: Vec<Entity>, free: Vec<Entity>) -> TestApp {
+    let hooked = entities.into_iter().map(|entity| Entity {
+        anchor: Some(PageAnchor {
+            page_url: Some("https://example.com/p1".to_owned()),
+            scroll_x: Some(0.0),
+            scroll_y: Some(0.0),
+            ..PageAnchor::new("p1".into())
+        }),
+        ..entity
+    });
+    let mut all = vec![page("p1", Rect::new(100.0, 100.0, 400.0, 300.0))];
+    all.extend(hooked);
+    all.extend(free);
+    let mut app = TestApp::with_entities(all);
+    app.page_reports("p1", PageNotice::Scrolled { x: 0.0, y: 40.0 });
+    app
+}
+
+#[test]
+fn a_resize_works_on_what_is_seen_and_stores_it_there() {
+    // Each is stored at (200, 200) 100x100, so seen at (200, 160), and its
+    // bottom-right handle at (300, 260) is dragged 40 right and 40 down.
+    let stored = Rect::new(200.0, 200.0, 100.0, 100.0);
+    let rows = [
+        shape("s", stored),
+        ink("s", stored, &[(200.0, 200.0), (300.0, 300.0)]),
+        sticky("s", stored, "hello"),
+    ];
+    for entity in rows {
+        let kind = entity.kind.clone();
+        let mut app = carried(vec![entity], Vec::new());
+        app.select(&["s"]).drag((300.0, 260.0), (340.0, 300.0));
+        // A text's height is its content's, so only its corner and width
+        // are the drag's.
+        let rect = app.rect("s");
+        assert_eq!(
+            (rect.x, rect.y, rect.width),
+            (200.0, 160.0, 140.0),
+            "{kind:?}"
+        );
+        if !matches!(kind, Kind::Text(_)) {
+            assert_eq!(rect.height, 140.0, "{kind:?}");
+        }
+        let anchor = app.entity("s").anchor.clone().expect("still hooked");
+        assert_eq!(
+            (anchor.page_id.as_str(), anchor.scroll_y),
+            ("p1", Some(40.0)),
+            "restamped at the scroll it was folded at"
+        );
+        assert_eq!(
+            shown_rect(app.app(), app.entity("s")),
+            Some(app.rect("s")),
+            "it does not jump when the button comes up"
+        );
+        if matches!(kind, Kind::Drawing(_)) {
+            assert_eq!(points(&app, "s"), [(200.0, 160.0), (340.0, 300.0)]);
+        }
+        app.undo();
+        assert!(
+            !app.app().can_undo(),
+            "the resize and the fold are one step"
+        );
+        app.redo().assert_undo_returns_to_start();
+    }
+}
+
+#[test]
+fn a_selection_resized_while_one_of_it_is_carried_scales_what_is_seen() {
+    // `a` is seen at (200, 160); `b` is free at (320, 160). Together they
+    // are seen 220x100, and the corner at (420, 260) is dragged to twice
+    // that.
+    let mut app = carried(
+        vec![shape("a", Rect::new(200.0, 200.0, 100.0, 100.0))],
+        vec![shape("b", Rect::new(320.0, 160.0, 100.0, 100.0))],
+    );
+    app.select(&["a", "b"]).drag((420.0, 260.0), (640.0, 360.0));
+    assert_eq!(app.rect("a"), Rect::new(200.0, 160.0, 200.0, 200.0));
+    assert_eq!(app.rect("b"), Rect::new(440.0, 160.0, 200.0, 200.0));
+    app.assert_undo_returns_to_start();
 }

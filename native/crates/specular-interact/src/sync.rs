@@ -228,6 +228,8 @@ pub(crate) fn on_notice(
         | PageNotice::Title(_)
         | PageNotice::Loading { .. }
         | PageNotice::Inspected { .. }
+        | PageNotice::ElementCaptured { .. }
+        | PageNotice::ElementPlaces(_)
         | PageNotice::DevtoolsUrl(_) => {}
     }
 }

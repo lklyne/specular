@@ -37,6 +37,8 @@ have been looked at.
 | `i-comments` | Comments on the kitchen sink: a point, one on a sticky, one on a page's element, a region on empty canvas and one over a page, an empty draft escaped, a two-line draft, focusing a pill, delete and undo, annotating a selection, resolving, undoing all of it. |
 | `j-toolbar-and-popups` | Empty canvas, every change made by naming a control: tools picked from the toolbar, a sticky and two shapes placed with their popup defaults, then recolored, resized and restyled, an edge dragged between the shapes and restyled, undo and redo across a property change, Escape and an outside press closing a list, the zoom list. |
 
+| `q-anchoring` | A sticky, a text and a region comment on a page that is scrolled under them, with an edge to the sticky: the fade at the page's top, a resize and a text edit while carried, a duplicate, the page deleted and brought back. |
+
 ## What `check.py` holds
 
 - In a, b, d, e and g, undoing every step gives back the canvas the session
@@ -54,6 +56,11 @@ have been looked at.
   property it names (a sticky's color and size, a shape's kind and border, an
   edge's color, width, dash and arrowheads), undo takes back one of them and
   redo returns it, and picking a zoom level changes no document.
+
+- In q, a resize while the page is scrolled stores what was seen, an edit
+  and a region are attached to the grid cell under them, a duplicate off
+  the page is free, and deleting the page frees what was hooked to it in
+  place, which one undo takes back.
 
 The camera in `appState` is left out of every comparison.
 

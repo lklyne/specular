@@ -1,8 +1,0 @@
----
-source: crates/specular-scene/tests/page_scroll.rs
-expression: app.scene_snapshot()
----
-canvas page p1 100,100 400x300 r=8
-screen rect 100,100 400x300 r=8 stroke=#a6a09b/1/outside
-screen text "example.com/p1" 100,79.5 wrap=400 ellipsis box-h=16.5 11/15.4 w500 #6b6b6b middle clip=100,79.5 400x20.5
-canvas rect 200,60 100x100 fill=#b5b9c0 stroke=#464a53/2/centre clip=100,100 400x300

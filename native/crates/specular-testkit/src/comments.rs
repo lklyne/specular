@@ -1,9 +1,9 @@
 //! Comments: annotations to start a test from, and the shell's side of the
-//! two questions the comment tool asks it.
+//! questions the app asks its pages about their elements.
 
-use specular_core::PageElement;
+use specular_core::{CapturedElement, PageElement, synthetic_capture};
 use specular_doc::{Annotation, AnnotationAnchor, AnnotationId, Command, Document};
-use specular_interact::{Effect, Event, PageGrab};
+use specular_interact::{Effect, Event, PageGrab, PageNotice};
 
 use crate::TestApp;
 
@@ -59,6 +59,45 @@ impl TestApp {
             point,
             element,
         })
+    }
+
+    /// The latest [`Effect::CaptureElement`] not yet drained: the page, the
+    /// request and the document point asked about.
+    #[track_caller]
+    pub fn capture_asked(&self) -> (String, u64, glam::Vec2) {
+        let asked = self.effects().iter().rev().find_map(|effect| match effect {
+            Effect::CaptureElement {
+                page,
+                request,
+                point,
+            } => Some((page.as_str().to_owned(), *request, *point)),
+            _ => None,
+        });
+        match asked {
+            Some(asked) => asked,
+            None => panic!("no page was asked what to attach to: {:?}", self.effects()),
+        }
+    }
+
+    /// Answers the latest [`Effect::CaptureElement`] not yet drained with
+    /// `element`, as the shell does.
+    #[track_caller]
+    pub fn answer_capture_with(&mut self, element: Option<CapturedElement>) -> &mut Self {
+        let (page, request, _) = self.capture_asked();
+        self.page_reports(&page, PageNotice::ElementCaptured { request, element })
+    }
+
+    /// Answers the latest [`Effect::CaptureElement`] not yet drained as a
+    /// synthetic page does: with the cell of its 160x48 grid that holds the
+    /// point.
+    #[track_caller]
+    pub fn answer_capture(&mut self) -> &mut Self {
+        let (page, _, point) = self.capture_asked();
+        let viewport = self.app().page_placement(&page.as_str().into());
+        let Some(viewport) = viewport.map(|placement| placement.viewport) else {
+            panic!("{page} is not a page");
+        };
+        self.answer_capture_with(Some(synthetic_capture(viewport, point)))
     }
 
     /// Answers the latest [`Effect::QueryRegionGrab`] not yet drained, as

@@ -70,7 +70,8 @@ pub(crate) fn to_fit(app: &mut App) {
 /// the toolbar and the sidebar leave free. Does nothing with nothing
 /// selected.
 pub(crate) fn focus_selection(app: &mut App) {
-    let Some(bounds) = app.selection_scope().bounds else {
+    let scope = app.selection_scope();
+    let Some(bounds) = scope.shown_bounds.or(scope.bounds) else {
         return;
     };
     let free = area(app);

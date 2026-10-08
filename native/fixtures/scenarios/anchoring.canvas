@@ -1,0 +1,12 @@
+{
+  "nodes": [
+    {"id": "p1", "type": "link", "x": 100, "y": 100, "width": 480, "height": 360, "url": "https://example.com/long", "label": "Long page", "source": "manual"},
+    {"id": "note", "type": "text", "x": 160, "y": 180, "width": 160, "height": 120, "text": "follows the page", "color": "3", "specular": {"textStyle": "sticky", "pageAnchor": {"pageId": "p1", "pageUrl": "https://example.com/long", "scrollX": 0, "scrollY": 0}}},
+    {"id": "caption", "type": "text", "x": 360, "y": 340, "width": 180, "height": 28, "text": "caption on the page", "specular": {"textStyle": "plain", "widthMode": "auto", "textSize": 18, "pageAnchor": {"pageId": "p1", "pageUrl": "https://example.com/long", "scrollX": 0, "scrollY": 0}}},
+    {"id": "free", "type": "shape", "x": 700, "y": 160, "width": 140, "height": 100, "shapeKind": "rectangle", "text": "free", "color": "5", "strokeWidth": 2}
+  ],
+  "edges": [
+    {"id": "link", "fromNode": "free", "toNode": "note", "toEnd": "arrow"}
+  ],
+  "specular": {"entityOrder": ["p1", "note", "caption", "free", "link"]}
+}

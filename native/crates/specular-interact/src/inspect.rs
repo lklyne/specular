@@ -210,6 +210,8 @@ pub(crate) fn on_notice(app: &mut App, page: &EntityId, notice: &PageNotice) {
         | PageNotice::Pointed { .. }
         | PageNotice::Candidates { .. }
         | PageNotice::ImeCompositionBounds(_)
+        | PageNotice::ElementCaptured { .. }
+        | PageNotice::ElementPlaces(_)
         | PageNotice::DevtoolsUrl(_) => {}
     }
 }

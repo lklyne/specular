@@ -42,7 +42,7 @@ use specular_doc::{Entity, ItemId, Kind};
 use specular_interact::App;
 
 use self::frame::Frame;
-use crate::{Scene, ViewCache};
+use crate::{Item, PageBand, Scene, Space, ViewCache};
 
 /// Everything `app` shows in a `viewport` of logical pixels, back to front.
 ///
@@ -109,26 +109,35 @@ fn draw_in_place(frame: &Frame<'_>, entity: &Entity, scene: &mut Scene) {
     let first = scene.items.len();
     draw_entity(frame, &seen.entity, scene);
     if let Some(page) = seen.clip {
-        clip_from(frame, page, first, scene);
+        show_through(frame, page, seen.entity.rect, first, scene);
     }
 }
 
-/// Clips the items from `first` on to the canvas rect `page`, together with
-/// whatever clip they have.
-fn clip_from(frame: &Frame<'_>, page: specular_doc::Rect, first: usize, scene: &mut Scene) {
-    let canvas = frame::canvas_rect(page);
-    let screen = frame.screen_rect(page);
-    for item in &mut scene.items[first..] {
-        let through = match item.space {
-            crate::Space::Canvas => canvas,
-            crate::Space::Screen => screen,
-        };
-        item.clip = Some(match item.clip {
-            Some(own) => own
-                .intersection(through)
-                .unwrap_or(crate::Rect::new(0.0, 0.0, 0.0, 0.0)),
-            None => through,
-        });
+/// Shows the items from `first` on, which draw something at the canvas rect
+/// `at`, through the canvas rect `page`: cut at its sides, and fading out
+/// above and below it.
+fn show_through(
+    frame: &Frame<'_>,
+    page: specular_doc::Rect,
+    at: specular_doc::Rect,
+    first: usize,
+    scene: &mut Scene,
+) {
+    let reach = specular_interact::PAGE_FADE;
+    let canvas = PageBand {
+        page: frame::canvas_rect(page),
+        reach: reach / frame.zoom().max(f32::EPSILON),
+    };
+    let screen = PageBand {
+        page: frame.screen_rect(page),
+        reach,
+    };
+    let drawn: Vec<Item> = scene.items.drain(first..).collect();
+    for item in drawn {
+        match item.space {
+            Space::Canvas => canvas.through(item, frame::canvas_rect(at), &mut scene.items),
+            Space::Screen => screen.through(item, frame.screen_rect(at), &mut scene.items),
+        }
     }
 }
 

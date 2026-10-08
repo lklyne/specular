@@ -14,7 +14,7 @@ pub(crate) fn annotate(app: &mut App, effects: &mut Vec<Effect>) {
     let ids: Vec<EntityId> = app.session.selection.entities().cloned().collect();
     let bounds = (ids.iter())
         .filter_map(|id| app.document.entity(id))
-        .map(|entity| entity.rect)
+        .map(|entity| crate::scroll_follow::placed_rect(app, entity))
         .reduce(geometry::union);
     let Some(bounds) = bounds else {
         return;

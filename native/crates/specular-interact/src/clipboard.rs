@@ -13,8 +13,9 @@ use specular_doc::{
 };
 
 use crate::asset::{self, AssetBytes};
-use crate::clone::{self, Orphan};
-use crate::{App, Effect, edit, geometry, grid, place, update, url, verbs};
+use crate::clone::{self, Orphan, Source};
+use crate::scroll_follow::{self, Scrolls};
+use crate::{App, Effect, anchor, edit, geometry, grid, place, update, url, verbs};
 
 /// What copied entities start with on the clipboard.
 const CLIPBOARD_PREFIX: &str = "specular:canvas:";
@@ -89,14 +90,18 @@ fn copied_items(text: &str) -> Option<Document> {
 
 /// Puts the selection on the clipboard: its entities, what is inside its
 /// groups and hooked to its pages, and the edges between any two of them.
+/// An entity that has moved with its page is written where it is seen, and
+/// its anchor names only the page and the document: where the copy lands
+/// decides the rest.
 pub(crate) fn copy(app: &App, effects: &mut Vec<Effect>) {
     let scope = app.selection_scope();
+    let scrolls = Scrolls::of(app);
     let mut copied = Document::new();
     for item in app.document.order() {
         let command = match item {
             ItemId::Entity(id) if scope.holds(id) => {
                 app.document.entity(id).map(|entity| Command::InsertEntity {
-                    entity: Box::new(entity.clone()),
+                    entity: Box::new(as_seen(&scrolls, entity)),
                     at: copied.stack_len(),
                 })
             }
@@ -121,6 +126,17 @@ pub(crate) fn copy(app: &App, effects: &mut Vec<Effect>) {
         Ok(json) => effects.push(Effect::WriteClipboard(format!("{CLIPBOARD_PREFIX}{json}"))),
         Err(error) => tracing::warn!("not copied: {error}"),
     }
+}
+
+/// `entity` as the clipboard holds it: where it is seen, bound to its page
+/// and that page's document and nothing finer.
+fn as_seen(scrolls: &Scrolls, entity: &Entity) -> Entity {
+    let seen = scroll_follow::fold(scrolls, entity).unwrap_or_else(|| entity.clone());
+    let anchor = seen.anchor.as_ref().map(|anchor| specular_doc::PageAnchor {
+        page_url: anchor.page_url.clone(),
+        ..specular_doc::PageAnchor::new(anchor.page_id.clone())
+    });
+    Entity { anchor, ..seen }
 }
 
 /// Copies the selection and removes it, as one undo step.
@@ -194,7 +210,8 @@ pub(crate) fn paste_point(app: &App) -> DVec2 {
 }
 
 /// Adds everything in `copied` with fresh ids, its top-left corner at `at`,
-/// and selects what was not inside a copied group.
+/// and selects what was not inside a copied group. What came without its
+/// page is hooked to the page it lands on, or to none (ADR 0031).
 fn paste_items(app: &mut App, copied: &Document, at: DVec2, effects: &mut Vec<Effect>) {
     let Some(bounds) = bounds(copied) else {
         return;
@@ -203,7 +220,11 @@ fn paste_items(app: &mut App, copied: &Document, at: DVec2, effects: &mut Vec<Ef
     let all = |_: &EntityId| true;
     let ids = clone::fresh_ids(app, |_| clone::needed(copied, all));
     let stack = app.document.stack_len();
-    let (commands, renamed) = clone::insertions(copied, all, ids, stack, delta, Orphan::Leaves);
+    let source = Source {
+        document: copied,
+        scrolls: &Scrolls::default(),
+    };
+    let (commands, renamed) = clone::insertions(&source, all, ids, stack, delta, Orphan::Leaves);
     let members: Vec<ItemId> = (copied.entities())
         .filter(|entity| {
             (entity.parent.as_ref()).is_none_or(|parent| !renamed.contains_key(parent))
@@ -211,7 +232,9 @@ fn paste_items(app: &mut App, copied: &Document, at: DVec2, effects: &mut Vec<Ef
         .filter_map(|entity| renamed.get(&entity.id).cloned())
         .map(ItemId::Entity)
         .collect();
-    update::document_step(app, Command::Batch(commands), effects);
+    let scrolls = Scrolls::of(app);
+    let command = anchor::placed_copies(&mut app.document, &scrolls, Command::Batch(commands));
+    update::document_step(app, command, effects);
     app.session.selection.set(members);
 }
 

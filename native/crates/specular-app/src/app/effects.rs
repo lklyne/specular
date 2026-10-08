@@ -135,7 +135,9 @@ impl<W: ShellWindow> Runtime<W> {
             | Effect::AskCandidates { .. }
             | Effect::ReplayPointer { .. }
             | Effect::AskScrollProgress(_)
-            | Effect::ScrollPage { .. }) => self.run_sync(effect),
+            | Effect::ScrollPage { .. }
+            | Effect::CaptureElement { .. }
+            | Effect::TrackElements { .. }) => self.run_sync(effect),
             Effect::Navigate { page, nav } => {
                 self.on_host(&page, |source, host| source.navigate(host, &nav));
             }
@@ -167,8 +169,10 @@ impl<W: ShellWindow> Runtime<W> {
         self.give_up_on_page(page);
     }
 
-    /// Runs what a sync set asks of its pages: the capture of the entered
-    /// page, a peer's candidates, a replayed pointer and the scroll.
+    /// Runs what a sync set asks of its pages (the capture of the entered
+    /// page, a peer's candidates, a replayed pointer and the scroll) and
+    /// what element attachment asks of them (the element under an item, and
+    /// the ones to track).
     fn run_sync(&mut self, effect: Effect) {
         match effect {
             Effect::CapturePage(page) => self.capture_page(page.as_ref()),
@@ -189,6 +193,18 @@ impl<W: ShellWindow> Runtime<W> {
             }
             Effect::ScrollPage { page, progress } => {
                 self.on_host(&page, |source, host| source.scroll_to(host, progress));
+            }
+            Effect::CaptureElement {
+                page,
+                request,
+                point,
+            } => self.on_host(&page, |source, host| {
+                source.capture_element(host, point, request)
+            }),
+            Effect::TrackElements { page, selectors } => {
+                self.on_host(&page, |source, host| {
+                    source.track_elements(host, &selectors)
+                });
             }
             _ => {}
         }

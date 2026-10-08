@@ -23,6 +23,7 @@
 //! See this crate's `README.md` for macOS bundling and the list of CEF calls
 //! that have only been type-checked.
 
+pub mod attach_query;
 pub mod config;
 pub mod coords;
 pub mod cpu_frame;
@@ -36,6 +37,8 @@ pub mod translate;
 
 #[cfg(all(feature = "cef", target_os = "macos"))]
 mod app_protocol;
+#[cfg(feature = "cef")]
+mod attach_host;
 #[cfg(feature = "cef")]
 mod client;
 #[cfg(feature = "cef")]

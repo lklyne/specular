@@ -87,20 +87,10 @@ pub(crate) fn reanchor(
             (entity.anchor.as_ref()).is_none_or(|anchor| !travelling.contains(&anchor.page_id))
         })
         .flat_map(|entity| {
-            let mut commands = Vec::new();
             let folded = scroll_follow::fold(scrolls, entity);
-            if let Some(folded) = &folded {
-                commands.push(Command::SetRect {
-                    id: entity.id.clone(),
-                    rect: folded.rect,
-                });
-                if folded.kind != entity.kind {
-                    commands.push(Command::SetKind {
-                        id: entity.id.clone(),
-                        kind: Box::new(folded.kind.clone()),
-                    });
-                }
-            }
+            let mut commands = folded
+                .as_ref()
+                .map_or_else(Vec::new, |folded| fold_commands(entity, folded));
             let seen = folded.as_ref().unwrap_or(entity);
             let next = page_anchor_for(document, scrolls, seen);
             let anchor = match (&entity.anchor, next) {
@@ -125,6 +115,80 @@ pub(crate) fn reanchor(
             commands
         })
         .collect()
+}
+
+/// The commands that store `entity` where `folded` has it: its rect and, for
+/// a drawing, its points.
+fn fold_commands(entity: &Entity, folded: &Entity) -> Vec<Command> {
+    let mut commands = vec![Command::SetRect {
+        id: entity.id.clone(),
+        rect: folded.rect,
+    }];
+    if folded.kind != entity.kind {
+        commands.push(Command::SetKind {
+            id: entity.id.clone(),
+            kind: Box::new(folded.kind.clone()),
+        });
+    }
+    commands
+}
+
+/// The commands that fold what each of `ids` has moved with its page into
+/// its stored position and restamp its anchor there: the scroll rebase. The
+/// anchor is not re-resolved, so the entity stays on the page it is on.
+/// Nothing is said about an entity that has not moved.
+pub(crate) fn rebase(document: &Document, scrolls: &Scrolls, ids: &[EntityId]) -> Vec<Command> {
+    ids.iter()
+        .filter_map(|id| document.entity(id))
+        .filter_map(|entity| Some((entity, scroll_follow::fold(scrolls, entity)?)))
+        .flat_map(|(entity, folded)| {
+            let mut commands = fold_commands(entity, &folded);
+            if let Some(anchor) = &entity.anchor {
+                commands.push(Command::SetAnchor {
+                    id: entity.id.clone(),
+                    anchor: Some(Box::new(scroll_follow::restamped(scrolls, anchor))),
+                });
+            }
+            commands
+        })
+        .collect()
+}
+
+/// The commands that free what is hooked to `pages`, which are being
+/// deleted: an entity stays where it is seen and goes canvas-bound, and a
+/// comment loses its binding to the page. Entities among `removed` go with
+/// the pages and are left alone.
+pub(crate) fn freed(
+    document: &Document,
+    scrolls: &Scrolls,
+    pages: &[EntityId],
+    removed: &[EntityId],
+) -> Vec<Command> {
+    let on_gone = |anchor: &Option<PageAnchor>| {
+        (anchor.as_ref()).is_some_and(|anchor| pages.contains(&anchor.page_id))
+    };
+    let entities = (document.entities())
+        .filter(|entity| on_gone(&entity.anchor) && !removed.contains(&entity.id))
+        .flat_map(|entity| {
+            let folded = scroll_follow::fold(scrolls, entity);
+            let mut commands = folded
+                .as_ref()
+                .map_or_else(Vec::new, |folded| fold_commands(entity, folded));
+            commands.push(Command::SetAnchor {
+                id: entity.id.clone(),
+                anchor: None,
+            });
+            commands
+        });
+    let comments = (document.annotations().iter())
+        .filter(|annotation| on_gone(&annotation.page_anchor))
+        .map(|annotation| {
+            Command::ReplaceAnnotation(Box::new(specular_doc::Annotation {
+                page_anchor: None,
+                ..annotation.clone()
+            }))
+        });
+    entities.chain(comments).collect()
 }
 
 /// What `read` makes of the document with `command` applied, which is

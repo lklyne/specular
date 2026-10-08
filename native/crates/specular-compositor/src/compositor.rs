@@ -191,6 +191,8 @@ impl Compositor {
             | PageEvent::ElementAt { .. }
             | PageEvent::ElementsInRect { .. }
             | PageEvent::Inspected { .. }
+            | PageEvent::ElementCaptured { .. }
+            | PageEvent::ElementPlaces { .. }
             | PageEvent::DevtoolsTarget { .. } => Ok(()),
         }
     }

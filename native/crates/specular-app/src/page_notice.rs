@@ -72,6 +72,20 @@ pub(crate) fn notice_of(
                 candidates: candidates.clone(),
             },
         ),
+        PageEvent::ElementCaptured {
+            page,
+            request,
+            element,
+        } => (
+            *page,
+            PageNotice::ElementCaptured {
+                request: *request,
+                element: element.clone(),
+            },
+        ),
+        PageEvent::ElementPlaces { page, places } => {
+            (*page, PageNotice::ElementPlaces(places.clone()))
+        }
         PageEvent::DevtoolsTarget { page, id } => {
             let port = devtools_port?;
             let url = format!("ws://127.0.0.1:{port}/devtools/page/{id}");

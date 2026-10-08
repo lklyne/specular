@@ -105,7 +105,10 @@ fn frame_of(app: &App, edit: &TextEdit) -> Option<TextFrame> {
         Target::EdgeLabel => edge_label::frame(app, &edit.entity),
         Target::Comment => comment::frame(app),
         Target::Field => field::frame(app, edit),
-        Target::Text | Target::Label => frame::of(app.document.entity(&edit.entity)?),
+        Target::Text | Target::Label => {
+            let entity = app.document.entity(&edit.entity)?;
+            frame::of(entity, crate::scroll_follow::placed_rect(app, entity))
+        }
         Target::Title => title::frame(app, app.document.entity(&edit.entity)?),
         Target::Note => {
             let entity = app.document.entity(&edit.entity)?;

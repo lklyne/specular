@@ -91,15 +91,14 @@ impl Headless {
             | Effect::ReadClipboard
             | Effect::WriteNote { .. }
             | Effect::CreateNote { .. }) => self.run_stand_in(effect)?,
-            Effect::Navigate { page, nav } => {
-                tracing::debug!(%page, ?nav, "navigate");
-                self.on_host(&page, |source, host| source.navigate(host, &nav))?;
-            }
-            effect @ (Effect::CapturePage(_)
+            effect @ (Effect::Navigate { .. }
+            | Effect::CapturePage(_)
             | Effect::AskCandidates { .. }
             | Effect::ReplayPointer { .. }
             | Effect::AskScrollProgress(_)
-            | Effect::ScrollPage { .. }) => self.run_sync(effect)?,
+            | Effect::ScrollPage { .. }
+            | Effect::CaptureElement { .. }
+            | Effect::TrackElements { .. }) => self.run_sync(effect)?,
             Effect::FocusPage(page) => {
                 let host = page.and_then(|page| self.hosts.get(&page).copied());
                 self.source.set_focus(host)?;
@@ -179,8 +178,10 @@ impl Headless {
         Ok(())
     }
 
-    /// Runs what a sync set asks of its pages: the capture of the entered
-    /// page, a peer's candidates, a replayed pointer and the scroll.
+    /// Runs what is asked of hosted pages past their making: a navigation,
+    /// what a sync set asks (the capture of the entered page, a peer's
+    /// candidates, a replayed pointer and the scroll), and what element
+    /// attachment asks (the element under an item, and the ones to track).
     fn run_sync(&mut self, effect: Effect) -> anyhow::Result<()> {
         match effect {
             Effect::CapturePage(page) => {
@@ -204,6 +205,22 @@ impl Headless {
             }
             Effect::ScrollPage { page, progress } => {
                 self.on_host(&page, |source, host| source.scroll_to(host, progress))?;
+            }
+            Effect::CaptureElement {
+                page,
+                request,
+                point,
+            } => self.on_host(&page, |source, host| {
+                source.capture_element(host, point, request)
+            })?,
+            Effect::TrackElements { page, selectors } => {
+                self.on_host(&page, |source, host| {
+                    source.track_elements(host, &selectors)
+                })?;
+            }
+            Effect::Navigate { page, nav } => {
+                tracing::debug!(%page, ?nav, "navigate");
+                self.on_host(&page, |source, host| source.navigate(host, &nav))?;
             }
             _ => {}
         }

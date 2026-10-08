@@ -91,18 +91,28 @@ impl EdgeCurve {
 }
 
 impl App {
-    /// The curve of the edge `id` on screen, or `None` when the edge or
-    /// either entity it names is missing.
+    /// The curve of the edge `id` on screen, between its entities where
+    /// they are seen. `None` when the edge or either entity it names is
+    /// missing, or has scrolled out of its page.
     pub fn edge_curve(&self, id: &EdgeId) -> Option<EdgeCurve> {
         let edge = self.document.edge(id)?;
         let camera = &self.session.camera;
-        let rect = |entity| Some(ScreenRect::of(camera, self.document.entity(entity)?.rect));
+        let rect = |entity| self.shown_on_screen(self.document.entity(entity)?);
         Some(EdgeCurve::between(
             rect(&edge.from)?,
             rect(&edge.to)?,
             edge,
             camera.zoom,
         ))
+    }
+}
+
+impl App {
+    /// `entity` on screen where it is seen, which for one that follows its
+    /// page is not where it is stored. `None` when it is hidden.
+    pub(crate) fn shown_on_screen(&self, entity: &specular_doc::Entity) -> Option<ScreenRect> {
+        let rect = crate::shown_rect(self, entity)?;
+        Some(ScreenRect::of(&self.session.camera, rect))
     }
 }
 

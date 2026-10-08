@@ -169,7 +169,10 @@ pub(crate) fn items_in(
     let edges = document
         .edges()
         .filter(|edge| {
-            let end = |id, side| Some(anchor_point(document.entity(id)?.rect, side));
+            let end = |id, side| {
+                let rect = crate::shown_rect(app, document.entity(id)?)?;
+                Some(anchor_point(rect, side))
+            };
             let (Some(from), Some(to)) =
                 (end(&edge.from, edge.from_side), end(&edge.to, edge.to_side))
             else {

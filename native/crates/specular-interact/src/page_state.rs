@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 
 use glam::DVec2;
-use specular_core::PageNav;
+use specular_core::{ElementPlace, PageNav};
 use specular_doc::{Command, EntityId, Kind, Page};
 
 use crate::anchor::canonical_page_url;
@@ -30,6 +30,9 @@ pub struct PageState {
     pub scroll: DVec2,
     /// The page's remote-debugging websocket, once the backend has one.
     pub devtools_url: Option<String>,
+    /// Where the elements anchored items follow sit in the document, by
+    /// selector (ADR 0032). A selector that finds nothing has no entry.
+    pub elements: HashMap<String, ElementPlace>,
 }
 
 /// The live state of every hosted page that has reported anything.
@@ -39,6 +42,12 @@ pub(crate) struct PageStates(HashMap<EntityId, PageState>);
 impl PageStates {
     pub(crate) fn get(&self, page: &EntityId) -> Option<&PageState> {
         self.0.get(page)
+    }
+
+    /// Notes where `page` has just said the element `selector` names is.
+    pub(crate) fn place(&mut self, page: &EntityId, selector: &str, place: ElementPlace) {
+        let state = self.0.entry(page.clone()).or_default();
+        state.elements.insert(selector.to_owned(), place);
     }
 
     /// Forgets the pages `keep` turns down.
@@ -66,7 +75,30 @@ pub(crate) fn on_notice(app: &mut App, page: &EntityId, notice: &PageNotice) -> 
             state.can_go_back = *can_go_back;
             state.can_go_forward = *can_go_forward;
         }
-        PageNotice::Scrolled { x, y } => state.scroll = DVec2::new(*x, *y),
+        PageNotice::Scrolled { x, y } => {
+            let scroll = DVec2::new(*x, *y);
+            // An element in a fixed or sticky container travels through the
+            // document with the scroll, and the page says so only a moment
+            // later. Moved here, what is on it does not lurch in between.
+            let by = (scroll - state.scroll).as_vec2();
+            for place in state.elements.values_mut() {
+                if place.viewport_positioned {
+                    place.doc += by;
+                }
+            }
+            state.scroll = scroll;
+        }
+        PageNotice::ElementPlaces(places) => {
+            for (selector, place) in places {
+                match place {
+                    Some(place) => state.elements.insert(selector.clone(), *place),
+                    None => state.elements.remove(selector),
+                };
+            }
+        }
+        PageNotice::ElementCaptured { request, element } => {
+            return crate::attach::on_captured(app, page, *request, element.as_ref());
+        }
         PageNotice::DevtoolsUrl(url) => state.devtools_url = Some(url.clone()),
         PageNotice::Url(url) => {
             if state.url.as_ref() != Some(url) {
@@ -76,6 +108,7 @@ pub(crate) fn on_notice(app: &mut App, page: &EntityId, notice: &PageNotice) -> 
                 let document = |url: &str| canonical_page_url(url);
                 if state.url.as_deref().and_then(document) != document(url) {
                     state.scroll = DVec2::ZERO;
+                    state.elements.clear();
                 }
                 state.url = Some(url.clone());
                 return write_url(app, page, url);

@@ -7,6 +7,7 @@ use glam::DVec2;
 use specular_doc::{Command, Document, Edge, EdgeId, Entity, EntityId, ItemId};
 
 use crate::live::Start;
+use crate::scroll_follow::{self, Scrolls};
 use crate::{App, SelectionScope};
 
 /// A command that adds copies, and what to select once it has run.
@@ -32,13 +33,20 @@ pub(crate) enum Orphan {
 ///
 /// The copies keep their order in the stack and go in front. A copy stays in
 /// its group unless the group is copied too, in which case it joins the
-/// group's copy. An edge is copied when both its ends are. A copy hooked to a
-/// page stays hooked only when that page is copied with it.
+/// group's copy. An edge is copied when both its ends are. A copy is made of
+/// what is seen: one whose original has moved with its page lands `delta`
+/// from where the original is drawn. A copy hooked to a page is hooked to
+/// that page's copy when the page is copied with it, and is otherwise left
+/// free for placement to decide (`anchor::placed_copies`).
 pub(crate) fn copies(app: &mut App, scope: &SelectionScope, delta: DVec2) -> Option<Copies> {
     let copied = |id: &EntityId| scope.operands.contains(id);
     let ids = fresh_ids(app, |app| needed(&app.document, copied));
     let at = app.document.stack_len();
-    let (commands, renamed) = insertions(&app.document, copied, ids, at, delta, Orphan::Stays);
+    let source = Source {
+        document: &app.document,
+        scrolls: &Scrolls::of(app),
+    };
+    let (commands, renamed) = insertions(&source, copied, ids, at, delta, Orphan::Stays);
     if commands.is_empty() {
         return None;
     }
@@ -66,18 +74,32 @@ pub(crate) fn needed(source: &Document, copied: impl Fn(&EntityId) -> bool) -> u
     entities.count() + edges.count()
 }
 
+/// Where copies are made from: a document, and how far its pages have
+/// carried what follows them.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Source<'a> {
+    pub(crate) document: &'a Document,
+    /// Empty for a document off the clipboard, which holds what was seen
+    /// when it was copied.
+    pub(crate) scrolls: &'a Scrolls,
+}
+
 /// The commands that insert copies of the entities of `source` that `copied`
 /// accepts, `delta` away, from stack position `at` up, and the id each
 /// original's copy got. `ids` are the copies' ids: the entities' first, in
 /// stack order, then the edges'.
 pub(crate) fn insertions(
-    source: &Document,
+    source: &Source<'_>,
     copied: impl Fn(&EntityId) -> bool,
     ids: Vec<String>,
     at: usize,
     delta: DVec2,
     orphan: Orphan,
 ) -> (Vec<Command>, HashMap<EntityId, EntityId>) {
+    let Source {
+        document: source,
+        scrolls,
+    } = *source;
     let mut ids = ids.into_iter();
     let entity_ids: HashMap<EntityId, EntityId> = (source.entities())
         .filter(|entity| copied(&entity.id))
@@ -101,11 +123,17 @@ pub(crate) fn insertions(
                 let (Some(new_id), Some(entity)) = (renamed(id), source.entity(id)) else {
                     continue;
                 };
+                let folded = scroll_follow::fold(scrolls, entity);
+                let entity = folded.as_ref().unwrap_or(entity);
                 let (rect, kind) = Start::of(entity).moved(delta);
-                let anchor = entity.anchor.clone().and_then(|anchor| {
+                // The page's copy starts at the top of its document, and
+                // the element is found again where the copy lands.
+                let anchor = entity.anchor.as_ref().and_then(|anchor| {
                     Some(specular_doc::PageAnchor {
-                        page_id: renamed(&anchor.page_id)?,
-                        ..anchor
+                        page_url: anchor.page_url.clone(),
+                        scroll_x: Some(0.0),
+                        scroll_y: Some(0.0),
+                        ..specular_doc::PageAnchor::new(renamed(&anchor.page_id)?)
                     })
                 });
                 let parent = entity.parent.as_ref().and_then(|parent| {

@@ -21,7 +21,7 @@ pub(crate) fn items(app: &mut App, select: Vec<ItemId>, focus: &ItemId, effects:
         if let ItemId::Entity(id) = focus
             && let Some(entity) = app.document.entity(id)
         {
-            bring_into_view(app, entity.rect);
+            bring_into_view(app, crate::scroll_follow::placed_rect(app, entity));
         }
     });
 }

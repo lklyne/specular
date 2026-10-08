@@ -16,8 +16,8 @@ use crate::input::InputEvent;
 use crate::locator::LocatorBundle;
 use crate::page::{PageId, PageSpec, validate_texture_scale, validate_viewport};
 use crate::source::{
-    DevtoolsSink, InspectedNode, PageElement, PageEvent, PageNav, PageSource, PageSourceError,
-    PointKind,
+    CapturedElement, DevtoolsSink, ElementPlace, InspectedNode, PageElement, PageEvent, PageNav,
+    PageSource, PageSourceError, PointKind,
 };
 
 mod cdp;
@@ -37,6 +37,8 @@ struct SyntheticPage {
     /// Whether a devtools client enabled the `Page` domain, so navigations
     /// are reported to it.
     page_events: bool,
+    /// The selectors whose place the page reports.
+    tracked: Vec<String>,
 }
 
 impl SyntheticPage {
@@ -44,6 +46,16 @@ impl SyntheticPage {
     /// one wide.
     fn max_scroll(&self) -> Vec2 {
         Vec2::new(0.0, 2.0 * self.spec.viewport.height as f32)
+    }
+
+    /// Where every tracked selector's element sits, as a report of them all.
+    fn places(&self, id: PageId) -> Option<PageEvent> {
+        (!self.tracked.is_empty()).then(|| PageEvent::ElementPlaces {
+            page: id,
+            places: (self.tracked.iter())
+                .map(|selector| (selector.clone(), synthetic_place(selector)))
+                .collect(),
+        })
     }
 }
 
@@ -111,6 +123,8 @@ impl SyntheticPageSource {
         page.next_paint = None;
         let url = page.history[page.at].clone();
         let (can_go_back, can_go_forward) = (page.at > 0, page.at + 1 < page.history.len());
+        // Another document: what was tracked is found again in it.
+        let places = page.places(id);
         if page.page_events {
             let navigated = cdp::navigated_events(&url);
             (self.devtools_out).extend(navigated.into_iter().map(|event| (id, event)));
@@ -138,6 +152,7 @@ impl SyntheticPageSource {
             },
             loading(false),
         ]);
+        self.pending.extend(places);
         Ok(())
     }
 
@@ -176,7 +191,7 @@ pub fn synthetic_element_at(viewport: CssSize, point: Vec2) -> Option<PageElemen
     let (column, row) = (point.x as u32 / CELL.0, point.y as u32 / CELL.1);
     let (x, y) = (column * CELL.0, row * CELL.1);
     Some(PageElement {
-        selector: format!("div.cell[data-col=\"{column}\"][data-row=\"{row}\"]"),
+        selector: cell_selector(column, row),
         element_path: Some("body > div.cell".to_owned()),
         bounding_box: PixelRect::new(
             x as i32,
@@ -185,6 +200,52 @@ pub fn synthetic_element_at(viewport: CssSize, point: Vec2) -> Option<PageElemen
             CELL.1.min(viewport.height - y),
         ),
     })
+}
+
+/// The selector of the grid cell at `column` and `row`.
+fn cell_selector(column: u32, row: u32) -> String {
+    format!("div.cell[data-col=\"{column}\"][data-row=\"{row}\"]")
+}
+
+/// The element a synthetic page offers an item centred on the document point
+/// `point` to follow: the grid cell holding it, or the body for a point
+/// outside the document, which is one viewport wide and three tall.
+pub fn synthetic_capture(viewport: CssSize, point: Vec2) -> CapturedElement {
+    let inside = point.x >= 0.0
+        && point.y >= 0.0
+        && point.x < viewport.width as f32
+        && point.y < 3.0 * viewport.height as f32;
+    let selector = if inside {
+        cell_selector(point.x as u32 / CELL.0, point.y as u32 / CELL.1)
+    } else {
+        "body".to_owned()
+    };
+    let place = synthetic_place(&selector).unwrap_or(ElementPlace {
+        doc: Vec2::ZERO,
+        viewport_positioned: false,
+    });
+    CapturedElement { selector, place }
+}
+
+/// Where the element `selector` names sits in a synthetic page's document:
+/// a grid cell's corner, the origin for the body, and `None` for a selector
+/// the grid does not write. The grid never reflows, so a place never moves.
+pub fn synthetic_place(selector: &str) -> Option<ElementPlace> {
+    let at = |doc| ElementPlace {
+        doc,
+        viewport_positioned: false,
+    };
+    if selector == "body" {
+        return Some(at(Vec2::ZERO));
+    }
+    let rest = selector.strip_prefix("div.cell[data-col=\"")?;
+    let (column, rest) = rest.split_once("\"][data-row=\"")?;
+    let row = rest.strip_suffix("\"]")?;
+    let (column, row): (u32, u32) = (column.parse().ok()?, row.parse().ok()?);
+    Some(at(Vec2::new(
+        (column * CELL.0) as f32,
+        (row * CELL.1) as f32,
+    )))
 }
 
 /// The element a synthetic page scrolled by `scroll` has under the viewport
@@ -197,7 +258,7 @@ fn element_scrolled(viewport: CssSize, scroll: Vec2, point: Vec2) -> Option<Page
     let (column, row) = (at.x as u32 / CELL.0, at.y as u32 / CELL.1);
     let (x, y) = ((column * CELL.0) as f32, (row * CELL.1) as f32);
     Some(PageElement {
-        selector: format!("div.cell[data-col=\"{column}\"][data-row=\"{row}\"]"),
+        selector: cell_selector(column, row),
         element_path: Some("body > div.cell".to_owned()),
         bounding_box: PixelRect::new(
             (x - scroll.x).round() as i32,
@@ -306,6 +367,7 @@ impl PageSource for SyntheticPageSource {
                 at: 0,
                 scroll: Vec2::ZERO,
                 page_events: false,
+                tracked: Vec::new(),
             },
         );
         self.show(id)?;
@@ -474,6 +536,34 @@ impl PageSource for SyntheticPageSource {
             request,
             node,
         });
+        Ok(())
+    }
+
+    fn capture_element(
+        &mut self,
+        page: PageId,
+        point: Vec2,
+        request: u64,
+    ) -> Result<(), PageSourceError> {
+        let entry = self.page(page)?;
+        let element = Some(synthetic_capture(entry.spec.viewport, point));
+        self.pending.push(PageEvent::ElementCaptured {
+            page,
+            request,
+            element,
+        });
+        Ok(())
+    }
+
+    fn track_elements(
+        &mut self,
+        page: PageId,
+        selectors: &[String],
+    ) -> Result<(), PageSourceError> {
+        let entry = self.page_mut(page)?;
+        entry.tracked = selectors.to_vec();
+        let places = entry.places(page);
+        self.pending.extend(places);
         Ok(())
     }
 

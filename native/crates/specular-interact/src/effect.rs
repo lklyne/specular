@@ -258,6 +258,28 @@ pub enum Effect {
         /// part of it the region covers.
         pages: Vec<PageRegion>,
     },
+    /// Ask a page which element an item centred on a point of its document
+    /// should follow (ADR 0032), and answer with a
+    /// [`PageNotice::ElementCaptured`](crate::PageNotice::ElementCaptured)
+    /// carrying `request`. A page that cannot be asked is not answered for.
+    CaptureElement {
+        /// The page entity.
+        page: EntityId,
+        /// The number the answer repeats.
+        request: u64,
+        /// The point, in the page's document CSS pixels.
+        point: Vec2,
+    },
+    /// Tell a page which elements anchored items follow. It answers with a
+    /// [`PageNotice::ElementPlaces`](crate::PageNotice::ElementPlaces) for
+    /// all of them, and again for each that moves. Replaces the set named
+    /// before.
+    TrackElements {
+        /// The page entity.
+        page: EntityId,
+        /// The elements' selectors, sorted.
+        selectors: Vec<String>,
+    },
     /// Write the tool defaults to the preferences file, under `toolDefaults`,
     /// as [`ToolDefaults::to_json`] gives them.
     SaveToolDefaults(Box<ToolDefaults>),

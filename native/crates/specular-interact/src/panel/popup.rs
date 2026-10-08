@@ -143,15 +143,18 @@ pub fn popup_for(app: &App) -> Option<PopupModel> {
     match subject(app) {
         Subject::Tool(tool) => tool::popup(app, tool),
         Subject::Edge(edge) => edge::popup(app, edge),
-        Subject::Entities(family, entities) => match family {
-            Family::Text => Some(text::popup(app, &entities)),
-            Family::Shape => Some(shape::popup(app, &entities)),
-            Family::Drawing => Some(drawing::popup(app, &entities)),
-            Family::Group => Some(group::popup(app, &entities)),
-            Family::File => Some(file::popup(app, &entities)),
-            Family::Page => Some(page::popup(app, &entities)),
-        },
-        Subject::Mixed(entities) => mixed(&entities),
+        Subject::Entities(family, entities) => {
+            let model = match family {
+                Family::Text => text::popup(app, &entities),
+                Family::Shape => shape::popup(app, &entities),
+                Family::Drawing => drawing::popup(app, &entities),
+                Family::Group => group::popup(app, &entities),
+                Family::File => file::popup(app, &entities),
+                Family::Page => page::popup(app, &entities),
+            };
+            Some(where_seen(app, &entities, model))
+        }
+        Subject::Mixed(entities) => mixed(&entities).map(|model| where_seen(app, &entities, model)),
         Subject::Nothing | Subject::Busy => None,
     }
 }
@@ -198,6 +201,36 @@ fn over_titled(entities: &[&Entity], align: Align) -> PopupAnchor {
         },
         anchor @ (PopupAnchor::Toolbar { .. } | PopupAnchor::Point(_)) => anchor,
     }
+}
+
+/// `model` anchored over `entities` where they are seen: what follows a
+/// page has moved with it (see `scroll_follow`), and the popup goes along.
+fn where_seen(app: &App, entities: &[&Entity], model: PopupModel) -> PopupModel {
+    let seen = (entities.iter())
+        .map(|entity| crate::scroll_follow::placed_rect(app, entity))
+        .reduce(crate::geometry::union)
+        .unwrap_or_default();
+    let stored = union(entities);
+    let anchor = match model.anchor {
+        PopupAnchor::Canvas {
+            bounds,
+            placement,
+            align,
+            gap,
+        } => PopupAnchor::Canvas {
+            bounds: Rect {
+                x: bounds.x + seen.x - stored.x,
+                y: bounds.y + seen.y - stored.y,
+                width: bounds.width + seen.width - stored.width,
+                height: bounds.height + seen.height - stored.height,
+            },
+            placement,
+            align,
+            gap,
+        },
+        anchor @ (PopupAnchor::Toolbar { .. } | PopupAnchor::Point(_)) => anchor,
+    };
+    PopupModel { anchor, ..model }
 }
 
 fn union(entities: &[&Entity]) -> Rect {

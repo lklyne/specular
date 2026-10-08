@@ -165,6 +165,26 @@ pub enum PageEvent {
         /// How many elements lie in the rect.
         count: usize,
     },
+    /// The answer to a [`PageSource::capture_element`].
+    ElementCaptured {
+        /// The page.
+        page: PageId,
+        /// The `request` the question carried.
+        request: u64,
+        /// The element to attach to, or `None` for a document with no body
+        /// and for an answer that could not be read.
+        element: Option<CapturedElement>,
+    },
+    /// Where the elements a page is tracking ([`PageSource::track_elements`])
+    /// now sit in its document. Only the ones that moved, appeared or went
+    /// are listed.
+    ElementPlaces {
+        /// The page.
+        page: PageId,
+        /// Each selector with where its element is, or `None` when the
+        /// selector finds nothing.
+        places: Vec<(String, Option<ElementPlace>)>,
+    },
     /// The page's remote-debugging (CDP) target id is known. With
     /// [`PageSource::devtools_port`] it names the page's websocket:
     /// `ws://127.0.0.1:<port>/devtools/page/<id>`.
@@ -258,6 +278,26 @@ impl InspectedNode {
             .find(|(name, _)| name == property)
             .map(|(_, value)| value.as_str())
     }
+}
+
+/// Where an element sits in its page's document.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ElementPlace {
+    /// The top-left corner of the element's box, in document CSS pixels.
+    pub doc: Vec2,
+    /// Whether the element sits in a fixed or sticky container, so that its
+    /// place in the document moves as the page scrolls.
+    pub viewport_positioned: bool,
+}
+
+/// The element a page offers for an item placed over it to follow
+/// (ADR 0032): what a [`PageSource::capture_element`] finds.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CapturedElement {
+    /// A CSS selector that finds the element in its document.
+    pub selector: String,
+    /// Where the element is now.
+    pub place: ElementPlace,
 }
 
 /// The `prefers-color-scheme` a page reports.
@@ -379,6 +419,25 @@ pub trait PageSource {
         rect: CssRect,
         request: u64,
     ) -> Result<(), PageSourceError>;
+
+    /// Asks which element an item centred on `point`, in the page's document
+    /// CSS pixels, should follow: the nearest meaningful element under the
+    /// point, else the nearest at that height, else the body. Answered by a
+    /// [`PageEvent::ElementCaptured`] carrying `request`, unless the page
+    /// closes or crashes first.
+    fn capture_element(
+        &mut self,
+        page: PageId,
+        point: Vec2,
+        request: u64,
+    ) -> Result<(), PageSourceError>;
+
+    /// Names the elements whose place in the document the page reports from
+    /// now on, as [`PageEvent::ElementPlaces`]: all of them once, and then
+    /// each when it moves. Replaces the set named before; an empty set
+    /// stops the reports.
+    fn track_elements(&mut self, page: PageId, selectors: &[String])
+    -> Result<(), PageSourceError>;
 
     /// Names the one page whose hovers and clicks are reported as
     /// [`PageEvent::Pointed`], or none. Only input the user gave is

@@ -36,7 +36,7 @@ pub use selection::selection_metadata;
 pub(crate) use shown::{is_open, shown as is_shown};
 
 use crate::{
-    App, PagePlacement, doc_to_viewport, geometry, left_page, recorded_scroll, viewport_to_doc,
+    App, PagePlacement, doc_to_viewport, geometry, out_of_page, recorded_scroll, viewport_to_doc,
 };
 
 /// A rect in a page's CSS pixels, as the viewport sees it, as the canvas rect
@@ -72,14 +72,25 @@ pub fn region_on_canvas(app: &App, annotation: &Annotation) -> Option<Rect> {
     match &annotation.anchor {
         AnnotationAnchor::Region(RegionAnchor::Canvas { canvas_rect }) => Some(*canvas_rect),
         AnnotationAnchor::Region(RegionAnchor::Document { doc_rect }) => {
-            let page = &annotation.page_anchor.as_ref()?.page_id;
-            let viewport = doc_to_viewport(*doc_rect, app.page_scroll(page));
+            let binding = annotation.page_anchor.as_ref()?;
+            let page = &binding.page_id;
+            let moved = element_travel(app, binding);
+            let document = doc_rect.translated(-moved.x, -moved.y);
+            let viewport = doc_to_viewport(document, app.page_scroll(page));
             Some(css_on_canvas(app.page_placement(page)?, viewport))
         }
         AnnotationAnchor::Canvas { .. }
         | AnnotationAnchor::Page { .. }
         | AnnotationAnchor::Element { .. } => None,
     }
+}
+
+/// How far the element a binding follows has moved since it was captured
+/// (ADR 0032), in CSS pixels, to subtract from a stored document position.
+fn element_travel(app: &App, binding: &specular_doc::PageAnchor) -> DVec2 {
+    (app.page_state(&binding.page_id)).map_or(DVec2::ZERO, |state| {
+        crate::scroll_follow::element_shift(binding, &state.elements)
+    })
 }
 
 /// Where the element an annotation is on sat in canvas space when the
@@ -111,15 +122,19 @@ pub fn element_on_canvas(app: &App, annotation: &Annotation) -> Option<Rect> {
 }
 
 /// The canvas rect of the page `annotation` is on, when it has been carried
-/// by that page's scroll: a region in the page's document with the page
-/// scrolled, or an element whose page has scrolled since it was recorded.
+/// by that page: a region in the page's document with the page scrolled or
+/// its element moved, or an element whose page has scrolled since it was
+/// recorded.
 /// What the annotation is clipped to, and hidden outside of. A comment on a
 /// page that has not scrolled is drawn whole.
 pub fn page_clip(app: &App, annotation: &Annotation) -> Option<Rect> {
     let (page, carried) = match &annotation.anchor {
         AnnotationAnchor::Region(RegionAnchor::Document { .. }) => {
-            let page = &annotation.page_anchor.as_ref()?.page_id;
-            (page, app.page_scroll(page) != DVec2::ZERO)
+            let binding = annotation.page_anchor.as_ref()?;
+            let page = &binding.page_id;
+            let carried =
+                app.page_scroll(page) != DVec2::ZERO || element_travel(app, binding) != DVec2::ZERO;
+            (page, carried)
         }
         AnnotationAnchor::Element { page_id, .. } => {
             let recorded = recorded_scroll(annotation.page_anchor.as_ref()?)?;
@@ -141,5 +156,5 @@ pub fn left_its_page(app: &App, annotation: &Annotation) -> bool {
         return false;
     };
     let seen = region_on_canvas(app, annotation).or_else(|| element_on_canvas(app, annotation));
-    seen.is_some_and(|seen| left_page(page, seen))
+    seen.is_some_and(|seen| out_of_page(app, page, seen))
 }

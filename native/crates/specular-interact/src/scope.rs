@@ -90,6 +90,25 @@ impl App {
 /// `members` with every group expanded to its descendants, then everything
 /// hooked to a page in that set.
 pub(crate) fn operands(document: &Document, members: &[EntityId]) -> Vec<EntityId> {
+    let mut out = contained(document, members);
+    let hooked: Vec<EntityId> = document
+        .entities()
+        .filter(|entity| {
+            entity
+                .anchor
+                .as_ref()
+                .is_some_and(|anchor| out.contains(&anchor.page_id))
+                && !out.contains(&entity.id)
+        })
+        .map(|entity| entity.id.clone())
+        .collect();
+    out.extend(hooked);
+    out
+}
+
+/// `members` with every group expanded to its descendants: what a delete
+/// removes. What is hooked to a page among them is not in it.
+pub(crate) fn contained(document: &Document, members: &[EntityId]) -> Vec<EntityId> {
     let mut out: Vec<EntityId> = Vec::new();
     // A stack, so a parent cycle in a hand-edited file ends at the first
     // repeat.
@@ -104,18 +123,6 @@ pub(crate) fn operands(document: &Document, members: &[EntityId]) -> Vec<EntityI
             pending.extend(children.into_iter().rev());
         }
     }
-    let hooked: Vec<EntityId> = document
-        .entities()
-        .filter(|entity| {
-            entity
-                .anchor
-                .as_ref()
-                .is_some_and(|anchor| out.contains(&anchor.page_id))
-                && !out.contains(&entity.id)
-        })
-        .map(|entity| entity.id.clone())
-        .collect();
-    out.extend(hooked);
     out
 }
 

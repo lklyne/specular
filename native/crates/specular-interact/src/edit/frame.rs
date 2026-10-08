@@ -166,11 +166,12 @@ pub(crate) fn note_window(rect: Rect) -> f32 {
     (rect.height as f32 - NOTE_PADDING * 2.0).max(0.0)
 }
 
-/// The frame of `entity`'s text, or `None` for a kind with no text to edit.
-pub(crate) fn of(entity: &Entity) -> Option<TextFrame> {
+/// The frame of `entity`'s text with the entity at `rect`, which is where
+/// it is seen, or `None` for a kind with no text to edit.
+pub(crate) fn of(entity: &Entity, rect: Rect) -> Option<TextFrame> {
     match &entity.kind {
-        Kind::Text(text) => Some(text_frame(entity.rect, text)),
-        Kind::Shape(shape) => Some(label_frame(entity.rect, shape)),
+        Kind::Text(text) => Some(text_frame(rect, text)),
+        Kind::Shape(shape) => Some(label_frame(rect, shape)),
         Kind::Page(_) | Kind::File(_) | Kind::Group(_) | Kind::Drawing(_) => None,
     }
 }

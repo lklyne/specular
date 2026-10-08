@@ -1,0 +1,78 @@
+# canvas: anchoring.canvas
+# Page anchoring in use: a sticky and a text hooked to a page, an edge from a
+# free shape to the sticky, and a region comment in the page's document. The
+# page is scrolled, and the hooked items are resized, edited, duplicated and
+# freed while it has carried them. The camera puts canvas (0, 0) at screen
+# (60, 60), so the page is at (160, 160) to (640, 520).
+camera 60,60,1
+snapshot 00-opened.png
+save 00-start.canvas
+
+# enter the page and scroll it 60 down: the sticky and the text go 60 up
+# with its content, and the edge still meets the sticky
+click 620 500
+click 620 500
+wheel 0 -60
+snapshot 01-scrolled-60.png
+
+# 80 more and the sticky is half out of the page's top: it fades over the
+# 48 pixels above the edge and is cut at the page's sides
+wheel 0 -80
+snapshot 02-fading-at-the-top.png
+wheel 0 80
+key escape
+key escape
+
+# selected where it is seen, and resized from its bottom-right handle
+click 300 240
+snapshot 03-selected-where-seen.png
+drag 380 300 420 340
+snapshot 04-resized-while-shifted.png
+save 04-resized.canvas
+
+# the text edited while shifted: the caret is at the end of what is drawn
+key escape
+double-click 440 350
+key cmd+right
+type , edited
+snapshot 05-caret-while-shifted.png
+key shift+cmd+left
+snapshot 06-selection-while-shifted.png
+key escape
+key escape
+
+# a region comment over two cells of the page's grid is the page's
+tool comment
+press 180 400
+drag-to 400 450
+drag-to 500 500
+release
+snapshot 07-region-draft.png
+type Tighten this row
+key enter
+snapshot 07-region-comment.png
+tool select
+key escape
+
+# scrolled 40 more, the region, the sticky and the text all follow
+click 620 500
+click 620 500
+wheel 0 -40
+snapshot 08-scrolled-100.png
+key escape
+key escape
+
+# a duplicate of the sticky lands beside the page and is free; the page is
+# then deleted, which frees the sticky and the text where they are seen
+select note
+key cmd+d
+camera 60,60,1
+snapshot 09-duplicated.png
+save 09-duplicated.canvas
+select p1
+key backspace
+snapshot 10-page-deleted.png
+save 10-page-deleted.canvas
+key cmd+z
+snapshot 11-delete-undone.png
+save 11-delete-undone.canvas

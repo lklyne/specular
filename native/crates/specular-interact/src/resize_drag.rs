@@ -7,7 +7,11 @@ use specular_doc::{Drawing, EdgeSide, EntityId, Kind, Rect, Text, WidthMode};
 
 use crate::guides::{self, GuideCapture};
 use crate::live::{self, Start};
-use crate::{App, Corner, Effect, Handle, HandleOwner, PagePlacement, caps, edit, resize, strokes};
+use crate::scroll_follow::{Scrolls, shift_for};
+use crate::{
+    App, Corner, Effect, Handle, HandleOwner, PagePlacement, anchor, caps, edit, geometry, resize,
+    strokes,
+};
 
 /// The size a text is drawn at when it has none of its own, and the limits a
 /// resize keeps it within.
@@ -26,6 +30,10 @@ pub struct ResizeDrag {
     /// The rect the handles sat around at the press.
     bounds: Rect,
     starts: Vec<Start>,
+    /// How far each of `starts` is seen from where it is stored, carried by
+    /// its page (see `scroll_follow`). The handles are around what is seen,
+    /// so the drag works there and stores each rect this far back.
+    shifts: Vec<DVec2>,
     /// The groups above what is resized, refitted around it as the drag
     /// goes.
     followers: Vec<Start>,
@@ -72,16 +80,18 @@ pub(crate) fn begin(
     handle: Handle,
     world: DVec2,
 ) -> Option<ResizeDrag> {
-    let (bounds, starts) = match &owner {
-        HandleOwner::Entity(id) => {
-            let entity = app.document.entity(id)?;
-            (entity.rect, vec![Start::of(entity)])
-        }
-        HandleOwner::Selection => {
-            let scope = app.selection_scope();
-            (scope.bounds?, live::starts(&app.document, &scope.operands))
-        }
+    let starts = match &owner {
+        HandleOwner::Entity(id) => vec![Start::of(app.document.entity(id)?)],
+        HandleOwner::Selection => live::starts(&app.document, &app.selection_scope().operands),
     };
+    let shifts: Vec<DVec2> = (starts.iter())
+        .map(|start| {
+            (app.document.entity(&start.id)).map_or(DVec2::ZERO, |entity| shift_for(app, entity))
+        })
+        .collect();
+    let bounds = (starts.iter().zip(&shifts))
+        .map(|(start, shift)| seen(start.rect, *shift))
+        .reduce(geometry::union)?;
     // Neither the selection nor anything inside what is resized is a
     // neighbour.
     let resized: Vec<EntityId> = starts.iter().map(|start| start.id.clone()).collect();
@@ -95,6 +105,7 @@ pub(crate) fn begin(
         grab: handle.point(bounds) - world,
         bounds,
         starts,
+        shifts,
     })
 }
 
@@ -106,11 +117,13 @@ pub(crate) fn drag(app: &mut App, drag: &ResizeDrag, world: DVec2, modifiers: Mo
             let (Some(start), Some(entity)) = (drag.starts.first(), app.document.entity(id)) else {
                 return;
             };
+            let shift = drag.shifts.first().copied().unwrap_or(DVec2::ZERO);
+            let from = seen(start.rect, shift);
             let lock = caps::aspect_mode(&entity.kind).locks(modifiers.shift);
             // An entity already under its kind's floor keeps its size until
             // the drag changes it: an auto-width text is narrower than the
             // floor a fixed one has.
-            let size = DVec2::new(start.rect.width, start.rect.height);
+            let size = DVec2::new(from.width, from.height);
             let min = caps::min_size(&entity.kind).min(size);
             // A text's height is its content's: only its width has a floor,
             // and a handle that reflows it has no ratio to keep.
@@ -122,21 +135,23 @@ pub(crate) fn drag(app: &mut App, drag: &ResizeDrag, world: DVec2, modifiers: Mo
                 | Kind::Drawing(_)
                 | Kind::Shape(_) => (lock, min),
             };
-            let rect = resize::resized(start.rect, drag.handle, target, min, lock);
+            let rect = resize::resized(from, drag.handle, target, min, lock);
             // A handle that has not moved its edges changes nothing, so a
             // click on one is not an undo step.
-            let (rect, kind) = if rect == start.rect {
-                (rect, start.kind.clone())
+            let (rect, kind) = if rect == from {
+                (start.rect, start.kind.clone())
             } else {
-                resized_kind(app, start, drag.handle, rect)
+                let (rect, kind) = resized_kind(app, start, from, drag.handle, rect);
+                (seen(rect, -shift), kind)
             };
             live::write(&mut app.document, start, rect, kind);
             live::follow(&mut app.document, &drag.followers);
         }
         HandleOwner::Selection => {
             let bounds = resize::resized_bounds(drag.bounds, drag.handle, target);
-            for start in &drag.starts {
-                let rect = resize::placed(start.rect, drag.bounds, bounds);
+            for (start, shift) in drag.starts.iter().zip(&drag.shifts) {
+                let rect = resize::placed(seen(start.rect, *shift), drag.bounds, bounds);
+                let rect = seen(rect, -*shift);
                 let kind = match &start.kind {
                     Some(Kind::Drawing(drawing)) => Some(scaled(drawing, start.rect, rect)),
                     Some(
@@ -155,12 +170,28 @@ pub(crate) fn drag(app: &mut App, drag: &ResizeDrag, world: DVec2, modifiers: Mo
     }
 }
 
-/// What a single-entity resize to `rect` means for the kinds whose fields
-/// follow their size.
-fn resized_kind(app: &App, start: &Start, handle: Handle, rect: Rect) -> (Rect, Option<Kind>) {
+/// A stored rect where it is seen, `shift` away.
+fn seen(rect: Rect, shift: DVec2) -> Rect {
+    rect.translated(-shift.x, -shift.y)
+}
+
+/// What a single-entity resize from `from` to `rect`, both as seen, means
+/// for the kinds whose fields follow their size.
+fn resized_kind(
+    app: &App,
+    start: &Start,
+    from: Rect,
+    handle: Handle,
+    rect: Rect,
+) -> (Rect, Option<Kind>) {
     match &start.kind {
-        Some(Kind::Drawing(drawing)) => (rect, Some(scaled(drawing, start.rect, rect))),
-        Some(Kind::Text(text)) => resized_text(app, text, start.rect, handle, rect),
+        // The points are stored, so they are scaled between stored rects,
+        // which lie the same way apart as the seen ones.
+        Some(Kind::Drawing(drawing)) => {
+            let stored = rect.translated(start.rect.x - from.x, start.rect.y - from.y);
+            (rect, Some(scaled(drawing, start.rect, stored)))
+        }
+        Some(Kind::Text(text)) => resized_text(app, text, from, handle, rect),
         Some(Kind::Page(_) | Kind::File(_) | Kind::Group(_) | Kind::Shape(_)) | None => {
             (rect, None)
         }
@@ -220,9 +251,20 @@ fn scaled(drawing: &Drawing, from: Rect, to: Rect) -> Kind {
 }
 
 /// The button came up: the resize becomes one undo step, and each page that
-/// changed size is laid out again, once.
+/// changed size is laid out again, once. What was resized while its page
+/// had carried it is stored where it is seen, in the same step (the scroll
+/// rebase), so its rect means what the handles showed.
 pub(crate) fn finish(app: &mut App, drag: &ResizeDrag, effects: &mut Vec<Effect>) {
-    live::commit_following(app, &drag.starts, &drag.followers, |_| Vec::new());
+    let scrolls = Scrolls::of(app);
+    live::commit_following(app, &drag.starts, &drag.followers, |app| {
+        let resized: Vec<EntityId> = (drag.starts.iter())
+            .filter(|start| {
+                (app.document.entity(&start.id)).is_some_and(|entity| entity.rect != start.rect)
+            })
+            .map(|start| start.id.clone())
+            .collect();
+        anchor::rebase(&app.document, &scrolls, &resized)
+    });
     for start in &drag.starts {
         if let Some(placement) = app.page_placement(&start.id)
             && placement.viewport != PagePlacement::viewport_for(start.rect)

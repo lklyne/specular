@@ -72,7 +72,9 @@ impl App {
             )),
             // A title sits outside the body; `edit_frame` places it.
             (Target::Title | Target::EdgeLabel | Target::Comment | Target::Field, _) => None,
-            (Target::Text | Target::Label, _) => frame::of(entity),
+            (Target::Text | Target::Label, _) => {
+                frame::of(entity, crate::scroll_follow::placed_rect(self, entity))
+            }
         }
     }
 

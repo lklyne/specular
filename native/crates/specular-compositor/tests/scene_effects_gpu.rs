@@ -1,6 +1,6 @@
-//! Shadows and the multiply blend, checked pixel by pixel on an offscreen
-//! target. Each test passes with a printed skip on machines with no GPU
-//! adapter.
+//! Shadows, the multiply blend and the page band's fade, checked pixel by
+//! pixel on an offscreen target. Each test passes with a printed skip on
+//! machines with no GPU adapter.
 
 mod common;
 #[expect(
@@ -13,7 +13,7 @@ mod scene_harness;
 use common::pixel;
 use ink::rect;
 use scene_harness::{BACKGROUND, Harness};
-use specular_scene::{Blend, Color, Item, Point, PolygonDraw, Rect, ShadowDraw};
+use specular_scene::{Blend, Color, Item, PageBand, Point, PolygonDraw, Rect, ShadowDraw};
 
 /// A black shadow of a 16 px square in the middle of the target, over the
 /// blue background: the blue channel is what the shadow lets through.
@@ -123,4 +123,65 @@ fn a_multiplied_fill_at_part_alpha_tints_part_way() {
     let [r, g, b, a] = pixel(&pixels, 20, 24);
     assert_eq!((r, g, a), (255, 255, 255));
     assert!((120..=135).contains(&b), "blue {b}");
+}
+
+/// The page of the band the tests draw through: columns 16 to 48 and rows
+/// 24 to 40, with the fade reaching 16 rows past it each way.
+const BAND: PageBand = PageBand {
+    page: Rect::new(16.0, 24.0, 32.0, 16.0),
+    reach: 16.0,
+};
+
+#[test]
+fn what_shows_through_a_page_band_is_whole_over_the_page_and_thins_to_nothing_past_it() {
+    let Some(mut harness) = Harness::new() else {
+        return;
+    };
+    // A white column the whole height of the target, as a shape and as a
+    // mesh.
+    let outline = PolygonDraw {
+        points: vec![
+            Point::new(8.0, 0.0),
+            Point::new(56.0, 0.0),
+            Point::new(56.0, 64.0),
+            Point::new(8.0, 64.0),
+        ],
+        fill: Some(Color::WHITE),
+        stroke: None,
+    };
+    let columns = [
+        (
+            "shape",
+            Item::canvas(rect(8.0, 0.0, 48.0, 64.0, Color::WHITE)),
+        ),
+        ("mesh", Item::canvas(outline)),
+    ];
+    for (kind, column) in columns {
+        let mut items = Vec::new();
+        BAND.through(column, Rect::new(8.0, 0.0, 48.0, 64.0), &mut items);
+        let pixels = harness.render(items);
+        let red = |y| pixel(&pixels, 32, y)[0];
+        // Whole over the page, and gone past the reach of the fade.
+        assert_eq!([red(25), red(32), red(38)], [255, 255, 255], "{kind}");
+        assert_eq!([red(2), red(6), red(58), red(62)], [0, 0, 0, 0], "{kind}");
+        // About half way gone half way out, above and below.
+        for half in [16, 47] {
+            assert!((100..=155).contains(&red(half)), "{kind} {}", red(half));
+        }
+        // It only ever thins on the way out, and never by a visible jump:
+        // a step is a sixteenth of the way.
+        let up: Vec<u8> = (8..=24).rev().map(red).collect();
+        let down: Vec<u8> = (39..=55).map(red).collect();
+        for fade in [up, down] {
+            let thins = |pair: &[u8]| pair[1] <= pair[0] && pair[0] - pair[1] <= 24;
+            assert!(fade.windows(2).all(thins), "{kind} {fade:?}");
+            assert!(fade[fade.len() - 1] < 24, "{kind} {fade:?}");
+        }
+        // The page's sides cut hard, over the page and over the fade.
+        for row in [32, 16] {
+            let red = |x| pixel(&pixels, x, row)[0];
+            assert_eq!([red(12), red(15), red(50)], [0, 0, 0], "{kind} row {row}");
+            assert!(red(16) > 100 && red(47) > 100, "{kind} row {row}");
+        }
+    }
 }

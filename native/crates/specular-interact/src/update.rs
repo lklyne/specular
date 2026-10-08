@@ -12,9 +12,9 @@ use crate::panel::builtin;
 use crate::stack_order::Move;
 use crate::theme;
 use crate::{
-    Action, App, Effect, Event, Focus, PageNotice, Selection, ToolDefaultPatch, api, bindings,
-    camera, chat, comment, cursor, edit, gesture, groups, inspect, page_state, pages, pointer,
-    property, reveal, space, sync, verbs,
+    Action, App, Effect, Event, Focus, PageNotice, Selection, ToolDefaultPatch, api, attach,
+    bindings, camera, chat, comment, cursor, edit, gesture, groups, inspect, page_state, pages,
+    pointer, property, reveal, space, sync, verbs,
 };
 use crate::{arrange, clipboard, drop, select_all, zoom};
 
@@ -45,6 +45,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
     // unless it ended the drag: the hover is not kept up during one.
     let pointing = matches!(event, Event::Pointer(_));
     let keeps_layout = builtin::keeps_layout(app, &event);
+    let opened = attach::opens(&event);
     match event {
         Event::Pointer(input) => pointer::on_pointer(app, &input, &mut effects),
         Event::Wheel(input) => on_wheel(app, &input, &mut effects),
@@ -135,6 +136,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         notes::request_new(app, &mut effects);
         effects.push(Effect::Save);
     }
+    attach::settle(app, stepped, switched || opened, &mut effects);
     if !ticks {
         cursor::refresh(app, &mut effects);
     }
@@ -416,6 +418,8 @@ fn on_page_notice(app: &App, page: &EntityId, notice: &PageNotice, effects: &mut
         | PageNotice::Pointed { .. }
         | PageNotice::Candidates { .. }
         | PageNotice::Inspected { .. }
+        | PageNotice::ElementCaptured { .. }
+        | PageNotice::ElementPlaces(_)
         | PageNotice::DevtoolsUrl(_) => {}
         PageNotice::ImeCompositionBounds(bounds) => {
             if app.session.focus.page() == Some(page)

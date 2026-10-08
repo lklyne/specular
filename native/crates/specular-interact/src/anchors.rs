@@ -46,7 +46,6 @@ impl App {
     /// offers all four, all active; the scene leaves out those off screen. Nothing is offered under any
     /// other gesture or while text is edited.
     pub fn anchors(&self) -> Vec<Anchor> {
-        let camera = &self.session.camera;
         let dragging = matches!(self.session.gesture, Some(Gesture::EdgeDrag(_)));
         if self.session.gesture.is_some() && !dragging || self.session.editing.is_some() {
             return Vec::new();
@@ -61,8 +60,8 @@ impl App {
         };
         entities
             .into_iter()
-            .flat_map(|entity| {
-                let rect = ScreenRect::of(camera, entity.rect);
+            .filter_map(|entity| Some((entity, self.shown_on_screen(entity)?)))
+            .flat_map(|(entity, rect)| {
                 SIDES.map(|side| Anchor {
                     entity: entity.id.clone(),
                     side,
@@ -98,7 +97,7 @@ pub(crate) fn eligible(app: &App) -> impl Iterator<Item = &Entity> {
 pub(crate) fn at(app: &App, screen: Vec2) -> Option<(EntityId, EdgeSide)> {
     let camera = &app.session.camera;
     eligible(app).find_map(|entity| {
-        let rect = ScreenRect::of(camera, entity.rect);
+        let rect = app.shown_on_screen(entity)?;
         let side = SIDES
             .into_iter()
             .find(|side| hit_rect(rect, *side, camera.zoom).contains(screen))?;

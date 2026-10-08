@@ -1,22 +1,31 @@
-//! Scroll-follow: an entity hooked to a page tracks the document content it
-//! was placed over. Its anchor records the page's scroll at placement, and
-//! it is drawn and hit shifted by how far the page has scrolled since, so a
-//! sticky stays on the paragraph it was put beside.
+//! Scroll-follow and element-follow: an entity hooked to a page tracks the
+//! document content it was placed over. Its anchor records the page's scroll
+//! at placement, and the element it was placed over with where that element
+//! then sat (ADR 0032). It is drawn and hit shifted by how far the page has
+//! scrolled and the element has moved since, so a sticky stays on the
+//! paragraph it was put beside through a scroll and a reflow.
 //!
 //! The stored rect stays the truth. The shift is folded into it when the
-//! entity is moved or re-anchored (see [`fold`]), which restamps the scroll.
-//! An anchor with no scroll is pinned to the page's frame and never shifts.
+//! entity is moved, resized or re-anchored (see [`fold`]), which restamps
+//! the scroll and the element's place. An anchor with no scroll and no
+//! element is pinned to the page's frame and never shifts.
 //!
-//! Drawing, hit-testing, outlines and marquees all read the shifted rect from
-//! here, so what is seen is what is grabbed.
+//! Drawing, hit-testing, outlines, marquees, edges and the text editor all
+//! read the shifted rect from here, so what is seen is what is grabbed.
 
 use std::borrow::Cow;
 use std::collections::HashMap;
 
 use glam::DVec2;
-use specular_doc::{Drawing, Entity, EntityId, Kind, PageAnchor, Rect};
+use specular_core::ElementPlace;
+use specular_doc::{AnchorElement, Drawing, Entity, EntityId, Kind, PageAnchor, Rect};
 
 use crate::{App, geometry, strokes};
+
+/// How far past its page's top and bottom an item that follows the page is
+/// still drawn, fading out, in logical pixels: Electron's `BAND_FADE_MARGIN`.
+/// The sides cut hard, since a page scrolls up and down.
+pub const PAGE_FADE: f32 = 48.0;
 
 /// A document rect in a page's CSS pixels as the viewport sees it, with the
 /// page scrolled to `scroll`.
@@ -47,13 +56,6 @@ pub fn recorded_scroll(anchor: &PageAnchor) -> Option<DVec2> {
     Some(DVec2::new(anchor.scroll_x.unwrap_or(0.0), y))
 }
 
-/// How far an item whose anchor recorded `recorded` has moved, in canvas
-/// units, with its page at `live`: subtract it from the stored position.
-/// `per_css` is the page's canvas units per CSS pixel.
-pub fn shift_of(recorded: DVec2, live: DVec2, per_css: DVec2) -> DVec2 {
-    (live - recorded) * per_css
-}
-
 /// Whether `shown` has left `page` altogether. A rect that only touches the
 /// page's edge is still there.
 pub fn left_page(page: Rect, shown: Rect) -> bool {
@@ -63,15 +65,55 @@ pub fn left_page(page: Rect, shown: Rect) -> bool {
         || shown.y + shown.height < page.y
 }
 
-/// A page's scroll, and the scale of its CSS pixels, as an anchor reads
-/// them. A snapshot, so a step that edits the document can read it.
-#[derive(Debug, Clone, Copy)]
+/// How far the element an anchor recorded has moved, in CSS pixels, in the
+/// convention of the scroll shift: subtract it from the stored position.
+/// Zero for an anchor with no element and for one whose selector finds
+/// nothing now, which leaves the item where it is stored.
+pub(crate) fn element_shift(anchor: &PageAnchor, places: &HashMap<String, ElementPlace>) -> DVec2 {
+    let Some(element) = &anchor.element else {
+        return DVec2::ZERO;
+    };
+    places.get(&element.selector).map_or(DVec2::ZERO, |live| {
+        DVec2::new(element.doc_x, element.doc_y) - live.doc.as_dvec2()
+    })
+}
+
+/// How far an item with `anchor` has moved since the anchor was written, in
+/// its page's CSS pixels: the page's scroll since, and its element's travel
+/// through the document since. Subtract it from the stored position.
+///
+/// An element in a fixed or sticky container moves through the document as
+/// the page scrolls, so the two cancel and the item stays on it. Until such
+/// an element has been found on the page the item is pinned to the frame,
+/// which is where a fixed element stays.
+pub(crate) fn anchor_shift(
+    anchor: &PageAnchor,
+    scroll: DVec2,
+    places: &HashMap<String, ElementPlace>,
+) -> DVec2 {
+    let live = (anchor.element.as_ref()).and_then(|element| places.get(&element.selector));
+    let pinned = live.is_none()
+        && (anchor.element.as_ref())
+            .is_some_and(|element| element.viewport_positioned == Some(true));
+    let scrolled = match anchor.scroll_y {
+        Some(y) if !pinned => scroll - DVec2::new(anchor.scroll_x.unwrap_or(0.0), y),
+        Some(_) | None => DVec2::ZERO,
+    };
+    scrolled + element_shift(anchor, places)
+}
+
+/// A page's scroll, where its tracked elements are, and the scale of its
+/// CSS pixels, as an anchor reads them. A snapshot, so a step that edits
+/// the document can read it.
+#[derive(Debug, Clone)]
 pub(crate) struct PageScroll {
     live: DVec2,
     per_css: DVec2,
+    places: HashMap<String, ElementPlace>,
 }
 
-/// The scroll of every page, as the app has it now.
+/// The scroll and the tracked elements of every page, as the app has them
+/// now.
 #[derive(Debug, Clone, Default)]
 pub(crate) struct Scrolls(HashMap<EntityId, PageScroll>);
 
@@ -83,6 +125,9 @@ impl Scrolls {
                     let scroll = PageScroll {
                         live: app.page_scroll(id),
                         per_css: placement.canvas_per_css(),
+                        places: (app.page_state(id))
+                            .map(|state| state.elements.clone())
+                            .unwrap_or_default(),
                     };
                     (id.clone(), scroll)
                 })
@@ -100,25 +145,35 @@ impl Scrolls {
         let Some(anchor) = &entity.anchor else {
             return DVec2::ZERO;
         };
-        let (Some(recorded), Some(page)) = (recorded_scroll(anchor), self.0.get(&anchor.page_id))
-        else {
-            return DVec2::ZERO;
-        };
-        shift_of(recorded, page.live, page.per_css)
+        self.0.get(&anchor.page_id).map_or(DVec2::ZERO, |page| {
+            anchor_shift(anchor, page.live, &page.places) * page.per_css
+        })
     }
 }
 
 /// The anchor `anchor` becomes when its entity's shift is folded into its
-/// stored position: the same page, restamped at the page's scroll now. An
-/// anchor that records no scroll stays as it is.
+/// stored position: the same page, restamped at the page's scroll now and at
+/// where its element is now. An anchor that records no scroll keeps none,
+/// and an element that cannot be found keeps the place it recorded.
 pub(crate) fn restamped(scrolls: &Scrolls, anchor: &PageAnchor) -> PageAnchor {
-    if recorded_scroll(anchor).is_none() {
+    let Some(page) = scrolls.0.get(&anchor.page_id) else {
         return anchor.clone();
-    }
-    let live = scrolls.live(&anchor.page_id);
+    };
+    let follows = anchor.scroll_y.is_some();
+    let element = anchor.element.as_ref().map(|element| {
+        (page.places.get(&element.selector)).map_or_else(
+            || element.clone(),
+            |live| AnchorElement {
+                doc_x: f64::from(live.doc.x),
+                doc_y: f64::from(live.doc.y),
+                ..element.clone()
+            },
+        )
+    });
     PageAnchor {
-        scroll_x: Some(live.x),
-        scroll_y: Some(live.y),
+        scroll_x: follows.then_some(page.live.x).or(anchor.scroll_x),
+        scroll_y: follows.then_some(page.live.y),
+        element,
         ..anchor.clone()
     }
 }
@@ -160,9 +215,28 @@ pub struct Seen<'a> {
     pub clip: Option<Rect>,
 }
 
-/// `entity` as it is seen: shifted by its page's scroll, and clipped to the
-/// page while it is. `None` when it has scrolled out of the page altogether,
-/// which hides it and takes it out of hit-testing.
+/// `page` grown by the fade's reach above and below: where something that
+/// follows the page can still be seen.
+fn band(app: &App, page: Rect) -> Rect {
+    let reach = f64::from(PAGE_FADE / app.session.camera.zoom.max(f32::EPSILON));
+    Rect::new(
+        page.x,
+        page.y - reach,
+        page.width,
+        page.height + reach * 2.0,
+    )
+}
+
+/// Whether `shown`, something carried by `page`'s scroll, is past where the
+/// page lets it be seen: off its sides, or beyond the fade above and below.
+pub fn out_of_page(app: &App, page: Rect, shown: Rect) -> bool {
+    left_page(band(app, page), shown)
+}
+
+/// `entity` as it is seen: shifted by its page's scroll and its element's
+/// travel, and clipped to the page while it is. `None` when it has left the
+/// page and the fade around it altogether, which hides it and takes it out
+/// of hit-testing.
 pub fn seen<'a>(app: &App, entity: &'a Entity) -> Option<Seen<'a>> {
     let shift = shift_for(app, entity);
     if shift == DVec2::ZERO {
@@ -173,7 +247,7 @@ pub fn seen<'a>(app: &App, entity: &'a Entity) -> Option<Seen<'a>> {
     }
     let page = app.page_placement(&entity.anchor.as_ref()?.page_id)?.rect;
     let shown = shifted(entity, -shift);
-    (!left_page(page, shown.rect)).then_some(Seen {
+    (!out_of_page(app, page, shown.rect)).then_some(Seen {
         entity: Cow::Owned(shown),
         clip: Some(page),
     })
@@ -181,7 +255,35 @@ pub fn seen<'a>(app: &App, entity: &'a Entity) -> Option<Seen<'a>> {
 
 /// The rect `entity` is seen at, or `None` when it is hidden.
 pub fn shown_rect(app: &App, entity: &Entity) -> Option<Rect> {
-    seen(app, entity).map(|seen| seen.entity.rect)
+    let shift = shift_for(app, entity);
+    if shift == DVec2::ZERO {
+        return Some(entity.rect);
+    }
+    let page = app.page_placement(&entity.anchor.as_ref()?.page_id)?.rect;
+    let shown = entity.rect.translated(-shift.x, -shift.y);
+    (!out_of_page(app, page, shown)).then_some(shown)
+}
+
+/// The rect `entity` is at with its shift taken off, seen or not: where a
+/// gesture finds it and where its text is laid out.
+pub(crate) fn placed_rect(app: &App, entity: &Entity) -> Rect {
+    let shift = shift_for(app, entity);
+    entity.rect.translated(-shift.x, -shift.y)
+}
+
+/// How far `entity` is shifted, in canvas units.
+pub(crate) fn shift_for(app: &App, entity: &Entity) -> DVec2 {
+    let Some(anchor) = &entity.anchor else {
+        return DVec2::ZERO;
+    };
+    let Some(placement) = app.page_placement(&anchor.page_id) else {
+        return DVec2::ZERO;
+    };
+    let css = match app.page_state(&anchor.page_id) {
+        Some(state) => anchor_shift(anchor, state.scroll, &state.elements),
+        None => anchor_shift(anchor, DVec2::ZERO, &HashMap::new()),
+    };
+    css * placement.canvas_per_css()
 }
 
 /// The part of the rect `entity` is seen at that its page lets through, for
@@ -203,39 +305,9 @@ fn clipped(rect: Rect, clip: Rect) -> Option<Rect> {
     (high.x >= low.x && high.y >= low.y).then(|| geometry::rect(low, high - low))
 }
 
-fn shift_for(app: &App, entity: &Entity) -> DVec2 {
-    let Some(anchor) = &entity.anchor else {
-        return DVec2::ZERO;
-    };
-    let (Some(recorded), Some(placement)) =
-        (recorded_scroll(anchor), app.page_placement(&anchor.page_id))
-    else {
-        return DVec2::ZERO;
-    };
-    shift_of(
-        recorded,
-        app.page_scroll(&anchor.page_id),
-        placement.canvas_per_css(),
-    )
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn a_page_scrolled_down_moves_its_content_up_by_the_scale() {
-        // (scroll before, scroll after, units per CSS pixel, shift). A 1280px
-        // page drawn 640 wide has half a unit per CSS pixel.
-        let rows = [
-            ((0.0, 100.0), (0.0, 340.0), (1.0, 1.0), (0.0, 240.0)),
-            ((0.0, 0.0), (0.0, 200.0), (0.5, 0.5), (0.0, 100.0)),
-        ];
-        for ((fx, fy), (tx, ty), (sx, sy), (want_x, want_y)) in rows {
-            let shift = shift_of(DVec2::new(fx, fy), DVec2::new(tx, ty), DVec2::new(sx, sy));
-            assert_eq!(shift, DVec2::new(want_x, want_y), "scale {sx}");
-        }
-    }
 
     #[test]
     fn touching_the_edge_is_not_leaving() {

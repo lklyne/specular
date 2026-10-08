@@ -228,10 +228,11 @@ fn body_among(app: &App, screen: Vec2, edges: bool) -> Hit {
                     continue;
                 };
                 let shown = seen.entity;
-                let rect = ScreenRect::of(
-                    camera,
-                    crate::hittable_rect(app, entity).unwrap_or(shown.rect),
-                );
+                // Nor can the part of it fading out past the page's edge.
+                let Some(hittable) = crate::hittable_rect(app, entity) else {
+                    continue;
+                };
+                let rect = ScreenRect::of(camera, hittable);
                 let inside = match &entity.kind {
                     Kind::Group(_) => {
                         groups.push((id, rect));

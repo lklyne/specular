@@ -17,6 +17,7 @@ use specular_core::{
     validate_viewport,
 };
 
+use crate::attach_host::Tracking;
 use crate::client::{new_app, new_client};
 use crate::config::{CefConfig, Pump, browser_switches, windowless_frame_rate};
 use crate::devtools::{Asked, Devtools, SinkSlot};
@@ -50,6 +51,8 @@ pub(crate) struct PageEntry {
     painting: bool,
     /// The rate the page is owed, applied whenever it is shown.
     frame_rate: i32,
+    /// The elements whose place the page reports.
+    pub(crate) tracking: Tracking,
 }
 
 impl PageEntry {
@@ -72,7 +75,7 @@ pub struct CefPageSource {
     /// The root cache folder made for this process alone, removed when the
     /// source is dropped.
     scratch_root: Option<std::path::PathBuf>,
-    pages: HashMap<PageId, PageEntry>,
+    pub(crate) pages: HashMap<PageId, PageEntry>,
     /// Where every page's devtools answers and events go.
     devtools_sink: SinkSlot,
     /// The page whose hovers and clicks are reported, for interaction sync.
@@ -190,7 +193,7 @@ impl CefPageSource {
         }
     }
 
-    fn entry_mut(&mut self, page: PageId) -> Result<&mut PageEntry, PageSourceError> {
+    pub(crate) fn entry_mut(&mut self, page: PageId) -> Result<&mut PageEntry, PageSourceError> {
         self.pages
             .get_mut(&page)
             .ok_or(PageSourceError::UnknownPage(page))
@@ -270,6 +273,7 @@ impl PageSource for CefPageSource {
                 input: InputTranslator::new(),
                 painting: true,
                 frame_rate: windowless_frame_rate(spec.frame_rate),
+                tracking: Tracking::default(),
             },
         );
         Ok(id)
@@ -455,6 +459,23 @@ impl PageSource for CefPageSource {
             .ok_or_else(|| refused("inspect at point"))
     }
 
+    fn capture_element(
+        &mut self,
+        page: PageId,
+        point: Vec2,
+        request: u64,
+    ) -> Result<(), PageSourceError> {
+        self.ask_capture(page, point, request)
+    }
+
+    fn track_elements(
+        &mut self,
+        page: PageId,
+        selectors: &[String],
+    ) -> Result<(), PageSourceError> {
+        self.track(page, selectors)
+    }
+
     fn query_elements_in_rect(
         &mut self,
         page: PageId,
@@ -473,6 +494,7 @@ impl PageSource for CefPageSource {
 
     fn pump(&mut self) {
         self.poll_capture();
+        self.poll_tracking();
         // With a pump timer this is called inside a window event loop's
         // handler, where CEF's nested run-loop turn would re-enter the loop.
         #[cfg(target_os = "macos")]

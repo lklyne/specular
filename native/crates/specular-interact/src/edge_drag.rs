@@ -76,10 +76,7 @@ impl App {
     }
 
     fn screen_rect_of(&self, id: &EntityId) -> Option<ScreenRect> {
-        Some(ScreenRect::of(
-            &self.session.camera,
-            self.document.entity(id)?.rect,
-        ))
+        self.shown_on_screen(self.document.entity(id)?)
     }
 }
 
@@ -96,7 +93,7 @@ pub(crate) fn drag(app: &App, drag: &mut EdgeDrag, screen: Vec2) {
     let camera = &app.session.camera;
     let rects: Vec<(EntityId, ScreenRect)> = (app.document.entities())
         .filter(|entity| caps::has_anchors(&entity.kind))
-        .map(|entity| (entity.id.clone(), ScreenRect::of(camera, entity.rect)))
+        .filter_map(|entity| Some((entity.id.clone(), app.shown_on_screen(entity)?)))
         .collect();
     let bodies: Vec<Body<'_>> = (rects.iter())
         .map(|(id, rect)| Body { id, rect: *rect })

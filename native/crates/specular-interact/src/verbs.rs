@@ -15,8 +15,9 @@ const PLACEMENT_GAP: f64 = 80.0;
 const SCAN_MARGIN: f64 = 2000.0;
 
 /// Removes the selection: the selected edges, the selected entities with
-/// everything inside their groups and hooked to their pages, and every edge
-/// that would be left with a missing end.
+/// everything inside their groups, and every edge that would be left with a
+/// missing end. What is hooked to a deleted page stays, freed where it is
+/// seen.
 pub(crate) fn delete(app: &mut App, effects: &mut Vec<Effect>) {
     let selection = &app.session.selection;
     let entities: Vec<EntityId> = selection.entities().cloned().collect();
@@ -26,21 +27,41 @@ pub(crate) fn delete(app: &mut App, effects: &mut Vec<Effect>) {
             ItemId::Entity(_) => None,
         })
         .collect();
-    let commands = delete_commands(&app.document, &entities, &edges);
+    let commands = deletion(&app.document, &Scrolls::of(app), &entities, &edges);
     if !commands.is_empty() {
         update::document_step(app, Command::Batch(commands), effects);
     }
 }
 
 /// The commands that remove `edges` and `entities`, with everything inside
-/// the entities' groups and hooked to their pages, and every edge that would
-/// be left with a missing end. Ids that name nothing are skipped.
+/// the entities' groups, and every edge that would be left with a missing
+/// end. Ids that name nothing are skipped.
+///
+/// What is hooked to a deleted page is not removed: an entity goes
+/// canvas-bound where it is stored and a comment loses its binding, in the
+/// same step, as Electron's `clearPageAnchorsForPage` does.
 pub fn delete_commands(
     document: &Document,
     entities: &[EntityId],
     edges: &[EdgeId],
 ) -> Vec<Command> {
-    let operands = scope::operands(document, entities);
+    deletion(document, &Scrolls::default(), entities, edges)
+}
+
+/// [`delete_commands`] knowing how far each page has carried what follows
+/// it, so that a freed entity stays where it is seen.
+fn deletion(
+    document: &Document,
+    scrolls: &Scrolls,
+    entities: &[EntityId],
+    edges: &[EdgeId],
+) -> Vec<Command> {
+    let operands = scope::contained(document, entities);
+    let pages: Vec<EntityId> = (operands.iter())
+        .filter(|id| document.entity(id).and_then(crate::app::page_of).is_some())
+        .cloned()
+        .collect();
+    let freed = anchor::freed(document, scrolls, &pages, &operands);
     let mut doomed: Vec<EdgeId> = Vec::new();
     let named = edges.iter().filter(|id| document.edge(id).is_some());
     let touching = (operands.iter())
@@ -51,7 +72,9 @@ pub fn delete_commands(
             doomed.push(id.clone());
         }
     }
-    (doomed.into_iter().map(Command::RemoveEdge))
+    freed
+        .into_iter()
+        .chain(doomed.into_iter().map(Command::RemoveEdge))
         .chain(operands.into_iter().map(Command::RemoveEntity))
         .collect()
 }
@@ -80,12 +103,17 @@ pub(crate) fn translate_commands(
 /// happened.
 pub(crate) fn duplicate(app: &mut App, effects: &mut Vec<Effect>) {
     let scope = app.selection_scope();
-    let Some(bounds) = scope.bounds else {
+    // The copies are made of what is seen, so they are placed from there.
+    let Some(bounds) = scope.shown_bounds.or(scope.bounds) else {
         return;
     };
     let delta = free_spot(app, bounds) - geometry::origin(bounds);
     if let Some(copies) = clone::copies(app, &scope, delta) {
-        update::document_step(app, copies.command, effects);
+        // What was copied without its page is hooked to the page it lands
+        // on, or to none (ADR 0031).
+        let scrolls = Scrolls::of(app);
+        let command = anchor::placed_copies(&mut app.document, &scrolls, copies.command);
+        update::document_step(app, command, effects);
         app.session.selection.set(copies.members);
         zoom::reveal(app, bounds.translated(delta.x, delta.y));
     }

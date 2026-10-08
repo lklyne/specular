@@ -1,0 +1,22 @@
+---
+source: crates/specular-scene/tests/page_scroll.rs
+expression: app.scene_snapshot()
+---
+canvas page p1 100,100 400x300 r=8
+screen rect 100,100 400x300 r=8 stroke=#a6a09b/1/outside
+screen text "example.com/p1" 100,79.5 wrap=400 ellipsis box-h=16.5 11/15.4 w500 #6b6b6b middle clip=100,79.5 400x20.5
+canvas rect 200,60 100x100 fill=#b5b9c0 stroke=#464a53/2/centre clip=100,97 400x3 opacity=0.97
+canvas rect 200,60 100x100 fill=#b5b9c0 stroke=#464a53/2/centre clip=100,94 400x3 opacity=0.91
+canvas rect 200,60 100x100 fill=#b5b9c0 stroke=#464a53/2/centre clip=100,91 400x3 opacity=0.84
+canvas rect 200,60 100x100 fill=#b5b9c0 stroke=#464a53/2/centre clip=100,88 400x3 opacity=0.78
+canvas rect 200,60 100x100 fill=#b5b9c0 stroke=#464a53/2/centre clip=100,85 400x3 opacity=0.72
+canvas rect 200,60 100x100 fill=#b5b9c0 stroke=#464a53/2/centre clip=100,82 400x3 opacity=0.66
+canvas rect 200,60 100x100 fill=#b5b9c0 stroke=#464a53/2/centre clip=100,79 400x3 opacity=0.59
+canvas rect 200,60 100x100 fill=#b5b9c0 stroke=#464a53/2/centre clip=100,76 400x3 opacity=0.53
+canvas rect 200,60 100x100 fill=#b5b9c0 stroke=#464a53/2/centre clip=100,73 400x3 opacity=0.47
+canvas rect 200,60 100x100 fill=#b5b9c0 stroke=#464a53/2/centre clip=100,70 400x3 opacity=0.41
+canvas rect 200,60 100x100 fill=#b5b9c0 stroke=#464a53/2/centre clip=100,67 400x3 opacity=0.34
+canvas rect 200,60 100x100 fill=#b5b9c0 stroke=#464a53/2/centre clip=100,64 400x3 opacity=0.28
+canvas rect 200,60 100x100 fill=#b5b9c0 stroke=#464a53/2/centre clip=100,61 400x3 opacity=0.22
+canvas rect 200,60 100x100 fill=#b5b9c0 stroke=#464a53/2/centre clip=100,58 400x3 opacity=0.16
+canvas rect 200,60 100x100 fill=#b5b9c0 stroke=#464a53/2/centre clip=100,100 400x300

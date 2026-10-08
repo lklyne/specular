@@ -11,8 +11,8 @@ use super::frame::Frame;
 use super::palette;
 use super::shape_path::Silhouette;
 use crate::{
-    Color, Dash, Item, PathDraw, PathStroke, Point, Rect, RectDraw, Scene, Stroke, StrokeAlign,
-    TextAlign, TextRun, VerticalAlign,
+    Color, Dash, Item, PageBand, PathDraw, PathStroke, Point, Rect, RectDraw, Scene, Stroke,
+    StrokeAlign, TextAlign, TextRun, VerticalAlign,
 };
 
 const REGION_COLOR: Color = Color::rgb(0xff, 0x63, 0x7e);
@@ -68,19 +68,21 @@ fn region(frame: &Frame<'_>, mark: &CommentMark, on_screen: ScreenRect, scene: &
     } else {
         REGION_FILL_ALPHA
     };
+    let opacity = if mark.focused { 1.0 } else { REGION_OPACITY };
+    let items = region_items(on_screen, REGION_COLOR, REGION_STROKE_ALPHA, fill)
+        .map(|item| item.with_opacity(opacity));
     // On a page, a region shows only through the page it scrolls with.
-    let clip = mark.clip.map(scene_rect);
-    let items =
-        region_items(on_screen, REGION_COLOR, REGION_STROKE_ALPHA, fill).map(
-            move |item| match clip {
-                Some(clip) => item.clipped(clip),
-                None => item,
-            },
-        );
-    if mark.focused {
-        scene.extend(items);
-    } else {
-        scene.extend(items.map(|item| item.with_opacity(REGION_OPACITY)));
+    match mark.clip.map(scene_rect) {
+        Some(page) => {
+            let band = PageBand {
+                page,
+                reach: specular_interact::PAGE_FADE,
+            };
+            for item in items {
+                band.through(item, on_screen, &mut scene.items);
+            }
+        }
+        None => scene.extend(items),
     }
 }
 

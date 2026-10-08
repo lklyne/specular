@@ -4,6 +4,7 @@
 
 mod anchoring;
 mod arrange;
+mod attachment;
 mod auto_layout;
 mod bindings;
 mod chat_comments;

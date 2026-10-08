@@ -125,6 +125,35 @@ if i in RAN:
     print(f"{'ok  ' if ok else 'FAIL'} {i}: six comments in Electron's shape")
     if not ok:
         failures.append(i)
+q = "q-anchoring"
+if q in RAN:
+    ANCHORING = load(HERE / "anchoring.canvas")
+    expect(q, ANCHORING, saved(q, "00-start.canvas"))
+    expect(q, saved(q, "09-duplicated.canvas"), saved(q, "11-delete-undone.canvas"))
+    nodes = lambda canvas: {n["id"]: n for n in canvas["nodes"]}
+    hook = lambda n: n.get("pageAnchor") or n.get("specular", {}).get("pageAnchor")
+    resized, copied, freed = (saved(q, f) for f in ["04-resized.canvas", "09-duplicated.canvas", "10-page-deleted.canvas"])
+    note, copy = nodes(resized)["note"], next(n for n in copied["nodes"] if n["id"] not in nodes(ANCHORING))
+    region = copied["annotations"][0]
+    checks = {
+        # Resized with the page 60 down: stored where it was seen, restamped there,
+        # and attached to the grid cell under its middle, in Electron's shape.
+        "a resize folds the scroll and re-attaches": (note["x"], note["y"], note["width"], note["height"]) == (160, 120, 200, 200)
+        and hook(note)["scrollY"] == 60
+        and set(hook(note)["element"]) == {"selector", "docX", "docY"},
+        "a text edited while carried is attached where it is seen": hook(nodes(copied)["caption"])["element"]["docY"] == 240,
+        "a region of the page is attached once": set(region["anchor"]) == {"type", "docRect"} and "element" in region["pageAnchor"],
+        "a duplicate beside the page is free": hook(copy) is None and copy["y"] == 80,
+        # Deleting the page leaves both where they were seen, 100 above where the first was stored.
+        "a deleted page frees what was hooked to it": "p1" not in nodes(freed)
+        and [hook(nodes(freed)[id]) for id in ("note", "caption")] == [None, None]
+        and (nodes(freed)["note"]["y"], nodes(freed)["caption"]["y"]) == (80, 240)
+        and "pageAnchor" not in freed["annotations"][0],
+    }
+    for name, held in checks.items():
+        print(f"{'ok  ' if held else 'FAIL'} {q}: {name}")
+        if not held:
+            failures.append(f"{q}: {name}")
 GUIDES = load(HERE / "guides.canvas")
 o = "o-guides"
 expect(o, GUIDES, saved(o, "04-move-undone.canvas"))

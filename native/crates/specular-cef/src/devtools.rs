@@ -29,7 +29,7 @@ use specular_core::{DevtoolsSink, PageEvent};
 
 use crate::devtools_route::{Route, route};
 use crate::page::PageContext;
-use crate::{dom_query, inspect_query, sync_query};
+use crate::{attach_query, dom_query, inspect_query, sync_query};
 
 /// What a message sent to a page asked for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -48,6 +48,10 @@ pub(crate) enum Asked {
     Pointed,
     /// The elements a bundle could mean, for this request.
     Candidates(u64),
+    /// The element an item should follow, for this request.
+    Captured(u64),
+    /// Where the page's tracked elements have moved to.
+    Places,
     /// Something done to the page, whose answer says nothing.
     Done,
 }
@@ -181,6 +185,18 @@ wrap_dev_tools_message_observer! {
                     request,
                     candidates: sync_query::parse_candidates(result),
                 },
+                Asked::Captured(request) => PageEvent::ElementCaptured {
+                    page,
+                    request,
+                    element: attach_query::parse_capture(result),
+                },
+                Asked::Places => {
+                    let places = attach_query::parse_places(result);
+                    if places.is_empty() {
+                        return;
+                    }
+                    PageEvent::ElementPlaces { page, places }
+                }
                 Asked::Done => return,
                 Asked::Target => {
                     let Some(id) = dom_query::parse_target_id(result) else {

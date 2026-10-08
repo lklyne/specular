@@ -3,12 +3,13 @@
 
 use specular_core::{CssSize, InputEvent};
 use specular_doc::{
-    Color, Drawing, Entity, EntityId, JsonMap, Kind, PageAnchor, Point, Rect, Stroke,
+    Annotation, AnnotationAnchor, Color, Drawing, Entity, EntityId, JsonMap, Kind, PageAnchor,
+    Point, Rect, RegionAnchor, Stroke,
 };
-use specular_interact::{Action, Effect, Key};
+use specular_interact::{Action, Effect, Key, PageNotice};
 use specular_testkit::{
-    CMD, SHIFT, TestApp, assert_doc_snapshot, connected, document, drawing, group, inside, page,
-    shape, text,
+    CMD, SHIFT, TestApp, assert_doc_snapshot, comment, connected, document, drawing, group, inside,
+    page, shape, text, with_comment,
 };
 
 const A: Rect = Rect::new(100.0, 100.0, 200.0, 100.0);
@@ -67,34 +68,57 @@ fn an_edge_selected_along_with_its_end_is_removed_once() {
 }
 
 #[test]
-fn deleting_a_page_closes_it_and_takes_what_was_hooked_to_it() {
-    let note = Entity {
-        anchor: Some(PageAnchor::new(EntityId::from("p1"))),
-        ..text("note", Rect::new(450.0, 50.0, 100.0, 100.0))
+fn deleting_a_page_closes_it_and_frees_what_was_hooked_to_it_where_it_is_seen() {
+    let hooked = |entity: Entity| Entity {
+        anchor: Some(PageAnchor {
+            scroll_x: Some(0.0),
+            scroll_y: Some(0.0),
+            ..PageAnchor::new(EntityId::from("p1"))
+        }),
+        ..entity
     };
-    let mut app = TestApp::with_entities([
+    let on_page = |annotation: Annotation| Annotation {
+        page_anchor: Some(PageAnchor::new(EntityId::from("p1"))),
+        ..annotation
+    };
+    let region = AnnotationAnchor::Region(RegionAnchor::Document {
+        doc_rect: Rect::new(10.0, 10.0, 50.0, 50.0),
+    });
+    let start = document([
         page("p1", Rect::new(100.0, 100.0, 400.0, 300.0)),
-        note,
+        hooked(text("note", Rect::new(200.0, 200.0, 100.0, 100.0))),
+        hooked(shape("box", Rect::new(320.0, 200.0, 100.0, 100.0))),
         shape("c", Rect::new(100.0, 600.0, 100.0, 100.0)),
     ]);
+    let start = with_comment(start, on_page(comment("region", region, "tighten")));
+    let mut app = TestApp::from_document(start);
+    // The page has carried both 40 up since they were placed.
+    app.page_reports("p1", PageNotice::Scrolled { x: 0.0, y: 40.0 });
     app.select(&["p1"]).key(Key::Backspace);
     let closed = page_effects(&mut app);
+    assert_eq!(closed, [Effect::ClosePage(EntityId::from("p1"))]);
+    assert_eq!(ids(&app), ["note", "box", "c"], "only the page is removed");
+    for (id, seen) in [("note", 200.0), ("box", 320.0)] {
+        assert_eq!(app.entity(id).anchor, None, "{id} is canvas-bound");
+        assert_eq!(app.rect(id), Rect::new(seen, 160.0, 100.0, 100.0), "{id}");
+    }
+    let comment = &app.document().annotations()[0];
+    assert_eq!(comment.page_anchor, None, "the comment is freed too");
     let reopened = page_effects(app.undo());
-    assert_eq!(
-        (closed, reopened, ids(&app)),
-        (
-            vec![Effect::ClosePage(EntityId::from("p1"))],
-            vec![Effect::CreatePage {
-                page: EntityId::from("p1"),
-                url: "https://example.com/p1".to_owned(),
-                viewport: CssSize::new(400, 300)
-            }],
-            vec!["p1", "note", "c"]
-        )
+    assert!(
+        !app.app().can_undo(),
+        "the delete and the freeing are one step"
     );
-    app.redo();
-    assert_eq!(ids(&app), ["c"]);
-    app.assert_undo_returns_to_start();
+    assert_eq!(
+        reopened,
+        [Effect::CreatePage {
+            page: EntityId::from("p1"),
+            url: "https://example.com/p1".to_owned(),
+            viewport: CssSize::new(400, 300)
+        }]
+    );
+    assert_eq!(ids(&app), ["p1", "note", "box", "c"]);
+    app.redo().assert_undo_returns_to_start();
 }
 
 #[test]

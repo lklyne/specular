@@ -2,7 +2,7 @@
 //! body is hooked to that page and moves with it.
 
 use specular_doc::{Entity, EntityId, Kind, PageAnchor, Rect};
-use specular_interact::{Key, Tool};
+use specular_interact::{Action, ClipboardContent, Effect, Event, Key, PageNotice, Tool};
 use specular_testkit::{ALT, CMD, CTRL, TestApp, page, shape};
 
 /// The page of `TestApp::with_pages(1)`.
@@ -93,6 +93,25 @@ fn with_shape(at: (f64, f64), hooked: Option<&str>) -> TestApp {
     ])
 }
 
+/// [`with_shape`] hooked to `p1` at no scroll, with `p1` then scrolled 40
+/// down: the shape is seen 40 above where it is stored.
+fn with_carried_shape(at: (f64, f64)) -> TestApp {
+    let mut s = shape("s", Rect::new(at.0, at.1, 100.0, 100.0));
+    s.anchor = Some(PageAnchor {
+        page_url: Some("https://example.com/p1".to_owned()),
+        scroll_x: Some(0.0),
+        scroll_y: Some(0.0),
+        ..PageAnchor::new(EntityId::new("p1"))
+    });
+    let mut app = TestApp::with_entities([
+        page("p1", Rect::new(100.0, 100.0, 400.0, 300.0)),
+        page("p2", Rect::new(700.0, 100.0, 400.0, 300.0)),
+        s,
+    ]);
+    app.page_reports("p1", PageNotice::Scrolled { x: 0.0, y: 40.0 });
+    app
+}
+
 fn anchor_of(app: &TestApp) -> Option<&str> {
     app.entity("s").anchor.as_ref().map(|a| a.page_id.as_str())
 }
@@ -159,10 +178,13 @@ fn an_item_dragged_with_its_page_stays_hooked_even_under_a_page_in_front() {
 
 #[test]
 fn an_option_drag_copy_is_hooked_to_the_page_it_lands_on() {
-    let mut app = with_shape((200.0, 200.0), Some("p1"));
-    app.hold(ALT).drag((250.0, 250.0), (850.0, 250.0)).let_go();
+    // `p1` has carried the shape 40 up, and the copy is made of what is
+    // seen: 600 to the right of that.
+    let mut app = with_carried_shape((200.0, 200.0));
+    app.hold(ALT).drag((250.0, 210.0), (850.0, 210.0)).let_go();
     let copy = app.selected().expect("the copy is selected").to_owned();
     assert_ne!(copy, "s");
+    assert_eq!(app.rect(&copy), Rect::new(800.0, 160.0, 100.0, 100.0));
     assert_eq!(
         app.entity(&copy)
             .anchor
@@ -171,5 +193,98 @@ fn an_option_drag_copy_is_hooked_to_the_page_it_lands_on() {
         Some("p2")
     );
     assert_eq!(anchor_of(&app), Some("p1"), "the original is untouched");
+    app.assert_undo_returns_to_start();
+}
+
+// Copies are hooked by where they land (ADR 0031), and made of what is seen.
+
+/// What the last copy put on the clipboard.
+fn copied(app: &mut TestApp) -> String {
+    let written = (app.take_effects().into_iter()).find_map(|effect| match effect {
+        Effect::WriteClipboard(text) => Some(text),
+        _ => None,
+    });
+    written.unwrap_or_default()
+}
+
+fn paste_at(app: &mut TestApp, clipboard: &str, at: (f32, f32)) {
+    app.pointer_move(at);
+    app.send(Event::Clipboard(ClipboardContent {
+        text: Some(clipboard.to_owned()),
+        image: None,
+    }));
+}
+
+/// The page, the URL and the scroll a copy's anchor names.
+fn hook(app: &TestApp, id: &str) -> Option<(String, Option<String>, Option<f64>)> {
+    let anchor = app.entity(id).anchor.as_ref()?;
+    assert_eq!(anchor.element, None, "a copy does not inherit an element");
+    Some((
+        anchor.page_id.as_str().to_owned(),
+        anchor.page_url.clone(),
+        anchor.scroll_y,
+    ))
+}
+
+#[test]
+fn a_pasted_copy_is_hooked_to_the_page_it_lands_on_or_to_none() {
+    // (where the pointer is, the page the copy is hooked to). The shape is
+    // copied off `p1`, which has scrolled 40 since it was placed; `p2` is
+    // scrolled 25.
+    let rows = [
+        ((800.0, 200.0), Some("p2")),
+        ((200.0, 600.0), None),
+        ((300.0, 200.0), Some("p1")),
+    ];
+    for (at, page) in rows {
+        let mut app = with_carried_shape((200.0, 200.0));
+        app.page_reports("p2", PageNotice::Scrolled { x: 0.0, y: 25.0 });
+        app.select(&["s"]).act(Action::Copy);
+        let clipboard = copied(&mut app);
+        paste_at(&mut app, &clipboard, at);
+        let copy = app.selected().expect("the copy is selected").to_owned();
+        let want = page.map(|page| {
+            let scroll = if page == "p1" { 40.0 } else { 25.0 };
+            let url = format!("https://example.com/{page}");
+            (page.to_owned(), Some(url), Some(scroll))
+        });
+        assert_eq!(hook(&app, &copy), want, "pasted at {at:?}");
+        assert_eq!(anchor_of(&app), Some("p1"), "the original is untouched");
+        app.assert_undo_returns_to_start();
+    }
+}
+
+#[test]
+fn a_copy_made_with_its_page_is_hooked_to_the_pages_copy() {
+    let mut app = with_carried_shape((200.0, 200.0));
+    app.select(&["p1"]).act(Action::Copy);
+    let clipboard = copied(&mut app);
+    paste_at(&mut app, &clipboard, (100.0, 600.0));
+    let made = |shape: bool| {
+        (app.document().entities())
+            .filter(|entity| !["p1", "p2", "s"].contains(&entity.id.as_str()))
+            .find(|entity| matches!(entity.kind, Kind::Shape(_)) == shape)
+            .map(|entity| entity.id.as_str().to_owned())
+            .expect("the page and the shape hooked to it were both pasted")
+    };
+    let (page, copy) = (made(false), made(true));
+    // The page's copy starts at the top of its document.
+    let url = Some("https://example.com/p1".to_owned());
+    assert_eq!(hook(&app, &copy), Some((page.clone(), url, Some(0.0))));
+    // The shape was seen 40 above where it is stored, 60 below the top of
+    // its page, and its copy sits so on the page's copy.
+    assert_eq!(app.rect(&copy).y - app.rect(&page).y, 60.0);
+    app.assert_undo_returns_to_start();
+}
+
+#[test]
+fn a_duplicate_lands_off_the_page_and_is_free() {
+    let mut app = with_carried_shape((200.0, 200.0));
+    app.select(&["s"]).act(Action::Duplicate);
+    let copy = app.selected().expect("the copy is selected").to_owned();
+    // Every entity counts as taken, pages too, so the copy lands off them.
+    assert_eq!(hook(&app, &copy), None);
+    assert_eq!(anchor_of(&app), Some("p1"), "the original is untouched");
+    assert_eq!(app.rect("s").y, 200.0, "and keeps its stored rect");
     app.assert_undo_returns_to_start();
 }

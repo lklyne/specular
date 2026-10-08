@@ -3,8 +3,8 @@
 use glam::Vec2;
 use specular_agent::{Index, Notice, Repos, Thread, ThreadId};
 use specular_core::{
-    Camera, ImeEvent, InspectedNode, LocatorBundle, LocatorCandidate, Modifiers, PageElement,
-    PixelRect, PointKind, PointerEventKind,
+    Camera, CapturedElement, ElementPlace, ImeEvent, InspectedNode, LocatorBundle,
+    LocatorCandidate, Modifiers, PageElement, PixelRect, PointKind, PointerEventKind,
 };
 use specular_doc::{AnnotationId, Document, EntityId, ItemId, Rect};
 
@@ -357,6 +357,19 @@ pub enum PageNotice {
     },
     /// The page's remote-debugging websocket is known.
     DevtoolsUrl(String),
+    /// The element an item placed over the page should follow (ADR 0032):
+    /// the answer to an
+    /// [`Effect::CaptureElement`](crate::Effect::CaptureElement).
+    ElementCaptured {
+        /// The request the question carried.
+        request: u64,
+        /// The element, or `None` when the page has none to offer.
+        element: Option<CapturedElement>,
+    },
+    /// Where elements the page was told to track
+    /// ([`Effect::TrackElements`](crate::Effect::TrackElements)) sit in its
+    /// document now, by selector. `None` for a selector that finds nothing.
+    ElementPlaces(Vec<(String, Option<ElementPlace>)>),
 }
 
 /// A command with no pointer position: what a key binding, a menu item, a
