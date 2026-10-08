@@ -32,6 +32,7 @@ mod placement;
 mod presets;
 mod reply;
 mod tabs;
+mod tasks;
 mod unported;
 
 use std::path::PathBuf;
@@ -227,6 +228,7 @@ impl Api {
             (Post, ["camera", "focus"]) => Ok(act::focus(app, request)),
             (Post, ["stack-order", verb]) => act::stack_order(app, request, verb),
             (Post, ["history", verb]) => act::history(app, request, verb),
+            (Post, ["tasks", "apply"]) => tasks::apply(ids, app, &request.body),
             (Post, ["layout", "find-placement"]) => Ok(placement::find(app, &request.body)),
             (Post, ["layout", "batch-placement"]) => placement::batch(app, &request.body),
             (Post, ["layout", "apply-directive"]) => placement::directive(app, &request.body),

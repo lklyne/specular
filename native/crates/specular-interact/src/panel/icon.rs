@@ -85,6 +85,8 @@ pub enum Icon {
     Device,
     /// Rotate the viewport. `RotateIcon` in `shared/CustomIcons.tsx`.
     Rotate,
+    /// A sync set. Lucide `Link2`.
+    Sync,
     /// Back in a page's history. Lucide `ChevronLeft`.
     ChevronLeft,
     /// Forward in a page's history. Lucide `ChevronRight`.

@@ -82,5 +82,9 @@ pub(super) const GRID_2X2: Glyph = lucide(&[
 ]);
 /// `message-circle`.
 pub(super) const MESSAGE_CIRCLE: Glyph = lucide(&[line("M7.9 20A9 9 0 1 0 4 16.1L2 22Z")]);
+/// `link-2`.
+pub(super) const LINK_2: Glyph = lucide(&[line(
+    "M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 1 1 0 10h-2M8 12h8",
+)]);
 /// `maximize-2`.
 pub(super) const MAXIMIZE_2: Glyph = lucide(&[line("M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7")]);

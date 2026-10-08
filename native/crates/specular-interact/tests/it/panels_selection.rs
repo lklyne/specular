@@ -79,6 +79,7 @@ fn several_pages_share_a_size_list_without_custom() {
     button item.arrange.row "Arrange in a row" icon=ArrangeRow -> Arrange(Row)
     button item.arrange.column "Arrange in a column" icon=ArrangeColumn -> Arrange(Column)
     button item.arrange.grid "Arrange in a grid" icon=ArrangeGrid -> Arrange(Grid)
+    toggle [ ] page.sync "Sync navigation" icon=Sync -> ToggleSync
     button item.annotate "Annotate 2 pages" icon=Annotate -> AnnotateSelection
     "#);
 }

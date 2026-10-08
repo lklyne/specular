@@ -237,6 +237,7 @@ fn has_target(app: &App, action: &Action) -> bool {
         Action::PageForward => page_can(app, |state| state.can_go_forward),
         Action::PageStop => page_can(app, |state| state.loading),
         Action::PageReload | Action::PageNavigate(_) => page_state::target(app).is_some(),
+        Action::ToggleSync => app.selection_synced().is_some(),
     }
 }
 

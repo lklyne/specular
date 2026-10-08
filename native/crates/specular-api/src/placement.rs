@@ -132,17 +132,23 @@ fn number(value: &Value, key: &str) -> Option<f64> {
     value.get(key).and_then(Value::as_f64)
 }
 
-/// `POST /layout/find-placement`.
-pub(crate) fn find(app: &App, body: &Value) -> Step {
-    let width = number(body, "width").unwrap_or(800.0);
-    let height = number(body, "height").unwrap_or(600.0);
+/// A free spot for a `width` by `height` box, honouring the `anchor` of
+/// `body`, as `/layout/find-placement` answers it.
+pub(crate) fn locate(app: &App, width: f64, height: f64, body: &Value) -> Value {
     let spot = place(app, width, height, beside_selection(body));
-    Step::Answer(json!({
+    json!({
         "canvasX": spot.x,
         "canvasY": spot.y,
         "fallbackUsed": spot.fallback,
         "reason": spot.reason,
-    }))
+    })
+}
+
+/// `POST /layout/find-placement`.
+pub(crate) fn find(app: &App, body: &Value) -> Step {
+    let width = number(body, "width").unwrap_or(800.0);
+    let height = number(body, "height").unwrap_or(600.0);
+    Step::Answer(locate(app, width, height, body))
 }
 
 fn items(body: &Value) -> Result<&[Value], Response> {

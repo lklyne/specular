@@ -257,6 +257,8 @@ pub struct Session {
     pub(crate) captured: ButtonCapture,
     /// What each hosted page last reported of itself.
     pub(crate) pages: crate::page_state::PageStates,
+    /// What following a sync set remembers between events.
+    pub(crate) sync: crate::sync::SyncState,
     /// The images file entities show, and how far each has loaded.
     pub(crate) images: Images,
     /// The text of the Documents file entities show, and their scroll.

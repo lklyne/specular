@@ -9,4 +9,5 @@ mod documents;
 mod pages;
 mod plan;
 mod tabs;
+mod tasks;
 mod verbs;

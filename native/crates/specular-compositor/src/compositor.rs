@@ -185,6 +185,9 @@ impl Compositor {
             | PageEvent::Url { .. }
             | PageEvent::Loading { .. }
             | PageEvent::Scrolled { .. }
+            | PageEvent::ScrollProgress { .. }
+            | PageEvent::Pointed { .. }
+            | PageEvent::Candidates { .. }
             | PageEvent::ElementAt { .. }
             | PageEvent::ElementsInRect { .. }
             | PageEvent::DevtoolsTarget { .. } => Ok(()),

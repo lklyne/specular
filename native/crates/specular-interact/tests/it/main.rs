@@ -60,6 +60,7 @@ mod sidebar;
 mod sidebar_controls;
 mod space;
 mod stack_order;
+mod sync;
 mod text_edit;
 mod text_fit;
 mod text_ime;

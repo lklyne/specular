@@ -250,10 +250,12 @@ impl Headless {
                 self.drive(|app| app.act(Action::SetCamera(camera)))
             }
             Step::Wait(ms) => {
+                // The pages run before the clock moves: what they report
+                // during the wait happened during it, not after it.
+                self.run_pages_for(std::time::Duration::from_millis(ms))?;
                 self.now_ms += ms;
                 let now = self.now_ms;
                 self.drive(|app| app.tick(now))?;
-                self.run_pages_for(std::time::Duration::from_millis(ms))?;
                 self.settle()
             }
             Step::Control(id) => self.control(&id, |app, at| app.pointer_move(at).click(at)),

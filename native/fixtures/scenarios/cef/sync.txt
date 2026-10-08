@@ -1,0 +1,28 @@
+# Two pages of one site in one sync set, 800 and 400 wide. Run by sync.sh,
+# which serves the site and writes the canvas. With the camera it sets, the
+# wide page is at screen x 40..640 and the narrow one at x 715..1015, both
+# y 80..455, at 0.75 of a CSS pixel.
+snapshot 01-loaded.png
+# Enter the wide page and click Menu: the narrow page's Menu button is
+# elsewhere, and its panel opens too.
+click 300 300
+click 300 300
+move 100 110
+wait 500
+click 100 110
+wait 1500
+snapshot 02-menu.png
+# Follow the link: both pages go to the second page.
+click 250 110
+wait 2500
+snapshot 03-navigated.png
+# Back from the wide page takes the narrow one back.
+act page-back
+wait 2500
+snapshot 04-back.png
+# Scroll the wide page: the narrow page, a longer document, goes to the
+# same fraction of its own length, which is further in pixels.
+wheel 0 -1200
+wait 1500
+snapshot 05-scrolled.png
+key escape

@@ -121,7 +121,7 @@ fn run_call(app: &mut App, run: ApiRun, effects: &mut Vec<Effect>) -> ApiOutcome
             if let Err(reason) = page_state::allows(app, &page, &nav) {
                 return ApiOutcome::Refused(reason);
             }
-            effects.push(Effect::Navigate { page, nav });
+            page_state::drive(app, &page, nav, effects);
         }
         ApiRun::Apply { command, select } => {
             return apply(app, command, select, Vec::new(), effects);

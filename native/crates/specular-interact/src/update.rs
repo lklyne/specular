@@ -13,7 +13,7 @@ use crate::stack_order::Move;
 use crate::{
     Action, App, Effect, Event, Focus, PageNotice, Selection, ToolDefaultPatch, api, bindings,
     camera, chat, comment, cursor, edit, gesture, groups, page_state, pages, pointer, property,
-    reveal, space, verbs,
+    reveal, space, sync, verbs,
 };
 use crate::{arrange, clipboard, drop, select_all, zoom};
 
@@ -61,12 +61,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         Event::Note { file, notice } => notes::on_notice(app, &file, notice, &mut effects),
         Event::NoteCreated { file, rect } => edit::note::created(app, file, rect, &mut effects),
         Event::NoteHeights(heights) => notes::on_heights(app, heights),
-        Event::Tick { unix_ms } => {
-            let elapsed = unix_ms.saturating_sub(app.session.now_ms);
-            app.session.now_ms = unix_ms;
-            edit::note::autosave(app, &mut effects);
-            edit::autoscroll(app, elapsed);
-        }
+        Event::Tick { unix_ms } => on_tick(app, unix_ms, &mut effects),
         Event::ViewportResized(size) => app.session.viewport = size,
         Event::DocumentOpened(document) => open_document(app, *document, &mut effects),
         Event::SpaceOpened(opened) => space::open(app, *opened, &mut effects),
@@ -107,6 +102,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         app.history.settle(app.session.selection.clone());
     }
     leave_unless_selected(app, &mut effects);
+    sync::interaction::refresh_capture(app, &mut effects);
     comment::settle(app);
     if app.session.tool != tool {
         comment::on_tool_change(app);
@@ -213,6 +209,7 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         Action::PageReload => page_state::navigate(app, PageNav::Reload, effects),
         Action::PageStop => page_state::navigate(app, PageNav::Stop, effects),
         Action::PageNavigate(url) => page_state::navigate(app, PageNav::To(url), effects),
+        Action::ToggleSync => sync::toggle(app, effects),
         Action::Canvas(action) => space::act(app, action, effects),
         Action::Chat(action) => chat::run(app, action, effects),
     }
@@ -353,14 +350,26 @@ pub(crate) fn drop_dangling(app: &mut App, effects: &mut Vec<Effect>) {
     }
     let document = &app.document;
     (app.session.pages).retain(|page| document.entity(page).is_some());
+    (app.session.sync).retain(|page| document.entity(page).is_some());
+}
+
+/// The wall clock moved to `unix_ms`.
+fn on_tick(app: &mut App, unix_ms: u64, effects: &mut Vec<Effect>) {
+    let elapsed = unix_ms.saturating_sub(app.session.now_ms);
+    app.session.now_ms = unix_ms;
+    sync::on_tick(app, effects);
+    edit::note::autosave(app, effects);
+    edit::autoscroll(app, elapsed);
 }
 
 /// A hosted page reported something.
 fn on_page_event(app: &mut App, page: &EntityId, notice: &PageNotice, effects: &mut Vec<Effect>) {
+    let shown = app.page_state(page).and_then(|state| state.url.clone());
     // The address is the one thing a page reports that is saved.
     if page_state::on_notice(app, page, notice) {
         effects.push(Effect::Save);
     }
+    sync::on_notice(app, page, notice, shown.as_deref(), effects);
     on_page_notice(app, page, notice, effects);
 }
 
@@ -372,6 +381,9 @@ fn on_page_notice(app: &App, page: &EntityId, notice: &PageNotice, effects: &mut
         | PageNotice::Url(_)
         | PageNotice::Loading { .. }
         | PageNotice::Scrolled { .. }
+        | PageNotice::ScrollProgress { .. }
+        | PageNotice::Pointed { .. }
+        | PageNotice::Candidates { .. }
         | PageNotice::DevtoolsUrl(_) => {}
         PageNotice::ImeCompositionBounds(bounds) => {
             if app.session.focus.page() == Some(page)

@@ -13,8 +13,11 @@ use glam::Vec2;
 use crate::frame::{CpuFrame, FrameEvent, FrameLayer, PageFrame};
 use crate::geometry::{CssRect, CssSize, PixelRect};
 use crate::input::InputEvent;
+use crate::locator::LocatorBundle;
 use crate::page::{PageId, PageSpec, validate_texture_scale, validate_viewport};
-use crate::source::{DevtoolsSink, PageElement, PageEvent, PageNav, PageSource, PageSourceError};
+use crate::source::{
+    DevtoolsSink, PageElement, PageEvent, PageNav, PageSource, PageSourceError, PointKind,
+};
 
 mod cdp;
 
@@ -328,6 +331,59 @@ impl PageSource for SyntheticPageSource {
                 self.pending
                     .push(PageEvent::Scrolled { page, offset: next });
             }
+        }
+        Ok(())
+    }
+
+    fn set_capture(&mut self, page: Option<PageId>) -> Result<(), PageSourceError> {
+        // A synthetic page has no elements to point at, so there is
+        // nothing to report.
+        page.map_or(Ok(()), |page| self.page(page).map(|_| ()))
+    }
+
+    fn query_candidates(
+        &mut self,
+        page: PageId,
+        _bundle: &LocatorBundle,
+        request: u64,
+    ) -> Result<(), PageSourceError> {
+        self.page(page)?;
+        self.pending.push(PageEvent::Candidates {
+            page,
+            request,
+            candidates: Vec::new(),
+        });
+        Ok(())
+    }
+
+    fn replay_pointer(
+        &mut self,
+        page: PageId,
+        _kind: PointKind,
+        _point: Vec2,
+    ) -> Result<(), PageSourceError> {
+        self.page_mut(page)?.next_paint = None;
+        Ok(())
+    }
+
+    fn scroll_progress(&mut self, page: PageId) -> Result<(), PageSourceError> {
+        let entry = self.page(page)?;
+        let max = entry.max_scroll();
+        let along = |at: f32, max: f32| if max > 0.0 { at / max } else { 0.0 };
+        let progress = Vec2::new(along(entry.scroll.x, max.x), along(entry.scroll.y, max.y));
+        self.pending
+            .push(PageEvent::ScrollProgress { page, progress });
+        Ok(())
+    }
+
+    fn scroll_to(&mut self, page: PageId, progress: Vec2) -> Result<(), PageSourceError> {
+        let entry = self.page_mut(page)?;
+        let next = entry.max_scroll() * progress.clamp(Vec2::ZERO, Vec2::ONE);
+        if next != entry.scroll {
+            entry.scroll = next;
+            entry.next_paint = None;
+            self.pending
+                .push(PageEvent::Scrolled { page, offset: next });
         }
         Ok(())
     }

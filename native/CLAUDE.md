@@ -146,6 +146,10 @@ fn shift_drag_moves_the_page_along_one_axis() {
 - Pages: `page_reports("p1", PageNotice::Scrolled { x: 0.0, y: 40.0 })` (or `Title`,
   `Url`, `Loading`, `DevtoolsUrl`) is a page saying something about itself, as
   the shell sends it; read back with `app().page_state(..)` and `page_scroll(..)`.
+  A sync set is made with `select(&["p1", "p2"]).act(Action::ToggleSync)`; its
+  following is asserted on the effects (`Navigate`, `ScrollPage`,
+  `AskCandidates`, `ReplayPointer`) after `page_reports` of `Url`,
+  `ScrollProgress`, `Pointed` and `Candidates`. See `tests/it/sync.rs`.
 - Read back with `document()`, `session()`, `selection()`, `selected()`,
   `selected_ids()`, `rect("p1")` and `entity("p1")`. `take_effects()` drains the effects
   returned since the last drain; call it before the step whose effects the
@@ -257,7 +261,8 @@ logs the port it took and the `SPECULAR_DISCOVERY_FILE=` to pass the CLI.
   CDP websocket, which `GET /pages/<id>/cdp-target` names. The routing is
   `specular_api::cdp::PageProxy`, the sockets are `specular-app/src/cdp/`,
   and `fixtures/scenarios/cef/cli-pages.sh` runs every verb against a
-  bundled debug CEF app on a scratch space.
+  bundled debug CEF app on a scratch space. `fixtures/scenarios/cef/sync.sh`
+  runs a sync set of two widths on the same bundle.
 
 ## Gate
 

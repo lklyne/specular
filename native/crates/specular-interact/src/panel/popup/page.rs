@@ -1,6 +1,7 @@
 //! The popup of pages (`PagePopup.tsx`): history, reload and the address,
-//! then size, device frame, orientation and color scheme. Syncing, the repo
-//! binding and focus have no action here.
+//! then size, device frame, orientation and color scheme, and the chain
+//! button that syncs the selected pages. The repo binding has no action
+//! here.
 
 use specular_doc::{ColorScheme, Entity, Kind, VIEWPORT_PRESETS};
 
@@ -279,6 +280,7 @@ pub(super) fn popup(app: &App, entities: &[&Entity]) -> PopupModel {
             vec![frame_toggle(app, "Device frame"), rotate(app)],
             vec![scheme(app)],
             Actions {
+                sync: app.selection_synced(),
                 annotate: false,
                 ..Actions::all("page", 1)
             }
@@ -289,6 +291,7 @@ pub(super) fn popup(app: &App, entities: &[&Entity]) -> PopupModel {
             vec![size_dropdown(app, None)],
             vec![frame_toggle(app, "Toggle device frame for selected pages")],
             Actions {
+                sync: app.selection_synced(),
                 focus: false,
                 ..Actions::all(&format!("{} pages", entities.len()), entities.len())
             }

@@ -194,6 +194,7 @@ fn glyph(icon: Icon) -> Glyph {
         Icon::Focus => lucide::MAXIMIZE_2,
         Icon::Device => lucide::SMARTPHONE,
         Icon::Rotate => popup::ROTATE,
+        Icon::Sync => lucide::LINK_2,
         Icon::ChevronLeft => lucide::CHEVRON_LEFT,
         Icon::ChevronRight => lucide::CHEVRON_RIGHT,
         Icon::Reload => lucide::ROTATE_CW,

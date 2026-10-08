@@ -23,6 +23,7 @@ pub mod camera;
 pub mod frame;
 pub mod geometry;
 pub mod input;
+pub mod locator;
 pub mod page;
 pub mod source;
 pub mod synthetic;
@@ -38,9 +39,13 @@ pub use input::{
     ImeEvent, InputEvent, KeyEvent, KeyEventKind, Modifiers, PointerButton, PointerEvent,
     PointerEventKind, WheelEvent,
 };
+pub use locator::{
+    LOCATOR_CONFIDENCE_FLOOR, LOCATOR_RUNNER_UP_MARGIN, LocatorBundle, LocatorCandidate,
+    LocatorRect, LocatorResolution, dispatch_point, resolve_locator,
+};
 pub use page::{PageId, PageSpec, validate_texture_scale, validate_viewport};
 pub use source::{
     DEVTOOLS_CLIENT_ID_BASE, DevtoolsSink, PageElement, PageEvent, PageNav, PageSource,
-    PageSourceError,
+    PageSourceError, PointKind,
 };
 pub use synthetic::{SyntheticPageSource, synthetic_element_at, synthetic_elements_in};

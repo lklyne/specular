@@ -47,6 +47,31 @@ pub(crate) fn notice_of(
                 y: f64::from(offset.y),
             },
         ),
+        PageEvent::ScrollProgress { page, progress } => (
+            *page,
+            PageNotice::ScrollProgress {
+                x: f64::from(progress.x),
+                y: f64::from(progress.y),
+            },
+        ),
+        PageEvent::Pointed { page, kind, bundle } => (
+            *page,
+            PageNotice::Pointed {
+                kind: *kind,
+                bundle: bundle.clone(),
+            },
+        ),
+        PageEvent::Candidates {
+            page,
+            request,
+            candidates,
+        } => (
+            *page,
+            PageNotice::Candidates {
+                request: *request,
+                candidates: candidates.clone(),
+            },
+        ),
         PageEvent::DevtoolsTarget { page, id } => {
             let port = devtools_port?;
             let url = format!("ws://127.0.0.1:{port}/devtools/page/{id}");

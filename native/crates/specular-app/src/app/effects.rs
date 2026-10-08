@@ -6,7 +6,9 @@ use std::time::Instant;
 use anyhow::Context as _;
 use glam::Vec2;
 use specular_bench::PaintPolicy;
-use specular_core::{InputEvent, PageSpec, PointerEvent, PointerEventKind};
+use specular_core::{
+    InputEvent, PageId, PageSource, PageSourceError, PageSpec, PointerEvent, PointerEventKind,
+};
 use specular_doc::{EntityId, Rect};
 use specular_interact::{Effect, Event, PageRegion, update};
 
@@ -134,15 +136,63 @@ impl<W: ShellWindow> Runtime<W> {
             Effect::RunAgent(request) => self.run_agent(&request),
             Effect::CancelAgent(thread) => self.cancel_agent(&thread),
             Effect::ApiReply { outcome, .. } => self.api_outcome = Some(outcome),
+            effect @ (Effect::CapturePage(_)
+            | Effect::AskCandidates { .. }
+            | Effect::ReplayPointer { .. }
+            | Effect::AskScrollProgress(_)
+            | Effect::ScrollPage { .. }) => self.run_sync(effect),
             Effect::Navigate { page, nav } => {
-                if let Some(host) = self.hosts.get(&page) {
-                    warn_on_error(self.source.navigate(host.page, &nav));
-                }
+                self.on_host(&page, |source, host| source.navigate(host, &nav));
             }
             Effect::QueryElement { page, point } => self.query_element(&page, point),
             Effect::QueryRegionGrab { region, pages } => self.query_region_grab(region, &pages),
         }
         Ok(())
+    }
+
+    /// Runs what a sync set asks of its pages: the capture of the entered
+    /// page, a peer's candidates, a replayed pointer and the scroll.
+    fn run_sync(&mut self, effect: Effect) {
+        match effect {
+            Effect::CapturePage(page) => self.capture_page(page.as_ref()),
+            Effect::AskCandidates {
+                page,
+                request,
+                bundle,
+            } => self.on_host(&page, |source, host| {
+                source.query_candidates(host, &bundle, request)
+            }),
+            Effect::ReplayPointer { page, kind, point } => {
+                self.on_host(&page, |source, host| {
+                    source.replay_pointer(host, kind, point)
+                });
+            }
+            Effect::AskScrollProgress(page) => {
+                self.on_host(&page, |source, host| source.scroll_progress(host));
+            }
+            Effect::ScrollPage { page, progress } => {
+                self.on_host(&page, |source, host| source.scroll_to(host, progress));
+            }
+            _ => {}
+        }
+    }
+
+    /// Asks something of the backend page that hosts `page`, if one does. A
+    /// refusal is logged: the page may be closing or between documents.
+    fn on_host(
+        &mut self,
+        page: &EntityId,
+        ask: impl FnOnce(&mut dyn PageSource, PageId) -> Result<(), PageSourceError>,
+    ) {
+        if let Some(host) = self.hosts.get(page) {
+            warn_on_error(ask(self.source.as_mut(), host.page));
+        }
+    }
+
+    /// Names the page whose hovers and clicks the backend reports.
+    fn capture_page(&mut self, page: Option<&EntityId>) {
+        let host = page.and_then(|page| self.hosts.get(page));
+        warn_on_error(self.source.set_capture(host.map(|host| host.page)));
     }
 
     /// Asks the page for the element at `point`. The answer comes back

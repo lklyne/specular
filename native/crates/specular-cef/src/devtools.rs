@@ -28,8 +28,8 @@ use cef::{
 use specular_core::{DevtoolsSink, PageEvent};
 
 use crate::devtools_route::{Route, route};
-use crate::dom_query;
 use crate::page::PageContext;
+use crate::{dom_query, sync_query};
 
 /// What a message sent to a page asked for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -40,6 +40,14 @@ pub(crate) enum Asked {
     ElementsInRect(u64),
     /// The page's own devtools target id.
     Target,
+    /// How far through its document the page is scrolled.
+    ScrollProgress,
+    /// What the captured page was pointed at since it was last asked.
+    Pointed,
+    /// The elements a bundle could mean, for this request.
+    Candidates(u64),
+    /// Something done to the page, whose answer says nothing.
+    Done,
 }
 
 #[derive(Debug, Default)]
@@ -70,6 +78,10 @@ impl Pending {
 
     fn take(&self, id: c_int) -> Option<Asked> {
         self.lock().asked.remove(&id)
+    }
+
+    fn holds(&self, asked: Asked) -> bool {
+        self.lock().asked.values().any(|held| *held == asked)
     }
 }
 
@@ -137,6 +149,32 @@ wrap_dev_tools_message_observer! {
                     request,
                     count: dom_query::parse_count(result),
                 },
+                Asked::ScrollProgress => {
+                    let Some((x, y)) = dom_query::parse_scroll_progress(result) else {
+                        return;
+                    };
+                    PageEvent::ScrollProgress {
+                        page,
+                        progress: glam::Vec2::new(x, y),
+                    }
+                }
+                Asked::Pointed => {
+                    for (kind, bundle) in sync_query::parse_captured(result) {
+                        self.ctx.push(PageEvent::Pointed {
+                            page,
+                            kind,
+                            bundle: Box::new(bundle),
+                        });
+                    }
+                    return;
+                }
+                // A page that could not answer has no element to offer.
+                Asked::Candidates(request) => PageEvent::Candidates {
+                    page,
+                    request,
+                    candidates: sync_query::parse_candidates(result),
+                },
+                Asked::Done => return,
                 Asked::Target => {
                     let Some(id) = dom_query::parse_target_id(result) else {
                         tracing::warn!(%page, "page did not name its devtools target");
@@ -187,6 +225,11 @@ impl Devtools {
             self.pending.take(id);
         }
         sent
+    }
+
+    /// Whether a question of this kind is still unanswered.
+    pub(crate) fn is_asking(&self, asked: Asked) -> bool {
+        self.pending.holds(asked)
     }
 
     /// Sends a client's message as it is. Its id is the client's to keep

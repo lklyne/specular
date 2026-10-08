@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 
 use anyhow::Context as _;
 use glam::Vec2;
-use specular_core::{PageEvent, PageId, PageSpec};
+use specular_core::{PageEvent, PageId, PageSource, PageSourceError, PageSpec};
 use specular_doc::{EntityId, Rect};
 use specular_interact::{ClipboardContent, Effect, Event, ImageNotice, NoteNotice, PageRegion};
 use specular_scene::ImageId;
@@ -84,10 +84,14 @@ impl Headless {
                 self.drive(|app| app.send(Event::NoteCreated { file, rect }))?;
             }
             Effect::Navigate { page, nav } => {
-                if let Some(&host) = self.hosts.get(&page) {
-                    self.source.navigate(host, &nav)?;
-                }
+                tracing::debug!(%page, ?nav, "navigate");
+                self.on_host(&page, |source, host| source.navigate(host, &nav))?;
             }
+            effect @ (Effect::CapturePage(_)
+            | Effect::AskCandidates { .. }
+            | Effect::ReplayPointer { .. }
+            | Effect::AskScrollProgress(_)
+            | Effect::ScrollPage { .. }) => self.run_sync(effect)?,
             Effect::FocusPage(page) => {
                 let host = page.and_then(|page| self.hosts.get(&page).copied());
                 self.source.set_focus(host)?;
@@ -134,6 +138,49 @@ impl Headless {
             self.drive(|app| app.send(answer))?;
         }
         self.answer_settled_grabs()?;
+        Ok(())
+    }
+
+    /// Runs what a sync set asks of its pages: the capture of the entered
+    /// page, a peer's candidates, a replayed pointer and the scroll.
+    fn run_sync(&mut self, effect: Effect) -> anyhow::Result<()> {
+        match effect {
+            Effect::CapturePage(page) => {
+                let host = page.and_then(|page| self.hosts.get(&page).copied());
+                self.source.set_capture(host)?;
+            }
+            Effect::AskCandidates {
+                page,
+                request,
+                bundle,
+            } => self.on_host(&page, |source, host| {
+                source.query_candidates(host, &bundle, request)
+            })?,
+            Effect::ReplayPointer { page, kind, point } => {
+                self.on_host(&page, |source, host| {
+                    source.replay_pointer(host, kind, point)
+                })?;
+            }
+            Effect::AskScrollProgress(page) => {
+                self.on_host(&page, |source, host| source.scroll_progress(host))?;
+            }
+            Effect::ScrollPage { page, progress } => {
+                self.on_host(&page, |source, host| source.scroll_to(host, progress))?;
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
+    /// Asks something of the backend page that hosts `page`, if one does.
+    fn on_host(
+        &mut self,
+        page: &EntityId,
+        ask: impl FnOnce(&mut dyn PageSource, PageId) -> Result<(), PageSourceError>,
+    ) -> anyhow::Result<()> {
+        if let Some(&host) = self.hosts.get(page) {
+            ask(self.source.as_mut(), host)?;
+        }
         Ok(())
     }
 
@@ -258,6 +305,7 @@ impl Headless {
             if let Some((host, notice)) = notice_of(&event, self.source.devtools_port())
                 && let Some(page) = self.entity_of(host)
             {
+                tracing::debug!(%page, ?notice, "page notice");
                 self.drive(|app| app.send(Event::Page { page, notice }))?;
             }
             self.compositor.handle_page_event(event)?;

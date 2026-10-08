@@ -12,8 +12,8 @@ use cef::{
 };
 use glam::Vec2;
 use specular_core::{
-    CssRect, CssSize, DevtoolsSink, InputEvent, PageEvent, PageId, PageNav, PageSource,
-    PageSourceError, PageSpec, validate_texture_scale, validate_viewport,
+    CssRect, CssSize, DevtoolsSink, InputEvent, LocatorBundle, PageEvent, PageId, PageNav,
+    PageSource, PageSourceError, PageSpec, PointKind, validate_texture_scale, validate_viewport,
 };
 
 use crate::client::{new_app, new_client};
@@ -27,6 +27,7 @@ use crate::pool::OutstandingFrames;
 use crate::process::{backend_error, declare_api_version};
 #[cfg(target_os = "macos")]
 use crate::pump_timer::PumpTimer;
+use crate::sync_host::Capture;
 use crate::translate::InputTranslator;
 
 /// Pages paint opaque white under transparent content, like an Electron
@@ -36,12 +37,12 @@ const OPAQUE_WHITE: u32 = 0xFFFF_FFFF;
 /// How long shutdown waits for browsers to close.
 const CLOSE_TIMEOUT: Duration = Duration::from_secs(2);
 
-struct PageEntry {
+pub(crate) struct PageEntry {
     /// Kept for as long as the page is hosted; navigation goes through it.
     browser: Browser,
-    host: BrowserHost,
+    pub(crate) host: BrowserHost,
     /// The channel the page's elements are asked about on.
-    devtools: Devtools,
+    pub(crate) devtools: Devtools,
     geometry: Arc<Mutex<PageGeometry>>,
     input: InputTranslator,
     /// Whether the browser is shown (`WasHidden(false)`).
@@ -73,6 +74,8 @@ pub struct CefPageSource {
     pages: HashMap<PageId, PageEntry>,
     /// Where every page's devtools answers and events go.
     devtools_sink: SinkSlot,
+    /// The page whose hovers and clicks are reported, for interaction sync.
+    pub(crate) capture: Option<Capture>,
     next_id: u64,
     focused: Option<PageId>,
     alive: Arc<AtomicUsize>,
@@ -154,6 +157,7 @@ impl CefPageSource {
         Ok(Self {
             pages: HashMap::new(),
             devtools_sink: SinkSlot::default(),
+            capture: None,
             next_id: 0,
             focused: None,
             alive: Arc::new(AtomicUsize::new(0)),
@@ -191,7 +195,7 @@ impl CefPageSource {
             .ok_or(PageSourceError::UnknownPage(page))
     }
 
-    fn entry(&self, page: PageId) -> Result<&PageEntry, PageSourceError> {
+    pub(crate) fn entry(&self, page: PageId) -> Result<&PageEntry, PageSourceError> {
         self.pages
             .get(&page)
             .ok_or(PageSourceError::UnknownPage(page))
@@ -199,7 +203,7 @@ impl CefPageSource {
 }
 
 /// A question the page's devtools channel would not take.
-fn refused(what: &'static str) -> PageSourceError {
+pub(crate) fn refused(what: &'static str) -> PageSourceError {
     backend_error(CefError::Devtools(what))
 }
 
@@ -374,6 +378,36 @@ impl PageSource for CefPageSource {
         Ok(())
     }
 
+    fn scroll_progress(&mut self, page: PageId) -> Result<(), PageSourceError> {
+        self.ask_scroll_progress(page)
+    }
+
+    fn scroll_to(&mut self, page: PageId, progress: Vec2) -> Result<(), PageSourceError> {
+        self.scroll_to_progress(page, progress)
+    }
+
+    fn set_capture(&mut self, page: Option<PageId>) -> Result<(), PageSourceError> {
+        self.capture(page)
+    }
+
+    fn query_candidates(
+        &mut self,
+        page: PageId,
+        bundle: &LocatorBundle,
+        request: u64,
+    ) -> Result<(), PageSourceError> {
+        self.ask_candidates(page, bundle, request)
+    }
+
+    fn replay_pointer(
+        &mut self,
+        page: PageId,
+        kind: PointKind,
+        point: Vec2,
+    ) -> Result<(), PageSourceError> {
+        self.replay(page, kind, point)
+    }
+
     fn query_element(
         &mut self,
         page: PageId,
@@ -407,6 +441,7 @@ impl PageSource for CefPageSource {
     }
 
     fn pump(&mut self) {
+        self.poll_capture();
         // With a pump timer this is called inside a window event loop's
         // handler, where CEF's nested run-loop turn would re-enter the loop.
         #[cfg(target_os = "macos")]

@@ -7,6 +7,7 @@ use glam::Vec2;
 use crate::frame::FrameEvent;
 use crate::geometry::{CssRect, CssSize, PixelRect};
 use crate::input::InputEvent;
+use crate::locator::{LocatorBundle, LocatorCandidate};
 use crate::page::{PageId, PageSpec};
 
 /// Errors a [`PageSource`] reports.
@@ -107,6 +108,36 @@ pub enum PageEvent {
         /// The document's scroll offset, in CSS pixels.
         offset: Vec2,
     },
+    /// The answer to a [`PageSource::scroll_progress`].
+    ScrollProgress {
+        /// The page.
+        page: PageId,
+        /// How far the document is scrolled along each axis, as a fraction
+        /// of how far it can scroll: 0 at the start, 1 at the end, and 0
+        /// along an axis that does not scroll.
+        progress: Vec2,
+    },
+    /// The captured page ([`PageSource::set_capture`]) was pointed at by
+    /// real input: the pointer moved onto or within an element, or clicked
+    /// one.
+    Pointed {
+        /// The page.
+        page: PageId,
+        /// Whether it was a move or a click.
+        kind: PointKind,
+        /// The element, described so that another page can find its own.
+        bundle: Box<LocatorBundle>,
+    },
+    /// The answer to a [`PageSource::query_candidates`].
+    Candidates {
+        /// The page.
+        page: PageId,
+        /// The `request` the question carried.
+        request: u64,
+        /// The page's visible elements, or the one that carries the
+        /// bundle's id.
+        candidates: Vec<LocatorCandidate>,
+    },
     /// The answer to a [`PageSource::query_element`].
     ElementAt {
         /// The page.
@@ -146,6 +177,16 @@ pub const DEVTOOLS_CLIENT_ID_BASE: i32 = 1 << 30;
 /// text is one devtools-protocol JSON message. Called on the main thread,
 /// from inside [`PageSource::pump`] or the backend's own message loop.
 pub type DevtoolsSink = Arc<dyn Fn(PageId, &str) + Send + Sync>;
+
+/// What a pointer did to an element: the two things interaction sync
+/// replays (ADR 0030).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum PointKind {
+    /// Moved onto it, or within it.
+    Hover,
+    /// Pressed and released the primary button on it.
+    Click,
+}
 
 /// A move through a page's session history, or a new address for it.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -231,6 +272,16 @@ pub trait PageSource {
     /// [`PageEvent::Loading`].
     fn navigate(&mut self, page: PageId, nav: &PageNav) -> Result<(), PageSourceError>;
 
+    /// Asks how far the page's document is scrolled, as a fraction of how
+    /// far it can scroll. Answered by a [`PageEvent::ScrollProgress`].
+    fn scroll_progress(&mut self, page: PageId) -> Result<(), PageSourceError>;
+
+    /// Scrolls the page's document to `progress` of how far it can scroll
+    /// along each axis, clamped to `0..=1`: the same fraction lands a short
+    /// document and a long one at the same place in their content. The
+    /// move is reported like any other, by a [`PageEvent::Scrolled`].
+    fn scroll_to(&mut self, page: PageId, progress: Vec2) -> Result<(), PageSourceError>;
+
     /// Asks which element the page has under `point`, in its viewport CSS
     /// pixels. Every accepted question is answered once, by a
     /// [`PageEvent::ElementAt`] carrying `request`, unless the page closes
@@ -250,6 +301,31 @@ pub trait PageSource {
         page: PageId,
         rect: CssRect,
         request: u64,
+    ) -> Result<(), PageSourceError>;
+
+    /// Names the one page whose hovers and clicks are reported as
+    /// [`PageEvent::Pointed`], or none. Only input the user gave is
+    /// reported, so the page must be the one that receives it.
+    fn set_capture(&mut self, page: Option<PageId>) -> Result<(), PageSourceError>;
+
+    /// Asks the page for the elements `bundle` could be describing.
+    /// Answered by a [`PageEvent::Candidates`] carrying `request`, unless
+    /// the page closes or navigates first.
+    fn query_candidates(
+        &mut self,
+        page: PageId,
+        bundle: &LocatorBundle,
+        request: u64,
+    ) -> Result<(), PageSourceError>;
+
+    /// Replays a hover or a click at `point`, in the page's viewport CSS
+    /// pixels, as trusted input: the page reacts as it does to the user's
+    /// (`:hover`, focus, native controls), whether or not it has focus.
+    fn replay_pointer(
+        &mut self,
+        page: PageId,
+        kind: PointKind,
+        point: Vec2,
     ) -> Result<(), PageSourceError>;
 
     /// Port of the backend's remote-debugging (CDP) endpoint, if enabled.

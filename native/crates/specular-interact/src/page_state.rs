@@ -10,7 +10,7 @@ use specular_doc::{Command, EntityId, Kind, Page};
 
 use crate::anchor::canonical_page_url;
 use crate::app::page_of;
-use crate::{App, Effect, PageNotice};
+use crate::{App, Effect, PageNotice, sync};
 
 /// The live state of one hosted page.
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -82,7 +82,11 @@ pub(crate) fn on_notice(app: &mut App, page: &EntityId, notice: &PageNotice) -> 
             }
         }
         PageNotice::Crashed { .. } => state.loading = false,
-        PageNotice::Loaded { .. } | PageNotice::ImeCompositionBounds(_) => {}
+        PageNotice::Loaded { .. }
+        | PageNotice::ImeCompositionBounds(_)
+        | PageNotice::ScrollProgress { .. }
+        | PageNotice::Pointed { .. }
+        | PageNotice::Candidates { .. } => {}
     }
     false
 }
@@ -123,7 +127,7 @@ pub(crate) fn target(app: &App) -> Option<&EntityId> {
 
 /// Navigates the target page. Going back or forward does nothing where
 /// the page has said there is nowhere to go.
-pub(crate) fn navigate(app: &App, nav: PageNav, effects: &mut Vec<Effect>) {
+pub(crate) fn navigate(app: &mut App, nav: PageNav, effects: &mut Vec<Effect>) {
     let Some(page) = target(app) else {
         return;
     };
@@ -138,10 +142,18 @@ pub(crate) fn navigate(app: &App, nav: PageNav, effects: &mut Vec<Effect>) {
     if !allowed {
         return;
     }
+    drive(app, &page.clone(), nav, effects);
+}
+
+/// Sends `page` through `nav` and its sync set with it.
+pub(crate) fn drive(app: &mut App, page: &EntityId, nav: PageNav, effects: &mut Vec<Effect>) {
+    let mut followers = Vec::new();
+    sync::on_driven(app, page, &nav, &mut followers);
     effects.push(Effect::Navigate {
         page: page.clone(),
         nav,
     });
+    effects.append(&mut followers);
 }
 
 /// Whether `nav` can be asked of `page`: it is a page, and for a step back

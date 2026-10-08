@@ -78,6 +78,7 @@ mod sidebar;
 mod space;
 mod stack_order;
 mod strokes;
+mod sync;
 mod time;
 mod tool;
 mod tool_defaults;

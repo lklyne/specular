@@ -2,7 +2,10 @@
 
 use glam::Vec2;
 use specular_agent::{Index, Notice, Thread, ThreadId};
-use specular_core::{Camera, ImeEvent, Modifiers, PageElement, PixelRect, PointerEventKind};
+use specular_core::{
+    Camera, ImeEvent, LocatorBundle, LocatorCandidate, Modifiers, PageElement, PixelRect,
+    PointKind, PointerEventKind,
+};
 use specular_doc::{AnnotationId, Document, EntityId, ItemId, Rect};
 
 use crate::{
@@ -281,6 +284,31 @@ pub enum PageNotice {
         /// Along y.
         y: f64,
     },
+    /// How far the document is scrolled as a fraction of how far it can
+    /// scroll: the answer to an
+    /// [`Effect::AskScrollProgress`](crate::Effect::AskScrollProgress).
+    ScrollProgress {
+        /// Along x, in `0..=1`.
+        x: f64,
+        /// Along y, in `0..=1`.
+        y: f64,
+    },
+    /// The captured page was pointed at by the user: a hover or a click
+    /// on an element, described so that a peer can find its own.
+    Pointed {
+        /// A move or a click.
+        kind: PointKind,
+        /// The element.
+        bundle: Box<LocatorBundle>,
+    },
+    /// The page's elements a bundle could mean: the answer to an
+    /// [`Effect::AskCandidates`](crate::Effect::AskCandidates).
+    Candidates {
+        /// The request the question carried.
+        request: u64,
+        /// The elements.
+        candidates: Vec<LocatorCandidate>,
+    },
     /// The page's remote-debugging websocket is known.
     DevtoolsUrl(String),
 }
@@ -389,6 +417,11 @@ pub enum Action {
     PageStop,
     /// Take that page to an address, as one typed in its address field.
     PageNavigate(String),
+    /// Toggle the sync set of the selected pages (ADR 0027). Two or more
+    /// pages that already share one set leave it; otherwise they all join
+    /// one new set. One selected page that is in a set leaves it. A set
+    /// left with one page is dissolved. One undo step.
+    ToggleSync,
     /// Change the space's canvases: show another, add, rename, copy or
     /// remove one.
     Canvas(CanvasAction),

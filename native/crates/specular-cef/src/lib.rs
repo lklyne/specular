@@ -30,6 +30,7 @@ pub mod devtools_route;
 pub mod dom_query;
 pub mod page;
 pub mod pool;
+pub mod sync_query;
 pub mod translate;
 
 #[cfg(all(feature = "cef", target_os = "macos"))]
@@ -52,6 +53,8 @@ mod process;
 mod pump_timer;
 #[cfg(feature = "cef")]
 mod source;
+#[cfg(feature = "cef")]
+mod sync_host;
 
 pub use config::{CefConfig, Pump};
 #[cfg(feature = "cef")]

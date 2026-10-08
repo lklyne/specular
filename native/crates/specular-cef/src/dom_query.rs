@@ -18,7 +18,7 @@ const MAX_GRABBED: u32 = 15;
 
 /// Helpers both expressions share: the readable path and the selector that
 /// finds the element again.
-const HELPERS: &str = r#"
+pub(crate) const HELPERS: &str = r#"
 const segment = (e) => {
   const tag = e.tagName.toLowerCase();
   const id = e.getAttribute('id');
@@ -107,6 +107,25 @@ while (count < __MAX__ && walker.nextNode()) count += 1;
 return String(count);
 ";
 
+/// How far the document can scroll along each axis, as
+/// `src/shared/scroll-sync.ts` measures it.
+const SCROLL_EXTENT: &str = r"
+const root = document.documentElement, body = document.body;
+const maxX = Math.max(0, (root ? root.scrollWidth : 0) - innerWidth, (body ? body.scrollWidth : 0) - innerWidth);
+const maxY = Math.max(0, (root ? root.scrollHeight : 0) - innerHeight, (body ? body.scrollHeight : 0) - innerHeight);
+";
+
+const SCROLL_PROGRESS: &str = r"
+return JSON.stringify({ x: maxX > 0 ? scrollX / maxX : 0, y: maxY > 0 ? scrollY / maxY : 0 });
+";
+
+/// `instant` so a page styled with `scroll-behavior: smooth` lands where it
+/// was sent and not somewhere on the way.
+const SCROLL_TO: &str = r"
+scrollTo({ left: maxX * __X__, top: maxY * __Y__, behavior: 'instant' });
+return 'ok';
+";
+
 /// A finite number as a JavaScript literal. Anything else reads as zero, so
 /// a bad coordinate cannot break out of the expression.
 fn number(value: f32) -> String {
@@ -154,6 +173,30 @@ pub fn elements_in_rect_message(id: i32, rect: CssRect) -> Vec<u8> {
     evaluate(id, &expression(ELEMENTS_IN_RECT, &values))
 }
 
+/// The message that asks how far through its document a page is scrolled.
+pub fn scroll_progress_message(id: i32) -> Vec<u8> {
+    evaluate(
+        id,
+        &format!("(() => {{{SCROLL_EXTENT}{SCROLL_PROGRESS}}})()"),
+    )
+}
+
+/// The message that scrolls a page to a fraction of how far it can scroll.
+pub fn scroll_to_message(id: i32, x: f32, y: f32) -> Vec<u8> {
+    let body = SCROLL_TO
+        .replace("__X__", &number(x.clamp(0.0, 1.0)))
+        .replace("__Y__", &number(y.clamp(0.0, 1.0)));
+    evaluate(id, &format!("(() => {{{SCROLL_EXTENT}{body}}})()"))
+}
+
+/// The fractions a [`scroll_progress_message`] found. `None` for an answer
+/// that cannot be read.
+pub fn parse_scroll_progress(result: &[u8]) -> Option<(f32, f32)> {
+    let found: Value = serde_json::from_str(&returned(result)?).ok()?;
+    let along = |key: &str| Some((found.get(key)?.as_f64()? as f32).clamp(0.0, 1.0));
+    Some((along("x")?, along("y")?))
+}
+
 /// The message that asks a page for its own devtools target.
 pub fn target_info_message(id: i32) -> Vec<u8> {
     json!({ "id": id, "method": "Target.getTargetInfo" })
@@ -163,7 +206,7 @@ pub fn target_info_message(id: i32) -> Vec<u8> {
 
 /// The string an expression returned, from a `Runtime.evaluate` result.
 /// `None` when the page threw or returned something else.
-fn returned(result: &[u8]) -> Option<String> {
+pub(crate) fn returned(result: &[u8]) -> Option<String> {
     let result: Value = serde_json::from_slice(result).ok()?;
     if result.get("exceptionDetails").is_some() {
         return None;
@@ -265,6 +308,21 @@ mod tests {
         assert_eq!(parse_element(thrown), None);
         assert_eq!(parse_element(b"not json"), None);
         assert_eq!(parse_element(&value_result(r#"{"selector":"a"}"#)), None);
+    }
+
+    #[test]
+    fn scrolling_is_asked_and_answered_as_a_fraction_of_the_scrollable_extent() {
+        let ask = sent(&scroll_progress_message(4));
+        let ask = ask["params"]["expression"].as_str().unwrap();
+        assert!(ask.contains("scrollY / maxY"));
+        let answer = value_result(r#"{"x":0,"y":0.25}"#);
+        assert_eq!(parse_scroll_progress(&answer), Some((0.0, 0.25)));
+        assert_eq!(parse_scroll_progress(&value_result("nope")), None);
+
+        let go = sent(&scroll_to_message(5, 0.0, 1.5));
+        let go = go["params"]["expression"].as_str().unwrap();
+        assert!(go.contains("left: maxX * (0), top: maxY * (1)"));
+        assert!(!go.contains("__"), "a placeholder was left in");
     }
 
     #[test]

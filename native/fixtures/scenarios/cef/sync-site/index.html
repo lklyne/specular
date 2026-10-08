@@ -1,0 +1,30 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Sync home</title>
+<style>
+  body { margin: 0; font: 24px system-ui; }
+  header { position: relative; height: 200px; background: #234; color: #fff; }
+  .menu { position: absolute; left: 20px; top: 20px; width: 120px; height: 40px; font: inherit; }
+  .next { position: absolute; left: 200px; top: 20px; width: 200px; height: 40px; line-height: 40px; color: #9cf; }
+  #panel { position: absolute; left: 20px; top: 80px; padding: 10px 20px; background: #fc3; color: #000; }
+  section { height: 600px; padding: 40px; box-sizing: border-box; font-size: 48px; }
+  section:nth-child(odd) { background: #cde; }
+  /* A narrow page puts the button on the other side and is a longer document. */
+  @media (max-width: 600px) {
+    .menu { left: auto; right: 20px; top: 120px; }
+    .next { left: 20px; top: 20px; }
+    #panel { top: 70px; }
+    section { height: 1000px; }
+  }
+</style>
+<header>
+  <button class="menu" onclick="panel.hidden = !panel.hidden">Menu</button>
+  <a class="next" href="second.html">Second page</a>
+  <div id="panel" hidden>Menu is open</div>
+</header>
+<main>
+  <section>Section one</section>
+  <section>Section two</section>
+  <section>Section three</section>
+  <section>Section four</section>
+</main>

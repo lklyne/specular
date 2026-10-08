@@ -2,7 +2,7 @@
 
 use glam::Vec2;
 use specular_agent::{RunRequest, ThreadId};
-use specular_core::{CssSize, InputEvent, PageNav};
+use specular_core::{CssSize, InputEvent, LocatorBundle, PageNav, PointKind};
 use specular_doc::{EntityId, Rect};
 
 use crate::{ApiOutcome, AssetBytes, CanvasId, ImageKey, PageRegion, ToolDefaults};
@@ -45,6 +45,43 @@ pub enum Effect {
         page: EntityId,
         /// Where to.
         nav: PageNav,
+    },
+    /// Ask a hosted page how far its document is scrolled, as a fraction of
+    /// how far it can scroll. The answer is a
+    /// [`PageNotice::ScrollProgress`](crate::PageNotice::ScrollProgress).
+    AskScrollProgress(EntityId),
+    /// Scroll a hosted page's document to a fraction of how far it can
+    /// scroll: what keeps the pages of a sync set at the same place in
+    /// their content whatever their widths.
+    ScrollPage {
+        /// The page entity.
+        page: EntityId,
+        /// The fraction along x and y, each in `0..=1`.
+        progress: Vec2,
+    },
+    /// Report the hovers and clicks the user gives this page, as
+    /// [`PageNotice::Pointed`](crate::PageNotice::Pointed), and no other
+    /// page's. `None` stops the reports.
+    CapturePage(Option<EntityId>),
+    /// Ask a hosted page for the elements `bundle` could mean. The answer
+    /// is a [`PageNotice::Candidates`](crate::PageNotice::Candidates) with
+    /// this `request`.
+    AskCandidates {
+        /// The page entity.
+        page: EntityId,
+        /// What the answer repeats.
+        request: u64,
+        /// The element another page was pointed at.
+        bundle: Box<LocatorBundle>,
+    },
+    /// Replay a hover or a click on a hosted page as trusted input.
+    ReplayPointer {
+        /// The page entity.
+        page: EntityId,
+        /// A move or a click.
+        kind: PointKind,
+        /// Where, in the page's viewport CSS pixels.
+        point: Vec2,
     },
     /// Give a page keyboard focus, or take it from every page.
     FocusPage(Option<EntityId>),
