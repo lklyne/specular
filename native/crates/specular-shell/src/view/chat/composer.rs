@@ -21,7 +21,9 @@ use gpui_kit::{
 };
 use specular_interact::{Action, ChatAction, Composer, Event};
 
-use super::chips::{chip, draft_chip, muted, open_comments, pill_icon, queued, remove_button};
+use super::chips::{
+    auto_chip, chip, draft_chip, muted, open_comments, pill_icon, queued, remove_button,
+};
 use crate::canvas;
 use crate::theme;
 use crate::view::{ShellView, focus_canvas};
@@ -172,7 +174,8 @@ impl ShellView {
                     .unwrap_or(false)
             });
         let folder = model.folder.as_ref().map(|folder| {
-            let written = SharedString::from(format!("Changes are written to {folder}"));
+            let target = model.folder_path.as_ref().unwrap_or(folder);
+            let written = SharedString::from(format!("Changes are written to {target}"));
             chip("chat-folder", Icon::new(IconName::FolderOpen), folder)
                 .tooltip(move |window, cx| Tooltip::new(written.clone()).build(window, cx))
         });
@@ -192,7 +195,8 @@ impl ShellView {
                         pill_icon(model.pill.kind),
                         &model.pill.label,
                     ))
-                    .children(folder),
+                    .children(folder)
+                    .children(model.auto.as_ref().map(auto_chip)),
             )
             .child(Self::send_button(ready, cx));
 

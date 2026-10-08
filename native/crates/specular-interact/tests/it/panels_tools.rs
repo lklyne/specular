@@ -19,6 +19,7 @@ fn the_toolbar_at_rest_has_the_eight_tools_in_groups_and_the_zoom_levels() {
     tool [ ] tool.document "Document" icon=DocumentTool -> SetTool(AddDocument)
     ---
     tool [ ] tool.comment "Comment" icon=CommentTool chord=c -> SetTool(Comment)
+    tool [ ] tool.inspect "Inspect" icon=InspectTool chord=i -> SetTool(Inspect)
     ---
     dropdown zoom "Zoom" shows text="100%"
       options list
@@ -53,6 +54,7 @@ fn the_toolbar_follows_the_active_tool_the_defaults_and_the_zoom() {
     tool [ ] tool.document "Document" icon=DocumentTool -> SetTool(AddDocument)
     ---
     tool [ ] tool.comment "Comment" icon=CommentTool chord=c -> SetTool(Comment)
+    tool [ ] tool.inspect "Inspect" icon=InspectTool chord=i -> SetTool(Inspect)
     ---
     dropdown zoom "Zoom" shows text="80%"
       options list

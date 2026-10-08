@@ -145,6 +145,9 @@ impl<W: ShellWindow> Runtime<W> {
                 self.on_host(&page, |source, host| source.navigate(host, &nav));
             }
             Effect::QueryElement { page, point } => self.query_element(&page, point),
+            Effect::InspectAt { page, point, pick } => self.inspect_at(&page, point, pick),
+            Effect::SaveRepos => self.save_repos(),
+            Effect::PickRepoFolder { origin } => self.pick_repo_folder(origin),
             Effect::QueryRegionGrab { region, pages } => self.query_region_grab(region, &pages),
         }
         Ok(())
@@ -202,6 +205,17 @@ impl<W: ShellWindow> Runtime<W> {
         let asked = (self.hosts.get(page))
             .is_some_and(|host| self.source.query_element(host.page, point, request).is_ok());
         if !asked && let Some(answer) = self.queries.element_answer(request, None) {
+            self.dispatch(answer);
+        }
+    }
+
+    /// Asks the page for the node at `point` as the inspect tool reads it.
+    /// A page that cannot be asked has none.
+    fn inspect_at(&mut self, page: &EntityId, point: Vec2, pick: bool) {
+        let request = self.queries.ask_inspect(page.clone(), point, pick);
+        let asked = (self.hosts.get(page))
+            .is_some_and(|host| self.source.inspect_at(host.page, point, request).is_ok());
+        if !asked && let Some(answer) = self.queries.inspect_answer(request, None) {
             self.dispatch(answer);
         }
     }

@@ -70,7 +70,7 @@ pub(crate) fn begin(tool: Tool, world: DVec2) -> Option<PlaceDrag> {
         Tool::AddSticky => Placing::Text(TextStyle::Sticky),
         Tool::AddShape => Placing::Shape,
         Tool::AddDocument => Placing::Document,
-        Tool::Select | Tool::Draw | Tool::Comment => return None,
+        Tool::Select | Tool::Draw | Tool::Comment | Tool::Inspect => return None,
     };
     Some(PlaceDrag {
         what,

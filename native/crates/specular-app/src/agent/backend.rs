@@ -48,10 +48,12 @@ pub enum Output {
 
 /// Starts agent runs. The one seam between the app and the `claude` process.
 pub trait AgentBackend: Send {
-    /// Starts a run in `cwd`.
+    /// Starts a run in `cwd`. The request's images are paths relative to
+    /// `space`, the space folder, which `cwd` may not be.
     fn start(
         &mut self,
         request: &RunRequest,
+        space: &Path,
         cwd: &Path,
     ) -> Result<Box<dyn AgentProcess>, AgentError>;
 
@@ -74,7 +76,12 @@ pub trait AgentProcess: Send {
 pub struct Disabled;
 
 impl AgentBackend for Disabled {
-    fn start(&mut self, _: &RunRequest, _: &Path) -> Result<Box<dyn AgentProcess>, AgentError> {
+    fn start(
+        &mut self,
+        _: &RunRequest,
+        _: &Path,
+        _: &Path,
+    ) -> Result<Box<dyn AgentProcess>, AgentError> {
         Err(AgentError::Off)
     }
 }

@@ -69,6 +69,7 @@ fn each_tool_key_arms_its_tool() {
         ('r', Tool::AddShape),
         ('o', Tool::AddShape),
         ('c', Tool::Comment),
+        ('i', Tool::Inspect),
         ('m', Tool::Draw),
         ('v', Tool::Select),
     ] {

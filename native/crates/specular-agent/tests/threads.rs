@@ -3,7 +3,7 @@
 mod common;
 
 use common::{TAB, comment, ctx, id, send};
-use specular_agent::{Changed, Index, Status, Threads};
+use specular_agent::{Changed, Index, Join, Notice, Status, Threads};
 
 const NOW: &str = "2026-01-01T00:00:09Z";
 
@@ -211,4 +211,44 @@ fn load_drops_an_active_id_that_names_nothing_or_a_closed_thread() {
             .index_json(Some("tab_b"))
             .contains("\"activeThreadId\": \"t2\"")
     );
+}
+
+#[test]
+fn a_self_sending_comment_joins_the_open_thread_but_a_waiting_one_starts_a_draft() {
+    let mut threads = Threads::default();
+    let first = comment(&mut threads, "t1", "m1", "pin1", "one");
+    threads.begin_run(&first, NOW, &ctx());
+    threads.on_notice(&first, Notice::Session("s".into()), "a0", NOW);
+    threads.on_notice(
+        &first,
+        Notice::Finished {
+            text: "Done <<RESOLVE>>".into(),
+        },
+        "a1",
+        NOW,
+    );
+    assert_eq!(threads.get(&first).unwrap().status, Status::Open);
+
+    let (waiting, _) = threads
+        .clone()
+        .queue_comment(TAB, id("t2"), "m2", "pin2", "w", NOW);
+    assert_eq!(waiting, id("t2"));
+
+    let (joined, _) = threads.queue_comment_joining(
+        TAB,
+        id("t3"),
+        "m3",
+        "pin3",
+        "auto",
+        Vec::new(),
+        Join::Active,
+        NOW,
+    );
+    assert_eq!(joined, first);
+    assert_eq!(threads.get(&first).unwrap().messages.len(), 3);
+    assert_eq!(
+        threads.comment_thread_joining(TAB, "pin4", &id("t4"), Join::Active),
+        first
+    );
+    assert_eq!(threads.comment_thread(TAB, "pin4", &id("t4")), id("t4"));
 }

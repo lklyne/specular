@@ -1,8 +1,8 @@
 //! The prompts a run starts with.
 
 use specular_agent::{
-    CommentContext, Message, Pill, PromptContext, Role, Status, Thread, ThreadId, WriteTarget,
-    follow_up_prompt, thread_prompt,
+    CommentContext, Image, MediaType, Message, Pill, PromptContext, Role, Status, Thread, ThreadId,
+    WriteTarget, follow_up_prompt, thread_prompt,
 };
 
 fn message(role: Role, text: &str, annotation: Option<&str>) -> Message {
@@ -88,26 +88,38 @@ Inspecting a live page (when one is in play):
 }
 
 #[test]
-fn the_repo_target_and_the_empty_pill_read_differently() {
+fn the_repo_target_works_in_the_repo_and_reads_images_from_the_space() {
     let target = WriteTarget::Repo {
         origin: "http://localhost:3000".into(),
         repo_path: "/repo".into(),
     };
-    let prompt = thread_prompt(&thread(), &context(target, Pill::Empty));
-    let head: Vec<&str> = prompt.lines().take(8).collect();
+    let mut thread = thread();
+    thread.messages[2].images.push(Image {
+        path: ".specular/threads/tab/attachments/t1/img_1.png".into(),
+        media_type: MediaType::Png,
+    });
+    let prompt = thread_prompt(&thread, &context(target.clone(), Pill::Empty));
+    let head: Vec<&str> = prompt.lines().take(9).collect();
     assert_eq!(
         head,
         [
-            "Working directory (space folder): /space",
+            "Working directory (linked repo): /repo",
+            "Space folder: /space",
             "This turn should change source for http://localhost:3000 in the repo at /repo.",
             "Edit that repo. Pages already on the canvas reload from source.",
             "Anything new reaches the user only once it is on the canvas: `specular add page <full url> --at x,y`.",
             "",
             "Current selection: Home",
             "",
-            "Thread:",
+            "Images the user pasted this turn are attached; earlier ones are at the listed paths.",
         ]
     );
+    assert!(prompt.contains(
+        "[User] And bigger [image: /space/.specular/threads/tab/attachments/t1/img_1.png]"
+    ));
+
+    let space = thread_prompt(&thread, &context(WriteTarget::Space, Pill::Empty));
+    assert!(space.contains("[image: .specular/threads/tab/attachments/t1/img_1.png]"));
 }
 
 #[test]

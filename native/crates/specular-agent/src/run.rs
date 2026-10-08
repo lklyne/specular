@@ -26,10 +26,16 @@ pub struct Run {
     pub(crate) fallback_prompt: String,
     pub(crate) resumed: bool,
     pub(crate) images: Vec<Image>,
+    pub(crate) cwd: Option<String>,
 }
 
 impl Run {
-    pub(crate) fn new(fallback_prompt: String, resumed: bool, images: Vec<Image>) -> Self {
+    pub(crate) fn new(
+        fallback_prompt: String,
+        resumed: bool,
+        images: Vec<Image>,
+        cwd: Option<String>,
+    ) -> Self {
         Self {
             events: Vec::new(),
             text: String::new(),
@@ -38,6 +44,7 @@ impl Run {
             fallback_prompt,
             resumed,
             images,
+            cwd,
         }
     }
 

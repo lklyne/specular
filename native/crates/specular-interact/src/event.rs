@@ -1,16 +1,16 @@
 //! [`Event`]: everything that can happen to an [`App`](crate::App).
 
 use glam::Vec2;
-use specular_agent::{Index, Notice, Thread, ThreadId};
+use specular_agent::{Index, Notice, Repos, Thread, ThreadId};
 use specular_core::{
-    Camera, ImeEvent, LocatorBundle, LocatorCandidate, Modifiers, PageElement, PixelRect,
-    PointKind, PointerEventKind,
+    Camera, ImeEvent, InspectedNode, LocatorBundle, LocatorCandidate, Modifiers, PageElement,
+    PixelRect, PointKind, PointerEventKind,
 };
 use specular_doc::{AnnotationId, Document, EntityId, ItemId, Rect};
 
 use crate::{
     ApiCall, ArrangeMode, CanvasId, ChatAction, ClipboardContent, DroppedFile, Format, ImageKey,
-    ImageNotice, NoteNotice, OpenedSpace, PageGrab, Property, SidebarAction, Tool,
+    ImageNotice, NoteNotice, OpenedSpace, PageGrab, Property, RepoAction, SidebarAction, Tool,
     ToolDefaultPatch, ToolDefaults,
 };
 
@@ -161,6 +161,9 @@ pub enum Event {
         /// What it said.
         notice: Notice,
     },
+    /// The connected repos were read from `repos.json`. Replaces the ones
+    /// held and asks for no save.
+    ReposLoaded(Box<Repos>),
     /// A change the HTTP API asked for. It is answered with an
     /// [`Effect::ApiReply`](crate::Effect::ApiReply) carrying its ticket.
     Api(ApiCall),
@@ -309,6 +312,16 @@ pub enum PageNotice {
         /// The elements.
         candidates: Vec<LocatorCandidate>,
     },
+    /// The node the page has under a point: the answer to an
+    /// [`Effect::InspectAt`](crate::Effect::InspectAt).
+    Inspected {
+        /// The point asked about, in the page's viewport CSS pixels.
+        point: Vec2,
+        /// Whether a click asked.
+        pick: bool,
+        /// The node there, if the page has one.
+        node: Option<Box<InspectedNode>>,
+    },
     /// The page's remote-debugging websocket is known.
     DevtoolsUrl(String),
 }
@@ -437,6 +450,8 @@ pub enum Action {
     Canvas(CanvasAction),
     /// Something done in the right panel: its threads, its composer.
     Chat(ChatAction),
+    /// A change to the connected repos and the origins bound to them.
+    Repo(RepoAction),
     /// Set one field of the selection, as a popup control does. It applies
     /// to every selected item it means something for, as one undo step.
     SetProperty(Property),

@@ -22,6 +22,17 @@ impl Changed {
     }
 }
 
+/// Which of the canvas's threads a new comment may join.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Join {
+    /// Only a draft: a comment waiting for Send never lands in a thread the
+    /// agent has already answered in.
+    Draft,
+    /// The canvas's active thread, draft or open: a comment that sends
+    /// itself continues the conversation in front of the user.
+    Active,
+}
+
 /// Every thread of the space, the active thread of each canvas, and the runs
 /// in flight.
 #[derive(Debug, Clone, Default)]
@@ -200,8 +211,34 @@ impl Threads {
         images: Vec<Image>,
         now: &str,
     ) -> (ThreadId, Changed) {
+        self.queue_comment_joining(
+            tab,
+            new_thread_id,
+            message_id,
+            annotation_id,
+            text,
+            images,
+            Join::Draft,
+            now,
+        )
+    }
+
+    /// [`queue_comment_with_images`](Self::queue_comment_with_images) with a
+    /// say in which thread the comment may join.
+    #[expect(clippy::too_many_arguments, reason = "mirrors queue_comment")]
+    pub fn queue_comment_joining(
+        &mut self,
+        tab: &str,
+        new_thread_id: ThreadId,
+        message_id: &str,
+        annotation_id: &str,
+        text: &str,
+        images: Vec<Image>,
+        join: Join,
+        now: &str,
+    ) -> (ThreadId, Changed) {
         let before = self.active.clone();
-        let (id, key) = self.comment_home(tab, annotation_id, new_thread_id);
+        let (id, key) = self.comment_home(tab, annotation_id, new_thread_id, join);
         if self.get(&id).is_none() {
             self.insert_draft(&key, id.clone(), now);
         }
@@ -233,7 +270,19 @@ impl Threads {
         annotation_id: &str,
         new_thread_id: &ThreadId,
     ) -> ThreadId {
-        self.comment_home(tab, annotation_id, new_thread_id.clone())
+        self.comment_thread_joining(tab, annotation_id, new_thread_id, Join::Draft)
+    }
+
+    /// [`comment_thread`](Self::comment_thread) for a comment queued with
+    /// [`queue_comment_joining`](Self::queue_comment_joining).
+    pub fn comment_thread_joining(
+        &self,
+        tab: &str,
+        annotation_id: &str,
+        new_thread_id: &ThreadId,
+        join: Join,
+    ) -> ThreadId {
+        self.comment_home(tab, annotation_id, new_thread_id.clone(), join)
             .0
     }
 
@@ -242,15 +291,16 @@ impl Threads {
         tab: &str,
         annotation_id: &str,
         new_thread_id: ThreadId,
+        join: Join,
     ) -> (ThreadId, String) {
         if let Some(found) = self.thread_of_annotation(annotation_id) {
             return (found.id.clone(), found.tab_id.clone());
         }
-        let draft = self
+        let joined = self
             .active(tab)
-            .filter(|t| t.status == Status::Draft)
+            .filter(|t| join == Join::Active || t.status == Status::Draft)
             .map(|t| t.id.clone());
-        (draft.unwrap_or(new_thread_id), tab.to_owned())
+        (joined.unwrap_or(new_thread_id), tab.to_owned())
     }
 
     /// The composer's text (and images) as a queued message on the active

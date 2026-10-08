@@ -42,6 +42,11 @@ impl<W: ShellWindow> Runtime<W> {
                     cdp.navigated(&entity, url);
                 }
             }
+            PageEvent::Inspected { request, node, .. } => {
+                if let Some(answer) = self.queries.inspect_answer(*request, node.clone()) {
+                    self.dispatch(answer);
+                }
+            }
             PageEvent::ElementsInRect { request, count, .. } => {
                 self.queries.grab_answer(*request, *count);
                 self.answer_settled_grabs();

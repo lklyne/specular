@@ -190,6 +190,7 @@ impl Compositor {
             | PageEvent::Candidates { .. }
             | PageEvent::ElementAt { .. }
             | PageEvent::ElementsInRect { .. }
+            | PageEvent::Inspected { .. }
             | PageEvent::DevtoolsTarget { .. } => Ok(()),
         }
     }

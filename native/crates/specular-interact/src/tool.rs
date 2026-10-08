@@ -26,11 +26,13 @@ pub enum Tool {
     Draw,
     /// Comment on a point, an element or a region.
     Comment,
+    /// Read the DOM node under the pointer, and pick one with a click.
+    Inspect,
 }
 
 impl Tool {
     /// Every tool, in toolbar order.
-    pub const ALL: [Self; 8] = [
+    pub const ALL: [Self; 9] = [
         Self::Select,
         Self::AddPage,
         Self::AddText,
@@ -39,6 +41,7 @@ impl Tool {
         Self::AddShape,
         Self::Draw,
         Self::Comment,
+        Self::Inspect,
     ];
 
     /// The cursor shown over the canvas while the tool is active.
@@ -51,7 +54,8 @@ impl Tool {
             | Self::AddDocument
             | Self::AddShape
             | Self::Draw
-            | Self::Comment => Cursor::Crosshair,
+            | Self::Comment
+            | Self::Inspect => Cursor::Crosshair,
         }
     }
 }

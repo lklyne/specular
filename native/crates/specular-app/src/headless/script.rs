@@ -253,6 +253,7 @@ fn tool_named(name: &str) -> anyhow::Result<Tool> {
         "shape" => Tool::AddShape,
         "draw" => Tool::Draw,
         "comment" => Tool::Comment,
+        "inspect" => Tool::Inspect,
         other => bail!("unknown tool `{other}`"),
     })
 }

@@ -147,6 +147,15 @@ pub enum PageEvent {
         /// The element under the point, or `None` when nothing is there.
         element: Option<PageElement>,
     },
+    /// The answer to a [`PageSource::inspect_at`].
+    Inspected {
+        /// The page.
+        page: PageId,
+        /// The `request` the question carried.
+        request: u64,
+        /// The node under the point, or `None` when nothing is there.
+        node: Option<Box<InspectedNode>>,
+    },
     /// The answer to a [`PageSource::query_elements_in_rect`].
     ElementsInRect {
         /// The page.
@@ -212,6 +221,43 @@ pub struct PageElement {
     pub element_path: Option<String>,
     /// The element's box in the page's viewport, in CSS pixels.
     pub bounding_box: PixelRect,
+}
+
+/// A DOM node as the inspect tool reads it: what its outline, its popover
+/// and the chat's pill show (`inspectionPayload` in the Electron app).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InspectedNode {
+    /// What names the node within its page: its `id` attribute, else its
+    /// `data-testid`, else `tag@left:top`.
+    pub node_id: String,
+    /// The tag name, in lower case.
+    pub tag_name: String,
+    /// The tag and the node's text in quotes (`button "Save"`), or the tag
+    /// alone when it has no text, label, title, value, placeholder or alt.
+    pub name: String,
+    /// A CSS selector that finds the node in its document.
+    pub selector: String,
+    /// The `id` attribute, when it has one.
+    pub id_attribute: Option<String>,
+    /// The node's classes, in document order.
+    pub classes: Vec<String>,
+    /// Computed styles as `(property, value)`, in this order: `display`,
+    /// `position`, `font-family`, `font-size`, `font-weight`, `color`,
+    /// `background`, `padding`, `margin`. `background` is the computed
+    /// background colour.
+    pub styles: Vec<(String, String)>,
+    /// The node's box in the page's viewport, in CSS pixels.
+    pub bounding_box: PixelRect,
+}
+
+impl InspectedNode {
+    /// The computed value of `property`, when the page reported it.
+    pub fn style(&self, property: &str) -> Option<&str> {
+        self.styles
+            .iter()
+            .find(|(name, _)| name == property)
+            .map(|(_, value)| value.as_str())
+    }
 }
 
 /// A backend that hosts offscreen pages and delivers their painted frames.
@@ -287,6 +333,17 @@ pub trait PageSource {
     /// [`PageEvent::ElementAt`] carrying `request`, unless the page closes
     /// or crashes first.
     fn query_element(
+        &mut self,
+        page: PageId,
+        point: Vec2,
+        request: u64,
+    ) -> Result<(), PageSourceError>;
+
+    /// Asks for the node the page has under `point`, in its viewport CSS
+    /// pixels, as the inspect tool reads it. Answered like
+    /// [`query_element`](Self::query_element), by a
+    /// [`PageEvent::Inspected`].
+    fn inspect_at(
         &mut self,
         page: PageId,
         point: Vec2,

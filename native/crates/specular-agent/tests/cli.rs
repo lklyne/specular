@@ -11,6 +11,7 @@ fn the_permission_mode_and_resume_pick_the_arguments() {
         prompt: "p".into(),
         resume: None,
         images: Vec::new(),
+        cwd: None,
     };
     let resume = RunRequest {
         resume: Some("sess".into()),

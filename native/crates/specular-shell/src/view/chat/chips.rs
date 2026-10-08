@@ -10,7 +10,9 @@ use gpui_kit::{
     FontWeight, InteractiveElement as _, IntoElement, ParentElement as _, SharedString,
     StatefulInteractiveElement as _, Styled, div, px, rgba,
 };
-use specular_interact::{DraftChip, DraftKind, Event, OpenComments, PillKind, QueuedChip};
+use specular_interact::{
+    AutoChip, DraftChip, DraftKind, Event, OpenComments, PillKind, QueuedChip,
+};
 
 use crate::assets::ShellIcon;
 use crate::canvas;
@@ -192,4 +194,34 @@ pub(super) fn pill_icon(kind: PillKind) -> Icon {
         PillKind::Selection => Icon::new(ShellIcon::SquareDashedMousePointer),
         PillKind::Comment | PillKind::Canvas => Icon::new(IconName::File),
     }
+}
+
+/// The send mode of the origin this turn writes for: `Auto` sends each
+/// comment as it is placed, `Queue` holds them until the person sends.
+pub(super) fn auto_chip(auto: &AutoChip) -> impl IntoElement + use<> {
+    let toggle = auto.toggle.clone();
+    let (icon, label, tip) = if auto.on {
+        (
+            ShellIcon::Zap,
+            "Auto",
+            format!(
+                "Auto for {}: each comment is sent as soon as it is placed. Click to queue instead.",
+                auto.origin
+            ),
+        )
+    } else {
+        (
+            ShellIcon::ListEnd,
+            "Queue",
+            format!(
+                "Queue for {}: comments wait here until you send. Click to send automatically.",
+                auto.origin
+            ),
+        )
+    };
+    let tip = SharedString::from(tip);
+    chip("chat-auto", Icon::new(icon), label)
+        .cursor_pointer()
+        .tooltip(move |window, cx| Tooltip::new(tip.clone()).build(window, cx))
+        .on_click(move |_, _, _| canvas::dispatch(Event::Action(toggle.clone())))
 }

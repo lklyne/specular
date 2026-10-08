@@ -9,6 +9,7 @@ use gpui_kit::component::{IconName, WindowExt as _};
 use gpui_kit::{App, IntoElement, ParentElement as _, SharedString, Styled as _, Window, div, px};
 
 use crate::canvas;
+use crate::settings_repos::{self, AddFields};
 use crate::theme;
 
 /// What the dialog reads from the running app.
@@ -41,7 +42,8 @@ fn value(text: String) -> impl IntoElement {
 
 /// Opens the dialog over the window.
 pub(crate) fn open(window: &mut Window, cx: &mut App) {
-    window.open_dialog(cx, |dialog, _, _| {
+    let fields = AddFields::default();
+    window.open_dialog(cx, move |dialog, _, _| {
         let facts = facts();
         let general = SettingPage::new("General")
             .icon(IconName::Settings)
@@ -70,9 +72,11 @@ pub(crate) fn open(window: &mut Window, cx: &mut App) {
                 }),
             )));
         dialog.title("Settings").w(px(640.0)).child(
-            div()
-                .h(px(360.0))
-                .child(Settings::new("settings").page(general)),
+            div().h(px(360.0)).child(
+                Settings::new("settings")
+                    .page(general)
+                    .page(settings_repos::page(&fields)),
+            ),
         )
     });
 }

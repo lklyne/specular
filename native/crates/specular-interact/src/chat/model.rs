@@ -115,10 +115,29 @@ pub struct Composer {
     pub can_send_empty: bool,
     /// What this turn is about.
     pub pill: PillChip,
-    /// The folder the agent works in, by its last path segment.
+    /// The folder this turn writes to, by its last path segment: the repo
+    /// linked to the origin the pill is about, else the space folder.
     pub folder: Option<String>,
+    /// That folder's whole path, for the chip's tooltip.
+    pub folder_path: Option<String>,
+    /// The send mode of the origin this turn writes for. `None` when the
+    /// turn writes to the space folder.
+    pub auto: Option<AutoChip>,
     /// Whether the open thread's agent is working.
     pub running: bool,
+}
+
+/// The chip beside the folder chip: whether comments on an origin wait for
+/// Send or send themselves (`AutoFixChip`).
+#[derive(Debug, Clone, PartialEq)]
+pub struct AutoChip {
+    /// The bound origin.
+    pub origin: String,
+    /// Whether auto-fix is on. The chip reads `Auto` when it is, else
+    /// `Queue`.
+    pub on: bool,
+    /// Turns it the other way.
+    pub toggle: Action,
 }
 
 /// What kind of gesture made a draft.

@@ -19,7 +19,7 @@ use specular_interact::{Action, ApiOutcome, App, Cursor, Event, ImageKey};
 use specular_scene::Scene;
 
 use super::demand::FrameDemand;
-use super::{START_CAMERA, agent_run, image_run, note_run};
+use super::{START_CAMERA, agent_run, image_run, note_run, repos_run};
 use crate::agent::AgentRuns;
 use crate::api::ApiHost;
 use crate::cdp::CdpHost;
@@ -161,6 +161,9 @@ pub struct Runtime<W> {
     /// The preferences file. `None` when settings are off, and when there
     /// is no home folder to keep it in.
     pub(crate) prefs: Option<PathBuf>,
+    /// The repos file. `None` when settings are off, and when no folder
+    /// can be found for it.
+    pub(crate) repos_file: Option<PathBuf>,
     /// Files dropped on the window, not yet sent to the app.
     pub(crate) dropped: Vec<PathBuf>,
     /// Where they were dropped, in logical pixels of the viewport.
@@ -225,6 +228,7 @@ impl<W: ShellWindow> Runtime<W> {
             agents: agent_run::start_runs(options.settings),
             clipboard: None,
             prefs,
+            repos_file: options.settings.then(repos_run::file).flatten(),
             dropped: Vec::new(),
             dropped_at: None,
             api: None,
@@ -299,6 +303,7 @@ impl<W: ShellWindow> Runtime<W> {
     pub fn open(&mut self, opening: Opening) -> anyhow::Result<()> {
         self.dispatch(Event::Action(Action::SetCamera(START_CAMERA)));
         self.load_tool_defaults();
+        self.load_repos();
         match (opening.space, opening.document) {
             (Some(start), _) => {
                 self.open_space(&start.folder, start.file.as_deref())?;

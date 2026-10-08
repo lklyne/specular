@@ -47,8 +47,8 @@ impl<W: ShellWindow> Runtime<W> {
         }
     }
 
-    /// Starts the `claude` CLI for a thread in the space folder; its output
-    /// comes back as `Event::Agent`.
+    /// Starts the `claude` CLI for a thread in the request's folder, else the
+    /// space folder; its output comes back as `Event::Agent`.
     pub(super) fn run_agent(&mut self, request: &RunRequest) {
         self.agents.start(request, self.space.as_deref());
     }

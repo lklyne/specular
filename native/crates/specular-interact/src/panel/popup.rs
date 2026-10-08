@@ -68,7 +68,7 @@ fn family(kind: &Kind) -> Family {
 const fn has_popup(tool: Tool) -> bool {
     match tool {
         Tool::AddPage | Tool::AddText | Tool::AddSticky | Tool::AddShape | Tool::Draw => true,
-        Tool::Select | Tool::AddDocument | Tool::Comment => false,
+        Tool::Select | Tool::AddDocument | Tool::Comment | Tool::Inspect => false,
     }
 }
 

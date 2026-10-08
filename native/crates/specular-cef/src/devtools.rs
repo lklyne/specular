@@ -29,13 +29,15 @@ use specular_core::{DevtoolsSink, PageEvent};
 
 use crate::devtools_route::{Route, route};
 use crate::page::PageContext;
-use crate::{dom_query, sync_query};
+use crate::{dom_query, inspect_query, sync_query};
 
 /// What a message sent to a page asked for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Asked {
     /// The element under a point, for this request.
     Element(u64),
+    /// The node the inspect tool reads under a point, for this request.
+    Inspect(u64),
     /// The elements in a rect, for this request.
     ElementsInRect(u64),
     /// The page's own devtools target id.
@@ -143,6 +145,11 @@ wrap_dev_tools_message_observer! {
                     page,
                     request,
                     element: dom_query::parse_element(result),
+                },
+                Asked::Inspect(request) => PageEvent::Inspected {
+                    page,
+                    request,
+                    node: inspect_query::parse_inspected(result).map(Box::new),
                 },
                 Asked::ElementsInRect(request) => PageEvent::ElementsInRect {
                     page,

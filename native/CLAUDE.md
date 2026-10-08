@@ -131,6 +131,11 @@ fn shift_drag_moves_the_page_along_one_axis() {
   opens a draft, read back with `comment_draft()`; `type_text` and
   `key(Key::Enter)` commit it. `answer_element(..)` and `answer_grab(&[..])`
   answer the latest `QueryElement` and `QueryRegionGrab` as the shell would.
+- The inspect tool: `tool(Tool::Inspect)` then `pointer_move` (a hover) or
+  `click` (a pick) asks the page, and `answer_inspect()` answers the latest
+  `InspectAt` from the synthetic page's grid as the shell would. Read back
+  with `inspect_model()` (outline and popover) and `app().inspected()` (the
+  pick, which is the chat pill's DOM node).
 - Canvases: `TestApp::with_space([("Home", document), ("Notes", document)])`
   starts with several, the first active. `switch_to("Notes")` and
   `act(Action::Canvas(..))` change them; read back with `canvas_names()`,
@@ -143,6 +148,12 @@ fn shift_drag_moves_the_page_along_one_axis() {
   open thread (`agent_says_in(&id, ..)` another). Writes and runs come back
   as `Effect::WriteThread`, `WriteThreadIndex` and `RunAgent`; read the
   store with `app().threads()` and the open thread with `chat_thread_id()`.
+- Repos: `bind("https://example.com", "/scratch/site", auto)` binds an origin
+  to a repo folder (`with_repos(Repos)` loads a whole `repos.json`) without
+  effects. A comment on a page of that origin then writes to the repo: the
+  composer's `folder` and `auto` chips follow it and the `RunAgent` request
+  carries the repo as `cwd`. With `auto` on, placing the comment sends it. See
+  `tests/it/repos.rs`.
 - Pages: `page_reports("p1", PageNotice::Scrolled { x: 0.0, y: 40.0 })` (or `Title`,
   `Url`, `Loading`, `DevtoolsUrl`) is a page saying something about itself, as
   the shell sends it; read back with `app().page_state(..)` and `page_scroll(..)`.

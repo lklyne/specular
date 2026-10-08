@@ -128,7 +128,7 @@ return 'ok';
 
 /// A finite number as a JavaScript literal. Anything else reads as zero, so
 /// a bad coordinate cannot break out of the expression.
-fn number(value: f32) -> String {
+pub(crate) fn number(value: f32) -> String {
     if value.is_finite() {
         format!("({value})")
     } else {
@@ -136,7 +136,7 @@ fn number(value: f32) -> String {
     }
 }
 
-fn expression(body: &str, values: &[(&str, String)]) -> String {
+pub(crate) fn expression(body: &str, values: &[(&str, String)]) -> String {
     let mut body = body.to_owned();
     for (name, value) in values {
         body = body.replace(name, value);
@@ -145,7 +145,7 @@ fn expression(body: &str, values: &[(&str, String)]) -> String {
 }
 
 /// A `Runtime.evaluate` message carrying `expression`, answered by value.
-fn evaluate(id: i32, expression: &str) -> Vec<u8> {
+pub(crate) fn evaluate(id: i32, expression: &str) -> Vec<u8> {
     json!({
         "id": id,
         "method": "Runtime.evaluate",

@@ -25,6 +25,10 @@ pub(super) const CHEVRON_RIGHT: Glyph = lucide(&[line("M9 18l6-6-6-6")]);
 pub(super) const ROTATE_CW: Glyph = lucide(&[line(
     "M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8M21 3v5h-5",
 )]);
+/// `folder-code`.
+pub(super) const FOLDER_CODE: Glyph = lucide(&[line(
+    "M10 10.5 8 13l2 2.5M14 10.5l2 2.5-2 2.5M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z",
+)]);
 /// `x`.
 pub(super) const X: Glyph = lucide(&[line("M18 6L6 18M6 6l12 12")]);
 /// `check`.

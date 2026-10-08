@@ -22,6 +22,10 @@ use crate::{
 pub(crate) fn on_pointer(app: &mut App, input: &PointerInput, effects: &mut Vec<Effect>) {
     app.session.modifiers = input.modifiers;
     if crate::panel::builtin::on_pointer(app, input, effects) {
+        // The pointer is on a panel, not on page content.
+        if app.session.tool == Tool::Inspect {
+            crate::inspect::clear_hover(app);
+        }
         return;
     }
     match input.kind {
@@ -29,6 +33,7 @@ pub(crate) fn on_pointer(app: &mut App, input: &PointerInput, effects: &mut Vec<
         PointerEventKind::Leave => {
             // A drag that leaves the window still ends at its release.
             if app.session.gesture.is_none() {
+                crate::inspect::clear_hover(app);
                 app.session.pointer = None;
                 app.session.hover = None;
                 set_pointer_page(app, None, Vec2::ZERO, input.modifiers, effects);
@@ -74,6 +79,12 @@ fn on_move(app: &mut App, input: &PointerInput, effects: &mut Vec<Effect>) {
     }
     let hit = hit::hit_test(app, input.screen);
     app.session.hover = hit::entity_of(&hit).cloned();
+    if app.session.tool == Tool::Inspect {
+        // The page never hears the pointer while its nodes are being read.
+        crate::inspect::hover(app, &hit, effects);
+        set_pointer_page(app, None, Vec2::ZERO, input.modifiers, effects);
+        return;
+    }
     // A page that got a press keeps the pointer until the release, so a drag
     // inside it (a text selection, a slider) carries on past its edge.
     let held = app.session.captured.holder().and_then(|page| {
@@ -219,6 +230,14 @@ fn tool_takes_press(
         | Tool::AddShape
         | Tool::AddDocument) => {
             app.session.gesture = place::begin(tool, world).map(Gesture::Place);
+            true
+        }
+        // Inspect rests like Select: a press off page content selects.
+        Tool::Inspect => {
+            let hit = hit::hit_test(app, input.screen);
+            let _ = crate::inspect::press(&hit, effects)
+                || comment::press(app, input.screen, effects)
+                || select::press(app, input, click_count, effects);
             true
         }
         Tool::Draw => {

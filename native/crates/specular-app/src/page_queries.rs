@@ -9,9 +9,9 @@
 use std::collections::HashMap;
 
 use glam::Vec2;
-use specular_core::{CssRect, PageElement};
+use specular_core::{CssRect, InspectedNode, PageElement};
 use specular_doc::{EntityId, Rect};
-use specular_interact::{Event, PageGrab};
+use specular_interact::{Event, PageGrab, PageNotice};
 
 /// A rect in a page's CSS pixels as the page source takes it.
 pub(crate) fn css_rect(rect: Rect) -> CssRect {
@@ -53,6 +53,9 @@ impl Grab {
 pub(crate) struct PageQueries {
     next: u64,
     elements: HashMap<u64, (EntityId, Vec2)>,
+    /// The page, the point and whether a click asked, for each inspect
+    /// question.
+    inspects: HashMap<u64, (EntityId, Vec2, bool)>,
     /// Which grab, and which of its pages, a request is for.
     grab_requests: HashMap<u64, (u64, usize)>,
     grabs: HashMap<u64, Grab>,
@@ -66,7 +69,7 @@ impl PageQueries {
 
     /// Whether every question has been answered.
     pub(crate) fn is_idle(&self) -> bool {
-        self.elements.is_empty() && self.grabs.is_empty()
+        self.elements.is_empty() && self.inspects.is_empty() && self.grabs.is_empty()
     }
 
     /// Notes that `page` is being asked for the element at `point`, and
@@ -89,6 +92,28 @@ impl PageQueries {
             page,
             point,
             element,
+        })
+    }
+
+    /// Notes that `page` is being asked for the node at `point` as the
+    /// inspect tool reads it, and returns the request number to ask under.
+    pub(crate) fn ask_inspect(&mut self, page: EntityId, point: Vec2, pick: bool) -> u64 {
+        let request = self.request();
+        self.inspects.insert(request, (page, point, pick));
+        request
+    }
+
+    /// The event that answers an inspect question, or `None` for a request
+    /// that is not open.
+    pub(crate) fn inspect_answer(
+        &mut self,
+        request: u64,
+        node: Option<Box<InspectedNode>>,
+    ) -> Option<Event> {
+        let (page, point, pick) = self.inspects.remove(&request)?;
+        Some(Event::Page {
+            page,
+            notice: PageNotice::Inspected { point, pick, node },
         })
     }
 
@@ -147,6 +172,8 @@ impl PageQueries {
             .into_iter()
             .filter_map(|request| self.element_answer(request, None))
             .collect();
+        // A hover or a pick of a page that is gone has nothing to show.
+        self.inspects.retain(|_, (asked, _, _)| asked != page);
         let grabs = &self.grabs;
         let waiting: Vec<u64> = (self.grab_requests.iter())
             .filter(|(_, (grab, index))| {

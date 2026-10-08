@@ -48,6 +48,7 @@ fn main() -> ExitCode {
         prompt: prompt.join(" "),
         resume,
         images,
+        cwd: None,
     };
     let mut runs = AgentRuns::new(Box::new(ClaudeCli::new()));
     runs.start(&request, Some(&dir));

@@ -45,7 +45,7 @@ pub use locator::{
 };
 pub use page::{PageId, PageSpec, validate_texture_scale, validate_viewport};
 pub use source::{
-    DEVTOOLS_CLIENT_ID_BASE, DevtoolsSink, PageElement, PageEvent, PageNav, PageSource,
-    PageSourceError, PointKind,
+    DEVTOOLS_CLIENT_ID_BASE, DevtoolsSink, InspectedNode, PageElement, PageEvent, PageNav,
+    PageSource, PageSourceError, PointKind,
 };
 pub use synthetic::{SyntheticPageSource, synthetic_element_at, synthetic_elements_in};

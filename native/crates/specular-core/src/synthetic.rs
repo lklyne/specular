@@ -16,7 +16,8 @@ use crate::input::InputEvent;
 use crate::locator::LocatorBundle;
 use crate::page::{PageId, PageSpec, validate_texture_scale, validate_viewport};
 use crate::source::{
-    DevtoolsSink, PageElement, PageEvent, PageNav, PageSource, PageSourceError, PointKind,
+    DevtoolsSink, InspectedNode, PageElement, PageEvent, PageNav, PageSource, PageSourceError,
+    PointKind,
 };
 
 mod cdp;
@@ -204,6 +205,45 @@ fn element_scrolled(viewport: CssSize, scroll: Vec2, point: Vec2) -> Option<Page
             CELL.0.min(viewport.width.saturating_sub(x as u32)),
             CELL.1,
         ),
+    })
+}
+
+/// [`inspected_scrolled`] for a page that has not scrolled: what a synthetic
+/// page answers an inspect at `point` with.
+pub fn synthetic_inspected_at(viewport: CssSize, point: Vec2) -> Option<InspectedNode> {
+    inspected_scrolled(viewport, Vec2::ZERO, point)
+}
+
+/// The cell of a synthetic page's grid under the viewport point `point`, as
+/// the inspect tool reads it: a `div.cell` named for its column and row, in
+/// the styles every cell has.
+fn inspected_scrolled(viewport: CssSize, scroll: Vec2, point: Vec2) -> Option<InspectedNode> {
+    let element = element_scrolled(viewport, scroll, point)?;
+    let at = point + scroll;
+    let (column, row) = (at.x as u32 / CELL.0, at.y as u32 / CELL.1);
+    let styles = [
+        ("display", "block"),
+        ("position", "static"),
+        ("font-family", "Inter, sans-serif"),
+        ("font-size", "14px"),
+        ("font-weight", "400"),
+        ("color", "rgb(17, 24, 39)"),
+        ("background", "rgb(255, 255, 255)"),
+        ("padding", "8px"),
+        ("margin", "0px"),
+    ];
+    Some(InspectedNode {
+        node_id: format!("cell-{column}-{row}"),
+        tag_name: "div".to_owned(),
+        name: format!("div \"Cell {column},{row}\""),
+        selector: element.selector,
+        id_attribute: Some(format!("cell-{column}-{row}")),
+        classes: vec!["cell".to_owned()],
+        styles: styles
+            .into_iter()
+            .map(|(name, value)| (name.to_owned(), value.to_owned()))
+            .collect(),
+        bounding_box: element.bounding_box,
     })
 }
 
@@ -417,6 +457,22 @@ impl PageSource for SyntheticPageSource {
             page,
             request,
             element,
+        });
+        Ok(())
+    }
+
+    fn inspect_at(
+        &mut self,
+        page: PageId,
+        point: Vec2,
+        request: u64,
+    ) -> Result<(), PageSourceError> {
+        let entry = self.page(page)?;
+        let node = inspected_scrolled(entry.spec.viewport, entry.scroll, point).map(Box::new);
+        self.pending.push(PageEvent::Inspected {
+            page,
+            request,
+            node,
         });
         Ok(())
     }

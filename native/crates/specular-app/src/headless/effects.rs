@@ -102,6 +102,7 @@ impl Headless {
                 }
             }
             Effect::QueryElement { page, point } => self.query_element(&page, point)?,
+            Effect::InspectAt { page, point, pick } => self.inspect_at(&page, point, pick)?,
             Effect::QueryRegionGrab { region, pages } => self.query_region_grab(region, &pages)?,
             // A headless run has no cursor and no input method, it leaves
             // the disk alone, and it hosts no API.
@@ -121,7 +122,9 @@ impl Headless {
             | Effect::WriteThread(_)
             | Effect::WriteThreadIndex
             | Effect::RunAgent(_)
-            | Effect::CancelAgent(_) => {}
+            | Effect::CancelAgent(_)
+            | Effect::SaveRepos
+            | Effect::PickRepoFolder { .. } => {}
         }
         Ok(())
     }
@@ -191,6 +194,18 @@ impl Headless {
         let asked = (self.hosts.get(page))
             .is_some_and(|&host| self.source.query_element(host, point, request).is_ok());
         if !asked && let Some(answer) = self.queries.element_answer(request, None) {
+            self.drive(|app| app.send(answer))?;
+        }
+        Ok(())
+    }
+
+    /// Asks the page for the node at `point` as the inspect tool reads it;
+    /// a page that cannot be asked has none.
+    fn inspect_at(&mut self, page: &EntityId, point: Vec2, pick: bool) -> anyhow::Result<()> {
+        let request = self.queries.ask_inspect(page.clone(), point, pick);
+        let asked = (self.hosts.get(page))
+            .is_some_and(|&host| self.source.inspect_at(host, point, request).is_ok());
+        if !asked && let Some(answer) = self.queries.inspect_answer(request, None) {
             self.drive(|app| app.send(answer))?;
         }
         Ok(())
@@ -293,6 +308,11 @@ impl Headless {
                     request, element, ..
                 } => {
                     if let Some(answer) = self.queries.element_answer(*request, element.clone()) {
+                        self.drive(|app| app.send(answer))?;
+                    }
+                }
+                PageEvent::Inspected { request, node, .. } => {
+                    if let Some(answer) = self.queries.inspect_answer(*request, node.clone()) {
                         self.drive(|app| app.send(answer))?;
                     }
                 }

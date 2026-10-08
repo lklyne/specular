@@ -6,11 +6,11 @@
 //! thread keeps its message: chat is not undoable.
 
 use serde_json::Value;
-use specular_agent::ThreadId;
+use specular_agent::{Join, ThreadId};
 use specular_doc::{Annotation, Command, JsonMap};
 
 use super::action::{ImageUpload, now};
-use super::{comments, effects, send};
+use super::{comments, effects, prompt, send};
 use crate::gesture::apply_step;
 use crate::{App, Effect};
 
@@ -31,19 +31,27 @@ pub(crate) fn comment(
     let tab = comments::tab(app);
     let (now, fresh) = (now(app), send::new_thread_id(app));
     let id = draft.id.clone();
-    let home = app.threads.comment_thread(&tab, id.as_str(), &fresh);
+    // A comment that sends itself continues the open conversation; one that
+    // waits for Send only ever joins a draft.
+    let auto = prompt::comment_origin(app, &draft)
+        .and_then(|origin| app.repos.binding(&origin).map(|binding| binding.auto_fix))
+        .unwrap_or(false);
+    let join = if auto { Join::Active } else { Join::Draft };
+    let home = app
+        .threads
+        .comment_thread_joining(&tab, id.as_str(), &fresh, join);
     let stored = send::store_images(app, &tab, &home, images, effects);
     let message = format!("tmsg_{}", app.fresh_id());
-    let (thread, changed) = app.threads.queue_comment_with_images(
+    let (thread, changed) = app.threads.queue_comment_joining(
         &tab,
         fresh,
         &message,
         id.as_str(),
         text,
         stored,
+        join,
         &now,
     );
-    effects::emit(&changed, effects);
     let annotation = Annotation {
         text: text.to_owned(),
         metadata: Some(with_thread(draft.metadata.clone(), &thread)),
@@ -54,7 +62,14 @@ pub(crate) fn comment(
         at: app.document.annotations().len(),
     };
     apply_step(app, command);
-    if app.document.annotation(&id).is_some() {
+    let placed = app.document.annotation(&id).is_some();
+    // A run already in flight leaves the comment queued; the drain on
+    // `Finished` sends it.
+    let started = (auto && placed)
+        .then(|| send::begin(app, &thread, Some(id.as_str())))
+        .flatten();
+    effects::run_started(started, changed, effects);
+    if placed {
         app.session.focused_comment = Some(id);
         app.session.selection.set([]);
     }

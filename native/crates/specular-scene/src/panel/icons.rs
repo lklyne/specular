@@ -169,6 +169,8 @@ fn glyph(icon: Icon) -> Glyph {
         Icon::DrawPenTool => tools::PEN_TOOL,
         Icon::DrawHighlightTool => tools::MARKER_TOOL,
         Icon::CommentTool => tools::COMMENT_TOOL,
+        Icon::InspectTool => tools::INSPECT_TOOL,
+        Icon::Repo => lucide::FOLDER_CODE,
         Icon::Shape(kind) => popup::shape(kind),
         Icon::AlignLeft => lucide::ALIGN_LEFT,
         Icon::AlignCenter => lucide::ALIGN_CENTER,

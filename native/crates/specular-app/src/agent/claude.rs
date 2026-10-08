@@ -81,11 +81,12 @@ impl AgentBackend for ClaudeCli {
     fn start(
         &mut self,
         request: &RunRequest,
+        space: &Path,
         cwd: &Path,
     ) -> Result<Box<dyn AgentProcess>, AgentError> {
         let program = self.program()?;
         let mut args = claude_args(request, &RunConfig::default());
-        let input = stdin_text(request, cwd);
+        let input = stdin_text(request, space);
         if input.streams_json {
             args.push("--input-format".into());
             args.push("stream-json".into());
@@ -169,8 +170,8 @@ struct Input {
 }
 
 /// What goes to stdin: the prompt, or one stream-json user message when
-/// images come along.
-fn stdin_text(request: &RunRequest, cwd: &Path) -> Input {
+/// images come along, read from the space folder `space`.
+fn stdin_text(request: &RunRequest, space: &Path) -> Input {
     if request.images.is_empty() {
         return Input {
             text: request.prompt.clone(),
@@ -181,7 +182,7 @@ fn stdin_text(request: &RunRequest, cwd: &Path) -> Input {
         .images
         .iter()
         .filter_map(|image| {
-            let bytes = std::fs::read(cwd.join(&image.path)).ok()?;
+            let bytes = std::fs::read(space.join(&image.path)).ok()?;
             Some(json!({
                 "type": "image",
                 "source": {
@@ -299,6 +300,7 @@ mod tests {
             prompt: "hello".into(),
             resume: None,
             images,
+            cwd: None,
         }
     }
 
@@ -350,7 +352,7 @@ mod tests {
     fn a_missing_program_says_how_to_install_claude() {
         let mut cli = ClaudeCli::new().with_program("/nonexistent/claude");
         let error = cli
-            .start(&request(Vec::new()), Path::new("/tmp"))
+            .start(&request(Vec::new()), Path::new("/tmp"), Path::new("/tmp"))
             .err()
             .unwrap();
         assert!(error.to_string().contains("run `claude`"));

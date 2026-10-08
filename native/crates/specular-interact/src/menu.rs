@@ -222,6 +222,7 @@ fn has_target(app: &App, action: &Action) -> bool {
         // has to stay enabled to keep its check mark readable.
         Action::Canvas(_)
         | Action::Chat(_)
+        | Action::Repo(_)
         | Action::Cancel
         | Action::SetTool(_)
         | Action::SetToolDefault(_)
@@ -275,5 +276,6 @@ pub(crate) const fn tool_label(tool: Tool) -> &'static str {
         Tool::AddShape => "Shape",
         Tool::Draw => "Draw",
         Tool::Comment => "Comment",
+        Tool::Inspect => "Inspect",
     }
 }

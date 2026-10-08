@@ -1,7 +1,7 @@
 //! [`toolbar`]: the tool buttons and the zoom readout (`toolbarSections.tsx`).
 //!
-//! The Electron toolbar also has a hand tool, an inspect tool and a theme
-//! toggle. None has an [`Action`] here. The right panel's toggle is on the
+//! The Electron toolbar also has a hand tool and a theme toggle. Neither
+//! has an [`Action`] here. The right panel's toggle is on the
 //! model when the shell has a right panel.
 //!
 //! A button arms its tool and leaves the tool's defaults alone: the key of
@@ -29,6 +29,7 @@ const fn tool_name(tool: Tool) -> &'static str {
         Tool::AddShape => "shape",
         Tool::Draw => "draw",
         Tool::Comment => "comment",
+        Tool::Inspect => "inspect",
     }
 }
 
@@ -51,6 +52,7 @@ fn glyph(app: &App, tool: Tool) -> (Icon, Option<Color>) {
             (icon, Some(defaults.draw.color.clone()))
         }
         Tool::Comment => (Icon::CommentTool, None),
+        Tool::Inspect => (Icon::InspectTool, None),
     }
 }
 
@@ -103,13 +105,13 @@ const GROUPS: [&[Tool]; 3] = [
         Tool::AddText,
         Tool::AddDocument,
     ],
-    &[Tool::Comment],
+    &[Tool::Comment, Tool::Inspect],
 ];
 
 /// Whether pressing the button of `tool` while it is armed puts it down.
 const fn toggles(tool: Tool) -> bool {
     match tool {
-        Tool::Draw | Tool::Comment => true,
+        Tool::Draw | Tool::Comment | Tool::Inspect => true,
         Tool::Select
         | Tool::AddPage
         | Tool::AddText

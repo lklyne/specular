@@ -139,7 +139,7 @@ pub(super) fn popup(app: &App, tool: Tool) -> Option<PopupModel> {
             ]))
         }
         Tool::AddPage => page_presets(app),
-        Tool::Select | Tool::AddDocument | Tool::Comment => return None,
+        Tool::Select | Tool::AddDocument | Tool::Comment | Tool::Inspect => return None,
     };
     Some(popup)
 }

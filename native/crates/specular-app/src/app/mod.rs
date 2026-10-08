@@ -25,6 +25,7 @@ mod lod;
 mod menu_bar;
 mod note_run;
 mod page_events;
+mod repos_run;
 mod runtime;
 mod settings;
 mod shots;

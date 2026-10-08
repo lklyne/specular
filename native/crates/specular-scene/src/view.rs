@@ -28,6 +28,7 @@ mod freehand;
 mod group;
 mod guides;
 mod image;
+mod inspect;
 mod layout_handles;
 mod page;
 pub(crate) mod palette;
@@ -89,6 +90,7 @@ fn build(frame: &Frame<'_>) -> Scene {
         annotations::draw(frame, &mut scene);
         session::draw(frame, &mut scene);
         comment_draft::composer(frame, &mut scene);
+        inspect::draw(frame, &mut scene);
     }
     scene
 }

@@ -1,0 +1,22 @@
+---
+source: crates/specular-scene/tests/inspect.rs
+expression: app.scene_snapshot()
+---
+canvas page p1 100,100 400x300 r=8
+screen rect 100,100 400x300 r=8 stroke=#a6a09b/1/outside
+screen text "example.com/p1" 100,79.5 wrap=400 ellipsis box-h=16.5 11/15.4 w500 #6b6b6b middle clip=100,79.5 400x20.5
+screen rect 99,99 402x302 stroke=#3b82f6/1/inside
+screen rect 100,148 160x48 fill=#3b82f624
+screen path M100.5,148.5 L259.5,148.5 L259.5,195.5 L100.5,195.5 Z stroke=#3b82f6f2/1 dash=3/3
+screen shadow 100,74 324.7x70 r=6 blur=8 fill=#00000040
+screen rect 100,72 324.7x70 r=6 fill=#1e293bf2
+screen rect 106,78 32.1x18 r=4 fill=#3b82f6
+screen text "div" 112,78 box-h=18 11/14 mono #ffffff middle clip=100,72 324.7x70
+screen text "#cell-0-1.cell" 144.1,78 box-h=18 11/14 mono #ffffffe6 middle clip=100,72 324.7x70
+screen text "160 × 48" 243.9,78 box-h=18 11/14 mono #ffffffb4 middle clip=100,72 324.7x70
+screen text "Inter" 106,102 box-h=14 11/14 mono #ffffff middle clip=100,72 324.7x70
+screen text "14px · 400" 145.5,102 box-h=14 11/14 mono #ffffffb4 middle clip=100,72 324.7x70
+screen rect 106,124 10x10 r=2 fill=#111827 stroke=#ffffff59/1/inside
+screen text "text rgb(17, 24, 39)" 120,122 box-h=14 11/14 mono #ffffffd9 middle clip=100,72 324.7x70
+screen rect 264,124 10x10 r=2 fill=#ffffff stroke=#ffffff59/1/inside
+screen text "bg rgb(255, 255, 255)" 278,122 box-h=14 11/14 mono #ffffffd9 middle clip=100,72 324.7x70

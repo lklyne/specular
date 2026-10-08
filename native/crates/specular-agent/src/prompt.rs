@@ -15,6 +15,16 @@ pub enum WriteTarget {
     },
 }
 
+impl WriteTarget {
+    /// The folder the run works in when it is not the space folder.
+    pub fn cwd(&self) -> Option<&str> {
+        match self {
+            Self::Space => None,
+            Self::Repo { repo_path, .. } => Some(repo_path),
+        }
+    }
+}
+
 /// One line saying what a comment is pinned to.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CommentContext {
@@ -76,14 +86,24 @@ fn reply_format(out: &mut Vec<String>) {
     out.extend(REPLY_FORMAT.iter().map(|l| (*l).to_owned()));
 }
 
+/// Images are stored relative to the space folder, which is the working
+/// directory only when the turn writes to the space.
+fn image_path(ctx: &PromptContext, path: &str) -> String {
+    match ctx.write_target {
+        WriteTarget::Space => path.to_owned(),
+        WriteTarget::Repo { .. } => {
+            format!("{}/{path}", ctx.space_path.trim_end_matches('/'))
+        }
+    }
+}
+
 /// The full prompt: where to work, what is selected, the whole thread.
 pub fn thread_prompt(thread: &Thread, ctx: &PromptContext) -> String {
-    let mut lines: Vec<String> = vec![format!(
-        "Working directory (space folder): {}",
-        ctx.space_path
-    )];
+    let mut lines: Vec<String> = Vec::new();
     match &ctx.write_target {
         WriteTarget::Repo { origin, repo_path } => {
+            lines.push(format!("Working directory (linked repo): {repo_path}"));
+            lines.push(format!("Space folder: {}", ctx.space_path));
             lines.push(format!(
                 "This turn should change source for {origin} in the repo at {repo_path}."
             ));
@@ -91,6 +111,10 @@ pub fn thread_prompt(thread: &Thread, ctx: &PromptContext) -> String {
             lines.push("Anything new reaches the user only once it is on the canvas: `specular add page <full url> --at x,y`.".into());
         }
         WriteTarget::Space => {
+            lines.push(format!(
+                "Working directory (space folder): {}",
+                ctx.space_path
+            ));
             lines.push("This turn is about the canvas / space, not a linked site repo.".into());
             lines.push("Use `specular add` / `update` / `delete` / `arrange` to change what the user sees.".into());
             lines.push("Files you write in this folder reach the user once they are on the canvas: `specular add file <path> --at x,y`.".into());
@@ -114,7 +138,7 @@ pub fn thread_prompt(thread: &Thread, ctx: &PromptContext) -> String {
         let mut line = format!("[{who}] {}", message.text);
         for image in &message.images {
             line.push_str(" [image: ");
-            line.push_str(&image.path);
+            line.push_str(&image_path(ctx, &image.path));
             line.push(']');
         }
         lines.push(line);

@@ -326,3 +326,99 @@ fn opening_a_space_with_a_folder_asks_for_its_threads() {
     )]))));
     assert!(app.take_effects().contains(&Effect::LoadThreads));
 }
+
+/// Places a comment on page `p1` (or on the bare canvas) and sends it from the
+/// panel's composer.
+fn comment_on(app: &mut TestApp, at: (f32, f32), text: &str) {
+    app.click(at);
+    if at == ON_PAGE {
+        app.answer_element(synthetic_element_at(
+            CssSize::new(400, 300),
+            (100.0, 100.0).into(),
+        ));
+    }
+    app.send_chat(text);
+}
+
+const ON_PAGE: (f32, f32) = (200.0, 200.0);
+const ON_CANVAS: (f32, f32) = (900.0, 700.0);
+
+#[test]
+fn a_comment_on_an_auto_fix_origin_is_sent_the_moment_it_is_placed() {
+    let mut app = panel_app(pages(1));
+    app.bind("https://example.com", "/scratch/site", true);
+    comment_on(&mut app, ON_PAGE, "make it blue");
+    let [first] = run_requests(&app.take_effects()).try_into().expect("a run");
+    assert_eq!(first.cwd.as_deref(), Some("/scratch/site"));
+    assert!(
+        first
+            .prompt
+            .contains("Working directory (linked repo): /scratch/site")
+    );
+
+    app.agent_says(Notice::Session("sess-1".into()))
+        .agent_says(finished("done"));
+    app.take_effects();
+    app.tool(Tool::Comment);
+    comment_on(&mut app, ON_PAGE, "and bigger");
+    let [second] = run_requests(&app.take_effects()).try_into().expect("a run");
+    assert_eq!(second.thread, first.thread, "it joins the open thread");
+    assert_eq!(second.resume.as_deref(), Some("sess-1"));
+    assert_eq!(second.cwd.as_deref(), Some("/scratch/site"));
+    let said: Vec<_> = app.app().threads().all()[0]
+        .messages
+        .iter()
+        .map(|m| m.text.as_str())
+        .collect();
+    assert_eq!(said, ["make it blue", "done", "and bigger"]);
+}
+
+#[test]
+fn an_auto_fix_comment_placed_during_a_run_is_sent_when_the_run_ends() {
+    let mut app = panel_app(pages(1));
+    app.bind("https://example.com", "/scratch/site", true);
+    comment_on(&mut app, ON_PAGE, "make it blue");
+    app.agent_says(Notice::Session("sess-1".into()));
+    app.take_effects();
+
+    app.tool(Tool::Comment);
+    comment_on(&mut app, ON_PAGE, "and bigger");
+    assert!(
+        run_requests(&app.take_effects()).is_empty(),
+        "a run is in flight"
+    );
+    assert_eq!(app.chat().composer.queued.len(), 1);
+
+    app.agent_says(finished("done"));
+    let [drained] = run_requests(&app.take_effects())
+        .try_into()
+        .expect("the drain");
+    assert_eq!(drained.cwd.as_deref(), Some("/scratch/site"));
+    assert_eq!(drained.resume.as_deref(), Some("sess-1"));
+    assert!(drained.prompt.contains("[User] and bigger"));
+}
+
+#[test]
+fn canvas_comments_and_comments_on_other_origins_wait_for_send() {
+    let rows = [
+        ("a canvas comment", ON_CANVAS, "https://example.com"),
+        (
+            "a comment on a queue-mode origin",
+            ON_PAGE,
+            "https://example.com",
+        ),
+        (
+            "a comment on an unbound origin",
+            ON_PAGE,
+            "https://other.dev",
+        ),
+    ];
+    for (name, at, bound) in rows {
+        let mut app = panel_app(pages(1));
+        let auto = name != "a comment on a queue-mode origin";
+        app.bind(bound, "/scratch/site", auto);
+        comment_on(&mut app, at, "make it blue");
+        assert!(run_requests(&app.take_effects()).is_empty(), "{name}");
+        assert_eq!(app.chat().composer.queued.len(), 1, "{name}");
+    }
+}

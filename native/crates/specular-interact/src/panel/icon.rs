@@ -31,6 +31,10 @@ pub enum Icon {
     DrawHighlightTool,
     /// The comment tool. `CommentToolIcon` in `shared/CustomIcons.tsx`.
     CommentTool,
+    /// The inspect tool. `shared/icons/toolbar/inspect.svg`.
+    InspectTool,
+    /// A page's repo binding. Lucide `FolderCode`.
+    Repo,
     /// A shape silhouette: the path of that kind's row in
     /// `src/shared/shapes.ts`, drawn by `shared/ShapeGlyph.tsx`.
     Shape(ShapeKind),

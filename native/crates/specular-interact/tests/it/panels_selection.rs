@@ -48,6 +48,11 @@ fn a_page_has_size_frame_rotation_and_color_scheme() {
     ---
     button page.scheme "Color scheme: System. Click to change." icon=SchemeSystem -> SetProperty(ColorScheme(Some(Light)))
     ---
+    dropdown page.repo "Link a repo" shows icon=Repo
+      options list
+        option [ ] page.repo.origin "https://example.com" disabled -> Repo(Pick(Some("https://example.com")))
+        option [ ] page.repo.folder "No repo linked" trailing="Choose…" -> Repo(Pick(Some("https://example.com")))
+    ---
     button item.focus "Focus page" icon=Focus -> FocusSelection
     "#);
 }

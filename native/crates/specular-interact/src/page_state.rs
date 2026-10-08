@@ -86,6 +86,7 @@ pub(crate) fn on_notice(app: &mut App, page: &EntityId, notice: &PageNotice) -> 
         | PageNotice::ImeCompositionBounds(_)
         | PageNotice::ScrollProgress { .. }
         | PageNotice::Pointed { .. }
+        | PageNotice::Inspected { .. }
         | PageNotice::Candidates { .. } => {}
     }
     false

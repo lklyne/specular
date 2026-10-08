@@ -29,6 +29,8 @@ mod pins;
 #[cfg(target_os = "macos")]
 mod settings;
 #[cfg(target_os = "macos")]
+mod settings_repos;
+#[cfg(target_os = "macos")]
 mod shell;
 #[cfg(target_os = "macos")]
 mod surface;

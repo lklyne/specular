@@ -17,7 +17,10 @@ icon_assets!(
         SquareDashedMousePointer,
         Code,
         Archive,
-        Image
+        Image,
+        Zap,
+        ListEnd,
+        FolderCode
     ]
 );
 
@@ -40,6 +43,12 @@ pub(crate) enum ShellIcon {
     Archive,
     /// A queued message that is only images.
     Image,
+    /// Auto-fix is on for the origin.
+    Zap,
+    /// Comments for the origin wait in the queue.
+    ListEnd,
+    /// A connected repo.
+    FolderCode,
 }
 
 impl IconNamed for ShellIcon {
@@ -53,6 +62,9 @@ impl IconNamed for ShellIcon {
             Self::Code => IconName::Code.path(),
             Self::Archive => IconName::Archive.path(),
             Self::Image => IconName::Image.path(),
+            Self::Zap => IconName::Zap.path(),
+            Self::ListEnd => IconName::ListEnd.path(),
+            Self::FolderCode => IconName::FolderCode.path(),
         }
     }
 }

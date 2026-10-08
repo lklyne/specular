@@ -6,7 +6,7 @@ use specular_doc::{
     Annotation, AnnotationId, Document, Entity, EntityId, History, ItemId, Kind, Page,
 };
 
-use specular_agent::Threads;
+use specular_agent::{Repos, Threads};
 
 use crate::edit::{Measurer, TextEdit};
 use crate::images::Images;
@@ -30,6 +30,7 @@ pub struct App {
     /// Every thread of the space. Space-wide like `space`: a thread belongs
     /// to a canvas by its tab id, and switching canvas leaves them alone.
     pub(crate) threads: Threads,
+    pub(crate) repos: Repos,
     pub(crate) tool_defaults: ToolDefaults,
     /// Lays text out for the editor.
     pub(crate) measure: Measurer,
@@ -254,6 +255,7 @@ pub struct Session {
     /// epoch.
     pub now_ms: u64,
     /// The page the pointer's moves are going to, which is owed a leave.
+    pub(crate) inspect: crate::inspect::InspectState,
     pub(crate) pointer_page: Option<EntityId>,
     /// Which page got each held button's press.
     pub(crate) captured: ButtonCapture,

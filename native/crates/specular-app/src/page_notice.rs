@@ -82,6 +82,7 @@ pub(crate) fn notice_of(
         | PageEvent::PopupVisibility { .. }
         | PageEvent::PopupRect { .. }
         | PageEvent::ElementAt { .. }
+        | PageEvent::Inspected { .. }
         | PageEvent::ElementsInRect { .. } => return None,
     };
     Some(notice)

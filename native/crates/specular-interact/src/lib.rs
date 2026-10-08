@@ -54,6 +54,7 @@ mod guides;
 mod handles;
 mod hit;
 mod images;
+mod inspect;
 mod layout;
 mod live;
 mod marquee;
@@ -68,6 +69,7 @@ mod place;
 mod placement;
 mod pointer;
 pub mod property;
+mod repos;
 mod resize;
 mod resize_drag;
 mod reveal;
@@ -99,9 +101,9 @@ pub use asset::AssetBytes;
 pub use bindings::{BINDINGS, Binding, Chord, Context, binding_for};
 pub use caps::{AspectMode, aspect_mode, has_anchors, min_size};
 pub use chat::{
-    Bubble, CHAT_MAX_WIDTH, CHAT_MIN_WIDTH, CHAT_WIDTH, ChatAction, ChatModel, ChatView, Composer,
-    DraftChip, DraftKind, ImageUpload, OpenComments, PillChip, PillKind, QueuedChip, RunBar,
-    ThreadRow, Transcript, chat,
+    AutoChip, Bubble, CHAT_MAX_WIDTH, CHAT_MIN_WIDTH, CHAT_WIDTH, ChatAction, ChatModel, ChatView,
+    Composer, DraftChip, DraftKind, ImageUpload, OpenComments, PillChip, PillKind, QueuedChip,
+    RunBar, ThreadRow, Transcript, chat,
 };
 pub use clipboard::{ClipboardContent, ClipboardImage, Paste};
 pub use comment::{
@@ -131,6 +133,7 @@ pub use guides::{
 pub use handles::{Corner, HANDLE_SIZE, Handle, HandleOwner, OUTLINE_PADDING};
 pub use hit::{Hit, hit_test, title_scale};
 pub use images::{Image, ImageKey, ImageNotice, ImageState, is_image_file};
+pub use inspect::{InspectFont, InspectModel, InspectPopover, InspectSwatch, InspectTarget};
 pub use layout::Axis as LayoutAxis;
 pub use layout::act::{gap_command, make_command as auto_layout_command, reorder_command};
 pub use layout::drag::{LineDrag, ReorderGhost};
@@ -150,6 +153,7 @@ pub use panel::{
 pub use place::{PlaceDrag, Placing};
 pub use placement::PagePlacement;
 pub use property::{Orientation, Property};
+pub use repos::{BoundOriginRow, RepoAction, RepoRow, ReposPane, repos_pane};
 pub use resize_drag::ResizeDrag;
 pub use scope::SelectionScope;
 pub use scroll_follow::{
@@ -166,8 +170,8 @@ pub use space::{
 };
 pub use specular_agent::{
     Image as ThreadImage, Index as ThreadIndex, MediaType, Message as ThreadMessage, Notice,
-    Progress, ProgressKind, Role as ThreadRole, RunRequest, RunState, Status as ThreadStatus,
-    Thread, ThreadId, Threads,
+    Progress, ProgressKind, Repos, Role as ThreadRole, RunRequest, RunState,
+    Status as ThreadStatus, Thread, ThreadId, Threads, WriteTarget, origin_of,
 };
 pub use time::iso8601;
 pub use tool::Tool;

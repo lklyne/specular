@@ -261,6 +261,7 @@ pub const BINDINGS: &[Binding] = &[
         ToolDefaultPatch::ShapeKind(ShapeKind::Diamond),
     ),
     tool('c', Tool::Comment),
+    tool('i', Tool::Inspect),
     variant(Chord::char('m'), ToolDefaultPatch::Brush(BrushType::Pen)),
     variant(
         Chord::char('m').shift(),

@@ -89,6 +89,7 @@ impl AgentBackend for Scripted {
     fn start(
         &mut self,
         request: &RunRequest,
+        _space: &Path,
         cwd: &Path,
     ) -> Result<Box<dyn AgentProcess>, AgentError> {
         if let Ok(mut started) = self.started.lock() {

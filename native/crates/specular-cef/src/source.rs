@@ -19,7 +19,6 @@ use specular_core::{
 use crate::client::{new_app, new_client};
 use crate::config::{CefConfig, Pump, browser_switches, windowless_frame_rate};
 use crate::devtools::{Asked, Devtools, SinkSlot};
-use crate::dom_query;
 use crate::error::CefError;
 use crate::host_call::dispatch;
 use crate::page::{PageContext, PageGeometry, clear_events, drain_events, lock_geometry};
@@ -29,6 +28,7 @@ use crate::process::{backend_error, declare_api_version};
 use crate::pump_timer::PumpTimer;
 use crate::sync_host::Capture;
 use crate::translate::InputTranslator;
+use crate::{dom_query, inspect_query};
 
 /// Pages paint opaque white under transparent content, like an Electron
 /// `BrowserWindow`, so CPU and GPU frames composite identically.
@@ -422,6 +422,22 @@ impl PageSource for CefPageSource {
             });
         sent.then_some(())
             .ok_or_else(|| refused("element at point"))
+    }
+
+    fn inspect_at(
+        &mut self,
+        page: PageId,
+        point: Vec2,
+        request: u64,
+    ) -> Result<(), PageSourceError> {
+        let entry = self.entry(page)?;
+        let sent = entry
+            .devtools
+            .send(&entry.host, Asked::Inspect(request), |id| {
+                inspect_query::inspect_at_message(id, point.x, point.y)
+            });
+        sent.then_some(())
+            .ok_or_else(|| refused("inspect at point"))
     }
 
     fn query_elements_in_rect(

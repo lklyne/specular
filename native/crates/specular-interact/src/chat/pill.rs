@@ -1,10 +1,12 @@
 //! The live pill: what this turn is about, from the app as it is now.
 //!
 //! A DOM node comes first, then the focused comment, then the canvas
-//! selection, then nothing (the canvas name). The inspect tool is not
-//! ported, so there is no DOM node yet.
+//! selection, then nothing (the canvas name). The DOM node is the one the
+//! inspect tool picked, which stays the target after the tool is put down.
 
-use specular_agent::{CanvasSelection, FocusedAnnotation, Pill, PillInput, resolve};
+use specular_agent::{
+    CanvasSelection, FocusedAnnotation, InspectNode, Pill, PillInput, origin_of, resolve,
+};
 use specular_doc::{AnnotationAnchor, AnnotationId, Entity, ItemId, Kind};
 
 use crate::App;
@@ -15,13 +17,24 @@ const WORDS: usize = 40;
 /// The pill for the app as it is.
 pub(super) fn live(app: &App) -> Pill {
     resolve(&PillInput {
-        inspect_node: None,
+        inspect_node: inspected(app),
         focused_annotation: app
             .session
             .focused_comment
             .as_ref()
             .and_then(|id| focused(app, id)),
         canvas_selection: selection(app),
+    })
+}
+
+fn inspected(app: &App) -> Option<InspectNode> {
+    let target = app.inspected()?;
+    let address = crate::inspect::address(app, &target.page);
+    Some(InspectNode {
+        name: target.node.name.clone(),
+        tag_name: target.node.tag_name.clone(),
+        origin: address.as_deref().and_then(origin_of),
+        page_id: Some(target.page.as_str().to_owned()),
     })
 }
 

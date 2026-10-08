@@ -1,7 +1,7 @@
 //! The pill over the composer: what this turn is about, read from the app.
 
 use specular_doc::{AnnotationAnchor, Rect};
-use specular_interact::{Action, PageNotice, PillKind};
+use specular_interact::{Action, PageNotice, PillKind, Tool};
 use specular_testkit::{
     TestApp, comment, document, file, group, page, plain_text, shape, with_comment,
 };
@@ -67,4 +67,27 @@ fn a_focused_comment_comes_before_the_selection() {
     assert_eq!(pill(&app).0, PillKind::Selection);
     app.act(Action::FocusComment(Some("c1".into())));
     assert_eq!(pill(&app), (PillKind::Comment, "fix the header".to_owned()));
+}
+
+#[test]
+fn a_picked_node_comes_before_a_focused_comment_and_the_selection() {
+    let anchor = AnnotationAnchor::Canvas {
+        canvas_x: 50.0,
+        canvas_y: 50.0,
+    };
+    let doc = with_comment(
+        document([
+            page("p1", Rect::new(100.0, 100.0, 400.0, 300.0)),
+            shape("s1", AT),
+        ]),
+        comment("c1", anchor, "fix the header"),
+    );
+    let mut app = TestApp::from_document(doc);
+    app.with_chat_panel().select(&["s1"]);
+    app.act(Action::FocusComment(Some("c1".into())));
+    assert_eq!(pill(&app).0, PillKind::Comment);
+    app.tool(Tool::Inspect)
+        .click((200.0, 150.0))
+        .answer_inspect();
+    assert_eq!(pill(&app), (PillKind::Dom, "div \"Cell 0,1\"".to_owned()));
 }

@@ -67,7 +67,8 @@ fn wanted(app: &App) -> Cursor {
             | Tool::AddDocument
             | Tool::AddShape
             | Tool::Draw
-            | Tool::Comment,
+            | Tool::Comment
+            | Tool::Inspect,
             _,
         ) => session.tool.cursor(),
     }

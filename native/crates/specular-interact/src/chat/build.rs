@@ -1,14 +1,14 @@
 //! [`chat`]: the panel as it is now.
 
-use specular_agent::{Message, Pill, Role, RunState, Status, Thread};
+use specular_agent::{Message, Pill, Role, RunState, Status, Thread, WriteTarget};
 use specular_doc::AnnotationId;
 
 use super::model::{
-    Bubble, ChatModel, Composer, DraftChip, OpenComments, PillChip, PillKind, QueuedChip, RunBar,
-    ThreadRow, Transcript,
+    AutoChip, Bubble, ChatModel, Composer, DraftChip, OpenComments, PillChip, PillKind, QueuedChip,
+    RunBar, ThreadRow, Transcript,
 };
-use super::{ChatAction, comments, draft, pill};
-use crate::{Action, App, comment};
+use super::{ChatAction, comments, draft, pill, prompt};
+use crate::{Action, App, RepoAction, comment};
 
 /// The hint over an empty conversation.
 const EMPTY_HINT: &str = "Comment on the canvas to queue a draft, or type below and send.";
@@ -127,6 +127,12 @@ fn composer(app: &App, active: Option<&Thread>) -> Composer {
     } else {
         "Follow up\u{2026}"
     };
+    let live = pill::live(app);
+    let target = prompt::write_target(app, &live);
+    let folder = match &target {
+        WriteTarget::Repo { repo_path, .. } => Some(repo_path.as_str()),
+        WriteTarget::Space => app.space.folder(),
+    };
     Composer {
         can_send_empty: draft_chip.is_none() && !running && !queued.is_empty(),
         draft: draft_chip,
@@ -136,10 +142,28 @@ fn composer(app: &App, active: Option<&Thread>) -> Composer {
         }),
         queued: queued.into_iter().map(queued_chip).collect(),
         placeholder: placeholder.to_owned(),
-        pill: pill_chip(app),
-        folder: app.space.folder().and_then(last_segment),
+        pill: pill_chip(app, &live),
+        folder: folder.and_then(last_segment),
+        folder_path: folder.map(str::to_owned),
+        auto: auto_chip(app, &target),
         running,
     }
+}
+
+/// The send mode beside the folder chip, when the turn writes to a repo.
+fn auto_chip(app: &App, target: &WriteTarget) -> Option<AutoChip> {
+    let WriteTarget::Repo { origin, .. } = target else {
+        return None;
+    };
+    let on = (app.repos.binding(origin)).is_some_and(|binding| binding.auto_fix);
+    Some(AutoChip {
+        origin: origin.clone(),
+        on,
+        toggle: Action::Repo(RepoAction::SetAutoFix {
+            origin: origin.clone(),
+            on: !on,
+        }),
+    })
 }
 
 fn queued_chip(message: &Message) -> QueuedChip {
@@ -157,9 +181,8 @@ fn queued_chip(message: &Message) -> QueuedChip {
     }
 }
 
-fn pill_chip(app: &App) -> PillChip {
-    let pill = pill::live(app);
-    let kind = match &pill {
+fn pill_chip(app: &App, pill: &Pill) -> PillChip {
+    let kind = match pill {
         Pill::Dom { .. } => PillKind::Dom,
         Pill::Annotation { .. } => PillKind::Comment,
         Pill::Selection { .. } => PillKind::Selection,

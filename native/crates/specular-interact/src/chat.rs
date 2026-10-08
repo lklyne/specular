@@ -33,7 +33,7 @@ pub use self::action::{ChatAction, ImageUpload};
 pub use self::build::chat;
 pub(crate) use self::commit::comment as commit_comment;
 pub use self::model::{
-    Bubble, ChatModel, Composer, DraftChip, DraftKind, OpenComments, PillChip, PillKind,
+    AutoChip, Bubble, ChatModel, Composer, DraftChip, DraftKind, OpenComments, PillChip, PillKind,
     QueuedChip, RunBar, ThreadRow, Transcript,
 };
 pub(crate) use self::notice::{on_agent, on_loaded, open_thread_of};

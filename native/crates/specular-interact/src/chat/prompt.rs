@@ -4,18 +4,64 @@
 use std::fmt::Write as _;
 
 use serde_json::Value;
-use specular_agent::{CommentContext, Pill, PromptContext, ThreadId, WriteTarget};
+use specular_agent::{CommentContext, Pill, PromptContext, ThreadId, WriteTarget, origin_of};
 use specular_doc::{
     Annotation, AnnotationAnchor, AnnotationId, EntityId, Kind, Rect, RegionAnchor,
 };
 
 use crate::App;
 
-/// The prompt context for a turn on `thread` aimed at `pill`.
+/// Where a turn aimed at `pill` may change source: the repo bound to the
+/// pill's origin, else the space folder.
 ///
-/// The write target is always the space folder: the origin to repo bindings
-/// the Electron app keeps do not exist here yet, so a turn never edits a
-/// linked site.
+/// The origin is the DOM node's for a DOM pill and the page-bound comment's
+/// for a comment pill (its recorded address, else the page's live address,
+/// else the page entity's). This is deliberately narrower than Electron's
+/// `resolveWriteTarget`, which also resolves a selected page: here a canvas
+/// selection, the empty pill, a canvas-bound comment and a `data:` page all
+/// write to the space.
+pub(crate) fn write_target(app: &App, pill: &Pill) -> WriteTarget {
+    let origin = match pill {
+        Pill::Dom { origin, .. } => origin.clone(),
+        Pill::Annotation { annotation_id, .. } => app
+            .document
+            .annotation(&AnnotationId::new(annotation_id.as_str()))
+            .and_then(|annotation| comment_origin(app, annotation)),
+        Pill::Selection { .. } | Pill::Empty => None,
+    };
+    let bound = origin
+        .as_deref()
+        .and_then(|origin| Some((origin, app.repos.binding(origin)?)));
+    match bound {
+        Some((origin, binding)) => WriteTarget::Repo {
+            origin: origin_of(origin).unwrap_or_else(|| origin.to_owned()),
+            repo_path: binding.repo_path.to_owned(),
+        },
+        None => WriteTarget::Space,
+    }
+}
+
+/// The origin of the page a comment is bound to, or `None` for a comment
+/// on the canvas.
+pub(crate) fn comment_origin(app: &App, annotation: &Annotation) -> Option<String> {
+    let anchor = annotation.page_anchor.as_ref()?;
+    let recorded = anchor.page_url.as_deref().and_then(origin_of);
+    recorded.or_else(|| {
+        let live = app
+            .page_state(&anchor.page_id)
+            .and_then(|s| s.url.as_deref());
+        let entity = match &app.document.entity(&anchor.page_id)?.kind {
+            Kind::Page(page) => Some(page.url.as_str()),
+            Kind::Text(_) | Kind::File(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Shape(_) => {
+                None
+            }
+        };
+        live.and_then(origin_of)
+            .or_else(|| entity.and_then(origin_of))
+    })
+}
+
+/// The prompt context for a turn on `thread` aimed at `pill`.
 pub(super) fn context(app: &App, thread: &ThreadId, pill: Pill) -> PromptContext {
     let comments = app
         .threads
@@ -34,7 +80,7 @@ pub(super) fn context(app: &App, thread: &ThreadId, pill: Pill) -> PromptContext
         .unwrap_or_default();
     PromptContext {
         space_path: app.space.folder().unwrap_or_default().to_owned(),
-        write_target: WriteTarget::Space,
+        write_target: write_target(app, &pill),
         pill,
         canvas_name: app.space.active().name.clone(),
         comments,

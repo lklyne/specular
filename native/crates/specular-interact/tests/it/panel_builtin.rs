@@ -203,8 +203,9 @@ fn the_pointer_over_a_panel_is_an_arrow_and_hovers_nothing_under_it() {
 
 #[test]
 fn a_point_on_a_panel_hits_the_panel_and_not_what_is_under_it() {
-    let mut app = TestApp::with_entities([shape("s", Rect::new(700.0, 0.0, 200.0, 200.0))]);
-    let on_bar = glam::Vec2::new(800.0, TOOLBAR_HEIGHT / 2.0);
+    let mut app = TestApp::with_entities([shape("s", Rect::new(300.0, 0.0, 300.0, 200.0))]);
+    // The gap between the select button and the divider after it.
+    let on_bar = glam::Vec2::new(424.0, TOOLBAR_HEIGHT / 2.0);
     assert!(matches!(
         hit_test(app.app(), on_bar),
         Hit::EntityBody { .. }

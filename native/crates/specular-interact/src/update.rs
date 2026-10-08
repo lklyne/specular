@@ -12,8 +12,8 @@ use crate::panel::builtin;
 use crate::stack_order::Move;
 use crate::{
     Action, App, Effect, Event, Focus, PageNotice, Selection, ToolDefaultPatch, api, bindings,
-    camera, chat, comment, cursor, edit, gesture, groups, page_state, pages, pointer, property,
-    reveal, space, sync, verbs,
+    camera, chat, comment, cursor, edit, gesture, groups, inspect, page_state, pages, pointer,
+    property, reveal, space, sync, verbs,
 };
 use crate::{arrange, clipboard, drop, select_all, zoom};
 
@@ -85,6 +85,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         Event::ChatPanel(available) => app.session.chat.set_available(available),
         Event::ThreadsLoaded { threads, index } => chat::on_loaded(app, threads, &index),
         Event::Agent { thread, notice } => chat::on_agent(app, &thread, notice, &mut effects),
+        Event::ReposLoaded(repos) => app.repos = *repos,
         Event::Api(call) => api::run(app, call, &mut effects),
     }
     builtin::forget_layout_unless(app, keeps_layout);
@@ -106,7 +107,9 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
     comment::settle(app);
     if app.session.tool != tool {
         comment::on_tool_change(app);
+        inspect::on_tool_change(app);
     }
+    inspect::settle(app, switched);
     groups::keep_entered_valid(app);
     builtin::tidy(app);
     if edit::restart_blink(app, &caret) {
@@ -219,6 +222,7 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         Action::ToggleSync => sync::toggle(app, effects),
         Action::Canvas(action) => space::act(app, action, effects),
         Action::Chat(action) => chat::run(app, action, effects),
+        Action::Repo(action) => crate::repos::run(app, action, effects),
     }
 }
 
@@ -227,6 +231,9 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
 fn cancel(app: &mut App, effects: &mut Vec<Effect>) {
     // A comment draft or a focused comment is all one Escape takes.
     if comment::cancel(app, effects) {
+        return;
+    }
+    if inspect::cancel(app) {
         return;
     }
     // Escape is staged: it first backs out of whatever is in flight
@@ -377,6 +384,7 @@ fn on_page_event(app: &mut App, page: &EntityId, notice: &PageNotice, effects: &
         effects.push(Effect::Save);
     }
     sync::on_notice(app, page, notice, shown.as_deref(), effects);
+    crate::inspect::on_notice(app, page, notice);
     on_page_notice(app, page, notice, effects);
 }
 
@@ -391,6 +399,7 @@ fn on_page_notice(app: &App, page: &EntityId, notice: &PageNotice, effects: &mut
         | PageNotice::ScrollProgress { .. }
         | PageNotice::Pointed { .. }
         | PageNotice::Candidates { .. }
+        | PageNotice::Inspected { .. }
         | PageNotice::DevtoolsUrl(_) => {}
         PageNotice::ImeCompositionBounds(bounds) => {
             if app.session.focus.page() == Some(page)

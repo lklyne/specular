@@ -1,8 +1,10 @@
 //! The popup of pages (`PagePopup.tsx`): history, reload and the address,
 //! then size, device frame, orientation and color scheme, and the chain
-//! button that syncs the selected pages. The repo binding has no action
-//! here.
+//! button that syncs the selected pages, and the repo control of a single
+//! page. Electron also infers a repo from a running dev server's base URL;
+//! this app runs no dev servers, so the origin's binding is the only source.
 
+use specular_agent::origin_of;
 use specular_doc::{ColorScheme, Entity, Kind, VIEWPORT_PRESETS};
 
 use super::super::build::{button, groups, toggle};
@@ -12,7 +14,7 @@ use super::super::{
 };
 use super::actions::Actions;
 use crate::property::read;
-use crate::{Action, App, Orientation, Property, binding_of};
+use crate::{Action, App, Orientation, Property, RepoAction, binding_of};
 
 /// The preset rows in the order the size list has them: phones, tablets,
 /// then laptops and desktops.
@@ -267,6 +269,99 @@ fn scheme(app: &App) -> Control {
     )
 }
 
+/// `/Users/<name>` shortened to `~`.
+fn tilde(path: &str) -> String {
+    match path.strip_prefix("/Users/") {
+        Some(rest) => match rest.split_once('/') {
+            Some((_, tail)) => format!("~/{tail}"),
+            None => "~".to_owned(),
+        },
+        None => path.to_owned(),
+    }
+}
+
+/// The most characters of a folder the repo row shows, so the path stays
+/// clear of the row's trailing text.
+const FOLDER_CHARS: usize = 28;
+
+/// A folder for the repo row: `~` for the home folder, and the end of a long
+/// path after an ellipsis, since the end is what tells two repos apart.
+fn short_folder(path: &str) -> String {
+    let path = tilde(path);
+    let length = path.chars().count();
+    if length <= FOLDER_CHARS {
+        return path;
+    }
+    let tail: String = path.chars().skip(length - (FOLDER_CHARS - 1)).collect();
+    format!("\u{2026}{tail}")
+}
+
+/// Which repo the page's origin writes to. A page with no origin (`data:`,
+/// `file:`) has nothing to bind and no control.
+fn repo_control(app: &App, page: &Entity) -> Option<Control> {
+    let live = app
+        .page_state(&page.id)
+        .and_then(|state| state.url.as_deref());
+    let stored = match &page.kind {
+        Kind::Page(page) => Some(page.url.as_str()),
+        Kind::Text(_) | Kind::Shape(_) | Kind::Drawing(_) | Kind::Group(_) | Kind::File(_) => None,
+    };
+    let origin = live
+        .and_then(origin_of)
+        .or_else(|| stored.and_then(origin_of))?;
+    let bound = app
+        .repos()
+        .binding(&origin)
+        .map(|binding| binding.repo_path);
+    let id = ControlId::new("page.repo");
+    let pick = Action::Repo(RepoAction::Pick(Some(origin.clone())));
+    let row = |name: &str, label: String, trailing: Option<&str>, enabled, action| DropdownOption {
+        id: id.child(name),
+        face: Face::text(label.clone()),
+        label: label.into(),
+        trailing: trailing.map(|text| text.to_owned().into()),
+        chord: None,
+        selected: false,
+        enabled,
+        action,
+    };
+    let mut options = vec![
+        row("origin", origin.clone(), None, false, pick.clone()),
+        match bound {
+            Some(path) => row(
+                "folder",
+                short_folder(path),
+                Some("Change\u{2026}"),
+                true,
+                pick,
+            ),
+            None => row(
+                "folder",
+                "No repo linked".to_owned(),
+                Some("Choose\u{2026}"),
+                true,
+                pick,
+            ),
+        },
+    ];
+    if bound.is_some() {
+        let unlink = Action::Repo(RepoAction::Unlink(origin));
+        options.push(row("unlink", "Unlink".to_owned(), None, true, unlink));
+    }
+    Some(Control::Dropdown(Dropdown {
+        label: match bound {
+            Some(path) => format!("Repo: {}", tilde(path)).into(),
+            None => "Link a repo".into(),
+        },
+        summary: Face::icon(Icon::Repo),
+        content: vec![DropdownSection::Options {
+            layout: OptionLayout::List,
+            options,
+        }],
+        id,
+    }))
+}
+
 pub(super) fn popup(app: &App, entities: &[&Entity]) -> PopupModel {
     let single = match entities {
         [one] => Some(*one),
@@ -279,6 +374,7 @@ pub(super) fn popup(app: &App, entities: &[&Entity]) -> PopupModel {
             vec![size_dropdown(app, single)],
             vec![frame_toggle(app, "Device frame"), rotate(app)],
             vec![scheme(app)],
+            repo_control(app, page).into_iter().collect(),
             Actions {
                 sync: app.selection_synced(),
                 annotate: false,

@@ -6,8 +6,9 @@ use super::paths_pens::{
     PEN_TIP_LINE,
 };
 use super::paths_tools::{
-    COMMENT_BUBBLE, COMMENT_CORNER, DOCUMENT_BODY, DOCUMENT_LINE, SELECT_BODY, SELECT_LINE,
-    SHAPE_ARROW, STICKY_CURL, STICKY_FRONT, STICKY_FRONT_LINE, TEXT,
+    COMMENT_BUBBLE, COMMENT_CORNER, DOCUMENT_BODY, DOCUMENT_LINE, INSPECT_BLADE, INSPECT_HANDLE,
+    INSPECT_SHADOW, SELECT_BODY, SELECT_LINE, SHAPE_ARROW, STICKY_CURL, STICKY_FRONT,
+    STICKY_FRONT_LINE, TEXT,
 };
 use super::{BODY, Glyph, Layer, OUTLINE, Paint, Shape, Turn};
 
@@ -127,6 +128,24 @@ const COMMENT: &[Layer] = &[
     Layer::fill(Shape::Path(COMMENT_CORNER), OUTLINE),
 ];
 
+/// The inspect tool: `inspect.svg` paints its stem with a light grey
+/// gradient, flattened to its midpoint.
+const INSPECT: &[Layer] = &[
+    Layer::fill(Shape::Path(INSPECT_SHADOW), Paint::Hex(0x9b_9b9b)),
+    Layer::new(
+        Shape::Path(INSPECT_BLADE),
+        Paint::Hex(0xde_dede),
+        OUTLINE,
+        1.0,
+    ),
+    Layer::new(
+        Shape::Path(INSPECT_HANDLE),
+        Paint::Hex(0xe8_e8e8),
+        OUTLINE,
+        1.0,
+    ),
+];
+
 const fn clipped(layers: &'static [Layer]) -> Glyph {
     Glyph {
         clipped: true,
@@ -155,3 +174,5 @@ pub(super) const PEN_TOOL: Glyph = clipped(PEN);
 pub(super) const MARKER_TOOL: Glyph = clipped(MARKER);
 /// `CommentToolIcon`.
 pub(super) const COMMENT_TOOL: Glyph = Glyph::square(18.0, COMMENT);
+/// `inspect.svg`.
+pub(super) const INSPECT_TOOL: Glyph = Glyph::square(18.0, INSPECT);

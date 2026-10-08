@@ -75,6 +75,9 @@ pub struct RunRequest {
     pub prompt: String,
     /// The session to resume.
     pub resume: Option<String>,
+    /// The folder the run works in, when it is not the space folder: the
+    /// repo linked to the origin the turn is about.
+    pub cwd: Option<String>,
     /// The images pasted into this turn, relative to the space folder. They
     /// go to the model beside the prompt.
     pub images: Vec<Image>,

@@ -1,5 +1,5 @@
 use std::collections::BTreeMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use specular_agent::{Notice, Progress, ProgressKind, RunRequest, ThreadId, parse_line};
@@ -57,22 +57,28 @@ impl AgentRuns {
         self.backend.set_waker(waker);
     }
 
-    /// Starts a run in `cwd`, the space folder. A request for a thread that
+    /// Starts a run in the request's `cwd`, or in the space folder `space`
+    /// when it names none. A request for a thread that
     /// already has a run is ignored: the model never asks, and the run
     /// going keeps the thread. A spawn error, or no folder, is one `Failed`
     /// from the next [`poll`](Self::poll).
-    pub fn start(&mut self, request: &RunRequest, cwd: Option<&Path>) {
+    pub fn start(&mut self, request: &RunRequest, space: Option<&Path>) {
         if self.runs.contains_key(&request.thread) {
             tracing::warn!("a run for {} is already going", request.thread.as_str());
             return;
         }
         let failed = |error: String| (request.thread.clone(), Notice::Failed { error });
-        let Some(cwd) = cwd else {
+        let Some(space) = space else {
             self.queued
                 .push(failed("Open a folder first: the agent works in it.".into()));
             return;
         };
-        match self.backend.start(request, cwd) {
+        let cwd = request
+            .cwd
+            .as_deref()
+            .map_or_else(|| space.to_path_buf(), PathBuf::from);
+        tracing::info!(thread = request.thread.as_str(), cwd = %cwd.display(), "agent run starts");
+        match self.backend.start(request, space, &cwd) {
             Ok(process) => {
                 self.runs.insert(
                     request.thread.clone(),
@@ -203,6 +209,7 @@ mod tests {
             prompt: "p".into(),
             resume: None,
             images: Vec::new(),
+            cwd: None,
         }
     }
 
@@ -360,6 +367,26 @@ mod tests {
         r.start(&request("t"), Some(Path::new("/space")));
         assert_eq!(log.lock().unwrap().len(), 1);
         assert_eq!(r.poll(), vec![]);
+    }
+
+    #[test]
+    fn a_run_starts_in_the_requests_folder_or_else_the_space_folder() {
+        let script = Scripted::from_text("wait 3600000").unwrap();
+        let log = script.started();
+        let mut r = AgentRuns::new(Box::new(script));
+        let repo = RunRequest {
+            cwd: Some("/repo".into()),
+            ..request("a")
+        };
+        r.start(&repo, Some(Path::new("/space")));
+        r.start(&request("b"), Some(Path::new("/space")));
+        let folders: Vec<_> = log
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|(_, cwd)| cwd.clone())
+            .collect();
+        assert_eq!(folders, [Path::new("/repo"), Path::new("/space")]);
     }
 
     #[test]

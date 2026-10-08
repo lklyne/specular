@@ -204,6 +204,33 @@ pub enum Effect {
         /// The point, in the page's viewport CSS pixels.
         point: Vec2,
     },
+    /// Read the node a page has under a point, as the inspect tool shows it,
+    /// and answer with a
+    /// [`PageNotice::Inspected`](crate::PageNotice::Inspected) that repeats
+    /// the point and `pick`. An answer of no node is still an answer.
+    InspectAt {
+        /// The page entity.
+        page: EntityId,
+        /// The point, in the page's viewport CSS pixels.
+        point: Vec2,
+        /// Whether a click asked, so the node becomes the selected one. A
+        /// hover asks with `false`.
+        pick: bool,
+    },
+    /// Write the connected repos, as
+    /// [`Repos::to_json`](specular_agent::Repos::to_json) of
+    /// [`App::repos`](crate::App::repos) gives them, to the `repos.json`
+    /// the Electron app keeps in its data folder.
+    SaveRepos,
+    /// Ask the user for a folder and answer with an
+    /// [`Action::Repo`](crate::Action::Repo): a
+    /// [`RepoAction::Bind`](crate::RepoAction::Bind) of `origin` to it, or a
+    /// [`RepoAction::Connect`](crate::RepoAction::Connect) when there is no
+    /// origin. A cancelled dialog answers nothing.
+    PickRepoFolder {
+        /// The origin to bind to the folder chosen.
+        origin: Option<String>,
+    },
     /// Count the elements each page has inside a comment region and answer
     /// with [`Event::RegionGrab`](crate::Event::RegionGrab), which repeats
     /// the region and lists the pages in this order.
@@ -230,7 +257,8 @@ pub enum Effect {
     /// Write `.specular/threads/index.json` in the space folder, from
     /// [`App::thread_index_json`](crate::App::thread_index_json).
     WriteThreadIndex,
-    /// Start the `claude` CLI for a thread, in the space folder, and answer
+    /// Start the `claude` CLI for a thread, in the request's `cwd` or else
+    /// the space folder, and answer
     /// with an [`Event::Agent`](crate::Event::Agent) for each thing its
     /// output says, the last being a
     /// [`Notice::Finished`](specular_agent::Notice::Finished) or a

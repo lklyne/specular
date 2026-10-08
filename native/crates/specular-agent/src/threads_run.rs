@@ -101,14 +101,18 @@ impl Threads {
         } else {
             full.clone()
         };
-        self.runs
-            .insert(id.clone(), Run::new(full, resume.is_some(), images.clone()));
+        let cwd = ctx.write_target.cwd().map(str::to_owned);
+        self.runs.insert(
+            id.clone(),
+            Run::new(full, resume.is_some(), images.clone(), cwd.clone()),
+        );
         Some(Started {
             request: RunRequest {
                 thread: id.clone(),
                 prompt,
                 resume,
                 images,
+                cwd,
             },
             changed: Changed::thread(id),
         })
@@ -195,6 +199,7 @@ impl Threads {
             prompt: run.fallback_prompt.clone(),
             resume: None,
             images: run.images.clone(),
+            cwd: run.cwd.clone(),
         };
         if let Some(thread) = self.items.iter_mut().find(|t| &t.id == id) {
             thread.claude_session_id = None;

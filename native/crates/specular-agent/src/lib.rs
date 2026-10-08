@@ -10,6 +10,7 @@ mod json;
 mod pill;
 mod prompt;
 mod reply;
+mod repos;
 mod run;
 mod stream;
 mod text;
@@ -24,8 +25,9 @@ pub use pill::{
 };
 pub use prompt::{CommentContext, PromptContext, WriteTarget, follow_up_prompt, thread_prompt};
 pub use reply::{Reply, parse_output};
+pub use repos::{Binding, BoundOrigin, Repo, Repos, origin_of};
 pub use run::{MAX_EVENTS, Run, RunState};
 pub use stream::{Notice, Progress, ProgressKind, parse_line};
 pub use thread::{Image, MediaType, Message, Role, Status, Thread, ThreadId, title_from_messages};
-pub use threads::{Changed, Threads};
+pub use threads::{Changed, Join, Threads};
 pub use threads_run::{Outcome, Started};

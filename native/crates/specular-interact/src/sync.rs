@@ -227,6 +227,7 @@ pub(crate) fn on_notice(
         | PageNotice::ImeCompositionBounds(_)
         | PageNotice::Title(_)
         | PageNotice::Loading { .. }
+        | PageNotice::Inspected { .. }
         | PageNotice::DevtoolsUrl(_) => {}
     }
 }
