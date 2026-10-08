@@ -7,12 +7,13 @@ use specular_doc::{Annotation, AnnotationId, AnnotationStatus, Command, JsonMap}
 
 use super::marks;
 use super::shown::shown;
-use crate::{App, Effect, live, update};
+use crate::{App, Effect, chat, live, update};
 
 /// Gives `id` the focus, and takes the selection away: a comment and a
 /// selection are never both what the keys act on. `None` clears the focus,
-/// and an id that is not shown does nothing.
-pub(crate) fn focus(app: &mut App, id: Option<&AnnotationId>) {
+/// and an id that is not shown does nothing. The comment's thread, when it
+/// has a live one, becomes the open thread.
+pub(crate) fn focus(app: &mut App, id: Option<&AnnotationId>, effects: &mut Vec<Effect>) {
     let Some(id) = id else {
         app.session.focused_comment = None;
         return;
@@ -24,16 +25,17 @@ pub(crate) fn focus(app: &mut App, id: Option<&AnnotationId>) {
     {
         app.session.focused_comment = Some(id.clone());
         app.session.selection.set([]);
+        chat::open_thread_of(app, id, effects);
     }
 }
 
 /// A left press at `screen`: focuses the comment under it. Returns whether
 /// there was one, in which case the press is all it does.
-pub(crate) fn press(app: &mut App, screen: Vec2) -> bool {
+pub(crate) fn press(app: &mut App, screen: Vec2, effects: &mut Vec<Effect>) -> bool {
     let Some(id) = marks::at(app, screen) else {
         return false;
     };
-    focus(app, Some(&id));
+    focus(app, Some(&id), effects);
     true
 }
 
@@ -69,7 +71,13 @@ fn targets(app: &App, id: Option<&AnnotationId>) -> Vec<AnnotationId> {
 /// Marks the targets resolved, by the user, as one step. A comment already
 /// resolved is left as it is, and when nothing changes no step is made.
 pub(crate) fn resolve(app: &mut App, id: Option<&AnnotationId>, effects: &mut Vec<Effect>) {
-    let commands: Vec<Command> = (targets(app, id).iter())
+    let ids = targets(app, id);
+    resolve_all(app, &ids, effects);
+}
+
+/// Marks `ids` resolved, as [`resolve`] does.
+pub(crate) fn resolve_all(app: &mut App, ids: &[AnnotationId], effects: &mut Vec<Effect>) {
+    let commands: Vec<Command> = (ids.iter())
         .filter_map(|id| app.document.annotation(id))
         .filter(|annotation| annotation.status != AnnotationStatus::Resolved)
         .map(|annotation| Command::ReplaceAnnotation(Box::new(resolved(annotation))))

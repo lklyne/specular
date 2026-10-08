@@ -6,6 +6,8 @@ use specular_doc::{
     Annotation, AnnotationId, Document, Entity, EntityId, History, ItemId, Kind, Page,
 };
 
+use specular_agent::Threads;
+
 use crate::edit::{Measurer, TextEdit};
 use crate::images::Images;
 use crate::notes::Notes;
@@ -25,6 +27,9 @@ pub struct App {
     pub(crate) session: Session,
     /// The folder of canvases. The fields above are its active canvas.
     pub(crate) space: Space,
+    /// Every thread of the space. Space-wide like `space`: a thread belongs
+    /// to a canvas by its tab id, and switching canvas leaves them alone.
+    pub(crate) threads: Threads,
     pub(crate) tool_defaults: ToolDefaults,
     /// Lays text out for the editor.
     pub(crate) measure: Measurer,
@@ -232,6 +237,9 @@ pub struct Session {
     /// Whether the sidebar is shown, and its folds. See
     /// [`App::covered_left`].
     pub sidebar: crate::SidebarView,
+    /// The right panel: whether the shell has one, whether it is open, and
+    /// its width.
+    pub chat: crate::ChatView,
     /// Where the pointer is, in logical screen pixels. `None` when it is
     /// outside the window.
     pub pointer: Option<Vec2>,

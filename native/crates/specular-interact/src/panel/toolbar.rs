@@ -1,7 +1,8 @@
 //! [`toolbar`]: the tool buttons and the zoom readout (`toolbarSections.tsx`).
 //!
-//! The Electron toolbar also has a hand tool, an inspect tool, a theme
-//! toggle and the right panel's toggle. None has an [`Action`] here.
+//! The Electron toolbar also has a hand tool, an inspect tool and a theme
+//! toggle. None has an [`Action`] here. The right panel's toggle is on the
+//! model when the shell has a right panel.
 //!
 //! A button arms its tool and leaves the tool's defaults alone: the key of
 //! the draw tool also picks the pen, and a click must not.
@@ -13,7 +14,7 @@ use super::{
     ToolButton, ToolbarModel, ToolbarSection,
 };
 use crate::menu::{tool_action, tool_label};
-use crate::{Action, App, SidebarAction, Tool, binding_of};
+use crate::{Action, App, ChatAction, SidebarAction, Tool, binding_of};
 
 /// The zoom levels the readout offers, in percent.
 const ZOOM_LEVELS: [u16; 7] = [10, 25, 50, 75, 100, 150, 200];
@@ -145,7 +146,23 @@ pub fn toolbar(app: &App) -> ToolbarModel {
         .collect();
     sections.push(ToolbarSection::Zoom(zoom(app)));
     let open = app.session.sidebar.shown();
+    let chat = app.chat_view().available().then(|| {
+        let open = app.chat_view().shown();
+        SidebarButton {
+            id: ControlId::new("chat.toggle"),
+            label: if open {
+                "Collapse right panel"
+            } else {
+                "Expand right panel"
+            }
+            .into(),
+            icon: Icon::PanelRight,
+            open,
+            action: Action::Chat(ChatAction::Toggle),
+        }
+    });
     ToolbarModel {
+        chat,
         sidebar: SidebarButton {
             id: ControlId::new("sidebar.toggle"),
             label: if open {

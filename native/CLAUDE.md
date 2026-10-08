@@ -132,6 +132,14 @@ fn shift_drag_moves_the_page_along_one_axis() {
   starts with several, the first active. `switch_to("Notes")` and
   `act(Action::Canvas(..))` change them; read back with `canvas_names()`,
   `active_canvas()` and `app().canvas_document(&id)`.
+- The right panel: `with_chat_panel()` tells the app the shell draws one,
+  so a comment draft is finished there and the canvas keeps only its marker.
+  `chat()` is the `ChatModel`, `chat_snapshot()` / `assert_chat_snapshot!`
+  hold it as text, `send_chat("..")` presses Send (`send_chat_with` adds
+  pasted images), and `agent_says(Notice::..)` plays the `claude` run of the
+  open thread (`agent_says_in(&id, ..)` another). Writes and runs come back
+  as `Effect::WriteThread`, `WriteThreadIndex` and `RunAgent`; read the
+  store with `app().threads()` and the open thread with `chat_thread_id()`.
 - Pages: `page_reports("p1", PageNotice::Scrolled { x: 0.0, y: 40.0 })` (or `Title`,
   `Url`, `Loading`, `DevtoolsUrl`) is a page saying something about itself, as
   the shell sends it; read back with `app().page_state(..)` and `page_scroll(..)`.

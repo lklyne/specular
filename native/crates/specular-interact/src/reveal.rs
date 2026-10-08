@@ -28,8 +28,8 @@ pub(crate) fn items(app: &mut App, select: Vec<ItemId>, focus: &ItemId, effects:
 
 /// Gives the comment `id` the focus and brings what it is on into view.
 pub(crate) fn comment(app: &mut App, id: &AnnotationId, effects: &mut Vec<Effect>) {
-    verb(app, effects, |app, _| {
-        comment::focus(app, Some(id));
+    verb(app, effects, |app, effects| {
+        comment::focus(app, Some(id), effects);
         if app.session.focused_comment.as_ref() != Some(id) {
             return;
         }

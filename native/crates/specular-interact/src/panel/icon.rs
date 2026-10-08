@@ -107,6 +107,8 @@ pub enum Icon {
     Plus,
     /// The sidebar's toggle. Lucide `PanelRight`, mirrored.
     PanelLeft,
+    /// The right panel's toggle. Lucide `PanelRight`.
+    PanelRight,
     /// A canvas, and a file of no known kind. Lucide `File`.
     File,
     /// A markdown document. Lucide `FileText`.

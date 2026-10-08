@@ -30,6 +30,7 @@ mod asset;
 mod bindings;
 mod camera;
 mod caps;
+mod chat;
 mod clipboard;
 mod clone;
 mod comment;
@@ -94,6 +95,11 @@ pub use arrange::ArrangeMode;
 pub use asset::AssetBytes;
 pub use bindings::{BINDINGS, Binding, Chord, Context, binding_for};
 pub use caps::{AspectMode, aspect_mode, has_anchors, min_size};
+pub use chat::{
+    Bubble, CHAT_MAX_WIDTH, CHAT_MIN_WIDTH, CHAT_WIDTH, ChatAction, ChatModel, ChatView, Composer,
+    DraftChip, DraftKind, ImageUpload, OpenComments, PillChip, PillKind, QueuedChip, RunBar,
+    ThreadRow, Transcript, chat,
+};
 pub use clipboard::{ClipboardContent, ClipboardImage, Paste};
 pub use comment::{
     CommentDrag, CommentMark, FOCUS_RING_OUTSET, FOCUS_RING_STROKE, MarkShape, PILL_DIGIT_WIDTH,
@@ -147,6 +153,11 @@ pub use sidebar::{
 pub use space::{
     Canvas, CanvasId, DEFAULT_CANVAS_NAME, OpenedCanvas, OpenedSpace, Space, TabRefError,
     canvas_file_name, legacy_canvas_file_name, resolve_tab_ref,
+};
+pub use specular_agent::{
+    Image as ThreadImage, Index as ThreadIndex, MediaType, Message as ThreadMessage, Notice,
+    Progress, ProgressKind, Role as ThreadRole, RunRequest, RunState, Status as ThreadStatus,
+    Thread, ThreadId, Threads,
 };
 pub use time::iso8601;
 pub use tool::Tool;

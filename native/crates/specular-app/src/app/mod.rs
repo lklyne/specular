@@ -5,6 +5,7 @@
 //! that or an input event changed something a frame shows (`demand.rs`).
 //! With nothing owed the loop sleeps (`turn.rs`).
 
+mod agent_run;
 mod api_files;
 mod api_run;
 mod asset_run;

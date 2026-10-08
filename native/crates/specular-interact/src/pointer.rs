@@ -203,13 +203,14 @@ fn tool_takes_press(
     match app.session.tool {
         // A press on a comment's mark is the mark's, with either tool.
         Tool::Comment => {
-            if !comment::press(app, input.screen) {
+            if !comment::press(app, input.screen, effects) {
                 app.session.gesture = Some(Gesture::Comment(comment::begin(app, input)));
             }
             true
         }
         Tool::Select => {
-            comment::press(app, input.screen) || select::press(app, input, click_count, effects)
+            comment::press(app, input.screen, effects)
+                || select::press(app, input, click_count, effects)
         }
         tool @ (Tool::AddPage
         | Tool::AddText

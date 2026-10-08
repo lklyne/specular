@@ -42,18 +42,7 @@ impl Headless {
                 self.loading_pages.insert(host);
                 self.unpainted_pages.insert(host);
             }
-            Effect::ClosePage(page) => {
-                if let Some(host) = self.hosts.remove(&page) {
-                    self.source.close_page(host)?;
-                    self.compositor.remove_page(host);
-                    self.loading_pages.remove(&host);
-                    self.unpainted_pages.remove(&host);
-                }
-                for answer in self.queries.give_up_on(&page) {
-                    self.drive(|app| app.send(answer))?;
-                }
-                self.answer_settled_grabs()?;
-            }
+            Effect::ClosePage(page) => self.close_page(&page)?,
             Effect::SetPageViewport { page, viewport } => {
                 if let Some(&host) = self.hosts.get(&page) {
                     self.source.set_viewport(host, viewport)?;
@@ -123,8 +112,28 @@ impl Headless {
             | Effect::SaveSpaceMeta
             | Effect::WriteAsset { .. }
             | Effect::CopyAsset { .. }
-            | Effect::SaveToolDefaults(_) => {}
+            | Effect::SaveToolDefaults(_)
+            | Effect::LoadThreads
+            | Effect::WriteThread(_)
+            | Effect::WriteThreadIndex
+            | Effect::RunAgent(_)
+            | Effect::CancelAgent(_) => {}
         }
+        Ok(())
+    }
+
+    /// Stops hosting a page and answers what was asked of it.
+    fn close_page(&mut self, page: &EntityId) -> anyhow::Result<()> {
+        if let Some(host) = self.hosts.remove(page) {
+            self.source.close_page(host)?;
+            self.compositor.remove_page(host);
+            self.loading_pages.remove(&host);
+            self.unpainted_pages.remove(&host);
+        }
+        for answer in self.queries.give_up_on(page) {
+            self.drive(|app| app.send(answer))?;
+        }
+        self.answer_settled_grabs()?;
         Ok(())
     }
 

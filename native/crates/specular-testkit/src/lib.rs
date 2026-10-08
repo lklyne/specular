@@ -28,6 +28,7 @@
 )]
 
 mod app;
+mod chat;
 mod comments;
 mod fixtures;
 mod input;
@@ -39,6 +40,7 @@ mod snapshot;
 mod space;
 
 pub use app::TestApp;
+pub use chat::chat_snapshot;
 pub use comments::{comment, with_comment};
 pub use fixtures::{
     connected, document, drawing, file, group, inside, labelled, note, page, pages, plain_text,

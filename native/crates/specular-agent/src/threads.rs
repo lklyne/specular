@@ -67,11 +67,13 @@ impl Threads {
         &self.items
     }
 
-    /// The canvas's threads that are not closed, newest first.
+    /// The canvas's threads that are not closed, newest first (the one made
+    /// later first when updates tie).
     pub fn for_canvas(&self, tab: &str) -> Vec<&Thread> {
         let mut list: Vec<&Thread> = self
             .items
             .iter()
+            .rev()
             .filter(|t| t.tab_id == tab && t.status != Status::Closed)
             .collect();
         list.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
@@ -174,24 +176,35 @@ impl Threads {
         text: &str,
         now: &str,
     ) -> (ThreadId, Changed) {
+        self.queue_comment_with_images(
+            tab,
+            new_thread_id,
+            message_id,
+            annotation_id,
+            text,
+            Vec::new(),
+            now,
+        )
+    }
+
+    /// [`queue_comment`](Self::queue_comment) for a comment that carries pasted
+    /// images. With images and no words the message reads `(comment)`.
+    #[expect(clippy::too_many_arguments, reason = "mirrors queue_comment")]
+    pub fn queue_comment_with_images(
+        &mut self,
+        tab: &str,
+        new_thread_id: ThreadId,
+        message_id: &str,
+        annotation_id: &str,
+        text: &str,
+        images: Vec<Image>,
+        now: &str,
+    ) -> (ThreadId, Changed) {
         let before = self.active.clone();
-        let existing = self
-            .thread_of_annotation(annotation_id)
-            .map(|t| (t.id.clone(), t.tab_id.clone()));
-        let (id, key) = if let Some(found) = existing {
-            found
-        } else {
-            let draft = self
-                .active(tab)
-                .filter(|t| t.status == Status::Draft)
-                .map(|t| t.id.clone());
-            if let Some(draft) = draft {
-                (draft, tab.to_owned())
-            } else {
-                self.insert_draft(tab, new_thread_id.clone(), now);
-                (new_thread_id, tab.to_owned())
-            }
-        };
+        let (id, key) = self.comment_home(tab, annotation_id, new_thread_id);
+        if self.get(&id).is_none() {
+            self.insert_draft(&key, id.clone(), now);
+        }
         self.active.insert(key, id.clone());
         let text = text.trim();
         let message = Message {
@@ -199,7 +212,7 @@ impl Threads {
             ..user_message(
                 message_id,
                 if text.is_empty() { "(comment)" } else { text },
-                Vec::new(),
+                images,
                 now,
             )
         };
@@ -209,6 +222,35 @@ impl Threads {
             index: before != self.active,
         };
         (id, changed)
+    }
+
+    /// The thread a comment on `annotation_id` would be queued into:
+    /// `new_thread_id` when it would start a draft. Callers use it to name
+    /// files that belong to the thread before queuing.
+    pub fn comment_thread(
+        &self,
+        tab: &str,
+        annotation_id: &str,
+        new_thread_id: &ThreadId,
+    ) -> ThreadId {
+        self.comment_home(tab, annotation_id, new_thread_id.clone())
+            .0
+    }
+
+    fn comment_home(
+        &self,
+        tab: &str,
+        annotation_id: &str,
+        new_thread_id: ThreadId,
+    ) -> (ThreadId, String) {
+        if let Some(found) = self.thread_of_annotation(annotation_id) {
+            return (found.id.clone(), found.tab_id.clone());
+        }
+        let draft = self
+            .active(tab)
+            .filter(|t| t.status == Status::Draft)
+            .map(|t| t.id.clone());
+        (draft.unwrap_or(new_thread_id), tab.to_owned())
     }
 
     /// The composer's text (and images) as a queued message on the active

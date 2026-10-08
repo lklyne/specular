@@ -1,13 +1,14 @@
 //! [`Event`]: everything that can happen to an [`App`](crate::App).
 
 use glam::Vec2;
+use specular_agent::{Index, Notice, Thread, ThreadId};
 use specular_core::{Camera, ImeEvent, Modifiers, PageElement, PixelRect, PointerEventKind};
 use specular_doc::{AnnotationId, Document, EntityId, ItemId, Rect};
 
 use crate::{
-    ApiCall, ArrangeMode, CanvasId, ClipboardContent, DroppedFile, Format, ImageKey, ImageNotice,
-    NoteNotice, OpenedSpace, PageGrab, Property, SidebarAction, Tool, ToolDefaultPatch,
-    ToolDefaults,
+    ApiCall, ArrangeMode, CanvasId, ChatAction, ClipboardContent, DroppedFile, Format, ImageKey,
+    ImageNotice, NoteNotice, OpenedSpace, PageGrab, Property, SidebarAction, Tool,
+    ToolDefaultPatch, ToolDefaults,
 };
 
 /// One input to [`update`](crate::update). Window input arrives in logical
@@ -134,6 +135,29 @@ pub enum Event {
     /// a shell whose UI library draws the toolbar and what hangs from it,
     /// while popups that follow an item stay in the canvas's own pass.
     BuiltinCanvasPopups,
+    /// Whether the shell draws a right panel. A shell that does sends `true`
+    /// once at startup: a comment draft is then finished in the panel's
+    /// field, and the canvas draws only its marker. Without it the draft is
+    /// written in a card on the canvas.
+    ChatPanel(bool),
+    /// The threads of the space folder: the answer to an
+    /// [`Effect::LoadThreads`](crate::Effect::LoadThreads). Replaces every
+    /// thread held.
+    ThreadsLoaded {
+        /// The threads read, closed ones included.
+        threads: Vec<Thread>,
+        /// `index.json`, or the empty index when there is none.
+        index: Index,
+    },
+    /// A run reported something: output of an
+    /// [`Effect::RunAgent`](crate::Effect::RunAgent), or the answer to an
+    /// [`Effect::CancelAgent`](crate::Effect::CancelAgent).
+    Agent {
+        /// The thread being run.
+        thread: ThreadId,
+        /// What it said.
+        notice: Notice,
+    },
     /// A change the HTTP API asked for. It is answered with an
     /// [`Effect::ApiReply`](crate::Effect::ApiReply) carrying its ticket.
     Api(ApiCall),
@@ -368,6 +392,8 @@ pub enum Action {
     /// Change the space's canvases: show another, add, rename, copy or
     /// remove one.
     Canvas(CanvasAction),
+    /// Something done in the right panel: its threads, its composer.
+    Chat(ChatAction),
     /// Set one field of the selection, as a popup control does. It applies
     /// to every selected item it means something for, as one undo step.
     SetProperty(Property),

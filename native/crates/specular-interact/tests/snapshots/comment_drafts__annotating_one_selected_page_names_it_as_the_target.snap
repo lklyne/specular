@@ -8,4 +8,4 @@ nodes:
 edges:
 specular: {"entityOrder":["p1","p2"]}
 annotations:
-  {"id":"e220a8397b1dcdaf","anchor":{"type":"region","canvasRect":{"x":100,"y":100,"width":400,"height":300}},"author":"user","text":"tighten this","status":"pending","replies":[],"createdAt":"1970-01-02T00:00:00.000Z","metadata":{"selectionEntityIds":["p1"],"selectionTarget":{"entityId":"p1","kind":"page","url":"https://example.com/p1"}}}
+  {"id":"e220a8397b1dcdaf","anchor":{"type":"region","canvasRect":{"x":100,"y":100,"width":400,"height":300}},"author":"user","text":"tighten this","status":"pending","replies":[],"createdAt":"1970-01-02T00:00:00.000Z","metadata":{"selectionEntityIds":["p1"],"selectionTarget":{"entityId":"p1","kind":"page","url":"https://example.com/p1"},"threadId":"thread_6e789e6aa1b965f4"}}

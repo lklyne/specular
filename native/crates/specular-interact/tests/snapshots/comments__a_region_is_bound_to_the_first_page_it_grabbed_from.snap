@@ -8,4 +8,4 @@ nodes:
 edges:
 specular: {"entityOrder":["p1","p2"]}
 annotations:
-  {"id":"e220a8397b1dcdaf","anchor":{"type":"region","docRect":{"x":350,"y":50,"width":300,"height":100}},"author":"user","text":"fix the header","status":"pending","replies":[],"createdAt":"1970-01-02T00:00:00.000Z","pageAnchor":{"pageId":"p1","pageUrl":"https://example.com/p1"}}
+  {"id":"e220a8397b1dcdaf","anchor":{"type":"region","docRect":{"x":350,"y":50,"width":300,"height":100}},"author":"user","text":"fix the header","status":"pending","replies":[],"createdAt":"1970-01-02T00:00:00.000Z","pageAnchor":{"pageId":"p1","pageUrl":"https://example.com/p1"},"metadata":{"threadId":"thread_6e789e6aa1b965f4"}}

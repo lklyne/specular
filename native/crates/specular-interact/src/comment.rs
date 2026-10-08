@@ -19,9 +19,9 @@ mod shown;
 use glam::DVec2;
 use specular_doc::{Annotation, AnnotationAnchor, EntityId, Rect, RegionAnchor};
 
-pub(crate) use actions::{delete, focus, press, resolve, settle};
+pub(crate) use actions::{delete, focus, press, resolve, resolve_all, settle};
 pub use create::region_annotation;
-pub(crate) use draft::{cancel, end, forget, frame, is_over_composer};
+pub(crate) use draft::{cancel, end, forget, frame, is_over_composer, on_tool_change};
 pub use drag::CommentDrag;
 pub(crate) use drag::{begin, drag, finish, on_element};
 pub(crate) use grab::on_region_grab;
@@ -33,7 +33,7 @@ pub use marks::{
 };
 pub(crate) use selection::annotate as annotate_selection;
 pub use selection::selection_metadata;
-pub(crate) use shown::is_open;
+pub(crate) use shown::{is_open, shown as is_shown};
 
 use crate::{
     App, PagePlacement, doc_to_viewport, geometry, left_page, recorded_scroll, viewport_to_doc,

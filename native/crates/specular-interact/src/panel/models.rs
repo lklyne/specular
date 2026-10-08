@@ -40,7 +40,8 @@ pub enum ToolbarSection {
     Zoom(Dropdown),
 }
 
-/// The button at the toolbar's left edge that shows and hides the sidebar.
+/// A button of the toolbar that shows and hides a side panel: the sidebar at
+/// the left edge, the chat at the right.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SidebarButton {
     /// Its name.
@@ -49,7 +50,7 @@ pub struct SidebarButton {
     pub label: Label,
     /// The glyph.
     pub icon: Icon,
-    /// Whether the sidebar is shown.
+    /// Whether the panel is shown.
     pub open: bool,
     /// What pressing it does.
     pub action: Action,
@@ -60,6 +61,9 @@ pub struct SidebarButton {
 pub struct ToolbarModel {
     /// The button for the sidebar, at the left edge.
     pub sidebar: SidebarButton,
+    /// The button for the right panel, at the right edge. Only a shell that
+    /// has a right panel gets one.
+    pub chat: Option<SidebarButton>,
     /// The blocks, left to right.
     pub sections: Vec<ToolbarSection>,
 }
@@ -68,6 +72,7 @@ impl ToolbarModel {
     /// Every control and option with its action.
     pub fn entries(&self) -> Entries<'_> {
         let mut out = vec![(self.sidebar.id.clone(), Some(&self.sidebar.action))];
+        out.extend((self.chat.iter()).map(|button| (button.id.clone(), Some(&button.action))));
         for section in &self.sections {
             match section {
                 ToolbarSection::Tools(tools) => {

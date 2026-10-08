@@ -11,6 +11,11 @@ pub(super) const PANEL_LEFT: Glyph = lucide(&[
     Layer::stroke(Shape::Rect(3.0, 3.0, 18.0, 18.0, 2.0), Paint::Current, 2.0),
     line("M9 3v18"),
 ]);
+/// `panel-right`: the frame, and the divider on the right.
+pub(super) const PANEL_RIGHT: Glyph = lucide(&[
+    Layer::stroke(Shape::Rect(3.0, 3.0, 18.0, 18.0, 2.0), Paint::Current, 2.0),
+    line("M15 3v18"),
+]);
 /// `file`.
 pub(super) const FILE: Glyph = lucide(&[line(FILE_BODY), line("M14 2v5a1 1 0 0 0 1 1h5")]);
 /// `file-text`.

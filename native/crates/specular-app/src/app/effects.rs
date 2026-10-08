@@ -128,6 +128,11 @@ impl<W: ShellWindow> Runtime<W> {
             Effect::WriteAsset { file, bytes } => self.write_asset(&file, bytes.as_slice()),
             Effect::CopyAsset { from, file } => self.copy_asset(&from, &file),
             Effect::SaveToolDefaults(defaults) => self.save_tool_defaults(&defaults),
+            Effect::LoadThreads => self.load_threads(),
+            Effect::WriteThread(thread) => self.write_thread(&thread),
+            Effect::WriteThreadIndex => self.write_thread_index(),
+            Effect::RunAgent(request) => self.run_agent(&request),
+            Effect::CancelAgent(thread) => self.cancel_agent(&thread),
             Effect::ApiReply { outcome, .. } => self.api_outcome = Some(outcome),
             Effect::Navigate { page, nav } => {
                 if let Some(host) = self.hosts.get(&page) {

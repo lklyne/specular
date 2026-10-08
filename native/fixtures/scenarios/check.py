@@ -100,13 +100,15 @@ if i in RAN:
     expect(i, SINK, saved(i, "00-start.canvas"))
     expect(i, SINK, saved(i, "27-undone.canvas"))
     made = saved(i, "18-commented.canvas")["annotations"][len(SINK["annotations"]):]
-    fields = {"id", "anchor", "author", "text", "status", "replies", "createdAt", "pageAnchor"}
+    fields = {"id", "anchor", "author", "text", "status", "replies", "createdAt", "pageAnchor", "metadata"}
     kinds = [a["anchor"]["type"] for a in made]
     elements = [a for a in made if a["anchor"]["type"] == "element"]
     ok = (
         kinds == ["canvas", "canvas", "element", "region", "region", "canvas"]
         and all(set(a) <= fields for a in made)
         and all(a["author"] == "user" and a["status"] == "pending" and a["replies"] == [] for a in made)
+        # Each comment is queued into the canvas's agent thread, whose id it carries.
+        and all(isinstance(a.get("metadata", {}).get("threadId"), str) for a in made)
         # A region is the page's when it grabbed something there, and then
         # it is kept in the page's document space; else it is on the canvas.
         and all(

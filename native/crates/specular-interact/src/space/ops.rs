@@ -100,6 +100,9 @@ pub(crate) fn open(app: &mut App, opened: OpenedSpace, effects: &mut Vec<Effect>
         .and_then(|id| entries.iter().position(|canvas| canvas.id == id))
         .unwrap_or(0);
     let entering = mem::replace(&mut entries[index].state, CanvasState::Active);
+    // The threads belong to the folder: they are read again from it.
+    let has_folder = folder.is_some();
+    app.threads = specular_agent::Threads::default();
     app.space = Space {
         folder,
         canvases: entries,
@@ -113,6 +116,9 @@ pub(crate) fn open(app: &mut App, opened: OpenedSpace, effects: &mut Vec<Effect>
     if let Some(id) = made {
         effects.push(Effect::WriteCanvas(id));
         effects.push(Effect::SaveSpaceMeta);
+    }
+    if has_folder {
+        effects.push(Effect::LoadThreads);
     }
 }
 

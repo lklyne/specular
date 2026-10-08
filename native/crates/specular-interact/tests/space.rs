@@ -48,7 +48,11 @@ fn a_space_with_no_canvas_gets_an_empty_first_one_which_is_written() {
     let id = app.canvas_id("Canvas 1");
     assert_eq!(
         app.take_effects(),
-        [Effect::WriteCanvas(id), Effect::SaveSpaceMeta]
+        [
+            Effect::WriteCanvas(id),
+            Effect::SaveSpaceMeta,
+            Effect::LoadThreads
+        ]
     );
 }
 

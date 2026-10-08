@@ -7696,6 +7696,7 @@ dependencies = [
  "glam",
  "serde",
  "serde_json",
+ "specular-agent",
  "specular-core",
  "specular-doc",
  "specular-testkit",

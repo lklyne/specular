@@ -1,6 +1,7 @@
 //! [`Effect`]: the I/O [`update`](crate::update) asks the shell to do.
 
 use glam::Vec2;
+use specular_agent::{RunRequest, ThreadId};
 use specular_core::{CssSize, InputEvent, PageNav};
 use specular_doc::{EntityId, Rect};
 
@@ -179,6 +180,30 @@ pub enum Effect {
     /// Write the tool defaults to the preferences file, under `toolDefaults`,
     /// as [`ToolDefaults::to_json`] gives them.
     SaveToolDefaults(Box<ToolDefaults>),
+    /// Read every thread file under `.specular/threads/` of the space
+    /// folder, and `index.json` beside them, and answer with
+    /// [`Event::ThreadsLoaded`](crate::Event::ThreadsLoaded). Asked when a
+    /// space with a folder opens. Files that are not threads are skipped.
+    LoadThreads,
+    /// Write one thread to `.specular/threads/<canvas id>/<thread id>.json`
+    /// in the space folder. The text is
+    /// [`Thread::to_json`](specular_agent::Thread::to_json) of
+    /// `app.threads().get(id)`; a thread that is gone writes nothing.
+    WriteThread(ThreadId),
+    /// Write `.specular/threads/index.json` in the space folder, from
+    /// [`App::thread_index_json`](crate::App::thread_index_json).
+    WriteThreadIndex,
+    /// Start the `claude` CLI for a thread, in the space folder, and answer
+    /// with an [`Event::Agent`](crate::Event::Agent) for each thing its
+    /// output says, the last being a
+    /// [`Notice::Finished`](specular_agent::Notice::Finished) or a
+    /// [`Notice::Failed`](specular_agent::Notice::Failed). The images the
+    /// request lists were written (by a [`WriteAsset`](Self::WriteAsset)
+    /// before this effect) relative to the space folder.
+    RunAgent(Box<RunRequest>),
+    /// Stop a thread's run and answer with
+    /// [`Notice::Cancelled`](specular_agent::Notice::Cancelled).
+    CancelAgent(ThreadId),
 }
 
 /// A pointer cursor.

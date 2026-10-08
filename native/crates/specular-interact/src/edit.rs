@@ -230,7 +230,7 @@ pub(crate) fn end(app: &mut App, effects: &mut Vec<Effect>) {
         return edge_label::end(app, &edit, effects);
     }
     if edit.target == Target::Comment {
-        return comment::end(app, &edit);
+        return comment::end(app, &edit, effects);
     }
     if edit.target == Target::Field {
         return field::end(app, &edit, effects);

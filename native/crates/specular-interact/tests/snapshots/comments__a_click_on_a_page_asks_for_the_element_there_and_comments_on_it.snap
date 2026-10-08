@@ -8,4 +8,4 @@ nodes:
 edges:
 specular: {"entityOrder":["p1","p2"]}
 annotations:
-  {"id":"e220a8397b1dcdaf","anchor":{"type":"element","pageId":"p1","selector":"div.cell[data-col=\"0\"][data-row=\"2\"]","elementPath":"body > div.cell","boundingBox":{"x":0,"y":96,"width":160,"height":48}},"author":"user","text":"too small","status":"pending","replies":[],"createdAt":"1970-01-02T00:00:00.000Z","pageAnchor":{"pageId":"p1","pageUrl":"https://example.com/p1","scrollX":0,"scrollY":0}}
+  {"id":"e220a8397b1dcdaf","anchor":{"type":"element","pageId":"p1","selector":"div.cell[data-col=\"0\"][data-row=\"2\"]","elementPath":"body > div.cell","boundingBox":{"x":0,"y":96,"width":160,"height":48}},"author":"user","text":"too small","status":"pending","replies":[],"createdAt":"1970-01-02T00:00:00.000Z","pageAnchor":{"pageId":"p1","pageUrl":"https://example.com/p1","scrollX":0,"scrollY":0},"metadata":{"threadId":"thread_6e789e6aa1b965f4"}}

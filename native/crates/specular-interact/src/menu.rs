@@ -215,6 +215,7 @@ fn has_target(app: &App, action: &Action) -> bool {
         // Choosing the canvas already showing is harmless, and its item
         // has to stay enabled to keep its check mark readable.
         Action::Canvas(_)
+        | Action::Chat(_)
         | Action::Cancel
         | Action::SetTool(_)
         | Action::SetToolDefault(_)

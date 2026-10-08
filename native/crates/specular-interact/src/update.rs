@@ -12,8 +12,8 @@ use crate::panel::builtin;
 use crate::stack_order::Move;
 use crate::{
     Action, App, Effect, Event, Focus, PageNotice, Selection, ToolDefaultPatch, api, bindings,
-    camera, comment, cursor, edit, gesture, groups, page_state, pages, pointer, property, reveal,
-    space, verbs,
+    camera, chat, comment, cursor, edit, gesture, groups, page_state, pages, pointer, property,
+    reveal, space, verbs,
 };
 use crate::{arrange, clipboard, drop, select_all, zoom};
 
@@ -27,6 +27,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
     let dragging = app.session.gesture.is_some();
     // The clock moves nothing the cursor depends on.
     let ticks = matches!(event, Event::Tick { .. });
+    let tool = app.session.tool;
     let caret = edit::caret_state(app);
     // A pointer event has already put the drag and the hover where it is,
     // unless it ended the drag: the hover is not kept up during one.
@@ -55,13 +56,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
             }),
             Focus::Canvas => edit::on_ime(app, &ime, &mut effects),
         },
-        Event::Page { page, notice } => {
-            // The address is the one thing a page reports that is saved.
-            if page_state::on_notice(app, &page, &notice) {
-                effects.push(Effect::Save);
-            }
-            on_page_notice(app, &page, &notice, &mut effects);
-        }
+        Event::Page { page, notice } => on_page_event(app, &page, &notice, &mut effects),
         Event::Image { image, notice } => images::on_notice(app, image, notice),
         Event::Note { file, notice } => notes::on_notice(app, &file, notice, &mut effects),
         Event::NoteCreated { file, rect } => edit::note::created(app, file, rect, &mut effects),
@@ -92,6 +87,9 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         Event::Action(action) => run_action(app, action, &mut effects),
         Event::BuiltinPanels(built_in) => builtin::turn(app, built_in),
         Event::BuiltinCanvasPopups => app.session.panel = builtin::PanelUi::canvas_popups(),
+        Event::ChatPanel(available) => app.session.chat.set_available(available),
+        Event::ThreadsLoaded { threads, index } => chat::on_loaded(app, threads, &index),
+        Event::Agent { thread, notice } => chat::on_agent(app, &thread, notice, &mut effects),
         Event::Api(call) => api::run(app, call, &mut effects),
     }
     builtin::forget_layout_unless(app, keeps_layout);
@@ -110,6 +108,9 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
     }
     leave_unless_selected(app, &mut effects);
     comment::settle(app);
+    if app.session.tool != tool {
+        comment::on_tool_change(app);
+    }
     groups::keep_entered_valid(app);
     builtin::tidy(app);
     if edit::restart_blink(app, &caret) {
@@ -135,35 +136,7 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         // and closes an open dropdown before it backs out of anything.
         Action::Cancel if edit::cancel_field(app, effects) => {}
         Action::Cancel if builtin::cancel(app) => {}
-        Action::Cancel => {
-            // A comment draft or a focused comment is all one Escape takes.
-            if comment::cancel(app, effects) {
-                return;
-            }
-            // Escape is staged: it first backs out of whatever is in flight
-            // (a drag, an armed tool, a text edit, an entered page) and
-            // leaves the selection alone. Then it steps out of an entered
-            // group, selecting it. With nothing to back out of it
-            // deselects. A text edit is kept, not thrown away.
-            let session = &app.session;
-            let idle = session.gesture.is_none()
-                && session.tool == crate::Tool::Select
-                && session.editing.is_none()
-                && session.focus == Focus::Canvas;
-            gesture::cancel(app, effects);
-            app.session.tool = crate::Tool::Select;
-            let stepped_out = idle && groups::step_out(app);
-            // A title edit is abandoned by Escape; other text keeps what
-            // was typed.
-            if edit::is_editing_title(app) {
-                edit::discard(app, effects);
-            }
-            edit::end(app, effects);
-            set_focus(app, None, effects);
-            if idle && !stepped_out {
-                app.session.selection.set([]);
-            }
-        }
+        Action::Cancel => cancel(app, effects),
         Action::SetTool(tool) => {
             if app.session.gesture.is_none() {
                 edit::end(app, effects);
@@ -216,7 +189,9 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         Action::AnnotateSelection => verb(app, effects, comment::annotate_selection),
         Action::Arrange(mode) => verb(app, effects, |app, fx| arrange::run(app, mode, fx)),
         Action::FocusSelection => verb(app, effects, |app, _| zoom::focus_selection(app)),
-        Action::FocusComment(id) => verb(app, effects, |app, _| comment::focus(app, id.as_ref())),
+        Action::FocusComment(id) => verb(app, effects, |app, effects| {
+            comment::focus(app, id.as_ref(), effects);
+        }),
         Action::ResolveComment(id) => verb(app, effects, |app, effects| {
             comment::resolve(app, id.as_ref(), effects);
         }),
@@ -239,6 +214,39 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         Action::PageStop => page_state::navigate(app, PageNav::Stop, effects),
         Action::PageNavigate(url) => page_state::navigate(app, PageNav::To(url), effects),
         Action::Canvas(action) => space::act(app, action, effects),
+        Action::Chat(action) => chat::run(app, action, effects),
+    }
+}
+
+/// Escape past the dropdown and the field: a comment draft or a focused
+/// comment, then whatever is in flight, then the selection, one stage a press.
+fn cancel(app: &mut App, effects: &mut Vec<Effect>) {
+    // A comment draft or a focused comment is all one Escape takes.
+    if comment::cancel(app, effects) {
+        return;
+    }
+    // Escape is staged: it first backs out of whatever is in flight
+    // (a drag, an armed tool, a text edit, an entered page) and
+    // leaves the selection alone. Then it steps out of an entered
+    // group, selecting it. With nothing to back out of it
+    // deselects. A text edit is kept, not thrown away.
+    let session = &app.session;
+    let idle = session.gesture.is_none()
+        && session.tool == crate::Tool::Select
+        && session.editing.is_none()
+        && session.focus == Focus::Canvas;
+    gesture::cancel(app, effects);
+    app.session.tool = crate::Tool::Select;
+    let stepped_out = idle && groups::step_out(app);
+    // A title edit is abandoned by Escape; other text keeps what
+    // was typed.
+    if edit::is_editing_title(app) {
+        edit::discard(app, effects);
+    }
+    edit::end(app, effects);
+    set_focus(app, None, effects);
+    if idle && !stepped_out {
+        app.session.selection.set([]);
     }
 }
 
@@ -345,6 +353,15 @@ pub(crate) fn drop_dangling(app: &mut App, effects: &mut Vec<Effect>) {
     }
     let document = &app.document;
     (app.session.pages).retain(|page| document.entity(page).is_some());
+}
+
+/// A hosted page reported something.
+fn on_page_event(app: &mut App, page: &EntityId, notice: &PageNotice, effects: &mut Vec<Effect>) {
+    // The address is the one thing a page reports that is saved.
+    if page_state::on_notice(app, page, notice) {
+        effects.push(Effect::Save);
+    }
+    on_page_notice(app, page, notice, effects);
 }
 
 fn on_page_notice(app: &App, page: &EntityId, notice: &PageNotice, effects: &mut Vec<Effect>) {
