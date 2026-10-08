@@ -21,6 +21,7 @@ use specular_scene::Scene;
 use super::demand::FrameDemand;
 use super::{START_CAMERA, image_run, note_run};
 use crate::api::ApiHost;
+use crate::cdp::CdpHost;
 use crate::images::ImageLoader;
 use crate::latency::InputLatencyProbe;
 use crate::notes::NoteLoader;
@@ -46,6 +47,17 @@ pub trait ShellWindow {
 
     /// The canvas viewport in logical pixels.
     fn logical_viewport(&self) -> Vec2;
+
+    /// Draws `scene` into a texture of `viewport` logical pixels at the
+    /// window's scale, whatever size the window is, and returns the PNG
+    /// with its size in device pixels.
+    fn capture_area(
+        &mut self,
+        camera: Camera,
+        viewport: Vec2,
+        scene: &Scene,
+        page_of: PageOf<'_>,
+    ) -> anyhow::Result<(Vec<u8>, u32, u32)>;
 
     /// Renders and presents one frame of `scene`; `None` when there was no
     /// frame to draw into. The scene is the window's to rework: one whose
@@ -150,6 +162,8 @@ pub struct Runtime<W> {
     pub(crate) dropped_at: Option<Vec2>,
     /// The HTTP API. `None` until started, and when it could not start.
     pub(crate) api: Option<ApiHost>,
+    /// Each page's CDP websocket. Started and stopped with the API.
+    pub(crate) cdp: Option<CdpHost>,
     /// How the API call being run went, from its reply effect.
     pub(crate) api_outcome: Option<ApiOutcome>,
     /// The window title as last set.
@@ -207,6 +221,7 @@ impl<W: ShellWindow> Runtime<W> {
             dropped: Vec::new(),
             dropped_at: None,
             api: None,
+            cdp: None,
             api_outcome: None,
             title: String::new(),
             drawn_zoom: START_CAMERA.zoom,
@@ -311,6 +326,8 @@ impl<W: ShellWindow> Runtime<W> {
         self.report_session();
         // The discovery file goes with the server.
         self.api = None;
+        self.source.set_devtools_sink(None);
+        self.cdp = None;
         self.finish_notes();
         self.flush_files();
         self.hosts.clear();

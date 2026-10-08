@@ -3,11 +3,10 @@
 
 use super::runtime::{Runtime, ShellWindow, unix_ms};
 use crate::api::ApiHost;
-use base64::Engine as _;
+use crate::cdp::CdpHost;
 use serde_json::{Value, json};
-use specular_api::{Host, Screenshot};
-use specular_doc::EntityId;
-use specular_interact::{ApiOutcome, App, Event};
+use specular_api::{CdpAsk, Host, Response, Screenshot};
+use specular_interact::{ApiOutcome, App, DroppedFile, Event};
 
 /// What another thread can ask the event loop to do.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -17,19 +16,28 @@ pub(crate) enum ShellEvent {
 }
 
 impl<W: ShellWindow> Runtime<W> {
-    /// Starts the API. `wake` is called on the server's thread when a
-    /// request is waiting, and the shell then calls
+    /// Starts the API and the page CDP endpoints. `wake` is called on a
+    /// server thread when a request is waiting, and the shell then calls
     /// [`serve_api`](Self::serve_api) on its own. A server that cannot
-    /// start is logged and the app runs on without one.
-    pub fn start_api(&mut self, wake: impl Fn() + Send + 'static) {
-        let started = ApiHost::start(unix_ms(), wake);
-        match started {
+    /// start is logged and the app runs on without it.
+    pub fn start_api(&mut self, wake: impl Fn() + Send + Sync + 'static) {
+        let wake = std::sync::Arc::new(wake);
+        let for_api = std::sync::Arc::clone(&wake);
+        match ApiHost::start(unix_ms(), move || for_api()) {
             Ok(api) => self.api = Some(api),
             Err(error) => tracing::warn!("the API is off: {error:#}"),
         }
+        match CdpHost::start(move || wake()) {
+            Ok(cdp) => {
+                self.source.set_devtools_sink(Some(cdp.sink()));
+                self.cdp = Some(cdp);
+            }
+            Err(error) => tracing::warn!("the page CDP endpoints are off: {error}"),
+        }
     }
 
-    /// Answers the requests the API has queued.
+    /// Answers the requests the API has queued, and sends on what CDP
+    /// clients have said to their pages.
     pub fn serve_api(&mut self) {
         if self.closing {
             return;
@@ -38,6 +46,11 @@ impl<W: ShellWindow> Runtime<W> {
         if let Some(mut api) = self.api.take() {
             api.serve(self);
             self.api = Some(api);
+        }
+        if let Some(cdp) = self.cdp.as_mut() {
+            cdp.serve(self.source.as_mut());
+            // A backend with no loop of its own answers when pumped.
+            self.source.pump();
         }
     }
 }
@@ -54,24 +67,38 @@ impl<W: ShellWindow> Host for Runtime<W> {
     }
 
     fn screenshot(&mut self, shot: &Screenshot) -> Result<Value, String> {
-        let gpu = self.gpu.as_mut().ok_or("the window is not open yet")?;
-        let scene = specular_scene::view(&self.app, gpu.logical_viewport());
-        let hosts = &self.hosts;
-        let page_of = |entity: &EntityId| hosts.get(entity).map(|host| host.page);
-        let (png, width, height) = gpu
-            .capture(self.app.session().camera, &scene, &page_of)
-            .map_err(|error| format!("{error:#}"))?;
-        let mut body = json!({ "mimeType": "image/png", "width": width, "height": height });
-        match &shot.path {
-            Some(path) => {
-                std::fs::write(path, png)
-                    .map_err(|error| format!("writing {}: {error}", path.display()))?;
-                body["path"] = json!(path);
+        self.shoot(shot)
+    }
+
+    fn cdp(&mut self, ask: &CdpAsk) -> Result<Value, Response> {
+        let off = || {
+            Response::error(
+                503,
+                "the page CDP endpoints did not start; see the app's log",
+            )
+        };
+        let cdp = self.cdp.as_ref().ok_or_else(off)?;
+        match ask {
+            CdpAsk::Target { page, target } => {
+                let host = self.hosts.get(page).ok_or_else(|| {
+                    Response::error(503, format!("Page {page} is not hosted yet"))
+                })?;
+                let body = cdp.target(page, host.page, target);
+                let (endpoints, clients) = cdp.counts();
+                tracing::debug!(%page, endpoints, clients, "CDP target resolved");
+                Ok(body)
             }
-            None => {
-                body["base64"] = json!(base64::engine::general_purpose::STANDARD.encode(png));
+            CdpAsk::SnapshotSeen { page } => {
+                Ok(json!({ "ok": true, "generation": cdp.snapshot_seen(page) }))
             }
         }
-        Ok(body)
+    }
+
+    fn inspect_file(&self, path: &str) -> Option<DroppedFile> {
+        self.inspect_space_file(path)
+    }
+
+    fn space_entries(&self) -> Vec<String> {
+        self.list_space_folder()
     }
 }

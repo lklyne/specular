@@ -1,8 +1,10 @@
 //! A scripted app behind the API: what the shell is to the window, for
 //! tests.
+use std::collections::HashMap;
+
 use serde_json::{Value, json};
-use specular_api::{Api, Host, Method, Request, Response, Screenshot};
-use specular_interact::{ApiOutcome, App, Effect, Event};
+use specular_api::{Api, CdpAsk, Host, Method, Request, Response, Screenshot, ShotArea};
+use specular_interact::{ApiOutcome, App, DroppedFile, Effect, Event};
 use specular_testkit::TestApp;
 
 /// A [`TestApp`] answering API requests.
@@ -11,11 +13,25 @@ pub(crate) struct Scripted {
     pub(crate) api: Api,
     /// The effects of the latest write, the reply left out.
     pub(crate) effects: Vec<Effect>,
+    /// Every picture asked for that a test host could stand in for.
+    pub(crate) shots: Vec<Screenshot>,
+    /// What the host finds on disk.
+    pub(crate) disk: Disk,
+}
+
+/// The disk the host answers from: the files it knows by the path a
+/// request names, and the names in the space folder.
+#[derive(Default)]
+pub(crate) struct Disk {
+    pub(crate) files: HashMap<String, DroppedFile>,
+    pub(crate) entries: Vec<String>,
 }
 
 struct Seat<'a> {
     app: &'a mut TestApp,
     effects: &'a mut Vec<Effect>,
+    shots: &'a mut Vec<Screenshot>,
+    disk: &'a Disk,
 }
 
 impl Host for Seat<'_> {
@@ -37,8 +53,33 @@ impl Host for Seat<'_> {
         outcome
     }
 
-    fn screenshot(&mut self, _shot: &Screenshot) -> Result<Value, String> {
-        Err("a test has no renderer".to_owned())
+    /// The window cannot be drawn with no renderer. A page or a region is
+    /// answered with a stand-in and kept, so a test can read what was asked.
+    fn screenshot(&mut self, shot: &Screenshot) -> Result<Value, String> {
+        if shot.area == ShotArea::Window {
+            return Err("a test has no renderer".to_owned());
+        }
+        self.shots.push(shot.clone());
+        Ok(json!({ "mimeType": "image/png", "width": 2, "height": 1, "base64": "cGl4ZWxz" }))
+    }
+
+    fn cdp(&mut self, ask: &CdpAsk) -> Result<Value, Response> {
+        Ok(match ask {
+            CdpAsk::Target { page, .. } => json!({
+                "webSocketDebuggerUrl": format!("ws://127.0.0.1:1/cdp/page/token-{page}"),
+                "generation": 0,
+                "lastSnapshotGeneration": null,
+            }),
+            CdpAsk::SnapshotSeen { .. } => json!({ "ok": true, "generation": 0 }),
+        })
+    }
+
+    fn inspect_file(&self, path: &str) -> Option<DroppedFile> {
+        self.disk.files.get(path).cloned()
+    }
+
+    fn space_entries(&self) -> Vec<String> {
+        self.disk.entries.clone()
     }
 }
 
@@ -48,6 +89,8 @@ impl Scripted {
             app,
             api: Api::new(0),
             effects: Vec::new(),
+            shots: Vec::new(),
+            disk: Disk::default(),
         }
     }
 
@@ -61,6 +104,8 @@ impl Scripted {
         let mut seat = Seat {
             app: &mut self.app,
             effects: &mut self.effects,
+            shots: &mut self.shots,
+            disk: &self.disk,
         };
         self.api.answer(&mut seat, request)
     }

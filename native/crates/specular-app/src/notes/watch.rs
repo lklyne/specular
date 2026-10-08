@@ -6,6 +6,8 @@ use std::hash::{Hash, Hasher};
 use std::io;
 use std::path::{Path, PathBuf};
 
+use specular_interact::note_file_name;
+
 use crate::images::resolve::resolve;
 use crate::persist::{Stamp, stamp, write_atomic};
 
@@ -174,11 +176,7 @@ impl Watcher {
         let space = (self.space.as_deref())
             .ok_or_else(|| io::Error::other("the canvas has no folder to put a document in"))?;
         for number in 1..=u32::MAX {
-            let name = if number == 1 {
-                format!("{NEW_NOTE_NAME}.md")
-            } else {
-                format!("{NEW_NOTE_NAME} {number}.md")
-            };
+            let name = note_file_name(NEW_NOTE_NAME, number);
             let made = std::fs::OpenOptions::new()
                 .write(true)
                 .create_new(true)

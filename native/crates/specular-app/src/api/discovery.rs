@@ -26,7 +26,7 @@ pub(super) fn preferred_port() -> u16 {
 
 /// A secret no other process can guess: 32 hex digits from the system's
 /// random source.
-pub(super) fn new_secret() -> String {
+pub(crate) fn new_secret() -> String {
     let mut bytes = [0_u8; 16];
     let read = std::fs::File::open("/dev/urandom").and_then(|mut file| file.read_exact(&mut bytes));
     if read.is_err() {

@@ -4,6 +4,8 @@
 
 use std::collections::HashMap;
 
+use specular_interact::note_file_name;
+
 /// The clipboard and the Documents made during the run.
 #[derive(Debug, Default)]
 pub(super) struct StandIns {
@@ -20,10 +22,8 @@ impl StandIns {
     pub(super) fn create_note(&mut self) -> String {
         // One more name than there are notes: at least one of them is free.
         let name = (1..=self.notes.len() + 1)
-            .map(|count| match count {
-                1 => "Untitled Note.md".to_owned(),
-                count => format!("Untitled Note {count}.md"),
-            })
+            .filter_map(|count| u32::try_from(count).ok())
+            .map(|count| note_file_name("Untitled Note", count))
             .find(|name| !self.notes.contains_key(name))
             .unwrap_or_default();
         self.notes.insert(name.clone(), String::new());

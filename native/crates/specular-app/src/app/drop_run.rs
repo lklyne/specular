@@ -36,7 +36,7 @@ impl<W: ShellWindow> Runtime<W> {
 
 /// What `update` needs to know about a dropped file: where it is, whether
 /// that is inside the space folder, and how large an image it is.
-fn dropped_file(path: &Path, space: Option<&Path>) -> DroppedFile {
+pub(super) fn dropped_file(path: &Path, space: Option<&Path>) -> DroppedFile {
     let path = std::path::absolute(path).unwrap_or_else(|_| path.to_owned());
     let text = path.to_string_lossy().into_owned();
     DroppedFile {

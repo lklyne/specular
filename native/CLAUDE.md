@@ -242,6 +242,11 @@ logs the port it took and the `SPECULAR_DISCOVERY_FILE=` to pass the CLI.
   same over a real socket.
 - A route the CLI can call and this app lacks gets a row in `unported.rs`,
   so the caller reads which verb is missing instead of a 404.
+- The browse verbs (`snapshot`, `click`, ...) reach a page through its own
+  CDP websocket, which `GET /pages/<id>/cdp-target` names. The routing is
+  `specular_api::cdp::PageProxy`, the sockets are `specular-app/src/cdp/`,
+  and `fixtures/scenarios/cef/cli-pages.sh` runs every verb against a
+  bundled debug CEF app on a scratch space.
 
 ## Gate
 

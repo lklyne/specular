@@ -18,11 +18,17 @@
 mod edge;
 mod entity;
 mod fields;
+mod file;
+mod note;
+
+pub(crate) use self::file::file_path;
+pub(crate) use self::note::note_text;
 
 use serde_json::{Value, json};
 use specular_doc::{Command, Document, EdgeId, EntityId, JsonMap};
-use specular_interact::{ApiRun, App, delete_commands};
+use specular_interact::{ApiRun, App, Effect, delete_commands};
 
+use crate::facts::Facts;
 use crate::http::strings;
 use crate::ids::Ids;
 use crate::reply::Reply;
@@ -38,6 +44,12 @@ pub(crate) struct Builder<'a> {
     updated: Vec<String>,
     deleted: Vec<String>,
     edges: Vec<String>,
+    /// What the host found on disk, when the request was planned with it.
+    facts: Option<&'a Facts>,
+    /// The file writes and copies the created entities need first.
+    effects: Vec<Effect>,
+    /// The lowercased names of the Documents this patch has made.
+    claimed: Vec<String>,
 }
 
 impl<'a> Builder<'a> {
@@ -50,6 +62,9 @@ impl<'a> Builder<'a> {
             updated: Vec::new(),
             deleted: Vec::new(),
             edges: Vec::new(),
+            facts: None,
+            effects: Vec::new(),
+            claimed: Vec::new(),
         }
     }
 
@@ -124,9 +139,18 @@ impl<'a> Builder<'a> {
         if self.commands.is_empty() {
             return Step::Answer(body);
         }
-        let run = ApiRun::Apply {
-            command: Command::Batch(self.commands),
-            select: None,
+        let command = Command::Batch(self.commands);
+        let run = if self.effects.is_empty() {
+            ApiRun::Apply {
+                command,
+                select: None,
+            }
+        } else {
+            ApiRun::ApplyWithFiles {
+                files: self.effects,
+                command,
+                select: None,
+            }
         };
         Step::Run(run, Reply::Fixed(body))
     }
@@ -153,7 +177,12 @@ fn array<'v>(patch: &'v Value, key: &str) -> Result<&'v [Value], Response> {
 }
 
 /// `POST /canvas/apply`.
-pub(crate) fn apply(ids: &mut Ids, app: &App, patch: &Value) -> Result<Step, Response> {
+pub(crate) fn apply(
+    ids: &mut Ids,
+    app: &App,
+    patch: &Value,
+    facts: &Facts,
+) -> Result<Step, Response> {
     if !patch.is_object() {
         return Err(Response::bad_request("patch: expected an object"));
     }
@@ -162,6 +191,7 @@ pub(crate) fn apply(ids: &mut Ids, app: &App, patch: &Value) -> Result<Step, Res
         .then(|| delete.iter().filter_map(Value::as_str).collect::<Vec<_>>())
         .ok_or_else(|| Response::bad_request("delete: expected an array of ids"))?;
     let mut builder = Builder::new(ids, app);
+    builder.facts = Some(facts);
     builder.entities(array(patch, "entities")?)?;
     builder.edge_items(array(patch, "edges")?)?;
     builder.delete(&delete, false)?;

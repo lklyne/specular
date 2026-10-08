@@ -30,6 +30,7 @@ glam = { workspace = true }
 image = { workspace = true }
 pollster = { workspace = true }
 serde_json = { workspace = true }
+sha1_smol = { workspace = true }
 tiny_http = { workspace = true }
 tracing = { workspace = true }
 trash = { workspace = true }

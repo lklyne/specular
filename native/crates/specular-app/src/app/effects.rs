@@ -75,6 +75,9 @@ impl<W: ShellWindow> Runtime<W> {
             }
             Effect::ClosePage(page) => {
                 if let Some(host) = self.hosts.remove(&page) {
+                    if let Some(cdp) = &self.cdp {
+                        cdp.page_closed(&page);
+                    }
                     warn_on_error(self.source.close_page(host.page));
                     if let Some(gpu) = self.gpu.as_mut() {
                         gpu.compositor_mut().remove_page(host.page);

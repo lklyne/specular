@@ -37,6 +37,11 @@ impl<W: ShellWindow> Runtime<W> {
                     self.dispatch(answer);
                 }
             }
+            PageEvent::Url { page, url } => {
+                if let (Some(cdp), Some(entity)) = (&self.cdp, self.entity_of(*page)) {
+                    cdp.navigated(&entity, url);
+                }
+            }
             PageEvent::ElementsInRect { request, count, .. } => {
                 self.queries.grab_answer(*request, *count);
                 self.answer_settled_grabs();

@@ -101,7 +101,7 @@ pub use comment::{
     region_on_canvas, selection_metadata,
 };
 pub use draw::DrawStroke;
-pub use drop::DroppedFile;
+pub use drop::{DroppedFile, default_size as dropped_size, shown_path};
 pub use edge_drag::{EdgeDrag, EdgePreview};
 pub use edge_path::EdgeCurve;
 pub use edit::{
@@ -120,7 +120,7 @@ pub use images::{Image, ImageKey, ImageNotice, ImageState, is_image_file};
 pub use marquee::MarqueeMode;
 pub use menu::{Menu, MenuEntry, MenuItem, binding_of, menus};
 pub use move_drag::{CopyPreview, MoveDrag};
-pub use notes::{NoteNotice, NoteState, is_note_file};
+pub use notes::{NoteNotice, NoteState, is_note_file, note_file_name};
 pub use page_state::PageState;
 pub use panel::builtin::PanelUi;
 pub use panel::{

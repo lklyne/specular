@@ -6,11 +6,11 @@ use specular_doc::{
     Annotation, AnnotationAnchor, AnnotationId, AnnotationStatus, Author, Command, Entity,
     EntityId, JsonMap, Kind, PageAnchor, RegionAnchor, Reply as ThreadReply,
 };
-use specular_interact::{ApiRun, App, iso8601, region_annotation};
+use specular_interact::{ApiRun, App, iso8601, region_annotation, region_on_canvas};
 
 use crate::ids::Ids;
 use crate::reply::Reply;
-use crate::{Request, Response, Step};
+use crate::{Request, Response, Screenshot, ShotArea, Step};
 
 /// An annotation as the `.canvas` file holds it.
 pub(crate) fn json(annotation: &Annotation) -> Value {
@@ -103,8 +103,11 @@ fn selected(annotation: &Annotation) -> Vec<EntityId> {
         .unwrap_or_default()
 }
 
-/// `GET /annotations/<id>`: the annotation, and for a selection comment the
-/// entities it is about.
+/// `GET /annotations/<id>`: the annotation, for a selection comment the
+/// entities it is about, and for a region comment a picture of the region as
+/// the canvas shows it now. The Electron app takes that picture when the
+/// comment is made and keeps it in the file; one taken on demand shows what
+/// the comment is about today and keeps megabytes out of the `.canvas`.
 pub(crate) fn detail(app: &App, id: &str) -> Result<Step, Response> {
     let annotation = find(app, id)?;
     let mut body = json(annotation);
@@ -116,6 +119,14 @@ pub(crate) fn detail(app: &App, id: &str) -> Result<Step, Response> {
             .map(member)
             .collect();
         body["selection"] = json!({ "members": members, "priorFeedback": [] });
+    }
+    let kept = body["metadata"]["regionScreenshot"].is_string();
+    if let Some(rect) = region_on_canvas(app, annotation).filter(|_| !kept) {
+        let shot = Screenshot {
+            path: None,
+            area: ShotArea::Canvas(rect),
+        };
+        return Ok(Step::Annotated(body, shot));
     }
     Ok(Step::Answer(body))
 }

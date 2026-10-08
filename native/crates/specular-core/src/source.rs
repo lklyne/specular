@@ -1,5 +1,7 @@
 //! The page backend contract.
 
+use std::sync::Arc;
+
 use glam::Vec2;
 
 use crate::frame::FrameEvent;
@@ -134,6 +136,17 @@ pub enum PageEvent {
     },
 }
 
+/// The first message id a devtools client's message may carry through
+/// [`PageSource::devtools_send`]. Ids below it are the backend's own
+/// questions, so one id never names both.
+pub const DEVTOOLS_CLIENT_ID_BASE: i32 = 1 << 30;
+
+/// Where a page's devtools messages go: the answers to what
+/// [`PageSource::devtools_send`] sent, and every event the page raises. The
+/// text is one devtools-protocol JSON message. Called on the main thread,
+/// from inside [`PageSource::pump`] or the backend's own message loop.
+pub type DevtoolsSink = Arc<dyn Fn(PageId, &str) + Send + Sync>;
+
 /// A move through a page's session history, or a new address for it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PageNav {
@@ -241,6 +254,16 @@ pub trait PageSource {
 
     /// Port of the backend's remote-debugging (CDP) endpoint, if enabled.
     fn devtools_port(&self) -> Option<u16>;
+
+    /// Sends one devtools-protocol message to the page's own devtools agent:
+    /// a JSON object with an `id` of at least [`DEVTOOLS_CLIENT_ID_BASE`], a
+    /// `method` and `params`. It speaks to this page and no other, however
+    /// many are hosted. The answer, carrying the same `id`, goes to the
+    /// [`DevtoolsSink`].
+    fn devtools_send(&mut self, page: PageId, message: &str) -> Result<(), PageSourceError>;
+
+    /// Sets where devtools answers and events go; `None` drops them.
+    fn set_devtools_sink(&mut self, sink: Option<DevtoolsSink>);
 
     /// Closes every page and shuts the backend down, blocking until done.
     /// Idempotent.

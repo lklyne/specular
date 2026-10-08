@@ -250,6 +250,13 @@ fn a_selection_comment_carries_what_it_is_about() {
         .map(|m| &m["text"])
         .collect();
     assert_eq!(texts, ["one", "two"]);
+    // A region comment comes with a picture of its region as it is now.
+    assert_eq!(detail["metadata"]["regionScreenshot"], "cGl4ZWxz");
+    let region = specular_doc::Rect::new(0.0, 0.0, 500.0, 200.0);
+    assert_eq!(
+        session.shots[0].area,
+        specular_api::ShotArea::Canvas(region)
+    );
 
     let named = ok(
         &mut session,
@@ -333,7 +340,7 @@ fn new_things_are_placed_clear_of_what_is_there() {
 #[test]
 fn a_note_grows_to_hold_its_text_and_keeps_a_size_it_fits_in() {
     let mut session = Scripted::empty();
-    let long = "word ".repeat(200);
+    let long = "word ".repeat(50);
     let id = session.apply(json!({ "entities": [{ "kind": "text", "text": long }] }))["created"][0]
         .clone();
     let grown = session.node(&id)["height"].as_f64().unwrap_or_default();

@@ -139,15 +139,39 @@ impl GpuWindow {
         scene: &Scene,
         page_of: impl Fn(&EntityId) -> Option<PageId>,
     ) -> anyhow::Result<(Vec<u8>, u32, u32)> {
-        let target = Target::new(
-            &self.context,
-            self.config.width,
-            self.config.height,
-            self.config.format,
+        let (viewport, size) = (
+            self.logical_viewport(),
+            (self.config.width, self.config.height),
         );
+        self.capture_sized(camera, viewport, size, scene, page_of)
+    }
+
+    /// Draws `scene` into a texture of `viewport` logical pixels, whatever
+    /// size the window is.
+    pub(super) fn capture_area(
+        &mut self,
+        camera: Camera,
+        viewport: Vec2,
+        scene: &Scene,
+        page_of: impl Fn(&EntityId) -> Option<PageId>,
+    ) -> anyhow::Result<(Vec<u8>, u32, u32)> {
+        let pixels = |side: f32| ((side * self.scale_factor()).round() as u32).max(1);
+        let size = (pixels(viewport.x), pixels(viewport.y));
+        self.capture_sized(camera, viewport, size, scene, page_of)
+    }
+
+    fn capture_sized(
+        &mut self,
+        camera: Camera,
+        viewport: Vec2,
+        (width, height): (u32, u32),
+        scene: &Scene,
+        page_of: impl Fn(&EntityId) -> Option<PageId>,
+    ) -> anyhow::Result<(Vec<u8>, u32, u32)> {
+        let target = Target::new(&self.context, width, height, self.config.format);
         let frame_view = FrameView {
             camera,
-            viewport: self.logical_viewport(),
+            viewport,
             scale_factor: self.scale_factor(),
             grid: DotGrid::default(),
             zooming: false,
@@ -243,6 +267,16 @@ impl ShellWindow for GpuWindow {
         page_of: PageOf<'_>,
     ) -> anyhow::Result<(Vec<u8>, u32, u32)> {
         Self::capture(self, camera, scene, page_of)
+    }
+
+    fn capture_area(
+        &mut self,
+        camera: Camera,
+        viewport: Vec2,
+        scene: &Scene,
+        page_of: PageOf<'_>,
+    ) -> anyhow::Result<(Vec<u8>, u32, u32)> {
+        Self::capture_area(self, camera, viewport, scene, page_of)
     }
 
     fn set_ime_allowed(&self, allowed: bool) {

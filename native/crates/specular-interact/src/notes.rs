@@ -87,6 +87,17 @@ pub fn is_note_file(file: &str) -> bool {
     (file.rsplit_once('.')).is_some_and(|(_, extension)| extension.eq_ignore_ascii_case("md"))
 }
 
+/// The file name of the `number`th Document called `base`: `base.md`, then
+/// `base 2.md`, `base 3.md` and so on. The shell's note thread names a new
+/// Document this way, and so does a note made through the API.
+pub fn note_file_name(base: &str, number: u32) -> String {
+    if number <= 1 {
+        format!("{base}.md")
+    } else {
+        format!("{base} {number}.md")
+    }
+}
+
 /// The markdown files `document` shows, each once per entity showing it.
 fn wanted(document: &Document) -> impl Iterator<Item = &str> {
     document

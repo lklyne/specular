@@ -14,7 +14,9 @@ use crate::frame::{CpuFrame, FrameEvent, FrameLayer, PageFrame};
 use crate::geometry::{CssRect, CssSize, PixelRect};
 use crate::input::InputEvent;
 use crate::page::{PageId, PageSpec, validate_texture_scale, validate_viewport};
-use crate::source::{PageElement, PageEvent, PageNav, PageSource, PageSourceError};
+use crate::source::{DevtoolsSink, PageElement, PageEvent, PageNav, PageSource, PageSourceError};
+
+mod cdp;
 
 #[derive(Debug)]
 struct SyntheticPage {
@@ -28,6 +30,9 @@ struct SyntheticPage {
     at: usize,
     /// How far its document is scrolled, in CSS pixels.
     scroll: Vec2,
+    /// Whether a devtools client enabled the `Page` domain, so navigations
+    /// are reported to it.
+    page_events: bool,
 }
 
 impl SyntheticPage {
@@ -46,12 +51,25 @@ fn title_of(url: &str) -> String {
 }
 
 /// Synthetic page backend; see the module docs.
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct SyntheticPageSource {
     pages: BTreeMap<PageId, SyntheticPage>,
     next_id: u64,
     focused: Option<PageId>,
     pending: Vec<PageEvent>,
+    /// Devtools messages on their way to the sink, sent on the next pump as
+    /// a browser's arrive: after the call that caused them returned.
+    devtools_out: Vec<(PageId, String)>,
+    devtools_sink: Option<DevtoolsSink>,
+}
+
+impl std::fmt::Debug for SyntheticPageSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SyntheticPageSource")
+            .field("pages", &self.pages)
+            .field("focused", &self.focused)
+            .finish_non_exhaustive()
+    }
 }
 
 impl SyntheticPageSource {
@@ -62,6 +80,7 @@ impl SyntheticPageSource {
 
     /// [`pump`](PageSource::pump) with an explicit clock, for deterministic tests.
     pub fn pump_at(&mut self, now: Instant) {
+        self.flush_devtools();
         for (&id, page) in &mut self.pages {
             if !page.painting || page.next_paint.is_some_and(|due| now < due) {
                 continue;
@@ -88,6 +107,10 @@ impl SyntheticPageSource {
         page.next_paint = None;
         let url = page.history[page.at].clone();
         let (can_go_back, can_go_forward) = (page.at > 0, page.at + 1 < page.history.len());
+        if page.page_events {
+            let navigated = cdp::navigated_events(&url);
+            (self.devtools_out).extend(navigated.into_iter().map(|event| (id, event)));
+        }
         let loading = |loading| PageEvent::Loading {
             page: id,
             loading,
@@ -239,6 +262,7 @@ impl PageSource for SyntheticPageSource {
                 history: vec![spec.url.clone()],
                 at: 0,
                 scroll: Vec2::ZERO,
+                page_events: false,
             },
         );
         self.show(id)?;
@@ -373,10 +397,19 @@ impl PageSource for SyntheticPageSource {
         None
     }
 
+    fn devtools_send(&mut self, page: PageId, message: &str) -> Result<(), PageSourceError> {
+        self.answer_devtools(page, message)
+    }
+
+    fn set_devtools_sink(&mut self, sink: Option<DevtoolsSink>) {
+        self.devtools_sink = sink;
+    }
+
     fn shutdown(&mut self) {
         self.pages.clear();
         self.focused = None;
         self.pending.clear();
+        self.devtools_out.clear();
     }
 }
 

@@ -50,30 +50,51 @@ pub(crate) fn on_drop(
     };
     let mut entities = Vec::new();
     for file in files {
-        let size = if is_image_file(&file.path) {
-            (file.image_size).map_or(DEFAULT_IMAGE_SIZE, |(width, height)| {
-                DVec2::new(f64::from(width), f64::from(height))
-            })
-        } else if is_note_file(&file.path) {
-            DEFAULT_NOTE_SIZE
-        } else {
+        let Some(size) = default_size(file) else {
             continue;
         };
         let id = EntityId::new(app.fresh_id());
-        let shown = match (&file.space_path, asset::extension(&file.path)) {
-            (Some(inside), _) => inside.clone(),
-            (None, Some(extension)) => {
-                let copy = asset::asset_file(&id, extension);
-                effects.push(Effect::CopyAsset {
-                    from: file.path.clone(),
-                    file: copy.clone(),
-                });
-                copy
-            }
-            (None, None) => continue,
+        let Some((shown, copy)) = shown_path(&id, file) else {
+            continue;
         };
+        effects.extend(copy);
         let corner = at + DVec2::splat(CASCADE_STEP * entities.len() as f64);
         entities.push(asset::file_entity(id, shown, geometry::rect(corner, size)));
     }
     asset::insert_selected(app, entities, effects);
+}
+
+/// The size a file gets when it lands on the canvas: an image's own pixels,
+/// a markdown file's Document size, and `None` for any other file, which a
+/// drop ignores.
+pub fn default_size(file: &DroppedFile) -> Option<DVec2> {
+    if is_image_file(&file.path) {
+        Some(
+            (file.image_size).map_or(DEFAULT_IMAGE_SIZE, |(width, height)| {
+                DVec2::new(f64::from(width), f64::from(height))
+            }),
+        )
+    } else if is_note_file(&file.path) {
+        Some(DEFAULT_NOTE_SIZE)
+    } else {
+        None
+    }
+}
+
+/// What the entity for `file` points at, and the copy to make first when
+/// the file is outside the space folder. The copy is named after `id`.
+/// `None` for a file outside the folder that has no extension to keep.
+pub fn shown_path(id: &EntityId, file: &DroppedFile) -> Option<(String, Option<Effect>)> {
+    match (&file.space_path, asset::extension(&file.path)) {
+        (Some(inside), _) => Some((inside.clone(), None)),
+        (None, Some(extension)) => {
+            let copy = asset::asset_file(id, extension);
+            let effect = Effect::CopyAsset {
+                from: file.path.clone(),
+                file: copy.clone(),
+            };
+            Some((copy, Some(effect)))
+        }
+        (None, None) => None,
+    }
 }

@@ -8,7 +8,7 @@ use std::sync::mpsc::{self, Receiver};
 use std::time::Duration;
 
 use serde_json::{Value, json};
-use specular_api::{Host, Screenshot};
+use specular_api::{CdpAsk, Host, Response, Screenshot};
 use specular_interact::{ApiOutcome, App, Effect, Event};
 use specular_testkit::{TestApp, assert_doc_snapshot};
 
@@ -35,6 +35,10 @@ impl Host for Seat {
 
     fn screenshot(&mut self, _shot: &Screenshot) -> Result<Value, String> {
         Err("a test has no renderer".to_owned())
+    }
+
+    fn cdp(&mut self, _ask: &CdpAsk) -> Result<Value, Response> {
+        Err(Response::error(503, "a test has no page backend"))
     }
 }
 

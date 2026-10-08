@@ -234,14 +234,13 @@ fn what_is_not_ported_says_so_by_name() {
     let mut api = api();
     let mut plan = |method, path: &str| api.plan(app.app(), &Request::new(method, path, json!({})));
 
-    let snapshot = answer(plan(Method::Post, "/pages/p1/snapshot-seen"));
-    assert_eq!(snapshot.status, 501);
-    let error = snapshot.body["error"].as_str().unwrap_or_default();
-    let start = "not implemented in the native app (needs the CEF page backend): \
-                 the page verbs (`snapshot`, `screenshot -f`, `click`,";
+    let pdf = answer(plan(Method::Post, "/pages/p1/print-pdf"));
+    assert_eq!(pdf.status, 501);
+    let error = pdf.body["error"].as_str().unwrap_or_default();
+    let start = "not implemented in the native app (it needs an answer that waits for the page";
     assert!(error.starts_with(start), "{error}");
     assert!(
-        error.ends_with(". Route: POST /pages/p1/snapshot-seen"),
+        error.ends_with("): `print-pdf`. Route: POST /pages/p1/print-pdf"),
         "{error}"
     );
 

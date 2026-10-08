@@ -52,6 +52,18 @@ pub enum ApiRun {
         /// The items to select once it has run.
         select: Option<Vec<ItemId>>,
     },
+    /// [`Apply`](Self::Apply) after the shell has put files in the space
+    /// folder: the [`Effect::WriteNote`] and [`Effect::CopyAsset`] of the
+    /// entities `command` adds, which run before the effects that load
+    /// them. Nothing runs when the command is refused.
+    ApplyWithFiles {
+        /// The file effects, in order.
+        files: Vec<Effect>,
+        /// The command.
+        command: Command,
+        /// The items to select once it has run.
+        select: Option<Vec<ItemId>>,
+    },
     /// Add an empty canvas with this name and leave the user where they
     /// are. Refused when the name is empty or taken.
     NewCanvas {
@@ -112,25 +124,43 @@ fn run_call(app: &mut App, run: ApiRun, effects: &mut Vec<Effect>) -> ApiOutcome
             effects.push(Effect::Navigate { page, nav });
         }
         ApiRun::Apply { command, select } => {
-            edit::end(app, effects);
-            // A refused command has to be reported, and the step itself only
-            // logs it, so it is tried on a copy first.
-            let mut trial = app.document.clone();
-            if let Err(error) = trial.apply(command.clone()) {
-                return ApiOutcome::Refused(error.to_string());
-            }
-            let command = with_text_fits(app, &trial, command);
-            update::document_step(app, command, effects);
-            if let Some(items) = select {
-                app.session.selection.set(items);
-                update::drop_dangling(app, effects);
-            }
+            return apply(app, command, select, Vec::new(), effects);
         }
+        ApiRun::ApplyWithFiles {
+            files,
+            command,
+            select,
+        } => return apply(app, command, select, files, effects),
         ApiRun::NewCanvas { name } => {
             if let Err(reason) = space::create(app, Some(&name), false, effects) {
                 return ApiOutcome::Refused(reason);
             }
         }
+    }
+    ApiOutcome::Done
+}
+
+/// Runs `command` as one undo step, with the file effects it needs first.
+fn apply(
+    app: &mut App,
+    command: Command,
+    select: Option<Vec<ItemId>>,
+    files: Vec<Effect>,
+    effects: &mut Vec<Effect>,
+) -> ApiOutcome {
+    edit::end(app, effects);
+    // A refused command has to be reported, and the step itself only
+    // logs it, so it is tried on a copy first.
+    let mut trial = app.document.clone();
+    if let Err(error) = trial.apply(command.clone()) {
+        return ApiOutcome::Refused(error.to_string());
+    }
+    effects.extend(files);
+    let command = with_text_fits(app, &trial, command);
+    update::document_step(app, command, effects);
+    if let Some(items) = select {
+        app.session.selection.set(items);
+        update::drop_dangling(app, effects);
     }
     ApiOutcome::Done
 }

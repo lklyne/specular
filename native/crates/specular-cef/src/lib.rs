@@ -7,8 +7,9 @@
 //!   options, switches, framework paths), [`coords`] (page CSS -> texel
 //!   mapping, popup placement), [`translate`] (core `InputEvent` -> exact `CefBrowserHost` calls),
 //!   [`pool`] (the per-page shared-texture cap), [`page`] (view and popup
-//!   geometry), [`cpu_frame`] (`OnPaint` copies) and [`dom_query`] (the
-//!   devtools messages that ask a page about its elements, and their answers).
+//!   geometry), [`cpu_frame`] (`OnPaint` copies), [`dom_query`] (the
+//!   devtools messages that ask a page about its elements, and their answers)
+//!   and [`devtools_route`] (whose a devtools message is).
 //! - **Feature `cef`**: `CefPageSource`, a [`specular_core::PageSource`] on
 //!   windowless CEF browsers, and `run_subprocess_if_needed`:
 //!   - `OnAcceleratedPaint` (macOS IOSurface) -> [`specular_core::PageFrame::GpuShared`],
@@ -25,6 +26,7 @@
 pub mod config;
 pub mod coords;
 pub mod cpu_frame;
+pub mod devtools_route;
 pub mod dom_query;
 pub mod page;
 pub mod pool;

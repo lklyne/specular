@@ -5,6 +5,7 @@
 //! that or an input event changed something a frame shows (`demand.rs`).
 //! With nothing owed the loop sleeps (`turn.rs`).
 
+mod api_files;
 mod api_run;
 mod asset_run;
 mod bench;
@@ -25,6 +26,7 @@ mod note_run;
 mod page_events;
 mod runtime;
 mod settings;
+mod shots;
 mod space_run;
 mod title;
 mod turn;

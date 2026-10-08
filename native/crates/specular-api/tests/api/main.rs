@@ -2,8 +2,10 @@
 //! in, the event it plans goes through `update`, and the response and the
 //! document come out.
 
+mod cdp;
 mod common;
 mod contract;
+mod documents;
 mod pages;
 mod plan;
 mod tabs;

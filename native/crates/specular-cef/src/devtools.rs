@@ -6,6 +6,11 @@
 //! message to the page's devtools agent and calls the observer back on the
 //! UI thread. The messages themselves are built and read in
 //! [`dom_query`](crate::dom_query).
+//!
+//! A devtools client's messages share the channel
+//! ([`Devtools::send_raw`]). Its answers and every event the page raises go
+//! to the [`DevtoolsSink`], told apart from the answers to the questions
+//! above by [`devtools_route`](crate::devtools_route).
 #![expect(
     clippy::transmute_ptr_to_ptr,
     reason = "cef's wrap_* macros transmute the ref-count base in their expansion"
@@ -20,8 +25,9 @@ use cef::{
     Browser, BrowserHost, DevToolsMessageObserver, ImplBrowserHost, ImplDevToolsMessageObserver,
     Registration, WrapDevToolsMessageObserver, wrap_dev_tools_message_observer,
 };
-use specular_core::PageEvent;
+use specular_core::{DevtoolsSink, PageEvent};
 
+use crate::devtools_route::{Route, route};
 use crate::dom_query;
 use crate::page::PageContext;
 
@@ -67,13 +73,46 @@ impl Pending {
     }
 }
 
+/// Where client answers and page events go, shared by every page's
+/// observer and set by the source.
+#[derive(Clone, Default)]
+pub(crate) struct SinkSlot(Arc<Mutex<Option<DevtoolsSink>>>);
+
+impl SinkSlot {
+    pub(crate) fn set(&self, sink: Option<DevtoolsSink>) {
+        *self.0.lock().unwrap_or_else(PoisonError::into_inner) = sink;
+    }
+
+    /// The sink, cloned out so it is not called with the lock held.
+    fn get(&self) -> Option<DevtoolsSink> {
+        (self.0.lock().unwrap_or_else(PoisonError::into_inner)).clone()
+    }
+}
+
 wrap_dev_tools_message_observer! {
     struct PageObserver {
         ctx: PageContext,
         pending: Pending,
+        sink: SinkSlot,
     }
 
     impl DevToolsMessageObserver {
+        fn on_dev_tools_message(
+            &self,
+            _browser: Option<&mut Browser>,
+            message: Option<&[u8]>,
+        ) -> c_int {
+            let message = message.unwrap_or_default();
+            if route(message) == Route::Backend {
+                // Not handled: CEF goes on to `on_dev_tools_method_result`.
+                return 0;
+            }
+            if let Some(sink) = self.sink.get() {
+                sink(self.ctx.id, &String::from_utf8_lossy(message));
+            }
+            1
+        }
+
         fn on_dev_tools_method_result(
             &self,
             _browser: Option<&mut Browser>,
@@ -120,9 +159,10 @@ pub(crate) struct Devtools {
 
 impl Devtools {
     /// Starts observing `host`'s devtools answers for the page `ctx` names.
-    pub(crate) fn attach(host: &BrowserHost, ctx: &PageContext) -> Self {
+    pub(crate) fn attach(host: &BrowserHost, ctx: &PageContext, sink: &SinkSlot) -> Self {
         let pending = Pending::default();
-        let mut observer: DevToolsMessageObserver = PageObserver::new(ctx.clone(), pending.clone());
+        let mut observer: DevToolsMessageObserver =
+            PageObserver::new(ctx.clone(), pending.clone(), sink.clone());
         let registration = host.add_dev_tools_message_observer(Some(&mut observer));
         if registration.is_none() {
             tracing::warn!(page = %ctx.id, "no DevTools observer; the page will not answer questions");
@@ -147,5 +187,12 @@ impl Devtools {
             self.pending.take(id);
         }
         sent
+    }
+
+    /// Sends a client's message as it is. Its id is the client's to keep
+    /// out of the range the questions above use. Returns whether CEF took
+    /// it.
+    pub(crate) fn send_raw(host: &BrowserHost, message: &str) -> bool {
+        host.send_dev_tools_message(Some(message.as_bytes())) != 0
     }
 }

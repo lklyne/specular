@@ -21,6 +21,7 @@ use std::sync::mpsc::{self, Receiver};
 use specular_api::{Api, Host};
 
 use self::discovery::Discovery;
+pub(crate) use self::discovery::new_secret;
 use self::server::{Job, Server};
 
 /// The API as the event loop holds it: the routes' state, the requests

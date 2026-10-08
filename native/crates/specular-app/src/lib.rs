@@ -13,6 +13,7 @@
 mod api;
 mod app;
 mod bench_run;
+mod cdp;
 mod cli;
 mod headless;
 mod images;

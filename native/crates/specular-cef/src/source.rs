@@ -12,13 +12,13 @@ use cef::{
 };
 use glam::Vec2;
 use specular_core::{
-    CssRect, CssSize, InputEvent, PageEvent, PageId, PageNav, PageSource, PageSourceError,
-    PageSpec, validate_texture_scale, validate_viewport,
+    CssRect, CssSize, DevtoolsSink, InputEvent, PageEvent, PageId, PageNav, PageSource,
+    PageSourceError, PageSpec, validate_texture_scale, validate_viewport,
 };
 
 use crate::client::{new_app, new_client};
 use crate::config::{CefConfig, Pump, browser_switches, windowless_frame_rate};
-use crate::devtools::{Asked, Devtools};
+use crate::devtools::{Asked, Devtools, SinkSlot};
 use crate::dom_query;
 use crate::error::CefError;
 use crate::host_call::dispatch;
@@ -71,6 +71,8 @@ pub struct CefPageSource {
     /// source is dropped.
     scratch_root: Option<std::path::PathBuf>,
     pages: HashMap<PageId, PageEntry>,
+    /// Where every page's devtools answers and events go.
+    devtools_sink: SinkSlot,
     next_id: u64,
     focused: Option<PageId>,
     alive: Arc<AtomicUsize>,
@@ -151,6 +153,7 @@ impl CefPageSource {
         }
         Ok(Self {
             pages: HashMap::new(),
+            devtools_sink: SinkSlot::default(),
             next_id: 0,
             focused: None,
             alive: Arc::new(AtomicUsize::new(0)),
@@ -246,7 +249,7 @@ impl PageSource for CefPageSource {
         .ok_or_else(create_error)?;
         let host = browser.host().ok_or_else(create_error)?;
         self.alive.fetch_add(1, Ordering::AcqRel);
-        let devtools = Devtools::attach(&host, &ctx);
+        let devtools = Devtools::attach(&host, &ctx, &self.devtools_sink);
         // The target id names the page to outside CDP clients; without a
         // debugging port nobody can use it.
         if self.devtools_port().is_some() {
@@ -423,6 +426,17 @@ impl PageSource for CefPageSource {
         self.config
             .remote_debugging_port
             .filter(|_| self.config.settings_debugging_port() != 0)
+    }
+
+    fn devtools_send(&mut self, page: PageId, message: &str) -> Result<(), PageSourceError> {
+        let entry = self.entry(page)?;
+        Devtools::send_raw(&entry.host, message)
+            .then_some(())
+            .ok_or_else(|| refused("client message"))
+    }
+
+    fn set_devtools_sink(&mut self, sink: Option<DevtoolsSink>) {
+        self.devtools_sink.set(sink);
     }
 
     fn shutdown(&mut self) {

@@ -319,15 +319,25 @@ impl ShellWindow for CanvasSurface {
         scene: &Scene,
         page_of: PageOf<'_>,
     ) -> anyhow::Result<(Vec<u8>, u32, u32)> {
+        self.capture_area(camera, self.slot_size, scene, page_of)
+    }
+
+    fn capture_area(
+        &mut self,
+        camera: Camera,
+        viewport: Vec2,
+        scene: &Scene,
+        page_of: PageOf<'_>,
+    ) -> anyhow::Result<(Vec<u8>, u32, u32)> {
         let target = Target::new(
             &self.context,
-            pixels(self.slot_size.x, self.scale),
-            pixels(self.slot_size.y, self.scale),
+            pixels(viewport.x, self.scale),
+            pixels(viewport.y, self.scale),
             self.config.format,
         );
         let frame_view = FrameView {
             camera,
-            viewport: self.slot_size,
+            viewport,
             scale_factor: self.scale,
             grid: DotGrid::default(),
             zooming: false,

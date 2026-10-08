@@ -7591,6 +7591,7 @@ dependencies = [
  "pollster 1.0.1",
  "rfd",
  "serde_json",
+ "sha1_smol",
  "specular-api",
  "specular-bench",
  "specular-cef",
@@ -7630,6 +7631,7 @@ dependencies = [
  "objc2 0.6.4",
  "objc2-core-foundation",
  "objc2-io-surface",
+ "serde",
  "serde_json",
  "specular-core",
  "thiserror 2.0.21",
@@ -7666,6 +7668,7 @@ version = "0.1.0"
 dependencies = [
  "glam",
  "serde",
+ "serde_json",
  "thiserror 2.0.21",
 ]
 

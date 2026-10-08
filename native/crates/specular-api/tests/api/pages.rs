@@ -2,6 +2,7 @@
 //! address navigating the page in place.
 
 use serde_json::json;
+use specular_api::ShotArea;
 use specular_core::PageNav;
 use specular_interact::{Effect, PageNotice};
 use specular_testkit::TestApp;
@@ -83,38 +84,43 @@ fn an_unknown_page_is_not_found() {
 }
 
 #[test]
-fn the_debugging_target_is_what_the_page_reported() {
-    let mut app = TestApp::with_pages(1);
-    app.page_reports("p1", PageNotice::Url("https://example.com/p1".to_owned()));
-    let mut session = Scripted::new(app);
-    let early = session.get("/pages/p1/cdp-target");
-    assert_eq!(early.status, 503, "{}", early.body);
-    assert!(
-        early.body["error"]
-            .as_str()
-            .is_some_and(|text| text.contains("no debugging target"))
-    );
-
+fn every_page_has_its_own_debugging_target_however_many_there_are() {
+    let mut session = Scripted::new(TestApp::with_pages(3));
     session.app.page_reports(
-        "p1",
-        PageNotice::DevtoolsUrl("ws://127.0.0.1:9222/devtools/page/ABC".to_owned()),
-    );
-    let ready = session.get("/pages/p1/cdp-target");
-    assert_eq!(ready.status, 200);
-    assert_eq!(
-        ready.body,
-        json!({
-            "webSocketDebuggerUrl": "ws://127.0.0.1:9222/devtools/page/ABC",
-            "url": "https://example.com/p1",
-        })
-    );
-    session.app.page_reports(
-        "p1",
+        "p2",
         PageNotice::Url("https://example.org/moved".to_owned()),
     );
+    session
+        .app
+        .page_reports("p2", PageNotice::Title("Moved".to_owned()));
+    let second = session.get("/pages/p2/cdp-target");
+    assert_eq!(second.status, 200, "{}", second.body);
     assert_eq!(
-        session.get("/pages/p1/cdp-target").body["url"],
-        "https://example.org/moved"
+        second.body,
+        json!({
+            "pageId": "p2",
+            "targetId": "p2",
+            "webSocketDebuggerUrl": "ws://127.0.0.1:1/cdp/page/token-p2",
+            "url": "https://example.org/moved",
+            "title": "Moved",
+            "generation": 0,
+            "lastSnapshotGeneration": null,
+        })
+    );
+    // A page that has reported nothing is named by the address it was given.
+    let third = session.get("/pages/p3/cdp-target");
+    assert_eq!(third.body["url"], "https://example.com/p3");
+    assert_ne!(
+        third.body["webSocketDebuggerUrl"],
+        second.body["webSocketDebuggerUrl"]
+    );
+    assert_eq!(
+        session.post("/pages/p1/snapshot-seen", json!({})).status,
+        200
+    );
+    assert_eq!(
+        session.post("/pages/nope/snapshot-seen", json!({})).status,
+        404
     );
 }
 
@@ -153,18 +159,33 @@ fn updating_a_pages_url_navigates_it_in_place() {
 }
 
 #[test]
-fn with_several_pages_the_debugging_target_is_withheld_and_the_socket_named() {
-    let mut session = Scripted::new(TestApp::with_pages(2));
-    session.app.page_reports(
-        "p2",
-        PageNotice::DevtoolsUrl("ws://127.0.0.1:9222/devtools/page/TWO".to_owned()),
+fn a_page_screenshot_is_the_named_page_or_the_selected_one() {
+    let mut session = session();
+    let named = session.post("/pages/screenshot", json!({ "pageId": "p2" }));
+    assert_eq!(named.status, 200, "{}", named.body);
+    assert_eq!(named.body["mimeType"], "image/png");
+    assert!(named.body["base64"].is_string());
+    let page = |id: &str, chrome, padding| ShotArea::Page {
+        page: id.into(),
+        chrome,
+        padding,
+    };
+    assert_eq!(session.shots[0].area, page("p2", false, 0.0));
+
+    let nothing = session.post("/pages/screenshot", json!({}));
+    assert_eq!(nothing.status, 400, "{}", nothing.body);
+    session.app.select(&["p1"]);
+    assert_eq!(session.post("/pages/screenshot", json!({})).status, 200);
+    assert_eq!(session.shots[1].area, page("p1", false, 0.0));
+
+    let composite = json!({ "pageId": "p1", "padding": 8 });
+    assert_eq!(
+        session
+            .post("/pages/screenshot-composite", composite)
+            .status,
+        200
     );
-    let response = session.get("/pages/p2/cdp-target");
-    assert_eq!(response.status, 501, "{}", response.body);
-    let error = response.body["error"].as_str().unwrap_or_default();
-    assert!(error.contains("more than one page"), "{error}");
-    assert!(
-        error.contains("ws://127.0.0.1:9222/devtools/page/TWO"),
-        "{error}"
-    );
+    assert_eq!(session.shots[2].area, page("p1", true, 8.0));
+    let missing = session.post("/pages/screenshot", json!({ "pageId": "nope" }));
+    assert_eq!(missing.status, 404);
 }

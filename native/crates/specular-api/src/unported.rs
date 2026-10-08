@@ -8,20 +8,22 @@ use crate::{Method, Request, Response, Step};
 
 /// The verbs behind an Electron route this app does not have, and why.
 fn verbs(method: Method, segments: &[&str]) -> Option<(&'static str, &'static str)> {
-    const PAGES: &str = "needs the CEF page backend";
     const LATER: &str = "not ported yet";
     Some(match (method, segments) {
         (_, ["pages", "create-at-position"]) => (
             "page duplication at a position",
             "use `specular add page <url> --at x,y`",
         ),
-        (_, ["pages", "screenshot" | "screenshot-composite"]) => ("`screenshot -f`", PAGES),
-        (_, ["pages", _, "print-pdf"]) => ("`print-pdf`", PAGES),
+        (_, ["pages", _, "print-pdf"]) => (
+            "`print-pdf`",
+            "it needs an answer that waits for the page: `Page.printToPDF` over the page's \
+             devtools channel, and the API answers within one turn of the event loop",
+        ),
         (_, ["pages" | "debug", ..]) => (
-            "the page verbs (`snapshot`, `screenshot -f`, `click`, `fill`, `type`, `select`, `scroll`, `wait`, \
-             `find`, `get`, `console`, `errors`, `query-elements`, \
-             `eval` and the other agent-browser passthroughs)",
-            PAGES,
+            "the Electron app's own page reads (`/pages/snapshot`, `/pages/agent-snapshot`, \
+             `/pages/query-elements`, `/pages/find-target`, `/debug/cdp-proxy`)",
+            "use `specular snapshot -f <page>` and the other browse verbs, which go through \
+             `/pages/<id>/cdp-target`",
         ),
         (_, ["selection", "arrange"]) => ("`arrange`", LATER),
         (_, ["selection", "enter-group" | "overlay-state"]) => ("entering a group", LATER),
@@ -29,7 +31,10 @@ fn verbs(method: Method, segments: &[&str]) -> Option<(&'static str, &'static st
         (_, ["groups", "delete"]) => ("group delete by route", "use `specular delete <id>`"),
         (_, ["tasks", "apply"]) => ("`breakpoints`", LATER),
         (_, ["tasks", "component-states"]) => ("`component-states`", LATER),
-        (_, ["recording", ..]) => ("`record`", PAGES),
+        (_, ["recording", ..]) => (
+            "`record`",
+            "it needs a frame tap on the compositor and a video encoder, neither of which exists",
+        ),
         (_, ["design-system", ..]) => ("`design-system` and `register-design-system`", LATER),
         (_, ["annotations", "fix"]) => ("the comment fix loop", LATER),
         (_, ["perf", ..]) => ("perf tracing", "the Rust app has its own `--bench`"),

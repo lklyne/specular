@@ -208,3 +208,74 @@ fn the_grid_moves_with_the_scroll_and_a_region_grabs_whole_cells() {
     assert_eq!(grabbed(CssRect::new(0.0, 0.0, 330.0, 100.0)), 4);
     assert_eq!(grabbed(CssRect::new(10.0, 10.0, 150.0, 40.0)), 0);
 }
+
+/// A source with one page whose devtools messages are kept.
+fn source_with_devtools() -> (
+    SyntheticPageSource,
+    PageId,
+    std::sync::Arc<std::sync::Mutex<Vec<serde_json::Value>>>,
+) {
+    let (mut source, id) = source_with_page(1.0);
+    let heard = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let sink = std::sync::Arc::clone(&heard);
+    source.set_devtools_sink(Some(std::sync::Arc::new(move |page, message: &str| {
+        assert_eq!(page, id);
+        (sink.lock().unwrap()).push(serde_json::from_str(message).unwrap());
+    })));
+    (source, id, heard)
+}
+
+#[test]
+fn a_devtools_message_is_answered_on_the_next_pump_with_its_id() {
+    let (mut source, id, heard) = source_with_devtools();
+    let ask =
+        r#"{"id":1073741825,"method":"Runtime.evaluate","params":{"expression":"location.href"}}"#;
+    source.devtools_send(id, ask).unwrap();
+    assert!(heard.lock().unwrap().is_empty());
+    source.pump_at(Instant::now());
+    let heard = heard.lock().unwrap();
+    assert_eq!(heard.len(), 1);
+    assert_eq!(heard[0]["id"], 1_073_741_825);
+    assert_eq!(
+        heard[0]["result"]["result"]["value"],
+        "https://example.com/"
+    );
+}
+
+#[test]
+fn a_method_the_page_lacks_is_an_error_not_silence() {
+    let (mut source, id, heard) = source_with_devtools();
+    (source.devtools_send(id, r#"{"id":1073741825,"method":"Emulation.setFoo"}"#)).unwrap();
+    source.pump_at(Instant::now());
+    assert_eq!(heard.lock().unwrap()[0]["error"]["code"], -32601);
+}
+
+#[test]
+fn a_devtools_navigation_moves_the_page_and_is_reported_once_page_is_enabled() {
+    let (mut source, id, heard) = source_with_devtools();
+    for ask in [
+        r#"{"id":1073741825,"method":"Page.enable"}"#,
+        r#"{"id":1073741826,"method":"Page.navigate","params":{"url":"https://example.org/a"}}"#,
+    ] {
+        source.devtools_send(id, ask).unwrap();
+    }
+    source.pump_at(Instant::now());
+    let methods: Vec<String> = (heard.lock().unwrap().iter())
+        .filter_map(|message| message["method"].as_str().map(str::to_owned))
+        .collect();
+    assert_eq!(methods, ["Page.frameNavigated", "Page.loadEventFired"]);
+    let mut events = Vec::new();
+    source.drain_events(&mut events);
+    let shown = events.iter().rev().find_map(|event| match event {
+        PageEvent::Url { url, .. } => Some(url.as_str()),
+        _ => None,
+    });
+    assert_eq!(shown, Some("https://example.org/a"));
+}
+
+#[test]
+fn devtools_for_a_page_that_is_gone_is_refused() {
+    let (mut source, id, _) = source_with_devtools();
+    source.close_page(id).unwrap();
+    assert!(source.devtools_send(id, "{}").is_err());
+}

@@ -102,10 +102,24 @@ fn read(node: JsonMap, item: &JsonMap, sort: Sort, at: &str) -> Result<Entity, R
 /// Adds the entity `item` describes, in front of everything.
 pub(super) fn create(builder: &mut Builder<'_>, at: &str, item: &JsonMap) -> Result<(), Response> {
     let sort = sort_of(item).ok_or_else(|| unknown_kind(at))?;
+    let note = (sort == Sort::Text)
+        .then(|| super::note::route(builder, item))
+        .flatten();
+    let (sort, item) = match &note {
+        Some(note) => (Sort::File, &note.item),
+        None => (sort, item),
+    };
     let id = builder.fresh_id(sort.name());
     if sort == Sort::Group {
         return create_group(builder, at, item, id);
     }
+    let resolved;
+    let item = if sort == Sort::File && note.is_none() {
+        resolved = super::file::resolve(builder, at, item, &id)?;
+        &resolved
+    } else {
+        item
+    };
     let mut node = JsonMap::new();
     node.insert("id".to_owned(), json!(id));
     node.insert("type".to_owned(), json!(sort.node_type()));
