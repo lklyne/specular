@@ -26,6 +26,7 @@ mod note_run;
 mod page_events;
 mod repos_run;
 mod runtime;
+mod scripted;
 mod settings;
 mod shots;
 mod space_choice;

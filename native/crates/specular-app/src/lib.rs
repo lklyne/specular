@@ -34,6 +34,12 @@ mod source_select;
 mod space;
 mod translate;
 
+/// The `--script` vocabulary, for a shell that runs the same steps in its
+/// window.
+pub mod script {
+    pub use crate::headless::script::{CameraArg, Step, parse};
+}
+
 pub use crate::app::{Opening, PageOf, Runtime, RuntimeOptions, ShellWindow};
 pub use crate::bench_drive::{Bench, BenchOptions};
 pub use crate::launch::{Launch, Unnamed, launch, run_window};

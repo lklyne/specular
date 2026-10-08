@@ -11,7 +11,7 @@
 
 mod bench;
 mod effects;
-mod script;
+pub(crate) mod script;
 mod stand_ins;
 
 use std::collections::{HashMap, HashSet};

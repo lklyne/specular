@@ -160,6 +160,9 @@ pub struct Runtime<W> {
     pub(crate) agents: AgentRuns,
     /// The system clipboard, once something has been copied or pasted.
     pub(crate) clipboard: Option<arboard::Clipboard>,
+    /// The clipboard of a scripted run, which leaves the system's alone:
+    /// what was last copied, by the app or by the script.
+    pub(crate) scripted_clipboard: Option<super::scripted::HeldClipboard>,
     /// The preferences file. `None` when settings are off, and when there
     /// is no home folder to keep it in.
     pub(crate) prefs: Option<PathBuf>,
@@ -232,6 +235,7 @@ impl<W: ShellWindow> Runtime<W> {
             view_cache: specular_scene::ViewCache::default(),
             agents: agent_run::start_runs(options.settings),
             clipboard: None,
+            scripted_clipboard: None,
             prefs,
             repos_file: options.settings.then(repos_run::file).flatten(),
             space_dialog: None,

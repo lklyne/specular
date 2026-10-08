@@ -21,7 +21,7 @@ use specular_interact::{Action, ArrangeMode, Key, Tool};
 
 /// Where the camera is put.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub(crate) enum CameraArg {
+pub enum CameraArg {
     /// Zoom to fit the whole document, never above 100%.
     Fit,
     /// This pan and zoom.
@@ -30,7 +30,7 @@ pub(crate) enum CameraArg {
 
 /// One line of a script.
 #[derive(Debug, Clone, PartialEq)]
-pub(crate) enum Step {
+pub enum Step {
     /// `move x y`: the pointer moves with no button down.
     Move(Vec2),
     /// `press x y`: the left button goes down.
@@ -108,7 +108,7 @@ const NO_MODIFIERS: Modifiers = Modifiers {
 };
 
 /// The steps in `text`, or the first line that is not one.
-pub(crate) fn parse(text: &str) -> anyhow::Result<Vec<Step>> {
+pub fn parse(text: &str) -> anyhow::Result<Vec<Step>> {
     text.lines()
         .enumerate()
         .filter(|(_, line)| !line.trim().is_empty() && !line.trim_start().starts_with('#'))

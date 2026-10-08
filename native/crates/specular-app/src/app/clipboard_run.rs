@@ -23,6 +23,10 @@ impl<W: ShellWindow> Runtime<W> {
     }
 
     pub(super) fn write_clipboard(&mut self, text: String) {
+        if let Some(held) = self.scripted_clipboard.as_mut() {
+            held.0 = Some(text);
+            return;
+        }
         let Some(clipboard) = self.clipboard() else {
             return;
         };
@@ -33,6 +37,14 @@ impl<W: ShellWindow> Runtime<W> {
 
     /// Reads the clipboard as text and as an image and sends both on.
     pub(super) fn read_clipboard(&mut self) {
+        if let Some(held) = self.scripted_clipboard.clone() {
+            let content = ClipboardContent {
+                text: held.0,
+                image: None,
+            };
+            self.dispatch(Event::Clipboard(content));
+            return;
+        }
         let Some(clipboard) = self.clipboard() else {
             return;
         };
