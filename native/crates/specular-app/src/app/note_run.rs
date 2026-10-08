@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use specular_doc::Rect;
 use specular_interact::{Action, Event, NoteNotice};
 
-use super::Shell;
+use super::runtime::{Runtime, ShellWindow};
 use crate::notes::{NoteLoader, NoteOutcome, ReadFailure};
 
 /// Starts the note thread for the space at `space`, the folder relative
@@ -21,7 +21,7 @@ pub(super) fn start_loader(space: Option<PathBuf>) -> Option<NoteLoader> {
     }
 }
 
-impl Shell {
+impl<W: ShellWindow> Runtime<W> {
     pub(super) fn load_note(&self, file: &str) {
         if let Some(loader) = self.note_loader.as_ref() {
             loader.watch(file);
@@ -67,7 +67,7 @@ impl Shell {
         let Some(gpu) = self.gpu.as_ref() else {
             return;
         };
-        let changed: Vec<_> = (gpu.compositor.column_heights().iter())
+        let changed: Vec<_> = (gpu.compositor().column_heights().iter())
             .filter(|(entity, height)| self.note_heights.get(entity) != Some(height))
             .cloned()
             .collect();

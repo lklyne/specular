@@ -4,126 +4,14 @@
 //! canvas, in CEF (`--source cef`, needs `--features cef`) or the synthetic
 //! source (non-representative CPU frames). `--bench` replays the Electron
 //! pan/zoom profiles and prints frame timing. `--snapshot` and `--script`
-//! draw into PNG files with no window. See `cli::USAGE`.
-
-mod api;
-mod app;
-mod bench_run;
-mod cli;
-mod headless;
-mod images;
-mod latency;
-mod notes;
-mod offscreen;
-mod page_notice;
-mod page_queries;
-mod paint_lod;
-mod persist;
-mod prefs;
-mod scene;
-mod source_select;
-mod space;
-mod translate;
-
-use std::io::IsTerminal as _;
-
-use anyhow::Context as _;
-use tracing_subscriber::EnvFilter;
-use winit::event_loop::EventLoop;
-
-use crate::cli::Command;
-use crate::source_select::Host;
+//! draw into PNG files with no window. `--help` prints the usage.
 
 fn main() -> anyhow::Result<()> {
-    if let Some(code) = source_select::run_subprocess_if_needed() {
+    if let Some(code) = specular_app::run_subprocess_if_needed() {
         std::process::exit(code);
     }
-    let run = match cli::parse(std::env::args_os().skip(1)) {
-        Ok(Command::Run(run)) => run,
-        Ok(Command::Help) => {
-            println!("{}", cli::USAGE);
-            return Ok(());
-        }
-        Err(error) => {
-            eprintln!("{error:#}\n\n{}", cli::USAGE);
-            std::process::exit(2);
-        }
-    };
-    // Logs go to stderr so `--bench` output on stdout stays pure JSON lines.
-    tracing_subscriber::fmt()
-        .with_writer(std::io::stderr)
-        .with_ansi(std::io::stderr().is_terminal())
-        .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()))
-        .init();
-
-    let space = space_to_open(&run);
-    let demo_pages = run.pages.unwrap_or(scene::DEMO_PAGE_COUNT);
-    // With a space to open, the canvases are read once the window exists.
-    let document = if space.is_some() {
-        specular_doc::Document::new()
-    } else {
-        scene::load_document(run.canvas.as_deref(), demo_pages, run.annotations)?
-    };
-    if run.headless.is_requested() {
-        let source = source_select::create_source(run.headless.source, Host::Headless)?;
-        return headless::run(source, document, run.canvas.as_deref(), &run.headless);
+    match specular_app::launch(std::env::args_os().skip(1))? {
+        Some(launch) => specular_app::run_window(launch),
+        None => Ok(()),
     }
-    // winit must create the macOS application object before CEF initializes,
-    // or CEF installs its own and winit panics.
-    let mut event_loop = EventLoop::<app::ShellEvent>::with_user_event();
-    // The shell installs its own menu bar, except in a benchmark.
-    #[cfg(target_os = "macos")]
-    winit::platform::macos::EventLoopBuilderExtMacOS::with_default_menu(
-        &mut event_loop,
-        run.bench.is_some(),
-    );
-    let event_loop = event_loop.build().context("creating event loop")?;
-    let source = source_select::create_source(run.source, Host::Window)?;
-    tracing::info!(
-        backend = source.name(),
-        entities = document.entities().count(),
-        paint_policy = run.paint_policy.name(),
-        "starting"
-    );
-
-    let options = app::RunOptions {
-        canvas: run.canvas.filter(|_| space.is_none()),
-        space,
-        bench: run.bench,
-        warmup: run.warmup,
-        representative_source: run.source.is_representative(),
-        paint_policy: run.paint_policy,
-        window: run.window,
-        chrome: run.chrome,
-        annotations: run.annotations,
-    };
-    let mut app = app::Shell::new(source, document, options, event_loop.create_proxy());
-    event_loop.run_app(&mut app).context("running event loop")?;
-    app.into_result()
-}
-
-/// The space this run opens, or `None` for a run that shows one document
-/// and writes nothing: a snapshot or a script, a benchmark, a demo grid, or
-/// a canvas with seeded annotations.
-fn space_to_open(run: &cli::RunArgs) -> Option<space::SpaceStart> {
-    let one_document = run.headless.is_requested()
-        || run.bench.is_some()
-        || run.pages.is_some()
-        || run.annotations > 0;
-    if one_document {
-        return None;
-    }
-    let choice = run.space_choice();
-    // The user's own space is looked for only when it was asked for.
-    let (electron, remembered) = if choice == space::SpaceChoice::User {
-        (
-            space::electron_user_data(|name| std::env::var_os(name), cfg!(target_os = "macos"))
-                .and_then(|user_data| space::electron_space(&user_data)),
-            prefs::file().and_then(|path| prefs::load_space_path(&path)),
-        )
-    } else {
-        (None, None)
-    };
-    let scratch = space::scratch_folder(prefs::folder().as_deref());
-    space::startup(&choice, electron, remembered, scratch)
 }

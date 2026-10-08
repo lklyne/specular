@@ -16,7 +16,7 @@ const PIXELS_PER_LINE: f32 = 40.0;
 
 impl Shell {
     pub(super) fn on_input(&mut self, event: WindowEvent) {
-        if self.closing {
+        if self.runtime.closing {
             return;
         }
         let modifiers = translate::modifiers(self.modifiers);
@@ -40,17 +40,19 @@ impl Shell {
                         Vec2::new(logical.x, logical.y)
                     }
                 };
-                self.dispatch(Event::Wheel(WheelInput { delta, modifiers }));
+                self.runtime
+                    .dispatch(Event::Wheel(WheelInput { delta, modifiers }));
             }
-            WindowEvent::PinchGesture { delta, .. } => self.dispatch(Event::Pinch {
+            WindowEvent::PinchGesture { delta, .. } => self.runtime.dispatch(Event::Pinch {
                 delta: delta as f32,
             }),
             WindowEvent::KeyboardInput { event, .. } => {
-                self.dispatch(Event::Key(translate::key_input(&event, modifiers)));
+                self.runtime
+                    .dispatch(Event::Key(translate::key_input(&event, modifiers)));
             }
             WindowEvent::Ime(ime) => {
                 if let Some(event) = translate::ime_event(&ime) {
-                    self.dispatch(Event::Ime(event));
+                    self.runtime.dispatch(Event::Ime(event));
                 }
             }
             _ => {}
@@ -58,13 +60,13 @@ impl Shell {
     }
 
     fn window_scale(&self) -> f64 {
-        self.gpu
+        (self.runtime.gpu)
             .as_ref()
             .map_or(1.0, |gpu| gpu.window.scale_factor())
     }
 
     fn pointer(&mut self, kind: PointerEventKind, screen: Vec2) {
-        self.dispatch(Event::Pointer(PointerInput {
+        self.runtime.dispatch(Event::Pointer(PointerInput {
             kind,
             screen,
             modifiers: translate::modifiers(self.modifiers),

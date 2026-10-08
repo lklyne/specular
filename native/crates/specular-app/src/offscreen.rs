@@ -10,10 +10,11 @@ use specular_compositor::GpuContext;
 
 /// Not an sRGB format, as the window's surface is not: colours blend
 /// encoded, as a browser's do. The bytes are in PNG order.
-pub(crate) const FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
+pub const FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
 
 /// A render target that can be read back.
-pub(crate) struct Target {
+#[derive(Debug)]
+pub struct Target {
     texture: wgpu::Texture,
     width: u32,
     height: u32,
@@ -22,12 +23,7 @@ pub(crate) struct Target {
 impl Target {
     /// A target of `width` by `height` device pixels in `format`, which
     /// must be the format the compositor drawing into it was made for.
-    pub(crate) fn new(
-        gpu: &GpuContext,
-        width: u32,
-        height: u32,
-        format: wgpu::TextureFormat,
-    ) -> Self {
+    pub fn new(gpu: &GpuContext, width: u32, height: u32, format: wgpu::TextureFormat) -> Self {
         let texture = gpu.device.create_texture(&wgpu::TextureDescriptor {
             label: Some("snapshot-target"),
             size: wgpu::Extent3d {
@@ -49,24 +45,25 @@ impl Target {
         }
     }
 
-    pub(crate) fn view(&self) -> wgpu::TextureView {
+    /// A view to render into.
+    pub fn view(&self) -> wgpu::TextureView {
         self.texture
             .create_view(&wgpu::TextureViewDescriptor::default())
     }
 
     /// Reads the texture back and writes it to `path` as a PNG.
-    pub(crate) fn save(&self, gpu: &GpuContext, path: &Path) -> anyhow::Result<()> {
+    pub fn save(&self, gpu: &GpuContext, path: &Path) -> anyhow::Result<()> {
         let png = self.png(gpu)?;
         std::fs::write(path, png).with_context(|| format!("writing {}", path.display()))
     }
 
     /// The size in device pixels.
-    pub(crate) const fn size(&self) -> (u32, u32) {
+    pub const fn size(&self) -> (u32, u32) {
         (self.width, self.height)
     }
 
     /// Reads the texture back as a PNG.
-    pub(crate) fn png(&self, gpu: &GpuContext) -> anyhow::Result<Vec<u8>> {
+    pub fn png(&self, gpu: &GpuContext) -> anyhow::Result<Vec<u8>> {
         let row_bytes = self.width * 4;
         let padded = row_bytes.div_ceil(wgpu::COPY_BYTES_PER_ROW_ALIGNMENT)
             * wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;

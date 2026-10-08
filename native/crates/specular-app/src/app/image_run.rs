@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use specular_interact::{Event, ImageKey, ImageNotice};
 use specular_scene::ImageId;
 
-use super::Shell;
+use super::runtime::{Runtime, ShellWindow};
 use crate::images::{ImageLoader, LoadFailure};
 
 /// Starts the decode thread for the space at `space`, the folder relative
@@ -27,10 +27,10 @@ pub(super) fn space_folder(canvas: &Path) -> Option<PathBuf> {
     Some(folder)
 }
 
-impl Shell {
+impl<W: ShellWindow> Runtime<W> {
     pub(super) fn load_image(&mut self, image: ImageKey, file: &str) {
         self.images.insert(image);
-        let spec = self.gpu.as_ref().map(|gpu| gpu.compositor.image_spec());
+        let spec = self.gpu.as_ref().map(|gpu| gpu.compositor().image_spec());
         if let (Some(loader), Some(spec)) = (self.image_loader.as_ref(), spec) {
             loader.request(image, file, spec);
         }
@@ -39,7 +39,7 @@ impl Shell {
     pub(super) fn drop_image(&mut self, image: ImageKey) {
         self.images.remove(&image);
         if let Some(gpu) = self.gpu.as_mut() {
-            gpu.compositor.remove_image(ImageId(image.0));
+            gpu.compositor_mut().remove_image(ImageId(image.0));
         }
     }
 
@@ -55,7 +55,10 @@ impl Shell {
         }
         let notice = match (loaded.result, self.gpu.as_mut()) {
             (Ok(mips), Some(gpu)) => {
-                match gpu.compositor.set_image_mips(ImageId(loaded.key.0), &mips) {
+                match gpu
+                    .compositor_mut()
+                    .set_image_mips(ImageId(loaded.key.0), &mips)
+                {
                     Ok(()) => ImageNotice::Ready {
                         width: mips.size().width,
                         height: mips.size().height,

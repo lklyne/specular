@@ -4,9 +4,9 @@
 use std::io;
 use std::path::{Component, Path, PathBuf};
 
-use super::Shell;
+use super::runtime::{Runtime, ShellWindow};
 
-impl Shell {
+impl<W: ShellWindow> Runtime<W> {
     pub(super) fn write_asset(&self, file: &str, bytes: &[u8]) {
         let written =
             destination(self.space.as_deref(), file).and_then(|path| std::fs::write(path, bytes));

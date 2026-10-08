@@ -92,6 +92,13 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
                 ..PanelUi::default()
             };
         }
+        Event::BuiltinCanvasPopups => {
+            app.session.panel = PanelUi {
+                built_in: true,
+                canvas_only: true,
+                ..PanelUi::default()
+            };
+        }
         Event::Api(call) => api::run(app, call, &mut effects),
     }
     // Another canvas has another history: its revision says nothing about

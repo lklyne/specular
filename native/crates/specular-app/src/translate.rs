@@ -247,6 +247,31 @@ pub(crate) fn key_input(event: &KeyEvent, modifiers: Modifiers) -> KeyInput {
     }
 }
 
+/// One key transition as a [`KeyInput`], from the platform's own key code:
+/// the `kVK_*` code of an `NSEvent` on macOS. For a shell that reads keys
+/// from the platform and not from winit, so both go through one table.
+pub fn native_key_input(
+    native_key_code: u32,
+    pressed: bool,
+    repeat: bool,
+    text: Option<String>,
+    modifiers: Modifiers,
+) -> KeyInput {
+    let code = match PhysicalKey::from_scancode(native_key_code) {
+        PhysicalKey::Code(code) => Some(code),
+        PhysicalKey::Unidentified(_) => None,
+    };
+    KeyInput {
+        key: code.map_or(Key::Other, key),
+        pressed,
+        repeat,
+        text,
+        modifiers,
+        windows_key_code: code.map_or(0, windows_key_code),
+        native_key_code: native_key_code as i32,
+    }
+}
+
 /// The page IME event for a winit IME event; `Enabled`/`Disabled` map to
 /// nothing.
 pub(crate) fn ime_event(event: &Ime) -> Option<ImeEvent> {

@@ -13,18 +13,18 @@ impl Shell {
         match command {
             ShellCommand::OpenSpace => self.choose_space(),
             ShellCommand::Open => self.choose_canvas(),
-            ShellCommand::Save => self.flush_files(),
+            ShellCommand::Save => self.runtime.flush_files(),
             ShellCommand::RenameCanvas => self.choose_canvas_name(),
-            ShellCommand::Close | ShellCommand::Quit => self.exit(),
+            ShellCommand::Close | ShellCommand::Quit => self.runtime.exit(),
         }
     }
 
     fn dialog(&self) -> rfd::FileDialog {
         let mut dialog = rfd::FileDialog::new();
-        if let Some(space) = self.space.as_deref() {
+        if let Some(space) = self.runtime.space.as_deref() {
             dialog = dialog.set_directory(space);
         }
-        if let Some(gpu) = self.gpu.as_ref() {
+        if let Some(gpu) = self.runtime.gpu.as_ref() {
             dialog = dialog.set_parent(&*gpu.window);
         }
         dialog
@@ -36,8 +36,8 @@ impl Shell {
         let Some(folder) = self.dialog().set_title("Open space").pick_folder() else {
             return;
         };
-        match self.open_space(&folder, None) {
-            Ok(()) => self.remember_space(&folder),
+        match self.runtime.open_space(&folder, None) {
+            Ok(()) => self.runtime.remember_space(&folder),
             Err(error) => tracing::error!("{error:#}"),
         }
     }
@@ -49,25 +49,7 @@ impl Shell {
         let Some(path) = dialog.pick_file() else {
             return;
         };
-        let (Some(folder), Some(file)) = (path.parent(), path.file_name()) else {
-            return;
-        };
-        let file = file.to_string_lossy();
-        // A canvas of the open space is switched to, with its undo history
-        // and camera as they were left.
-        let open = (self.space.as_deref() == Some(folder))
-            .then(|| {
-                self.app
-                    .space()
-                    .canvases()
-                    .iter()
-                    .find(|canvas| canvas.file == *file)
-            })
-            .flatten()
-            .map(|canvas| canvas.id.clone());
-        if let Some(canvas) = open {
-            self.dispatch(Event::Action(Action::Canvas(CanvasAction::Switch(canvas))));
-        } else if let Err(error) = self.open_space(folder, Some(&file)) {
+        if let Err(error) = self.runtime.open_canvas_file(&path) {
             tracing::error!("{error:#}");
         }
     }
@@ -77,7 +59,7 @@ impl Shell {
     /// in: whatever is typed there is the name, and no file is written by
     /// the panel. It stands in until the sidebar renames in place.
     fn choose_canvas_name(&mut self) {
-        let current = self.app.space().active().name.clone();
+        let current = self.runtime.app.space().active().name.clone();
         let dialog = (self.dialog())
             .set_title("Rename canvas")
             .set_file_name(&current);
@@ -87,10 +69,11 @@ impl Shell {
         let Some(name) = typed_name(&path) else {
             return;
         };
-        self.dispatch(Event::Action(Action::Canvas(CanvasAction::Rename {
-            canvas: None,
-            name,
-        })));
+        self.runtime
+            .dispatch(Event::Action(Action::Canvas(CanvasAction::Rename {
+                canvas: None,
+                name,
+            })));
     }
 }
 

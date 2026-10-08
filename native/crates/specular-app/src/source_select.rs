@@ -5,7 +5,7 @@ use specular_core::PageSource;
 use crate::cli::SourceKind;
 
 /// CEF subprocess entry; `None` in the browser process (and always without CEF).
-pub(crate) fn run_subprocess_if_needed() -> Option<i32> {
+pub fn run_subprocess_if_needed() -> Option<i32> {
     #[cfg(feature = "cef")]
     {
         specular_cef::run_subprocess_if_needed()

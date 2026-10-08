@@ -20,20 +20,20 @@ mod lod;
 mod menu_bar;
 mod note_run;
 mod page_events;
+mod runtime;
 mod settings;
 mod space_run;
 mod title;
 
-use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
 use glam::Vec2;
 use specular_bench::{GestureProfile, PaintPolicy, STEP_INTERVAL};
-use specular_compositor::{FrameObserver as _, FrameSample};
-use specular_core::{Camera, PageEvent, PageId, PageSource};
-use specular_doc::{Document, EntityId};
-use specular_interact::{Action, ApiOutcome, App, Event, ImageKey};
+use specular_compositor::FrameObserver as _;
+use specular_core::{Camera, PageSource};
+use specular_doc::Document;
+use specular_interact::Event;
 use winit::application::ApplicationHandler;
 use winit::event::WindowEvent;
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoopProxy};
@@ -42,15 +42,9 @@ use winit::window::WindowId;
 
 pub(crate) use self::api_run::ShellEvent;
 use self::gpu_window::GpuWindow;
-use crate::api::ApiHost;
+pub use self::runtime::{Opening, PageOf, Runtime, RuntimeOptions, ShellWindow};
 use crate::bench_run::BenchRun;
-use crate::images::ImageLoader;
-use crate::latency::InputLatencyProbe;
-use crate::notes::NoteLoader;
-use crate::page_queries::PageQueries;
-use crate::paint_lod::PageLod;
-use crate::prefs;
-use crate::space::{SpaceFiles, SpaceStart};
+use crate::space::SpaceStart;
 use crate::translate::ClickCounter;
 
 /// Camera a canvas with no saved one opens at, and each bench profile starts
@@ -85,78 +79,22 @@ pub(crate) struct RunOptions {
     pub(crate) annotations: usize,
 }
 
-/// The backend's side of one page entity.
-#[derive(Debug, Clone, Copy)]
-struct PageHost {
-    page: PageId,
-    lod: PageLod,
-}
-
-/// The winit shell: turns window and page events into [`Event`]s for the
-/// [`App`], runs the effects that come back, and draws.
+/// The winit shell: turns window events into [`Event`]s for the
+/// [`Runtime`], and runs benchmarks through it.
 pub(crate) struct Shell {
-    source: Box<dyn PageSource>,
-    /// The document to open once the window exists.
-    document: Option<Document>,
-    /// The camera the canvas opens at.
-    start_camera: Camera,
-    /// The folder the document's relative file paths start from, and where
-    /// pasted and dropped files go: the folder its `.canvas` file is in.
-    space: Option<PathBuf>,
-    /// The files of the open space, which its canvases are saved to and
-    /// reloaded from. `None` for a demo grid, and for a run that must not
-    /// write: a benchmark, or one with seeded annotations in the document.
-    files: Option<SpaceFiles>,
-    /// The scratch space's folder, when this launch opened it. The title
-    /// says so while it is the open space.
-    scratch: Option<PathBuf>,
-    app: App,
-    /// The hosted page behind each page entity.
-    hosts: HashMap<EntityId, PageHost>,
-    /// What pages have been asked and not yet answered.
-    queries: PageQueries,
-    /// The decode thread. `None` if it could not be started; every image
-    /// then stays a placeholder.
-    image_loader: Option<ImageLoader>,
-    /// The images the app has asked for and not let go of.
-    images: HashSet<ImageKey>,
-    /// The thread that reads and watches markdown files. `None` if it could
-    /// not be started; every Document then stays on its loading line.
-    note_loader: Option<NoteLoader>,
-    /// The Document heights the app was last told, to tell it only changes.
-    note_heights: HashMap<EntityId, f32>,
-    /// The system clipboard, once something has been copied or pasted.
-    clipboard: Option<arboard::Clipboard>,
-    /// The preferences file. `None` in a benchmark, which neither reads nor
-    /// writes settings, and when there is no home folder to keep it in.
-    prefs: Option<PathBuf>,
-    /// Files dropped on the window this turn, not yet sent to the app.
-    dropped: Vec<PathBuf>,
+    runtime: Runtime<GpuWindow>,
+    /// What to show once the window exists.
+    opening: Option<Opening>,
     /// Wakes the event loop from another thread.
     wake: EventLoopProxy<ShellEvent>,
-    /// The HTTP API. `None` in a benchmark, and when it could not start.
-    api: Option<ApiHost>,
-    /// How the API call being run went, from its reply effect.
-    api_outcome: Option<ApiOutcome>,
     #[cfg(target_os = "macos")]
     menu: Option<menu_bar::MenuBar>,
-    /// The window title as last set.
-    title: String,
-    /// The zoom the previous frame was drawn at, to tell when a zoom is in
-    /// flight.
-    drawn_zoom: f32,
-    gpu: Option<GpuWindow>,
-    events: Vec<PageEvent>,
     modifiers: ModifiersState,
     /// The pointer's latest position in logical window pixels.
     cursor: Option<Vec2>,
     clicks: ClickCounter,
-    latency: InputLatencyProbe,
     options: RunOptions,
     bench: Option<BenchRun>,
-    error: Option<anyhow::Error>,
-    /// Set once exit starts; the loop ends when the source has shut down.
-    closing: bool,
 }
 
 impl Shell {
@@ -166,76 +104,39 @@ impl Shell {
     pub(crate) fn new(
         source: Box<dyn PageSource>,
         document: Document,
-        options: RunOptions,
+        mut options: RunOptions,
         wake: EventLoopProxy<ShellEvent>,
     ) -> Self {
-        // A benchmark starts every run from the same camera and leaves the
-        // file as it found it.
-        let start_camera = START_CAMERA;
-        let space_folder = options.canvas.as_deref().and_then(image_run::space_folder);
-        let prefs = (options.bench.is_none()).then(prefs::file).flatten();
-        Self {
+        let runtime = Runtime::new(
             source,
-            document: Some(document),
-            start_camera,
-            space: space_folder.clone(),
-            files: None,
-            app: App::new(unix_ms()),
-            hosts: HashMap::new(),
-            queries: PageQueries::default(),
-            image_loader: image_run::start_loader(space_folder.clone()),
-            images: HashSet::new(),
-            note_loader: note_run::start_loader(space_folder),
-            note_heights: HashMap::new(),
-            clipboard: None,
-            prefs,
-            dropped: Vec::new(),
+            RuntimeOptions {
+                canvas: options.canvas.clone(),
+                paint_policy: options.paint_policy,
+                chrome: options.chrome,
+                // A benchmark neither reads nor writes settings.
+                settings: options.bench.is_none(),
+            },
+        );
+        Self {
+            runtime,
+            opening: Some(Opening {
+                space: options.space.take(),
+                document: Some(document),
+            }),
             wake,
-            api: None,
-            api_outcome: None,
             #[cfg(target_os = "macos")]
             menu: None,
-            title: String::new(),
-            scratch: None,
-            drawn_zoom: start_camera.zoom,
-            gpu: None,
-            events: Vec::new(),
             modifiers: ModifiersState::empty(),
             cursor: None,
             clicks: ClickCounter::default(),
-            latency: InputLatencyProbe::default(),
             options,
             bench: None,
-            error: None,
-            closing: false,
         }
     }
 
     /// The first fatal error hit inside the event loop, if any.
     pub(crate) fn into_result(self) -> anyhow::Result<()> {
-        self.error.map_or(Ok(()), Err)
-    }
-
-    fn fail(&mut self, error: anyhow::Error) {
-        tracing::error!("{error:#}");
-        self.error.get_or_insert(error);
-        self.exit();
-    }
-
-    /// Reports the session, writes what is unsaved, then starts shutting
-    /// down. The event loop keeps turning until the source reports it is
-    /// done (see `about_to_wait`).
-    fn exit(&mut self) {
-        if self.closing {
-            return;
-        }
-        self.report_session();
-        // The discovery file goes with the server.
-        self.api = None;
-        self.finish_notes();
-        self.flush_files();
-        self.hosts.clear();
-        self.closing = true;
+        self.runtime.into_result()
     }
 
     fn init(&mut self, event_loop: &ActiveEventLoop) -> anyhow::Result<()> {
@@ -244,146 +145,85 @@ impl Shell {
             self.options.window,
             self.options.bench.is_some(),
         )?;
-        let viewport = gpu.logical_viewport();
         let step_interval = gpu.refresh_interval().unwrap_or(STEP_INTERVAL);
-        // Before the document opens, so its text is sized with these fonts.
-        self.app
-            .set_text_measure(std::sync::Arc::new(gpu.compositor.text_measure()));
-        self.gpu = Some(gpu);
-        self.dispatch(Event::ViewportResized(viewport));
+        self.runtime.attach_window(gpu);
         // The toolbar and the popup are part of the chrome layer. A
         // benchmark measures the canvas, so it runs without them.
         let panels = self.options.chrome && self.options.bench.is_none();
-        self.dispatch(Event::BuiltinPanels(panels));
-        self.dispatch(Event::Action(Action::SetCamera(self.start_camera)));
-        self.load_tool_defaults();
-        match (self.options.space.take(), self.document.take()) {
-            (Some(start), _) => {
-                self.open_space(&start.folder, start.file.as_deref())?;
-                if start.scratch {
-                    tracing::info!(
-                        folder = %start.folder.display(),
-                        "this is the scratch space, a copy of the starter space; \
-                         pass --space user to open your own"
-                    );
-                    self.scratch = self.space.clone();
-                }
-            }
-            (None, Some(document)) => self.dispatch(Event::DocumentOpened(Box::new(document))),
-            (None, None) => {}
+        self.runtime.dispatch(Event::BuiltinPanels(panels));
+        if let Some(opening) = self.opening.take() {
+            self.runtime.open(opening)?;
         }
         let Some(profiles) = self.options.bench.take() else {
             // A benchmark keeps winit's default menu: fewer moving parts in
-            // a measured run.
+            // a measured run. It takes no outside input either, so it has
+            // no API.
             #[cfg(target_os = "macos")]
             self.install_menu();
             let wake = self.wake.clone();
-            self.start_api(&wake);
+            self.runtime.start_api(move || {
+                // The loop is gone when the app is quitting.
+                let _ = wake.send_event(ShellEvent::Api);
+            });
             return Ok(());
         };
-        if !self.closing {
+        if !self.runtime.closing {
             self.start_bench(profiles, step_interval);
         }
         Ok(())
     }
 
     fn redraw(&mut self) -> anyhow::Result<()> {
-        let Some(viewport) = self.gpu.as_ref().map(GpuWindow::logical_viewport) else {
+        let Some(viewport) = self.runtime.gpu.as_ref().map(GpuWindow::logical_viewport) else {
             return Ok(());
         };
         if self.tick_bench(viewport)? {
             return Ok(());
         }
-
-        if self.options.paint_policy == PaintPolicy::ElectronLod {
-            self.update_paint_lod(viewport, Instant::now());
-        }
-        self.source.pump();
-        let mut events = std::mem::take(&mut self.events);
-        self.source.drain_events(&mut events);
-        for event in events.drain(..) {
-            self.handle_page_event(event);
-        }
-        self.events = events;
-
-        let Some(gpu) = self.gpu.as_mut() else {
+        let Some(sample) = self.runtime.draw() else {
             return Ok(());
         };
-        let mut scene = if self.options.chrome {
-            specular_scene::view(&self.app, viewport)
-        } else {
-            specular_scene::view_without_chrome(&self.app, viewport)
-        };
-        specular_scene::draw_panels(&self.app, &mut scene);
-        let camera = self.app.session().camera;
-        // Text keeps its raster size while the zoom moves, and the first
-        // frame at a steady zoom sharpens it.
-        let zooming = (camera.zoom - self.drawn_zoom).abs() > f32::EPSILON;
-        self.drawn_zoom = camera.zoom;
-        let hosts = &self.hosts;
-        let page_of = |entity: &EntityId| hosts.get(entity).map(|host| host.page);
-        let Some(stats) = gpu.render(camera, zooming, &scene, page_of) else {
-            return Ok(());
-        };
-        let presented_at = Instant::now();
-        let sample = FrameSample {
-            presented_at,
-            stats: stats.render,
-            input_to_present: self.latency.presented(presented_at),
-        };
-        if let Some(latency) = sample.input_to_present {
-            tracing::debug!(?latency, "input to present");
-        }
         if let Some(bench) = self.bench.as_mut() {
             bench.on_frame(&sample);
         }
-        self.report_note_heights();
         Ok(())
     }
-}
-
-/// Milliseconds since the Unix epoch, for the app's clock.
-fn unix_ms() -> u64 {
-    let since_epoch = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or(Duration::ZERO);
-    since_epoch.as_millis() as u64
 }
 
 impl ApplicationHandler<ShellEvent> for Shell {
     fn user_event(&mut self, _event_loop: &ActiveEventLoop, event: ShellEvent) {
         match event {
-            ShellEvent::Api => self.serve_api(),
+            ShellEvent::Api => self.runtime.serve_api(),
         }
     }
 
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        if self.gpu.is_some() {
+        if self.runtime.gpu.is_some() {
             return;
         }
         event_loop.set_control_flow(ControlFlow::Poll);
         if let Err(error) = self.init(event_loop) {
-            self.fail(error);
+            self.runtime.fail(error);
         }
     }
 
     fn window_event(&mut self, _event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
         match event {
-            WindowEvent::CloseRequested => self.exit(),
+            WindowEvent::CloseRequested => self.runtime.exit(),
             WindowEvent::Resized(size) => {
-                if let Some(gpu) = self.gpu.as_mut() {
+                if let Some(gpu) = self.runtime.gpu.as_mut() {
                     gpu.resize(size);
                     let viewport = gpu.logical_viewport();
-                    self.dispatch(Event::ViewportResized(viewport));
+                    self.runtime.dispatch(Event::ViewportResized(viewport));
                 }
             }
             WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
-                self.on_scale_factor_changed(scale_factor);
+                self.runtime.on_scale_factor_changed(scale_factor);
             }
-            WindowEvent::DroppedFile(path) => self.dropped.push(path),
+            WindowEvent::DroppedFile(path) => self.runtime.drop_files([path], self.cursor),
             WindowEvent::RedrawRequested => {
                 if let Err(error) = self.redraw() {
-                    self.fail(error);
+                    self.runtime.fail(error);
                 }
             }
             other => self.on_input(other),
@@ -391,21 +231,20 @@ impl ApplicationHandler<ShellEvent> for Shell {
     }
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
-        if self.closing {
-            if self.source.poll_shutdown() {
+        if self.runtime.closing {
+            if self.runtime.poll_shutdown() {
                 event_loop.exit();
             }
             return;
         }
-        self.dispatch(Event::Tick { unix_ms: unix_ms() });
-        self.sync_files();
-        self.take_loaded_image();
-        self.take_read_notes();
-        self.flush_drops();
+        self.runtime.turn();
         #[cfg(target_os = "macos")]
         self.run_menu();
-        self.refresh_title();
-        if let Some(gpu) = self.gpu.as_ref() {
+        // A benchmark window keeps the title it opened with.
+        if self.bench.is_none() {
+            self.runtime.refresh_title();
+        }
+        if let Some(gpu) = self.runtime.gpu.as_ref() {
             gpu.window.request_redraw();
         }
     }

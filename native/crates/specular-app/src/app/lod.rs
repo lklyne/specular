@@ -7,11 +7,13 @@ use glam::Vec2;
 use specular_core::{PageId, PageSource};
 use specular_interact::to_canvas_rect;
 
-use super::{GpuWindow, Shell};
+use super::runtime::{Runtime, ShellWindow};
 use crate::paint_lod::LodChange;
 
-impl Shell {
-    pub(super) fn on_scale_factor_changed(&mut self, scale_factor: f64) {
+impl<W: ShellWindow> Runtime<W> {
+    /// The window moved to a display of another scale: every page is asked
+    /// for frames at it.
+    pub fn on_scale_factor_changed(&mut self, scale_factor: f64) {
         for host in self.hosts.values() {
             let scale = scale_factor as f32 * host.lod.texture().factor();
             if let Err(error) = self.source.set_texture_scale(host.page, scale) {
@@ -23,7 +25,7 @@ impl Shell {
     /// One layout pass: grades every page by its on-screen scale and
     /// visibility and applies what changed.
     pub(super) fn update_paint_lod(&mut self, viewport: Vec2, now: Instant) {
-        let window_scale = self.gpu.as_ref().map_or(1.0, GpuWindow::scale_factor);
+        let window_scale = self.gpu.as_ref().map_or(1.0, W::scale_factor);
         let camera = self.app.session().camera;
         for (id, _, placement) in self.app.pages() {
             let Some(host) = self.hosts.get_mut(id) else {

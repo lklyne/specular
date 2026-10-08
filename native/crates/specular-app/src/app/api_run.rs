@@ -1,15 +1,13 @@
 //! The shell as the HTTP API's host: starting the server, answering what it
 //! queues, and drawing the canvas for a screenshot.
 
+use super::runtime::{Runtime, ShellWindow, unix_ms};
+use crate::api::ApiHost;
 use base64::Engine as _;
 use serde_json::{Value, json};
 use specular_api::{Host, Screenshot};
 use specular_doc::EntityId;
 use specular_interact::{ApiOutcome, App, Event};
-use winit::event_loop::EventLoopProxy;
-
-use super::{Shell, unix_ms};
-use crate::api::ApiHost;
 
 /// What another thread can ask the event loop to do.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -18,19 +16,13 @@ pub(crate) enum ShellEvent {
     Api,
 }
 
-impl Shell {
-    /// Starts the API, unless this run is a benchmark: a measured run
-    /// takes no outside input. A server that cannot start is logged and
-    /// the app runs on without one.
-    pub(super) fn start_api(&mut self, wake: &EventLoopProxy<ShellEvent>) {
-        if self.options.bench.is_some() {
-            return;
-        }
-        let wake = wake.clone();
-        let started = ApiHost::start(unix_ms(), move || {
-            // The loop is gone when the app is quitting.
-            let _ = wake.send_event(ShellEvent::Api);
-        });
+impl<W: ShellWindow> Runtime<W> {
+    /// Starts the API. `wake` is called on the server's thread when a
+    /// request is waiting, and the shell then calls
+    /// [`serve_api`](Self::serve_api) on its own. A server that cannot
+    /// start is logged and the app runs on without one.
+    pub fn start_api(&mut self, wake: impl Fn() + Send + 'static) {
+        let started = ApiHost::start(unix_ms(), wake);
         match started {
             Ok(api) => self.api = Some(api),
             Err(error) => tracing::warn!("the API is off: {error:#}"),
@@ -38,7 +30,7 @@ impl Shell {
     }
 
     /// Answers the requests the API has queued.
-    pub(super) fn serve_api(&mut self) {
+    pub fn serve_api(&mut self) {
         if self.closing {
             return;
         }
@@ -50,7 +42,7 @@ impl Shell {
     }
 }
 
-impl Host for Shell {
+impl<W: ShellWindow> Host for Runtime<W> {
     fn app(&self) -> &App {
         &self.app
     }
@@ -67,7 +59,7 @@ impl Host for Shell {
         let hosts = &self.hosts;
         let page_of = |entity: &EntityId| hosts.get(entity).map(|host| host.page);
         let (png, width, height) = gpu
-            .capture(self.app.session().camera, &scene, page_of)
+            .capture(self.app.session().camera, &scene, &page_of)
             .map_err(|error| format!("{error:#}"))?;
         let mut body = json!({ "mimeType": "image/png", "width": width, "height": height });
         match &shot.path {

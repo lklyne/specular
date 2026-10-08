@@ -8,9 +8,9 @@ use arboard::{Clipboard, ImageData};
 use image::{ImageFormat, RgbaImage};
 use specular_interact::{AssetBytes, ClipboardContent, ClipboardImage, Event};
 
-use super::Shell;
+use super::runtime::{Runtime, ShellWindow};
 
-impl Shell {
+impl<W: ShellWindow> Runtime<W> {
     /// The system clipboard, opened on first use.
     fn clipboard(&mut self) -> Option<&mut Clipboard> {
         if self.clipboard.is_none() {

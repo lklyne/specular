@@ -28,7 +28,7 @@ pub use self::node::{
     Chrome, Node, NodeState, Panel, PanelRect, Part, Pointing, Surface, Tint, Tone,
 };
 pub(crate) use self::route::{cancel, hit, on_pointer, over, swallows_scroll, tidy};
-use super::{Control, ControlId, Dropdown, PopupModel, ToolbarModel, ToolbarSection};
+use super::{Control, ControlId, Dropdown, PopupAnchor, PopupModel, ToolbarModel, ToolbarSection};
 use crate::App;
 
 /// What the built-in panels remember between events.
@@ -36,6 +36,9 @@ use crate::App;
 pub struct PanelUi {
     /// Whether the built-in panels are shown, hit and clicked at all.
     pub built_in: bool,
+    /// Whether only the popups beside a canvas item are built in: the
+    /// toolbar and a popup hung from it are someone else's to draw.
+    pub canvas_only: bool,
     /// The dropdown that is open.
     pub open: Option<ControlId>,
     /// The control under the pointer.
@@ -181,14 +184,15 @@ pub fn layout(app: &App) -> PanelLayout {
     let viewport = app.session.viewport;
     let toolbar_model = super::toolbar(app);
     let popup_model = super::popup_for(app);
-    let toolbar = toolbar::layout(&ctx, &toolbar_model, viewport);
+    let toolbar = (!ui.canvas_only).then(|| toolbar::layout(&ctx, &toolbar_model, viewport));
     let popup = popup_model
         .as_ref()
+        .filter(|model| !ui.canvas_only || matches!(model.anchor, PopupAnchor::Canvas { .. }))
         .and_then(|model| popup::layout(&ctx, model, viewport));
     let dropdown = ui.open.as_ref().and_then(|id| {
         let (model, surface) = open_dropdown(id, &toolbar_model, popup_model.as_ref())?;
         let host = match surface {
-            Surface::Toolbar => Some(&toolbar),
+            Surface::Toolbar => toolbar.as_ref(),
             Surface::Popup | Surface::Dropdown => popup.as_ref(),
         }?;
         let trigger = host
@@ -204,7 +208,7 @@ pub fn layout(app: &App) -> PanelLayout {
         Some(dropdown::layout(&ctx, model, trigger.rect, hang, viewport))
     });
     PanelLayout {
-        toolbar: Some(toolbar),
+        toolbar,
         popup,
         dropdown,
     }

@@ -8,12 +8,15 @@ use glam::Vec2;
 use specular_compositor::{Compositor, DotGrid, FrameView, GpuContext, SceneStats};
 use specular_core::{Camera, PageId};
 use specular_doc::EntityId;
+use specular_interact::Cursor;
 use specular_scene::Scene;
-use winit::dpi::{LogicalSize, PhysicalSize};
+use winit::dpi::{LogicalPosition, LogicalSize, PhysicalSize};
 use winit::event_loop::ActiveEventLoop;
 use winit::window::{Window, WindowLevel};
 
+use super::runtime::{PageOf, ShellWindow};
 use crate::offscreen::Target;
+use crate::translate;
 
 /// Everything needed to put a frame on screen.
 pub(super) struct GpuWindow {
@@ -203,5 +206,65 @@ impl GpuWindow {
         self.window.pre_present_notify();
         self.context.queue.present(frame);
         Some(stats)
+    }
+}
+
+impl ShellWindow for GpuWindow {
+    fn compositor(&self) -> &Compositor {
+        &self.compositor
+    }
+
+    fn compositor_mut(&mut self) -> &mut Compositor {
+        &mut self.compositor
+    }
+
+    fn scale_factor(&self) -> f32 {
+        Self::scale_factor(self)
+    }
+
+    fn logical_viewport(&self) -> Vec2 {
+        Self::logical_viewport(self)
+    }
+
+    fn render(
+        &mut self,
+        camera: Camera,
+        zooming: bool,
+        scene: &Scene,
+        page_of: PageOf<'_>,
+    ) -> Option<SceneStats> {
+        Self::render(self, camera, zooming, scene, page_of)
+    }
+
+    fn capture(
+        &mut self,
+        camera: Camera,
+        scene: &Scene,
+        page_of: PageOf<'_>,
+    ) -> anyhow::Result<(Vec<u8>, u32, u32)> {
+        Self::capture(self, camera, scene, page_of)
+    }
+
+    fn set_ime_allowed(&self, allowed: bool) {
+        self.window.set_ime_allowed(allowed);
+    }
+
+    fn set_ime_cursor_area(&self, origin: Vec2, size: Vec2) {
+        self.window.set_ime_cursor_area(
+            LogicalPosition::new(origin.x, origin.y),
+            LogicalSize::new(size.x, size.y),
+        );
+    }
+
+    fn set_cursor(&self, cursor: Cursor) {
+        self.window.set_cursor(translate::cursor_icon(cursor));
+    }
+
+    fn set_title(&self, title: &str, unsaved: bool) {
+        self.window.set_title(title);
+        #[cfg(target_os = "macos")]
+        winit::platform::macos::WindowExtMacOS::set_document_edited(&*self.window, unsaved);
+        #[cfg(not(target_os = "macos"))]
+        let _ = unsaved;
     }
 }

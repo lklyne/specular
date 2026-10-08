@@ -2,10 +2,10 @@
 
 use specular_interact::{Event, ToolDefaults};
 
-use super::Shell;
+use super::runtime::{Runtime, ShellWindow};
 use crate::prefs;
 
-impl Shell {
+impl<W: ShellWindow> Runtime<W> {
     /// Hands the app the tool defaults saved by an earlier run.
     pub(super) fn load_tool_defaults(&mut self) {
         let saved = self.prefs.as_deref().and_then(prefs::load_tool_defaults);

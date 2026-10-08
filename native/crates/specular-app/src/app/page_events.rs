@@ -5,10 +5,10 @@ use specular_core::{PageEvent, PageId};
 use specular_doc::EntityId;
 use specular_interact::Event;
 
-use super::Shell;
+use super::runtime::{Runtime, ShellWindow};
 use crate::page_notice::notice_of;
 
-impl Shell {
+impl<W: ShellWindow> Runtime<W> {
     /// Logs what a page reported, tells the app what it acts on, and hands
     /// the event to the compositor for its frames.
     pub(super) fn handle_page_event(&mut self, event: PageEvent) {
@@ -43,7 +43,7 @@ impl Shell {
             self.dispatch(Event::Page { page, notice });
         }
         if let Some(gpu) = self.gpu.as_mut()
-            && let Err(error) = gpu.compositor.handle_page_event(event)
+            && let Err(error) = gpu.compositor_mut().handle_page_event(event)
         {
             tracing::warn!("{error}");
         }

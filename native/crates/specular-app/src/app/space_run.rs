@@ -4,17 +4,18 @@
 use std::path::Path;
 
 use specular_doc::Document;
-use specular_interact::{CanvasId, Event};
+use specular_interact::{Action, CanvasAction, CanvasId, Event};
 
-use super::{START_CAMERA, Shell, image_run, note_run};
+use super::runtime::{Runtime, ShellWindow};
+use super::{START_CAMERA, image_run, note_run};
 use crate::prefs;
 use crate::space::{self, SpaceFiles};
 
-impl Shell {
+impl<W: ShellWindow> Runtime<W> {
     /// Shows the space at `folder` in place of what is open, which is
     /// saved first. `file` names the canvas file to show; without it the
     /// space's last active canvas is.
-    pub(super) fn open_space(&mut self, folder: &Path, file: Option<&str>) -> anyhow::Result<()> {
+    pub fn open_space(&mut self, folder: &Path, file: Option<&str>) -> anyhow::Result<()> {
         let folder = std::path::absolute(folder)?;
         let opened = space::open(&folder, file, START_CAMERA)?;
         self.flush_files();
@@ -38,9 +39,33 @@ impl Shell {
         Ok(())
     }
 
+    /// Shows the canvas file at `path`. A canvas of the open space is
+    /// switched to, with its undo history and camera as they were left;
+    /// any other file opens the folder it is in as the space.
+    pub fn open_canvas_file(&mut self, path: &Path) -> anyhow::Result<()> {
+        let (Some(folder), Some(file)) = (path.parent(), path.file_name()) else {
+            return Ok(());
+        };
+        let file = file.to_string_lossy();
+        let open = (self.space.as_deref() == Some(folder))
+            .then(|| {
+                let canvases = self.app.space().canvases().iter();
+                canvases.into_iter().find(|canvas| canvas.file == *file)
+            })
+            .flatten()
+            .map(|canvas| canvas.id.clone());
+        match open {
+            Some(canvas) => {
+                self.dispatch(Event::Action(Action::Canvas(CanvasAction::Switch(canvas))));
+                Ok(())
+            }
+            None => self.open_space(folder, Some(&file)),
+        }
+    }
+
     /// Remembers `folder` as the space to open when the Electron app's
     /// settings name none.
-    pub(super) fn remember_space(&self, folder: &Path) {
+    pub fn remember_space(&self, folder: &Path) {
         let Some(path) = self.prefs.as_deref() else {
             return;
         };
@@ -50,7 +75,7 @@ impl Shell {
     }
 
     /// Writes every unsaved canvas without waiting for the autosave.
-    pub(super) fn flush_files(&mut self) {
+    pub fn flush_files(&mut self) {
         if let Some(files) = self.files.as_mut() {
             files.flush(&self.app);
         }

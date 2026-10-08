@@ -129,6 +129,10 @@ pub enum Event {
     /// them through `specular-scene` sends `true` once at startup; one that
     /// draws the panel models itself never does.
     BuiltinPanels(bool),
+    /// Turns on only the built-in popups that sit beside a canvas item. For
+    /// a shell whose UI library draws the toolbar and what hangs from it,
+    /// while popups that follow an item stay in the canvas's own pass.
+    BuiltinCanvasPopups,
     /// A change the HTTP API asked for. It is answered with an
     /// [`Effect::ApiReply`](crate::Effect::ApiReply) carrying its ticket.
     Api(ApiCall),

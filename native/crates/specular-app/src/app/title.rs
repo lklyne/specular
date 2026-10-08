@@ -1,18 +1,14 @@
 //! The window title: the canvas's name, and whether it has changes that are
 //! not in its file yet.
 
-use super::Shell;
+use super::runtime::{Runtime, ShellWindow};
 
 /// The title of a window showing a canvas that is not in a file.
 const APP_NAME: &str = "Specular";
 
-impl Shell {
+impl<W: ShellWindow> Runtime<W> {
     /// Brings the title in step with the open file and its unsaved changes.
-    pub(super) fn refresh_title(&mut self) {
-        // A benchmark window keeps the title it opened with.
-        if self.bench.is_some() {
-            return;
-        }
+    pub fn refresh_title(&mut self) {
         let unsaved = self.active_unsaved();
         let name = (self.files.as_ref()).map(|_| self.app.space().active().name.as_str());
         let scratch = self.scratch.is_some() && self.scratch == self.space;
@@ -21,9 +17,7 @@ impl Shell {
             return;
         }
         if let Some(gpu) = self.gpu.as_ref() {
-            gpu.window.set_title(&title);
-            #[cfg(target_os = "macos")]
-            winit::platform::macos::WindowExtMacOS::set_document_edited(&*gpu.window, unsaved);
+            gpu.set_title(&title, unsaved);
             self.title = title;
         }
     }

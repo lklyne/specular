@@ -267,7 +267,7 @@ impl Shell {
     /// Puts the menu bar up. Without it the app still runs: every action
     /// has its key.
     pub(super) fn install_menu(&mut self) {
-        match MenuBar::install(&self.app).context("installing the menu bar") {
+        match MenuBar::install(&self.runtime.app).context("installing the menu bar") {
             Ok(menu) => self.menu = Some(menu),
             Err(error) => tracing::warn!("{error:#}"),
         }
@@ -281,12 +281,12 @@ impl Shell {
         let any = !chosen.is_empty();
         for item in chosen {
             match item {
-                Chosen::Action(action) => self.dispatch(Event::Action(action)),
+                Chosen::Action(action) => self.runtime.dispatch(Event::Action(action)),
                 Chosen::Shell(command) => self.run_shell_command(command),
             }
         }
         if let Some(menu) = self.menu.as_mut() {
-            menu.refresh(&self.app, any);
+            menu.refresh(&self.runtime.app, any);
         }
     }
 }

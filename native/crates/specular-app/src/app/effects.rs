@@ -8,17 +8,15 @@ use glam::Vec2;
 use specular_core::{InputEvent, PageSpec, PointerEvent, PointerEventKind};
 use specular_doc::{EntityId, Rect};
 use specular_interact::{Effect, Event, PageRegion, update};
-use winit::dpi::{LogicalPosition, LogicalSize};
 
-use super::{GpuWindow, PageHost, Shell};
+use super::runtime::{PageHost, Runtime, ShellWindow};
 use crate::page_queries::css_rect;
 use crate::paint_lod::PageLod;
-use crate::translate;
 
-impl Shell {
+impl<W: ShellWindow> Runtime<W> {
     /// Applies `event` to the app and runs its effects in order. A page that
     /// cannot be hosted ends the run.
-    pub(super) fn dispatch(&mut self, event: Event) {
+    pub fn dispatch(&mut self, event: Event) {
         for effect in update(&mut self.app, event) {
             if let Err(error) = self.run(effect) {
                 self.fail(error);
@@ -35,7 +33,7 @@ impl Shell {
                 viewport,
             } => {
                 let mut spec = PageSpec::new(&url, viewport);
-                spec.texture_scale = self.gpu.as_ref().map_or(1.0, GpuWindow::scale_factor);
+                spec.texture_scale = self.gpu.as_ref().map_or(1.0, W::scale_factor);
                 let host = self
                     .source
                     .create_page(&spec)
@@ -47,7 +45,7 @@ impl Shell {
                 if let Some(host) = self.hosts.remove(&page) {
                     warn_on_error(self.source.close_page(host.page));
                     if let Some(gpu) = self.gpu.as_mut() {
-                        gpu.compositor.remove_page(host.page);
+                        gpu.compositor_mut().remove_page(host.page);
                     }
                 }
                 self.give_up_on_page(&page);
@@ -64,20 +62,17 @@ impl Shell {
             Effect::ForwardInput { page, event } => self.send_to_page(&page, &event),
             Effect::SetImeAllowed(allowed) => {
                 if let Some(gpu) = self.gpu.as_ref() {
-                    gpu.window.set_ime_allowed(allowed);
+                    gpu.set_ime_allowed(allowed);
                 }
             }
             Effect::SetImeCursorArea { origin, size } => {
                 if let Some(gpu) = self.gpu.as_ref() {
-                    gpu.window.set_ime_cursor_area(
-                        LogicalPosition::new(origin.x, origin.y),
-                        LogicalSize::new(size.x, size.y),
-                    );
+                    gpu.set_ime_cursor_area(origin, size);
                 }
             }
             Effect::SetCursor(cursor) => {
                 if let Some(gpu) = self.gpu.as_ref() {
-                    gpu.window.set_cursor(translate::cursor_icon(cursor));
+                    gpu.set_cursor(cursor);
                 }
             }
             Effect::Save => self.request_save(),
