@@ -179,6 +179,8 @@ fn host_of(url: &str) -> String {
         let authority = authority.rsplit('@').next().unwrap_or(authority);
         let host = if authority.starts_with('[') {
             authority
+                .find(']')
+                .map_or(authority, |end| &authority[..=end])
         } else {
             authority.split(':').next().unwrap_or(authority)
         };
