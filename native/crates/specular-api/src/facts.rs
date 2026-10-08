@@ -102,6 +102,9 @@ mod tests {
         let body = serde_json::json!({ "entities": [
             { "kind": "text", "text": "short" },
             { "kind": "file", "file": "https://example.com/a.png" },
+            { "id": "t1", "kind": "text", "text": "# Heading" },
+            { "id": "f1", "kind": "file", "file": "moved.png" },
+            { "kind": "text", "text": "words", "file": "stray.png" },
         ] });
         let facts = Facts::gather(&Never, &Request::post("/canvas/apply", body));
         assert!(facts.files.is_empty() && facts.space_entries.is_empty());

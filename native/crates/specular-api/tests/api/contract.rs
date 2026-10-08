@@ -313,3 +313,59 @@ fn moving_a_group_via_update_carries_its_children_as_one_undo_step() {
     assert_eq!(session.node(&a), a0);
     assert_eq!(session.node(&group), g0);
 }
+
+#[test]
+fn a_field_is_read_only_when_it_is_given_and_means_what_it_says() {
+    let mut session = Scripted::empty();
+    let made = session.apply(json!({ "entities": [
+        { "kind": "text", "text": "plain words", "textStyle": "plain", "canvasX": 0, "canvasY": 0 },
+        { "kind": "text", "text": "sticky", "color": "neutral", "canvasX": 400, "canvasY": 0 },
+        { "kind": "page", "url": "https://example.com", "width": 10, "height": 10,
+          "canvasX": "left", "canvasY": 400 },
+    ]}));
+    let (plain, sticky, page) = (
+        &made["created"][0],
+        &made["created"][1],
+        &made["created"][2],
+    );
+    // A plain text is neutral; a sticky is yellow unless it is told otherwise.
+    assert_eq!(session.node(plain)["color"], "1");
+    assert_eq!(session.node(plain)["specular"]["colorRole"], "neutral");
+    assert_eq!(session.node(sticky)["specular"]["colorRole"], "neutral");
+    session.apply(json!({ "entities": [{ "id": sticky, "color": "4" }] }));
+    let recolored = session.node(sticky);
+    assert_eq!(recolored["color"], "4");
+    assert_eq!(recolored["specular"]["colorRole"], Value::Null);
+    // A page keeps its preset's size, and a coordinate that is not a number is ignored.
+    let page = session.node(page);
+    assert_eq!(
+        (&page["width"], &page["height"]),
+        (&json!(1280), &json!(800))
+    );
+    assert_eq!(page["x"], 0);
+    // A null leaves a field as it was.
+    session.apply(json!({ "entities": [{ "id": sticky, "text": null, "color": null }] }));
+    assert_eq!(session.node(sticky)["text"], "sticky");
+    assert_eq!(session.node(sticky)["color"], "4");
+}
+
+#[test]
+fn a_group_is_named_and_coloured_and_deleting_edges_leaves_entities_alone() {
+    let mut session = Scripted::empty();
+    let (a, b) = two_texts(&mut session);
+    let made = session.post("/groups/create", json!({ "entityIds": [a, b] }));
+    assert_eq!(made.status, 200, "{}", made.body);
+    let group = made.body["id"].clone();
+    assert_eq!(session.node(&group)["label"], "Group");
+    session.apply(json!({ "entities": [{ "id": group, "color": "4" }] }));
+    let tinted = session.node(&group);
+    assert_eq!(
+        (&tinted["color"], &tinted["groupColor"]),
+        (&json!("4"), &json!("4"))
+    );
+
+    let refused = session.post("/edges/delete", json!({ "edgeIds": [a] }));
+    assert_eq!(refused.status, 200, "{}", refused.body);
+    assert_eq!(refused.body["deletedEdgeIds"], json!([]));
+    assert_ne!(session.node(&a), Value::Null);
+}

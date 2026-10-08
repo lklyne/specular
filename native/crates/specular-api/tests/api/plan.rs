@@ -114,6 +114,10 @@ fn a_bad_patch_is_answered_without_an_event() {
             "entities[0]: could not be read as a file",
         ),
         (
+            json!({ "entities": [{ "kind": "shape", "strokeWidth": "wide" }] }),
+            "entities[0].strokeWidth: invalid value",
+        ),
+        (
             json!({ "entities": [{ "kind": "group", "entityIds": ["a", "nope"] }] }),
             "entities[0]: unknown entity 'nope'",
         ),
@@ -150,6 +154,7 @@ fn a_page_needs_a_full_url() {
         json!("/garden"),
         json!("localhost:4321/garden"),
         json!("http://"),
+        json!("x-y://host/a"),
         Value::Null,
     ] {
         let response = answer(page(bare.clone()));
@@ -199,6 +204,12 @@ fn an_act_route_checks_what_it_is_given() {
         (
             "/groups/create",
             json!({ "label": "x" }),
+            400,
+            "entityIds is required",
+        ),
+        (
+            "/groups/create",
+            json!({ "entityIds": [] }),
             400,
             "entityIds is required",
         ),

@@ -180,3 +180,69 @@ fn a_file_that_does_not_exist_is_a_400_naming_the_path() {
             .is_none_or(Vec::is_empty)
     );
 }
+
+#[test]
+fn what_makes_text_a_document_and_how_the_file_is_named() {
+    let long = |count: usize| "a".repeat(count);
+    let rows = [
+        ("exactly 300 characters stays a sticky", long(300), false),
+        ("301 characters is a document", long(301), true),
+        ("counted in characters, not bytes", "é".repeat(160), false),
+        ("a code fence", "```\nx\n```".to_owned(), true),
+        ("a table row", "| a | b |".to_owned(), true),
+        ("a lone pipe is no table", "|abc".to_owned(), false),
+        ("two pipes in a row are no table", "||abc".to_owned(), false),
+        ("a six-level heading", "###### six".to_owned(), true),
+        (
+            "seven hashes are no heading",
+            "####### seven".to_owned(),
+            false,
+        ),
+        (
+            "a hash with no space is no heading",
+            "#tag".to_owned(),
+            false,
+        ),
+    ];
+    for (row, text, document) in rows {
+        let mut session = Scripted::empty();
+        let made = session.apply(json!({ "entities": [{ "kind": "text", "text": text }] }));
+        let kind = session.node(&made["created"][0])["type"].clone();
+        assert_eq!(kind, if document { "file" } else { "text" }, "{row}");
+    }
+
+    // An existing text stays text whatever it says now.
+    let mut session = Scripted::empty();
+    let made = session.apply(json!({ "entities": [{ "kind": "text", "text": "plain" }] }));
+    let id = made["created"][0].clone();
+    session.apply(json!({ "entities": [{ "id": id, "kind": "text", "text": "# now a heading" }] }));
+    assert_eq!(session.node(&id)["type"], "text");
+
+    let names = [
+        ("# Title\nbody", "Title.md"),
+        ("intro line\n## Deeper\nbody", "Deeper.md"),
+        ("#\n# \nfirst line is used\n```", "#.md"),
+        ("...\n```", "Note.md"),
+        ("*?\"<>|\\/\n```", "--------.md"),
+        ("  ..dotted..  \n```", "dotted.md"),
+    ];
+    for (text, file) in names {
+        let mut session = Scripted::empty();
+        let made = session.apply(json!({ "entities": [{ "kind": "text", "text": text }] }));
+        assert_eq!(session.node(&made["created"][0])["file"], file, "{text}");
+    }
+    // A stray `file` on a non-file, and a `file` on an update, are not looked up on disk.
+    let mut session = Scripted::empty();
+    session.disk.files.insert(
+        "known.md".to_owned(),
+        dropped("known.md", Some("known.md"), None),
+    );
+    let made = session.apply(json!({ "entities": [
+        { "kind": "text", "text": "odd", "file": "ghost.png" },
+        { "kind": "file", "file": "known.md" },
+    ]}));
+    assert_eq!(made["created"].as_array().map(Vec::len), Some(2));
+    let known = made["created"][1].clone();
+    session.apply(json!({ "entities": [{ "id": known, "file": "other.md" }] }));
+    assert_eq!(session.node(&known)["file"], "other.md");
+}

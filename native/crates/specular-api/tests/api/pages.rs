@@ -133,6 +133,18 @@ fn updating_a_pages_url_navigates_it_in_place() {
     let done =
         session.apply(json!({ "entities": [{ "id": "p1", "url": "https://example.org/next" }] }));
     assert_eq!(done["updated"], json!(["p1"]));
+    session.apply(json!({ "entities": [{ "id": "p2", "width": 10, "height": 10 }] }));
+    assert_eq!(session.canvas()["nodes"][1]["width"], 400);
+    let bad = session.post(
+        "/canvas/apply",
+        json!({ "entities": [{ "id": "p2", "url": "/relative" }] }),
+    );
+    assert_eq!(bad.status, 400, "{}", bad.body);
+    assert!(
+        bad.body["error"]
+            .as_str()
+            .is_some_and(|error| error.starts_with("entities[0]: url must be a full URL"))
+    );
     assert_eq!(
         navigations(&session),
         [(
