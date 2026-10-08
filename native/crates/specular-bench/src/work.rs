@@ -116,6 +116,11 @@ pub struct WorkReport {
     pub glyph_count: u32,
     /// Most triangles.
     pub triangles: u32,
+    /// CPU seconds the whole process used a second of the profile (1.0 is
+    /// one core), which also counts what no step above times: the shell's
+    /// own toolkit, worker threads and the driver. Only a window run has it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub process_cpu: Option<f64>,
 }
 
 /// Collects a profile's frames.
@@ -176,6 +181,7 @@ impl WorkRecorder {
             draw_calls: most(|frame| frame.draw_calls),
             glyph_count: most(|frame| frame.glyphs),
             triangles: most(|frame| frame.triangles),
+            process_cpu: None,
         }
     }
 }

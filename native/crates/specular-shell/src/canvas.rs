@@ -9,16 +9,53 @@
 
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use futures::channel::mpsc;
-use specular_app::{Runtime, ShellWindow as _};
+use specular_app::{Bench, Runtime, ShellWindow as _};
 use specular_interact::{
     ChatModel, Event, Menu, OnboardingModel, PopupAnchor, PopupModel, SidebarModel, ToolbarModel,
     chat, menus, onboarding, popup_for, sidebar, toolbar,
 };
 
 use crate::surface::{CanvasSurface, WindowAsks};
+
+/// How early a display link's tick may come.
+const TICK_SLACK: Duration = Duration::from_millis(2);
+
+/// The least time between two readings of the models while the app keeps
+/// changing. Building them walks the whole document, and GPUI lays its whole
+/// tree out again when one changed, both on the thread the canvas draws
+/// from. A pan or a zoom changes the toolbar's model every frame: the zoom
+/// readout, and the camera each zoom option would move to.
+const MODELS_INTERVAL: Duration = Duration::from_millis(100);
+
+/// Holds the reading of the models to one a [`MODELS_INTERVAL`]: the first
+/// at once, and whatever changed meanwhile in one reading when the interval
+/// is over, so GPUI always ends up showing the app as it is.
+#[derive(Debug, Default)]
+struct ModelGate {
+    opened_at: Option<Instant>,
+    owed: bool,
+}
+
+impl ModelGate {
+    /// The app may have changed.
+    fn ask(&mut self) {
+        self.owed = true;
+    }
+
+    /// Whether to read the models now. Asked every turn.
+    fn open(&mut self, now: Instant) -> bool {
+        let rested = (self.opened_at).is_none_or(|at| now.duration_since(at) >= MODELS_INTERVAL);
+        if !self.owed || !rested {
+            return false;
+        }
+        self.owed = false;
+        self.opened_at = Some(now);
+        true
+    }
+}
 
 /// What GPUI draws from, as `update` last left it.
 #[derive(Debug, Clone, PartialEq)]
@@ -60,10 +97,22 @@ pub(crate) struct Canvas {
     /// What effects asked of the window.
     pub(crate) asks: Rc<WindowAsks>,
     models: Models,
+    /// Whether the app may have changed since the models were read.
+    stale: bool,
+    /// Whether the models changed since GPUI was last told.
+    unseen: bool,
+    /// Paces the reading of the models.
+    gate: ModelGate,
     /// Tells GPUI to draw again.
     wake: mpsc::Sender<()>,
     /// When the canvas last ran a frame.
     last_frame: Instant,
+    /// The benchmark, in a `--bench` run.
+    bench: Option<Bench>,
+    /// While nothing is owed, when the next full turn is due. The display
+    /// link fires every refresh all the same, and until then a turn only
+    /// looks at the pages.
+    rest_until: Option<Instant>,
     /// Set once the page backend has shut down after an exit.
     finished: bool,
     /// A folder dialog the app asked for, until GPUI shows it: whether it
@@ -84,19 +133,26 @@ pub(crate) fn with<R>(with: impl FnOnce(&mut Canvas) -> R) -> Option<R> {
     })
 }
 
-/// Makes `runtime` the canvas. GPUI is told to draw again through `wake`.
+/// Makes `runtime` the canvas. GPUI is told to draw again through `wake`,
+/// and `bench` is stepped a frame.
 pub(crate) fn install(
     runtime: Runtime<CanvasSurface>,
     asks: Rc<WindowAsks>,
     wake: mpsc::Sender<()>,
+    bench: Option<Bench>,
 ) {
     let models = Models::of(&runtime);
     let canvas = Canvas {
         runtime,
         asks,
         models,
+        stale: false,
+        unseen: false,
+        gate: ModelGate::default(),
         wake,
         last_frame: Instant::now(),
+        bench,
+        rest_until: None,
         finished: false,
         space_dialog: None,
     };
@@ -113,12 +169,20 @@ pub(crate) fn dispatch(event: Event) {
     with(|canvas| canvas.dispatch(event));
 }
 
-/// The models as they are now.
+/// The models as the app is now.
 pub(crate) fn models() -> Option<Models> {
-    with(|canvas| canvas.models.clone())
+    with(|canvas| {
+        canvas.read_models();
+        if canvas.unseen {
+            // Read early by a handler, not by GPUI's render: it is told
+            // when the gate next opens.
+            canvas.gate.ask();
+        }
+        canvas.models.clone()
+    })
 }
 
-/// The display link fired: one turn and one frame.
+/// The display link fired: one turn, and a frame if one is owed.
 pub(crate) fn on_display_link() {
     with(Canvas::frame);
 }
@@ -126,24 +190,41 @@ pub(crate) fn on_display_link() {
 impl Canvas {
     /// Sends `event` through `update`, then brings the models in step.
     pub(crate) fn dispatch(&mut self, event: Event) {
+        if matches!(
+            event,
+            Event::Pointer(_) | Event::Wheel(_) | Event::Pinch { .. } | Event::Key(_)
+        ) {
+            // Frames keep coming for a moment after the user did something.
+            self.runtime.input();
+        }
+        self.rest_until = None;
         self.runtime.dispatch(event);
         self.refresh_models();
     }
 
-    /// Recomputes the models and wakes GPUI when one changed or an effect
-    /// asked something of the window.
+    /// The app may have changed: brings the models in step and wakes GPUI
+    /// if one changed, now or when the gate next opens.
     pub(crate) fn refresh_models(&mut self) {
-        let models = Models::of(&self.runtime);
-        let changed = models != self.models;
-        if changed {
-            self.models = models;
+        self.stale = true;
+        self.gate.ask();
+        self.sync_models(Instant::now());
+    }
+
+    /// Reads the models if the gate lets it and wakes GPUI when one changed
+    /// or an effect asked something of the window. Called every turn.
+    fn sync_models(&mut self, now: Instant) {
+        if self.gate.open(now) {
+            self.read_models();
+            if std::mem::take(&mut self.unseen) {
+                self.wake_now();
+            }
         }
         let asked = self.runtime.take_space_dialog();
         if asked.is_some() {
             self.space_dialog = asked;
         }
-        if changed || asked.is_some() || self.asks.changed.get() {
-            self.wake_gpui();
+        if asked.is_some() || self.asks.changed.get() {
+            self.wake_now();
         }
     }
 
@@ -152,7 +233,19 @@ impl Canvas {
         self.space_dialog.take()
     }
 
-    fn wake_gpui(&mut self) {
+    /// Builds the models again if the app may have changed since they were.
+    fn read_models(&mut self) {
+        if !std::mem::take(&mut self.stale) {
+            return;
+        }
+        let models = Models::of(&self.runtime);
+        if models != self.models {
+            self.models = models;
+            self.unseen = true;
+        }
+    }
+
+    fn wake_now(&mut self) {
         // A full channel already has a wake waiting.
         let _ = self.wake.try_send(());
     }
@@ -168,24 +261,67 @@ impl Canvas {
     }
 
     /// One loop turn: the clock, the files, what the pages reported, and a
-    /// frame on screen.
+    /// frame on screen if any of that, or an event since the last turn,
+    /// changed what a frame shows. An idle canvas draws nothing.
     pub(crate) fn frame(&mut self) {
-        self.last_frame = Instant::now();
+        let now = Instant::now();
+        self.last_frame = now;
         if self.runtime.is_closing() {
             if !self.finished && self.runtime.poll_shutdown() {
                 self.finished = true;
-                self.wake_gpui();
+                self.wake_now();
             }
             return;
         }
+        if self.rest_until.is_some_and(|until| now < until) {
+            self.runtime.take_pages();
+            if !self.runtime.frame_wanted() {
+                self.sync_models(now);
+                return;
+            }
+        }
+        self.rest_until = None;
         let rescaled = self.runtime.window_mut().and_then(CanvasSurface::sync);
         if let Some(scale) = rescaled {
             self.runtime.on_scale_factor_changed(f64::from(scale));
         }
         self.runtime.turn();
-        self.runtime.refresh_title();
-        self.runtime.draw();
-        self.refresh_models();
+        let mut bench_turn = None;
+        match self.bench.as_mut() {
+            Some(bench) => {
+                bench_turn = bench.step(&mut self.runtime, now);
+                if self.runtime.is_closing() {
+                    return;
+                }
+            }
+            // A benchmark window keeps the title it opened with.
+            None => self.runtime.refresh_title(),
+        }
+        let wanted = self.runtime.frame_wanted();
+        if wanted
+            && let Some(sample) = self.runtime.draw()
+            && let Some(bench) = self.bench.as_mut()
+        {
+            bench.presented(&self.runtime, &sample);
+        }
+        // Whatever changes the app owes a frame, so a turn that owed none
+        // has nothing new for GPUI either.
+        let started = Instant::now();
+        if wanted {
+            self.stale = true;
+            self.gate.ask();
+        }
+        self.sync_models(now);
+        if let Some(bench) = self.bench.as_mut() {
+            bench.worked(started.elapsed());
+        }
+        if !wanted {
+            let turn = self.runtime.next_turn();
+            // The link's ticks are not exact, and a step due at the next
+            // one must not be put off by a tick that comes a moment early.
+            let bench_turn = bench_turn.map(|at| at.checked_sub(TICK_SLACK).unwrap_or(at));
+            self.rest_until = Some(bench_turn.map_or(turn, |bench| turn.min(bench)));
+        }
     }
 
     /// The canvas slot's place in the window, from GPUI's layout.
@@ -198,5 +334,35 @@ impl Canvas {
                 self.dispatch(Event::ViewportResized(viewport));
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_gesture_has_the_models_read_at_once_then_ten_times_a_second_and_once_when_it_ends() {
+        let start = Instant::now();
+        let frame = Duration::from_nanos(8_333_333);
+        let mut gate = ModelGate::default();
+        let mut readings = Vec::new();
+        // A second of a pan changes the app every frame; then nothing does.
+        for step in 0..240_u32 {
+            let now = start + frame * step;
+            if step < 120 {
+                gate.ask();
+            }
+            if gate.open(now) {
+                readings.push(step);
+            }
+        }
+        assert_eq!(readings[0], 0);
+        assert!((10..=11).contains(&readings.len()), "{readings:?}");
+        // The last change, at frame 119, is shown: by a reading after it.
+        assert!(
+            readings.last().is_some_and(|&last| last >= 119),
+            "{readings:?}"
+        );
     }
 }

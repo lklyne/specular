@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 use glam::Vec2;
 use specular_bench::{
     FrameWork, GestureProfile, GestureStep, PHASE_GAP, PaintPolicy, PhaseRecorder, PresentedFrame,
-    ProfileId, ProfileLine, WorkRecorder, build_steps,
+    ProfileId, ProfileLine, WorkRecorder, build_steps, process_cpu_time,
 };
 use specular_compositor::{FrameObserver, FrameSample};
 use specular_core::Camera;
@@ -45,6 +45,9 @@ struct Recording {
     work: WorkRecorder,
     max_paint_to_submit: Option<Duration>,
     max_shapes_drawn: u32,
+    /// When the profile began, and the process's CPU time then.
+    began: Instant,
+    cpu_began: Option<Duration>,
 }
 
 /// What the app should do after [`BenchRun::tick`].
@@ -73,6 +76,8 @@ pub(crate) struct RunSource {
     pub(crate) annotations: usize,
     /// The canvas shown, by file name.
     pub(crate) canvas: Option<String>,
+    /// The shell whose window presents the frames (`winit`, `kit`).
+    pub(crate) shell: &'static str,
 }
 
 /// The benchmark state machine.
@@ -205,6 +210,8 @@ impl BenchRun {
             work: WorkRecorder::new(),
             max_paint_to_submit: None,
             max_shapes_drawn: 0,
+            began: now,
+            cpu_began: process_cpu_time(),
         });
         self.phase = if profile.id == ProfileId::Idle {
             Phase::Idle {
@@ -223,7 +230,11 @@ impl BenchRun {
         if let (Some(profile), Some(recording)) = (self.profiles.get(index), self.recording.take())
         {
             let representative = self.source.representative && !recording.frames.saw_cpu_texture();
-            let work = recording.work.finish();
+            let mut work = recording.work.finish();
+            let wall = now.saturating_duration_since(recording.began).as_secs_f64();
+            work.process_cpu = (recording.cpu_began.zip(process_cpu_time()))
+                .filter(|_| wall > 0.0)
+                .map(|(began, ended)| ended.saturating_sub(began).as_secs_f64() / wall);
             let mut phase = recording.frames.finish(self.step_interval);
             phase.max_shapes_drawn = Some(u64::from(recording.max_shapes_drawn));
             self.reports.push(ProfileLine {
@@ -238,6 +249,7 @@ impl BenchRun {
                 chrome: self.source.chrome,
                 annotations: self.source.annotations,
                 target: Some("window".to_owned()),
+                shell: Some(self.source.shell.to_owned()),
                 canvas: self.source.canvas.clone(),
                 work: Some(work),
             });
@@ -341,6 +353,7 @@ mod tests {
                 chrome: true,
                 annotations: 3,
                 canvas: None,
+                shell: "test",
             },
             start,
         )

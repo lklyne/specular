@@ -5,7 +5,8 @@
 //! Documents, the clipboard, assets, settings and the HTTP API. A shell
 //! gives it a [`ShellWindow`] to draw into and sends it events.
 //! [`launch`] reads the command line and runs a `--snapshot` or `--script`
-//! request with no window at all.
+//! request with no window at all. [`Bench`] is `--bench` in a window: a
+//! shell steps it each loop turn and hands it the frames it presents.
 //!
 //! [`run_window`] is the winit shell, the `specular-app` binary. The GPUI
 //! Kit shell is the `specular-shell` crate (ADR 0040).
@@ -13,6 +14,7 @@
 pub mod agent;
 mod api;
 mod app;
+mod bench_drive;
 mod bench_run;
 mod cdp;
 mod cli;
@@ -33,6 +35,7 @@ mod space;
 mod translate;
 
 pub use crate::app::{Opening, PageOf, Runtime, RuntimeOptions, ShellWindow};
+pub use crate::bench_drive::{Bench, BenchOptions};
 pub use crate::launch::{Launch, Unnamed, launch, run_window};
 pub use crate::source_select::run_subprocess_if_needed;
 pub use crate::translate::native_key_input;

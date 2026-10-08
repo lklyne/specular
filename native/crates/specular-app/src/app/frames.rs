@@ -63,6 +63,14 @@ impl<W: ShellWindow> Runtime<W> {
         self.demand.input();
     }
 
+    /// Takes in what the pages reported and nothing else. A shell that is
+    /// woken every refresh calls this between the turns
+    /// [`next_turn`](Self::next_turn) asks for: a page's frame cannot wait
+    /// for the next one, and the rest of a turn can.
+    pub fn take_pages(&mut self) {
+        self.take_page_events();
+    }
+
     /// Pumps the page source and hands on what its pages reported.
     fn take_page_events(&mut self) {
         self.source.pump();

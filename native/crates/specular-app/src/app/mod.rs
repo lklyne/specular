@@ -9,7 +9,6 @@ mod agent_run;
 mod api_files;
 mod api_run;
 mod asset_run;
-mod bench;
 mod clipboard_run;
 mod demand;
 mod drop_run;
@@ -35,11 +34,9 @@ mod title;
 mod turn;
 
 use std::path::PathBuf;
-use std::time::{Duration, Instant};
 
 use glam::Vec2;
-use specular_bench::{FrameWork, GestureProfile, PaintPolicy, STEP_INTERVAL};
-use specular_compositor::FrameObserver as _;
+use specular_bench::PaintPolicy;
 use specular_core::{Camera, PageSource};
 use specular_doc::Document;
 use specular_interact::Event;
@@ -52,7 +49,7 @@ use winit::window::WindowId;
 pub(crate) use self::api_run::ShellEvent;
 use self::gpu_window::GpuWindow;
 pub use self::runtime::{Opening, PageOf, Runtime, RuntimeOptions, ShellWindow};
-use crate::bench_run::BenchRun;
+use crate::bench_drive::{Bench, BenchOptions};
 use crate::space::SpaceStart;
 use crate::translate::ClickCounter;
 
@@ -72,20 +69,14 @@ pub(crate) struct RunOptions {
     /// The space folder to open once the window exists. With one, the
     /// document the shell was given is not shown.
     pub(crate) space: Option<SpaceStart>,
-    /// Profiles to run then exit; `None` stays interactive.
-    pub(crate) bench: Option<Vec<GestureProfile>>,
-    /// Settle time before the first bench profile.
-    pub(crate) warmup: Duration,
-    /// Whether the source's frames may be compared with Electron's.
-    pub(crate) representative_source: bool,
+    /// The benchmark to run then exit; `None` stays interactive.
+    pub(crate) bench: Option<BenchOptions>,
     /// How pages are throttled.
     pub(crate) paint_policy: PaintPolicy,
     /// Window size in logical pixels; `None` takes the platform default.
     pub(crate) window: Option<(u32, u32)>,
     /// Whether the chrome layer (borders, selection, annotations, tools) runs.
     pub(crate) chrome: bool,
-    /// Page-bound annotations seeded at startup.
-    pub(crate) annotations: usize,
 }
 
 /// The winit shell: turns window events into [`Event`]s for the
@@ -103,14 +94,8 @@ pub(crate) struct Shell {
     cursor: Option<Vec2>,
     clicks: ClickCounter,
     options: RunOptions,
-    bench: Option<BenchRun>,
-    /// When the benchmark last stepped, whether a frame has been presented
-    /// since, whether it is in a wait, and how long the step's `update`
-    /// took.
-    bench_stepped_at: Option<Instant>,
-    bench_presented: bool,
-    bench_waiting: bool,
-    bench_update: Duration,
+    /// The benchmark, while one runs.
+    bench: Option<Bench>,
 }
 
 impl Shell {
@@ -148,10 +133,6 @@ impl Shell {
             clicks: ClickCounter::default(),
             options,
             bench: None,
-            bench_stepped_at: None,
-            bench_presented: false,
-            bench_waiting: false,
-            bench_update: Duration::ZERO,
         }
     }
 
@@ -166,7 +147,7 @@ impl Shell {
             self.options.window,
             self.options.bench.is_some(),
         )?;
-        let step_interval = gpu.refresh_interval().unwrap_or(STEP_INTERVAL);
+        let refresh = gpu.refresh_interval();
         self.runtime.attach_window(gpu);
         // The toolbar and the popup are part of the chrome layer. A
         // benchmark measures the canvas, so it runs without them.
@@ -175,7 +156,7 @@ impl Shell {
         if let Some(opening) = self.opening.take() {
             self.runtime.open(opening)?;
         }
-        let Some(profiles) = self.options.bench.take() else {
+        let Some(bench) = self.options.bench.take() else {
             // A benchmark keeps winit's default menu: fewer moving parts in
             // a measured run. It takes no outside input either, so it has
             // no API.
@@ -189,7 +170,8 @@ impl Shell {
             return Ok(());
         };
         if !self.runtime.closing {
-            self.start_bench(profiles, step_interval);
+            let bench = Bench::start(&mut self.runtime, bench, "winit", refresh);
+            self.bench = Some(bench);
         }
         Ok(())
     }
@@ -200,13 +182,8 @@ impl Shell {
             return;
         };
         if let Some(bench) = self.bench.as_mut() {
-            bench.on_frame(&sample);
-            bench.on_work(FrameWork {
-                update_ms: std::mem::take(&mut self.bench_update).as_secs_f64() * 1_000.0,
-                ..self.runtime.last_work
-            });
+            bench.presented(&self.runtime, &sample);
         }
-        self.bench_presented = true;
     }
 }
 
@@ -258,8 +235,6 @@ impl ApplicationHandler<ShellEvent> for Shell {
         if self.runtime.take_space_dialog().is_some() {
             self.choose_space();
         }
-        if let Err(error) = self.turn(event_loop) {
-            self.runtime.fail(error);
-        }
+        self.turn(event_loop);
     }
 }

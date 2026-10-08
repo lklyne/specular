@@ -22,6 +22,7 @@
 pub mod bench_line;
 pub mod breakdown;
 pub mod compare;
+mod cpu;
 pub mod electron_trace;
 mod error;
 mod footprint;
@@ -37,6 +38,7 @@ pub mod work;
 pub use bench_line::{BenchLine, InputLatencyLine, ProfileLine};
 pub use breakdown::{ProcessMemory, sample_breakdown};
 pub use compare::{LoadedRun, compare_markdown};
+pub use cpu::process_cpu_time;
 pub use error::BenchError;
 pub use latency::{InputSeq, LatencySummary, LatencyTracker};
 pub use memory::{MemoryReport, MemorySample, PeakSampler, sample_process_tree};

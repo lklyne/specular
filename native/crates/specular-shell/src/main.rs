@@ -3,8 +3,8 @@
 //! One GPUI window. GPUI Kit draws the toolbar, the sidebar, the menus and
 //! the dialogs from the app's pure models, and the unchanged compositor
 //! draws the canvas and its pages into a view under GPUI's. The runtime,
-//! the command line and the `--snapshot` and `--script` modes are the
-//! winit shell's own, from `specular-app`.
+//! the command line, the `--snapshot` and `--script` modes and the
+//! `--bench` driver are the winit shell's own, from `specular-app`.
 //!
 //! ```sh
 //! cargo run -p specular-shell -- fixtures/kitchen-sink.canvas
@@ -26,6 +26,8 @@ mod native;
 mod pacing;
 #[cfg(target_os = "macos")]
 mod pins;
+#[cfg(target_os = "macos")]
+mod refresh;
 #[cfg(target_os = "macos")]
 mod settings;
 #[cfg(target_os = "macos")]
@@ -56,10 +58,6 @@ fn main() {
                 std::process::exit(1);
             }
         };
-    if launch.is_bench() {
-        eprintln!("specular: --bench runs in the winit shell: cargo run -p specular-app");
-        std::process::exit(2);
-    }
     let application = gpui_kit::application().with_assets(assets::ShellAssets);
     application.on_open_urls(|urls| spaces::opened_from_finder(&urls));
     application.run(move |cx| {

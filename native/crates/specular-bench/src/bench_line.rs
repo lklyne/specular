@@ -56,6 +56,10 @@ pub struct ProfileLine {
     /// texture with no vsync. Older lines were all windows.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target: Option<String>,
+    /// The shell whose window presented the frames: `winit` or `kit`.
+    /// Older lines and headless ones name none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub shell: Option<String>,
     /// The canvas the run showed, by file name.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub canvas: Option<String>,
@@ -101,6 +105,7 @@ mod tests {
             chrome: true,
             annotations: 3,
             target: None,
+            shell: None,
             canvas: None,
             work: None,
         }

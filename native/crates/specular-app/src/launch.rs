@@ -13,6 +13,7 @@ use tracing_subscriber::EnvFilter;
 use winit::event_loop::EventLoop;
 
 use crate::app::{self, Opening, RuntimeOptions};
+use crate::bench_drive::BenchOptions;
 use crate::cli::{self, Command, RunArgs};
 use crate::source_select::{self, Host};
 use crate::space::{SpaceChoice, SpaceStart, Startup};
@@ -138,9 +139,17 @@ impl Launch {
         self.run.window
     }
 
-    /// Whether this is a `--bench` run, which only the winit shell does.
-    pub fn is_bench(&self) -> bool {
-        self.run.bench.is_some()
+    /// The benchmark this launch runs in its window, when it is a
+    /// `--bench` run. A shell starts it with [`Bench::start`](crate::Bench::start) once the
+    /// window shows what [`into_opening`](Self::into_opening) gave.
+    pub fn bench(&self) -> Option<BenchOptions> {
+        let profiles = self.run.bench.clone()?;
+        Some(BenchOptions {
+            profiles,
+            warmup: self.run.warmup,
+            representative: self.run.source.is_representative(),
+            annotations: self.run.annotations,
+        })
     }
 
     /// How the runtime of this launch runs.
@@ -166,6 +175,7 @@ impl Launch {
 
 /// Opens the winit window on `launch` and runs until it closes.
 pub fn run_window(launch: Launch) -> anyhow::Result<()> {
+    let bench = launch.bench();
     let Launch {
         run,
         space,
@@ -193,13 +203,10 @@ pub fn run_window(launch: Launch) -> anyhow::Result<()> {
     let options = app::RunOptions {
         canvas: run.canvas.filter(|_| space.is_none()),
         space,
-        bench: run.bench,
-        warmup: run.warmup,
-        representative_source: run.source.is_representative(),
+        bench,
         paint_policy: run.paint_policy,
         window: run.window,
         chrome: run.chrome,
-        annotations: run.annotations,
     };
     let mut app = app::Shell::new(source, document, options, event_loop.create_proxy());
     event_loop.run_app(&mut app).context("running event loop")?;

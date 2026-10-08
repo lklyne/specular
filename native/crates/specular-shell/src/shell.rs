@@ -15,7 +15,7 @@ use gpui_kit::{
     size, transparent_black,
 };
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
-use specular_app::{Launch, Runtime};
+use specular_app::{Bench, Launch, Runtime};
 use specular_interact::Event;
 
 use crate::canvas;
@@ -23,7 +23,7 @@ use crate::native::{Id, NativeCanvas};
 use crate::pacing::Pacing;
 use crate::surface::{CanvasSurface, WindowAsks};
 use crate::view::ShellView;
-use crate::{debug_input, keys, menus, pins, spaces};
+use crate::{debug_input, keys, menus, pins, refresh, spaces};
 
 /// The window size when the command line names none: the Electron app's.
 const DEFAULT_SIZE: (u32, u32) = (1600, 1000);
@@ -139,6 +139,7 @@ pub(crate) fn open(launch: Launch, cx: &mut App) -> anyhow::Result<()> {
         .create_source()
         .context("creating the page backend")?;
     let options = launch.runtime_options();
+    let bench = launch.bench();
     let asks = Rc::new(WindowAsks::default());
 
     // Not `gpui_kit::open_window`: the Kit's root paints the theme's
@@ -161,10 +162,13 @@ pub(crate) fn open(launch: Launch, cx: &mut App) -> anyhow::Result<()> {
     let opening = launch.into_opening();
     window.update(cx, |_, window, _| -> anyhow::Result<()> {
         let mut native = NativeCanvas::install(gpui_view(window)?)?;
-        if std::env::var_os("SPECULAR_FLOAT_WINDOW").is_some() {
+        // A covered window is given no frames, which a benchmark would
+        // record as a profile that drew nothing.
+        if bench.is_some() || std::env::var_os("SPECULAR_FLOAT_WINDOW").is_some() {
             native.float();
         }
         native.start_display_link();
+        let refresh = refresh::interval(native.window_number());
         let mut surface = CanvasSurface::new(native, Rc::clone(&asks))?;
         surface.pacing = Pacing::from_env();
         let mut runtime = Runtime::new(source, options);
@@ -174,22 +178,32 @@ pub(crate) fn open(launch: Launch, cx: &mut App) -> anyhow::Result<()> {
         );
         runtime.attach_window(surface);
         // The Kit draws the toolbar and what hangs from it. A popup beside
-        // a canvas item stays in the canvas's own pass.
-        runtime.dispatch(Event::BuiltinCanvasPopups);
-        // The Kit draws a right panel, so a comment is written there and
-        // the canvas keeps only its marker.
-        runtime.dispatch(Event::ChatPanel(true));
+        // a canvas item stays in the canvas's own pass, except in a
+        // benchmark, which draws the canvas alone as the winit shell's does.
+        runtime.dispatch(match bench {
+            Some(_) => Event::BuiltinPanels(false),
+            None => Event::BuiltinCanvasPopups,
+        });
+        if bench.is_none() {
+            // The Kit draws a right panel, so a comment is written there
+            // and the canvas keeps only its marker.
+            runtime.dispatch(Event::ChatPanel(true));
+        }
         runtime.dispatch(Event::About(pins::about(runtime.source_name())));
         runtime.open(opening)?;
         // Finder's file, when the app was launched to open one.
         if let Some(file) = spaces::take_waiting() {
             runtime.open_canvas_file(&file)?;
         }
-        runtime.start_api(move || {
-            // Each clone has a slot of its own, so a wake is never lost.
-            let _ = api_wake.clone().try_send(());
-        });
-        canvas::install(runtime, asks, wake);
+        let bench = bench.map(|options| Bench::start(&mut runtime, options, "kit", refresh));
+        if bench.is_none() {
+            // A benchmark takes no outside input, so it has no API.
+            runtime.start_api(move || {
+                // Each clone has a slot of its own, so a wake is never lost.
+                let _ = api_wake.clone().try_send(());
+            });
+        }
+        canvas::install(runtime, asks, wake, bench);
         Ok(())
     })??;
 

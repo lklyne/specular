@@ -5,10 +5,10 @@ use std::time::Instant;
 
 use winit::event_loop::{ActiveEventLoop, ControlFlow};
 
-use super::{GpuWindow, Shell};
+use super::Shell;
 
 impl Shell {
-    pub(super) fn turn(&mut self, event_loop: &ActiveEventLoop) -> anyhow::Result<()> {
+    pub(super) fn turn(&mut self, event_loop: &ActiveEventLoop) {
         let now = Instant::now();
         self.runtime.turn();
         #[cfg(target_os = "macos")]
@@ -17,11 +17,11 @@ impl Shell {
         if self.bench.is_none() {
             self.runtime.refresh_title();
         }
-        let next_step = self.step_bench(now)?;
+        let next_step = (self.bench.as_mut()).and_then(|bench| bench.step(&mut self.runtime, now));
         if self.runtime.closing {
             // Shutting the source down takes turns of the loop.
             event_loop.set_control_flow(ControlFlow::Poll);
-            return Ok(());
+            return;
         }
         if self.runtime.frame_wanted() {
             // Not `Wait`: a loop that sleeps between a present and the next
@@ -31,54 +31,12 @@ impl Shell {
             if let Some(gpu) = self.runtime.gpu.as_ref() {
                 gpu.window.request_redraw();
             }
-            return Ok(());
+            return;
         }
         let mut wake = self.runtime.next_turn();
         if let Some(step) = next_step {
             wake = wake.min(step);
         }
         event_loop.set_control_flow(ControlFlow::WaitUntil(wake));
-        Ok(())
-    }
-
-    /// Steps the benchmark: once a presented frame, or once a refresh when
-    /// the last step changed nothing and so drew nothing. While the run only
-    /// waits (the warmup, a gap, the idle profile) it is left alone until
-    /// the wait ends. Returns when to come back if no frame comes first.
-    fn step_bench(&mut self, now: Instant) -> anyhow::Result<Option<Instant>> {
-        let Some(bench) = self.bench.as_mut() else {
-            return Ok(None);
-        };
-        if let Some(until) = bench.waits_until().filter(|&until| now < until) {
-            if bench.keeps_presenting(now) {
-                self.runtime.demand.changed();
-                return Ok(Some(until));
-            }
-            if !self.bench_waiting {
-                // One turn with nothing to draw, however long the wait.
-                bench.on_skipped();
-            }
-            self.bench_waiting = true;
-            self.bench_presented = false;
-            return Ok(Some(until));
-        }
-        self.bench_waiting = false;
-        let interval = bench.step_interval();
-        let due = (self.bench_stepped_at).is_none_or(|at| now.duration_since(at) >= interval);
-        if !self.bench_presented && !due {
-            return Ok(self.bench_stepped_at.map(|at| at + interval));
-        }
-        if !self.bench_presented {
-            bench.on_skipped();
-        }
-        self.bench_presented = false;
-        self.bench_stepped_at = Some(now);
-        let Some(viewport) = self.runtime.gpu.as_ref().map(GpuWindow::logical_viewport) else {
-            return Ok(None);
-        };
-        let started = Instant::now();
-        self.tick_bench(viewport)?;
-        self.bench_update = started.elapsed();
-        Ok(Some(now + interval))
     }
 }

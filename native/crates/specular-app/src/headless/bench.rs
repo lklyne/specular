@@ -113,6 +113,7 @@ impl Headless {
             chrome: plan.chrome,
             annotations: 0,
             target: Some("headless".to_owned()),
+            shell: None,
             canvas,
             work: Some(work.finish()),
         })
