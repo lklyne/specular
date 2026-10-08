@@ -3,12 +3,13 @@
 //! The outline is `createHighlight` in `dom-inspection.ts`: a dashed blue
 //! border and a faint blue wash. The card is `InspectPopoverLayer.tsx`: the
 //! tag on a blue chip, the size after the id and classes, the font, and the
-//! text and background colours as squares with their values.
+//! text and background colours as squares with their values. The card is
+//! slate with white text in both themes, as in Electron.
 
 use specular_interact::{InspectModel, InspectPopover};
 
 use super::frame::Frame;
-use super::palette::{self, SELECTION};
+use super::palette;
 use crate::{
     Color, Dash, FontFamily, Item, PathDraw, PathStroke, Point, Rect, RectDraw, Scene, ShadowDraw,
     Stroke, StrokeAlign, TextRun, VerticalAlign,
@@ -39,21 +40,24 @@ pub(crate) fn draw(frame: &Frame<'_>, scene: &mut Scene) {
     if frame.sees_screen(target) {
         scene.push(Item::screen(RectDraw::filled(
             target,
-            palette::with_alpha(SELECTION, OUTLINE_FILL_ALPHA),
+            palette::with_alpha(frame.colors.selection, OUTLINE_FILL_ALPHA),
         )));
         scene.push(Item::screen(PathDraw {
             commands: super::shape_path::Silhouette::Rect(0.0).into_path(target.outset(-0.5)),
             fill: None,
             stroke: Some(
-                PathStroke::new(palette::with_alpha(SELECTION, OUTLINE_STROKE_ALPHA), 1.0)
-                    .dashed(OUTLINE_DASH),
+                PathStroke::new(
+                    palette::with_alpha(frame.colors.selection, OUTLINE_STROKE_ALPHA),
+                    1.0,
+                )
+                .dashed(OUTLINE_DASH),
             ),
         }));
     }
-    card(&popover, scene);
+    card(&popover, frame.colors.selection, scene);
 }
 
-fn card(popover: &InspectPopover, scene: &mut Scene) {
+fn card(popover: &InspectPopover, chip: Color, scene: &mut Scene) {
     let min = popover.rect.min;
     let rect = Rect::new(min.x, min.y, popover.rect.size.x, popover.rect.size.y);
     scene.push(Item::screen(ShadowDraw {
@@ -87,7 +91,7 @@ fn card(popover: &InspectPopover, scene: &mut Scene) {
     scene.push(Item::screen(
         RectDraw::filled(
             Rect::new(left, top, chip_width, InspectPopover::CHIP_HEIGHT),
-            SELECTION,
+            chip,
         )
         .with_corner_radius(CHIP_RADIUS),
     ));

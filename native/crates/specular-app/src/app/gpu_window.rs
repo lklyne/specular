@@ -173,7 +173,7 @@ impl GpuWindow {
             camera,
             viewport,
             scale_factor: self.scale_factor(),
-            grid: DotGrid::default(),
+            grid: DotGrid::themed(scene.colors()),
             zooming: false,
         };
         self.compositor
@@ -221,7 +221,7 @@ impl GpuWindow {
             camera,
             viewport: self.logical_viewport(),
             scale_factor: self.scale_factor(),
-            grid: DotGrid::default(),
+            grid: DotGrid::themed(scene.colors()),
             zooming,
         };
         let stats = self

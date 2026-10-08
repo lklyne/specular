@@ -14,7 +14,6 @@ use crate::{
 
 const CORNER_RADIUS: f32 = 4.0;
 const PADDING: f32 = 16.0;
-const GLYPH_COLOR: Color = Color::rgb(0x78, 0x71, 0x6c);
 /// The glyph is drawn in a 24-unit box at this scale: 32 canvas units tall.
 const GLYPH_SCALE: f32 = 32.0 / 24.0;
 const GLYPH_STROKE: f32 = 1.5;
@@ -40,9 +39,9 @@ pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, file: &FileRef, scene: &m
             ImageState::Loading | ImageState::Missing | ImageState::Failed => {}
         }
     }
-    scene.push(palette::card_shadow(rect, CORNER_RADIUS));
+    scene.push(palette::card_shadow(frame.colors, rect, CORNER_RADIUS));
     scene.push(Item::canvas(
-        RectDraw::filled(rect, palette::CARD).with_corner_radius(CORNER_RADIUS),
+        RectDraw::filled(rect, frame.colors.card).with_corner_radius(CORNER_RADIUS),
     ));
     // The glyph and one line of name, centred together as a column.
     let name_line = NAME_SIZE * TextRun::DEFAULT_LINE_HEIGHT;
@@ -51,7 +50,7 @@ pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, file: &FileRef, scene: &m
     let centre = rect.centre();
     let top = centre.y - column / 2.0;
     let glyph_origin = Point::new(centre.x - glyph_size / 2.0, top);
-    scene.push(Item::canvas(glyph(glyph_origin)).clipped(rect));
+    scene.push(Item::canvas(glyph(glyph_origin, frame.colors.file_glyph)).clipped(rect));
 
     let name = file.file.rsplit('/').next().unwrap_or(&file.file);
     let run = TextRun {
@@ -61,14 +60,14 @@ pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, file: &FileRef, scene: &m
             name,
             Point::new(rect.x + PADDING, top + glyph_size + GAP),
             NAME_SIZE,
-            GLYPH_COLOR,
+            frame.colors.file_glyph,
         )
     };
     scene.push(Item::canvas(run).clipped(rect));
 }
 
 /// A sheet of paper with a folded corner, its 24-unit box placed at `origin`.
-fn glyph(origin: Point) -> PathDraw {
+fn glyph(origin: Point, color: Color) -> PathDraw {
     let at = |x: f32, y: f32| Point::new(origin.x + x * GLYPH_SCALE, origin.y + y * GLYPH_SCALE);
     let line = |x, y| PathCommand::LineTo(at(x, y));
     PathDraw {
@@ -87,6 +86,6 @@ fn glyph(origin: Point) -> PathDraw {
             line(20.0, 8.0),
         ],
         fill: None,
-        stroke: Some(PathStroke::new(GLYPH_COLOR, GLYPH_STROKE)),
+        stroke: Some(PathStroke::new(color, GLYPH_STROKE)),
     }
 }

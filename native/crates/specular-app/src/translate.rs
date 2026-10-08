@@ -4,11 +4,11 @@ use std::time::{Duration, Instant};
 
 use glam::Vec2;
 use specular_core::{ImeEvent, Modifiers, PointerButton};
-use specular_interact::{Cursor, Key, KeyInput};
+use specular_interact::{Appearance, Cursor, Key, KeyInput};
 use winit::event::{ElementState, Ime, KeyEvent, MouseButton};
 use winit::keyboard::ModifiersState;
 use winit::platform::scancode::PhysicalKeyExtScancode as _;
-use winit::window::CursorIcon;
+use winit::window::{CursorIcon, Theme};
 
 /// Presses closer together than this (and [`CLICK_SLOP`]) extend a click run.
 const MULTI_CLICK_INTERVAL: Duration = Duration::from_millis(500);
@@ -32,6 +32,14 @@ pub(crate) fn pointer_button(button: MouseButton) -> Option<PointerButton> {
         MouseButton::Middle => Some(PointerButton::Middle),
         MouseButton::Right => Some(PointerButton::Right),
         MouseButton::Back | MouseButton::Forward | MouseButton::Other(_) => None,
+    }
+}
+
+/// The appearance the window system reports.
+pub(crate) const fn appearance(theme: Theme) -> Appearance {
+    match theme {
+        Theme::Light => Appearance::Light,
+        Theme::Dark => Appearance::Dark,
     }
 }
 

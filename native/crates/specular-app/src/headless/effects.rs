@@ -7,11 +7,12 @@ use std::time::{Duration, Instant};
 use anyhow::Context as _;
 use glam::Vec2;
 use specular_core::{PageEvent, PageId, PageSource, PageSourceError, PageSpec};
-use specular_doc::{EntityId, Rect};
+use specular_doc::{ColorScheme, EntityId, Rect};
 use specular_interact::{ClipboardContent, Effect, Event, ImageNotice, NoteNotice, PageRegion};
 use specular_scene::ImageId;
 
 use super::Headless;
+use crate::app::{page_color_scheme, page_own_scheme};
 use crate::images::LoadFailure;
 use crate::notes::ReadFailure;
 use crate::page_notice::notice_of;
@@ -25,6 +26,19 @@ const LOAD_TIMEOUT: Duration = Duration::from_secs(10);
 const PAGE_SETTLE: Duration = Duration::from_millis(300);
 
 impl Headless {
+    /// Tells a page the scheme it reports: its own, or the app's.
+    fn set_color_scheme(
+        &mut self,
+        page: &EntityId,
+        own: Option<ColorScheme>,
+    ) -> anyhow::Result<()> {
+        if let Some(&host) = self.hosts.get(page) {
+            let scheme = page_color_scheme(own, self.app.app().appearance());
+            self.source.set_color_scheme(host, scheme)?;
+        }
+        Ok(())
+    }
+
     pub(super) fn run(&mut self, effect: Effect) -> anyhow::Result<()> {
         match effect {
             Effect::CreatePage {
@@ -38,7 +52,9 @@ impl Headless {
                     .source
                     .create_page(&spec)
                     .with_context(|| format!("creating page for {url}"))?;
-                self.hosts.insert(page, host);
+                self.hosts.insert(page.clone(), host);
+                let own = page_own_scheme(self.app.app().document(), &page);
+                self.set_color_scheme(&page, own)?;
                 self.loading_pages.insert(host);
                 self.unpainted_pages.insert(host);
             }
@@ -48,6 +64,7 @@ impl Headless {
                     self.source.set_viewport(host, viewport)?;
                 }
             }
+            Effect::SetPageColorScheme { page, scheme } => self.set_color_scheme(&page, scheme)?,
             Effect::LoadImage { image, file } => {
                 self.loading_images.insert(image);
                 self.images
@@ -109,6 +126,7 @@ impl Headless {
             | Effect::WriteAsset { .. }
             | Effect::CopyAsset { .. }
             | Effect::SaveToolDefaults(_)
+            | Effect::SaveTheme(_)
             | Effect::LoadThreads
             | Effect::WriteThread(_)
             | Effect::WriteThreadIndex

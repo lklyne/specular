@@ -16,14 +16,6 @@ use specular_interact::RunBar;
 use crate::theme;
 use crate::view::{ShellView, run};
 
-/// The strip's wash: the ends of `GrainGradient`'s palette under its white
-/// veil. The grain and the drift are a shader this renderer does not have.
-const WASH_FROM: u32 = 0xf0d9_ffff;
-const WASH_TO: u32 = 0xffe2_c2ff;
-/// The label at rest and under the shimmer: black at 55% and black.
-const LABEL: u32 = 0x0000_008c;
-const LABEL_BRIGHT: u32 = 0x0000_00ff;
-
 /// What the bar needs from the view.
 #[derive(Clone)]
 pub(super) struct RunBarView {
@@ -54,7 +46,7 @@ fn log(run: &RunBar, bar: &RunBarView, cx: &App) -> impl IntoElement + use<> {
         .font_family(cx.theme().mono_font_family.clone())
         .text_size(px(11.0))
         .line_height(relative(1.625))
-        .text_color(theme::tinted(theme::TEXT_MUTED))
+        .text_color(theme::tinted(theme::text_muted()))
         .children(
             (run.log.iter()).map(|line| div().min_w_0().child(SharedString::from(line.clone()))),
         )
@@ -77,8 +69,8 @@ pub(super) fn run_bar(run_bar: &RunBar, bar: &RunBarView, cx: &App) -> impl Into
         .when(!bar.open, |this| this.rounded_b(px(15.0)))
         .bg(linear_gradient(
             90.0,
-            linear_color_stop(rgba(WASH_FROM), 0.0),
-            linear_color_stop(rgba(WASH_TO), 1.0),
+            linear_color_stop(rgba(theme::wash_from()), 0.0),
+            linear_color_stop(rgba(theme::wash_to()), 1.0),
         ))
         .child(
             div()
@@ -90,11 +82,11 @@ pub(super) fn run_bar(run_bar: &RunBar, bar: &RunBarView, cx: &App) -> impl Into
                 .child(
                     ShimmerText::new(SharedString::from(run_bar.label.clone()))
                         .id("chat-run-shimmer")
-                        .highlight_color(rgba(LABEL_BRIGHT))
+                        .highlight_color(rgba(theme::label_bright()))
                         .truncate()
                         .text_size(px(12.0))
                         .font_weight(FontWeight::MEDIUM)
-                        .text_color(rgba(LABEL)),
+                        .text_color(rgba(theme::label())),
                 ),
         )
         .child(
@@ -125,8 +117,8 @@ pub(super) fn run_bar(run_bar: &RunBar, bar: &RunBarView, cx: &App) -> impl Into
         .overflow_hidden()
         .rounded(px(16.0))
         .border_1()
-        .border_color(theme::solid(theme::INPUT_BORDER))
-        .bg(theme::solid(theme::INPUT))
+        .border_color(theme::solid(theme::input_border()))
+        .bg(theme::solid(theme::input()))
         .child(strip)
         .content(log(run_bar, bar, cx))
 }

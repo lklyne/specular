@@ -4,7 +4,7 @@
 use std::collections::HashMap;
 
 use specular_core::{CssSize, PageNav};
-use specular_doc::{Document, EntityId};
+use specular_doc::{ColorScheme, Document, EntityId};
 
 use crate::app::page_of;
 use crate::{Effect, PagePlacement};
@@ -15,6 +15,7 @@ pub(crate) struct HostedPage {
     id: EntityId,
     url: String,
     viewport: CssSize,
+    scheme: Option<ColorScheme>,
 }
 
 /// The pages of `document`, back-to-front.
@@ -26,6 +27,7 @@ pub(crate) fn snapshot(document: &Document) -> Vec<HostedPage> {
                 id: entity.id.clone(),
                 url: page_of(entity)?.url.clone(),
                 viewport: PagePlacement::viewport_for(entity.rect),
+                scheme: page_of(entity)?.color_scheme,
             })
         })
         .collect()
@@ -52,6 +54,9 @@ pub(crate) fn reconcile(before: &[HostedPage], document: &Document, effects: &mu
                         nav: PageNav::To(page.url.clone()),
                     });
                 }
+                if old.scheme != page.scheme {
+                    effects.push(color_scheme(page));
+                }
                 if old.viewport != page.viewport {
                     effects.push(Effect::SetPageViewport {
                         page: page.id.clone(),
@@ -59,6 +64,7 @@ pub(crate) fn reconcile(before: &[HostedPage], document: &Document, effects: &mu
                     });
                 }
             }
+            // The shell gives a new page its scheme as it makes it.
             None => effects.push(Effect::CreatePage {
                 page: page.id.clone(),
                 url: page.url.clone(),
@@ -77,4 +83,18 @@ pub(crate) fn replace(before: &[HostedPage], document: &Document, effects: &mut 
         effects.push(Effect::ClosePage(page.id.clone()));
     }
     reconcile(&[], document, effects);
+}
+
+fn color_scheme(page: &HostedPage) -> Effect {
+    Effect::SetPageColorScheme {
+        page: page.id.clone(),
+        scheme: page.scheme,
+    }
+}
+
+/// Appends the effect that tells every page of `document` the scheme it
+/// follows, for when the app's appearance changed under pages with no
+/// scheme of their own.
+pub(crate) fn refresh_color_schemes(document: &Document, effects: &mut Vec<Effect>) {
+    effects.extend(snapshot(document).iter().map(color_scheme));
 }

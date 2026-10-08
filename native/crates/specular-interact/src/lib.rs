@@ -86,6 +86,7 @@ mod space;
 mod stack_order;
 mod strokes;
 mod sync;
+mod theme;
 mod time;
 mod tool;
 mod tool_defaults;
@@ -151,9 +152,9 @@ pub use panel::builtin::PanelUi;
 pub use panel::{
     Align, Button, Choices, Control, ControlId, Dropdown, DropdownOption, DropdownSection, Entries,
     Face, Field, FieldSubmit, FieldWidth, Icon, Label, MenuTarget, OptionLayout, PaintRole,
-    Palette, Placement, PopupAnchor, PopupModel, SidebarButton, Stepper, Swatch, Swatches, Toggle,
-    ToolButton, ToolbarModel, ToolbarSection, UnknownControl, context_menu, control_named,
-    named_controls, popup_for, toolbar,
+    Palette, Placement, PopupAnchor, PopupModel, SidebarButton, Stepper, Swatch, Swatches,
+    ThemeButton, Toggle, ToolButton, ToolbarModel, ToolbarSection, UnknownControl, context_menu,
+    control_named, named_controls, popup_for, toolbar,
 };
 pub use physical_key::{PhysicalKey, mac_key_input};
 pub use place::{PlaceDrag, Placing};
@@ -183,6 +184,7 @@ pub use specular_agent::{
     Progress, ProgressKind, Repos, Role as ThreadRole, RunRequest, RunState,
     Status as ThreadStatus, Thread, ThreadId, Threads, WriteTarget, origin_of,
 };
+pub use theme::{Appearance, Theme, ThemeState};
 pub use time::iso8601;
 pub use tool::Tool;
 pub use tool_defaults::{

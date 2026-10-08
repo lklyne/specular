@@ -12,8 +12,9 @@ use cef::{
 };
 use glam::Vec2;
 use specular_core::{
-    CssRect, CssSize, DevtoolsSink, InputEvent, LocatorBundle, PageEvent, PageId, PageNav,
-    PageSource, PageSourceError, PageSpec, PointKind, validate_texture_scale, validate_viewport,
+    CssRect, CssSize, DevtoolsSink, InputEvent, LocatorBundle, PageColorScheme, PageEvent, PageId,
+    PageNav, PageSource, PageSourceError, PageSpec, PointKind, validate_texture_scale,
+    validate_viewport,
 };
 
 use crate::client::{new_app, new_client};
@@ -320,6 +321,20 @@ impl PageSource for CefPageSource {
             entry.host.invalidate(PaintElementType::VIEW);
         }
         Ok(())
+    }
+
+    fn set_color_scheme(
+        &mut self,
+        page: PageId,
+        scheme: PageColorScheme,
+    ) -> Result<(), PageSourceError> {
+        let entry = self.entry(page)?;
+        (entry.devtools)
+            .send(&entry.host, Asked::Done, |id| {
+                dom_query::color_scheme_message(id, scheme)
+            })
+            .then_some(())
+            .ok_or_else(|| refused("color scheme"))
     }
 
     fn close_page(&mut self, page: PageId) -> Result<(), PageSourceError> {

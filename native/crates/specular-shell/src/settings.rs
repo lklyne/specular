@@ -22,7 +22,7 @@ use crate::settings_repos::{self, AddFields, send};
 use crate::theme;
 
 fn muted() -> gpui_kit::Hsla {
-    theme::tinted(theme::TEXT_MUTED)
+    theme::tinted(theme::text_muted())
 }
 
 fn value(text: String) -> impl IntoElement {

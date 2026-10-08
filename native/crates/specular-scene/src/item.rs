@@ -141,12 +141,23 @@ impl Item {
 pub struct Scene {
     /// The items in paint order.
     pub items: Vec<Item>,
+    /// The theme the scene is drawn in, which also says what the canvas
+    /// and its dots are.
+    pub appearance: specular_interact::Appearance,
 }
 
 impl Scene {
     /// An empty scene.
     pub const fn new() -> Self {
-        Self { items: Vec::new() }
+        Self {
+            items: Vec::new(),
+            appearance: specular_interact::Appearance::Light,
+        }
+    }
+
+    /// The colours of the scene's theme.
+    pub const fn colors(&self) -> &'static crate::Colors {
+        crate::Colors::of(self.appearance)
     }
 
     /// Adds an item on top of everything pushed so far.
@@ -159,6 +170,7 @@ impl FromIterator<Item> for Scene {
     fn from_iter<I: IntoIterator<Item = Item>>(items: I) -> Self {
         Self {
             items: items.into_iter().collect(),
+            ..Self::default()
         }
     }
 }

@@ -15,27 +15,25 @@ use crate::{
 const DEFAULT_BASE: Color = Color::rgb(0x6b, 0x72, 0x80);
 /// The fill is the base hue this far towards white, and the border the base
 /// hue this far towards black.
-const FILL_LIGHTEN: f32 = 0.5;
-const BORDER_DARKEN: f32 = 0.35;
 const DEFAULT_BORDER_WIDTH: f32 = 2.0;
 /// A dashed border's dash and gap, as multiples of its width.
 const DASH_ON: f32 = 2.0;
 const DASH_OFF: f32 = 1.5;
-const LABEL_COLOR: Color = Color::rgb(20, 20, 20);
 
 pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, shape: &Shape, scene: &mut Scene) {
     let rect = canvas_rect(entity.rect);
+    let colors = frame.colors;
     let base = shape.color.as_ref().map_or(DEFAULT_BASE, |color| {
-        palette::resolve(color, Palette::Soft, Role::Fill)
+        palette::resolve(color, Palette::Soft, Role::Fill, colors)
     });
     let fill = match shape.fill_style.unwrap_or(FillStyle::Solid) {
-        FillStyle::Solid => Some(palette::lighten(base, FILL_LIGHTEN)),
+        FillStyle::Solid => Some(palette::shaded(base, colors.shape_fill)),
         FillStyle::None => None,
     };
     let border_base = shape.border_color.as_ref().map_or(base, |color| {
-        palette::resolve(color, Palette::Soft, Role::Fill)
+        palette::resolve(color, Palette::Soft, Role::Fill, colors)
     });
-    let border_color = palette::darken(border_base, BORDER_DARKEN);
+    let border_color = palette::shaded(border_base, colors.shape_border);
     let width = shape
         .stroke_width
         .map_or(DEFAULT_BORDER_WIDTH, |width| width as f32);
@@ -74,10 +72,10 @@ pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, shape: &Shape, scene: &mu
     let shown = frame.app.editing_text(&entity.id).unwrap_or(&shape.text);
     editing::selection(frame, &entity.id, Some(within), scene);
     if !shown.is_empty() {
-        let run = TextRun::framed(shown, &label, LABEL_COLOR);
+        let run = TextRun::framed(shown, &label, colors.shape_label);
         scene.push(Item::canvas(run).clipped(within));
     }
-    editing::caret(frame, &entity.id, Some(within), LABEL_COLOR, scene);
+    editing::caret(frame, &entity.id, Some(within), colors.shape_label, scene);
 }
 
 /// The silhouette as the cheapest draw that can show it. A solid rect or

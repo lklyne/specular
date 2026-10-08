@@ -115,7 +115,11 @@ impl Shell {
             self.options.bench.is_some(),
         )?;
         let refresh = gpu.refresh_interval();
+        let system = gpu.window.theme().map(crate::translate::appearance);
         self.runtime.attach_window(gpu);
+        if let Some(system) = system {
+            self.runtime.dispatch(Event::SystemAppearance(system));
+        }
         // The toolbar and the popup are part of the chrome layer. A
         // benchmark measures the canvas, so it runs without them.
         let panels = self.options.chrome && self.options.bench.is_none();
@@ -182,6 +186,10 @@ impl ApplicationHandler<ShellEvent> for Shell {
             }
             WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
                 self.runtime.on_scale_factor_changed(scale_factor);
+            }
+            WindowEvent::ThemeChanged(theme) => {
+                let system = crate::translate::appearance(theme);
+                self.runtime.dispatch(Event::SystemAppearance(system));
             }
             WindowEvent::DroppedFile(path) => self.runtime.drop_files([path], self.cursor),
             // The system asks too, after uncovering the window.

@@ -62,7 +62,7 @@ fn main() {
     application.on_open_urls(|urls| spaces::opened_from_finder(&urls));
     application.run(move |cx| {
         gpui_kit::init(cx);
-        theme::apply(cx);
+        theme::apply(specular_interact::Appearance::Light, cx);
         if let Err(error) = shell::open(launch, cx) {
             // Loud on purpose: a pin that moved lands here.
             eprintln!("specular could not start: {error:#}");

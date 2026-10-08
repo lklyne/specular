@@ -1,8 +1,8 @@
 //! The preferences file: app settings that are not part of any canvas.
 //!
 //! One JSON object in the app's config folder. This shell reads and writes
-//! `toolDefaults`, `spacePath` and `show`, and keeps every other key as it
-//! found it. The file is the
+//! `toolDefaults`, `spacePath`, `show` and `themeMode`, and keeps every other
+//! key as it found it. The file is the
 //! native app's own: the Electron app keeps its settings in memory and
 //! rewrites its file whole, so two writers on one file would lose changes.
 
@@ -11,7 +11,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use serde_json::{Map, Value};
-use specular_interact::{AppSettings, ToolDefaults};
+use specular_interact::{AppSettings, Theme, ToolDefaults};
 
 use crate::persist::write_atomic;
 
@@ -20,6 +20,8 @@ const TOOL_DEFAULTS_KEY: &str = "toolDefaults";
 const SPACE_PATH_KEY: &str = "spacePath";
 /// What is shown when the app opens: `{"sidebar": bool, "rightPanel": bool}`.
 const SHOW_KEY: &str = "show";
+/// The key the Electron app stores its theme under too.
+const THEME_KEY: &str = "themeMode";
 /// Overrides the config folder, for a run that must not touch the real one.
 pub(crate) const CONFIG_DIR_VARIABLE: &str = "SPECULAR_NATIVE_CONFIG_DIR";
 
@@ -85,6 +87,17 @@ pub(crate) fn load_tool_defaults(path: &Path) -> Option<ToolDefaults> {
 /// file that cannot be read as preferences is left alone.
 pub(crate) fn save_tool_defaults(path: &Path, defaults: &ToolDefaults) -> io::Result<()> {
     save_key(path, TOOL_DEFAULTS_KEY, defaults.to_json())
+}
+
+/// The saved theme choice, or `None` when there is none to read.
+pub(crate) fn load_theme(path: &Path) -> Option<Theme> {
+    let preferences = read(path).ok()?;
+    Some(Theme::from_key(preferences.get(THEME_KEY)?.as_str()?))
+}
+
+/// Writes `theme` under `themeMode`, keeping the file's other keys.
+pub(crate) fn save_theme(path: &Path, theme: Theme) -> io::Result<()> {
+    save_key(path, THEME_KEY, Value::from(theme.key()))
 }
 
 /// The space folder last chosen in this app, if one was.
@@ -209,6 +222,10 @@ mod tests {
         assert_eq!(load_tool_defaults(&path), None);
         save_tool_defaults(&path, &diamonds()).unwrap();
         assert_eq!(load_tool_defaults(&path), Some(diamonds()));
+        assert_eq!(load_theme(&path), None);
+        save_theme(&path, Theme::Dark).unwrap();
+        assert_eq!(load_theme(&path), Some(Theme::Dark));
+        assert_eq!(load_tool_defaults(&path), Some(diamonds()));
     }
 
     #[test]
@@ -218,12 +235,13 @@ mod tests {
         let path = dir.0.join(FILE_NAME);
         std::fs::write(
             &path,
-            r#"{"spacePath":"/Users/me/Space","toolDefaults":{"draw":{}}}"#,
+            r#"{"spacePath":"/Users/me/Space","themeMode":"dark","toolDefaults":{"draw":{}}}"#,
         )
         .unwrap();
         save_tool_defaults(&path, &diamonds()).unwrap();
         let saved: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
         assert_eq!(saved["spacePath"], "/Users/me/Space");
+        assert_eq!(saved["themeMode"], "dark");
         assert_eq!(saved["toolDefaults"]["add-shape"]["shapeKind"], "diamond");
     }
 

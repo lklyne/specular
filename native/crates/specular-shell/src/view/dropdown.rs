@@ -74,12 +74,12 @@ fn option(model: &DropdownOption, list: Option<Rows>, dismiss: Dismiss) -> AnyEl
         .when(!wide, |this| this.w(px(32.0)).justify_center())
         .rounded(px(6.0))
         .when(model.selected && !menu, |this| {
-            this.bg(theme::solid(theme::CONTROL_ON))
+            this.bg(theme::solid(theme::control_on()))
         })
         .when(!model.enabled, |this| this.opacity(0.4))
         .when(model.enabled, |this| {
             this.cursor_pointer()
-                .hover(|this| this.bg(theme::solid(theme::CONTROL_HOVER)))
+                .hover(|this| this.bg(theme::solid(theme::control_hover())))
                 .on_click(move |_, window, cx| {
                     run(&action, window, cx);
                     dismiss(window, cx);
@@ -88,12 +88,12 @@ fn option(model: &DropdownOption, list: Option<Rows>, dismiss: Dismiss) -> AnyEl
         .child(face(&model.face, model.selected || menu))
         .child(mark(&model.id))
         .when(model.selected && menu, |this| {
-            this.child(glyph(Icon::Check, ink(theme::TEXT), None, false, 12.0))
+            this.child(glyph(Icon::Check, ink(theme::text()), None, false, 12.0))
         })
         .when_some(trailing, |this, text| {
             this.child(
                 div()
-                    .text_color(theme::tinted(theme::TEXT_MUTED))
+                    .text_color(theme::tinted(theme::text_muted()))
                     .child(text),
             )
         })
@@ -103,8 +103,8 @@ fn option(model: &DropdownOption, list: Option<Rows>, dismiss: Dismiss) -> AnyEl
                     .px_1p5()
                     .py_0p5()
                     .rounded(px(4.0))
-                    .bg(theme::solid(theme::CONTROL_ON))
-                    .text_color(theme::solid(0x0057_534d))
+                    .bg(theme::solid(theme::control_on()))
+                    .text_color(theme::solid(theme::key_text()))
                     .child(SharedString::from(keys)),
             )
         })

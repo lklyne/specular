@@ -1,14 +1,15 @@
-//! Resolving a stored [`specular_doc::Color`] to the colour that is drawn,
-//! and the fixed colours of the chrome.
+//! Resolving a stored [`specular_doc::Color`] to the colour that is drawn.
 //!
 //! A stored colour names a slot, not a hue. The surface being painted picks
 //! the [`Palette`]: the same preset is a muted pastel on a sticky note and a
 //! saturated ink on a pen stroke (ADR 0013). The neutral slot depends on the
-//! [`Role`] as well. Everything here is the light theme.
+//! [`Role`] and on the theme. The soft pastels are the same in both themes
+//! (`canvas-colors.ts`); the vivid hues, the neutral ink and the neutral fill
+//! come from the [`Colors`] of the appearance being drawn.
 
 use specular_doc::{Color as Stored, ColorPreset};
 
-use crate::{Color, Item, Rect, ShadowDraw};
+use crate::{Color, Colors, Hues, Item, Rect, Shade, ShadowDraw};
 
 /// Which hue set a surface paints in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -28,37 +29,19 @@ pub(crate) enum Role {
     Ink,
 }
 
-/// The neutral ink: default text, and text on a sticky note.
-pub(crate) const INK: Color = Color::rgb(0x1c, 0x19, 0x17);
-/// The neutral fill: an uncoloured sticky note or shape.
-pub(crate) const NEUTRAL_FILL: Color = Color::rgb(0xfd, 0xf8, 0xf5);
-
-/// The accent blue of selection outlines, handles and the marquee.
-pub(crate) const SELECTION: Color = Color::rgb(0x3b, 0x82, 0xf6);
-/// A page's resting border.
-pub(crate) const PAGE_BORDER: Color = Color::rgb(0xa6, 0xa0, 0x9b);
-/// Secondary chrome text: page titles, group labels, file names.
-pub(crate) const MUTED_TEXT: Color = Color::rgb(0x6b, 0x6b, 0x6b);
-/// The inside of a card that stands in for content: a file.
-pub(crate) const CARD: Color = Color::rgb(0xfa, 0xfa, 0xf9);
-/// The highlight behind selected text while it is edited: the system's
-/// own, which is what a browser paints.
-pub(crate) const TEXT_SELECTION: Color = Color::rgb(0xb3, 0xd7, 0xff);
-
 /// The shadow under a sticky note, a file card and a Document, which is
 /// what lifts a pale card off the pale canvas: `0 2px 8px rgba(0, 0, 0,
-/// 0.08)`, in canvas units so it scales with the zoom.
-const CARD_SHADOW: Color = Color::rgba(0, 0, 0, 20);
+/// 0.08)` in the light theme, in canvas units so it scales with the zoom.
 const CARD_SHADOW_DROP: f32 = 2.0;
 const CARD_SHADOW_BLUR: f32 = 8.0;
 
 /// The shadow of a card at `rect`, to push before the card itself.
-pub(crate) fn card_shadow(rect: Rect, corner_radius: f32) -> Item {
+pub(crate) fn card_shadow(colors: &Colors, rect: Rect, corner_radius: f32) -> Item {
     Item::canvas(ShadowDraw {
         rect: Rect::new(rect.x, rect.y + CARD_SHADOW_DROP, rect.width, rect.height),
         corner_radius,
         blur: CARD_SHADOW_BLUR,
-        color: CARD_SHADOW,
+        color: Color::rgba(0, 0, 0, colors.card_shadow),
     })
 }
 
@@ -66,70 +49,63 @@ pub(crate) fn card_shadow(rect: Rect, corner_radius: f32) -> Item {
 /// this app's seventh.
 const BLUE_PRESET: &str = "7";
 
-/// A hue slot's two colours.
-struct Hue {
-    soft: Color,
-    vivid: Color,
-}
-
-/// The light-theme hues. The vivid column is each saturated hue with its
-/// OKLCH lightness pinned to 0.5, which is what the light canvas paints.
-const fn hue(preset: ColorPreset) -> Hue {
+/// The muted pastel of a hue slot, which fills stickies and shapes and
+/// paints the highlighter in either theme.
+const fn soft(preset: ColorPreset) -> Color {
     match preset {
-        ColorPreset::Red => Hue {
-            soft: Color::rgb(0xe8, 0xb4, 0xb8),
-            vivid: Color::rgb(0xcd, 0x00, 0x00),
-        },
-        ColorPreset::Orange => Hue {
-            soft: Color::rgb(0xe8, 0xcc, 0xb0),
-            vivid: Color::rgb(0xa8, 0x3d, 0x00),
-        },
-        ColorPreset::Yellow => Hue {
-            soft: Color::rgb(0xff, 0xe1, 0x8e),
-            vivid: Color::rgb(0x85, 0x5c, 0x00),
-        },
-        ColorPreset::Green => Hue {
-            soft: Color::rgb(0xb8, 0xd8, 0xc8),
-            vivid: Color::rgb(0x00, 0x80, 0x00),
-        },
-        ColorPreset::Cyan => Hue {
-            soft: Color::rgb(0xb0, 0xd0, 0xd8),
-            vivid: Color::rgb(0x00, 0x71, 0xa2),
-        },
-        ColorPreset::Purple => Hue {
-            soft: Color::rgb(0xc8, 0xb8, 0xd8),
-            vivid: Color::rgb(0x94, 0x14, 0xb9),
-        },
+        ColorPreset::Red => Color::rgb(0xe8, 0xb4, 0xb8),
+        ColorPreset::Orange => Color::rgb(0xe8, 0xcc, 0xb0),
+        ColorPreset::Yellow => Color::rgb(0xff, 0xe1, 0x8e),
+        ColorPreset::Green => Color::rgb(0xb8, 0xd8, 0xc8),
+        ColorPreset::Cyan => Color::rgb(0xb0, 0xd0, 0xd8),
+        ColorPreset::Purple => Color::rgb(0xc8, 0xb8, 0xd8),
     }
 }
 
-const BLUE: Hue = Hue {
-    soft: Color::rgb(0xb0, 0xc4, 0xd8),
-    vivid: Color::rgb(0x00, 0x5c, 0xd4),
-};
+const SOFT_BLUE: Color = Color::rgb(0xb0, 0xc4, 0xd8);
 
-/// The colour `stored` paints as on a surface of `palette`, used as `role`.
-/// A literal `#RRGGBB` passes through; anything unreadable is the neutral.
-pub(crate) fn resolve(stored: &Stored, palette: Palette, role: Role) -> Color {
+/// The saturated ink of a hue slot in `hues`.
+const fn vivid(hues: &Hues, preset: ColorPreset) -> Color {
+    match preset {
+        ColorPreset::Red => hues.red,
+        ColorPreset::Orange => hues.orange,
+        ColorPreset::Yellow => hues.yellow,
+        ColorPreset::Green => hues.green,
+        ColorPreset::Cyan => hues.cyan,
+        ColorPreset::Purple => hues.purple,
+    }
+}
+
+/// The colour `stored` paints as on a surface of `palette`, used as `role`,
+/// in the theme `colors` is. A literal `#RRGGBB` passes through; anything
+/// unreadable is the neutral.
+pub(crate) fn resolve(stored: &Stored, palette: Palette, role: Role, colors: &Colors) -> Color {
     let neutral = match role {
-        Role::Fill => NEUTRAL_FILL,
-        Role::Ink => INK,
-    };
-    let pick = |hue: Hue| match palette {
-        Palette::Soft => hue.soft,
-        Palette::Vivid => hue.vivid,
+        Role::Fill => colors.neutral_fill,
+        Role::Ink => colors.ink,
     };
     match stored {
         Stored::Neutral => neutral,
-        Stored::Preset(preset) => pick(hue(*preset)),
-        Stored::Custom(value) if value == BLUE_PRESET => pick(BLUE),
+        Stored::Preset(preset) => match palette {
+            Palette::Soft => soft(*preset),
+            Palette::Vivid => vivid(&colors.hues, *preset),
+        },
+        Stored::Custom(value) if value == BLUE_PRESET => match palette {
+            Palette::Soft => SOFT_BLUE,
+            Palette::Vivid => colors.hues.blue,
+        },
         Stored::Custom(value) => parse_hex(value).unwrap_or(neutral),
     }
 }
 
 /// [`resolve`] for an optional colour, where absent means the neutral.
-pub(crate) fn resolve_or_neutral(stored: Option<&Stored>, palette: Palette, role: Role) -> Color {
-    resolve(stored.unwrap_or(&Stored::Neutral), palette, role)
+pub(crate) fn resolve_or_neutral(
+    stored: Option<&Stored>,
+    palette: Palette,
+    role: Role,
+    colors: &Colors,
+) -> Color {
+    resolve(stored.unwrap_or(&Stored::Neutral), palette, role, colors)
 }
 
 /// `#RRGGBB` or `#RGB` as a colour.
@@ -162,6 +138,15 @@ pub(crate) fn darken(color: Color, amount: f32) -> Color {
     Color::rgba(mix(color.r), mix(color.g), mix(color.b), color.a)
 }
 
+/// `color` derived by `shade`.
+pub(crate) fn shaded(color: Color, shade: Shade) -> Color {
+    match shade {
+        Shade::Lighten(amount) => lighten(color, amount),
+        Shade::Darken(amount) => darken(color, amount),
+        Shade::Keep => color,
+    }
+}
+
 /// `color` at `alpha`, 0 to 1.
 pub(crate) fn with_alpha(color: Color, alpha: f32) -> Color {
     color.with_alpha((alpha.clamp(0.0, 1.0) * 255.0).round() as u8)
@@ -169,15 +154,18 @@ pub(crate) fn with_alpha(color: Color, alpha: f32) -> Color {
 
 #[cfg(test)]
 mod tests {
+    use specular_interact::Appearance;
+
     use super::*;
 
     #[test]
     fn a_preset_is_a_pastel_on_a_fill_and_an_ink_on_a_stroke() {
         let yellow = Stored::Preset(ColorPreset::Yellow);
+        let light = Colors::of(Appearance::Light);
         assert_eq!(
             (
-                resolve(&yellow, Palette::Soft, Role::Fill),
-                resolve(&yellow, Palette::Vivid, Role::Ink)
+                resolve(&yellow, Palette::Soft, Role::Fill, light),
+                resolve(&yellow, Palette::Vivid, Role::Ink, light)
             ),
             (Color::rgb(0xff, 0xe1, 0x8e), Color::rgb(0x85, 0x5c, 0x00))
         );
@@ -185,16 +173,14 @@ mod tests {
 
     #[test]
     fn a_hex_passes_through_and_nonsense_is_neutral() {
+        let light = Colors::of(Appearance::Light);
+        let ink = |stored: &str| resolve(&Stored::parse(stored), Palette::Vivid, Role::Ink, light);
         assert_eq!(
-            [
-                resolve(&Stored::parse("#ff00aa"), Palette::Vivid, Role::Ink),
-                resolve(&Stored::parse("#f0a"), Palette::Vivid, Role::Ink),
-                resolve(&Stored::parse("tomato"), Palette::Vivid, Role::Ink),
-            ],
+            [ink("#ff00aa"), ink("#f0a"), ink("tomato")],
             [
                 Color::rgb(0xff, 0x00, 0xaa),
                 Color::rgb(0xff, 0x00, 0xaa),
-                INK
+                light.ink
             ]
         );
     }

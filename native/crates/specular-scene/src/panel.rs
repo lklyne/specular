@@ -10,7 +10,6 @@
 //! built-in panels draws them over the scene it got from `view`; one that
 //! draws the panel models with a UI library leaves this module out.
 
-mod colors;
 mod icons;
 mod input;
 mod node;
@@ -19,7 +18,7 @@ mod surface;
 use specular_interact::App;
 use specular_interact::panel::builtin::{PanelRect, Surface, layout};
 
-use crate::{Rect, Scene};
+use crate::{Colors, Rect, Scene};
 
 fn rect(rect: PanelRect) -> Rect {
     Rect::new(rect.x, rect.y, rect.width, rect.height)
@@ -34,6 +33,7 @@ pub fn panel_color(
     color: &specular_doc::Color,
     palette: specular_interact::Palette,
     role: specular_interact::PaintRole,
+    appearance: specular_interact::Appearance,
 ) -> crate::Color {
     use crate::view::palette;
     let hues = match palette {
@@ -44,7 +44,7 @@ pub fn panel_color(
         specular_interact::PaintRole::Fill => palette::Role::Fill,
         specular_interact::PaintRole::Ink => palette::Role::Ink,
     };
-    palette::resolve(color, hues, role)
+    palette::resolve(color, hues, role, Colors::of(appearance))
 }
 
 /// Adds the built-in panels of `app` to `scene`, over everything in it: the
@@ -52,11 +52,12 @@ pub fn panel_color(
 /// added while the built-in panels are off.
 pub fn draw_panels(app: &App, scene: &mut Scene) {
     let layout = layout(app);
+    let colors = Colors::of(app.appearance());
     for panel in layout.panels() {
-        surface::draw(panel, &mut scene.items);
+        surface::draw(&colors.panel, panel, &mut scene.items);
         for node in &panel.nodes {
             let first = scene.items.len();
-            node::draw(panel.surface, node, &mut scene.items);
+            node::draw(colors, panel.surface, node, &mut scene.items);
             if panel.surface == Surface::SidebarList {
                 clip(&mut scene.items[first..], rect(panel.rect));
             }

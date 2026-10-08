@@ -23,7 +23,7 @@ use crate::native::{Id, NativeCanvas};
 use crate::pacing::Pacing;
 use crate::surface::{CanvasSurface, WindowAsks};
 use crate::view::ShellView;
-use crate::{debug_input, keys, menus, pins, refresh, spaces};
+use crate::{debug_input, keys, menus, pins, refresh, spaces, theme};
 
 /// The window size when the command line names none: the Electron app's.
 const DEFAULT_SIZE: (u32, u32) = (1600, 1000);
@@ -95,6 +95,10 @@ fn on_wake(cx: &mut App) {
     }
     if let Some(models) = canvas::models() {
         menus::sync(&models.menus, cx);
+        if models.appearance != theme::appearance() {
+            theme::apply(models.appearance, cx);
+            cx.refresh_windows();
+        }
     }
     if let Some(handle) = cx.try_global::<ShellHandle>().cloned() {
         handle.view.update(cx, |_, cx| cx.notify());
@@ -151,6 +155,20 @@ fn say_what_the_kit_draws(runtime: &mut Runtime<CanvasSurface>, benching: bool) 
     runtime.dispatch(Event::About(pins::about(runtime.source_name())));
 }
 
+/// Keeps the app told of the operating system's appearance while it runs,
+/// which is what the `System` theme draws.
+fn follow_system_appearance(window: AnyWindowHandle, cx: &mut App) -> anyhow::Result<()> {
+    window.update(cx, |_, window, _| {
+        window
+            .observe_window_appearance(|window, _| {
+                let system = theme::of_system(window.appearance());
+                canvas::dispatch(Event::SystemAppearance(system));
+            })
+            .detach();
+    })?;
+    Ok(())
+}
+
 /// Opens the window on `launch` and starts everything that runs with it.
 pub(crate) fn open(launch: Launch, cx: &mut App) -> anyhow::Result<()> {
     // GPUI has made `NSApp` by now, which CEF needs before it starts.
@@ -198,6 +216,9 @@ pub(crate) fn open(launch: Launch, cx: &mut App) -> anyhow::Result<()> {
         );
         runtime.attach_window(surface);
         say_what_the_kit_draws(&mut runtime, bench.is_some());
+        runtime.dispatch(Event::SystemAppearance(theme::of_system(
+            window.appearance(),
+        )));
         runtime.open(opening)?;
         // Finder's file, when the app was launched to open one.
         if let Some(file) = spaces::take_waiting() {
@@ -215,6 +236,7 @@ pub(crate) fn open(launch: Launch, cx: &mut App) -> anyhow::Result<()> {
         Ok(())
     })??;
 
+    follow_system_appearance(window, cx)?;
     cx.set_global(ShellHandle { window, view });
     keys::install_monitor();
     menus::install(cx);

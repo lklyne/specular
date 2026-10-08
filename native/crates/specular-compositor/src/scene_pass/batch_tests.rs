@@ -253,7 +253,7 @@ fn an_item_is_tested_against_its_neighbours_not_against_every_item_before_it() {
             ]
         })
         .collect();
-    let scene = Scene { items: notes };
+    let scene = Scene::from_iter(notes);
     let mut placed = Vec::new();
     place(&scene, &view, |_| Size::new(8.0, 8.0), &mut placed);
     assert_eq!(placed.len(), 2_400);

@@ -24,7 +24,9 @@ use specular_interact::Icon;
 
 pub use self::markup::icon_svg;
 
-use crate::{Color, Item, PathCommand, PathDraw, PathStroke, Point, Rect};
+use specular_interact::Appearance;
+
+use crate::{Color, Colors, Item, PathCommand, PathDraw, PathStroke, Point, Rect};
 
 /// The dark line of the toolbar glyphs: `#45403C`.
 const OUTLINE: Paint = Paint::Hex(0x45_403c);
@@ -33,10 +35,6 @@ const OUTLINE: Paint = Paint::Hex(0x45_403c);
 const BODY: Paint = Paint::Hex(0xe8_e8e8);
 /// The ink of a pen whose strokes do not share one: `DEFAULT_PEN_INK`.
 const NO_INK: Color = Color::rgb(0xbd, 0x4b, 0xe5);
-/// How far toward white the paper of the sticky and shape glyphs is taken
-/// from the tool's color: the middle of `lightenHex(tint, 0.45)` to
-/// `lightenHex(tint, 0.15)`.
-const PAPER_LIGHTEN: f32 = 0.3;
 
 /// What a layer is filled or stroked in.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -145,15 +143,18 @@ pub(super) struct Inks {
     pub(super) tint: Option<Color>,
     /// Whether the control is on.
     pub(super) on: bool,
+    /// The theme the glyph is drawn for.
+    pub(super) colors: &'static Colors,
 }
 
 impl Inks {
     /// One color, for a glyph that shows none of its own.
-    pub(super) const fn plain(current: Color) -> Self {
+    pub(super) const fn plain(current: Color, colors: &'static Colors) -> Self {
         Self {
             current,
             tint: None,
             on: false,
+            colors,
         }
     }
 }
@@ -224,6 +225,27 @@ fn glyph(icon: Icon) -> Glyph {
     }
 }
 
+/// The fixed colour a glyph asset has in `colors`' theme: Electron ships a
+/// second set of toolbar SVGs for the dark one (`icons/toolbar/dark/`,
+/// `CustomIcons.tsx`), and these are its swaps.
+fn themed(value: u32, colors: &Colors) -> u32 {
+    match colors.appearance {
+        Appearance::Light => value,
+        Appearance::Dark => match value {
+            // The outline, the pen and marker lines and the seam.
+            0x45_403c | 0x18_181b | 0x35_2c24 | 0xb5_b5b5 => 0xe2_dedb,
+            // The pale body, the barrel, the page glyph's chrome and shine.
+            0xe8_e8e8 => 0x56_5350,
+            0xf4_f4f4 | 0xed_ebe3 => 0x65_625d,
+            0xdb_dbdb => 0x48_4744,
+            // The stroke samples, and a popup pen that is not in use.
+            0x3f_3f46 => 0xe4_e4e7,
+            0x79_7875 => 0x9f_9fa9,
+            other => other,
+        },
+    }
+}
+
 fn hex(value: u32, alpha: u8) -> Color {
     let [_, r, g, b] = value.to_be_bytes();
     Color::rgba(r, g, b, alpha)
@@ -234,12 +256,12 @@ fn paint(paint: Paint, inks: Inks) -> Option<Color> {
     match paint {
         Paint::None => None,
         Paint::Current => Some(inks.current),
-        Paint::Hex(value) => Some(hex(value, 255)),
-        Paint::HexA(value, alpha) => Some(hex(value, alpha)),
+        Paint::Hex(value) => Some(hex(themed(value, inks.colors), 255)),
+        Paint::HexA(value, alpha) => Some(hex(themed(value, inks.colors), alpha)),
         Paint::Tint => Some(tint),
-        Paint::Paper => Some(crate::view::palette::lighten(tint, PAPER_LIGHTEN)),
-        Paint::PenLine if inks.on => Some(hex(0x18_181b, 255)),
-        Paint::PenLine => Some(hex(0x79_7875, 255)),
+        Paint::Paper => Some(crate::view::palette::shaded(tint, inks.colors.panel.paper)),
+        Paint::PenLine if inks.on => Some(hex(themed(0x18_181b, inks.colors), 255)),
+        Paint::PenLine => Some(hex(themed(0x79_7875, inks.colors), 255)),
     }
 }
 
@@ -304,13 +326,13 @@ pub(super) fn draw(icon: Icon, rect: Rect, inks: Inks, out: &mut Vec<Item>) {
 }
 
 /// The down chevron of a dropdown, fitted into `rect`.
-pub(super) fn chevron(rect: Rect, color: Color, out: &mut Vec<Item>) {
-    fit(lucide::CHEVRON, rect, Inks::plain(color), out);
+pub(super) fn chevron(rect: Rect, color: Color, colors: &'static Colors, out: &mut Vec<Item>) {
+    fit(lucide::CHEVRON, rect, Inks::plain(color, colors), out);
 }
 
 /// The check beside a selected row, fitted into `rect`.
-pub(super) fn check(rect: Rect, color: Color, out: &mut Vec<Item>) {
-    fit(lucide::CHECK, rect, Inks::plain(color), out);
+pub(super) fn check(rect: Rect, color: Color, colors: &'static Colors, out: &mut Vec<Item>) {
+    fit(lucide::CHECK, rect, Inks::plain(color, colors), out);
 }
 
 fn fit(glyph: Glyph, rect: Rect, inks: Inks, out: &mut Vec<Item>) {

@@ -26,7 +26,7 @@ fn choice(choice: &SpaceChoice) -> impl IntoElement + use<> {
             div()
                 .px(px(2.0))
                 .text_size(px(11.0))
-                .text_color(theme::tinted(theme::TEXT_MUTED))
+                .text_color(theme::tinted(theme::text_muted()))
                 .child(SharedString::from(choice.detail.clone())),
         )
 }
@@ -38,7 +38,7 @@ pub(super) fn onboarding(model: &OnboardingModel) -> impl IntoElement + use<> {
         div()
             .text_size(px(13.0))
             .line_height(px(19.0))
-            .text_color(theme::tinted(theme::TEXT_MUTED))
+            .text_color(theme::tinted(theme::text_muted()))
             .child(SharedString::from(paragraph.clone()))
     });
     div()
@@ -46,7 +46,7 @@ pub(super) fn onboarding(model: &OnboardingModel) -> impl IntoElement + use<> {
         .flex()
         .items_center()
         .justify_center()
-        .bg(theme::solid(theme::PANEL))
+        .bg(theme::solid(theme::panel()))
         .child(
             v_flex()
                 .w(px(WIDTH))

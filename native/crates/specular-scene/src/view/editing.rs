@@ -8,7 +8,6 @@
 use specular_doc::EntityId;
 
 use super::frame::{Frame, canvas_rect};
-use super::palette;
 use crate::{Color, Item, Rect, RectDraw, Scene, TextRun, VerticalAlign};
 
 /// How far below the top of its em box a line of text is underlined, as a
@@ -45,7 +44,7 @@ pub(crate) fn selection(frame: &Frame<'_>, id: &EntityId, clip: Option<Rect>, sc
     if !is_edited(frame, id) {
         return;
     }
-    let fill = palette::TEXT_SELECTION;
+    let fill = frame.colors.text_selection;
     for rect in frame.app.edit_marks(&frame.cache.stacks).selection {
         let item = Item::canvas(RectDraw::filled(canvas_rect(rect), fill));
         scene.push(clipped(item, clip));

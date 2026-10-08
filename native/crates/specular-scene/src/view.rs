@@ -62,8 +62,9 @@ pub fn view_without_chrome(app: &App, viewport: Vec2, cache: &ViewCache) -> Scen
 }
 
 fn build(frame: &Frame<'_>) -> Scene {
-    frame.cache.begin();
+    frame.cache.begin(frame.app.appearance());
     let mut scene = Scene::new();
+    scene.appearance = frame.app.appearance();
     let document = frame.app.document();
     // Tints go behind everything; a group's border and title wait for its
     // own slot, in front of its members.

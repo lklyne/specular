@@ -1,7 +1,7 @@
 //! [`toolbar`]: the tool buttons and the zoom readout (`toolbarSections.tsx`).
 //!
-//! The Electron toolbar also has a hand tool and a theme toggle. Neither
-//! has an [`Action`] here. The right panel's toggle is on the
+//! The Electron toolbar also has a hand tool, which has no [`Action`] here.
+//! The right panel's toggle is on the
 //! model when the shell has a right panel.
 //!
 //! A button arms its tool and leaves the tool's defaults alone: the key of
@@ -11,10 +11,10 @@ use specular_doc::Color;
 
 use super::{
     ControlId, Dropdown, DropdownOption, DropdownSection, Face, Icon, OptionLayout, SidebarButton,
-    ToolButton, ToolbarModel, ToolbarSection,
+    ThemeButton, ToolButton, ToolbarModel, ToolbarSection,
 };
 use crate::menu::{tool_action, tool_label};
-use crate::{Action, App, ChatAction, SidebarAction, Tool, binding_of};
+use crate::{Action, App, ChatAction, SidebarAction, Theme, Tool, binding_of};
 
 /// The zoom levels the readout offers, in percent.
 const ZOOM_LEVELS: [u16; 7] = [10, 25, 50, 75, 100, 150, 200];
@@ -137,6 +137,22 @@ fn button(app: &App, tool: Tool) -> ToolButton {
     }
 }
 
+/// The button that moves the theme on: it shows the choice in force
+/// (`THEME_MODE_ICON`, `THEME_MODE_LABEL`).
+fn theme_button(app: &App) -> ThemeButton {
+    let theme = app.theme();
+    ThemeButton {
+        id: ControlId::new("theme"),
+        label: format!("{} theme", theme.label()).into(),
+        icon: match theme {
+            Theme::System => Icon::SchemeSystem,
+            Theme::Light => Icon::SchemeLight,
+            Theme::Dark => Icon::SchemeDark,
+        },
+        action: Action::SetTheme(theme.next()),
+    }
+}
+
 /// The toolbar for `app` as it is now.
 pub fn toolbar(app: &App) -> ToolbarModel {
     let mut sections: Vec<ToolbarSection> = GROUPS
@@ -161,6 +177,7 @@ pub fn toolbar(app: &App) -> ToolbarModel {
         }
     });
     ToolbarModel {
+        theme: theme_button(app),
         chat,
         sidebar: SidebarButton {
             id: ControlId::new("sidebar.toggle"),

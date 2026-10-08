@@ -260,6 +260,15 @@ impl InspectedNode {
     }
 }
 
+/// The `prefers-color-scheme` a page reports.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum PageColorScheme {
+    /// `light`.
+    Light,
+    /// `dark`.
+    Dark,
+}
+
 /// A backend that hosts offscreen pages and delivers their painted frames.
 ///
 /// Object-safe on purpose: the app holds a `Box<dyn PageSource>` and picks the
@@ -288,6 +297,17 @@ pub trait PageSource {
     /// Painting policy: `false` stops painting (CEF `WasHidden(true)`) while
     /// keeping the page alive and its last frame valid.
     fn set_painting(&mut self, page: PageId, painting: bool) -> Result<(), PageSourceError>;
+
+    /// Sets the `prefers-color-scheme` the page reports, and re-renders it
+    /// for it (`applyPageColorScheme`). A backend whose pages have no such
+    /// setting leaves them as they are.
+    fn set_color_scheme(
+        &mut self,
+        _page: PageId,
+        _scheme: PageColorScheme,
+    ) -> Result<(), PageSourceError> {
+        Ok(())
+    }
 
     /// Stops hosting a page. Outstanding frames for it stay valid until dropped.
     fn close_page(&mut self, page: PageId) -> Result<(), PageSourceError>;

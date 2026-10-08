@@ -155,9 +155,9 @@ impl ShellView {
                 .h_full()
                 .flex_shrink_0()
                 .pt(px(theme::TOOLBAR_HEIGHT))
-                .bg(theme::solid(theme::PANEL))
+                .bg(theme::solid(theme::panel()))
                 .border_l_1()
-                .border_color(theme::solid(theme::CHROME_BORDER))
+                .border_color(theme::solid(theme::chrome_border()))
                 .child(self.chat_header(model, cx))
                 .child(body)
                 .child(self.composer(&model.composer, window, cx)),

@@ -52,8 +52,8 @@ pub(crate) fn draw(frame: &Frame<'_>, edge: &Edge, scene: &mut Scene) {
         .selection
         .contains(&ItemId::Edge(edge.id.clone()));
     let color = match &edge.color {
-        _ if selected && frame.chrome => palette::SELECTION,
-        Some(color) => palette::resolve(color, Palette::Vivid, Role::Ink),
+        _ if selected && frame.chrome => frame.colors.selection,
+        Some(color) => palette::resolve(color, Palette::Vivid, Role::Ink, frame.colors),
         None => DEFAULT_COLOR,
     };
     let width = edge
@@ -98,12 +98,14 @@ pub(crate) fn draw(frame: &Frame<'_>, edge: &Edge, scene: &mut Scene) {
     if let Some(shown) = frame.app.editing_edge_label(&edge.id) {
         let key = EntityId::from(edge.id.as_str());
         editing::selection(frame, &key, None, scene);
-        scene.extend(editing::edited_line(frame, shown, palette::INK));
-        editing::caret(frame, &key, None, palette::INK, scene);
+        scene.extend(editing::edited_line(frame, shown, frame.colors.ink));
+        editing::caret(frame, &key, None, frame.colors.ink, scene);
         return;
     }
     match edge.label.as_deref() {
-        Some(label) if !label.is_empty() => scene.push(self::label(&curve, label, frame.zoom())),
+        Some(label) if !label.is_empty() => {
+            scene.push(self::label(&curve, label, frame.zoom(), frame.colors.ink));
+        }
         Some(_) | None => {}
     }
 }
@@ -136,16 +138,11 @@ fn arrowhead(end: Vec2, heading: Vec2, width: f32, color: Color) -> Item {
 }
 
 /// The label, centred on the middle of the curve and upright.
-fn label(curve: &EdgeCurve, text: &str, zoom: f32) -> Item {
+fn label(curve: &EdgeCurve, text: &str, zoom: f32, color: Color) -> Item {
     Item::screen(TextRun {
         align: TextAlign::Centre,
         vertical_align: VerticalAlign::Middle,
-        ..TextRun::new(
-            text,
-            vec_point(curve.point(0.5)),
-            LABEL_SIZE * zoom,
-            palette::INK,
-        )
+        ..TextRun::new(text, vec_point(curve.point(0.5)), LABEL_SIZE * zoom, color)
     })
 }
 

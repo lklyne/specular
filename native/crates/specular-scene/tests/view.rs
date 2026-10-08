@@ -8,10 +8,11 @@ use specular_doc::{
     LineStyle, Point, Rect, RegionAnchor, Shape, ShapeKind, Stroke, Text, TextAlign, TextFont,
     TextStyle, WidthMode,
 };
-use specular_interact::{Action, ApiCall, ApiRun, Event};
+use specular_interact::{Action, ApiCall, ApiRun, Event, Theme};
 use specular_scene::{Draw, ViewCache, view, view_without_chrome};
 use specular_testkit::{
-    TestApp, assert_scene_snapshot, connected, document, group, inside, page, shape, text,
+    TestApp, assert_scene_snapshot, connected, document, group, inside, page, plain_text, shape,
+    sticky, text,
 };
 
 const VIEWPORT: Vec2 = Vec2::new(1600.0, 1000.0);
@@ -411,4 +412,21 @@ fn a_frame_like_the_last_parses_no_document_and_outlines_no_stroke() {
     }));
     assert_eq!(view(app.app(), VIEWPORT, &cache), fresh(&app));
     assert_eq!(cache.built(), 1);
+}
+
+#[test]
+fn the_dark_theme_draws_ink_paper_shapes_and_frames_in_its_own_colours() {
+    let mut red = shape("s", Rect::new(500.0, 100.0, 200.0, 100.0));
+    if let Kind::Shape(fields) = &mut red.kind {
+        fields.color = Some(Color::Preset(ColorPreset::Red));
+        fields.text = "Decide".to_owned();
+    }
+    let mut app = TestApp::with_entities([
+        page("p", Rect::new(100.0, 300.0, 400.0, 300.0)),
+        plain_text("t", Rect::new(100.0, 100.0, 300.0, 40.0), "ink"),
+        sticky("n", Rect::new(750.0, 100.0, 200.0, 200.0), "paper"),
+        red,
+    ]);
+    app.send(Event::ThemeLoaded(Theme::Dark));
+    assert_scene_snapshot!(app);
 }

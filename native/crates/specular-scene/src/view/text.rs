@@ -27,7 +27,12 @@ pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, text: &Text, scene: &mut 
     let shown = frame.app.editing_text(id).unwrap_or(&text.text);
     match text.resolved_style() {
         TextStyle::Plain => {
-            let color = palette::resolve_or_neutral(text.color.as_ref(), Palette::Vivid, Role::Ink);
+            let color = palette::resolve_or_neutral(
+                text.color.as_ref(),
+                Palette::Vivid,
+                Role::Ink,
+                frame.colors,
+            );
             editing::selection(frame, id, None, scene);
             if shown.is_empty() {
                 let faded = palette::with_alpha(color, PLACEHOLDER_ALPHA);
@@ -43,17 +48,17 @@ pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, text: &Text, scene: &mut 
         }
         TextStyle::Sticky => {
             let stored = text.color.as_ref().unwrap_or(&STICKY_DEFAULT);
-            let fill = palette::resolve(stored, Palette::Soft, Role::Fill);
-            scene.push(palette::card_shadow(rect, 0.0));
+            let fill = palette::resolve(stored, Palette::Soft, Role::Fill, frame.colors);
+            scene.push(palette::card_shadow(frame.colors, rect, 0.0));
             scene.push(Item::canvas(RectDraw::filled(rect, fill)));
             editing::selection(frame, id, Some(rect), scene);
             if !shown.is_empty() {
                 // Clipped, so the renderer can cull a note without shaping it
                 // and long text cannot spill over its neighbours.
-                let run = TextRun::framed(shown, &text_frame, palette::INK);
+                let run = TextRun::framed(shown, &text_frame, frame.colors.paper_ink);
                 scene.push(Item::canvas(run).clipped(rect));
             }
-            editing::caret(frame, id, Some(rect), palette::INK, scene);
+            editing::caret(frame, id, Some(rect), frame.colors.paper_ink, scene);
         }
     }
 }

@@ -28,10 +28,7 @@ const ELEMENT_FILL_ALPHA: f32 = 0.14;
 const ELEMENT_DASH: Dash = Dash { on: 3.0, off: 3.0 };
 
 const CARD_RADIUS: f32 = 10.0;
-const CARD_BORDER: Color = Color::rgb(0x9f, 0x9f, 0xa9);
 const CARD_BORDER_ALPHA: f32 = 0.8;
-const INK: Color = Color::rgb(0x18, 0x18, 0x1b);
-const PLACEHOLDER_INK: Color = Color::rgb(0x9f, 0x9f, 0xa9);
 const PLACEHOLDER: &str = "Add a comment";
 
 /// What the draft is about, outlined the way Electron's draft marker is.
@@ -123,12 +120,12 @@ pub(crate) fn composer(frame: &Frame<'_>, scene: &mut Scene) {
     };
     let on_screen = frame.screen_rect(card);
     let border = Stroke::new(
-        palette::with_alpha(CARD_BORDER, CARD_BORDER_ALPHA),
+        palette::with_alpha(frame.colors.composer_border, CARD_BORDER_ALPHA),
         1.0,
         StrokeAlign::Inside,
     );
     scene.push(Item::screen(
-        RectDraw::filled(on_screen, Color::WHITE)
+        RectDraw::filled(on_screen, frame.colors.composer)
             .with_corner_radius(CARD_RADIUS)
             .with_stroke(border),
     ));
@@ -138,10 +135,14 @@ pub(crate) fn composer(frame: &Frame<'_>, scene: &mut Scene) {
         scene.push(Item::canvas(TextRun::framed(
             PLACEHOLDER,
             &text_frame,
-            PLACEHOLDER_INK,
+            frame.colors.composer_hint,
         )));
     } else {
-        scene.push(Item::canvas(TextRun::framed(edit.text(), &text_frame, INK)));
+        scene.push(Item::canvas(TextRun::framed(
+            edit.text(),
+            &text_frame,
+            frame.colors.composer_ink,
+        )));
     }
-    editing::caret(frame, &key, None, INK, scene);
+    editing::caret(frame, &key, None, frame.colors.composer_ink, scene);
 }

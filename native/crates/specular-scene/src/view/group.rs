@@ -8,19 +8,10 @@ use super::editing;
 use super::frame::Frame;
 use super::page::title_above;
 use super::palette::{self, Palette, Role};
-use crate::{Color, Item, RectDraw, Scene, Stroke, StrokeAlign};
+use crate::{Color, Colors, Item, RectDraw, Scene, Stroke, StrokeAlign};
 
 const CORNER_RADIUS: f32 = 2.0;
 const BORDER_WIDTH: f32 = 1.5;
-const PLAIN_FILL: Color = Color::rgba(244, 244, 245, 115);
-const PLAIN_BORDER: Color = Color::rgba(113, 113, 122, 64);
-const PLAIN_TITLE: Color = Color::rgb(0x3f, 0x3f, 0x46);
-const TINTED_TITLE: Color = Color::rgb(0x18, 0x18, 0x1b);
-/// A coloured group's background is its ink at this alpha.
-const TINT_ALPHA: f32 = 0.3;
-/// A coloured group's border is its ink mixed this far with [`BORDER_MIX`].
-const BORDER_INK: f32 = 0.78;
-const BORDER_MIX: Color = Color::rgb(0xa1, 0x62, 0x07);
 
 /// How a group looks: its tint, border and title colours.
 struct Look {
@@ -29,19 +20,20 @@ struct Look {
     title: Color,
 }
 
-fn look(group: &Group) -> Look {
+fn look(colors: &Colors, group: &Group) -> Look {
     match &group.color {
         None => Look {
-            fill: PLAIN_FILL,
-            border: PLAIN_BORDER,
-            title: PLAIN_TITLE,
+            fill: colors.group_fill,
+            border: colors.group_border,
+            title: colors.group_title,
         },
         Some(color) => {
-            let ink = palette::resolve(color, Palette::Vivid, Role::Fill);
+            let ink = palette::resolve(color, Palette::Vivid, Role::Fill, colors);
+            let (toward, kept) = colors.group_border_mix;
             Look {
-                fill: palette::with_alpha(ink, TINT_ALPHA),
-                border: mix(ink, BORDER_MIX, BORDER_INK),
-                title: TINTED_TITLE,
+                fill: palette::with_alpha(ink, colors.group_tint),
+                border: mix(ink, toward, kept),
+                title: colors.group_tinted_title,
             }
         }
     }
@@ -66,7 +58,7 @@ pub(crate) fn draw_background(frame: &Frame<'_>, entity: &Entity, scene: &mut Sc
     let Kind::Group(group) = &entity.kind else {
         return;
     };
-    let fill = look(group).fill;
+    let fill = look(frame.colors, group).fill;
     let rect =
         RectDraw::filled(frame.screen_rect(entity.rect), fill).with_corner_radius(CORNER_RADIUS);
     scene.push(Item::screen(rect));
@@ -75,7 +67,7 @@ pub(crate) fn draw_background(frame: &Frame<'_>, entity: &Entity, scene: &mut Sc
 /// A group's border and title, in front of its members.
 pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, group: &Group, scene: &mut Scene) {
     let on_screen = frame.screen_rect(entity.rect);
-    let Look { border, title, .. } = look(group);
+    let Look { border, title, .. } = look(frame.colors, group);
     let stroke = Stroke::new(border, BORDER_WIDTH, StrokeAlign::Inside);
     scene.push(Item::screen(
         RectDraw::outlined(on_screen, stroke).with_corner_radius(CORNER_RADIUS),

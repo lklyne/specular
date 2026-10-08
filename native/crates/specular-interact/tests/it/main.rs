@@ -75,6 +75,7 @@ mod text_fit;
 mod text_ime;
 mod text_pointer;
 mod text_session;
+mod theme;
 mod tools;
 mod verbs;
 mod view_actions;

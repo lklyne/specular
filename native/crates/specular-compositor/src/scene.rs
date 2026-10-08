@@ -2,6 +2,8 @@
 
 use std::time::Duration;
 
+use crate::scene_pass::linear;
+
 /// Dot-grid background parameters (canvas-space spacing, like canvas-bg).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct DotGrid {
@@ -14,6 +16,21 @@ pub struct DotGrid {
     pub background: [f32; 4],
     /// Dot colour, linear RGBA.
     pub dot: [f32; 4],
+    /// Opacity floor for dense grids.
+    pub min_alpha: f32,
+}
+
+impl DotGrid {
+    /// The grid of a theme: its canvas and its dots.
+    #[must_use]
+    pub fn themed(colors: &specular_scene::Colors) -> Self {
+        Self {
+            background: linear(colors.canvas, 1.0),
+            dot: linear(colors.dot, 1.0),
+            min_alpha: colors.dot_floor,
+            ..Self::default()
+        }
+    }
 }
 
 impl Default for DotGrid {
@@ -25,6 +42,7 @@ impl Default for DotGrid {
             // stone-100 is #edebea, and the dots are #a8a29e.
             background: [0.847, 0.831, 0.823, 1.0],
             dot: [0.392, 0.361, 0.342, 1.0],
+            min_alpha: 0.52,
         }
     }
 }

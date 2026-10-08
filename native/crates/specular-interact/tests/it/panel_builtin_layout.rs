@@ -38,19 +38,20 @@ fn the_toolbar_and_a_sticky_popup() {
     let app = with(sticky("t", Rect::new(500.0, 300.0, 200.0, 200.0), "note"));
     assert_panel_snapshot!(app, @r#"
     toolbar 0,0 1200x44
-      tool.select 390,8 32x28 ToolButton on: icon SelectTool 396,12 20x20
-      - 430,14 1x16 Divider
-      tool.draw 439,8 32x28 ToolButton: icon DrawPenTool 445,12 20x20 tint=1
-      tool.sticky 475,8 32x28 ToolButton: icon StickyTool 481,12 20x20 tint=3
-      tool.shape 511,8 32x28 ToolButton: icon ShapeTool 517,12 20x20 tint=1
-      tool.page 547,8 32x28 ToolButton: icon PageTool 553,12 20x20
-      tool.text 583,8 32x28 ToolButton: icon TextTool 589,12 20x20
-      tool.document 619,8 32x28 ToolButton: icon DocumentTool 625,12 20x20
-      - 659,14 1x16 Divider
-      tool.comment 668,8 32x28 ToolButton: icon CommentTool 674,12 20x20
-      tool.inspect 704,8 32x28 ToolButton: icon InspectTool 710,12 20x20
-      - 744,14 1x16 Divider
-      zoom 753,8 58x28 ToolMenu: text "100%" 762,8 34x28 Left; chevron 796,17 10x10
+      tool.select 372,8 32x28 ToolButton on: icon SelectTool 378,12 20x20
+      - 412,14 1x16 Divider
+      tool.draw 421,8 32x28 ToolButton: icon DrawPenTool 427,12 20x20 tint=1
+      tool.sticky 457,8 32x28 ToolButton: icon StickyTool 463,12 20x20 tint=3
+      tool.shape 493,8 32x28 ToolButton: icon ShapeTool 499,12 20x20 tint=1
+      tool.page 529,8 32x28 ToolButton: icon PageTool 535,12 20x20
+      tool.text 565,8 32x28 ToolButton: icon TextTool 571,12 20x20
+      tool.document 601,8 32x28 ToolButton: icon DocumentTool 607,12 20x20
+      - 641,14 1x16 Divider
+      tool.comment 650,8 32x28 ToolButton: icon CommentTool 656,12 20x20
+      tool.inspect 686,8 32x28 ToolButton: icon InspectTool 692,12 20x20
+      - 726,14 1x16 Divider
+      theme 735,8 32x28 ToolButton: icon SchemeSystem 741,12 20x20
+      zoom 771,8 58x28 ToolMenu: text "100%" 780,8 34x28 Left; chevron 814,17 10x10
       sidebar.toggle 16,9 26x26 Subtle dimmed: glyph PanelLeft 22,15 14x14 Follow
     popup 456,252 288x34
       text.size 461,257 78x24 Button: text "Small" 467,257 50x24 Left; chevron 521,263 12x12
@@ -168,19 +169,20 @@ fn the_zoom_levels_hang_from_the_toolbar_and_open_over_the_popup() {
     );
     assert_panel_snapshot!(app, @r#"
     toolbar 0,0 1200x44
-      tool.select 390,8 32x28 ToolButton on: icon SelectTool 396,12 20x20
-      - 430,14 1x16 Divider
-      tool.draw 439,8 32x28 ToolButton: icon DrawPenTool 445,12 20x20 tint=1
-      tool.sticky 475,8 32x28 ToolButton: icon StickyTool 481,12 20x20 tint=3
-      tool.shape 511,8 32x28 ToolButton: icon ShapeTool 517,12 20x20 tint=1
-      tool.page 547,8 32x28 ToolButton: icon PageTool 553,12 20x20
-      tool.text 583,8 32x28 ToolButton: icon TextTool 589,12 20x20
-      tool.document 619,8 32x28 ToolButton: icon DocumentTool 625,12 20x20
-      - 659,14 1x16 Divider
-      tool.comment 668,8 32x28 ToolButton: icon CommentTool 674,12 20x20
-      tool.inspect 704,8 32x28 ToolButton: icon InspectTool 710,12 20x20
-      - 744,14 1x16 Divider
-      zoom 753,8 58x28 ToolMenu on hover: text "100%" 762,8 34x28 Left; chevron 796,17 10x10
+      tool.select 372,8 32x28 ToolButton on: icon SelectTool 378,12 20x20
+      - 412,14 1x16 Divider
+      tool.draw 421,8 32x28 ToolButton: icon DrawPenTool 427,12 20x20 tint=1
+      tool.sticky 457,8 32x28 ToolButton: icon StickyTool 463,12 20x20 tint=3
+      tool.shape 493,8 32x28 ToolButton: icon ShapeTool 499,12 20x20 tint=1
+      tool.page 529,8 32x28 ToolButton: icon PageTool 535,12 20x20
+      tool.text 565,8 32x28 ToolButton: icon TextTool 571,12 20x20
+      tool.document 601,8 32x28 ToolButton: icon DocumentTool 607,12 20x20
+      - 641,14 1x16 Divider
+      tool.comment 650,8 32x28 ToolButton: icon CommentTool 656,12 20x20
+      tool.inspect 686,8 32x28 ToolButton: icon InspectTool 692,12 20x20
+      - 726,14 1x16 Divider
+      theme 735,8 32x28 ToolButton: icon SchemeSystem 741,12 20x20
+      zoom 771,8 58x28 ToolMenu on hover: text "100%" 780,8 34x28 Left; chevron 814,17 10x10
       sidebar.toggle 16,9 26x26 Subtle dimmed: glyph PanelLeft 22,15 14x14 Follow
     popup 456,52 288x34
       text.size 461,57 78x24 Button: text "Small" 467,57 50x24 Left; chevron 521,63 12x12
@@ -190,13 +192,13 @@ fn the_zoom_levels_hang_from_the_toolbar_and_open_over_the_popup() {
       - 678,61 1x16 Divider
       item.annotate 687,57 24x24 Button: icon Annotate 692,62 14x14
       item.focus 715,57 24x24 Button: icon Focus 720,62 14x14
-    dropdown 697,52 170x178
-      zoom.10 702,57 160x24 PresetRow: text "10%" 710,57 144x24 Left
-      zoom.25 702,81 160x24 PresetRow: text "25%" 710,81 144x24 Left
-      zoom.50 702,105 160x24 PresetRow: text "50%" 710,105 144x24 Left
-      zoom.75 702,129 160x24 PresetRow: text "75%" 710,129 144x24 Left
-      zoom.100 702,153 160x24 PresetRow on: text "100%" 710,153 144x24 Left; key "⌘0" 822,157 32x16
-      zoom.150 702,177 160x24 PresetRow: text "150%" 710,177 144x24 Left
-      zoom.200 702,201 160x24 PresetRow: text "200%" 710,201 144x24 Left
+    dropdown 715,52 170x178
+      zoom.10 720,57 160x24 PresetRow: text "10%" 728,57 144x24 Left
+      zoom.25 720,81 160x24 PresetRow: text "25%" 728,81 144x24 Left
+      zoom.50 720,105 160x24 PresetRow: text "50%" 728,105 144x24 Left
+      zoom.75 720,129 160x24 PresetRow: text "75%" 728,129 144x24 Left
+      zoom.100 720,153 160x24 PresetRow on: text "100%" 728,153 144x24 Left; key "⌘0" 840,157 32x16
+      zoom.150 720,177 160x24 PresetRow: text "150%" 728,177 144x24 Left
+      zoom.200 720,201 160x24 PresetRow: text "200%" 728,201 144x24 Left
     "#);
 }

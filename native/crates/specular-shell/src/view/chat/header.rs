@@ -27,7 +27,7 @@ use crate::view::{ShellView, run};
 const NO_THREADS: &str = "Comment on the canvas to queue a draft, or type below and send.";
 
 fn muted() -> gpui_kit::Hsla {
-    theme::tinted(theme::TEXT_MUTED)
+    theme::tinted(theme::text_muted())
 }
 
 /// A 24 px square button of the header, with a 13 px glyph.
@@ -141,7 +141,7 @@ impl ShellView {
             .gap(px(6.0))
             .items_center()
             .border_b_1()
-            .border_color(theme::solid(theme::PANEL_BORDER))
+            .border_color(theme::solid(theme::panel_border()))
             .child(self.chat_title(model))
             .child(actions)
     }
@@ -158,7 +158,7 @@ impl ShellView {
             .gap_2()
             .items_center()
             .cursor_pointer()
-            .hover(|this| this.bg(theme::solid(theme::ZINC_100)))
+            .hover(|this| this.bg(theme::solid(theme::zinc_100())))
             // A right click is the menu's, not a choice of this thread.
             .on_click(move |event, window, cx| {
                 if event.standard_click() {

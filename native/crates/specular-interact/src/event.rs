@@ -140,6 +140,12 @@ pub enum Event {
     /// chosen is not there. The app shows the first-run view until a
     /// [`SpaceOpened`](Self::SpaceOpened).
     SpaceNeeded(SpaceAsk),
+    /// The theme choice was read from the preferences file. Replaces the
+    /// current one and asks for no save.
+    ThemeLoaded(crate::Theme),
+    /// The operating system's appearance, sent at startup and whenever it
+    /// changes. It is what the `System` theme draws.
+    SystemAppearance(crate::Appearance),
     /// A command from a key binding, a menu or a panel.
     Action(Action),
     /// A click on the control with this name, from a caller that has no
@@ -364,6 +370,8 @@ pub enum Action {
     Cancel,
     /// Switch tool.
     SetTool(Tool),
+    /// Choose the theme and save the choice.
+    SetTheme(crate::Theme),
     /// Change one tool default and save the defaults.
     SetToolDefault(ToolDefaultPatch),
     /// Switch to the tool a default belongs to and change that default: what

@@ -12,7 +12,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use specular_doc::{EntityId, Stroke};
-use specular_interact::StackCache;
+use specular_interact::{Appearance, StackCache};
 
 use crate::{Item, Row};
 
@@ -25,6 +25,8 @@ pub struct ViewCache {
     pub(crate) notes: Kept<NoteRows>,
     /// The outline of each stroke of each drawing.
     pub(crate) strokes: Kept<Vec<StrokeOutline>>,
+    /// What the kept parts were coloured for.
+    appearance: Cell<Appearance>,
     built: Cell<usize>,
 }
 
@@ -54,8 +56,14 @@ impl ViewCache {
     }
 
     /// Starts a frame: what the last one did not use is dropped.
-    pub(crate) fn begin(&self) {
+    pub(crate) fn begin(&self, appearance: Appearance) {
         self.built.set(0);
+        // Rows and outlines carry their colours, so a theme change builds
+        // them again.
+        if self.appearance.replace(appearance) != appearance {
+            self.notes.clear();
+            self.strokes.clear();
+        }
         self.notes.begin();
         self.strokes.begin();
     }
@@ -85,6 +93,12 @@ impl<V> Default for Kept<V> {
 }
 
 impl<V> Kept<V> {
+    fn clear(&self) {
+        let mut frames = self.0.borrow_mut();
+        frames.last.clear();
+        frames.now.clear();
+    }
+
     fn begin(&self) {
         let mut frames = self.0.borrow_mut();
         frames.last = std::mem::take(&mut frames.now);

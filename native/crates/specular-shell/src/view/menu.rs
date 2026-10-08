@@ -41,7 +41,7 @@ pub(super) fn filled(mut menu: PopupMenu, model: &PopupModel) -> PopupMenu {
                     .child(label.clone())
                     .children(keys.clone().map(|keys| {
                         div()
-                            .text_color(theme::tinted(theme::TEXT_MUTED))
+                            .text_color(theme::tinted(theme::text_muted()))
                             .child(keys)
                     }))
                     .child(mark(&name))

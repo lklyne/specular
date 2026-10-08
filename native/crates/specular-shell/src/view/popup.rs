@@ -41,8 +41,8 @@ pub(super) fn tool_popup(
                 .p_1()
                 .rounded(px(10.0))
                 .border_1()
-                .border_color(theme::solid(theme::CHROME_BORDER))
-                .bg(theme::solid(theme::POPUP))
+                .border_color(theme::solid(theme::chrome_border()))
+                .bg(theme::solid(theme::popup()))
                 .shadow_md()
                 .children(controls),
         )

@@ -12,7 +12,7 @@ use gpui_kit::{
     SharedString, Stateful, StatefulInteractiveElement as _, Styled as _, div, px,
 };
 use specular_interact::{
-    PaintRole, Palette, SidebarButton, ToolButton, ToolbarModel, ToolbarSection,
+    PaintRole, Palette, SidebarButton, ThemeButton, ToolButton, ToolbarModel, ToolbarSection,
 };
 
 use super::controls::hint;
@@ -49,9 +49,9 @@ fn tool(model: &ToolButton) -> impl IntoElement {
     let (palette, role) = tint_style(model.icon);
     let tint = (model.tint.as_ref()).map(|color| glyphs::resolved(color, palette, role));
     let current = ink(if model.active {
-        theme::TOOLBAR_TEXT_STRONG
+        theme::toolbar_text_strong()
     } else {
-        theme::TOOLBAR_TEXT
+        theme::toolbar_text()
     });
     Button::new(SharedString::from(model.id.as_str().to_owned()))
         .ghost()
@@ -61,7 +61,9 @@ fn tool(model: &ToolButton) -> impl IntoElement {
         .px_0()
         .rounded(px(6.0))
         .selected(model.active)
-        .when(model.active, |this| this.bg(theme::solid(theme::TOOL_FILL)))
+        .when(model.active, |this| {
+            this.bg(theme::solid(theme::tool_fill()))
+        })
         .tooltip(hint(&model.label, model.chord))
         .child(glyph(model.icon, current, tint, model.active, TOOL_GLYPH))
         .child(mark(&model.id))
@@ -82,7 +84,7 @@ fn panel_toggle(model: &SidebarButton) -> impl IntoElement {
                 .when(!model.open, |this| this.opacity(0.6))
                 .child(glyph(
                     model.icon,
-                    ink(theme::TOOLBAR_TEXT),
+                    ink(theme::toolbar_text()),
                     None,
                     false,
                     PANEL_GLYPH,
@@ -96,9 +98,9 @@ fn panel_toggle(model: &SidebarButton) -> impl IntoElement {
 fn sidebar_button(model: &SidebarButton) -> impl IntoElement {
     let action = model.action.clone();
     let current = ink(if model.open {
-        theme::TOOLBAR_TEXT_STRONG
+        theme::toolbar_text_strong()
     } else {
-        theme::TOOLBAR_TEXT
+        theme::toolbar_text()
     });
     Button::new(SharedString::from(model.id.as_str().to_owned()))
         .ghost()
@@ -113,12 +115,34 @@ fn sidebar_button(model: &SidebarButton) -> impl IntoElement {
         .on_click(move |_, window, cx| run(&action, window, cx))
 }
 
+/// The button that moves the theme on.
+fn theme_button(model: &ThemeButton) -> impl IntoElement {
+    let action = model.action.clone();
+    Button::new(SharedString::from(model.id.as_str().to_owned()))
+        .ghost()
+        .w(px(32.0))
+        .h(px(28.0))
+        // The Kit's own padding would leave a 20 px glyph 16 px of room.
+        .px_0()
+        .rounded(px(6.0))
+        .tooltip(SharedString::from(model.label.to_string()))
+        .child(glyph(
+            model.icon,
+            ink(theme::toolbar_text()),
+            None,
+            false,
+            TOOL_GLYPH,
+        ))
+        .child(mark(&model.id))
+        .on_click(move |_, window, cx| run(&action, window, cx))
+}
+
 fn divider() -> impl IntoElement {
     div()
         .mx_1()
         .w(px(1.0))
         .h(px(16.0))
-        .bg(theme::tinted(theme::DIVIDER))
+        .bg(theme::tinted(theme::divider()))
 }
 
 /// A stretch of the strip with nothing on it. The strip is the title bar,
@@ -156,7 +180,9 @@ pub(super) fn toolbar(model: &ToolbarModel, title: &str, _cx: &App) -> impl Into
         }
         cluster = match section {
             ToolbarSection::Tools(tools) => cluster.children(tools.iter().map(tool)),
-            ToolbarSection::Zoom(zoom) => cluster.child(dropdown(zoom, true)),
+            ToolbarSection::Zoom(zoom) => cluster
+                .child(theme_button(&model.theme))
+                .child(dropdown(zoom, true)),
         };
     }
     h_flex()
@@ -171,8 +197,8 @@ pub(super) fn toolbar(model: &ToolbarModel, title: &str, _cx: &App) -> impl Into
         .pr_4()
         .gap_1()
         .items_center()
-        .bg(theme::solid(theme::TOOLBAR))
-        .text_color(theme::solid(theme::TOOLBAR_TEXT))
+        .bg(theme::solid(theme::toolbar()))
+        .text_color(theme::solid(theme::toolbar_text()))
         .child(
             h_flex()
                 .flex_1()

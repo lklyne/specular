@@ -39,6 +39,7 @@ use specular_scene::ImageId;
 
 use self::batch::Batcher;
 use self::build::DrawOp;
+pub(crate) use self::color::linear;
 use self::images::ImageTexture;
 use self::mesh::{Mesh, Mesher};
 use self::mesh_cache::MeshCache;

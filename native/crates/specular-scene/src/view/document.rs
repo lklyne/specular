@@ -23,7 +23,7 @@ use super::{editing, palette};
 use crate::cache::NoteRows;
 use crate::markdown::{self, Block, BlockKind, ColumnAlign, Inline, InlineSpan, Marker, Table};
 use crate::{
-    Color, ColumnDraw, FontFamily, Item, Point, RectDraw, Row, RowRule, RuleHeight, Scene,
+    Color, Colors, ColumnDraw, FontFamily, Item, Point, RectDraw, Row, RowRule, RuleHeight, Scene,
     SpanStyle, TextAlign, TextRun, TextSpan,
 };
 
@@ -49,24 +49,43 @@ const QUOTE_INDENT: f32 = QUOTE_BAR + 0.6 * SIZE;
 const CELL_PADDING: Point = Point::new(6.0, 4.0);
 const LINE_WIDTH: f32 = 1.0;
 
-const INK: Color = palette::INK;
-const LINK: Color = Color::rgb(0x25, 0x63, 0xeb);
-/// Quoted text and its bar: the ink at 85%.
-const QUOTE_INK: Color = INK.with_alpha(217);
-/// Bullets, tick boxes and image stand-ins: the ink at 60%.
-const FAINT_INK: Color = INK.with_alpha(153);
-/// A status line in place of the text: the ink at 40%.
-const STATUS_INK: Color = INK.with_alpha(102);
-/// Dividers and the line under a table's head: the ink at 25%.
-const RULE: Color = INK.with_alpha(64);
-/// The line under a table's body rows.
-const FAINT_RULE: Color = INK.with_alpha(31);
+/// The tones a Document is read in, all of the ink.
+#[derive(Clone, Copy)]
+struct Tones {
+    ink: Color,
+    link: Color,
+    /// Quoted text and its bar: the ink at 85%.
+    quote: Color,
+    /// Bullets, tick boxes and image stand-ins: the ink at 60%.
+    faint: Color,
+    /// A status line in place of the text: the ink at 40%.
+    status: Color,
+    /// Dividers and the line under a table's head: the ink at 25%.
+    rule: Color,
+    /// The line under a table's body rows: the ink at 12%.
+    faint_rule: Color,
+}
+
+impl Tones {
+    fn of(colors: &Colors) -> Self {
+        let ink = colors.ink;
+        Self {
+            ink,
+            link: colors.link,
+            quote: ink.with_alpha(217),
+            faint: ink.with_alpha(153),
+            status: ink.with_alpha(102),
+            rule: ink.with_alpha(64),
+            faint_rule: ink.with_alpha(31),
+        }
+    }
+}
 
 pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, note: &NoteState, scene: &mut Scene) {
     let rect = canvas_rect(entity.rect);
-    scene.push(palette::card_shadow(rect, CORNER_RADIUS));
+    scene.push(palette::card_shadow(frame.colors, rect, CORNER_RADIUS));
     scene.push(Item::canvas(
-        RectDraw::filled(rect, palette::CARD).with_corner_radius(CORNER_RADIUS),
+        RectDraw::filled(rect, frame.colors.card).with_corner_radius(CORNER_RADIUS),
     ));
     if let Some(source) = frame.app.editing_text(&entity.id) {
         edited(frame, entity, source, scene);
@@ -96,7 +115,7 @@ pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, note: &NoteState, scene: 
     let run = TextRun {
         wrap_width: Some(inner.width.max(0.0)),
         line_height: SIZE * LINE,
-        ..TextRun::new(status, inner.origin(), SIZE, STATUS_INK)
+        ..TextRun::new(status, inner.origin(), SIZE, Tones::of(frame.colors).status)
     };
     scene.push(Item::canvas(run).clipped(rect));
 }
@@ -110,6 +129,7 @@ fn edited(frame: &Frame<'_>, entity: &Entity, source: &str, scene: &mut Scene) {
     let Some(text_frame) = frame.app.text_frame(id) else {
         return;
     };
+    let tones = Tones::of(frame.colors);
     editing::selection(frame, id, Some(rect), scene);
     let rows = source_rows(source, &text_frame.spec)
         .into_iter()
@@ -120,7 +140,7 @@ fn edited(frame: &Frame<'_>, entity: &Entity, source: &str, scene: &mut Scene) {
                 &row.spec,
                 &row.spans,
                 Point::default(),
-                [INK, FAINT_INK, LINK],
+                [tones.ink, tones.faint, tones.link],
             );
             Row {
                 min_height: row.spec.line_height,
@@ -142,7 +162,7 @@ fn edited(frame: &Frame<'_>, entity: &Entity, source: &str, scene: &mut Scene) {
         owner: None,
     };
     scene.push(Item::canvas(column).clipped(rect));
-    editing::caret(frame, id, Some(rect), INK, scene);
+    editing::caret(frame, id, Some(rect), tones.ink, scene);
 }
 
 /// The rows of `text` in a column `width` units wide, parsed only when
@@ -158,7 +178,7 @@ fn kept_rows(frame: &Frame<'_>, id: &EntityId, text: &Arc<str>, width: f32) -> V
         NoteRows {
             text: Arc::clone(text),
             width,
-            rows: rows(&markdown::parse(text), width),
+            rows: rows(&markdown::parse(text), width, Tones::of(frame.colors)),
         }
     });
     let rows = kept.rows.clone();
@@ -167,11 +187,11 @@ fn kept_rows(frame: &Frame<'_>, id: &EntityId, text: &Arc<str>, width: f32) -> V
 }
 
 /// The rows of a document `width` units wide.
-fn rows(blocks: &[Block], width: f32) -> Vec<Row> {
+fn rows(blocks: &[Block], width: f32, tones: Tones) -> Vec<Row> {
     let mut rows = Vec::with_capacity(blocks.len());
     let mut above: Option<&Block> = None;
     for block in blocks {
-        let place = Place::new(block, above, width);
+        let place = Place::new(block, above, width, tones);
         match &block.kind {
             BlockKind::Heading { level, text } => {
                 let scale =
@@ -199,7 +219,7 @@ fn rows(blocks: &[Block], width: f32) -> Vec<Row> {
                 let mut row = place.row(Vec::new());
                 row.min_height = SIZE * LINE;
                 row.rules
-                    .push(place.line(RuleHeight::Middle(LINE_WIDTH), RULE));
+                    .push(place.line(RuleHeight::Middle(LINE_WIDTH), tones.rule));
                 rows.push(row);
             }
             BlockKind::Table(table) => place.table(table, &mut rows),
@@ -219,10 +239,11 @@ struct Place {
     width: f32,
     quoted: bool,
     bars: Vec<RowRule>,
+    tones: Tones,
 }
 
 impl Place {
-    fn new(block: &Block, above: Option<&Block>, width: f32) -> Self {
+    fn new(block: &Block, above: Option<&Block>, width: f32, tones: Tones) -> Self {
         let gap = match above {
             None => 0.0,
             Some(_) if block.tight => 0.0,
@@ -240,7 +261,7 @@ impl Place {
                 } else {
                     RuleHeight::Row
                 },
-                color: QUOTE_INK,
+                color: tones.quote,
             })
             .collect();
         Self {
@@ -249,11 +270,16 @@ impl Place {
             width: (width - left).max(0.0),
             quoted: block.quote > 0,
             bars,
+            tones,
         }
     }
 
     fn ink(&self) -> Color {
-        if self.quoted { QUOTE_INK } else { INK }
+        if self.quoted {
+            self.tones.quote
+        } else {
+            self.tones.ink
+        }
     }
 
     fn row(&self, cells: Vec<TextRun>) -> Row {
@@ -288,7 +314,7 @@ impl Place {
     fn run(&self, inline: &Inline, size: f32) -> TextRun {
         TextRun {
             italic: self.quoted,
-            spans: inline.spans.iter().map(span).collect(),
+            spans: inline.spans.iter().map(|it| span(it, self.tones)).collect(),
             ..self.plain(inline.text.clone(), size)
         }
     }
@@ -296,10 +322,10 @@ impl Place {
     /// An item's marker, ending just left of the item's text.
     fn marker(&self, marker: Marker) -> TextRun {
         let (text, color) = match marker {
-            Marker::Bullet => ("•".to_owned(), FAINT_INK),
+            Marker::Bullet => ("•".to_owned(), self.tones.faint),
             Marker::Number(number) => (format!("{number}."), self.ink()),
-            Marker::Task { done: false } => ("☐".to_owned(), FAINT_INK),
-            Marker::Task { done: true } => ("☑".to_owned(), FAINT_INK),
+            Marker::Task { done: false } => ("☐".to_owned(), self.tones.faint),
+            Marker::Task { done: true } => ("☑".to_owned(), self.tones.faint),
         };
         TextRun {
             align: TextAlign::Right,
@@ -337,7 +363,11 @@ impl Place {
             }
             row.min_height = SIZE * LINE + CELL_PADDING.y * 2.0;
             row.bottom_padding = CELL_PADDING.y;
-            let color = if head { RULE } else { FAINT_RULE };
+            let color = if head {
+                self.tones.rule
+            } else {
+                self.tones.faint_rule
+            };
             row.rules
                 .push(self.line(RuleHeight::Bottom(LINE_WIDTH), color));
             rows.push(row);
@@ -349,7 +379,7 @@ impl Place {
     }
 }
 
-fn span(span: &InlineSpan) -> TextSpan {
+fn span(span: &InlineSpan, tones: Tones) -> TextSpan {
     let style = span.style;
     TextSpan {
         range: span.range.clone(),
@@ -358,9 +388,9 @@ fn span(span: &InlineSpan) -> TextSpan {
             weight: style.strong.then_some(HEAVY),
             italic: style.emphasis.then_some(true),
             color: if style.link {
-                Some(LINK)
+                Some(tones.link)
             } else if style.image {
-                Some(FAINT_INK)
+                Some(tones.faint)
             } else {
                 None
             },

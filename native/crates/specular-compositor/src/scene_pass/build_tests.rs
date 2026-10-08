@@ -17,9 +17,7 @@ struct Built {
 
 fn built(zoom: f32, items: Vec<Item>, info: Option<PageLayersInfo>) -> Built {
     let view = view(Vec2::ZERO, zoom);
-    let scene = Scene {
-        items: items.clone(),
-    };
+    let scene = Scene::from_iter(items.clone());
     let (placed, _) = placed(&view, items);
     let batches = batch(&placed, &view);
     let (mut quads, mut shapes, mut page_layers, mut draws) =

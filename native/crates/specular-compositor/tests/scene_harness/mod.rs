@@ -44,11 +44,11 @@ impl Harness {
         let view = self
             .target
             .create_view(&wgpu::TextureViewDescriptor::default());
-        let stats = self
-            .compositor
-            .render_scene(&view, frame, &Scene { items }, |entity| {
-                (entity.as_str() == "page").then_some(PAGE)
-            });
+        let stats =
+            self.compositor
+                .render_scene(&view, frame, &Scene::from_iter(items), |entity| {
+                    (entity.as_str() == "page").then_some(PAGE)
+                });
         (read_pixels(&self.gpu, &self.target), stats)
     }
 

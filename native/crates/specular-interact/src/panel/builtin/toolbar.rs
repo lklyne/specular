@@ -5,7 +5,8 @@ use glam::Vec2;
 use specular_doc::TextAlign;
 
 use super::super::{
-    Dropdown, Icon, PaintRole, Palette, SidebarButton, ToolButton, ToolbarModel, ToolbarSection,
+    Dropdown, Icon, PaintRole, Palette, SidebarButton, ThemeButton, ToolButton, ToolbarModel,
+    ToolbarSection,
 };
 use super::Ctx;
 use super::controls::text;
@@ -42,6 +43,26 @@ fn tool(ctx: &Ctx<'_>, button: &ToolButton, left: f32) -> Node {
                 palette,
                 role,
             }),
+        }],
+        run: Some(Run::Act {
+            action: button.action.clone(),
+            closes: true,
+        }),
+    }
+}
+
+fn theme(ctx: &Ctx<'_>, button: &ThemeButton, left: f32) -> Node {
+    let rect = PanelRect::new(left, 0.0, TOOL_BUTTON.0, TOOL_BUTTON.1);
+    Node {
+        id: Some(button.id.clone()),
+        rect,
+        radius: CONTROL_RADIUS,
+        chrome: Chrome::ToolButton,
+        state: ctx.state(&button.id, true, false),
+        parts: vec![Part::Icon {
+            icon: button.icon,
+            rect: rect.centred(Vec2::splat(TOOL_GLYPH)),
+            tint: None,
         }],
         run: Some(Run::Act {
             action: button.action.clone(),
@@ -106,6 +127,8 @@ pub(super) fn layout(ctx: &Ctx<'_>, model: &ToolbarModel, viewport: Vec2) -> Pan
                 }
             }
             ToolbarSection::Zoom(dropdown) => {
+                nodes.push(theme(ctx, &model.theme, left));
+                left += TOOL_BUTTON.0 + GAP;
                 nodes.push(zoom(ctx, dropdown, left));
                 left += ZOOM_TRIGGER.0 + GAP;
             }

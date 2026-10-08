@@ -7,7 +7,7 @@ use super::frame::Frame;
 use super::freehand;
 use super::palette::{self, Palette, Role};
 use crate::cache::StrokeOutline;
-use crate::{Blend, Item, PathCommand, PathDraw, Point, Scene};
+use crate::{Blend, Colors, Item, PathCommand, PathDraw, Point, Scene};
 
 /// The outline is this much wider than the stroke's nominal width.
 const OUTLINE_SCALE: f64 = 1.6;
@@ -33,7 +33,7 @@ pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, drawing: &Drawing, scene:
             let outline = StrokeOutline {
                 stroke: stroke.clone(),
                 size,
-                item: stroke_item(stroke, size),
+                item: stroke_item(stroke, size, frame.colors),
             };
             match kept.get_mut(at) {
                 Some(slot) => *slot = outline,
@@ -46,12 +46,12 @@ pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, drawing: &Drawing, scene:
 }
 
 /// The filled outline of `stroke`, `size` units wide.
-fn stroke_item(stroke: &Stroke, size: f64) -> Option<Item> {
+fn stroke_item(stroke: &Stroke, size: f64, colors: &Colors) -> Option<Item> {
     let brush = stroke.brush.unwrap_or(BrushType::Pen);
     // The pen has round ends. The highlighter's are cut flat, like a marker.
     let (palette, round_ends, alpha, blend) = match brush {
         BrushType::Pen => (Palette::Vivid, true, 1.0, Blend::Normal),
-        BrushType::Highlight => (Palette::Soft, false, HIGHLIGHT_ALPHA, Blend::Multiply),
+        BrushType::Highlight => (Palette::Soft, false, HIGHLIGHT_ALPHA, colors.highlight),
     };
     let path: Vec<DVec2> = stroke
         .points
@@ -75,7 +75,7 @@ fn stroke_item(stroke: &Stroke, size: f64) -> Option<Item> {
         })
         .collect();
     commands.push(PathCommand::Close);
-    let ink = palette::resolve(&stroke.color, palette, Role::Ink);
+    let ink = palette::resolve(&stroke.color, palette, Role::Ink, colors);
     let path = PathDraw {
         commands,
         fill: Some(palette::with_alpha(ink, alpha)),

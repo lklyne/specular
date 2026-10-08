@@ -23,7 +23,7 @@ use glam::Vec2;
 use specular_compositor::{Compositor, DotGrid, FrameView, GpuContext};
 use specular_core::{PageId, PageSource};
 use specular_doc::{Document, EntityId};
-use specular_interact::{Action, App, ControlId, Driver, Event, ImageKey};
+use specular_interact::{Action, App, ControlId, Driver, Event, ImageKey, Theme};
 
 pub(crate) use self::bench::{BenchPlan, START_CAMERA, run as run_bench, work_of};
 pub(crate) use self::script::CameraArg;
@@ -56,6 +56,9 @@ pub(crate) struct HeadlessArgs {
     pub(crate) source: SourceKind,
     /// Whether the built-in panels are on when the script starts.
     pub(crate) panels: bool,
+    /// The theme the run starts in. `None` is the system's, which a
+    /// headless run reports as light.
+    pub(crate) theme: Option<Theme>,
 }
 
 impl Default for HeadlessArgs {
@@ -68,6 +71,7 @@ impl Default for HeadlessArgs {
             script: None,
             source: SourceKind::Synthetic,
             panels: true,
+            theme: None,
         }
     }
 }
@@ -77,6 +81,11 @@ impl HeadlessArgs {
     pub(crate) fn is_requested(&self) -> bool {
         self.snapshot.is_some() || self.script.is_some()
     }
+}
+
+/// The theme a `--theme` value names.
+pub(crate) fn theme_arg(value: &str) -> anyhow::Result<Theme> {
+    script::theme_named(value)
 }
 
 /// `--snapshot-camera`'s value.
@@ -103,9 +112,11 @@ pub(crate) fn run(
     let mut run = Headless::new(source, canvas, args)?;
     let (viewport, panels) = (run.viewport, args.panels);
     run.drive(|app| {
-        app.viewport(viewport)
-            .send(Event::BuiltinPanels(panels))
-            .send(Event::DocumentOpened(Box::new(document)))
+        app.viewport(viewport).send(Event::BuiltinPanels(panels));
+        if let Some(theme) = args.theme {
+            app.send(Event::ThemeLoaded(theme));
+        }
+        app.send(Event::DocumentOpened(Box::new(document)))
     })?;
     // A script's first step may ask a page something, and a real page has
     // nothing to say until it has loaded.
@@ -317,7 +328,7 @@ impl Headless {
             camera: self.app.session().camera,
             viewport: self.viewport,
             scale_factor: self.scale,
-            grid: DotGrid::default(),
+            grid: DotGrid::themed(scene.colors()),
             zooming: false,
         };
         let hosts = &self.hosts;

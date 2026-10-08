@@ -7,7 +7,6 @@ use glam::DVec2;
 use specular_interact::{DistributionGap, GuideAxis};
 
 use super::frame::Frame;
-use super::palette;
 use crate::{Color, Item, PathDraw, PathStroke, Point, Scene};
 
 const ALIGNMENT_WIDTH: f32 = 1.0;
@@ -20,7 +19,7 @@ const CAP_INSET: f32 = 1.0;
 
 pub(crate) fn draw(frame: &Frame<'_>, scene: &mut Scene) {
     let guides = frame.app.guides();
-    let stroke = PathStroke::new(palette::SELECTION, ALIGNMENT_WIDTH);
+    let stroke = PathStroke::new(frame.colors.selection, ALIGNMENT_WIDTH);
     for guide in &guides.alignment {
         let (from, to) = match guide.axis {
             GuideAxis::Horizontal => (

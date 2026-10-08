@@ -5,7 +5,7 @@ use glam::{DVec2, Vec2};
 use specular_core::Camera;
 use specular_interact::App;
 
-use crate::{Point, Rect, ViewCache};
+use crate::{Colors, Point, Rect, ViewCache};
 
 /// How far outside the viewport, in logical pixels, an entity may sit and
 /// still be drawn. It covers the chrome around a rect: a group's title, a
@@ -21,6 +21,8 @@ pub(crate) struct Frame<'a> {
     pub(crate) cache: &'a ViewCache,
     /// Whether chrome is drawn.
     pub(crate) chrome: bool,
+    /// The colours of the appearance being drawn.
+    pub(crate) colors: &'static Colors,
     camera: Camera,
     /// The part of the canvas that may be on screen, margin included.
     visible: Rect,
@@ -37,6 +39,7 @@ impl<'a> Frame<'a> {
             app,
             cache,
             chrome,
+            colors: Colors::of(app.appearance()),
             camera,
             visible,
             screen: Rect::new(0.0, 0.0, viewport.x, viewport.y).outset(CULL_MARGIN),

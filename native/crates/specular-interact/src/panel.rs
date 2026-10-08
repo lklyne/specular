@@ -31,8 +31,8 @@ pub use model::{
     OptionLayout, PaintRole, Palette, Stepper, Swatch, Swatches, Toggle,
 };
 pub use models::{
-    Align, Placement, PopupAnchor, PopupModel, SidebarButton, ToolButton, ToolbarModel,
-    ToolbarSection,
+    Align, Placement, PopupAnchor, PopupModel, SidebarButton, ThemeButton, ToolButton,
+    ToolbarModel, ToolbarSection,
 };
 pub use named::{UnknownControl, control_named, named_controls};
 pub(crate) use named::{activate as activate_control, open_menu as open_menu_at};

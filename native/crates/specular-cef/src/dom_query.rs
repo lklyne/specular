@@ -11,7 +11,7 @@
 //! elements it wholly contains.
 
 use serde_json::{Value, json};
-use specular_core::{CssRect, PageElement, PixelRect};
+use specular_core::{CssRect, PageColorScheme, PageElement, PixelRect};
 
 /// The most elements a region counts, as Electron's region select does.
 const MAX_GRABBED: u32 = 15;
@@ -195,6 +195,23 @@ pub fn parse_scroll_progress(result: &[u8]) -> Option<(f32, f32)> {
     let found: Value = serde_json::from_str(&returned(result)?).ok()?;
     let along = |key: &str| Some((found.get(key)?.as_f64()? as f32).clamp(0.0, 1.0));
     Some((along("x")?, along("y")?))
+}
+
+/// The message that makes a page report `scheme` as its
+/// `prefers-color-scheme`: `applyPageColorScheme`'s
+/// `Emulation.setEmulatedMedia`, over the page's devtools channel.
+pub fn color_scheme_message(id: i32, scheme: PageColorScheme) -> Vec<u8> {
+    let value = match scheme {
+        PageColorScheme::Light => "light",
+        PageColorScheme::Dark => "dark",
+    };
+    json!({
+        "id": id,
+        "method": "Emulation.setEmulatedMedia",
+        "params": { "features": [{ "name": "prefers-color-scheme", "value": value }] },
+    })
+    .to_string()
+    .into_bytes()
 }
 
 /// The message that asks a page for its own devtools target.

@@ -3,9 +3,11 @@
 use glam::Vec2;
 use specular_agent::{RunRequest, ThreadId};
 use specular_core::{CssSize, InputEvent, LocatorBundle, PageNav, PointKind};
-use specular_doc::{EntityId, Rect};
+use specular_doc::{ColorScheme, EntityId, Rect};
 
-use crate::{ApiOutcome, AppSettings, AssetBytes, CanvasId, ImageKey, PageRegion, ToolDefaults};
+use crate::{
+    ApiOutcome, AppSettings, AssetBytes, CanvasId, ImageKey, PageRegion, Theme, ToolDefaults,
+};
 
 /// One thing for the shell to do after an [`update`](crate::update). Effects
 /// run in the order they are returned.
@@ -259,6 +261,20 @@ pub enum Effect {
     /// Write the tool defaults to the preferences file, under `toolDefaults`,
     /// as [`ToolDefaults::to_json`] gives them.
     SaveToolDefaults(Box<ToolDefaults>),
+    /// Write the theme choice to the preferences file, under `themeMode`,
+    /// as [`Theme::key`] names it.
+    SaveTheme(Theme),
+    /// Tell a hosted page which `prefers-color-scheme` to report
+    /// (`applyPageColorScheme`). `scheme` is the page's own setting; `None`
+    /// follows the app, so the shell resolves it with
+    /// [`App::appearance`](crate::App::appearance). Asked when a page is
+    /// made, when its setting changes and when the app's appearance does.
+    SetPageColorScheme {
+        /// The page entity.
+        page: EntityId,
+        /// The page's own scheme, if it has one.
+        scheme: Option<ColorScheme>,
+    },
     /// Read every thread file under `.specular/threads/` of the space
     /// folder, and `index.json` beside them, and answer with
     /// [`Event::ThreadsLoaded`](crate::Event::ThreadsLoaded). Asked when a

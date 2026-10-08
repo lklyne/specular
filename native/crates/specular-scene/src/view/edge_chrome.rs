@@ -5,7 +5,6 @@
 use glam::Vec2;
 
 use super::frame::{Frame, vec_point};
-use super::palette;
 use crate::{
     Color, Dash, EllipseDraw, Item, LineCap, LineJoin, PathCommand, PathDraw, PathStroke, Rect,
     Scene, Stroke, StrokeAlign,
@@ -34,7 +33,7 @@ pub(crate) fn draw(frame: &Frame<'_>, scene: &mut Scene) {
         ))
     };
     for anchor in (app.anchors().into_iter()).filter(|anchor| anchor.active && on_screen(anchor)) {
-        let ring = Stroke::new(palette::SELECTION, DOT_RING, StrokeAlign::Centre);
+        let ring = Stroke::new(frame.colors.selection, DOT_RING, StrokeAlign::Centre);
         scene.push(dot(anchor.point, DOT_RADIUS, Color::WHITE, Some(ring)));
     }
     let Some(preview) = app.edge_preview() else {
@@ -52,16 +51,21 @@ pub(crate) fn draw(frame: &Frame<'_>, scene: &mut Scene) {
         ],
         fill: None,
         stroke: Some(PathStroke {
-            color: palette::SELECTION,
+            color: frame.colors.selection,
             width: BAND_WIDTH,
             cap: LineCap::Butt,
             join: LineJoin::Miter,
             dash: Some(BAND_DASH),
         }),
     }));
-    scene.push(dot(preview.origin, ORIGIN_RADIUS, palette::SELECTION, None));
+    scene.push(dot(
+        preview.origin,
+        ORIGIN_RADIUS,
+        frame.colors.selection,
+        None,
+    ));
     if let Some(snap) = preview.snap {
-        let ring = Stroke::new(palette::SELECTION, SNAP_RING, StrokeAlign::Centre);
+        let ring = Stroke::new(frame.colors.selection, SNAP_RING, StrokeAlign::Centre);
         scene.push(dot(snap, SNAP_RADIUS, Color::WHITE, Some(ring)));
     }
 }

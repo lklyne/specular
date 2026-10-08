@@ -56,6 +56,20 @@ pub struct SidebarButton {
     pub action: Action,
 }
 
+/// The toolbar's theme button, which steps the theme through system, light
+/// and dark.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ThemeButton {
+    /// Its name.
+    pub id: ControlId,
+    /// What it is called: the choice now in force.
+    pub label: Label,
+    /// The glyph of that choice.
+    pub icon: Icon,
+    /// What pressing it does: choose the next one.
+    pub action: Action,
+}
+
 /// The toolbar as it is now.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ToolbarModel {
@@ -64,6 +78,8 @@ pub struct ToolbarModel {
     /// The button for the right panel, at the right edge. Only a shell that
     /// has a right panel gets one.
     pub chat: Option<SidebarButton>,
+    /// The theme button, just before the zoom readout.
+    pub theme: ThemeButton,
     /// The blocks, left to right.
     pub sections: Vec<ToolbarSection>,
 }
@@ -72,6 +88,7 @@ impl ToolbarModel {
     /// Every control and option with its action.
     pub fn entries(&self) -> Entries<'_> {
         let mut out = vec![(self.sidebar.id.clone(), Some(&self.sidebar.action))];
+        out.push((self.theme.id.clone(), Some(&self.theme.action)));
         out.extend((self.chat.iter()).map(|button| (button.id.clone(), Some(&button.action))));
         for section in &self.sections {
             match section {

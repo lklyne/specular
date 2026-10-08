@@ -70,6 +70,8 @@ usage: specular-app [OPTIONS] [FOLDER | FILE.canvas]
   --snapshot-scale N        device pixels per logical pixel (default 1)
   --snapshot-camera x,y,zoom | fit
                             pan and zoom, or fit the document (the default)
+  --theme light|dark|system the snapshot's theme (default: the system's, which
+                            a run with no window takes as light)
   --script FILE       with or without --snapshot: scripted input run first,
                       one step a line: click, double-click, move, press,
                       drag-to (x y), release, drag x1 y1 x2 y2, hold MODS,
@@ -292,6 +294,7 @@ fn snapshot_flag(
                 _ => bail!("--snapshot-scale expects a number from 0.25 to 8, got `{value}`"),
             };
         }
+        "--theme" => headless.theme = Some(headless::theme_arg(&value_of(flag, args.next())?)?),
         "--snapshot-camera" => {
             headless.camera = headless::camera_arg(&value_of(flag, args.next())?)?;
         }

@@ -234,7 +234,11 @@ fn named(app: &App) -> Vec<Named> {
                     (tools.iter()).map(|tool| run(&tool.id, &tool.action, true, true, &plain)),
                 );
             }
-            ToolbarSection::Zoom(zoom) => dropdown(zoom, &plain, true, &mut out),
+            ToolbarSection::Zoom(zoom) => {
+                // The theme button is drawn just before the zoom readout.
+                out.push(run(&bar.theme.id, &bar.theme.action, true, true, &plain));
+                dropdown(zoom, &plain, true, &mut out);
+            }
         }
     }
     for model in popup_for(app).iter().flat_map(|popup| &popup.controls) {

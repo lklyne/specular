@@ -15,7 +15,7 @@ use crate::page_input::ButtonCapture;
 use crate::panel::builtin::PanelUi;
 use crate::saved::LoadedFits;
 use crate::space::Space;
-use crate::{Cursor, Gesture, PagePlacement, Tool, ToolDefaults};
+use crate::{Appearance, Cursor, Gesture, PagePlacement, Theme, ThemeState, Tool, ToolDefaults};
 
 /// Everything the app knows. Only [`update`](crate::update) changes it.
 #[derive(Debug, Clone, Default)]
@@ -38,6 +38,8 @@ pub struct App {
     pub(crate) about: Vec<crate::AboutRow>,
     /// Why no space is open, while the user has yet to choose one.
     pub(crate) space_ask: Option<crate::SpaceAsk>,
+    /// The appearance choice and the system's appearance.
+    pub(crate) theme: ThemeState,
     /// Lays text out for the editor.
     pub(crate) measure: Measurer,
 }
@@ -69,6 +71,18 @@ impl App {
     /// settings: not in the document and not in undo.
     pub fn tool_defaults(&self) -> &ToolDefaults {
         &self.tool_defaults
+    }
+
+    /// The appearance the user chose: light, dark, or the system's. An app
+    /// setting: not in the document and not in undo.
+    pub fn theme(&self) -> Theme {
+        self.theme.choice()
+    }
+
+    /// Light or dark: what the choice and the system's appearance come to,
+    /// which is what is drawn.
+    pub fn appearance(&self) -> Appearance {
+        self.theme.appearance()
     }
 
     /// The entity the gesture in flight is creating: a shape being dragged

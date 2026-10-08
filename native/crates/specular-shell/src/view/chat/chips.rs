@@ -19,7 +19,7 @@ use crate::canvas;
 use crate::theme;
 use crate::view::run;
 pub(super) fn muted() -> gpui_kit::Hsla {
-    theme::tinted(theme::TEXT_MUTED)
+    theme::tinted(theme::text_muted())
 }
 
 /// A 16 px round remove button that shows while `group` is hovered.
@@ -62,8 +62,8 @@ pub(super) fn draft_chip(draft: &DraftChip) -> impl IntoElement + use<> {
             .items_center()
             .rounded_full()
             .border_1()
-            .border_color(theme::solid(theme::ZINC_300))
-            .bg(theme::solid(theme::ZINC_100))
+            .border_color(theme::solid(theme::zinc_300()))
+            .bg(theme::solid(theme::zinc_100()))
             .py_1()
             .pl_2()
             .pr_6()
@@ -137,7 +137,7 @@ pub(super) fn queued(chips: &[QueuedChip]) -> impl IntoElement + use<> {
             .py_1()
             .text_size(px(12.0))
             .line_height(px(20.0))
-            .bg(theme::tinted(theme::QUEUED))
+            .bg(theme::tinted(theme::queued()))
             .child(
                 Icon::new(icon)
                     .size(px(11.0))
@@ -178,7 +178,7 @@ pub(super) fn chip(id: &'static str, icon: Icon, label: &str) -> gpui_kit::State
         .text_size(px(11.0))
         .font_weight(FontWeight::MEDIUM)
         .text_color(muted())
-        .hover(|this| this.bg(theme::tinted(theme::CHIP_HOVER)))
+        .hover(|this| this.bg(theme::tinted(theme::chip_hover())))
         .child(icon.size(px(11.0)).flex_shrink_0())
         .child(
             div()

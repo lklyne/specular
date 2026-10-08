@@ -300,7 +300,7 @@ impl ShellWindow for CanvasSurface {
             },
             viewport: self.size,
             scale_factor: self.scale,
-            grid: DotGrid::default(),
+            grid: DotGrid::themed(scene.colors()),
             zooming,
         };
         let stats = self
@@ -339,7 +339,7 @@ impl ShellWindow for CanvasSurface {
             camera,
             viewport,
             scale_factor: self.scale,
-            grid: DotGrid::default(),
+            grid: DotGrid::themed(scene.colors()),
             zooming: false,
         };
         self.compositor

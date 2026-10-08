@@ -3,10 +3,10 @@
 
 use std::fmt::Write as _;
 
-use specular_interact::Icon;
+use specular_interact::{Appearance, Icon};
 
 use super::{Glyph, Inks, Layer, Paint, Shape, Turn, glyph, matrix, paint};
-use crate::Color;
+use crate::{Color, Colors};
 
 fn attribute(out: &mut String, name: &str, color: Option<Color>) {
     match color {
@@ -74,9 +74,25 @@ fn markup(glyph: Glyph, inks: Inks) -> String {
 
 /// `icon` as an SVG document, drawn as the built-in panels draw it:
 /// `current` is the text color of the control it is on, `tint` the color
-/// the glyph shows when it shows one, and `on` whether the control is on.
-pub fn icon_svg(icon: Icon, current: Color, tint: Option<Color>, on: bool) -> String {
-    markup(glyph(icon), Inks { current, tint, on })
+/// the glyph shows when it shows one, `on` whether the control is on and
+/// `appearance` the theme it is drawn for.
+pub fn icon_svg(
+    icon: Icon,
+    current: Color,
+    tint: Option<Color>,
+    on: bool,
+    appearance: Appearance,
+) -> String {
+    let colors = Colors::of(appearance);
+    markup(
+        glyph(icon),
+        Inks {
+            current,
+            tint,
+            on,
+            colors,
+        },
+    )
 }
 
 #[cfg(test)]
@@ -85,7 +101,13 @@ mod tests {
 
     #[test]
     fn a_lucide_glyph_is_stroked_in_the_current_color() {
-        let svg = icon_svg(Icon::Trash, Color::rgb(0x30, 0x30, 0x30), None, false);
+        let svg = icon_svg(
+            Icon::Trash,
+            Color::rgb(0x30, 0x30, 0x30),
+            None,
+            false,
+            Appearance::Light,
+        );
         assert!(svg.starts_with("<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\""));
         assert!(svg.contains("stroke=\"#303030\""), "{svg}");
         assert!(svg.ends_with("</svg>"));

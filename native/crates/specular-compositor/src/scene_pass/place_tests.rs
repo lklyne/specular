@@ -23,7 +23,7 @@ pub(crate) fn text(x: f32, y: f32, size: f32) -> TextRun {
 
 /// Places `items`, measuring every run as 40 by 20 units.
 pub(crate) fn placed(view: &ViewTransform, items: Vec<Item>) -> (Vec<Placed>, PlaceCounts) {
-    let scene = Scene { items };
+    let scene = Scene::from_iter(items);
     let mut placed = Vec::new();
     let counts = place(&scene, view, |_| Size::new(40.0, 20.0), &mut placed);
     (placed, counts)
@@ -90,9 +90,7 @@ fn off_screen_wrapped_text_is_culled_without_being_measured() {
         wrap_width: Some(200.0),
         ..text(2_000.0, 10.0, 14.0)
     };
-    let scene = Scene {
-        items: vec![Item::canvas(run), Item::canvas(text(10.0, 900.0, 14.0))],
-    };
+    let scene = Scene::from_iter([Item::canvas(run), Item::canvas(text(10.0, 900.0, 14.0))]);
     let mut measured = 0;
     let mut placed = Vec::new();
     place(

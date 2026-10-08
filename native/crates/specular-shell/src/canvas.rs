@@ -14,8 +14,8 @@ use std::time::{Duration, Instant};
 use futures::channel::mpsc;
 use specular_app::{Bench, Runtime, ShellWindow as _};
 use specular_interact::{
-    ChatModel, Event, Menu, OnboardingModel, PopupAnchor, PopupModel, SidebarModel, ToolbarModel,
-    chat, menus, onboarding, popup_for, sidebar, toolbar,
+    Appearance, ChatModel, Event, Menu, OnboardingModel, PopupAnchor, PopupModel, SidebarModel,
+    ToolbarModel, chat, menus, onboarding, popup_for, sidebar, toolbar,
 };
 
 use crate::surface::{CanvasSurface, WindowAsks};
@@ -102,6 +102,8 @@ pub(crate) struct Models {
     pub(crate) menus: Vec<Menu>,
     /// The first-run view, while no space is open.
     pub(crate) onboarding: Option<OnboardingModel>,
+    /// Light or dark: what the Kit's theme has to be.
+    pub(crate) appearance: Appearance,
 }
 
 impl Models {
@@ -115,6 +117,7 @@ impl Models {
             chat: chat(app),
             menus: menus(app),
             onboarding: onboarding(app),
+            appearance: app.appearance(),
         }
     }
 }

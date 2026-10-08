@@ -234,6 +234,14 @@ Choices made during the run that the plan did not settle, grouped by area. The t
 - "Show and hide defaults" was read as what is shown at launch: the sidebar and the right panel. [APP-BUNDLE]
 - `.canvas` is claimed as an Editor with rank Alternate under an imported type `org.jsoncanvas.canvas`. No URL scheme is registered. [APP-BUNDLE]
 
+### Themes
+
+- `App.theme` is a `ThemeState` (the choice, plus what the system last said), changed by `Action::SetTheme`, `Event::ThemeLoaded` (no save) and `Event::SystemAppearance`. `App::appearance()` is what `view` draws. Colours are one `specular_scene::Colors` per appearance (`colors/light.rs`, `colors/dark.rs`), read through `Frame.colors`; `Scene.appearance` carries it to the compositor, whose `DotGrid::themed` takes the canvas and dots from it. [THEMES]
+- The page's `prefers-color-scheme` is `Effect::SetPageColorScheme { page, scheme }` with the page's own `colorScheme` (`None` follows the app). The runner resolves it, so a shell only needs `PageSource::set_color_scheme`, which the CEF source sends as `Emulation.setEmulatedMedia` (`applyPageColorScheme`) and the synthetic one ignores. The runner gives a new page its scheme as it makes it, so `CreatePage` effect lists are unchanged. The per-page setting was stored and shown before this but never applied. [THEMES]
+- The toolbar button is Electron's theme button (system, light, dark, round again; the sun-moon, sun and moon glyphs the page popup already had), set before the zoom readout. Electron has no View menu item for it, so native has none. [THEMES]
+- The dark highlighter is painted over, not multiplied: multiplying a pastel into a dark canvas is near black. The sticky keeps dark text in both themes (`StickyBodyLayer`). Comment marks, the edge default, the pink distribution and rearrange guides, and the preview blue are the same in both themes in Electron, so they stay fixed. [THEMES]
+- Where Electron has no dark value to port, a choice was made and is named in `colors/dark.rs`: the page title and file name grey (`muted_text`, stone-400), the text selection (`#3f638b`, macOS's own), the right panel's zinc scale (the opposite end of the scale) and the run bar's wash (the same gradient ends under a black veil). [THEMES]
+
 ### Performance
 
 - Caches live in the compositor behind named types (`MeshCache`, `Laid` text layouts, `Batcher`) and in the shell (`FrameDemand`). `Scene`, `view` and `update` stay pure. [Performance]
@@ -267,6 +275,7 @@ Decisions a later one replaced. The areas above have the later one.
 - **The write target is always the space folder** [RIGHT-PANEL]. It follows a bound origin [INSPECT-LOOP].
 - **Repo bindings are read from and written to Electron's `repos.json`** [INSPECT-LOOP]. This app writes its own file [APP-BUNDLE].
 - **`App` holds `StackCache` behind a `Mutex`, and the compositor depends on `specular-interact`** [T4, F5b]. Both undone by cleanup tasks 13 and 6 [CLEANUP-A].
+- **Colours are the light theme only** [F5b]. They are one `specular_scene::Colors` per appearance, with a dark set [THEMES].
 
 ## Needs a human at a Mac
 
@@ -405,7 +414,7 @@ Known gaps against Electron, not checks: the hand and mono fonts fall back to sy
 - `gpu_smoke.rs` is the frame-ingestion tests moved onto `render_scene`; its five shape tests went, `scene_gpu.rs` covers them. `tests/ink/` holds the helpers only the shape and text tests use.
 - Testkit: `scene_snapshot`, `TestApp::scene_snapshot` and `assert_scene_snapshot!` in `src/scene_snapshot.rs`. 18 tests in `specular-scene/tests/view.rs`, one snapshot per kind and per session state, as `.snap` files (the lines are long).
 - Session layer: 1 px outline per selected entity, four corner handles from `App::handles`, marquee rect plus outlines of `App::marquee_items`, an outline on `Session::hover`, the comment preview, and a selected edge in the selection colour. Nothing was added to `specular-interact`.
-- For K1 to K6: the constants in each kind's module are Electron's light-theme values. Stickies have no shadow and nothing has a dark theme. `text_vertical_align` on a shape is honoured, which Electron does not do.
+- For K1 to K6: the colours were Electron's light-theme values, each kind's own constants; THEMES moved them into `specular_scene::Colors` with a dark set. `text_vertical_align` on a shape is honoured, which Electron does not do.
 - For K6 and whoever draws images: a file is a card with a glyph and its name whatever its type. `ImageDraw` is unused by `view`.
 - For E-tasks: an edge whose entity is missing draws nothing. Edge anchors on the selected entity are not drawn.
 - Gate: fmt, clippy and `cargo test --workspace` pass, GPU tests included on this machine.
@@ -994,3 +1003,12 @@ Nothing was retired. Cleanup rows 1 and 2 in the plan say what now stands betwee
 - The winit `Shell` and `run_window` are in `app/winit_window.rs`. `i-comments` clicks the canvas before its undos, because the right panel's composer keeps the keys.
 - Gate at the rebased head: fmt, clippy for the workspace and with `--features cef`, `cargo test --workspace` (1,326), `fixtures/scenarios/run.sh`.
 - Needs a human at a Mac: the nine items at the end of ADR 0040.
+
+### THEMES: light, dark and system. See `git log -- native/crates/specular-scene/src/colors.rs`
+
+- A theme choice (`Theme`: system, light, dark) lives in the app with the system's appearance; `Action::SetTheme` changes it, the toolbar's theme button steps it, `preferences.json`'s `themeMode` keeps it (Electron's key), and the winit shell and the GPUI shell send `Event::SystemAppearance` at start and on change, so `system` follows the OS live. `view`, the built-in panels, the dot grid and the Kit's theme all read one `Colors` per appearance; the light values are what was there and the light scene snapshots did not change.
+- Pages: `Effect::SetPageColorScheme` and `PageSource::set_color_scheme` (CEF: `Emulation.setEmulatedMedia` over the devtools channel). Headless takes `--theme light|dark|system` and a `theme dark` script step, and applies it to real pages with `--source cef`.
+- Tests: `tests/it/theme.rs` (button, appearance, SaveTheme, page effects), the prefs round trip, one dark scene snapshot, and the panel snapshots that moved because the toolbar gained a button. Looked at: the kitchen sink in both themes, the sticky popup and the context menu in dark; `fixtures/scenarios/run.sh` passes.
+- Next agent: a colour on a drawn surface goes in `Colors`, both columns, not a constant in a view. `ViewCache` drops its Documents and strokes when the appearance changes, because they carry colours. `specular-shell`'s `theme.rs` colours are now functions of the theme in force (`theme::panel()`), `0xRRGGBBAA`.
+- Not done: the native title bar and traffic lights follow the OS, not the app's choice. The CEF feature build is clippy-clean (`CEF_PATH=~/.local/share/cef cargo clippy -p specular-app --features cef`), but no real page has been seen switching scheme.
+- Needs a human at a Mac: open a page that has a `prefers-color-scheme` stylesheet in a bundled CEF build and press the theme button; set the OS to dark with the choice on system and see the app follow without a restart; look at the GPUI shell's sidebar, chat panel and popups in dark.

@@ -47,7 +47,7 @@ const FOLD: f32 = 12.0;
 const FOLD_LEFT: f32 = 16.0;
 
 fn muted() -> gpui_kit::Hsla {
-    theme::tinted(theme::TEXT_MUTED)
+    theme::tinted(theme::text_muted())
 }
 
 fn element_id(id: &ControlId) -> SharedString {
@@ -81,7 +81,7 @@ fn head(model: &SectionHead) -> impl IntoElement {
                 .truncate()
                 .child(SharedString::from(model.title.clone())),
         )
-        .child(small(chevron, theme::TEXT, FOLD))
+        .child(small(chevron, theme::text(), FOLD))
         .child(mark(&model.id))
         .on_click(move |_, window, cx| run(&toggle, window, cx))
 }
@@ -99,9 +99,11 @@ fn row_shell(id: &ControlId, selected: bool, depth: u8) -> gpui_kit::Stateful<gp
         .gap_2()
         .items_center()
         .cursor_pointer()
-        .when(selected, |this| this.bg(theme::tinted(theme::ROW_SELECTED)))
+        .when(selected, |this| {
+            this.bg(theme::tinted(theme::row_selected()))
+        })
         .when(!selected, |this| {
-            this.hover(|this| this.bg(theme::tinted(theme::ROW_HOVER)))
+            this.hover(|this| this.bg(theme::tinted(theme::row_hover())))
         })
         .child(mark(id))
 }
@@ -132,7 +134,7 @@ fn fold(row: &SidebarRow, toggle: &Action, open: bool) -> impl IntoElement {
         .flex()
         .items_center()
         .justify_center()
-        .child(small(chevron, theme::GLYPH_MUTED, FOLD))
+        .child(small(chevron, theme::glyph_muted(), FOLD))
         .child(mark(&row.id.child("toggle")))
         .on_click(move |_, window, cx| {
             cx.stop_propagation();
@@ -178,7 +180,7 @@ impl ShellView {
         let glyph_box = div()
             .relative()
             .flex_shrink_0()
-            .child(small(row.glyph, theme::GLYPH_MUTED, ICON))
+            .child(small(row.glyph, theme::glyph_muted(), ICON))
             .when_some(folds, |this, (toggle, open)| {
                 this.child(fold(row, toggle, open))
             });
@@ -221,10 +223,10 @@ impl ShellView {
                     run(&action, window, cx);
                 }
             })
-            .child(small(Icon::File, theme::GLYPH_MUTED, ICON))
+            .child(small(Icon::File, theme::glyph_muted(), ICON))
             .child(name)
             .when(row.active && !renaming, |this| {
-                this.child(small(Icon::Check, theme::TEXT, ICON))
+                this.child(small(Icon::Check, theme::text(), ICON))
             });
         let target = MenuTarget::Canvas(row.id.clone());
         div()
@@ -290,7 +292,7 @@ impl ShellView {
             div()
                 .h(px(1.0))
                 .flex_shrink_0()
-                .bg(theme::solid(theme::PANEL_BORDER))
+                .bg(theme::solid(theme::panel_border()))
         };
         v_flex()
             .id("sidebar")
@@ -300,9 +302,9 @@ impl ShellView {
             .top(px(theme::TOOLBAR_HEIGHT))
             .bottom_0()
             .w(px(theme::SIDEBAR_WIDTH))
-            .bg(theme::solid(theme::PANEL))
+            .bg(theme::solid(theme::panel()))
             .border_r_1()
-            .border_color(theme::solid(theme::CHROME_BORDER))
+            .border_color(theme::solid(theme::chrome_border()))
             .child(
                 h_flex()
                     .h(px(HEAD))
@@ -321,9 +323,9 @@ impl ShellView {
                             .justify_center()
                             .rounded(px(8.0))
                             .cursor_pointer()
-                            .hover(|this| this.bg(theme::tinted(theme::ROW_SELECTED)))
+                            .hover(|this| this.bg(theme::tinted(theme::row_selected())))
                             .tooltip(|window, cx| Tooltip::new("New canvas").build(window, cx))
-                            .child(small(Icon::Plus, theme::TEXT, ICON))
+                            .child(small(Icon::Plus, theme::text(), ICON))
                             .child(mark(&ControlId::new("sidebar.add")))
                             .on_click(move |_, window, cx| run(&add, window, cx)),
                     ),

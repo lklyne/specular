@@ -20,7 +20,7 @@ use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
     Animation, AnimationExt as _, AnyElement, Context, Hsla, InteractiveElement as _, IntoElement,
     ObjectFit, ParentElement as _, Rgba, SharedString, StatefulInteractiveElement as _,
-    StyleRefinement, Styled as _, StyledImage as _, div, img, px, relative, rgb,
+    StyleRefinement, Styled as _, StyledImage as _, div, img, px, relative, rgba,
 };
 use specular_interact::{Bubble, ChatModel, RunBar, ThreadId, ThreadRole, Transcript};
 
@@ -88,7 +88,7 @@ pub(super) struct Shown {
 }
 
 fn mix(from: u32, to: u32, amount: f32) -> Hsla {
-    let (from, to) = (rgb(from), rgb(to));
+    let (from, to) = (rgba(from), rgba(to));
     let lerp = |from: f32, to: f32| from + (to - from) * amount;
     Rgba {
         r: lerp(from.r, to.r),
@@ -104,9 +104,9 @@ fn mix(from: u32, to: u32, amount: f32) -> Hsla {
 fn surface() -> BubbleContent {
     BubbleContent::new()
         .rounded(px(16.0))
-        .border_color(theme::solid(theme::INPUT_BORDER))
-        .bg(theme::solid(theme::INPUT))
-        .text_color(theme::solid(theme::TEXT))
+        .border_color(theme::solid(theme::input_border()))
+        .bg(theme::solid(theme::input()))
+        .text_color(theme::solid(theme::text()))
         .px_3()
         .py(px(6.0))
         .text_size(px(12.0))
@@ -124,7 +124,7 @@ fn thumbnails(images: &[String]) -> impl IntoElement + use<> {
                 .flex_shrink_0()
                 .rounded(px(6.0))
                 .border_1()
-                .border_color(theme::solid(theme::ZINC_300))
+                .border_color(theme::solid(theme::zinc_300()))
                 .object_fit(ObjectFit::Cover)
         }))
 }
@@ -148,7 +148,7 @@ fn user_bubble(bubble: &Bubble, flash: Option<u32>) -> AnyElement {
                 SharedString::from(format!("chat-flash-{}-{count}", bubble.id)),
                 Animation::new(FLASH).with_easing(gpui_kit::ease_out_quint()),
                 |body, progress| {
-                    let fill = mix(theme::INPUT, theme::TEXT, FLASH_MIX * (1.0 - progress));
+                    let fill = mix(theme::input(), theme::text(), FLASH_MIX * (1.0 - progress));
                     body.content(surface().bg(fill))
                 },
             )
@@ -296,8 +296,8 @@ impl ShellView {
                 },
                 Some(Row::Streaming(text)) => agent_text("chat-streaming".into(), text),
                 Some(Row::Run(run)) => run_bar(run, &bar, cx).into_any_element(),
-                Some(Row::Error(text)) => note(text, theme::solid(theme::ERROR)),
-                Some(Row::Hint(text)) => note(text, theme::tinted(theme::TEXT_MUTED)),
+                Some(Row::Error(text)) => note(text, theme::solid(theme::error())),
+                Some(Row::Hint(text)) => note(text, theme::tinted(theme::text_muted())),
                 None => div().into_any_element(),
             },
         )

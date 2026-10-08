@@ -149,6 +149,8 @@ pub(crate) fn keeps_layout(app: &App, event: &Event) -> bool {
         | Event::ElementAt { .. }
         | Event::RegionGrab { .. }
         | Event::ToolDefaultsLoaded(_)
+        | Event::ThemeLoaded(_)
+        | Event::SystemAppearance(_)
         | Event::Action(_)
         | Event::Control(..)
         | Event::ContextMenu(_)

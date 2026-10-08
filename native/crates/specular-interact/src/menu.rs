@@ -228,6 +228,7 @@ fn has_target(app: &App, action: &Action) -> bool {
         | Action::Cancel
         | Action::SetTool(_)
         | Action::SetToolDefault(_)
+        | Action::SetTheme(_)
         | Action::SetToolVariant(_)
         | Action::Select(_)
         | Action::Reveal { .. }

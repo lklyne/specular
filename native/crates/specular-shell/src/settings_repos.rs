@@ -68,7 +68,7 @@ pub(crate) fn send(action: &Action, window: &mut Window) {
 }
 
 fn muted() -> gpui_kit::Hsla {
-    theme::tinted(theme::TEXT_MUTED)
+    theme::tinted(theme::text_muted())
 }
 
 fn origin_row(row: &BoundOriginRow, index: usize) -> impl IntoElement + use<> {
@@ -116,7 +116,7 @@ fn repo_card(
         .gap_2()
         .rounded(px(8.0))
         .border_1()
-        .border_color(theme::solid(theme::ZINC_300))
+        .border_color(theme::solid(theme::zinc_300()))
         .p_3()
         .child(
             h_flex()

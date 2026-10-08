@@ -4,7 +4,6 @@ use specular_doc::{Entity, Page};
 use specular_interact::{PageState, title_scale};
 
 use super::frame::{Frame, canvas_rect};
-use super::palette;
 use crate::{
     Item, PageDraw, Rect, RectDraw, Scene, Stroke, StrokeAlign, TextOverflow, TextRun,
     VerticalAlign,
@@ -31,13 +30,18 @@ pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, page: &Page, scene: &mut 
     }
     let on_screen = frame.screen_rect(entity.rect);
     // A ring just outside the frame, one pixel wide at any zoom.
-    let border = Stroke::new(palette::PAGE_BORDER, BORDER_WIDTH, StrokeAlign::Outside);
+    let border = Stroke::new(frame.colors.page_border, BORDER_WIDTH, StrokeAlign::Outside);
     scene.push(Item::screen(
         RectDraw::outlined(on_screen, border).with_corner_radius(CORNER_RADIUS * frame.zoom()),
     ));
     let title = title(entity, page, frame.app.page_state(&entity.id));
     if !title.is_empty() {
-        scene.push(title_above(frame, on_screen, &title, palette::MUTED_TEXT));
+        scene.push(title_above(
+            frame,
+            on_screen,
+            &title,
+            frame.colors.muted_text,
+        ));
     }
 }
 

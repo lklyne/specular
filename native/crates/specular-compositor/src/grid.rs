@@ -15,8 +15,6 @@ const MIN_GRID_SPACING_PX: f32 = 8.0;
 const FULL_OPACITY_SPACING_PX: f32 = 18.0;
 /// Largest step doubling, so extreme zoom-out still shows a sparse grid.
 const MAX_GRID_STEP_MULTIPLIER: f32 = 64.0;
-/// Opacity floor for dense grids (light theme value).
-const MIN_DOT_ALPHA: f32 = 0.52;
 /// Smallest dot radius in logical pixels.
 const MIN_DOT_RADIUS: f32 = 0.6;
 
@@ -56,7 +54,7 @@ pub(crate) fn grid_metrics(camera: &Camera, grid: &DotGrid, scale_factor: f32) -
         origin: camera.pan,
         spacing,
         radius,
-        alpha: (spacing / FULL_OPACITY_SPACING_PX).clamp(MIN_DOT_ALPHA, 1.0),
+        alpha: (spacing / FULL_OPACITY_SPACING_PX).clamp(grid.min_alpha, 1.0),
     }
 }
 

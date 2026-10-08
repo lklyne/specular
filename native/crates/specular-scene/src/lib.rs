@@ -16,6 +16,7 @@
 mod bounds;
 mod cache;
 mod color;
+mod colors;
 mod column;
 mod item;
 mod markdown;
@@ -35,6 +36,7 @@ pub type OwnerId = specular_doc::EntityId;
 
 pub use cache::ViewCache;
 pub use color::Color;
+pub use colors::{Colors, Hues, PanelColors, Shade};
 pub use column::{ColumnDraw, Row, RowRule, RuleHeight};
 pub use item::{Blend, Draw, Item, Scene, Space};
 pub use media::{ImageDraw, ImageId, PageDraw};

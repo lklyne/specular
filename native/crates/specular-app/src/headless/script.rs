@@ -17,7 +17,7 @@ use std::path::PathBuf;
 use anyhow::{Context as _, bail};
 use glam::Vec2;
 use specular_core::{Camera, Modifiers};
-use specular_interact::{Action, ArrangeMode, Key, Tool};
+use specular_interact::{Action, ArrangeMode, Key, Theme, Tool};
 
 /// Where the camera is put.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -143,6 +143,7 @@ fn step(line: &str) -> anyhow::Result<Step> {
         ("pinch", [delta]) => Step::Pinch(delta.parse().context("pinch expects a number")?),
         ("tool", [name]) => Step::Tool(tool_named(name)?),
         ("act", [name]) => Step::Act(action_named(name)?),
+        ("theme", [name]) => Step::Act(Action::SetTheme(theme_named(name)?)),
         ("select", ids) => Step::Select(ids.iter().map(|&id| id.to_owned()).collect()),
         ("camera", [value]) => Step::Camera(camera(value)?),
         ("wait", [ms]) => Step::Wait(ms.parse().context("wait expects milliseconds")?),
@@ -241,6 +242,14 @@ fn key_named(name: &str) -> anyhow::Result<Key> {
             _ => bail!("unknown key `{name}`"),
         },
     })
+}
+
+/// The theme `name` names: `light`, `dark` or `system`.
+pub(crate) fn theme_named(name: &str) -> anyhow::Result<Theme> {
+    match name {
+        "light" | "dark" | "system" => Ok(Theme::from_key(name)),
+        _ => bail!("unknown theme `{name}` (expected light, dark or system)"),
+    }
 }
 
 fn tool_named(name: &str) -> anyhow::Result<Tool> {

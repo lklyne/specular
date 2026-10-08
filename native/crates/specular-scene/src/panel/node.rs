@@ -6,19 +6,19 @@ use specular_interact::panel::builtin::{
 };
 use specular_interact::{PaintRole, Palette};
 
-use super::colors::{
-    DIMMED, DISABLED, DIVIDER, DOT_EDGE, FIELD_BORDER, HOVER, INTERACTIVE, INTERACTIVE_HOVER, KEY,
-    KEY_TEXT, MENU_HOVER, ON, POPUP, POPUP_BORDER, RING_GRAY, RULE, SCROLL_THUMB, SIDEBAR_RULE,
-    TEXT, TEXT_MUTED, TOOL_FILL, TOOLBAR_CHEVRON, TOOLBAR_TEXT, TOOLBAR_TEXT_STRONG,
-};
 use super::icons::{self, Inks};
 use super::input;
 use super::rect;
 use crate::view::palette;
 use crate::{
-    Color, EllipseDraw, FontFamily, Item, Point, RectDraw, Stroke, StrokeAlign, TextAlign, TextRun,
-    VerticalAlign,
+    Color, Colors, EllipseDraw, FontFamily, Item, PanelColors, Point, RectDraw, Stroke,
+    StrokeAlign, TextAlign, TextRun, VerticalAlign,
 };
+
+/// A control that cannot be used: `disabled:opacity-30`.
+const DISABLED: f32 = 0.3;
+/// A row faded because its page has left its document: `opacity-50`.
+const DIMMED: f32 = 0.5;
 
 /// Panel text: `text-xs`, 12 px on a 16 px line.
 const TEXT_SIZE: f32 = 12.0;
@@ -31,7 +31,7 @@ const RING: f32 = 2.0;
 /// (`swatchRingColor` in `colorSwatchStyle.ts`).
 const PALE: f32 = 0.92;
 
-fn resolve(tint: &Tint) -> Color {
+fn resolve(tint: &Tint, colors: &Colors) -> Color {
     let hues = match tint.palette {
         Palette::Soft => palette::Palette::Soft,
         Palette::Vivid => palette::Palette::Vivid,
@@ -40,7 +40,7 @@ fn resolve(tint: &Tint) -> Color {
         PaintRole::Fill => palette::Role::Fill,
         PaintRole::Ink => palette::Role::Ink,
     };
-    palette::resolve(&tint.color, hues, role)
+    palette::resolve(&tint.color, hues, role, colors)
 }
 
 /// How light `color` looks, 0 to 1.
@@ -58,23 +58,23 @@ fn lit(state: NodeState) -> bool {
 }
 
 /// The fill behind a node's parts, if it has one now.
-fn fill(chrome: Chrome, state: NodeState) -> Option<Color> {
+fn fill(p: &PanelColors, chrome: Chrome, state: NodeState) -> Option<Color> {
     match (chrome, state.pointing) {
-        (Chrome::ToolButton, _) => lit(state).then_some(TOOL_FILL),
-        (Chrome::ToolMenu, Pointing::Hover | Pointing::Pressed) if !state.on => Some(TOOL_FILL),
-        (Chrome::ToolMenu, _) => state.on.then_some(ON),
-        (Chrome::Button | Chrome::PresetRow, Pointing::Pressed) => Some(ON),
-        (Chrome::Button | Chrome::PresetRow, _) if state.on => Some(ON),
-        (Chrome::Button | Chrome::PresetRow, Pointing::Hover) => Some(HOVER),
-        (Chrome::MenuRow, Pointing::Hover | Pointing::Pressed) => Some(MENU_HOVER),
-        (Chrome::Divider, _) => Some(DIVIDER),
-        (Chrome::Rule, _) => Some(RULE),
-        (Chrome::Edge, _) => Some(SIDEBAR_RULE),
-        (Chrome::Scrollbar, _) => Some(SCROLL_THUMB),
-        (Chrome::Row, _) if state.on => Some(INTERACTIVE),
-        (Chrome::Subtle, Pointing::Pressed) => Some(INTERACTIVE),
+        (Chrome::ToolButton, _) => lit(state).then_some(p.tool_fill),
+        (Chrome::ToolMenu, Pointing::Hover | Pointing::Pressed) if !state.on => Some(p.tool_fill),
+        (Chrome::ToolMenu, _) => state.on.then_some(p.on),
+        (Chrome::Button | Chrome::PresetRow, Pointing::Pressed) => Some(p.on),
+        (Chrome::Button | Chrome::PresetRow, _) if state.on => Some(p.on),
+        (Chrome::Button | Chrome::PresetRow, Pointing::Hover) => Some(p.hover),
+        (Chrome::MenuRow, Pointing::Hover | Pointing::Pressed) => Some(p.menu_hover),
+        (Chrome::Divider, _) => Some(p.divider),
+        (Chrome::Rule, _) => Some(p.rule),
+        (Chrome::Edge, _) => Some(p.sidebar_rule),
+        (Chrome::Scrollbar, _) => Some(p.scroll_thumb),
+        (Chrome::Row, _) if state.on => Some(p.interactive),
+        (Chrome::Subtle, Pointing::Pressed) => Some(p.interactive),
         (Chrome::Row | Chrome::Subtle, Pointing::Hover | Pointing::Pressed) => {
-            Some(INTERACTIVE_HOVER)
+            Some(p.interactive_hover)
         }
         (
             Chrome::Button | Chrome::PresetRow | Chrome::MenuRow | Chrome::Row | Chrome::Subtle,
@@ -89,15 +89,15 @@ fn fill(chrome: Chrome, state: NodeState) -> Option<Color> {
 
 /// The color of a node's own text and glyphs: quiet at rest, full when the
 /// pointer is on it or it is on.
-fn follow(surface: Surface, state: NodeState) -> Color {
+fn follow(p: &PanelColors, surface: Surface, state: NodeState) -> Color {
     match (surface, lit(state)) {
-        (Surface::Toolbar, true) => TOOLBAR_TEXT_STRONG,
-        (Surface::Toolbar, false) => TOOLBAR_TEXT,
+        (Surface::Toolbar, true) => p.toolbar_text_strong,
+        (Surface::Toolbar, false) => p.toolbar_text,
         (Surface::Popup | Surface::Dropdown | Surface::Sidebar | Surface::SidebarList, true) => {
-            TEXT
+            p.text
         }
         (Surface::Popup | Surface::Dropdown | Surface::Sidebar | Surface::SidebarList, false) => {
-            TEXT_MUTED
+            p.text_muted
         }
     }
 }
@@ -136,9 +136,9 @@ pub(super) fn line(
 }
 
 /// The color of the dot among `parts`, which a swatch's ring takes.
-fn dot_color(parts: &[Part]) -> Option<Color> {
+fn dot_color(parts: &[Part], colors: &Colors) -> Option<Color> {
     parts.iter().find_map(|part| match part {
-        Part::Dot { tint, .. } => tint.as_ref().map(resolve),
+        Part::Dot { tint, .. } => tint.as_ref().map(|tint| resolve(tint, colors)),
         Part::Icon { .. }
         | Part::Text { .. }
         | Part::Chevron { .. }
@@ -149,18 +149,19 @@ fn dot_color(parts: &[Part]) -> Option<Color> {
     })
 }
 
-fn chrome(node: &Node, out: &mut Vec<Item>) {
+fn chrome(colors: &'static Colors, node: &Node, out: &mut Vec<Item>) {
+    let p = &colors.panel;
     let area = rect(node.rect);
-    if let Some(color) = fill(node.chrome, node.state) {
+    if let Some(color) = fill(p, node.chrome, node.state) {
         out.push(Item::screen(
             RectDraw::filled(area, color).with_corner_radius(node.radius),
         ));
     }
     match node.chrome {
         Chrome::Swatch if node.state.on => {
-            let ring = dot_color(&node.parts)
+            let ring = dot_color(&node.parts, colors)
                 .filter(|color| luminance(*color) <= PALE)
-                .unwrap_or(RING_GRAY);
+                .unwrap_or(p.ring_gray);
             out.push(Item::screen(EllipseDraw {
                 rect: area,
                 fill: None,
@@ -168,13 +169,13 @@ fn chrome(node: &Node, out: &mut Vec<Item>) {
             }));
         }
         Chrome::Field => {
-            let edge = Stroke::new(FIELD_BORDER, 1.0, StrokeAlign::Inside);
+            let edge = Stroke::new(p.field_border, 1.0, StrokeAlign::Inside);
             out.push(Item::screen(
                 RectDraw::outlined(area, edge).with_corner_radius(node.radius),
             ));
         }
-        Chrome::Input => input::chrome(node, true, out),
-        Chrome::InlineInput => input::chrome(node, false, out),
+        Chrome::Input => input::chrome(p, node, true, out),
+        Chrome::InlineInput => input::chrome(p, node, false, out),
         Chrome::Swatch
         | Chrome::Plain
         | Chrome::ToolButton
@@ -191,8 +192,9 @@ fn chrome(node: &Node, out: &mut Vec<Item>) {
     }
 }
 
-fn part(surface: Surface, node: &Node, part: &Part, out: &mut Vec<Item>) {
-    let own = follow(surface, node.state);
+fn part(colors: &'static Colors, surface: Surface, node: &Node, part: &Part, out: &mut Vec<Item>) {
+    let p = &colors.panel;
+    let own = follow(p, surface, node.state);
     match part {
         Part::Icon {
             icon,
@@ -201,8 +203,9 @@ fn part(surface: Surface, node: &Node, part: &Part, out: &mut Vec<Item>) {
         } => {
             let inks = Inks {
                 current: own,
-                tint: tint.as_ref().map(resolve),
+                tint: tint.as_ref().map(|tint| resolve(tint, colors)),
                 on: node.state.on,
+                colors,
             };
             icons::draw(*icon, rect(*area), inks, out);
         }
@@ -216,15 +219,15 @@ fn part(surface: Surface, node: &Node, part: &Part, out: &mut Vec<Item>) {
         } => {
             let color = match tone {
                 Tone::Follow => own,
-                Tone::Strong => TEXT,
-                Tone::Muted => TEXT_MUTED,
+                Tone::Strong => p.text,
+                Tone::Muted => p.text_muted,
             };
             out.push(line(text, *area, *align, *font, *weight, color));
         }
         Part::Dot { rect: area, tint } => {
             let (color, edge) = match tint {
-                Some(tint) => (resolve(tint), DOT_EDGE),
-                None => (POPUP, POPUP_BORDER),
+                Some(tint) => (resolve(tint, colors), p.dot_edge),
+                None => (p.popup, p.popup_border),
             };
             out.push(Item::screen(
                 EllipseDraw::filled(rect(*area), color).with_stroke(Stroke::new(
@@ -241,23 +244,23 @@ fn part(surface: Surface, node: &Node, part: &Part, out: &mut Vec<Item>) {
         } => {
             let color = match tone {
                 Tone::Follow => own,
-                Tone::Strong => TEXT,
-                Tone::Muted => TEXT_MUTED,
+                Tone::Strong => p.text,
+                Tone::Muted => p.text_muted,
             };
-            icons::draw(*icon, rect(*area), Inks::plain(color), out);
+            icons::draw(*icon, rect(*area), Inks::plain(color, colors), out);
         }
         Part::Chevron { rect: area } => {
             let color = match surface {
-                Surface::Toolbar => TOOLBAR_CHEVRON,
+                Surface::Toolbar => p.toolbar_chevron,
                 Surface::Popup | Surface::Dropdown | Surface::Sidebar | Surface::SidebarList => own,
             };
-            icons::chevron(rect(*area), color, out);
+            icons::chevron(rect(*area), color, colors, out);
         }
-        Part::Check { rect: area } => icons::check(rect(*area), TEXT, out),
-        Part::Input(input) => input::draw(input, out),
+        Part::Check { rect: area } => icons::check(rect(*area), p.text, colors, out),
+        Part::Input(input) => input::draw(colors, input, out),
         Part::Key { text, rect: area } => {
             out.push(Item::screen(
-                RectDraw::filled(rect(*area), KEY).with_corner_radius(KEY_RADIUS),
+                RectDraw::filled(rect(*area), p.key).with_corner_radius(KEY_RADIUS),
             ));
             out.push(line(
                 text,
@@ -265,18 +268,18 @@ fn part(surface: Surface, node: &Node, part: &Part, out: &mut Vec<Item>) {
                 specular_doc::TextAlign::Center,
                 TextFont::Sans,
                 400,
-                KEY_TEXT,
+                p.key_text,
             ));
         }
     }
 }
 
 /// The items of `node`, which is on a panel of `surface`.
-pub(super) fn draw(surface: Surface, node: &Node, out: &mut Vec<Item>) {
+pub(super) fn draw(colors: &'static Colors, surface: Surface, node: &Node, out: &mut Vec<Item>) {
     let first = out.len();
-    chrome(node, out);
+    chrome(colors, node, out);
     for it in &node.parts {
-        part(surface, node, it, out);
+        part(colors, surface, node, it, out);
     }
     let fade = match (node.state.enabled, node.state.dimmed) {
         (false, _) => DISABLED,

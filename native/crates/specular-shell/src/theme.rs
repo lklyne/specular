@@ -1,71 +1,201 @@
-//! The Electron app's light theme in the Kit's theme, so the Kit's
-//! components come out in Specular's colours and not the Kit's defaults.
+//! The Electron app's themes in the Kit's theme, so the Kit's components come
+//! out in Specular's colours and not the Kit's defaults.
 //!
-//! Every value is from `src/renderer/shared/surfaceTheme.css` and the
-//! Tailwind classes of the toolbar, the left sidebar and the popups, with
-//! the stone and zinc scales resolved to sRGB.
+//! The chrome colours are `specular_scene::PanelColors`, the same set the
+//! built-in renderer draws the panels with, so the two shells cannot
+//! disagree. The few the Kit draws that the built-in renderer does not
+//! (the right panel's zinc scale, the primary button) are here, light and
+//! dark, from `surfaceTheme.css` and the Tailwind classes of the right panel.
+//! The colours are functions of the theme in force, which
+//! [`apply`] sets.
+
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use gpui_kit::component::{Theme, ThemeMode};
-use gpui_kit::{App, Hsla, Rgba, px, rgb, rgba};
+use gpui_kit::{App, Hsla, Rgba, WindowAppearance, px, rgba};
+use specular_interact::Appearance;
+use specular_scene::{Color, Colors};
 
-/// `--surface-panel`: the sidebar and a dialog.
-pub(crate) const PANEL: u32 = 0x00f2_f2f2;
-/// `--surface-foreground`.
-pub(crate) const TEXT: u32 = 0x0030_3030;
-/// `--surface-foreground-muted`: the foreground at 58%.
-pub(crate) const TEXT_MUTED: u32 = 0x3030_3094;
+/// Whether the dark theme is in force.
+static DARK: AtomicBool = AtomicBool::new(false);
+
+/// What GPUI says the operating system looks like.
+pub(crate) const fn of_system(appearance: WindowAppearance) -> Appearance {
+    match appearance {
+        WindowAppearance::Light | WindowAppearance::VibrantLight => Appearance::Light,
+        WindowAppearance::Dark | WindowAppearance::VibrantDark => Appearance::Dark,
+    }
+}
+
+/// The theme in force.
+pub(crate) fn appearance() -> Appearance {
+    if DARK.load(Ordering::Relaxed) {
+        Appearance::Dark
+    } else {
+        Appearance::Light
+    }
+}
+
+fn colors() -> &'static Colors {
+    Colors::of(appearance())
+}
+
+/// `color` as `0xRRGGBBAA`, which is what every colour here is.
+fn packed(color: Color) -> u32 {
+    u32::from(color.r) << 24
+        | u32::from(color.g) << 16
+        | u32::from(color.b) << 8
+        | u32::from(color.a)
+}
+
+/// One colour of the set in force, light or dark.
+fn pick(light: u32, dark: u32) -> u32 {
+    match appearance() {
+        Appearance::Light => light,
+        Appearance::Dark => dark,
+    }
+}
+
+macro_rules! panel_colors {
+    ($($(#[$doc:meta])* $name:ident => $field:ident;)*) => {$(
+        $(#[$doc])*
+        pub(crate) fn $name() -> u32 {
+            packed(colors().panel.$field)
+        }
+    )*};
+}
+
+panel_colors! {
+    /// `--surface-panel`: the sidebar and a dialog.
+    panel => sidebar;
+    /// `--surface-foreground`.
+    text => text;
+    /// `--surface-foreground-muted`.
+    text_muted => text_muted;
+    /// `--surface-chrome-border`: the sidebar's edge and a popup's.
+    chrome_border => popup_border;
+    /// `--surface-panel-border`.
+    panel_border => sidebar_rule;
+    /// `--surface-toolbar`.
+    toolbar => toolbar;
+    /// `--surface-toolbar-border`.
+    toolbar_border => toolbar_border;
+    /// Toolbar text at rest.
+    toolbar_text => toolbar_text;
+    /// Toolbar text when hovered or on.
+    toolbar_text_strong => toolbar_text_strong;
+    /// A tool button that is hovered or active.
+    tool_fill => tool_fill;
+    /// `--surface-interactive-hover`: a hovered row.
+    row_hover => interactive_hover;
+    /// `--surface-interactive`: a selected row.
+    row_selected => interactive;
+    /// `--surface-popup`: a floating panel.
+    popup => popup;
+    /// A hovered popup control.
+    control_hover => hover;
+    /// A popup control that is on.
+    control_on => on;
+    /// A divider between groups of a popup.
+    divider => divider;
+    /// A key hint's text.
+    key_text => key_text;
+    /// The hairline around a swatch's dot.
+    dot_edge => dot_edge;
+    /// The ring of a selected swatch too pale to ring itself.
+    ring_gray => ring_gray;
+}
+
+/// `--surface-focus-ring`: blue-500, blue-400 in the dark.
+pub(crate) fn focus_ring() -> u32 {
+    pick(0x2b7f_ffff, 0x51a2_ffff)
+}
+
+/// `--surface-primary`: stone-900, stone-100 in the dark.
+pub(crate) fn primary() -> u32 {
+    pick(0x1c19_17ff, 0xf5f5_f4ff)
+}
+
+/// `--surface-primary-hover`: stone-700, stone-300.
+pub(crate) fn primary_hover() -> u32 {
+    pick(0x4440_3bff, 0xd6d3_d1ff)
+}
+
+/// `--surface-primary` pressed.
+fn primary_active() -> u32 {
+    pick(0x2925_24ff, 0xa6a0_9bff)
+}
+
+/// `--surface-primary-foreground`: stone-50, stone-900.
+pub(crate) fn primary_foreground() -> u32 {
+    pick(0xfafa_f9ff, 0x1c19_17ff)
+}
+
+/// `--surface-input`: stone-50 in the light, stone-900 at 90% over the panel
+/// in the dark. A sent message's bubble and the run bar.
+pub(crate) fn input() -> u32 {
+    pick(0xfafa_f9ff, 0x1d1a_18ff)
+}
+
+/// `--surface-input-border`: stone-300, stone-700 at 80% over the panel.
+pub(crate) fn input_border() -> u32 {
+    pick(0xd6d3_d1ff, 0x3f3b_36ff)
+}
+
 /// The muted foreground as an opaque colour over the panel, for a glyph.
-pub(crate) const GLYPH_MUTED: u32 = 0x0081_8181;
-/// `--surface-chrome-border`: the sidebar's edge and a popup's.
-pub(crate) const CHROME_BORDER: u32 = 0x00ca_c6c3;
-/// `--surface-panel-border`, stone-200.
-pub(crate) const PANEL_BORDER: u32 = 0x00e7_e5e4;
-/// `--surface-toolbar`, stone-300.
-pub(crate) const TOOLBAR: u32 = 0x00d6_d3d1;
-/// `--surface-toolbar-border`, stone-400.
-pub(crate) const TOOLBAR_BORDER: u32 = 0x00a6_a09b;
-/// Toolbar text at rest and when hovered: zinc-600 and zinc-900.
-pub(crate) const TOOLBAR_TEXT: u32 = 0x0052_525c;
-pub(crate) const TOOLBAR_TEXT_STRONG: u32 = 0x0018_181b;
-/// A tool button that is hovered or active.
-pub(crate) const TOOL_FILL: u32 = 0x00fd_f8f5;
-/// `--surface-interactive-hover` and `--surface-interactive`: stone-200 at
-/// 40% and at 80%. A hovered row, and a selected one.
-pub(crate) const ROW_HOVER: u32 = 0xe7e5_e466;
-pub(crate) const ROW_SELECTED: u32 = 0xe7e5_e4cc;
-/// `--surface-popup`, stone-50: a floating panel.
-pub(crate) const POPUP: u32 = 0x00fa_faf9;
-/// A hovered popup control and one that is on: stone-100 and stone-200.
-pub(crate) const CONTROL_HOVER: u32 = 0x00f5_f5f4;
-pub(crate) const CONTROL_ON: u32 = 0x00e7_e5e4;
-/// A divider between groups of a popup: zinc-900 at 20%.
-pub(crate) const DIVIDER: u32 = 0x1818_1b33;
-/// The hairline around a swatch's dot: black at 12%.
-pub(crate) const DOT_EDGE: u32 = 0x0000_001f;
-/// The ring of a selected swatch too pale to ring itself: zinc-500.
-pub(crate) const RING_GRAY: u32 = 0x0071_717a;
-/// `--surface-focus-ring`, blue-500.
-pub(crate) const FOCUS_RING: u32 = 0x002b_7fff;
-/// `--surface-primary` and its hover: stone-900 and stone-700.
-pub(crate) const PRIMARY: u32 = 0x001c_1917;
-pub(crate) const PRIMARY_HOVER: u32 = 0x0044_403b;
-/// `--surface-input` and `--surface-input-border`, stone-50 and stone-300:
-/// a sent message's bubble and the run bar.
-pub(crate) const INPUT: u32 = 0x00fa_faf9;
-pub(crate) const INPUT_BORDER: u32 = 0x00d6_d3d1;
+pub(crate) fn glyph_muted() -> u32 {
+    pick(0x8181_81ff, 0xa7a5_a6ff)
+}
+
 /// The zinc scale the right panel's composer is built from: its fill (50),
 /// a chip and a hovered row (100), a divider and a hovered button (200),
-/// its edge (300).
-pub(crate) const ZINC_50: u32 = 0x00fa_fafa;
-pub(crate) const ZINC_100: u32 = 0x00f4_f4f5;
-pub(crate) const ZINC_200: u32 = 0x00e4_e4e7;
-pub(crate) const ZINC_300: u32 = 0x00d4_d4d8;
-/// A queued message's chip and a hovered composer chip: zinc-200 at 60%
-/// and at 70%.
-pub(crate) const QUEUED: u32 = 0xe4e4_e799;
-pub(crate) const CHIP_HOVER: u32 = 0xe4e4_e7b3;
-/// A failed run's words, red-600.
-pub(crate) const ERROR: u32 = 0x00e7_000b;
+/// its edge (300). The dark theme takes the opposite end of the scale.
+pub(crate) fn zinc_50() -> u32 {
+    pick(0xfafa_faff, 0x1818_1bff)
+}
+pub(crate) fn zinc_100() -> u32 {
+    pick(0xf4f4_f5ff, 0x2727_2aff)
+}
+pub(crate) fn zinc_200() -> u32 {
+    pick(0xe4e4_e7ff, 0x3f3f_47ff)
+}
+pub(crate) fn zinc_300() -> u32 {
+    pick(0xd4d4_d8ff, 0x5252_5cff)
+}
+
+/// A queued message's chip: zinc-200 at 60%.
+pub(crate) fn queued() -> u32 {
+    pick(0xe4e4_e799, 0x3f3f_4799)
+}
+
+/// A hovered composer chip: zinc-200 at 70%.
+pub(crate) fn chip_hover() -> u32 {
+    pick(0xe4e4_e7b3, 0x3f3f_47b3)
+}
+
+/// The run bar's wash: the ends of `GrainGradient`'s palette under its veil,
+/// white at 45% in the light theme and black at 45% in the dark. The grain
+/// and the drift are a shader this renderer does not have.
+pub(crate) fn wash_from() -> u32 {
+    pick(0xf0d9_ffff, 0x7d6c_8cff)
+}
+pub(crate) fn wash_to() -> u32 {
+    pick(0xffe2_c2ff, 0x8c6f_4fff)
+}
+
+/// The run bar's label at rest and under the shimmer: black at 55% and
+/// black, white at 60% and white in the dark.
+pub(crate) fn label() -> u32 {
+    pick(0x0000_008c, 0xffff_ff99)
+}
+pub(crate) fn label_bright() -> u32 {
+    pick(0x0000_00ff, 0xffff_ffff)
+}
+
+/// A failed run's words: red-600, red-400 in the dark.
+pub(crate) fn error() -> u32 {
+    pick(0xe700_0bff, 0xff64_67ff)
+}
 
 /// The height of the toolbar strip, `TOOLBAR_HEIGHT` in
 /// `src/shared/constants.ts`. The app's own layout assumes it too.
@@ -73,12 +203,13 @@ pub(crate) const TOOLBAR_HEIGHT: f32 = specular_interact::panel::builtin::TOOLBA
 /// The sidebar's width, `LEFT_SIDEBAR_WIDTH` in `runtime-constants.ts`.
 pub(crate) const SIDEBAR_WIDTH: f32 = 256.0;
 
-/// An opaque `0xRRGGBB`.
+/// `0xRRGGBBAA` as a GPUI colour.
 pub(crate) fn solid(hex: u32) -> Hsla {
-    rgb(hex).into()
+    rgba(hex).into()
 }
 
-/// A see-through `0xRRGGBBAA`.
+/// `0xRRGGBBAA` as a GPUI colour: the same as [`solid`], named for the call
+/// sites whose colour lets what is under it show.
 pub(crate) fn tinted(hex: u32) -> Hsla {
     rgba(hex).into()
 }
@@ -94,58 +225,63 @@ pub(crate) fn of_scene(color: specular_scene::Color) -> Hsla {
     .into()
 }
 
-/// Puts the light theme in place. Call after `gpui_kit::init`, which loads
-/// the Kit's own.
-pub(crate) fn apply(cx: &mut App) {
+/// Puts the theme of `appearance` in place. Call after `gpui_kit::init`,
+/// which loads the Kit's own, and again whenever the theme changes.
+pub(crate) fn apply(appearance: Appearance, cx: &mut App) {
+    DARK.store(appearance == Appearance::Dark, Ordering::Relaxed);
+    let mode = match appearance {
+        Appearance::Light => ThemeMode::Light,
+        Appearance::Dark => ThemeMode::Dark,
+    };
     // Changing the mode loads the Kit's colours, so ours go on afterwards.
-    Theme::change(ThemeMode::Light, None, cx);
+    Theme::change(mode, None, cx);
     Theme::update(cx, |theme| {
         theme.radius = px(6.0);
         theme.radius_lg = px(10.0);
         theme.shadow = true;
 
-        theme.background = solid(PANEL);
-        theme.foreground = solid(TEXT);
-        theme.muted = solid(CONTROL_HOVER);
-        theme.muted_foreground = tinted(TEXT_MUTED);
-        theme.border = solid(CHROME_BORDER);
-        theme.input = solid(INPUT_BORDER);
-        theme.ring = solid(FOCUS_RING);
-        theme.caret = solid(TEXT);
-        theme.selection = solid(0x00b3_d7ff);
+        theme.background = solid(panel());
+        theme.foreground = solid(text());
+        theme.muted = solid(control_hover());
+        theme.muted_foreground = tinted(text_muted());
+        theme.border = solid(chrome_border());
+        theme.input = solid(input_border());
+        theme.ring = solid(focus_ring());
+        theme.caret = solid(text());
+        theme.selection = solid(packed(colors().text_selection));
 
-        theme.primary = solid(PRIMARY);
-        theme.primary_hover = solid(PRIMARY_HOVER);
-        theme.primary_active = solid(0x0029_2524);
-        theme.primary_foreground = solid(POPUP);
-        theme.secondary = solid(PANEL);
-        theme.secondary_hover = solid(CONTROL_ON);
-        theme.secondary_active = solid(CONTROL_ON);
-        theme.secondary_foreground = solid(TEXT);
-        theme.accent = solid(CONTROL_ON);
-        theme.accent_foreground = solid(TEXT);
+        theme.primary = solid(primary());
+        theme.primary_hover = solid(primary_hover());
+        theme.primary_active = solid(primary_active());
+        theme.primary_foreground = solid(primary_foreground());
+        theme.secondary = solid(panel());
+        theme.secondary_hover = solid(control_on());
+        theme.secondary_active = solid(control_on());
+        theme.secondary_foreground = solid(text());
+        theme.accent = solid(control_on());
+        theme.accent_foreground = solid(text());
 
-        theme.popover = solid(POPUP);
-        theme.popover_foreground = solid(TEXT);
-        theme.colors.list = solid(PANEL);
-        theme.list_hover = tinted(ROW_HOVER);
-        theme.list_active = tinted(ROW_SELECTED);
-        theme.list_active_border = tinted(ROW_SELECTED);
+        theme.popover = solid(popup());
+        theme.popover_foreground = solid(text());
+        theme.colors.list = solid(panel());
+        theme.list_hover = tinted(row_hover());
+        theme.list_active = tinted(row_selected());
+        theme.list_active_border = tinted(row_selected());
 
-        theme.sidebar = solid(PANEL);
-        theme.sidebar_foreground = solid(TEXT);
-        theme.sidebar_border = solid(CHROME_BORDER);
-        theme.sidebar_accent = tinted(ROW_SELECTED);
-        theme.sidebar_accent_foreground = solid(TEXT);
-        theme.sidebar_primary = solid(PRIMARY);
-        theme.sidebar_primary_foreground = solid(POPUP);
+        theme.sidebar = solid(panel());
+        theme.sidebar_foreground = solid(text());
+        theme.sidebar_border = solid(chrome_border());
+        theme.sidebar_accent = tinted(row_selected());
+        theme.sidebar_accent_foreground = solid(text());
+        theme.sidebar_primary = solid(primary());
+        theme.sidebar_primary_foreground = solid(primary_foreground());
 
-        theme.title_bar = solid(TOOLBAR);
-        theme.title_bar_border = solid(TOOLBAR_BORDER);
-        theme.switch = solid(INPUT_BORDER);
-        theme.switch_thumb = solid(0x00ff_ffff);
-        theme.scrollbar_thumb = tinted(0x0000_0033);
-        theme.scrollbar_thumb_hover = tinted(0x0000_004d);
+        theme.title_bar = solid(toolbar());
+        theme.title_bar_border = solid(toolbar_border());
+        theme.switch = solid(input_border());
+        theme.switch_thumb = solid(pick(0xffff_ffff, 0xf4f4_f5ff));
+        theme.scrollbar_thumb = tinted(packed(colors().panel.scroll_thumb));
+        theme.scrollbar_thumb_hover = tinted(pick(0x0000_004d, 0xffff_ff4d));
         theme.drop_target = tinted(0x2b7f_ff1a);
     });
 }

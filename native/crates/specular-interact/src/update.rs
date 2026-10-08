@@ -10,6 +10,7 @@ use crate::images;
 use crate::notes;
 use crate::panel::builtin;
 use crate::stack_order::Move;
+use crate::theme;
 use crate::{
     Action, App, Effect, Event, Focus, PageNotice, Selection, ToolDefaultPatch, api, bindings,
     camera, chat, comment, cursor, edit, gesture, groups, inspect, page_state, pages, pointer,
@@ -83,6 +84,8 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
             comment::on_region_grab(app, region, &grabs, &mut effects);
         }
         Event::ToolDefaultsLoaded(defaults) => app.tool_defaults = *defaults,
+        Event::ThemeLoaded(theme) => theme::choose(app, theme, false, &mut effects),
+        Event::SystemAppearance(system) => theme::system_changed(app, system, &mut effects),
         Event::Action(action) => run_action(app, action, &mut effects),
         Event::Control(id, keys) => crate::panel::activate_control(app, &id, keys, &mut effects),
         Event::ContextMenu(screen) => crate::panel::open_menu_at(app, screen),
@@ -151,6 +154,7 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
                 app.session.tool = tool;
             }
         }
+        Action::SetTheme(theme) => theme::choose(app, theme, true, effects),
         Action::SetToolDefault(patch) => set_tool_default(app, patch, effects),
         Action::SetToolVariant(patch) => {
             if app.session.gesture.is_none() {

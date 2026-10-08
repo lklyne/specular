@@ -73,20 +73,11 @@ impl<W: ShellWindow> Runtime<W> {
                     .source
                     .create_page(&spec)
                     .with_context(|| format!("creating page for {url}"))?;
-                self.hosts.insert(page, PageHost { page: host, lod });
+                self.hosts
+                    .insert(page.clone(), PageHost { page: host, lod });
+                self.give_color_scheme(&page);
             }
-            Effect::ClosePage(page) => {
-                if let Some(host) = self.hosts.remove(&page) {
-                    if let Some(cdp) = &self.cdp {
-                        cdp.page_closed(&page);
-                    }
-                    warn_on_error(self.source.close_page(host.page));
-                    if let Some(gpu) = self.gpu.as_mut() {
-                        gpu.compositor_mut().remove_page(host.page);
-                    }
-                }
-                self.give_up_on_page(&page);
-            }
+            Effect::ClosePage(page) => self.close_page(&page),
             Effect::SetPageViewport { page, viewport } => {
                 if let Some(host) = self.hosts.get(&page) {
                     warn_on_error(self.source.set_viewport(host.page, viewport));
@@ -130,6 +121,10 @@ impl<W: ShellWindow> Runtime<W> {
             Effect::WriteAsset { file, bytes } => self.write_asset(&file, bytes.as_slice()),
             Effect::CopyAsset { from, file } => self.copy_asset(&from, &file),
             Effect::SaveToolDefaults(defaults) => self.save_tool_defaults(&defaults),
+            Effect::SaveTheme(theme) => self.save_theme(theme),
+            Effect::SetPageColorScheme { page, scheme } => {
+                self.set_page_color_scheme(&page, scheme);
+            }
             Effect::LoadThreads => self.load_threads(),
             Effect::WriteThread(thread) => self.write_thread(&thread),
             Effect::WriteThreadIndex => self.write_thread_index(),
@@ -156,6 +151,20 @@ impl<W: ShellWindow> Runtime<W> {
             Effect::QueryRegionGrab { region, pages } => self.query_region_grab(region, &pages),
         }
         Ok(())
+    }
+
+    /// Stops hosting `page` and answers what was asked of it.
+    fn close_page(&mut self, page: &EntityId) {
+        if let Some(host) = self.hosts.remove(page) {
+            if let Some(cdp) = &self.cdp {
+                cdp.page_closed(page);
+            }
+            warn_on_error(self.source.close_page(host.page));
+            if let Some(gpu) = self.gpu.as_mut() {
+                gpu.compositor_mut().remove_page(host.page);
+            }
+        }
+        self.give_up_on_page(page);
     }
 
     /// Runs what a sync set asks of its pages: the capture of the entered

@@ -208,7 +208,7 @@ impl Render for ShellView {
                     .left_0()
                     .right_0()
                     .h(px(1.0))
-                    .bg(theme::solid(theme::TOOLBAR_BORDER)),
+                    .bg(theme::solid(theme::toolbar_border())),
             )
             .into_any_element()
     }

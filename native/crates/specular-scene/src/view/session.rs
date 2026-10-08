@@ -67,7 +67,8 @@ pub(crate) fn draw(frame: &Frame<'_>, scene: &mut Scene) {
     if let Some(group) = (app.entered_group()).and_then(|id| app.document().entity(id)) {
         let ring = frame.screen_rect(group.rect).outset(ENTERED_GAP);
         if frame.sees_screen(ring) {
-            let stroke = PathStroke::new(palette::SELECTION, OUTLINE_WIDTH).dashed(ENTERED_DASH);
+            let stroke =
+                PathStroke::new(frame.colors.selection, OUTLINE_WIDTH).dashed(ENTERED_DASH);
             scene.push(Item::screen(PathDraw {
                 commands: Silhouette::Rect(0.0).into_path(ring),
                 fill: None,
@@ -81,7 +82,11 @@ pub(crate) fn draw(frame: &Frame<'_>, scene: &mut Scene) {
     if let Some(group) = (app.group_drop_target()).and_then(|id| app.document().entity(id)) {
         let ring = frame.screen_rect(group.rect);
         if frame.sees_screen(ring) {
-            let stroke = Stroke::new(palette::SELECTION, DROP_TARGET_WIDTH, StrokeAlign::Outside);
+            let stroke = Stroke::new(
+                frame.colors.selection,
+                DROP_TARGET_WIDTH,
+                StrokeAlign::Outside,
+            );
             scene.push(Item::screen(RectDraw::outlined(ring, stroke)));
         }
     }
@@ -96,16 +101,16 @@ pub(crate) fn draw(frame: &Frame<'_>, scene: &mut Scene) {
             HandleOwner::Selection => push_outline(frame, bounds, scene),
         }
         let outline = frame.screen_rect(bounds).outset(OUTLINE_PADDING);
-        scene.extend(Corner::ALL.map(|corner| handle(outline, corner)));
+        scene.extend(Corner::ALL.map(|corner| handle(outline, corner, frame.colors.selection)));
     }
 
     if let Some(marquee) = app.marquee() {
         let border = Stroke::new(
-            palette::with_alpha(palette::SELECTION, MARQUEE_BORDER_ALPHA),
+            palette::with_alpha(frame.colors.selection, MARQUEE_BORDER_ALPHA),
             OUTLINE_WIDTH,
             StrokeAlign::Inside,
         );
-        let fill = palette::with_alpha(palette::SELECTION, MARQUEE_FILL_ALPHA);
+        let fill = palette::with_alpha(frame.colors.selection, MARQUEE_FILL_ALPHA);
         scene.push(Item::screen(
             RectDraw::filled(frame.screen_rect(marquee), fill).with_stroke(border),
         ));
@@ -125,7 +130,7 @@ pub(crate) fn draw(frame: &Frame<'_>, scene: &mut Scene) {
 fn push_outline(frame: &Frame<'_>, rect: specular_doc::Rect, scene: &mut Scene) {
     let outline = frame.screen_rect(rect).outset(OUTLINE_PADDING);
     if frame.sees_screen(outline) {
-        let stroke = Stroke::new(palette::SELECTION, OUTLINE_WIDTH, StrokeAlign::Inside);
+        let stroke = Stroke::new(frame.colors.selection, OUTLINE_WIDTH, StrokeAlign::Inside);
         scene.push(Item::screen(RectDraw::outlined(outline, stroke)));
     }
 }
@@ -161,14 +166,14 @@ fn push_copy_ghosts(frame: &Frame<'_>, preview: &CopyPreview, scene: &mut Scene)
             let opacity = item.opacity * COPY_GHOST_OPACITY;
             item.translated(dx * by, dy * by).with_opacity(opacity)
         }));
-        let stroke = Stroke::new(palette::SELECTION, OUTLINE_WIDTH, StrokeAlign::Inside);
+        let stroke = Stroke::new(frame.colors.selection, OUTLINE_WIDTH, StrokeAlign::Inside);
         scene.push(Item::screen(RectDraw::outlined(outline, stroke)));
     }
 }
 
 /// A resize handle centred on a corner of the outline, where hit-testing
 /// looks for it.
-fn handle(outline: Rect, corner: Corner) -> Item {
+fn handle(outline: Rect, corner: Corner, color: Color) -> Item {
     let (x, y) = match corner {
         Corner::TopLeft => (outline.x, outline.y),
         Corner::TopRight => (outline.right(), outline.y),
@@ -181,6 +186,6 @@ fn handle(outline: Rect, corner: Corner) -> Item {
         HANDLE_SIZE,
         HANDLE_SIZE,
     );
-    let stroke = Stroke::new(palette::SELECTION, HANDLE_STROKE, StrokeAlign::Inside);
+    let stroke = Stroke::new(color, HANDLE_STROKE, StrokeAlign::Inside);
     Item::screen(RectDraw::filled(square, Color::WHITE).with_stroke(stroke))
 }

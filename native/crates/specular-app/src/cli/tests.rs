@@ -149,6 +149,7 @@ fn snapshot_flags_ask_for_a_headless_run() {
             script: None,
             source: SourceKind::Synthetic,
             panels: false,
+            theme: None,
         }
     );
 }

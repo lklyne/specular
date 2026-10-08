@@ -235,6 +235,7 @@ impl App {
         let mut app = Self {
             document: parked.document.clone(),
             tool_defaults: self.tool_defaults.clone(),
+            theme: self.theme,
             measure: self.measure.clone(),
             ..Self::default()
         };

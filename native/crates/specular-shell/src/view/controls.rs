@@ -62,14 +62,18 @@ pub(super) fn face(face: &Face, on: bool) -> AnyElement {
         (face.color.as_ref()).map(|color| glyphs::resolved(color, Palette::Vivid, PaintRole::Ink));
     let mut row = h_flex().gap_1().items_center();
     if let Some(icon) = face.icon {
-        let current = ink(if on { theme::TEXT } else { theme::GLYPH_MUTED });
+        let current = ink(if on {
+            theme::text()
+        } else {
+            theme::glyph_muted()
+        });
         row = row.child(glyph(icon, current, tint, on, GLYPH));
     }
     if let Some(text) = &face.text {
         let color = if on {
-            theme::solid(theme::TEXT)
+            theme::solid(theme::text())
         } else {
-            theme::tinted(theme::TEXT_MUTED)
+            theme::tinted(theme::text_muted())
         };
         row = row.child(
             div()
@@ -104,11 +108,11 @@ fn dot(
             .rounded_full()
             .bg(theme::of_scene(glyphs::resolved(color, palette, role)))
             .border_1()
-            .border_color(theme::tinted(theme::DOT_EDGE))
+            .border_color(theme::tinted(theme::dot_edge()))
             .into_any_element(),
         None => glyph(
             specular_interact::Icon::Ban,
-            ink(theme::RING_GRAY),
+            ink(theme::ring_gray()),
             None,
             false,
             size,
@@ -162,7 +166,7 @@ fn swatch(model: &Swatch, palette: Palette, role: PaintRole, enabled: bool) -> A
     let ring = (model.color.as_ref())
         .map(|color| glyphs::resolved(color, palette, role))
         .filter(|color| luminance(*color) <= 0.92)
-        .map_or(theme::solid(theme::RING_GRAY), theme::of_scene);
+        .map_or(theme::solid(theme::ring_gray()), theme::of_scene);
     div()
         .id(element_id(&model.id))
         .size(px(SWATCH))
@@ -235,7 +239,7 @@ pub(super) fn control(model: &Control, window: &mut Window, cx: &mut App) -> Any
             .mx_1()
             .w(px(1.0))
             .h(px(16.0))
-            .bg(theme::tinted(theme::DIVIDER))
+            .bg(theme::tinted(theme::divider()))
             .into_any_element(),
     }
 }

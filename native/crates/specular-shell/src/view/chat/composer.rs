@@ -88,7 +88,7 @@ impl ShellView {
                 .overflow_hidden()
                 .rounded(px(6.0))
                 .border_1()
-                .border_color(theme::solid(theme::ZINC_300))
+                .border_color(theme::solid(theme::zinc_300()))
                 .child(
                     img(pasted.thumbnail.clone())
                         .size_full()
@@ -137,7 +137,7 @@ impl ShellView {
             button
                 .ghost()
                 .disabled(true)
-                .bg(theme::solid(theme::ZINC_100))
+                .bg(theme::solid(theme::zinc_100()))
                 .text_color(muted())
                 .into_any_element()
         }
@@ -207,8 +207,8 @@ impl ShellView {
             .id("chat-composer")
             .rounded(px(16.0))
             .border_1()
-            .border_color(theme::solid(theme::ZINC_300))
-            .bg(theme::solid(theme::ZINC_50))
+            .border_color(theme::solid(theme::zinc_300()))
+            .bg(theme::solid(theme::zinc_50()))
             .px_2()
             .py(px(6.0))
             // The field has had its turn by the time Escape reaches here: an
@@ -236,7 +236,7 @@ impl ShellView {
             .flex_shrink_0()
             .p_2()
             .border_t_1()
-            .border_color(theme::solid(theme::ZINC_200))
+            .border_color(theme::solid(theme::zinc_200()))
             .child(box_)
     }
 }
