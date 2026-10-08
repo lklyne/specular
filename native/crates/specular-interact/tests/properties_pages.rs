@@ -141,3 +141,33 @@ fn an_unknown_preset_applies_to_nothing() {
     set(&mut app, Property::ViewportPreset(99));
     assert!(!steps(&app));
 }
+
+#[test]
+fn a_typed_width_or_height_makes_the_size_custom_and_keeps_the_other_side() {
+    let mut app = phone_and_laptop();
+    app.select(&["p1"]);
+    set(&mut app, Property::ViewportPreset(1));
+    app.take_effects();
+    set(&mut app, Property::ViewportWidth(500.0));
+    assert_doc_snapshot!(app, @r#"
+    nodes:
+      {"id":"p1","type":"link","x":100,"y":100,"width":500,"height":852,"url":"https://example.com/p1","presetIndex":1,"metadata":{"customSize":{"width":500,"height":852},"pageSizeMode":"custom"}}
+      {"id":"p2","type":"link","x":700,"y":100,"width":375,"height":667,"url":"https://example.com/p2"}
+    edges:
+    specular: {"entityOrder":["p1","p2"]}
+    "#);
+    assert_eq!(viewports(&mut app).len(), 1, "the page's host follows");
+    assert_eq!(property::read::viewport_preset(app.app()), None);
+    set(&mut app, Property::ViewportHeight(300.0));
+    assert_eq!(app.rect("p1"), Rect::new(100.0, 100.0, 500.0, 300.0));
+    set(&mut app, Property::ViewportHeight(300.0));
+    app.undo();
+    assert_eq!(
+        app.rect("p1").height,
+        852.0,
+        "one step each, and none for a repeat"
+    );
+    app.undo();
+    assert_eq!(app.rect("p1").width, 393.0);
+    app.assert_undo_returns_to_start();
+}

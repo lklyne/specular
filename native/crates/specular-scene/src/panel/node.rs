@@ -12,6 +12,7 @@ use super::colors::{
     TOOLBAR_TEXT_STRONG,
 };
 use super::icons::{self, Inks};
+use super::input;
 use super::rect;
 use crate::view::palette;
 use crate::{
@@ -69,7 +70,7 @@ fn fill(chrome: Chrome, state: NodeState) -> Option<Color> {
         (Chrome::Divider, _) => Some(DIVIDER),
         (Chrome::Rule, _) => Some(RULE),
         (Chrome::Button | Chrome::PresetRow | Chrome::MenuRow, Pointing::Away)
-        | (Chrome::Plain | Chrome::Swatch | Chrome::Field, _) => None,
+        | (Chrome::Plain | Chrome::Swatch | Chrome::Field | Chrome::Input, _) => None,
     }
 }
 
@@ -93,7 +94,7 @@ fn family(font: TextFont) -> FontFamily {
 }
 
 /// One line of `text`, vertically centred in `area`.
-fn line(
+pub(super) fn line(
     text: &str,
     area: PanelRect,
     align: specular_doc::TextAlign,
@@ -125,7 +126,8 @@ fn dot_color(parts: &[Part]) -> Option<Color> {
         | Part::Text { .. }
         | Part::Chevron { .. }
         | Part::Check { .. }
-        | Part::Key { .. } => None,
+        | Part::Key { .. }
+        | Part::Input(_) => None,
     })
 }
 
@@ -153,6 +155,7 @@ fn chrome(node: &Node, out: &mut Vec<Item>) {
                 RectDraw::outlined(area, edge).with_corner_radius(node.radius),
             ));
         }
+        Chrome::Input => input::chrome(node, out),
         Chrome::Swatch
         | Chrome::Plain
         | Chrome::ToolButton
@@ -216,6 +219,7 @@ fn part(surface: Surface, node: &Node, part: &Part, out: &mut Vec<Item>) {
             icons::chevron(rect(*area), color, out);
         }
         Part::Check { rect: area } => icons::check(rect(*area), TEXT, out),
+        Part::Input(input) => input::draw(input, out),
         Part::Key { text, rect: area } => {
             out.push(Item::screen(
                 RectDraw::filled(rect(*area), KEY).with_corner_radius(KEY_RADIUS),

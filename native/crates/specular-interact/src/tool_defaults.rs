@@ -24,6 +24,20 @@ pub struct ToolDefaults {
     pub shape: ShapeDefaults,
     /// Freehand strokes.
     pub draw: DrawDefaults,
+    /// Pages. Not stored: like Electron's, the size the next page is made
+    /// at lasts as long as the app runs.
+    pub page: PageDefaults,
+}
+
+/// What `add-page` makes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct PageDefaults {
+    /// The viewport preset, by index into
+    /// [`VIEWPORT_PRESETS`](specular_doc::VIEWPORT_PRESETS).
+    pub preset: u32,
+    /// Whether the page keeps that size as a custom size rather than as the
+    /// preset's.
+    pub custom: bool,
 }
 
 /// What `add-text` stamps.
@@ -145,6 +159,10 @@ pub enum ToolDefaultPatch {
     DrawColor(Color),
     /// Stroke width.
     DrawStrokeWidth(f64),
+    /// Which viewport preset `add-page` makes a page at.
+    PagePreset(u32),
+    /// `add-page` makes a page of custom size.
+    PageCustom,
 }
 
 impl ToolDefaultPatch {
@@ -158,6 +176,27 @@ impl ToolDefaultPatch {
             | Self::ShapeStrokeWidth(_)
             | Self::ShapeTextSize(_) => Tool::AddShape,
             Self::Brush(_) | Self::DrawColor(_) | Self::DrawStrokeWidth(_) => Tool::Draw,
+            Self::PagePreset(_) | Self::PageCustom => Tool::AddPage,
+        }
+    }
+
+    /// Whether the preferences file keeps what this changes.
+    pub const fn is_stored(&self) -> bool {
+        match self {
+            Self::PagePreset(_) | Self::PageCustom => false,
+            Self::TextColor(_)
+            | Self::TextSize(_)
+            | Self::TextFont(_)
+            | Self::StickyColor(_)
+            | Self::StickySize(_)
+            | Self::StickyFont(_)
+            | Self::ShapeKind(_)
+            | Self::ShapeColor(_)
+            | Self::ShapeStrokeWidth(_)
+            | Self::ShapeTextSize(_)
+            | Self::Brush(_)
+            | Self::DrawColor(_)
+            | Self::DrawStrokeWidth(_) => true,
         }
     }
 }
@@ -202,6 +241,13 @@ impl ToolDefaults {
             }
             ToolDefaultPatch::DrawColor(color) => self.draw.color = color,
             ToolDefaultPatch::DrawStrokeWidth(width) => self.draw.stroke_width = width,
+            ToolDefaultPatch::PagePreset(preset) => {
+                self.page = PageDefaults {
+                    preset,
+                    custom: false,
+                }
+            }
+            ToolDefaultPatch::PageCustom => self.page.custom = true,
         }
     }
 

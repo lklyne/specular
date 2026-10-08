@@ -53,6 +53,8 @@ pub(super) fn edge(property: &Property, edge: &Edge) -> Option<Edge> {
         | Property::Brush(_)
         | Property::ViewportPreset(_)
         | Property::CustomViewport
+        | Property::ViewportWidth(_)
+        | Property::ViewportHeight(_)
         | Property::Orientation(_)
         | Property::DeviceFrame(_)
         | Property::ColorScheme(_) => return None,

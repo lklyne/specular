@@ -17,6 +17,16 @@ const fn lucide(layers: &'static [Layer]) -> Glyph {
 
 /// `chevron-down`.
 pub(super) const CHEVRON: Glyph = lucide(&[line("M6 9l6 6 6-6")]);
+/// `chevron-left`.
+pub(super) const CHEVRON_LEFT: Glyph = lucide(&[line("M15 18l-6-6 6-6")]);
+/// `chevron-right`.
+pub(super) const CHEVRON_RIGHT: Glyph = lucide(&[line("M9 18l6-6-6-6")]);
+/// `rotate-cw`.
+pub(super) const ROTATE_CW: Glyph = lucide(&[line(
+    "M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8M21 3v5h-5",
+)]);
+/// `x`.
+pub(super) const X: Glyph = lucide(&[line("M18 6L6 18M6 6l12 12")]);
 /// `check`.
 pub(super) const CHECK: Glyph = lucide(&[line("M20 6 9 17l-5-5")]);
 

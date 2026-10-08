@@ -5,7 +5,7 @@
 use specular_doc::Color;
 
 use super::super::build::{font_dropdown, groups, size_dropdown, swatches};
-use super::super::{Control, ControlId, PaintRole, Palette, PopupAnchor, PopupModel};
+use super::super::{Choices, Control, ControlId, PaintRole, Palette, PopupAnchor, PopupModel};
 use super::{drawing, shape};
 use crate::{Action, App, Tool, ToolDefaultPatch};
 
@@ -20,6 +20,26 @@ fn at_toolbar(controls: Vec<Control>) -> PopupModel {
     PopupModel {
         anchor: PopupAnchor::Toolbar { gap: TOOLBAR_GAP },
         controls,
+    }
+}
+
+/// The preset the next page is made at, listed in place.
+fn page_presets(app: &App) -> PopupModel {
+    let page = app.tool_defaults().page;
+    let id = ControlId::new("page.preset");
+    PopupModel {
+        anchor: PopupAnchor::Toolbar { gap: TOOLBAR_GAP },
+        controls: vec![Control::Choices(Choices {
+            content: super::page::preset_sections(
+                &id,
+                (!page.custom).then_some(page.preset),
+                Some("Add"),
+                |index| set(ToolDefaultPatch::PagePreset(index)),
+                Some((page.custom, set(ToolDefaultPatch::PageCustom))),
+            ),
+            label: "Page size to add".into(),
+            id,
+        })],
     }
 }
 
@@ -118,9 +138,8 @@ pub(super) fn popup(app: &App, tool: Tool) -> Option<PopupModel> {
                 ))],
             ]))
         }
-        // The page tool places the first preset. Which preset it places is
-        // not something the tool holds, so there is nothing to choose.
-        Tool::AddPage | Tool::Select | Tool::AddDocument | Tool::Comment => return None,
+        Tool::AddPage => page_presets(app),
+        Tool::Select | Tool::AddDocument | Tool::Comment => return None,
     };
     Some(popup)
 }

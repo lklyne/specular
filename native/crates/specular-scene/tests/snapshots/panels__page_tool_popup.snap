@@ -4,7 +4,6 @@ expression: app.panel_scene_snapshot()
 ---
 screen rect 0,0 1200x44 fill=#d6d3d1
 screen rect 0,43 1200x1 fill=#a6a09b
-screen rect 408,8 32x28 r=6 fill=#fdf8f5
 screen path 24 commands in 416.81,14.82 15.2x15.19 fill=#e8e8e8
 screen path 40 commands in 416.81,14.82 15.2x15.19 fill=#45403c
 screen rect 448,14 1x16 fill=#18181b33
@@ -22,6 +21,7 @@ screen path M507.4,13.5 C507.52,13.5 507.66,13.54 507.84,13.61 C509.9,14.45 509.
 screen path M537,13.5 L544,13.5 C544.83,13.5 545.5,14.17 545.5,15 L545.5,22 C545.5,22.83 544.83,23.5 544,23.5 L537,23.5 C536.17,23.5 535.5,22.83 535.5,22 L535.5,15 C535.5,14.17 536.17,13.5 537,13.5 Z fill=#efcbcd stroke=#45403c/1
 screen path M546,20.5 L546,20.5 C548.49,20.5 550.5,22.51 550.5,25 L550.5,25 C550.5,27.49 548.49,29.5 546,29.5 L546,29.5 C543.51,29.5 541.5,27.49 541.5,25 L541.5,25 C541.5,22.51 543.51,20.5 546,20.5 Z fill=#efcbcd stroke=#45403c/1
 screen path 66 commands in 547.5,13.5 7.21x7.21 fill=#45403c
+screen rect 565,8 32x28 r=6 fill=#fdf8f5
 screen path M573.5,13 L585.5,13 C586.6,13 587.5,13.9 587.5,15 L587.5,23 C587.5,24.1 586.6,25 585.5,25 L573.5,25 C572.4,25 571.5,24.1 571.5,23 L571.5,15 C571.5,13.9 572.4,13 573.5,13 Z fill=#e8e8e8
 screen path M571.5,18 L571.5,15 C571.5,13.9 572.4,13 573.5,13 L585.5,13 C586.6,13 587.5,13.9 587.5,15 L587.5,18 Z fill=#edebe3
 screen path M571.5,18 L587.5,18 stroke=#45403c/1
@@ -40,23 +40,33 @@ screen path 62 commands in 695.33,15.33 16.11x16.11 fill=#45403c
 screen rect 726,14 1x16 fill=#18181b33
 screen text "100%" 744,8 box-h=28 12/16 #52525c middle
 screen path M780.5,20.75 L783,23.25 L785.5,20.75 stroke=#45403c66/0.83
-screen shadow 286,240 604x36 r=10 blur=16 fill=#c7c1bc80
-screen shadow 292,252 592x24 r=4 blur=8 fill=#0000002e
-screen rect 286,236 604x36 r=10 fill=#fafaf9 stroke=#cac6c3/1/inside
-screen path M304.75,257.5 L301.25,254 L304.75,250.5 stroke=#30303094/1.17 opacity=0.3
-screen path M329.25,257.5 L332.75,254 L329.25,250.5 stroke=#30303094/1.17 opacity=0.3
-screen path M363.5,254 C363.5,256.49 361.49,258.5 359,258.5 C356.51,258.5 354.5,256.49 354.5,254 C354.5,251.51 356.51,249.5 359,249.5 C360.26,249.5 361.46,250 362.37,250.87 L363.5,252 M363.5,249.5 L363.5,252 L361,252 stroke=#30303094/1
-screen rect 379,246 1x16 fill=#18181b33
-screen rect 388,241 280x26 r=6 fill=#ffffff stroke=#d4d4d8/1/inside
-screen text "https://example.com/p" 397,242 box-h=24 12/16 #303030 middle clip=397,242 262x24
-screen rect 676,246 1x16 fill=#18181b33
-screen text "Custom" 693,242 box-h=24 12/16 #30303094 middle
-screen path M759.5,252.75 L762,255.25 L764.5,252.75 stroke=#30303094/0.83
-screen rect 783,246 1x16 fill=#18181b33
-screen path M801.08,248.17 L806.92,248.17 C807.56,248.17 808.08,248.69 808.08,249.33 L808.08,258.67 C808.08,259.31 807.56,259.83 806.92,259.83 L801.08,259.83 C800.44,259.83 799.92,259.31 799.92,258.67 L799.92,249.33 C799.92,248.69 800.44,248.17 801.08,248.17 Z stroke=#30303094/1.17
-screen path M804,257.5 L804.01,257.5 stroke=#30303094/1.17
-screen path 22 commands in 826,247.44 7x7.06 fill=#30303094
-screen path 22 commands in 831,252.5 7x7.06 fill=#30303094
-screen rect 852,246 1x16 fill=#18181b33
-screen path 76 commands in 867.35,247.82 11.83x11.83 fill=#45403c
-screen path 20 commands in 868.06,252.69 6.25x6.25 fill=#e8e8e8
+screen shadow 483,56 234x325 r=10 blur=16 fill=#c7c1bc80
+screen shadow 489,68 222x313 r=4 blur=8 fill=#0000002e
+screen rect 483,52 234x325 r=10 fill=#fafaf9 stroke=#cac6c3/1/inside
+screen rect 488,57 224x24 r=6 fill=#e7e5e4
+screen text "iPhone SE" 496,57 box-h=24 12/16 w500 #303030 middle
+screen text "375×667" 704,57 box-h=24 12/16 #30303094 right middle
+screen text "iPhone Pro" 496,81 box-h=24 12/16 w500 #30303094 middle
+screen text "393×852" 704,81 box-h=24 12/16 #30303094 right middle
+screen text "iPhone Pro Max" 496,105 box-h=24 12/16 w500 #30303094 middle
+screen text "430×932" 704,105 box-h=24 12/16 #30303094 right middle
+screen text "iPhone Duo (cover)" 496,129 box-h=24 12/16 w500 #30303094 middle
+screen text "466×678" 704,129 box-h=24 12/16 #30303094 right middle
+screen text "iPhone Duo (open)" 496,153 box-h=24 12/16 w500 #30303094 middle
+screen text "626×890" 704,153 box-h=24 12/16 #30303094 right middle
+screen rect 488,181 224x1 fill=#18181b33
+screen text "iPad Mini" 496,186 box-h=24 12/16 w500 #30303094 middle
+screen text "744×1133" 704,186 box-h=24 12/16 #30303094 right middle
+screen text "iPad Pro 11" 496,210 box-h=24 12/16 w500 #30303094 middle
+screen text "834×1194" 704,210 box-h=24 12/16 #30303094 right middle
+screen text "iPad Pro 12.9" 496,234 box-h=24 12/16 w500 #30303094 middle
+screen text "1024×1366" 704,234 box-h=24 12/16 #30303094 right middle
+screen rect 488,262 224x1 fill=#18181b33
+screen text "Laptop" 496,267 box-h=24 12/16 w500 #30303094 middle
+screen text "1280×800" 704,267 box-h=24 12/16 #30303094 right middle
+screen text "Desktop" 496,291 box-h=24 12/16 w500 #30303094 middle
+screen text "1440×900" 704,291 box-h=24 12/16 #30303094 right middle
+screen text "Desktop XL" 496,315 box-h=24 12/16 w500 #30303094 middle
+screen text "1920×1080" 704,315 box-h=24 12/16 #30303094 right middle
+screen rect 488,343 224x1 fill=#18181b33
+screen text "Custom" 496,348 box-h=24 12/16 w500 #30303094 middle

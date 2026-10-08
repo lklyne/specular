@@ -191,7 +191,24 @@ fn the_page_tool_has_no_popup_and_still_hides_the_selections() {
     assert_ne!(app.popup_snapshot(), "none");
     app.tool(Tool::AddPage);
     assert_popup_snapshot!(app, @r#"
-    none
+    anchor toolbar gap=8
+    choices page.preset "Page size to add"
+      options list
+        option [x] page.preset.0 "Add iPhone SE" text="iPhone SE" trailing="375×667" -> SetToolDefault(PagePreset(0))
+        option [ ] page.preset.1 "Add iPhone 14 Pro" text="iPhone Pro" trailing="393×852" -> SetToolDefault(PagePreset(1))
+        option [ ] page.preset.2 "Add iPhone 14 Pro Max" text="iPhone Pro Max" trailing="430×932" -> SetToolDefault(PagePreset(2))
+        option [ ] page.preset.9 "Add iPhone Duo (cover)" text="iPhone Duo (cover)" trailing="466×678" -> SetToolDefault(PagePreset(9))
+        option [ ] page.preset.10 "Add iPhone Duo (open)" text="iPhone Duo (open)" trailing="626×890" -> SetToolDefault(PagePreset(10))
+      options list
+        option [ ] page.preset.3 "Add iPad Mini" text="iPad Mini" trailing="744×1133" -> SetToolDefault(PagePreset(3))
+        option [ ] page.preset.4 "Add iPad Pro 11" text="iPad Pro 11" trailing="834×1194" -> SetToolDefault(PagePreset(4))
+        option [ ] page.preset.5 "Add iPad Pro 12.9" text="iPad Pro 12.9" trailing="1024×1366" -> SetToolDefault(PagePreset(5))
+      options list
+        option [ ] page.preset.6 "Add Laptop" text="Laptop" trailing="1280×800" -> SetToolDefault(PagePreset(6))
+        option [ ] page.preset.7 "Add Desktop" text="Desktop" trailing="1440×900" -> SetToolDefault(PagePreset(7))
+        option [ ] page.preset.8 "Add Desktop XL" text="Desktop XL" trailing="1920×1080" -> SetToolDefault(PagePreset(8))
+      options list
+        option [ ] page.preset.custom "Add custom" text="Custom" -> SetToolDefault(PageCustom)
     "#);
 }
 

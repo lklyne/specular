@@ -75,6 +75,14 @@ pub enum Icon {
     Device,
     /// Rotate the viewport. `RotateIcon` in `shared/CustomIcons.tsx`.
     Rotate,
+    /// Back in a page's history. Lucide `ChevronLeft`.
+    ChevronLeft,
+    /// Forward in a page's history. Lucide `ChevronRight`.
+    ChevronRight,
+    /// Load a page again. Lucide `RotateCw`.
+    Reload,
+    /// Abandon a page's load. Lucide `X`.
+    Stop,
     /// The system color scheme. `shared/icons/toolbar/sun-moon.svg`.
     SchemeSystem,
     /// The light color scheme. `shared/icons/toolbar/sun.svg`.

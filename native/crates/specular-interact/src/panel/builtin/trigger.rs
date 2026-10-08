@@ -22,6 +22,8 @@ fn swatch_style(dropdown: &Dropdown) -> (Palette, PaintRole) {
                     | Control::Toggle(_)
                     | Control::Dropdown(_)
                     | Control::Stepper(_)
+                    | Control::Field(_)
+                    | Control::Choices(_)
                     | Control::Separator => None,
                 })
             }

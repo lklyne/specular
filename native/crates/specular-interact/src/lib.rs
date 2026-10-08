@@ -120,9 +120,10 @@ pub use notes::{NoteNotice, NoteState, is_note_file};
 pub use page_state::PageState;
 pub use panel::builtin::PanelUi;
 pub use panel::{
-    Align, Button, Control, ControlId, Dropdown, DropdownOption, DropdownSection, Entries, Face,
-    Icon, Label, OptionLayout, PaintRole, Palette, Placement, PopupAnchor, PopupModel, Stepper,
-    Swatch, Swatches, Toggle, ToolButton, ToolbarModel, ToolbarSection, popup_for, toolbar,
+    Align, Button, Choices, Control, ControlId, Dropdown, DropdownOption, DropdownSection, Entries,
+    Face, Field, FieldSubmit, FieldWidth, Icon, Label, OptionLayout, PaintRole, Palette, Placement,
+    PopupAnchor, PopupModel, Stepper, Swatch, Swatches, Toggle, ToolButton, ToolbarModel,
+    ToolbarSection, popup_for, toolbar,
 };
 pub use place::{PlaceDrag, Placing};
 pub use placement::PagePlacement;
@@ -141,9 +142,10 @@ pub use space::{
 pub use time::iso8601;
 pub use tool::Tool;
 pub use tool_defaults::{
-    DrawDefaults, ShapeDefaults, StickyDefaults, TextDefaults, ToolDefaultPatch, ToolDefaults,
+    DrawDefaults, PageDefaults, ShapeDefaults, StickyDefaults, TextDefaults, ToolDefaultPatch,
+    ToolDefaults,
 };
 pub use update::update;
-pub use url::{looks_like_url, normalize_user_url};
+pub use url::{looks_like_url, normalize_user_url, resolve_address_input};
 pub use verbs::{delete_commands, move_commands};
 pub use zoom::fitting as fit_camera;

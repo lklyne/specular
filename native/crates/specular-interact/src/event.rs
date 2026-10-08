@@ -341,6 +341,8 @@ pub enum Action {
     PageReload,
     /// Abandon that page's load in flight.
     PageStop,
+    /// Take that page to an address, as one typed in its address field.
+    PageNavigate(String),
     /// Change the space's canvases: show another, add, rename, copy or
     /// remove one.
     Canvas(CanvasAction),

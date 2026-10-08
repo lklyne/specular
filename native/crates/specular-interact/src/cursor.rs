@@ -34,6 +34,9 @@ fn wanted(app: &App) -> Cursor {
         None => {}
     }
     // A panel is over whatever the canvas would ask a cursor for.
+    if crate::panel::builtin::over_field(app) {
+        return Cursor::Text;
+    }
     if crate::panel::builtin::over(app) {
         return Cursor::Default;
     }

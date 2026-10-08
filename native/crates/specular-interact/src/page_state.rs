@@ -134,6 +134,7 @@ pub(crate) fn navigate(app: &App, action: &Action, effects: &mut Vec<Effect>) {
         Action::PageForward if can(|state| state.can_go_forward) => PageNav::Forward,
         Action::PageReload => PageNav::Reload,
         Action::PageStop if can(|state| state.loading) => PageNav::Stop,
+        Action::PageNavigate(url) => PageNav::To(url.clone()),
         _ => return,
     };
     effects.push(Effect::Navigate {

@@ -124,6 +124,10 @@ fn shift_drag_moves_the_page_along_one_axis() {
   holds the layout as text, and `panel_scene_snapshot()` what the panels
   draw. `view` never draws them, so `scene_snapshot()` is the same either
   way.
+  A text field is clicked like any control and then typed into:
+  `enter_in_field("page.url", "example.org")` replaces its text and presses
+  Enter, `field_edit()` reads what is typed so far, and Escape puts the
+  old value back.
 - A page is select-first (ADR 0022). `click` selects it, a second `click`
   or a `double_click` enters it, and only an entered page gets input.
 - The scene snapshot is `assert_scene_snapshot!(app)`, in
@@ -163,7 +167,8 @@ cargo run -p specular-app -- --script steps.txt FILE.canvas
 - The toolbar and the item popup are drawn and take clicks, so the top 44
   pixels are the toolbar. `control shape.color` clicks a control by its
   name wherever it is (`hover-control`, `press-control` likewise), and a
-  wrong name fails the run with the names that are shown. A dropdown's
+  wrong name fails the run with the names that are shown. A field takes
+  `control page.url`, `key cmd+a`, `type ..`, `key enter`. A dropdown's
   options have names once it is open. `panels off` runs without them.
 - The clipboard and the Documents a run makes are kept in memory:
   `clipboard some\ntext` is another app copying, `key cmd+v` pastes it,

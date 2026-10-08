@@ -1,0 +1,44 @@
+# canvas: empty.canvas
+# The page popup's chrome: a page placed at the preset the page tool was set
+# to, an address typed and entered, a long one scrolled and abandoned with
+# Escape, a custom width and height typed into the size list, and the whole
+# of it undone.
+camera 0,0,0.5
+control tool.page
+snapshot 01-page-tool-popup.png
+control page.preset.7
+click 300 300
+save 02-page-placed.canvas
+snapshot 02-page-placed.png
+
+# the address: Enter navigates the page in place
+control page.url
+key cmd+a
+type example.org/docs
+key enter
+snapshot 03-address-entered.png
+
+# a long address scrolls inside its field and Escape puts the old one back
+control page.url
+type -with-a-very-long-path/and/more/and/more/and/more/and/more/and/more/and/more
+snapshot 04-address-long.png
+key escape
+snapshot 05-address-restored.png
+
+# a custom size from the size list
+control page.size
+snapshot 06-size-list.png
+control page.size.width
+key cmd+a
+type 900
+key enter
+control page.size.height
+key cmd+a
+type 600
+key enter
+save 07-custom-size.canvas
+snapshot 07-custom-size.png
+key escape
+key cmd+z
+key cmd+z
+save 08-size-undone.canvas

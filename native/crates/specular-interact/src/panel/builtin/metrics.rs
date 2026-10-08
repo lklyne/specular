@@ -31,6 +31,19 @@ pub(super) const INSET: f32 = 5.0;
 /// How near a viewport edge a panel may come: `POPUP_EDGE_MARGIN`.
 pub(super) const EDGE_MARGIN: f32 = 8.0;
 
+/// The height of a text field: `border px-2 py-1 text-xs`, a 16 px line
+/// between a pixel of border and 4 px of padding each side. Its side padding
+/// is `FIELD_PAD`. The address field is at least `URL_INPUT_MIN_WIDTH` wide;
+/// a number is a few characters.
+pub const FIELD_HEIGHT: f32 = 26.0;
+pub(super) const FIELD_PAD: f32 = 8.0;
+pub(super) const FIELD_WIDE: f32 = 280.0;
+pub(super) const FIELD_SHORT: f32 = 56.0;
+/// The size of a field's text.
+pub const FIELD_TEXT: f32 = 12.0;
+/// The height of a field's line of text.
+pub const FIELD_LINE: f32 = 16.0;
+
 /// A popup control: `h-6 w-6` in `popupIconButtonClass`.
 pub(super) const CONTROL: f32 = 24.0;
 /// A popup glyph: `size={14}` on nearly every icon.

@@ -145,6 +145,9 @@ pub enum Chrome {
     Swatch,
     /// The box around a stepper: an outline.
     Field,
+    /// The box of a text field: white, with an outline, and a ring while it
+    /// has the keys.
+    Input,
     /// A line between groups of a bar.
     Divider,
     /// A line between sections of a list.
@@ -171,6 +174,51 @@ pub struct Tint {
     pub palette: Palette,
     /// How it is used.
     pub role: PaintRole,
+}
+
+/// A line of text in a field, and what editing it shows.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Input {
+    /// The line: the field's value, or the text typed so far.
+    pub text: Label,
+    /// What to show instead while `text` is empty.
+    pub hint: Option<Label>,
+    /// The box the line is clipped to. The text starts at its left edge,
+    /// moved by `scroll`.
+    pub area: PanelRect,
+    /// How far the line is scrolled left, in pixels.
+    pub scroll: f32,
+    /// The caret and selection, while the field has the keys.
+    pub focus: Option<InputFocus>,
+}
+
+impl Input {
+    /// Moves the line and everything over it by `by`.
+    fn shift(&mut self, by: Vec2) {
+        self.area = self.area.moved(by);
+        if let Some(focus) = &mut self.focus {
+            let moved = |rects: &mut Vec<PanelRect>| {
+                for rect in rects {
+                    *rect = rect.moved(by);
+                }
+            };
+            moved(&mut focus.selection);
+            moved(&mut focus.composition);
+            focus.caret = focus.caret.map(|caret| caret.moved(by));
+        }
+    }
+}
+
+/// What a field being edited shows over its text.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct InputFocus {
+    /// The selected text, one box a line, to go behind the glyphs.
+    pub selection: Vec<PanelRect>,
+    /// The text the input method is composing, to underline.
+    pub composition: Vec<PanelRect>,
+    /// The caret, when it is in the shown half of its blink and nothing is
+    /// selected.
+    pub caret: Option<PanelRect>,
 }
 
 /// One thing painted inside a node.
@@ -226,6 +274,8 @@ pub enum Part {
         /// The box.
         rect: PanelRect,
     },
+    /// The line of a text field.
+    Input(Input),
 }
 
 /// What pressing a control does.
@@ -288,6 +338,7 @@ impl Node {
                 | Part::Chevron { rect }
                 | Part::Check { rect }
                 | Part::Key { rect, .. } => *rect = rect.moved(by),
+                Part::Input(input) => input.shift(by),
             }
         }
         self

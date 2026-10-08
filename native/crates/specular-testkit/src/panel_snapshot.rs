@@ -142,6 +142,21 @@ fn control(out: &mut String, control: &Control, depth: usize) {
                 stepper.increment
             );
         }
+        Control::Field(field) => {
+            let caption = (field.caption.as_ref())
+                .map_or_else(String::new, |caption| format!(" caption={caption:?}"));
+            let placeholder = (field.placeholder.as_ref())
+                .map_or_else(String::new, |text| format!(" placeholder={text:?}"));
+            let _ = writeln!(
+                out,
+                "field {} {:?}{caption} value={:?}{placeholder} {:?} submit={:?}",
+                field.id, field.label, field.value, field.width, field.submit
+            );
+        }
+        Control::Choices(choices) => {
+            let _ = writeln!(out, "choices {} {:?}", choices.id, choices.label);
+            sections(out, &choices.content, depth + 1);
+        }
         Control::Separator => out.push_str("---\n"),
     }
 }
@@ -155,13 +170,17 @@ fn dropdown(out: &mut String, open: &Dropdown, depth: usize) {
         open.label,
         face(&open.summary)
     );
-    for section in &open.content {
-        pad(out, depth + 1);
+    sections(out, &open.content, depth + 1);
+}
+
+fn sections(out: &mut String, content: &[DropdownSection], depth: usize) {
+    for section in content {
+        pad(out, depth);
         match section {
             DropdownSection::Options { layout, options } => {
                 let _ = writeln!(out, "options {}", layout_name(*layout));
                 for option in options {
-                    pad(out, depth + 2);
+                    pad(out, depth + 1);
                     let trailing = option
                         .trailing
                         .as_ref()
@@ -187,7 +206,7 @@ fn dropdown(out: &mut String, open: &Dropdown, depth: usize) {
             }
             DropdownSection::Controls(row) => {
                 out.push_str("controls\n");
-                controls(out, row, depth + 2);
+                controls(out, row, depth + 1);
             }
         }
     }

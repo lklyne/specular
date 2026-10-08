@@ -155,6 +155,21 @@ if j in RAN:
         print(f"{'ok  ' if held else 'FAIL'} {j}: {name}")
         if not held:
             failures.append(f"{j}: {name}")
+k = "k-page-chrome"
+if k in RAN:
+    page = lambda c: next(n for n in c["nodes"] if n["type"] == "link")
+    size = lambda c: (page(c)["width"], page(c)["height"])
+    placed, custom, undone = (saved(k, f) for f in ["02-page-placed.canvas", "07-custom-size.canvas", "08-size-undone.canvas"])
+    checks = {
+        # The Desktop preset the page tool was set to, not the first one.
+        "page placed at the tool's preset": size(placed) == (1440, 900) and page(placed).get("presetIndex") == 7,
+        "typed width and height make a custom size": size(custom) == (900, 600) and page(custom)["metadata"]["pageSizeMode"] == "custom",
+        "undo takes the two sizes back": size(undone) == (1440, 900),
+    }
+    for name, held in checks.items():
+        print(f"{'ok  ' if held else 'FAIL'} {k}: {name}")
+        if not held:
+            failures.append(f"{k}: {name}")
 f1 = "f1-reload-own-save"
 expect(f"{a}+{f1}", saved(a, "08-arranged.canvas"), saved(f1, "01-reloaded.canvas"))
 f2 = "f2-electron-file-one-change"

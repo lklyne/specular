@@ -2,8 +2,9 @@
 //! draws them, so these scenes hold the panels and nothing under them.
 
 use specular_doc::{Color, ColorPreset, Edge, EdgeEnd, LineStyle, Rect};
+use specular_interact::Key;
 use specular_testkit::{
-    TestApp, document, insta::assert_snapshot, page, plain_text, shape, sticky, with_edge,
+    CMD, TestApp, document, insta::assert_snapshot, page, plain_text, shape, sticky, with_edge,
 };
 
 /// A sticky in the middle of a 1200x800 viewport, the built-in panels on.
@@ -99,6 +100,25 @@ fn a_page_popup_sits_above_the_page_title() {
     let mut app = TestApp::with_entities([page("p", Rect::new(400.0, 300.0, 375.0, 400.0))]);
     app.viewport((1200.0, 800.0)).with_panels().select(&["p"]);
     assert_snapshot!("page_popup", app.panel_scene_snapshot());
+}
+
+#[test]
+fn a_field_being_edited_shows_its_text_selection_and_caret_cut_at_its_box() {
+    let mut app = TestApp::with_entities([page("p", Rect::new(400.0, 300.0, 800.0, 400.0))]);
+    app.viewport((1200.0, 800.0)).with_panels().select(&["p"]);
+    app.click_control("page.url")
+        .chord(CMD, Key::Char('a'))
+        .type_text(&"long-address/".repeat(20));
+    assert_snapshot!("page_url_editing", app.panel_scene_snapshot());
+}
+
+#[test]
+fn the_page_tool_popup_is_a_list_of_presets() {
+    let mut app = TestApp::empty();
+    app.viewport((1200.0, 800.0))
+        .with_panels()
+        .click_control("tool.page");
+    assert_snapshot!("page_tool_popup", app.panel_scene_snapshot());
 }
 
 #[test]

@@ -114,9 +114,13 @@ fn a_popup_goes_when_its_item_leaves_the_canvas() {
 
 #[test]
 fn a_page_popup_is_as_wide_as_its_page_and_no_wider_than_the_viewport() {
-    let app = with(page("p", Rect::new(300.0, 300.0, 600.0, 400.0)));
+    let app = with(page("p", Rect::new(300.0, 300.0, 700.0, 400.0)));
     let popup = popup(&app);
-    assert_eq!((popup.x, popup.width), (300.0, 600.0));
+    assert_eq!((popup.x, popup.width), (300.0, 700.0));
+    // A page narrower than the address field and its neighbours is still
+    // given the room they need.
+    let narrow = with(page("p", Rect::new(300.0, 300.0, 300.0, 400.0)));
+    assert!(self::popup(&narrow).width > 550.0);
     let wide = with(page("p", Rect::new(-500.0, 300.0, 3000.0, 400.0)));
     let popup = self::popup(&wide);
     assert_eq!((popup.x, popup.width), (MARGIN, VIEWPORT.0 - MARGIN * 2.0));

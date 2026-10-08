@@ -12,6 +12,7 @@
 
 mod colors;
 mod icons;
+mod input;
 mod node;
 mod surface;
 

@@ -13,6 +13,7 @@
 
 mod controls;
 mod dropdown;
+mod field;
 mod metrics;
 mod node;
 mod place;
@@ -23,11 +24,13 @@ mod trigger;
 
 use glam::Vec2;
 
-pub use self::metrics::TOOLBAR_HEIGHT;
+pub(crate) use self::field::{field_box, text_area};
+pub use self::metrics::{FIELD_HEIGHT, FIELD_LINE, FIELD_TEXT, TOOLBAR_HEIGHT};
 pub use self::node::{
-    Chrome, Node, NodeState, Panel, PanelRect, Part, Pointing, Surface, Tint, Tone,
+    Chrome, Input, InputFocus, Node, NodeState, Panel, PanelRect, Part, Pointing, Surface, Tint,
+    Tone,
 };
-pub(crate) use self::route::{cancel, hit, on_pointer, over, swallows_scroll, tidy};
+pub(crate) use self::route::{cancel, hit, on_pointer, over, over_field, swallows_scroll, tidy};
 use super::{Control, ControlId, Dropdown, PopupAnchor, PopupModel, ToolbarModel, ToolbarSection};
 use crate::App;
 
@@ -180,6 +183,8 @@ fn open_dropdown<'a>(
             | Control::Toggle(_)
             | Control::Swatches(_)
             | Control::Stepper(_)
+            | Control::Field(_)
+            | Control::Choices(_)
             | Control::Separator => None,
         })
     })
@@ -187,6 +192,15 @@ fn open_dropdown<'a>(
 
 /// The built-in panels for `app` as it is now, in logical screen pixels.
 pub fn layout(app: &App) -> PanelLayout {
+    let mut panels = build(app);
+    field::overlay(app, &mut panels);
+    panels
+}
+
+/// The panels laid out from the models alone, with no field showing an edit.
+/// The editor asks where a field is while it lays the field's text out, so
+/// that answer cannot depend on the editor.
+fn build(app: &App) -> PanelLayout {
     let ui = &app.session.panel;
     if !ui.built_in {
         return PanelLayout::default();

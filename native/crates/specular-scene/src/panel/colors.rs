@@ -47,6 +47,10 @@ pub(super) const DIVIDER: Color = Color::rgba(0x18, 0x18, 0x1b, 51);
 pub(super) const RULE: Color = Color::rgb(0xe4, 0xe4, 0xe7);
 /// The outline of a field: zinc-300.
 pub(super) const FIELD_BORDER: Color = Color::rgb(0xd4, 0xd4, 0xd8);
+/// A text field's fill: `bg-white`.
+pub(super) const INPUT: Color = Color::rgb(0xff, 0xff, 0xff);
+/// The ring of a text field that has the keys: `ring-blue-500/40`.
+pub(super) const INPUT_RING: Color = Color::rgba(0x3b, 0x82, 0xf6, 102);
 /// A key hint: stone-600 on stone-200.
 pub(super) const KEY: Color = ON;
 pub(super) const KEY_TEXT: Color = Color::rgb(0x57, 0x53, 0x4d);

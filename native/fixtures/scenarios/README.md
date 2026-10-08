@@ -25,6 +25,7 @@ have been looked at.
 | `c-document` | Add a Document, write markdown with the formatting shortcuts, end, reopen, scroll to the end and back, undo. |
 | `d-text-edge-cases` | Emoji, CJK through the input method, a long word, empty lines, replace-all, a multi-line paste, a shape label, editing at zoom 0.25 and 3. |
 | `e-clipboard` | Text between stickies, a cut, a copied entity, a pasted URL, pasted text with nothing selected. |
+| `k-page-chrome` | The page popup: a page placed at the preset the page tool was set to, an address typed, entered, scrolled and abandoned, a custom width and height typed into the size list, undone. |
 | `f1-reload-own-save` | The canvas `a-first-session` saved, reopened and saved untouched. Run `a-first-session` first. |
 | `f2-electron-file-one-change` | The starter space's `Welcome.canvas`, which Electron wrote, with one shape nudged. |
 | `f3-fixture-one-change` | The integration suite's `rich-workspace.canvas` with one shape nudged. |

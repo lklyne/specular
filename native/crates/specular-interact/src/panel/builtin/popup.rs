@@ -2,17 +2,29 @@
 
 use glam::Vec2;
 
-use super::super::{Align, PopupAnchor, PopupModel};
+use super::super::{Align, Control, PopupAnchor, PopupModel};
 use super::controls::{self, RowKind};
-use super::metrics::{CONTROL, EDGE_MARGIN, INSET, TOOLBAR_HEIGHT};
-use super::node::{Panel, PanelRect, Surface};
+use super::dropdown;
+use super::metrics::{EDGE_MARGIN, INSET, TOOLBAR_HEIGHT};
+use super::node::{Node, Panel, PanelRect, Surface};
 use super::{Ctx, place};
 use crate::geometry::ScreenRect;
 
+/// The controls of a popup laid out from the corner of their content: a
+/// row, or the one list of choices that fills the popup.
+fn content(ctx: &Ctx<'_>, controls: &[Control]) -> (Vec<Node>, Vec2) {
+    if let [Control::Choices(choices)] = controls {
+        let body = dropdown::body(ctx, &choices.content);
+        return (body.nodes, body.size);
+    }
+    let row = controls::row(ctx, controls, RowKind::Popup, None);
+    (row.nodes, Vec2::new(row.width, row.height))
+}
+
 /// The popup of `model`, or `None` when what it points at is off screen.
 pub(super) fn layout(ctx: &Ctx<'_>, model: &PopupModel, viewport: Vec2) -> Option<Panel> {
-    let row = controls::row(ctx, &model.controls, RowKind::Popup, None);
-    let mut size = Vec2::new(row.width, CONTROL) + Vec2::splat(INSET * 2.0);
+    let (mut nodes, inner) = content(ctx, &model.controls);
+    let mut size = inner + Vec2::splat(INSET * 2.0);
     let corner = match model.anchor {
         PopupAnchor::Toolbar { gap } => {
             Vec2::new((viewport.x - size.x) / 2.0, TOOLBAR_HEIGHT + gap)
@@ -42,6 +54,11 @@ pub(super) fn layout(ctx: &Ctx<'_>, model: &PopupModel, viewport: Vec2) -> Optio
             place::beside(anchor, placement, gap, size, viewport)?
         }
     };
+    // A popup wider than its content gives the room to what stretches.
+    if size.x - INSET * 2.0 > inner.x + 0.5 {
+        let fill = Some(size.x - INSET * 2.0);
+        nodes = controls::row(ctx, &model.controls, RowKind::Popup, fill).nodes;
+    }
     // Whole pixels, so the frame's hairline and its glyphs stay sharp.
     let corner = corner.round();
     let content = corner + Vec2::splat(INSET);
@@ -49,7 +66,7 @@ pub(super) fn layout(ctx: &Ctx<'_>, model: &PopupModel, viewport: Vec2) -> Optio
         surface: Surface::Popup,
         rect: PanelRect::new(corner.x, corner.y, size.x, size.y),
         menu: false,
-        nodes: (row.nodes.into_iter())
+        nodes: (nodes.into_iter())
             .map(|node| node.moved(content))
             .collect(),
     })

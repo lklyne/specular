@@ -45,6 +45,10 @@ const fn tint_style(icon: Icon) -> (Palette, PaintRole) {
         | Icon::BulletList
         | Icon::Device
         | Icon::Rotate
+        | Icon::ChevronLeft
+        | Icon::ChevronRight
+        | Icon::Reload
+        | Icon::Stop
         | Icon::SchemeSystem
         | Icon::SchemeLight
         | Icon::SchemeDark => (Palette::Soft, PaintRole::Fill),

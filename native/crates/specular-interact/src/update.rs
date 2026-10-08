@@ -131,7 +131,9 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
 
 pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect>) {
     match action {
-        // Escape closes an open dropdown before it backs out of anything.
+        // Escape puts a field's old value back before it does anything else,
+        // and closes an open dropdown before it backs out of anything.
+        Action::Cancel if edit::cancel_field(app, effects) => {}
         Action::Cancel if builtin::cancel(app) => {}
         Action::Cancel => {
             // A comment draft or a focused comment is all one Escape takes.
@@ -229,7 +231,11 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         Action::ZoomOut => zoom::zoom_out(app),
         Action::ZoomReset => zoom::reset(app),
         Action::ZoomToFit => zoom::to_fit(app),
-        Action::PageBack | Action::PageForward | Action::PageReload | Action::PageStop => {
+        Action::PageBack
+        | Action::PageForward
+        | Action::PageReload
+        | Action::PageStop
+        | Action::PageNavigate(_) => {
             page_state::navigate(app, &action, effects);
         }
         Action::Canvas(action) => space::act(app, action, effects),
@@ -246,8 +252,9 @@ fn stack(app: &mut App, how: Move, effects: &mut Vec<Effect>) {
 /// changed anything.
 fn set_tool_default(app: &mut App, patch: ToolDefaultPatch, effects: &mut Vec<Effect>) {
     let before = app.tool_defaults.clone();
+    let stored = patch.is_stored();
     app.tool_defaults.apply(patch);
-    if app.tool_defaults != before {
+    if stored && app.tool_defaults != before {
         effects.push(Effect::SaveToolDefaults(Box::new(
             app.tool_defaults.clone(),
         )));

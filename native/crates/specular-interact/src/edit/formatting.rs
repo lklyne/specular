@@ -33,7 +33,9 @@ impl Format {
     /// shape's label has none.
     const fn applies_to(self, target: Target) -> bool {
         match target {
-            Target::Label | Target::Title | Target::EdgeLabel | Target::Comment => false,
+            Target::Label | Target::Title | Target::EdgeLabel | Target::Comment | Target::Field => {
+                false
+            }
             Target::Note => true,
             Target::Text => matches!(
                 self,
@@ -50,12 +52,13 @@ impl TextEdit {
     }
 
     /// Whether the popup of the item being edited stays up during the edit:
-    /// the item's text and a Document's source have formatting to show, and
-    /// an edge's label belongs to a popup the edit does not cover. A shape's
-    /// label and an item's title are edited in place with the popup down.
+    /// the item's text and a Document's source have formatting to show, an
+    /// edge's label belongs to a popup the edit does not cover, and a field
+    /// lives in the popup. A shape's label and an item's title are edited in
+    /// place with the popup down.
     pub(crate) const fn keeps_popup(&self) -> bool {
         match self.target {
-            Target::Text | Target::Note | Target::EdgeLabel => true,
+            Target::Text | Target::Note | Target::EdgeLabel | Target::Field => true,
             Target::Label | Target::Title | Target::Comment => false,
         }
     }

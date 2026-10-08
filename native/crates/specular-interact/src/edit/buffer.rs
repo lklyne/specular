@@ -28,6 +28,9 @@ pub(crate) enum Target {
     /// A comment draft: lines broken by Shift+Enter, ended by Enter, keyed
     /// by the draft's id.
     Comment,
+    /// A text field of a panel: a single line, ended by Enter and by a press
+    /// anywhere else, abandoned by Escape, keyed by the field's control id.
+    Field,
 }
 
 impl Target {
@@ -36,7 +39,7 @@ impl Target {
     pub(crate) const fn is_entity(self) -> bool {
         match self {
             Self::Text | Self::Label | Self::Note | Self::Title => true,
-            Self::EdgeLabel | Self::Comment => false,
+            Self::EdgeLabel | Self::Comment | Self::Field => false,
         }
     }
 }
@@ -73,6 +76,9 @@ pub struct TextEdit {
     pub(crate) active_ms: u64,
     /// The file the text is written to as it changes, for a Document.
     pub(crate) note: Option<NoteSave>,
+    /// How far a field's line is scrolled left to keep the caret in view, in
+    /// logical pixels.
+    pub(crate) scroll: f32,
 }
 
 impl TextEdit {
@@ -91,6 +97,7 @@ impl TextEdit {
             origin,
             active_ms: 0,
             note: None,
+            scroll: 0.0,
         }
     }
 
@@ -102,6 +109,11 @@ impl TextEdit {
     /// Whether this is an edit of a Document's markdown source.
     pub fn is_note(&self) -> bool {
         self.target == Target::Note
+    }
+
+    /// Whether this is an edit of a panel field's text.
+    pub fn is_field(&self) -> bool {
+        self.target == Target::Field
     }
 
     /// Whether this is an edit of a comment draft's text, in the composer.

@@ -18,6 +18,12 @@ fn a_page_has_size_frame_rotation_and_color_scheme() {
     app.select(&["p"]);
     assert_popup_snapshot!(app, @r#"
     anchor canvas 100,100 375x667 Above Stretch gap=28.5
+    button page.back "Back" icon=ChevronLeft chord=cmd+[ disabled -> PageBack
+    button page.forward "Forward" icon=ChevronRight chord=cmd+] disabled -> PageForward
+    button page.reload "Reload" icon=Reload chord=cmd+r -> PageReload
+    ---
+    field page.url "Page address" value="https://example.com/p" placeholder="Type a URL" Wide submit=PageUrl
+    ---
     dropdown page.size "Page size" shows text="Custom"
       options list
         option [ ] page.size.0 "iPhone SE" trailing="375×667" -> SetProperty(ViewportPreset(0))
@@ -35,6 +41,9 @@ fn a_page_has_size_frame_rotation_and_color_scheme() {
         option [ ] page.size.8 "Desktop XL" trailing="1920×1080" -> SetProperty(ViewportPreset(8))
       options list
         option [x] page.size.custom "Custom" -> SetProperty(CustomViewport)
+      controls
+        field page.size.width "Page width" caption="W" value="375" Short submit=ViewportWidth
+        field page.size.height "Page height" caption="H" value="667" Short submit=ViewportHeight
     ---
     toggle [ ] page.frame "Device frame" icon=Device -> SetProperty(DeviceFrame(true))
     button page.rotate "Rotate viewport" icon=Rotate -> SetProperty(Orientation(Landscape))

@@ -5,12 +5,12 @@ use std::fmt::Write as _;
 
 use glam::Vec2;
 use specular_interact::panel::builtin::{
-    Node, Panel, PanelLayout, PanelRect, Part, Pointing, Surface, layout,
+    Input, Node, Panel, PanelLayout, PanelRect, Part, Pointing, Surface, layout,
 };
-use specular_interact::{ControlId, Event};
+use specular_interact::{ControlId, Event, Key};
 use specular_scene::Scene;
 
-use crate::TestApp;
+use crate::{CMD, TestApp};
 
 /// The viewport a test that never set one gets, the same one
 /// [`TestApp::scene_snapshot`] assumes.
@@ -56,7 +56,42 @@ fn part(part: &Part) -> String {
         Part::Chevron { rect: area } => format!("chevron {}", rect(*area)),
         Part::Check { rect: area } => format!("check {}", rect(*area)),
         Part::Key { text, rect: area } => format!("key {text:?} {}", rect(*area)),
+        Part::Input(input) => input_part(input),
     }
+}
+
+/// A field's line: what it shows, where it is clipped and scrolled, and
+/// while it is edited the caret, selection and underline.
+fn input_part(input: &Input) -> String {
+    let mut out = format!(
+        "input {:?} in {} scroll={}",
+        input.text,
+        rect(input.area),
+        num(input.scroll)
+    );
+    if let Some(hint) = &input.hint {
+        let _ = write!(out, " hint={hint:?}");
+    }
+    if let Some(focus) = &input.focus {
+        let boxes = |rects: &[PanelRect]| {
+            rects
+                .iter()
+                .map(|it| rect(*it))
+                .collect::<Vec<_>>()
+                .join("|")
+        };
+        let _ = write!(out, " focused");
+        if !focus.selection.is_empty() {
+            let _ = write!(out, " selection={}", boxes(&focus.selection));
+        }
+        if !focus.composition.is_empty() {
+            let _ = write!(out, " composing={}", boxes(&focus.composition));
+        }
+        if let Some(caret) = focus.caret {
+            let _ = write!(out, " caret={}", rect(caret));
+        }
+    }
+    out
 }
 
 fn node(out: &mut String, node: &Node) {
@@ -151,6 +186,22 @@ impl TestApp {
     #[track_caller]
     pub fn click_control(&mut self, id: &str) -> &mut Self {
         self.press_control(id).release()
+    }
+
+    /// Clicks the field named `id`, replaces what is in it with `text` and
+    /// presses Enter, as a person typing a new value does.
+    #[track_caller]
+    pub fn enter_in_field(&mut self, id: &str, text: &str) -> &mut Self {
+        self.click_control(id)
+            .chord(CMD, Key::Char('a'))
+            .type_text(text)
+            .key(Key::Enter)
+    }
+
+    /// Whether a panel field has the keys, and its text as typed so far.
+    pub fn field_edit(&self) -> Option<&str> {
+        let edit = self.app.text_edit().filter(|edit| edit.is_field())?;
+        Some(edit.text())
     }
 
     /// The built-in panels as stable text. See [`layout_snapshot`].
