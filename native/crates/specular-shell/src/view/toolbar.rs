@@ -2,12 +2,14 @@
 //! the window's title. The strip is the title bar too: the traffic lights
 //! sit in its left padding, as in the Electron app.
 
+use std::cell::Cell;
+
 use gpui_kit::component::button::{Button, ButtonVariants as _};
 use gpui_kit::component::{IconName, Selectable as _, Sizable as _, h_flex};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
-    App, InteractiveElement as _, IntoElement, ParentElement as _, SharedString, Styled as _, div,
-    px,
+    App, ClickEvent, Div, InteractiveElement as _, IntoElement, MouseButton, ParentElement as _,
+    SharedString, Stateful, StatefulInteractiveElement as _, Styled as _, div, px,
 };
 use specular_interact::{
     PaintRole, Palette, SidebarButton, ToolButton, ToolbarModel, ToolbarSection,
@@ -20,6 +22,11 @@ use super::named::mark;
 use super::run;
 use crate::menus::Preferences;
 use crate::theme;
+
+thread_local! {
+    /// Whether a press on the bare strip is held and has not moved yet.
+    static DRAG_ARMED: Cell<bool> = const { Cell::new(false) };
+}
 
 /// The room the traffic lights take, `toolbarPaddingLeft` on macOS.
 const TRAFFIC_LIGHTS: f32 = 86.0;
@@ -113,6 +120,32 @@ fn divider() -> impl IntoElement {
         .bg(theme::tinted(theme::DIVIDER))
 }
 
+/// A stretch of the strip with nothing on it. The strip is the title bar,
+/// and taller than the one macOS drags and zooms by itself: here a press
+/// that moves drags the window, and a double click does what the system
+/// setting says a title bar's does.
+fn bare_strip(id: &'static str) -> Stateful<Div> {
+    h_flex()
+        .id(id)
+        .flex_1()
+        .min_w_0()
+        .h_full()
+        .items_center()
+        .on_mouse_down(MouseButton::Left, |_, _, _| DRAG_ARMED.set(true))
+        .on_mouse_up(MouseButton::Left, |_, _, _| DRAG_ARMED.set(false))
+        .on_mouse_down_out(|_, _, _| DRAG_ARMED.set(false))
+        .on_mouse_move(|_, window, _| {
+            if DRAG_ARMED.replace(false) {
+                window.start_window_move();
+            }
+        })
+        .on_click(|event: &ClickEvent, window, _| {
+            if event.click_count() == 2 {
+                window.titlebar_double_click();
+            }
+        })
+}
+
 /// The toolbar strip for `model`, with `title` beside the traffic lights.
 pub(super) fn toolbar(model: &ToolbarModel, title: &str, _cx: &App) -> impl IntoElement {
     let mut cluster = h_flex().gap_1().items_center();
@@ -143,14 +176,17 @@ pub(super) fn toolbar(model: &ToolbarModel, title: &str, _cx: &App) -> impl Into
             h_flex()
                 .flex_1()
                 .min_w_0()
+                .h_full()
                 .gap_2()
                 .items_center()
                 .child(sidebar_button(&model.sidebar))
                 .child(
-                    div()
-                        .min_w_0()
-                        .truncate()
-                        .child(SharedString::from(title.to_owned())),
+                    bare_strip("toolbar-title").child(
+                        div()
+                            .min_w_0()
+                            .truncate()
+                            .child(SharedString::from(title.to_owned())),
+                    ),
                 ),
         )
         .child(cluster)
@@ -158,7 +194,9 @@ pub(super) fn toolbar(model: &ToolbarModel, title: &str, _cx: &App) -> impl Into
             h_flex()
                 .flex_1()
                 .gap_1()
-                .justify_end()
+                .h_full()
+                .items_center()
+                .child(bare_strip("toolbar-end"))
                 .child(
                     Button::new("preferences")
                         .ghost()
