@@ -5,8 +5,8 @@ use glam::Vec2;
 use specular_core::{PointerButton, PointerEventKind};
 
 use super::super::ControlId;
-use super::node::{Chrome, Run, Surface};
-use super::{PanelHit, layout};
+use super::node::{Run, Surface};
+use super::{ContextMenu, PanelHit, layout, sidebar};
 use crate::focus::set_pointer_page;
 use crate::update::run_action;
 use crate::{Action, App, Effect, Gesture, PointerInput, Tool, edit};
@@ -30,7 +30,7 @@ fn field_at(layout: &super::PanelLayout, screen: Vec2) -> Option<ControlId> {
     let id = layout.hit(screen)?.control?;
     layout
         .node(&id)
-        .is_some_and(|node| node.chrome == Chrome::Input)
+        .is_some_and(|node| super::field::is_field(node.chrome))
         .then_some(id)
 }
 
@@ -49,7 +49,9 @@ pub(crate) fn swallows_scroll(app: &App) -> bool {
         .and_then(|pointer| hit(app, pointer))
         .map(|hit| hit.surface);
     match surface {
-        Some(Surface::Toolbar | Surface::Dropdown) => true,
+        Some(Surface::Toolbar | Surface::Dropdown | Surface::Sidebar | Surface::SidebarList) => {
+            true
+        }
         Some(Surface::Popup) | None => false,
     }
 }
@@ -72,18 +74,34 @@ pub(crate) fn tidy(app: &mut App) {
             edit::follow_field_caret(app);
         }
     }
+    let sidebar_shown = app.session.sidebar.shown();
+    let menu_gone = (app.session.panel.menu.as_ref()).is_some_and(|open| {
+        !sidebar_shown
+            || !crate::sidebar(app)
+                .canvases
+                .iter()
+                .any(|row| row.id == open.canvas)
+    });
+    if menu_gone {
+        app.session.panel.menu = None;
+    }
     let ui = &app.session.panel;
     if ui.open.is_none() && ui.hover.is_none() && ui.pressed.is_none() {
         return;
     }
     let toolbar = super::super::toolbar(app);
     let popup = super::super::popup_for(app);
-    let mut shown = toolbar.entries();
+    let mut listed = toolbar.entries();
     if let Some(popup) = &popup {
-        shown.extend(popup.entries());
+        listed.extend(popup.entries());
     }
+    let shown = listed;
+    // The sidebar's rows come and go with the canvas; one that has gone
+    // leaves a name nothing is laid out under, which does no harm.
     let gone = |id: &Option<ControlId>| {
-        (id.as_ref()).is_some_and(|id| !shown.iter().any(|(entry, _)| entry == id))
+        (id.as_ref()).is_some_and(|id| {
+            !id.as_str().starts_with("sidebar.") && !shown.iter().any(|(entry, _)| entry == id)
+        })
     };
     let (open, hover, pressed) = (gone(&ui.open), gone(&ui.hover), gone(&ui.pressed));
     let ui = &mut app.session.panel;
@@ -162,6 +180,18 @@ fn on_down(
         layout = super::layout(app);
     }
     let hit = layout.hit(input.screen);
+    if app.session.panel.menu.is_some() {
+        // A press anywhere but on the menu closes it, and that is all it does.
+        let on_menu = hit
+            .as_ref()
+            .is_some_and(|hit| hit.surface == Surface::Dropdown);
+        if !on_menu {
+            app.session.panel.menu = None;
+            app.session.panel.pressed = None;
+            app.session.pointer = Some(input.screen);
+            return true;
+        }
+    }
     if let Some(open) = &app.session.panel.open {
         // A press anywhere but in the open list or on its trigger closes
         // the list, and that is all it does.
@@ -182,6 +212,19 @@ fn on_down(
         return false;
     };
     app.session.pointer = Some(input.screen);
+    let canvas = hit.control.as_ref().and_then(|id| canvas_of(app, id));
+    if let (PointerButton::Right, Some(canvas)) = (button, &canvas) {
+        app.session.panel.menu = Some(ContextMenu {
+            canvas: canvas.id.clone(),
+            at: input.screen,
+        });
+        return true;
+    }
+    // A second press on a canvas renames it where it is.
+    if let (PointerButton::Left, 2, Some(canvas)) = (button, click_count, &canvas) {
+        edit::begin_field(app, &canvas.rename.id, effects);
+        return true;
+    }
     if let (PointerButton::Left, Some(id)) = (button, field_at(&layout, input.screen)) {
         edit::begin_field(app, &id, effects);
         if let Some(drag) = edit::press(app, input, click_count) {
@@ -203,6 +246,7 @@ fn on_up(app: &mut App, input: &PointerInput, effects: &mut Vec<Effect>) -> bool
     };
     app.session.pointer = Some(input.screen);
     let layout = layout(app);
+    app.session.panel.menu = None;
     let released_on = layout.hit(input.screen).and_then(|hit| hit.control);
     if released_on.as_ref() != Some(&pressed) {
         return true;
@@ -215,11 +259,13 @@ fn on_up(app: &mut App, input: &PointerInput, effects: &mut Vec<Effect>) -> bool
     match (node.state.enabled, node.run.clone()) {
         (true, Some(Run::Toggle)) => toggle(app, pressed, in_toolbar, effects),
         (true, Some(Run::Act { action, closes })) => {
+            let action = sidebar::picked(app, &pressed, action, input.modifiers);
             run_action(app, action, effects);
             if closes {
                 app.session.panel.open = None;
             }
         }
+        (true, Some(Run::Edit(field))) => edit::begin_field(app, &field, effects),
         (false, _) | (true, None) => {}
     }
     true
@@ -237,4 +283,15 @@ fn toggle(app: &mut App, id: ControlId, in_toolbar: bool, effects: &mut Vec<Effe
         run_action(app, Action::SetTool(Tool::Select), effects);
     }
     app.session.panel.open = Some(id);
+}
+
+/// The canvas of the sidebar that the control `id` is the row of, if it is.
+fn canvas_of(app: &App, id: &ControlId) -> Option<crate::CanvasRow> {
+    if !id.as_str().starts_with("sidebar.canvas.") || !app.session.sidebar.shown() {
+        return None;
+    }
+    crate::sidebar(app)
+        .canvases
+        .into_iter()
+        .find(|row| row.control == *id)
 }

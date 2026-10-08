@@ -50,6 +50,7 @@ fn the_toolbar_and_a_sticky_popup() {
       tool.comment 686,8 32x28 ToolButton: icon CommentTool 692,12 20x20
       - 726,14 1x16 Divider
       zoom 735,8 58x28 ToolMenu: text "100%" 744,8 34x28 Left; chevron 778,17 10x10
+      sidebar.toggle 16,9 26x26 Subtle dimmed: glyph PanelLeft 22,15 14x14 Follow
     popup 491,252 219x34
       text.size 496,257 78x24 Button: text "Small" 502,257 50x24 Left; chevron 556,263 12x12
       text.font 578,257 68x24 Button: text "Sans" 584,257 40x24 Left; chevron 628,263 12x12
@@ -185,6 +186,7 @@ fn the_zoom_levels_hang_from_the_toolbar_and_open_over_the_popup() {
       tool.comment 686,8 32x28 ToolButton: icon CommentTool 692,12 20x20
       - 726,14 1x16 Divider
       zoom 735,8 58x28 ToolMenu on hover: text "100%" 744,8 34x28 Left; chevron 778,17 10x10
+      sidebar.toggle 16,9 26x26 Subtle dimmed: glyph PanelLeft 22,15 14x14 Follow
     popup 491,52 219x34
       text.size 496,57 78x24 Button: text "Small" 502,57 50x24 Left; chevron 556,63 12x12
       text.font 578,57 68x24 Button: text "Sans" 584,57 40x24 Left; chevron 628,63 12x12

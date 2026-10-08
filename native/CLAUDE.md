@@ -128,6 +128,15 @@ fn shift_drag_moves_the_page_along_one_axis() {
   `enter_in_field("page.url", "example.org")` replaces its text and presses
   Enter, `field_edit()` reads what is typed so far, and Escape puts the
   old value back.
+  The sidebar starts hidden, as in Electron: `show_sidebar(true)` (or the
+  `sidebar.toggle` button) shows it. Its controls are `sidebar.canvas.<id>`
+  (`.name` is the rename field, `.menu.rename` and `.menu.delete` the
+  right-click menu), `sidebar.add`, `sidebar.head.<canvases|notes|pages>`,
+  `sidebar.<notes|pages>.<entity id>` (`.toggle` its chevron) and
+  `sidebar.pages.comment.<id>`. Only rows in the window are laid out, so
+  scroll with `wheel` over the sidebar before clicking one below it.
+  `app.covered_left()` is the width it covers, which zoom to fit, a reveal,
+  zoom steps and popups read.
 - A page is select-first (ADR 0022). `click` selects it, a second `click`
   or a `double_click` enters it, and only an entered page gets input.
 - The scene snapshot is `assert_scene_snapshot!(app)`, in
@@ -161,7 +170,8 @@ cargo run -p specular-app -- --script steps.txt FILE.canvas
   `key cmd+z`, `type some text`, `compose にほ`, `commit 日本`,
   `wheel dx dy`, `pinch 0.2`, `tool shape`, `select id ..`,
   `act annotate-selection`, `act resolve-comment`, `act page-back`
-  (`-forward`, `-reload`, `-stop`), `camera ..`, `wait ms`,
+  (`-forward`, `-reload`, `-stop`), `act zoom-to-fit`, `right-click x y`,
+  `sidebar on|off`, `camera ..`, `wait ms`,
   `snapshot out.png`, `save out.canvas`. Positions are screen pixels. A snapshot between `press` and `release` shows a gesture in
   flight.
 - The toolbar and the item popup are drawn and take clicks, so the top 44

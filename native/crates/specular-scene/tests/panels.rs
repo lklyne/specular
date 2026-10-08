@@ -1,10 +1,11 @@
 //! What the built-in toolbar and popup draw, on their own: `view` never
 //! draws them, so these scenes hold the panels and nothing under them.
 
-use specular_doc::{Color, ColorPreset, Edge, EdgeEnd, LineStyle, Rect};
+use specular_doc::{Color, ColorPreset, Edge, EdgeEnd, EntityId, LineStyle, PageAnchor, Rect};
 use specular_interact::Key;
 use specular_testkit::{
-    CMD, TestApp, document, insta::assert_snapshot, page, plain_text, shape, sticky, with_edge,
+    CMD, TestApp, document, group, inside, insta::assert_snapshot, page, plain_text, shape, sticky,
+    with_edge,
 };
 
 /// A sticky in the middle of a 1200x800 viewport, the built-in panels on.
@@ -132,4 +133,55 @@ fn the_panels_are_not_in_the_scene_view_builds() {
     without.viewport((1200.0, 800.0)).select(&["t"]);
     assert_eq!(with.scene_snapshot(), without.scene_snapshot());
     assert_eq!(without.panel_scene_snapshot(), "");
+}
+
+/// A canvas with a group, a page with an item hooked to it, and notes, in a
+/// space of two canvases, the sidebar shown in a window short enough to
+/// scroll.
+fn sidebar_app() -> TestApp {
+    let hooked = specular_doc::Entity {
+        anchor: Some(PageAnchor::new(EntityId::from("p"))),
+        ..sticky("h", Rect::new(0.0, 0.0, 100.0, 100.0), "hooked note")
+    };
+    let canvas = document([
+        group("g", Rect::new(0.0, 0.0, 600.0, 400.0)),
+        inside(
+            "g",
+            sticky("m", Rect::new(40.0, 40.0, 100.0, 100.0), "in the group"),
+        ),
+        page("p", Rect::new(800.0, 0.0, 375.0, 667.0)),
+        hooked,
+        shape("s", Rect::new(0.0, 500.0, 100.0, 100.0)),
+        sticky(
+            "t",
+            Rect::new(200.0, 500.0, 100.0, 100.0),
+            "a sticky with a rather long line of text",
+        ),
+    ]);
+    let mut app = TestApp::with_space([("Home", canvas), ("Plans", document([]))]);
+    app.viewport((1200.0, 420.0))
+        .with_panels()
+        .show_sidebar(true);
+    app
+}
+
+#[test]
+fn the_sidebar_with_its_canvases_groups_and_pages() {
+    let mut app = sidebar_app();
+    app.click_control("sidebar.notes.g.toggle")
+        .select(&["s"])
+        .hover_control("sidebar.canvas.tab_2");
+    assert_snapshot!("sidebar", app.panel_scene_snapshot());
+}
+
+#[test]
+fn the_sidebar_scrolled_with_a_name_being_edited() {
+    let mut app = sidebar_app();
+    let row = app.control_rect("sidebar.canvas.tab_2").centre();
+    app.double_click(row).type_text("Roadmap");
+    assert_snapshot!("sidebar_rename", app.panel_scene_snapshot());
+    app.key(specular_interact::Key::Escape)
+        .pointer_move((100.0, 300.0))
+        .wheel((0.0, -40.0));
+    assert_snapshot!("sidebar_scrolled", app.panel_scene_snapshot());
 }

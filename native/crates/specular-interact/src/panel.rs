@@ -28,7 +28,8 @@ pub use model::{
     OptionLayout, PaintRole, Palette, Stepper, Swatch, Swatches, Toggle,
 };
 pub use models::{
-    Align, Placement, PopupAnchor, PopupModel, ToolButton, ToolbarModel, ToolbarSection,
+    Align, Placement, PopupAnchor, PopupModel, SidebarButton, ToolButton, ToolbarModel,
+    ToolbarSection,
 };
 pub use popup::popup_for;
 pub use toolbar::toolbar;

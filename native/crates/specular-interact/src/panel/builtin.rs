@@ -19,23 +19,35 @@ mod node;
 mod place;
 mod popup;
 mod route;
+mod scroll;
+mod sidebar;
 mod toolbar;
 mod trigger;
 
 use glam::Vec2;
 
-pub(crate) use self::field::{field_box, text_area};
+pub(crate) use self::field::{field_box, field_text_area};
 pub use self::metrics::{FIELD_HEIGHT, FIELD_LINE, FIELD_TEXT, TOOLBAR_HEIGHT};
 pub use self::node::{
     Chrome, Input, InputFocus, Node, NodeState, Panel, PanelRect, Part, Pointing, Surface, Tint,
     Tone,
 };
 pub(crate) use self::route::{cancel, hit, on_pointer, over, over_field, swallows_scroll, tidy};
+pub(crate) use self::scroll::on_wheel;
 use super::{Control, ControlId, Dropdown, PopupAnchor, PopupModel, ToolbarModel, ToolbarSection};
 use crate::App;
 
+/// The menu open on a canvas of the sidebar.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ContextMenu {
+    /// The canvas it was opened on.
+    pub canvas: crate::CanvasId,
+    /// Where the pointer was, which is the menu's corner.
+    pub at: Vec2,
+}
+
 /// What the built-in panels remember between events.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct PanelUi {
     /// Whether the built-in panels are shown, hit and clicked at all.
     pub built_in: bool,
@@ -48,6 +60,14 @@ pub struct PanelUi {
     pub hover: Option<ControlId>,
     /// The control a press landed on and has not been released from.
     pub pressed: Option<ControlId>,
+    /// How far the sidebar's list is scrolled, in pixels. It is kept inside
+    /// what the list's content allows whenever the list is laid out.
+    pub sidebar_scroll: f32,
+    /// The menu open on a canvas row, if one is.
+    pub menu: Option<ContextMenu>,
+    /// The item last picked in the sidebar, which a shift-click selects a
+    /// run from.
+    pub anchor: Option<specular_doc::ItemId>,
 }
 
 impl PanelUi {
@@ -65,11 +85,15 @@ impl PanelUi {
 /// off.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct PanelLayout {
+    /// The sidebar's frame, while it is shown.
+    pub sidebar: Option<Panel>,
+    /// The sidebar's scrolling list, seen through its box.
+    pub sidebar_list: Option<Panel>,
     /// The toolbar, a strip across the top of the viewport.
     pub toolbar: Option<Panel>,
     /// The popup of the tool in hand or of the selection.
     pub popup: Option<Panel>,
-    /// The list under the open dropdown.
+    /// The list under the open dropdown, or the menu of a canvas.
     pub dropdown: Option<Panel>,
 }
 
@@ -85,9 +109,15 @@ pub struct PanelHit {
 impl PanelLayout {
     /// The panels from the back to the front.
     pub fn panels(&self) -> impl Iterator<Item = &Panel> {
-        [&self.toolbar, &self.popup, &self.dropdown]
-            .into_iter()
-            .flatten()
+        [
+            &self.sidebar,
+            &self.sidebar_list,
+            &self.toolbar,
+            &self.popup,
+            &self.dropdown,
+        ]
+        .into_iter()
+        .flatten()
     }
 
     /// The names of the controls shown, from the back panel to the front.
@@ -129,6 +159,11 @@ pub(super) struct Ctx<'a> {
 }
 
 impl Ctx<'_> {
+    /// How much of the viewport's left edge the sidebar covers.
+    fn left(&self) -> f32 {
+        self.app.covered_left()
+    }
+
     /// How a control is drawn now. A control that cannot be used takes no
     /// hover or press.
     fn state(&self, id: &ControlId, enabled: bool, on: bool) -> NodeState {
@@ -143,6 +178,7 @@ impl Ctx<'_> {
             enabled,
             on,
             pointing,
+            dimmed: false,
         }
     }
 
@@ -218,7 +254,9 @@ fn build(app: &App) -> PanelLayout {
         let (model, surface) = open_dropdown(id, &toolbar_model, popup_model.as_ref())?;
         let host = match surface {
             Surface::Toolbar => toolbar.as_ref(),
-            Surface::Popup | Surface::Dropdown => popup.as_ref(),
+            Surface::Popup | Surface::Dropdown | Surface::Sidebar | Surface::SidebarList => {
+                popup.as_ref()
+            }
         }?;
         let trigger = host
             .nodes
@@ -228,13 +266,32 @@ fn build(app: &App) -> PanelLayout {
         // the button inset in it.
         let hang = match surface {
             Surface::Toolbar => host.rect.bottom(),
-            Surface::Popup | Surface::Dropdown => trigger.rect.bottom(),
+            Surface::Popup | Surface::Dropdown | Surface::Sidebar | Surface::SidebarList => {
+                trigger.rect.bottom()
+            }
         };
         Some(dropdown::layout(&ctx, model, trigger.rect, hang, viewport))
     });
+    let (sidebar, sidebar_list, menu) = sidebar_panels(&ctx, viewport);
     PanelLayout {
+        sidebar,
+        sidebar_list,
         toolbar,
         popup,
-        dropdown,
+        dropdown: menu.or(dropdown),
     }
+}
+
+/// The sidebar's panels while it is shown, and the menu open on one of its
+/// canvases.
+fn sidebar_panels(ctx: &Ctx<'_>, viewport: Vec2) -> (Option<Panel>, Option<Panel>, Option<Panel>) {
+    // A shell that draws its own sidebar keeps only the canvas popups.
+    if ctx.ui.canvas_only || !ctx.app.session.sidebar.shown() {
+        return (None, None, None);
+    }
+    let model = crate::sidebar(ctx.app);
+    let built = sidebar::layout(ctx, &model, viewport);
+    let menu =
+        (ctx.ui.menu.as_ref()).and_then(|open| sidebar::context_menu(ctx, &model, open, viewport));
+    (Some(built.frame), Some(built.list), menu)
 }

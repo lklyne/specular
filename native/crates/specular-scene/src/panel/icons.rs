@@ -13,6 +13,7 @@ mod paths_pens;
 mod paths_popup;
 mod paths_tools;
 mod popup;
+mod sidebar;
 mod svg;
 mod tools;
 
@@ -195,6 +196,22 @@ fn glyph(icon: Icon) -> Glyph {
         Icon::SchemeSystem => popup::SCHEME_SYSTEM,
         Icon::SchemeLight => popup::SCHEME_LIGHT,
         Icon::SchemeDark => popup::SCHEME_DARK,
+        Icon::ChevronDown => lucide::CHEVRON,
+        Icon::Check => lucide::CHECK,
+        Icon::Plus => sidebar::PLUS,
+        Icon::PanelLeft => sidebar::PANEL_LEFT,
+        Icon::File => sidebar::FILE,
+        Icon::FileText => sidebar::FILE_TEXT,
+        Icon::Image => sidebar::IMAGE,
+        Icon::Video => sidebar::VIDEO,
+        Icon::Code => sidebar::CODE,
+        Icon::Folder => sidebar::FOLDER,
+        Icon::FolderOpen => sidebar::FOLDER_OPEN,
+        Icon::StickyNote => sidebar::STICKY_NOTE,
+        Icon::PenLine => sidebar::PEN_LINE,
+        Icon::MessageSquare => sidebar::MESSAGE_SQUARE,
+        Icon::Tablet => sidebar::TABLET,
+        Icon::Laptop => sidebar::LAPTOP,
     }
 }
 

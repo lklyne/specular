@@ -1,7 +1,7 @@
 //! [`toolbar`]: the tool buttons and the zoom readout (`toolbarSections.tsx`).
 //!
 //! The Electron toolbar also has a hand tool, an inspect tool, a theme
-//! toggle and two panel toggles. None has an [`Action`] here.
+//! toggle and the right panel's toggle. None has an [`Action`] here.
 //!
 //! A button arms its tool and leaves the tool's defaults alone: the key of
 //! the draw tool also picks the pen, and a click must not.
@@ -9,11 +9,11 @@
 use specular_doc::Color;
 
 use super::{
-    ControlId, Dropdown, DropdownOption, DropdownSection, Face, Icon, OptionLayout, ToolButton,
-    ToolbarModel, ToolbarSection,
+    ControlId, Dropdown, DropdownOption, DropdownSection, Face, Icon, OptionLayout, SidebarButton,
+    ToolButton, ToolbarModel, ToolbarSection,
 };
 use crate::menu::{tool_action, tool_label};
-use crate::{Action, App, Tool, binding_of};
+use crate::{Action, App, SidebarAction, Tool, binding_of};
 
 /// The zoom levels the readout offers, in percent.
 const ZOOM_LEVELS: [u16; 7] = [10, 25, 50, 75, 100, 150, 200];
@@ -64,7 +64,7 @@ fn zoom(app: &App) -> Dropdown {
                 Action::ZoomReset
             } else {
                 let mut zoomed = camera;
-                zoomed.zoom_about(app.session.viewport / 2.0, f32::from(level) / 100.0);
+                zoomed.zoom_about(crate::viewport::centre(app), f32::from(level) / 100.0);
                 Action::SetCamera(zoomed)
             };
             DropdownOption {
@@ -143,5 +143,20 @@ pub fn toolbar(app: &App) -> ToolbarModel {
         .map(|tools| ToolbarSection::Tools(tools.iter().map(|&tool| button(app, tool)).collect()))
         .collect();
     sections.push(ToolbarSection::Zoom(zoom(app)));
-    ToolbarModel { sections }
+    let open = app.session.sidebar.shown();
+    ToolbarModel {
+        sidebar: SidebarButton {
+            id: ControlId::new("sidebar.toggle"),
+            label: if open {
+                "Collapse left panel"
+            } else {
+                "Expand left panel"
+            }
+            .into(),
+            icon: Icon::PanelLeft,
+            open,
+            action: Action::Sidebar(SidebarAction::Toggle),
+        },
+        sections,
+    }
 }

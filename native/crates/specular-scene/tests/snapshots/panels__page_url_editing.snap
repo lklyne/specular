@@ -40,6 +40,8 @@ screen path 62 commands in 695.33,15.33 16.11x16.11 fill=#45403c
 screen rect 726,14 1x16 fill=#18181b33
 screen text "100%" 744,8 box-h=28 12/16 #52525c middle
 screen path M780.5,20.75 L783,23.25 L785.5,20.75 stroke=#45403c66/0.83
+screen path M24.92,16.75 L33.08,16.75 C33.73,16.75 34.25,17.27 34.25,17.92 L34.25,26.08 C34.25,26.73 33.73,27.25 33.08,27.25 L24.92,27.25 C24.27,27.25 23.75,26.73 23.75,26.08 L23.75,17.92 C23.75,17.27 24.27,16.75 24.92,16.75 Z stroke=#52525c/1.17 opacity=0.5
+screen path M27.25,16.75 L27.25,27.25 stroke=#52525c/1.17 opacity=0.5
 screen shadow 392,240 800x36 r=10 blur=16 fill=#c7c1bc80
 screen shadow 398,252 788x24 r=4 blur=8 fill=#0000002e
 screen rect 392,236 800x36 r=10 fill=#fafaf9 stroke=#cac6c3/1/inside

@@ -13,9 +13,10 @@ use crate::{Item, Rect, RectDraw, Stroke, StrokeAlign};
 /// How far below a line's top its underline sits, as a fraction of the line.
 const UNDERLINE_DROP: f32 = 0.9;
 
-/// The white box with a zinc outline, and the ring around it while it has
-/// the keys (`focus:ring-1 focus:ring-blue-500/40`).
-pub(super) fn chrome(node: &Node, out: &mut Vec<Item>) {
+/// The white box with a zinc outline, and when `ring` the ring around it
+/// while it has the keys (`focus:ring-1 focus:ring-blue-500/40`). A name
+/// edited in place keeps only its outline.
+pub(super) fn chrome(node: &Node, ring: bool, out: &mut Vec<Item>) {
     let area = rect(node.rect);
     let edge = Stroke::new(FIELD_BORDER, 1.0, StrokeAlign::Inside);
     out.push(Item::screen(
@@ -23,7 +24,7 @@ pub(super) fn chrome(node: &Node, out: &mut Vec<Item>) {
             .with_corner_radius(node.radius)
             .with_stroke(edge),
     ));
-    if node.state.on {
+    if ring && node.state.on {
         let ring = Stroke::new(INPUT_RING, 1.0, StrokeAlign::Outside);
         out.push(Item::screen(
             RectDraw::outlined(area, ring).with_corner_radius(node.radius),

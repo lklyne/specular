@@ -12,8 +12,8 @@ use crate::panel::builtin::{self, PanelUi};
 use crate::stack_order::Move;
 use crate::{
     Action, App, Effect, Event, Focus, PageNotice, Selection, ToolDefaultPatch, api, bindings,
-    camera, comment, cursor, edit, gesture, groups, page_state, pages, pointer, property, space,
-    verbs,
+    camera, comment, cursor, edit, gesture, groups, page_state, pages, pointer, property, reveal,
+    space, verbs,
 };
 use crate::{clipboard, drop, select_all, zoom};
 
@@ -34,7 +34,10 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
     match event {
         Event::Pointer(input) => pointer::on_pointer(app, &input, &mut effects),
         Event::Wheel(input) => {
-            if !builtin::swallows_scroll(app) && !notes::on_wheel(app, &input) {
+            if !builtin::on_wheel(app, &input)
+                && !builtin::swallows_scroll(app)
+                && !notes::on_wheel(app, &input)
+            {
                 camera::on_wheel(app, &input, &mut effects);
             }
         }
@@ -190,6 +193,9 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
             app.session.selection.set(items);
             drop_dangling(app, effects);
         }
+        Action::Reveal { select, focus } => reveal::items(app, select, &focus, effects),
+        Action::RevealComment(id) => reveal::comment(app, &id, effects),
+        Action::Sidebar(action) => app.session.sidebar.apply(action),
         Action::SetCamera(camera) => app.session.camera = camera,
         // The focus and the selection are never both set, so Delete has one
         // thing to remove.
@@ -263,7 +269,11 @@ fn set_tool_default(app: &mut App, patch: ToolDefaultPatch, effects: &mut Vec<Ef
 
 /// Runs a verb on the selection, unless a drag is in flight. A text edit
 /// ends first, so the verb acts on its result.
-fn verb(app: &mut App, effects: &mut Vec<Effect>, run: impl FnOnce(&mut App, &mut Vec<Effect>)) {
+pub(crate) fn verb(
+    app: &mut App,
+    effects: &mut Vec<Effect>,
+    run: impl FnOnce(&mut App, &mut Vec<Effect>),
+) {
     if app.session.gesture.is_none() {
         edit::end(app, effects);
         run(app, effects);

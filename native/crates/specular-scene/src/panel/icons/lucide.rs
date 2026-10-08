@@ -7,11 +7,11 @@ use super::{Glyph, Layer, Paint, Shape};
 /// The side of Lucide's view box.
 const VIEW: f32 = 24.0;
 
-const fn line(d: &'static str) -> Layer {
+pub(super) const fn line(d: &'static str) -> Layer {
     Layer::stroke(Shape::Path(d), Paint::Current, 2.0)
 }
 
-const fn lucide(layers: &'static [Layer]) -> Glyph {
+pub(super) const fn lucide(layers: &'static [Layer]) -> Glyph {
     Glyph::square(VIEW, layers)
 }
 

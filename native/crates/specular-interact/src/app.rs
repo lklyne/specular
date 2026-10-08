@@ -231,6 +231,9 @@ pub struct Session {
     /// The built-in toolbar and popup: whether they are on, the open
     /// dropdown, and the control under the pointer.
     pub panel: PanelUi,
+    /// Whether the sidebar is shown, and its folds. See
+    /// [`App::covered_left`].
+    pub sidebar: crate::SidebarView,
     /// Where the pointer is, in logical screen pixels. `None` when it is
     /// outside the window.
     pub pointer: Option<Vec2>,

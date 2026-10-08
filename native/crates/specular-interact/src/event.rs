@@ -6,7 +6,7 @@ use specular_doc::{AnnotationId, Document, EntityId, ItemId, Rect};
 
 use crate::{
     ApiCall, CanvasId, ClipboardContent, DroppedFile, Format, ImageKey, ImageNotice, NoteNotice,
-    OpenedSpace, PageGrab, Property, Tool, ToolDefaultPatch, ToolDefaults,
+    OpenedSpace, PageGrab, Property, SidebarAction, Tool, ToolDefaultPatch, ToolDefaults,
 };
 
 /// One input to [`update`](crate::update). Window input arrives in logical
@@ -283,6 +283,21 @@ pub enum Action {
     Redo,
     /// Replace the selection. Ids that name nothing are dropped.
     Select(Vec<ItemId>),
+    /// Select `select`, as [`Action::Select`] does, and bring `focus` into
+    /// view: nothing moves when it is all in the part of the viewport the
+    /// sidebar leaves free, and otherwise the camera pans, at the zoom it
+    /// has, to centre it there. What a sidebar row sends.
+    Reveal {
+        /// What the selection becomes.
+        select: Vec<ItemId>,
+        /// What the camera shows.
+        focus: ItemId,
+    },
+    /// Give a comment the focus, as [`Action::FocusComment`] does, and bring
+    /// what it is on into view as [`Action::Reveal`] does.
+    RevealComment(AnnotationId),
+    /// Show or hide the sidebar, fold a section or open a row.
+    Sidebar(SidebarAction),
     /// Move the camera.
     SetCamera(Camera),
     /// Remove the selection, with what is inside its groups, what is hooked

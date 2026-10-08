@@ -18,7 +18,7 @@ use super::buffer::{Origin, Target, TextEdit};
 use super::frame::TextFrame;
 use super::measure::TextSpec;
 use crate::focus::set_focus;
-use crate::panel::builtin::{FIELD_LINE, FIELD_TEXT, field_box, text_area};
+use crate::panel::builtin::{FIELD_LINE, FIELD_TEXT, field_box, field_text_area};
 use crate::panel::{ControlId, field_named};
 use crate::update::run_action;
 use crate::{App, Effect, gesture};
@@ -90,7 +90,7 @@ pub(crate) fn cancel(app: &mut App, effects: &mut Vec<Effect>) -> bool {
 /// Where the field's line is laid out: its text box, scrolled to keep the
 /// caret in view, at the pixel size of panel text whatever the zoom.
 pub(super) fn frame(app: &App, edit: &TextEdit) -> Option<TextFrame> {
-    let area = text_area(field_box(app, &control_of(edit))?);
+    let area = field_text_area(app, &control_of(edit))?;
     let camera = &app.session.camera;
     let zoom = camera.zoom.max(f32::EPSILON);
     let corner = Vec2::new(area.x - edit.scroll, area.y);
@@ -122,7 +122,7 @@ pub(crate) fn follow_caret(app: &mut App) {
     let Some(edit) = editing(app) else {
         return;
     };
-    let Some(area) = field_box(app, &control_of(edit)).map(text_area) else {
+    let Some(area) = field_text_area(app, &control_of(edit)) else {
         return;
     };
     let spec = TextSpec {

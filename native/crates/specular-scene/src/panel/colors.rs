@@ -61,3 +61,17 @@ pub(super) const DOT_EDGE: Color = Color::rgba(0, 0, 0, 31);
 pub(super) const RING_GRAY: Color = Color::rgb(0x71, 0x71, 0x7a);
 /// A control that cannot be used: `disabled:opacity-30`.
 pub(super) const DISABLED: f32 = 0.3;
+
+/// The sidebar's ground: `--surface-panel`.
+pub(super) const SIDEBAR: Color = Color::rgb(0xf2, 0xf2, 0xf2);
+/// A line inside the sidebar: `--surface-panel-border`, stone-200.
+pub(super) const SIDEBAR_RULE: Color = Color::rgb(0xe7, 0xe5, 0xe4);
+/// A selected row, and a pressed button: `--surface-interactive`, stone-200
+/// at 80%.
+pub(super) const INTERACTIVE: Color = Color::rgba(0xe7, 0xe5, 0xe4, 204);
+/// A hovered row or button: `--surface-interactive-hover`, stone-200 at 40%.
+pub(super) const INTERACTIVE_HOVER: Color = Color::rgba(0xe7, 0xe5, 0xe4, 102);
+/// The thumb of a scrollbar: `rgba(0, 0, 0, 0.2)`.
+pub(super) const SCROLL_THUMB: Color = Color::rgba(0, 0, 0, 51);
+/// A row faded because its page has left its document: `opacity-50`.
+pub(super) const DIMMED: f32 = 0.5;

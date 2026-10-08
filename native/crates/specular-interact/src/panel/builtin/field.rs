@@ -76,12 +76,33 @@ pub(super) fn nodes(ctx: &Ctx<'_>, field: &Field, left: f32, width: f32, out: &m
     });
 }
 
+/// Whether `chrome` is the box of a text field.
+pub(super) const fn is_field(chrome: Chrome) -> bool {
+    matches!(chrome, Chrome::Input | Chrome::InlineInput)
+}
+
 /// The box of the field named `id`, as the panels lay it out now, or `None`
 /// when no panel shows it.
 pub(crate) fn field_box(app: &App, id: &ControlId) -> Option<PanelRect> {
     let layout = super::build(app);
     let node = layout.node(id)?;
-    matches!(node.chrome, Chrome::Input).then_some(node.rect)
+    is_field(node.chrome).then_some(node.rect)
+}
+
+/// The box the line of the field named `id` is laid out in and clipped to.
+pub(crate) fn field_text_area(app: &App, id: &ControlId) -> Option<PanelRect> {
+    let layout = super::build(app);
+    let node = layout.node(id)?;
+    node.parts.iter().find_map(|part| match part {
+        Part::Input(input) => Some(input.area),
+        Part::Icon { .. }
+        | Part::Text { .. }
+        | Part::Dot { .. }
+        | Part::Chevron { .. }
+        | Part::Check { .. }
+        | Part::Key { .. }
+        | Part::Glyph { .. } => None,
+    })
 }
 
 fn on_screen(app: &App, rect: specular_doc::Rect) -> PanelRect {
@@ -96,7 +117,11 @@ pub(super) fn overlay(app: &App, layout: &mut PanelLayout) {
         return;
     };
     let id = ControlId::from(edit.entity().as_str().to_owned());
-    let panels = [&mut layout.popup, &mut layout.dropdown];
+    let panels = [
+        &mut layout.sidebar_list,
+        &mut layout.popup,
+        &mut layout.dropdown,
+    ];
     let node = panels
         .into_iter()
         .flatten()

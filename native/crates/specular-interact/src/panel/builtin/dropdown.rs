@@ -409,7 +409,7 @@ pub(super) fn layout(
     } else {
         LIST_OFFSET
     };
-    let corner = place::hanging(trigger, hang, offset, size, words, viewport).round();
+    let corner = place::hanging(trigger, hang, offset, size, words, viewport, ctx.left()).round();
     let inset = corner + Vec2::splat(INSET);
     Panel {
         surface: Surface::Dropdown,

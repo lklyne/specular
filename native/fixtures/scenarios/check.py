@@ -170,6 +170,11 @@ if k in RAN:
         print(f"{'ok  ' if held else 'FAIL'} {k}: {name}")
         if not held:
             failures.append(f"{k}: {name}")
+l = "l-sidebar"
+expect(l, SINK, saved(l, "00-start.canvas"))
+# Canvases added, renamed and deleted, folds, rows that select and reveal,
+# and a zoom to fit are all views: the kitchen sink is as it was.
+expect(l, SINK, saved(l, "99-end.canvas"))
 f1 = "f1-reload-own-save"
 expect(f"{a}+{f1}", saved(a, "08-arranged.canvas"), saved(f1, "01-reloaded.canvas"))
 f2 = "f2-electron-file-one-change"

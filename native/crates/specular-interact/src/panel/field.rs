@@ -6,7 +6,7 @@
 //! compared and cloned.
 
 use super::{Control, ControlId, DropdownSection, Label, popup_for};
-use crate::{Action, App, Property, resolve_address_input};
+use crate::{Action, App, CanvasAction, CanvasId, Property, resolve_address_input};
 
 /// The least and greatest number a size field takes, in pixels.
 const SIZE_RANGE: (f64, f64) = (1.0, 10_000.0);
@@ -29,6 +29,8 @@ pub enum FieldSubmit {
     ViewportWidth,
     /// A custom page height, in pixels.
     ViewportHeight,
+    /// A canvas's name, to rename it to.
+    CanvasName(CanvasId),
 }
 
 impl FieldSubmit {
@@ -43,6 +45,15 @@ impl FieldSubmit {
             }
             Self::ViewportHeight => {
                 size(text).map(|px| Action::SetProperty(Property::ViewportHeight(px)))
+            }
+            Self::CanvasName(canvas) => {
+                let name = text.trim();
+                (!name.is_empty()).then(|| {
+                    Action::Canvas(CanvasAction::Rename {
+                        canvas: Some(canvas.clone()),
+                        name: name.to_owned(),
+                    })
+                })
             }
         }
     }
@@ -75,8 +86,17 @@ pub struct Field {
 }
 
 /// The field named `id` in the popup shown now, whether it sits in the
-/// popup's row or inside a dropdown.
+/// popup's row or inside a dropdown, or the name of a canvas in the sidebar
+/// while that is shown.
 pub(crate) fn field_named(app: &App, id: &ControlId) -> Option<Field> {
+    if id.as_str().starts_with("sidebar.") {
+        if !app.session.sidebar.shown() {
+            return None;
+        }
+        return (crate::sidebar(app).canvases.into_iter())
+            .map(|row| row.rename)
+            .find(|field| field.id == *id);
+    }
     let popup = popup_for(app)?;
     popup.controls.iter().find_map(|control| find(control, id))
 }
@@ -121,5 +141,18 @@ mod tests {
         for text in ["", "wide", "0", "-4", "10001", "NaN", "inf"] {
             assert_eq!(width(text), None, "{text:?}");
         }
+    }
+
+    #[test]
+    fn a_canvas_name_is_trimmed_and_a_blank_one_asks_for_nothing() {
+        let rename = FieldSubmit::CanvasName(CanvasId::new("c1"));
+        assert_eq!(
+            rename.action("  Plans "),
+            Some(Action::Canvas(CanvasAction::Rename {
+                canvas: Some(CanvasId::new("c1")),
+                name: "Plans".to_owned(),
+            }))
+        );
+        assert_eq!(rename.action("   "), None);
     }
 }

@@ -46,38 +46,7 @@ fn icon_box(icon: Icon) -> Vec2 {
         Icon::StrokeThin => Vec2::new(17.0, 9.0),
         Icon::StrokeThick => Vec2::new(19.0, 11.0),
         Icon::Reload | Icon::Stop => Vec2::splat(RELOAD_ICON),
-        Icon::SelectTool
-        | Icon::PageTool
-        | Icon::TextTool
-        | Icon::StickyTool
-        | Icon::DocumentTool
-        | Icon::ShapeTool
-        | Icon::DrawPenTool
-        | Icon::DrawHighlightTool
-        | Icon::CommentTool
-        | Icon::Shape(_)
-        | Icon::AlignLeft
-        | Icon::AlignCenter
-        | Icon::AlignRight
-        | Icon::BrushPen
-        | Icon::BrushHighlighter
-        | Icon::Border
-        | Icon::LineSolid
-        | Icon::LineDashed
-        | Icon::Ban
-        | Icon::ArrowStart
-        | Icon::ArrowEnd
-        | Icon::Trash
-        | Icon::Bold
-        | Icon::Strikethrough
-        | Icon::BulletList
-        | Icon::Device
-        | Icon::Rotate
-        | Icon::ChevronLeft
-        | Icon::ChevronRight
-        | Icon::SchemeSystem
-        | Icon::SchemeLight
-        | Icon::SchemeDark => Vec2::splat(ICON),
+        _ => Vec2::splat(ICON),
     }
 }
 

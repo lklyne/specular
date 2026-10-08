@@ -236,9 +236,13 @@ fn a_row_selects_what_it_stands_for_and_shows_the_selection() {
         sticky("s1", Rect::new(600.0, 0.0, 200.0, 200.0), "note"),
     ]);
     let row = sidebar(app.app()).notes.remove(0);
+    let item = ItemId::Entity(EntityId::from("s1"));
     assert_eq!(
         row.action,
-        Action::Select(vec![ItemId::Entity(EntityId::from("s1"))])
+        Action::Reveal {
+            select: vec![item.clone()],
+            focus: item
+        }
     );
     app.act(row.action);
     assert_eq!(app.selected(), Some("s1"));

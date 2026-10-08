@@ -65,6 +65,7 @@ mod pointer;
 pub mod property;
 mod resize;
 mod resize_drag;
+mod reveal;
 mod saved;
 mod scope;
 mod scroll_follow;
@@ -80,6 +81,7 @@ mod tool_defaults;
 mod update;
 mod url;
 mod verbs;
+mod viewport;
 mod zoom;
 
 pub use anchor::{anchors_to_pages, matches_page_url};
@@ -122,8 +124,8 @@ pub use panel::builtin::PanelUi;
 pub use panel::{
     Align, Button, Choices, Control, ControlId, Dropdown, DropdownOption, DropdownSection, Entries,
     Face, Field, FieldSubmit, FieldWidth, Icon, Label, OptionLayout, PaintRole, Palette, Placement,
-    PopupAnchor, PopupModel, Stepper, Swatch, Swatches, Toggle, ToolButton, ToolbarModel,
-    ToolbarSection, popup_for, toolbar,
+    PopupAnchor, PopupModel, SidebarButton, Stepper, Swatch, Swatches, Toggle, ToolButton,
+    ToolbarModel, ToolbarSection, popup_for, toolbar,
 };
 pub use place::{PlaceDrag, Placing};
 pub use placement::PagePlacement;
@@ -134,7 +136,10 @@ pub use scroll_follow::{
     Seen, doc_to_viewport, hittable_rect, left_page, recorded_scroll, seen, shift_of, shown_rect,
     viewport_to_doc,
 };
-pub use sidebar::{CanvasRow, RowKind, RowTarget, SidebarModel, SidebarRow, sidebar};
+pub use sidebar::{
+    CanvasRow, RowKind, RowTarget, SIDEBAR_WIDTH, SectionHead, SidebarAction, SidebarModel,
+    SidebarRow, SidebarSection, SidebarView, sidebar,
+};
 pub use space::{
     Canvas, CanvasId, DEFAULT_CANVAS_NAME, OpenedCanvas, OpenedSpace, Space, TabRefError,
     canvas_file_name, legacy_canvas_file_name, resolve_tab_ref,

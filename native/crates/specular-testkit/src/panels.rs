@@ -7,7 +7,7 @@ use glam::Vec2;
 use specular_interact::panel::builtin::{
     Input, Node, Panel, PanelLayout, PanelRect, Part, Pointing, Surface, layout,
 };
-use specular_interact::{ControlId, Event, Key};
+use specular_interact::{Action, ControlId, Event, Key, SidebarAction};
 use specular_scene::Scene;
 
 use crate::{CMD, TestApp};
@@ -55,6 +55,11 @@ fn part(part: &Part) -> String {
         }
         Part::Chevron { rect: area } => format!("chevron {}", rect(*area)),
         Part::Check { rect: area } => format!("check {}", rect(*area)),
+        Part::Glyph {
+            icon,
+            rect: area,
+            tone,
+        } => format!("glyph {icon:?} {} {tone:?}", rect(*area)),
         Part::Key { text, rect: area } => format!("key {text:?} {}", rect(*area)),
         Part::Input(input) => input_part(input),
     }
@@ -103,6 +108,9 @@ fn node(out: &mut String, node: &Node) {
     if !node.state.enabled {
         out.push_str(" disabled");
     }
+    if node.state.dimmed {
+        out.push_str(" dimmed");
+    }
     match node.state.pointing {
         Pointing::Away => {}
         Pointing::Hover => out.push_str(" hover"),
@@ -120,6 +128,8 @@ fn panel(out: &mut String, panel: &Panel) {
         Surface::Toolbar => "toolbar",
         Surface::Popup => "popup",
         Surface::Dropdown => "dropdown",
+        Surface::Sidebar => "sidebar",
+        Surface::SidebarList => "sidebar-list",
     };
     let menu = if panel.menu { " menu" } else { "" };
     let _ = writeln!(out, "{name}{menu} {}", rect(panel.rect));
@@ -147,6 +157,20 @@ impl TestApp {
             self.viewport(VIEWPORT);
         }
         self.send(Event::BuiltinPanels(true))
+    }
+
+    /// Shows or hides the sidebar, as its toolbar button does. It starts
+    /// hidden.
+    pub fn show_sidebar(&mut self, shown: bool) -> &mut Self {
+        if self.session().sidebar.shown() != shown {
+            self.act(Action::Sidebar(SidebarAction::Toggle));
+        }
+        self
+    }
+
+    /// How far the sidebar's list is scrolled.
+    pub fn sidebar_scroll(&self) -> f32 {
+        self.session().panel.sidebar_scroll
     }
 
     /// The built-in panels as laid out now.

@@ -16,6 +16,12 @@ pub(super) const ZOOM_CHEVRON: f32 = 10.0;
 /// The corner of a tool button and of a popup control: `rounded-[6px]`.
 pub(super) const CONTROL_RADIUS: f32 = 6.0;
 
+/// The sidebar's button at the toolbar's left: `p-1.5` around a 14 px
+/// glyph with `rounded-[8px]`, set in by the bar's `px-4`.
+pub(super) const SIDEBAR_BUTTON: f32 = 26.0;
+pub(super) const SIDEBAR_BUTTON_LEFT: f32 = 16.0;
+pub(super) const SIDEBAR_BUTTON_RADIUS: f32 = 8.0;
+
 /// The space between neighbours in a row: `gap-1`.
 pub(super) const GAP: f32 = 4.0;
 /// A divider between groups: `mx-1 h-4 w-px`.

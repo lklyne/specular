@@ -215,6 +215,9 @@ fn has_target(app: &App, action: &Action) -> bool {
         | Action::SetToolDefault(_)
         | Action::SetToolVariant(_)
         | Action::Select(_)
+        | Action::Reveal { .. }
+        | Action::RevealComment(_)
+        | Action::Sidebar(_)
         | Action::SetCamera(_)
         | Action::FocusComment(_)
         | Action::Nudge { .. }

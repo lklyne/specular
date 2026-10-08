@@ -45,6 +45,8 @@ pub(crate) enum Step {
     DoubleClick(Vec2),
     /// `triple-click x y`.
     TripleClick(Vec2),
+    /// `right-click x y`: the secondary button, pressed and released.
+    RightClick(Vec2),
     /// `drag x1 y1 x2 y2`: press, move through the middle, release.
     Drag(Vec2, Vec2),
     /// `hold shift+cmd`, or `hold none`: modifiers kept down for the steps
@@ -89,6 +91,9 @@ pub(crate) enum Step {
     /// `panels off`, or `panels on`: whether the toolbar and the popup are
     /// drawn and take clicks. They start on.
     Panels(bool),
+    /// `sidebar on`, or `sidebar off`: whether the left sidebar is shown. It
+    /// starts hidden, and covers the left of the canvas while it is shown.
+    Sidebar(bool),
     /// `snapshot out.png`.
     Snapshot(PathBuf),
     /// `save out.canvas`: the text an autosave would write now.
@@ -123,6 +128,7 @@ fn step(line: &str) -> anyhow::Result<Step> {
         ("click", [x, y]) => Step::Click(point(x, y)?),
         ("double-click", [x, y]) => Step::DoubleClick(point(x, y)?),
         ("triple-click", [x, y]) => Step::TripleClick(point(x, y)?),
+        ("right-click", [x, y]) => Step::RightClick(point(x, y)?),
         ("drag", [x1, y1, x2, y2]) => Step::Drag(point(x1, y1)?, point(x2, y2)?),
         ("hold", [chord]) => Step::Hold(modifiers(chord)?),
         ("key", [chord]) => {
@@ -145,6 +151,8 @@ fn step(line: &str) -> anyhow::Result<Step> {
         ("press-control", [id]) => Step::PressControl((*id).to_owned()),
         ("panels", ["on"]) => Step::Panels(true),
         ("panels", ["off"]) => Step::Panels(false),
+        ("sidebar", ["on"]) => Step::Sidebar(true),
+        ("sidebar", ["off"]) => Step::Sidebar(false),
         ("snapshot", [path]) => Step::Snapshot(PathBuf::from(path)),
         ("save", [path]) => Step::Save(PathBuf::from(path)),
         _ => bail!("not a step, or the wrong number of arguments"),
@@ -257,6 +265,7 @@ fn action_named(name: &str) -> anyhow::Result<Action> {
         "page-forward" => Action::PageForward,
         "page-reload" => Action::PageReload,
         "page-stop" => Action::PageStop,
+        "zoom-to-fit" => Action::ZoomToFit,
         other => bail!("unknown action `{other}`"),
     })
 }
@@ -335,6 +344,12 @@ mod tests {
             ]
         );
         assert!(parse("panels maybe").is_err());
+        assert_eq!(parse("sidebar on").unwrap(), [Step::Sidebar(true)]);
+        assert_eq!(
+            parse("right-click 10 20").unwrap(),
+            [Step::RightClick(Vec2::new(10.0, 20.0))]
+        );
+        assert!(parse("sidebar").is_err());
         assert!(parse("control").is_err());
     }
 
