@@ -110,6 +110,18 @@ pub enum Pointing {
     Pressed,
 }
 
+impl Pointing {
+    /// How a control is pointed at: a control that cannot be used takes no
+    /// hover or press.
+    pub(super) const fn of(enabled: bool, over: bool, held: bool) -> Self {
+        match (enabled, over, held) {
+            (true, true, true) => Self::Pressed,
+            (true, true, false) => Self::Hover,
+            (false, ..) | (true, false, _) => Self::Away,
+        }
+    }
+}
+
 /// How a node is drawn now.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct NodeState {

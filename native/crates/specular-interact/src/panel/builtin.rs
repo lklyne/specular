@@ -11,6 +11,7 @@
 //! on, so a shell that draws the models itself is not hit-tested against
 //! panels it does not show.
 
+mod cache;
 mod context;
 mod controls;
 mod dropdown;
@@ -25,8 +26,14 @@ mod sidebar;
 mod toolbar;
 mod trigger;
 
+use std::sync::Arc;
+
 use glam::Vec2;
 
+pub use self::cache::LayoutCache;
+pub(crate) use self::cache::{
+    forget as forget_layout, forget_unless as forget_layout_unless, keeps_layout,
+};
 pub use self::context::ContextMenu;
 pub(crate) use self::context::open as open_menu;
 pub(crate) use self::field::{field_box, field_text_area};
@@ -62,6 +69,16 @@ pub struct PanelUi {
     /// The item last picked in the sidebar, which a shift-click selects a
     /// run from.
     pub anchor: Option<specular_doc::ItemId>,
+    /// The layout kept between reads.
+    pub(crate) cache: LayoutCache,
+}
+
+/// Turns the built-in panels on or off, forgetting everything they held.
+pub(crate) fn turn(app: &mut App, built_in: bool) {
+    app.session.panel = PanelUi {
+        built_in,
+        ..PanelUi::default()
+    };
 }
 
 impl PanelUi {
@@ -163,15 +180,10 @@ impl Ctx<'_> {
     fn state(&self, id: &ControlId, enabled: bool, on: bool) -> NodeState {
         let over = self.ui.hover.as_ref() == Some(id);
         let held = self.ui.pressed.as_ref() == Some(id);
-        let pointing = match (enabled, over, held) {
-            (true, true, true) => Pointing::Pressed,
-            (true, true, false) => Pointing::Hover,
-            (false, ..) | (true, false, _) => Pointing::Away,
-        };
         NodeState {
             enabled,
             on,
-            pointing,
+            pointing: Pointing::of(enabled, over, held),
             dimmed: false,
         }
     }
@@ -220,10 +232,30 @@ fn open_dropdown<'a>(
     })
 }
 
+thread_local! {
+    static BUILDS: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+}
+
+/// How many times this thread has laid the panels out from the models, for
+/// a test that pins how often one event does.
+pub fn layout_builds() -> u64 {
+    BUILDS.with(std::cell::Cell::get)
+}
+
 /// The built-in panels for `app` as it is now, in logical screen pixels.
-pub fn layout(app: &App) -> PanelLayout {
+///
+/// The layout is shared with the cache, which lays it out again only when
+/// something it is made from has changed. See [`cache`](self::cache).
+pub fn layout(app: &App) -> Arc<PanelLayout> {
+    field::overlay(app, cache::base(app))
+}
+
+/// The panels laid out afresh, with the cache left alone: what [`layout`]
+/// must always equal.
+#[doc(hidden)]
+pub fn layout_uncached(app: &App) -> PanelLayout {
     let mut panels = build(app);
-    field::overlay(app, &mut panels);
+    field::overlay_in_place(app, &mut panels);
     panels
 }
 
@@ -235,6 +267,7 @@ fn build(app: &App) -> PanelLayout {
     if !ui.built_in {
         return PanelLayout::default();
     }
+    BUILDS.with(|builds| builds.set(builds.get() + 1));
     let ctx = Ctx { app, ui };
     let viewport = app.session.viewport;
     let toolbar_model = super::toolbar(app);

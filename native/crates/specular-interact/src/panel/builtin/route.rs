@@ -178,6 +178,7 @@ fn on_down(
         .map(|edit| ControlId::from(edit.entity().as_str().to_owned()));
     if button == PointerButton::Left && editing.is_some() && editing != field {
         edit::end(app, effects);
+        super::forget_layout(app);
         layout = super::layout(app);
     }
     let hit = layout.hit(input.screen);

@@ -427,6 +427,7 @@ impl App {
     pub fn set_text_measure(&mut self, measure: Arc<dyn TextMeasure>) {
         self.measure = Measurer(measure);
         self.stacks = StackCache::default();
+        crate::panel::builtin::forget_layout(self);
     }
 
     /// The measure the editor lays text out with.

@@ -1,6 +1,8 @@
 //! A text field laid out: its box, its caption, and while it is edited the
 //! caret and selection the editor holds for it.
 
+use std::sync::Arc;
+
 use specular_doc::TextAlign;
 
 use super::super::{ControlId, Field, FieldWidth};
@@ -85,14 +87,14 @@ pub(super) const fn is_field(chrome: Chrome) -> bool {
 /// The box of the field named `id`, as the panels lay it out now, or `None`
 /// when no panel shows it.
 pub(crate) fn field_box(app: &App, id: &ControlId) -> Option<PanelRect> {
-    let layout = super::build(app);
+    let layout = super::cache::base(app);
     let node = layout.node(id)?;
     is_field(node.chrome).then_some(node.rect)
 }
 
 /// The box the line of the field named `id` is laid out in and clipped to.
 pub(crate) fn field_text_area(app: &App, id: &ControlId) -> Option<PanelRect> {
-    let layout = super::build(app);
+    let layout = super::cache::base(app);
     let node = layout.node(id)?;
     node.parts.iter().find_map(|part| match part {
         Part::Input(input) => Some(input.area),
@@ -111,9 +113,20 @@ fn on_screen(app: &App, rect: specular_doc::Rect) -> PanelRect {
     PanelRect::new(shown.min.x, shown.min.y, shown.size.x, shown.size.y)
 }
 
+/// `base` with what the editor holds for the field being edited put over it.
+/// Shares `base` when no field is edited.
+pub(super) fn overlay(app: &App, base: Arc<PanelLayout>) -> Arc<PanelLayout> {
+    if !app.text_edit().is_some_and(crate::edit::TextEdit::is_field) {
+        return base;
+    }
+    let mut edited = (*base).clone();
+    overlay_in_place(app, &mut edited);
+    Arc::new(edited)
+}
+
 /// Puts what the editor holds for the field being edited into its node: the
 /// text typed so far, scrolled, with the caret and selection over it.
-pub(super) fn overlay(app: &App, layout: &mut PanelLayout) {
+pub(super) fn overlay_in_place(app: &App, layout: &mut PanelLayout) {
     let Some(edit) = app.text_edit().filter(|edit| edit.is_field()) else {
         return;
     };

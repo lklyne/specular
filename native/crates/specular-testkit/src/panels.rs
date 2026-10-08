@@ -175,7 +175,7 @@ impl TestApp {
 
     /// The built-in panels as laid out now.
     pub fn panel_layout(&self) -> PanelLayout {
-        layout(&self.app)
+        PanelLayout::clone(&layout(&self.app))
     }
 
     /// The box of the control named `id`.

@@ -8,7 +8,7 @@ use specular_doc::{Command, CommandError, Document, EntityId, ItemId};
 use crate::focus::{leave_unless_selected, set_focus};
 use crate::images;
 use crate::notes;
-use crate::panel::builtin::{self, PanelUi};
+use crate::panel::builtin;
 use crate::stack_order::Move;
 use crate::{
     Action, App, Effect, Event, Focus, PageNotice, Selection, ToolDefaultPatch, api, bindings,
@@ -31,6 +31,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
     // A pointer event has already put the drag and the hover where it is,
     // unless it ended the drag: the hover is not kept up during one.
     let pointing = matches!(event, Event::Pointer(_));
+    let keeps_layout = builtin::keeps_layout(app, &event);
     match event {
         Event::Pointer(input) => pointer::on_pointer(app, &input, &mut effects),
         Event::Wheel(input) => {
@@ -89,15 +90,11 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         }
         Event::ToolDefaultsLoaded(defaults) => app.tool_defaults = *defaults,
         Event::Action(action) => run_action(app, action, &mut effects),
-        Event::BuiltinPanels(built_in) => {
-            app.session.panel = PanelUi {
-                built_in,
-                ..PanelUi::default()
-            };
-        }
+        Event::BuiltinPanels(built_in) => builtin::turn(app, built_in),
         Event::BuiltinCanvasPopups => app.session.panel = PanelUi::canvas_popups(),
         Event::Api(call) => api::run(app, call, &mut effects),
     }
+    builtin::forget_layout_unless(app, keeps_layout);
     // Another canvas has another history: its revision says nothing about
     // whether this event made a step.
     let switched = app.space.switches() != switches;
