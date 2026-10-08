@@ -5,6 +5,7 @@ use std::ffi::c_void;
 use objc2::{class, msg_send, sel};
 use objc2_foundation::{NSPoint, NSRect, NSString};
 
+use super::us_keys::{SHIFT, key_of};
 use super::window_facts;
 use crate::native::Id;
 
@@ -12,38 +13,9 @@ use crate::native::Id;
 pub(super) const LEFT_DOWN: usize = 1;
 pub(super) const LEFT_UP: usize = 2;
 pub(super) const MOVED: usize = 5;
-pub(super) const LEFT_DRAGGED: usize = 6;
+pub(super) const DRAGGED: usize = 6;
 const KEY_DOWN: usize = 10;
 const KEY_UP: usize = 11;
-
-/// `NSEventModifierFlag` bits by the name a script gives them.
-const MODIFIERS: [(&str, usize); 4] = [
-    ("shift", 1 << 17),
-    ("ctrl", 1 << 18),
-    ("alt", 1 << 19),
-    ("cmd", 1 << 20),
-];
-
-/// The flags of `shift+cmd`, or `None` for a name that is not a modifier.
-pub(super) fn flags(names: &str) -> Option<usize> {
-    names.split('+').try_fold(0, |flags, name| {
-        let (_, bit) = MODIFIERS.iter().find(|(known, _)| *known == name)?;
-        Some(flags | bit)
-    })
-}
-
-/// The `kVK_*` code and whether shift is held for a character of the US
-/// layout, which is all `type` knows.
-fn key_of(character: char) -> Option<(u16, bool)> {
-    const PLAIN: &str = "asdfhgzxcv\u{0}bqweryt123465=97-80]ou[ip\rlj'k;\\,/nm.\t `";
-    const SHIFTED: &str = "ASDFHGZXCV\u{0}BQWERYT!@#$^%+(&_*)}OU{IP\rLJ\"K:|<?NM>\t ~";
-    let find = |keys: &str| {
-        (keys.chars().position(|key| key == character)).and_then(|at| u16::try_from(at).ok())
-    };
-    find(PLAIN)
-        .map(|code| (code, false))
-        .or_else(|| find(SHIFTED).map(|code| (code, true)))
-}
 
 fn uptime() -> f64 {
     // SAFETY: `NSProcessInfo` is always there.
@@ -115,17 +87,19 @@ pub(super) fn key(code: u16, flags: usize, characters: &str, plain: &str) {
 }
 
 /// Types `text` a key at a time. A character the US layout has no key for
-/// is skipped with a warning.
-pub(super) fn type_text(text: &str) {
+/// arrives as an input method's commit, which is how an emoji picker or a
+/// long press sends one.
+pub(super) fn type_text(text: &str) -> Result<(), String> {
     for character in text.chars() {
-        let Some((code, shift)) = key_of(character) else {
-            tracing::warn!(%character, "scripted input: no key for this character");
-            continue;
-        };
         let typed = character.to_string();
-        let plain = typed.to_lowercase();
-        key(code, if shift { 1 << 17 } else { 0 }, &typed, &plain);
+        match key_of(character) {
+            Some((code, shift)) => {
+                key(code, if shift { SHIFT } else { 0 }, &typed, &typed);
+            }
+            None => super::window::insert_text(&typed)?,
+        }
     }
+    Ok(())
 }
 
 /// Hands a `CoreGraphics` event to the view under `(x, y)`. `AppKit` makes
@@ -163,11 +137,40 @@ fn deliver(made: *mut CGEvent, x: f64, y: f64, selector: objc2::runtime::Sel) {
     }
 }
 
-/// A pixel scroll at `(x, y)`, as a trackpad sends.
-pub(super) fn scroll(x: f64, y: f64, dx: i32, dy: i32) {
-    // SAFETY: a documented CoreGraphics constructor; unit 0 is pixels.
-    let made = unsafe { CGEventCreateScrollWheelEvent2(std::ptr::null(), 0, 2, dy, dx, 0) };
+/// A pixel scroll at `(x, y)` with `held` modifier flags, as a trackpad
+/// sends.
+pub(super) fn scroll(x: f64, y: f64, dx: i32, dy: i32, held: usize) {
+    // SAFETY: documented CoreGraphics calls; unit 0 is pixels, and the
+    // modifier bits of a `CGEvent` are `NSEvent`'s.
+    let made = unsafe {
+        let made = CGEventCreateScrollWheelEvent2(std::ptr::null(), 0, 2, dy, dx, 0);
+        if !made.is_null() {
+            CGEventSetFlags(made, held as u64);
+        }
+        made
+    };
     deliver(made, x, y, sel!(scrollWheel:));
+}
+
+/// One step of a trackpad pinch at `(x, y)`: `phase` is 1 as it begins, 2
+/// as it changes by `amount` and 4 as it ends. CoreGraphics has no
+/// constructor for it, so a blank event is retyped as a gesture and the
+/// fields `AppKit` reads for `NSEventTypeMagnify` are set by number.
+pub(super) fn magnify(x: f64, y: f64, amount: f64, phase: i64) {
+    // SAFETY: a blank event retyped; the field numbers are the gesture
+    // subtype (110, magnify is 8), the magnification (113) and the phase
+    // (132).
+    let made = unsafe {
+        let made = CGEventCreate(std::ptr::null());
+        if !made.is_null() {
+            CGEventSetType(made, 29);
+            CGEventSetIntegerValueField(made, 110, 8);
+            CGEventSetDoubleValueField(made, 113, amount);
+            CGEventSetIntegerValueField(made, 132, phase);
+        }
+        made
+    };
+    deliver(made, x, y, sel!(magnifyWithEvent:));
 }
 
 /// A press and release of the right button at `(x, y)`.
@@ -216,6 +219,10 @@ unsafe extern "C" {
     ) -> *mut CGEvent;
     fn CGEventSetIntegerValueField(event: *mut CGEvent, field: u32, value: i64);
     fn CGEventSetLocation(event: *mut CGEvent, location: NSPoint);
+    fn CGEventCreate(source: *const c_void) -> *mut CGEvent;
+    fn CGEventSetType(event: *mut CGEvent, kind: u32);
+    fn CGEventSetDoubleValueField(event: *mut CGEvent, field: u32, value: f64);
+    fn CGEventSetFlags(event: *mut CGEvent, flags: u64);
 }
 
 #[link(name = "CoreFoundation", kind = "framework")]
