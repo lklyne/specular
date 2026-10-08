@@ -47,12 +47,13 @@ pub trait ShellWindow {
     fn logical_viewport(&self) -> Vec2;
 
     /// Renders and presents one frame of `scene`; `None` when there was no
-    /// frame to draw into.
+    /// frame to draw into. The scene is the window's to rework: one whose
+    /// viewport is only part of its surface moves the screen-space items.
     fn render(
         &mut self,
         camera: Camera,
         zooming: bool,
-        scene: &Scene,
+        scene: &mut Scene,
         page_of: PageOf<'_>,
     ) -> Option<SceneStats>;
 
@@ -226,6 +227,11 @@ impl<W: ShellWindow> Runtime<W> {
         self.gpu.as_mut()
     }
 
+    /// The folder of the open space, or of the one canvas file shown.
+    pub fn space_folder(&self) -> Option<&std::path::Path> {
+        self.space.as_deref()
+    }
+
     /// The name of the page backend.
     pub fn source_name(&self) -> &'static str {
         self.source.name()
@@ -339,7 +345,7 @@ impl<W: ShellWindow> Runtime<W> {
         self.drawn_zoom = camera.zoom;
         let hosts = &self.hosts;
         let page_of = |entity: &EntityId| hosts.get(entity).map(|host| host.page);
-        let stats = (self.gpu.as_mut()?).render(camera, zooming, &scene, &page_of)?;
+        let stats = (self.gpu.as_mut()?).render(camera, zooming, &mut scene, &page_of)?;
         let presented_at = Instant::now();
         let sample = FrameSample {
             presented_at,

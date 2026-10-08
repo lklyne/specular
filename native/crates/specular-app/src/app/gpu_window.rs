@@ -230,7 +230,7 @@ impl ShellWindow for GpuWindow {
         &mut self,
         camera: Camera,
         zooming: bool,
-        scene: &Scene,
+        scene: &mut Scene,
         page_of: PageOf<'_>,
     ) -> Option<SceneStats> {
         Self::render(self, camera, zooming, scene, page_of)

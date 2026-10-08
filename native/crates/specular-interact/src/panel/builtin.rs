@@ -47,6 +47,17 @@ pub struct PanelUi {
     pub pressed: Option<ControlId>,
 }
 
+impl PanelUi {
+    /// Only the popups beside a canvas item, with nothing open or hovered.
+    pub fn canvas_popups() -> Self {
+        Self {
+            built_in: true,
+            canvas_only: true,
+            ..Self::default()
+        }
+    }
+}
+
 /// The panels as laid out for one frame. Empty when the built-in panels are
 /// off.
 #[derive(Debug, Clone, PartialEq, Default)]

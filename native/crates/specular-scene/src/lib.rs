@@ -31,7 +31,7 @@ pub use column::{ColumnDraw, Row, RowRule, RuleHeight};
 pub use geometry::{Point, Rect, Size};
 pub use item::{Blend, Draw, Item, Scene, Space};
 pub use media::{ImageDraw, ImageId, PageDraw};
-pub use panel::draw_panels;
+pub use panel::{draw_panels, icon_svg, panel_color};
 pub use path::{Dash, LineCap, LineJoin, PathCommand, PathDraw, PathStroke, PolygonDraw};
 pub use shape::{EllipseDraw, RectDraw, ShadowDraw, Stroke, StrokeAlign};
 pub use text::{FontFamily, SpanStyle, TextAlign, TextOverflow, TextRun, TextSpan, VerticalAlign};

@@ -8,6 +8,7 @@
 //! at the foot of the pens are left out.
 
 mod lucide;
+mod markup;
 mod paths_pens;
 mod paths_popup;
 mod paths_tools;
@@ -19,6 +20,8 @@ use std::collections::HashMap;
 use std::sync::{Arc, LazyLock, Mutex, PoisonError};
 
 use specular_interact::Icon;
+
+pub use self::markup::icon_svg;
 
 use crate::{Color, Item, PathCommand, PathDraw, PathStroke, Point, Rect};
 

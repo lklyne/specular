@@ -1,0 +1,47 @@
+[package]
+name = "specular-shell"
+description = "The GPUI Kit shell: one GPUI window, the Kit's components around the canvas, and our compositor drawing the canvas under them (ADR 0040)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "specular"
+path = "src/main.rs"
+
+[features]
+default = []
+# Host pages in CEF instead of the synthetic source.
+cef = ["specular-app/cef"]
+
+[dependencies]
+# The runtime, the command line and the headless modes, shared with the
+# winit shell.
+specular-app = { workspace = true }
+specular-compositor = { workspace = true }
+specular-core = { workspace = true }
+specular-doc = { workspace = true }
+specular-interact = { workspace = true }
+specular-scene = { workspace = true }
+anyhow = { workspace = true }
+glam = { workspace = true }
+pollster = { workspace = true }
+tracing = { workspace = true }
+wgpu = { workspace = true }
+
+# GPUI's window is an NSWindow and the canvas is a sibling NSView under
+# GPUI's own. Nothing here builds anywhere else yet.
+[target.'cfg(target_os = "macos")'.dependencies]
+gpui-kit = { workspace = true }
+# Named only to hold the pin; the kit re-exports it.
+gpui-pre = { workspace = true }
+futures = { workspace = true }
+block2 = { workspace = true }
+objc2 = { workspace = true }
+objc2-foundation = { workspace = true }
+raw-window-handle = { workspace = true }
+
+[lints]
+workspace = true
