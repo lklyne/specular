@@ -49,6 +49,8 @@ fn tool(model: &ToolButton) -> impl IntoElement {
         .ghost()
         .w(px(32.0))
         .h(px(28.0))
+        // The Kit's own padding would leave a 20 px glyph 16 px of room.
+        .px_0()
         .rounded(px(6.0))
         .selected(model.active)
         .when(model.active, |this| this.bg(theme::solid(theme::TOOL_FILL)))
@@ -92,6 +94,8 @@ fn sidebar_button(model: &SidebarButton) -> impl IntoElement {
         .ghost()
         .w(px(32.0))
         .h(px(28.0))
+        // The Kit's own padding would leave a 20 px glyph 16 px of room.
+        .px_0()
         .rounded(px(6.0))
         .tooltip(hint(&model.label, None))
         .child(glyph(model.icon, current, None, false, 16.0))

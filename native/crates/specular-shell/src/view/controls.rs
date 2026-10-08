@@ -23,6 +23,7 @@ use gpui_kit::{
     AnyElement, App, InteractiveElement as _, IntoElement, ParentElement as _, SharedString,
     StatefulInteractiveElement as _, Styled as _, Window, div, px,
 };
+use specular_doc::TextFont;
 use specular_interact::{
     Action, Chord, Control, ControlId, Face, PaintRole, Palette, Stepper, Swatch, Swatches,
 };
@@ -52,16 +53,31 @@ pub(super) fn hint(label: &str, chord: Option<Chord>) -> SharedString {
     }
 }
 
-/// What a control shows: its glyph, its word, or a dot of its colour.
+/// What a control shows: its glyph, its word, or a dot of its colour. As in
+/// the built-in panels, a control that is on is drawn in the full text
+/// colour and one at rest in the muted one.
 pub(super) fn face(face: &Face, on: bool) -> AnyElement {
     let tint =
         (face.color.as_ref()).map(|color| glyphs::resolved(color, Palette::Vivid, PaintRole::Ink));
     let mut row = h_flex().gap_1().items_center();
     if let Some(icon) = face.icon {
-        row = row.child(glyph(icon, ink(theme::TEXT), tint, on, GLYPH));
+        let current = ink(if on { theme::TEXT } else { theme::GLYPH_MUTED });
+        row = row.child(glyph(icon, current, tint, on, GLYPH));
     }
     if let Some(text) = &face.text {
-        row = row.child(div().child(SharedString::from(text.to_string())));
+        let color = if on {
+            theme::solid(theme::TEXT)
+        } else {
+            theme::tinted(theme::TEXT_MUTED)
+        };
+        row = row.child(
+            div()
+                .text_color(color)
+                .when(face.font == Some(TextFont::Mono), |this| {
+                    this.font_family("Menlo")
+                })
+                .child(SharedString::from(text.to_string())),
+        );
     }
     if face.icon.is_none() && face.text.is_none() {
         row = row.child(dot(

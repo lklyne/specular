@@ -14,6 +14,8 @@ pub(crate) const PANEL: u32 = 0x00f2_f2f2;
 pub(crate) const TEXT: u32 = 0x0030_3030;
 /// `--surface-foreground-muted`: the foreground at 58%.
 pub(crate) const TEXT_MUTED: u32 = 0x3030_3094;
+/// The muted foreground as an opaque colour over the panel, for a glyph.
+pub(crate) const GLYPH_MUTED: u32 = 0x0081_8181;
 /// `--surface-chrome-border`: the sidebar's edge and a popup's.
 pub(crate) const CHROME_BORDER: u32 = 0x00ca_c6c3;
 /// `--surface-panel-border`, stone-200.

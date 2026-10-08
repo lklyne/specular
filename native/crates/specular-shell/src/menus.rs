@@ -47,8 +47,14 @@ actions!(
         RenameCanvas,
         /// Specular > Settings…
         Preferences,
+        /// Specular > About Specular
+        About,
         /// Hides the app.
         Hide,
+        /// Hides every other app.
+        HideOthers,
+        /// Shows every app again.
+        ShowAll,
         /// Minimizes the window.
         Minimize,
         /// Zooms the window.
@@ -131,11 +137,15 @@ fn keystroke(chord: Chord) -> Option<String> {
 
 fn shell_menus() -> (Menu, Menu, Menu) {
     let app = Menu::new("Specular").items([
+        MenuItem::action("About Specular", About),
+        MenuItem::separator(),
         MenuItem::action("Settings…", Preferences),
         MenuItem::separator(),
         MenuItem::os_submenu("Services", SystemMenuType::Services),
         MenuItem::separator(),
         MenuItem::action("Hide Specular", Hide),
+        MenuItem::action("Hide Others", HideOthers),
+        MenuItem::action("Show All", ShowAll),
         MenuItem::separator(),
         MenuItem::action("Quit Specular", Quit),
     ]);
@@ -271,6 +281,7 @@ pub(crate) fn install(cx: &mut App) {
         KeyBinding::new("cmd-s", Save, None),
         KeyBinding::new("cmd-,", Preferences, None),
         KeyBinding::new("cmd-h", Hide, None),
+        KeyBinding::new("alt-cmd-h", HideOthers, None),
         KeyBinding::new("cmd-m", Minimize, None),
         KeyBinding::new("tab", CanvasKey, Some("Canvas")),
         KeyBinding::new("shift-tab", CanvasKey, Some("Canvas")),
@@ -307,7 +318,10 @@ pub(crate) fn install(cx: &mut App) {
     cx.on_action(|_: &Preferences, cx| {
         shell::with_view(cx, |_, window, cx| crate::settings::open(window, cx));
     });
+    cx.on_action(|_: &About, _| crate::native::show_about());
     cx.on_action(|_: &Hide, cx| cx.hide());
+    cx.on_action(|_: &HideOthers, cx| cx.hide_other_apps());
+    cx.on_action(|_: &ShowAll, cx| cx.unhide_other_apps());
     cx.on_action(|_: &Minimize, cx| {
         shell::with_view(cx, |_, window, _| window.minimize_window());
     });

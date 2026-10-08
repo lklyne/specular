@@ -16,19 +16,50 @@ use gpui_kit::{
     StatefulInteractiveElement as _, Styled as _, Window, div, px,
 };
 use specular_interact::{
-    Action, Choices, Chord, Control, ControlId, Dropdown, DropdownOption, DropdownSection,
+    Action, Choices, Chord, Control, ControlId, Dropdown, DropdownOption, DropdownSection, Icon,
     OptionLayout, PopupModel, Tool, ToolbarModel, ToolbarSection,
 };
 
 use super::controls::{CONTROL, control, element_id, face};
+use super::glyphs::{glyph, ink};
 use super::run;
 use crate::canvas;
 use crate::theme;
 
-/// One row of a dropdown's list: the option's face, its small text at the
-/// far end, and a fill when it is the current value.
-fn option(model: &DropdownOption, wide: bool, dismiss: Dismiss) -> AnyElement {
+/// How a list's rows are drawn, as the built-in panels have it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Rows {
+    /// Words marked with a check: every row in the full text colour, and
+    /// the current one with a check at its far end.
+    Menu,
+    /// Rows with small text or a key at the far end: the current one
+    /// filled, the others muted.
+    Presets,
+}
+
+/// Which way `content` is drawn: a list with any far-end text or key is
+/// presets, and any other a menu.
+fn rows_of(content: &[DropdownSection]) -> Rows {
+    let detailed = content.iter().any(|section| match section {
+        DropdownSection::Options { options, .. } => {
+            (options.iter()).any(|option| option.trailing.is_some() || option.chord.is_some())
+        }
+        DropdownSection::Controls(_) => false,
+    });
+    if detailed { Rows::Presets } else { Rows::Menu }
+}
+
+/// One choice of a dropdown: a row of a list, with its small text or key at
+/// the far end, or a cell of a row or grid of glyphs.
+fn option(model: &DropdownOption, list: Option<Rows>, dismiss: Dismiss) -> AnyElement {
     let action = model.action.clone();
+    let wide = list.is_some();
+    let menu = list == Some(Rows::Menu);
+    let height = match (list, model.face.font) {
+        (None, _) => 32.0,
+        (Some(_), Some(_)) => 28.0,
+        (Some(_), None) => CONTROL,
+    };
     let trailing = (model.trailing.as_ref()).map(|text| SharedString::from(text.to_string()));
     let keys = model.chord.map(Chord::text);
     div()
@@ -37,11 +68,11 @@ fn option(model: &DropdownOption, wide: bool, dismiss: Dismiss) -> AnyElement {
         .items_center()
         .justify_between()
         .gap_4()
-        .h(px(if wide { CONTROL } else { 32.0 }))
+        .h(px(height))
         .when(wide, |this| this.w_full().px_2())
         .when(!wide, |this| this.w(px(32.0)).justify_center())
         .rounded(px(6.0))
-        .when(model.selected, |this| {
+        .when(model.selected && !menu, |this| {
             this.bg(theme::solid(theme::CONTROL_ON))
         })
         .when(!model.enabled, |this| this.opacity(0.4))
@@ -53,7 +84,10 @@ fn option(model: &DropdownOption, wide: bool, dismiss: Dismiss) -> AnyElement {
                     dismiss(window, cx);
                 })
         })
-        .child(face(&model.face, model.selected))
+        .child(face(&model.face, model.selected || menu))
+        .when(model.selected && menu, |this| {
+            this.child(glyph(Icon::Check, ink(theme::TEXT), None, false, 12.0))
+        })
         .when_some(trailing, |this, text| {
             this.child(
                 div()
@@ -80,6 +114,7 @@ type Dismiss = Rc<dyn Fn(&mut Window, &mut App)>;
 
 fn section(
     model: &DropdownSection,
+    rows: Rows,
     dismiss: &Dismiss,
     window: &mut Window,
     cx: &mut App,
@@ -89,15 +124,11 @@ fn section(
             OptionLayout::List => v_flex()
                 .gap_0p5()
                 .min_w(px(140.0))
-                .children(options.iter().map(|one| option(one, true, dismiss.clone())))
+                .children((options.iter()).map(|one| option(one, Some(rows), dismiss.clone())))
                 .into_any_element(),
             OptionLayout::Row => h_flex()
                 .gap_0p5()
-                .children(
-                    options
-                        .iter()
-                        .map(|one| option(one, false, dismiss.clone())),
-                )
+                .children(options.iter().map(|one| option(one, None, dismiss.clone())))
                 .into_any_element(),
             OptionLayout::Grid { columns } => {
                 let width = f32::from(*columns) * 32.0 + f32::from(columns.saturating_sub(1)) * 2.0;
@@ -105,11 +136,7 @@ fn section(
                     .flex_wrap()
                     .gap(px(2.0))
                     .w(px(width))
-                    .children(
-                        options
-                            .iter()
-                            .map(|one| option(one, false, dismiss.clone())),
-                    )
+                    .children(options.iter().map(|one| option(one, None, dismiss.clone())))
                     .into_any_element()
             }
         },
@@ -172,11 +199,12 @@ fn sections(
     cx: &mut App,
 ) -> AnyElement {
     let last = content.len().saturating_sub(1);
+    let rows = rows_of(content);
     let blocks: Vec<AnyElement> = (content.iter().enumerate())
         .map(|(index, one)| {
             v_flex()
                 .gap_1()
-                .child(section(one, dismiss, window, cx))
+                .child(section(one, rows, dismiss, window, cx))
                 .when(index < last, |this| this.child(Separator::horizontal()))
                 .into_any_element()
         })

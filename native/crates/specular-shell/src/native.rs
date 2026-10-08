@@ -77,6 +77,17 @@ pub(crate) fn string_of(value: Id) -> String {
     unsafe { (*value.cast::<NSString>()).to_string() }
 }
 
+/// Shows the standard About panel.
+pub(crate) fn show_about() {
+    let nil: Id = std::ptr::null_mut();
+    // SAFETY: the shared application exists while GPUI runs, and the panel
+    // takes a nil sender.
+    unsafe {
+        let app: Id = msg_send![class!(NSApplication), sharedApplication];
+        let _: () = msg_send![app, orderFrontStandardAboutPanel: nil];
+    }
+}
+
 fn class_name(object: Id) -> String {
     if object.is_null() {
         return "nil".to_owned();

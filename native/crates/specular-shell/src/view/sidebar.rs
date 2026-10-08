@@ -44,8 +44,6 @@ const STEP: f32 = 14.0;
 const ICON: f32 = 14.0;
 const FOLD: f32 = 12.0;
 const FOLD_LEFT: f32 = 16.0;
-/// The glyphs' grey: the muted foreground on the panel.
-const GLYPH_INK: u32 = 0x0081_8181;
 
 fn muted() -> gpui_kit::Hsla {
     theme::tinted(theme::TEXT_MUTED)
@@ -131,7 +129,7 @@ fn fold(row: &SidebarRow, toggle: &Action, open: bool) -> impl IntoElement {
         .flex()
         .items_center()
         .justify_center()
-        .child(small(chevron, GLYPH_INK, FOLD))
+        .child(small(chevron, theme::GLYPH_MUTED, FOLD))
         .on_click(move |_, window, cx| {
             cx.stop_propagation();
             run(&toggle, window, cx);
@@ -176,7 +174,7 @@ impl ShellView {
         let glyph_box = div()
             .relative()
             .flex_shrink_0()
-            .child(small(row.glyph, GLYPH_INK, ICON))
+            .child(small(row.glyph, theme::GLYPH_MUTED, ICON))
             .when_some(folds, |this, (toggle, open)| {
                 this.child(fold(row, toggle, open))
             });
@@ -219,7 +217,7 @@ impl ShellView {
                     run(&action, window, cx);
                 }
             })
-            .child(small(Icon::File, GLYPH_INK, ICON))
+            .child(small(Icon::File, theme::GLYPH_MUTED, ICON))
             .child(name)
             .when(row.active && !renaming, |this| {
                 this.child(small(Icon::Check, theme::TEXT, ICON))
