@@ -18,8 +18,10 @@
 //! `shift-key CODE [CHARS]`, `type TEXT` (the rest of the step, one key
 //! press a character on the US layout), `paste-image PATH` (the composer
 //! takes the image file as a paste would hand it over; the system
-//! pasteboard is not touched), `shot PATH` (the window as the window server
-//! composites it) and `quit`.
+//! pasteboard is not touched), `choose NAME` (the first-run choice of that
+//! control name, run as its button runs it: for a run with the screen
+//! locked, when nothing is drawn to click on), `shot PATH` (the window as
+//! the window server composites it) and `quit`.
 #![expect(
     clippy::multiple_unsafe_ops_per_block,
     reason = "each block builds one NSEvent and posts it"
@@ -32,6 +34,7 @@ use std::time::Duration;
 use gpui_kit::{AnyWindowHandle, App};
 use objc2::{class, msg_send};
 use objc2_foundation::{NSPoint, NSString};
+use specular_interact::Event;
 
 use crate::canvas;
 use crate::native::Id;
@@ -230,6 +233,22 @@ fn shot(path: &str) {
     }
 }
 
+/// Runs the first-run view's choice named `name`.
+fn choose(name: &str) {
+    let action = canvas::models()
+        .and_then(|models| models.onboarding)
+        .and_then(|view| view.choices.into_iter().find(|choice| choice.name == name))
+        .map(|choice| choice.action);
+    if let Some(action) = action {
+        canvas::dispatch(Event::Action(action));
+    } else {
+        tracing::warn!(
+            name,
+            "scripted input: the first-run view has no such choice"
+        );
+    }
+}
+
 /// What one step does, or how long it waits.
 enum Step {
     Wait(Duration),
@@ -304,6 +323,10 @@ fn parse(step: &str) -> Option<Step> {
                 _ => 0,
             };
             Step::Run(Box::new(move || key(code, flags, &characters)))
+        }
+        "choose" => {
+            let name = words.next()?.to_owned();
+            Step::Run(Box::new(move || choose(&name)))
         }
         "shot" => {
             let path = words.next()?.to_owned();

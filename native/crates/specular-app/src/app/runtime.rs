@@ -15,7 +15,7 @@ use specular_bench::{FrameWork, PaintPolicy};
 use specular_compositor::{Compositor, SceneStats};
 use specular_core::{Camera, PageEvent, PageId, PageSource};
 use specular_doc::{Document, EntityId};
-use specular_interact::{Action, ApiOutcome, App, Cursor, Event, ImageKey};
+use specular_interact::{Action, ApiOutcome, App, Cursor, Event, ImageKey, SpaceAsk};
 use specular_scene::Scene;
 
 use super::demand::FrameDemand;
@@ -114,6 +114,8 @@ pub struct RuntimeOptions {
 #[derive(Debug)]
 pub struct Opening {
     pub(crate) space: Option<SpaceStart>,
+    /// Why no space opens, when the user is to be asked for one.
+    pub(crate) ask: Option<SpaceAsk>,
     pub(crate) document: Option<Document>,
 }
 
@@ -164,6 +166,9 @@ pub struct Runtime<W> {
     /// The repos file. `None` when settings are off, and when no folder
     /// can be found for it.
     pub(crate) repos_file: Option<PathBuf>,
+    /// A folder dialog the app asked for and the shell has yet to show:
+    /// whether it is worded for making a space.
+    pub(crate) space_dialog: Option<bool>,
     /// Files dropped on the window, not yet sent to the app.
     pub(crate) dropped: Vec<PathBuf>,
     /// Where they were dropped, in logical pixels of the viewport.
@@ -229,6 +234,7 @@ impl<W: ShellWindow> Runtime<W> {
             clipboard: None,
             prefs,
             repos_file: options.settings.then(repos_run::file).flatten(),
+            space_dialog: None,
             dropped: Vec::new(),
             dropped_at: None,
             api: None,
@@ -303,7 +309,11 @@ impl<W: ShellWindow> Runtime<W> {
     pub fn open(&mut self, opening: Opening) -> anyhow::Result<()> {
         self.dispatch(Event::Action(Action::SetCamera(START_CAMERA)));
         self.load_tool_defaults();
+        self.load_settings();
         self.load_repos();
+        if let Some(ask) = opening.ask {
+            self.dispatch(Event::SpaceNeeded(ask));
+        }
         match (opening.space, opening.document) {
             (Some(start), _) => {
                 self.open_space(&start.folder, start.file.as_deref())?;

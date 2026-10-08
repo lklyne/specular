@@ -205,31 +205,6 @@ const fn edits_text(action: &specular_interact::Action) -> bool {
     )
 }
 
-fn choose_space(cx: &mut App) {
-    let chosen = cx.prompt_for_paths(PathPromptOptions {
-        files: false,
-        directories: true,
-        multiple: false,
-        prompt: Some("Open space".into()),
-    });
-    cx.spawn(async move |_| {
-        let Ok(Ok(Some(paths))) = chosen.await else {
-            return;
-        };
-        let Some(folder) = paths.first() else {
-            return;
-        };
-        canvas::with(|canvas| match canvas.runtime.open_space(folder, None) {
-            Ok(()) => {
-                canvas.runtime.remember_space(folder);
-                canvas.refresh_models();
-            }
-            Err(error) => tracing::error!("{error:#}"),
-        });
-    })
-    .detach();
-}
-
 fn choose_canvas(cx: &mut App) {
     let chosen = cx.prompt_for_paths(PathPromptOptions {
         files: true,
@@ -287,7 +262,7 @@ pub(crate) fn install(cx: &mut App) {
     });
     cx.on_action(|_: &Quit, cx| shell::begin_exit(cx));
     cx.on_action(|_: &CloseWindow, cx| shell::begin_exit(cx));
-    cx.on_action(|_: &OpenSpace, cx| choose_space(cx));
+    cx.on_action(|_: &OpenSpace, cx| crate::spaces::choose(false, cx));
     cx.on_action(|_: &OpenCanvas, cx| choose_canvas(cx));
     cx.on_action(|_: &Save, _| {
         canvas::with(|canvas| canvas.runtime.flush_files());

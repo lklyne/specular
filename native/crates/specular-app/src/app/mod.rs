@@ -29,6 +29,7 @@ mod repos_run;
 mod runtime;
 mod settings;
 mod shots;
+mod space_choice;
 mod space_run;
 mod title;
 mod turn;
@@ -136,6 +137,7 @@ impl Shell {
             runtime,
             opening: Some(Opening {
                 space: options.space.take(),
+                ask: None,
                 document: Some(document),
             }),
             wake,
@@ -252,6 +254,9 @@ impl ApplicationHandler<ShellEvent> for Shell {
                 event_loop.exit();
             }
             return;
+        }
+        if self.runtime.take_space_dialog().is_some() {
+            self.choose_space();
         }
         if let Err(error) = self.turn(event_loop) {
             self.runtime.fail(error);

@@ -19,16 +19,18 @@ usage: specular-app [OPTIONS] [FOLDER | FILE.canvas]
                       space
   FILE.canvas         open the folder the file is in as the space, showing
                       that file
-                      With neither, and no --space, the scratch space opens:
-                      a copy of the starter space in this app's data folder,
-                      so nothing of yours is written to. A --bench,
-                      --snapshot or --script run shows FILE alone and writes
-                      nothing
-  --space user|PATH   user: open your real space and autosave into it. It is
-                      the one the Electron app has open (`spacePath` in its
-                      preferences.json), else the folder last chosen with
-                      File > Open space…. PATH: the same as a bare FOLDER or
-                      FILE.canvas
+                      With neither, and no --space, `specular` opens the
+                      space you chose in it, and asks on a first run or when
+                      that folder is gone; `specular-app` opens the scratch
+                      space. A --bench, --snapshot or --script run shows
+                      FILE alone and writes nothing
+  --space user|scratch|PATH
+                      user: the space the Electron app has open (`spacePath`
+                      in its preferences.json), else the one chosen in this
+                      app; it is autosaved into. scratch: a copy of the
+                      starter space in this app's data folder, so nothing of
+                      yours is written to. PATH: the same as a bare FOLDER
+                      or FILE.canvas
   --pages N           lay out N demo pages (default 9; not with FILE)
   --source KIND       page backend: synthetic | cef (default: cef when built
                       with the `cef` feature, else synthetic)
@@ -114,6 +116,15 @@ impl SourceKind {
     }
 }
 
+/// A space `--space` names by a word, not a path.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum NamedSpace {
+    /// `user`.
+    User,
+    /// `scratch`.
+    Scratch,
+}
+
 /// What the user asked for.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum Command {
@@ -128,8 +139,8 @@ pub(crate) enum Command {
 pub(crate) struct RunArgs {
     /// `.canvas` file to load pages from.
     pub(crate) canvas: Option<PathBuf>,
-    /// Whether `--space user` asked for the user's own space.
-    pub(crate) user_space: bool,
+    /// The space `--space user` or `--space scratch` named.
+    pub(crate) named_space: Option<NamedSpace>,
     /// Demo page count when no file is given.
     pub(crate) pages: Option<usize>,
     /// Page backend.
@@ -156,7 +167,7 @@ pub(crate) struct RunArgs {
 pub(crate) fn parse(args: impl IntoIterator<Item = OsString>) -> anyhow::Result<Command> {
     let mut run = RunArgs {
         canvas: None,
-        user_space: false,
+        named_space: None,
         pages: None,
         source: SourceKind::default_for_build(),
         bench: None,
@@ -197,9 +208,12 @@ pub(crate) fn parse(args: impl IntoIterator<Item = OsString>) -> anyhow::Result<
                 run.headless.source = run.source;
             }
             "--space" => match args.next() {
-                Some(value) if value == "user" => run.user_space = true,
+                Some(value) if value == "user" => run.named_space = Some(NamedSpace::User),
+                Some(value) if value == "scratch" => run.named_space = Some(NamedSpace::Scratch),
                 Some(path) => set_canvas(&mut run, path)?,
-                None => bail!("--space needs a value: user, or a folder or .canvas file"),
+                None => {
+                    bail!("--space needs a value: user, scratch, or a folder or .canvas file")
+                }
             },
             "--warmup-ms" => {
                 let value = value_of(flag, args.next())?;
@@ -234,8 +248,8 @@ pub(crate) fn parse(args: impl IntoIterator<Item = OsString>) -> anyhow::Result<
     }
     run.bench_headless = bench.headless;
     run.bench = bench.profiles()?;
-    if run.canvas.is_some() && run.user_space {
-        bail!("--space user opens your own space and cannot be combined with a path");
+    if run.canvas.is_some() && run.named_space.is_some() {
+        bail!("--space user and --space scratch cannot be combined with a path");
     }
     if run.canvas.is_some() && run.pages.is_some() {
         bail!("--pages lays out demo pages and cannot be combined with a .canvas file");
@@ -373,12 +387,14 @@ fn profiles_for(
 }
 
 impl RunArgs {
-    /// Which space the arguments ask for.
-    pub(crate) fn space_choice(&self) -> SpaceChoice {
-        match (&self.canvas, self.user_space) {
+    /// Which space the arguments ask for, with `unnamed` for a launch that
+    /// names none.
+    pub(crate) fn space_choice(&self, unnamed: SpaceChoice) -> SpaceChoice {
+        match (&self.canvas, self.named_space) {
             (Some(path), _) => SpaceChoice::Path(path.clone()),
-            (None, true) => SpaceChoice::User,
-            (None, false) => SpaceChoice::Scratch,
+            (None, Some(NamedSpace::User)) => SpaceChoice::User,
+            (None, Some(NamedSpace::Scratch)) => SpaceChoice::Scratch,
+            (None, None) => unnamed,
         }
     }
 }

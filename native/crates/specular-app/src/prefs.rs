@@ -1,7 +1,8 @@
 //! The preferences file: app settings that are not part of any canvas.
 //!
 //! One JSON object in the app's config folder. This shell reads and writes
-//! `toolDefaults` and keeps every other key as it found it. The file is the
+//! `toolDefaults`, `spacePath` and `show`, and keeps every other key as it
+//! found it. The file is the
 //! native app's own: the Electron app keeps its settings in memory and
 //! rewrites its file whole, so two writers on one file would lose changes.
 
@@ -10,15 +11,17 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use serde_json::{Map, Value};
-use specular_interact::ToolDefaults;
+use specular_interact::{AppSettings, ToolDefaults};
 
 use crate::persist::write_atomic;
 
 const FILE_NAME: &str = "preferences.json";
 const TOOL_DEFAULTS_KEY: &str = "toolDefaults";
 const SPACE_PATH_KEY: &str = "spacePath";
+/// What is shown when the app opens: `{"sidebar": bool, "rightPanel": bool}`.
+const SHOW_KEY: &str = "show";
 /// Overrides the config folder, for a run that must not touch the real one.
-const CONFIG_DIR_VARIABLE: &str = "SPECULAR_NATIVE_CONFIG_DIR";
+pub(crate) const CONFIG_DIR_VARIABLE: &str = "SPECULAR_NATIVE_CONFIG_DIR";
 
 /// Where the preferences file is, or `None` when the environment names no
 /// home to put it under.
@@ -94,6 +97,30 @@ pub(crate) fn load_space_path(path: &Path) -> Option<PathBuf> {
 /// Writes `folder` under `spacePath`, keeping the file's other keys.
 pub(crate) fn save_space_path(path: &Path, folder: &Path) -> io::Result<()> {
     save_key(path, SPACE_PATH_KEY, Value::from(folder.to_string_lossy()))
+}
+
+/// The saved settings. A missing key is its default.
+pub(crate) fn load_settings(path: &Path) -> AppSettings {
+    let preferences = read(path).unwrap_or_default();
+    let shown = |key: &str| {
+        (preferences.get(SHOW_KEY))
+            .and_then(|show| show.get(key))
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+    };
+    AppSettings {
+        show_sidebar: shown("sidebar"),
+        show_chat: shown("rightPanel"),
+    }
+}
+
+/// Writes `settings` under `show`, keeping the file's other keys.
+pub(crate) fn save_settings(path: &Path, settings: AppSettings) -> io::Result<()> {
+    let show = serde_json::json!({
+        "sidebar": settings.show_sidebar,
+        "rightPanel": settings.show_chat,
+    });
+    save_key(path, SHOW_KEY, show)
 }
 
 fn save_key(path: &Path, key: &str, value: Value) -> io::Result<()> {
@@ -198,6 +225,24 @@ mod tests {
         let saved: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
         assert_eq!(saved["spacePath"], "/Users/me/Space");
         assert_eq!(saved["toolDefaults"]["add-shape"]["shapeKind"], "diamond");
+    }
+
+    #[test]
+    fn saved_settings_are_read_back_beside_the_space_folder() {
+        let dir = TempDir::new("settings");
+        let path = dir.0.join(FILE_NAME);
+        assert_eq!(load_settings(&path), AppSettings::default());
+        save_space_path(&path, Path::new("/Users/me/Space")).unwrap();
+        let settings = AppSettings {
+            show_sidebar: true,
+            show_chat: false,
+        };
+        save_settings(&path, settings).unwrap();
+        assert_eq!(load_settings(&path), settings);
+        assert_eq!(
+            load_space_path(&path),
+            Some(PathBuf::from("/Users/me/Space"))
+        );
     }
 
     #[test]

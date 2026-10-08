@@ -3,18 +3,23 @@
 
 use std::ffi::OsString;
 use std::io::IsTerminal as _;
+use std::path::PathBuf;
 
 use anyhow::Context as _;
 use specular_core::PageSource;
 use specular_doc::Document;
+use specular_interact::SpaceAsk;
 use tracing_subscriber::EnvFilter;
 use winit::event_loop::EventLoop;
 
 use crate::app::{self, Opening, RuntimeOptions};
 use crate::cli::{self, Command, RunArgs};
 use crate::source_select::{self, Host};
-use crate::space::SpaceStart;
+use crate::space::{SpaceChoice, SpaceStart, Startup};
 use crate::{headless, prefs, scene, space};
+
+/// The pages' profile, in this app's data folder: cookies and logins.
+const PROFILE_FOLDER: &str = "cef-profile";
 
 /// A run that opens a window: what the command line asked for, and what to
 /// show first.
@@ -22,14 +27,31 @@ use crate::{headless, prefs, scene, space};
 pub struct Launch {
     run: RunArgs,
     space: Option<SpaceStart>,
+    /// Why no space opens, when the user is to be asked for one.
+    ask: Option<SpaceAsk>,
+    /// Where the pages' profile is kept, for a launch that keeps one.
+    profile: Option<PathBuf>,
     document: Document,
+}
+
+/// What a launch that names no space opens.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Unnamed {
+    /// The scratch space: for a shell with no view to ask in.
+    Scratch,
+    /// The space chosen in this app, and the first-run view when there is
+    /// none or it is gone.
+    Chosen,
 }
 
 /// Reads `args` (without the program name) and starts logging. `None` when
 /// there is no window to open: help was printed, or the run was a
 /// `--snapshot` or `--script` and is finished. A wrong argument prints the
 /// usage and exits the process.
-pub fn launch(args: impl IntoIterator<Item = OsString>) -> anyhow::Result<Option<Launch>> {
+pub fn launch(
+    args: impl IntoIterator<Item = OsString>,
+    unnamed: Unnamed,
+) -> anyhow::Result<Option<Launch>> {
     let run = match cli::parse(args) {
         Ok(Command::Run(run)) => run,
         Ok(Command::Help) => {
@@ -48,16 +70,33 @@ pub fn launch(args: impl IntoIterator<Item = OsString>) -> anyhow::Result<Option
         .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()))
         .init();
 
-    let space = space_to_open(&run);
+    let choice = run.space_choice(match unnamed {
+        Unnamed::Scratch => SpaceChoice::Scratch,
+        Unnamed::Chosen => SpaceChoice::Chosen,
+    });
+    let (space, ask) = match space_to_open(&run, &choice) {
+        Some(Startup::Open(space)) => (Some(space), None),
+        Some(Startup::Ask(ask)) => (None, Some(ask)),
+        None => (None, None),
+    };
+    // Logins belong to the app someone uses as theirs. A run on a fixture
+    // or the scratch space keeps its profile in memory, so any number of
+    // them run side by side.
+    let own = matches!(choice, SpaceChoice::Chosen | SpaceChoice::User);
+    let profile = (own && (space.is_some() || ask.is_some()))
+        .then(prefs::folder)
+        .flatten()
+        .map(|folder| folder.join(PROFILE_FOLDER));
     let demo_pages = run.pages.unwrap_or(scene::DEMO_PAGE_COUNT);
     // With a space to open, the canvases are read once the window exists.
-    let document = if space.is_some() {
+    // With one to ask for, nothing is shown behind the question.
+    let document = if space.is_some() || ask.is_some() {
         Document::new()
     } else {
         scene::load_document(run.canvas.as_deref(), demo_pages, run.annotations)?
     };
     if let Some(profiles) = run.bench.clone().filter(|_| run.bench_headless) {
-        let source = source_select::create_source(run.source, Host::Headless)?;
+        let source = source_select::create_source(run.source, Host::Headless, None)?;
         let args = headless::HeadlessArgs {
             source: run.source,
             ..run.headless.clone()
@@ -74,13 +113,15 @@ pub fn launch(args: impl IntoIterator<Item = OsString>) -> anyhow::Result<Option
         return Ok(None);
     }
     if run.headless.is_requested() {
-        let source = source_select::create_source(run.headless.source, Host::Headless)?;
+        let source = source_select::create_source(run.headless.source, Host::Headless, None)?;
         headless::run(source, document, run.canvas.as_deref(), &run.headless)?;
         return Ok(None);
     }
     Ok(Some(Launch {
         run,
         space,
+        ask,
+        profile,
         document,
     }))
 }
@@ -89,7 +130,7 @@ impl Launch {
     /// The page backend the command line chose. The platform's application
     /// object must exist first: CEF installs its own otherwise.
     pub fn create_source(&self) -> anyhow::Result<Box<dyn PageSource>> {
-        source_select::create_source(self.run.source, Host::Window)
+        source_select::create_source(self.run.source, Host::Window, self.profile.as_deref())
     }
 
     /// The window size asked for, in logical pixels.
@@ -117,6 +158,7 @@ impl Launch {
     pub fn into_opening(self) -> Opening {
         Opening {
             space: self.space,
+            ask: self.ask,
             document: Some(self.document),
         }
     }
@@ -128,6 +170,7 @@ pub fn run_window(launch: Launch) -> anyhow::Result<()> {
         run,
         space,
         document,
+        ..
     } = launch;
     // winit must create the macOS application object before CEF initializes,
     // or CEF installs its own and winit panics.
@@ -139,7 +182,7 @@ pub fn run_window(launch: Launch) -> anyhow::Result<()> {
         run.bench.is_some(),
     );
     let event_loop = event_loop.build().context("creating event loop")?;
-    let source = source_select::create_source(run.source, Host::Window)?;
+    let source = source_select::create_source(run.source, Host::Window, None)?;
     tracing::info!(
         backend = source.name(),
         entities = document.entities().count(),
@@ -166,7 +209,7 @@ pub fn run_window(launch: Launch) -> anyhow::Result<()> {
 /// The space this run opens, or `None` for a run that shows one document
 /// and writes nothing: a snapshot or a script, a benchmark, a demo grid, or
 /// a canvas with seeded annotations.
-fn space_to_open(run: &RunArgs) -> Option<SpaceStart> {
+fn space_to_open(run: &RunArgs, choice: &SpaceChoice) -> Option<Startup> {
     let one_document = run.headless.is_requested()
         || run.bench.is_some()
         || run.pages.is_some()
@@ -174,9 +217,8 @@ fn space_to_open(run: &RunArgs) -> Option<SpaceStart> {
     if one_document {
         return None;
     }
-    let choice = run.space_choice();
     // The user's own space is looked for only when it was asked for.
-    let (electron, remembered) = if choice == space::SpaceChoice::User {
+    let (electron, remembered) = if matches!(choice, SpaceChoice::User | SpaceChoice::Chosen) {
         (
             space::electron_user_data(|name| std::env::var_os(name), cfg!(target_os = "macos"))
                 .and_then(|user_data| space::electron_space(&user_data)),
@@ -186,5 +228,5 @@ fn space_to_open(run: &RunArgs) -> Option<SpaceStart> {
         (None, None)
     };
     let scratch = space::scratch_folder(prefs::folder().as_deref());
-    space::startup(&choice, electron, remembered, scratch)
+    Some(space::startup(choice, electron, remembered, scratch))
 }

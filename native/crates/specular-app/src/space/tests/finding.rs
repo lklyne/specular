@@ -6,11 +6,11 @@ use std::path::{Path, PathBuf};
 
 use serde_json::{Value, json};
 use specular_doc::Document;
-use specular_interact::CanvasId;
+use specular_interact::{CanvasId, SpaceAsk};
 
 use super::{TempDir, canvas};
 use crate::space::locate::{
-    SpaceChoice, SpaceStart, electron_space, electron_user_data, scratch_folder, startup,
+    SpaceChoice, SpaceStart, Startup, electron_space, electron_user_data, scratch_folder, startup,
 };
 use crate::space::{listing, starter};
 
@@ -64,7 +64,7 @@ fn with_no_space_path_it_is_the_electron_apps_old_fixed_folder() {
 }
 
 #[test]
-fn a_launch_that_names_no_space_opens_the_scratch_space_and_never_the_users() {
+fn the_scratch_space_is_opened_only_by_name_and_never_the_users() {
     let dir = TempDir::new("startup-scratch");
     let (electron, remembered) = (dir.0.join("electron"), dir.0.join("remembered"));
     std::fs::create_dir_all(&electron).unwrap();
@@ -78,7 +78,7 @@ fn a_launch_that_names_no_space_opens_the_scratch_space_and_never_the_users() {
             Some(remembered),
             scratch.clone()
         ),
-        Some(SpaceStart {
+        Startup::Open(SpaceStart {
             folder: scratch,
             file: None,
             scratch: true,
@@ -87,23 +87,32 @@ fn a_launch_that_names_no_space_opens_the_scratch_space_and_never_the_users() {
 }
 
 #[test]
-fn the_users_space_is_electrons_then_the_one_remembered_and_only_when_asked_for() {
+fn a_launch_opens_the_space_it_names_or_the_one_chosen_here() {
     let dir = TempDir::new("startup");
     let (electron, remembered) = (dir.0.join("electron"), dir.0.join("remembered"));
     std::fs::create_dir_all(&electron).unwrap();
     std::fs::create_dir_all(&remembered).unwrap();
     let scratch = || dir.0.join("scratch-space");
-    let folder = |folder: &Path| SpaceStart {
-        folder: folder.to_owned(),
-        file: None,
-        scratch: false,
+    let folder = |folder: &Path| {
+        Startup::Open(SpaceStart {
+            folder: folder.to_owned(),
+            file: None,
+            scratch: false,
+        })
     };
     let both = || (Some(electron.clone()), Some(remembered.clone()));
 
+    // Electron's folder is there to be offered. It is opened only by
+    // `--space user`.
+    let (e, r) = both();
+    assert_eq!(
+        startup(&SpaceChoice::Chosen, e, r, scratch()),
+        folder(&remembered)
+    );
     let (e, r) = both();
     assert_eq!(
         startup(&SpaceChoice::User, e, r, scratch()),
-        Some(folder(&electron))
+        folder(&electron)
     );
     assert_eq!(
         startup(
@@ -112,15 +121,14 @@ fn the_users_space_is_electrons_then_the_one_remembered_and_only_when_asked_for(
             Some(remembered.clone()),
             scratch()
         ),
-        Some(folder(&remembered))
+        folder(&remembered)
     );
-    assert_eq!(startup(&SpaceChoice::User, None, None, scratch()), None);
 
     let (e, r) = both();
     let file = dir.0.join("other/Home.canvas");
     assert_eq!(
         startup(&SpaceChoice::Path(file), e, r, scratch()),
-        Some(SpaceStart {
+        Startup::Open(SpaceStart {
             folder: dir.0.join("other"),
             file: Some("Home.canvas".to_owned()),
             scratch: false,
@@ -129,24 +137,61 @@ fn the_users_space_is_electrons_then_the_one_remembered_and_only_when_asked_for(
     let (e, r) = both();
     assert_eq!(
         startup(&SpaceChoice::Path(dir.0.join("new space")), e, r, scratch()),
-        Some(folder(&dir.0.join("new space")))
+        folder(&dir.0.join("new space"))
     );
 }
 
 #[test]
-fn a_space_folder_from_settings_that_is_gone_is_not_opened_or_made() {
-    let dir = TempDir::new("gone");
+fn with_no_space_chosen_or_the_chosen_one_gone_the_launch_asks_and_makes_nothing() {
+    let dir = TempDir::new("ask");
+    let electron = dir.0.join("electron");
+    std::fs::create_dir_all(&electron).unwrap();
     let gone = dir.0.join("unmounted");
+    let scratch = || dir.0.join("scratch-space");
+    let offered = Some(electron.display().to_string());
+    let missing = Some(gone.display().to_string());
+    let ask = |missing: &Option<String>, electron: &Option<String>| {
+        Startup::Ask(SpaceAsk {
+            missing: missing.clone(),
+            electron: electron.clone(),
+        })
+    };
+
+    // A first run: Electron's folder is offered, not opened.
     assert_eq!(
         startup(
-            &SpaceChoice::User,
-            Some(gone.clone()),
+            &SpaceChoice::Chosen,
+            Some(electron.clone()),
             None,
-            dir.0.join("scratch-space")
+            scratch()
         ),
-        None
+        ask(&None, &offered)
+    );
+    assert_eq!(
+        startup(&SpaceChoice::Chosen, None, None, scratch()),
+        ask(&None, &None)
+    );
+    // The chosen folder is gone: it is named, and nothing stands in for it.
+    assert_eq!(
+        startup(
+            &SpaceChoice::Chosen,
+            Some(electron),
+            Some(gone.clone()),
+            scratch()
+        ),
+        ask(&missing, &offered)
+    );
+    // Electron's own folder is gone: it is not offered back.
+    assert_eq!(
+        startup(&SpaceChoice::User, Some(gone.clone()), None, scratch()),
+        ask(&missing, &None)
+    );
+    assert_eq!(
+        startup(&SpaceChoice::User, None, None, scratch()),
+        ask(&None, &None)
     );
     assert!(!gone.exists());
+    assert!(!scratch().exists());
 }
 
 #[test]

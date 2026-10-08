@@ -73,6 +73,8 @@ pub struct BoundOriginRow {
     pub origin: String,
     /// Whether auto-fix is on for it.
     pub auto_fix: bool,
+    /// Turns auto-fix the other way.
+    pub toggle_auto_fix: Action,
     /// Drops the binding.
     pub remove: Action,
 }
@@ -96,6 +98,10 @@ pub fn repos_pane(app: &App) -> ReposPane {
                 .map(|bound| BoundOriginRow {
                     origin: bound.origin.clone(),
                     auto_fix: bound.auto_fix,
+                    toggle_auto_fix: Action::Repo(RepoAction::SetAutoFix {
+                        origin: bound.origin.clone(),
+                        on: !bound.auto_fix,
+                    }),
                     remove: Action::Repo(RepoAction::Unlink(bound.origin.clone())),
                 })
                 .collect(),

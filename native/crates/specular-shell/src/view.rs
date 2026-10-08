@@ -20,6 +20,7 @@ mod chat;
 mod controls;
 mod glyphs;
 mod ime;
+mod onboarding;
 mod popup;
 mod sidebar;
 mod slot;
@@ -118,6 +119,12 @@ impl Render for ShellView {
         self.asks.changed.set(false);
         let models = canvas::models();
         let title = self.asks.title.borrow().clone();
+        if let Some(model) = models
+            .as_ref()
+            .and_then(|models| models.onboarding.as_ref())
+        {
+            return onboarding::onboarding(model).into_any_element();
+        }
         div()
             .size_full()
             .relative()
@@ -153,5 +160,6 @@ impl Render for ShellView {
                     .h(px(1.0))
                     .bg(theme::solid(theme::TOOLBAR_BORDER)),
             )
+            .into_any_element()
     }
 }

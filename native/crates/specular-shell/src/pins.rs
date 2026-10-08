@@ -25,6 +25,25 @@ pub(crate) const GPUI_KIT: &str = "0.7.1";
 /// The GPUI snapshot that release is built on.
 pub(crate) const GPUI_PRE: &str = "0.3.8";
 
+/// The `cef` crate release, whose build number is Chromium's.
+pub(crate) const CEF: &str = "154.3.0+154.0.32";
+
+/// What the app is built from, for the settings dialog's About pane.
+/// `backend` is the page backend this run hosts pages in.
+pub(crate) fn about(backend: &str) -> Vec<specular_interact::AboutRow> {
+    let row = |name: &str, version: &str| specular_interact::AboutRow {
+        name: name.to_owned(),
+        version: version.to_owned(),
+    };
+    vec![
+        row("Specular Native", env!("CARGO_PKG_VERSION")),
+        row("GPUI Kit", GPUI_KIT),
+        row("GPUI", GPUI_PRE),
+        row("CEF", CEF),
+        row("Page backend", backend),
+    ]
+}
+
 /// The pin, for an error message.
 pub(crate) fn describe() -> String {
     format!(
@@ -58,5 +77,6 @@ mod tests {
     fn the_lockfile_has_the_pinned_versions_and_no_others() {
         assert_eq!(locked("gpui-kit"), [GPUI_KIT]);
         assert_eq!(locked("gpui-pre"), [GPUI_PRE]);
+        assert_eq!(locked("cef"), [CEF]);
     }
 }

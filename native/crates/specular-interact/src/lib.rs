@@ -43,6 +43,7 @@ mod edge_path;
 mod edit;
 mod effect;
 mod event;
+mod first_run;
 mod focus;
 mod geometry;
 mod gesture;
@@ -78,6 +79,7 @@ mod scope;
 mod scroll_follow;
 mod select;
 mod select_all;
+mod settings;
 mod sidebar;
 mod space;
 mod stack_order;
@@ -124,6 +126,7 @@ pub use edit::{
 };
 pub use effect::{Cursor, Effect};
 pub use event::{Action, CanvasAction, Event, Key, KeyInput, PageNotice, PointerInput, WheelInput};
+pub use first_run::{OnboardingModel, SpaceAction, SpaceAsk, SpaceChoice, onboarding};
 pub use geometry::{ScreenRect, to_canvas_rect};
 pub use gesture::Gesture;
 pub use groups::group_command;
@@ -159,6 +162,10 @@ pub use scope::SelectionScope;
 pub use scroll_follow::{
     Seen, doc_to_viewport, hittable_rect, left_page, recorded_scroll, seen, shift_of, shown_rect,
     viewport_to_doc,
+};
+pub use settings::{
+    AboutRow, AppSettings, GeneralPane, SettingAction, SettingToggle, SettingsModel, ShortcutRow,
+    SpaceRow, settings,
 };
 pub use sidebar::{
     CanvasRow, RowKind, RowTarget, SIDEBAR_WIDTH, SectionHead, SidebarAction, SidebarModel,

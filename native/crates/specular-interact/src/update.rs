@@ -17,6 +17,17 @@ use crate::{
 };
 use crate::{arrange, clipboard, drop, select_all, zoom};
 
+/// A scroll goes to the panel under the pointer, else to the Document
+/// under it, else it moves the camera.
+fn on_wheel(app: &mut App, input: &crate::WheelInput, effects: &mut Vec<Effect>) {
+    if !builtin::on_wheel(app, input)
+        && !builtin::swallows_scroll(app)
+        && !notes::on_wheel(app, input)
+    {
+        camera::on_wheel(app, input, effects);
+    }
+}
+
 /// Applies `event` to `app` and returns what the shell must now do, in
 /// order. No I/O happens here.
 pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
@@ -35,14 +46,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
     let keeps_layout = builtin::keeps_layout(app, &event);
     match event {
         Event::Pointer(input) => pointer::on_pointer(app, &input, &mut effects),
-        Event::Wheel(input) => {
-            if !builtin::on_wheel(app, &input)
-                && !builtin::swallows_scroll(app)
-                && !notes::on_wheel(app, &input)
-            {
-                camera::on_wheel(app, &input, &mut effects);
-            }
-        }
+        Event::Wheel(input) => on_wheel(app, &input, &mut effects),
         Event::Pinch { delta } => {
             if !builtin::swallows_scroll(app) {
                 camera::on_pinch(app, delta);
@@ -86,6 +90,9 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         Event::ThreadsLoaded { threads, index } => chat::on_loaded(app, threads, &index),
         Event::Agent { thread, notice } => chat::on_agent(app, &thread, notice, &mut effects),
         Event::ReposLoaded(repos) => app.repos = *repos,
+        Event::SettingsLoaded(settings) => crate::settings::load(app, settings),
+        Event::About(rows) => app.about = rows,
+        Event::SpaceNeeded(ask) => app.space_ask = Some(ask),
         Event::Api(call) => api::run(app, call, &mut effects),
     }
     builtin::forget_layout_unless(app, keeps_layout);
@@ -223,6 +230,8 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         Action::Canvas(action) => space::act(app, action, effects),
         Action::Chat(action) => chat::run(app, action, effects),
         Action::Repo(action) => crate::repos::run(app, action, effects),
+        Action::Space(action) => crate::first_run::run(action, effects),
+        Action::Setting(action) => crate::settings::run(app, action, effects),
     }
 }
 

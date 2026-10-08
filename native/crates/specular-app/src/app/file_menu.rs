@@ -32,14 +32,11 @@ impl Shell {
 
     /// Asks for a folder and opens it as the space. The choice is
     /// remembered for the next launch.
-    fn choose_space(&mut self) {
+    pub(super) fn choose_space(&mut self) {
         let Some(folder) = self.dialog().set_title("Open space").pick_folder() else {
             return;
         };
-        match self.runtime.open_space(&folder, None) {
-            Ok(()) => self.runtime.remember_space(&folder),
-            Err(error) => tracing::error!("{error:#}"),
-        }
+        self.runtime.choose_space(&folder);
     }
 
     /// Asks for a `.canvas` file and shows it, in the space its folder is.

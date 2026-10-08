@@ -5,7 +5,7 @@ use specular_agent::{RunRequest, ThreadId};
 use specular_core::{CssSize, InputEvent, LocatorBundle, PageNav, PointKind};
 use specular_doc::{EntityId, Rect};
 
-use crate::{ApiOutcome, AssetBytes, CanvasId, ImageKey, PageRegion, ToolDefaults};
+use crate::{ApiOutcome, AppSettings, AssetBytes, CanvasId, ImageKey, PageRegion, ToolDefaults};
 
 /// One thing for the shell to do after an [`update`](crate::update). Effects
 /// run in the order they are returned.
@@ -219,8 +219,8 @@ pub enum Effect {
     },
     /// Write the connected repos, as
     /// [`Repos::to_json`](specular_agent::Repos::to_json) of
-    /// [`App::repos`](crate::App::repos) gives them, to the `repos.json`
-    /// the Electron app keeps in its data folder.
+    /// [`App::repos`](crate::App::repos) gives them, to this app's own
+    /// `repos.json`.
     SaveRepos,
     /// Ask the user for a folder and answer with an
     /// [`Action::Repo`](crate::Action::Repo): a
@@ -231,6 +231,21 @@ pub enum Effect {
         /// The origin to bind to the folder chosen.
         origin: Option<String>,
     },
+    /// Ask the user for a folder, open it as the space and remember it for
+    /// the next launch. The space that was open is saved first and left as
+    /// it is. A cancelled dialog changes nothing.
+    ChooseSpace {
+        /// Whether the dialog is worded for making a space.
+        create: bool,
+    },
+    /// Open the folder at this path as the space and remember it.
+    OpenSpace(String),
+    /// Show the open space's folder in the file manager.
+    RevealSpace,
+    /// Quit the app.
+    Quit,
+    /// Write the settings to the preferences file, under `show`.
+    SaveSettings(AppSettings),
     /// Count the elements each page has inside a comment region and answer
     /// with [`Event::RegionGrab`](crate::Event::RegionGrab), which repeats
     /// the region and lists the pages in this order.

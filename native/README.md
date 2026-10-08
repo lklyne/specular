@@ -162,6 +162,18 @@ specular-app --bench slow-pan,slow-zoom,idle [--bench-target window|headless]
 - Time these on a quiet machine. A build running elsewhere doubles the
   numbers.
 
+## The app
+
+`crates/specular-shell/scripts/bundle-app.sh` builds `Specular Native.app`:
+the GPUI Kit shell with CEF, the starter space and an icon, signed ad hoc.
+It opens on a first-run view until you choose a space folder.
+[`docs/native-app-bundle.md`](../docs/native-app-bundle.md) has the layout,
+what it shares with the Electron app, and what distribution still needs.
+
+From cargo, `cargo run -p specular-shell` with no path does the same: it
+opens the space chosen in the app, or asks. Pass a path, or `--space
+scratch` for a throwaway copy of the starter space.
+
 ## Morning run on macOS (Apple Silicon)
 
 The representative configuration. Same Mac, built-in 120 Hz display, power

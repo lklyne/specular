@@ -17,15 +17,18 @@ fn run_args(args: &[&str]) -> RunArgs {
 fn space_choice_follows_the_flags_and_a_bare_path() {
     let run = run_args(&[]);
     assert_eq!((&run.canvas, run.pages, &run.bench), (&None, None, &None));
-    let named = run_args(&["--space", "some/folder"]).space_choice();
+    let unnamed = SpaceChoice::Chosen;
+    let named = run_args(&["--space", "some/folder"]).space_choice(unnamed.clone());
     assert_eq!(named, SpaceChoice::Path(PathBuf::from("some/folder")));
     for (args, expected) in [
-        (&[][..], SpaceChoice::Scratch),
+        (&[][..], SpaceChoice::Chosen),
         (&["--space", "user"], SpaceChoice::User),
-        (&["--source", "synthetic"], SpaceChoice::Scratch),
+        (&["--space", "scratch"], SpaceChoice::Scratch),
+        (&["--source", "synthetic"], SpaceChoice::Chosen),
         (&["some/folder"], named),
     ] {
-        assert_eq!(run_args(args).space_choice(), expected, "{args:?}");
+        let choice = run_args(args).space_choice(unnamed.clone());
+        assert_eq!(choice, expected, "{args:?}");
     }
 }
 

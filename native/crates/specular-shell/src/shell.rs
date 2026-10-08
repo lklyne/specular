@@ -23,7 +23,7 @@ use crate::native::{Id, NativeCanvas};
 use crate::pacing::Pacing;
 use crate::surface::{CanvasSurface, WindowAsks};
 use crate::view::ShellView;
-use crate::{debug_input, keys, menus};
+use crate::{debug_input, keys, menus, pins, spaces};
 
 /// The window size when the command line names none: the Electron app's.
 const DEFAULT_SIZE: (u32, u32) = (1600, 1000);
@@ -88,6 +88,9 @@ fn on_wake(cx: &mut App) {
     if canvas::with(|canvas| canvas.is_finished()) == Some(true) {
         finish(cx);
         return;
+    }
+    if let Some(create) = canvas::with(canvas::Canvas::take_space_dialog).flatten() {
+        spaces::choose(create, cx);
     }
     if let Some(models) = canvas::models() {
         menus::sync(&models.menus, cx);
@@ -176,7 +179,12 @@ pub(crate) fn open(launch: Launch, cx: &mut App) -> anyhow::Result<()> {
         // The Kit draws a right panel, so a comment is written there and
         // the canvas keeps only its marker.
         runtime.dispatch(Event::ChatPanel(true));
+        runtime.dispatch(Event::About(pins::about(runtime.source_name())));
         runtime.open(opening)?;
+        // Finder's file, when the app was launched to open one.
+        if let Some(file) = spaces::take_waiting() {
+            runtime.open_canvas_file(&file)?;
+        }
         runtime.start_api(move || {
             // Each clone has a slot of its own, so a wake is never lost.
             let _ = api_wake.clone().try_send(());

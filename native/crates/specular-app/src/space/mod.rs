@@ -17,7 +17,7 @@ use specular_interact::{OpenedCanvas, OpenedSpace};
 
 pub(crate) use self::files::SpaceFiles;
 pub(crate) use self::locate::{
-    SpaceChoice, SpaceStart, electron_space, electron_user_data, scratch_folder, startup,
+    SpaceChoice, SpaceStart, Startup, electron_space, electron_user_data, scratch_folder, startup,
 };
 use crate::persist;
 

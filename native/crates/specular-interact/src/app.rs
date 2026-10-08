@@ -32,6 +32,12 @@ pub struct App {
     pub(crate) threads: Threads,
     pub(crate) repos: Repos,
     pub(crate) tool_defaults: ToolDefaults,
+    /// What is kept between launches besides the tool defaults.
+    pub(crate) settings: crate::AppSettings,
+    /// What the app is built from, as the shell told it.
+    pub(crate) about: Vec<crate::AboutRow>,
+    /// Why no space is open, while the user has yet to choose one.
+    pub(crate) space_ask: Option<crate::SpaceAsk>,
     /// Lays text out for the editor.
     pub(crate) measure: Measurer,
 }

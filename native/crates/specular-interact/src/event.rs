@@ -9,9 +9,10 @@ use specular_core::{
 use specular_doc::{AnnotationId, Document, EntityId, ItemId, Rect};
 
 use crate::{
-    ApiCall, ArrangeMode, CanvasId, ChatAction, ClipboardContent, DroppedFile, Format, ImageKey,
-    ImageNotice, NoteNotice, OpenedSpace, PageGrab, Property, RepoAction, SidebarAction, Tool,
-    ToolDefaultPatch, ToolDefaults,
+    AboutRow, ApiCall, AppSettings, ArrangeMode, CanvasId, ChatAction, ClipboardContent,
+    DroppedFile, Format, ImageKey, ImageNotice, NoteNotice, OpenedSpace, PageGrab, Property,
+    RepoAction, SettingAction, SidebarAction, SpaceAction, SpaceAsk, Tool, ToolDefaultPatch,
+    ToolDefaults,
 };
 
 /// One input to [`update`](crate::update). Window input arrives in logical
@@ -128,6 +129,17 @@ pub enum Event {
     /// The tool defaults were read from the preferences file. Replaces the
     /// current ones and asks for no save.
     ToolDefaultsLoaded(Box<ToolDefaults>),
+    /// The settings were read from the preferences file. Replaces the
+    /// current ones, shows what they say is shown at launch, and asks for
+    /// no save.
+    SettingsLoaded(AppSettings),
+    /// What the app is built from, for the settings dialog's About pane.
+    /// A shell sends it once at startup.
+    About(Vec<AboutRow>),
+    /// The launch found no space to open: none was ever chosen, or the one
+    /// chosen is not there. The app shows the first-run view until a
+    /// [`SpaceOpened`](Self::SpaceOpened).
+    SpaceNeeded(SpaceAsk),
     /// A command from a key binding, a menu or a panel.
     Action(Action),
     /// Turns the built-in toolbar and popup on or off. A shell that draws
@@ -452,6 +464,11 @@ pub enum Action {
     Chat(ChatAction),
     /// A change to the connected repos and the origins bound to them.
     Repo(RepoAction),
+    /// Choose, open or reveal the space folder, or quit from the first-run
+    /// view.
+    Space(SpaceAction),
+    /// A change to what is kept between launches.
+    Setting(SettingAction),
     /// Set one field of the selection, as a popup control does. It applies
     /// to every selected item it means something for, as one undo step.
     SetProperty(Property),

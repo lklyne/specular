@@ -70,19 +70,10 @@ impl Headless {
                 self.notes.unwatch(&file);
                 self.loading_notes.remove(&file);
             }
-            Effect::WriteClipboard(text) => self.stand_ins.clipboard = Some(text),
-            Effect::ReadClipboard => {
-                let content = ClipboardContent {
-                    text: self.stand_ins.clipboard.clone(),
-                    image: None,
-                };
-                self.drive(|app| app.send(Event::Clipboard(content)))?;
-            }
-            Effect::WriteNote { file, text } => self.stand_ins.write_note(&file, text),
-            Effect::CreateNote { rect } => {
-                let file = self.stand_ins.create_note();
-                self.drive(|app| app.send(Event::NoteCreated { file, rect }))?;
-            }
+            effect @ (Effect::WriteClipboard(_)
+            | Effect::ReadClipboard
+            | Effect::WriteNote { .. }
+            | Effect::CreateNote { .. }) => self.run_stand_in(effect)?,
             Effect::Navigate { page, nav } => {
                 tracing::debug!(%page, ?nav, "navigate");
                 self.on_host(&page, |source, host| source.navigate(host, &nav))?;
@@ -124,7 +115,12 @@ impl Headless {
             | Effect::RunAgent(_)
             | Effect::CancelAgent(_)
             | Effect::SaveRepos
-            | Effect::PickRepoFolder { .. } => {}
+            | Effect::PickRepoFolder { .. }
+            | Effect::ChooseSpace { .. }
+            | Effect::OpenSpace(_)
+            | Effect::RevealSpace
+            | Effect::Quit
+            | Effect::SaveSettings(_) => {}
         }
         Ok(())
     }
@@ -141,6 +137,27 @@ impl Headless {
             self.drive(|app| app.send(answer))?;
         }
         self.answer_settled_grabs()?;
+        Ok(())
+    }
+
+    /// Runs what the clipboard and a Document's file are stood in for.
+    fn run_stand_in(&mut self, effect: Effect) -> anyhow::Result<()> {
+        match effect {
+            Effect::WriteClipboard(text) => self.stand_ins.clipboard = Some(text),
+            Effect::ReadClipboard => {
+                let content = ClipboardContent {
+                    text: self.stand_ins.clipboard.clone(),
+                    image: None,
+                };
+                self.drive(|app| app.send(Event::Clipboard(content)))?;
+            }
+            Effect::WriteNote { file, text } => self.stand_ins.write_note(&file, text),
+            Effect::CreateNote { rect } => {
+                let file = self.stand_ins.create_note();
+                self.drive(|app| app.send(Event::NoteCreated { file, rect }))?;
+            }
+            _ => {}
+        }
         Ok(())
     }
 

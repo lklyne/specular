@@ -33,6 +33,8 @@ mod settings_repos;
 #[cfg(target_os = "macos")]
 mod shell;
 #[cfg(target_os = "macos")]
+mod spaces;
+#[cfg(target_os = "macos")]
 mod surface;
 #[cfg(target_os = "macos")]
 mod theme;
@@ -44,30 +46,31 @@ fn main() {
     if let Some(code) = specular_app::run_subprocess_if_needed() {
         std::process::exit(code);
     }
-    let launch = match specular_app::launch(std::env::args_os().skip(1)) {
-        Ok(Some(launch)) => launch,
-        // Help was printed, or a headless run is finished.
-        Ok(None) => return,
-        Err(error) => {
-            eprintln!("specular: {error:#}");
-            std::process::exit(1);
-        }
-    };
+    let launch =
+        match specular_app::launch(std::env::args_os().skip(1), specular_app::Unnamed::Chosen) {
+            Ok(Some(launch)) => launch,
+            // Help was printed, or a headless run is finished.
+            Ok(None) => return,
+            Err(error) => {
+                eprintln!("specular: {error:#}");
+                std::process::exit(1);
+            }
+        };
     if launch.is_bench() {
         eprintln!("specular: --bench runs in the winit shell: cargo run -p specular-app");
         std::process::exit(2);
     }
-    gpui_kit::application()
-        .with_assets(assets::ShellAssets)
-        .run(move |cx| {
-            gpui_kit::init(cx);
-            theme::apply(cx);
-            if let Err(error) = shell::open(launch, cx) {
-                // Loud on purpose: a pin that moved lands here.
-                eprintln!("specular could not start: {error:#}");
-                std::process::exit(1);
-            }
-        });
+    let application = gpui_kit::application().with_assets(assets::ShellAssets);
+    application.on_open_urls(|urls| spaces::opened_from_finder(&urls));
+    application.run(move |cx| {
+        gpui_kit::init(cx);
+        theme::apply(cx);
+        if let Err(error) = shell::open(launch, cx) {
+            // Loud on purpose: a pin that moved lands here.
+            eprintln!("specular could not start: {error:#}");
+            std::process::exit(1);
+        }
+    });
 }
 
 #[cfg(not(target_os = "macos"))]

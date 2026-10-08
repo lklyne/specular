@@ -8,6 +8,7 @@ use std::rc::Rc;
 use gpui_kit::component::button::{Button, ButtonVariants as _};
 use gpui_kit::component::input::{Input, InputEvent, InputState};
 use gpui_kit::component::setting::{SettingGroup, SettingItem, SettingPage};
+use gpui_kit::component::switch::Switch;
 use gpui_kit::component::{Icon, IconName, Sizable as _, h_flex, v_flex};
 use gpui_kit::{
     App, AppContext as _, Entity, FontWeight, IntoElement, ParentElement as _, SharedString,
@@ -61,7 +62,7 @@ impl AddFields {
 }
 
 /// Runs `action` and has the dialog read the model again.
-fn send(action: &Action, window: &mut Window) {
+pub(crate) fn send(action: &Action, window: &mut Window) {
     canvas::dispatch(Event::Action(action.clone()));
     window.refresh();
 }
@@ -72,6 +73,7 @@ fn muted() -> gpui_kit::Hsla {
 
 fn origin_row(row: &BoundOriginRow, index: usize) -> impl IntoElement + use<> {
     let remove = row.remove.clone();
+    let toggle_auto_fix = row.toggle_auto_fix.clone();
     h_flex()
         .gap_2()
         .items_center()
@@ -83,15 +85,14 @@ fn origin_row(row: &BoundOriginRow, index: usize) -> impl IntoElement + use<> {
                 .truncate()
                 .child(SharedString::from(row.origin.clone())),
         )
-        .children(row.auto_fix.then(|| {
-            div()
-                .rounded_full()
-                .bg(theme::tinted(theme::CHIP_HOVER))
-                .px(px(6.0))
-                .text_size(px(10.0))
-                .text_color(muted())
-                .child("auto")
-        }))
+        .child(
+            Switch::new(SharedString::from(format!("origin-auto-{index}")))
+                .checked(row.auto_fix)
+                .small()
+                .label("Auto-fix")
+                .tooltip("Send each comment on this site to the agent as it is placed")
+                .on_click(move |_, window, _| send(&toggle_auto_fix, window)),
+        )
         .child(
             Button::new(SharedString::from(format!("origin-remove-{index}")))
                 .ghost()

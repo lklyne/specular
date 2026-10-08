@@ -10,7 +10,7 @@ fn main() -> anyhow::Result<()> {
     if let Some(code) = specular_app::run_subprocess_if_needed() {
         std::process::exit(code);
     }
-    match specular_app::launch(std::env::args_os().skip(1))? {
+    match specular_app::launch(std::env::args_os().skip(1), specular_app::Unnamed::Scratch)? {
         Some(launch) => specular_app::run_window(launch),
         None => Ok(()),
     }

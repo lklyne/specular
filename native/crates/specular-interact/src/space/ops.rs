@@ -66,6 +66,7 @@ pub(crate) fn act(app: &mut App, action: CanvasAction, effects: &mut Vec<Effect>
 /// canvas. Nothing of the old space carries over.
 pub(crate) fn open(app: &mut App, opened: OpenedSpace, effects: &mut Vec<Effect>) {
     let before = pages::snapshot(&app.document);
+    app.space_ask = None;
     app.session.gesture = None;
     edit::discard(app, effects);
     comment::forget(app);

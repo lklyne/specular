@@ -33,6 +33,6 @@ mod space;
 mod translate;
 
 pub use crate::app::{Opening, PageOf, Runtime, RuntimeOptions, ShellWindow};
-pub use crate::launch::{Launch, launch, run_window};
+pub use crate::launch::{Launch, Unnamed, launch, run_window};
 pub use crate::source_select::run_subprocess_if_needed;
 pub use crate::translate::native_key_input;

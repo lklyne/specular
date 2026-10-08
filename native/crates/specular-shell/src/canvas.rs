@@ -14,8 +14,8 @@ use std::time::Instant;
 use futures::channel::mpsc;
 use specular_app::{Runtime, ShellWindow as _};
 use specular_interact::{
-    ChatModel, Event, Menu, PopupAnchor, PopupModel, SidebarModel, ToolbarModel, chat, menus,
-    popup_for, sidebar, toolbar,
+    ChatModel, Event, Menu, OnboardingModel, PopupAnchor, PopupModel, SidebarModel, ToolbarModel,
+    chat, menus, onboarding, popup_for, sidebar, toolbar,
 };
 
 use crate::surface::{CanvasSurface, WindowAsks};
@@ -34,6 +34,8 @@ pub(crate) struct Models {
     pub(crate) chat: ChatModel,
     /// The menu bar's menus that come from the app.
     pub(crate) menus: Vec<Menu>,
+    /// The first-run view, while no space is open.
+    pub(crate) onboarding: Option<OnboardingModel>,
 }
 
 impl Models {
@@ -46,6 +48,7 @@ impl Models {
             sidebar: sidebar(app),
             chat: chat(app),
             menus: menus(app),
+            onboarding: onboarding(app),
         }
     }
 }
@@ -63,6 +66,9 @@ pub(crate) struct Canvas {
     last_frame: Instant,
     /// Set once the page backend has shut down after an exit.
     finished: bool,
+    /// A folder dialog the app asked for, until GPUI shows it: whether it
+    /// is worded for making a space.
+    space_dialog: Option<bool>,
 }
 
 thread_local! {
@@ -92,6 +98,7 @@ pub(crate) fn install(
         wake,
         last_frame: Instant::now(),
         finished: false,
+        space_dialog: None,
     };
     CANVAS.with(|cell| *cell.borrow_mut() = Some(canvas));
 }
@@ -131,9 +138,18 @@ impl Canvas {
         if changed {
             self.models = models;
         }
-        if changed || self.asks.changed.get() {
+        let asked = self.runtime.take_space_dialog();
+        if asked.is_some() {
+            self.space_dialog = asked;
+        }
+        if changed || asked.is_some() || self.asks.changed.get() {
             self.wake_gpui();
         }
+    }
+
+    /// The folder dialog the app asked for, once.
+    pub(crate) fn take_space_dialog(&mut self) -> Option<bool> {
+        self.space_dialog.take()
     }
 
     fn wake_gpui(&mut self) {

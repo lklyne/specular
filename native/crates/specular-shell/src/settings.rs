@@ -1,81 +1,182 @@
-//! The settings dialog. A stub: it shows where things are and changes
-//! nothing yet. The Electron app's panes (General, Skills, Models, Repos)
-//! each need state this app does not have.
+//! The settings dialog (`src/renderer/settings`), from
+//! [`SettingsModel`]: General, Repos, Shortcuts and About.
+//!
+//! The dialog's content is rebuilt on every frame it is drawn, so each
+//! pane is the model as it is then, and a control sends its row's action.
 
+use gpui_kit::component::button::Button;
 use gpui_kit::component::setting::{
     SettingField, SettingGroup, SettingItem, SettingPage, Settings,
 };
-use gpui_kit::component::{IconName, WindowExt as _};
-use gpui_kit::{App, IntoElement, ParentElement as _, SharedString, Styled as _, Window, div, px};
+use gpui_kit::component::{Icon, IconName, Sizable as _, WindowExt as _, h_flex, v_flex};
+use gpui_kit::{
+    App, FontWeight, IntoElement, ParentElement as _, SharedString, Styled as _, Window, div, px,
+};
+use specular_interact::{
+    AboutRow, Event, GeneralPane, SettingToggle, SettingsModel, ShortcutRow, settings,
+};
 
+use crate::assets::ShellIcon;
 use crate::canvas;
-use crate::settings_repos::{self, AddFields};
+use crate::settings_repos::{self, AddFields, send};
 use crate::theme;
 
-/// What the dialog reads from the running app.
-#[derive(Debug, Clone, Default)]
-struct Facts {
-    space: String,
-    backend: String,
-}
-
-fn facts() -> Facts {
-    canvas::with(|canvas| {
-        let space = canvas.runtime.space_folder();
-        Facts {
-            space: space.map_or_else(
-                || "No space is open".to_owned(),
-                |folder| folder.display().to_string(),
-            ),
-            backend: canvas.runtime.source_name().to_owned(),
-        }
-    })
-    .unwrap_or_default()
+fn muted() -> gpui_kit::Hsla {
+    theme::tinted(theme::TEXT_MUTED)
 }
 
 fn value(text: String) -> impl IntoElement {
     div()
         .text_size(px(12.0))
-        .text_color(theme::tinted(theme::TEXT_MUTED))
+        .text_color(muted())
         .child(SharedString::from(text))
+}
+
+/// The space row: its name over its path, and the two buttons.
+fn space(pane: &GeneralPane) -> impl IntoElement + use<> {
+    let change = pane.change.clone();
+    let (name, path) = pane.space.as_ref().map_or_else(
+        || ("No space is open".to_owned(), String::new()),
+        |space| (space.name.clone(), space.path.clone()),
+    );
+    let reveal = pane.space.as_ref().map(|space| space.reveal.clone());
+    h_flex()
+        .w_full()
+        .gap_3()
+        .items_center()
+        .child(
+            v_flex()
+                .flex_1()
+                .min_w_0()
+                .child(
+                    div()
+                        .text_size(px(13.0))
+                        .font_weight(FontWeight::MEDIUM)
+                        .truncate()
+                        .child(SharedString::from(name)),
+                )
+                .child(
+                    div()
+                        .font_family("Menlo")
+                        .text_size(px(11.0))
+                        .text_color(muted())
+                        .child(SharedString::from(path)),
+                ),
+        )
+        .children(reveal.map(|reveal| {
+            Button::new("settings-space-reveal")
+                .small()
+                .child("Reveal in Finder")
+                .on_click(move |_, window, _| send(&reveal, window))
+        }))
+        .child(
+            Button::new("settings-space-change")
+                .small()
+                .child("Change\u{2026}")
+                .on_click(move |_, window, _| send(&change, window)),
+        )
+}
+
+fn toggle(toggle: &SettingToggle) -> SettingItem {
+    let (on, action) = (toggle.on, toggle.action.clone());
+    SettingItem::new(
+        toggle.label,
+        SettingField::switch(
+            move |_| on,
+            move |_, cx| {
+                canvas::dispatch(Event::Action(action.clone()));
+                cx.refresh_windows();
+            },
+        ),
+    )
+    .description(toggle.detail)
+}
+
+fn general(pane: &GeneralPane) -> SettingPage {
+    let row = pane.clone();
+    SettingPage::new("General")
+        .icon(IconName::Settings)
+        .group(
+            SettingGroup::new()
+                .title("Space")
+                .description(
+                    "The folder holding your canvases, images and notes. Changing it opens \
+                     another folder and leaves this one as it is.",
+                )
+                .item(SettingItem::render(move |_, _, _| space(&row))),
+        )
+        .group(
+            SettingGroup::new()
+                .title("At launch")
+                .items(pane.toggles.iter().map(toggle)),
+        )
+}
+
+fn shortcut(row: &ShortcutRow) -> impl IntoElement + use<> {
+    h_flex()
+        .gap_3()
+        .items_center()
+        .py(px(3.0))
+        .text_size(px(12.0))
+        .child(
+            div()
+                .flex_1()
+                .min_w_0()
+                .truncate()
+                .child(SharedString::from(row.label.to_string())),
+        )
+        .child(div().w(px(110.0)).text_color(muted()).child(row.place))
+        .child(
+            div()
+                .w(px(64.0))
+                .font_family("Menlo")
+                .child(SharedString::from(row.keys.clone())),
+        )
+}
+
+fn shortcuts(rows: &[ShortcutRow]) -> SettingPage {
+    let rows = rows.to_vec();
+    SettingPage::new("Shortcuts")
+        .icon(Icon::new(ShellIcon::Keyboard))
+        .group(
+            SettingGroup::new().item(SettingItem::render(move |_, _, _| {
+                v_flex().w_full().children(rows.iter().map(shortcut))
+            })),
+        )
+}
+
+fn about(rows: &[AboutRow]) -> SettingPage {
+    let items = rows.iter().map(|row| {
+        let version = row.version.clone();
+        SettingItem::new(
+            SharedString::from(row.name.clone()),
+            SettingField::element(move |_: &_, _: &mut Window, _: &mut App| value(version.clone())),
+        )
+    });
+    SettingPage::new("About")
+        .icon(IconName::Info)
+        .group(SettingGroup::new().items(items))
+}
+
+fn model() -> Option<SettingsModel> {
+    canvas::with(|canvas| settings(canvas.runtime.app()))
 }
 
 /// Opens the dialog over the window.
 pub(crate) fn open(window: &mut Window, cx: &mut App) {
     let fields = AddFields::default();
     window.open_dialog(cx, move |dialog, _, _| {
-        let facts = facts();
-        let general = SettingPage::new("General")
-            .icon(IconName::Settings)
-            .group(
-                SettingGroup::new()
-                    .title("Space")
-                    .item(SettingItem::new(
-                        "Folder",
-                        SettingField::element({
-                            let text = facts.space;
-                            move |_: &_, _: &mut Window, _: &mut App| value(text.clone())
-                        }),
-                    ))
-                    .item(SettingItem::new(
-                        "Pages",
-                        SettingField::element({
-                            let text = facts.backend;
-                            move |_: &_, _: &mut Window, _: &mut App| value(text.clone())
-                        }),
-                    )),
-            )
-            .group(SettingGroup::new().title("About").item(SettingItem::new(
-                "Version",
-                SettingField::element(|_: &_, _: &mut Window, _: &mut App| {
-                    value(env!("CARGO_PKG_VERSION").to_owned())
-                }),
-            )));
-        dialog.title("Settings").w(px(640.0)).child(
-            div().h(px(360.0)).child(
+        let dialog = dialog.title("Settings").w(px(720.0));
+        let Some(model) = model() else {
+            return dialog;
+        };
+        dialog.child(
+            div().h(px(440.0)).child(
                 Settings::new("settings")
-                    .page(general)
-                    .page(settings_repos::page(&fields)),
+                    .page(general(&model.general))
+                    .page(settings_repos::page(&fields))
+                    .page(shortcuts(&model.shortcuts))
+                    .page(about(&model.about)),
             ),
         )
     });

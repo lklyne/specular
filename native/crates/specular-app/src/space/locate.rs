@@ -1,20 +1,22 @@
 //! Which space folder a launch opens.
 //!
-//! A launch that names no space opens the scratch space: a copy of the
-//! starter space in this app's own data folder. The user's space holds
-//! their work, so it opens only when the launch asks for it, with
-//! `--space user` or a path.
+//! The app opens the folder the user chose in it, which it remembers in
+//! its own preferences. With none chosen, or with the chosen one gone, it
+//! opens nothing and asks (ADR 0033): it never picks a folder, and never
+//! makes an empty space where one went missing. The winit shell has no view
+//! to ask in, so a launch of it that names no space opens the scratch
+//! space: a copy of the starter space in this app's own data folder.
 //!
-//! The Electron app keeps the user's choice as `spacePath` in its
-//! `preferences.json`. This app reads that file and never writes it, so
-//! `--space user` opens the same folder. A folder chosen here with
-//! File > Open space… is remembered in this app's own preferences and is
-//! the user's space only while the Electron app names none.
+//! The Electron app keeps its user's choice as `spacePath` in its
+//! `preferences.json`. This app reads that file and never writes it. Its
+//! folder is offered on a first run and opened by `--space user`, and is
+//! otherwise left alone.
 
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
 use serde_json::Value;
+use specular_interact::SpaceAsk;
 
 const ELECTRON_APP_NAME: &str = "Specular";
 const ELECTRON_PREFERENCES: &str = "preferences.json";
@@ -30,9 +32,13 @@ const SCRATCH_SPACE: &str = "scratch-space";
 /// Which space the command line asked for.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub(crate) enum SpaceChoice {
-    /// None named: the scratch space.
+    /// `--space scratch`, and the winit shell with none named: the scratch
+    /// space.
     #[default]
     Scratch,
+    /// The GPUI Kit shell with none named: the folder chosen in this app,
+    /// and the first-run view when there is none.
+    Chosen,
     /// `--space user`: the space the Electron app opens, else the folder
     /// last chosen in this app.
     User,
@@ -101,47 +107,64 @@ pub(crate) fn electron_space(user_data: &Path) -> Option<PathBuf> {
     legacy.is_dir().then_some(legacy)
 }
 
+/// What a launch does about a space: open one, or ask the user.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum Startup {
+    /// Open this one.
+    Open(SpaceStart),
+    /// Open nothing and ask.
+    Ask(SpaceAsk),
+}
+
 /// The space a launch opens. A path is taken as given: a folder is the
 /// space, and a `.canvas` file is shown in the space its folder is. The
-/// user's space is the Electron app's, else the folder this app last
-/// chose; one that is not there is not opened, because an unmounted drive
-/// or a renamed folder is a question for the user, and making an empty
-/// space in its place would answer it for them. Anything else is the
-/// scratch space at `scratch`.
+/// scratch space is at `scratch`. The chosen space is the folder this app
+/// remembers, and `--space user` puts the Electron app's before it. Either
+/// way a folder that is not there is not opened, because an unmounted
+/// drive or a renamed folder is a question for the user, and making an
+/// empty space in its place would answer it for them. The Electron app's
+/// folder is offered in the question when it is there.
 pub(crate) fn startup(
     choice: &SpaceChoice,
     electron: Option<PathBuf>,
     remembered: Option<PathBuf>,
     scratch: PathBuf,
-) -> Option<SpaceStart> {
-    match choice {
-        SpaceChoice::Path(path) => Some(from_argument(path)),
-        SpaceChoice::Scratch => Some(SpaceStart {
-            folder: scratch,
-            file: None,
-            scratch: true,
-        }),
-        SpaceChoice::User => {
-            let Some(folder) = electron.or(remembered) else {
-                tracing::warn!(
-                    "--space user: no space is set; choose one with File > Open space\u{2026}"
-                );
-                return None;
-            };
-            if !folder.is_dir() {
-                tracing::warn!(
-                    folder = %folder.display(),
-                    "the space folder in settings is not there; choose one with File > Open space\u{2026}"
-                );
-                return None;
-            }
-            Some(SpaceStart {
-                folder,
+) -> Startup {
+    let offered = |electron: Option<PathBuf>| {
+        (electron.filter(|folder| folder.is_dir())).map(|folder| folder.display().to_string())
+    };
+    let folder = match choice {
+        SpaceChoice::Path(path) => return Startup::Open(from_argument(path)),
+        SpaceChoice::Scratch => {
+            return Startup::Open(SpaceStart {
+                folder: scratch,
                 file: None,
-                scratch: false,
-            })
+                scratch: true,
+            });
         }
+        SpaceChoice::User => electron.clone().or(remembered),
+        SpaceChoice::Chosen => remembered,
+    };
+    let Some(folder) = folder else {
+        tracing::info!("no space is chosen yet");
+        return Startup::Ask(SpaceAsk {
+            missing: None,
+            electron: offered(electron),
+        });
+    };
+    if !folder.is_dir() {
+        tracing::warn!(folder = %folder.display(), "the chosen space folder is not there");
+        let electron = offered(electron.filter(|electron| *electron != folder));
+        return Startup::Ask(SpaceAsk {
+            missing: Some(folder.display().to_string()),
+            electron,
+        });
     }
+    Startup::Open(SpaceStart {
+        folder,
+        file: None,
+        scratch: false,
+    })
 }
 
 fn from_argument(path: &Path) -> SpaceStart {

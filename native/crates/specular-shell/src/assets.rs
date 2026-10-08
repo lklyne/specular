@@ -20,7 +20,8 @@ icon_assets!(
         Image,
         Zap,
         ListEnd,
-        FolderCode
+        FolderCode,
+        Keyboard
     ]
 );
 
@@ -49,6 +50,8 @@ pub(crate) enum ShellIcon {
     ListEnd,
     /// A connected repo.
     FolderCode,
+    /// The shortcuts pane.
+    Keyboard,
 }
 
 impl IconNamed for ShellIcon {
@@ -65,6 +68,7 @@ impl IconNamed for ShellIcon {
             Self::Zap => IconName::Zap.path(),
             Self::ListEnd => IconName::ListEnd.path(),
             Self::FolderCode => IconName::FolderCode.path(),
+            Self::Keyboard => IconName::Keyboard.path(),
         }
     }
 }

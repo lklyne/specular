@@ -155,6 +155,9 @@ pub(crate) fn keeps_layout(app: &App, event: &Event) -> bool {
         | Event::ChatPanel(_)
         | Event::ThreadsLoaded { .. }
         | Event::ReposLoaded(_)
+        | Event::SettingsLoaded(_)
+        | Event::About(_)
+        | Event::SpaceNeeded(_)
         | Event::Agent { .. }
         | Event::Api(_) => false,
     }
