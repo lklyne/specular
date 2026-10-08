@@ -1,17 +1,17 @@
 //! [`Compositor::render_scene`]: one multisampled pass for a whole scene.
 
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use specular_core::PageId;
 use specular_doc::EntityId;
 use specular_scene::{Blend, Draw, Scene, Size};
 
-use super::batch::{Batch, batch};
+use super::batch::Batch;
 use super::build::{DrawOp, Op, Output, QuadTexture, build};
 use super::place::{PlaceCounts, Prim, Scissor, ViewTransform, place};
 use super::target::MultisampledTarget;
-use super::text::{TextDraw, TextItem, TextSystem};
-use super::{FrameView, ScenePass, SceneStats};
+use super::text::{TextBatch, TextCounts, TextDraw, TextItem, TextSystem};
+use super::{FrameView, MeshCacheCounts, ScenePass, SceneStats, StageTimes};
 use crate::Compositor;
 use crate::draw_list::DrawCounts;
 use crate::gpu_types::FrameUniforms;
@@ -25,6 +25,10 @@ struct Prepared {
     items: u32,
     batches: u32,
     text_batches: u32,
+    text: TextCounts,
+    triangles: u32,
+    meshes: MeshCacheCounts,
+    times: StageTimes,
 }
 
 impl Compositor {
@@ -73,6 +77,7 @@ impl Compositor {
         self.queue
             .write_buffer(&self.frame_uniforms, 0, bytemuck::bytes_of(&uniforms));
 
+        let encoding = Instant::now();
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
@@ -80,6 +85,8 @@ impl Compositor {
             });
         self.encode_scene_pass(&mut encoder, target, size);
         self.submit(encoder);
+        let mut times = prepared.times;
+        times.submit = encoding.elapsed();
         if let Some(text) = &mut self.scene_pass.text {
             text.end_frame();
         }
@@ -94,6 +101,12 @@ impl Compositor {
             text_runs_too_small: prepared.placed.text_too_small,
             batches: prepared.batches,
             text_batches: prepared.text_batches,
+            draw_calls: self.scene_pass.draws.len() as u32 + 1,
+            glyphs: prepared.text.glyphs,
+            text: prepared.text,
+            triangles: prepared.triangles,
+            meshes: prepared.meshes,
+            times,
         }
     }
 
@@ -120,8 +133,10 @@ impl Compositor {
         } = self;
         let ScenePass {
             placed,
+            batcher,
             draws,
             mesher,
+            meshes,
             mesh,
             mesh_vertices,
             mesh_indices,
@@ -131,22 +146,14 @@ impl Compositor {
             ..
         } = scene_pass;
 
-        let has_text = scene
-            .items
-            .iter()
-            .any(|item| matches!(item.draw, Draw::Text(_) | Draw::Column(_)));
-        if has_text && text.is_none() {
-            *text = Some(TextSystem::new(
-                device,
-                queue,
-                *target_format,
-                fonts.clone(),
-            ));
-        }
+        start_text(text, fonts, device, queue, *target_format, scene);
         if let Some(text) = text {
-            text.begin_frame(device, queue, view, zooming);
+            text.begin_frame(device, view, zooming);
         }
 
+        let mut times = StageTimes::default();
+        mesher.spent = Duration::ZERO;
+        let stage = Instant::now();
         let place_counts = place(
             scene,
             view,
@@ -156,7 +163,14 @@ impl Compositor {
             },
             placed,
         );
-        let batches = batch(placed, view);
+        times.shaping = text
+            .as_ref()
+            .map_or(Duration::ZERO, TextSystem::shaping_time);
+        times.cull = stage.elapsed().saturating_sub(times.shaping);
+        let stage = Instant::now();
+        let batches = batcher.batch(placed, view);
+        times.batching = stage.elapsed();
+        let stage = Instant::now();
         let page_counts = build(
             scene,
             placed,
@@ -171,35 +185,38 @@ impl Compositor {
                 quads: instances,
                 shapes: shape_instances,
                 mesher,
+                meshes,
                 mesh,
                 page_layers: draw_items,
                 draws,
             },
         );
 
-        let text_batches = batches.iter().filter_map(|batch| match batch.prim {
-            Prim::Text(space) => Some((space, batch)),
-            Prim::Page | Prim::Image | Prim::Shape | Prim::Mesh(_) => None,
+        times.tessellation = mesher.spent;
+        times.build = stage.elapsed().saturating_sub(times.tessellation);
+        let stage = Instant::now();
+        let text_batches = text_batches(scene, placed, &batches);
+        let text_counts = text.as_mut().map_or_else(TextCounts::default, |text| {
+            text.prepare(device, queue, view, &text_batches)
         });
-        let mut text_batch_count = 0;
-        if let Some(text) = text {
-            for (slot, (space, batch)) in text_batches.enumerate() {
-                let runs = text_draws(scene, placed, batch);
-                text.prepare(device, queue, view, slot, space, runs);
-                text_batch_count += 1;
-            }
-        }
-
+        times.glyphs = stage.elapsed();
+        let stage = Instant::now();
         instance_buffer.write(device, queue, instances);
         shape_buffer.write(device, queue, shape_instances);
         mesh_vertices.write(device, queue, &mesh.vertices);
         mesh_indices.write(device, queue, &mesh.indices);
+        times.upload = stage.elapsed();
+        let triangles = (instances.len() + shape_instances.len()) * 2 + mesh.indices.len() / 3;
         Prepared {
+            text: text_counts,
+            meshes: meshes.counts(),
+            triangles: triangles as u32,
+            times,
             pages: page_counts,
             placed: place_counts,
             items: placed.len() as u32,
             batches: batches.len() as u32,
-            text_batches: text_batch_count,
+            text_batches: text_batches.len() as u32,
         }
     }
 
@@ -297,7 +314,7 @@ impl Compositor {
                 Op::Text { slot, space } => {
                     if let Some(text) = text {
                         text.render(&mut pass, *slot, *space);
-                        // Held canvas text stretches the viewport.
+                        // Text is placed by moving the viewport.
                         pass.set_viewport(
                             0.0,
                             0.0,
@@ -311,6 +328,39 @@ impl Compositor {
             }
         }
     }
+}
+
+/// Builds the text system on the first frame that shows text.
+fn start_text(
+    text: &mut Option<TextSystem>,
+    fonts: &crate::fonts::Fonts,
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    target_format: wgpu::TextureFormat,
+    scene: &Scene,
+) {
+    let has_text =
+        (scene.items.iter()).any(|item| matches!(item.draw, Draw::Text(_) | Draw::Column(_)));
+    if text.is_none() && has_text {
+        *text = Some(TextSystem::new(device, queue, target_format, fonts.clone()));
+    }
+}
+
+/// The text batches of a frame, in the order their slots are numbered.
+fn text_batches<'a>(
+    scene: &'a Scene,
+    placed: &'a [super::place::Placed],
+    batches: &'a [Batch],
+) -> Vec<TextBatch<'a>> {
+    (batches.iter())
+        .filter_map(|batch| match batch.prim {
+            Prim::Text(space) => Some(TextBatch {
+                space,
+                draws: text_draws(scene, placed, batch).collect(),
+            }),
+            Prim::Page | Prim::Image | Prim::Shape | Prim::Mesh(_) => None,
+        })
+        .collect()
 }
 
 /// The runs and columns of a text batch, in paint order.
@@ -335,7 +385,7 @@ fn text_draws<'a>(
         };
         Some(TextDraw {
             text,
-            clip: placed.clip,
+            clip: item.clip,
             opacity: item.opacity,
         })
     })

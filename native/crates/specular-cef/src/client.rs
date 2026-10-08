@@ -12,15 +12,15 @@
 use std::os::raw::c_int;
 
 use cef::{
-    AcceleratedPaintInfo, App, Browser, BrowserSettings, CefString, Client, CommandLine,
-    DictionaryValue, DisplayHandler, Frame, ImplApp, ImplClient, ImplCommandLine,
-    ImplDisplayHandler, ImplFrame, ImplLifeSpanHandler, ImplLoadHandler, ImplRenderHandler,
-    ImplRequestHandler, LifeSpanHandler, LoadHandler, PaintElementType, PopupFeatures, Range, Rect,
-    RenderHandler, RequestHandler, ScreenInfo, TerminationStatus, WindowInfo,
-    WindowOpenDisposition, WrapApp, WrapClient, WrapDisplayHandler, WrapLifeSpanHandler,
-    WrapLoadHandler, WrapRenderHandler, WrapRequestHandler, wrap_app, wrap_client,
-    wrap_display_handler, wrap_life_span_handler, wrap_load_handler, wrap_render_handler,
-    wrap_request_handler,
+    AcceleratedPaintInfo, App, Browser, BrowserProcessHandler, BrowserSettings, CefString, Client,
+    CommandLine, DictionaryValue, DisplayHandler, Frame, ImplApp, ImplBrowserProcessHandler,
+    ImplClient, ImplCommandLine, ImplDisplayHandler, ImplFrame, ImplLifeSpanHandler,
+    ImplLoadHandler, ImplRenderHandler, ImplRequestHandler, LifeSpanHandler, LoadHandler,
+    PaintElementType, PopupFeatures, Range, Rect, RenderHandler, RequestHandler, ScreenInfo,
+    TerminationStatus, WindowInfo, WindowOpenDisposition, WrapApp, WrapBrowserProcessHandler,
+    WrapClient, WrapDisplayHandler, WrapLifeSpanHandler, WrapLoadHandler, WrapRenderHandler,
+    WrapRequestHandler, wrap_app, wrap_browser_process_handler, wrap_client, wrap_display_handler,
+    wrap_life_span_handler, wrap_load_handler, wrap_render_handler, wrap_request_handler,
 };
 // The `wrap_*!` expansions call `add_ref` from this trait unqualified.
 use cef::rc::Rc as _;
@@ -58,6 +58,24 @@ wrap_app! {
                     None => command_line.append_switch(Some(&name)),
                 }
             }
+        }
+
+        fn browser_process_handler(&self) -> Option<BrowserProcessHandler> {
+            Some(PumpScheduler::new())
+        }
+    }
+}
+
+wrap_browser_process_handler! {
+    struct PumpScheduler;
+
+    impl BrowserProcessHandler {
+        fn on_schedule_message_pump_work(&self, delay_ms: i64) {
+            #[cfg(target_os = "macos")]
+            crate::pump_timer::schedule(delay_ms);
+            // Elsewhere the host pumps every turn of its own loop.
+            #[cfg(not(target_os = "macos"))]
+            let _ = delay_ms;
         }
     }
 }

@@ -8,7 +8,7 @@ use specular_bench::{
     BenchLine, LoadedRun, MemorySample, PaintPolicy, PeakSampler, ProfileId, RunReport,
     STEP_INTERVAL, Shell, build_steps, compare_markdown,
     electron_trace::{DEFAULT_THREAD, PRESENT_EVENT, phases_from_trace, present_count_warning},
-    sample_process_tree,
+    sample_breakdown, sample_process_tree,
 };
 
 use crate::{
@@ -206,11 +206,15 @@ fn assemble_lines(text: &str) -> anyhow::Result<RunReport> {
     Ok(report)
 }
 
-/// `rss --pid N [--peak-ms D]`: tree RSS now, or the peak over `D`.
+/// `rss --pid N [--peak-ms D | --per-process]`: tree RSS now, the peak over
+/// `D`, or one row a process.
 pub(crate) fn rss(args: &Args) -> anyhow::Result<String> {
-    let pid = args
-        .parsed::<u32>("pid")?
-        .context("usage: specular-bench rss --pid <root pid> [--peak-ms <ms>]")?;
+    let pid = args.parsed::<u32>("pid")?.context(
+        "usage: specular-bench rss --pid <root pid> [--peak-ms <ms> | --per-process true]",
+    )?;
+    if args.parsed::<bool>("per-process")?.unwrap_or(false) {
+        return Ok(serde_json::to_string_pretty(&sample_breakdown(pid)?)?);
+    }
     let sample: MemorySample = match args.millis("peak-ms")? {
         Some(window) => {
             let sampler = PeakSampler::spawn(pid, Duration::from_millis(100));

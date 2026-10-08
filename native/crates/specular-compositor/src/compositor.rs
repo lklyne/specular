@@ -200,6 +200,18 @@ impl Compositor {
         self.imports.remove(&(page, LayerKind::Popup));
     }
 
+    /// Lets go of what pages that have stopped painting no longer need:
+    /// every imported surface but the one each shows, and the surfaces the
+    /// GPU has finished with. Rendering does the second on its own; call
+    /// this on a timer for when nothing is being rendered. Returns how many
+    /// imports were dropped.
+    pub fn release_idle(&mut self, now: Instant) -> usize {
+        self.reclaim();
+        (self.imports.values_mut())
+            .map(|cache| cache.settle(now))
+            .sum()
+    }
+
     /// Shared-surface imports served from the per-layer cache, and imports
     /// made, since startup. A steady page should almost never miss; a miss
     /// rate near 1 means the producer is not recycling its surfaces.
@@ -358,6 +370,7 @@ impl Compositor {
             format,
         };
         let cache = self.imports.entry((page, kind)).or_default();
+        cache.painted(produced_at);
         // A resize rebuilds the producer's pool: every older surface is gone.
         cache.retain(|cached| cached.size == size);
         let (device, pipelines) = (&self.device, &self.pipelines);

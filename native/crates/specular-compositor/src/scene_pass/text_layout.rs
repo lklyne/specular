@@ -49,7 +49,7 @@ pub(crate) fn same_shaping(a: &TextRun, b: &TextRun) -> bool {
 
 /// A hash of exactly the fields [`same_shaping`] compares.
 pub(crate) fn shaping_hash(run: &TextRun) -> u64 {
-    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    let mut hasher = rustc_hash::FxHasher::default();
     run.text.hash(&mut hasher);
     run.family.hash(&mut hasher);
     run.size.to_bits().hash(&mut hasher);

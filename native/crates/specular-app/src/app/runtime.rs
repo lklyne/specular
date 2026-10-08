@@ -11,13 +11,14 @@ use std::path::PathBuf;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use glam::Vec2;
-use specular_bench::PaintPolicy;
-use specular_compositor::{Compositor, FrameSample, SceneStats};
+use specular_bench::{FrameWork, PaintPolicy};
+use specular_compositor::{Compositor, SceneStats};
 use specular_core::{Camera, PageEvent, PageId, PageSource};
 use specular_doc::{Document, EntityId};
 use specular_interact::{Action, ApiOutcome, App, Cursor, Event, ImageKey};
 use specular_scene::Scene;
 
+use super::demand::FrameDemand;
 use super::{START_CAMERA, image_run, note_run};
 use crate::api::ApiHost;
 use crate::images::ImageLoader;
@@ -160,6 +161,12 @@ pub struct Runtime<W> {
     pub(crate) gpu: Option<W>,
     pub(crate) events: Vec<PageEvent>,
     pub(crate) latency: InputLatencyProbe,
+    /// Whether a frame is owed.
+    pub(crate) demand: FrameDemand,
+    /// When the per-turn chores last ran.
+    pub(crate) chores_at: Option<Instant>,
+    /// Where the last drawn frame's time went.
+    pub(crate) last_work: FrameWork,
     pub(crate) options: RuntimeOptions,
     pub(crate) error: Option<anyhow::Error>,
     /// Set once exit starts; the shell's loop ends when the source has
@@ -206,6 +213,9 @@ impl<W: ShellWindow> Runtime<W> {
             gpu: None,
             events: Vec::new(),
             latency: InputLatencyProbe::default(),
+            demand: FrameDemand::default(),
+            chores_at: None,
+            last_work: FrameWork::default(),
             options,
             error: None,
             closing: false,
@@ -307,58 +317,6 @@ impl<W: ShellWindow> Runtime<W> {
         self.closing = true;
     }
 
-    /// One loop turn of everything that is not drawing: the clock, the
-    /// files of the space, and what the worker threads finished.
-    pub fn turn(&mut self) {
-        self.dispatch(Event::Tick { unix_ms: unix_ms() });
-        self.sync_files();
-        self.take_loaded_image();
-        self.take_read_notes();
-        self.flush_drops();
-    }
-
-    /// Takes what the pages reported, then renders and presents one frame.
-    /// `None` when the window had no frame to give.
-    pub fn draw(&mut self) -> Option<FrameSample> {
-        let viewport = self.gpu.as_ref()?.logical_viewport();
-        if self.options.paint_policy == PaintPolicy::ElectronLod {
-            self.update_paint_lod(viewport, Instant::now());
-        }
-        self.source.pump();
-        let mut events = std::mem::take(&mut self.events);
-        self.source.drain_events(&mut events);
-        for event in events.drain(..) {
-            self.handle_page_event(event);
-        }
-        self.events = events;
-
-        let mut scene = if self.options.chrome {
-            specular_scene::view(&self.app, viewport)
-        } else {
-            specular_scene::view_without_chrome(&self.app, viewport)
-        };
-        specular_scene::draw_panels(&self.app, &mut scene);
-        let camera = self.app.session().camera;
-        // Text keeps its raster size while the zoom moves, and the first
-        // frame at a steady zoom sharpens it.
-        let zooming = (camera.zoom - self.drawn_zoom).abs() > f32::EPSILON;
-        self.drawn_zoom = camera.zoom;
-        let hosts = &self.hosts;
-        let page_of = |entity: &EntityId| hosts.get(entity).map(|host| host.page);
-        let stats = (self.gpu.as_mut()?).render(camera, zooming, &mut scene, &page_of)?;
-        let presented_at = Instant::now();
-        let sample = FrameSample {
-            presented_at,
-            stats: stats.render,
-            input_to_present: self.latency.presented(presented_at),
-        };
-        if let Some(latency) = sample.input_to_present {
-            tracing::debug!(?latency, "input to present");
-        }
-        self.report_note_heights();
-        Some(sample)
-    }
-
     /// Logs what the session measured: input latency, and how often a
     /// shared surface was imported again.
     fn report_session(&self) {
@@ -380,6 +338,12 @@ impl<W: ShellWindow> Runtime<W> {
                 Err(error) => tracing::warn!("cannot report input latency: {error}"),
             }
         }
+        let (drawn, skipped) = self.demand.counts();
+        tracing::info!(
+            drawn,
+            skipped,
+            "frames drawn, and turns with nothing to draw"
+        );
         if let Some(gpu) = self.gpu.as_ref() {
             let (hits, misses) = gpu.compositor().import_cache_hits_and_misses();
             if hits + misses > 0 {

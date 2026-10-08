@@ -254,3 +254,25 @@ fn a_bad_snapshot_camera_is_rejected() {
     assert!(parse_strs(&["--snapshot-camera", "near"]).is_err());
     assert!(parse_strs(&["--snapshot-scale", "0"]).is_err());
 }
+
+#[test]
+fn idle_is_a_profile_run_only_when_named() {
+    let all = run_args(&["--bench", "all"]).bench.unwrap();
+    assert!(all.iter().all(|profile| profile.id != ProfileId::Idle));
+    let named = run_args(&["--bench", "slow-pan,idle", "--bench-duration-ms", "500"]);
+    let ids: Vec<_> = named
+        .bench
+        .unwrap()
+        .iter()
+        .map(|p| (p.id, p.duration))
+        .collect();
+    let half = Duration::from_millis(500);
+    assert_eq!(ids, [(ProfileId::SlowPan, half), (ProfileId::Idle, half)]);
+}
+
+#[test]
+fn a_bench_target_needs_a_bench() {
+    assert!(run_args(&["--bench", "idle", "--bench-target", "headless"]).bench_headless);
+    assert!(parse_strs(&["--bench-target", "headless"]).is_err());
+    assert!(parse_strs(&["--bench", "idle", "--bench-target", "tv"]).is_err());
+}

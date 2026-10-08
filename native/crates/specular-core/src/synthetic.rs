@@ -361,6 +361,10 @@ impl PageSource for SyntheticPageSource {
         self.pump_at(Instant::now());
     }
 
+    fn paints_on_pump(&self) -> bool {
+        self.pages.values().any(|page| page.painting)
+    }
+
     fn drain_events(&mut self, out: &mut Vec<PageEvent>) {
         out.append(&mut self.pending);
     }

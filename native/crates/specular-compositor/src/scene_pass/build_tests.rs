@@ -35,6 +35,7 @@ fn built(zoom: f32, items: Vec<Item>, info: Option<PageLayersInfo>) -> Built {
             quads: &mut quads,
             shapes: &mut shapes,
             mesher: &mut Mesher::default(),
+            meshes: &mut MeshCache::default(),
             mesh: &mut Mesh::new(),
             page_layers: &mut page_layers,
             draws: &mut draws,

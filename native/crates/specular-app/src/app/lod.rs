@@ -14,6 +14,7 @@ impl<W: ShellWindow> Runtime<W> {
     /// The window moved to a display of another scale: every page is asked
     /// for frames at it.
     pub fn on_scale_factor_changed(&mut self, scale_factor: f64) {
+        self.demand.changed();
         for host in self.hosts.values() {
             let scale = scale_factor as f32 * host.lod.texture().factor();
             if let Err(error) = self.source.set_texture_scale(host.page, scale) {

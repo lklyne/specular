@@ -202,6 +202,13 @@ pub trait PageSource {
     /// `DoMessageLoopWork`). Call once per event-loop turn.
     fn pump(&mut self);
 
+    /// Whether a page is waiting on [`pump`](Self::pump) to paint its next
+    /// frame. A source whose pages paint on their own and queue what they
+    /// painted says `false`, and its host may then sleep between events.
+    fn paints_on_pump(&self) -> bool {
+        false
+    }
+
     /// Moves every pending event into `out` (appending; `out` is not cleared),
     /// so the caller can reuse one buffer across frames.
     fn drain_events(&mut self, out: &mut Vec<PageEvent>);

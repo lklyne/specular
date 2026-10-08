@@ -56,6 +56,23 @@ pub fn launch(args: impl IntoIterator<Item = OsString>) -> anyhow::Result<Option
     } else {
         scene::load_document(run.canvas.as_deref(), demo_pages, run.annotations)?
     };
+    if let Some(profiles) = run.bench.clone().filter(|_| run.bench_headless) {
+        let source = source_select::create_source(run.source, Host::Headless)?;
+        let args = headless::HeadlessArgs {
+            source: run.source,
+            ..run.headless.clone()
+        };
+        let plan = headless::BenchPlan {
+            profiles,
+            start: match args.camera {
+                headless::CameraArg::At(camera) => camera,
+                headless::CameraArg::Fit => headless::START_CAMERA,
+            },
+            chrome: run.chrome,
+        };
+        headless::run_bench(source, document, run.canvas.as_deref(), &args, &plan)?;
+        return Ok(None);
+    }
     if run.headless.is_requested() {
         let source = source_select::create_source(run.headless.source, Host::Headless)?;
         headless::run(source, document, run.canvas.as_deref(), &run.headless)?;

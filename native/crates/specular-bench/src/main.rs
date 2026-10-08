@@ -27,7 +27,7 @@ usage: specular-bench <command> [args]
   assemble        <bench.jsonl> [--fixture NAME] [--pages N] [--memory-* f]
                   Fold the Rust app's JSON lines (--bench profiles, and an
                   interactive session's inputLatency line) into a report.
-  rss             --pid N [--peak-ms N]
+  rss             --pid N [--peak-ms N | --per-process true]
                   Footprint (macOS) and RSS of a process and its descendants.
 ";
 

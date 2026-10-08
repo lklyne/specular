@@ -142,6 +142,18 @@ impl Default for PageLod {
 }
 
 impl PageLod {
+    /// The state of a page created showing at `display_scale`: at the
+    /// texture tier it is owed, so it never paints a full-size surface only
+    /// to shrink it once the camera has settled.
+    pub(crate) fn starting_at(display_scale: f32) -> Self {
+        let texture = texture_tier_for_display_scale(display_scale, TextureTier::Full);
+        Self {
+            texture,
+            wanted_texture: texture,
+            ..Self::default()
+        }
+    }
+
     /// The texture tier currently applied.
     pub(crate) fn texture(&self) -> TextureTier {
         self.texture
@@ -279,6 +291,18 @@ mod tests {
         let mut lod = PageLod::default();
         let change = lod.update(0.25, true, Instant::now());
         assert_eq!(change.frame_rate, Some(30));
+    }
+
+    #[test]
+    fn a_page_created_zoomed_out_starts_at_the_texture_it_is_owed() {
+        let start = Instant::now();
+        let mut lod = PageLod::starting_at(0.25);
+        assert_eq!(lod.texture(), TextureTier::Half);
+        // And is not asked to change it, at once or after the settle wait.
+        let first = lod.update(0.25, true, start);
+        let settled = lod.update(0.25, true, start + TEXTURE_SHRINK_SETTLE);
+        assert_eq!((first.texture, settled.texture), (None, None));
+        assert_eq!(PageLod::starting_at(1.0).texture(), TextureTier::Full);
     }
 
     #[test]

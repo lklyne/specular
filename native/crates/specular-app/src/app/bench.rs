@@ -33,6 +33,9 @@ impl Shell {
                 paint_policy: self.options.paint_policy,
                 chrome: self.options.chrome,
                 annotations: self.options.annotations,
+                canvas: (self.options.canvas.as_deref())
+                    .and_then(std::path::Path::file_name)
+                    .map(|name| name.to_string_lossy().into_owned()),
             },
             Instant::now(),
         ));
@@ -50,6 +53,8 @@ impl Shell {
             return Ok(true);
         }
         if camera != self.runtime.app.session().camera {
+            // A step of a gesture, as a wheel event is.
+            self.runtime.input();
             self.runtime
                 .dispatch(Event::Action(Action::SetCamera(camera)));
         }

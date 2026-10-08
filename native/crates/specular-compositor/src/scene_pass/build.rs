@@ -11,6 +11,7 @@ use specular_scene::{Blend, Draw, ImageId, Item, Rect, Scene, Space};
 
 use super::batch::Batch;
 use super::mesh::{Mesh, Mesher};
+use super::mesh_cache::MeshCache;
 use super::place::{Placed, Prim, Scissor, ViewTransform};
 use super::shapes::shape_instance;
 use crate::draw_list::{DrawCounts, DrawItem, LayerKind, PageLayersInfo, popup_quad};
@@ -32,7 +33,7 @@ pub(crate) enum Op {
     Shapes(Range<u32>),
     /// A range of the mesh index buffer, and how it meets the target.
     Mesh(Range<u32>, Blend),
-    /// The glyphs prepared into text renderer `slot`.
+    /// The glyphs of the `slot`th text batch of `space`.
     Text { slot: usize, space: Space },
 }
 
@@ -49,10 +50,24 @@ pub(crate) struct Output<'a> {
     pub(crate) quads: &'a mut Vec<QuadInstance>,
     pub(crate) shapes: &'a mut Vec<ShapeInstance>,
     pub(crate) mesher: &'a mut Mesher,
+    pub(crate) meshes: &'a mut MeshCache,
     pub(crate) mesh: &'a mut Mesh,
     /// The page layers drawn, for paint-to-submit latency.
     pub(crate) page_layers: &'a mut Vec<DrawItem>,
     pub(crate) draws: &'a mut Vec<DrawOp>,
+}
+
+impl Output<'_> {
+    /// Empties every list and starts the mesh cache's frame.
+    fn clear(&mut self) {
+        self.quads.clear();
+        self.shapes.clear();
+        self.mesh.vertices.clear();
+        self.mesh.indices.clear();
+        self.page_layers.clear();
+        self.draws.clear();
+        self.meshes.begin_frame();
+    }
 }
 
 /// Builds the draw calls for `batches`, in order.
@@ -69,14 +84,10 @@ pub(crate) fn build(
     has_image: impl Fn(ImageId) -> bool,
     out: &mut Output<'_>,
 ) -> DrawCounts {
-    out.quads.clear();
-    out.shapes.clear();
-    out.mesh.vertices.clear();
-    out.mesh.indices.clear();
-    out.page_layers.clear();
-    out.draws.clear();
+    out.clear();
     let mut counts = DrawCounts::default();
-    let mut text_slots = 0;
+    // Text batches are numbered within their space.
+    let (mut canvas_slots, mut screen_slots) = (0, 0);
     for batch in batches {
         let items = || {
             batch
@@ -152,7 +163,7 @@ pub(crate) fn build(
             Prim::Mesh(blend) => {
                 let start = out.mesh.indices.len() as u32;
                 for item in items() {
-                    out.mesher.add(out.mesh, item, view);
+                    out.meshes.add(out.mesher, out.mesh, item, view);
                 }
                 let end = out.mesh.indices.len() as u32;
                 if end > start {
@@ -160,11 +171,15 @@ pub(crate) fn build(
                 }
             }
             Prim::Text(space) => {
+                let slots = match space {
+                    Space::Canvas => &mut canvas_slots,
+                    Space::Screen => &mut screen_slots,
+                };
                 push(Op::Text {
-                    slot: text_slots,
+                    slot: *slots,
                     space,
                 });
-                text_slots += 1;
+                *slots += 1;
             }
         }
     }

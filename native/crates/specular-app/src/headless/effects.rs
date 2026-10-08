@@ -213,7 +213,7 @@ impl Headless {
     }
 
     /// Pumps the source and passes on what its pages reported.
-    fn take_page_events(&mut self) -> anyhow::Result<()> {
+    pub(super) fn take_page_events(&mut self) -> anyhow::Result<()> {
         let mut events = Vec::new();
         self.source.pump();
         self.source.drain_events(&mut events);

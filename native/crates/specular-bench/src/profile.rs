@@ -43,10 +43,12 @@ pub enum ProfileId {
     /// `zoom-out-then-pan`: a quick zoom-out, then a fast pan still running
     /// when a zoom settle would land.
     ZoomOutThenPan,
+    /// `idle`: nothing moves. Not one of Electron's, and not part of `all`.
+    Idle,
 }
 
 impl ProfileId {
-    /// Every id, in run order.
+    /// Electron's ids, in run order.
     pub const ALL: [Self; 6] = [
         Self::SlowPan,
         Self::SlowZoom,
@@ -65,6 +67,7 @@ impl ProfileId {
             Self::SlowPanZoom => "slow-pan-zoom",
             Self::FastPanZoom => "fast-pan-zoom",
             Self::ZoomOutThenPan => "zoom-out-then-pan",
+            Self::Idle => "idle",
         }
     }
 }
@@ -84,6 +87,7 @@ impl FromStr for ProfileId {
         match s {
             "fast-pan" => Ok(Self::FastDiagonalPan),
             "pan-zoom" => Ok(Self::SlowPanZoom),
+            "idle" => Ok(Self::Idle),
             _ => Self::ALL
                 .into_iter()
                 .find(|id| id.as_str() == s)
@@ -153,6 +157,16 @@ pub const PROFILES: [GestureProfile; 6] = [
     },
 ];
 
+/// A camera left alone. What a frame costs when nothing changes, which
+/// should be nothing: no frame drawn. Runs only when named.
+pub const IDLE: GestureProfile = GestureProfile {
+    id: ProfileId::Idle,
+    label: "Idle",
+    duration: Duration::from_millis(5_000),
+    pan: Vec2::ZERO,
+    zoom_delta_y: 0.0,
+};
+
 impl GestureProfile {
     /// The profile with its duration replaced, as `durationMs` does on
     /// `POST /perf/pan-zoom/run`. The totals are unchanged, so a shorter
@@ -185,12 +199,14 @@ impl GestureProfile {
 }
 
 /// The profiles a run executes, mirroring `runPanZoomPerfTest` options: an
-/// empty `ids` selects all six; selection keeps [`PROFILES`] order regardless
-/// of the order of `ids`; a non-zero `duration` overrides every profile's.
+/// empty `ids` selects Electron's six; selection keeps [`PROFILES`] order
+/// regardless of the order of `ids`, with [`IDLE`] last when it is named; a
+/// non-zero `duration` overrides every profile's.
 pub fn select_profiles(ids: &[ProfileId], duration: Option<Duration>) -> Vec<GestureProfile> {
     PROFILES
         .into_iter()
         .filter(|profile| ids.is_empty() || ids.contains(&profile.id))
+        .chain(ids.contains(&ProfileId::Idle).then_some(IDLE))
         .map(|profile| match duration {
             Some(duration) if !duration.is_zero() => profile.with_duration(duration),
             _ => profile,

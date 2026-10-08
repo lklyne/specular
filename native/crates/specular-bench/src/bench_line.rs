@@ -4,7 +4,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{LatencySummary, PaintPolicy, PhaseReport};
+use crate::{LatencySummary, PaintPolicy, PhaseReport, WorkReport};
 
 /// One line of `specular-app` output.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -52,6 +52,16 @@ pub struct ProfileLine {
     /// Annotations drawn every frame; zero in older lines.
     #[serde(default)]
     pub annotations: usize,
+    /// What the frames were drawn into: `window`, or `headless` for a
+    /// texture with no vsync. Older lines were all windows.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target: Option<String>,
+    /// The canvas the run showed, by file name.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub canvas: Option<String>,
+    /// Each frame's time step by step. Older lines have none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub work: Option<WorkReport>,
 }
 
 /// Forwarded input -> page repaint -> presented, over a whole session.
@@ -90,6 +100,9 @@ mod tests {
             paint_policy: PaintPolicy::ElectronLod,
             chrome: true,
             annotations: 3,
+            target: None,
+            canvas: None,
+            work: None,
         }
     }
 

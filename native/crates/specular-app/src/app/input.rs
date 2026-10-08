@@ -20,6 +20,16 @@ impl Shell {
             return;
         }
         let modifiers = translate::modifiers(self.modifiers);
+        if matches!(
+            event,
+            WindowEvent::CursorMoved { .. }
+                | WindowEvent::MouseInput { .. }
+                | WindowEvent::MouseWheel { .. }
+                | WindowEvent::PinchGesture { .. }
+                | WindowEvent::KeyboardInput { .. }
+        ) {
+            self.runtime.input();
+        }
         match event {
             WindowEvent::ModifiersChanged(modifiers) => self.modifiers = modifiers.state(),
             WindowEvent::CursorMoved { position, .. } => {

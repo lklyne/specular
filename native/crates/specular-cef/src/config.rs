@@ -99,6 +99,17 @@ pub fn windowless_frame_rate(fps: u32) -> i32 {
     fps.clamp(1, MAX_WINDOWLESS_FRAME_RATE) as i32
 }
 
+/// The longest the message pump goes without running when CEF has asked
+/// for nothing, in seconds. CEF's own external pump uses the same ceiling.
+pub const PUMP_FALLBACK_SECONDS: f64 = 1.0 / 30.0;
+
+/// Seconds until the message pump should next run, for the delay CEF gave
+/// `OnScheduleMessagePumpWork`: at once for zero or less, and never later
+/// than the fallback.
+pub fn pump_delay_seconds(delay_ms: i64) -> f64 {
+    (delay_ms.max(0) as f64 / 1_000.0).min(PUMP_FALLBACK_SECONDS)
+}
+
 /// Path of the CEF framework binary relative to the running executable
 /// inside a macOS app bundle.
 ///
@@ -156,6 +167,13 @@ mod tests {
             (has_allow(&with), has_allow(&CefConfig::default())),
             (true, false)
         );
+    }
+
+    #[test]
+    fn the_pump_runs_at_once_when_asked_and_at_thirty_hertz_when_not() {
+        assert_eq!([-5, 0].map(pump_delay_seconds), [0.0, 0.0]);
+        assert!((pump_delay_seconds(10) - 0.010).abs() < 1e-9);
+        assert!((pump_delay_seconds(5_000) - PUMP_FALLBACK_SECONDS).abs() < 1e-9);
     }
 
     #[test]

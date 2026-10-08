@@ -4,6 +4,8 @@
 //! camera, so the flattening tolerance and the hairline floor are in pixels
 //! and canvas and screen items share one vertex buffer.
 
+use std::time::{Duration, Instant};
+
 use glam::Vec2;
 use lyon::math::{Point as LyonPoint, point};
 use lyon::path::iterator::PathIterator as _;
@@ -33,6 +35,8 @@ pub(crate) type Mesh = VertexBuffers<MeshVertex, u32>;
 pub(crate) struct Mesher {
     fill: FillTessellator,
     stroke: StrokeTessellator,
+    /// Time spent in [`add`](Self::add) since the caller last zeroed it.
+    pub(crate) spent: Duration,
 }
 
 impl std::fmt::Debug for Mesher {
@@ -46,6 +50,7 @@ impl Default for Mesher {
         Self {
             fill: FillTessellator::new(),
             stroke: StrokeTessellator::new(),
+            spent: Duration::ZERO,
         }
     }
 }
@@ -54,6 +59,12 @@ impl Mesher {
     /// Appends the triangles of a polygon or path item to `mesh`: the fill,
     /// then the stroke over it. Any other draw adds nothing.
     pub(crate) fn add(&mut self, mesh: &mut Mesh, item: &Item, view: &ViewTransform) {
+        let started = Instant::now();
+        self.tessellate(mesh, item, view);
+        self.spent += started.elapsed();
+    }
+
+    fn tessellate(&mut self, mesh: &mut Mesh, item: &Item, view: &ViewTransform) {
         let project = |at: Point| {
             let at = view.point(item.space, at);
             point(at.x, at.y)

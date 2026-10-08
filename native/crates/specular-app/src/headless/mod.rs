@@ -9,6 +9,7 @@
 //! autosaves, assets and preferences are dropped, and the clipboard and the
 //! Documents a session makes are kept in memory.
 
+mod bench;
 mod effects;
 mod script;
 mod stand_ins;
@@ -25,6 +26,7 @@ use specular_doc::{Document, EntityId};
 use specular_interact::{Action, ControlId, Event, ImageKey};
 use specular_testkit::TestApp;
 
+pub(crate) use self::bench::{BenchPlan, START_CAMERA, run as run_bench, work_of};
 pub(crate) use self::script::CameraArg;
 use self::script::Step;
 use self::stand_ins::StandIns;
@@ -297,7 +299,7 @@ impl Headless {
 
     /// Tells the app how tall each Document's rows came out in the frame
     /// just drawn, as the shell does after every frame.
-    fn report_note_heights(&mut self) -> anyhow::Result<()> {
+    pub(super) fn report_note_heights(&mut self) -> anyhow::Result<()> {
         let changed: Vec<_> = (self.compositor.column_heights().iter())
             .filter(|(entity, height)| self.note_heights.get(entity) != Some(height))
             .cloned()

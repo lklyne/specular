@@ -36,7 +36,15 @@ usage: specular-app [OPTIONS] [FOLDER | FILE.canvas]
                       profile to stdout, then exit. PROFILE is `all` or a
                       comma-separated list of:
                       slow-pan, slow-zoom, fast-diagonal-pan, slow-pan-zoom,
-                      fast-pan-zoom, zoom-out-then-pan
+                      fast-pan-zoom, zoom-out-then-pan, idle
+  --bench-target T    window (default): frames presented in a window, at the
+                      display's refresh; headless: frames drawn into a
+                      texture with no window, each timed until the GPU is
+                      done, sized by --snapshot-size and --snapshot-scale.
+                      Either way a line's `work` is each step's time a frame
+  --bench-duration-ms N
+                      run every profile for N ms in place of its own length.
+                      `idle` is a seventh profile, run only when named
   --warmup-ms N       with --bench: let pages load and settle for N ms before
                       the first profile (default 2000)
   --window WxH        window size in logical pixels, e.g. 1600x1000 (default:
@@ -128,6 +136,8 @@ pub(crate) struct RunArgs {
     pub(crate) source: SourceKind,
     /// Profiles to run, in order; `None` for an interactive session.
     pub(crate) bench: Option<Vec<GestureProfile>>,
+    /// Whether a benchmark draws into a texture and not a window.
+    pub(crate) bench_headless: bool,
     /// Settle time before the first bench profile.
     pub(crate) warmup: Duration,
     /// How pages are throttled.
@@ -150,6 +160,7 @@ pub(crate) fn parse(args: impl IntoIterator<Item = OsString>) -> anyhow::Result<
         pages: None,
         source: SourceKind::default_for_build(),
         bench: None,
+        bench_headless: false,
         warmup: DEFAULT_WARMUP,
         paint_policy: PaintPolicy::ElectronLod,
         window: None,
@@ -158,6 +169,7 @@ pub(crate) fn parse(args: impl IntoIterator<Item = OsString>) -> anyhow::Result<
         headless: HeadlessArgs::default(),
     };
     let mut annotations_given = false;
+    let mut bench = BenchFlags::default();
     let mut args = args.into_iter();
     while let Some(arg) = args.next() {
         let Some(flag) = arg.to_str() else {
@@ -189,7 +201,6 @@ pub(crate) fn parse(args: impl IntoIterator<Item = OsString>) -> anyhow::Result<
                 Some(path) => set_canvas(&mut run, path)?,
                 None => bail!("--space needs a value: user, or a folder or .canvas file"),
             },
-            "--bench" => run.bench = Some(profiles_for(&value_of(flag, args.next())?)?),
             "--warmup-ms" => {
                 let value = value_of(flag, args.next())?;
                 let ms: u64 = value
@@ -215,25 +226,14 @@ pub(crate) fn parse(args: impl IntoIterator<Item = OsString>) -> anyhow::Result<
                 annotations_given = true;
             }
             "--window" => run.window = Some(window_size(&value_of(flag, args.next())?)?),
-            "--snapshot" => run.headless.snapshot = Some(path_of(flag, args.next())?),
-            "--script" => run.headless.script = Some(path_of(flag, args.next())?),
-            "--snapshot-size" => {
-                run.headless.size = window_size(&value_of(flag, args.next())?)?;
-            }
-            "--snapshot-scale" => {
-                let value = value_of(flag, args.next())?;
-                run.headless.scale = match value.parse::<f32>() {
-                    Ok(scale) if (0.25..=8.0).contains(&scale) => scale,
-                    _ => bail!("--snapshot-scale expects a number from 0.25 to 8, got `{value}`"),
-                };
-            }
-            "--snapshot-camera" => {
-                run.headless.camera = headless::camera_arg(&value_of(flag, args.next())?)?;
-            }
+            _ if snapshot_flag(flag, &mut args, &mut run.headless)? => {}
+            _ if bench.take(flag, &mut args)? => {}
             _ if flag.starts_with('-') => bail!("unknown option `{flag}`"),
             _ => set_canvas(&mut run, arg)?,
         }
     }
+    run.bench_headless = bench.headless;
+    run.bench = bench.profiles()?;
     if run.canvas.is_some() && run.user_space {
         bail!("--space user opens your own space and cannot be combined with a path");
     }
@@ -244,6 +244,84 @@ pub(crate) fn parse(args: impl IntoIterator<Item = OsString>) -> anyhow::Result<
         bail!("--annotations needs the chrome layer; drop --chrome off");
     }
     Ok(Command::Run(run))
+}
+
+/// Reads `flag`'s value into `headless` if it is one of the snapshot
+/// flags; `false` if it is not.
+fn snapshot_flag(
+    flag: &str,
+    args: &mut impl Iterator<Item = OsString>,
+    headless: &mut HeadlessArgs,
+) -> anyhow::Result<bool> {
+    match flag {
+        "--snapshot" => headless.snapshot = Some(path_of(flag, args.next())?),
+        "--script" => headless.script = Some(path_of(flag, args.next())?),
+        "--snapshot-size" => {
+            headless.size = window_size(&value_of(flag, args.next())?)?;
+        }
+        "--snapshot-scale" => {
+            let value = value_of(flag, args.next())?;
+            headless.scale = match value.parse::<f32>() {
+                Ok(scale) if (0.25..=8.0).contains(&scale) => scale,
+                _ => bail!("--snapshot-scale expects a number from 0.25 to 8, got `{value}`"),
+            };
+        }
+        "--snapshot-camera" => {
+            headless.camera = headless::camera_arg(&value_of(flag, args.next())?)?;
+        }
+        _ => return Ok(false),
+    }
+    Ok(true)
+}
+
+/// The benchmark's flags, which only mean something together.
+#[derive(Debug, Default)]
+struct BenchFlags {
+    selection: Option<String>,
+    duration: Option<Duration>,
+    headless: bool,
+}
+
+impl BenchFlags {
+    /// Reads `flag`'s value if it is one of these; `false` if it is not.
+    fn take(
+        &mut self,
+        flag: &str,
+        args: &mut impl Iterator<Item = OsString>,
+    ) -> anyhow::Result<bool> {
+        match flag {
+            "--bench" => self.selection = Some(value_of(flag, args.next())?),
+            "--bench-target" => {
+                self.headless = match value_of(flag, args.next())?.as_str() {
+                    "window" => false,
+                    "headless" => true,
+                    other => {
+                        bail!("unknown --bench-target `{other}` (expected window or headless)")
+                    }
+                };
+            }
+            "--bench-duration-ms" => {
+                let value = value_of(flag, args.next())?;
+                let ms: u64 = value.parse().with_context(|| {
+                    format!("--bench-duration-ms expects a number, got `{value}`")
+                })?;
+                self.duration = Some(Duration::from_millis(ms));
+            }
+            _ => return Ok(false),
+        }
+        Ok(true)
+    }
+
+    /// The profiles to run, or `None` when no benchmark was asked for.
+    fn profiles(&self) -> anyhow::Result<Option<Vec<GestureProfile>>> {
+        match &self.selection {
+            Some(selection) => Ok(Some(profiles_for(selection, self.duration)?)),
+            None if self.headless || self.duration.is_some() => {
+                bail!("--bench-target and --bench-duration-ms need --bench")
+            }
+            None => Ok(None),
+        }
+    }
 }
 
 fn set_canvas(run: &mut RunArgs, path: OsString) -> anyhow::Result<()> {
@@ -280,15 +358,18 @@ fn window_size(value: &str) -> anyhow::Result<(u32, u32)> {
 
 /// The profiles named by `selection`: `all`, or comma-separated Electron
 /// profile ids (run in Electron's order, as `/perf/pan-zoom/run` does).
-fn profiles_for(selection: &str) -> anyhow::Result<Vec<GestureProfile>> {
+fn profiles_for(
+    selection: &str,
+    duration: Option<Duration>,
+) -> anyhow::Result<Vec<GestureProfile>> {
     if selection == "all" {
-        return Ok(select_profiles(&[], None));
+        return Ok(select_profiles(&[], duration));
     }
     let ids = selection
         .split(',')
         .map(|id| id.trim().parse::<ProfileId>())
         .collect::<Result<Vec<_>, _>>()?;
-    Ok(select_profiles(&ids, None))
+    Ok(select_profiles(&ids, duration))
 }
 
 impl RunArgs {

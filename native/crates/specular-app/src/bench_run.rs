@@ -9,23 +9,40 @@ use std::time::{Duration, Instant};
 
 use glam::Vec2;
 use specular_bench::{
-    GestureProfile, GestureStep, PHASE_GAP, PaintPolicy, PhaseRecorder, PresentedFrame,
-    ProfileLine, build_steps,
+    FrameWork, GestureProfile, GestureStep, PHASE_GAP, PaintPolicy, PhaseRecorder, PresentedFrame,
+    ProfileId, ProfileLine, WorkRecorder, build_steps,
 };
 use specular_compositor::{FrameObserver, FrameSample};
 use specular_core::Camera;
 
+/// How long before the first profile frames are presented again.
+const LEAD_IN: Duration = Duration::from_millis(500);
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Phase {
-    Warmup { until: Instant },
-    Running { profile: usize, step: usize },
-    Gap { until: Instant, next: usize },
+    Warmup {
+        until: Instant,
+    },
+    Running {
+        profile: usize,
+        step: usize,
+    },
+    /// The idle profile: nothing is stepped, so the run only waits.
+    Idle {
+        profile: usize,
+        until: Instant,
+    },
+    Gap {
+        until: Instant,
+        next: usize,
+    },
     Done,
 }
 
 #[derive(Debug)]
 struct Recording {
     frames: PhaseRecorder,
+    work: WorkRecorder,
     max_paint_to_submit: Option<Duration>,
     max_shapes_drawn: u32,
 }
@@ -40,7 +57,7 @@ pub(crate) enum BenchTick {
 }
 
 /// The page source a run measures.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct RunSource {
     /// Backend name for the report (`cef`, `synthetic`).
     pub(crate) name: &'static str,
@@ -54,6 +71,8 @@ pub(crate) struct RunSource {
     pub(crate) chrome: bool,
     /// Annotations drawn every frame.
     pub(crate) annotations: usize,
+    /// The canvas shown, by file name.
+    pub(crate) canvas: Option<String>,
 }
 
 /// The benchmark state machine.
@@ -99,9 +118,13 @@ impl BenchRun {
     /// profile is running. `anchor` is the viewport centre.
     pub(crate) fn tick(&mut self, now: Instant, camera: &mut Camera, anchor: Vec2) -> BenchTick {
         match self.phase {
-            Phase::Warmup { until } | Phase::Gap { until, next: _ } if now < until => {}
-            Phase::Warmup { .. } => self.start(0, camera),
-            Phase::Gap { next, .. } => self.start(next, camera),
+            Phase::Warmup { until }
+            | Phase::Gap { until, next: _ }
+            | Phase::Idle { until, profile: _ }
+                if now < until => {}
+            Phase::Warmup { .. } => self.start(0, camera, now),
+            Phase::Gap { next, .. } => self.start(next, camera, now),
+            Phase::Idle { profile, .. } => self.finish(profile, now),
             Phase::Running { profile, step } => {
                 if let Some(next) = self.steps.get(step) {
                     camera.apply_input_delta(next.to_input(Some(anchor)));
@@ -122,12 +145,55 @@ impl BenchRun {
         }
     }
 
+    /// Records where a drawn frame's time went.
+    pub(crate) fn on_work(&mut self, work: FrameWork) {
+        if let Some(recording) = self.recording.as_mut() {
+            recording.work.drawn(work);
+        }
+    }
+
+    /// The interval a profile is stepped at.
+    pub(crate) fn step_interval(&self) -> Duration {
+        self.step_interval
+    }
+
+    /// Records a loop turn that drew nothing because nothing had changed.
+    pub(crate) fn on_skipped(&mut self) {
+        if let Some(recording) = self.recording.as_mut() {
+            recording.frames.rested();
+            recording.work.skipped();
+        }
+    }
+
     /// Completed profile reports, in run order.
     pub(crate) fn reports(&self) -> &[ProfileLine] {
         &self.reports
     }
 
-    fn start(&mut self, index: usize, camera: &mut Camera) {
+    /// When the run next has something to do with no frame presented:
+    /// the end of a wait, or `None` while a gesture is stepped a frame.
+    pub(crate) fn waits_until(&self) -> Option<Instant> {
+        match self.phase {
+            Phase::Warmup { until } | Phase::Gap { until, .. } | Phase::Idle { until, .. } => {
+                Some(until)
+            }
+            Phase::Running { .. } | Phase::Done => None,
+        }
+    }
+
+    /// Whether to keep presenting although nothing changes: through each
+    /// gap and the end of the warmup. A display that is shown no frames
+    /// lowers its refresh rate and takes several frames to raise it again,
+    /// which a profile would record as long frames of its own.
+    pub(crate) fn keeps_presenting(&self, now: Instant) -> bool {
+        match self.phase {
+            Phase::Gap { .. } => true,
+            Phase::Warmup { until } => now + LEAD_IN >= until,
+            Phase::Running { .. } | Phase::Idle { .. } | Phase::Done => false,
+        }
+    }
+
+    fn start(&mut self, index: usize, camera: &mut Camera, now: Instant) {
         let Some(profile) = self.profiles.get(index) else {
             self.phase = Phase::Done;
             return;
@@ -136,12 +202,20 @@ impl BenchRun {
         self.steps = build_steps(profile, self.step_interval);
         self.recording = Some(Recording {
             frames: PhaseRecorder::new(profile.id),
+            work: WorkRecorder::new(),
             max_paint_to_submit: None,
             max_shapes_drawn: 0,
         });
-        self.phase = Phase::Running {
-            profile: index,
-            step: 0,
+        self.phase = if profile.id == ProfileId::Idle {
+            Phase::Idle {
+                profile: index,
+                until: now + profile.duration,
+            }
+        } else {
+            Phase::Running {
+                profile: index,
+                step: 0,
+            }
         };
     }
 
@@ -149,6 +223,7 @@ impl BenchRun {
         if let (Some(profile), Some(recording)) = (self.profiles.get(index), self.recording.take())
         {
             let representative = self.source.representative && !recording.frames.saw_cpu_texture();
+            let work = recording.work.finish();
             let mut phase = recording.frames.finish(self.step_interval);
             phase.max_shapes_drawn = Some(u64::from(recording.max_shapes_drawn));
             self.reports.push(ProfileLine {
@@ -162,6 +237,9 @@ impl BenchRun {
                 paint_policy: self.source.paint_policy,
                 chrome: self.source.chrome,
                 annotations: self.source.annotations,
+                target: Some("window".to_owned()),
+                canvas: self.source.canvas.clone(),
+                work: Some(work),
             });
         }
         self.phase = Phase::Gap {
@@ -262,6 +340,7 @@ mod tests {
                 paint_policy: PaintPolicy::ElectronLod,
                 chrome: true,
                 annotations: 3,
+                canvas: None,
             },
             start,
         )
@@ -351,5 +430,47 @@ mod tests {
             (&json["phase"], &json["draws"]),
             (&"slow-pan".into(), &3.into())
         );
+    }
+
+    #[test]
+    fn the_idle_profile_waits_out_its_length_and_steps_nothing() {
+        let start = Instant::now();
+        let idle = specular_bench::IDLE.with_duration(Duration::from_millis(400));
+        let mut run = new_run(vec![idle], true, start);
+        let mut camera = Camera::default();
+        let begun = start + Duration::from_secs(2);
+        assert_eq!(
+            run.tick(begun, &mut camera, Vec2::ZERO),
+            BenchTick::Continue
+        );
+        // Nothing to do until the profile ends, however often it is asked.
+        assert_eq!(run.waits_until(), Some(begun + Duration::from_millis(400)));
+        run.on_skipped();
+        let end = begun + Duration::from_millis(400);
+        run.tick(end, &mut camera, Vec2::ZERO);
+        let work = run.reports()[0].work.unwrap();
+        assert_eq!((work.frames_drawn, work.frames_skipped), (0, 1));
+        assert_eq!(camera, Camera::default());
+    }
+
+    #[test]
+    fn frames_keep_coming_before_a_profile_and_between_profiles_but_not_in_idle() {
+        let start = Instant::now();
+        let idle = specular_bench::IDLE.with_duration(Duration::from_millis(400));
+        let mut run = new_run(vec![pan_profile(), idle], true, start);
+        let warmup = Duration::from_secs(2);
+        assert!(!run.keeps_presenting(start));
+        assert!(run.keeps_presenting(start + Duration::from_millis(1_500)));
+        let mut camera = Camera::default();
+        let mut now = start + warmup;
+        // Through the pan and into the gap after it.
+        while run.waits_until().is_none() || now == start + warmup {
+            run.tick(now, &mut camera, Vec2::ZERO);
+            now += STEP;
+        }
+        assert!(run.keeps_presenting(now));
+        // Into the idle profile, where presenting would defeat the point.
+        run.tick(now + specular_bench::PHASE_GAP, &mut camera, Vec2::ZERO);
+        assert!(!run.keeps_presenting(now + specular_bench::PHASE_GAP));
     }
 }

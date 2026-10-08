@@ -39,4 +39,7 @@ pub use error::{CompositorError, FrameImportError};
 pub use gpu::GpuContext;
 pub use instrumentation::{FrameObserver, FrameSample};
 pub use scene::{DotGrid, RenderStats};
-pub use scene_pass::{FrameView, GlyphMeasure, ImageMips, ImageSpec, SceneStats};
+pub use scene_pass::{
+    FrameView, GlyphMeasure, ImageMips, ImageSpec, MeshCacheCounts, SceneStats, StageTimes,
+    TextCounts,
+};

@@ -5,6 +5,7 @@ use std::time::Instant;
 
 use anyhow::Context as _;
 use glam::Vec2;
+use specular_bench::PaintPolicy;
 use specular_core::{InputEvent, PageSpec, PointerEvent, PointerEventKind};
 use specular_doc::{EntityId, Rect};
 use specular_interact::{Effect, Event, PageRegion, update};
@@ -17,12 +18,42 @@ impl<W: ShellWindow> Runtime<W> {
     /// Applies `event` to the app and runs its effects in order. A page that
     /// cannot be hosted ends the run.
     pub fn dispatch(&mut self, event: Event) {
-        for effect in update(&mut self.app, event) {
+        // Any event may change what a frame shows. The clock is the one
+        // sent with nothing to say, and it goes through `demand::tick`.
+        self.demand.changed();
+        // `RUST_LOG=specular_app::app::effects=trace` says why frames are
+        // being drawn on a canvas that should be idle.
+        if tracing::enabled!(tracing::Level::TRACE) {
+            let event = format!("{event:?}");
+            let name = event.split([' ', '(', '{']).next().unwrap_or_default();
+            tracing::trace!(event = name, "frame owed");
+        }
+        let effects = update(&mut self.app, event);
+        self.run_all(effects);
+    }
+
+    /// Runs `effects` in order. A page that cannot be hosted ends the run.
+    pub(crate) fn run_all(&mut self, effects: Vec<Effect>) {
+        for effect in effects {
             if let Err(error) = self.run(effect) {
                 self.fail(error);
                 return;
             }
         }
+    }
+
+    /// The paint LOD a page starts with: what it is owed where it now
+    /// shows, or full when pages are not graded at all.
+    fn starting_lod(&self, page: &EntityId) -> PageLod {
+        if self.options.paint_policy != PaintPolicy::ElectronLod {
+            return PageLod::default();
+        }
+        let camera = self.app.session().camera;
+        (self.app.pages())
+            .find(|(id, ..)| *id == page)
+            .map_or_else(PageLod::default, |(_, _, placement)| {
+                PageLod::starting_at(placement.display_scale(&camera))
+            })
     }
 
     fn run(&mut self, effect: Effect) -> anyhow::Result<()> {
@@ -32,13 +63,14 @@ impl<W: ShellWindow> Runtime<W> {
                 url,
                 viewport,
             } => {
+                let lod = self.starting_lod(&page);
                 let mut spec = PageSpec::new(&url, viewport);
-                spec.texture_scale = self.gpu.as_ref().map_or(1.0, W::scale_factor);
+                spec.texture_scale =
+                    self.gpu.as_ref().map_or(1.0, W::scale_factor) * lod.texture().factor();
                 let host = self
                     .source
                     .create_page(&spec)
                     .with_context(|| format!("creating page for {url}"))?;
-                let lod = PageLod::default();
                 self.hosts.insert(page, PageHost { page: host, lod });
             }
             Effect::ClosePage(page) => {

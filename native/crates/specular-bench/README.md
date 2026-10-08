@@ -29,7 +29,7 @@ never sees.)
 specular-bench plan            [--profiles a,b] [--duration-ms N] [--frame-ms N]
 specular-bench electron-trace  <trace.json> | --response run.json  [options]
 specular-bench assemble        <bench.jsonl> [options]
-specular-bench rss             --pid N [--peak-ms N]
+specular-bench rss             --pid N [--peak-ms N | --per-process true]
 specular-bench compare         <baseline.json> <candidate.json>
 ```
 

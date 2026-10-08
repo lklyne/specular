@@ -33,6 +33,7 @@ bytemuck = { version = "1.25", features = ["derive"] }
 # Canvas text and paths (ADR 0039). glyphon re-exports cosmic-text 0.19.
 glyphon = "0.12.0"
 lyon = "1.0.19"
+rustc-hash = "2.1"
 # The native menu bar.
 muda = "0.21.1"
 # The GPUI Kit shell (ADR 0040). Both are pinned exactly: the kit names its

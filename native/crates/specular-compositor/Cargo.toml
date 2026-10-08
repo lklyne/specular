@@ -16,6 +16,7 @@ bytemuck = { workspace = true }
 glam = { workspace = true }
 glyphon = { workspace = true }
 lyon = { workspace = true }
+rustc-hash = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 unicode-segmentation = { workspace = true }

@@ -11,7 +11,11 @@
 //! lives no other surface can take its ID and the key cannot alias.
 //! Entries go when they have been idle for [`IDLE_INGESTS`] ingests, when the
 //! cache is full ([`CAPACITY`], least recently used first), when the layer's
-//! frame size changes, and with the page.
+//! frame size changes, and with the page. A layer that has stopped painting
+//! counts no ingests, so after [`IDLE_TIME`] without one it keeps only the
+//! surface it last showed: a still page pins one surface, not a pool.
+
+use std::time::{Duration, Instant};
 
 /// Most surfaces remembered per layer; above Chromium's capture-pool depth,
 /// so a steady pool never misses.
@@ -20,6 +24,10 @@ pub(crate) const CAPACITY: usize = 8;
 /// Ingests an entry may go unused before it is dropped (about 2 s of
 /// 60 fps paints), so surfaces Chromium has retired stop pinning memory.
 pub(crate) const IDLE_INGESTS: u64 = 120;
+
+/// How long a layer may go without a paint before its cache lets go of
+/// every surface but the latest.
+pub(crate) const IDLE_TIME: Duration = Duration::from_secs(2);
 
 #[derive(Debug)]
 struct Entry<K, V> {
@@ -35,6 +43,8 @@ pub(crate) struct ImportCache<K, V> {
     clock: u64,
     hits: u64,
     misses: u64,
+    /// When the layer last painted.
+    painted_at: Option<Instant>,
 }
 
 impl<K, V> Default for ImportCache<K, V> {
@@ -44,6 +54,7 @@ impl<K, V> Default for ImportCache<K, V> {
             clock: 0,
             hits: 0,
             misses: 0,
+            painted_at: None,
         }
     }
 }
@@ -84,6 +95,25 @@ impl<K: PartialEq, V> ImportCache<K, V> {
             last_used: clock,
         });
         Ok(&self.entries[self.entries.len() - 1].value)
+    }
+
+    /// Notes that the layer painted at `now`.
+    pub(crate) fn painted(&mut self, now: Instant) {
+        self.painted_at = Some(now);
+    }
+
+    /// Drops every surface but the most recently used once the layer has
+    /// not painted for [`IDLE_TIME`]. Returns how many were dropped.
+    pub(crate) fn settle(&mut self, now: Instant) -> usize {
+        let idle =
+            (self.painted_at).is_some_and(|at| now.saturating_duration_since(at) >= IDLE_TIME);
+        if !idle || self.entries.len() <= 1 {
+            return 0;
+        }
+        let latest = self.entries.iter().map(|entry| entry.last_used).max();
+        let before = self.entries.len();
+        self.entries.retain(|entry| Some(entry.last_used) == latest);
+        before - self.entries.len()
     }
 
     /// Drops every entry whose key fails `keep` (e.g. a stale frame size).
@@ -174,5 +204,29 @@ mod tests {
         let _ = cache.get_or_import(2, ok(2));
         cache.retain(|key| *key == 2);
         assert_eq!(cache.len(), 1);
+    }
+
+    #[test]
+    fn a_layer_that_stops_painting_keeps_only_the_surface_it_shows() {
+        let mut cache = ImportCache::default();
+        let start = Instant::now();
+        for key in [1, 2, 3, 2] {
+            let _ = cache.get_or_import(key, ok(key));
+            cache.painted(start);
+        }
+        // Still painting, as far as the clock knows.
+        assert_eq!(cache.settle(start + IDLE_TIME / 2), 0);
+        assert_eq!(cache.len(), 3);
+        assert_eq!(cache.settle(start + IDLE_TIME), 2);
+        // The one it kept is the one it showed last: no import when it
+        // paints that surface again.
+        let _ = cache.get_or_import::<Infallible>(2, || unreachable!("surface 2 was kept"));
+        assert_eq!(cache.settle(start + IDLE_TIME * 3), 0);
+    }
+
+    #[test]
+    fn a_cache_that_never_painted_has_nothing_to_settle() {
+        let mut cache: ImportCache<u32, u32> = ImportCache::default();
+        assert_eq!(cache.settle(Instant::now()), 0);
     }
 }

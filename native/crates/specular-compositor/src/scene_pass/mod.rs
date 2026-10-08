@@ -15,6 +15,7 @@ mod dash;
 mod emoji;
 mod images;
 mod mesh;
+mod mesh_cache;
 mod mips;
 mod place;
 mod raster_hold;
@@ -23,9 +24,12 @@ mod shapes;
 mod target;
 mod text;
 mod text_areas;
+mod text_hold;
+mod text_key;
 mod text_layout;
 mod text_measure;
 mod text_shape;
+mod timing;
 
 use std::collections::HashMap;
 
@@ -33,14 +37,19 @@ use glam::Vec2;
 use specular_core::Camera;
 use specular_scene::ImageId;
 
+use self::batch::Batcher;
 use self::build::DrawOp;
 use self::images::ImageTexture;
 use self::mesh::{Mesh, Mesher};
+use self::mesh_cache::MeshCache;
+pub use self::mesh_cache::MeshCacheCounts;
 pub use self::mips::{ImageMips, ImageSpec};
 use self::place::Placed;
 use self::target::MultisampledTarget;
+pub use self::text::TextCounts;
 use self::text::TextSystem;
 pub use self::text_measure::GlyphMeasure;
+pub use self::timing::StageTimes;
 use crate::fonts::Fonts;
 use crate::gpu_types::MeshVertex;
 use crate::instance_buffer::InstanceBuffer;
@@ -81,14 +90,30 @@ pub struct SceneStats {
     pub batches: u32,
     /// How many of those batches were text, each with its own glyph buffer.
     pub text_batches: u32,
+    /// How many text batches were laid out, and how many were drawn from an
+    /// earlier frame's layout. When `settling` is set the frame is owed a
+    /// successor with the camera where it is.
+    pub text: TextCounts,
+    /// Draw calls encoded, the grid's included.
+    pub draw_calls: u32,
+    /// Glyphs laid out, before glyphon drops the ones outside their clip.
+    pub glyphs: u32,
+    /// Triangles sent: two a quad or shape instance, plus the meshes'.
+    pub triangles: u32,
+    /// Polygons and paths drawn from a held mesh, and tessellated.
+    pub meshes: MeshCacheCounts,
+    /// Where the frame's CPU time went.
+    pub times: StageTimes,
 }
 
 /// State the scene pass keeps between frames.
 #[derive(Debug)]
 pub(crate) struct ScenePass {
     placed: Vec<Placed>,
+    batcher: Batcher,
     draws: Vec<DrawOp>,
     mesher: Mesher,
+    meshes: MeshCache,
     mesh: Mesh,
     mesh_vertices: InstanceBuffer<MeshVertex>,
     mesh_indices: InstanceBuffer<u32>,
@@ -126,8 +151,10 @@ impl ScenePass {
     pub(crate) fn new(device: &wgpu::Device) -> Self {
         Self {
             placed: Vec::new(),
+            batcher: Batcher::default(),
             draws: Vec::new(),
             mesher: Mesher::default(),
+            meshes: MeshCache::default(),
             mesh: Mesh::new(),
             mesh_vertices: InstanceBuffer::new(device, "mesh-vertices"),
             mesh_indices: InstanceBuffer::with_usage(

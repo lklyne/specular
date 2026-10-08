@@ -1,17 +1,20 @@
 //! The winit application: one window, one compositor, one page source.
 //!
-//! Each loop turn: advance the bench (if any), pump the source, feed its
-//! events to the compositor, render, present, then report a
-//! [`FrameSample`].
+//! Each loop turn the runtime takes in what the pages, the clock and the
+//! loader threads have to say (`frames.rs`), and a frame is drawn only if
+//! that or an input event changed something a frame shows (`demand.rs`).
+//! With nothing owed the loop sleeps (`turn.rs`).
 
 mod api_run;
 mod asset_run;
 mod bench;
 mod clipboard_run;
+mod demand;
 mod drop_run;
 mod effects;
 #[cfg(target_os = "macos")]
 mod file_menu;
+mod frames;
 mod gpu_window;
 mod image_run;
 mod input;
@@ -24,12 +27,13 @@ mod runtime;
 mod settings;
 mod space_run;
 mod title;
+mod turn;
 
 use std::path::PathBuf;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use glam::Vec2;
-use specular_bench::{GestureProfile, PaintPolicy, STEP_INTERVAL};
+use specular_bench::{FrameWork, GestureProfile, PaintPolicy, STEP_INTERVAL};
 use specular_compositor::FrameObserver as _;
 use specular_core::{Camera, PageSource};
 use specular_doc::Document;
@@ -95,6 +99,13 @@ pub(crate) struct Shell {
     clicks: ClickCounter,
     options: RunOptions,
     bench: Option<BenchRun>,
+    /// When the benchmark last stepped, whether a frame has been presented
+    /// since, whether it is in a wait, and how long the step's `update`
+    /// took.
+    bench_stepped_at: Option<Instant>,
+    bench_presented: bool,
+    bench_waiting: bool,
+    bench_update: Duration,
 }
 
 impl Shell {
@@ -131,6 +142,10 @@ impl Shell {
             clicks: ClickCounter::default(),
             options,
             bench: None,
+            bench_stepped_at: None,
+            bench_presented: false,
+            bench_waiting: false,
+            bench_update: Duration::ZERO,
         }
     }
 
@@ -173,20 +188,19 @@ impl Shell {
         Ok(())
     }
 
-    fn redraw(&mut self) -> anyhow::Result<()> {
-        let Some(viewport) = self.runtime.gpu.as_ref().map(GpuWindow::logical_viewport) else {
-            return Ok(());
-        };
-        if self.tick_bench(viewport)? {
-            return Ok(());
-        }
+    /// Draws and presents one frame of the app as it stands.
+    fn redraw(&mut self) {
         let Some(sample) = self.runtime.draw() else {
-            return Ok(());
+            return;
         };
         if let Some(bench) = self.bench.as_mut() {
             bench.on_frame(&sample);
+            bench.on_work(FrameWork {
+                update_ms: std::mem::take(&mut self.bench_update).as_secs_f64() * 1_000.0,
+                ..self.runtime.last_work
+            });
         }
-        Ok(())
+        self.bench_presented = true;
     }
 }
 
@@ -201,7 +215,6 @@ impl ApplicationHandler<ShellEvent> for Shell {
         if self.runtime.gpu.is_some() {
             return;
         }
-        event_loop.set_control_flow(ControlFlow::Poll);
         if let Err(error) = self.init(event_loop) {
             self.runtime.fail(error);
         }
@@ -221,31 +234,23 @@ impl ApplicationHandler<ShellEvent> for Shell {
                 self.runtime.on_scale_factor_changed(scale_factor);
             }
             WindowEvent::DroppedFile(path) => self.runtime.drop_files([path], self.cursor),
-            WindowEvent::RedrawRequested => {
-                if let Err(error) = self.redraw() {
-                    self.runtime.fail(error);
-                }
-            }
+            // The system asks too, after uncovering the window.
+            WindowEvent::RedrawRequested => self.redraw(),
             other => self.on_input(other),
         }
     }
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
         if self.runtime.closing {
+            // Shutting the source down takes turns of the loop.
+            event_loop.set_control_flow(ControlFlow::Poll);
             if self.runtime.poll_shutdown() {
                 event_loop.exit();
             }
             return;
         }
-        self.runtime.turn();
-        #[cfg(target_os = "macos")]
-        self.run_menu();
-        // A benchmark window keeps the title it opened with.
-        if self.bench.is_none() {
-            self.runtime.refresh_title();
-        }
-        if let Some(gpu) = self.runtime.gpu.as_ref() {
-            gpu.window.request_redraw();
+        if let Err(error) = self.turn(event_loop) {
+            self.runtime.fail(error);
         }
     }
 }

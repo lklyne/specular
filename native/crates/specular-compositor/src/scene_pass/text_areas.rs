@@ -12,6 +12,7 @@ use specular_doc::EntityId;
 use specular_scene::{Color, ColumnDraw, Point, Rect, Size, TextRun};
 
 use super::column::{self, rule_rect};
+use super::text_hold::Laid;
 use super::text_layout::{same_shaping, shaping_hash, text_rect};
 use super::text_shape::Line;
 
@@ -26,7 +27,7 @@ pub(crate) enum TextItem<'a> {
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct TextDraw<'a> {
     pub(crate) text: TextItem<'a>,
-    /// The item's clip in logical pixels, if it has one.
+    /// The item's clip in its own space, if it has one.
     pub(crate) clip: Option<Rect>,
     pub(crate) opacity: f32,
 }
@@ -37,6 +38,8 @@ pub(super) struct Shaped {
     pub(super) buffer: Buffer,
     pub(super) size: Size,
     pub(super) lines: Vec<Line>,
+    /// Glyphs in the buffer's laid-out lines.
+    pub(super) glyphs: u32,
     pub(super) last_used: u64,
 }
 
@@ -58,30 +61,24 @@ pub(super) struct Areas<'a> {
     placed: Vec<Area<'a>>,
     lines: Vec<CustomGlyph>,
     hairline: f32,
-    whole: TextBounds,
-    to_layout: f32,
+    /// Where the batch is laid out: its space in layout pixels.
+    laid: &'a Laid,
     /// How tall each owned column's rows came out.
     heights: Vec<(EntityId, f32)>,
+    glyphs: u32,
 }
 
 impl<'a> Areas<'a> {
     /// `hairline` is the thinnest a line may be, in the item's units.
-    /// `whole` is the bounds of an unclipped item, and `to_layout` takes
-    /// logical pixels to the physical pixels glyphon lays out in.
-    pub(super) fn new(
-        shaped: &'a HashMap<u64, Shaped>,
-        hairline: f32,
-        whole: TextBounds,
-        to_layout: f32,
-    ) -> Self {
+    pub(super) fn new(shaped: &'a HashMap<u64, Shaped>, hairline: f32, laid: &'a Laid) -> Self {
         Self {
             shaped,
             placed: Vec::new(),
             lines: Vec::new(),
             hairline,
-            whole,
-            to_layout,
+            laid,
             heights: Vec::new(),
+            glyphs: 0,
         }
     }
 
@@ -91,17 +88,34 @@ impl<'a> Areas<'a> {
         (self.placed, self.lines, self.heights)
     }
 
+    /// Glyphs in the runs placed so far.
+    pub(super) fn glyphs(&self) -> u32 {
+        self.glyphs
+    }
+
     fn shaped(&self, run: &TextRun) -> Option<&'a Shaped> {
         (self.shaped.get(&shaping_hash(run))).filter(|shaped| same_shaping(&shaped.run, run))
     }
 
+    /// A clip in the item's space as glyphon bounds; the whole layout for
+    /// an item with none.
     fn bounds(&self, clip: Option<Rect>) -> TextBounds {
-        let edge = |logical: f32| (logical * self.to_layout).round() as i32;
-        clip.map_or(self.whole, |clip| TextBounds {
-            left: edge(clip.x),
-            top: edge(clip.y),
-            right: edge(clip.right()),
-            bottom: edge(clip.bottom()),
+        let [width, height] = self.laid.size();
+        let whole = TextBounds {
+            left: 0,
+            top: 0,
+            right: width as i32,
+            bottom: height as i32,
+        };
+        clip.map_or(whole, |clip| {
+            let min = self.laid.point(clip.x, clip.y).round();
+            let max = self.laid.point(clip.right(), clip.bottom()).round();
+            TextBounds {
+                left: min.x as i32,
+                top: min.y as i32,
+                right: max.x as i32,
+                bottom: max.y as i32,
+            }
         })
     }
 
@@ -125,6 +139,7 @@ impl<'a> Areas<'a> {
             return;
         };
         let rect = text_rect(run, shaped.size);
+        self.glyphs += shaped.glyphs;
         let start = self.lines.len();
         for line in &shaped.lines {
             self.line(line.rect, line.color.unwrap_or(run.color), draw.opacity);
@@ -139,13 +154,13 @@ impl<'a> Areas<'a> {
     }
 
     /// A column: one area for the rules of every row, then each cell. Rows
-    /// outside `visible`, a rect in the item's space, are left out.
-    pub(super) fn column(
-        &mut self,
-        column: &ColumnDraw,
-        visible: Option<Rect>,
-        draw: &TextDraw<'_>,
-    ) {
+    /// outside the item's clip or the layout are left out.
+    pub(super) fn column(&mut self, column: &ColumnDraw, draw: &TextDraw<'_>) {
+        let covered = self.laid.covers();
+        let visible = match draw.clip {
+            Some(clip) => clip.intersection(covered),
+            None => Some(covered),
+        };
         let layout = column::layout(column, |run| {
             self.shaped(run)
                 .map_or(Size::default(), |shaped| shaped.size)
@@ -160,7 +175,7 @@ impl<'a> Areas<'a> {
             let rect = layout.row_rect(column, at);
             // The gap above belongs to the row: a rule may reach into it.
             let reach = Rect::new(rect.x, rect.y - row.gap, rect.width, rect.height + row.gap);
-            if visible.is_some_and(|visible| !visible.intersects(reach)) {
+            if !visible.is_some_and(|visible| visible.intersects(reach)) {
                 continue;
             }
             for rule in &row.rules {

@@ -13,6 +13,13 @@ impl<W: ShellWindow> Runtime<W> {
     /// the event to the compositor for its frames.
     pub(super) fn handle_page_event(&mut self, event: PageEvent) {
         self.latency.observe(&event);
+        if matches!(
+            event,
+            PageEvent::Frame(_) | PageEvent::PopupVisibility { .. } | PageEvent::PopupRect { .. }
+        ) {
+            tracing::trace!("frame owed: a page painted");
+            self.demand.changed();
+        }
         match &event {
             PageEvent::Loaded { page, http_status } => {
                 tracing::info!(%page, http_status, "page loaded");

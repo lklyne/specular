@@ -56,18 +56,6 @@ impl ViewTransform {
     }
 
     /// The whole viewport in logical pixels.
-    /// A rect in logical pixels, back in `space`.
-    pub(crate) fn rect_to(&self, space: Space, rect: Rect) -> Rect {
-        match space {
-            Space::Canvas => {
-                let origin = (self.camera).screen_to_world(Vec2::new(rect.x, rect.y));
-                let zoom = self.camera.zoom;
-                Rect::new(origin.x, origin.y, rect.width / zoom, rect.height / zoom)
-            }
-            Space::Screen => rect,
-        }
-    }
-
     pub(crate) fn viewport_rect(&self) -> Rect {
         Rect::new(0.0, 0.0, self.viewport.x, self.viewport.y)
     }
@@ -93,7 +81,7 @@ impl ViewTransform {
 }
 
 /// A scissor rect in physical pixels, inside the target.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) struct Scissor {
     pub(crate) x: u32,
     pub(crate) y: u32,
@@ -102,7 +90,7 @@ pub(crate) struct Scissor {
 }
 
 /// Which pipeline draws an item.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) enum Prim {
     /// A page's textured quads.
     Page,

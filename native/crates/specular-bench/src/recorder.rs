@@ -78,6 +78,13 @@ impl PhaseRecorder {
             .max(u64::from(frame.max_outstanding_textures));
     }
 
+    /// Notes that the shell had nothing new to draw and presented nothing.
+    /// The time until the next frame is then a rest, not a late frame, and
+    /// is left out of the intervals.
+    pub fn rested(&mut self) {
+        self.last_present = None;
+    }
+
     /// True once any frame in the phase used a CPU upload, which makes the
     /// run non-representative.
     pub fn saw_cpu_texture(&self) -> bool {
@@ -181,5 +188,20 @@ mod tests {
     fn empty_phase_records_no_frames() {
         let report = PhaseRecorder::new(ProfileId::SlowPan).finish(BUDGET);
         assert_eq!(report.frames.frames, 0);
+    }
+
+    #[test]
+    fn a_turn_with_nothing_to_draw_is_not_a_long_frame() {
+        let mut recorder = PhaseRecorder::new(ProfileId::ZoomOutThenPan);
+        let start = Instant::now();
+        recorder.presented(start, PresentedFrame::default());
+        recorder.presented(start + BUDGET, PresentedFrame::default());
+        // The camera stops changing for a while: nothing is presented.
+        recorder.rested();
+        let resumed = start + Duration::from_millis(300);
+        recorder.presented(resumed, PresentedFrame::default());
+        recorder.presented(resumed + BUDGET, PresentedFrame::default());
+        let report = recorder.finish(BUDGET);
+        assert_eq!((report.frames.frames, report.frames.long_frames), (2, 0));
     }
 }
