@@ -309,6 +309,7 @@ pub(super) async fn step(
             canvas::dispatch(Event::Action(action));
         }
         Do::Resize(size) => window::resize(f64::from(size.x), f64::from(size.y)),
+        Do::MoveWindow(to) => window::move_to(f64::from(to.x), f64::from(to.y)),
         Do::FullScreen => window::toggle_full_screen(),
         Do::MenuDump(path) => write(&path, &menu::dump())?,
         Do::MenuChoose(item) => menu::choose(&item),

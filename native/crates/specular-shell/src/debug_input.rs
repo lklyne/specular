@@ -32,6 +32,7 @@
 //! | `pan DX DY MS` | a scroll by that much every refresh for that long, where the pointer is |
 //! | `drop PATH.. X Y`, `drop PATH.. nowhere` | files dropped at a point, or off the canvas |
 //! | `resize W H` | the window's content resized, its top-left corner kept |
+//! | `window-to X Y` | the window moved, its frame's corner to that screen point |
 //! | `full-screen` | into full screen, or back out |
 //! | `choose NAME` | the first-run choice of that control name, run as its button runs it: for a run with the screen locked, when nothing is drawn to click on |
 //! | `menu-dump PATH` | writes the menu bar as `AppKit` shows it |

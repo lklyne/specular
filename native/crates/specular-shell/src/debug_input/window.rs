@@ -73,6 +73,38 @@ pub(super) fn resize(width: f64, height: f64) {
     }
 }
 
+/// Moves the window so its frame's bottom-left corner is at `(x, y)` in
+/// screen points, which is how it gets to another display.
+pub(super) fn move_to(x: f64, y: f64) {
+    let Some(window) = window() else {
+        return;
+    };
+    // SAFETY: a documented call on a live window, on the main thread.
+    unsafe {
+        let _: () = msg_send![window, setFrameOrigin: NSPoint::new(x, y)];
+    }
+}
+
+/// Each display as a line of a state dump: its frame in screen points and
+/// its scale.
+fn screens(out: &mut String) {
+    // SAFETY: reading the screens `AppKit` lists, on the main thread.
+    unsafe {
+        let screens: Id = msg_send![class!(NSScreen), screens];
+        let count: usize = msg_send![screens, count];
+        for index in 0..count {
+            let screen: Id = msg_send![screens, objectAtIndex: index];
+            let frame: NSRect = msg_send![screen, frame];
+            let scale: f64 = msg_send![screen, backingScaleFactor];
+            let _ = writeln!(
+                out,
+                "screen {:.0} {:.0} {:.0} {:.0} scale {scale}",
+                frame.origin.x, frame.origin.y, frame.size.width, frame.size.height
+            );
+        }
+    }
+}
+
 /// Enters full screen, or leaves it.
 pub(super) fn toggle_full_screen() {
     let Some(window) = window() else {
@@ -173,6 +205,7 @@ pub(super) fn describe(out: &mut String) {
     let _ = writeln!(out, "window-full-screen {}", mask & FULL_SCREEN != 0);
     let _ = writeln!(out, "window-zoomed {zoomed}");
     let _ = writeln!(out, "window-scale {scale}");
+    screens(out);
     match candidate_rect() {
         Some(rect) => {
             let _ = writeln!(

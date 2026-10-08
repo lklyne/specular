@@ -77,6 +77,9 @@ pub(super) enum Do {
     Drop(Vec<PathBuf>, Option<Vec2>),
     /// The window's content resized to this many points.
     Resize(Vec2),
+    /// The window moved so its frame's corner is here, in the screen points
+    /// a state dump gives `window-frame` and each `screen` in.
+    MoveWindow(Vec2),
     /// Into full screen, or back out.
     FullScreen,
     MenuDump(PathBuf),
@@ -226,6 +229,7 @@ fn window_step(verb: &str, rest: &str, dialect: Dialect) -> Option<Result<Do, St
         "paste-image" => path().map(Do::PasteImage),
         "choose" => (!rest.is_empty()).then(|| Do::Choose(rest.to_owned())),
         "resize" => point(0).map(Do::Resize),
+        "window-to" => point(0).map(Do::MoveWindow),
         "full-screen" => Some(Do::FullScreen),
         "menu-dump" => path().map(Do::MenuDump),
         "menu-choose" => (!rest.is_empty()).then(|| Do::MenuChoose(rest.to_owned())),
@@ -365,6 +369,10 @@ mod tests {
             ),
             ("resize 1200 800", Do::Resize(Vec2::new(1200.0, 800.0))),
             ("pan -6 0 2000", Do::Pan(Vec2::new(-6.0, 0.0), 2000)),
+            (
+                "window-to -1700 200",
+                Do::MoveWindow(Vec2::new(-1700.0, 200.0)),
+            ),
             (
                 "menu-choose Edit > Undo",
                 Do::MenuChoose("Edit > Undo".to_owned()),
