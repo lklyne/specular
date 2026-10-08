@@ -91,7 +91,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         Event::ToolDefaultsLoaded(defaults) => app.tool_defaults = *defaults,
         Event::Action(action) => run_action(app, action, &mut effects),
         Event::BuiltinPanels(built_in) => builtin::turn(app, built_in),
-        Event::BuiltinCanvasPopups => app.session.panel = PanelUi::canvas_popups(),
+        Event::BuiltinCanvasPopups => app.session.panel = builtin::PanelUi::canvas_popups(),
         Event::Api(call) => api::run(app, call, &mut effects),
     }
     builtin::forget_layout_unless(app, keeps_layout);

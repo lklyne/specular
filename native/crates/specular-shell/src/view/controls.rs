@@ -25,9 +25,9 @@ use gpui_kit::{
     StatefulInteractiveElement as _, Styled as _, div, px,
 };
 use specular_interact::{
-    Action, Chord, Control, ControlId, Dropdown, DropdownOption, DropdownSection, Face, Key,
-    OptionLayout, PaintRole, Palette, PopupModel, Stepper, Swatch, Swatches, ToolbarModel,
-    ToolbarSection,
+    Action, Choices, Chord, Control, ControlId, Dropdown, DropdownOption, DropdownSection, Face,
+    Field, Key, OptionLayout, PaintRole, Palette, PopupModel, Stepper, Swatch, Swatches,
+    ToolbarModel, ToolbarSection,
 };
 
 use super::glyphs::{self, glyph, ink};
@@ -332,10 +332,15 @@ fn find_dropdown(id: &ControlId) -> Option<Dropdown> {
                     DropdownSection::Options { .. } => None,
                 })
             }
+            Control::Choices(choices) => choices.content.iter().find_map(|section| match section {
+                DropdownSection::Controls(controls) => among(controls, id),
+                DropdownSection::Options { .. } => None,
+            }),
             Control::Button(_)
             | Control::Toggle(_)
             | Control::Swatches(_)
             | Control::Stepper(_)
+            | Control::Field(_)
             | Control::Separator => None,
         })
     }
@@ -387,6 +392,40 @@ pub(super) fn dropdown(model: &Dropdown, toolbar: bool) -> AnyElement {
         .into_any_element()
 }
 
+/// A field's value as a line of text. Every field the models have sits in a
+/// popup beside a canvas item, which the canvas's own pass draws and edits,
+/// so nothing types into this one.
+fn field(model: &Field) -> AnyElement {
+    let text = match (&model.placeholder, model.value.is_empty()) {
+        (Some(placeholder), true) => placeholder.to_string(),
+        (Some(_), false) | (None, _) => model.value.clone(),
+    };
+    h_flex()
+        .gap_1()
+        .items_center()
+        .text_size(px(12.0))
+        .children(model.caption.as_ref().map(ToString::to_string))
+        .child(text)
+        .into_any_element()
+}
+
+/// A list shown in place: its sections one under another, as an open
+/// dropdown has them. A choice leaves the list where it is.
+fn choices(model: &Choices) -> AnyElement {
+    let stay: Dismiss = std::rc::Rc::new(|_, _| {});
+    let last = model.content.len().saturating_sub(1);
+    v_flex()
+        .gap_1()
+        .text_size(px(12.0))
+        .children(model.content.iter().enumerate().map(|(index, one)| {
+            v_flex()
+                .gap_1()
+                .child(section(one, &stay))
+                .when(index < last, |this| this.child(Separator::horizontal()))
+        }))
+        .into_any_element()
+}
+
 /// Any model control as a Kit component.
 pub(super) fn control(model: &Control) -> AnyElement {
     match model {
@@ -395,6 +434,8 @@ pub(super) fn control(model: &Control) -> AnyElement {
         Control::Swatches(model) => swatches(model),
         Control::Dropdown(model) => dropdown(model, false),
         Control::Stepper(model) => stepper(model),
+        Control::Field(model) => field(model),
+        Control::Choices(model) => choices(model),
         Control::Separator => div()
             .mx_1()
             .w(px(1.0))

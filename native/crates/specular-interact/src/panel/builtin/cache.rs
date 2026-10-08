@@ -151,6 +151,7 @@ pub(crate) fn keeps_layout(app: &App, event: &Event) -> bool {
         | Event::ToolDefaultsLoaded(_)
         | Event::Action(_)
         | Event::BuiltinPanels(_)
+        | Event::BuiltinCanvasPopups
         | Event::Api(_) => false,
     }
 }
