@@ -23,8 +23,13 @@ const CONFIG_DIR_VARIABLE: &str = "SPECULAR_NATIVE_CONFIG_DIR";
 /// Where the preferences file is, or `None` when the environment names no
 /// home to put it under.
 pub(crate) fn file() -> Option<PathBuf> {
-    let folder = config_dir(|name| std::env::var_os(name), cfg!(target_os = "macos"))?;
-    Some(folder.join(FILE_NAME))
+    Some(folder()?.join(FILE_NAME))
+}
+
+/// This app's own data folder, which holds the preferences file and the
+/// scratch space.
+pub(crate) fn folder() -> Option<PathBuf> {
+    config_dir(|name| std::env::var_os(name), cfg!(target_os = "macos"))
 }
 
 /// The app's config folder: the override, else Application Support on macOS,

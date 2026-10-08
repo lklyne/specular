@@ -15,7 +15,8 @@ impl Shell {
         }
         let unsaved = self.active_unsaved();
         let name = (self.files.as_ref()).map(|_| self.app.space().active().name.as_str());
-        let title = window_title(name, unsaved);
+        let scratch = self.scratch.is_some() && self.scratch == self.space;
+        let title = window_title(name, scratch, unsaved);
         if title == self.title {
             return;
         }
@@ -28,13 +29,15 @@ impl Shell {
     }
 }
 
-/// The active canvas's name, marked while it has unsaved changes.
-fn window_title(canvas: Option<&str>, unsaved: bool) -> String {
-    match (canvas, unsaved) {
-        (Some(name), true) => format!("{name} — Edited"),
-        (Some(name), false) => name.to_owned(),
-        (None, _) => APP_NAME.to_owned(),
-    }
+/// The active canvas's name, marked while it is in the scratch space and
+/// while it has unsaved changes.
+fn window_title(canvas: Option<&str>, scratch: bool, unsaved: bool) -> String {
+    let Some(name) = canvas else {
+        return APP_NAME.to_owned();
+    };
+    let space = if scratch { " (scratch space)" } else { "" };
+    let edited = if unsaved { " — Edited" } else { "" };
+    format!("{name}{space}{edited}")
 }
 
 #[cfg(test)]
@@ -43,17 +46,32 @@ mod tests {
 
     #[test]
     fn the_title_is_the_canvas_name() {
-        assert_eq!(window_title(Some("Home page"), false), "Home page");
+        assert_eq!(window_title(Some("Home page"), false, false), "Home page");
     }
 
     #[test]
     fn unsaved_changes_are_marked() {
-        assert_eq!(window_title(Some("Welcome"), true), "Welcome — Edited");
+        assert_eq!(
+            window_title(Some("Welcome"), false, true),
+            "Welcome — Edited"
+        );
+    }
+
+    #[test]
+    fn the_scratch_space_is_named_in_the_title() {
+        assert_eq!(
+            window_title(Some("Welcome"), true, false),
+            "Welcome (scratch space)"
+        );
+        assert_eq!(
+            window_title(Some("Welcome"), true, true),
+            "Welcome (scratch space) — Edited"
+        );
     }
 
     #[test]
     fn a_canvas_with_no_file_is_named_after_the_app() {
-        assert_eq!(window_title(None, false), "Specular");
-        assert_eq!(window_title(None, true), "Specular");
+        assert_eq!(window_title(None, false, false), "Specular");
+        assert_eq!(window_title(None, true, true), "Specular");
     }
 }

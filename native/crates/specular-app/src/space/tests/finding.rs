@@ -9,7 +9,9 @@ use specular_doc::Document;
 use specular_interact::CanvasId;
 
 use super::{TempDir, canvas};
-use crate::space::locate::{SpaceStart, electron_space, electron_user_data, startup};
+use crate::space::locate::{
+    SpaceChoice, SpaceStart, electron_space, electron_user_data, scratch_folder, startup,
+};
 use crate::space::{listing, starter};
 
 fn environment(
@@ -62,37 +64,71 @@ fn with_no_space_path_it_is_the_electron_apps_old_fixed_folder() {
 }
 
 #[test]
-fn a_path_on_the_command_line_wins_then_electrons_space_then_the_one_remembered() {
+fn a_launch_that_names_no_space_opens_the_scratch_space_and_never_the_users() {
+    let dir = TempDir::new("startup-scratch");
+    let (electron, remembered) = (dir.0.join("electron"), dir.0.join("remembered"));
+    std::fs::create_dir_all(&electron).unwrap();
+    std::fs::create_dir_all(&remembered).unwrap();
+    let scratch = scratch_folder(Some(&dir.0));
+    assert_eq!(scratch, dir.0.join("scratch-space"));
+    assert_eq!(
+        startup(
+            &SpaceChoice::Scratch,
+            Some(electron),
+            Some(remembered),
+            scratch.clone()
+        ),
+        Some(SpaceStart {
+            folder: scratch,
+            file: None,
+            scratch: true,
+        })
+    );
+}
+
+#[test]
+fn the_users_space_is_electrons_then_the_one_remembered_and_only_when_asked_for() {
     let dir = TempDir::new("startup");
     let (electron, remembered) = (dir.0.join("electron"), dir.0.join("remembered"));
     std::fs::create_dir_all(&electron).unwrap();
     std::fs::create_dir_all(&remembered).unwrap();
+    let scratch = || dir.0.join("scratch-space");
     let folder = |folder: &Path| SpaceStart {
         folder: folder.to_owned(),
         file: None,
+        scratch: false,
     };
     let both = || (Some(electron.clone()), Some(remembered.clone()));
 
     let (e, r) = both();
-    assert_eq!(startup(None, e, r), Some(folder(&electron)));
     assert_eq!(
-        startup(None, None, Some(remembered.clone())),
+        startup(&SpaceChoice::User, e, r, scratch()),
+        Some(folder(&electron))
+    );
+    assert_eq!(
+        startup(
+            &SpaceChoice::User,
+            None,
+            Some(remembered.clone()),
+            scratch()
+        ),
         Some(folder(&remembered))
     );
-    assert_eq!(startup(None, None, None), None);
+    assert_eq!(startup(&SpaceChoice::User, None, None, scratch()), None);
 
     let (e, r) = both();
     let file = dir.0.join("other/Home.canvas");
     assert_eq!(
-        startup(Some(&file), e, r),
+        startup(&SpaceChoice::Path(file), e, r, scratch()),
         Some(SpaceStart {
             folder: dir.0.join("other"),
             file: Some("Home.canvas".to_owned()),
+            scratch: false,
         })
     );
     let (e, r) = both();
     assert_eq!(
-        startup(Some(&dir.0.join("new space")), e, r),
+        startup(&SpaceChoice::Path(dir.0.join("new space")), e, r, scratch()),
         Some(folder(&dir.0.join("new space")))
     );
 }
@@ -101,7 +137,15 @@ fn a_path_on_the_command_line_wins_then_electrons_space_then_the_one_remembered(
 fn a_space_folder_from_settings_that_is_gone_is_not_opened_or_made() {
     let dir = TempDir::new("gone");
     let gone = dir.0.join("unmounted");
-    assert_eq!(startup(None, Some(gone.clone()), None), None);
+    assert_eq!(
+        startup(
+            &SpaceChoice::User,
+            Some(gone.clone()),
+            None,
+            dir.0.join("scratch-space")
+        ),
+        None
+    );
     assert!(!gone.exists());
 }
 

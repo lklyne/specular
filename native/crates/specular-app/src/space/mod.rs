@@ -16,7 +16,9 @@ use specular_doc::Document;
 use specular_interact::{OpenedCanvas, OpenedSpace};
 
 pub(crate) use self::files::SpaceFiles;
-pub(crate) use self::locate::{SpaceStart, electron_space, electron_user_data, startup};
+pub(crate) use self::locate::{
+    SpaceChoice, SpaceStart, electron_space, electron_user_data, scratch_folder, startup,
+};
 use crate::persist;
 
 /// Reads the space at `folder`: every canvas it holds, and which to show.

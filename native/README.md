@@ -64,10 +64,20 @@ cargo clippy --target aarch64-apple-darwin --workspace --all-targets \
 
 ```
 specular-app [--source synthetic|cef] [--pages N | FOLDER | FILE.canvas]
+             [--space user|PATH]
              [--bench all|id,id,... [--warmup-ms N]] [--window WxH]
              [--paint-policy electron-lod|full-rate]
              [--chrome on|off] [--annotations N]
 ```
+
+With no path and no `--space`, the app opens the **scratch space**: a copy
+of the starter space in its own data folder (`~/Library/Application
+Support/Specular Native/scratch-space` on macOS, or under
+`SPECULAR_NATIVE_CONFIG_DIR`). The startup log and the window title say so.
+Your real space opens, and is autosaved into, only when you ask for it:
+`--space user` is the space the Electron app has in Settings (else the
+folder last chosen with File > Open space…), and `--space PATH` or a bare
+`FOLDER` or `FILE.canvas` is that folder.
 
 `--snapshot OUT.png` and `--script FILE` draw into PNG files with no window
 (see `CLAUDE.md`, "Looking at what it draws"). They host synthetic pages

@@ -113,9 +113,17 @@ fn space_to_open(run: &cli::RunArgs) -> Option<space::SpaceStart> {
     if one_document {
         return None;
     }
-    let electron =
-        space::electron_user_data(|name| std::env::var_os(name), cfg!(target_os = "macos"))
-            .and_then(|user_data| space::electron_space(&user_data));
-    let remembered = prefs::file().and_then(|path| prefs::load_space_path(&path));
-    space::startup(run.canvas.as_deref(), electron, remembered)
+    let choice = run.space_choice();
+    // The user's own space is looked for only when it was asked for.
+    let (electron, remembered) = if choice == space::SpaceChoice::User {
+        (
+            space::electron_user_data(|name| std::env::var_os(name), cfg!(target_os = "macos"))
+                .and_then(|user_data| space::electron_space(&user_data)),
+            prefs::file().and_then(|path| prefs::load_space_path(&path)),
+        )
+    } else {
+        (None, None)
+    };
+    let scratch = space::scratch_folder(prefs::folder().as_deref());
+    space::startup(&choice, electron, remembered, scratch)
 }

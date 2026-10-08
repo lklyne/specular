@@ -8,6 +8,7 @@ use anyhow::{Context as _, bail};
 use specular_bench::{GestureProfile, PaintPolicy, ProfileId, select_profiles};
 
 use crate::headless::{self, HeadlessArgs};
+use crate::space::SpaceChoice;
 
 /// Usage text for `--help` and argument errors.
 pub(crate) const USAGE: &str = "\
@@ -18,11 +19,16 @@ usage: specular-app [OPTIONS] [FOLDER | FILE.canvas]
                       space
   FILE.canvas         open the folder the file is in as the space, showing
                       that file
-                      With neither, the space is the one the Electron app
-                      has open (`spacePath` in its preferences.json), else
-                      the folder last chosen with File > Open space…, else
-                      a demo grid. A --bench, --snapshot or --script run
-                      shows FILE alone and writes nothing
+                      With neither, and no --space, the scratch space opens:
+                      a copy of the starter space in this app's data folder,
+                      so nothing of yours is written to. A --bench,
+                      --snapshot or --script run shows FILE alone and writes
+                      nothing
+  --space user|PATH   user: open your real space and autosave into it. It is
+                      the one the Electron app has open (`spacePath` in its
+                      preferences.json), else the folder last chosen with
+                      File > Open space…. PATH: the same as a bare FOLDER or
+                      FILE.canvas
   --pages N           lay out N demo pages (default 9; not with FILE)
   --source KIND       page backend: synthetic | cef (default: cef when built
                       with the `cef` feature, else synthetic)
@@ -114,6 +120,8 @@ pub(crate) enum Command {
 pub(crate) struct RunArgs {
     /// `.canvas` file to load pages from.
     pub(crate) canvas: Option<PathBuf>,
+    /// Whether `--space user` asked for the user's own space.
+    pub(crate) user_space: bool,
     /// Demo page count when no file is given.
     pub(crate) pages: Option<usize>,
     /// Page backend.
@@ -138,6 +146,7 @@ pub(crate) struct RunArgs {
 pub(crate) fn parse(args: impl IntoIterator<Item = OsString>) -> anyhow::Result<Command> {
     let mut run = RunArgs {
         canvas: None,
+        user_space: false,
         pages: None,
         source: SourceKind::default_for_build(),
         bench: None,
@@ -175,6 +184,11 @@ pub(crate) fn parse(args: impl IntoIterator<Item = OsString>) -> anyhow::Result<
                 };
                 run.headless.source = run.source;
             }
+            "--space" => match args.next() {
+                Some(value) if value == "user" => run.user_space = true,
+                Some(path) => set_canvas(&mut run, path)?,
+                None => bail!("--space needs a value: user, or a folder or .canvas file"),
+            },
             "--bench" => run.bench = Some(profiles_for(&value_of(flag, args.next())?)?),
             "--warmup-ms" => {
                 let value = value_of(flag, args.next())?;
@@ -220,6 +234,9 @@ pub(crate) fn parse(args: impl IntoIterator<Item = OsString>) -> anyhow::Result<
             _ => set_canvas(&mut run, arg)?,
         }
     }
+    if run.canvas.is_some() && run.user_space {
+        bail!("--space user opens your own space and cannot be combined with a path");
+    }
     if run.canvas.is_some() && run.pages.is_some() {
         bail!("--pages lays out demo pages and cannot be combined with a .canvas file");
     }
@@ -231,7 +248,7 @@ pub(crate) fn parse(args: impl IntoIterator<Item = OsString>) -> anyhow::Result<
 
 fn set_canvas(run: &mut RunArgs, path: OsString) -> anyhow::Result<()> {
     if run.canvas.is_some() {
-        bail!("only one .canvas file may be given");
+        bail!("only one folder or .canvas file may be given");
     }
     run.canvas = Some(PathBuf::from(path));
     Ok(())
@@ -272,6 +289,17 @@ fn profiles_for(selection: &str) -> anyhow::Result<Vec<GestureProfile>> {
         .map(|id| id.trim().parse::<ProfileId>())
         .collect::<Result<Vec<_>, _>>()?;
     Ok(select_profiles(&ids, None))
+}
+
+impl RunArgs {
+    /// Which space the arguments ask for.
+    pub(crate) fn space_choice(&self) -> SpaceChoice {
+        match (&self.canvas, self.user_space) {
+            (Some(path), _) => SpaceChoice::Path(path.clone()),
+            (None, true) => SpaceChoice::User,
+            (None, false) => SpaceChoice::Scratch,
+        }
+    }
 }
 
 #[cfg(test)]

@@ -14,9 +14,35 @@ fn run_args(args: &[&str]) -> RunArgs {
 }
 
 #[test]
-fn no_arguments_runs_default_demo() {
+fn no_arguments_opens_the_scratch_space() {
     let run = run_args(&[]);
-    assert_eq!((run.canvas, run.pages, run.bench), (None, None, None));
+    assert_eq!((&run.canvas, run.pages, &run.bench), (&None, None, &None));
+    assert_eq!(run.space_choice(), SpaceChoice::Scratch);
+}
+
+#[test]
+fn the_users_space_opens_only_when_asked_for() {
+    assert_eq!(
+        run_args(&["--space", "user"]).space_choice(),
+        SpaceChoice::User
+    );
+    assert_eq!(
+        run_args(&["--source", "synthetic"]).space_choice(),
+        SpaceChoice::Scratch
+    );
+}
+
+#[test]
+fn a_space_path_is_the_same_as_a_bare_path() {
+    let named = run_args(&["--space", "some/folder"]).space_choice();
+    assert_eq!(named, SpaceChoice::Path(PathBuf::from("some/folder")));
+    assert_eq!(named, run_args(&["some/folder"]).space_choice());
+}
+
+#[test]
+fn the_users_space_and_a_path_are_refused_together() {
+    assert!(parse_strs(&["--space", "user", "a.canvas"]).is_err());
+    assert!(parse_strs(&["--space"]).is_err());
 }
 
 #[test]

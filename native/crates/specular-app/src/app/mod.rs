@@ -107,6 +107,9 @@ pub(crate) struct Shell {
     /// reloaded from. `None` for a demo grid, and for a run that must not
     /// write: a benchmark, or one with seeded annotations in the document.
     files: Option<SpaceFiles>,
+    /// The scratch space's folder, when this launch opened it. The title
+    /// says so while it is the open space.
+    scratch: Option<PathBuf>,
     app: App,
     /// The hosted page behind each page entity.
     hosts: HashMap<EntityId, PageHost>,
@@ -193,6 +196,7 @@ impl Shell {
             #[cfg(target_os = "macos")]
             menu: None,
             title: String::new(),
+            scratch: None,
             drawn_zoom: start_camera.zoom,
             gpu: None,
             events: Vec::new(),
@@ -250,7 +254,17 @@ impl Shell {
         self.dispatch(Event::Action(Action::SetCamera(self.start_camera)));
         self.load_tool_defaults();
         match (self.options.space.take(), self.document.take()) {
-            (Some(start), _) => self.open_space(&start.folder, start.file.as_deref())?,
+            (Some(start), _) => {
+                self.open_space(&start.folder, start.file.as_deref())?;
+                if start.scratch {
+                    tracing::info!(
+                        folder = %start.folder.display(),
+                        "this is the scratch space, a copy of the starter space; \
+                         pass --space user to open your own"
+                    );
+                    self.scratch = self.space.clone();
+                }
+            }
             (None, Some(document)) => self.dispatch(Event::DocumentOpened(Box::new(document))),
             (None, None) => {}
         }

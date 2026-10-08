@@ -227,6 +227,7 @@ with the task that made it.
 - P5: `menus` now starts with a Canvas menu that ends in the space's canvases, and `MenuItem::label` is a `Cow`. The shell rebuilds a menu whose labels or actions changed and only updates states otherwise.
 - P5: the menu's Rename canvas… opens the system save panel with the name filled in and takes what is typed. No system dialog asks for a line of text. It goes when the sidebar renames in place.
 - P4: the sidebar is `sidebar(&App) -> SidebarModel`, with no renderer yet (the built-in chrome renderer had not landed). A group with notes and pages has a row in each section, as CONTEXT.md says. An entity whose `parent` names nothing is listed at the top level. Electron hides it.
+- Scratch space: with no path the app opens a copy of the starter space in its own data folder. The user's space needs `--space user` or a path, because it is their real work and autosave writes into it. The folder remembered from File > Open space… counts as the user's space, so it also needs the flag.
 
 ## Needs a human at a Mac
 
@@ -255,11 +256,11 @@ What nobody has done by hand. The scenario scripts (`native/fixtures/scenarios`)
 12. From M1: the egui checks at the end of ADR 0039.
 13. The API. Quit the Electron app, run `cargo run -p specular-app -- FILE.canvas`, then `specular canvas`, `specular add note "hi"`, `specular add page https://example.com`, `specular focus <id>`: each shows in the window and Cmd+Z takes it back. `curl -X POST -H "x-specular-secret: $SECRET" localhost:29979/window/screenshot -d '{"path":"/tmp/shot.png"}'` writes what the window shows (the BGRA swap and the 2x size are unchecked). Start the Electron app first and the Rust app second: the log names the fallback port and file, and the CLI with that `SPECULAR_DISCOVERY_FILE` reaches the Rust app.
 14. Comments. Press C. Click the canvas, type, Enter: a blue pill with 1 appears and the tool stays armed. Drag a region, type, click away: a dashed rose rect. Click a pill: it gets a ring; Escape takes it off; Delete removes the comment and Cmd+Z brings it back. Select two items, Comment > Annotate selection. Comment > Resolve comment hides one. Type Japanese in the composer.
-15. Spaces. Quit the Electron app. `cargo run -p specular-app` with no path opens the space Electron has in Settings, on the canvas Electron last showed, and the window title is that canvas's name. Then, in this order:
+15. Spaces. Quit the Electron app. `cargo run -p specular-app` with no path opens the scratch space, titled `Welcome (scratch space)`. `cargo run -p specular-app -- --space user` opens the space Electron has in Settings, on the canvas Electron last showed, and the window title is that canvas's name. Then, in this order:
    1. Canvas menu: the canvases are listed with the active one checked. Choose another: its pages load, the first canvas's pages stop. Come back: the camera and selection are where you left them and Cmd+Z still undoes what you did there before the switch.
    2. Canvas > New canvas, draw something, Canvas > Duplicate canvas, File > Rename canvas… (the save panel: type a name, press Save), Canvas > Delete canvas. After each, look at the folder in Finder: the file is made, copied, renamed, and in the Trash. Put it back from the Trash and reopen the space.
    3. Edit a background canvas's file in a text editor, then switch to it: it shows the edit.
-   4. File > Open space…, pick an empty folder: the Welcome canvas and `Welcome.md` appear and the note's text shows. Quit and start with no path: with `spacePath` set in Electron, Electron's space opens, not this one.
+   4. File > Open space…, pick an empty folder: the Welcome canvas and `Welcome.md` appear and the note's text shows. Quit and start with `--space user`: with `spacePath` set in Electron, Electron's space opens, not this one.
    5. Start the Electron app on the same space after the Rust app made and renamed canvases: it lists the same canvases under the same names.
    6. `specular tab`, `specular tab new scratch`, `specular add note "hi" --tab scratch`, `specular canvas --tab scratch`, `specular tab switch scratch`, `specular tab delete scratch`: the note is there when you switch, and you were not moved before that.
 
@@ -589,5 +590,13 @@ Known gaps against Electron, not checks: the hand and mono fonts fall back to sy
 - Testkit: `TestApp::with_space([(name, document)])`, `space(..)`, `canvas_names`, `active_canvas`, `canvas_id`, `switch_to`.
 - For the sidebar renderer: draw `sidebar(app)` and send each row's `action`. Rename in place is `CanvasAction::Rename`. Nothing selects and zooms to a row's entity yet. A row sends `Action::Select`, so add the camera move there.
 - Not done: a `.canvas` file added to or removed from the folder by another tool is not seen until the space is opened again. The starter space is found in the repository's `resources/`, or in `Contents/Resources/starter-space` of a bundle, which `bundle-macos.sh` does not copy yet. Both apps open on one space will overwrite each other's index. Electron unlinks an unsuffixed canvas file after reading it, so after Electron has run, `Welcome.canvas` has its suffixed name.
-- Changed for others: with no path, the app now opens the user's real space and saves to it. Use `--pages N` for the demo grid. The default canvas of an app with no space is `tab_1`, `Canvas 1` (the API tests said `Canvas`).
+- Changed for others: with no path, the app opened the user's real space and saved to it. The scratch-space entry below reverses that. Use `--pages N` for the demo grid. The default canvas of an app with no space is `tab_1`, `Canvas 1` (the API tests said `Canvas`).
 - Nothing was run in a window. Gate: fmt, clippy, `cargo test --workspace` (1576). New tests: 18 on the space and 7 on the sidebar through the testkit, 8 on the tab routes, 14 in a temp folder on what each operation leaves on disk.
+
+### Scratch space by default. See `git log -- native/crates/specular-app/src/space/locate.rs`
+
+- With no path and no `--space`, `specular-app` opens the scratch space: `<app data>/scratch-space`, seeded from the starter space, kept between launches. The startup log names the folder and the title reads `Welcome (scratch space)`.
+- `--space user` opens the Electron app's space, else the folder remembered from File > Open space…. `--space PATH` is the same as a bare `FOLDER` or `FILE.canvas`. `--space user` with a path is refused.
+- Electron's `preferences.json` and this app's remembered folder are read only under `--space user`.
+- `SpaceChoice` and `SpaceStart::scratch` in `space/locate.rs`; `Shell::scratch` drives the title, and File > Open space… to another folder drops the mark.
+- Run once with no arguments against a throwaway `SPECULAR_NATIVE_CONFIG_DIR`: it seeded and opened `scratch-space` there. Gate on `specular-app`: fmt, clippy, 186 tests.
