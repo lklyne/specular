@@ -104,14 +104,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn stored_strings_round_trip() {
-        for stored in ["neutral", "1", "6", "#ff00aa", "7"] {
-            assert_eq!(Color::parse(stored).as_str(), stored);
-        }
-
-        {
-            assert_eq!(Color::parse("3"), Color::Preset(ColorPreset::Yellow));
-            assert_eq!(Color::parse("neutral"), Color::Neutral);
+    fn stored_strings_read_to_their_color_and_write_back_unchanged() {
+        let rows = [
+            ("neutral", Color::Neutral),
+            ("1", Color::Preset(ColorPreset::Red)),
+            ("3", Color::Preset(ColorPreset::Yellow)),
+            ("6", Color::Preset(ColorPreset::Purple)),
+            ("7", Color::Custom("7".to_owned())),
+            ("#ff00aa", Color::Custom("#ff00aa".to_owned())),
+        ];
+        for (stored, color) in rows {
+            assert_eq!(Color::parse(stored), color, "{stored}");
+            assert_eq!(color.as_str(), stored, "{stored}");
         }
     }
 }

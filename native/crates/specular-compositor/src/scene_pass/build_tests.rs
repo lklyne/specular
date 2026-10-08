@@ -99,10 +99,12 @@ fn a_popup_is_a_second_quad_over_its_page() {
 }
 
 #[test]
-fn draws_follow_batch_order_around_a_page() {
+fn draws_follow_batch_order_and_text_batches_are_numbered() {
     let items = vec![
         Item::canvas(rect(50.0, 50.0, 20.0, 20.0)),
         Item::canvas(page()),
+        Item::canvas(rect(60.0, 60.0, 20.0, 20.0)),
+        Item::canvas(text(60.0, 60.0, 14.0)),
         Item::canvas(rect(60.0, 60.0, 20.0, 20.0)),
         Item::canvas(text(60.0, 60.0, 14.0)),
     ];
@@ -120,10 +122,15 @@ fn draws_follow_batch_order_around_a_page() {
             Op::Text {
                 slot: 0,
                 space: Space::Canvas
+            },
+            Op::Shapes(2..3),
+            Op::Text {
+                slot: 1,
+                space: Space::Canvas
             }
         ]
     );
-    assert_eq!(built.shapes.len(), 2);
+    assert_eq!(built.shapes.len(), 3);
 }
 
 #[test]

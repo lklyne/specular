@@ -244,10 +244,12 @@ mod tests {
     #[test]
     fn a_label_box_is_inset_where_the_silhouette_is_narrow() {
         let rect = Rect::new(100.0, 200.0, 200.0, 100.0);
-        assert_eq!(
-            label_box(ShapeKind::Diamond, rect),
-            Rect::new(150.0, 225.0, 100.0, 50.0)
-        );
-        assert_eq!(label_box(ShapeKind::Hexagon, rect), rect);
+        let rows = [
+            (ShapeKind::Diamond, Rect::new(150.0, 225.0, 100.0, 50.0)),
+            (ShapeKind::Hexagon, rect),
+        ];
+        for (kind, want) in rows {
+            assert_eq!(label_box(kind, rect), want, "{kind:?}");
+        }
     }
 }

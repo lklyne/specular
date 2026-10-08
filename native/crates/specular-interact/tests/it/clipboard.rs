@@ -81,14 +81,17 @@ fn copy_writes_the_selection_and_leaves_the_document_alone() {
 #[test]
 fn pasted_copies_land_at_the_pointer_with_their_edge_and_are_selected() {
     let mut app = three_shapes();
-    app.select(&["a", "b"]).act(Action::Copy);
+    // Off the origin, so landing at the pointer is not the copy's own place.
+    app.select(&["a", "b"])
+        .act(Action::Nudge { dx: 40.0, dy: 20.0 })
+        .act(Action::Copy);
     let clipboard = copied(&mut app);
     app.pointer_move((505.0, 395.0));
     paste(&mut app, text(&clipboard));
     assert_doc_snapshot!(app, @r#"
     nodes:
-      {"id":"a","type":"shape","x":0,"y":0,"width":100,"height":100,"shapeKind":"rectangle","text":""}
-      {"id":"b","type":"shape","x":200,"y":0,"width":100,"height":100,"shapeKind":"rectangle","text":""}
+      {"id":"a","type":"shape","x":40,"y":20,"width":100,"height":100,"shapeKind":"rectangle","text":""}
+      {"id":"b","type":"shape","x":240,"y":20,"width":100,"height":100,"shapeKind":"rectangle","text":""}
       {"id":"c","type":"shape","x":0,"y":300,"width":100,"height":100,"shapeKind":"rectangle","text":""}
       {"id":"e220a8397b1dcdaf","type":"shape","x":500,"y":400,"width":100,"height":100,"shapeKind":"rectangle","text":""}
       {"id":"6e789e6aa1b965f4","type":"shape","x":700,"y":400,"width":100,"height":100,"shapeKind":"rectangle","text":""}

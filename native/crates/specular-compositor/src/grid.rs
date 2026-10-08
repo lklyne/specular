@@ -64,25 +64,21 @@ pub(crate) fn grid_metrics(camera: &Camera, grid: &DotGrid, scale_factor: f32) -
 mod tests {
     use super::*;
 
-    fn metrics_at_zoom(zoom: f32) -> GridMetrics {
-        grid_metrics(&Camera::new(Vec2::ZERO, zoom), &DotGrid::default(), 1.0)
-    }
-
     #[test]
-    fn spacing_doubles_until_at_least_minimum_when_zoomed_out() {
-        // 20 * 0.1 = 2px -> x4 = 8px.
-        assert!((metrics_at_zoom(0.1).spacing - 8.0).abs() < 1e-4);
-    }
-
-    #[test]
-    fn step_multiplier_caps_at_sixty_four() {
-        let grid = DotGrid {
+    fn spacing_doubles_until_at_least_minimum_and_caps_at_sixty_four_steps() {
+        let thin = DotGrid {
             spacing: 1.0,
             ..DotGrid::default()
         };
-        // 1 * 0.02 * 64 = 1.28px: still under the minimum, but capped.
-        let metrics = grid_metrics(&Camera::new(Vec2::ZERO, 0.02), &grid, 1.0);
-        assert!((metrics.spacing - 1.28).abs() < 1e-4);
+        for (name, grid, zoom, expected) in [
+            // 20 * 0.1 = 2px, doubled twice to 8px.
+            ("doubles", DotGrid::default(), 0.1, 8.0),
+            // 1 * 0.02 * 64 = 1.28px: still under the minimum, but capped.
+            ("capped", thin, 0.02, 1.28),
+        ] {
+            let metrics = grid_metrics(&Camera::new(Vec2::ZERO, zoom), &grid, 1.0);
+            assert!((metrics.spacing - expected).abs() < 1e-4, "{name}");
+        }
     }
 
     #[test]
@@ -93,12 +89,17 @@ mod tests {
     }
 
     #[test]
-    fn non_positive_spacing_disables_dots() {
-        let grid = DotGrid {
-            spacing: 0.0,
-            ..DotGrid::default()
-        };
-        let metrics = grid_metrics(&Camera::default(), &grid, 1.0);
-        assert!(metrics.spacing.abs() < f32::EPSILON);
+    fn a_spacing_that_is_not_positive_and_finite_disables_dots() {
+        for spacing in [0.0, -20.0, f32::NAN, f32::INFINITY] {
+            let grid = DotGrid {
+                spacing,
+                ..DotGrid::default()
+            };
+            let metrics = grid_metrics(&Camera::default(), &grid, 1.0);
+            assert!(
+                metrics.spacing.abs() < f32::EPSILON && metrics.alpha.abs() < f32::EPSILON,
+                "{spacing}"
+            );
+        }
     }
 }

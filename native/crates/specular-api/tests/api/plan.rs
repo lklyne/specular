@@ -94,55 +94,48 @@ fn the_canvas_is_read_as_a_json_canvas_document_with_the_one_tab() {
 fn a_bad_patch_is_answered_without_an_event() {
     let app = notes();
     let mut api = api();
-    let mut apply = |patch: Value| api.plan(app.app(), &Request::post("/canvas/apply", patch));
-    refused(apply(json!([])), 400, "patch: expected an object");
-    refused(
-        apply(json!({ "entities": {} })),
-        400,
-        "entities: expected an array",
-    );
-    refused(
-        apply(json!({ "entities": ["a"] })),
-        400,
-        "entities[0]: expected an object",
-    );
-    refused(
-        apply(
-            json!({ "entities": [{ "id": "a", "text": "x" }, { "id": "missing", "text": "x" }] }),
+    let rows = [
+        (json!([]), "patch: expected an object"),
+        (json!({ "entities": {} }), "entities: expected an array"),
+        (
+            json!({ "entities": ["a"] }),
+            "entities[0]: expected an object",
         ),
-        400,
-        "entities[1]: missing or unknown kind",
-    );
-    refused(
-        apply(json!({ "entities": [{ "kind": "shape", "fillStyle": "plaid" }] })),
-        400,
-        "entities[0].fillStyle: invalid value",
-    );
-    refused(
-        apply(json!({ "entities": [{ "kind": "file" }] })),
-        400,
-        "entities[0]: could not be read as a file",
-    );
-    refused(
-        apply(json!({ "entities": [{ "kind": "group", "entityIds": ["a", "nope"] }] })),
-        400,
-        "entities[0]: unknown entity 'nope'",
-    );
-    refused(
-        apply(json!({ "edges": [{ "fromEntityId": "a" }] })),
-        400,
-        "edges[0]: fromEntityId and toEntityId are required",
-    );
-    refused(
-        apply(json!({ "edges": [{ "fromEntityId": "a", "toEntityId": "ghost" }] })),
-        400,
-        "edges[0].toEntityId: unknown entity 'ghost'",
-    );
-    refused(
-        apply(json!({ "delete": [1] })),
-        400,
-        "delete: expected an array of ids",
-    );
+        (
+            json!({ "entities": [{ "id": "a", "text": "x" }, { "id": "missing", "text": "x" }] }),
+            "entities[1]: missing or unknown kind",
+        ),
+        (
+            json!({ "entities": [{ "kind": "shape", "fillStyle": "plaid" }] }),
+            "entities[0].fillStyle: invalid value",
+        ),
+        (
+            json!({ "entities": [{ "kind": "file" }] }),
+            "entities[0]: could not be read as a file",
+        ),
+        (
+            json!({ "entities": [{ "kind": "group", "entityIds": ["a", "nope"] }] }),
+            "entities[0]: unknown entity 'nope'",
+        ),
+        (
+            json!({ "edges": [{ "fromEntityId": "a" }] }),
+            "edges[0]: fromEntityId and toEntityId are required",
+        ),
+        (
+            json!({ "edges": [{ "fromEntityId": "a", "toEntityId": "ghost" }] }),
+            "edges[0].toEntityId: unknown entity 'ghost'",
+        ),
+        (json!({ "delete": [1] }), "delete: expected an array of ids"),
+    ];
+    for (patch, error) in rows {
+        let row = patch.to_string();
+        let response = answer(api.plan(app.app(), &Request::post("/canvas/apply", patch)));
+        assert_eq!(
+            (response.status, &response.body["error"]),
+            (400, &json!(error)),
+            "{row}"
+        );
+    }
 }
 
 #[test]
@@ -183,11 +176,41 @@ fn an_act_route_checks_what_it_is_given() {
     let mut api = api();
     let mut post = |path: &str, body: Value| api.plan(app.app(), &Request::post(path, body));
 
-    refused(
-        post("/stack-order/bring-forward", json!({})),
-        400,
-        "id or ids is required",
-    );
+    let rows = [
+        (
+            "/stack-order/bring-forward",
+            json!({}),
+            400,
+            "id or ids is required",
+        ),
+        ("/groups/ungroup", json!({}), 400, "groupId is required"),
+        (
+            "/groups/ungroup",
+            json!({ "groupId": "a" }),
+            404,
+            "Group not found",
+        ),
+        (
+            "/selection/select-page",
+            json!({}),
+            400,
+            "pageId is required",
+        ),
+        (
+            "/groups/create",
+            json!({ "label": "x" }),
+            400,
+            "entityIds is required",
+        ),
+    ];
+    for (path, body, status, error) in rows {
+        let response = answer(post(path, body.clone()));
+        assert_eq!(
+            (response.status, &response.body["error"]),
+            (status, &json!(error)),
+            "{path} {body}"
+        );
+    }
     let unknown = answer(post(
         "/stack-order/bring-forward",
         json!({ "ids": ["a", "x"] }),
@@ -196,26 +219,6 @@ fn an_act_route_checks_what_it_is_given() {
     assert_eq!(
         unknown.body,
         json!({ "error": "Unknown stack-order id", "unknownIds": ["x"] })
-    );
-    refused(
-        post("/groups/ungroup", json!({})),
-        400,
-        "groupId is required",
-    );
-    refused(
-        post("/groups/ungroup", json!({ "groupId": "a" })),
-        404,
-        "Group not found",
-    );
-    refused(
-        post("/selection/select-page", json!({})),
-        400,
-        "pageId is required",
-    );
-    refused(
-        post("/groups/create", json!({ "label": "x" })),
-        400,
-        "entityIds is required",
     );
     assert_eq!(
         answer(post("/camera/focus", json!({ "pageIds": ["x"] }))).body,

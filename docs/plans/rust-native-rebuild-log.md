@@ -874,6 +874,25 @@ One commit a task, in that order. Each part lists what moved or was renamed, for
 - Snapshots moved from `tests/snapshots/<file>__<test>.snap` to `tests/it/snapshots/it__<file>__<test>.snap`, with the `source:` line in each updated. `native/CLAUDE.md` points at `tests/it/gestures.rs`.
 - A branch that added a file under `tests/` moves it to `tests/it/` and adds the `mod` line; one that changed an existing file follows the rename.
 
+**Task 10, the second test pass, with a mutation check.** 1,194 tests to 1,159. Test code only; no file outside a test module or `tests/` changed. Five Sonnet subagents took a slice each in its own worktree. For each test they broke the rule it names in the production code, ran the test, and restored the file.
+
+| slice | tests | mutation-checked | got past a mutation and were strengthened |
+|---|---|---|---|
+| `specular-doc`, `specular-core` | 59 to 59 | all 59 | 6 |
+| `specular-interact` `src/` | 76 to 63 | all 63 | 2 |
+| `specular-api` | 63 to 60 | all 60 | 7 |
+| `specular-compositor` `src/` | 99 to 80 | all 80, and 9 readbacks | 14 |
+| `specular-interact` `tests/it/` | 466 to 466 | 124, two a file | 3 |
+
+- So 32 of the 386 tests checked would not have caught the break their name describes: a fixture that sat on the default (a group at y 0, a paste at the origin, `cols: 2` where 2 is the default), a count where the identity mattered, a rule a second guard also holds. Each now fails under its mutation. None of the 124 behavior tests was deleted.
+- Pasted blocks are tables now: an array of rows and one loop. `document/tests.rs` is one table of 15 commands and one of 10 refusals; `camera.rs`, `page.rs`, `resize.rs`, `edit/format_tests.rs`, `raster_hold.rs` and `api/plan.rs` likewise. `contract.rs` is 15 to 12.
+- Deleted where a named test fails under the same mutation: 13 interact unit tests the `tests/it/` files cover (`is_note_file`, `is_image_file`, `snap`, `snapped_to_45`, three of `arrange`'s four), and 8 compositor helper tests under a GPU readback of the same rule (the shader parse, gamma, opacity, column scroll, dash gaps).
+- Deleted with nothing covering them: `shape_instance_is_sixty_four_bytes` (the stride is `size_of`) and `failed_import_is_not_cached` (the `?` returns before the insert, so no one-line change breaks it).
+- Guarded twice, so one break alone passes and both together fail: delete while text is edited, a tab ref naming the active canvas, a group's members when it joins another group. Left as they are.
+- Not mutation-checked: the other 342 tests in `tests/it/`, `specular-scene`, `specular-app`, `specular-bench`, `specular-cef`, and the compositor's `tests/` apart from the 9 readbacks. The subagents' tables are their own word; two rows were re-run here and held (`css_to_pixels` under `floor`, `arrange` without `MIN_GAP`).
+
+- Gate, after rebasing tasks 9 and 10 onto the right panel's commits: fmt, clippy for the workspace and with `specular-app/cef`, `cargo test --workspace` (1,232 pass, with the right panel's tests), `fixtures/scenarios/run.sh` (every check ok). The scenarios also passed on tasks 13, 6, 5 and 9 before the rebase. The 1,194 and 1,159 above were counted before it.
+
 ### RIGHT-PANEL: the canvas agent chat. See `git log -- native/crates/specular-agent`
 
 - `specular-agent`, pure: `Threads` (per canvas; draft, open, closed; the queue; one pin to one thread), `Thread::to_json`/`from_json` in Electron's file shape, `Pill`, the two prompts, `parse_line` over the `claude` stream, `claude_args`.

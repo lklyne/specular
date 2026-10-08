@@ -128,23 +128,23 @@ mod tests {
     use super::*;
 
     #[test]
-    fn an_address_is_completed_and_a_blank_one_asks_for_nothing() {
-        assert_eq!(
-            FieldSubmit::PageUrl.action("example.com"),
-            Some(Action::PageNavigate("https://example.com/".to_owned()))
-        );
-        assert_eq!(FieldSubmit::PageUrl.action("  "), None);
-    }
-
-    #[test]
-    fn a_size_is_a_whole_number_in_range() {
-        let width = |text| FieldSubmit::ViewportWidth.action(text);
-        assert_eq!(
-            width(" 820.4 "),
-            Some(Action::SetProperty(Property::ViewportWidth(820.0)))
-        );
+    fn a_field_submits_an_action_only_for_text_that_means_something() {
+        let navigate = |url: &str| Some(Action::PageNavigate(url.to_owned()));
+        let width = |px| Some(Action::SetProperty(Property::ViewportWidth(px)));
+        let mut rows = vec![
+            (
+                FieldSubmit::PageUrl,
+                "example.com",
+                navigate("https://example.com/"),
+            ),
+            (FieldSubmit::PageUrl, "  ", None),
+            (FieldSubmit::ViewportWidth, " 820.4 ", width(820.0)),
+        ];
         for text in ["", "wide", "0", "-4", "10001", "NaN", "inf"] {
-            assert_eq!(width(text), None, "{text:?}");
+            rows.push((FieldSubmit::ViewportWidth, text, None));
+        }
+        for (submit, text, want) in rows {
+            assert_eq!(submit.action(text), want, "{submit:?} {text:?}");
         }
     }
 }

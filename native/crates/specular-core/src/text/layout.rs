@@ -193,23 +193,25 @@ mod tests {
             [0, 0, 1, 1, 2, 2]
         );
         assert_eq!(layout.x_of(3), 0.0);
-
-        {
-            let layout = self::layout();
-            assert_eq!(layout.line_end(1), 2);
-            assert_eq!(layout.line_end(3), 5, "a hard break ends at its last byte");
-            assert_eq!(layout.offset_at(0, 500.0), 2);
-            assert_eq!(layout.offset_at(1, 500.0), 5);
-        }
+        assert_eq!(layout.line_end(1), 2);
+        assert_eq!(layout.line_end(3), 5, "a hard break ends at its last byte");
+        assert_eq!(layout.offset_at(0, 500.0), 2);
+        assert_eq!(layout.offset_at(1, 500.0), 5);
     }
 
     #[test]
     fn a_point_lands_on_the_nearest_stop_of_the_line_under_it() {
         let layout = layout();
-        assert_eq!(layout.offset_at_point(14.0, 5.0), 1);
-        assert_eq!(layout.offset_at_point(16.0, 25.0), 5);
-        assert_eq!(layout.offset_at_point(0.0, -50.0), 0);
-        assert_eq!(layout.offset_at_point(90.0, 900.0), 7);
+        let rows = [
+            ("inside the first line", (14.0, 5.0), 1),
+            ("inside the second line", (16.0, 25.0), 5),
+            ("on the second line's top edge", (16.0, 20.0), 5),
+            ("above the text", (0.0, -50.0), 0),
+            ("below the text", (90.0, 900.0), 7),
+        ];
+        for (name, (x, y), offset) in rows {
+            assert_eq!(layout.offset_at_point(x, y), offset, "{name}");
+        }
     }
 
     #[test]

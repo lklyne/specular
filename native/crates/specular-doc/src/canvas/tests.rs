@@ -340,20 +340,23 @@ fn an_empty_document_writes_the_two_spec_arrays() {
     );
 }
 
+type ErrorCheck = fn(&CanvasError) -> bool;
+
 #[test]
 fn malformed_files_are_refused() {
-    assert!(matches!(
-        Document::from_canvas_str("{"),
-        Err(CanvasError::Parse(_))
-    ));
-    assert!(matches!(
-        Document::from_canvas_str("[]"),
-        Err(CanvasError::NotAnObject)
-    ));
-    assert!(matches!(
-        Document::from_canvas_str(r#"{"nodes": {}}"#),
-        Err(CanvasError::NotAnArray("nodes"))
-    ));
+    let rows: [(&str, &str, ErrorCheck); 3] = [
+        ("not json", "{", |e| matches!(e, CanvasError::Parse(_))),
+        ("not an object", "[]", |e| {
+            matches!(e, CanvasError::NotAnObject)
+        }),
+        ("nodes not an array", r#"{"nodes": {}}"#, |e| {
+            matches!(e, CanvasError::NotAnArray("nodes"))
+        }),
+    ];
+    for (name, text, is_expected) in rows {
+        let error = Document::from_canvas_str(text).unwrap_err();
+        assert!(is_expected(&error), "{name}: {error:?}");
+    }
 }
 
 #[test]

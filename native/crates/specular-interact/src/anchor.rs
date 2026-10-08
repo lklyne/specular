@@ -198,33 +198,40 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_missing_side_is_a_match() {
-        assert!(matches_page_url(None, Some("https://example.com/a")));
-        assert!(matches_page_url(Some("https://example.com/a"), Some("")));
-        assert!(matches_page_url(Some("https://example.com/a"), None));
-        assert!(matches_page_url(Some("  "), Some("https://example.com/a")));
-        assert!(matches_page_url(None, None));
-
-        {
-            assert!(matches_page_url(
+    fn urls_match_unless_both_are_set_and_differ_before_the_fragment() {
+        let rows = [
+            (None, Some("https://example.com/a"), true),
+            (Some("https://example.com/a"), Some(""), true),
+            (Some("https://example.com/a"), None, true),
+            (Some("  "), Some("https://example.com/a"), true),
+            (None, None, true),
+            (
                 Some("https://example.com/a#x"),
-                Some("https://example.com/a#y")
-            ));
-            assert!(matches_page_url(
+                Some("https://example.com/a#y"),
+                true,
+            ),
+            (
                 Some("https://example.com/a"),
-                Some(" https://example.com/a#top ")
-            ));
-        }
-
-        {
-            assert!(!matches_page_url(
+                Some(" https://example.com/a#top "),
+                true,
+            ),
+            (
                 Some("https://example.com/a?tab=1"),
-                Some("https://example.com/a?tab=2")
-            ));
-            assert!(!matches_page_url(
+                Some("https://example.com/a?tab=2"),
+                false,
+            ),
+            (
                 Some("https://example.com/a"),
-                Some("https://example.com/b")
-            ));
+                Some("https://example.com/b"),
+                false,
+            ),
+        ];
+        for (recorded, shown, want) in rows {
+            assert_eq!(
+                matches_page_url(recorded, shown),
+                want,
+                "{recorded:?} vs {shown:?}"
+            );
         }
     }
 }

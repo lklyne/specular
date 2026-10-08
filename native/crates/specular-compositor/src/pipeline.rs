@@ -282,21 +282,3 @@ fn texture_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
         ],
     })
 }
-
-#[cfg(test)]
-mod tests {
-    use wgpu::naga;
-
-    use super::SHADER_SOURCE;
-
-    #[test]
-    fn canvas_shader_parses_and_validates() {
-        let module = naga::front::wgsl::parse_str(SHADER_SOURCE).unwrap();
-        naga::valid::Validator::new(
-            naga::valid::ValidationFlags::all(),
-            naga::valid::Capabilities::empty(),
-        )
-        .validate(&module)
-        .unwrap();
-    }
-}

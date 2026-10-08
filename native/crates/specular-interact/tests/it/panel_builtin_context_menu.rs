@@ -68,11 +68,18 @@ fn the_menu_is_kept_inside_the_viewport() {
 fn choosing_an_item_runs_it_closes_the_menu_and_is_one_undo_step() {
     let mut app = opened([shape("a", A), shape("b", B)]);
     app.right_click((150.0, 350.0));
-    app.click_control("menu.duplicate");
+    // Bringing to front leaves the selection alone, so only choosing the
+    // item can close the menu.
+    app.click_control("menu.bring-to-front");
     assert!(!app.menu_open());
-    assert_eq!(app.document().entities().count(), 3);
+    let order = |app: &TestApp| -> Vec<String> {
+        (app.document().order().iter())
+            .map(|item| item.as_str().to_owned())
+            .collect()
+    };
+    assert_eq!(order(&app), ["b", "a"]);
     app.undo();
-    assert_eq!(app.document().entities().count(), 2);
+    assert_eq!(order(&app), ["a", "b"]);
     app.redo();
     app.assert_undo_returns_to_start();
 }

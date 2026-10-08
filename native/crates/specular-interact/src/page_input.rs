@@ -103,28 +103,29 @@ mod tests {
     }
 
     #[test]
-    fn letter_press_sends_raw_down_then_char() {
-        let input = key(true, Some("a"), Modifiers::default());
-        assert_eq!(kinds(&input), [KeyEventKind::RawDown, KeyEventKind::Char]);
-
-        {
-            let meta = Modifiers {
-                meta: true,
-                ..Modifiers::default()
-            };
-            assert_eq!(kinds(&key(true, Some("a"), meta)), [KeyEventKind::RawDown]);
-        }
-
-        {
-            assert_eq!(
-                kinds(&key(false, None, Modifiers::default())),
-                [KeyEventKind::Up]
-            );
+    fn a_letter_press_sends_raw_down_then_char_and_a_command_chord_only_raw_down() {
+        let meta = Modifiers {
+            meta: true,
+            ..Modifiers::default()
+        };
+        let rows = [
+            (
+                key(true, Some("a"), Modifiers::default()),
+                vec![KeyEventKind::RawDown, KeyEventKind::Char],
+            ),
+            (key(true, Some("a"), meta), vec![KeyEventKind::RawDown]),
+            (
+                key(false, None, Modifiers::default()),
+                vec![KeyEventKind::Up],
+            ),
+        ];
+        for (input, want) in rows {
+            assert_eq!(kinds(&input), want, "pressed {}", input.pressed);
         }
     }
 
     #[test]
-    fn release_goes_to_the_page_that_got_the_press() {
+    fn release_goes_to_the_page_that_got_the_press_once() {
         let mut capture = ButtonCapture::default();
         capture.press(PointerButton::Right, EntityId::from("p2"));
         capture.press(PointerButton::Left, EntityId::from("p1"));
@@ -132,12 +133,10 @@ mod tests {
             capture.release(PointerButton::Right),
             Some(EntityId::from("p2"))
         );
-
-        {
-            let mut capture = ButtonCapture::default();
-            capture.press(PointerButton::Left, EntityId::from("p1"));
-            capture.release(PointerButton::Left);
-            assert_eq!(capture.release(PointerButton::Left), None);
-        }
+        assert_eq!(capture.release(PointerButton::Right), None);
+        assert_eq!(
+            capture.release(PointerButton::Left),
+            Some(EntityId::from("p1"))
+        );
     }
 }

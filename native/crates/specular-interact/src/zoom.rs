@@ -114,25 +114,36 @@ mod tests {
     use super::*;
 
     #[test]
-    fn contents_wider_than_the_viewport_are_scaled_down_and_centred() {
-        let camera = fitting(
-            Rect::new(100.0, 100.0, 2000.0, 400.0),
-            DVec2::new(1128.0, 800.0),
-        );
-        assert!((camera.zoom - 0.5).abs() < 1e-6);
-        // The contents' centre (1100, 300) lands on the viewport's (564, 400).
-        assert_eq!(camera.pan, glam::Vec2::new(14.0, 250.0));
-
-        {
-            let camera = fitting(Rect::new(0.0, 0.0, 200.0, 100.0), DVec2::new(1000.0, 800.0));
-            assert!((camera.zoom - 1.0).abs() < f32::EPSILON);
-            assert_eq!(camera.pan, glam::Vec2::new(400.0, 350.0));
-        }
-
-        {
-            let camera = fitting(Rect::new(0.0, 0.0, 1.0e7, 1.0e7), DVec2::new(1000.0, 800.0));
-            let smallest = Camera::new(glam::Vec2::ZERO, 0.0).zoom;
-            assert!((camera.zoom - smallest).abs() < f32::EPSILON);
+    fn contents_are_scaled_down_to_fit_and_centred() {
+        let smallest = Camera::new(glam::Vec2::ZERO, 0.0).zoom;
+        // (contents, viewport, zoom, pan). The first centres (1100, 300) on
+        // the viewport's (564, 400); the last is clamped to the smallest zoom.
+        let rows = [
+            (
+                Rect::new(100.0, 100.0, 2000.0, 400.0),
+                (1128.0, 800.0),
+                0.5,
+                Some(glam::Vec2::new(14.0, 250.0)),
+            ),
+            (
+                Rect::new(0.0, 0.0, 200.0, 100.0),
+                (1000.0, 800.0),
+                1.0,
+                Some(glam::Vec2::new(400.0, 350.0)),
+            ),
+            (
+                Rect::new(0.0, 0.0, 1.0e7, 1.0e7),
+                (1000.0, 800.0),
+                smallest,
+                None,
+            ),
+        ];
+        for (contents, (width, height), zoom, pan) in rows {
+            let camera = fitting(contents, DVec2::new(width, height));
+            assert!((camera.zoom - zoom).abs() < 1e-6, "{contents:?}");
+            if let Some(pan) = pan {
+                assert_eq!(camera.pan, pan, "{contents:?}");
+            }
         }
     }
 
@@ -145,29 +156,18 @@ mod tests {
 
     #[test]
     fn revealing_pans_by_the_least_that_shows_it_with_room_around() {
-        // 300 past the right edge, in view vertically.
-        assert_eq!(
-            revealed(Rect::new(1100.0, 100.0, 200.0, 200.0)),
-            glam::Vec2::new(-348.0, 0.0)
-        );
-        // Above and to the left.
-        assert_eq!(
-            revealed(Rect::new(-500.0, -300.0, 200.0, 200.0)),
-            glam::Vec2::new(548.0, 348.0)
-        );
-
-        {
-            assert_eq!(
-                revealed(Rect::new(100.0, 100.0, 200.0, 200.0)),
-                glam::Vec2::ZERO
-            );
-        }
-
-        {
-            assert_eq!(
-                revealed(Rect::new(2000.0, 100.0, 3000.0, 200.0)),
-                glam::Vec2::new(-1952.0, 0.0)
-            );
+        let rows = [
+            // 300 past the right edge, in view vertically.
+            (Rect::new(1100.0, 100.0, 200.0, 200.0), (-348.0, 0.0)),
+            // Above and to the left.
+            (Rect::new(-500.0, -300.0, 200.0, 200.0), (548.0, 348.0)),
+            // Already in view.
+            (Rect::new(100.0, 100.0, 200.0, 200.0), (0.0, 0.0)),
+            // Wider than the viewport: its left edge wins.
+            (Rect::new(2000.0, 100.0, 3000.0, 200.0), (-1952.0, 0.0)),
+        ];
+        for (bounds, (x, y)) in rows {
+            assert_eq!(revealed(bounds), glam::Vec2::new(x, y), "{bounds:?}");
         }
     }
 }

@@ -198,6 +198,7 @@ fn a_page_event_goes_to_every_session_and_to_no_client_without_one() {
 fn a_session_the_page_made_itself_is_passed_through_both_ways() {
     let mut wire = Wire::new("p1");
     wire.attach(1);
+    wire.proxy.connect(2);
     // An iframe the page auto-attached: the page names the session.
     wire.client_says(
         1,
@@ -213,6 +214,7 @@ fn a_session_the_page_made_itself_is_passed_through_both_ways() {
     let event = json!({ "method": "Runtime.consoleAPICalled", "sessionId": "FRAME", "params": {} });
     wire.page_says(&event);
     assert_eq!(wire.heard(1), [event]);
+    assert_eq!(wire.heard(2), [] as [Value; 0], "no session, no event");
 }
 
 #[test]

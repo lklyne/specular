@@ -316,7 +316,7 @@ fn new_things_are_placed_clear_of_what_is_there() {
         &mut session,
         "/layout/apply-directive",
         json!({
-            "layout": { "kind": "grid", "cols": 2, "gap": "xs" },
+            "layout": { "kind": "grid", "cols": 3, "gap": "xs" },
             "items": [{ "id": "c" }, { "id": "a" }, { "id": "b" }],
         }),
     );
@@ -324,7 +324,7 @@ fn new_things_are_placed_clear_of_what_is_there() {
     assert_eq!(
         grid["positions"],
         json!([
-            { "canvasX": 0, "canvasY": 0 }, { "canvasX": 220, "canvasY": 0 }, { "canvasX": 0, "canvasY": 220 },
+            { "canvasX": 0, "canvasY": 0 }, { "canvasX": 220, "canvasY": 0 }, { "canvasX": 440, "canvasY": 0 },
         ])
     );
     let bad = session.post(

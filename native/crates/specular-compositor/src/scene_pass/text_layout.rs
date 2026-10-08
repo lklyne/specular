@@ -76,15 +76,7 @@ mod tests {
     }
 
     #[test]
-    fn an_unboxed_left_top_run_starts_at_its_origin() {
-        assert_eq!(
-            text_rect(&run(), MEASURED),
-            Rect::new(100.0, 50.0, 60.0, 20.0)
-        );
-    }
-
-    #[test]
-    fn alignment_places_a_run_about_its_origin_or_inside_its_box() {
+    fn a_run_sits_at_its_origin_aligned_about_it_or_inside_its_box() {
         let centred = TextRun {
             align: TextAlign::Centre,
             vertical_align: VerticalAlign::Middle,
@@ -101,6 +93,11 @@ mod tests {
             ..run()
         };
         for (name, run, expected) in [
+            (
+                "unboxed left top",
+                run(),
+                Rect::new(100.0, 50.0, 60.0, 20.0),
+            ),
             ("centred", centred, Rect::new(70.0, 40.0, 60.0, 20.0)),
             (
                 "right bottom",

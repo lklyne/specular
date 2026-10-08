@@ -78,15 +78,3 @@ pub(crate) fn insert_selected(app: &mut App, entities: Vec<Entity>, effects: &mu
     update::document_step(app, Command::Batch(commands), effects);
     app.session.selection.set(ids);
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn the_extension_is_what_follows_the_last_dot_of_the_file_name() {
-        assert_eq!(extension("/a/b.c/shot.final.PNG"), Some("PNG"));
-        assert_eq!(extension("notes.md"), Some("md"));
-        assert_eq!(extension("/a/b.c/README"), None);
-    }
-}

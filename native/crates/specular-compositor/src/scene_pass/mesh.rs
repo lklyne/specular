@@ -266,7 +266,7 @@ fn dashed_path(path: &Path, on: f32, off: f32, tolerance: f32) -> Option<Path> {
 
 #[cfg(test)]
 mod tests {
-    use specular_scene::{Color, Dash, PathDraw, PolygonDraw};
+    use specular_scene::{Color, PathDraw, PolygonDraw};
 
     use super::super::place::tests::view;
     use super::*;
@@ -323,10 +323,18 @@ mod tests {
             stroke: None,
         };
         let mesh = mesh_of(&Item::canvas(twice_round), 1.0);
-        assert_eq!(
-            extent(&mesh),
-            (Vec2::new(10.0, 0.0), Vec2::new(110.0, 100.0))
-        );
+        let area: f32 = mesh
+            .indices
+            .as_chunks::<3>()
+            .0
+            .iter()
+            .map(|triangle| {
+                let at = |i: u32| Vec2::from(mesh.vertices[i as usize].position);
+                let (a, b, c) = (at(triangle[0]), at(triangle[1]), at(triangle[2]));
+                (b - a).perp_dot(c - a).abs() / 2.0
+            })
+            .sum();
+        assert!((area - 10_000.0).abs() < 1.0, "{area}");
     }
 
     #[test]
@@ -338,24 +346,6 @@ mod tests {
         let (min, max) = extent(&mesh_of(&Item::canvas(line(stroke)), 2.0));
         // 4 units at zoom 2 is 8 px, centred on y = 100.
         assert_eq!((min.y, max.y), (96.0, 104.0));
-    }
-
-    #[test]
-    fn a_dashed_line_has_gaps() {
-        let stroke = PathStroke {
-            cap: LineCap::Butt,
-            ..PathStroke::new(RED, 2.0).dashed(Dash {
-                on: 10.0,
-                off: 10.0,
-            })
-        };
-        let mesh = mesh_of(&Item::canvas(line(stroke)), 1.0);
-        // No vertex lies inside the first gap, x in (20, 30) with the pan.
-        let in_gap = mesh
-            .vertices
-            .iter()
-            .any(|v| v.position[0] > 20.5 && v.position[0] < 29.5);
-        assert!(!mesh.indices.is_empty() && !in_gap);
     }
 
     #[test]

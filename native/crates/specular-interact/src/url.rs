@@ -153,7 +153,7 @@ mod tests {
 
     #[test]
     fn http_urls_and_bare_hosts_look_like_urls() {
-        for url in [
+        let urls = [
             "https://example.com",
             "HTTP://Example.com/a?b#c",
             "example.com",
@@ -164,58 +164,42 @@ mod tests {
             "localhost:4321/garden",
             "[::1]:8080",
             "  example.com  ",
-        ] {
-            assert!(looks_like_url(url), "{url}");
-        }
-
-        {
-            for text in [
-                "",
-                "hello",
-                "hello world.com",
-                "mailto:me@example.com",
-                "file:///tmp/a.png",
-                "javascript:alert(1)",
-                "https://",
-                ".com",
-                "example.",
-                "a sentence. With a dot",
-            ] {
-                assert!(!looks_like_url(text), "{text}");
-            }
+        ];
+        let words = [
+            "",
+            "hello",
+            "hello world.com",
+            "mailto:me@example.com",
+            "file:///tmp/a.png",
+            "javascript:alert(1)",
+            "https://",
+            ".com",
+            "example.",
+            "a sentence. With a dot",
+        ];
+        let rows = urls
+            .into_iter()
+            .map(|text| (text, true))
+            .chain(words.into_iter().map(|text| (text, false)));
+        for (text, want) in rows {
+            assert_eq!(looks_like_url(text), want, "{text:?}");
         }
     }
 
     #[test]
     fn a_bare_host_gets_https_and_a_local_one_http() {
-        assert_eq!(normalize_user_url("example.com"), "https://example.com/");
-        assert_eq!(
-            normalize_user_url("Example.com/Path?q=1"),
-            "https://example.com/Path?q=1"
-        );
-        assert_eq!(
-            normalize_user_url("localhost:4321/garden"),
-            "http://localhost:4321/garden"
-        );
-        assert_eq!(
-            normalize_user_url("192.168.1.4:3000"),
-            "http://192.168.1.4:3000/"
-        );
-        assert_eq!(normalize_user_url("printer.local"), "http://printer.local/");
-        assert_eq!(
-            normalize_user_url("//example.com/a"),
-            "https://example.com/a"
-        );
-
-        {
-            assert_eq!(
-                normalize_user_url(" HTTP://Example.com?x=1 "),
-                "http://example.com/?x=1"
-            );
-            assert_eq!(
-                normalize_user_url("https://example.com/a#b"),
-                "https://example.com/a#b"
-            );
+        let rows = [
+            ("example.com", "https://example.com/"),
+            ("Example.com/Path?q=1", "https://example.com/Path?q=1"),
+            ("localhost:4321/garden", "http://localhost:4321/garden"),
+            ("192.168.1.4:3000", "http://192.168.1.4:3000/"),
+            ("printer.local", "http://printer.local/"),
+            ("//example.com/a", "https://example.com/a"),
+            (" HTTP://Example.com?x=1 ", "http://example.com/?x=1"),
+            ("https://example.com/a#b", "https://example.com/a#b"),
+        ];
+        for (input, want) in rows {
+            assert_eq!(normalize_user_url(input), want, "{input:?}");
         }
     }
 }

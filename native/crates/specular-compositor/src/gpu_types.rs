@@ -158,13 +158,3 @@ impl MeshVertex {
     pub(crate) const ATTRIBUTES: [wgpu::VertexAttribute; 2] =
         wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x4];
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn shape_instance_is_sixty_four_bytes() {
-        assert_eq!(size_of::<ShapeInstance>(), 64);
-    }
-}

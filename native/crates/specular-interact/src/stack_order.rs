@@ -169,35 +169,23 @@ mod tests {
     }
 
     #[test]
-    fn a_multi_selection_moves_forward_as_one_block() {
-        assert_eq!(moved("abcd", "bc", Move::Forward), "adbc");
-
-        {
-            assert_eq!(moved("abcd", "bc", Move::Backward), "bcad");
-        }
-
-        {
-            assert_eq!(moved("abcd", "bd", Move::ToFront), "acbd");
-            assert_eq!(moved("abcd", "db", Move::ToFront), "acbd");
-        }
-
-        {
-            assert_eq!(moved("abcd", "bd", Move::ToBack), "bdac");
-        }
-
-        {
-            assert_eq!(moved("abcd", "d", Move::Forward), "abcd");
-            assert_eq!(moved("abcd", "a", Move::Backward), "abcd");
-            assert_eq!(moved("abcd", "cd", Move::Forward), "abcd");
-            assert_eq!(moved("abcd", "ab", Move::Backward), "abcd");
-        }
-
-        {
-            assert_eq!(moved("abcde", "ac", Move::Forward), "bdace");
-        }
-
-        {
-            assert_eq!(moved("abc", "z", Move::ToFront), "abc");
+    fn a_multi_selection_moves_as_one_block() {
+        let rows = [
+            ("abcd", "bc", Move::Forward, "adbc"),
+            ("abcd", "bc", Move::Backward, "bcad"),
+            ("abcd", "bd", Move::ToFront, "acbd"),
+            ("abcd", "db", Move::ToFront, "acbd"),
+            ("abcd", "bd", Move::ToBack, "bdac"),
+            ("abcde", "ac", Move::Forward, "bdace"),
+            // Already at the end it is headed for, or not in the order.
+            ("abcd", "d", Move::Forward, "abcd"),
+            ("abcd", "a", Move::Backward, "abcd"),
+            ("abcd", "cd", Move::Forward, "abcd"),
+            ("abcd", "ab", Move::Backward, "abcd"),
+            ("abc", "z", Move::ToFront, "abc"),
+        ];
+        for (order, block, how, want) in rows {
+            assert_eq!(moved(order, block, how), want, "{block} in {order}");
         }
     }
 

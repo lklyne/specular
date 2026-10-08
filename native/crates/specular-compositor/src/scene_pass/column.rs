@@ -141,6 +141,11 @@ mod tests {
                 bottom_padding: 6.0,
                 ..Row::default()
             },
+            Row {
+                cells: vec![cell("x", 0.0)],
+                bottom_padding: 5.0,
+                ..Row::default()
+            },
         ]
     }
 
@@ -151,32 +156,17 @@ mod tests {
     }
 
     #[test]
-    fn rows_stack_under_their_gaps_and_are_as_tall_as_their_tallest_cell() {
+    fn rows_stack_under_their_gaps_and_are_as_tall_as_their_cells_padding_and_minimum() {
         let column = column(0.0, rows());
         let layout = layout(&column, measure);
         assert_eq!(
             tops_and_heights(&layout),
-            [(0.0, 20.0), (28.0, 64.0), (100.0, 10.0)]
+            [(0.0, 20.0), (28.0, 64.0), (100.0, 10.0), (110.0, 25.0)]
         );
         assert_eq!(
             layout.bounds(&column),
-            Rect::new(100.0, 200.0, 300.0, 110.0)
+            Rect::new(100.0, 200.0, 300.0, 135.0)
         );
-    }
-
-    #[test]
-    fn scrolling_moves_the_rows_up_and_stops_at_the_end() {
-        let scrolled = column(30.0, rows());
-        let layout_scrolled = layout(&scrolled, measure);
-        assert_eq!(
-            layout_scrolled.row_rect(&scrolled, &layout_scrolled.rows[1]),
-            Rect::new(100.0, 198.0, 300.0, 64.0)
-        );
-        // 110 units of rows in a 50-unit window: 60 is as far as it goes.
-        for (scroll, top) in [(500.0, 140.0), (-20.0, 200.0)] {
-            let column = column(scroll, rows());
-            assert_eq!(layout(&column, measure).bounds(&column).y, top);
-        }
     }
 
     #[test]

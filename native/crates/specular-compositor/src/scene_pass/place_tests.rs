@@ -34,16 +34,6 @@ fn kept(view: &ViewTransform, items: Vec<Item>) -> Vec<usize> {
 }
 
 #[test]
-fn canvas_items_outside_the_viewport_are_culled_in_paint_order() {
-    let items = vec![
-        Item::canvas(rect(300.0, 0.0, 10.0, 10.0)),
-        Item::canvas(rect(5_000.0, 0.0, 10.0, 10.0)),
-        Item::canvas(rect(100.0, 0.0, 10.0, 10.0)),
-    ];
-    assert_eq!(kept(&view(Vec2::ZERO, 1.0), items), [0, 2]);
-}
-
-#[test]
 fn culling_follows_the_camera_for_canvas_items_only() {
     // At zoom 0.5 the viewport spans 1600 canvas units.
     let items = || {
@@ -124,12 +114,12 @@ fn scissor_is_in_physical_pixels_and_inside_the_target() {
         target: [1_600, 1_200],
         ..view(Vec2::ZERO, 1.0)
     };
-    let scissor = view.scissor(Rect::new(700.0, 10.0, 200.0, 20.0));
+    let scissor = view.scissor(Rect::new(700.0, 10.25, 200.0, 20.0));
     assert_eq!(
         scissor,
         Some(Scissor {
             x: 1_400,
-            y: 20,
+            y: 21,
             width: 200,
             height: 40
         })

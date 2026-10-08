@@ -156,13 +156,6 @@ mod tests {
     }
 
     #[test]
-    fn failed_import_is_not_cached() {
-        let mut cache: ImportCache<u32, u32> = ImportCache::default();
-        let _ = cache.get_or_import(1, || Err("refused"));
-        assert_eq!(cache.len(), 0);
-    }
-
-    #[test]
     fn full_cache_evicts_least_recently_used() {
         let mut cache = ImportCache::default();
         for key in 0..CAPACITY as u32 {
@@ -195,6 +188,7 @@ mod tests {
         let _ = cache.get_or_import(2, ok(2));
         cache.retain(|key| *key == 2);
         assert_eq!(cache.len(), 1);
+        let _ = cache.get_or_import::<Infallible>(2, || unreachable!("surface 2 was kept"));
     }
 
     #[test]
@@ -217,7 +211,11 @@ mod tests {
 
     #[test]
     fn a_cache_that_never_painted_has_nothing_to_settle() {
-        let mut cache: ImportCache<u32, u32> = ImportCache::default();
-        assert_eq!(cache.settle(Instant::now()), 0);
+        let mut cache = ImportCache::default();
+        for key in [1, 2, 3] {
+            let _ = cache.get_or_import(key, ok(key));
+        }
+        assert_eq!(cache.settle(Instant::now() + IDLE_TIME * 3), 0);
+        assert_eq!(cache.len(), 3);
     }
 }

@@ -143,9 +143,7 @@ mod tests {
         assert_eq!(edge.extra.get("otherTool"), Some(&json!([1, 2])));
         assert_eq!(serde_json::to_value(&edge).unwrap(), json);
 
-        {
-            let value: Value = serde_json::to_value(Edge::new("e", "a", "b")).unwrap();
-            assert_eq!(value, json!({"id": "e", "fromNode": "a", "toNode": "b"}));
-        }
+        let bare: Value = serde_json::to_value(Edge::new("e", "a", "b")).unwrap();
+        assert_eq!(bare, json!({"id": "e", "fromNode": "a", "toNode": "b"}));
     }
 }

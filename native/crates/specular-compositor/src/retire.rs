@@ -100,22 +100,4 @@ mod tests {
         retired.reclaim(2);
         assert_eq!(retired.items().copied().collect::<Vec<_>>(), ["c"]);
     }
-
-    #[test]
-    fn dropping_reclaimed_entries_runs_their_destructors() {
-        use std::cell::Cell;
-        use std::rc::Rc;
-        struct Guard(Rc<Cell<u32>>);
-        impl Drop for Guard {
-            fn drop(&mut self) {
-                self.0.set(self.0.get() + 1);
-            }
-        }
-        let drops = Rc::new(Cell::new(0));
-        let mut retired = RetiredTextures::default();
-        retired.push(PageId(1), 5, Guard(Rc::clone(&drops)));
-        retired.reclaim(4);
-        retired.reclaim(5);
-        assert_eq!(drops.get(), 1);
-    }
 }

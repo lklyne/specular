@@ -52,27 +52,31 @@ mod tests {
     }
 
     #[test]
-    fn a_straight_line_is_cut_into_on_stretches() {
-        let cut = dashes(&line(&[(0.0, 0.0), (10.0, 0.0)]), 3.0, 2.0);
-        assert_eq!(
-            cut,
-            [
-                line(&[(0.0, 0.0), (3.0, 0.0)]),
-                line(&[(5.0, 0.0), (8.0, 0.0)])
-            ]
-        );
-    }
-
-    #[test]
-    fn a_gap_carries_round_a_corner() {
-        let cut = dashes(&line(&[(0.0, 0.0), (3.0, 0.0), (3.0, 10.0)]), 2.0, 3.0);
-        assert_eq!(
-            cut,
-            [
-                line(&[(0.0, 0.0), (2.0, 0.0)]),
-                line(&[(3.0, 2.0), (3.0, 4.0)]),
-                line(&[(3.0, 7.0), (3.0, 9.0)])
-            ]
-        );
+    fn a_line_is_cut_into_on_stretches_and_a_gap_carries_round_a_corner() {
+        for (name, points, on, off, expected) in [
+            (
+                "straight",
+                line(&[(0.0, 0.0), (10.0, 0.0)]),
+                3.0,
+                2.0,
+                vec![
+                    line(&[(0.0, 0.0), (3.0, 0.0)]),
+                    line(&[(5.0, 0.0), (8.0, 0.0)]),
+                ],
+            ),
+            (
+                "corner",
+                line(&[(0.0, 0.0), (3.0, 0.0), (3.0, 10.0)]),
+                2.0,
+                3.0,
+                vec![
+                    line(&[(0.0, 0.0), (2.0, 0.0)]),
+                    line(&[(3.0, 2.0), (3.0, 4.0)]),
+                    line(&[(3.0, 7.0), (3.0, 9.0)]),
+                ],
+            ),
+        ] {
+            assert_eq!(dashes(&points, on, off), expected, "{name}");
+        }
     }
 }

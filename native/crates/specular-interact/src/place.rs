@@ -283,32 +283,36 @@ mod tests {
 
     #[test]
     fn a_drag_spans_the_press_and_the_pointer_on_the_grid() {
-        assert_eq!(
-            dragged_rect(START, DVec2::new(251.0, 178.0), false),
-            Some(Rect::new(100.0, 100.0, 140.0, 80.0))
-        );
-        assert_eq!(
-            dragged_rect(START, DVec2::new(-10.0, 30.0), false),
-            Some(Rect::new(0.0, 40.0, 120.0, 60.0))
-        );
-
-        {
-            assert_eq!(dragged_rect(START, DVec2::new(300.0, 110.0), false), None);
-            assert_eq!(dragged_rect(START, DVec2::new(120.0, 300.0), false), None);
-            assert_eq!(dragged_rect(START, START, true), None);
+        // (pointer, shift, rect). A rect under one grid cell on a side is
+        // none. Shift makes a square of the longer reach that grows from the
+        // press, which stays the opposite corner going up and left.
+        let rows = [
+            (
+                (251.0, 178.0),
+                false,
+                Some(Rect::new(100.0, 100.0, 140.0, 80.0)),
+            ),
+            (
+                (-10.0, 30.0),
+                false,
+                Some(Rect::new(0.0, 40.0, 120.0, 60.0)),
+            ),
+            ((300.0, 110.0), false, None),
+            ((120.0, 300.0), false, None),
+            ((105.0, 95.0), true, None),
+            (
+                (205.0, 125.0),
+                true,
+                Some(Rect::new(100.0, 100.0, 100.0, 100.0)),
+            ),
+            ((85.0, -5.0), true, Some(Rect::new(0.0, 0.0, 100.0, 100.0))),
+        ];
+        for ((x, y), shift, want) in rows {
+            assert_eq!(
+                dragged_rect(START, DVec2::new(x, y), shift),
+                want,
+                "({x}, {y}) shift {shift}"
+            );
         }
-    }
-
-    #[test]
-    fn shift_makes_a_square_of_the_longer_reach_growing_from_the_press() {
-        assert_eq!(
-            dragged_rect(START, DVec2::new(205.0, 125.0), true),
-            Some(Rect::new(100.0, 100.0, 100.0, 100.0))
-        );
-        // Up and to the left: the press stays the bottom-right corner.
-        assert_eq!(
-            dragged_rect(START, DVec2::new(85.0, -5.0), true),
-            Some(Rect::new(0.0, 0.0, 100.0, 100.0))
-        );
     }
 }

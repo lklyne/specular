@@ -147,26 +147,27 @@ mod tests {
 
     #[test]
     fn a_list_line_is_indent_a_mark_and_a_space() {
-        assert_eq!(list_line("- a"), Some((0, 2, Mark::Bullet('-'))));
-        assert_eq!(list_line("    * "), Some((4, 6, Mark::Bullet('*'))));
-        assert_eq!(list_line("+ "), Some((0, 2, Mark::Bullet('+'))));
-        assert_eq!(list_line("- [ ] a"), Some((0, 6, Mark::Task('-', false))));
-        assert_eq!(list_line(" * [X] "), Some((1, 7, Mark::Task('*', true))));
-        assert_eq!(list_line("12) a"), Some((0, 4, Mark::Number(12, ')'))));
-        assert_eq!(list_line("1. "), Some((0, 3, Mark::Number(1, '.'))));
-        assert_eq!(list_line("- [] a"), Some((0, 2, Mark::Bullet('-'))));
-        assert_eq!(
-            [
-                list_line("-a"),
-                list_line("a - b"),
-                list_line(""),
-                list_line("-"),
-                list_line("1.a"),
-                list_line("1 a"),
-                list_line(".")
-            ],
-            [None; 7]
-        );
+        // (line, indent, marker length, mark)
+        let rows = [
+            ("- a", Some((0, 2, Mark::Bullet('-')))),
+            ("    * ", Some((4, 6, Mark::Bullet('*')))),
+            ("+ ", Some((0, 2, Mark::Bullet('+')))),
+            ("- [ ] a", Some((0, 6, Mark::Task('-', false)))),
+            (" * [X] ", Some((1, 7, Mark::Task('*', true)))),
+            ("12) a", Some((0, 4, Mark::Number(12, ')')))),
+            ("1. ", Some((0, 3, Mark::Number(1, '.')))),
+            ("- [] a", Some((0, 2, Mark::Bullet('-')))),
+            ("-a", None),
+            ("a - b", None),
+            ("", None),
+            ("-", None),
+            ("1.a", None),
+            ("1 a", None),
+            (".", None),
+        ];
+        for (line, want) in rows {
+            assert_eq!(list_line(line), want, "{line:?}");
+        }
     }
 
     fn edit(text: &str, caret: usize) -> TextEdit {
@@ -180,25 +181,23 @@ mod tests {
         edit
     }
 
-    fn enter(text: &str) -> String {
-        let mut e = edit(text, text.len());
-        newline(&mut e);
-        e.text
-    }
-
     #[test]
-    fn enter_continues_each_kind_of_list_line() {
-        assert_eq!(enter("* a"), "* a\n* ");
-        assert_eq!(enter("  + a"), "  + a\n  + ");
-        assert_eq!(enter("1. a"), "1. a\n2. ");
-        assert_eq!(enter("9) a"), "9) a\n10) ");
-        assert_eq!(enter("- [x] a"), "- [x] a\n- [ ] ");
-        assert_eq!(enter("  * [ ] a"), "  * [ ] a\n  * [ ] ");
-
-        {
-            assert_eq!(enter("a\n2. "), "a\n");
-            assert_eq!(enter("a\n- [ ] "), "a\n");
-            assert_eq!(enter("a\n* "), "a\n");
+    fn enter_continues_each_kind_of_list_line_and_ends_the_list_on_an_empty_item() {
+        let rows = [
+            ("* a", "* a\n* "),
+            ("  + a", "  + a\n  + "),
+            ("1. a", "1. a\n2. "),
+            ("9) a", "9) a\n10) "),
+            ("- [x] a", "- [x] a\n- [ ] "),
+            ("  * [ ] a", "  * [ ] a\n  * [ ] "),
+            ("a\n2. ", "a\n"),
+            ("a\n- [ ] ", "a\n"),
+            ("a\n* ", "a\n"),
+        ];
+        for (text, want) in rows {
+            let mut e = edit(text, text.len());
+            newline(&mut e);
+            assert_eq!(e.text, want, "{text:?}");
         }
     }
 

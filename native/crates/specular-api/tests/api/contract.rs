@@ -20,44 +20,23 @@ fn two_texts(session: &mut Scripted) -> (Value, Value) {
 }
 
 #[test]
-fn creates_entities_and_exposes_them_via_the_workspace_snapshot() {
-    let mut session = Scripted::empty();
-    let done = session.apply(json!({ "entities": [
-        { "kind": "text", "text": "alpha", "canvasX": 0, "canvasY": 0 },
-        { "kind": "text", "text": "beta", "canvasX": 200, "canvasY": 0 },
-    ]}));
-    assert_eq!(done["created"].as_array().map(Vec::len), Some(2));
-    let alpha = session.node(&done["created"][0]);
-    let beta = session.node(&done["created"][1]);
-    assert_eq!(alpha["type"], "text");
-    assert_eq!(alpha["text"], "alpha");
-    assert_eq!(beta["text"], "beta");
-    assert_eq!(beta["x"], 200);
-}
-
-#[test]
-fn updates_an_entity_in_place() {
-    let mut session = Scripted::empty();
-    let id = session.apply(json!({ "entities": [
-        { "kind": "text", "text": "before", "canvasX": 0, "canvasY": 0 },
-    ]}))["created"][0]
-        .clone();
-    let done =
-        session.apply(json!({ "entities": [{ "id": id, "kind": "text", "text": "after" }] }));
-    assert_eq!(done["updated"], json!([id]));
-    assert_eq!(session.node(&id)["text"], "after");
-}
-
-#[test]
-fn updates_an_entity_passing_only_its_id_kind_resolves_from_the_doc() {
-    let mut session = Scripted::empty();
-    let id = session.apply(json!({ "entities": [
-        { "kind": "text", "text": "before", "canvasX": 0, "canvasY": 0 },
-    ]}))["created"][0]
-        .clone();
-    let done = session.apply(json!({ "entities": [{ "id": id, "text": "after" }] }));
-    assert_eq!(done["updated"], json!([id]));
-    assert_eq!(session.node(&id)["text"], "after");
+fn updates_an_entity_in_place_with_or_without_its_kind() {
+    let rows = [
+        ("kind given", json!({ "kind": "text", "text": "after" })),
+        ("kind resolved from the doc", json!({ "text": "after" })),
+    ];
+    for (row, change) in rows {
+        let mut session = Scripted::empty();
+        let id = session.apply(json!({ "entities": [
+            { "kind": "text", "text": "before", "canvasX": 0, "canvasY": 0 },
+        ]}))["created"][0]
+            .clone();
+        let mut entity = change;
+        entity["id"] = id.clone();
+        let done = session.apply(json!({ "entities": [entity] }));
+        assert_eq!(done["updated"], json!([id]), "{row}");
+        assert_eq!(session.node(&id)["text"], "after", "{row}");
+    }
 }
 
 #[test]
@@ -129,14 +108,17 @@ fn creates_every_entity_kind_via_apply_incl_drawing_and_shape() {
           "strokes": [{ "id": "s1", "color": "#000", "width": 2,
                         "points": [{ "x": 0, "y": 0 }, { "x": 50, "y": 50 }] }] },
         { "kind": "group", "entityIds": [a, b], "label": "pair" },
+        { "kind": "text", "text": "alpha", "canvasX": 200, "canvasY": 800 },
+        { "kind": "note", "text": "short note", "canvasX": 400, "canvasY": 800 },
     ]}));
     let created = done["created"].as_array().cloned().unwrap_or_default();
-    assert_eq!(created.len(), 4);
+    assert_eq!(created.len(), 6);
     let types: Vec<Value> = created
         .iter()
         .map(|id| session.node(id)["type"].clone())
         .collect();
-    assert_eq!(types, ["link", "shape", "drawing", "group"]);
+    // `note` is an alias for `text`.
+    assert_eq!(types, ["link", "shape", "drawing", "group", "text", "text"]);
     // The page is sized by its preset, and its host is asked for.
     let page = session.node(&created[0]);
     assert_eq!(
@@ -149,6 +131,13 @@ fn creates_every_entity_kind_via_apply_incl_drawing_and_shape() {
     )));
     assert_eq!(session.node(&created[3])["label"], "pair");
     assert_eq!(session.node(a)["specular"]["parentGroupId"], created[3]);
+    let alpha = session.node(&created[4]);
+    assert_eq!(
+        (&alpha["text"], &alpha["x"]),
+        (&json!("alpha"), &json!(200))
+    );
+    // A text with no color is a yellow sticky.
+    assert_eq!(alpha["color"], "3");
 }
 
 #[test]
@@ -207,15 +196,6 @@ fn renames_a_group_via_text_aliased_to_label_explicit_label_wins_undo_restores_t
         { "id": group, "kind": "group", "text": "ignored", "label": "explicit" },
     ]}));
     assert_eq!(session.node(&group)["label"], "explicit");
-}
-
-#[test]
-fn accepts_kind_note_as_an_alias_for_text() {
-    let mut session = Scripted::empty();
-    let done = session.apply(json!({ "entities": [
-        { "kind": "note", "text": "short note", "canvasX": 0, "canvasY": 0 },
-    ]}));
-    assert_eq!(session.node(&done["created"][0])["type"], "text");
 }
 
 #[test]

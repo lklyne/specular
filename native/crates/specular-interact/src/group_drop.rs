@@ -122,15 +122,9 @@ mod tests {
         )
     }
 
-    fn nested() -> Document {
+    fn document_of(groups: impl IntoIterator<Item = Entity>) -> Document {
         let mut document = Document::new();
-        for (at, entity) in [
-            group("outer", 100.0, 100.0, 500.0, 500.0),
-            group("inner", 200.0, 200.0, 120.0, 120.0),
-        ]
-        .into_iter()
-        .enumerate()
-        {
+        for (at, entity) in groups.into_iter().enumerate() {
             document
                 .apply(Command::InsertEntity {
                     entity: Box::new(entity),
@@ -153,54 +147,33 @@ mod tests {
     }
 
     #[test]
-    fn the_innermost_group_under_the_pointer_wins() {
-        let document = nested();
-        assert_eq!(
-            target(&document, 250.0, 250.0, &[]).as_deref(),
-            Some("inner")
-        );
-
-        {
-            let document = nested();
+    fn the_dragged_group_is_no_target_and_a_border_counts_as_inside() {
+        let document = document_of([
+            group("outer", 100.0, 100.0, 500.0, 500.0),
+            group("inner", 200.0, 200.0, 120.0, 120.0),
+        ]);
+        // (pointer, excluded, target)
+        let rows = [
+            ((250.0, 250.0), vec![], Some("inner")),
+            ((250.0, 250.0), vec!["inner"], Some("outer")),
+            ((600.0, 600.0), vec![], Some("outer")),
+            ((50.0, 50.0), vec![], None),
+        ];
+        for ((x, y), excluded, want) in rows {
             assert_eq!(
-                target(&document, 450.0, 450.0, &[]).as_deref(),
-                Some("outer")
-            );
-        }
-
-        {
-            let document = nested();
-            assert_eq!(target(&document, 50.0, 50.0, &[]), None);
-        }
-
-        {
-            let document = nested();
-            assert_eq!(
-                target(&document, 250.0, 250.0, &["inner"]).as_deref(),
-                Some("outer")
-            );
-        }
-
-        {
-            let document = nested();
-            assert_eq!(
-                target(&document, 600.0, 600.0, &[]).as_deref(),
-                Some("outer")
+                target(&document, x, y, &excluded).as_deref(),
+                want,
+                "({x}, {y}) without {excluded:?}"
             );
         }
     }
 
     #[test]
     fn equal_groups_go_to_the_one_in_front() {
-        let mut document = Document::new();
-        for (at, id) in ["a", "b"].into_iter().enumerate() {
-            let entity = group(id, 0.0, 0.0, 100.0, 100.0);
-            let insert = Command::InsertEntity {
-                entity: Box::new(entity),
-                at,
-            };
-            document.apply(insert).expect("inserts");
-        }
+        let document = document_of([
+            group("a", 0.0, 0.0, 100.0, 100.0),
+            group("b", 0.0, 0.0, 100.0, 100.0),
+        ]);
         assert_eq!(target(&document, 10.0, 10.0, &[]).as_deref(), Some("b"));
     }
 }

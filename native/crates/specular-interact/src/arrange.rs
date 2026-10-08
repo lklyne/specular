@@ -243,75 +243,25 @@ pub(crate) fn run(app: &mut App, mode: ArrangeMode, effects: &mut Vec<Effect>) {
 mod tests {
     use super::*;
 
-    fn boxes(rects: &[(&str, f64, f64, f64, f64)]) -> Vec<Placed> {
-        (rects.iter())
-            .map(|&(id, x, y, width, height)| Placed {
-                id: EntityId::new(id),
-                rect: Rect::new(x, y, width, height),
-            })
-            .collect()
-    }
-
-    fn placed(boxes: &[Placed], mode: ArrangeMode) -> Vec<Rect> {
-        let moved = targets(boxes, mode).unwrap_or_default();
-        (moved.iter().zip(boxes))
-            .map(|((_, to), item)| Rect::new(to.x, to.y, item.rect.width, item.rect.height))
-            .collect()
-    }
-
-    #[test]
-    fn a_row_evens_the_gaps_across_its_extent_and_aligns_the_tops() {
-        let items = boxes(&[
-            ("a", 0.0, 10.0, 100.0, 80.0),
-            ("b", 150.0, 40.0, 100.0, 80.0),
-            ("c", 400.0, 5.0, 100.0, 80.0),
-        ]);
-        let [a, b, c] = placed(&items, ArrangeMode::Row)[..] else {
-            panic!("three rects");
-        };
-        assert_eq!(a.x, 0.0);
-        assert_eq!(c.x + c.width, 500.0);
-        assert_eq!(b.x - (a.x + a.width), c.x - (b.x + b.width));
-        assert_eq!([a.y, b.y, c.y], [0.0; 3]);
-    }
-
     #[test]
     fn a_tight_footprint_grows_rather_than_overlaps() {
-        let items = boxes(&[
-            ("a", 0.0, 0.0, 80.0, 50.0),
-            ("b", 0.0, 35.0, 80.0, 50.0),
-            ("c", 0.0, 70.0, 80.0, 50.0),
-        ]);
-        let [a, b, c] = placed(&items, ArrangeMode::Column)[..] else {
+        let items: Vec<Placed> = [("a", 0.0), ("b", 35.0), ("c", 70.0)]
+            .into_iter()
+            .map(|(id, y)| Placed {
+                id: EntityId::new(id),
+                rect: Rect::new(0.0, y, 80.0, 50.0),
+            })
+            .collect();
+        let moved = targets(&items, ArrangeMode::Column).unwrap_or_default();
+        let rects: Vec<Rect> = (moved.iter().zip(&items))
+            .map(|((_, to), item)| Rect::new(to.x, to.y, item.rect.width, item.rect.height))
+            .collect();
+        let [a, b, c] = rects[..] else {
             panic!("three rects");
         };
         assert_eq!(a.y, 0.0);
         let (first, second) = (b.y - (a.y + a.height), c.y - (b.y + b.height));
         assert!(first >= MIN_GAP);
         assert_eq!(first, second);
-    }
-
-    #[test]
-    fn a_grid_keeps_its_shape_and_its_hole() {
-        let items = boxes(&[
-            ("a", 0.0, 0.0, 100.0, 100.0),
-            ("b", 130.0, 8.0, 100.0, 100.0),
-            ("c", 12.0, 220.0, 100.0, 100.0),
-        ]);
-        let [a, b, c] = placed(&items, ArrangeMode::Grid)[..] else {
-            panic!("three rects");
-        };
-        assert_eq!(a.x, c.x);
-        assert_eq!(a.y, b.y);
-        assert_ne!(b.x, a.x);
-        assert_eq!(a.x.min(b.x).min(c.x), 0.0);
-        assert_eq!(a.y.min(b.y).min(c.y), 0.0);
-    }
-
-    #[test]
-    fn fewer_than_two_have_nothing_to_arrange() {
-        assert_eq!(targets(&[], ArrangeMode::Row), None);
-        let one = boxes(&[("a", 0.0, 0.0, 10.0, 10.0)]);
-        assert_eq!(targets(&one, ArrangeMode::Grid), None);
     }
 }

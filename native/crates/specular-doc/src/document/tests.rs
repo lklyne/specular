@@ -103,200 +103,272 @@ fn fixture() -> Document {
     document
 }
 
+fn moved() -> Rect {
+    Rect::new(10.5, -20.0, 300.0, 200.0)
+}
+
 /// Applies `command`, checks its inverse restores the fixture exactly, and
 /// that the inverse's inverse reproduces the change.
-fn assert_round_trips(command: Command) -> Document {
+fn assert_round_trips(name: &str, command: Command) -> Document {
     let before = fixture();
     let mut document = before.clone();
     let inverse = document.apply(command).unwrap();
     let after = document.clone();
-    assert_ne!(after, before, "the command should change the document");
+    assert_ne!(
+        after, before,
+        "{name}: the command should change the document"
+    );
 
     let redo = document.apply(inverse).unwrap();
-    assert_eq!(document, before, "the inverse should restore the document");
+    assert_eq!(
+        document, before,
+        "{name}: the inverse should restore the document"
+    );
 
     document.apply(redo).unwrap();
     assert_eq!(
         document, after,
-        "the inverse's inverse should redo the change"
+        "{name}: the inverse's inverse should redo the change"
     );
     after
 }
 
+type Check = fn(&Document) -> bool;
+
 #[test]
-fn insert_entity_round_trips_and_lands_at_its_stack_index() {
-    let after = assert_round_trips(insert(page("p2"), 1));
-    assert_eq!(after.order()[1], ItemId::Entity(EntityId::new("p2")));
-
-    {
-        let after = assert_round_trips(Command::RemoveEntity(EntityId::new("p1")));
-        assert!(after.entity(&EntityId::new("p1")).is_none());
-        assert_eq!(after.stack_len(), 6);
-    }
-
-    {
-        let rect = Rect::new(10.5, -20.0, 300.0, 200.0);
-        let after = assert_round_trips(Command::SetRect {
-            id: EntityId::new("p1"),
-            rect,
-        });
-        assert_eq!(after.entity(&EntityId::new("p1")).unwrap().rect, rect);
-    }
-
-    {
-        assert_round_trips(Command::SetLabel {
-            id: EntityId::new("g1"),
-            label: Some("Header".to_owned()),
-        });
-    }
-
-    {
-        let after = assert_round_trips(Command::SetParent {
-            id: EntityId::new("sh1"),
-            parent: Some(EntityId::new("g1")),
-        });
-        let children: Vec<&str> = after
-            .children(&EntityId::new("g1"))
-            .map(|child| child.id.as_str())
-            .collect();
-        assert_eq!(children, ["t1", "sh1"]);
-    }
-
-    {
-        assert_round_trips(Command::SetAnchor {
-            id: EntityId::new("sh1"),
-            anchor: Some(Box::new(PageAnchor::new(EntityId::new("p1")))),
-        });
-    }
-
-    {
-        let kind = Kind::Text(Text {
-            text: "edited".to_owned(),
-            ..Text::default()
-        });
-        assert_round_trips(Command::SetKind {
-            id: EntityId::new("t1"),
-            kind: Box::new(kind),
-        });
-    }
-
-    {
-        assert_round_trips(Command::InsertEdge {
-            edge: Box::new(Edge::new("e2", "p1", "sh1")),
-            at: 0,
-        });
-        assert_round_trips(Command::RemoveEdge(EdgeId::new("e1")));
-        let mut edge = Edge::new("e1", "t1", "p1");
-        edge.label = Some("flows to".to_owned());
-        assert_round_trips(Command::ReplaceEdge(Box::new(edge)));
-    }
-
-    {
+#[expect(clippy::too_many_lines, reason = "one table, a row per command")]
+fn every_command_changes_the_document_and_its_inverse_restores_it() {
+    let reversed_order = {
         let mut order = fixture().order().to_vec();
         order.reverse();
-        let after = assert_round_trips(Command::SetOrder(order));
-        let ids: Vec<&str> = after.entities().map(|entity| entity.id.as_str()).collect();
-        assert_eq!(ids, ["sh1", "d1", "f1", "t1", "p1", "g1"]);
-    }
-
-    {
-        assert_round_trips(Command::InsertAnnotation {
-            annotation: Box::new(annotation("a2")),
-            at: 0,
-        });
-        assert_round_trips(Command::RemoveAnnotation(AnnotationId::new("a1")));
-        let mut resolved = annotation("a1");
-        resolved.status = AnnotationStatus::Resolved;
-        assert_round_trips(Command::ReplaceAnnotation(Box::new(resolved)));
-    }
-
-    {
-        let after = assert_round_trips(Command::Batch(vec![
+        order
+    };
+    let mut edge = Edge::new("e1", "t1", "p1");
+    edge.label = Some("flows to".to_owned());
+    let mut resolved = annotation("a1");
+    resolved.status = AnnotationStatus::Resolved;
+    let edited = Kind::Text(Text {
+        text: "edited".to_owned(),
+        ..Text::default()
+    });
+    let id = EntityId::new;
+    let rows: Vec<(&str, Command, Check)> = vec![
+        ("insert entity", insert(page("p2"), 1), |after| {
+            after.order()[1] == ItemId::Entity(EntityId::new("p2"))
+        }),
+        ("remove entity", Command::RemoveEntity(id("p1")), |after| {
+            after.entity(&EntityId::new("p1")).is_none() && after.stack_len() == 6
+        }),
+        (
+            "set rect",
+            Command::SetRect {
+                id: id("p1"),
+                rect: moved(),
+            },
+            |after| {
+                after
+                    .entity(&EntityId::new("p1"))
+                    .is_some_and(|e| e.rect == moved())
+            },
+        ),
+        (
+            "set label",
+            Command::SetLabel {
+                id: id("g1"),
+                label: Some("Header".to_owned()),
+            },
+            |after| {
+                after
+                    .entity(&EntityId::new("g1"))
+                    .is_some_and(|e| e.label.as_deref() == Some("Header"))
+            },
+        ),
+        (
+            "set parent",
+            Command::SetParent {
+                id: id("sh1"),
+                parent: Some(id("g1")),
+            },
+            |after| {
+                let children: Vec<&str> = after
+                    .children(&EntityId::new("g1"))
+                    .map(|child| child.id.as_str())
+                    .collect();
+                children == ["t1", "sh1"]
+            },
+        ),
+        (
+            "set anchor",
+            Command::SetAnchor {
+                id: id("sh1"),
+                anchor: Some(Box::new(PageAnchor::new(id("p1")))),
+            },
+            |after| {
+                after
+                    .entity(&EntityId::new("sh1"))
+                    .is_some_and(|e| e.anchor.is_some())
+            },
+        ),
+        (
+            "set kind",
+            Command::SetKind {
+                id: id("t1"),
+                kind: Box::new(edited),
+            },
+            |after| {
+                after
+                    .entity(&EntityId::new("t1"))
+                    .is_some_and(|e| matches!(&e.kind, Kind::Text(text) if text.text == "edited"))
+            },
+        ),
+        (
+            "insert edge",
+            Command::InsertEdge {
+                edge: Box::new(Edge::new("e2", "p1", "sh1")),
+                at: 0,
+            },
+            |after| after.edge(&EdgeId::new("e2")).is_some(),
+        ),
+        (
+            "remove edge",
             Command::RemoveEdge(EdgeId::new("e1")),
-            Command::RemoveEntity(EntityId::new("t1")),
-            Command::RemoveEntity(EntityId::new("g1")),
-        ]));
-        assert_eq!(after.stack_len(), 4);
+            |after| after.edge(&EdgeId::new("e1")).is_none(),
+        ),
+        (
+            "replace edge",
+            Command::ReplaceEdge(Box::new(edge)),
+            |after| {
+                after
+                    .edge(&EdgeId::new("e1"))
+                    .is_some_and(|e| e.label.as_deref() == Some("flows to"))
+            },
+        ),
+        ("set order", Command::SetOrder(reversed_order), |after| {
+            let ids: Vec<&str> = after.entities().map(|e| e.id.as_str()).collect();
+            ids == ["sh1", "d1", "f1", "t1", "p1", "g1"]
+        }),
+        (
+            "insert annotation",
+            Command::InsertAnnotation {
+                annotation: Box::new(annotation("a2")),
+                at: 0,
+            },
+            |after| after.annotations().len() == 2,
+        ),
+        (
+            "remove annotation",
+            Command::RemoveAnnotation(AnnotationId::new("a1")),
+            |after| after.annotations().is_empty(),
+        ),
+        (
+            "replace annotation",
+            Command::ReplaceAnnotation(Box::new(resolved)),
+            |after| after.annotations()[0].status == AnnotationStatus::Resolved,
+        ),
+        (
+            "batch",
+            Command::Batch(vec![
+                Command::RemoveEdge(EdgeId::new("e1")),
+                Command::RemoveEntity(id("t1")),
+                Command::RemoveEntity(id("g1")),
+            ]),
+            |after| after.stack_len() == 4,
+        ),
+    ];
+    for (name, command, check) in rows {
+        let after = assert_round_trips(name, command);
+        assert!(check(&after), "{name}: the change is not what it names");
     }
 }
 
 #[test]
-fn failed_batch_leaves_the_document_unchanged() {
-    let before = fixture();
-    let mut document = before.clone();
-    let error = document
-        .apply(Command::Batch(vec![
-            Command::RemoveEntity(EntityId::new("p1")),
-            Command::SetRect {
-                id: EntityId::new("missing"),
-                rect: Rect::default(),
-            },
-        ]))
-        .unwrap_err();
-    assert_eq!(error, CommandError::UnknownEntity(EntityId::new("missing")));
-    assert_eq!(document, before);
+fn a_refused_command_leaves_the_document_unchanged() {
+    let mut before = fixture();
+    before.apply(insert(group("g2"), 0)).unwrap();
+    let set_parent = |id: &str, parent: &str| Command::SetParent {
+        id: EntityId::new(id),
+        parent: Some(EntityId::new(parent)),
+    };
+    before.apply(set_parent("g2", "g1")).unwrap();
+    let invalid_parent = |id: &str, parent: &str| CommandError::InvalidParent {
+        id: EntityId::new(id),
+        parent: EntityId::new(parent),
+    };
+    let mut swapped_order = before.order().to_vec();
+    swapped_order[0] = swapped_order[1].clone();
 
-    {
-        let mut document = fixture();
-        let error = document.apply(insert(page("e1"), 0)).unwrap_err();
-        assert_eq!(error, CommandError::DuplicateId("e1".to_owned()));
-        let error = document
-            .apply(Command::InsertEdge {
+    let rows = vec![
+        (
+            "batch with a missing target, after a valid first step",
+            Command::Batch(vec![
+                Command::RemoveEntity(EntityId::new("p1")),
+                Command::SetRect {
+                    id: EntityId::new("missing"),
+                    rect: Rect::default(),
+                },
+            ]),
+            CommandError::UnknownEntity(EntityId::new("missing")),
+        ),
+        (
+            "entity id taken by an edge",
+            insert(page("e1"), 0),
+            CommandError::DuplicateId("e1".to_owned()),
+        ),
+        (
+            "edge id taken by an entity",
+            Command::InsertEdge {
                 edge: Box::new(Edge::new("p1", "t1", "sh1")),
                 at: 0,
-            })
-            .unwrap_err();
-        assert_eq!(error, CommandError::DuplicateId("p1".to_owned()));
-    }
-
-    {
-        let error = fixture().apply(insert(page("p2"), 8)).unwrap_err();
-        assert_eq!(error, CommandError::IndexOutOfRange { index: 8, len: 7 });
-    }
-
-    {
-        let error = fixture()
-            .apply(Command::SetKind {
+            },
+            CommandError::DuplicateId("p1".to_owned()),
+        ),
+        (
+            "insert past the end",
+            insert(page("p2"), 9),
+            CommandError::IndexOutOfRange { index: 9, len: 8 },
+        ),
+        (
+            "kind changed by set kind",
+            Command::SetKind {
                 id: EntityId::new("p1"),
                 kind: Box::new(Kind::Text(Text::default())),
-            })
-            .unwrap_err();
-        assert!(matches!(
-            error,
+            },
             CommandError::KindMismatch {
+                id: EntityId::new("p1"),
                 expected: "page",
                 found: "text",
-                ..
-            }
-        ));
-    }
-
-    {
-        let mut document = fixture();
-        document.apply(insert(group("g2"), 0)).unwrap();
-        let set_parent = |id: &str, parent: &str| Command::SetParent {
-            id: EntityId::new(id),
-            parent: Some(EntityId::new(parent)),
-        };
-        document.apply(set_parent("g2", "g1")).unwrap();
-
-        for (id, parent) in [("t1", "p1"), ("t1", "missing"), ("g1", "g1"), ("g1", "g2")] {
-            let error = document.apply(set_parent(id, parent)).unwrap_err();
-            assert!(
-                matches!(error, CommandError::InvalidParent { .. }),
-                "{id} -> {parent}: {error}"
-            );
-        }
-    }
-
-    {
-        let mut document = fixture();
-        let mut order = document.order().to_vec();
-        order[0] = order[1].clone();
-        assert_eq!(
-            document.apply(Command::SetOrder(order)).unwrap_err(),
-            CommandError::OrderMismatch
-        );
+            },
+        ),
+        (
+            "parent that is not a group",
+            set_parent("t1", "p1"),
+            invalid_parent("t1", "p1"),
+        ),
+        (
+            "parent that is missing",
+            set_parent("t1", "missing"),
+            invalid_parent("t1", "missing"),
+        ),
+        (
+            "group inside itself",
+            set_parent("g1", "g1"),
+            invalid_parent("g1", "g1"),
+        ),
+        (
+            "group inside its own child",
+            set_parent("g1", "g2"),
+            invalid_parent("g1", "g2"),
+        ),
+        (
+            "order that repeats an id",
+            Command::SetOrder(swapped_order),
+            CommandError::OrderMismatch,
+        ),
+    ];
+    for (name, command, expected) in rows {
+        let mut document = before.clone();
+        assert_eq!(document.apply(command), Err(expected), "{name}");
+        assert_eq!(document, before, "{name}: the document changed");
     }
 }
 
@@ -310,14 +382,6 @@ fn ancestors_stops_at_a_cycle_loaded_from_a_file() {
     document.apply(insert(a, 0)).unwrap();
     document.apply(insert(b, 1)).unwrap();
     assert_eq!(document.ancestors(&EntityId::new("a")).count(), 2);
-
-    {
-        let document = fixture();
-        for id in ["p1", "t1"] {
-            assert_eq!(document.edges_touching(&EntityId::new(id)).count(), 1);
-        }
-        assert_eq!(document.edges_touching(&EntityId::new("sh1")).count(), 0);
-    }
 }
 
 #[test]
@@ -392,11 +456,15 @@ fn a_step_carries_the_state_from_either_side_of_it() {
     {
         let mut document = fixture();
         let mut history: History<u8> = History::default();
-        let remove = Command::RemoveEntity(EntityId::new("sh1"));
-        history.apply_from(&mut document, remove, 7).unwrap();
-        assert_eq!(history.undo(&mut document), Ok(Some(7)));
+        let remove = |id: &str| Command::RemoveEntity(EntityId::new(id));
+        history.apply_from(&mut document, remove("sh1"), 1).unwrap();
+        history.settle(2);
+        history.apply_from(&mut document, remove("d1"), 3).unwrap();
+        assert_eq!(history.undo(&mut document), Ok(Some(3)));
+        // The step just undone is closed, so this settle is not the earlier one's.
         history.settle(9);
-        assert_eq!(history.redo(&mut document), Ok(Some(7)));
+        assert_eq!(history.undo(&mut document), Ok(Some(1)));
+        assert_eq!(history.redo(&mut document), Ok(Some(2)));
     }
 }
 

@@ -44,56 +44,38 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_still_camera_rasterises_at_its_own_zoom() {
-        let mut hold = RasterHold::default();
-        assert_eq!(
-            [hold.raster_zoom(1.0, false), hold.raster_zoom(1.1, false)],
-            [1.0, 1.1]
-        );
-    }
-
-    #[test]
-    fn zooming_holds_the_size_from_before_the_gesture() {
-        let mut hold = RasterHold::default();
-        hold.raster_zoom(1.0, false);
-        assert_eq!(
-            [hold.raster_zoom(1.05, true), hold.raster_zoom(1.2, true)],
-            [1.0, 1.0]
-        );
-    }
-
-    #[test]
-    fn settling_refreshes_to_the_final_zoom() {
-        let mut hold = RasterHold::default();
-        hold.raster_zoom(1.0, false);
-        hold.raster_zoom(1.2, true);
-        assert_eq!(hold.raster_zoom(1.2, false), 1.2);
-    }
-
-    #[test]
-    fn a_long_zoom_refreshes_when_the_stretch_leaves_the_band() {
-        let mut hold = RasterHold::default();
-        hold.raster_zoom(1.0, false);
-        // 1.3 is past the band, so it becomes the new held size; 1.5 is
-        // then within the band of 1.3.
-        assert_eq!(
-            [hold.raster_zoom(1.3, true), hold.raster_zoom(1.5, true)],
-            [1.3, 1.3]
-        );
-    }
-
-    #[test]
-    fn zooming_out_refreshes_below_the_band_too() {
-        let mut hold = RasterHold::default();
-        hold.raster_zoom(1.0, false);
-        assert_eq!(
-            [hold.raster_zoom(0.8, true), hold.raster_zoom(0.7, true)],
-            [1.0, 0.7]
-        );
-    }
-
-    #[test]
-    fn the_first_frame_of_a_gesture_with_nothing_held_uses_its_zoom() {
-        assert_eq!(RasterHold::default().raster_zoom(0.4, true), 0.4);
+    fn a_zoom_gesture_holds_the_raster_until_it_settles_or_leaves_the_band() {
+        // Each step is (zoom, zooming) and the raster zoom it should give.
+        for (name, steps) in [
+            ("still", vec![(1.0, false, 1.0), (1.1, false, 1.1)]),
+            (
+                "zooming holds",
+                vec![(1.0, false, 1.0), (1.05, true, 1.0), (1.2, true, 1.0)],
+            ),
+            (
+                "settling refreshes",
+                vec![(1.0, false, 1.0), (1.2, true, 1.0), (1.2, false, 1.2)],
+            ),
+            // 1.3 is past the band, so it becomes the new held size; 1.5 is
+            // then within the band of 1.3.
+            (
+                "zooming in past the band",
+                vec![(1.0, false, 1.0), (1.3, true, 1.3), (1.5, true, 1.3)],
+            ),
+            (
+                "zooming out past the band",
+                vec![(1.0, false, 1.0), (0.8, true, 1.0), (0.7, true, 0.7)],
+            ),
+            ("nothing held", vec![(0.4, true, 0.4)]),
+        ] {
+            let mut hold = RasterHold::default();
+            for (zoom, zooming, expected) in steps {
+                assert_eq!(
+                    hold.raster_zoom(zoom, zooming),
+                    expected,
+                    "{name} at {zoom}"
+                );
+            }
+        }
     }
 }

@@ -31,7 +31,7 @@ fn size(node: &Value) -> (Value, Value) {
 #[test]
 fn a_heading_makes_a_document_named_after_it_with_the_text_written() {
     let mut session = Scripted::empty();
-    let text = "# Launch plan: v2\n\nship it";
+    let text = "# Launch plan: v2\n\nship it\n";
     let made = session.apply(json!({ "entities": [
         { "kind": "text", "text": text, "canvasX": 40, "canvasY": 80 },
     ]}));
@@ -83,7 +83,7 @@ fn short_plain_text_stays_a_sticky_and_writes_nothing() {
 #[test]
 fn a_name_that_is_taken_gets_a_number_even_within_one_patch() {
     let mut session = Scripted::empty();
-    session.disk.entries = vec!["plan.MD".to_owned(), "Plan 2.md".to_owned()];
+    session.disk.entries = vec!["plan.MD".to_owned(), "Plan 3.md".to_owned()];
     let made = session.apply(json!({ "entities": [
         { "kind": "text", "text": "# Plan\none" },
         { "kind": "text", "text": "# Plan\ntwo" },
@@ -93,7 +93,7 @@ fn a_name_that_is_taken_gets_a_number_even_within_one_patch() {
         .iter()
         .map(|id| session.node(id)["file"].clone())
         .collect();
-    assert_eq!(files, [json!("Plan 3.md"), json!("Plan 4.md")]);
+    assert_eq!(files, [json!("Plan 2.md"), json!("Plan 4.md")]);
     assert_eq!(writes(&session).len(), 2);
     session.app.assert_undo_returns_to_start();
 }
@@ -110,8 +110,12 @@ fn dropped(path: &str, inside: Option<&str>, image: Option<(u32, u32)>) -> Dropp
 fn a_file_inside_the_space_keeps_its_relative_path_and_is_not_copied() {
     let mut session = Scripted::empty();
     let file = dropped("/space/shots/a.png", Some("shots/a.png"), Some((640, 480)));
-    session.disk.files.insert("shots/a.png".to_owned(), file);
-    let made = session.apply(json!({ "entities": [{ "kind": "file", "file": "shots/a.png" }] }));
+    session
+        .disk
+        .files
+        .insert("/space/shots/a.png".to_owned(), file);
+    let made =
+        session.apply(json!({ "entities": [{ "kind": "file", "file": "/space/shots/a.png" }] }));
     let node = session.node(&made["created"][0]);
     assert_eq!(node["file"], "shots/a.png");
     assert_eq!(size(&node), (json!(640), json!(480)));

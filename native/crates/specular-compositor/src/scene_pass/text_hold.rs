@@ -201,14 +201,14 @@ mod tests {
     fn a_pan_past_the_margin_is_laid_out_again() {
         let laid = Laid::new(&canvas(Vec2::ZERO, 0.25), vec![1]);
         let far = MARGIN_PX / 2.0 + 1.0;
-        assert!(
-            laid.placement(&canvas(Vec2::new(far, 0.0), 0.25), &[1])
-                .is_none()
-        );
-        assert!(
-            laid.placement(&canvas(Vec2::new(0.0, -far), 0.25), &[1])
-                .is_none()
-        );
+        for (name, pan) in [
+            ("right", Vec2::new(far, 0.0)),
+            ("left", Vec2::new(-far, 0.0)),
+            ("down", Vec2::new(0.0, far)),
+            ("up", Vec2::new(0.0, -far)),
+        ] {
+            assert!(laid.placement(&canvas(pan, 0.25), &[1]).is_none(), "{name}");
+        }
         assert!(
             laid.placement(&canvas(Vec2::new(far - 2.0, 0.0), 0.25), &[1])
                 .is_some()
@@ -291,5 +291,8 @@ mod tests {
         let laid = Laid::new(&frame, vec![1]);
         assert_eq!(laid.size(), [3300, 2100]);
         assert!(laid.placement(&frame, &[1]).is_some());
+        // A layout with its full margin does not fit a shorter limit.
+        let roomy = Laid::new(&canvas(Vec2::ZERO, 0.25), vec![1]);
+        assert!(roomy.placement(&frame, &[1]).is_none());
     }
 }

@@ -146,16 +146,22 @@ mod tests {
     }
 
     #[test]
-    fn empty_dirty_list_uploads_whole_frame() {
-        let regions: Vec<_> = upload_regions(&frame(8, 4, vec![]), false).collect();
-        assert_eq!(regions, [PixelRect::new(0, 0, 8, 4)]);
-    }
-
-    #[test]
-    fn dirty_rects_are_clamped_to_frame_bounds() {
-        let frame = frame(8, 4, vec![PixelRect::new(-2, 2, 6, 10)]);
-        let regions: Vec<_> = upload_regions(&frame, false).collect();
-        assert_eq!(regions, [PixelRect::new(0, 2, 4, 2)]);
+    fn an_upload_covers_the_dirty_rects_inside_the_frame_or_all_of_it() {
+        for (name, dirty, expected) in [
+            (
+                "empty list is the whole frame",
+                vec![],
+                PixelRect::new(0, 0, 8, 4),
+            ),
+            (
+                "clamped to the frame",
+                vec![PixelRect::new(-2, 2, 20, 10)],
+                PixelRect::new(0, 2, 8, 2),
+            ),
+        ] {
+            let regions: Vec<_> = upload_regions(&frame(8, 4, dirty), false).collect();
+            assert_eq!(regions, [expected], "{name}");
+        }
     }
 
     #[test]

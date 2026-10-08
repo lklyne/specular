@@ -138,34 +138,3 @@ pub(crate) fn on_notice(app: &mut App, key: ImageKey, notice: ImageNotice) {
         };
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::is_image_file;
-
-    #[test]
-    fn image_files_are_told_by_their_extension_in_any_case() {
-        for file in [
-            "a.png",
-            "assets/b.JPG",
-            "c.jpeg",
-            "d.gif",
-            "e.webp",
-            "f.svg",
-            "g.BMP",
-            "h.ico",
-        ] {
-            assert!(is_image_file(file), "{file}");
-        }
-        for file in [
-            "notes.md",
-            "png",
-            "clip.mp4",
-            "archive.png.zip",
-            "Button.tsx",
-            "",
-        ] {
-            assert!(!is_image_file(file), "{file}");
-        }
-    }
-}

@@ -57,11 +57,30 @@ mod tests {
 
     #[test]
     fn the_table_is_indexed_like_the_electron_catalog() {
+        let devices = [
+            "iphone-se",
+            "iphone-14-pro",
+            "iphone-14-pro-max",
+            "ipad-mini",
+            "ipad-pro-11",
+            "ipad-pro-129",
+            "laptop",
+            "desktop",
+            "desktop-xl",
+            "iphone-duo-cover",
+            "iphone-duo-open",
+        ];
+        for (index, device) in (0..).zip(devices) {
+            assert_eq!(
+                preset(index).map(|row| row.device_id),
+                Some(device),
+                "preset {index}"
+            );
+        }
         assert_eq!(
-            preset(u64::from(LAPTOP)).map(|row| row.device_id),
-            Some("laptop")
+            preset(u64::from(LAPTOP)).map(|row| row.label),
+            Some("Laptop")
         );
-        assert_eq!(preset(10).map(|row| row.label), Some("iPhone Duo (open)"));
-        assert_eq!(preset(11), None);
+        assert_eq!(preset(devices.len() as u64), None);
     }
 }

@@ -289,32 +289,20 @@ mod tests {
     const ANCHOR: DVec2 = DVec2::new(105.0, 100.0);
 
     #[test]
-    fn the_anchor_lands_on_the_grid() {
-        assert_eq!(
-            delta(DVec2::new(33.0, -8.0), ANCHOR, true, false),
-            DVec2::new(35.0, 0.0)
-        );
-
-        {
+    fn the_anchor_lands_on_the_grid_and_an_axis_lock_keeps_the_longer_reach() {
+        // (pointer delta, snap, axis lock, result). A tie goes to horizontal.
+        let rows = [
+            ((33.0, -8.0), true, false, (35.0, 0.0)),
+            ((33.0, -8.0), false, false, (33.0, -8.0)),
+            ((33.0, -8.0), true, true, (35.0, 0.0)),
+            ((8.0, 33.0), true, true, (0.0, 40.0)),
+            ((30.0, 30.0), false, true, (30.0, 0.0)),
+        ];
+        for ((x, y), snap, lock, (want_x, want_y)) in rows {
             assert_eq!(
-                delta(DVec2::new(33.0, -8.0), ANCHOR, false, false),
-                DVec2::new(33.0, -8.0)
-            );
-        }
-
-        {
-            assert_eq!(
-                delta(DVec2::new(33.0, -8.0), ANCHOR, true, true),
-                DVec2::new(35.0, 0.0)
-            );
-            assert_eq!(
-                delta(DVec2::new(8.0, 33.0), ANCHOR, true, true),
-                DVec2::new(0.0, 40.0)
-            );
-            // A tie goes to horizontal.
-            assert_eq!(
-                delta(DVec2::new(30.0, 30.0), ANCHOR, false, true),
-                DVec2::new(30.0, 0.0)
+                delta(DVec2::new(x, y), ANCHOR, snap, lock),
+                DVec2::new(want_x, want_y),
+                "({x}, {y}) snap {snap} lock {lock}"
             );
         }
     }

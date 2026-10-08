@@ -112,14 +112,15 @@ mod tests {
             ..run("note")
         };
         let clip = Some(Rect::new(0.0, 0.0, 50.0, 50.0));
-        let others = [
-            key_of(&run("notes"), None, 1.0),
-            key_of(&moved, None, 1.0),
-            key_of(&recoloured, None, 1.0),
-            key_of(&run("note"), clip, 1.0),
-            key_of(&run("note"), None, 0.5),
-        ];
-        assert!(others.iter().all(|&other| other != base));
+        for (name, other) in [
+            ("text", key_of(&run("notes"), None, 1.0)),
+            ("place", key_of(&moved, None, 1.0)),
+            ("colour", key_of(&recoloured, None, 1.0)),
+            ("clip", key_of(&run("note"), clip, 1.0)),
+            ("opacity", key_of(&run("note"), None, 0.5)),
+        ] {
+            assert_ne!(other, base, "{name}");
+        }
     }
 
     #[test]

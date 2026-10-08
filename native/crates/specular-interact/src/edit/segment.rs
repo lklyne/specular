@@ -138,12 +138,19 @@ mod tests {
     #[test]
     fn a_double_click_takes_the_word_under_it_or_the_gap() {
         let text = "one, two  three";
-        assert_eq!(word_at(text, 1), 0..3);
-        assert_eq!(word_at(text, 3), 0..3, "the boundary after a word");
-        assert_eq!(word_at(text, 8), 5..8);
-        assert_eq!(word_at(text, 9), 8..10, "inside the gap");
-        assert_eq!(word_at(text, 15), 10..15);
-        assert_eq!(word_at("", 0), 0..0);
+        // (text, offset, range). The boundary after a word still takes it, and
+        // inside the gap the gap is taken.
+        let rows = [
+            (text, 1, 0..3),
+            (text, 3, 0..3),
+            (text, 8, 5..8),
+            (text, 9, 8..10),
+            (text, 15, 10..15),
+            ("", 0, 0..0),
+        ];
+        for (text, at, want) in rows {
+            assert_eq!(word_at(text, at), want, "{text:?} at {at}");
+        }
     }
 
     #[test]
@@ -153,12 +160,13 @@ mod tests {
             [0, 3, 4, 7, 8].map(|at| paragraph_at(text, at)),
             [0..3, 0..3, 4..7, 4..7, 8..8]
         );
+    }
 
-        {
-            assert_eq!(
-                [0, 1, 3, 4, 99].map(|units| from_utf16("a😀b", units)),
-                [0, 1, 5, 6, 6]
-            );
-        }
+    #[test]
+    fn utf16_offsets_map_to_byte_offsets_and_clamp() {
+        assert_eq!(
+            [0, 1, 3, 4, 99].map(|units| from_utf16("a😀b", units)),
+            [0, 1, 5, 6, 6]
+        );
     }
 }

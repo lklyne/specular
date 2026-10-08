@@ -224,36 +224,44 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_page_scrolled_down_moves_its_content_up() {
-        let shift = shift_of(
-            DVec2::new(0.0, 100.0),
-            DVec2::new(0.0, 340.0),
-            DVec2::new(1.0, 1.0),
-        );
-        assert_eq!(shift, DVec2::new(0.0, 240.0));
-
-        {
-            // A 1280px page drawn 640 wide: a CSS pixel is half a unit.
-            let shift = shift_of(DVec2::ZERO, DVec2::new(0.0, 200.0), DVec2::new(0.5, 0.5));
-            assert_eq!(shift, DVec2::new(0.0, 100.0));
+    fn a_page_scrolled_down_moves_its_content_up_by_the_scale() {
+        // (scroll before, scroll after, units per CSS pixel, shift). A 1280px
+        // page drawn 640 wide has half a unit per CSS pixel.
+        let rows = [
+            ((0.0, 100.0), (0.0, 340.0), (1.0, 1.0), (0.0, 240.0)),
+            ((0.0, 0.0), (0.0, 200.0), (0.5, 0.5), (0.0, 100.0)),
+        ];
+        for ((fx, fy), (tx, ty), (sx, sy), (want_x, want_y)) in rows {
+            let shift = shift_of(DVec2::new(fx, fy), DVec2::new(tx, ty), DVec2::new(sx, sy));
+            assert_eq!(shift, DVec2::new(want_x, want_y), "scale {sx}");
         }
     }
 
     #[test]
     fn touching_the_edge_is_not_leaving() {
         let page = Rect::new(100.0, 100.0, 400.0, 300.0);
-        assert!(!left_page(page, Rect::new(100.0, 400.0, 50.0, 50.0)));
-        assert!(left_page(page, Rect::new(100.0, 401.0, 50.0, 50.0)));
-        assert!(left_page(page, Rect::new(40.0, 100.0, 50.0, 50.0)));
+        let rows = [
+            (Rect::new(100.0, 400.0, 50.0, 50.0), false),
+            (Rect::new(100.0, 401.0, 50.0, 50.0), true),
+            (Rect::new(40.0, 100.0, 50.0, 50.0), true),
+        ];
+        for (rect, left) in rows {
+            assert_eq!(left_page(page, rect), left, "{rect:?}");
+        }
     }
 
     #[test]
     fn a_rect_is_clipped_to_its_page() {
         let page = Rect::new(100.0, 100.0, 400.0, 300.0);
-        assert_eq!(
-            clipped(Rect::new(90.0, 380.0, 50.0, 50.0), page),
-            Some(Rect::new(100.0, 380.0, 40.0, 20.0))
-        );
-        assert_eq!(clipped(Rect::new(90.0, 410.0, 50.0, 50.0), page), None);
+        let rows = [
+            (
+                Rect::new(90.0, 380.0, 50.0, 50.0),
+                Some(Rect::new(100.0, 380.0, 40.0, 20.0)),
+            ),
+            (Rect::new(90.0, 410.0, 50.0, 50.0), None),
+        ];
+        for (rect, want) in rows {
+            assert_eq!(clipped(rect, page), want, "{rect:?}");
+        }
     }
 }

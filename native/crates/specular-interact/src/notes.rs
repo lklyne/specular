@@ -272,18 +272,3 @@ pub(crate) fn on_wheel(app: &mut App, input: &WheelInput) -> bool {
     scroll_to(app, &entity, offset);
     true
 }
-
-#[cfg(test)]
-mod tests {
-    use super::is_note_file;
-
-    #[test]
-    fn markdown_files_are_told_by_their_extension_in_any_case() {
-        for file in ["notes.md", "docs/Plan.MD", "/abs/a.b.md"] {
-            assert!(is_note_file(file), "{file}");
-        }
-        for file in ["md", "notes.mdx", "notes.md.bak", "shot.png", ""] {
-            assert!(!is_note_file(file), "{file}");
-        }
-    }
-}

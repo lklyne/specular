@@ -64,8 +64,6 @@ impl PagePlacement {
 
 #[cfg(test)]
 mod tests {
-    use glam::Vec2;
-
     use super::*;
 
     fn placed(rect: Rect, viewport: CssSize) -> PagePlacement {
@@ -74,50 +72,38 @@ mod tests {
 
     #[test]
     fn viewport_is_the_rounded_rect_size_and_never_empty() {
-        let viewport = PagePlacement::viewport_for(Rect::new(0.0, 0.0, 519.6, 0.2));
-        assert_eq!(viewport, CssSize::new(520, 1));
-    }
-
-    #[test]
-    fn display_scale_combines_zoom_and_page_scale() {
-        // A 1280px page drawn 640 units wide, at zoom 0.5: 0.25 px per CSS px.
-        let page = placed(Rect::new(0.0, 0.0, 640.0, 400.0), CssSize::new(1280, 800));
-        let scale = page.display_scale(&Camera::new(Vec2::ZERO, 0.5));
-        assert!((scale - 0.25).abs() < 1e-6);
+        let rows = [
+            (Rect::new(0.0, 0.0, 519.6, 0.2), CssSize::new(520, 1)),
+            (Rect::new(0.0, 0.0, 640.4, 400.5), CssSize::new(640, 401)),
+        ];
+        for (rect, want) in rows {
+            assert_eq!(PagePlacement::viewport_for(rect), want, "{rect:?}");
+        }
     }
 
     #[test]
     fn page_local_scales_canvas_rect_to_css_viewport() {
         // A 1280px-wide page shown 640 canvas units wide: 2 CSS px per unit.
-        let page = placed(
+        let scaled = placed(
             Rect::new(100.0, 100.0, 640.0, 400.0),
             CssSize::new(1280, 800),
         );
-        assert_eq!(
-            page.page_local(DVec2::new(110.0, 120.0)),
-            DVec2::new(20.0, 40.0)
+        // A release captured by a page after the pointer left it.
+        let unscaled = placed(
+            Rect::new(100.0, 0.0, 1440.0, 900.0),
+            CssSize::new(1440, 900),
         );
-
-        {
-            // A release captured by a page after the pointer left it.
-            let page = placed(
-                Rect::new(100.0, 0.0, 1440.0, 900.0),
-                CssSize::new(1440, 900),
-            );
+        let rows = [
+            (scaled, (110.0, 120.0), (20.0, 40.0)),
+            (unscaled, (90.0, 10.0), (-10.0, 10.0)),
+        ];
+        for (page, (x, y), (local_x, local_y)) in rows {
+            let local = DVec2::new(local_x, local_y);
+            assert_eq!(page.page_local(DVec2::new(x, y)), local, "({x}, {y})");
             assert_eq!(
-                page.page_local(DVec2::new(90.0, 10.0)),
-                DVec2::new(-10.0, 10.0)
-            );
-        }
-
-        {
-            let page = placed(
-                Rect::new(100.0, 100.0, 640.0, 400.0),
-                CssSize::new(1280, 800),
-            );
-            assert_eq!(
-                page.to_canvas(DVec2::new(20.0, 40.0)),
-                DVec2::new(110.0, 120.0)
+                page.to_canvas(local),
+                DVec2::new(x, y),
+                "({local_x}, {local_y})"
             );
         }
     }

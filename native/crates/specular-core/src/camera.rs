@@ -130,140 +130,165 @@ mod tests {
     }
 
     #[test]
-    fn screen_to_world_inverts_world_to_screen() {
-        let camera = Camera::new(Vec2::new(120.0, -40.0), 0.37);
+    fn screen_and_world_are_inverse_and_project_to_the_clip_corner() {
+        let screen = Vec2::new(640.0, 360.0);
         let world = Vec2::new(812.5, -33.0);
-        assert_close(camera.screen_to_world(camera.world_to_screen(world)), world);
-
-        {
-            for zoom in [MIN_ZOOM, 0.1, 1.0, 2.25, MAX_ZOOM] {
-                let camera = Camera::new(Vec2::new(-731.0, 2048.0), zoom);
-                let screen = Vec2::new(640.0, 360.0);
-                assert_close(
-                    camera.world_to_screen(camera.screen_to_world(screen)),
-                    screen,
-                );
-            }
-        }
-
-        {
-            let camera = Camera::new(Vec2::new(50.0, 25.0), 2.0);
-            let viewport = Vec2::new(800.0, 600.0);
-            let m = camera.view_projection(viewport);
-            let world_bottom_right = camera.screen_to_world(viewport);
-            let clip = m.project_point3(world_bottom_right.extend(0.0));
-            assert_close(clip.truncate(), Vec2::new(1.0, -1.0));
-        }
-    }
-
-    #[test]
-    fn zoom_about_keeps_anchor_world_point_fixed() {
-        let mut camera = Camera::new(Vec2::new(30.0, 10.0), 1.0);
-        let anchor = Vec2::new(400.0, 300.0);
-        let before = camera.screen_to_world(anchor);
-        camera.zoom_about(anchor, 2.5);
-        assert_close(camera.screen_to_world(anchor), before);
-
-        {
-            let mut camera = Camera::new(Vec2::new(-10.0, 5.0), 2.0);
-            let anchor = Vec2::new(123.0, 456.0);
-            let before = camera.screen_to_world(anchor);
-            camera.zoom_about(anchor, 50.0);
-            assert_close(camera.screen_to_world(anchor), before);
-        }
-
-        {
-            let mut camera = Camera::new(Vec2::new(200.0, -80.0), 0.75);
-            let cursor = Vec2::new(512.0, 384.0);
-            let before = camera.screen_to_world(cursor);
-            camera.apply_input_delta(ViewportInputDelta {
-                zoom_delta_y: -37.0,
-                anchor: Some(cursor),
-                ..ViewportInputDelta::default()
-            });
-            assert_close(camera.screen_to_world(cursor), before);
-        }
-
-        {
-            let pan = Vec2::new(200.0, -80.0);
-            let mut camera = Camera::new(pan, 1.0);
-            camera.apply_input_delta(ViewportInputDelta {
-                zoom_delta_y: -50.0,
-                ..ViewportInputDelta::default()
-            });
-            assert_eq!(camera.pan, pan);
-        }
-
-        {
-            let mut camera = Camera::default();
-            camera.apply_input_delta(ViewportInputDelta {
-                pan: Vec2::new(10.0, -4.0),
-                zoom_delta_y: -100.0,
-                anchor: Some(Vec2::ZERO),
-            });
-            assert_eq!(camera.pan, Vec2::new(10.0, -4.0));
-        }
-    }
-
-    #[test]
-    fn negative_wheel_delta_zooms_in_by_electron_factor() {
-        let mut camera = Camera::default();
-        camera.apply_input_delta(ViewportInputDelta {
-            zoom_delta_y: -100.0,
-            ..ViewportInputDelta::default()
-        });
-        assert!((camera.zoom - 1.2).abs() < 1e-6);
-
-        {
-            let mut camera = Camera::default();
-            camera.apply_input_delta(ViewportInputDelta {
-                zoom_delta_y: 10_000.0,
-                ..ViewportInputDelta::default()
-            });
-            assert!((camera.zoom - MIN_ZOOM).abs() < f32::EPSILON);
-        }
-
-        {
-            let mut camera = Camera::default();
-            camera.apply_input_delta(ViewportInputDelta {
-                zoom_delta_y: -10_000.0,
-                ..ViewportInputDelta::default()
-            });
-            assert!((camera.zoom - MAX_ZOOM).abs() < f32::EPSILON);
-        }
-
-        {
-            assert!((Camera::new(Vec2::ZERO, 0.0).zoom - MIN_ZOOM).abs() < f32::EPSILON);
-        }
-    }
-
-    #[test]
-    fn page_inside_viewport_is_visible() {
-        let camera = Camera::new(Vec2::new(-100.0, 0.0), 1.0);
-        let page = Rect::new(500.0, 100.0, 390.0, 844.0);
-        assert!(camera.is_visible(page, Vec2::new(800.0, 600.0)));
-
-        {
-            let camera = Camera::new(Vec2::new(-100.0, 0.0), 1.0);
-            let page = Rect::new(-500.0, 0.0, 390.0, 844.0);
-            assert!(!camera.is_visible(page, Vec2::new(800.0, 600.0)));
-        }
-
-        {
-            let page = Rect::new(3840.0, 360.0, 393.0, 852.0);
-            let viewport = Vec2::new(1280.0, 800.0);
-            let mut camera = Camera::default();
-            camera.zoom_about(Vec2::ZERO, 0.25);
-            assert!(camera.is_visible(page, viewport));
-        }
-
-        {
-            let camera = Camera::new(Vec2::ZERO, 0.5);
-            let rect = camera.visible_world_rect(Vec2::new(800.0, 600.0));
-            assert_close(
-                Vec2::new(rect.width, rect.height),
-                Vec2::new(1600.0, 1200.0),
+        for (pan, zoom) in [
+            (Vec2::new(120.0, -40.0), 0.37),
+            (Vec2::new(-731.0, 2048.0), MIN_ZOOM),
+            (Vec2::new(-731.0, 2048.0), 0.1),
+            (Vec2::new(-731.0, 2048.0), 1.0),
+            (Vec2::new(-731.0, 2048.0), 2.25),
+            (Vec2::new(-731.0, 2048.0), MAX_ZOOM),
+        ] {
+            let camera = Camera::new(pan, zoom);
+            let back = camera.screen_to_world(camera.world_to_screen(world));
+            assert!(
+                back.abs_diff_eq(world, 1e-2),
+                "pan {pan}, zoom {zoom}: {back}"
+            );
+            let back = camera.world_to_screen(camera.screen_to_world(screen));
+            assert!(
+                back.abs_diff_eq(screen, 1e-2),
+                "pan {pan}, zoom {zoom}: {back}"
             );
         }
+
+        let camera = Camera::new(Vec2::new(50.0, 25.0), 2.0);
+        let viewport = Vec2::new(800.0, 600.0);
+        let m = camera.view_projection(viewport);
+        let world_bottom_right = camera.screen_to_world(viewport);
+        let clip = m.project_point3(world_bottom_right.extend(0.0));
+        assert_close(clip.truncate(), Vec2::new(1.0, -1.0));
+    }
+
+    type Zoom = fn(&mut Camera, Vec2);
+
+    #[test]
+    fn zoom_keeps_the_point_under_the_anchor_fixed() {
+        let rows: [(&str, Camera, Vec2, Zoom); 3] = [
+            (
+                "zoom_about in",
+                Camera::new(Vec2::new(30.0, 10.0), 1.0),
+                Vec2::new(400.0, 300.0),
+                |camera, anchor| camera.zoom_about(anchor, 2.5),
+            ),
+            (
+                "zoom_about past the limit",
+                Camera::new(Vec2::new(-10.0, 5.0), 2.0),
+                Vec2::new(123.0, 456.0),
+                |camera, anchor| camera.zoom_about(anchor, 50.0),
+            ),
+            (
+                "wheel input",
+                Camera::new(Vec2::new(200.0, -80.0), 0.75),
+                Vec2::new(512.0, 384.0),
+                |camera, anchor| {
+                    camera.apply_input_delta(ViewportInputDelta {
+                        zoom_delta_y: -37.0,
+                        anchor: Some(anchor),
+                        ..ViewportInputDelta::default()
+                    });
+                },
+            ),
+        ];
+        for (name, mut camera, anchor, zoom) in rows {
+            let before = camera.screen_to_world(anchor);
+            zoom(&mut camera, anchor);
+            assert!(
+                camera.screen_to_world(anchor).abs_diff_eq(before, 1e-3),
+                "{name}"
+            );
+        }
+    }
+
+    #[test]
+    fn an_input_delta_pans_and_zooms_without_an_anchor_leaves_pan_alone() {
+        let rows = [
+            (
+                "zoom without an anchor",
+                Vec2::new(200.0, -80.0),
+                ViewportInputDelta {
+                    zoom_delta_y: -50.0,
+                    ..ViewportInputDelta::default()
+                },
+                Vec2::new(200.0, -80.0),
+            ),
+            (
+                "pan with a zoom anchored at the origin",
+                Vec2::ZERO,
+                ViewportInputDelta {
+                    pan: Vec2::new(10.0, -4.0),
+                    zoom_delta_y: -100.0,
+                    anchor: Some(Vec2::ZERO),
+                },
+                Vec2::new(10.0, -4.0),
+            ),
+        ];
+        for (name, pan, delta, expected) in rows {
+            let mut camera = Camera::new(pan, 1.0);
+            camera.apply_input_delta(delta);
+            assert_eq!(camera.pan, expected, "{name}");
+        }
+    }
+
+    #[test]
+    fn wheel_delta_zooms_by_the_electron_factor_within_the_limits() {
+        let rows = [
+            ("zoom in", -100.0, 1.2),
+            ("past the minimum", 10_000.0, MIN_ZOOM),
+            ("past the maximum", -10_000.0, MAX_ZOOM),
+        ];
+        for (name, zoom_delta_y, expected) in rows {
+            let mut camera = Camera::default();
+            camera.apply_input_delta(ViewportInputDelta {
+                zoom_delta_y,
+                ..ViewportInputDelta::default()
+            });
+            assert!(
+                (camera.zoom - expected).abs() < 1e-6,
+                "{name}: {}",
+                camera.zoom
+            );
+        }
+        assert!((Camera::new(Vec2::ZERO, 0.0).zoom - MIN_ZOOM).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn a_page_is_visible_only_inside_the_viewport() {
+        let mut zoomed_out = Camera::default();
+        zoomed_out.zoom_about(Vec2::ZERO, 0.25);
+        let rows = [
+            (
+                "inside",
+                Camera::new(Vec2::new(-100.0, 0.0), 1.0),
+                Rect::new(500.0, 100.0, 390.0, 844.0),
+                Vec2::new(800.0, 600.0),
+                true,
+            ),
+            (
+                "off the left",
+                Camera::new(Vec2::new(-100.0, 0.0), 1.0),
+                Rect::new(-500.0, 0.0, 390.0, 844.0),
+                Vec2::new(800.0, 600.0),
+                false,
+            ),
+            (
+                "far right but zoomed out",
+                zoomed_out,
+                Rect::new(3840.0, 360.0, 393.0, 852.0),
+                Vec2::new(1280.0, 800.0),
+                true,
+            ),
+        ];
+        for (name, camera, page, viewport, visible) in rows {
+            assert_eq!(camera.is_visible(page, viewport), visible, "{name}");
+        }
+
+        let rect = Camera::new(Vec2::ZERO, 0.5).visible_world_rect(Vec2::new(800.0, 600.0));
+        assert_close(
+            Vec2::new(rect.width, rect.height),
+            Vec2::new(1600.0, 1200.0),
+        );
     }
 }

@@ -69,11 +69,13 @@ fn remove_with_edges(document: &Document, id: &str) -> Command {
 }
 
 #[test]
-fn rich_workspace_round_trips_to_same_json_value() {
-    assert_eq!(saved(&load(RICH_WORKSPACE)), parse(RICH_WORKSPACE));
-
-    {
-        assert_eq!(saved(&load(PAGES)), pages_saved());
+fn each_fixture_round_trips_to_same_json_value() {
+    let rows = [
+        ("rich-workspace", RICH_WORKSPACE, parse(RICH_WORKSPACE)),
+        ("pages", PAGES, pages_saved()),
+    ];
+    for (name, text, expected) in rows {
+        assert_eq!(saved(&load(text)), expected, "{name}");
     }
 }
 
@@ -120,14 +122,21 @@ fn rich_workspace_has_every_kind_but_page() {
 
 #[test]
 fn moving_a_page_preserves_its_unknown_fields() {
-    let mut document = load(PAGES);
+    let mut file = parse(PAGES);
+    let nodes = file["nodes"].as_array_mut().unwrap();
+    let laptop = nodes
+        .iter_mut()
+        .find(|n| n["id"] == SPECULAR_LAPTOP)
+        .unwrap();
+    laptop["futureField"] = json!({ "keep": [1, 2.5] });
+    let mut document = Document::from_canvas_value(file.clone()).unwrap();
     document
         .apply(set_rect(
             SPECULAR_LAPTOP,
             Rect::new(0.0, 0.0, 1280.0, 800.0),
         ))
         .unwrap();
-    let mut expected = node(&parse(PAGES), SPECULAR_LAPTOP).clone();
+    let mut expected = node(&file, SPECULAR_LAPTOP).clone();
     expected["x"] = json!(0);
     expected["y"] = json!(0);
     assert_eq!(node(&saved(&document), SPECULAR_LAPTOP), &expected);
@@ -144,49 +153,43 @@ fn mutations_leave_top_level_extensions_untouched() {
     assert_eq!(saved["edges"], original["edges"]);
 }
 
-#[test]
-fn undoing_move_restores_fixture_exactly() {
-    let mut document = load(PAGES);
-    let mut history = History::new();
-    let moved = set_rect(SPECULAR_PHONE, Rect::new(12.5, -40.0, 430.0, 932.0));
-    history.apply(&mut document, moved).unwrap();
-    assert!(history.undo(&mut document).unwrap().is_some());
-    assert_eq!(saved(&document), pages_saved());
+type Change = dyn Fn(&Document) -> Command;
 
-    {
-        let mut document = load(PAGES);
-        let mut history = History::new();
+#[test]
+fn undoing_a_change_restores_the_fixture_exactly() {
+    let moved = |_: &Document| set_rect(SPECULAR_PHONE, Rect::new(12.5, -40.0, 430.0, 932.0));
+    let added = |document: &Document| {
         let page = Kind::Page(Page {
             url: "http://localhost:4321/garden".to_owned(),
             ..Page::default()
         });
         let entity = Entity::new("page_new", Rect::new(5000.0, 360.0, 1440.0, 900.0), page);
-        let add = Command::InsertEntity {
+        Command::InsertEntity {
             entity: Box::new(entity),
             at: document.stack_len(),
-        };
-        history.apply(&mut document, add).unwrap();
-        assert_eq!(saved(&document)["nodes"].as_array().unwrap().len(), 5);
-        assert!(history.undo(&mut document).unwrap().is_some());
-        assert_eq!(saved(&document), pages_saved());
-    }
-
-    {
+        }
+    };
+    let removed = |document: &Document| remove_with_edges(document, SPECULAR_PHONE);
+    let changes: [(&str, &Change); 3] = [("move", &moved), ("add", &added), ("remove", &removed)];
+    for (name, change) in changes {
         let mut document = load(PAGES);
         let mut history = History::new();
-        let remove = remove_with_edges(&document, SPECULAR_PHONE);
-        history.apply(&mut document, remove).unwrap();
-        assert!(history.undo(&mut document).unwrap().is_some());
-        assert_eq!(saved(&document), pages_saved());
+        let command = change(&document);
+        history.apply(&mut document, command).unwrap();
+        assert_ne!(saved(&document), pages_saved(), "{name} changed nothing");
+        assert!(history.undo(&mut document).unwrap().is_some(), "{name}");
+        assert_eq!(saved(&document), pages_saved(), "{name}");
     }
 }
 
 #[test]
-fn removing_a_page_drops_its_edge() {
-    let mut document = load(PAGES);
-    let remove = remove_with_edges(&document, SPECULAR_LAPTOP);
-    document.apply(remove).unwrap();
-    assert_eq!(saved(&document)["edges"], json!([]));
+fn removing_either_end_of_an_edge_drops_the_edge() {
+    for end in [SPECULAR_LAPTOP, SPECULAR_PHONE] {
+        let mut document = load(PAGES);
+        let remove = remove_with_edges(&document, end);
+        document.apply(remove).unwrap();
+        assert_eq!(saved(&document)["edges"], json!([]), "{end}");
+    }
 }
 
 #[test]

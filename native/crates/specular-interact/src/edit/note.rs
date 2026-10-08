@@ -255,17 +255,17 @@ mod tests {
 
     #[test]
     fn a_conflict_copy_sits_beside_its_file_with_the_same_extension() {
-        assert_eq!(
-            conflict_name("plan.md", "a1b2c3"),
-            "plan (conflict a1b2c3).md"
-        );
-        assert_eq!(
-            conflict_name("notes/v1.2/Plan.MD", "ff"),
-            "notes/v1.2/Plan (conflict ff).MD"
-        );
-        assert_eq!(
-            conflict_name("notes.d/plan", "ff"),
-            "notes.d/plan (conflict ff).md"
-        );
+        let rows = [
+            ("plan.md", "a1b2c3", "plan (conflict a1b2c3).md"),
+            (
+                "notes/v1.2/Plan.MD",
+                "ff",
+                "notes/v1.2/Plan (conflict ff).MD",
+            ),
+            ("notes.d/plan", "ff", "notes.d/plan (conflict ff).md"),
+        ];
+        for (file, tag, want) in rows {
+            assert_eq!(conflict_name(file, tag), want, "{file}");
+        }
     }
 }

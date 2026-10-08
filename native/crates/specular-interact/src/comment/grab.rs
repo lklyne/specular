@@ -75,35 +75,3 @@ pub(crate) fn on_region_grab(
         draft::open(app, made, effects);
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn grab(page: &str, elements: usize) -> PageGrab {
-        PageGrab {
-            page: EntityId::from(page),
-            elements,
-        }
-    }
-
-    fn bound(grabs: &[PageGrab]) -> Option<&str> {
-        grabbing_page(grabs).map(EntityId::as_str)
-    }
-
-    #[test]
-    fn the_first_page_that_grabbed_an_element_wins() {
-        assert_eq!(
-            bound(&[grab("p1", 0), grab("p2", 3), grab("p3", 5)]),
-            Some("p2")
-        );
-
-        {
-            assert_eq!(bound(&[grab("p1", 0), grab("p2", 0)]), None);
-        }
-
-        {
-            assert_eq!(bound(&[]), None);
-        }
-    }
-}

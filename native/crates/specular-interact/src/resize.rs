@@ -156,6 +156,7 @@ mod tests {
 
     const START: Rect = Rect::new(100.0, 100.0, 400.0, 200.0);
     const MIN: DVec2 = DVec2::new(80.0, 80.0);
+    const OFF_GRID: DVec2 = DVec2::new(46.0, 46.0);
     const BOTTOM_RIGHT: Handle = Handle::Corner(Corner::BottomRight);
     const TOP_LEFT: Handle = Handle::Corner(Corner::TopLeft);
 
@@ -164,135 +165,162 @@ mod tests {
     }
 
     #[test]
-    fn a_corner_moves_two_edges_onto_the_grid() {
-        assert_eq!(
-            resized(START, BOTTOM_RIGHT, at(547.0, 351.0), MIN, false),
-            Rect::new(100.0, 100.0, 440.0, 260.0)
-        );
-        assert_eq!(
-            resized(START, TOP_LEFT, at(53.0, 69.0), MIN, false),
-            Rect::new(60.0, 60.0, 440.0, 240.0)
-        );
-
-        {
+    fn a_handle_moves_its_edges_onto_the_grid_and_a_lock_follows_the_axis_dragged_further() {
+        // (handle, pointer, ratio locked, minimum, result). The ratio is 2:1.
+        let rows = [
+            (
+                BOTTOM_RIGHT,
+                at(547.0, 351.0),
+                false,
+                MIN,
+                Rect::new(100.0, 100.0, 440.0, 260.0),
+            ),
+            (
+                TOP_LEFT,
+                at(53.0, 69.0),
+                false,
+                MIN,
+                Rect::new(60.0, 60.0, 440.0, 240.0),
+            ),
+            (
+                Handle::Side(EdgeSide::Right),
+                at(600.0, 900.0),
+                false,
+                MIN,
+                Rect::new(100.0, 100.0, 500.0, 200.0),
+            ),
+            (
+                Handle::Side(EdgeSide::Top),
+                at(900.0, 40.0),
+                false,
+                MIN,
+                Rect::new(100.0, 40.0, 400.0, 260.0),
+            ),
+            // Dragged past the opposite corner it stops at the minimum.
+            (
+                TOP_LEFT,
+                at(900.0, 900.0),
+                false,
+                MIN,
+                Rect::new(420.0, 220.0, 80.0, 80.0),
+            ),
+            // A minimum off the grid still holds after the edge snaps.
+            (
+                TOP_LEFT,
+                at(900.0, 900.0),
+                false,
+                OFF_GRID,
+                Rect::new(454.0, 254.0, 46.0, 46.0),
+            ),
+            // The width grows by 100 and the height by 10, so width leads.
+            (
+                BOTTOM_RIGHT,
+                at(600.0, 310.0),
+                true,
+                MIN,
+                Rect::new(100.0, 100.0, 500.0, 250.0),
+            ),
+            // The height grows by 100, so it leads and the width follows.
+            (
+                BOTTOM_RIGHT,
+                at(510.0, 400.0),
+                true,
+                MIN,
+                Rect::new(100.0, 100.0, 600.0, 300.0),
+            ),
+            (
+                TOP_LEFT,
+                at(0.0, 95.0),
+                true,
+                MIN,
+                Rect::new(0.0, 50.0, 500.0, 250.0),
+            ),
+            (
+                Handle::Side(EdgeSide::Right),
+                at(600.0, 0.0),
+                true,
+                MIN,
+                Rect::new(100.0, 100.0, 500.0, 250.0),
+            ),
+            (
+                Handle::Side(EdgeSide::Bottom),
+                at(0.0, 400.0),
+                true,
+                MIN,
+                Rect::new(100.0, 100.0, 600.0, 300.0),
+            ),
+            // The width cannot go under 160 when the height holds 80.
+            (
+                BOTTOM_RIGHT,
+                at(110.0, 110.0),
+                true,
+                MIN,
+                Rect::new(100.0, 100.0, 160.0, 80.0),
+            ),
+        ];
+        for (handle, pointer, locked, min, want) in rows {
             assert_eq!(
-                resized(
-                    START,
-                    Handle::Side(EdgeSide::Right),
-                    at(600.0, 900.0),
-                    MIN,
-                    false
-                ),
-                Rect::new(100.0, 100.0, 500.0, 200.0)
-            );
-            assert_eq!(
-                resized(
-                    START,
-                    Handle::Side(EdgeSide::Top),
-                    at(900.0, 40.0),
-                    MIN,
-                    false
-                ),
-                Rect::new(100.0, 40.0, 400.0, 260.0)
-            );
-        }
-
-        {
-            assert_eq!(
-                resized(START, TOP_LEFT, at(900.0, 900.0), MIN, false),
-                Rect::new(420.0, 220.0, 80.0, 80.0)
-            );
-        }
-    }
-
-    #[test]
-    fn a_locked_corner_follows_the_axis_dragged_further() {
-        // 2:1. The width grows by 100 and the height by 10, so width leads.
-        assert_eq!(
-            resized(START, BOTTOM_RIGHT, at(600.0, 310.0), MIN, true),
-            Rect::new(100.0, 100.0, 500.0, 250.0)
-        );
-        // The height grows by 100, so it leads and the width follows.
-        assert_eq!(
-            resized(START, BOTTOM_RIGHT, at(510.0, 400.0), MIN, true),
-            Rect::new(100.0, 100.0, 600.0, 300.0)
-        );
-
-        {
-            assert_eq!(
-                resized(START, TOP_LEFT, at(0.0, 95.0), MIN, true),
-                Rect::new(0.0, 50.0, 500.0, 250.0)
-            );
-        }
-
-        {
-            assert_eq!(
-                resized(
-                    START,
-                    Handle::Side(EdgeSide::Right),
-                    at(600.0, 0.0),
-                    MIN,
-                    true
-                ),
-                Rect::new(100.0, 100.0, 500.0, 250.0)
-            );
-            assert_eq!(
-                resized(
-                    START,
-                    Handle::Side(EdgeSide::Bottom),
-                    at(0.0, 400.0),
-                    MIN,
-                    true
-                ),
-                Rect::new(100.0, 100.0, 600.0, 300.0)
-            );
-        }
-
-        {
-            // 2:1 with an 80 minimum each way: the width cannot go under 160.
-            assert_eq!(
-                resized(START, BOTTOM_RIGHT, at(110.0, 110.0), MIN, true),
-                Rect::new(100.0, 100.0, 160.0, 80.0)
+                resized(START, handle, pointer, min, locked),
+                want,
+                "{handle:?} to {pointer} locked {locked} min {min}"
             );
         }
     }
 
     #[test]
     fn selection_bounds_follow_the_pointer_exactly_down_to_their_minimum() {
-        assert_eq!(
-            resized_bounds(START, BOTTOM_RIGHT, at(547.0, 351.0)),
-            Rect::new(100.0, 100.0, 447.0, 251.0)
-        );
-        assert_eq!(
-            resized_bounds(START, TOP_LEFT, at(900.0, 900.0)),
-            Rect::new(480.0, 280.0, 20.0, 20.0)
-        );
-        assert_eq!(
-            resized_bounds(START, Handle::Side(EdgeSide::Left), at(0.0, 900.0)),
-            Rect::new(0.0, 100.0, 500.0, 200.0)
-        );
+        let rows = [
+            (
+                BOTTOM_RIGHT,
+                at(547.0, 351.0),
+                Rect::new(100.0, 100.0, 447.0, 251.0),
+            ),
+            (
+                TOP_LEFT,
+                at(900.0, 900.0),
+                Rect::new(480.0, 280.0, 20.0, 20.0),
+            ),
+            (
+                Handle::Side(EdgeSide::Left),
+                at(0.0, 900.0),
+                Rect::new(0.0, 100.0, 500.0, 200.0),
+            ),
+        ];
+        for (handle, pointer, want) in rows {
+            assert_eq!(
+                resized_bounds(START, handle, pointer),
+                want,
+                "{handle:?} to {pointer}"
+            );
+        }
     }
 
     #[test]
     fn entities_keep_their_share_of_the_bounds_on_whole_units() {
         let from = Rect::new(0.0, 0.0, 300.0, 100.0);
         let to = Rect::new(0.0, 0.0, 450.0, 50.0);
-        assert_eq!(
-            placed(Rect::new(100.0, 20.0, 101.0, 60.0), from, to),
-            Rect::new(150.0, 10.0, 152.0, 30.0)
+        let shrunk = (
+            Rect::new(0.0, 0.0, 1000.0, 1000.0),
+            Rect::new(0.0, 0.0, 20.0, 20.0),
         );
+        let rows = [
+            (
+                Rect::new(100.0, 20.0, 101.0, 60.0),
+                (from, to),
+                Rect::new(150.0, 10.0, 152.0, 30.0),
+            ),
+            (
+                Rect::new(500.0, 500.0, 10.0, 10.0),
+                shrunk,
+                Rect::new(10.0, 10.0, 1.0, 1.0),
+            ),
+        ];
+        for (rect, (from, to), want) in rows {
+            assert_eq!(placed(rect, from, to), want, "{rect:?}");
+        }
         // Two rects that shared an edge still share it.
         let left = placed(Rect::new(0.0, 0.0, 101.0, 100.0), from, to);
         let right = placed(Rect::new(101.0, 0.0, 199.0, 100.0), from, to);
         assert_eq!(left.x + left.width, right.x);
-
-        {
-            let from = Rect::new(0.0, 0.0, 1000.0, 1000.0);
-            let to = Rect::new(0.0, 0.0, 20.0, 20.0);
-            assert_eq!(
-                placed(Rect::new(500.0, 500.0, 10.0, 10.0), from, to),
-                Rect::new(10.0, 10.0, 1.0, 1.0)
-            );
-        }
     }
 }

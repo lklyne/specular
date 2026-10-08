@@ -297,6 +297,12 @@ mod tests {
             .collect()
     }
 
+    fn check(rows: &[(&str, &[&str])]) {
+        for (line, want) in rows {
+            assert_eq!(spans(line), *want, "{line}");
+        }
+    }
+
     #[test]
     fn a_heading_is_heavy_with_a_faint_mark() {
         let lines = style_lines("## Plan\n####### seven\n#tag");
@@ -304,65 +310,57 @@ mod tests {
             lines.iter().map(|line| line.heading).collect::<Vec<_>>(),
             [2, 0, 0]
         );
-        assert_eq!(spans("## Plan"), ["##:s.", "Plan:s"]);
-        assert_eq!(spans("#tag"), Vec::<String>::new());
+        check(&[("## Plan", &["##:s.", "Plan:s"]), ("#tag", &[])]);
     }
 
     #[test]
     fn emphasis_strong_code_and_strike_keep_their_markers_faint() {
-        assert_eq!(
-            spans("a **b** *c* `d` ~~e~~"),
-            [
-                "**:s.", "b:s", "**:s.", "*:e.", "c:e", "*:e.", "`:c.", "d:c", "`:c.", "~~:x.",
-                "e:x", "~~:x."
-            ]
-        );
-        assert_eq!(
-            spans("**a *b* c**"),
-            ["**:s.", "a :s", "*:se.", "b:se", "*:se.", " c:s", "**:s."]
-        );
-
-        {
-            for line in ["2 * 3 * 4", "**open", "snake_case_name", "a ` b"] {
-                assert_eq!(spans(line), Vec::<String>::new(), "{line}");
-            }
-            assert_eq!(spans("`**x**`"), ["`:c.", "**x**:c", "`:c."]);
-        }
-
-        {
-            assert_eq!(
-                spans("**日本** と *語*"),
-                ["**:s.", "日本:s", "**:s.", "*:e.", "語:e", "*:e."]
-            );
-        }
+        check(&[
+            (
+                "a **b** *c* `d` ~~e~~",
+                &[
+                    "**:s.", "b:s", "**:s.", "*:e.", "c:e", "*:e.", "`:c.", "d:c", "`:c.", "~~:x.",
+                    "e:x", "~~:x.",
+                ],
+            ),
+            (
+                "**a *b* c**",
+                &["**:s.", "a :s", "*:se.", "b:se", "*:se.", " c:s", "**:s."],
+            ),
+            ("2 * 3 * 4", &[]),
+            ("**open", &[]),
+            ("snake_case_name", &[]),
+            ("a ` b", &[]),
+            ("`**x**`", &["`:c.", "**x**:c", "`:c."]),
+            (
+                "**日本** と *語*",
+                &["**:s.", "日本:s", "**:s.", "*:e.", "語:e", "*:e."],
+            ),
+        ]);
     }
 
     #[test]
-    fn list_markers_task_boxes_and_quote_marks_are_faint() {
-        assert_eq!(spans("- one"), ["-:."]);
-        assert_eq!(spans("  12. two"), ["12.:."]);
-        assert_eq!(spans("* [x] done"), ["*:.", "[x]:."]);
-        assert_eq!(
-            spans("> > quoted *it*"),
-            [">:.", ">:.", "*:e.", "it:e", "*:e."]
-        );
-        assert_eq!(spans("-not a list"), Vec::<String>::new());
-
-        {
-            assert_eq!(spans("---"), ["---:."]);
-            assert_eq!(spans("* * *"), ["* * *:."]);
-            assert_eq!(
-                spans("see [the **docs**](https://x.y)"),
-                [
+    fn list_markers_task_boxes_quote_marks_and_links_are_faint() {
+        check(&[
+            ("- one", &["-:."]),
+            ("  12. two", &["12.:."]),
+            ("* [x] done", &["*:.", "[x]:."]),
+            ("> > quoted *it*", &[">:.", ">:.", "*:e.", "it:e", "*:e."]),
+            ("-not a list", &[]),
+            ("---", &["---:."]),
+            ("* * *", &["* * *:."]),
+            (
+                "see [the **docs**](https://x.y)",
+                &[
                     "[:.",
                     "the :l",
                     "**:sl.",
                     "docs:sl",
                     "**:sl.",
-                    "](https://x.y):."
-                ]
-            );
-        }
+                    "](https://x.y):.",
+                ],
+            ),
+        ]);
     }
 
     #[test]

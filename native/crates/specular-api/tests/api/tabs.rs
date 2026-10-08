@@ -48,6 +48,11 @@ fn tabs_lists_every_canvas_and_the_active_one() {
             ],
         })
     );
+    session.app.switch_to("Notes");
+    assert_eq!(
+        ok(session.get("/tabs"))["activeTab"],
+        json!({ "id": "tab_2", "name": "Notes" })
+    );
 }
 
 #[test]

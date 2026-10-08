@@ -189,11 +189,6 @@ mod tests {
     }
 
     #[test]
-    fn opaque_texels_are_unchanged() {
-        assert_eq!(premultiply(&[10, 200, 30, 255], true), [10, 200, 30, 255]);
-    }
-
-    #[test]
     fn premultiplying_scales_colour_by_alpha_in_the_space_the_texture_is_sampled_in() {
         for (name, texel, linear_light, expected) in [
             // Half of white in linear light is sRGB 188, not 128.
@@ -205,6 +200,7 @@ mod tests {
             ),
             ("gamma half", [200, 100, 0, 128], false, [100, 50, 0, 128]),
             ("transparent", [255, 255, 255, 0], true, [0, 0, 0, 0]),
+            ("opaque", [10, 200, 30, 255], true, [10, 200, 30, 255]),
         ] {
             assert_eq!(premultiply(&texel, linear_light), expected, "{name}");
         }
@@ -218,6 +214,8 @@ mod tests {
         // An odd side rounds down and never reaches zero.
         let odd = ImageMips::build(PixelSize::new(5, 3), &[255; 5 * 3 * 4], GAMMA).unwrap();
         assert_eq!(sizes(&odd), [(5, 3), (2, 1), (1, 1)]);
+        let tall = ImageMips::build(PixelSize::new(1, 4), &[255; 4 * 4], GAMMA).unwrap();
+        assert_eq!(sizes(&tall), [(1, 4), (1, 2), (1, 1)]);
     }
 
     #[test]

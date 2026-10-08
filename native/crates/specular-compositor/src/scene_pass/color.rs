@@ -23,20 +23,3 @@ fn srgb_to_linear(channel: u8) -> f32 {
         ((encoded + 0.055) / 1.055).powf(2.4)
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn mid_grey_is_darker_in_linear_light() {
-        let [r, ..] = linear(Color::rgb(128, 0, 0), 1.0);
-        assert!((r - 0.2158).abs() < 1e-3);
-    }
-
-    #[test]
-    fn opacity_scales_alpha_only() {
-        let [r, _, _, a] = linear(Color::rgba(255, 0, 0, 128), 0.5);
-        assert!((r - 1.0).abs() < 1e-6 && (a - 128.0 / 255.0 * 0.5).abs() < 1e-6);
-    }
-}

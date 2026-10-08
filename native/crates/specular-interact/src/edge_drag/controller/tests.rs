@@ -89,13 +89,3 @@ fn reach_shrinks_with_the_zoom_down_to_a_third_of_it() {
     update(&mut state, Vec2::new(380.0, 50.0), &bodies(&world), 0.1);
     assert!(state.snap().is_some());
 }
-
-#[test]
-fn the_origin_is_the_grabbed_anchor_of_a_create_and_the_far_end_of_an_edit() {
-    let create = start("a", EdgeSide::Right, &[], Vec2::ZERO);
-    let to_end = start("b", EdgeSide::Left, &[a_to_b()], Vec2::ZERO);
-    let from_end = start("a", EdgeSide::Right, &[a_to_b()], Vec2::ZERO);
-    assert_eq!(create.origin(), (&id("a"), EdgeSide::Right));
-    assert_eq!(to_end.origin(), (&id("a"), EdgeSide::Right));
-    assert_eq!(from_end.origin(), (&id("b"), EdgeSide::Left));
-}

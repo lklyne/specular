@@ -59,13 +59,14 @@ fn a_row_a_column_and_a_grid_even_the_spacing_as_one_step() {
 #[test]
 fn a_group_takes_what_is_inside_it_along() {
     let mut app = TestApp::with_entities([
-        group("g", Rect::new(0.0, 0.0, 200.0, 100.0)),
-        inside("g", shape("m", Rect::new(20.0, 20.0, 60.0, 60.0))),
-        shape("s", Rect::new(700.0, 300.0, 100.0, 100.0)),
+        group("g", Rect::new(0.0, 300.0, 200.0, 100.0)),
+        inside("g", shape("m", Rect::new(20.0, 320.0, 60.0, 60.0))),
+        shape("s", Rect::new(700.0, 0.0, 100.0, 100.0)),
     ]);
     app.select(&["g", "s"])
         .act(Action::Arrange(ArrangeMode::Row));
     let moved = app.rect("g").y;
+    assert_eq!(moved, 0.0, "the group moves up to the top of the row");
     assert_eq!(app.rect("s").y, moved, "tops line up");
     assert_eq!(
         app.rect("m"),

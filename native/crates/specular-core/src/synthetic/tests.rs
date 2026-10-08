@@ -48,27 +48,32 @@ fn pump_paints_frame_at_texture_scaled_size() {
 }
 
 #[test]
-fn closed_page_reports_unknown_page() {
+fn a_page_that_is_gone_or_never_valid_is_refused() {
     let (mut source, id) = source_with_page(1.0);
     source.close_page(id).unwrap();
-    assert!(matches!(
-        source.set_frame_rate(id, 30),
-        Err(PageSourceError::UnknownPage(_))
-    ));
-
-    {
-        let mut source = SyntheticPageSource::new();
-        let spec = PageSpec::new("https://example.com/", CssSize::new(0, 10));
-        assert!(matches!(
-            source.create_page(&spec),
-            Err(PageSourceError::InvalidSpec(_))
-        ));
+    let after_close = [
+        ("set_frame_rate", source.set_frame_rate(id, 30).is_err()),
+        (
+            "query_element",
+            source.query_element(id, Vec2::ZERO, 8).is_err(),
+        ),
+        ("devtools_send", source.devtools_send(id, "{}").is_err()),
+    ];
+    for (call, refused) in after_close {
+        assert!(refused, "{call} on a closed page");
     }
+
+    let spec = PageSpec::new("https://example.com/", CssSize::new(0, 10));
+    assert!(matches!(
+        SyntheticPageSource::new().create_page(&spec),
+        Err(PageSourceError::InvalidSpec(_))
+    ));
 }
 
 #[test]
 fn element_at_is_the_grid_cell_holding_the_point() {
-    let element = synthetic_element_at(CssSize::new(400, 300), Vec2::new(170.0, 100.0));
+    let viewport = CssSize::new(400, 300);
+    let element = synthetic_element_at(viewport, Vec2::new(170.0, 100.0));
     assert_eq!(
         element,
         Some(PageElement {
@@ -78,23 +83,18 @@ fn element_at_is_the_grid_cell_holding_the_point() {
         })
     );
 
-    {
-        let element = synthetic_element_at(CssSize::new(400, 300), Vec2::new(399.0, 299.0));
-        assert_eq!(
-            element.map(|element| element.bounding_box),
-            Some(PixelRect::new(320, 288, 80, 12))
-        );
-    }
-
-    {
-        let viewport = CssSize::new(400, 300);
-        for point in [
-            Vec2::new(-1.0, 10.0),
-            Vec2::new(400.0, 10.0),
-            Vec2::new(10.0, 300.0),
-        ] {
-            assert_eq!(synthetic_element_at(viewport, point), None, "{point}");
-        }
+    let rows = [
+        (
+            Vec2::new(399.0, 299.0),
+            Some(PixelRect::new(320, 288, 80, 12)),
+        ),
+        (Vec2::new(-1.0, 10.0), None),
+        (Vec2::new(400.0, 10.0), None),
+        (Vec2::new(10.0, 300.0), None),
+    ];
+    for (point, cell) in rows {
+        let found = synthetic_element_at(viewport, point).map(|element| element.bounding_box);
+        assert_eq!(found, cell, "{point}");
     }
 }
 
@@ -128,7 +128,7 @@ fn urls(events: &[PageEvent]) -> Vec<&str> {
 }
 
 #[test]
-fn a_hosted_page_answers_an_element_question_and_a_closed_one_refuses() {
+fn a_hosted_page_answers_an_element_question() {
     let (mut source, id) = source_with_page(1.0);
     drained(&mut source);
     source.query_element(id, Vec2::new(10.0, 10.0), 7).unwrap();
@@ -138,8 +138,6 @@ fn a_hosted_page_answers_an_element_question_and_a_closed_one_refuses() {
         [PageEvent::ElementAt { request: 7, element: Some(element), .. }]
             if element.bounding_box == PixelRect::new(0, 0, 40, 48)
     ));
-    source.close_page(id).unwrap();
-    assert!(source.query_element(id, Vec2::ZERO, 8).is_err());
 }
 
 #[test]
@@ -170,6 +168,12 @@ fn navigation_walks_a_history_and_a_new_address_cuts_what_was_ahead() {
     source.navigate(id, &to("https://c.test/")).unwrap();
     assert_eq!(loading(&drained(&mut source)), Some((false, true, false)));
     source.navigate(id, &PageNav::Forward).unwrap();
+    assert!(drained(&mut source).is_empty());
+
+    source.navigate(id, &PageNav::Back).unwrap();
+    source.navigate(id, &PageNav::Back).unwrap();
+    assert_eq!(loading(&drained(&mut source)), Some((false, false, true)));
+    source.navigate(id, &PageNav::Back).unwrap();
     assert!(drained(&mut source).is_empty());
 }
 
@@ -271,11 +275,4 @@ fn a_devtools_navigation_moves_the_page_and_is_reported_once_page_is_enabled() {
         _ => None,
     });
     assert_eq!(shown, Some("https://example.org/a"));
-}
-
-#[test]
-fn devtools_for_a_page_that_is_gone_is_refused() {
-    let (mut source, id, _) = source_with_devtools();
-    source.close_page(id).unwrap();
-    assert!(source.devtools_send(id, "{}").is_err());
 }

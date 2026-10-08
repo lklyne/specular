@@ -131,7 +131,13 @@ fn a_changed_point_colour_or_opacity_is_tessellated_again() {
     if let Draw::Path(path) = &mut moved.draw {
         path.commands[1] = PathCommand::LineTo(Point::new(61.0, 10.0));
     }
-    for changed in [wider, faded, moved] {
+    let mut recoloured = stroke(4.0);
+    if let Draw::Path(path) = &mut recoloured.draw
+        && let Some(stroke) = &mut path.stroke
+    {
+        stroke.color = Color::rgb(0, 0, 255);
+    }
+    for changed in [wider, faded, moved, recoloured] {
         let (_, did) = frame(&mut cache, std::slice::from_ref(&changed), Vec2::ZERO, 1.0);
         assert_eq!(did, counts(0, 1));
     }
@@ -173,6 +179,16 @@ fn a_screen_item_is_tessellated_every_frame_and_never_kept() {
 fn a_mesh_not_drawn_for_a_while_is_dropped() {
     let mut cache = MeshCache::default();
     frame(&mut cache, &[stroke(4.0)], Vec2::ZERO, 1.0);
+    // Drawn again within the limit, twice over: each draw renews it.
+    for _ in 0..2 {
+        for _ in 1..KEEP_FRAMES {
+            frame(&mut cache, &[], Vec2::ZERO, 1.0);
+        }
+        assert_eq!(
+            frame(&mut cache, &[stroke(4.0)], Vec2::ZERO, 1.0).1,
+            counts(1, 0)
+        );
+    }
     for _ in 0..=KEEP_FRAMES {
         frame(&mut cache, &[], Vec2::ZERO, 1.0);
     }

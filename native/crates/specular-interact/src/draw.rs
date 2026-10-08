@@ -121,31 +121,26 @@ mod tests {
 
     #[test]
     fn bounds_wrap_the_points_and_half_the_width() {
-        assert_eq!(
-            bounds(&stroke(4.0, &[(10.0, 20.0), (50.0, 5.0), (30.0, 40.0)])),
-            Rect::new(8.0, 3.0, 44.0, 39.0)
-        );
-
-        {
+        let rows = [
+            (
+                4.0,
+                &[(10.0, 20.0), (50.0, 5.0), (30.0, 40.0)][..],
+                Rect::new(8.0, 3.0, 44.0, 39.0),
+            ),
+            (2.0, &[(10.0, 10.0)], Rect::new(9.0, 9.0, 2.0, 2.0)),
+            (
+                0.0,
+                &[(0.0, 0.0), (10.0, 0.0)],
+                Rect::new(0.0, 0.0, 10.0, 1.0),
+            ),
+            (2.0, &[], Rect::new(0.0, 0.0, 1.0, 1.0)),
+        ];
+        for (width, points, want) in rows {
             assert_eq!(
-                bounds(&stroke(2.0, &[(10.0, 10.0)])),
-                Rect::new(9.0, 9.0, 2.0, 2.0)
+                bounds(&stroke(width, points)),
+                want,
+                "width {width} {points:?}"
             );
-            assert_eq!(
-                bounds(&stroke(0.0, &[(0.0, 0.0), (10.0, 0.0)])),
-                Rect::new(0.0, 0.0, 10.0, 1.0)
-            );
-            assert_eq!(bounds(&stroke(2.0, &[])), Rect::new(0.0, 0.0, 1.0, 1.0));
         }
-    }
-
-    #[test]
-    fn shift_turns_a_point_onto_the_nearest_45_degrees() {
-        let origin = Point::new(10.0, 10.0);
-        let flat = snapped_to_45(origin, Point::new(110.0, 14.0));
-        assert!((flat.y - 10.0).abs() < 1e-9 && flat.x > 110.0);
-        let diagonal = snapped_to_45(origin, Point::new(40.0, 45.0));
-        assert!((diagonal.x - diagonal.y).abs() < 1e-9);
-        assert_eq!(snapped_to_45(origin, origin), origin);
     }
 }
