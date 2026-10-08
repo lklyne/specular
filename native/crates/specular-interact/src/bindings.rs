@@ -32,6 +32,35 @@ pub struct Chord {
 }
 
 impl Chord {
+    /// The chord as macOS writes it: `⇧⌘Z`.
+    pub fn text(self) -> String {
+        let mut text = String::new();
+        for (held, sign) in [(self.alt, '⌥'), (self.shift, '⇧'), (self.cmd, '⌘')] {
+            if held {
+                text.push(sign);
+            }
+        }
+        match self.key {
+            Key::Char(character) => text.extend(character.to_uppercase()),
+            Key::Escape => text.push('⎋'),
+            Key::Enter => text.push('↩'),
+            Key::Tab => text.push('⇥'),
+            Key::Backspace => text.push('⌫'),
+            Key::Delete => text.push('⌦'),
+            Key::Space => text.push_str("Space"),
+            Key::ArrowLeft => text.push('←'),
+            Key::ArrowRight => text.push('→'),
+            Key::ArrowUp => text.push('↑'),
+            Key::ArrowDown => text.push('↓'),
+            Key::Home => text.push('↖'),
+            Key::End => text.push('↘'),
+            Key::PageUp => text.push('⇞'),
+            Key::PageDown => text.push('⇟'),
+            Key::Other => {}
+        }
+        text
+    }
+
     /// `key` with no modifiers.
     pub const fn key(key: Key) -> Self {
         Self {

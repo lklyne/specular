@@ -8,7 +8,7 @@
 
 use glam::{Mat4, Vec2, Vec3};
 
-use crate::geometry::CanvasRect;
+use crate::geometry::Rect;
 
 /// Smallest zoom the canvas allows (`CANVAS_MIN_ZOOM` in `src/shared/zoom.ts`).
 pub const MIN_ZOOM: f32 = 0.02;
@@ -69,22 +69,17 @@ impl Camera {
 
     /// The world-space rect visible through a viewport of `viewport` logical
     /// pixels; used for culling and painting policy.
-    pub fn visible_world_rect(&self, viewport: Vec2) -> CanvasRect {
+    pub fn visible_world_rect(&self, viewport: Vec2) -> Rect {
         let origin = self.screen_to_world(Vec2::ZERO);
         let size = viewport / self.zoom;
-        CanvasRect::new(origin.x, origin.y, size.x, size.y)
+        Rect::new(origin.x, origin.y, size.x, size.y)
     }
 
     /// Whether any part of `rect` (canvas space) shows through a viewport of
     /// `viewport` logical pixels. Pages that fail this are culled: not drawn,
     /// and candidates for pausing paint.
-    pub fn is_visible(&self, rect: CanvasRect, viewport: Vec2) -> bool {
+    pub fn is_visible(&self, rect: Rect, viewport: Vec2) -> bool {
         self.visible_world_rect(viewport).intersects(rect)
-    }
-
-    /// Pans by a screen-space delta in logical pixels.
-    pub fn pan_by(&mut self, delta: Vec2) {
-        self.pan += delta;
     }
 
     /// Sets the zoom (clamped), keeping the world point under `anchor`
@@ -245,17 +240,17 @@ mod tests {
     #[test]
     fn page_inside_viewport_is_visible() {
         let camera = Camera::new(Vec2::new(-100.0, 0.0), 1.0);
-        let page = CanvasRect::new(500.0, 100.0, 390.0, 844.0);
+        let page = Rect::new(500.0, 100.0, 390.0, 844.0);
         assert!(camera.is_visible(page, Vec2::new(800.0, 600.0)));
 
         {
             let camera = Camera::new(Vec2::new(-100.0, 0.0), 1.0);
-            let page = CanvasRect::new(-500.0, 0.0, 390.0, 844.0);
+            let page = Rect::new(-500.0, 0.0, 390.0, 844.0);
             assert!(!camera.is_visible(page, Vec2::new(800.0, 600.0)));
         }
 
         {
-            let page = CanvasRect::new(3840.0, 360.0, 393.0, 852.0);
+            let page = Rect::new(3840.0, 360.0, 393.0, 852.0);
             let viewport = Vec2::new(1280.0, 800.0);
             let mut camera = Camera::default();
             camera.zoom_about(Vec2::ZERO, 0.25);
@@ -265,7 +260,10 @@ mod tests {
         {
             let camera = Camera::new(Vec2::ZERO, 0.5);
             let rect = camera.visible_world_rect(Vec2::new(800.0, 600.0));
-            assert_close(rect.size(), Vec2::new(1600.0, 1200.0));
+            assert_close(
+                Vec2::new(rect.width, rect.height),
+                Vec2::new(1600.0, 1200.0),
+            );
         }
     }
 }

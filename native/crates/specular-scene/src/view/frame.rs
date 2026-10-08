@@ -29,8 +29,7 @@ pub(crate) struct Frame<'a> {
 impl<'a> Frame<'a> {
     pub(crate) fn new(app: &'a App, viewport: Vec2, chrome: bool) -> Self {
         let camera = app.session().camera;
-        let world = camera.visible_world_rect(viewport);
-        let visible = Rect::new(world.x, world.y, world.width, world.height)
+        let visible = (camera.visible_world_rect(viewport))
             .outset(CULL_MARGIN / camera.zoom.max(f32::EPSILON));
         Self {
             app,

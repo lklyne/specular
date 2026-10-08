@@ -17,8 +17,6 @@ pub struct Color {
 }
 
 impl Color {
-    /// Fully transparent.
-    pub const TRANSPARENT: Self = Self::rgba(0, 0, 0, 0);
     /// Opaque black.
     pub const BLACK: Self = Self::rgb(0, 0, 0);
     /// Opaque white.

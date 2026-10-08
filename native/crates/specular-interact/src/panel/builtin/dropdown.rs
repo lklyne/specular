@@ -14,7 +14,6 @@ use super::metrics::{
 };
 use super::node::{Chrome, Node, Panel, PanelRect, Part, Run, Surface, Tone};
 use super::{Ctx, place};
-use crate::{Chord, Key};
 
 /// How a dropdown's lists mark the current choice.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -64,31 +63,6 @@ fn has_stepper(controls: &[Control]) -> bool {
         | Control::Choices(_)
         | Control::Separator => false,
     })
-}
-
-/// The keys of `chord` as the menus write them.
-fn chord_text(chord: Chord) -> String {
-    let mut out = String::new();
-    for (held, sign) in [(chord.alt, '⌥'), (chord.shift, '⇧'), (chord.cmd, '⌘')] {
-        if held {
-            out.push(sign);
-        }
-    }
-    match chord.key {
-        Key::Char(character) => out.extend(character.to_uppercase()),
-        Key::Escape => out.push('⎋'),
-        Key::Enter => out.push('↩'),
-        Key::Tab => out.push('⇥'),
-        Key::Backspace => out.push('⌫'),
-        Key::Delete => out.push('⌦'),
-        Key::Space => out.push('␣'),
-        Key::ArrowLeft => out.push('←'),
-        Key::ArrowRight => out.push('→'),
-        Key::ArrowUp => out.push('↑'),
-        Key::ArrowDown => out.push('↓'),
-        Key::Home | Key::End | Key::PageUp | Key::PageDown | Key::Other => {}
-    }
-    out
 }
 
 fn label_of(option: &DropdownOption) -> super::super::Label {
@@ -173,7 +147,7 @@ impl Lists<'_, '_> {
                     ));
                 }
                 if let Some(chord) = option.chord {
-                    let keys = chord_text(chord);
+                    let keys = chord.text();
                     let width = self.ctx.text_width(&keys, TextFont::Sans) + KEY_PAD.0 * 2.0;
                     let height = TEXT_LINE;
                     let rect = PanelRect::new(

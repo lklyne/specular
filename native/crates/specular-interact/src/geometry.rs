@@ -2,7 +2,7 @@
 //! canvas rects the compositor draws, and rects on screen.
 
 use glam::{DVec2, Vec2};
-use specular_core::{Camera, CanvasRect};
+use specular_core::Camera;
 use specular_doc::Rect;
 
 /// The rect's top-left corner.
@@ -36,8 +36,8 @@ pub(crate) fn contains(rect: Rect, point: DVec2) -> bool {
 }
 
 /// A document rect as the `f32` rect the compositor and camera work in.
-pub fn to_canvas_rect(rect: Rect) -> CanvasRect {
-    CanvasRect::new(
+pub fn to_canvas_rect(rect: Rect) -> specular_core::Rect {
+    specular_core::Rect::new(
         rect.x as f32,
         rect.y as f32,
         rect.width as f32,

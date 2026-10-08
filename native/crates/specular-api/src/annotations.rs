@@ -270,19 +270,19 @@ fn selection_target(app: &App, operands: &[EntityId]) -> Option<Value> {
     let document = app.document();
     let entities = || operands.iter().filter_map(|id| document.entity(id));
     let pages: Vec<Value> = entities()
-        .filter_map(|entity| match &entity.kind {
-            Kind::Page(page) => {
-                Some(json!({ "entityId": entity.id, "kind": "page", "url": page.url }))
-            }
-            _ => None,
+        .filter_map(|entity| {
+            let Kind::Page(page) = &entity.kind else {
+                return None;
+            };
+            Some(json!({ "entityId": entity.id, "kind": "page", "url": page.url }))
         })
         .collect();
     let files: Vec<Value> = entities()
-        .filter_map(|entity| match &entity.kind {
-            Kind::File(file) => {
-                Some(json!({ "entityId": entity.id, "kind": "file", "filePath": file.file }))
-            }
-            _ => None,
+        .filter_map(|entity| {
+            let Kind::File(file) = &entity.kind else {
+                return None;
+            };
+            Some(json!({ "entityId": entity.id, "kind": "file", "filePath": file.file }))
         })
         .collect();
     match (pages.as_slice(), files.as_slice()) {

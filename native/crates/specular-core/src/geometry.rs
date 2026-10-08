@@ -1,13 +1,13 @@
-//! Size and rect types for the three coordinate spaces the spike crosses.
+//! Size and rect types.
 //!
-//! - **Canvas space** ([`CanvasRect`]): world units on the infinite canvas,
-//!   the space `.canvas` node `x/y/width/height` are stored in.
+//! - [`Point`], [`Size`] and [`Rect`] are `f32` and carry no unit: what
+//!   holds one says whether it is canvas units, logical screen pixels or a
+//!   page's CSS pixels.
 //! - **CSS space** ([`CssSize`]): a page's layout viewport in CSS pixels
 //!   (CEF "DIP" view coordinates). Input is forwarded in this space.
 //! - **Pixel space** ([`PixelSize`], [`PixelRect`]): texels of a painted frame,
 //!   `css * texture_scale`.
 
-use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
 /// A page's layout viewport in CSS pixels.
@@ -92,9 +92,41 @@ impl PixelRect {
     }
 }
 
-/// An axis-aligned rect in a page's CSS pixels, with fractional edges.
+/// A position.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
-pub struct CssRect {
+pub struct Point {
+    /// Horizontal position, growing rightwards.
+    pub x: f32,
+    /// Vertical position, growing downwards.
+    pub y: f32,
+}
+
+impl Point {
+    /// Creates a point.
+    pub const fn new(x: f32, y: f32) -> Self {
+        Self { x, y }
+    }
+}
+
+/// A width and height.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct Size {
+    /// Width.
+    pub width: f32,
+    /// Height.
+    pub height: f32,
+}
+
+impl Size {
+    /// Creates a size.
+    pub const fn new(width: f32, height: f32) -> Self {
+        Self { width, height }
+    }
+}
+
+/// An axis-aligned rect.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct Rect {
     /// Left edge.
     pub x: f32,
     /// Top edge.
@@ -105,33 +137,8 @@ pub struct CssRect {
     pub height: f32,
 }
 
-impl CssRect {
-    /// Creates a CSS-pixel rect.
-    pub const fn new(x: f32, y: f32, width: f32, height: f32) -> Self {
-        Self {
-            x,
-            y,
-            width,
-            height,
-        }
-    }
-}
-
-/// An axis-aligned rect in canvas (world) space.
-#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
-pub struct CanvasRect {
-    /// Left edge in canvas units.
-    pub x: f32,
-    /// Top edge in canvas units.
-    pub y: f32,
-    /// Width in canvas units.
-    pub width: f32,
-    /// Height in canvas units.
-    pub height: f32,
-}
-
-impl CanvasRect {
-    /// Creates a canvas rect.
+impl Rect {
+    /// Creates a rect.
     pub const fn new(x: f32, y: f32, width: f32, height: f32) -> Self {
         Self {
             x,
@@ -142,31 +149,87 @@ impl CanvasRect {
     }
 
     /// Top-left corner.
-    pub const fn origin(self) -> Vec2 {
-        Vec2::new(self.x, self.y)
+    pub const fn origin(self) -> Point {
+        Point::new(self.x, self.y)
     }
 
-    /// Width and height as a vector.
-    pub const fn size(self) -> Vec2 {
-        Vec2::new(self.width, self.height)
+    /// Width and height.
+    pub const fn size(self) -> Size {
+        Size::new(self.width, self.height)
     }
 
-    /// Whether `point` lies inside the rect (left/top inclusive, right/bottom exclusive).
-    pub fn contains(self, point: Vec2) -> bool {
-        point.x >= self.x
-            && point.y >= self.y
-            && point.x < self.x + self.width
-            && point.y < self.y + self.height
+    /// The middle of the rect.
+    pub fn centre(self) -> Point {
+        Point::new(self.x + self.width * 0.5, self.y + self.height * 0.5)
+    }
+
+    /// Right edge.
+    pub fn right(self) -> f32 {
+        self.x + self.width
+    }
+
+    /// Bottom edge.
+    pub fn bottom(self) -> f32 {
+        self.y + self.height
+    }
+
+    /// The rect grown by `by` on every side (shrunk when negative, never
+    /// below zero size).
+    #[must_use]
+    pub fn outset(self, by: f32) -> Self {
+        let width = (self.width + by * 2.0).max(0.0);
+        let height = (self.height + by * 2.0).max(0.0);
+        let centre = self.centre();
+        Self::new(
+            centre.x - width * 0.5,
+            centre.y - height * 0.5,
+            width,
+            height,
+        )
     }
 
     /// Whether the two rects overlap with positive area.
-    pub fn intersects(self, other: CanvasRect) -> bool {
-        self.x < other.x + other.width
-            && other.x < self.x + self.width
-            && self.y < other.y + other.height
-            && other.y < self.y + self.height
+    pub fn intersects(self, other: Self) -> bool {
+        self.x < other.right()
+            && other.x < self.right()
+            && self.y < other.bottom()
+            && other.y < self.bottom()
+    }
+
+    /// The overlap of the two rects, or `None` when it has no area.
+    pub fn intersection(self, other: Self) -> Option<Self> {
+        let x = self.x.max(other.x);
+        let y = self.y.max(other.y);
+        let right = self.right().min(other.right());
+        let bottom = self.bottom().min(other.bottom());
+        (right > x && bottom > y).then(|| Self::new(x, y, right - x, bottom - y))
+    }
+
+    /// The smallest rect holding both.
+    #[must_use]
+    pub fn union(self, other: Self) -> Self {
+        let x = self.x.min(other.x);
+        let y = self.y.min(other.y);
+        let right = self.right().max(other.right());
+        let bottom = self.bottom().max(other.bottom());
+        Self::new(x, y, right - x, bottom - y)
+    }
+
+    /// The smallest rect holding every point, or `None` for no points.
+    pub fn bounding(points: impl IntoIterator<Item = Point>) -> Option<Self> {
+        let mut points = points.into_iter();
+        let first = points.next()?;
+        let (mut min, mut max) = (first, first);
+        for point in points {
+            min = Point::new(min.x.min(point.x), min.y.min(point.y));
+            max = Point::new(max.x.max(point.x), max.y.max(point.y));
+        }
+        Some(Self::new(min.x, min.y, max.x - min.x, max.y - min.y))
     }
 }
+
+/// A rect in a page's CSS pixels, with fractional edges.
+pub type CssRect = Rect;
 
 #[cfg(test)]
 mod tests {
@@ -175,5 +238,24 @@ mod tests {
     #[test]
     fn css_to_pixels_rounds_up_partial_texels() {
         assert_eq!(CssSize::new(1001, 3).to_pixels(0.5), PixelSize::new(501, 2));
+    }
+
+    #[test]
+    fn rects_touching_at_an_edge_do_not_intersect() {
+        let a = Rect::new(0.0, 0.0, 10.0, 10.0);
+        let b = Rect::new(10.0, 0.0, 10.0, 10.0);
+        assert_eq!((a.intersects(b), a.intersection(b)), (false, None));
+    }
+
+    #[test]
+    fn outset_grows_every_side_and_stops_at_zero() {
+        let rect = Rect::new(10.0, 10.0, 4.0, 8.0);
+        assert_eq!(
+            (rect.outset(1.0), rect.outset(-3.0)),
+            (
+                Rect::new(9.0, 9.0, 6.0, 10.0),
+                Rect::new(12.0, 13.0, 0.0, 2.0)
+            )
+        );
     }
 }

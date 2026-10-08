@@ -41,19 +41,6 @@ impl Tool {
         Self::Comment,
     ];
 
-    /// Whether the tool returns to [`Tool::Select`] after one placement.
-    /// The others stay active until replaced or cancelled.
-    pub const fn is_one_shot(self) -> bool {
-        match self {
-            Self::AddPage
-            | Self::AddText
-            | Self::AddSticky
-            | Self::AddDocument
-            | Self::AddShape => true,
-            Self::Select | Self::Draw | Self::Comment => false,
-        }
-    }
-
     /// The cursor shown over the canvas while the tool is active.
     pub const fn cursor(self) -> Cursor {
         match self {

@@ -10,7 +10,7 @@ use specular_doc::{Command, EntityId, Kind, Page};
 
 use crate::anchor::canonical_page_url;
 use crate::app::page_of;
-use crate::{Action, App, Effect, PageNotice};
+use crate::{App, Effect, PageNotice};
 
 /// The live state of one hosted page.
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -121,22 +121,23 @@ pub(crate) fn target(app: &App) -> Option<&EntityId> {
     app.document.entity(page).and_then(page_of).map(|_| page)
 }
 
-/// Runs a navigation action on its target. Going back or forward does
-/// nothing where the page has said there is nowhere to go.
-pub(crate) fn navigate(app: &App, action: &Action, effects: &mut Vec<Effect>) {
+/// Navigates the target page. Going back or forward does nothing where
+/// the page has said there is nowhere to go.
+pub(crate) fn navigate(app: &App, nav: PageNav, effects: &mut Vec<Effect>) {
     let Some(page) = target(app) else {
         return;
     };
     let state = app.session.pages.get(page);
     let can = |allowed: fn(&PageState) -> bool| state.is_some_and(allowed);
-    let nav = match action {
-        Action::PageBack if can(|state| state.can_go_back) => PageNav::Back,
-        Action::PageForward if can(|state| state.can_go_forward) => PageNav::Forward,
-        Action::PageReload => PageNav::Reload,
-        Action::PageStop if can(|state| state.loading) => PageNav::Stop,
-        Action::PageNavigate(url) => PageNav::To(url.clone()),
-        _ => return,
+    let allowed = match nav {
+        PageNav::Back => can(|state| state.can_go_back),
+        PageNav::Forward => can(|state| state.can_go_forward),
+        PageNav::Stop => can(|state| state.loading),
+        PageNav::Reload | PageNav::To(_) => true,
     };
+    if !allowed {
+        return;
+    }
     effects.push(Effect::Navigate {
         page: page.clone(),
         nav,

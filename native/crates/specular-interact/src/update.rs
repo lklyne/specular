@@ -2,7 +2,7 @@
 
 use glam::DVec2;
 use glam::Vec2;
-use specular_core::InputEvent;
+use specular_core::{InputEvent, PageNav};
 use specular_doc::{Command, CommandError, Document, EntityId, ItemId};
 
 use crate::focus::{leave_unless_selected, set_focus};
@@ -233,13 +233,11 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         Action::ZoomOut => zoom::zoom_out(app),
         Action::ZoomReset => zoom::reset(app),
         Action::ZoomToFit => zoom::to_fit(app),
-        Action::PageBack
-        | Action::PageForward
-        | Action::PageReload
-        | Action::PageStop
-        | Action::PageNavigate(_) => {
-            page_state::navigate(app, &action, effects);
-        }
+        Action::PageBack => page_state::navigate(app, PageNav::Back, effects),
+        Action::PageForward => page_state::navigate(app, PageNav::Forward, effects),
+        Action::PageReload => page_state::navigate(app, PageNav::Reload, effects),
+        Action::PageStop => page_state::navigate(app, PageNav::Stop, effects),
+        Action::PageNavigate(url) => page_state::navigate(app, PageNav::To(url), effects),
         Action::Canvas(action) => space::act(app, action, effects),
     }
 }

@@ -22,6 +22,7 @@ mod blink;
 mod buffer;
 mod edge_label;
 mod field;
+mod fit;
 mod format;
 mod formatting;
 pub(crate) mod frame;
@@ -34,6 +35,7 @@ mod measure;
 mod motion;
 pub(crate) mod note;
 mod pointer;
+mod read;
 mod segment;
 mod source;
 mod stack;
@@ -43,7 +45,7 @@ use std::sync::Arc;
 
 use glam::Vec2;
 use specular_core::ImeEvent;
-use specular_doc::{Command, Entity, EntityId, ItemId, Kind, Rect, Text};
+use specular_doc::{Command, Entity, EntityId, ItemId, Kind};
 
 pub(crate) use blink::{caret_state, restart_blink};
 pub use buffer::TextEdit;
@@ -54,6 +56,8 @@ pub(crate) use edge_label::selected_key as selected_edge_key;
 pub(crate) use field::{
     begin as begin_field, cancel as cancel_field, follow_caret as follow_field_caret,
 };
+pub(crate) use fit::{fit_all, fitted, refit_edited};
+use fit::{refit, set_rect};
 pub use formatting::Format;
 pub(crate) use formatting::run as format;
 pub use frame::{NOTE_PADDING, TextFrame, note_frame};
@@ -68,7 +72,6 @@ pub use stack::{SourceRow, source_rows};
 pub use title::{TITLE_GAP, TITLE_LINE, TITLE_SIZE};
 pub(crate) use title::{is_editing as is_editing_title, on_key};
 
-use crate::saved::LoadedFits;
 use crate::{App, Effect, comment, live, update};
 
 /// The text of `entity` that can be edited in place, and what it is. A
@@ -186,29 +189,6 @@ pub(crate) fn begin(app: &mut App, id: &EntityId, created: bool, effects: &mut V
     place_candidates(app, effects);
 }
 
-/// The working text changed. A text entity is resized to fit it, with no
-/// undo step: the session's end makes one. A Document is owed a write.
-fn refit(app: &mut App) {
-    let Some(edit) = &app.session.editing else {
-        return;
-    };
-    if edit.target == Target::Note {
-        note::touch(app);
-        return;
-    }
-    let Some(entity) = app.document.entity(&edit.entity) else {
-        return;
-    };
-    let rect = match &entity.kind {
-        Kind::Text(text) => frame::fitted(entity.rect, text, &edit.text, app.measure.0.as_ref()),
-        Kind::Shape(_) | Kind::Page(_) | Kind::File(_) | Kind::Group(_) | Kind::Drawing(_) => {
-            return;
-        }
-    };
-    let id = edit.entity.clone();
-    set_rect(app, &id, rect);
-}
-
 /// The entity the edit in progress placed for itself: it is in the document
 /// with no undo step, so a change to it belongs to the step that ends the
 /// session.
@@ -221,64 +201,6 @@ pub(crate) fn unrecorded(app: &App) -> Option<&EntityId> {
 pub(crate) fn edited(app: &App) -> Option<&EntityId> {
     let edit = app.session.editing.as_ref()?;
     matches!(edit.target, Target::Text | Target::Label).then_some(&edit.entity)
-}
-
-/// Refits the text being edited after something other than typing changed
-/// how it sets, such as its size or typeface.
-pub(crate) fn refit_edited(app: &mut App) {
-    if edited(app).is_some() {
-        refit(app);
-    }
-}
-
-/// The size `text` takes at `rect` to fit its own text: what a resize and a
-/// load give a text entity, so its height is its content's.
-pub(crate) fn fitted(app: &App, rect: Rect, text: &Text) -> Rect {
-    frame::fitted(rect, text, &text.text, app.measure.0.as_ref())
-}
-
-/// Gives every text entity the size its text takes, with no undo step. A
-/// document from disk carries heights measured with another renderer's
-/// fonts. Nothing happens unless the measure is the renderer's own. What
-/// each text was read with is kept for the save (see `saved.rs`).
-pub(crate) fn fit_all(app: &mut App) {
-    app.session.loaded_fits = LoadedFits::default();
-    if !app.measure.0.is_exact() {
-        return;
-    }
-    let fits: Vec<(EntityId, Rect, Rect)> = (app.document.entities())
-        .filter_map(|entity| match &entity.kind {
-            Kind::Text(text) => {
-                let fitted = fitted(app, entity.rect, text);
-                Some((entity.id.clone(), entity.rect, fitted))
-            }
-            Kind::Shape(_) | Kind::Page(_) | Kind::File(_) | Kind::Group(_) | Kind::Drawing(_) => {
-                None
-            }
-        })
-        .collect();
-    for (id, read, fitted) in fits {
-        set_rect(app, &id, fitted);
-        app.session.loaded_fits.insert(id, read, fitted);
-    }
-}
-
-/// Writes `rect` into the document with no undo step.
-fn set_rect(app: &mut App, id: &EntityId, rect: Rect) {
-    if app
-        .document
-        .entity(id)
-        .is_none_or(|entity| entity.rect == rect)
-    {
-        return;
-    }
-    let command = Command::SetRect {
-        id: id.clone(),
-        rect,
-    };
-    if let Err(error) = app.document.apply(command) {
-        tracing::warn!("text resize refused: {error}");
-    }
 }
 
 /// Ends the edit session, if there is one, and turns it into at most one
@@ -416,88 +338,5 @@ pub(crate) fn place_candidates(app: &App, effects: &mut Vec<Effect>) {
             origin: camera.world_to_screen(corner),
             size: Vec2::new(caret.width as f32, caret.height as f32) * camera.zoom,
         });
-    }
-}
-
-/// What the scene draws for the text being edited. Rects are in canvas
-/// space.
-impl App {
-    /// Installs the measure that lays text out for the editor. The shell
-    /// gives one that shapes with the renderer's fonts.
-    pub fn set_text_measure(&mut self, measure: Arc<dyn TextMeasure>) {
-        self.measure = Measurer(measure);
-        self.stacks = StackCache::default();
-        crate::panel::builtin::forget_layout(self);
-    }
-
-    /// The measure the editor lays text out with.
-    pub fn text_measure(&self) -> &dyn TextMeasure {
-        self.measure.0.as_ref()
-    }
-
-    /// The edit session, if text is being edited.
-    pub fn text_edit(&self) -> Option<&TextEdit> {
-        self.session.editing.as_ref()
-    }
-
-    /// The text to draw for `id` in place of the document's, when `id` is
-    /// the entity being edited.
-    pub fn editing_text(&self, id: &EntityId) -> Option<&str> {
-        let edit = self.session.editing.as_ref()?;
-        (edit.target.is_entity() && edit.entity == *id).then_some(edit.text.as_str())
-    }
-
-    /// Where `id`'s text is laid out and how it is set, for a text, a
-    /// sticky, a shape, or a Document whose file has been read.
-    pub fn text_frame(&self, id: &EntityId) -> Option<TextFrame> {
-        let entity = self.document.entity(id)?;
-        match editable(self, entity)? {
-            (Target::Note, _) => Some(frame::note_frame(
-                entity.rect,
-                self.session.notes.scroll(id),
-            )),
-            // A title sits outside the body; `edit_frame` places it.
-            (Target::Title | Target::EdgeLabel | Target::Comment | Target::Field, _) => None,
-            (Target::Text | Target::Label, _) => frame::of(entity),
-        }
-    }
-
-    /// The layout of the text being edited, as it stands.
-    pub fn editing_layout(&self) -> Option<Arc<TextLayout>> {
-        layout_of(self, self.session.editing.as_ref()?)
-    }
-
-    /// The caret: a rect with no width, one line tall. It is there whether
-    /// or not anything is selected.
-    pub fn caret_rect(&self) -> Option<Rect> {
-        let edit = self.session.editing.as_ref()?;
-        let (frame, layout) = geometry(self, edit)?;
-        let caret = layout.caret_box(edit.caret)?;
-        Some(frame.rect_of(&layout, caret))
-    }
-
-    /// The selected text, one rect per line it touches. Empty when nothing
-    /// is selected.
-    pub fn selection_rects(&self) -> Vec<Rect> {
-        self.range_rects(TextEdit::selection)
-    }
-
-    /// The text the input method is composing, one rect per line it
-    /// touches, to underline.
-    pub fn composition_rects(&self) -> Vec<Rect> {
-        self.range_rects(|edit| edit.composition().unwrap_or_default())
-    }
-
-    fn range_rects(&self, range: impl FnOnce(&TextEdit) -> std::ops::Range<usize>) -> Vec<Rect> {
-        let Some(edit) = &self.session.editing else {
-            return Vec::new();
-        };
-        let Some((frame, layout)) = geometry(self, edit) else {
-            return Vec::new();
-        };
-        let boxes = layout.range_boxes(&range(edit));
-        (boxes.into_iter())
-            .map(|line| frame.rect_of(&layout, line))
-            .collect()
     }
 }

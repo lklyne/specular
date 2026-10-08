@@ -30,7 +30,7 @@ pub use frame::{
     CpuFrame, FrameEvent, FrameLayer, MAX_OUTSTANDING_TEXTURES, NativeSurface, PageFrame,
     PixelFormat, SharedTexture,
 };
-pub use geometry::{CanvasRect, CssRect, CssSize, PixelRect, PixelSize};
+pub use geometry::{CssRect, CssSize, PixelRect, PixelSize, Point, Rect, Size};
 pub use input::{
     ImeEvent, InputEvent, KeyEvent, KeyEventKind, Modifiers, PointerButton, PointerEvent,
     PointerEventKind, WheelEvent,

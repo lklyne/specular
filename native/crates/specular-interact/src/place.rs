@@ -56,11 +56,6 @@ pub struct PlaceDrag {
 }
 
 impl PlaceDrag {
-    /// What releasing makes.
-    pub fn placing(&self) -> Placing {
-        self.what
-    }
-
     /// The shape being dragged out, which is in the document already.
     pub fn live(&self) -> Option<&EntityId> {
         self.live.as_ref()

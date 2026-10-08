@@ -212,16 +212,6 @@ impl App {
         )
     }
 
-    /// The camera of the canvas `id` names, active or not.
-    pub fn canvas_camera(&self, id: &CanvasId) -> Option<Camera> {
-        let canvas = self.space.canvas(id)?;
-        Some(
-            canvas
-                .parked()
-                .map_or(self.session.camera, |parked| parked.view.camera),
-        )
-    }
-
     /// What a save of the canvas `id` writes: its document, with every text
     /// the session left alone at the size it was read with, and its camera.
     pub fn canvas_to_save(&self, id: &CanvasId) -> Option<(Document, Camera)> {

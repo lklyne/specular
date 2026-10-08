@@ -57,11 +57,6 @@ pub(crate) enum Click {
 }
 
 impl MoveDrag {
-    /// Whether the pointer has travelled far enough to be a drag.
-    pub fn is_dragging(&self) -> bool {
-        self.dragged
-    }
-
     /// Whether releasing now leaves copies.
     pub fn is_copying(&self) -> bool {
         self.dragged && self.copying

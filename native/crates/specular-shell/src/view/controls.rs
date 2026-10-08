@@ -26,8 +26,8 @@ use gpui_kit::{
 };
 use specular_interact::{
     Action, Choices, Chord, Control, ControlId, Dropdown, DropdownOption, DropdownSection, Face,
-    Field, Key, OptionLayout, PaintRole, Palette, PopupModel, Stepper, Swatch, Swatches,
-    ToolbarModel, ToolbarSection,
+    Field, OptionLayout, PaintRole, Palette, PopupModel, Stepper, Swatch, Swatches, ToolbarModel,
+    ToolbarSection,
 };
 
 use super::glyphs::{self, glyph, ink};
@@ -46,43 +46,10 @@ fn element_id(id: &ControlId) -> SharedString {
     SharedString::from(id.as_str().to_owned())
 }
 
-/// A chord as macOS writes it: `⇧⌘Z`.
-pub(super) fn chord_text(chord: Chord) -> String {
-    let mut text = String::new();
-    if chord.alt {
-        text.push('⌥');
-    }
-    if chord.shift {
-        text.push('⇧');
-    }
-    if chord.cmd {
-        text.push('⌘');
-    }
-    match chord.key {
-        Key::Char(character) => text.extend(character.to_uppercase()),
-        Key::Escape => text.push('⎋'),
-        Key::Enter => text.push('↩'),
-        Key::Tab => text.push('⇥'),
-        Key::Backspace => text.push('⌫'),
-        Key::Delete => text.push('⌦'),
-        Key::Space => text.push_str("Space"),
-        Key::ArrowLeft => text.push('←'),
-        Key::ArrowRight => text.push('→'),
-        Key::ArrowUp => text.push('↑'),
-        Key::ArrowDown => text.push('↓'),
-        Key::Home => text.push('↖'),
-        Key::End => text.push('↘'),
-        Key::PageUp => text.push('⇞'),
-        Key::PageDown => text.push('⇟'),
-        Key::Other => {}
-    }
-    text
-}
-
 /// What a control is called, with the key that does the same.
 pub(super) fn hint(label: &str, chord: Option<Chord>) -> SharedString {
     match chord {
-        Some(chord) => format!("{label}  {}", chord_text(chord)).into(),
+        Some(chord) => format!("{label}  {}", chord.text()).into(),
         None => label.to_owned().into(),
     }
 }
@@ -237,7 +204,7 @@ fn stepper(model: &Stepper) -> AnyElement {
 fn option(model: &DropdownOption, wide: bool, dismiss: Dismiss) -> AnyElement {
     let action = model.action.clone();
     let trailing = (model.trailing.as_ref()).map(|text| SharedString::from(text.to_string()));
-    let keys = model.chord.map(chord_text);
+    let keys = model.chord.map(Chord::text);
     div()
         .id(element_id(&model.id))
         .flex()
