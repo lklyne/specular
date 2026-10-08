@@ -52,6 +52,7 @@ mod panels_format;
 mod panels_page;
 mod panels_selection;
 mod panels_tools;
+mod physical_key;
 mod polish;
 mod properties;
 mod properties_edges;

@@ -6,7 +6,7 @@ use glam::Vec2;
 use specular_core::{ImeEvent, Modifiers, PointerButton};
 use specular_interact::{Cursor, Key, KeyInput};
 use winit::event::{ElementState, Ime, KeyEvent, MouseButton};
-use winit::keyboard::{KeyCode, ModifiersState, PhysicalKey};
+use winit::keyboard::ModifiersState;
 use winit::platform::scancode::PhysicalKeyExtScancode as _;
 use winit::window::CursorIcon;
 
@@ -80,195 +80,28 @@ impl ClickCounter {
     }
 }
 
-/// Windows virtual-key codes (`WinUser.h`), which Chromium derives DOM
-/// `keyCode` from on every platform. `native_key_code` comes from winit's
-/// scancode instead (the `kVK_*` code on macOS), from which Chromium derives
-/// DOM `code` and key location.
-const WINDOWS_KEY_CODES: &[(KeyCode, i32)] = &[
-    (KeyCode::Backspace, 0x08),
-    (KeyCode::Tab, 0x09),
-    (KeyCode::Enter, 0x0D),
-    (KeyCode::NumpadEnter, 0x0D),
-    (KeyCode::ShiftLeft, 0x10),
-    (KeyCode::ShiftRight, 0x10),
-    (KeyCode::ControlLeft, 0x11),
-    (KeyCode::ControlRight, 0x11),
-    (KeyCode::AltLeft, 0x12),
-    (KeyCode::AltRight, 0x12),
-    (KeyCode::CapsLock, 0x14),
-    (KeyCode::Escape, 0x1B),
-    (KeyCode::Space, 0x20),
-    (KeyCode::PageUp, 0x21),
-    (KeyCode::PageDown, 0x22),
-    (KeyCode::End, 0x23),
-    (KeyCode::Home, 0x24),
-    (KeyCode::ArrowLeft, 0x25),
-    (KeyCode::ArrowUp, 0x26),
-    (KeyCode::ArrowRight, 0x27),
-    (KeyCode::ArrowDown, 0x28),
-    (KeyCode::Insert, 0x2D),
-    (KeyCode::Delete, 0x2E),
-    (KeyCode::Digit0, 0x30),
-    (KeyCode::Digit1, 0x31),
-    (KeyCode::Digit2, 0x32),
-    (KeyCode::Digit3, 0x33),
-    (KeyCode::Digit4, 0x34),
-    (KeyCode::Digit5, 0x35),
-    (KeyCode::Digit6, 0x36),
-    (KeyCode::Digit7, 0x37),
-    (KeyCode::Digit8, 0x38),
-    (KeyCode::Digit9, 0x39),
-    (KeyCode::KeyA, 0x41),
-    (KeyCode::KeyB, 0x42),
-    (KeyCode::KeyC, 0x43),
-    (KeyCode::KeyD, 0x44),
-    (KeyCode::KeyE, 0x45),
-    (KeyCode::KeyF, 0x46),
-    (KeyCode::KeyG, 0x47),
-    (KeyCode::KeyH, 0x48),
-    (KeyCode::KeyI, 0x49),
-    (KeyCode::KeyJ, 0x4A),
-    (KeyCode::KeyK, 0x4B),
-    (KeyCode::KeyL, 0x4C),
-    (KeyCode::KeyM, 0x4D),
-    (KeyCode::KeyN, 0x4E),
-    (KeyCode::KeyO, 0x4F),
-    (KeyCode::KeyP, 0x50),
-    (KeyCode::KeyQ, 0x51),
-    (KeyCode::KeyR, 0x52),
-    (KeyCode::KeyS, 0x53),
-    (KeyCode::KeyT, 0x54),
-    (KeyCode::KeyU, 0x55),
-    (KeyCode::KeyV, 0x56),
-    (KeyCode::KeyW, 0x57),
-    (KeyCode::KeyX, 0x58),
-    (KeyCode::KeyY, 0x59),
-    (KeyCode::KeyZ, 0x5A),
-    (KeyCode::SuperLeft, 0x5B),
-    (KeyCode::SuperRight, 0x5C),
-    (KeyCode::ContextMenu, 0x5D),
-    (KeyCode::F1, 0x70),
-    (KeyCode::F2, 0x71),
-    (KeyCode::F3, 0x72),
-    (KeyCode::F4, 0x73),
-    (KeyCode::F5, 0x74),
-    (KeyCode::F6, 0x75),
-    (KeyCode::F7, 0x76),
-    (KeyCode::F8, 0x77),
-    (KeyCode::F9, 0x78),
-    (KeyCode::F10, 0x79),
-    (KeyCode::F11, 0x7A),
-    (KeyCode::F12, 0x7B),
-    (KeyCode::Semicolon, 0xBA),
-    (KeyCode::Equal, 0xBB),
-    (KeyCode::Comma, 0xBC),
-    (KeyCode::Minus, 0xBD),
-    (KeyCode::Period, 0xBE),
-    (KeyCode::Slash, 0xBF),
-    (KeyCode::Backquote, 0xC0),
-    (KeyCode::BracketLeft, 0xDB),
-    (KeyCode::Backslash, 0xDC),
-    (KeyCode::BracketRight, 0xDD),
-    (KeyCode::Quote, 0xDE),
-];
-
-/// Windows virtual-key code for `code`, or 0 when unmapped.
-fn windows_key_code(code: KeyCode) -> i32 {
-    WINDOWS_KEY_CODES
-        .iter()
-        .find(|(known, _)| *known == code)
-        .map_or(0, |&(_, vk)| vk)
-}
-
-/// Punctuation keys as their unshifted US-layout character.
-const PUNCTUATION: &[(KeyCode, char)] = &[
-    (KeyCode::Minus, '-'),
-    (KeyCode::Equal, '='),
-    (KeyCode::BracketLeft, '['),
-    (KeyCode::BracketRight, ']'),
-    (KeyCode::Backslash, '\\'),
-    (KeyCode::Semicolon, ';'),
-    (KeyCode::Quote, '\''),
-    (KeyCode::Comma, ','),
-    (KeyCode::Period, '.'),
-    (KeyCode::Slash, '/'),
-    (KeyCode::Backquote, '`'),
-];
-
-/// The binding identity of a physical key.
-pub(crate) fn key(code: KeyCode) -> Key {
-    match code {
-        KeyCode::Escape => Key::Escape,
-        KeyCode::Enter | KeyCode::NumpadEnter => Key::Enter,
-        KeyCode::Tab => Key::Tab,
-        KeyCode::Backspace => Key::Backspace,
-        KeyCode::Delete => Key::Delete,
-        KeyCode::Home => Key::Home,
-        KeyCode::End => Key::End,
-        KeyCode::PageUp => Key::PageUp,
-        KeyCode::PageDown => Key::PageDown,
-        KeyCode::Space => Key::Space,
-        KeyCode::ArrowLeft => Key::ArrowLeft,
-        KeyCode::ArrowRight => Key::ArrowRight,
-        KeyCode::ArrowUp => Key::ArrowUp,
-        KeyCode::ArrowDown => Key::ArrowDown,
-        other => {
-            // Letter and digit keys have their ASCII character as their
-            // virtual-key code.
-            let character = match u8::try_from(windows_key_code(other)) {
-                Ok(vk @ (b'A'..=b'Z' | b'0'..=b'9')) => Some(char::from(vk.to_ascii_lowercase())),
-                _ => PUNCTUATION
-                    .iter()
-                    .find(|(known, _)| *known == other)
-                    .map(|&(_, character)| character),
-            };
-            character.map_or(Key::Other, Key::Char)
-        }
-    }
-}
-
-/// One winit key transition as a [`KeyInput`].
+/// One winit key transition as a [`KeyInput`]. winit's scancode is the
+/// platform's own key code (the `kVK_*` code on macOS), which is what the
+/// key tables read.
 pub(crate) fn key_input(event: &KeyEvent, modifiers: Modifiers) -> KeyInput {
-    let code = match event.physical_key {
-        PhysicalKey::Code(code) => Some(code),
-        PhysicalKey::Unidentified(_) => None,
-    };
-    KeyInput {
-        key: code.map_or(Key::Other, key),
-        pressed: event.state == ElementState::Pressed,
-        repeat: event.repeat,
-        text: event.text.as_ref().map(ToString::to_string),
-        modifiers,
-        windows_key_code: code.map_or(0, windows_key_code),
-        native_key_code: event
-            .physical_key
-            .to_scancode()
-            .map_or(0, |code| code as i32),
-    }
-}
-
-/// One key transition as a [`KeyInput`], from the platform's own key code:
-/// the `kVK_*` code of an `NSEvent` on macOS. For a shell that reads keys
-/// from the platform and not from winit, so both go through one table.
-pub fn native_key_input(
-    native_key_code: u32,
-    pressed: bool,
-    repeat: bool,
-    text: Option<String>,
-    modifiers: Modifiers,
-) -> KeyInput {
-    let code = match PhysicalKey::from_scancode(native_key_code) {
-        PhysicalKey::Code(code) => Some(code),
-        PhysicalKey::Unidentified(_) => None,
-    };
-    KeyInput {
-        key: code.map_or(Key::Other, key),
-        pressed,
-        repeat,
-        text,
-        modifiers,
-        windows_key_code: code.map_or(0, windows_key_code),
-        native_key_code: native_key_code as i32,
+    let pressed = event.state == ElementState::Pressed;
+    let text = event.text.as_deref().unwrap_or_default();
+    let code = (event.physical_key.to_scancode()).and_then(|code| u16::try_from(code).ok());
+    match code {
+        Some(code) => {
+            specular_interact::mac_key_input(code, pressed, event.repeat, text, modifiers)
+        }
+        None => KeyInput {
+            key: Key::Other,
+            pressed,
+            repeat: event.repeat,
+            text: pressed
+                .then(|| text.to_owned())
+                .filter(|text| !text.is_empty()),
+            modifiers,
+            windows_key_code: 0,
+            native_key_code: 0,
+        },
     }
 }
 
@@ -312,36 +145,6 @@ fn utf16_offset(text: &str, byte: usize) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn windows_key_codes() {
-        assert_eq!(windows_key_code(KeyCode::KeyQ), i32::from(b'Q'));
-        assert_eq!(windows_key_code(KeyCode::MediaPlayPause), 0);
-    }
-
-    #[test]
-    fn binding_keys_are_the_unshifted_lowercase_character() {
-        let keys = [
-            KeyCode::KeyZ,
-            KeyCode::Digit1,
-            KeyCode::Slash,
-            KeyCode::Escape,
-            KeyCode::NumpadEnter,
-            KeyCode::F5,
-        ]
-        .map(key);
-        assert_eq!(
-            keys,
-            [
-                Key::Char('z'),
-                Key::Char('1'),
-                Key::Char('/'),
-                Key::Escape,
-                Key::Enter,
-                Key::Other
-            ]
-        );
-    }
 
     #[test]
     fn ime_events() {

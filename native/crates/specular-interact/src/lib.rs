@@ -66,6 +66,7 @@ mod page_input;
 mod page_state;
 mod pages;
 pub mod panel;
+mod physical_key;
 mod place;
 mod placement;
 mod pointer;
@@ -153,6 +154,7 @@ pub use panel::{
     Palette, Placement, PopupAnchor, PopupModel, SidebarButton, Stepper, Swatch, Swatches, Toggle,
     ToolButton, ToolbarModel, ToolbarSection, context_menu, popup_for, toolbar,
 };
+pub use physical_key::{PhysicalKey, mac_key_input};
 pub use place::{PlaceDrag, Placing};
 pub use placement::PagePlacement;
 pub use property::{Orientation, Property};

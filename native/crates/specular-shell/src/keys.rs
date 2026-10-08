@@ -4,7 +4,7 @@
 //! 1 both arrive as `"1"`, and a page needs the code. An app-local monitor
 //! sees every key event before GPUI does and notes what it carried. When
 //! GPUI then hands the same event to the canvas slot, the slot turns the
-//! note into a [`KeyInput`] through the tables the winit shell uses.
+//! note into a [`KeyInput`] through `specular-interact`'s key tables.
 //!
 //! The monitor only reads. Who gets a key is still GPUI's dispatch: a Kit
 //! text field, a key binding, the input method, or the canvas slot.
@@ -143,27 +143,6 @@ const fn flag_of(code: u16) -> Option<usize> {
     }
 }
 
-/// The text a press types, as winit reports it: the characters, with the
-/// keys a page expects a character from named, and nothing for a key that
-/// types nothing (`AppKit` puts arrows and function keys in a private range).
-fn text(raw: &RawKey) -> Option<String> {
-    let named = match raw.code {
-        36 | 76 => Some("\r"),
-        48 => Some("\t"),
-        49 => Some(" "),
-        51 => Some("\u{8}"),
-        53 => Some("\u{1b}"),
-        _ => None,
-    };
-    if let Some(named) = named {
-        return Some(named.to_owned());
-    }
-    let types = !raw.characters.is_empty()
-        && (raw.characters.chars())
-            .all(|c| !c.is_control() && !('\u{f700}'..='\u{f8ff}').contains(&c));
-    types.then(|| raw.characters.clone())
-}
-
 /// `raw` as the app's key event.
 pub(crate) fn key_input(raw: &RawKey) -> KeyInput {
     let (pressed, repeat) = match raw.kind {
@@ -174,22 +153,17 @@ pub(crate) fn key_input(raw: &RawKey) -> KeyInput {
             false,
         ),
     };
-    let text = (pressed && raw.kind != RawKind::Flags)
-        .then(|| text(raw))
-        .flatten();
-    specular_app::native_key_input(
-        u32::from(raw.code),
+    specular_interact::mac_key_input(
+        raw.code,
         pressed,
         repeat,
-        text,
+        &raw.characters,
         modifiers(raw.flags),
     )
 }
 
 #[cfg(test)]
 mod tests {
-    use specular_interact::Key;
-
     use super::*;
 
     fn down(code: u16, flags: usize, characters: &str) -> RawKey {
@@ -199,29 +173,6 @@ mod tests {
             flags,
             characters: characters.to_owned(),
         }
-    }
-
-    #[test]
-    fn a_letter_is_its_physical_key_with_the_text_it_typed() {
-        let input = key_input(&down(0, SHIFT, "A"));
-        assert_eq!(input.key, Key::Char('a'));
-        assert_eq!(input.text.as_deref(), Some("A"));
-        assert_eq!((input.windows_key_code, input.native_key_code), (0x41, 0));
-        assert!(input.pressed && input.modifiers.shift);
-    }
-
-    #[test]
-    fn digit_one_and_numpad_one_are_told_apart_by_their_codes() {
-        let digit = key_input(&down(18, 0, "1"));
-        let numpad = key_input(&down(83, 0, "1"));
-        assert_eq!(digit.key, Key::Char('1'));
-        assert_eq!((digit.native_key_code, numpad.native_key_code), (18, 83));
-        assert_ne!(digit.windows_key_code, numpad.windows_key_code);
-        // Return types a carriage return and an arrow types nothing.
-        let enter = key_input(&down(36, 0, "\r"));
-        assert_eq!((enter.key, enter.text.as_deref()), (Key::Enter, Some("\r")));
-        let left = key_input(&down(123, 0, "\u{f702}"));
-        assert_eq!((left.key, left.text), (Key::ArrowLeft, None));
     }
 
     #[test]
