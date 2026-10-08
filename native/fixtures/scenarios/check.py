@@ -196,6 +196,24 @@ if m in RAN:
             failures.append(f"{m}: {name}")
     for undone in ["03-duplicate-undone", "09-row-undone", "11-column-undone", "17-bold-undone"]:
         expect(m, SINK, saved(m, f"{undone}.canvas"))
+n = "n-chrome-session"
+if n in RAN:
+    start, duplicated, fresh, back = (saved(n, f) for f in ["00-start.canvas", "05-duplicated.canvas", "06-new-canvas.canvas", "07-first-canvas.canvas"])
+    pages = [node for node in duplicated["nodes"] if node.get("url") == "https://example.org/docs"]
+    checks = {
+        # The address typed in the popup reached the page.
+        "the address entered in the popup is the page's": len(pages) == 1,
+        # The menu's duplicate copied one sticky and nothing else.
+        "the menu's duplicate adds one sticky": len(duplicated["nodes"]) == len(start["nodes"]) + 1,
+        # The sticky went to the canvas that was added, which has nothing else.
+        "the new canvas holds only its own sticky": len(fresh["nodes"]) == 1,
+        # Switching back shows the first canvas as it was left.
+        "the first canvas is as it was left": back == duplicated,
+    }
+    for name, held in checks.items():
+        print(f"{'ok  ' if held else 'FAIL'} {n}: {name}")
+        if not held:
+            failures.append(f"{n}: {name}")
 f1 = "f1-reload-own-save"
 expect(f"{a}+{f1}", saved(a, "08-arranged.canvas"), saved(f1, "01-reloaded.canvas"))
 f2 = "f2-electron-file-one-change"
