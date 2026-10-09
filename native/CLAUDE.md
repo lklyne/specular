@@ -186,7 +186,11 @@ fn shift_drag_moves_the_page_along_one_axis() {
   See `tests/it/showing.rs`, and `tests/it/item_view.rs` for what input
   does in an item view: the page shown is entered, so send `Key::Escape`
   before a canvas key or a tool's press, and a Document shown is a reading
-  column that one click edits.
+  column that one click edits. A tab starts in the Fill lens with the eye
+  open; `act(Action::SetLens(Lens::Device))` and
+  `act(Action::ShowOthers(false))` change them (`view.lens.<name>` and
+  `view.others` as controls), read back with `app().lens()` and
+  `app().shows_others()`. See `tests/it/lens.rs`.
   A text field is clicked like any control and then typed into:
   `enter_in_field("page.url", "example.org")` replaces its text and presses
   Enter, `field_edit()` reads what is typed so far, and Escape puts the
