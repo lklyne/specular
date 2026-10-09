@@ -4,10 +4,10 @@
 use std::collections::HashMap;
 
 use specular_core::{CssSize, PageNav};
-use specular_doc::{ColorScheme, Document, EntityId};
+use specular_doc::{ColorScheme, EntityId};
 
 use crate::app::page_of;
-use crate::{Effect, PagePlacement};
+use crate::{App, Effect, PagePlacement};
 
 /// What a host needs to know about one page entity.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -18,26 +18,69 @@ pub(crate) struct HostedPage {
     scheme: Option<ColorScheme>,
 }
 
-/// The pages of `document`, back-to-front.
-pub(crate) fn snapshot(document: &Document) -> Vec<HostedPage> {
-    document
-        .entities()
+/// The pages of the document, back-to-front, each at the viewport its host
+/// is laid out at: its rect's size, or the size its tab presents it at.
+pub(crate) fn snapshot(app: &App) -> Vec<HostedPage> {
+    let presented = presentation(app);
+    (app.document.entities())
         .filter_map(|entity| {
+            let page = page_of(entity)?;
+            let viewport = match &presented {
+                Some((id, viewport)) if *id == entity.id => *viewport,
+                Some(_) | None => PagePlacement::viewport_for(entity.rect),
+            };
             Some(HostedPage {
                 id: entity.id.clone(),
-                url: page_of(entity)?.url.clone(),
-                viewport: PagePlacement::viewport_for(entity.rect),
-                scheme: page_of(entity)?.color_scheme,
+                url: page.url.clone(),
+                viewport,
+                scheme: page.color_scheme,
             })
         })
         .collect()
 }
 
-/// Appends the effects that take the hosts from `before` to the pages
-/// `document` holds now: closes first, then creates and viewport changes in
+/// The page a tab lays out at a size of its own, and that size.
+pub(crate) fn presentation(app: &App) -> Option<(EntityId, CssSize)> {
+    let entity = app.document.entity(app.shown_item()?)?;
+    page_of(entity)?;
+    let rect = crate::showing::presented_rect(app, entity)?;
+    Some((entity.id.clone(), PagePlacement::viewport_for(rect)))
+}
+
+/// Appends the viewport changes that take the hosts from the page `before`
+/// presented to the one presented now: the page that was laid out at a
+/// tab's size goes back to its stored viewport, and the one that is now
+/// takes the tab's. A lens, a tab, the window and the sidebar all change
+/// it, so `update` asks once after every event.
+pub(crate) fn follow_presentation(
+    before: Option<&(EntityId, CssSize)>,
+    app: &App,
+    effects: &mut Vec<Effect>,
+) {
+    let now = presentation(app);
+    if now.as_ref() == before {
+        return;
+    }
+    let stays = |page: &EntityId| now.as_ref().is_some_and(|(shown, _)| shown == page);
+    if let Some((page, _)) = before
+        && !stays(page)
+        && let Some(placement) = app.page_placement(page)
+    {
+        effects.push(Effect::SetPageViewport {
+            page: page.clone(),
+            viewport: placement.viewport,
+        });
+    }
+    if let Some((page, viewport)) = now {
+        effects.push(Effect::SetPageViewport { page, viewport });
+    }
+}
+
+/// Appends the effects that take the hosts from `before` to the pages the
+/// document holds now: closes first, then creates and viewport changes in
 /// stack order. A page whose URL changed stays hosted and is sent there.
-pub(crate) fn reconcile(before: &[HostedPage], document: &Document, effects: &mut Vec<Effect>) {
-    let after = snapshot(document);
+pub(crate) fn reconcile(before: &[HostedPage], app: &App, effects: &mut Vec<Effect>) {
+    let after = snapshot(app);
     let was: HashMap<&EntityId, &HostedPage> = before.iter().map(|page| (&page.id, page)).collect();
     let is: HashMap<&EntityId, &HostedPage> = after.iter().map(|page| (&page.id, page)).collect();
     for page in before {
@@ -75,14 +118,14 @@ pub(crate) fn reconcile(before: &[HostedPage], document: &Document, effects: &mu
 }
 
 /// Appends the effects that close every page of `before` and host every
-/// page of `document`: another canvas is being shown. A page is not kept
+/// page of the document: another canvas is being shown. A page is not kept
 /// across the change even when both canvases have its id, as a duplicated
 /// canvas does: its scroll and history belong to the canvas it was in.
-pub(crate) fn replace(before: &[HostedPage], document: &Document, effects: &mut Vec<Effect>) {
+pub(crate) fn replace(before: &[HostedPage], app: &App, effects: &mut Vec<Effect>) {
     for page in before {
         effects.push(Effect::ClosePage(page.id.clone()));
     }
-    reconcile(&[], document, effects);
+    reconcile(&[], app, effects);
 }
 
 fn color_scheme(page: &HostedPage) -> Effect {
@@ -92,9 +135,9 @@ fn color_scheme(page: &HostedPage) -> Effect {
     }
 }
 
-/// Appends the effect that tells every page of `document` the scheme it
+/// Appends the effect that tells every page of the document the scheme it
 /// follows, for when the app's appearance changed under pages with no
 /// scheme of their own.
-pub(crate) fn refresh_color_schemes(document: &Document, effects: &mut Vec<Effect>) {
-    effects.extend(snapshot(document).iter().map(color_scheme));
+pub(crate) fn refresh_color_schemes(app: &App, effects: &mut Vec<Effect>) {
+    effects.extend(snapshot(app).iter().map(color_scheme));
 }

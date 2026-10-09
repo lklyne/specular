@@ -114,15 +114,10 @@ fn escape_leaves_a_shown_page_and_one_click_enters_it_again() {
 
 #[test]
 fn a_creation_press_makes_nothing_an_item_view_would_hide() {
-    // (the item shown, the tool, the canvas point pressed)
-    let off = (800.0, 250.0);
+    // (the item shown, the tool, the canvas point pressed). A page that
+    // fills the view leaves no canvas beside it to press.
     let on = (300.0, 350.0);
     let rows = [
-        ("p1", Tool::AddSticky, off),
-        ("p1", Tool::AddText, off),
-        ("p1", Tool::AddShape, off),
-        ("p1", Tool::Draw, off),
-        ("p1", Tool::Comment, off),
         // A page or a Document is never hooked to the page shown.
         ("p1", Tool::AddPage, on),
         ("p1", Tool::AddDocument, on),

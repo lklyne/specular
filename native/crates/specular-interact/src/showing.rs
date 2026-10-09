@@ -2,8 +2,8 @@
 //! tab of its own.
 //!
 //! An item view is a way of looking at the canvas, not a second mode of it.
-//! Nothing is written to the document and no page host changes its viewport
-//! (ADR 0020, ADR 0045). The view state is three values: the item
+//! Nothing is written to the document (ADR 0020, ADR 0045). The view state
+//! is three values: the item
 //! ([`Session::item_view`](crate::Session)), the [`Lens`] its tab looks
 //! through, and the eye, which says whether anything but the item is drawn.
 //! Everything else follows from them, here and nowhere else:
@@ -12,7 +12,8 @@
 //!   seen, which is also what can be hit. [`refuses`] and [`hides_new`] keep
 //!   anything from being made that would be hidden at once.
 //! - [`presented_rect`] is where the item is laid out when that is not its
-//!   stored rect.
+//!   stored rect. A page's host is laid out at that size for as long as it
+//!   is, through `App::page_placement` and `pages::snapshot`.
 //! - [`settle`] holds the camera on the item, or leaves it to the tab in the
 //!   Canvas lens, and keeps the selection among what is seen.
 //! - Leaving puts back the camera the canvas had.
@@ -20,8 +21,9 @@
 mod gates;
 mod tabs;
 
+use glam::DVec2;
 use specular_core::Camera;
-use specular_doc::{Document, Entity, EntityId, ItemId, Kind, Rect};
+use specular_doc::{Document, Entity, EntityId, ItemId, Kind, Page, Rect};
 
 pub(crate) use self::gates::{
     comment_out_of_reach, hides, hides_comment, hides_new, only_page, out_of_reach, refuses,
@@ -33,7 +35,7 @@ use crate::focus::set_focus;
 use crate::notes::{is_note_file, note_file};
 use crate::panel::PAGE_URL;
 use crate::viewport::area;
-use crate::{App, ControlId, Effect, edit, live, place, update, zoom};
+use crate::{App, ControlId, Effect, edit, geometry, live, place, update, zoom};
 
 /// What is shown under the chrome.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -196,15 +198,16 @@ pub(crate) fn new_tab(app: &mut App, effects: &mut Vec<Effect>) {
 /// How wide a Document that fills the view is read at, at 100%.
 const READING_MEASURE: f64 = 720.0;
 
-/// The rect `entity` fills the view at, in place of its stored one. A
-/// Document is a reading column of a fixed measure, as tall as the fit
-/// leaves room for, so the camera sits on it at 100% and the text scrolls
-/// inside.
+/// The rect `entity` fills the view at, in place of its stored one. A page
+/// is everything the chrome leaves free, in whole pixels, so at 100% one of
+/// its CSS pixels is one of the screen's. A Document is a reading column of
+/// a fixed measure, as tall as the fit leaves room for, so the camera sits
+/// on it at 100% and the text scrolls inside.
 fn fill_rect(app: &App, entity: &Entity) -> Option<Rect> {
-    // FILL FOR PAGES: a page has no rect to fill the view at yet, so in
-    // Fill it is shown as Device shows it. The rect goes here, and the page
-    // host's viewport has to follow it (`App::page_placement`,
-    // `pages::snapshot`).
+    if page_of(entity).is_some() {
+        let size = area(app).size.round().max(DVec2::ONE);
+        return Some(Rect::new(entity.rect.x, entity.rect.y, size.x, size.y));
+    }
     note_file(&entity.kind)?;
     let room = zoom::fit_room(area(app).size);
     Some(Rect::new(
@@ -226,6 +229,29 @@ pub(crate) fn presented_rect(app: &App, entity: &Entity) -> Option<Rect> {
     }
 }
 
+/// `entity` as the view lays it out when that is not as it is stored: at
+/// its presented rect, and a page with no device frame, which belongs to
+/// the size the page is stored at.
+pub(crate) fn presented(app: &App, entity: &Entity) -> Option<Entity> {
+    let rect = presented_rect(app, entity)?;
+    let kind = match &entity.kind {
+        Kind::Page(page) => Kind::Page(Page {
+            metadata: None,
+            ..page.clone()
+        }),
+        kind @ (Kind::Text(_)
+        | Kind::File(_)
+        | Kind::Group(_)
+        | Kind::Drawing(_)
+        | Kind::Shape(_)) => kind.clone(),
+    };
+    Some(Entity {
+        rect,
+        kind,
+        ..entity.clone()
+    })
+}
+
 /// The item view, while its lens holds the camera on the item.
 fn held(app: &App) -> Option<&ItemView> {
     let view = app.session.item_view.as_ref()?;
@@ -242,10 +268,31 @@ pub(crate) fn holds(app: &App, id: &EntityId) -> bool {
     held(app).is_some_and(|view| view.item == *id)
 }
 
-/// The camera that fits `entity` into the free part of the viewport.
+/// The stored rect of `entity` with its device frame around it, when it is
+/// a page that shows one.
+fn framed(entity: &Entity) -> Rect {
+    let rect = entity.rect;
+    page_of(entity).and_then(Page::shell).map_or(rect, |shell| {
+        let insets = shell.insets;
+        Rect::new(
+            rect.x - insets.left,
+            rect.y - insets.top,
+            rect.width + insets.left + insets.right,
+            rect.height + insets.top + insets.bottom,
+        )
+    })
+}
+
+/// The camera that holds `entity` in the free part of the viewport. A page
+/// that fills it sits corner to corner at 100%. Anything else is fitted
+/// with room around it, a page with its device frame.
 fn fitted(app: &App, entity: &Entity) -> Camera {
     let free = area(app);
-    let rect = presented_rect(app, entity).unwrap_or(entity.rect);
+    let presented = presented_rect(app, entity);
+    if let Some(rect) = presented.filter(|_| page_of(entity).is_some()) {
+        return Camera::new((free.min - geometry::origin(rect)).as_vec2(), 1.0);
+    }
+    let rect = presented.unwrap_or_else(|| framed(entity));
     let mut camera = zoom::fitting(rect, free.size);
     camera.pan += free.min.as_vec2();
     camera

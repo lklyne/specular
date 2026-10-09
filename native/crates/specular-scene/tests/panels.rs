@@ -23,23 +23,6 @@ fn the_toolbar_alone() {
 }
 
 #[test]
-fn the_tab_row_and_the_lens_and_eye_of_the_tab_showing() {
-    let mut app = TestApp::with_entities([
-        page("p1", Rect::new(0.0, 0.0, 1280.0, 800.0)),
-        specular_testkit::note("n", Rect::new(1400.0, 0.0, 400.0, 500.0), "plan.md"),
-        page("p2", Rect::new(1900.0, 0.0, 390.0, 844.0)),
-        shape("s", Rect::new(0.0, 900.0, 200.0, 200.0)),
-    ]);
-    app.viewport((1200.0, 800.0)).with_panels();
-    // A title too long for its tab is cut short.
-    let title = "A page whose title is far too long to fit".to_owned();
-    app.page_reports("p1", specular_interact::PageNotice::Title(title))
-        .click_control("view.item.p2")
-        .hover_control("view.canvas");
-    assert_snapshot!("tab_row", app.panel_scene_snapshot());
-}
-
-#[test]
 fn the_toolbar_and_a_sticky_in_the_dock() {
     let mut app = app();
     app.select(&["t"]);

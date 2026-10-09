@@ -14,10 +14,12 @@ use crate::{App, Tool, geometry};
 enum Others {
     /// Nothing: the eye is shut.
     None,
-    /// What is hooked to the item, and the comments on it. In Fill the item
-    /// is the whole view, so what merely lies near it on the canvas has no
-    /// place there.
-    Hooked,
+    /// What follows an element of the item. In Fill the item is the whole
+    /// view, and a page is laid out there at another width than the one it
+    /// is stored at. What merely lies near it on the canvas has no place,
+    /// and neither has what is hooked to it by a position or a scroll, which
+    /// was placed against the stored layout.
+    Following,
     /// Everything, where the canvas has it.
     All,
 }
@@ -27,7 +29,7 @@ fn others(app: &App, view: &ItemView) -> Others {
         return Others::None;
     }
     match app.session.tabs.lens(&view.item) {
-        Lens::Fill => Others::Hooked,
+        Lens::Fill => Others::Following,
         Lens::Device | Lens::Canvas => Others::All,
     }
 }
@@ -43,6 +45,13 @@ fn hooked(view: &ItemView, entity: &Entity) -> bool {
     (entity.anchor.as_ref()).is_some_and(|anchor| anchor.page_id == view.item)
 }
 
+/// Whether `entity` follows an element of the item shown, or has yet to
+/// hear which one: its page is asked after the step that places it.
+fn follows(app: &App, view: &ItemView, entity: &Entity) -> bool {
+    let element = (entity.anchor.as_ref()).is_some_and(|anchor| anchor.element.is_some());
+    hooked(view, entity) && (element || app.session.attach.awaits(entity))
+}
+
 /// Whether the view leaves `entity` out. The item shown never is, nor what
 /// a drag is making, which is hooked when the drag ends.
 pub(crate) fn hides(app: &App, entity: &Entity) -> bool {
@@ -52,7 +61,7 @@ pub(crate) fn hides(app: &App, entity: &Entity) -> bool {
     if entity.id == view.item || app.creating() == Some(&entity.id) {
         return false;
     }
-    others == Others::None || !hooked(view, entity)
+    others == Others::None || !follows(app, view, entity)
 }
 
 /// Whether the view would hide `entity` as soon as it was added, hooked
@@ -86,10 +95,10 @@ pub(crate) fn refuses(app: &App, tool: Tool, world: DVec2) -> bool {
 }
 
 /// The page that is the only one there is to hook to: the item shown,
-/// while only what is hooked to it is seen.
+/// while only what follows it is seen.
 pub(crate) fn only_page(app: &App) -> Option<&EntityId> {
     narrowed(app)
-        .filter(|(_, others)| *others == Others::Hooked)
+        .filter(|(_, others)| *others == Others::Following)
         .map(|(view, _)| &view.item)
 }
 
@@ -105,13 +114,27 @@ fn comment_page(annotation: &Annotation) -> Option<&EntityId> {
     }
 }
 
+/// Whether `annotation` is on an element of its page: a comment on an
+/// element, or a region that follows one or has yet to hear which.
+fn comment_follows(app: &App, annotation: &Annotation) -> bool {
+    match &annotation.anchor {
+        AnnotationAnchor::Element { .. } => true,
+        AnnotationAnchor::Region(_) => {
+            let element = (annotation.page_anchor.as_ref()).is_some_and(|it| it.element.is_some());
+            element || app.session.attach.awaits_comment(annotation)
+        }
+        AnnotationAnchor::Canvas { .. } | AnnotationAnchor::Page { .. } => false,
+    }
+}
+
 /// Whether the view leaves `annotation` out: every comment while the eye
-/// is shut, and in Fill one that is not on the page shown.
+/// is shut, and in Fill one that is not on an element of the page shown.
 pub(crate) fn hides_comment(app: &App, annotation: &Annotation) -> bool {
     let Some((view, others)) = narrowed(app) else {
         return false;
     };
-    others == Others::None || comment_page(annotation) != Some(&view.item)
+    let on_item = comment_page(annotation) == Some(&view.item);
+    others == Others::None || !(on_item && comment_follows(app, annotation))
 }
 
 /// Whether `entity` cannot be brought into view where the view is: it is

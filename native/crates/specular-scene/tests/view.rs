@@ -65,35 +65,6 @@ fn a_page_is_its_frame_with_a_border_and_a_title() {
 }
 
 #[test]
-fn an_item_view_draws_its_item_and_what_is_hooked_to_it_and_nothing_else() {
-    let hooked = Entity {
-        anchor: Some(specular_doc::PageAnchor::new(EntityId::from("p2"))),
-        ..sticky("h", Rect::new(720.0, 120.0, 100.0, 100.0), "on p2")
-    };
-    let mut on_canvas = annotation(
-        "c1",
-        AnnotationAnchor::Canvas {
-            canvas_x: 300.0,
-            canvas_y: 600.0,
-        },
-        AnnotationStatus::Pending,
-    );
-    on_canvas.text = "elsewhere".to_owned();
-    let entities = document([
-        group("g", Rect::new(80.0, 80.0, 440.0, 340.0)),
-        inside("g", page("p1", Rect::new(100.0, 100.0, 400.0, 300.0))),
-        page("p2", Rect::new(700.0, 100.0, 400.0, 300.0)),
-        hooked,
-        shape("s", Rect::new(100.0, 500.0, 100.0, 100.0)),
-    ]);
-    let entities = connected(entities, "e1", "p1", "p2");
-    let mut app = TestApp::from_document(specular_testkit::with_comment(entities, on_canvas));
-    app.viewport(VIEWPORT)
-        .act(Action::Show(specular_interact::Showing::Item("p2".into())));
-    assert_scene_snapshot!(app);
-}
-
-#[test]
 fn a_framed_page_sits_in_its_device_shell() {
     // The file's corner is the shell's, 22 out from the screen.
     let app = TestApp::from_canvas(

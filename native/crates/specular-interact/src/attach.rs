@@ -69,6 +69,23 @@ pub(crate) struct Attachments {
     stamped: bool,
 }
 
+impl Attachments {
+    /// Whether `entity` is still to hear which element it follows: it has
+    /// moved since it was last asked about, or its question is out.
+    pub(crate) fn awaits(&self, entity: &Entity) -> bool {
+        let asked = || (self.asked.values()).any(|it| *it == Target::Entity(entity.id.clone()));
+        Placed::of(entity).is_some_and(|now| self.placed.get(&entity.id) != Some(&now) || asked())
+    }
+
+    /// Whether the region comment `annotation` is still to hear which
+    /// element it follows.
+    pub(crate) fn awaits_comment(&self, annotation: &Annotation) -> bool {
+        let asked =
+            || (self.asked.values()).any(|it| *it == Target::Comment(annotation.id.clone()));
+        region_centre(annotation).is_some() && (!self.comments.contains(&annotation.id) || asked())
+    }
+}
+
 /// Whether `event` puts another document in front of the app.
 pub(crate) const fn opens(event: &Event) -> bool {
     matches!(

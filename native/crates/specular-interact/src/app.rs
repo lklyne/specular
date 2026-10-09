@@ -127,10 +127,18 @@ impl App {
     ///
     /// A page's viewport is its rect's size. While its handle is being
     /// dragged the viewport stays at the size the drag started from, so the
-    /// page stretches until the release re-lays it out.
+    /// page stretches until the release re-lays it out. A page that fills
+    /// its tab sits at the rect the tab presents it at, laid out at that
+    /// size.
     pub fn page_placement(&self, id: &EntityId) -> Option<PagePlacement> {
         let entity = self.document.entity(id)?;
         page_of(entity)?;
+        if let Some(rect) = crate::showing::presented_rect(self, entity) {
+            return Some(PagePlacement {
+                rect,
+                viewport: PagePlacement::viewport_for(rect),
+            });
+        }
         let laid_out_at = match &self.session.gesture {
             Some(Gesture::Resize(drag)) => drag.start_rect(id).unwrap_or(entity.rect),
             Some(

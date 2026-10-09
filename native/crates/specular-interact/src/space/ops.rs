@@ -65,7 +65,7 @@ pub(crate) fn act(app: &mut App, action: CanvasAction, effects: &mut Vec<Effect>
 /// Replaces the space with one just read from disk and shows its active
 /// canvas. Nothing of the old space carries over.
 pub(crate) fn open(app: &mut App, opened: OpenedSpace, effects: &mut Vec<Effect>) {
-    let before = pages::snapshot(&app.document);
+    let before = pages::snapshot(app);
     app.space_ask = None;
     app.session.gesture = None;
     edit::discard(app, effects);
@@ -345,7 +345,7 @@ fn activate(app: &mut App, index: usize, effects: &mut Vec<Effect>) {
         return;
     }
     leave(app, effects);
-    let before = pages::snapshot(&app.document);
+    let before = pages::snapshot(app);
     let leaving = Parked {
         document: mem::take(&mut app.document),
         history: mem::take(&mut app.history),
@@ -411,7 +411,7 @@ fn enter(app: &mut App, parked: Parked, before: &[HostedPage], effects: &mut Vec
         edit::fit_all(app);
     }
     drop_dangling(app, effects);
-    pages::replace(before, &app.document, effects);
+    pages::replace(before, app, effects);
     images::reopen(app, effects);
     notes::reopen(app, effects);
 }

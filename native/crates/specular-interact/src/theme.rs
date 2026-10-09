@@ -117,7 +117,7 @@ pub(crate) fn choose(app: &mut App, theme: Theme, save: bool, effects: &mut Vec<
         effects.push(Effect::SaveTheme(theme));
     }
     if before.appearance() != app.theme.appearance() {
-        crate::pages::refresh_color_schemes(&app.document, effects);
+        crate::pages::refresh_color_schemes(app, effects);
     }
 }
 
@@ -126,6 +126,6 @@ pub(crate) fn system_changed(app: &mut App, system: Appearance, effects: &mut Ve
     let before = app.theme.appearance();
     app.theme.system = system;
     if before != app.theme.appearance() {
-        crate::pages::refresh_color_schemes(&app.document, effects);
+        crate::pages::refresh_color_schemes(app, effects);
     }
 }

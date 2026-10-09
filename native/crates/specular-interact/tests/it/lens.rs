@@ -4,8 +4,12 @@
 //! - the eye: dropping the `Others::None` arm from `gates::hides` leaves a
 //!   sticky hooked to the page drawn with the eye shut. Making Fill show
 //!   `Others::All` draws the canvas's neighbours over an item that fills the
-//!   view, and making Device show `Others::Hooked` loses the stickies beside
+//!   view, and making Device show `Others::Following` loses the stickies beside
 //!   a page.
+//! - filling: returning `None` for a page from `showing::fill_rect` leaves
+//!   it at its stored size, dropping `follow_presentation` from `update`
+//!   leaves its host there, and dropping the presented size from
+//!   `pages::snapshot` resizes the host when a preset is picked.
 //! - the camera: dropping the `held` check from `showing::settle` refits a
 //!   panned Canvas lens, and entering the page in `show_item` whatever the
 //!   lens gives the wheel to the page.
@@ -21,9 +25,10 @@
 
 use glam::Vec2;
 use specular_core::Camera;
-use specular_doc::{Entity, ItemId, PageAnchor, Rect};
+use specular_core::CssSize;
+use specular_doc::{AnchorElement, Entity, ItemId, JsonMap, PageAnchor, Rect};
 use specular_interact::{
-    Action, Effect, Focus, Hit, Key, Lens, Showing, Tool, hit_test, named_controls, seen,
+    Action, Effect, Focus, Hit, Key, Lens, Property, Showing, Tool, hit_test, named_controls, seen,
 };
 use specular_testkit::{TestApp, document, note, page, pages, sticky};
 
@@ -31,13 +36,29 @@ fn show(id: &str) -> Action {
     Action::Show(Showing::Item(id.into()))
 }
 
-/// `p1` with a sticky `on` hooked to it and a sticky `by` beside it, a
-/// second page `p2` and a Document `n`.
+/// A sticky hooked to `p1`, following an element of it or only placed
+/// over it.
+fn hooked(id: &str, follows: bool) -> Entity {
+    let element = follows.then(|| AnchorElement {
+        selector: "main > h1".to_owned(),
+        doc_x: 20.0,
+        doc_y: 20.0,
+        viewport_positioned: None,
+        extra: JsonMap::new(),
+    });
+    Entity {
+        anchor: Some(PageAnchor {
+            element,
+            ..PageAnchor::new("p1".into())
+        }),
+        ..sticky(id, Rect::new(120.0, 120.0, 100.0, 100.0), "on it")
+    }
+}
+
+/// `p1` with a sticky `on` that follows an element of it and a sticky `by`
+/// beside it, a second page `p2` and a Document `n`.
 fn canvas() -> TestApp {
-    let hooked = Entity {
-        anchor: Some(PageAnchor::new("p1".into())),
-        ..sticky("on", Rect::new(120.0, 120.0, 100.0, 100.0), "on it")
-    };
+    let hooked = hooked("on", true);
     let mut app = TestApp::with_entities([
         page("p1", Rect::new(100.0, 100.0, 400.0, 300.0)),
         hooked,
@@ -64,7 +85,7 @@ fn others_seen(app: &TestApp) -> Vec<&'static str> {
 fn the_eye_and_the_lens_decide_what_is_seen_beside_the_item() {
     let all = vec!["on", "by", "p2", "n"];
     let rows = [
-        // In Fill the item is the whole view: only what is on it.
+        // In Fill the item is the whole view: only what follows it.
         (Lens::Fill, true, vec!["on"]),
         (Lens::Device, true, all.clone()),
         (Lens::Canvas, true, all),
@@ -90,6 +111,17 @@ fn the_eye_and_the_lens_decide_what_is_seen_beside_the_item() {
             "{lens:?}, eye {eye}: {under:?}"
         );
     }
+
+    // A page that fills the view is laid out at another width, so what is
+    // hooked to it by position alone is seen only where the page is stored.
+    let mut app = TestApp::with_entities([
+        page("p1", Rect::new(100.0, 100.0, 400.0, 300.0)),
+        hooked("placed", false),
+    ]);
+    app.act(show("p1"));
+    assert!(seen(app.app(), app.entity("placed")).is_none());
+    app.act(Action::SetLens(Lens::Device));
+    assert!(seen(app.app(), app.entity("placed")).is_some());
 
     // Shutting the eye takes what it hides out of the selection, and on the
     // Canvas tab it does nothing.
@@ -270,4 +302,83 @@ fn a_reveal_leaves_a_view_whose_camera_is_held_on_another_item() {
     app.act(reveal("p2"));
     assert_eq!(app.app().showing(), Showing::Item("p1".into()));
     assert_ne!(app.session().camera, before);
+}
+
+/// The viewport changes among `effects`, as `(page, width, height)`.
+fn viewports(effects: &[Effect]) -> Vec<(String, u32, u32)> {
+    (effects.iter())
+        .filter_map(|effect| match effect {
+            Effect::SetPageViewport { page, viewport } => {
+                Some((page.to_string(), viewport.width, viewport.height))
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn a_page_in_fill_is_laid_out_at_the_free_area_and_goes_back_when_left() {
+    let mut app = canvas();
+    let before = app.document().clone();
+    app.take_effects();
+
+    // Shown, the page fills the window at 100% and its host follows.
+    app.act(show("p1"));
+    assert_eq!(
+        viewports(&app.take_effects()),
+        [("p1".to_owned(), 1000, 800)]
+    );
+    let placed = app.app().page_placement(&"p1".into()).expect("a page");
+    assert_eq!(placed.rect, Rect::new(100.0, 100.0, 1000.0, 800.0));
+    assert_eq!(placed.viewport, CssSize::new(1000, 800));
+    assert_eq!(
+        app.session().camera,
+        Camera::new(Vec2::new(-100.0, -100.0), 1.0)
+    );
+    assert_eq!(app.session().focus, Focus::Page("p1".into()));
+
+    // The window and the sidebar refit it.
+    app.viewport((1200.0, 700.0));
+    assert_eq!(
+        viewports(&app.take_effects()),
+        [("p1".to_owned(), 1200, 700)]
+    );
+    app.show_sidebar(true);
+    let free = 1200 - app.app().covered_left() as u32;
+    assert_eq!(
+        viewports(&app.take_effects()),
+        [("p1".to_owned(), free, 700)]
+    );
+    app.show_sidebar(false);
+    app.take_effects();
+
+    // A preset picked there is stored, and the host stays as it fills.
+    app.act(Action::SetProperty(Property::ViewportPreset(0)));
+    assert_ne!(app.rect("p1"), Rect::new(100.0, 100.0, 400.0, 300.0));
+    assert_eq!(viewports(&app.take_effects()), []);
+    assert_eq!(app.app().lens(), Some(Lens::Fill));
+    app.undo();
+    app.take_effects();
+
+    // Another lens, another tab and the canvas each put the host back.
+    app.act(Action::SetLens(Lens::Device));
+    assert_eq!(
+        viewports(&app.take_effects()),
+        [("p1".to_owned(), 400, 300)]
+    );
+    app.act(Action::SetLens(Lens::Fill));
+    app.take_effects();
+    app.act(show("p2"));
+    assert_eq!(
+        viewports(&app.take_effects()),
+        [("p1".to_owned(), 400, 300), ("p2".to_owned(), 1200, 700)]
+    );
+    app.act(Action::Show(Showing::Canvas));
+    assert_eq!(
+        viewports(&app.take_effects()),
+        [("p2".to_owned(), 400, 300)]
+    );
+
+    // Nothing of it was written.
+    assert_eq!(*app.document(), before);
 }

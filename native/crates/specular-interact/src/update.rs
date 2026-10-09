@@ -44,6 +44,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
     let pointing = matches!(event, Event::Pointer(_));
     let keeps_layout = builtin::keeps_layout(app, &event);
     let opened = attach::opens(&event);
+    let presented = pages::presentation(app);
     match event {
         Event::Pointer(input) => pointer::on_pointer(app, &input, &mut effects),
         Event::Wheel(input) => on_wheel(app, &input, &mut effects),
@@ -100,6 +101,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         Event::Api(call) => api::run(app, call, &mut effects),
     }
     crate::showing::settle(app);
+    pages::follow_presentation(presented.as_ref(), app, &mut effects);
     builtin::forget_layout_unless(app, keeps_layout);
     // Another canvas has another history: its revision says nothing about
     // whether this event made a step.
@@ -324,10 +326,10 @@ pub(crate) fn verb(
 /// Runs `command` as one undo step, then brings the page hosts and the
 /// session back in step with the document.
 pub(crate) fn document_step(app: &mut App, command: Command, effects: &mut Vec<Effect>) {
-    let before = pages::snapshot(&app.document);
+    let before = pages::snapshot(app);
     gesture::apply_step(app, command);
     drop_dangling(app, effects);
-    pages::reconcile(&before, &app.document, effects);
+    pages::reconcile(&before, app, effects);
 }
 
 /// Runs an undo or a redo, unless a drag is in flight, puts back the
@@ -341,7 +343,7 @@ fn step_history(
     if app.session.gesture.is_some() {
         return;
     }
-    let before = pages::snapshot(&app.document);
+    let before = pages::snapshot(app);
     let notes_before = edit::note::held(app);
     match step(app) {
         Ok(Some(selection)) => app.session.selection = selection,
@@ -350,11 +352,11 @@ fn step_history(
     }
     edit::note::write_stepped(app, &notes_before, effects);
     drop_dangling(app, effects);
-    pages::reconcile(&before, &app.document, effects);
+    pages::reconcile(&before, app, effects);
 }
 
 pub(crate) fn open_document(app: &mut App, document: Document, effects: &mut Vec<Effect>) {
-    let before = pages::snapshot(&app.document);
+    let before = pages::snapshot(app);
     app.session.gesture = None;
     app.session.entered_group = None;
     edit::discard(app, effects);
@@ -363,7 +365,7 @@ pub(crate) fn open_document(app: &mut App, document: Document, effects: &mut Vec
     edit::fit_all(app);
     app.history.clear();
     drop_dangling(app, effects);
-    pages::reconcile(&before, &app.document, effects);
+    pages::reconcile(&before, app, effects);
     images::reopen(app, effects);
     notes::reopen(app, effects);
 }

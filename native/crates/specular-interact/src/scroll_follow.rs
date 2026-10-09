@@ -252,20 +252,17 @@ pub fn out_of_page(app: &App, page: Rect, shown: Rect) -> bool {
 }
 
 /// `entity` as it is seen: shifted by its page's scroll and its element's
-/// travel, and clipped to the page while it is. A Document shown alone is
-/// seen as its reading column. `None` when it has left the
+/// travel, and clipped to the page while it is. An item that fills its tab
+/// is seen as the tab lays it out. `None` when it has left the
 /// page and the fade around it altogether, or an item view leaves it out,
 /// which hides it and takes it out of hit-testing.
 pub fn seen<'a>(app: &App, entity: &'a Entity) -> Option<Seen<'a>> {
     if showing::hides(app, entity) {
         return None;
     }
-    if let Some(rect) = showing::presented_rect(app, entity) {
+    if let Some(presented) = showing::presented(app, entity) {
         return Some(Seen {
-            entity: Cow::Owned(Entity {
-                rect,
-                ..entity.clone()
-            }),
+            entity: Cow::Owned(presented),
             clip: None,
         });
     }

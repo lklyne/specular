@@ -95,14 +95,16 @@ fn an_item_view_shows_one_item_fitted_and_hides_the_rest_from_presses() {
     assert_eq!(app.app().showing(), Showing::Item("p2".into()));
     assert_eq!(tabs(&app)[3], "view.item.p2 example.com *");
     assert_eq!(app.selected_ids(), ["p2"]);
-    // 844 tall into what the chrome leaves, less 64 above and below, and
-    // centred there. The page keeps its stored size.
+    // The page fills what the chrome leaves, corner to corner at 100%. Its
+    // stored size is kept.
     let camera = app.session().camera;
-    let room = VIEWPORT.y - CHROME_HEIGHT - 2.0 * 64.0;
-    assert!((camera.zoom - room / 844.0).abs() < 1e-6);
-    let centre = camera.world_to_screen(Vec2::new(1395.0, 522.0));
+    assert!((camera.zoom - 1.0).abs() < 1e-6);
+    let corner = camera.world_to_screen(Vec2::new(1200.0, 100.0));
+    assert!(
+        corner.abs_diff_eq(Vec2::new(0.0, CHROME_HEIGHT), 1e-2),
+        "{corner}"
+    );
     let middle = Vec2::new(VIEWPORT.x / 2.0, f32::midpoint(VIEWPORT.y, CHROME_HEIGHT));
-    assert!(centre.abs_diff_eq(middle, 1e-2), "{centre}");
     assert_eq!(app.rect("p2"), Rect::new(1200.0, 100.0, 390.0, 844.0));
 
     // p1 now lies under this point and takes no press; p2 does.
@@ -115,10 +117,6 @@ fn an_item_view_shows_one_item_fitted_and_hides_the_rest_from_presses() {
     // Nothing that is hidden can be selected, so nothing hidden is deleted.
     app.chord(CMD, Key::Char('a'));
     assert_eq!(app.selected_ids(), ["p2"]);
-
-    // A small page is not magnified.
-    app.click_control("view.item.p1");
-    assert!((app.session().camera.zoom - 1.0).abs() < 1e-6);
 
     app.click_control("view.canvas");
     assert_eq!(app.app().showing(), Showing::Canvas);
