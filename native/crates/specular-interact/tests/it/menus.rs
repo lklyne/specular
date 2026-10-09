@@ -155,16 +155,12 @@ fn an_entered_page_keeps_the_canvas_items_for_itself() {
     app.double_click((200.0, 150.0));
     let menus = menus(app.app());
     // Keys go to the page, so the shell must let these chords through.
-    for label in [
-        "Cut",
-        "Copy",
-        "Paste",
-        "Delete",
-        "Select all",
-        "Shape",
-        "Zoom in",
-    ] {
+    for label in ["Duplicate", "Delete", "Shape", "Zoom in"] {
         assert!(!item(&menus, label).enabled, "{label}");
+    }
+    // The Edit menu's own commands are the page's there.
+    for label in ["Undo", "Cut", "Copy", "Paste", "Select all"] {
+        assert!(item(&menus, label).enabled, "{label}");
     }
     // Bound everywhere, as in Electron.
     assert!(item(&menus, "Zoom to fit").enabled);

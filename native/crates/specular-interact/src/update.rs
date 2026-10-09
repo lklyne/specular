@@ -171,6 +171,7 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
                 set_tool_default(app, patch, effects);
             }
         }
+        Action::PageEdit(edit) => crate::page_input::edit(app, edit, effects),
         // While text is edited, undo and redo are the editor's own.
         Action::Undo | Action::Redo if app.session.editing.is_some() => {
             if app.session.gesture.is_none() {

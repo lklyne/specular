@@ -4,116 +4,22 @@
 //! A key that matches a binding runs its action and goes no further. Any
 //! other key goes to the entered page, if there is one. Escape is bound
 //! everywhere, so it always cancels and is never forwarded.
+//!
+//! An entered page has every key but the ones [`kept_from_page`] lists, as
+//! a browser's content has every key its chrome does not keep.
 
-use specular_core::PointerEventKind;
+use specular_core::{PageEdit, PointerEventKind};
 use specular_doc::{BrushType, ShapeKind};
 
 use crate::update::run_action;
 use crate::{
-    Action, App, Effect, Focus, Format, Key, KeyInput, PointerInput, SidebarAction, Tool,
+    Action, App, Chord, Effect, Focus, Format, Key, KeyInput, PointerInput, SidebarAction, Tool,
     ToolDefaultPatch, edit, gesture, grid, page_input, page_state,
 };
 
 /// How far an arrow key moves the selection, in canvas units. Shift moves it
 /// a grid step instead.
 const NUDGE_STEP: f64 = 5.0;
-
-/// A key with the modifiers that must be held, and no others.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Chord {
-    /// The physical key.
-    pub key: Key,
-    /// Command or Control.
-    pub cmd: bool,
-    /// Shift.
-    pub shift: bool,
-    /// Option.
-    pub alt: bool,
-}
-
-impl Chord {
-    /// The chord as macOS writes it: `⇧⌘Z`.
-    pub fn text(self) -> String {
-        let mut text = String::new();
-        for (held, sign) in [(self.alt, '⌥'), (self.shift, '⇧'), (self.cmd, '⌘')] {
-            if held {
-                text.push(sign);
-            }
-        }
-        match self.key {
-            Key::Char(character) => text.extend(character.to_uppercase()),
-            Key::Escape => text.push('⎋'),
-            Key::Enter => text.push('↩'),
-            Key::Tab => text.push('⇥'),
-            Key::Backspace => text.push('⌫'),
-            Key::Delete => text.push('⌦'),
-            Key::Space => text.push_str("Space"),
-            Key::ArrowLeft => text.push('←'),
-            Key::ArrowRight => text.push('→'),
-            Key::ArrowUp => text.push('↑'),
-            Key::ArrowDown => text.push('↓'),
-            Key::Home => text.push('↖'),
-            Key::End => text.push('↘'),
-            Key::PageUp => text.push('⇞'),
-            Key::PageDown => text.push('⇟'),
-            Key::Other => {}
-        }
-        text
-    }
-
-    /// `key` with no modifiers.
-    pub const fn key(key: Key) -> Self {
-        Self {
-            key,
-            cmd: false,
-            shift: false,
-            alt: false,
-        }
-    }
-
-    /// The letter, digit or punctuation key `character` with no modifiers.
-    pub const fn char(character: char) -> Self {
-        Self::key(Key::Char(character))
-    }
-
-    /// The same key with Command or Control held as well.
-    #[must_use]
-    pub const fn cmd(self) -> Self {
-        Self { cmd: true, ..self }
-    }
-
-    /// The same key with Shift held as well.
-    #[must_use]
-    pub const fn shift(self) -> Self {
-        Self {
-            shift: true,
-            ..self
-        }
-    }
-
-    /// The same key with Option held as well.
-    #[must_use]
-    pub const fn alt(self) -> Self {
-        Self { alt: true, ..self }
-    }
-
-    /// The chord `input` is, whether it is a press or a release.
-    ///
-    /// Escape is Escape whatever is held with it, so it cancels a drag that
-    /// has Shift or Option down.
-    pub fn of(input: &KeyInput) -> Self {
-        if input.key == Key::Escape {
-            return Self::key(Key::Escape);
-        }
-        let modifiers = input.modifiers;
-        Self {
-            key: input.key,
-            cmd: modifiers.meta || modifiers.control,
-            shift: modifiers.shift,
-            alt: modifiers.alt,
-        }
-    }
-}
 
 /// Where a binding fires.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -422,6 +328,93 @@ pub const BINDINGS: &[Binding] = &[
     ),
     once(Chord::key(Key::Escape), Context::Always, Action::Cancel),
 ];
+
+/// What the window does itself, outside `update`: the keys of the app,
+/// File and Window menus.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ShellCommand {
+    /// Quits.
+    Quit,
+    /// Closes the window.
+    CloseWindow,
+    /// Opens another space.
+    OpenSpace,
+    /// Opens a canvas file.
+    OpenCanvas,
+    /// Writes every canvas now.
+    Save,
+    /// Opens the settings.
+    Settings,
+    /// Hides the app.
+    Hide,
+    /// Hides every other app.
+    HideOthers,
+    /// Minimizes the window.
+    Minimize,
+}
+
+/// The window's own keys. They fire wherever the keys are, an entered page
+/// and a text field included, so none may be a chord of [`BINDINGS`].
+pub const SHELL_KEYS: &[(Chord, ShellCommand)] = &[
+    (Chord::char('q').cmd(), ShellCommand::Quit),
+    (Chord::char('w').cmd(), ShellCommand::CloseWindow),
+    (Chord::char('o').cmd().shift(), ShellCommand::OpenSpace),
+    (Chord::char('o').cmd(), ShellCommand::OpenCanvas),
+    (Chord::char('s').cmd(), ShellCommand::Save),
+    (Chord::char(',').cmd(), ShellCommand::Settings),
+    (Chord::char('h').cmd(), ShellCommand::Hide),
+    (Chord::char('h').cmd().alt(), ShellCommand::HideOthers),
+    (Chord::char('m').cmd(), ShellCommand::Minimize),
+];
+
+/// Every chord the app keeps for itself while a page is entered, as a
+/// browser's chrome keeps a few from its content. Any other key is the
+/// page's.
+pub fn kept_from_page() -> impl Iterator<Item = Chord> {
+    let bound = BINDINGS
+        .iter()
+        .filter(|binding| {
+            matches!(
+                binding.context,
+                Context::Always | Context::EnteredPage | Context::PageTarget
+            )
+        })
+        .map(|binding| binding.chord);
+    bound.chain(SHELL_KEYS.iter().map(|&(chord, _)| chord))
+}
+
+/// The Edit menu command `action` is inside a page, if it is one.
+pub const fn page_edit(action: &Action) -> Option<PageEdit> {
+    match action {
+        Action::Undo => Some(PageEdit::Undo),
+        Action::Redo => Some(PageEdit::Redo),
+        Action::Cut => Some(PageEdit::Cut),
+        Action::Copy => Some(PageEdit::Copy),
+        Action::Paste => Some(PageEdit::Paste),
+        Action::SelectAll => Some(PageEdit::SelectAll),
+        _ => None,
+    }
+}
+
+/// A browser's Edit menu has one item the canvas has no meaning for.
+const PASTE_AND_MATCH_STYLE: Chord = Chord::char('v').cmd().shift().alt();
+
+/// The Edit menu command a press of `input` is the key equivalent of inside
+/// a page: the key of that item's row in [`BINDINGS`], with Command and not
+/// Control.
+pub fn page_edit_for(input: &KeyInput) -> Option<PageEdit> {
+    if !input.modifiers.meta || input.modifiers.control {
+        return None;
+    }
+    let chord = Chord::of(input);
+    if chord == PASTE_AND_MATCH_STYLE {
+        return Some(PageEdit::PasteAndMatchStyle);
+    }
+    BINDINGS
+        .iter()
+        .filter(|binding| binding.chord == chord)
+        .find_map(|binding| page_edit(&binding.action))
+}
 
 /// The binding `input`'s key and modifiers fire in `app` as it is now.
 pub fn binding_for(app: &App, input: &KeyInput) -> Option<&'static Binding> {

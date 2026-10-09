@@ -112,6 +112,7 @@ pub(crate) fn key_input(event: &KeyEvent, modifiers: Modifiers) -> KeyInput {
             modifiers,
             windows_key_code: 0,
             native_key_code: 0,
+            commands: Vec::new(),
         },
     }
 }

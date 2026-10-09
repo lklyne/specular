@@ -8,6 +8,10 @@
 //!
 //! The monitor only reads. Who gets a key is still GPUI's dispatch: a Kit
 //! text field, a key binding, the input method, or the canvas slot.
+//!
+//! While a page has the keys, the note of a key-down also holds the editing
+//! commands `AppKit` binds the key to, so the page is sent the key as a
+//! browser sends it.
 
 use std::cell::RefCell;
 use std::ptr::NonNull;
@@ -16,9 +20,10 @@ use block2::RcBlock;
 use objc2::runtime::AnyObject;
 use objc2::{class, msg_send};
 use specular_core::Modifiers;
-use specular_interact::KeyInput;
+use specular_interact::{Focus, KeyInput};
 
 use crate::native::{Id, string_of};
+use crate::{canvas, key_bindings};
 
 /// `NSEventTypeKeyDown`, `KeyUp` and `FlagsChanged`.
 const KEY_DOWN: usize = 10;
@@ -57,6 +62,9 @@ pub(crate) struct RawKey {
     pub(crate) flags: usize,
     /// `NSEvent.characters`. Empty for a modifier change.
     pub(crate) characters: String,
+    /// The editing commands the key is bound to, for a key-down while a
+    /// page has the keys.
+    pub(crate) commands: Vec<String>,
 }
 
 thread_local! {
@@ -92,12 +100,24 @@ fn read(event: Id) -> Option<RawKey> {
         // raises for any other, which the branch above keeps out.
         string_of(unsafe { msg_send![event, characters] })
     };
+    let to_page = matches!(kind, RawKind::Down { .. }) && page_has_keys();
     Some(RawKey {
         kind,
         code,
         flags,
         characters,
+        commands: if to_page {
+            key_bindings::commands(event)
+        } else {
+            Vec::new()
+        },
     })
+}
+
+/// Whether an entered page is where the app sends keys now.
+fn page_has_keys() -> bool {
+    canvas::with(|canvas| matches!(canvas.runtime.app().session().focus, Focus::Page(_)))
+        .unwrap_or(false)
 }
 
 /// Installs the monitor. It lives as long as the process.
@@ -153,13 +173,16 @@ pub(crate) fn key_input(raw: &RawKey) -> KeyInput {
             false,
         ),
     };
-    specular_interact::mac_key_input(
-        raw.code,
-        pressed,
-        repeat,
-        &raw.characters,
-        modifiers(raw.flags),
-    )
+    KeyInput {
+        commands: raw.commands.clone(),
+        ..specular_interact::mac_key_input(
+            raw.code,
+            pressed,
+            repeat,
+            &raw.characters,
+            modifiers(raw.flags),
+        )
+    }
 }
 
 #[cfg(test)]
@@ -172,6 +195,7 @@ mod tests {
             code,
             flags,
             characters: characters.to_owned(),
+            commands: Vec::new(),
         }
     }
 
@@ -182,6 +206,7 @@ mod tests {
             code: 56,
             flags,
             characters: String::new(),
+            commands: Vec::new(),
         };
         assert!(key_input(&flags(SHIFT)).pressed);
         assert!(!key_input(&flags(0)).pressed);

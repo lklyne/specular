@@ -32,6 +32,7 @@ mod bindings;
 mod camera;
 mod caps;
 mod chat;
+mod chord;
 mod clipboard;
 mod clone;
 mod comment;
@@ -106,13 +107,17 @@ pub use api::{ApiCall, ApiOutcome, ApiRun};
 pub use app::{App, Focus, Selection, Session};
 pub use arrange::{ArrangeMode, arrange_command, place_command};
 pub use asset::AssetBytes;
-pub use bindings::{BINDINGS, Binding, Chord, Context, binding_for};
+pub use bindings::{
+    BINDINGS, Binding, Context, SHELL_KEYS, ShellCommand, binding_for, kept_from_page, page_edit,
+    page_edit_for,
+};
 pub use caps::{AspectMode, aspect_mode, has_anchors, min_size};
 pub use chat::{
     AutoChip, Bubble, CHAT_MAX_WIDTH, CHAT_MIN_WIDTH, CHAT_WIDTH, ChatAction, ChatModel, ChatView,
     Composer, DraftChip, DraftKind, ImageUpload, OpenComments, PillChip, PillKind, QueuedChip,
     RunBar, ThreadRow, Transcript, chat,
 };
+pub use chord::Chord;
 pub use clipboard::{ClipboardContent, ClipboardImage, Paste};
 pub use comment::{
     CommentDrag, CommentMark, FOCUS_RING_OUTSET, FOCUS_RING_STROKE, MarkShape, PILL_DIGIT_WIDTH,

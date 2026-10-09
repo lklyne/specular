@@ -22,12 +22,15 @@ use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use cef::rc::Rc as _;
 use cef::{
-    Browser, BrowserHost, DevToolsMessageObserver, ImplBrowserHost, ImplDevToolsMessageObserver,
-    Registration, WrapDevToolsMessageObserver, wrap_dev_tools_message_observer,
+    Browser, BrowserHost, DevToolsMessageObserver, ImplBrowser, ImplBrowserHost,
+    ImplDevToolsMessageObserver, Registration, WrapDevToolsMessageObserver,
+    wrap_dev_tools_message_observer,
 };
-use specular_core::{DevtoolsSink, PageEvent};
+use specular_core::{DevtoolsSink, KeyEventKind, PageEvent};
 
 use crate::devtools_route::{Route, route};
+use crate::host_call::send_key;
+use crate::key_message::PlainKey;
 use crate::page::PageContext;
 use crate::{attach_query, dom_query, inspect_query, sync_query};
 
@@ -52,6 +55,9 @@ pub(crate) enum Asked {
     Captured(u64),
     /// Where the page's tracked elements have moved to.
     Places,
+    /// A key-down sent with its editing commands. If the page refuses the
+    /// message, the key goes the plain way, so it is never lost.
+    Key(PlainKey),
     /// Something done to the page, whose answer says nothing.
     Done,
 }
@@ -133,7 +139,7 @@ wrap_dev_tools_message_observer! {
 
         fn on_dev_tools_method_result(
             &self,
-            _browser: Option<&mut Browser>,
+            browser: Option<&mut Browser>,
             message_id: c_int,
             success: c_int,
             result: Option<&[u8]>,
@@ -141,6 +147,14 @@ wrap_dev_tools_message_observer! {
             let Some(asked) = self.pending.take(message_id) else {
                 return;
             };
+            if let Asked::Key(key) = asked {
+                let host = browser.and_then(|browser| browser.host());
+                if let Some(host) = host.filter(|_| success == 0) {
+                    tracing::warn!(page = %self.ctx.id, "a key with editing commands was refused");
+                    send_key(&host, KeyEventKind::RawDown, &key);
+                }
+                return;
+            }
             // A failed method still answers: no element, nothing grabbed.
             let result = result.filter(|_| success != 0).unwrap_or_default();
             let page = self.ctx.id;
@@ -197,7 +211,7 @@ wrap_dev_tools_message_observer! {
                     }
                     PageEvent::ElementPlaces { page, places }
                 }
-                Asked::Done => return,
+                Asked::Key(_) | Asked::Done => return,
                 Asked::Target => {
                     let Some(id) = dom_query::parse_target_id(result) else {
                         tracing::warn!(%page, "page did not name its devtools target");

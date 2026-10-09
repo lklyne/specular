@@ -1083,3 +1083,15 @@ Nothing was retired. Cleanup rows 1 and 2 in the plan say what now stands betwee
 - The tables are the subagents' word. About 45 rows across all twelve slices were replayed here from the recorded file, line and text, and all matched. Two slices were sent back for a half of a test name they had called out of scope. The agents shared one scratch folder and overwrote each other's helper scripts twice, so one slice briefly mutated another's worktree; every commit was read for hunks outside a test module before it was picked.
 - Rebase: test-module conflicts with THEMES and IMAGES in `images/mod.rs`, `icons/markup.rs` and `palette.rs`, both sides kept. Three snapshots the pass added were retaken on the themed toolbar, and the scrolled-out test scrolls past ANCHORING's fade.
 - Gate on the rebased branch: fmt, clippy for the workspace, `cargo test --workspace` (1,403 pass, 0 fail). Not run: clippy with `specular-app/cef`, `fixtures/scenarios/run.sh`, and `specular-shell` and `specular-testkit` were not mutation-checked.
+
+### PAGE-KEYS: browser parity for the keyboard in an entered page (2026-10-09)
+
+- Cause: a page got the bare key through `SendKeyEvent`, which has no place for editing commands. On macOS those come from AppKit's key bindings and the Edit menu, so Cmd+Z, Cmd+A, Cmd+Left, Opt+Backspace and the Ctrl bindings did nothing.
+- The shell's key monitor asks `NSKeyBindingManager` (`specular-shell/src/key_bindings.rs`) for the commands of each key-down while a page has the keys. The class is not in AppKit's headers; it is looked up by name and a system without it leaves pages as they were, with a warning.
+- `forward_key` puts those commands, or the Edit menu command the chord is the key of, on the raw key-down (`KeyEvent::editing`). The CEF source sends such a key as `Input.dispatchKeyEvent` with `commands`, and the plain way if the page refuses the message. Every other key still goes through `SendKeyEvent`.
+- The chords kept from a page are `kept_from_page()` in `bindings.rs`: the rows of `BINDINGS` that hold in a page, and `SHELL_KEYS`, which the shell now binds its own keys from.
+- The Edit menu's items are `Action::PageEdit` while a page is entered, always enabled, and run `CefFrame::Undo` and its like. `Action::Undo` is still the canvas's, so an agent's undo is not sent to a page.
+- Decision: `Action::PageEdit` in the menu model, not a redirect of `Action::Undo` inside `update`, because the API and the tests mean the canvas by it.
+- Gate: fmt, clippy for the workspace and for `specular-app` and `specular-shell` with `--features cef`, `cargo test --workspace` (1,425).
+- Needs a human at a Mac: none of it has been seen in a real page. The user asked for no scripted run and tests by hand.
+

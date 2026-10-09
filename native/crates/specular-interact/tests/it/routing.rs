@@ -2,11 +2,11 @@
 
 use glam::Vec2;
 use specular_core::{
-    CssSize, ImeEvent, InputEvent, KeyEventKind, Modifiers, PixelRect, PointerButton, PointerEvent,
-    PointerEventKind, WheelEvent,
+    CssSize, ImeEvent, InputEvent, KeyEventKind, Modifiers, PageEdit, PixelRect, PointerButton,
+    PointerEvent, PointerEventKind, WheelEvent,
 };
 use specular_doc::{EntityId, Rect};
-use specular_interact::{Effect, Event, Focus, Key, PageNotice, Tool};
+use specular_interact::{Action, Chord, Effect, Event, Focus, Key, MenuEntry, PageNotice, Tool};
 use specular_testkit::{CMD, TestApp, document, page, pages};
 
 fn id(id: &str) -> EntityId {
@@ -349,4 +349,53 @@ fn a_composition_in_a_page_that_is_not_entered_leaves_the_candidate_window_alone
         notice: PageNotice::ImeCompositionBounds(Some(PixelRect::new(20, 40, 60, 16))),
     });
     assert_eq!(app.take_effects(), Vec::new());
+}
+
+#[test]
+fn the_edit_menu_acts_on_the_entered_page_and_leaves_the_canvas_history_alone() {
+    let edit_menu = |app: &TestApp| {
+        let menus = specular_interact::menus(app.app());
+        let edit = menus.into_iter().find(|menu| menu.title == "Edit");
+        let entries = edit.map(|menu| menu.entries).unwrap_or_default();
+        (entries.into_iter())
+            .filter_map(|entry| match entry {
+                MenuEntry::Item(item) => Some(item),
+                MenuEntry::Separator => None,
+            })
+            .collect::<Vec<_>>()
+    };
+    let mut app = TestApp::with_pages(2);
+    // Something for the canvas's own undo to take back.
+    app.drag((200.0, 110.0), (240.0, 110.0));
+    let moved = app.rect("p1");
+    assert!(
+        edit_menu(&app)
+            .iter()
+            .any(|item| item.action == Action::Undo)
+    );
+
+    app.click((240.0, 200.0))
+        .click((240.0, 200.0))
+        .take_effects();
+    assert_eq!(app.session().focus, Focus::Page(id("p1")));
+    let rows = [
+        ("Undo", PageEdit::Undo, "⌘Z"),
+        ("Redo", PageEdit::Redo, "⇧⌘Z"),
+        ("Cut", PageEdit::Cut, "⌘X"),
+        ("Copy", PageEdit::Copy, "⌘C"),
+        ("Paste", PageEdit::Paste, "⌘V"),
+        ("Select all", PageEdit::SelectAll, "⌘A"),
+    ];
+    for (label, edit, keys) in rows {
+        let items = edit_menu(&app);
+        let item = (items.iter().find(|item| item.label == label)).expect(label);
+        assert!(item.enabled, "{label}");
+        assert_eq!(item.chord.map(Chord::text).as_deref(), Some(keys));
+        app.act(item.action.clone());
+        assert_eq!(
+            forwarded(&app.take_effects()),
+            [("p1", &InputEvent::Edit(edit))]
+        );
+    }
+    assert_eq!(app.rect("p1"), moved);
 }

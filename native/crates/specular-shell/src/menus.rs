@@ -3,7 +3,8 @@
 //! Canvas, Edit, Arrange, Comment, Page, Tools and View are built from
 //! `specular_interact::menus`, so an item's shortcut is its row of the
 //! binding table and nothing else names a key. The app menu, File and
-//! Window are the shell's own.
+//! Window are the shell's own, and their keys are that table's
+//! `SHELL_KEYS`.
 //!
 //! A model item's key is bound under a context no element has. macOS shows
 //! it beside the item, and GPUI's keymap never fires it: over the canvas a
@@ -22,7 +23,7 @@ use std::collections::HashSet;
 use gpui_kit::{
     Action, App, Global, KeyBinding, Menu, MenuItem, PathPromptOptions, SystemMenuType, actions,
 };
-use specular_interact::{CanvasAction, Chord, Event, Key, MenuEntry};
+use specular_interact::{CanvasAction, Chord, Event, Key, MenuEntry, SHELL_KEYS, ShellCommand};
 
 use crate::canvas;
 use crate::shell;
@@ -273,19 +274,26 @@ fn choose_canvas(cx: &mut App) {
 /// Binds the shell's own keys and installs every action's handler.
 pub(crate) fn install(cx: &mut App) {
     cx.set_global(Shown::default());
-    cx.bind_keys([
-        KeyBinding::new("cmd-q", Quit, None),
-        KeyBinding::new("cmd-w", CloseWindow, None),
-        KeyBinding::new("cmd-shift-o", OpenSpace, None),
-        KeyBinding::new("cmd-o", OpenCanvas, None),
-        KeyBinding::new("cmd-s", Save, None),
-        KeyBinding::new("cmd-,", Preferences, None),
-        KeyBinding::new("cmd-h", Hide, None),
-        KeyBinding::new("alt-cmd-h", HideOthers, None),
-        KeyBinding::new("cmd-m", Minimize, None),
+    let shell_keys = SHELL_KEYS.iter().filter_map(|&(chord, command)| {
+        let keys = keystroke(chord)?;
+        Some(match command {
+            ShellCommand::Quit => KeyBinding::new(&keys, Quit, None),
+            ShellCommand::CloseWindow => KeyBinding::new(&keys, CloseWindow, None),
+            ShellCommand::OpenSpace => KeyBinding::new(&keys, OpenSpace, None),
+            ShellCommand::OpenCanvas => KeyBinding::new(&keys, OpenCanvas, None),
+            ShellCommand::Save => KeyBinding::new(&keys, Save, None),
+            ShellCommand::Settings => KeyBinding::new(&keys, Preferences, None),
+            ShellCommand::Hide => KeyBinding::new(&keys, Hide, None),
+            ShellCommand::HideOthers => KeyBinding::new(&keys, HideOthers, None),
+            ShellCommand::Minimize => KeyBinding::new(&keys, Minimize, None),
+        })
+    });
+    cx.bind_keys(shell_keys.chain([
+        // Not kept from a page: the Kit's root would move the focus on Tab,
+        // and over the canvas Tab is a key like any other.
         KeyBinding::new("tab", CanvasKey, Some("Canvas")),
         KeyBinding::new("shift-tab", CanvasKey, Some("Canvas")),
-    ]);
+    ]));
     cx.on_action(|command: &MenuCommand, cx| {
         let Some(action) = chosen(command) else {
             return;

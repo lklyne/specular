@@ -23,6 +23,15 @@ macro_rules! physical_keys {
         /// Every key with its macOS and Windows codes.
         const KEYS: &[(PhysicalKey, u16, i32)] =
             &[$((PhysicalKey::$name, $mac, $windows),)*];
+
+        impl PhysicalKey {
+            /// The variant's own name.
+            const fn name(self) -> &'static str {
+                match self {
+                    $(Self::$name => stringify!($name),)*
+                }
+            }
+        }
     };
 }
 
@@ -173,6 +182,41 @@ impl PhysicalKey {
             .map_or(0, |&(_, mac, _)| mac)
     }
 
+    /// DOM `KeyboardEvent.code`.
+    pub const fn dom_code(self) -> &'static str {
+        match self {
+            Self::SuperLeft => "MetaLeft",
+            Self::SuperRight => "MetaRight",
+            other => other.name(),
+        }
+    }
+
+    /// DOM `KeyboardEvent.key` for a press that carried `character`: the
+    /// key's name for one that types nothing, and otherwise what it typed,
+    /// or its US-layout character when a held modifier left it with none
+    /// that prints (Control+A carries U+0001).
+    pub fn dom_key(self, character: Option<char>) -> String {
+        let named = match self {
+            Self::NumpadEnter => "Enter",
+            Self::ShiftLeft | Self::ShiftRight => "Shift",
+            Self::ControlLeft | Self::ControlRight => "Control",
+            Self::AltLeft | Self::AltRight => "Alt",
+            Self::SuperLeft | Self::SuperRight => "Meta",
+            Self::Space => " ",
+            Self::CapsLock => self.name(),
+            other if other.function_character().is_some() => other.name(),
+            _ => "",
+        };
+        if !named.is_empty() {
+            return named.to_owned();
+        }
+        let prints = |c: &char| !c.is_control() && !('\u{f700}'..='\u{f8ff}').contains(c);
+        (character.filter(prints))
+            .or_else(|| self.us_character())
+            .map(String::from)
+            .unwrap_or_default()
+    }
+
     /// Whether this is a modifier key, whose press and release are a change
     /// of modifiers and carry no character.
     fn is_modifier(self) -> bool {
@@ -311,5 +355,6 @@ pub fn mac_key_input(
         modifiers,
         windows_key_code: physical.map_or(0, PhysicalKey::windows_key_code),
         native_key_code: i32::from(key_code),
+        commands: Vec::new(),
     }
 }

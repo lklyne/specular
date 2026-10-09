@@ -36,8 +36,8 @@ pub use frame::{
 };
 pub use geometry::{CssRect, CssSize, PixelRect, PixelSize, Point, Rect, Size};
 pub use input::{
-    ImeEvent, InputEvent, KeyEvent, KeyEventKind, Modifiers, PointerButton, PointerEvent,
-    PointerEventKind, WheelEvent,
+    EditingKey, ImeEvent, InputEvent, KeyEvent, KeyEventKind, Modifiers, PageEdit, PointerButton,
+    PointerEvent, PointerEventKind, WheelEvent,
 };
 pub use locator::{
     LOCATOR_CONFIDENCE_FLOOR, LOCATOR_RUNNER_UP_MARGIN, LocatorBundle, LocatorCandidate,

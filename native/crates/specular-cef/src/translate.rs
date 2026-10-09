@@ -7,9 +7,11 @@
 
 use glam::Vec2;
 use specular_core::{
-    ImeEvent, InputEvent, KeyEvent, KeyEventKind, Modifiers, PointerButton, PointerEvent,
-    PointerEventKind, WheelEvent,
+    EditingKey, ImeEvent, InputEvent, KeyEvent, KeyEventKind, Modifiers, PageEdit, PointerButton,
+    PointerEvent, PointerEventKind, WheelEvent,
 };
+
+use crate::key_message::PlainKey;
 
 /// CEF `cef_event_flags_t` bits (`include/internal/cef_types.h`).
 pub mod flags {
@@ -117,6 +119,18 @@ pub enum HostCall<'a> {
         /// `character` and `unmodified_character` (one UTF-16 unit).
         character: u16,
     },
+    /// `Input.dispatchKeyEvent` over the devtools channel: a raw key-down
+    /// with its editing commands, which `SendKeyEvent` cannot carry. The
+    /// plain call is made instead if the page refuses the message.
+    EditingKey {
+        /// The key as `SendKeyEvent` would take it.
+        key: PlainKey,
+        /// The commands and the key's DOM names.
+        editing: &'a EditingKey,
+    },
+    /// An Edit menu command on the focused frame (`CefFrame::Undo` and its
+    /// like).
+    Edit(PageEdit),
     /// `ImeSetComposition(text, underlines = none, replacement, selection)`.
     ImeSetComposition {
         /// Marked text.
@@ -198,6 +212,7 @@ impl InputTranslator {
             InputEvent::Wheel(wheel) => [self.wheel(wheel), None],
             InputEvent::Key(key) => Self::key(key),
             InputEvent::Ime(ime) => [Some(Self::ime(ime)), None],
+            InputEvent::Edit(edit) => [Some(HostCall::Edit(*edit)), None],
         };
         calls.into_iter().flatten()
     }
@@ -260,7 +275,7 @@ impl InputTranslator {
         })
     }
 
-    fn key(event: &KeyEvent) -> [Option<HostCall<'static>>; 2] {
+    fn key(event: &KeyEvent) -> [Option<HostCall<'_>>; 2] {
         let flags = modifier_flags(event.modifiers);
         let mut units = [0_u16; 2];
         let encoded: &[u16] = match event.character {
@@ -279,6 +294,15 @@ impl InputTranslator {
             native_key_code: event.native_key_code,
             character,
         };
+        if let (KeyEventKind::RawDown, Some(editing)) = (event.kind, &event.editing) {
+            let key = PlainKey {
+                flags,
+                windows_key_code: event.windows_key_code,
+                native_key_code: event.native_key_code,
+                character: first,
+            };
+            return [Some(HostCall::EditingKey { key, editing }), None];
+        }
         match event.kind {
             // A character event is one per UTF-16 unit; Chromium reassembles
             // surrogate pairs, as it does for Windows WM_CHAR pairs.
@@ -341,6 +365,7 @@ mod tests {
             native_key_code: 0,
             character: Some(ch),
             modifiers: Modifiers::default(),
+            editing: None,
         })
     }
 
@@ -467,6 +492,7 @@ mod tests {
             native_key_code: 0x7B,
             character: None,
             modifiers: Modifiers::default(),
+            editing: None,
         });
         assert_eq!(
             calls(&mut translator, &event),

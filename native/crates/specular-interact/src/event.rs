@@ -241,6 +241,12 @@ pub struct KeyInput {
     /// The platform scan code, which Chromium derives DOM `code` from. Only
     /// used when the key goes to a page.
     pub native_key_code: i32,
+    /// The editing commands the platform's key bindings resolve this press
+    /// to, as `AppKit` selector names without the colon (`moveWordLeft`).
+    /// The shell asks only while a page has the keys, so a user's own
+    /// `DefaultKeyBinding.dict` counts. Only used when the key goes to a
+    /// page.
+    pub commands: Vec<String>,
 }
 
 /// The identity of a key for bindings: the physical key, so a binding sits
@@ -395,6 +401,9 @@ pub enum Action {
     Undo,
     /// Redo the latest undone step, of the document or of the edit.
     Redo,
+    /// An Edit menu command done inside the entered page, which is what the
+    /// menu's items are while a page has the keys. Nothing without one.
+    PageEdit(specular_core::PageEdit),
     /// Replace the selection. Ids that name nothing are dropped.
     Select(Vec<ItemId>),
     /// Select `select`, as [`Action::Select`] does, and bring `focus` into

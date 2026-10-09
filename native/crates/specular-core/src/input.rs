@@ -96,7 +96,7 @@ pub enum KeyEventKind {
 }
 
 /// A keyboard event.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct KeyEvent {
     /// Phase.
     pub kind: KeyEventKind,
@@ -109,6 +109,64 @@ pub struct KeyEvent {
     pub character: Option<char>,
     /// Modifier keys.
     pub modifiers: Modifiers,
+    /// The editing commands the press carries, on a key-down that has any.
+    pub editing: Option<EditingKey>,
+}
+
+/// The editing commands of one key press, which a page runs as the key's
+/// default action unless its own handler takes the key.
+///
+/// A text field does not learn "word left" or "select all" from the key. The
+/// platform's key bindings and its Edit menu turn the key into commands, and
+/// a browser sends them along with it. A page fed the bare key has only the
+/// few bindings Chromium keeps on every platform (the plain arrows,
+/// Backspace). The devtools protocol is the one way in that takes commands,
+/// and it wants the key's DOM names as well.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EditingKey {
+    /// The commands, in order: `AppKit` selector names without the colon
+    /// (`moveWordLeft`, `deleteToBeginningOfLine`, `selectAll`).
+    pub commands: Vec<String>,
+    /// DOM `KeyboardEvent.code`, or empty for a key with no name here.
+    pub code: &'static str,
+    /// DOM `KeyboardEvent.key`.
+    pub key: String,
+}
+
+/// An Edit menu command, done to whatever has the focus inside a page.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum PageEdit {
+    /// Undo.
+    Undo,
+    /// Redo.
+    Redo,
+    /// Cut.
+    Cut,
+    /// Copy.
+    Copy,
+    /// Paste.
+    Paste,
+    /// Paste as plain text.
+    PasteAndMatchStyle,
+    /// Select all.
+    SelectAll,
+}
+
+impl PageEdit {
+    /// The command's name among a key's
+    /// [`commands`](KeyEvent::commands): the `AppKit` selector an Edit menu
+    /// sends, without its colon.
+    pub const fn command(self) -> &'static str {
+        match self {
+            Self::Undo => "undo",
+            Self::Redo => "redo",
+            Self::Cut => "cut",
+            Self::Copy => "copy",
+            Self::Paste => "paste",
+            Self::PasteAndMatchStyle => "pasteAndMatchStyle",
+            Self::SelectAll => "selectAll",
+        }
+    }
 }
 
 /// Input-method events (CEF `ImeSetComposition` and friends). Ranges are in
@@ -151,4 +209,6 @@ pub enum InputEvent {
     Key(KeyEvent),
     /// Input method.
     Ime(ImeEvent),
+    /// An Edit menu command chosen with no key: from the menu bar.
+    Edit(PageEdit),
 }

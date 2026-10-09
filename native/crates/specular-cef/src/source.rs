@@ -376,7 +376,7 @@ impl PageSource for CefPageSource {
             .get_mut(&page)
             .ok_or(PageSourceError::UnknownPage(page))?;
         for call in entry.input.translate(event) {
-            dispatch(&entry.host, &call);
+            dispatch(&entry.host, &entry.devtools, &call);
         }
         Ok(())
     }

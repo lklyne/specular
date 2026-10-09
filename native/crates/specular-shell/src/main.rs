@@ -17,6 +17,7 @@ mod canvas;
 #[cfg(target_os = "macos")]
 mod debug_input;
 #[cfg(target_os = "macos")]
+mod key_bindings;
 mod keys;
 #[cfg(target_os = "macos")]
 mod menus;

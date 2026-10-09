@@ -79,16 +79,16 @@ pub fn menus(app: &App) -> Vec<Menu> {
         MenuEntry::Item(item)
     }));
     let edit = vec![
-        item("Undo", Action::Undo),
-        item("Redo", Action::Redo),
+        edit_item(app, "Undo", Action::Undo),
+        edit_item(app, "Redo", Action::Redo),
         MenuEntry::Separator,
-        item("Cut", Action::Cut),
-        item("Copy", Action::Copy),
-        item("Paste", Action::Paste),
+        edit_item(app, "Cut", Action::Cut),
+        edit_item(app, "Copy", Action::Copy),
+        edit_item(app, "Paste", Action::Paste),
         item("Duplicate", Action::Duplicate),
         item("Delete", Action::Delete),
         MenuEntry::Separator,
-        item("Select all", Action::SelectAll),
+        edit_item(app, "Select all", Action::SelectAll),
     ];
     let arrange = vec![
         item("Bring forward", Action::BringForward),
@@ -165,6 +165,22 @@ fn page_entries(app: &App) -> Vec<MenuEntry> {
         page_item(app, "Reload", Action::PageReload),
         page_item(app, "Stop", Action::PageStop),
     ]
+}
+
+/// An Edit menu item that follows the focus: inside an entered page it is
+/// the page's command, under the same key, and always enabled, since only
+/// the page knows whether it has anything to undo or copy.
+fn edit_item(app: &App, label: &'static str, action: Action) -> MenuEntry {
+    let canvas = item(app, label, action);
+    let edit = crate::page_edit(&canvas.action).filter(|_| Context::EnteredPage.holds(app));
+    MenuEntry::Item(match edit {
+        Some(edit) => MenuItem {
+            enabled: true,
+            action: Action::PageEdit(edit),
+            ..canvas
+        },
+        None => canvas,
+    })
 }
 
 pub(crate) fn item(app: &App, label: &'static str, action: Action) -> MenuItem {
@@ -263,6 +279,7 @@ fn has_target(app: &App, action: &Action) -> bool {
         Action::PageBack => page_can(app, |state| state.can_go_back),
         Action::PageForward => page_can(app, |state| state.can_go_forward),
         Action::PageStop => page_can(app, |state| state.loading),
+        Action::PageEdit(_) => Context::EnteredPage.holds(app),
         Action::PageReload | Action::PageNavigate(_) | Action::EditPageUrl => {
             page_state::target(app).is_some()
         }

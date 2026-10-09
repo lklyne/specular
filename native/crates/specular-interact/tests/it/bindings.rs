@@ -3,7 +3,8 @@
 use specular_core::Modifiers;
 use specular_doc::{BrushType, Rect, ShapeKind};
 use specular_interact::{
-    Action, BINDINGS, Context, Effect, Event, Key, KeyInput, Tool, ToolDefaultPatch, ToolDefaults,
+    BINDINGS, Chord, Effect, Event, Key, KeyInput, SHELL_KEYS, Tool, ToolDefaultPatch,
+    ToolDefaults, kept_from_page,
 };
 use specular_testkit::{CMD, CMD_SHIFT, CTRL, SHIFT, TestApp, sticky, text};
 
@@ -25,6 +26,7 @@ fn auto_repeat(app: &mut TestApp, key: Key) {
         modifiers: Modifiers::default(),
         windows_key_code: 0,
         native_key_code: 0,
+        commands: Vec::new(),
     }));
 }
 
@@ -51,32 +53,40 @@ fn no_two_rows_can_fire_for_the_same_key() {
 }
 
 #[test]
-fn only_the_ways_out_and_the_tab_keys_fire_inside_an_entered_page() {
-    let fires = |context| {
-        (BINDINGS.iter())
-            .filter(move |binding| binding.context == context)
-            .map(|binding| &binding.action)
-            .collect::<Vec<_>>()
-    };
-    // Two ways back out to the canvas and a new tab. Every other key is the
-    // page's, but for a browser's own: its history, its address and its tabs.
+fn an_entered_page_has_every_key_but_the_ones_a_browsers_chrome_keeps() {
+    // Zoom to fit and Escape are the ways back out; then a browser's history,
+    // reload, stop, address and tabs; then the window's own. Every other
+    // key is the page's, undo, copy and select all included.
+    let kept: Vec<String> = kept_from_page().map(Chord::text).collect();
     assert_eq!(
-        fires(Context::Always),
-        [&Action::ZoomToFit, &Action::NewPageTab, &Action::Cancel]
-    );
-    assert_eq!(
-        fires(Context::EnteredPage),
+        kept,
         [
-            &Action::PageBack,
-            &Action::PageForward,
-            &Action::ShowNext,
-            &Action::ShowPrevious
+            "⌘1",
+            "⌘[",
+            "⌘]",
+            "⌘R",
+            "⌘.",
+            "⌘L",
+            "⌘T",
+            "⌥⌘→",
+            "⌥⌘←",
+            "⎋",
+            "⌘Q",
+            "⌘W",
+            "⇧⌘O",
+            "⌘O",
+            "⌘S",
+            "⌘,",
+            "⌘H",
+            "⌥⌘H",
+            "⌘M"
         ]
     );
-    assert_eq!(
-        fires(Context::PageTarget),
-        [&Action::PageReload, &Action::PageStop, &Action::EditPageUrl]
-    );
+    // The window's keys fire wherever the keys are, so none is a row's.
+    for (chord, command) in SHELL_KEYS {
+        let taken = BINDINGS.iter().any(|binding| binding.chord == *chord);
+        assert!(!taken, "{command:?} is on a key the table binds");
+    }
 }
 
 #[test]

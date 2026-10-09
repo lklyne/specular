@@ -30,6 +30,7 @@ pub mod cpu_frame;
 pub mod devtools_route;
 pub mod dom_query;
 pub mod inspect_query;
+pub mod key_message;
 pub mod page;
 pub mod pool;
 pub mod sync_query;

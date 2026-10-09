@@ -270,6 +270,7 @@ impl Driver {
                 modifiers,
                 windows_key_code: 0,
                 native_key_code: 0,
+                commands: Vec::new(),
             },
         };
         self.send(Event::Key(input))
