@@ -52,5 +52,17 @@ save 07-first-canvas.canvas
 control view.item.page-desktop
 snapshot 08-page-tab.png
 save 08-page-tab.canvas
+
+# a sticky put on the page in its tab is hooked to it and stays in view,
+# and a press beside the page makes nothing
+control tool.sticky
+click 800 500
+type on the page
+key escape
+control tool.sticky
+click 800 975
+key escape
+snapshot 08-page-tab-sticky.png
+save 08-page-tab-sticky.canvas
 control view.canvas
 snapshot 09-canvas-tab.png

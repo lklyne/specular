@@ -181,7 +181,12 @@ fn shift_drag_moves_the_page_along_one_axis() {
   The tab row's controls are `view.canvas` and `view.item.<entity id>`.
   One shows the canvas and the other a page or Document alone
   (`Action::Show`, ADR 0045); read back with `app().showing()`, and
-  `view_strip(app.app())` is the row's model. See `tests/it/showing.rs`.
+  `view_strip(app.app())` is the row's model. `view.add` (Command+T) makes
+  a page in a free spot and shows its tab with `page.url` being typed in.
+  See `tests/it/showing.rs`, and `tests/it/item_view.rs` for what input
+  does in an item view: the page shown is entered, so send `Key::Escape`
+  before a canvas key or a tool's press, and a Document shown is a reading
+  column that one click edits.
   A text field is clicked like any control and then typed into:
   `enter_in_field("page.url", "example.org")` replaces its text and presses
   Enter, `field_edit()` reads what is typed so far, and Escape puts the
@@ -206,7 +211,8 @@ fn shift_drag_moves_the_page_along_one_axis() {
   click that goes with it. `tests/it/named_controls.rs` holds the two paths
   to the same result.
 - A page is select-first (ADR 0022). `click` selects it, a second `click`
-  or a `double_click` enters it, and only an entered page gets input.
+  or a `double_click` enters it, and only an entered page gets input. In
+  its own tab a page is entered when it is shown, and by any click after.
 - The scene snapshot is `assert_scene_snapshot!(app)`, in
   `specular-scene/tests/view.rs`. It prints one line per display-list item
   in paint order. `TestApp::scene_snapshot()` returns the same text, and

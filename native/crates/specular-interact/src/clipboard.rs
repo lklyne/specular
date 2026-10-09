@@ -200,8 +200,9 @@ pub(crate) fn on_read(app: &mut App, content: ClipboardContent, effects: &mut Ve
                 sticky.text = text;
             }
             // Beside the page shown alone it has to be hooked to be seen.
-            if app.shown_item().is_some() {
-                entity.anchor = anchor::page_anchor_for(&app.document, &Scrolls::of(app), &entity);
+            let scrolls = Scrolls::of(app);
+            if scrolls.alone().is_some() {
+                entity.anchor = anchor::page_anchor_for(&app.document, &scrolls, &entity);
             }
             asset::insert_selected(app, vec![entity], effects);
         }

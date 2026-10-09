@@ -258,7 +258,9 @@ if m in RAN:
         expect(m, SINK, saved(m, f"{undone}.canvas"))
 n = "n-chrome-session"
 if n in RAN:
-    start, duplicated, fresh, back, tabbed = (saved(n, f) for f in ["00-start.canvas", "05-duplicated.canvas", "06-new-canvas.canvas", "07-first-canvas.canvas", "08-page-tab.canvas"])
+    start, duplicated, fresh, back, tabbed, noted = (saved(n, f) for f in ["00-start.canvas", "05-duplicated.canvas", "06-new-canvas.canvas", "07-first-canvas.canvas", "08-page-tab.canvas", "08-page-tab-sticky.canvas"])
+    stuck = [node for node in noted["nodes"] if node.get("text") == "on the page"]
+    hook = lambda node: node.get("pageAnchor") or node.get("specular", {}).get("pageAnchor") or {}
     pages = [node for node in duplicated["nodes"] if node.get("url") == "https://example.org/docs"]
     checks = {
         # The address typed in the popup reached the page.
@@ -271,6 +273,10 @@ if n in RAN:
         "the first canvas is as it was left": back == duplicated,
         # A page's tab is a way of looking: the file keeps the canvas's own camera.
         "a page shown alone from its tab writes nothing": tabbed == back,
+        # In the tab the sticky lands on the page; the press beside the page made nothing.
+        "a sticky placed in a page's tab is hooked to the page": len(stuck) == 1
+        and hook(stuck[0]).get("pageId") == "page-desktop"
+        and len(noted["nodes"]) == len(back["nodes"]) + 1,
     }
     for name, held in checks.items():
         print(f"{'ok  ' if held else 'FAIL'} {n}: {name}")
