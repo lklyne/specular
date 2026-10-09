@@ -19,21 +19,29 @@ Which view is showing is one value in the session, `Showing::Canvas` or `Showing
 
 | Lens | The item's rect | Camera | Seen with the eye open |
 |---|---|---|---|
-| Fill | a presentation rect | fitted to it and held | the item and what is hooked to it |
+| Fill | a presentation rect | fitted to it and held | the item and what follows an element of it |
 | Device | the stored rect | fitted to it and held | everything |
 | Canvas | the stored rect | free, starts fitted, kept by the tab | everything |
 
 With the eye shut every lens shows the item alone: nothing else is drawn or can be hit, not even what is hooked to it.
 
-- This replaces the first rule, "hide all but what is hooked to the item", which now holds only in Fill. There the item is the whole view, so what merely lies near it on the canvas has no place: it would be drawn over a rect it was never placed against. Device and the Canvas lens are for the surroundings.
+**Amended 2026-10-09 (phase 4b).** A page in Fill fills the area under the chrome. Its host's viewport follows the presentation rect. That is the one place this ADR lets the view resize a host, and the bullets below say how.
+
+- This replaces the first rule, "hide all but what is hooked to the item". In Fill the item is the whole view, so what merely lies near it on the canvas has no place: it would be drawn over a rect it was never placed against. Device and the Canvas lens are for the surroundings.
+- In Fill a page is laid out at another width than it is stored at. An item or comment hooked to it by a position or a scroll offset was placed against the stored layout, so it is hidden there whatever the eye says. What follows an element (ADR 0032) is shown: an item whose anchor has an element, a comment on an element, and a region whose binding has one. An item or region still waiting for its page's answer is shown until the answer comes. `gates::follows` and `gates::comment_follows` are the rule.
 - A Document in Fill is a reading column: 720 px wide at 100%, or as wide as the window leaves, and as tall as the fit leaves room for. `showing::presented_rect` is that rect. Its stored rect is not written. In Device it is the card the canvas has, fitted, with its handles.
-- **A page in Fill is not built yet.** It is shown as Device shows it, at its stored size, through one marked fallback in `showing::fill_rect`. Filling the view needs the page host's viewport to follow a presentation rect.
-- No page host changes its viewport and nothing is written to the document. In Fill and Device the camera is derived after every event, so a window resize, the sidebar and a change of the item's size all refit it, and a pan or a zoom does nothing. The fit is capped at 100%.
+- A page in Fill has a presentation rect too: everything `viewport::area` leaves free, in whole pixels, at the stored rect's corner. The camera sits on it corner to corner at 100%, so one CSS pixel is one screen pixel. `showing::fill_rect` decides it.
+- The rect reaches the app through two seams. `App::page_placement` returns it with its viewport, which is what hit-testing, pointer forwarding, `gates::refuses`, the clip in `seen` and comment bounds read. `pages::snapshot` carries the size, so a document step taken in Fill, such as a preset picked in the dock, leaves the host as it is.
+- `update` compares `pages::presentation` from before the event with the one after `showing::settle`, in `pages::follow_presentation`. A lens, a tab, the window, the sidebar and the right panel each come out as one `SetPageViewport`, and leaving Fill sends the stored viewport back. Nothing here coalesces them. A live window drag sends one per event, and CEF's own resize pipeline paces them.
+- A page in Fill is drawn with no device frame. `showing::presented` hands `seen` the page without it. The frame belongs to the stored size.
+- The stored rect and preset are never written by Fill, so there is no undo step and the `.canvas` file is unaffected. The dock shows the stored size and preset, and a preset picked there is stored without leaving Fill.
+- In Device the fit is to the device frame when the page shows one, so a phone's frame clears the chrome.
+- No other page host changes its viewport and nothing is written to the document. In Fill and Device the camera is derived after every event, so a window resize, the sidebar and a change of the item's size all refit it, and a pan or a zoom does nothing. The Device fit is capped at 100%.
 - In the Canvas lens the camera pans and zooms as on the Canvas tab. The tab keeps where it was left and comes back to it from another tab or another canvas.
 - The canvas's own camera is kept beside the view state. It is the camera a save writes in every lens, and the canvas gets it back when the Canvas tab is pressed.
 - Hiding is one predicate, `showing::hides`, read where a page's scroll already hides what has left it: `seen` and `shown_rect` in `scroll_follow.rs`. Drawing, hit-testing, outlines, the marquee, guides and edges all read those. Comments have their own gate, `comment::shown`, which asks `showing::hides_comment`.
 - In Fill and Device a page shown is entered, so the wheel and the keys are its own at once. Escape leaves it, as on the canvas, and any click on its body goes back in. In the Canvas lens it is selected and entered by the canvas's own second click. The Canvas tab leaves it.
-- Nothing is made that the view would hide. With everything seen (Device and the Canvas lens, eye open) anything is made anywhere, by the canvas's rules. In Fill a press with a creation tool does nothing off the page shown, the page and Document tools do nothing, a paste lands on the page shown when all of it can be hooked there, and a file drop does nothing. With the eye shut nothing is made at all.
+- Nothing is made that the view would hide. With everything seen (Device and the Canvas lens, eye open) anything is made anywhere, by the canvas's rules. What is made on a page in Fill is asked about its element by the capture every anchored item already gets, and stays seen if the page names one. In Fill a press with a creation tool does nothing off the page shown, the page and Document tools do nothing, a paste lands on the page shown when all of it can be hooked there, and a file drop does nothing. With the eye shut nothing is made at all.
 - While a page fills the view it is the only page there is to hook to, and what lands on no page is hooked to it. A stroke that runs out of the page, or a sticky dragged past its edge, stays in view.
 - The control is three toggles and the eye at the right end of the tool row, in the toolbar model (`ToolbarModel::view`), named `view.lens.fill`, `view.lens.device`, `view.lens.canvas` and `view.others`. The Canvas tab has no item, so it has no control and the eye does nothing there.
 - A new tab is a page made in a free spot of the canvas and shown. Making the page is the undo step. Undoing it removes the item, so the fallback below puts the canvas back.
@@ -48,13 +56,14 @@ Tabs keep the order they were first listed in, per canvas. The document's only o
 
 Settling and switching:
 
-- `update` calls `showing::settle` once after every event. `run_action` hands `Action::Show`, `ShowNext`, `ShowPrevious`, `NewPageTab`, `SetLens` and `ShowOthers` to `show`, `step`, `new_tab`, `set_lens` and `set_others`.
+- `update` calls `showing::settle` once after every event, and then `pages::follow_presentation`, which reads `presented_rect` through `pages::presentation`. `run_action` hands `Action::Show`, `ShowNext`, `ShowPrevious`, `NewPageTab`, `SetLens` and `ShowOthers` to `show`, `step`, `new_tab`, `set_lens` and `set_others`.
 - `space::ops` calls `leave` on a canvas switch and a space open, and parks `Session::tabs` with the canvas.
 - `reveal::items` and `reveal::comment` call `out_of_reach` and `comment_out_of_reach` to leave an item view.
 
 What is seen, and where:
 
-- `scroll_follow::seen` and `shown_rect` call `hides`. With `placed_rect` they also call `presented_rect`, which is how a Document's column reaches drawing, hit-testing, the outline and its text layout.
+- `scroll_follow::seen` and `shown_rect` call `hides`. With `placed_rect` they also call `presented_rect` (`seen` through `presented`), which is how a Document's column and a page's fill reach drawing, hit-testing, the outline and text layout.
+- `App::page_placement` and `pages::snapshot` call `presented_rect`, which is how a page's fill reaches its host and everything that maps canvas points into the page.
 - `handles::handle_target` calls `presented_rect`, so the column has no resize handles.
 - `comment::shown` calls `hides_comment`.
 
@@ -81,7 +90,7 @@ A new reader outside this list is the drift ADR 0020 describes. Add it here or f
 
 ## Alternatives
 
-**Resize the page to fill the window.** The browser's own behaviour, and the user turned it down. It is what brought per-mode layout and persistence into the Electron app.
+**Resize the page to fill the window by writing its rect.** It is what brought per-mode layout and persistence into the Electron app. Phase 4b gets the browser's behaviour without it. The host is resized, the document is not, and the size comes from one function.
 
 **Filter the document before `view` and hit-testing see it.** One call site instead of two predicates, but every reader of `app.document` outside the scene would need the same filter, and there are dozens.
 
@@ -101,6 +110,9 @@ A new reader outside this list is the drift ADR 0020 describes. Add it here or f
 
 ## Consequences
 
+- A comment on an element is drawn at the box it recorded, carried by the scroll. It does not ask its page again, so after the reflow of Fill it can sit beside its element. A region does follow.
+- An item made on a page in Fill whose page names no element under it is hidden when the answer comes.
+- A screenshot taken through the API while a page fills its tab is drawn from a copy of the app at another viewport, so the page is presented at that size with the pixels of this one.
 - The sidebar still lists every item in an item view. It reads the document, not `seen`.
 - In Device with the eye open the camera is still held, so what is seen is what lies in the margins around the item. The Canvas lens is for looking further.
 - The lens and the eye have no keys yet.
