@@ -4,14 +4,14 @@ use std::collections::HashMap;
 
 use specular_doc::{Annotation, AnnotationId, Entity, EntityId, ItemId, Kind, Page};
 
-use super::labels::{
-    comment_label, dimensions, file_icon, file_label, first_line, host_label, page_icon,
-    shape_label,
-};
 use super::{RowKind, RowTarget, SidebarRow};
 use crate::anchor::matches_page_url;
 use crate::app::page_of;
 use crate::comment::is_open;
+use crate::labels::{
+    comment_label, dimensions, file_icon, file_label, first_line, page_icon, page_label,
+    shape_label,
+};
 use crate::panel::{ControlId, Icon};
 use crate::{Action, App};
 
@@ -196,15 +196,7 @@ impl<'a> Tree<'a> {
     fn label(&self, entity: &Entity) -> String {
         let named = (entity.label.as_deref().map(str::trim)).filter(|label| !label.is_empty());
         match &entity.kind {
-            Kind::Page(page) => {
-                let state = self.app.page_state(&entity.id);
-                let title = state
-                    .map(|state| state.title.trim())
-                    .filter(|title| !title.is_empty());
-                (title.or(named).map(str::to_owned))
-                    .or_else(|| host_label(&page.url))
-                    .unwrap_or_else(|| "Page".to_owned())
-            }
+            Kind::Page(page) => page_label(self.app, entity, page),
             Kind::Text(text) => (named.or_else(|| first_line(&text.text)))
                 .unwrap_or("Text")
                 .to_owned(),

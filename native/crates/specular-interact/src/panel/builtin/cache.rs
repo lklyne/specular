@@ -12,8 +12,8 @@
 //!
 //! 1. Its [`Stamp`] equals the stamp of the app now. The stamp holds
 //!    everything the layout reads that is cheap to compare, by value:
-//!    viewport, the open list and menu, the sidebar's scroll, the
-//!    toolbar, dock and context-menu models (which carry the tool, tool
+//!    viewport, the open list and menu, the sidebar's scroll, the tab
+//!    row, toolbar, dock and context-menu models (which carry the tool, tool
 //!    defaults, selection, page state and editing on-states they were made
 //!    from), the history revision, the active canvas, the selection and the
 //!    sidebar's folds. A change to any of them can never be missed.
@@ -44,7 +44,9 @@ use std::sync::Arc;
 use glam::Vec2;
 use specular_core::PointerEventKind;
 
-use super::super::{ControlId, PopupModel, ToolbarModel, context_menu, dock, toolbar};
+use super::super::{
+    ControlId, PopupModel, ToolbarModel, ViewStrip, context_menu, dock, toolbar, view_strip,
+};
 use super::{ContextMenu, PanelLayout, PanelUi, Pointing};
 use crate::{App, Event, Selection};
 
@@ -55,6 +57,7 @@ struct Stamp {
     open: Option<ControlId>,
     menu: Option<ContextMenu>,
     scroll: f32,
+    strip: ViewStrip,
     toolbar: ToolbarModel,
     dock: Option<PopupModel>,
     menu_model: Option<PopupModel>,
@@ -73,6 +76,7 @@ impl Stamp {
             open: ui.open.clone(),
             menu: ui.menu.clone(),
             scroll: ui.sidebar_scroll,
+            strip: view_strip(app),
             toolbar: toolbar(app),
             dock: dock(app),
             menu_model: (ui.menu.as_ref()).and_then(|open| context_menu(app, &open.target)),
@@ -199,6 +203,7 @@ fn repoint(layout: &mut PanelLayout, ui: &PanelUi) {
     let panels = [
         &mut layout.sidebar,
         &mut layout.sidebar_list,
+        &mut layout.tabs,
         &mut layout.toolbar,
         &mut layout.dock,
         &mut layout.dropdown,

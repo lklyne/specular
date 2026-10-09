@@ -14,7 +14,7 @@ pub(crate) fn read(app: &App, user: &App) -> Result<Step, Response> {
         .document_to_save()
         .to_canvas_value()
         .map_err(|error| Response::error(500, error.to_string()))?;
-    let camera = app.session().camera;
+    let camera = app.canvas_camera();
     let identity = tabs::identity(user);
     if let Some(top) = canvas.as_object_mut() {
         let state = top.entry("appState").or_insert_with(|| json!({}));

@@ -93,6 +93,8 @@ pub(crate) struct Parked {
 pub(crate) struct CanvasView {
     pub(crate) camera: Camera,
     pub(crate) selection: Selection,
+    /// The order the canvas's item tabs keep.
+    pub(crate) shown_order: Vec<specular_doc::EntityId>,
     pub(crate) loaded_fits: LoadedFits,
     /// Whether the document's texts have been measured since it was read.
     /// A canvas that has never been the active one has not.
@@ -217,7 +219,7 @@ impl App {
     pub fn canvas_to_save(&self, id: &CanvasId) -> Option<(Document, Camera)> {
         let canvas = self.space.canvas(id)?;
         Some(match canvas.parked() {
-            None => (self.document_to_save(), self.session.camera),
+            None => (self.document_to_save(), self.canvas_camera()),
             Some(parked) => (
                 saved::to_save(&parked.document, &parked.view.loaded_fits),
                 parked.view.camera,

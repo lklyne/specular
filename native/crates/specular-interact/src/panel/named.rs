@@ -21,7 +21,7 @@ use specular_core::Modifiers;
 
 use super::{
     Control, ControlId, Dropdown, DropdownSection, MenuTarget, ToolbarSection, context_menu, dock,
-    toolbar,
+    toolbar, view_strip,
 };
 use crate::update::run_action;
 use crate::{Action, App, Effect, SidebarRow, edit, hit};
@@ -214,11 +214,14 @@ fn sidebar(app: &App, out: &mut Vec<Named>) {
     }
 }
 
-/// Every control there is now, in the models' order: the toolbar, the
-/// dock, the sidebar, the context menu.
+/// Every control there is now, in the models' order: the tab row, the
+/// toolbar, the dock, the sidebar, the context menu.
 fn named(app: &App) -> Vec<Named> {
     let mut out = Vec::new();
     let plain = Inside::Nothing;
+    for tab in &view_strip(app).tabs {
+        out.push(run(&tab.id, &tab.action, true, true, &plain));
+    }
     let bar = toolbar(app);
     out.extend((bar.chat.iter()).map(|button| run(&button.id, &button.action, true, true, &plain)));
     for section in &bar.sections {

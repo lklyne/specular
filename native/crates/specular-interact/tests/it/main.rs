@@ -66,6 +66,7 @@ mod routing;
 mod save;
 mod select;
 mod settings;
+mod showing;
 mod sidebar;
 mod sidebar_controls;
 mod space;

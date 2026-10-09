@@ -69,7 +69,7 @@ fn build(frame: &Frame<'_>) -> Scene {
     // Tints go behind everything; a group's border and title wait for its
     // own slot, in front of its members.
     for group in group::backgrounds(document) {
-        if frame.sees(group.rect) {
+        if specular_interact::shown_rect(frame.app, group).is_some() && frame.sees(group.rect) {
             group::draw_background(frame, group, &mut scene);
         }
     }

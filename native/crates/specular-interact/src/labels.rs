@@ -1,7 +1,8 @@
-//! The words and glyphs of sidebar rows.
+//! The words and glyphs items go by in the sidebar's rows and the tab row.
 
-use specular_doc::{Annotation, ShapeKind};
+use specular_doc::{Annotation, Entity, Page, ShapeKind};
 
+use crate::App;
 use crate::panel::Icon;
 
 /// How many characters of a comment's text name its row.
@@ -13,7 +14,7 @@ const PHONE_BELOW: f64 = 600.0;
 const TABLET_BELOW: f64 = 1100.0;
 
 /// The glyph of a page row: the device its width suggests.
-pub(super) fn page_icon(width: f64) -> Icon {
+pub(crate) fn page_icon(width: f64) -> Icon {
     if width < PHONE_BELOW {
         Icon::Device
     } else if width < TABLET_BELOW {
@@ -23,13 +24,25 @@ pub(super) fn page_icon(width: f64) -> Icon {
     }
 }
 
+/// What a page is called: the title it last reported, else its label, else
+/// its address's host.
+pub(crate) fn page_label(app: &App, entity: &Entity, page: &Page) -> String {
+    let named = (entity.label.as_deref().map(str::trim)).filter(|label| !label.is_empty());
+    let title = (app.page_state(&entity.id))
+        .map(|state| state.title.trim())
+        .filter(|title| !title.is_empty());
+    (title.or(named).map(str::to_owned))
+        .or_else(|| host_label(&page.url))
+        .unwrap_or_else(|| "Page".to_owned())
+}
+
 /// A page's size as its row ends: `820×1180`.
-pub(super) fn dimensions(width: f64, height: f64) -> String {
+pub(crate) fn dimensions(width: f64, height: f64) -> String {
     format!("{}\u{d7}{}", width.round(), height.round())
 }
 
 /// The glyph of a file row, by extension: `iconForFilePath`.
-pub(super) fn file_icon(file: &str) -> Icon {
+pub(crate) fn file_icon(file: &str) -> Icon {
     let extension = file.rsplit_once('.').map_or("", |(_, extension)| extension);
     let is = |known: &[&str]| {
         known
@@ -50,7 +63,7 @@ pub(super) fn file_icon(file: &str) -> Icon {
 }
 
 /// A file's row text: its name without a markdown extension.
-pub(super) fn file_label(file: &str) -> String {
+pub(crate) fn file_label(file: &str) -> String {
     let name = file.rsplit('/').next().unwrap_or(file);
     let stem = name
         .len()
@@ -61,7 +74,7 @@ pub(super) fn file_label(file: &str) -> String {
 
 /// A comment's row text: the element it is on, else the start of what it
 /// says.
-pub(super) fn comment_label(annotation: &Annotation) -> String {
+pub(crate) fn comment_label(annotation: &Annotation) -> String {
     let element = (annotation.element_name.as_deref().map(str::trim)).filter(|n| !n.is_empty());
     if let Some(element) = element {
         return element.to_owned();
@@ -77,12 +90,12 @@ pub(super) fn comment_label(annotation: &Annotation) -> String {
     format!("{start}\u{2026}")
 }
 
-pub(super) fn first_line(text: &str) -> Option<&str> {
+pub(crate) fn first_line(text: &str) -> Option<&str> {
     text.lines().map(str::trim).find(|line| !line.is_empty())
 }
 
 /// The host of `url` without a leading `www.`, or `None` when it has none.
-pub(super) fn host_label(url: &str) -> Option<String> {
+fn host_label(url: &str) -> Option<String> {
     let (_, rest) = url.split_once("://")?;
     let host = rest.split(['/', '?', '#']).next()?;
     let host = host.rsplit('@').next()?.split(':').next()?;
@@ -90,7 +103,7 @@ pub(super) fn host_label(url: &str) -> Option<String> {
     (!host.is_empty()).then(|| host.to_owned())
 }
 
-pub(super) const fn shape_label(shape: ShapeKind) -> &'static str {
+pub(crate) const fn shape_label(shape: ShapeKind) -> &'static str {
     match shape {
         ShapeKind::Rectangle => "Rectangle",
         ShapeKind::Rounded => "Rounded rectangle",

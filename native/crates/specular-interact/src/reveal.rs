@@ -6,16 +6,25 @@ use specular_doc::{Annotation, AnnotationAnchor, AnnotationId, ItemId, Rect};
 
 use crate::update::{drop_dangling, verb};
 use crate::viewport::area;
-use crate::{App, Effect, comment, element_on_canvas, geometry, region_on_canvas};
+use crate::{App, Effect, comment, element_on_canvas, geometry, region_on_canvas, showing};
 
 /// How big a comment on a point of the canvas is taken to be when it is
 /// brought into view: `POINT_FOCUS_SIZE`.
 const POINT_SIZE: f64 = 100.0;
 
 /// Selects `select` and brings `focus` into view, unless a drag is in
-/// flight.
+/// flight. An item view that leaves `focus` out gives way to the canvas.
 pub(crate) fn items(app: &mut App, select: Vec<ItemId>, focus: &ItemId, effects: &mut Vec<Effect>) {
     verb(app, effects, |app, effects| {
+        let hidden = |item: &ItemId| match item {
+            ItemId::Entity(id) => {
+                (app.document.entity(id)).is_some_and(|it| showing::hides(app, it))
+            }
+            ItemId::Edge(_) => false,
+        };
+        if hidden(focus) {
+            showing::leave(app);
+        }
         app.session.selection.set(select);
         drop_dangling(app, effects);
         if let ItemId::Entity(id) = focus
@@ -26,9 +35,13 @@ pub(crate) fn items(app: &mut App, select: Vec<ItemId>, focus: &ItemId, effects:
     });
 }
 
-/// Gives the comment `id` the focus and brings what it is on into view.
+/// Gives the comment `id` the focus and brings what it is on into view. An
+/// item view that leaves the comment out gives way to the canvas.
 pub(crate) fn comment(app: &mut App, id: &AnnotationId, effects: &mut Vec<Effect>) {
     verb(app, effects, |app, effects| {
+        if (app.document.annotation(id)).is_some_and(|it| showing::hides_comment(app, it)) {
+            showing::leave(app);
+        }
         comment::focus(app, Some(id), effects);
         if app.session.focused_comment.as_ref() != Some(id) {
             return;

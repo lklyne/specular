@@ -288,9 +288,9 @@ fn a_name_no_control_has_is_an_error_that_lists_the_names_there_are() {
         "the sidebar is hidden"
     );
     assert!(
-        error
-            .to_string()
-            .starts_with("no control `text.colour` is shown; these are: tool.select tool.draw"),
+        error.to_string().starts_with(
+            "no control `text.colour` is shown; these are: view.canvas tool.select tool.draw"
+        ),
         "{error}"
     );
 }

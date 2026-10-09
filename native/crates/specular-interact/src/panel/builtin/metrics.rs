@@ -5,6 +5,17 @@
 /// tabs go. Tall enough to centre the traffic lights a window puts at
 /// (14, 13).
 pub const TAB_ROW: f32 = 38.0;
+/// Where the first tab starts: past the traffic lights, `toolbarPaddingLeft`
+/// on macOS.
+pub(super) const TABS_LEFT: f32 = 86.0;
+/// How much of the row's far end stays bare, to drag the window by.
+pub(super) const TAB_BARE: f32 = 80.0;
+/// A tab: its width at rest, its least width and its height.
+pub(super) const TAB: (f32, f32, f32) = (180.0, 28.0, 28.0);
+/// From a tab's ends to its glyph and label.
+pub(super) const TAB_PAD: f32 = 7.0;
+/// A tab with less room than this for its label shows its glyph alone.
+pub(super) const TAB_LABEL_MIN: f32 = 20.0;
 /// The second row: the tool buttons and the zoom readout.
 pub const TOOL_ROW: f32 = 40.0;
 /// The third row, the dock: the controls of the tool in hand or of the

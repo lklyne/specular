@@ -238,6 +238,7 @@ fn has_target(app: &App, action: &Action) -> bool {
         | Action::Sidebar(_)
         | Action::SetCamera(_)
         | Action::FocusComment(_)
+        | Action::Show(_)
         | Action::Nudge { .. }
         | Action::Paste
         | Action::ZoomIn

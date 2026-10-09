@@ -57,6 +57,7 @@ mod handles;
 mod hit;
 mod images;
 mod inspect;
+mod labels;
 mod layout;
 mod live;
 mod marquee;
@@ -82,6 +83,7 @@ mod scroll_follow;
 mod select;
 mod select_all;
 mod settings;
+mod showing;
 mod sidebar;
 mod space;
 mod stack_order;
@@ -154,8 +156,8 @@ pub use panel::{
     Button, Choices, Control, ControlId, Dropdown, DropdownOption, DropdownSection, Entries, Face,
     Field, FieldSubmit, FieldWidth, Icon, Label, MenuTarget, OptionLayout, PaintRole, Palette,
     PopupModel, SidebarButton, Stepper, Swatch, Swatches, ThemeButton, Toggle, ToolButton,
-    ToolbarModel, ToolbarSection, UnknownControl, context_menu, control_named, dock,
-    named_controls, toolbar,
+    ToolbarModel, ToolbarSection, UnknownControl, ViewStrip, ViewTab, context_menu, control_named,
+    dock, named_controls, toolbar, view_strip,
 };
 pub use physical_key::{PhysicalKey, mac_key_input};
 pub use place::{PlaceDrag, Placing};
@@ -172,6 +174,7 @@ pub use settings::{
     AboutRow, AppSettings, GeneralPane, SettingAction, SettingToggle, SettingsModel, ShortcutRow,
     SpaceRow, settings,
 };
+pub use showing::Showing;
 pub use sidebar::{
     CanvasRow, RowKind, RowTarget, SIDEBAR_WIDTH, SectionHead, SidebarAction, SidebarModel,
     SidebarRow, SidebarSection, SidebarView, sidebar,

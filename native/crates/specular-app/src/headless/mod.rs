@@ -366,7 +366,7 @@ impl Headless {
     fn save(&self, path: &Path) -> anyhow::Result<()> {
         let text = canvas_text(
             &self.app.app().document_to_save(),
-            self.app.session().camera,
+            self.app.app().canvas_camera(),
         )
         .with_context(|| format!("writing {}", path.display()))?;
         std::fs::write(path, text).with_context(|| format!("writing {}", path.display()))

@@ -20,7 +20,7 @@ use glam::DVec2;
 use specular_core::ElementPlace;
 use specular_doc::{AnchorElement, Drawing, Entity, EntityId, Kind, PageAnchor, Rect};
 
-use crate::{App, geometry, strokes};
+use crate::{App, geometry, showing, strokes};
 
 /// How far past its page's top and bottom an item that follows the page is
 /// still drawn, fading out, in logical pixels: Electron's `BAND_FADE_MARGIN`.
@@ -235,9 +235,12 @@ pub fn out_of_page(app: &App, page: Rect, shown: Rect) -> bool {
 
 /// `entity` as it is seen: shifted by its page's scroll and its element's
 /// travel, and clipped to the page while it is. `None` when it has left the
-/// page and the fade around it altogether, which hides it and takes it out
-/// of hit-testing.
+/// page and the fade around it altogether, or an item view leaves it out,
+/// which hides it and takes it out of hit-testing.
 pub fn seen<'a>(app: &App, entity: &'a Entity) -> Option<Seen<'a>> {
+    if showing::hides(app, entity) {
+        return None;
+    }
     let shift = shift_for(app, entity);
     if shift == DVec2::ZERO {
         return Some(Seen {
@@ -255,6 +258,9 @@ pub fn seen<'a>(app: &App, entity: &'a Entity) -> Option<Seen<'a>> {
 
 /// The rect `entity` is seen at, or `None` when it is hidden.
 pub fn shown_rect(app: &App, entity: &Entity) -> Option<Rect> {
+    if showing::hides(app, entity) {
+        return None;
+    }
     let shift = shift_for(app, entity);
     if shift == DVec2::ZERO {
         return Some(entity.rect);

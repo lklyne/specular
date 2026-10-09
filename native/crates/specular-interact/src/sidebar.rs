@@ -8,7 +8,6 @@
 //! ([`SidebarView`]) and reported here, so whatever draws the sidebar holds
 //! none of it.
 
-mod labels;
 mod rows;
 mod state;
 

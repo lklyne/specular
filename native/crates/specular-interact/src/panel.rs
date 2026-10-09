@@ -19,6 +19,7 @@ mod model;
 mod models;
 mod named;
 mod popup;
+mod strip;
 mod toolbar;
 
 pub use context::{MenuTarget, context_menu};
@@ -36,4 +37,5 @@ pub use models::{
 pub use named::{UnknownControl, control_named, named_controls};
 pub(crate) use named::{activate as activate_control, open_menu as open_menu_at};
 pub use popup::dock;
+pub use strip::{ViewStrip, ViewTab, view_strip};
 pub use toolbar::toolbar;

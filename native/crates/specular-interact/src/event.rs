@@ -472,6 +472,9 @@ pub enum Action {
     GroupGap(f64),
     /// Zoom and pan to frame the selected items, as large as fits.
     FocusSelection,
+    /// Show the canvas, or one page or Document alone. View state: nothing
+    /// is written to the document and no undo step is made.
+    Show(crate::Showing),
     /// Give a comment the focus, taking the selection away, or with `None`
     /// let go of the focus. An id that is not shown does nothing.
     FocusComment(Option<AnnotationId>),

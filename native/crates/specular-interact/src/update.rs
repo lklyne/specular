@@ -99,6 +99,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         Event::SpaceNeeded(ask) => app.space_ask = Some(ask),
         Event::Api(call) => api::run(app, call, &mut effects),
     }
+    crate::showing::settle(app);
     builtin::forget_layout_unless(app, keeps_layout);
     // Another canvas has another history: its revision says nothing about
     // whether this event made a step.
@@ -116,10 +117,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
     leave_unless_selected(app, &mut effects);
     sync::interaction::refresh_capture(app, &mut effects);
     comment::settle(app);
-    if app.session.tool != tool {
-        comment::on_tool_change(app);
-        inspect::on_tool_change(app);
-    }
+    settle_tool(app, tool);
     inspect::settle(app, switched);
     groups::keep_entered_valid(app);
     builtin::tidy(app);
@@ -139,6 +137,14 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         cursor::refresh(app, &mut effects);
     }
     effects
+}
+
+/// Drops what belonged to `before` when another tool has been taken up.
+fn settle_tool(app: &mut App, before: crate::Tool) {
+    if app.session.tool != before {
+        comment::on_tool_change(app);
+        inspect::on_tool_change(app);
+    }
 }
 
 pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect>) {
@@ -201,6 +207,7 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         Action::AnnotateSelection => verb(app, effects, comment::annotate_selection),
         Action::Arrange(mode) => verb(app, effects, |app, fx| arrange::run(app, mode, fx)),
         Action::FocusSelection => verb(app, effects, |app, _| zoom::focus_selection(app)),
+        Action::Show(showing) => crate::showing::show(app, showing, effects),
         Action::FocusComment(id) => verb(app, effects, |app, effects| {
             comment::focus(app, id.as_ref(), effects);
         }),

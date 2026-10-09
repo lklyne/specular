@@ -119,7 +119,8 @@ pub fn hit_test(app: &App, screen: Vec2) -> Hit {
     }
 
     let label = document.entities().rev().find(|entity| {
-        group_label_rect(entity, ScreenRect::of(camera, entity.rect), camera.zoom)
+        crate::shown_rect(app, entity)
+            .and_then(|seen| group_label_rect(entity, ScreenRect::of(camera, seen), camera.zoom))
             .is_some_and(|rect| rect.contains(screen))
     });
     if let Some(group) = label {

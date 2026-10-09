@@ -65,6 +65,7 @@ pub(crate) fn in_background(
         view: CanvasView {
             camera: theirs.camera,
             selection: theirs.selection,
+            shown_order: view.shown_order,
             loaded_fits: theirs.loaded_fits,
             fitted: view.fitted,
         },

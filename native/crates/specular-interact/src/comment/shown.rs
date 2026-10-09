@@ -18,10 +18,10 @@ pub(crate) const fn is_open(status: AnnotationStatus) -> bool {
 /// Whether `annotation` is drawn and can be hit: it is open and, when it is
 /// bound to a page's document, that page is still there and still shows the
 /// document the comment was made on, and the content it is on has not
-/// scrolled out of the page. A comment left behind by a page that navigated
+/// scrolled out of the page, and an item view does not leave it out. A comment left behind by a page that navigated
 /// comes back with the page.
 pub(crate) fn shown(app: &App, annotation: &Annotation) -> bool {
-    if !is_open(annotation.status) {
+    if !is_open(annotation.status) || crate::showing::hides_comment(app, annotation) {
         return false;
     }
     let Some(binding) = &annotation.page_anchor else {

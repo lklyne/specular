@@ -26,6 +26,7 @@ mod route;
 mod rows;
 mod scroll;
 mod sidebar;
+mod strip;
 mod toolbar;
 mod trigger;
 
@@ -315,20 +316,10 @@ fn build(app: &App) -> PanelLayout {
     PanelLayout {
         sidebar,
         sidebar_list,
-        tabs: Some(tabs(viewport)),
+        tabs: Some(strip::layout(&ctx, &super::view_strip(app), viewport)),
         toolbar: Some(toolbar),
         dock: Some(dock),
         dropdown: menu.or(dropdown),
-    }
-}
-
-/// The tab row: the title bar strip, with nothing on it yet.
-fn tabs(viewport: Vec2) -> Panel {
-    Panel {
-        surface: Surface::Tabs,
-        rect: rows::tabs(viewport.x),
-        menu: false,
-        nodes: Vec::new(),
     }
 }
 

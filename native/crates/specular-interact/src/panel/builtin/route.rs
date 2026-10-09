@@ -70,7 +70,9 @@ pub(crate) fn tidy(app: &mut App) {
     }
     let toolbar = super::super::toolbar(app);
     let dock = super::super::dock(app);
+    let strip = super::super::view_strip(app);
     let mut listed = toolbar.entries();
+    listed.extend((strip.tabs.iter()).map(|tab| (tab.id.clone(), Some(&tab.action))));
     if let Some(dock) = &dock {
         listed.extend(dock.entries());
     }
