@@ -1,5 +1,5 @@
 //! CEF handler objects: the app (command-line switches) and one client per
-//! page (render, display, load, request and life-span handlers).
+//! page (render, display, load, request, life-span and keyboard handlers).
 //!
 //! The `wrap_*!` macros generate the ref-counted C vtables; each handler
 //! holds a [`PageContext`] clone and only translates the callback into page
@@ -14,13 +14,15 @@ use std::os::raw::c_int;
 use cef::{
     AcceleratedPaintInfo, App, Browser, BrowserProcessHandler, BrowserSettings, CefString, Client,
     CommandLine, DictionaryValue, DisplayHandler, Frame, ImplApp, ImplBrowserProcessHandler,
-    ImplClient, ImplCommandLine, ImplDisplayHandler, ImplFrame, ImplLifeSpanHandler,
-    ImplLoadHandler, ImplRenderHandler, ImplRequestHandler, LifeSpanHandler, LoadHandler,
-    PaintElementType, PopupFeatures, Range, Rect, RenderHandler, RequestHandler, ScreenInfo,
-    TerminationStatus, WindowInfo, WindowOpenDisposition, WrapApp, WrapBrowserProcessHandler,
-    WrapClient, WrapDisplayHandler, WrapLifeSpanHandler, WrapLoadHandler, WrapRenderHandler,
+    ImplClient, ImplCommandLine, ImplDisplayHandler, ImplFrame, ImplKeyboardHandler,
+    ImplLifeSpanHandler, ImplLoadHandler, ImplRenderHandler, ImplRequestHandler, KeyEvent,
+    KeyboardHandler, LifeSpanHandler, LoadHandler, PaintElementType, PopupFeatures, Range, Rect,
+    RenderHandler, RequestHandler, ScreenInfo, TerminationStatus, WindowInfo,
+    WindowOpenDisposition, WrapApp, WrapBrowserProcessHandler, WrapClient, WrapDisplayHandler,
+    WrapKeyboardHandler, WrapLifeSpanHandler, WrapLoadHandler, WrapRenderHandler,
     WrapRequestHandler, wrap_app, wrap_browser_process_handler, wrap_client, wrap_display_handler,
-    wrap_life_span_handler, wrap_load_handler, wrap_render_handler, wrap_request_handler,
+    wrap_keyboard_handler, wrap_life_span_handler, wrap_load_handler, wrap_render_handler,
+    wrap_request_handler,
 };
 // The `wrap_*!` expansions call `add_ref` from this trait unqualified.
 use cef::rc::Rc as _;
@@ -369,6 +371,26 @@ wrap_life_span_handler! {
     }
 }
 
+wrap_keyboard_handler! {
+    struct PageKeyboardHandler;
+
+    impl KeyboardHandler {
+        /// A key the page did not consume, which is every plain key typed
+        /// into a text field, ends here. Left alone, CEF offers it to the
+        /// application's menu bar as a key equivalent: `e` opens Emoji &
+        /// Symbols, and a letter that is a greyed tool's key beeps. The app
+        /// chose to give the page this key, so nothing else is owed it.
+        fn on_key_event(
+            &self,
+            _browser: Option<&mut Browser>,
+            _event: Option<&KeyEvent>,
+            _os_event: *mut u8,
+        ) -> c_int {
+            1
+        }
+    }
+}
+
 wrap_client! {
     struct PageClient {
         render: RenderHandler,
@@ -376,6 +398,7 @@ wrap_client! {
         load: LoadHandler,
         request: RequestHandler,
         life_span: LifeSpanHandler,
+        keyboard: KeyboardHandler,
     }
 
     impl Client {
@@ -398,6 +421,10 @@ wrap_client! {
         fn life_span_handler(&self) -> Option<LifeSpanHandler> {
             Some(self.life_span.clone())
         }
+
+        fn keyboard_handler(&self) -> Option<KeyboardHandler> {
+            Some(self.keyboard.clone())
+        }
     }
 }
 
@@ -414,5 +441,6 @@ pub(crate) fn new_client(ctx: &PageContext) -> Client {
         PageLoadHandler::new(ctx.clone()),
         PageRequestHandler::new(ctx.clone()),
         PageLifeSpanHandler::new(ctx.clone()),
+        PageKeyboardHandler::new(),
     )
 }
