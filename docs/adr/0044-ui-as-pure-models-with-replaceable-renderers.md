@@ -13,7 +13,7 @@ When the toolbar and item popup were due, the UI library was undecided. ADR 0039
 
 Every panel is a function from `&App` to a plain data model. A renderer draws the model and sends back the `Action` a control carries. The model is the contract, and a renderer can be swapped without touching it.
 
-- The models: `toolbar`, `popup_for`, `context_menu`, `sidebar`, `menus`, `chat`, `settings`, `onboarding`, `repos_pane`.
+- The models: `view_strip` (the tab row, added with [ADR 0045](./0045-item-view-as-session-state.md)), `toolbar`, `popup_for`, `context_menu`, `sidebar`, `menus`, `chat`, `settings`, `onboarding`, `repos_pane`.
 - A model holds no pixels, colours or hover state. Icons are named by an enum. Controls are a small set: `Button`, `Toggle`, `Swatches`, `Dropdown`, `Stepper`, `Field`, `Choices`, `Separator`. Each has an id and its `Action`.
 - A typed value is a `Field` with a rule that turns the text into an `Action`, so the model holds no editor.
 - A property pick is `Action::SetProperty`. It goes to every selected item it means something for, as one undo step.

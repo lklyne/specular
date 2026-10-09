@@ -178,6 +178,10 @@ fn shift_drag_moves_the_page_along_one_axis() {
   holds the layout as text, and `panel_scene_snapshot()` what the panels
   draw. `view` never draws them, so `scene_snapshot()` is the same either
   way.
+  The tab row's controls are `view.canvas` and `view.item.<entity id>`.
+  One shows the canvas and the other a page or Document alone
+  (`Action::Show`, ADR 0045); read back with `app().showing()`, and
+  `view_strip(app.app())` is the row's model. See `tests/it/showing.rs`.
   A text field is clicked like any control and then typed into:
   `enter_in_field("page.url", "example.org")` replaces its text and presses
   Enter, `field_edit()` reads what is typed so far, and Escape puts the

@@ -258,7 +258,7 @@ if m in RAN:
         expect(m, SINK, saved(m, f"{undone}.canvas"))
 n = "n-chrome-session"
 if n in RAN:
-    start, duplicated, fresh, back = (saved(n, f) for f in ["00-start.canvas", "05-duplicated.canvas", "06-new-canvas.canvas", "07-first-canvas.canvas"])
+    start, duplicated, fresh, back, tabbed = (saved(n, f) for f in ["00-start.canvas", "05-duplicated.canvas", "06-new-canvas.canvas", "07-first-canvas.canvas", "08-page-tab.canvas"])
     pages = [node for node in duplicated["nodes"] if node.get("url") == "https://example.org/docs"]
     checks = {
         # The address typed in the popup reached the page.
@@ -269,6 +269,8 @@ if n in RAN:
         "the new canvas holds only its own sticky": len(fresh["nodes"]) == 1,
         # Switching back shows the first canvas as it was left.
         "the first canvas is as it was left": back == duplicated,
+        # A page's tab is a way of looking: the file keeps the canvas's own camera.
+        "a page shown alone from its tab writes nothing": tabbed == back,
     }
     for name, held in checks.items():
         print(f"{'ok  ' if held else 'FAIL'} {n}: {name}")

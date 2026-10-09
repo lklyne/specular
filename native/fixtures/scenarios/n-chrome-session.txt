@@ -2,8 +2,8 @@
 # One session through all of the built-in chrome with the sidebar shown: a
 # page picked from its row, the dock's address and size list, the
 # right-click menu on a sticky (a duplicate), a second canvas
-# added and a sticky placed on it, the first canvas switched back to, and
-# the first canvas saved. The window is 1600x1000, the chrome the top 118
+# added and a sticky placed on it, the first canvas switched back to and
+# saved, and a page shown alone from its tab. The window is 1600x1000, the chrome the top 118
 # pixels and the sidebar the left 256; canvas rows are 28 pixels, the first
 # centred at y 170.
 camera -2300,-1600,1
@@ -46,3 +46,11 @@ snapshot 06-new-canvas.png
 click 100 170
 snapshot 07-first-canvas-again.png
 save 07-first-canvas.canvas
+
+# a page's tab shows it alone at its own size, which writes nothing, and
+# the Canvas tab brings everything back where it was
+control view.item.page-desktop
+snapshot 08-page-tab.png
+save 08-page-tab.canvas
+control view.canvas
+snapshot 09-canvas-tab.png
