@@ -19,8 +19,9 @@ use crate::anchor::anchors_to_pages;
 use crate::app::page_of;
 use crate::focus::set_focus;
 use crate::notes::{is_note_file, note_file};
+use crate::panel::PAGE_URL;
 use crate::viewport::area;
-use crate::{App, Effect, Tool, geometry, update, zoom};
+use crate::{App, ControlId, Effect, Tool, edit, geometry, live, place, update, zoom};
 
 /// What is shown under the chrome.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -89,19 +90,48 @@ pub(crate) fn show(app: &mut App, showing: Showing, effects: &mut Vec<Effect>) {
             leave(app);
             set_focus(app, None, effects);
         }
-        Showing::Item(item) => {
-            let Some(entity) = app.document.entity(&item).filter(|it| can_show(it)) else {
-                return;
-            };
-            let page = page_of(entity).map(|_| item.clone());
-            let canvas_camera = app.canvas_camera();
-            app.session.selection.set([ItemId::Entity(item.clone())]);
-            app.session.item_view = Some(ItemView {
-                item,
-                canvas_camera,
-            });
-            set_focus(app, page, effects);
-        }
+        Showing::Item(item) => show_item(app, item, effects),
+    });
+}
+
+fn show_item(app: &mut App, item: EntityId, effects: &mut Vec<Effect>) {
+    let Some(entity) = app.document.entity(&item).filter(|it| can_show(it)) else {
+        return;
+    };
+    let page = page_of(entity).map(|_| item.clone());
+    let canvas_camera = app.canvas_camera();
+    app.session.selection.set([ItemId::Entity(item.clone())]);
+    app.session.item_view = Some(ItemView {
+        item,
+        canvas_camera,
+    });
+    set_focus(app, page, effects);
+}
+
+/// Shows the tab after the one showing, or the one before it, going round
+/// at the ends. The canvas is the first tab.
+pub(crate) fn step(app: &mut App, forward: bool, effects: &mut Vec<Effect>) {
+    let items = listed(&app.document, &app.session.shown_order);
+    let tabs: Vec<Showing> = std::iter::once(Showing::Canvas)
+        .chain((items.iter()).map(|entity| Showing::Item(entity.id.clone())))
+        .collect();
+    let now = app.showing();
+    let at = tabs.iter().position(|tab| *tab == now).unwrap_or(0);
+    let by = if forward { 1 } else { tabs.len() - 1 };
+    let next = tabs[(at + by) % tabs.len()].clone();
+    show(app, next, effects);
+}
+
+/// A new tab: a page in a free spot of the canvas, shown alone, with the
+/// caret in its address. Making the page is the one undo step, and undoing
+/// it takes the item away, which puts the canvas back.
+pub(crate) fn new_tab(app: &mut App, effects: &mut Vec<Effect>) {
+    update::verb(app, effects, |app, effects| {
+        let page = place::page_in_free_spot(app);
+        let id = page.id.clone();
+        live::create(app, page, effects);
+        show_item(app, id, effects);
+        edit::focus_field(app, &ControlId::new(PAGE_URL), effects);
     });
 }
 

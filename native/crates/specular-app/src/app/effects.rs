@@ -103,6 +103,11 @@ impl<W: ShellWindow> Runtime<W> {
                     gpu.set_cursor(cursor);
                 }
             }
+            Effect::EditField(field) => {
+                if let Some(gpu) = self.gpu.as_ref() {
+                    gpu.edit_field(&field);
+                }
+            }
             Effect::Save => self.request_save(),
             Effect::WriteCanvas(canvas) => self.write_canvas(&canvas),
             Effect::RenameCanvasFile { canvas, from, to } => {

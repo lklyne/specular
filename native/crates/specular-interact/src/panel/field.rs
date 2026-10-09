@@ -8,6 +8,9 @@
 use super::{Control, ControlId, DropdownSection, Label, dock};
 use crate::{Action, App, CanvasAction, CanvasId, Property, resolve_address_input};
 
+/// The name of a page's address field in the dock.
+pub(crate) const PAGE_URL: &str = "page.url";
+
 /// The least and greatest number a size field takes, in pixels.
 const SIZE_RANGE: (f64, f64) = (1.0, 10_000.0);
 

@@ -475,6 +475,17 @@ pub enum Action {
     /// Show the canvas, or one page or Document alone. View state: nothing
     /// is written to the document and no undo step is made.
     Show(crate::Showing),
+    /// Show the tab after the one showing, going round to the first.
+    ShowNext,
+    /// Show the tab before the one showing, going round to the last.
+    ShowPrevious,
+    /// Make a page at the page tool's preset in a free spot of the canvas,
+    /// show it alone and put the caret in its address. The page is one undo
+    /// step.
+    NewPageTab,
+    /// Put the caret in the address of the page whose controls the dock
+    /// holds.
+    EditPageUrl,
     /// Give a comment the focus, taking the selection away, or with `None`
     /// let go of the focus. An id that is not shown does nothing.
     FocusComment(Option<AnnotationId>),

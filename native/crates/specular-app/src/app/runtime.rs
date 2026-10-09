@@ -90,6 +90,10 @@ pub trait ShellWindow {
     /// The pointer's shape over the canvas.
     fn set_cursor(&self, cursor: Cursor);
 
+    /// Gives the keys to the field `field` of the chrome, with its text
+    /// selected. Only a window that draws the chrome itself is asked.
+    fn edit_field(&self, field: &specular_interact::ControlId);
+
     /// The window's title, and whether it shows unsaved changes.
     fn set_title(&self, title: &str, unsaved: bool);
 }

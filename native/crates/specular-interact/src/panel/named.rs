@@ -219,9 +219,11 @@ fn sidebar(app: &App, out: &mut Vec<Named>) {
 fn named(app: &App) -> Vec<Named> {
     let mut out = Vec::new();
     let plain = Inside::Nothing;
-    for tab in &view_strip(app).tabs {
+    let strip = view_strip(app);
+    for tab in &strip.tabs {
         out.push(run(&tab.id, &tab.action, true, true, &plain));
     }
+    out.push(run(&strip.add.id, &strip.add.action, true, true, &plain));
     let bar = toolbar(app);
     out.extend((bar.chat.iter()).map(|button| run(&button.id, &button.action, true, true, &plain)));
     for section in &bar.sections {

@@ -10,7 +10,7 @@ use gpui_kit::{
     ClickEvent, InteractiveElement as _, IntoElement, MouseButton, ParentElement as _,
     SharedString, StatefulInteractiveElement as _, Styled as _, div, px,
 };
-use specular_interact::{ViewStrip, ViewTab};
+use specular_interact::{Button, ViewStrip, ViewTab};
 
 use super::controls::element_id;
 use super::glyphs::{glyph, ink};
@@ -98,9 +98,30 @@ fn tab(model: &ViewTab) -> impl IntoElement {
         .on_click(move |_, window, cx| run(&action, window, cx))
 }
 
-/// The tab row of `model`. The tabs share what the traffic lights and the
-/// bare strip leave, shrinking together; past their least width the row
-/// cuts them off, so the strip is always there to drag the window by.
+/// The button after the last tab: a new page, shown in its own tab.
+fn add(model: &Button) -> impl IntoElement {
+    let action = model.action.clone();
+    let text = theme::toolbar_text();
+    h_flex()
+        .id(element_id(&model.id))
+        .relative()
+        .size(px(TAB.2))
+        .flex_shrink_0()
+        .items_center()
+        .justify_center()
+        .rounded(px(6.0))
+        .cursor_pointer()
+        .hover(|this| this.bg(theme::solid(theme::tool_fill())))
+        .tooltip(crate::tip::view(model.label.to_string()))
+        .children((model.face.icon).map(|icon| glyph(icon, ink(text), None, false, TAB_GLYPH)))
+        .child(mark(&model.id))
+        .on_click(move |_, window, cx| run(&action, window, cx))
+}
+
+/// The tab row of `model`. The tabs share what the traffic lights, the add
+/// button and the bare strip leave, shrinking together; past their least
+/// width the row cuts them off, so the strip is always there to drag the
+/// window by.
 pub(super) fn tabs(model: &ViewStrip) -> impl IntoElement {
     h_flex()
         .h(px(theme::TAB_ROW))
@@ -116,5 +137,6 @@ pub(super) fn tabs(model: &ViewStrip) -> impl IntoElement {
                 .overflow_hidden()
                 .children(model.tabs.iter().map(tab)),
         )
+        .child(div().pl_1().flex_shrink_0().child(add(&model.add)))
         .child(bare_strip())
 }

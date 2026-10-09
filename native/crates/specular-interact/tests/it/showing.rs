@@ -11,13 +11,20 @@
 //!   leaves the window showing nothing.
 //! - the switch: dropping `showing::leave` from the space's `leave` carries
 //!   the view to a canvas whose page has the same id.
+//! - a new tab: putting the page in with `live::put` makes no undo step, and
+//!   dropping `free_spot::place` lands it on the page beside it.
+//! - the address: dropping the Command+L row leaves the key to the page.
+//! - next and previous: dropping the `EnteredPage` rows stops at the first
+//!   page, which is entered, and dropping the modulo runs off the end.
 
 use glam::Vec2;
-use specular_core::Camera;
+use specular_core::{Camera, Modifiers};
 use specular_doc::Rect;
 use specular_interact::panel::builtin::CHROME_HEIGHT;
-use specular_interact::{Action, Effect, Hit, Key, Showing, hit_test, view_strip};
+use specular_interact::{Action, Effect, Focus, Hit, Key, Showing, hit_test, view_strip};
 use specular_testkit::{CMD, TestApp, document, file, note, page, pages, shape};
+
+const CMD_ALT: Modifiers = Modifiers { alt: true, ..CMD };
 
 const VIEWPORT: Vec2 = Vec2::new(1000.0, 800.0);
 
@@ -194,4 +201,83 @@ fn a_canvas_switch_does_not_carry_an_item_view_across() {
     app.switch_to("Home");
     assert_eq!(app.app().showing(), Showing::Canvas);
     assert_eq!(app.session().camera, home);
+}
+
+#[test]
+fn a_new_tab_is_a_page_in_a_free_spot_shown_with_the_caret_in_its_address() {
+    let mut app = mixed();
+    app.with_panels().select(&["p1"]).click_control("view.add");
+    let made = app.selected().expect("the new page is selected").to_owned();
+    assert_eq!(app.app().showing(), Showing::Item(made.as_str().into()));
+    assert_eq!(tabs(&app)[4], format!("view.item.{made} Page *"));
+    // It is clear of everything else on the canvas.
+    let rect = app.rect(&made);
+    let clear = (app.document().entities())
+        .filter(|entity| entity.id.as_str() != made)
+        .all(|other| {
+            let it = other.rect;
+            rect.x >= it.x + it.width
+                || it.x >= rect.x + rect.width
+                || rect.y >= it.y + it.height
+                || it.y >= rect.y + rect.height
+        });
+    assert!(clear, "{rect:?}");
+
+    // The address has the keys, and what is typed there is where it goes.
+    assert_eq!(app.field_edit(), Some(""));
+    app.take_effects();
+    app.type_text("example.org").key(Key::Enter);
+    let went = (app.take_effects().iter())
+        .any(|effect| matches!(effect, Effect::Navigate { page, .. } if page.as_str() == made));
+    assert!(went, "the page is sent to the address");
+
+    // Command+T does the same from inside a page. Making the page is one
+    // undo step, and undoing it goes back to the canvas.
+    let mut app = mixed();
+    app.act(show("p1")).chord(CMD, Key::Char('t'));
+    let made = app.selected().expect("the new page is selected").to_owned();
+    assert_eq!(app.app().showing(), Showing::Item(made.as_str().into()));
+    app.key(Key::Escape).undo();
+    assert_eq!(app.app().showing(), Showing::Canvas);
+    assert!(app.document().entity(&made.as_str().into()).is_none());
+    assert!(!app.app().can_undo(), "one step");
+}
+
+#[test]
+fn command_l_puts_the_caret_in_the_address_of_the_page_in_the_dock() {
+    let mut app = mixed();
+    // Selected on the canvas, and entered in its own tab.
+    app.select(&["p1"]).chord(CMD, Key::Char('l'));
+    assert_eq!(app.field_edit(), Some("https://example.com/p1"));
+    app.key(Key::Escape).act(show("p2"));
+    assert_eq!(app.session().focus, Focus::Page("p2".into()));
+    app.chord(CMD, Key::Char('l'));
+    assert_eq!(app.field_edit(), Some("https://example.com/p2"));
+
+    // With no page in the dock there is no address.
+    app.key(Key::Escape)
+        .act(show("n"))
+        .chord(CMD, Key::Char('l'));
+    assert_eq!(app.field_edit(), None);
+}
+
+#[test]
+fn next_and_previous_tab_go_round() {
+    let mut app = mixed();
+    let shown = |app: &TestApp| match app.app().showing() {
+        Showing::Canvas => "canvas".to_owned(),
+        Showing::Item(item) => item.as_str().to_owned(),
+    };
+    // Forward through every tab, pages entered on the way, and round.
+    let mut forward = Vec::new();
+    for _ in 0..4 {
+        app.chord(CMD_ALT, Key::ArrowRight);
+        forward.push(shown(&app));
+    }
+    assert_eq!(forward, ["p1", "n", "p2", "canvas"]);
+    // Back from the first tab is the last.
+    app.chord(CMD_ALT, Key::ArrowLeft);
+    assert_eq!(shown(&app), "p2");
+    app.chord(CMD_ALT, Key::ArrowLeft);
+    assert_eq!(shown(&app), "n");
 }

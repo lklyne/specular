@@ -208,6 +208,10 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         Action::Arrange(mode) => verb(app, effects, |app, fx| arrange::run(app, mode, fx)),
         Action::FocusSelection => verb(app, effects, |app, _| zoom::focus_selection(app)),
         Action::Show(showing) => crate::showing::show(app, showing, effects),
+        Action::ShowNext => crate::showing::step(app, true, effects),
+        Action::ShowPrevious => crate::showing::step(app, false, effects),
+        Action::NewPageTab => crate::showing::new_tab(app, effects),
+        Action::EditPageUrl => page_state::edit_url(app, effects),
         Action::FocusComment(id) => verb(app, effects, |app, effects| {
             comment::focus(app, id.as_ref(), effects);
         }),

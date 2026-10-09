@@ -47,6 +47,7 @@ screen text "Canvas" 111,5 box-h=28 12/16 #18181b middle
 screen path M281.08,13.17 L286.92,13.17 C287.56,13.17 288.08,13.69 288.08,14.33 L288.08,23.67 C288.08,24.31 287.56,24.83 286.92,24.83 L281.08,24.83 C280.44,24.83 279.92,24.31 279.92,23.67 L279.92,14.33 C279.92,13.69 280.44,13.17 281.08,13.17 Z stroke=#52525c/1.17
 screen path M284,22.5 L284.01,22.5 stroke=#52525c/1.17
 screen text "example.com" 295,5 box-h=28 12/16 #52525c middle
+screen path M463.92,19 L472.08,19 M468,14.92 L468,23.08 stroke=#52525c/1.17
 screen rect 0,38 1200x40 fill=#d6d3d1
 screen rect 372,44 32x28 r=6 fill=#fdf8f5
 screen path 24 commands in 380.81,50.82 15.2x15.19 fill=#e8e8e8

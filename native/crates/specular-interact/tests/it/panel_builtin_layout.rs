@@ -37,6 +37,7 @@ fn the_three_rows_with_a_sticky_in_the_dock() {
     assert_panel_snapshot!(app, @r#"
     tabs 0,0 1200x38
       view.canvas 86,5 180x28 ToolButton on: icon File 93,12 14x14; text "Canvas" 111,5 148x28 Left
+      view.add 270,5 28x28 ToolButton: icon Plus 277,12 14x14
     toolbar 0,38 1200x40
       tool.select 372,44 32x28 ToolButton on: icon SelectTool 378,48 20x20
       - 412,50 1x16 Divider

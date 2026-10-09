@@ -113,12 +113,6 @@ pub fn menus(app: &App) -> Vec<Menu> {
             MenuEntry::Item(item)
         })
         .collect();
-    let page = vec![
-        page_item(app, "Back", Action::PageBack),
-        page_item(app, "Forward", Action::PageForward),
-        page_item(app, "Reload", Action::PageReload),
-        page_item(app, "Stop", Action::PageStop),
-    ];
     let view = vec![
         item("Zoom in", Action::ZoomIn),
         item("Zoom out", Action::ZoomOut),
@@ -146,7 +140,7 @@ pub fn menus(app: &App) -> Vec<Menu> {
         },
         Menu {
             title: "Page",
-            entries: page,
+            entries: page_entries(app),
         },
         Menu {
             title: "Tools",
@@ -156,6 +150,20 @@ pub fn menus(app: &App) -> Vec<Menu> {
             title: "View",
             entries: view,
         },
+    ]
+}
+
+/// The Page menu: a new page in its own tab, then what the page in the dock
+/// can be asked.
+fn page_entries(app: &App) -> Vec<MenuEntry> {
+    vec![
+        MenuEntry::Item(item(app, "New page tab", Action::NewPageTab)),
+        page_item(app, "Edit address", Action::EditPageUrl),
+        MenuEntry::Separator,
+        page_item(app, "Back", Action::PageBack),
+        page_item(app, "Forward", Action::PageForward),
+        page_item(app, "Reload", Action::PageReload),
+        page_item(app, "Stop", Action::PageStop),
     ]
 }
 
@@ -239,6 +247,9 @@ fn has_target(app: &App, action: &Action) -> bool {
         | Action::SetCamera(_)
         | Action::FocusComment(_)
         | Action::Show(_)
+        | Action::ShowNext
+        | Action::ShowPrevious
+        | Action::NewPageTab
         | Action::Nudge { .. }
         | Action::Paste
         | Action::ZoomIn
@@ -250,7 +261,9 @@ fn has_target(app: &App, action: &Action) -> bool {
         Action::PageBack => page_can(app, |state| state.can_go_back),
         Action::PageForward => page_can(app, |state| state.can_go_forward),
         Action::PageStop => page_can(app, |state| state.loading),
-        Action::PageReload | Action::PageNavigate(_) => page_state::target(app).is_some(),
+        Action::PageReload | Action::PageNavigate(_) | Action::EditPageUrl => {
+            page_state::target(app).is_some()
+        }
         Action::ToggleSync => app.selection_synced().is_some(),
     }
 }

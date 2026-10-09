@@ -151,6 +151,15 @@ fn write_url(app: &mut App, page: &EntityId, url: &str) -> bool {
     }
 }
 
+/// Puts the caret in the address of the page the dock holds the controls
+/// of, unless a drag is in flight. With no such page there is no address.
+pub(crate) fn edit_url(app: &mut App, effects: &mut Vec<Effect>) {
+    if app.session.gesture.is_none() && target(app).is_some() {
+        let field = crate::ControlId::new(crate::panel::PAGE_URL);
+        crate::edit::focus_field(app, &field, effects);
+    }
+}
+
 /// The page a navigation action is for: the entered page, or the page that
 /// is the whole selection.
 pub(crate) fn target(app: &App) -> Option<&EntityId> {

@@ -51,14 +51,32 @@ fn no_two_rows_can_fire_for_the_same_key() {
 }
 
 #[test]
-fn only_zoom_to_fit_and_escape_fire_inside_an_entered_page() {
-    let everywhere: Vec<_> = BINDINGS
-        .iter()
-        .filter(|binding| binding.context == Context::Always)
-        .map(|binding| &binding.action)
-        .collect();
-    // Both are ways back out to the canvas. Every other key is the page's.
-    assert_eq!(everywhere, [&Action::ZoomToFit, &Action::Cancel]);
+fn only_the_ways_out_and_the_tab_keys_fire_inside_an_entered_page() {
+    let fires = |context| {
+        (BINDINGS.iter())
+            .filter(move |binding| binding.context == context)
+            .map(|binding| &binding.action)
+            .collect::<Vec<_>>()
+    };
+    // Two ways back out to the canvas and a new tab. Every other key is the
+    // page's, but for a browser's own: its history, its address and its tabs.
+    assert_eq!(
+        fires(Context::Always),
+        [&Action::ZoomToFit, &Action::NewPageTab, &Action::Cancel]
+    );
+    assert_eq!(
+        fires(Context::EnteredPage),
+        [
+            &Action::PageBack,
+            &Action::PageForward,
+            &Action::ShowNext,
+            &Action::ShowPrevious
+        ]
+    );
+    assert_eq!(
+        fires(Context::PageTarget),
+        [&Action::PageReload, &Action::PageStop, &Action::EditPageUrl]
+    );
 }
 
 #[test]

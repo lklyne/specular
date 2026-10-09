@@ -294,6 +294,9 @@ impl ShellWindow for GpuWindow {
         self.window.set_cursor(translate::cursor_icon(cursor));
     }
 
+    // This window's chrome is the built-in one, whose fields `update` edits.
+    fn edit_field(&self, _field: &specular_interact::ControlId) {}
+
     fn set_title(&self, title: &str, unsaved: bool) {
         self.window.set_title(title);
         #[cfg(target_os = "macos")]

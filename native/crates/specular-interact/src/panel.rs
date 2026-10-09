@@ -23,8 +23,8 @@ mod strip;
 mod toolbar;
 
 pub use context::{MenuTarget, context_menu};
-pub(crate) use field::field_named;
 pub use field::{Field, FieldSubmit, FieldWidth};
+pub(crate) use field::{PAGE_URL, field_named};
 pub use icon::Icon;
 pub use id::ControlId;
 pub use model::{

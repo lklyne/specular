@@ -161,6 +161,9 @@ impl Render for ShellView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<'_, Self>) -> impl IntoElement {
         // What effects asked of the window is applied by this render.
         self.asks.changed.set(false);
+        if let Some(wanted) = self.asks.field.take() {
+            field::want(wanted, cx);
+        }
         named::begin_frame();
         let models = canvas::models();
         if let Some(model) = models

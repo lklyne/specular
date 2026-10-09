@@ -62,6 +62,18 @@ pub(crate) fn begin(app: &mut App, id: &ControlId, effects: &mut Vec<Effect>) {
     super::place_candidates(app, effects);
 }
 
+/// Puts the keys in the field named `id` with its value selected, wherever
+/// the field is: the built-in one is edited here, and a shell that draws the
+/// chrome itself is asked to give its own the keys.
+pub(crate) fn focus(app: &mut App, id: &ControlId, effects: &mut Vec<Effect>) {
+    if !app.session.panel.menu_only {
+        begin(app, id, effects);
+    } else if field_named(app, id).is_some() {
+        super::end(app, effects);
+        effects.push(Effect::EditField(id.clone()));
+    }
+}
+
 /// Ends the edit keeping what was typed: the action its text asks for is
 /// run, unless the text is as it was.
 pub(super) fn end(app: &mut App, edit: &TextEdit, effects: &mut Vec<Effect>) {

@@ -17,6 +17,7 @@ screen rect 638,5 180x28 r=6 fill=#fdf8f5
 screen path M649.08,13.17 L654.92,13.17 C655.56,13.17 656.08,13.69 656.08,14.33 L656.08,23.67 C656.08,24.31 655.56,24.83 654.92,24.83 L649.08,24.83 C648.44,24.83 647.92,24.31 647.92,23.67 L647.92,14.33 C647.92,13.69 648.44,13.17 649.08,13.17 Z stroke=#18181b/1.17
 screen path M652,22.5 L652.01,22.5 stroke=#18181b/1.17
 screen text "example.com" 663,5 box-h=28 12/16 #18181b middle
+screen path M831.92,19 L840.08,19 M836,14.92 L836,23.08 stroke=#52525c/1.17
 screen rect 0,38 1200x40 fill=#d6d3d1
 screen rect 372,44 32x28 r=6 fill=#fdf8f5
 screen path 24 commands in 380.81,50.82 15.2x15.19 fill=#e8e8e8

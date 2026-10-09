@@ -10,7 +10,7 @@ use specular_doc::{ColorScheme, Entity, Kind, VIEWPORT_PRESETS};
 use super::super::build::{button, groups, toggle};
 use super::super::{
     Button, Control, ControlId, Dropdown, DropdownOption, DropdownSection, Face, Field,
-    FieldSubmit, FieldWidth, Icon, OptionLayout, PopupModel,
+    FieldSubmit, FieldWidth, Icon, OptionLayout, PAGE_URL, PopupModel,
 };
 use super::actions::Actions;
 use crate::property::read;
@@ -157,7 +157,7 @@ fn address(app: &App, page: &Entity) -> Control {
     };
     let url = live.unwrap_or(stored);
     Control::Field(Field {
-        id: ControlId::new("page.url"),
+        id: ControlId::new(PAGE_URL),
         label: "Page address".into(),
         caption: None,
         value: if url == "about:blank" {

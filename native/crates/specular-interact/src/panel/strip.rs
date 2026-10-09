@@ -4,9 +4,9 @@
 
 use specular_doc::{Entity, Kind};
 
-use super::{ControlId, Icon, Label};
+use super::{Button, ControlId, Face, Icon, Label};
 use crate::labels::{file_icon, file_label, page_icon, page_label};
-use crate::{Action, App, Showing, showing};
+use crate::{Action, App, Showing, binding_of, showing};
 
 /// One tab of the tab row.
 #[derive(Debug, Clone, PartialEq)]
@@ -28,6 +28,8 @@ pub struct ViewTab {
 pub struct ViewStrip {
     /// The tabs, left to right: the canvas first.
     pub tabs: Vec<ViewTab>,
+    /// The button after the last tab, which makes a page and shows its tab.
+    pub add: Button,
 }
 
 impl ViewStrip {
@@ -36,6 +38,7 @@ impl ViewStrip {
         (self.tabs.iter())
             .find(|tab| tab.id == *id)
             .map(|tab| tab.action.clone())
+            .or_else(|| (self.add.id == *id).then(|| self.add.action.clone()))
     }
 }
 
@@ -68,5 +71,13 @@ pub fn view_strip(app: &App) -> ViewStrip {
     let tabs = std::iter::once(canvas)
         .chain(items.into_iter().filter_map(|entity| item_tab(app, entity)))
         .collect();
-    ViewStrip { tabs }
+    let add = Button {
+        id: ControlId::new("view.add"),
+        label: "New page tab".into(),
+        face: Face::icon(Icon::Plus),
+        enabled: true,
+        chord: binding_of(&Action::NewPageTab).map(|binding| binding.chord),
+        action: Action::NewPageTab,
+    };
+    ViewStrip { tabs, add }
 }

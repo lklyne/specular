@@ -116,6 +116,7 @@ impl Headless {
             | Effect::SetImeAllowed(_)
             | Effect::SetImeCursorArea { .. }
             | Effect::SetCursor(_)
+            | Effect::EditField(_)
             | Effect::Save
             | Effect::WriteCanvas(_)
             | Effect::RenameCanvasFile { .. }

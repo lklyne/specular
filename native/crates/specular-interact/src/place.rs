@@ -241,10 +241,22 @@ pub(crate) fn text(app: &App, id: EntityId, at: DVec2, style: TextStyle) -> Enti
     Entity::new(id, geometry::rect(at, DEFAULT_TEXT_SIZE), Kind::Text(text))
 }
 
+/// A page at the page tool's preset with its device in a free spot of the
+/// canvas: beside the selection when there is one, as a page made through
+/// the API is placed.
+pub(crate) fn page_in_free_spot(app: &mut App) -> Entity {
+    let id = EntityId::from(app.fresh_id().as_str());
+    let sized = page(app, id.clone(), DVec2::ZERO);
+    // At the origin the screen's corner is the device's insets.
+    let device = geometry::size(sized.rect) + geometry::origin(sized.rect) * 2.0;
+    let spot = crate::free_spot::place(app, device.x, device.y, true);
+    page(app, id, DVec2::new(spot.x, spot.y))
+}
+
 /// A page at the preset the page tool is set to (the first, an iPhone SE,
 /// until another is picked), turned across for a preset wider than it is
 /// tall, as Electron's `defaultOrientationForDevice` has it.
-fn page(app: &App, id: EntityId, at: DVec2) -> Entity {
+pub(crate) fn page(app: &App, id: EntityId, at: DVec2) -> Entity {
     let defaults = app.tool_defaults.page;
     let (index, chosen) = match preset(u64::from(defaults.preset)) {
         Some(chosen) => (defaults.preset, chosen),

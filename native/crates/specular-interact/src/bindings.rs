@@ -391,6 +391,35 @@ pub const BINDINGS: &[Binding] = &[
         Context::PageTarget,
         Action::PageStop,
     ),
+    once(
+        Chord::char('l').cmd(),
+        Context::PageTarget,
+        Action::EditPageUrl,
+    ),
+    // A browser's tab keys. They work inside an entered page, which would
+    // otherwise be sent them. While text is edited the arrows are the
+    // editor's.
+    once(Chord::char('t').cmd(), Context::Always, Action::NewPageTab),
+    once(
+        Chord::key(Key::ArrowRight).cmd().alt(),
+        Context::Canvas,
+        Action::ShowNext,
+    ),
+    once(
+        Chord::key(Key::ArrowLeft).cmd().alt(),
+        Context::Canvas,
+        Action::ShowPrevious,
+    ),
+    once(
+        Chord::key(Key::ArrowRight).cmd().alt(),
+        Context::EnteredPage,
+        Action::ShowNext,
+    ),
+    once(
+        Chord::key(Key::ArrowLeft).cmd().alt(),
+        Context::EnteredPage,
+        Action::ShowPrevious,
+    ),
     once(Chord::key(Key::Escape), Context::Always, Action::Cancel),
 ];
 

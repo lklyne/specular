@@ -6,7 +6,7 @@
 //! unpainted, and that slot is the app's viewport: the frame is drawn with
 //! the camera and the screen-space items shifted by the slot's corner.
 
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use anyhow::Context as _;
@@ -15,7 +15,7 @@ use specular_app::offscreen::Target;
 use specular_app::{PageOf, ShellWindow};
 use specular_compositor::{Compositor, DotGrid, FrameView, GpuContext, SceneStats};
 use specular_core::Camera;
-use specular_interact::Cursor;
+use specular_interact::{ControlId, Cursor};
 use specular_scene::{Draw, Item, Scene, Space};
 
 use crate::native::NativeCanvas;
@@ -31,6 +31,8 @@ pub(crate) struct WindowAsks {
     pub(crate) ime_allowed: Cell<bool>,
     /// The caret, as a corner and a size in logical pixels of the viewport.
     pub(crate) ime_area: Cell<(Vec2, Vec2)>,
+    /// The field of the chrome that is to be given the keys.
+    pub(crate) field: RefCell<Option<ControlId>>,
     /// Set when one of the above changed, until GPUI has been told.
     pub(crate) changed: Cell<bool>,
 }
@@ -41,6 +43,7 @@ impl Default for WindowAsks {
             cursor: Cell::new(Cursor::Default),
             ime_allowed: Cell::new(false),
             ime_area: Cell::new((Vec2::ZERO, Vec2::ZERO)),
+            field: RefCell::new(None),
             changed: Cell::new(false),
         }
     }
@@ -358,6 +361,11 @@ impl ShellWindow for CanvasSurface {
         if self.asks.cursor.replace(cursor) != cursor {
             self.asks.changed.set(true);
         }
+    }
+
+    fn edit_field(&self, field: &ControlId) {
+        self.asks.field.replace(Some(field.clone()));
+        self.asks.changed.set(true);
     }
 
     fn set_title(&self, title: &str, unsaved: bool) {

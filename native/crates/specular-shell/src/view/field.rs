@@ -29,11 +29,13 @@ struct Held {
     _events: Subscription,
 }
 
-/// The fields on screen, by name, and the one opened in place of a label.
+/// The fields on screen, by name, the one opened in place of a label, and
+/// the one `update` asked to be given the keys when it is next drawn.
 #[derive(Default)]
 struct Fields {
     held: HashMap<ControlId, Held>,
     inline: Option<ControlId>,
+    wanted: Option<ControlId>,
 }
 
 impl Global for Fields {}
@@ -119,9 +121,24 @@ fn input_of(model: &Field, window: &mut Window, cx: &mut App) -> Entity<InputSta
     input
 }
 
+/// Asks for the field `id` to be given the keys, with its text selected,
+/// when this frame draws it: what Command+L and a new tab ask of the
+/// address field.
+pub(super) fn want(id: ControlId, cx: &mut App) {
+    cx.default_global::<Fields>().wanted = Some(id);
+}
+
 /// The input of `model` alone, as wide as what it is put in.
 pub(super) fn input(model: &Field, window: &mut Window, cx: &mut App) -> AnyElement {
     let input = input_of(model, window, cx);
+    let fields = cx.default_global::<Fields>();
+    if fields.wanted.as_ref() == Some(&model.id) {
+        fields.wanted = None;
+        input.update(cx, |state, cx| {
+            state.focus(window, cx);
+            state.select_all(window, cx);
+        });
+    }
     let (id, label) = (model.id.clone(), model.label.to_string());
     div()
         .id(SharedString::from(model.id.as_str().to_owned()))
