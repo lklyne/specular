@@ -28,8 +28,9 @@ impl AspectMode {
 }
 
 /// File extensions shown as a picture or a video, which keep their ratio.
-const MEDIA_EXTENSIONS: [&str; 12] = [
-    "png", "jpg", "jpeg", "gif", "svg", "webp", "bmp", "ico", "webm", "mp4", "mov", "ogg",
+const MEDIA_EXTENSIONS: [&str; 14] = [
+    "png", "jpg", "jpeg", "gif", "svg", "webp", "bmp", "ico", "heic", "heif", "webm", "mp4", "mov",
+    "ogg",
 ];
 
 /// The smallest size, in canvas units, a resize may give an entity of this

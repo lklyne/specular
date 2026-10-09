@@ -51,7 +51,9 @@ pub(crate) fn file_icon(file: &str) -> Icon {
     };
     if is(&["md"]) {
         Icon::FileText
-    } else if is(&["png", "jpg", "jpeg", "gif", "svg", "webp", "bmp", "ico"]) {
+    } else if is(&[
+        "png", "jpg", "jpeg", "gif", "svg", "webp", "bmp", "ico", "heic", "heif",
+    ]) {
         Icon::Image
     } else if is(&["webm", "mp4", "mov", "ogg"]) {
         Icon::Video

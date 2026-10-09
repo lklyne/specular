@@ -43,7 +43,7 @@ pub(super) fn dropped_file(path: &Path, space: Option<&Path>) -> DroppedFile {
         space_path: space.and_then(|space| space_path(&path, space)),
         // Only the header is read.
         image_size: (is_image_file(&text))
-            .then(|| image::image_dimensions(&path).ok())
+            .then(|| crate::images::dimensions(&path))
             .flatten(),
         path: text,
     }

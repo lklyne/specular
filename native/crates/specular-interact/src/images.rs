@@ -116,9 +116,12 @@ impl Images {
     }
 }
 
-/// Whether `file` is drawn as an image: Electron's `IMAGE_EXTENSIONS`.
+/// Whether `file` is drawn as an image: Electron's `IMAGE_EXTENSIONS`, and
+/// an iPhone's photos, which macOS decodes.
 pub fn is_image_file(file: &str) -> bool {
-    const EXTENSIONS: [&str; 8] = ["png", "jpg", "jpeg", "gif", "svg", "webp", "bmp", "ico"];
+    const EXTENSIONS: [&str; 10] = [
+        "png", "jpg", "jpeg", "gif", "svg", "webp", "bmp", "ico", "heic", "heif",
+    ];
     file.rsplit_once('.').is_some_and(|(_, extension)| {
         (EXTENSIONS.iter()).any(|known| extension.eq_ignore_ascii_case(known))
     })

@@ -7,6 +7,8 @@
 
 mod decode;
 mod gif;
+#[cfg(target_os = "macos")]
+mod heif;
 pub(crate) mod resolve;
 mod svg;
 mod upload;
@@ -21,6 +23,7 @@ use specular_compositor::{ImageMips, ImageSpec};
 use specular_core::PixelSize;
 use specular_interact::ImageKey;
 
+pub(crate) use self::decode::dimensions;
 pub(crate) use self::upload::Uploaded;
 
 /// How often the loaded files are looked at for a change from outside.
