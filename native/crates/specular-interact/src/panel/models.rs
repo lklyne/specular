@@ -78,6 +78,10 @@ pub struct ToolbarModel {
     pub theme: ThemeButton,
     /// The blocks, left to right.
     pub sections: Vec<ToolbarSection>,
+    /// How the tab showing looks at its item, at the right end: a toggle
+    /// for each lens, then the eye. Empty on the Canvas tab, which has no
+    /// item to look at.
+    pub view: Vec<Control>,
 }
 
 impl ToolbarModel {
@@ -92,6 +96,9 @@ impl ToolbarModel {
                 }
                 ToolbarSection::Zoom(dropdown) => dropdown.entries(&mut out),
             }
+        }
+        for control in &self.view {
+            control.entries(&mut out);
         }
         out
     }

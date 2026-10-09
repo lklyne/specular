@@ -67,7 +67,7 @@ pub fn view_strip(app: &App) -> ViewStrip {
         active: app.shown_item().is_none(),
         action: Action::Show(Showing::Canvas),
     };
-    let items = showing::listed(&app.document, &app.session.shown_order);
+    let items = showing::listed(&app.document, &app.session.tabs.order);
     let tabs = std::iter::once(canvas)
         .chain(items.into_iter().filter_map(|entity| item_tab(app, entity)))
         .collect();

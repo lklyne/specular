@@ -113,6 +113,11 @@ pub enum Icon {
     PanelLeft,
     /// The right panel's toggle. Lucide `PanelRight`.
     PanelRight,
+    /// The eye, open: an item view draws what is around its item. Lucide
+    /// `Eye`.
+    Eye,
+    /// The eye, shut. Lucide `EyeOff`.
+    EyeOff,
     /// A canvas, and a file of no known kind. Lucide `File`.
     File,
     /// A markdown document. Lucide `FileText`.

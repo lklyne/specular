@@ -33,6 +33,7 @@ mod images;
 mod inspect;
 mod item_view;
 mod layout_handles;
+mod lens;
 mod menus;
 mod moves;
 mod named_controls;

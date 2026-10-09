@@ -4,7 +4,8 @@
 //! - the tabs: sorting `showing::listed` by the stack alone reorders them
 //!   after a bring to front.
 //! - the item view: dropping the `showing::hides` check from
-//!   `scroll_follow::seen` lets a press reach a hidden page.
+//!   `scroll_follow::seen` lets a press reach a hidden page. A tab starts in
+//!   the Fill lens, which is what these show; `lens.rs` has the others.
 //! - the round trip: writing the fitted camera without keeping the canvas's
 //!   loses it, and saving `session.camera` puts the fitted one on disk.
 //! - the fallback: dropping the gone-item check from `showing::settle`

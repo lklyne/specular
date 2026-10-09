@@ -13,12 +13,13 @@ use crate::{App, Effect, comment, element_on_canvas, geometry, region_on_canvas,
 const POINT_SIZE: f64 = 100.0;
 
 /// Selects `select` and brings `focus` into view, unless a drag is in
-/// flight. An item view that leaves `focus` out gives way to the canvas.
+/// flight. An item view that cannot bring `focus` into view gives way to the
+/// canvas.
 pub(crate) fn items(app: &mut App, select: Vec<ItemId>, focus: &ItemId, effects: &mut Vec<Effect>) {
     verb(app, effects, |app, effects| {
         let hidden = |item: &ItemId| match item {
             ItemId::Entity(id) => {
-                (app.document.entity(id)).is_some_and(|it| showing::hides(app, it))
+                (app.document.entity(id)).is_some_and(|it| showing::out_of_reach(app, it))
             }
             ItemId::Edge(_) => false,
         };
@@ -36,10 +37,10 @@ pub(crate) fn items(app: &mut App, select: Vec<ItemId>, focus: &ItemId, effects:
 }
 
 /// Gives the comment `id` the focus and brings what it is on into view. An
-/// item view that leaves the comment out gives way to the canvas.
+/// item view that cannot bring it into view gives way to the canvas.
 pub(crate) fn comment(app: &mut App, id: &AnnotationId, effects: &mut Vec<Effect>) {
     verb(app, effects, |app, effects| {
-        if (app.document.annotation(id)).is_some_and(|it| showing::hides_comment(app, it)) {
+        if (app.document.annotation(id)).is_some_and(|it| showing::comment_out_of_reach(app, it)) {
             showing::leave(app);
         }
         comment::focus(app, Some(id), effects);

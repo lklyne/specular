@@ -23,7 +23,7 @@ fn the_toolbar_alone() {
 }
 
 #[test]
-fn the_tab_row_with_the_canvas_two_pages_and_a_document() {
+fn the_tab_row_and_the_lens_and_eye_of_the_tab_showing() {
     let mut app = TestApp::with_entities([
         page("p1", Rect::new(0.0, 0.0, 1280.0, 800.0)),
         specular_testkit::note("n", Rect::new(1400.0, 0.0, 400.0, 500.0), "plan.md"),

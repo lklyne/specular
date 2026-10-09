@@ -247,6 +247,8 @@ fn has_target(app: &App, action: &Action) -> bool {
         | Action::SetCamera(_)
         | Action::FocusComment(_)
         | Action::Show(_)
+        | Action::SetLens(_)
+        | Action::ShowOthers(_)
         | Action::ShowNext
         | Action::ShowPrevious
         | Action::NewPageTab

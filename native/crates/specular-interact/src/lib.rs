@@ -175,7 +175,7 @@ pub use settings::{
     AboutRow, AppSettings, GeneralPane, SettingAction, SettingToggle, SettingsModel, ShortcutRow,
     SpaceRow, settings,
 };
-pub use showing::Showing;
+pub use showing::{Lens, Showing};
 pub use sidebar::{
     CanvasRow, RowKind, RowTarget, SIDEBAR_WIDTH, SectionHead, SidebarAction, SidebarModel,
     SidebarRow, SidebarSection, SidebarView, sidebar,

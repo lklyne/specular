@@ -240,6 +240,9 @@ fn named(app: &App) -> Vec<Named> {
             }
         }
     }
+    for model in &bar.view {
+        control(model, &plain, &mut out);
+    }
     for model in dock(app).iter().flat_map(|dock| &dock.controls) {
         control(model, &plain, &mut out);
     }

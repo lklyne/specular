@@ -1,27 +1,39 @@
-//! What the window shows under the chrome: the canvas, or one item alone.
+//! What the window shows under the chrome: the canvas, or one item in a
+//! tab of its own.
 //!
 //! An item view is a way of looking at the canvas, not a second mode of it.
-//! The item keeps its stored size, nothing is written to the document and
-//! no page host changes its viewport (ADR 0020). Three things follow from
-//! [`Session::item_view`](crate::Session) and from nothing else:
+//! Nothing is written to the document and no page host changes its viewport
+//! (ADR 0020, ADR 0045). The view state is three values: the item
+//! ([`Session::item_view`](crate::Session)), the [`Lens`] its tab looks
+//! through, and the eye, which says whether anything but the item is drawn.
+//! Everything else follows from them, here and nowhere else:
 //!
-//! - [`hides`] and [`hides_comment`] take every other item and comment out
-//!   of what is seen, which is also what can be hit.
-//! - [`settle`] holds the camera on the item, fitted into the free part of
-//!   the viewport, and keeps the selection among what is seen.
+//! - [`hides`] and [`hides_comment`] take items and comments out of what is
+//!   seen, which is also what can be hit. [`refuses`] and [`hides_new`] keep
+//!   anything from being made that would be hidden at once.
+//! - [`presented_rect`] is where the item is laid out when that is not its
+//!   stored rect.
+//! - [`settle`] holds the camera on the item, or leaves it to the tab in the
+//!   Canvas lens, and keeps the selection among what is seen.
 //! - Leaving puts back the camera the canvas had.
 
-use glam::DVec2;
-use specular_core::Camera;
-use specular_doc::{Annotation, AnnotationAnchor, Document, Entity, EntityId, ItemId, Kind, Rect};
+mod gates;
+mod tabs;
 
-use crate::anchor::anchors_to_pages;
+use specular_core::Camera;
+use specular_doc::{Document, Entity, EntityId, ItemId, Kind, Rect};
+
+pub(crate) use self::gates::{
+    comment_out_of_reach, hides, hides_comment, hides_new, only_page, out_of_reach, refuses,
+};
+pub use self::tabs::Lens;
+pub(crate) use self::tabs::Tabs;
 use crate::app::page_of;
 use crate::focus::set_focus;
 use crate::notes::{is_note_file, note_file};
 use crate::panel::PAGE_URL;
 use crate::viewport::area;
-use crate::{App, ControlId, Effect, Tool, edit, geometry, live, place, update, zoom};
+use crate::{App, ControlId, Effect, edit, live, place, update, zoom};
 
 /// What is shown under the chrome.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -29,12 +41,11 @@ pub enum Showing {
     /// The canvas: every item, where its camera is.
     #[default]
     Canvas,
-    /// One page or Document alone, at its stored size, fitted into the
-    /// viewport.
+    /// One page or Document, through the lens of its tab.
     Item(EntityId),
 }
 
-/// The item shown alone, and the camera the canvas gets back.
+/// The item a tab shows, and the camera the canvas gets back.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct ItemView {
     pub(crate) item: EntityId,
@@ -48,9 +59,21 @@ impl App {
             .map_or(Showing::Canvas, |item| Showing::Item(item.clone()))
     }
 
-    /// The item shown alone, or `None` while the canvas is shown.
+    /// The item a tab is showing, or `None` while the canvas is shown.
     pub fn shown_item(&self) -> Option<&EntityId> {
         self.session.item_view.as_ref().map(|view| &view.item)
+    }
+
+    /// The lens of the tab showing, or `None` on the Canvas tab, which has
+    /// no item to look at.
+    pub fn lens(&self) -> Option<Lens> {
+        self.shown_item().map(|item| self.session.tabs.lens(item))
+    }
+
+    /// Whether the eye is open: an item view draws more than its item. It
+    /// is one choice for every tab.
+    pub fn shows_others(&self) -> bool {
+        !self.session.others_hidden
     }
 
     /// The camera of the canvas itself: the one that is saved, and the one
@@ -81,37 +104,72 @@ pub(crate) fn listed<'a>(document: &'a Document, kept: &[EntityId]) -> Vec<&'a E
 }
 
 /// Changes what is shown, unless a drag is in flight. An item that cannot
-/// be shown alone changes nothing. Showing an item selects it, and a page
-/// is entered: its tab is the page, so the wheel and the keys are its own
-/// at once. Going back to the canvas leaves the page.
+/// be shown alone changes nothing. Showing an item selects it. Going back
+/// to the canvas leaves the page.
 pub(crate) fn show(app: &mut App, showing: Showing, effects: &mut Vec<Effect>) {
     update::verb(app, effects, |app, effects| match showing {
         Showing::Canvas => {
             leave(app);
             set_focus(app, None, effects);
         }
-        Showing::Item(item) => show_item(app, item, effects),
+        Showing::Item(item) => show_item(app, &item, effects),
     });
 }
 
-fn show_item(app: &mut App, item: EntityId, effects: &mut Vec<Effect>) {
-    let Some(entity) = app.document.entity(&item).filter(|it| can_show(it)) else {
+/// Shows `item` through the lens its tab keeps. Where the lens holds the
+/// camera a page is entered: its tab is the page, so the wheel and the keys
+/// are its own at once. The Canvas lens is the canvas, where a page is
+/// entered by a second click, and its camera is where the tab left it, or
+/// fitted to the item the first time.
+fn show_item(app: &mut App, item: &EntityId, effects: &mut Vec<Effect>) {
+    let Some(entity) = app.document.entity(item).filter(|it| can_show(it)) else {
         return;
     };
     let page = page_of(entity).map(|_| item.clone());
     let canvas_camera = app.canvas_camera();
     app.session.selection.set([ItemId::Entity(item.clone())]);
     app.session.item_view = Some(ItemView {
-        item,
+        item: item.clone(),
         canvas_camera,
     });
-    set_focus(app, page, effects);
+    if held(app).is_some() {
+        set_focus(app, page, effects);
+        return;
+    }
+    set_focus(app, None, effects);
+    let kept = app.session.tabs.camera(item);
+    if let Some(camera) = kept.or_else(|| Some(fitted(app, app.document.entity(item)?))) {
+        app.session.camera = camera;
+    }
+}
+
+/// Changes the lens of the tab showing. The Canvas tab has none.
+pub(crate) fn set_lens(app: &mut App, lens: Lens, effects: &mut Vec<Effect>) {
+    update::verb(app, effects, |app, effects| {
+        if let Some(item) = app.shown_item().cloned() {
+            app.session.tabs.set_lens(&item, lens);
+            show_item(app, &item, effects);
+        }
+    });
+}
+
+/// Opens or shuts the eye. A page that shutting it hides is left.
+pub(crate) fn set_others(app: &mut App, shown: bool, effects: &mut Vec<Effect>) {
+    update::verb(app, effects, |app, effects| {
+        app.session.others_hidden = !shown;
+        let hidden = (app.session.focus.page())
+            .and_then(|page| app.document.entity(page))
+            .is_some_and(|page| hides(app, page));
+        if hidden {
+            set_focus(app, None, effects);
+        }
+    });
 }
 
 /// Shows the tab after the one showing, or the one before it, going round
 /// at the ends. The canvas is the first tab.
 pub(crate) fn step(app: &mut App, forward: bool, effects: &mut Vec<Effect>) {
-    let items = listed(&app.document, &app.session.shown_order);
+    let items = listed(&app.document, &app.session.tabs.order);
     let tabs: Vec<Showing> = std::iter::once(Showing::Canvas)
         .chain((items.iter()).map(|entity| Showing::Item(entity.id.clone())))
         .collect();
@@ -130,23 +188,24 @@ pub(crate) fn new_tab(app: &mut App, effects: &mut Vec<Effect>) {
         let page = place::page_in_free_spot(app);
         let id = page.id.clone();
         live::create(app, page, effects);
-        show_item(app, id, effects);
+        show_item(app, &id, effects);
         edit::focus_field(app, &ControlId::new(PAGE_URL), effects);
     });
 }
 
-/// How wide a Document shown alone is read at, at 100%.
+/// How wide a Document that fills the view is read at, at 100%.
 const READING_MEASURE: f64 = 720.0;
 
-/// The rect a Document shown alone is laid out in, in place of its stored
-/// one: a reading column of a fixed measure, as tall as the fit leaves
-/// room for, so the camera sits on it at 100% and the text scrolls inside.
-/// Nothing is written: the stored rect is what the canvas shows. `None` for
-/// anything else, a page included, which is never resized.
-pub(crate) fn reading_rect(app: &App, entity: &Entity) -> Option<Rect> {
-    if !shows(app, &entity.id) || note_file(&entity.kind).is_none() {
-        return None;
-    }
+/// The rect `entity` fills the view at, in place of its stored one. A
+/// Document is a reading column of a fixed measure, as tall as the fit
+/// leaves room for, so the camera sits on it at 100% and the text scrolls
+/// inside.
+fn fill_rect(app: &App, entity: &Entity) -> Option<Rect> {
+    // FILL FOR PAGES: a page has no rect to fill the view at yet, so in
+    // Fill it is shown as Device shows it. The rect goes here, and the page
+    // host's viewport has to follow it (`App::page_placement`,
+    // `pages::snapshot`).
+    note_file(&entity.kind)?;
     let room = zoom::fit_room(area(app).size);
     Some(Rect::new(
         entity.rect.x,
@@ -156,10 +215,40 @@ pub(crate) fn reading_rect(app: &App, entity: &Entity) -> Option<Rect> {
     ))
 }
 
-/// Whether `id` is the item shown alone. A press on its body goes into it
-/// whatever is selected: there is nothing else it could be picking.
-pub(crate) fn shows(app: &App, id: &EntityId) -> bool {
-    app.shown_item() == Some(id)
+/// The rect the item shown is laid out in when that is not its stored one,
+/// which only Fill does. Nothing is written: the stored rect is what the
+/// canvas, Device and the Canvas lens show. `None` for anything else.
+pub(crate) fn presented_rect(app: &App, entity: &Entity) -> Option<Rect> {
+    let item = app.shown_item().filter(|item| **item == entity.id)?;
+    match app.session.tabs.lens(item) {
+        Lens::Fill => fill_rect(app, entity),
+        Lens::Device | Lens::Canvas => None,
+    }
+}
+
+/// The item view, while its lens holds the camera on the item.
+fn held(app: &App) -> Option<&ItemView> {
+    let view = app.session.item_view.as_ref()?;
+    match app.session.tabs.lens(&view.item) {
+        Lens::Fill | Lens::Device => Some(view),
+        Lens::Canvas => None,
+    }
+}
+
+/// Whether `id` is the item shown and its tab holds it still. A press on
+/// its body then goes into it whatever is selected: there is nothing else
+/// it could be picking. In the Canvas lens it is pressed as on the canvas.
+pub(crate) fn holds(app: &App, id: &EntityId) -> bool {
+    held(app).is_some_and(|view| view.item == *id)
+}
+
+/// The camera that fits `entity` into the free part of the viewport.
+fn fitted(app: &App, entity: &Entity) -> Camera {
+    let free = area(app);
+    let rect = presented_rect(app, entity).unwrap_or(entity.rect);
+    let mut camera = zoom::fitting(rect, free.size);
+    camera.pan += free.min.as_vec2();
+    camera
 }
 
 /// Goes back to the canvas, with the camera it had.
@@ -169,102 +258,34 @@ pub(crate) fn leave(app: &mut App) {
     }
 }
 
-/// Brings the session in step with what is shown after an event: the kept
-/// order takes in new items and drops gone ones, an item view whose item is
-/// gone falls back to the canvas, and one that stands has its camera fitted
-/// and its selection kept among what is seen.
+/// Brings the session in step with what is shown after an event: the tabs
+/// take in new items and drop gone ones, an item view whose item is gone
+/// falls back to the canvas, and one that stands has its camera fitted, or
+/// kept for its tab in the Canvas lens, and its selection kept among what
+/// is seen.
 pub(crate) fn settle(app: &mut App) {
-    keep_order(app);
-    let Some(view) = app.session.item_view.clone() else {
+    app.session.tabs.settle(&app.document);
+    let Some(item) = app.shown_item().cloned() else {
         return;
     };
-    let Some(entity) = app.document.entity(&view.item).filter(|it| can_show(it)) else {
+    let Some(entity) = app.document.entity(&item).filter(|it| can_show(it)) else {
         leave(app);
         return;
     };
-    let free = area(app);
-    let rect = reading_rect(app, entity).unwrap_or(entity.rect);
-    let mut camera = zoom::fitting(rect, free.size);
-    camera.pan += free.min.as_vec2();
-    app.session.camera = camera;
+    if held(app).is_some() {
+        app.session.camera = fitted(app, entity);
+    } else {
+        app.session.tabs.keep_camera(&item, app.session.camera);
+    }
 
+    let mut selection = std::mem::take(&mut app.session.selection);
     let document = &app.document;
-    let seen = |id: &EntityId| document.entity(id).is_some_and(|it| !hides_from(&view, it));
-    app.session.selection.retain(|item| match item {
+    let seen = |id: &EntityId| document.entity(id).is_some_and(|it| !hides(app, it));
+    selection.retain(|item| match item {
         ItemId::Entity(id) => seen(id),
         ItemId::Edge(id) => document
             .edge(id)
             .is_some_and(|edge| seen(&edge.from) && seen(&edge.to)),
     });
-}
-
-fn keep_order(app: &mut App) {
-    let document = &app.document;
-    let kept = &app.session.shown_order;
-    let count = document.entities().filter(|it| can_show(it)).count();
-    let stands =
-        count == kept.len() && (kept.iter()).all(|id| document.entity(id).is_some_and(can_show));
-    if !stands {
-        app.session.shown_order = (listed(document, kept).into_iter())
-            .map(|entity| entity.id.clone())
-            .collect();
-    }
-}
-
-/// Whether an item view leaves `entity` out: it is neither the item shown
-/// nor hooked to it, nor what a drag is making, which is hooked when the
-/// drag ends.
-pub(crate) fn hides(app: &App, entity: &Entity) -> bool {
-    (app.session.item_view.as_ref()).is_some_and(|view| hides_from(view, entity))
-        && app.creating() != Some(&entity.id)
-}
-
-/// Whether an item view would hide `entity` as soon as it was added, hooked
-/// where it can be: anything in a Document's view, and beside a page
-/// whatever cannot be hooked to one.
-pub(crate) fn hides_new(app: &App, entity: &Entity) -> bool {
-    let Some(view) = &app.session.item_view else {
-        return false;
-    };
-    let page = (app.document.entity(&view.item)).is_some_and(|item| page_of(item).is_some());
-    !(page && entity.parent.is_none() && anchors_to_pages(&entity.kind))
-}
-
-/// Whether a press at the canvas point `world` with `tool` makes nothing.
-/// In an item view what is made off the page shown, and any page or
-/// Document, would be hidden as soon as it existed.
-pub(crate) fn refuses(app: &App, tool: Tool, world: DVec2) -> bool {
-    let Some(view) = &app.session.item_view else {
-        return false;
-    };
-    let hooks = match tool {
-        Tool::AddText | Tool::AddSticky | Tool::AddShape | Tool::Draw | Tool::Comment => true,
-        Tool::AddPage | Tool::AddDocument => false,
-        Tool::Select | Tool::Inspect => return false,
-    };
-    let on_page = (app.page_placement(&view.item))
-        .is_some_and(|placement| geometry::contains(placement.rect, world));
-    !(hooks && on_page)
-}
-
-fn hides_from(view: &ItemView, entity: &Entity) -> bool {
-    let hooked = (entity.anchor.as_ref()).is_some_and(|anchor| anchor.page_id == view.item);
-    entity.id != view.item && !hooked
-}
-
-/// Whether an item view leaves `annotation` out: it is not on the page
-/// shown.
-pub(crate) fn hides_comment(app: &App, annotation: &Annotation) -> bool {
-    let Some(view) = &app.session.item_view else {
-        return false;
-    };
-    let on = match &annotation.anchor {
-        AnnotationAnchor::Page { page_id, .. } | AnnotationAnchor::Element { page_id, .. } => {
-            Some(page_id)
-        }
-        AnnotationAnchor::Canvas { .. } | AnnotationAnchor::Region(_) => {
-            annotation.page_anchor.as_ref().map(|it| &it.page_id)
-        }
-    };
-    on != Some(&view.item)
+    app.session.selection = selection;
 }

@@ -239,11 +239,15 @@ pub struct Session {
     pub hover: Option<EntityId>,
     /// What keys go to.
     pub focus: Focus,
-    /// The item shown alone under the chrome, with the camera the canvas
+    /// The item a tab shows under the chrome, with the camera the canvas
     /// gets back. `None` while the canvas is shown.
     pub(crate) item_view: Option<crate::showing::ItemView>,
-    /// The items that can be shown alone, in the order their tabs keep.
-    pub(crate) shown_order: Vec<EntityId>,
+    /// The item tabs of the active canvas: their order, and the lens and
+    /// the Canvas-lens camera each keeps.
+    pub(crate) tabs: crate::showing::Tabs,
+    /// Whether the eye is shut: an item view draws its item and nothing
+    /// else. One choice for every tab and canvas.
+    pub(crate) others_hidden: bool,
     /// The group stepped into by a double click. It stays while the
     /// selection is inside it, and Escape steps out of it.
     pub entered_group: Option<EntityId>,

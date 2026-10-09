@@ -1,11 +1,12 @@
-//! Living in an item view: the page shown is entered, and what is made
-//! there lands on it.
+//! Living in an item view through the Fill lens, which a tab starts in:
+//! the page shown is entered, and what is made there lands on it. The other
+//! lenses and the eye are in `lens.rs`.
 //!
 //! Each test names the change that breaks it:
 //! - entered: dropping `set_focus` from `showing::show` leaves the wheel
 //!   panning a camera that is held still, and dropping the seen check from
 //!   `hit::page_at` gives the wheel to a hidden page lying over the spot.
-//! - one click: dropping `showing::shows` from `select::press_page` makes
+//! - one click: dropping `showing::holds` from `select::press_page` makes
 //!   the click only select the page.
 //! - creation: dropping `refused` from `pointer::tool_takes_press` makes
 //!   something the view hides at once.
@@ -16,16 +17,17 @@
 //!   shape to a page that is not shown.
 //! - paste: dropping the anchor from the text paste, or the gate from
 //!   `asset::insert_selected`, pastes something hidden.
-//! - reading: dropping `showing::reading_rect` from `placed_rect` wraps the
-//!   text at the stored width, from `showing::settle` centres the stored
+//! - reading: dropping `showing::presented_rect` from `placed_rect` wraps
+//!   the text at the stored width, from `showing::fitted` centres the stored
 //!   rect, and from `handle_target` lets a drag at the corner write the
-//!   column's size. Dropping `showing::shows` from the edit arm of
-//!   `select::press` leaves a click selecting.
+//!   column's size. Dropping `showing::holds` from the edit arm of
+//!   `select::press` leaves a click selecting. Returning the column from
+//!   `presented_rect` in every lens leaves Device with no card to resize.
 
 use glam::Vec2;
 use specular_core::InputEvent;
 use specular_doc::{Entity, Kind, PageAnchor, Rect};
-use specular_interact::{Action, Effect, Focus, Key, Showing, Tool, seen, shown_rect};
+use specular_interact::{Action, Effect, Focus, Key, Lens, Showing, Tool, seen, shown_rect};
 use specular_testkit::{CMD, TestApp, note, page, sticky};
 
 fn show(id: &str) -> Action {
@@ -214,7 +216,7 @@ fn a_paste_in_an_item_view_lands_on_the_page_shown_or_not_at_all() {
 }
 
 #[test]
-fn a_document_shown_alone_is_read_as_a_column_and_its_rect_is_not_written() {
+fn a_document_fills_its_tab_as_a_reading_column_and_its_rect_is_not_written() {
     let stored = Rect::new(100.0, 600.0, 300.0, 400.0);
     let mut app = canvas();
     app.note_text("plan.md", "# Plan\n\nOne line.");
@@ -253,6 +255,19 @@ fn a_document_shown_alone_is_read_as_a_column_and_its_rect_is_not_written() {
     );
     app.drag(corner, corner + Vec2::new(-80.0, -80.0));
     assert_eq!(app.rect("n"), stored);
+
+    // Device shows the card the canvas has, fitted, with its handles.
+    app.act(Action::SetLens(Lens::Device));
+    assert_eq!(shown_rect(app.app(), app.entity("n")), Some(stored));
+    assert_eq!(wrap(&app), Some(300.0 - 24.0));
+    let centre = at(&app, 250.0, 800.0);
+    assert!(
+        centre.abs_diff_eq(Vec2::new(500.0, 400.0), 1e-2),
+        "{centre}"
+    );
+    assert_eq!(app.app().handle_target().map(|it| it.1), Some(stored));
+
     app.act(Action::Show(Showing::Canvas));
     assert_eq!(shown_rect(app.app(), app.entity("n")), Some(stored));
+    assert_eq!(app.rect("n"), stored);
 }

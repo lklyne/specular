@@ -72,7 +72,7 @@ pub(crate) fn open(app: &mut App, opened: OpenedSpace, effects: &mut Vec<Effect>
     comment::forget(app);
     set_focus(app, None, effects);
     crate::showing::leave(app);
-    app.session.shown_order.clear();
+    app.session.tabs = crate::showing::Tabs::default();
 
     let OpenedSpace {
         folder,
@@ -352,7 +352,7 @@ fn activate(app: &mut App, index: usize, effects: &mut Vec<Effect>) {
         view: CanvasView {
             camera: app.session.camera,
             selection: mem::take(&mut app.session.selection),
-            shown_order: mem::take(&mut app.session.shown_order),
+            tabs: mem::take(&mut app.session.tabs),
             loaded_fits: mem::take(&mut app.session.loaded_fits),
             fitted: true,
         },
@@ -400,7 +400,7 @@ fn enter(app: &mut App, parked: Parked, before: &[HostedPage], effects: &mut Vec
     let session = &mut app.session;
     session.camera = view.camera;
     session.selection = view.selection;
-    session.shown_order = view.shown_order;
+    session.tabs = view.tabs;
     session.loaded_fits = view.loaded_fits;
     session.entered_group = None;
     session.hover = None;

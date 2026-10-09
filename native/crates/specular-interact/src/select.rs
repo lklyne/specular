@@ -57,7 +57,7 @@ pub(crate) fn press(
         // A double click on a text, a sticky, a shape or a Document edits
         // its text. A Document shown alone is edited by any click.
         Hit::EntityBody { entity }
-            if (click_count > 1 || showing::shows(app, &entity))
+            if (click_count > 1 || showing::holds(app, &entity))
                 && !is_additive(input.modifiers)
                 && has_text(app, &entity) =>
         {
@@ -71,7 +71,7 @@ pub(crate) fn press(
         }
         // One whose file has not been read yet is not dragged either: its
         // tab holds it still.
-        Hit::EntityBody { entity } if showing::shows(app, &entity) => {
+        Hit::EntityBody { entity } if showing::holds(app, &entity) => {
             app.session.selection.set([ItemId::Entity(entity)]);
         }
         Hit::EntityBody { entity } => press_body(app, entity, world, input, click_count),
@@ -120,7 +120,7 @@ fn press_page(app: &mut App, page: EntityId, world: DVec2, input: &PointerInput,
         // alone is entered by any click.
         let enters = click_count > 1
             || app.session.selection.single_entity() == Some(&page)
-            || showing::shows(app, &page);
+            || showing::holds(app, &page);
         let click = enters.then(|| Click::Enter(page.clone()));
         begin_move(app, &page, world, input, click);
     }

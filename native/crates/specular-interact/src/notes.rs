@@ -263,7 +263,7 @@ pub(crate) fn on_wheel(app: &mut App, input: &WheelInput) -> bool {
         return false;
     };
     let selected =
-        session.selection.single_entity() == Some(&entity) || crate::showing::shows(app, &entity);
+        session.selection.single_entity() == Some(&entity) || crate::showing::holds(app, &entity);
     let is_note = (app.document.entity(&entity)).is_some_and(|it| note_file(&it.kind).is_some());
     if !selected || !is_note {
         return false;

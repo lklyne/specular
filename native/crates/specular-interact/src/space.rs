@@ -93,8 +93,8 @@ pub(crate) struct Parked {
 pub(crate) struct CanvasView {
     pub(crate) camera: Camera,
     pub(crate) selection: Selection,
-    /// The order the canvas's item tabs keep.
-    pub(crate) shown_order: Vec<specular_doc::EntityId>,
+    /// The canvas's item tabs: their order and what each keeps.
+    pub(crate) tabs: crate::showing::Tabs,
     pub(crate) loaded_fits: LoadedFits,
     /// Whether the document's texts have been measured since it was read.
     /// A canvas that has never been the active one has not.

@@ -209,6 +209,8 @@ fn glyph(icon: Icon) -> Glyph {
         Icon::Plus => sidebar::PLUS,
         Icon::PanelLeft => sidebar::PANEL_LEFT,
         Icon::PanelRight => sidebar::PANEL_RIGHT,
+        Icon::Eye => lucide::EYE,
+        Icon::EyeOff => lucide::EYE_OFF,
         Icon::File => sidebar::FILE,
         Icon::FileText => sidebar::FILE_TEXT,
         Icon::Image => sidebar::IMAGE,

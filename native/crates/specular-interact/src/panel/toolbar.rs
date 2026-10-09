@@ -10,11 +10,11 @@
 use specular_doc::Color;
 
 use super::{
-    ControlId, Dropdown, DropdownOption, DropdownSection, Face, Icon, OptionLayout, SidebarButton,
-    ThemeButton, ToolButton, ToolbarModel, ToolbarSection,
+    Control, ControlId, Dropdown, DropdownOption, DropdownSection, Face, Icon, OptionLayout,
+    SidebarButton, ThemeButton, Toggle, ToolButton, ToolbarModel, ToolbarSection,
 };
 use crate::menu::{tool_action, tool_label};
-use crate::{Action, App, ChatAction, Theme, Tool, binding_of};
+use crate::{Action, App, ChatAction, Lens, Theme, Tool, binding_of};
 
 /// The zoom levels the readout offers, in percent.
 const ZOOM_LEVELS: [u16; 7] = [10, 25, 50, 75, 100, 150, 200];
@@ -153,6 +153,54 @@ fn theme_button(app: &App) -> ThemeButton {
     }
 }
 
+/// A lens as the control names it: its id, the word on its segment and
+/// its tooltip.
+const fn lens_words(lens: Lens) -> (&'static str, &'static str, &'static str) {
+    match lens {
+        Lens::Fill => ("fill", "Fill", "Fill the window"),
+        Lens::Device => ("device", "Device", "Device size, fitted to the window"),
+        Lens::Canvas => ("canvas", "Canvas", "On the canvas, free to pan and zoom"),
+    }
+}
+
+/// The lens of the tab showing and the eye. Nothing on the Canvas tab.
+fn view_controls(app: &App) -> Vec<Control> {
+    let Some(now) = app.lens() else {
+        return Vec::new();
+    };
+    let id = ControlId::new("view.lens");
+    let lenses = Lens::ALL.into_iter().map(|lens| {
+        let (name, word, hint) = lens_words(lens);
+        Control::Toggle(Toggle {
+            id: id.child(name),
+            label: hint.into(),
+            face: Face::text(word),
+            on: lens == now,
+            enabled: true,
+            chord: None,
+            action: Action::SetLens(lens),
+        })
+    });
+    let open = app.shows_others();
+    let eye = Toggle {
+        id: ControlId::new("view.others"),
+        label: if open {
+            "Hide other items"
+        } else {
+            "Show other items"
+        }
+        .into(),
+        face: Face::icon(if open { Icon::Eye } else { Icon::EyeOff }),
+        on: open,
+        enabled: true,
+        chord: None,
+        action: Action::ShowOthers(!open),
+    };
+    lenses
+        .chain([Control::Separator, Control::Toggle(eye)])
+        .collect()
+}
+
 /// The toolbar for `app` as it is now.
 pub fn toolbar(app: &App) -> ToolbarModel {
     let mut sections: Vec<ToolbarSection> = GROUPS
@@ -179,5 +227,6 @@ pub fn toolbar(app: &App) -> ToolbarModel {
         theme: theme_button(app),
         chat,
         sections,
+        view: view_controls(app),
     }
 }

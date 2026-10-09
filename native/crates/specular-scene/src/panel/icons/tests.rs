@@ -54,6 +54,8 @@ fn glyphs() -> Vec<Glyph> {
         Icon::Plus,
         Icon::PanelLeft,
         Icon::PanelRight,
+        Icon::Eye,
+        Icon::EyeOff,
         Icon::File,
         Icon::FileText,
         Icon::Image,

@@ -113,8 +113,8 @@ pub(crate) struct PageScroll {
 }
 
 /// The scroll and the tracked elements of every page, as the app has them
-/// now, and the item shown alone, which is the only page there is to hook
-/// to while it is.
+/// now, and the page that fills an item view, which is the only page there
+/// is to hook to while it does.
 #[derive(Debug, Clone, Default)]
 pub(crate) struct Scrolls {
     pages: HashMap<EntityId, PageScroll>,
@@ -137,16 +137,16 @@ impl Scrolls {
                     (id.clone(), scroll)
                 })
                 .collect(),
-            alone: app.shown_item().cloned(),
+            alone: showing::only_page(app).cloned(),
         }
     }
 
-    /// The item shown alone, if one is.
+    /// The page that fills an item view, if one does.
     pub(crate) fn alone(&self) -> Option<&EntityId> {
         self.alone.as_ref()
     }
 
-    /// Whether `page` can be hooked to: it is not hidden by an item view.
+    /// Whether `page` can be hooked to: no other page fills the view.
     pub(crate) fn offers(&self, page: &EntityId) -> bool {
         self.alone.as_ref().is_none_or(|alone| alone == page)
     }
@@ -260,7 +260,7 @@ pub fn seen<'a>(app: &App, entity: &'a Entity) -> Option<Seen<'a>> {
     if showing::hides(app, entity) {
         return None;
     }
-    if let Some(rect) = showing::reading_rect(app, entity) {
+    if let Some(rect) = showing::presented_rect(app, entity) {
         return Some(Seen {
             entity: Cow::Owned(Entity {
                 rect,
@@ -289,7 +289,7 @@ pub fn shown_rect(app: &App, entity: &Entity) -> Option<Rect> {
     if showing::hides(app, entity) {
         return None;
     }
-    if let Some(rect) = showing::reading_rect(app, entity) {
+    if let Some(rect) = showing::presented_rect(app, entity) {
         return Some(rect);
     }
     let shift = shift_for(app, entity);
@@ -305,7 +305,7 @@ pub fn shown_rect(app: &App, entity: &Entity) -> Option<Rect> {
 /// gesture finds it and where its text is laid out. For a Document shown
 /// alone that is its reading column.
 pub(crate) fn placed_rect(app: &App, entity: &Entity) -> Rect {
-    if let Some(rect) = showing::reading_rect(app, entity) {
+    if let Some(rect) = showing::presented_rect(app, entity) {
         return rect;
     }
     let shift = shift_for(app, entity);

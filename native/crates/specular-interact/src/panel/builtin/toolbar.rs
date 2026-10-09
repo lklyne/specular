@@ -7,10 +7,10 @@ use specular_doc::TextAlign;
 use super::super::{
     Dropdown, Icon, PaintRole, Palette, ThemeButton, ToolButton, ToolbarModel, ToolbarSection,
 };
-use super::controls::text;
+use super::controls::{self, RowKind, text};
 use super::metrics::{
-    CONTROL_RADIUS, DIVIDER, DIVIDER_MARGIN, GAP, TOOL_BUTTON, TOOL_GLYPH, ZOOM_CHEVRON, ZOOM_PAD,
-    ZOOM_TRIGGER,
+    CONTROL_RADIUS, DIVIDER, DIVIDER_MARGIN, DOCK_PAD, GAP, TOOL_BUTTON, TOOL_GLYPH, ZOOM_CHEVRON,
+    ZOOM_PAD, ZOOM_TRIGGER,
 };
 use super::node::{Chrome, Node, Panel, PanelRect, Part, Run, Tint, Tone};
 use super::{Ctx, rows};
@@ -138,10 +138,19 @@ pub(super) fn layout(ctx: &Ctx<'_>, model: &ToolbarModel, viewport: Vec2) -> Pan
         ((rect.width - width) / 2.0).round(),
         rect.y + (rect.height - TOOL_BUTTON.1) / 2.0,
     );
+    let mut nodes: Vec<Node> = nodes.into_iter().map(|node| node.moved(corner)).collect();
+    // The lens and the eye, from the row's right end.
+    let view = controls::row(ctx, &model.view, RowKind::Dock, None);
+    let width = controls::natural_width(ctx, &model.view, RowKind::Dock);
+    let end = Vec2::new(
+        (rect.width - DOCK_PAD - width).round(),
+        (rect.y + (rect.height - view.height) / 2.0).round(),
+    );
+    nodes.extend(view.nodes.into_iter().map(|node| node.moved(end)));
     Panel {
         surface: super::Surface::Toolbar,
         rect,
         menu: false,
-        nodes: nodes.into_iter().map(|node| node.moved(corner)).collect(),
+        nodes,
     }
 }
