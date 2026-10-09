@@ -41,6 +41,10 @@ pub const fn anchors_to_pages(kind: &Kind) -> bool {
 /// holds the entity's centre, or `None` on empty canvas. An entity in a
 /// group never anchors, because the group already owns its movement.
 ///
+/// A page an item view hides is not there to hook to. While a page is shown
+/// alone, what lands on no page is hooked to that one: free, it would be
+/// hidden as soon as it was put down.
+///
 /// The anchor records the page's scroll, so the entity tracks the document
 /// under it from here on (see [`scroll_follow`](crate::scroll_follow)).
 pub(crate) fn page_anchor_for(
@@ -53,16 +57,22 @@ pub(crate) fn page_anchor_for(
     }
     let rect = entity.rect;
     let centre = geometry::origin(rect) + geometry::size(rect) / 2.0;
-    document.entities().rev().find_map(|candidate| {
+    let hook = |candidate: &Entity| {
         let page = page_of(candidate)?;
         let live = scrolls.live(&candidate.id);
-        geometry::contains(candidate.rect, centre).then(|| PageAnchor {
+        Some(PageAnchor {
             page_url: canonical_page_url(&page.url),
             scroll_x: Some(live.x),
             scroll_y: Some(live.y),
             ..PageAnchor::new(candidate.id.clone())
         })
-    })
+    };
+    (document.entities().rev())
+        .filter(|candidate| {
+            scrolls.offers(&candidate.id) && geometry::contains(candidate.rect, centre)
+        })
+        .find_map(hook)
+        .or_else(|| hook(document.entity(scrolls.alone()?)?))
 }
 
 /// The commands that re-resolve the anchor of each of `ids` from where it

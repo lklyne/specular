@@ -8,7 +8,7 @@ use glam::{DVec2, Vec2};
 use specular_doc::EntityId;
 
 use crate::asset;
-use crate::{App, Effect, clipboard, geometry, grid, is_image_file, is_note_file};
+use crate::{App, Effect, clipboard, geometry, grid, is_image_file, is_note_file, showing};
 
 /// The size a dropped image gets when the shell could not read its own.
 const DEFAULT_IMAGE_SIZE: DVec2 = DVec2::new(300.0, 300.0);
@@ -31,7 +31,8 @@ pub struct DroppedFile {
 
 /// Makes a file entity for each image and markdown file in `files`, the
 /// first at `screen` and each next one a step down and right, as one undo
-/// step. Other files are ignored.
+/// step. Other files are ignored, and so is a drop on an item view, which
+/// shows one item alone.
 pub(crate) fn on_drop(
     app: &mut App,
     files: &[DroppedFile],
@@ -49,6 +50,7 @@ pub(crate) fn on_drop(
         None => clipboard::paste_point(app),
     };
     let mut entities = Vec::new();
+    let mut copies = Vec::new();
     for file in files {
         let Some(size) = default_size(file) else {
             continue;
@@ -57,10 +59,15 @@ pub(crate) fn on_drop(
         let Some((shown, copy)) = shown_path(&id, file) else {
             continue;
         };
-        effects.extend(copy);
+        copies.extend(copy);
         let corner = at + DVec2::splat(CASCADE_STEP * entities.len() as f64);
         entities.push(asset::file_entity(id, shown, geometry::rect(corner, size)));
     }
+    // An item view would hide them, so nothing is copied or shown.
+    if entities.iter().any(|entity| showing::hides(app, entity)) {
+        return;
+    }
+    effects.extend(copies);
     asset::insert_selected(app, entities, effects);
 }
 

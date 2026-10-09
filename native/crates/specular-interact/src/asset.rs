@@ -60,9 +60,10 @@ pub(crate) fn file_entity(id: EntityId, file: String, rect: Rect) -> Entity {
 }
 
 /// Adds `entities` in front of everything, in order, as one undo step, and
-/// selects them.
+/// selects them. Nothing is added when an item view would hide any of them.
 pub(crate) fn insert_selected(app: &mut App, entities: Vec<Entity>, effects: &mut Vec<Effect>) {
-    if entities.is_empty() {
+    let hidden = |entity: &Entity| crate::showing::hides(app, entity);
+    if entities.is_empty() || entities.iter().any(hidden) {
         return;
     }
     let ids: Vec<ItemId> = (entities.iter())

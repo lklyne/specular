@@ -16,7 +16,8 @@ use specular_doc::EntityId;
 
 use crate::focus::{pointer_to, set_pointer_page};
 use crate::{
-    App, Effect, Gesture, Hit, PointerInput, Tool, comment, draw, edit, gesture, hit, place, select,
+    App, Effect, Gesture, Hit, PointerInput, Tool, comment, draw, edit, gesture, hit, place,
+    select, showing,
 };
 
 pub(crate) fn on_pointer(app: &mut App, input: &PointerInput, effects: &mut Vec<Effect>) {
@@ -212,12 +213,24 @@ fn tool_takes_press(
     effects: &mut Vec<Effect>,
 ) -> bool {
     let world = app.session.camera.screen_to_world(input.screen).as_dvec2();
+    // What an item view would hide as soon as it was made is not made.
+    let refused = showing::refuses(app, app.session.tool, world);
     match app.session.tool {
         // A press on a comment's mark is the mark's, with either tool.
         Tool::Comment => {
-            if !comment::press(app, input.screen, effects) {
+            if !comment::press(app, input.screen, effects) && !refused {
                 app.session.gesture = Some(Gesture::Comment(comment::begin(app, input)));
             }
+            true
+        }
+        Tool::AddPage
+        | Tool::AddText
+        | Tool::AddSticky
+        | Tool::AddShape
+        | Tool::AddDocument
+        | Tool::Draw
+            if refused =>
+        {
             true
         }
         Tool::Select => {

@@ -250,8 +250,8 @@ pub(crate) fn reveal_caret(app: &mut App) {
     scroll_to(app, &entity, wanted);
 }
 
-/// Scrolls the Document under the pointer when it is the whole selection,
-/// and says whether it took the wheel. Cmd or Ctrl+wheel is a zoom and is
+/// Scrolls the Document under the pointer when it is the whole selection or
+/// is shown alone, and says whether it took the wheel. Cmd or Ctrl+wheel is a zoom and is
 /// left for the canvas.
 pub(crate) fn on_wheel(app: &mut App, input: &WheelInput) -> bool {
     if input.modifiers.meta || input.modifiers.control {
@@ -261,7 +261,8 @@ pub(crate) fn on_wheel(app: &mut App, input: &WheelInput) -> bool {
     let Some(Hit::EntityBody { entity }) = session.pointer.map(|at| hit_test(app, at)) else {
         return false;
     };
-    let selected = session.selection.single_entity() == Some(&entity);
+    let selected =
+        session.selection.single_entity() == Some(&entity) || crate::showing::shows(app, &entity);
     let is_note = (app.document.entity(&entity)).is_some_and(|it| note_file(&it.kind).is_some());
     if !selected || !is_note {
         return false;

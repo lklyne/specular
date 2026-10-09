@@ -31,6 +31,7 @@ mod history_selection;
 mod hit_test;
 mod images;
 mod inspect;
+mod item_view;
 mod layout_handles;
 mod menus;
 mod moves;

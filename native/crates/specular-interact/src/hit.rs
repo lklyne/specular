@@ -298,14 +298,13 @@ fn entity_hit(app: &App, entity: &Entity, screen: Vec2) -> Hit {
     }
 }
 
-/// The frontmost page containing the canvas point `world`, whatever is on
-/// top of it.
+/// The frontmost page that is seen and contains the canvas point `world`,
+/// whatever is on top of it.
 pub(crate) fn page_at(app: &App, world: glam::DVec2) -> Option<(EntityId, PagePlacement)> {
-    let entity = app
-        .document
-        .entities()
-        .rev()
-        .find(|entity| page_of(entity).is_some() && geometry::contains(entity.rect, world))?;
+    let entity = app.document.entities().rev().find(|entity| {
+        page_of(entity).is_some()
+            && crate::shown_rect(app, entity).is_some_and(|rect| geometry::contains(rect, world))
+    })?;
     Some((entity.id.clone(), app.page_placement(&entity.id)?))
 }
 

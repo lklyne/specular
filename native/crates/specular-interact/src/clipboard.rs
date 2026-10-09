@@ -15,7 +15,7 @@ use specular_doc::{
 use crate::asset::{self, AssetBytes};
 use crate::clone::{self, Orphan, Source};
 use crate::scroll_follow::{self, Scrolls};
-use crate::{App, Effect, anchor, edit, geometry, grid, place, update, url, verbs};
+use crate::{App, Effect, anchor, edit, geometry, grid, place, showing, update, url, verbs};
 
 /// What copied entities start with on the clipboard.
 const CLIPBOARD_PREFIX: &str = "specular:canvas:";
@@ -157,6 +157,10 @@ pub(crate) fn request(app: &App, effects: &mut Vec<Effect>) {
 }
 
 /// The shell read the clipboard: pastes what it holds at the pointer.
+///
+/// In an item view a paste lands on the page shown, hooked to it, when all
+/// of it can be: text, shapes and drawings. Anything else would be hidden as
+/// soon as it was pasted, so that paste does nothing.
 pub(crate) fn on_read(app: &mut App, content: ClipboardContent, effects: &mut Vec<Effect>) {
     if app.session.gesture.is_some() {
         return;
@@ -173,12 +177,16 @@ pub(crate) fn on_read(app: &mut App, content: ClipboardContent, effects: &mut Ve
         Paste::Image(image) => {
             let id = EntityId::new(app.fresh_id());
             let file = asset::asset_file(&id, "png");
+            let size = DVec2::new(f64::from(image.width), f64::from(image.height));
+            let entity = asset::file_entity(id, file.clone(), geometry::rect(at, size));
+            // No file is written for an image an item view would hide.
+            if showing::hides(app, &entity) {
+                return;
+            }
             effects.push(Effect::WriteAsset {
-                file: file.clone(),
+                file,
                 bytes: image.png,
             });
-            let size = DVec2::new(f64::from(image.width), f64::from(image.height));
-            let entity = asset::file_entity(id, file, geometry::rect(at, size));
             asset::insert_selected(app, vec![entity], effects);
         }
         Paste::Page(url) => {
@@ -190,6 +198,10 @@ pub(crate) fn on_read(app: &mut App, content: ClipboardContent, effects: &mut Ve
             let mut entity = place::text(app, id, at, TextStyle::Sticky);
             if let Kind::Text(sticky) = &mut entity.kind {
                 sticky.text = text;
+            }
+            // Beside the page shown alone it has to be hooked to be seen.
+            if app.shown_item().is_some() {
+                entity.anchor = anchor::page_anchor_for(&app.document, &Scrolls::of(app), &entity);
             }
             asset::insert_selected(app, vec![entity], effects);
         }
@@ -216,6 +228,12 @@ fn paste_items(app: &mut App, copied: &Document, at: DVec2, effects: &mut Vec<Ef
     let Some(bounds) = bounds(copied) else {
         return;
     };
+    if copied
+        .entities()
+        .any(|entity| showing::hides_new(app, entity))
+    {
+        return;
+    }
     let delta = at - geometry::origin(bounds);
     let all = |_: &EntityId| true;
     let ids = clone::fresh_ids(app, |_| clone::needed(copied, all));

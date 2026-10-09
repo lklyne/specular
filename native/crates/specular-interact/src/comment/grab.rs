@@ -36,11 +36,13 @@ pub(crate) fn grabbing_page(grabs: &[PageGrab]) -> Option<&EntityId> {
         .map(|grab| &grab.page)
 }
 
-/// The pages the canvas-space `region` lies over, front to back.
+/// The pages the canvas-space `region` lies over and that are seen, front to
+/// back.
 pub(super) fn pages_under(app: &App, region: Rect) -> Vec<PageRegion> {
     let mut pages: Vec<PageRegion> = app
         .pages()
         .filter_map(|(id, _, placement)| {
+            crate::shown_rect(app, app.document.entity(id)?)?;
             let covered = geometry::intersection(region, placement.rect)?;
             Some(PageRegion {
                 page: id.clone(),

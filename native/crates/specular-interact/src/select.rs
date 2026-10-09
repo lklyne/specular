@@ -19,7 +19,7 @@ use crate::marquee::MarqueeMode;
 use crate::move_drag::{self, Click};
 use crate::{
     App, Effect, Gesture, Hit, PointerInput, TextEdit, edge_drag, edit, groups, hit, layout,
-    resize_drag,
+    resize_drag, showing,
 };
 
 /// Whether a click with these modifiers changes the selection item by item
@@ -109,8 +109,11 @@ fn press_page(app: &mut App, page: EntityId, world: DVec2, input: &PointerInput,
         app.session.selection.toggle(ItemId::Entity(page));
     } else {
         // The second click of a double-click enters however fast the two
-        // landed, and whatever the first one found selected.
-        let enters = click_count > 1 || app.session.selection.single_entity() == Some(&page);
+        // landed, and whatever the first one found selected. A page shown
+        // alone is entered by any click.
+        let enters = click_count > 1
+            || app.session.selection.single_entity() == Some(&page)
+            || showing::shows(app, &page);
         let click = enters.then(|| Click::Enter(page.clone()));
         begin_move(app, &page, world, input, click);
     }

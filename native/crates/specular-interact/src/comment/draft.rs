@@ -37,6 +37,10 @@ const GAP: f32 = 8.0;
 /// and the canvas keeps only the marker. Otherwise the draft's text is
 /// edited in a card on the canvas.
 pub(super) fn open(app: &mut App, draft: Annotation, effects: &mut Vec<Effect>) {
+    // A comment an item view would hide is not started.
+    if crate::showing::hides_comment(app, &draft) {
+        return;
+    }
     edit::end(app, effects);
     set_focus(app, None, effects);
     // The comment just committed by the line above gives up the focus: the

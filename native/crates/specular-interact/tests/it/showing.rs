@@ -159,7 +159,8 @@ fn an_item_view_whose_item_goes_falls_back_to_the_canvas() {
     // Deleted while shown.
     let mut app = mixed();
     let canvas = app.session().camera;
-    app.act(show("p1")).key(Key::Delete);
+    // Escape first: the page shown is entered, and Delete is its own.
+    app.act(show("p1")).key(Key::Escape).key(Key::Delete);
     assert_eq!(app.app().showing(), Showing::Canvas);
     assert_eq!(app.session().camera, canvas);
     assert_eq!(tabs(&app).len(), 3);

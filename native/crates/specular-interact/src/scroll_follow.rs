@@ -113,14 +113,19 @@ pub(crate) struct PageScroll {
 }
 
 /// The scroll and the tracked elements of every page, as the app has them
-/// now.
+/// now, and the item shown alone, which is the only page there is to hook
+/// to while it is.
 #[derive(Debug, Clone, Default)]
-pub(crate) struct Scrolls(HashMap<EntityId, PageScroll>);
+pub(crate) struct Scrolls {
+    pages: HashMap<EntityId, PageScroll>,
+    alone: Option<EntityId>,
+}
 
 impl Scrolls {
     pub(crate) fn of(app: &App) -> Self {
-        Self(
-            app.pages()
+        Self {
+            pages: app
+                .pages()
                 .map(|(id, _, placement)| {
                     let scroll = PageScroll {
                         live: app.page_scroll(id),
@@ -132,12 +137,25 @@ impl Scrolls {
                     (id.clone(), scroll)
                 })
                 .collect(),
-        )
+            alone: app.shown_item().cloned(),
+        }
+    }
+
+    /// The item shown alone, if one is.
+    pub(crate) fn alone(&self) -> Option<&EntityId> {
+        self.alone.as_ref()
+    }
+
+    /// Whether `page` can be hooked to: it is not hidden by an item view.
+    pub(crate) fn offers(&self, page: &EntityId) -> bool {
+        self.alone.as_ref().is_none_or(|alone| alone == page)
     }
 
     /// The page's scroll, zero for a page that has not said or is gone.
     pub(crate) fn live(&self, page: &EntityId) -> DVec2 {
-        self.0.get(page).map_or(DVec2::ZERO, |scroll| scroll.live)
+        self.pages
+            .get(page)
+            .map_or(DVec2::ZERO, |scroll| scroll.live)
     }
 
     /// How far `entity` is shifted, in canvas units.
@@ -145,7 +163,7 @@ impl Scrolls {
         let Some(anchor) = &entity.anchor else {
             return DVec2::ZERO;
         };
-        self.0.get(&anchor.page_id).map_or(DVec2::ZERO, |page| {
+        self.pages.get(&anchor.page_id).map_or(DVec2::ZERO, |page| {
             anchor_shift(anchor, page.live, &page.places) * page.per_css
         })
     }
@@ -156,7 +174,7 @@ impl Scrolls {
 /// where its element is now. An anchor that records no scroll keeps none,
 /// and an element that cannot be found keeps the place it recorded.
 pub(crate) fn restamped(scrolls: &Scrolls, anchor: &PageAnchor) -> PageAnchor {
-    let Some(page) = scrolls.0.get(&anchor.page_id) else {
+    let Some(page) = scrolls.pages.get(&anchor.page_id) else {
         return anchor.clone();
     };
     let follows = anchor.scroll_y.is_some();
