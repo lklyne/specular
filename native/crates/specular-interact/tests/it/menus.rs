@@ -73,6 +73,7 @@ fn the_shortcuts_are_the_expected_keys() {
     assert_eq!(chord("Zoom out"), Some(Chord::char('-').cmd()));
     assert_eq!(chord("Zoom to 100%"), Some(Chord::char('0').cmd()));
     assert_eq!(chord("Zoom to fit"), Some(Chord::char('1').cmd()));
+    assert_eq!(chord("Toggle sidebar"), Some(Chord::char('b').cmd()));
     assert_eq!(chord("Select"), Some(Chord::char('v')));
     assert_eq!(chord("Shape"), Some(Chord::char('r')));
     assert_eq!(chord("Draw"), Some(Chord::char('m')));

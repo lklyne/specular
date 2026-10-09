@@ -10,8 +10,8 @@ use specular_doc::{BrushType, ShapeKind};
 
 use crate::update::run_action;
 use crate::{
-    Action, App, Effect, Focus, Format, Key, KeyInput, PointerInput, Tool, ToolDefaultPatch, edit,
-    gesture, grid, page_input, page_state,
+    Action, App, Effect, Focus, Format, Key, KeyInput, PointerInput, SidebarAction, Tool,
+    ToolDefaultPatch, edit, gesture, grid, page_input, page_state,
 };
 
 /// How far an arrow key moves the selection, in canvas units. Shift moves it
@@ -139,10 +139,16 @@ impl Context {
     /// Whether there is a state of the app in which both contexts hold. Two
     /// rows of the table may share a key only where this is false.
     pub fn overlaps(self, other: Self) -> bool {
-        // Keys go either to the canvas or to an entered page, never both.
-        let canvas_only = |context| matches!(context, Self::Canvas | Self::CanvasOrEditing);
-        let page_only = |context| matches!(context, Self::EnteredPage);
-        !(canvas_only(self) && page_only(other) || page_only(self) && canvas_only(other))
+        // Keys go either to the canvas or to an entered page, never both,
+        // and text is either being edited or not.
+        let apart = |one, other| {
+            matches!(
+                (one, other),
+                (Self::Canvas | Self::CanvasOrEditing, Self::EnteredPage)
+                    | (Self::Canvas, Self::Editing)
+            )
+        };
+        !(apart(self, other) || apart(other, self))
     }
 
     /// Whether a binding with this context fires in `app` as it is now.
@@ -335,6 +341,12 @@ pub const BINDINGS: &[Binding] = &[
         Action::ZoomReset,
     ),
     once(Chord::char('1').cmd(), Context::Always, Action::ZoomToFit),
+    // The same key is bold while text is edited.
+    once(
+        Chord::char('b').cmd(),
+        Context::Canvas,
+        Action::Sidebar(SidebarAction::Toggle),
+    ),
     nudge(Chord::key(Key::ArrowLeft), -1.0, 0.0),
     nudge(Chord::key(Key::ArrowRight), 1.0, 0.0),
     nudge(Chord::key(Key::ArrowUp), 0.0, -1.0),

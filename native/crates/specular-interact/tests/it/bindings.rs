@@ -5,7 +5,7 @@ use specular_doc::{BrushType, Rect, ShapeKind};
 use specular_interact::{
     Action, BINDINGS, Context, Effect, Event, Key, KeyInput, Tool, ToolDefaultPatch, ToolDefaults,
 };
-use specular_testkit::{CMD, CMD_SHIFT, CTRL, SHIFT, TestApp, text};
+use specular_testkit::{CMD, CMD_SHIFT, CTRL, SHIFT, TestApp, sticky, text};
 
 const A: Rect = Rect::new(100.0, 100.0, 200.0, 100.0);
 
@@ -120,6 +120,21 @@ fn loaded_defaults_replace_the_current_ones_and_are_not_saved_back() {
     app.send(Event::ToolDefaultsLoaded(Box::new(loaded.clone())));
     assert_eq!(app.app().tool_defaults(), &loaded);
     assert_eq!(app.take_effects(), []);
+}
+
+#[test]
+fn command_b_toggles_the_sidebar_on_the_canvas_and_is_bold_in_an_edit() {
+    let mut app = TestApp::with_entities([sticky("a", A, "one")]);
+    app.chord(CMD, Key::Char('b'));
+    assert!(app.session().sidebar.shown());
+    app.chord(CMD, Key::Char('b'));
+    assert!(!app.session().sidebar.shown());
+
+    app.double_click((150.0, 150.0))
+        .chord(CMD, Key::Char('a'))
+        .chord(CMD, Key::Char('b'));
+    assert_eq!(app.editing_text(), "**one**");
+    assert!(!app.session().sidebar.shown(), "the edit took the key");
 }
 
 #[test]

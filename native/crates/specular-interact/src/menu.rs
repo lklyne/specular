@@ -11,8 +11,8 @@ use std::borrow::Cow;
 use specular_doc::ItemId;
 
 use crate::{
-    Action, App, BINDINGS, Binding, CanvasAction, Chord, Context, PageState, Tool, groups,
-    page_state,
+    Action, App, BINDINGS, Binding, CanvasAction, Chord, Context, PageState, SidebarAction, Tool,
+    groups, page_state,
 };
 
 /// One menu of the menu bar.
@@ -124,6 +124,8 @@ pub fn menus(app: &App) -> Vec<Menu> {
         item("Zoom out", Action::ZoomOut),
         item("Zoom to 100%", Action::ZoomReset),
         item("Zoom to fit", Action::ZoomToFit),
+        MenuEntry::Separator,
+        item("Toggle sidebar", Action::Sidebar(SidebarAction::Toggle)),
     ];
     vec![
         Menu {
