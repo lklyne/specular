@@ -16,8 +16,8 @@ use gpui_kit::{
     StatefulInteractiveElement as _, Styled as _, Window, div, px,
 };
 use specular_interact::{
-    Action, Choices, Chord, Control, ControlId, Dropdown, DropdownOption, DropdownSection, Icon,
-    OptionLayout, PopupModel, Tool, ToolbarModel, ToolbarSection,
+    Choices, Chord, Control, ControlId, Dropdown, DropdownOption, DropdownSection, Icon,
+    OptionLayout, PopupModel, ToolbarModel, ToolbarSection,
 };
 
 use super::controls::{CONTROL, control, element_id, face};
@@ -220,9 +220,7 @@ fn sections(
 
 /// A dropdown: a trigger showing the current value, and its sections in a
 /// Kit popover. It has no tooltip, which would sit over the open list.
-/// `toolbar` is the zoom readout, as tall as a tool button. A tool's popup
-/// hangs where a list of the toolbar opens, so opening one puts the tool
-/// down.
+/// `toolbar` is the zoom readout, as tall as a tool button.
 pub(super) fn dropdown(model: &Dropdown, toolbar: bool) -> AnyElement {
     let id = model.id.clone();
     let trigger = Button::new(element_id(&model.id.child("trigger")))
@@ -235,12 +233,6 @@ pub(super) fn dropdown(model: &Dropdown, toolbar: bool) -> AnyElement {
         .child(mark(&model.id));
     Popover::new(element_id(&model.id))
         .trigger(trigger)
-        .on_open_change(move |open, window, cx| {
-            let in_hand = canvas::with(|canvas| canvas.runtime.app().session().tool);
-            if *open && toolbar && in_hand.is_some_and(|tool| tool != Tool::Select) {
-                run(&Action::SetTool(Tool::Select), window, cx);
-            }
-        })
         .content(move |_, window, cx| {
             let popover = cx.entity();
             let dismiss: Dismiss = Rc::new(move |window, cx| {
@@ -266,7 +258,7 @@ pub(super) fn choices(model: &Choices, window: &mut Window, cx: &mut App) -> Any
 
 #[cfg(test)]
 mod tests {
-    use specular_interact::{Face, Key};
+    use specular_interact::{Action, Face, Key};
 
     use super::*;
 
