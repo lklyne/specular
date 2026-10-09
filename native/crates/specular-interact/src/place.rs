@@ -272,6 +272,11 @@ fn page(app: &App, id: EntityId, at: DVec2) -> Entity {
     if defaults.custom {
         crate::property::make_custom(&mut page, &mut rect);
     }
+    // `at` is where the device's corner goes, and the screen sits in from it.
+    if let Some(shell) = page.shell() {
+        rect.x += shell.insets.left;
+        rect.y += shell.insets.top;
+    }
     Entity::new(id, rect, Kind::Page(page))
 }
 

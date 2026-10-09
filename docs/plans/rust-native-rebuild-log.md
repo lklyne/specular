@@ -154,6 +154,7 @@ Choices made during the run that the plan did not settle, grouped by area. The t
 
 ### Pages, CEF and sync sets
 
+- A page's rect is its screen. The device frame (`showDeviceFrame`) is drawn outside it, from `Page::shell()` and the table in `specular-doc/src/presets.rs`. The `.canvas` file places a framed page by its shell's corner, as Electron does, so the reader adds the bezel's left and top and the writer takes them off. A new page and a property that changes the bezel keep the shell's corner where it was. Hit-testing, the selection outline, zoom to fit, arrange and the API's rects still go by the screen, not the shell. [DEVICE-FRAMES]
 - A page says things about itself as `PageNotice`s into `Session.pages`. Only the address is saved, written to the page entity with no undo step. [CEF]
 - A changed page URL is `Effect::Navigate`, never a close and a create. Cmd+[ and Cmd+] walk the history only of an entered page, because on the canvas they restack. [CEF]
 - A page is asked about its DOM over CEF's in-process devtools channel, one `Runtime.evaluate` a question. The synthetic source answers the same way from its grid. [CEF]

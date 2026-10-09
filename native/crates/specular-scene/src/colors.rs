@@ -71,6 +71,16 @@ pub struct Colors {
     pub text_selection: Color,
     /// A page's resting border.
     pub page_border: Color,
+    /// The bezel of a page's device frame.
+    pub device_bezel: Color,
+    /// The shadow a device frame drops.
+    pub device_shadow: Color,
+    /// A phone's notch.
+    pub device_notch: Color,
+    /// The home indicator in a phone's or a tablet's bezel.
+    pub device_indicator: Color,
+    /// The hairline in the bezel around the screen.
+    pub device_screen_ring: Color,
     /// Page titles and file names.
     pub muted_text: Color,
     /// The inside of a file card and a Document.

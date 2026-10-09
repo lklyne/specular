@@ -42,6 +42,12 @@ pub(super) fn read_node(mut node: JsonMap) -> Result<Entity, JsonMap> {
             entity.parent = take(&mut node, "parentGroupId").or(legacy);
             page.metadata = take(&mut node, "metadata");
             page.color_scheme = take(&mut node, "colorScheme");
+            // The file places a framed page by its shell's corner. The rect
+            // is the screen inside it.
+            if let Some(shell) = page.shell() {
+                entity.rect.x += shell.insets.left;
+                entity.rect.y += shell.insets.top;
+            }
         }
         Kind::Text(text) => {
             text.color = take_node_color(&mut node, &mut ext);

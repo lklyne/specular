@@ -218,7 +218,9 @@ fn clicking_with_the_page_tool_places_a_blank_page_and_hosts_it() {
     assert_doc_snapshot!(app);
     let entity = placed(&app);
     let id = entity.id.clone();
-    assert_eq!(entity.rect, Rect::new(220.0, 140.0, 375.0, 667.0));
+    // The click is the device's corner. An iPhone SE's screen sits 28 in
+    // and 96 down from it.
+    assert_eq!(entity.rect, Rect::new(248.0, 236.0, 375.0, 667.0));
     assert_eq!(
         page_of(entity).map(|page| (page.url.as_str(), page.preset_index, page.source)),
         Some(("about:blank", Some(0), Some(PageSource::Manual)))

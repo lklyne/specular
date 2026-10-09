@@ -18,6 +18,23 @@ const LEGACY_CUSTOM_SIZE: &str = "responsiveSize";
 /// Applies `property` to a page and its rect. Returns whether it applies to
 /// pages.
 pub(super) fn set(property: &Property, page: &mut Page, rect: &mut Rect) -> bool {
+    let shell_before = shell_offset(page);
+    let applies = apply(property, page, rect);
+    // The shell's corner stays where it was, so a frame that appears, goes
+    // or changes its bezel moves the screen and not the device.
+    let shell_after = shell_offset(page);
+    rect.x += shell_after.0 - shell_before.0;
+    rect.y += shell_after.1 - shell_before.1;
+    applies
+}
+
+/// How far the page's screen sits in from its shell's corner.
+fn shell_offset(page: &Page) -> (f64, f64) {
+    page.shell()
+        .map_or((0.0, 0.0), |shell| (shell.insets.left, shell.insets.top))
+}
+
+fn apply(property: &Property, page: &mut Page, rect: &mut Rect) -> bool {
     match property {
         Property::ViewportPreset(index) => {
             let Some(chosen) = preset(u64::from(*index)) else {

@@ -260,5 +260,11 @@ fn page(id: EntityId, at: DVec2, url: String) -> Entity {
         metadata: metadata.as_object().cloned(),
         ..Page::default()
     };
-    Entity::new(id, geometry::rect(at, PASTED_PAGE_SIZE), Kind::Page(page))
+    // `at` is where the device's corner goes, and the screen sits in from it.
+    let mut rect = geometry::rect(at, PASTED_PAGE_SIZE);
+    if let Some(shell) = page.shell() {
+        rect.x += shell.insets.left;
+        rect.y += shell.insets.top;
+    }
+    Entity::new(id, rect, Kind::Page(page))
 }

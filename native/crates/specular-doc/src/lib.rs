@@ -46,7 +46,10 @@ pub use kinds::{
     Page, PageSource, Shape, ShapeKind, Stroke, Text, TextAlign, TextFont, TextStyle,
     VerticalAlign, WidthMode,
 };
-pub use presets::{LAPTOP, VIEWPORT_PRESETS, ViewportPreset, preset};
+pub use presets::{
+    DeviceKind, DeviceShell, LAPTOP, ShellInsets, VIEWPORT_PRESETS, ViewportPreset, device_shell,
+    preset,
+};
 
 /// A JSON object, used for metadata and for unmodeled passthrough fields.
 pub type JsonMap = serde_json::Map<String, serde_json::Value>;

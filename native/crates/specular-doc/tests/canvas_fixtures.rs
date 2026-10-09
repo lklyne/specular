@@ -131,9 +131,11 @@ fn moving_a_page_preserves_its_unknown_fields() {
     laptop["futureField"] = json!({ "keep": [1, 2.5] });
     let mut document = Document::from_canvas_value(file.clone()).unwrap();
     document
+        // The laptop is framed, and the file places it by its shell's
+        // corner: 12 units up and left of the screen the rect is.
         .apply(set_rect(
             SPECULAR_LAPTOP,
-            Rect::new(0.0, 0.0, 1280.0, 800.0),
+            Rect::new(12.0, 12.0, 1280.0, 800.0),
         ))
         .unwrap();
     let mut expected = node(&file, SPECULAR_LAPTOP).clone();

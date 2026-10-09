@@ -65,6 +65,17 @@ fn a_page_is_its_frame_with_a_border_and_a_title() {
 }
 
 #[test]
+fn a_framed_page_sits_in_its_device_shell() {
+    // The file's corner is the shell's, 22 out from the screen.
+    let app = TestApp::from_canvas(
+        r#"{"nodes":[{"id":"p1","type":"link","x":100,"y":100,"width":393,"height":852,
+            "url":"https://example.com/p1",
+            "metadata":{"showDeviceFrame":true,"deviceId":"iphone-14-pro"}}],"edges":[]}"#,
+    );
+    assert_scene_snapshot!(app);
+}
+
+#[test]
 fn plain_text_is_ink_in_its_font_size_and_colour() {
     let app = TestApp::with_entities([
         text_entity(

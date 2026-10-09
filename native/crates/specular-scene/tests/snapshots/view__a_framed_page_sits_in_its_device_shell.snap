@@ -1,0 +1,12 @@
+---
+source: crates/specular-scene/tests/view.rs
+expression: app.scene_snapshot()
+---
+canvas shadow 100,116 437x900 r=77 blur=16 fill=#0000003d
+canvas rect 100,100 437x900 r=77 fill=#d6d3d1
+canvas page p1 122,122 393x852 r=55
+canvas rect 255.5,130 126x37 r=18.5 fill=#1a1a1a
+canvas rect 258.5,987 120x4 r=2 fill=#00000026
+screen rect 122,122 393x852 r=55 stroke=#0000001f/1.5/outside
+screen rect 100,100 437x900 r=77 stroke=#a6a09b/1/outside
+screen text "example.com/p1" 100,79.5 wrap=437 ellipsis box-h=16.5 11/15.4 w500 #6b6b6b middle clip=100,79.5 437x20.5

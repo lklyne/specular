@@ -25,6 +25,24 @@ pub struct Page {
     pub metadata: Option<JsonMap>,
 }
 
+impl Page {
+    /// The device frame the page is drawn in, or `None` when its
+    /// `showDeviceFrame` is off. The frame sits outside the entity's rect,
+    /// which is the page's screen.
+    pub fn shell(&self) -> Option<crate::DeviceShell> {
+        let meta = self.metadata.as_ref()?;
+        if meta.get("showDeviceFrame") != Some(&serde_json::Value::Bool(true)) {
+            return None;
+        }
+        let device = meta.get("deviceId").and_then(serde_json::Value::as_str);
+        let landscape = meta
+            .get("deviceOrientation")
+            .and_then(serde_json::Value::as_str)
+            == Some("landscape");
+        Some(crate::device_shell(device, landscape))
+    }
+}
+
 /// Who created a page.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]

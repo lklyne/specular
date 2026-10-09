@@ -58,8 +58,14 @@ pub(super) fn write_node(entity: &Entity) -> Result<JsonMap, CanvasError> {
     let mut ext = Object::new(entity.extra.get("specular").and_then(Value::as_object));
     node.set("id", &entity.id)?;
     node.set("type", &node_type(&entity.kind))?;
-    node.set("x", &entity.rect.x)?;
-    node.set("y", &entity.rect.y)?;
+    // A framed page is placed by its shell's corner, as the reader undoes.
+    let shell = match &entity.kind {
+        Kind::Page(page) => page.shell(),
+        _ => None,
+    };
+    let (left, top) = shell.map_or((0.0, 0.0), |shell| (shell.insets.left, shell.insets.top));
+    node.set("x", &(entity.rect.x - left))?;
+    node.set("y", &(entity.rect.y - top))?;
     node.set("width", &entity.rect.width)?;
     node.set("height", &entity.rect.height)?;
 
