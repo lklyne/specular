@@ -11,7 +11,7 @@ use specular_interact::panel::builtin::{Pointing, layout, layout_builds, layout_
 use specular_interact::{Action, CanvasAction, PageNotice, Tool};
 use specular_testkit::{TestApp, document, page, sticky};
 
-/// A free spot on the canvas, clear of the toolbar, the popup and the
+/// A free spot on the canvas, clear of the toolbar, the dock and the
 /// sidebar.
 const EMPTY: (f32, f32) = (1000.0, 800.0);
 
@@ -73,7 +73,7 @@ fn the_first_read_builds_and_the_draw_after_a_move_reuses_it() {
 fn a_move_that_changes_nothing_builds_nothing() {
     for (what, selected, sidebar) in [
         ("empty canvas", None, false),
-        ("a selection popup shown", Some("s0"), false),
+        ("a selection in the dock", Some("s0"), false),
         ("a sidebar row", None, true),
     ] {
         let mut app = app();
@@ -106,7 +106,7 @@ fn a_move_that_changes_nothing_builds_nothing() {
 }
 
 #[test]
-fn a_move_onto_a_popup_control_marks_it_without_a_build() {
+fn a_move_onto_a_dock_control_marks_it_without_a_build() {
     let mut app = app();
     app.select(&["s0"]);
     draw(&app);

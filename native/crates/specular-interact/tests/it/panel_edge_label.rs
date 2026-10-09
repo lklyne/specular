@@ -1,4 +1,4 @@
-//! The edge popup's label field: typed in the popup, kept with Enter as one
+//! The edge dock's label field: typed in the dock, kept with Enter as one
 //! undo step, emptied to take the label off, and put back by Escape.
 
 use specular_doc::{Edge, Rect};
@@ -29,7 +29,7 @@ fn label(app: &TestApp) -> Option<String> {
 }
 
 #[test]
-fn a_label_typed_in_the_popup_is_kept_with_enter() {
+fn a_label_typed_in_the_dock_is_kept_with_enter() {
     let mut app = app();
     app.enter_in_field("edge.label", "  depends on ");
     assert_eq!(label(&app), Some("depends on".to_owned()));

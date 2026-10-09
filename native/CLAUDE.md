@@ -200,7 +200,7 @@ fn shift_drag_moves_the_page_along_one_axis() {
   scroll with `wheel` over the sidebar before clicking one below it.
   `app.covered_left()` is the width it covers, which zoom to fit, a reveal
   and zoom steps read.
-  `right_click(at)` opens the context menu, which is a `PopupModel` of
+  `right_click(at)` opens the context menu, which is a `ControlsModel` of
   choices (`context_menu(app, &target)`, drawn at the press in the
   dropdown slot). `assert_menu_snapshot!(app)` holds its model,
   `menu_open()` says whether one is open, and `click_control("menu.duplicate")`

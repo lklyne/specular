@@ -6,7 +6,7 @@ use glam::Vec2;
 use super::dropdown;
 use super::metrics::{EDGE_MARGIN, INSET};
 use super::node::{Panel, PanelRect, Surface};
-use super::{Ctx, PopupModel};
+use super::{ControlsModel, Ctx};
 use crate::panel::{Control, MenuTarget, context_menu};
 use crate::{App, Hit, Tool};
 use specular_doc::ItemId;
@@ -23,13 +23,18 @@ pub struct ContextMenu {
 
 /// The menu of `open` as the model says it is now, or `None` once its
 /// target has changed.
-pub(super) fn model(ctx: &Ctx<'_>, open: &ContextMenu) -> Option<PopupModel> {
+pub(super) fn model(ctx: &Ctx<'_>, open: &ContextMenu) -> Option<ControlsModel> {
     context_menu(ctx.app, &open.target)
 }
 
 /// `model` laid out at `at`. The corner is the point, pulled back inside
 /// the viewport and clear of the sidebar when the menu would run off it.
-pub(super) fn layout(ctx: &Ctx<'_>, model: &PopupModel, at: Vec2, viewport: Vec2) -> Option<Panel> {
+pub(super) fn layout(
+    ctx: &Ctx<'_>,
+    model: &ControlsModel,
+    at: Vec2,
+    viewport: Vec2,
+) -> Option<Panel> {
     let [Control::Choices(choices)] = model.controls.as_slice() else {
         return None;
     };

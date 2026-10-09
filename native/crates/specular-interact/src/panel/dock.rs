@@ -15,7 +15,7 @@ mod tool;
 
 use specular_doc::{Entity, ItemId, Kind};
 
-use super::PopupModel;
+use super::ControlsModel;
 use crate::{App, Tool};
 
 /// What the dock is about. Computed before anything is built, so its
@@ -114,17 +114,17 @@ fn subject(app: &App) -> Subject<'_> {
 /// What the dock shows for `app` as it is now, or `None` when its bar is
 /// empty: nothing selected, or a subject with no control to offer. A drag
 /// changes none of it, so the bar holds still through one.
-pub fn dock(app: &App) -> Option<PopupModel> {
+pub fn dock(app: &App) -> Option<ControlsModel> {
     match subject(app) {
-        Subject::Tool(tool) => tool::popup(app, tool),
-        Subject::Edge => Some(edge::popup(app)),
+        Subject::Tool(tool) => tool::controls(app, tool),
+        Subject::Edge => Some(edge::controls(app)),
         Subject::Entities(family, entities) => Some(match family {
-            Family::Text => text::popup(app, &entities),
-            Family::Shape => shape::popup(app, &entities),
-            Family::Drawing => drawing::popup(app, &entities),
-            Family::Group => group::popup(app, &entities),
-            Family::File => file::popup(app, &entities),
-            Family::Page => page::popup(app, &entities),
+            Family::Text => text::controls(app, &entities),
+            Family::Shape => shape::controls(app, &entities),
+            Family::Drawing => drawing::controls(app, &entities),
+            Family::Group => group::controls(app, &entities),
+            Family::File => file::controls(app, &entities),
+            Family::Page => page::controls(app, &entities),
         }),
         Subject::Mixed(entities) => mixed(&entities),
         Subject::Nothing => None,
@@ -135,12 +135,12 @@ pub fn dock(app: &App) -> Option<PopupModel> {
 /// what every kind shares, arranging, annotating and focusing. One item
 /// alone has nothing to arrange with, and an edge with it nothing to
 /// annotate.
-fn mixed(entities: &[&Entity]) -> Option<PopupModel> {
+fn mixed(entities: &[&Entity]) -> Option<ControlsModel> {
     if entities.len() < 2 {
         return None;
     }
     let noun = format!("{} items", entities.len());
-    Some(PopupModel {
+    Some(ControlsModel {
         controls: actions::Actions::all(&noun, entities.len()).controls(),
     })
 }

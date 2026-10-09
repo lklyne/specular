@@ -11,7 +11,7 @@ const ORIGIN: &str = "https://example.com";
 const REPO: &str = "/scratch/site";
 
 fn repo_lines(app: &TestApp) -> String {
-    (app.popup_snapshot().lines())
+    (app.dock_snapshot().lines())
         .map(str::trim_start)
         .filter(|line| line.contains("page.repo"))
         .collect::<Vec<_>>()
@@ -19,7 +19,7 @@ fn repo_lines(app: &TestApp) -> String {
 }
 
 #[test]
-fn a_page_is_linked_to_a_repo_through_its_popup_and_the_pane_lists_it() {
+fn a_page_is_linked_to_a_repo_through_its_dock_and_the_pane_lists_it() {
     let mut app = TestApp::with_pages(1);
     app.with_panels();
     app.select(&["p1"]);

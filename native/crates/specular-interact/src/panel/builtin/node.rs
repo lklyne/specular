@@ -159,7 +159,7 @@ pub enum Chrome {
     /// The trigger of a toolbar list: filled when hovered, and in the
     /// popover color while its list is open.
     ToolMenu,
-    /// A popup control: filled when hovered, darker when on.
+    /// A dock control: filled when hovered, darker when on.
     Button,
     /// A list row that marks its choice with a check: filled when hovered.
     MenuRow,

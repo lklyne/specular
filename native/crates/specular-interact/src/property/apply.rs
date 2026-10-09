@@ -9,7 +9,7 @@ use super::{Property, page};
 use crate::tool_defaults::{ToolDefaults, nearest_width};
 use crate::{App, edit, strokes};
 
-/// Text sizes the popup offers run from here to there.
+/// Text sizes the dock offers run from here to there.
 const TEXT_SIZE_RANGE: (f64, f64) = (8.0, 256.0);
 
 /// `entity` with `property` set, or `None` if the property does not apply to

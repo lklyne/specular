@@ -1,9 +1,9 @@
-//! [`Property`]: one field of the selected items that a popup control sets.
+//! [`Property`]: one field of the selected items that a dock control sets.
 //!
 //! A property applies to every selected item it means something for and
 //! skips the rest, so one pick on a mixed selection changes what it can. The
 //! whole change is one undo step, and nothing is recorded when it would
-//! change nothing. Tool defaults are not touched: only the tool popup writes
+//! change nothing. Tool defaults are not touched: only a tool's own options in the dock write
 //! those (ADR 0008).
 //!
 //! [`read`] has the matching reads: the value the whole selection shares.

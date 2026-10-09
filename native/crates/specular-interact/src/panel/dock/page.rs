@@ -1,4 +1,4 @@
-//! The popup of pages (`PagePopup.tsx`): history, reload and the address,
+//! The dock's controls for pages (`PagePopup.tsx`): history, reload and the address,
 //! then size, device frame, orientation and color scheme, and the chain
 //! button that syncs the selected pages, and the repo control of a single
 //! page. Electron also infers a repo from a running dev server's base URL;
@@ -9,8 +9,8 @@ use specular_doc::{ColorScheme, Entity, Kind, VIEWPORT_PRESETS};
 
 use super::super::build::{button, groups, toggle};
 use super::super::{
-    Button, Control, ControlId, Dropdown, DropdownOption, DropdownSection, Face, Field,
-    FieldSubmit, FieldWidth, Icon, OptionLayout, PAGE_URL, PopupModel,
+    Button, Control, ControlId, ControlsModel, Dropdown, DropdownOption, DropdownSection, Face,
+    Field, FieldSubmit, FieldWidth, Icon, OptionLayout, PAGE_URL,
 };
 use super::actions::Actions;
 use crate::property::read;
@@ -362,7 +362,7 @@ fn repo_control(app: &App, page: &Entity) -> Option<Control> {
     }))
 }
 
-pub(super) fn popup(app: &App, entities: &[&Entity]) -> PopupModel {
+pub(super) fn controls(app: &App, entities: &[&Entity]) -> ControlsModel {
     let single = match entities {
         [one] => Some(*one),
         _ => None,
@@ -393,5 +393,5 @@ pub(super) fn popup(app: &App, entities: &[&Entity]) -> PopupModel {
             .controls(),
         ])
     };
-    PopupModel { controls }
+    ControlsModel { controls }
 }

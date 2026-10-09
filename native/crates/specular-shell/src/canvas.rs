@@ -14,7 +14,7 @@ use std::time::{Duration, Instant};
 use futures::channel::mpsc;
 use specular_app::{Bench, Runtime, ShellWindow as _};
 use specular_interact::{
-    Appearance, ChatModel, Event, Menu, OnboardingModel, PopupModel, SidebarModel, ToolbarModel,
+    Appearance, ChatModel, ControlsModel, Event, Menu, OnboardingModel, SidebarModel, ToolbarModel,
     ViewStrip, chat, dock, menus, onboarding, sidebar, toolbar, view_strip,
 };
 
@@ -95,7 +95,7 @@ pub(crate) struct Models {
     pub(crate) toolbar: ToolbarModel,
     /// What the dock shows: the controls of the tool in hand or of the
     /// selection.
-    pub(crate) dock: Option<PopupModel>,
+    pub(crate) dock: Option<ControlsModel>,
     /// The left sidebar.
     pub(crate) sidebar: SidebarModel,
     /// The right panel: the canvas's agent threads and the composer.

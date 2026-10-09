@@ -1,10 +1,10 @@
-//! The toolbar, and the popup of each tool that has one. A tool's popup
+//! The toolbar, and the dock's options for each tool that has some. A tool's options
 //! reads and writes the tool defaults.
 
 use glam::Vec2;
 use specular_doc::BrushType;
 use specular_interact::{Action, ControlId, Tool, ToolDefaultPatch, toolbar};
-use specular_testkit::{TestApp, assert_popup_snapshot, assert_toolbar_snapshot, shape};
+use specular_testkit::{TestApp, assert_dock_snapshot, assert_toolbar_snapshot, shape};
 
 #[test]
 fn the_toolbar_at_rest_has_the_eight_tools_in_groups_and_the_zoom_levels() {
@@ -99,10 +99,10 @@ fn a_pan_leaves_the_toolbar_as_it_was_and_each_zoom_option_zooms_about_the_middl
 }
 
 #[test]
-fn the_shape_tool_popup_sets_the_shape_defaults() {
+fn the_shape_tool_dock_sets_the_shape_defaults() {
     let mut app = TestApp::empty();
     app.tool(Tool::AddShape);
-    assert_popup_snapshot!(app, @r#"
+    assert_dock_snapshot!(app, @r#"
     dropdown shape.kind "Set default shape" shows icon=Shape(Rectangle)
       options grid(5)
         option [x] shape.kind.rectangle "Rectangle" icon=Shape(Rectangle) -> SetToolDefault(ShapeKind(Rectangle))
@@ -131,12 +131,12 @@ fn the_shape_tool_popup_sets_the_shape_defaults() {
 }
 
 #[test]
-fn the_draw_tool_popup_offers_the_highlighter_its_own_widths_and_pastels() {
+fn the_draw_tool_dock_offers_the_highlighter_its_own_widths_and_pastels() {
     let mut app = TestApp::empty();
     app.act(Action::SetToolVariant(ToolDefaultPatch::Brush(
         BrushType::Highlight,
     )));
-    assert_popup_snapshot!(app, @r#"
+    assert_dock_snapshot!(app, @r#"
     toggle [ ] brush.pen "Pen" icon=BrushPen color=1 -> SetToolDefault(Brush(Pen))
     toggle [x] brush.highlighter "Highlighter" icon=BrushHighlighter color=1 -> SetToolDefault(Brush(Highlight))
     ---
@@ -152,9 +152,9 @@ fn the_page_tool_offers_the_size_presets_and_hides_the_selections() {
     let mut app =
         TestApp::with_entities([shape("s", specular_doc::Rect::new(0.0, 0.0, 100.0, 100.0))]);
     app.select(&["s"]);
-    assert_ne!(app.popup_snapshot(), "none");
+    assert_ne!(app.dock_snapshot(), "none");
     app.tool(Tool::AddPage);
-    assert_popup_snapshot!(app, @r#"
+    assert_dock_snapshot!(app, @r#"
     dropdown page.preset "Page size to add" shows text="iPhone SE"
       options list
         option [x] page.preset.0 "Add iPhone SE" text="iPhone SE" trailing="375×667" -> SetToolDefault(PagePreset(0))
@@ -181,8 +181,8 @@ fn a_tools_options_win_over_the_selections_controls_and_stay_while_drawing() {
         TestApp::with_entities([shape("s", specular_doc::Rect::new(0.0, 0.0, 100.0, 100.0))]);
     app.select(&["s"]);
     app.tool(Tool::Draw);
-    let at_rest = app.popup_snapshot();
+    let at_rest = app.dock_snapshot();
     assert!(at_rest.contains("draw.color") && !at_rest.contains("shape."));
     app.press((300.0, 300.0)).drag_to((340.0, 330.0));
-    assert_eq!(app.popup_snapshot(), at_rest);
+    assert_eq!(app.dock_snapshot(), at_rest);
 }

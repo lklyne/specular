@@ -1,4 +1,4 @@
-//! The popup controls' property actions: each applies to the selected items
+//! The dock controls' property actions: each applies to the selected items
 //! it means something for, skips the rest, and is one undo step.
 
 use specular_doc::{
@@ -100,7 +100,7 @@ fn a_text_style_swaps_to_what_the_other_creation_tool_stamps() {
 }
 
 #[test]
-fn a_size_outside_the_popup_range_is_held_to_it() {
+fn a_size_outside_the_dock_range_is_held_to_it() {
     let mut app = TestApp::with_entities([sticky("a", A, "one")]);
     app.select(&["a"]);
     set(&mut app, Property::TextSize(400.0));

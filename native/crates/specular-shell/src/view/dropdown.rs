@@ -16,8 +16,8 @@ use gpui_kit::{
     StatefulInteractiveElement as _, Styled as _, Window, div, px,
 };
 use specular_interact::{
-    Choices, Chord, Control, ControlId, Dropdown, DropdownOption, DropdownSection, Icon,
-    OptionLayout, PopupModel, ToolbarModel, ToolbarSection,
+    Choices, Chord, Control, ControlId, ControlsModel, Dropdown, DropdownOption, DropdownSection,
+    Icon, OptionLayout, ToolbarModel, ToolbarSection,
 };
 
 use super::controls::{CONTROL, control, element_id, face};
@@ -187,7 +187,7 @@ fn find_dropdown(id: &ControlId) -> Option<Dropdown> {
     }
     let models = canvas::models()?;
     in_toolbar(&models.toolbar, id).or_else(|| {
-        let dock: &PopupModel = models.dock.as_ref()?;
+        let dock: &ControlsModel = models.dock.as_ref()?;
         among(&dock.controls, id)
     })
 }

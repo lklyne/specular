@@ -3,8 +3,8 @@
 use std::fmt::Write as _;
 
 use specular_interact::{
-    Chord, Control, Dropdown, DropdownSection, Face, Key, OptionLayout, PopupModel, ToolbarModel,
-    ToolbarSection,
+    Chord, Control, ControlsModel, Dropdown, DropdownSection, Face, Key, OptionLayout,
+    ToolbarModel, ToolbarSection,
 };
 
 /// The toolbar as stable text, one line per control or option, `---`
@@ -38,12 +38,12 @@ pub fn toolbar_snapshot(toolbar: &ToolbarModel) -> String {
 
 /// The dock's controls, or a context menu's, as stable text, or `none`
 /// when there are none.
-pub fn popup_snapshot(popup: Option<&PopupModel>) -> String {
-    let Some(popup) = popup else {
+pub fn dock_snapshot(model: Option<&ControlsModel>) -> String {
+    let Some(model) = model else {
         return "none".to_owned();
     };
     let mut out = String::new();
-    controls(&mut out, &popup.controls, 0);
+    controls(&mut out, &model.controls, 0);
     out.trim_end().to_owned()
 }
 
@@ -260,8 +260,8 @@ macro_rules! assert_toolbar_snapshot {
 /// Asserts what the dock shows for a [`TestApp`](crate::TestApp) against
 /// an inline snapshot, `none` for an empty dock.
 #[macro_export]
-macro_rules! assert_popup_snapshot {
+macro_rules! assert_dock_snapshot {
     ($app:expr, $($rest:tt)*) => {
-        $crate::insta::assert_snapshot!($app.popup_snapshot(), $($rest)*)
+        $crate::insta::assert_snapshot!($app.dock_snapshot(), $($rest)*)
     };
 }

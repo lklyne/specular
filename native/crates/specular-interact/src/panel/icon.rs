@@ -1,4 +1,4 @@
-//! [`Icon`]: every glyph the toolbar and item popup models use, by name.
+//! [`Icon`]: every glyph the toolbar and item dock models use, by name.
 //!
 //! A renderer maps each name to path data. Each variant says where the
 //! Electron app's glyph lives (`src/renderer/...`), so the shape can be

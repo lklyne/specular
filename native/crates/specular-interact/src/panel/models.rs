@@ -107,12 +107,12 @@ impl ToolbarModel {
 /// A set of controls shown together: the dock's row for the tool in hand
 /// or the selection, or the one list of choices that is a context menu.
 #[derive(Debug, Clone, PartialEq)]
-pub struct PopupModel {
+pub struct ControlsModel {
     /// Its controls in order, with a separator between groups.
     pub controls: Vec<Control>,
 }
 
-impl PopupModel {
+impl ControlsModel {
     /// Every control and option with its action.
     pub fn entries(&self) -> Entries<'_> {
         let mut out = Vec::new();

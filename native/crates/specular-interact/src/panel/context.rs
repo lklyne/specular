@@ -1,4 +1,4 @@
-//! [`context_menu`]: the menu a right press opens, as a [`PopupModel`] of
+//! [`context_menu`]: the menu a right press opens, as a [`ControlsModel`] of
 //! choices.
 //!
 //! It holds the items Electron's menus for a page and for any other canvas
@@ -10,7 +10,7 @@
 use specular_doc::ItemId;
 
 use super::{
-    Choices, Control, ControlId, DropdownOption, DropdownSection, Face, OptionLayout, PopupModel,
+    Choices, Control, ControlId, ControlsModel, DropdownOption, DropdownSection, Face, OptionLayout,
 };
 use crate::menu::{self, MenuItem};
 use crate::{Action, App, CanvasAction, CanvasId, groups};
@@ -147,7 +147,7 @@ fn selection(app: &App) -> Vec<Section> {
 /// The menu for `target`, or `None` once the
 /// target has changed or gone: a selection that is no longer the one the menu
 /// was opened on, a canvas that was removed.
-pub fn context_menu(app: &App, target: &MenuTarget) -> Option<PopupModel> {
+pub fn context_menu(app: &App, target: &MenuTarget) -> Option<ControlsModel> {
     let content = sections(app, target)?
         .into_iter()
         .map(|items| DropdownSection::Options {
@@ -156,7 +156,7 @@ pub fn context_menu(app: &App, target: &MenuTarget) -> Option<PopupModel> {
         })
         .collect();
     let id = ControlId::new("menu");
-    Some(PopupModel {
+    Some(ControlsModel {
         controls: vec![Control::Choices(Choices {
             label: "Menu".into(),
             content,

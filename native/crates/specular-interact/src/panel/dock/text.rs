@@ -1,14 +1,14 @@
-//! The popup of text and sticky notes (`StickyNotePopover.tsx`).
+//! The dock's controls for text and sticky notes (`StickyNotePopover.tsx`).
 
 use specular_doc::{Entity, Kind, TextStyle};
 
 use super::super::build::{color_dropdown, font_dropdown, groups, size_dropdown, toggle};
-use super::super::{Control, ControlId, Face, Icon, PaintRole, Palette, PopupModel};
+use super::super::{Control, ControlId, ControlsModel, Face, Icon, PaintRole, Palette};
 use super::actions::Actions;
 use crate::property::read;
 use crate::{Action, Format, Property};
 
-pub(super) fn popup(app: &crate::App, entities: &[&Entity]) -> PopupModel {
+pub(super) fn controls(app: &crate::App, entities: &[&Entity]) -> ControlsModel {
     // Storage carries the slot and each text resolves it against its own
     // surface, so a mixed selection takes one pick. The swatches follow the
     // all-plain case: ink in the vivid palette. A sticky among them makes
@@ -55,13 +55,13 @@ pub(super) fn popup(app: &crate::App, entities: &[&Entity]) -> PopupModel {
         formats(app, false),
         Actions::all(&noun, entities.len()).controls(),
     ]);
-    PopupModel { controls }
+    ControlsModel { controls }
 }
 
 /// The formatting buttons: the ones the Electron popup has, for the formats
 /// the text being edited takes, each on where the caret is in text it
 /// applies to. With no edit there are none, or with `idle` the same buttons
-/// that cannot be pressed, so a Document's popup keeps its shape.
+/// that cannot be pressed, so a Document's dock keeps its shape.
 pub(super) fn formats(app: &crate::App, idle: bool) -> Vec<Control> {
     let all = [
         (Format::Bold, "bold", "Bold", Icon::Bold),

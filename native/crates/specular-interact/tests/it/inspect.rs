@@ -317,11 +317,11 @@ fn a_picked_node_on_a_bound_origin_writes_to_that_repo() {
         request.prompt
     );
     app.tool(Tool::Select).select(&["p1"]).with_panels();
-    let folder = (app.popup_snapshot().lines())
+    let folder = (app.dock_snapshot().lines())
         .find(|line| line.contains("page.repo.folder"))
         .map(str::to_owned);
     assert!(
         folder.is_some_and(|line| line.contains("\"\u{2026}-long/path/to/the/site-repo\"")),
-        "a long folder is cut from the front in the popup's row"
+        "a long folder is cut from the front in the dock's row"
     );
 }

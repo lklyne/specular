@@ -1,12 +1,12 @@
-//! The popup of shapes (`ShapePopup.tsx`), and the shape-kind dropdown the
-//! shape tool's popup shares.
+//! The dock's controls for shapes (`ShapePopup.tsx`), and the shape-kind dropdown the
+//! shape tool's options share.
 
 use specular_doc::{BorderStyle, Entity, FillStyle, ShapeKind, TextAlign};
 
 use super::super::build::{color_dropdown, groups, noun, size_dropdown, swatches, toggle};
 use super::super::{
-    Control, ControlId, Dropdown, DropdownOption, DropdownSection, Face, Icon, OptionLayout,
-    PaintRole, Palette, PopupModel,
+    Control, ControlId, ControlsModel, Dropdown, DropdownOption, DropdownSection, Face, Icon,
+    OptionLayout, PaintRole, Palette,
 };
 use super::actions::Actions;
 use crate::property::read;
@@ -160,7 +160,7 @@ fn border_dropdown(app: &crate::App) -> Control {
     })
 }
 
-pub(super) fn popup(app: &crate::App, entities: &[&Entity]) -> PopupModel {
+pub(super) fn controls(app: &crate::App, entities: &[&Entity]) -> ControlsModel {
     let noun = noun(entities.len(), "shape", "shapes");
     let color = read::color(app);
     let clear = (
@@ -193,5 +193,5 @@ pub(super) fn popup(app: &crate::App, entities: &[&Entity]) -> PopupModel {
         vec![border_dropdown(app)],
         Actions::all(&noun, entities.len()).controls(),
     ]);
-    PopupModel { controls }
+    ControlsModel { controls }
 }

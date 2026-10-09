@@ -154,9 +154,9 @@ pub use notes::{NoteNotice, NoteState, is_note_file, note_file_name};
 pub use page_state::PageState;
 pub use panel::builtin::PanelUi;
 pub use panel::{
-    Button, Choices, Control, ControlId, Dropdown, DropdownOption, DropdownSection, Entries, Face,
-    Field, FieldSubmit, FieldWidth, Icon, Label, MenuTarget, OptionLayout, PaintRole, Palette,
-    PopupModel, SidebarButton, Stepper, Swatch, Swatches, ThemeButton, Toggle, ToolButton,
+    Button, Choices, Control, ControlId, ControlsModel, Dropdown, DropdownOption, DropdownSection,
+    Entries, Face, Field, FieldSubmit, FieldWidth, Icon, Label, MenuTarget, OptionLayout,
+    PaintRole, Palette, SidebarButton, Stepper, Swatch, Swatches, ThemeButton, Toggle, ToolButton,
     ToolbarModel, ToolbarSection, UnknownControl, ViewStrip, ViewTab, context_menu, control_named,
     dock, named_controls, toolbar, view_strip,
 };

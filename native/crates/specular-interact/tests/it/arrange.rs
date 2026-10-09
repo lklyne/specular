@@ -1,4 +1,4 @@
-//! Arrange in a row, a column or a grid, and focus: what the popup's buttons
+//! Arrange in a row, a column or a grid, and focus: what the dock's buttons
 //! send. Each arrange is one undo step that keeps the footprint the items
 //! have and evens the spacing inside it.
 

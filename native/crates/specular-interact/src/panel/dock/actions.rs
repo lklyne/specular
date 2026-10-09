@@ -1,4 +1,4 @@
-//! The buttons every item popup ends with (`EntityActions` and
+//! The buttons the dock ends with for every item (`EntityActions` and
 //! `ArrangeButtons` in `CanvasItemPopup.tsx`): arrange a selection of
 //! several and annotate it. Pages have their sync toggle among them
 //! (`PagePopup.tsx`). Electron's focus button is not here: a tab is how one
@@ -8,7 +8,7 @@ use super::super::build::{button, toggle};
 use super::super::{Control, ControlId, Face, Icon};
 use crate::{Action, ArrangeMode};
 
-/// Which of the buttons a popup has. Arranging needs two or more items.
+/// Which of the buttons the dock has. Arranging needs two or more items.
 #[derive(Debug, Clone, Copy)]
 pub(super) struct Actions<'a> {
     /// What the buttons are about: "shape", "3 pages", "2 items".
@@ -23,7 +23,7 @@ pub(super) struct Actions<'a> {
 }
 
 impl<'a> Actions<'a> {
-    /// Arranging and annotating, as the popups of one kind of item have
+    /// Arranging and annotating, as the dock has them for one kind of item
     /// them.
     pub(super) const fn all(noun: &'a str, count: usize) -> Self {
         Self {

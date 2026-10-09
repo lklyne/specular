@@ -1,11 +1,11 @@
-//! The popups of the tools in hand (`TextToolPopup.tsx`,
+//! The dock's options for the tool in hand (`TextToolPopup.tsx`,
 //! `ShapeToolPopup.tsx`, `DrawToolPopup.tsx`). Their controls write the
 //! tool defaults.
 
 use specular_doc::{Color, VIEWPORT_PRESETS};
 
 use super::super::build::{font_dropdown, groups, size_dropdown, swatches};
-use super::super::{Control, ControlId, Dropdown, Face, PaintRole, Palette, PopupModel};
+use super::super::{Control, ControlId, ControlsModel, Dropdown, Face, PaintRole, Palette};
 use super::{drawing, shape};
 use crate::{Action, App, Tool, ToolDefaultPatch};
 
@@ -13,12 +13,12 @@ fn set(patch: ToolDefaultPatch) -> Action {
     Action::SetToolDefault(patch)
 }
 
-fn docked(controls: Vec<Control>) -> PopupModel {
-    PopupModel { controls }
+fn docked(controls: Vec<Control>) -> ControlsModel {
+    ControlsModel { controls }
 }
 
 /// The preset the next page is made at.
-fn page_presets(app: &App) -> PopupModel {
+fn page_presets(app: &App) -> ControlsModel {
     let page = app.tool_defaults().page;
     let id = ControlId::new("page.preset");
     let named = (!page.custom)
@@ -38,9 +38,9 @@ fn page_presets(app: &App) -> PopupModel {
     })])
 }
 
-pub(super) fn popup(app: &App, tool: Tool) -> Option<PopupModel> {
+pub(super) fn controls(app: &App, tool: Tool) -> Option<ControlsModel> {
     let defaults = app.tool_defaults();
-    let popup = match tool {
+    let model = match tool {
         Tool::AddText => {
             let ink = defaults.text.color.clone().unwrap_or(Color::Neutral);
             docked(groups(vec![
@@ -136,5 +136,5 @@ pub(super) fn popup(app: &App, tool: Tool) -> Option<PopupModel> {
         Tool::AddPage => page_presets(app),
         Tool::Select | Tool::AddDocument | Tool::Comment | Tool::Inspect => return None,
     };
-    Some(popup)
+    Some(model)
 }

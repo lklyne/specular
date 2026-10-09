@@ -1,4 +1,4 @@
-//! Arranging the selection into a row, a column or a grid: the popup's
+//! Arranging the selection into a row, a column or a grid: the dock's
 //! tidy-up buttons.
 //!
 //! The arrangement keeps the footprint the cluster already has and only

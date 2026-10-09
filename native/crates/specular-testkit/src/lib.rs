@@ -49,7 +49,7 @@ pub use fixtures::{
     shape, sticky, text, with_edge,
 };
 pub use measure::FixedAdvance;
-pub use panel_snapshot::{popup_snapshot, toolbar_snapshot};
+pub use panel_snapshot::{dock_snapshot, toolbar_snapshot};
 pub use panels::layout_snapshot;
 pub use scene_snapshot::scene_snapshot;
 pub use snapshot::doc_snapshot;

@@ -1,12 +1,12 @@
-//! The popup of an edge (`EdgePopup.tsx`): color, stroke, arrowheads and
+//! The dock's controls for an edge (`EdgePopup.tsx`): color, stroke, arrowheads and
 //! delete.
 
 use specular_doc::{EdgeEnd, LineStyle};
 
 use super::super::build::{button, color_dropdown, groups, toggle};
 use super::super::{
-    Control, ControlId, Dropdown, DropdownSection, Face, Field, FieldSubmit, FieldWidth, Icon,
-    PaintRole, Palette, PopupModel,
+    Control, ControlId, ControlsModel, Dropdown, DropdownSection, Face, Field, FieldSubmit,
+    FieldWidth, Icon, PaintRole, Palette,
 };
 use crate::property::read;
 use crate::{Action, App, Property};
@@ -90,7 +90,7 @@ fn label(app: &App) -> Control {
     })
 }
 
-pub(super) fn popup(app: &App) -> PopupModel {
+pub(super) fn controls(app: &App) -> ControlsModel {
     let color = read::color(app);
     let controls = groups(vec![
         vec![color_dropdown(
@@ -112,5 +112,5 @@ pub(super) fn popup(app: &App) -> PopupModel {
             Action::Delete,
         )],
     ]);
-    PopupModel { controls }
+    ControlsModel { controls }
 }

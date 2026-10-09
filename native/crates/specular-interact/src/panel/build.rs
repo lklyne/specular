@@ -1,5 +1,5 @@
-//! Builders the popups share: buttons, color rows, and the dropdowns that
-//! several popups have a copy of.
+//! Builders the dock rows share: buttons, color rows, and the dropdowns that
+//! several dock rows have a copy of.
 
 use specular_doc::{Color, ColorPreset, TextFont};
 
@@ -9,7 +9,7 @@ use super::{
 };
 use crate::{Action, binding_of};
 
-/// A text size the popup offers by name.
+/// A text size the dock offers by name.
 const SIZE_PRESETS: [(&str, f64); 5] = [
     ("Small", 14.0),
     ("Medium", 32.0),
@@ -29,7 +29,7 @@ const FONTS: [(&str, &str, TextFont); 3] = [
     ("hand", "Hand", TextFont::Hand),
 ];
 
-/// The eight color slots in popup order. Blue is the Specular extension the
+/// The eight color slots in dock order. Blue is the Specular extension the
 /// spec has no preset number for.
 fn slots() -> [(&'static str, &'static str, Color); 8] {
     [

@@ -232,7 +232,7 @@ fn a_group_inside_a_row_travels_with_everything_in_it() {
 }
 
 #[test]
-fn the_group_popup_turns_the_layout_round_and_steps_its_gap() {
+fn the_group_dock_turns_the_layout_round_and_steps_its_gap() {
     let mut app = row();
     app.with_panels();
     app.select(&["g"]);

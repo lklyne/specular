@@ -12,17 +12,18 @@
 mod build;
 pub mod builtin;
 mod context;
+mod dock;
 mod field;
 mod icon;
 mod id;
 mod model;
 mod models;
 mod named;
-mod popup;
 mod strip;
 mod toolbar;
 
 pub use context::{MenuTarget, context_menu};
+pub use dock::dock;
 pub use field::{Field, FieldSubmit, FieldWidth};
 pub(crate) use field::{PAGE_URL, field_named};
 pub use icon::Icon;
@@ -32,10 +33,9 @@ pub use model::{
     OptionLayout, PaintRole, Palette, Stepper, Swatch, Swatches, Toggle,
 };
 pub use models::{
-    PopupModel, SidebarButton, ThemeButton, ToolButton, ToolbarModel, ToolbarSection,
+    ControlsModel, SidebarButton, ThemeButton, ToolButton, ToolbarModel, ToolbarSection,
 };
 pub use named::{UnknownControl, control_named, named_controls};
 pub(crate) use named::{activate as activate_control, open_menu as open_menu_at};
-pub use popup::dock;
 pub use strip::{ViewStrip, ViewTab, view_strip};
 pub use toolbar::toolbar;

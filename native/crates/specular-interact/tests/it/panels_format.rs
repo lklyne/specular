@@ -1,4 +1,4 @@
-//! The formatting buttons of the popup while a text is edited: each is on
+//! The formatting buttons of the dock while a text is edited: each is on
 //! where the caret is in text it applies to, and pressing one runs the format
 //! on the selection without ending the edit or losing the selection.
 
@@ -18,7 +18,7 @@ fn editing(content: &str) -> TestApp {
 
 fn on(app: &TestApp, name: &str) -> bool {
     let line = format!("toggle [x] format.{name} ");
-    app.popup_snapshot().contains(&line)
+    app.dock_snapshot().contains(&line)
 }
 
 fn move_right(app: &mut TestApp, count: usize) {
@@ -91,7 +91,7 @@ fn a_documents_buttons_wait_disabled_until_it_is_edited() {
     app.with_panels();
     app.note_text("plan.md", "one\ntwo");
     app.select(&["d"]);
-    let idle = app.popup_snapshot();
+    let idle = app.dock_snapshot();
     assert!(idle.contains("toggle [ ] format.bold \"Bold\" icon=Bold chord=cmd+b disabled"));
     app.click_control("format.bold");
     assert!(
@@ -101,7 +101,7 @@ fn a_documents_buttons_wait_disabled_until_it_is_edited() {
 
     app.double_click((150.0, 150.0));
     assert!(app.app().session().editing.is_some());
-    assert!(!app.popup_snapshot().contains("disabled"));
+    assert!(!app.dock_snapshot().contains("disabled"));
     app.chord(CMD, Key::Char('a'));
     app.click_control("format.bold");
     assert_eq!(app.editing_text(), "**one\ntwo**");

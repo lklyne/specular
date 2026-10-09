@@ -1,10 +1,10 @@
-//! The popup of drawings (`DrawingPopup.tsx`): brush, width, color. The
-//! draw tool's popup shares the brush and width rows.
+//! The dock's controls for drawings (`DrawingPopup.tsx`): brush, width, color. The
+//! draw tool's options share the brush and width rows.
 
 use specular_doc::{BrushType, Color, Entity};
 
 use super::super::build::{color_dropdown, groups, noun, toggle};
-use super::super::{Control, ControlId, Face, Icon, PaintRole, Palette, PopupModel};
+use super::super::{Control, ControlId, ControlsModel, Face, Icon, PaintRole, Palette};
 use super::actions::Actions;
 use crate::property::read;
 use crate::tool_defaults::{nearest_width, width_presets};
@@ -73,7 +73,7 @@ pub(super) fn widths(
     .collect()
 }
 
-pub(super) fn popup(app: &crate::App, entities: &[&Entity]) -> PopupModel {
+pub(super) fn controls(app: &crate::App, entities: &[&Entity]) -> ControlsModel {
     let noun = noun(entities.len(), "drawing", "drawings");
     let brush = read::brush(app);
     let color = read::color(app);
@@ -97,5 +97,5 @@ pub(super) fn popup(app: &crate::App, entities: &[&Entity]) -> PopupModel {
         )],
         Actions::all(&noun, entities.len()).controls(),
     ]);
-    PopupModel { controls }
+    ControlsModel { controls }
 }

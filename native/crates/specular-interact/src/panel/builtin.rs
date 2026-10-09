@@ -51,7 +51,7 @@ pub use self::node::{
 pub(crate) use self::route::{cancel, hit, on_pointer, over, over_field, tidy};
 pub(crate) use self::scroll::on_wheel;
 pub(crate) use self::sidebar::picked;
-use super::{Control, ControlId, Dropdown, PopupModel, ToolbarModel, ToolbarSection};
+use super::{Control, ControlId, ControlsModel, Dropdown, ToolbarModel, ToolbarSection};
 use crate::App;
 
 /// What the built-in panels remember between events.
@@ -237,7 +237,7 @@ fn holds<'a>(controls: &'a [Control], id: &ControlId) -> Option<&'a Dropdown> {
 fn open_dropdown<'a>(
     id: &ControlId,
     toolbar: (&'a ToolbarModel, &'a Panel),
-    dock: Option<(&'a PopupModel, &'a Panel)>,
+    dock: Option<(&'a ControlsModel, &'a Panel)>,
 ) -> Option<(&'a Dropdown, &'a Panel)> {
     let in_toolbar = (toolbar.0.sections.iter()).find_map(|section| match section {
         ToolbarSection::Zoom(dropdown) if dropdown.id == *id => Some((dropdown, toolbar.1)),

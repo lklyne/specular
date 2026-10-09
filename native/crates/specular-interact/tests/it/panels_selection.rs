@@ -1,9 +1,9 @@
-//! The item popup for pages, edges, files, several items, and while a text
+//! The dock for pages, edges, files, several items, and while a text
 //! is edited.
 
 use specular_doc::{Color, ColorPreset, Edge, EdgeEnd, LineStyle, Rect};
 use specular_testkit::{
-    TestApp, assert_popup_snapshot, connected, document, page, plain_text, shape, sticky, with_edge,
+    TestApp, assert_dock_snapshot, connected, document, page, plain_text, shape, sticky, with_edge,
 };
 
 const A: Rect = Rect::new(100.0, 100.0, 200.0, 100.0);
@@ -14,7 +14,7 @@ const RED: Color = Color::Preset(ColorPreset::Red);
 fn a_page_has_size_frame_rotation_and_color_scheme() {
     let mut app = TestApp::with_entities([page("p", Rect::new(100.0, 100.0, 375.0, 667.0))]);
     app.select(&["p"]);
-    assert_popup_snapshot!(app, @r#"
+    assert_dock_snapshot!(app, @r#"
     button page.back "Back" icon=ChevronLeft chord=cmd+[ disabled -> PageBack
     button page.forward "Forward" icon=ChevronRight chord=cmd+] disabled -> PageForward
     button page.reload "Reload" icon=Reload chord=cmd+r -> PageReload
@@ -58,7 +58,7 @@ fn a_page_has_size_frame_rotation_and_color_scheme() {
 fn several_pages_share_a_size_list_without_custom() {
     let mut app = TestApp::with_pages(2);
     app.select(&["p1", "p2"]);
-    assert_popup_snapshot!(app, @r#"
+    assert_dock_snapshot!(app, @r#"
     dropdown page.size "Page size" shows text="Multiple"
       options list
         option [ ] page.size.0 "iPhone SE" trailing="375×667" -> SetProperty(ViewportPreset(0))
@@ -96,7 +96,7 @@ fn a_selected_edge_has_color_stroke_arrowheads_and_delete() {
     };
     let mut app = TestApp::from_document(with_edge(doc, edge));
     app.select(&["e"]);
-    assert_popup_snapshot!(app, @r#"
+    assert_dock_snapshot!(app, @r#"
     dropdown edge.color "Set edge color" shows color=1
       controls
         swatches edge.color.swatches Vivid/Ink: neutral purple blue cyan green yellow orange *red
@@ -119,10 +119,10 @@ fn a_selected_edge_has_color_stroke_arrowheads_and_delete() {
 }
 
 #[test]
-fn a_selection_across_kinds_has_no_popup_yet() {
+fn a_selection_across_kinds_has_no_controls_of_its_own_yet() {
     let mut app = TestApp::with_entities([shape("a", A), sticky("b", B, "two")]);
     app.select(&["a", "b"]);
-    assert_popup_snapshot!(app, @r#"
+    assert_dock_snapshot!(app, @r#"
     button item.arrange.row "Arrange in a row" icon=ArrangeRow -> Arrange(Row)
     button item.arrange.column "Arrange in a column" icon=ArrangeColumn -> Arrange(Column)
     button item.arrange.grid "Arrange in a grid" icon=ArrangeGrid -> Arrange(Grid)
@@ -134,18 +134,18 @@ fn a_selection_across_kinds_has_no_popup_yet() {
 fn the_dock_holds_its_controls_through_a_drag() {
     let mut app = TestApp::with_entities([shape("a", A)]);
     app.select(&["a"]);
-    let at_rest = app.popup_snapshot();
+    let at_rest = app.dock_snapshot();
     assert_ne!(at_rest, "none");
     app.press((150.0, 150.0)).drag_to((200.0, 200.0));
     assert!(app.session().gesture.is_some());
-    assert_eq!(app.popup_snapshot(), at_rest, "a drag in flight");
+    assert_eq!(app.dock_snapshot(), at_rest, "a drag in flight");
     app.release();
-    assert_eq!(app.popup_snapshot(), at_rest);
+    assert_eq!(app.dock_snapshot(), at_rest);
 }
 
 #[test]
 fn the_dock_is_empty_for_nothing_a_pair_of_edges_or_a_shape_label() {
-    let none = |app: &TestApp, what: &str| assert_eq!(app.popup_snapshot(), "none", "{what}");
+    let none = |app: &TestApp, what: &str| assert_eq!(app.dock_snapshot(), "none", "{what}");
 
     let app = TestApp::with_entities([shape("a", A)]);
     none(&app, "nothing selected");

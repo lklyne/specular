@@ -521,7 +521,7 @@ pub enum Action {
     Space(SpaceAction),
     /// A change to what is kept between launches.
     Setting(SettingAction),
-    /// Set one field of the selection, as a popup control does. It applies
+    /// Set one field of the selection, as a dock control does. It applies
     /// to every selected item it means something for, as one undo step.
     SetProperty(Property),
     /// Move the selection by exactly this many canvas units.

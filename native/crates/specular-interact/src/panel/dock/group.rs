@@ -1,10 +1,10 @@
-//! The popup of a group (`GroupPopup.tsx`): its color, and for one group
+//! The dock's controls for a group (`GroupPopup.tsx`): its color, and for one group
 //! its layout: packed as a row or a column, and the gap it packs with.
 
 use specular_doc::Entity;
 
 use super::super::build::{color_dropdown, groups, noun, toggle};
-use super::super::{Control, ControlId, Face, Icon, PaintRole, Palette, PopupModel, Stepper};
+use super::super::{Control, ControlId, ControlsModel, Face, Icon, PaintRole, Palette, Stepper};
 use super::actions::Actions;
 use crate::property::read;
 use crate::{Action, LayoutAxis, Property};
@@ -12,7 +12,7 @@ use crate::{Action, LayoutAxis, Property};
 /// How far one press of the gap stepper goes: a grid square.
 const GAP_STEP: f64 = 20.0;
 
-pub(super) fn popup(app: &crate::App, entities: &[&Entity]) -> PopupModel {
+pub(super) fn controls(app: &crate::App, entities: &[&Entity]) -> ControlsModel {
     let color = read::color(app);
     let color: Control = color_dropdown(
         ControlId::new("group.color"),
@@ -24,7 +24,7 @@ pub(super) fn popup(app: &crate::App, entities: &[&Entity]) -> PopupModel {
         |color| Action::SetProperty(Property::Color(color)),
     );
     let noun = noun(entities.len(), "group", "groups");
-    PopupModel {
+    ControlsModel {
         controls: groups(vec![
             vec![color],
             layout(app, entities),

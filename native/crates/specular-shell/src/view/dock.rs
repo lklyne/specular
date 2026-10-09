@@ -3,7 +3,7 @@
 
 use gpui_kit::component::h_flex;
 use gpui_kit::{App, IntoElement, ParentElement as _, Styled as _, Window, px};
-use specular_interact::PopupModel;
+use specular_interact::ControlsModel;
 
 use super::controls::control;
 use crate::theme;
@@ -11,7 +11,7 @@ use crate::theme;
 /// The dock's row, holding the controls of `model` from its left end. With
 /// no model it is an empty bar, so the canvas under the chrome never moves.
 pub(super) fn dock(
-    model: Option<&PopupModel>,
+    model: Option<&ControlsModel>,
     window: &mut Window,
     cx: &mut App,
 ) -> impl IntoElement {

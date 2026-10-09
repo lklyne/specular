@@ -102,7 +102,7 @@ pub(crate) fn cancel(app: &mut App, effects: &mut Vec<Effect>) -> bool {
 }
 
 /// Leaving the comment tool drops a draft made by one of its gestures: a
-/// point, an element or a region. A draft on the selection came from a popup
+/// point, an element or a region. A draft on the selection came from the dock
 /// that sits under any tool, so it stays. Only a panel's draft is dropped
 /// here: a card on the canvas is committed by the edit ending.
 pub(crate) fn on_tool_change(app: &mut App) {

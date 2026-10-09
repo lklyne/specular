@@ -45,7 +45,7 @@ use glam::Vec2;
 use specular_core::PointerEventKind;
 
 use super::super::{
-    ControlId, PopupModel, ToolbarModel, ViewStrip, context_menu, dock, toolbar, view_strip,
+    ControlId, ControlsModel, ToolbarModel, ViewStrip, context_menu, dock, toolbar, view_strip,
 };
 use super::{ContextMenu, PanelLayout, PanelUi, Pointing};
 use crate::{App, Event, Selection};
@@ -59,8 +59,8 @@ struct Stamp {
     scroll: f32,
     strip: ViewStrip,
     toolbar: ToolbarModel,
-    dock: Option<PopupModel>,
-    menu_model: Option<PopupModel>,
+    dock: Option<ControlsModel>,
+    menu_model: Option<ControlsModel>,
     revision: u64,
     switches: u64,
     selection: Selection,

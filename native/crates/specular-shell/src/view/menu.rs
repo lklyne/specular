@@ -1,20 +1,20 @@
 //! A model menu as a Kit popup menu: the context menu of a canvas row.
 //!
-//! The model is the one the built-in renderer draws, a [`PopupModel`] of
+//! The model is the one the built-in renderer draws, a [`ControlsModel`] of
 //! choices, so an item's label, key, enabled state and `Action` are the
 //! model's own.
 
 use gpui_kit::component::h_flex;
 use gpui_kit::component::menu::{PopupMenu, PopupMenuItem};
 use gpui_kit::{InteractiveElement as _, ParentElement as _, SharedString, Styled as _, div, px};
-use specular_interact::{Chord, Control, DropdownSection, PopupModel};
+use specular_interact::{Chord, Control, ControlsModel, DropdownSection};
 
 use super::named::mark;
 use super::run;
 use crate::theme;
 
 /// `menu` with the items of `model`, a line between its sections.
-pub(super) fn filled(mut menu: PopupMenu, model: &PopupModel) -> PopupMenu {
+pub(super) fn filled(mut menu: PopupMenu, model: &ControlsModel) -> PopupMenu {
     let [Control::Choices(choices)] = model.controls.as_slice() else {
         return menu;
     };

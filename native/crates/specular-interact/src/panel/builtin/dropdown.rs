@@ -326,7 +326,7 @@ pub(super) struct Body {
 
 impl Body {
     /// Whether the choices are a list of words marked with checks, which is
-    /// drawn as a menu rather than on the surface the popups share.
+    /// drawn as a menu rather than on the surface the chrome shares.
     pub(super) fn is_menu(&self) -> bool {
         self.style == ListStyle::Menu
     }

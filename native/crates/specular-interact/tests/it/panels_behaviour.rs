@@ -5,8 +5,8 @@
 
 use specular_doc::{Color, ColorPreset, Kind, Rect, ShapeKind};
 use specular_interact::{
-    Action, Control, ControlId, DropdownSection, Effect, Format, PopupModel, Property, Tool, dock,
-    toolbar,
+    Action, Control, ControlId, ControlsModel, DropdownSection, Effect, Format, Property, Tool,
+    dock, toolbar,
 };
 use specular_testkit::{TestApp, document, plain_text, shape, sticky, with_edge};
 
@@ -14,22 +14,22 @@ const A: Rect = Rect::new(100.0, 100.0, 200.0, 100.0);
 const B: Rect = Rect::new(400.0, 100.0, 200.0, 100.0);
 const RED: Color = Color::Preset(ColorPreset::Red);
 
-fn popup(app: &TestApp) -> PopupModel {
-    dock(app.app()).unwrap_or_else(|| panic!("no popup"))
+fn docked(app: &TestApp) -> ControlsModel {
+    dock(app.app()).unwrap_or_else(|| panic!("the dock is empty"))
 }
 
-/// Runs the action of the control `id` in the popup, as a renderer would on
+/// Runs the action of the control `id` in the dock, as a renderer would on
 /// a press.
 fn press(app: &mut TestApp, id: &str) {
     let id = ControlId::from(id.to_owned());
-    let Some(action) = popup(app).action(&id) else {
+    let Some(action) = docked(app).action(&id) else {
         panic!("no control {id}");
     };
     app.act(action);
 }
 
 /// Whether the toggle, option or swatch `id` is on.
-fn is_on(model: &PopupModel, id: &str) -> bool {
+fn is_on(model: &ControlsModel, id: &str) -> bool {
     fn find(controls: &[Control], id: &str) -> Option<bool> {
         for control in controls {
             let found = match control {
@@ -64,10 +64,10 @@ fn is_on(model: &PopupModel, id: &str) -> bool {
 fn a_swatch_sets_the_color_and_the_next_model_selects_it() {
     let mut app = TestApp::with_entities([sticky("a", A, "one"), sticky("b", B, "two")]);
     app.select(&["a", "b"]);
-    assert!(!is_on(&popup(&app), "text.color.swatches.red"));
+    assert!(!is_on(&docked(&app), "text.color.swatches.red"));
     press(&mut app, "text.color.swatches.red");
-    assert!(is_on(&popup(&app), "text.color.swatches.red"));
-    assert!(!is_on(&popup(&app), "text.color.swatches.blue"));
+    assert!(is_on(&docked(&app), "text.color.swatches.red"));
+    assert!(!is_on(&docked(&app), "text.color.swatches.blue"));
     for id in ["a", "b"] {
         let Kind::Text(text) = &app.entity(id).kind else {
             panic!("text");
@@ -80,7 +80,7 @@ fn a_swatch_sets_the_color_and_the_next_model_selects_it() {
 }
 
 #[test]
-fn the_delete_button_removes_the_edge_and_the_popup_goes() {
+fn the_delete_button_removes_the_edge_and_the_dock_goes() {
     let doc = document([plain_text("a", A, "a"), plain_text("b", B, "b")]);
     let mut app = TestApp::from_document(with_edge(doc, specular_doc::Edge::new("e", "a", "b")));
     app.select(&["e"]);
@@ -95,15 +95,15 @@ fn a_page_option_resizes_the_page_and_the_toggles_follow() {
     let mut app = TestApp::with_pages(1);
     app.select(&["p1"]);
     press(&mut app, "page.size.1");
-    assert!(is_on(&popup(&app), "page.size.1"));
+    assert!(is_on(&docked(&app), "page.size.1"));
     assert_eq!(app.rect("p1").width, 393.0);
-    assert!(!is_on(&popup(&app), "page.frame"));
+    assert!(!is_on(&docked(&app), "page.frame"));
     press(&mut app, "page.frame");
-    assert!(is_on(&popup(&app), "page.frame"));
+    assert!(is_on(&docked(&app), "page.frame"));
     press(&mut app, "page.scheme");
     press(&mut app, "page.scheme");
     let Some(Action::SetProperty(Property::ColorScheme(next))) =
-        popup(&app).action(&ControlId::new("page.scheme"))
+        docked(&app).action(&ControlId::new("page.scheme"))
     else {
         panic!("a scheme action");
     };
@@ -111,7 +111,7 @@ fn a_page_option_resizes_the_page_and_the_toggles_follow() {
 }
 
 #[test]
-fn a_tool_popup_writes_the_defaults_and_asks_for_a_save() {
+fn a_tool_dock_writes_the_defaults_and_asks_for_a_save() {
     let mut app = TestApp::empty();
     app.tool(Tool::AddShape);
     app.take_effects();
@@ -121,9 +121,9 @@ fn a_tool_popup_writes_the_defaults_and_asks_for_a_save() {
         .filter(|effect| matches!(effect, Effect::SaveToolDefaults(_)))
         .count();
     assert_eq!(saves, 1);
-    assert!(is_on(&popup(&app), "shape.kind.pill"));
+    assert!(is_on(&docked(&app), "shape.kind.pill"));
     press(&mut app, "shape.color.green");
-    assert!(is_on(&popup(&app), "shape.color.green"));
+    assert!(is_on(&docked(&app), "shape.color.green"));
     assert!(!app.app().can_undo(), "defaults are not in undo");
 }
 
@@ -134,7 +134,7 @@ fn the_formatting_buttons_format_the_text_being_edited() {
     press(&mut app, "format.bold");
     assert_eq!(app.editing_text(), "**one**");
     assert_eq!(
-        popup(&app).action(&ControlId::new("format").child("bold")),
+        docked(&app).action(&ControlId::new("format").child("bold")),
         Some(Action::Format(Format::Bold))
     );
 }
@@ -144,7 +144,7 @@ fn control_ids_are_unique_within_a_model() {
     let mut app = TestApp::with_entities([shape("s", A), sticky("t", B, "x")]);
     for ids in [&["s"][..], &["t"][..]] {
         app.select(ids);
-        let model = popup(&app);
+        let model = docked(&app);
         let entries = model.entries();
         let mut seen: Vec<&ControlId> = entries.iter().map(|(id, _)| id).collect();
         let total = seen.len();

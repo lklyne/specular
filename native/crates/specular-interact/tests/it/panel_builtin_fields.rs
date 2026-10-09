@@ -1,7 +1,7 @@
 //! A text field in a panel is edited by the one text editor: a click puts the
 //! caret where it landed, Enter and a press elsewhere keep what was typed,
 //! Escape puts the old value back, and nothing typed reaches the canvas's
-//! keys. The page popup's address and size fields are the cases.
+//! keys. The page dock's address and size fields are the cases.
 
 use specular_core::PageNav;
 use specular_doc::{Kind, Rect};

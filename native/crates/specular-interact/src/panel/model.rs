@@ -1,4 +1,4 @@
-//! The plain data a toolbar or popup renderer draws: which controls exist
+//! The plain data a toolbar or dock renderer draws: which controls exist
 //! now, their state, and the [`Action`] each one dispatches. Nothing here
 //! says how a control looks or where it sits on screen.
 

@@ -1,11 +1,11 @@
-//! The item popup for text, shapes, drawings and groups: the controls in
+//! The dock for text, shapes, drawings and groups: the controls in
 //! order, their state, and the action each carries.
 
 use specular_doc::{
     BrushType, Color, ColorPreset, Drawing, Entity, FillStyle, JsonMap, Kind, Point, Rect, Shape,
     ShapeKind, Stroke,
 };
-use specular_testkit::{TestApp, assert_popup_snapshot, sticky};
+use specular_testkit::{TestApp, assert_dock_snapshot, sticky};
 
 const A: Rect = Rect::new(100.0, 100.0, 200.0, 100.0);
 const RED: Color = Color::Preset(ColorPreset::Red);
@@ -33,7 +33,7 @@ fn ink(color: Color, width: f64, brush: Option<BrushType>) -> Entity {
 fn a_sticky_has_size_font_color_and_no_formatting_until_edited() {
     let mut app = TestApp::with_entities([sticky("a", A, "one")]);
     app.select(&["a"]);
-    assert_popup_snapshot!(app, @r#"
+    assert_dock_snapshot!(app, @r#"
     dropdown text.size "Set text size" shows text="Small"
       options list
         option [x] text.size.14 "Small" -> SetProperty(TextSize(14.0))
@@ -70,7 +70,7 @@ fn a_transparent_shape_shows_the_clear_swatch_and_a_borderless_one_disables_the_
     );
     let mut app = TestApp::with_entities([clear]);
     app.select(&["s"]);
-    assert_popup_snapshot!(app, @r#"
+    assert_dock_snapshot!(app, @r#"
     dropdown shape.kind "Set shape" shows icon=Shape(Rectangle)
       options grid(5)
         option [x] shape.kind.rectangle "Rectangle" icon=Shape(Rectangle) -> SetProperty(ShapeKind(Rectangle))
@@ -124,7 +124,7 @@ fn a_transparent_shape_shows_the_clear_swatch_and_a_borderless_one_disables_the_
 fn a_drawing_has_brush_width_and_color() {
     let mut app = TestApp::with_entities([ink(RED, 8.0, Some(BrushType::Highlight))]);
     app.select(&["d"]);
-    assert_popup_snapshot!(app, @r#"
+    assert_dock_snapshot!(app, @r#"
     toggle [ ] brush.pen "Pen" icon=BrushPen color=1 -> SetProperty(Brush(Pen))
     toggle [x] brush.highlighter "Highlighter" icon=BrushHighlighter color=1 -> SetProperty(Brush(Highlight))
     ---

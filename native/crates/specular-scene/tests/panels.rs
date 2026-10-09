@@ -1,4 +1,4 @@
-//! What the built-in toolbar and popup draw, on their own: `view` never
+//! What the built-in toolbar and dock draw, on their own: `view` never
 //! draws them, so these scenes hold the panels and nothing under them.
 
 use specular_doc::{EntityId, PageAnchor, Rect};
@@ -40,10 +40,10 @@ fn the_tab_row_with_the_canvas_two_pages_and_a_document() {
 }
 
 #[test]
-fn the_toolbar_and_a_sticky_popup() {
+fn the_toolbar_and_a_sticky_in_the_dock() {
     let mut app = app();
     app.select(&["t"]);
-    assert_snapshot!("sticky_popup", app.panel_scene_snapshot());
+    assert_snapshot!("sticky_dock", app.panel_scene_snapshot());
 }
 
 #[test]

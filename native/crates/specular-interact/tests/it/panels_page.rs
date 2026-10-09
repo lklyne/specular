@@ -1,4 +1,4 @@
-//! The page popup's history row and address, and the page tool's preset
+//! The page dock's history row and address, and the page tool's preset
 //! list, as models: which controls exist, their state and their actions.
 
 use specular_doc::Rect;
@@ -8,9 +8,9 @@ use specular_testkit::{TestApp, page};
 
 const PAGE: Rect = Rect::new(100.0, 100.0, 375.0, 667.0);
 
-/// The lines of the popup that match `keep`, in order.
+/// The lines of the dock that match `keep`, in order.
 fn lines(app: &TestApp, keep: impl Fn(&str) -> bool) -> String {
-    let all = app.popup_snapshot();
+    let all = app.dock_snapshot();
     all.lines()
         .filter(|line| keep(line.trim_start()))
         .map(str::trim_start)
