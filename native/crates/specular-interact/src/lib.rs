@@ -46,6 +46,7 @@ mod effect;
 mod event;
 mod first_run;
 mod focus;
+pub mod free_spot;
 mod geometry;
 mod gesture;
 mod grid;
