@@ -143,10 +143,15 @@ pub enum HandleOwner {
 
 impl App {
     /// The selected entity and its rect, when exactly one entity is selected.
+    /// A Document shown alone is laid out as a reading column, not at its
+    /// stored rect, so it has nothing to resize.
     pub fn handle_target(&self) -> Option<(&EntityId, Rect)> {
         let entity = self
             .document
             .entity(self.session.selection.single_entity()?)?;
+        if crate::showing::reading_rect(self, entity).is_some() {
+            return None;
+        }
         Some((&entity.id, crate::shown_rect(self, entity)?))
     }
 

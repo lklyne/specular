@@ -67,7 +67,7 @@ impl App {
         let entity = self.document.entity(id)?;
         match editable(self, entity)? {
             (Target::Note, _) => Some(frame::note_frame(
-                entity.rect,
+                crate::scroll_follow::placed_rect(self, entity),
                 self.session.notes.scroll(id),
             )),
             // A title sits outside the body; `edit_frame` places it.

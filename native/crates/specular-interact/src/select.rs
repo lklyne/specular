@@ -55,9 +55,11 @@ pub(crate) fn press(
             begin_move(app, &group, world, input, None);
         }
         // A double click on a text, a sticky, a shape or a Document edits
-        // its text.
+        // its text. A Document shown alone is edited by any click.
         Hit::EntityBody { entity }
-            if click_count > 1 && !is_additive(input.modifiers) && has_text(app, &entity) =>
+            if (click_count > 1 || showing::shows(app, &entity))
+                && !is_additive(input.modifiers)
+                && has_text(app, &entity) =>
         {
             edit::begin(app, &entity, false, effects);
             // A Document opens with the caret where it was clicked.
@@ -66,6 +68,11 @@ pub(crate) fn press(
             {
                 app.session.gesture = Some(drag.into());
             }
+        }
+        // One whose file has not been read yet is not dragged either: its
+        // tab holds it still.
+        Hit::EntityBody { entity } if showing::shows(app, &entity) => {
+            app.session.selection.set([ItemId::Entity(entity)]);
         }
         Hit::EntityBody { entity } => press_body(app, entity, world, input, click_count),
         // A double click on an edge edits its label.

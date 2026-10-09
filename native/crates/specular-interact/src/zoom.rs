@@ -101,10 +101,16 @@ pub(crate) fn reveal(app: &mut App, bounds: Rect) {
     camera.pan += shift.as_vec2();
 }
 
+/// What a fit has to fill in a viewport of `viewport` logical pixels: all
+/// of it but [`FIT_PADDING`] on each side.
+pub(crate) fn fit_room(viewport: DVec2) -> DVec2 {
+    (viewport - DVec2::splat(f64::from(FIT_PADDING) * 2.0)).max(DVec2::ONE)
+}
+
 /// The camera that centres `bounds` in a viewport of `viewport` logical
 /// pixels with [`FIT_PADDING`] around it.
 pub fn fitting(bounds: Rect, viewport: DVec2) -> Camera {
-    let room = (viewport - DVec2::splat(f64::from(FIT_PADDING) * 2.0)).max(DVec2::ONE);
+    let room = fit_room(viewport);
     let size = geometry::size(bounds).max(DVec2::ONE);
     let zoom = (room / size).min_element().min(f64::from(FIT_MAX_ZOOM)) as f32;
     let camera = Camera::new(glam::Vec2::ZERO, zoom);

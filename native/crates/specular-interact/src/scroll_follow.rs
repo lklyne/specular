@@ -252,12 +252,22 @@ pub fn out_of_page(app: &App, page: Rect, shown: Rect) -> bool {
 }
 
 /// `entity` as it is seen: shifted by its page's scroll and its element's
-/// travel, and clipped to the page while it is. `None` when it has left the
+/// travel, and clipped to the page while it is. A Document shown alone is
+/// seen as its reading column. `None` when it has left the
 /// page and the fade around it altogether, or an item view leaves it out,
 /// which hides it and takes it out of hit-testing.
 pub fn seen<'a>(app: &App, entity: &'a Entity) -> Option<Seen<'a>> {
     if showing::hides(app, entity) {
         return None;
+    }
+    if let Some(rect) = showing::reading_rect(app, entity) {
+        return Some(Seen {
+            entity: Cow::Owned(Entity {
+                rect,
+                ..entity.clone()
+            }),
+            clip: None,
+        });
     }
     let shift = shift_for(app, entity);
     if shift == DVec2::ZERO {
@@ -279,6 +289,9 @@ pub fn shown_rect(app: &App, entity: &Entity) -> Option<Rect> {
     if showing::hides(app, entity) {
         return None;
     }
+    if let Some(rect) = showing::reading_rect(app, entity) {
+        return Some(rect);
+    }
     let shift = shift_for(app, entity);
     if shift == DVec2::ZERO {
         return Some(entity.rect);
@@ -289,8 +302,12 @@ pub fn shown_rect(app: &App, entity: &Entity) -> Option<Rect> {
 }
 
 /// The rect `entity` is at with its shift taken off, seen or not: where a
-/// gesture finds it and where its text is laid out.
+/// gesture finds it and where its text is laid out. For a Document shown
+/// alone that is its reading column.
 pub(crate) fn placed_rect(app: &App, entity: &Entity) -> Rect {
+    if let Some(rect) = showing::reading_rect(app, entity) {
+        return rect;
+    }
     let shift = shift_for(app, entity);
     entity.rect.translated(-shift.x, -shift.y)
 }

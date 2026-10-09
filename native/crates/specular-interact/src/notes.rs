@@ -13,6 +13,7 @@ use std::sync::Arc;
 use specular_doc::{Document, EntityId, Kind};
 
 use crate::edit::{frame, note};
+use crate::scroll_follow::placed_rect;
 use crate::{App, Effect, Hit, WheelInput, hit_test};
 
 /// What is known about one markdown file.
@@ -197,7 +198,7 @@ fn content_height(app: &App, entity: &EntityId) -> Option<f32> {
 /// The furthest the Document `entity` scrolls: until its last row reaches
 /// the bottom of its window. `None` until the height of its text is known.
 fn scroll_end(app: &App, entity: &EntityId) -> Option<f32> {
-    let rect = app.document.entity(entity)?.rect;
+    let rect = placed_rect(app, app.document.entity(entity)?);
     Some((content_height(app, entity)? - frame::note_window(rect)).max(0.0))
 }
 
@@ -231,7 +232,7 @@ pub(crate) fn reveal_caret(app: &mut App) {
     let entity = edit.entity().clone();
     let (Some(caret), Some(rect)) = (
         app.caret_rect(),
-        app.document.entity(&entity).map(|it| it.rect),
+        app.document.entity(&entity).map(|it| placed_rect(app, it)),
     ) else {
         return;
     };

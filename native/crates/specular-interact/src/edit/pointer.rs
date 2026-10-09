@@ -150,7 +150,9 @@ pub(crate) fn autoscroll(app: &mut App, elapsed_ms: u64) {
     let Some(edit) = &app.session.editing else {
         return;
     };
-    let Some(rect) = app.document.entity(&edit.entity).map(|entity| entity.rect) else {
+    let rect = (app.document.entity(&edit.entity))
+        .map(|entity| crate::scroll_follow::placed_rect(app, entity));
+    let Some(rect) = rect else {
         return;
     };
     let entity = edit.entity.clone();

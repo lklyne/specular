@@ -113,7 +113,8 @@ fn frame_of(app: &App, edit: &TextEdit) -> Option<TextFrame> {
         Target::Note => {
             let entity = app.document.entity(&edit.entity)?;
             let scroll = app.session.notes.scroll(&entity.id);
-            Some(frame::note_frame(entity.rect, scroll))
+            let rect = crate::scroll_follow::placed_rect(app, entity);
+            Some(frame::note_frame(rect, scroll))
         }
     }
 }
@@ -150,7 +151,8 @@ fn layout_of(app: &App, edit: &TextEdit) -> Option<Arc<TextLayout>> {
 /// How much of `edit`'s text shows at once, in canvas units: a Document's
 /// window, and for a text that grows with its lines, the viewport.
 fn page_height(app: &App, edit: &TextEdit) -> f32 {
-    let rect = app.document.entity(&edit.entity).map(|entity| entity.rect);
+    let rect = (app.document.entity(&edit.entity))
+        .map(|entity| crate::scroll_follow::placed_rect(app, entity));
     match (edit.target, rect) {
         (Target::Note, Some(rect)) => frame::note_window(rect),
         (

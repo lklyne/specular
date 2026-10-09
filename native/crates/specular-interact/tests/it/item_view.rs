@@ -16,11 +16,16 @@
 //!   shape to a page that is not shown.
 //! - paste: dropping the anchor from the text paste, or the gate from
 //!   `asset::insert_selected`, pastes something hidden.
+//! - reading: dropping `showing::reading_rect` from `placed_rect` wraps the
+//!   text at the stored width, from `showing::settle` centres the stored
+//!   rect, and from `handle_target` lets a drag at the corner write the
+//!   column's size. Dropping `showing::shows` from the edit arm of
+//!   `select::press` leaves a click selecting.
 
 use glam::Vec2;
 use specular_core::InputEvent;
 use specular_doc::{Entity, Kind, PageAnchor, Rect};
-use specular_interact::{Action, Effect, Focus, Key, Showing, Tool, seen};
+use specular_interact::{Action, Effect, Focus, Key, Showing, Tool, seen, shown_rect};
 use specular_testkit::{CMD, TestApp, note, page, sticky};
 
 fn show(id: &str) -> Action {
@@ -206,4 +211,48 @@ fn a_paste_in_an_item_view_lands_on_the_page_shown_or_not_at_all() {
     assert_eq!(*app.document(), before);
     app.act(show("n")).paste("another thought");
     assert_eq!(*app.document(), before);
+}
+
+#[test]
+fn a_document_shown_alone_is_read_as_a_column_and_its_rect_is_not_written() {
+    let stored = Rect::new(100.0, 600.0, 300.0, 400.0);
+    let mut app = canvas();
+    app.note_text("plan.md", "# Plan\n\nOne line.");
+    app.act(show("n"));
+
+    // 720 wide and as tall as the fit leaves room for, in the middle of the
+    // viewport at 100%. The text wraps inside its padding.
+    let column = shown_rect(app.app(), app.entity("n")).expect("the Document is seen");
+    assert_eq!((column.width, column.height), (720.0, 800.0 - 128.0));
+    assert!((app.session().camera.zoom - 1.0).abs() < 1e-6);
+    let middle = at(&app, column.x as f32 + 360.0, column.y as f32 + 336.0);
+    assert!(
+        middle.abs_diff_eq(Vec2::new(500.0, 400.0), 1e-2),
+        "{middle}"
+    );
+    let wrap = |app: &TestApp| {
+        let frame = app.app().text_frame(&"n".into()).expect("a text frame");
+        frame.spec.wrap_width
+    };
+    assert_eq!(wrap(&app), Some(720.0 - 24.0));
+    // A window too narrow for the measure gives it what there is.
+    app.viewport((600.0, 500.0));
+    assert_eq!(wrap(&app), Some(600.0 - 128.0 - 24.0));
+    app.viewport((1000.0, 800.0));
+
+    // One click edits it, with the caret where it landed: under the text
+    // here, so at its end.
+    app.click(middle).type_text("x").key(Key::Escape);
+    assert_eq!(app.document().note("plan.md"), Some("# Plan\n\nOne line.x"));
+
+    // The column has no handles, so a drag at its corner resizes nothing.
+    let corner = at(
+        &app,
+        (column.x + column.width) as f32,
+        (column.y + column.height) as f32,
+    );
+    app.drag(corner, corner + Vec2::new(-80.0, -80.0));
+    assert_eq!(app.rect("n"), stored);
+    app.act(Action::Show(Showing::Canvas));
+    assert_eq!(shown_rect(app.app(), app.entity("n")), Some(stored));
 }

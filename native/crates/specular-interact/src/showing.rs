@@ -13,12 +13,12 @@
 
 use glam::DVec2;
 use specular_core::Camera;
-use specular_doc::{Annotation, AnnotationAnchor, Document, Entity, EntityId, ItemId, Kind};
+use specular_doc::{Annotation, AnnotationAnchor, Document, Entity, EntityId, ItemId, Kind, Rect};
 
 use crate::anchor::anchors_to_pages;
 use crate::app::page_of;
 use crate::focus::set_focus;
-use crate::notes::is_note_file;
+use crate::notes::{is_note_file, note_file};
 use crate::viewport::area;
 use crate::{App, Effect, Tool, geometry, update, zoom};
 
@@ -105,6 +105,27 @@ pub(crate) fn show(app: &mut App, showing: Showing, effects: &mut Vec<Effect>) {
     });
 }
 
+/// How wide a Document shown alone is read at, at 100%.
+const READING_MEASURE: f64 = 720.0;
+
+/// The rect a Document shown alone is laid out in, in place of its stored
+/// one: a reading column of a fixed measure, as tall as the fit leaves
+/// room for, so the camera sits on it at 100% and the text scrolls inside.
+/// Nothing is written: the stored rect is what the canvas shows. `None` for
+/// anything else, a page included, which is never resized.
+pub(crate) fn reading_rect(app: &App, entity: &Entity) -> Option<Rect> {
+    if !shows(app, &entity.id) || note_file(&entity.kind).is_none() {
+        return None;
+    }
+    let room = zoom::fit_room(area(app).size);
+    Some(Rect::new(
+        entity.rect.x,
+        entity.rect.y,
+        READING_MEASURE.min(room.x),
+        room.y,
+    ))
+}
+
 /// Whether `id` is the item shown alone. A press on its body goes into it
 /// whatever is selected: there is nothing else it could be picking.
 pub(crate) fn shows(app: &App, id: &EntityId) -> bool {
@@ -132,7 +153,8 @@ pub(crate) fn settle(app: &mut App) {
         return;
     };
     let free = area(app);
-    let mut camera = zoom::fitting(entity.rect, free.size);
+    let rect = reading_rect(app, entity).unwrap_or(entity.rect);
+    let mut camera = zoom::fitting(rect, free.size);
     camera.pan += free.min.as_vec2();
     app.session.camera = camera;
 
