@@ -1,5 +1,6 @@
 //! Pages: the live frame, and around it a border and a title.
 
+use specular_core::CssSize;
 use specular_doc::{DeviceKind, DeviceShell, Entity, Page};
 use specular_interact::{PageState, title_scale};
 
@@ -50,6 +51,8 @@ pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, page: &Page, scene: &mut 
     scene.push(Item::canvas(PageDraw {
         page: entity.id.clone(),
         rect: screen,
+        viewport: (frame.app.page_placement(&entity.id))
+            .map_or_else(CssSize::default, |placement| placement.viewport),
         corner_radius: screen_radius,
     }));
     if !frame.chrome {

@@ -40,6 +40,8 @@ pub struct PageGeometry {
     pub scale: f32,
     /// Last `OnPopupSize` rect in CSS, kept to re-place on scale changes.
     popup_css: Option<PixelRect>,
+    /// The scale of the last frame that came at the size asked for.
+    painted_scale: f32,
 }
 
 impl PageGeometry {
@@ -49,12 +51,26 @@ impl PageGeometry {
             viewport: spec.viewport,
             scale: spec.texture_scale,
             popup_css: None,
+            painted_scale: spec.texture_scale,
         }
     }
 
     /// View frame size in texels.
     pub fn view_texels(&self) -> PixelSize {
         self.viewport.to_pixels(self.scale)
+    }
+
+    /// The CSS size a view frame of `texels` shows. A frame of the size
+    /// asked for shows the viewport. Any other was painted before a resize
+    /// or a rescale took effect, at the scale of the last frame that did
+    /// match.
+    pub fn frame_viewport(&mut self, texels: PixelSize) -> CssSize {
+        if texels == self.view_texels() {
+            self.painted_scale = self.scale;
+            return self.viewport;
+        }
+        let css = |texels: u32| (texels as f32 / self.painted_scale).round() as u32;
+        CssSize::new(css(texels.width), css(texels.height))
     }
 
     /// Records a popup move/resize and returns its texel placement.

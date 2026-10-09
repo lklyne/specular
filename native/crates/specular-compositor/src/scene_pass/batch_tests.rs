@@ -10,6 +10,7 @@ fn page(x: f32, y: f32) -> PageDraw {
     PageDraw {
         page: OwnerId::new("page"),
         rect: Rect::new(x, y, 200.0, 200.0),
+        viewport: specular_core::CssSize::new(200, 200),
         corner_radius: 0.0,
     }
 }

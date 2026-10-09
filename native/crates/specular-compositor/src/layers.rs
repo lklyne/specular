@@ -2,7 +2,7 @@
 
 use std::time::Instant;
 
-use specular_core::{PixelRect, PixelSize, SharedTexture};
+use specular_core::{CssSize, PixelRect, PixelSize, SharedTexture};
 
 use crate::draw_list::{LayerKind, PageLayersInfo};
 
@@ -32,6 +32,8 @@ pub(crate) struct PopupLayer {
 #[derive(Debug, Default)]
 pub(crate) struct PageLayers {
     pub(crate) view: Option<LayerTexture>,
+    /// The CSS size of the view the view texture shows.
+    pub(crate) view_css: CssSize,
     pub(crate) popup: PopupLayer,
 }
 
@@ -77,6 +79,7 @@ impl PageLayers {
         };
         Some(PageLayersInfo {
             view_size: view.size,
+            view_css: self.view_css,
             view_is_cpu: view.shared.is_none(),
             popup,
         })

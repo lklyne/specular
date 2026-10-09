@@ -1,5 +1,7 @@
 //! Items whose pixels come from elsewhere: live pages and decoded images.
 
+use specular_core::CssSize;
+
 use crate::{OwnerId, Rect};
 
 /// A live page's latest frame, with its popup layer over it when one is
@@ -13,6 +15,9 @@ pub struct PageDraw {
     pub page: OwnerId,
     /// Where the page's viewport is drawn.
     pub rect: Rect,
+    /// The CSS size the page is laid out at to fill `rect`. A frame of
+    /// another size is not stretched over it.
+    pub viewport: CssSize,
     /// Corner radius the frame is clipped to.
     pub corner_radius: f32,
 }

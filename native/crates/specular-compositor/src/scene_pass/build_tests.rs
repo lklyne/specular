@@ -1,4 +1,4 @@
-use specular_core::{PixelRect, PixelSize};
+use specular_core::{CssSize, PixelRect, PixelSize};
 use specular_scene::{ImageDraw, PageDraw};
 
 use super::super::batch::batch;
@@ -52,6 +52,7 @@ fn page() -> PageDraw {
     PageDraw {
         page: OwnerId::new("page"),
         rect: Rect::new(10.0, 0.0, 200.0, 100.0),
+        viewport: CssSize::new(200, 100),
         corner_radius: 8.0,
     }
 }
@@ -59,6 +60,7 @@ fn page() -> PageDraw {
 fn painted(popup: Option<PixelRect>) -> PageLayersInfo {
     PageLayersInfo {
         view_size: PixelSize::new(400, 200),
+        view_css: CssSize::new(200, 100),
         view_is_cpu: true,
         popup,
     }
@@ -144,4 +146,41 @@ fn a_screen_space_image_is_unprojected_into_the_quad_shaders_space() {
         (quad.rect, quad.uv_rect, quad.corner_radius, quad.opacity),
         ([50.0, 20.0, 30.0, 15.0], [0.25, 0.0, 0.5, 1.0], 2.0, 0.5)
     );
+}
+
+#[test]
+fn a_frame_of_another_size_keeps_its_pixel_size_from_the_corner() {
+    // The rect is laid out at 200 by 100 CSS pixels and 200 by 100 across.
+    let rows = [
+        // Painted narrower and taller: bare on the right, cut at the bottom.
+        (
+            CssSize::new(100, 200),
+            [10.0, 0.0, 100.0, 100.0],
+            [0.0, 0.0, 1.0, 0.5],
+        ),
+        // Painted larger both ways: the top-left of the frame fills the rect.
+        (
+            CssSize::new(400, 400),
+            [10.0, 0.0, 200.0, 100.0],
+            [0.0, 0.0, 0.5, 0.25],
+        ),
+        // Painted at the size asked for: all of it, over all of the rect.
+        (
+            CssSize::new(200, 100),
+            [10.0, 0.0, 200.0, 100.0],
+            [0.0, 0.0, 1.0, 1.0],
+        ),
+    ];
+    for (view_css, rect, uv_rect) in rows {
+        let info = PageLayersInfo {
+            view_css,
+            ..painted(None)
+        };
+        let built = built(1.0, vec![Item::canvas(page())], Some(info));
+        assert_eq!(
+            (built.quads[0].rect, built.quads[0].uv_rect),
+            (rect, uv_rect),
+            "{view_css:?}"
+        );
+    }
 }

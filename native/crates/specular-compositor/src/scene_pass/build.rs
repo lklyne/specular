@@ -5,9 +5,9 @@
 use std::ops::Range;
 
 use glam::Vec2;
-use specular_core::PageId;
+use specular_core::{CssSize, PageId};
 use specular_scene::OwnerId;
-use specular_scene::{Blend, Draw, ImageId, Item, Rect, Scene, Space};
+use specular_scene::{Blend, Draw, ImageId, Item, PageDraw, Rect, Scene, Space};
 
 use super::batch::Batch;
 use super::mesh::{Mesh, Mesher};
@@ -112,13 +112,7 @@ pub(crate) fn build(
                         continue;
                     };
                     counts.cpu_textures += u32::from(info.view_is_cpu);
-                    let quad = canvas_quad(item, draw.rect, draw.corner_radius, view);
-                    let popup = popup_quad(
-                        Vec2::new(quad.rect[0], quad.rect[1]),
-                        Vec2::new(quad.rect[2], quad.rect[3]),
-                        &info,
-                    );
-                    let layers = [(LayerKind::View, Some(quad)), (LayerKind::Popup, popup)];
+                    let layers = page_quads(item, draw, &info, view);
                     for (layer, quad) in layers {
                         let Some(quad) = quad else {
                             continue;
@@ -188,6 +182,43 @@ pub(crate) fn build(
 
 /// The quad for a page or image at `rect`. The quad shader works in canvas
 /// space, so a screen-space rect is unprojected.
+/// The quads of a page: its view, and its popup when one is showing.
+fn page_quads(
+    item: &Item,
+    draw: &PageDraw,
+    info: &PageLayersInfo,
+    view: &ViewTransform,
+) -> [(LayerKind, Option<QuadInstance>); 2] {
+    let quad = canvas_quad(item, draw.rect, draw.corner_radius, view);
+    let origin = Vec2::new(quad.rect[0], quad.rect[1]);
+    let (size, uv) = unstretched(
+        Vec2::new(quad.rect[2], quad.rect[3]),
+        draw.viewport,
+        info.view_css,
+    );
+    let popup = popup_quad(origin, size / uv, info);
+    let quad =
+        QuadInstance::new(origin, size, quad.corner_radius).with_uv_rect([0.0, 0.0, uv.x, uv.y]);
+    [(LayerKind::View, Some(quad)), (LayerKind::Popup, popup)]
+}
+
+/// How much of a rect `size` across a page's frame covers, and how much of
+/// the frame that shows, when the rect is laid out at `wanted` CSS pixels
+/// and the frame was painted at `painted`. A frame of another size keeps its
+/// own pixel size from the top-left corner, as a browser's does while its
+/// window is dragged: the part past the rect is cut off, and the part of the
+/// rect past the frame is left bare. A size nobody stated fills the rect.
+fn unstretched(size: Vec2, wanted: CssSize, painted: CssSize) -> (Vec2, Vec2) {
+    let css = |size: CssSize| Vec2::new(size.width as f32, size.height as f32);
+    let (wanted, painted) = (css(wanted), css(painted));
+    if wanted == painted || wanted.min_element() <= 0.0 || painted.min_element() <= 0.0 {
+        return (size, Vec2::ONE);
+    }
+    let frame = size * painted / wanted;
+    let shown = frame.min(size);
+    (shown, shown / frame)
+}
+
 fn canvas_quad(item: &Item, rect: Rect, corner_radius: f32, view: &ViewTransform) -> QuadInstance {
     let origin = Vec2::new(rect.x, rect.y);
     let size = Vec2::new(rect.width, rect.height);

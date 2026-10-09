@@ -3,20 +3,26 @@
 use std::time::Instant;
 
 use cef::{PaintElementType, Rect};
-use specular_core::{FrameEvent, FrameLayer, PageFrame, PixelRect};
+use specular_core::{CssSize, FrameEvent, FrameLayer, PageFrame, PixelRect, PixelSize};
 
 use crate::coords::rect_from_cef;
 use crate::cpu_frame::copy_paint;
 use crate::page::PageContext;
 
-/// The layer a paint targets, or `None` for a popup paint that arrives
-/// before `OnPopupSize` placed it (nothing to draw it against yet).
-fn layer_for(ctx: &PageContext, kind: PaintElementType) -> Option<FrameLayer> {
+/// The layer a paint of `texels` targets and the CSS size of the view it
+/// belongs to, or `None` for a popup paint that arrives before `OnPopupSize`
+/// placed it (nothing to draw it against yet).
+fn layer_for(
+    ctx: &PageContext,
+    kind: PaintElementType,
+    texels: PixelSize,
+) -> Option<(FrameLayer, CssSize)> {
+    let mut geometry = ctx.geometry();
     if kind == PaintElementType::POPUP {
-        let rect = ctx.geometry().popup()?;
-        Some(FrameLayer::Popup { rect })
+        let rect = geometry.popup()?;
+        Some((FrameLayer::Popup { rect }, geometry.viewport))
     } else {
-        Some(FrameLayer::View)
+        Some((FrameLayer::View, geometry.frame_viewport(texels)))
     }
 }
 
@@ -40,13 +46,15 @@ pub(crate) fn on_paint(
     height: i32,
 ) {
     let produced_at = Instant::now();
-    let Some(layer) = layer_for(ctx, kind) else {
+    let texels = PixelSize::new(width.max(0) as u32, height.max(0) as u32);
+    let Some((layer, viewport)) = layer_for(ctx, kind, texels) else {
         return;
     };
     match copy_paint(bytes, width, height, &dirty_rects(dirty)) {
         Ok(frame) => ctx.push(specular_core::PageEvent::Frame(FrameEvent {
             page: ctx.id,
             layer,
+            viewport,
             frame: PageFrame::Cpu(frame),
             produced_at,
         })),
@@ -61,13 +69,10 @@ pub(crate) fn on_accelerated_paint(
     kind: PaintElementType,
     info: Option<&cef::AcceleratedPaintInfo>,
 ) {
-    use specular_core::{PixelFormat, PixelSize};
+    use specular_core::PixelFormat;
 
     let produced_at = Instant::now();
     let Some(info) = info else {
-        return;
-    };
-    let Some(layer) = layer_for(ctx, kind) else {
         return;
     };
     let format = if info.format == cef::ColorType::RGBA_8888 {
@@ -96,6 +101,9 @@ pub(crate) fn on_accelerated_paint(
     if size.is_empty() {
         return;
     }
+    let Some((layer, viewport)) = layer_for(ctx, kind, size) else {
+        return;
+    };
     let Some(lease) = ctx.frames.try_lease() else {
         tracing::debug!(page = %ctx.id, "texture cap reached, dropping paint");
         ctx.push(specular_core::PageEvent::FrameDropped { page: ctx.id });
@@ -107,6 +115,7 @@ pub(crate) fn on_accelerated_paint(
     ctx.push(specular_core::PageEvent::Frame(FrameEvent {
         page: ctx.id,
         layer,
+        viewport,
         frame: PageFrame::GpuShared(texture),
         produced_at,
     }));

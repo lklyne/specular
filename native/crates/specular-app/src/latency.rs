@@ -65,6 +65,7 @@ mod tests {
         PageEvent::Frame(FrameEvent {
             page,
             layer: FrameLayer::View,
+            viewport: specular_core::CssSize::default(),
             frame: PageFrame::Cpu(CpuFrame::default()),
             produced_at: Instant::now(),
         })

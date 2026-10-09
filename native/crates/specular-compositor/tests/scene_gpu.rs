@@ -13,7 +13,9 @@ use glam::Vec2;
 use ink::{RED, RED_TEXEL, ink, rect};
 use scene_harness::{BACKGROUND, Harness, PAGE, frame};
 use specular_compositor::FrameView;
-use specular_core::{Camera, CpuFrame, FrameEvent, FrameLayer, PageEvent, PageFrame, PixelSize};
+use specular_core::{
+    Camera, CpuFrame, CssSize, FrameEvent, FrameLayer, PageEvent, PageFrame, PixelSize,
+};
 use specular_doc::EntityId;
 use specular_scene::{
     Color, Dash, EllipseDraw, ImageDraw, ImageId, Item, LineCap, PageDraw, PathDraw, PathStroke,
@@ -37,6 +39,7 @@ fn paint_page(harness: &mut Harness) {
         .handle_page_event(PageEvent::Frame(FrameEvent {
             page: PAGE,
             layer: FrameLayer::View,
+            viewport: CssSize::default(),
             frame: PageFrame::Cpu(frame),
             produced_at: Instant::now(),
         }));
@@ -47,6 +50,7 @@ fn page() -> PageDraw {
     PageDraw {
         page: EntityId::new("page"),
         rect: Rect::new(16.0, 16.0, 32.0, 32.0),
+        viewport: CssSize::default(),
         corner_radius: 0.0,
     }
 }

@@ -12,7 +12,7 @@ use glam::Vec2;
 use scene_harness::{BACKGROUND as BACKGROUND_TEXEL, Harness, PAGE, frame};
 use specular_compositor::{CompositorError, DotGrid, FrameImportError, RenderStats};
 use specular_core::{
-    Camera, CpuFrame, FrameEvent, FrameLayer, PageEvent, PageFrame, PixelRect, PixelSize,
+    Camera, CpuFrame, CssSize, FrameEvent, FrameLayer, PageEvent, PageFrame, PixelRect, PixelSize,
 };
 use specular_doc::EntityId;
 use specular_scene::{Item, PageDraw, Rect};
@@ -33,6 +33,7 @@ fn frame_event(layer: FrameLayer, frame: CpuFrame) -> PageEvent {
     PageEvent::Frame(FrameEvent {
         page: PAGE,
         layer,
+        viewport: CssSize::default(),
         frame: PageFrame::Cpu(frame),
         produced_at: Instant::now(),
     })
@@ -43,6 +44,7 @@ fn page() -> Vec<Item> {
     vec![Item::canvas(PageDraw {
         page: EntityId::new("page"),
         rect: Rect::new(8.0, 8.0, 48.0, 48.0),
+        viewport: CssSize::default(),
         corner_radius: CORNER_RADIUS,
     })]
 }
@@ -266,6 +268,7 @@ fn shared_frame_without_platform_import_is_released_immediately() {
         .handle_page_event(PageEvent::Frame(FrameEvent {
             page: PAGE,
             layer: FrameLayer::View,
+            viewport: CssSize::default(),
             frame: PageFrame::GpuShared(shared),
             produced_at: Instant::now(),
         }));

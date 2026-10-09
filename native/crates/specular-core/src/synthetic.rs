@@ -108,6 +108,7 @@ impl SyntheticPageSource {
             self.pending.push(PageEvent::Frame(FrameEvent {
                 page: id,
                 layer: FrameLayer::View,
+                viewport: page.spec.viewport,
                 frame: PageFrame::Cpu(frame),
                 produced_at: now,
             }));

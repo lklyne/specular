@@ -12,7 +12,7 @@ use std::fmt;
 use std::ptr::NonNull;
 use std::time::Instant;
 
-use crate::geometry::{PixelRect, PixelSize};
+use crate::geometry::{CssSize, PixelRect, PixelSize};
 use crate::page::PageId;
 
 /// Per-page cap on [`SharedTexture`]s alive at once, mirroring Electron's
@@ -163,6 +163,9 @@ pub struct FrameEvent {
     pub page: PageId,
     /// Which layer the pixels belong to.
     pub layer: FrameLayer,
+    /// The CSS size of the view the pixels show. A frame painted before a
+    /// resize took effect still carries the size it was painted at.
+    pub viewport: CssSize,
     /// The pixels.
     pub frame: PageFrame,
     /// When the source received the paint, for paint-to-present latency.

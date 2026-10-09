@@ -1,7 +1,7 @@
 //! What a page's quads sample, and where its popup goes.
 
 use glam::Vec2;
-use specular_core::{PageId, PixelRect, PixelSize};
+use specular_core::{CssSize, PageId, PixelRect, PixelSize};
 
 use crate::gpu_types::QuadInstance;
 
@@ -27,6 +27,8 @@ pub(crate) struct DrawItem {
 pub(crate) struct PageLayersInfo {
     /// Size of the view texture, in texels.
     pub(crate) view_size: PixelSize,
+    /// The CSS size of the view the texture shows.
+    pub(crate) view_css: CssSize,
     /// Whether the view texture came from a CPU upload.
     pub(crate) view_is_cpu: bool,
     /// Placement of a visible, painted popup in view texels.

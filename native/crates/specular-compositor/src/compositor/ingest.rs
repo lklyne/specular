@@ -12,12 +12,14 @@ impl Compositor {
         let FrameEvent {
             page,
             layer,
+            viewport,
             frame,
             produced_at,
         } = event;
         let kind = match layer {
             FrameLayer::View => {
                 self.ingested.frames_received += 1;
+                self.pages.entry(page).or_default().view_css = viewport;
                 LayerKind::View
             }
             FrameLayer::Popup { rect } => {
