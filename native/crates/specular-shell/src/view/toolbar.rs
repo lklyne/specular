@@ -4,12 +4,12 @@
 use gpui_kit::component::button::{Button, ButtonVariants as _};
 use gpui_kit::component::{IconName, Selectable as _, Sizable as _, h_flex};
 use gpui_kit::prelude::FluentBuilder as _;
-use gpui_kit::{IntoElement, ParentElement as _, SharedString, Styled as _, div, px};
+use gpui_kit::{App, IntoElement, ParentElement as _, SharedString, Styled as _, Window, div, px};
 use specular_interact::{
     PaintRole, Palette, SidebarButton, ThemeButton, ToolButton, ToolbarModel, ToolbarSection,
 };
 
-use super::controls::hint;
+use super::controls::{control, hint};
 use super::dropdown::dropdown;
 use super::glyphs::{self, glyph, ink};
 use super::named::mark;
@@ -114,9 +114,13 @@ fn divider() -> impl IntoElement {
         .bg(theme::tinted(theme::divider()))
 }
 
-/// The toolbar's row for `model`: the tools centred, settings and the
-/// right panel's toggle at the far end.
-pub(super) fn toolbar(model: &ToolbarModel) -> impl IntoElement {
+/// The toolbar's row for `model`: the tools centred, and at the far end the
+/// lens and the eye of the tab showing, settings and the right panel's
+/// toggle.
+pub(super) fn toolbar(model: &ToolbarModel, window: &mut Window, cx: &mut App) -> impl IntoElement {
+    let view: Vec<_> = (model.view.iter())
+        .map(|model| control(model, window, cx))
+        .collect();
     let mut cluster = h_flex().gap_1().items_center();
     for (index, section) in model.sections.iter().enumerate() {
         if index > 0 {
@@ -145,6 +149,7 @@ pub(super) fn toolbar(model: &ToolbarModel) -> impl IntoElement {
                 .h_full()
                 .items_center()
                 .justify_end()
+                .children(view)
                 .child(
                     Button::new("preferences")
                         .ghost()

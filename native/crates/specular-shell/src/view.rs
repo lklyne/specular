@@ -208,7 +208,7 @@ impl Render for ShellView {
                         .right_0()
                         .bg(theme::solid(theme::toolbar()))
                         .child(tabs::tabs(&models.strip))
-                        .child(toolbar::toolbar(&models.toolbar))
+                        .child(toolbar::toolbar(&models.toolbar, window, cx))
                         .child(dock::dock(models.dock.as_ref(), window, cx)),
                 )
                 .children(self.chat_resize_handle(&models.chat))
