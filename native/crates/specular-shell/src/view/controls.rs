@@ -16,7 +16,6 @@
 //! element's id is the model control's name.
 
 use gpui_kit::component::button::{Button, ButtonVariants as _, Toggle, ToggleVariants as _};
-use gpui_kit::component::tooltip::Tooltip;
 use gpui_kit::component::{Disableable as _, IconName, Sizable as _, h_flex};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
@@ -79,7 +78,7 @@ pub(super) fn face(face: &Face, on: bool) -> AnyElement {
             div()
                 .text_color(color)
                 .when(face.font == Some(TextFont::Mono), |this| {
-                    this.font_family("Menlo")
+                    this.font_family(specular_compositor::MONO_FAMILY)
                 })
                 .child(SharedString::from(text.to_string())),
         );
@@ -128,9 +127,12 @@ fn button(model: &specular_interact::Button) -> AnyElement {
         .xsmall()
         .h(px(CONTROL))
         .min_w(px(CONTROL))
-        .tooltip(hint(&model.label, model.chord))
         .disabled(!model.enabled)
         .child(face(&model.face, false))
+        .child(crate::tip::over(
+            model.id.as_str(),
+            hint(&model.label, model.chord),
+        ))
         .child(mark(&model.id))
         .on_click(move |_, window, cx| run(&action, window, cx))
         .into_any_element()
@@ -144,9 +146,12 @@ fn toggle(model: &specular_interact::Toggle) -> AnyElement {
         .h(px(CONTROL))
         .min_w(px(CONTROL))
         .checked(model.on)
-        .tooltip(hint(&model.label, model.chord))
         .disabled(!model.enabled)
         .child(face(&model.face, model.on))
+        .child(crate::tip::over(
+            model.id.as_str(),
+            hint(&model.label, model.chord),
+        ))
         .child(mark(&model.id))
         .on_click(move |_, window, cx| run(&action, window, cx))
         .into_any_element()
@@ -180,7 +185,7 @@ fn swatch(model: &Swatch, palette: Palette, role: PaintRole, enabled: bool) -> A
             this.cursor_pointer()
                 .on_click(move |_, window, cx| run(&action, window, cx))
         })
-        .tooltip(move |window, cx| Tooltip::new(label.clone()).build(window, cx))
+        .tooltip(crate::tip::view(label))
         .child(dot(model.color.as_ref(), palette, role, DOT))
         .child(mark(&model.id))
         .into_any_element()

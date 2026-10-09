@@ -40,6 +40,7 @@ mod spaces;
 mod surface;
 #[cfg(target_os = "macos")]
 mod theme;
+mod tip;
 #[cfg(target_os = "macos")]
 mod view;
 
@@ -62,6 +63,7 @@ fn main() {
     application.on_open_urls(|urls| spaces::opened_from_finder(&urls));
     application.run(move |cx| {
         gpui_kit::init(cx);
+        theme::load_fonts(cx);
         theme::apply(specular_interact::Appearance::Light, cx);
         if let Err(error) = shell::open(launch, cx) {
             // Loud on purpose: a pin that moved lands here.

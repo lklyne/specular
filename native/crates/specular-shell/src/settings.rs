@@ -57,7 +57,7 @@ fn space(pane: &GeneralPane) -> impl IntoElement + use<> {
                 )
                 .child(
                     div()
-                        .font_family("Menlo")
+                        .font_family(specular_compositor::MONO_FAMILY)
                         .text_size(px(11.0))
                         .text_color(muted())
                         .child(SharedString::from(path)),
@@ -129,7 +129,7 @@ fn shortcut(row: &ShortcutRow) -> impl IntoElement + use<> {
         .child(
             div()
                 .w(px(64.0))
-                .font_family("Menlo")
+                .font_family(specular_compositor::MONO_FAMILY)
                 .child(SharedString::from(row.keys.clone())),
         )
 }

@@ -9,7 +9,6 @@
 use std::collections::HashMap;
 
 use gpui_kit::component::input::{Escape, Input, InputEvent, InputState};
-use gpui_kit::component::tooltip::Tooltip;
 use gpui_kit::component::{Sizable as _, h_flex};
 use gpui_kit::{
     AnyElement, App, AppContext as _, Entity, FocusHandle, Focusable as _, Global,
@@ -128,7 +127,7 @@ pub(super) fn input(model: &Field, window: &mut Window, cx: &mut App) -> AnyElem
         .w_full()
         // Escape drops what was typed before the input sees the key.
         .capture_action(move |_: &Escape, _, cx| end(&id, End::Cancel, cx))
-        .tooltip(move |window, cx| Tooltip::new(label.clone()).build(window, cx))
+        .tooltip(crate::tip::view(label))
         .child(Input::new(&input).xsmall())
         .child(mark(&model.id))
         .into_any_element()

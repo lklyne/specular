@@ -257,7 +257,7 @@ mod tests {
     }
 
     fn shaped(run: &TextRun) -> (Size, String) {
-        let mut fonts = FontSystem::new();
+        let mut fonts = crate::fonts::font_system();
         let shaped = shape(&mut fonts, run);
         let glyphs = shaped.as_ref().map_or_else(String::new, |shaped| {
             (shaped.buffer.layout_runs())

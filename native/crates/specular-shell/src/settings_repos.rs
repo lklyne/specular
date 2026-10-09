@@ -98,7 +98,10 @@ fn origin_row(row: &BoundOriginRow, index: usize) -> impl IntoElement + use<> {
                 .ghost()
                 .xsmall()
                 .icon(IconName::Close)
-                .tooltip("Remove")
+                .child(crate::tip::over(
+                    &format!("origin-remove-{index}"),
+                    "Remove",
+                ))
                 .on_click(move |_, window, _| send(&remove, window)),
         )
 }
@@ -135,7 +138,7 @@ fn repo_card(
                         )
                         .child(
                             div()
-                                .font_family("Menlo")
+                                .font_family(specular_compositor::MONO_FAMILY)
                                 .text_size(px(11.0))
                                 .text_color(muted())
                                 .truncate()

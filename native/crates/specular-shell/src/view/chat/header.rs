@@ -37,8 +37,8 @@ fn icon_button(id: &'static str, icon: impl Into<Icon>, tooltip: &'static str) -
         .xsmall()
         .size(px(24.0))
         .rounded(px(4.0))
-        .tooltip(tooltip)
         .child(icon.into().size(px(13.0)))
+        .child(crate::tip::over(id, tooltip))
 }
 
 /// One thread in the switcher's menu: its title, a tag while it is a draft,
@@ -79,7 +79,7 @@ impl ShellView {
             .ghost()
             .xsmall()
             .max_w_full()
-            .tooltip("Switch thread")
+            .child(crate::tip::over("chat-threads", "Switch thread"))
             .dropdown_caret(true)
             .child(
                 div()

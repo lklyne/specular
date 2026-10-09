@@ -36,6 +36,7 @@ mod upload;
 
 pub use compositor::Compositor;
 pub use error::{CompositorError, FrameImportError};
+pub use fonts::{MONO_FAMILY, SANS_FAMILY, bundled_fonts};
 pub use gpu::GpuContext;
 pub use instrumentation::{FrameObserver, FrameSample};
 pub use scene::{DotGrid, RenderStats};

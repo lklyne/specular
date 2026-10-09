@@ -64,8 +64,11 @@ fn tool(model: &ToolButton) -> impl IntoElement {
         .when(model.active, |this| {
             this.bg(theme::solid(theme::tool_fill()))
         })
-        .tooltip(hint(&model.label, model.chord))
         .child(glyph(model.icon, current, tint, model.active, TOOL_GLYPH))
+        .child(crate::tip::over(
+            model.id.as_str(),
+            hint(&model.label, model.chord),
+        ))
         .child(mark(&model.id))
         .on_click(move |_, window, cx| run(&action, window, cx))
 }
@@ -78,7 +81,7 @@ fn panel_toggle(model: &SidebarButton) -> impl IntoElement {
         .ghost()
         .small()
         .rounded(px(8.0))
-        .tooltip(SharedString::from(model.label.to_string()))
+        .child(crate::tip::over(model.id.as_str(), model.label.to_string()))
         .child(
             div()
                 .when(!model.open, |this| this.opacity(0.6))
@@ -109,8 +112,11 @@ fn sidebar_button(model: &SidebarButton) -> impl IntoElement {
         // The Kit's own padding would leave a 20 px glyph 16 px of room.
         .px_0()
         .rounded(px(6.0))
-        .tooltip(hint(&model.label, None))
         .child(glyph(model.icon, current, None, false, 16.0))
+        .child(crate::tip::over(
+            model.id.as_str(),
+            hint(&model.label, None),
+        ))
         .child(mark(&model.id))
         .on_click(move |_, window, cx| run(&action, window, cx))
 }
@@ -125,7 +131,7 @@ fn theme_button(model: &ThemeButton) -> impl IntoElement {
         // The Kit's own padding would leave a 20 px glyph 16 px of room.
         .px_0()
         .rounded(px(6.0))
-        .tooltip(SharedString::from(model.label.to_string()))
+        .child(crate::tip::over(model.id.as_str(), model.label.to_string()))
         .child(glyph(
             model.icon,
             ink(theme::toolbar_text()),
@@ -229,7 +235,7 @@ pub(super) fn toolbar(model: &ToolbarModel, title: &str, _cx: &App) -> impl Into
                         .ghost()
                         .small()
                         .icon(IconName::Settings)
-                        .tooltip("Settings  ⌘,")
+                        .child(crate::tip::over("preferences", "Settings  ⌘,"))
                         .on_click(|_, window, cx| {
                             window.dispatch_action(Box::new(Preferences), cx);
                         }),

@@ -225,6 +225,18 @@ pub(crate) fn of_scene(color: specular_scene::Color) -> Hsla {
     .into()
 }
 
+/// Gives the Kit's text system the bundled fonts the canvas draws with, so
+/// the panels and the canvas are set in the same faces.
+pub(crate) fn load_fonts(cx: &App) {
+    let fonts = specular_compositor::bundled_fonts()
+        .iter()
+        .map(|&font| std::borrow::Cow::Borrowed(font))
+        .collect();
+    if let Err(error) = cx.text_system().add_fonts(fonts) {
+        tracing::warn!("loading the bundled fonts: {error:#}");
+    }
+}
+
 /// Puts the theme of `appearance` in place. Call after `gpui_kit::init`,
 /// which loads the Kit's own, and again whenever the theme changes.
 pub(crate) fn apply(appearance: Appearance, cx: &mut App) {
@@ -236,6 +248,8 @@ pub(crate) fn apply(appearance: Appearance, cx: &mut App) {
     // Changing the mode loads the Kit's colours, so ours go on afterwards.
     Theme::change(mode, None, cx);
     Theme::update(cx, |theme| {
+        theme.font_family = specular_compositor::SANS_FAMILY.into();
+        theme.mono_font_family = specular_compositor::MONO_FAMILY.into();
         theme.radius = px(6.0);
         theme.radius_lg = px(10.0);
         theme.shadow = true;
