@@ -15,7 +15,7 @@ use futures::channel::mpsc;
 use specular_app::{Bench, Runtime, ShellWindow as _};
 use specular_interact::{
     Appearance, ChatModel, Event, Menu, OnboardingModel, PopupModel, SidebarModel, ToolbarModel,
-    chat, dock, menus, onboarding, sidebar, toolbar,
+    ViewStrip, chat, dock, menus, onboarding, sidebar, toolbar, view_strip,
 };
 
 use crate::surface::{CanvasSurface, WindowAsks};
@@ -89,6 +89,8 @@ impl LinkRest {
 /// What GPUI draws from, as `update` last left it.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Models {
+    /// The tabs of the tab row: the canvas, then its pages and Documents.
+    pub(crate) strip: ViewStrip,
     /// The tool buttons and the zoom readout.
     pub(crate) toolbar: ToolbarModel,
     /// What the dock shows: the controls of the tool in hand or of the
@@ -110,6 +112,7 @@ impl Models {
     fn of(runtime: &Runtime<CanvasSurface>) -> Self {
         let app = runtime.app();
         Self {
+            strip: view_strip(app),
             toolbar: toolbar(app),
             dock: dock(app),
             sidebar: sidebar(app),

@@ -204,7 +204,7 @@ impl Render for ShellView {
                         .left_0()
                         .right_0()
                         .bg(theme::solid(theme::toolbar()))
-                        .child(tabs::tabs())
+                        .child(tabs::tabs(&models.strip))
                         .child(toolbar::toolbar(&models.toolbar))
                         .child(dock::dock(models.dock.as_ref(), window, cx)),
                 )
