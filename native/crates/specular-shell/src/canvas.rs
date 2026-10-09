@@ -14,8 +14,8 @@ use std::time::{Duration, Instant};
 use futures::channel::mpsc;
 use specular_app::{Bench, Runtime, ShellWindow as _};
 use specular_interact::{
-    Appearance, ChatModel, Event, Menu, OnboardingModel, PopupAnchor, PopupModel, SidebarModel,
-    ToolbarModel, chat, menus, onboarding, popup_for, sidebar, toolbar,
+    Appearance, ChatModel, Event, Menu, OnboardingModel, PopupModel, SidebarModel, ToolbarModel,
+    chat, dock, menus, onboarding, sidebar, toolbar,
 };
 
 use crate::surface::{CanvasSurface, WindowAsks};
@@ -91,9 +91,9 @@ impl LinkRest {
 pub(crate) struct Models {
     /// The tool buttons and the zoom readout.
     pub(crate) toolbar: ToolbarModel,
-    /// The popup hung from the toolbar, when the tool in hand has one. A
-    /// popup beside a canvas item is drawn in the canvas's own pass.
-    pub(crate) popup: Option<PopupModel>,
+    /// What the dock shows: the controls of the tool in hand or of the
+    /// selection.
+    pub(crate) dock: Option<PopupModel>,
     /// The left sidebar.
     pub(crate) sidebar: SidebarModel,
     /// The right panel: the canvas's agent threads and the composer.
@@ -111,8 +111,7 @@ impl Models {
         let app = runtime.app();
         Self {
             toolbar: toolbar(app),
-            popup: popup_for(app)
-                .filter(|popup| matches!(popup.anchor, PopupAnchor::Toolbar { .. })),
+            dock: dock(app),
             sidebar: sidebar(app),
             chat: chat(app),
             menus: menus(app),

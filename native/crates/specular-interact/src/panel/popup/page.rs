@@ -9,7 +9,7 @@ use specular_doc::{ColorScheme, Entity, Kind, VIEWPORT_PRESETS};
 
 use super::super::build::{button, groups, toggle};
 use super::super::{
-    Align, Button, Control, ControlId, Dropdown, DropdownOption, DropdownSection, Face, Field,
+    Button, Control, ControlId, Dropdown, DropdownOption, DropdownSection, Face, Field,
     FieldSubmit, FieldWidth, Icon, OptionLayout, PopupModel,
 };
 use super::actions::Actions;
@@ -394,13 +394,5 @@ pub(super) fn popup(app: &App, entities: &[&Entity]) -> PopupModel {
             .controls(),
         ])
     };
-    let align = if single.is_some() {
-        Align::Stretch
-    } else {
-        Align::Center
-    };
-    PopupModel {
-        anchor: super::over_titled(entities, align),
-        controls,
-    }
+    PopupModel { controls }
 }

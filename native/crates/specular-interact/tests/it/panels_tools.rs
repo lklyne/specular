@@ -103,7 +103,6 @@ fn the_shape_tool_popup_sets_the_shape_defaults() {
     let mut app = TestApp::empty();
     app.tool(Tool::AddShape);
     assert_popup_snapshot!(app, @r#"
-    anchor toolbar gap=8
     dropdown shape.kind "Set default shape" shows icon=Shape(Rectangle)
       options grid(5)
         option [x] shape.kind.rectangle "Rectangle" icon=Shape(Rectangle) -> SetToolDefault(ShapeKind(Rectangle))
@@ -138,7 +137,6 @@ fn the_draw_tool_popup_offers_the_highlighter_its_own_widths_and_pastels() {
         BrushType::Highlight,
     )));
     assert_popup_snapshot!(app, @r#"
-    anchor toolbar gap=8
     toggle [ ] brush.pen "Pen" icon=BrushPen color=1 -> SetToolDefault(Brush(Pen))
     toggle [x] brush.highlighter "Highlighter" icon=BrushHighlighter color=1 -> SetToolDefault(Brush(Highlight))
     ---
@@ -157,8 +155,7 @@ fn the_page_tool_offers_the_size_presets_and_hides_the_selections() {
     assert_ne!(app.popup_snapshot(), "none");
     app.tool(Tool::AddPage);
     assert_popup_snapshot!(app, @r#"
-    anchor toolbar gap=8
-    choices page.preset "Page size to add"
+    dropdown page.preset "Page size to add" shows text="iPhone SE"
       options list
         option [x] page.preset.0 "Add iPhone SE" text="iPhone SE" trailing="375×667" -> SetToolDefault(PagePreset(0))
         option [ ] page.preset.1 "Add iPhone 14 Pro" text="iPhone Pro" trailing="393×852" -> SetToolDefault(PagePreset(1))
@@ -179,13 +176,13 @@ fn the_page_tool_offers_the_size_presets_and_hides_the_selections() {
 }
 
 #[test]
-fn a_tool_with_a_popup_wins_over_the_selection_and_keeps_it_while_drawing() {
+fn a_tools_options_win_over_the_selections_controls_and_stay_while_drawing() {
     let mut app =
         TestApp::with_entities([shape("s", specular_doc::Rect::new(0.0, 0.0, 100.0, 100.0))]);
     app.select(&["s"]);
     app.tool(Tool::Draw);
     let at_rest = app.popup_snapshot();
-    assert!(at_rest.starts_with("anchor toolbar"));
+    assert!(at_rest.contains("draw.color") && !at_rest.contains("shape."));
     app.press((300.0, 300.0)).drag_to((340.0, 330.0));
     assert_eq!(app.popup_snapshot(), at_rest);
 }

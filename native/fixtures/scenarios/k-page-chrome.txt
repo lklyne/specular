@@ -6,6 +6,7 @@
 camera 0,0,0.5
 control tool.page
 snapshot 01-page-tool-popup.png
+control page.preset
 control page.preset.7
 click 300 300
 save 02-page-placed.canvas

@@ -5,7 +5,7 @@
 //! [`FieldSubmit`], which is data rather than a closure so a model can be
 //! compared and cloned.
 
-use super::{Control, ControlId, DropdownSection, Label, popup_for};
+use super::{Control, ControlId, DropdownSection, Label, dock};
 use crate::{Action, App, CanvasAction, CanvasId, Property, resolve_address_input};
 
 /// The least and greatest number a size field takes, in pixels.
@@ -90,9 +90,9 @@ pub struct Field {
     pub submit: FieldSubmit,
 }
 
-/// The field named `id` in the popup shown now, whether it sits in the
-/// popup's row or inside a dropdown, or the name of a canvas in the sidebar
-/// while that is shown.
+/// The field named `id` in the dock now, whether it sits in the dock's row
+/// or inside a dropdown, or the name of a canvas in the sidebar while that
+/// is shown.
 pub(crate) fn field_named(app: &App, id: &ControlId) -> Option<Field> {
     if id.as_str().starts_with("sidebar.") {
         if !app.session.sidebar.shown() {
@@ -102,8 +102,8 @@ pub(crate) fn field_named(app: &App, id: &ControlId) -> Option<Field> {
             .map(|row| row.rename)
             .find(|field| field.id == *id);
     }
-    let popup = popup_for(app)?;
-    popup.controls.iter().find_map(|control| find(control, id))
+    let dock = dock(app)?;
+    dock.controls.iter().find_map(|control| find(control, id))
 }
 
 fn find(control: &Control, id: &ControlId) -> Option<Field> {

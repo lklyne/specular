@@ -1,21 +1,19 @@
-//! The toolbar: a strip across the top of the viewport with the tool
-//! buttons and the zoom readout centred in it.
+//! The toolbar: the second row of the chrome, with the tool buttons and the
+//! zoom readout centred in it.
 
 use glam::Vec2;
 use specular_doc::TextAlign;
 
 use super::super::{
-    Dropdown, Icon, PaintRole, Palette, SidebarButton, ThemeButton, ToolButton, ToolbarModel,
-    ToolbarSection,
+    Dropdown, Icon, PaintRole, Palette, ThemeButton, ToolButton, ToolbarModel, ToolbarSection,
 };
-use super::Ctx;
 use super::controls::text;
 use super::metrics::{
-    CONTROL_RADIUS, DIVIDER, DIVIDER_MARGIN, GAP, ICON, SIDEBAR_BUTTON, SIDEBAR_BUTTON_LEFT,
-    SIDEBAR_BUTTON_RADIUS, TOOL_BUTTON, TOOL_GLYPH, TOOLBAR_HEIGHT, ZOOM_CHEVRON, ZOOM_PAD,
+    CONTROL_RADIUS, DIVIDER, DIVIDER_MARGIN, GAP, TOOL_BUTTON, TOOL_GLYPH, ZOOM_CHEVRON, ZOOM_PAD,
     ZOOM_TRIGGER,
 };
 use super::node::{Chrome, Node, Panel, PanelRect, Part, Run, Tint, Tone};
+use super::{Ctx, rows};
 
 /// The surface a tool glyph's color is resolved for: the pens show their
 /// ink, the sticky and the shape their fill.
@@ -135,45 +133,15 @@ pub(super) fn layout(ctx: &Ctx<'_>, model: &ToolbarModel, viewport: Vec2) -> Pan
         }
     }
     let width = (left - GAP).max(0.0);
+    let rect = rows::tools(viewport.x);
     let corner = Vec2::new(
-        ((viewport.x - width) / 2.0).round(),
-        (TOOLBAR_HEIGHT - TOOL_BUTTON.1) / 2.0,
+        ((rect.width - width) / 2.0).round(),
+        rect.y + (rect.height - TOOL_BUTTON.1) / 2.0,
     );
-    let mut nodes: Vec<Node> = nodes.into_iter().map(|node| node.moved(corner)).collect();
-    nodes.push(sidebar_button(ctx, &model.sidebar));
     Panel {
         surface: super::Surface::Toolbar,
-        rect: PanelRect::new(0.0, 0.0, viewport.x, TOOLBAR_HEIGHT),
+        rect,
         menu: false,
-        nodes,
-    }
-}
-
-/// The sidebar's button at the strip's left edge: `p-1.5` around a 14 px
-/// glyph, set in from the edge by the toolbar's `px-4`, and faded while the
-/// sidebar is hidden.
-fn sidebar_button(ctx: &Ctx<'_>, button: &SidebarButton) -> Node {
-    let rect = PanelRect::new(
-        SIDEBAR_BUTTON_LEFT,
-        (TOOLBAR_HEIGHT - SIDEBAR_BUTTON) / 2.0,
-        SIDEBAR_BUTTON,
-        SIDEBAR_BUTTON,
-    );
-    let mut state = ctx.state(&button.id, true, false);
-    state.dimmed = !button.open;
-    Node {
-        id: Some(button.id.clone()),
-        radius: SIDEBAR_BUTTON_RADIUS,
-        state,
-        parts: vec![Part::Glyph {
-            icon: button.icon,
-            rect: rect.centred(Vec2::splat(ICON)),
-            tone: Tone::Follow,
-        }],
-        run: Some(Run::Act {
-            action: button.action.clone(),
-            closes: true,
-        }),
-        ..Node::fixed(rect, Chrome::Subtle)
+        nodes: nodes.into_iter().map(|node| node.moved(corner)).collect(),
     }
 }

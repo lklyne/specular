@@ -232,9 +232,7 @@ impl ShellView {
             .id(element_id(&row.control.child("menu")))
             .child(item)
             .context_menu(move |popup, _, _| {
-                let model = canvas::with(|canvas| {
-                    context_menu(canvas.runtime.app(), &target, glam::Vec2::ZERO)
-                });
+                let model = canvas::with(|canvas| context_menu(canvas.runtime.app(), &target));
                 match model.flatten() {
                     Some(model) => menu::filled(popup, &model),
                     None => popup,
@@ -298,7 +296,7 @@ impl ShellView {
             .occlude()
             .absolute()
             .left_0()
-            .top(px(theme::TOOLBAR_HEIGHT))
+            .top(px(theme::CHROME_HEIGHT))
             .bottom_0()
             .w(px(theme::SIDEBAR_WIDTH))
             .bg(theme::solid(theme::panel()))

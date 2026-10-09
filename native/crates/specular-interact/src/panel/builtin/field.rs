@@ -133,7 +133,7 @@ pub(super) fn overlay_in_place(app: &App, layout: &mut PanelLayout) {
     let id = ControlId::from(edit.entity().as_str().to_owned());
     let panels = [
         &mut layout.sidebar_list,
-        &mut layout.popup,
+        &mut layout.dock,
         &mut layout.dropdown,
     ];
     let node = panels

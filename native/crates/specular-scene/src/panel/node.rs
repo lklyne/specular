@@ -91,12 +91,12 @@ fn fill(p: &PanelColors, chrome: Chrome, state: NodeState) -> Option<Color> {
 /// pointer is on it or it is on.
 fn follow(p: &PanelColors, surface: Surface, state: NodeState) -> Color {
     match (surface, lit(state)) {
-        (Surface::Toolbar, true) => p.toolbar_text_strong,
-        (Surface::Toolbar, false) => p.toolbar_text,
-        (Surface::Popup | Surface::Dropdown | Surface::Sidebar | Surface::SidebarList, true) => {
+        (Surface::Tabs | Surface::Toolbar, true) => p.toolbar_text_strong,
+        (Surface::Tabs | Surface::Toolbar, false) => p.toolbar_text,
+        (Surface::Dock | Surface::Dropdown | Surface::Sidebar | Surface::SidebarList, true) => {
             p.text
         }
-        (Surface::Popup | Surface::Dropdown | Surface::Sidebar | Surface::SidebarList, false) => {
+        (Surface::Dock | Surface::Dropdown | Surface::Sidebar | Surface::SidebarList, false) => {
             p.text_muted
         }
     }
@@ -251,8 +251,8 @@ fn part(colors: &'static Colors, surface: Surface, node: &Node, part: &Part, out
         }
         Part::Chevron { rect: area } => {
             let color = match surface {
-                Surface::Toolbar => p.toolbar_chevron,
-                Surface::Popup | Surface::Dropdown | Surface::Sidebar | Surface::SidebarList => own,
+                Surface::Tabs | Surface::Toolbar => p.toolbar_chevron,
+                Surface::Dock | Surface::Dropdown | Surface::Sidebar | Surface::SidebarList => own,
             };
             icons::chevron(rect(*area), color, colors, out);
         }

@@ -15,7 +15,6 @@ fn a_page_has_size_frame_rotation_and_color_scheme() {
     let mut app = TestApp::with_entities([page("p", Rect::new(100.0, 100.0, 375.0, 667.0))]);
     app.select(&["p"]);
     assert_popup_snapshot!(app, @r#"
-    anchor canvas 100,100 375x667 Above Stretch gap=28.5
     button page.back "Back" icon=ChevronLeft chord=cmd+[ disabled -> PageBack
     button page.forward "Forward" icon=ChevronRight chord=cmd+] disabled -> PageForward
     button page.reload "Reload" icon=Reload chord=cmd+r -> PageReload
@@ -62,7 +61,6 @@ fn several_pages_share_a_size_list_without_custom() {
     let mut app = TestApp::with_pages(2);
     app.select(&["p1", "p2"]);
     assert_popup_snapshot!(app, @r#"
-    anchor canvas 100,100 1000x300 Above Center gap=28.5
     dropdown page.size "Page size" shows text="Multiple"
       options list
         option [ ] page.size.0 "iPhone SE" trailing="375×667" -> SetProperty(ViewportPreset(0))
@@ -101,7 +99,6 @@ fn a_selected_edge_has_color_stroke_arrowheads_and_delete() {
     let mut app = TestApp::from_document(with_edge(doc, edge));
     app.select(&["e"]);
     assert_popup_snapshot!(app, @r#"
-    anchor canvas 350,150 0x0 Above Center gap=12
     dropdown edge.color "Set edge color" shows color=1
       controls
         swatches edge.color.swatches Vivid/Ink: neutral purple blue cyan green yellow orange *red
@@ -128,7 +125,6 @@ fn a_selection_across_kinds_has_no_popup_yet() {
     let mut app = TestApp::with_entities([shape("a", A), sticky("b", B, "two")]);
     app.select(&["a", "b"]);
     assert_popup_snapshot!(app, @r#"
-    anchor canvas 100,100 500x100 Above Center gap=14
     button item.arrange.row "Arrange in a row" icon=ArrangeRow -> Arrange(Row)
     button item.arrange.column "Arrange in a column" icon=ArrangeColumn -> Arrange(Column)
     button item.arrange.grid "Arrange in a grid" icon=ArrangeGrid -> Arrange(Grid)
@@ -138,17 +134,24 @@ fn a_selection_across_kinds_has_no_popup_yet() {
 }
 
 #[test]
-fn no_popup_for_nothing_a_drag_a_pair_of_edges_or_a_shape_label() {
+fn the_dock_holds_its_controls_through_a_drag() {
+    let mut app = TestApp::with_entities([shape("a", A)]);
+    app.select(&["a"]);
+    let at_rest = app.popup_snapshot();
+    assert_ne!(at_rest, "none");
+    app.press((150.0, 150.0)).drag_to((200.0, 200.0));
+    assert!(app.session().gesture.is_some());
+    assert_eq!(app.popup_snapshot(), at_rest, "a drag in flight");
+    app.release();
+    assert_eq!(app.popup_snapshot(), at_rest);
+}
+
+#[test]
+fn the_dock_is_empty_for_nothing_a_pair_of_edges_or_a_shape_label() {
     let none = |app: &TestApp, what: &str| assert_eq!(app.popup_snapshot(), "none", "{what}");
 
-    let mut app = TestApp::with_entities([shape("a", A)]);
+    let app = TestApp::with_entities([shape("a", A)]);
     none(&app, "nothing selected");
-    app.select(&["a"]);
-    assert_ne!(app.popup_snapshot(), "none");
-    app.press((150.0, 150.0)).drag_to((200.0, 200.0));
-    none(&app, "a drag in flight");
-    app.release();
-    assert_ne!(app.popup_snapshot(), "none");
 
     let doc = document([plain_text("a", A, "a"), plain_text("b", B, "b")]);
     let mut app = TestApp::from_document(connected(connected(doc, "e1", "a", "b"), "e2", "b", "a"));

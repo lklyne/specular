@@ -79,7 +79,7 @@ pub enum Step {
     Camera(CameraArg),
     /// `wait ms`: the clock moves on and pending loads are waited for.
     Wait(u64),
-    /// `control shape.color`: clicks the toolbar or popup control with that
+    /// `control shape.color`: clicks the toolbar or dock control with that
     /// name, wherever it is. A dropdown's options have names once it is
     /// open.
     Control(String),
@@ -88,7 +88,7 @@ pub enum Step {
     /// `press-control tool.draw`: the button goes down on that control and
     /// stays down until a `release`.
     PressControl(String),
-    /// `panels off`, or `panels on`: whether the toolbar and the popup are
+    /// `panels off`, or `panels on`: whether the toolbar and the dock are
     /// drawn and take clicks. They start on.
     Panels(bool),
     /// `sidebar on`, or `sidebar off`: whether the left sidebar is shown. It

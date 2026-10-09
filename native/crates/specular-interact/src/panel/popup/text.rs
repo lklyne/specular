@@ -3,7 +3,7 @@
 use specular_doc::{Entity, Kind, TextStyle};
 
 use super::super::build::{color_dropdown, font_dropdown, groups, size_dropdown, toggle};
-use super::super::{Align, Control, ControlId, Face, Icon, PaintRole, Palette, PopupModel};
+use super::super::{Control, ControlId, Face, Icon, PaintRole, Palette, PopupModel};
 use super::actions::Actions;
 use crate::property::read;
 use crate::{Action, Format, Property};
@@ -55,10 +55,7 @@ pub(super) fn popup(app: &crate::App, entities: &[&Entity]) -> PopupModel {
         formats(app, false),
         Actions::all(&noun, entities.len()).controls(),
     ]);
-    PopupModel {
-        anchor: super::over(entities, Align::Center),
-        controls,
-    }
+    PopupModel { controls }
 }
 
 /// The formatting buttons: the ones the Electron popup has, for the formats

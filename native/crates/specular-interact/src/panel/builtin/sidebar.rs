@@ -13,7 +13,7 @@ use specular_doc::{ItemId, TextFont};
 
 use self::metrics::{CONTENT, HEAD, ROW, SCROLLBAR, THUMB_MIN};
 use super::Ctx;
-use super::metrics::TOOLBAR_HEIGHT;
+use super::metrics::CHROME_HEIGHT;
 use super::node::{Chrome, Node, Panel, PanelRect, Surface};
 use crate::panel::ControlId;
 use crate::{
@@ -84,13 +84,13 @@ pub(crate) fn entries(model: &SidebarModel) -> Vec<Entry<'_>> {
     out
 }
 
-/// The sidebar's box under the toolbar, and the box of its list.
+/// The sidebar's box under the chrome, and the box of its list.
 fn boxes(viewport: Vec2) -> (PanelRect, PanelRect) {
     let frame = PanelRect::new(
         0.0,
-        TOOLBAR_HEIGHT,
+        CHROME_HEIGHT,
         SIDEBAR_WIDTH,
-        (viewport.y - TOOLBAR_HEIGHT).max(0.0),
+        (viewport.y - CHROME_HEIGHT).max(0.0),
     );
     let list = PanelRect::new(0.0, frame.y + HEAD, CONTENT, (frame.height - HEAD).max(0.0));
     (frame, list)

@@ -69,10 +69,12 @@ impl PanelRect {
 /// Which panel a node belongs to, which decides the surface drawn under it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Surface {
-    /// The strip across the top of the viewport.
+    /// The tab row, the strip across the top of the viewport.
+    Tabs,
+    /// The row of tool buttons under the tabs.
     Toolbar,
-    /// The floating popup of a tool or a selection.
-    Popup,
+    /// The dock, the row under the toolbar.
+    Dock,
     /// The floating list under an open dropdown.
     Dropdown,
     /// The sidebar's frame: its ground, its right edge and the head of the

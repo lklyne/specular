@@ -4,9 +4,7 @@
 use specular_doc::Entity;
 
 use super::super::build::{color_dropdown, groups, noun, toggle};
-use super::super::{
-    Align, Control, ControlId, Face, Icon, PaintRole, Palette, PopupModel, Stepper,
-};
+use super::super::{Control, ControlId, Face, Icon, PaintRole, Palette, PopupModel, Stepper};
 use super::actions::Actions;
 use crate::property::read;
 use crate::{Action, LayoutAxis, Property};
@@ -25,20 +23,8 @@ pub(super) fn popup(app: &crate::App, entities: &[&Entity]) -> PopupModel {
         None,
         |color| Action::SetProperty(Property::Color(color)),
     );
-    let titled = entities.iter().any(|entity| {
-        entity
-            .label
-            .as_deref()
-            .is_some_and(|label| !label.is_empty())
-    });
-    let anchor = if titled {
-        super::over_titled(entities, Align::Center)
-    } else {
-        super::over(entities, Align::Center)
-    };
     let noun = noun(entities.len(), "group", "groups");
     PopupModel {
-        anchor,
         controls: groups(vec![
             vec![color],
             layout(app, entities),

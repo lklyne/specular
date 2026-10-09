@@ -20,11 +20,11 @@ use glam::Vec2;
 use specular_core::Modifiers;
 
 use super::{
-    Control, ControlId, Dropdown, DropdownSection, MenuTarget, ToolbarSection, context_menu,
-    popup_for, toolbar,
+    Control, ControlId, Dropdown, DropdownSection, MenuTarget, ToolbarSection, context_menu, dock,
+    toolbar,
 };
 use crate::update::run_action;
-use crate::{Action, App, Effect, SidebarRow, Tool, edit, hit};
+use crate::{Action, App, Effect, SidebarRow, edit, hit};
 
 /// A name that no control has now, with the names that controls do have.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
@@ -47,10 +47,7 @@ enum Does {
         closes: bool,
     },
     /// Opens the list under it, or closes it.
-    Opens {
-        /// Whether the list hangs from the toolbar.
-        toolbar: bool,
-    },
+    Opens,
     /// Takes the keys, to be typed in.
     Edits,
 }
@@ -97,19 +94,17 @@ fn sections(content: &[DropdownSection], inside: &Inside, out: &mut Vec<Named>) 
             }
             DropdownSection::Controls(controls) => {
                 for inner in controls {
-                    control(inner, inside, false, out);
+                    control(inner, inside, out);
                 }
             }
         }
     }
 }
 
-fn dropdown(model: &Dropdown, inside: &Inside, in_toolbar: bool, out: &mut Vec<Named>) {
+fn dropdown(model: &Dropdown, inside: &Inside, out: &mut Vec<Named>) {
     out.push(Named {
         id: model.id.clone(),
-        does: Does::Opens {
-            toolbar: in_toolbar,
-        },
+        does: Does::Opens,
         inside: inside.clone(),
     });
     // A list inside a list is reached through the outer one.
@@ -120,7 +115,7 @@ fn dropdown(model: &Dropdown, inside: &Inside, in_toolbar: bool, out: &mut Vec<N
     sections(&model.content, &list, out);
 }
 
-fn control(model: &Control, inside: &Inside, in_toolbar: bool, out: &mut Vec<Named>) {
+fn control(model: &Control, inside: &Inside, out: &mut Vec<Named>) {
     match model {
         Control::Button(button) => {
             out.push(run(
@@ -144,7 +139,7 @@ fn control(model: &Control, inside: &Inside, in_toolbar: bool, out: &mut Vec<Nam
             (row.options.iter())
                 .map(|swatch| run(&swatch.id, &swatch.action, row.enabled, false, inside)),
         ),
-        Control::Dropdown(model) => dropdown(model, inside, in_toolbar, out),
+        Control::Dropdown(model) => dropdown(model, inside, out),
         Control::Stepper(stepper) => {
             let halves = [
                 ("dec", &stepper.decrement, stepper.can_decrement),
@@ -164,13 +159,13 @@ fn control(model: &Control, inside: &Inside, in_toolbar: bool, out: &mut Vec<Nam
     }
 }
 
-fn menu(app: &App, target: &MenuTarget, at: Vec2, out: &mut Vec<Named>) {
+fn menu(app: &App, target: &MenuTarget, out: &mut Vec<Named>) {
     let inside = Inside::Menu(target.clone());
-    for model in context_menu(app, target, at)
+    for model in context_menu(app, target)
         .iter()
         .flat_map(|menu| &menu.controls)
     {
-        control(model, &inside, false, out);
+        control(model, &inside, out);
     }
 }
 
@@ -187,7 +182,7 @@ fn rows(rows: &[SidebarRow], out: &mut Vec<Named>) {
     }
 }
 
-fn sidebar(app: &App, at: Vec2, out: &mut Vec<Named>) {
+fn sidebar(app: &App, out: &mut Vec<Named>) {
     let model = crate::sidebar(app);
     if !model.visible {
         return;
@@ -205,7 +200,7 @@ fn sidebar(app: &App, at: Vec2, out: &mut Vec<Named>) {
                 does: Does::Edits,
                 inside: Inside::Nothing,
             });
-            menu(app, &MenuTarget::Canvas(canvas.id.clone()), at, out);
+            menu(app, &MenuTarget::Canvas(canvas.id.clone()), out);
         }
     }
     for (section, listed) in [
@@ -220,13 +215,12 @@ fn sidebar(app: &App, at: Vec2, out: &mut Vec<Named>) {
 }
 
 /// Every control there is now, in the models' order: the toolbar, the
-/// popup, the sidebar, the context menu.
+/// dock, the sidebar, the context menu.
 fn named(app: &App) -> Vec<Named> {
     let mut out = Vec::new();
     let plain = Inside::Nothing;
     let bar = toolbar(app);
-    let side_buttons = std::iter::once(&bar.sidebar).chain(&bar.chat);
-    out.extend(side_buttons.map(|button| run(&button.id, &button.action, true, true, &plain)));
+    out.extend((bar.chat.iter()).map(|button| run(&button.id, &button.action, true, true, &plain)));
     for section in &bar.sections {
         match section {
             ToolbarSection::Tools(tools) => {
@@ -237,18 +231,17 @@ fn named(app: &App) -> Vec<Named> {
             ToolbarSection::Zoom(zoom) => {
                 // The theme button is drawn just before the zoom readout.
                 out.push(run(&bar.theme.id, &bar.theme.action, true, true, &plain));
-                dropdown(zoom, &plain, true, &mut out);
+                dropdown(zoom, &plain, &mut out);
             }
         }
     }
-    for model in popup_for(app).iter().flat_map(|popup| &popup.controls) {
-        control(model, &plain, false, &mut out);
+    for model in dock(app).iter().flat_map(|dock| &dock.controls) {
+        control(model, &plain, &mut out);
     }
-    let at = app.session.pointer.unwrap_or_default();
-    sidebar(app, at, &mut out);
+    sidebar(app, &mut out);
     match &app.session.panel.menu {
         Some(open) if !matches!(open.target, MenuTarget::Canvas(_)) => {
-            menu(app, &open.target, open.at, &mut out);
+            menu(app, &open.target, &mut out);
         }
         Some(_) => {}
         None => {
@@ -258,7 +251,7 @@ fn named(app: &App) -> Vec<Named> {
             } else {
                 MenuTarget::Selection(items)
             };
-            menu(app, &target, at, &mut out);
+            menu(app, &target, &mut out);
         }
     }
     out
@@ -313,17 +306,9 @@ pub(crate) fn activate(app: &mut App, id: &ControlId, keys: Modifiers, effects: 
     }
     let menu = ui.menu.take();
     match found.does {
-        Does::Opens { toolbar } => {
-            if app.session.panel.open.as_ref() == Some(id) {
-                app.session.panel.open = None;
-                return;
-            }
-            // A tool's popup hangs where a list of the toolbar opens, so
-            // opening one puts the tool down.
-            if toolbar && app.session.tool != Tool::Select {
-                run_action(app, Action::SetTool(Tool::Select), effects);
-            }
-            app.session.panel.open = Some(id.clone());
+        Does::Opens => {
+            let open = &mut app.session.panel.open;
+            *open = (open.as_ref() != Some(id)).then(|| id.clone());
         }
         Does::Edits => edit::begin_field(app, id, effects),
         Does::Run { enabled: false, .. } => {}

@@ -4,8 +4,8 @@
 
 use specular_doc::Entity;
 
+use super::super::PopupModel;
 use super::super::build::{groups, noun};
-use super::super::{Align, PopupModel};
 use super::actions::Actions;
 
 pub(super) fn popup(app: &crate::App, entities: &[&Entity]) -> PopupModel {
@@ -13,13 +13,7 @@ pub(super) fn popup(app: &crate::App, entities: &[&Entity]) -> PopupModel {
         .iter()
         .all(|entity| crate::notes::note_file(&entity.kind).is_some());
     let noun = noun(entities.len(), "file", "files");
-    let align = if entities.len() == 1 {
-        Align::Stretch
-    } else {
-        Align::Center
-    };
     PopupModel {
-        anchor: super::over(entities, align),
         controls: groups(vec![
             if entities.len() == 1 && all_documents {
                 super::text::formats(app, true)

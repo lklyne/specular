@@ -1,7 +1,9 @@
-//! The toolbar and the item popup laid out, hit-tested and clicked with no
-//! UI library: the stand-in for a panel renderer.
+//! The chrome laid out, hit-tested and clicked with no UI library: the
+//! stand-in for a panel renderer.
 //!
-//! [`layout`] turns the two models into rects in logical screen pixels, each
+//! The chrome is three rows across the top of the window (the tab row, the
+//! tool row and the dock) with the sidebar under them at the left.
+//! [`layout`] turns the models into rects in logical screen pixels, each
 //! with what a drawer paints there, so drawing needs no arithmetic of its
 //! own. [`PanelUi`] is the state a renderer keeps against
 //! [`ControlId`](super::ControlId): which dropdown is open and what the
@@ -14,13 +16,14 @@
 mod cache;
 mod context;
 mod controls;
+mod dock;
 mod dropdown;
 mod field;
 mod metrics;
 mod node;
 mod place;
-mod popup;
 mod route;
+mod rows;
 mod scroll;
 mod sidebar;
 mod toolbar;
@@ -37,15 +40,17 @@ pub(crate) use self::cache::{
 pub use self::context::ContextMenu;
 pub(crate) use self::context::{open as open_menu, open_for_press as open_menu_for_press};
 pub(crate) use self::field::{field_box, field_text_area};
-pub use self::metrics::{FIELD_HEIGHT, FIELD_LINE, FIELD_TEXT, TOOLBAR_HEIGHT};
+pub use self::metrics::{
+    CHROME_HEIGHT, DOCK_ROW, FIELD_HEIGHT, FIELD_LINE, FIELD_TEXT, TAB_ROW, TOOL_ROW,
+};
 pub use self::node::{
     Chrome, Input, InputFocus, Node, NodeState, Panel, PanelRect, Part, Pointing, Surface, Tint,
     Tone,
 };
-pub(crate) use self::route::{cancel, hit, on_pointer, over, over_field, swallows_scroll, tidy};
+pub(crate) use self::route::{cancel, hit, on_pointer, over, over_field, tidy};
 pub(crate) use self::scroll::on_wheel;
 pub(crate) use self::sidebar::picked;
-use super::{Control, ControlId, Dropdown, PopupAnchor, PopupModel, ToolbarModel, ToolbarSection};
+use super::{Control, ControlId, Dropdown, PopupModel, ToolbarModel, ToolbarSection};
 use crate::App;
 
 /// What the built-in panels remember between events.
@@ -53,9 +58,9 @@ use crate::App;
 pub struct PanelUi {
     /// Whether the built-in panels are shown, hit and clicked at all.
     pub built_in: bool,
-    /// Whether only the popups beside a canvas item are built in: the
-    /// toolbar and a popup hung from it are someone else's to draw.
-    pub canvas_only: bool,
+    /// Whether only the context menu is built in: the chrome and the
+    /// sidebar are someone else's to draw.
+    pub menu_only: bool,
     /// The dropdown that is open.
     pub open: Option<ControlId>,
     /// The control under the pointer.
@@ -83,11 +88,11 @@ pub(crate) fn turn(app: &mut App, built_in: bool) {
 }
 
 impl PanelUi {
-    /// Only the popups beside a canvas item, with nothing open or hovered.
-    pub fn canvas_popups() -> Self {
+    /// Only the context menu, with nothing open or hovered.
+    pub fn menu_alone() -> Self {
         Self {
             built_in: true,
-            canvas_only: true,
+            menu_only: true,
             ..Self::default()
         }
     }
@@ -101,10 +106,13 @@ pub struct PanelLayout {
     pub sidebar: Option<Panel>,
     /// The sidebar's scrolling list, seen through its box.
     pub sidebar_list: Option<Panel>,
-    /// The toolbar, a strip across the top of the viewport.
+    /// The tab row, the strip across the top of the viewport.
+    pub tabs: Option<Panel>,
+    /// The toolbar, the row under the tabs.
     pub toolbar: Option<Panel>,
-    /// The popup of the tool in hand or of the selection.
-    pub popup: Option<Panel>,
+    /// The dock, the row under the toolbar: the controls of the tool in
+    /// hand or of the selection, or an empty bar.
+    pub dock: Option<Panel>,
     /// The list under the open dropdown, or the open context menu.
     pub dropdown: Option<Panel>,
 }
@@ -124,8 +132,9 @@ impl PanelLayout {
         [
             &self.sidebar,
             &self.sidebar_list,
+            &self.tabs,
             &self.toolbar,
-            &self.popup,
+            &self.dock,
             &self.dropdown,
         ]
         .into_iter()
@@ -208,28 +217,34 @@ impl Ctx<'_> {
     }
 }
 
-/// The dropdown named `id`, in the toolbar or at the top level of the popup.
+/// Whether `controls` holds the dropdown named `id` at its top level.
+fn holds<'a>(controls: &'a [Control], id: &ControlId) -> Option<&'a Dropdown> {
+    controls.iter().find_map(|control| match control {
+        Control::Dropdown(dropdown) if dropdown.id == *id => Some(dropdown),
+        Control::Dropdown(_)
+        | Control::Button(_)
+        | Control::Toggle(_)
+        | Control::Swatches(_)
+        | Control::Stepper(_)
+        | Control::Field(_)
+        | Control::Choices(_)
+        | Control::Separator => None,
+    })
+}
+
+/// The dropdown named `id` with the row it is in: the toolbar, or the dock.
 fn open_dropdown<'a>(
     id: &ControlId,
-    toolbar: &'a ToolbarModel,
-    popup: Option<&'a PopupModel>,
-) -> Option<(&'a Dropdown, Surface)> {
-    let in_toolbar = toolbar.sections.iter().find_map(|section| match section {
-        ToolbarSection::Zoom(dropdown) if dropdown.id == *id => Some((dropdown, Surface::Toolbar)),
+    toolbar: (&'a ToolbarModel, &'a Panel),
+    dock: Option<(&'a PopupModel, &'a Panel)>,
+) -> Option<(&'a Dropdown, &'a Panel)> {
+    let in_toolbar = (toolbar.0.sections.iter()).find_map(|section| match section {
+        ToolbarSection::Zoom(dropdown) if dropdown.id == *id => Some((dropdown, toolbar.1)),
         ToolbarSection::Zoom(_) | ToolbarSection::Tools(_) => None,
     });
     in_toolbar.or_else(|| {
-        popup?.controls.iter().find_map(|control| match control {
-            Control::Dropdown(dropdown) if dropdown.id == *id => Some((dropdown, Surface::Popup)),
-            Control::Dropdown(_)
-            | Control::Button(_)
-            | Control::Toggle(_)
-            | Control::Swatches(_)
-            | Control::Stepper(_)
-            | Control::Field(_)
-            | Control::Choices(_)
-            | Control::Separator => None,
-        })
+        let (model, row) = dock?;
+        Some((holds(&model.controls, id)?, row))
     })
 }
 
@@ -271,52 +286,55 @@ fn build(app: &App) -> PanelLayout {
     BUILDS.with(|builds| builds.set(builds.get() + 1));
     let ctx = Ctx { app, ui };
     let viewport = app.session.viewport;
-    let toolbar_model = super::toolbar(app);
-    let popup_model = super::popup_for(app);
-    let toolbar = (!ui.canvas_only).then(|| toolbar::layout(&ctx, &toolbar_model, viewport));
-    let popup = popup_model
-        .as_ref()
-        .filter(|model| !ui.canvas_only || matches!(model.anchor, PopupAnchor::Canvas { .. }))
-        .and_then(|model| popup::layout(&ctx, model, viewport));
-    let dropdown = ui.open.as_ref().and_then(|id| {
-        let (model, surface) = open_dropdown(id, &toolbar_model, popup_model.as_ref())?;
-        let host = match surface {
-            Surface::Toolbar => toolbar.as_ref(),
-            Surface::Popup | Surface::Dropdown | Surface::Sidebar | Surface::SidebarList => {
-                popup.as_ref()
-            }
-        }?;
-        let trigger = host
-            .nodes
-            .iter()
-            .find(|node| node.id.as_ref() == Some(id))?;
-        // A list of the toolbar hangs from the strip's bottom edge, not from
-        // the button inset in it.
-        let hang = match surface {
-            Surface::Toolbar => host.rect.bottom(),
-            Surface::Popup | Surface::Dropdown | Surface::Sidebar | Surface::SidebarList => {
-                trigger.rect.bottom()
-            }
+    let menu = (ui.menu.as_ref())
+        .and_then(|open| Some((context::model(&ctx, open)?, open.at)))
+        .and_then(|(model, at)| context::layout(&ctx, &model, at, viewport));
+    if ui.menu_only {
+        return PanelLayout {
+            dropdown: menu,
+            ..PanelLayout::default()
         };
+    }
+    let toolbar_model = super::toolbar(app);
+    let dock_model = super::dock(app);
+    let toolbar = toolbar::layout(&ctx, &toolbar_model, viewport);
+    let dock = dock::layout(&ctx, dock_model.as_ref(), viewport);
+    let dropdown = ui.open.as_ref().and_then(|id| {
+        let (model, row) = open_dropdown(
+            id,
+            (&toolbar_model, &toolbar),
+            dock_model.as_ref().map(|model| (model, &dock)),
+        )?;
+        let trigger = (row.nodes.iter()).find(|node| node.id.as_ref() == Some(id))?;
+        // A list hangs from the bottom edge of the row, not from the
+        // control inset in it.
+        let hang = row.rect.bottom();
         Some(dropdown::layout(&ctx, model, trigger.rect, hang, viewport))
     });
     let (sidebar, sidebar_list) = sidebar_panels(&ctx, viewport);
-    let menu = (ui.menu.as_ref())
-        .and_then(|open| context::model(&ctx, open))
-        .and_then(|model| context::layout(&ctx, &model, viewport));
     PanelLayout {
         sidebar,
         sidebar_list,
-        toolbar,
-        popup,
+        tabs: Some(tabs(viewport)),
+        toolbar: Some(toolbar),
+        dock: Some(dock),
         dropdown: menu.or(dropdown),
+    }
+}
+
+/// The tab row: the title bar strip, with nothing on it yet.
+fn tabs(viewport: Vec2) -> Panel {
+    Panel {
+        surface: Surface::Tabs,
+        rect: rows::tabs(viewport.x),
+        menu: false,
+        nodes: Vec::new(),
     }
 }
 
 /// The sidebar's panels while it is shown.
 fn sidebar_panels(ctx: &Ctx<'_>, viewport: Vec2) -> (Option<Panel>, Option<Panel>) {
-    // A shell that draws its own sidebar keeps only the canvas popups.
-    if ctx.ui.canvas_only || !ctx.app.session.sidebar.shown() {
+    if !ctx.app.session.sidebar.shown() {
         return (None, None);
     }
     let model = crate::sidebar(ctx.app);

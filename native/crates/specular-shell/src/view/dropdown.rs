@@ -187,8 +187,8 @@ fn find_dropdown(id: &ControlId) -> Option<Dropdown> {
     }
     let models = canvas::models()?;
     in_toolbar(&models.toolbar, id).or_else(|| {
-        let popup: &PopupModel = models.popup.as_ref()?;
-        among(&popup.controls, id)
+        let dock: &PopupModel = models.dock.as_ref()?;
+        among(&dock.controls, id)
     })
 }
 

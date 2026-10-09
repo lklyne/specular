@@ -12,8 +12,8 @@
 //!
 //! 1. Its [`Stamp`] equals the stamp of the app now. The stamp holds
 //!    everything the layout reads that is cheap to compare, by value:
-//!    viewport, camera, the open list and menu, the sidebar's scroll, the
-//!    toolbar, popup and context-menu models (which carry the tool, tool
+//!    viewport, the open list and menu, the sidebar's scroll, the
+//!    toolbar, dock and context-menu models (which carry the tool, tool
 //!    defaults, selection, page state and editing on-states they were made
 //!    from), the history revision, the active canvas, the selection and the
 //!    sidebar's folds. A change to any of them can never be missed.
@@ -28,7 +28,7 @@
 //!    entry are a pointer move or leave, a wheel, a pinch and a tick with no
 //!    drag in flight (and no edit for a tick): none of them writes the
 //!    document, the page states or the canvases, and what they do move
-//!    (camera, scroll, hover) is in the stamp or patched below.
+//!    (the zoom readout, scroll, hover) is in the stamp or patched below.
 //!
 //! Hover and press change only each control's [`Pointing`]. They stay out of
 //! the stamp and are patched into the kept layout instead, so a pointer that
@@ -42,9 +42,9 @@ use std::cell::RefCell;
 use std::sync::Arc;
 
 use glam::Vec2;
-use specular_core::{Camera, PointerEventKind};
+use specular_core::PointerEventKind;
 
-use super::super::{ControlId, PopupModel, ToolbarModel, context_menu, popup_for, toolbar};
+use super::super::{ControlId, PopupModel, ToolbarModel, context_menu, dock, toolbar};
 use super::{ContextMenu, PanelLayout, PanelUi, Pointing};
 use crate::{App, Event, Selection};
 
@@ -52,12 +52,11 @@ use crate::{App, Event, Selection};
 #[derive(Debug, Clone, PartialEq)]
 struct Stamp {
     viewport: Vec2,
-    camera: Camera,
     open: Option<ControlId>,
     menu: Option<ContextMenu>,
     scroll: f32,
     toolbar: ToolbarModel,
-    popup: Option<PopupModel>,
+    dock: Option<PopupModel>,
     menu_model: Option<PopupModel>,
     revision: u64,
     switches: u64,
@@ -71,14 +70,12 @@ impl Stamp {
         let ui = &app.session.panel;
         Self {
             viewport: app.session.viewport,
-            camera: app.session.camera,
             open: ui.open.clone(),
             menu: ui.menu.clone(),
             scroll: ui.sidebar_scroll,
             toolbar: toolbar(app),
-            popup: popup_for(app),
-            menu_model: (ui.menu.as_ref())
-                .and_then(|open| context_menu(app, &open.target, open.at)),
+            dock: dock(app),
+            menu_model: (ui.menu.as_ref()).and_then(|open| context_menu(app, &open.target)),
             revision: app.history.revision(),
             switches: app.space.switches(),
             selection: app.session.selection.clone(),
@@ -155,7 +152,7 @@ pub(crate) fn keeps_layout(app: &App, event: &Event) -> bool {
         | Event::Control(..)
         | Event::ContextMenu(_)
         | Event::BuiltinPanels(_)
-        | Event::BuiltinCanvasPopups
+        | Event::BuiltinMenu
         | Event::ChatPanel(_)
         | Event::ThreadsLoaded { .. }
         | Event::ReposLoaded(_)
@@ -203,7 +200,7 @@ fn repoint(layout: &mut PanelLayout, ui: &PanelUi) {
         &mut layout.sidebar,
         &mut layout.sidebar_list,
         &mut layout.toolbar,
-        &mut layout.popup,
+        &mut layout.dock,
         &mut layout.dropdown,
     ];
     for node in panels

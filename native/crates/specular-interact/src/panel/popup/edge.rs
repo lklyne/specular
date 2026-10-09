@@ -1,18 +1,16 @@
 //! The popup of an edge (`EdgePopup.tsx`): color, stroke, arrowheads and
-//! delete. It points at the middle of the edge's two ends.
+//! delete.
 
-use specular_doc::{Edge, EdgeEnd, LineStyle};
+use specular_doc::{EdgeEnd, LineStyle};
 
 use super::super::build::{button, color_dropdown, groups, toggle};
 use super::super::{
-    Align, Control, ControlId, Dropdown, DropdownSection, Face, Field, FieldSubmit, FieldWidth,
-    Icon, PaintRole, Palette, Placement, PopupAnchor, PopupModel,
+    Control, ControlId, Dropdown, DropdownSection, Face, Field, FieldSubmit, FieldWidth, Icon,
+    PaintRole, Palette, PopupModel,
 };
 use crate::property::read;
 use crate::{Action, App, Property};
 
-/// The space between an edge and its popup, in screen pixels.
-const EDGE_GAP: f32 = 12.0;
 /// The thin and thick widths an edge is offered in.
 const WIDTHS: [(f64, &str, &str, Icon); 2] = [
     (1.5, "thin", "Thin edge", Icon::StrokeThin),
@@ -92,12 +90,7 @@ fn label(app: &App) -> Control {
     })
 }
 
-pub(super) fn popup(app: &App, edge: &Edge) -> Option<PopupModel> {
-    let curve = app.edge_curve(&edge.id)?;
-    let middle = app
-        .session
-        .camera
-        .screen_to_world((curve.from + curve.to) / 2.0);
+pub(super) fn popup(app: &App) -> PopupModel {
     let color = read::color(app);
     let controls = groups(vec![
         vec![color_dropdown(
@@ -119,13 +112,5 @@ pub(super) fn popup(app: &App, edge: &Edge) -> Option<PopupModel> {
             Action::Delete,
         )],
     ]);
-    Some(PopupModel {
-        anchor: PopupAnchor::Canvas {
-            bounds: specular_doc::Rect::new(f64::from(middle.x), f64::from(middle.y), 0.0, 0.0),
-            placement: Placement::Above,
-            align: Align::Center,
-            gap: EDGE_GAP,
-        },
-        controls,
-    })
+    PopupModel { controls }
 }

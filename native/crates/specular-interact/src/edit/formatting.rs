@@ -51,12 +51,11 @@ impl TextEdit {
         format.applies_to(self.target)
     }
 
-    /// Whether the popup of the item being edited stays up during the edit:
-    /// the item's text and a Document's source have formatting to show, an
-    /// edge's label belongs to a popup the edit does not cover, and a field
-    /// lives in the popup. A shape's label and an item's title are edited in
-    /// place with the popup down.
-    pub(crate) const fn keeps_popup(&self) -> bool {
+    /// Whether the dock keeps the controls of the item being edited during
+    /// the edit: the item's text and a Document's source have formatting to
+    /// show, an edge's label is one of its controls, and so is a field. A
+    /// shape's label and an item's title are edited with the dock empty.
+    pub(crate) const fn keeps_dock(&self) -> bool {
         match self.target {
             Target::Text | Target::Note | Target::EdgeLabel | Target::Field => true,
             Target::Label | Target::Title | Target::Comment => false,

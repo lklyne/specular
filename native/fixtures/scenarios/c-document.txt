@@ -1,10 +1,11 @@
 # canvas: empty.canvas
 # A Document from nothing: place it, write markdown with the formatting
 # shortcuts, end the edit, reopen it, scroll, undo.
-camera 0,0,1
+# panned down so the Document, at (200, 100) on the canvas, is clear of the chrome
+camera 0,120,1
 
 tool document
-click 200 100
+click 200 220
 snapshot 01-placed-empty.png
 
 # a heading with the shortcut, then body text with bold
@@ -46,7 +47,7 @@ snapshot 04-read-view.png
 save 04-document.canvas
 
 # reopen: the caret lands where the double click was
-double-click 300 180
+double-click 300 300
 snapshot 05-reopened.png
 key cmd+down
 key enter
@@ -94,7 +95,7 @@ key escape
 snapshot 07-long-read-view.png
 
 # scroll the selected Document with the wheel, to the end and past it
-move 300 300
+move 300 420
 wheel 0 -200
 wheel 0 -5000
 snapshot 09-scrolled-to-end.png

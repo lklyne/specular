@@ -6,7 +6,7 @@
 //! unpainted, and that slot is the app's viewport: the frame is drawn with
 //! the camera and the screen-space items shifted by the slot's corner.
 
-use std::cell::{Cell, RefCell};
+use std::cell::Cell;
 use std::rc::Rc;
 
 use anyhow::Context as _;
@@ -31,9 +31,6 @@ pub(crate) struct WindowAsks {
     pub(crate) ime_allowed: Cell<bool>,
     /// The caret, as a corner and a size in logical pixels of the viewport.
     pub(crate) ime_area: Cell<(Vec2, Vec2)>,
-    /// The window's title, which the toolbar shows: the title bar is hidden
-    /// under it.
-    pub(crate) title: RefCell<String>,
     /// Set when one of the above changed, until GPUI has been told.
     pub(crate) changed: Cell<bool>,
 }
@@ -44,7 +41,6 @@ impl Default for WindowAsks {
             cursor: Cell::new(Cursor::Default),
             ime_allowed: Cell::new(false),
             ime_area: Cell::new((Vec2::ZERO, Vec2::ZERO)),
-            title: RefCell::new(String::new()),
             changed: Cell::new(false),
         }
     }
@@ -366,8 +362,6 @@ impl ShellWindow for CanvasSurface {
 
     fn set_title(&self, title: &str, unsaved: bool) {
         self.native.set_title(title, unsaved);
-        title.clone_into(&mut self.asks.title.borrow_mut());
-        self.asks.changed.set(true);
     }
 }
 

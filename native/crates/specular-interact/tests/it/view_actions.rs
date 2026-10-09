@@ -3,6 +3,7 @@
 use glam::Vec2;
 use specular_doc::Rect;
 use specular_interact::Key;
+use specular_interact::panel::builtin::CHROME_HEIGHT;
 use specular_testkit::{CMD, TestApp, group, inside, page, shape};
 
 const VIEWPORT: Vec2 = Vec2::new(1000.0, 800.0);
@@ -52,18 +53,19 @@ fn zoom_to_fit_centres_everything_with_room_around_it() {
 }
 
 #[test]
-fn zoom_to_fit_leaves_the_toolbar_strip_clear_when_the_built_in_panels_are_on() {
+fn zoom_to_fit_leaves_the_chrome_clear_when_the_built_in_panels_are_on() {
     // Taller than wide, so the height is what limits the fit.
     let mut app = TestApp::with_entities([shape("s", Rect::new(0.0, 0.0, 200.0, 2000.0))]);
     app.viewport(VIEWPORT).with_panels();
     app.chord(CMD, Key::Char('1'));
     let camera = app.session().camera;
-    // 2000 tall into 800 - 44 - 2 * 64.
-    assert!((camera.zoom - 0.314).abs() < 1e-6);
+    // 2000 tall into what the three rows leave, less 64 above and below.
+    let room = VIEWPORT.y - CHROME_HEIGHT - 2.0 * 64.0;
+    assert!((camera.zoom - room / 2000.0).abs() < 1e-6);
     let top = camera.world_to_screen(Vec2::new(100.0, 0.0)).y;
     let bottom = camera.world_to_screen(Vec2::new(100.0, 2000.0)).y;
-    // Centred in the 756 under the strip, so the same room above and below.
-    assert!((top - 44.0 - 64.0).abs() < 1e-3);
+    // Centred under the chrome, so the same room above and below.
+    assert!((top - CHROME_HEIGHT - 64.0).abs() < 1e-3);
     assert!((VIEWPORT.y - bottom - 64.0).abs() < 1e-3);
 }
 

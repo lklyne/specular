@@ -2,45 +2,40 @@
 //! `ShapeToolPopup.tsx`, `DrawToolPopup.tsx`). Their controls write the
 //! tool defaults.
 
-use specular_doc::Color;
+use specular_doc::{Color, VIEWPORT_PRESETS};
 
 use super::super::build::{font_dropdown, groups, size_dropdown, swatches};
-use super::super::{Choices, Control, ControlId, PaintRole, Palette, PopupAnchor, PopupModel};
+use super::super::{Control, ControlId, Dropdown, Face, PaintRole, Palette, PopupModel};
 use super::{drawing, shape};
 use crate::{Action, App, Tool, ToolDefaultPatch};
-
-/// The space between the toolbar and a tool's popup, in screen pixels.
-const TOOLBAR_GAP: f32 = 8.0;
 
 fn set(patch: ToolDefaultPatch) -> Action {
     Action::SetToolDefault(patch)
 }
 
-fn at_toolbar(controls: Vec<Control>) -> PopupModel {
-    PopupModel {
-        anchor: PopupAnchor::Toolbar { gap: TOOLBAR_GAP },
-        controls,
-    }
+fn docked(controls: Vec<Control>) -> PopupModel {
+    PopupModel { controls }
 }
 
-/// The preset the next page is made at, listed in place.
+/// The preset the next page is made at.
 fn page_presets(app: &App) -> PopupModel {
     let page = app.tool_defaults().page;
     let id = ControlId::new("page.preset");
-    PopupModel {
-        anchor: PopupAnchor::Toolbar { gap: TOOLBAR_GAP },
-        controls: vec![Control::Choices(Choices {
-            content: super::page::preset_sections(
-                &id,
-                (!page.custom).then_some(page.preset),
-                Some("Add"),
-                |index| set(ToolDefaultPatch::PagePreset(index)),
-                Some((page.custom, set(ToolDefaultPatch::PageCustom))),
-            ),
-            label: "Page size to add".into(),
-            id,
-        })],
-    }
+    let named = (!page.custom)
+        .then(|| VIEWPORT_PRESETS.get(usize::try_from(page.preset).ok()?))
+        .flatten();
+    docked(vec![Control::Dropdown(Dropdown {
+        label: "Page size to add".into(),
+        summary: Face::text(named.map_or("Custom", |row| row.label)),
+        content: super::page::preset_sections(
+            &id,
+            (!page.custom).then_some(page.preset),
+            Some("Add"),
+            |index| set(ToolDefaultPatch::PagePreset(index)),
+            Some((page.custom, set(ToolDefaultPatch::PageCustom))),
+        ),
+        id,
+    })])
 }
 
 pub(super) fn popup(app: &App, tool: Tool) -> Option<PopupModel> {
@@ -48,7 +43,7 @@ pub(super) fn popup(app: &App, tool: Tool) -> Option<PopupModel> {
     let popup = match tool {
         Tool::AddText => {
             let ink = defaults.text.color.clone().unwrap_or(Color::Neutral);
-            at_toolbar(groups(vec![
+            docked(groups(vec![
                 vec![
                     size_dropdown(
                         ControlId::new("text.size"),
@@ -73,7 +68,7 @@ pub(super) fn popup(app: &App, tool: Tool) -> Option<PopupModel> {
                 ))],
             ]))
         }
-        Tool::AddSticky => at_toolbar(groups(vec![
+        Tool::AddSticky => docked(groups(vec![
             vec![
                 size_dropdown(
                     ControlId::new("sticky.size"),
@@ -97,7 +92,7 @@ pub(super) fn popup(app: &App, tool: Tool) -> Option<PopupModel> {
                 |color| set(ToolDefaultPatch::StickyColor(color)),
             ))],
         ])),
-        Tool::AddShape => at_toolbar(groups(vec![
+        Tool::AddShape => docked(groups(vec![
             vec![shape::kind_dropdown(
                 ControlId::new("shape.kind"),
                 "Set default shape",
@@ -121,7 +116,7 @@ pub(super) fn popup(app: &App, tool: Tool) -> Option<PopupModel> {
         ])),
         Tool::Draw => {
             let draw = &defaults.draw;
-            at_toolbar(groups(vec![
+            docked(groups(vec![
                 drawing::brushes(Some(&draw.color), Some(draw.brush), |brush| {
                     set(ToolDefaultPatch::Brush(brush))
                 }),

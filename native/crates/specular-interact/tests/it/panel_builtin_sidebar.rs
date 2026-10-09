@@ -7,15 +7,15 @@ use specular_doc::{
     Annotation, AnnotationAnchor, AnnotationId, Entity, EntityId, PageAnchor, Rect,
 };
 use specular_interact::panel::builtin::Part;
-use specular_interact::{Action, ControlId, SIDEBAR_WIDTH, Tool};
+use specular_interact::{Action, ControlId, SIDEBAR_WIDTH};
 use specular_testkit::{
     CMD, SHIFT, TestApp, comment, document, group, inside, page, sticky, with_comment,
 };
 
 const BOX: Rect = Rect::new(0.0, 0.0, 200.0, 100.0);
-/// What the toolbar and the sidebar leave of a 1600x1000 viewport: its
+/// What the chrome and the sidebar leave of a 1600x1000 viewport: its
 /// middle is where a revealed item is centred.
-const FREE_CENTRE: Vec2 = Vec2::new(928.0, 522.0);
+const FREE_CENTRE: Vec2 = Vec2::new(928.0, 559.0);
 
 fn at(x: f64, y: f64) -> Rect {
     Rect::new(x, y, 200.0, 100.0)
@@ -210,7 +210,7 @@ fn a_wheel_off_the_sidebar_still_reaches_the_canvas() {
 }
 
 #[test]
-fn the_toolbar_button_shows_and_hides_the_sidebar() {
+fn the_sidebar_takes_the_presses_over_what_it_covers_while_it_is_shown() {
     let mut app = TestApp::with_entities([sticky("under", at(40.0, 500.0), "under")]);
     app.with_panels();
     assert!(!shown(&app, "sidebar.head.canvases"), "hidden: no panel");
@@ -219,14 +219,14 @@ fn the_toolbar_button_shows_and_hides_the_sidebar() {
     app.click(Vec2::new(100.0, 540.0));
     assert_eq!(app.selected(), Some("under"));
     app.click(Vec2::new(900.0, 800.0));
-    app.click_control("sidebar.toggle");
+    app.show_sidebar(true);
     assert!(shown(&app, "sidebar.head.canvases"));
     assert_eq!(app.app().covered_left(), SIDEBAR_WIDTH);
     assert!(app.selected().is_none());
     // Shown, the press is the sidebar's and never reaches what is under it.
     app.click(Vec2::new(100.0, 540.0));
     assert!(app.selected().is_none());
-    app.click_control("sidebar.toggle");
+    app.show_sidebar(false);
     assert!(!shown(&app, "sidebar.head.canvases"));
 }
 
@@ -282,29 +282,11 @@ fn zoom_to_fit_centres_what_the_sidebar_leaves_free() {
     app.show_sidebar(false).act(Action::ZoomToFit);
     let shown_at = app.session().camera.world_to_screen(world_centre);
     assert!(
-        (shown_at - Vec2::new(800.0, 522.0)).length() < 1.0,
+        (shown_at - Vec2::new(800.0, FREE_CENTRE.y)).length() < 1.0,
         "{shown_at}"
     );
     assert!(
         app.session().camera.zoom > covered_zoom,
         "more room, a larger fit"
     );
-}
-
-#[test]
-fn a_popup_keeps_clear_of_the_sidebar_and_a_tool_popup_centres_beside_it() {
-    let mut app = TestApp::with_entities([sticky("t", Rect::new(270.0, 300.0, 100.0, 50.0), "t")]);
-    app.with_panels().select(&["t"]);
-    let hidden = app.panel_layout().popup.expect("popup").rect;
-    assert!(
-        hidden.x < 264.0,
-        "centred on the sticky it reaches into the strip"
-    );
-    app.show_sidebar(true);
-    let popup = app.panel_layout().popup.expect("popup").rect;
-    assert!(popup.x >= SIDEBAR_WIDTH + 8.0, "{popup:?}");
-
-    app.select(&[]).tool(Tool::AddSticky);
-    let popup = app.panel_layout().popup.expect("the tool's popup").rect;
-    assert!((popup.centre().x - FREE_CENTRE.x).abs() <= 0.5, "{popup:?}");
 }

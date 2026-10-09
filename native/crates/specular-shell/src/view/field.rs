@@ -10,6 +10,7 @@ use std::collections::HashMap;
 
 use gpui_kit::component::input::{Escape, Input, InputEvent, InputState};
 use gpui_kit::component::{Sizable as _, h_flex};
+use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
     AnyElement, App, AppContext as _, Entity, FocusHandle, Focusable as _, Global,
     InteractiveElement as _, IntoElement, ParentElement as _, SharedString,
@@ -133,18 +134,22 @@ pub(super) fn input(model: &Field, window: &mut Window, cx: &mut App) -> AnyElem
         .into_any_element()
 }
 
-/// `model` as a popup control: its caption, then its input at the width it
-/// asks for.
+/// `model` as a control of a row: its caption, then its input at the width
+/// it asks for. An address takes that as its least width and grows into
+/// whatever room its row has left.
 pub(super) fn field(model: &Field, window: &mut Window, cx: &mut App) -> AnyElement {
     let caption = (model.caption.as_ref()).map(|text| SharedString::from(text.to_string()));
+    let grows = model.width == FieldWidth::Wide;
+    let least = px(width(model.width));
     h_flex()
         .gap_1()
         .items_center()
         .text_size(px(12.0))
+        .when(grows, |this| this.flex_1().min_w(least))
         .children(caption)
         .child(
             div()
-                .w(px(width(model.width)))
+                .map(|this| if grows { this.flex_1() } else { this.w(least) })
                 .child(input(model, window, cx)),
         )
         .into_any_element()

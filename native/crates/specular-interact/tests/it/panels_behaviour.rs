@@ -5,8 +5,8 @@
 
 use specular_doc::{Color, ColorPreset, Kind, Rect, ShapeKind};
 use specular_interact::{
-    Action, Control, ControlId, DropdownSection, Effect, Format, PopupModel, Property, Tool,
-    popup_for, toolbar,
+    Action, Control, ControlId, DropdownSection, Effect, Format, PopupModel, Property, Tool, dock,
+    toolbar,
 };
 use specular_testkit::{TestApp, document, plain_text, shape, sticky, with_edge};
 
@@ -15,7 +15,7 @@ const B: Rect = Rect::new(400.0, 100.0, 200.0, 100.0);
 const RED: Color = Color::Preset(ColorPreset::Red);
 
 fn popup(app: &TestApp) -> PopupModel {
-    popup_for(app.app()).unwrap_or_else(|| panic!("no popup"))
+    dock(app.app()).unwrap_or_else(|| panic!("no popup"))
 }
 
 /// Runs the action of the control `id` in the popup, as a renderer would on
@@ -85,7 +85,7 @@ fn the_delete_button_removes_the_edge_and_the_popup_goes() {
     let mut app = TestApp::from_document(with_edge(doc, specular_doc::Edge::new("e", "a", "b")));
     app.select(&["e"]);
     press(&mut app, "edge.delete");
-    assert!(popup_for(app.app()).is_none());
+    assert!(dock(app.app()).is_none());
     assert!(app.document().edges().next().is_none());
     app.assert_undo_returns_to_start();
 }

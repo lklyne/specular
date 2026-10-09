@@ -1,7 +1,7 @@
 //! The part of the viewport the canvas is seen through.
 //!
-//! The canvas's coordinate system fills the whole window; the built-in
-//! toolbar lies across its top and the sidebar over its left edge. What
+//! The canvas's coordinate system fills the whole window; the chrome lies
+//! across its top and the sidebar over its left edge. What
 //! centres, fits, clips or clamps to "the viewport" means what those leave
 //! free, as `availableCanvasViewportRect` in `runtime-geometry.ts` and
 //! `leftChromeWidth` do in the Electron app.
@@ -9,7 +9,7 @@
 use glam::{DVec2, Vec2};
 
 use crate::App;
-use crate::panel::builtin::TOOLBAR_HEIGHT;
+use crate::panel::builtin::CHROME_HEIGHT;
 
 /// A rect of the viewport in logical screen pixels.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -47,10 +47,10 @@ impl App {
 }
 
 /// The part of the viewport the canvas is seen through: right of the
-/// sidebar and, with the built-in toolbar on, under it.
+/// sidebar and, with the chrome on, under it.
 pub(crate) fn area(app: &App) -> Area {
     let top = if app.session.panel.built_in {
-        f64::from(TOOLBAR_HEIGHT)
+        f64::from(CHROME_HEIGHT)
     } else {
         0.0
     };
@@ -59,10 +59,8 @@ pub(crate) fn area(app: &App) -> Area {
     Area { min, size }
 }
 
-/// The point zoom steps hold still: the middle of the width the sidebar
-/// leaves free, and of the viewport's height.
+/// The point zoom steps hold still: the middle of what the canvas is seen
+/// through.
 pub(crate) fn centre(app: &App) -> Vec2 {
-    let left = app.covered_left();
-    let viewport = app.session.viewport;
-    Vec2::new(left + (viewport.x - left) / 2.0, viewport.y / 2.0)
+    area(app).centre().as_vec2()
 }

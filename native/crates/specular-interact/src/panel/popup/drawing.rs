@@ -4,7 +4,7 @@
 use specular_doc::{BrushType, Color, Entity};
 
 use super::super::build::{color_dropdown, groups, noun, toggle};
-use super::super::{Align, Control, ControlId, Face, Icon, PaintRole, Palette, PopupModel};
+use super::super::{Control, ControlId, Face, Icon, PaintRole, Palette, PopupModel};
 use super::actions::Actions;
 use crate::property::read;
 use crate::tool_defaults::{nearest_width, width_presets};
@@ -97,8 +97,5 @@ pub(super) fn popup(app: &crate::App, entities: &[&Entity]) -> PopupModel {
         )],
         Actions::all(&noun, entities.len()).controls(),
     ]);
-    PopupModel {
-        anchor: super::over(entities, Align::Center),
-        controls,
-    }
+    PopupModel { controls }
 }

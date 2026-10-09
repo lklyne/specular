@@ -1,4 +1,4 @@
-//! The built-in toolbar and item popup as scene items.
+//! The built-in chrome, sidebar and lists as scene items.
 //!
 //! [`draw_panels`] paints what
 //! [`layout`](specular_interact::panel::builtin::layout) laid out: every
@@ -48,7 +48,7 @@ pub fn panel_color(
 }
 
 /// Adds the built-in panels of `app` to `scene`, over everything in it: the
-/// toolbar, then the popup, then the list of the open dropdown. Nothing is
+/// sidebar, then the rows of the chrome, then the list of the open dropdown. Nothing is
 /// added while the built-in panels are off.
 pub fn draw_panels(app: &App, scene: &mut Scene) {
     let layout = layout(app);

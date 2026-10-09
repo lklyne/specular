@@ -365,7 +365,8 @@ pub(super) fn body(ctx: &Ctx<'_>, content: &[DropdownSection]) -> Body {
     }
 }
 
-/// The list of `dropdown`, hung from `hang` under `trigger`.
+/// The list of `dropdown`, hung from `hang`, the bottom of the row `trigger`
+/// is in.
 pub(super) fn layout(
     ctx: &Ctx<'_>,
     dropdown: &Dropdown,
@@ -391,7 +392,7 @@ pub(super) fn layout(
     } else {
         LIST_OFFSET
     };
-    let corner = place::hanging(trigger, hang, offset, size, words, viewport, ctx.left()).round();
+    let corner = place::hanging(trigger, hang, offset, size.x, words, viewport.x).round();
     let inset = corner + Vec2::splat(INSET);
     Panel {
         surface: Surface::Dropdown,

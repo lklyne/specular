@@ -7,7 +7,7 @@
 //! got.
 //!
 //! The built-in panels are offered every event before any of that, and what
-//! they take goes no further: a press on a popup control leaves the
+//! they take goes no further: a press on a dock control leaves the
 //! selection, the tool in hand and a text edit as they were.
 
 use glam::Vec2;

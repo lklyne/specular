@@ -1,17 +1,17 @@
 # canvas: ../kitchen-sink.canvas
 # One session through all of the built-in chrome with the sidebar shown: a
-# page picked from its row, the popup's address and size list beside the
-# sidebar, the right-click menu on a sticky (a duplicate), a second canvas
+# page picked from its row, the dock's address and size list, the
+# right-click menu on a sticky (a duplicate), a second canvas
 # added and a sticky placed on it, the first canvas switched back to, and
-# the first canvas saved. The window is 1600x1000, the toolbar the top 44
+# the first canvas saved. The window is 1600x1000, the chrome the top 118
 # pixels and the sidebar the left 256; canvas rows are 28 pixels, the first
-# centred at y 96.
+# centred at y 170.
 camera -2300,-1600,1
 sidebar on
 save 00-start.canvas
 
 # the list scrolled to its end, where a page's row is; the row brings it into
-# view and its popup sits in the free part
+# view and its controls fill the dock
 move 100 500
 wheel 0 -5000
 control sidebar.pages.page-desktop
@@ -22,7 +22,7 @@ type example.org/docs
 key enter
 snapshot 02-address-entered.png
 control page.size
-snapshot 03-size-list-beside-sidebar.png
+snapshot 03-size-list.png
 key escape
 
 # a sticky's menu opens beside the sidebar and duplicates
@@ -43,6 +43,6 @@ save 06-new-canvas.canvas
 snapshot 06-new-canvas.png
 
 # back on the first canvas nothing of the second is there
-click 100 96
+click 100 170
 snapshot 07-first-canvas-again.png
 save 07-first-canvas.canvas

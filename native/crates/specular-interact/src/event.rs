@@ -157,14 +157,14 @@ pub enum Event {
     /// A right press at this screen point from such a caller: the context
     /// menu opens for what is there, to be picked from by name.
     ContextMenu(Vec2),
-    /// Turns the built-in toolbar and popup on or off. A shell that draws
-    /// them through `specular-scene` sends `true` once at startup; one that
-    /// draws the panel models itself never does.
+    /// Turns the built-in chrome on or off. A shell that draws it through
+    /// `specular-scene` sends `true` once at startup; one that draws the
+    /// panel models itself never does.
     BuiltinPanels(bool),
-    /// Turns on only the built-in popups that sit beside a canvas item. For
-    /// a shell whose UI library draws the toolbar and what hangs from it,
-    /// while popups that follow an item stay in the canvas's own pass.
-    BuiltinCanvasPopups,
+    /// Turns on only the built-in context menu. For a shell whose UI
+    /// library draws the chrome and the sidebar, while the menu a right
+    /// press on the canvas opens stays in the canvas's own pass.
+    BuiltinMenu,
     /// Whether the shell draws a right panel. A shell that does sends `true`
     /// once at startup: a comment draft is then finished in the panel's
     /// field, and the canvas draws only its marker. Without it the draft is

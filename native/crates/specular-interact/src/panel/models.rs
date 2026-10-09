@@ -1,8 +1,7 @@
-//! The two models themselves: the toolbar, and a popup with where it
-//! belongs. Their controls are in [`model`](super::model).
+//! The two models themselves: the toolbar, and a set of controls. Their
+//! controls are in [`model`](super::model).
 
-use glam::Vec2;
-use specular_doc::{Color, Rect};
+use specular_doc::Color;
 
 use super::model::{Control, Dropdown, Entries, Label};
 use super::{ControlId, Icon};
@@ -40,8 +39,7 @@ pub enum ToolbarSection {
     Zoom(Dropdown),
 }
 
-/// A button of the toolbar that shows and hides a side panel: the sidebar at
-/// the left edge, the chat at the right.
+/// A button of the toolbar that shows and hides a side panel.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SidebarButton {
     /// Its name.
@@ -73,8 +71,6 @@ pub struct ThemeButton {
 /// The toolbar as it is now.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ToolbarModel {
-    /// The button for the sidebar, at the left edge.
-    pub sidebar: SidebarButton,
     /// The button for the right panel, at the right edge. Only a shell that
     /// has a right panel gets one.
     pub chat: Option<SidebarButton>,
@@ -87,8 +83,7 @@ pub struct ToolbarModel {
 impl ToolbarModel {
     /// Every control and option with its action.
     pub fn entries(&self) -> Entries<'_> {
-        let mut out = vec![(self.sidebar.id.clone(), Some(&self.sidebar.action))];
-        out.push((self.theme.id.clone(), Some(&self.theme.action)));
+        let mut out = vec![(self.theme.id.clone(), Some(&self.theme.action))];
         out.extend((self.chat.iter()).map(|button| (button.id.clone(), Some(&button.action))));
         for section in &self.sections {
             match section {
@@ -109,54 +104,10 @@ impl ToolbarModel {
     }
 }
 
-/// Which side of what it points at a popup sits.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Placement {
-    /// Over it.
-    Above,
-    /// Under it.
-    Below,
-}
-
-/// How a popup lines up with what it points at.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Align {
-    /// Centered on it.
-    Center,
-    /// Centered, and at least as wide as it.
-    Stretch,
-}
-
-/// Where a popup belongs.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum PopupAnchor {
-    /// Under the toolbar, centered on it: the popup of the active tool.
-    Toolbar {
-        /// The space between the toolbar and the popup, in screen pixels.
-        gap: f32,
-    },
-    /// Beside a region of the canvas.
-    Canvas {
-        /// The region, in canvas units: the item, the union of the
-        /// selection, or the middle point of an edge as an empty rect.
-        bounds: Rect,
-        /// Which side of it.
-        placement: Placement,
-        /// How it lines up.
-        align: Align,
-        /// The space between the region and the popup, in screen pixels.
-        gap: f32,
-    },
-    /// At a point of the viewport, in screen pixels: a context menu, which
-    /// opens where the pointer was.
-    Point(Vec2),
-}
-
-/// The popup of the tool in hand or of the selection.
+/// A set of controls shown together: the dock's row for the tool in hand
+/// or the selection, or the one list of choices that is a context menu.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PopupModel {
-    /// Where it belongs.
-    pub anchor: PopupAnchor,
     /// Its controls in order, with a separator between groups.
     pub controls: Vec<Control>,
 }

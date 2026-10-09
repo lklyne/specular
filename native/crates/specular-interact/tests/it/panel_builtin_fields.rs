@@ -129,8 +129,8 @@ fn typing_in_a_field_never_reaches_the_canvas_keys() {
     assert_eq!(app.selected_ids(), ["p"]);
     assert!(app.document().entity(&"p".into()).is_some());
     assert!(
-        app.panel_layout().popup.is_some(),
-        "the popup stays up while its field is edited"
+        (app.panel_layout().controls()).any(|control| control.as_str() == "page.url"),
+        "the dock keeps its controls while its field is edited"
     );
 }
 
@@ -270,7 +270,8 @@ fn a_size_that_is_not_a_number_restores_the_old_one() {
 fn the_page_tool_makes_pages_at_the_preset_it_was_given() {
     let mut app = TestApp::empty();
     app.with_panels().click_control("tool.page");
-    app.click_control("page.preset.6");
+    app.click_control("page.preset")
+        .click_control("page.preset.6");
     assert_eq!(app.session().tool, Tool::AddPage, "choosing keeps the tool");
     app.click((400.0, 400.0));
     let id = app.selected_ids()[0].to_owned();

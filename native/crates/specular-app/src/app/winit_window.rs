@@ -120,7 +120,7 @@ impl Shell {
         if let Some(system) = system {
             self.runtime.dispatch(Event::SystemAppearance(system));
         }
-        // The toolbar and the popup are part of the chrome layer. A
+        // The built-in panels are part of the chrome layer. A
         // benchmark measures the canvas, so it runs without them.
         let panels = self.options.chrome && self.options.bench.is_none();
         self.runtime.dispatch(Event::BuiltinPanels(panels));

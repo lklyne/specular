@@ -9,7 +9,7 @@ use super::node::{Run, Surface};
 use super::{ContextMenu, PanelHit, layout, sidebar};
 use crate::focus::set_pointer_page;
 use crate::update::run_action;
-use crate::{Action, App, Effect, Gesture, PointerInput, Tool, edit};
+use crate::{Action, App, Effect, Gesture, PointerInput, edit};
 
 /// What is under `screen` on a panel, or `None` over the canvas or with the
 /// built-in panels off.
@@ -40,22 +40,6 @@ pub(crate) fn over_field(app: &App) -> bool {
         && (app.session.pointer).is_some_and(|pointer| field_at(&layout(app), pointer).is_some())
 }
 
-/// Whether a wheel or a pinch where the pointer is stays out of the canvas.
-/// The popup lets it through (`data-viewport-passthrough` in
-/// `CanvasItemPopup.tsx`), so a popup over the canvas is never a dead spot
-/// for panning; the toolbar and an open list keep it.
-pub(crate) fn swallows_scroll(app: &App) -> bool {
-    let surface = (app.session.pointer)
-        .and_then(|pointer| hit(app, pointer))
-        .map(|hit| hit.surface);
-    match surface {
-        Some(Surface::Toolbar | Surface::Dropdown | Surface::Sidebar | Surface::SidebarList) => {
-            true
-        }
-        Some(Surface::Popup) | None => false,
-    }
-}
-
 /// Escape with a dropdown open closes it and does nothing else.
 pub(crate) fn cancel(app: &mut App) -> bool {
     let ui = &mut app.session.panel;
@@ -76,7 +60,7 @@ pub(crate) fn tidy(app: &mut App) {
         }
     }
     let menu_gone = (app.session.panel.menu.as_ref())
-        .is_some_and(|open| crate::panel::context_menu(app, &open.target, open.at).is_none());
+        .is_some_and(|open| crate::panel::context_menu(app, &open.target).is_none());
     if menu_gone {
         app.session.panel.menu = None;
     }
@@ -85,14 +69,14 @@ pub(crate) fn tidy(app: &mut App) {
         return;
     }
     let toolbar = super::super::toolbar(app);
-    let popup = super::super::popup_for(app);
+    let dock = super::super::dock(app);
     let mut listed = toolbar.entries();
-    if let Some(popup) = &popup {
-        listed.extend(popup.entries());
+    if let Some(dock) = &dock {
+        listed.extend(dock.entries());
     }
     // A hovered or pressed row of the context menu is shown while it is open.
     let menu = (app.session.panel.menu.as_ref())
-        .and_then(|open| crate::panel::context_menu(app, &open.target, open.at));
+        .and_then(|open| crate::panel::context_menu(app, &open.target));
     if let Some(menu) = &menu {
         listed.extend(menu.entries());
     }
@@ -256,10 +240,8 @@ fn on_up(app: &mut App, input: &PointerInput, effects: &mut Vec<Effect>) -> bool
     let Some(node) = layout.node(&pressed) else {
         return true;
     };
-    let in_toolbar = (layout.toolbar.as_ref())
-        .is_some_and(|bar| bar.nodes.iter().any(|it| it.id.as_ref() == Some(&pressed)));
     match (node.state.enabled, node.run.clone()) {
-        (true, Some(Run::Toggle)) => toggle(app, pressed, in_toolbar, effects),
+        (true, Some(Run::Toggle)) => toggle(app, pressed),
         (true, Some(Run::Act { action, closes })) => {
             let action = sidebar::picked(app, &pressed, action, input.modifiers);
             // A paste lands where the menu was opened, not where its item is.
@@ -277,17 +259,9 @@ fn on_up(app: &mut App, input: &PointerInput, effects: &mut Vec<Effect>) -> bool
 }
 
 /// Opens the dropdown `id`, or closes it when it is the open one.
-fn toggle(app: &mut App, id: ControlId, in_toolbar: bool, effects: &mut Vec<Effect>) {
-    if app.session.panel.open.as_ref() == Some(&id) {
-        app.session.panel.open = None;
-        return;
-    }
-    // A tool's popup hangs where a list of the toolbar opens, so opening
-    // one puts the tool down.
-    if in_toolbar && app.session.tool != Tool::Select {
-        run_action(app, Action::SetTool(Tool::Select), effects);
-    }
-    app.session.panel.open = Some(id);
+fn toggle(app: &mut App, id: ControlId) {
+    let open = &mut app.session.panel.open;
+    *open = (open.as_ref() != Some(&id)).then_some(id);
 }
 
 /// The canvas of the sidebar that the control `id` is the row of, if it is.

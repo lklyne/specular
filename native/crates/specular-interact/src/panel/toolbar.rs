@@ -14,7 +14,7 @@ use super::{
     ThemeButton, ToolButton, ToolbarModel, ToolbarSection,
 };
 use crate::menu::{tool_action, tool_label};
-use crate::{Action, App, ChatAction, SidebarAction, Theme, Tool, binding_of};
+use crate::{Action, App, ChatAction, Theme, Tool, binding_of};
 
 /// The zoom levels the readout offers, in percent.
 const ZOOM_LEVELS: [u16; 7] = [10, 25, 50, 75, 100, 150, 200];
@@ -160,7 +160,6 @@ pub fn toolbar(app: &App) -> ToolbarModel {
         .map(|tools| ToolbarSection::Tools(tools.iter().map(|&tool| button(app, tool)).collect()))
         .collect();
     sections.push(ToolbarSection::Zoom(zoom(app)));
-    let open = app.session.sidebar.shown();
     let chat = app.chat_view().available().then(|| {
         let open = app.chat_view().shown();
         SidebarButton {
@@ -179,18 +178,6 @@ pub fn toolbar(app: &App) -> ToolbarModel {
     ToolbarModel {
         theme: theme_button(app),
         chat,
-        sidebar: SidebarButton {
-            id: ControlId::new("sidebar.toggle"),
-            label: if open {
-                "Collapse left panel"
-            } else {
-                "Expand left panel"
-            }
-            .into(),
-            icon: Icon::PanelLeft,
-            open,
-            action: Action::Sidebar(SidebarAction::Toggle),
-        },
         sections,
     }
 }

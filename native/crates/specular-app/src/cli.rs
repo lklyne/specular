@@ -78,7 +78,7 @@ usage: specular-app [OPTIONS] [FOLDER | FILE.canvas]
                       key CHORD, type TEXT, tool NAME, select ID.., camera,
                       wait MS, snapshot OUT.png
   --script-panels on | off
-                      whether the built-in toolbar, popup and sidebar are
+                      whether the built-in toolbar, dock and sidebar are
                       laid out, drawn and clicked (default on). Off, a
                       `control NAME` step does what the control does from
                       the models alone, and no PNG shows a panel

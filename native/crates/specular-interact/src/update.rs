@@ -19,12 +19,10 @@ use crate::{
 use crate::{arrange, clipboard, drop, select_all, zoom};
 
 /// A scroll goes to the panel under the pointer, else to the Document
-/// under it, else it moves the camera.
+/// under it, else it moves the camera. A panel keeps it whether or not it
+/// scrolls: nothing of the chrome lies over canvas a pan should reach.
 fn on_wheel(app: &mut App, input: &crate::WheelInput, effects: &mut Vec<Effect>) {
-    if !builtin::on_wheel(app, input)
-        && !builtin::swallows_scroll(app)
-        && !notes::on_wheel(app, input)
-    {
+    if !builtin::on_wheel(app, input) && !builtin::over(app) && !notes::on_wheel(app, input) {
         camera::on_wheel(app, input, effects);
     }
 }
@@ -50,7 +48,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         Event::Pointer(input) => pointer::on_pointer(app, &input, &mut effects),
         Event::Wheel(input) => on_wheel(app, &input, &mut effects),
         Event::Pinch { delta } => {
-            if !builtin::swallows_scroll(app) {
+            if !builtin::over(app) {
                 camera::on_pinch(app, delta);
             }
         }
@@ -91,7 +89,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         Event::Control(id, keys) => crate::panel::activate_control(app, &id, keys, &mut effects),
         Event::ContextMenu(screen) => crate::panel::open_menu_at(app, screen),
         Event::BuiltinPanels(built_in) => builtin::turn(app, built_in),
-        Event::BuiltinCanvasPopups => app.session.panel = builtin::PanelUi::canvas_popups(),
+        Event::BuiltinMenu => app.session.panel = builtin::PanelUi::menu_alone(),
         Event::ChatPanel(available) => app.session.chat.set_available(available),
         Event::ThreadsLoaded { threads, index } => chat::on_loaded(app, threads, &index),
         Event::Agent { thread, notice } => chat::on_agent(app, &thread, notice, &mut effects),

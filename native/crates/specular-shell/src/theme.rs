@@ -197,9 +197,9 @@ pub(crate) fn error() -> u32 {
     pick(0xe700_0bff, 0xff64_67ff)
 }
 
-/// The height of the toolbar strip, `TOOLBAR_HEIGHT` in
-/// `src/shared/constants.ts`. The app's own layout assumes it too.
-pub(crate) const TOOLBAR_HEIGHT: f32 = specular_interact::panel::builtin::TOOLBAR_HEIGHT;
+/// The rows of the chrome and the height of all three, which the app's own
+/// layout assumes too. Everything under the chrome reads `CHROME_HEIGHT`.
+pub(crate) use specular_interact::panel::builtin::{CHROME_HEIGHT, DOCK_ROW, TAB_ROW, TOOL_ROW};
 /// The sidebar's width, `LEFT_SIDEBAR_WIDTH` in `runtime-constants.ts`.
 pub(crate) const SIDEBAR_WIDTH: f32 = 256.0;
 

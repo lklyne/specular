@@ -1,5 +1,5 @@
 //! [`context_menu`]: the menu a right press opens, as a [`PopupModel`] of
-//! choices at a point.
+//! choices.
 //!
 //! It holds the items Electron's menus for a page and for any other canvas
 //! item have (`register-canvas-entity-ipc.ts`): back, forward and reload on
@@ -7,12 +7,10 @@
 //! and keys the bindings give them. The edit and group items round it out
 //! to what the menu bar's Edit and Arrange menus offer for the same target.
 
-use glam::Vec2;
 use specular_doc::ItemId;
 
 use super::{
-    Choices, Control, ControlId, DropdownOption, DropdownSection, Face, OptionLayout, PopupAnchor,
-    PopupModel,
+    Choices, Control, ControlId, DropdownOption, DropdownSection, Face, OptionLayout, PopupModel,
 };
 use crate::menu::{self, MenuItem};
 use crate::{Action, App, CanvasAction, CanvasId, groups};
@@ -146,10 +144,10 @@ fn selection(app: &App) -> Vec<Section> {
     sections
 }
 
-/// The menu for `target` opened at the screen point `at`, or `None` once the
+/// The menu for `target`, or `None` once the
 /// target has changed or gone: a selection that is no longer the one the menu
 /// was opened on, a canvas that was removed.
-pub fn context_menu(app: &App, target: &MenuTarget, at: Vec2) -> Option<PopupModel> {
+pub fn context_menu(app: &App, target: &MenuTarget) -> Option<PopupModel> {
     let content = sections(app, target)?
         .into_iter()
         .map(|items| DropdownSection::Options {
@@ -159,7 +157,6 @@ pub fn context_menu(app: &App, target: &MenuTarget, at: Vec2) -> Option<PopupMod
         .collect();
     let id = ControlId::new("menu");
     Some(PopupModel {
-        anchor: PopupAnchor::Point(at),
         controls: vec![Control::Choices(Choices {
             label: "Menu".into(),
             content,

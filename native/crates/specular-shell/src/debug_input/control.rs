@@ -1,9 +1,8 @@
 //! Where a control is, by the name its model gives it.
 //!
 //! A control the Kit draws is where GPUI last laid it out. One the canvas
-//! draws in its own pass (the popup beside an item, the context menu and
-//! the lists they open) is where the app's built-in layout has it. One
-//! name works for either.
+//! draws in its own pass (the context menu) is where the app's built-in
+//! layout has it. One name works for either.
 
 use glam::Vec2;
 use specular_interact::panel::builtin::layout;

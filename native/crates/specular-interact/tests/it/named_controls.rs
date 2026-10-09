@@ -7,7 +7,7 @@
 )]
 
 use specular_doc::Rect;
-use specular_interact::{Key, Tool, popup_for, sidebar, toolbar};
+use specular_interact::{Key, Tool, dock, sidebar, toolbar};
 use specular_testkit::{
     CMD, SHIFT, TestApp, doc_snapshot, document, group, inside, page, shape, sticky,
 };
@@ -73,7 +73,7 @@ impl Hands {
             ("editing", format!("{:?}", self.app.field_edit())),
             ("open list", format!("{:?}", session.panel.open)),
             ("open menu", format!("{:?}", session.panel.menu)),
-            ("popup", format!("{:#?}", popup_for(app))),
+            ("dock", format!("{:#?}", dock(app))),
             ("toolbar", format!("{:#?}", toolbar(app))),
             ("sidebar", format!("{:#?}", sidebar(app))),
         ]
@@ -199,10 +199,11 @@ fn a_control_named_from_the_models_does_what_a_click_on_it_in_the_layout_does() 
             true,
         ),
         (
-            "the sidebar's button, its add button and a head",
+            "the sidebar's add button and a head",
             grouped,
             |hands| {
-                hands.click("sidebar.toggle").click("sidebar.add");
+                hands.app.show_sidebar(true);
+                hands.click("sidebar.add");
                 hands.click("sidebar.head.notes");
             },
             false,
@@ -287,9 +288,9 @@ fn a_name_no_control_has_is_an_error_that_lists_the_names_there_are() {
         "the sidebar is hidden"
     );
     assert!(
-        error.to_string().starts_with(
-            "no control `text.colour` is shown; these are: sidebar.toggle tool.select"
-        ),
+        error
+            .to_string()
+            .starts_with("no control `text.colour` is shown; these are: tool.select tool.draw"),
         "{error}"
     );
 }

@@ -5,7 +5,7 @@ use specular_doc::{BorderStyle, Entity, FillStyle, ShapeKind, TextAlign};
 
 use super::super::build::{color_dropdown, groups, noun, size_dropdown, swatches, toggle};
 use super::super::{
-    Align, Control, ControlId, Dropdown, DropdownOption, DropdownSection, Face, Icon, OptionLayout,
+    Control, ControlId, Dropdown, DropdownOption, DropdownSection, Face, Icon, OptionLayout,
     PaintRole, Palette, PopupModel,
 };
 use super::actions::Actions;
@@ -193,8 +193,5 @@ pub(super) fn popup(app: &crate::App, entities: &[&Entity]) -> PopupModel {
         vec![border_dropdown(app)],
         Actions::all(&noun, entities.len()).controls(),
     ]);
-    PopupModel {
-        anchor: super::over(entities, Align::Center),
-        controls,
-    }
+    PopupModel { controls }
 }

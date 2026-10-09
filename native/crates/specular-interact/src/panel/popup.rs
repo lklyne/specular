@@ -1,7 +1,7 @@
-//! [`popup_for`]: the popup of the tool in hand, or of the selection.
+//! [`dock`]: the controls of the tool in hand, or of the selection.
 //!
-//! The tool's popup wins over the selection's (ADR 0008 §2). A selection of
-//! one kind gets that kind's popup, acting on all of it (§4).
+//! The tool's options win over the selection's (ADR 0008 §2). A selection of
+//! one kind gets that kind's controls, acting on all of it (§4).
 
 mod actions;
 mod drawing;
@@ -13,35 +13,27 @@ mod shape;
 mod text;
 mod tool;
 
-use specular_doc::{Edge, Entity, ItemId, Kind, Rect};
+use specular_doc::{Entity, ItemId, Kind};
 
-use super::{Align, Placement, PopupAnchor, PopupModel};
-use crate::{App, Gesture, TITLE_GAP, TITLE_LINE, Tool};
+use super::PopupModel;
+use crate::{App, Tool};
 
-/// The space between a selection and its popup, in screen pixels.
-const SELECTION_GAP: f32 = 14.0;
-
-/// The space between a title and a popup over it.
-const TITLE_CLEARANCE: f32 = 8.0;
-
-/// What the popup is about. Computed before anything is built, so each
-/// popup is chosen by one exhaustive match.
+/// What the dock is about. Computed before anything is built, so its
+/// controls are chosen by one exhaustive match.
 enum Subject<'a> {
-    /// There is nothing to point at.
+    /// There is nothing to offer controls for.
     Nothing,
-    /// A drag or a draw is in flight, and a popup would be in its way.
-    Busy,
-    /// A tool that has a popup of its own is in hand.
+    /// A tool that has options of its own is in hand.
     Tool(Tool),
     /// One edge is the whole selection.
-    Edge(&'a Edge),
+    Edge,
     /// Entities of one kind are the whole selection.
     Entities(Family, Vec<&'a Entity>),
     /// The selection spans kinds.
     Mixed(Vec<&'a Entity>),
 }
 
-/// The kinds of entity, one popup each.
+/// The kinds of entity, one set of controls each.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Family {
     Text,
@@ -63,9 +55,9 @@ fn family(kind: &Kind) -> Family {
     }
 }
 
-/// Whether `tool` has a popup of its own, which then takes the place of any
-/// selection's.
-const fn has_popup(tool: Tool) -> bool {
+/// Whether `tool` has options of its own, which then take the place of any
+/// selection's controls.
+const fn has_options(tool: Tool) -> bool {
     match tool {
         Tool::AddPage | Tool::AddText | Tool::AddSticky | Tool::AddShape | Tool::Draw => true,
         Tool::Select | Tool::AddDocument | Tool::Comment | Tool::Inspect => false,
@@ -74,31 +66,13 @@ const fn has_popup(tool: Tool) -> bool {
 
 fn subject(app: &App) -> Subject<'_> {
     let session = &app.session;
-    // Selecting text inside an edit is part of the edit, not a drag.
-    let busy = match &session.gesture {
-        Some(Gesture::TextSelect(_)) | None => false,
-        Some(
-            Gesture::Move(_)
-            | Gesture::Resize(_)
-            | Gesture::Marquee { .. }
-            | Gesture::Comment(_)
-            | Gesture::Place(_)
-            | Gesture::Draw(_)
-            | Gesture::EdgeDrag(_)
-            | Gesture::Line(_),
-        ) => true,
-    };
-    // A tool's popup stays while its tool is drawing.
-    if has_popup(session.tool) {
+    if has_options(session.tool) {
         return Subject::Tool(session.tool);
-    }
-    if busy {
-        return Subject::Busy;
     }
     if session
         .editing
         .as_ref()
-        .is_some_and(|edit| !edit.keeps_popup())
+        .is_some_and(|edit| !edit.keeps_dock())
     {
         return Subject::Nothing;
     }
@@ -107,7 +81,7 @@ fn subject(app: &App) -> Subject<'_> {
         [ItemId::Edge(id)] => app
             .document
             .edge(id)
-            .map_or(Subject::Nothing, Subject::Edge),
+            .map_or(Subject::Nothing, |_| Subject::Edge),
         items => {
             let entities: Option<Vec<&Entity>> = items
                 .iter()
@@ -137,105 +111,36 @@ fn subject(app: &App) -> Subject<'_> {
     }
 }
 
-/// The popup to show for `app` as it is now, or `None` when there is none:
-/// nothing selected, a drag in flight, or a subject with no control to offer.
-pub fn popup_for(app: &App) -> Option<PopupModel> {
+/// What the dock shows for `app` as it is now, or `None` when its bar is
+/// empty: nothing selected, or a subject with no control to offer. A drag
+/// changes none of it, so the bar holds still through one.
+pub fn dock(app: &App) -> Option<PopupModel> {
     match subject(app) {
         Subject::Tool(tool) => tool::popup(app, tool),
-        Subject::Edge(edge) => edge::popup(app, edge),
-        Subject::Entities(family, entities) => {
-            let model = match family {
-                Family::Text => text::popup(app, &entities),
-                Family::Shape => shape::popup(app, &entities),
-                Family::Drawing => drawing::popup(app, &entities),
-                Family::Group => group::popup(app, &entities),
-                Family::File => file::popup(app, &entities),
-                Family::Page => page::popup(app, &entities),
-            };
-            Some(where_seen(app, &entities, model))
-        }
-        Subject::Mixed(entities) => mixed(&entities).map(|model| where_seen(app, &entities, model)),
-        Subject::Nothing | Subject::Busy => None,
+        Subject::Edge => Some(edge::popup(app)),
+        Subject::Entities(family, entities) => Some(match family {
+            Family::Text => text::popup(app, &entities),
+            Family::Shape => shape::popup(app, &entities),
+            Family::Drawing => drawing::popup(app, &entities),
+            Family::Group => group::popup(app, &entities),
+            Family::File => file::popup(app, &entities),
+            Family::Page => page::popup(app, &entities),
+        }),
+        Subject::Mixed(entities) => mixed(&entities),
+        Subject::Nothing => None,
     }
 }
 
-/// The popup of a selection that spans kinds (`MultiSelectPopup.tsx`): what
-/// every kind shares, arranging, annotating and focusing. One item alone has
-/// nothing to arrange with, and an edge with it nothing to annotate.
+/// The controls of a selection that spans kinds (`MultiSelectPopup.tsx`):
+/// what every kind shares, arranging, annotating and focusing. One item
+/// alone has nothing to arrange with, and an edge with it nothing to
+/// annotate.
 fn mixed(entities: &[&Entity]) -> Option<PopupModel> {
     if entities.len() < 2 {
         return None;
     }
     let noun = format!("{} items", entities.len());
     Some(PopupModel {
-        anchor: over(entities, Align::Center),
         controls: actions::Actions::all(&noun, entities.len()).controls(),
     })
-}
-
-/// An anchor over the union of `entities`.
-fn over(entities: &[&Entity], align: Align) -> PopupAnchor {
-    PopupAnchor::Canvas {
-        bounds: union(entities),
-        placement: Placement::Above,
-        align,
-        gap: SELECTION_GAP,
-    }
-}
-
-/// An anchor over `entities` that clears the title line above them: the
-/// line, the gap under it and [`TITLE_CLEARANCE`] more, so the popup never
-/// sits on a page's address or a group's name.
-fn over_titled(entities: &[&Entity], align: Align) -> PopupAnchor {
-    match over(entities, align) {
-        PopupAnchor::Canvas {
-            bounds,
-            placement,
-            align,
-            ..
-        } => PopupAnchor::Canvas {
-            bounds,
-            placement,
-            align,
-            gap: TITLE_CLEARANCE + TITLE_LINE + TITLE_GAP,
-        },
-        anchor @ (PopupAnchor::Toolbar { .. } | PopupAnchor::Point(_)) => anchor,
-    }
-}
-
-/// `model` anchored over `entities` where they are seen: what follows a
-/// page has moved with it (see `scroll_follow`), and the popup goes along.
-fn where_seen(app: &App, entities: &[&Entity], model: PopupModel) -> PopupModel {
-    let seen = (entities.iter())
-        .map(|entity| crate::scroll_follow::placed_rect(app, entity))
-        .reduce(crate::geometry::union)
-        .unwrap_or_default();
-    let stored = union(entities);
-    let anchor = match model.anchor {
-        PopupAnchor::Canvas {
-            bounds,
-            placement,
-            align,
-            gap,
-        } => PopupAnchor::Canvas {
-            bounds: Rect {
-                x: bounds.x + seen.x - stored.x,
-                y: bounds.y + seen.y - stored.y,
-                width: bounds.width + seen.width - stored.width,
-                height: bounds.height + seen.height - stored.height,
-            },
-            placement,
-            align,
-            gap,
-        },
-        anchor @ (PopupAnchor::Toolbar { .. } | PopupAnchor::Point(_)) => anchor,
-    };
-    PopupModel { anchor, ..model }
-}
-
-fn union(entities: &[&Entity]) -> Rect {
-    (entities.iter())
-        .map(|entity| entity.rect)
-        .reduce(crate::geometry::union)
-        .unwrap_or_default()
 }

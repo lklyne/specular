@@ -1,9 +1,21 @@
 //! The sizes of the built-in panels, in logical pixels, each from the
 //! Electron app's CSS. A Tailwind unit is 4 px.
 
-/// The toolbar strip: `h-[44px]` in `toolbar/App.tsx`, and `TOOLBAR_HEIGHT`
-/// in `shared/constants.ts`.
-pub const TOOLBAR_HEIGHT: f32 = 44.0;
+/// The first row of the chrome: the window's title bar strip, where the
+/// tabs go. Tall enough to centre the traffic lights a window puts at
+/// (14, 13).
+pub const TAB_ROW: f32 = 38.0;
+/// The second row: the tool buttons and the zoom readout.
+pub const TOOL_ROW: f32 = 40.0;
+/// The third row, the dock: the controls of the tool in hand or of the
+/// selection. It is there whether or not it has anything to show, so the
+/// canvas under it never moves.
+pub const DOCK_ROW: f32 = 40.0;
+/// The whole chrome across the top of the window. Everything under the
+/// chrome starts here; only the rows themselves know how it is made up.
+pub const CHROME_HEIGHT: f32 = TAB_ROW + TOOL_ROW + DOCK_ROW;
+/// From the dock's ends to its controls.
+pub(super) const DOCK_PAD: f32 = 12.0;
 /// A tool button: `h-7 w-8` in `toolbarToolBtnClass`.
 pub(super) const TOOL_BUTTON: (f32, f32) = (32.0, 28.0);
 /// A tool glyph: `TOOL_GLYPH_SIZE`.
@@ -13,14 +25,8 @@ pub(super) const TOOL_GLYPH: f32 = 20.0;
 pub(super) const ZOOM_TRIGGER: (f32, f32) = (58.0, 28.0);
 pub(super) const ZOOM_PAD: (f32, f32) = (9.0, 5.0);
 pub(super) const ZOOM_CHEVRON: f32 = 10.0;
-/// The corner of a tool button and of a popup control: `rounded-[6px]`.
+/// The corner of a tool button and of a dock control: `rounded-[6px]`.
 pub(super) const CONTROL_RADIUS: f32 = 6.0;
-
-/// The sidebar's button at the toolbar's left: `p-1.5` around a 14 px
-/// glyph with `rounded-[8px]`, set in by the bar's `px-4`.
-pub(super) const SIDEBAR_BUTTON: f32 = 26.0;
-pub(super) const SIDEBAR_BUTTON_LEFT: f32 = 16.0;
-pub(super) const SIDEBAR_BUTTON_RADIUS: f32 = 8.0;
 
 /// The space between neighbours in a row: `gap-1`.
 pub(super) const GAP: f32 = 4.0;
@@ -31,7 +37,7 @@ pub(super) const DIVIDER_MARGIN: f32 = 4.0;
 pub(super) const RULE: (f32, f32) = (1.0, 20.0);
 pub(super) const RULE_MARGIN: f32 = 2.0;
 
-/// From a floating panel's edge to its content: `border p-1` in
+/// From a floating list's edge to its content: `border p-1` in
 /// `POPUP_SURFACE_CLASS`.
 pub(super) const INSET: f32 = 5.0;
 /// How near a viewport edge a panel may come: `POPUP_EDGE_MARGIN`.
@@ -52,9 +58,9 @@ pub const FIELD_TEXT: f32 = 12.0;
 /// The height of a field's line of text.
 pub const FIELD_LINE: f32 = 16.0;
 
-/// A popup control: `h-6 w-6` in `popupIconButtonClass`.
+/// A dock control: `h-6 w-6` in `popupIconButtonClass`.
 pub(super) const CONTROL: f32 = 24.0;
-/// A popup glyph: `size={14}` on nearly every icon.
+/// A dock glyph: `size={14}` on nearly every icon.
 pub(super) const ICON: f32 = 14.0;
 /// The chevron of a dropdown: `<ChevronDown size={12} />`.
 pub(super) const CHEVRON: f32 = 12.0;

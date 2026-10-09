@@ -4,7 +4,7 @@
 use specular_doc::{BrushType, Rect};
 use specular_interact::{
     Action, ControlId, Cursor, Hit, Key, Tool, ToolDefaultPatch, hit_test,
-    panel::builtin::TOOLBAR_HEIGHT,
+    panel::builtin::CHROME_HEIGHT,
 };
 use specular_testkit::{CMD, TestApp, assert_doc_snapshot, shape, sticky};
 
@@ -51,11 +51,12 @@ fn the_draw_button_keeps_the_brush_the_draw_key_would_reset() {
 fn a_click_on_a_panel_leaves_the_selection_the_document_and_the_canvas_alone() {
     let mut app = app();
     app.select(&["t"]);
-    let Some(popup) = app.panel_layout().popup.map(|popup| popup.rect) else {
-        panic!("no popup");
+    let Some(dock) = app.panel_layout().dock.map(|dock| dock.rect) else {
+        panic!("no dock");
     };
-    // Bare toolbar, then the popup's own padding: on a panel, on no control.
-    for at in [(20.0, 20.0), (popup.x + 2.0, popup.y + 2.0)] {
+    // The bare tab row, then the dock's own padding: on a panel, on no
+    // control.
+    for at in [(20.0, 20.0), (dock.x + 2.0, dock.y + 2.0)] {
         app.pointer_move(at).press(at);
         assert!(app.session().gesture.is_none(), "{at:?}");
         app.drag_to((at.0 + 60.0, at.1 + 90.0)).release();
@@ -131,19 +132,6 @@ fn a_press_outside_an_open_dropdown_closes_it_and_goes_no_further() {
 }
 
 #[test]
-fn opening_the_zoom_levels_puts_the_tool_down() {
-    let mut app = app();
-    app.click_control("tool.shape").click_control("zoom");
-    assert_eq!(
-        (open(&app), app.session().tool),
-        (Some("zoom"), Tool::Select)
-    );
-    app.click_control("zoom.50");
-    assert_eq!(open(&app), None);
-    assert!((app.session().camera.zoom - 0.5).abs() < 1e-6);
-}
-
-#[test]
 fn a_format_button_keeps_the_text_edit_open() {
     let mut app = app();
     app.double_click((400.0, 400.0));
@@ -168,22 +156,21 @@ fn a_control_that_is_off_takes_no_press() {
 }
 
 #[test]
-fn the_wheel_pans_through_the_popup_and_not_through_the_toolbar_or_a_list() {
+fn the_wheel_and_a_pinch_stay_out_of_the_canvas_over_the_chrome_and_a_list() {
     let mut app = app();
     app.select(&["t"]);
-    let pan = |app: &TestApp| app.session().camera.pan;
-    let start = pan(&app);
+    let start = app.session().camera;
     app.hover_control("tool.shape").wheel((0.0, 40.0));
-    assert_eq!(pan(&app), start);
+    app.hover_control("text.size").wheel((0.0, 40.0)).pinch(0.2);
     app.click_control("text.size")
         .hover_control("text.size.32")
         .wheel((0.0, 40.0))
         .pinch(0.2);
-    assert_eq!(app.session().camera, specular_core::Camera::new(start, 1.0));
+    assert_eq!(app.session().camera, start);
     app.key(Key::Escape)
-        .hover_control("text.size")
+        .pointer_move((800.0, 600.0))
         .wheel((0.0, 40.0));
-    assert_ne!(pan(&app), start);
+    assert_ne!(app.session().camera.pan, start.pan);
 }
 
 #[test]
@@ -208,7 +195,7 @@ fn the_pointer_over_a_panel_is_an_arrow_and_hovers_nothing_under_it() {
 #[test]
 fn a_point_on_a_panel_hits_the_panel_and_not_what_is_under_it() {
     let mut app = TestApp::with_entities([shape("s", Rect::new(1300.0, 0.0, 200.0, 200.0))]);
-    let on_bar = glam::Vec2::new(1400.0, TOOLBAR_HEIGHT / 2.0);
+    let on_bar = glam::Vec2::new(1400.0, CHROME_HEIGHT / 2.0);
     assert!(matches!(
         hit_test(app.app(), on_bar),
         Hit::EntityBody { .. }
@@ -217,7 +204,7 @@ fn a_point_on_a_panel_hits_the_panel_and_not_what_is_under_it() {
     assert_eq!(hit_test(app.app(), on_bar), Hit::Panel { control: None });
     let on_tool = app.control_rect("tool.draw").centre();
     let Hit::Panel { control } = hit_test(app.app(), on_tool) else {
-        panic!("the toolbar is over the canvas");
+        panic!("the chrome is over the canvas");
     };
     assert_eq!(control.as_ref().map(ControlId::as_str), Some("tool.draw"));
 }

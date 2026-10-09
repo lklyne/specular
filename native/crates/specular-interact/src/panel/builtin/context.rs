@@ -6,7 +6,7 @@ use glam::Vec2;
 use super::dropdown;
 use super::metrics::{EDGE_MARGIN, INSET};
 use super::node::{Panel, PanelRect, Surface};
-use super::{Ctx, PopupAnchor, PopupModel};
+use super::{Ctx, PopupModel};
 use crate::panel::{Control, MenuTarget, context_menu};
 use crate::{App, Hit, Tool};
 use specular_doc::ItemId;
@@ -24,15 +24,12 @@ pub struct ContextMenu {
 /// The menu of `open` as the model says it is now, or `None` once its
 /// target has changed.
 pub(super) fn model(ctx: &Ctx<'_>, open: &ContextMenu) -> Option<PopupModel> {
-    context_menu(ctx.app, &open.target, open.at)
+    context_menu(ctx.app, &open.target)
 }
 
-/// `model` laid out at its point. The corner is the point, pulled back inside
+/// `model` laid out at `at`. The corner is the point, pulled back inside
 /// the viewport and clear of the sidebar when the menu would run off it.
-pub(super) fn layout(ctx: &Ctx<'_>, model: &PopupModel, viewport: Vec2) -> Option<Panel> {
-    let PopupAnchor::Point(at) = model.anchor else {
-        return None;
-    };
+pub(super) fn layout(ctx: &Ctx<'_>, model: &PopupModel, at: Vec2, viewport: Vec2) -> Option<Panel> {
     let [Control::Choices(choices)] = model.controls.as_slice() else {
         return None;
     };
@@ -102,6 +99,6 @@ pub(crate) fn open_for_press(app: &mut App, screen: Vec2, hit: &Hit) -> bool {
     app.session.pointer = Some(screen);
     app.session.panel.open = None;
     let menu = ContextMenu { target, at: screen };
-    app.session.panel.menu = context_menu(app, &menu.target, menu.at).map(|_| menu);
+    app.session.panel.menu = context_menu(app, &menu.target).map(|_| menu);
     true
 }

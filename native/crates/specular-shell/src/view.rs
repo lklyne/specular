@@ -1,9 +1,11 @@
-//! The window's content: the Kit's toolbar and sidebar, and the slot the
+//! The window's content: the Kit's chrome and sidebar, and the slot the
 //! canvas shows through.
 //!
 //! ```text
 //! ┌───────────────────────────────────────────────────────┐
-//! │ toolbar (Kit), across the window                      │
+//! │ tab row (Kit): the title bar                          │
+//! │ toolbar (Kit)                                         │
+//! │ dock (Kit): the tool's or the selection's controls    │
 //! ├──────────┬───────────────────────────────┬────────────┤
 //! │ sidebar  │ canvas slot: nothing painted, │ right      │
 //! │ (Kit)    │ so the canvas view under      │ panel      │
@@ -12,15 +14,16 @@
 //! ```
 //!
 //! The slot fills the window beside the right panel, as the app's own
-//! layout assumes. The toolbar and the sidebar lie over its top and left
-//! edges: a popup beside a canvas item never rises above the toolbar strip,
-//! and the app counts the sidebar's width as covered (`App::covered_left`)
-//! while its model says it is visible, which is when the sidebar is drawn.
-//! The right panel is beside the slot, so opening it or dragging its edge
-//! makes the app's viewport narrower.
+//! layout assumes. The chrome and the sidebar lie over its top and left
+//! edges: the app counts the chrome's height as covered
+//! (`CHROME_HEIGHT`), and the sidebar's width (`App::covered_left`) while
+//! its model says it is visible, which is when the sidebar is drawn. The
+//! right panel is beside the slot, so opening it or dragging its edge makes
+//! the app's viewport narrower.
 
 mod chat;
 mod controls;
+mod dock;
 mod dropdown;
 mod field;
 mod glyphs;
@@ -29,16 +32,16 @@ mod menu;
 mod named;
 mod onboarding;
 mod pick;
-mod popup;
 mod sidebar;
 mod slot;
+mod tabs;
 mod toolbar;
 
 use std::path::PathBuf;
 use std::rc::Rc;
 
 use glam::Vec2;
-use gpui_kit::component::{ActiveTheme as _, h_flex};
+use gpui_kit::component::{ActiveTheme as _, h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
     App, Context, ExternalPaths, FocusHandle, Global, InteractiveElement as _, IntoElement,
@@ -145,7 +148,7 @@ impl ShellView {
 
 impl ShellView {
     /// Whether the keys are in one of the Kit's text fields: the composer,
-    /// or a model field being typed in (a canvas's name, a popup's value).
+    /// or a model field being typed in (a canvas's name, a dock field).
     pub(crate) fn typing(&self, window: &Window, cx: &mut App) -> bool {
         let in_field = window
             .focused(cx)
@@ -160,7 +163,6 @@ impl Render for ShellView {
         self.asks.changed.set(false);
         named::begin_frame();
         let models = canvas::models();
-        let title = self.asks.title.borrow().clone();
         if let Some(model) = models
             .as_ref()
             .and_then(|models| models.onboarding.as_ref())
@@ -193,18 +195,27 @@ impl Render for ShellView {
                 root.when(models.sidebar.visible, |root| {
                     root.child(Self::sidebar(&models.sidebar, window, cx))
                 })
-                .child(toolbar::toolbar(&models.toolbar, &title, cx))
-                .when_some(models.popup.as_ref(), |root, model| {
-                    root.child(popup::tool_popup(model, window, cx))
-                })
+                .child(
+                    v_flex()
+                        .id("chrome")
+                        .occlude()
+                        .absolute()
+                        .top_0()
+                        .left_0()
+                        .right_0()
+                        .bg(theme::solid(theme::toolbar()))
+                        .child(tabs::tabs())
+                        .child(toolbar::toolbar(&models.toolbar))
+                        .child(dock::dock(models.dock.as_ref(), window, cx)),
+                )
                 .children(self.chat_resize_handle(&models.chat))
             })
             .child(
-                // The hairline under the toolbar is its own, drawn last so
+                // The hairline under the chrome is its own, drawn last so
                 // nothing covers it.
                 div()
                     .absolute()
-                    .top(px(theme::TOOLBAR_HEIGHT - 1.0))
+                    .top(px(theme::CHROME_HEIGHT - 1.0))
                     .left_0()
                     .right_0()
                     .h(px(1.0))

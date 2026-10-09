@@ -194,13 +194,8 @@ fn the_layout_is_never_older_than_the_app() {
     app.tool(Tool::AddShape);
     fresh(&app, "a tool change");
     app.act(Action::SetTool(Tool::Select));
-    let popup = layout(app.app()).popup.clone().map(|panel| panel.rect);
     app.wheel((80.0, 60.0));
-    assert_ne!(
-        layout(app.app()).popup.clone().map(|panel| panel.rect),
-        popup
-    );
-    fresh(&app, "a pan with a popup shown");
+    fresh(&app, "a pan with the dock filled");
     app.show_sidebar(true);
     fresh(&app, "showing the sidebar");
     app.pointer_move(app.control_rect("sidebar.head.notes").centre());

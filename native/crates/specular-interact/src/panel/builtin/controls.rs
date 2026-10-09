@@ -1,11 +1,12 @@
-//! A row of controls: the content of a popup, and of a dropdown section that
-//! holds controls.
+//! A row of controls: the content of the dock, and of a dropdown section
+//! that holds controls.
 
 use glam::Vec2;
 use specular_doc::{TextAlign, TextFont};
 
 use super::super::{
-    Button, Control, ControlId, Face, Icon, PaintRole, Palette, Stepper, Swatches, Toggle,
+    Button, Control, ControlId, Face, FieldWidth, Icon, PaintRole, Palette, Stepper, Swatches,
+    Toggle,
 };
 use super::metrics::{
     CONTROL, CONTROL_RADIUS, DIVIDER, DIVIDER_MARGIN, DOT, FIELD_HEIGHT, GAP, ICON, RULE,
@@ -23,8 +24,8 @@ pub(super) const MEDIUM: u16 = 500;
 /// Where a row is, which decides the line drawn for a separator.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum RowKind {
-    /// The popup's own row.
-    Popup,
+    /// The dock's row.
+    Dock,
     /// A row inside a dropdown.
     Dropdown,
 }
@@ -32,14 +33,13 @@ pub(super) enum RowKind {
 /// A row laid out from its own top-left corner.
 pub(super) struct Row {
     pub(super) nodes: Vec<Node>,
-    pub(super) width: f32,
     pub(super) height: f32,
 }
 
 /// The glyph of reload and stop: `<RotateCw size={12} />`.
 const RELOAD_ICON: f32 = 12.0;
 
-/// The box a glyph is fitted into on a popup control. The stroke samples
+/// The box a glyph is fitted into on a dock control. The stroke samples
 /// are drawn at the size they were designed at.
 fn icon_box(icon: Icon) -> Vec2 {
     match icon {
@@ -260,14 +260,14 @@ fn stepper(ctx: &Ctx<'_>, stepper: &Stepper, left: f32, width: f32, out: &mut Ve
 
 fn separator_width(kind: RowKind) -> f32 {
     match kind {
-        RowKind::Popup => DIVIDER.0 + DIVIDER_MARGIN * 2.0,
+        RowKind::Dock => DIVIDER.0 + DIVIDER_MARGIN * 2.0,
         RowKind::Dropdown => RULE.0 + RULE_MARGIN * 2.0,
     }
 }
 
 fn separator(kind: RowKind, left: f32) -> Node {
     let (chrome, (width, height), margin) = match kind {
-        RowKind::Popup => (Chrome::Divider, DIVIDER, DIVIDER_MARGIN),
+        RowKind::Dock => (Chrome::Divider, DIVIDER, DIVIDER_MARGIN),
         RowKind::Dropdown => (Chrome::Rule, RULE, RULE_MARGIN),
     };
     let rect = PanelRect::new(left + margin, (CONTROL - height) / 2.0, width, height);
@@ -282,24 +282,30 @@ fn natural(ctx: &Ctx<'_>, control: &Control, kind: RowKind) -> f32 {
         Control::Dropdown(dropdown) => trigger::width(ctx, dropdown),
         Control::Stepper(stepper) => stepper_width(ctx, stepper),
         Control::Field(it) => field::natural_width(ctx, it),
-        // A choice list fills a popup alone, which lays it out.
+        // A choice list is a context menu, which is laid out as a list.
         Control::Choices(_) => 0.0,
         Control::Separator => separator_width(kind),
     }
 }
 
 /// Whether a control takes a share of the room left over in a row that is
-/// wider than its content: a labelled toggle (`flex-1`), a stepper, a field
-/// (`min-w-0 flex-1`).
-fn stretches(control: &Control) -> bool {
-    match control {
-        Control::Toggle(toggle) => toggle.face.icon.is_some() && toggle.face.text.is_some(),
-        Control::Stepper(_) | Control::Field(_) => true,
-        Control::Button(_)
-        | Control::Swatches(_)
-        | Control::Dropdown(_)
-        | Control::Choices(_)
-        | Control::Separator => false,
+/// wider than its content. In a dropdown: a labelled toggle (`flex-1`), a
+/// stepper, a field (`min-w-0 flex-1`). In the dock only an address does;
+/// everything else keeps its size.
+fn stretches(control: &Control, kind: RowKind) -> bool {
+    match kind {
+        RowKind::Dock => {
+            matches!(control, Control::Field(field) if field.width == FieldWidth::Wide)
+        }
+        RowKind::Dropdown => match control {
+            Control::Toggle(toggle) => toggle.face.icon.is_some() && toggle.face.text.is_some(),
+            Control::Stepper(_) | Control::Field(_) => true,
+            Control::Button(_)
+            | Control::Swatches(_)
+            | Control::Dropdown(_)
+            | Control::Choices(_)
+            | Control::Separator => false,
+        },
     }
 }
 
@@ -312,14 +318,14 @@ pub(super) fn natural_width(ctx: &Ctx<'_>, controls: &[Control], kind: RowKind) 
 /// `controls` side by side, each `CONTROL` tall, or `FIELD_HEIGHT` when the
 /// row holds a field, which the rest are centred against. With `fill`, the
 /// row is that wide: the controls that stretch share what is left over, and
-/// a row that is only swatches spreads them from edge to edge.
+/// a dropdown's row that is only swatches spreads them from edge to edge.
 pub(super) fn row(ctx: &Ctx<'_>, controls: &[Control], kind: RowKind, fill: Option<f32>) -> Row {
     let content = natural_width(ctx, controls, kind);
     // Negative when the row is narrower than its content: the controls that
     // stretch give up their padding to fit.
     let slack = fill.map_or(0.0, |fill| fill - content);
     let spare = slack.max(0.0);
-    let stretching = controls.iter().filter(|it| stretches(it)).count();
+    let stretching = (controls.iter()).filter(|it| stretches(it, kind)).count();
     let share = if stretching == 0 {
         0.0
     } else {
@@ -334,13 +340,14 @@ pub(super) fn row(ctx: &Ctx<'_>, controls: &[Control], kind: RowKind, fill: Opti
     let mut left = 0.0;
     for control in controls {
         let own = natural(ctx, control, kind);
-        let mut width = if matches!(control, Control::Field(_)) {
+        let stretches = stretches(control, kind);
+        let mut width = if !stretches {
+            own
+        } else if matches!(control, Control::Field(_)) {
             // An address never gives up the room it asks for.
             own + share.max(0.0)
-        } else if stretches(control) {
-            (own + share).max(own - SEGMENT_PAD * 2.0)
         } else {
-            own
+            (own + share).max(own - SEGMENT_PAD * 2.0)
         };
         let rect = PanelRect::new(left, 0.0, width, CONTROL);
         let first = nodes.len();
@@ -349,8 +356,8 @@ pub(super) fn row(ctx: &Ctx<'_>, controls: &[Control], kind: RowKind, fill: Opti
             Control::Toggle(it) => nodes.push(toggle(ctx, it, rect)),
             Control::Swatches(it) => {
                 let between = it.options.len().saturating_sub(1).max(1) as f32;
-                let gap = match (controls.len(), stretching) {
-                    (1, 0) => GAP + spare / between,
+                let gap = match (kind, controls.len(), stretching) {
+                    (RowKind::Dropdown, 1, 0) => GAP + spare / between,
                     _ => GAP,
                 };
                 swatches(ctx, it, left, gap, &mut nodes);
@@ -371,9 +378,5 @@ pub(super) fn row(ctx: &Ctx<'_>, controls: &[Control], kind: RowKind, fill: Opti
         }
         left += width + GAP;
     }
-    Row {
-        nodes,
-        width: (left - GAP).max(0.0),
-        height,
-    }
+    Row { nodes, height }
 }

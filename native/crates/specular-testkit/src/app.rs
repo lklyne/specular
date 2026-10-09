@@ -177,10 +177,10 @@ impl TestApp {
         crate::toolbar_snapshot(&specular_interact::toolbar(self.app()))
     }
 
-    /// The popup as stable text, `none` for no popup. See
+    /// What the dock shows as stable text, `none` for an empty dock. See
     /// [`popup_snapshot`].
     pub fn popup_snapshot(&self) -> String {
-        crate::popup_snapshot(specular_interact::popup_for(self.app()).as_ref())
+        crate::popup_snapshot(specular_interact::dock(self.app()).as_ref())
     }
 
     /// What the app draws, as stable text. See

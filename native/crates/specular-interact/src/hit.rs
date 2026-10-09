@@ -92,7 +92,7 @@ pub enum Hit {
     },
     /// Empty canvas.
     Empty,
-    /// A built-in panel: the toolbar, the popup or an open dropdown. Only
+    /// A built-in panel: a row of the chrome, the sidebar or an open list. Only
     /// with the built-in panels on.
     Panel {
         /// The control there, if the point is on one.

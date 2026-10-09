@@ -215,8 +215,8 @@ pub struct Dropdown {
     pub content: Vec<DropdownSection>,
 }
 
-/// Choices shown in place, a list that fills its popup, rather than behind
-/// a control.
+/// Choices shown in place, the list that is a context menu, rather than
+/// behind a control.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Choices {
     /// Its name.
@@ -246,7 +246,7 @@ pub struct Stepper {
     pub can_increment: bool,
 }
 
-/// One control of a toolbar or popup.
+/// One control of the dock, a dropdown or a context menu.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Control {
     /// Runs an action.
@@ -261,7 +261,7 @@ pub enum Control {
     Stepper(Stepper),
     /// A line of text to type.
     Field(Field),
-    /// Choices that fill a popup. It is the only control of its popup.
+    /// Choices that are a whole context menu. It is the menu's only control.
     Choices(Choices),
     /// A dividing line between groups.
     Separator,

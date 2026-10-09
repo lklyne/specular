@@ -125,8 +125,8 @@ fn window_options(launch: &Launch) -> WindowOptions {
         // GPUI's Metal layer is opaque unless the window is transparent, and
         // an opaque layer above the canvas view would hide it.
         window_background: WindowBackgroundAppearance::Transparent,
-        // The toolbar strip is the title bar, with the traffic lights in
-        // its left padding as the Electron app has them.
+        // The tab row is the title bar, with the traffic lights in its
+        // left padding.
         titlebar: Some(TitlebarOptions {
             title: Some("Specular".into()),
             appears_transparent: true,
@@ -139,13 +139,13 @@ fn window_options(launch: &Launch) -> WindowOptions {
 
 /// Tells the app which of its chrome this shell draws itself.
 fn say_what_the_kit_draws(runtime: &mut Runtime<CanvasSurface>, benching: bool) {
-    // The Kit draws the toolbar and what hangs from it. A popup beside a
-    // canvas item stays in the canvas's own pass, except in a benchmark,
-    // which draws the canvas alone as the winit shell's does.
+    // The Kit draws the chrome and the sidebar. The menu a right press on
+    // the canvas opens stays in the canvas's own pass, except in a
+    // benchmark, which draws the canvas alone as the winit shell's does.
     runtime.dispatch(if benching {
         Event::BuiltinPanels(false)
     } else {
-        Event::BuiltinCanvasPopups
+        Event::BuiltinMenu
     });
     if !benching {
         // The Kit draws a right panel, so a comment is written there and

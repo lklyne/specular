@@ -1,4 +1,4 @@
-//! The toolbar and the item popup as data: [`toolbar`] and [`popup_for`] say
+//! The toolbar and the dock as data: [`toolbar`] and [`dock`] say
 //! which controls exist now, their state and the [`Action`](crate::Action)
 //! each one dispatches. A renderer draws them and sends the action of a
 //! pressed control back as an [`Event::Action`](crate::Event).
@@ -31,10 +31,9 @@ pub use model::{
     OptionLayout, PaintRole, Palette, Stepper, Swatch, Swatches, Toggle,
 };
 pub use models::{
-    Align, Placement, PopupAnchor, PopupModel, SidebarButton, ThemeButton, ToolButton,
-    ToolbarModel, ToolbarSection,
+    PopupModel, SidebarButton, ThemeButton, ToolButton, ToolbarModel, ToolbarSection,
 };
 pub use named::{UnknownControl, control_named, named_controls};
 pub(crate) use named::{activate as activate_control, open_menu as open_menu_at};
-pub use popup::popup_for;
+pub use popup::dock;
 pub use toolbar::toolbar;

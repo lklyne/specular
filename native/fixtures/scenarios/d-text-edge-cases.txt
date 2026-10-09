@@ -62,20 +62,16 @@ key escape
 snapshot 11-label-done.png
 
 # edit at zoom 0.25
-camera 0,0,0.25
-double-click 75 70
+camera 0,100,0.25
+double-click 75 170
 key cmd+down
-# The double click does not open the sticky at this zoom, so these letters
-# reach the canvas as keys: `t` arms the text tool, which the click at zoom 3
-# then places with. No `i`, which would arm the inspect tool in its stead.
 type  tny
 snapshot 12-zoom-quarter-editing.png
 key escape
 
 # edit at zoom 3
-# one click: a second press at the same point would land on the popup the first opens
 camera -560,-440,3
-click 300 200
+double-click 300 200
 key cmd+down
 type  HUGE
 hold shift

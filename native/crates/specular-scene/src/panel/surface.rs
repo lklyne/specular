@@ -1,4 +1,4 @@
-//! What is under a panel's controls: the toolbar's strip, a floating
+//! What is under a panel's controls: a row of the chrome, a floating
 //! frame.
 
 use specular_interact::panel::builtin::{Panel, Surface};
@@ -12,7 +12,11 @@ const RADIUS: f32 = 10.0;
 pub(super) fn draw(p: &PanelColors, panel: &Panel, out: &mut Vec<Item>) {
     let rect = super::rect(panel.rect);
     match panel.surface {
-        Surface::Toolbar => {
+        Surface::Tabs | Surface::Toolbar => {
+            out.push(Item::screen(RectDraw::filled(rect, p.toolbar)));
+        }
+        // The chrome is one block, with one line where it ends.
+        Surface::Dock => {
             out.push(Item::screen(RectDraw::filled(rect, p.toolbar)));
             let line = Rect::new(rect.x, rect.bottom() - 1.0, rect.width, 1.0);
             out.push(Item::screen(RectDraw::filled(line, p.toolbar_border)));
@@ -23,8 +27,8 @@ pub(super) fn draw(p: &PanelColors, panel: &Panel, out: &mut Vec<Item>) {
             out.push(Item::screen(RectDraw::filled(edge, p.popup_border)));
         }
         Surface::SidebarList => {}
-        Surface::Popup | Surface::Dropdown if panel.menu => menu(p, rect, out),
-        Surface::Popup | Surface::Dropdown => floating(p, rect, out),
+        Surface::Dropdown if panel.menu => menu(p, rect, out),
+        Surface::Dropdown => floating(p, rect, out),
     }
 }
 

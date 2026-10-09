@@ -1,4 +1,4 @@
-//! The built-in toolbar and popup in a test: turning them on, clicking a
+//! The built-in chrome in a test: turning it on, clicking a
 //! control by its name, and the layout as text for `insta`.
 
 use std::fmt::Write as _;
@@ -125,8 +125,9 @@ fn node(out: &mut String, node: &Node) {
 
 fn panel(out: &mut String, panel: &Panel) {
     let name = match panel.surface {
+        Surface::Tabs => "tabs",
         Surface::Toolbar => "toolbar",
-        Surface::Popup => "popup",
+        Surface::Dock => "dock",
         Surface::Dropdown => "dropdown",
         Surface::Sidebar => "sidebar",
         Surface::SidebarList => "sidebar-list",
@@ -149,7 +150,7 @@ pub fn layout_snapshot(layout: &PanelLayout) -> String {
 }
 
 impl TestApp {
-    /// Turns the built-in toolbar and popup on, as a shell that draws them
+    /// Turns the built-in chrome on, as a shell that draws it
     /// does at startup. A test that never set a viewport gets a 1600x1000
     /// one, since the panels are laid out against it.
     pub fn with_panels(&mut self) -> &mut Self {

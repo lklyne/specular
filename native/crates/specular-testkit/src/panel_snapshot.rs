@@ -1,10 +1,10 @@
-//! The toolbar and the item popup as text for `insta`.
+//! The toolbar and the dock as text for `insta`.
 
 use std::fmt::Write as _;
 
 use specular_interact::{
-    Chord, Control, Dropdown, DropdownSection, Face, Key, OptionLayout, PopupAnchor, PopupModel,
-    ToolbarModel, ToolbarSection,
+    Chord, Control, Dropdown, DropdownSection, Face, Key, OptionLayout, PopupModel, ToolbarModel,
+    ToolbarSection,
 };
 
 /// The toolbar as stable text, one line per control or option, `---`
@@ -36,32 +36,13 @@ pub fn toolbar_snapshot(toolbar: &ToolbarModel) -> String {
     out.trim_end().to_owned()
 }
 
-/// A popup as stable text, or `none` when there is no popup.
+/// The dock's controls, or a context menu's, as stable text, or `none`
+/// when there are none.
 pub fn popup_snapshot(popup: Option<&PopupModel>) -> String {
     let Some(popup) = popup else {
         return "none".to_owned();
     };
     let mut out = String::new();
-    match popup.anchor {
-        PopupAnchor::Toolbar { gap } => {
-            let _ = writeln!(out, "anchor toolbar gap={gap}");
-        }
-        PopupAnchor::Point(at) => {
-            let _ = writeln!(out, "anchor point {},{}", at.x, at.y);
-        }
-        PopupAnchor::Canvas {
-            bounds,
-            placement,
-            align,
-            gap,
-        } => {
-            let _ = writeln!(
-                out,
-                "anchor canvas {},{} {}x{} {placement:?} {align:?} gap={gap}",
-                bounds.x, bounds.y, bounds.width, bounds.height
-            );
-        }
-    }
     controls(&mut out, &popup.controls, 0);
     out.trim_end().to_owned()
 }
@@ -276,8 +257,8 @@ macro_rules! assert_toolbar_snapshot {
     };
 }
 
-/// Asserts the popup of a [`TestApp`](crate::TestApp) against an inline
-/// snapshot, `none` for no popup.
+/// Asserts what the dock shows for a [`TestApp`](crate::TestApp) against
+/// an inline snapshot, `none` for an empty dock.
 #[macro_export]
 macro_rules! assert_popup_snapshot {
     ($app:expr, $($rest:tt)*) => {
