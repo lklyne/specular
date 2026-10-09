@@ -43,13 +43,13 @@ tests and the headless modes below need no window.
 | `specular-core` | lib | Camera math, the f32 `Point`, `Size` and `Rect`, the page model, the `PageSource` and `PageFrame` contracts, the input model, the text-measure trait, the synthetic page source, the locator scoring for interaction sync |
 | `specular-doc` | lib | The typed `Document`: entities, edges, annotations, `Command`s with inverses, `History`, and the `.canvas` reader and writer |
 | `specular-agent` | lib | The agent thread model: the `Threads` store, the thread files' shape, the prompts, the `claude` stream parser, repo bindings. Pure |
-| `specular-interact` | lib | `App`, `Session`, `Space`, `Event`, `Effect`, `Action`, `Tool`, `Gesture`, hit-test, `update`, the text editor, the key binding table, and every panel model (toolbar, popups, sidebar, menus, chat, settings, first run) |
+| `specular-interact` | lib | `App`, `Session`, `Space`, `Event`, `Effect`, `Action`, `Tool`, `Gesture`, hit-test, `update`, the text editor, the key binding table, and every panel model (toolbar, dock, sidebar, menus, chat, settings, first run) |
 | `specular-scene` | lib | The `Scene` display list, `view` with one module a kind, the markdown parser, and the built-in panel painter |
 | `specular-api` | lib | The HTTP API with the socket taken off: a request and `&App` in, a read answer or an `Event::Api` out. Also the per-page CDP routing |
 | `specular-compositor` | lib | The wgpu renderer. Draws a `Scene` over the dot grid in one 4x multisampled pass: page textures, SDF shapes, glyphon text, lyon paths. Imports page IOSurfaces with no copy on macOS. Implements the text measure |
 | `specular-cef` | lib | The CEF offscreen `PageSource` (feature `cef`) and the CEF-free helpers it is built from. See [`crates/specular-cef/README.md`](crates/specular-cef/README.md) |
 | `specular-app` | lib + bin | `Runtime`, which owns the `App` and runs every effect: page hosts, space files, images, Documents, clipboard, the HTTP and CDP servers, the agent runner. Also the command line, the headless `--snapshot` and `--script` modes, `--bench`, and the winit window (binary `specular-app`) |
-| `specular-shell` | bin | The GPUI Kit window (binary `specular`, ADR 0040). The Kit draws toolbar, sidebar, menus, settings, first run and the chat panel from the models. The compositor draws the canvas in a view under GPUI's. It uses `specular-app`'s `Runtime` and command line |
+| `specular-shell` | bin | The GPUI Kit window (binary `specular`, ADR 0040). The Kit draws the chrome (tab row, toolbar, dock), sidebar, menus, settings, first run and the chat panel from the models. The compositor draws the canvas in a view under GPUI's. It uses `specular-app`'s `Runtime` and command line |
 | `specular-bench` | lib + bin | Gesture profiles, frame stats, per-frame work times, process-tree memory, the Electron trace converter and `compare`. See [`crates/specular-bench/README.md`](crates/specular-bench/README.md) |
 | `specular-testkit` | lib, dev only | `TestApp`, snapshot macros and entity builders for tests |
 
@@ -193,7 +193,8 @@ cargo run -p specular-app -- --script steps.txt FILE.canvas
   `type some text`, `tool shape`, `control shape.color`, `snapshot out.png`,
   `save out.canvas` and more. [`CLAUDE.md`](CLAUDE.md), "Looking at what it
   draws", has the whole list.
-- The toolbar and popups are the built-in ones, drawn and clickable.
+- The chrome (tab row, toolbar and dock) is the built-in one, drawn and
+  clickable.
 - Pages are synthetic unless the bundled binary is run with `--source cef`.
   Then the real pages load first and a script's input reaches an entered
   page.
@@ -201,7 +202,7 @@ cargo run -p specular-app -- --script steps.txt FILE.canvas
   only on `wait`, so a script draws the same frames every run.
 
 The GPUI window has its own script driver for an agent with no hands:
-`SPECULAR_SHELL_SCRIPT="wait 2000; click 587 22; shot /tmp/a.png; quit"`
+`SPECULAR_SHELL_SCRIPT="wait 2000; click 587 58; shot /tmp/a.png; quit"`
 posts real `NSEvent`s and captures the window. Set `SPECULAR_FLOAT_WINDOW=1`
 with it. A covered window, a locked screen or a sleeping display draws
 nothing, and the capture then looks like blank pages.

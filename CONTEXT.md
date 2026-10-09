@@ -356,7 +356,8 @@ The Rust app under `native/` uses the terms above with the same meanings. This s
 - **Scene.** `specular_scene::Scene`, a flat list of draw items in paint order that `view(&App)` builds each frame. Each item is in canvas space or screen space. The compositor draws it and knows nothing about entities. Overlay UI is not a separate window: chrome that hugs an entity is a screen-space item in the same list.
 - **Annotation.** `specular_doc::Annotation`, with the three anchor types and the same file shape. The comment tool's drag is `Gesture::Comment`.
 - **Page host.** The shell's CEF offscreen browser for a page entity. `Event` and `Effect` name a page by its `EntityId`, and the shell keeps the table from that to the backend's `PageId`.
-- **Model.** Rust-only term. A panel's content as plain data, built by a function of `&App` (`toolbar`, `popup_for`, `sidebar`, `chat`) and drawn by whichever renderer the shell has ([ADR 0044](./docs/adr/0044-ui-as-pure-models-with-replaceable-renderers.md)).
+- **Model.** Rust-only term. A panel's content as plain data, built by a function of `&App` (`toolbar`, `dock`, `sidebar`, `chat`) and drawn by whichever renderer the shell has ([ADR 0044](./docs/adr/0044-ui-as-pure-models-with-replaceable-renderers.md)).
+- **Chrome and dock.** Rust-only terms. The chrome is three rows across the top of the window: the tab row (the title bar strip), the toolbar, and the dock. The dock is a fixed, full-width bar holding the options of the creation tool in hand, else the controls of the selection, else nothing. It stands where the Electron app's `CanvasItemPopup` does in both of its anchor modes, with the same precedence, and it never moves with the canvas. Everything under the chrome starts at `CHROME_HEIGHT`.
 
 ---
 

@@ -24,6 +24,8 @@ Two renderers exist today.
 - **Built-in.** Layout and pointer state in `specular-interact`, painting as screen-space scene items. The winit shell and every headless run use it. `view` never draws panels. The shell calls `draw_panels` after it.
 - **GPUI Kit.** `specular-shell` maps each control to a Kit component in one adapter file and draws the toolbar, sidebar, toolbar popups, menus, settings, first run and the chat panel. It still uses the built-in renderer for popups beside a canvas item.
 
+**Amended 2026-10-09.** `PopupAnchor` is gone. The item popup and the tool popup became the dock, a fixed third row of the chrome that either renderer can draw (`dock(&App)` replaces `popup_for`). Nothing of the chrome follows a canvas item any more, so no control needs the canvas's own pass. The Kit shell draws the dock itself and keeps the built-in renderer only for the context menu a right press on the canvas opens (`Event::BuiltinMenu`).
+
 ## Alternatives
 
 **egui panels in a second pass**, ADR 0039's choice. Immediate mode fits "a function of state that returns events". It was measured at about 1 ms in the bake-off and never built in the app.

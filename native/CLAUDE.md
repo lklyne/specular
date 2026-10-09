@@ -34,8 +34,8 @@ Event -> update(&mut App, Event) -> Vec<Effect>     pure, no I/O
   no window, GPU or CEF.
 - There are two shells over one `specular_app::Runtime`, which runs every
   effect. `specular-app` is the winit one. `specular-shell` (binary
-  `specular`) is the GPUI Kit one (ADR 0040): the Kit draws the toolbar and
-  sidebar from the models, and the compositor draws the canvas under it. A
+  `specular`) is the GPUI Kit one (ADR 0040): the Kit draws the chrome and
+  the sidebar from the models, and the compositor draws the canvas under it. A
   new effect gets its runner in `specular-app/src/app/`, once, for both.
 
 The Electron app under `../src` is the behavior spec, not the structure
@@ -170,7 +170,8 @@ fn shift_drag_moves_the_page_along_one_axis() {
   it. Prefer the inline form for small documents: a failing run prints the
   new text, and `cargo insta accept` (from `cargo install cargo-insta`)
   writes it into the source. Read the snapshot before accepting it.
-- The built-in toolbar and popup are off in a test until
+- The built-in chrome (the tab row, the toolbar and the dock, which holds
+  the tool's or the selection's controls) is off in a test until
   `app.with_panels()`. Then `click_control("text.color")` clicks a control
   by its name, looking its rect up in the layout (`hover_control`,
   `press_control`, `control_rect` likewise), `assert_panel_snapshot!(app)`
@@ -181,17 +182,17 @@ fn shift_drag_moves_the_page_along_one_axis() {
   `enter_in_field("page.url", "example.org")` replaces its text and presses
   Enter, `field_edit()` reads what is typed so far, and Escape puts the
   old value back.
-  The sidebar starts hidden, as in Electron: `show_sidebar(true)` (or the
-  `sidebar.toggle` button) shows it. Its controls are `sidebar.canvas.<id>`
+  The sidebar starts hidden, as in Electron: `show_sidebar(true)` (or
+  Command+B) shows it. Its controls are `sidebar.canvas.<id>`
   (`.name` is the rename field, `.menu.rename` and `.menu.delete` the
   right-click menu), `sidebar.add`, `sidebar.head.<canvases|notes|pages>`,
   `sidebar.<notes|pages>.<entity id>` (`.toggle` its chevron) and
   `sidebar.pages.comment.<id>`. Only rows in the window are laid out, so
   scroll with `wheel` over the sidebar before clicking one below it.
-  `app.covered_left()` is the width it covers, which zoom to fit, a reveal,
-  zoom steps and popups read.
+  `app.covered_left()` is the width it covers, which zoom to fit, a reveal
+  and zoom steps read.
   `right_click(at)` opens the context menu, which is a `PopupModel` of
-  choices at a point (`context_menu(app, &target, at)`, drawn in the
+  choices (`context_menu(app, &target)`, drawn at the press in the
   dropdown slot). `assert_menu_snapshot!(app)` holds its model,
   `menu_open()` says whether one is open, and `click_control("menu.duplicate")`
   picks an item (`menu.<label in lower case, dashes>`; a canvas row's menu is
@@ -238,9 +239,9 @@ cargo run -p specular-app -- --script steps.txt FILE.canvas
   `sidebar on|off`, `camera ..`, `wait ms`,
   `snapshot out.png`, `save out.canvas`. Positions are screen pixels. A snapshot between `press` and `release` shows a gesture in
   flight.
-- The toolbar and the item popup are drawn and take clicks, so the top 44
-  pixels are the toolbar. `control shape.color` clicks a control by its
-  name wherever it is (`hover-control`, `press-control` likewise), and a
+- The chrome is drawn and takes clicks, so the top 118 pixels
+  (`CHROME_HEIGHT`) are the tab row, the toolbar and the dock.
+  `control shape.color` clicks a control by its name wherever it is (`hover-control`, `press-control` likewise), and a
   wrong name fails the run with the names that are shown. A field takes
   `control page.url`, `key cmd+a`, `type ..`, `key enter`. A dropdown's
   options have names once it is open. `panels off` runs without them, and
