@@ -204,10 +204,13 @@ wrap_render_handler! {
             }
         }
 
+        /// CEF reports the root scroll in device pixels, so a page drawn at
+        /// twice the scale says twice the offset. The app keeps CSS pixels.
         fn on_scroll_offset_changed(&self, _browser: Option<&mut Browser>, x: f64, y: f64) {
+            let scale = f64::from(self.ctx.geometry().scale);
             self.ctx.push(PageEvent::Scrolled {
                 page: self.ctx.id,
-                offset: glam::Vec2::new(x as f32, y as f32),
+                offset: glam::Vec2::new((x / scale) as f32, (y / scale) as f32),
             });
         }
 
