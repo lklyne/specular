@@ -3,6 +3,7 @@
 
 use serde_json::{Value, json};
 use specular_doc::Rect;
+use specular_interact::{Action, Showing};
 use specular_testkit::{TestApp, assert_doc_snapshot, connected, document, sticky};
 
 use crate::common::Scripted;
@@ -163,6 +164,29 @@ fn focus_fits_the_named_entities_and_selects_the_first() {
         json!({ "pageIds": ["a"], "bounds": { "x": 0, "y": 0, "width": 500, "height": 400 } }),
     );
     assert_eq!(session.app.selected_ids(), [] as [&str; 0]);
+}
+
+/// Mutation: dropping the `has_a_tab` arm from `act::focus` frames the page
+/// on the canvas and shows no tab.
+#[test]
+fn focus_on_one_page_shows_its_tab_and_on_two_frames_them() {
+    let mut session = Scripted::new(TestApp::with_pages(2));
+    session.app.viewport((1000.0, 800.0));
+    let focus = |session: &mut Scripted, ids: Value| {
+        ok(session, "/camera/focus", json!({ "pageIds": ids }))
+    };
+    assert_eq!(
+        focus(&mut session, json!(["p2"])),
+        json!({ "focused": true })
+    );
+    assert_eq!(session.app.app().showing(), Showing::Item("p2".into()));
+    assert_eq!(session.app.selected_ids(), ["p2"]);
+
+    // Two pages have no tab between them: back on the canvas they are framed.
+    session.app.act(Action::Show(Showing::Canvas));
+    focus(&mut session, json!(["p1", "p2"]));
+    assert_eq!(session.app.app().showing(), Showing::Canvas);
+    assert_eq!(session.app.selected_ids(), ["p1"]);
 }
 
 #[test]

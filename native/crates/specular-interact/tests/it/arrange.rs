@@ -2,7 +2,6 @@
 //! send. Each arrange is one undo step that keeps the footprint the items
 //! have and evens the spacing inside it.
 
-use specular_core::Camera;
 use specular_doc::Rect;
 use specular_interact::{Action, ArrangeMode};
 use specular_testkit::{TestApp, group, inside, shape};
@@ -139,44 +138,4 @@ fn one_item_has_nothing_to_arrange_and_a_tidy_row_records_no_step() {
         "the second arrange changed nothing, so one undo undoes the first"
     );
     app.assert_undo_returns_to_start();
-}
-
-#[test]
-fn focus_frames_the_selection_and_changes_nothing_in_the_document() {
-    let mut app = three();
-    app.viewport((1000.0_f32, 800.0_f32));
-    app.select(&["c"]).act(Action::FocusSelection);
-    // A small item is framed at full size, centred both ways: its middle,
-    // (450, 60), is the middle of the viewport.
-    assert_eq!(
-        app.session().camera,
-        Camera::new(glam::Vec2::new(50.0, 340.0), 1.0)
-    );
-    assert!(!app.app().can_undo());
-
-    // A wide one is fitted by its wide side, with 64 around it.
-    let mut app = TestApp::with_entities([shape("wide", Rect::new(0.0, 0.0, 2000.0, 100.0))]);
-    app.viewport((1000.0_f32, 800.0_f32));
-    app.select(&["wide"]).act(Action::FocusSelection);
-    let camera = app.session().camera;
-    let want = Camera::new(glam::Vec2::new(64.0, 400.0 - 50.0 * 0.436), 0.436);
-    assert!(
-        (camera.pan - want.pan).abs().max_element() < 0.01
-            && (camera.zoom - want.zoom).abs() < 1e-4,
-        "{camera:?}"
-    );
-
-    // The toolbar and the sidebar leave less of the viewport free.
-    let mut free = TestApp::with_entities([shape("a", Rect::new(0.0, 0.0, 100.0, 100.0))]);
-    free.select(&["a"]).act(Action::FocusSelection);
-    free.with_panels().act(Action::FocusSelection);
-    let middle = free
-        .session()
-        .camera
-        .world_to_screen(glam::Vec2::new(50.0, 50.0));
-    let viewport = free.session().viewport;
-    assert!(
-        middle.y > viewport.y / 2.0,
-        "{middle} should be centred below the toolbar"
-    );
 }

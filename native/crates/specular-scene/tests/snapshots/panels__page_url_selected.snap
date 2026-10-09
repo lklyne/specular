@@ -59,23 +59,21 @@ screen path M25.75,101.5 L22.25,98 L25.75,94.5 stroke=#30303094/1.17 opacity=0.3
 screen path M50.25,101.5 L53.75,98 L50.25,94.5 stroke=#30303094/1.17 opacity=0.3
 screen path M84.5,98 C84.5,100.49 82.49,102.5 80,102.5 C77.51,102.5 75.5,100.49 75.5,98 C75.5,95.51 77.51,93.5 80,93.5 C81.26,93.5 82.46,94 83.37,94.87 L84.5,96 M84.5,93.5 L84.5,96 L82,96 stroke=#30303094/1
 screen rect 100,90 1x16 fill=#18181b33
-screen rect 109,85 766x26 r=6 fill=#ffffff stroke=#d4d4d8/1/inside
-screen rect 109,85 766x26 r=6 stroke=#3b82f666/1/outside
-screen rect 834,88 30x20 fill=#b3d7ff clip=118,86 748x24
-screen text "long-address/long-address/long-address/long-address/long-address/long-address/long-address/long-address/long-address/long-address/long-address/long-address/long-address/long-address/long-address/long-address/long-address/long-address/long-address/long-address/" -1736,86 box-h=24 12/16 #303030 middle clip=118,86 748x24
-screen rect 883,90 1x16 fill=#18181b33
-screen text "Custom" 900,86 box-h=24 12/16 #30303094 middle
-screen path M966.5,96.75 L969,99.25 L971.5,96.75 stroke=#30303094/0.83
-screen rect 990,90 1x16 fill=#18181b33
-screen path M1008.08,92.17 L1013.92,92.17 C1014.56,92.17 1015.08,92.69 1015.08,93.33 L1015.08,102.67 C1015.08,103.31 1014.56,103.83 1013.92,103.83 L1008.08,103.83 C1007.44,103.83 1006.92,103.31 1006.92,102.67 L1006.92,93.33 C1006.92,92.69 1007.44,92.17 1008.08,92.17 Z stroke=#30303094/1.17
-screen path M1011,101.5 L1011.01,101.5 stroke=#30303094/1.17
-screen path 22 commands in 1033,91.44 7x7.06 fill=#30303094
-screen path 22 commands in 1038,96.5 7x7.06 fill=#30303094
-screen rect 1059,90 1x16 fill=#18181b33
-screen path 76 commands in 1074.35,91.82 11.83x11.83 fill=#45403c
-screen path 20 commands in 1075.06,96.69 6.25x6.25 fill=#e8e8e8
+screen rect 109,85 807x26 r=6 fill=#ffffff stroke=#d4d4d8/1/inside
+screen rect 109,85 807x26 r=6 stroke=#3b82f666/1/outside
+screen rect 875,88 30x20 fill=#b3d7ff clip=118,86 789x24
+screen text "long-address/long-address/long-address/long-address/long-address/long-address/long-address/long-address/long-address/long-address/long-address/long-address/long-address/long-address/long-address/long-address/long-address/long-address/long-address/long-address/" -1695,86 box-h=24 12/16 #303030 middle clip=118,86 789x24
+screen rect 924,90 1x16 fill=#18181b33
+screen text "Custom" 941,86 box-h=24 12/16 #30303094 middle
+screen path M1007.5,96.75 L1010,99.25 L1012.5,96.75 stroke=#30303094/0.83
+screen rect 1031,90 1x16 fill=#18181b33
+screen path M1049.08,92.17 L1054.92,92.17 C1055.56,92.17 1056.08,92.69 1056.08,93.33 L1056.08,102.67 C1056.08,103.31 1055.56,103.83 1054.92,103.83 L1049.08,103.83 C1048.44,103.83 1047.92,103.31 1047.92,102.67 L1047.92,93.33 C1047.92,92.69 1048.44,92.17 1049.08,92.17 Z stroke=#30303094/1.17
+screen path M1052,101.5 L1052.01,101.5 stroke=#30303094/1.17
+screen path 22 commands in 1074,91.44 7x7.06 fill=#30303094
+screen path 22 commands in 1079,96.5 7x7.06 fill=#30303094
 screen rect 1100,90 1x16 fill=#18181b33
-screen path 19 commands in 1116.17,92.75 11.67x9.92 stroke=#30303094/1.17
-screen path M1135.5,96.75 L1138,99.25 L1140.5,96.75 stroke=#30303094/0.83
-screen rect 1155,90 1x16 fill=#18181b33
-screen path M1177.75,92.75 L1181.25,92.75 L1181.25,96.25 M1174.25,103.25 L1170.75,103.25 L1170.75,99.75 M1181.25,92.75 L1177.17,96.83 M1170.75,103.25 L1174.83,99.17 stroke=#30303094/1.17
+screen path 76 commands in 1115.35,91.82 11.83x11.83 fill=#45403c
+screen path 20 commands in 1116.06,96.69 6.25x6.25 fill=#e8e8e8
+screen rect 1141,90 1x16 fill=#18181b33
+screen path 19 commands in 1157.17,92.75 11.67x9.92 stroke=#30303094/1.17
+screen path M1176.5,96.75 L1179,99.25 L1181.5,96.75 stroke=#30303094/0.83

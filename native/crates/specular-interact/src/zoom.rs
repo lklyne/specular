@@ -66,20 +66,6 @@ pub(crate) fn to_fit(app: &mut App) {
     };
 }
 
-/// Frames the selected items, as large as fits in the part of the viewport
-/// the toolbar and the sidebar leave free. Does nothing with nothing
-/// selected.
-pub(crate) fn focus_selection(app: &mut App) {
-    let scope = app.selection_scope();
-    let Some(bounds) = scope.shown_bounds.or(scope.bounds) else {
-        return;
-    };
-    let free = area(app);
-    let mut camera = fitting(bounds, free.size);
-    camera.pan += free.min.as_vec2();
-    app.session.camera = camera;
-}
-
 /// Pans, without zooming, by the least that brings `bounds` into the
 /// viewport with [`REVEAL_PADDING`] around it. Something larger than the
 /// viewport shows its top-left corner. Already in view, nothing moves.

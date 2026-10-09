@@ -206,7 +206,6 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         Action::SendToBack => stack(app, Move::ToBack, effects),
         Action::AnnotateSelection => verb(app, effects, comment::annotate_selection),
         Action::Arrange(mode) => verb(app, effects, |app, fx| arrange::run(app, mode, fx)),
-        Action::FocusSelection => verb(app, effects, |app, _| zoom::focus_selection(app)),
         Action::Show(showing) => crate::showing::show(app, showing, effects),
         Action::ShowNext => crate::showing::step(app, true, effects),
         Action::ShowPrevious => crate::showing::step(app, false, effects),

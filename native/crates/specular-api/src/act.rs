@@ -5,7 +5,7 @@
 use glam::DVec2;
 use serde_json::{Value, json};
 use specular_doc::{EdgeId, EntityId, ItemId, Kind, Rect};
-use specular_interact::{Action, ApiRun, App, fit_camera};
+use specular_interact::{Action, ApiRun, App, Showing, fit_camera, is_note_file};
 
 use crate::reply::Reply;
 use crate::{Request, Response, Step, unported};
@@ -79,8 +79,20 @@ pub(crate) fn select(app: &App, request: &Request, verb: &str) -> Result<Step, R
     Ok(Step::Run(run, Reply::Selection { ok }))
 }
 
-/// `POST /camera/focus`: show the named entities, or a canvas rect, centred
-/// and as large as fits, and select the first entity named.
+/// Whether `id` can be shown alone, in a tab of its own: a page or a
+/// Document.
+fn has_a_tab(app: &App, id: &EntityId) -> bool {
+    match app.document().entity(id).map(|entity| &entity.kind) {
+        Some(Kind::Page(_)) => true,
+        Some(Kind::File(file)) => is_note_file(&file.file),
+        Some(Kind::Text(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Shape(_)) | None => false,
+    }
+}
+
+/// `POST /camera/focus`: bring what is named into attention. One page or
+/// Document is shown alone, in its tab (ADR 0045). Anything else, several
+/// entities or a canvas rect is shown centred and as large as fits, with the
+/// first entity named selected.
 pub(crate) fn focus(app: &App, request: &Request) -> Step {
     let ids: Vec<EntityId> = ["groupIds", "pageIds"]
         .iter()
@@ -93,6 +105,15 @@ pub(crate) fn focus(app: &App, request: &Request) -> Step {
         (Some(x), Some(y), Some(width), Some(height)) => Some(Rect::new(x, y, width, height)),
         _ => None,
     };
+    if let ([only], None) = (ids.as_slice(), given)
+        && has_a_tab(app, only)
+    {
+        let run = ApiRun::Act {
+            on: None,
+            action: Action::Show(Showing::Item(only.clone())),
+        };
+        return Step::Run(run, Reply::Fixed(json!({ "focused": true })));
+    }
     let Some(bounds) = given.or_else(|| app.scope_of(&ids).bounds) else {
         return Step::Answer(json!({ "focused": false }));
     };

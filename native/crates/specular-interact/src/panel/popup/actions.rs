@@ -1,7 +1,8 @@
 //! The buttons every item popup ends with (`EntityActions` and
 //! `ArrangeButtons` in `CanvasItemPopup.tsx`): arrange a selection of
-//! several, annotate it, and bring it into focus. Pages have their sync
-//! toggle among them (`PagePopup.tsx`).
+//! several and annotate it. Pages have their sync toggle among them
+//! (`PagePopup.tsx`). Electron's focus button is not here: a tab is how one
+//! item is brought into attention (ADR 0045).
 
 use super::super::build::{button, toggle};
 use super::super::{Control, ControlId, Face, Icon};
@@ -19,24 +20,22 @@ pub(super) struct Actions<'a> {
     pub(super) sync: Option<bool>,
     /// Whether to offer annotating.
     pub(super) annotate: bool,
-    /// Whether to offer focusing.
-    pub(super) focus: bool,
 }
 
 impl<'a> Actions<'a> {
-    /// All three, as the popups of one kind of item have them.
+    /// Arranging and annotating, as the popups of one kind of item have
+    /// them.
     pub(super) const fn all(noun: &'a str, count: usize) -> Self {
         Self {
             noun,
             count,
             sync: None,
             annotate: true,
-            focus: true,
         }
     }
 
     /// The buttons, in the order the Electron popups have them: arrange,
-    /// sync, annotate, focus.
+    /// sync, annotate.
     pub(super) fn controls(self) -> Vec<Control> {
         let mut controls = Vec::new();
         if self.count >= 2 {
@@ -74,14 +73,6 @@ impl<'a> Actions<'a> {
                 format!("Annotate {}", self.noun),
                 Face::icon(Icon::Annotate),
                 Action::AnnotateSelection,
-            ));
-        }
-        if self.focus {
-            controls.push(button(
-                ControlId::new("item.focus"),
-                format!("Focus {}", self.noun),
-                Face::icon(Icon::Focus),
-                Action::FocusSelection,
             ));
         }
         controls

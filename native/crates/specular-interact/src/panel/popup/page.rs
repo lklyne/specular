@@ -388,7 +388,6 @@ pub(super) fn popup(app: &App, entities: &[&Entity]) -> PopupModel {
             vec![frame_toggle(app, "Toggle device frame for selected pages")],
             Actions {
                 sync: app.selection_synced(),
-                focus: false,
                 ..Actions::all(&format!("{} pages", entities.len()), entities.len())
             }
             .controls(),

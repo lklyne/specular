@@ -83,8 +83,6 @@ pub enum Icon {
     ArrangeGrid,
     /// Annotate. Lucide `MessageCircle`.
     Annotate,
-    /// Focus. Lucide `Maximize2`.
-    Focus,
     /// A device frame. Lucide `Smartphone`.
     Device,
     /// Rotate the viewport. `RotateIcon` in `shared/CustomIcons.tsx`.

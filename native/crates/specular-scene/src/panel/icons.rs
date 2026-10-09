@@ -194,7 +194,6 @@ fn glyph(icon: Icon) -> Glyph {
         Icon::ArrangeColumn => lucide::ROWS_2,
         Icon::ArrangeGrid => lucide::GRID_2X2,
         Icon::Annotate => lucide::MESSAGE_CIRCLE,
-        Icon::Focus => lucide::MAXIMIZE_2,
         Icon::Device => lucide::SMARTPHONE,
         Icon::Rotate => popup::ROTATE,
         Icon::Sync => lucide::LINK_2,

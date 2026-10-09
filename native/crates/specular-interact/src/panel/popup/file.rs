@@ -1,6 +1,6 @@
 //! The popup of a file (`FilePopup.tsx`): a Document's formatting buttons,
-//! which can be pressed while its source is edited, then arrange, annotate
-//! and focus. Renaming the file has no action here.
+//! which can be pressed while its source is edited, then arrange and
+//! annotate. Renaming the file has no action here.
 
 use specular_doc::Entity;
 

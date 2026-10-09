@@ -60,7 +60,6 @@ fn the_three_rows_with_a_sticky_in_the_dock() {
       text.color 179,86 42x24 Button: dot none 183,90 16x16; chevron 203,92 12x12
       - 229,90 1x16 Divider
       item.annotate 238,86 24x24 Button: icon Annotate 243,91 14x14
-      item.focus 266,86 24x24 Button: icon Focus 271,91 14x14
     "#);
 }
 

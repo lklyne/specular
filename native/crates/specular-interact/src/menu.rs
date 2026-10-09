@@ -219,7 +219,7 @@ fn has_target(app: &App, action: &Action) -> bool {
         Action::BringForward | Action::SendBackward | Action::BringToFront | Action::SendToBack => {
             !selection.is_empty()
         }
-        Action::AnnotateSelection | Action::FocusSelection => selection.entities().next().is_some(),
+        Action::AnnotateSelection => selection.entities().next().is_some(),
         Action::Arrange(_) | Action::Group => selection.entities().nth(1).is_some(),
         Action::Ungroup | Action::GroupLayout(_) | Action::GroupGap(_) => {
             groups::lone_group(app).is_some()

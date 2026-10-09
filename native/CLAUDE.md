@@ -239,7 +239,7 @@ cargo run -p specular-app -- --script steps.txt FILE.canvas
   `wheel dx dy`, `pinch 0.2`, `tool shape`, `select id ..`,
   `act annotate-selection`, `act resolve-comment`, `act page-back`
   (`-forward`, `-reload`, `-stop`), `act zoom-to-fit`, `act arrange-row`
-  (`-column`, `-grid`), `act focus-selection`, `right-click x y`,
+  (`-column`, `-grid`), `right-click x y`,
   `sidebar on|off`, `camera ..`, `wait ms`,
   `snapshot out.png`, `save out.canvas`. Positions are screen pixels. A snapshot between `press` and `release` shows a gesture in
   flight.

@@ -273,7 +273,6 @@ fn action_named(name: &str) -> anyhow::Result<Action> {
         "arrange-row" => Action::Arrange(ArrangeMode::Row),
         "arrange-column" => Action::Arrange(ArrangeMode::Column),
         "arrange-grid" => Action::Arrange(ArrangeMode::Grid),
-        "focus-selection" => Action::FocusSelection,
         "resolve-comment" => Action::ResolveComment(None),
         "page-back" => Action::PageBack,
         "page-forward" => Action::PageForward,
@@ -324,12 +323,11 @@ mod tests {
                 ],
             ),
             (
-                "act arrange-row\nact arrange-column\nact arrange-grid\nact focus-selection",
+                "act arrange-row\nact arrange-column\nact arrange-grid",
                 vec![
                     Step::Act(Action::Arrange(ArrangeMode::Row)),
                     Step::Act(Action::Arrange(ArrangeMode::Column)),
                     Step::Act(Action::Arrange(ArrangeMode::Grid)),
-                    Step::Act(Action::FocusSelection),
                 ],
             ),
             (

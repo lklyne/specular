@@ -470,8 +470,6 @@ pub enum Action {
     /// Set the gap the selected auto-layout group packs with, in canvas
     /// units.
     GroupGap(f64),
-    /// Zoom and pan to frame the selected items, as large as fits.
-    FocusSelection,
     /// Show the canvas, or one page or Document alone. View state: nothing
     /// is written to the document and no undo step is made.
     Show(crate::Showing),

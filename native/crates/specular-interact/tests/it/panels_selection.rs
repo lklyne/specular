@@ -51,8 +51,6 @@ fn a_page_has_size_frame_rotation_and_color_scheme() {
       options list
         option [ ] page.repo.origin "https://example.com" disabled -> Repo(Pick(Some("https://example.com")))
         option [ ] page.repo.folder "No repo linked" trailing="Choose…" -> Repo(Pick(Some("https://example.com")))
-    ---
-    button item.focus "Focus page" icon=Focus -> FocusSelection
     "#);
 }
 
@@ -129,7 +127,6 @@ fn a_selection_across_kinds_has_no_popup_yet() {
     button item.arrange.column "Arrange in a column" icon=ArrangeColumn -> Arrange(Column)
     button item.arrange.grid "Arrange in a grid" icon=ArrangeGrid -> Arrange(Grid)
     button item.annotate "Annotate 2 items" icon=Annotate -> AnnotateSelection
-    button item.focus "Focus 2 items" icon=Focus -> FocusSelection
     "#);
 }
 

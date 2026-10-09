@@ -54,7 +54,6 @@ fn a_sticky_has_size_font_color_and_no_formatting_until_edited() {
         swatches text.color.swatches Soft/Fill: neutral purple blue cyan green yellow orange red
     ---
     button item.annotate "Annotate sticky note" icon=Annotate -> AnnotateSelection
-    button item.focus "Focus sticky note" icon=Focus -> FocusSelection
     "#);
 }
 
@@ -118,7 +117,6 @@ fn a_transparent_shape_shows_the_clear_swatch_and_a_borderless_one_disables_the_
         swatches shape.border.color Soft/Fill disabled: neutral purple blue cyan green yellow orange red
     ---
     button item.annotate "Annotate shape" icon=Annotate -> AnnotateSelection
-    button item.focus "Focus shape" icon=Focus -> FocusSelection
     "#);
 }
 
@@ -138,6 +136,5 @@ fn a_drawing_has_brush_width_and_color() {
         swatches drawing.color.swatches Soft/Ink: neutral purple blue cyan green yellow orange *red
     ---
     button item.annotate "Annotate drawing" icon=Annotate -> AnnotateSelection
-    button item.focus "Focus drawing" icon=Focus -> FocusSelection
     "#);
 }
