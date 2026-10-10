@@ -351,6 +351,27 @@ pub enum ShellCommand {
     HideOthers,
     /// Minimizes the window.
     Minimize,
+    /// Opens the command palette.
+    CommandPalette,
+}
+
+impl ShellCommand {
+    /// The command's name in the command palette. The palette itself has no
+    /// entry: it is already open when a command is picked.
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Quit => "Quit",
+            Self::CloseWindow => "Close window",
+            Self::OpenSpace => "Open space",
+            Self::OpenCanvas => "Open",
+            Self::Save => "Save",
+            Self::Settings => "Settings",
+            Self::Hide => "Hide",
+            Self::HideOthers => "Hide others",
+            Self::Minimize => "Minimize",
+            Self::CommandPalette => "Command palette",
+        }
+    }
 }
 
 /// The window's own keys. They fire wherever the keys are, an entered page
@@ -365,6 +386,7 @@ pub const SHELL_KEYS: &[(Chord, ShellCommand)] = &[
     (Chord::char('h').cmd(), ShellCommand::Hide),
     (Chord::char('h').cmd().alt(), ShellCommand::HideOthers),
     (Chord::char('m').cmd(), ShellCommand::Minimize),
+    (Chord::char('k').cmd(), ShellCommand::CommandPalette),
 ];
 
 /// Every chord the app keeps for itself while a page is entered, as a

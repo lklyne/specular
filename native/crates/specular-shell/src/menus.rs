@@ -60,6 +60,8 @@ actions!(
         Minimize,
         /// Zooms the window.
         ZoomWindow,
+        /// Opens the command palette.
+        CommandPalette,
         /// A key the Kit's root would take for itself, given to the canvas.
         CanvasKey
     ]
@@ -286,6 +288,7 @@ pub(crate) fn install(cx: &mut App) {
             ShellCommand::Hide => KeyBinding::new(&keys, Hide, None),
             ShellCommand::HideOthers => KeyBinding::new(&keys, HideOthers, None),
             ShellCommand::Minimize => KeyBinding::new(&keys, Minimize, None),
+            ShellCommand::CommandPalette => KeyBinding::new(&keys, CommandPalette, None),
         })
     });
     cx.bind_keys(shell_keys.chain([
@@ -333,6 +336,8 @@ pub(crate) fn install(cx: &mut App) {
     cx.on_action(|_: &Minimize, cx| {
         shell::with_view(cx, |_, window, _| window.minimize_window());
     });
+    // The palette view opens here.
+    cx.on_action(|_: &CommandPalette, _| {});
     cx.on_action(|_: &ZoomWindow, cx| {
         shell::with_view(cx, |_, window, _| window.zoom_window());
     });

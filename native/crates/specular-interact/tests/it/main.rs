@@ -41,6 +41,7 @@ mod note_edit;
 mod notes;
 mod page_lifecycle;
 mod page_scroll;
+mod palette;
 mod panel_builtin;
 mod panel_builtin_cache;
 mod panel_builtin_canvases;

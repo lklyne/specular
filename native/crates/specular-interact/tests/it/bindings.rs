@@ -79,7 +79,8 @@ fn an_entered_page_has_every_key_but_the_ones_a_browsers_chrome_keeps() {
             "⌘,",
             "⌘H",
             "⌥⌘H",
-            "⌘M"
+            "⌘M",
+            "⌘K"
         ]
     );
     // The window's keys fire wherever the keys are, so none is a row's.

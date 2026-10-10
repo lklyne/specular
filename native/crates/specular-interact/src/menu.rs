@@ -183,6 +183,7 @@ fn edit_item(app: &App, label: &'static str, action: Action) -> MenuEntry {
     })
 }
 
+/// `action` as an item, enabled by the context and target of its binding.
 pub(crate) fn item(app: &App, label: &'static str, action: Action) -> MenuItem {
     let binding = binding_of(&action);
     // An item with no key works where the plain canvas keys do.
@@ -220,7 +221,7 @@ pub(crate) fn page_menu_item(app: &App, label: &'static str, action: Action) -> 
 }
 
 /// Whether `action` has something to act on.
-fn has_target(app: &App, action: &Action) -> bool {
+pub(crate) fn has_target(app: &App, action: &Action) -> bool {
     let selection = &app.session.selection;
     match action {
         Action::Undo => app.session.editing.is_some() || app.can_undo(),
