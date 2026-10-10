@@ -203,7 +203,7 @@ fn view_controls(app: &App) -> Vec<Control> {
             action: Action::SetLens(lens),
         })
     });
-    std::iter::once(minimize).chain(lenses).collect()
+    lenses.chain([minimize]).collect()
 }
 
 /// The toolbar for `app` as it is now.
