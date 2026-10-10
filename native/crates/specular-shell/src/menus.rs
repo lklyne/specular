@@ -273,6 +273,42 @@ fn choose_canvas(cx: &mut App) {
     .detach();
 }
 
+/// Runs a model action as a chosen menu item does.
+pub(crate) fn run_action(action: specular_interact::Action, cx: &mut App) {
+    if !edits_text(&action) {
+        canvas::dispatch(Event::Action(action));
+        return;
+    }
+    // A field's own Cmd+Z can still arrive as the menu's item. It must
+    // not undo the canvas under the person typing.
+    shell::with_view(cx, move |view, window, cx| {
+        if !view.typing(window, cx) {
+            canvas::dispatch(Event::Action(action));
+        }
+    });
+}
+
+/// The GPUI action a shell command is: what its menu item and its key send.
+fn shell_action(command: ShellCommand) -> Box<dyn Action> {
+    match command {
+        ShellCommand::Quit => Box::new(Quit),
+        ShellCommand::CloseWindow => Box::new(CloseWindow),
+        ShellCommand::OpenSpace => Box::new(OpenSpace),
+        ShellCommand::OpenCanvas => Box::new(OpenCanvas),
+        ShellCommand::Save => Box::new(Save),
+        ShellCommand::Settings => Box::new(Preferences),
+        ShellCommand::Hide => Box::new(Hide),
+        ShellCommand::HideOthers => Box::new(HideOthers),
+        ShellCommand::Minimize => Box::new(Minimize),
+        ShellCommand::CommandPalette => Box::new(CommandPalette),
+    }
+}
+
+/// Does what the menu item for `command` does.
+pub(crate) fn run_shell(command: ShellCommand, cx: &mut App) {
+    cx.dispatch_action(shell_action(command).as_ref());
+}
+
 /// Binds the shell's own keys and installs every action's handler.
 pub(crate) fn install(cx: &mut App) {
     cx.set_global(Shown::default());
@@ -298,20 +334,9 @@ pub(crate) fn install(cx: &mut App) {
         KeyBinding::new("shift-tab", CanvasKey, Some("Canvas")),
     ]));
     cx.on_action(|command: &MenuCommand, cx| {
-        let Some(action) = chosen(command) else {
-            return;
-        };
-        if !edits_text(&action) {
-            canvas::dispatch(Event::Action(action));
-            return;
+        if let Some(action) = chosen(command) {
+            run_action(action, cx);
         }
-        // A field's own Cmd+Z can still arrive as the menu's item. It must
-        // not undo the canvas under the person typing.
-        shell::with_view(cx, move |view, window, cx| {
-            if !view.typing(window, cx) {
-                canvas::dispatch(Event::Action(action));
-            }
-        });
     });
     cx.on_action(|_: &Quit, cx| shell::begin_exit(cx));
     cx.on_action(|_: &CloseWindow, cx| shell::begin_exit(cx));
@@ -336,8 +361,9 @@ pub(crate) fn install(cx: &mut App) {
     cx.on_action(|_: &Minimize, cx| {
         shell::with_view(cx, |_, window, _| window.minimize_window());
     });
-    // The palette view opens here.
-    cx.on_action(|_: &CommandPalette, _| {});
+    cx.on_action(|_: &CommandPalette, cx| {
+        shell::with_view(cx, |_, window, cx| crate::view::toggle_palette(window, cx));
+    });
     cx.on_action(|_: &ZoomWindow, cx| {
         shell::with_view(cx, |_, window, _| window.zoom_window());
     });

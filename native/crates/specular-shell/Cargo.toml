@@ -44,5 +44,9 @@ objc2-foundation = { workspace = true }
 objc2-core-foundation = { workspace = true }
 raw-window-handle = { workspace = true }
 
+[target.'cfg(target_os = "macos")'.dev-dependencies]
+# Headless windows for the palette's tests.
+gpui-kit = { workspace = true, features = ["test-support"] }
+
 [lints]
 workspace = true

@@ -38,6 +38,8 @@ mod ime;
 mod menu;
 mod named;
 mod onboarding;
+mod palette;
+mod palette_row;
 mod pick;
 mod sidebar;
 mod slot;
@@ -58,6 +60,7 @@ use specular_doc::ItemId;
 use specular_interact::{Action, CanvasAction, Event, SidebarAction, TOOLS_DOCK_WIDTH, ToolsPlace};
 
 pub(crate) use self::named::shown as shown_controls;
+pub(crate) use self::palette::toggle as toggle_palette;
 use self::slot::Pointer;
 use crate::canvas::{self, Models};
 use crate::surface::WindowAsks;
