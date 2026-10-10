@@ -86,7 +86,7 @@ usage: specular-app [OPTIONS] [FOLDER | FILE.canvas]
 
 keys:
   Alt + drag a page   move it
-  drag a corner       resize the selected page (page re-lays-out on release)
+  drag a corner       resize the selected page (page re-lays-out as it goes)
   C                   the comment tool: click a point or a page, or drag a
                       region, then type the comment and press Return
   Cmd+Z, Cmd+Shift+Z  undo and redo a move, a resize or an annotation

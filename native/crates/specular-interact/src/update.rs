@@ -44,7 +44,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
     let pointing = matches!(event, Event::Pointer(_));
     let keeps_layout = builtin::keeps_layout(app, &event);
     let opened = attach::opens(&event);
-    let presented = pages::presentation(app);
+    let layouts = pages::layouts(app);
     match event {
         Event::Pointer(input) => pointer::on_pointer(app, &input, &mut effects),
         Event::Wheel(input) => on_wheel(app, &input, &mut effects),
@@ -101,7 +101,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         Event::Api(call) => api::run(app, call, &mut effects),
     }
     crate::showing::settle(app);
-    pages::follow_presentation(presented.as_ref(), app, &mut effects);
+    pages::follow_layouts(&layouts, app, &mut effects);
     builtin::forget_layout_unless(app, keeps_layout);
     // Another canvas has another history: its revision says nothing about
     // whether this event made a step.
@@ -191,9 +191,7 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         // The focus and the selection are never both set, so Delete has one
         // thing to remove.
         Action::Delete if app.session.focused_comment.is_some() => {
-            verb(app, effects, |app, effects| {
-                comment::delete(app, None, effects);
-            });
+            verb(app, effects, |app, fx| comment::delete(app, None, fx));
         }
         Action::Delete => verb(app, effects, verbs::delete),
         Action::Duplicate => verb(app, effects, verbs::duplicate),
@@ -210,6 +208,7 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         Action::AnnotateSelection => verb(app, effects, comment::annotate_selection),
         Action::Arrange(mode) => verb(app, effects, |app, fx| arrange::run(app, mode, fx)),
         Action::Show(showing) => crate::showing::show(app, showing, effects),
+        Action::PrepareShow(item) => crate::showing::prepare(app, item),
         Action::ShowNext => crate::showing::step(app, true, effects),
         Action::ShowPrevious => crate::showing::step(app, false, effects),
         Action::NewPageTab => crate::showing::new_tab(app, effects),
@@ -425,6 +424,7 @@ fn on_page_notice(app: &App, page: &EntityId, notice: &PageNotice, effects: &mut
         PageNotice::Loaded { .. }
         | PageNotice::Crashed { .. }
         | PageNotice::Title(_)
+        | PageNotice::Favicon(_)
         | PageNotice::Url(_)
         | PageNotice::Loading { .. }
         | PageNotice::Scrolled { .. }

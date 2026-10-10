@@ -7,7 +7,7 @@ use specular_doc::{
     Color, Drawing, Entity, EntityId, FileRef, JsonMap, Kind, PageAnchor, Point, Rect, Stroke,
     Text, TextStyle, WidthMode,
 };
-use specular_interact::{Cursor, Effect, PageNotice, shown_rect};
+use specular_interact::{Cursor, Effect, Key, PageNotice, shown_rect};
 use specular_testkit::{
     SHIFT, TestApp, assert_doc_snapshot, drawing, file, group, inside, page, shape, sticky, text,
 };
@@ -291,30 +291,49 @@ fn resizing_a_group_alone_moves_its_border_and_not_its_members() {
     app.assert_undo_returns_to_start();
 }
 
-// A page is laid out again once, when the handle is let go.
+// A page is laid out at its rect's size as the handle moves.
 
 #[test]
-fn a_page_side_handle_changes_its_viewport_on_release_only() {
+fn a_page_is_laid_out_at_each_size_its_side_handle_is_dragged_to() {
     let mut app = selected(page("p", Rect::new(100.0, 100.0, 400.0, 300.0)));
+    let lays_out = |width| Effect::SetPageViewport {
+        page: EntityId::from("p"),
+        viewport: CssSize::new(width, 300),
+    };
     app.press((500.0, 250.0))
         .drag_to((600.0, 250.0))
         .drag_to((700.0, 250.0));
     let during = viewport_effects(&mut app);
-    let stretched = app.app().page_placement(&EntityId::from("p")).unwrap();
+    let live = app.app().page_placement(&EntityId::from("p")).unwrap();
     let after = viewport_effects(app.release());
     assert_eq!(
-        (during, stretched.viewport, stretched.rect.width, after),
+        (during, live.viewport, live.rect.width, after),
         (
-            Vec::new(),
-            CssSize::new(400, 300),
+            vec![lays_out(500), lays_out(600)],
+            CssSize::new(600, 300),
             600.0,
-            vec![Effect::SetPageViewport {
-                page: EntityId::from("p"),
-                viewport: CssSize::new(600, 300)
-            }]
+            Vec::new()
         )
     );
     app.assert_undo_returns_to_start();
+}
+
+#[test]
+fn a_page_resize_abandoned_lays_the_page_out_as_it_started() {
+    let mut app = selected(page("p", Rect::new(100.0, 100.0, 400.0, 300.0)));
+    app.press((500.0, 250.0)).drag_to((700.0, 250.0));
+    viewport_effects(&mut app);
+    let after = viewport_effects(app.key(Key::Escape));
+    assert_eq!(
+        (after, app.rect("p")),
+        (
+            vec![Effect::SetPageViewport {
+                page: EntityId::from("p"),
+                viewport: CssSize::new(400, 300)
+            }],
+            Rect::new(100.0, 100.0, 400.0, 300.0)
+        )
+    );
 }
 
 // A selection of several scales inside its bounds.
@@ -412,7 +431,7 @@ fn a_group_in_the_selection_scales_with_everything_inside_it() {
 }
 
 #[test]
-fn pages_in_a_scaled_selection_are_laid_out_again_on_release_only() {
+fn pages_in_a_scaled_selection_are_laid_out_as_it_scales() {
     let mut app = TestApp::with_entities([
         page("p", Rect::new(100.0, 100.0, 400.0, 300.0)),
         shape("s", Rect::new(600.0, 100.0, 100.0, 100.0)),
@@ -425,11 +444,11 @@ fn pages_in_a_scaled_selection_are_laid_out_again_on_release_only() {
     assert_eq!(
         (during, after, app.rect("p")),
         (
-            Vec::new(),
             vec![Effect::SetPageViewport {
                 page: EntityId::from("p"),
                 viewport: CssSize::new(800, 600)
             }],
+            Vec::new(),
             Rect::new(100.0, 100.0, 800.0, 600.0)
         )
     );

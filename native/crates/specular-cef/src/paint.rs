@@ -101,11 +101,25 @@ pub(crate) fn on_accelerated_paint(
     if size.is_empty() {
         return;
     }
+    if specular_core::ledger::enabled() && kind != PaintElementType::POPUP {
+        let asked = ctx.geometry().view_texels();
+        crate::trace::painted(ctx.id, size, asked, &info.extra);
+    }
+    let content = &info.extra.content_rect;
+    let fills = (content.x, content.y) == (0, 0)
+        && (content.width, content.height) == (coded.width, coded.height);
+    if !fills && content.width > 0 && content.height > 0 {
+        // While a resize takes effect the page is captured into the surface
+        // of the size before: scaled to fit and centred, with black bars in
+        // what is left. The frame before stays up until one fills its own.
+        return;
+    }
     let Some((layer, viewport)) = layer_for(ctx, kind, size) else {
         return;
     };
     let Some(lease) = ctx.frames.try_lease() else {
         tracing::debug!(page = %ctx.id, "texture cap reached, dropping paint");
+        specular_core::ledger::record(specular_core::ledger::Entry::PaintDropped(ctx.id.0));
         ctx.push(specular_core::PageEvent::FrameDropped { page: ctx.id });
         return;
     };

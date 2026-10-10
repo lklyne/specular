@@ -4,6 +4,7 @@
 use std::time::Instant;
 
 use glam::Vec2;
+use specular_bench::PaintPolicy;
 use specular_core::{PageId, PageSource};
 use specular_interact::to_canvas_rect;
 
@@ -23,17 +24,38 @@ impl<W: ShellWindow> Runtime<W> {
         }
     }
 
+    /// Grades the pages, then sends each one whose viewport or scale changed
+    /// this turn its new geometry as one resize: a page shown at a new size
+    /// and a new scale is not first painted at the old scale.
+    pub(super) fn settle_pages(&mut self, now: Instant) {
+        if self.options.paint_policy == PaintPolicy::ElectronLod
+            && let Some(viewport) = self.gpu.as_ref().map(W::logical_viewport)
+        {
+            self.update_paint_lod(viewport, now);
+        }
+        self.source.flush_geometry();
+    }
+
     /// One layout pass: grades every page by its on-screen scale and
     /// visibility and applies what changed.
-    pub(super) fn update_paint_lod(&mut self, viewport: Vec2, now: Instant) {
+    fn update_paint_lod(&mut self, viewport: Vec2, now: Instant) {
         let window_scale = self.gpu.as_ref().map_or(1.0, W::scale_factor);
         let camera = self.app.session().camera;
+        let prepared = self.app.prepared_page();
         for (id, _, placement) in self.app.pages() {
             let Some(host) = self.hosts.get_mut(id) else {
                 continue;
             };
-            let on_screen = camera.is_visible(to_canvas_rect(placement.rect), viewport);
-            let display_scale = placement.display_scale(&camera);
+            // A page prepared for its tab is graded as the tab will show it,
+            // so its host gets the tab's viewport and scale as one resize.
+            let (display_scale, on_screen) = if prepared == Some(id) {
+                (1.0, true)
+            } else {
+                (
+                    placement.display_scale(&camera),
+                    camera.is_visible(to_canvas_rect(placement.rect), viewport),
+                )
+            };
             let change = host.lod.update(display_scale, on_screen, now);
             apply_lod_change(self.source.as_mut(), host.page, change, window_scale);
         }

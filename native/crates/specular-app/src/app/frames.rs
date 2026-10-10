@@ -8,7 +8,7 @@
 
 use std::time::{Duration, Instant};
 
-use specular_bench::{FrameWork, PaintPolicy};
+use specular_bench::FrameWork;
 use specular_compositor::FrameSample;
 use specular_doc::EntityId;
 
@@ -92,11 +92,7 @@ impl<W: ShellWindow> Runtime<W> {
         self.run_all(effects);
         // A page's paint rate and texture scale settle a while after the
         // camera stops, with no frame to hang the change on.
-        if self.options.paint_policy == PaintPolicy::ElectronLod
-            && let Some(viewport) = self.gpu.as_ref().map(W::logical_viewport)
-        {
-            self.update_paint_lod(viewport, now);
-        }
+        self.settle_pages(now);
         // A page that has stopped painting pins the surfaces it last cycled
         // through until something lets them go.
         if let Some(gpu) = self.gpu.as_mut() {
@@ -112,10 +108,8 @@ impl<W: ShellWindow> Runtime<W> {
     /// Renders and presents one frame of the app as it stands. `None` when
     /// the window had no frame to give.
     pub fn draw(&mut self) -> Option<FrameSample> {
+        self.settle_pages(Instant::now());
         let viewport = self.gpu.as_ref()?.logical_viewport();
-        if self.options.paint_policy == PaintPolicy::ElectronLod {
-            self.update_paint_lod(viewport, Instant::now());
-        }
         let started = Instant::now();
         let mut scene = if self.options.chrome {
             specular_scene::view(&self.app, viewport, &self.view_cache)

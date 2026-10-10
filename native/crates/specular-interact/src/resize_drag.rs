@@ -8,10 +8,7 @@ use specular_doc::{Drawing, EdgeSide, EntityId, Kind, Rect, Text, WidthMode};
 use crate::guides::{self, GuideCapture};
 use crate::live::{self, Start};
 use crate::scroll_follow::{Scrolls, shift_for};
-use crate::{
-    App, Corner, Effect, Handle, HandleOwner, PagePlacement, anchor, caps, edit, geometry, resize,
-    strokes,
-};
+use crate::{App, Corner, Handle, HandleOwner, anchor, caps, edit, geometry, resize, strokes};
 
 /// The size a text is drawn at when it has none of its own, and the limits a
 /// resize keeps it within.
@@ -55,13 +52,6 @@ impl ResizeDrag {
     /// The handle being dragged.
     pub fn handle(&self) -> Handle {
         self.handle
-    }
-
-    /// The rect `id` had at the press, when the drag is resizing it.
-    pub(crate) fn start_rect(&self, id: &EntityId) -> Option<Rect> {
-        (self.starts.iter())
-            .find(|start| start.id == *id)
-            .map(|start| start.rect)
     }
 
     pub(crate) fn starts(&self) -> &[Start] {
@@ -250,11 +240,11 @@ fn scaled(drawing: &Drawing, from: Rect, to: Rect) -> Kind {
     })
 }
 
-/// The button came up: the resize becomes one undo step, and each page that
-/// changed size is laid out again, once. What was resized while its page
-/// had carried it is stored where it is seen, in the same step (the scroll
-/// rebase), so its rect means what the handles showed.
-pub(crate) fn finish(app: &mut App, drag: &ResizeDrag, effects: &mut Vec<Effect>) {
+/// The button came up: the resize becomes one undo step. A page was laid
+/// out at each size on the way (`pages::follow_resize`). What was resized
+/// while its page had carried it is stored where it is seen, in the same
+/// step (the scroll rebase), so its rect means what the handles showed.
+pub(crate) fn finish(app: &mut App, drag: &ResizeDrag) {
     let scrolls = Scrolls::of(app);
     live::commit_following(app, &drag.starts, &drag.followers, |app| {
         let resized: Vec<EntityId> = (drag.starts.iter())
@@ -265,14 +255,4 @@ pub(crate) fn finish(app: &mut App, drag: &ResizeDrag, effects: &mut Vec<Effect>
             .collect();
         anchor::rebase(&app.document, &scrolls, &resized)
     });
-    for start in &drag.starts {
-        if let Some(placement) = app.page_placement(&start.id)
-            && placement.viewport != PagePlacement::viewport_for(start.rect)
-        {
-            effects.push(Effect::SetPageViewport {
-                page: start.id.clone(),
-                viewport: placement.viewport,
-            });
-        }
-    }
 }

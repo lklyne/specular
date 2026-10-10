@@ -31,7 +31,13 @@ impl<W: ShellWindow> Runtime<W> {
             tracing::trace!(event = name, "frame owed");
         }
         let effects = update(&mut self.app, event);
+        let resized =
+            (effects.iter()).any(|effect| matches!(effect, Effect::SetPageViewport { .. }));
         self.run_all(effects);
+        if resized {
+            // A resized page is told now, not at the next frame.
+            self.settle_pages(Instant::now());
+        }
     }
 
     /// Runs `effects` in order. A page that cannot be hosted ends the run.

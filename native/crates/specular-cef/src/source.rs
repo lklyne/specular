@@ -23,7 +23,9 @@ use crate::config::{CefConfig, Pump, browser_switches, windowless_frame_rate};
 use crate::devtools::{Asked, Devtools, SinkSlot};
 use crate::error::CefError;
 use crate::host_call::dispatch;
-use crate::page::{PageContext, PageGeometry, clear_events, drain_events, lock_geometry};
+use crate::page::{
+    GeometryChange, PageContext, PageGeometry, Unsent, clear_events, drain_events, lock_geometry,
+};
 use crate::pool::OutstandingFrames;
 use crate::process::{backend_error, declare_api_version};
 #[cfg(target_os = "macos")]
@@ -49,6 +51,9 @@ pub(crate) struct PageEntry {
     input: InputTranslator,
     /// Whether the browser is shown (`WasHidden(false)`).
     painting: bool,
+    /// The geometry change the host has not been told of. Always empty for
+    /// a hidden page, which is told when it is shown.
+    unsent: Unsent,
     /// The rate the page is owed, applied whenever it is shown.
     frame_rate: i32,
     /// The elements whose place the page reports.
@@ -61,6 +66,16 @@ impl PageEntry {
     fn apply_geometry(&self) {
         self.host.notify_screen_info_changed();
         self.host.was_resized();
+    }
+
+    /// Tells the host of the geometry as it stands, as one resize.
+    fn send(&self, page: PageId, change: GeometryChange) {
+        let asked = lock_geometry(&self.geometry).clone();
+        crate::trace::asked(page, &asked, change.name());
+        match change {
+            GeometryChange::Viewport => self.host.was_resized(),
+            GeometryChange::Scale | GeometryChange::Both => self.apply_geometry(),
+        }
     }
 }
 
@@ -272,6 +287,7 @@ impl PageSource for CefPageSource {
                 geometry,
                 input: InputTranslator::new(),
                 painting: true,
+                unsent: Unsent::default(),
                 frame_rate: windowless_frame_rate(spec.frame_rate),
                 tracking: Tracking::default(),
             },
@@ -281,24 +297,32 @@ impl PageSource for CefPageSource {
 
     fn set_viewport(&mut self, page: PageId, viewport: CssSize) -> Result<(), PageSourceError> {
         validate_viewport(viewport)?;
-        let entry = self.entry(page)?;
+        let entry = self.entry_mut(page)?;
         lock_geometry(&entry.geometry).viewport = viewport;
         if entry.painting {
-            entry.host.was_resized();
+            entry.unsent.changed(GeometryChange::Viewport);
         }
         Ok(())
     }
 
     fn set_texture_scale(&mut self, page: PageId, scale: f32) -> Result<(), PageSourceError> {
         validate_texture_scale(scale)?;
-        let entry = self.entry(page)?;
+        let entry = self.entry_mut(page)?;
         lock_geometry(&entry.geometry).scale = scale;
         // A hidden browser picks the scale up when it is shown: resizing it
         // while hidden leaves it without frames after the show.
         if entry.painting {
-            entry.apply_geometry();
+            entry.unsent.changed(GeometryChange::Scale);
         }
         Ok(())
+    }
+
+    fn flush_geometry(&mut self) {
+        for (page, entry) in &mut self.pages {
+            if let Some(change) = entry.unsent.take() {
+                entry.send(*page, change);
+            }
+        }
     }
 
     fn set_frame_rate(&mut self, page: PageId, fps: u32) -> Result<(), PageSourceError> {
@@ -316,10 +340,14 @@ impl PageSource for CefPageSource {
             return Ok(());
         }
         entry.painting = painting;
+        // Shown, it is told of the geometry below; hidden, when next shown.
+        entry.unsent = Unsent::default();
         entry.host.was_hidden(i32::from(!painting));
         if painting {
             // Showing a windowless browser schedules no frame of its own, and
             // it comes back at the scale and rate it had when hidden.
+            let asked = lock_geometry(&entry.geometry).clone();
+            crate::trace::asked(page, &asked, "shown");
             entry.apply_geometry();
             entry.host.set_windowless_frame_rate(entry.frame_rate);
             entry.host.invalidate(PaintElementType::VIEW);
@@ -493,6 +521,13 @@ impl PageSource for CefPageSource {
     }
 
     fn pump(&mut self) {
+        // A caller that never ends a turn with `flush_geometry` still gets
+        // its resize, a pump late.
+        for (page, entry) in &mut self.pages {
+            if let Some(change) = entry.unsent.take_at_pump() {
+                entry.send(*page, change);
+            }
+        }
         self.poll_capture();
         self.poll_tracking();
         // With a pump timer this is called inside a window event loop's

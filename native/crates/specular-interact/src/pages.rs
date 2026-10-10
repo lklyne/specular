@@ -7,7 +7,7 @@ use specular_core::{CssSize, PageNav};
 use specular_doc::{ColorScheme, EntityId};
 
 use crate::app::page_of;
-use crate::{App, Effect, PagePlacement};
+use crate::{App, Effect, Gesture, PagePlacement};
 
 /// What a host needs to know about one page entity.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -19,16 +19,18 @@ pub(crate) struct HostedPage {
 }
 
 /// The pages of the document, back-to-front, each at the viewport its host
-/// is laid out at: its rect's size, or the size its tab presents it at.
+/// is laid out at: its rect's size, or the size its tab lays it out at.
 pub(crate) fn snapshot(app: &App) -> Vec<HostedPage> {
-    let presented = presentation(app);
+    let laid_out = laid_out(app);
     (app.document.entities())
         .filter_map(|entity| {
             let page = page_of(entity)?;
-            let viewport = match &presented {
-                Some((id, viewport)) if *id == entity.id => *viewport,
-                Some(_) | None => PagePlacement::viewport_for(entity.rect),
-            };
+            let viewport = (laid_out.iter().flatten())
+                .find(|(id, _)| *id == entity.id)
+                .map_or_else(
+                    || PagePlacement::viewport_for(entity.rect),
+                    |(_, size)| *size,
+                );
             Some(HostedPage {
                 id: entity.id.clone(),
                 url: page.url.clone(),
@@ -39,40 +41,98 @@ pub(crate) fn snapshot(app: &App) -> Vec<HostedPage> {
         .collect()
 }
 
-/// The page a tab lays out at a size of its own, and that size.
-pub(crate) fn presentation(app: &App) -> Option<(EntityId, CssSize)> {
+/// A page a tab lays out at a size of its own, and that size.
+pub(crate) type LaidOut = (EntityId, CssSize);
+
+/// The page the tab showing presents at a size of its own.
+fn presentation(app: &App) -> Option<LaidOut> {
     let entity = app.document.entity(app.shown_item()?)?;
     page_of(entity)?;
     let rect = crate::showing::presented_rect(app, entity)?;
     Some((entity.id.clone(), PagePlacement::viewport_for(rect)))
 }
 
-/// Appends the viewport changes that take the hosts from the page `before`
-/// presented to the one presented now: the page that was laid out at a
-/// tab's size goes back to its stored viewport, and the one that is now
-/// takes the tab's. A lens, a tab, the window and the sidebar all change
-/// it, so `update` asks once after every event.
-pub(crate) fn follow_presentation(
-    before: Option<&(EntityId, CssSize)>,
-    app: &App,
-    effects: &mut Vec<Effect>,
-) {
-    let now = presentation(app);
-    if now.as_ref() == before {
-        return;
+/// The pages whose hosts a tab lays out: the one presented, and the one
+/// prepared for a tab that is pressed.
+pub(crate) fn laid_out(app: &App) -> [Option<LaidOut>; 2] {
+    [presentation(app), crate::showing::prepared(app)]
+}
+
+/// Appends the viewport changes that take the hosts from the pages tabs
+/// laid out `before` to the ones they lay out now: a page that was laid out
+/// at a tab's size goes back to its stored viewport, and one that is now
+/// takes the tab's. A page prepared and then shown is already there. A
+/// lens, a tab, a press on one, the window and the sidebar all change it,
+/// so `update` asks once after every event.
+fn follow_presentation(before: &[Option<LaidOut>; 2], app: &App, effects: &mut Vec<Effect>) {
+    let now = laid_out(app);
+    let size_in = |all: &[Option<LaidOut>; 2], page: &EntityId| {
+        (all.iter().flatten()).find_map(|(id, size)| (id == page).then_some(*size))
+    };
+    for (page, _) in before.iter().flatten() {
+        if size_in(&now, page).is_none()
+            && let Some(placement) = app.page_placement(page)
+        {
+            effects.push(Effect::SetPageViewport {
+                page: page.clone(),
+                viewport: placement.viewport,
+            });
+        }
     }
-    let stays = |page: &EntityId| now.as_ref().is_some_and(|(shown, _)| shown == page);
-    if let Some((page, _)) = before
-        && !stays(page)
-        && let Some(placement) = app.page_placement(page)
-    {
-        effects.push(Effect::SetPageViewport {
-            page: page.clone(),
-            viewport: placement.viewport,
-        });
+    for (page, viewport) in now.iter().flatten() {
+        if size_in(before, page) != Some(*viewport) {
+            effects.push(Effect::SetPageViewport {
+                page: page.clone(),
+                viewport: *viewport,
+            });
+        }
     }
-    if let Some((page, viewport)) = now {
-        effects.push(Effect::SetPageViewport { page, viewport });
+}
+
+/// The viewports that follow the session and not a document step: the ones
+/// tabs lay out, and the ones of the pages a handle drag is resizing.
+pub(crate) type Layouts = ([Option<LaidOut>; 2], Vec<LaidOut>);
+
+/// The session's layouts as they stand, for `follow_layouts` to compare
+/// with after an event.
+pub(crate) fn layouts(app: &App) -> Layouts {
+    (laid_out(app), resizing(app))
+}
+
+/// Appends the viewport changes an event made to the layouts `before` it.
+pub(crate) fn follow_layouts(before: &Layouts, app: &App, effects: &mut Vec<Effect>) {
+    follow_presentation(&before.0, app, effects);
+    follow_resize(&before.1, app, effects);
+}
+
+/// The pages a handle drag is resizing, each at the viewport it is laid out
+/// at.
+fn resizing(app: &App) -> Vec<LaidOut> {
+    let Some(Gesture::Resize(drag)) = &app.session.gesture else {
+        return Vec::new();
+    };
+    (drag.starts().iter())
+        .filter_map(|start| {
+            let placement = app.page_placement(&start.id)?;
+            Some((start.id.clone(), placement.viewport))
+        })
+        .collect()
+}
+
+/// Appends the viewport changes an event made to the pages a handle drag
+/// was resizing `before` it: a page is laid out at its rect's size as the
+/// handle moves, and at the size it started from when the drag is
+/// abandoned. Like a window drag, nothing coalesces them.
+fn follow_resize(before: &[LaidOut], app: &App, effects: &mut Vec<Effect>) {
+    for (page, viewport) in before {
+        if let Some(placement) = app.page_placement(page)
+            && placement.viewport != *viewport
+        {
+            effects.push(Effect::SetPageViewport {
+                page: page.clone(),
+                viewport: placement.viewport,
+            });
+        }
     }
 }
 

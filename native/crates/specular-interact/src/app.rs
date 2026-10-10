@@ -125,11 +125,9 @@ impl App {
     /// Where the page `id` sits and the viewport it is laid out at, or `None`
     /// when `id` is not a page.
     ///
-    /// A page's viewport is its rect's size. While its handle is being
-    /// dragged the viewport stays at the size the drag started from, so the
-    /// page stretches until the release re-lays it out. A page that fills
-    /// its tab sits at the rect the tab presents it at, laid out at that
-    /// size.
+    /// A page's viewport is its rect's size, as its handle is dragged too.
+    /// A page that fills its tab sits at the rect the tab presents it at,
+    /// laid out at that size.
     pub fn page_placement(&self, id: &EntityId) -> Option<PagePlacement> {
         let entity = self.document.entity(id)?;
         page_of(entity)?;
@@ -139,23 +137,9 @@ impl App {
                 viewport: PagePlacement::viewport_for(rect),
             });
         }
-        let laid_out_at = match &self.session.gesture {
-            Some(Gesture::Resize(drag)) => drag.start_rect(id).unwrap_or(entity.rect),
-            Some(
-                Gesture::Move(_)
-                | Gesture::Marquee { .. }
-                | Gesture::Comment(_)
-                | Gesture::Place(_)
-                | Gesture::Draw(_)
-                | Gesture::TextSelect(_)
-                | Gesture::EdgeDrag(_)
-                | Gesture::Line(_),
-            )
-            | None => entity.rect,
-        };
         Some(PagePlacement {
             rect: entity.rect,
-            viewport: PagePlacement::viewport_for(laid_out_at),
+            viewport: PagePlacement::viewport_for(entity.rect),
         })
     }
 
@@ -250,6 +234,9 @@ pub struct Session {
     /// The item a tab shows under the chrome, with the camera the canvas
     /// gets back. `None` while the canvas is shown.
     pub(crate) item_view: Option<crate::showing::ItemView>,
+    /// The page whose tab is pressed and not yet clicked: its host is laid
+    /// out for the tab ahead of the click. Nothing drawn follows it.
+    pub(crate) prepared: Option<EntityId>,
     /// The item tabs of the active canvas: their order, and the lens and
     /// the Canvas-lens camera each keeps.
     pub(crate) tabs: crate::showing::Tabs,

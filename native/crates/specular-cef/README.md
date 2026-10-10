@@ -40,8 +40,9 @@ cargo clippy -p specular-cef --all-targets --features cef-dox \
 - **One windowless browser per page.** `WindowInfo.windowless_rendering_enabled`,
   Alloy runtime style, `GetViewRect` = the page's CSS viewport,
   `GetScreenInfo.device_scale_factor` = the page's texture scale. Frames
-  arrive at viewport × scale texels. `set_viewport` -> `WasResized`;
-  `set_texture_scale` -> `NotifyScreenInfoChanged` + `WasResized`.
+  arrive at viewport × scale texels. `set_viewport` and
+  `set_texture_scale` only note the change; `flush_geometry` sends a
+  page's as one `NotifyScreenInfoChanged` + `WasResized`.
 - **Frame rate.** `BrowserSettings.windowless_frame_rate` at creation,
   `SetWindowlessFrameRate` later; clamped to 1..=120 (60 for regular
   displays, 120 for ProMotion).

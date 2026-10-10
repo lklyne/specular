@@ -81,6 +81,14 @@ pub enum PageEvent {
         /// The new title; empty when the document has none.
         title: String,
     },
+    /// The document's icon changed (CEF `OnFaviconURLChange`).
+    Favicon {
+        /// The page.
+        page: PageId,
+        /// The icon as a PNG; `None` when the document has none, or it
+        /// could not be fetched.
+        png: Option<Arc<[u8]>>,
+    },
     /// The main frame shows another address (CEF `OnAddressChange`): a
     /// navigation committed, or the page changed its own URL in place.
     Url {
@@ -330,6 +338,13 @@ pub trait PageSource {
     /// Changes texels per CSS pixel (re-raster at the new density; layout is
     /// unchanged). Maps to CEF's device scale factor.
     fn set_texture_scale(&mut self, page: PageId, scale: f32) -> Result<(), PageSourceError>;
+
+    /// Sends the pages every viewport and texture scale change made since
+    /// the last call, each page's as one resize. Call when a loop turn has
+    /// made all its changes: a backend that resizes one step at a time
+    /// would otherwise paint a new viewport at the old scale first. A
+    /// backend that applies each change as it is made has nothing to do.
+    fn flush_geometry(&mut self) {}
 
     /// Changes the target paint rate (frame-rate LOD).
     fn set_frame_rate(&mut self, page: PageId, fps: u32) -> Result<(), PageSourceError>;

@@ -91,6 +91,68 @@ impl PageGeometry {
     }
 }
 
+/// A change to a page's geometry that its host has not been told of.
+///
+/// CEF runs one resize at a time: a host told of a new viewport and then,
+/// in the same loop turn, of a new scale paints the viewport at the old
+/// scale first and the frame asked for a round trip later. So a change is
+/// only noted here, and the host is told once of all a turn changed.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Unsent {
+    /// What changed.
+    change: Option<GeometryChange>,
+    /// Whether a pump has passed since the change.
+    pumped: bool,
+}
+
+/// What of a page's geometry changed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GeometryChange {
+    /// The CSS viewport alone, which the screen info does not carry.
+    Viewport,
+    /// The scale alone.
+    Scale,
+    /// Both.
+    Both,
+}
+
+impl GeometryChange {
+    /// The change's name in the resize ledger.
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Viewport => "viewport",
+            Self::Scale => "scale",
+            Self::Both => "geometry",
+        }
+    }
+}
+
+impl Unsent {
+    /// Part of the geometry changed.
+    pub fn changed(&mut self, change: GeometryChange) {
+        self.change = Some(match self.change {
+            Some(earlier) if earlier != change => GeometryChange::Both,
+            _ => change,
+        });
+    }
+
+    /// What to tell the host of now, at the end of a turn's changes.
+    pub fn take(&mut self) -> Option<GeometryChange> {
+        std::mem::take(self).change
+    }
+
+    /// What to tell the host of at a pump, which comes before a turn's
+    /// changes: only a change that an earlier pump already saw, and so one
+    /// that no end of a turn took.
+    pub fn take_at_pump(&mut self) -> Option<GeometryChange> {
+        if self.pumped {
+            return self.take();
+        }
+        self.pumped = self.change.is_some();
+        None
+    }
+}
+
 #[cfg(feature = "cef")]
 thread_local! {
     /// Events raised by handlers on the UI thread, drained by the source.
@@ -178,5 +240,19 @@ mod tests {
         geometry.set_popup(PixelRect::new(10, 10, 50, 20));
         geometry.scale = 2.0;
         assert_eq!(geometry.popup(), Some(PixelRect::new(20, 20, 100, 40)));
+    }
+
+    #[test]
+    fn a_turns_changes_are_sent_once_and_a_pump_sends_only_what_a_turn_left() {
+        let mut unsent = Unsent::default();
+        unsent.changed(GeometryChange::Viewport);
+        unsent.changed(GeometryChange::Scale);
+        assert_eq!(unsent.take(), Some(GeometryChange::Both));
+        assert_eq!(unsent.take(), None);
+
+        unsent.changed(GeometryChange::Viewport);
+        assert_eq!(unsent.take_at_pump(), None);
+        assert_eq!(unsent.take_at_pump(), Some(GeometryChange::Viewport));
+        assert_eq!(unsent.take_at_pump(), None);
     }
 }
