@@ -226,6 +226,7 @@ pub(crate) fn on_notice(
         | PageNotice::Crashed { .. }
         | PageNotice::ImeCompositionBounds(_)
         | PageNotice::Title(_)
+        | PageNotice::Favicon(_)
         | PageNotice::Loading { .. }
         | PageNotice::Inspected { .. }
         | PageNotice::ElementCaptured { .. }

@@ -204,6 +204,7 @@ pub(crate) fn on_notice(app: &mut App, page: &EntityId, notice: &PageNotice) {
         PageNotice::Loaded { .. }
         | PageNotice::Crashed { .. }
         | PageNotice::Title(_)
+        | PageNotice::Favicon(_)
         | PageNotice::Loading { .. }
         | PageNotice::Scrolled { .. }
         | PageNotice::ScrollProgress { .. }

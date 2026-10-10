@@ -12,17 +12,19 @@
 use std::os::raw::c_int;
 
 use cef::{
-    AcceleratedPaintInfo, App, Browser, BrowserProcessHandler, BrowserSettings, CefString, Client,
-    CommandLine, DictionaryValue, DisplayHandler, Frame, ImplApp, ImplBrowserProcessHandler,
-    ImplClient, ImplCommandLine, ImplDisplayHandler, ImplFrame, ImplKeyboardHandler,
-    ImplLifeSpanHandler, ImplLoadHandler, ImplRenderHandler, ImplRequestHandler, KeyEvent,
-    KeyboardHandler, LifeSpanHandler, LoadHandler, PaintElementType, PopupFeatures, Range, Rect,
-    RenderHandler, RequestHandler, ScreenInfo, TerminationStatus, WindowInfo,
-    WindowOpenDisposition, WrapApp, WrapBrowserProcessHandler, WrapClient, WrapDisplayHandler,
+    AcceleratedPaintInfo, App, Browser, BrowserProcessHandler, BrowserSettings, CefString,
+    CefStringList, Client, CommandLine, DictionaryValue, DisplayHandler, DownloadImageCallback,
+    Frame, Image, ImplApp, ImplBinaryValue, ImplBrowser, ImplBrowserHost,
+    ImplBrowserProcessHandler, ImplClient, ImplCommandLine, ImplDisplayHandler,
+    ImplDownloadImageCallback, ImplFrame, ImplImage, ImplKeyboardHandler, ImplLifeSpanHandler,
+    ImplLoadHandler, ImplRenderHandler, ImplRequestHandler, KeyEvent, KeyboardHandler,
+    LifeSpanHandler, LoadHandler, PaintElementType, PopupFeatures, Range, Rect, RenderHandler,
+    RequestHandler, ScreenInfo, TerminationStatus, WindowInfo, WindowOpenDisposition, WrapApp,
+    WrapBrowserProcessHandler, WrapClient, WrapDisplayHandler, WrapDownloadImageCallback,
     WrapKeyboardHandler, WrapLifeSpanHandler, WrapLoadHandler, WrapRenderHandler,
     WrapRequestHandler, wrap_app, wrap_browser_process_handler, wrap_client, wrap_display_handler,
-    wrap_keyboard_handler, wrap_life_span_handler, wrap_load_handler, wrap_render_handler,
-    wrap_request_handler,
+    wrap_download_image_callback, wrap_keyboard_handler, wrap_life_span_handler, wrap_load_handler,
+    wrap_render_handler, wrap_request_handler,
 };
 // The `wrap_*!` expansions call `add_ref` from this trait unqualified.
 use cef::rc::Rc as _;
@@ -103,6 +105,10 @@ wrap_render_handler! {
         fn view_rect(&self, _browser: Option<&mut Browser>, rect: Option<&mut Rect>) {
             if let Some(rect) = rect {
                 *rect = view_rect(&self.ctx);
+            }
+            if specular_core::ledger::enabled() {
+                let geometry = self.ctx.geometry().clone();
+                crate::trace::view_rect_read(self.ctx.id, &geometry);
             }
         }
 
@@ -296,6 +302,61 @@ wrap_display_handler! {
             self.ctx.push(PageEvent::Title {
                 page: self.ctx.id,
                 title: title.map(ToString::to_string).unwrap_or_default(),
+            });
+        }
+
+        fn on_favicon_urlchange(
+            &self,
+            browser: Option<&mut Browser>,
+            icon_urls: Option<&mut CefStringList>,
+        ) {
+            // The list is CEF's own, and only one taken whole can be read.
+            let first = icon_urls.and_then(|urls| std::mem::take(urls).into_iter().next());
+            let host = browser.and_then(|browser| browser.host());
+            let (Some(url), Some(host)) = (first, host) else {
+                self.ctx.push(PageEvent::Favicon {
+                    page: self.ctx.id,
+                    png: None,
+                });
+                return;
+            };
+            let mut fetched = FaviconFetched::new(self.ctx.clone());
+            let url = CefString::from(url.as_str());
+            host.download_image(Some(&url), 1, FAVICON_SIZE, 0, Some(&mut fetched));
+        }
+    }
+}
+
+/// The largest side of a page's icon, in pixels: a tab's glyph on a display
+/// of twice the density, and as much again.
+const FAVICON_SIZE: u32 = 64;
+
+wrap_download_image_callback! {
+    struct FaviconFetched {
+        ctx: PageContext,
+    }
+
+    impl DownloadImageCallback {
+        fn on_download_image_finished(
+            &self,
+            _image_url: Option<&CefString>,
+            _http_status_code: c_int,
+            image: Option<&mut Image>,
+        ) {
+            // CEF answers nothing to a caller that does not take the size.
+            let (mut width, mut height) = (0, 0);
+            let png = image
+                .and_then(|image| image.as_png(1.0, 1, Some(&mut width), Some(&mut height)))
+                .map(|png| {
+                    let mut bytes = vec![0; png.size()];
+                    let read = png.data(Some(&mut bytes), 0);
+                    bytes.truncate(read);
+                    bytes
+                })
+                .filter(|bytes| !bytes.is_empty());
+            self.ctx.push(PageEvent::Favicon {
+                page: self.ctx.id,
+                png: png.map(Into::into),
             });
         }
     }

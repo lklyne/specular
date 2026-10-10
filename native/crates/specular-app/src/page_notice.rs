@@ -26,6 +26,7 @@ pub(crate) fn notice_of(
             (*page, PageNotice::ImeCompositionBounds(*bounds))
         }
         PageEvent::Title { page, title } => (*page, PageNotice::Title(title.clone())),
+        PageEvent::Favicon { page, png } => (*page, PageNotice::Favicon(png.clone())),
         PageEvent::Url { page, url } => (*page, PageNotice::Url(url.clone())),
         PageEvent::Loading {
             page,

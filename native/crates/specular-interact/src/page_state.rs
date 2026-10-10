@@ -3,6 +3,7 @@
 //! apart from the address, which is also written to the page entity.
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use glam::DVec2;
 use specular_core::{ElementPlace, PageNav};
@@ -18,6 +19,8 @@ pub struct PageState {
     /// The document's title. Empty until the page reports one, and for a
     /// document with none.
     pub title: String,
+    /// The document's icon as a PNG, when it has one.
+    pub favicon: Option<Arc<[u8]>>,
     /// The address the page shows, once it has reported one.
     pub url: Option<String>,
     /// Whether a load is in flight.
@@ -66,6 +69,10 @@ pub(crate) fn on_notice(app: &mut App, page: &EntityId, notice: &PageNotice) -> 
     let state = app.session.pages.0.entry(page.clone()).or_default();
     match notice {
         PageNotice::Title(title) => state.title.clone_from(title),
+        // A page tells of the same icon again and again. Kept as it was,
+        // whoever drew it has nothing to decode.
+        PageNotice::Favicon(png) if state.favicon.as_deref() == png.as_deref() => {}
+        PageNotice::Favicon(png) => state.favicon.clone_from(png),
         PageNotice::Loading {
             loading,
             can_go_back,
@@ -109,6 +116,7 @@ pub(crate) fn on_notice(app: &mut App, page: &EntityId, notice: &PageNotice) -> 
                 if state.url.as_deref().and_then(document) != document(url) {
                     state.scroll = DVec2::ZERO;
                     state.elements.clear();
+                    state.favicon = None;
                 }
                 state.url = Some(url.clone());
                 return write_url(app, page, url);
