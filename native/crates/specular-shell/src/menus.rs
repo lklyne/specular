@@ -37,7 +37,6 @@ actions!(
         /// Quits, once what is unsaved is written and the pages are closed.
         Quit,
         /// Closes the window, which is the same.
-        CloseWindow,
         /// File > Open space…
         OpenSpace,
         /// File > Open…
@@ -158,8 +157,6 @@ fn shell_menus() -> (Menu, Menu, Menu) {
         MenuItem::action("Save", Save),
         MenuItem::separator(),
         MenuItem::action("Rename canvas…", RenameCanvas),
-        MenuItem::separator(),
-        MenuItem::action("Close", CloseWindow),
     ]);
     let window = Menu::new("Window").items([
         MenuItem::action("Minimize", Minimize),
@@ -292,7 +289,6 @@ pub(crate) fn run_action(action: specular_interact::Action, cx: &mut App) {
 fn shell_action(command: ShellCommand) -> Box<dyn Action> {
     match command {
         ShellCommand::Quit => Box::new(Quit),
-        ShellCommand::CloseWindow => Box::new(CloseWindow),
         ShellCommand::OpenSpace => Box::new(OpenSpace),
         ShellCommand::OpenCanvas => Box::new(OpenCanvas),
         ShellCommand::Save => Box::new(Save),
@@ -316,7 +312,6 @@ pub(crate) fn install(cx: &mut App) {
         let keys = keystroke(chord)?;
         Some(match command {
             ShellCommand::Quit => KeyBinding::new(&keys, Quit, None),
-            ShellCommand::CloseWindow => KeyBinding::new(&keys, CloseWindow, None),
             ShellCommand::OpenSpace => KeyBinding::new(&keys, OpenSpace, None),
             ShellCommand::OpenCanvas => KeyBinding::new(&keys, OpenCanvas, None),
             ShellCommand::Save => KeyBinding::new(&keys, Save, None),
@@ -339,7 +334,6 @@ pub(crate) fn install(cx: &mut App) {
         }
     });
     cx.on_action(|_: &Quit, cx| shell::begin_exit(cx));
-    cx.on_action(|_: &CloseWindow, cx| shell::begin_exit(cx));
     cx.on_action(|_: &OpenSpace, cx| crate::spaces::choose(false, cx));
     cx.on_action(|_: &OpenCanvas, cx| choose_canvas(cx));
     cx.on_action(|_: &Save, _| {

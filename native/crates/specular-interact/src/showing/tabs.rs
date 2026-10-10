@@ -1,12 +1,12 @@
-//! What a canvas's item tabs keep for the session: their order, and for
-//! each one its lens and the camera of its Canvas lens.
+//! What a canvas's item tabs keep for the session: which items have one,
+//! in what order, and for each its lens and the camera of its Canvas lens.
 
 use std::collections::HashMap;
 
 use specular_core::Camera;
 use specular_doc::{Document, EntityId};
 
-use super::{can_show, listed};
+use super::can_show;
 
 /// How a tab looks at its item.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
@@ -37,7 +37,9 @@ struct Kept {
 /// The item tabs of one canvas.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub(crate) struct Tabs {
-    /// The items that can be shown alone, in the order their tabs keep.
+    /// The items that have a tab, in the order they were opened. An item
+    /// gets one when it is first shown alone and keeps it until it is
+    /// closed.
     pub(crate) order: Vec<EntityId>,
     kept: HashMap<EntityId, Kept>,
 }
@@ -61,18 +63,29 @@ impl Tabs {
         self.kept.entry(item.clone()).or_default().camera = Some(camera);
     }
 
-    /// Takes new items into the order and drops gone ones, with what was
-    /// kept for them.
+    /// Gives `item` a tab after the last one, unless it has one.
+    pub(crate) fn open(&mut self, item: &EntityId) {
+        if !self.order.contains(item) {
+            self.order.push(item.clone());
+        }
+    }
+
+    /// Takes the tab of `item` away with what was kept for it, and says
+    /// where in the order it was.
+    pub(crate) fn close(&mut self, item: &EntityId) -> Option<usize> {
+        let at = self.order.iter().position(|id| id == item)?;
+        self.order.remove(at);
+        self.kept.remove(item);
+        Some(at)
+    }
+
+    /// Drops the tabs of items that are gone, with what was kept for them.
     pub(crate) fn settle(&mut self, document: &Document) {
-        let count = document.entities().filter(|it| can_show(it)).count();
-        let stands = count == self.order.len()
-            && (self.order.iter()).all(|id| document.entity(id).is_some_and(can_show));
-        if stands {
+        let stands = |id: &EntityId| document.entity(id).is_some_and(can_show);
+        if self.order.iter().all(stands) {
             return;
         }
-        self.order = (listed(document, &self.order).into_iter())
-            .map(|entity| entity.id.clone())
-            .collect();
+        self.order.retain(stands);
         let order = &self.order;
         self.kept.retain(|id, _| order.contains(id));
     }

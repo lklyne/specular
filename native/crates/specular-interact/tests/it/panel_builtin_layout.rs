@@ -51,7 +51,7 @@ fn the_three_rows_with_a_sticky_in_the_dock() {
       tool.comment 650,44 32x28 ToolButton: icon CommentTool 656,48 20x20
       tool.inspect 686,44 32x28 ToolButton: icon InspectTool 692,48 20x20
       - 726,50 1x16 Divider
-      theme 735,44 32x28 ToolButton: icon SchemeSystem 741,48 20x20
+      theme 735,44 32x28 ToolButton: icon SchemeLight 741,48 20x20
       zoom 771,44 58x28 ToolMenu: text "100%" 780,44 34x28 Left; chevron 814,53 10x10
     dock 0,78 1200x40
       text.size 12,86 78x24 Button: text "Small" 18,86 50x24 Left; chevron 72,92 12x12

@@ -19,7 +19,7 @@ fn a_page_has_size_frame_rotation_and_color_scheme() {
     button page.forward "Forward" icon=ChevronRight chord=cmd+] disabled -> PageForward
     button page.reload "Reload" icon=Reload chord=cmd+r -> PageReload
     ---
-    field page.url "Page address" value="https://example.com/p" placeholder="Type a URL" Wide submit=PageUrl
+    field page.url "Page address" value="https://example.com/p" placeholder="Search or type a URL" Wide submit=PageUrl
     ---
     dropdown page.size "Page size" shows text="Custom"
       options list

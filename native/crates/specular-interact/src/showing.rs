@@ -19,6 +19,9 @@
 //! - Leaving puts back the camera the canvas had.
 //! - A tab that is pressed has its page's host laid out for it before the
 //!   click shows it (`prepare`). Nothing above follows that.
+//!
+//! An item has a tab once it has been shown alone, and until that tab is
+//! closed. Closing a tab leaves the item on the canvas.
 
 mod gates;
 mod prepare;
@@ -26,7 +29,7 @@ mod tabs;
 
 use glam::DVec2;
 use specular_core::Camera;
-use specular_doc::{Document, Entity, EntityId, ItemId, Kind, Page, Rect};
+use specular_doc::{Entity, EntityId, ItemId, Kind, Page, Rect};
 
 pub(crate) use self::gates::{
     comment_out_of_reach, hides, hides_comment, hides_new, only_page, out_of_reach, refuses,
@@ -108,15 +111,24 @@ pub(crate) fn can_show(entity: &Entity) -> bool {
     }
 }
 
-/// The items that can be shown alone, in an order that holds still: those
-/// in `kept` as it lists them, then the rest as the stack has them. The
-/// document has no order of its own but the stack, which a reorder changes.
-pub(crate) fn listed<'a>(document: &'a Document, kept: &[EntityId]) -> Vec<&'a Entity> {
-    let known = (kept.iter())
-        .filter_map(|id| document.entity(id))
-        .filter(|entity| can_show(entity));
-    let new = (document.entities()).filter(|entity| can_show(entity) && !kept.contains(&entity.id));
-    known.chain(new).collect()
+/// The items that have a tab, in the order their tabs keep.
+pub(crate) fn opened(app: &App) -> Vec<&Entity> {
+    (app.session.tabs.order.iter())
+        .filter_map(|id| app.document.entity(id))
+        .filter(|entity| can_show(entity))
+        .collect()
+}
+
+/// The one item selected when it can be shown alone and the canvas is
+/// showing: what the button that opens a tab would open.
+pub(crate) fn openable(app: &App) -> Option<&EntityId> {
+    if app.shown_item().is_some() {
+        return None;
+    }
+    let [ItemId::Entity(id)] = app.session.selection.items() else {
+        return None;
+    };
+    (app.document.entity(id).filter(|entity| can_show(entity))).map(|_| id)
 }
 
 /// Changes what is shown, unless a drag is in flight. An item that cannot
@@ -132,7 +144,8 @@ pub(crate) fn show(app: &mut App, showing: Showing, effects: &mut Vec<Effect>) {
     });
 }
 
-/// Shows `item` through the lens its tab keeps. Where the lens holds the
+/// Shows `item` through the lens its tab keeps, opening the tab if it has
+/// none. Where the lens holds the
 /// camera a page is entered: its tab is the page, so the wheel and the keys
 /// are its own at once. The Canvas lens is the canvas, where a page is
 /// entered by a second click, and its camera is where the tab left it, or
@@ -144,6 +157,7 @@ fn show_item(app: &mut App, item: &EntityId, effects: &mut Vec<Effect>) {
     let page = page_of(entity).map(|_| item.clone());
     let canvas_camera = app.canvas_camera();
     app.session.prepared = None;
+    app.session.tabs.open(item);
     app.session.selection.set([ItemId::Entity(item.clone())]);
     app.session.item_view = Some(ItemView {
         item: item.clone(),
@@ -186,15 +200,39 @@ pub(crate) fn set_others(app: &mut App, shown: bool, effects: &mut Vec<Effect>) 
 /// Shows the tab after the one showing, or the one before it, going round
 /// at the ends. The canvas is the first tab.
 pub(crate) fn step(app: &mut App, forward: bool, effects: &mut Vec<Effect>) {
-    let items = listed(&app.document, &app.session.tabs.order);
     let tabs: Vec<Showing> = std::iter::once(Showing::Canvas)
-        .chain((items.iter()).map(|entity| Showing::Item(entity.id.clone())))
+        .chain((opened(app).iter()).map(|entity| Showing::Item(entity.id.clone())))
         .collect();
     let now = app.showing();
     let at = tabs.iter().position(|tab| *tab == now).unwrap_or(0);
     let by = if forward { 1 } else { tabs.len() - 1 };
     let next = tabs[(at + by) % tabs.len()].clone();
     show(app, next, effects);
+}
+
+/// Closes the tab of `item`, or with `None` the tab showing. The item stays
+/// on the canvas. When the tab was the one showing, the one that takes its
+/// place in the row is shown, or the one before it, or the canvas. The
+/// Canvas tab cannot be closed.
+pub(crate) fn close_tab(app: &mut App, item: Option<EntityId>, effects: &mut Vec<Effect>) {
+    update::verb(app, effects, |app, effects| {
+        let Some(item) = item.or_else(|| app.shown_item().cloned()) else {
+            return;
+        };
+        let closed = app.session.tabs.close(&item);
+        if app.shown_item() != Some(&item) {
+            return;
+        }
+        let at = closed.unwrap_or(0);
+        let order = &app.session.tabs.order;
+        let next = order.get(at).or_else(|| order.last()).cloned();
+        if let Some(next) = next {
+            show_item(app, &next, effects);
+        } else {
+            leave(app);
+            set_focus(app, None, effects);
+        }
+    });
 }
 
 /// A new tab: a page in a free spot of the canvas, shown alone, with the

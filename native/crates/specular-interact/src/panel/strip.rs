@@ -1,6 +1,6 @@
 //! [`view_strip`]: the tabs of the tab row. The first shows the canvas, and
-//! one follows for each page and Document of the active canvas, which a
-//! press shows alone.
+//! one follows for each page and Document of the active canvas that has
+//! been opened in a tab, which a press shows alone.
 
 use std::sync::Arc;
 
@@ -26,6 +26,9 @@ pub struct ViewTab {
     pub active: bool,
     /// What pressing it does: show the canvas, or its item alone.
     pub action: Action,
+    /// What its close button does: take the tab away and leave the item
+    /// on the canvas. `None` for the Canvas tab, which stays.
+    pub close: Option<Action>,
     /// What the press does before the click, for a renderer that sees the
     /// button go down: lay its page out for the tab. `None` for a tab with
     /// nothing to lay out.
@@ -42,11 +45,14 @@ pub struct ViewStrip {
 }
 
 impl ViewStrip {
-    /// The action of the tab named `id`.
+    /// The action of the tab named `id`, or of its close button,
+    /// `<tab>.close`.
     pub fn action(&self, id: &ControlId) -> Option<Action> {
+        let closes = |tab: &&ViewTab| tab.close.is_some() && tab.id.child("close") == *id;
         (self.tabs.iter())
             .find(|tab| tab.id == *id)
             .map(|tab| tab.action.clone())
+            .or_else(|| self.tabs.iter().find(closes)?.close.clone())
             .or_else(|| (self.add.id == *id).then(|| self.add.action.clone()))
     }
 }
@@ -64,13 +70,14 @@ fn item_tab(app: &App, entity: &Entity) -> Option<ViewTab> {
         favicon: (app.page_state(&entity.id)).and_then(|state| state.favicon.clone()),
         active: app.shown_item() == Some(&entity.id),
         action: Action::Show(Showing::Item(entity.id.clone())),
+        close: Some(Action::CloseTab(Some(entity.id.clone()))),
         prepare: matches!(entity.kind, Kind::Page(_))
             .then(|| Action::PrepareShow(Some(entity.id.clone()))),
     })
 }
 
 /// The tab row for `app` as it is now. The item tabs keep the order they
-/// were first listed in, whatever the stack does.
+/// were opened in, whatever the stack does.
 pub fn view_strip(app: &App) -> ViewStrip {
     let canvas = ViewTab {
         id: ControlId::new("view.canvas"),
@@ -79,9 +86,10 @@ pub fn view_strip(app: &App) -> ViewStrip {
         favicon: None,
         active: app.shown_item().is_none(),
         action: Action::Show(Showing::Canvas),
+        close: None,
         prepare: None,
     };
-    let items = showing::listed(&app.document, &app.session.tabs.order);
+    let items = showing::opened(app);
     let tabs = std::iter::once(canvas)
         .chain(items.into_iter().filter_map(|entity| item_tab(app, entity)))
         .collect();

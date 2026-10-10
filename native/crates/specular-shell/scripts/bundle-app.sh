@@ -8,7 +8,7 @@
 #     MacOS/Specular Native                         the `specular` binary
 #     Frameworks/Chromium Embedded Framework.framework
 #     Frameworks/Specular Native Helper*.app        five copies of the binary
-#     Resources/icon.icns                           the Electron app's icon
+#     Resources/Assets.car, AppIcon.icns            the icon, compiled from assets/AppIcon.icon
 #     Resources/starter-space/                      what a new space starts with
 #
 # The name and the bundle id differ from the Electron app's (`Specular`,
@@ -25,7 +25,8 @@
 #   --no-build  wrap the binary that is already built
 #   --out       where to put the app (default: native/target/<profile>/bundle)
 # Needs CEF_PATH pointing at the CEF distribution; the first build downloads
-# about 300 MB there.
+# about 300 MB there. The icon needs Xcode 26 or later; without it the app
+# gets the Electron app's icon.
 set -euo pipefail
 
 APP_NAME="Specular Native"
@@ -39,7 +40,7 @@ while [[ $# -gt 0 ]]; do
     --profile) profile="$2"; shift 2 ;;
     --no-build) build=0; shift ;;
     --out) out="$2"; shift 2 ;;
-    -h|--help) sed -n '2,29p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
 done
@@ -79,7 +80,8 @@ version="$(sed -n '/^\[workspace.package\]/,/^\[/s/^version = "\(.*\)"/\1/p' "$n
 main_keys() {
   cat <<PLIST
   <key>CFBundleDisplayName</key><string>$APP_NAME</string>
-  <key>CFBundleIconFile</key><string>icon</string>
+  <key>CFBundleIconFile</key><string>$icon_name</string>
+  <key>CFBundleIconName</key><string>$icon_name</string>
   <key>LSApplicationCategoryType</key><string>public.app-category.developer-tools</string>
   <key>CFBundleDocumentTypes</key>
   <array><dict>
@@ -134,9 +136,14 @@ make_app() { # bundle_dir executable identifier is_helper
 }
 
 rm -rf "$app"
-mkdir -p "$out"
+mkdir -p "$app/Contents/Resources"
+icon_name="AppIcon"
+if ! "$(dirname "$0")/compile-icon.sh" "$app/Contents/Resources"; then
+  echo "actool could not compile the icon; using the Electron app's" >&2
+  icon_name="icon"
+  cp "$repo_dir/build/icon.icns" "$app/Contents/Resources/icon.icns"
+fi
 make_app "$app" "$APP_NAME" "$BUNDLE_ID" 0
-cp "$repo_dir/build/icon.icns" "$app/Contents/Resources/icon.icns"
 cp -R "$repo_dir/resources/starter-space" "$app/Contents/Resources/starter-space"
 mkdir -p "$app/Contents/Frameworks"
 cp -R "$framework" "$app/Contents/Frameworks/"

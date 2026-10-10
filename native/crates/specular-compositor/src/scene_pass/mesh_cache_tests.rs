@@ -119,6 +119,17 @@ fn a_zoom_reuses_the_mesh_until_it_passes_a_power_of_two() {
 }
 
 #[test]
+fn a_zoom_whose_power_of_two_is_past_the_camera_limit_lands_in_place() {
+    let mut cache = MeshCache::default();
+    let items = [triangle()];
+    let pan = Vec2::new(5.0, 9.0);
+    // 2.5 tessellates at 4, above the camera's largest zoom.
+    let (mesh, did) = frame(&mut cache, &items, pan, 2.5);
+    assert_eq!(did, counts(0, 1));
+    assert!(close(&mesh, &direct(&items, pan, 2.5)));
+}
+
+#[test]
 fn a_changed_point_colour_or_opacity_is_tessellated_again() {
     let mut cache = MeshCache::default();
     frame(&mut cache, &[stroke(4.0)], Vec2::ZERO, 1.0);

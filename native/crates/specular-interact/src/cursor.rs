@@ -3,7 +3,8 @@
 
 use specular_doc::EdgeSide;
 
-use crate::{App, Corner, Cursor, Effect, Gesture, Handle, Hit, Tool, edit, hit};
+use crate::layout::Axis;
+use crate::{App, Corner, Cursor, Effect, Gesture, Handle, Hit, LayoutHandle, Tool, edit, hit};
 
 /// Asks the shell for a different cursor when the one wanted has changed.
 pub(crate) fn refresh(app: &mut App, effects: &mut Vec<Effect>) {
@@ -48,8 +49,14 @@ fn wanted(app: &App) -> Cursor {
         (Tool::Select, Some(pointer)) => match hit::hit_test(app, pointer) {
             Hit::Handle { handle, .. } => of_handle(handle),
             Hit::Anchor { .. } => Cursor::Crosshair,
-            // `Cursor` has no column or row resize arrow for a gap strip.
-            Hit::Layout(_) => Cursor::Grab,
+            Hit::Layout(LayoutHandle::Gap { axis: Axis::X, .. }) => Cursor::ResizeEw,
+            Hit::Layout(LayoutHandle::Gap { axis: Axis::Y, .. }) => Cursor::ResizeNs,
+            Hit::Layout(LayoutHandle::Reorder { .. }) => Cursor::Grab,
+            // An entered page is handed the pointer, and says what it is
+            // over.
+            Hit::PageContent { page, .. } if session.focus.page() == Some(&page) => app
+                .page_state(&page)
+                .map_or(Cursor::Default, |state| state.cursor),
             Hit::Comment { .. }
             | Hit::GroupLabel { .. }
             | Hit::PageContent { .. }
@@ -78,10 +85,7 @@ const fn of_handle(handle: Handle) -> Cursor {
     match handle {
         Handle::Corner(Corner::TopLeft | Corner::BottomRight) => Cursor::ResizeNwse,
         Handle::Corner(Corner::TopRight | Corner::BottomLeft) => Cursor::ResizeNesw,
-        // `Cursor` has no vertical or horizontal resize arrow, and a
-        // diagonal one would point the wrong way.
-        Handle::Side(EdgeSide::Top | EdgeSide::Bottom | EdgeSide::Left | EdgeSide::Right) => {
-            Cursor::Default
-        }
+        Handle::Side(EdgeSide::Top | EdgeSide::Bottom) => Cursor::ResizeNs,
+        Handle::Side(EdgeSide::Left | EdgeSide::Right) => Cursor::ResizeEw,
     }
 }

@@ -1,5 +1,5 @@
 //! The File menu's commands: open a space or a canvas, save now, rename
-//! the canvas, close.
+//! the canvas.
 
 use std::path::Path;
 
@@ -15,7 +15,7 @@ impl Shell {
             ShellCommand::Open => self.choose_canvas(),
             ShellCommand::Save => self.runtime.flush_files(),
             ShellCommand::RenameCanvas => self.choose_canvas_name(),
-            ShellCommand::Close | ShellCommand::Quit => self.runtime.exit(),
+            ShellCommand::Quit => self.runtime.exit(),
         }
     }
 

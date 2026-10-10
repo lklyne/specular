@@ -94,7 +94,7 @@ pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, page: &Page, scene: &mut 
 }
 
 /// The shell around `screen`, in canvas units.
-fn shell_rect(screen: Rect, shell: &DeviceShell) -> Rect {
+pub(super) fn shell_rect(screen: Rect, shell: &DeviceShell) -> Rect {
     let insets = shell.insets;
     let (left, top) = (insets.left as f32, insets.top as f32);
     Rect::new(

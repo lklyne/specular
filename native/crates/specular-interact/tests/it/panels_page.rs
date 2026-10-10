@@ -45,7 +45,7 @@ fn a_loading_page_with_history_offers_back_and_stop() {
     button page.back "Back" icon=ChevronLeft chord=cmd+[ -> PageBack
     button page.forward "Forward" icon=ChevronRight chord=cmd+] disabled -> PageForward
     button page.reload "Stop loading" icon=Stop chord=cmd+. -> PageStop
-    field page.url "Page address" value="https://example.com/live" placeholder="Type a URL" Wide submit=PageUrl
+    field page.url "Page address" value="https://example.com/live" placeholder="Search or type a URL" Wide submit=PageUrl
     "#);
 
     // Loaded, with history both ways: reload is back, and nothing is disabled.

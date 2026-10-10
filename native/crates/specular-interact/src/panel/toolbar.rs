@@ -10,11 +10,12 @@
 use specular_doc::Color;
 
 use super::{
-    Control, ControlId, Dropdown, DropdownOption, DropdownSection, Face, Icon, OptionLayout,
-    SidebarButton, ThemeButton, Toggle, ToolButton, ToolbarModel, ToolbarSection,
+    Button, Control, ControlId, Dropdown, DropdownOption, DropdownSection, Face, Icon,
+    OptionLayout, SidebarButton, ThemeButton, Toggle, ToolButton, ToolbarModel, ToolbarSection,
 };
 use crate::menu::{tool_action, tool_label};
-use crate::{Action, App, Appearance, ChatAction, Lens, Tool, binding_of};
+use crate::showing;
+use crate::{Action, App, Appearance, ChatAction, Lens, Showing, Tool, binding_of};
 
 /// The zoom levels the readout offers, in percent.
 const ZOOM_LEVELS: [u16; 7] = [10, 25, 50, 75, 100, 150, 200];
@@ -162,10 +163,25 @@ const fn lens_words(lens: Lens) -> (&'static str, &'static str, &'static str) {
     }
 }
 
-/// The lens of the tab showing and the eye. Nothing on the Canvas tab.
+/// The button that opens the one page or Document selected in a tab of
+/// its own.
+fn open_tab(app: &App) -> Option<Control> {
+    let item = showing::openable(app)?;
+    Some(Control::Button(Button {
+        id: ControlId::new("view.open"),
+        label: "Open in a tab".into(),
+        face: Face::icon(Icon::Expand),
+        enabled: true,
+        chord: None,
+        action: Action::Show(Showing::Item(item.clone())),
+    }))
+}
+
+/// The lens of the tab showing and the eye. On the Canvas tab, the button
+/// that opens the item selected in a tab, or nothing.
 fn view_controls(app: &App) -> Vec<Control> {
     let Some(now) = app.lens() else {
-        return Vec::new();
+        return open_tab(app).into_iter().collect();
     };
     let id = ControlId::new("view.lens");
     let lenses = Lens::ALL.into_iter().map(|lens| {

@@ -285,7 +285,8 @@ fn ime_text_goes_to_the_entered_page_only() {
 #[test]
 fn the_candidate_window_follows_the_entered_pages_composition() {
     let mut app = entered("p1");
-    app.zoom(0.5).send(Event::Page {
+    app.zoom(0.5).take_effects();
+    app.send(Event::Page {
         page: id("p1"),
         notice: PageNotice::ImeCompositionBounds(Some(PixelRect::new(20, 40, 60, 16))),
     });

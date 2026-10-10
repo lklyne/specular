@@ -65,6 +65,16 @@ const fn cursor_style(cursor: Cursor) -> CursorStyle {
         // GPUI has no four-way move cursor.
         Cursor::Grabbing | Cursor::Move => CursorStyle::ClosedHand,
         Cursor::Text => CursorStyle::IBeam,
+        Cursor::Pointer => CursorStyle::PointingHand,
+        Cursor::ResizeEw => CursorStyle::ResizeLeftRight,
+        Cursor::ResizeNs => CursorStyle::ResizeUpDown,
+        Cursor::ResizeColumn => CursorStyle::ResizeColumn,
+        Cursor::ResizeRow => CursorStyle::ResizeRow,
+        Cursor::VerticalText => CursorStyle::IBeamCursorForVerticalLayout,
+        Cursor::NotAllowed => CursorStyle::OperationNotAllowed,
+        Cursor::Alias => CursorStyle::DragLink,
+        Cursor::Copy => CursorStyle::DragCopy,
+        Cursor::ContextMenu => CursorStyle::ContextualMenu,
         Cursor::ResizeNwse => CursorStyle::ResizeUpLeftDownRight,
         Cursor::ResizeNesw => CursorStyle::ResizeUpRightDownLeft,
     }

@@ -1,13 +1,13 @@
 //! The one-shot creation tools: add-shape, add-text, add-sticky and
-//! add-page. The draw tool is in `draw.rs` and page anchoring in
-//! `anchoring.rs`.
+//! add-page, and the preview each shows under the pointer. The draw tool is
+//! in `draw.rs` and page anchoring in `anchoring.rs`.
 
 use specular_core::CssSize;
 use specular_doc::{
     Color, ColorPreset, Entity, EntityId, Kind, Page, PageSource, Rect, Shape, ShapeKind, Text,
     TextFont, TextStyle, WidthMode,
 };
-use specular_interact::{Action, Effect, Key, TextEdit, Tool, ToolDefaultPatch};
+use specular_interact::{Action, Effect, Key, PlacePreview, TextEdit, Tool, ToolDefaultPatch};
 use specular_testkit::{SHIFT, TestApp, assert_doc_snapshot};
 
 /// The entity the last placement left selected.
@@ -237,4 +237,55 @@ fn clicking_with_the_page_tool_places_a_blank_page_and_hosts_it() {
     app.undo();
     assert!(app.effects().contains(&Effect::ClosePage(id)));
     app.redo().assert_undo_returns_to_start();
+}
+
+// The preview.
+
+#[test]
+fn an_armed_tool_previews_what_its_click_then_places() {
+    // Building the preview from anything but what the click builds lets the
+    // two drift: a ghost that is not where, or as big as, what lands.
+    for tool in [
+        Tool::AddPage,
+        Tool::AddText,
+        Tool::AddSticky,
+        Tool::AddShape,
+    ] {
+        let mut app = TestApp::empty();
+        app.tool(tool);
+        assert_eq!(app.app().place_preview(), None, "{tool:?}: no pointer");
+        app.pointer_move((105.0, 95.0));
+        let Some(PlacePreview::Entity(ghost)) = app.app().place_preview() else {
+            panic!("{tool:?} previews nothing");
+        };
+        assert_eq!(app.document().entities().count(), 0, "{tool:?}");
+
+        app.click((105.0, 95.0));
+        let made = placed(&app);
+        assert_eq!(
+            (made.rect, &made.kind),
+            (ghost.rect, &ghost.kind),
+            "{tool:?}"
+        );
+        assert_eq!(
+            app.app().place_preview(),
+            None,
+            "{tool:?}: the tool is spent"
+        );
+    }
+
+    // A Document has no entity until its file exists, so it is its rect.
+    let mut app = TestApp::empty();
+    app.tool(Tool::AddDocument).pointer_move((105.0, 95.0));
+    assert_eq!(
+        app.app().place_preview(),
+        Some(PlacePreview::Document(Rect::new(
+            100.0, 100.0, 300.0, 300.0
+        )))
+    );
+    // It goes with the pointer, and with the tool.
+    app.pointer_leave();
+    assert_eq!(app.app().place_preview(), None);
+    app.pointer_move((105.0, 95.0)).key(Key::Escape);
+    assert_eq!(app.app().place_preview(), None);
 }

@@ -3,6 +3,7 @@
 #
 #   specular-app.app/Contents/
 #     MacOS/specular-app                         browser process
+#     Resources/Assets.car, AppIcon.icns         the icon, when Xcode can compile it
 #     Frameworks/Chromium Embedded Framework.framework
 #     Frameworks/specular-app Helper.app          utility/network children
 #     Frameworks/specular-app Helper (GPU).app
@@ -41,8 +42,8 @@ done
 [[ -n "$framework" ]] || { echo "no Chromium Embedded Framework.framework under $CEF_PATH" >&2; exit 1; }
 
 write_plist() { # path executable identifier is_helper
-  local ui_element=""
-  [[ "$4" == 1 ]] && ui_element="<key>LSUIElement</key><string>1</string>"
+  local extra="$icon_keys"
+  [[ "$4" == 1 ]] && extra="<key>LSUIElement</key><string>1</string>"
   cat > "$1" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -58,7 +59,7 @@ write_plist() { # path executable identifier is_helper
   <key>LSEnvironment</key><dict><key>MallocNanoZone</key><string>0</string></dict>
   <key>NSSupportsAutomaticGraphicsSwitching</key><true/>
   <key>NSHighResolutionCapable</key><true/>
-  $ui_element
+  $extra
 </dict></plist>
 PLIST
 }
@@ -70,6 +71,11 @@ make_app() { # bundle_dir executable identifier is_helper
 }
 
 rm -rf "$app"
+mkdir -p "$app/Contents/Resources"
+icon_keys=""
+if "$native_dir/crates/specular-shell/scripts/compile-icon.sh" "$app/Contents/Resources"; then
+  icon_keys="<key>CFBundleIconFile</key><string>AppIcon</string><key>CFBundleIconName</key><string>AppIcon</string>"
+fi
 make_app "$app" "$name" "dev.specular.spike" 0
 mkdir -p "$app/Contents/Frameworks"
 cp -R "$framework" "$app/Contents/Frameworks/"

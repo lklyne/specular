@@ -130,7 +130,10 @@ fn a_creation_press_makes_nothing_an_item_view_would_hide() {
         let before = app.document().clone();
         app.take_effects();
         let spot = at(&app, x, y);
-        app.tool(tool).drag(spot, spot + Vec2::new(60.0, 60.0));
+        app.tool(tool).pointer_move(spot);
+        // Nor is it previewed, so the press is seen to make nothing.
+        assert_eq!(app.app().place_preview(), None, "{tool:?} in {item}");
+        app.drag(spot, spot + Vec2::new(60.0, 60.0));
         assert_eq!(*app.document(), before, "{tool:?} in {item}");
         assert!(app.app().text_edit().is_none(), "{tool:?} in {item}");
         assert!(app.app().comment_draft().is_none(), "{tool:?} in {item}");
@@ -145,7 +148,9 @@ fn what_is_made_on_a_shown_page_is_hooked_to_it_and_seen() {
     let mut app = canvas();
     app.act(show("p1"));
     let spot = at(&app, 300.0, 300.0);
-    app.tool(Tool::AddSticky).click(spot).type_text("note");
+    app.tool(Tool::AddSticky).pointer_move(spot);
+    assert!(app.app().place_preview().is_some(), "previewed on the page");
+    app.click(spot).type_text("note");
     let made = app.selected().expect("the sticky is selected").to_owned();
     app.key(Key::Escape);
     assert_eq!(anchor_of(&app, &made), Some("p1"));

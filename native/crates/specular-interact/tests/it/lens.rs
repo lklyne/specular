@@ -218,13 +218,13 @@ fn the_lens_is_kept_by_each_tab_and_the_eye_by_all_of_them() {
     assert!(!control(&app, "view.lens.device") && !control(&app, "view.others"));
 
     // A tab starts in Fill with the eye open.
-    app.click_control("view.item.p1");
+    app.act(show("p1"));
     assert_eq!(app.app().lens(), Some(Lens::Fill));
     assert!(app.app().shows_others());
     app.click_control("view.lens.device");
     assert_eq!(app.app().lens(), Some(Lens::Device));
 
-    app.click_control("view.item.p2");
+    app.act(show("p2"));
     assert_eq!(app.app().lens(), Some(Lens::Fill), "p2 has its own lens");
     app.click_control("view.others");
     assert!(!app.app().shows_others());

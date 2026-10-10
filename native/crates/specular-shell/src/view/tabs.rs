@@ -13,7 +13,7 @@ use gpui_kit::{
     MouseButton, ParentElement as _, SharedString, StatefulInteractiveElement as _, Styled as _,
     div, img, linear_color_stop, linear_gradient, point, px, rgba,
 };
-use specular_interact::{Action, Button, ControlId, Event, ToolbarModel, ViewStrip, ViewTab};
+use specular_interact::{Action, Button, ControlId, Event, Icon, ToolbarModel, ViewStrip, ViewTab};
 
 use super::controls::element_id;
 use super::glyphs::{glyph, ink};
@@ -55,6 +55,9 @@ const TAB: (f32, f32, f32) = (180.0, 28.0, 28.0);
 /// How much of the row's far end stays bare, to drag the window by.
 const BARE: f32 = 80.0;
 const TAB_GLYPH: f32 = 14.0;
+/// A tab's close button, and the glyph in it.
+const CLOSE: f32 = 18.0;
+const CLOSE_GLYPH: f32 = 12.0;
 /// The width of the rim around the tab that is showing.
 const RIM: f32 = 1.0;
 /// How much of a label's far end fades out, where a long one is cut.
@@ -157,6 +160,41 @@ fn bare_strip() -> impl IntoElement {
         })
 }
 
+/// The button at a tab's far end that closes it, there while the pointer is
+/// over the tab. It sits on `fill`, the colour the tab has then, over the
+/// end of the label. Its press is its own: the tab under it neither lays
+/// its page out nor shows it.
+fn close(id: &ControlId, action: Action, fill: u32, hover: u32) -> impl IntoElement {
+    let id = id.child("close");
+    h_flex()
+        .id(element_id(&id))
+        .invisible()
+        .group_hover(HOVERED, gpui_kit::Styled::visible)
+        .absolute()
+        .right(px(RIM + 4.0))
+        .top(px((TAB.2 - CLOSE) / 2.0))
+        .size(px(CLOSE))
+        .items_center()
+        .justify_center()
+        .rounded(px(4.0))
+        .bg(theme::solid(fill))
+        .hover(move |this| this.bg(theme::solid(hover)))
+        .tooltip(crate::tip::view("Close tab".to_owned()))
+        .child(glyph(
+            Icon::Close,
+            ink(theme::toolbar_text()),
+            None,
+            false,
+            CLOSE_GLYPH,
+        ))
+        .child(mark(&id))
+        .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+        .on_click(move |_, window, cx| {
+            cx.stop_propagation();
+            run(&action, window, cx);
+        })
+}
+
 /// One tab: its glyph and its label. The one showing is filled, rimmed and
 /// lifted; the others are bare, in the muted text colour. A click takes some 80 ms from the button going
 /// down to it coming up, and a page needs half of that to paint at the size
@@ -213,6 +251,14 @@ fn tab(model: &ViewTab) -> impl IntoElement {
         })
         .child(face)
         .child(mark(&model.id))
+        .children(model.close.clone().map(|action| {
+            let (under, over) = if model.active {
+                (theme::tab_fill(), theme::tab_hover())
+            } else {
+                (theme::tab_hover(), theme::tab_fill())
+            };
+            close(&model.id, action, under, over)
+        }))
         .when_some(model.prepare.clone(), |this, prepare| {
             this.on_mouse_down(MouseButton::Left, move |_, _, _| {
                 PRESSED.set(Some(pressed.clone()));

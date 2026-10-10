@@ -11,7 +11,7 @@ use specular_doc::{Command, EntityId, Kind, Page};
 
 use crate::anchor::canonical_page_url;
 use crate::app::page_of;
-use crate::{App, Effect, PageNotice, sync};
+use crate::{App, Cursor, Effect, PageNotice, sync};
 
 /// The live state of one hosted page.
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -31,6 +31,8 @@ pub struct PageState {
     pub can_go_forward: bool,
     /// How far the document is scrolled, in the page's CSS pixels.
     pub scroll: DVec2,
+    /// The cursor the page asks for over what the pointer is on.
+    pub cursor: Cursor,
     /// The page's remote-debugging websocket, once the backend has one.
     pub devtools_url: Option<String>,
     /// Where the elements anchored items follow sit in the document, by
@@ -106,6 +108,7 @@ pub(crate) fn on_notice(app: &mut App, page: &EntityId, notice: &PageNotice) -> 
         PageNotice::ElementCaptured { request, element } => {
             return crate::attach::on_captured(app, page, *request, element.as_ref());
         }
+        PageNotice::Cursor(cursor) => state.cursor = *cursor,
         PageNotice::DevtoolsUrl(url) => state.devtools_url = Some(url.clone()),
         PageNotice::Url(url) => {
             if state.url.as_ref() != Some(url) {

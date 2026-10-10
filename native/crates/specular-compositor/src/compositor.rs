@@ -182,6 +182,7 @@ impl Compositor {
             | PageEvent::Loaded { .. }
             | PageEvent::Crashed { .. }
             | PageEvent::Title { .. }
+            | PageEvent::Cursor { .. }
             | PageEvent::Favicon { .. }
             | PageEvent::Url { .. }
             | PageEvent::Loading { .. }

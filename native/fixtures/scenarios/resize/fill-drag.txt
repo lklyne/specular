@@ -2,7 +2,8 @@
 # the page is asked for a new size at every step (Q2, Q3, Q5).
 # page
 wait 2500
-control view.item.probe
+select probe
+control view.open
 wait 1500
 resize-drag -400 -250 1200
 wait 500

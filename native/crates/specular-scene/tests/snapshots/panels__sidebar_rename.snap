@@ -66,8 +66,8 @@ screen path 79 commands in 693.21,49.23 17.56x17.56 fill=#9b9b9b
 screen path 28 commands in 701.01,49.51 9.48x9.48 fill=#dedede stroke=#45403c/1.11
 screen path 17 commands in 693.06,55.48 11.46x11.46 fill=#e8e8e8 stroke=#45403c/1.11
 screen rect 726,50 1x16 fill=#18181b33
-screen path 76 commands in 742.93,49.17 16.9x16.9 fill=#45403c
-screen path 20 commands in 743.94,56.12 8.93x8.93 fill=#e8e8e8
+screen path 76 commands in 742.17,49.17 17.67x17.67 fill=#45403c
+screen path M751,54.5 L751,54.5 C752.93,54.5 754.5,56.07 754.5,58 L754.5,58 C754.5,59.93 752.93,61.5 751,61.5 L751,61.5 C749.07,61.5 747.5,59.93 747.5,58 L747.5,58 C747.5,56.07 749.07,54.5 751,54.5 Z fill=#e8e8e8 stroke=#45403c/1
 screen text "100%" 780,44 box-h=28 12/16 #52525c middle
 screen path M816.5,56.75 L819,59.25 L821.5,56.75 stroke=#45403c66/0.83
 screen rect 0,78 1200x40 fill=#d6d3d1

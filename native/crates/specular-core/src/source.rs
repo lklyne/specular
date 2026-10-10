@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use glam::Vec2;
 
+use crate::cursor::Cursor;
 use crate::frame::FrameEvent;
 use crate::geometry::{CssRect, CssSize, PixelRect};
 use crate::input::InputEvent;
@@ -96,6 +97,14 @@ pub enum PageEvent {
         page: PageId,
         /// The address now shown.
         url: String,
+    },
+    /// What is under the pointer asks for another cursor (CEF
+    /// `OnCursorChange`).
+    Cursor {
+        /// The page.
+        page: PageId,
+        /// The cursor asked for.
+        cursor: Cursor,
     },
     /// The page started or stopped loading, or its session history moved
     /// (CEF `OnLoadingStateChange`).

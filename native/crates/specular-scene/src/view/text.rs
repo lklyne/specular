@@ -13,9 +13,10 @@ use super::palette::{self, Palette, Role};
 use crate::{Item, RectDraw, Scene, TextRun};
 
 /// A sticky note with no colour is yellow.
-const STICKY_DEFAULT: specular_doc::Color = specular_doc::Color::Preset(ColorPreset::Yellow);
+pub(super) const STICKY_DEFAULT: specular_doc::Color =
+    specular_doc::Color::Preset(ColorPreset::Yellow);
 /// What a plain text with nothing in it shows, faded.
-const PLACEHOLDER: &str = "Add text";
+pub(super) const PLACEHOLDER: &str = "Add text";
 const PLACEHOLDER_ALPHA: f32 = 0.4;
 
 pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, text: &Text, scene: &mut Scene) {

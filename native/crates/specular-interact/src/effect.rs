@@ -2,7 +2,7 @@
 
 use glam::Vec2;
 use specular_agent::{RunRequest, ThreadId};
-use specular_core::{CssSize, InputEvent, LocatorBundle, PageNav, PointKind};
+use specular_core::{CssSize, Cursor, InputEvent, LocatorBundle, PageNav, PointKind};
 use specular_doc::{ColorScheme, EntityId, Rect};
 
 use crate::{
@@ -338,26 +338,4 @@ pub enum Effect {
     /// Stop a thread's run and answer with
     /// [`Notice::Cancelled`](specular_agent::Notice::Cancelled).
     CancelAgent(ThreadId),
-}
-
-/// A pointer cursor.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
-pub enum Cursor {
-    /// The arrow.
-    #[default]
-    Default,
-    /// A creation tool is armed.
-    Crosshair,
-    /// The canvas can be dragged.
-    Grab,
-    /// The canvas is being dragged.
-    Grabbing,
-    /// An item can be moved.
-    Move,
-    /// A text caret.
-    Text,
-    /// A top-left or bottom-right resize handle.
-    ResizeNwse,
-    /// A top-right or bottom-left resize handle.
-    ResizeNesw,
 }

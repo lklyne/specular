@@ -5,7 +5,7 @@ use std::sync::Arc;
 use glam::Vec2;
 use specular_agent::{Index, Notice, Repos, Thread, ThreadId};
 use specular_core::{
-    Camera, CapturedElement, ElementPlace, ImeEvent, InspectedNode, LocatorBundle,
+    Camera, CapturedElement, Cursor, ElementPlace, ImeEvent, InspectedNode, LocatorBundle,
     LocatorCandidate, Modifiers, PageElement, PixelRect, PointKind, PointerEventKind,
 };
 use specular_doc::{AnnotationId, Document, EntityId, ItemId, Rect};
@@ -366,6 +366,8 @@ pub enum PageNotice {
         /// The node there, if the page has one.
         node: Option<Box<InspectedNode>>,
     },
+    /// What is under the pointer in the page asks for this cursor.
+    Cursor(Cursor),
     /// The page's remote-debugging websocket is known.
     DevtoolsUrl(String),
     /// The element an item placed over the page should follow (ADR 0032):
@@ -502,6 +504,11 @@ pub enum Action {
     ShowNext,
     /// Show the tab before the one showing, going round to the last.
     ShowPrevious,
+    /// Close the tab of this item, or with `None` the tab showing. The
+    /// item stays on the canvas. Closing the tab showing shows its
+    /// neighbour, or the canvas after the last one; closing another leaves
+    /// what is shown. View state, like [`Self::Show`].
+    CloseTab(Option<EntityId>),
     /// Make a page at the page tool's preset in a free spot of the canvas,
     /// show its tab and put the caret in its address. The page is one undo
     /// step.

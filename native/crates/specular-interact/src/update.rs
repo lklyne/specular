@@ -211,6 +211,7 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         Action::PrepareShow(item) => crate::showing::prepare(app, item),
         Action::ShowNext => crate::showing::step(app, true, effects),
         Action::ShowPrevious => crate::showing::step(app, false, effects),
+        Action::CloseTab(item) => crate::showing::close_tab(app, item, effects),
         Action::NewPageTab => crate::showing::new_tab(app, effects),
         Action::SetLens(lens) => crate::showing::set_lens(app, lens, effects),
         Action::ShowOthers(shown) => crate::showing::set_others(app, shown, effects),
@@ -424,6 +425,7 @@ fn on_page_notice(app: &App, page: &EntityId, notice: &PageNotice, effects: &mut
         PageNotice::Loaded { .. }
         | PageNotice::Crashed { .. }
         | PageNotice::Title(_)
+        | PageNotice::Cursor(_)
         | PageNotice::Favicon(_)
         | PageNotice::Url(_)
         | PageNotice::Loading { .. }

@@ -4,7 +4,7 @@
 
 #![expect(clippy::panic, reason = "a helper fails the test it is called from")]
 
-use specular_core::PageNav;
+use specular_core::{Cursor, PageNav};
 use specular_doc::{Command, EntityId, Kind, Page};
 use specular_interact::{Action, ApiCall, ApiRun, Effect, Event, Focus, Key, PageNotice};
 use specular_testkit::{CMD, TestApp};
@@ -289,4 +289,28 @@ fn another_document_starts_at_its_top_and_a_hash_change_keeps_the_scroll() {
     assert_eq!(app.app().page_scroll(&"p1".into()).y, 240.0);
     app.page_reports("p1", url("https://a.test/other"));
     assert_eq!(app.app().page_scroll(&"p1".into()).y, 0.0);
+}
+
+fn cursors(app: &mut TestApp) -> Vec<Cursor> {
+    (app.take_effects().into_iter())
+        .filter_map(|effect| match effect {
+            Effect::SetCursor(cursor) => Some(cursor),
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn an_entered_page_chooses_the_cursor_over_its_content() {
+    let mut app = TestApp::with_pages(1);
+    app.pointer_move(ON_P1).take_effects();
+    // A page that is not entered is an item on the canvas.
+    app.page_reports("p1", PageNotice::Cursor(Cursor::Pointer));
+    assert_eq!(cursors(&mut app), []);
+    app.double_click(ON_P1);
+    assert_eq!(cursors(&mut app), [Cursor::Pointer]);
+    app.page_reports("p1", PageNotice::Cursor(Cursor::Text));
+    assert_eq!(cursors(&mut app), [Cursor::Text]);
+    app.key(Key::Escape);
+    assert_eq!(cursors(&mut app), [Cursor::Default]);
 }

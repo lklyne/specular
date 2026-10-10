@@ -118,6 +118,10 @@ pub enum Icon {
     Eye,
     /// The eye, shut. Lucide `EyeOff`.
     EyeOff,
+    /// Open the item in a tab of its own. Lucide `Maximize2`.
+    Expand,
+    /// Close a tab. Lucide `X`.
+    Close,
     /// A canvas, and a file of no known kind. Lucide `File`.
     File,
     /// A markdown document. Lucide `FileText`.

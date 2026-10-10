@@ -13,8 +13,8 @@ use std::os::raw::c_int;
 
 use cef::{
     AcceleratedPaintInfo, App, Browser, BrowserProcessHandler, BrowserSettings, CefString,
-    CefStringList, Client, CommandLine, DictionaryValue, DisplayHandler, DownloadImageCallback,
-    Frame, Image, ImplApp, ImplBinaryValue, ImplBrowser, ImplBrowserHost,
+    CefStringList, Client, CommandLine, CursorInfo, CursorType, DictionaryValue, DisplayHandler,
+    DownloadImageCallback, Frame, Image, ImplApp, ImplBinaryValue, ImplBrowser, ImplBrowserHost,
     ImplBrowserProcessHandler, ImplClient, ImplCommandLine, ImplDisplayHandler,
     ImplDownloadImageCallback, ImplFrame, ImplImage, ImplKeyboardHandler, ImplLifeSpanHandler,
     ImplLoadHandler, ImplRenderHandler, ImplRequestHandler, KeyEvent, KeyboardHandler,
@@ -28,7 +28,7 @@ use cef::{
 };
 // The `wrap_*!` expansions call `add_ref` from this trait unqualified.
 use cef::rc::Rc as _;
-use specular_core::PageEvent;
+use specular_core::{Cursor, PageEvent};
 
 use crate::config::Switch;
 use crate::coords::{rect_from_cef, union_rects};
@@ -305,6 +305,22 @@ wrap_display_handler! {
             });
         }
 
+        fn on_cursor_change(
+            &self,
+            _browser: Option<&mut Browser>,
+            _cursor: *mut u8,
+            type_: CursorType,
+            _custom_cursor_info: Option<&CursorInfo>,
+        ) -> c_int {
+            self.ctx.push(PageEvent::Cursor {
+                page: self.ctx.id,
+                cursor: cursor_of(type_),
+            });
+            // The page is drawn offscreen, so there is no view of CEF's to
+            // set a cursor on.
+            1
+        }
+
         fn on_favicon_urlchange(
             &self,
             browser: Option<&mut Browser>,
@@ -324,6 +340,36 @@ wrap_display_handler! {
             let url = CefString::from(url.as_str());
             host.download_image(Some(&url), 1, FAVICON_SIZE, 0, Some(&mut fetched));
         }
+    }
+}
+
+/// The cursor to show for one a page asks for. A kind the shell has no
+/// cursor for is the arrow.
+fn cursor_of(kind: CursorType) -> Cursor {
+    use cef::sys::cef_cursor_type_t as Kind;
+    match *kind.as_ref() {
+        Kind::CT_HAND => Cursor::Pointer,
+        Kind::CT_IBEAM => Cursor::Text,
+        Kind::CT_VERTICALTEXT => Cursor::VerticalText,
+        Kind::CT_CROSS | Kind::CT_CELL => Cursor::Crosshair,
+        Kind::CT_GRAB => Cursor::Grab,
+        Kind::CT_GRABBING => Cursor::Grabbing,
+        Kind::CT_MOVE => Cursor::Move,
+        Kind::CT_NORTHWESTRESIZE | Kind::CT_SOUTHEASTRESIZE | Kind::CT_NORTHWESTSOUTHEASTRESIZE => {
+            Cursor::ResizeNwse
+        }
+        Kind::CT_NORTHEASTRESIZE | Kind::CT_SOUTHWESTRESIZE | Kind::CT_NORTHEASTSOUTHWESTRESIZE => {
+            Cursor::ResizeNesw
+        }
+        Kind::CT_EASTRESIZE | Kind::CT_WESTRESIZE | Kind::CT_EASTWESTRESIZE => Cursor::ResizeEw,
+        Kind::CT_NORTHRESIZE | Kind::CT_SOUTHRESIZE | Kind::CT_NORTHSOUTHRESIZE => Cursor::ResizeNs,
+        Kind::CT_COLUMNRESIZE => Cursor::ResizeColumn,
+        Kind::CT_ROWRESIZE => Cursor::ResizeRow,
+        Kind::CT_NOTALLOWED | Kind::CT_NODROP => Cursor::NotAllowed,
+        Kind::CT_ALIAS => Cursor::Alias,
+        Kind::CT_COPY => Cursor::Copy,
+        Kind::CT_CONTEXTMENU => Cursor::ContextMenu,
+        _ => Cursor::Default,
     }
 }
 

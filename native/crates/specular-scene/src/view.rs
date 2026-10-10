@@ -2,7 +2,8 @@
 //! draws.
 //!
 //! Entities and edges are drawn in the document's stack order, one module per
-//! kind. The session layer goes over them: comment regions, badges and the
+//! kind. Over them goes what the tool in hand would place under the
+//! pointer, faded, and then the session layer: comment regions, badges and the
 //! marker of the comment being written, the hover border, selection
 //! outlines, resize handles, the marquee and the comment tool's preview,
 //! and last the composer that comment is typed in. An entity whose text is being edited draws the
@@ -32,6 +33,7 @@ mod inspect;
 mod layout_handles;
 mod page;
 pub(crate) mod palette;
+mod place_preview;
 mod session;
 mod shape;
 mod shape_path;
@@ -88,6 +90,7 @@ fn build(frame: &Frame<'_>) -> Scene {
         }
     }
     if frame.chrome {
+        place_preview::draw(frame, &mut scene);
         annotations::draw(frame, &mut scene);
         session::draw(frame, &mut scene);
         comment_draft::composer(frame, &mut scene);

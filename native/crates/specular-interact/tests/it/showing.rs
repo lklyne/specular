@@ -24,7 +24,8 @@ use specular_core::{Camera, Modifiers};
 use specular_doc::Rect;
 use specular_interact::panel::builtin::CHROME_HEIGHT;
 use specular_interact::{
-    Action, Effect, Focus, Hit, Key, Lens, PageNotice, Showing, hit_test, view_strip,
+    Action, Effect, Focus, Hit, Key, Lens, PageNotice, Showing, hit_test, named_controls,
+    view_strip,
 };
 use specular_testkit::{CMD, TestApp, document, file, note, page, pages, shape};
 
@@ -59,30 +60,84 @@ fn mixed() -> TestApp {
 }
 
 #[test]
-fn the_tabs_are_the_canvas_then_each_page_and_document_in_an_order_that_holds() {
+fn a_tab_is_opened_for_an_item_and_closed_without_touching_the_canvas() {
     let mut app = mixed();
-    let start = [
-        "view.canvas Canvas *",
+    app.with_panels();
+    let before = app.document().clone();
+    let open =
+        |app: &TestApp| (named_controls(app.app()).iter()).any(|id| id.as_str() == "view.open");
+    // Nothing has a tab until it is opened in one, and only one page or
+    // Document selected can be.
+    assert_eq!(tabs(&app), ["view.canvas Canvas *"]);
+    assert!(!open(&app));
+    for (selection, offered) in [
+        (&["s"][..], false),
+        (&["img"], false),
+        (&["p1", "p2"], false),
+        (&["n"], true),
+        (&["p1"], true),
+    ] {
+        app.select(selection);
+        assert_eq!(open(&app), offered, "{selection:?}");
+    }
+
+    app.click_control("view.open");
+    assert_eq!(app.app().showing(), Showing::Item("p1".into()));
+    assert!(!open(&app), "the item shown has its tab");
+    app.act(show("n")).act(show("p2"));
+    let all = [
+        "view.canvas Canvas",
         "view.item.p1 example.com",
         "view.item.n plan",
-        "view.item.p2 example.com",
+        "view.item.p2 example.com *",
     ];
-    assert_eq!(tabs(&app), start);
+    assert_eq!(tabs(&app), all);
 
-    // Neither the stack nor a move reorders them, and selecting on the
-    // canvas leaves the Canvas tab the active one.
-    app.select(&["p1"]).act(Action::BringToFront);
-    app.act(Action::Nudge {
-        dx: 2000.0,
-        dy: 0.0,
-    });
-    assert_eq!(tabs(&app), start);
+    // The tabs keep the order they were opened in: neither the stack nor
+    // showing one again reorders them.
+    app.act(Action::Show(Showing::Canvas));
+    app.select(&["p2"]).act(Action::SendToBack);
+    app.click_control("view.item.n");
+    assert_eq!(tabs(&app)[2], "view.item.n plan *");
+    assert_eq!(tabs(&app).len(), 4);
 
-    // A new page's tab goes last, and nothing switches to it.
-    app.act(Action::Duplicate);
-    let copy = app.selected().expect("the copy is selected").to_owned();
-    assert_eq!(tabs(&app)[4], format!("view.item.{copy} example.com"));
-    assert_eq!(app.app().showing(), Showing::Canvas);
+    // Closing a tab shows the one that takes its place, then the one
+    // before it, then the canvas, which stays.
+    let canvas = app.app().canvas_camera();
+    let mut shown = Vec::new();
+    for _ in 0..4 {
+        app.chord(CMD, Key::Char('w'));
+        shown.push(tabs(&app).join(", "));
+    }
+    assert_eq!(
+        shown,
+        [
+            "view.canvas Canvas, view.item.p1 example.com, view.item.p2 example.com *",
+            "view.canvas Canvas, view.item.p1 example.com *",
+            "view.canvas Canvas *",
+            "view.canvas Canvas *",
+        ]
+    );
+    assert_eq!(app.session().camera, canvas);
+
+    // A tab's own close button takes it away whichever tab is showing,
+    // and what is shown stays unless it was that one.
+    app.act(show("p1")).act(show("n")).act(show("p2"));
+    app.control("view.item.p1.close").expect("p1 has a tab");
+    assert_eq!(
+        tabs(&app)[1..],
+        ["view.item.n plan", "view.item.p2 example.com *"]
+    );
+    app.control("view.item.p2.close").expect("p2 has a tab");
+    assert_eq!(tabs(&app)[1..], ["view.item.n plan *"]);
+    app.control("view.item.n.close").expect("n has a tab");
+    assert_eq!(tabs(&app), ["view.canvas Canvas *"]);
+
+    // A closed tab's item is still on the canvas, and opens again.
+    app.undo();
+    assert_eq!(*app.document(), before);
+    app.act(show("n"));
+    assert_eq!(tabs(&app)[1], "view.item.n plan *");
 }
 
 #[test]
@@ -93,10 +148,10 @@ fn an_item_view_shows_one_item_fitted_and_hides_the_rest_from_presses() {
         .session()
         .camera
         .world_to_screen(Vec2::new(300.0, 250.0));
-    app.click_control("view.item.p2");
+    app.select(&["p2"]).click_control("view.open");
 
     assert_eq!(app.app().showing(), Showing::Item("p2".into()));
-    assert_eq!(tabs(&app)[3], "view.item.p2 example.com *");
+    assert_eq!(tabs(&app)[1], "view.item.p2 example.com *");
     assert_eq!(app.selected_ids(), ["p2"]);
     // The page fills what the chrome leaves at 100%, four pixels in from
     // each edge. Its stored size is kept.
@@ -172,7 +227,7 @@ fn an_item_view_whose_item_goes_falls_back_to_the_canvas() {
     app.act(show("p1")).key(Key::Escape).key(Key::Delete);
     assert_eq!(app.app().showing(), Showing::Canvas);
     assert_eq!(app.session().camera, canvas);
-    assert_eq!(tabs(&app).len(), 3);
+    assert_eq!(tabs(&app), ["view.canvas Canvas *"]);
 
     // Taken back by an undo while shown.
     let mut app = mixed();
@@ -196,10 +251,7 @@ fn a_canvas_switch_does_not_carry_an_item_view_across() {
     app.act(Action::SetCamera(home)).act(show("p1"));
     app.switch_to("Other");
     assert_eq!(app.app().showing(), Showing::Canvas);
-    assert_eq!(
-        tabs(&app),
-        ["view.canvas Canvas *", "view.item.p1 example.com"]
-    );
+    assert_eq!(tabs(&app), ["view.canvas Canvas *"]);
     app.switch_to("Home");
     assert_eq!(app.app().showing(), Showing::Canvas);
     assert_eq!(app.session().camera, home);
@@ -211,7 +263,7 @@ fn a_new_tab_is_a_page_in_a_free_spot_shown_with_the_caret_in_its_address() {
     app.with_panels().select(&["p1"]).click_control("view.add");
     let made = app.selected().expect("the new page is selected").to_owned();
     assert_eq!(app.app().showing(), Showing::Item(made.as_str().into()));
-    assert_eq!(tabs(&app)[4], format!("view.item.{made} Page *"));
+    assert_eq!(tabs(&app)[1], format!("view.item.{made} Page *"));
     // It is clear of everything else on the canvas.
     let rect = app.rect(&made);
     let clear = (app.document().entities())
@@ -270,6 +322,10 @@ fn next_and_previous_tab_go_round() {
         Showing::Canvas => "canvas".to_owned(),
         Showing::Item(item) => item.as_str().to_owned(),
     };
+    for item in ["p1", "n", "p2"] {
+        app.act(show(item)).key(Key::Escape);
+    }
+    app.act(Action::Show(Showing::Canvas));
     // Forward through every tab, pages entered on the way, and round.
     let mut forward = Vec::new();
     for _ in 0..4 {
@@ -376,6 +432,7 @@ fn a_page_tab_has_the_pages_icon_until_another_document_loads() {
         tab.and_then(|tab| tab.favicon.clone())
     };
     let png: std::sync::Arc<[u8]> = vec![0x89, b'P', b'N', b'G'].into();
+    app.act(show("p1")).act(show("p2")).act(show("n"));
     app.page_reports("p1", PageNotice::Url("https://example.com/a".into()))
         .page_reports("p1", PageNotice::Favicon(Some(png.clone())));
     assert_eq!(favicon(&app, "view.item.p1"), Some(png));

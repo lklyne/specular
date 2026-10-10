@@ -23,7 +23,7 @@ use super::named::mark;
 use crate::{canvas, shell, theme};
 
 /// How tall an address is: the bar's height less a margin above and below.
-const ADDRESS_HEIGHT: f32 = 28.0;
+const ADDRESS_HEIGHT: f32 = 36.0;
 
 /// A field being shown: the Kit's input, and the model it was made from.
 struct Held {
@@ -144,25 +144,46 @@ pub(super) fn input(model: &Field, address: bool, window: &mut Window, cx: &mut 
         });
     }
     let (id, label) = (model.id.clone(), model.label.to_string());
+    let focused = input.read(cx).focus_handle(cx).is_focused(window);
+    let ring = theme::solid(theme::focus_ring());
     div()
         .id(SharedString::from(model.id.as_str().to_owned()))
+        .relative()
         .w_full()
         // Escape drops what was typed before the input sees the key.
         .capture_action(move |_: &Escape, _, cx| end(&id, End::Cancel, cx))
-        .tooltip(crate::tip::view(label))
+        // An address says what it is with its placeholder.
+        .when(!address, |this| this.tooltip(crate::tip::view(label)))
         // An address is read and typed into more than a number is.
         .child(if address {
             // The Kit fills an input with the panel's colour, which is the
             // bar's own: an address is set into the bar with the input's.
+            // The Kit's ring is wider than the room the bar leaves an
+            // address, which shows its focus with its edge and a line
+            // around that.
             Input::new(&input)
                 .small()
                 .text_size(px(12.0))
                 .h(px(ADDRESS_HEIGHT))
+                .rounded_full()
+                .px_3()
                 .bg(theme::solid(theme::input()))
+                .focus_bordered(false)
+                .when(focused, |this| this.border_color(ring))
         } else if model.width == FieldWidth::Wide {
             Input::new(&input).small().text_size(px(12.0))
         } else {
             Input::new(&input).xsmall()
+        })
+        .when(address && focused, |this| {
+            this.child(
+                div()
+                    .absolute()
+                    .inset(px(-1.0))
+                    .rounded_full()
+                    .border_1()
+                    .border_color(ring.opacity(0.5)),
+            )
         })
         .child(mark(&model.id))
         .into_any_element()

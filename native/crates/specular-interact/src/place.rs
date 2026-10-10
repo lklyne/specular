@@ -15,7 +15,7 @@ use specular_doc::{
 };
 
 use crate::scroll_follow::Scrolls;
-use crate::{App, Effect, Tool, anchor, edit, geometry, grid, live};
+use crate::{App, Effect, Gesture, TextFrame, Tool, anchor, edit, geometry, grid, live, showing};
 
 /// A shape drag smaller than this on either axis, in canvas units, places
 /// the default size instead.
@@ -62,21 +62,99 @@ impl PlaceDrag {
     }
 }
 
+/// What `tool` places. `None` for a tool that places nothing.
+const fn placing(tool: Tool) -> Option<Placing> {
+    match tool {
+        Tool::AddPage => Some(Placing::Page),
+        Tool::AddText => Some(Placing::Text(TextStyle::Plain)),
+        Tool::AddSticky => Some(Placing::Text(TextStyle::Sticky)),
+        Tool::AddShape => Some(Placing::Shape),
+        Tool::AddDocument => Some(Placing::Document),
+        Tool::Select | Tool::Draw | Tool::Comment | Tool::Inspect => None,
+    }
+}
+
 /// A press at `world` with `tool`. `None` for a tool that places nothing.
 pub(crate) fn begin(tool: Tool, world: DVec2) -> Option<PlaceDrag> {
-    let what = match tool {
-        Tool::AddPage => Placing::Page,
-        Tool::AddText => Placing::Text(TextStyle::Plain),
-        Tool::AddSticky => Placing::Text(TextStyle::Sticky),
-        Tool::AddShape => Placing::Shape,
-        Tool::AddDocument => Placing::Document,
-        Tool::Select | Tool::Draw | Tool::Comment | Tool::Inspect => return None,
-    };
     Some(PlaceDrag {
-        what,
+        what: placing(tool)?,
         start: world,
         live: None,
     })
+}
+
+/// What a click with the tool in hand would make, where it would make it.
+/// It is drawn faded under the pointer, so an armed tool is seen to be
+/// armed and the landing spot is known before the press.
+#[derive(Debug, Clone, PartialEq)]
+pub enum PlacePreview {
+    /// A page, a text, a sticky or a shape, as the click makes it.
+    Entity(Box<Entity>),
+    /// A Document, which is only its rect until its file exists.
+    Document(Rect),
+}
+
+impl PlacePreview {
+    /// Where the entity's text is set, for one that has text.
+    pub fn text_frame(&self) -> Option<TextFrame> {
+        match self {
+            Self::Entity(entity) => edit::frame::of(entity, entity.rect),
+            Self::Document(_) => None,
+        }
+    }
+}
+
+/// The id of the entity a [`PlacePreview`] holds. It is never in the
+/// document.
+const PREVIEW_ID: &str = "place-preview";
+
+impl App {
+    /// What a click with the tool in hand would place under the pointer, or
+    /// a press that has not been released yet will. `None` with any other
+    /// tool, with the pointer off the canvas, once a shape is being dragged
+    /// out, and where the press would make nothing.
+    pub fn place_preview(&self) -> Option<PlacePreview> {
+        let tool = self.session.tool;
+        let what = placing(tool)?;
+        let start = match &self.session.gesture {
+            None => {
+                let pointer = self.session.pointer?;
+                if crate::panel::builtin::over(self) {
+                    return None;
+                }
+                let world = self.session.camera.screen_to_world(pointer).as_dvec2();
+                if showing::refuses(self, tool, world) {
+                    return None;
+                }
+                world
+            }
+            Some(Gesture::Place(drag)) if drag.live.is_none() => drag.start,
+            Some(
+                Gesture::Place(_)
+                | Gesture::Move(_)
+                | Gesture::Resize(_)
+                | Gesture::Marquee { .. }
+                | Gesture::Comment(_)
+                | Gesture::TextSelect(_)
+                | Gesture::EdgeDrag(_)
+                | Gesture::Line(_)
+                | Gesture::Draw(_),
+            ) => return None,
+        };
+        let at = DVec2::new(grid::snap(start.x), grid::snap(start.y));
+        Some(match what {
+            Placing::Document => PlacePreview::Document(geometry::rect(at, DEFAULT_DOCUMENT_SIZE)),
+            Placing::Page | Placing::Text(_) | Placing::Shape => {
+                let mut entity = default_entity(self, what, PREVIEW_ID.into(), at);
+                // A text is fitted to its text, which is empty, as soon as
+                // the click starts its edit.
+                if let Kind::Text(text) = &entity.kind {
+                    entity.rect = edit::fitted(self, entity.rect, text);
+                }
+                PlacePreview::Entity(Box::new(entity))
+            }
+        })
+    }
 }
 
 /// The rect a shape drag from `start` to `end` has reached, on the grid.
@@ -179,7 +257,12 @@ pub(crate) fn cancel(app: &mut App, drag: &PlaceDrag) {
 fn at_default_size(app: &mut App, drag: &PlaceDrag) -> Entity {
     let id = EntityId::from(app.fresh_id().as_str());
     let at = DVec2::new(grid::snap(drag.start.x), grid::snap(drag.start.y));
-    match drag.what {
+    default_entity(app, drag.what, id, at)
+}
+
+/// What `what` is at its default size with its top-left at `at`.
+fn default_entity(app: &App, what: Placing, id: EntityId, at: DVec2) -> Entity {
+    match what {
         // A Document is placed by the shell's answer, not from here.
         Placing::Page | Placing::Document => page(app, id, at),
         Placing::Text(style) => text(app, id, at, style),

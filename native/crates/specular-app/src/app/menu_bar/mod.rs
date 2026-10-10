@@ -30,14 +30,12 @@ pub(super) enum ShellCommand {
     RenameCanvas,
     /// Write unsaved changes now instead of when the autosave is due.
     Save,
-    /// Close the window, which ends the app.
-    Close,
     /// End the app.
     Quit,
 }
 
 /// The File menu: label, command and shortcut. `None` is a dividing line.
-const FILE_ITEMS: [Option<(&str, ShellCommand, Option<Chord>)>; 7] = [
+const FILE_ITEMS: [Option<(&str, ShellCommand, Option<Chord>)>; 5] = [
     Some((
         "Open space…",
         ShellCommand::OpenSpace,
@@ -47,8 +45,6 @@ const FILE_ITEMS: [Option<(&str, ShellCommand, Option<Chord>)>; 7] = [
     Some(("Save", ShellCommand::Save, Some(Chord::char('s').cmd()))),
     None,
     Some(("Rename canvas…", ShellCommand::RenameCanvas, None)),
-    None,
-    Some(("Close", ShellCommand::Close, Some(Chord::char('w').cmd()))),
 ];
 
 /// A native item for one `Action`.

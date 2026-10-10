@@ -49,7 +49,8 @@ save 07-first-canvas.canvas
 
 # a page's tab shows it alone at its own size, which writes nothing, and
 # the Canvas tab brings everything back where it was
-control view.item.page-desktop
+select page-desktop
+control view.open
 snapshot 08-page-tab.png
 save 08-page-tab.canvas
 

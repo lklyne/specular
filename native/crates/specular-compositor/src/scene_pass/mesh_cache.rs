@@ -99,8 +99,14 @@ impl MeshCache {
             }
             std::collections::hash_map::Entry::Vacant(empty) => {
                 self.counts.misses += 1;
+                // Built by hand: the tessellation zoom can round up past
+                // the largest zoom a camera may have, and `Camera::new`
+                // would clamp it.
                 let unpanned = ViewTransform {
-                    camera: Camera::new(Vec2::ZERO, zoom),
+                    camera: Camera {
+                        pan: Vec2::ZERO,
+                        zoom,
+                    },
                     ..*view
                 };
                 let mut tessellated = Mesh::new();

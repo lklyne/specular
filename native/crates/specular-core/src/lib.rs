@@ -22,6 +22,7 @@
 //! The canvas document is not here: it is `specular-doc`.
 
 pub mod camera;
+pub mod cursor;
 pub mod frame;
 pub mod geometry;
 pub mod input;
@@ -33,6 +34,7 @@ pub mod synthetic;
 pub mod text;
 
 pub use camera::{Camera, ViewportInputDelta};
+pub use cursor::Cursor;
 pub use frame::{
     CpuFrame, FrameEvent, FrameLayer, MAX_OUTSTANDING_TEXTURES, NativeSurface, PageFrame,
     PixelFormat, SharedTexture,

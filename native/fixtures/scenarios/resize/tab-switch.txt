@@ -2,7 +2,8 @@
 # six switches (Q6).
 # page
 wait 2500
-control view.item.probe
+select probe
+control view.open
 wait 600
 control view.canvas
 wait 600

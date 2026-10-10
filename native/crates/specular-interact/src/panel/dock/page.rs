@@ -165,7 +165,7 @@ fn address(app: &App, page: &Entity) -> Control {
         } else {
             url
         },
-        placeholder: Some("Type a URL".into()),
+        placeholder: Some("Search or type a URL".into()),
         width: FieldWidth::Wide,
         submit: FieldSubmit::PageUrl,
     })

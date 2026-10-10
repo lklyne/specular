@@ -145,6 +145,8 @@ pub(crate) fn open(window: &mut Window, cx: &mut App) {
             .w(px(560.0))
             .margin_top(px(96.0))
             .close_button(false)
+            // The list keeps its own inset, so the dialog's would double it.
+            .p_0()
             .child(view.clone())
     });
     state.update(cx, |state, cx| state.focus(window, cx));

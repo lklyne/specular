@@ -455,17 +455,16 @@ fn pages_in_a_scaled_selection_are_laid_out_as_it_scales() {
     app.assert_undo_returns_to_start();
 }
 
-// The cursor says which way a corner resizes.
+// The cursor says which way a handle resizes.
 
 #[test]
-fn the_cursor_follows_the_corner_under_the_pointer() {
+fn the_cursor_follows_the_handle_under_the_pointer() {
     let mut app = selected(shape("s", S));
     app.pointer_move(BOTTOM_RIGHT)
         .pointer_move((302.0, 202.0))
         .pointer_move(TOP_RIGHT)
         .pointer_move(TOP_LEFT)
         .pointer_move(BOTTOM_LEFT)
-        // A side handle has no arrow of its own: the plain cursor.
         .pointer_move(RIGHT)
         .pointer_move((200.0, 150.0));
     assert_eq!(
@@ -475,6 +474,7 @@ fn the_cursor_follows_the_corner_under_the_pointer() {
             Cursor::ResizeNesw,
             Cursor::ResizeNwse,
             Cursor::ResizeNesw,
+            Cursor::ResizeEw,
             Cursor::Default
         ]
     );

@@ -159,8 +159,8 @@ mod tests {
                 seen.push(shortcut);
             }
         }
-        // The shell's own: open, save, close and quit.
-        for character in ['o', 's', 'w', 'q'] {
+        // The shell's own: open, save and quit.
+        for character in ['o', 's', 'q'] {
             let shortcut = accelerator(Chord::char(character).cmd());
             assert!(shortcut.is_some_and(|shortcut| !seen.contains(&shortcut)));
         }

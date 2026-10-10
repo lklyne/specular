@@ -222,6 +222,9 @@ fn named(app: &App) -> Vec<Named> {
     let strip = view_strip(app);
     for tab in &strip.tabs {
         out.push(run(&tab.id, &tab.action, true, true, &plain));
+        if let Some(close) = &tab.close {
+            out.push(run(&tab.id.child("close"), close, true, true, &plain));
+        }
     }
     out.push(run(&strip.add.id, &strip.add.action, true, true, &plain));
     let bar = toolbar(app);

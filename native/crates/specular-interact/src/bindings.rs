@@ -306,6 +306,13 @@ pub const BINDINGS: &[Binding] = &[
     // otherwise be sent them. While text is edited the arrows are the
     // editor's.
     once(Chord::char('t').cmd(), Context::Always, Action::NewPageTab),
+    // Only ever a tab's key: on the Canvas tab it does nothing, and the
+    // window stays.
+    once(
+        Chord::char('w').cmd(),
+        Context::Always,
+        Action::CloseTab(None),
+    ),
     once(
         Chord::key(Key::ArrowRight).cmd().alt(),
         Context::Canvas,
@@ -335,8 +342,6 @@ pub const BINDINGS: &[Binding] = &[
 pub enum ShellCommand {
     /// Quits.
     Quit,
-    /// Closes the window.
-    CloseWindow,
     /// Opens another space.
     OpenSpace,
     /// Opens a canvas file.
@@ -361,7 +366,6 @@ impl ShellCommand {
     pub const fn label(self) -> &'static str {
         match self {
             Self::Quit => "Quit",
-            Self::CloseWindow => "Close window",
             Self::OpenSpace => "Open space",
             Self::OpenCanvas => "Open",
             Self::Save => "Save",
@@ -378,7 +382,6 @@ impl ShellCommand {
 /// and a text field included, so none may be a chord of [`BINDINGS`].
 pub const SHELL_KEYS: &[(Chord, ShellCommand)] = &[
     (Chord::char('q').cmd(), ShellCommand::Quit),
-    (Chord::char('w').cmd(), ShellCommand::CloseWindow),
     (Chord::char('o').cmd().shift(), ShellCommand::OpenSpace),
     (Chord::char('o').cmd(), ShellCommand::OpenCanvas),
     (Chord::char('s').cmd(), ShellCommand::Save),

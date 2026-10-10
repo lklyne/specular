@@ -26,7 +26,7 @@ Specular Native.app/Contents/
   MacOS/Specular Native                             the `specular` binary
   Frameworks/Chromium Embedded Framework.framework  from CEF_PATH
   Frameworks/Specular Native Helper.app             and (GPU), (Renderer), (Plugin), (Alerts)
-  Resources/icon.icns                               build/icon.icns, the Electron app's icon
+  Resources/Assets.car, AppIcon.icns                compiled from specular-shell/assets/AppIcon.icon
   Resources/starter-space/                          resources/starter-space
 ```
 

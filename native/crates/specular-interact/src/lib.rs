@@ -136,7 +136,7 @@ pub use edit::{
     SourceSpan, SourceStyle, StackCache, TITLE_GAP, TITLE_LINE, TITLE_SIZE, TextEdit, TextFrame,
     TextLayout, TextMeasure, TextSelectDrag, TextSpec, note_frame, source_rows, style_lines,
 };
-pub use effect::{Cursor, Effect};
+pub use effect::Effect;
 pub use event::{Action, CanvasAction, Event, Key, KeyInput, PageNotice, PointerInput, WheelInput};
 pub use first_run::{OnboardingModel, SpaceAction, SpaceAsk, SpaceChoice, onboarding};
 pub use geometry::{ScreenRect, to_canvas_rect};
@@ -168,7 +168,7 @@ pub use panel::{
     dock, named_controls, tool_options, toolbar, view_strip,
 };
 pub use physical_key::{PhysicalKey, mac_key_input};
-pub use place::{PlaceDrag, Placing};
+pub use place::{PlaceDrag, PlacePreview, Placing};
 pub use placement::PagePlacement;
 pub use property::{Orientation, Property};
 pub use repos::{BoundOriginRow, RepoAction, RepoRow, ReposPane, repos_pane};
@@ -196,6 +196,7 @@ pub use specular_agent::{
     Progress, ProgressKind, Repos, Role as ThreadRole, RunRequest, RunState,
     Status as ThreadStatus, Thread, ThreadId, Threads, WriteTarget, origin_of,
 };
+pub use specular_core::Cursor;
 pub use theme::{Appearance, Theme, ThemeState};
 pub use time::iso8601;
 pub use tool::Tool;

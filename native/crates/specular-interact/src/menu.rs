@@ -153,11 +153,13 @@ pub fn menus(app: &App) -> Vec<Menu> {
     ]
 }
 
-/// The Page menu: a new page in its own tab, then what the page in the dock
+/// The Page menu: a new page in its own tab, closing the tab showing, then
+/// what the page in the dock
 /// can be asked.
 fn page_entries(app: &App) -> Vec<MenuEntry> {
     vec![
         MenuEntry::Item(item(app, "New page tab", Action::NewPageTab)),
+        MenuEntry::Item(item(app, "Close tab", Action::CloseTab(None))),
         page_item(app, "Edit address", Action::EditPageUrl),
         MenuEntry::Separator,
         page_item(app, "Back", Action::PageBack),
@@ -244,6 +246,8 @@ pub(crate) fn has_target(app: &App, action: &Action) -> bool {
         Action::AutoLayout => {
             groups::lone_group(app).is_some() || selection.entities().nth(1).is_some()
         }
+        Action::CloseTab(None) => app.shown_item().is_some(),
+        Action::CloseTab(Some(item)) => app.session.tabs.order.contains(item),
         Action::SelectAll | Action::ZoomToFit => app.document.entities().next().is_some(),
         // Choosing the canvas already showing is harmless, and its item
         // has to stay enabled to keep its check mark readable.
