@@ -25,6 +25,9 @@ const CONTROL_POLL: Duration = Duration::from_millis(40);
 /// How often a `pan` scrolls: a 120 Hz display's refresh.
 const REFRESH: Duration = Duration::from_micros(8333);
 
+/// How far inside the content's bottom-right corner a `resize-drag` presses.
+const RESIZE_INSET: f32 = 2.0;
+
 thread_local! {
     /// The modifier flags `hold` set for the pointer steps after it.
     static HELD: Cell<usize> = const { Cell::new(0) };
@@ -222,6 +225,27 @@ async fn pointer(step: Do, cx: &AsyncApp) -> Result<(), String> {
                 cx.background_executor().timer(REFRESH).await;
             }
         }
+        Do::ResizeDrag(by, ms) => {
+            let (width, height) = super::content_size().ok_or("there is no window")?;
+            // Just inside the corner, where AppKit takes a press as the
+            // start of a resize.
+            let from = Vec2::new(width as f32, height as f32) - Vec2::splat(RESIZE_INSET);
+            point(from);
+            mouse(LEFT_DOWN, from, 1);
+            DOWN.set(true);
+            let span = Duration::from_millis(ms.max(1));
+            let started = Instant::now();
+            loop {
+                let done = (started.elapsed().as_secs_f32() / span.as_secs_f32()).min(1.0);
+                mouse(DRAGGED, from + by * done, 0);
+                if done >= 1.0 {
+                    break;
+                }
+                cx.background_executor().timer(REFRESH).await;
+            }
+            mouse(LEFT_UP, from + by, 1);
+            DOWN.set(false);
+        }
         Do::Pinch(delta) => {
             let at = POINTER.get();
             let (x, y) = (f64::from(at.x), f64::from(at.y));
@@ -263,6 +287,7 @@ pub(super) async fn step(
         | Do::Drag(..)
         | Do::Scroll(..)
         | Do::Pan(..)
+        | Do::ResizeDrag(..)
         | Do::Pinch(_)) => pointer(step, cx).await?,
         Do::Hold(held) => HELD.set(held),
         Do::Key {

@@ -30,6 +30,8 @@ mod pins;
 #[cfg(target_os = "macos")]
 mod refresh;
 #[cfg(target_os = "macos")]
+mod resize_trace;
+#[cfg(target_os = "macos")]
 mod settings;
 #[cfg(target_os = "macos")]
 mod settings_repos;
@@ -63,6 +65,7 @@ fn main() {
     let application = gpui_kit::application().with_assets(assets::ShellAssets);
     application.on_open_urls(|urls| spaces::opened_from_finder(&urls));
     application.run(move |cx| {
+        resize_trace::start();
         gpui_kit::init(cx);
         theme::load_fonts(cx);
         theme::apply(specular_interact::Appearance::Light, cx);

@@ -113,7 +113,11 @@ unsafe extern "C-unwind" fn pump(_timer: *mut CFRunLoopTimer, _info: *mut c_void
         return;
     }
     match STATE.load(Ordering::Acquire) {
-        RUNNING => cef::do_message_loop_work(),
+        RUNNING => {
+            let started = specular_core::ledger::now_us();
+            cef::do_message_loop_work();
+            specular_core::ledger::pump(started);
+        }
         STOP_REQUESTED => {
             crate::source::stop_cef();
             STATE.store(STOPPED, Ordering::Release);

@@ -31,6 +31,7 @@
 //! | `keys shift+cmd CODE [CHARS]` | the same with any modifiers |
 //! | `pan DX DY MS` | a scroll by that much every refresh for that long, where the pointer is |
 //! | `drop PATH.. X Y`, `drop PATH.. nowhere` | files dropped at a point, or off the canvas |
+//! | `resize-drag DX DY MS` | the window's bottom-right corner pressed, dragged by that much over that long with a move every refresh, and released: `AppKit`'s own live resize, which `resize` is not |
 //! | `resize W H` | the window's content resized, its top-left corner kept |
 //! | `window-to X Y` | the window moved, its frame's corner to that screen point |
 //! | `full-screen` | into full screen, or back out |
@@ -82,6 +83,11 @@ fn window_facts() -> Option<(isize, f64)> {
         Some((native.window_number(), native.content_size().1))
     })
     .flatten()
+}
+
+/// The content's size in points.
+fn content_size() -> Option<(f64, f64)> {
+    canvas::with(|canvas| Some(canvas.runtime.window()?.native().content_size())).flatten()
 }
 
 /// The script the environment names: its steps as written, and whether the
@@ -139,11 +145,15 @@ pub(crate) fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
                 return;
             }
         };
-        for (text, step) in steps {
+        for (at, (text, step)) in steps.into_iter().enumerate() {
             let quits = step == Do::Quit;
             let waits = matches!(step, Do::Wait(_));
+            if !waits {
+                specular_core::ledger::record(specular_core::ledger::Entry::Step(at as u32));
+            }
             if let Err(error) = run::step(step, window, cx).await {
                 fail(&format!("script step `{text}`: {error}"));
+                specular_core::ledger::flush();
                 cx.update(shell::begin_exit);
                 return;
             }
@@ -154,6 +164,7 @@ pub(crate) fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
                 cx.background_executor().timer(SETTLE).await;
             }
         }
+        specular_core::ledger::flush();
         if dialect == Dialect::File {
             cx.update(shell::begin_exit);
         }

@@ -1,0 +1,16 @@
+# The canvas at the zoom it opens at, to the probe page's Fill tab and back,
+# six switches (Q6).
+# page
+wait 2500
+control view.item.probe
+wait 600
+control view.canvas
+wait 600
+control view.item.probe
+wait 600
+control view.canvas
+wait 600
+control view.item.probe
+wait 600
+control view.canvas
+wait 600

@@ -1,0 +1,7 @@
+# A fast live resize on both axes with no page on the canvas: how far the
+# canvas layer trails the window on its own (docs/plans/page-resize-jank.md, Q1).
+wait 2000
+resize-drag -400 -250 1200
+wait 500
+resize-drag 400 250 1200
+wait 500

@@ -64,6 +64,9 @@ pub(super) enum Do {
     /// A scroll by this much every refresh for this many milliseconds,
     /// where the pointer is: a pan to read the frame log under.
     Pan(Vec2, u64),
+    /// The window's bottom-right corner dragged by this much over this many
+    /// milliseconds, a move every refresh: a live resize.
+    ResizeDrag(Vec2, u64),
     /// A trackpad pinch where the pointer is.
     Pinch(f32),
     Act(Action),
@@ -209,6 +212,9 @@ fn window_step(verb: &str, rest: &str, dialect: Dialect) -> Option<Result<Do, St
         "pan" => point(0)
             .zip(number(2))
             .map(|(by, ms)| Do::Pan(by, ms as u64)),
+        "resize-drag" => point(0)
+            .zip(number(2))
+            .map(|(by, ms)| Do::ResizeDrag(by, ms as u64)),
         "key" if dialect == Dialect::Inline && number(0).is_some() => coded(0, 0),
         "keycode" => coded(0, 0),
         "cmd-key" => coded(COMMAND, 0),
@@ -369,6 +375,10 @@ mod tests {
             ),
             ("resize 1200 800", Do::Resize(Vec2::new(1200.0, 800.0))),
             ("pan -6 0 2000", Do::Pan(Vec2::new(-6.0, 0.0), 2000)),
+            (
+                "resize-drag -400 -250 1200",
+                Do::ResizeDrag(Vec2::new(-400.0, -250.0), 1200),
+            ),
             (
                 "window-to -1700 200",
                 Do::MoveWindow(Vec2::new(-1700.0, 200.0)),

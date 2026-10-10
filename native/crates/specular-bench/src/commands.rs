@@ -228,6 +228,32 @@ pub(crate) fn rss(args: &Args) -> anyhow::Result<String> {
     Ok(serde_json::to_string_pretty(&sample)?)
 }
 
+/// `resize-report <ledger.jsonl>...`: a JSON line for each resize ledger,
+/// then one table of them.
+pub(crate) fn resize_report(args: &Args) -> anyhow::Result<String> {
+    use specular_bench::resize_report::{parse, summarize, table};
+
+    if args.positionals().is_empty() {
+        anyhow::bail!("usage: specular-bench resize-report <ledger.jsonl>...");
+    }
+    let mut summaries = Vec::new();
+    for path in args.positionals() {
+        let text = std::fs::read_to_string(path).with_context(|| format!("reading {path}"))?;
+        let events = parse(&text).with_context(|| format!("{path} is not a resize ledger"))?;
+        let name = std::path::Path::new(path).file_stem();
+        let name = name.map_or_else(|| path.clone(), |stem| stem.to_string_lossy().into_owned());
+        summaries.push(summarize(&name, &events));
+    }
+    let mut out = String::new();
+    for summary in &summaries {
+        out.push_str(&serde_json::to_string(summary)?);
+        out.push('\n');
+    }
+    out.push('\n');
+    out.push_str(&table(&summaries));
+    Ok(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

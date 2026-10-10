@@ -1,0 +1,10 @@
+# The same drag with the probe page alone in its tab, in the Fill lens, so
+# the page is asked for a new size at every step (Q2, Q3, Q5).
+# page
+wait 2500
+control view.item.probe
+wait 1500
+resize-drag -400 -250 1200
+wait 500
+resize-drag 400 250 1200
+wait 500

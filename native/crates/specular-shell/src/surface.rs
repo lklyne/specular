@@ -165,6 +165,11 @@ impl CanvasSurface {
         resized
     }
 
+    /// The size the surface is configured at, in pixels.
+    pub(crate) fn pixel_size(&self) -> specular_core::PixelSize {
+        specular_core::PixelSize::new(self.config.width, self.config.height)
+    }
+
     /// The slot's corner in the window, in points.
     pub(crate) fn slot_origin(&self) -> Vec2 {
         self.slot_origin
@@ -261,7 +266,13 @@ impl ShellWindow for CanvasSurface {
         scene: &mut Scene,
         page_of: PageOf<'_>,
     ) -> Option<SceneStats> {
-        let frame = match self.surface.get_current_texture() {
+        let asked_at = specular_core::ledger::now_us();
+        let acquired = self.surface.get_current_texture();
+        if specular_core::ledger::enabled() {
+            let waited = specular_core::ledger::now_us().saturating_sub(asked_at);
+            specular_core::ledger::note_acquire(waited);
+        }
+        let frame = match acquired {
             wgpu::CurrentSurfaceTexture::Success(frame) => frame,
             wgpu::CurrentSurfaceTexture::Suboptimal(frame) => {
                 self.surface.configure(&self.context.device, &self.config);

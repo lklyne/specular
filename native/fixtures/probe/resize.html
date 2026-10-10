@@ -1,0 +1,47 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Resize probe</title>
+<!--
+  A page that paints its own size where a pixel scan can read it
+  (docs/plans/page-resize-jank.md).
+  - a 4 px magenta bar on the right edge and a 4 px cyan bar on the bottom
+    edge: the page's idea of its width and height as a pixel position, and a
+    stretched frame shows as a bar that is not 4 px
+  - sixteen cells at the top-left holding a requestAnimationFrame counter in
+    binary, lowest bit first, white for 1: two frames can be told apart
+  - a 16 px checkerboard: scaling shows as moire, a bare strip as flat colour
+-->
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  body {
+    background-color: #e8e8e8;
+    background-image: conic-gradient(#bdbdbd 25%, #0000 0 50%, #bdbdbd 0 75%, #0000 0);
+    background-size: 32px 32px;
+  }
+  #right { position: fixed; top: 0; right: 0; bottom: 0; width: 4px; background: #ff00ff; }
+  #bottom { position: fixed; left: 0; right: 0; bottom: 0; height: 4px; background: #00ffff; }
+  #count { position: fixed; top: 8px; left: 8px; display: flex; border: 2px solid #f00; }
+  #count i { width: 12px; height: 12px; background: #000; }
+  #count i.on { background: #fff; }
+  #size { position: fixed; top: 32px; left: 8px; font: 14px ui-monospace, monospace;
+          background: #fff; padding: 2px 4px; }
+</style>
+<div id="right"></div>
+<div id="bottom"></div>
+<div id="count"></div>
+<div id="size"></div>
+<script>
+  const count = document.getElementById('count');
+  const size = document.getElementById('size');
+  const cells = Array.from({ length: 16 }, () => count.appendChild(document.createElement('i')));
+  let frame = 0;
+  const show = () => { size.textContent = innerWidth + ' x ' + innerHeight + ' @' + devicePixelRatio; };
+  addEventListener('resize', show);
+  show();
+  const step = () => {
+    frame = (frame + 1) & 0xffff;
+    cells.forEach((cell, bit) => cell.classList.toggle('on', (frame >> bit) & 1));
+    requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+</script>

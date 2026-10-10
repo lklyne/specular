@@ -29,6 +29,9 @@ usage: specular-bench <command> [args]
                   interactive session's inputLatency line) into a report.
   rss             --pid N [--peak-ms N | --per-process true]
                   Footprint (macOS) and RSS of a process and its descendants.
+  resize-report   <ledger.jsonl>...
+                  One JSON line a resize ledger (SPECULAR_RESIZE_TRACE),
+                  then a table of them all.
 ";
 
 fn main() -> anyhow::Result<()> {
@@ -41,6 +44,7 @@ fn main() -> anyhow::Result<()> {
         "electron-trace" => commands::electron_trace(&args)?,
         "assemble" => commands::assemble(&args)?,
         "rss" => commands::rss(&args)?,
+        "resize-report" => commands::resize_report(&args)?,
         "help" | "-h" | "--help" => USAGE.to_owned(),
         other => bail!("unknown command `{other}`\n\n{USAGE}"),
     };

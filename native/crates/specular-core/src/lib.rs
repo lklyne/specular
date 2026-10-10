@@ -11,6 +11,8 @@
 //!   CPU BGRA bytes), plus popup layers.
 //! - [`input`] — [`InputEvent`]: pointer / wheel / key / IME events forwarded
 //!   into a page, in page-local CSS pixels.
+//! - [`ledger`]: the resize ledger, an event log that is off unless the
+//!   environment asks for it.
 //! - [`source`] — the [`PageSource`] trait every page backend implements.
 //! - [`text`]: how text is set, and the [`TextMeasure`](text::TextMeasure)
 //!   the renderer implements for the editor.
@@ -23,6 +25,7 @@ pub mod camera;
 pub mod frame;
 pub mod geometry;
 pub mod input;
+pub mod ledger;
 pub mod locator;
 pub mod page;
 pub mod source;

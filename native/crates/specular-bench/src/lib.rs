@@ -31,6 +31,7 @@ pub mod memory;
 pub mod profile;
 pub mod recorder;
 pub mod report;
+pub mod resize_report;
 pub mod stats;
 pub mod textures;
 pub mod work;

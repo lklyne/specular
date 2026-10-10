@@ -35,6 +35,11 @@ impl Args {
         self.positionals.get(index).map(String::as_str)
     }
 
+    /// Every positional.
+    pub(crate) fn positionals(&self) -> &[String] {
+        &self.positionals
+    }
+
     /// Raw value of `--name`.
     pub(crate) fn flag(&self, name: &str) -> Option<&str> {
         self.flags.get(name).map(String::as_str)

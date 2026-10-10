@@ -60,6 +60,8 @@ mod pump_timer;
 mod source;
 #[cfg(feature = "cef")]
 mod sync_host;
+#[cfg(feature = "cef")]
+mod trace;
 
 pub use config::{CefConfig, Pump};
 #[cfg(feature = "cef")]
