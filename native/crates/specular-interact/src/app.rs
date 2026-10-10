@@ -237,12 +237,9 @@ pub struct Session {
     /// The page whose tab is pressed and not yet clicked: its host is laid
     /// out for the tab ahead of the click. Nothing drawn follows it.
     pub(crate) prepared: Option<EntityId>,
-    /// The item tabs of the active canvas: their order, and the lens and
-    /// the Canvas-lens camera each keeps.
+    /// The item tabs of the active canvas: their order and the lens each
+    /// keeps.
     pub(crate) tabs: crate::showing::Tabs,
-    /// Whether the eye is shut: an item view draws its item and nothing
-    /// else. One choice for every tab and canvas.
-    pub(crate) others_hidden: bool,
     /// The group stepped into by a double click. It stays while the
     /// selection is inside it, and Escape steps out of it.
     pub entered_group: Option<EntityId>,

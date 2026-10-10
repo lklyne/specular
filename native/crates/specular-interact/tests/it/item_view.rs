@@ -1,6 +1,6 @@
 //! Living in an item view through the Fill lens, which a tab starts in:
 //! the page shown is entered, and what is made there lands on it. The other
-//! lenses and the eye are in `lens.rs`.
+//! lenses are in `lens.rs`.
 //!
 //! Each test names the change that breaks it:
 //! - entered: dropping `set_focus` from `showing::show` leaves the wheel
@@ -256,7 +256,7 @@ fn a_document_fills_its_tab_as_a_reading_column_and_its_rect_is_not_written() {
     app.drag(corner, corner + Vec2::new(-80.0, -80.0));
     assert_eq!(app.rect("n"), stored);
 
-    // Device shows the card the canvas has, fitted, with its handles.
+    // Device shows the card the canvas has, fitted, and no handles either.
     app.act(Action::SetLens(Lens::Device));
     assert_eq!(shown_rect(app.app(), app.entity("n")), Some(stored));
     assert_eq!(wrap(&app), Some(300.0 - 24.0));
@@ -265,7 +265,7 @@ fn a_document_fills_its_tab_as_a_reading_column_and_its_rect_is_not_written() {
         centre.abs_diff_eq(Vec2::new(500.0, 400.0), 1e-2),
         "{centre}"
     );
-    assert_eq!(app.app().handle_target().map(|it| it.1), Some(stored));
+    assert_eq!(app.app().handles(), None);
 
     app.act(Action::Show(Showing::Canvas));
     assert_eq!(shown_rect(app.app(), app.entity("n")), Some(stored));

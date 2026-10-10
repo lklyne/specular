@@ -128,3 +128,12 @@ A new reader outside this list is the drift ADR 0020 describes. Add it here or f
 - Undoing a new tab goes to the canvas, also when another tab was showing before it.
 - Command+Option+Right and Left are not bound while text is edited, where they stay the editor's line start and line end.
 - Past about 33 tabs in a 1280 px window the tabs are at their least width and the rest are not drawn. There is no overflow menu.
+
+## Amendment, 2026-10-10
+
+The item view is camera and size management over the one canvas, and nothing more. Two parts of it were more than that and are gone.
+
+- **The Canvas lens is removed.** It was a second canvas inside the item view, with a camera the tab kept. Lenses are Fill and Device, and in an item view the camera is always held on the item. Nothing is kept per tab but the lens.
+- **The eye is removed.** Fill keeps its rule (only the item and what follows one of its elements is seen and can be made). Device sees and makes everything by the canvas's rules.
+- **The item shown has no selection chrome.** In Fill and Device it draws no outline and no resize handles, and its handles cannot be hit.
+- **Leaving centres the item at the canvas zoom.** Minimize, the Canvas tab and closing the tab showing keep the zoom the canvas had and centre the item's stored rect (with its device frame) in the free part of the viewport, so the item shrinks in place. If the item is gone the canvas gets its camera back unchanged. Closing the tab showing goes to the canvas.

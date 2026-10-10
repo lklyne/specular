@@ -29,16 +29,10 @@ pub(super) const ROTATE_CW: Glyph = lucide(&[line(
 pub(super) const FOLDER_CODE: Glyph = lucide(&[line(
     "M10 10.5 8 13l2 2.5M14 10.5l2 2.5-2 2.5M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z",
 )]);
-/// `eye`.
-pub(super) const EYE: Glyph = lucide(&[line(
-    "M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0",
-)]);
-/// `eye-off`.
-pub(super) const EYE_OFF: Glyph = lucide(&[line(
-    "M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49M14.084 14.158a3 3 0 0 1-4.242-4.242M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143M2 2l20 20",
-)]);
 /// `maximize-2`.
 pub(super) const MAXIMIZE: Glyph = lucide(&[line("M15 3h6v6M21 3l-7 7M3 21l7-7M9 21H3v-6")]);
+/// `minimize-2`.
+pub(super) const MINIMIZE: Glyph = lucide(&[line("M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7")]);
 /// `x`.
 pub(super) const X: Glyph = lucide(&[line("M18 6L6 18M6 6l12 12")]);
 /// `check`.

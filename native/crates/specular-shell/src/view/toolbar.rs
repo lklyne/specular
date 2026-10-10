@@ -327,7 +327,7 @@ pub(super) fn zoom(model: &ToolbarModel) -> Option<AnyElement> {
     })
 }
 
-/// The lens and the eye of the tab showing, for the end of the dock's bar.
+/// Minimize and the lenses of the tab showing, for the end of the dock's bar.
 pub(super) fn lens(model: &ToolbarModel, window: &mut Window, cx: &mut App) -> Vec<AnyElement> {
     (model.view.iter())
         .map(|model| control(model, window, cx))

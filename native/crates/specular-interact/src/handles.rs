@@ -143,13 +143,13 @@ pub enum HandleOwner {
 
 impl App {
     /// The selected entity and its rect, when exactly one entity is selected.
-    /// An item that fills its tab is not laid out at its stored rect, so it
-    /// has nothing to resize.
+    /// The item shown in a tab is the whole view, so it has nothing to
+    /// resize.
     pub fn handle_target(&self) -> Option<(&EntityId, Rect)> {
         let entity = self
             .document
             .entity(self.session.selection.single_entity()?)?;
-        if crate::showing::presented_rect(self, entity).is_some() {
+        if self.shown_item() == Some(&entity.id) {
             return None;
         }
         Some((&entity.id, crate::shown_rect(self, entity)?))

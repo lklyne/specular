@@ -24,7 +24,7 @@ pub(crate) fn items(app: &mut App, select: Vec<ItemId>, focus: &ItemId, effects:
             ItemId::Edge(_) => false,
         };
         if hidden(focus) {
-            showing::leave(app);
+            showing::restore(app);
         }
         app.session.selection.set(select);
         drop_dangling(app, effects);
@@ -41,7 +41,7 @@ pub(crate) fn items(app: &mut App, select: Vec<ItemId>, focus: &ItemId, effects:
 pub(crate) fn comment(app: &mut App, id: &AnnotationId, effects: &mut Vec<Effect>) {
     verb(app, effects, |app, effects| {
         if (app.document.annotation(id)).is_some_and(|it| showing::comment_out_of_reach(app, it)) {
-            showing::leave(app);
+            showing::restore(app);
         }
         comment::focus(app, Some(id), effects);
         if app.session.focused_comment.as_ref() != Some(id) {

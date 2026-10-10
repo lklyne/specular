@@ -71,7 +71,7 @@ pub(crate) fn open(app: &mut App, opened: OpenedSpace, effects: &mut Vec<Effect>
     edit::discard(app, effects);
     comment::forget(app);
     set_focus(app, None, effects);
-    crate::showing::leave(app);
+    crate::showing::restore(app);
     app.session.tabs = crate::showing::Tabs::default();
 
     let OpenedSpace {
@@ -380,7 +380,7 @@ fn leave(app: &mut App, effects: &mut Vec<Effect>) {
     }
     comment::forget(app);
     set_focus(app, None, effects);
-    crate::showing::leave(app);
+    crate::showing::restore(app);
     if app.history.revision() != revision {
         effects.push(Effect::WriteCanvas(app.space.active().id.clone()));
     }

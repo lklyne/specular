@@ -159,7 +159,6 @@ const fn lens_words(lens: Lens) -> (&'static str, &'static str, &'static str) {
     match lens {
         Lens::Fill => ("fill", "Fill", "Fill the window"),
         Lens::Device => ("device", "Device", "Device size, fitted to the window"),
-        Lens::Canvas => ("canvas", "Canvas", "On the canvas, free to pan and zoom"),
     }
 }
 
@@ -177,12 +176,20 @@ fn open_tab(app: &App) -> Option<Control> {
     }))
 }
 
-/// The lens of the tab showing and the eye. On the Canvas tab, the button
+/// Minimize and the lens of the tab showing. On the Canvas tab, the button
 /// that opens the item selected in a tab, or nothing.
 fn view_controls(app: &App) -> Vec<Control> {
     let Some(now) = app.lens() else {
         return open_tab(app).into_iter().collect();
     };
+    let minimize = Control::Button(Button {
+        id: ControlId::new("view.minimize"),
+        label: "Minimize".into(),
+        face: Face::icon(Icon::Minimize),
+        enabled: true,
+        chord: None,
+        action: Action::Show(Showing::Canvas),
+    });
     let id = ControlId::new("view.lens");
     let lenses = Lens::ALL.into_iter().map(|lens| {
         let (name, word, hint) = lens_words(lens);
@@ -196,24 +203,7 @@ fn view_controls(app: &App) -> Vec<Control> {
             action: Action::SetLens(lens),
         })
     });
-    let open = app.shows_others();
-    let eye = Toggle {
-        id: ControlId::new("view.others"),
-        label: if open {
-            "Hide other items"
-        } else {
-            "Show other items"
-        }
-        .into(),
-        face: Face::icon(if open { Icon::Eye } else { Icon::EyeOff }),
-        on: open,
-        enabled: true,
-        chord: None,
-        action: Action::ShowOthers(!open),
-    };
-    lenses
-        .chain([Control::Separator, Control::Toggle(eye)])
-        .collect()
+    std::iter::once(minimize).chain(lenses).collect()
 }
 
 /// The toolbar for `app` as it is now.

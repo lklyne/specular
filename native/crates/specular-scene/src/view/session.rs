@@ -50,8 +50,8 @@ pub(crate) fn draw(frame: &Frame<'_>, scene: &mut Scene) {
         .chain(session.hover.as_ref().filter(|_| session.gesture.is_none()))
         .filter(|id| !selected(id))
         .chain(session.selection.entities())
-        // A page that fills the view is the only thing there to select.
-        .filter(|id| app.fill_corner_radius(id).is_none());
+        // The item shown is the whole view: it has no selection outline.
+        .filter(|id| app.shown_item() != Some(id));
     for id in outlined {
         if let Some(entity) = app.document().entity(id)
             && let Some(seen) = specular_interact::shown_rect(app, entity)

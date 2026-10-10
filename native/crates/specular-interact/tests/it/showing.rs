@@ -7,7 +7,8 @@
 //!   `scroll_follow::seen` lets a press reach a hidden page. A tab starts in
 //!   the Fill lens, which is what these show; `lens.rs` has the others.
 //! - the round trip: writing the fitted camera without keeping the canvas's
-//!   loses it, and saving `session.camera` puts the fitted one on disk.
+//!   loses its zoom, and saving `session.camera` puts the fitted one on
+//!   disk.
 //! - the fallback: dropping the gone-item check from `showing::settle`
 //!   leaves the window showing nothing.
 //! - the switch: dropping `showing::leave` from the space's `leave` carries
@@ -101,24 +102,21 @@ fn a_tab_is_opened_for_an_item_and_closed_without_touching_the_canvas() {
     assert_eq!(tabs(&app)[2], "view.item.n plan *");
     assert_eq!(tabs(&app).len(), 4);
 
-    // Closing a tab shows the one that takes its place, then the one
-    // before it, then the canvas, which stays.
-    let canvas = app.app().canvas_camera();
-    let mut shown = Vec::new();
-    for _ in 0..4 {
+    // Closing the tab showing shows the canvas. The canvas tab stays.
+    for _ in 0..2 {
         app.chord(CMD, Key::Char('w'));
-        shown.push(tabs(&app).join(", "));
+        assert_eq!(
+            tabs(&app),
+            [
+                "view.canvas Canvas *",
+                "view.item.p1 example.com",
+                "view.item.p2 example.com"
+            ]
+        );
     }
-    assert_eq!(
-        shown,
-        [
-            "view.canvas Canvas, view.item.p1 example.com, view.item.p2 example.com *",
-            "view.canvas Canvas, view.item.p1 example.com *",
-            "view.canvas Canvas *",
-            "view.canvas Canvas *",
-        ]
-    );
-    assert_eq!(app.session().camera, canvas);
+    app.control("view.item.p1.close").expect("p1 has a tab");
+    app.control("view.item.p2.close").expect("p2 has a tab");
+    assert_eq!(tabs(&app), ["view.canvas Canvas *"]);
 
     // A tab's own close button takes it away whichever tab is showing,
     // and what is shown stays unless it was that one.
@@ -129,7 +127,8 @@ fn a_tab_is_opened_for_an_item_and_closed_without_touching_the_canvas() {
         ["view.item.n plan", "view.item.p2 example.com *"]
     );
     app.control("view.item.p2.close").expect("p2 has a tab");
-    assert_eq!(tabs(&app)[1..], ["view.item.n plan *"]);
+    assert_eq!(app.app().showing(), Showing::Canvas);
+    assert_eq!(tabs(&app)[1..], ["view.item.n plan"]);
     app.control("view.item.n.close").expect("n has a tab");
     assert_eq!(tabs(&app), ["view.canvas Canvas *"]);
 
@@ -144,10 +143,6 @@ fn a_tab_is_opened_for_an_item_and_closed_without_touching_the_canvas() {
 fn an_item_view_shows_one_item_fitted_and_hides_the_rest_from_presses() {
     let mut app = mixed();
     app.with_panels();
-    let over_p1 = app
-        .session()
-        .camera
-        .world_to_screen(Vec2::new(300.0, 250.0));
     app.select(&["p2"]).click_control("view.open");
 
     assert_eq!(app.app().showing(), Showing::Item("p2".into()));
@@ -178,6 +173,7 @@ fn an_item_view_shows_one_item_fitted_and_hides_the_rest_from_presses() {
 
     app.click_control("view.canvas");
     assert_eq!(app.app().showing(), Showing::Canvas);
+    let over_p1 = (app.session().camera).world_to_screen(Vec2::new(300.0, 250.0));
     assert!(matches!(
         hit_test(app.app(), over_p1),
         Hit::PageContent { ref page, .. } if page.as_str() == "p1"
@@ -185,7 +181,7 @@ fn an_item_view_shows_one_item_fitted_and_hides_the_rest_from_presses() {
 }
 
 #[test]
-fn the_canvas_camera_survives_an_item_view_and_nothing_is_written() {
+fn the_canvas_camera_is_saved_through_an_item_view_and_nothing_is_written() {
     let mut app = mixed();
     let canvas = Camera::new(Vec2::new(-320.0, 75.0), 0.5);
     app.act(Action::SetCamera(canvas));
@@ -210,8 +206,9 @@ fn the_canvas_camera_survives_an_item_view_and_nothing_is_written() {
     app.viewport((600.0, 500.0));
     assert_ne!(app.session().camera, fitted);
 
+    // Leaving keeps the zoom the canvas had.
     app.act(show("p1")).act(Action::Show(Showing::Canvas));
-    assert_eq!(app.session().camera, canvas);
+    assert_eq!(app.session().camera.zoom, canvas.zoom);
     assert_eq!(*app.document(), before);
     assert!(!app.app().can_undo());
     let saves = (app.take_effects().iter()).any(|effect| matches!(effect, Effect::Save));

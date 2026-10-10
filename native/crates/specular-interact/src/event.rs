@@ -497,9 +497,6 @@ pub enum Action {
     /// Look at the item of the tab showing through this lens. View state,
     /// kept by the tab for the session.
     SetLens(crate::Lens),
-    /// Open or shut the eye: whether an item view draws anything but its
-    /// item. View state, one choice for every tab.
-    ShowOthers(bool),
     /// Show the tab after the one showing, going round to the first.
     ShowNext,
     /// Show the tab before the one showing, going round to the last.

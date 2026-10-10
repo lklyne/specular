@@ -82,8 +82,9 @@ pub struct ToolbarModel {
     /// Where the tools' ribbon is.
     pub tools: ToolsPlace,
     /// How the tab showing looks at its item, at the right end: a toggle
-    /// for each lens, then the eye. On the Canvas tab, the button that
-    /// opens the one page or Document selected in a tab, or nothing.
+    /// Minimize, then a toggle for each lens. On the Canvas tab, the
+    /// button that opens the one page or Document selected in a tab, or
+    /// nothing.
     pub view: Vec<Control>,
 }
 
