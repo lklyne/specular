@@ -12,6 +12,50 @@ use crate::menu::{MenuEntry, menus};
 use crate::repos::{ReposPane, repos_pane};
 use crate::{Action, App, BINDINGS, Context, Effect, Format, SidebarAction, ToolDefaultPatch};
 
+/// Where the tools' ribbon is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ToolsPlace {
+    /// Down the canvas's left edge, taking that room from it.
+    #[default]
+    Docked,
+    /// Over the top of the canvas.
+    FloatTop,
+    /// Over the bottom of the canvas.
+    FloatBottom,
+}
+
+impl ToolsPlace {
+    /// Every place, in the order the setting lists them.
+    pub const ALL: [Self; 3] = [Self::Docked, Self::FloatTop, Self::FloatBottom];
+
+    /// The name the place is saved and chosen by.
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Docked => "docked",
+            Self::FloatTop => "top",
+            Self::FloatBottom => "bottom",
+        }
+    }
+
+    /// The place named `name`.
+    pub fn named(name: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|place| place.name() == name)
+    }
+
+    /// What the setting calls it.
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Docked => "Docked on the left",
+            Self::FloatTop => "Floating at the top",
+            Self::FloatBottom => "Floating at the bottom",
+        }
+    }
+}
+
+/// The width of the tools' ribbon while it is docked: a square button and
+/// the room either side of it.
+pub const TOOLS_DOCK_WIDTH: f32 = 36.0;
+
 /// What the app keeps between launches that is not in any canvas or tool.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct AppSettings {
@@ -19,6 +63,8 @@ pub struct AppSettings {
     pub show_sidebar: bool,
     /// Whether the right panel is shown when the app opens.
     pub show_chat: bool,
+    /// Where the tools' ribbon is.
+    pub tools: ToolsPlace,
 }
 
 /// A change to the [`AppSettings`].
@@ -28,6 +74,8 @@ pub enum SettingAction {
     ShowSidebar(bool),
     /// Show the right panel at launch, or do not.
     ShowChat(bool),
+    /// Put the tools' ribbon somewhere else.
+    Tools(ToolsPlace),
 }
 
 /// One part the app is built from, for the About pane.
@@ -65,6 +113,30 @@ pub struct SettingToggle {
     pub action: Action,
 }
 
+/// One choice of a [`SettingChoice`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct SettingOption {
+    /// The name it is chosen by.
+    pub name: &'static str,
+    /// What it is called.
+    pub label: &'static str,
+    /// Whether it is the one in force.
+    pub on: bool,
+    /// Chooses it.
+    pub action: Action,
+}
+
+/// A setting with a few named values, one in force.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SettingChoice {
+    /// The setting.
+    pub label: &'static str,
+    /// What it changes, in a sentence.
+    pub detail: &'static str,
+    /// Its values.
+    pub options: Vec<SettingOption>,
+}
+
 /// The General pane.
 #[derive(Debug, Clone, PartialEq)]
 pub struct GeneralPane {
@@ -75,6 +147,8 @@ pub struct GeneralPane {
     pub change: Action,
     /// What is shown when the app opens.
     pub toggles: Vec<SettingToggle>,
+    /// Where the tools' ribbon is.
+    pub tools: SettingChoice,
 }
 
 /// One row of the shortcuts table.
@@ -105,6 +179,17 @@ impl App {
     /// What is kept between launches.
     pub fn settings(&self) -> AppSettings {
         self.settings
+    }
+
+    /// How much of the canvas's left edge the docked ribbon takes, for a
+    /// shell that draws the chrome itself. The built-in chrome has the
+    /// tools in a row of their own.
+    pub(crate) fn tools_dock_width(&self) -> f32 {
+        if self.session.panel.menu_only && self.settings.tools == ToolsPlace::Docked {
+            TOOLS_DOCK_WIDTH
+        } else {
+            0.0
+        }
     }
 }
 
@@ -144,6 +229,18 @@ pub fn settings(app: &App) -> SettingsModel {
                     SettingAction::ShowChat,
                 ),
             ],
+            tools: SettingChoice {
+                label: "Tools",
+                detail: "Docked, the tools take a strip beside the canvas. Floating, they sit over it.",
+                options: (ToolsPlace::ALL.into_iter())
+                    .map(|place| SettingOption {
+                        name: place.name(),
+                        label: place.label(),
+                        on: app.settings.tools == place,
+                        action: Action::Setting(SettingAction::Tools(place)),
+                    })
+                    .collect(),
+            },
         },
         repos: repos_pane(app),
         shortcuts: shortcuts(app),
@@ -231,6 +328,7 @@ pub(crate) fn run(app: &mut App, action: SettingAction, effects: &mut Vec<Effect
     match action {
         SettingAction::ShowSidebar(on) => app.settings.show_sidebar = on,
         SettingAction::ShowChat(on) => app.settings.show_chat = on,
+        SettingAction::Tools(place) => app.settings.tools = place,
     }
     if app.settings != before {
         effects.push(Effect::SaveSettings(app.settings));

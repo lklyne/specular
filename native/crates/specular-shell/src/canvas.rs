@@ -14,8 +14,9 @@ use std::time::{Duration, Instant};
 use futures::channel::mpsc;
 use specular_app::{Bench, Runtime, ShellWindow as _};
 use specular_interact::{
-    Appearance, ChatModel, ControlsModel, Event, Menu, OnboardingModel, SidebarModel, ToolbarModel,
-    ViewStrip, chat, dock, menus, onboarding, sidebar, toolbar, view_strip,
+    Appearance, ChatModel, ControlsModel, Event, Menu, OnboardingModel, SidebarModel, Theme,
+    ToolbarModel, ViewStrip, chat, dock, menus, onboarding, sidebar, tool_options, toolbar,
+    view_strip,
 };
 
 use crate::surface::{CanvasSurface, WindowAsks};
@@ -93,8 +94,10 @@ pub(crate) struct Models {
     pub(crate) strip: ViewStrip,
     /// The tool buttons and the zoom readout.
     pub(crate) toolbar: ToolbarModel,
-    /// What the dock shows: the controls of the tool in hand or of the
-    /// selection.
+    /// The options of the tool in hand, shown beside its button.
+    pub(crate) tool_options: Option<ControlsModel>,
+    /// What the dock shows: the controls of the selection, while no tool
+    /// with options is in hand.
     pub(crate) dock: Option<ControlsModel>,
     /// The left sidebar.
     pub(crate) sidebar: SidebarModel,
@@ -106,20 +109,29 @@ pub(crate) struct Models {
     pub(crate) onboarding: Option<OnboardingModel>,
     /// Light or dark: what the Kit's theme has to be.
     pub(crate) appearance: Appearance,
+    /// The choice behind it, which `AppKit` is told of.
+    pub(crate) theme: Theme,
 }
 
 impl Models {
     fn of(runtime: &Runtime<CanvasSurface>) -> Self {
         let app = runtime.app();
+        let tool_options = tool_options(app);
         Self {
             strip: view_strip(app),
             toolbar: toolbar(app),
-            dock: dock(app),
+            tool_options: tool_options.clone(),
+            dock: if tool_options.is_some() {
+                None
+            } else {
+                dock(app)
+            },
             sidebar: sidebar(app),
             chat: chat(app),
             menus: menus(app),
             onboarding: onboarding(app),
             appearance: app.appearance(),
+            theme: app.theme(),
         }
     }
 }
@@ -242,6 +254,7 @@ pub(crate) fn models() -> Option<Models> {
 
 /// The display link fired: one turn, and a frame if one is owed.
 pub(crate) fn on_display_link() {
+    specular_core::ledger::record(specular_core::ledger::Entry::Tick);
     with(|canvas| {
         canvas.next_tick = Instant::now() + canvas.refresh;
         canvas.frame();
@@ -395,6 +408,8 @@ impl Canvas {
             }
         }
         self.rest_until = None;
+        let traced_at = specular_core::ledger::now_us();
+        let configured = self.runtime.window().map(CanvasSurface::pixel_size);
         let rescaled = self.runtime.window_mut().and_then(CanvasSurface::sync);
         if let Some(scale) = rescaled {
             self.runtime.on_scale_factor_changed(f64::from(scale));
@@ -412,7 +427,16 @@ impl Canvas {
             None => self.runtime.refresh_title(),
         }
         let wanted = self.runtime.frame_wanted();
-        if wanted && let Some(sample) = self.runtime.draw() {
+        let drawn = if wanted { self.runtime.draw() } else { None };
+        if specular_core::ledger::enabled() {
+            match self.runtime.window().map(CanvasSurface::pixel_size) {
+                Some(size) if drawn.is_some() => {
+                    specular_core::ledger::frame(traced_at, size, configured != Some(size));
+                }
+                _ => specular_core::ledger::frame_abandoned(),
+            }
+        }
+        if let Some(sample) = drawn {
             if let Some(bench) = self.bench.as_mut() {
                 bench.presented(&self.runtime, &sample);
             }
@@ -459,6 +483,7 @@ impl Canvas {
         let resized =
             (self.runtime.window_mut()).is_some_and(|surface| surface.set_slot(origin, size));
         if resized {
+            specular_core::ledger::record(specular_core::ledger::Entry::Slot(size.x, size.y));
             let viewport = (self.runtime.window()).map(CanvasSurface::logical_viewport);
             if let Some(viewport) = viewport {
                 self.dispatch(Event::ViewportResized(viewport));

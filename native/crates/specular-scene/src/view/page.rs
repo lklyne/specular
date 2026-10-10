@@ -47,7 +47,11 @@ pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, page: &Page, scene: &mut 
             RectDraw::filled(outer, frame.colors.device_bezel).with_corner_radius(radius),
         ));
     }
-    let screen_radius = shell.map_or(CORNER_RADIUS, |shell| shell.screen_corner_radius as f32);
+    // A page that fills the view is at 100%, so its radius in screen pixels
+    // is its radius on the canvas.
+    let filling = frame.app.fill_corner_radius(&entity.id);
+    let plain_radius = filling.unwrap_or(CORNER_RADIUS);
+    let screen_radius = shell.map_or(plain_radius, |shell| shell.screen_corner_radius as f32);
     scene.push(Item::canvas(PageDraw {
         page: entity.id.clone(),
         rect: screen,
@@ -74,7 +78,7 @@ pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, page: &Page, scene: &mut 
     }
     // A ring just outside the frame, one pixel wide at any zoom.
     let border = Stroke::new(frame.colors.page_border, BORDER_WIDTH, StrokeAlign::Outside);
-    let radius = shell.map_or(CORNER_RADIUS, |shell| shell.corner_radius as f32);
+    let radius = shell.map_or(plain_radius, |shell| shell.corner_radius as f32);
     scene.push(Item::screen(
         RectDraw::outlined(on_screen, border).with_corner_radius(radius * zoom),
     ));

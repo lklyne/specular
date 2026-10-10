@@ -5,7 +5,7 @@ use specular_doc::Color;
 
 use super::model::{Control, Dropdown, Entries, Label};
 use super::{ControlId, Icon};
-use crate::{Action, Chord, Tool};
+use crate::{Action, Chord, Tool, ToolsPlace};
 
 /// A tool button of the toolbar.
 #[derive(Debug, Clone, PartialEq)]
@@ -54,17 +54,18 @@ pub struct SidebarButton {
     pub action: Action,
 }
 
-/// The toolbar's theme button, which steps the theme through system, light
-/// and dark.
+/// The toolbar's theme button, which flips the theme between light and
+/// dark.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ThemeButton {
     /// Its name.
     pub id: ControlId,
-    /// What it is called: the choice now in force.
+    /// What it is called: what pressing it does.
     pub label: Label,
-    /// The glyph of that choice.
+    /// The glyph of what is drawn now.
     pub icon: Icon,
-    /// What pressing it does: choose the next one.
+    /// What pressing it does: draw the other, as a fixed choice or by
+    /// following the system again.
     pub action: Action,
 }
 
@@ -78,6 +79,8 @@ pub struct ToolbarModel {
     pub theme: ThemeButton,
     /// The blocks, left to right.
     pub sections: Vec<ToolbarSection>,
+    /// Where the tools' ribbon is.
+    pub tools: ToolsPlace,
     /// How the tab showing looks at its item, at the right end: a toggle
     /// for each lens, then the eye. Empty on the Canvas tab, which has no
     /// item to look at.

@@ -37,8 +37,9 @@ fn the_theme_button_steps_the_choice_and_pages_follow_what_is_drawn() {
     assert_eq!(app.app().appearance(), Appearance::Dark);
     assert_eq!(asked(&mut app), ["p1 None", "p2 Some(Light)"]);
 
-    // Light, dark, system: each press saves the choice, and pages hear of
-    // it only when what is drawn changes. A page that sets its own scheme
+    // The button flips what is drawn. A press away from the system's
+    // appearance is a fixed choice, and the press back follows the system
+    // again. Each saves the choice, and a page that sets its own scheme
     // keeps it.
     app.click_control("theme");
     assert_eq!(
@@ -47,14 +48,24 @@ fn the_theme_button_steps_the_choice_and_pages_follow_what_is_drawn() {
     );
     assert_eq!(asked(&mut app), ["save light", "p1 None", "p2 Some(Light)"]);
     app.click_control("theme");
-    assert_eq!(app.app().appearance(), Appearance::Dark);
-    assert_eq!(asked(&mut app), ["save dark", "p1 None", "p2 Some(Light)"]);
-    app.click_control("theme");
     assert_eq!(
         (app.app().theme(), app.app().appearance()),
         (Theme::System, Appearance::Dark)
     );
-    assert_eq!(asked(&mut app), ["save system"]);
+    assert_eq!(
+        asked(&mut app),
+        ["save system", "p1 None", "p2 Some(Light)"]
+    );
+    // Following again, it turns with the system.
+    app.send(Event::SystemAppearance(Appearance::Light));
+    assert_eq!(app.app().appearance(), Appearance::Light);
+    assert_eq!(asked(&mut app), ["p1 None", "p2 Some(Light)"]);
+    app.click_control("theme");
+    assert_eq!(
+        (app.app().theme(), app.app().appearance()),
+        (Theme::Dark, Appearance::Dark)
+    );
+    assert_eq!(asked(&mut app), ["save dark", "p1 None", "p2 Some(Light)"]);
 
     // A choice read from the preferences is not written back.
     app.send(Event::ThemeLoaded(Theme::Light));

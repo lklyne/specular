@@ -11,7 +11,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use serde_json::{Map, Value};
-use specular_interact::{AppSettings, Theme, ToolDefaults};
+use specular_interact::{AppSettings, Theme, ToolDefaults, ToolsPlace};
 
 use crate::persist::write_atomic;
 
@@ -20,6 +20,7 @@ const TOOL_DEFAULTS_KEY: &str = "toolDefaults";
 const SPACE_PATH_KEY: &str = "spacePath";
 /// What is shown when the app opens: `{"sidebar": bool, "rightPanel": bool}`.
 const SHOW_KEY: &str = "show";
+const TOOLS_KEY: &str = "tools";
 /// The key the Electron app stores its theme under too.
 const THEME_KEY: &str = "themeMode";
 /// Overrides the config folder, for a run that must not touch the real one.
@@ -121,19 +122,26 @@ pub(crate) fn load_settings(path: &Path) -> AppSettings {
             .and_then(Value::as_bool)
             .unwrap_or(false)
     };
+    let tools = (preferences.get(TOOLS_KEY))
+        .and_then(Value::as_str)
+        .and_then(ToolsPlace::named)
+        .unwrap_or_default();
     AppSettings {
         show_sidebar: shown("sidebar"),
         show_chat: shown("rightPanel"),
+        tools,
     }
 }
 
-/// Writes `settings` under `show`, keeping the file's other keys.
+/// Writes `settings` under `show` and `tools`, keeping the file's other
+/// keys.
 pub(crate) fn save_settings(path: &Path, settings: AppSettings) -> io::Result<()> {
     let show = serde_json::json!({
         "sidebar": settings.show_sidebar,
         "rightPanel": settings.show_chat,
     });
-    save_key(path, SHOW_KEY, show)
+    save_key(path, SHOW_KEY, show)?;
+    save_key(path, TOOLS_KEY, Value::from(settings.tools.name()))
 }
 
 fn save_key(path: &Path, key: &str, value: Value) -> io::Result<()> {
@@ -254,6 +262,7 @@ mod tests {
         let settings = AppSettings {
             show_sidebar: true,
             show_chat: false,
+            tools: ToolsPlace::FloatBottom,
         };
         save_settings(&path, settings).unwrap();
         assert_eq!(load_settings(&path), settings);

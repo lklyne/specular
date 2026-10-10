@@ -23,7 +23,7 @@ mod strip;
 mod toolbar;
 
 pub use context::{MenuTarget, context_menu};
-pub use dock::dock;
+pub use dock::{dock, tool_options};
 pub use field::{Field, FieldSubmit, FieldWidth};
 pub(crate) use field::{PAGE_URL, field_named};
 pub use icon::Icon;

@@ -14,7 +14,7 @@ use super::{
     SidebarButton, ThemeButton, Toggle, ToolButton, ToolbarModel, ToolbarSection,
 };
 use crate::menu::{tool_action, tool_label};
-use crate::{Action, App, ChatAction, Lens, Theme, Tool, binding_of};
+use crate::{Action, App, Appearance, ChatAction, Lens, Tool, binding_of};
 
 /// The zoom levels the readout offers, in percent.
 const ZOOM_LEVELS: [u16; 7] = [10, 25, 50, 75, 100, 150, 200];
@@ -137,19 +137,18 @@ fn button(app: &App, tool: Tool) -> ToolButton {
     }
 }
 
-/// The button that moves the theme on: it shows the choice in force
-/// (`THEME_MODE_ICON`, `THEME_MODE_LABEL`).
+/// The button that flips the theme: it shows what is drawn now and says
+/// what a press draws instead.
 fn theme_button(app: &App) -> ThemeButton {
-    let theme = app.theme();
+    let (label, icon) = match app.appearance() {
+        Appearance::Light => ("Switch to dark theme", Icon::SchemeLight),
+        Appearance::Dark => ("Switch to light theme", Icon::SchemeDark),
+    };
     ThemeButton {
         id: ControlId::new("theme"),
-        label: format!("{} theme", theme.label()).into(),
-        icon: match theme {
-            Theme::System => Icon::SchemeSystem,
-            Theme::Light => Icon::SchemeLight,
-            Theme::Dark => Icon::SchemeDark,
-        },
-        action: Action::SetTheme(theme.next()),
+        label: label.into(),
+        icon,
+        action: Action::SetTheme(app.theme.toggled()),
     }
 }
 
@@ -227,6 +226,7 @@ pub fn toolbar(app: &App) -> ToolbarModel {
         theme: theme_button(app),
         chat,
         sections,
+        tools: app.settings().tools,
         view: view_controls(app),
     }
 }

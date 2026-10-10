@@ -27,7 +27,7 @@ use specular_interact::{
     Action, Chord, Control, ControlId, Face, PaintRole, Palette, Stepper, Swatch, Swatches,
 };
 
-use super::dropdown::{choices, dropdown};
+use super::dropdown::{choices, dropdown, dropdown_compact};
 use super::field::field;
 use super::glyphs::{self, glyph, ink};
 use super::named::mark;
@@ -37,8 +37,14 @@ use crate::theme;
 /// The side of a popup control, and of a swatch button inside one.
 pub(super) const CONTROL: f32 = 24.0;
 const SWATCH: f32 = 20.0;
+/// The width of a column of controls: two of them and the gap between.
+const COLUMN: f32 = 2.0 * CONTROL + 4.0;
 const DOT: f32 = 12.0;
 const GLYPH: f32 = 14.0;
+/// Back and forward are thin strokes, and read small at a glyph's size.
+const CHEVRON: f32 = 18.0;
+/// Reload, and the stop it turns into, beside them.
+const RELOAD: f32 = 16.0;
 
 /// A stable element id from a control's name.
 pub(super) fn element_id(id: &ControlId) -> SharedString {
@@ -66,7 +72,14 @@ pub(super) fn face(face: &Face, on: bool) -> AnyElement {
         } else {
             theme::glyph_muted()
         });
-        row = row.child(glyph(icon, current, tint, on, GLYPH));
+        let size = match icon {
+            specular_interact::Icon::ChevronLeft | specular_interact::Icon::ChevronRight => CHEVRON,
+            // A glyph's stroke is a share of its size, so one drawn larger is
+            // drawn heavier: this keeps reload in step with the chevrons.
+            specular_interact::Icon::Reload | specular_interact::Icon::Stop => RELOAD,
+            _ => GLYPH,
+        };
+        row = row.child(glyph(icon, current, tint, on, size));
     }
     if let Some(text) = &face.text {
         let color = if on {
@@ -230,13 +243,71 @@ fn stepper(model: &Stepper) -> AnyElement {
         .into_any_element()
 }
 
+/// The controls of `controls` in a narrow column, for the options beside a
+/// docked tool: two to a row, a rule where the model has a separator. The
+/// swatches wrap with the rest and a dropdown's trigger takes a row.
+pub(super) fn column(controls: &[Control], window: &mut Window, cx: &mut App) -> Vec<AnyElement> {
+    let cells = |cells: Vec<AnyElement>| {
+        h_flex()
+            .w(px(COLUMN))
+            .flex_wrap()
+            .gap_1()
+            .justify_center()
+            .children(cells)
+            .into_any_element()
+    };
+    let mut out = Vec::new();
+    let mut row = Vec::new();
+    for model in controls {
+        match model {
+            Control::Separator => {
+                if !row.is_empty() {
+                    out.push(cells(std::mem::take(&mut row)));
+                }
+                out.push(
+                    div()
+                        .my_1()
+                        .w(px(16.0))
+                        .h(px(1.0))
+                        .bg(theme::tinted(theme::divider()))
+                        .into_any_element(),
+                );
+            }
+            Control::Swatches(model) => row.extend(
+                (model.options.iter())
+                    .map(|option| swatch(option, model.palette, model.role, model.enabled)),
+            ),
+            Control::Dropdown(model) => {
+                if !row.is_empty() {
+                    out.push(cells(std::mem::take(&mut row)));
+                }
+                out.push(
+                    div()
+                        .w(px(COLUMN))
+                        .child(dropdown_compact(model))
+                        .into_any_element(),
+                );
+            }
+            Control::Button(_)
+            | Control::Toggle(_)
+            | Control::Stepper(_)
+            | Control::Field(_)
+            | Control::Choices(_) => row.push(control(model, window, cx)),
+        }
+    }
+    if !row.is_empty() {
+        out.push(cells(row));
+    }
+    out
+}
+
 /// Any model control as a Kit component.
 pub(super) fn control(model: &Control, window: &mut Window, cx: &mut App) -> AnyElement {
     match model {
         Control::Button(model) => button(model),
         Control::Toggle(model) => toggle(model),
         Control::Swatches(model) => swatches(model),
-        Control::Dropdown(model) => dropdown(model, false),
+        Control::Dropdown(model) => dropdown(model),
         Control::Stepper(model) => stepper(model),
         Control::Field(model) => field(model, window, cx),
         Control::Choices(model) => choices(model, window, cx),

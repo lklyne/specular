@@ -25,6 +25,9 @@ pub const DOCK_ROW: f32 = 40.0;
 /// The whole chrome across the top of the window. Everything under the
 /// chrome starts here; only the rows themselves know how it is made up.
 pub const CHROME_HEIGHT: f32 = TAB_ROW + TOOL_ROW + DOCK_ROW;
+/// The chrome of a shell that draws its own: the tab row alone. Its tools
+/// are a ribbon and its dock a bar over the canvas.
+pub const SHELL_CHROME_HEIGHT: f32 = TAB_ROW;
 /// From the dock's ends to its controls.
 pub(super) const DOCK_PAD: f32 = 12.0;
 /// A tool button: `h-7 w-8` in `toolbarToolBtnClass`.

@@ -33,27 +33,6 @@ pub enum Theme {
 }
 
 impl Theme {
-    /// The choice the toolbar button moves to: system, light, dark, round
-    /// again (`nextThemeMode`).
-    #[must_use]
-    pub const fn next(self) -> Self {
-        match self {
-            Self::System => Self::Light,
-            Self::Light => Self::Dark,
-            Self::Dark => Self::System,
-        }
-    }
-
-    /// The word for the choice: `System`, `Light` or `Dark`.
-    #[must_use]
-    pub const fn label(self) -> &'static str {
-        match self {
-            Self::System => "System",
-            Self::Light => "Light",
-            Self::Dark => "Dark",
-        }
-    }
-
     /// The name stored in the preferences file's `themeMode`.
     #[must_use]
     pub const fn key(self) -> &'static str {
@@ -104,6 +83,21 @@ impl ThemeState {
     #[must_use]
     pub const fn appearance(self) -> Appearance {
         self.choice.resolve(self.system)
+    }
+
+    /// The choice the theme button moves to: the appearance that is not
+    /// drawn now. Where that is the system's own, the choice is the
+    /// system again, so the button never leaves a choice that only happens
+    /// to match and stops following.
+    #[must_use]
+    pub const fn toggled(self) -> Theme {
+        match (self.appearance(), self.system) {
+            (Appearance::Light, Appearance::Dark) | (Appearance::Dark, Appearance::Light) => {
+                Theme::System
+            }
+            (Appearance::Light, Appearance::Light) => Theme::Dark,
+            (Appearance::Dark, Appearance::Dark) => Theme::Light,
+        }
     }
 }
 

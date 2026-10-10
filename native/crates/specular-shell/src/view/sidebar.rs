@@ -205,7 +205,7 @@ impl ShellView {
             div()
                 .flex_1()
                 .min_w_0()
-                .child(field::input(&row.rename, window, cx))
+                .child(field::input(&row.rename, false, window, cx))
                 .into_any_element()
         } else {
             label(&row.label).into_any_element()

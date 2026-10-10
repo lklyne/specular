@@ -9,7 +9,7 @@
 use glam::{DVec2, Vec2};
 
 use crate::App;
-use crate::panel::builtin::CHROME_HEIGHT;
+use crate::panel::builtin::DOCK_ROW;
 
 /// A rect of the viewport in logical screen pixels.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -38,22 +38,33 @@ impl Area {
 }
 
 impl App {
-    /// How much of the viewport's left edge a panel covers: the sidebar's
-    /// width while it is shown, else nothing. Everything that centres, fits
-    /// or clamps to the viewport reads this one answer.
+    /// How much of the viewport's left edge panels cover: the sidebar's
+    /// width while it is shown, and the tools' ribbon while it is docked.
+    /// Everything that centres, fits or clamps to the viewport reads this
+    /// one answer.
     pub fn covered_left(&self) -> f32 {
-        self.session.sidebar.covered_width()
+        self.session.sidebar.covered_width() + self.tools_dock_width()
+    }
+
+    /// How much of the viewport's top edge is covered: the chrome, and
+    /// under it the bar a shell that draws its own chrome keeps while a tab
+    /// shows its item. On the canvas that bar comes and goes with the
+    /// selection, over the canvas, and covers nothing.
+    pub fn covered_top(&self) -> f32 {
+        let panel = &self.session.panel;
+        let bar = if panel.menu_only && self.lens().is_some() {
+            DOCK_ROW
+        } else {
+            0.0
+        };
+        panel.chrome_height() + bar
     }
 }
 
 /// The part of the viewport the canvas is seen through: right of the
 /// sidebar and, with the chrome on, under it.
 pub(crate) fn area(app: &App) -> Area {
-    let top = if app.session.panel.built_in {
-        f64::from(CHROME_HEIGHT)
-    } else {
-        0.0
-    };
+    let top = f64::from(app.covered_top());
     let min = DVec2::new(f64::from(app.covered_left()), top);
     let size = (app.session.viewport.as_dvec2() - min).max(DVec2::ZERO);
     Area { min, size }

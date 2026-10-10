@@ -42,7 +42,8 @@ pub use self::context::ContextMenu;
 pub(crate) use self::context::{open as open_menu, open_for_press as open_menu_for_press};
 pub(crate) use self::field::{field_box, field_text_area};
 pub use self::metrics::{
-    CHROME_HEIGHT, DOCK_ROW, FIELD_HEIGHT, FIELD_LINE, FIELD_TEXT, TAB_ROW, TOOL_ROW,
+    CHROME_HEIGHT, DOCK_ROW, FIELD_HEIGHT, FIELD_LINE, FIELD_TEXT, SHELL_CHROME_HEIGHT, TAB_ROW,
+    TOOL_ROW,
 };
 pub use self::node::{
     Chrome, Input, InputFocus, Node, NodeState, Panel, PanelRect, Part, Pointing, Surface, Tint,
@@ -89,6 +90,16 @@ pub(crate) fn turn(app: &mut App, built_in: bool) {
 }
 
 impl PanelUi {
+    /// How much of the viewport's top edge the chrome covers: the built-in
+    /// rows, or the rows of the shell that draws its own.
+    pub const fn chrome_height(&self) -> f32 {
+        match (self.built_in, self.menu_only) {
+            (false, _) => 0.0,
+            (true, true) => SHELL_CHROME_HEIGHT,
+            (true, false) => CHROME_HEIGHT,
+        }
+    }
+
     /// Only the context menu, with nothing open or hovered.
     pub fn menu_alone() -> Self {
         Self {

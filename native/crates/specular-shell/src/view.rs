@@ -3,23 +3,30 @@
 //!
 //! ```text
 //! ┌───────────────────────────────────────────────────────┐
-//! │ tab row (Kit): the title bar                          │
-//! │ toolbar (Kit)                                         │
-//! │ dock (Kit): the tool's or the selection's controls    │
-//! ├──────────┬───────────────────────────────┬────────────┤
-//! │ sidebar  │ canvas slot: nothing painted, │ right      │
-//! │ (Kit)    │ so the canvas view under      │ panel      │
-//! │          │ GPUI shows                    │ (Kit)      │
-//! └──────────┴───────────────────────────────┴────────────┘
+//! │ tab row (Kit): the title bar, the zoom, the panel     │
+//! ├──────────┬───┬───────────────────────────┬────────────┤
+//! │ sidebar  │ t │ dock (Kit), while it has  │ right      │
+//! │ (Kit)    │ o │ something to hold         │ panel      │
+//! │          │ o ├───────────────────────────┤ (Kit)      │
+//! │          │ l │ canvas slot: nothing      │            │
+//! │          │ s │ painted, so the canvas    │            │
+//! │          │   │ view under GPUI shows     │            │
+//! └──────────┴───┴───────────────────────────┴────────────┘
 //! ```
 //!
 //! The slot fills the window beside the right panel, as the app's own
-//! layout assumes. The chrome and the sidebar lie over its top and left
-//! edges: the app counts the chrome's height as covered
-//! (`CHROME_HEIGHT`), and the sidebar's width (`App::covered_left`) while
-//! its model says it is visible, which is when the sidebar is drawn. The
-//! right panel is beside the slot, so opening it or dragging its edge makes
-//! the app's viewport narrower.
+//! layout assumes, and everything else lies over it. The app counts as
+//! covered the tab row (`CHROME_HEIGHT`), the sidebar while its model says
+//! it is visible, and the tools while they are docked
+//! (`App::covered_left`). The tools can float over the slot's top or bottom
+//! instead, covering nothing the app counts.
+//!
+//! The dock is a bar over the top of the slot. In a tab that shows its
+//! item it is always there, holding the lens, and the app counts it
+//! (`App::covered_top`). On the canvas it comes with a selection and goes
+//! with it, over the canvas, so nothing under it moves. The right panel is
+//! beside the slot, so opening it or dragging its edge makes the app's
+//! viewport narrower.
 
 mod chat;
 mod controls;
@@ -44,11 +51,11 @@ use glam::Vec2;
 use gpui_kit::component::{ActiveTheme as _, h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
-    App, Context, ExternalPaths, FocusHandle, Global, InteractiveElement as _, IntoElement,
-    ParentElement as _, Render, Styled as _, Window, div, px,
+    AnyElement, App, Context, ExternalPaths, FocusHandle, Global, InteractiveElement as _,
+    IntoElement, ParentElement as _, Render, Styled as _, Window, div, px,
 };
 use specular_doc::ItemId;
-use specular_interact::{Action, CanvasAction, Event, SidebarAction};
+use specular_interact::{Action, CanvasAction, Event, SidebarAction, TOOLS_DOCK_WIDTH, ToolsPlace};
 
 pub(crate) use self::named::shown as shown_controls;
 use self::slot::Pointer;
@@ -102,6 +109,44 @@ pub(crate) fn drop_files(paths: Vec<PathBuf>, at: Vec2) {
             .map_or(Vec2::ZERO, crate::surface::CanvasSurface::slot_origin);
         canvas.runtime.drop_files(paths, Some(at - origin));
     });
+}
+
+/// How much of the slot's left edge the Kit covers: the sidebar, and the
+/// tools while they are docked.
+fn covered_left(models: &Models) -> f32 {
+    let sidebar = if models.sidebar.visible {
+        theme::SIDEBAR_WIDTH
+    } else {
+        0.0
+    };
+    let tools = if models.toolbar.tools == ToolsPlace::Docked {
+        TOOLS_DOCK_WIDTH
+    } else {
+        0.0
+    };
+    sidebar + tools
+}
+
+/// What lies over the slot and moves with its edges: the dock's bar, and
+/// the tools while they float.
+fn over_slot(models: &Models, window: &mut Window, cx: &mut App) -> Vec<AnyElement> {
+    let left = covered_left(models);
+    let dock = dock::dock(models.dock.as_ref(), &models.toolbar, left, window, cx);
+    let mut top = theme::CHROME_HEIGHT;
+    if dock.is_some() {
+        top += theme::DOCK_ROW;
+    }
+    let mut out: Vec<AnyElement> = dock
+        .into_iter()
+        .map(IntoElement::into_any_element)
+        .collect();
+    if models.toolbar.tools != ToolsPlace::Docked {
+        let shown = models.tool_options.as_ref();
+        out.push(
+            toolbar::floating(&models.toolbar, shown, (left, top), window, cx).into_any_element(),
+        );
+    }
+    out
 }
 
 /// Gives the keys back to the canvas.
@@ -189,7 +234,17 @@ impl Render for ShellView {
                 h_flex()
                     .size_full()
                     .items_start()
-                    .child(self.canvas_slot(window, cx))
+                    .child(
+                        div()
+                            .relative()
+                            .size_full()
+                            .child(self.canvas_slot(window, cx))
+                            .children(
+                                (models.as_ref())
+                                    .map(|models| over_slot(models, window, cx))
+                                    .unwrap_or_default(),
+                            ),
+                    )
                     .when_some(models.as_ref(), |row, models| {
                         row.children(self.chat_panel(&models.chat, window, cx))
                     }),
@@ -207,10 +262,13 @@ impl Render for ShellView {
                         .left_0()
                         .right_0()
                         .bg(theme::solid(theme::toolbar()))
-                        .child(tabs::tabs(&models.strip))
-                        .child(toolbar::toolbar(&models.toolbar, window, cx))
-                        .child(dock::dock(models.dock.as_ref(), window, cx)),
+                        .child(tabs::tabs(&models.strip, &models.toolbar)),
                 )
+                .when(models.toolbar.tools == ToolsPlace::Docked, |root| {
+                    let left = covered_left(models) - TOOLS_DOCK_WIDTH;
+                    let shown = models.tool_options.as_ref();
+                    root.child(toolbar::docked(&models.toolbar, shown, left, window, cx))
+                })
                 .children(self.chat_resize_handle(&models.chat))
             })
             .child(

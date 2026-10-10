@@ -45,6 +45,7 @@ fn a_launch_default_is_saved_when_switched_and_shown_when_loaded() {
     let on = AppSettings {
         show_sidebar: true,
         show_chat: false,
+        ..AppSettings::default()
     };
     assert_eq!(
         app.act(toggles[0].action.clone()).take_effects(),
@@ -68,6 +69,7 @@ fn a_launch_default_is_saved_when_switched_and_shown_when_loaded() {
     let chat_on = AppSettings {
         show_sidebar: false,
         show_chat: true,
+        ..AppSettings::default()
     };
     let mut other = TestApp::empty();
     let toggles = settings(other.app()).general.toggles;

@@ -9,11 +9,12 @@
 //! The colours are functions of the theme in force, which
 //! [`apply`] sets.
 
+use std::cell::Cell;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use gpui_kit::component::{Theme, ThemeMode};
 use gpui_kit::{App, Hsla, Rgba, WindowAppearance, px, rgba};
-use specular_interact::Appearance;
+use specular_interact::{Appearance, Theme as Choice};
 use specular_scene::{Color, Colors};
 
 /// Whether the dark theme is in force.
@@ -25,6 +26,38 @@ pub(crate) const fn of_system(appearance: WindowAppearance) -> Appearance {
         WindowAppearance::Light | WindowAppearance::VibrantLight => Appearance::Light,
         WindowAppearance::Dark | WindowAppearance::VibrantDark => Appearance::Dark,
     }
+}
+
+thread_local! {
+    /// The choice `AppKit` was last told of.
+    static CHOICE: Cell<Choice> = const { Cell::new(Choice::System) };
+}
+
+/// Whether the app draws as the system does.
+pub(crate) fn follows_system() -> bool {
+    CHOICE.get() == Choice::System
+}
+
+/// Tells `AppKit` of the choice `theme`, so the parts of the window it
+/// draws match ours. Returns what the system looks like when the choice
+/// became the system's: while another was in force the window said nothing
+/// of it.
+pub(crate) fn choose(theme: Choice) -> Option<Appearance> {
+    if CHOICE.replace(theme) == theme {
+        return None;
+    }
+    crate::native::set_app_appearance(match theme {
+        Choice::System => None,
+        Choice::Light => Some(false),
+        Choice::Dark => Some(true),
+    });
+    (theme == Choice::System).then(|| {
+        if crate::native::system_is_dark() {
+            Appearance::Dark
+        } else {
+            Appearance::Light
+        }
+    })
 }
 
 /// The theme in force.
@@ -50,6 +83,14 @@ fn packed(color: Color) -> u32 {
 
 /// One colour of the set in force, light or dark.
 fn pick(light: u32, dark: u32) -> u32 {
+    match appearance() {
+        Appearance::Light => light,
+        Appearance::Dark => dark,
+    }
+}
+
+/// [`pick`] for two colours that go together.
+fn pick_pair(light: (u32, u32), dark: (u32, u32)) -> (u32, u32) {
     match appearance() {
         Appearance::Light => light,
         Appearance::Dark => dark,
@@ -104,6 +145,28 @@ panel_colors! {
     dot_edge => dot_edge;
     /// The ring of a selected swatch too pale to ring itself.
     ring_gray => ring_gray;
+}
+
+/// The tab that is showing: the tool fill over the tab row, as one opaque
+/// colour.
+pub(crate) fn tab_fill() -> u32 {
+    pick(0xfdf8_f5ff, 0x5450_4bff)
+}
+
+/// A hovered tab that is not showing, opaque over the tab row.
+pub(crate) fn tab_hover() -> u32 {
+    pick(0xdfdc_daff, 0x4b47_42ff)
+}
+
+/// The rim of the tab that is showing, from its top to its bottom: lit
+/// above and fainter below.
+pub(crate) fn tab_rim() -> (u32, u32) {
+    pick_pair((0xffff_ffcc, 0x0000_0014), (0xffff_ff26, 0xffff_ff0d))
+}
+
+/// The two shadows under the tab that is showing, the nearer first.
+pub(crate) fn tab_shadow() -> (u32, u32) {
+    pick_pair((0x0000_001f, 0x0000_0014), (0x0000_0040, 0x0000_0026))
 }
 
 /// `--surface-focus-ring`: blue-500, blue-400 in the dark.
@@ -197,9 +260,12 @@ pub(crate) fn error() -> u32 {
     pick(0xe700_0bff, 0xff64_67ff)
 }
 
-/// The rows of the chrome and the height of all three, which the app's own
-/// layout assumes too. Everything under the chrome reads `CHROME_HEIGHT`.
-pub(crate) use specular_interact::panel::builtin::{CHROME_HEIGHT, DOCK_ROW, TAB_ROW, TOOL_ROW};
+/// The chrome's one row, and the bar under it that holds the dock, which
+/// the app's own layout assumes too. Everything under the chrome reads
+/// `CHROME_HEIGHT`.
+pub(crate) use specular_interact::panel::builtin::{
+    DOCK_ROW, SHELL_CHROME_HEIGHT as CHROME_HEIGHT, TAB_ROW,
+};
 /// The sidebar's width, `LEFT_SIDEBAR_WIDTH` in `runtime-constants.ts`.
 pub(crate) const SIDEBAR_WIDTH: f32 = 256.0;
 

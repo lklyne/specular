@@ -131,6 +131,16 @@ pub fn dock(app: &App) -> Option<ControlsModel> {
     }
 }
 
+/// The options of the tool in hand, for a renderer that shows them beside
+/// the tool's button. `None` for a tool with none, and then the selection
+/// has the dock.
+pub fn tool_options(app: &App) -> Option<ControlsModel> {
+    match subject(app) {
+        Subject::Tool(tool) => tool::controls(app, tool),
+        Subject::Edge | Subject::Entities(..) | Subject::Mixed(_) | Subject::Nothing => None,
+    }
+}
+
 /// The controls of a selection that spans kinds (`MultiSelectPopup.tsx`):
 /// what every kind shares, arranging, annotating and focusing. One item
 /// alone has nothing to arrange with, and an edge with it nothing to

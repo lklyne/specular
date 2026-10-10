@@ -17,7 +17,7 @@ use gpui_kit::{
 };
 use specular_interact::{
     Choices, Chord, Control, ControlId, ControlsModel, Dropdown, DropdownOption, DropdownSection,
-    Icon, OptionLayout, ToolbarModel, ToolbarSection,
+    Face, Icon, OptionLayout, ToolbarModel, ToolbarSection,
 };
 
 use super::controls::{CONTROL, control, element_id, face};
@@ -187,8 +187,8 @@ fn find_dropdown(id: &ControlId) -> Option<Dropdown> {
     }
     let models = canvas::models()?;
     in_toolbar(&models.toolbar, id).or_else(|| {
-        let dock: &ControlsModel = models.dock.as_ref()?;
-        among(&dock.controls, id)
+        let shown: &ControlsModel = models.dock.as_ref().or(models.tool_options.as_ref())?;
+        among(&shown.controls, id)
     })
 }
 
@@ -220,18 +220,61 @@ fn sections(
 
 /// A dropdown: a trigger showing the current value, and its sections in a
 /// Kit popover. It has no tooltip, which would sit over the open list.
-/// `toolbar` is the zoom readout, as tall as a tool button.
-pub(super) fn dropdown(model: &Dropdown, toolbar: bool) -> AnyElement {
-    let id = model.id.clone();
+pub(super) fn dropdown(model: &Dropdown) -> AnyElement {
     let trigger = Button::new(element_id(&model.id.child("trigger")))
         .ghost()
         .xsmall()
-        .h(px(if toolbar { 28.0 } else { CONTROL }))
+        .h(px(CONTROL))
         .dropdown_caret(true)
-        .child(face(&model.summary, false))
+        .child(face(&model.summary, false));
+    opens(model, trigger)
+}
+
+/// What a dropdown's trigger shows where there is room for a glyph or a
+/// few letters and no more: its glyph alone, a sample of its typeface, or
+/// its word when that is short. The page sizes are named at length, so
+/// theirs is a device.
+fn compact_face(model: &Dropdown) -> Face {
+    let summary = &model.summary;
+    if summary.icon.is_some() {
+        return Face {
+            text: None,
+            ..summary.clone()
+        };
+    }
+    if let Some(font) = summary.font {
+        return Face::text("Aa").in_font(font);
+    }
+    match &summary.text {
+        Some(text) if text.chars().count() > 4 => Face::icon(Icon::Device),
+        _ => summary.clone(),
+    }
+}
+
+/// A dropdown in a narrow column: its trigger fills the column and shows
+/// [`compact_face`], with no caret.
+pub(super) fn dropdown_compact(model: &Dropdown) -> AnyElement {
+    let trigger = Button::new(element_id(&model.id.child("trigger")))
+        .ghost()
+        .xsmall()
+        .h(px(CONTROL))
+        .w_full()
+        .px_0()
+        .child(face(&compact_face(model), false))
+        .child(crate::tip::over(model.id.as_str(), model.label.to_string()));
+    opens(model, trigger)
+}
+
+/// `trigger` opening the sections of `model` in a Kit popover.
+fn opens(model: &Dropdown, trigger: Button) -> AnyElement {
+    let id = model.id.clone();
+    let trigger = trigger
         // The trigger is what the model's name for the dropdown opens.
         .child(mark(&model.id));
     Popover::new(element_id(&model.id))
+        // The room a Kit menu leaves around its rows, so every list that
+        // opens has the same edge.
+        .p_1()
         .trigger(trigger)
         .content(move |_, window, cx| {
             let popover = cx.entity();

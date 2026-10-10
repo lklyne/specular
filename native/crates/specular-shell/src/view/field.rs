@@ -20,7 +20,10 @@ use specular_interact::{ControlId, Event, Field, FieldWidth};
 
 use super::focus_canvas;
 use super::named::mark;
-use crate::{canvas, shell};
+use crate::{canvas, shell, theme};
+
+/// How tall an address is: the bar's height less a margin above and below.
+const ADDRESS_HEIGHT: f32 = 28.0;
 
 /// A field being shown: the Kit's input, and the model it was made from.
 struct Held {
@@ -128,8 +131,9 @@ pub(super) fn want(id: ControlId, cx: &mut App) {
     cx.default_global::<Fields>().wanted = Some(id);
 }
 
-/// The input of `model` alone, as wide as what it is put in.
-pub(super) fn input(model: &Field, window: &mut Window, cx: &mut App) -> AnyElement {
+/// The input of `model` alone, as wide as what it is put in. `address` is
+/// one set into the dock's bar, which it nearly fills.
+pub(super) fn input(model: &Field, address: bool, window: &mut Window, cx: &mut App) -> AnyElement {
     let input = input_of(model, window, cx);
     let fields = cx.default_global::<Fields>();
     if fields.wanted.as_ref() == Some(&model.id) {
@@ -146,7 +150,20 @@ pub(super) fn input(model: &Field, window: &mut Window, cx: &mut App) -> AnyElem
         // Escape drops what was typed before the input sees the key.
         .capture_action(move |_: &Escape, _, cx| end(&id, End::Cancel, cx))
         .tooltip(crate::tip::view(label))
-        .child(Input::new(&input).xsmall())
+        // An address is read and typed into more than a number is.
+        .child(if address {
+            // The Kit fills an input with the panel's colour, which is the
+            // bar's own: an address is set into the bar with the input's.
+            Input::new(&input)
+                .small()
+                .text_size(px(12.0))
+                .h(px(ADDRESS_HEIGHT))
+                .bg(theme::solid(theme::input()))
+        } else if model.width == FieldWidth::Wide {
+            Input::new(&input).small().text_size(px(12.0))
+        } else {
+            Input::new(&input).xsmall()
+        })
         .child(mark(&model.id))
         .into_any_element()
 }
@@ -167,7 +184,7 @@ pub(super) fn field(model: &Field, window: &mut Window, cx: &mut App) -> AnyElem
         .child(
             div()
                 .map(|this| if grows { this.flex_1() } else { this.w(least) })
-                .child(input(model, window, cx)),
+                .child(input(model, grows, window, cx)),
         )
         .into_any_element()
 }

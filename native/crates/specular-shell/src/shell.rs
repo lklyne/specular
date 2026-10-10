@@ -71,6 +71,7 @@ pub(crate) fn begin_exit(cx: &mut App) {
 
 /// Ends the run once the page backend has shut down.
 fn finish(cx: &mut App) {
+    specular_core::ledger::flush();
     let Some(mut canvas) = canvas::uninstall() else {
         return;
     };
@@ -95,6 +96,9 @@ fn on_wake(cx: &mut App) {
     }
     if let Some(models) = canvas::models() {
         menus::sync(&models.menus, cx);
+        if let Some(system) = theme::choose(models.theme) {
+            canvas::dispatch(Event::SystemAppearance(system));
+        }
         if models.appearance != theme::appearance() {
             theme::apply(models.appearance, cx);
             cx.refresh_windows();
@@ -161,8 +165,12 @@ fn follow_system_appearance(window: AnyWindowHandle, cx: &mut App) -> anyhow::Re
     window.update(cx, |_, window, _| {
         window
             .observe_window_appearance(|window, _| {
-                let system = theme::of_system(window.appearance());
-                canvas::dispatch(Event::SystemAppearance(system));
+                // A window told to be light or dark says that, not what
+                // the system is.
+                if theme::follows_system() {
+                    let system = theme::of_system(window.appearance());
+                    canvas::dispatch(Event::SystemAppearance(system));
+                }
             })
             .detach();
     })?;

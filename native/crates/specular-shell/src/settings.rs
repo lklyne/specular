@@ -13,7 +13,8 @@ use gpui_kit::{
     App, FontWeight, IntoElement, ParentElement as _, SharedString, Styled as _, Window, div, px,
 };
 use specular_interact::{
-    AboutRow, Event, GeneralPane, SettingToggle, SettingsModel, ShortcutRow, settings,
+    AboutRow, Event, GeneralPane, SettingChoice, SettingToggle, SettingsModel, ShortcutRow,
+    settings,
 };
 
 use crate::assets::ShellIcon;
@@ -92,6 +93,33 @@ fn toggle(toggle: &SettingToggle) -> SettingItem {
     .description(toggle.detail)
 }
 
+fn choice(choice: &SettingChoice) -> SettingItem {
+    let options = (choice.options.iter())
+        .map(|option| (option.name.into(), option.label.into()))
+        .collect();
+    let now: SharedString = (choice.options.iter())
+        .find(|option| option.on)
+        .map_or("", |option| option.name)
+        .into();
+    let actions: Vec<_> = (choice.options.iter())
+        .map(|option| (option.name, option.action.clone()))
+        .collect();
+    SettingItem::new(
+        choice.label,
+        SettingField::dropdown(
+            options,
+            move |_| now.clone(),
+            move |name: SharedString, cx| {
+                if let Some((_, action)) = actions.iter().find(|(option, _)| name == *option) {
+                    canvas::dispatch(Event::Action(action.clone()));
+                    cx.refresh_windows();
+                }
+            },
+        ),
+    )
+    .description(choice.detail)
+}
+
 fn general(pane: &GeneralPane) -> SettingPage {
     let row = pane.clone();
     SettingPage::new("General")
@@ -109,6 +137,11 @@ fn general(pane: &GeneralPane) -> SettingPage {
             SettingGroup::new()
                 .title("At launch")
                 .items(pane.toggles.iter().map(toggle)),
+        )
+        .group(
+            SettingGroup::new()
+                .title("Layout")
+                .item(choice(&pane.tools)),
         )
 }
 

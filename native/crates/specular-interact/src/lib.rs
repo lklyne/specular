@@ -163,7 +163,7 @@ pub use panel::{
     Entries, Face, Field, FieldSubmit, FieldWidth, Icon, Label, MenuTarget, OptionLayout,
     PaintRole, Palette, SidebarButton, Stepper, Swatch, Swatches, ThemeButton, Toggle, ToolButton,
     ToolbarModel, ToolbarSection, UnknownControl, ViewStrip, ViewTab, context_menu, control_named,
-    dock, named_controls, toolbar, view_strip,
+    dock, named_controls, tool_options, toolbar, view_strip,
 };
 pub use physical_key::{PhysicalKey, mac_key_input};
 pub use place::{PlaceDrag, Placing};
@@ -177,8 +177,8 @@ pub use scroll_follow::{
     shown_rect, viewport_to_doc,
 };
 pub use settings::{
-    AboutRow, AppSettings, GeneralPane, SettingAction, SettingToggle, SettingsModel, ShortcutRow,
-    SpaceRow, settings,
+    AboutRow, AppSettings, GeneralPane, SettingAction, SettingChoice, SettingOption, SettingToggle,
+    SettingsModel, ShortcutRow, SpaceRow, TOOLS_DOCK_WIDTH, ToolsPlace, settings,
 };
 pub use showing::{Lens, Showing};
 pub use sidebar::{

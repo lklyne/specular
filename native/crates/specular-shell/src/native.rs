@@ -20,7 +20,8 @@ use std::sync::OnceLock;
 use anyhow::{Context as _, bail};
 use objc2::runtime::{AnyClass, AnyObject, Bool, ClassBuilder, Sel};
 use objc2::{class, msg_send, sel};
-use objc2_foundation::{NSPoint, NSRect, NSRunLoopCommonModes, NSString};
+use objc2_foundation::{NSPoint, NSRect, NSRunLoopCommonModes, NSSize, NSString};
+use specular_core::ledger::{self, Entry};
 
 /// An Objective-C object.
 pub(crate) type Id = *mut AnyObject;
@@ -46,6 +47,33 @@ extern "C-unwind" fn is_opaque(_this: &AnyObject, _cmd: Sel) -> Bool {
     Bool::YES
 }
 
+/// The three overrides below only write to the resize ledger and hand on
+/// to `NSView`.
+extern "C-unwind" fn set_frame_size(this: &AnyObject, _cmd: Sel, size: NSSize) {
+    ledger::record(Entry::WinSize(size.width as f32, size.height as f32));
+    // SAFETY: `this` is a `SpecularCanvasView`, whose superclass is `NSView`,
+    // which implements `setFrameSize:` with this signature.
+    unsafe {
+        let _: () = msg_send![super(this, class!(NSView)), setFrameSize: size];
+    }
+}
+
+extern "C-unwind" fn will_start_live_resize(this: &AnyObject, _cmd: Sel) {
+    ledger::record(Entry::LiveBegin);
+    // SAFETY: as in `set_frame_size`, for `viewWillStartLiveResize`.
+    unsafe {
+        let _: () = msg_send![super(this, class!(NSView)), viewWillStartLiveResize];
+    }
+}
+
+extern "C-unwind" fn did_end_live_resize(this: &AnyObject, _cmd: Sel) {
+    ledger::record(Entry::LiveEnd);
+    // SAFETY: as in `set_frame_size`, for `viewDidEndLiveResize`.
+    unsafe {
+        let _: () = msg_send![super(this, class!(NSView)), viewDidEndLiveResize];
+    }
+}
+
 fn canvas_view_class() -> anyhow::Result<&'static AnyClass> {
     static CLASS: OnceLock<Option<&'static AnyClass>> = OnceLock::new();
     CLASS
@@ -61,6 +89,24 @@ fn canvas_view_class() -> anyhow::Result<&'static AnyClass> {
                     hit_test as extern "C-unwind" fn(_, _, _) -> _,
                 );
                 builder.add_method(sel!(isOpaque), is_opaque as extern "C-unwind" fn(_, _) -> _);
+            }
+            if ledger::enabled() {
+                // SAFETY: `void (id, SEL, NSSize)` and `void (id, SEL)`,
+                // as `NSView` declares the three.
+                unsafe {
+                    builder.add_method(
+                        sel!(setFrameSize:),
+                        set_frame_size as extern "C-unwind" fn(_, _, _),
+                    );
+                    builder.add_method(
+                        sel!(viewWillStartLiveResize),
+                        will_start_live_resize as extern "C-unwind" fn(_, _),
+                    );
+                    builder.add_method(
+                        sel!(viewDidEndLiveResize),
+                        did_end_live_resize as extern "C-unwind" fn(_, _),
+                    );
+                }
             }
             Some(builder.register())
         })
@@ -86,6 +132,40 @@ pub(crate) fn show_about() {
         let app: Id = msg_send![class!(NSApplication), sharedApplication];
         let _: () = msg_send![app, orderFrontStandardAboutPanel: nil];
     }
+}
+
+/// Has `AppKit` draw its own parts of the app, the traffic lights and the
+/// sheets among them, dark or light, or as the system is for `None`.
+pub(crate) fn set_app_appearance(dark: Option<bool>) {
+    let name = dark.map(|dark| {
+        NSString::from_str(if dark {
+            "NSAppearanceNameDarkAqua"
+        } else {
+            "NSAppearanceNameAqua"
+        })
+    });
+    // SAFETY: the shared application exists while GPUI runs, both names
+    // are appearances AppKit has, and a nil appearance is the system's.
+    unsafe {
+        let appearance: Id = match &name {
+            Some(name) => msg_send![class!(NSAppearance), appearanceNamed: &**name],
+            None => std::ptr::null_mut(),
+        };
+        let app: Id = msg_send![class!(NSApplication), sharedApplication];
+        let _: () = msg_send![app, setAppearance: appearance];
+    }
+}
+
+/// Whether the system is dark, whatever the app is set to draw as.
+pub(crate) fn system_is_dark() -> bool {
+    let key = NSString::from_str("AppleInterfaceStyle");
+    // SAFETY: the standard defaults always exist, and `stringForKey:`
+    // returns an `NSString` or nil.
+    let style: Id = unsafe {
+        let defaults: Id = msg_send![class!(NSUserDefaults), standardUserDefaults];
+        msg_send![defaults, stringForKey: &*key]
+    };
+    string_of(style) == "Dark"
 }
 
 fn class_name(object: Id) -> String {
