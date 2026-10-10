@@ -15,7 +15,7 @@ use specular_bench::{FrameWork, PaintPolicy};
 use specular_compositor::{Compositor, SceneStats};
 use specular_core::{Camera, PageEvent, PageId, PageSource};
 use specular_doc::{Document, EntityId};
-use specular_interact::{Action, ApiOutcome, App, Cursor, Event, ImageKey, SpaceAsk};
+use specular_interact::{Action, ApiOutcome, App, Cursor, Event, ImageKey, SpaceAsk, update};
 use specular_scene::Scene;
 
 use super::demand::FrameDemand;
@@ -111,6 +111,9 @@ pub struct RuntimeOptions {
     pub(crate) chrome: bool,
     /// Whether settings are read and written. Not in a benchmark.
     pub(crate) settings: bool,
+    /// Whether the camera moves by a spring between the canvas, Device and
+    /// Fill. Not in a benchmark, which needs the camera to land at once.
+    pub(crate) motion: bool,
 }
 
 /// What a shell shows first: a space folder, or one document that is saved
@@ -226,12 +229,14 @@ impl<W: ShellWindow> Runtime<W> {
     pub fn new(source: Box<dyn PageSource>, options: RuntimeOptions) -> Self {
         let space_folder = options.canvas.as_deref().and_then(image_run::space_folder);
         let prefs = options.settings.then(prefs::file).flatten();
+        let mut app = App::new(unix_ms());
+        update(&mut app, Event::Motion(options.motion));
         Self {
             source,
             space: space_folder.clone(),
             files: None,
             scratch: None,
-            app: App::new(unix_ms()),
+            app,
             hosts: HashMap::new(),
             queries: PageQueries::default(),
             image_loader: image_run::start_loader(space_folder.clone()),

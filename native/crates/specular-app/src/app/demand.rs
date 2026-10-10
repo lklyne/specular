@@ -21,6 +21,9 @@ const EDITING_TURN: Duration = Duration::from_millis(16);
 /// half rate. Holding the rate through the pause costs a few frames of a
 /// scene that is already built.
 const INPUT_TAIL: Duration = Duration::from_millis(250);
+/// The sleep while a camera transition runs: the least time between two
+/// ticks of the chores.
+const MOTION_TURN: Duration = Duration::from_millis(8);
 /// How long to leave a window that gave no frame (covered, minimised)
 /// before trying again.
 const RETRY: Duration = Duration::from_millis(100);
@@ -111,6 +114,10 @@ impl FrameDemand {
         // is woken for at its next frame and not at every refresh.
         if let Some(ms) = app.next_frame_in_ms() {
             wake = wake.min(now + Duration::from_millis(ms));
+        }
+        // A camera transition is stepped by the clock, a frame at a time.
+        if app.motion_running() {
+            wake = wake.min(now + MOTION_TURN);
         }
         match self.not_before {
             Some(until) if self.owed => wake.min(until),

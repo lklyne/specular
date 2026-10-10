@@ -137,3 +137,13 @@ The item view is camera and size management over the one canvas, and nothing mor
 - **The eye is removed.** Fill keeps its rule (only the item and what follows one of its elements is seen and can be made). Device sees and makes everything by the canvas's rules.
 - **The item shown has no selection chrome.** In Fill and Device it draws no outline and no resize handles, and its handles cannot be hit.
 - **Leaving centres the item at the canvas zoom.** Minimize, the Canvas tab and closing the tab showing keep the zoom the canvas had and centre the item's stored rect (with its device frame) in the free part of the viewport, so the item shrinks in place. If the item is gone the canvas gets its camera back unchanged. Closing the tab showing goes to the canvas.
+
+## Amendment, 2026-10-10: camera transition
+
+The camera moves between the canvas, Device and Fill by a spring instead of landing at once. It runs on three changes only: the canvas to an item view, an item view to the canvas, and a lens change. A switch from one item tab to another, and a restore (a canvas switch, undo, reveal), are instant.
+
+- **Only `session.camera` is animated.** The item's layout rect and its page's host change at once. The camera starts where the new layout rect has the screen centre and width the old one had, so nothing jumps, and ends at the camera the view holds. The item's centre moves in a line and the zoom in log space.
+- **The spring is closed-form**, evaluated from the time since the first tick after the change (response 0.28 s, damping ratio 0.86), so it is pure and lands exactly on the target.
+- **The target moves.** While it runs, `settle` keeps the target fitted after every event and samples the transition for the camera. A leave aims at a fixed camera, and `canvas_camera` reports that one, so a save during it writes what it would have without it.
+- **Camera input ends a leave** where the camera is: a wheel, a pinch, a zoom action, a gesture, a canvas switch.
+- **A session switch** (`Event::Motion`) turns it on. The windowed shells do; the testkit, `--snapshot`, `--script` and benchmarks do not, so the camera lands at once there.

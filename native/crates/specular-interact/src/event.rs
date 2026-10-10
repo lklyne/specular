@@ -172,6 +172,10 @@ pub enum Event {
     /// field, and the canvas draws only its marker. Without it the draft is
     /// written in a card on the canvas.
     ChatPanel(bool),
+    /// Whether camera transitions between the canvas, Device and Fill run.
+    /// A windowed shell sends `true` once at startup; without it the camera
+    /// lands at once.
+    Motion(bool),
     /// The threads of the space folder: the answer to an
     /// [`Effect::LoadThreads`](crate::Effect::LoadThreads). Replaces every
     /// thread held.

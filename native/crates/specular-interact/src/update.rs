@@ -29,6 +29,10 @@ fn on_wheel(app: &mut App, input: &crate::WheelInput, effects: &mut Vec<Effect>)
 
 /// Applies `event` to `app` and returns what the shell must now do, in
 /// order. No I/O happens here.
+#[expect(
+    clippy::too_many_lines,
+    reason = "one arm per event, and the settling after"
+)]
 pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
     let mut effects = Vec::new();
     let revision = app.history.revision();
@@ -38,6 +42,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
     // The clock moves nothing the cursor depends on.
     let ticks = matches!(event, Event::Tick { .. });
     let tool = app.session.tool;
+    let leaving = app.session.motion.leave_id();
     let caret = edit::caret_state(app);
     // A pointer event has already put the drag and the hover where it is,
     // unless it ended the drag: the hover is not kept up during one.
@@ -92,6 +97,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         Event::BuiltinPanels(built_in) => builtin::turn(app, built_in),
         Event::BuiltinMenu => app.session.panel = builtin::PanelUi::menu_alone(),
         Event::ChatPanel(available) => app.session.chat.set_available(available),
+        Event::Motion(on) => app.session.motion.enable(on),
         Event::ThreadsLoaded { threads, index } => chat::on_loaded(app, threads, &index),
         Event::Agent { thread, notice } => chat::on_agent(app, &thread, notice, &mut effects),
         Event::ReposLoaded(repos) => app.repos = *repos,
@@ -100,6 +106,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         Event::SpaceNeeded(ask) => app.space_ask = Some(ask),
         Event::Api(call) => api::run(app, call, &mut effects),
     }
+    crate::showing::motion::interrupt(app, leaving, camera, app.space.switches() != switches);
     crate::showing::settle(app);
     pages::follow_layouts(&layouts, app, &mut effects);
     builtin::forget_layout_unless(app, keeps_layout);
@@ -401,6 +408,7 @@ pub(crate) fn drop_dangling(app: &mut App, effects: &mut Vec<Effect>) {
 fn on_tick(app: &mut App, unix_ms: u64, effects: &mut Vec<Effect>) {
     let elapsed = unix_ms.saturating_sub(app.session.now_ms);
     app.session.now_ms = unix_ms;
+    app.session.motion.on_tick(unix_ms);
     sync::on_tick(app, effects);
     images::on_tick(app, effects);
     edit::note::autosave(app, effects);

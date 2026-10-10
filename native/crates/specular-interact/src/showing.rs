@@ -18,6 +18,9 @@
 //!   what is seen.
 //! - Leaving keeps the zoom the canvas had and centres the item's stored
 //!   rect in the free part of the viewport, so the item shrinks in place.
+//! - A change between the canvas, Device and Fill moves the camera by a
+//!   spring ([`motion`]) when the shell turns that on; the layout is at
+//!   once.
 //! - A tab that is pressed has its page's host laid out for it before the
 //!   click shows it (`prepare`). Nothing above follows that.
 //!
@@ -25,6 +28,7 @@
 //! closed. Closing a tab leaves the item on the canvas.
 
 mod gates;
+pub(crate) mod motion;
 mod prepare;
 mod tabs;
 
@@ -93,7 +97,10 @@ impl App {
     /// The camera of the canvas itself: the one that is saved, and the zoom
     /// the canvas comes back with after an item view.
     pub fn canvas_camera(&self) -> Camera {
-        (self.session.item_view.as_ref()).map_or(self.session.camera, |view| view.canvas_camera)
+        (self.session.item_view.as_ref())
+            .map(|view| view.canvas_camera)
+            .or_else(|| self.session.motion.leaving_to())
+            .unwrap_or(self.session.camera)
     }
 }
 
@@ -141,14 +148,23 @@ pub(crate) fn show(app: &mut App, showing: Showing, effects: &mut Vec<Effect>) {
 
 /// Shows `item` through the lens its tab keeps, opening the tab if it has
 /// none. A page is entered: its tab is the page, so the wheel and the keys
-/// are its own at once.
+/// are its own at once. From the canvas the camera moves by the transition;
+/// from another tab it lands at once.
 fn show_item(app: &mut App, item: &EntityId, effects: &mut Vec<Effect>) {
+    let from = (app.document.entity(item)).and_then(|entity| motion::seen_on_canvas(app, entity));
+    enter(app, item, from, effects);
+}
+
+/// [`show_item`] with the item's place on screen before the change, which
+/// the camera's transition starts from.
+fn enter(app: &mut App, item: &EntityId, from: Option<motion::Seen>, effects: &mut Vec<Effect>) {
     let Some(entity) = app.document.entity(item).filter(|it| can_show(it)) else {
         return;
     };
     let page = page_of(entity).map(|_| item.clone());
     let canvas_camera = app.canvas_camera();
     app.session.prepared = None;
+    app.session.motion.begin(from, false);
     app.session.tabs.open(item);
     app.session.selection.set([ItemId::Entity(item.clone())]);
     app.session.item_view = Some(ItemView {
@@ -162,8 +178,9 @@ fn show_item(app: &mut App, item: &EntityId, effects: &mut Vec<Effect>) {
 pub(crate) fn set_lens(app: &mut App, lens: Lens, effects: &mut Vec<Effect>) {
     update::verb(app, effects, |app, effects| {
         if let Some(item) = app.shown_item().cloned() {
+            let from = (app.document.entity(&item)).and_then(|entity| motion::seen(app, entity));
             app.session.tabs.set_lens(&item, lens);
-            show_item(app, &item, effects);
+            enter(app, &item, from, effects);
         }
     });
 }
@@ -316,6 +333,7 @@ fn fitted(app: &App, entity: &Entity) -> Camera {
 /// tab is let go. Gives the item view it ends, if there was one.
 pub(crate) fn restore(app: &mut App) -> Option<ItemView> {
     app.session.prepared = None;
+    app.session.motion.cancel();
     let view = app.session.item_view.take()?;
     app.session.camera = view.canvas_camera;
     Some(view)
@@ -325,6 +343,9 @@ pub(crate) fn restore(app: &mut App) -> Option<ItemView> {
 /// centred in the free part of the viewport so the item shrinks in place.
 /// An item that is gone leaves the camera the canvas had.
 pub(crate) fn leave(app: &mut App) {
+    let from = (app.shown_item())
+        .and_then(|item| app.document.entity(item))
+        .and_then(|entity| motion::seen(app, entity));
     let Some(view) = restore(app) else {
         return;
     };
@@ -336,7 +357,9 @@ pub(crate) fn leave(app: &mut App) {
     let centre = geometry::origin(rect) + geometry::size(rect) / 2.0;
     let zoom = view.canvas_camera.zoom;
     let pan = free.min + free.size / 2.0 - centre * f64::from(zoom);
-    app.session.camera = Camera::new(pan.as_vec2(), zoom);
+    let target = Camera::new(pan.as_vec2(), zoom);
+    app.session.camera = target;
+    motion::begin_leave(app, from, rect, target);
 }
 
 /// Brings the session in step with what is shown after an event: the tabs
@@ -347,13 +370,16 @@ pub(crate) fn settle(app: &mut App) {
     app.session.tabs.settle(&app.document);
     prepare::settle(app);
     let Some(item) = app.shown_item().cloned() else {
+        motion::advance(app);
         return;
     };
     let Some(entity) = app.document.entity(&item).filter(|it| can_show(it)) else {
         restore(app);
         return;
     };
-    app.session.camera = fitted(app, entity);
+    let (rect, target) = (motion::layout_rect(app, entity), fitted(app, entity));
+    let now = app.session.now_ms;
+    app.session.camera = app.session.motion.follow(rect, target, now);
 
     let mut selection = std::mem::take(&mut app.session.selection);
     let document = &app.document;

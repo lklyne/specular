@@ -35,6 +35,7 @@ mod item_view;
 mod layout_handles;
 mod lens;
 mod menus;
+mod motion;
 mod moves;
 mod named_controls;
 mod note_edit;

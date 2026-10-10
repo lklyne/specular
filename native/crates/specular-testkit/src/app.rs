@@ -84,6 +84,12 @@ impl TestApp {
         self.driver.app()
     }
 
+    /// Turns on camera transitions, which a test otherwise sees land at once.
+    /// They are stepped by `tick`.
+    pub fn with_motion(&mut self) -> &mut Self {
+        self.send(specular_interact::Event::Motion(true))
+    }
+
     /// The document.
     pub fn document(&self) -> &Document {
         self.app().document()

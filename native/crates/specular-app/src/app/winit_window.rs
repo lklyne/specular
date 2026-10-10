@@ -83,6 +83,7 @@ impl Shell {
                 chrome: options.chrome,
                 // A benchmark neither reads nor writes settings.
                 settings: options.bench.is_none(),
+                motion: options.bench.is_none(),
             },
         );
         Self {

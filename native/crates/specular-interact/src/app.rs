@@ -237,6 +237,8 @@ pub struct Session {
     /// The page whose tab is pressed and not yet clicked: its host is laid
     /// out for the tab ahead of the click. Nothing drawn follows it.
     pub(crate) prepared: Option<EntityId>,
+    /// The camera transition in flight, and whether the shell runs them.
+    pub(crate) motion: crate::showing::motion::Motion,
     /// The item tabs of the active canvas: their order and the lens each
     /// keeps.
     pub(crate) tabs: crate::showing::Tabs,
