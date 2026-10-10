@@ -19,7 +19,9 @@ impl Compositor {
         let kind = match layer {
             FrameLayer::View => {
                 self.ingested.frames_received += 1;
-                self.pages.entry(page).or_default().view_css = viewport;
+                let layers = self.pages.entry(page).or_default();
+                let evicted = layers.make_room(viewport, produced_at);
+                self.retire(page, evicted);
                 LayerKind::View
             }
             FrameLayer::Popup { rect } => {
@@ -95,8 +97,11 @@ impl Compositor {
         // A resize rebuilds the producer's pool: every older surface is gone.
         cache.retain(|cached| cached.size == size);
         let (device, pipelines) = (&self.device, &self.pipelines);
+        let started = specular_core::ledger::now_us();
+        let mut missed = false;
         let imported = cache
             .get_or_import(key, || {
+                missed = true;
                 let texture = import_shared(device, &shared, format)?;
                 let bind_group = pipelines.texture_bind_group(device, &texture);
                 Ok(ImportedTexture {
@@ -105,6 +110,10 @@ impl Compositor {
                 })
             })
             .map_err(|source| CompositorError::Import { page, source })?;
+        if missed && specular_core::ledger::enabled() {
+            let took = specular_core::ledger::now_us().saturating_sub(started);
+            specular_core::ledger::record(specular_core::ledger::Entry::Import(page.0, took));
+        }
         let layer = LayerTexture {
             texture: imported.texture.clone(),
             bind_group: imported.bind_group.clone(),

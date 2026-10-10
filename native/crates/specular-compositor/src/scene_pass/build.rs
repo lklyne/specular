@@ -72,15 +72,16 @@ impl Output<'_> {
 
 /// Builds the draw calls for `batches`, in order.
 ///
-/// `page` resolves a page entity to its host's id and what the compositor
-/// holds for it, `None` until it has painted. `has_image` says whether an
+/// `page` resolves a page entity, laid out at the CSS size given, to its
+/// host's id and what the compositor holds to draw it from, `None` until it
+/// has painted. `has_image` says whether an
 /// image has been uploaded. A page or image with nothing to show is skipped.
 pub(crate) fn build(
     scene: &Scene,
     placed: &[Placed],
     batches: &[Batch],
     view: &ViewTransform,
-    page: impl Fn(&OwnerId) -> Option<(PageId, PageLayersInfo)>,
+    page: impl Fn(&OwnerId, CssSize) -> Option<(PageId, PageLayersInfo)>,
     has_image: impl Fn(ImageId) -> bool,
     out: &mut Output<'_>,
 ) -> DrawCounts {
@@ -107,11 +108,12 @@ pub(crate) fn build(
                     let Draw::Page(draw) = &item.draw else {
                         continue;
                     };
-                    let Some((id, info)) = page(&draw.page) else {
+                    let Some((id, info)) = page(&draw.page, draw.viewport) else {
                         counts.pages_without_texture += 1;
                         continue;
                     };
                     counts.cpu_textures += u32::from(info.view_is_cpu);
+                    note_drawn(id, draw, &info);
                     let layers = page_quads(item, draw, &info, view);
                     for (layer, quad) in layers {
                         let Some(quad) = quad else {
@@ -180,6 +182,18 @@ pub(crate) fn build(
     counts
 }
 
+/// Tells the resize ledger, when it is on, what a page is drawn from.
+fn note_drawn(id: PageId, draw: &PageDraw, info: &PageLayersInfo) {
+    if specular_core::ledger::enabled() {
+        specular_core::ledger::note_page(specular_core::ledger::PageDrawn {
+            page: id.0,
+            wanted: draw.viewport,
+            drawn: info.view_css,
+            texels: info.view_size,
+        });
+    }
+}
+
 /// The quad for a page or image at `rect`. The quad shader works in canvas
 /// space, so a screen-space rect is unprojected.
 /// The quads of a page: its view, and its popup when one is showing.
@@ -199,7 +213,7 @@ fn page_quads(
     let popup = popup_quad(origin, size / uv, info);
     let quad =
         QuadInstance::new(origin, size, quad.corner_radius).with_uv_rect([0.0, 0.0, uv.x, uv.y]);
-    [(LayerKind::View, Some(quad)), (LayerKind::Popup, popup)]
+    [(info.view, Some(quad)), (LayerKind::Popup, popup)]
 }
 
 /// How much of a rect `size` across a page's frame covers, and how much of

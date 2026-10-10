@@ -7,7 +7,7 @@
 //!   view, and making Device show `Others::Following` loses the stickies beside
 //!   a page.
 //! - filling: returning `None` for a page from `showing::fill_rect` leaves
-//!   it at its stored size, dropping `follow_presentation` from `update`
+//!   it at its stored size, dropping `follow_layouts` from `update`
 //!   leaves its host there, and dropping the presented size from
 //!   `pages::snapshot` resizes the host when a preset is picked.
 //! - the camera: dropping the `held` check from `showing::settle` refits a
@@ -326,14 +326,14 @@ fn a_page_in_fill_is_laid_out_at_the_free_area_and_goes_back_when_left() {
     app.act(show("p1"));
     assert_eq!(
         viewports(&app.take_effects()),
-        [("p1".to_owned(), 1000, 800)]
+        [("p1".to_owned(), 992, 792)]
     );
     let placed = app.app().page_placement(&"p1".into()).expect("a page");
-    assert_eq!(placed.rect, Rect::new(100.0, 100.0, 1000.0, 800.0));
-    assert_eq!(placed.viewport, CssSize::new(1000, 800));
+    assert_eq!(placed.rect, Rect::new(100.0, 100.0, 992.0, 792.0));
+    assert_eq!(placed.viewport, CssSize::new(992, 792));
     assert_eq!(
         app.session().camera,
-        Camera::new(Vec2::new(-100.0, -100.0), 1.0)
+        Camera::new(Vec2::new(-96.0, -96.0), 1.0)
     );
     assert_eq!(app.session().focus, Focus::Page("p1".into()));
 
@@ -341,13 +341,13 @@ fn a_page_in_fill_is_laid_out_at_the_free_area_and_goes_back_when_left() {
     app.viewport((1200.0, 700.0));
     assert_eq!(
         viewports(&app.take_effects()),
-        [("p1".to_owned(), 1200, 700)]
+        [("p1".to_owned(), 1192, 692)]
     );
     app.show_sidebar(true);
-    let free = 1200 - app.app().covered_left() as u32;
+    let free = 1200 - app.app().covered_left() as u32 - 8;
     assert_eq!(
         viewports(&app.take_effects()),
-        [("p1".to_owned(), free, 700)]
+        [("p1".to_owned(), free, 692)]
     );
     app.show_sidebar(false);
     app.take_effects();
@@ -371,7 +371,7 @@ fn a_page_in_fill_is_laid_out_at_the_free_area_and_goes_back_when_left() {
     app.act(show("p2"));
     assert_eq!(
         viewports(&app.take_effects()),
-        [("p1".to_owned(), 400, 300), ("p2".to_owned(), 1200, 700)]
+        [("p1".to_owned(), 400, 300), ("p2".to_owned(), 1192, 692)]
     );
     app.act(Action::Show(Showing::Canvas));
     assert_eq!(

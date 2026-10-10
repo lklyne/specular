@@ -182,6 +182,7 @@ impl Compositor {
             | PageEvent::Loaded { .. }
             | PageEvent::Crashed { .. }
             | PageEvent::Title { .. }
+            | PageEvent::Favicon { .. }
             | PageEvent::Url { .. }
             | PageEvent::Loading { .. }
             | PageEvent::Scrolled { .. }
@@ -202,6 +203,7 @@ impl Compositor {
     pub fn remove_page(&mut self, page: PageId) {
         if let Some(layers) = self.pages.remove(&page) {
             self.retire(page, layers.view);
+            self.retire(page, layers.kept);
             self.retire(page, layers.popup.texture);
         }
         self.imports.remove(&(page, LayerKind::View));
@@ -210,10 +212,17 @@ impl Compositor {
 
     /// Lets go of what pages that have stopped painting no longer need:
     /// every imported surface but the one each shows, and the surfaces the
-    /// GPU has finished with. Rendering does the second on its own; call
+    /// GPU has finished with. A view frame kept from another size goes too
+    /// once it has been held a while and is not what is drawn. Rendering does the second on its own; call
     /// this on a timer for when nothing is being rendered. Returns how many
     /// imports were dropped.
     pub fn release_idle(&mut self, now: Instant) -> usize {
+        let idle: Vec<_> = (self.pages.iter_mut())
+            .filter_map(|(page, layers)| Some((*page, layers.take_idle_kept(now)?)))
+            .collect();
+        for (page, kept) in idle {
+            self.retire(page, Some(kept));
+        }
         self.reclaim();
         (self.imports.values_mut())
             .map(|cache| cache.settle(now))
@@ -281,11 +290,11 @@ impl Compositor {
     pub(crate) fn mark_shown(&mut self, now: Instant) -> Option<Duration> {
         let mut longest: Option<Duration> = None;
         for item in &self.draw_items {
-            let Some(layer) = self
-                .pages
-                .get_mut(&item.page)
-                .and_then(|layers| layers.slot_mut(item.layer).as_mut())
-            else {
+            let Some(layers) = self.pages.get_mut(&item.page) else {
+                continue;
+            };
+            layers.drew(item.layer);
+            let Some(layer) = layers.slot_mut(item.layer).as_mut() else {
                 continue;
             };
             if !layer.shown {

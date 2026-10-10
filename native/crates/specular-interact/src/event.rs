@@ -1,5 +1,7 @@
 //! [`Event`]: everything that can happen to an [`App`](crate::App).
 
+use std::sync::Arc;
+
 use glam::Vec2;
 use specular_agent::{Index, Notice, Repos, Thread, ThreadId};
 use specular_core::{
@@ -307,6 +309,9 @@ pub enum PageNotice {
     ImeCompositionBounds(Option<PixelRect>),
     /// The document's title changed. Empty for a document with none.
     Title(String),
+    /// The document's icon changed: a PNG, or `None` for a document with
+    /// none.
+    Favicon(Option<Arc<[u8]>>),
     /// The page shows another address: a navigation committed, or the page
     /// changed its own URL in place.
     Url(String),
@@ -482,6 +487,11 @@ pub enum Action {
     /// Show the canvas, or one page or Document in its tab. View state:
     /// nothing is written to the document and no undo step is made.
     Show(crate::Showing),
+    /// A press on the tab of this item, before the click that shows it:
+    /// a page is laid out at the size its tab will give it, and what is
+    /// drawn stays as it is. `None` is the press ending without a click,
+    /// which puts the page back. View state, like [`Self::Show`].
+    PrepareShow(Option<EntityId>),
     /// Look at the item of the tab showing through this lens. View state,
     /// kept by the tab for the session.
     SetLens(crate::Lens),

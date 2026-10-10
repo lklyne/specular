@@ -8,8 +8,10 @@ use crate::gpu_types::QuadInstance;
 /// Which of a page's textures a quad samples.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) enum LayerKind {
-    /// The page's main view.
+    /// The page's main view: its newest frame.
     View,
+    /// The view frame kept from another size than the newest.
+    KeptView,
     /// The popup widget drawn over it.
     Popup,
 }
@@ -25,6 +27,9 @@ pub(crate) struct DrawItem {
 /// What the compositor currently holds for a page.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PageLayersInfo {
+    /// Which held view frame is drawn: [`LayerKind::View`] or
+    /// [`LayerKind::KeptView`]. The fields below describe that one.
+    pub(crate) view: LayerKind,
     /// Size of the view texture, in texels.
     pub(crate) view_size: PixelSize,
     /// The CSS size of the view the texture shows.

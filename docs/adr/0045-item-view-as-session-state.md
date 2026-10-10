@@ -27,6 +27,8 @@ With the eye shut every lens shows the item alone: nothing else is drawn or can 
 
 **Amended 2026-10-09 (phase 4b).** A page in Fill fills the area under the chrome. Its host's viewport follows the presentation rect. That is the one place this ADR lets the view resize a host, and the bullets below say how.
 
+**Amended 2026-10-09 (prepare on press).** A fourth value, the **prepared page**, is the page whose tab is pressed and not yet clicked (`Action::PrepareShow`, `showing/prepare.rs`). Its host is laid out at the size and scale its tab will give it, during the 80 to 100 ms a click takes, so a frame of that size is held when the click shows the tab. Only the host follows it: `pages::laid_out` and the paint LOD read it, and `view`, the camera and `App::page_placement` do not. The compositor keeps the frame of the canvas's size beside the newer ones and draws the one painted at the size the scene asks for. Showing any tab, a canvas switch and a release off the tab let the page go. It is session state like the rest. An item hooked to an element of the page can shift on the canvas while the press is held, since the page reflows.
+
 - This replaces the first rule, "hide all but what is hooked to the item". In Fill the item is the whole view, so what merely lies near it on the canvas has no place: it would be drawn over a rect it was never placed against. Device and the Canvas lens are for the surroundings.
 - In Fill a page is laid out at another width than it is stored at. An item or comment hooked to it by a position or a scroll offset was placed against the stored layout, so it is hidden there whatever the eye says. What follows an element (ADR 0032) is shown: an item whose anchor has an element, a comment on an element, and a region whose binding has one. An item or region still waiting for its page's answer is shown until the answer comes. `gates::follows` and `gates::comment_follows` are the rule.
 - A Document in Fill is a reading column: 720 px wide at 100%, or as wide as the window leaves, and as tall as the fit leaves room for. `showing::presented_rect` is that rect. Its stored rect is not written. In Device it is the card the canvas has, fitted, with its handles.
@@ -65,6 +67,7 @@ What is seen, and where:
 
 - `scroll_follow::seen` and `shown_rect` call `hides`. With `placed_rect` they also call `presented_rect` (`seen` through `presented`), which is how a Document's column and a page's fill reach drawing, hit-testing, the outline and text layout.
 - `App::page_placement` and `pages::snapshot` call `presented_rect`, which is how a page's fill reaches its host and everything that maps canvas points into the page.
+- `pages::laid_out` reads `showing::prepared`, and the runtime's paint LOD reads `App::prepared_page`, so a pressed tab's page gets its viewport and its scale in one resize.
 - `handles::handle_target` calls `presented_rect`, so the column has no resize handles.
 - `comment::shown` calls `hides_comment`.
 

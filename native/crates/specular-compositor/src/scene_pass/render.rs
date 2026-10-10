@@ -16,7 +16,6 @@ use crate::Compositor;
 use crate::draw_list::DrawCounts;
 use crate::gpu_types::FrameUniforms;
 use crate::grid::grid_metrics;
-use crate::layers::PageLayers;
 
 /// What preparing a frame found.
 struct Prepared {
@@ -176,9 +175,9 @@ impl Compositor {
             placed,
             &batches,
             view,
-            |entity| {
+            |entity, wanted| {
                 let id = page_of(entity)?;
-                Some((id, pages.get(&id).and_then(PageLayers::info)?))
+                Some((id, pages.get(&id)?.info(wanted)?))
             },
             |image| images.contains_key(&image),
             &mut Output {

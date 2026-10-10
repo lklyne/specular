@@ -17,8 +17,11 @@
 //! - [`settle`] holds the camera on the item, or leaves it to the tab in the
 //!   Canvas lens, and keeps the selection among what is seen.
 //! - Leaving puts back the camera the canvas had.
+//! - A tab that is pressed has its page's host laid out for it before the
+//!   click shows it (`prepare`). Nothing above follows that.
 
 mod gates;
+mod prepare;
 mod tabs;
 
 use glam::DVec2;
@@ -28,6 +31,7 @@ use specular_doc::{Document, Entity, EntityId, ItemId, Kind, Page, Rect};
 pub(crate) use self::gates::{
     comment_out_of_reach, hides, hides_comment, hides_new, only_page, out_of_reach, refuses,
 };
+pub(crate) use self::prepare::{prepare, prepared};
 pub use self::tabs::Lens;
 pub(crate) use self::tabs::Tabs;
 use crate::app::page_of;
@@ -70,6 +74,16 @@ impl App {
     /// no item to look at.
     pub fn lens(&self) -> Option<Lens> {
         self.shown_item().map(|item| self.session.tabs.lens(item))
+    }
+
+    /// The corner radius of `id` when it is the page filling the view, in
+    /// screen pixels, or `None` for anything else. The page sits a margin
+    /// in from the window's edge, so its corners are the window's less that
+    /// margin and the two curves stay the same distance apart.
+    pub fn fill_corner_radius(&self, id: &EntityId) -> Option<f32> {
+        let fills = self.shown_item() == Some(id) && self.lens() == Some(Lens::Fill);
+        let page = self.document.entity(id).and_then(page_of);
+        (fills && page.is_some()).then_some((WINDOW_CORNER_RADIUS - FILL_MARGIN) as f32)
     }
 
     /// Whether the eye is open: an item view draws more than its item. It
@@ -129,6 +143,7 @@ fn show_item(app: &mut App, item: &EntityId, effects: &mut Vec<Effect>) {
     };
     let page = page_of(entity).map(|_| item.clone());
     let canvas_camera = app.canvas_camera();
+    app.session.prepared = None;
     app.session.selection.set([ItemId::Entity(item.clone())]);
     app.session.item_view = Some(ItemView {
         item: item.clone(),
@@ -198,14 +213,22 @@ pub(crate) fn new_tab(app: &mut App, effects: &mut Vec<Effect>) {
 /// How wide a Document that fills the view is read at, at 100%.
 const READING_MEASURE: f64 = 720.0;
 
+/// The bare strip left around a page that fills the view, in screen pixels.
+const FILL_MARGIN: f64 = 4.0;
+
+/// The corner radius of a window on macOS 26 and later, in points. The
+/// system gives no way to ask for it.
+const WINDOW_CORNER_RADIUS: f64 = 16.0;
+
 /// The rect `entity` fills the view at, in place of its stored one. A page
-/// is everything the chrome leaves free, in whole pixels, so at 100% one of
-/// its CSS pixels is one of the screen's. A Document is a reading column of
+/// is everything the chrome leaves free but a [`FILL_MARGIN`] on each side,
+/// in whole pixels, so at 100% one of its CSS pixels is one of the screen's. A Document is a reading column of
 /// a fixed measure, as tall as the fit leaves room for, so the camera sits
 /// on it at 100% and the text scrolls inside.
 fn fill_rect(app: &App, entity: &Entity) -> Option<Rect> {
     if page_of(entity).is_some() {
-        let size = area(app).size.round().max(DVec2::ONE);
+        let room = area(app).size - DVec2::splat(2.0 * FILL_MARGIN);
+        let size = room.round().max(DVec2::ONE);
         return Some(Rect::new(entity.rect.x, entity.rect.y, size.x, size.y));
     }
     note_file(&entity.kind)?;
@@ -284,13 +307,14 @@ fn framed(entity: &Entity) -> Rect {
 }
 
 /// The camera that holds `entity` in the free part of the viewport. A page
-/// that fills it sits corner to corner at 100%. Anything else is fitted
+/// that fills it sits a [`FILL_MARGIN`] in from each edge at 100%. Anything else is fitted
 /// with room around it, a page with its device frame.
 fn fitted(app: &App, entity: &Entity) -> Camera {
     let free = area(app);
     let presented = presented_rect(app, entity);
     if let Some(rect) = presented.filter(|_| page_of(entity).is_some()) {
-        return Camera::new((free.min - geometry::origin(rect)).as_vec2(), 1.0);
+        let corner = free.min + DVec2::splat(FILL_MARGIN);
+        return Camera::new((corner - geometry::origin(rect)).as_vec2(), 1.0);
     }
     let rect = presented.unwrap_or_else(|| framed(entity));
     let mut camera = zoom::fitting(rect, free.size);
@@ -298,8 +322,10 @@ fn fitted(app: &App, entity: &Entity) -> Camera {
     camera
 }
 
-/// Goes back to the canvas, with the camera it had.
+/// Goes back to the canvas, with the camera it had. A page prepared for its
+/// tab is let go.
 pub(crate) fn leave(app: &mut App) {
+    app.session.prepared = None;
     if let Some(view) = app.session.item_view.take() {
         app.session.camera = view.canvas_camera;
     }
@@ -312,6 +338,7 @@ pub(crate) fn leave(app: &mut App) {
 /// is seen.
 pub(crate) fn settle(app: &mut App) {
     app.session.tabs.settle(&app.document);
+    prepare::settle(app);
     let Some(item) = app.shown_item().cloned() else {
         return;
     };

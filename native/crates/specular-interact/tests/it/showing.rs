@@ -17,12 +17,15 @@
 //! - the address: dropping the Command+L row leaves the key to the page.
 //! - next and previous: dropping the `EnteredPage` rows stops at the first
 //!   page, which is entered, and dropping the modulo runs off the end.
+//! - a press: see the test.
 
 use glam::Vec2;
 use specular_core::{Camera, Modifiers};
 use specular_doc::Rect;
 use specular_interact::panel::builtin::CHROME_HEIGHT;
-use specular_interact::{Action, Effect, Focus, Hit, Key, Showing, hit_test, view_strip};
+use specular_interact::{
+    Action, Effect, Focus, Hit, Key, Lens, PageNotice, Showing, hit_test, view_strip,
+};
 use specular_testkit::{CMD, TestApp, document, file, note, page, pages, shape};
 
 const CMD_ALT: Modifiers = Modifiers { alt: true, ..CMD };
@@ -95,13 +98,13 @@ fn an_item_view_shows_one_item_fitted_and_hides_the_rest_from_presses() {
     assert_eq!(app.app().showing(), Showing::Item("p2".into()));
     assert_eq!(tabs(&app)[3], "view.item.p2 example.com *");
     assert_eq!(app.selected_ids(), ["p2"]);
-    // The page fills what the chrome leaves, corner to corner at 100%. Its
-    // stored size is kept.
+    // The page fills what the chrome leaves at 100%, four pixels in from
+    // each edge. Its stored size is kept.
     let camera = app.session().camera;
     assert!((camera.zoom - 1.0).abs() < 1e-6);
     let corner = camera.world_to_screen(Vec2::new(1200.0, 100.0));
     assert!(
-        corner.abs_diff_eq(Vec2::new(0.0, CHROME_HEIGHT), 1e-2),
+        corner.abs_diff_eq(Vec2::new(4.0, CHROME_HEIGHT + 4.0), 1e-2),
         "{corner}"
     );
     let middle = Vec2::new(VIEWPORT.x / 2.0, f32::midpoint(VIEWPORT.y, CHROME_HEIGHT));
@@ -279,4 +282,110 @@ fn next_and_previous_tab_go_round() {
     assert_eq!(shown(&app), "p2");
     app.chord(CMD_ALT, Key::ArrowLeft);
     assert_eq!(shown(&app), "n");
+}
+
+/// The viewport changes among `effects`, as `(page, width, height)`.
+fn viewports(effects: &[Effect]) -> Vec<(String, u32, u32)> {
+    (effects.iter())
+        .filter_map(|effect| match effect {
+            Effect::SetPageViewport { page, viewport } => {
+                Some((page.to_string(), viewport.width, viewport.height))
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+/// Breaks when `pages::laid_out` forgets the prepared page (the host is
+/// resized at the click, and the old frame flashes in the tab), when
+/// `page_placement` or `view` follows it (the canvas redraws under a held
+/// press), or when `prepare` takes anything but a page that is not showing.
+#[test]
+fn a_press_on_a_tab_lays_its_page_out_and_the_click_shows_it() {
+    let prepare = |id: &str| Action::PrepareShow(Some(id.into()));
+    let mut app = TestApp::with_entities([
+        page("p1", Rect::new(100.0, 100.0, 400.0, 300.0)),
+        page("p2", Rect::new(700.0, 100.0, 400.0, 300.0)),
+        note("n", Rect::new(100.0, 600.0, 300.0, 400.0), "plan.md"),
+    ]);
+    app.viewport((1000.0, 800.0));
+    let before = app.document().clone();
+    let drawn = app.scene_snapshot();
+    app.take_effects();
+
+    // The press sizes the host for the tab, and nothing drawn follows it.
+    app.act(prepare("p1"));
+    assert_eq!(
+        viewports(&app.take_effects()),
+        [("p1".to_owned(), 992, 792)]
+    );
+    assert_eq!(app.app().prepared_page(), Some(&"p1".into()));
+    assert_eq!(app.app().showing(), Showing::Canvas);
+    assert_eq!(app.scene_snapshot(), drawn);
+
+    // Let go elsewhere, the host goes back.
+    app.act(Action::PrepareShow(None));
+    assert_eq!(
+        viewports(&app.take_effects()),
+        [("p1".to_owned(), 400, 300)]
+    );
+    assert_eq!(app.app().prepared_page(), None);
+
+    // The click shows the tab with the host already there.
+    app.act(prepare("p1")).take_effects();
+    app.act(show("p1"));
+    assert_eq!(viewports(&app.take_effects()), []);
+    assert_eq!(app.app().showing(), Showing::Item("p1".into()));
+    assert_eq!(app.app().prepared_page(), None);
+
+    // A press on another page's tab leaves the one showing as it fills,
+    // and showing anything else lets the pressed one go.
+    app.act(prepare("p2"));
+    assert_eq!(
+        viewports(&app.take_effects()),
+        [("p2".to_owned(), 992, 792)]
+    );
+    app.act(Action::Show(Showing::Canvas));
+    assert_eq!(
+        viewports(&app.take_effects()),
+        [("p1".to_owned(), 400, 300), ("p2".to_owned(), 400, 300)]
+    );
+
+    // A Document's tab, a tab that is not in Fill and the tab showing have
+    // nothing to lay out.
+    app.act(prepare("n"));
+    app.act(show("p2"))
+        .act(Action::SetLens(Lens::Device))
+        .act(show("p1"));
+    app.take_effects();
+    app.act(prepare("p2")).act(prepare("p1"));
+    assert_eq!(viewports(&app.take_effects()), []);
+    assert_eq!(app.app().prepared_page(), None);
+
+    // Nothing of it was written, and there is nothing to undo.
+    assert_eq!(*app.document(), before);
+    assert!(!app.app().can_undo());
+}
+
+#[test]
+fn a_page_tab_has_the_pages_icon_until_another_document_loads() {
+    let mut app = mixed();
+    let favicon = |app: &TestApp, id: &str| {
+        let strip = view_strip(app.app());
+        let tab = strip.tabs.iter().find(|tab| tab.id.to_string() == id);
+        tab.and_then(|tab| tab.favicon.clone())
+    };
+    let png: std::sync::Arc<[u8]> = vec![0x89, b'P', b'N', b'G'].into();
+    app.page_reports("p1", PageNotice::Url("https://example.com/a".into()))
+        .page_reports("p1", PageNotice::Favicon(Some(png.clone())));
+    assert_eq!(favicon(&app, "view.item.p1"), Some(png));
+    assert_eq!(favicon(&app, "view.item.p2"), None);
+    assert_eq!(favicon(&app, "view.item.n"), None);
+
+    // The same document at another hash keeps it; another document's own
+    // has not arrived yet.
+    app.page_reports("p1", PageNotice::Url("https://example.com/a#top".into()));
+    assert!(favicon(&app, "view.item.p1").is_some());
+    app.page_reports("p1", PageNotice::Url("https://example.com/b".into()));
+    assert_eq!(favicon(&app, "view.item.p1"), None);
 }

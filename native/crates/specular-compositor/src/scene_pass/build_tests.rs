@@ -27,7 +27,7 @@ fn built(zoom: f32, items: Vec<Item>, info: Option<PageLayersInfo>) -> Built {
         &placed,
         &batches,
         &view,
-        |_| info.map(|info| (PAGE, info)),
+        |_, _| info.map(|info| (PAGE, info)),
         |image| image == ImageId(1),
         &mut Output {
             quads: &mut quads,
@@ -59,6 +59,7 @@ fn page() -> PageDraw {
 
 fn painted(popup: Option<PixelRect>) -> PageLayersInfo {
     PageLayersInfo {
+        view: LayerKind::View,
         view_size: PixelSize::new(400, 200),
         view_css: CssSize::new(200, 100),
         view_is_cpu: true,

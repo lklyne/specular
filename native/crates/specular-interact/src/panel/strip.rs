@@ -2,6 +2,8 @@
 //! one follows for each page and Document of the active canvas, which a
 //! press shows alone.
 
+use std::sync::Arc;
+
 use specular_doc::{Entity, Kind};
 
 use super::{Button, ControlId, Face, Icon, Label};
@@ -17,10 +19,17 @@ pub struct ViewTab {
     pub label: Label,
     /// The glyph before its label.
     pub icon: Icon,
+    /// A page's own icon as a PNG, which a renderer that draws images
+    /// shows in place of the glyph.
+    pub favicon: Option<Arc<[u8]>>,
     /// Whether it is what the window shows now.
     pub active: bool,
     /// What pressing it does: show the canvas, or its item alone.
     pub action: Action,
+    /// What the press does before the click, for a renderer that sees the
+    /// button go down: lay its page out for the tab. `None` for a tab with
+    /// nothing to lay out.
+    pub prepare: Option<Action>,
 }
 
 /// The tab row as it is now.
@@ -52,8 +61,11 @@ fn item_tab(app: &App, entity: &Entity) -> Option<ViewTab> {
         id: ControlId::new("view.item").child(entity.id.as_str()),
         label: label.into(),
         icon,
+        favicon: (app.page_state(&entity.id)).and_then(|state| state.favicon.clone()),
         active: app.shown_item() == Some(&entity.id),
         action: Action::Show(Showing::Item(entity.id.clone())),
+        prepare: matches!(entity.kind, Kind::Page(_))
+            .then(|| Action::PrepareShow(Some(entity.id.clone()))),
     })
 }
 
@@ -64,8 +76,10 @@ pub fn view_strip(app: &App) -> ViewStrip {
         id: ControlId::new("view.canvas"),
         label: "Canvas".into(),
         icon: Icon::File,
+        favicon: None,
         active: app.shown_item().is_none(),
         action: Action::Show(Showing::Canvas),
+        prepare: None,
     };
     let items = showing::listed(&app.document, &app.session.tabs.order);
     let tabs = std::iter::once(canvas)
