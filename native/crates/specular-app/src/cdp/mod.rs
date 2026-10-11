@@ -25,18 +25,20 @@ mod tests;
 use std::sync::Arc;
 use std::sync::mpsc::{self, Receiver};
 
+use glam::DVec2;
 use serde_json::{Value, json};
 use specular_api::cdp::Target;
 use specular_core::{DevtoolsSink, PageId, PageSource};
 use specular_doc::EntityId;
+use specular_interact::AgentAct;
 
-use self::hub::{Hub, ToPage};
+use self::hub::{Hub, PendingAct, ToLoop, ToPage};
 use self::socket::WsServer;
 
 /// The endpoints as the event loop holds them.
 pub(crate) struct CdpHost {
     hub: Arc<Hub>,
-    inbox: Receiver<ToPage>,
+    inbox: Receiver<ToLoop>,
     server: WsServer,
 }
 
@@ -83,13 +85,36 @@ impl CdpHost {
         self.hub.page_closed(entity);
     }
 
-    /// Sends every waiting client message to its page.
-    pub(crate) fn serve(&mut self, source: &mut dyn PageSource) {
-        while let Ok(ToPage { page, id, message }) = self.inbox.try_recv() {
-            if let Err(error) = source.devtools_send(page, &message) {
-                self.hub.refuse(page, id, &error.to_string());
+    /// Sends every waiting client message to its page. Returns the acts
+    /// clients have announced, each to be answered with [`go`](Self::go).
+    pub(crate) fn serve(&mut self, source: &mut dyn PageSource) -> Vec<AgentAct> {
+        let mut acts = Vec::new();
+        while let Ok(message) = self.inbox.try_recv() {
+            match message {
+                ToLoop::Page(ToPage { page, id, message }) => {
+                    if let Err(error) = source.devtools_send(page, &message) {
+                        self.hub.refuse(page, id, &error.to_string());
+                    }
+                }
+                ToLoop::Act(PendingAct {
+                    ticket,
+                    entity,
+                    act,
+                }) => acts.push(AgentAct {
+                    ticket,
+                    page: entity,
+                    session: act.session,
+                    action: act.action,
+                    at: DVec2::new(act.x, act.y),
+                }),
             }
         }
+        acts
+    }
+
+    /// Lets the client waiting on the act `ticket` carry it out.
+    pub(crate) fn go(&self, ticket: u64) {
+        self.hub.go(ticket);
     }
 
     /// How many endpoints and connected clients there are, for the log.

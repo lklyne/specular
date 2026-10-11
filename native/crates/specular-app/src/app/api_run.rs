@@ -48,9 +48,21 @@ impl<W: ShellWindow> Runtime<W> {
             self.api = Some(api);
         }
         if let Some(cdp) = self.cdp.as_mut() {
-            cdp.serve(self.source.as_mut());
+            let acts = cdp.serve(self.source.as_mut());
             // A backend with no loop of its own answers when pumped.
             self.source.pump();
+            for act in acts {
+                tracing::debug!(
+                    ticket = act.ticket,
+                    page = %act.page,
+                    session = %act.session,
+                    action = %act.action,
+                    x = act.at.x,
+                    y = act.at.y,
+                    "an agent waits to act"
+                );
+                self.dispatch(Event::AgentAct(act));
+            }
         }
     }
 }

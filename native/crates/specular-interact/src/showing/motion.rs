@@ -236,6 +236,13 @@ pub(crate) fn interrupt(app: &mut App, leaving: Option<u64>, before: Camera, swi
     }
 }
 
+impl Motion {
+    /// Whether the shell runs transitions.
+    pub(crate) const fn enabled(&self) -> bool {
+        self.enabled
+    }
+}
+
 impl App {
     /// Whether a camera transition is running, so the shell keeps ticking
     /// and drawing until it lands.

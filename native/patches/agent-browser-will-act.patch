@@ -1,0 +1,322 @@
+diff --git a/cli/src/native/actions.rs b/cli/src/native/actions.rs
+index 7342a11..9180237 100644
+--- a/cli/src/native/actions.rs
++++ b/cli/src/native/actions.rs
+@@ -6079,6 +6079,20 @@ async fn handle_click(cmd: &Value, state: &mut DaemonState) -> Result<Value, Str
+     let button = cmd.get("button").and_then(|v| v.as_str()).unwrap_or("left");
+     let click_count = cmd.get("clickCount").and_then(|v| v.as_i64()).unwrap_or(1) as i32;
+ 
++    super::pre_act::pre_act(
++        &mgr.client,
++        &session_id,
++        &state.ref_map,
++        selector,
++        &state.iframe_sessions,
++        if click_count == 2 {
++            "dblclick"
++        } else {
++            "click"
++        },
++    )
++    .await;
++
+     let input_mode = cmd
+         .get("inputMode")
+         .and_then(Value::as_str)
+@@ -6116,7 +6130,7 @@ async fn handle_click(cmd: &Value, state: &mut DaemonState) -> Result<Value, Str
+         .await?;
+     }
+ 
+-    let result = interaction::click(
++    let result = interaction::click_unhooked(
+         &mgr.client,
+         &session_id,
+         &state.ref_map,
+diff --git a/cli/src/native/daemon.rs b/cli/src/native/daemon.rs
+index 28689d2..7413b99 100644
+--- a/cli/src/native/daemon.rs
++++ b/cli/src/native/daemon.rs
+@@ -21,6 +21,7 @@ use super::stream::{IdleActivity, StreamServer};
+ use crate::connection::INTERNAL_DAEMON_SHUTDOWN_ACTION;
+ 
+ pub async fn run_daemon(session: &str) {
++    super::pre_act::set_session(session);
+     let socket_dir = get_daemon_socket_dir();
+     if !socket_dir.exists() {
+         let _ = fs::create_dir_all(&socket_dir);
+diff --git a/cli/src/native/interaction.rs b/cli/src/native/interaction.rs
+index 0a3093e..5cee7e6 100644
+--- a/cli/src/native/interaction.rs
++++ b/cli/src/native/interaction.rs
+@@ -7,6 +7,7 @@ use super::cdp::types::*;
+ use super::element::{
+     resolve_element_center, resolve_element_object_id, session_viewport_offset, RefMap,
+ };
++use super::pre_act::pre_act;
+ 
+ /// Outcome of a click. `dialog_opened` is true if a JavaScript dialog opened
+ /// mid-sequence (the page is then blocked until `dialog accept`/`dismiss`).
+@@ -40,6 +41,42 @@ pub async fn click(
+     button: &str,
+     click_count: i32,
+     iframe_sessions: &HashMap<String, String>,
++) -> Result<ClickResult, String> {
++    let action = if click_count == 2 {
++        "dblclick"
++    } else {
++        "click"
++    };
++    pre_act(
++        client,
++        session_id,
++        ref_map,
++        selector_or_ref,
++        iframe_sessions,
++        action,
++    )
++    .await;
++    click_unhooked(
++        client,
++        session_id,
++        ref_map,
++        selector_or_ref,
++        button,
++        click_count,
++        iframe_sessions,
++    )
++    .await
++}
++
++/// `click` without the pre-act hook, for callers that already ran it.
++pub async fn click_unhooked(
++    client: &CdpClient,
++    session_id: &str,
++    ref_map: &RefMap,
++    selector_or_ref: &str,
++    button: &str,
++    click_count: i32,
++    iframe_sessions: &HashMap<String, String>,
+ ) -> Result<ClickResult, String> {
+     let (x, y, effective_session_id) = resolve_element_center(
+         client,
+@@ -96,6 +133,15 @@ pub async fn hover(
+     selector_or_ref: &str,
+     iframe_sessions: &HashMap<String, String>,
+ ) -> Result<(f64, f64), String> {
++    pre_act(
++        client,
++        session_id,
++        ref_map,
++        selector_or_ref,
++        iframe_sessions,
++        "hover",
++    )
++    .await;
+     let (x, y, effective_session_id) = resolve_element_center(
+         client,
+         session_id,
+@@ -134,6 +180,15 @@ pub async fn fill(
+     value: &str,
+     iframe_sessions: &HashMap<String, String>,
+ ) -> Result<(), String> {
++    pre_act(
++        client,
++        session_id,
++        ref_map,
++        selector_or_ref,
++        iframe_sessions,
++        "fill",
++    )
++    .await;
+     let (object_id, effective_session_id) = resolve_element_object_id(
+         client,
+         session_id,
+@@ -203,6 +258,15 @@ pub async fn type_text(
+     delay_ms: Option<u64>,
+     iframe_sessions: &HashMap<String, String>,
+ ) -> Result<(), String> {
++    pre_act(
++        client,
++        session_id,
++        ref_map,
++        selector_or_ref,
++        iframe_sessions,
++        "type",
++    )
++    .await;
+     let (object_id, effective_session_id) = resolve_element_object_id(
+         client,
+         session_id,
+@@ -444,6 +508,15 @@ pub async fn select_option(
+     values: &[String],
+     iframe_sessions: &HashMap<String, String>,
+ ) -> Result<(), String> {
++    pre_act(
++        client,
++        session_id,
++        ref_map,
++        selector_or_ref,
++        iframe_sessions,
++        "select",
++    )
++    .await;
+     let (object_id, effective_session_id) = resolve_element_object_id(
+         client,
+         session_id,
+@@ -540,7 +613,16 @@ pub async fn check(
+     )
+     .await?;
+     if !is_checked {
+-        let result = click(
++        pre_act(
++            client,
++            session_id,
++            ref_map,
++            selector_or_ref,
++            iframe_sessions,
++            "check",
++        )
++        .await;
++        let result = click_unhooked(
+             client,
+             session_id,
+             ref_map,
+@@ -594,7 +676,16 @@ pub async fn uncheck(
+     )
+     .await?;
+     if is_checked {
+-        let result = click(
++        pre_act(
++            client,
++            session_id,
++            ref_map,
++            selector_or_ref,
++            iframe_sessions,
++            "uncheck",
++        )
++        .await;
++        let result = click_unhooked(
+             client,
+             session_id,
+             ref_map,
+@@ -702,6 +793,15 @@ pub async fn focus(
+     selector_or_ref: &str,
+     iframe_sessions: &HashMap<String, String>,
+ ) -> Result<(), String> {
++    pre_act(
++        client,
++        session_id,
++        ref_map,
++        selector_or_ref,
++        iframe_sessions,
++        "focus",
++    )
++    .await;
+     let (object_id, effective_session_id) = resolve_element_object_id(
+         client,
+         session_id,
+@@ -941,6 +1041,15 @@ pub async fn tap_touch(
+     selector_or_ref: &str,
+     iframe_sessions: &HashMap<String, String>,
+ ) -> Result<(), String> {
++    pre_act(
++        client,
++        session_id,
++        ref_map,
++        selector_or_ref,
++        iframe_sessions,
++        "tap",
++    )
++    .await;
+     let (x, y, effective_session_id) = resolve_element_center(
+         client,
+         session_id,
+diff --git a/cli/src/native/mod.rs b/cli/src/native/mod.rs
+index abdc7ef..e1e069b 100644
+--- a/cli/src/native/mod.rs
++++ b/cli/src/native/mod.rs
+@@ -25,6 +25,8 @@ pub mod network;
+ #[allow(dead_code)]
+ pub mod policy;
+ #[allow(dead_code)]
++pub mod pre_act;
++#[allow(dead_code)]
+ pub mod providers;
+ #[allow(dead_code)]
+ pub mod react;
+diff --git a/cli/src/native/pre_act.rs b/cli/src/native/pre_act.rs
+new file mode 100644
+index 0000000..0639fa4
+--- /dev/null
++++ b/cli/src/native/pre_act.rs
+@@ -0,0 +1,70 @@
++//! Pre-act hook for hosts that proxy CDP (Specular).
++//!
++//! Before a targeted action dispatches input, send the browser-level command
++//! `Specular.willAct` with the element centre and wait for any reply, so the
++//! host can animate a cursor to the target first. Plain Chrome rejects the
++//! method; that is remembered and the hook is never sent again.
++
++use std::collections::HashMap;
++use std::sync::atomic::{AtomicBool, Ordering};
++use std::sync::OnceLock;
++use std::time::Duration;
++
++use serde_json::json;
++
++use super::cdp::client::CdpClient;
++use super::element::{resolve_element_center, session_viewport_offset, RefMap};
++
++static DISABLED: AtomicBool = AtomicBool::new(false);
++static SESSION: OnceLock<String> = OnceLock::new();
++
++/// Records the daemon's session name for the hook payload.
++pub fn set_session(session: &str) {
++    let _ = SESSION.set(session.to_string());
++}
++
++/// Announces `action` on `selector_or_ref` to the host and waits for its go-ahead.
++/// Never fails: any problem computing the centre or sending just skips the hook.
++pub async fn pre_act(
++    client: &CdpClient,
++    session_id: &str,
++    ref_map: &RefMap,
++    selector_or_ref: &str,
++    iframe_sessions: &HashMap<String, String>,
++    action: &str,
++) {
++    if DISABLED.load(Ordering::Relaxed) {
++        return;
++    }
++    let Ok((x, y, target_session)) = resolve_element_center(
++        client,
++        session_id,
++        ref_map,
++        selector_or_ref,
++        iframe_sessions,
++    )
++    .await
++    else {
++        return;
++    };
++    let Ok(offset) =
++        session_viewport_offset(client, session_id, &target_session, iframe_sessions).await
++    else {
++        return;
++    };
++    let params = json!({
++        "action": action,
++        "x": x + offset.0,
++        "y": y + offset.1,
++        "session": SESSION.get().map(String::as_str).unwrap_or(""),
++    });
++    let reply = tokio::time::timeout(
++        Duration::from_secs(3),
++        client.send_command("Specular.willAct", Some(params), None),
++    )
++    .await;
++    // A timeout means "go"; a CDP error means the host does not speak the hook.
++    if let Ok(Err(_)) = reply {
++        DISABLED.store(true, Ordering::Relaxed);
++    }
++}

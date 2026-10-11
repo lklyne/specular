@@ -72,7 +72,8 @@ As of commit `07285583` (2026-10-08). "Done" means built, gated and, where the l
 | Inspect tool, repo bindings, auto-fix | Done | No inspect tree or box-model strips |
 | First run, settings, `Specular Native.app` | Done | Ad hoc signed. Settings and the canvas after first run were never seen on a capture |
 | **Not started** | | |
-| Themes, presence cursors, auto-update, signing and notarization, element attachment, the focus session | Not done | Themes were in progress on another branch when this was written |
+| Agent cursors | Done | agent-browser announces each act and waits for the cursor (ADR 0046). Needs the patched binary from `native/scripts/build-agent-browser.sh` as `AGENT_BROWSER_PATH`; the bundle does not ship it yet. No synced cursor, no click ripple, no setting to hide them |
+| Themes, auto-update, signing and notarization, element attachment, the focus session | Not done | Themes were in progress on another branch when this was written |
 
 ## Where the spike stood
 
@@ -226,7 +227,7 @@ This plan deferred the following "until the core is solid". The run did not wait
 - alignment and distribution guides
 - first run, the settings dialog, and an ad hoc signed app bundle
 
-Still not built: element attachment (ADR 0032), presence cursors, the focus session, themes, auto-update, Developer ID signing and notarization.
+Still not built: element attachment (ADR 0032), the focus session, themes, auto-update, Developer ID signing and notarization.
 
 ## What the full core takes
 

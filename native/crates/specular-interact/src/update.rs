@@ -104,6 +104,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         Event::SettingsLoaded(settings) => crate::settings::load(app, settings),
         Event::About(rows) => app.about = rows,
         Event::SpaceNeeded(ask) => app.space_ask = Some(ask),
+        Event::AgentAct(act) => crate::presence::on_act(app, act, &mut effects),
         Event::Api(call) => api::run(app, call, &mut effects),
     }
     crate::showing::motion::interrupt(app, leaving, camera, app.space.switches() != switches);
@@ -410,6 +411,7 @@ fn on_tick(app: &mut App, unix_ms: u64, effects: &mut Vec<Effect>) {
     app.session.now_ms = unix_ms;
     app.session.motion.on_tick(unix_ms);
     sync::on_tick(app, effects);
+    crate::presence::on_tick(app, effects);
     images::on_tick(app, effects);
     edit::note::autosave(app, effects);
     edit::autoscroll(app, elapsed);

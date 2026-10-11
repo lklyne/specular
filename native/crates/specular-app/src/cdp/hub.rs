@@ -12,7 +12,7 @@ use std::sync::mpsc::Sender;
 use std::sync::{Mutex, MutexGuard, PoisonError};
 
 use serde_json::{Value, json};
-use specular_api::cdp::{Out, PageProxy, Target};
+use specular_api::cdp::{Out, PageProxy, Target, WillAct};
 use specular_core::PageId;
 use specular_doc::EntityId;
 
@@ -28,6 +28,22 @@ pub(super) struct ToPage {
     /// The message's id on that channel, to refuse it by.
     pub(super) id: i32,
     pub(super) message: String,
+}
+
+/// A client's act waiting for its cursor.
+#[derive(Debug)]
+pub(super) struct PendingAct {
+    /// What [`Hub::go`] answers it by.
+    pub(super) ticket: u64,
+    pub(super) entity: EntityId,
+    pub(super) act: WillAct,
+}
+
+/// What a client's message asks of the event loop.
+#[derive(Debug)]
+pub(super) enum ToLoop {
+    Page(ToPage),
+    Act(PendingAct),
 }
 
 /// One page with an endpoint.
@@ -54,10 +70,14 @@ struct State {
     connections: HashMap<u64, (String, WsSender)>,
     next_connection: u64,
     generations: HashMap<EntityId, Generation>,
+    /// The client and the answer each waiting act is owed, by ticket.
+    acts: HashMap<u64, (u64, String)>,
+    next_act: u64,
 }
 
 impl State {
-    fn deliver(&self, page: PageId, out: Vec<Out>, to_page: &mut Vec<ToPage>) {
+    fn deliver(&mut self, entry: (&EntityId, PageId), out: Vec<Out>, to_loop: &mut Vec<ToLoop>) {
+        let (entity, page) = entry;
         for out in out {
             match out {
                 Out::ToClient(client, text) => {
@@ -65,7 +85,18 @@ impl State {
                         socket.send(text);
                     }
                 }
-                Out::ToPage { id, message } => to_page.push(ToPage { page, id, message }),
+                Out::ToPage { id, message } => {
+                    to_loop.push(ToLoop::Page(ToPage { page, id, message }));
+                }
+                Out::Act { client, act, reply } => {
+                    self.next_act += 1;
+                    self.acts.insert(self.next_act, (client, reply));
+                    to_loop.push(ToLoop::Act(PendingAct {
+                        ticket: self.next_act,
+                        entity: entity.clone(),
+                        act,
+                    }));
+                }
             }
         }
     }
@@ -80,14 +111,15 @@ impl State {
 /// See the module docs.
 pub(super) struct Hub {
     state: Mutex<State>,
-    /// Client messages bound for a page, for the event loop.
-    to_loop: Mutex<Sender<ToPage>>,
+    /// What clients ask of the event loop: messages bound for a page, and
+    /// acts waiting for a cursor.
+    to_loop: Mutex<Sender<ToLoop>>,
     /// Gets the event loop to drain them.
     wake: Box<dyn Fn() + Send + Sync>,
 }
 
 impl Hub {
-    pub(super) fn new(to_loop: Sender<ToPage>, wake: Box<dyn Fn() + Send + Sync>) -> Self {
+    pub(super) fn new(to_loop: Sender<ToLoop>, wake: Box<dyn Fn() + Send + Sync>) -> Self {
         Self {
             state: Mutex::new(State::default()),
             to_loop: Mutex::new(to_loop),
@@ -182,8 +214,9 @@ impl Hub {
             return;
         };
         let out = entry.proxy.from_page(text);
+        let entity = entry.entity.clone();
         // A page only ever answers its clients.
-        state.deliver(page, out, &mut Vec::new());
+        state.deliver((&entity, page), out, &mut Vec::new());
     }
 
     /// The page would not take the message `id`: its client hears why.
@@ -193,7 +226,19 @@ impl Hub {
             return;
         };
         let out = entry.proxy.refuse(id, reason).into_iter().collect();
-        state.deliver(page, out, &mut Vec::new());
+        let entity = entry.entity.clone();
+        state.deliver((&entity, page), out, &mut Vec::new());
+    }
+
+    /// The cursor of the act `ticket` has arrived: its client is told to
+    /// go on. A client that has gone is owed nothing.
+    pub(super) fn go(&self, ticket: u64) {
+        let mut state = self.state();
+        if let Some((client, reply)) = state.acts.remove(&ticket)
+            && let Some((_, socket)) = state.connections.get(&client)
+        {
+            socket.send(reply);
+        }
     }
 
     /// How many endpoints and how many connected clients there are.
@@ -215,7 +260,7 @@ impl WsHandler for Hub {
     }
 
     fn message(&self, connection: u64, text: String) {
-        let mut to_page = Vec::new();
+        let mut to_loop = Vec::new();
         {
             let mut state = self.state();
             let Some((token, _)) = state.connections.get(&connection) else {
@@ -225,24 +270,25 @@ impl WsHandler for Hub {
             let Some(entry) = state.pages.get_mut(&token) else {
                 return;
             };
-            let page = entry.page;
+            let (entity, page) = (entry.entity.clone(), entry.page);
             let out = entry.proxy.from_client(connection, &text);
-            state.deliver(page, out, &mut to_page);
+            state.deliver((&entity, page), out, &mut to_loop);
         }
-        if to_page.is_empty() {
+        if to_loop.is_empty() {
             return;
         }
-        let to_loop = self.to_loop.lock().unwrap_or_else(PoisonError::into_inner);
-        for message in to_page {
+        let sender = self.to_loop.lock().unwrap_or_else(PoisonError::into_inner);
+        for message in to_loop {
             // The loop has gone only while the app is closing.
-            let _ = to_loop.send(message);
+            let _ = sender.send(message);
         }
-        drop(to_loop);
+        drop(sender);
         (self.wake)();
     }
 
     fn closed(&self, connection: u64) {
         let mut state = self.state();
+        state.acts.retain(|_, (client, _)| *client != connection);
         if let Some((token, _)) = state.connections.remove(&connection)
             && let Some(entry) = state.pages.get_mut(&token)
         {

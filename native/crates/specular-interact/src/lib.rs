@@ -75,6 +75,7 @@ mod physical_key;
 mod place;
 mod placement;
 mod pointer;
+mod presence;
 pub mod property;
 mod repos;
 mod resize;
@@ -170,6 +171,7 @@ pub use panel::{
 pub use physical_key::{PhysicalKey, mac_key_input};
 pub use place::{PlaceDrag, PlacePreview, Placing};
 pub use placement::PagePlacement;
+pub use presence::{AgentAct, AgentCursor};
 pub use property::{Orientation, Property};
 pub use repos::{BoundOriginRow, RepoAction, RepoRow, ReposPane, repos_pane};
 pub use resize_drag::ResizeDrag;

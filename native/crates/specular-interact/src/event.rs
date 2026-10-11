@@ -197,6 +197,10 @@ pub enum Event {
     /// The connected repos were read from `repos.json`. Replaces the ones
     /// held and asks for no save.
     ReposLoaded(Box<Repos>),
+    /// agent-browser is about to act on a page and waits for its cursor. It
+    /// is answered with an [`Effect::AgentGo`](crate::Effect::AgentGo)
+    /// carrying its ticket.
+    AgentAct(crate::AgentAct),
     /// A change the HTTP API asked for. It is answered with an
     /// [`Effect::ApiReply`](crate::Effect::ApiReply) carrying its ticket.
     Api(ApiCall),

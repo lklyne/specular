@@ -22,6 +22,13 @@ pub enum Effect {
         /// How it went.
         outcome: ApiOutcome,
     },
+    /// Tell agent-browser to carry out the act an
+    /// [`Event::AgentAct`](crate::Event::AgentAct) announced: its cursor is
+    /// where the act lands.
+    AgentGo {
+        /// The act's ticket.
+        ticket: u64,
+    },
     /// Start hosting a page entity.
     CreatePage {
         /// The page entity.

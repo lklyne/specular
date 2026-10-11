@@ -34,6 +34,7 @@ mod layout_handles;
 mod page;
 pub(crate) mod palette;
 mod place_preview;
+mod presence;
 mod session;
 mod shape;
 mod shape_path;
@@ -95,6 +96,7 @@ fn build(frame: &Frame<'_>) -> Scene {
         session::draw(frame, &mut scene);
         comment_draft::composer(frame, &mut scene);
         inspect::draw(frame, &mut scene);
+        presence::draw(frame, &mut scene);
     }
     scene
 }

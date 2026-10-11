@@ -299,6 +299,12 @@ logs the port it took and the `SPECULAR_DISCOVERY_FILE=` to pass the CLI.
   and `fixtures/scenarios/cef/cli-pages.sh` runs every verb against a
   bundled debug CEF app on a scratch space. `fixtures/scenarios/cef/sync.sh`
   runs a sync set of two widths on the same bundle.
+- An agent cursor is drawn when the CLI runs the patched agent-browser:
+  `export AGENT_BROWSER_PATH="$(scripts/build-agent-browser.sh)"`. It sends
+  `Specular.willAct` before each targeted verb, `PageProxy` holds the
+  answer, and `specular-interact/src/presence.rs` releases it when the
+  cursor is there (ADR 0046). `RUST_LOG=specular_app::app=debug` logs each
+  act and its go.
 
 ## Gate
 

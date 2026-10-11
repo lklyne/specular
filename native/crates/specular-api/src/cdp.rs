@@ -15,6 +15,10 @@
 //! which no other page shares. So a client cannot see or drive another page
 //! however many there are.
 //!
+//! One method is this app's own. A client that is about to act on the page
+//! sends [`WILL_ACT`] with the point and waits, and the answer is held
+//! ([`Out::Act`]) until the agent cursor is drawn there.
+//!
 //! Nothing here opens a socket or touches a page: messages come in as text
 //! and go out as [`Out`].
 
@@ -35,8 +39,24 @@ const SERVER_ERROR: i32 = -32000;
 /// The JSON-RPC code for parameters that name nothing.
 const INVALID_PARAMS: i32 = -32602;
 
+/// The method a client announces an act with before it dispatches input.
+pub const WILL_ACT: &str = "Specular.willAct";
+
+/// What a client is about to do to the page.
+#[derive(Debug, Clone, PartialEq)]
+pub struct WillAct {
+    /// The verb, as the CLI spells it.
+    pub action: String,
+    /// Where, in the page's viewport CSS pixels.
+    pub x: f64,
+    /// See `x`.
+    pub y: f64,
+    /// The client's own name for its session.
+    pub session: String,
+}
+
 /// Where a message goes next.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Out {
     /// To this client, as is.
     ToClient(ClientId, String),
@@ -47,6 +67,15 @@ pub enum Out {
         id: i32,
         /// The message.
         message: String,
+    },
+    /// `client` waits to act. Send it `reply` once its cursor has arrived.
+    Act {
+        /// The client waiting.
+        client: ClientId,
+        /// What it is about to do.
+        act: WillAct,
+        /// The answer that lets it.
+        reply: String,
     },
 }
 
@@ -131,6 +160,23 @@ impl PageProxy {
         let held = (self.clients.get(&client))
             .is_some_and(|c| session.as_ref().is_some_and(|s| c.sessions.contains(s)));
 
+        if method == WILL_ACT {
+            let params = &message["params"];
+            let act = WillAct {
+                action: params["action"].as_str().unwrap_or_default().to_owned(),
+                x: params["x"].as_f64().unwrap_or_default(),
+                y: params["y"].as_f64().unwrap_or_default(),
+                session: params["session"].as_str().unwrap_or_default().to_owned(),
+            };
+            let mut reply = Map::new();
+            reply.insert("id".to_owned(), id);
+            reply.insert("result".to_owned(), json!({}));
+            if let Some(session) = session {
+                reply.insert("sessionId".to_owned(), json!(session));
+            }
+            let reply = Value::Object(reply).to_string();
+            return vec![Out::Act { client, act, reply }];
+        }
         if session.is_none() {
             let params = message.get("params").cloned().unwrap_or(Value::Null);
             if let Some(out) = self.browser_level(client, &id, &method, &params) {

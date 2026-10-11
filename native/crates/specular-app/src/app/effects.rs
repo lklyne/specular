@@ -84,11 +84,7 @@ impl<W: ShellWindow> Runtime<W> {
                 self.give_color_scheme(&page);
             }
             Effect::ClosePage(page) => self.close_page(&page),
-            Effect::SetPageViewport { page, viewport } => {
-                if let Some(host) = self.hosts.get(&page) {
-                    warn_on_error(self.source.set_viewport(host.page, viewport));
-                }
-            }
+            Effect::SetPageViewport { page, viewport } => self.set_page_viewport(&page, viewport),
             Effect::FocusPage(page) => {
                 let host = page.and_then(|page| self.hosts.get(&page));
                 warn_on_error(self.source.set_focus(host.map(|host| host.page)));
@@ -143,6 +139,7 @@ impl<W: ShellWindow> Runtime<W> {
             Effect::RunAgent(request) => self.run_agent(&request),
             Effect::CancelAgent(thread) => self.cancel_agent(&thread),
             Effect::ApiReply { outcome, .. } => self.api_outcome = Some(outcome),
+            Effect::AgentGo { ticket } => self.agent_go(ticket),
             effect @ (Effect::CapturePage(_)
             | Effect::AskCandidates { .. }
             | Effect::ReplayPointer { .. }
@@ -165,6 +162,20 @@ impl<W: ShellWindow> Runtime<W> {
             Effect::QueryRegionGrab { region, pages } => self.query_region_grab(region, &pages),
         }
         Ok(())
+    }
+
+    fn set_page_viewport(&mut self, page: &EntityId, viewport: specular_core::CssSize) {
+        if let Some(host) = self.hosts.get(page) {
+            warn_on_error(self.source.set_viewport(host.page, viewport));
+        }
+    }
+
+    /// Lets the agent whose cursor has arrived carry out its act.
+    fn agent_go(&self, ticket: u64) {
+        tracing::debug!(ticket, "the agent's cursor is there");
+        if let Some(cdp) = &self.cdp {
+            cdp.go(ticket);
+        }
     }
 
     /// Stops hosting `page` and answers what was asked of it.

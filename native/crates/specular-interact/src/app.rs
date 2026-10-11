@@ -239,6 +239,8 @@ pub struct Session {
     pub(crate) prepared: Option<EntityId>,
     /// The camera transition in flight, and whether the shell runs them.
     pub(crate) motion: crate::showing::motion::Motion,
+    /// The agent cursors, and the acts waiting for one to arrive.
+    pub(crate) presence: crate::presence::Presence,
     /// The item tabs of the active canvas: their order and the lens each
     /// keeps.
     pub(crate) tabs: crate::showing::Tabs,

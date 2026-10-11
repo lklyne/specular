@@ -36,6 +36,7 @@ impl Wire {
         for out in out {
             match out {
                 Out::ToClient(client, text) => self.to_client.push((client, parse(&text))),
+                Out::Act { client, reply, .. } => self.to_client.push((client, parse(&reply))),
                 Out::ToPage { id, message } => {
                     let message = parse(&message);
                     assert_eq!(message["id"], id, "the id on the wire is the one reported");

@@ -115,8 +115,9 @@ impl FrameDemand {
         if let Some(ms) = app.next_frame_in_ms() {
             wake = wake.min(now + Duration::from_millis(ms));
         }
-        // A camera transition is stepped by the clock, a frame at a time.
-        if app.motion_running() {
+        // A camera transition and an agent cursor on its way are stepped
+        // by the clock, a frame at a time.
+        if app.motion_running() || app.agent_cursor_travelling() {
             wake = wake.min(now + MOTION_TURN);
         }
         match self.not_before {
@@ -137,6 +138,7 @@ struct Pulse {
     caret_shown: bool,
     camera: Camera,
     animation_frames: u64,
+    agent_cursors: u64,
 }
 
 impl Pulse {
@@ -145,6 +147,7 @@ impl Pulse {
             caret_shown: app.caret_visible(),
             camera: app.session().camera,
             animation_frames: app.animation_epoch(),
+            agent_cursors: app.agent_cursor_epoch(),
         }
     }
 }

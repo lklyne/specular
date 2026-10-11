@@ -113,6 +113,7 @@ impl Headless {
             // A headless run has no cursor and no input method, it leaves
             // the disk alone, and it hosts no API.
             Effect::ApiReply { .. }
+            | Effect::AgentGo { .. }
             | Effect::SetImeAllowed(_)
             | Effect::SetImeCursorArea { .. }
             | Effect::SetCursor(_)
