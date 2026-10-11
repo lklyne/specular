@@ -13,6 +13,13 @@
       "height": 1593
     },
     "screenCornerRadius": 96,
+    "body": {
+      "x": 0,
+      "y": 0,
+      "width": 786,
+      "height": 1669
+    },
+    "bodyCornerRadius": 136,
     "logicalScreen": {
       "width": 411.4286,
       "height": 923.4286
@@ -35,6 +42,13 @@
       "height": 1601
     },
     "screenCornerRadius": 96,
+    "body": {
+      "x": 0,
+      "y": 0,
+      "width": 782,
+      "height": 1663
+    },
+    "bodyCornerRadius": 125,
     "logicalScreen": {
       "width": 448,
       "height": 997.3333
@@ -57,6 +71,13 @@
       "height": 2053
     },
     "screenCornerRadius": 0,
+    "body": {
+      "x": 0,
+      "y": 0,
+      "width": 1672.92,
+      "height": 2409
+    },
+    "bodyCornerRadius": 93.68,
     "logicalScreen": {
       "width": 810,
       "height": 1080
@@ -79,6 +100,13 @@
       "height": 2292.265
     },
     "screenCornerRadius": 36.16,
+    "body": {
+      "x": 0,
+      "y": 5.564,
+      "width": 1805.44,
+      "height": 2503.436
+    },
+    "bodyCornerRadius": 127.97,
     "logicalScreen": {
       "width": 820,
       "height": 1180
@@ -101,6 +129,13 @@
       "height": 1210
     },
     "screenCornerRadius": 30,
+    "body": {
+      "x": 0,
+      "y": 2.75,
+      "width": 924,
+      "height": 1299.5
+    },
+    "bodyCornerRadius": 72,
     "logicalScreen": {
       "width": 834,
       "height": 1210
@@ -123,6 +158,13 @@
       "height": 2225.053
     },
     "screenCornerRadius": 32.09,
+    "body": {
+      "x": 0,
+      "y": 5.349,
+      "width": 1735.65,
+      "height": 2406.651
+    },
+    "bodyCornerRadius": 123.02,
     "logicalScreen": {
       "width": 834,
       "height": 1194
@@ -145,6 +187,13 @@
       "height": 2084.808
     },
     "screenCornerRadius": 0,
+    "body": {
+      "x": 6.381,
+      "y": 0,
+      "width": 1737.22,
+      "height": 2409
+    },
+    "bodyCornerRadius": 48,
     "logicalScreen": {
       "width": 1024,
       "height": 1366
@@ -167,6 +216,13 @@
       "height": 2253.226
     },
     "screenCornerRadius": 33.66,
+    "body": {
+      "x": 0.603,
+      "y": 17.26,
+      "width": 1842.384,
+      "height": 2406.3
+    },
+    "bodyCornerRadius": 108.94,
     "logicalScreen": {
       "width": 1024,
       "height": 1366
@@ -189,6 +245,13 @@
       "height": 1376
     },
     "screenCornerRadius": 30.01,
+    "body": {
+      "x": 0,
+      "y": 2.5,
+      "width": 1119,
+      "height": 1463
+    },
+    "bodyCornerRadius": 70,
     "logicalScreen": {
       "width": 1032,
       "height": 1376
@@ -211,6 +274,13 @@
       "height": 1660.764
     },
     "screenCornerRadius": 71.07,
+    "body": {
+      "x": 4.356,
+      "y": 0,
+      "width": 864.288,
+      "height": 1756
+    },
+    "bodyCornerRadius": 116.95,
     "logicalScreen": {
       "width": 414,
       "height": 896
@@ -233,6 +303,13 @@
       "height": 1692.337
     },
     "screenCornerRadius": 97,
+    "body": {
+      "x": 6.191,
+      "y": 0,
+      "width": 860.617,
+      "height": 1770.77
+    },
+    "bodyCornerRadius": 134.15,
     "logicalScreen": {
       "width": 1024,
       "height": 1366
@@ -255,6 +332,13 @@
       "height": 1689.698
     },
     "screenCornerRadius": 96.81,
+    "body": {
+      "x": 6.178,
+      "y": 0,
+      "width": 858.645,
+      "height": 1768
+    },
+    "bodyCornerRadius": 133.89,
     "logicalScreen": {
       "width": 375,
       "height": 812
@@ -277,6 +361,13 @@
       "height": 1691.604
     },
     "screenCornerRadius": 96.98,
+    "body": {
+      "x": 6.191,
+      "y": 0,
+      "width": 860.617,
+      "height": 1770
+    },
+    "bodyCornerRadius": 134.12,
     "logicalScreen": {
       "width": 428,
       "height": 926
@@ -299,6 +390,13 @@
       "height": 1695
     },
     "screenCornerRadius": 96.03,
+    "body": {
+      "x": 6.191,
+      "y": 0,
+      "width": 860.617,
+      "height": 1770.77
+    },
+    "bodyCornerRadius": 134.15,
     "logicalScreen": {
       "width": 390,
       "height": 844
@@ -321,6 +419,13 @@
       "height": 1689.699
     },
     "screenCornerRadius": 96.82,
+    "body": {
+      "x": 6.178,
+      "y": 0,
+      "width": 858.645,
+      "height": 1768
+    },
+    "bodyCornerRadius": 133.89,
     "logicalScreen": {
       "width": 375,
       "height": 812
@@ -343,6 +448,13 @@
       "height": 1691.604
     },
     "screenCornerRadius": 96.98,
+    "body": {
+      "x": 6.191,
+      "y": 0,
+      "width": 860.617,
+      "height": 1770
+    },
+    "bodyCornerRadius": 134.12,
     "logicalScreen": {
       "width": 428,
       "height": 926
@@ -365,6 +477,13 @@
       "height": 1724.535
     },
     "screenCornerRadius": 111.33,
+    "body": {
+      "x": 5,
+      "y": 0,
+      "width": 863,
+      "height": 1792
+    },
+    "bodyCornerRadius": 145.07,
     "logicalScreen": {
       "width": 393,
       "height": 852
@@ -387,6 +506,13 @@
       "height": 1739.778
     },
     "screenCornerRadius": 102.67,
+    "body": {
+      "x": 4.356,
+      "y": 0,
+      "width": 864.288,
+      "height": 1802
+    },
+    "bodyCornerRadius": 133.78,
     "logicalScreen": {
       "width": 430,
       "height": 932
@@ -409,6 +535,13 @@
       "height": 1699.54
     },
     "screenCornerRadius": 109.04,
+    "body": {
+      "x": 5.32,
+      "y": 0,
+      "width": 862.361,
+      "height": 1778
+    },
+    "bodyCornerRadius": 148.27,
     "logicalScreen": {
       "width": 393,
       "height": 852
@@ -431,6 +564,13 @@
       "height": 1713.678
     },
     "screenCornerRadius": 100.53,
+    "body": {
+      "x": 4.905,
+      "y": 0,
+      "width": 863.191,
+      "height": 1786
+    },
+    "bodyCornerRadius": 136.7,
     "logicalScreen": {
       "width": 430,
       "height": 932
@@ -453,6 +593,13 @@
       "height": 1747.358
     },
     "screenCornerRadius": 123.95,
+    "body": {
+      "x": 5.331,
+      "y": 0,
+      "width": 862.337,
+      "height": 1806
+    },
+    "bodyCornerRadius": 153.28,
     "logicalScreen": {
       "width": 402,
       "height": 874
@@ -475,6 +622,13 @@
       "height": 1758.06
     },
     "screenCornerRadius": 114.03,
+    "body": {
+      "x": 4.904,
+      "y": 0,
+      "width": 863.192,
+      "height": 1812
+    },
+    "bodyCornerRadius": 141,
     "logicalScreen": {
       "width": 440,
       "height": 956
@@ -497,6 +651,13 @@
       "height": 1391.527
     },
     "screenCornerRadius": 0,
+    "body": {
+      "x": 6.26,
+      "y": 2,
+      "width": 878.48,
+      "height": 1788
+    },
+    "bodyCornerRadius": 131.44,
     "logicalScreen": {
       "width": 375,
       "height": 667
@@ -519,6 +680,13 @@
       "height": 1777.894
     },
     "screenCornerRadius": 67.38,
+    "body": {
+      "x": 6.521,
+      "y": 0,
+      "width": 838.959,
+      "height": 1864.84
+    },
+    "bodyCornerRadius": 86.94,
     "logicalScreen": {
       "width": 360,
       "height": 800
@@ -541,6 +709,13 @@
       "height": 1706.142
     },
     "screenCornerRadius": 78.91,
+    "body": {
+      "x": 0,
+      "y": 0,
+      "width": 861.602,
+      "height": 1829.84
+    },
+    "bodyCornerRadius": 110.9,
     "logicalScreen": {
       "width": 412,
       "height": 892
@@ -563,6 +738,13 @@
       "height": 1718.045
     },
     "screenCornerRadius": 56.3,
+    "body": {
+      "x": 0,
+      "y": 0,
+      "width": 827.745,
+      "height": 1788.93
+    },
+    "bodyCornerRadius": 62.55,
     "logicalScreen": {
       "width": 412,
       "height": 916
@@ -585,6 +767,13 @@
       "height": 1657.927
     },
     "screenCornerRadius": 21.97,
+    "body": {
+      "x": 0,
+      "y": 0,
+      "width": 795.007,
+      "height": 1713.86
+    },
+    "bodyCornerRadius": 15.98,
     "logicalScreen": {
       "width": 412,
       "height": 883
@@ -607,6 +796,13 @@
       "height": 1819.321
     },
     "screenCornerRadius": 77.46,
+    "body": {
+      "x": 4.427,
+      "y": 11.066,
+      "width": 849.902,
+      "height": 1876.864
+    },
+    "bodyCornerRadius": 90.74,
     "logicalScreen": {
       "width": 360,
       "height": 800
@@ -629,6 +825,13 @@
       "height": 1749
     },
     "screenCornerRadius": 81,
+    "body": {
+      "x": 0,
+      "y": 0,
+      "width": 866,
+      "height": 1805
+    },
+    "bodyCornerRadius": 104,
     "logicalScreen": {
       "width": 360,
       "height": 780
@@ -651,6 +854,13 @@
       "height": 1612.185
     },
     "screenCornerRadius": 20.49,
+    "body": {
+      "x": 0,
+      "y": 0,
+      "width": 753.854,
+      "height": 1757.63
+    },
+    "bodyCornerRadius": 61.46,
     "logicalScreen": {
       "width": 411,
       "height": 960

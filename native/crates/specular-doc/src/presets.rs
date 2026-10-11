@@ -125,18 +125,23 @@ const COMPUTER: DeviceShell = shell((12.0, 12.0, 12.0, 12.0), 20.0, 8.0, DeviceK
 
 /// The shell a framed page of `device_id` is drawn in, turned on its side
 /// when `landscape`. No device is a custom size. A device the table does
-/// not know gets the custom shell with no bezel, as in Electron. A
-/// realistic shell is the device's drawing, and clay when it has none.
+/// not know gets the custom shell with no bezel, as in Electron.
+///
+/// A device with a drawing has one shell in both styles, its drawing's
+/// body, so changing the style never moves or resizes it. Only a realistic
+/// shell names the drawing.
 pub fn device_shell(
     device_id: Option<&str>,
     landscape: bool,
     style: DeviceFrameStyle,
 ) -> DeviceShell {
-    let portrait = match style {
-        DeviceFrameStyle::Realistic => device_id.and_then(realistic),
-        DeviceFrameStyle::Clay => None,
-    }
-    .unwrap_or_else(|| clay(device_id));
+    let portrait = match device_id.and_then(body) {
+        Some(body) => DeviceShell {
+            art: body.art.filter(|_| style == DeviceFrameStyle::Realistic),
+            ..body
+        },
+        None => clay(device_id),
+    };
     if !landscape {
         return portrait;
     }
@@ -158,46 +163,51 @@ pub fn device_shell(
     }
 }
 
-/// The drawn shell of `device_id` standing up, if it has a drawing. The
-/// drawing is scaled so its screen is the preset's viewport, and its
-/// margins round the screen are the insets, to whole units so the screen
-/// stays on whole pixels when the frame changes.
-fn realistic(device_id: &str) -> Option<DeviceShell> {
+/// The shell of `device_id` standing up as its drawing's body, if it has a
+/// drawing. The drawing is scaled so its screen is the preset's viewport.
+/// The insets are what the body leaves round the screen, to whole units so
+/// the screen stays on whole pixels when the frame comes and goes. Buttons
+/// stick out past the shell.
+fn body(device_id: &str) -> Option<DeviceShell> {
     let art = DeviceArt::of_device(device_id)?;
     let preset = (VIEWPORT_PRESETS.iter()).find(|preset| preset.device_id == device_id)?;
     let geometry = art.geometry();
     let scale = art.scale(preset.width);
-    let (left, top) = geometry.screen_origin;
-    let right = geometry.frame.0 - left - geometry.screen_size.0;
-    let bottom = geometry.frame.1 - top - geometry.screen_size.1;
-    let insets = ShellInsets {
-        top: (top * scale).round(),
-        right: (right * scale).round(),
-        bottom: (bottom * scale).round(),
-        left: (left * scale).round(),
-    };
-    let screen_corner_radius = geometry.screen_corner_radius * scale;
+    let left = geometry.screen_origin.0 - geometry.body_origin.0;
+    let top = geometry.screen_origin.1 - geometry.body_origin.1;
+    let right = geometry.body_size.0 - left - geometry.screen_size.0;
+    let bottom = geometry.body_size.1 - top - geometry.screen_size.1;
     Some(DeviceShell {
-        insets,
-        // The body's corner is a bezel out from the screen's.
-        corner_radius: screen_corner_radius + insets.left.min(insets.top),
-        screen_corner_radius,
+        insets: ShellInsets {
+            top: (top * scale).round(),
+            right: (right * scale).round(),
+            bottom: (bottom * scale).round(),
+            left: (left * scale).round(),
+        },
+        corner_radius: geometry.body_corner_radius * scale,
+        screen_corner_radius: geometry.screen_corner_radius * scale,
+        kind: match art {
+            DeviceArt::IphoneSe | DeviceArt::Iphone15Pro | DeviceArt::Iphone15ProMax => {
+                DeviceKind::Phone
+            }
+            DeviceArt::IpadPro11 => DeviceKind::Tablet,
+        },
+        landscape: false,
         art: Some(art),
-        ..clay(Some(device_id))
     })
 }
 
+/// The shell of a device with no drawing, standing up.
 fn clay(device_id: Option<&str>) -> DeviceShell {
     match device_id {
         None => CUSTOM_SHELL,
-        Some("iphone-se") => shell((96.0, 28.0, 96.0, 28.0), 30.0, 0.0, DeviceKind::Phone),
-        Some("iphone-14-pro" | "iphone-14-pro-max" | "iphone-duo-cover") => EDGE_PHONE,
+        Some("iphone-duo-cover") => EDGE_PHONE,
         // The open Duo is a slab like a tablet but is listed with the phones.
         Some("iphone-duo-open") => DeviceShell {
             kind: DeviceKind::Phone,
             ..TABLET
         },
-        Some("ipad-mini" | "ipad-pro-11" | "ipad-pro-129") => TABLET,
+        Some("ipad-mini" | "ipad-pro-129") => TABLET,
         Some("laptop" | "desktop" | "desktop-xl") => COMPUTER,
         Some(_) => DeviceShell {
             insets: ShellInsets {
@@ -242,5 +252,55 @@ mod tests {
             Some("Laptop")
         );
         assert_eq!(preset(devices.len() as u64), None);
+    }
+
+    #[test]
+    fn a_device_with_a_drawing_has_its_bodys_shell_in_both_styles() {
+        // Insets as top, right, bottom, left, then the radii to a tenth.
+        let bodies = [
+            (DeviceArt::IphoneSe, (94.0, 23.0, 96.0, 23.0), 63.0, 0.0),
+            (DeviceArt::Iphone15Pro, (17.0, 17.0, 17.0, 17.0), 71.7, 55.0),
+            // Its sides are 16.5001 and 16.4996 units, which round apart.
+            (
+                DeviceArt::Iphone15ProMax,
+                (17.0, 16.0, 17.0, 17.0),
+                71.7,
+                55.0,
+            ),
+            (DeviceArt::IpadPro11, (49.0, 49.0, 49.0, 49.0), 66.0, 17.2),
+        ];
+        let tenth = |value: f64| (value * 10.0).round() / 10.0;
+        for (art, insets, radius, screen_radius) in bodies {
+            let device = Some(art.device_id());
+            for landscape in [false, true] {
+                let clay = device_shell(device, landscape, DeviceFrameStyle::Clay);
+                let realistic = device_shell(device, landscape, DeviceFrameStyle::Realistic);
+                assert_eq!((clay.art, realistic.art), (None, Some(art)));
+                assert_eq!(
+                    DeviceShell {
+                        art: None,
+                        ..realistic
+                    },
+                    clay,
+                    "{art:?}, landscape {landscape}"
+                );
+            }
+            let shell = device_shell(device, false, DeviceFrameStyle::Clay);
+            let ShellInsets {
+                top,
+                right,
+                bottom,
+                left,
+            } = shell.insets;
+            assert_eq!((top, right, bottom, left), insets, "{art:?}");
+            assert_eq!(
+                (
+                    tenth(shell.corner_radius),
+                    tenth(shell.screen_corner_radius)
+                ),
+                (radius, screen_radius),
+                "{art:?}"
+            );
+        }
     }
 }

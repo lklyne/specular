@@ -56,7 +56,7 @@ mod tests {
     }
 
     #[test]
-    fn a_realistic_shells_insets_are_the_manifests_margins_at_the_presets_width() {
+    fn a_shells_insets_are_what_the_manifests_body_leaves_round_the_screen() {
         for art in DeviceArt::ALL {
             let row = manifest_row(art);
             let number = |of: &str, key: &str| row[of][key].as_f64().unwrap();
@@ -73,15 +73,26 @@ mod tests {
                 "{art:?}"
             );
 
+            let body = (number("body", "x"), number("body", "y"));
+            let body_size = (number("body", "width"), number("body", "height"));
+            assert_eq!(geometry.body_origin, body, "{art:?}");
+            assert_eq!(geometry.body_size, body_size, "{art:?}");
+            assert_eq!(
+                Some(geometry.body_corner_radius),
+                row["bodyCornerRadius"].as_f64(),
+                "{art:?}"
+            );
+
+            // The shell is the body, which leaves the buttons outside it.
             let preset = (VIEWPORT_PRESETS.iter())
                 .find(|preset| preset.device_id == art.device_id())
                 .unwrap();
             let scale = preset.width / size.0;
             let margins = ShellInsets {
-                top: (origin.1 * scale).round(),
-                right: ((frame.0 - origin.0 - size.0) * scale).round(),
-                bottom: ((frame.1 - origin.1 - size.1) * scale).round(),
-                left: (origin.0 * scale).round(),
+                top: ((origin.1 - body.1) * scale).round(),
+                right: ((body.0 + body_size.0 - origin.0 - size.0) * scale).round(),
+                bottom: ((body.1 + body_size.1 - origin.1 - size.1) * scale).round(),
+                left: ((origin.0 - body.0) * scale).round(),
             };
             let shell = device_shell(Some(art.device_id()), false, DeviceFrameStyle::Realistic);
             assert_eq!((shell.art, shell.insets), (Some(art), margins), "{art:?}");

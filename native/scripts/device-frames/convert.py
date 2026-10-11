@@ -701,6 +701,59 @@ def tidy(value, places=4):
     return int(value) if value == int(value) else value
 
 
+def body_outline(draws, frame):
+    """The device's body: the largest filled outline, without the buttons
+    that stick out of it. Returns its box cut to the frame and its corner
+    radius, or None when no fill stands out as the body.
+
+    A fill that covers the whole frame is a backdrop or a cut-out, not the
+    body, and so is left out."""
+    width, height = frame.width, frame.height
+    found = []
+    for draw in draws:
+        paint = draw[-1]
+        if paint.style != "fill":
+            continue
+        if draw[0] == "path":
+            outlines = subpaths(draw[1])
+        elif draw[0] == "rrect":
+            outlines = subpaths(rrect_cmds(draw[1], draw[2]))
+        else:
+            continue
+        for outline in outlines:
+            box = bounds(outline)
+            cut = (max(box[0], 0.0), max(box[1], 0.0), min(box[2], width), min(box[3], height))
+            if cut[2] <= cut[0] or cut[3] <= cut[1]:
+                continue
+            if cut[2] - cut[0] >= width - 1e-6 and cut[3] - cut[1] >= height - 1e-6:
+                continue
+            area = (cut[2] - cut[0]) * (cut[3] - cut[1])
+            found.append((area, cut, corner_radius(outline, box)))
+    if not found:
+        return None
+    area, cut, radius = max(found, key=lambda entry: entry[0])
+    # A body fills most of its frame; anything smaller is a part of one.
+    if area < 0.8 * width * height:
+        return None
+    return cut, radius
+
+
+def body_fields(draws, frame):
+    body = body_outline(draws, frame)
+    if body is None:
+        return {}
+    cut, radius = body
+    return {
+        "body": {
+            "x": tidy(cut[0], 3),
+            "y": tidy(cut[1], 3),
+            "width": tidy(cut[2] - cut[0], 3),
+            "height": tidy(cut[3] - cut[1], 3),
+        },
+        "bodyCornerRadius": tidy(radius, 2),
+    }
+
+
 def convert(folder):
     device_src = (folder / "device.dart").read_text()
     info = block_after(device_src, "DeviceInfo(", "(", ")")
@@ -744,6 +797,7 @@ def convert(folder):
             "height": tidy(box[3] - box[1], 3),
         },
         "screenCornerRadius": tidy(corner_radius(screen_subs[outer], box), 2),
+        **body_fields(canvas.draws, frame),
         "logicalScreen": {"width": tidy(logical.width), "height": tidy(logical.height)},
         "pixelRatio": tidy(ratio),
         "platform": platform,

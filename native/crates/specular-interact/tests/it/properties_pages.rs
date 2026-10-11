@@ -206,15 +206,16 @@ fn step_frame(app: &mut TestApp) {
 fn the_frame_steps_through_none_clay_and_realistic_and_skips_what_cannot_be_drawn() {
     use DeviceFrameStyle::{Clay, Realistic};
     let mut app = TestApp::from_canvas(FRAMED_PHONE_AND_LAPTOP);
-    // The old file's frame is clay, and the screen sits 22 in from it.
+    // The old file's frame is clay, and the screen sits 17 in from it.
     app.select(&["phone"]);
     assert_eq!(frame(app.app()), Some(Some(Clay)));
-    assert_eq!(app.rect("phone"), Rect::new(122.0, 122.0, 393.0, 852.0));
+    let framed = Rect::new(117.0, 117.0, 393.0, 852.0);
+    assert_eq!(app.rect("phone"), framed);
 
     step_frame(&mut app);
     assert_eq!(frame(app.app()), Some(Some(Realistic)));
-    // The drawing's margins are its own, and the shell's corner stays.
-    assert_eq!(app.rect("phone"), Rect::new(119.0, 117.0, 393.0, 852.0));
+    // Both styles are the device's body, so the screen stays where it is.
+    assert_eq!(app.rect("phone"), framed);
     assert_doc_snapshot!(app, @r#"
     nodes:
       {"id":"phone","type":"link","x":100,"y":100,"width":393,"height":852,"url":"https://example.com/phone","presetIndex":1,"metadata":{"showDeviceFrame":true,"deviceId":"iphone-14-pro","deviceFrameStyle":"realistic"}}
@@ -233,10 +234,11 @@ fn the_frame_steps_through_none_clay_and_realistic_and_skips_what_cannot_be_draw
     assert_eq!(app.rect("phone"), Rect::new(100.0, 100.0, 393.0, 852.0));
     step_frame(&mut app);
     assert_eq!(frame(app.app()), Some(Some(Clay)));
+    assert_eq!(app.rect("phone"), framed);
     app.undo();
     app.undo();
     assert_eq!(frame(app.app()), Some(Some(Realistic)));
-    assert_eq!(app.rect("phone"), Rect::new(119.0, 117.0, 393.0, 852.0));
+    assert_eq!(app.rect("phone"), framed);
 
     // A laptop has no drawing, so each press changes what is shown.
     app.select(&["laptop"]);

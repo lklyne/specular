@@ -9,7 +9,8 @@
 /// How a framed page's device is drawn.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DeviceFrameStyle {
-    /// A flat bezel, the same for every device of a kind.
+    /// A flat bezel. A device with a drawing gets its body's outline, and
+    /// every other device the outline of its kind.
     Clay,
     /// The device's own drawing, for the devices that have one. A device
     /// without one is drawn in clay.
@@ -60,18 +61,30 @@ pub struct ArtGeometry {
     pub screen_size: (f64, f64),
     /// The screen's corner radius.
     pub screen_corner_radius: f64,
+    /// The left and top edge of the body: the device's main outline,
+    /// without the buttons that stick out of it.
+    pub body_origin: (f64, f64),
+    /// The body's width and height.
+    pub body_size: (f64, f64),
+    /// The body's corner radius.
+    pub body_corner_radius: f64,
 }
 
 const fn geometry(
     frame: (f64, f64),
     screen: (f64, f64, f64, f64),
     screen_corner_radius: f64,
+    body: (f64, f64, f64, f64),
+    body_corner_radius: f64,
 ) -> ArtGeometry {
     ArtGeometry {
         frame,
         screen_origin: (screen.0, screen.1),
         screen_size: (screen.2, screen.3),
         screen_corner_radius,
+        body_origin: (body.0, body.1),
+        body_size: (body.2, body.3),
+        body_corner_radius,
     }
 }
 
@@ -127,21 +140,38 @@ impl DeviceArt {
         Self::ALL.into_iter().find(|art| art.asset() == asset)
     }
 
-    /// Where the screen sits in the drawing: the manifest's `frame`,
-    /// `screen` and `screenCornerRadius`.
+    /// Where the screen and the body sit in the drawing: the manifest's
+    /// `frame`, `screen`, `screenCornerRadius`, `body` and
+    /// `bodyCornerRadius`.
     pub const fn geometry(self) -> ArtGeometry {
         match self {
-            Self::IphoneSe => geometry((891.0, 1790.0), (54.253, 198.193, 782.494, 1391.527), 0.0),
-            Self::Iphone15Pro => {
-                geometry((873.0, 1792.0), (38.737, 33.735, 795.526, 1724.535), 111.33)
-            }
-            Self::Iphone15ProMax => {
-                geometry((874.0, 1802.0), (35.157, 31.112, 802.687, 1739.778), 102.67)
-            }
+            Self::IphoneSe => geometry(
+                (891.0, 1790.0),
+                (54.253, 198.193, 782.494, 1391.527),
+                0.0,
+                (6.26, 2.0, 878.48, 1788.0),
+                131.44,
+            ),
+            Self::Iphone15Pro => geometry(
+                (873.0, 1792.0),
+                (38.737, 33.735, 795.526, 1724.535),
+                111.33,
+                (5.0, 0.0, 863.0, 1792.0),
+                145.07,
+            ),
+            Self::Iphone15ProMax => geometry(
+                (874.0, 1802.0),
+                (35.157, 31.112, 802.687, 1739.778),
+                102.67,
+                (4.356, 0.0, 864.288, 1802.0),
+                133.78,
+            ),
             Self::IpadPro11 => geometry(
                 (1741.0, 2412.0),
                 (90.928, 96.276, 1553.792, 2225.053),
                 32.09,
+                (0.0, 5.349, 1735.65, 2406.651),
+                123.02,
             ),
         }
     }

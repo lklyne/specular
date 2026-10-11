@@ -28,7 +28,11 @@ with the reason on stderr, and the exit code is 1.
 - `<name>.svg` for every `*/*/frame.g.dart`, where `<name>` is the folder
   name in lower case with dashes. The hand-written `generic/*/frame.dart`
   and `macos/macbook_pro/frame.dart` are not converted.
-- `manifest.json`, one row per device, sorted by name.
+- `manifest.json`, one row per device, sorted by name. `body` and
+  `bodyCornerRadius` are the device's main outline without the buttons that
+  stick out: the largest filled outline that does not cover the whole
+  frame, cut to the view box. A device with no fill over four fifths of its
+  frame gets neither field.
 - `LICENSE-device_frame`, the upstream licence with the repo and commit.
 
 ## How the SVG maps to the Dart
