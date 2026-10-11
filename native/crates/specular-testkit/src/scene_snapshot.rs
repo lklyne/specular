@@ -39,6 +39,9 @@ fn item_line(item: &Item) -> String {
     if item.opacity < 1.0 {
         let _ = write!(out, " opacity={}", num(item.opacity));
     }
+    if item.turn != 0.0 {
+        let _ = write!(out, " turn={}", num(item.turn.to_degrees()));
+    }
     match item.blend {
         Blend::Normal => {}
         Blend::Multiply => out.push_str(" blend=multiply"),

@@ -11,6 +11,8 @@
 mod backend;
 mod claude;
 mod files;
+mod helper;
+mod process;
 mod runs;
 mod scripted;
 
@@ -19,5 +21,6 @@ pub use self::backend::{
 };
 pub use self::claude::ClaudeCli;
 pub use self::files::{load, write_index, write_thread};
+pub use self::helper::Helper;
 pub use self::runs::{AgentRuns, DEFAULT_TIMEOUT};
 pub use self::scripted::{Scripted, StartedRuns};

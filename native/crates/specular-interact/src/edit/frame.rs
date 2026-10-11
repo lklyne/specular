@@ -26,8 +26,8 @@ const PLAIN_MIN_HEIGHT: f32 = 18.0;
 const PLAIN_PLACEHOLDER: &str = "Add text";
 /// Space between a sticky note's edge and its text.
 const STICKY_PADDING: f32 = 8.0;
-/// A sticky is never shorter than this at the default text size, and the
-/// floor scales with the size.
+/// A sticky as tall as it is wide stops growing with its width here, at
+/// the default text size. Past that size the stop scales with it.
 const STICKY_BASE_HEIGHT: f32 = 200.0;
 const LABEL_LINE_HEIGHT: f32 = 1.4;
 /// Room between a Document's edge and its text. It scrolls with the text.
@@ -230,9 +230,15 @@ pub(crate) fn fitted(rect: Rect, text: &Text, working: &str, measure: &dyn TextM
             f64::from(PLAIN_MIN_HEIGHT.max(layout.height()).ceil()),
         ),
         (TextStyle::Sticky, _) => {
-            let floor = STICKY_BASE_HEIGHT * frame.spec.size / DEFAULT_SIZE;
-            let content = layout.height() + STICKY_PADDING * 2.0;
-            (rect.width, f64::from(floor.max(content).ceil()))
+            // A sticky is square until it is wider than a note of its text
+            // size is tall, and then it is wide and short. A scale handle
+            // moves the width and the size together, so a scaled note stays
+            // square; the size control alone never makes a note shorter
+            // than the default one.
+            let scale = frame.spec.size.max(DEFAULT_SIZE) / DEFAULT_SIZE;
+            let floor = rect.width.min(f64::from(STICKY_BASE_HEIGHT * scale));
+            let content = f64::from((layout.height() + STICKY_PADDING * 2.0).ceil());
+            (rect.width, floor.max(content))
         }
     };
     Rect::new(rect.x, rect.y, width, height)

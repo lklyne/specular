@@ -1,3 +1,4 @@
+use crate::models::DEFAULT_MODEL;
 use crate::thread::{Image, ThreadId};
 
 /// Tools pre-approved for the `auto` and `acceptEdits` modes.
@@ -51,7 +52,7 @@ pub enum Permissions {
 /// Settings for a run.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RunConfig {
-    /// The model alias.
+    /// The model of a run that names none.
     pub model: String,
     /// The permission mode.
     pub permissions: Permissions,
@@ -60,7 +61,7 @@ pub struct RunConfig {
 impl Default for RunConfig {
     fn default() -> Self {
         Self {
-            model: "sonnet".into(),
+            model: DEFAULT_MODEL.into(),
             permissions: Permissions::Auto,
         }
     }
@@ -81,6 +82,15 @@ pub struct RunRequest {
     /// The images pasted into this turn, relative to the space folder. They
     /// go to the model beside the prompt.
     pub images: Vec<Image>,
+    /// The model to run, as the picker names it. `None` is the config's.
+    pub model: Option<String>,
+}
+
+impl RunRequest {
+    /// The model this run uses under `config`.
+    pub fn model_under<'a>(&'a self, config: &'a RunConfig) -> &'a str {
+        self.model.as_deref().unwrap_or(&config.model)
+    }
 }
 
 /// The arguments after the program name. The prompt goes to stdin.
@@ -95,7 +105,7 @@ pub fn claude_args(request: &RunRequest, config: &RunConfig) -> Vec<String> {
     ]
     .map(String::from)
     .into();
-    args.push(config.model.clone());
+    args.push(request.model_under(config).to_owned());
     args.push("--permission-mode".into());
     let (mode, allow) = match config.permissions {
         Permissions::Auto => ("auto", true),

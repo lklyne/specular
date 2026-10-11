@@ -4,15 +4,20 @@
 //! row (`composerChipClass`).
 
 use gpui_kit::component::button::{Button, ButtonVariants as _};
+use gpui_kit::component::input::TextareaState;
+use gpui_kit::component::menu::{DropdownMenu as _, PopupMenuItem};
 use gpui_kit::component::tooltip::Tooltip;
 use gpui_kit::component::{Icon, IconName, Sizable as _, h_flex, v_flex};
 use gpui_kit::{
-    FontWeight, InteractiveElement as _, IntoElement, ParentElement as _, SharedString,
-    StatefulInteractiveElement as _, Styled, div, px, rgba,
+    Anchor, Entity, FontWeight, InteractiveElement as _, IntoElement, ParentElement as _,
+    SharedString, StatefulInteractiveElement as _, Styled, div, px, rgba,
 };
 use specular_interact::{
-    AutoChip, DraftChip, DraftKind, Event, OpenComments, PillKind, QueuedChip,
+    AutoChip, DraftChip, DraftKind, Event, ModelChip, ModelOption, OpenComments, PillKind,
+    QueuedChip,
 };
+
+use super::run_keeping_field;
 
 use crate::assets::ShellIcon;
 use crate::canvas;
@@ -224,4 +229,54 @@ pub(super) fn auto_chip(auto: &AutoChip) -> impl IntoElement + use<> {
         .cursor_pointer()
         .tooltip(move |window, cx| Tooltip::new(tip.clone()).build(window, cx))
         .on_click(move |_, _, _| canvas::dispatch(Event::Action(toggle.clone())))
+}
+
+/// One model in the chip's menu: its name over what it is for, and a check
+/// on the chosen one.
+fn model_item(option: &ModelOption, input: &Entity<TextareaState>) -> PopupMenuItem {
+    let (choose, input) = (option.choose.clone(), input.clone());
+    let name = SharedString::from(option.name.clone());
+    let description = SharedString::from(option.description.clone());
+    let item = if description.is_empty() {
+        PopupMenuItem::new(name)
+    } else {
+        PopupMenuItem::element(move |_, _| {
+            v_flex().py(px(2.0)).child(name.clone()).child(
+                div()
+                    .text_size(px(11.0))
+                    .text_color(muted())
+                    .child(description.clone()),
+            )
+        })
+    };
+    item.checked(option.chosen)
+        .on_click(move |_, window, cx| run_keeping_field(&choose, &input, window, cx))
+}
+
+/// The model the next run uses. It opens the list of models, upwards, since
+/// the composer sits at the foot of the panel.
+pub(super) fn model_chip(
+    model: &ModelChip,
+    input: &Entity<TextareaState>,
+) -> impl IntoElement + use<> {
+    let (options, input) = (model.options.clone(), input.clone());
+    Button::new("chat-model")
+        .ghost()
+        .xsmall()
+        .flex_shrink_0()
+        .rounded_full()
+        .child(crate::tip::over("chat-model", "Model for the next run"))
+        .dropdown_caret(true)
+        .child(
+            div()
+                .text_size(px(11.0))
+                .font_weight(FontWeight::MEDIUM)
+                .text_color(muted())
+                .child(SharedString::from(model.label.clone())),
+        )
+        .dropdown_menu_with_anchor(Anchor::BottomRight, move |menu, _, _| {
+            (options.iter()).fold(menu.max_w(px(280.0)), |menu, option| {
+                menu.item(model_item(option, &input))
+            })
+        })
 }

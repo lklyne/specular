@@ -71,7 +71,10 @@ pub(crate) struct QuadInstance {
     pub(crate) corner_radius: f32,
     /// Multiplies the premultiplied texel.
     pub(crate) opacity: f32,
-    padding: [f32; 2],
+    /// A clip of another size about the quad's centre: its half width and
+    /// height in canvas units, and the angle it is turned by in radians.
+    /// All zero when the quad's own rect clips it.
+    pub(crate) clip: [f32; 4],
 }
 
 impl QuadInstance {
@@ -83,7 +86,16 @@ impl QuadInstance {
             uv_rect: [0.0, 0.0, 1.0, 1.0],
             corner_radius,
             opacity: 1.0,
-            padding: [0.0; 2],
+            clip: [0.0; 4],
+        }
+    }
+
+    /// The same quad clipped by a rounded rect of `half_size` about its
+    /// centre, turned by `turn` radians.
+    pub(crate) fn with_clip(self, half_size: Vec2, turn: f32) -> Self {
+        Self {
+            clip: [half_size.x, half_size.y, turn, 0.0],
+            ..self
         }
     }
 
@@ -98,9 +110,10 @@ impl QuadInstance {
     }
 
     /// Vertex attributes: `@location(0) rect`, `@location(1) uv_rect`,
-    /// `@location(2)` corner radius and opacity.
-    pub(crate) const ATTRIBUTES: [wgpu::VertexAttribute; 3] =
-        wgpu::vertex_attr_array![0 => Float32x4, 1 => Float32x4, 2 => Float32x2];
+    /// `@location(2)` corner radius and opacity, `@location(3) clip`.
+    pub(crate) const ATTRIBUTES: [wgpu::VertexAttribute; 4] = wgpu::vertex_attr_array![
+        0 => Float32x4, 1 => Float32x4, 2 => Float32x2, 3 => Float32x4
+    ];
 }
 
 /// One untextured shape, resolved against the camera on the CPU so the
@@ -125,6 +138,8 @@ pub(crate) struct ShapeInstance {
     pub(crate) stroke_offset: f32,
     /// [`Self::RECT`], [`Self::ELLIPSE`] or [`Self::SHADOW`].
     pub(crate) kind: f32,
+    /// The angle the shape is turned by about its centre, in radians.
+    pub(crate) turn: f32,
 }
 
 impl ShapeInstance {
@@ -138,9 +153,10 @@ impl ShapeInstance {
 
     /// Vertex attributes: `@location(0)` centre and half size, `@location(1)`
     /// fill, `@location(2)` stroke, `@location(3)` radius, stroke width,
-    /// stroke offset and kind.
-    pub(crate) const ATTRIBUTES: [wgpu::VertexAttribute; 4] =
-        wgpu::vertex_attr_array![0 => Float32x4, 1 => Float32x4, 2 => Float32x4, 3 => Float32x4];
+    /// stroke offset and kind, `@location(4)` the turn.
+    pub(crate) const ATTRIBUTES: [wgpu::VertexAttribute; 5] = wgpu::vertex_attr_array![
+        0 => Float32x4, 1 => Float32x4, 2 => Float32x4, 3 => Float32x4, 4 => Float32
+    ];
 }
 
 /// One vertex of a tessellated path or polygon.

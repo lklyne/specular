@@ -29,9 +29,7 @@ pub(crate) fn on_pointer(app: &mut App, input: &PointerInput, effects: &mut Vec<
     }
     if crate::panel::builtin::on_pointer(app, input, effects) {
         // The pointer is on a panel, not on page content.
-        if app.session.tool == Tool::Inspect {
-            crate::inspect::clear_hover(app);
-        }
+        crate::inspect::clear_hover(app);
         return;
     }
     match input.kind {
@@ -81,10 +79,15 @@ fn on_move(app: &mut App, input: &PointerInput, effects: &mut Vec<Effect>) {
     app.session.pointer = Some(input.screen);
     if app.session.gesture.is_some() {
         gesture::drag(app, input);
+        comment::follow_region(app, effects);
         return;
     }
     let hit = hit::hit_test(app, input.screen);
     app.session.hover = hit::entity_of(&hit).cloned();
+    if app.session.tool == Tool::Comment {
+        // The element a click would comment on is outlined before it.
+        crate::inspect::hover(app, &hit, effects);
+    }
     if app.session.tool == Tool::Inspect {
         // The page never hears the pointer while its nodes are being read.
         crate::inspect::hover(app, &hit, effects);
@@ -252,6 +255,9 @@ fn tool_takes_press(
     match app.session.tool {
         // A press on a comment's mark is the mark's, with either tool.
         Tool::Comment => {
+            // The outline is of what a click would comment on, and the
+            // press is that click.
+            crate::inspect::clear_hover(app);
             if !comment::press(app, input.screen, effects) && !refused {
                 app.session.gesture = Some(Gesture::Comment(comment::begin(app, input)));
             }

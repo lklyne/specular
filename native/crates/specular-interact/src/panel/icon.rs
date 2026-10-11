@@ -85,8 +85,10 @@ pub enum Icon {
     Annotate,
     /// A device frame. Lucide `Smartphone`.
     Device,
-    /// Rotate the viewport. `RotateIcon` in `shared/CustomIcons.tsx`.
+    /// Rotate the viewport. Lucide `RotateCcwSquare`.
     Rotate,
+    /// A page's size. Lucide `Proportions`.
+    Proportions,
     /// A sync set. Lucide `Link2`.
     Sync,
     /// Back in a page's history. Lucide `ChevronLeft`.

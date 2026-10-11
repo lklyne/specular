@@ -1,9 +1,10 @@
 //! The agent effects: the threads on disk and the `claude` runs.
 
-use specular_interact::{Event, RunRequest, ThreadId, iso8601};
+use specular_interact::{Event, ModelsNews, RunRequest, ThreadId, iso8601};
 
 use super::runtime::{Runtime, ShellWindow, unix_ms};
 use crate::agent::{self, AgentBackend, AgentRuns, Disabled};
+use crate::prefs;
 
 /// The runs of a session. A test and a benchmark get none, so neither can
 /// start `claude`.
@@ -58,8 +59,31 @@ impl<W: ShellWindow> Runtime<W> {
         self.agents.cancel(thread);
     }
 
+    /// Hands the app the model saved by an earlier run, and asks the agent
+    /// which models there are; the list comes back as `Event::Models`.
+    pub(super) fn load_models(&mut self) {
+        let saved = self.prefs.as_deref().and_then(prefs::load_agent_model);
+        if let Some(model) = saved {
+            self.dispatch(Event::Models(ModelsNews::Saved(model)));
+        }
+        self.agents.ask_models();
+    }
+
+    pub(super) fn save_agent_model(&self, model: &str) {
+        let Some(path) = self.prefs.as_deref() else {
+            return;
+        };
+        if let Err(error) = prefs::save_agent_model(path, model) {
+            tracing::warn!(path = %path.display(), "agent model not saved: {error}");
+        }
+    }
+
     /// Hands on what the runs reported since the last turn.
     pub(super) fn take_agent_notices(&mut self) {
+        if let Some(models) = self.agents.take_models() {
+            self.demand.changed();
+            self.dispatch(Event::Models(ModelsNews::Listed(models)));
+        }
         for (thread, notice) in self.agents.poll() {
             self.demand.changed();
             self.dispatch(Event::Agent { thread, notice });

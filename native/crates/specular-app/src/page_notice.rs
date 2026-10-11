@@ -141,6 +141,7 @@ mod tests {
             page: PAGE,
             request: 1,
             count: 2,
+            boxes: Vec::new(),
         };
         assert_eq!(notice_of(&answer, Some(9222)), None);
     }

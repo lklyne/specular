@@ -77,7 +77,7 @@ fn a_choice_from_a_list_closes_it_and_a_stepper_under_it_does_not() {
     assert_eq!(open(&app), None);
     assert_doc_snapshot!(app, @r#"
     nodes:
-      {"id":"t","type":"text","x":300,"y":300,"width":200,"height":800,"text":"note","specular":{"textStyle":"sticky","textSize":56}}
+      {"id":"t","type":"text","x":300,"y":300,"width":200,"height":200,"text":"note","specular":{"textStyle":"sticky","textSize":56}}
       {"id":"s","type":"shape","x":700,"y":300,"width":200,"height":200,"shapeKind":"rectangle","text":""}
     edges:
     specular: {"entityOrder":["t","s"]}

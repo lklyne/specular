@@ -43,7 +43,7 @@ save 06-new-canvas.canvas
 snapshot 06-new-canvas.png
 
 # back on the first canvas nothing of the second is there
-click 100 170
+control sidebar.canvas.tab_1
 snapshot 07-first-canvas-again.png
 save 07-first-canvas.canvas
 

@@ -11,6 +11,7 @@
 use specular_core::{PageEdit, PointerEventKind};
 use specular_doc::{BrushType, ShapeKind};
 
+use crate::PageStep;
 use crate::update::run_action;
 use crate::{
     Action, App, Chord, Effect, Focus, Format, Key, KeyInput, PointerInput, SidebarAction, Tool,
@@ -301,6 +302,23 @@ pub const BINDINGS: &[Binding] = &[
         Chord::char('l').cmd(),
         Context::PageTarget,
         Action::EditPageUrl,
+    ),
+    // How a page is shown. Command+Option keeps them clear of a browser's
+    // own keys, which a page expects to get.
+    once(
+        Chord::char('f').cmd().alt(),
+        Context::PageTarget,
+        Action::StepPage(PageStep::Frame),
+    ),
+    once(
+        Chord::char('r').cmd().alt(),
+        Context::PageTarget,
+        Action::StepPage(PageStep::Rotate),
+    ),
+    once(
+        Chord::char('l').cmd().alt(),
+        Context::PageTarget,
+        Action::StepPage(PageStep::Scheme),
     ),
     // A browser's tab keys. They work inside an entered page, which would
     // otherwise be sent them. While text is edited the arrows are the

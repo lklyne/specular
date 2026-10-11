@@ -292,6 +292,15 @@ pub enum Effect {
         /// part of it the region covers.
         pages: Vec<PageRegion>,
     },
+    /// Read the boxes of the elements each page has inside the comment
+    /// region being dragged, and answer for each page with a
+    /// [`PageNotice::RegionElements`](crate::PageNotice::RegionElements).
+    /// A page that cannot be asked is not answered for.
+    PreviewRegion {
+        /// The pages the region lies over, front to back, each with the
+        /// part of it the region covers.
+        pages: Vec<PageRegion>,
+    },
     /// Ask a page which element an item centred on a point of its document
     /// should follow (ADR 0032), and answer with a
     /// [`PageNotice::ElementCaptured`](crate::PageNotice::ElementCaptured)
@@ -317,6 +326,9 @@ pub enum Effect {
     /// Write the tool defaults to the preferences file, under `toolDefaults`,
     /// as [`ToolDefaults::to_json`] gives them.
     SaveToolDefaults(Box<ToolDefaults>),
+    /// Write the agent's model to the preferences file, under `agentModel`,
+    /// as a run is started with it.
+    SaveAgentModel(String),
     /// Write the theme choice to the preferences file, under `themeMode`,
     /// as [`Theme::key`] names it.
     SaveTheme(Theme),
@@ -334,7 +346,7 @@ pub enum Effect {
     /// Tell a hosted page the device it is on, and load it again so its
     /// document is the one that device is served. Asked when the page's
     /// preset names another device; the shell gives a new page its device
-    /// ([`page_device`](crate::page_device)) as it makes it.
+    /// ([`App::page_device`](crate::App::page_device)) as it makes it.
     SetPageDevice {
         /// The page entity.
         page: EntityId,

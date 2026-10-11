@@ -45,6 +45,8 @@ pub enum ChatAction {
     DropDraft,
     /// Stop the open thread's run.
     Stop,
+    /// Run the agent on this model from the next run on, in every thread.
+    SetModel(String),
     /// Resolve every open comment of the open thread that was sent, as one
     /// undo step.
     ResolveComments,
@@ -90,6 +92,10 @@ pub(crate) fn run(app: &mut App, action: ChatAction, effects: &mut Vec<Effect>) 
             if let Some(id) = active.filter(|id| app.threads.is_running(id)) {
                 effects.push(Effect::CancelAgent(id));
             }
+        }
+        ChatAction::SetModel(model) => {
+            app.models.choose(&model);
+            effects.push(Effect::SaveAgentModel(app.models.chosen().to_owned()));
         }
         ChatAction::ResolveComments => comments::resolve_sent(app, effects),
     }

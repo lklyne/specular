@@ -3,7 +3,7 @@ use crate::prompt::{PromptContext, follow_up_prompt, thread_prompt};
 use crate::reply::parse_output;
 use crate::run::{Run, RunState};
 use crate::stream::{Notice, Progress, ProgressKind};
-use crate::thread::{Message, Role, Status, ThreadId};
+use crate::thread::{Artifact, Message, Role, Status, ThreadId, note_artifact};
 use crate::threads::{Changed, Threads, queued_of};
 
 /// A run the caller should start, and the thread file it changed.
@@ -113,9 +113,19 @@ impl Threads {
                 resume,
                 images,
                 cwd,
+                model: None,
             },
             changed: Changed::thread(id),
         })
+    }
+
+    /// Notes something the running agent of `id` made or edited by a way
+    /// its stream does not show: a canvas change through the API. Nothing
+    /// happens when the thread has no run going.
+    pub fn note_artifact(&mut self, id: &ThreadId, artifact: Artifact) {
+        if let Some(run) = (self.runs.get_mut(id)).filter(|r| r.state == RunState::Running) {
+            note_artifact(&mut run.artifacts, artifact);
+        }
     }
 
     /// Applies one thing the stream said. `message_id` names the agent
@@ -146,6 +156,7 @@ impl Threads {
             Notice::Progress(event) => run.push(event),
             Notice::Text(text) => run.text = text,
             Notice::TextDelta(delta) => run.text.push_str(&delta),
+            Notice::Made(artifact) => note_artifact(&mut run.artifacts, artifact),
             Notice::Finished { text } => return self.finish(id, &text, message_id, now),
             Notice::Failed { error } => return self.fail(id, error),
             Notice::Cancelled => {}
@@ -154,7 +165,8 @@ impl Threads {
     }
 
     fn finish(&mut self, id: &ThreadId, text: &str, message_id: &str, now: &str) -> Outcome {
-        let session = self.runs.remove(id).and_then(|r| r.session);
+        let run = self.runs.remove(id);
+        let (session, artifacts) = run.map_or((None, Vec::new()), |r| (r.session, r.artifacts));
         let Some(thread) = self.items.iter_mut().find(|t| &t.id == id) else {
             return Outcome::Ignored;
         };
@@ -166,6 +178,7 @@ impl Threads {
             queued: false,
             annotation_id: None,
             images: Vec::new(),
+            artifacts,
         });
         thread.status = Status::Open;
         now.clone_into(&mut thread.updated_at);
@@ -200,6 +213,7 @@ impl Threads {
             resume: None,
             images: run.images.clone(),
             cwd: run.cwd.clone(),
+            model: None,
         };
         if let Some(thread) = self.items.iter_mut().find(|t| &t.id == id) {
             thread.claude_session_id = None;

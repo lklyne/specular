@@ -159,7 +159,7 @@ fn a_click_in_the_text_puts_the_caret_where_it_landed() {
 fn a_long_line_scrolls_to_keep_the_caret_in_view_and_back_when_it_goes_home() {
     let mut app = app();
     app.click_control("page.url");
-    let long = "a".repeat(120);
+    let long = "a".repeat(400);
     app.chord(CMD, Key::Char('a')).type_text(&long);
     let layout = app.panel_layout();
     let Some(node) = layout.node(&"page.url".to_owned().into()) else {

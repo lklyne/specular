@@ -47,7 +47,7 @@ impl Headless {
     fn create_page(&mut self, page: &EntityId, url: &str, viewport: CssSize) -> anyhow::Result<()> {
         let mut spec = PageSpec::new(url, viewport);
         spec.texture_scale = self.scale;
-        spec.device = page_device(self.app.app().document(), page, self.scale);
+        spec.device = page_device(self.app.app(), page, self.scale);
         let host = self
             .source
             .create_page(&spec)
@@ -130,6 +130,7 @@ impl Headless {
             Effect::QueryElement { page, point } => self.query_element(&page, point)?,
             Effect::InspectAt { page, point, pick } => self.inspect_at(&page, point, pick)?,
             Effect::QueryRegionGrab { region, pages } => self.query_region_grab(region, &pages)?,
+            Effect::PreviewRegion { pages } => self.preview_region(&pages),
             // A headless run has no cursor and no input method, it leaves
             // the disk alone, and it hosts no API.
             Effect::ApiReply { .. }
@@ -147,6 +148,7 @@ impl Headless {
             | Effect::CopyAsset { .. }
             | Effect::SaveToolDefaults(_)
             | Effect::SaveTheme(_)
+            | Effect::SaveAgentModel(_)
             | Effect::LoadThreads
             | Effect::WriteThread(_)
             | Effect::WriteThreadIndex
@@ -287,6 +289,21 @@ impl Headless {
         Ok(())
     }
 
+    /// Asks each page what a region still being dragged has inside it; a
+    /// page that cannot be asked is not answered for.
+    fn preview_region(&mut self, pages: &[PageRegion]) {
+        for covered in pages {
+            let Some(&host) = self.hosts.get(&covered.page) else {
+                continue;
+            };
+            let request = self.queries.ask_preview(covered.page.clone());
+            let rect = css_rect(covered.rect);
+            if (self.source.query_elements_in_rect(host, rect, request)).is_err() {
+                self.queries.preview_answer(request, &[]);
+            }
+        }
+    }
+
     /// Asks each page what the region grabbed in it; a page that cannot be
     /// asked grabbed nothing.
     fn query_region_grab(&mut self, region: Rect, pages: &[PageRegion]) -> anyhow::Result<()> {
@@ -392,9 +409,18 @@ impl Headless {
                         self.drive(|app| app.send(answer))?;
                     }
                 }
-                PageEvent::ElementsInRect { request, count, .. } => {
-                    self.queries.grab_answer(*request, *count);
-                    self.answer_settled_grabs()?;
+                PageEvent::ElementsInRect {
+                    request,
+                    count,
+                    boxes,
+                    ..
+                } => {
+                    if let Some(answer) = self.queries.preview_answer(*request, boxes) {
+                        self.drive(|app| app.send(answer))?;
+                    } else {
+                        self.queries.grab_answer(*request, *count);
+                        self.answer_settled_grabs()?;
+                    }
                 }
                 _ => {}
             }

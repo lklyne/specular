@@ -361,7 +361,8 @@ fn open_comments_show_as_regions_and_pills() {
 
 #[test]
 fn chrome_keeps_its_pixel_size_when_zoomed_out() {
-    let mut app = TestApp::with_pages(1);
+    // p1 has the handles and p2 the title, which a selected page does not draw.
+    let mut app = TestApp::with_pages(2);
     select(&mut app, &["p1"]);
     app.zoom(0.5);
     assert_scene_snapshot!(app);
@@ -436,6 +437,7 @@ fn a_frame_like_the_last_parses_no_document_and_outlines_no_stroke() {
     app.send(Event::Api(ApiCall {
         ticket: 1,
         canvas: None,
+        thread: None,
         run: ApiRun::Apply {
             command: Command::SetKind {
                 id: EntityId::new("ink"),
@@ -451,6 +453,7 @@ fn a_frame_like_the_last_parses_no_document_and_outlines_no_stroke() {
     app.send(Event::Api(ApiCall {
         ticket: 2,
         canvas: None,
+        thread: None,
         run: ApiRun::Apply {
             command: Command::SetRect {
                 id: EntityId::new("doc"),

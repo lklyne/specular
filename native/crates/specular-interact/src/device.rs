@@ -2,7 +2,10 @@
 //! preset names: what Chrome's device mode sends for the same device.
 
 use specular_core::{PageDevice, PageUserAgent};
-use specular_doc::Page;
+use specular_doc::{EntityId, Page};
+
+use crate::App;
+use crate::app::page_of;
 
 const IPHONE: PageUserAgent = PageUserAgent {
     user_agent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 \
@@ -29,9 +32,28 @@ const fn handheld(user_agent: PageUserAgent, pixel_ratio: f32) -> PageDevice {
     }
 }
 
-/// The device `page` is on. A laptop, a desktop and a page with a size of
+impl App {
+    /// The device the page `id` is on now: the one its preset names, or
+    /// the browser as it is while the page fills the view, where it is a
+    /// browser tab under a mouse whatever size it is stored at.
+    pub fn page_device(&self, id: &EntityId) -> PageDevice {
+        if crate::showing::fills(self, id) {
+            return PageDevice::default();
+        }
+        (self.document.entity(id).and_then(page_of)).map_or_else(PageDevice::default, preset_device)
+    }
+}
+
+/// Whether the preset of the page `id` names a device that is not the
+/// browser as it is.
+pub(crate) fn has_own(app: &App, id: &EntityId) -> bool {
+    (app.document.entity(id).and_then(page_of))
+        .is_some_and(|page| preset_device(page) != PageDevice::default())
+}
+
+/// The device the preset of `page` names. A laptop, a desktop and a page with a size of
 /// its own are the browser as it is, at a pixel ratio the shell picks.
-pub fn page_device(page: &Page) -> PageDevice {
+fn preset_device(page: &Page) -> PageDevice {
     let device = (page.metadata.as_ref())
         .and_then(|meta| meta.get("deviceId"))
         .and_then(serde_json::Value::as_str);

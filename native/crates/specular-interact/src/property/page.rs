@@ -19,13 +19,32 @@ const LEGACY_CUSTOM_SIZE: &str = "responsiveSize";
 /// pages.
 pub(super) fn set(property: &Property, page: &mut Page, rect: &mut Rect) -> bool {
     let shell_before = shell_offset(page);
+    let size_before = shell_size(page, rect);
     let applies = apply(property, page, rect);
     // The shell's corner stays where it was, so a frame that appears, goes
     // or changes its bezel moves the screen and not the device.
     let shell_after = shell_offset(page);
     rect.x += shell_after.0 - shell_before.0;
     rect.y += shell_after.1 - shell_before.1;
+    // A turn is about the shell's centre. The shift is cut to whole pixels
+    // towards zero, so turning back undoes it exactly.
+    if matches!(property, Property::Orientation(_)) {
+        let size_after = shell_size(page, rect);
+        rect.x += ((size_before.0 - size_after.0) / 2.0).trunc();
+        rect.y += ((size_before.1 - size_after.1) / 2.0).trunc();
+    }
     applies
+}
+
+/// The size of the page's shell, which is its screen's when it shows none.
+fn shell_size(page: &Page, rect: &Rect) -> (f64, f64) {
+    page.shell().map_or((rect.width, rect.height), |shell| {
+        let insets = shell.insets;
+        (
+            rect.width + insets.left + insets.right,
+            rect.height + insets.top + insets.bottom,
+        )
+    })
 }
 
 /// How far the page's screen sits in from its shell's corner.
@@ -55,10 +74,15 @@ fn apply(property: &Property, page: &mut Page, rect: &mut Rect) -> bool {
         Property::Orientation(orientation) => {
             let base = base_size(page);
             let meta = page.metadata.get_or_insert_with(JsonMap::new);
+            let turned = orientation_of(meta) != *orientation;
             meta.insert(ORIENTATION.to_owned(), json!(name(*orientation)));
             if !is_custom(meta) {
                 let size = sized_for(base, *orientation);
                 *rect = Rect::new(rect.x, rect.y, size.0, size.1);
+            } else if turned {
+                // A custom size has no shape to agree with, so each turn
+                // lays it across.
+                resize(page, rect, rect.height, rect.width);
             }
         }
         Property::DeviceFrame(shown) => {

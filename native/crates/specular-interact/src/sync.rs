@@ -231,6 +231,7 @@ pub(crate) fn on_notice(
         | PageNotice::Favicon(_)
         | PageNotice::Loading { .. }
         | PageNotice::Inspected { .. }
+        | PageNotice::RegionElements(_)
         | PageNotice::ElementCaptured { .. }
         | PageNotice::ElementPlaces(_)
         | PageNotice::DevtoolsUrl(_) => {}

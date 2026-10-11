@@ -14,12 +14,12 @@ use crate::App;
 /// Where a turn aimed at `pill` may change source: the repo bound to the
 /// pill's origin, else the space folder.
 ///
-/// The origin is the DOM node's for a DOM pill and the page-bound comment's
+/// The origin is the DOM node's for a DOM pill, the page-bound comment's
 /// for a comment pill (its recorded address, else the page's live address,
-/// else the page entity's). This is deliberately narrower than Electron's
-/// `resolveWriteTarget`, which also resolves a selected page: here a canvas
-/// selection, the empty pill, a canvas-bound comment and a `data:` page all
-/// write to the space.
+/// else the page entity's), and the page's for a selection that is one page,
+/// which is also the page shown in its own tab. Any other selection, the
+/// empty pill, a canvas-bound comment and a `data:` page all write to the
+/// space.
 pub(crate) fn write_target(app: &App, pill: &Pill) -> WriteTarget {
     let origin = match pill {
         Pill::Dom { origin, .. } => origin.clone(),
@@ -27,7 +27,13 @@ pub(crate) fn write_target(app: &App, pill: &Pill) -> WriteTarget {
             .document
             .annotation(&AnnotationId::new(annotation_id.as_str()))
             .and_then(|annotation| comment_origin(app, annotation)),
-        Pill::Selection { .. } | Pill::Empty => None,
+        Pill::Selection { entity_ids, .. } => match entity_ids.as_slice() {
+            [page] => crate::inspect::address(app, &EntityId::new(page.as_str()))
+                .as_deref()
+                .and_then(origin_of),
+            _ => None,
+        },
+        Pill::Empty => None,
     };
     let bound = origin
         .as_deref()

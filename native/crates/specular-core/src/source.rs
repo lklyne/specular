@@ -186,8 +186,11 @@ pub enum PageEvent {
         page: PageId,
         /// The `request` the question carried.
         request: u64,
-        /// How many elements lie in the rect.
+        /// How many elements a region there grabs.
         count: usize,
+        /// The box of each visible element that lies wholly in the rect,
+        /// in the page's viewport CSS pixels and document order.
+        boxes: Vec<CssRect>,
     },
     /// The answer to a [`PageSource::capture_element`].
     ElementCaptured {
@@ -491,8 +494,8 @@ pub trait PageSource {
         request: u64,
     ) -> Result<(), PageSourceError>;
 
-    /// Asks how many elements the page has inside `rect`, in its viewport
-    /// CSS pixels. Answered like [`query_element`](Self::query_element), by
+    /// Asks how many elements a region at `rect` grabs, in the page's
+    /// viewport CSS pixels, and for the boxes of the elements inside it. Answered like [`query_element`](Self::query_element), by
     /// a [`PageEvent::ElementsInRect`].
     fn query_elements_in_rect(
         &mut self,

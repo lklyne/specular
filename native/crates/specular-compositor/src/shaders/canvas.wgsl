@@ -64,6 +64,8 @@ struct QuadOut {
     @location(2) half_size: vec2<f32>,
     @location(3) radius: f32,
     @location(4) opacity: f32,
+    // The angle the clip is turned by about the quad's centre, in radians.
+    @location(5) turn: f32,
 };
 
 @vertex
@@ -72,6 +74,7 @@ fn vs_quad(
     @location(0) rect: vec4<f32>,
     @location(1) uv_rect: vec4<f32>,
     @location(2) style: vec2<f32>,
+    @location(3) clip: vec4<f32>,
 ) -> QuadOut {
     // Triangle strip: (0,0) (1,0) (0,1) (1,1).
     let corner = vec2<f32>(f32(index & 1u), f32((index >> 1u) & 1u));
@@ -81,16 +84,29 @@ fn vs_quad(
     out.position = frame.view_proj * vec4<f32>(world, 0.0, 1.0);
     out.uv = uv_rect.xy + corner * uv_rect.zw;
     out.local = (corner - 0.5) * size;
+    // A clip of its own is a rounded rect of another size about the same
+    // centre, turned. Without one the quad's own rect clips it.
     out.half_size = size * 0.5;
+    if clip.x > 0.0 {
+        out.half_size = clip.xy * frame.zoom;
+    }
     out.radius = min(style.x * frame.zoom, min(out.half_size.x, out.half_size.y));
     out.opacity = style.y;
+    out.turn = clip.z;
     return out;
+}
+
+// `v` turned by `angle` radians, clockwise on a screen whose y runs down.
+fn turned(v: vec2<f32>, angle: f32) -> vec2<f32> {
+    let c = cos(angle);
+    let s = sin(angle);
+    return vec2<f32>(v.x * c - v.y * s, v.x * s + v.y * c);
 }
 
 @fragment
 fn fs_quad(in: QuadOut) -> @location(0) vec4<f32> {
     // Rounded-box signed distance, anti-aliased over one device pixel.
-    let q = abs(in.local) - in.half_size + vec2<f32>(in.radius);
+    let q = abs(turned(in.local, -in.turn)) - in.half_size + vec2<f32>(in.radius);
     let distance = length(max(q, vec2<f32>(0.0))) + min(max(q.x, q.y), 0.0) - in.radius;
     let coverage = clamp(0.5 - distance * frame.scale_factor, 0.0, 1.0);
     // Texels are premultiplied, so scaling all channels clips the corner and
@@ -116,6 +132,7 @@ fn vs_shape(
     @location(1) fill: vec4<f32>,
     @location(2) stroke: vec4<f32>,
     @location(3) style: vec4<f32>,
+    @location(4) turn: f32,
 ) -> ShapeOut {
     let corner = vec2<f32>(f32(index & 1u), f32((index >> 1u) & 1u));
     let half_size = centre_and_half.zw;
@@ -130,7 +147,8 @@ fn vs_shape(
     var out: ShapeOut;
     out.position = frame.view_proj * vec4<f32>(centre_and_half.xy, 0.0, 1.0);
     out.position = vec4<f32>(
-        out.position.xy + local * vec2<f32>(2.0, -2.0) / logical_viewport * out.position.w,
+        out.position.xy
+            + turned(local, turn) * vec2<f32>(2.0, -2.0) / logical_viewport * out.position.w,
         out.position.zw,
     );
     out.local = local;

@@ -32,7 +32,7 @@ fn page_presets(app: &App) -> ControlsModel {
             (!page.custom).then_some(page.preset),
             Some("Add"),
             |index| set(ToolDefaultPatch::PagePreset(index)),
-            Some((page.custom, set(ToolDefaultPatch::PageCustom))),
+            Some((page.custom, set(ToolDefaultPatch::PageCustom), Vec::new())),
         ),
         id,
     })])
@@ -93,18 +93,20 @@ pub(super) fn controls(app: &App, tool: Tool) -> Option<ControlsModel> {
             ))],
         ])),
         Tool::AddShape => docked(groups(vec![
-            vec![shape::kind_dropdown(
-                ControlId::new("shape.kind"),
-                "Set default shape",
-                Some(defaults.shape.kind),
-                |kind| set(ToolDefaultPatch::ShapeKind(kind)),
-            )],
-            vec![size_dropdown(
-                ControlId::new("shape.size"),
-                "Set default label size",
-                Some(defaults.shape.text_size),
-                |size| set(ToolDefaultPatch::ShapeTextSize(size)),
-            )],
+            vec![
+                shape::kind_dropdown(
+                    ControlId::new("shape.kind"),
+                    "Set default shape",
+                    Some(defaults.shape.kind),
+                    |kind| set(ToolDefaultPatch::ShapeKind(kind)),
+                ),
+                size_dropdown(
+                    ControlId::new("shape.size"),
+                    "Set default label size",
+                    Some(defaults.shape.text_size),
+                    |size| set(ToolDefaultPatch::ShapeTextSize(size)),
+                ),
+            ],
             vec![Control::Swatches(swatches(
                 ControlId::new("shape.color"),
                 Palette::Soft,

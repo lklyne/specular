@@ -24,8 +24,7 @@ const MIN_SHAPE_DRAG: f64 = 24.0;
 const DEFAULT_SHAPE_SIZE: DVec2 = DVec2::new(160.0, 160.0);
 /// A pill in a square box is a circle, so it is placed wide.
 const DEFAULT_PILL_SIZE: DVec2 = DVec2::new(200.0, 88.0);
-/// The size a new text or sticky gets. The height is a sticky's height at
-/// the default text size.
+/// The size a new text or sticky gets. A sticky is at least square.
 const DEFAULT_TEXT_SIZE: DVec2 = DVec2::new(200.0, 200.0);
 /// The size a new Document gets: Electron's default for a file entity.
 const DEFAULT_DOCUMENT_SIZE: DVec2 = DVec2::new(300.0, 300.0);

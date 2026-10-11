@@ -95,7 +95,7 @@ impl Lists<'_, '_> {
             parts: Vec::new(),
             run: Some(Run::Act {
                 action: option.action.clone(),
-                closes: true,
+                closes: option.closes(),
             }),
         }
     }
@@ -169,6 +169,25 @@ impl Lists<'_, '_> {
         }
     }
 
+    /// The fields of `option` at the far end of its row.
+    fn row_fields(&self, option: &DropdownOption, top: f32) -> Vec<Node> {
+        if option.fields.is_empty() {
+            return Vec::new();
+        }
+        let fields: Vec<Control> = (option.fields.iter().cloned())
+            .map(Control::Field)
+            .collect();
+        let width = controls::natural_width(self.ctx, &fields, RowKind::Dropdown);
+        let laid = controls::row(self.ctx, &fields, RowKind::Dropdown, None);
+        let by = Vec2::new(
+            self.width - ROW_PAD - width,
+            top + (row_height(option) - laid.height) / 2.0,
+        );
+        (laid.nodes.into_iter())
+            .map(|node| node.moved(by))
+            .collect()
+    }
+
     /// A cell of a row or a grid of glyph choices.
     fn cell(&self, option: &DropdownOption, rect: PanelRect, glyph: f32) -> Node {
         let part = match option.face.icon {
@@ -200,6 +219,7 @@ impl Lists<'_, '_> {
                     let mut nodes = Vec::new();
                     for option in options {
                         nodes.push(self.list_row(option, y));
+                        nodes.extend(self.row_fields(option, y));
                         y += row_height(option);
                     }
                     (nodes, y - top)

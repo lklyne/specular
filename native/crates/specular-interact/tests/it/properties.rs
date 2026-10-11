@@ -56,8 +56,8 @@ fn text_ink_size_and_font_apply_to_every_selected_text() {
     set(&mut app, Property::TextFont(TextFont::Mono));
     assert_doc_snapshot!(app, @r#"
     nodes:
-      {"id":"a","type":"text","x":100,"y":100,"width":200,"height":458,"text":"one","color":"1","specular":{"textStyle":"sticky","textSize":32,"textFont":"mono"}}
-      {"id":"b","type":"text","x":400,"y":100,"width":200,"height":458,"text":"two","color":"1","specular":{"textStyle":"sticky","textSize":32,"textFont":"mono"}}
+      {"id":"a","type":"text","x":100,"y":100,"width":200,"height":200,"text":"one","color":"1","specular":{"textStyle":"sticky","textSize":32,"textFont":"mono"}}
+      {"id":"b","type":"text","x":400,"y":100,"width":200,"height":200,"text":"two","color":"1","specular":{"textStyle":"sticky","textSize":32,"textFont":"mono"}}
     edges:
     specular: {"entityOrder":["a","b"]}
     "#);
@@ -89,7 +89,7 @@ fn a_text_style_swaps_to_what_the_other_creation_tool_stamps() {
     set(&mut app, Property::TextStyle(TextStyle::Sticky));
     assert_doc_snapshot!(app, @r#"
     nodes:
-      {"id":"a","type":"text","x":100,"y":100,"width":64,"height":200,"text":"one","color":"3","specular":{"textStyle":"sticky","widthMode":"fixed"}}
+      {"id":"a","type":"text","x":100,"y":100,"width":64,"height":64,"text":"one","color":"3","specular":{"textStyle":"sticky","widthMode":"fixed"}}
       {"id":"b","type":"text","x":400,"y":100,"width":200,"height":200,"text":"two","color":"3","specular":{"textStyle":"sticky","widthMode":"fixed"}}
     edges:
     specular: {"entityOrder":["a","b"]}
@@ -253,7 +253,7 @@ fn a_property_set_during_an_edit_survives_the_edits_end() {
     app.key(Key::Escape);
     assert_doc_snapshot!(app, @r#"
     nodes:
-      {"id":"n","type":"text","x":100,"y":100,"width":200,"height":343,"text":"new","color":"1","specular":{"textStyle":"sticky","textSize":24}}
+      {"id":"n","type":"text","x":100,"y":100,"width":200,"height":200,"text":"new","color":"1","specular":{"textStyle":"sticky","textSize":24}}
     edges:
     specular: {"entityOrder":["n"]}
     "#);

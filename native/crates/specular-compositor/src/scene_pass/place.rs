@@ -130,6 +130,24 @@ pub(crate) struct PlaceCounts {
     pub(crate) text_too_small: u32,
 }
 
+/// The upright rect that holds `rect` turned by `turn` radians about its
+/// centre.
+fn turned_bounds(rect: Rect, turn: f32) -> Rect {
+    if turn == 0.0 {
+        return rect;
+    }
+    let (sin, cos) = turn.sin_cos();
+    let width = rect.width * cos.abs() + rect.height * sin.abs();
+    let height = rect.width * sin.abs() + rect.height * cos.abs();
+    let centre = rect.centre();
+    Rect::new(
+        centre.x - width / 2.0,
+        centre.y - height / 2.0,
+        width,
+        height,
+    )
+}
+
 /// Fills `placed` (cleared first) with the items of `scene` that can show,
 /// in paint order. `measure` returns the size of a run's shaped lines in the
 /// run's own units; it is only called for runs that pass the cheap checks.
@@ -179,6 +197,7 @@ pub(crate) fn place(
             Draw::Rect(_) | Draw::Ellipse(_) | Draw::Shadow(_) => (Prim::Shape, item.draw.bounds()),
             Draw::Polygon(_) | Draw::Path(_) => (Prim::Mesh(item.blend), item.draw.bounds()),
         };
+        let bounds = bounds.map(|bounds| turned_bounds(bounds, item.turn));
         let extent = bounds.map(|bounds| {
             let clipped = item.clip.and_then(|clip| clip.intersection(bounds));
             clipped.unwrap_or(bounds)

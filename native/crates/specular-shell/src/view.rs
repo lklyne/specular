@@ -41,8 +41,10 @@ mod onboarding;
 mod palette;
 mod palette_row;
 mod pick;
+mod raised;
 mod sidebar;
 mod slot;
+mod squircle;
 mod tabs;
 mod toolbar;
 
@@ -285,6 +287,11 @@ impl Render for ShellView {
                     .h(px(1.0))
                     .bg(theme::solid(theme::toolbar_border())),
             )
+            // A drag that began on the canvas is the canvas's until it ends:
+            // nothing it passes over hovers, opens a tooltip or scrolls.
+            .when(self.pointer.held(), |root| {
+                root.child(div().absolute().inset_0().occlude())
+            })
             .into_any_element()
     }
 }

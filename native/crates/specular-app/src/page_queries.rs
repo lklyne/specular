@@ -59,6 +59,8 @@ pub(crate) struct PageQueries {
     /// Which grab, and which of its pages, a request is for.
     grab_requests: HashMap<u64, (u64, usize)>,
     grabs: HashMap<u64, Grab>,
+    /// The page each question about a region still being dragged is for.
+    previews: HashMap<u64, EntityId>,
 }
 
 impl PageQueries {
@@ -69,7 +71,28 @@ impl PageQueries {
 
     /// Whether every question has been answered.
     pub(crate) fn is_idle(&self) -> bool {
-        self.elements.is_empty() && self.inspects.is_empty() && self.grabs.is_empty()
+        self.elements.is_empty()
+            && self.inspects.is_empty()
+            && self.grabs.is_empty()
+            && self.previews.is_empty()
+    }
+
+    /// Notes that `page` is being asked what a region still being dragged
+    /// has inside it, and returns the request number to ask under.
+    pub(crate) fn ask_preview(&mut self, page: EntityId) -> u64 {
+        let request = self.request();
+        self.previews.insert(request, page);
+        request
+    }
+
+    /// The event that answers a question about a region still being
+    /// dragged, or `None` for a request that is not one.
+    pub(crate) fn preview_answer(&mut self, request: u64, boxes: &[CssRect]) -> Option<Event> {
+        let page = self.previews.remove(&request)?;
+        Some(Event::Page {
+            page,
+            notice: PageNotice::RegionElements(boxes.to_vec()),
+        })
     }
 
     /// Notes that `page` is being asked for the element at `point`, and
@@ -174,6 +197,7 @@ impl PageQueries {
             .collect();
         // A hover or a pick of a page that is gone has nothing to show.
         self.inspects.retain(|_, (asked, _, _)| asked != page);
+        self.previews.retain(|_, asked| asked != page);
         let grabs = &self.grabs;
         let waiting: Vec<u64> = (self.grab_requests.iter())
             .filter(|(_, (grab, index))| {
@@ -239,6 +263,18 @@ mod tests {
         let settled = queries.settled();
         assert_eq!(grabs(&settled[0]), [("front", 0), ("back", 2)]);
         assert_eq!(queries.settled(), []);
+        // A region still being dragged is answered a page at a time.
+        let preview = queries.ask_preview(id("front"));
+        let boxes = [CssRect::new(1.0, 2.0, 3.0, 4.0)];
+        assert_eq!(
+            queries.preview_answer(preview, &boxes),
+            Some(Event::Page {
+                page: id("front"),
+                notice: PageNotice::RegionElements(boxes.to_vec()),
+            })
+        );
+        assert_eq!(queries.preview_answer(preview, &boxes), None);
+        assert!(queries.is_idle());
         let requests = queries.ask_grab(Rect::new(0.0, 0.0, 5.0, 5.0), Vec::new());
         assert_eq!(requests, Vec::<u64>::new());
         assert_eq!(grabs(&queries.settled()[0]), []);

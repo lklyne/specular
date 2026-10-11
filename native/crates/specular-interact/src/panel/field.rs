@@ -114,7 +114,10 @@ fn find(control: &Control, id: &ControlId) -> Option<Field> {
         Control::Field(field) if field.id == *id => Some(field.clone()),
         Control::Dropdown(dropdown) => dropdown.content.iter().find_map(|section| match section {
             DropdownSection::Controls(row) => row.iter().find_map(|inner| find(inner, id)),
-            DropdownSection::Options { .. } => None,
+            DropdownSection::Options { options, .. } => (options.iter())
+                .flat_map(|option| &option.fields)
+                .find(|field| field.id == *id)
+                .cloned(),
         }),
         Control::Field(_)
         | Control::Button(_)

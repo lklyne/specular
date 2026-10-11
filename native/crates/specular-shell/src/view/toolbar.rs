@@ -20,6 +20,7 @@ use super::controls::{column, control, hint};
 use super::dropdown::dropdown;
 use super::glyphs::{self, glyph, ink};
 use super::named::mark;
+use super::raised::Raised;
 use super::run;
 use crate::theme;
 
@@ -61,9 +62,7 @@ fn tool(model: &ToolButton, tip: bool) -> impl IntoElement {
         .px_0()
         .rounded(px(6.0))
         .selected(model.active)
-        .when(model.active, |this| {
-            this.bg(theme::solid(theme::tool_fill()))
-        })
+        .when(model.active, |this| this.raised(6.0))
         .child(glyph(model.icon, current, tint, model.active, TOOL_GLYPH))
         .when(tip, |this| {
             this.child(crate::tip::over(

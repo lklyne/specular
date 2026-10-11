@@ -6,6 +6,8 @@
 #   Specular Native.app/Contents/
 #     Info.plist                                    name, id, icon, .canvas documents
 #     MacOS/Specular Native                         the `specular` binary
+#     MacOS/specular-helper                         the Agent SDK host, from native/helper
+#     Helpers/claude                                the Claude Code runtime the SDK runs
 #     Frameworks/Chromium Embedded Framework.framework
 #     Frameworks/Specular Native Helper*.app        five copies of the binary
 #     Resources/Assets.car, AppIcon.icns            the icon, compiled from assets/AppIcon.icon
@@ -57,8 +59,14 @@ if [[ "$build" == 1 ]]; then
   flag=()
   [[ "$profile" == release ]] && flag=(--release)
   (cd "$native_dir" && cargo build "${flag[@]}" -p specular-shell --features cef)
+  (cd "$native_dir/helper" && bun install --frozen-lockfile && bun run build)
 fi
 [[ -x "$bin" ]] || { echo "missing $bin; build it, or drop --no-build" >&2; exit 1; }
+helper_bin="$native_dir/helper/dist/specular-helper"
+runtime_bin="$native_dir/helper/node_modules/@anthropic-ai/claude-agent-sdk-darwin-$(uname -m)/claude"
+for needed in "$helper_bin" "$runtime_bin"; do
+  [[ -x "$needed" ]] || { echo "missing $needed; run bun install and bun run build in native/helper" >&2; exit 1; }
+done
 
 framework=""
 for candidate in "$CEF_PATH" "$CEF_PATH"/*/cef_macos_aarch64 "$CEF_PATH"/*/cef_macos_x86_64; do
@@ -145,6 +153,10 @@ if ! "$(dirname "$0")/compile-icon.sh" "$app/Contents/Resources"; then
 fi
 make_app "$app" "$APP_NAME" "$BUNDLE_ID" 0
 cp -R "$repo_dir/resources/starter-space" "$app/Contents/Resources/starter-space"
+cp "$helper_bin" "$app/Contents/MacOS/specular-helper"
+mkdir -p "$app/Contents/Helpers"
+# Anthropic's own signature stays on the runtime.
+cp "$runtime_bin" "$app/Contents/Helpers/claude"
 mkdir -p "$app/Contents/Frameworks"
 cp -R "$framework" "$app/Contents/Frameworks/"
 # Every helper is the same binary: Chromium's `--type=` switch makes it a
@@ -160,6 +172,7 @@ codesign --force --sign - "$app/Contents/Frameworks/Chromium Embedded Framework.
 for helper in "$app/Contents/Frameworks/"*.app; do
   codesign --force --sign - "$helper" >/dev/null 2>&1
 done
+codesign --force --sign - "$app/Contents/MacOS/specular-helper" >/dev/null 2>&1
 codesign --force --sign - "$app" >/dev/null 2>&1
 codesign --verify --deep --strict "$app"
 echo "$app"

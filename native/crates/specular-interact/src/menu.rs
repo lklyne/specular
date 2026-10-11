@@ -11,8 +11,8 @@ use std::borrow::Cow;
 use specular_doc::ItemId;
 
 use crate::{
-    Action, App, BINDINGS, Binding, CanvasAction, Chord, Context, PageState, SidebarAction, Tool,
-    groups, page_state,
+    Action, App, BINDINGS, Binding, CanvasAction, Chord, Context, PageState, PageStep,
+    SidebarAction, Tool, groups, page_state,
 };
 
 /// One menu of the menu bar.
@@ -166,6 +166,10 @@ fn page_entries(app: &App) -> Vec<MenuEntry> {
         page_item(app, "Forward", Action::PageForward),
         page_item(app, "Reload", Action::PageReload),
         page_item(app, "Stop", Action::PageStop),
+        MenuEntry::Separator,
+        page_item(app, "Device frame", Action::StepPage(PageStep::Frame)),
+        page_item(app, "Rotate", Action::StepPage(PageStep::Rotate)),
+        page_item(app, "Color scheme", Action::StepPage(PageStep::Scheme)),
     ]
 }
 
@@ -268,6 +272,7 @@ pub(crate) fn has_target(app: &App, action: &Action) -> bool {
         | Action::SetCamera(_)
         | Action::FocusComment(_)
         | Action::Show(_)
+        | Action::OpenTab(_)
         | Action::PrepareShow(_)
         | Action::SetLens(_)
         | Action::ShowOthers(_)
@@ -281,6 +286,7 @@ pub(crate) fn has_target(app: &App, action: &Action) -> bool {
         | Action::ZoomReset
         | Action::ZoomTo(_) => true,
         Action::SetProperty(property) => property.applies_to(app),
+        Action::StepPage(step) => step.next(app).applies_to(app),
         Action::Format(_) => app.session.editing.is_some(),
         Action::PageBack => page_can(app, |state| state.can_go_back),
         Action::PageForward => page_can(app, |state| state.can_go_forward),

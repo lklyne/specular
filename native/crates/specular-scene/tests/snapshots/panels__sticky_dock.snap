@@ -50,14 +50,14 @@ screen path 76 commands in 742.17,49.17 17.67x17.67 fill=#45403c
 screen path M751,54.5 L751,54.5 C752.93,54.5 754.5,56.07 754.5,58 L754.5,58 C754.5,59.93 752.93,61.5 751,61.5 L751,61.5 C749.07,61.5 747.5,59.93 747.5,58 L747.5,58 C747.5,56.07 749.07,54.5 751,54.5 Z fill=#e8e8e8 stroke=#45403c/1
 screen text "100%" 780,44 box-h=28 12/16 #52525c middle
 screen path M816.5,56.75 L819,59.25 L821.5,56.75 stroke=#45403c66/0.83
-screen rect 0,78 1200x40 fill=#d6d3d1
-screen rect 0,117 1200x1 fill=#a6a09b
-screen text "Small" 18,86 box-h=24 12/16 #30303094 middle
-screen path M75,96.5 L78,99.5 L81,96.5 stroke=#30303094/1
-screen text "Sans" 100,86 box-h=24 12/16 #30303094 middle
-screen path M147,96.5 L150,99.5 L153,96.5 stroke=#30303094/1
-screen rect 170,90 1x16 fill=#18181b33
-screen ellipse 183,90 16x16 fill=#fafaf9 stroke=#cac6c3/1/inside
-screen path M206,96.5 L209,99.5 L212,96.5 stroke=#30303094/1
-screen rect 229,90 1x16 fill=#18181b33
-screen path M247.61,102.67 C249.91,103.85 252.73,103.18 254.25,101.09 C255.77,99 255.54,96.11 253.72,94.28 C251.89,92.46 249,92.23 246.91,93.75 C244.82,95.27 244.15,98.09 245.33,100.39 L244.17,103.83 Z stroke=#30303094/1.17
+screen rect 0,78 1200x36 fill=#d6d3d1
+screen rect 0,113 1200x1 fill=#a6a09b
+screen text "Small" 18,84 box-h=24 12/16 #30303094 middle
+screen path M75,94.5 L78,97.5 L81,94.5 stroke=#30303094/1
+screen text "Sans" 100,84 box-h=24 12/16 #30303094 middle
+screen path M147,94.5 L150,97.5 L153,94.5 stroke=#30303094/1
+screen rect 170,88 1x16 fill=#18181b33
+screen ellipse 183,88 16x16 fill=#fafaf9 stroke=#cac6c3/1/inside
+screen path M206,94.5 L209,97.5 L212,94.5 stroke=#30303094/1
+screen rect 229,88 1x16 fill=#18181b33
+screen path M247.61,100.67 C249.91,101.85 252.73,101.18 254.25,99.09 C255.77,97 255.54,94.11 253.72,92.28 C251.89,90.46 249,90.23 246.91,91.75 C244.82,93.27 244.15,96.09 245.33,98.39 L244.17,101.83 Z stroke=#30303094/1.17

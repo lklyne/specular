@@ -78,6 +78,7 @@ fn a_thread_with_no_user_words_does_not_run() {
         queued: true,
         annotation_id: None,
         images: Vec::new(),
+        artifacts: Vec::new(),
     };
     let mut blank = threads.get(&id("t1")).unwrap().clone();
     blank.messages = vec![

@@ -73,6 +73,7 @@ fn zoom(app: &App) -> Dropdown {
                 label: format!("Zoom to {level}%").into(),
                 face: Face::text(format!("{level}%")),
                 trailing: None,
+                fields: Vec::new(),
                 chord: binding_of(&action).map(|binding| binding.chord),
                 selected: (percent - f32::from(level)).abs() < 0.5,
                 enabled: true,
@@ -172,7 +173,7 @@ fn open_tab(app: &App) -> Option<Control> {
         face: Face::icon(Icon::Expand),
         enabled: true,
         chord: None,
-        action: Action::Show(Showing::Item(item.clone())),
+        action: Action::OpenTab(item.clone()),
     }))
 }
 

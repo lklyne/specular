@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use specular_agent::RunRequest;
 
-use super::{ClaudeCli, Scripted};
+use super::{ClaudeCli, Helper, Scripted};
 
 /// Called from a worker thread whenever a run has output, so a loop that
 /// sleeps between events can wake and poll.
@@ -57,6 +57,13 @@ pub trait AgentBackend: Send {
         cwd: &Path,
     ) -> Result<Box<dyn AgentProcess>, AgentError>;
 
+    /// Starts a process that lists the models a run can use, as one line
+    /// [`parse_models`](specular_agent::parse_models) reads, and ends.
+    /// `None` when this backend cannot ask.
+    fn ask_models(&mut self) -> Option<Box<dyn AgentProcess>> {
+        None
+    }
+
     /// Gives the backend the hook to call when output arrives.
     fn set_waker(&mut self, _waker: Waker) {}
 }
@@ -87,7 +94,8 @@ impl AgentBackend for Disabled {
 }
 
 /// `SPECULAR_AGENT_SCRIPT=<path>` plays that script in real time, with no
-/// CLI. Otherwise the real `claude`.
+/// CLI. Otherwise the Agent SDK through `specular-helper` when it is found,
+/// else the `claude` CLI.
 pub fn backend_from_env() -> Box<dyn AgentBackend> {
     if let Some(path) = std::env::var_os("SPECULAR_AGENT_SCRIPT") {
         match Scripted::from_file(Path::new(&path)) {
@@ -95,5 +103,9 @@ pub fn backend_from_env() -> Box<dyn AgentBackend> {
             Err(error) => tracing::warn!("SPECULAR_AGENT_SCRIPT ignored: {error}"),
         }
     }
+    if let Some(helper) = Helper::find() {
+        return Box::new(helper);
+    }
+    tracing::info!("specular-helper not found; the agent runs the claude CLI");
     Box::new(ClaudeCli::new())
 }

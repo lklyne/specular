@@ -21,7 +21,7 @@ fn a_page_has_size_frame_rotation_and_color_scheme() {
     ---
     field page.url "Page address" value="https://example.com/p" placeholder="Search or type a URL" Wide submit=PageUrl
     ---
-    dropdown page.size "Page size" shows text="Custom"
+    dropdown page.size "Page size" shows icon=Proportions text="Custom"
       options list
         option [ ] page.size.0 "iPhone SE" trailing="375×667" -> SetProperty(ViewportPreset(0))
         option [ ] page.size.1 "iPhone 14 Pro" text="iPhone Pro" trailing="393×852" -> SetProperty(ViewportPreset(1))
@@ -38,14 +38,12 @@ fn a_page_has_size_frame_rotation_and_color_scheme() {
         option [ ] page.size.8 "Desktop XL" trailing="1920×1080" -> SetProperty(ViewportPreset(8))
       options list
         option [x] page.size.custom "Custom" -> SetProperty(CustomViewport)
+          field page.size.width "Page width" caption="W" value="375" Short submit=ViewportWidth
+          field page.size.height "Page height" caption="H" value="667" Short submit=ViewportHeight
       controls
-        field page.size.width "Page width" caption="W" value="375" Short submit=ViewportWidth
-        field page.size.height "Page height" caption="H" value="667" Short submit=ViewportHeight
-    ---
-    toggle [ ] page.frame "Device frame" icon=Device -> SetProperty(DeviceFrame(true))
-    button page.rotate "Rotate viewport" icon=Rotate -> SetProperty(Orientation(Landscape))
-    ---
-    button page.scheme "Color scheme: System. Click to change." icon=SchemeSystem -> SetProperty(ColorScheme(Some(Light)))
+        toggle [ ] page.frame "Device frame" icon=Device text="Frame" chord=cmd+alt+f -> StepPage(Frame)
+        button page.rotate "Rotate viewport" icon=Rotate text="Rotate" chord=cmd+alt+r -> StepPage(Rotate)
+        button page.scheme "Color scheme: System. Click to change." icon=SchemeSystem text="System" chord=cmd+alt+l -> StepPage(Scheme)
     ---
     dropdown page.repo "Link a repo" shows icon=Repo
       options list
@@ -59,7 +57,7 @@ fn several_pages_share_a_size_list_without_custom() {
     let mut app = TestApp::with_pages(2);
     app.select(&["p1", "p2"]);
     assert_dock_snapshot!(app, @r#"
-    dropdown page.size "Page size" shows text="Multiple"
+    dropdown page.size "Page size" shows icon=Proportions text="Multiple"
       options list
         option [ ] page.size.0 "iPhone SE" trailing="375×667" -> SetProperty(ViewportPreset(0))
         option [ ] page.size.1 "iPhone 14 Pro" text="iPhone Pro" trailing="393×852" -> SetProperty(ViewportPreset(1))
@@ -74,8 +72,8 @@ fn several_pages_share_a_size_list_without_custom() {
         option [ ] page.size.6 "Laptop" trailing="1280×800" -> SetProperty(ViewportPreset(6))
         option [ ] page.size.7 "Desktop" trailing="1440×900" -> SetProperty(ViewportPreset(7))
         option [ ] page.size.8 "Desktop XL" trailing="1920×1080" -> SetProperty(ViewportPreset(8))
-    ---
-    toggle [ ] page.frame "Toggle device frame for selected pages" icon=Device -> SetProperty(DeviceFrame(true))
+      controls
+        toggle [ ] page.frame "Toggle device frame for selected pages" icon=Device text="Frame" chord=cmd+alt+f -> StepPage(Frame)
     ---
     button item.arrange.row "Arrange in a row" icon=ArrangeRow -> Arrange(Row)
     button item.arrange.column "Arrange in a column" icon=ArrangeColumn -> Arrange(Column)

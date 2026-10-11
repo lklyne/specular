@@ -33,6 +33,7 @@ mod gates;
 pub(crate) mod motion;
 mod prepare;
 mod tabs;
+pub(crate) mod turn;
 
 use glam::DVec2;
 use specular_core::Camera;
@@ -97,9 +98,8 @@ impl App {
     /// in from the window's edge, so its corners are the window's less that
     /// margin and the two curves stay the same distance apart.
     pub fn fill_corner_radius(&self, id: &EntityId) -> Option<f32> {
-        let fills = self.shown_item() == Some(id) && self.lens() == Some(Lens::Fill);
         let page = self.document.entity(id).and_then(page_of);
-        (fills && page.is_some()).then_some((WINDOW_CORNER_RADIUS - FILL_MARGIN) as f32)
+        (fills(self, id) && page.is_some()).then_some((WINDOW_CORNER_RADIUS - FILL_MARGIN) as f32)
     }
 
     /// The camera of the canvas itself: the one that is saved, and the zoom
@@ -110,6 +110,11 @@ impl App {
             .or_else(|| self.session.motion.leaving_to())
             .unwrap_or(self.session.camera)
     }
+}
+
+/// Whether `id` is the item shown and its tab fills the view with it.
+pub(crate) fn fills(app: &App, id: &EntityId) -> bool {
+    app.shown_item() == Some(id) && app.lens() == Some(Lens::Fill)
 }
 
 /// Whether `entity` can be shown alone: a page or a Document.
@@ -151,6 +156,18 @@ pub(crate) fn show(app: &mut App, showing: Showing, effects: &mut Vec<Effect>) {
             set_focus(app, None, effects);
         }
         Showing::Item(item) => show_item(app, &item, effects),
+    });
+}
+
+/// Opens `item` in a tab from the canvas. A tab it does not have yet starts
+/// in Device, so the item is first seen alone at the size it has on the
+/// canvas. A tab it has keeps its lens.
+pub(crate) fn open(app: &mut App, item: &EntityId, effects: &mut Vec<Effect>) {
+    update::verb(app, effects, |app, effects| {
+        if !app.session.tabs.order.contains(item) {
+            app.session.tabs.set_lens(item, Lens::Device);
+        }
+        show_item(app, item, effects);
     });
 }
 

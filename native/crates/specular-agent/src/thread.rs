@@ -83,6 +83,34 @@ pub struct Image {
     pub media_type: MediaType,
 }
 
+/// What an [`Artifact`] is.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ArtifactTarget {
+    /// A file, by the path the agent's tool named.
+    File(String),
+    /// A canvas entity, by its id.
+    Item(String),
+}
+
+/// Something a turn made or edited: what the card under the agent's answer
+/// stands for.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Artifact {
+    /// What it is.
+    pub target: ArtifactTarget,
+    /// Whether the turn made it, rather than edited it.
+    pub created: bool,
+}
+
+/// Adds `artifact` to `list`. One the list already holds is kept where it
+/// is, and stays created when either says so.
+pub(crate) fn note_artifact(list: &mut Vec<Artifact>, artifact: Artifact) {
+    match list.iter_mut().find(|held| held.target == artifact.target) {
+        Some(held) => held.created |= artifact.created,
+        None => list.push(artifact),
+    }
+}
+
 /// One line of the conversation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Message {
@@ -100,6 +128,8 @@ pub struct Message {
     pub annotation_id: Option<String>,
     /// Pasted images.
     pub images: Vec<Image>,
+    /// What the agent made or edited on the way to this answer.
+    pub artifacts: Vec<Artifact>,
 }
 
 impl Message {

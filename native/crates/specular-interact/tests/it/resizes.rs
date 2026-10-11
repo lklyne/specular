@@ -113,8 +113,8 @@ fn every_kind_stops_at_its_own_minimum_size() {
     let square = Rect::new(100.0, 100.0, 400.0, 400.0);
     let cases = [
         (page("e", square), (320.0, 200.0)),
-        // 8 px type, and a note that small is 115 tall.
-        (text("e", square), (100.0, 115.0)),
+        // A note is at least square.
+        (text("e", square), (100.0, 100.0)),
         (file("e", square), (80.0, 80.0)),
         (group("e", square), (120.0, 80.0)),
         // 16 is the limit, and the grid line past it is the first place the
@@ -166,7 +166,8 @@ fn shift_flips_whether_a_resize_keeps_the_ratio() {
 }
 
 // Text: the sides reflow, everything else scales the type, and the height
-// is the content's either way. A sticky is at least 200 tall at 14 px type.
+// is the content's either way. A sticky is square until it is wider than a
+// default note is tall.
 
 #[test]
 fn a_text_side_handle_changes_the_width_and_keeps_the_type_size() {

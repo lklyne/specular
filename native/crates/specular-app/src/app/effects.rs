@@ -76,7 +76,7 @@ impl<W: ShellWindow> Runtime<W> {
                 let scale = self.gpu.as_ref().map_or(1.0, W::scale_factor);
                 let mut spec = PageSpec::new(&url, viewport);
                 spec.texture_scale = scale * lod.texture().factor();
-                spec.device = page_device(self.app.document(), &page, scale);
+                spec.device = page_device(&self.app, &page, scale);
                 let host = self
                     .source
                     .create_page(&spec)
@@ -87,10 +87,7 @@ impl<W: ShellWindow> Runtime<W> {
             }
             Effect::ClosePage(page) => self.close_page(&page),
             Effect::SetPageViewport { page, viewport } => self.set_page_viewport(&page, viewport),
-            Effect::FocusPage(page) => {
-                let host = page.and_then(|page| self.hosts.get(&page));
-                warn_on_error(self.source.set_focus(host.map(|host| host.page)));
-            }
+            Effect::FocusPage(page) => self.focus_page(page.as_ref()),
             Effect::ForwardInput { page, event } => self.send_to_page(&page, &event),
             Effect::SetImeAllowed(allowed) => {
                 if let Some(gpu) = self.gpu.as_ref() {
@@ -132,6 +129,7 @@ impl<W: ShellWindow> Runtime<W> {
             Effect::CopyAsset { from, file } => self.copy_asset(&from, &file),
             Effect::SaveToolDefaults(defaults) => self.save_tool_defaults(&defaults),
             Effect::SaveTheme(theme) => self.save_theme(theme),
+            Effect::SaveAgentModel(model) => self.save_agent_model(&model),
             Effect::SetPageColorScheme { page, scheme } => {
                 self.set_page_color_scheme(&page, scheme);
             }
@@ -164,8 +162,14 @@ impl<W: ShellWindow> Runtime<W> {
             Effect::SaveSettings(settings) => self.save_settings(settings),
             Effect::PickRepoFolder { origin } => self.pick_repo_folder(origin),
             Effect::QueryRegionGrab { region, pages } => self.query_region_grab(region, &pages),
+            Effect::PreviewRegion { pages } => self.preview_region(&pages),
         }
         Ok(())
+    }
+
+    fn focus_page(&mut self, page: Option<&EntityId>) {
+        let host = page.and_then(|page| self.hosts.get(page));
+        warn_on_error(self.source.set_focus(host.map(|host| host.page)));
     }
 
     fn set_page_viewport(&mut self, page: &EntityId, viewport: specular_core::CssSize) {
@@ -296,6 +300,21 @@ impl<W: ShellWindow> Runtime<W> {
             }
         }
         self.answer_settled_grabs();
+    }
+
+    /// Asks each page what a region still being dragged has inside it. Each
+    /// answers for itself; a page that cannot be asked is not answered for.
+    fn preview_region(&mut self, pages: &[PageRegion]) {
+        for covered in pages {
+            let Some(host) = self.hosts.get(&covered.page).map(|host| host.page) else {
+                continue;
+            };
+            let request = self.queries.ask_preview(covered.page.clone());
+            let rect = css_rect(covered.rect);
+            if (self.source.query_elements_in_rect(host, rect, request)).is_err() {
+                self.queries.preview_answer(request, &[]);
+            }
+        }
     }
 
     /// Tells the app about the regions every page has now answered for.

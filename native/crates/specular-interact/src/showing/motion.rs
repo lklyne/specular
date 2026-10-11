@@ -51,6 +51,16 @@ pub(crate) struct Seen {
     width: f64,
 }
 
+impl Seen {
+    /// The same place, `ratio` times as wide.
+    pub(super) fn as_wide_as(self, ratio: f64) -> Self {
+        Self {
+            width: self.width * ratio,
+            ..self
+        }
+    }
+}
+
 /// The rect `entity` is laid out in right now.
 pub(super) fn layout_rect(app: &App, entity: &Entity) -> Rect {
     presented_rect(app, entity).unwrap_or_else(|| framed(entity))

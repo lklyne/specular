@@ -84,10 +84,7 @@ fn wanted(app: &App) -> Cursor {
 /// The cursor over a page that has the pointer: a fingertip on a touch
 /// device, and otherwise what the page asks for, in the system's own set.
 fn over_entered_page(app: &App, page: &EntityId) -> Cursor {
-    let touch = (app.document.entity(page))
-        .and_then(crate::app::page_of)
-        .is_some_and(|page| crate::device::page_device(page).touch);
-    if touch {
+    if app.page_device(page).touch {
         return Cursor::Touch;
     }
     match app.page_state(page).map(|state| state.cursor) {

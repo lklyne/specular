@@ -49,6 +49,7 @@ pub(crate) fn shape_instance(item: &Item, view: &ViewTransform) -> Option<ShapeI
         stroke_width: stroke.width,
         stroke_offset: stroke.offset,
         kind,
+        turn: item.turn,
     })
 }
 
@@ -64,6 +65,7 @@ fn shadow_instance(item: &Item, shadow: &ShadowDraw, view: &ViewTransform) -> Sh
         stroke_width: shadow.blur.max(0.0) * scale,
         stroke_offset: 0.0,
         kind: ShapeInstance::SHADOW,
+        turn: item.turn,
     }
 }
 

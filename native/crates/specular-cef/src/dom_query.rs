@@ -8,7 +8,8 @@
 //! Electron preload's (`src/preload/dom-element-utils.ts`): the unique
 //! selector is an `nth-of-type` chain up to the nearest unique id, the path
 //! is four readable segments, and a region grabs the visible interactive
-//! elements it wholly contains.
+//! elements it wholly contains, and answers with the box of every visible
+//! element it wholly contains, for the outlines drawn while it is dragged.
 
 use glam::Vec2;
 use serde_json::{Value, json};
@@ -16,6 +17,10 @@ use specular_core::{CssRect, PageColorScheme, PageDevice, PageElement, PixelRect
 
 /// The most elements a region counts, as Electron's region select does.
 const MAX_GRABBED: u32 = 15;
+
+/// The most boxes a region answers with, as Electron's region preview
+/// outlines.
+const MAX_BOXES: u32 = 200;
 
 /// Helpers both expressions share: the readable path and the selector that
 /// finds the element again.
@@ -91,7 +96,9 @@ const interactive = (e) => {
   if (e.hasAttribute('onclick') || e.tabIndex >= 0) return true;
   return getComputedStyle(e).cursor === 'pointer';
 };
-if (!document.body) return '0';
+if (!document.body) return JSON.stringify({ count: 0, boxes: [] });
+let count = 0;
+const boxes = [];
 const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT, {
   acceptNode(e) {
     const box = e.getBoundingClientRect();
@@ -100,12 +107,18 @@ const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT,
     if (style.display === 'none' || style.visibility === 'hidden') return NodeFilter.FILTER_SKIP;
     const inside = box.left >= region.left && box.top >= region.top
       && box.right <= region.right && box.bottom <= region.bottom;
-    return inside && interactive(e) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
+    return inside ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
   },
 });
-let count = 0;
-while (count < __MAX__ && walker.nextNode()) count += 1;
-return String(count);
+while ((count < __MAX__ || boxes.length < __BOXES__) && walker.nextNode()) {
+  const e = walker.currentNode;
+  if (boxes.length < __BOXES__) {
+    const box = e.getBoundingClientRect();
+    boxes.push([box.left, box.top, box.width, box.height]);
+  }
+  if (count < __MAX__ && interactive(e)) count += 1;
+}
+return JSON.stringify({ count, boxes });
 ";
 
 /// How far the document can scroll along each axis, as
@@ -187,10 +200,12 @@ pub fn element_at_message(id: i32, x: f32, y: f32) -> Vec<u8> {
     evaluate(id, &expression(ELEMENT_AT, &values))
 }
 
-/// The message that asks how many elements a viewport rect grabs.
+/// The message that asks how many elements a viewport rect grabs, and for
+/// the boxes of the visible elements wholly inside it.
 pub fn elements_in_rect_message(id: i32, rect: CssRect) -> Vec<u8> {
     let values = [
         ("__MAX__", MAX_GRABBED.to_string()),
+        ("__BOXES__", MAX_BOXES.to_string()),
         ("__X__", number(rect.x)),
         ("__Y__", number(rect.y)),
         ("__W__", number(rect.width)),
@@ -340,12 +355,21 @@ pub fn parse_element(result: &[u8]) -> Option<PageElement> {
     })
 }
 
-/// The count an [`elements_in_rect_message`] found; zero for an answer that
-/// cannot be read.
-pub fn parse_count(result: &[u8]) -> usize {
-    returned(result)
-        .and_then(|count| count.parse().ok())
-        .unwrap_or(0)
+/// The count and the boxes an [`elements_in_rect_message`] found; none for
+/// an answer that cannot be read.
+pub fn parse_elements_in_rect(result: &[u8]) -> (usize, Vec<CssRect>) {
+    let found: Option<Value> = returned(result).and_then(|text| serde_json::from_str(&text).ok());
+    let Some(found) = found else {
+        return (0, Vec::new());
+    };
+    let count = found.get("count").and_then(Value::as_u64).unwrap_or(0);
+    let boxes: Vec<[f32; 4]> = (found.get("boxes").cloned())
+        .and_then(|boxes| serde_json::from_value(boxes).ok())
+        .unwrap_or_default();
+    let boxes = (boxes.into_iter())
+        .map(|[x, y, width, height]| CssRect::new(x, y, width, height))
+        .collect();
+    (usize::try_from(count).unwrap_or(usize::MAX), boxes)
 }
 
 /// The target id in a `Target.getTargetInfo` result.
@@ -389,8 +413,14 @@ mod tests {
             expression
                 .contains("{ left: (10), top: (20), right: (10) + (300), bottom: (20) + (150.5) }")
         );
-        assert!(expression.contains("while (count < 15 &&"));
+        assert!(expression.contains("while ((count < 15 || boxes.length < 200) &&"));
         assert!(expression.contains("NodeFilter.SHOW_ELEMENT"));
+        let answer = value_result(r#"{"count":1,"boxes":[[10,20,30,40.5]]}"#);
+        assert_eq!(
+            parse_elements_in_rect(&answer),
+            (1, vec![CssRect::new(10.0, 20.0, 30.0, 40.5)])
+        );
+        assert_eq!(parse_elements_in_rect(b"not json"), (0, Vec::new()));
         assert!(!expression.contains("__"), "a placeholder was left in");
     }
 

@@ -12,20 +12,24 @@ use gpui_kit::component::separator::Separator;
 use gpui_kit::component::{ActiveTheme as _, Sizable as _, h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
-    AnyElement, App, InteractiveElement as _, IntoElement, ParentElement as _, SharedString,
-    StatefulInteractiveElement as _, Styled as _, Window, div, px,
+    AnyElement, App, InteractiveElement as _, IntoElement, MouseButton, ParentElement as _,
+    SharedString, StatefulInteractiveElement as _, Styled as _, Window, div, px,
 };
 use specular_interact::{
     Choices, Chord, Control, ControlId, ControlsModel, Dropdown, DropdownOption, DropdownSection,
     Face, Icon, OptionLayout, ToolbarModel, ToolbarSection,
 };
 
-use super::controls::{CONTROL, control, element_id, face};
+use super::controls::{CONTROL, element_id, face, in_list};
+use super::field;
 use super::glyphs::{glyph, ink};
 use super::named::mark;
 use super::run;
 use crate::canvas;
 use crate::theme;
+
+/// The room above and below a field in a row of a list.
+const FIELD_INSET: f32 = 3.0;
 
 /// How a list's rows are drawn, as the built-in panels have it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -50,9 +54,43 @@ fn rows_of(content: &[DropdownSection]) -> Rows {
     if detailed { Rows::Presets } else { Rows::Menu }
 }
 
+/// The fields of `model` at the far end of its row, or nothing for a row
+/// with none. They keep their room and are drawn while the row is the
+/// current value, is under the pointer, or one of them is being typed in.
+fn row_fields(model: &DropdownOption, window: &mut Window, cx: &mut App) -> Option<AnyElement> {
+    if model.fields.is_empty() {
+        return None;
+    }
+    let typing = (model.fields.iter()).any(|one| field::is_focused(&one.id, window, cx));
+    let shown = model.selected || typing;
+    let fields: Vec<AnyElement> = (model.fields.iter())
+        .map(|one| field::field(one, window, cx))
+        .collect();
+    Some(
+        h_flex()
+            .gap_2()
+            .items_center()
+            // A press in a field is typing, and not a choice of the row,
+            // which would hand the keys back to the canvas.
+            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+            .when(!shown, |this| {
+                this.invisible()
+                    .group_hover(element_id(&model.id), gpui_kit::Styled::visible)
+            })
+            .children(fields)
+            .into_any_element(),
+    )
+}
+
 /// One choice of a dropdown: a row of a list, with its small text or key at
 /// the far end, or a cell of a row or grid of glyphs.
-fn option(model: &DropdownOption, list: Option<Rows>, dismiss: Dismiss) -> AnyElement {
+fn option(
+    model: &DropdownOption,
+    list: Option<Rows>,
+    dismiss: Dismiss,
+    window: &mut Window,
+    cx: &mut App,
+) -> AnyElement {
     let action = model.action.clone();
     let wide = list.is_some();
     let menu = list == Some(Rows::Menu);
@@ -63,14 +101,19 @@ fn option(model: &DropdownOption, list: Option<Rows>, dismiss: Dismiss) -> AnyEl
     };
     let trailing = (model.trailing.as_ref()).map(|text| SharedString::from(text.to_string()));
     let keys = model.chord.map(Chord::text);
+    let closes = model.closes();
+    let fields = row_fields(model, window, cx);
     div()
         .id(element_id(&model.id))
+        .group(element_id(&model.id))
         .flex()
         .items_center()
         .justify_between()
         .gap_4()
         .h(px(height))
         .when(wide, |this| this.w_full().px_2())
+        // Fields end a row as far from its edge as they are from its top.
+        .when(fields.is_some(), |this| this.pr(px(FIELD_INSET)))
         .when(!wide, |this| this.w(px(32.0)).justify_center())
         .rounded(px(6.0))
         .when(model.selected && !menu, |this| {
@@ -82,7 +125,9 @@ fn option(model: &DropdownOption, list: Option<Rows>, dismiss: Dismiss) -> AnyEl
                 .hover(|this| this.bg(theme::solid(theme::control_hover())))
                 .on_click(move |_, window, cx| {
                     run(&action, window, cx);
-                    dismiss(window, cx);
+                    if closes {
+                        dismiss(window, cx);
+                    }
                 })
         })
         .child(face(&model.face, model.selected || menu))
@@ -97,6 +142,7 @@ fn option(model: &DropdownOption, list: Option<Rows>, dismiss: Dismiss) -> AnyEl
                     .child(text),
             )
         })
+        .children(fields)
         .when_some(keys, |this, keys| {
             this.child(
                 div()
@@ -126,11 +172,19 @@ fn section(
             OptionLayout::List => v_flex()
                 .gap_0p5()
                 .min_w(px(140.0))
-                .children((options.iter()).map(|one| option(one, Some(rows), dismiss.clone())))
+                .children(
+                    (options.iter())
+                        .map(|one| option(one, Some(rows), dismiss.clone(), window, cx))
+                        .collect::<Vec<_>>(),
+                )
                 .into_any_element(),
             OptionLayout::Row => h_flex()
                 .gap_0p5()
-                .children(options.iter().map(|one| option(one, None, dismiss.clone())))
+                .children(
+                    (options.iter())
+                        .map(|one| option(one, None, dismiss.clone(), window, cx))
+                        .collect::<Vec<_>>(),
+                )
                 .into_any_element(),
             OptionLayout::Grid { columns } => {
                 let width = f32::from(*columns) * 32.0 + f32::from(columns.saturating_sub(1)) * 2.0;
@@ -138,13 +192,17 @@ fn section(
                     .flex_wrap()
                     .gap(px(2.0))
                     .w(px(width))
-                    .children(options.iter().map(|one| option(one, None, dismiss.clone())))
+                    .children(
+                        (options.iter())
+                            .map(|one| option(one, None, dismiss.clone(), window, cx))
+                            .collect::<Vec<_>>(),
+                    )
                     .into_any_element()
             }
         },
         DropdownSection::Controls(controls) => {
             let controls: Vec<AnyElement> = (controls.iter())
-                .map(|model| control(model, window, cx))
+                .map(|model| in_list(model, window, cx))
                 .collect();
             h_flex()
                 .gap_1()
@@ -230,10 +288,27 @@ pub(super) fn dropdown(model: &Dropdown) -> AnyElement {
     opens(model, trigger)
 }
 
+/// The number a dropdown steps, for one whose list ends in a stepper.
+fn stepped(model: &Dropdown) -> Option<Face> {
+    model.content.iter().find_map(|section| match section {
+        DropdownSection::Controls(controls) => controls.iter().find_map(|control| match control {
+            Control::Stepper(stepper) => Some(Face::text(stepper.value.clone())),
+            Control::Button(_)
+            | Control::Toggle(_)
+            | Control::Swatches(_)
+            | Control::Dropdown(_)
+            | Control::Field(_)
+            | Control::Choices(_)
+            | Control::Separator => None,
+        }),
+        DropdownSection::Options { .. } => None,
+    })
+}
+
 /// What a dropdown's trigger shows where there is room for a glyph or a
 /// few letters and no more: its glyph alone, a sample of its typeface, or
-/// its word when that is short. The page sizes are named at length, so
-/// theirs is a device.
+/// the number it steps. The sizes are named at length, so theirs is the
+/// size itself.
 fn compact_face(model: &Dropdown) -> Face {
     let summary = &model.summary;
     if summary.icon.is_some() {
@@ -245,13 +320,10 @@ fn compact_face(model: &Dropdown) -> Face {
     if let Some(font) = summary.font {
         return Face::text("Aa").in_font(font);
     }
-    match &summary.text {
-        Some(text) if text.chars().count() > 4 => Face::icon(Icon::Device),
-        _ => summary.clone(),
-    }
+    stepped(model).unwrap_or_else(|| summary.clone())
 }
 
-/// A dropdown in a narrow column: its trigger fills the column and shows
+/// A dropdown in a narrow column: its trigger fills its cell and shows
 /// [`compact_face`], with no caret.
 pub(super) fn dropdown_compact(model: &Dropdown) -> AnyElement {
     let trigger = Button::new(element_id(&model.id.child("trigger")))
@@ -289,6 +361,17 @@ fn opens(model: &Dropdown, trigger: Button) -> AnyElement {
         .into_any_element()
 }
 
+/// A dropdown's list shown in place, with no trigger. A choice leaves the
+/// list where it is.
+pub(super) fn listed(model: &Dropdown, window: &mut Window, cx: &mut App) -> AnyElement {
+    let stay: Dismiss = Rc::new(|_, _| {});
+    div()
+        .id(element_id(&model.id))
+        .child(sections(&model.content, &stay, window, cx))
+        .child(mark(&model.id))
+        .into_any_element()
+}
+
 /// A list shown in place: its sections one under another, as an open
 /// dropdown has them. A choice leaves the list where it is.
 pub(super) fn choices(model: &Choices, window: &mut Window, cx: &mut App) -> AnyElement {
@@ -311,6 +394,7 @@ mod tests {
             label: "Option".into(),
             face: Face::text("Option"),
             trailing: trailing.map(Into::into),
+            fields: Vec::new(),
             chord,
             selected: false,
             enabled: true,

@@ -92,7 +92,8 @@ fn a_page_with_no_origin_has_no_repo_control() {
 enum Case {
     PageComment { bound: bool },
     CanvasComment,
-    Selection,
+    SelectedPage,
+    SelectedPages,
     Nothing,
 }
 
@@ -131,7 +132,14 @@ fn the_write_target_decides_the_chips_the_folder_and_the_prompt() {
             "Working directory (space folder): /space",
         ),
         (
-            Case::Selection,
+            Case::SelectedPage,
+            "site",
+            Some((ORIGIN, false)),
+            Some(REPO),
+            "Working directory (linked repo): /scratch/site",
+        ),
+        (
+            Case::SelectedPages,
             "space",
             None,
             None,
@@ -147,8 +155,11 @@ fn the_write_target_decides_the_chips_the_folder_and_the_prompt() {
     ];
     for (case, folder, auto, cwd, first_line) in table {
         let mut app = TestApp::with_space([("Home", Document::new())]);
-        app.open(document(pages(1))).with_chat_panel();
-        if matches!(case, Case::PageComment { bound: true } | Case::Selection) {
+        app.open(document(pages(2))).with_chat_panel();
+        if matches!(
+            case,
+            Case::PageComment { bound: true } | Case::SelectedPage | Case::SelectedPages
+        ) {
             app.bind(ORIGIN, REPO, false);
         }
         app.take_effects();
@@ -166,8 +177,11 @@ fn the_write_target_decides_the_chips_the_folder_and_the_prompt() {
                     .click((900.0, 700.0))
                     .send_chat("fix it");
             }
-            Case::Selection => {
+            Case::SelectedPage => {
                 app.select(&["p1"]).send_chat("fix it");
+            }
+            Case::SelectedPages => {
+                app.select(&["p1", "p2"]).send_chat("fix it");
             }
             Case::Nothing => {
                 app.send_chat("fix it");

@@ -309,19 +309,31 @@ fn inspected_scrolled(viewport: CssSize, scroll: Vec2, point: Vec2) -> Option<In
     })
 }
 
-/// How many cells of a synthetic page's grid lie wholly inside `rect`, in
-/// the viewport CSS pixels of a page laid out at `viewport` and scrolled by
-/// `scroll`. A cell the rect only clips is not grabbed.
-pub fn synthetic_elements_in(viewport: CssSize, scroll: Vec2, rect: CssRect) -> usize {
+/// The cells of a synthetic page's grid that lie wholly inside `rect`, each
+/// as its box, row by row. Both are in the viewport CSS pixels of a page
+/// laid out at `viewport` and scrolled by `scroll`. A cell the rect only
+/// clips is not grabbed.
+pub fn synthetic_elements_in(viewport: CssSize, scroll: Vec2, rect: CssRect) -> Vec<CssRect> {
     let (left, top) = (rect.x + scroll.x, rect.y + scroll.y);
     let (right, bottom) = (left + rect.width, top + rect.height);
     let cells = |from: f32, to: f32, cell: u32, limit: f32| {
-        let first = (from.max(0.0) / cell as f32).ceil();
-        let last = (to.min(limit) / cell as f32).floor();
-        (last - first).max(0.0) as usize
+        let first = (from.max(0.0) / cell as f32).ceil() as u32;
+        let last = (to.min(limit) / cell as f32).floor().max(0.0) as u32;
+        first..last
     };
     let document_height = 3.0 * viewport.height as f32;
-    cells(left, right, CELL.0, viewport.width as f32) * cells(top, bottom, CELL.1, document_height)
+    let columns = cells(left, right, CELL.0, viewport.width as f32);
+    cells(top, bottom, CELL.1, document_height)
+        .flat_map(|row| columns.clone().map(move |column| (column, row)))
+        .map(|(column, row)| {
+            CssRect::new(
+                (column * CELL.0) as f32 - scroll.x,
+                (row * CELL.1) as f32 - scroll.y,
+                CELL.0 as f32,
+                CELL.1 as f32,
+            )
+        })
+        .collect()
 }
 
 /// Paints a flat colour that cycles with `frame_index` plus a sweeping bar,
@@ -575,11 +587,12 @@ impl PageSource for SyntheticPageSource {
         request: u64,
     ) -> Result<(), PageSourceError> {
         let entry = self.page(page)?;
-        let count = synthetic_elements_in(entry.spec.viewport, entry.scroll, rect);
+        let boxes = synthetic_elements_in(entry.spec.viewport, entry.scroll, rect);
         self.pending.push(PageEvent::ElementsInRect {
             page,
             request,
-            count,
+            count: boxes.len(),
+            boxes,
         });
         Ok(())
     }

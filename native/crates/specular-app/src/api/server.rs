@@ -9,7 +9,7 @@ use std::time::Duration;
 
 use anyhow::Context as _;
 use serde_json::{Value, json};
-use specular_api::{Method, Request, Response, SECRET_HEADER, TAB_HEADER, VERSION};
+use specular_api::{Method, Request, Response, SECRET_HEADER, SESSION_HEADER, TAB_HEADER, VERSION};
 
 /// How long the event loop has to answer before the caller gets a `504`.
 const REPLY_TIMEOUT: Duration = Duration::from_secs(30);
@@ -113,8 +113,10 @@ fn answer(
         },
     };
     let tab = header(request, TAB_HEADER).map(specular_api::percent_decode);
+    let session = header(request, SESSION_HEADER).map(str::to_owned);
     let request = Request {
         tab,
+        session,
         ..Request::new(method, &target, body)
     };
     let (reply, answered) = mpsc::channel();

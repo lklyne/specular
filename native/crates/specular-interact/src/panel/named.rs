@@ -86,11 +86,21 @@ fn sections(content: &[DropdownSection], inside: &Inside, out: &mut Vec<Named>) 
     for section in content {
         match section {
             DropdownSection::Options { options, .. } => {
-                out.extend(
-                    (options.iter()).map(|option| {
-                        run(&option.id, &option.action, option.enabled, true, inside)
-                    }),
-                );
+                for option in options {
+                    let closes = option.closes();
+                    out.push(run(
+                        &option.id,
+                        &option.action,
+                        option.enabled,
+                        closes,
+                        inside,
+                    ));
+                    out.extend(option.fields.iter().map(|field| Named {
+                        id: field.id.clone(),
+                        does: Does::Edits,
+                        inside: inside.clone(),
+                    }));
+                }
             }
             DropdownSection::Controls(controls) => {
                 for inner in controls {

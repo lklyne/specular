@@ -168,9 +168,11 @@ pub(crate) fn drain_events(out: &mut Vec<PageEvent>) {
 }
 
 /// Drops every queued event (releasing any shared textures they hold).
+/// When the process exits on a signal the source is dropped as the thread's
+/// locals are torn down, and the queue may already be gone.
 #[cfg(feature = "cef")]
 pub(crate) fn clear_events() {
-    EVENTS.with_borrow_mut(Vec::clear);
+    let _ = EVENTS.try_with(|events| events.borrow_mut().clear());
 }
 
 /// Everything a page's handlers need; cheap to clone, `Send + Sync`.

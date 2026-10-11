@@ -86,6 +86,12 @@ pub struct Item {
     pub opacity: f32,
     /// How it is laid over what is under it.
     pub blend: Blend,
+    /// The angle the draw is turned by about the centre of its rect, in
+    /// radians, clockwise on screen. A rect, an ellipse and a shadow turn
+    /// whole. A page keeps its frame upright about that centre at the size
+    /// it was painted, and only the rounded rect that clips it turns. Every
+    /// other draw ignores it.
+    pub turn: f32,
     /// What to draw.
     pub draw: Draw,
 }
@@ -107,6 +113,7 @@ impl Item {
             clip: None,
             opacity: 1.0,
             blend: Blend::Normal,
+            turn: 0.0,
             draw: draw.into(),
         }
     }
@@ -124,6 +131,12 @@ impl Item {
     #[must_use]
     pub fn with_blend(self, blend: Blend) -> Self {
         Self { blend, ..self }
+    }
+
+    /// The same item turned by `turn` radians about the centre of its rect.
+    #[must_use]
+    pub fn turned(self, turn: f32) -> Self {
+        Self { turn, ..self }
     }
 
     /// The same item at `opacity`.

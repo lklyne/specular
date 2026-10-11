@@ -1,7 +1,10 @@
 //! Comments: annotations to start a test from, and the shell's side of the
 //! questions the app asks its pages about their elements.
 
-use specular_core::{CapturedElement, PageElement, synthetic_capture};
+use glam::Vec2;
+use specular_core::{
+    CapturedElement, CssRect, PageElement, synthetic_capture, synthetic_elements_in,
+};
 use specular_doc::{Annotation, AnnotationAnchor, AnnotationId, Command, Document};
 use specular_interact::{Effect, Event, PageGrab, PageNotice};
 
@@ -98,6 +101,40 @@ impl TestApp {
             panic!("{page} is not a page");
         };
         self.answer_capture_with(Some(synthetic_capture(viewport, point)))
+    }
+
+    /// Answers the latest [`Effect::PreviewRegion`] not yet drained, as the
+    /// shell does: each page asked says which cells of the synthetic grid,
+    /// laid out at its viewport and not scrolled, the region has inside it.
+    #[track_caller]
+    pub fn answer_region_preview(&mut self) -> &mut Self {
+        let asked = self.effects().iter().rev().find_map(|effect| match effect {
+            Effect::PreviewRegion { pages } => Some(pages.clone()),
+            _ => None,
+        });
+        let Some(pages) = asked else {
+            panic!(
+                "no page was asked what a region has inside it: {:?}",
+                self.effects()
+            );
+        };
+        for covered in pages {
+            let Some(placement) = self.app().page_placement(&covered.page) else {
+                panic!("page {:?} is not on the canvas", covered.page);
+            };
+            let rect = CssRect::new(
+                covered.rect.x as f32,
+                covered.rect.y as f32,
+                covered.rect.width as f32,
+                covered.rect.height as f32,
+            );
+            let boxes = synthetic_elements_in(placement.viewport, Vec2::ZERO, rect);
+            self.send(Event::Page {
+                page: covered.page,
+                notice: PageNotice::RegionElements(boxes),
+            });
+        }
+        self
     }
 
     /// Answers the latest [`Effect::QueryRegionGrab`] not yet drained, as

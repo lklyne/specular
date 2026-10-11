@@ -12,9 +12,9 @@ use specular_doc::{AnnotationId, Document, EntityId, ItemId, Rect};
 
 use crate::{
     AboutRow, ApiCall, AppSettings, ArrangeMode, CanvasId, ChatAction, ClipboardContent,
-    DroppedFile, Format, ImageKey, ImageNotice, NoteNotice, OpenedSpace, PageGrab, Property,
-    RepoAction, SettingAction, SidebarAction, SpaceAction, SpaceAsk, Tool, ToolDefaultPatch,
-    ToolDefaults,
+    DroppedFile, Format, ImageKey, ImageNotice, NoteNotice, OpenedSpace, PageGrab, PageStep,
+    Property, RepoAction, SettingAction, SidebarAction, SpaceAction, SpaceAsk, Tool,
+    ToolDefaultPatch, ToolDefaults,
 };
 
 /// One input to [`update`](crate::update). Window input arrives in logical
@@ -142,6 +142,9 @@ pub enum Event {
     /// chosen is not there. The app shows the first-run view until a
     /// [`SpaceOpened`](Self::SpaceOpened).
     SpaceNeeded(SpaceAsk),
+    /// The agent's models: the list the runtime gave, or the choice read
+    /// from the preferences file. Neither asks for a save.
+    Models(specular_agent::ModelsNews),
     /// The theme choice was read from the preferences file. Replaces the
     /// current one and asks for no save.
     ThemeLoaded(crate::Theme),
@@ -378,6 +381,10 @@ pub enum PageNotice {
         /// The node there, if the page has one.
         node: Option<Box<InspectedNode>>,
     },
+    /// The boxes of the elements the page has inside the comment region
+    /// being dragged, in its viewport CSS pixels: the answer to an
+    /// [`Effect::PreviewRegion`](crate::Effect::PreviewRegion).
+    RegionElements(Vec<specular_core::CssRect>),
     /// What is under the pointer in the page asks for this cursor.
     Cursor(Cursor),
     /// The page's remote-debugging websocket is known.
@@ -501,6 +508,10 @@ pub enum Action {
     /// Show the canvas, or one page or Document in its tab. View state:
     /// nothing is written to the document and no undo step is made.
     Show(crate::Showing),
+    /// Open this page or Document in a tab from the canvas. A tab it does
+    /// not have yet starts in Device; one it has keeps its lens. View
+    /// state, like [`Self::Show`].
+    OpenTab(EntityId),
     /// A press on the tab of this item, before the click that shows it:
     /// a page is laid out at the size its tab will give it, and what is
     /// drawn stays as it is. `None` is the press ending without a click,
@@ -548,6 +559,9 @@ pub enum Action {
     PageStop,
     /// Take that page to an address, as one typed in its address field.
     PageNavigate(String),
+    /// Move a setting of the selected pages to its next value: the frame
+    /// on or off, the orientation turned, the color scheme one on.
+    StepPage(PageStep),
     /// Toggle the sync set of the selected pages (ADR 0027). Two or more
     /// pages that already share one set leave it; otherwise they all join
     /// one new set. One selected page that is in a set leaves it. A set

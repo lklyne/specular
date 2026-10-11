@@ -55,7 +55,8 @@ fn no_two_rows_can_fire_for_the_same_key() {
 #[test]
 fn an_entered_page_has_every_key_but_the_ones_a_browsers_chrome_keeps() {
     // Zoom to fit and Escape are the ways back out; then a browser's history,
-    // reload, stop, address and tabs; then the window's own. Every other
+    // reload, stop and address; the frame, turn and color scheme it is
+    // shown in; a browser's tabs; then the window's own. Every other
     // key is the page's, undo, copy and select all included.
     let kept: Vec<String> = kept_from_page().map(Chord::text).collect();
     assert_eq!(
@@ -67,6 +68,9 @@ fn an_entered_page_has_every_key_but_the_ones_a_browsers_chrome_keeps() {
             "⌘R",
             "⌘.",
             "⌘L",
+            "⌥⌘F",
+            "⌥⌘R",
+            "⌥⌘L",
             "⌘T",
             "⌘W",
             "⌥⌘→",

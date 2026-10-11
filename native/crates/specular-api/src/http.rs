@@ -49,6 +49,9 @@ pub struct Request {
     /// The canvas the caller named with `--tab`, decoded from the
     /// `x-specular-tab` header.
     pub tab: Option<String>,
+    /// The caller's session, from the `x-specular-session-id` header. A run
+    /// of the canvas agent is started with its thread's id as its session.
+    pub session: Option<String>,
 }
 
 impl Request {
@@ -70,6 +73,7 @@ impl Request {
             query,
             body,
             tab: None,
+            session: None,
         }
     }
 

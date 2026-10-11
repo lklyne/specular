@@ -12,18 +12,21 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use gpui_kit::component::bubble::{Bubble as KitBubble, BubbleContent, BubbleVariant};
-use gpui_kit::component::h_flex;
 use gpui_kit::component::message::MessageAlignment;
 use gpui_kit::component::message_scroller::MessageScroller;
 use gpui_kit::component::text::TextView;
+use gpui_kit::component::{h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
     Animation, AnimationExt as _, AnyElement, Context, Hsla, InteractiveElement as _, IntoElement,
     ObjectFit, ParentElement as _, Rgba, SharedString, StatefulInteractiveElement as _,
     StyleRefinement, Styled as _, StyledImage as _, div, img, px, relative, rgba,
 };
-use specular_interact::{Bubble, ChatModel, RunBar, ThreadId, ThreadRole, Transcript};
+use specular_interact::{
+    ArtifactCard, Bubble, ChatModel, RunBar, ThreadId, ThreadRole, Transcript,
+};
 
+use super::artifacts::cards;
 use super::run_bar::{RunBarView, run_bar};
 use crate::theme;
 use crate::view::{ShellView, run};
@@ -42,6 +45,7 @@ const FLASH_MIX: f32 = 0.12;
 enum Row {
     Message(Bubble),
     Streaming(String),
+    Making(Vec<ArtifactCard>),
     Run(RunBar),
     Error(String),
     Hint(String),
@@ -52,6 +56,9 @@ fn rows_of(transcript: &Transcript) -> Vec<Row> {
         .map(Row::Message)
         .collect();
     rows.extend(transcript.streaming.clone().map(Row::Streaming));
+    if !transcript.making.is_empty() {
+        rows.push(Row::Making(transcript.making.clone()));
+    }
     rows.extend(transcript.run.clone().map(Row::Run));
     rows.extend(transcript.error.clone().map(Row::Error));
     rows.extend(transcript.empty_hint.clone().map(Row::Hint));
@@ -63,12 +70,14 @@ fn signature(row: &Row, log_open: bool) -> u64 {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     match row {
         Row::Message(bubble) => {
-            (0, &bubble.id, &bubble.text, bubble.images.len()).hash(&mut hasher);
+            let cards = bubble.artifacts.len();
+            (0, &bubble.id, &bubble.text, bubble.images.len(), cards).hash(&mut hasher);
         }
         Row::Streaming(text) => (1, text).hash(&mut hasher),
         Row::Run(run) => (2, &run.label, log_open.then_some(&run.log)).hash(&mut hasher),
         Row::Error(text) => (3, text).hash(&mut hasher),
         Row::Hint(text) => (4, text).hash(&mut hasher),
+        Row::Making(cards) => (5, cards.len()).hash(&mut hasher),
     }
     hasher.finish()
 }
@@ -230,7 +239,9 @@ impl ShellView {
 
         let log = rows.iter().find_map(|row| match row {
             Row::Run(run) => Some(run.log.len()),
-            Row::Message(_) | Row::Streaming(_) | Row::Error(_) | Row::Hint(_) => None,
+            Row::Message(_) | Row::Streaming(_) | Row::Making(_) | Row::Error(_) | Row::Hint(_) => {
+                None
+            }
         });
         if log.unwrap_or(0) != shown.log {
             shown.log = log.unwrap_or(0);
@@ -239,9 +250,12 @@ impl ShellView {
 
         let focused = rows.iter().enumerate().find_map(|(index, row)| match row {
             Row::Message(bubble) if bubble.focused => Some((index, bubble.id.clone())),
-            Row::Message(_) | Row::Streaming(_) | Row::Run(_) | Row::Error(_) | Row::Hint(_) => {
-                None
-            }
+            Row::Message(_)
+            | Row::Streaming(_)
+            | Row::Making(_)
+            | Row::Run(_)
+            | Row::Error(_)
+            | Row::Hint(_) => None,
         });
         let id = focused.as_ref().map(|(_, id)| id.clone());
         if id != shown.focused {
@@ -289,12 +303,17 @@ impl ShellView {
                             .map(|(_, count)| *count);
                         user_bubble(bubble, flash)
                     }
-                    ThreadRole::Agent => agent_text(
-                        SharedString::from(format!("chat-agent-{}", bubble.id)),
-                        &bubble.text,
-                    ),
+                    ThreadRole::Agent => v_flex()
+                        .gap(px(10.0))
+                        .child(agent_text(
+                            SharedString::from(format!("chat-agent-{}", bubble.id)),
+                            &bubble.text,
+                        ))
+                        .child(cards(&bubble.id, &bubble.artifacts))
+                        .into_any_element(),
                 },
                 Some(Row::Streaming(text)) => agent_text("chat-streaming".into(), text),
+                Some(Row::Making(made)) => cards("run", made).into_any_element(),
                 Some(Row::Run(run)) => run_bar(run, &bar, cx).into_any_element(),
                 Some(Row::Error(text)) => note(text, theme::solid(theme::error())),
                 Some(Row::Hint(text)) => note(text, theme::tinted(theme::text_muted())),

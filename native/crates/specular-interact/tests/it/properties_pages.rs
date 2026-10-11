@@ -2,10 +2,10 @@
 //! frame and color scheme. Each is one undo step and resizes the page's host
 //! when the size changes.
 
-use specular_core::CssSize;
+use specular_core::{CssSize, Modifiers};
 use specular_doc::{ColorScheme, Rect};
-use specular_interact::{Action, Effect, Orientation, Property, property};
-use specular_testkit::{TestApp, assert_doc_snapshot, document, page};
+use specular_interact::{Action, Effect, Key, Orientation, Property, property};
+use specular_testkit::{CMD, TestApp, assert_doc_snapshot, document, page};
 
 fn set(app: &mut TestApp, property: Property) {
     app.act(Action::SetProperty(property));
@@ -54,17 +54,19 @@ fn rotating_a_page_turns_its_size() {
     app.take_effects();
     set(&mut app, Property::ViewportPreset(0));
     set(&mut app, Property::Orientation(Orientation::Landscape));
-    assert_eq!(app.rect("p1").width, 667.0);
+    // The page turns about its centre, a whole pixel at a time.
+    assert_eq!(app.rect("p1"), Rect::new(-46.0, 246.0, 667.0, 375.0));
     assert_eq!(
         viewports(&mut app).last().map(|v| v.1),
         Some(CssSize::new(667, 375))
     );
-    // A preset chosen while turned keeps the turn: 393x852 lies down as 852x393.
+    set(&mut app, Property::Orientation(Orientation::Portrait));
+    assert_eq!(app.rect("p1"), Rect::new(100.0, 100.0, 375.0, 667.0));
+    set(&mut app, Property::Orientation(Orientation::Landscape));
+    // A preset chosen while turned keeps the turn: 393x852 lies down as
+    // 852x393, from the same corner as any resize.
     set(&mut app, Property::ViewportPreset(1));
-    assert_eq!(
-        (app.rect("p1").width, app.rect("p1").height),
-        (852.0, 393.0)
-    );
+    assert_eq!(app.rect("p1"), Rect::new(-46.0, 246.0, 852.0, 393.0));
     set(&mut app, Property::Orientation(Orientation::Portrait));
     assert_eq!(app.rect("p1").width, 393.0);
     app.assert_undo_returns_to_start();
@@ -84,12 +86,19 @@ fn a_custom_viewport_keeps_the_size_and_drops_the_device() {
     specular: {"entityOrder":["p1","p2"]}
     "#);
     assert_eq!(property::read::viewport_preset(app.app()), None);
+    // A custom size is laid across by each turn, about its centre, and
+    // stays custom.
     set(&mut app, Property::Orientation(Orientation::Landscape));
-    assert_eq!(app.rect("p1").width, 375.0, "a custom size is not turned");
+    assert_eq!(app.rect("p1"), Rect::new(-46.0, 246.0, 667.0, 375.0));
+    assert_eq!(property::read::viewport_preset(app.app()), None);
+    set(&mut app, Property::Orientation(Orientation::Landscape));
+    assert_eq!(app.rect("p1").width, 667.0, "the same way again is no turn");
+    set(&mut app, Property::Orientation(Orientation::Portrait));
+    assert_eq!(app.rect("p1"), Rect::new(100.0, 100.0, 375.0, 667.0));
     // A preset after a custom size is a preset again, and turns.
     set(&mut app, Property::ViewportPreset(1));
-    set(&mut app, Property::Orientation(Orientation::Portrait));
-    assert_eq!(app.rect("p1").width, 393.0);
+    set(&mut app, Property::Orientation(Orientation::Landscape));
+    assert_eq!(app.rect("p1").width, 852.0);
     app.assert_undo_returns_to_start();
 }
 
@@ -147,5 +156,23 @@ fn a_typed_width_or_height_makes_the_size_custom_and_keeps_the_other_side() {
     );
     app.undo();
     assert_eq!(app.rect("p1").width, 393.0);
+    app.assert_undo_returns_to_start();
+}
+
+#[test]
+fn a_selected_pages_keys_step_its_frame_turn_and_color_scheme() {
+    let mut app = phone_and_laptop();
+    app.select(&["p1"]);
+    set(&mut app, Property::ViewportPreset(1));
+    let keys = Modifiers { alt: true, ..CMD };
+    app.chord(keys, Key::Char('f'));
+    assert_eq!(property::read::device_frame(app.app()), Some(true));
+    app.chord(keys, Key::Char('r'));
+    assert_eq!(app.rect("p1").width, 852.0, "turned to landscape");
+    app.chord(keys, Key::Char('l'));
+    assert_eq!(
+        property::read::color_scheme(app.app()),
+        Some(Some(ColorScheme::Light))
+    );
     app.assert_undo_returns_to_start();
 }

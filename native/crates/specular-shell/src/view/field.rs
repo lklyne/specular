@@ -23,7 +23,7 @@ use super::named::mark;
 use crate::{canvas, shell, theme};
 
 /// How tall an address is: the bar's height less a margin above and below.
-const ADDRESS_HEIGHT: f32 = 32.0;
+const ADDRESS_HEIGHT: f32 = 28.0;
 
 /// A field being shown: the Kit's input, and the model it was made from.
 struct Held {
@@ -59,7 +59,7 @@ const fn width(width: FieldWidth) -> f32 {
     match width {
         FieldWidth::Wide => 220.0,
         FieldWidth::Medium => 120.0,
-        FieldWidth::Short => 52.0,
+        FieldWidth::Short => 64.0,
     }
 }
 
@@ -144,6 +144,10 @@ pub(super) fn input(model: &Field, address: bool, window: &mut Window, cx: &mut 
         });
     }
     let (id, label) = (model.id.clone(), model.label.to_string());
+    // A number's caption is inside its box, before the digits.
+    let inside = (model.caption.as_ref())
+        .filter(|_| model.width == FieldWidth::Short)
+        .map(|text| SharedString::from(text.to_string()));
     let focused = input.read(cx).focus_handle(cx).is_focused(window);
     let ring = theme::solid(theme::focus_ring());
     div()
@@ -172,7 +176,18 @@ pub(super) fn input(model: &Field, address: bool, window: &mut Window, cx: &mut 
         } else if model.width == FieldWidth::Wide {
             Input::new(&input).small().text_size(px(12.0))
         } else {
-            Input::new(&input).xsmall()
+            // A number sits in a row of a list, which is filled when it is
+            // the current one: the input's own colour sets it apart.
+            Input::new(&input)
+                .xsmall()
+                .bg(theme::solid(theme::input()))
+                .when_some(inside, |this, caption| {
+                    this.prefix(
+                        div()
+                            .text_color(theme::tinted(theme::text_muted()))
+                            .child(caption),
+                    )
+                })
         })
         .when(address && focused, |this| {
             this.child(
@@ -192,7 +207,9 @@ pub(super) fn input(model: &Field, address: bool, window: &mut Window, cx: &mut 
 /// it asks for. An address takes that as its least width and grows into
 /// whatever room its row has left.
 pub(super) fn field(model: &Field, window: &mut Window, cx: &mut App) -> AnyElement {
-    let caption = (model.caption.as_ref()).map(|text| SharedString::from(text.to_string()));
+    let caption = (model.caption.as_ref())
+        .filter(|_| model.width != FieldWidth::Short)
+        .map(|text| SharedString::from(text.to_string()));
     let grows = model.width == FieldWidth::Wide;
     let least = px(width(model.width));
     h_flex()
@@ -215,6 +232,12 @@ pub(super) fn holds_focus(focused: &FocusHandle, window: &Window, cx: &mut App) 
         .map(|held| held.input.clone())
         .collect();
     (inputs.iter()).any(|input| input.read(cx).focus_handle(cx).contains(focused, window))
+}
+
+/// Whether the field `id` is being typed in.
+pub(super) fn is_focused(id: &ControlId, window: &Window, cx: &mut App) -> bool {
+    let input = (cx.default_global::<Fields>().held.get(id)).map(|held| held.input.clone());
+    input.is_some_and(|input| input.read(cx).focus_handle(cx).is_focused(window))
 }
 
 /// Whether `id` is the field opened in place of its label.

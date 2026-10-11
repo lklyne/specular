@@ -132,6 +132,7 @@ pub(crate) fn on_notice(app: &mut App, page: &EntityId, notice: &PageNotice) -> 
         | PageNotice::ScrollRoom(_)
         | PageNotice::Pointed { .. }
         | PageNotice::Inspected { .. }
+        | PageNotice::RegionElements(_)
         | PageNotice::Candidates { .. } => {}
     }
     false

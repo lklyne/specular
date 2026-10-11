@@ -1,0 +1,16 @@
+{
+  "name": "specular-helper",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "bun build src/main.ts --compile --outfile dist/specular-helper",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "0.3.283"
+  },
+  "devDependencies": {
+    "@types/bun": "1.2.7",
+    "typescript": "5.8.3"
+  }
+}

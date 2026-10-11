@@ -115,7 +115,6 @@ fn the_shape_tool_dock_sets_the_shape_defaults() {
         option [ ] shape.kind.parallelogram "Parallelogram" icon=Shape(Parallelogram) -> SetToolDefault(ShapeKind(Parallelogram))
         option [ ] shape.kind.chevron "Chevron" icon=Shape(Chevron) -> SetToolDefault(ShapeKind(Chevron))
         option [ ] shape.kind.cylinder "Cylinder" icon=Shape(Cylinder) -> SetToolDefault(ShapeKind(Cylinder))
-    ---
     dropdown shape.size "Set default label size" shows text="Small"
       options list
         option [x] shape.size.14 "Small" -> SetToolDefault(ShapeTextSize(14.0))

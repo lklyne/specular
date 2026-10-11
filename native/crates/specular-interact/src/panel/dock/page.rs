@@ -1,7 +1,7 @@
 //! The dock's controls for pages (`PagePopup.tsx`): history, reload and the address,
-//! then size, device frame, orientation and color scheme, and the chain
-//! button that syncs the selected pages, and the repo control of a single
-//! page. Electron also infers a repo from a running dev server's base URL;
+//! then the size list, which also holds the device frame, orientation and
+//! color scheme, and the chain button that syncs the selected pages, and the
+//! repo control of a single page. Electron also infers a repo from a running dev server's base URL;
 //! this app runs no dev servers, so the origin's binding is the only source.
 
 use specular_agent::origin_of;
@@ -14,7 +14,7 @@ use super::super::{
 };
 use super::actions::Actions;
 use crate::property::read;
-use crate::{Action, App, Orientation, Property, RepoAction, binding_of};
+use crate::{Action, App, PageStep, Property, RepoAction, binding_of};
 
 /// The preset rows in the order the size list has them: phones, tablets,
 /// then laptops and desktops.
@@ -28,14 +28,14 @@ fn row_label(label: &str) -> String {
 /// The preset list shared by the page size dropdown and the page tool:
 /// a section of rows each for phones, tablets and desktops, named from `id`.
 /// `selected` is the preset in use. `custom` adds a last row that is on when
-/// its flag is, and runs its action. `verb` starts each row's accessible
-/// name ("Add iPhone SE").
+/// its flag is, runs its action, and has its fields at its far end. `verb`
+/// starts each row's accessible name ("Add iPhone SE").
 pub(super) fn preset_sections(
     id: &ControlId,
     selected: Option<u32>,
     verb: Option<&str>,
     pick: impl Fn(u32) -> Action,
-    custom: Option<(bool, Action)>,
+    custom: Option<(bool, Action, Vec<Field>)>,
 ) -> Vec<DropdownSection> {
     let named = |name: &str| -> super::super::Label {
         match verb {
@@ -55,6 +55,7 @@ pub(super) fn preset_sections(
                         label: named(row.label),
                         face: Face::text(row_label(row.label)),
                         trailing: Some(format!("{}\u{d7}{}", row.width, row.height).into()),
+                        fields: Vec::new(),
                         chord: None,
                         selected: selected == Some(index),
                         enabled: true,
@@ -64,7 +65,7 @@ pub(super) fn preset_sections(
                 .collect(),
         })
         .collect();
-    if let Some((selected, action)) = custom {
+    if let Some((selected, action, fields)) = custom {
         sections.push(DropdownSection::Options {
             layout: OptionLayout::List,
             options: vec![DropdownOption {
@@ -72,6 +73,7 @@ pub(super) fn preset_sections(
                 label: named(if verb.is_some() { "custom" } else { "Custom" }),
                 face: Face::text("Custom"),
                 trailing: None,
+                fields,
                 chord: None,
                 selected,
                 enabled: true,
@@ -177,31 +179,31 @@ fn pixels(size: f64) -> String {
 }
 
 /// The width and height of the one page selected, to type a custom size in.
-fn size_fields(id: &ControlId, page: &Entity) -> DropdownSection {
-    let field = |name: &'static str, caption: &'static str, value, submit| {
-        Control::Field(Field {
-            id: id.child(name),
-            label: format!("Page {name}").into(),
-            caption: Some(caption.into()),
-            value: pixels(value),
-            placeholder: None,
-            width: FieldWidth::Short,
-            submit,
-        })
+fn size_fields(id: &ControlId, page: &Entity) -> Vec<Field> {
+    let field = |name: &'static str, caption: &'static str, value, submit| Field {
+        id: id.child(name),
+        label: format!("Page {name}").into(),
+        caption: Some(caption.into()),
+        value: pixels(value),
+        placeholder: None,
+        width: FieldWidth::Short,
+        submit,
     };
-    DropdownSection::Controls(vec![
+    vec![
         field("width", "W", page.rect.width, FieldSubmit::ViewportWidth),
         field("height", "H", page.rect.height, FieldSubmit::ViewportHeight),
-    ])
+    ]
 }
 
 fn size_dropdown(app: &App, single: Option<&Entity>) -> Control {
     let id = ControlId::new("page.size");
     let preset = read::viewport_preset(app);
-    let custom = single.map(|_| {
+    // Several pages have no one custom size to keep.
+    let custom = single.map(|page| {
         (
             preset.is_none(),
             Action::SetProperty(Property::CustomViewport),
+            size_fields(&id, page),
         )
     });
     let mut sections = preset_sections(
@@ -211,10 +213,12 @@ fn size_dropdown(app: &App, single: Option<&Entity>) -> Control {
         |index| Action::SetProperty(Property::ViewportPreset(index)),
         custom,
     );
-    // Several pages have no one custom size to keep.
-    if let Some(page) = single {
-        sections.push(size_fields(&id, page));
-    }
+    // How the pages are shown, under the sizes. Several pages share only
+    // the frame.
+    sections.push(DropdownSection::Controls(match single {
+        Some(_) => vec![frame_toggle(app, "Device frame"), rotate(), scheme(app)],
+        None => vec![frame_toggle(app, "Toggle device frame for selected pages")],
+    }));
     let named = preset.and_then(|index| VIEWPORT_PRESETS.get(usize::try_from(index).ok()?));
     let summary = match (named, single.is_some()) {
         (Some(row), _) => row.label,
@@ -223,10 +227,21 @@ fn size_dropdown(app: &App, single: Option<&Entity>) -> Control {
     };
     Control::Dropdown(Dropdown {
         label: "Page size".into(),
-        summary: Face::text(summary),
+        summary: Face {
+            icon: Some(Icon::Proportions),
+            ..Face::text(summary)
+        },
         content: sections,
         id,
     })
+}
+
+/// A glyph and the word for it, as a control in the size list shows them.
+fn labelled(icon: Icon, text: &'static str) -> Face {
+    Face {
+        icon: Some(icon),
+        ..Face::text(text)
+    }
 }
 
 /// The frame toggle goes to on, unless every page has it.
@@ -235,37 +250,33 @@ fn frame_toggle(app: &App, label: &'static str) -> Control {
     Control::Toggle(toggle(
         ControlId::new("page.frame"),
         label,
-        Face::icon(Icon::Device),
+        labelled(Icon::Device, "Frame"),
         on,
-        Action::SetProperty(Property::DeviceFrame(!on)),
+        Action::StepPage(PageStep::Frame),
     ))
 }
 
-fn rotate(app: &App) -> Control {
-    let next = match read::orientation(app) {
-        Some(Orientation::Landscape) => Orientation::Portrait,
-        Some(Orientation::Portrait) | None => Orientation::Landscape,
-    };
+fn rotate() -> Control {
     button(
         ControlId::new("page.rotate"),
         "Rotate viewport",
-        Face::icon(Icon::Rotate),
-        Action::SetProperty(Property::Orientation(next)),
+        labelled(Icon::Rotate, "Rotate"),
+        Action::StepPage(PageStep::Rotate),
     )
 }
 
 /// The color scheme button steps through system, light and dark.
 fn scheme(app: &App) -> Control {
-    let (name, icon, next) = match read::color_scheme(app) {
-        Some(Some(ColorScheme::Light)) => ("Light", Icon::SchemeLight, Some(ColorScheme::Dark)),
-        Some(Some(ColorScheme::Dark)) => ("Dark", Icon::SchemeDark, None),
-        Some(None) | None => ("System", Icon::SchemeSystem, Some(ColorScheme::Light)),
+    let (name, icon) = match read::color_scheme(app) {
+        Some(Some(ColorScheme::Light)) => ("Light", Icon::SchemeLight),
+        Some(Some(ColorScheme::Dark)) => ("Dark", Icon::SchemeDark),
+        Some(None) | None => ("System", Icon::SchemeSystem),
     };
     button(
         ControlId::new("page.scheme"),
         format!("Color scheme: {name}. Click to change."),
-        Face::icon(icon),
-        Action::SetProperty(Property::ColorScheme(next)),
+        labelled(icon, name),
+        Action::StepPage(PageStep::Scheme),
     )
 }
 
@@ -320,6 +331,7 @@ fn repo_control(app: &App, page: &Entity) -> Option<Control> {
         face: Face::text(label.clone()),
         label: label.into(),
         trailing: trailing.map(|text| text.to_owned().into()),
+        fields: Vec::new(),
         chord: None,
         selected: false,
         enabled,
@@ -372,8 +384,6 @@ pub(super) fn controls(app: &App, entities: &[&Entity]) -> ControlsModel {
             history(app, page),
             vec![address(app, page)],
             vec![size_dropdown(app, single)],
-            vec![frame_toggle(app, "Device frame"), rotate(app)],
-            vec![scheme(app)],
             repo_control(app, page).into_iter().collect(),
             Actions {
                 sync: app.selection_synced(),
@@ -385,7 +395,6 @@ pub(super) fn controls(app: &App, entities: &[&Entity]) -> ControlsModel {
     } else {
         groups(vec![
             vec![size_dropdown(app, None)],
-            vec![frame_toggle(app, "Toggle device frame for selected pages")],
             Actions {
                 sync: app.selection_synced(),
                 ..Actions::all(&format!("{} pages", entities.len()), entities.len())

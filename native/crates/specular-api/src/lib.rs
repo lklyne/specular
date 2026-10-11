@@ -39,7 +39,7 @@ use std::path::PathBuf;
 
 use serde_json::{Value, json};
 use specular_doc::{EntityId, Rect};
-use specular_interact::{ApiCall, ApiRun, App, CanvasId, Event};
+use specular_interact::{ApiCall, ApiRun, App, CanvasId, Event, ThreadId};
 
 pub use self::facts::Facts;
 pub use self::host::Host;
@@ -57,6 +57,12 @@ pub const DEFAULT_PORT: u16 = 29979;
 pub const SECRET_HEADER: &str = "x-specular-secret";
 /// The header that carries a `--tab` ref, percent-encoded.
 pub const TAB_HEADER: &str = "x-specular-tab";
+/// The header that carries the caller's session id. The CLI takes it from
+/// `SPECULAR_SESSION_ID` ([`SESSION_ENV`]) when that is set.
+pub const SESSION_HEADER: &str = "x-specular-session-id";
+/// The variable a run of the canvas agent is started with, holding its
+/// thread's id, so the CLI calls it makes carry it back.
+pub const SESSION_ENV: &str = "SPECULAR_SESSION_ID";
 /// The discovery file's name, under `~/.specular/`.
 pub const DISCOVERY_FILE: &str = "specular-mcp.json";
 /// The discovery file this app writes when the Electron app holds the
@@ -183,6 +189,7 @@ impl Api {
                 let call = ApiCall {
                     ticket,
                     canvas: canvas.clone(),
+                    thread: request.session.clone().map(ThreadId),
                     run,
                 };
                 Plan::Run {

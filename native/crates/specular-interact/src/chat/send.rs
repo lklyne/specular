@@ -93,7 +93,7 @@ fn send_thread(app: &mut App, text: &str, images: Vec<ImageUpload>, effects: &mu
         return;
     };
     let started = begin(app, &thread, None);
-    effects::run_started(started, changed, effects);
+    effects::run_started(app, started, changed, effects);
 }
 
 /// Sends the queue of `thread` if no run is in flight. `aim` is the pin the

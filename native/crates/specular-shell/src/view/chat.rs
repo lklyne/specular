@@ -12,6 +12,7 @@
 //! transcript is scrolled, whether the run log is open, and a drag of the
 //! panel's edge.
 
+mod artifacts;
 mod chips;
 mod composer;
 mod date;

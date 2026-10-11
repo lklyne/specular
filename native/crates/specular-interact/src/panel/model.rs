@@ -178,6 +178,10 @@ pub struct DropdownOption {
     pub face: Face,
     /// Small text at the far end of a row, such as a size.
     pub trailing: Option<Label>,
+    /// Fields at the far end of a row, to type this choice's own value in.
+    /// They are shown while the row is the current value or under the
+    /// pointer.
+    pub fields: Vec<Field>,
     /// The key that does the same.
     pub chord: Option<Chord>,
     /// Whether it is the current value.
@@ -186,6 +190,14 @@ pub struct DropdownOption {
     pub enabled: bool,
     /// What choosing it does.
     pub action: Action,
+}
+
+impl DropdownOption {
+    /// Whether choosing it closes its list. A row with fields leaves the
+    /// list open to type in them.
+    pub fn closes(&self) -> bool {
+        self.fields.is_empty()
+    }
 }
 
 /// One block of a dropdown's content. Blocks are set apart from each other.
@@ -308,7 +320,10 @@ fn section_entries<'a>(content: &'a [DropdownSection], out: &mut Entries<'a>) {
     for section in content {
         match section {
             DropdownSection::Options { options, .. } => {
-                out.extend(options.iter().map(|o| (o.id.clone(), Some(&o.action))));
+                for option in options {
+                    out.push((option.id.clone(), Some(&option.action)));
+                    out.extend(option.fields.iter().map(|field| (field.id.clone(), None)));
+                }
             }
             DropdownSection::Controls(controls) => {
                 for control in controls {

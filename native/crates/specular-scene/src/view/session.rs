@@ -5,11 +5,13 @@
 //! is all in screen space, so it keeps its pixel size at any zoom.
 
 use specular_doc::{EntityId, ItemId};
-use specular_interact::{CopyPreview, Corner, HANDLE_SIZE, HandleOwner, Mark, OUTLINE_PADDING};
+use specular_interact::{
+    CopyPreview, Corner, HANDLE_SIZE, HandleOwner, Mark, OUTLINE_PADDING, Turning,
+};
 
 use super::annotations::region_items;
 use super::edge_chrome;
-use super::frame::Frame;
+use super::frame::{Frame, carried};
 use super::guides;
 use super::layout_handles;
 use super::palette;
@@ -57,7 +59,7 @@ pub(crate) fn draw(frame: &Frame<'_>, scene: &mut Scene) {
         if let Some(entity) = app.document().entity(id)
             && let Some(seen) = specular_interact::shown_rect(app, entity)
         {
-            push_outline(frame, seen, scene);
+            push_outline(frame, seen, app.turning(id), scene);
         }
     }
 
@@ -101,10 +103,17 @@ pub(crate) fn draw(frame: &Frame<'_>, scene: &mut Scene) {
         match owner {
             // The entity's own outline is already there.
             HandleOwner::Entity(_) => {}
-            HandleOwner::Selection => push_outline(frame, bounds, scene),
+            HandleOwner::Selection => push_outline(frame, bounds, None, scene),
         }
-        let outline = frame.screen_rect(bounds).outset(OUTLINE_PADDING);
-        scene.extend(Corner::ALL.map(|corner| handle(outline, corner, frame.colors.selection)));
+        // A turning page has no upright corners to hold until it lands.
+        let turning = match &owner {
+            HandleOwner::Entity(id) => app.turning(id).is_some(),
+            HandleOwner::Selection => false,
+        };
+        if !turning {
+            let outline = frame.screen_rect(bounds).outset(OUTLINE_PADDING);
+            scene.extend(Corner::ALL.map(|corner| handle(outline, corner, frame.colors.selection)));
+        }
     }
 
     if let Some(marquee) = app.marquee() {
@@ -130,11 +139,22 @@ pub(crate) fn draw(frame: &Frame<'_>, scene: &mut Scene) {
 }
 
 /// A one-pixel ring just outside `rect`, so it never covers what it frames.
-fn push_outline(frame: &Frame<'_>, rect: specular_doc::Rect, scene: &mut Scene) {
+/// The selection's outline round `rect`. A page that is `turning` has it
+/// go round with its shell.
+fn push_outline(
+    frame: &Frame<'_>,
+    rect: specular_doc::Rect,
+    turning: Option<Turning>,
+    scene: &mut Scene,
+) {
     let outline = frame.screen_rect(rect).outset(OUTLINE_PADDING);
     if frame.sees_screen(outline) {
         let stroke = Stroke::new(frame.colors.selection, OUTLINE_WIDTH, StrokeAlign::Inside);
-        scene.push(Item::screen(RectDraw::outlined(outline, stroke)));
+        let (outline, angle) = turning.map_or((outline, 0.0), |turning| {
+            let pivot = frame.screen_point(turning.pivot);
+            (carried(outline, pivot, turning.angle), turning.angle)
+        });
+        scene.push(Item::screen(RectDraw::outlined(outline, stroke)).turned(angle));
     }
 }
 

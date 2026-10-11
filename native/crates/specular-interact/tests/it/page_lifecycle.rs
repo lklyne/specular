@@ -56,6 +56,7 @@ fn set_url(app: &mut TestApp, name: &str, url: &str) {
     app.send(Event::Api(ApiCall {
         ticket: 1,
         canvas: None,
+        thread: None,
         run: ApiRun::Apply {
             command,
             select: None,

@@ -205,11 +205,20 @@ fn page_quads(
 ) -> [(LayerKind, Option<QuadInstance>); 2] {
     let quad = canvas_quad(item, draw.rect, draw.corner_radius, view);
     let origin = Vec2::new(quad.rect[0], quad.rect[1]);
-    let (size, uv) = unstretched(
-        Vec2::new(quad.rect[2], quad.rect[3]),
-        draw.viewport,
-        info.view_css,
-    );
+    let rect_size = Vec2::new(quad.rect[2], quad.rect[3]);
+    if item.turn != 0.0 {
+        // The frame keeps its own size about the rect's centre, whole, and
+        // the rect turned is what cuts it.
+        let frame = frame_size(rect_size, draw.viewport, info.view_css).unwrap_or(rect_size);
+        let quad = QuadInstance::new(
+            origin + (rect_size - frame) / 2.0,
+            frame,
+            quad.corner_radius,
+        )
+        .with_clip(rect_size / 2.0, item.turn);
+        return [(info.view, Some(quad)), (LayerKind::Popup, None)];
+    }
+    let (size, uv) = unstretched(rect_size, draw.viewport, info.view_css);
     let popup = popup_quad(origin, size / uv, info);
     let quad =
         QuadInstance::new(origin, size, quad.corner_radius).with_uv_rect([0.0, 0.0, uv.x, uv.y]);
@@ -223,14 +232,21 @@ fn page_quads(
 /// window is dragged: the part past the rect is cut off, and the part of the
 /// rect past the frame is left bare. A size nobody stated fills the rect.
 fn unstretched(size: Vec2, wanted: CssSize, painted: CssSize) -> (Vec2, Vec2) {
-    let css = |size: CssSize| Vec2::new(size.width as f32, size.height as f32);
-    let (wanted, painted) = (css(wanted), css(painted));
-    if wanted == painted || wanted.min_element() <= 0.0 || painted.min_element() <= 0.0 {
+    let Some(frame) = frame_size(size, wanted, painted) else {
         return (size, Vec2::ONE);
-    }
-    let frame = size * painted / wanted;
+    };
     let shown = frame.min(size);
     (shown, shown / frame)
+}
+
+/// The size of a page's frame painted at `painted` CSS pixels, in the units
+/// of a rect `size` across that is laid out at `wanted`. `None` when the
+/// frame is the rect's own size, or a size was not stated.
+fn frame_size(size: Vec2, wanted: CssSize, painted: CssSize) -> Option<Vec2> {
+    let css = |size: CssSize| Vec2::new(size.width as f32, size.height as f32);
+    let (wanted, painted) = (css(wanted), css(painted));
+    let stated = wanted.min_element() > 0.0 && painted.min_element() > 0.0;
+    (stated && wanted != painted).then(|| size * painted / wanted)
 }
 
 fn canvas_quad(item: &Item, rect: Rect, corner_radius: f32, view: &ViewTransform) -> QuadInstance {

@@ -375,6 +375,7 @@ fn user_message(id: &str, text: &str, images: Vec<Image>, now: &str) -> Message 
         queued: true,
         annotation_id: None,
         images,
+        artifacts: Vec::new(),
     }
 }
 

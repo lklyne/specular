@@ -3,8 +3,8 @@
 use std::collections::BTreeMap;
 
 use specular_agent::{
-    Image, MediaType, Message, Role, Status, Thread, ThreadId, index_json, parse_index,
-    title_from_messages,
+    Artifact, ArtifactTarget, Image, MediaType, Message, Role, Status, Thread, ThreadId,
+    index_json, parse_index, title_from_messages,
 };
 
 const NOW: &str = "2026-01-01T00:00:00.000Z";
@@ -18,6 +18,7 @@ fn user(id: &str, text: &str) -> Message {
         queued: false,
         annotation_id: None,
         images: Vec::new(),
+        artifacts: Vec::new(),
     }
 }
 
@@ -47,6 +48,16 @@ fn a_thread_is_written_in_the_electron_shape() {
             },
             Message {
                 role: Role::Agent,
+                artifacts: vec![
+                    Artifact {
+                        target: ArtifactTarget::File("/space/plan.md".into()),
+                        created: true,
+                    },
+                    Artifact {
+                        target: ArtifactTarget::Item("e1".into()),
+                        created: false,
+                    },
+                ],
                 ..user("m3", "Done.")
             },
         ],
@@ -87,7 +98,16 @@ fn a_thread_is_written_in_the_electron_shape() {
       "id": "m3",
       "role": "agent",
       "text": "Done.",
-      "createdAt": "2026-01-02T00:00:00.000Z"
+      "createdAt": "2026-01-02T00:00:00.000Z",
+      "artifacts": [
+        {
+          "file": "/space/plan.md",
+          "created": true
+        },
+        {
+          "item": "e1"
+        }
+      ]
     }
   ]
 }

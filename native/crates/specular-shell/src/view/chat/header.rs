@@ -144,6 +144,17 @@ impl ShellView {
             .bg(theme::solid(theme::toolbar()))
             .border_b_1()
             .border_color(theme::solid(theme::toolbar_border()))
+            // The panel's edge is the chrome border, which is lost against
+            // the toolbar's fill, so beside the header it is the toolbar's.
+            .child(
+                div()
+                    .absolute()
+                    .top_0()
+                    .bottom(px(-1.0))
+                    .left(px(-1.0))
+                    .w(px(1.0))
+                    .bg(theme::solid(theme::toolbar_border())),
+            )
             .child(self.chat_title(model))
             .child(actions)
     }

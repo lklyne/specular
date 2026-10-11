@@ -2,14 +2,25 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-use specular_agent::{Notice, Progress, ProgressKind, RunRequest, ThreadId, parse_line};
+use specular_agent::{
+    Model, Notice, Progress, ProgressKind, RunRequest, ThreadId, parse_line, parse_models,
+};
 
 use super::{AgentBackend, AgentProcess, Output, Waker};
 
 /// A run with no end after this long is stopped.
 pub const DEFAULT_TIMEOUT: Duration = Duration::from_mins(10);
 
+/// The models are listed within this long, or not at all.
+const MODELS_TIMEOUT: Duration = Duration::from_secs(20);
+
 const STDERR_LINE_MAX: usize = 320;
+
+/// The backend being asked which models it can run.
+struct ModelsAsk {
+    process: Box<dyn AgentProcess>,
+    started: Instant,
+}
 
 struct Run {
     process: Box<dyn AgentProcess>,
@@ -24,6 +35,7 @@ pub struct AgentRuns {
     runs: BTreeMap<ThreadId, Run>,
     queued: Vec<(ThreadId, Notice)>,
     timeout: Duration,
+    models: Option<ModelsAsk>,
 }
 
 impl std::fmt::Debug for AgentRuns {
@@ -42,6 +54,7 @@ impl AgentRuns {
             runs: BTreeMap::new(),
             queued: Vec::new(),
             timeout: DEFAULT_TIMEOUT,
+            models: None,
         }
     }
 
@@ -131,10 +144,42 @@ impl AgentRuns {
         out
     }
 
+    /// Asks the backend which models a run can use. The answer comes from
+    /// [`take_models`](Self::take_models), once, if the backend can say.
+    pub fn ask_models(&mut self) {
+        self.models = self.backend.ask_models().map(|process| ModelsAsk {
+            process,
+            started: Instant::now(),
+        });
+    }
+
+    /// The models the backend listed since the last call, never blocking.
+    pub fn take_models(&mut self) -> Option<Vec<Model>> {
+        let ask = self.models.as_mut()?;
+        let mut over = ask.started.elapsed() >= MODELS_TIMEOUT;
+        let mut listed = None;
+        for output in ask.process.poll() {
+            match output {
+                Output::Stdout(line) => listed = listed.or_else(|| parse_models(&line)),
+                Output::Stderr(line) => tracing::debug!("models: {}", truncate(&line)),
+                Output::Exit { .. } => over = true,
+            }
+        }
+        if listed.is_some() || over {
+            if listed.is_none() {
+                tracing::warn!("the agent listed no models; the picker keeps the aliases");
+            }
+            if let Some(mut ask) = self.models.take() {
+                ask.process.kill();
+            }
+        }
+        listed
+    }
+
     /// Whether nothing is running and nothing waits to be polled; a loop
     /// that is idle has no reason to poll.
     pub fn is_idle(&self) -> bool {
-        self.runs.is_empty() && self.queued.is_empty()
+        self.runs.is_empty() && self.queued.is_empty() && self.models.is_none()
     }
 }
 
@@ -210,6 +255,7 @@ mod tests {
             resume: None,
             images: Vec::new(),
             cwd: None,
+            model: None,
         }
     }
 

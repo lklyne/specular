@@ -180,15 +180,30 @@ pub(crate) struct Canvas {
 /// link, from the last frame the link or a timer started.
 const CATCH_UP_SPAN: Duration = Duration::from_millis(100);
 
+/// Where the canvas lives. A quit takes it out and shuts it down in order
+/// ([`uninstall`]). A process ended by a signal still has it here when the
+/// thread's locals are torn down, where closing the pages cannot work: the
+/// locals that shutdown needs, the log's among them, may be gone first. So
+/// what is left then is let go of without being dropped.
+struct Slot(RefCell<Option<Canvas>>);
+
+impl Drop for Slot {
+    fn drop(&mut self) {
+        if let Some(canvas) = self.0.get_mut().take() {
+            let _ = std::mem::ManuallyDrop::new(canvas);
+        }
+    }
+}
+
 thread_local! {
-    static CANVAS: RefCell<Option<Canvas>> = const { RefCell::new(None) };
+    static CANVAS: Slot = const { Slot(RefCell::new(None)) };
 }
 
 /// Runs `with` on the canvas, unless there is none or it is in use: a frame
 /// asked for while an event is being handled is skipped.
 pub(crate) fn with<R>(with: impl FnOnce(&mut Canvas) -> R) -> Option<R> {
     CANVAS.with(|cell| {
-        let mut slot = cell.try_borrow_mut().ok()?;
+        let mut slot = cell.0.try_borrow_mut().ok()?;
         slot.as_mut().map(with)
     })
 }
@@ -226,12 +241,12 @@ pub(crate) fn install(
         finished: false,
         space_dialog: None,
     };
-    CANVAS.with(|cell| *cell.borrow_mut() = Some(canvas));
+    CANVAS.with(|cell| *cell.0.borrow_mut() = Some(canvas));
 }
 
 /// Takes the canvas out, at the end of the run.
 pub(crate) fn uninstall() -> Option<Canvas> {
-    CANVAS.with(|cell| cell.try_borrow_mut().ok()?.take())
+    CANVAS.with(|cell| cell.0.try_borrow_mut().ok()?.take())
 }
 
 /// Sends `event` through `update` and runs its effects.

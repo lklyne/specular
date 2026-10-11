@@ -7,10 +7,11 @@
 //! reply channel: [`Event`](crate::Event) stays plain data, and the shell
 //! keeps the channel beside the ticket.
 
+use specular_agent::ThreadId;
 use specular_core::PageNav;
 use specular_doc::{Command, Document, EntityId, ItemId, Kind, Rect, TextStyle};
 
-use crate::{Action, App, CanvasId, Effect, edit, live, page_state, space, update};
+use crate::{Action, App, CanvasId, Effect, chat, edit, live, page_state, space, update};
 
 /// One change the HTTP API asks for.
 #[derive(Debug, Clone, PartialEq)]
@@ -20,6 +21,9 @@ pub struct ApiCall {
     /// The canvas to run on, which `--tab` named. `None` is the active
     /// one. A background canvas is changed without being shown.
     pub canvas: Option<CanvasId>,
+    /// The agent thread whose run asked, when the caller named one. What
+    /// the call makes or edits is shown under that run's answer.
+    pub thread: Option<ThreadId>,
     /// What to do.
     pub run: ApiRun,
 }
@@ -85,22 +89,40 @@ pub(crate) fn run(app: &mut App, call: ApiCall, effects: &mut Vec<Effect>) {
     let ApiCall {
         ticket,
         canvas,
+        thread,
         run,
     } = call;
+    let thread = thread.filter(|id| app.threads.is_running(id));
     let background = canvas.filter(|id| *id != app.space.active().id);
     let Some(id) = background else {
-        let outcome = run_call(app, run, effects);
+        let outcome = run_noting(app, thread.as_ref(), run, effects);
         effects.push(Effect::ApiReply { ticket, outcome });
         return;
     };
     let ran = space::in_background(app, &id, effects, |app, effects| {
-        let outcome = run_call(app, run, effects);
+        let outcome = run_noting(app, thread.as_ref(), run, effects);
         effects.push(Effect::ApiReply { ticket, outcome });
     });
     if !ran {
         let outcome = ApiOutcome::Refused(format!("the tab '{id}' is gone"));
         effects.push(Effect::ApiReply { ticket, outcome });
     }
+}
+
+/// [`run_call`], with what it made or edited noted on the run of `thread`.
+fn run_noting(
+    app: &mut App,
+    thread: Option<&ThreadId>,
+    run: ApiRun,
+    effects: &mut Vec<Effect>,
+) -> ApiOutcome {
+    let Some(thread) = thread else {
+        return run_call(app, run, effects);
+    };
+    let before = app.document.clone();
+    let outcome = run_call(app, run, effects);
+    chat::note_changes(app, thread, &before);
+    outcome
 }
 
 fn run_call(app: &mut App, run: ApiRun, effects: &mut Vec<Effect>) -> ApiOutcome {

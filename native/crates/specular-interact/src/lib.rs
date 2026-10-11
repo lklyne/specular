@@ -118,9 +118,9 @@ pub use bindings::{
 };
 pub use caps::{AspectMode, aspect_mode, has_anchors, min_size};
 pub use chat::{
-    AutoChip, Bubble, CHAT_MAX_WIDTH, CHAT_MIN_WIDTH, CHAT_WIDTH, ChatAction, ChatModel, ChatView,
-    Composer, DraftChip, DraftKind, ImageUpload, OpenComments, PillChip, PillKind, QueuedChip,
-    RunBar, ThreadRow, Transcript, chat,
+    ArtifactCard, AutoChip, Bubble, CHAT_MAX_WIDTH, CHAT_MIN_WIDTH, CHAT_WIDTH, ChatAction,
+    ChatModel, ChatView, Composer, DraftChip, DraftKind, ImageUpload, ModelChip, ModelOption,
+    OpenComments, PillChip, PillKind, QueuedChip, RunBar, ThreadRow, Transcript, chat,
 };
 pub use chord::Chord;
 pub use clipboard::{ClipboardContent, ClipboardImage, Paste};
@@ -130,7 +130,6 @@ pub use comment::{
     REGION_MIN_SIZE, element_on_canvas, left_its_page, page_clip, region_annotation,
     region_on_canvas, selection_metadata,
 };
-pub use device::page_device;
 pub use draw::DrawStroke;
 pub use driver::Driver;
 pub use drop::{DroppedFile, default_size as dropped_size, shown_path};
@@ -177,7 +176,7 @@ pub use physical_key::{PhysicalKey, mac_key_input};
 pub use place::{PlaceDrag, PlacePreview, Placing};
 pub use placement::PagePlacement;
 pub use presence::{AgentAct, AgentCursor};
-pub use property::{Orientation, Property};
+pub use property::{Orientation, PageStep, Property};
 pub use repos::{BoundOriginRow, RepoAction, RepoRow, ReposPane, repos_pane};
 pub use resize_drag::ResizeDrag;
 pub use scope::SelectionScope;
@@ -189,6 +188,7 @@ pub use settings::{
     AboutRow, AppSettings, GeneralPane, SettingAction, SettingChoice, SettingOption, SettingToggle,
     SettingsModel, ShortcutRow, SpaceRow, TOOLS_DOCK_WIDTH, ToolsPlace, settings,
 };
+pub use showing::turn::{Turning, turning_rect};
 pub use showing::{Lens, Showing};
 pub use sidebar::{
     CanvasRow, RowKind, RowTarget, SIDEBAR_WIDTH, SectionHead, SidebarAction, SidebarModel,
@@ -199,9 +199,10 @@ pub use space::{
     canvas_file_name, legacy_canvas_file_name, resolve_tab_ref,
 };
 pub use specular_agent::{
-    Image as ThreadImage, Index as ThreadIndex, MediaType, Message as ThreadMessage, Notice,
-    Progress, ProgressKind, Repos, Role as ThreadRole, RunRequest, RunState,
-    Status as ThreadStatus, Thread, ThreadId, Threads, WriteTarget, origin_of,
+    Artifact, ArtifactTarget, Image as ThreadImage, Index as ThreadIndex, MediaType,
+    Message as ThreadMessage, Model, Models, ModelsNews, Notice, Progress, ProgressKind, Repos,
+    Role as ThreadRole, RunRequest, RunState, Status as ThreadStatus, Thread, ThreadId, Threads,
+    WriteTarget, origin_of,
 };
 pub use specular_core::Cursor;
 pub use theme::{Appearance, Theme, ThemeState};

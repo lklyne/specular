@@ -7,8 +7,7 @@ use specular_doc::ShapeKind;
 
 use super::paths_pens::{SLIM_BODY, SLIM_SHINE, SLIM_TIP, WIDE_BODY, WIDE_SHINE, WIDE_TIP};
 use super::paths_popup::{
-    BORDER_TOP, MOON_BODY, MOON_LINE, ROTATE_BOTTOM, ROTATE_TOP, STROKE_THICK, STROKE_THIN,
-    SUN_LINE, SYSTEM_LINE, SYSTEM_MOON,
+    BORDER_TOP, MOON_BODY, MOON_LINE, STROKE_THICK, STROKE_THIN, SUN_LINE, SYSTEM_LINE, SYSTEM_MOON,
 };
 use super::tools::{BARREL, SEAM, SHINE};
 use super::{BODY, Glyph, Layer, OUTLINE, Paint, Shape};
@@ -71,14 +70,6 @@ pub(super) const LINE_DASHED: Glyph = Glyph::square(
         Layer::fill(Shape::Rect(0.5, 6.0, 3.0, 2.0, 1.0), Paint::Current),
         Layer::fill(Shape::Rect(5.5, 6.0, 3.0, 2.0, 1.0), Paint::Current),
         Layer::fill(Shape::Rect(10.5, 6.0, 3.0, 2.0, 1.0), Paint::Current),
-    ],
-);
-/// `RotateIcon`.
-pub(super) const ROTATE: Glyph = Glyph::square(
-    14.0,
-    &[
-        Layer::fill(Shape::Path(ROTATE_TOP), Paint::Current),
-        Layer::fill(Shape::Path(ROTATE_BOTTOM), Paint::Current),
     ],
 );
 /// `sun-moon.svg`.

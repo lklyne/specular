@@ -192,11 +192,15 @@ wrap_dev_tools_message_observer! {
                     request,
                     node: inspect_query::parse_inspected(result).map(Box::new),
                 },
-                Asked::ElementsInRect(request) => PageEvent::ElementsInRect {
-                    page,
-                    request,
-                    count: dom_query::parse_count(result),
-                },
+                Asked::ElementsInRect(request) => {
+                    let (count, boxes) = dom_query::parse_elements_in_rect(result);
+                    PageEvent::ElementsInRect {
+                        page,
+                        request,
+                        count,
+                        boxes,
+                    }
+                }
                 Asked::ScrollProgress => {
                     let Some((x, y)) = dom_query::parse_scroll_progress(result) else {
                         return;

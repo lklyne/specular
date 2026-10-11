@@ -23,7 +23,6 @@ use glam::Vec2;
 use specular_core::{InputEvent, Modifiers, TouchEvent, TouchPhase};
 use specular_doc::EntityId;
 
-use crate::app::page_of;
 use crate::{App, Effect};
 
 /// Scales the release speed, so the glide can be tuned to feel like a
@@ -252,9 +251,7 @@ fn glide_step(velocity: Vec2, dt_ms: f32) -> (Vec2, Vec2) {
 
 /// Whether `page` is a touch device.
 fn is_touch(app: &App, page: &EntityId) -> bool {
-    (app.document.entity(page))
-        .and_then(page_of)
-        .is_some_and(|page| crate::page_device(page).touch)
+    app.page_device(page).touch
 }
 
 /// The finger on `page`, if it has one.

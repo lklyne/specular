@@ -15,6 +15,7 @@
 //! undo step.
 
 mod action;
+mod artifacts;
 mod build;
 mod comments;
 mod commit;
@@ -30,11 +31,12 @@ use specular_agent::Threads;
 
 pub(crate) use self::action::run;
 pub use self::action::{ChatAction, ImageUpload};
+pub(crate) use self::artifacts::note_changes;
 pub use self::build::chat;
 pub(crate) use self::commit::comment as commit_comment;
 pub use self::model::{
-    AutoChip, Bubble, ChatModel, Composer, DraftChip, DraftKind, OpenComments, PillChip, PillKind,
-    QueuedChip, RunBar, ThreadRow, Transcript,
+    ArtifactCard, AutoChip, Bubble, ChatModel, Composer, DraftChip, DraftKind, ModelChip,
+    ModelOption, OpenComments, PillChip, PillKind, QueuedChip, RunBar, ThreadRow, Transcript,
 };
 pub(crate) use self::notice::{on_agent, on_loaded, open_thread_of};
 use crate::App;
@@ -106,6 +108,11 @@ impl App {
     /// runs in flight.
     pub fn threads(&self) -> &Threads {
         &self.threads
+    }
+
+    /// The models the agent can run and the one chosen.
+    pub fn models(&self) -> &specular_agent::Models {
+        &self.models
     }
 
     /// The right panel's state.

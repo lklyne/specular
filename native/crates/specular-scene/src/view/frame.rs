@@ -98,6 +98,24 @@ impl<'a> Frame<'a> {
     }
 }
 
+/// `rect` carried round `pivot` by `angle` radians, clockwise on screen: its
+/// centre goes round and its size stays. Drawn turned by the same angle, it
+/// is a part of something that turns about the pivot.
+pub(crate) fn carried(rect: Rect, pivot: Point, angle: f32) -> Rect {
+    if angle == 0.0 {
+        return rect;
+    }
+    let centre = rect.centre();
+    let (sin, cos) = angle.sin_cos();
+    let (dx, dy) = (centre.x - pivot.x, centre.y - pivot.y);
+    Rect::new(
+        pivot.x + dx * cos - dy * sin - rect.width / 2.0,
+        pivot.y + dx * sin + dy * cos - rect.height / 2.0,
+        rect.width,
+        rect.height,
+    )
+}
+
 /// A document rect as a scene rect in canvas space.
 pub(crate) fn canvas_rect(rect: specular_doc::Rect) -> Rect {
     Rect::new(

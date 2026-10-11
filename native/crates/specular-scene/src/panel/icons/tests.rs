@@ -46,6 +46,7 @@ fn glyphs() -> Vec<Glyph> {
         Icon::BulletList,
         Icon::Device,
         Icon::Rotate,
+        Icon::Proportions,
         Icon::SchemeSystem,
         Icon::SchemeLight,
         Icon::SchemeDark,

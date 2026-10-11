@@ -2,7 +2,9 @@ use std::collections::BTreeMap;
 
 use serde_json::{Map, Value, json};
 
-use crate::thread::{Image, MediaType, Message, Role, Status, Thread, ThreadId};
+use crate::thread::{
+    Artifact, ArtifactTarget, Image, MediaType, Message, Role, Status, Thread, ThreadId,
+};
 
 fn pretty(value: &Value) -> String {
     let mut text = serde_json::to_string_pretty(value).unwrap_or_default();
@@ -35,6 +37,23 @@ fn message_json(message: &Message) -> Value {
             .map(|i| json!({ "path": i.path, "mediaType": i.media_type.as_str() }))
             .collect();
         map.insert("images".into(), Value::Array(images));
+    }
+    if !message.artifacts.is_empty() {
+        let artifacts: Vec<Value> = message.artifacts.iter().map(artifact_json).collect();
+        map.insert("artifacts".into(), Value::Array(artifacts));
+    }
+    Value::Object(map)
+}
+
+/// `{"file": path}` or `{"item": id}`, with `created` when the turn made it.
+fn artifact_json(artifact: &Artifact) -> Value {
+    let mut map = Map::new();
+    match &artifact.target {
+        ArtifactTarget::File(path) => map.insert("file".into(), json!(path)),
+        ArtifactTarget::Item(id) => map.insert("item".into(), json!(id)),
+    };
+    if artifact.created {
+        map.insert("created".into(), json!(true));
     }
     Value::Object(map)
 }
@@ -126,6 +145,24 @@ fn parse_message(value: &Value, now: &str) -> Option<Message> {
             .and_then(Value::as_array)
             .map(|items| items.iter().filter_map(parse_image).collect())
             .unwrap_or_default(),
+        artifacts: raw
+            .get("artifacts")
+            .and_then(Value::as_array)
+            .map(|items| items.iter().filter_map(parse_artifact).collect())
+            .unwrap_or_default(),
+    })
+}
+
+fn parse_artifact(value: &Value) -> Option<Artifact> {
+    let raw = value.as_object()?;
+    let target = match (str_of(raw, "file"), str_of(raw, "item")) {
+        (Some(path), _) => ArtifactTarget::File(path.to_owned()),
+        (None, Some(id)) => ArtifactTarget::Item(id.to_owned()),
+        (None, None) => return None,
+    };
+    Some(Artifact {
+        target,
+        created: raw.get("created") == Some(&Value::Bool(true)),
     })
 }
 

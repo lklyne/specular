@@ -208,7 +208,7 @@ fn the_grid_moves_with_the_scroll_and_a_region_grabs_whole_cells() {
     let scroll = Vec2::new(0.0, 24.0);
     let element = element_scrolled(viewport, scroll, Vec2::new(10.0, 30.0)).unwrap();
     assert_eq!(element.bounding_box, PixelRect::new(0, 24, 160, 48));
-    let grabbed = |rect| synthetic_elements_in(viewport, Vec2::ZERO, rect);
+    let grabbed = |rect| synthetic_elements_in(viewport, Vec2::ZERO, rect).len();
     assert_eq!(grabbed(CssRect::new(0.0, 0.0, 330.0, 100.0)), 4);
     assert_eq!(grabbed(CssRect::new(10.0, 10.0, 150.0, 40.0)), 0);
 }

@@ -2,6 +2,7 @@ use serde_json::Value;
 
 use crate::describe;
 use crate::text::truncate;
+use crate::thread::Artifact;
 
 /// What a progress line is about.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -42,6 +43,8 @@ pub enum Notice {
     Text(String),
     /// More streaming text.
     TextDelta(String),
+    /// The agent made or edited something.
+    Made(Artifact),
     /// The run ended with this final message.
     Finished {
         /// The full final message.
@@ -56,7 +59,8 @@ pub enum Notice {
     Cancelled,
 }
 
-/// Reads one `--output-format stream-json` line. Anything unreadable or
+/// Reads one `--output-format stream-json` line, or one of
+/// `specular-helper`'s. Anything unreadable or
 /// unknown gives nothing.
 pub fn parse_line(line: &str) -> Vec<Notice> {
     let Ok(message) = serde_json::from_str::<Value>(line.trim()) else {
@@ -76,8 +80,21 @@ pub fn parse_line(line: &str) -> Vec<Notice> {
             .collect(),
         Some("stream_event") if top_level => stream_event(&message),
         Some("result") => result(&message),
+        Some("helper") => helper(&message),
         _ => Vec::new(),
     }
+}
+
+/// A line of `specular-helper`'s own: an error is the run failing, with
+/// words for the user.
+fn helper(message: &Value) -> Vec<Notice> {
+    if message.get("event").and_then(Value::as_str) != Some("error") {
+        return Vec::new();
+    }
+    let error = (message.get("message").and_then(Value::as_str))
+        .unwrap_or("The agent helper failed")
+        .to_owned();
+    vec![Notice::Failed { error }]
 }
 
 fn system(message: &Value) -> Vec<Notice> {
@@ -102,6 +119,7 @@ fn assistant(content: &[Value], top_level: bool) -> Vec<Notice> {
         .map(Notice::Progress)
         .into_iter()
         .collect();
+    out.extend(describe::written(content).map(Notice::Made));
     let texts: Vec<&str> = content
         .iter()
         .filter(|b| b.get("type").and_then(Value::as_str) == Some("text"))

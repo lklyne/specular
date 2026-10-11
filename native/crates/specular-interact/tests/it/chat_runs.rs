@@ -2,12 +2,13 @@
 //! threads are kept.
 
 use specular_core::{CssSize, synthetic_element_at};
-use specular_doc::{Document, Entity};
+use specular_doc::{Command, Document, Entity, ItemId, Rect};
 use specular_interact::{
-    Action, AssetBytes, ChatAction, Effect, Event, ImageUpload, Key, MediaType, Notice, Progress,
-    ProgressKind, RunRequest, ThreadId, ThreadStatus, Tool,
+    Action, ApiCall, ApiRun, Artifact, ArtifactTarget, AssetBytes, ChatAction, Effect, Event,
+    ImageUpload, Key, MediaType, Model, ModelsNews, Notice, Progress, ProgressKind, RunRequest,
+    ThreadId, ThreadStatus, Tool,
 };
-use specular_testkit::{TestApp, assert_chat_snapshot, document, pages};
+use specular_testkit::{TestApp, assert_chat_snapshot, document, note, pages, sticky};
 
 fn panel_app(entities: impl IntoIterator<Item = Entity>) -> TestApp {
     let mut app = TestApp::with_space([("Home", Document::new())]);
@@ -433,4 +434,133 @@ fn canvas_comments_and_comments_on_other_origins_wait_for_send() {
         assert!(run_requests(&app.take_effects()).is_empty(), "{name}");
         assert_eq!(app.chat().composer.queued.len(), 1, "{name}");
     }
+}
+
+#[test]
+fn what_a_run_made_or_edited_is_a_card_under_its_answer() {
+    let mut app = panel_app([note(
+        "plan",
+        Rect::new(100.0, 100.0, 300.0, 400.0),
+        "plan.md",
+    )]);
+    app.send_chat("write it up");
+    let thread = app.chat_thread_id().expect("the open thread");
+    let wrote = |path: &str, created| {
+        Notice::Made(Artifact {
+            target: ArtifactTarget::File(path.into()),
+            created,
+        })
+    };
+    // A file a Document of the canvas shows, and one that is not on it.
+    app.agent_says(wrote("/space/plan.md", false))
+        .agent_says(wrote("/repo/src/button.css", true));
+    // What the run's own CLI calls do to the canvas: the sticky is made,
+    // and the move of the Document is not worth a second card.
+    let api = |ticket, command| {
+        Event::Api(ApiCall {
+            ticket,
+            canvas: None,
+            thread: Some(thread.clone()),
+            run: ApiRun::Apply {
+                command,
+                select: None,
+            },
+        })
+    };
+    let made = sticky("recipe", Rect::new(500.0, 100.0, 200.0, 200.0), "Recipe");
+    app.send(api(
+        1,
+        Command::InsertEntity {
+            entity: Box::new(made),
+            at: 1,
+        },
+    ));
+    app.send(api(
+        2,
+        Command::SetRect {
+            id: app.entity("plan").id.clone(),
+            rect: Rect::new(100.0, 600.0, 300.0, 400.0),
+        },
+    ));
+    let making: Vec<String> = (app.chat().transcript.expect("the thread").making.iter())
+        .map(|card| card.label.clone())
+        .collect();
+    assert_eq!(making, ["plan", "button.css", "Recipe"]);
+
+    app.agent_says(finished("done"));
+    assert_chat_snapshot!(app, @r#"
+    chat available=yes visible=no width=400 title="write it up"
+    thread [x] "write it up" 1970-01-01T00:00:00.000Z
+    controls back=yes close=yes
+    bubble user "write it up"
+    bubble agent "done"
+      card "plan" Document edited live
+      card "button.css" File new
+      card "Recipe" Sticky note new live
+    composer placeholder="Follow up…" send-empty=no running=no pill=Canvas "Home" folder=Some("space")
+    "#);
+
+    // A click on a card selects its item.
+    let card = app.chat().transcript.expect("the thread").messages[1].artifacts[2].clone();
+    app.act(card.focus.expect("the sticky is on the canvas"));
+    assert_eq!(
+        app.selection().items(),
+        [ItemId::Entity(app.entity("recipe").id.clone())]
+    );
+}
+
+#[test]
+fn the_chosen_model_names_the_chip_is_saved_and_runs_the_next_turn() {
+    let mut app = queued();
+    assert_eq!(app.chat().composer.model.label, "Sonnet");
+
+    let listed = [
+        ("default", "Default (recommended)", "Opus 5.5"),
+        (
+            "claude-fable-5-1",
+            "Fable 5.1",
+            "For your toughest challenges",
+        ),
+        ("sonnet", "Sonnet 5", "Efficient for routine tasks"),
+    ]
+    .map(|(value, name, description)| Model {
+        value: value.into(),
+        name: name.into(),
+        description: description.into(),
+    });
+    app.send(Event::Models(ModelsNews::Listed(listed.into())));
+    app.send(Event::Models(ModelsNews::Saved("default".into())));
+    assert_eq!(
+        app.take_effects(),
+        vec![],
+        "what is loaded is not saved again"
+    );
+    let chip = app.chat().composer.model;
+    assert_eq!(chip.label, "Default");
+    let chosen: Vec<_> = chip
+        .options
+        .iter()
+        .map(|o| (o.name.as_str(), o.chosen))
+        .collect();
+    assert_eq!(
+        chosen,
+        [
+            ("Default (recommended)", true),
+            ("Fable 5.1", false),
+            ("Sonnet 5", false)
+        ]
+    );
+
+    app.act(chip.options[1].choose.clone());
+    assert_eq!(
+        app.take_effects(),
+        vec![Effect::SaveAgentModel("claude-fable-5-1".into())]
+    );
+    assert_eq!(app.chat().composer.model.label, "Fable 5.1");
+
+    app.send_chat("");
+    let [request] = run_requests(&app.take_effects())
+        .try_into()
+        .expect("one run");
+    assert_eq!(request.model.as_deref(), Some("claude-fable-5-1"));
 }

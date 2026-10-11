@@ -37,7 +37,7 @@ pub(crate) fn snapshot(app: &App) -> Vec<HostedPage> {
                 url: page.url.clone(),
                 viewport,
                 scheme: page.color_scheme,
-                device: crate::device::page_device(page),
+                device: app.page_device(&entity.id),
             })
         })
         .collect()
@@ -101,8 +101,29 @@ pub(crate) fn layouts(app: &App) -> Layouts {
     (laid_out(app), resizing(app))
 }
 
-/// Appends the viewport changes an event made to the layouts `before` it.
+/// Appends the device change that goes with a page starting or ceasing to
+/// fill the view: there it is the browser as it is, and anywhere else the
+/// device its preset names. A page whose preset names none is the same
+/// device either way and is told nothing.
+fn follow_device(before: Option<&EntityId>, app: &App, effects: &mut Vec<Effect>) {
+    let now = presentation(app).map(|(page, _)| page);
+    if before == now.as_ref() {
+        return;
+    }
+    for page in before.into_iter().chain(&now) {
+        if crate::device::has_own(app, page) {
+            effects.push(Effect::SetPageDevice {
+                page: page.clone(),
+                device: app.page_device(page),
+            });
+        }
+    }
+}
+
+/// Appends the viewport and device changes an event made to the layouts
+/// `before` it.
 pub(crate) fn follow_layouts(before: &Layouts, app: &App, effects: &mut Vec<Effect>) {
+    follow_device(before.0[0].as_ref().map(|(page, _)| page), app, effects);
     follow_presentation(&before.0, app, effects);
     follow_resize(&before.1, app, effects);
 }

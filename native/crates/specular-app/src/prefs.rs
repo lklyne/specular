@@ -1,7 +1,8 @@
 //! The preferences file: app settings that are not part of any canvas.
 //!
 //! One JSON object in the app's config folder. This shell reads and writes
-//! `toolDefaults`, `spacePath`, `show` and `themeMode`, and keeps every other
+//! `toolDefaults`, `spacePath`, `show`, `themeMode` and `agentModel`, and keeps
+//! every other
 //! key as it found it. The file is the
 //! native app's own: the Electron app keeps its settings in memory and
 //! rewrites its file whole, so two writers on one file would lose changes.
@@ -23,6 +24,8 @@ const SHOW_KEY: &str = "show";
 const TOOLS_KEY: &str = "tools";
 /// The key the Electron app stores its theme under too.
 const THEME_KEY: &str = "themeMode";
+/// The model the canvas agent runs, as the picker names it.
+const AGENT_MODEL_KEY: &str = "agentModel";
 /// Overrides the config folder, for a run that must not touch the real one.
 pub(crate) const CONFIG_DIR_VARIABLE: &str = "SPECULAR_NATIVE_CONFIG_DIR";
 
@@ -99,6 +102,17 @@ pub(crate) fn load_theme(path: &Path) -> Option<Theme> {
 /// Writes `theme` under `themeMode`, keeping the file's other keys.
 pub(crate) fn save_theme(path: &Path, theme: Theme) -> io::Result<()> {
     save_key(path, THEME_KEY, Value::from(theme.key()))
+}
+
+/// The saved agent model, or `None` when there is none to read.
+pub(crate) fn load_agent_model(path: &Path) -> Option<String> {
+    let preferences = read(path).ok()?;
+    Some(preferences.get(AGENT_MODEL_KEY)?.as_str()?.to_owned())
+}
+
+/// Writes `model` under `agentModel`, keeping the file's other keys.
+pub(crate) fn save_agent_model(path: &Path, model: &str) -> io::Result<()> {
+    save_key(path, AGENT_MODEL_KEY, Value::from(model))
 }
 
 /// The space folder last chosen in this app, if one was.
@@ -234,6 +248,10 @@ mod tests {
         save_theme(&path, Theme::Dark).unwrap();
         assert_eq!(load_theme(&path), Some(Theme::Dark));
         assert_eq!(load_tool_defaults(&path), Some(diamonds()));
+        assert_eq!(load_agent_model(&path), None);
+        save_agent_model(&path, "claude-fable-5-1").unwrap();
+        assert_eq!(load_agent_model(&path).as_deref(), Some("claude-fable-5-1"));
+        assert_eq!(load_theme(&path), Some(Theme::Dark));
     }
 
     #[test]

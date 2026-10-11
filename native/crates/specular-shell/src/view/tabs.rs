@@ -9,15 +9,16 @@ use std::sync::Arc;
 use gpui_kit::component::h_flex;
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
-    AnyElement, BoxShadow, ClickEvent, Image, ImageFormat, InteractiveElement as _, IntoElement,
-    MouseButton, ParentElement as _, SharedString, StatefulInteractiveElement as _, Styled as _,
-    div, img, linear_color_stop, linear_gradient, point, px, rgba,
+    AnyElement, ClickEvent, Image, ImageFormat, InteractiveElement as _, IntoElement, MouseButton,
+    ParentElement as _, SharedString, StatefulInteractiveElement as _, Styled as _, div, img,
+    linear_color_stop, linear_gradient, px, rgba,
 };
 use specular_interact::{Action, Button, ControlId, Event, Icon, ToolbarModel, ViewStrip, ViewTab};
 
 use super::controls::element_id;
 use super::glyphs::{glyph, ink};
 use super::named::mark;
+use super::raised::{RIM, Raised, plate};
 use super::run;
 use super::toolbar::{panel_toggle, zoom};
 use crate::{canvas, theme};
@@ -58,26 +59,10 @@ const TAB_GLYPH: f32 = 14.0;
 /// A tab's close button, and the glyph in it.
 const CLOSE: f32 = 18.0;
 const CLOSE_GLYPH: f32 = 12.0;
-/// The width of the rim around the tab that is showing.
-const RIM: f32 = 1.0;
 /// How much of a label's far end fades out, where a long one is cut.
 const FADE: f32 = 20.0;
 /// The group a tab's face reads the pointer from: the whole tab.
 const HOVERED: &str = "tab";
-
-/// The shadow under the tab that is showing: two short ones, each drawn in
-/// from the tab's sides so it shows below the tab and not around it.
-fn lift() -> Vec<BoxShadow> {
-    let layer = |drop: f32, blur: f32, color: u32| BoxShadow {
-        color: theme::tinted(color),
-        offset: point(px(0.0), px(drop)),
-        blur_radius: px(blur),
-        spread_radius: px(-drop),
-        inset: false,
-    };
-    let (near, far) = theme::tab_shadow();
-    vec![layer(1.0, 2.0, near), layer(2.0, 4.0, far)]
-}
 
 /// The glyph before a tab's label: the page's own icon when it has one.
 fn lead(model: &ViewTab, text: u32) -> AnyElement {
@@ -195,10 +180,11 @@ fn close(id: &ControlId, action: Action, fill: u32, hover: u32) -> impl IntoElem
         })
 }
 
-/// One tab: its glyph and its label. The one showing is filled, rimmed and
-/// lifted; the others are bare, in the muted text colour. A click takes some 80 ms from the button going
-/// down to it coming up, and a page needs half of that to paint at the size
-/// of its tab, so the press lays the page out and the click shows it.
+/// One tab: its glyph and its label. The one showing is raised; the others
+/// are bare, in the muted text colour. A click takes some 80 ms from the
+/// button going down to it coming up, and a page needs half of that to paint
+/// at the size of its tab, so the press lays the page out and the click
+/// shows it.
 fn tab(model: &ViewTab) -> impl IntoElement {
     let action = model.action.clone();
     let (pressed, released) = (model.id.clone(), model.id.clone());
@@ -210,26 +196,19 @@ fn tab(model: &ViewTab) -> impl IntoElement {
     // The fills are opaque, so the rim under the face shows only around it
     // and a long label has one colour to fade into.
     let (fill, hovered) = if model.active {
-        (theme::tab_fill(), None)
+        (theme::raised_fill(), None)
     } else {
         (theme::toolbar(), Some(theme::tab_hover()))
     };
-    // The face is inset by the rim's width, so the gradient under it shows
-    // as a border: lit along the top, shaded along the bottom.
     let face = h_flex()
         .size_full()
         .px(px(6.0))
         .gap_1p5()
         .items_center()
         .overflow_hidden()
-        .rounded(px(5.0))
-        .when(model.active, |this| this.bg(theme::solid(fill)))
-        .when_some(hovered, |this, hovered| {
-            this.group_hover(HOVERED, move |this| this.bg(theme::solid(hovered)))
-        })
+        .rounded(px(6.0 - RIM))
         .child(lead(model, text))
         .child(label(model, fill, hovered));
-    let (lit, shaded) = theme::tab_rim();
     h_flex()
         .id(element_id(&model.id))
         .group(HOVERED)
@@ -242,20 +221,26 @@ fn tab(model: &ViewTab) -> impl IntoElement {
         .rounded(px(6.0))
         .cursor_pointer()
         .text_color(theme::solid(text))
-        .when(model.active, |this| {
-            this.shadow(lift()).bg(linear_gradient(
-                180.0,
-                linear_color_stop(rgba(lit), 0.0),
-                linear_color_stop(rgba(shaded), 1.0),
-            ))
+        .when(model.active, |this| this.raised(6.0))
+        // Under the pointer a tab that is not showing has the face's shape,
+        // flat, where the raised one has its face.
+        .when_some(hovered, |this, hovered| {
+            this.child(
+                div()
+                    .absolute()
+                    .inset(px(RIM))
+                    .invisible()
+                    .group_hover(HOVERED, gpui_kit::Styled::visible)
+                    .child(plate(6.0 - RIM, hovered)),
+            )
         })
         .child(face)
         .child(mark(&model.id))
         .children(model.close.clone().map(|action| {
             let (under, over) = if model.active {
-                (theme::tab_fill(), theme::tab_hover())
+                (theme::raised_fill(), theme::tab_hover())
             } else {
-                (theme::tab_hover(), theme::tab_fill())
+                (theme::tab_hover(), theme::raised_fill())
             };
             close(&model.id, action, under, over)
         }))

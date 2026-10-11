@@ -21,7 +21,7 @@ pub const TOOL_ROW: f32 = 40.0;
 /// The third row, the dock: the controls of the tool in hand or of the
 /// selection. It is there whether or not it has anything to show, so the
 /// canvas under it never moves.
-pub const DOCK_ROW: f32 = 40.0;
+pub const DOCK_ROW: f32 = 36.0;
 /// The whole chrome across the top of the window. Everything under the
 /// chrome starts here; only the rows themselves know how it is made up.
 pub const CHROME_HEIGHT: f32 = TAB_ROW + TOOL_ROW + DOCK_ROW;

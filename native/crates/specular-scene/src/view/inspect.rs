@@ -6,7 +6,7 @@
 //! text and background colours as squares with their values. The card is
 //! slate with white text in both themes, as in Electron.
 
-use specular_interact::{InspectModel, InspectPopover};
+use specular_interact::{InspectModel, InspectPopover, ScreenRect};
 
 use super::frame::Frame;
 use super::palette;
@@ -31,11 +31,24 @@ const SOFT: u8 = 230;
 const FAINT: u8 = 180;
 const LABEL: u8 = 217;
 
-/// The outline on the node, then the card beside it.
+/// The outline on the node, then the card beside it. The comment tool has
+/// the outline alone, on each element it marks.
 pub(crate) fn draw(frame: &Frame<'_>, scene: &mut Scene) {
-    let Some(InspectModel { outline, popover }) = frame.app.inspect() else {
+    for marked in frame.app.comment_highlights() {
+        outline(frame, marked, scene);
+    }
+    let Some(InspectModel {
+        outline: node,
+        popover,
+    }) = frame.app.inspect()
+    else {
         return;
     };
+    outline(frame, node, scene);
+    card(&popover, frame.colors.selection, scene);
+}
+
+fn outline(frame: &Frame<'_>, outline: ScreenRect, scene: &mut Scene) {
     let target = Rect::new(outline.min.x, outline.min.y, outline.size.x, outline.size.y);
     if frame.sees_screen(target) {
         scene.push(Item::screen(RectDraw::filled(
@@ -54,7 +67,6 @@ pub(crate) fn draw(frame: &Frame<'_>, scene: &mut Scene) {
             ),
         }));
     }
-    card(&popover, frame.colors.selection, scene);
 }
 
 fn card(popover: &InspectPopover, chip: Color, scene: &mut Scene) {

@@ -14,6 +14,7 @@ fn message(role: Role, text: &str, annotation: Option<&str>) -> Message {
         queued: false,
         annotation_id: annotation.map(Into::into),
         images: Vec::new(),
+        artifacts: Vec::new(),
     }
 }
 

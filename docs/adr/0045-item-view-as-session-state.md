@@ -14,7 +14,7 @@ Which view is showing is one value in the session, `Showing::Canvas` or `Showing
 
 **Amended 2026-10-09 (phase 4a).** Two more values sit beside the item, and everything below is derived from the three in `showing.rs`. They are session state like the item: never saved, never an undo step.
 
-- The **lens** is how a tab looks at its item: `Lens::Fill`, `Device` or `Canvas`, set by `Action::SetLens`. Each tab keeps its own for the session, per canvas, beside the tab order (`showing::Tabs`). A tab starts in Fill.
+- The **lens** is how a tab looks at its item: `Lens::Fill`, `Device` or `Canvas`, set by `Action::SetLens`. Each tab keeps its own for the session, per canvas, beside the tab order (`showing::Tabs`). A tab starts in Fill, except one opened from the canvas by the toolbar's expand button (`Action::OpenTab`), which starts in Device.
 - The **eye** is whether anything but the item is drawn, set by `Action::ShowOthers`. It is one choice for every tab and starts open.
 
 | Lens | The item's rect | Camera | Seen with the eye open |

@@ -125,8 +125,6 @@ panel_colors! {
     toolbar_text => toolbar_text;
     /// Toolbar text when hovered or on.
     toolbar_text_strong => toolbar_text_strong;
-    /// A tool button that is hovered or active.
-    tool_fill => tool_fill;
     /// `--surface-interactive-hover`: a hovered row.
     row_hover => interactive_hover;
     /// `--surface-interactive`: a selected row.
@@ -147,10 +145,12 @@ panel_colors! {
     ring_gray => ring_gray;
 }
 
-/// The tab that is showing: the tool fill over the tab row, as one opaque
-/// colour.
-pub(crate) fn tab_fill() -> u32 {
-    pick(0xfdf8_f5ff, 0x5450_4bff)
+/// The fill of a raised control (`view/raised.rs`): the tool fill at 60%
+/// over the toolbar in the light theme and 9% in the dark, as one opaque
+/// colour, so the shadow under it does not show through and a label has one
+/// colour to fade into. The rim and the shadow carry the rest of the lift.
+pub(crate) fn raised_fill() -> u32 {
+    pick(0xede9_e7ff, 0x5450_4bff)
 }
 
 /// A hovered tab that is not showing, opaque over the tab row.
@@ -158,15 +158,20 @@ pub(crate) fn tab_hover() -> u32 {
     pick(0xdfdc_daff, 0x4b47_42ff)
 }
 
-/// The rim of the tab that is showing, from its top to its bottom: lit
-/// above and fainter below.
-pub(crate) fn tab_rim() -> (u32, u32) {
+/// The rim of a raised control, from its top to its bottom: lit above and
+/// fainter below.
+pub(crate) fn raised_rim() -> (u32, u32) {
     pick_pair((0xffff_ffcc, 0x0000_0014), (0xffff_ff26, 0xffff_ff0d))
 }
 
-/// The two shadows under the tab that is showing, the nearer first.
-pub(crate) fn tab_shadow() -> (u32, u32) {
-    pick_pair((0x0000_001f, 0x0000_0014), (0x0000_0040, 0x0000_0026))
+/// The two shadows under a raised control, the nearer first.
+pub(crate) fn raised_shadow() -> (u32, u32) {
+    pick_pair((0x0000_001a, 0x0000_000d), (0x0000_0040, 0x0000_0026))
+}
+
+/// The shade a raised control's face takes into its bottom edge.
+pub(crate) fn raised_shade() -> u32 {
+    pick(0x0000_000a, 0x0000_0033)
 }
 
 /// `--surface-focus-ring`: blue-500, blue-400 in the dark.
@@ -194,6 +199,13 @@ pub(crate) fn primary_foreground() -> u32 {
     pick(0xfafa_f9ff, 0x1c19_17ff)
 }
 
+/// The highlight on selected text. The Kit paints it over the glyphs, so it
+/// is the scene's `text_selection` hue as a tint, at the 30% alpha the Kit
+/// caps its own themes to.
+fn text_selection() -> u32 {
+    pick(0x419b_ff4d, 0x62ad_ff4d)
+}
+
 /// `--surface-input`: stone-50 in the light, stone-900 at 90% over the panel
 /// in the dark. A sent message's bubble and the run bar.
 pub(crate) fn input() -> u32 {
@@ -210,17 +222,11 @@ pub(crate) fn glyph_muted() -> u32 {
     pick(0x8181_81ff, 0xa7a5_a6ff)
 }
 
-/// The zinc scale the right panel's composer is built from: its fill (50),
-/// a chip and a hovered row (100), a divider and a hovered button (200),
-/// its edge (300). The dark theme takes the opposite end of the scale.
-pub(crate) fn zinc_50() -> u32 {
-    pick(0xfafa_faff, 0x1818_1bff)
-}
+/// The zinc scale the right panel's composer is built from: a chip and a
+/// hovered row (100) and its edge (300). The dark theme takes the opposite
+/// end of the scale.
 pub(crate) fn zinc_100() -> u32 {
     pick(0xf4f4_f5ff, 0x2727_2aff)
-}
-pub(crate) fn zinc_200() -> u32 {
-    pick(0xe4e4_e7ff, 0x3f3f_47ff)
 }
 pub(crate) fn zinc_300() -> u32 {
     pick(0xd4d4_d8ff, 0x5252_5cff)
@@ -328,7 +334,7 @@ pub(crate) fn apply(appearance: Appearance, cx: &mut App) {
         theme.input = solid(input_border());
         theme.ring = solid(focus_ring());
         theme.caret = solid(text());
-        theme.selection = solid(packed(colors().text_selection));
+        theme.selection = tinted(text_selection());
 
         theme.primary = solid(primary());
         theme.primary_hover = solid(primary_hover());

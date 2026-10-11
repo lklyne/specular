@@ -31,6 +31,9 @@ pub struct App {
     /// to a canvas by its tab id, and switching canvas leaves them alone.
     pub(crate) threads: Threads,
     pub(crate) repos: Repos,
+    /// The models the agent can run and the one chosen. App-wide: every
+    /// thread's next run uses it.
+    pub(crate) models: specular_agent::Models,
     pub(crate) tool_defaults: ToolDefaults,
     /// What is kept between launches besides the tool defaults.
     pub(crate) settings: crate::AppSettings,
@@ -239,6 +242,8 @@ pub struct Session {
     pub(crate) prepared: Option<EntityId>,
     /// The camera transition in flight, and whether the shell runs them.
     pub(crate) motion: crate::showing::motion::Motion,
+    /// The pages turning on to their side or back up.
+    pub(crate) turns: crate::showing::turn::Turns,
     /// The agent cursors, and the acts waiting for one to arrive.
     pub(crate) presence: crate::presence::Presence,
     /// The item tabs of the active canvas: their order and the lens each
@@ -260,6 +265,8 @@ pub struct Session {
     pub(crate) comment_draft: Option<Annotation>,
     /// The comment the keys act on.
     pub(crate) focused_comment: Option<AnnotationId>,
+    /// The page elements inside the comment region being dragged.
+    pub(crate) region_preview: crate::comment::RegionPreview,
     /// The cursor the shell was last asked to show.
     pub cursor: Cursor,
     /// The built-in panels: whether they are on, the open dropdown, and the

@@ -327,6 +327,7 @@ impl<W: ShellWindow> Runtime<W> {
         self.load_tool_defaults();
         self.load_settings();
         self.load_theme();
+        self.load_models();
         self.load_repos();
         if let Some(ask) = opening.ask {
             self.dispatch(Event::SpaceNeeded(ask));

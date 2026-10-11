@@ -53,13 +53,13 @@ fn the_three_rows_with_a_sticky_in_the_dock() {
       - 726,50 1x16 Divider
       theme 735,44 32x28 ToolButton: icon SchemeLight 741,48 20x20
       zoom 771,44 58x28 ToolMenu: text "100%" 780,44 34x28 Left; chevron 814,53 10x10
-    dock 0,78 1200x40
-      text.size 12,86 78x24 Button: text "Small" 18,86 50x24 Left; chevron 72,92 12x12
-      text.font 94,86 68x24 Button: text "Sans" 100,86 40x24 Left; chevron 144,92 12x12
-      - 170,90 1x16 Divider
-      text.color 179,86 42x24 Button: dot none 183,90 16x16; chevron 203,92 12x12
-      - 229,90 1x16 Divider
-      item.annotate 238,86 24x24 Button: icon Annotate 243,91 14x14
+    dock 0,78 1200x36
+      text.size 12,84 78x24 Button: text "Small" 18,84 50x24 Left; chevron 72,90 12x12
+      text.font 94,84 68x24 Button: text "Sans" 100,84 40x24 Left; chevron 144,90 12x12
+      - 170,88 1x16 Divider
+      text.color 179,84 42x24 Button: dot none 183,88 16x16; chevron 203,90 12x12
+      - 229,88 1x16 Divider
+      item.annotate 238,84 24x24 Button: icon Annotate 243,89 14x14
     "#);
 }
 

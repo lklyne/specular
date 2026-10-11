@@ -13,6 +13,7 @@ mod draft;
 mod drag;
 mod grab;
 mod marks;
+mod preview;
 mod selection;
 mod shown;
 
@@ -30,6 +31,9 @@ pub(crate) use marks::at as mark_at;
 pub use marks::{
     CommentMark, FOCUS_RING_OUTSET, FOCUS_RING_STROKE, MarkShape, PILL_DIGIT_WIDTH,
     PILL_EDGE_MARGIN, PILL_HEIGHT, PILL_INSET, PILL_WIDTH, REGION_HIT_BAND, REGION_MIN_SIZE,
+};
+pub(crate) use preview::{
+    RegionPreview, follow as follow_region, on_elements, settle as settle_preview,
 };
 pub(crate) use selection::annotate as annotate_selection;
 pub use selection::selection_metadata;

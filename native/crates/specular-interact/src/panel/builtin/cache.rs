@@ -161,6 +161,7 @@ pub(crate) fn keeps_layout(app: &App, event: &Event) -> bool {
         | Event::Motion(_)
         | Event::ThreadsLoaded { .. }
         | Event::ReposLoaded(_)
+        | Event::Models(_)
         | Event::SettingsLoaded(_)
         | Event::About(_)
         | Event::SpaceNeeded(_)

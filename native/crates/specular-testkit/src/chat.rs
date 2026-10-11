@@ -4,7 +4,8 @@
 use std::fmt::Write as _;
 
 use specular_interact::{
-    Action, ChatAction, ChatModel, Event, ImageUpload, Notice, ThreadId, ThreadRole, chat,
+    Action, ArtifactCard, ChatAction, ChatModel, Event, ImageUpload, Notice, ThreadId, ThreadRole,
+    chat,
 };
 
 use crate::TestApp;
@@ -68,6 +69,16 @@ impl TestApp {
     }
 }
 
+/// A line a card: its name, its kind, whether it was made or edited, and
+/// `live` when a click goes to it.
+fn write_cards(out: &mut String, cards: &[ArtifactCard]) {
+    for card in cards {
+        let verb = if card.created { "new" } else { "edited" };
+        let live = if card.focus.is_some() { " live" } else { "" };
+        let _ = writeln!(out, "  card {:?} {} {verb}{live}", card.label, card.detail);
+    }
+}
+
 fn yes_no(on: bool) -> &'static str {
     if on { "yes" } else { "no" }
 }
@@ -117,10 +128,12 @@ pub fn chat_snapshot(model: &ChatModel) -> String {
             for image in &bubble.images {
                 let _ = writeln!(out, "  image {image}");
             }
+            write_cards(&mut out, &bubble.artifacts);
         }
         if let Some(text) = &transcript.streaming {
             let _ = writeln!(out, "streaming {text:?}");
         }
+        write_cards(&mut out, &transcript.making);
         if let Some(run) = &transcript.run {
             let _ = writeln!(out, "run {:?}", run.label);
             for line in &run.log {

@@ -22,7 +22,7 @@ use gpui_kit::{
 use specular_interact::{Action, ChatAction, Composer, Event};
 
 use super::chips::{
-    auto_chip, chip, draft_chip, muted, open_comments, pill_icon, queued, remove_button,
+    auto_chip, chip, draft_chip, model_chip, muted, open_comments, pill_icon, queued, remove_button,
 };
 use crate::canvas;
 use crate::theme;
@@ -167,7 +167,7 @@ impl ShellView {
             .xsmall()
             .appearance(false)
             .bordered(false)
-            .text_size(px(14.0))
+            .text_size(px(12.0))
             .line_height(px(LINE))
             .on_paste(move |item, _, cx| {
                 view.update(cx, |this, cx| this.take_pasted(item, cx))
@@ -198,6 +198,7 @@ impl ShellView {
                     .children(folder)
                     .children(model.auto.as_ref().map(auto_chip)),
             )
+            .child(model_chip(&model.model, &self.chat.input))
             .child(Self::send_button(ready, cx));
 
         let focus_field = cx.listener(|this, _: &gpui_kit::ClickEvent, window, cx| {

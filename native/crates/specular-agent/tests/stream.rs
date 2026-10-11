@@ -1,7 +1,9 @@
 //! One line of `claude --output-format stream-json` and what it means.
 
 use serde_json::{Value, json};
-use specular_agent::{Notice, Progress, ProgressKind, parse_line, parse_output};
+use specular_agent::{
+    Artifact, ArtifactTarget, Notice, Progress, ProgressKind, parse_line, parse_output,
+};
 
 fn progress(kind: ProgressKind, text: &str, label: Option<&str>) -> Notice {
     Notice::Progress(Progress {
@@ -24,6 +26,16 @@ fn tool(name: &str, input: &Value, text: &str, label: &str) -> Case {
         line,
         vec![progress(ProgressKind::ToolUse, text, Some(label))],
     )
+}
+
+/// A file tool's line: its progress line, then the file it made or edited.
+fn file_tool(name: &str, input: &Value, text: &str, label: &str, path: &str) -> Case {
+    let (line, mut notices) = tool(name, input, text, label);
+    notices.push(Notice::Made(Artifact {
+        target: ArtifactTarget::File(path.into()),
+        created: name == "Write",
+    }));
+    (line, notices)
 }
 
 /// A `tool_result` user line and the progress line it becomes.
@@ -150,23 +162,26 @@ fn described_cases() -> Vec<Case> {
             .to_string(),
             vec![],
         ),
-        tool(
+        file_tool(
             "MultiEdit",
             &json!({ "file_path": "/a/x.rs" }),
             "MultiEdit /a/x.rs",
             "Editing x.rs",
+            "/a/x.rs",
         ),
-        tool(
+        file_tool(
             "NotebookEdit",
             &json!({ "notebook_path": "/a/n.ipynb" }),
             "NotebookEdit",
             "Editing n.ipynb",
+            "/a/n.ipynb",
         ),
-        tool(
+        file_tool(
             "Write",
             &json!({ "file_path": "/a/w.md" }),
             "Write /a/w.md",
             "Writing w.md",
+            "/a/w.md",
         ),
         tool(
             "Read",
@@ -400,6 +415,11 @@ fn stream_lines_become_notices() {
                 Notice::Failed { error: "error_max_turns".into() },
             ],
         ),
+        (
+            r#"{"type":"helper","event":"error","code":"signed_out","message":"Sign in"}"#.into(),
+            vec![Notice::Failed { error: "Sign in".into() }],
+        ),
+        (r#"{"type":"helper","event":"models","models":[]}"#.into(), vec![]),
         (r#"{"type":"rate_limit_event"}"#.into(), vec![]),
         ("not json".into(), vec![]),
         (String::new(), vec![]),

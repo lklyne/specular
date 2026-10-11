@@ -84,6 +84,11 @@ fn a_tab_is_opened_for_an_item_and_closed_without_touching_the_canvas() {
 
     app.click_control("view.open");
     assert_eq!(app.app().showing(), Showing::Item("p1".into()));
+    assert_eq!(
+        app.app().lens(),
+        Some(Lens::Device),
+        "opened from the canvas"
+    );
     assert!(!open(&app), "the item shown has its tab");
     app.act(show("n")).act(show("p2"));
     let all = [
@@ -143,7 +148,7 @@ fn a_tab_is_opened_for_an_item_and_closed_without_touching_the_canvas() {
 fn an_item_view_shows_one_item_fitted_and_hides_the_rest_from_presses() {
     let mut app = mixed();
     app.with_panels();
-    app.select(&["p2"]).click_control("view.open");
+    app.act(show("p2"));
 
     assert_eq!(app.app().showing(), Showing::Item("p2".into()));
     assert_eq!(tabs(&app)[1], "view.item.p2 example.com *");

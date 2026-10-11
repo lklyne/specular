@@ -131,6 +131,10 @@ fn shift_drag_moves_the_page_along_one_axis() {
   opens a draft, read back with `comment_draft()`; `type_text` and
   `key(Key::Enter)` commit it. `answer_element(..)` and `answer_grab(&[..])`
   answer the latest `QueryElement` and `QueryRegionGrab` as the shell would.
+  With the tool in hand a `pointer_move` over a page asks `InspectAt` (answer
+  with `answer_inspect()`), and a drag asks `PreviewRegion` as it grows
+  (`answer_region_preview()`); `app().comment_highlights()` is what is
+  outlined.
 - The inspect tool: `tool(Tool::Inspect)` then `pointer_move` (a hover) or
   `click` (a pick) asks the page, and `answer_inspect()` answers the latest
   `InspectAt` from the synthetic page's grid as the shell would. Read back
@@ -186,7 +190,9 @@ fn shift_drag_moves_the_page_along_one_axis() {
   See `tests/it/showing.rs`, and `tests/it/item_view.rs` for what input
   does in an item view: the page shown is entered, so send `Key::Escape`
   before a canvas key or a tool's press, and a Document shown is a reading
-  column that one click edits. A tab starts in the Fill lens;
+  column that one click edits. A tab starts in the Fill lens, or in Device when the
+  toolbar's expand button (`view.open`, `Action::OpenTab`) opens it from
+  the canvas;
   `act(Action::SetLens(Lens::Device))` changes it (`view.lens.<name>` as
   controls, with `view.minimize` beside them), read back with
   `app().lens()`. Device hides what is not hooked to its item until
@@ -257,7 +263,7 @@ cargo run -p specular-app -- --script steps.txt FILE.canvas
   `sidebar on|off`, `camera ..`, `wait ms`,
   `snapshot out.png`, `save out.canvas`. Positions are screen pixels. A snapshot between `press` and `release` shows a gesture in
   flight.
-- The chrome is drawn and takes clicks, so the top 118 pixels
+- The chrome is drawn and takes clicks, so the top 114 pixels
   (`CHROME_HEIGHT`) are the tab row, the toolbar and the dock.
   `control shape.color` clicks a control by its name wherever it is (`hover-control`, `press-control` likewise), and a
   wrong name fails the run with the names that are shown. A field takes

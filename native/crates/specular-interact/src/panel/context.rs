@@ -46,6 +46,7 @@ fn option((id, item): Entry) -> DropdownOption {
         label: item.label.clone(),
         face: Face::text(item.label),
         trailing: None,
+        fields: Vec::new(),
         chord: item.chord,
         selected: false,
         enabled: item.enabled,

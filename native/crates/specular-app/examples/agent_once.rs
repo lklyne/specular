@@ -49,6 +49,7 @@ fn main() -> ExitCode {
         resume,
         images,
         cwd: None,
+        model: None,
     };
     let mut runs = AgentRuns::new(Box::new(ClaudeCli::new()));
     runs.start(&request, Some(&dir));

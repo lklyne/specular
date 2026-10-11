@@ -11,12 +11,16 @@
 mod apply;
 mod page;
 pub mod read;
+mod step;
+
+pub use step::PageStep;
 
 use specular_doc::{
     BorderStyle, BrushType, Color, ColorScheme, Command, EdgeEnd, Entity, EntityId, FillStyle,
     ItemId, LineStyle, ShapeKind, TextAlign, TextFont, TextStyle, VerticalAlign,
 };
 
+use crate::showing::turn;
 use crate::{App, Effect, edit, update};
 
 /// A page's orientation, which turns its preset size across or upright.
@@ -139,6 +143,12 @@ impl Property {
     }
 }
 
+/// Whether `page` lies on its side.
+pub(crate) fn is_landscape(page: &specular_doc::Page) -> bool {
+    (page.metadata.as_ref())
+        .is_some_and(|meta| page::orientation_of(meta) == Orientation::Landscape)
+}
+
 /// Makes `page` a page of custom size, keeping the size `rect` has.
 pub(crate) fn make_custom(page: &mut specular_doc::Page, rect: &mut specular_doc::Rect) {
     page::set(&Property::CustomViewport, page, rect);
@@ -191,6 +201,9 @@ pub(crate) fn set(app: &mut App, property: &Property, effects: &mut Vec<Effect>)
     if app.session.gesture.is_some() {
         return;
     }
+    let turning = (matches!(property, Property::Orientation(_)))
+        .then(|| turn::before(app))
+        .unwrap_or_default();
     let commands = property.commands(app);
     let (unrecorded, recorded): (Vec<Command>, Vec<Command>) = match edit::unrecorded(app) {
         Some(id) => commands
@@ -207,4 +220,5 @@ pub(crate) fn set(app: &mut App, property: &Property, effects: &mut Vec<Effect>)
         update::document_step(app, Command::Batch(recorded), effects);
     }
     edit::refit_edited(app);
+    turn::begin(app, turning);
 }

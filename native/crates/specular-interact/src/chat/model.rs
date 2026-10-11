@@ -4,6 +4,7 @@ use specular_agent::{Role, ThreadId};
 use specular_doc::AnnotationId;
 
 use crate::Action;
+use crate::panel::Icon;
 
 /// The whole panel.
 #[derive(Debug, Clone, PartialEq)]
@@ -59,6 +60,8 @@ pub struct Transcript {
     pub messages: Vec<Bubble>,
     /// What the agent has said so far this run.
     pub streaming: Option<String>,
+    /// What it has made or edited so far this run.
+    pub making: Vec<ArtifactCard>,
     /// The agent at work.
     pub run: Option<RunBar>,
     /// Why the last run failed.
@@ -87,6 +90,23 @@ pub struct Bubble {
     /// The pasted images' files: absolute when the space has a folder, else
     /// relative to it.
     pub images: Vec<String>,
+    /// What the agent made or edited on the way to this answer.
+    pub artifacts: Vec<ArtifactCard>,
+}
+
+/// Something the agent made or edited, as a card.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ArtifactCard {
+    /// Its name: the sidebar's label for an item, a file's name.
+    pub label: String,
+    /// What kind of thing it is.
+    pub detail: String,
+    /// Its icon.
+    pub glyph: Icon,
+    /// Whether the agent made it, rather than edited it.
+    pub created: bool,
+    /// Selects it and brings it into view, when it is on the canvas.
+    pub focus: Option<Action>,
 }
 
 /// The strip shown while the agent works.
@@ -123,8 +143,32 @@ pub struct Composer {
     /// The send mode of the origin this turn writes for. `None` when the
     /// turn writes to the space folder.
     pub auto: Option<AutoChip>,
+    /// The model the next run uses, and the others on offer.
+    pub model: ModelChip,
     /// Whether the open thread's agent is working.
     pub running: bool,
+}
+
+/// The chip that names the agent's model and opens the list of them.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ModelChip {
+    /// The chosen model's name.
+    pub label: String,
+    /// Every model on offer, in the runtime's order.
+    pub options: Vec<ModelOption>,
+}
+
+/// One model in the chip's list.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ModelOption {
+    /// Its name, with its version.
+    pub name: String,
+    /// One line on what it is for; empty when the runtime gave none.
+    pub description: String,
+    /// Whether it is the chosen one.
+    pub chosen: bool,
+    /// Chooses it.
+    pub choose: Action,
 }
 
 /// The chip beside the folder chip: whether comments on an origin wait for

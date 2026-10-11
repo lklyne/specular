@@ -15,7 +15,7 @@ use specular_testkit::{
 const BOX: Rect = Rect::new(0.0, 0.0, 200.0, 100.0);
 /// What the chrome and the sidebar leave of a 1600x1000 viewport: its
 /// middle is where a revealed item is centred.
-const FREE_CENTRE: Vec2 = Vec2::new(928.0, 559.0);
+const FREE_CENTRE: Vec2 = Vec2::new(928.0, 557.0);
 
 fn at(x: f64, y: f64) -> Rect {
     Rect::new(x, y, 200.0, 100.0)

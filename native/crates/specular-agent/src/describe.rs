@@ -4,6 +4,7 @@ use serde_json::{Map, Value};
 
 use crate::stream::{Progress, ProgressKind};
 use crate::text::truncate;
+use crate::thread::{Artifact, ArtifactTarget};
 
 struct Block {
     kind: ProgressKind,
@@ -30,6 +31,26 @@ pub(crate) fn assistant(content: &[Value]) -> Option<Progress> {
         &merged.join(" | "),
         Some(last.label.clone()),
     ))
+}
+
+/// The files an assistant message's tool calls write: `Write` makes one,
+/// the edit tools change one.
+pub(crate) fn written(content: &[Value]) -> impl Iterator<Item = Artifact> + '_ {
+    content.iter().filter_map(|block| {
+        if block.get("type")?.as_str()? != "tool_use" {
+            return None;
+        }
+        let created = match block.get("name")?.as_str()? {
+            "Write" => true,
+            "Edit" | "MultiEdit" | "NotebookEdit" => false,
+            _ => return None,
+        };
+        let path = pick(block.get("input")?.as_object()?, FILE_KEYS)?;
+        Some(Artifact {
+            target: ArtifactTarget::File(path.to_owned()),
+            created,
+        })
+    })
 }
 
 /// The progress line of a user message carrying tool results.
@@ -95,6 +116,9 @@ fn block(block: &Value) -> Option<Block> {
     }
 }
 
+/// Where a file tool's input names its file.
+const FILE_KEYS: &[&str] = &["file_path", "notebook_path", "path", "filePath"];
+
 fn pick<'a>(record: &'a Map<String, Value>, keys: &[&str]) -> Option<&'a str> {
     keys.iter()
         .filter_map(|k| record.get(*k).and_then(Value::as_str))
@@ -104,8 +128,7 @@ fn pick<'a>(record: &'a Map<String, Value>, keys: &[&str]) -> Option<&'a str> {
 fn tool_label(name: &str, input: Option<&Value>) -> String {
     let empty = Map::new();
     let record = input.and_then(Value::as_object).unwrap_or(&empty);
-    let file = |verb: &str| match pick(record, &["file_path", "notebook_path", "path", "filePath"])
-    {
+    let file = |verb: &str| match pick(record, FILE_KEYS) {
         Some(f) => format!("{verb} {}", basename(f)),
         None => verb.to_owned(),
     };

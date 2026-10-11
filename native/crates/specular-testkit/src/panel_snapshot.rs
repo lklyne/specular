@@ -187,6 +187,10 @@ fn sections(out: &mut String, content: &[DropdownSection], depth: usize) {
                         if option.enabled { "" } else { " disabled" },
                         option.action
                     );
+                    let fields: Vec<Control> = (option.fields.iter().cloned())
+                        .map(Control::Field)
+                        .collect();
+                    controls(out, &fields, depth + 2);
                 }
             }
             DropdownSection::Controls(row) => {

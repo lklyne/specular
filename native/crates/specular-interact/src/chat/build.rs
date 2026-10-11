@@ -4,10 +4,10 @@ use specular_agent::{Message, Pill, Role, RunState, Status, Thread, WriteTarget}
 use specular_doc::AnnotationId;
 
 use super::model::{
-    AutoChip, Bubble, ChatModel, Composer, DraftChip, OpenComments, PillChip, PillKind, QueuedChip,
-    RunBar, ThreadRow, Transcript,
+    AutoChip, Bubble, ChatModel, Composer, DraftChip, ModelChip, ModelOption, OpenComments,
+    PillChip, PillKind, QueuedChip, RunBar, ThreadRow, Transcript,
 };
-use super::{ChatAction, comments, draft, pill, prompt};
+use super::{ChatAction, artifacts, comments, draft, pill, prompt};
 use crate::{Action, App, RepoAction, comment};
 
 /// The hint over an empty conversation.
@@ -57,6 +57,9 @@ fn transcript(app: &App, thread: &Thread) -> Transcript {
     let streaming = run
         .filter(|run| running && !run.text.is_empty())
         .map(|run| run.text.clone());
+    let making = run
+        .filter(|_| running)
+        .map_or_else(Vec::new, |run| artifacts::cards(app, &run.artifacts));
     let bar = run.filter(|_| running).map(|run| RunBar {
         label: run.current_label().to_owned(),
         log: run.events.iter().map(|event| event.text.clone()).collect(),
@@ -70,6 +73,7 @@ fn transcript(app: &App, thread: &Thread) -> Transcript {
     Transcript {
         messages,
         streaming,
+        making,
         run: bar,
         error,
         empty_hint: nothing.then(|| EMPTY_HINT.to_owned()),
@@ -98,6 +102,7 @@ fn bubble(app: &App, message: &Message) -> Bubble {
                 None => image.path.clone(),
             })
             .collect(),
+        artifacts: artifacts::cards(app, &message.artifacts),
     }
 }
 
@@ -146,7 +151,23 @@ fn composer(app: &App, active: Option<&Thread>) -> Composer {
         folder: folder.and_then(last_segment),
         folder_path: folder.map(str::to_owned),
         auto: auto_chip(app, &target),
+        model: model_chip(app),
         running,
+    }
+}
+
+fn model_chip(app: &App) -> ModelChip {
+    let models = &app.models;
+    ModelChip {
+        label: models.chosen_name().to_owned(),
+        options: (models.list().iter())
+            .map(|model| ModelOption {
+                name: model.name.clone(),
+                description: model.description.clone(),
+                chosen: model.value == models.chosen(),
+                choose: Action::Chat(ChatAction::SetModel(model.value.clone())),
+            })
+            .collect(),
     }
 }
 

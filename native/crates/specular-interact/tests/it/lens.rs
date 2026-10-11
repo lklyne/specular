@@ -368,3 +368,33 @@ fn a_page_in_fill_is_laid_out_at_the_free_area_and_goes_back_when_left() {
     // Nothing of it was written.
     assert_eq!(*app.document(), before);
 }
+
+#[test]
+fn a_page_that_fills_the_view_is_a_desktop_browser_whatever_its_device() {
+    let mut app = TestApp::from_canvas(
+        r#"{"nodes":[{"id":"p1","type":"link","x":100,"y":100,"width":393,"height":852,
+            "url":"https://example.com/p1","metadata":{"deviceId":"iphone-14-pro"}}],"edges":[]}"#,
+    );
+    app.viewport(Vec2::new(1200.0, 800.0));
+    // Whether the host was told it is a touch device by each step, and
+    // whether the app treats it as one after.
+    let told = |app: &mut TestApp| {
+        let sent: Vec<bool> = (app.take_effects().into_iter())
+            .filter_map(|effect| match effect {
+                Effect::SetPageDevice { device, .. } => Some(device.touch),
+                _ => None,
+            })
+            .collect();
+        (sent, app.app().page_device(&"p1".into()).touch)
+    };
+    assert_eq!(told(&mut app), (vec![], true));
+
+    app.act(show("p1"));
+    assert_eq!(told(&mut app), (vec![false], false), "Fill");
+    app.act(Action::SetLens(Lens::Device));
+    assert_eq!(told(&mut app), (vec![true], true), "Device");
+    app.act(Action::SetLens(Lens::Fill));
+    assert_eq!(told(&mut app), (vec![false], false), "Fill again");
+    app.act(Action::Show(Showing::Canvas));
+    assert_eq!(told(&mut app), (vec![true], true), "the canvas");
+}

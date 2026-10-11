@@ -2,9 +2,9 @@
 //! drag on a region, and each ends as one annotation and one undo step.
 
 use glam::Vec2;
-use specular_core::{CssSize, synthetic_element_at};
+use specular_core::{CssRect, CssSize, synthetic_element_at};
 use specular_doc::{AnnotationAnchor, EntityId, Rect, RegionAnchor};
-use specular_interact::{Effect, Gesture, Key, PageRegion, Tool};
+use specular_interact::{Effect, Event, Gesture, Key, PageNotice, PageRegion, Tool};
 use specular_testkit::{TestApp, assert_doc_snapshot, page, shape, sticky};
 
 const P1: Rect = Rect::new(100.0, 100.0, 400.0, 300.0);
@@ -162,19 +162,84 @@ fn a_drag_on_empty_canvas_writes_a_comment_on_that_region_of_the_canvas() {
 fn a_drag_over_pages_asks_each_what_it_grabbed_front_to_back() {
     let mut app = armed();
     app.drag((450.0, 150.0), (750.0, 250.0));
+    let grabs: Vec<&Effect> = (app.effects().iter())
+        .filter(|effect| matches!(effect, Effect::QueryRegionGrab { .. }))
+        .collect();
     assert_eq!(
-        (app.effects(), app.app().comment_draft()),
+        (grabs, app.app().comment_draft()),
         (
-            &[Effect::QueryRegionGrab {
+            vec![&Effect::QueryRegionGrab {
                 region: Rect::new(450.0, 150.0, 300.0, 100.0),
                 pages: vec![
                     covered("p2", Rect::new(0.0, 50.0, 50.0, 100.0)),
                     covered("p1", Rect::new(350.0, 50.0, 50.0, 100.0)),
                 ],
-            }][..],
+            }],
             None
         )
     );
+}
+
+#[test]
+fn the_tool_outlines_the_element_under_the_pointer_and_the_ones_in_a_region() {
+    let mut app = armed();
+    let marked = |app: &TestApp| -> Vec<(Vec2, Vec2)> {
+        (app.app().comment_highlights().iter())
+            .map(|rect| (rect.min, rect.size))
+            .collect()
+    };
+    // A hover asks the page for its node there, as the inspect tool does,
+    // and outlines it with no popover.
+    app.pointer_move((300.0, 180.0));
+    assert!(matches!(
+        app.effects(),
+        [Effect::InspectAt { pick: false, .. }]
+    ));
+    app.answer_inspect();
+    assert_eq!(
+        marked(&app),
+        [(Vec2::new(260.0, 148.0), Vec2::new(160.0, 48.0))]
+    );
+    assert_eq!(app.inspect_model(), None);
+    // Off the page nothing is outlined.
+    app.pointer_move((600.0, 500.0));
+    assert_eq!(marked(&app), []);
+
+    // A region asks the pages under it as it grows, and outlines the
+    // elements wholly inside it until the button comes up.
+    app.pointer_move((300.0, 180.0)).answer_inspect();
+    app.take_effects();
+    app.press((90.0, 90.0)).drag_to((430.0, 200.0));
+    assert_eq!(marked(&app), [], "the press takes the hover's outline");
+    assert_eq!(
+        app.effects().last(),
+        Some(&Effect::PreviewRegion {
+            pages: vec![covered("p1", Rect::new(0.0, 0.0, 330.0, 100.0))],
+        })
+    );
+    app.answer_region_preview();
+    let cell = Vec2::new(160.0, 48.0);
+    assert_eq!(
+        marked(&app),
+        [
+            (Vec2::new(100.0, 100.0), cell),
+            (Vec2::new(260.0, 100.0), cell),
+            (Vec2::new(100.0, 148.0), cell),
+            (Vec2::new(260.0, 148.0), cell),
+        ]
+    );
+    // A move that covers the same of the page asks nothing more.
+    app.take_effects();
+    app.drag_to((430.0, 200.2));
+    assert_eq!(app.effects(), []);
+    app.release();
+    assert_eq!(marked(&app), []);
+    // An answer that comes after the release marks nothing.
+    app.send(Event::Page {
+        page: "p1".into(),
+        notice: PageNotice::RegionElements(vec![CssRect::new(0.0, 0.0, 10.0, 10.0)]),
+    });
+    assert_eq!(marked(&app), []);
 }
 
 #[test]

@@ -12,6 +12,7 @@ fn the_permission_mode_and_resume_pick_the_arguments() {
         resume: None,
         images: Vec::new(),
         cwd: None,
+        model: None,
     };
     let resume = RunRequest {
         resume: Some("sess".into()),
@@ -55,6 +56,15 @@ fn the_permission_mode_and_resume_pick_the_arguments() {
     assert!(!open.contains(&"--allowedTools".to_owned()));
     assert_eq!(open[open.len() - 2..], ["--resume", "sess"]);
     assert!(!claude_args(&fresh, &config(Permissions::Auto)).contains(&"--resume".to_owned()));
+
+    let chosen = RunRequest {
+        model: Some("claude-fable-5-1".into()),
+        ..fresh.clone()
+    };
+    assert_eq!(
+        claude_args(&chosen, &config(Permissions::Auto))[5..7],
+        ["--model", "claude-fable-5-1"]
+    );
 
     let default = RunConfig::default();
     assert_eq!(

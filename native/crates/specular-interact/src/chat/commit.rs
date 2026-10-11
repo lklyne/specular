@@ -68,7 +68,7 @@ pub(crate) fn comment(
     let started = (auto && placed)
         .then(|| send::begin(app, &thread, Some(id.as_str())))
         .flatten();
-    effects::run_started(started, changed, effects);
+    effects::run_started(app, started, changed, effects);
     if placed {
         app.session.focused_comment = Some(id);
         app.session.selection.set([]);

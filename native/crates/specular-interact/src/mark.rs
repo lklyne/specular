@@ -39,4 +39,11 @@ impl App {
             }
         }
     }
+
+    /// Whether the dock already says what the page `id` is: it is the whole
+    /// selection or the item shown, so its address field is in the dock and
+    /// the title above it would say the same thing twice.
+    pub fn names_in_dock(&self, id: &EntityId) -> bool {
+        self.shown_item() == Some(id) || self.session.selection.single_entity() == Some(id)
+    }
 }

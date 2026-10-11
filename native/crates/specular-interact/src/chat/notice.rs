@@ -39,11 +39,11 @@ pub(crate) fn on_agent(
                     send::begin(app, thread, aim.as_deref())
                 })
                 .flatten();
-            effects::run_started(started, changed, effects);
+            effects::run_started(app, started, changed, effects);
         }
         Outcome::Retry { request, changed } => {
             effects::emit(&changed, effects);
-            effects.push(Effect::RunAgent(Box::new(request)));
+            effects::run(app, request, effects);
         }
     }
 }

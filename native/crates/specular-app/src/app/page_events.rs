@@ -47,9 +47,18 @@ impl<W: ShellWindow> Runtime<W> {
                     self.dispatch(answer);
                 }
             }
-            PageEvent::ElementsInRect { request, count, .. } => {
-                self.queries.grab_answer(*request, *count);
-                self.answer_settled_grabs();
+            PageEvent::ElementsInRect {
+                request,
+                count,
+                boxes,
+                ..
+            } => {
+                if let Some(answer) = self.queries.preview_answer(*request, boxes) {
+                    self.dispatch(answer);
+                } else {
+                    self.queries.grab_answer(*request, *count);
+                    self.answer_settled_grabs();
+                }
             }
             _ => {}
         }

@@ -27,10 +27,11 @@ use specular_interact::{
     Action, Chord, Control, ControlId, Face, PaintRole, Palette, Stepper, Swatch, Swatches,
 };
 
-use super::dropdown::{choices, dropdown, dropdown_compact};
+use super::dropdown::{choices, dropdown, dropdown_compact, listed};
 use super::field::field;
 use super::glyphs::{self, glyph, ink};
 use super::named::mark;
+use super::raised::Raised;
 use super::run;
 use crate::theme;
 
@@ -133,13 +134,14 @@ fn dot(
     }
 }
 
-fn button(model: &specular_interact::Button) -> AnyElement {
+fn button(model: &specular_interact::Button, fills: bool) -> AnyElement {
     let action = model.action.clone();
     Button::new(element_id(&model.id))
         .ghost()
         .xsmall()
         .h(px(CONTROL))
         .min_w(px(CONTROL))
+        .when(fills, gpui_kit::Styled::flex_1)
         .disabled(!model.enabled)
         .child(face(&model.face, false))
         .child(crate::tip::over(
@@ -151,15 +153,17 @@ fn button(model: &specular_interact::Button) -> AnyElement {
         .into_any_element()
 }
 
-fn toggle(model: &specular_interact::Toggle) -> AnyElement {
+fn toggle(model: &specular_interact::Toggle, fills: bool) -> AnyElement {
     let action = model.action.clone();
     Toggle::new(element_id(&model.id))
         .ghost()
         .xsmall()
         .h(px(CONTROL))
         .min_w(px(CONTROL))
+        .when(fills, gpui_kit::Styled::flex_1)
         .checked(model.on)
         .disabled(!model.enabled)
+        .when(model.on && model.enabled, |this| this.raised(6.0))
         .child(face(&model.face, model.on))
         .child(crate::tip::over(
             model.id.as_str(),
@@ -176,7 +180,13 @@ fn luminance(color: specular_scene::Color) -> f32 {
         / 255.0
 }
 
-fn swatch(model: &Swatch, palette: Palette, role: PaintRole, enabled: bool) -> AnyElement {
+fn swatch(
+    model: &Swatch,
+    palette: Palette,
+    role: PaintRole,
+    enabled: bool,
+    side: f32,
+) -> AnyElement {
     let action = model.action.clone();
     let label = SharedString::from(model.label.to_string());
     // A swatch rings itself in its own colour, unless it is too pale to
@@ -187,7 +197,7 @@ fn swatch(model: &Swatch, palette: Palette, role: PaintRole, enabled: bool) -> A
         .map_or(theme::solid(theme::ring_gray()), theme::of_scene);
     div()
         .id(element_id(&model.id))
-        .size(px(SWATCH))
+        .size(px(side))
         .flex()
         .items_center()
         .justify_center()
@@ -209,7 +219,7 @@ fn swatches(model: &Swatches) -> AnyElement {
         .gap_1()
         .children(
             (model.options.iter())
-                .map(|option| swatch(option, model.palette, model.role, model.enabled)),
+                .map(|option| swatch(option, model.palette, model.role, model.enabled, SWATCH)),
         )
         .into_any_element()
 }
@@ -244,9 +254,14 @@ fn stepper(model: &Stepper) -> AnyElement {
 }
 
 /// The controls of `controls` in a narrow column, for the options beside a
-/// docked tool: two to a row, a rule where the model has a separator. The
-/// swatches wrap with the rest and a dropdown's trigger takes a row.
+/// docked tool: two to a row, a rule where the model has a separator. Every
+/// cell is a control's size, a swatch and a dropdown's trigger too, so the
+/// rows line up. A dropdown that is all there is has its list in place: a
+/// popup holding only the button of another would be a step for nothing.
 pub(super) fn column(controls: &[Control], window: &mut Window, cx: &mut App) -> Vec<AnyElement> {
+    if let [Control::Dropdown(model)] = controls {
+        return vec![listed(model, window, cx)];
+    }
     let cells = |cells: Vec<AnyElement>| {
         h_flex()
             .w(px(COLUMN))
@@ -273,21 +288,17 @@ pub(super) fn column(controls: &[Control], window: &mut Window, cx: &mut App) ->
                         .into_any_element(),
                 );
             }
-            Control::Swatches(model) => row.extend(
-                (model.options.iter())
-                    .map(|option| swatch(option, model.palette, model.role, model.enabled)),
-            ),
-            Control::Dropdown(model) => {
-                if !row.is_empty() {
-                    out.push(cells(std::mem::take(&mut row)));
-                }
-                out.push(
-                    div()
-                        .w(px(COLUMN))
-                        .child(dropdown_compact(model))
-                        .into_any_element(),
-                );
+            Control::Swatches(model) => {
+                row.extend((model.options.iter()).map(|option| {
+                    swatch(option, model.palette, model.role, model.enabled, CONTROL)
+                }));
             }
+            Control::Dropdown(model) => row.push(
+                div()
+                    .w(px(CONTROL))
+                    .child(dropdown_compact(model))
+                    .into_any_element(),
+            ),
             Control::Button(_)
             | Control::Toggle(_)
             | Control::Stepper(_)
@@ -301,11 +312,29 @@ pub(super) fn column(controls: &[Control], window: &mut Window, cx: &mut App) ->
     out
 }
 
+/// A control of a row inside a list. A button or a toggle that shows a
+/// glyph and its word is a segment: the segments share the row's width.
+pub(super) fn in_list(model: &Control, window: &mut Window, cx: &mut App) -> AnyElement {
+    let labelled = |face: &Face| face.icon.is_some() && face.text.is_some();
+    match model {
+        Control::Button(model) if labelled(&model.face) => button(model, true),
+        Control::Toggle(model) if labelled(&model.face) => toggle(model, true),
+        Control::Button(_)
+        | Control::Toggle(_)
+        | Control::Swatches(_)
+        | Control::Dropdown(_)
+        | Control::Stepper(_)
+        | Control::Field(_)
+        | Control::Choices(_)
+        | Control::Separator => control(model, window, cx),
+    }
+}
+
 /// Any model control as a Kit component.
 pub(super) fn control(model: &Control, window: &mut Window, cx: &mut App) -> AnyElement {
     match model {
-        Control::Button(model) => button(model),
-        Control::Toggle(model) => toggle(model),
+        Control::Button(model) => button(model, false),
+        Control::Toggle(model) => toggle(model, false),
         Control::Swatches(model) => swatches(model),
         Control::Dropdown(model) => dropdown(model),
         Control::Stepper(model) => stepper(model),

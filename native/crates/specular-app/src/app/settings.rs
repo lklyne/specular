@@ -4,7 +4,7 @@
 
 use specular_core::{PageColorScheme, PageDevice, PageNav};
 use specular_doc::{ColorScheme, Document, EntityId, Kind};
-use specular_interact::{AppSettings, Appearance, Event, Theme, ToolDefaults};
+use specular_interact::{App, AppSettings, Appearance, Event, Theme, ToolDefaults};
 
 use super::runtime::{Runtime, ShellWindow};
 use crate::prefs;
@@ -103,13 +103,9 @@ pub(crate) fn page_color_scheme(
     }
 }
 
-/// The device the page `page` of `document` is on, in a window of `scale`.
-pub(crate) fn page_device(document: &Document, page: &EntityId, scale: f32) -> PageDevice {
-    let device = match document.entity(page).map(|entity| &entity.kind) {
-        Some(Kind::Page(page)) => specular_interact::page_device(page),
-        _ => PageDevice::default(),
-    };
-    in_window(device, scale)
+/// The device the page `page` of `app` is on, in a window of `scale`.
+pub(crate) fn page_device(app: &App, page: &EntityId, scale: f32) -> PageDevice {
+    in_window(app.page_device(page), scale)
 }
 
 /// `device` in a window of `scale`. A page that is the browser as it is

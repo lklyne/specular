@@ -6,6 +6,7 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 use glam::Vec2;
+use gpui_kit::base::GlobalState;
 use gpui_kit::component::ActiveTheme as _;
 use gpui_kit::{
     App, Bounds, Context, CursorStyle, DispatchPhase, ElementInputHandler, Entity, ExternalPaths,
@@ -37,6 +38,13 @@ pub(super) struct Pointer {
     /// Whether the press now held only closed a Kit list or menu, so its
     /// release is not the canvas's either.
     swallowed: Cell<bool>,
+}
+
+impl Pointer {
+    /// Whether a press that began on the canvas is still held.
+    pub(super) fn held(&self) -> bool {
+        self.held.get()
+    }
 }
 
 fn modifiers(modifiers: Modifiers) -> specular_core::Modifiers {
@@ -130,10 +138,15 @@ impl SlotPaint {
             !self.composing && (window.focused(cx)).is_some_and(|focused| focused != self.focus);
 
         let (over, press, grab) = (hitbox.clone(), Rc::clone(&self.pointer), self.focus.clone());
+        let view = self.entity.entity_id();
         window.on_mouse_event(move |event: &MouseDownEvent, phase, window, cx| {
             if phase != DispatchPhase::Bubble || !over.is_hovered(window) {
                 return;
             }
+            // The Kit starts its text selection from a press anywhere in the
+            // window. A press here is the canvas's, and its drag must not
+            // sweep the panels' text.
+            GlobalState::suppress_text_selection(cx);
             window.focus(&grab, cx);
             if closes_a_list {
                 press.swallowed.set(true);
@@ -143,6 +156,10 @@ impl SlotPaint {
                 return;
             };
             press.held.set(true);
+            // The drag is the canvas's wherever it goes: the pointer stays
+            // the slot's, and the view draws its shield over the panels.
+            window.capture_pointer(over.id);
+            cx.notify(view);
             let click_count = u8::try_from(event.click_count).unwrap_or(u8::MAX);
             let kind = PointerEventKind::Down {
                 button,
@@ -152,14 +169,18 @@ impl SlotPaint {
         });
 
         let (over, press) = (hitbox.clone(), Rc::clone(&self.pointer));
-        window.on_mouse_event(move |event: &MouseUpEvent, phase, window, _| {
+        window.on_mouse_event(move |event: &MouseUpEvent, phase, window, cx| {
             if phase != DispatchPhase::Bubble {
                 return;
             }
             if press.swallowed.replace(false) {
                 return;
             }
-            let ours = press.held.replace(false) || over.is_hovered(window);
+            let held = press.held.replace(false);
+            if held {
+                cx.notify(view);
+            }
+            let ours = held || over.is_hovered(window);
             let Some(button) = button(event.button).filter(|_| ours) else {
                 return;
             };
@@ -172,9 +193,15 @@ impl SlotPaint {
         });
 
         let (over, press) = (hitbox.clone(), Rc::clone(&self.pointer));
-        window.on_mouse_event(move |event: &MouseMoveEvent, phase, window, _| {
+        window.on_mouse_event(move |event: &MouseMoveEvent, phase, window, cx| {
             if phase != DispatchPhase::Bubble {
                 return;
+            }
+            // A release the window never heard of must not leave the shield
+            // up over the panels.
+            if event.pressed_button.is_none() && press.held.replace(false) {
+                window.release_pointer();
+                cx.notify(view);
             }
             let at = screen(event.position, bounds);
             let inside = over.is_hovered(window);

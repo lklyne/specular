@@ -4,7 +4,8 @@
 //! ([`Effect::InspectAt`](crate::Effect::InspectAt)) and a click asks with
 //! `pick`. The answers are session state: the hovered node shows an outline
 //! and a popover while the tool is in hand, and the picked node is the
-//! chat's turn target until it is cleared.
+//! chat's turn target until it is cleared. The comment tool asks the same
+//! hover question and outlines the answer (`comment::preview`).
 
 use glam::Vec2;
 use specular_core::InspectedNode;
@@ -183,7 +184,7 @@ pub(crate) fn on_notice(app: &mut App, page: &EntityId, notice: &PageNotice) {
                 return;
             }
             let state = &mut app.session.inspect;
-            let current = app.session.tool == Tool::Inspect
+            let current = matches!(app.session.tool, Tool::Inspect | Tool::Comment)
                 && state.asked.as_ref() == Some(&(page.clone(), *point));
             if current {
                 state.hovered = target;
@@ -213,6 +214,7 @@ pub(crate) fn on_notice(app: &mut App, page: &EntityId, notice: &PageNotice) {
         | PageNotice::Pointed { .. }
         | PageNotice::Candidates { .. }
         | PageNotice::ImeCompositionBounds(_)
+        | PageNotice::RegionElements(_)
         | PageNotice::ElementCaptured { .. }
         | PageNotice::ElementPlaces(_)
         | PageNotice::DevtoolsUrl(_) => {}
@@ -222,9 +224,7 @@ pub(crate) fn on_notice(app: &mut App, page: &EntityId, notice: &PageNotice) {
 /// The tool changed: the hover goes with the tool and the pick stays, as
 /// the chat's pill.
 pub(crate) fn on_tool_change(app: &mut App) {
-    if app.session.tool != Tool::Inspect {
-        clear_hover(app);
-    }
+    clear_hover(app);
 }
 
 /// Drops what is on a page that is gone, or on a canvas that was left.

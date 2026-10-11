@@ -102,6 +102,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         Event::ThreadsLoaded { threads, index } => chat::on_loaded(app, threads, &index),
         Event::Agent { thread, notice } => chat::on_agent(app, &thread, notice, &mut effects),
         Event::ReposLoaded(repos) => app.repos = *repos,
+        Event::Models(news) => app.models.hear(news),
         Event::SettingsLoaded(settings) => crate::settings::load(app, settings),
         Event::About(rows) => app.about = rows,
         Event::SpaceNeeded(ask) => app.space_ask = Some(ask),
@@ -128,6 +129,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
     leave_unless_selected(app, &mut effects);
     sync::interaction::refresh_capture(app, &mut effects);
     comment::settle(app);
+    comment::settle_preview(app);
     settle_tool(app, tool);
     inspect::settle(app, switched);
     groups::keep_entered_valid(app);
@@ -158,6 +160,14 @@ fn settle_tool(app: &mut App, before: crate::Tool) {
     }
 }
 
+/// Takes `tool` in hand, ending a text edit. A gesture in flight keeps its tool.
+fn set_tool(app: &mut App, tool: crate::Tool, effects: &mut Vec<Effect>) {
+    if app.session.gesture.is_none() {
+        edit::end(app, effects);
+        app.session.tool = tool;
+    }
+}
+
 pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect>) {
     match action {
         // Escape puts a field's old value back before it does anything else,
@@ -165,12 +175,7 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         Action::Cancel if edit::cancel_field(app, effects) => {}
         Action::Cancel if builtin::cancel(app) => {}
         Action::Cancel => cancel(app, effects),
-        Action::SetTool(tool) => {
-            if app.session.gesture.is_none() {
-                edit::end(app, effects);
-                app.session.tool = tool;
-            }
-        }
+        Action::SetTool(tool) => set_tool(app, tool, effects),
         Action::SetTheme(theme) => theme::choose(app, theme, true, effects),
         Action::SetToolDefault(patch) => set_tool_default(app, patch, effects),
         Action::SetToolVariant(patch) => {
@@ -208,6 +213,7 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
             verbs::nudge(app, DVec2::new(dx, dy), effects);
         }),
         Action::SetProperty(property) => property::set(app, &property, effects),
+        Action::StepPage(step) => property::set(app, &step.next(app), effects),
         Action::Format(format) if app.session.gesture.is_none() => edit::format(app, format),
         Action::Format(_) => {}
         Action::BringForward => stack(app, Move::Forward, effects),
@@ -217,6 +223,7 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         Action::AnnotateSelection => verb(app, effects, comment::annotate_selection),
         Action::Arrange(mode) => verb(app, effects, |app, fx| arrange::run(app, mode, fx)),
         Action::Show(showing) => crate::showing::show(app, showing, effects),
+        Action::OpenTab(item) => crate::showing::open(app, &item, effects),
         Action::PrepareShow(item) => crate::showing::prepare(app, item),
         Action::ShowNext => crate::showing::step(app, true, effects),
         Action::ShowPrevious => crate::showing::step(app, false, effects),
@@ -412,6 +419,7 @@ fn on_tick(app: &mut App, unix_ms: u64, effects: &mut Vec<Effect>) {
     let elapsed = unix_ms.saturating_sub(app.session.now_ms);
     app.session.now_ms = unix_ms;
     app.session.motion.on_tick(unix_ms);
+    crate::showing::turn::on_tick(app);
     sync::on_tick(app, effects);
     crate::presence::on_tick(app, effects);
     crate::flick::on_tick(app, effects);
@@ -432,6 +440,7 @@ fn on_page_event(app: &mut App, page: &EntityId, notice: &PageNotice, effects: &
     match notice {
         PageNotice::Scrolled { .. } => crate::flick::scrolled(app, page),
         PageNotice::ScrollRoom(room) => crate::flick::room(app, page, *room),
+        PageNotice::RegionElements(boxes) => comment::on_elements(app, page, boxes),
         _ => {}
     }
     on_page_notice(app, page, notice, effects);
@@ -452,6 +461,7 @@ fn on_page_notice(app: &App, page: &EntityId, notice: &PageNotice, effects: &mut
         | PageNotice::Pointed { .. }
         | PageNotice::Candidates { .. }
         | PageNotice::Inspected { .. }
+        | PageNotice::RegionElements(_)
         | PageNotice::ElementCaptured { .. }
         | PageNotice::ElementPlaces(_)
         | PageNotice::DevtoolsUrl(_) => {}

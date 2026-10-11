@@ -5,8 +5,8 @@
 
 use specular_doc::{Color, ColorPreset, Kind, Rect, ShapeKind};
 use specular_interact::{
-    Action, Control, ControlId, ControlsModel, DropdownSection, Effect, Format, Property, Tool,
-    dock, toolbar,
+    Action, Control, ControlId, ControlsModel, DropdownSection, Effect, Format, PageStep, Property,
+    Tool, dock, toolbar,
 };
 use specular_testkit::{TestApp, document, plain_text, shape, sticky, with_edge};
 
@@ -102,12 +102,11 @@ fn a_page_option_resizes_the_page_and_the_toggles_follow() {
     assert!(is_on(&docked(&app), "page.frame"));
     press(&mut app, "page.scheme");
     press(&mut app, "page.scheme");
-    let Some(Action::SetProperty(Property::ColorScheme(next))) =
-        docked(&app).action(&ControlId::new("page.scheme"))
-    else {
-        panic!("a scheme action");
-    };
-    assert_eq!(next, None, "light, dark, then back to the system's");
+    assert_eq!(
+        PageStep::Scheme.next(app.app()),
+        Property::ColorScheme(None),
+        "light, dark, then back to the system's"
+    );
 }
 
 #[test]

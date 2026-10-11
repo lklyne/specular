@@ -1,5 +1,5 @@
 use crate::stream::Progress;
-use crate::thread::Image;
+use crate::thread::{Artifact, Image};
 
 /// The run log keeps this many lines; older ones drop.
 pub const MAX_EVENTS: usize = 200;
@@ -22,6 +22,8 @@ pub struct Run {
     pub text: String,
     /// Going or failed.
     pub state: RunState,
+    /// What it has made or edited so far, oldest first.
+    pub artifacts: Vec<Artifact>,
     pub(crate) session: Option<String>,
     pub(crate) fallback_prompt: String,
     pub(crate) resumed: bool,
@@ -40,6 +42,7 @@ impl Run {
             events: Vec::new(),
             text: String::new(),
             state: RunState::Running,
+            artifacts: Vec::new(),
             session: None,
             fallback_prompt,
             resumed,
