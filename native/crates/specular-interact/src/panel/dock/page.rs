@@ -5,7 +5,7 @@
 //! this app runs no dev servers, so the origin's binding is the only source.
 
 use specular_agent::origin_of;
-use specular_doc::{ColorScheme, Entity, Kind, VIEWPORT_PRESETS};
+use specular_doc::{ColorScheme, DeviceFrameStyle, Entity, Kind, VIEWPORT_PRESETS};
 
 use super::super::build::{button, groups, toggle};
 use super::super::{
@@ -244,14 +244,21 @@ fn labelled(icon: Icon, text: &'static str) -> Face {
     }
 }
 
-/// The frame toggle goes to on, unless every page has it.
+/// The frame toggle steps through none, clay and realistic, and is on
+/// while every page has a frame. It names the frame the pages share.
 fn frame_toggle(app: &App, label: &'static str) -> Control {
-    let on = read::device_frame(app) == Some(true);
+    let shown = read::device_frame(app);
+    let name = match shown {
+        Some(None) => "No frame",
+        Some(Some(DeviceFrameStyle::Clay)) => "Clay",
+        Some(Some(DeviceFrameStyle::Realistic)) => "Realistic",
+        None => "Frame",
+    };
     Control::Toggle(toggle(
         ControlId::new("page.frame"),
         label,
-        labelled(Icon::Device, "Frame"),
-        on,
+        labelled(Icon::Device, name),
+        matches!(shown, Some(Some(_))),
         Action::StepPage(PageStep::Frame),
     ))
 }

@@ -73,6 +73,7 @@ pub(crate) struct QuadInstance {
     pub(crate) opacity: f32,
     /// A clip of another size about the quad's centre: its half width and
     /// height in canvas units, and the angle it is turned by in radians.
+    /// The last is 1 when the texture turns with the clip and fills it.
     /// All zero when the quad's own rect clips it.
     pub(crate) clip: [f32; 4],
 }
@@ -95,6 +96,25 @@ impl QuadInstance {
     pub(crate) fn with_clip(self, half_size: Vec2, turn: f32) -> Self {
         Self {
             clip: [half_size.x, half_size.y, turn, 0.0],
+            ..self
+        }
+    }
+
+    /// The same quad turned by `turn` radians about its centre, texture
+    /// and all. The rect grows to hold it and the clip is the quad it was.
+    pub(crate) fn turned(self, turn: f32) -> Self {
+        let [x, y, width, height] = self.rect;
+        let (sin, cos) = turn.sin_cos();
+        let across = width * cos.abs() + height * sin.abs();
+        let down = width * sin.abs() + height * cos.abs();
+        Self {
+            rect: [
+                x + (width - across) / 2.0,
+                y + (height - down) / 2.0,
+                across,
+                down,
+            ],
+            clip: [width / 2.0, height / 2.0, turn, 1.0],
             ..self
         }
     }

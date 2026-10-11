@@ -139,11 +139,14 @@ pub(crate) fn build(
                     }
                     let source = draw.source;
                     let instance = out.quads.len() as u32;
-                    out.quads.push(
-                        canvas_quad(item, draw.rect, draw.corner_radius, view)
-                            .with_uv_rect([source.x, source.y, source.width, source.height])
-                            .with_opacity(item.opacity.min(1.0)),
-                    );
+                    let quad = canvas_quad(item, draw.rect, draw.corner_radius, view)
+                        .with_uv_rect([source.x, source.y, source.width, source.height])
+                        .with_opacity(item.opacity.min(1.0));
+                    out.quads.push(if item.turn == 0.0 {
+                        quad
+                    } else {
+                        quad.turned(item.turn)
+                    });
                     push(Op::Quad {
                         instance,
                         texture: QuadTexture::Image(draw.image),

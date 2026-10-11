@@ -3,8 +3,8 @@
 //! out reads as the value the renderer draws it with.
 
 use specular_doc::{
-    BorderStyle, BrushType, Color, ColorScheme, Edge, EdgeEnd, Entity, FillStyle, ItemId, Kind,
-    LineStyle, ShapeKind, TextAlign, TextFont, TextStyle, VerticalAlign,
+    BorderStyle, BrushType, Color, ColorScheme, DeviceFrameStyle, Edge, EdgeEnd, Entity, FillStyle,
+    ItemId, Kind, LineStyle, Page, ShapeKind, TextAlign, TextFont, TextStyle, VerticalAlign,
 };
 
 use super::Orientation;
@@ -222,13 +222,45 @@ pub fn orientation(app: &App) -> Option<Orientation> {
     })
 }
 
-/// Whether pages are drawn in their device frame.
-pub fn device_frame(app: &App) -> Option<bool> {
+/// The device frame pages are drawn in, which is clay for a page kept as
+/// realistic that has no drawing to show; the inner `None` is no frame.
+pub fn device_frame(app: &App) -> Option<Option<DeviceFrameStyle>> {
     of_entities(app, |entity, out| {
         if let Kind::Page(page) = &entity.kind {
-            out.push(page.metadata.as_ref().is_some_and(page::framed));
+            out.push(frame_shown(page));
         }
     })
+}
+
+fn frame_shown(page: &Page) -> Option<DeviceFrameStyle> {
+    page.shell().map(|shell| match shell.art {
+        Some(_) => DeviceFrameStyle::Realistic,
+        None => DeviceFrameStyle::Clay,
+    })
+}
+
+/// The frame one more press gives the selected pages: none, clay,
+/// realistic, and round again. Any page without a frame gets one first.
+/// Realistic is left out when no page has a drawing for it, so a press
+/// always changes something.
+pub(super) fn next_device_frame(app: &App) -> Option<DeviceFrameStyle> {
+    let pages = gather(
+        app,
+        |entity, out| {
+            if let Kind::Page(page) = &entity.kind {
+                out.push((frame_shown(page), page.device_art().is_some()));
+            }
+        },
+        |_, _| {},
+    );
+    let shown = |style| pages.iter().any(|(shown, _)| *shown == style);
+    if shown(None) {
+        Some(DeviceFrameStyle::Clay)
+    } else if shown(Some(DeviceFrameStyle::Realistic)) {
+        None
+    } else {
+        (pages.iter().any(|(_, drawn)| *drawn)).then_some(DeviceFrameStyle::Realistic)
+    }
 }
 
 /// The color-scheme override of pages; the inner `None` follows the system.

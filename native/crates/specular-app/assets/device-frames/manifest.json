@@ -1,0 +1,662 @@
+[
+  {
+    "name": "google-pixel-9",
+    "file": "google-pixel-9.svg",
+    "frame": {
+      "width": 792,
+      "height": 1669
+    },
+    "screen": {
+      "x": 38,
+      "y": 38,
+      "width": 710,
+      "height": 1593
+    },
+    "screenCornerRadius": 96,
+    "logicalScreen": {
+      "width": 411.4286,
+      "height": 923.4286
+    },
+    "pixelRatio": 2.625,
+    "platform": "android",
+    "kind": "phone"
+  },
+  {
+    "name": "google-pixel-9-pro-xl",
+    "file": "google-pixel-9-pro-xl.svg",
+    "frame": {
+      "width": 787,
+      "height": 1663
+    },
+    "screen": {
+      "x": 31,
+      "y": 31,
+      "width": 720,
+      "height": 1601
+    },
+    "screenCornerRadius": 96,
+    "logicalScreen": {
+      "width": 448,
+      "height": 997.3333
+    },
+    "pixelRatio": 3,
+    "platform": "android",
+    "kind": "phone"
+  },
+  {
+    "name": "ipad",
+    "file": "ipad.svg",
+    "frame": {
+      "width": 1673,
+      "height": 2409
+    },
+    "screen": {
+      "x": 66.917,
+      "y": 176.66,
+      "width": 1539.083,
+      "height": 2053
+    },
+    "screenCornerRadius": 0,
+    "logicalScreen": {
+      "width": 810,
+      "height": 1080
+    },
+    "pixelRatio": 2,
+    "platform": "ios",
+    "kind": "tablet"
+  },
+  {
+    "name": "ipad-air-4",
+    "file": "ipad-air-4.svg",
+    "frame": {
+      "width": 1811,
+      "height": 2509
+    },
+    "screen": {
+      "x": 105.711,
+      "y": 111.275,
+      "width": 1594.009,
+      "height": 2292.265
+    },
+    "screenCornerRadius": 36.16,
+    "logicalScreen": {
+      "width": 820,
+      "height": 1180
+    },
+    "pixelRatio": 3,
+    "platform": "ios",
+    "kind": "tablet"
+  },
+  {
+    "name": "ipad-pro-11-inches-m4",
+    "file": "ipad-pro-11-inches-m4.svg",
+    "frame": {
+      "width": 927,
+      "height": 1303
+    },
+    "screen": {
+      "x": 45,
+      "y": 47.5,
+      "width": 834,
+      "height": 1210
+    },
+    "screenCornerRadius": 30,
+    "logicalScreen": {
+      "width": 834,
+      "height": 1210
+    },
+    "pixelRatio": 2,
+    "platform": "ios",
+    "kind": "tablet"
+  },
+  {
+    "name": "ipad-pro-11inches",
+    "file": "ipad-pro-11inches.svg",
+    "frame": {
+      "width": 1741,
+      "height": 2412
+    },
+    "screen": {
+      "x": 90.928,
+      "y": 96.276,
+      "width": 1553.792,
+      "height": 2225.053
+    },
+    "screenCornerRadius": 32.09,
+    "logicalScreen": {
+      "width": 834,
+      "height": 1194
+    },
+    "pixelRatio": 3,
+    "platform": "ios",
+    "kind": "tablet"
+  },
+  {
+    "name": "ipad-pro-12inches-gen2",
+    "file": "ipad-pro-12inches-gen2.svg",
+    "frame": {
+      "width": 1744,
+      "height": 2409
+    },
+    "screen": {
+      "x": 93.57,
+      "y": 161.872,
+      "width": 1562.84,
+      "height": 2084.808
+    },
+    "screenCornerRadius": 0,
+    "logicalScreen": {
+      "width": 1024,
+      "height": 1366
+    },
+    "pixelRatio": 2,
+    "platform": "ios",
+    "kind": "tablet"
+  },
+  {
+    "name": "ipad-pro-12inches-gen4",
+    "file": "ipad-pro-12inches-gen4.svg",
+    "frame": {
+      "width": 1849,
+      "height": 2424
+    },
+    "screen": {
+      "x": 77.746,
+      "y": 93.794,
+      "width": 1689.094,
+      "height": 2253.226
+    },
+    "screenCornerRadius": 33.66,
+    "logicalScreen": {
+      "width": 1024,
+      "height": 1366
+    },
+    "pixelRatio": 2,
+    "platform": "ios",
+    "kind": "tablet"
+  },
+  {
+    "name": "ipad-pro-13-inches-m4",
+    "file": "ipad-pro-13-inches-m4.svg",
+    "frame": {
+      "width": 1122,
+      "height": 1466
+    },
+    "screen": {
+      "x": 43.5,
+      "y": 46,
+      "width": 1032,
+      "height": 1376
+    },
+    "screenCornerRadius": 30.01,
+    "logicalScreen": {
+      "width": 1032,
+      "height": 1376
+    },
+    "pixelRatio": 2,
+    "platform": "ios",
+    "kind": "tablet"
+  },
+  {
+    "name": "iphone-11-pro-max",
+    "file": "iphone-11-pro-max.svg",
+    "frame": {
+      "width": 873,
+      "height": 1756
+    },
+    "screen": {
+      "x": 52.662,
+      "y": 47.616,
+      "width": 767.676,
+      "height": 1660.764
+    },
+    "screenCornerRadius": 71.07,
+    "logicalScreen": {
+      "width": 414,
+      "height": 896
+    },
+    "pixelRatio": 3,
+    "platform": "ios",
+    "kind": "phone"
+  },
+  {
+    "name": "iphone-12",
+    "file": "iphone-12.svg",
+    "frame": {
+      "width": 873,
+      "height": 1771
+    },
+    "screen": {
+      "x": 45.404,
+      "y": 39.213,
+      "width": 782.192,
+      "height": 1692.337
+    },
+    "screenCornerRadius": 97,
+    "logicalScreen": {
+      "width": 1024,
+      "height": 1366
+    },
+    "pixelRatio": 2,
+    "platform": "ios",
+    "kind": "phone"
+  },
+  {
+    "name": "iphone-12-mini",
+    "file": "iphone-12-mini.svg",
+    "frame": {
+      "width": 871,
+      "height": 1768
+    },
+    "screen": {
+      "x": 45.3,
+      "y": 39.152,
+      "width": 780.399,
+      "height": 1689.698
+    },
+    "screenCornerRadius": 96.81,
+    "logicalScreen": {
+      "width": 375,
+      "height": 812
+    },
+    "pixelRatio": 2,
+    "platform": "ios",
+    "kind": "phone"
+  },
+  {
+    "name": "iphone-12-pro-max",
+    "file": "iphone-12-pro-max.svg",
+    "frame": {
+      "width": 873,
+      "height": 1770
+    },
+    "screen": {
+      "x": 45.404,
+      "y": 39.196,
+      "width": 782.192,
+      "height": 1691.604
+    },
+    "screenCornerRadius": 96.98,
+    "logicalScreen": {
+      "width": 428,
+      "height": 926
+    },
+    "pixelRatio": 3,
+    "platform": "ios",
+    "kind": "phone"
+  },
+  {
+    "name": "iphone-13",
+    "file": "iphone-13.svg",
+    "frame": {
+      "width": 873,
+      "height": 1771
+    },
+    "screen": {
+      "x": 45,
+      "y": 39,
+      "width": 783,
+      "height": 1695
+    },
+    "screenCornerRadius": 96.03,
+    "logicalScreen": {
+      "width": 390,
+      "height": 844
+    },
+    "pixelRatio": 3,
+    "platform": "ios",
+    "kind": "phone"
+  },
+  {
+    "name": "iphone-13-mini",
+    "file": "iphone-13-mini.svg",
+    "frame": {
+      "width": 871,
+      "height": 1768
+    },
+    "screen": {
+      "x": 45.3,
+      "y": 39.151,
+      "width": 780.399,
+      "height": 1689.699
+    },
+    "screenCornerRadius": 96.82,
+    "logicalScreen": {
+      "width": 375,
+      "height": 812
+    },
+    "pixelRatio": 2,
+    "platform": "ios",
+    "kind": "phone"
+  },
+  {
+    "name": "iphone-13-pro-max",
+    "file": "iphone-13-pro-max.svg",
+    "frame": {
+      "width": 873,
+      "height": 1770
+    },
+    "screen": {
+      "x": 45.404,
+      "y": 39.196,
+      "width": 782.192,
+      "height": 1691.604
+    },
+    "screenCornerRadius": 96.98,
+    "logicalScreen": {
+      "width": 428,
+      "height": 926
+    },
+    "pixelRatio": 3,
+    "platform": "ios",
+    "kind": "phone"
+  },
+  {
+    "name": "iphone-15-pro",
+    "file": "iphone-15-pro.svg",
+    "frame": {
+      "width": 873,
+      "height": 1792
+    },
+    "screen": {
+      "x": 38.737,
+      "y": 33.735,
+      "width": 795.526,
+      "height": 1724.535
+    },
+    "screenCornerRadius": 111.33,
+    "logicalScreen": {
+      "width": 393,
+      "height": 852
+    },
+    "pixelRatio": 3,
+    "platform": "ios",
+    "kind": "phone"
+  },
+  {
+    "name": "iphone-15-pro-max",
+    "file": "iphone-15-pro-max.svg",
+    "frame": {
+      "width": 874,
+      "height": 1802
+    },
+    "screen": {
+      "x": 35.157,
+      "y": 31.112,
+      "width": 802.687,
+      "height": 1739.778
+    },
+    "screenCornerRadius": 102.67,
+    "logicalScreen": {
+      "width": 430,
+      "height": 932
+    },
+    "pixelRatio": 3,
+    "platform": "ios",
+    "kind": "phone"
+  },
+  {
+    "name": "iphone-16",
+    "file": "iphone-16.svg",
+    "frame": {
+      "width": 873,
+      "height": 1778
+    },
+    "screen": {
+      "x": 44.548,
+      "y": 39.23,
+      "width": 783.904,
+      "height": 1699.54
+    },
+    "screenCornerRadius": 109.04,
+    "logicalScreen": {
+      "width": 393,
+      "height": 852
+    },
+    "pixelRatio": 3,
+    "platform": "ios",
+    "kind": "phone"
+  },
+  {
+    "name": "iphone-16-plus",
+    "file": "iphone-16-plus.svg",
+    "frame": {
+      "width": 873,
+      "height": 1786
+    },
+    "screen": {
+      "x": 41.075,
+      "y": 36.162,
+      "width": 790.85,
+      "height": 1713.678
+    },
+    "screenCornerRadius": 100.53,
+    "logicalScreen": {
+      "width": 430,
+      "height": 932
+    },
+    "pixelRatio": 3,
+    "platform": "ios",
+    "kind": "phone"
+  },
+  {
+    "name": "iphone-16-pro",
+    "file": "iphone-16-pro.svg",
+    "frame": {
+      "width": 873,
+      "height": 1806
+    },
+    "screen": {
+      "x": 34.653,
+      "y": 29.322,
+      "width": 803.693,
+      "height": 1747.358
+    },
+    "screenCornerRadius": 123.95,
+    "logicalScreen": {
+      "width": 402,
+      "height": 874
+    },
+    "pixelRatio": 3,
+    "platform": "ios",
+    "kind": "phone"
+  },
+  {
+    "name": "iphone-16-pro-max",
+    "file": "iphone-16-pro-max.svg",
+    "frame": {
+      "width": 873,
+      "height": 1812
+    },
+    "screen": {
+      "x": 31.879,
+      "y": 26.97,
+      "width": 809.242,
+      "height": 1758.06
+    },
+    "screenCornerRadius": 114.03,
+    "logicalScreen": {
+      "width": 440,
+      "height": 956
+    },
+    "pixelRatio": 3,
+    "platform": "ios",
+    "kind": "phone"
+  },
+  {
+    "name": "iphone-se",
+    "file": "iphone-se.svg",
+    "frame": {
+      "width": 891,
+      "height": 1790
+    },
+    "screen": {
+      "x": 54.253,
+      "y": 198.193,
+      "width": 782.494,
+      "height": 1391.527
+    },
+    "screenCornerRadius": 0,
+    "logicalScreen": {
+      "width": 375,
+      "height": 667
+    },
+    "pixelRatio": 2,
+    "platform": "ios",
+    "kind": "phone"
+  },
+  {
+    "name": "oneplus-8-pro",
+    "file": "oneplus-8-pro.svg",
+    "frame": {
+      "width": 852,
+      "height": 1865
+    },
+    "screen": {
+      "x": 21.735,
+      "y": 41.296,
+      "width": 808.531,
+      "height": 1777.894
+    },
+    "screenCornerRadius": 67.38,
+    "logicalScreen": {
+      "width": 360,
+      "height": 800
+    },
+    "pixelRatio": 4,
+    "platform": "android",
+    "kind": "phone"
+  },
+  {
+    "name": "samsung-galaxy-a50",
+    "file": "samsung-galaxy-a50.svg",
+    "frame": {
+      "width": 868,
+      "height": 1829.84
+    },
+    "screen": {
+      "x": 34.123,
+      "y": 38.388,
+      "width": 793.356,
+      "height": 1706.142
+    },
+    "screenCornerRadius": 78.91,
+    "logicalScreen": {
+      "width": 412,
+      "height": 892
+    },
+    "pixelRatio": 2.625,
+    "platform": "android",
+    "kind": "phone"
+  },
+  {
+    "name": "samsung-galaxy-note20",
+    "file": "samsung-galaxy-note20.svg",
+    "frame": {
+      "width": 834,
+      "height": 1788.93
+    },
+    "screen": {
+      "x": 27.105,
+      "y": 27.105,
+      "width": 773.535,
+      "height": 1718.045
+    },
+    "screenCornerRadius": 56.3,
+    "logicalScreen": {
+      "width": 412,
+      "height": 916
+    },
+    "pixelRatio": 2.625,
+    "platform": "android",
+    "kind": "phone"
+  },
+  {
+    "name": "samsung-galaxy-note20-ultra",
+    "file": "samsung-galaxy-note20-ultra.svg",
+    "frame": {
+      "width": 801,
+      "height": 1713.86
+    },
+    "screen": {
+      "x": 7.99,
+      "y": 21.973,
+      "width": 779.028,
+      "height": 1657.927
+    },
+    "screenCornerRadius": 21.97,
+    "logicalScreen": {
+      "width": 412,
+      "height": 883
+    },
+    "pixelRatio": 3.5,
+    "platform": "android",
+    "kind": "phone"
+  },
+  {
+    "name": "samsung-galaxy-s20",
+    "file": "samsung-galaxy-s20.svg",
+    "frame": {
+      "width": 856.54,
+      "height": 1899
+    },
+    "screen": {
+      "x": 19.92,
+      "y": 33.199,
+      "width": 818.916,
+      "height": 1819.321
+    },
+    "screenCornerRadius": 77.46,
+    "logicalScreen": {
+      "width": 360,
+      "height": 800
+    },
+    "pixelRatio": 4,
+    "platform": "android",
+    "kind": "phone"
+  },
+  {
+    "name": "samsung-galaxy-s25",
+    "file": "samsung-galaxy-s25.svg",
+    "frame": {
+      "width": 872,
+      "height": 1805
+    },
+    "screen": {
+      "x": 28,
+      "y": 28,
+      "width": 810,
+      "height": 1749
+    },
+    "screenCornerRadius": 81,
+    "logicalScreen": {
+      "width": 360,
+      "height": 780
+    },
+    "pixelRatio": 3,
+    "platform": "android",
+    "kind": "phone"
+  },
+  {
+    "name": "sony-xperia-1-ii",
+    "file": "sony-xperia-1-ii.svg",
+    "frame": {
+      "width": 760,
+      "height": 1757.63
+    },
+    "screen": {
+      "x": 30.727,
+      "y": 75.795,
+      "width": 692.399,
+      "height": 1612.185
+    },
+    "screenCornerRadius": 20.49,
+    "logicalScreen": {
+      "width": 411,
+      "height": 960
+    },
+    "pixelRatio": 4,
+    "platform": "android",
+    "kind": "phone"
+  }
+]

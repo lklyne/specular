@@ -8,7 +8,7 @@ use crate::App;
 /// A page setting with a short run of values, which one press moves on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PageStep {
-    /// The device frame: on, unless every page has it.
+    /// The device frame: none, clay, realistic, and round again.
     Frame,
     /// The orientation: landscape, unless the pages are.
     Rotate,
@@ -20,7 +20,7 @@ impl PageStep {
     /// What the selected pages are set to next.
     pub fn next(self, app: &App) -> Property {
         match self {
-            Self::Frame => Property::DeviceFrame(read::device_frame(app) != Some(true)),
+            Self::Frame => Property::DeviceFrame(read::next_device_frame(app)),
             Self::Rotate => Property::Orientation(match read::orientation(app) {
                 Some(Orientation::Landscape) => Orientation::Portrait,
                 Some(Orientation::Portrait) | None => Orientation::Landscape,

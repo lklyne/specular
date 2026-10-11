@@ -280,6 +280,39 @@ fn an_uploaded_image_is_drawn_and_can_be_cropped() {
 }
 
 #[test]
+fn a_turned_image_is_drawn_turned_about_its_centre() {
+    let Some(mut harness) = Harness::new() else {
+        return;
+    };
+    // Red on the left half and green on the right, lying down.
+    let texels = [
+        [255, 0, 0, 255],
+        [255, 0, 0, 255],
+        [0, 255, 0, 255],
+        [0, 255, 0, 255],
+    ]
+    .concat();
+    harness
+        .compositor
+        .set_image(ImageId(1), PixelSize::new(4, 1), &texels)
+        .unwrap();
+    let lying = ImageDraw::new(ImageId(1), Rect::new(16.0, 24.0, 32.0, 16.0));
+    let quarter = std::f32::consts::FRAC_PI_2;
+    let pixels = harness.render(vec![Item::canvas(lying).turned(quarter)]);
+    // A quarter turn clockwise stands it up with its left end at the top,
+    // and where its ends lay is empty.
+    assert_eq!(
+        [
+            pixel(&pixels, 32, 20),
+            pixel(&pixels, 32, 44),
+            pixel(&pixels, 18, 32),
+            pixel(&pixels, 46, 32)
+        ],
+        [RED_TEXEL, GREEN_TEXEL, BACKGROUND, BACKGROUND]
+    );
+}
+
+#[test]
 fn an_image_drawn_small_is_sampled_from_its_mip_levels() {
     // Two white columns then six black, across 64 texels. Drawn at an eighth
     // of its size, every pixel covers one period and its centre lands on

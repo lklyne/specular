@@ -66,6 +66,10 @@ struct QuadOut {
     @location(4) opacity: f32,
     // The angle the clip is turned by about the quad's centre, in radians.
     @location(5) turn: f32,
+    // The part of the texture shown, and 1 when the texture turns with the
+    // clip and fills it.
+    @location(6) uv_rect: vec4<f32>,
+    @location(7) spin: f32,
 };
 
 @vertex
@@ -93,6 +97,8 @@ fn vs_quad(
     out.radius = min(style.x * frame.zoom, min(out.half_size.x, out.half_size.y));
     out.opacity = style.y;
     out.turn = clip.z;
+    out.uv_rect = uv_rect;
+    out.spin = clip.w;
     return out;
 }
 
@@ -106,12 +112,17 @@ fn turned(v: vec2<f32>, angle: f32) -> vec2<f32> {
 @fragment
 fn fs_quad(in: QuadOut) -> @location(0) vec4<f32> {
     // Rounded-box signed distance, anti-aliased over one device pixel.
-    let q = abs(turned(in.local, -in.turn)) - in.half_size + vec2<f32>(in.radius);
+    let upright = turned(in.local, -in.turn);
+    let q = abs(upright) - in.half_size + vec2<f32>(in.radius);
     let distance = length(max(q, vec2<f32>(0.0))) + min(max(q.x, q.y), 0.0) - in.radius;
     let coverage = clamp(0.5 - distance * frame.scale_factor, 0.0, 1.0);
+    // A texture that turns with its clip is read where the point was
+    // before the turn.
+    let across = upright / max(in.half_size * 2.0, vec2<f32>(0.0001)) + 0.5;
+    let uv = mix(in.uv, in.uv_rect.xy + across * in.uv_rect.zw, in.spin);
     // Texels are premultiplied, so scaling all channels clips the corner and
     // fades the quad.
-    return textureSample(page_texture, page_sampler, in.uv) * (coverage * in.opacity);
+    return textureSample(page_texture, page_sampler, uv) * (coverage * in.opacity);
 }
 
 struct ShapeOut {

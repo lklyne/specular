@@ -1,6 +1,8 @@
 //! The viewport presets a page's `preset_index` names: the table in the
 //! Electron app's `src/shared/device-catalog.ts`.
 
+use crate::{DeviceArt, DeviceFrameStyle};
+
 /// One row of the table.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ViewportPreset {
@@ -90,6 +92,8 @@ pub struct DeviceShell {
     pub kind: DeviceKind,
     /// Whether the page is on its side.
     pub landscape: bool,
+    /// The drawing the shell is shown as, or `None` for a clay shell.
+    pub art: Option<DeviceArt>,
 }
 
 const fn shell(
@@ -109,6 +113,7 @@ const fn shell(
         screen_corner_radius,
         kind,
         landscape: false,
+        art: None,
     }
 }
 
@@ -120,9 +125,70 @@ const COMPUTER: DeviceShell = shell((12.0, 12.0, 12.0, 12.0), 20.0, 8.0, DeviceK
 
 /// The shell a framed page of `device_id` is drawn in, turned on its side
 /// when `landscape`. No device is a custom size. A device the table does
-/// not know gets the custom shell with no bezel, as in Electron.
-pub fn device_shell(device_id: Option<&str>, landscape: bool) -> DeviceShell {
-    let portrait = match device_id {
+/// not know gets the custom shell with no bezel, as in Electron. A
+/// realistic shell is the device's drawing, and clay when it has none.
+pub fn device_shell(
+    device_id: Option<&str>,
+    landscape: bool,
+    style: DeviceFrameStyle,
+) -> DeviceShell {
+    let portrait = match style {
+        DeviceFrameStyle::Realistic => device_id.and_then(realistic),
+        DeviceFrameStyle::Clay => None,
+    }
+    .unwrap_or_else(|| clay(device_id));
+    if !landscape {
+        return portrait;
+    }
+    let ShellInsets {
+        top,
+        right,
+        bottom,
+        left,
+    } = portrait.insets;
+    DeviceShell {
+        insets: ShellInsets {
+            top: left,
+            right: top,
+            bottom: right,
+            left: bottom,
+        },
+        landscape: true,
+        ..portrait
+    }
+}
+
+/// The drawn shell of `device_id` standing up, if it has a drawing. The
+/// drawing is scaled so its screen is the preset's viewport, and its
+/// margins round the screen are the insets, to whole units so the screen
+/// stays on whole pixels when the frame changes.
+fn realistic(device_id: &str) -> Option<DeviceShell> {
+    let art = DeviceArt::of_device(device_id)?;
+    let preset = (VIEWPORT_PRESETS.iter()).find(|preset| preset.device_id == device_id)?;
+    let geometry = art.geometry();
+    let scale = art.scale(preset.width);
+    let (left, top) = geometry.screen_origin;
+    let right = geometry.frame.0 - left - geometry.screen_size.0;
+    let bottom = geometry.frame.1 - top - geometry.screen_size.1;
+    let insets = ShellInsets {
+        top: (top * scale).round(),
+        right: (right * scale).round(),
+        bottom: (bottom * scale).round(),
+        left: (left * scale).round(),
+    };
+    let screen_corner_radius = geometry.screen_corner_radius * scale;
+    Some(DeviceShell {
+        insets,
+        // The body's corner is a bezel out from the screen's.
+        corner_radius: screen_corner_radius + insets.left.min(insets.top),
+        screen_corner_radius,
+        art: Some(art),
+        ..clay(Some(device_id))
+    })
+}
+
+fn clay(device_id: Option<&str>) -> DeviceShell {
+    match device_id {
         None => CUSTOM_SHELL,
         Some("iphone-se") => shell((96.0, 28.0, 96.0, 28.0), 30.0, 0.0, DeviceKind::Phone),
         Some("iphone-14-pro" | "iphone-14-pro-max" | "iphone-duo-cover") => EDGE_PHONE,
@@ -142,25 +208,6 @@ pub fn device_shell(device_id: Option<&str>, landscape: bool) -> DeviceShell {
             },
             ..CUSTOM_SHELL
         },
-    };
-    if !landscape {
-        return portrait;
-    }
-    let ShellInsets {
-        top,
-        right,
-        bottom,
-        left,
-    } = portrait.insets;
-    DeviceShell {
-        insets: ShellInsets {
-            top: left,
-            right: top,
-            bottom: right,
-            left: bottom,
-        },
-        landscape: true,
-        ..portrait
     }
 }
 

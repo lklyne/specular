@@ -16,8 +16,9 @@ mod step;
 pub use step::PageStep;
 
 use specular_doc::{
-    BorderStyle, BrushType, Color, ColorScheme, Command, EdgeEnd, Entity, EntityId, FillStyle,
-    ItemId, LineStyle, ShapeKind, TextAlign, TextFont, TextStyle, VerticalAlign,
+    BorderStyle, BrushType, Color, ColorScheme, Command, DeviceFrameStyle, EdgeEnd, Entity,
+    EntityId, FillStyle, ItemId, LineStyle, ShapeKind, TextAlign, TextFont, TextStyle,
+    VerticalAlign,
 };
 
 use crate::showing::turn;
@@ -85,8 +86,8 @@ pub enum Property {
     ViewportHeight(f64),
     /// A page's orientation.
     Orientation(Orientation),
-    /// Whether a page is drawn in its device frame.
-    DeviceFrame(bool),
+    /// The device frame a page is drawn in. `None` is no frame.
+    DeviceFrame(Option<DeviceFrameStyle>),
     /// A page's color-scheme override. `None` follows the system.
     ColorScheme(Option<ColorScheme>),
 }

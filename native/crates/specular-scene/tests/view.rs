@@ -76,6 +76,31 @@ fn a_framed_page_sits_in_its_device_shell() {
 }
 
 #[test]
+fn a_realistic_frame_is_its_devices_drawing_over_the_page() {
+    // One standing up and one on its side, which share the drawing.
+    let mut app = TestApp::from_canvas(
+        r#"{"nodes":[{"id":"p1","type":"link","x":100,"y":100,"width":393,"height":852,
+            "url":"https://example.com/p1","metadata":{"showDeviceFrame":true,
+            "deviceFrameStyle":"realistic","deviceId":"iphone-14-pro"}},
+            {"id":"p2","type":"link","x":700,"y":100,"width":852,"height":393,
+            "url":"https://example.com/p2","metadata":{"showDeviceFrame":true,
+            "deviceFrameStyle":"realistic","deviceId":"iphone-14-pro",
+            "deviceOrientation":"landscape"}}],"edges":[]}"#,
+    );
+    let asset = specular_doc::DeviceArt::Iphone15Pro.asset();
+    let image = app.app().image(asset).map(|image| image.key);
+    assert!(image.is_some(), "the drawing was never asked for");
+    if let Some(image) = image {
+        let notice = specular_interact::ImageNotice::Ready {
+            width: 873,
+            height: 1792,
+        };
+        app.send(specular_interact::Event::Image { image, notice });
+    }
+    assert_scene_snapshot!(app);
+}
+
+#[test]
 fn plain_text_is_ink_in_its_font_size_and_colour() {
     let app = TestApp::with_entities([
         text_entity(

@@ -6,6 +6,7 @@
 //! as the note thread does, and says which changed.
 
 mod decode;
+mod device_frames;
 mod gif;
 #[cfg(target_os = "macos")]
 mod heif;
@@ -77,6 +78,8 @@ struct Job {
     /// Whether this is a load of the file and not a redraw of an svg, so
     /// the file's stamp is taken again.
     fresh: bool,
+    /// The bytes, for a drawing the binary holds and no file does.
+    embedded: Option<&'static [u8]>,
 }
 
 enum Command {
@@ -126,7 +129,7 @@ impl ImageLoader {
                             } else {
                                 (watched.entry(job.key)).or_insert_with(|| (job.path.clone(), at));
                             }
-                            let result = load(&job.path, job.spec, job.want);
+                            let result = load(&job);
                             let loaded = Loaded {
                                 key: job.key,
                                 result,
@@ -182,7 +185,11 @@ impl ImageLoader {
         want: Option<PixelSize>,
         fresh: bool,
     ) {
-        let path = resolve::resolve(file, self.space.as_deref());
+        let drawing = device_frames::drawing(file);
+        let path = match &drawing {
+            Some(_) => Some(PathBuf::from(file)),
+            None => resolve::resolve(file, self.space.as_deref()),
+        };
         if path.is_none() {
             tracing::debug!(file, "image is not a file on disk");
         }
@@ -191,8 +198,9 @@ impl ImageLoader {
                 key,
                 path,
                 spec,
-                want,
+                want: drawing.as_ref().map(|drawing| drawing.want).or(want),
                 fresh,
+                embedded: drawing.as_ref().map(|drawing| drawing.svg),
             })
         };
         let sent = path.is_some_and(|path| self.commands.send(job(path)).is_ok());
@@ -220,16 +228,23 @@ impl ImageLoader {
     }
 }
 
-fn load(path: &Path, spec: ImageSpec, want: Option<PixelSize>) -> Result<Content, LoadFailure> {
-    let bytes = std::fs::read(path).map_err(|error| {
-        tracing::debug!(path = %path.display(), "image cannot be read: {error}");
-        if error.kind() == io::ErrorKind::NotFound {
-            LoadFailure::Missing
-        } else {
-            LoadFailure::Failed
-        }
-    })?;
-    content(&bytes, path, spec, want).map_err(|error| {
+fn load(job: &Job) -> Result<Content, LoadFailure> {
+    let path = job.path.as_path();
+    let read;
+    let bytes = if let Some(bytes) = job.embedded {
+        bytes
+    } else {
+        read = std::fs::read(path).map_err(|error| {
+            tracing::debug!(path = %path.display(), "image cannot be read: {error}");
+            if error.kind() == io::ErrorKind::NotFound {
+                LoadFailure::Missing
+            } else {
+                LoadFailure::Failed
+            }
+        })?;
+        &read
+    };
+    content(bytes, path, job.spec, job.want).map_err(|error| {
         tracing::debug!(path = %path.display(), "image cannot be decoded: {error}");
         LoadFailure::Failed
     })

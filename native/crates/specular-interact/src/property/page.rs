@@ -3,13 +3,14 @@
 //! custom size.
 
 use serde_json::{Value, json};
-use specular_doc::{JsonMap, Page, Rect, preset};
+use specular_doc::{DeviceFrameStyle, JsonMap, Page, Rect, preset};
 
 use super::{Orientation, Property};
 
 const DEVICE_ID: &str = "deviceId";
 const ORIENTATION: &str = "deviceOrientation";
 const FRAME: &str = "showDeviceFrame";
+const FRAME_STYLE: &str = "deviceFrameStyle";
 const SIZE_MODE: &str = "pageSizeMode";
 const CUSTOM_SIZE: &str = "customSize";
 /// The name a custom size had before it was called custom.
@@ -85,9 +86,20 @@ fn apply(property: &Property, page: &mut Page, rect: &mut Rect) -> bool {
                 resize(page, rect, rect.height, rect.width);
             }
         }
-        Property::DeviceFrame(shown) => {
+        Property::DeviceFrame(style) => {
             let meta = page.metadata.get_or_insert_with(JsonMap::new);
-            meta.insert(FRAME.to_owned(), json!(*shown));
+            meta.insert(FRAME.to_owned(), json!(style.is_some()));
+            match style {
+                // A frame taken off keeps its style for when it is back.
+                None => {}
+                // Clay is what a file with no style means.
+                Some(DeviceFrameStyle::Clay) => {
+                    meta.remove(FRAME_STYLE);
+                }
+                Some(style @ DeviceFrameStyle::Realistic) => {
+                    meta.insert(FRAME_STYLE.to_owned(), json!(style.name()));
+                }
+            }
         }
         Property::ColorScheme(scheme) => page.color_scheme = *scheme,
         Property::Color(_)
@@ -130,11 +142,6 @@ pub(super) fn orientation_of(meta: &JsonMap) -> Orientation {
         Some("landscape") => Orientation::Landscape,
         _ => Orientation::Portrait,
     }
-}
-
-/// Whether the page is shown in its device frame.
-pub(super) fn framed(meta: &JsonMap) -> bool {
-    meta.get(FRAME) == Some(&Value::Bool(true))
 }
 
 /// Whether the page keeps a size of its own rather than a preset's.

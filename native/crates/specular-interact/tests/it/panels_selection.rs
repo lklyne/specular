@@ -41,7 +41,7 @@ fn a_page_has_size_frame_rotation_and_color_scheme() {
           field page.size.width "Page width" caption="W" value="375" Short submit=ViewportWidth
           field page.size.height "Page height" caption="H" value="667" Short submit=ViewportHeight
       controls
-        toggle [ ] page.frame "Device frame" icon=Device text="Frame" chord=cmd+alt+f -> StepPage(Frame)
+        toggle [ ] page.frame "Device frame" icon=Device text="No frame" chord=cmd+alt+f -> StepPage(Frame)
         button page.rotate "Rotate viewport" icon=Rotate text="Rotate" chord=cmd+alt+r -> StepPage(Rotate)
         button page.scheme "Color scheme: System. Click to change." icon=SchemeSystem text="System" chord=cmd+alt+l -> StepPage(Scheme)
     ---
@@ -73,7 +73,7 @@ fn several_pages_share_a_size_list_without_custom() {
         option [ ] page.size.7 "Desktop" trailing="1440×900" -> SetProperty(ViewportPreset(7))
         option [ ] page.size.8 "Desktop XL" trailing="1920×1080" -> SetProperty(ViewportPreset(8))
       controls
-        toggle [ ] page.frame "Toggle device frame for selected pages" icon=Device text="Frame" chord=cmd+alt+f -> StepPage(Frame)
+        toggle [ ] page.frame "Toggle device frame for selected pages" icon=Device text="No frame" chord=cmd+alt+f -> StepPage(Frame)
     ---
     button item.arrange.row "Arrange in a row" icon=ArrangeRow -> Arrange(Row)
     button item.arrange.column "Arrange in a column" icon=ArrangeColumn -> Arrange(Column)

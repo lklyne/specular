@@ -21,6 +21,7 @@ mod annotation;
 mod canvas;
 mod color;
 mod command;
+mod device_art;
 mod document;
 mod edge;
 mod entity;
@@ -35,6 +36,7 @@ pub use annotation::{Annotation, AnnotationAnchor, AnnotationStatus, Author, Reg
 pub use canvas::{CanvasError, tidy_json};
 pub use color::{Color, ColorPreset};
 pub use command::{Command, CommandError};
+pub use device_art::{ArtGeometry, DeviceArt, DeviceFrameStyle};
 pub use document::Document;
 pub use edge::{Edge, EdgeEnd, EdgeKind, EdgeSide, LineStyle};
 pub use entity::{Entity, Kind};

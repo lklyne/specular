@@ -1,14 +1,14 @@
 //! Pages: the live frame, and around it a border and a title.
 
 use specular_core::CssSize;
-use specular_doc::{DeviceKind, DeviceShell, Entity, Page};
+use specular_doc::{DeviceArt, DeviceKind, DeviceShell, Entity, Page};
 use specular_interact::{Mark, PageState, title_scale};
 
 use super::frame::{Frame, canvas_rect, carried};
 use super::palette;
 use crate::{
-    Item, PageDraw, Point, Rect, RectDraw, Scene, ShadowDraw, Stroke, StrokeAlign, TextOverflow,
-    TextRun, VerticalAlign,
+    ImageDraw, ImageId, Item, PageDraw, Point, Rect, RectDraw, Scene, ShadowDraw, Stroke,
+    StrokeAlign, TextOverflow, TextRun, VerticalAlign,
 };
 
 /// Corner radius of a page's frame, in canvas units.
@@ -35,6 +35,9 @@ const SCREEN_RING_WIDTH: f32 = 1.5;
 const NOTCH: (f32, f32, f32, f32) = (126.0, 37.0, 18.5, 8.0);
 /// The home indicator's height, in canvas units.
 const INDICATOR_HEIGHT: f32 = 4.0;
+/// How far the dark under a realistic frame's screen reaches past the
+/// page, in canvas units, so no light shows where the two edges meet.
+const SCREEN_BACKING: f32 = 1.0;
 
 /// How a turning page's parts are drawn: carried round the centre of its
 /// shell and turned with it. A page that is not turning stays as it is.
@@ -68,6 +71,13 @@ impl Carry {
         draw(carried(rect, self.pivot, self.angle)).turned(self.angle)
     }
 
+    /// An image in canvas space as a part of the page, itself turned by
+    /// `turn` in the page.
+    fn image(&self, image: ImageId, rect: Rect, turn: f32) -> Item {
+        let rect = carried(rect, self.pivot, self.angle);
+        Item::canvas(ImageDraw::new(image, rect)).turned(self.angle + turn)
+    }
+
     /// An item in screen space as a part of the page.
     fn screen(&self, rect: Rect, draw: impl FnOnce(Rect) -> Item) -> Item {
         draw(carried(rect, self.pivot_on_screen, self.angle)).turned(self.angle)
@@ -98,6 +108,12 @@ pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, page: &Page, scene: &mut 
             })
         }));
     }
+    // A realistic frame is its device's drawing once the shell has it.
+    // Until then, and for a clay frame, the shell is drawn here.
+    let art = shell.and_then(|shell| {
+        let image = frame.app.device_frame_image(shell.art?)?;
+        Some((shell.art?, ImageId(image.texture(0))))
+    });
     if let Some(shell) = &shell {
         let radius = shell.corner_radius as f32;
         // The shadow falls down the screen whichever way the shell faces.
@@ -109,10 +125,18 @@ pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, page: &Page, scene: &mut 
                 color: frame.colors.device_shadow,
             })
         }));
-        scene.push(carry.canvas(outer, |rect| {
-            Item::canvas(
-                RectDraw::filled(rect, frame.colors.device_bezel).with_corner_radius(radius),
-            )
+        // The drawing's screen is a hole, so the dark behind the page is
+        // drawn here.
+        let (bezel, radius, color) = match art {
+            Some(_) => (
+                screen.outset(SCREEN_BACKING),
+                shell.screen_corner_radius as f32 + SCREEN_BACKING,
+                frame.colors.device_notch,
+            ),
+            None => (outer, radius, frame.colors.device_bezel),
+        };
+        scene.push(carry.canvas(bezel, |rect| {
+            Item::canvas(RectDraw::filled(rect, color).with_corner_radius(radius))
         }));
     }
     let screen_radius = shell.map_or(plain_radius, |shell| shell.screen_corner_radius as f32);
@@ -139,7 +163,12 @@ pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, page: &Page, scene: &mut 
     }
     let zoom = frame.zoom();
     let on_screen = frame.project(outer);
-    if let Some(shell) = &shell {
+    if let (Some(shell), Some((art, image))) = (&shell, art) {
+        // The drawing goes over the page, so its island or notch covers it.
+        // It has its own edge, so no ring is drawn round it.
+        let (rect, turn) = art_rect(screen, shell, art);
+        scene.push(carry.image(image, rect, turn));
+    } else if let Some(shell) = &shell {
         decorate(frame, &carry, screen, outer, shell, scene);
         let ring = Stroke::new(
             frame.colors.device_screen_ring,
@@ -150,11 +179,13 @@ pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, page: &Page, scene: &mut 
             Item::screen(RectDraw::outlined(rect, ring).with_corner_radius(screen_radius * zoom))
         }));
     }
-    // A ring just outside the frame, one pixel wide at any zoom.
-    let border = Stroke::new(frame.colors.page_border, BORDER_WIDTH, StrokeAlign::Outside);
-    scene.push(carry.screen(on_screen, |rect| {
-        Item::screen(RectDraw::outlined(rect, border).with_corner_radius(outer_radius * zoom))
-    }));
+    if art.is_none() {
+        // A ring just outside the frame, one pixel wide at any zoom.
+        let border = Stroke::new(frame.colors.page_border, BORDER_WIDTH, StrokeAlign::Outside);
+        scene.push(carry.screen(on_screen, |rect| {
+            Item::screen(RectDraw::outlined(rect, border).with_corner_radius(outer_radius * zoom))
+        }));
+    }
     if frame.app.names_in_dock(&entity.id) {
         return;
     }
@@ -182,6 +213,38 @@ pub(super) fn shell_rect(screen: Rect, shell: &DeviceShell) -> Rect {
         screen.width + left + insets.right as f32,
         screen.height + top + insets.bottom as f32,
     )
+}
+
+/// Where `art` is drawn round `screen`, and the turn it is drawn at. The
+/// drawing stands up, scaled so its screen is the page's, and a page on its
+/// side turns it a quarter turn clockwise about its centre, as the clay
+/// shell's insets turn.
+fn art_rect(screen: Rect, shell: &DeviceShell, art: DeviceArt) -> (Rect, f32) {
+    let geometry = art.geometry();
+    let upright_width = if shell.landscape {
+        screen.height
+    } else {
+        screen.width
+    };
+    let scale = art.scale(f64::from(upright_width));
+    let scaled = |units: f64| (units * scale) as f32;
+    let (width, height) = (scaled(geometry.frame.0), scaled(geometry.frame.1));
+    // From the screen's centre to the drawing's, standing up.
+    let across = geometry.frame.0 / 2.0 - geometry.screen_origin.0 - geometry.screen_size.0 / 2.0;
+    let down = geometry.frame.1 / 2.0 - geometry.screen_origin.1 - geometry.screen_size.1 / 2.0;
+    let (across, down, turn) = if shell.landscape {
+        (-scaled(down), scaled(across), std::f32::consts::FRAC_PI_2)
+    } else {
+        (scaled(across), scaled(down), 0.0)
+    };
+    let centre = screen.centre();
+    let rect = Rect::new(
+        centre.x + across - width / 2.0,
+        centre.y + down - height / 2.0,
+        width,
+        height,
+    );
+    (rect, turn)
 }
 
 /// A phone's notch, and the home indicator in a phone's or a tablet's

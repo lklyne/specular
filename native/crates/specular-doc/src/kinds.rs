@@ -28,7 +28,8 @@ pub struct Page {
 impl Page {
     /// The device frame the page is drawn in, or `None` when its
     /// `showDeviceFrame` is off. The frame sits outside the entity's rect,
-    /// which is the page's screen.
+    /// which is the page's screen. A page whose `deviceFrameStyle` is
+    /// realistic is drawn in clay while it has no drawing to show.
     pub fn shell(&self) -> Option<crate::DeviceShell> {
         let meta = self.metadata.as_ref()?;
         if meta.get("showDeviceFrame") != Some(&serde_json::Value::Bool(true)) {
@@ -39,7 +40,32 @@ impl Page {
             .get("deviceOrientation")
             .and_then(serde_json::Value::as_str)
             == Some("landscape");
-        Some(crate::device_shell(device, landscape))
+        let style = match self.device_art() {
+            Some(_) => self.frame_style(),
+            None => crate::DeviceFrameStyle::Clay,
+        };
+        Some(crate::device_shell(device, landscape, style))
+    }
+
+    /// The style the page's frame is kept in, whether or not the frame is
+    /// shown and whether or not the page has a drawing for it.
+    pub fn frame_style(&self) -> crate::DeviceFrameStyle {
+        let name = (self.metadata.as_ref())
+            .and_then(|meta| meta.get("deviceFrameStyle"))
+            .and_then(serde_json::Value::as_str);
+        crate::DeviceFrameStyle::from_name(name)
+    }
+
+    /// The realistic drawing the page can be framed in: its device's, when
+    /// the page is at a preset and not a size of its own.
+    pub fn device_art(&self) -> Option<crate::DeviceArt> {
+        let meta = self.metadata.as_ref()?;
+        let custom = matches!(
+            meta.get("pageSizeMode").and_then(serde_json::Value::as_str),
+            Some("custom" | "responsive")
+        );
+        let device = meta.get("deviceId").and_then(serde_json::Value::as_str)?;
+        crate::DeviceArt::of_device(device).filter(|_| !custom)
     }
 }
 

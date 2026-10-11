@@ -14,6 +14,10 @@
 //!   frame ([`animation`]);
 //! - a file changed on disk is asked for again, and the picture on screen
 //!   stays until the new one is ready.
+//!
+//! A page in a realistic device frame wants its device's drawing the same
+//! way, under [`DeviceArt::asset`]. The shell holds those drawings itself
+//! and rasters each once.
 
 mod animation;
 mod vector;
@@ -21,7 +25,7 @@ mod vector;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use specular_doc::{Document, Entity, FileRef, Kind};
+use specular_doc::{DeviceArt, Document, Entity, FileRef, Kind, Page};
 
 pub(crate) use self::animation::Animations;
 
@@ -127,17 +131,19 @@ pub fn is_image_file(file: &str) -> bool {
     })
 }
 
-/// The image files `document` shows, each once.
+/// The image files `document` shows, and the drawings of its pages'
+/// realistic device frames, which are asked for by name as a file is.
 fn wanted(document: &Document) -> impl Iterator<Item = &str> {
     document.entities().filter_map(|entity| match &entity.kind {
         Kind::File(file) if is_image_file(&file.file) => Some(file.file.as_str()),
-        Kind::File(_)
-        | Kind::Page(_)
-        | Kind::Text(_)
-        | Kind::Group(_)
-        | Kind::Drawing(_)
-        | Kind::Shape(_) => None,
+        Kind::Page(page) => device_art(page).map(DeviceArt::asset),
+        Kind::File(_) | Kind::Text(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Shape(_) => None,
     })
+}
+
+/// The drawing `page`'s frame is shown as, if it is a realistic one.
+fn device_art(page: &Page) -> Option<DeviceArt> {
+    page.shell().and_then(|shell| shell.art)
 }
 
 /// Asks for every image the document shows that has not been asked for.
@@ -256,6 +262,13 @@ fn shown(app: &App) -> impl Iterator<Item = (&Entity, &FileRef)> {
 }
 
 impl App {
+    /// The drawing of `art` once the shell has it, one image for every page
+    /// of that device.
+    pub fn device_frame_image(&self, art: DeviceArt) -> Option<ImageKey> {
+        let image = self.session.images.get(art.asset())?;
+        matches!(image.state, ImageState::Ready { .. }).then_some(image.key)
+    }
+
     /// The frame of `file`'s animation to draw now: 0 for a still image.
     pub fn image_frame(&self, file: &str) -> u32 {
         let images = &self.session.images;
