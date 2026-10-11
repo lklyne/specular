@@ -21,7 +21,7 @@ const GUTTER: f64 = 80.0;
 /// The only task kind there is.
 const BREAKPOINT_MAP: &str = "breakpoint_map";
 /// The presets used when the request names none.
-const DEFAULT_PRESETS: [&str; 3] = ["iPhone 14 Pro", "iPad Mini", "Desktop"];
+const DEFAULT_PRESETS: [&str; 3] = ["iPhone 16", "iPad mini", "Desktop"];
 
 /// Whether `host` is a machine on the way to a dev server, which defaults
 /// to `http`.
@@ -124,10 +124,8 @@ fn label(url: &str, custom: Option<&str>) -> String {
 fn resolve(labels: &[String]) -> Result<Vec<usize>, Response> {
     (labels.iter())
         .map(|name| {
-            (VIEWPORT_PRESETS
-                .iter()
-                .position(|preset| preset.label == name))
-            .ok_or_else(|| Response::bad_request(format!("Unknown preset label: {name}")))
+            (specular_doc::preset_named(name).and_then(|row| usize::try_from(row).ok()))
+                .ok_or_else(|| Response::bad_request(format!("Unknown preset label: {name}")))
         })
         .collect()
 }

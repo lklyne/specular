@@ -23,11 +23,21 @@ the same commit leaves no diff. `--out DIR` writes somewhere else, and
 A device whose Dart uses something the interpreter does not know is skipped
 with the reason on stderr, and the exit code is 1.
 
+## Whose drawings these are
+
+Every drawing but two is upstream's, converted as it is, and upstream's MIT
+licence (`LICENSE-device_frame`) covers them. `ipad-mini` and `iphone-air`
+are ours: the package has neither device, so the script builds them from
+upstream drawings. Their manifest rows carry `"source": "specular"`. They
+reuse upstream's outlines, so the same licence notice stays with them. See
+"Our own drawings" below.
+
 ## What it writes
 
 - `<name>.svg` for every `*/*/frame.g.dart`, where `<name>` is the folder
   name in lower case with dashes. The hand-written `generic/*/frame.dart`
   and `macos/macbook_pro/frame.dart` are not converted.
+- `ipad-mini.svg` and `iphone-air.svg`, from `OWN_DEVICES`.
 - `<name>-light.svg` for the devices in `LIGHT_DEVICES`: the same draws in a
   light colourway. See "The light colourway" below.
 - `manifest.json`, one row per device, sorted by name. `lightFile` names the
@@ -78,24 +88,51 @@ kept. A notch is part of the screen outline, so it is kept too.
 
 ## The light colourway
 
-The package draws each device in one dark colourway. For the four devices in
-`LIGHT_DEVICES` the script writes a second file with some fills changed and
+The package draws each device in one dark colourway. For the devices in
+`LIGHT_DEVICES`, which are the ones the size menu uses, the script writes a second file with some fills changed and
 nothing else: the geometry, the draw order and every other colour are the
 dark file's. A fill is changed by what it is and its dark colour, from
 `LIGHT_FILLS`:
 
 | what the fill is | dark | light |
 |---|---|---|
-| body: the device's main outline, which shows as its edge | `#3A4245` | `#C9CACC` |
-| body | `#454C60` | `#E3E4E5` |
-| button: a fill that sticks out of the body | `#121515` | `#C9CACC` |
-| button | `#454C60` | `#C9CACC` |
+| body: the device's main outline, shown as a wide band | `#272727` `#434343` `#454C60` `#4E4E4E` `#4F5359` | `#E3E4E5` |
+| body, shown as a thin line | `#3A4245` `#3B393B` | `#C9CACC` |
+| body, the iPhone 13's outer line | `#213744` | `#B4B6B9` |
+| button: a fill that sticks out of the body | any of the body colours, `#121515`, `#1C3343` | `#C9CACC` |
 | face: the front, where it has a forehead and a chin | `#121515` | `#F4F4F5` |
-| ring: a ring on the face, the home button's | `#262C2D` | `#C9CACC` |
+| ring: a fill with a hole, the home button's | `#262C2D` | `#C9CACC` |
+| ring, the iPhone 13's highlight band | `#8EADC1` | `#DADBDD` |
+| edge: a small fill on the body's edge, an antenna break | `#36454C` | `#A9ABAE` |
 
 What a fill is comes from its shape. A front that the screen covers at least
-`GLASS_FRONT` (0.8) of is glass and stays dark, which is the edge-to-edge
-phones and the iPad. Everything not in the table keeps its colour: glass,
+`GLASS_FRONT` (0.75) of is glass and stays dark, which is the edge-to-edge
+phones and the iPads. Only the iPhone SE has a painted face. Everything not in the table keeps its colour: glass,
 the island, cameras, speaker and sensor dots, the hairline round the iPhone
-SE's screen, antenna bands and shading. To tune a colour, change the table
-and re-run.
+SE's screen, translucent antenna bands and the blurred strokes that shade an edge. To
+tune a colour, change the table and re-run.
+
+## Our own drawings
+
+`OWN_DEVICES` lists drawings made from an upstream one. Each names the
+drawing it is made from, its logical screen and both devices' logical points
+to the inch, which puts the two at the same real scale. The base drawing's
+bezel, corners, edge and buttons keep their real size, and the screen
+between them is resized.
+
+The resize cuts the frame in four at the middle of the screen. A part keeps
+its shape and its distance from its own corner. A part that spans the cut,
+such as the body or the glass, is stretched across it, which only lengthens
+straight edges; a curve across the cut stops the run. A part in the middle,
+such as the island and the lens inside it, stays in the middle.
+
+- `ipad-mini` is `ipad-air-4` with a 744 x 1133 screen at 163 points to the
+  inch against the Air's 132. The bezel is the Air's width, so it is a
+  larger share of the smaller screen. The Air's drawing has no camera, so
+  the lens is `ipad-pro-11-inches-m4`'s, scaled to the same real size and
+  put in the middle of the top bezel, the short edge.
+- `iphone-air` is `iphone-16-pro` with a 420 x 912 screen. Both are 460
+  pixels to the inch at 3, so nothing but the screen changes size.
+
+The frames are not whole numbers, because the screen keeps the logical
+aspect exactly.

@@ -2,13 +2,13 @@
 source: crates/specular-scene/tests/view.rs
 expression: app.scene_snapshot()
 ---
-canvas shadow 100,116 427x886 r=71.67 blur=16 fill=#0000003d
-canvas rect 116,116 395x854 r=56 fill=#1a1a1a
-canvas page p1 117,117 393x852 r=55
-canvas image 0 97.86,100.36 431.27x885.27
-screen text "example.com/p1" 100,79.5 wrap=427 ellipsis box-h=16.5 11/15.4 w500 #6b6b6b middle clip=100,79.5 427x20.5
-canvas shadow 700,116 886x427 r=71.67 blur=16 fill=#0000003d
-canvas rect 716,116 854x395 r=56 fill=#1a1a1a
-canvas page p2 717,117 852x393 r=55
-canvas image 0 927.36,-129.14 431.27x885.27 turn=90
-screen text "example.com/p2" 700,79.5 wrap=886 ellipsis box-h=16.5 11/15.4 w500 #6b6b6b middle clip=700,79.5 886x20.5
+canvas shadow 100,116 433x892 r=74.33 blur=16 fill=#0000003d
+canvas rect 119,119 395x854 r=55.67 fill=#1a1a1a
+canvas page p1 120,120 393x852 r=54.67
+canvas image 0 97.67,100.31 437.67x891.38
+screen text "example.com/p1" 100,79.5 wrap=433 ellipsis box-h=16.5 11/15.4 w500 #6b6b6b middle clip=100,79.5 433x20.5
+canvas shadow 700,116 892x433 r=74.33 blur=16 fill=#0000003d
+canvas rect 719,119 854x395 r=55.67 fill=#1a1a1a
+canvas page p2 720,120 852x393 r=54.67
+canvas image 0 927.17,-129.19 437.67x891.38 turn=90
+screen text "example.com/p2" 700,79.5 wrap=892 ellipsis box-h=16.5 11/15.4 w500 #6b6b6b middle clip=700,79.5 892x20.5

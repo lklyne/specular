@@ -19,7 +19,7 @@ fn breakpoints_lay_one_page_per_preset_in_a_row_inside_a_group_as_one_undo_step(
 
     assert_eq!(
         reply["resolvedPresets"],
-        json!(["iPhone 14 Pro", "iPad Mini", "Desktop"])
+        json!(["iPhone 16", "iPad mini", "Desktop"])
     );
     assert_eq!(reply["taskKind"], "breakpoint_map");
     assert_eq!(reply["warnings"], json!([]));
@@ -37,10 +37,9 @@ fn breakpoints_lay_one_page_per_preset_in_a_row_inside_a_group_as_one_undo_step(
     assert_eq!(label.as_deref(), Some("Breakpoints: example.com/shop"));
     let mut sync_ids = Vec::new();
     let mut next_x = reply["placement"]["canvasX"].as_f64().unwrap_or_default();
-    for (id, name) in pages.iter().zip(["iPhone 14 Pro", "iPad Mini", "Desktop"]) {
-        let preset = VIEWPORT_PRESETS
-            .iter()
-            .find(|p| p.label == name)
+    for (id, name) in pages.iter().zip(["iPhone 16", "iPad mini", "Desktop"]) {
+        let preset = specular_doc::preset_named(name)
+            .and_then(|row| specular_doc::preset(u64::from(row)))
             .expect("preset");
         let entity = document.entity(&EntityId::from(*id)).expect("page exists");
         assert_eq!(entity.parent.as_ref().map(EntityId::as_str), Some(group));
@@ -312,7 +311,8 @@ fn breakpoints_follow_their_options_and_describe_the_cluster() {
     );
     let other = post(
         &mut session,
-        json!({ "url": URL, "presets": ["Desktop", "iPad Mini"] }),
+        // A row is still found by a name it used to have.
+        json!({ "url": URL, "presets": ["Desktop", "iPad Pro 12.9"] }),
     );
     assert_eq!(
         other["warnings"],
@@ -354,14 +354,14 @@ fn breakpoints_follow_their_options_and_describe_the_cluster() {
         .unwrap_or_default();
     assert_eq!(
         meta,
-        json!({ "taskKind": "breakpoint_map", "url": URL, "presets": ["iPhone 14 Pro", "iPad Mini", "Desktop"] })
+        json!({ "taskKind": "breakpoint_map", "url": URL, "presets": ["iPhone 16", "iPad mini", "Desktop"] })
     );
     let first_page = session.node(&named["pageIds"][0]);
     let (x, y) = (
         first_page["x"].as_f64().unwrap_or(0.0),
         first_page["y"].as_f64().unwrap_or(0.0),
     );
-    let row = ["iPhone 14 Pro", "iPad Mini", "Desktop"].map(|name| {
+    let row = ["iPhone 16", "iPad mini", "Desktop"].map(|name| {
         VIEWPORT_PRESETS
             .iter()
             .find(|p| p.label == name)
@@ -392,9 +392,7 @@ fn breakpoints_follow_their_options_and_describe_the_cluster() {
     let Kind::Page(page) = &first.kind else {
         panic!("not a page")
     };
-    let row = VIEWPORT_PRESETS
-        .iter()
-        .position(|p| p.label == "iPhone 14 Pro");
+    let row = VIEWPORT_PRESETS.iter().position(|p| p.label == "iPhone 16");
     assert_eq!(
         page.preset_index,
         row.and_then(|row| u32::try_from(row).ok())

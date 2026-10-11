@@ -206,10 +206,10 @@ fn step_frame(app: &mut TestApp) {
 fn the_frame_steps_through_none_clay_and_realistic_and_skips_what_cannot_be_drawn() {
     use DeviceFrameStyle::{Clay, Realistic};
     let mut app = TestApp::from_canvas(FRAMED_PHONE_AND_LAPTOP);
-    // The old file's frame is clay, and the screen sits 17 in from it.
+    // The old file's frame is clay, and the screen sits 20 in from it.
     app.select(&["phone"]);
     assert_eq!(frame(app.app()), Some(Some(Clay)));
-    let framed = Rect::new(117.0, 117.0, 393.0, 852.0);
+    let framed = Rect::new(120.0, 120.0, 393.0, 852.0);
     assert_eq!(app.rect("phone"), framed);
 
     step_frame(&mut app);

@@ -23,6 +23,14 @@ const IPAD: PageUserAgent = PageUserAgent {
     model: "iPad",
 };
 
+const ANDROID: PageUserAgent = PageUserAgent {
+    user_agent: "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) \
+                 Chrome/138.0.0.0 Mobile Safari/537.36",
+    navigator_platform: "Linux armv81",
+    hint_platform: "Android",
+    model: "K",
+};
+
 const fn handheld(user_agent: PageUserAgent, pixel_ratio: f32) -> PageDevice {
     PageDevice {
         user_agent: Some(user_agent),
@@ -59,10 +67,17 @@ fn preset_device(page: &Page) -> PageDevice {
         .and_then(serde_json::Value::as_str);
     match device {
         Some("iphone-se") => handheld(IPHONE, 2.0),
-        Some("iphone-14-pro" | "iphone-14-pro-max" | "iphone-duo-cover" | "iphone-duo-open") => {
-            handheld(IPHONE, 3.0)
-        }
-        Some("ipad-mini" | "ipad-pro-11" | "ipad-pro-129") => handheld(IPAD, 2.0),
+        Some(
+            "iphone-14-pro" | "iphone-14-pro-max" | "iphone-duo-cover" | "iphone-duo-open"
+            | "iphone-17-pro-max" | "iphone-17" | "iphone-air" | "iphone-16e",
+        ) => handheld(IPHONE, 3.0),
+        Some(
+            "ipad-mini" | "ipad-pro-11" | "ipad-pro-129" | "ipad-pro-13" | "ipad-pro-11-m4"
+            | "ipad-air-11",
+        ) => handheld(IPAD, 2.0),
+        Some("pixel-10-pro-xl" | "galaxy-s25") => handheld(ANDROID, 3.0),
+        // 1080 device pixels across 412.
+        Some("pixel-10") => handheld(ANDROID, 2.625),
         _ => PageDevice::default(),
     }
 }

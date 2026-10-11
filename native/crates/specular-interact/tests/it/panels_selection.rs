@@ -23,15 +23,24 @@ fn a_page_has_size_frame_rotation_and_color_scheme() {
     ---
     dropdown page.size "Page size" shows icon=Proportions text="Custom"
       options list
+        option [ ] page.size.11 "iPhone 17 Pro Max" trailing="440×956" -> SetProperty(ViewportPreset(11))
+        option [ ] page.size.12 "iPhone 17" trailing="402×874" -> SetProperty(ViewportPreset(12))
+        option [ ] page.size.13 "iPhone Air" trailing="420×912" -> SetProperty(ViewportPreset(13))
+        option [ ] page.size.2 "iPhone 16 Plus" trailing="430×932" -> SetProperty(ViewportPreset(2))
+        option [ ] page.size.1 "iPhone 16" trailing="393×852" -> SetProperty(ViewportPreset(1))
+        option [ ] page.size.14 "iPhone 16e" trailing="390×844" -> SetProperty(ViewportPreset(14))
         option [ ] page.size.0 "iPhone SE" trailing="375×667" -> SetProperty(ViewportPreset(0))
-        option [ ] page.size.1 "iPhone 14 Pro" text="iPhone Pro" trailing="393×852" -> SetProperty(ViewportPreset(1))
-        option [ ] page.size.2 "iPhone 14 Pro Max" text="iPhone Pro Max" trailing="430×932" -> SetProperty(ViewportPreset(2))
         option [ ] page.size.9 "iPhone Duo (cover)" trailing="466×678" -> SetProperty(ViewportPreset(9))
         option [ ] page.size.10 "iPhone Duo (open)" trailing="626×890" -> SetProperty(ViewportPreset(10))
+        option [ ] page.size.15 "Pixel 10 Pro XL" trailing="448×997" -> SetProperty(ViewportPreset(15))
+        option [ ] page.size.16 "Pixel 10" trailing="412×923" -> SetProperty(ViewportPreset(16))
+        option [ ] page.size.17 "Galaxy S25" trailing="360×780" -> SetProperty(ViewportPreset(17))
       options list
-        option [ ] page.size.3 "iPad Mini" trailing="744×1133" -> SetProperty(ViewportPreset(3))
-        option [ ] page.size.4 "iPad Pro 11" trailing="834×1194" -> SetProperty(ViewportPreset(4))
-        option [ ] page.size.5 "iPad Pro 12.9" trailing="1024×1366" -> SetProperty(ViewportPreset(5))
+        option [ ] page.size.18 "iPad Pro 13" trailing="1032×1376" -> SetProperty(ViewportPreset(18))
+        option [ ] page.size.19 "iPad Pro 11" trailing="834×1210" -> SetProperty(ViewportPreset(19))
+        option [ ] page.size.5 "iPad Air 13" trailing="1024×1366" -> SetProperty(ViewportPreset(5))
+        option [ ] page.size.20 "iPad Air 11" trailing="820×1180" -> SetProperty(ViewportPreset(20))
+        option [ ] page.size.3 "iPad mini" trailing="744×1133" -> SetProperty(ViewportPreset(3))
       options list
         option [ ] page.size.6 "Laptop" trailing="1280×800" -> SetProperty(ViewportPreset(6))
         option [ ] page.size.7 "Desktop" trailing="1440×900" -> SetProperty(ViewportPreset(7))
@@ -59,15 +68,24 @@ fn several_pages_share_a_size_list_without_custom() {
     assert_dock_snapshot!(app, @r#"
     dropdown page.size "Page size" shows icon=Proportions text="Multiple"
       options list
+        option [ ] page.size.11 "iPhone 17 Pro Max" trailing="440×956" -> SetProperty(ViewportPreset(11))
+        option [ ] page.size.12 "iPhone 17" trailing="402×874" -> SetProperty(ViewportPreset(12))
+        option [ ] page.size.13 "iPhone Air" trailing="420×912" -> SetProperty(ViewportPreset(13))
+        option [ ] page.size.2 "iPhone 16 Plus" trailing="430×932" -> SetProperty(ViewportPreset(2))
+        option [ ] page.size.1 "iPhone 16" trailing="393×852" -> SetProperty(ViewportPreset(1))
+        option [ ] page.size.14 "iPhone 16e" trailing="390×844" -> SetProperty(ViewportPreset(14))
         option [ ] page.size.0 "iPhone SE" trailing="375×667" -> SetProperty(ViewportPreset(0))
-        option [ ] page.size.1 "iPhone 14 Pro" text="iPhone Pro" trailing="393×852" -> SetProperty(ViewportPreset(1))
-        option [ ] page.size.2 "iPhone 14 Pro Max" text="iPhone Pro Max" trailing="430×932" -> SetProperty(ViewportPreset(2))
         option [ ] page.size.9 "iPhone Duo (cover)" trailing="466×678" -> SetProperty(ViewportPreset(9))
         option [ ] page.size.10 "iPhone Duo (open)" trailing="626×890" -> SetProperty(ViewportPreset(10))
+        option [ ] page.size.15 "Pixel 10 Pro XL" trailing="448×997" -> SetProperty(ViewportPreset(15))
+        option [ ] page.size.16 "Pixel 10" trailing="412×923" -> SetProperty(ViewportPreset(16))
+        option [ ] page.size.17 "Galaxy S25" trailing="360×780" -> SetProperty(ViewportPreset(17))
       options list
-        option [ ] page.size.3 "iPad Mini" trailing="744×1133" -> SetProperty(ViewportPreset(3))
-        option [ ] page.size.4 "iPad Pro 11" trailing="834×1194" -> SetProperty(ViewportPreset(4))
-        option [ ] page.size.5 "iPad Pro 12.9" trailing="1024×1366" -> SetProperty(ViewportPreset(5))
+        option [ ] page.size.18 "iPad Pro 13" trailing="1032×1376" -> SetProperty(ViewportPreset(18))
+        option [ ] page.size.19 "iPad Pro 11" trailing="834×1210" -> SetProperty(ViewportPreset(19))
+        option [ ] page.size.5 "iPad Air 13" trailing="1024×1366" -> SetProperty(ViewportPreset(5))
+        option [ ] page.size.20 "iPad Air 11" trailing="820×1180" -> SetProperty(ViewportPreset(20))
+        option [ ] page.size.3 "iPad mini" trailing="744×1133" -> SetProperty(ViewportPreset(3))
       options list
         option [ ] page.size.6 "Laptop" trailing="1280×800" -> SetProperty(ViewportPreset(6))
         option [ ] page.size.7 "Desktop" trailing="1440×900" -> SetProperty(ViewportPreset(7))

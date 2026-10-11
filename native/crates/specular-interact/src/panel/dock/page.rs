@@ -6,7 +6,7 @@
 
 use specular_agent::origin_of;
 use specular_doc::{
-    ColorScheme, DeviceFrameColor, DeviceFrameStyle, Entity, Kind, VIEWPORT_PRESETS,
+    ColorScheme, DeviceFrameColor, DeviceFrameStyle, Entity, Kind, PRESET_MENU, VIEWPORT_PRESETS,
 };
 
 use super::super::build::{button, groups, toggle};
@@ -18,17 +18,9 @@ use super::actions::Actions;
 use crate::property::read;
 use crate::{Action, App, PageStep, Property, RepoAction, binding_of};
 
-/// The preset rows in the order the size list has them: phones, tablets,
-/// then laptops and desktops.
-const SECTIONS: [&[u32]; 3] = [&[0, 1, 2, 9, 10], &[3, 4, 5], &[6, 7, 8]];
-
-/// A phone's row drops the model year: the size says which it is.
-fn row_label(label: &str) -> String {
-    label.replace("iPhone 14 ", "iPhone ")
-}
-
 /// The preset list shared by the page size dropdown and the page tool:
-/// a section of rows each for phones, tablets and desktops, named from `id`.
+/// a section of rows each for phones, tablets and computers, in the order
+/// [`PRESET_MENU`] has them and named from `id`.
 /// `selected` is the preset in use. `custom` adds a last row that is on when
 /// its flag is, runs its action, and has its fields at its far end. `verb`
 /// starts each row's accessible name ("Add iPhone SE").
@@ -45,9 +37,9 @@ pub(super) fn preset_sections(
             None => name.to_owned().into(),
         }
     };
-    let mut sections: Vec<DropdownSection> = SECTIONS
+    let mut sections: Vec<DropdownSection> = PRESET_MENU
         .iter()
-        .map(|rows| DropdownSection::Options {
+        .map(|(_, rows)| DropdownSection::Options {
             layout: OptionLayout::List,
             options: (rows.iter())
                 .filter_map(|&index| {
@@ -55,7 +47,7 @@ pub(super) fn preset_sections(
                     Some(DropdownOption {
                         id: id.child(index),
                         label: named(row.label),
-                        face: Face::text(row_label(row.label)),
+                        face: Face::text(row.label),
                         trailing: Some(format!("{}\u{d7}{}", row.width, row.height).into()),
                         fields: Vec::new(),
                         chord: None,

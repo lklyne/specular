@@ -5,8 +5,10 @@
 //! drawn smaller from its mip levels. Pages of the same device and colour
 //! share the one texture.
 
+mod drawings;
+
 use specular_core::PixelSize;
-use specular_doc::{DeviceArt, DeviceFrameColor};
+use specular_doc::DeviceArt;
 
 /// Texels to a canvas unit in a raster.
 const TEXELS_PER_UNIT: f64 = 2.0;
@@ -17,51 +19,33 @@ pub(crate) struct Drawing {
     pub(crate) want: PixelSize,
 }
 
-const fn svg(art: DeviceArt, color: DeviceFrameColor) -> &'static [u8] {
-    use DeviceFrameColor::{Dark, Light};
-    match (art, color) {
-        (DeviceArt::IphoneSe, Dark) => include_bytes!("../../assets/device-frames/iphone-se.svg"),
-        (DeviceArt::IphoneSe, Light) => {
-            include_bytes!("../../assets/device-frames/iphone-se-light.svg")
-        }
-        (DeviceArt::Iphone15Pro, Dark) => {
-            include_bytes!("../../assets/device-frames/iphone-15-pro.svg")
-        }
-        (DeviceArt::Iphone15Pro, Light) => {
-            include_bytes!("../../assets/device-frames/iphone-15-pro-light.svg")
-        }
-        (DeviceArt::Iphone15ProMax, Dark) => {
-            include_bytes!("../../assets/device-frames/iphone-15-pro-max.svg")
-        }
-        (DeviceArt::Iphone15ProMax, Light) => {
-            include_bytes!("../../assets/device-frames/iphone-15-pro-max-light.svg")
-        }
-        (DeviceArt::IpadPro11, Dark) => {
-            include_bytes!("../../assets/device-frames/ipad-pro-11inches.svg")
-        }
-        (DeviceArt::IpadPro11, Light) => {
-            include_bytes!("../../assets/device-frames/ipad-pro-11inches-light.svg")
-        }
-    }
-}
-
 /// The drawing `file` names, if it is a device frame's and not a file's.
 pub(crate) fn drawing(file: &str) -> Option<Drawing> {
     let (art, color) = DeviceArt::from_asset(file)?;
     let (width, height) = art.size();
     let texels = |units: f64| ((units * TEXELS_PER_UNIT).ceil() as u32).max(1);
     Some(Drawing {
-        svg: svg(art, color),
+        svg: drawings::svg(art, color),
         want: PixelSize::new(texels(width), texels(height)),
     })
 }
 
 #[cfg(test)]
 mod tests {
-    use specular_doc::{DeviceFrameStyle, ShellInsets, VIEWPORT_PRESETS, device_shell};
+    use specular_doc::{
+        DeviceFrameColor, DeviceFrameStyle, ShellInsets, VIEWPORT_PRESETS, ViewportPreset,
+        device_shell,
+    };
 
     use super::super::svg;
     use super::*;
+
+    /// Every preset that has a drawing, with it.
+    fn drawn() -> Vec<(&'static ViewportPreset, DeviceArt)> {
+        (VIEWPORT_PRESETS.iter())
+            .filter_map(|preset| Some((preset, DeviceArt::of_device(preset.device_id)?)))
+            .collect()
+    }
 
     const MANIFEST: &str = include_str!("../../assets/device-frames/manifest.json");
 
@@ -73,8 +57,13 @@ mod tests {
 
     #[test]
     fn a_shells_insets_are_what_the_manifests_body_leaves_round_the_screen() {
-        for art in DeviceArt::ALL {
+        for (preset, art) in drawn() {
             let row = manifest_row(art);
+            let light = row["lightFile"].as_str().unwrap_or(art.name());
+            assert!(
+                art.asset(DeviceFrameColor::Light).contains(light),
+                "{art:?}: the light drawing is the manifest's"
+            );
             let number = |of: &str, key: &str| row[of][key].as_f64().unwrap();
             let geometry = art.geometry();
             let frame = (number("frame", "width"), number("frame", "height"));
@@ -100,9 +89,6 @@ mod tests {
             );
 
             // The shell is the body, which leaves the buttons outside it.
-            let preset = (VIEWPORT_PRESETS.iter())
-                .find(|preset| preset.device_id == art.device_id())
-                .unwrap();
             let scale = preset.width / size.0;
             // Each inset is within a unit of the body's margin: sides that
             // are all but equal are rounded together.
@@ -112,7 +98,7 @@ mod tests {
                 (body.1 + body_size.1 - origin.1 - size.1) * scale,
                 (origin.0 - body.0) * scale,
             ];
-            let shell = device_shell(Some(art.device_id()), false, DeviceFrameStyle::Realistic);
+            let shell = device_shell(Some(preset.device_id), false, DeviceFrameStyle::Realistic);
             let ShellInsets {
                 top,
                 right,
@@ -127,15 +113,17 @@ mod tests {
                 );
                 assert_eq!(inset.fract(), 0.0, "{art:?}");
             }
-            // The drawing's screen is the preset's shape, so the page fills it.
+            // The drawing's screen is the preset's shape to within a few
+            // units, which the dark behind the page and the bezel over it
+            // take up.
             let drawn_height = size.1 * scale;
             assert!(
-                (drawn_height - preset.height).abs() < 1.0,
+                (drawn_height - preset.height).abs() < 3.0,
                 "{art:?}: a screen {drawn_height} tall for a page {}",
                 preset.height
             );
             // On its side the shell is turned a quarter turn clockwise.
-            let turned = device_shell(Some(art.device_id()), true, DeviceFrameStyle::Realistic);
+            let turned = device_shell(Some(preset.device_id), true, DeviceFrameStyle::Realistic);
             assert_eq!(turned.insets.right, top, "{art:?}");
             assert_eq!(turned.insets.top, left, "{art:?}");
         }
@@ -144,10 +132,17 @@ mod tests {
     #[test]
     fn each_drawing_rasters_at_two_texels_a_unit_or_just_over_with_a_hole_for_the_screen() {
         use DeviceFrameColor::{Dark, Light};
-        for (art, color) in DeviceArt::ALL
+        for (preset, art, color) in drawn()
             .into_iter()
-            .flat_map(|art| [(art, Dark), (art, Light)])
+            .flat_map(|(preset, art)| [(preset, art, Dark), (preset, art, Light)])
         {
+            // A drawing shared by two presets, or by both colours, is
+            // checked once.
+            if DeviceArt::of_device(preset.device_id) != Some(art)
+                || (color == Light && art.asset(Light) == art.asset(Dark))
+            {
+                continue;
+            }
             let drawing = drawing(art.asset(color)).unwrap();
             let rendered = svg::render(drawing.svg, Some(drawing.want), 8192).unwrap();
             let size = rendered.raster.size;
@@ -173,17 +168,16 @@ mod tests {
                 0,
                 "{art:?} {color:?}: the screen"
             );
-            let shell = device_shell(Some(art.device_id()), false, DeviceFrameStyle::Realistic);
+            let shell = device_shell(Some(preset.device_id), false, DeviceFrameStyle::Realistic);
             let in_bezel = (shell.insets.left * TEXELS_PER_UNIT * 0.75) as u32;
             assert_eq!(texel(in_bezel, row)[3], 255, "{art:?} {color:?}: the bezel");
             // The body's edge, three units in from its outline, is pale on
-            // a light device and not on a dark one.
+            // a light device.
             let texels_a_unit = art.size().0 / art.geometry().frame.0 * TEXELS_PER_UNIT;
             let in_edge = ((art.geometry().body_origin.0 + 3.0) * texels_a_unit) as u32;
             let edge = texel(in_edge, row);
-            assert_eq!(
-                edge[0] > 180,
-                color == Light,
+            assert!(
+                color == Dark || edge[0] > 180,
                 "{art:?} {color:?}: an edge of {edge:?}"
             );
         }

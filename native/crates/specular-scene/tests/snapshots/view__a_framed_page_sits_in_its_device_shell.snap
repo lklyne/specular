@@ -2,19 +2,19 @@
 source: crates/specular-scene/tests/view.rs
 expression: app.scene_snapshot()
 ---
-canvas shadow 100,116 427x886 r=71.67 blur=16 fill=#0000003d
-canvas rect 100,100 427x886 r=71.67 fill=#d6d3d1
-canvas page p1 117,117 393x852 r=55
-canvas rect 250.5,125 126x37 r=18.5 fill=#1a1a1a
-canvas rect 253.5,977.5 120x4 r=2 fill=#00000026
-screen rect 117,117 393x852 r=55 stroke=#0000001f/1.5/outside
-screen rect 100,100 427x886 r=71.67 stroke=#a6a09b/1/outside
-screen text "example.com/p1" 100,79.5 wrap=427 ellipsis box-h=16.5 11/15.4 w500 #6b6b6b middle clip=100,79.5 427x20.5
-canvas shadow 700,116 427x886 r=71.67 blur=16 fill=#000000cc
-canvas rect 700,100 427x886 r=71.67 fill=#292524
-canvas page p2 717,117 393x852 r=55
-canvas rect 850.5,125 126x37 r=18.5 fill=#000000
-canvas rect 853.5,977.5 120x4 r=2 fill=#ffffff40
-screen rect 717,117 393x852 r=55 stroke=#ffffff0f/1.5/outside
-screen rect 700,100 427x886 r=71.67 stroke=#a6a09b/1/outside
-screen text "example.com/p2" 700,79.5 wrap=427 ellipsis box-h=16.5 11/15.4 w500 #6b6b6b middle clip=700,79.5 427x20.5
+canvas shadow 100,116 433x892 r=74.33 blur=16 fill=#0000003d
+canvas rect 100,100 433x892 r=74.33 fill=#d6d3d1
+canvas page p1 120,120 393x852 r=54.67
+canvas rect 253.5,128 126x37 r=18.5 fill=#1a1a1a
+canvas rect 256.5,982 120x4 r=2 fill=#00000026
+screen rect 120,120 393x852 r=54.67 stroke=#0000001f/1.5/outside
+screen rect 100,100 433x892 r=74.33 stroke=#a6a09b/1/outside
+screen text "example.com/p1" 100,79.5 wrap=433 ellipsis box-h=16.5 11/15.4 w500 #6b6b6b middle clip=100,79.5 433x20.5
+canvas shadow 700,116 433x892 r=74.33 blur=16 fill=#000000cc
+canvas rect 700,100 433x892 r=74.33 fill=#292524
+canvas page p2 720,120 393x852 r=54.67
+canvas rect 853.5,128 126x37 r=18.5 fill=#000000
+canvas rect 856.5,982 120x4 r=2 fill=#ffffff40
+screen rect 720,120 393x852 r=54.67 stroke=#ffffff0f/1.5/outside
+screen rect 700,100 433x892 r=74.33 stroke=#a6a09b/1/outside
+screen text "example.com/p2" 700,79.5 wrap=433 ellipsis box-h=16.5 11/15.4 w500 #6b6b6b middle clip=700,79.5 433x20.5

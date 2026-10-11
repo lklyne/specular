@@ -1,5 +1,11 @@
-//! The viewport presets a page's `preset_index` names: the table in the
-//! Electron app's `src/shared/device-catalog.ts`.
+//! The viewport presets: the devices a page can be sized as. This table is
+//! the list; nothing else owns it.
+//!
+//! A file names a page's preset twice, as `presetIndex` and as
+//! `metadata.deviceId`. So a row never changes its place or its id, and a
+//! new device goes at the end. What the size menu offers, and in what order,
+//! is [`PRESET_MENU`], which leaves out a row that is kept only so old files
+//! open.
 
 use crate::{DeviceArt, DeviceFrameStyle};
 
@@ -33,24 +39,66 @@ const fn row(
     }
 }
 
-/// Every preset, by index.
-pub const VIEWPORT_PRESETS: [ViewportPreset; 11] = [
+/// Every preset, by index. A label may change with the device that has
+/// that screen now; an index, an id and a size may not.
+pub const VIEWPORT_PRESETS: [ViewportPreset; 21] = [
     row("iPhone SE", "iphone-se", 375.0, 667.0),
-    row("iPhone 14 Pro", "iphone-14-pro", 393.0, 852.0),
-    row("iPhone 14 Pro Max", "iphone-14-pro-max", 430.0, 932.0),
-    row("iPad Mini", "ipad-mini", 744.0, 1133.0),
-    row("iPad Pro 11", "ipad-pro-11", 834.0, 1194.0),
-    row("iPad Pro 12.9", "ipad-pro-129", 1024.0, 1366.0),
+    row("iPhone 16", "iphone-14-pro", 393.0, 852.0),
+    row("iPhone 16 Plus", "iphone-14-pro-max", 430.0, 932.0),
+    row("iPad mini", "ipad-mini", 744.0, 1133.0),
+    // Retired: the 11-inch iPad Pro before its screen grew.
+    row("iPad Pro 11 (2018 to 2022)", "ipad-pro-11", 834.0, 1194.0),
+    row("iPad Air 13", "ipad-pro-129", 1024.0, 1366.0),
     row("Laptop", "laptop", 1280.0, 800.0),
     row("Desktop", "desktop", 1440.0, 900.0),
     row("Desktop XL", "desktop-xl", 1920.0, 1080.0),
     row("iPhone Duo (cover)", "iphone-duo-cover", 466.0, 678.0),
     row("iPhone Duo (open)", "iphone-duo-open", 626.0, 890.0),
+    row("iPhone 17 Pro Max", "iphone-17-pro-max", 440.0, 956.0),
+    row("iPhone 17", "iphone-17", 402.0, 874.0),
+    row("iPhone Air", "iphone-air", 420.0, 912.0),
+    row("iPhone 16e", "iphone-16e", 390.0, 844.0),
+    row("Pixel 10 Pro XL", "pixel-10-pro-xl", 448.0, 997.0),
+    row("Pixel 10", "pixel-10", 412.0, 923.0),
+    row("Galaxy S25", "galaxy-s25", 360.0, 780.0),
+    row("iPad Pro 13", "ipad-pro-13", 1032.0, 1376.0),
+    row("iPad Pro 11", "ipad-pro-11-m4", 834.0, 1210.0),
+    row("iPad Air 11", "ipad-air-11", 820.0, 1180.0),
+];
+
+/// The size menu: its sections in order, each a name and the rows it
+/// offers by index. A row in no section is retired.
+pub const PRESET_MENU: [(&str, &[u32]); 3] = [
+    ("Phones", &[11, 12, 13, 2, 1, 14, 0, 9, 10, 15, 16, 17]),
+    ("Tablets", &[18, 19, 5, 20, 3]),
+    ("Computers", &[6, 7, 8]),
+];
+
+/// What a row was called before it was relabelled, for a caller that still
+/// asks for it by that name. A name a current row has is not here.
+const FORMER_LABELS: [(&str, u32); 3] = [
+    ("iPhone 14 Pro", 1),
+    ("iPhone 14 Pro Max", 2),
+    ("iPad Pro 12.9", 5),
 ];
 
 /// The preset at `index`, or `None` when the table has no such row.
 pub fn preset(index: u64) -> Option<&'static ViewportPreset> {
     VIEWPORT_PRESETS.get(usize::try_from(index).ok()?)
+}
+
+/// The index of the preset `name` names: a row's label or its device id,
+/// in any case, or a label a row used to have.
+pub fn preset_named(name: &str) -> Option<u32> {
+    let same = |other: &str| other.eq_ignore_ascii_case(name);
+    let row = (VIEWPORT_PRESETS.iter())
+        .position(|preset| same(preset.label) || same(preset.device_id))
+        .and_then(|index| u32::try_from(index).ok());
+    row.or_else(|| {
+        (FORMER_LABELS.iter())
+            .find(|(label, _)| same(label))
+            .map(|&(_, index)| index)
+    })
 }
 
 /// The space a device's shell takes around its screen, in canvas units.
@@ -117,15 +165,17 @@ const fn shell(
     }
 }
 
-/// The shell of a page with a size of its own (`CUSTOM_SHELL_*`).
+/// The shell of a page with a size of its own.
 const CUSTOM_SHELL: DeviceShell = shell((12.0, 12.0, 12.0, 12.0), 10.0, 6.0, DeviceKind::Plain);
-const EDGE_PHONE: DeviceShell = shell((22.0, 22.0, 26.0, 22.0), 77.0, 55.0, DeviceKind::Phone);
-const TABLET: DeviceShell = shell((24.0, 24.0, 24.0, 24.0), 42.0, 18.0, DeviceKind::Tablet);
+/// The folding phone closed, an edge-to-edge phone.
+const DUO_COVER: DeviceShell = shell((22.0, 22.0, 26.0, 22.0), 77.0, 55.0, DeviceKind::Phone);
+/// The folding phone open: a slab like a tablet, listed with the phones.
+const DUO_OPEN: DeviceShell = shell((24.0, 24.0, 24.0, 24.0), 42.0, 18.0, DeviceKind::Phone);
 const COMPUTER: DeviceShell = shell((12.0, 12.0, 12.0, 12.0), 20.0, 8.0, DeviceKind::Plain);
 
 /// The shell a framed page of `device_id` is drawn in, turned on its side
 /// when `landscape`. No device is a custom size. A device the table does
-/// not know gets the custom shell with no bezel, as in Electron.
+/// not know gets the custom shell with no bezel.
 ///
 /// A device with a drawing has one shell in both styles, its drawing's
 /// body, so changing the style never moves or resizes it. Only a realistic
@@ -198,11 +248,10 @@ fn body(device_id: &str) -> Option<DeviceShell> {
         },
         corner_radius: geometry.body_corner_radius * scale,
         screen_corner_radius: geometry.screen_corner_radius * scale,
-        kind: match art {
-            DeviceArt::IphoneSe | DeviceArt::Iphone15Pro | DeviceArt::Iphone15ProMax => {
-                DeviceKind::Phone
-            }
-            DeviceArt::IpadPro11 => DeviceKind::Tablet,
+        kind: if art.is_tablet() {
+            DeviceKind::Tablet
+        } else {
+            DeviceKind::Phone
         },
         landscape: false,
         art: Some(art),
@@ -223,13 +272,8 @@ fn rounded_together(insets: &[f64]) -> Option<f64> {
 fn clay(device_id: Option<&str>) -> DeviceShell {
     match device_id {
         None => CUSTOM_SHELL,
-        Some("iphone-duo-cover") => EDGE_PHONE,
-        // The open Duo is a slab like a tablet but is listed with the phones.
-        Some("iphone-duo-open") => DeviceShell {
-            kind: DeviceKind::Phone,
-            ..TABLET
-        },
-        Some("ipad-mini" | "ipad-pro-129") => TABLET,
+        Some("iphone-duo-cover") => DUO_COVER,
+        Some("iphone-duo-open") => DUO_OPEN,
         Some("laptop" | "desktop" | "desktop-xl") => COMPUTER,
         Some(_) => DeviceShell {
             insets: ShellInsets {
@@ -247,81 +291,109 @@ fn clay(device_id: Option<&str>) -> DeviceShell {
 mod tests {
     use super::*;
 
+    /// The rows files were written with before the list grew: their index,
+    /// id and size.
+    const LEGACY: [(&str, f64, f64); 11] = [
+        ("iphone-se", 375.0, 667.0),
+        ("iphone-14-pro", 393.0, 852.0),
+        ("iphone-14-pro-max", 430.0, 932.0),
+        ("ipad-mini", 744.0, 1133.0),
+        ("ipad-pro-11", 834.0, 1194.0),
+        ("ipad-pro-129", 1024.0, 1366.0),
+        ("laptop", 1280.0, 800.0),
+        ("desktop", 1440.0, 900.0),
+        ("desktop-xl", 1920.0, 1080.0),
+        ("iphone-duo-cover", 466.0, 678.0),
+        ("iphone-duo-open", 626.0, 890.0),
+    ];
+
     #[test]
-    fn the_table_is_indexed_like_the_electron_catalog() {
-        let devices = [
-            "iphone-se",
-            "iphone-14-pro",
-            "iphone-14-pro-max",
-            "ipad-mini",
-            "ipad-pro-11",
-            "ipad-pro-129",
-            "laptop",
-            "desktop",
-            "desktop-xl",
-            "iphone-duo-cover",
-            "iphone-duo-open",
-        ];
-        for (index, device) in (0..).zip(devices) {
-            assert_eq!(
-                preset(index).map(|row| row.device_id),
-                Some(device),
-                "preset {index}"
-            );
+    fn every_row_a_file_was_written_with_keeps_its_index_id_and_size() {
+        for (index, legacy) in (0..).zip(LEGACY) {
+            let row = preset(index).map(|row| (row.device_id, row.width, row.height));
+            assert_eq!(row, Some(legacy), "preset {index}");
+            assert_eq!(preset_named(legacy.0), u32::try_from(index).ok());
         }
         assert_eq!(
             preset(u64::from(LAPTOP)).map(|row| row.label),
             Some("Laptop")
         );
-        assert_eq!(preset(devices.len() as u64), None);
+        assert_eq!(preset(VIEWPORT_PRESETS.len() as u64), None);
+        // A name a row used to have still finds it.
+        assert_eq!(preset_named("iPhone 14 Pro"), Some(1));
+        assert_eq!(preset_named("iPad Pro 12.9"), Some(5));
+        assert_eq!(preset_named("iPad Mini"), Some(3));
+        assert_eq!(preset_named("Nokia 3310"), None);
+    }
+
+    #[test]
+    fn the_menu_offers_every_row_once_but_the_retired_one() {
+        let offered: Vec<u32> = (PRESET_MENU.iter())
+            .flat_map(|(_, rows)| rows.iter().copied())
+            .collect();
+        let mut sorted = offered.clone();
+        sorted.sort_unstable();
+        // The old 11-inch iPad Pro, row 4, opens and is not offered.
+        let all_but_retired: Vec<u32> = (0..VIEWPORT_PRESETS.len() as u32)
+            .filter(|&index| index != 4)
+            .collect();
+        assert_eq!(sorted, all_but_retired);
+        for index in offered {
+            let row = preset(u64::from(index)).unwrap();
+            // A row is found again by what the menu calls it and by its id.
+            assert_eq!(preset_named(row.label), Some(index), "{}", row.label);
+            assert_eq!(preset_named(row.device_id), Some(index), "{}", row.label);
+        }
+        let retired = device_shell(Some("ipad-pro-11"), false, DeviceFrameStyle::Realistic);
+        assert_eq!(retired.art, Some(DeviceArt::IpadPro11inches));
     }
 
     #[test]
     fn a_device_with_a_drawing_has_its_bodys_shell_in_both_styles() {
-        // Insets as top, right, bottom, left, then the radii to a tenth.
-        let bodies = [
-            (DeviceArt::IphoneSe, (94.0, 23.0, 96.0, 23.0), 63.0, 0.0),
-            (DeviceArt::Iphone15Pro, (17.0, 17.0, 17.0, 17.0), 71.7, 55.0),
-            // Its sides are 16.5 and its ends 16.67, one even bezel.
-            (
-                DeviceArt::Iphone15ProMax,
-                (17.0, 17.0, 17.0, 17.0),
-                71.7,
-                55.0,
-            ),
-            (DeviceArt::IpadPro11, (49.0, 49.0, 49.0, 49.0), 66.0, 17.2),
-        ];
-        let tenth = |value: f64| (value * 10.0).round() / 10.0;
-        for (art, insets, radius, screen_radius) in bodies {
-            let device = Some(art.device_id());
+        let drawn: Vec<&ViewportPreset> = (VIEWPORT_PRESETS.iter())
+            .filter(|row| DeviceArt::of_device(row.device_id).is_some())
+            .collect();
+        assert!(drawn.len() >= DeviceArt::ALL.len(), "every drawing is used");
+        for row in drawn {
+            let art = DeviceArt::of_device(row.device_id);
+            let device = Some(row.device_id);
             for landscape in [false, true] {
                 let clay = device_shell(device, landscape, DeviceFrameStyle::Clay);
                 let realistic = device_shell(device, landscape, DeviceFrameStyle::Realistic);
-                assert_eq!((clay.art, realistic.art), (None, Some(art)));
+                assert_eq!((clay.art, realistic.art), (None, art));
                 assert_eq!(
                     DeviceShell {
                         art: None,
                         ..realistic
                     },
                     clay,
-                    "{art:?}, landscape {landscape}"
+                    "{}, landscape {landscape}",
+                    row.label
                 );
             }
-            let shell = device_shell(device, false, DeviceFrameStyle::Clay);
+        }
+        // Insets as top, right, bottom, left, then the radii to a tenth.
+        let bodies = [
+            ("iphone-se", (94.0, 23.0, 96.0, 23.0), 63.0, 0.0),
+            ("ipad-pro-11", (49.0, 49.0, 49.0, 49.0), 66.0, 17.2),
+        ];
+        let tenth = |value: f64| (value * 10.0).round() / 10.0;
+        for (device, insets, radius, screen_radius) in bodies {
+            let shell = device_shell(Some(device), false, DeviceFrameStyle::Clay);
             let ShellInsets {
                 top,
                 right,
                 bottom,
                 left,
             } = shell.insets;
-            assert_eq!((top, right, bottom, left), insets, "{art:?}");
+            assert_eq!((top, right, bottom, left), insets, "{device}");
             assert_eq!(
                 (
                     tenth(shell.corner_radius),
                     tenth(shell.screen_corner_radius)
                 ),
                 (radius, screen_radius),
-                "{art:?}"
+                "{device}"
             );
         }
     }

@@ -66,7 +66,7 @@ fn a_page_is_its_frame_with_a_border_and_a_title() {
 
 #[test]
 fn a_framed_page_sits_in_its_device_shell() {
-    // The file's corner is the shell's, 17 out from the screen. The second
+    // The file's corner is the shell's, 20 out from the screen. The second
     // is a dark device, which is the dark theme's clay in the light theme.
     let app = TestApp::from_canvas(
         r#"{"nodes":[{"id":"p1","type":"link","x":100,"y":100,"width":393,"height":852,
@@ -92,7 +92,7 @@ fn a_realistic_frame_is_its_devices_drawing_over_the_page() {
             "deviceOrientation":"landscape"}}],"edges":[]}"#,
     );
     // No colour is kept, so the device is the light theme's.
-    let asset = specular_doc::DeviceArt::Iphone15Pro.asset(specular_doc::DeviceFrameColor::Light);
+    let asset = specular_doc::DeviceArt::Iphone16.asset(specular_doc::DeviceFrameColor::Light);
     let image = app.app().image(asset).map(|image| image.key);
     assert!(image.is_some(), "the drawing was never asked for");
     if let Some(image) = image {

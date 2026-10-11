@@ -2,6 +2,7 @@
   {
     "name": "google-pixel-9",
     "file": "google-pixel-9.svg",
+    "lightFile": "google-pixel-9-light.svg",
     "frame": {
       "width": 792,
       "height": 1669
@@ -31,6 +32,7 @@
   {
     "name": "google-pixel-9-pro-xl",
     "file": "google-pixel-9-pro-xl.svg",
+    "lightFile": "google-pixel-9-pro-xl-light.svg",
     "frame": {
       "width": 787,
       "height": 1663
@@ -89,6 +91,7 @@
   {
     "name": "ipad-air-4",
     "file": "ipad-air-4.svg",
+    "lightFile": "ipad-air-4-light.svg",
     "frame": {
       "width": 1811,
       "height": 2509
@@ -116,8 +119,40 @@
     "kind": "tablet"
   },
   {
+    "name": "ipad-mini",
+    "file": "ipad-mini.svg",
+    "lightFile": "ipad-mini-light.svg",
+    "frame": {
+      "width": 1388.2048,
+      "height": 2000.3173
+    },
+    "screen": {
+      "x": 105.711,
+      "y": 111.275,
+      "width": 1171.214,
+      "height": 1783.582
+    },
+    "screenCornerRadius": 36.16,
+    "body": {
+      "x": 0,
+      "y": 5.564,
+      "width": 1382.645,
+      "height": 1994.754
+    },
+    "bodyCornerRadius": 127.97,
+    "logicalScreen": {
+      "width": 744,
+      "height": 1133
+    },
+    "pixelRatio": 2,
+    "platform": "ios",
+    "kind": "tablet",
+    "source": "specular"
+  },
+  {
     "name": "ipad-pro-11-inches-m4",
     "file": "ipad-pro-11-inches-m4.svg",
+    "lightFile": "ipad-pro-11-inches-m4-light.svg",
     "frame": {
       "width": 927,
       "height": 1303
@@ -206,6 +241,7 @@
   {
     "name": "ipad-pro-12inches-gen4",
     "file": "ipad-pro-12inches-gen4.svg",
+    "lightFile": "ipad-pro-12inches-gen4-light.svg",
     "frame": {
       "width": 1849,
       "height": 2424
@@ -235,6 +271,7 @@
   {
     "name": "ipad-pro-13-inches-m4",
     "file": "ipad-pro-13-inches-m4.svg",
+    "lightFile": "ipad-pro-13-inches-m4-light.svg",
     "frame": {
       "width": 1122,
       "height": 1466
@@ -380,6 +417,7 @@
   {
     "name": "iphone-13",
     "file": "iphone-13.svg",
+    "lightFile": "iphone-13-light.svg",
     "frame": {
       "width": 873,
       "height": 1771
@@ -527,6 +565,7 @@
   {
     "name": "iphone-16",
     "file": "iphone-16.svg",
+    "lightFile": "iphone-16-light.svg",
     "frame": {
       "width": 873,
       "height": 1778
@@ -556,6 +595,7 @@
   {
     "name": "iphone-16-plus",
     "file": "iphone-16-plus.svg",
+    "lightFile": "iphone-16-plus-light.svg",
     "frame": {
       "width": 873,
       "height": 1786
@@ -585,6 +625,7 @@
   {
     "name": "iphone-16-pro",
     "file": "iphone-16-pro.svg",
+    "lightFile": "iphone-16-pro-light.svg",
     "frame": {
       "width": 873,
       "height": 1806
@@ -614,6 +655,7 @@
   {
     "name": "iphone-16-pro-max",
     "file": "iphone-16-pro-max.svg",
+    "lightFile": "iphone-16-pro-max-light.svg",
     "frame": {
       "width": 873,
       "height": 1812
@@ -639,6 +681,37 @@
     "pixelRatio": 3,
     "platform": "ios",
     "kind": "phone"
+  },
+  {
+    "name": "iphone-air",
+    "file": "iphone-air.svg",
+    "lightFile": "iphone-air-light.svg",
+    "frame": {
+      "width": 908.9863,
+      "height": 1881.9455
+    },
+    "screen": {
+      "x": 34.653,
+      "y": 29.322,
+      "width": 839.679,
+      "height": 1823.304
+    },
+    "screenCornerRadius": 123.95,
+    "body": {
+      "x": 5.331,
+      "y": 0,
+      "width": 898.323,
+      "height": 1881.946
+    },
+    "bodyCornerRadius": 153.28,
+    "logicalScreen": {
+      "width": 420,
+      "height": 912
+    },
+    "pixelRatio": 3,
+    "platform": "ios",
+    "kind": "phone",
+    "source": "specular"
   },
   {
     "name": "iphone-se",
@@ -818,6 +891,7 @@
   {
     "name": "samsung-galaxy-s25",
     "file": "samsung-galaxy-s25.svg",
+    "lightFile": "samsung-galaxy-s25-light.svg",
     "frame": {
       "width": 872,
       "height": 1805
