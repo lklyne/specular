@@ -125,6 +125,13 @@ pub enum PageEvent {
         /// The document's scroll offset, in CSS pixels.
         offset: Vec2,
     },
+    /// The answer to a [`PageSource::scroll_room`].
+    ScrollRoom {
+        /// The page.
+        page: PageId,
+        /// Whether something under the point can scroll the way asked.
+        room: bool,
+    },
     /// The answer to a [`PageSource::scroll_progress`].
     ScrollProgress {
         /// The page.
@@ -326,6 +333,36 @@ pub enum PageColorScheme {
     Dark,
 }
 
+/// The user agent a page sends in place of the browser's own.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct PageUserAgent {
+    /// The `User-Agent` header and `navigator.userAgent`.
+    pub user_agent: &'static str,
+    /// `navigator.platform`.
+    pub navigator_platform: &'static str,
+    /// The platform its client hints name (`Sec-CH-UA-Platform`).
+    pub hint_platform: &'static str,
+    /// The model its client hints name (`Sec-CH-UA-Model`).
+    pub model: &'static str,
+}
+
+/// The device a page tells its document it is on. The default is the
+/// browser as it is: a desktop whose pixel ratio is the texture scale.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct PageDevice {
+    /// The user agent it sends, as a mobile one. `None` is the browser's.
+    pub user_agent: Option<PageUserAgent>,
+    /// Whether it lays out as a phone does: `<meta viewport>` is followed,
+    /// scrollbars overlay the content and text is sized for a small screen.
+    pub mobile: bool,
+    /// Whether it has a touch screen: `pointer: coarse`, `hover: none` and
+    /// touch points.
+    pub touch: bool,
+    /// Its `devicePixelRatio`, whatever scale its texture is rastered at.
+    /// `None` is the texture scale.
+    pub pixel_ratio: Option<f32>,
+}
+
 /// A backend that hosts offscreen pages and delivers their painted frames.
 ///
 /// Object-safe on purpose: the app holds a `Box<dyn PageSource>` and picks the
@@ -373,6 +410,14 @@ pub trait PageSource {
         Ok(())
     }
 
+    /// Sets the device the page tells its document it is on. The document
+    /// loaded keeps the user agent it was fetched with, so a caller that
+    /// changes one reloads the page. A backend whose pages are no device
+    /// leaves them as they are.
+    fn set_device(&mut self, _page: PageId, _device: &PageDevice) -> Result<(), PageSourceError> {
+        Ok(())
+    }
+
     /// Stops hosting a page. Outstanding frames for it stay valid until dropped.
     fn close_page(&mut self, page: PageId) -> Result<(), PageSourceError>;
 
@@ -405,6 +450,18 @@ pub trait PageSource {
     /// Asks how far the page's document is scrolled, as a fraction of how
     /// far it can scroll. Answered by a [`PageEvent::ScrollProgress`].
     fn scroll_progress(&mut self, page: PageId) -> Result<(), PageSourceError>;
+
+    /// Asks whether anything under `at`, in the page's CSS pixels, can
+    /// scroll with a finger that moves `toward`. Answered by a
+    /// [`PageEvent::ScrollRoom`]. A source that cannot tell does not answer.
+    fn scroll_room(
+        &mut self,
+        _page: PageId,
+        _at: Vec2,
+        _toward: Vec2,
+    ) -> Result<(), PageSourceError> {
+        Ok(())
+    }
 
     /// Scrolls the page's document to `progress` of how far it can scroll
     /// along each axis, clamped to `0..=1`: the same fraction lands a short

@@ -2,13 +2,18 @@
 
 use cef::{
     BrowserHost, CefString, ImplBrowser, ImplBrowserHost, ImplFrame, KeyEvent as CefKeyEvent,
-    KeyEventType, MouseButtonType, MouseEvent,
+    KeyEventType, MouseButtonType, MouseEvent, PointerType, TouchEvent, TouchEventType,
 };
-use specular_core::{KeyEventKind, PageEdit, PointerButton};
+use specular_core::{KeyEventKind, PageEdit, PointerButton, TouchPhase};
 
 use crate::devtools::{Asked, Devtools};
 use crate::key_message::{self, PlainKey};
 use crate::translate::{CefRange, HostCall};
+
+/// The id of the one finger a page has on it.
+const FINGER: i32 = 0;
+/// Half a fingertip's width, in CSS pixels.
+const FINGER_RADIUS: f32 = 10.0;
 
 fn mouse_event(x: i32, y: i32, flags: u32) -> MouseEvent {
     MouseEvent {
@@ -89,6 +94,22 @@ pub(crate) fn dispatch(host: &BrowserHost, devtools: &Devtools, call: &HostCall<
             i32::from(up),
             click_count,
         ),
+        HostCall::Touch { phase, x, y, flags } => host.send_touch_event(Some(&TouchEvent {
+            id: FINGER,
+            x: x as f32,
+            y: y as f32,
+            radius_x: FINGER_RADIUS,
+            radius_y: FINGER_RADIUS,
+            rotation_angle: 0.0,
+            pressure: if phase == TouchPhase::End { 0.0 } else { 1.0 },
+            type_: match phase {
+                TouchPhase::Start => TouchEventType::PRESSED,
+                TouchPhase::Move => TouchEventType::MOVED,
+                TouchPhase::End => TouchEventType::RELEASED,
+            },
+            modifiers: flags,
+            pointer_type: PointerType::TOUCH,
+        })),
         HostCall::MouseWheel {
             x,
             y,

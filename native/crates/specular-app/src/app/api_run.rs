@@ -6,7 +6,7 @@ use crate::api::ApiHost;
 use crate::cdp::CdpHost;
 use serde_json::{Value, json};
 use specular_api::{CdpAsk, Host, Response, Screenshot};
-use specular_interact::{ApiOutcome, App, DroppedFile, Event};
+use specular_interact::{ApiOutcome, App, DroppedFile, Event, PageNotice};
 
 /// What another thread can ask the event loop to do.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -51,7 +51,18 @@ impl<W: ShellWindow> Runtime<W> {
             let acts = cdp.serve(self.source.as_mut());
             // A backend with no loop of its own answers when pumped.
             self.source.pump();
-            for act in acts {
+            for (act, scroll) in acts {
+                // The client measured the point after scrolling it into
+                // view, and the page's own word of that scroll may not have
+                // come yet.
+                if let Some(scroll) = scroll {
+                    let notice = PageNotice::Scrolled {
+                        x: scroll.x,
+                        y: scroll.y,
+                    };
+                    let page = act.page.clone();
+                    self.dispatch(Event::Page { page, notice });
+                }
                 tracing::debug!(
                     ticket = act.ticket,
                     page = %act.page,

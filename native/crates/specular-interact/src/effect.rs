@@ -2,7 +2,7 @@
 
 use glam::Vec2;
 use specular_agent::{RunRequest, ThreadId};
-use specular_core::{CssSize, Cursor, InputEvent, LocatorBundle, PageNav, PointKind};
+use specular_core::{CssSize, Cursor, InputEvent, LocatorBundle, PageDevice, PageNav, PointKind};
 use specular_doc::{ColorScheme, EntityId, Rect};
 
 use crate::{
@@ -59,6 +59,17 @@ pub enum Effect {
     /// how far it can scroll. The answer is a
     /// [`PageNotice::ScrollProgress`](crate::PageNotice::ScrollProgress).
     AskScrollProgress(EntityId),
+    /// Ask a hosted page whether anything under `at`, in its CSS pixels,
+    /// can scroll with a finger that moves `toward`. The answer is a
+    /// [`PageNotice::ScrollRoom`](crate::PageNotice::ScrollRoom).
+    AskScrollRoom {
+        /// The page.
+        page: EntityId,
+        /// Where the finger is.
+        at: Vec2,
+        /// The way the finger is moving.
+        toward: Vec2,
+    },
     /// Scroll a hosted page's document to a fraction of how far it can
     /// scroll: what keeps the pages of a sync set at the same place in
     /// their content whatever their widths.
@@ -319,6 +330,16 @@ pub enum Effect {
         page: EntityId,
         /// The page's own scheme, if it has one.
         scheme: Option<ColorScheme>,
+    },
+    /// Tell a hosted page the device it is on, and load it again so its
+    /// document is the one that device is served. Asked when the page's
+    /// preset names another device; the shell gives a new page its device
+    /// ([`page_device`](crate::page_device)) as it makes it.
+    SetPageDevice {
+        /// The page entity.
+        page: EntityId,
+        /// The device its preset names.
+        device: PageDevice,
     },
     /// Read every thread file under `.specular/threads/` of the space
     /// folder, and `index.json` beside them, and answer with

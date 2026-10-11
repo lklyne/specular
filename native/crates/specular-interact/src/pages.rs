@@ -3,19 +3,20 @@
 
 use std::collections::HashMap;
 
-use specular_core::{CssSize, PageNav};
+use specular_core::{CssSize, PageDevice, PageNav};
 use specular_doc::{ColorScheme, EntityId};
 
 use crate::app::page_of;
 use crate::{App, Effect, Gesture, PagePlacement};
 
 /// What a host needs to know about one page entity.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) struct HostedPage {
     id: EntityId,
     url: String,
     viewport: CssSize,
     scheme: Option<ColorScheme>,
+    device: PageDevice,
 }
 
 /// The pages of the document, back-to-front, each at the viewport its host
@@ -36,6 +37,7 @@ pub(crate) fn snapshot(app: &App) -> Vec<HostedPage> {
                 url: page.url.clone(),
                 viewport,
                 scheme: page.color_scheme,
+                device: crate::device::page_device(page),
             })
         })
         .collect()
@@ -160,6 +162,12 @@ pub(crate) fn reconcile(before: &[HostedPage], app: &App, effects: &mut Vec<Effe
                 if old.scheme != page.scheme {
                     effects.push(color_scheme(page));
                 }
+                if old.device != page.device {
+                    effects.push(Effect::SetPageDevice {
+                        page: page.id.clone(),
+                        device: page.device,
+                    });
+                }
                 if old.viewport != page.viewport {
                     effects.push(Effect::SetPageViewport {
                         page: page.id.clone(),
@@ -167,7 +175,8 @@ pub(crate) fn reconcile(before: &[HostedPage], app: &App, effects: &mut Vec<Effe
                     });
                 }
             }
-            // The shell gives a new page its scheme as it makes it.
+            // The shell gives a new page its scheme and its device as it
+            // makes it.
             None => effects.push(Effect::CreatePage {
                 page: page.id.clone(),
                 url: page.url.clone(),

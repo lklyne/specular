@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
 use cef::{
@@ -12,15 +12,15 @@ use cef::{
 };
 use glam::Vec2;
 use specular_core::{
-    CssRect, CssSize, DevtoolsSink, InputEvent, LocatorBundle, PageColorScheme, PageEvent, PageId,
-    PageNav, PageSource, PageSourceError, PageSpec, PointKind, validate_texture_scale,
-    validate_viewport,
+    CssRect, CssSize, DevtoolsSink, InputEvent, LocatorBundle, PageColorScheme, PageDevice,
+    PageEvent, PageId, PageNav, PageSource, PageSourceError, PageSpec, PointKind,
+    validate_texture_scale, validate_viewport,
 };
 
 use crate::attach_host::Tracking;
 use crate::client::{new_app, new_client};
 use crate::config::{CefConfig, Pump, browser_switches, windowless_frame_rate};
-use crate::devtools::{Asked, Devtools, SinkSlot};
+use crate::devtools::{Asked, Devtools, Pending, SinkSlot};
 use crate::error::CefError;
 use crate::host_call::dispatch;
 use crate::page::{
@@ -48,6 +48,8 @@ pub(crate) struct PageEntry {
     /// The channel the page's elements are asked about on.
     pub(crate) devtools: Devtools,
     geometry: Arc<Mutex<PageGeometry>>,
+    /// The device the page is told it is on at the start of every load.
+    device: Arc<Mutex<PageDevice>>,
     input: InputTranslator,
     /// Whether the browser is shown (`WasHidden(false)`).
     painting: bool,
@@ -236,12 +238,15 @@ impl PageSource for CefPageSource {
         self.next_id += 1;
         let id = PageId(self.next_id);
         let geometry = Arc::new(Mutex::new(PageGeometry::new(spec)));
+        let device = Arc::new(Mutex::new(spec.device));
         let ctx = PageContext {
             id,
             geometry: Arc::clone(&geometry),
             frames: OutstandingFrames::default(),
             alive: Arc::clone(&self.alive),
             ui_thread: self.ui_thread,
+            device: Arc::clone(&device),
+            pending: Pending::default(),
         };
         let mut client = new_client(&ctx);
         let window_info = WindowInfo {
@@ -273,6 +278,17 @@ impl PageSource for CefPageSource {
         let host = browser.host().ok_or_else(create_error)?;
         self.alive.fetch_add(1, Ordering::AcqRel);
         let devtools = Devtools::attach(&host, &ctx, &self.devtools_sink);
+        devtools.send_device(&host, &spec.device);
+        // The load the browser was made with may have asked for its
+        // document as the browser itself. Asked for again, it is the device.
+        if spec.device.user_agent.is_some() {
+            (browser.main_frame())
+                .ok_or_else(|| backend_error(CefError::NoMainFrame))?
+                .load_url(Some(&CefString::from(spec.url.as_str())));
+        }
+        (browser.main_frame())
+            .ok_or_else(|| backend_error(CefError::NoMainFrame))?
+            .load_url(Some(&CefString::from(spec.url.as_str())));
         // The target id names the page to outside CDP clients; without a
         // debugging port nobody can use it.
         if self.devtools_port().is_some() {
@@ -285,6 +301,7 @@ impl PageSource for CefPageSource {
                 host,
                 devtools,
                 geometry,
+                device,
                 input: InputTranslator::new(),
                 painting: true,
                 unsent: Unsent::default(),
@@ -369,6 +386,15 @@ impl PageSource for CefPageSource {
             .ok_or_else(|| refused("color scheme"))
     }
 
+    fn set_device(&mut self, page: PageId, device: &PageDevice) -> Result<(), PageSourceError> {
+        let entry = self.entry(page)?;
+        *entry.device.lock().unwrap_or_else(PoisonError::into_inner) = *device;
+        (entry.devtools)
+            .send_device(&entry.host, device)
+            .then_some(())
+            .ok_or_else(|| refused("device"))
+    }
+
     fn close_page(&mut self, page: PageId) -> Result<(), PageSourceError> {
         let entry = self
             .pages
@@ -427,6 +453,10 @@ impl PageSource for CefPageSource {
 
     fn scroll_progress(&mut self, page: PageId) -> Result<(), PageSourceError> {
         self.ask_scroll_progress(page)
+    }
+
+    fn scroll_room(&mut self, page: PageId, at: Vec2, toward: Vec2) -> Result<(), PageSourceError> {
+        self.ask_scroll_room(page, at, toward)
     }
 
     fn scroll_to(&mut self, page: PageId, progress: Vec2) -> Result<(), PageSourceError> {

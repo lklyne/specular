@@ -67,6 +67,11 @@ pub(super) enum Do {
     /// The window's bottom-right corner dragged by this much over this many
     /// milliseconds, a move every refresh: a live resize.
     ResizeDrag(Vec2, u64),
+    /// The pointer pressed where it is, dragged by this much over this many
+    /// milliseconds with a move every refresh, and released this many
+    /// milliseconds after the last move: a flick when it is fast, and a
+    /// tap-and-drag's when the release is late.
+    Swipe(Vec2, u64, u64),
     /// A trackpad pinch where the pointer is.
     Pinch(f32),
     Act(Action),
@@ -215,6 +220,9 @@ fn window_step(verb: &str, rest: &str, dialect: Dialect) -> Option<Result<Do, St
         "resize-drag" => point(0)
             .zip(number(2))
             .map(|(by, ms)| Do::ResizeDrag(by, ms as u64)),
+        "swipe" => point(0)
+            .zip(number(2))
+            .map(|(by, ms)| Do::Swipe(by, ms as u64, number(3).unwrap_or(0.0) as u64)),
         "key" if dialect == Dialect::Inline && number(0).is_some() => coded(0, 0),
         "keycode" => coded(0, 0),
         "cmd-key" => coded(COMMAND, 0),
@@ -375,6 +383,11 @@ mod tests {
             ),
             ("resize 1200 800", Do::Resize(Vec2::new(1200.0, 800.0))),
             ("pan -6 0 2000", Do::Pan(Vec2::new(-6.0, 0.0), 2000)),
+            ("swipe 0 -200 40", Do::Swipe(Vec2::new(0.0, -200.0), 40, 0)),
+            (
+                "swipe 0 -200 40 400",
+                Do::Swipe(Vec2::new(0.0, -200.0), 40, 400),
+            ),
             (
                 "resize-drag -400 -250 1200",
                 Do::ResizeDrag(Vec2::new(-400.0, -250.0), 1200),

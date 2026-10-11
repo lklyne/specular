@@ -22,6 +22,7 @@ use crate::{arrange, clipboard, drop, select_all, zoom};
 /// under it, else it moves the camera. A panel keeps it whether or not it
 /// scrolls: nothing of the chrome lies over canvas a pan should reach.
 fn on_wheel(app: &mut App, input: &crate::WheelInput, effects: &mut Vec<Effect>) {
+    crate::flick::halt(app);
     if !builtin::on_wheel(app, input) && !builtin::over(app) && !notes::on_wheel(app, input) {
         camera::on_wheel(app, input, effects);
     }
@@ -222,6 +223,7 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         Action::CloseTab(item) => crate::showing::close_tab(app, item, effects),
         Action::NewPageTab => crate::showing::new_tab(app, effects),
         Action::SetLens(lens) => crate::showing::set_lens(app, lens, effects),
+        Action::ShowOthers(shown) => crate::showing::set_others(app, shown, effects),
         Action::EditPageUrl => page_state::edit_url(app, effects),
         Action::FocusComment(id) => verb(app, effects, |app, effects| {
             comment::focus(app, id.as_ref(), effects);
@@ -412,6 +414,7 @@ fn on_tick(app: &mut App, unix_ms: u64, effects: &mut Vec<Effect>) {
     app.session.motion.on_tick(unix_ms);
     sync::on_tick(app, effects);
     crate::presence::on_tick(app, effects);
+    crate::flick::on_tick(app, effects);
     images::on_tick(app, effects);
     edit::note::autosave(app, effects);
     edit::autoscroll(app, elapsed);
@@ -426,6 +429,11 @@ fn on_page_event(app: &mut App, page: &EntityId, notice: &PageNotice, effects: &
     }
     sync::on_notice(app, page, notice, shown.as_deref(), effects);
     crate::inspect::on_notice(app, page, notice);
+    match notice {
+        PageNotice::Scrolled { .. } => crate::flick::scrolled(app, page),
+        PageNotice::ScrollRoom(room) => crate::flick::room(app, page, *room),
+        _ => {}
+    }
     on_page_notice(app, page, notice, effects);
 }
 
@@ -440,6 +448,7 @@ fn on_page_notice(app: &App, page: &EntityId, notice: &PageNotice, effects: &mut
         | PageNotice::Loading { .. }
         | PageNotice::Scrolled { .. }
         | PageNotice::ScrollProgress { .. }
+        | PageNotice::ScrollRoom(_)
         | PageNotice::Pointed { .. }
         | PageNotice::Candidates { .. }
         | PageNotice::Inspected { .. }

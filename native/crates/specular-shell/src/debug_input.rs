@@ -31,6 +31,7 @@
 //! | `keys shift+cmd CODE [CHARS]` | the same with any modifiers |
 //! | `pan DX DY MS` | a scroll by that much every refresh for that long, where the pointer is |
 //! | `drop PATH.. X Y`, `drop PATH.. nowhere` | files dropped at a point, or off the canvas |
+//! | `swipe DX DY MS [LATE]` | the pointer pressed where it is, dragged by that much over that long with a move every refresh, and released `LATE` ms after the last move: a flick when it is fast, and a tap-and-drag's when the release is late |
 //! | `resize-drag DX DY MS` | the window's bottom-right corner pressed, dragged by that much over that long with a move every refresh, and released: `AppKit`'s own live resize, which `resize` is not |
 //! | `resize W H` | the window's content resized, its top-left corner kept |
 //! | `window-to X Y` | the window moved, its frame's corner to that screen point |

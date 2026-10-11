@@ -244,6 +244,9 @@ pub struct Session {
     /// The item tabs of the active canvas: their order and the lens each
     /// keeps.
     pub(crate) tabs: crate::showing::Tabs,
+    /// Whether the eye is open: Device draws what is around its item. One
+    /// choice for every tab and canvas, shut to begin with.
+    pub(crate) others_shown: bool,
     /// The group stepped into by a double click. It stays while the
     /// selection is inside it, and Escape steps out of it.
     pub entered_group: Option<EntityId>,
@@ -284,6 +287,8 @@ pub struct Session {
     pub(crate) pointer_page: Option<EntityId>,
     /// Which page got each held button's press.
     pub(crate) captured: ButtonCapture,
+    /// The swipe being made on a touch page and the glide it left.
+    pub(crate) flick: crate::flick::Flick,
     /// What each hosted page last reported of itself.
     pub(crate) pages: crate::page_state::PageStates,
     /// What following a sync set remembers between events.

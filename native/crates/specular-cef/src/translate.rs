@@ -8,7 +8,7 @@
 use glam::Vec2;
 use specular_core::{
     EditingKey, ImeEvent, InputEvent, KeyEvent, KeyEventKind, Modifiers, PageEdit, PointerButton,
-    PointerEvent, PointerEventKind, WheelEvent,
+    PointerEvent, PointerEventKind, TouchPhase, WheelEvent,
 };
 
 use crate::key_message::PlainKey;
@@ -92,6 +92,17 @@ pub enum HostCall<'a> {
         up: bool,
         /// Consecutive clicks.
         click_count: i32,
+    },
+    /// `SendTouchEvent(event)`: one finger.
+    Touch {
+        /// What the finger did.
+        phase: TouchPhase,
+        /// View x, CSS px.
+        x: i32,
+        /// View y, CSS px.
+        y: i32,
+        /// `cef_event_flags_t` bits.
+        flags: u32,
     },
     /// `SendMouseWheelEvent(event, delta_x, delta_y)`.
     MouseWheel {
@@ -209,6 +220,12 @@ impl InputTranslator {
     pub fn translate<'a>(&mut self, event: &'a InputEvent) -> impl Iterator<Item = HostCall<'a>> {
         let calls: [Option<HostCall<'a>>; 2] = match event {
             InputEvent::Pointer(pointer) => [Some(self.pointer(pointer)), None],
+            InputEvent::Touch(touch) => {
+                let (x, y) = view_point(touch.position);
+                let flags = modifier_flags(touch.modifiers);
+                let phase = touch.phase;
+                [Some(HostCall::Touch { phase, x, y, flags }), None]
+            }
             InputEvent::Wheel(wheel) => [self.wheel(wheel), None],
             InputEvent::Key(key) => Self::key(key),
             InputEvent::Ime(ime) => [Some(Self::ime(ime)), None],

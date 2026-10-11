@@ -26,7 +26,7 @@ use cef::{
     ImplDevToolsMessageObserver, Registration, WrapDevToolsMessageObserver,
     wrap_dev_tools_message_observer,
 };
-use specular_core::{DevtoolsSink, KeyEventKind, PageEvent};
+use specular_core::{DevtoolsSink, KeyEventKind, PageDevice, PageEvent};
 
 use crate::devtools_route::{Route, route};
 use crate::host_call::send_key;
@@ -47,6 +47,8 @@ pub(crate) enum Asked {
     Target,
     /// How far through its document the page is scrolled.
     ScrollProgress,
+    /// Whether anything under a finger can scroll the way it moves.
+    ScrollRoom,
     /// What the captured page was pointed at since it was last asked.
     Pointed,
     /// The elements a bundle could mean, for this request.
@@ -63,7 +65,7 @@ pub(crate) enum Asked {
 }
 
 #[derive(Debug, Default)]
-struct Sent {
+pub(crate) struct Sent {
     next_id: c_int,
     asked: HashMap<c_int, Asked>,
 }
@@ -71,7 +73,7 @@ struct Sent {
 /// The messages a page has been sent and not answered, by message id.
 /// Shared with the observer, which CEF may drop on another thread.
 #[derive(Debug, Clone, Default)]
-struct Pending(Arc<Mutex<Sent>>);
+pub(crate) struct Pending(Arc<Mutex<Sent>>);
 
 impl Pending {
     /// A panic while the lock was held cannot leave the map half-written
@@ -94,6 +96,27 @@ impl Pending {
 
     fn holds(&self, asked: Asked) -> bool {
         self.lock().asked.values().any(|held| *held == asked)
+    }
+
+    /// Sends the message `build` makes for a fresh message id. Returns
+    /// whether CEF took it; a refused message will never be answered.
+    fn send(&self, host: &BrowserHost, asked: Asked, build: impl FnOnce(c_int) -> Vec<u8>) -> bool {
+        let id = self.ask(asked);
+        let sent = host.send_dev_tools_message(Some(&build(id))) != 0;
+        if !sent {
+            self.take(id);
+        }
+        sent
+    }
+
+    /// Tells the page it is on `device`. Returns whether its devtools
+    /// channel took every message.
+    pub(crate) fn send_device(&self, host: &BrowserHost, device: &PageDevice) -> bool {
+        (dom_query::device_methods(device).iter()).fold(true, |sent, (method, params)| {
+            self.send(host, Asked::Done, |id| {
+                dom_query::method_message(id, method, params)
+            }) && sent
+        })
     }
 }
 
@@ -183,6 +206,12 @@ wrap_dev_tools_message_observer! {
                         progress: glam::Vec2::new(x, y),
                     }
                 }
+                Asked::ScrollRoom => {
+                    let Some(room) = dom_query::parse_scroll_room(result) else {
+                        return;
+                    };
+                    PageEvent::ScrollRoom { page, room }
+                }
                 Asked::Pointed => {
                     for (kind, bundle) in sync_query::parse_captured(result) {
                         self.ctx.push(PageEvent::Pointed {
@@ -235,7 +264,7 @@ pub(crate) struct Devtools {
 impl Devtools {
     /// Starts observing `host`'s devtools answers for the page `ctx` names.
     pub(crate) fn attach(host: &BrowserHost, ctx: &PageContext, sink: &SinkSlot) -> Self {
-        let pending = Pending::default();
+        let pending = ctx.pending.clone();
         let mut observer: DevToolsMessageObserver =
             PageObserver::new(ctx.clone(), pending.clone(), sink.clone());
         let registration = host.add_dev_tools_message_observer(Some(&mut observer));
@@ -256,12 +285,13 @@ impl Devtools {
         asked: Asked,
         build: impl FnOnce(c_int) -> Vec<u8>,
     ) -> bool {
-        let id = self.pending.ask(asked);
-        let sent = host.send_dev_tools_message(Some(&build(id))) != 0;
-        if !sent {
-            self.pending.take(id);
-        }
-        sent
+        self.pending.send(host, asked, build)
+    }
+
+    /// Tells the page it is on `device`. Returns whether CEF took every
+    /// message.
+    pub(crate) fn send_device(&self, host: &BrowserHost, device: &PageDevice) -> bool {
+        self.pending.send_device(host, device)
     }
 
     /// Whether a question of this kind is still unanswered.

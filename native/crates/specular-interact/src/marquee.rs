@@ -17,7 +17,7 @@ use specular_core::Modifiers;
 use specular_doc::{Document, EdgeSide, Entity, EntityId, ItemId, Rect};
 
 use crate::scope::is_group;
-use crate::{App, Gesture, PointerInput, geometry, select};
+use crate::{App, Effect, Gesture, Lens, PointerInput, Showing, geometry, select, showing};
 
 /// How far the pointer must travel on either axis, in logical pixels, before
 /// a press becomes a drag.
@@ -104,6 +104,9 @@ pub(crate) fn drag(app: &mut App, input: &PointerInput) {
 /// A press that never became a drag is a click: on `origin` when there is
 /// one, otherwise on empty canvas. A drag selects what the rect takes, or
 /// toggles it with Shift, Command or Control held.
+///
+/// A click on the empty canvas around an item shown in Device goes back to
+/// the canvas, as Minimize does: the item stays selected.
 pub(crate) fn finish(
     app: &mut App,
     start: DVec2,
@@ -111,6 +114,7 @@ pub(crate) fn finish(
     origin: Option<EntityId>,
     dragged: bool,
     input: &PointerInput,
+    effects: &mut Vec<Effect>,
 ) {
     let additive = select::is_additive(input.modifiers);
     if !dragged {
@@ -119,6 +123,9 @@ pub(crate) fn finish(
                 app.session.selection.toggle(ItemId::Entity(entity));
             }
             Some(entity) => app.session.selection.set([ItemId::Entity(entity)]),
+            None if !additive && app.lens() == Some(Lens::Device) => {
+                showing::show(app, Showing::Canvas, effects);
+            }
             None => clear_unless(app, additive),
         }
         return;

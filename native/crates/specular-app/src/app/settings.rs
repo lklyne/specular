@@ -2,7 +2,7 @@
 //! preferences file, and the theme's other effect: the colour scheme pages
 //! report.
 
-use specular_core::PageColorScheme;
+use specular_core::{PageColorScheme, PageDevice, PageNav};
 use specular_doc::{ColorScheme, Document, EntityId, Kind};
 use specular_interact::{AppSettings, Appearance, Event, Theme, ToolDefaults};
 
@@ -50,6 +50,20 @@ impl<W: ShellWindow> Runtime<W> {
         }
     }
 
+    /// Tells a hosted page the device it is on, and loads it again as that
+    /// device.
+    pub(super) fn set_page_device(&mut self, page: &EntityId, device: PageDevice) {
+        let Some(host) = self.hosts.get(page).map(|host| host.page) else {
+            return;
+        };
+        let device = in_window(device, self.gpu.as_ref().map_or(1.0, W::scale_factor));
+        let reloaded = (self.source.set_device(host, &device))
+            .and_then(|()| self.source.navigate(host, &PageNav::Reload));
+        if let Err(error) = reloaded {
+            tracing::warn!(%page, "device not set: {error}");
+        }
+    }
+
     pub(super) fn save_tool_defaults(&self, defaults: &ToolDefaults) {
         let Some(path) = self.prefs.as_deref() else {
             return;
@@ -86,6 +100,25 @@ pub(crate) fn page_color_scheme(
     match (own, appearance) {
         (Some(ColorScheme::Light), _) | (None, Appearance::Light) => PageColorScheme::Light,
         (Some(ColorScheme::Dark), _) | (None, Appearance::Dark) => PageColorScheme::Dark,
+    }
+}
+
+/// The device the page `page` of `document` is on, in a window of `scale`.
+pub(crate) fn page_device(document: &Document, page: &EntityId, scale: f32) -> PageDevice {
+    let device = match document.entity(page).map(|entity| &entity.kind) {
+        Some(Kind::Page(page)) => specular_interact::page_device(page),
+        _ => PageDevice::default(),
+    };
+    in_window(device, scale)
+}
+
+/// `device` in a window of `scale`. A page that is the browser as it is
+/// reports the window's scale as its pixel ratio and not the scale its
+/// texture has at the moment, which follows the zoom.
+pub(crate) fn in_window(device: PageDevice, scale: f32) -> PageDevice {
+    PageDevice {
+        pixel_ratio: device.pixel_ratio.or(Some(scale)),
+        ..device
     }
 }
 

@@ -2,9 +2,10 @@
 
 use specular_core::CssSize;
 use specular_doc::{DeviceKind, DeviceShell, Entity, Page};
-use specular_interact::{PageState, title_scale};
+use specular_interact::{Mark, PageState, title_scale};
 
 use super::frame::{Frame, canvas_rect};
+use super::palette;
 use crate::{
     Item, PageDraw, Rect, RectDraw, Scene, ShadowDraw, Stroke, StrokeAlign, TextOverflow, TextRun,
     VerticalAlign,
@@ -22,6 +23,11 @@ pub(crate) const TITLE_WEIGHT: u16 = 500;
 
 /// The drop and blur of a device frame's shadow, in canvas units.
 const SHELL_SHADOW: f32 = 16.0;
+/// The entered page's glow, in logical pixels: how far past the frame it is
+/// at full strength, how far it fades from there, and how strong it is.
+const ENTERED_GLOW_SPREAD: f32 = 2.0;
+const ENTERED_GLOW_BLUR: f32 = 10.0;
+const ENTERED_GLOW_ALPHA: f32 = 0.7;
 /// The ring in the bezel around the screen, in logical pixels.
 const SCREEN_RING_WIDTH: f32 = 1.5;
 /// A phone's notch: its size, its corner radius and its gap from the top
@@ -35,6 +41,21 @@ pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, page: &Page, scene: &mut 
     // A screenshot of the page is the page alone, so the frame is chrome.
     let shell = page.shell().filter(|_| frame.chrome);
     let outer = shell.map_or(screen, |shell| shell_rect(screen, &shell));
+    // A page that fills the view is at 100%, so its radius in screen pixels
+    // is its radius on the canvas.
+    let filling = frame.app.fill_corner_radius(&entity.id);
+    let plain_radius = filling.unwrap_or(CORNER_RADIUS);
+    let outer_radius = shell.map_or(plain_radius, |shell| shell.corner_radius as f32);
+    // The entered page glows in the selection colour from under its whole
+    // frame, the same size on screen at any zoom.
+    if frame.chrome && frame.app.mark(&entity.id) == Some(Mark::Entered) {
+        scene.push(Item::screen(ShadowDraw {
+            rect: frame.project(outer).outset(ENTERED_GLOW_SPREAD),
+            corner_radius: outer_radius * frame.zoom() + ENTERED_GLOW_SPREAD,
+            blur: ENTERED_GLOW_BLUR,
+            color: palette::with_alpha(frame.colors.selection, ENTERED_GLOW_ALPHA),
+        }));
+    }
     if let Some(shell) = &shell {
         let radius = shell.corner_radius as f32;
         scene.push(Item::canvas(ShadowDraw {
@@ -47,10 +68,6 @@ pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, page: &Page, scene: &mut 
             RectDraw::filled(outer, frame.colors.device_bezel).with_corner_radius(radius),
         ));
     }
-    // A page that fills the view is at 100%, so its radius in screen pixels
-    // is its radius on the canvas.
-    let filling = frame.app.fill_corner_radius(&entity.id);
-    let plain_radius = filling.unwrap_or(CORNER_RADIUS);
     let screen_radius = shell.map_or(plain_radius, |shell| shell.screen_corner_radius as f32);
     scene.push(Item::canvas(PageDraw {
         page: entity.id.clone(),
@@ -78,9 +95,8 @@ pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, page: &Page, scene: &mut 
     }
     // A ring just outside the frame, one pixel wide at any zoom.
     let border = Stroke::new(frame.colors.page_border, BORDER_WIDTH, StrokeAlign::Outside);
-    let radius = shell.map_or(plain_radius, |shell| shell.corner_radius as f32);
     scene.push(Item::screen(
-        RectDraw::outlined(on_screen, border).with_corner_radius(radius * zoom),
+        RectDraw::outlined(on_screen, border).with_corner_radius(outer_radius * zoom),
     ));
     let title = title(entity, page, frame.app.page_state(&entity.id));
     if !title.is_empty() {

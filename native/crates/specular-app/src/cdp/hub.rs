@@ -30,11 +30,11 @@ pub(super) struct ToPage {
     pub(super) message: String,
 }
 
-/// A client's act waiting for its cursor.
+/// An act a client announced.
 #[derive(Debug)]
 pub(super) struct PendingAct {
-    /// What [`Hub::go`] answers it by.
-    pub(super) ticket: u64,
+    /// What [`Hub::go`] answers it by. `None` when it was answered already.
+    pub(super) ticket: Option<u64>,
     pub(super) entity: EntityId,
     pub(super) act: WillAct,
 }
@@ -89,10 +89,18 @@ impl State {
                     to_loop.push(ToLoop::Page(ToPage { page, id, message }));
                 }
                 Out::Act { client, act, reply } => {
-                    self.next_act += 1;
-                    self.acts.insert(self.next_act, (client, reply));
+                    let ticket = if act.wait {
+                        self.next_act += 1;
+                        self.acts.insert(self.next_act, (client, reply));
+                        Some(self.next_act)
+                    } else {
+                        if let Some((_, socket)) = self.connections.get(&client) {
+                            socket.send(reply);
+                        }
+                        None
+                    };
                     to_loop.push(ToLoop::Act(PendingAct {
-                        ticket: self.next_act,
+                        ticket,
                         entity: entity.clone(),
                         act,
                     }));

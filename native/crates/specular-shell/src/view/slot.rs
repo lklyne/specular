@@ -59,7 +59,8 @@ const fn button(button: MouseButton) -> Option<PointerButton> {
 
 const fn cursor_style(cursor: Cursor) -> CursorStyle {
     match cursor {
-        Cursor::Default => CursorStyle::Arrow,
+        // Which arrow it is, `cursors` says.
+        Cursor::Default | Cursor::PageArrow | Cursor::Touch => CursorStyle::Arrow,
         Cursor::Crosshair => CursorStyle::Crosshair,
         Cursor::Grab => CursorStyle::OpenHand,
         // GPUI has no four-way move cursor.
@@ -119,14 +120,14 @@ impl SlotPaint {
         window.set_cursor_style(cursor_style(self.asks.cursor.get()), hitbox);
 
         // An open Kit list or menu holds the focus, and a press outside it
-        // closes it. That press must not also start a gesture on the canvas
-        // (the built-in panels swallow it the same way), so a press that
-        // arrives while something other than the canvas or a text field has
-        // the focus only gives the focus back.
-        let closes_a_list = !self.composing
-            && window.focused(cx).is_some_and(|focused| {
-                focused != self.focus && !super::field::holds_focus(&focused, window, cx)
-            });
+        // closes it. A field being typed in ends the same way, and its
+        // controls go with the selection, so a press that also cleared the
+        // selection would take the bar away with the caret. That press must
+        // not also start a gesture on the canvas (the built-in panels
+        // swallow it the same way), so a press that arrives while something
+        // other than the canvas has the focus only gives the focus back.
+        let closes_a_list =
+            !self.composing && (window.focused(cx)).is_some_and(|focused| focused != self.focus);
 
         let (over, press, grab) = (hitbox.clone(), Rc::clone(&self.pointer), self.focus.clone());
         window.on_mouse_event(move |event: &MouseDownEvent, phase, window, cx| {

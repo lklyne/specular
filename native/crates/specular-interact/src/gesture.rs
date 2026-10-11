@@ -124,7 +124,7 @@ pub(crate) fn finish(
             origin,
             dragged,
             ..
-        } => marquee::finish(app, start, start_screen, origin, dragged, input),
+        } => marquee::finish(app, start, start_screen, origin, dragged, input, effects),
         Gesture::Move(drag) => move_drag::finish(app, drag, input.modifiers, effects),
         Gesture::Resize(drag) => resize_drag::finish(app, &drag),
         Gesture::Comment(drag) => comment::finish(app, &drag, effects),

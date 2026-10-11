@@ -7,7 +7,7 @@ use specular_doc::{
     Color, Drawing, Entity, EntityId, FileRef, JsonMap, Kind, PageAnchor, Point, Rect, Stroke,
     Text, TextStyle, WidthMode,
 };
-use specular_interact::{Cursor, Effect, Key, PageNotice, shown_rect};
+use specular_interact::{Cursor, Effect, Key, Mark, PageNotice, shown_rect};
 use specular_testkit::{
     SHIFT, TestApp, assert_doc_snapshot, drawing, file, group, inside, page, shape, sticky, text,
 };
@@ -564,4 +564,27 @@ fn a_selection_resized_while_one_of_it_is_carried_scales_what_is_seen() {
     assert_eq!(app.rect("a"), Rect::new(200.0, 160.0, 200.0, 200.0));
     assert_eq!(app.rect("b"), Rect::new(440.0, 160.0, 200.0, 200.0));
     app.assert_undo_returns_to_start();
+}
+
+#[test]
+fn an_entered_page_has_no_handles_and_keeps_its_own_edge() {
+    let mut app = TestApp::with_pages(2);
+    let p1 = EntityId::from("p1");
+    let stored = app.rect("p1");
+    app.click((200.0, 200.0));
+    assert_eq!(app.app().mark(&p1), Some(Mark::Outline));
+    assert!(app.app().handles().is_some());
+
+    app.click((200.0, 200.0));
+    assert_eq!(app.app().mark(&p1), Some(Mark::Entered));
+    assert_eq!(app.app().handles(), None);
+
+    // Just inside the right edge, where the selected page's side handle is
+    // grabbed: the entered page hears the press, and nothing is resized.
+    app.take_effects();
+    app.drag((498.0, 250.0), (460.0, 250.0));
+    let heard = (app.take_effects().iter())
+        .any(|effect| matches!(effect, Effect::ForwardInput { page, .. } if *page == p1));
+    assert!(heard, "the press goes to the page");
+    assert_eq!(app.rect("p1"), stored);
 }

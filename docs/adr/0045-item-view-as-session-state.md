@@ -134,9 +134,17 @@ A new reader outside this list is the drift ADR 0020 describes. Add it here or f
 The item view is camera and size management over the one canvas, and nothing more. Two parts of it were more than that and are gone.
 
 - **The Canvas lens is removed.** It was a second canvas inside the item view, with a camera the tab kept. Lenses are Fill and Device, and in an item view the camera is always held on the item. Nothing is kept per tab but the lens.
-- **The eye is removed.** Fill keeps its rule (only the item and what follows one of its elements is seen and can be made). Device sees and makes everything by the canvas's rules.
-- **The item shown has no selection chrome.** In Fill and Device it draws no outline and no resize handles, and its handles cannot be hit.
+- **The eye is removed.** Fill keeps its rule (only the item and what follows one of its elements is seen and can be made). Device sees and makes everything by the canvas's rules. Superseded the same day by "the eye and the mark" below.
+- **The item shown has no selection chrome.** In Fill and Device it draws no outline and no resize handles, and its handles cannot be hit. Superseded the same day by "the eye and the mark" below.
 - **Leaving centres the item at the canvas zoom.** Minimize, the Canvas tab and closing the tab showing keep the zoom the canvas had and centre the item's stored rect (with its device frame) in the free part of the viewport, so the item shrinks in place. If the item is gone the canvas gets its camera back unchanged. Closing the tab showing goes to the canvas.
+
+## Amendment, 2026-10-10: the eye and the mark
+
+Two rules of the amendment above changed after a day of use.
+
+- **The eye is back, for Device only, and starts shut.** `Action::ShowOthers` sets it, `App::shows_others` reads it, and the control is `view.others`, left of the lens toggles. It is one choice for every tab and canvas, and it is never saved. Shut, a Device tab shows its item and what is hooked to it: an item anchored to the page by a position, a scroll or an element, and every comment on the page. The page is laid out as it is stored, so all of that sits where it was put. Open, Device shows the whole canvas, as before. Fill ignores the eye and keeps its rule. A Fill tab has no `view.others`.
+- **With the eye shut, Device makes things the way Fill does.** A creation tool pressed on the page makes an item hooked to it. A press off the page makes nothing, and neither do the page and Document tools. `showing/gates.rs` holds the rule in `narrowed`, which now answers `Others::Following` for Fill and `Others::Hooked` for Device with the eye shut.
+- **Selection chrome follows one answer, `App::mark`.** It returns `Mark::Outline`, `Mark::Entered` or nothing, and the selection outline, the resize handles and the page's glow all read it (`specular-interact/src/mark.rs`). An entered page on the canvas has no outline and no handles. It draws a glow in the selection colour under its whole frame instead, so the second click of ADR 0022 is visible, and its edge takes presses that the side handles used to take. The item shown in a tab has no mark while it is entered or fills the view. A page in a Device tab that Escape has left gets the outline back until a click enters it. No item shown in a tab has resize handles.
 
 ## Amendment, 2026-10-10: camera transition
 

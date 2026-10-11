@@ -372,6 +372,7 @@ impl ShellWindow for CanvasSurface {
         if self.asks.cursor.replace(cursor) != cursor {
             self.asks.changed.set(true);
         }
+        crate::cursors::use_set(crate::cursors::CursorSet::of(cursor));
     }
 
     fn edit_field(&self, field: &ControlId) {

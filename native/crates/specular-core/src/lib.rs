@@ -42,7 +42,7 @@ pub use frame::{
 pub use geometry::{CssRect, CssSize, PixelRect, PixelSize, Point, Rect, Size};
 pub use input::{
     EditingKey, ImeEvent, InputEvent, KeyEvent, KeyEventKind, Modifiers, PageEdit, PointerButton,
-    PointerEvent, PointerEventKind, WheelEvent,
+    PointerEvent, PointerEventKind, TouchEvent, TouchPhase, WheelEvent,
 };
 pub use locator::{
     LOCATOR_CONFIDENCE_FLOOR, LOCATOR_RUNNER_UP_MARGIN, LocatorBundle, LocatorCandidate,
@@ -51,7 +51,8 @@ pub use locator::{
 pub use page::{PageId, PageSpec, validate_texture_scale, validate_viewport};
 pub use source::{
     CapturedElement, DEVTOOLS_CLIENT_ID_BASE, DevtoolsSink, ElementPlace, InspectedNode,
-    PageColorScheme, PageElement, PageEvent, PageNav, PageSource, PageSourceError, PointKind,
+    PageColorScheme, PageDevice, PageElement, PageEvent, PageNav, PageSource, PageSourceError,
+    PageUserAgent, PointKind,
 };
 pub use synthetic::{
     SyntheticPageSource, synthetic_capture, synthetic_element_at, synthetic_elements_in,

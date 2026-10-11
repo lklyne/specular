@@ -15,6 +15,8 @@ mod assets;
 #[cfg(target_os = "macos")]
 mod canvas;
 #[cfg(target_os = "macos")]
+mod cursors;
+#[cfg(target_os = "macos")]
 mod debug_input;
 #[cfg(target_os = "macos")]
 mod key_bindings;

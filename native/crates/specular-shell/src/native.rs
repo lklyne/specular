@@ -251,6 +251,7 @@ impl NativeCanvas {
             let _: () = msg_send![view, setAutoresizingMask: FILLS_SUPERVIEW];
             let _: () =
                 msg_send![content, addSubview: view, positioned: BELOW, relativeTo: gpui_view];
+            crate::cursors::install(gpui_view);
             Ok(Self {
                 view,
                 layer,

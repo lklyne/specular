@@ -10,8 +10,9 @@
 //! is four readable segments, and a region grabs the visible interactive
 //! elements it wholly contains.
 
+use glam::Vec2;
 use serde_json::{Value, json};
-use specular_core::{CssRect, PageColorScheme, PageElement, PixelRect};
+use specular_core::{CssRect, PageColorScheme, PageDevice, PageElement, PixelRect};
 
 /// The most elements a region counts, as Electron's region select does.
 const MAX_GRABBED: u32 = 15;
@@ -119,6 +120,31 @@ const SCROLL_PROGRESS: &str = r"
 return JSON.stringify({ x: maxX > 0 ? scrollX / maxX : 0, y: maxY > 0 ? scrollY / maxY : 0 });
 ";
 
+/// Whether a finger at a point, moving by `(__DX__, __DY__)`, has anything
+/// to scroll: a scroller above the element there with room left that way,
+/// or the document itself. What is inside a frame cannot be seen from
+/// here, so a frame is taken to have room.
+const SCROLL_ROOM: &str = r"
+const vertical = Math.abs(__DY__) >= Math.abs(__DX__);
+// A finger that moves down scrolls back towards the start.
+const back = (vertical ? __DY__ : __DX__) > 0;
+const room = (el) => {
+  const at = vertical ? el.scrollTop : el.scrollLeft;
+  const max = vertical ? el.scrollHeight - el.clientHeight : el.scrollWidth - el.clientWidth;
+  return back ? at > 0.5 : at < max - 0.5;
+};
+const root = document.scrollingElement || document.documentElement;
+let el = document.elementFromPoint(__X__, __Y__);
+for (; el; el = el.parentElement || el.getRootNode().host) {
+  if (el.tagName === 'IFRAME') return 'true';
+  if (el === root || el === document.body || el === document.documentElement) continue;
+  const style = getComputedStyle(el);
+  const flow = vertical ? style.overflowY : style.overflowX;
+  if ((flow === 'auto' || flow === 'scroll') && room(el)) return 'true';
+}
+return String(room(root));
+";
+
 /// `instant` so a page styled with `scroll-behavior: smooth` lands where it
 /// was sent and not somewhere on the way.
 const SCROLL_TO: &str = r"
@@ -181,6 +207,24 @@ pub fn scroll_progress_message(id: i32) -> Vec<u8> {
     )
 }
 
+/// The message that asks whether anything under `at` can scroll with a
+/// finger that moves `toward`.
+pub fn scroll_room_message(id: i32, at: Vec2, toward: Vec2) -> Vec<u8> {
+    let values = [
+        ("__X__", number(at.x)),
+        ("__Y__", number(at.y)),
+        ("__DX__", number(toward.x)),
+        ("__DY__", number(toward.y)),
+    ];
+    evaluate(id, &expression(SCROLL_ROOM, &values))
+}
+
+/// What a [`scroll_room_message`] found. `None` for an answer that cannot
+/// be read.
+pub fn parse_scroll_room(result: &[u8]) -> Option<bool> {
+    returned(result)?.parse().ok()
+}
+
 /// The message that scrolls a page to a fraction of how far it can scroll.
 pub fn scroll_to_message(id: i32, x: f32, y: f32) -> Vec<u8> {
     let body = SCROLL_TO
@@ -212,6 +256,51 @@ pub fn color_scheme_message(id: i32, scheme: PageColorScheme) -> Vec<u8> {
     })
     .to_string()
     .into_bytes()
+}
+
+/// The devtools methods that make a page tell its document it is on
+/// `device`, each with its params: the ones Chrome's device mode sends.
+/// Every one is sent whatever the device, so a page that was a phone stops
+/// being one.
+pub fn device_methods(device: &PageDevice) -> [(&'static str, Value); 3] {
+    let user_agent = device.user_agent.map_or_else(
+        // An empty user agent is the browser's own.
+        || json!({ "userAgent": "" }),
+        |agent| {
+            json!({
+                "userAgent": agent.user_agent,
+                "platform": agent.navigator_platform,
+                "userAgentMetadata": {
+                    "platform": agent.hint_platform,
+                    "platformVersion": "",
+                    "architecture": "",
+                    "model": agent.model,
+                    "mobile": true,
+                },
+            })
+        },
+    );
+    // No width or height: the page keeps the viewport it is laid out at.
+    // Chromium rasters at the screen's scale whatever ratio is reported.
+    let metrics = json!({
+        "width": 0,
+        "height": 0,
+        "deviceScaleFactor": device.pixel_ratio.unwrap_or(0.0),
+        "mobile": device.mobile,
+    });
+    let touch = json!({ "enabled": device.touch, "maxTouchPoints": 5 });
+    [
+        ("Emulation.setUserAgentOverride", user_agent),
+        ("Emulation.setDeviceMetricsOverride", metrics),
+        ("Emulation.setTouchEmulationEnabled", touch),
+    ]
+}
+
+/// The message that calls the devtools `method` with `params`.
+pub fn method_message(id: i32, method: &str, params: &Value) -> Vec<u8> {
+    json!({ "id": id, "method": method, "params": params })
+        .to_string()
+        .into_bytes()
 }
 
 /// The message that asks a page for its own devtools target.
@@ -349,6 +438,22 @@ mod tests {
         let go = go["params"]["expression"].as_str().unwrap();
         assert!(go.contains("left: maxX * (0), top: maxY * (1)"));
         assert!(!go.contains("__"), "a placeholder was left in");
+    }
+
+    #[test]
+    fn scroll_room_is_asked_at_the_finger_and_answered_as_a_flag() {
+        let ask = sent(&scroll_room_message(
+            6,
+            Vec2::new(12.0, 40.0),
+            Vec2::new(0.0, -900.0),
+        ));
+        let ask = ask["params"]["expression"].as_str().unwrap();
+        assert!(ask.contains("document.elementFromPoint((12), (40))"));
+        assert!(ask.contains("Math.abs((-900)) >= Math.abs((0))"));
+        assert!(!ask.contains("__"), "a placeholder was left in");
+        assert_eq!(parse_scroll_room(&value_result("false")), Some(false));
+        assert_eq!(parse_scroll_room(&value_result("true")), Some(true));
+        assert_eq!(parse_scroll_room(&value_result("nope")), None);
     }
 
     #[test]

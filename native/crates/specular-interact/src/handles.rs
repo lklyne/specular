@@ -4,8 +4,8 @@
 use glam::{DVec2, Vec2};
 use specular_doc::{EdgeSide, EntityId, Rect};
 
-use crate::App;
 use crate::geometry::{self, ScreenRect};
+use crate::{App, Mark};
 
 /// Handle square size in logical pixels. It does not scale with zoom.
 pub const HANDLE_SIZE: f32 = 8.0;
@@ -144,12 +144,12 @@ pub enum HandleOwner {
 impl App {
     /// The selected entity and its rect, when exactly one entity is selected.
     /// The item shown in a tab is the whole view, so it has nothing to
-    /// resize.
+    /// resize, and neither has an entered page, whose edge is its own.
     pub fn handle_target(&self) -> Option<(&EntityId, Rect)> {
         let entity = self
             .document
             .entity(self.session.selection.single_entity()?)?;
-        if self.shown_item() == Some(&entity.id) {
+        if self.shown_item() == Some(&entity.id) || self.mark(&entity.id) != Some(Mark::Outline) {
             return None;
         }
         Some((&entity.id, crate::shown_rect(self, entity)?))

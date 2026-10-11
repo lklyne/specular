@@ -14,6 +14,7 @@ use glam::Vec2;
 use specular_core::{PointerButton, PointerEventKind};
 use specular_doc::EntityId;
 
+use crate::flick::{Told, finger};
 use crate::focus::{pointer_to, set_pointer_page};
 use crate::{
     App, Effect, Gesture, Hit, PointerInput, Tool, comment, draw, edit, gesture, hit, place,
@@ -22,6 +23,10 @@ use crate::{
 
 pub(crate) fn on_pointer(app: &mut App, input: &PointerInput, effects: &mut Vec<Effect>) {
     app.session.modifiers = input.modifiers;
+    if matches!(input.kind, PointerEventKind::Down { .. }) {
+        // A press stops a page that is gliding, wherever it lands.
+        crate::flick::halt(app);
+    }
     if crate::panel::builtin::on_pointer(app, input, effects) {
         // The pointer is on a panel, not on page content.
         if app.session.tool == Tool::Inspect {
@@ -94,15 +99,21 @@ fn on_move(app: &mut App, input: &PointerInput, effects: &mut Vec<Effect>) {
         Some((page.clone(), local))
     });
     match held.or_else(|| entered_page(app, hit)) {
-        Some((page, local)) => {
-            set_pointer_page(app, Some(page.clone()), local, input.modifiers, effects);
-            effects.push(pointer_to(
-                page,
-                PointerEventKind::Move,
-                local,
-                input.modifiers,
-            ));
-        }
+        Some((page, local)) => match crate::flick::moved(app, &page, local) {
+            Told::Mouse(at) => {
+                set_pointer_page(app, Some(page.clone()), at, input.modifiers, effects);
+                effects.push(pointer_to(
+                    page,
+                    PointerEventKind::Move,
+                    at,
+                    input.modifiers,
+                ));
+            }
+            Told::Finger(phase, at) => {
+                effects.push(finger(page, phase, at, input.modifiers));
+            }
+            Told::Nothing => {}
+        },
         None => set_pointer_page(app, None, Vec2::ZERO, input.modifiers, effects),
     }
 }
@@ -134,6 +145,19 @@ fn on_down(
     }
     if let Some((page, local)) = entered_page(app, under) {
         app.session.captured.press(button, page.clone());
+        let told = if button == PointerButton::Left {
+            crate::flick::press(app, &page, local)
+        } else {
+            Told::Mouse(local)
+        };
+        let local = match told {
+            Told::Mouse(at) => at,
+            Told::Finger(phase, at) => {
+                effects.push(finger(page, phase, at, input.modifiers));
+                return;
+            }
+            Told::Nothing => return,
+        };
         effects.push(pointer_to(
             page,
             PointerEventKind::Down {
@@ -193,15 +217,25 @@ fn on_up(
         return;
     };
     let world = app.session.camera.screen_to_world(input.screen).as_dvec2();
-    effects.push(pointer_to(
-        page,
-        PointerEventKind::Up {
-            button,
-            click_count,
-        },
-        placement.page_local(world).as_vec2(),
-        input.modifiers,
-    ));
+    let local = placement.page_local(world).as_vec2();
+    let told = if button == PointerButton::Left {
+        crate::flick::release(app, &page, local)
+    } else {
+        Told::Mouse(local)
+    };
+    match told {
+        Told::Mouse(at) => effects.push(pointer_to(
+            page,
+            PointerEventKind::Up {
+                button,
+                click_count,
+            },
+            at,
+            input.modifiers,
+        )),
+        Told::Finger(phase, at) => effects.push(finger(page, phase, at, input.modifiers)),
+        Told::Nothing => {}
+    }
 }
 
 /// Offers a left press to the active tool. Returns whether the tool took it,

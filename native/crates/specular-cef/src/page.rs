@@ -25,9 +25,11 @@ use std::thread::{self, ThreadId};
 
 use specular_core::{CssSize, PageSpec, PixelRect, PixelSize};
 #[cfg(feature = "cef")]
-use specular_core::{PageEvent, PageId};
+use specular_core::{PageDevice, PageEvent, PageId};
 
 use crate::coords::place_popup;
+#[cfg(feature = "cef")]
+use crate::devtools::Pending;
 #[cfg(feature = "cef")]
 use crate::pool::OutstandingFrames;
 
@@ -189,6 +191,10 @@ pub(crate) struct PageContext {
     pub alive: Arc<AtomicUsize>,
     /// The thread that owns the event queue (the CEF UI thread).
     pub ui_thread: ThreadId,
+    /// The device the page tells its documents it is on.
+    pub device: Arc<Mutex<PageDevice>>,
+    /// The devtools messages the page has not answered.
+    pub pending: Pending,
 }
 
 #[cfg(feature = "cef")]
@@ -197,6 +203,12 @@ impl PageContext {
     /// half-updated (every write is one field), so poisoning is ignored.
     pub(crate) fn geometry(&self) -> MutexGuard<'_, PageGeometry> {
         lock_geometry(&self.geometry)
+    }
+
+    /// The device the page is on. Poisoning is ignored: a write is one
+    /// whole value.
+    pub(crate) fn device(&self) -> PageDevice {
+        *self.device.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
     /// Queues `event` for the source, if called on the UI thread.

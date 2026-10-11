@@ -14,7 +14,7 @@ use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
     AnyElement, App, AppContext as _, Entity, FocusHandle, Focusable as _, Global,
     InteractiveElement as _, IntoElement, ParentElement as _, SharedString,
-    StatefulInteractiveElement as _, Styled as _, Subscription, Window, div, px,
+    StatefulInteractiveElement as _, Styled, Subscription, Window, div, px,
 };
 use specular_interact::{ControlId, Event, Field, FieldWidth};
 
@@ -23,7 +23,7 @@ use super::named::mark;
 use crate::{canvas, shell, theme};
 
 /// How tall an address is: the bar's height less a margin above and below.
-const ADDRESS_HEIGHT: f32 = 36.0;
+const ADDRESS_HEIGHT: f32 = 32.0;
 
 /// A field being shown: the Kit's input, and the model it was made from.
 struct Held {
@@ -161,10 +161,9 @@ pub(super) fn input(model: &Field, address: bool, window: &mut Window, cx: &mut 
             // The Kit's ring is wider than the room the bar leaves an
             // address, which shows its focus with its edge and a line
             // around that.
-            Input::new(&input)
-                .small()
+            // The Kit's own `Input::h` sizes a multi-line input only.
+            Styled::h(Input::new(&input).small(), px(ADDRESS_HEIGHT))
                 .text_size(px(12.0))
-                .h(px(ADDRESS_HEIGHT))
                 .rounded_full()
                 .px_3()
                 .bg(theme::solid(theme::input()))

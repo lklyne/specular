@@ -4,7 +4,7 @@
 /// A pointer cursor.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum Cursor {
-    /// The arrow.
+    /// The app's own arrow.
     #[default]
     Default,
     /// A creation tool is armed.
@@ -41,4 +41,9 @@ pub enum Cursor {
     Copy,
     /// A menu opens here.
     ContextMenu,
+    /// The system's arrow, over a page that asks for the arrow: a page is
+    /// pointed at as a browser would point at it.
+    PageArrow,
+    /// A fingertip, over a page on a device with a touch screen.
+    Touch,
 }

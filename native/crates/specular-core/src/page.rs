@@ -5,7 +5,7 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 
 use crate::geometry::CssSize;
-use crate::source::PageSourceError;
+use crate::source::{PageDevice, PageSourceError};
 
 /// Identity of a page within one running [`PageSource`](crate::PageSource).
 ///
@@ -32,16 +32,19 @@ pub struct PageSpec {
     pub texture_scale: f32,
     /// Target paint rate in frames per second (the page's *frame-rate LOD*).
     pub frame_rate: u32,
+    /// The device the page tells its first document it is on.
+    pub device: PageDevice,
 }
 
 impl PageSpec {
-    /// A spec at texture scale 1 and 60 fps.
+    /// A spec at texture scale 1 and 60 fps, on no device.
     pub fn new(url: &str, viewport: CssSize) -> Self {
         Self {
             url: url.to_owned(),
             viewport,
             texture_scale: 1.0,
             frame_rate: 60,
+            device: PageDevice::default(),
         }
     }
 

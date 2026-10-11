@@ -27,7 +27,7 @@
 use glam::Vec2;
 use specular_core::InputEvent;
 use specular_doc::{Entity, Kind, PageAnchor, Rect};
-use specular_interact::{Action, Effect, Focus, Key, Lens, Showing, Tool, seen, shown_rect};
+use specular_interact::{Action, Effect, Focus, Key, Lens, Mark, Showing, Tool, seen, shown_rect};
 use specular_testkit::{CMD, TestApp, note, page, sticky};
 
 fn show(id: &str) -> Action {
@@ -110,6 +110,19 @@ fn escape_leaves_a_shown_page_and_one_click_enters_it_again() {
     app.click(body);
     assert_eq!(entered(&app), Some("p1"));
     assert_eq!(app.selected_ids(), ["p1"]);
+
+    // The page shown has no mark while it is entered or fills the view. In
+    // Device, left by Escape, it is outlined until a click enters it, and
+    // has nothing to resize either way.
+    let p1 = "p1".into();
+    assert_eq!(app.app().mark(&p1), None);
+    app.key(Key::Escape);
+    assert_eq!(app.app().mark(&p1), None);
+    app.act(Action::SetLens(Lens::Device));
+    assert_eq!(app.app().mark(&p1), None);
+    app.key(Key::Escape);
+    assert_eq!(app.app().mark(&p1), Some(Mark::Outline));
+    assert_eq!(app.app().handles(), None);
 }
 
 #[test]

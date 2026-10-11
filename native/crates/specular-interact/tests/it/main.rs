@@ -21,6 +21,7 @@ mod drop;
 mod edge_labels;
 mod edges;
 mod first_run;
+mod flick;
 mod gestures;
 mod groups_drag;
 mod groups_enter;

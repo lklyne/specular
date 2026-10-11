@@ -28,7 +28,7 @@ mod repos_run;
 mod runtime;
 mod scripted;
 mod settings;
-pub(crate) use self::settings::{page_color_scheme, page_own_scheme};
+pub(crate) use self::settings::{in_window, page_color_scheme, page_device, page_own_scheme};
 mod shots;
 mod space_choice;
 mod space_run;

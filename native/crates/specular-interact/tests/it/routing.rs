@@ -2,8 +2,8 @@
 
 use glam::Vec2;
 use specular_core::{
-    CssSize, ImeEvent, InputEvent, KeyEventKind, Modifiers, PageEdit, PixelRect, PointerButton,
-    PointerEvent, PointerEventKind, WheelEvent,
+    CssSize, Cursor, ImeEvent, InputEvent, KeyEventKind, Modifiers, PageEdit, PixelRect,
+    PointerButton, PointerEvent, PointerEventKind, WheelEvent,
 };
 use specular_doc::{EntityId, Rect};
 use specular_interact::{Action, Chord, Effect, Event, Focus, Key, MenuEntry, PageNotice, Tool};
@@ -86,6 +86,7 @@ fn opening_another_document_closes_the_pages_it_does_not_hold() {
                 page: id("p1"),
                 viewport: CssSize::new(800, 600)
             },
+            Effect::SetCursor(Cursor::Default),
         ]
     );
     assert_eq!((app.selected(), app.app().can_undo()), (None, false));

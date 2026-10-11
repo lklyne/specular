@@ -40,6 +40,21 @@ impl CefPageSource {
             .ok_or_else(|| refused("scroll progress"))
     }
 
+    pub(crate) fn ask_scroll_room(
+        &self,
+        page: PageId,
+        at: Vec2,
+        toward: Vec2,
+    ) -> Result<(), PageSourceError> {
+        let entry = self.entry(page)?;
+        (entry.devtools)
+            .send(&entry.host, Asked::ScrollRoom, |id| {
+                dom_query::scroll_room_message(id, at, toward)
+            })
+            .then_some(())
+            .ok_or_else(|| refused("scroll room"))
+    }
+
     pub(crate) fn scroll_to_progress(
         &self,
         page: PageId,

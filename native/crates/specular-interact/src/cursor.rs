@@ -1,7 +1,7 @@
 //! The pointer cursor: what the tool, the gesture in flight and whatever is
 //! under the pointer ask for.
 
-use specular_doc::EdgeSide;
+use specular_doc::{EdgeSide, EntityId};
 
 use crate::layout::Axis;
 use crate::{App, Corner, Cursor, Effect, Gesture, Handle, Hit, LayoutHandle, Tool, edit, hit};
@@ -54,9 +54,9 @@ fn wanted(app: &App) -> Cursor {
             Hit::Layout(LayoutHandle::Reorder { .. }) => Cursor::Grab,
             // An entered page is handed the pointer, and says what it is
             // over.
-            Hit::PageContent { page, .. } if session.focus.page() == Some(&page) => app
-                .page_state(&page)
-                .map_or(Cursor::Default, |state| state.cursor),
+            Hit::PageContent { page, .. } if session.focus.page() == Some(&page) => {
+                over_entered_page(app, &page)
+            }
             Hit::Comment { .. }
             | Hit::GroupLabel { .. }
             | Hit::PageContent { .. }
@@ -78,6 +78,21 @@ fn wanted(app: &App) -> Cursor {
             | Tool::Inspect,
             _,
         ) => session.tool.cursor(),
+    }
+}
+
+/// The cursor over a page that has the pointer: a fingertip on a touch
+/// device, and otherwise what the page asks for, in the system's own set.
+fn over_entered_page(app: &App, page: &EntityId) -> Cursor {
+    let touch = (app.document.entity(page))
+        .and_then(crate::app::page_of)
+        .is_some_and(|page| crate::device::page_device(page).touch);
+    if touch {
+        return Cursor::Touch;
+    }
+    match app.page_state(page).map(|state| state.cursor) {
+        None | Some(Cursor::Default) => Cursor::PageArrow,
+        Some(cursor) => cursor,
     }
 }
 

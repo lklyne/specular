@@ -189,7 +189,10 @@ fn shift_drag_moves_the_page_along_one_axis() {
   column that one click edits. A tab starts in the Fill lens;
   `act(Action::SetLens(Lens::Device))` changes it (`view.lens.<name>` as
   controls, with `view.minimize` beside them), read back with
-  `app().lens()`. See `tests/it/lens.rs`.
+  `app().lens()`. Device hides what is not hooked to its item until
+  `act(Action::ShowOthers(true))` opens the eye (`view.others`), so open it
+  before making or pressing anything beside the item. See
+  `tests/it/lens.rs`.
   A text field is clicked like any control and then typed into:
   `enter_in_field("page.url", "example.org")` replaces its text and presses
   Enter, `field_edit()` reads what is typed so far, and Escape puts the
@@ -214,7 +217,9 @@ fn shift_drag_moves_the_page_along_one_axis() {
   click that goes with it. `tests/it/named_controls.rs` holds the two paths
   to the same result.
 - A page is select-first (ADR 0022). `click` selects it, a second `click`
-  or a `double_click` enters it, and only an entered page gets input. In
+  or a `double_click` enters it, and only an entered page gets input.
+  `app().mark(&id)` says how it is marked: `Mark::Outline` with handles
+  when selected, `Mark::Entered` (a glow, no handles) when entered. In
   its own tab a page is entered when it is shown, and by any click after.
 - The scene snapshot is `assert_scene_snapshot!(app)`, in
   `specular-scene/tests/view.rs`. It prints one line per display-list item

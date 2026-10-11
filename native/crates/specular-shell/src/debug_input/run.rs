@@ -175,6 +175,31 @@ fn show_sidebar(shown: bool) {
     });
 }
 
+/// Presses where the pointer is, drags by `by` over `ms` with a move every
+/// refresh, and releases `late` ms after the last move.
+async fn swipe(by: Vec2, ms: u64, late: u64, cx: &AsyncApp) {
+    let from = POINTER.get();
+    mouse(LEFT_DOWN, from, 1);
+    DOWN.set(true);
+    let span = Duration::from_millis(ms.max(1));
+    let started = Instant::now();
+    loop {
+        cx.background_executor().timer(REFRESH).await;
+        let done = (started.elapsed().as_secs_f32() / span.as_secs_f32()).min(1.0);
+        mouse(DRAGGED, from + by * done, 0);
+        if done >= 1.0 {
+            break;
+        }
+    }
+    if late > 0 {
+        (cx.background_executor())
+            .timer(Duration::from_millis(late))
+            .await;
+    }
+    mouse(LEFT_UP, from + by, 1);
+    DOWN.set(false);
+}
+
 /// Does a step of the pointer, the wheel or the trackpad.
 async fn pointer(step: Do, cx: &AsyncApp) -> Result<(), String> {
     match step {
@@ -246,6 +271,7 @@ async fn pointer(step: Do, cx: &AsyncApp) -> Result<(), String> {
             mouse(LEFT_UP, from + by, 1);
             DOWN.set(false);
         }
+        Do::Swipe(by, ms, late) => swipe(by, ms, late, cx).await,
         Do::Pinch(delta) => {
             let at = POINTER.get();
             let (x, y) = (f64::from(at.x), f64::from(at.y));
@@ -288,6 +314,7 @@ pub(super) async fn step(
         | Do::Scroll(..)
         | Do::Pan(..)
         | Do::ResizeDrag(..)
+        | Do::Swipe(..)
         | Do::Pinch(_)) => pointer(step, cx).await?,
         Do::Hold(held) => HELD.set(held),
         Do::Key {

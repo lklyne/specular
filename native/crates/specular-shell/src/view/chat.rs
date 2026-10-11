@@ -219,6 +219,10 @@ impl ShellView {
                                     app_canvas::dispatch(Event::Action(Action::Chat(
                                         ChatAction::Resize(width),
                                     )));
+                                    // The models reach GPUI a few times a second
+                                    // while the app keeps changing; the edge has
+                                    // to follow the pointer every frame.
+                                    window.refresh();
                                     cx.stop_propagation();
                                 },
                             );

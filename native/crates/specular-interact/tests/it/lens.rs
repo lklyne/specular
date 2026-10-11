@@ -1,9 +1,10 @@
-//! The lens of an item's tab, and leaving it.
+//! The lens of an item's tab, the eye, and leaving it.
 //!
 //! Each test names the change that breaks it:
 //! - what is seen: making Fill show everything draws the canvas's neighbours
-//!   over an item that fills the view, and making Device narrow its view loses
-//!   the stickies beside a page.
+//!   over an item that fills the view, making the eye open by default puts
+//!   them around a Device tab, and reading the eye in Fill or dropping
+//!   `Others::Hooked` loses what is placed on a page in Device.
 //! - filling: returning `None` for a page from `showing::fill_rect` leaves
 //!   it at its stored size, dropping `follow_layouts` from `update`
 //!   leaves its host there, and dropping the presented size from
@@ -15,7 +16,11 @@
 //!   part of the viewport, or at any zoom but the canvas's, moves the item as
 //!   the camera lands, and saving `session.camera` puts the item view's
 //!   camera on disk.
-//! - per tab: keeping one lens in the session moves every tab at once.
+//! - a click outside: clearing the selection for it in `marquee::finish`
+//!   leaves a Device tab showing with nothing selected, and dropping the
+//!   lens from that rule takes a click on Fill's margin out of the tab.
+//! - per tab: keeping one lens in the session moves every tab at once, and
+//!   keeping the eye per tab opens it for one only.
 //! - making: dropping the `refuses` rule makes a shape that is hidden at
 //!   once, and leaving `only_page` set in Device hooks a shape made beside
 //!   the page to it.
@@ -29,7 +34,7 @@ use specular_doc::{AnchorElement, Entity, ItemId, JsonMap, PageAnchor, Rect};
 use specular_interact::{
     Action, Effect, Focus, Hit, Key, Lens, Property, Showing, Tool, hit_test, named_controls, seen,
 };
-use specular_testkit::{TestApp, note, page, sticky};
+use specular_testkit::{SHIFT, TestApp, note, page, sticky};
 
 fn show(id: &str) -> Action {
     Action::Show(Showing::Item(id.into()))
@@ -81,16 +86,22 @@ fn others_seen(app: &TestApp) -> Vec<&'static str> {
 }
 
 #[test]
-fn the_lens_decides_what_is_seen_beside_the_item() {
+fn the_lens_and_the_eye_decide_what_is_seen_beside_the_item() {
     let rows = [
-        // In Fill the item is the whole view: only what follows it.
-        (Lens::Fill, vec!["on"]),
-        (Lens::Device, vec!["on", "by", "p2", "n"]),
+        // In Fill the item is the whole view: only what follows it, whatever
+        // the eye says.
+        (Lens::Fill, false, vec!["on"]),
+        (Lens::Fill, true, vec!["on"]),
+        // Device starts with the eye shut: the page and what is hooked to it.
+        (Lens::Device, false, vec!["on"]),
+        (Lens::Device, true, vec!["on", "by", "p2", "n"]),
     ];
-    for (lens, want) in rows {
+    for (lens, eye, want) in rows {
         let mut app = canvas();
         app.act(show("p1")).act(Action::SetLens(lens));
-        assert_eq!(others_seen(&app), want, "{lens:?}");
+        assert!(!app.app().shows_others(), "the eye starts shut");
+        app.act(Action::ShowOthers(eye));
+        assert_eq!(others_seen(&app), want, "{lens:?}, eye {eye}");
         assert!(seen(app.app(), app.entity("p1")).is_some());
         // What is not seen takes no press: under the hooked sticky is the
         // page.
@@ -99,8 +110,16 @@ fn the_lens_decides_what_is_seen_beside_the_item() {
         assert_eq!(sticky, want.contains(&"on"), "{lens:?}: {under:?}");
     }
 
+    // Shutting the eye takes what it hides out of the selection.
+    let mut app = canvas();
+    app.act(show("p1")).act(Action::SetLens(Lens::Device));
+    app.act(Action::ShowOthers(true)).key(Key::Escape);
+    app.select(&["by"]).act(Action::ShowOthers(false));
+    assert_eq!(app.selected_ids(), [] as [&str; 0]);
+
     // A page that fills the view is laid out at another width, so what is
-    // hooked to it by position alone is seen only where the page is stored.
+    // hooked to it by position alone is seen only where the page is stored,
+    // eye shut or not.
     let mut app = TestApp::with_entities([
         page("p1", Rect::new(100.0, 100.0, 400.0, 300.0)),
         hooked("placed", false),
@@ -151,6 +170,34 @@ fn device_holds_the_camera_and_leaving_centres_the_item_at_the_canvas_zoom() {
 }
 
 #[test]
+fn a_click_on_the_canvas_around_a_device_tab_goes_back_as_minimize_does() {
+    // Bare canvas beside the page in Device; the margin around it in Fill.
+    let bare = (900.0, 700.0);
+    let mut app = canvas();
+    app.act(show("p1")).act(Action::SetLens(Lens::Device));
+
+    // A drag there is still a marquee, and Shift still only extends.
+    app.drag(bare, (940.0, 740.0));
+    app.hold(SHIFT).click(bare).let_go();
+    assert_eq!(app.app().showing(), Showing::Item("p1".into()));
+
+    let mut app = canvas();
+    app.act(show("p1")).act(Action::SetLens(Lens::Device));
+    app.click(bare);
+    let mut minimized = canvas();
+    minimized.act(show("p1")).act(Action::SetLens(Lens::Device));
+    minimized.act(Action::Show(Showing::Canvas));
+    assert_eq!(app.app().showing(), Showing::Canvas);
+    assert_eq!(app.selected_ids(), minimized.selected_ids());
+    assert_eq!(app.session().camera, minimized.session().camera);
+    assert_eq!(app.session().focus, Focus::Canvas);
+
+    let mut app = canvas();
+    app.act(show("p1")).click((1.0, 400.0));
+    assert_eq!(app.app().showing(), Showing::Item("p1".into()));
+}
+
+#[test]
 fn the_lens_is_kept_by_each_tab() {
     let mut app = canvas();
     app.with_panels();
@@ -167,11 +214,16 @@ fn the_lens_is_kept_by_each_tab() {
     app.act(show("p1"));
     assert_eq!(app.app().lens(), Some(Lens::Fill));
     assert!(control(&app, "view.minimize"));
+    // The eye is Device's, and one for every tab.
+    assert!(!control(&app, "view.others"));
     app.click_control("view.lens.device");
     assert_eq!(app.app().lens(), Some(Lens::Device));
+    app.click_control("view.others");
+    assert!(app.app().shows_others());
 
     app.act(show("p2"));
     assert_eq!(app.app().lens(), Some(Lens::Fill), "p2 has its own lens");
+    assert!(app.app().shows_others(), "the eye is one for every tab");
     app.click_control("view.minimize");
     assert_eq!(app.app().showing(), Showing::Canvas);
 
@@ -182,7 +234,7 @@ fn the_lens_is_kept_by_each_tab() {
     assert_eq!(*app.document(), before);
     assert!(!app.app().can_undo());
     let saves = (app.take_effects().iter()).any(|effect| matches!(effect, Effect::Save));
-    assert!(!saves, "the lens is not saved");
+    assert!(!saves, "the lens and the eye are not saved");
 }
 
 #[test]
@@ -191,23 +243,26 @@ fn what_is_made_beside_the_item_is_kept_when_it_is_seen_and_not_made_when_it_is_
     let beside = (800.0, 250.0);
     // In the margin of the page that fills the view.
     let margin = (95.0, 95.0);
-    // (the lens, the canvas point a shape is dragged out from, whether it is
-    // made, the page it is hooked to)
+    // (the lens, the eye, the canvas point a shape is dragged out from,
+    // whether it is made, the page it is hooked to)
     let rows = [
-        (Lens::Device, beside, true, None),
-        (Lens::Device, on, true, Some("p1")),
-        (Lens::Fill, margin, false, None),
+        (Lens::Device, true, beside, true, None),
+        (Lens::Device, true, on, true, Some("p1")),
+        (Lens::Device, false, beside, false, None),
+        (Lens::Device, false, on, true, Some("p1")),
+        (Lens::Fill, false, margin, false, None),
     ];
-    for (lens, (x, y), made, hook) in rows {
+    for (lens, eye, (x, y), made, hook) in rows {
         let mut app = canvas();
         app.act(show("p1"))
             .act(Action::SetLens(lens))
+            .act(Action::ShowOthers(eye))
             .key(Key::Escape);
         let before = app.document().clone();
         let spot = at(&app, x, y);
         app.tool(Tool::AddShape)
             .drag(spot, spot + Vec2::new(60.0, 60.0));
-        let case = format!("{lens:?}, at {x},{y}");
+        let case = format!("{lens:?}, eye {eye}, at {x},{y}");
         if !made {
             assert_eq!(*app.document(), before, "{case}");
             continue;
@@ -226,9 +281,10 @@ fn a_reveal_leaves_a_view_whose_camera_is_held_on_another_item() {
         select: vec![ItemId::Entity(id.into())],
         focus: ItemId::Entity(id.into()),
     };
-    // Seen in Device, but the camera cannot go to it.
+    // Seen in Device with the eye open, but the camera cannot go to it.
     let mut app = canvas();
     app.act(show("p1")).act(Action::SetLens(Lens::Device));
+    app.act(Action::ShowOthers(true));
     app.act(reveal("p2"));
     assert_eq!(app.app().showing(), Showing::Canvas);
     assert_eq!(app.selected_ids(), ["p2"]);

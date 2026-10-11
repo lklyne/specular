@@ -203,7 +203,25 @@ fn view_controls(app: &App) -> Vec<Control> {
             action: Action::SetLens(lens),
         })
     });
-    lenses.chain([minimize]).collect()
+    // The eye is Device's: Fill has no canvas around its item to show.
+    let eye = (now == Lens::Device).then(|| {
+        let open = app.shows_others();
+        Control::Toggle(Toggle {
+            id: ControlId::new("view.others"),
+            label: if open {
+                "Hide other items"
+            } else {
+                "Show other items"
+            }
+            .into(),
+            face: Face::icon(if open { Icon::Eye } else { Icon::EyeOff }),
+            on: open,
+            enabled: true,
+            chord: None,
+            action: Action::ShowOthers(!open),
+        })
+    });
+    eye.into_iter().chain(lenses).chain([minimize]).collect()
 }
 
 /// The toolbar for `app` as it is now.

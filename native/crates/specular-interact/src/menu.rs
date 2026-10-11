@@ -270,6 +270,7 @@ pub(crate) fn has_target(app: &App, action: &Action) -> bool {
         | Action::Show(_)
         | Action::PrepareShow(_)
         | Action::SetLens(_)
+        | Action::ShowOthers(_)
         | Action::ShowNext
         | Action::ShowPrevious
         | Action::NewPageTab

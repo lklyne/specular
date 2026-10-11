@@ -285,6 +285,13 @@ fn selecting_one_entity_outlines_it_and_adds_corner_handles() {
 }
 
 #[test]
+fn an_entered_page_glows_and_has_no_outline_or_handles() {
+    let mut app = TestApp::with_pages(2);
+    app.click((200.0, 200.0)).click((200.0, 200.0));
+    assert_scene_snapshot!(app);
+}
+
+#[test]
 fn a_marquee_draws_its_rect_and_outlines_what_it_would_take() {
     let mut app = TestApp::with_entities([
         shape("a", Rect::new(100.0, 100.0, 100.0, 100.0)),

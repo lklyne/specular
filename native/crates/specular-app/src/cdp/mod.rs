@@ -86,8 +86,10 @@ impl CdpHost {
     }
 
     /// Sends every waiting client message to its page. Returns the acts
-    /// clients have announced, each to be answered with [`go`](Self::go).
-    pub(crate) fn serve(&mut self, source: &mut dyn PageSource) -> Vec<AgentAct> {
+    /// clients have announced, each to be answered with [`go`](Self::go),
+    /// with how far its page was scrolled when the client measured the
+    /// point.
+    pub(crate) fn serve(&mut self, source: &mut dyn PageSource) -> Vec<(AgentAct, Option<DVec2>)> {
         let mut acts = Vec::new();
         while let Ok(message) = self.inbox.try_recv() {
             match message {
@@ -100,13 +102,17 @@ impl CdpHost {
                     ticket,
                     entity,
                     act,
-                }) => acts.push(AgentAct {
-                    ticket,
-                    page: entity,
-                    session: act.session,
-                    action: act.action,
-                    at: DVec2::new(act.x, act.y),
-                }),
+                }) => {
+                    let scroll = act.scroll.map(|(x, y)| DVec2::new(x, y));
+                    let act = AgentAct {
+                        ticket,
+                        page: entity,
+                        session: act.session,
+                        action: act.action,
+                        at: DVec2::new(act.x, act.y),
+                    };
+                    acts.push((act, scroll));
+                }
             }
         }
         acts

@@ -6,14 +6,17 @@ use std::time::{Duration, Instant};
 
 use anyhow::Context as _;
 use glam::Vec2;
-use specular_core::{PageEvent, PageId, PageSource, PageSourceError, PageSpec, PixelSize};
+use specular_core::{
+    CssSize, PageDevice, PageEvent, PageId, PageNav, PageSource, PageSourceError, PageSpec,
+    PixelSize,
+};
 use specular_doc::{ColorScheme, EntityId, Rect};
 use specular_interact::{
     ClipboardContent, Effect, Event, ImageKey, ImageNotice, NoteNotice, PageRegion,
 };
 
 use super::Headless;
-use crate::app::{page_color_scheme, page_own_scheme};
+use crate::app::{in_window, page_color_scheme, page_device, page_own_scheme};
 use crate::images::LoadFailure;
 use crate::notes::ReadFailure;
 use crate::page_notice::notice_of;
@@ -40,25 +43,40 @@ impl Headless {
         Ok(())
     }
 
+    /// Hosts a page as the device and in the scheme the document gives it.
+    fn create_page(&mut self, page: &EntityId, url: &str, viewport: CssSize) -> anyhow::Result<()> {
+        let mut spec = PageSpec::new(url, viewport);
+        spec.texture_scale = self.scale;
+        spec.device = page_device(self.app.app().document(), page, self.scale);
+        let host = self
+            .source
+            .create_page(&spec)
+            .with_context(|| format!("creating page for {url}"))?;
+        self.hosts.insert(page.clone(), host);
+        let own = page_own_scheme(self.app.app().document(), page);
+        self.set_color_scheme(page, own)?;
+        self.loading_pages.insert(host);
+        self.unpainted_pages.insert(host);
+        Ok(())
+    }
+
+    /// Tells a page the device it is on, and loads it again as that device.
+    fn set_device(&mut self, page: &EntityId, device: PageDevice) -> anyhow::Result<()> {
+        if let Some(&host) = self.hosts.get(page) {
+            self.source
+                .set_device(host, &in_window(device, self.scale))?;
+            self.source.navigate(host, &PageNav::Reload)?;
+        }
+        Ok(())
+    }
+
     pub(super) fn run(&mut self, effect: Effect) -> anyhow::Result<()> {
         match effect {
             Effect::CreatePage {
                 page,
                 url,
                 viewport,
-            } => {
-                let mut spec = PageSpec::new(&url, viewport);
-                spec.texture_scale = self.scale;
-                let host = self
-                    .source
-                    .create_page(&spec)
-                    .with_context(|| format!("creating page for {url}"))?;
-                self.hosts.insert(page.clone(), host);
-                let own = page_own_scheme(self.app.app().document(), &page);
-                self.set_color_scheme(&page, own)?;
-                self.loading_pages.insert(host);
-                self.unpainted_pages.insert(host);
-            }
+            } => self.create_page(&page, &url, viewport)?,
             Effect::ClosePage(page) => self.close_page(&page)?,
             Effect::SetPageViewport { page, viewport } => {
                 if let Some(&host) = self.hosts.get(&page) {
@@ -66,6 +84,7 @@ impl Headless {
                 }
             }
             Effect::SetPageColorScheme { page, scheme } => self.set_color_scheme(&page, scheme)?,
+            Effect::SetPageDevice { page, device } => self.set_device(&page, device)?,
             Effect::LoadImage { image, file } => {
                 self.loading_images.insert(image);
                 self.images
@@ -95,6 +114,7 @@ impl Headless {
             | Effect::AskCandidates { .. }
             | Effect::ReplayPointer { .. }
             | Effect::AskScrollProgress(_)
+            | Effect::AskScrollRoom { .. }
             | Effect::ScrollPage { .. }
             | Effect::CaptureElement { .. }
             | Effect::TrackElements { .. }) => self.run_sync(effect)?,
@@ -203,6 +223,9 @@ impl Headless {
             }
             Effect::AskScrollProgress(page) => {
                 self.on_host(&page, |source, host| source.scroll_progress(host))?;
+            }
+            Effect::AskScrollRoom { page, at, toward } => {
+                self.on_host(&page, |source, host| source.scroll_room(host, at, toward))?;
             }
             Effect::ScrollPage { page, progress } => {
                 self.on_host(&page, |source, host| source.scroll_to(host, progress))?;

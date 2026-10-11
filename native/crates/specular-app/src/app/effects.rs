@@ -13,6 +13,7 @@ use specular_doc::{EntityId, Rect};
 use specular_interact::{Effect, Event, PageRegion, update};
 
 use super::runtime::{PageHost, Runtime, ShellWindow};
+use super::settings::page_device;
 use crate::page_queries::css_rect;
 use crate::paint_lod::PageLod;
 
@@ -72,9 +73,10 @@ impl<W: ShellWindow> Runtime<W> {
                 viewport,
             } => {
                 let lod = self.starting_lod(&page);
+                let scale = self.gpu.as_ref().map_or(1.0, W::scale_factor);
                 let mut spec = PageSpec::new(&url, viewport);
-                spec.texture_scale =
-                    self.gpu.as_ref().map_or(1.0, W::scale_factor) * lod.texture().factor();
+                spec.texture_scale = scale * lod.texture().factor();
+                spec.device = page_device(self.app.document(), &page, scale);
                 let host = self
                     .source
                     .create_page(&spec)
@@ -133,6 +135,7 @@ impl<W: ShellWindow> Runtime<W> {
             Effect::SetPageColorScheme { page, scheme } => {
                 self.set_page_color_scheme(&page, scheme);
             }
+            Effect::SetPageDevice { page, device } => self.set_page_device(&page, device),
             Effect::LoadThreads => self.load_threads(),
             Effect::WriteThread(thread) => self.write_thread(&thread),
             Effect::WriteThreadIndex => self.write_thread_index(),
@@ -144,6 +147,7 @@ impl<W: ShellWindow> Runtime<W> {
             | Effect::AskCandidates { .. }
             | Effect::ReplayPointer { .. }
             | Effect::AskScrollProgress(_)
+            | Effect::AskScrollRoom { .. }
             | Effect::ScrollPage { .. }
             | Effect::CaptureElement { .. }
             | Effect::TrackElements { .. }) => self.run_sync(effect),
@@ -213,6 +217,9 @@ impl<W: ShellWindow> Runtime<W> {
             }
             Effect::AskScrollProgress(page) => {
                 self.on_host(&page, |source, host| source.scroll_progress(host));
+            }
+            Effect::AskScrollRoom { page, at, toward } => {
+                self.on_host(&page, |source, host| source.scroll_room(host, at, toward));
             }
             Effect::ScrollPage { page, progress } => {
                 self.on_host(&page, |source, host| source.scroll_to(host, progress));

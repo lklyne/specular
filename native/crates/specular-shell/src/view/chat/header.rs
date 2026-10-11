@@ -104,7 +104,8 @@ impl ShellView {
             .into_any_element()
     }
 
-    /// The header strip: the title, then New, Close and Back.
+    /// The header strip: the title, then New, Close and Back. It is the
+    /// dock's row carried across the panel, so the two read as one bar.
     pub(super) fn chat_header(
         &self,
         model: &ChatModel,
@@ -135,13 +136,14 @@ impl ShellView {
                 )
             });
         h_flex()
-            .h(px(36.0))
+            .h(px(theme::DOCK_ROW))
             .flex_shrink_0()
             .px_3()
             .gap(px(6.0))
             .items_center()
+            .bg(theme::solid(theme::toolbar()))
             .border_b_1()
-            .border_color(theme::solid(theme::panel_border()))
+            .border_color(theme::solid(theme::toolbar_border()))
             .child(self.chat_title(model))
             .child(actions)
     }

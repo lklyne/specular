@@ -46,7 +46,7 @@ pub(crate) const fn appearance(theme: Theme) -> Appearance {
 /// The winit icon for a cursor.
 pub(crate) fn cursor_icon(cursor: Cursor) -> CursorIcon {
     match cursor {
-        Cursor::Default => CursorIcon::Default,
+        Cursor::Default | Cursor::PageArrow | Cursor::Touch => CursorIcon::Default,
         Cursor::Crosshair => CursorIcon::Crosshair,
         Cursor::Grab => CursorIcon::Grab,
         Cursor::Grabbing => CursorIcon::Grabbing,

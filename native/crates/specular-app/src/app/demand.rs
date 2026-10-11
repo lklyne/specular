@@ -115,9 +115,9 @@ impl FrameDemand {
         if let Some(ms) = app.next_frame_in_ms() {
             wake = wake.min(now + Duration::from_millis(ms));
         }
-        // A camera transition and an agent cursor on its way are stepped
-        // by the clock, a frame at a time.
-        if app.motion_running() || app.agent_cursor_travelling() {
+        // A camera transition, an agent cursor on its way and a swipe or a
+        // glide on a touch page are stepped by the clock, a frame at a time.
+        if app.motion_running() || app.agent_cursor_travelling() || app.flick_running() {
             wake = wake.min(now + MOTION_TURN);
         }
         match self.not_before {

@@ -1,9 +1,10 @@
 //! Select all and the View menu's zoom commands.
 
 use glam::Vec2;
+use specular_core::Cursor;
 use specular_doc::Rect;
-use specular_interact::Key;
 use specular_interact::panel::builtin::CHROME_HEIGHT;
+use specular_interact::{Effect, Key};
 use specular_testkit::{CMD, TestApp, group, inside, page, shape};
 
 const VIEWPORT: Vec2 = Vec2::new(1000.0, 800.0);
@@ -76,6 +77,6 @@ fn zoom_to_fit_works_from_inside_a_page() {
     app.take_effects();
     app.chord(CMD, Key::Char('1'));
     assert!((app.session().camera.zoom - 0.545).abs() < 1e-6);
-    // The page did not get the key.
-    assert_eq!(app.take_effects(), []);
+    // The page did not get the key, and is no longer under the pointer.
+    assert_eq!(app.take_effects(), [Effect::SetCursor(Cursor::Default)]);
 }

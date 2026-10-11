@@ -19,12 +19,12 @@ use cef::{
     ImplDownloadImageCallback, ImplFrame, ImplImage, ImplKeyboardHandler, ImplLifeSpanHandler,
     ImplLoadHandler, ImplRenderHandler, ImplRequestHandler, KeyEvent, KeyboardHandler,
     LifeSpanHandler, LoadHandler, PaintElementType, PopupFeatures, Range, Rect, RenderHandler,
-    RequestHandler, ScreenInfo, TerminationStatus, WindowInfo, WindowOpenDisposition, WrapApp,
-    WrapBrowserProcessHandler, WrapClient, WrapDisplayHandler, WrapDownloadImageCallback,
-    WrapKeyboardHandler, WrapLifeSpanHandler, WrapLoadHandler, WrapRenderHandler,
-    WrapRequestHandler, wrap_app, wrap_browser_process_handler, wrap_client, wrap_display_handler,
-    wrap_download_image_callback, wrap_keyboard_handler, wrap_life_span_handler, wrap_load_handler,
-    wrap_render_handler, wrap_request_handler,
+    RequestHandler, ScreenInfo, TerminationStatus, TransitionType, WindowInfo,
+    WindowOpenDisposition, WrapApp, WrapBrowserProcessHandler, WrapClient, WrapDisplayHandler,
+    WrapDownloadImageCallback, WrapKeyboardHandler, WrapLifeSpanHandler, WrapLoadHandler,
+    WrapRenderHandler, WrapRequestHandler, wrap_app, wrap_browser_process_handler, wrap_client,
+    wrap_display_handler, wrap_download_image_callback, wrap_keyboard_handler,
+    wrap_life_span_handler, wrap_load_handler, wrap_render_handler, wrap_request_handler,
 };
 // The `wrap_*!` expansions call `add_ref` from this trait unqualified.
 use cef::rc::Rc as _;
@@ -259,6 +259,21 @@ wrap_load_handler! {
                 can_go_back: can_go_back != 0,
                 can_go_forward: can_go_forward != 0,
             });
+        }
+
+        fn on_load_start(
+            &self,
+            browser: Option<&mut Browser>,
+            frame: Option<&mut Frame>,
+            _transition_type: TransitionType,
+        ) {
+            // A document in a new renderer is not told what the last one
+            // was, so `navigator.platform` would be the browser's again.
+            if frame.is_some_and(|frame| frame.is_main() != 0)
+                && let Some(host) = browser.and_then(|browser| browser.host())
+            {
+                self.ctx.pending.send_device(&host, &self.ctx.device());
+            }
         }
 
         fn on_load_end(

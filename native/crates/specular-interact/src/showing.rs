@@ -3,11 +3,13 @@
 //!
 //! An item view is a way of looking at the canvas, not a second mode of it.
 //! Nothing is written to the document (ADR 0020, ADR 0045). It is camera
-//! and size management over the one canvas. The view state is two values:
-//! the item ([`Session::item_view`](crate::Session)) and the [`Lens`] its
-//! tab looks through. Everything else follows from them, here and nowhere
+//! and size management over the one canvas. The view state is three values:
+//! the item ([`Session::item_view`](crate::Session)), the [`Lens`] its tab
+//! looks through, and the eye. Everything else follows from them, here and nowhere
 //! else:
 //!
+//! - The eye ([`App::shows_others`]) is whether Device shows the canvas
+//!   around its item. It starts shut.
 //! - [`hides`] and [`hides_comment`] take items and comments out of what is
 //!   seen, which is also what can be hit. [`refuses`] and [`hides_new`] keep
 //!   anything from being made that would be hidden at once.
@@ -82,6 +84,12 @@ impl App {
     /// no item to look at.
     pub fn lens(&self) -> Option<Lens> {
         self.shown_item().map(|item| self.session.tabs.lens(item))
+    }
+
+    /// Whether the eye is open: Device draws what is around its item, not
+    /// only what is hooked to it. It is one choice for every tab.
+    pub fn shows_others(&self) -> bool {
+        self.session.others_shown
     }
 
     /// The corner radius of `id` when it is the page filling the view, in
@@ -181,6 +189,19 @@ pub(crate) fn set_lens(app: &mut App, lens: Lens, effects: &mut Vec<Effect>) {
             let from = (app.document.entity(&item)).and_then(|entity| motion::seen(app, entity));
             app.session.tabs.set_lens(&item, lens);
             enter(app, &item, from, effects);
+        }
+    });
+}
+
+/// Opens or shuts the eye. A page that shutting it hides is left.
+pub(crate) fn set_others(app: &mut App, shown: bool, effects: &mut Vec<Effect>) {
+    update::verb(app, effects, |app, effects| {
+        app.session.others_shown = shown;
+        let hidden = (app.session.focus.page())
+            .and_then(|page| app.document.entity(page))
+            .is_some_and(|page| hides(app, page));
+        if hidden {
+            set_focus(app, None, effects);
         }
     });
 }

@@ -188,6 +188,7 @@ impl Compositor {
             | PageEvent::Loading { .. }
             | PageEvent::Scrolled { .. }
             | PageEvent::ScrollProgress { .. }
+            | PageEvent::ScrollRoom { .. }
             | PageEvent::Pointed { .. }
             | PageEvent::Candidates { .. }
             | PageEvent::ElementAt { .. }

@@ -5,7 +5,7 @@
 //! is all in screen space, so it keeps its pixel size at any zoom.
 
 use specular_doc::{EntityId, ItemId};
-use specular_interact::{CopyPreview, Corner, HANDLE_SIZE, HandleOwner, OUTLINE_PADDING};
+use specular_interact::{CopyPreview, Corner, HANDLE_SIZE, HandleOwner, Mark, OUTLINE_PADDING};
 
 use super::annotations::region_items;
 use super::edge_chrome;
@@ -50,8 +50,9 @@ pub(crate) fn draw(frame: &Frame<'_>, scene: &mut Scene) {
         .chain(session.hover.as_ref().filter(|_| session.gesture.is_none()))
         .filter(|id| !selected(id))
         .chain(session.selection.entities())
-        // The item shown is the whole view: it has no selection outline.
-        .filter(|id| app.shown_item() != Some(id));
+        // An entered page glows instead, and the item filling the view has
+        // no mark at all.
+        .filter(|id| app.mark(id) == Some(Mark::Outline));
     for id in outlined {
         if let Some(entity) = app.document().entity(id)
             && let Some(seen) = specular_interact::shown_rect(app, entity)

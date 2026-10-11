@@ -222,6 +222,7 @@ pub(crate) fn on_notice(
         PageNotice::Url(_)
         | PageNotice::Scrolled { .. }
         | PageNotice::ScrollProgress { .. }
+        | PageNotice::ScrollRoom(_)
         | PageNotice::Loaded { .. }
         | PageNotice::Crashed { .. }
         | PageNotice::ImeCompositionBounds(_)

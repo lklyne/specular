@@ -56,6 +56,7 @@ pub(crate) fn notice_of(
                 y: f64::from(progress.y),
             },
         ),
+        PageEvent::ScrollRoom { page, room } => (*page, PageNotice::ScrollRoom(*room)),
         PageEvent::Pointed { page, kind, bundle } => (
             *page,
             PageNotice::Pointed {

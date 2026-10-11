@@ -209,6 +209,7 @@ pub(crate) fn on_notice(app: &mut App, page: &EntityId, notice: &PageNotice) {
         | PageNotice::Loading { .. }
         | PageNotice::Scrolled { .. }
         | PageNotice::ScrollProgress { .. }
+        | PageNotice::ScrollRoom(_)
         | PageNotice::Pointed { .. }
         | PageNotice::Candidates { .. }
         | PageNotice::ImeCompositionBounds(_)

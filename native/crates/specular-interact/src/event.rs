@@ -339,6 +339,10 @@ pub enum PageNotice {
         /// Along y.
         y: f64,
     },
+    /// Whether anything under the page's finger can scroll the way it is
+    /// moving: the answer to an
+    /// [`Effect::AskScrollRoom`](crate::Effect::AskScrollRoom).
+    ScrollRoom(bool),
     /// How far the document is scrolled as a fraction of how far it can
     /// scroll: the answer to an
     /// [`Effect::AskScrollProgress`](crate::Effect::AskScrollProgress).
@@ -505,6 +509,9 @@ pub enum Action {
     /// Look at the item of the tab showing through this lens. View state,
     /// kept by the tab for the session.
     SetLens(crate::Lens),
+    /// Open or shut the eye: whether Device draws what is around its item.
+    /// View state, one choice for every tab.
+    ShowOthers(bool),
     /// Show the tab after the one showing, going round to the first.
     ShowNext,
     /// Show the tab before the one showing, going round to the last.

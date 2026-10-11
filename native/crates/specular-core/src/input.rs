@@ -72,6 +72,30 @@ pub struct PointerEvent {
     pub modifiers: Modifiers,
 }
 
+/// What a finger on a page did.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum TouchPhase {
+    /// It came down.
+    Start,
+    /// It moved.
+    Move,
+    /// It left the page.
+    End,
+}
+
+/// One finger on a page that is a touch device, at a page-local CSS
+/// position. A press there is a touch, with nothing of a mouse about it.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct TouchEvent {
+    /// What the finger did.
+    pub phase: TouchPhase,
+    /// Page-local position in CSS pixels. A finger that glides on after a
+    /// flick goes past the page's edges.
+    pub position: Vec2,
+    /// Modifier keys.
+    pub modifiers: Modifiers,
+}
+
 /// A wheel/trackpad scroll forwarded into a page (a page-scroll, not a
 /// canvas pan — the app decides which before forwarding).
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -203,6 +227,8 @@ pub enum ImeEvent {
 pub enum InputEvent {
     /// Pointer move/press/release/leave.
     Pointer(PointerEvent),
+    /// A finger, on a page that is a touch device.
+    Touch(TouchEvent),
     /// Scroll.
     Wheel(WheelEvent),
     /// Keyboard.

@@ -1,5 +1,5 @@
 diff --git a/cli/src/native/actions.rs b/cli/src/native/actions.rs
-index 7342a11..9180237 100644
+index 7342a11..3e344e9 100644
 --- a/cli/src/native/actions.rs
 +++ b/cli/src/native/actions.rs
 @@ -6079,6 +6079,20 @@ async fn handle_click(cmd: &Value, state: &mut DaemonState) -> Result<Value, Str
@@ -32,6 +32,305 @@ index 7342a11..9180237 100644
          &mgr.client,
          &session_id,
          &state.ref_map,
+@@ -6238,6 +6252,7 @@ async fn handle_press(cmd: &Value, state: &mut DaemonState) -> Result<Value, Str
+     // Parse modifier+key chords like "Control+a", "Shift+Enter", "Control+Shift+a"
+     let (actual_key, modifiers) = parse_key_chord(key);
+ 
++    super::pre_act::pre_type(&mgr.client, &session_id, "press").await;
+     interaction::press_key_with_modifiers(&mgr.client, &session_id, &actual_key, modifiers).await?;
+     Ok(json!({ "pressed": key }))
+ }
+@@ -6493,6 +6508,15 @@ async fn handle_gettext(cmd: &Value, state: &mut DaemonState) -> Result<Value, S
+         .and_then(|v| v.as_str())
+         .ok_or("Missing 'selector' parameter")?;
+ 
++    super::pre_act::pre_look(
++        &mgr.client,
++        &session_id,
++        &state.ref_map,
++        selector,
++        &state.iframe_sessions,
++        "read",
++    )
++    .await;
+     let text = super::element::get_element_text(
+         &mgr.client,
+         &session_id,
+@@ -6517,6 +6541,15 @@ async fn handle_getattribute(cmd: &Value, state: &mut DaemonState) -> Result<Val
+         .and_then(|v| v.as_str())
+         .ok_or("Missing 'attribute' parameter")?;
+ 
++    super::pre_act::pre_look(
++        &mgr.client,
++        &session_id,
++        &state.ref_map,
++        selector,
++        &state.iframe_sessions,
++        "read",
++    )
++    .await;
+     let value = super::element::get_element_attribute(
+         &mgr.client,
+         &session_id,
+@@ -6538,6 +6571,15 @@ async fn handle_isvisible(cmd: &Value, state: &mut DaemonState) -> Result<Value,
+         .and_then(|v| v.as_str())
+         .ok_or("Missing 'selector' parameter")?;
+ 
++    super::pre_act::pre_look(
++        &mgr.client,
++        &session_id,
++        &state.ref_map,
++        selector,
++        &state.iframe_sessions,
++        "read",
++    )
++    .await;
+     let visible = super::element::is_element_visible(
+         &mgr.client,
+         &session_id,
+@@ -6558,6 +6600,15 @@ async fn handle_isenabled(cmd: &Value, state: &mut DaemonState) -> Result<Value,
+         .and_then(|v| v.as_str())
+         .ok_or("Missing 'selector' parameter")?;
+ 
++    super::pre_act::pre_look(
++        &mgr.client,
++        &session_id,
++        &state.ref_map,
++        selector,
++        &state.iframe_sessions,
++        "read",
++    )
++    .await;
+     let enabled = super::element::is_element_enabled(
+         &mgr.client,
+         &session_id,
+@@ -6578,6 +6629,15 @@ async fn handle_ischecked(cmd: &Value, state: &mut DaemonState) -> Result<Value,
+         .and_then(|v| v.as_str())
+         .ok_or("Missing 'selector' parameter")?;
+ 
++    super::pre_act::pre_look(
++        &mgr.client,
++        &session_id,
++        &state.ref_map,
++        selector,
++        &state.iframe_sessions,
++        "read",
++    )
++    .await;
+     let checked = super::element::is_element_checked(
+         &mgr.client,
+         &session_id,
+@@ -7294,6 +7354,7 @@ async fn handle_keyboard(cmd: &Value, state: &DaemonState) -> Result<Value, Stri
+                 .get("text")
+                 .and_then(|v| v.as_str())
+                 .ok_or("Missing 'text' parameter")?;
++            super::pre_act::pre_type(&mgr.client, &session_id, "type").await;
+             interaction::type_text_into_active_context(&mgr.client, &session_id, text, None)
+                 .await?;
+             return Ok(json!({ "typed": text }));
+@@ -7303,6 +7364,7 @@ async fn handle_keyboard(cmd: &Value, state: &DaemonState) -> Result<Value, Stri
+                 .get("text")
+                 .and_then(|v| v.as_str())
+                 .ok_or("Missing 'text' parameter")?;
++            super::pre_act::pre_type(&mgr.client, &session_id, "type").await;
+             mgr.client
+                 .send_command(
+                     "Input.insertText",
+@@ -7334,6 +7396,9 @@ async fn handle_keyboard(cmd: &Value, state: &DaemonState) -> Result<Value, Stri
+         params["text"] = Value::String(t.to_string());
+     }
+ 
++    if matches!(event_type, "keyDown" | "rawKeyDown") {
++        super::pre_act::pre_type(&mgr.client, &session_id, "press").await;
++    }
+     mgr.client
+         .send_command("Input.dispatchKeyEvent", Some(params), Some(&session_id))
+         .await?;
+@@ -8098,6 +8163,15 @@ async fn handle_highlight(cmd: &Value, state: &mut DaemonState) -> Result<Value,
+         .and_then(|v| v.as_str())
+         .ok_or("Missing 'selector' parameter")?;
+ 
++    super::pre_act::pre_look(
++        &mgr.client,
++        &session_id,
++        &state.ref_map,
++        selector,
++        &state.iframe_sessions,
++        "read",
++    )
++    .await;
+     interaction::highlight(
+         &mgr.client,
+         &session_id,
+@@ -8145,6 +8219,15 @@ async fn handle_boundingbox(cmd: &Value, state: &mut DaemonState) -> Result<Valu
+         .and_then(|v| v.as_str())
+         .ok_or("Missing 'selector' parameter")?;
+ 
++    super::pre_act::pre_look(
++        &mgr.client,
++        &session_id,
++        &state.ref_map,
++        selector,
++        &state.iframe_sessions,
++        "read",
++    )
++    .await;
+     let bbox = super::element::get_element_bounding_box(
+         &mgr.client,
+         &session_id,
+@@ -8164,6 +8247,15 @@ async fn handle_innertext(cmd: &Value, state: &mut DaemonState) -> Result<Value,
+         .and_then(|v| v.as_str())
+         .ok_or("Missing 'selector' parameter")?;
+ 
++    super::pre_act::pre_look(
++        &mgr.client,
++        &session_id,
++        &state.ref_map,
++        selector,
++        &state.iframe_sessions,
++        "read",
++    )
++    .await;
+     let text = super::element::get_element_inner_text(
+         &mgr.client,
+         &session_id,
+@@ -8183,6 +8275,15 @@ async fn handle_innerhtml(cmd: &Value, state: &mut DaemonState) -> Result<Value,
+         .and_then(|v| v.as_str())
+         .ok_or("Missing 'selector' parameter")?;
+ 
++    super::pre_act::pre_look(
++        &mgr.client,
++        &session_id,
++        &state.ref_map,
++        selector,
++        &state.iframe_sessions,
++        "read",
++    )
++    .await;
+     let html = super::element::get_element_inner_html(
+         &mgr.client,
+         &session_id,
+@@ -8202,6 +8303,15 @@ async fn handle_inputvalue(cmd: &Value, state: &mut DaemonState) -> Result<Value
+         .and_then(|v| v.as_str())
+         .ok_or("Missing 'selector' parameter")?;
+ 
++    super::pre_act::pre_look(
++        &mgr.client,
++        &session_id,
++        &state.ref_map,
++        selector,
++        &state.iframe_sessions,
++        "read",
++    )
++    .await;
+     let value = super::element::get_element_input_value(
+         &mgr.client,
+         &session_id,
+@@ -8263,6 +8373,15 @@ async fn handle_styles(cmd: &Value, state: &mut DaemonState) -> Result<Value, St
+             .collect()
+     });
+ 
++    super::pre_act::pre_look(
++        &mgr.client,
++        &session_id,
++        &state.ref_map,
++        selector,
++        &state.iframe_sessions,
++        "read",
++    )
++    .await;
+     let styles = super::element::get_element_styles(
+         &mgr.client,
+         &session_id,
+@@ -9892,6 +10011,15 @@ async fn execute_subaction(
+             Ok(json!({ "hovered": selector }))
+         }
+         "text" => {
++            super::pre_act::pre_look(
++                &mgr.client,
++                &session_id,
++                &state.ref_map,
++                selector,
++                &state.iframe_sessions,
++                "read",
++            )
++            .await;
+             let text = super::element::get_element_text(
+                 &mgr.client,
+                 &session_id,
+@@ -10586,6 +10714,15 @@ async fn handle_drag(cmd: &Value, state: &mut DaemonState) -> Result<Value, Stri
+         .and_then(|v| v.as_str())
+         .ok_or("Missing 'target' parameter")?;
+ 
++    super::pre_act::pre_act(
++        &mgr.client,
++        &session_id,
++        &state.ref_map,
++        source,
++        &state.iframe_sessions,
++        "drag",
++    )
++    .await;
+     let (sx, sy, source_session_id) = super::element::resolve_element_center(
+         &mgr.client,
+         &session_id,
+@@ -10594,7 +10731,7 @@ async fn handle_drag(cmd: &Value, state: &mut DaemonState) -> Result<Value, Stri
+         &state.iframe_sessions,
+     )
+     .await?;
+-    let (tx, ty, target_session_id) = super::element::resolve_element_center(
++    let (mut tx, mut ty, mut target_session_id) = super::element::resolve_element_center(
+         &mgr.client,
+         &session_id,
+         &state.ref_map,
+@@ -10618,7 +10755,7 @@ async fn handle_drag(cmd: &Value, state: &mut DaemonState) -> Result<Value, Stri
+         &state.iframe_sessions,
+     )
+     .await?;
+-    let target_offset = super::element::session_viewport_offset(
++    let mut target_offset = super::element::session_viewport_offset(
+         &mgr.client,
+         &session_id,
+         &target_session_id,
+@@ -10651,6 +10788,38 @@ async fn handle_drag(cmd: &Value, state: &mut DaemonState) -> Result<Value, Stri
+         cursor.record(sx + source_offset.0, sy + source_offset.1, 1);
+     }
+ 
++    // The host announces the drop and may hold; re-resolve the target afterwards,
++    // keeping the earlier centre if it can no longer be found (the button is down).
++    super::pre_act::pre_act(
++        &mgr.client,
++        &session_id,
++        &state.ref_map,
++        target,
++        &state.iframe_sessions,
++        "drop",
++    )
++    .await;
++    if let Ok((x, y, session)) = super::element::resolve_element_center(
++        &mgr.client,
++        &session_id,
++        &state.ref_map,
++        target,
++        &state.iframe_sessions,
++    )
++    .await
++    {
++        if let Ok(offset) = super::element::session_viewport_offset(
++            &mgr.client,
++            &session_id,
++            &session,
++            &state.iframe_sessions,
++        )
++        .await
++        {
++            (tx, ty, target_session_id, target_offset) = (x, y, session, offset);
++        }
++    }
++
+     // Move in steps to target, keeping the left button held (buttons: 1) so
+     // that the browser sees a drag rather than a plain pointer move.
+     state.mouse_state.x = sx + source_offset.0;
 diff --git a/cli/src/native/daemon.rs b/cli/src/native/daemon.rs
 index 28689d2..7413b99 100644
 --- a/cli/src/native/daemon.rs
@@ -45,14 +344,14 @@ index 28689d2..7413b99 100644
      if !socket_dir.exists() {
          let _ = fs::create_dir_all(&socket_dir);
 diff --git a/cli/src/native/interaction.rs b/cli/src/native/interaction.rs
-index 0a3093e..5cee7e6 100644
+index 0a3093e..abffb62 100644
 --- a/cli/src/native/interaction.rs
 +++ b/cli/src/native/interaction.rs
 @@ -7,6 +7,7 @@ use super::cdp::types::*;
  use super::element::{
      resolve_element_center, resolve_element_object_id, session_viewport_offset, RefMap,
  };
-+use super::pre_act::pre_act;
++use super::pre_act::{pre_act, pre_look};
  
  /// Outcome of a click. `dialog_opened` is true if a JavaScript dialog opened
  /// mid-sequence (the page is then blocked until `dialog accept`/`dismiss`).
@@ -215,7 +514,23 @@ index 0a3093e..5cee7e6 100644
      let (object_id, effective_session_id) = resolve_element_object_id(
          client,
          session_id,
-@@ -941,6 +1041,15 @@ pub async fn tap_touch(
+@@ -819,6 +919,15 @@ pub async fn scroll_into_view(
+     selector_or_ref: &str,
+     iframe_sessions: &HashMap<String, String>,
+ ) -> Result<(), String> {
++    pre_look(
++        client,
++        session_id,
++        ref_map,
++        selector_or_ref,
++        iframe_sessions,
++        "scrollintoview",
++    )
++    .await;
+     let (object_id, effective_session_id) = resolve_element_object_id(
+         client,
+         session_id,
+@@ -941,6 +1050,15 @@ pub async fn tap_touch(
      selector_or_ref: &str,
      iframe_sessions: &HashMap<String, String>,
  ) -> Result<(), String> {
@@ -246,10 +561,10 @@ index abdc7ef..e1e069b 100644
  pub mod react;
 diff --git a/cli/src/native/pre_act.rs b/cli/src/native/pre_act.rs
 new file mode 100644
-index 0000000..0639fa4
+index 0000000..d5bbaed
 --- /dev/null
 +++ b/cli/src/native/pre_act.rs
-@@ -0,0 +1,70 @@
+@@ -0,0 +1,167 @@
 +//! Pre-act hook for hosts that proxy CDP (Specular).
 +//!
 +//! Before a targeted action dispatches input, send the browser-level command
@@ -275,7 +590,8 @@ index 0000000..0639fa4
 +    let _ = SESSION.set(session.to_string());
 +}
 +
-+/// Announces `action` on `selector_or_ref` to the host and waits for its go-ahead.
++/// Announces `action` on `selector_or_ref` and waits for the host's go-ahead
++/// (`wait: true`: the host may hold the reply while its cursor travels).
 +/// Never fails: any problem computing the centre or sending just skips the hook.
 +pub async fn pre_act(
 +    client: &CdpClient,
@@ -284,6 +600,78 @@ index 0000000..0639fa4
 +    selector_or_ref: &str,
 +    iframe_sessions: &HashMap<String, String>,
 +    action: &str,
++) {
++    announce_element(
++        client,
++        session_id,
++        ref_map,
++        selector_or_ref,
++        iframe_sessions,
++        action,
++        true,
++    )
++    .await;
++}
++
++/// Like `pre_act` for reads and inspections (`wait: false`): the host moves its
++/// cursor but answers immediately.
++pub async fn pre_look(
++    client: &CdpClient,
++    session_id: &str,
++    ref_map: &RefMap,
++    selector_or_ref: &str,
++    iframe_sessions: &HashMap<String, String>,
++    action: &str,
++) {
++    announce_element(
++        client,
++        session_id,
++        ref_map,
++        selector_or_ref,
++        iframe_sessions,
++        action,
++        false,
++    )
++    .await;
++}
++
++/// Announces a keyboard action at the centre of the focused element; skipped
++/// when nothing but the body has focus.
++pub async fn pre_type(client: &CdpClient, session_id: &str, action: &str) {
++    if DISABLED.load(Ordering::Relaxed) {
++        return;
++    }
++    const ACTIVE_CENTER: &str = "(() => { const e = document.activeElement; \
++        if (!e || e === document.body || e === document.documentElement) return null; \
++        const r = e.getBoundingClientRect(); \
++        if (!r.width || !r.height) return null; \
++        return [r.x + r.width / 2, r.y + r.height / 2]; })()";
++    let Ok(result) = client
++        .send_command(
++            "Runtime.evaluate",
++            Some(json!({ "expression": ACTIVE_CENTER, "returnByValue": true })),
++            Some(session_id),
++        )
++        .await
++    else {
++        return;
++    };
++    let centre = result.pointer("/result/value").and_then(|v| v.as_array());
++    if let Some([x, y]) = centre.map(Vec::as_slice) {
++        if let (Some(x), Some(y)) = (x.as_f64(), y.as_f64()) {
++            send(client, session_id, action, x, y, true).await;
++        }
++    }
++}
++
++async fn announce_element(
++    client: &CdpClient,
++    session_id: &str,
++    ref_map: &RefMap,
++    selector_or_ref: &str,
++    iframe_sessions: &HashMap<String, String>,
++    action: &str,
++    wait: bool,
 +) {
 +    if DISABLED.load(Ordering::Relaxed) {
 +        return;
@@ -304,12 +692,36 @@ index 0000000..0639fa4
 +    else {
 +        return;
 +    };
-+    let params = json!({
++    send(client, session_id, action, x + offset.0, y + offset.1, wait).await;
++}
++
++/// The top-level page's scroll offset, so the host can keep its cursor on the
++/// element when the page scrolls later.
++async fn page_scroll(client: &CdpClient, session_id: &str) -> Option<(f64, f64)> {
++    let result = client
++        .send_command(
++            "Runtime.evaluate",
++            Some(json!({ "expression": "[scrollX, scrollY]", "returnByValue": true })),
++            Some(session_id),
++        )
++        .await
++        .ok()?;
++    let value = result.pointer("/result/value")?.as_array()?;
++    Some((value.first()?.as_f64()?, value.get(1)?.as_f64()?))
++}
++
++async fn send(client: &CdpClient, session_id: &str, action: &str, x: f64, y: f64, wait: bool) {
++    let mut params = json!({
 +        "action": action,
-+        "x": x + offset.0,
-+        "y": y + offset.1,
++        "x": x,
++        "y": y,
++        "wait": wait,
 +        "session": SESSION.get().map(String::as_str).unwrap_or(""),
 +    });
++    if let Some((scroll_x, scroll_y)) = page_scroll(client, session_id).await {
++        params["scrollX"] = json!(scroll_x);
++        params["scrollY"] = json!(scroll_y);
++    }
 +    let reply = tokio::time::timeout(
 +        Duration::from_secs(3),
 +        client.send_command("Specular.willAct", Some(params), None),

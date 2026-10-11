@@ -53,6 +53,12 @@ pub struct WillAct {
     pub y: f64,
     /// The client's own name for its session.
     pub session: String,
+    /// Whether the client holds the act until it is answered. A read does
+    /// not: it is answered at once and the cursor follows.
+    pub wait: bool,
+    /// How far the page was scrolled when the point was measured, in CSS
+    /// pixels, when the client says.
+    pub scroll: Option<(f64, f64)>,
 }
 
 /// Where a message goes next.
@@ -68,7 +74,8 @@ pub enum Out {
         /// The message.
         message: String,
     },
-    /// `client` waits to act. Send it `reply` once its cursor has arrived.
+    /// `client` announced an act. Send it `reply` once its cursor has
+    /// arrived, or at once when the act does not wait.
     Act {
         /// The client waiting.
         client: ClientId,
@@ -167,6 +174,8 @@ impl PageProxy {
                 x: params["x"].as_f64().unwrap_or_default(),
                 y: params["y"].as_f64().unwrap_or_default(),
                 session: params["session"].as_str().unwrap_or_default().to_owned(),
+                wait: params["wait"].as_bool().unwrap_or(true),
+                scroll: (params["scrollX"].as_f64()).zip(params["scrollY"].as_f64()),
             };
             let mut reply = Map::new();
             reply.insert("id".to_owned(), id);

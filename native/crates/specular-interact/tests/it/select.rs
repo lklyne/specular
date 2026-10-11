@@ -2,7 +2,7 @@
 //! and what the selection means for a group (ADR 0034). Nothing here changes
 //! the document.
 
-use specular_core::{InputEvent, Modifiers, PointerButton, PointerEvent, PointerEventKind};
+use specular_core::{Cursor, InputEvent, Modifiers, PointerButton, PointerEvent, PointerEventKind};
 use specular_doc::{Entity, EntityId, PageAnchor, Rect};
 use specular_interact::{Effect, Event, Focus, Gesture, MarqueeMode, PointerInput};
 use specular_testkit::{
@@ -18,11 +18,17 @@ fn entering(page: &str) -> Vec<Effect> {
     vec![
         Effect::FocusPage(Some(EntityId::from(page))),
         Effect::SetImeAllowed(true),
+        // The page is pointed at with the system's arrow, not the app's.
+        Effect::SetCursor(Cursor::PageArrow),
     ]
 }
 
 fn leaving() -> Vec<Effect> {
-    vec![Effect::FocusPage(None), Effect::SetImeAllowed(false)]
+    vec![
+        Effect::FocusPage(None),
+        Effect::SetImeAllowed(false),
+        Effect::SetCursor(Cursor::Default),
+    ]
 }
 
 fn focus(app: &TestApp) -> Option<&str> {

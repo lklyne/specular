@@ -113,6 +113,10 @@ pub enum Icon {
     PanelLeft,
     /// The right panel's toggle. Lucide `PanelRight`.
     PanelRight,
+    /// The eye, open: Device draws what is around its item. Lucide `Eye`.
+    Eye,
+    /// The eye, shut. Lucide `EyeOff`.
+    EyeOff,
     /// Open the item in a tab of its own. Lucide `Maximize2`.
     Expand,
     /// Put the item back on the canvas. Lucide `Minimize2`.
