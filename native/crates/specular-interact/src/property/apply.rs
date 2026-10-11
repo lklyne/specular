@@ -60,6 +60,7 @@ pub(super) fn edge(property: &Property, edge: &Edge) -> Option<Edge> {
         | Property::ViewportHeight(_)
         | Property::Orientation(_)
         | Property::DeviceFrame(_)
+        | Property::DeviceFrameColor(_)
         | Property::ColorScheme(_) => return None,
     }
     Some(next)

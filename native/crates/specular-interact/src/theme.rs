@@ -112,6 +112,8 @@ pub(crate) fn choose(app: &mut App, theme: Theme, save: bool, effects: &mut Vec<
     }
     if before.appearance() != app.theme.appearance() {
         crate::pages::refresh_color_schemes(app, effects);
+        // A device that follows the theme is drawn from another drawing.
+        crate::images::request_new(app, effects);
     }
 }
 
@@ -121,5 +123,6 @@ pub(crate) fn system_changed(app: &mut App, system: Appearance, effects: &mut Ve
     app.theme.system = system;
     if before != app.theme.appearance() {
         crate::pages::refresh_color_schemes(app, effects);
+        crate::images::request_new(app, effects);
     }
 }

@@ -36,6 +36,44 @@ impl DeviceFrameStyle {
     }
 }
 
+/// The colour a framed page's device is drawn in, in either style.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum DeviceFrameColor {
+    /// A light device: a pale clay bezel, or silver and white.
+    Light,
+    /// A dark device: a dark clay bezel, or graphite and black.
+    Dark,
+}
+
+impl DeviceFrameColor {
+    /// The colour as `metadata.deviceFrameColor` names it.
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Light => "light",
+            Self::Dark => "dark",
+        }
+    }
+
+    /// The colour `metadata.deviceFrameColor` names. No name, and one this
+    /// build does not know, is none: the device follows the app's theme.
+    pub fn from_name(name: Option<&str>) -> Option<Self> {
+        match name {
+            Some("light") => Some(Self::Light),
+            Some("dark") => Some(Self::Dark),
+            _ => None,
+        }
+    }
+
+    /// The other colour.
+    #[must_use]
+    pub const fn other(self) -> Self {
+        match self {
+            Self::Light => Self::Dark,
+            Self::Dark => Self::Light,
+        }
+    }
+}
+
 /// A device that has a realistic drawing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum DeviceArt {
@@ -124,20 +162,44 @@ impl DeviceArt {
         }
     }
 
-    /// The name the drawing is asked for by, where a file entity's image is
-    /// asked for by its path. It is no path: the shell holds the drawing.
-    pub const fn asset(self) -> &'static str {
-        match self {
-            Self::IphoneSe => "specular-device-frame:iphone-se.svg",
-            Self::Iphone15Pro => "specular-device-frame:iphone-15-pro.svg",
-            Self::Iphone15ProMax => "specular-device-frame:iphone-15-pro-max.svg",
-            Self::IpadPro11 => "specular-device-frame:ipad-pro-11inches.svg",
+    /// The name the drawing in `color` is asked for by, where a file
+    /// entity's image is asked for by its path. It is no path: the shell
+    /// holds the drawings. The two colours are the same shape.
+    pub const fn asset(self, color: DeviceFrameColor) -> &'static str {
+        match (self, color) {
+            (Self::IphoneSe, DeviceFrameColor::Dark) => "specular-device-frame:iphone-se.svg",
+            (Self::IphoneSe, DeviceFrameColor::Light) => {
+                "specular-device-frame:iphone-se-light.svg"
+            }
+            (Self::Iphone15Pro, DeviceFrameColor::Dark) => {
+                "specular-device-frame:iphone-15-pro.svg"
+            }
+            (Self::Iphone15Pro, DeviceFrameColor::Light) => {
+                "specular-device-frame:iphone-15-pro-light.svg"
+            }
+            (Self::Iphone15ProMax, DeviceFrameColor::Dark) => {
+                "specular-device-frame:iphone-15-pro-max.svg"
+            }
+            (Self::Iphone15ProMax, DeviceFrameColor::Light) => {
+                "specular-device-frame:iphone-15-pro-max-light.svg"
+            }
+            (Self::IpadPro11, DeviceFrameColor::Dark) => {
+                "specular-device-frame:ipad-pro-11inches.svg"
+            }
+            (Self::IpadPro11, DeviceFrameColor::Light) => {
+                "specular-device-frame:ipad-pro-11inches-light.svg"
+            }
         }
     }
 
-    /// The drawing [`asset`](Self::asset) names.
-    pub fn from_asset(asset: &str) -> Option<Self> {
-        Self::ALL.into_iter().find(|art| art.asset() == asset)
+    /// The drawing and colour [`asset`](Self::asset) names.
+    pub fn from_asset(asset: &str) -> Option<(Self, DeviceFrameColor)> {
+        Self::ALL.into_iter().find_map(|art| {
+            [DeviceFrameColor::Dark, DeviceFrameColor::Light]
+                .into_iter()
+                .find(|color| art.asset(*color) == asset)
+                .map(|color| (art, color))
+        })
     }
 
     /// Where the screen and the body sit in the drawing: the manifest's

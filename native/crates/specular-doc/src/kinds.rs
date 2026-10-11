@@ -56,6 +56,15 @@ impl Page {
         crate::DeviceFrameStyle::from_name(name)
     }
 
+    /// The colour the page's device is kept in, or `None` for a page that
+    /// follows the app's theme.
+    pub fn frame_color(&self) -> Option<crate::DeviceFrameColor> {
+        let name = (self.metadata.as_ref())
+            .and_then(|meta| meta.get("deviceFrameColor"))
+            .and_then(serde_json::Value::as_str);
+        crate::DeviceFrameColor::from_name(name)
+    }
+
     /// The realistic drawing the page can be framed in: its device's, when
     /// the page is at a preset and not a size of its own.
     pub fn device_art(&self) -> Option<crate::DeviceArt> {

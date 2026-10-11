@@ -166,8 +166,10 @@ pub fn device_shell(
 /// The shell of `device_id` standing up as its drawing's body, if it has a
 /// drawing. The drawing is scaled so its screen is the preset's viewport.
 /// The insets are what the body leaves round the screen, to whole units so
-/// the screen stays on whole pixels when the frame comes and goes. Buttons
-/// stick out past the shell.
+/// the screen stays on whole pixels when the frame comes and goes. Sides
+/// that are all but equal round to the same: all four when the bezel is
+/// even all round, or else each opposite pair. Buttons stick out past the
+/// shell.
 fn body(device_id: &str) -> Option<DeviceShell> {
     let art = DeviceArt::of_device(device_id)?;
     let preset = (VIEWPORT_PRESETS.iter()).find(|preset| preset.device_id == device_id)?;
@@ -177,12 +179,22 @@ fn body(device_id: &str) -> Option<DeviceShell> {
     let top = geometry.screen_origin.1 - geometry.body_origin.1;
     let right = geometry.body_size.0 - left - geometry.screen_size.0;
     let bottom = geometry.body_size.1 - top - geometry.screen_size.1;
+    let [top, right, bottom, left] = [top, right, bottom, left].map(|inset| inset * scale);
+    let even = rounded_together(&[top, right, bottom, left]);
+    let across = even.or_else(|| rounded_together(&[left, right]));
+    let down = even.or_else(|| rounded_together(&[top, bottom]));
+    let [top, right, bottom, left] = [
+        down.unwrap_or(top.round()),
+        across.unwrap_or(right.round()),
+        down.unwrap_or(bottom.round()),
+        across.unwrap_or(left.round()),
+    ];
     Some(DeviceShell {
         insets: ShellInsets {
-            top: (top * scale).round(),
-            right: (right * scale).round(),
-            bottom: (bottom * scale).round(),
-            left: (left * scale).round(),
+            top,
+            right,
+            bottom,
+            left,
         },
         corner_radius: geometry.body_corner_radius * scale,
         screen_corner_radius: geometry.screen_corner_radius * scale,
@@ -195,6 +207,16 @@ fn body(device_id: &str) -> Option<DeviceShell> {
         landscape: false,
         art: Some(art),
     })
+}
+
+/// The whole number `insets` share when they are within half a unit of
+/// each other: their mean, rounded. Such sides are one bezel drawn evenly,
+/// and rounded one by one they can come out a unit apart.
+fn rounded_together(insets: &[f64]) -> Option<f64> {
+    let least = insets.iter().copied().fold(f64::INFINITY, f64::min);
+    let most = insets.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+    let mean = insets.iter().sum::<f64>() / insets.len() as f64;
+    (most - least < 0.5).then(|| mean.round())
 }
 
 /// The shell of a device with no drawing, standing up.
@@ -260,10 +282,10 @@ mod tests {
         let bodies = [
             (DeviceArt::IphoneSe, (94.0, 23.0, 96.0, 23.0), 63.0, 0.0),
             (DeviceArt::Iphone15Pro, (17.0, 17.0, 17.0, 17.0), 71.7, 55.0),
-            // Its sides are 16.5001 and 16.4996 units, which round apart.
+            // Its sides are 16.5 and its ends 16.67, one even bezel.
             (
                 DeviceArt::Iphone15ProMax,
-                (17.0, 16.0, 17.0, 17.0),
+                (17.0, 17.0, 17.0, 17.0),
                 71.7,
                 55.0,
             ),

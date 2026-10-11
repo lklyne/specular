@@ -10,6 +10,9 @@ use crate::App;
 pub enum PageStep {
     /// The device frame: none, clay, realistic, and round again.
     Frame,
+    /// The device's colour: the one the framed pages are not drawn in, or
+    /// the one the theme is not when they differ.
+    FrameColor,
     /// The orientation: landscape, unless the pages are.
     Rotate,
     /// The color scheme: system, light, dark, and round again.
@@ -21,6 +24,11 @@ impl PageStep {
     pub fn next(self, app: &App) -> Property {
         match self {
             Self::Frame => Property::DeviceFrame(read::next_device_frame(app)),
+            Self::FrameColor => {
+                let drawn = read::device_frame_color(app)
+                    .unwrap_or_else(|| crate::images::theme_device_color(app));
+                Property::DeviceFrameColor(drawn.other())
+            }
             Self::Rotate => Property::Orientation(match read::orientation(app) {
                 Some(Orientation::Landscape) => Orientation::Portrait,
                 Some(Orientation::Portrait) | None => Orientation::Landscape,

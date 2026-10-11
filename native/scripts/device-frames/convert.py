@@ -728,21 +728,21 @@ def body_outline(draws, frame):
             if cut[2] - cut[0] >= width - 1e-6 and cut[3] - cut[1] >= height - 1e-6:
                 continue
             area = (cut[2] - cut[0]) * (cut[3] - cut[1])
-            found.append((area, cut, corner_radius(outline, box)))
+            found.append((area, cut, corner_radius(outline, box), draw))
     if not found:
         return None
-    area, cut, radius = max(found, key=lambda entry: entry[0])
+    area, cut, radius, draw = max(found, key=lambda entry: entry[0])
     # A body fills most of its frame; anything smaller is a part of one.
     if area < 0.8 * width * height:
         return None
-    return cut, radius
+    return cut, radius, draw
 
 
 def body_fields(draws, frame):
     body = body_outline(draws, frame)
     if body is None:
         return {}
-    cut, radius = body
+    cut, radius, _ = body
     return {
         "body": {
             "x": tidy(cut[0], 3),
@@ -752,6 +752,90 @@ def body_fields(draws, frame):
         },
         "bodyCornerRadius": tidy(radius, 2),
     }
+
+
+# ---------------------------------------------------------------- light
+
+# The devices that also get `<name>-light.svg`. The drawings are one dark
+# colourway; the light one is the same draws with some fills changed.
+LIGHT_DEVICES = ("ipad-pro-11inches", "iphone-15-pro", "iphone-15-pro-max", "iphone-se")
+
+# (what the fill is, its dark colour) -> its light colour. Anything not
+# listed keeps its colour: glass, the island, cameras, sensors, shading.
+#
+# body    the device's main outline, which shows as its edge
+# button  a fill that sticks out of the body
+# face    the front, on a device with a forehead and a chin
+# ring    a ring on the face, which is the home button's
+LIGHT_FILLS = {
+    ("body", "#3A4245"): "#C9CACC",
+    ("body", "#454C60"): "#E3E4E5",
+    ("button", "#121515"): "#C9CACC",
+    ("button", "#454C60"): "#C9CACC",
+    ("face", "#121515"): "#F4F4F5",
+    ("ring", "#262C2D"): "#C9CACC",
+}
+
+# A front the screen covers this much of is glass to its edge, and stays
+# dark. Less, and it is a painted face.
+GLASS_FRONT = 0.8
+
+
+def box_area(box):
+    return max(box[2] - box[0], 0.0) * max(box[3] - box[1], 0.0)
+
+
+def fill_role(draw, body_draw, body_box, screen_box):
+    """What a solid fill is, as LIGHT_FILLS names it, or None."""
+    paint = draw[-1]
+    if paint.style != "fill" or paint.shader is not None or paint.maskFilter is not None:
+        return None
+    if draw is body_draw:
+        return "body"
+    if draw[0] == "path":
+        outlines = subpaths(draw[1])
+    elif draw[0] == "rrect":
+        outlines = subpaths(rrect_cmds(draw[1], draw[2]))
+    else:
+        return None
+    boxes = [bounds(outline) for outline in outlines]
+    if not boxes:
+        return None
+    box = (min(b[0] for b in boxes), min(b[1] for b in boxes), max(b[2] for b in boxes), max(b[3] for b in boxes))
+    reach = 0.5
+    if (
+        box[0] < body_box[0] - reach
+        or box[1] < body_box[1] - reach
+        or box[2] > body_box[2] + reach
+        or box[3] > body_box[3] + reach
+    ):
+        return "button"
+    if box_area(box) >= 0.8 * box_area(body_box):
+        return "glass" if box_area(screen_box) >= GLASS_FRONT * box_area(box) else "face"
+    if len(boxes) == 2:
+        outer, inner = sorted(boxes, key=box_area, reverse=True)
+        if outer[0] < inner[0] and outer[1] < inner[1] and outer[2] > inner[2] and outer[3] > inner[3]:
+            return "ring"
+    return None
+
+
+def light_draws(draws, frame, screen_box):
+    """The draws in the light colourway."""
+    body = body_outline(draws, frame)
+    if body is None:
+        raise Unsupported("no body outline to colour")
+    body_box, _, body_draw = body
+    out = []
+    for draw in draws:
+        paint = draw[-1]
+        role = fill_role(draw, body_draw, body_box, screen_box)
+        light = LIGHT_FILLS.get((role, paint.color.hex))
+        if light is not None:
+            paint = paint.snapshot()
+            paint.color = Color((paint.color.argb & 0xFF000000) | int(light[1:], 16))
+            draw = (*draw[:-1], paint)
+        out.append(draw)
+    return out
 
 
 def convert(folder):
@@ -786,9 +870,16 @@ def convert(folder):
         svg.draw(draw)
 
     name = folder.name.lower().replace("_", "-")
+    files = {f"{name}.svg": svg.text()}
+    if name in LIGHT_DEVICES:
+        light = Svg(frame, screen)
+        for draw in light_draws(canvas.draws, frame, box):
+            light.draw(draw)
+        files[f"{name}-light.svg"] = light.text()
     row = {
         "name": name,
         "file": f"{name}.svg",
+        **({"lightFile": f"{name}-light.svg"} if name in LIGHT_DEVICES else {}),
         "frame": {"width": tidy(frame.width), "height": tidy(frame.height)},
         "screen": {
             "x": tidy(box[0], 3),
@@ -803,7 +894,7 @@ def convert(folder):
         "platform": platform,
         "kind": kind,
     }
-    return row, svg.text()
+    return row, files
 
 
 def main():
@@ -821,11 +912,12 @@ def main():
     rows, skipped = [], []
     for frame_file in sorted((args.checkout / DEVICES_DIR).glob("*/*/frame.g.dart")):
         try:
-            row, svg = convert(frame_file.parent)
+            row, files = convert(frame_file.parent)
         except Unsupported as err:
             skipped.append((frame_file.parent.name, str(err)))
             continue
-        (args.out / row["file"]).write_text(svg)
+        for file, svg in files.items():
+            (args.out / file).write_text(svg)
         rows.append(row)
 
     rows.sort(key=lambda r: r["name"])

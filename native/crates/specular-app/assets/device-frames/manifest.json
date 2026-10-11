@@ -147,6 +147,7 @@
   {
     "name": "ipad-pro-11inches",
     "file": "ipad-pro-11inches.svg",
+    "lightFile": "ipad-pro-11inches-light.svg",
     "frame": {
       "width": 1741,
       "height": 2412
@@ -466,6 +467,7 @@
   {
     "name": "iphone-15-pro",
     "file": "iphone-15-pro.svg",
+    "lightFile": "iphone-15-pro-light.svg",
     "frame": {
       "width": 873,
       "height": 1792
@@ -495,6 +497,7 @@
   {
     "name": "iphone-15-pro-max",
     "file": "iphone-15-pro-max.svg",
+    "lightFile": "iphone-15-pro-max-light.svg",
     "frame": {
       "width": 874,
       "height": 1802
@@ -640,6 +643,7 @@
   {
     "name": "iphone-se",
     "file": "iphone-se.svg",
+    "lightFile": "iphone-se-light.svg",
     "frame": {
       "width": 891,
       "height": 1790

@@ -1,13 +1,13 @@
 //! Pages: the live frame, and around it a border and a title.
 
 use specular_core::CssSize;
-use specular_doc::{DeviceArt, DeviceKind, DeviceShell, Entity, Page};
-use specular_interact::{Mark, PageState, title_scale};
+use specular_doc::{DeviceArt, DeviceFrameColor, DeviceKind, DeviceShell, Entity, Page};
+use specular_interact::{Appearance, Mark, PageState, title_scale};
 
 use super::frame::{Frame, canvas_rect, carried};
 use super::palette;
 use crate::{
-    ImageDraw, ImageId, Item, PageDraw, Point, Rect, RectDraw, Scene, ShadowDraw, Stroke,
+    Colors, ImageDraw, ImageId, Item, PageDraw, Point, Rect, RectDraw, Scene, ShadowDraw, Stroke,
     StrokeAlign, TextOverflow, TextRun, VerticalAlign,
 };
 
@@ -110,34 +110,18 @@ pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, page: &Page, scene: &mut 
     }
     // A realistic frame is its device's drawing once the shell has it.
     // Until then, and for a clay frame, the shell is drawn here.
+    let color = frame.app.device_frame_color(page);
     let art = shell.and_then(|shell| {
-        let image = frame.app.device_frame_image(shell.art?)?;
+        let image = frame.app.device_frame_image(shell.art?, color)?;
         Some((shell.art?, ImageId(image.texture(0))))
     });
+    // The device is in its own colour's palette, whatever the app's theme.
+    let device = Colors::of(match color {
+        DeviceFrameColor::Light => Appearance::Light,
+        DeviceFrameColor::Dark => Appearance::Dark,
+    });
     if let Some(shell) = &shell {
-        let radius = shell.corner_radius as f32;
-        // The shadow falls down the screen whichever way the shell faces.
-        scene.push(carry.canvas(outer, |rect| {
-            Item::canvas(ShadowDraw {
-                rect: Rect::new(rect.x, rect.y + SHELL_SHADOW, rect.width, rect.height),
-                corner_radius: radius,
-                blur: SHELL_SHADOW,
-                color: frame.colors.device_shadow,
-            })
-        }));
-        // The drawing's screen is a hole, so the dark behind the page is
-        // drawn here.
-        let (bezel, radius, color) = match art {
-            Some(_) => (
-                screen.outset(SCREEN_BACKING),
-                shell.screen_corner_radius as f32 + SCREEN_BACKING,
-                frame.colors.device_notch,
-            ),
-            None => (outer, radius, frame.colors.device_bezel),
-        };
-        scene.push(carry.canvas(bezel, |rect| {
-            Item::canvas(RectDraw::filled(rect, color).with_corner_radius(radius))
-        }));
+        under_page(device, &carry, screen, shell, art.is_some(), scene);
     }
     let screen_radius = shell.map_or(plain_radius, |shell| shell.screen_corner_radius as f32);
     // A frame painted before the turn does not cover the screen on its way
@@ -169,9 +153,9 @@ pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, page: &Page, scene: &mut 
         let (rect, turn) = art_rect(screen, shell, art);
         scene.push(carry.image(image, rect, turn));
     } else if let Some(shell) = &shell {
-        decorate(frame, &carry, screen, outer, shell, scene);
+        decorate(device, &carry, screen, outer, shell, scene);
         let ring = Stroke::new(
-            frame.colors.device_screen_ring,
+            device.device_screen_ring,
             SCREEN_RING_WIDTH,
             StrokeAlign::Outside,
         );
@@ -215,6 +199,43 @@ pub(super) fn shell_rect(screen: Rect, shell: &DeviceShell) -> Rect {
     )
 }
 
+/// What of a device is under its page: its shadow, and the clay bezel or,
+/// for a device that is `drawn`, the dark behind its drawing's screen.
+fn under_page(
+    device: &Colors,
+    carry: &Carry,
+    screen: Rect,
+    shell: &DeviceShell,
+    drawn: bool,
+    scene: &mut Scene,
+) {
+    let outer = shell_rect(screen, shell);
+    let radius = shell.corner_radius as f32;
+    // The shadow falls down the screen whichever way the shell faces.
+    scene.push(carry.canvas(outer, |rect| {
+        Item::canvas(ShadowDraw {
+            rect: Rect::new(rect.x, rect.y + SHELL_SHADOW, rect.width, rect.height),
+            corner_radius: radius,
+            blur: SHELL_SHADOW,
+            color: device.device_shadow,
+        })
+    }));
+    // The drawing's screen is a hole, so the dark behind the page is drawn
+    // here.
+    let (bezel, radius, color) = if drawn {
+        (
+            screen.outset(SCREEN_BACKING),
+            shell.screen_corner_radius as f32 + SCREEN_BACKING,
+            device.device_notch,
+        )
+    } else {
+        (outer, radius, device.device_bezel)
+    };
+    scene.push(carry.canvas(bezel, |rect| {
+        Item::canvas(RectDraw::filled(rect, color).with_corner_radius(radius))
+    }));
+}
+
 /// Where `art` is drawn round `screen`, and the turn it is drawn at. The
 /// drawing stands up, scaled so its screen is the page's, and a page on its
 /// side turns it a quarter turn clockwise about its centre, as the clay
@@ -250,7 +271,7 @@ fn art_rect(screen: Rect, shell: &DeviceShell, art: DeviceArt) -> (Rect, f32) {
 /// A phone's notch, and the home indicator in a phone's or a tablet's
 /// bottom bezel.
 fn decorate(
-    frame: &Frame<'_>,
+    device: &Colors,
     carry: &Carry,
     screen: Rect,
     outer: Rect,
@@ -268,9 +289,7 @@ fn decorate(
         let notch = Rect::new(centre - width / 2.0, screen.y + gap, width, height);
         // Only a phone standing up has a notch, so it comes in with the turn.
         let notch = carry.canvas(notch, |rect| {
-            Item::canvas(
-                RectDraw::filled(rect, frame.colors.device_notch).with_corner_radius(radius),
-            )
+            Item::canvas(RectDraw::filled(rect, device.device_notch).with_corner_radius(radius))
         });
         scene.push(notch.with_opacity(carry.progress));
     }
@@ -289,7 +308,7 @@ fn decorate(
     );
     scene.push(carry.canvas(indicator, |rect| {
         Item::canvas(
-            RectDraw::filled(rect, frame.colors.device_indicator)
+            RectDraw::filled(rect, device.device_indicator)
                 .with_corner_radius(INDICATOR_HEIGHT / 2.0),
         )
     }));

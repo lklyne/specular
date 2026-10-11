@@ -11,6 +11,7 @@ const DEVICE_ID: &str = "deviceId";
 const ORIENTATION: &str = "deviceOrientation";
 const FRAME: &str = "showDeviceFrame";
 const FRAME_STYLE: &str = "deviceFrameStyle";
+const FRAME_COLOR: &str = "deviceFrameColor";
 const SIZE_MODE: &str = "pageSizeMode";
 const CUSTOM_SIZE: &str = "customSize";
 /// The name a custom size had before it was called custom.
@@ -100,6 +101,10 @@ fn apply(property: &Property, page: &mut Page, rect: &mut Rect) -> bool {
                     meta.insert(FRAME_STYLE.to_owned(), json!(style.name()));
                 }
             }
+        }
+        Property::DeviceFrameColor(color) => {
+            let meta = page.metadata.get_or_insert_with(JsonMap::new);
+            meta.insert(FRAME_COLOR.to_owned(), json!(color.name()));
         }
         Property::ColorScheme(scheme) => page.color_scheme = *scheme,
         Property::Color(_)

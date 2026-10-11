@@ -3,8 +3,9 @@
 //! out reads as the value the renderer draws it with.
 
 use specular_doc::{
-    BorderStyle, BrushType, Color, ColorScheme, DeviceFrameStyle, Edge, EdgeEnd, Entity, FillStyle,
-    ItemId, Kind, LineStyle, Page, ShapeKind, TextAlign, TextFont, TextStyle, VerticalAlign,
+    BorderStyle, BrushType, Color, ColorScheme, DeviceFrameColor, DeviceFrameStyle, Edge, EdgeEnd,
+    Entity, FillStyle, ItemId, Kind, LineStyle, Page, ShapeKind, TextAlign, TextFont, TextStyle,
+    VerticalAlign,
 };
 
 use super::Orientation;
@@ -261,6 +262,35 @@ pub(super) fn next_device_frame(app: &App) -> Option<DeviceFrameStyle> {
     } else {
         (pages.iter().any(|(_, drawn)| *drawn)).then_some(DeviceFrameStyle::Realistic)
     }
+}
+
+/// The colour the devices of framed pages are drawn in: each page's own,
+/// or the app theme's for a page that keeps none. A page with no frame is
+/// left out.
+pub fn device_frame_color(app: &App) -> Option<DeviceFrameColor> {
+    of_entities(app, |entity, out| {
+        if let Kind::Page(page) = &entity.kind
+            && page.shell().is_some()
+        {
+            out.push(app.device_frame_color(page));
+        }
+    })
+}
+
+/// Whether a selected page shows a device frame, and so has a colour to set.
+pub fn any_device_frame(app: &App) -> bool {
+    let framed = gather(
+        app,
+        |entity, out| {
+            if let Kind::Page(page) = &entity.kind
+                && page.shell().is_some()
+            {
+                out.push(());
+            }
+        },
+        |_, _| {},
+    );
+    !framed.is_empty()
 }
 
 /// The color-scheme override of pages; the inner `None` follows the system.

@@ -168,6 +168,7 @@ fn page_entries(app: &App) -> Vec<MenuEntry> {
         page_item(app, "Stop", Action::PageStop),
         MenuEntry::Separator,
         page_item(app, "Device frame", Action::StepPage(PageStep::Frame)),
+        page_item(app, "Device color", Action::StepPage(PageStep::FrameColor)),
         page_item(app, "Rotate", Action::StepPage(PageStep::Rotate)),
         page_item(app, "Color scheme", Action::StepPage(PageStep::Scheme)),
     ]

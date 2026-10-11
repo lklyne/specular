@@ -5,7 +5,9 @@
 //! this app runs no dev servers, so the origin's binding is the only source.
 
 use specular_agent::origin_of;
-use specular_doc::{ColorScheme, DeviceFrameStyle, Entity, Kind, VIEWPORT_PRESETS};
+use specular_doc::{
+    ColorScheme, DeviceFrameColor, DeviceFrameStyle, Entity, Kind, VIEWPORT_PRESETS,
+};
 
 use super::super::build::{button, groups, toggle};
 use super::super::{
@@ -215,10 +217,19 @@ fn size_dropdown(app: &App, single: Option<&Entity>) -> Control {
     );
     // How the pages are shown, under the sizes. Several pages share only
     // the frame.
-    sections.push(DropdownSection::Controls(match single {
-        Some(_) => vec![frame_toggle(app, "Device frame"), rotate(), scheme(app)],
-        None => vec![frame_toggle(app, "Toggle device frame for selected pages")],
-    }));
+    let mut shown = vec![frame_toggle(
+        app,
+        match single {
+            Some(_) => "Device frame",
+            None => "Toggle device frame for selected pages",
+        },
+    )];
+    // A device has a colour only while it is drawn.
+    shown.extend(read::any_device_frame(app).then(|| frame_color(app)));
+    if single.is_some() {
+        shown.extend([rotate(), scheme(app)]);
+    }
+    sections.push(DropdownSection::Controls(shown));
     let named = preset.and_then(|index| VIEWPORT_PRESETS.get(usize::try_from(index).ok()?));
     let summary = match (named, single.is_some()) {
         (Some(row), _) => row.label,
@@ -261,6 +272,30 @@ fn frame_toggle(app: &App, label: &'static str) -> Control {
         matches!(shown, Some(Some(_))),
         Action::StepPage(PageStep::Frame),
     ))
+}
+
+/// The device colour button names the colour the devices are drawn in, and
+/// a press gives them the other.
+fn frame_color(app: &App) -> Control {
+    let (name, icon, label) = match read::device_frame_color(app) {
+        Some(DeviceFrameColor::Light) => (
+            "Light",
+            Icon::SchemeLight,
+            "Device color: Light. Click to change.",
+        ),
+        Some(DeviceFrameColor::Dark) => (
+            "Dark",
+            Icon::SchemeDark,
+            "Device color: Dark. Click to change.",
+        ),
+        None => ("Color", Icon::Device, "Device color. Click to change."),
+    };
+    button(
+        ControlId::new("page.frame-color"),
+        label,
+        labelled(icon, name),
+        Action::StepPage(PageStep::FrameColor),
+    )
 }
 
 fn rotate() -> Control {

@@ -276,3 +276,52 @@ fn a_realistic_frame_is_clay_at_a_custom_size_and_comes_back_with_a_preset() {
     assert_eq!(frame(app.app()), Some(Some(Realistic)));
     app.assert_undo_returns_to_start();
 }
+
+#[test]
+fn the_device_color_steps_between_light_and_dark_and_is_kept_by_the_page() {
+    use specular_doc::DeviceFrameColor::{Dark, Light};
+    use specular_interact::property::read::device_frame_color as color;
+    let mut app = TestApp::from_canvas(FRAMED_PHONE_AND_LAPTOP);
+    let shown = |app: &TestApp| {
+        let id = specular_interact::ControlId::new("page.frame-color");
+        specular_interact::dock(app.app()).is_some_and(|dock| dock.action(&id).is_some())
+    };
+    // A page with no frame has no device to colour.
+    app.select(&["laptop"]);
+    assert!(!shown(&app));
+    assert_eq!(color(app.app()), None);
+
+    // A page that keeps no colour is the theme's, which is light here.
+    app.select(&["phone"]);
+    assert!(shown(&app));
+    assert_eq!(color(app.app()), Some(Light));
+    let framed = app.rect("phone");
+    app.act(Action::StepPage(PageStep::FrameColor));
+    assert_eq!(color(app.app()), Some(Dark));
+    assert_doc_snapshot!(app, @r#"
+    nodes:
+      {"id":"phone","type":"link","x":100,"y":100,"width":393,"height":852,"url":"https://example.com/phone","presetIndex":1,"metadata":{"showDeviceFrame":true,"deviceId":"iphone-14-pro","deviceFrameColor":"dark"}}
+      {"id":"laptop","type":"link","x":700,"y":100,"width":1280,"height":800,"url":"https://example.com/laptop","presetIndex":6,"metadata":{"deviceId":"laptop","deviceOrientation":"landscape"}}
+    edges:
+    specular: {"entityOrder":["phone","laptop"]}
+    "#);
+    app.chord(
+        Modifiers {
+            alt: true,
+            shift: true,
+            ..CMD
+        },
+        Key::Char('f'),
+    );
+    assert_eq!(color(app.app()), Some(Light));
+    assert_eq!(app.rect("phone"), framed, "a colour never moves the page");
+    // Light is kept as dark was, and no longer follows the theme.
+    let saved = app.document().to_canvas_string().unwrap();
+    assert!(saved.contains(r#""deviceFrameColor": "light""#), "{saved}");
+    let mut reloaded = TestApp::from_canvas(&saved);
+    reloaded.select(&["phone"]);
+    assert_eq!(color(reloaded.app()), Some(Light));
+    app.undo();
+    assert_eq!(color(app.app()), Some(Dark), "one step each");
+    app.assert_undo_returns_to_start();
+}

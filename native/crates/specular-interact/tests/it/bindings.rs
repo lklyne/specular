@@ -69,6 +69,7 @@ fn an_entered_page_has_every_key_but_the_ones_a_browsers_chrome_keeps() {
             "⌘.",
             "⌘L",
             "⌥⌘F",
+            "⌥⇧⌘F",
             "⌥⌘R",
             "⌥⌘L",
             "⌘T",

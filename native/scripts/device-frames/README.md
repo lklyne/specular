@@ -28,7 +28,10 @@ with the reason on stderr, and the exit code is 1.
 - `<name>.svg` for every `*/*/frame.g.dart`, where `<name>` is the folder
   name in lower case with dashes. The hand-written `generic/*/frame.dart`
   and `macos/macbook_pro/frame.dart` are not converted.
-- `manifest.json`, one row per device, sorted by name. `body` and
+- `<name>-light.svg` for the devices in `LIGHT_DEVICES`: the same draws in a
+  light colourway. See "The light colourway" below.
+- `manifest.json`, one row per device, sorted by name. `lightFile` names the
+  light drawing where there is one. `body` and
   `bodyCornerRadius` are the device's main outline without the buttons that
   stick out: the largest filled outline that does not cover the whole
   frame, cut to the view box. A device with no fill over four fifths of its
@@ -72,3 +75,27 @@ kept. A notch is part of the screen outline, so it is kept too.
 - `logicalScreen` and `pixelRatio` are upstream's values as written.
   Upstream's `iphone_12` carries an iPad's numbers (1024 x 1366 at 2), which
   is wrong; the row is passed through unchanged.
+
+## The light colourway
+
+The package draws each device in one dark colourway. For the four devices in
+`LIGHT_DEVICES` the script writes a second file with some fills changed and
+nothing else: the geometry, the draw order and every other colour are the
+dark file's. A fill is changed by what it is and its dark colour, from
+`LIGHT_FILLS`:
+
+| what the fill is | dark | light |
+|---|---|---|
+| body: the device's main outline, which shows as its edge | `#3A4245` | `#C9CACC` |
+| body | `#454C60` | `#E3E4E5` |
+| button: a fill that sticks out of the body | `#121515` | `#C9CACC` |
+| button | `#454C60` | `#C9CACC` |
+| face: the front, where it has a forehead and a chin | `#121515` | `#F4F4F5` |
+| ring: a ring on the face, the home button's | `#262C2D` | `#C9CACC` |
+
+What a fill is comes from its shape. A front that the screen covers at least
+`GLASS_FRONT` (0.8) of is glass and stays dark, which is the edge-to-edge
+phones and the iPad. Everything not in the table keeps its colour: glass,
+the island, cameras, speaker and sensor dots, the hairline round the iPhone
+SE's screen, antenna bands and shading. To tune a colour, change the table
+and re-run.

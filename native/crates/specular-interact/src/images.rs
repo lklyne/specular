@@ -25,11 +25,11 @@ mod vector;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use specular_doc::{DeviceArt, Document, Entity, FileRef, Kind, Page};
+use specular_doc::{DeviceArt, DeviceFrameColor, Document, Entity, FileRef, Kind, Page};
 
 pub(crate) use self::animation::Animations;
 
-use crate::{App, Effect};
+use crate::{App, Appearance, Effect};
 
 /// Names one image between `update`, the shell and the renderer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -132,13 +132,20 @@ pub fn is_image_file(file: &str) -> bool {
 }
 
 /// The image files `document` shows, and the drawings of its pages'
-/// realistic device frames, which are asked for by name as a file is.
-fn wanted(document: &Document) -> impl Iterator<Item = &str> {
-    document.entities().filter_map(|entity| match &entity.kind {
-        Kind::File(file) if is_image_file(&file.file) => Some(file.file.as_str()),
-        Kind::Page(page) => device_art(page).map(DeviceArt::asset),
-        Kind::File(_) | Kind::Text(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Shape(_) => None,
-    })
+/// realistic device frames, which are asked for by name as a file is. A
+/// page that keeps no colour is drawn in `theme`'s.
+fn wanted(document: &Document, theme: DeviceFrameColor) -> impl Iterator<Item = &str> {
+    document
+        .entities()
+        .filter_map(move |entity| match &entity.kind {
+            Kind::File(file) if is_image_file(&file.file) => Some(file.file.as_str()),
+            Kind::Page(page) => {
+                device_art(page).map(|art| art.asset(page.frame_color().unwrap_or(theme)))
+            }
+            Kind::File(_) | Kind::Text(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Shape(_) => {
+                None
+            }
+        })
 }
 
 /// The drawing `page`'s frame is shown as, if it is a realistic one.
@@ -146,11 +153,20 @@ fn device_art(page: &Page) -> Option<DeviceArt> {
     page.shell().and_then(|shell| shell.art)
 }
 
+/// The device colour a page that keeps none is drawn in: the app theme's.
+pub(crate) fn theme_device_color(app: &App) -> DeviceFrameColor {
+    match app.appearance() {
+        Appearance::Light => DeviceFrameColor::Light,
+        Appearance::Dark => DeviceFrameColor::Dark,
+    }
+}
+
 /// Asks for every image the document shows that has not been asked for.
 /// Images nothing shows any more are kept: an undo can bring them back.
 pub(crate) fn request_new(app: &mut App, effects: &mut Vec<Effect>) {
+    let theme = theme_device_color(app);
     let images = &mut app.session.images;
-    for file in wanted(&app.document) {
+    for file in wanted(&app.document, theme) {
         if images.by_file.contains_key(file) {
             continue;
         }
@@ -176,9 +192,10 @@ pub(crate) fn request_new(app: &mut App, effects: &mut Vec<Effect>) {
 /// A different document was opened: lets go of the images it does not show,
 /// which no undo can bring back, and asks for the ones that are new.
 pub(crate) fn reopen(app: &mut App, effects: &mut Vec<Effect>) {
+    let theme = theme_device_color(app);
     let document = &app.document;
     app.session.images.by_file.retain(|file, image| {
-        let shown = wanted(document).any(|wanted| wanted == file);
+        let shown = wanted(document, theme).any(|wanted| wanted == file);
         if !shown {
             effects.push(Effect::DropImage(image.key));
         }
@@ -262,10 +279,16 @@ fn shown(app: &App) -> impl Iterator<Item = (&Entity, &FileRef)> {
 }
 
 impl App {
-    /// The drawing of `art` once the shell has it, one image for every page
-    /// of that device.
-    pub fn device_frame_image(&self, art: DeviceArt) -> Option<ImageKey> {
-        let image = self.session.images.get(art.asset())?;
+    /// The colour `page`'s device is drawn in: its own, or the app theme's
+    /// when it keeps none.
+    pub fn device_frame_color(&self, page: &Page) -> DeviceFrameColor {
+        (page.frame_color()).unwrap_or_else(|| theme_device_color(self))
+    }
+
+    /// The drawing of `art` in `color` once the shell has it, one image for
+    /// every page of that device and colour.
+    pub fn device_frame_image(&self, art: DeviceArt, color: DeviceFrameColor) -> Option<ImageKey> {
+        let image = self.session.images.get(art.asset(color))?;
         matches!(image.state, ImageState::Ready { .. }).then_some(image.key)
     }
 

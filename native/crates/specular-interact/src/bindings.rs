@@ -311,6 +311,11 @@ pub const BINDINGS: &[Binding] = &[
         Action::StepPage(PageStep::Frame),
     ),
     once(
+        Chord::char('f').cmd().alt().shift(),
+        Context::PageTarget,
+        Action::StepPage(PageStep::FrameColor),
+    ),
+    once(
         Chord::char('r').cmd().alt(),
         Context::PageTarget,
         Action::StepPage(PageStep::Rotate),
