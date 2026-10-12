@@ -12,6 +12,8 @@
 //! Kit shell is the `specular-shell` crate (ADR 0040).
 
 pub mod agent;
+#[cfg(unix)]
+pub mod agent_tools;
 mod api;
 mod app;
 mod bench_drive;

@@ -21,23 +21,44 @@ bundle holds copies of the binary.
 ## What is in it
 
 ```
-Specular Native.app/Contents/
+Specular.app/Contents/
   Info.plist
-  MacOS/Specular Native                             the `specular` binary
+  MacOS/Specular                                    the `specular` binary
+  MacOS/specular-helper                             the Agent SDK host and the CLI, from native/helper
+  Helpers/claude                                    the Claude Code runtime the SDK runs
   Frameworks/Chromium Embedded Framework.framework  from CEF_PATH
-  Frameworks/Specular Native Helper.app             and (GPU), (Renderer), (Plugin), (Alerts)
+  Frameworks/Specular Helper.app                    and (GPU), (Renderer), (Plugin), (Alerts)
+  Frameworks/Sparkle.framework                      the updater
   Resources/Assets.car, AppIcon.icns                compiled from specular-shell/assets/AppIcon.icon
   Resources/starter-space/                          resources/starter-space
+  Resources/specular-cli.sh                         the `specular` command
+  Resources/bin/agent-browser                       the CLI's browse verbs, from native/scripts/build-agent-browser.sh
+  Resources/skills/specular, skills/core            the specular skill, and the one agent-browser reads
 ```
 
-Each helper is a copy of the main binary. Chromium starts it with a
+Each Chromium helper holds `specular-cef-helper`. Chromium starts it with a
 `--type=` switch and it runs as a child process.
 
-Against `forge.config.ts`, the bundle leaves out `mcp-helper.js`, `cli.js`,
-`specular-cli.sh`, `skills/` and `bin/` (agent-browser). The Electron app
-installs the CLI and the skill from those. The Rust app answers the same
-HTTP routes, so a CLI the Electron app installed drives it, but it installs
-nothing itself.
+### The command and the skill
+
+The CLI is the Electron app's source (`src/main/cli-commands.ts`), compiled
+into `specular-helper` as its `cli` service. `specular-cli.sh` runs it, and
+sits where the Electron app kept its own wrapper, so a link that app made
+on the `PATH` runs this one.
+
+A bundle installs both when it starts (`specular-app/src/agent_tools.rs`):
+
+- It links `specular` into `/usr/local/bin`, or `~/.local/bin` when that
+  cannot be written. A link or file already there that still works is left
+  alone. A link to a file that is gone is replaced.
+- It copies `skills/specular` to `~/.claude/skills/specular` when there is a
+  `~/.claude` and no skill in it, or when the skill there is the one the app
+  last wrote. The hash of what it wrote is in `preferences.json` under
+  `onboarding.skillHashes`, where the Electron app kept it. A skill edited
+  by hand is left alone.
+
+Nothing is installed by a scripted run, a run with
+`SPECULAR_NATIVE_CONFIG_DIR` set, or an app opened from its disk image.
 
 ## Side by side with the Electron app
 

@@ -6,13 +6,16 @@
 #   Specular.app/Contents/
 #     Info.plist                                    name, id, icon, .canvas documents
 #     MacOS/Specular                                the `specular` binary
-#     MacOS/specular-helper                         the Agent SDK host, from native/helper
+#     MacOS/specular-helper                         the Agent SDK host and the CLI, from native/helper
 #     Helpers/claude                                the Claude Code runtime the SDK runs
 #     Frameworks/Chromium Embedded Framework.framework
 #     Frameworks/Specular Helper*.app               five, each holding `specular-cef-helper`
 #     Frameworks/Sparkle.framework                  the updater (scripts/fetch-sparkle.sh)
 #     Resources/Assets.car, AppIcon.icns            the icon, compiled from assets/AppIcon.icon
 #     Resources/starter-space/                      what a new space starts with
+#     Resources/specular-cli.sh                     the `specular` command a link on the PATH points at
+#     Resources/bin/agent-browser                   the CLI's browse verbs (scripts/build-agent-browser.sh)
+#     Resources/skills/                             the specular skill, and the ones agent-browser reads
 #
 # The name, the bundle id (`com.lyleklyne.specular`) and the data folder
 # (`~/Library/Application Support/Specular`) are the Electron app's, which
@@ -90,6 +93,12 @@ if [[ "$build" == 1 ]]; then
   (cd "$native_dir" && cargo build "${flag[@]}" -p specular-shell -p specular-cef-helper --features cef)
   (cd "$native_dir/helper" && bun install --frozen-lockfile && bun run build)
 fi
+# Built whatever --no-build says: its own cache makes a second run quick.
+agent_browser="${AGENT_BROWSER_BIN:-$("$native_dir/scripts/build-agent-browser.sh" | tail -n 1)}"
+[[ -x "$agent_browser" ]] || { echo "missing agent-browser at $agent_browser" >&2; exit 1; }
+# The source tree the binary was built in holds the skill it reads.
+core_skill="${AGENT_BROWSER_CORE_SKILL:-${agent_browser%/cli/target/release/agent-browser}/skill-data/core}"
+[[ -f "$core_skill/SKILL.md" ]] || { echo "missing agent-browser's core skill at $core_skill" >&2; exit 1; }
 for built in "$bin" "$cef_helper_bin"; do
   [[ -x "$built" ]] || { echo "missing $built; build it, or drop --no-build" >&2; exit 1; }
 done
@@ -188,6 +197,11 @@ icon_name="AppIcon"
 make_app "$app" "$APP_NAME" "$BUNDLE_ID" 0
 cp -R "$repo_dir/resources/starter-space" "$app/Contents/Resources/starter-space"
 cp "$helper_bin" "$app/Contents/MacOS/specular-helper"
+cp "$script_dir/specular-cli.sh" "$app/Contents/Resources/specular-cli.sh"
+mkdir -p "$app/Contents/Resources/bin" "$app/Contents/Resources/skills"
+cp "$agent_browser" "$app/Contents/Resources/bin/agent-browser"
+cp -R "$repo_dir/resources/skills/specular" "$app/Contents/Resources/skills/specular"
+cp -R "$core_skill" "$app/Contents/Resources/skills/core"
 mkdir -p "$app/Contents/Helpers"
 # Anthropic's own signature stays on the runtime.
 cp "$runtime_bin" "$app/Contents/Helpers/claude"
@@ -241,6 +255,7 @@ for helper in "$app/Contents/Frameworks/"*.app; do
   sign "$helper" "$app_entitlements"
 done
 sign "$app/Contents/MacOS/specular-helper" "$agent_entitlements"
+sign "$app/Contents/Resources/bin/agent-browser"
 sign "$app" "$app_entitlements"
 codesign --verify --deep --strict "$app"
 

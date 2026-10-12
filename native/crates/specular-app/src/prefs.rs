@@ -25,6 +25,11 @@ const TOOLS_KEY: &str = "tools";
 const THEME_KEY: &str = "themeMode";
 /// The model the canvas agent runs, as the picker names it.
 const AGENT_MODEL_KEY: &str = "agentModel";
+/// The Electron app's setup record, which holds `skillHashes`.
+const ONBOARDING_KEY: &str = "onboarding";
+/// Under `onboarding`: per skill, the hash of the skill file the app last
+/// installed.
+const SKILL_HASHES_KEY: &str = "skillHashes";
 /// Overrides the config folder, for a run that must not touch the real one.
 pub(crate) const CONFIG_DIR_VARIABLE: &str = "SPECULAR_NATIVE_CONFIG_DIR";
 
@@ -157,6 +162,30 @@ pub(crate) fn save_settings(path: &Path, settings: AppSettings) -> io::Result<()
     save_key(path, TOOLS_KEY, Value::from(settings.tools.name()))
 }
 
+/// The hash of the `skill` file this app, or the Electron app, last
+/// installed.
+pub(crate) fn load_skill_hash(path: &Path, skill: &str) -> Option<String> {
+    let preferences = read(path).ok()?;
+    let hashes = preferences.get(ONBOARDING_KEY)?.get(SKILL_HASHES_KEY)?;
+    Some(hashes.get(skill)?.as_str()?.to_owned())
+}
+
+/// Records `hash` as the `skill` file last installed, keeping the rest of
+/// the setup record and the file's other keys.
+pub(crate) fn save_skill_hash(path: &Path, skill: &str, hash: &str) -> io::Result<()> {
+    let mut onboarding = match read(path)?.remove(ONBOARDING_KEY) {
+        Some(Value::Object(onboarding)) => onboarding,
+        _ => Map::new(),
+    };
+    let mut hashes = match onboarding.remove(SKILL_HASHES_KEY) {
+        Some(Value::Object(hashes)) => hashes,
+        _ => Map::new(),
+    };
+    hashes.insert(skill.to_owned(), Value::from(hash));
+    onboarding.insert(SKILL_HASHES_KEY.to_owned(), Value::Object(hashes));
+    save_key(path, ONBOARDING_KEY, Value::Object(onboarding))
+}
+
 fn save_key(path: &Path, key: &str, value: Value) -> io::Result<()> {
     let mut preferences = read(path)?;
     preferences.insert(key.to_owned(), value);
@@ -287,6 +316,24 @@ mod tests {
         // A cleared choice reads as none.
         save_space_path(&path, Path::new("")).unwrap();
         assert_eq!(load_space_path(&path), None);
+    }
+
+    #[test]
+    fn a_skill_hash_is_recorded_inside_the_setup_record() {
+        let dir = TempDir::new("skill-hash");
+        let path = dir.0.join(FILE_NAME);
+        std::fs::create_dir_all(&dir.0).unwrap();
+        std::fs::write(
+            &path,
+            r#"{"onboarding":{"completed":true,"skillHashes":{"other":"aa","specular":"bb"}}}"#,
+        )
+        .unwrap();
+        assert_eq!(load_skill_hash(&path, "specular").as_deref(), Some("bb"));
+        save_skill_hash(&path, "specular", "cc").unwrap();
+        assert_eq!(load_skill_hash(&path, "specular").as_deref(), Some("cc"));
+        assert_eq!(load_skill_hash(&path, "other").as_deref(), Some("aa"));
+        let kept = read(&path).unwrap();
+        assert_eq!(kept[ONBOARDING_KEY]["completed"], Value::from(true));
     }
 
     #[test]

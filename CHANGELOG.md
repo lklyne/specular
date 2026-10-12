@@ -13,7 +13,6 @@ Specular 0.10.0 is a new app written in Rust. It opens the same space folder and
 ### Installing
 
 - **Download this version from the site once.** 0.9.0 cannot update itself to 0.10.0. Drag the new Specular into Applications over the old one, and from here on it updates itself. Specular > Check for updates… checks on demand.
-- Apple silicon only.
 
 ### New
 
@@ -29,9 +28,10 @@ Specular 0.10.0 is a new app written in Rust. It opens the same space folder and
 - Zooming a canvas of live pages no longer stalls.
 - The app uses less memory once a canvas has settled.
 
-### Not in this version yet
+### Agents
 
-- **The app does not install the `specular` command or the Claude Code skill.** If 0.9.0 already installed them, they stay where they are. A fresh install has neither until the next release. The agent chat inside the app works without them.
+- The `specular` command and the Claude Code skill are installed when the app starts, with nothing to click. A command 0.9.0 installed keeps working.
+- `specular record`, `print-pdf`, `design-system` and `component-states` are not in this version yet. Each says so when run.
 
 ## [0.9.0] - 2026-09-19 — Faster pages, auto-fix comments, no telemetry
 

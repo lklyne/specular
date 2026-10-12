@@ -7,8 +7,9 @@
  */
 
 import { agent } from './agent'
+import { cli } from './cli'
 
-const services: Record<string, () => Promise<void>> = { agent }
+const services: Record<string, () => Promise<void>> = { agent, cli }
 
 const name = process.argv[2] ?? ''
 const service = services[name]
@@ -17,4 +18,4 @@ if (!service) {
   process.exit(2)
 }
 await service()
-process.exit(0)
+process.exit(process.exitCode ?? 0)

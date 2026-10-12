@@ -137,7 +137,7 @@ function resolveSessionId(): string {
   // recognizable agent-CLI ancestor so many short-lived Bash/MCP
   // invocations within a conversation read as one cursor, while two
   // concurrent conversations (distinct ancestors) don't collide.
-  const ancestorId = findAgentHostAncestorId(process.pid)
+  const ancestorId = findAgentHostAncestorId(process.ppid)
   if (ancestorId) return ancestorId
 
   // Fallback for processes with no recognizable agent-CLI ancestor (e.g. run

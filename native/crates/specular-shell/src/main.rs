@@ -78,9 +78,11 @@ fn main() {
             eprintln!("specular could not start: {error:#}");
             std::process::exit(1);
         }
-        // A scripted run must not have an update sheet opened over it.
+        // A scripted run must not have an update sheet opened over it, and
+        // must not write outside the folders it was given.
         if !debug_input::scripted() {
             updates::start();
+            std::thread::spawn(specular_app::agent_tools::install);
         }
     });
 }

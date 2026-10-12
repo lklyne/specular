@@ -203,9 +203,9 @@ The suite stays small on purpose. To prevent drift back to a pile of low-value t
 
 The specular Claude Code skill lives in three places. Knowing which is which avoids silently-wasted edits:
 
-- **`resources/skills/specular/SKILL.md`** — canonical source. Bundled into the packaged app via `forge.config.ts` (`extraResource`), then copied into every user's `~/.claude/skills/specular/` at app launch by `src/main/skill-install.ts`. Default to editing this when updating guidance that should reach end users.
+- **`resources/skills/specular/SKILL.md`** — canonical source. Bundled into the packaged app (`native/crates/specular-shell/scripts/bundle-app.sh` for the Rust app, `forge.config.ts` for Electron), then copied into every user's `~/.claude/skills/specular/` at app launch (`native/crates/specular-app/src/agent_tools.rs`, or `src/main/skill-install.ts` in Electron). Default to editing this when updating guidance that should reach end users.
 - **`.claude/skills/specular/SKILL.md`** — repo-local copy Claude Code auto-loads when working inside this codebase. Keep it in sync with `resources/skills/` so in-repo agents and end users see the same guidance. A few dev-only sections (e.g. the tracking-issue GitHub link) are allowed to live here and not ship.
-- **`~/.claude/skills/specular/SKILL.md`** — each user's installed copy. Treat as read-only: `src/main/skill-auto-update.ts` compares the bundled hash to what's installed and re-copies the bundled version whenever they differ, so hand-edits here get silently overwritten on the next app launch after a release.
+- **`~/.claude/skills/specular/SKILL.md`** — each user's installed copy. Treat as read-only: the app compares the bundled hash to what's installed and re-copies the bundled version whenever the installed one is the one it last wrote, so hand-edits here get silently overwritten on the next app launch after a release.
 
 When patching the skill, default to updating both `resources/skills/specular/SKILL.md` and `.claude/skills/specular/SKILL.md` in the same commit.
 
