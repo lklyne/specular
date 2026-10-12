@@ -32,6 +32,10 @@ Event -> update(&mut App, Event) -> Vec<Effect>     pure, no I/O
   work comes back as effects.
 - Only the shell and the CEF crate do I/O. Everything else is testable with
   no window, GPU or CEF.
+- `specular-cef-helper` is the executable in the bundle's five
+  `Helper*.app`s, which Chromium's child processes run. It depends on `cef`
+  alone. Keep the app's crates out of it: each one linked in is paid for
+  five times.
 - There are two shells over one `specular_app::Runtime`, which runs every
   effect. `specular-app` is the winit one. `specular-shell` (binary
   `specular`) is the GPUI Kit one (ADR 0040): the Kit draws the chrome and

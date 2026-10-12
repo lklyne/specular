@@ -3,10 +3,13 @@
 //! Chromium is multi-process. Every child (renderer, GPU, network/utility)
 //! is a re-launch of an executable with `--type=<kind>`; on macOS the
 //! children are the `<App> Helper*.app` bundles inside
-//! `Contents/Frameworks/`. The spike uses one executable for all roles: the
-//! bundling script copies `specular-app` into each helper bundle, and
-//! [`run_subprocess_if_needed`] (first thing in `main`) diverts children into
-//! `CefExecuteProcess` before any window or GPU setup happens.
+//! `Contents/Frameworks/`. In the app bundle those hold
+//! `specular-cef-helper`, a small executable of its own, so a child never
+//! runs this code. [`run_subprocess_if_needed`] (first thing in `main`) is
+//! for the measurement bundle and every other platform, where Chromium
+//! re-launches the app's own executable: it diverts a child into
+//! `CefExecuteProcess` before any window or GPU setup happens. The two must
+//! give a child the same thing, which is no `App`.
 
 use specular_core::PageSourceError;
 

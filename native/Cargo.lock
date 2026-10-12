@@ -7737,6 +7737,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "specular-cef-helper"
+version = "0.1.0"
+dependencies = [
+ "cef",
+]
+
+[[package]]
 name = "specular-compositor"
 version = "0.1.0"
 dependencies = [
