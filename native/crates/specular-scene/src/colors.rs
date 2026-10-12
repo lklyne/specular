@@ -77,7 +77,7 @@ pub struct Colors {
     pub device_shadow: Color,
     /// A phone's notch.
     pub device_notch: Color,
-    /// The home indicator in a phone's or a tablet's bezel.
+    /// The ring of a home button in a phone's chin.
     pub device_indicator: Color,
     /// The hairline in the bezel around the screen.
     pub device_screen_ring: Color,

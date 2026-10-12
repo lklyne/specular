@@ -3,8 +3,10 @@
 //!
 //! GPUI names a cursor by a style and hands `AppKit` the stock cursor for it
 //! in one place, its view's `resetCursorRects`. That call is caught here,
-//! and the stock arrow is swapped for the arrow of the [`CursorSet`] in
-//! use. Every other stock cursor goes through as it is.
+//! and while the pointer is over the canvas the stock arrow is swapped for
+//! the arrow of the [`CursorSet`] in use. Every other stock cursor goes
+//! through as it is, and so does the arrow over the panels around the
+//! canvas.
 #![expect(
     clippy::multiple_unsafe_ops_per_block,
     reason = "AppKit calls come in runs on the same live objects; one SAFETY note covers a run"
@@ -17,15 +19,15 @@ use objc2::runtime::{AnyObject, Imp, Sel};
 use objc2::{class, msg_send, sel};
 use objc2_foundation::{NSPoint, NSRect};
 use specular_core::Cursor;
-use specular_interact::{Appearance, Icon};
-use specular_scene::{Color, icon_svg};
+use specular_scene::arrow_cursor_svg;
 
 use crate::native::Id;
 
 /// Which image the arrow is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) enum CursorSet {
-    /// The app's own arrow: the select tool's glyph.
+    /// The app's own arrow: the select tool's glyph, black with a white
+    /// line.
     #[default]
     Specular,
     /// The system's arrow, over a page that is pointed at as a browser
@@ -77,6 +79,8 @@ const TOUCH_SVG: &str = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0
 
 thread_local! {
     static SET: Cell<CursorSet> = const { Cell::new(CursorSet::Specular) };
+    /// Whether the pointer is the canvas's: over it, or dragged off it.
+    static OVER_CANVAS: Cell<bool> = const { Cell::new(false) };
     /// GPUI's view, once its cursor rects are caught.
     static VIEW: Cell<Id> = const { Cell::new(std::ptr::null_mut()) };
     static ARROW: Cell<Id> = const { Cell::new(std::ptr::null_mut()) };
@@ -118,7 +122,7 @@ extern "C-unwind" fn add_cursor_rect(this: &AnyObject, _cmd: Sel, rect: NSRect, 
     unsafe {
         let stock: Id = msg_send![class!(NSCursor), arrowCursor];
         let ours = match SET.get() {
-            _ if cursor != stock => std::ptr::null_mut(),
+            _ if cursor != stock || !OVER_CANVAS.get() => std::ptr::null_mut(),
             CursorSet::Specular => ARROW.get(),
             CursorSet::Touch => TOUCH.get(),
             CursorSet::System => std::ptr::null_mut(),
@@ -131,13 +135,7 @@ extern "C-unwind" fn add_cursor_rect(this: &AnyObject, _cmd: Sel, rect: NSRect, 
 /// Catches the cursor rects of `gpui_view`, GPUI's view. Without it every
 /// arrow is the system's.
 pub(crate) fn install(gpui_view: Id) {
-    let glyph = icon_svg(
-        Icon::SelectTool,
-        Color::rgb(0, 0, 0),
-        None,
-        false,
-        Appearance::Light,
-    );
+    let glyph = arrow_cursor_svg();
     ARROW.set(cursor_of(&glyph, ARROW_TIP));
     TOUCH.set(cursor_of(TOUCH_SVG, (TOUCH_SIZE / 2.0, TOUCH_SIZE / 2.0)));
     debug_assert!(glyph.contains(&format!("width=\"{ARROW_SIZE}\"")));
@@ -184,6 +182,14 @@ fn refresh() {
 /// Draws the arrow from `set` from now on.
 pub(crate) fn use_set(set: CursorSet) {
     if SET.replace(set) != set {
+        refresh();
+    }
+}
+
+/// Says whether the pointer is the canvas's. Off it, the arrow is the
+/// system's.
+pub(crate) fn over_canvas(over: bool) {
+    if OVER_CANVAS.replace(over) != over {
         refresh();
     }
 }

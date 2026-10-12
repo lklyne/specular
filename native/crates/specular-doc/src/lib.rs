@@ -49,8 +49,8 @@ pub use kinds::{
     VerticalAlign, WidthMode,
 };
 pub use presets::{
-    DeviceKind, DeviceShell, LAPTOP, PRESET_MENU, ShellInsets, VIEWPORT_PRESETS, ViewportPreset,
-    device_shell, preset, preset_named,
+    DeviceKind, DeviceShell, LAPTOP, PRESET_MAIN, PRESET_MENU, ShellInsets, VIEWPORT_PRESETS,
+    ViewportPreset, device_shell, preset, preset_named,
 };
 
 /// A JSON object, used for metadata and for unmodeled passthrough fields.

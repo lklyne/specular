@@ -27,7 +27,7 @@ use specular_interact::{
     Action, Chord, Control, ControlId, Face, PaintRole, Palette, Stepper, Swatch, Swatches,
 };
 
-use super::dropdown::{choices, dropdown, dropdown_compact, listed};
+use super::dropdown::{choices, dropdown, dropdown_compact, dropdown_row, listed};
 use super::field::field;
 use super::glyphs::{self, glyph, ink};
 use super::named::mark;
@@ -319,10 +319,10 @@ pub(super) fn in_list(model: &Control, window: &mut Window, cx: &mut App) -> Any
     match model {
         Control::Button(model) if labelled(&model.face) => button(model, true),
         Control::Toggle(model) if labelled(&model.face) => toggle(model, true),
+        Control::Dropdown(model) => dropdown_row(model),
         Control::Button(_)
         | Control::Toggle(_)
         | Control::Swatches(_)
-        | Control::Dropdown(_)
         | Control::Stepper(_)
         | Control::Field(_)
         | Control::Choices(_)

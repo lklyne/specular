@@ -188,7 +188,7 @@ pub use settings::{
     AboutRow, AppSettings, GeneralPane, SettingAction, SettingChoice, SettingOption, SettingToggle,
     SettingsModel, ShortcutRow, SpaceRow, TOOLS_DOCK_WIDTH, ToolsPlace, settings,
 };
-pub use showing::turn::{Turning, turning_rect};
+pub use showing::turn::Turning;
 pub use showing::{Lens, Showing};
 pub use sidebar::{
     CanvasRow, RowKind, RowTarget, SIDEBAR_WIDTH, SectionHead, SidebarAction, SidebarModel,

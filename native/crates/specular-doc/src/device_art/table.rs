@@ -36,13 +36,15 @@ pub enum DeviceArt {
     IphoneAir,
     /// `iphone-se`.
     IphoneSe,
+    /// `macbook-pro`.
+    MacbookPro,
     /// `samsung-galaxy-s25`.
     SamsungGalaxyS25,
 }
 
 impl DeviceArt {
     /// Every drawing.
-    pub const ALL: [Self; 16] = [
+    pub const ALL: [Self; 17] = [
         Self::GooglePixel9,
         Self::GooglePixel9ProXl,
         Self::IpadAir4,
@@ -58,6 +60,7 @@ impl DeviceArt {
         Self::Iphone16ProMax,
         Self::IphoneAir,
         Self::IphoneSe,
+        Self::MacbookPro,
         Self::SamsungGalaxyS25,
     ];
 
@@ -80,6 +83,7 @@ impl DeviceArt {
             "ipad-air-11" => Some(Self::IpadAir4),
             "ipad-mini" => Some(Self::IpadMini),
             "ipad-pro-11" => Some(Self::IpadPro11inches),
+            "laptop" => Some(Self::MacbookPro),
             _ => None,
         }
     }
@@ -102,6 +106,7 @@ impl DeviceArt {
             Self::Iphone16ProMax => "iphone-16-pro-max",
             Self::IphoneAir => "iphone-air",
             Self::IphoneSe => "iphone-se",
+            Self::MacbookPro => "macbook-pro",
             Self::SamsungGalaxyS25 => "samsung-galaxy-s25",
         }
     }
@@ -117,6 +122,12 @@ impl DeviceArt {
                 | Self::IpadPro12inchesGen4
                 | Self::IpadPro13InchesM4
         )
+    }
+
+    /// Whether the device is a computer, which has no notch or home
+    /// indicator of its own to draw.
+    pub const fn is_computer(self) -> bool {
+        matches!(self, Self::MacbookPro)
     }
 
     /// The name the drawing in `color` is asked for by, where a file
@@ -201,6 +212,10 @@ impl DeviceArt {
             (Self::IphoneSe, DeviceFrameColor::Dark) => "specular-device-frame:iphone-se.svg",
             (Self::IphoneSe, DeviceFrameColor::Light) => {
                 "specular-device-frame:iphone-se-light.svg"
+            }
+            (Self::MacbookPro, DeviceFrameColor::Dark) => "specular-device-frame:macbook-pro.svg",
+            (Self::MacbookPro, DeviceFrameColor::Light) => {
+                "specular-device-frame:macbook-pro-light.svg"
             }
             (Self::SamsungGalaxyS25, DeviceFrameColor::Dark) => {
                 "specular-device-frame:samsung-galaxy-s25.svg"
@@ -351,6 +366,15 @@ impl DeviceArt {
                 body_origin: (6.26, 2.0),
                 body_size: (878.48, 1788.0),
                 body_corner_radius: 131.44,
+            },
+            Self::MacbookPro => ArtGeometry {
+                frame: (2992.19, 1723.0),
+                screen_origin: (346.68, 98.2),
+                screen_size: (2298.82, 1437.32),
+                screen_corner_radius: 0.0,
+                body_origin: (284.19, 3.0),
+                body_size: (2423.81, 1663.48),
+                body_corner_radius: 71.42,
             },
             Self::SamsungGalaxyS25 => ArtGeometry {
                 frame: (872.0, 1805.0),

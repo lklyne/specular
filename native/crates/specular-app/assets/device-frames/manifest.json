@@ -744,6 +744,36 @@
     "kind": "phone"
   },
   {
+    "name": "macbook-pro",
+    "file": "macbook-pro.svg",
+    "lightFile": "macbook-pro-light.svg",
+    "frame": {
+      "width": 2992.19,
+      "height": 1723
+    },
+    "screen": {
+      "x": 346.68,
+      "y": 98.2,
+      "width": 2298.82,
+      "height": 1437.32
+    },
+    "screenCornerRadius": 0,
+    "body": {
+      "x": 284.19,
+      "y": 3,
+      "width": 2423.81,
+      "height": 1663.48
+    },
+    "bodyCornerRadius": 71.42,
+    "logicalScreen": {
+      "width": 1149.41,
+      "height": 718.66
+    },
+    "pixelRatio": 2,
+    "platform": "macos",
+    "kind": "laptop"
+  },
+  {
     "name": "oneplus-8-pro",
     "file": "oneplus-8-pro.svg",
     "frame": {

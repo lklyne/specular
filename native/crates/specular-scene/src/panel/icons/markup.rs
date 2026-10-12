@@ -5,6 +5,7 @@ use std::fmt::Write as _;
 
 use specular_interact::{Appearance, Icon};
 
+use super::tools::ARROW_CURSOR;
 use super::{Glyph, Inks, Layer, Paint, Shape, Turn, glyph, matrix, paint};
 use crate::{Color, Colors};
 
@@ -26,7 +27,7 @@ fn attribute(out: &mut String, name: &str, color: Option<Color>) {
     }
 }
 
-fn layer(out: &mut String, layer: &Layer, inks: Inks) {
+fn layer(out: &mut String, glyph: &Glyph, layer: &Layer, inks: Inks) {
     match layer.shape {
         Shape::Path(d) => {
             let _ = write!(out, "<path d=\"{d}\"");
@@ -41,7 +42,7 @@ fn layer(out: &mut String, layer: &Layer, inks: Inks) {
             let _ = write!(out, "<circle cx=\"{cx}\" cy=\"{cy}\" r=\"{radius}\"");
         }
     }
-    attribute(out, "fill", paint(layer.fill, inks));
+    attribute(out, "fill", glyph.fill(layer, inks));
     if layer.stroke != Paint::None {
         attribute(out, "stroke", paint(layer.stroke, inks));
         let _ = write!(
@@ -66,7 +67,7 @@ fn markup(glyph: Glyph, inks: Inks) -> String {
     // The view box already cuts a glyph off at its frame, which is all
     // `clipped` asks for.
     for one in glyph.layers {
-        layer(&mut out, one, inks);
+        layer(&mut out, &glyph, one, inks);
     }
     out.push_str("</svg>");
     out
@@ -93,6 +94,13 @@ pub fn icon_svg(
             colors,
         },
     )
+}
+
+/// The pointer's arrow over the canvas as an SVG document: the select
+/// tool's glyph in black with a white line, the same in either appearance.
+pub fn arrow_cursor_svg() -> String {
+    let colors = Colors::of(Appearance::Light);
+    markup(ARROW_CURSOR, Inks::plain(Color::rgb(0, 0, 0), colors))
 }
 
 #[cfg(test)]

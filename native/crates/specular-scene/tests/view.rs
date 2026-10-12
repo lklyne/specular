@@ -57,10 +57,8 @@ fn select(app: &mut TestApp, ids: &[&str]) {
 }
 
 #[test]
-fn a_page_is_its_frame_with_a_border_and_a_title() {
-    let mut named = page("p2", Rect::new(700.0, 100.0, 400.0, 300.0));
-    named.label = Some("Checkout".to_owned());
-    let app = TestApp::with_entities([page("p1", Rect::new(100.0, 100.0, 400.0, 300.0)), named]);
+fn a_page_is_its_frame_with_a_border() {
+    let app = TestApp::with_entities([page("p1", Rect::new(100.0, 100.0, 400.0, 300.0))]);
     assert_scene_snapshot!(app);
 }
 
@@ -315,7 +313,7 @@ fn selecting_one_entity_outlines_it_and_adds_corner_handles() {
 }
 
 #[test]
-fn an_entered_page_glows_and_has_no_outline_or_handles() {
+fn an_entered_page_has_no_glow_outline_or_handles() {
     let mut app = TestApp::with_pages(2);
     app.click((200.0, 200.0)).click((200.0, 200.0));
     assert_scene_snapshot!(app);
@@ -391,7 +389,7 @@ fn open_comments_show_as_regions_and_pills() {
 
 #[test]
 fn chrome_keeps_its_pixel_size_when_zoomed_out() {
-    // p1 has the handles and p2 the title, which a selected page does not draw.
+    // p1 has the handles.
     let mut app = TestApp::with_pages(2);
     select(&mut app, &["p1"]);
     app.zoom(0.5);

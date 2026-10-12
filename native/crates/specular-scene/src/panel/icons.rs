@@ -22,7 +22,7 @@ use std::sync::{Arc, LazyLock, Mutex, PoisonError};
 
 use specular_interact::Icon;
 
-pub use self::markup::icon_svg;
+pub use self::markup::{arrow_cursor_svg, icon_svg};
 
 use specular_interact::Appearance;
 
@@ -121,6 +121,9 @@ struct Glyph {
     /// Whether the glyph is cut off at its view box: a pen runs out of the
     /// bottom of its frame.
     clipped: bool,
+    /// Whether the dark theme draws only its lines: a toolbar tool, whose
+    /// bodies, barrels and inks read as clutter on the dark toolbar.
+    lined: bool,
     layers: &'static [Layer],
 }
 
@@ -129,8 +132,26 @@ impl Glyph {
         Self {
             view: [0.0, 0.0, side, side],
             clipped: false,
+            lined: false,
             layers,
         }
+    }
+
+    const fn lined(self) -> Self {
+        Self {
+            lined: true,
+            ..self
+        }
+    }
+
+    /// What `layer` is filled in. A lined glyph in the dark theme keeps
+    /// only the fills that are its line: outlines drawn as filled paths.
+    fn fill(&self, layer: &Layer, inks: Inks) -> Option<Color> {
+        let line = matches!(layer.fill, Paint::Hex(0x45_403c | 0x18_181b | 0x35_2c24));
+        if self.lined && inks.colors.appearance == Appearance::Dark && !line {
+            return None;
+        }
+        paint(layer.fill, inks)
     }
 }
 
@@ -238,10 +259,12 @@ fn themed(value: u32, colors: &Colors) -> u32 {
         Appearance::Dark => match value {
             // The outline, the pen and marker lines and the seam.
             0x45_403c | 0x18_181b | 0x35_2c24 | 0xb5_b5b5 => 0xe2_dedb,
-            // The pale body, the barrel, the page glyph's chrome and shine.
-            0xe8_e8e8 => 0x56_5350,
-            0xf4_f4f4 | 0xed_ebe3 => 0x65_625d,
-            0xdb_dbdb => 0x48_4744,
+            // The pale body, the barrel, the page glyph's chrome and shine:
+            // neutral like the toolbar, and light enough to read as a
+            // filled shape on it.
+            0xe8_e8e8 => 0x5e_5e5e,
+            0xf4_f4f4 | 0xed_ebe3 => 0x70_7070,
+            0xdb_dbdb => 0x4e_4e4e,
             // The stroke samples, and a popup pen that is not in use.
             0x3f_3f46 => 0xe4_e4e7,
             0x79_7875 => 0x9f_9fa9,
@@ -375,7 +398,7 @@ fn fit(glyph: Glyph, rect: Rect, inks: Inks, out: &mut Vec<Item>) {
             paint(layer.stroke, inks).map(|color| PathStroke::new(color, layer.width * scale));
         let item = Item::screen(PathDraw {
             commands,
-            fill: paint(layer.fill, inks),
+            fill: glyph.fill(layer, inks),
             stroke,
         });
         out.push(if glyph.clipped {

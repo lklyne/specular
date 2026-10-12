@@ -205,6 +205,7 @@ fn layout_name(layout: OptionLayout) -> String {
     match layout {
         OptionLayout::List => "list".to_owned(),
         OptionLayout::Row => "row".to_owned(),
+        OptionLayout::Segmented { title } => format!("segmented({title})"),
         OptionLayout::Grid { columns } => format!("grid({columns})"),
     }
 }

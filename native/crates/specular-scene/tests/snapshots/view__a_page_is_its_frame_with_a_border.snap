@@ -1,0 +1,6 @@
+---
+source: crates/specular-scene/tests/view.rs
+expression: app.scene_snapshot()
+---
+canvas page p1 100,100 400x300 r=8
+screen rect 100,100 400x300 r=8 stroke=#a6a09b/1/outside

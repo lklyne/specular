@@ -6,24 +6,75 @@
 
 use specular_agent::origin_of;
 use specular_doc::{
-    ColorScheme, DeviceFrameColor, DeviceFrameStyle, Entity, Kind, PRESET_MENU, VIEWPORT_PRESETS,
+    ColorScheme, DeviceFrameColor, DeviceFrameStyle, Entity, Kind, PRESET_MAIN, PRESET_MENU,
+    VIEWPORT_PRESETS,
 };
 
-use super::super::build::{button, groups, toggle};
+use super::super::build::groups;
 use super::super::{
     Button, Control, ControlId, ControlsModel, Dropdown, DropdownOption, DropdownSection, Face,
     Field, FieldSubmit, FieldWidth, Icon, OptionLayout, PAGE_URL,
 };
 use super::actions::Actions;
 use crate::property::read;
-use crate::{Action, App, PageStep, Property, RepoAction, binding_of};
+use crate::{Action, App, Orientation, Property, RepoAction, binding_of};
+
+/// The rows of one section of the preset list.
+fn preset_rows(
+    id: &ControlId,
+    rows: &[u32],
+    selected: Option<u32>,
+    verb: Option<&str>,
+    pick: &impl Fn(u32) -> Action,
+) -> Vec<DropdownOption> {
+    (rows.iter())
+        .filter_map(|&index| {
+            let row = VIEWPORT_PRESETS.get(usize::try_from(index).ok()?)?;
+            Some(DropdownOption {
+                id: id.child(index),
+                label: match verb {
+                    Some(verb) => format!("{verb} {}", row.label).into(),
+                    None => row.label.into(),
+                },
+                face: Face::text(row.label),
+                trailing: Some(format!("{}\u{d7}{}", row.width, row.height).into()),
+                fields: Vec::new(),
+                chord: None,
+                selected: selected == Some(index),
+                enabled: true,
+                action: pick(index),
+            })
+        })
+        .collect()
+}
+
+/// The sections of [`PRESET_MENU`] holding the rows `keep` lets through. A
+/// section left with no rows is dropped.
+fn preset_groups(
+    id: &ControlId,
+    selected: Option<u32>,
+    verb: Option<&str>,
+    pick: &impl Fn(u32) -> Action,
+    keep: impl Fn(u32) -> bool,
+) -> Vec<DropdownSection> {
+    (PRESET_MENU.iter())
+        .filter_map(|(_, rows)| {
+            let rows: Vec<u32> = rows.iter().copied().filter(|&index| keep(index)).collect();
+            (!rows.is_empty()).then(|| DropdownSection::Options {
+                layout: OptionLayout::List,
+                options: preset_rows(id, &rows, selected, verb, pick),
+            })
+        })
+        .collect()
+}
 
 /// The preset list shared by the page size dropdown and the page tool:
-/// a section of rows each for phones, tablets and computers, in the order
-/// [`PRESET_MENU`] has them and named from `id`.
-/// `selected` is the preset in use. `custom` adds a last row that is on when
-/// its flag is, runs its action, and has its fields at its far end. `verb`
-/// starts each row's accessible name ("Add iPhone SE").
+/// the sizes of [`PRESET_MAIN`] in a section each for phones, tablets and
+/// computers, then a "More" row that opens the rest of [`PRESET_MENU`], all
+/// named from `id`.
+/// `selected` is the preset in use. `custom` adds a row over "More" that is
+/// on when its flag is, runs its action, and has its fields at its far end.
+/// `verb` starts each row's accessible name ("Add iPhone SE").
 pub(super) fn preset_sections(
     id: &ControlId,
     selected: Option<u32>,
@@ -31,40 +82,17 @@ pub(super) fn preset_sections(
     pick: impl Fn(u32) -> Action,
     custom: Option<(bool, Action, Vec<Field>)>,
 ) -> Vec<DropdownSection> {
-    let named = |name: &str| -> super::super::Label {
-        match verb {
-            Some(verb) => format!("{verb} {name}").into(),
-            None => name.to_owned().into(),
-        }
-    };
-    let mut sections: Vec<DropdownSection> = PRESET_MENU
-        .iter()
-        .map(|(_, rows)| DropdownSection::Options {
-            layout: OptionLayout::List,
-            options: (rows.iter())
-                .filter_map(|&index| {
-                    let row = VIEWPORT_PRESETS.get(usize::try_from(index).ok()?)?;
-                    Some(DropdownOption {
-                        id: id.child(index),
-                        label: named(row.label),
-                        face: Face::text(row.label),
-                        trailing: Some(format!("{}\u{d7}{}", row.width, row.height).into()),
-                        fields: Vec::new(),
-                        chord: None,
-                        selected: selected == Some(index),
-                        enabled: true,
-                        action: pick(index),
-                    })
-                })
-                .collect(),
-        })
-        .collect();
+    let main = |index: u32| PRESET_MAIN.contains(&index);
+    let mut sections = preset_groups(id, selected, verb, &pick, main);
     if let Some((selected, action, fields)) = custom {
         sections.push(DropdownSection::Options {
             layout: OptionLayout::List,
             options: vec![DropdownOption {
                 id: id.child("custom"),
-                label: named(if verb.is_some() { "custom" } else { "Custom" }),
+                label: match verb {
+                    Some(verb) => format!("{verb} custom").into(),
+                    None => "Custom".into(),
+                },
                 face: Face::text("Custom"),
                 trailing: None,
                 fields,
@@ -75,6 +103,14 @@ pub(super) fn preset_sections(
             }],
         });
     }
+    sections.push(DropdownSection::Controls(vec![Control::Dropdown(
+        Dropdown {
+            id: id.child("more"),
+            label: "More sizes".into(),
+            summary: Face::text("More"),
+            content: preset_groups(id, selected, verb, &pick, |index| !main(index)),
+        },
+    )]));
     sections
 }
 
@@ -208,20 +244,12 @@ fn size_dropdown(app: &App, single: Option<&Entity>) -> Control {
         custom,
     );
     // How the pages are shown, under the sizes. Several pages share only
-    // the frame.
-    let mut shown = vec![frame_toggle(
-        app,
-        match single {
-            Some(_) => "Device frame",
-            None => "Toggle device frame for selected pages",
-        },
-    )];
-    // A device has a colour only while it is drawn.
-    shown.extend(read::any_device_frame(app).then(|| frame_color(app)));
+    // the frame, and a device has a colour only while it is drawn.
+    sections.push(frame_choice(app));
+    sections.extend(read::any_device_frame(app).then(|| frame_color_choice(app)));
     if single.is_some() {
-        shown.extend([rotate(), scheme(app)]);
+        sections.extend([orientation_choice(app), scheme_choice(app)]);
     }
-    sections.push(DropdownSection::Controls(shown));
     let named = preset.and_then(|index| VIEWPORT_PRESETS.get(usize::try_from(index).ok()?));
     let summary = match (named, single.is_some()) {
         (Some(row), _) => row.label,
@@ -239,78 +267,90 @@ fn size_dropdown(app: &App, single: Option<&Entity>) -> Control {
     })
 }
 
-/// A glyph and the word for it, as a control in the size list shows them.
-fn labelled(icon: Icon, text: &'static str) -> Face {
-    Face {
-        icon: Some(icon),
-        ..Face::text(text)
+/// One line of the size list: `title` and the values it can be set to,
+/// each named `id.<name>` and on while `current` is its value.
+fn choice<T: PartialEq + Copy>(
+    id: &'static str,
+    title: &'static str,
+    current: Option<T>,
+    values: &[(&'static str, &'static str, T)],
+    set: impl Fn(T) -> Property,
+) -> DropdownSection {
+    let id = ControlId::new(id);
+    DropdownSection::Options {
+        layout: OptionLayout::Segmented { title },
+        options: (values.iter())
+            .map(|&(name, word, value)| DropdownOption {
+                id: id.child(name),
+                label: format!("{title}: {word}").into(),
+                face: Face::text(word),
+                trailing: None,
+                fields: Vec::new(),
+                chord: None,
+                selected: current == Some(value),
+                enabled: true,
+                action: Action::SetProperty(set(value)),
+            })
+            .collect(),
     }
 }
 
-/// The frame toggle steps through none, clay and realistic, and is on
-/// while every page has a frame. It names the frame the pages share.
-fn frame_toggle(app: &App, label: &'static str) -> Control {
-    let shown = read::device_frame(app);
-    let name = match shown {
-        Some(None) => "No frame",
-        Some(Some(DeviceFrameStyle::Clay)) => "Clay",
-        Some(Some(DeviceFrameStyle::Realistic)) => "Realistic",
-        None => "Frame",
-    };
-    Control::Toggle(toggle(
-        ControlId::new("page.frame"),
-        label,
-        labelled(Icon::Device, name),
-        matches!(shown, Some(Some(_))),
-        Action::StepPage(PageStep::Frame),
-    ))
-}
-
-/// The device colour button names the colour the devices are drawn in, and
-/// a press gives them the other.
-fn frame_color(app: &App) -> Control {
-    let (name, icon, label) = match read::device_frame_color(app) {
-        Some(DeviceFrameColor::Light) => (
-            "Light",
-            Icon::SchemeLight,
-            "Device color: Light. Click to change.",
-        ),
-        Some(DeviceFrameColor::Dark) => (
-            "Dark",
-            Icon::SchemeDark,
-            "Device color: Dark. Click to change.",
-        ),
-        None => ("Color", Icon::Device, "Device color. Click to change."),
-    };
-    button(
-        ControlId::new("page.frame-color"),
-        label,
-        labelled(icon, name),
-        Action::StepPage(PageStep::FrameColor),
+/// The device frame the pages are drawn in.
+fn frame_choice(app: &App) -> DropdownSection {
+    choice(
+        "page.frame",
+        "Frame",
+        read::device_frame(app),
+        &[
+            ("none", "None", None),
+            ("simple", "Simple", Some(DeviceFrameStyle::Clay)),
+            ("realistic", "Realistic", Some(DeviceFrameStyle::Realistic)),
+        ],
+        Property::DeviceFrame,
     )
 }
 
-fn rotate() -> Control {
-    button(
-        ControlId::new("page.rotate"),
-        "Rotate viewport",
-        labelled(Icon::Rotate, "Rotate"),
-        Action::StepPage(PageStep::Rotate),
+/// The colour the devices are drawn in.
+fn frame_color_choice(app: &App) -> DropdownSection {
+    choice(
+        "page.frame-color",
+        "Color",
+        read::device_frame_color(app),
+        &[
+            ("light", "Light", DeviceFrameColor::Light),
+            ("dark", "Dark", DeviceFrameColor::Dark),
+        ],
+        Property::DeviceFrameColor,
     )
 }
 
-/// The color scheme button steps through system, light and dark.
-fn scheme(app: &App) -> Control {
-    let (name, icon) = match read::color_scheme(app) {
-        Some(Some(ColorScheme::Light)) => ("Light", Icon::SchemeLight),
-        Some(Some(ColorScheme::Dark)) => ("Dark", Icon::SchemeDark),
-        Some(None) | None => ("System", Icon::SchemeSystem),
-    };
-    button(
-        ControlId::new("page.scheme"),
-        format!("Color scheme: {name}. Click to change."),
-        labelled(icon, name),
-        Action::StepPage(PageStep::Scheme),
+/// Which way up the page is.
+fn orientation_choice(app: &App) -> DropdownSection {
+    choice(
+        "page.rotate",
+        "Orientation",
+        read::orientation(app),
+        &[
+            ("portrait", "Portrait", Orientation::Portrait),
+            ("landscape", "Landscape", Orientation::Landscape),
+        ],
+        Property::Orientation,
+    )
+}
+
+/// The color scheme the page is shown in: its own, or the app's while it
+/// has none. Choosing the app's leaves the page following it again.
+fn scheme_choice(app: &App) -> DropdownSection {
+    let followed = read::followed_color_scheme(app);
+    choice(
+        "page.scheme",
+        "Theme",
+        read::color_scheme(app).map(|own| own.unwrap_or(followed)),
+        &[
+            ("light", "Light", ColorScheme::Light),
+            ("dark", "Dark", ColorScheme::Dark),
+        ],
+        |scheme| Property::ColorScheme((scheme != followed).then_some(scheme)),
     )
 }
 

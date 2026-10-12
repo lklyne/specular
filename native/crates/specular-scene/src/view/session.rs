@@ -52,8 +52,8 @@ pub(crate) fn draw(frame: &Frame<'_>, scene: &mut Scene) {
         .chain(session.hover.as_ref().filter(|_| session.gesture.is_none()))
         .filter(|id| !selected(id))
         .chain(session.selection.entities())
-        // An entered page glows instead, and the item filling the view has
-        // no mark at all.
+        // An entered page is drawn as it is unselected, and the item
+        // filling the view has no mark at all.
         .filter(|id| app.mark(id) == Some(Mark::Outline));
     for id in outlined {
         if let Some(entity) = app.document().entity(id)

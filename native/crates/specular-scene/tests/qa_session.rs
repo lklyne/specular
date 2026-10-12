@@ -31,7 +31,7 @@ fn an_option_drag_draws_each_copy_where_it_will_land() {
 }
 
 #[test]
-fn a_zoomed_out_copy_of_a_group_and_a_page_is_drawn_without_a_page_border_or_title() {
+fn a_zoomed_out_copy_of_a_group_and_a_page_is_drawn_without_a_page_border() {
     let mut app = TestApp::with_entities([
         specular_testkit::group("g", Rect::new(100.0, 100.0, 200.0, 100.0)),
         specular_testkit::page("p", Rect::new(100.0, 400.0, 200.0, 100.0)),
@@ -54,11 +54,10 @@ fn a_zoomed_out_copy_of_a_group_and_a_page_is_drawn_without_a_page_border_or_tit
         scene.contains("screen rect 200,50 100x50 r=2 stroke=#71717a40/1.5/inside opacity=0.5"),
         "{scene}"
     );
-    // The page is drawn again, but its border and title are not.
+    // The page is drawn again, but its border is not.
     assert!(
         scene.contains("canvas page p 400,400 200x100 r=8 opacity=0.5"),
         "{scene}"
     );
     assert!(!scene.contains("screen rect 200,200 100x50"), "{scene}");
-    assert_eq!(scene.matches("example.com/p").count(), 1, "{scene}");
 }

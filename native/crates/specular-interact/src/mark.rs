@@ -1,6 +1,6 @@
-//! How an item that is picked out is marked: the one answer the outline,
-//! the resize handles and a page's glow all read, so what is drawn and what
-//! can be grabbed agree.
+//! How an item that is picked out is marked: the one answer the outline
+//! and the resize handles both read, so what is drawn and what can be
+//! grabbed agree.
 
 use specular_doc::EntityId;
 
@@ -14,9 +14,9 @@ pub enum Mark {
     /// The selection outline. Alone on the canvas it carries the resize
     /// handles.
     Outline,
-    /// The glow of the entered page (ADR 0022), in place of the outline:
-    /// the page has the keys and the pointer, and nothing of the canvas's
-    /// lies over its edge.
+    /// The entered page (ADR 0022), drawn as it is unselected: the page
+    /// has the keys and the pointer, and nothing of the canvas's lies over
+    /// its edge.
     Entered,
 }
 
@@ -38,12 +38,5 @@ impl App {
                 (page && self.lens() == Some(Lens::Device)).then_some(Mark::Outline)
             }
         }
-    }
-
-    /// Whether the dock already says what the page `id` is: it is the whole
-    /// selection or the item shown, so its address field is in the dock and
-    /// the title above it would say the same thing twice.
-    pub fn names_in_dock(&self, id: &EntityId) -> bool {
-        self.shown_item() == Some(id) || self.session.selection.single_entity() == Some(id)
     }
 }

@@ -24,7 +24,7 @@ fn rect(rect: PanelRect) -> Rect {
     Rect::new(rect.x, rect.y, rect.width, rect.height)
 }
 
-pub use self::icons::icon_svg;
+pub use self::icons::{arrow_cursor_svg, icon_svg};
 
 /// The color a panel paints `color` in: the stored color resolved against
 /// the hues of `palette` for how `role` uses it. The same resolution the

@@ -24,12 +24,12 @@ const GROUP_BORDER: f32 = 8.0;
 const GROUP_LABEL_HEIGHT: f32 = crate::edit::TITLE_LINE + crate::edit::TITLE_GAP;
 /// Average advance of the title's glyphs, standing in for measured text.
 const GROUP_LABEL_CHAR_WIDTH: f32 = 6.1;
-/// Below this zoom the titles above groups and pages stop holding their
+/// Below this zoom the titles above groups stop holding their
 /// pixel size and shrink with the canvas, so a title is never much larger
 /// than the thing it names.
 const TITLE_FULL_ZOOM: f32 = 0.5;
 
-/// The size of a group's or a page's title at `zoom`, as a fraction of its
+/// The size of a group's title at `zoom`, as a fraction of its
 /// full size. Drawing and hit-testing both use it.
 pub fn title_scale(zoom: f32) -> f32 {
     (zoom / TITLE_FULL_ZOOM).clamp(0.0, 1.0)

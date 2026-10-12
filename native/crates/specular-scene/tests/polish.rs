@@ -4,7 +4,7 @@
 use specular_doc::{
     BrushType, Color, ColorPreset, Drawing, Entity, JsonMap, Kind, Point, Rect, Stroke,
 };
-use specular_testkit::{TestApp, file, group, note, page, sticky};
+use specular_testkit::{TestApp, file, group, note, sticky};
 
 const BOX: Rect = Rect::new(100.0, 100.0, 200.0, 200.0);
 
@@ -75,7 +75,7 @@ fn titled() -> TestApp {
         label: Some("A long title for a small group".to_owned()),
         ..group("g", Rect::new(100.0, 100.0, 120.0, 80.0))
     };
-    TestApp::with_entities([labelled, page("p", Rect::new(400.0, 100.0, 400.0, 300.0))])
+    TestApp::with_entities([labelled])
 }
 
 #[test]
@@ -99,10 +99,4 @@ fn titles_keep_their_size_to_half_zoom_and_shrink_with_the_canvas_below_it() {
     assert_eq!(size(app.zoom(2.0)), "11/15.4");
     assert_eq!(size(app.zoom(0.5)), "11/15.4");
     assert_eq!(size(app.zoom(0.25)), "5.5/7.7");
-    // The page's title follows the same rule.
-    let scene = app.scene_snapshot();
-    let page = (scene.lines())
-        .find(|line| line.starts_with("screen text") && line.contains("wrap=100 "))
-        .unwrap_or_default();
-    assert!(page.contains(" 5.5/7.7 "), "{scene}");
 }

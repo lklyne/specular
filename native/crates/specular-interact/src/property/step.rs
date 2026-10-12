@@ -15,7 +15,8 @@ pub enum PageStep {
     FrameColor,
     /// The orientation: landscape, unless the pages are.
     Rotate,
-    /// The color scheme: system, light, dark, and round again.
+    /// The color scheme: the one the pages are not shown in. A page set
+    /// back to the app's follows it again.
     Scheme,
 }
 
@@ -33,11 +34,14 @@ impl PageStep {
                 Some(Orientation::Landscape) => Orientation::Portrait,
                 Some(Orientation::Portrait) | None => Orientation::Landscape,
             }),
-            Self::Scheme => Property::ColorScheme(match read::color_scheme(app) {
-                Some(Some(ColorScheme::Light)) => Some(ColorScheme::Dark),
-                Some(Some(ColorScheme::Dark)) => None,
-                Some(None) | None => Some(ColorScheme::Light),
-            }),
+            Self::Scheme => {
+                let followed = read::followed_color_scheme(app);
+                let next = match read::color_scheme(app).flatten().unwrap_or(followed) {
+                    ColorScheme::Light => ColorScheme::Dark,
+                    ColorScheme::Dark => ColorScheme::Light,
+                };
+                Property::ColorScheme((next != followed).then_some(next))
+            }
         }
     }
 }

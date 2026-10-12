@@ -10,7 +10,7 @@
 use std::f64::consts::FRAC_PI_2;
 
 use glam::DVec2;
-use specular_doc::{Entity, EntityId, Rect};
+use specular_doc::{EntityId, Rect};
 
 use super::motion::{self, spring};
 use super::{App, Lens, framed, presented_rect};
@@ -162,19 +162,4 @@ impl App {
     pub fn turn_running(&self) -> bool {
         !self.session.turns.0.is_empty()
     }
-}
-
-/// The shell of `entity` as drawn: where it was at the start of a turn,
-/// where it is at the end, and between the two on the way. The chrome that
-/// stays upright around a page follows it.
-pub fn turning_rect(app: &App, entity: &Entity) -> Option<Rect> {
-    let turning = app.turning(&entity.id)?;
-    let (to, t) = (framed(entity), f64::from(turning.progress));
-    let lerp = |from: f64, to: f64| from + (to - from) * t;
-    Some(Rect::new(
-        lerp(turning.was.x, to.x),
-        lerp(turning.was.y, to.y),
-        lerp(turning.was.width, to.width),
-        lerp(turning.was.height, to.height),
-    ))
 }

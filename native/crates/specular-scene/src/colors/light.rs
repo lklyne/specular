@@ -54,8 +54,10 @@ pub(super) const COLORS: Colors = Colors {
     composer_ink: Color::rgb(0x18, 0x18, 0x1b),
     composer_hint: Color::rgb(0x9f, 0x9f, 0xa9),
     panel: PanelColors {
-        toolbar: Color::rgb(0xd6, 0xd3, 0xd1),
-        toolbar_border: Color::rgb(0xa6, 0xa0, 0x9b),
+        // toolbar: Color::rgb(0xd6, 0xd3, 0xd1),
+        // toolbar_border: Color::rgb(0xa6, 0xa0, 0x9b),
+        toolbar: Color::rgb(0xec, 0xed, 0xee),
+        toolbar_border: Color::rgb(0xdb, 0xdc, 0xdd),
         tool_fill: Color::rgb(0xfd, 0xf8, 0xf5),
         toolbar_text: Color::rgb(0x52, 0x52, 0x5c),
         toolbar_text_strong: Color::rgb(0x18, 0x18, 0x1b),

@@ -36,7 +36,12 @@ reuse upstream's outlines, so the same licence notice stays with them. See
 
 - `<name>.svg` for every `*/*/frame.g.dart`, where `<name>` is the folder
   name in lower case with dashes. The hand-written `generic/*/frame.dart`
-  and `macos/macbook_pro/frame.dart` are not converted.
+  are not converted.
+- `macbook-pro.svg`, from the hand-written painter in `HAND_WRITTEN`. It
+  has no `screen.g.dart`: upstream lays a wallpaper and a window over the
+  panel and calls the window the screen. Here the screen is the whole
+  panel, and the wallpaper and the window bar are left out. Its
+  `logicalScreen` is the panel over the pixel ratio, not upstream's window.
 - `ipad-mini.svg` and `iphone-air.svg`, from `OWN_DEVICES`.
 - `<name>-light.svg` for the devices in `LIGHT_DEVICES`: the same draws in a
   light colourway. See "The light colourway" below.
@@ -44,8 +49,9 @@ reuse upstream's outlines, so the same licence notice stays with them. See
   light drawing where there is one. `body` and
   `bodyCornerRadius` are the device's main outline without the buttons that
   stick out: the largest filled outline that does not cover the whole
-  frame, cut to the view box. A device with no fill over four fifths of its
-  frame gets neither field.
+  frame, cut to the view box. A device with no fill over three quarters of
+  its frame gets neither field. A laptop's body is its lid, and its base
+  sticks out of it as a phone's buttons do.
 - `LICENSE-device_frame`, the upstream licence with the repo and commit.
 
 ## How the SVG maps to the Dart
@@ -104,6 +110,10 @@ dark file's. A fill is changed by what it is and its dark colour, from
 | ring: a fill with a hole, the home button's | `#262C2D` | `#C9CACC` |
 | ring, the iPhone 13's highlight band | `#8EADC1` | `#DADBDD` |
 | edge: a small fill on the body's edge, an antenna break | `#36454C` | `#A9ABAE` |
+| the thumb scoop in the MacBook's base | `#4E4F53` | `#C4C5C8` |
+
+The MacBook's base is drawn in gradients, and their stops are changed by
+colour alone, from `LIGHT_STOPS`: space grey to silver.
 
 What a fill is comes from its shape. A front that the screen covers at least
 `GLASS_FRONT` (0.75) of is glass and stays dark, which is the edge-to-edge

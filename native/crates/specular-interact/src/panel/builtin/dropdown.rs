@@ -224,7 +224,9 @@ impl Lists<'_, '_> {
                     }
                     (nodes, y - top)
                 }
-                OptionLayout::Row => self.cells(options, options.len(), CELL, GAP, CELL_ICON, top),
+                OptionLayout::Row | OptionLayout::Segmented { .. } => {
+                    self.cells(options, options.len(), CELL, GAP, CELL_ICON, top)
+                }
                 OptionLayout::Grid { columns } => self.cells(
                     options,
                     usize::from(*columns),
@@ -300,7 +302,9 @@ fn section_width(ctx: &Ctx<'_>, section: &DropdownSection, style: ListStyle) -> 
                 };
                 (ROW_PAD * 2.0 + widest + ROW_GAP + CHEVRON).max(least - INSET * 2.0)
             }
-            (OptionLayout::Row, _) => cells(options.len(), CELL, GAP),
+            (OptionLayout::Row | OptionLayout::Segmented { .. }, _) => {
+                cells(options.len(), CELL, GAP)
+            }
             (OptionLayout::Grid { columns }, _) => {
                 cells(usize::from(*columns).max(1), GRID_CELL, GRID_GAP)
             }

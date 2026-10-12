@@ -74,6 +74,10 @@ pub const PRESET_MENU: [(&str, &[u32]); 3] = [
     ("Computers", &[6, 7, 8]),
 ];
 
+/// The rows the size menu lists outright, the sizes most pages are tried
+/// at. The rest of [`PRESET_MENU`] is behind the menu's "More" row.
+pub const PRESET_MAIN: [u32; 9] = [11, 12, 0, 16, 18, 3, 6, 7, 8];
+
 /// What a row was called before it was relabelled, for a caller that still
 /// asks for it by that name. A name a current row has is not here.
 const FORMER_LABELS: [(&str, u32); 3] = [
@@ -117,9 +121,10 @@ pub struct ShellInsets {
 /// What kind of device a shell is drawn as.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DeviceKind {
-    /// A phone: a home indicator, and a notch when the screen is rounded.
+    /// A phone: a notch when the screen is rounded, and a home button
+    /// when it is square.
     Phone,
-    /// A tablet: a home indicator.
+    /// A tablet: a plain bezel with a tablet's proportions.
     Tablet,
     /// A laptop, a desktop or a custom size: a plain bezel.
     Plain,
@@ -138,7 +143,8 @@ pub struct DeviceShell {
     pub screen_corner_radius: f64,
     /// What the shell is decorated as.
     pub kind: DeviceKind,
-    /// Whether the page is on its side.
+    /// Whether the device is on its side: turned a quarter turn from how
+    /// it stands.
     pub landscape: bool,
     /// The drawing the shell is shown as, or `None` for a clay shell.
     pub art: Option<DeviceArt>,
@@ -174,7 +180,8 @@ const DUO_OPEN: DeviceShell = shell((24.0, 24.0, 24.0, 24.0), 42.0, 18.0, Device
 const COMPUTER: DeviceShell = shell((12.0, 12.0, 12.0, 12.0), 20.0, 8.0, DeviceKind::Plain);
 
 /// The shell a framed page of `device_id` is drawn in, turned on its side
-/// when `landscape`. No device is a custom size. A device the table does
+/// when `landscape` is not how the device stands: a phone stands tall and a
+/// laptop wide. No device is a custom size. A device the table does
 /// not know gets the custom shell with no bezel.
 ///
 /// A device with a drawing has one shell in both styles, its drawing's
@@ -192,7 +199,10 @@ pub fn device_shell(
         },
         None => clay(device_id),
     };
-    if !landscape {
+    let stands_wide = (VIEWPORT_PRESETS.iter())
+        .find(|preset| Some(preset.device_id) == device_id)
+        .is_some_and(|preset| preset.width > preset.height);
+    if landscape == stands_wide {
         return portrait;
     }
     let ShellInsets {
@@ -248,7 +258,9 @@ fn body(device_id: &str) -> Option<DeviceShell> {
         },
         corner_radius: geometry.body_corner_radius * scale,
         screen_corner_radius: geometry.screen_corner_radius * scale,
-        kind: if art.is_tablet() {
+        kind: if art.is_computer() {
+            DeviceKind::Plain
+        } else if art.is_tablet() {
             DeviceKind::Tablet
         } else {
             DeviceKind::Phone

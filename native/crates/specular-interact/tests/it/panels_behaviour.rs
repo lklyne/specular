@@ -97,15 +97,17 @@ fn a_page_option_resizes_the_page_and_the_toggles_follow() {
     press(&mut app, "page.size.1");
     assert!(is_on(&docked(&app), "page.size.1"));
     assert_eq!(app.rect("p1").width, 393.0);
-    assert!(!is_on(&docked(&app), "page.frame"));
-    press(&mut app, "page.frame");
-    assert!(is_on(&docked(&app), "page.frame"));
-    press(&mut app, "page.scheme");
-    press(&mut app, "page.scheme");
+    assert!(is_on(&docked(&app), "page.frame.none"));
+    press(&mut app, "page.frame.simple");
+    assert!(is_on(&docked(&app), "page.frame.simple"));
+    assert!(!is_on(&docked(&app), "page.frame.none"));
+    assert!(is_on(&docked(&app), "page.scheme.light"), "the app's own");
+    press(&mut app, "page.scheme.dark");
+    assert!(is_on(&docked(&app), "page.scheme.dark"));
     assert_eq!(
         PageStep::Scheme.next(app.app()),
         Property::ColorScheme(None),
-        "light, dark, then back to the system's"
+        "back to light, which is the app's, so the page follows it again"
     );
 }
 

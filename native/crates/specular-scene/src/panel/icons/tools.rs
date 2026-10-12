@@ -154,25 +154,34 @@ const fn clipped(layers: &'static [Layer]) -> Glyph {
 }
 
 /// `select.svg`.
-pub(super) const SELECT_TOOL: Glyph = Glyph::square(20.0, SELECT);
+pub(super) const SELECT_TOOL: Glyph = Glyph::square(20.0, SELECT).lined();
+/// The select arrow as the pointer over the canvas: black with a white
+/// line, whatever the theme.
+pub(super) const ARROW_CURSOR: Glyph = Glyph::square(
+    20.0,
+    &[
+        Layer::fill(Shape::Path(SELECT_BODY), Paint::Hex(0x00_0000)),
+        Layer::fill(Shape::Path(SELECT_LINE), Paint::Hex(0xff_ffff)),
+    ],
+);
 /// `AddPageToolIcon`.
-pub(super) const PAGE_TOOL: Glyph = Glyph::square(20.0, PAGE);
+pub(super) const PAGE_TOOL: Glyph = Glyph::square(20.0, PAGE).lined();
 /// `add-text.svg`.
-pub(super) const TEXT_GLYPH: Glyph = Glyph::square(20.0, TEXT_TOOL);
+pub(super) const TEXT_GLYPH: Glyph = Glyph::square(20.0, TEXT_TOOL).lined();
 /// `AddStickyToolIcon`.
-pub(super) const STICKY_TOOL: Glyph = Glyph::square(20.0, STICKY);
+pub(super) const STICKY_TOOL: Glyph = Glyph::square(20.0, STICKY).lined();
 /// `add-document.svg`, whose view box starts off the origin.
 pub(super) const DOCUMENT_TOOL: Glyph = Glyph {
     view: [6.0, 4.0, 20.0, 20.0],
-    ..Glyph::square(20.0, DOCUMENT)
+    ..Glyph::square(20.0, DOCUMENT).lined()
 };
 /// `AddShapeToolIcon`.
-pub(super) const SHAPE_TOOL: Glyph = Glyph::square(20.0, SHAPE);
+pub(super) const SHAPE_TOOL: Glyph = Glyph::square(20.0, SHAPE).lined();
 /// `DrawPenToolIcon`.
-pub(super) const PEN_TOOL: Glyph = clipped(PEN);
+pub(super) const PEN_TOOL: Glyph = clipped(PEN).lined();
 /// `DrawHighlightToolIcon`.
-pub(super) const MARKER_TOOL: Glyph = clipped(MARKER);
+pub(super) const MARKER_TOOL: Glyph = clipped(MARKER).lined();
 /// `CommentToolIcon`.
-pub(super) const COMMENT_TOOL: Glyph = Glyph::square(18.0, COMMENT);
+pub(super) const COMMENT_TOOL: Glyph = Glyph::square(18.0, COMMENT).lined();
 /// `inspect.svg`.
-pub(super) const INSPECT_TOOL: Glyph = Glyph::square(18.0, INSPECT);
+pub(super) const INSPECT_TOOL: Glyph = Glyph::square(18.0, INSPECT).lined();

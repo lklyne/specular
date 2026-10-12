@@ -9,6 +9,7 @@ use std::rc::Rc;
 use gpui_kit::component::button::{Button, ButtonVariants as _};
 use gpui_kit::component::popover::Popover;
 use gpui_kit::component::separator::Separator;
+use gpui_kit::component::tab::{Tab, TabBar};
 use gpui_kit::component::{ActiveTheme as _, Sizable as _, h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
@@ -157,6 +158,51 @@ fn option(
         .into_any_element()
 }
 
+/// A line of a list that sets one thing: `title`, and at the far end the
+/// values it can have as the segments of one Kit control.
+fn segmented(title: &'static str, options: &[DropdownOption]) -> AnyElement {
+    let actions: Vec<_> = (options.iter())
+        .map(|option| option.action.clone())
+        .collect();
+    let tabs: Vec<Tab> = (options.iter())
+        .map(|option| {
+            let word = option.face.text.as_ref().map(ToString::to_string);
+            Tab::new()
+                .label(word.unwrap_or_default())
+                .disabled(!option.enabled)
+                .child(mark(&option.id))
+        })
+        .collect();
+    let bar = TabBar::new(SharedString::from(format!("segmented.{title}")))
+        .segmented()
+        .xsmall()
+        .children(tabs)
+        .on_click(move |index, window, cx| {
+            if let Some(action) = actions.get(*index) {
+                run(action, window, cx);
+            }
+        });
+    // No segment is on while the pages chosen differ.
+    let bar = match options.iter().position(|option| option.selected) {
+        Some(index) => bar.selected_index(index),
+        None => bar,
+    };
+    h_flex()
+        .w_full()
+        .h(px(CONTROL))
+        .pl_2()
+        .gap_4()
+        .items_center()
+        .justify_between()
+        .child(
+            div()
+                .text_color(theme::tinted(theme::text_muted()))
+                .child(title),
+        )
+        .child(bar)
+        .into_any_element()
+}
+
 /// Closes the list a chosen option was in.
 type Dismiss = Rc<dyn Fn(&mut Window, &mut App)>;
 
@@ -186,6 +232,7 @@ fn section(
                         .collect::<Vec<_>>(),
                 )
                 .into_any_element(),
+            OptionLayout::Segmented { title } => segmented(title, options),
             OptionLayout::Grid { columns } => {
                 let width = f32::from(*columns) * 32.0 + f32::from(columns.saturating_sub(1)) * 2.0;
                 h_flex()
@@ -258,14 +305,33 @@ fn sections(
     window: &mut Window,
     cx: &mut App,
 ) -> AnyElement {
-    let last = content.len().saturating_sub(1);
     let rows = rows_of(content);
+    let segmented = |section: Option<&DropdownSection>| {
+        matches!(
+            section,
+            Some(DropdownSection::Options {
+                layout: OptionLayout::Segmented { .. },
+                ..
+            })
+        )
+    };
+    // A row that opens more of a list is the end of the rows over it.
+    let opens_more = |section: Option<&DropdownSection>| match section {
+        Some(DropdownSection::Controls(controls)) => {
+            (controls.iter()).all(|control| matches!(control, Control::Dropdown(_)))
+        }
+        Some(DropdownSection::Options { .. }) | None => false,
+    };
     let blocks: Vec<AnyElement> = (content.iter().enumerate())
         .map(|(index, one)| {
+            let next = content.get(index + 1);
+            // Lines that each set one thing read as one block.
+            let joined = (segmented(Some(one)) && segmented(next)) || opens_more(next);
+            let ruled = next.is_some() && !joined;
             v_flex()
                 .gap_1()
                 .child(section(one, rows, dismiss, window, cx))
-                .when(index < last, |this| this.child(Separator::horizontal()))
+                .when(ruled, |this| this.child(Separator::horizontal()))
                 .into_any_element()
         })
         .collect();
@@ -286,6 +352,35 @@ pub(super) fn dropdown(model: &Dropdown) -> AnyElement {
         .dropdown_caret(true)
         .child(face(&model.summary, false));
     opens(model, trigger)
+}
+
+/// A dropdown as a row of the list it is in: its value at the start and a
+/// chevron at the far end, with its own list opening beside it.
+pub(super) fn dropdown_row(model: &Dropdown) -> AnyElement {
+    let trigger = Button::new(element_id(&model.id.child("trigger")))
+        .ghost()
+        .xsmall()
+        .h(px(CONTROL))
+        .w_full()
+        .px_2()
+        .child(
+            h_flex()
+                .flex_1()
+                .items_center()
+                .justify_between()
+                .child(face(&model.summary, false))
+                .child(glyph(
+                    Icon::ChevronRight,
+                    ink(theme::text_muted()),
+                    None,
+                    false,
+                    12.0,
+                )),
+        );
+    div()
+        .w_full()
+        .child(opens(model, trigger))
+        .into_any_element()
 }
 
 /// The number a dropdown steps, for one whose list ends in a stepper.

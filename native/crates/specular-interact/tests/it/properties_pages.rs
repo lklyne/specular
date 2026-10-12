@@ -182,21 +182,22 @@ fn a_selected_pages_keys_step_its_frame_turn_and_color_scheme() {
     app.chord(keys, Key::Char('l'));
     assert_eq!(
         property::read::color_scheme(app.app()),
-        Some(Some(ColorScheme::Light))
+        Some(Some(ColorScheme::Dark)),
+        "the scheme the light app does not show it in"
     );
     app.assert_undo_returns_to_start();
 }
 
 /// An iPhone 14 Pro with a clay frame as a file before frame styles wrote
-/// it, and a laptop with no frame. The file places the phone by its shell's
+/// it, and a desktop with no frame. The file places the phone by its shell's
 /// corner.
-const FRAMED_PHONE_AND_LAPTOP: &str = r#"{"nodes":[
+const FRAMED_PHONE_AND_DESKTOP: &str = r#"{"nodes":[
     {"id":"phone","type":"link","x":100,"y":100,"width":393,"height":852,
      "url":"https://example.com/phone","presetIndex":1,
      "metadata":{"showDeviceFrame":true,"deviceId":"iphone-14-pro"}},
-    {"id":"laptop","type":"link","x":700,"y":100,"width":1280,"height":800,
-     "url":"https://example.com/laptop","presetIndex":6,
-     "metadata":{"deviceId":"laptop","deviceOrientation":"landscape"}}],"edges":[]}"#;
+    {"id":"desktop","type":"link","x":700,"y":100,"width":1440,"height":900,
+     "url":"https://example.com/desktop","presetIndex":7,
+     "metadata":{"deviceId":"desktop","deviceOrientation":"landscape"}}],"edges":[]}"#;
 
 fn step_frame(app: &mut TestApp) {
     app.act(Action::StepPage(PageStep::Frame));
@@ -205,7 +206,7 @@ fn step_frame(app: &mut TestApp) {
 #[test]
 fn the_frame_steps_through_none_clay_and_realistic_and_skips_what_cannot_be_drawn() {
     use DeviceFrameStyle::{Clay, Realistic};
-    let mut app = TestApp::from_canvas(FRAMED_PHONE_AND_LAPTOP);
+    let mut app = TestApp::from_canvas(FRAMED_PHONE_AND_DESKTOP);
     // The old file's frame is clay, and the screen sits 20 in from it.
     app.select(&["phone"]);
     assert_eq!(frame(app.app()), Some(Some(Clay)));
@@ -219,9 +220,9 @@ fn the_frame_steps_through_none_clay_and_realistic_and_skips_what_cannot_be_draw
     assert_doc_snapshot!(app, @r#"
     nodes:
       {"id":"phone","type":"link","x":100,"y":100,"width":393,"height":852,"url":"https://example.com/phone","presetIndex":1,"metadata":{"showDeviceFrame":true,"deviceId":"iphone-14-pro","deviceFrameStyle":"realistic"}}
-      {"id":"laptop","type":"link","x":700,"y":100,"width":1280,"height":800,"url":"https://example.com/laptop","presetIndex":6,"metadata":{"deviceId":"laptop","deviceOrientation":"landscape"}}
+      {"id":"desktop","type":"link","x":700,"y":100,"width":1440,"height":900,"url":"https://example.com/desktop","presetIndex":7,"metadata":{"deviceId":"desktop","deviceOrientation":"landscape"}}
     edges:
-    specular: {"entityOrder":["phone","laptop"]}
+    specular: {"entityOrder":["phone","desktop"]}
     "#);
     // What was written loads back as it is.
     let saved = app.document().to_canvas_string().unwrap();
@@ -240,15 +241,15 @@ fn the_frame_steps_through_none_clay_and_realistic_and_skips_what_cannot_be_draw
     assert_eq!(frame(app.app()), Some(Some(Realistic)));
     assert_eq!(app.rect("phone"), framed);
 
-    // A laptop has no drawing, so each press changes what is shown.
-    app.select(&["laptop"]);
+    // A desktop has no drawing, so each press changes what is shown.
+    app.select(&["desktop"]);
     step_frame(&mut app);
     assert_eq!(frame(app.app()), Some(Some(Clay)));
     step_frame(&mut app);
     assert_eq!(frame(app.app()), Some(None));
 
     // Together they go as far as either can, then both lose the frame.
-    app.select(&["phone", "laptop"]);
+    app.select(&["phone", "desktop"]);
     step_frame(&mut app);
     assert_eq!(frame(app.app()), Some(Some(Clay)));
     step_frame(&mut app);
@@ -261,7 +262,7 @@ fn the_frame_steps_through_none_clay_and_realistic_and_skips_what_cannot_be_draw
 #[test]
 fn a_realistic_frame_is_clay_at_a_custom_size_and_comes_back_with_a_preset() {
     use DeviceFrameStyle::{Clay, Realistic};
-    let mut app = TestApp::from_canvas(FRAMED_PHONE_AND_LAPTOP);
+    let mut app = TestApp::from_canvas(FRAMED_PHONE_AND_DESKTOP);
     app.select(&["phone"]);
     set(&mut app, Property::DeviceFrame(Some(Realistic)));
     set(&mut app, Property::ViewportWidth(500.0));
@@ -269,8 +270,8 @@ fn a_realistic_frame_is_clay_at_a_custom_size_and_comes_back_with_a_preset() {
     step_frame(&mut app);
     assert_eq!(frame(app.app()), Some(None), "no press does nothing");
     app.undo();
-    // Laptop has no drawing either, and iPhone SE has.
-    set(&mut app, Property::ViewportPreset(6));
+    // Desktop has no drawing either, and iPhone SE has.
+    set(&mut app, Property::ViewportPreset(7));
     assert_eq!(frame(app.app()), Some(Some(Clay)));
     set(&mut app, Property::ViewportPreset(0));
     assert_eq!(frame(app.app()), Some(Some(Realistic)));
@@ -281,13 +282,13 @@ fn a_realistic_frame_is_clay_at_a_custom_size_and_comes_back_with_a_preset() {
 fn the_device_color_steps_between_light_and_dark_and_is_kept_by_the_page() {
     use specular_doc::DeviceFrameColor::{Dark, Light};
     use specular_interact::property::read::device_frame_color as color;
-    let mut app = TestApp::from_canvas(FRAMED_PHONE_AND_LAPTOP);
+    let mut app = TestApp::from_canvas(FRAMED_PHONE_AND_DESKTOP);
     let shown = |app: &TestApp| {
-        let id = specular_interact::ControlId::new("page.frame-color");
+        let id = specular_interact::ControlId::new("page.frame-color.dark");
         specular_interact::dock(app.app()).is_some_and(|dock| dock.action(&id).is_some())
     };
     // A page with no frame has no device to colour.
-    app.select(&["laptop"]);
+    app.select(&["desktop"]);
     assert!(!shown(&app));
     assert_eq!(color(app.app()), None);
 
@@ -301,9 +302,9 @@ fn the_device_color_steps_between_light_and_dark_and_is_kept_by_the_page() {
     assert_doc_snapshot!(app, @r#"
     nodes:
       {"id":"phone","type":"link","x":100,"y":100,"width":393,"height":852,"url":"https://example.com/phone","presetIndex":1,"metadata":{"showDeviceFrame":true,"deviceId":"iphone-14-pro","deviceFrameColor":"dark"}}
-      {"id":"laptop","type":"link","x":700,"y":100,"width":1280,"height":800,"url":"https://example.com/laptop","presetIndex":6,"metadata":{"deviceId":"laptop","deviceOrientation":"landscape"}}
+      {"id":"desktop","type":"link","x":700,"y":100,"width":1440,"height":900,"url":"https://example.com/desktop","presetIndex":7,"metadata":{"deviceId":"desktop","deviceOrientation":"landscape"}}
     edges:
-    specular: {"entityOrder":["phone","laptop"]}
+    specular: {"entityOrder":["phone","desktop"]}
     "#);
     app.chord(
         Modifiers {

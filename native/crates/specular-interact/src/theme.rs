@@ -117,11 +117,16 @@ pub(crate) fn choose(app: &mut App, theme: Theme, save: bool, effects: &mut Vec<
     }
 }
 
-/// The system's appearance is `system`.
+/// The system's appearance is `system`. A system that changes takes the
+/// app with it: a fixed choice lasts until then.
 pub(crate) fn system_changed(app: &mut App, system: Appearance, effects: &mut Vec<Effect>) {
-    let before = app.theme.appearance();
+    let before = app.theme;
     app.theme.system = system;
-    if before != app.theme.appearance() {
+    if before.system != system && before.choice != Theme::System {
+        app.theme.choice = Theme::System;
+        effects.push(Effect::SaveTheme(Theme::System));
+    }
+    if before.appearance() != app.theme.appearance() {
         crate::pages::refresh_color_schemes(app, effects);
         crate::images::request_new(app, effects);
     }

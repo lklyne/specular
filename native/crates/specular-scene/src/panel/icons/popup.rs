@@ -41,12 +41,14 @@ pub(super) const BRUSH_HIGHLIGHTER: Glyph = clipped(&[
 pub(super) const STROKE_THIN_SAMPLE: Glyph = Glyph {
     view: [0.0, 0.0, 17.0, 9.0],
     clipped: false,
+    lined: false,
     layers: &[Layer::stroke(Shape::Path(STROKE_THIN), SAMPLE, 1.0)],
 };
 /// `StrokeThickIcon`, 19 by 11.
 pub(super) const STROKE_THICK_SAMPLE: Glyph = Glyph {
     view: [0.0, 0.0, 19.0, 11.0],
     clipped: false,
+    lined: false,
     layers: &[Layer::stroke(Shape::Path(STROKE_THICK), SAMPLE, 3.0)],
 };
 /// `BorderGlyph`: three lines of growing weight.
@@ -84,6 +86,7 @@ pub(super) const SCHEME_SYSTEM: Glyph = Glyph::square(
 pub(super) const SCHEME_LIGHT: Glyph = Glyph {
     view: [2.8333, 0.8333, 20.0, 20.0],
     clipped: false,
+    lined: false,
     layers: &[
         Layer::fill(Shape::Path(SUN_LINE), OUTLINE),
         Layer::new(Shape::Disc(12.8333, 10.8333, 3.5), BODY, OUTLINE, 1.0),
@@ -93,6 +96,7 @@ pub(super) const SCHEME_LIGHT: Glyph = Glyph {
 pub(super) const SCHEME_DARK: Glyph = Glyph {
     view: [1.0, 0.0, 20.0, 20.0],
     clipped: false,
+    lined: false,
     layers: &[
         Layer::fill(Shape::Path(MOON_BODY), BODY),
         Layer::fill(Shape::Path(MOON_LINE), OUTLINE),
@@ -143,6 +147,7 @@ pub(super) const fn shape(kind: ShapeKind) -> Glyph {
     Glyph {
         view: [-6.0, -6.0, 112.0, 112.0],
         clipped: false,
+        lined: false,
         layers,
     }
 }

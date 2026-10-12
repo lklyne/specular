@@ -3,15 +3,19 @@
 //! down to half zoom.
 
 use specular_doc::{Document, Entity, Group, Kind};
+use specular_interact::{TITLE_GAP, TITLE_LINE, TITLE_SIZE, title_scale};
 
 use super::editing;
 use super::frame::Frame;
-use super::page::title_above;
 use super::palette::{self, Palette, Role};
-use crate::{Color, Colors, Item, RectDraw, Scene, Stroke, StrokeAlign};
+use crate::{
+    Color, Colors, Item, Rect, RectDraw, Scene, Stroke, StrokeAlign, TextOverflow, TextRun,
+    VerticalAlign,
+};
 
 const CORNER_RADIUS: f32 = 2.0;
 const BORDER_WIDTH: f32 = 1.5;
+const TITLE_WEIGHT: u16 = 500;
 
 /// How a group looks: its tint, border and title colours.
 struct Look {
@@ -83,6 +87,31 @@ pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, group: &Group, scene: &mu
         Some(label) if !label.is_empty() => scene.push(title_above(frame, on_screen, label, title)),
         Some(_) | None => {}
     }
+}
+
+/// One line of chrome text above the top-left corner of `on_screen`. It is
+/// never wider than the rect: a longer title ends in an ellipsis. It keeps
+/// its pixel size down to half zoom and shrinks with the canvas below that,
+/// so zoomed out it does not outgrow what it names or run into its
+/// neighbours. Small enough, the renderer stops drawing it.
+fn title_above(frame: &Frame<'_>, on_screen: Rect, text: &str, color: Color) -> Item {
+    let scale = title_scale(frame.zoom());
+    let (line, gap) = (TITLE_LINE * scale, TITLE_GAP * scale);
+    let top = on_screen.y - gap - line;
+    let run = TextRun {
+        wrap_width: Some(on_screen.width),
+        overflow: TextOverflow::Ellipsis,
+        box_height: Some(line),
+        weight: TITLE_WEIGHT,
+        vertical_align: VerticalAlign::Middle,
+        ..TextRun::new(
+            text,
+            crate::Point::new(on_screen.x, top),
+            TITLE_SIZE * scale,
+            color,
+        )
+    };
+    Item::screen(run).clipped(Rect::new(on_screen.x, top, on_screen.width, line + gap))
 }
 
 /// `amount` of `a` with the rest `b`, channel by channel.

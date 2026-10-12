@@ -223,6 +223,14 @@ pub fn orientation(app: &App) -> Option<Orientation> {
     })
 }
 
+/// The color scheme a page with none of its own is shown in: the app's.
+pub fn followed_color_scheme(app: &App) -> ColorScheme {
+    match app.appearance() {
+        crate::Appearance::Light => ColorScheme::Light,
+        crate::Appearance::Dark => ColorScheme::Dark,
+    }
+}
+
 /// The device frame pages are drawn in, which is clay for a page kept as
 /// realistic that has no drawing to show; the inner `None` is no frame.
 pub fn device_frame(app: &App) -> Option<Option<DeviceFrameStyle>> {

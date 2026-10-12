@@ -71,4 +71,16 @@ fn the_theme_button_steps_the_choice_and_pages_follow_what_is_drawn() {
     app.send(Event::ThemeLoaded(Theme::Light));
     assert_eq!(app.app().appearance(), Appearance::Light);
     assert_eq!(asked(&mut app), ["p1 None", "p2 Some(Light)"]);
+
+    // A fixed choice lasts until the system changes, which the app then
+    // follows again.
+    app.send(Event::SystemAppearance(Appearance::Dark));
+    assert_eq!(
+        (app.app().theme(), app.app().appearance()),
+        (Theme::System, Appearance::Dark)
+    );
+    assert_eq!(
+        asked(&mut app),
+        ["save system", "p1 None", "p2 Some(Light)"]
+    );
 }

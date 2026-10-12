@@ -739,8 +739,10 @@ def body_outline(draws, frame):
     if not found:
         return None
     area, cut, radius, draw = max(found, key=lambda entry: entry[0])
-    # A body fills most of its frame; anything smaller is a part of one.
-    if area < 0.8 * width * height:
+    # A body fills most of its frame; anything smaller is a part of one. A
+    # laptop's lid is the least of them, at 0.78 of a frame as wide as its
+    # base.
+    if area < 0.75 * width * height:
         return None
     return cut, radius, draw
 
@@ -783,6 +785,7 @@ LIGHT_DEVICES = (
     "iphone-16-pro-max",
     "iphone-air",
     "iphone-se",
+    "macbook-pro",
     "samsung-galaxy-s25",
 )
 
@@ -820,6 +823,21 @@ LIGHT_FILLS = {
     ("face", "#121515"): "#F4F4F5",
     ("ring", "#262C2D"): "#C9CACC",
     ("ring", "#8EADC1"): "#DADBDD",
+    # The thumb scoop in a laptop's base.
+    (None, "#4E4F53"): "#C4C5C8",
+}
+
+# A gradient stop's dark colour -> its light colour: the aluminium of a
+# laptop's base, and the shade under it.
+LIGHT_STOPS = {
+    "#08090D": "#8E8F93",
+    "#303135": "#B9BABD",
+    "#333438": "#BDBEC1",
+    "#35363A": "#C0C1C4",
+    "#4D4E52": "#D2D3D5",
+    "#4E4F53": "#D4D5D7",
+    "#535458": "#D9DADC",
+    "#818286": "#E8E9EA",
 }
 
 # A front the screen covers this much of is glass to its edge, and stays
@@ -888,6 +906,16 @@ def light_draws(draws, frame, screen_box):
             paint = paint.snapshot()
             paint.color = Color((paint.color.argb & 0xFF000000) | int(light[1:], 16))
             draw = (*draw[:-1], paint)
+        elif paint.shader is not None and paint.style == "fill" and paint.maskFilter is None:
+            kind, p0, p1, colors, stops = paint.shader
+            lit = tuple(
+                Color((c.argb & 0xFF000000) | int(LIGHT_STOPS[c.hex][1:], 16)) if c.hex in LIGHT_STOPS else c
+                for c in colors
+            )
+            if lit != colors:
+                paint = paint.snapshot()
+                paint.shader = (kind, p0, p1, lit, stops)
+                draw = (*draw[:-1], paint)
         out.append(draw)
     return out
 
@@ -934,6 +962,51 @@ def read_device(folder):
     evaluate(block_after(frame_src, "void paint(", "{", "}"), {"canvas": canvas, "size": frame})
 
     name = folder.name.lower().replace("_", "-")
+    return Device(name, frame, screen, canvas.draws, logical, ratio, platform, kind)
+
+
+# Painters written by hand, which have no `screen.g.dart`. Upstream lays a
+# wallpaper and a window over the panel and calls the window the screen.
+# Here the screen is the whole panel, `screen` in frame units, and the paint
+# body is read up to `until`, where the wallpaper starts. `folder` is under
+# DEVICES_DIR.
+HAND_WRITTEN = (
+    {
+        "folder": "macos/macbook_pro",
+        "screen": (346.68, 98.2, 2298.82, 1437.32),
+        "until": "// Generic custom",
+    },
+)
+
+
+def read_hand_written(spec, devices_dir):
+    folder = devices_dir / spec["folder"]
+    info = block_after((folder / "device.dart").read_text(), "DeviceInfo(", "(", ")")
+
+    def field(name):
+        match = re.search(rf"\b{name}:\s*([^\n]*?),?\s*\n", info)
+        if not match:
+            raise Unsupported(f"device.dart has no {name}")
+        return evaluate(f"v = {match.group(1)};")["v"]
+
+    frame, ratio = field("frameSize"), field("pixelRatio")
+    platform = re.search(r"TargetPlatform\.(\w+)", info).group(1).lower()
+    kind = re.search(r"DeviceType\.(\w+)", info).group(1).lower()
+
+    left, top, width, height = spec["screen"]
+    screen = DartPath()
+    screen.moveTo(left, top)
+    screen.lineTo(left + width, top)
+    screen.lineTo(left + width, top + height)
+    screen.lineTo(left, top + height)
+    screen.close()
+
+    canvas = Canvas()
+    paint = block_after((folder / "frame.dart").read_text(), "void paint(", "{", "}")
+    evaluate(paint[:paint.index(spec["until"])], {"canvas": canvas, "size": frame})
+
+    name = folder.name.lower().replace("_", "-")
+    logical = Size(width / ratio, height / ratio)
     return Device(name, frame, screen, canvas.draws, logical, ratio, platform, kind)
 
 
@@ -1223,6 +1296,13 @@ def main():
             device = read_device(frame_file.parent)
         except Unsupported as err:
             skipped.append((frame_file.parent.name, str(err)))
+            continue
+        devices[device.name] = device
+    for spec in HAND_WRITTEN:
+        try:
+            device = read_hand_written(spec, args.checkout / DEVICES_DIR)
+        except Unsupported as err:
+            skipped.append((spec["folder"], str(err)))
             continue
         devices[device.name] = device
     for spec in OWN_DEVICES:

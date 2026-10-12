@@ -47,6 +47,11 @@ mod tests {
             .collect()
     }
 
+    /// Whether the preset's device stands wide, as a laptop does.
+    fn wide(preset: &ViewportPreset) -> bool {
+        preset.width > preset.height
+    }
+
     const MANIFEST: &str = include_str!("../../assets/device-frames/manifest.json");
 
     fn manifest_row(art: DeviceArt) -> serde_json::Value {
@@ -98,7 +103,11 @@ mod tests {
                 (body.1 + body_size.1 - origin.1 - size.1) * scale,
                 (origin.0 - body.0) * scale,
             ];
-            let shell = device_shell(Some(preset.device_id), false, DeviceFrameStyle::Realistic);
+            let shell = device_shell(
+                Some(preset.device_id),
+                wide(preset),
+                DeviceFrameStyle::Realistic,
+            );
             let ShellInsets {
                 top,
                 right,
@@ -123,7 +132,11 @@ mod tests {
                 preset.height
             );
             // On its side the shell is turned a quarter turn clockwise.
-            let turned = device_shell(Some(preset.device_id), true, DeviceFrameStyle::Realistic);
+            let turned = device_shell(
+                Some(preset.device_id),
+                !wide(preset),
+                DeviceFrameStyle::Realistic,
+            );
             assert_eq!(turned.insets.right, top, "{art:?}");
             assert_eq!(turned.insets.top, left, "{art:?}");
         }
@@ -168,12 +181,19 @@ mod tests {
                 0,
                 "{art:?} {color:?}: the screen"
             );
-            let shell = device_shell(Some(preset.device_id), false, DeviceFrameStyle::Realistic);
-            let in_bezel = (shell.insets.left * TEXELS_PER_UNIT * 0.75) as u32;
+            let shell = device_shell(
+                Some(preset.device_id),
+                wide(preset),
+                DeviceFrameStyle::Realistic,
+            );
+            let texels_a_unit = art.size().0 / art.geometry().frame.0 * TEXELS_PER_UNIT;
+            // The body starts in from the drawing's edge by what sticks out
+            // of it: buttons, or a laptop's base.
+            let body_left = art.geometry().body_origin.0 * texels_a_unit;
+            let in_bezel = (body_left + shell.insets.left * TEXELS_PER_UNIT * 0.75) as u32;
             assert_eq!(texel(in_bezel, row)[3], 255, "{art:?} {color:?}: the bezel");
             // The body's edge, three units in from its outline, is pale on
             // a light device.
-            let texels_a_unit = art.size().0 / art.geometry().frame.0 * TEXELS_PER_UNIT;
             let in_edge = ((art.geometry().body_origin.0 + 3.0) * texels_a_unit) as u32;
             let edge = texel(in_edge, row);
             assert!(

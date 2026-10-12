@@ -160,6 +160,12 @@ pub enum OptionLayout {
     List,
     /// Side by side.
     Row,
+    /// One line: `title` at its start and the choices as the segments of
+    /// one control at its end.
+    Segmented {
+        /// What the choices set.
+        title: &'static str,
+    },
     /// Rows of `columns`.
     Grid {
         /// How many to a row.

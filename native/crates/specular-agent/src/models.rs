@@ -5,6 +5,15 @@ use serde_json::Value;
 /// The model a run uses until one is chosen.
 pub const DEFAULT_MODEL: &str = "sonnet";
 
+/// The models on offer, in order: each family's alias, which the runtime
+/// keeps pointed at the family's latest version.
+const FAMILIES: [(&str, &str); 4] = [
+    ("fable", "Fable"),
+    ("sonnet", "Sonnet"),
+    ("opus", "Opus"),
+    ("haiku", "Haiku"),
+];
+
 /// A model a run can use.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Model {
@@ -46,18 +55,17 @@ impl Default for Models {
     /// The aliases every runtime takes, which stand in until it lists its own.
     fn default() -> Self {
         Self {
-            list: vec![
-                Model::alias("opus", "Opus"),
-                Model::alias("sonnet", "Sonnet"),
-                Model::alias("haiku", "Haiku"),
-            ],
+            list: FAMILIES
+                .iter()
+                .map(|&(value, name)| Model::alias(value, name))
+                .collect(),
             chosen: DEFAULT_MODEL.to_owned(),
         }
     }
 }
 
 impl Models {
-    /// The models on offer, in the runtime's order.
+    /// The models on offer, in the order they are shown.
     pub fn list(&self) -> &[Model] {
         &self.list
     }
@@ -94,7 +102,8 @@ impl Models {
     }
 }
 
-/// The models `specular-helper` listed, when `line` is its `models` line.
+/// The families `specular-helper` listed, when `line` is its `models` line.
+/// Pinned versions and `default` are left off.
 pub fn parse_models(line: &str) -> Option<Vec<Model>> {
     let message = serde_json::from_str::<Value>(line.trim()).ok()?;
     let is = |key: &str, want: &str| message.get(key).and_then(Value::as_str) == Some(want);
@@ -106,7 +115,7 @@ pub fn parse_models(line: &str) -> Option<Vec<Model>> {
             .unwrap_or_default()
             .to_owned()
     };
-    let models = (message.get("models")?.as_array()?.iter())
+    let listed: Vec<Model> = (message.get("models")?.as_array()?.iter())
         .map(|model| Model {
             value: text(model, "value"),
             name: text(model, "displayName"),
@@ -114,5 +123,9 @@ pub fn parse_models(line: &str) -> Option<Vec<Model>> {
         })
         .filter(|model| !model.value.is_empty() && !model.name.is_empty())
         .collect();
-    Some(models)
+    let families = (FAMILIES.iter())
+        .filter_map(|&(alias, _)| listed.iter().find(|model| model.value == alias))
+        .cloned()
+        .collect();
+    Some(families)
 }

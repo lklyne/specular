@@ -132,10 +132,10 @@ fn moving_a_page_preserves_its_unknown_fields() {
     let mut document = Document::from_canvas_value(file.clone()).unwrap();
     document
         // The laptop is framed, and the file places it by its shell's
-        // corner: 12 units up and left of the screen the rect is.
+        // corner: its lid's bezel up and left of the screen the rect is.
         .apply(set_rect(
             SPECULAR_LAPTOP,
-            Rect::new(12.0, 12.0, 1280.0, 800.0),
+            Rect::new(35.0, 53.0, 1280.0, 800.0),
         ))
         .unwrap();
     let mut expected = node(&file, SPECULAR_LAPTOP).clone();

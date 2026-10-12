@@ -206,15 +206,17 @@ fn text_selection() -> u32 {
     pick(0x419b_ff4d, 0x62ad_ff4d)
 }
 
-/// `--surface-input`: stone-50 in the light, stone-900 at 90% over the panel
+/// `--surface-input`: stone-50 in the light, a step lighter than the panel
 /// in the dark. A sent message's bubble and the run bar.
 pub(crate) fn input() -> u32 {
-    pick(0xfafa_f9ff, 0x1d1a_18ff)
+    // pick(0xfafa_f9ff, 0x1d1a_18ff)
+    pick(0xfafa_f9ff, 0x332f_2dff)
 }
 
-/// `--surface-input-border`: stone-300, stone-700 at 80% over the panel.
+/// `--surface-input-border`: stone-300, and a neutral grey in the dark.
 pub(crate) fn input_border() -> u32 {
-    pick(0xd6d3_d1ff, 0x3f3b_36ff)
+    // pick(0xd6d3_d1ff, 0x3f3b_36ff)
+    pick(0xd6d3_d1ff, 0x3f3f_3fff)
 }
 
 /// The muted foreground as an opaque colour over the panel, for a glyph.

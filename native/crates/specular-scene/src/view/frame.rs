@@ -8,8 +8,8 @@ use specular_interact::App;
 use crate::{Colors, Point, Rect, ViewCache};
 
 /// How far outside the viewport, in logical pixels, an entity may sit and
-/// still be drawn. It covers the chrome around a rect: a group's title, a
-/// page's title, outlines and handles.
+/// still be drawn. It covers the chrome around a rect: a group's title,
+/// outlines and handles.
 const CULL_MARGIN: f32 = 64.0;
 
 /// One frame being built.

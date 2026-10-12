@@ -5,6 +5,10 @@ use specular_doc::{DeviceArt, DeviceFrameColor};
 
 /// The SVG of `art` in `color`. A device with no light drawing is dark in
 /// both.
+#[expect(
+    clippy::too_many_lines,
+    reason = "a generated table, two rows a drawing"
+)]
 pub(super) const fn svg(art: DeviceArt, color: DeviceFrameColor) -> &'static [u8] {
     match (art, color) {
         (DeviceArt::GooglePixel9, DeviceFrameColor::Dark) => {
@@ -96,6 +100,12 @@ pub(super) const fn svg(art: DeviceArt, color: DeviceFrameColor) -> &'static [u8
         }
         (DeviceArt::IphoneSe, DeviceFrameColor::Light) => {
             include_bytes!("../../../assets/device-frames/iphone-se-light.svg")
+        }
+        (DeviceArt::MacbookPro, DeviceFrameColor::Dark) => {
+            include_bytes!("../../../assets/device-frames/macbook-pro.svg")
+        }
+        (DeviceArt::MacbookPro, DeviceFrameColor::Light) => {
+            include_bytes!("../../../assets/device-frames/macbook-pro-light.svg")
         }
         (DeviceArt::SamsungGalaxyS25, DeviceFrameColor::Dark) => {
             include_bytes!("../../../assets/device-frames/samsung-galaxy-s25.svg")

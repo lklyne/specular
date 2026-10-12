@@ -206,6 +206,7 @@ impl SlotPaint {
             let at = screen(event.position, bounds);
             let inside = over.is_hovered(window);
             let was_inside = press.inside.replace(inside);
+            crate::cursors::over_canvas(inside || press.held.get());
             if inside || press.held.get() {
                 pointer(PointerEventKind::Move, at, event.modifiers);
             } else if was_inside {

@@ -8,6 +8,7 @@ use gpui_kit::component::input::TextareaState;
 use gpui_kit::component::menu::{DropdownMenu as _, PopupMenuItem};
 use gpui_kit::component::tooltip::Tooltip;
 use gpui_kit::component::{Icon, IconName, Sizable as _, h_flex, v_flex};
+use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
     Anchor, Entity, FontWeight, InteractiveElement as _, IntoElement, ParentElement as _,
     SharedString, StatefulInteractiveElement as _, Styled, div, px, rgba,
@@ -237,20 +238,17 @@ fn model_item(option: &ModelOption, input: &Entity<TextareaState>) -> PopupMenuI
     let (choose, input) = (option.choose.clone(), input.clone());
     let name = SharedString::from(option.name.clone());
     let description = SharedString::from(option.description.clone());
-    let item = if description.is_empty() {
-        PopupMenuItem::new(name)
-    } else {
-        PopupMenuItem::element(move |_, _| {
-            v_flex().py(px(2.0)).child(name.clone()).child(
-                div()
-                    .text_size(px(11.0))
-                    .text_color(muted())
-                    .child(description.clone()),
-            )
-        })
-    };
-    item.checked(option.chosen)
-        .on_click(move |_, window, cx| run_keeping_field(&choose, &input, window, cx))
+    PopupMenuItem::element(move |_, _| {
+        v_flex()
+            .py(px(2.0))
+            .text_xs()
+            .child(name.clone())
+            .when(!description.is_empty(), |this| {
+                this.child(div().text_color(muted()).child(description.clone()))
+            })
+    })
+    .checked(option.chosen)
+    .on_click(move |_, window, cx| run_keeping_field(&choose, &input, window, cx))
 }
 
 /// The model the next run uses. It opens the list of models, upwards, since
