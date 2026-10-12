@@ -7,10 +7,9 @@
 //! to ask in, so a launch of it that names no space opens the scratch
 //! space: a copy of the starter space in this app's own data folder.
 //!
-//! The Electron app keeps its user's choice as `spacePath` in its
-//! `preferences.json`. This app reads that file and never writes it. Its
-//! folder is offered on a first run and opened by `--space user`, and is
-//! otherwise left alone.
+//! The Electron app kept its user's choice as `spacePath` in the same
+//! `preferences.json`, and before that used one fixed folder. That folder
+//! is offered on a first run and opened by `--space user`.
 
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
@@ -64,7 +63,7 @@ pub(crate) fn scratch_folder(app_data: Option<&Path>) -> PathBuf {
     app_data.map_or_else(
         || {
             std::env::temp_dir()
-                .join("specular-native")
+                .join("specular")
                 .join(SCRATCH_SPACE)
         },
         |folder| folder.join(SCRATCH_SPACE),

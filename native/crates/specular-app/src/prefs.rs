@@ -3,9 +3,8 @@
 //! One JSON object in the app's config folder. This shell reads and writes
 //! `toolDefaults`, `spacePath`, `show`, `themeMode` and `agentModel`, and keeps
 //! every other
-//! key as it found it. The file is the
-//! native app's own: the Electron app keeps its settings in memory and
-//! rewrites its file whole, so two writers on one file would lose changes.
+//! key as it found it. The folder is the one the Electron app used, so its
+//! `spacePath` and its other keys are read where they already are.
 
 use std::ffi::OsString;
 use std::io;
@@ -50,11 +49,11 @@ fn config_dir(variable: impl Fn(&str) -> Option<OsString>, macos: bool) -> Optio
     }
     let home = set("HOME").map(PathBuf::from);
     if macos {
-        return Some(home?.join("Library/Application Support/Specular Native"));
+        return Some(home?.join("Library/Application Support/Specular"));
     }
     let config =
         (set("XDG_CONFIG_HOME").map(PathBuf::from)).or(home.map(|home| home.join(".config")));
-    Some(config?.join("specular-native"))
+    Some(config?.join("Specular"))
 }
 
 /// The file's top-level object. A missing file is an empty one.
@@ -215,18 +214,15 @@ mod tests {
         assert_eq!(
             config_dir(&home, true),
             Some(PathBuf::from(
-                "/Users/me/Library/Application Support/Specular Native"
+                "/Users/me/Library/Application Support/Specular"
             ))
         );
         assert_eq!(
             config_dir(&home, false),
-            Some(PathBuf::from("/Users/me/.config/specular-native"))
+            Some(PathBuf::from("/Users/me/.config/Specular"))
         );
         let xdg = environment(&[("HOME", "/home/me"), ("XDG_CONFIG_HOME", "/cfg")]);
-        assert_eq!(
-            config_dir(xdg, false),
-            Some(PathBuf::from("/cfg/specular-native"))
-        );
+        assert_eq!(config_dir(xdg, false), Some(PathBuf::from("/cfg/Specular")));
 
         let overridden = environment(&[("HOME", "/Users/me"), (CONFIG_DIR_VARIABLE, "/tmp/cfg")]);
         assert_eq!(

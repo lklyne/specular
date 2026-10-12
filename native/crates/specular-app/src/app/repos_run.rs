@@ -1,7 +1,5 @@
-//! The repos file: which repo each origin is bound to, in this app's own
-//! `repos.json`. Until that file exists the Electron app's is read, and
-//! never written: the bindings made there show here, and the first change
-//! made here starts this app's own list from them.
+//! The repos file: which repo each origin is bound to, in `repos.json` in
+//! this app's data folder.
 
 use std::ffi::OsString;
 use std::path::PathBuf;
@@ -12,7 +10,6 @@ use specular_interact::{Action, Event, RepoAction};
 use super::runtime::{Runtime, ShellWindow};
 use crate::persist::write_atomic;
 use crate::prefs;
-use crate::space::electron_user_data;
 
 const FILE_NAME: &str = "repos.json";
 
@@ -32,37 +29,16 @@ pub(super) fn file() -> Option<PathBuf> {
     file_in(|name| std::env::var_os(name), prefs::folder())
 }
 
-/// The Electron app's repos file, read while this app has none of its own.
-/// Not looked for in a run that names its own config folder, which must
-/// not depend on what the machine has.
-fn electron_file() -> Option<PathBuf> {
-    let variable = |name: &str| std::env::var_os(name);
-    if variable(prefs::CONFIG_DIR_VARIABLE).is_some_and(|folder| !folder.is_empty()) {
-        return None;
-    }
-    Some(electron_user_data(variable, cfg!(target_os = "macos"))?.join(FILE_NAME))
-}
-
 impl<W: ShellWindow> Runtime<W> {
-    /// Hands the app the repos saved by an earlier run, else the Electron
-    /// app's. No file is no repos.
+    /// Hands the app the repos saved by an earlier run. No file is no repos.
     pub(super) fn load_repos(&mut self) {
-        let Some(own) = self.repos_file.clone() else {
+        let Some(path) = self.repos_file.clone() else {
             return;
         };
-        let files = [Some(own), electron_file()];
-        for path in files.into_iter().flatten() {
-            match std::fs::read_to_string(&path) {
-                Ok(text) => {
-                    self.dispatch(Event::ReposLoaded(Box::new(Repos::from_json(&text))));
-                    return;
-                }
-                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-                Err(error) => {
-                    tracing::warn!(path = %path.display(), "repos not read: {error}");
-                    return;
-                }
-            }
+        match std::fs::read_to_string(&path) {
+            Ok(text) => self.dispatch(Event::ReposLoaded(Box::new(Repos::from_json(&text)))),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => tracing::warn!(path = %path.display(), "repos not read: {error}"),
         }
     }
 
@@ -120,10 +96,10 @@ mod tests {
     }
 
     #[test]
-    fn the_repos_file_is_the_override_then_this_apps_own_and_never_electrons() {
+    fn the_repos_file_is_the_override_then_the_one_in_the_data_folder() {
         let data = || {
             Some(PathBuf::from(
-                "/Users/me/Library/Application Support/Specular Native",
+                "/Users/me/Library/Application Support/Specular",
             ))
         };
         let cases = [
@@ -135,7 +111,7 @@ mod tests {
             (
                 vec![("SPECULAR_REPOS_FILE", "")],
                 data(),
-                Some("/Users/me/Library/Application Support/Specular Native/repos.json"),
+                Some("/Users/me/Library/Application Support/Specular/repos.json"),
             ),
             (vec![], None, None),
         ];

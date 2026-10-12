@@ -1,22 +1,21 @@
 #!/usr/bin/env bash
-# Builds `Specular Native.app` from the GPUI Kit shell: an app someone can
+# Builds `Specular.app` from the GPUI Kit shell: an app someone can
 # open, as opposed to the bare CEF layout `specular-cef/scripts/bundle-macos.sh`
 # makes for measurement runs.
 #
-#   Specular Native.app/Contents/
+#   Specular.app/Contents/
 #     Info.plist                                    name, id, icon, .canvas documents
-#     MacOS/Specular Native                         the `specular` binary
+#     MacOS/Specular                                the `specular` binary
 #     MacOS/specular-helper                         the Agent SDK host, from native/helper
 #     Helpers/claude                                the Claude Code runtime the SDK runs
 #     Frameworks/Chromium Embedded Framework.framework
-#     Frameworks/Specular Native Helper*.app        five copies of the binary
+#     Frameworks/Specular Helper*.app               five copies of the binary
 #     Resources/Assets.car, AppIcon.icns            the icon, compiled from assets/AppIcon.icon
 #     Resources/starter-space/                      what a new space starts with
 #
-# The name and the bundle id differ from the Electron app's (`Specular`,
-# `com.lyleklyne.specular`), so both install side by side. Nothing on disk
-# is shared: this app's data folder is
-# `~/Library/Application Support/Specular Native`.
+# The name, the bundle id (`com.lyleklyne.specular`) and the data folder
+# (`~/Library/Application Support/Specular`) are the Electron app's, which
+# this app replaces.
 #
 # The signature is ad hoc. That is enough to run on the Mac that built it;
 # any other Mac's Gatekeeper refuses it. Developer ID signing, notarization,
@@ -31,8 +30,8 @@
 # gets the Electron app's icon.
 set -euo pipefail
 
-APP_NAME="Specular Native"
-BUNDLE_ID="com.lyleklyne.specular.native"
+APP_NAME="Specular"
+BUNDLE_ID="com.lyleklyne.specular"
 
 profile="release"
 build=1
@@ -83,8 +82,6 @@ version="$(sed -n '/^\[workspace.package\]/,/^\[/s/^version = "\(.*\)"/\1/p' "$n
 # `.canvas` is JSON Canvas, which no system type covers, so the type is
 # declared here as an imported one. The rank is Alternate: the app opens a
 # canvas from Finder without taking the extension from an app that owns it.
-# No URL scheme: the Electron app registers none with the system, and a
-# scheme both apps claimed would go to whichever the system saw last.
 main_keys() {
   cat <<PLIST
   <key>CFBundleDisplayName</key><string>$APP_NAME</string>

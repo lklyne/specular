@@ -10,7 +10,7 @@
 # script says so; the checks still run.
 #
 # Usage: first-run.sh [app] [out-dir]
-#   app      the bundle (default target/release/bundle/Specular Native.app;
+#   app      the bundle (default target/release/bundle/Specular.app;
 #            build it with crates/specular-shell/scripts/bundle-app.sh)
 #   out-dir  where the scratch home, the space and the PNGs go
 #            (default runs/qa/app-first-run; emptied first)
@@ -18,21 +18,17 @@ set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
 native="$(cd "$here/../../.." && pwd)"
-app="${1:-$native/target/release/bundle/Specular Native.app}"
+app="${1:-$native/target/release/bundle/Specular.app}"
 out="${2:-$native/runs/qa/app-first-run}"
-bin="$app/Contents/MacOS/Specular Native"
+bin="$app/Contents/MacOS/Specular"
 [[ -x "$bin" ]] || { echo "missing $bin; run crates/specular-shell/scripts/bundle-app.sh" >&2; exit 2; }
 
 rm -rf "$out"
 mkdir -p "$out"
 out="$(cd "$out" && pwd)"
 home="$out/home"
-data="$home/Library/Application Support/Specular Native"
-electron="$home/Library/Application Support/Specular"
+data="$home/Library/Application Support/Specular"
 space="$out/My Space"
-mkdir -p "$electron" "$out/electron-space"
-printf '{"spacePath":"%s"}\n' "$out/electron-space" > "$electron/preferences.json"
-electron_before="$(shasum "$electron/preferences.json")"
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
@@ -77,8 +73,6 @@ python3 - "$data/preferences.json" "$space" <<'PY' || fail "the space was not re
 import json, sys
 sys.exit(0 if json.load(open(sys.argv[1])).get("spacePath") == sys.argv[2] else 1)
 PY
-[[ "$(shasum "$electron/preferences.json")" == "$electron_before" ]] || fail "the Electron app's preferences changed"
-[[ -z "$(ls -A "$out/electron-space")" ]] || fail "the Electron app's space was written to"
 [[ -d "$data/cef-profile" ]] || fail "no page profile in the data folder"
 
 # 2. A page with a login goes into the space while the app is closed.

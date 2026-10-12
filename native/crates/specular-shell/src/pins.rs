@@ -36,7 +36,7 @@ pub(crate) fn about(backend: &str) -> Vec<specular_interact::AboutRow> {
         version: version.to_owned(),
     };
     vec![
-        row("Specular Native", env!("CARGO_PKG_VERSION")),
+        row("Specular", env!("CARGO_PKG_VERSION")),
         row("GPUI Kit", GPUI_KIT),
         row("GPUI", GPUI_PRE),
         row("CEF", CEF),
