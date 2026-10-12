@@ -39,13 +39,13 @@ screen text "375×667" 233,409 box-h=28 12/16 #30303094 right middle clip=0,150 
 screen text "example.com" 44,409 box-h=28 12/16 #303030 middle clip=0,150 255x270
 screen path M9,421.5 L12,424.5 L15,421.5 stroke=#30303094/1 clip=0,150 255x270
 screen rect 249,150 6x225.7 r=3 fill=#00000033 clip=0,150 255x270
-screen rect 0,0 1200x38 fill=#d6d3d1
+screen rect 0,0 1200x38 fill=#ecedee
 screen rect 86,5 180x28 r=6 fill=#fdf8f5
 screen path M96.5,24.83 C95.86,24.83 95.33,24.31 95.33,23.67 L95.33,14.33 C95.33,13.69 95.86,13.17 96.5,13.17 L101.17,13.17 C101.54,13.17 101.9,13.31 102.16,13.58 L104.25,15.67 C104.52,15.93 104.67,16.29 104.67,16.67 L104.67,23.67 C104.67,24.31 104.14,24.83 103.5,24.83 Z stroke=#18181b/1.17
 screen path M101.17,13.17 L101.17,16.08 C101.17,16.41 101.43,16.67 101.75,16.67 L104.67,16.67 stroke=#18181b/1.17
 screen text "Canvas" 111,5 box-h=28 12/16 #18181b middle
 screen path M279.92,19 L288.08,19 M284,14.92 L284,23.08 stroke=#52525c/1.17
-screen rect 0,38 1200x40 fill=#d6d3d1
+screen rect 0,38 1200x40 fill=#ecedee
 screen rect 372,44 32x28 r=6 fill=#fdf8f5
 screen path 24 commands in 380.81,50.82 15.2x15.19 fill=#e8e8e8
 screen path 40 commands in 380.81,50.82 15.2x15.19 fill=#45403c
@@ -87,8 +87,8 @@ screen path 76 commands in 742.17,49.17 17.67x17.67 fill=#45403c
 screen path M751,54.5 L751,54.5 C752.93,54.5 754.5,56.07 754.5,58 L754.5,58 C754.5,59.93 752.93,61.5 751,61.5 L751,61.5 C749.07,61.5 747.5,59.93 747.5,58 L747.5,58 C747.5,56.07 749.07,54.5 751,54.5 Z fill=#e8e8e8 stroke=#45403c/1
 screen text "100%" 780,44 box-h=28 12/16 #52525c middle
 screen path M816.5,56.75 L819,59.25 L821.5,56.75 stroke=#45403c66/0.83
-screen rect 0,78 1200x36 fill=#d6d3d1
-screen rect 0,113 1200x1 fill=#a6a09b
+screen rect 0,78 1200x36 fill=#ecedee
+screen rect 0,113 1200x1 fill=#dbdcdd
 screen path M18.86,88.86 L33.14,88.86 L33.14,103.14 L18.86,103.14 Z stroke=#30303094/1.14
 screen path M41,94.5 L44,97.5 L47,94.5 stroke=#30303094/1
 screen rect 64,88 1x16 fill=#18181b33
