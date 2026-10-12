@@ -40,8 +40,7 @@
 #               feed is signed with SPARKLE_PRIVATE_KEY, else with the key
 #               in the login keychain under the account `specular`
 # Needs CEF_PATH pointing at the CEF distribution; the first build downloads
-# about 300 MB there. The icon needs Xcode 26 or later; without it the app
-# gets the Electron app's icon.
+# about 300 MB there.
 set -euo pipefail
 
 APP_NAME="Specular"
@@ -185,11 +184,7 @@ make_app() { # bundle_dir executable identifier is_helper
 rm -rf "$app"
 mkdir -p "$app/Contents/Resources"
 icon_name="AppIcon"
-if ! "$(dirname "$0")/compile-icon.sh" "$app/Contents/Resources"; then
-  echo "actool could not compile the icon; using the Electron app's" >&2
-  icon_name="icon"
-  cp "$repo_dir/build/icon.icns" "$app/Contents/Resources/icon.icns"
-fi
+"$script_dir/compile-icon.sh" "$app/Contents/Resources"
 make_app "$app" "$APP_NAME" "$BUNDLE_ID" 0
 cp -R "$repo_dir/resources/starter-space" "$app/Contents/Resources/starter-space"
 cp "$helper_bin" "$app/Contents/MacOS/specular-helper"

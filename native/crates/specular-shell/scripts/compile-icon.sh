@@ -5,7 +5,9 @@
 # icon with CFBundleIconFile and CFBundleIconName, both `AppIcon`.
 #
 # Usage: compile-icon.sh RESOURCES_DIR
-# Needs Xcode 26 or later; exits non-zero without it, writing nothing.
+# Needs an Xcode that reads the document, which the one on CI does not;
+# without it the compiled copy in `assets/AppIcon.compiled` is used.
+# `UPDATE_COMPILED_ICON=1` refreshes that copy after the icon changes.
 set -euo pipefail
 
 resources="$1"
@@ -17,8 +19,15 @@ xcrun actool "$src" --compile "$tmp" --app-icon AppIcon \
   --platform macosx --minimum-deployment-target 12.0 \
   --output-partial-info-plist "$tmp/partial.plist" >"$tmp/actool.log" 2>&1 || true
 if [[ ! -f "$tmp/Assets.car" || ! -f "$tmp/AppIcon.icns" ]]; then
-  # What actool said, since the caller falls back to another icon.
-  cat "$tmp/actool.log" >&2
-  exit 1
+  # An actool older than the document's format cannot open it, which is the
+  # case on CI. The copy compiled on a Mac that can is used instead.
+  echo "actool could not compile the icon; using assets/AppIcon.compiled" >&2
+  cp "$src/../AppIcon.compiled/Assets.car" "$src/../AppIcon.compiled/AppIcon.icns" "$resources/"
+  exit 0
 fi
 cp "$tmp/Assets.car" "$tmp/AppIcon.icns" "$resources/"
+# Kept in the repo for a build whose actool cannot compile the document.
+# Commit it when the icon changes.
+if [[ "${UPDATE_COMPILED_ICON:-0}" == 1 ]]; then
+  cp "$tmp/Assets.car" "$tmp/AppIcon.icns" "$src/../AppIcon.compiled/"
+fi

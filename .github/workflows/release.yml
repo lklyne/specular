@@ -10,8 +10,7 @@ on:
 
 jobs:
   release-macos:
-    # The app icon is an Icon Composer document, which needs Xcode 26 to compile.
-    runs-on: macos-26
+    runs-on: macos-latest
     permissions:
       contents: write
     steps:
