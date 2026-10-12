@@ -6,6 +6,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-12 — Rebuilt as a native app
+
+Specular 0.10.0 is a new app written in Rust. It opens the same space folder and the same `.canvas` files as 0.9.0.
+
+### Installing
+
+- **Download this version from the site once.** 0.9.0 cannot update itself to 0.10.0. Drag the new Specular into Applications over the old one, and from here on it updates itself. Specular > Check for updates… checks on demand.
+- Apple silicon only.
+
+### New
+
+- **A tab row.** The canvas, a single page or a Document can each open in a tab. A page in a tab fills the window.
+- **Command palette.** Command+K lists every command, with fuzzy search.
+- **Realistic device frames.** The frame control cycles through none, clay and realistic, each in light and dark, with an up to date device list.
+- **Touch pages flick** when you swipe them.
+- The camera moves on a spring between the canvas and a page.
+
+### Improvements
+
+- The toolbar, sidebar and panels are drawn natively, so they stay responsive while pages are busy.
+- Zooming a canvas of live pages no longer stalls.
+- The app uses less memory once a canvas has settled.
+
+### Not in this version yet
+
+- **The app does not install the `specular` command or the Claude Code skill.** If 0.9.0 already installed them, they stay where they are. A fresh install has neither until the next release. The agent chat inside the app works without them.
+
 ## [0.9.0] - 2026-09-19 — Faster pages, auto-fix comments, no telemetry
 
 ### Privacy
