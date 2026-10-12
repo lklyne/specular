@@ -1,6 +1,6 @@
 # Rust + CEF shell spike
 
-**Status:** Built, awaiting the first macOS run — all five crates on branch `claude/rust-cef-spike`; code lives in [`native/`](../../native/README.md). See [Implementation status](#implementation-status) for what is verified and what is not, and [`native/README.md` → Morning run](../../native/README.md#morning-run-on-macos-apple-silicon) for the copy-paste sequence.
+**Status:** Built, awaiting the first macOS run — all five crates on branch `rust-native`; code lives in [`native/`](../../native/README.md). See [Implementation status](#implementation-status) for what is verified and what is not, and [`native/README.md` → Morning run](../../native/README.md#morning-run-on-macos-apple-silicon) for the copy-paste sequence.
 **Related:** [ADR 0038 — Offscreen GPU-texture compositing for live pages](../adr/0038-offscreen-texture-canvas-for-live-pages.md) (the Electron architecture this is measured against), [ADR 0023](../adr/0023-renderer-owned-camera-gpu-panzoom.md) (rejected; why "move the camera" alone was not the win), [`perf-tracing.md`](../perf-tracing.md), [`perf-zoom-pan-log.md`](../perf-zoom-pan-log.md).
 
 ## Question

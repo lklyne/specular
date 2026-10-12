@@ -1,6 +1,6 @@
 # Rust native rebuild
 
-**Status:** Built, and mostly unchecked by a person. Every wave below has landed on `claude/rust-chrome-spike`, along with most of what this plan deferred. The work was done in about a day by agents and verified by tests, headless scenario scripts and scripted window captures. Almost nothing has been used by hand. Start with the [handoff](./rust-native-rebuild-handoff.md).
+**Status:** Built, and mostly unchecked by a person. Every wave below has landed on `rust-native`, along with most of what this plan deferred. The work was done in about a day by agents and verified by tests, headless scenario scripts and scripted window captures. Almost nothing has been used by hand. Start with the [handoff](./rust-native-rebuild-handoff.md).
 **Builds on:** [`rust-cef-spike.md`](./rust-cef-spike.md).
 **Scope as planned:** the core canvas. Pages, text, sticky notes, documents, shapes, drawings, edges, groups, comments, selection, undo, persistence. Agent chat, sync sets and auto-update were to come after.
 **See also:** the [run log](./rust-native-rebuild-log.md), [`native/README.md`](../../native/README.md), and ADRs [0039](../adr/0039-rust-canvas-render-stack.md) to [0044](../adr/0044-ui-as-pure-models-with-replaceable-renderers.md).

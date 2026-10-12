@@ -1,6 +1,6 @@
 # Page resize jank: what to measure before fixing anything
 
-Status: plan, 2026-10-09. Nothing here is built. Branch `claude/browser-tabs-layout`.
+Status: plan, 2026-10-09. Nothing here is built. Branch `rust-native`.
 
 Two things look wrong when a page's size changes in the Kit shell (`specular-shell`).
 

@@ -1,6 +1,6 @@
 # Rust rebuild: handoff
 
-**As of:** commit `07285583` on `claude/rust-chrome-spike`, 2026-10-08.
+**As of:** commit `07285583` on `rust-native` (then `claude/rust-chrome-spike`), 2026-10-08.
 **For:** whoever owns `native/` next. Sources are in brackets: a name in capitals is an entry in the [run log](./rust-native-rebuild-log.md), and "code" means I read it in the tree at that commit.
 
 The short version. In about a day, agents built a Rust app that opens Specular's real space folders, draws every kind of canvas item, hosts live pages through CEF, edits text, saves files Electron can read, answers the CLI, and has a chat panel, sync sets and an app bundle. It was checked by about 1,300 tests, 18 headless session scripts and scripted window captures. Nobody has sat down and used it. Expect the by-hand pass to find things.

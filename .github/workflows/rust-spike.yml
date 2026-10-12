@@ -2,7 +2,7 @@ name: Rust spike
 
 on:
   push:
-    branches: [main]
+    branches: [main, rust-native]
     paths:
       - 'native/**'
       - '.github/workflows/rust-spike.yml'
