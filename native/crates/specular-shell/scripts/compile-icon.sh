@@ -15,6 +15,10 @@ trap 'rm -rf "$tmp"' EXIT
 
 xcrun actool "$src" --compile "$tmp" --app-icon AppIcon \
   --platform macosx --minimum-deployment-target 12.0 \
-  --output-partial-info-plist "$tmp/partial.plist" >/dev/null 2>&1
-[[ -f "$tmp/Assets.car" && -f "$tmp/AppIcon.icns" ]]
+  --output-partial-info-plist "$tmp/partial.plist" >"$tmp/actool.log" 2>&1 || true
+if [[ ! -f "$tmp/Assets.car" || ! -f "$tmp/AppIcon.icns" ]]; then
+  # What actool said, since the caller falls back to another icon.
+  cat "$tmp/actool.log" >&2
+  exit 1
+fi
 cp "$tmp/Assets.car" "$tmp/AppIcon.icns" "$resources/"
