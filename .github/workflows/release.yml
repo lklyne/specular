@@ -4,6 +4,9 @@ on:
   push:
     tags:
       - 'v*'
+  # A rehearsal: builds, signs and notarizes the chosen branch and keeps the
+  # files as a run artifact. Nothing is published.
+  workflow_dispatch:
 
 jobs:
   release-macos:
@@ -18,6 +21,7 @@ jobs:
           workspaces: native
       - uses: oven-sh/setup-bun@v2
       - name: Check the tag against the workspace version
+        if: github.event_name == 'push'
         env:
           TAG: ${{ github.ref_name }}
         run: |
@@ -64,7 +68,17 @@ jobs:
             | sed -n 's/.*"\(Developer ID Application: .*\)"/\1/p' | head -n 1)"
           [ -n "$IDENTITY" ] || { echo "no Developer ID Application identity in the keychain" >&2; exit 1; }
           crates/specular-shell/scripts/bundle-app.sh --sign "$IDENTITY" --notarize --dist
+      - name: Keep the files of a rehearsal
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: specular-rehearsal
+          path: |
+            native/target/release/bundle/Specular-*.dmg
+            native/target/release/bundle/appcast.xml
+          retention-days: 3
       - name: Publish the release
+        if: github.event_name == 'push'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.ref_name }}
@@ -73,6 +87,7 @@ jobs:
           gh release create "$TAG" --title "$TAG" --verify-tag \
             Specular-*.dmg Specular-*.zip appcast.xml
       - name: Populate release notes from changelog.md
+        if: github.event_name == 'push'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.ref_name }}
