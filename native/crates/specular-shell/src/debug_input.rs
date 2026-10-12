@@ -91,6 +91,13 @@ fn content_size() -> Option<(f64, f64)> {
     canvas::with(|canvas| Some(canvas.runtime.window()?.native().content_size())).flatten()
 }
 
+/// Whether the environment names a script for this run.
+pub(crate) fn scripted() -> bool {
+    ["SPECULAR_SHELL_SCRIPT_FILE", "SPECULAR_SHELL_SCRIPT"]
+        .iter()
+        .any(|name| std::env::var_os(name).is_some())
+}
+
 /// The script the environment names: its steps as written, and whether the
 /// run ends with it.
 fn script_from_env() -> Option<Result<(Vec<String>, Dialect), String>> {

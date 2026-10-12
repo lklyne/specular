@@ -7654,7 +7654,7 @@ dependencies = [
 
 [[package]]
 name = "specular-agent"
-version = "0.1.0"
+version = "0.10.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -7663,7 +7663,7 @@ dependencies = [
 
 [[package]]
 name = "specular-api"
-version = "0.1.0"
+version = "0.10.0"
 dependencies = [
  "glam",
  "serde_json",
@@ -7675,7 +7675,7 @@ dependencies = [
 
 [[package]]
 name = "specular-app"
-version = "0.1.0"
+version = "0.10.0"
 dependencies = [
  "anyhow",
  "arboard",
@@ -7709,7 +7709,7 @@ dependencies = [
 
 [[package]]
 name = "specular-bench"
-version = "0.1.0"
+version = "0.10.0"
 dependencies = [
  "anyhow",
  "glam",
@@ -7722,7 +7722,7 @@ dependencies = [
 
 [[package]]
 name = "specular-cef"
-version = "0.1.0"
+version = "0.10.0"
 dependencies = [
  "cef",
  "glam",
@@ -7738,14 +7738,14 @@ dependencies = [
 
 [[package]]
 name = "specular-cef-helper"
-version = "0.1.0"
+version = "0.10.0"
 dependencies = [
  "cef",
 ]
 
 [[package]]
 name = "specular-compositor"
-version = "0.1.0"
+version = "0.10.0"
 dependencies = [
  "bytemuck",
  "glam",
@@ -7769,7 +7769,7 @@ dependencies = [
 
 [[package]]
 name = "specular-core"
-version = "0.1.0"
+version = "0.10.0"
 dependencies = [
  "glam",
  "serde",
@@ -7779,7 +7779,7 @@ dependencies = [
 
 [[package]]
 name = "specular-doc"
-version = "0.1.0"
+version = "0.10.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -7788,7 +7788,7 @@ dependencies = [
 
 [[package]]
 name = "specular-interact"
-version = "0.1.0"
+version = "0.10.0"
 dependencies = [
  "glam",
  "serde",
@@ -7804,7 +7804,7 @@ dependencies = [
 
 [[package]]
 name = "specular-scene"
-version = "0.1.0"
+version = "0.10.0"
 dependencies = [
  "glam",
  "pulldown-cmark",
@@ -7816,7 +7816,7 @@ dependencies = [
 
 [[package]]
 name = "specular-shell"
-version = "0.1.0"
+version = "0.10.0"
 dependencies = [
  "anyhow",
  "block2 0.6.2",
@@ -7841,7 +7841,7 @@ dependencies = [
 
 [[package]]
 name = "specular-testkit"
-version = "0.1.0"
+version = "0.10.0"
 dependencies = [
  "glam",
  "insta",

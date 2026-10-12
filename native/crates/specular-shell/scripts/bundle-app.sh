@@ -10,6 +10,7 @@
 #     Helpers/claude                                the Claude Code runtime the SDK runs
 #     Frameworks/Chromium Embedded Framework.framework
 #     Frameworks/Specular Helper*.app               five, each holding `specular-cef-helper`
+#     Frameworks/Sparkle.framework                  the updater (scripts/fetch-sparkle.sh)
 #     Resources/Assets.car, AppIcon.icns            the icon, compiled from assets/AppIcon.icon
 #     Resources/starter-space/                      what a new space starts with
 #
@@ -19,10 +20,10 @@
 #
 # With no --sign the signature is ad hoc. That is enough to run on the Mac
 # that built it; any other Mac's Gatekeeper refuses it. A release is
-# `--sign IDENTITY --notarize --dmg`: see docs/native-app-bundle.md.
+# `--sign IDENTITY --notarize --dist`: see docs/native-app-bundle.md.
 #
 # Usage: bundle-app.sh [--profile release|debug] [--no-build] [--out DIR]
-#                      [--sign IDENTITY] [--notarize] [--dmg]
+#                      [--sign IDENTITY] [--notarize] [--dist]
 #   --profile   which build to wrap (default: release)
 #   --no-build  wrap the binaries that are already built
 #   --out       where to put the app (default: native/target/<profile>/bundle)
@@ -32,8 +33,12 @@
 #               --sign, and either NOTARY_PROFILE (a `notarytool
 #               store-credentials` profile) or APPLE_ID, APPLE_PASSWORD and
 #               APPLE_TEAM_ID
-#   --dmg       also writes Specular-<version>-<arch>.dmg beside the app,
-#               notarized too under --notarize
+#   --dist      also writes, beside the app, what a release publishes:
+#               Specular-<version>-<arch>.dmg to download (notarized too
+#               under --notarize), Specular-<version>-<arch>.zip for the
+#               updater, and appcast.xml, the feed that names the zip. The
+#               feed is signed with SPARKLE_PRIVATE_KEY, else with the key
+#               in the login keychain under the account `specular`
 # Needs CEF_PATH pointing at the CEF distribution; the first build downloads
 # about 300 MB there. The icon needs Xcode 26 or later; without it the app
 # gets the Electron app's icon.
@@ -41,13 +46,20 @@ set -euo pipefail
 
 APP_NAME="Specular"
 BUNDLE_ID="com.lyleklyne.specular"
+# Where a release's files are downloaded from. `latest` follows the newest
+# release, so the feed's address never changes.
+RELEASES="https://github.com/lklyne/specular/releases"
+FEED_URL="$RELEASES/latest/download/appcast.xml"
+# The public half of the key updates are signed with. The private half is
+# in the maintainer's keychain and the release workflow's secrets.
+UPDATE_PUBLIC_KEY="fNjQ/Sg+trxPWPfXND/2sBcjgdq61Eve9QqKRXxlvQA="
 
 profile="release"
 build=1
 out=""
 identity=""
 notarize=0
-dmg=0
+dist=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --profile) profile="$2"; shift 2 ;;
@@ -55,8 +67,8 @@ while [[ $# -gt 0 ]]; do
     --out) out="$2"; shift 2 ;;
     --sign) identity="$2"; shift 2 ;;
     --notarize) notarize=1; shift ;;
-    --dmg) dmg=1; shift ;;
-    -h|--help) sed -n '2,38p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --dist) dist=1; shift ;;
+    -h|--help) sed -n '2,44p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
 done
@@ -96,6 +108,7 @@ for candidate in "$CEF_PATH" "$CEF_PATH"/*/cef_macos_aarch64 "$CEF_PATH"/*/cef_m
   fi
 done
 [[ -n "$framework" ]] || { echo "no Chromium Embedded Framework.framework under $CEF_PATH" >&2; exit 1; }
+sparkle="$("$native_dir/scripts/fetch-sparkle.sh")"
 
 version="$(sed -n '/^\[workspace.package\]/,/^\[/s/^version = "\(.*\)"/\1/p' "$native_dir/Cargo.toml")"
 : "${version:?no version in native/Cargo.toml}"
@@ -109,6 +122,9 @@ main_keys() {
   <key>CFBundleIconFile</key><string>$icon_name</string>
   <key>CFBundleIconName</key><string>$icon_name</string>
   <key>LSApplicationCategoryType</key><string>public.app-category.developer-tools</string>
+  <key>SUFeedURL</key><string>$FEED_URL</string>
+  <key>SUPublicEDKey</key><string>$UPDATE_PUBLIC_KEY</string>
+  <key>SUEnableAutomaticChecks</key><true/>
   <key>CFBundleDocumentTypes</key>
   <array><dict>
     <key>CFBundleTypeName</key><string>Canvas</string>
@@ -182,6 +198,7 @@ mkdir -p "$app/Contents/Helpers"
 cp "$runtime_bin" "$app/Contents/Helpers/claude"
 mkdir -p "$app/Contents/Frameworks"
 cp -R "$framework" "$app/Contents/Frameworks/"
+cp -R "$sparkle/Sparkle.framework" "$app/Contents/Frameworks/"
 # Every helper holds `specular-cef-helper`, which runs the child process
 # Chromium's `--type=` switch names and links nothing of the app.
 for suffix in "" " (GPU)" " (Renderer)" " (Plugin)" " (Alerts)"; do
@@ -212,6 +229,19 @@ while IFS= read -r library; do
   sign "$library"
 done < <(find "$cef/Libraries" -type f -name '*.dylib')
 sign "$cef"
+# Sparkle's own parts, in the order its documentation gives. The downloader
+# keeps the entitlements it shipped with.
+updater="$app/Contents/Frameworks/Sparkle.framework"
+sign "$updater/Versions/B/XPCServices/Installer.xpc"
+if [[ -z "$identity" ]]; then
+  sign "$updater/Versions/B/XPCServices/Downloader.xpc"
+else
+  codesign --force --sign "$identity" --options runtime --timestamp \
+    --preserve-metadata=entitlements "$updater/Versions/B/XPCServices/Downloader.xpc"
+fi
+sign "$updater/Versions/B/Autoupdate"
+sign "$updater/Versions/B/Updater.app"
+sign "$updater"
 for helper in "$app/Contents/Frameworks/"*.app; do
   sign "$helper" "$app_entitlements"
 done
@@ -241,8 +271,9 @@ if [[ "$notarize" == 1 ]]; then
 fi
 echo "$app"
 
-if [[ "$dmg" == 1 ]]; then
-  image="$out/$APP_NAME-$version-$(uname -m).dmg"
+if [[ "$dist" == 1 ]]; then
+  name="$APP_NAME-$version-$(uname -m)"
+  image="$out/$name.dmg"
   staging="$(mktemp -d)"
   trap 'rm -rf "$staging"' EXIT
   ditto "$app" "$staging/$APP_NAME.app"
@@ -257,4 +288,37 @@ if [[ "$dmg" == 1 ]]; then
     xcrun stapler staple "$image"
   fi
   echo "$image"
+
+  # The updater downloads the app as a zip, which holds the stapled app.
+  update="$out/$name.zip"
+  rm -f "$update"
+  ditto -c -k --sequesterRsrc --keepParent "$app" "$update"
+  echo "$update"
+
+  # `sign_update` prints the two attributes the feed's enclosure carries:
+  # the archive's signature and its length.
+  if [[ -n "${SPARKLE_PRIVATE_KEY:-}" ]]; then
+    signature="$(printf '%s' "$SPARKLE_PRIVATE_KEY" | "$sparkle/bin/sign_update" --ed-key-file - "$update")"
+  else
+    signature="$("$sparkle/bin/sign_update" --account specular "$update")"
+  fi
+  cat > "$out/appcast.xml" <<FEED
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+  <channel>
+    <title>$APP_NAME</title>
+    <item>
+      <title>$version</title>
+      <pubDate>$(date -u '+%a, %d %b %Y %H:%M:%S +0000')</pubDate>
+      <sparkle:version>$version</sparkle:version>
+      <sparkle:shortVersionString>$version</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
+      <sparkle:releaseNotesLink>$RELEASES/tag/v$version</sparkle:releaseNotesLink>
+      <enclosure url="$RELEASES/download/v$version/$name.zip" type="application/octet-stream" $signature/>
+    </item>
+  </channel>
+</rss>
+FEED
+  xmllint --noout "$out/appcast.xml"
+  echo "$out/appcast.xml"
 fi

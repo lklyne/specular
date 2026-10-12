@@ -47,6 +47,8 @@ mod surface;
 mod theme;
 mod tip;
 #[cfg(target_os = "macos")]
+mod updates;
+#[cfg(target_os = "macos")]
 mod view;
 
 #[cfg(target_os = "macos")]
@@ -75,6 +77,10 @@ fn main() {
             // Loud on purpose: a pin that moved lands here.
             eprintln!("specular could not start: {error:#}");
             std::process::exit(1);
+        }
+        // A scripted run must not have an update sheet opened over it.
+        if !debug_input::scripted() {
+            updates::start();
         }
     });
 }

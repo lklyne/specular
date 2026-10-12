@@ -49,6 +49,8 @@ actions!(
         Preferences,
         /// Specular > About Specular
         About,
+        /// Specular > Check for updates…
+        CheckForUpdates,
         /// Hides the app.
         Hide,
         /// Hides every other app.
@@ -140,6 +142,7 @@ fn keystroke(chord: Chord) -> Option<String> {
 fn shell_menus() -> (Menu, Menu, Menu) {
     let app = Menu::new("Specular").items([
         MenuItem::action("About Specular", About),
+        MenuItem::action("Check for updates…", CheckForUpdates),
         MenuItem::separator(),
         MenuItem::action("Settings…", Preferences),
         MenuItem::separator(),
@@ -349,6 +352,7 @@ pub(crate) fn install(cx: &mut App) {
         shell::with_view(cx, |_, window, cx| crate::settings::open(window, cx));
     });
     cx.on_action(|_: &About, _| crate::native::show_about());
+    cx.on_action(|_: &CheckForUpdates, _| crate::updates::check());
     cx.on_action(|_: &Hide, cx| cx.hide());
     cx.on_action(|_: &HideOthers, cx| cx.hide_other_apps());
     cx.on_action(|_: &ShowAll, cx| cx.unhide_other_apps());
