@@ -61,11 +61,7 @@ pub(crate) struct SpaceStart {
 /// no home to put that under, the system's temp folder.
 pub(crate) fn scratch_folder(app_data: Option<&Path>) -> PathBuf {
     app_data.map_or_else(
-        || {
-            std::env::temp_dir()
-                .join("specular")
-                .join(SCRATCH_SPACE)
-        },
+        || std::env::temp_dir().join("specular").join(SCRATCH_SPACE),
         |folder| folder.join(SCRATCH_SPACE),
     )
 }
