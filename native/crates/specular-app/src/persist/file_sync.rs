@@ -6,6 +6,9 @@ use std::time::SystemTime;
 /// How long after the latest change the save runs. Electron's autosave
 /// waits the same.
 pub(crate) const SAVE_DEBOUNCE_MS: u64 = 350;
+/// The longest a change waits to be saved while newer changes keep
+/// restarting the debounce.
+const SAVE_MAX_WAIT_MS: u64 = 2_000;
 /// How often the file is looked at for an edit from outside.
 const DISK_CHECK_MS: u64 = 500;
 /// How long a failed save waits before it is tried again.
@@ -48,6 +51,8 @@ pub(crate) enum DiskChange {
 pub(crate) struct FileSync {
     /// When the pending save runs.
     save_due: Option<u64>,
+    /// When the oldest change still waiting to be saved was made.
+    unsaved_since: Option<u64>,
     /// When the file is next looked at.
     check_due: u64,
     /// The file's text as we last read or wrote it.
@@ -61,6 +66,7 @@ impl FileSync {
     pub(crate) fn new(text: String, stamp: Option<Stamp>) -> Self {
         Self {
             save_due: None,
+            unsaved_since: None,
             check_due: 0,
             synced: text,
             stamp,
@@ -68,9 +74,11 @@ impl FileSync {
     }
 
     /// The document changed. The save runs once changes have stopped for
-    /// [`SAVE_DEBOUNCE_MS`].
+    /// [`SAVE_DEBOUNCE_MS`], or [`SAVE_MAX_WAIT_MS`] after the first of a
+    /// run of changes that does not stop.
     pub(crate) fn request_save(&mut self, now_ms: u64) {
-        self.save_due = Some(now_ms + SAVE_DEBOUNCE_MS);
+        let since = *self.unsaved_since.get_or_insert(now_ms);
+        self.save_due = Some((now_ms + SAVE_DEBOUNCE_MS).min(since + SAVE_MAX_WAIT_MS));
     }
 
     /// Whether a change is waiting to be written.
@@ -87,6 +95,7 @@ impl FileSync {
         }
         if self.save_due.is_some_and(|due| due <= now_ms) {
             self.save_due = None;
+            self.unsaved_since = None;
             return Step::Save;
         }
         if self.check_due <= now_ms {
@@ -98,6 +107,7 @@ impl FileSync {
 
     /// Takes the pending save, if any, to run now: the app is closing.
     pub(crate) fn take_unsaved(&mut self) -> bool {
+        self.unsaved_since = None;
         self.save_due.take().is_some()
     }
 
@@ -177,6 +187,22 @@ mod tests {
         sync.request_save(400);
         assert_eq!(sync.step(450, false), Step::Idle);
         assert_eq!(sync.step(750, false), Step::Save);
+    }
+
+    #[test]
+    fn changes_that_never_stop_are_saved_every_two_seconds() {
+        let mut sync = synced();
+        for now in (0..=1_800).step_by(300) {
+            sync.request_save(now);
+            assert_ne!(sync.step(now, false), Step::Save);
+        }
+        sync.request_save(1_999);
+        assert_ne!(sync.step(1_999, false), Step::Save);
+        assert_eq!(sync.step(2_000, false), Step::Save);
+        // The next run of changes waits from its own first change.
+        sync.request_save(2_100);
+        assert_ne!(sync.step(2_449, false), Step::Save);
+        assert_eq!(sync.step(2_450, false), Step::Save);
     }
 
     #[test]

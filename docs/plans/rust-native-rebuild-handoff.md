@@ -128,7 +128,6 @@ Each with the shortest way to see it. "Seen once" means one scripted run.
 - **A click that dismisses a Kit dropdown may also start a gesture on the canvas.** Seen in the spike, not rechecked in the real shell. Open the zoom list, click the canvas. [ADR 0040]
 - **Dropped files may land in the wrong place.** They go to the pointer's last position before the drag. [log, "Needs a human" 9]
 - **An outside edit is overwritten when you have unsaved changes.** Change the canvas and, inside the 350 ms before the save, write the file from another tool. A warning is logged. [S9]
-- **No maximum wait on autosave.** Change the document at least every 350 ms without pause: nothing is saved until you stop. [S9]
 - **Deleting a page leaves its comments bound to it, and they stop drawing.** Comment on a page, delete the page. [C1 to C3]
 - **An undone "add Document" leaves its `.md` on disk.** Tools > Document, click, Cmd+Z. [T4]
 - **A thread closed here shows as open in Electron.** Close a thread, open the space in Electron. [RIGHT-PANEL]
