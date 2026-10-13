@@ -56,8 +56,8 @@ so someone who went through setup there is not asked again.
 
 - The command is linked into `/usr/local/bin`, or `~/.local/bin` when that
   cannot be written. A link already there that runs something else is named
-  in the dialog and its row starts unticked. A file that is not a link is
-  never replaced.
+  in the dialog, and is replaced only when the user presses Replace on its
+  card. A file that is not a link is never replaced.
 - The skill is copied to `~/.claude/skills/specular`. The hash of what was
   written goes in `preferences.json` under `onboarding.skillHashes`.
 

@@ -169,6 +169,7 @@ write_plist() { # path executable identifier is_helper
   <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
   <key>CFBundleVersion</key><string>$version</string>
   <key>CFBundleShortVersionString</key><string>$version</string>
+  <key>NSHumanReadableCopyright</key><string>Copyright © 2026 Everything &amp; Nothing</string>
   <key>LSMinimumSystemVersion</key><string>12.0</string>
   <key>LSEnvironment</key><dict><key>MallocNanoZone</key><string>0</string></dict>
   <key>NSSupportsAutomaticGraphicsSwitching</key><true/>

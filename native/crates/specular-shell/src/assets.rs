@@ -20,7 +20,11 @@ icon_assets!(
         Zap,
         ListEnd,
         FolderCode,
-        Keyboard
+        Keyboard,
+        SquareTerminal,
+        Sparkles,
+        Download,
+        RefreshCw
     ]
 );
 
@@ -47,6 +51,14 @@ pub(crate) enum ShellIcon {
     FolderCode,
     /// The shortcuts pane.
     Keyboard,
+    /// The `specular` command.
+    SquareTerminal,
+    /// The skill an agent reads.
+    Sparkles,
+    /// Installing one of the two.
+    Download,
+    /// Reading what is installed again.
+    RefreshCw,
 }
 
 impl IconNamed for ShellIcon {
@@ -62,6 +74,10 @@ impl IconNamed for ShellIcon {
             Self::ListEnd => IconName::ListEnd.path(),
             Self::FolderCode => IconName::FolderCode.path(),
             Self::Keyboard => IconName::Keyboard.path(),
+            Self::SquareTerminal => IconName::SquareTerminal.path(),
+            Self::Sparkles => IconName::Sparkles.path(),
+            Self::Download => IconName::Download.path(),
+            Self::RefreshCw => IconName::RefreshCw.path(),
         }
     }
 }
