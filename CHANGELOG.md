@@ -2,7 +2,7 @@
 
 All notable changes to Specular will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/). Do not use prerelease suffixes (`-alpha.N`, `-beta.N`). `update.electronjs.org` filters based on GitHub's "prerelease" release flag (not the SemVer suffix), so tagged-alpha versions *can* reach clients — but mixing SemVer prerelease ordering with GitHub's flag is a footgun. Just increment patch/minor versions and keep releases as non-prereleases.
+The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/). Do not use prerelease suffixes (`-alpha.N`, `-beta.N`). The app updates itself to the newest GitHub release, so increment patch or minor versions and keep releases as non-prereleases.
 
 ## [Unreleased]
 
@@ -22,6 +22,8 @@ Specular 0.10.0 is a new app written in Rust. It opens the same space folder and
 - **Touch pages flick** when you swipe them.
 - **Device frames keep pages clear of the island.** A page in a phone frame sits below the Dynamic Island or notch and above the home indicator, as it does on the phone. A site that asks for the full screen gets it, with the real safe-area insets.
 - The camera moves on a spring between the canvas and a page.
+- **One address for several pages.** With several pages selected, the address field takes all of them to what you type.
+- Open tabs come back, in order, the next time you open the app.
 
 ### Improvements
 
