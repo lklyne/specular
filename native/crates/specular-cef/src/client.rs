@@ -278,11 +278,15 @@ wrap_load_handler! {
 
         fn on_load_end(
             &self,
-            _browser: Option<&mut Browser>,
+            browser: Option<&mut Browser>,
             frame: Option<&mut Frame>,
             http_status_code: c_int,
         ) {
             if frame.is_some_and(|frame| frame.is_main() != 0) {
+                // Its styles are in, so its colour is the one it keeps.
+                if let Some(host) = browser.and_then(|browser| browser.host()) {
+                    self.ctx.pending.ask_viewport_fit(&host);
+                }
                 self.ctx.push(PageEvent::Loaded {
                     page: self.ctx.id,
                     http_status: http_status_code,
@@ -313,7 +317,12 @@ wrap_display_handler! {
             }
         }
 
-        fn on_title_change(&self, _browser: Option<&mut Browser>, title: Option<&CefString>) {
+        fn on_title_change(&self, browser: Option<&mut Browser>, title: Option<&CefString>) {
+            // The first word of a new document, long before it has loaded:
+            // early enough to lay it out once.
+            if let Some(host) = browser.and_then(|browser| browser.host()) {
+                self.ctx.pending.ask_viewport_fit(&host);
+            }
             self.ctx.push(PageEvent::Title {
                 page: self.ctx.id,
                 title: title.map(ToString::to_string).unwrap_or_default(),

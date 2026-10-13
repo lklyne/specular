@@ -389,6 +389,15 @@ pub enum PageNotice {
     Cursor(Cursor),
     /// The page's remote-debugging websocket is known.
     DevtoolsUrl(String),
+    /// What the document says of the screen around it.
+    ViewportFit {
+        /// Whether it asks for the whole screen (`viewport-fit=cover`),
+        /// under whatever its device puts over it.
+        covers: bool,
+        /// The colour a browser paints round it, as red, green and blue.
+        /// `None` when it names none.
+        color: Option<[u8; 3]>,
+    },
     /// The element an item placed over the page should follow (ADR 0032):
     /// the answer to an
     /// [`Effect::CaptureElement`](crate::Effect::CaptureElement).

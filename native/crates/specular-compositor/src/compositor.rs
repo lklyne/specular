@@ -196,6 +196,7 @@ impl Compositor {
             | PageEvent::Inspected { .. }
             | PageEvent::ElementCaptured { .. }
             | PageEvent::ElementPlaces { .. }
+            | PageEvent::ViewportFit { .. }
             | PageEvent::DevtoolsTarget { .. } => Ok(()),
         }
     }

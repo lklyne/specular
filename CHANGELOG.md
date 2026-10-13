@@ -20,6 +20,7 @@ Specular 0.10.0 is a new app written in Rust. It opens the same space folder and
 - **Command palette.** Command+K lists every command, with fuzzy search.
 - **Realistic device frames.** The frame control cycles through none, clay and realistic, each in light and dark, with an up to date device list.
 - **Touch pages flick** when you swipe them.
+- **Device frames keep pages clear of the island.** A page in a phone frame sits below the Dynamic Island or notch and above the home indicator, as it does on the phone. A site that asks for the full screen gets it, with the real safe-area insets.
 - The camera moves on a spring between the canvas and a page.
 
 ### Improvements

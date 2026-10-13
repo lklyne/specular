@@ -7,11 +7,12 @@ use specular_doc::Rect;
 
 use crate::geometry;
 
-/// A page's entity rect and the CSS viewport its content is laid out at.
-/// The two differ only while the page is being resized.
+/// Where a page's document is drawn on the canvas and the CSS viewport it
+/// is laid out at there. The rect is the entity's, less the safe area of
+/// the device a framed page is shown as.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PagePlacement {
-    /// The entity rect in canvas space.
+    /// Where the document is drawn, in canvas space.
     pub rect: Rect,
     /// The layout viewport in CSS pixels.
     pub viewport: CssSize,

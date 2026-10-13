@@ -431,10 +431,12 @@ fn on_tick(app: &mut App, unix_ms: u64, effects: &mut Vec<Effect>) {
 /// A hosted page reported something.
 fn on_page_event(app: &mut App, page: &EntityId, notice: &PageNotice, effects: &mut Vec<Effect>) {
     let shown = app.page_state(page).and_then(|state| state.url.clone());
+    let fitted = crate::safe_area::fitted(app, page);
     // The address is the one thing a page reports that is saved.
     if page_state::on_notice(app, page, notice) {
         effects.push(Effect::Save);
     }
+    crate::safe_area::follow_fit(fitted, app, page, effects);
     sync::on_notice(app, page, notice, shown.as_deref(), effects);
     crate::inspect::on_notice(app, page, notice);
     match notice {
@@ -464,7 +466,8 @@ fn on_page_notice(app: &App, page: &EntityId, notice: &PageNotice, effects: &mut
         | PageNotice::RegionElements(_)
         | PageNotice::ElementCaptured { .. }
         | PageNotice::ElementPlaces(_)
-        | PageNotice::DevtoolsUrl(_) => {}
+        | PageNotice::DevtoolsUrl(_)
+        | PageNotice::ViewportFit { .. } => {}
         PageNotice::ImeCompositionBounds(bounds) => {
             if app.session.focus.page() == Some(page)
                 && let Some(bounds) = bounds

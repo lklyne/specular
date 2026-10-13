@@ -2,12 +2,12 @@
 
 use specular_core::CssSize;
 use specular_doc::{DeviceArt, DeviceFrameColor, DeviceKind, DeviceShell, Entity, Page};
-use specular_interact::Appearance;
+use specular_interact::{Appearance, within_safe_area};
 
 use super::frame::{Frame, canvas_rect, carried};
 use crate::{
-    Colors, ImageDraw, ImageId, Item, PageDraw, Point, Rect, RectDraw, Scene, ShadowDraw, Stroke,
-    StrokeAlign,
+    Color, Colors, ImageDraw, ImageId, Item, PageDraw, Point, Rect, RectDraw, Scene, ShadowDraw,
+    Stroke, StrokeAlign,
 };
 
 /// Corner radius of a page's frame, in canvas units.
@@ -108,13 +108,28 @@ pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, page: &Page, scene: &mut 
             )
         }));
     }
-    scene.push(carry.canvas(screen, |rect| {
+    // A document laid out inside its screen's safe area leaves strips of
+    // the screen bare, which are its colour as a phone paints them.
+    let inset = frame.app.page_inset(&entity.id);
+    let document = canvas_rect(within_safe_area(entity.rect, inset));
+    let inside = document != screen;
+    if inside {
+        let [r, g, b] = frame.app.page_surround(&entity.id);
+        scene.push(carry.canvas(screen, |rect| {
+            Item::canvas(
+                RectDraw::filled(rect, Color::rgb(r, g, b)).with_corner_radius(screen_radius),
+            )
+        }));
+    }
+    scene.push(carry.canvas(document, |rect| {
         Item::canvas(PageDraw {
             page: entity.id.clone(),
             rect,
             viewport: (frame.app.page_placement(&entity.id))
                 .map_or_else(CssSize::default, |placement| placement.viewport),
-            corner_radius: screen_radius,
+            // The strips have the screen's corners, and the document's own
+            // are square between them.
+            corner_radius: if inside { 0.0 } else { screen_radius },
         })
     }));
     if !frame.chrome {
@@ -128,6 +143,9 @@ pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, page: &Page, scene: &mut 
         let (rect, turn) = art_rect(screen, shell, art);
         scene.push(carry.image(image, rect, turn));
     } else if let Some(shell) = &shell {
+        if inside {
+            trim_corners(device, &carry, screen, shell, scene);
+        }
         decorate(device, &carry, screen, outer, shell, scene);
         let ring = Stroke::new(
             device.device_screen_ring,
@@ -193,6 +211,31 @@ fn under_page(
     };
     scene.push(carry.canvas(bezel, |rect| {
         Item::canvas(RectDraw::filled(rect, color).with_corner_radius(radius))
+    }));
+}
+
+/// The bezel again just outside `screen`, over a document that sits inside
+/// its safe area. Where a strip is shallower than the screen's corner is
+/// round, the document's square corner reaches past the curve, and a clay
+/// bezel is under the page. A drawing is over it and needs none of this.
+fn trim_corners(
+    device: &Colors,
+    carry: &Carry,
+    screen: Rect,
+    shell: &DeviceShell,
+    scene: &mut Scene,
+) {
+    let insets = shell.insets;
+    let bezel = [insets.top, insets.right, insets.bottom, insets.left]
+        .into_iter()
+        .fold(f64::INFINITY, f64::min) as f32;
+    if bezel <= 0.0 {
+        return;
+    }
+    let stroke = Stroke::new(device.device_bezel, bezel, StrokeAlign::Outside);
+    let radius = shell.screen_corner_radius as f32;
+    scene.push(carry.canvas(screen, |rect| {
+        Item::canvas(RectDraw::outlined(rect, stroke).with_corner_radius(radius))
     }));
 }
 

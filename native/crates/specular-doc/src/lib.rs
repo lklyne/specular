@@ -30,6 +30,7 @@ mod history;
 mod id;
 mod kinds;
 mod presets;
+mod safe_area;
 
 pub use anchor::{AnchorElement, PageAnchor};
 pub use annotation::{Annotation, AnnotationAnchor, AnnotationStatus, Author, RegionAnchor, Reply};
@@ -52,6 +53,7 @@ pub use presets::{
     DeviceKind, DeviceShell, LAPTOP, PRESET_MAIN, PRESET_MENU, ShellInsets, VIEWPORT_PRESETS,
     ViewportPreset, device_shell, preset, preset_named,
 };
+pub use safe_area::{SafeArea, safe_area};
 
 /// A JSON object, used for metadata and for unmodeled passthrough fields.
 pub type JsonMap = serde_json::Map<String, serde_json::Value>;

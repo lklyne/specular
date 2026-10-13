@@ -57,6 +57,8 @@ pub(crate) enum Asked {
     Captured(u64),
     /// Where the page's tracked elements have moved to.
     Places,
+    /// How the document fits its screen.
+    ViewportFit,
     /// A key-down sent with its editing commands. If the page refuses the
     /// message, the key goes the plain way, so it is never lost.
     Key(PlainKey),
@@ -107,6 +109,12 @@ impl Pending {
             self.take(id);
         }
         sent
+    }
+
+    /// Asks the document how it fits its screen. A question put while it
+    /// loads is answered once it is parsed.
+    pub(crate) fn ask_viewport_fit(&self, host: &BrowserHost) {
+        self.send(host, Asked::ViewportFit, dom_query::viewport_fit_message);
     }
 
     /// Tells the page it is on `device`. Returns whether its devtools
@@ -243,6 +251,16 @@ wrap_dev_tools_message_observer! {
                         return;
                     }
                     PageEvent::ElementPlaces { page, places }
+                }
+                Asked::ViewportFit => {
+                    let Some((covers, color)) = dom_query::parse_viewport_fit(result) else {
+                        return;
+                    };
+                    PageEvent::ViewportFit {
+                        page,
+                        covers,
+                        color,
+                    }
                 }
                 Asked::Key(_) | Asked::Done => return,
                 Asked::Target => {

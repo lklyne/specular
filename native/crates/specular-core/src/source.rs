@@ -212,6 +212,19 @@ pub enum PageEvent {
         /// selector finds nothing.
         places: Vec<(String, Option<ElementPlace>)>,
     },
+    /// What the document says of the screen around it, told after it has
+    /// been parsed and again once it has loaded.
+    ViewportFit {
+        /// The page.
+        page: PageId,
+        /// Whether its viewport meta asks for `viewport-fit=cover`: the
+        /// whole screen, under whatever the device puts over it.
+        covers: bool,
+        /// The colour a browser paints round it, as red, green and blue:
+        /// its `theme-color`, else its background. `None` when it names
+        /// neither.
+        color: Option<[u8; 3]>,
+    },
     /// The page's remote-debugging (CDP) target id is known. With
     /// [`PageSource::devtools_port`] it names the page's websocket:
     /// `ws://127.0.0.1:<port>/devtools/page/<id>`.
@@ -364,6 +377,23 @@ pub struct PageDevice {
     /// Its `devicePixelRatio`, whatever scale its texture is rastered at.
     /// `None` is the texture scale.
     pub pixel_ratio: Option<f32>,
+    /// What its `env(safe-area-inset-*)` are. None for a page laid out
+    /// inside its screen's safe area, which has nothing to keep clear of.
+    pub safe_area: PageSafeArea,
+}
+
+/// How far in from each edge of its viewport a page is told the screen's
+/// safe area starts, in CSS pixels: its `env(safe-area-inset-*)`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub struct PageSafeArea {
+    /// `safe-area-inset-top`.
+    pub top: u32,
+    /// `safe-area-inset-right`.
+    pub right: u32,
+    /// `safe-area-inset-bottom`.
+    pub bottom: u32,
+    /// `safe-area-inset-left`.
+    pub left: u32,
 }
 
 /// A backend that hosts offscreen pages and delivers their painted frames.

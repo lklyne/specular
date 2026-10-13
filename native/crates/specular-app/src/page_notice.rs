@@ -42,20 +42,14 @@ pub(crate) fn notice_of(
                 can_go_forward: *can_go_forward,
             },
         ),
-        PageEvent::Scrolled { page, offset } => (
-            *page,
-            PageNotice::Scrolled {
-                x: f64::from(offset.x),
-                y: f64::from(offset.y),
-            },
-        ),
-        PageEvent::ScrollProgress { page, progress } => (
-            *page,
-            PageNotice::ScrollProgress {
-                x: f64::from(progress.x),
-                y: f64::from(progress.y),
-            },
-        ),
+        PageEvent::Scrolled { page, offset } => {
+            let (x, y) = along(*offset);
+            (*page, PageNotice::Scrolled { x, y })
+        }
+        PageEvent::ScrollProgress { page, progress } => {
+            let (x, y) = along(*progress);
+            (*page, PageNotice::ScrollProgress { x, y })
+        }
         PageEvent::ScrollRoom { page, room } => (*page, PageNotice::ScrollRoom(*room)),
         PageEvent::Pointed { page, kind, bundle } => (
             *page,
@@ -89,6 +83,17 @@ pub(crate) fn notice_of(
         PageEvent::ElementPlaces { page, places } => {
             (*page, PageNotice::ElementPlaces(places.clone()))
         }
+        PageEvent::ViewportFit {
+            page,
+            covers,
+            color,
+        } => (
+            *page,
+            PageNotice::ViewportFit {
+                covers: *covers,
+                color: *color,
+            },
+        ),
         PageEvent::DevtoolsTarget { page, id } => {
             let port = devtools_port?;
             let url = format!("ws://127.0.0.1:{port}/devtools/page/{id}");
@@ -103,6 +108,11 @@ pub(crate) fn notice_of(
         | PageEvent::ElementsInRect { .. } => return None,
     };
     Some(notice)
+}
+
+/// A vector's two parts as the notices carry them.
+fn along(vector: glam::Vec2) -> (f64, f64) {
+    (f64::from(vector.x), f64::from(vector.y))
 }
 
 #[cfg(test)]

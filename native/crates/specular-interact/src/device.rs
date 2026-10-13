@@ -1,7 +1,7 @@
 //! The device a page tells its document it is on, from the device its
 //! preset names: what Chrome's device mode sends for the same device.
 
-use specular_core::{PageDevice, PageUserAgent};
+use specular_core::{PageDevice, PageSafeArea, PageUserAgent};
 use specular_doc::{EntityId, Page};
 
 use crate::App;
@@ -37,6 +37,12 @@ const fn handheld(user_agent: PageUserAgent, pixel_ratio: f32) -> PageDevice {
         mobile: true,
         touch: true,
         pixel_ratio: Some(pixel_ratio),
+        safe_area: PageSafeArea {
+            top: 0,
+            right: 0,
+            bottom: 0,
+            left: 0,
+        },
     }
 }
 
@@ -48,7 +54,12 @@ impl App {
         if crate::showing::fills(self, id) {
             return PageDevice::default();
         }
-        (self.document.entity(id).and_then(page_of)).map_or_else(PageDevice::default, preset_device)
+        let device = (self.document.entity(id).and_then(page_of))
+            .map_or_else(PageDevice::default, preset_device);
+        PageDevice {
+            safe_area: self.page_env(id),
+            ..device
+        }
     }
 }
 

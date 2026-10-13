@@ -130,7 +130,8 @@ impl App {
     ///
     /// A page's viewport is its rect's size, as its handle is dragged too.
     /// A page that fills its tab sits at the rect the tab presents it at,
-    /// laid out at that size.
+    /// laid out at that size. A page in a device frame sits inside the safe
+    /// area of the screen its rect is, unless its document covers it.
     pub fn page_placement(&self, id: &EntityId) -> Option<PagePlacement> {
         let entity = self.document.entity(id)?;
         page_of(entity)?;
@@ -140,9 +141,10 @@ impl App {
                 viewport: PagePlacement::viewport_for(rect),
             });
         }
+        let rect = crate::safe_area::within(entity.rect, self.page_inset(id));
         Some(PagePlacement {
-            rect: entity.rect,
-            viewport: PagePlacement::viewport_for(entity.rect),
+            rect,
+            viewport: PagePlacement::viewport_for(rect),
         })
     }
 

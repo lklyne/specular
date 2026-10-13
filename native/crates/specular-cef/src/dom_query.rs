@@ -165,6 +165,36 @@ scrollTo({ left: maxX * __X__, top: maxY * __Y__, behavior: 'instant' });
 return 'ok';
 ";
 
+/// What the document says of the screen around it: whether its viewport
+/// meta asks to cover the screen, and the colour a browser paints round it,
+/// its `theme-color` or else its background. Answered once the document is
+/// parsed, so a question put while it loads waits for that.
+const VIEWPORT_FIT: &str = r#"
+if (document.readyState === 'loading') {
+  await new Promise((done) => document.addEventListener('DOMContentLoaded', done, { once: true }));
+}
+const metas = (name) => [...document.querySelectorAll('meta[name="' + name + '"]')];
+const fit = metas('viewport').map((meta) => meta.content || '').join(',');
+const rgb = (css) => {
+  if (!css || !CSS.supports('color', css)) return null;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 1;
+  const context = canvas.getContext('2d', { willReadFrequently: true });
+  if (!context) return null;
+  context.fillStyle = css;
+  context.fillRect(0, 0, 1, 1);
+  const [r, g, b, a] = context.getImageData(0, 0, 1, 1).data;
+  if (a === 0) return null;
+  // What shows through is the browser's white.
+  return [r, g, b].map((c) => Math.round((c * a + 255 * (255 - a)) / 255));
+};
+const theme = metas('theme-color').find((meta) => !meta.media || matchMedia(meta.media).matches);
+const background = (e) => (e ? rgb(getComputedStyle(e).backgroundColor) : null);
+const color = (theme && rgb(theme.content))
+  || background(document.body) || background(document.documentElement);
+return JSON.stringify({ covers: /viewport-fit\s*=\s*cover/i.test(fit), color });
+"#;
+
 /// A finite number as a JavaScript literal. Anything else reads as zero, so
 /// a bad coordinate cannot break out of the expression.
 pub(crate) fn number(value: f32) -> String {
@@ -256,6 +286,33 @@ pub fn parse_scroll_progress(result: &[u8]) -> Option<(f32, f32)> {
     Some((along("x")?, along("y")?))
 }
 
+/// The message that asks a document how it fits its screen. The answer
+/// waits for the document to be parsed.
+pub fn viewport_fit_message(id: i32) -> Vec<u8> {
+    json!({
+        "id": id,
+        "method": "Runtime.evaluate",
+        "params": {
+            "expression": format!("(async () => {{{VIEWPORT_FIT}}})()"),
+            "returnByValue": true,
+            "awaitPromise": true,
+        },
+    })
+    .to_string()
+    .into_bytes()
+}
+
+/// Whether the document covers its screen and the colour round it, as a
+/// [`viewport_fit_message`] found them. `None` for an answer that cannot be
+/// read, as that of a document that went away while it was asked.
+pub fn parse_viewport_fit(result: &[u8]) -> Option<(bool, Option<[u8; 3]>)> {
+    let found: Value = serde_json::from_str(&returned(result)?).ok()?;
+    let covers = found.get("covers")?.as_bool()?;
+    let color = (found.get("color").cloned())
+        .and_then(|color| serde_json::from_value::<[u8; 3]>(color).ok());
+    Some((covers, color))
+}
+
 /// The message that makes a page report `scheme` as its
 /// `prefers-color-scheme`: `applyPageColorScheme`'s
 /// `Emulation.setEmulatedMedia`, over the page's devtools channel.
@@ -277,7 +334,7 @@ pub fn color_scheme_message(id: i32, scheme: PageColorScheme) -> Vec<u8> {
 /// `device`, each with its params: the ones Chrome's device mode sends.
 /// Every one is sent whatever the device, so a page that was a phone stops
 /// being one.
-pub fn device_methods(device: &PageDevice) -> [(&'static str, Value); 3] {
+pub fn device_methods(device: &PageDevice) -> [(&'static str, Value); 4] {
     let user_agent = device.user_agent.map_or_else(
         // An empty user agent is the browser's own.
         || json!({ "userAgent": "" }),
@@ -304,10 +361,21 @@ pub fn device_methods(device: &PageDevice) -> [(&'static str, Value); 3] {
         "mobile": device.mobile,
     });
     let touch = json!({ "enabled": device.touch, "maxTouchPoints": 5 });
+    // The insets `env(safe-area-inset-*)` resolve to. The `Max` ones are
+    // what `env(safe-area-max-inset-*)` do, the same on a screen whose safe
+    // area does not move.
+    let area = device.safe_area;
+    let safe_area = json!({ "insets": {
+        "top": area.top, "topMax": area.top,
+        "right": area.right, "rightMax": area.right,
+        "bottom": area.bottom, "bottomMax": area.bottom,
+        "left": area.left, "leftMax": area.left,
+    }});
     [
         ("Emulation.setUserAgentOverride", user_agent),
         ("Emulation.setDeviceMetricsOverride", metrics),
         ("Emulation.setTouchEmulationEnabled", touch),
+        ("Emulation.setSafeAreaInsetsOverride", safe_area),
     ]
 }
 
@@ -484,6 +552,23 @@ mod tests {
         assert_eq!(parse_scroll_room(&value_result("false")), Some(false));
         assert_eq!(parse_scroll_room(&value_result("true")), Some(true));
         assert_eq!(parse_scroll_room(&value_result("nope")), None);
+    }
+
+    #[test]
+    fn how_a_document_fits_its_screen_is_asked_once_parsed_and_read_back() {
+        let ask = sent(&viewport_fit_message(9));
+        assert_eq!(ask["params"]["awaitPromise"], true);
+        let ask = ask["params"]["expression"].as_str().unwrap();
+        assert!(ask.contains("DOMContentLoaded"));
+        assert!(ask.contains(r"/viewport-fit\s*=\s*cover/i"));
+        let covering = value_result(r#"{"covers":true,"color":[122,31,162]}"#);
+        assert_eq!(
+            parse_viewport_fit(&covering),
+            Some((true, Some([122, 31, 162])))
+        );
+        let plain = value_result(r#"{"covers":false,"color":null}"#);
+        assert_eq!(parse_viewport_fit(&plain), Some((false, None)));
+        assert_eq!(parse_viewport_fit(b"{}"), None);
     }
 
     #[test]

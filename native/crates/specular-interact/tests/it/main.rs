@@ -68,6 +68,7 @@ mod qa_session;
 mod repos;
 mod resizes;
 mod routing;
+mod safe_area;
 mod save;
 mod select;
 mod settings;

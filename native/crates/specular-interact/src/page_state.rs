@@ -13,6 +13,17 @@ use crate::anchor::canonical_page_url;
 use crate::app::page_of;
 use crate::{App, Cursor, Effect, PageNotice, sync};
 
+/// How a document fits the screen of the device it is shown as.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ScreenFit {
+    /// Laid out inside the screen's safe area, as a document is unless it
+    /// asks otherwise.
+    #[default]
+    Inside,
+    /// Over the whole screen, as its `viewport-fit=cover` asks.
+    Covers,
+}
+
 /// The live state of one hosted page.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct PageState {
@@ -35,6 +46,13 @@ pub struct PageState {
     pub cursor: Cursor,
     /// The page's remote-debugging websocket, once the backend has one.
     pub devtools_url: Option<String>,
+    /// How the document fits its device's screen. Kept from one document
+    /// to the next until the new one says, so a site that covers is not
+    /// laid out twice a page.
+    pub fit: ScreenFit,
+    /// The colour the document has a browser paint round it. `None` until
+    /// it says, and for a document that names none.
+    pub surround: Option<[u8; 3]>,
     /// Where the elements anchored items follow sit in the document, by
     /// selector (ADR 0032). A selector that finds nothing has no entry.
     pub elements: HashMap<String, ElementPlace>,
@@ -110,6 +128,14 @@ pub(crate) fn on_notice(app: &mut App, page: &EntityId, notice: &PageNotice) -> 
         }
         PageNotice::Cursor(cursor) => state.cursor = *cursor,
         PageNotice::DevtoolsUrl(url) => state.devtools_url = Some(url.clone()),
+        PageNotice::ViewportFit { covers, color } => {
+            state.fit = if *covers {
+                ScreenFit::Covers
+            } else {
+                ScreenFit::Inside
+            };
+            state.surround = *color;
+        }
         PageNotice::Url(url) => {
             if state.url.as_ref() != Some(url) {
                 // Another document starts at its top, and a page tells of a

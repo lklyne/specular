@@ -4,13 +4,17 @@ expression: app.scene_snapshot()
 ---
 canvas shadow 100,116 433x892 r=74.33 blur=16 fill=#0000003d
 canvas rect 100,100 433x892 r=74.33 fill=#d6d3d1
-canvas page p1 120,120 393x852 r=54.67
+canvas rect 120,120 393x852 r=54.67 fill=#ffffff
+canvas page p1 120,179 393x759
+canvas rect 120,120 393x852 r=54.67 stroke=#d6d3d1/20/outside
 canvas rect 253.5,128 126x37 r=18.5 fill=#1a1a1a
 screen rect 120,120 393x852 r=54.67 stroke=#0000001f/1.5/outside
 screen rect 100,100 433x892 r=74.33 stroke=#a6a09b/1/outside
 canvas shadow 700,116 433x892 r=74.33 blur=16 fill=#000000cc
 canvas rect 700,100 433x892 r=74.33 fill=#292524
-canvas page p2 720,120 393x852 r=54.67
+canvas rect 720,120 393x852 r=54.67 fill=#ffffff
+canvas page p2 720,179 393x759
+canvas rect 720,120 393x852 r=54.67 stroke=#292524/20/outside
 canvas rect 853.5,128 126x37 r=18.5 fill=#000000
 screen rect 720,120 393x852 r=54.67 stroke=#ffffff0f/1.5/outside
 screen rect 700,100 433x892 r=74.33 stroke=#a6a09b/1/outside

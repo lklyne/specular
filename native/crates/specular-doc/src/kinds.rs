@@ -47,6 +47,22 @@ impl Page {
         Some(crate::device_shell(device, landscape, style))
     }
 
+    /// The safe area of the screen the page is shown as: its device's,
+    /// while its frame is shown, in either style. A page with no frame is
+    /// a bare viewport, and one at a size of its own is no device's screen,
+    /// so neither has one.
+    pub fn safe_area(&self) -> crate::SafeArea {
+        let Some(shell) = self.shell() else {
+            return crate::SafeArea::NONE;
+        };
+        let meta = self.metadata.as_ref();
+        let named = |key: &str| meta?.get(key).and_then(serde_json::Value::as_str);
+        if matches!(named("pageSizeMode"), Some("custom" | "responsive")) {
+            return crate::SafeArea::NONE;
+        }
+        crate::safe_area(named("deviceId"), shell.landscape)
+    }
+
     /// The style the page's frame is kept in, whether or not the frame is
     /// shown and whether or not the page has a drawing for it.
     pub fn frame_style(&self) -> crate::DeviceFrameStyle {

@@ -84,6 +84,7 @@ mod repos;
 mod resize;
 mod resize_drag;
 mod reveal;
+mod safe_area;
 mod saved;
 mod scope;
 mod scroll_follow;
@@ -162,7 +163,7 @@ pub use marquee::MarqueeMode;
 pub use menu::{Menu, MenuEntry, MenuItem, binding_of, menus};
 pub use move_drag::{CopyPreview, MoveDrag};
 pub use notes::{NoteNotice, NoteState, is_note_file, note_file_name};
-pub use page_state::PageState;
+pub use page_state::{PageState, ScreenFit};
 pub use palette::{PaletteItem, PaletteMatch, PaletteRun, palette, search};
 pub use panel::builtin::PanelUi;
 pub use panel::{
@@ -179,6 +180,7 @@ pub use presence::{AgentAct, AgentCursor};
 pub use property::{Orientation, PageStep, Property};
 pub use repos::{BoundOriginRow, RepoAction, RepoRow, ReposPane, repos_pane};
 pub use resize_drag::ResizeDrag;
+pub use safe_area::within as within_safe_area;
 pub use scope::SelectionScope;
 pub use scroll_follow::{
     PAGE_FADE, Seen, doc_to_viewport, hittable_rect, left_page, out_of_page, recorded_scroll, seen,

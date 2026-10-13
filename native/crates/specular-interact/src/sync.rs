@@ -256,7 +256,8 @@ pub(crate) fn on_notice(
         | PageNotice::RegionElements(_)
         | PageNotice::ElementCaptured { .. }
         | PageNotice::ElementPlaces(_)
-        | PageNotice::DevtoolsUrl(_) => {}
+        | PageNotice::DevtoolsUrl(_)
+        | PageNotice::ViewportFit { .. } => {}
     }
 }
 

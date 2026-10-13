@@ -20,7 +20,8 @@ pub(crate) struct HostedPage {
 }
 
 /// The pages of the document, back-to-front, each at the viewport its host
-/// is laid out at: its rect's size, or the size its tab lays it out at.
+/// is laid out at: the size it is placed at, or the size its tab lays it
+/// out at.
 pub(crate) fn snapshot(app: &App) -> Vec<HostedPage> {
     let laid_out = laid_out(app);
     (app.document.entities())
@@ -28,10 +29,8 @@ pub(crate) fn snapshot(app: &App) -> Vec<HostedPage> {
             let page = page_of(entity)?;
             let viewport = (laid_out.iter().flatten())
                 .find(|(id, _)| *id == entity.id)
-                .map_or_else(
-                    || PagePlacement::viewport_for(entity.rect),
-                    |(_, size)| *size,
-                );
+                .map(|(_, size)| *size)
+                .or_else(|| Some(app.page_placement(&entity.id)?.viewport))?;
             Some(HostedPage {
                 id: entity.id.clone(),
                 url: page.url.clone(),
