@@ -20,6 +20,7 @@ pub fn space<'a>(canvases: impl IntoIterator<Item = (&'a str, Document)>) -> Ope
             file: format!("{name}.canvas"),
             document,
             camera: Camera::default(),
+            tabs: Vec::new(),
         })
         .collect();
     OpenedSpace {

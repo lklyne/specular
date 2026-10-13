@@ -191,16 +191,18 @@ fn the_canvas_camera_is_saved_through_an_item_view_and_nothing_is_written() {
     let canvas = Camera::new(Vec2::new(-320.0, 75.0), 0.5);
     app.act(Action::SetCamera(canvas));
     let before = app.document().clone();
-    app.take_effects();
 
-    app.act(show("n"));
+    // Both tabs are open from here on, which is the one thing a save is
+    // asked for (`lens.rs`).
+    app.act(show("p1")).act(show("n"));
+    app.take_effects();
     let fitted = app.session().camera;
     assert_ne!(fitted, canvas);
     // The camera that is saved is still the canvas's.
     assert_eq!(app.app().canvas_camera(), canvas);
     let id = app.app().space().active().id.clone();
     assert_eq!(
-        app.app().canvas_to_save(&id).map(|saved| saved.1),
+        app.app().canvas_to_save(&id).map(|saved| saved.camera),
         Some(canvas)
     );
 

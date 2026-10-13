@@ -1,11 +1,14 @@
-//! The camera in a `.canvas` file's `appState` (see `docs/file-formats.md`).
+//! The camera and the item tabs in a `.canvas` file's `appState` (see
+//! `docs/file-formats.md`).
 
 use glam::Vec2;
 use serde_json::{Value, json};
 use specular_core::Camera;
-use specular_doc::{CanvasError, Document};
+use specular_doc::{CanvasError, Document, EntityId};
+use specular_interact::{Lens, SavedCanvas, SavedTab};
 
 const APP_STATE: &str = "appState";
+const ITEM_TABS: &str = "itemTabs";
 
 /// The camera `document` was saved with, or `None` when its `appState` has
 /// no usable zoom and pan.
@@ -18,9 +21,32 @@ pub(crate) fn camera_of(document: &Document) -> Option<Camera> {
     (zoom > 0.0).then(|| Camera::new(Vec2::new(x as f32, y as f32), zoom as f32))
 }
 
-/// The `.canvas` text of `document` with `camera` in its `appState`. The
-/// rest of `appState` is kept as it was read.
-pub(crate) fn canvas_text(document: &Document, camera: Camera) -> Result<String, CanvasError> {
+/// The item tabs `document` was saved with, in order. An entry with no id
+/// is left out, and one with no lens this app knows is a Fill tab.
+pub(crate) fn tabs_of(document: &Document) -> Vec<SavedTab> {
+    let tabs = (document.extra().get(APP_STATE))
+        .and_then(|state| state.get(ITEM_TABS))
+        .and_then(Value::as_array);
+    (tabs.into_iter().flatten())
+        .filter_map(|tab| {
+            let lens = tab.get("lens").and_then(Value::as_str).unwrap_or_default();
+            Some(SavedTab {
+                item: EntityId::from(tab.get("id")?.as_str()?),
+                lens: Lens::from_key(lens),
+            })
+        })
+        .collect()
+}
+
+/// The `.canvas` text of a canvas, with its camera and its item tabs in
+/// `appState`. The rest of `appState` is kept as it was read. A canvas
+/// with no tab open has no `itemTabs`.
+pub(crate) fn canvas_text(canvas: &SavedCanvas) -> Result<String, CanvasError> {
+    let SavedCanvas {
+        document,
+        camera,
+        tabs,
+    } = canvas;
     let mut document = document.clone();
     let state = document
         .extra_mut()
@@ -31,6 +57,16 @@ pub(crate) fn canvas_text(document: &Document, camera: Camera) -> Result<String,
     }
     state["zoom"] = json!(widened(camera.zoom));
     state["pan"] = json!({ "x": widened(camera.pan.x), "y": widened(camera.pan.y) });
+    let tabs: Vec<Value> = (tabs.iter())
+        .map(|tab| json!({ "id": tab.item.as_str(), "lens": tab.lens.key() }))
+        .collect();
+    if let Some(state) = state.as_object_mut() {
+        if tabs.is_empty() {
+            state.remove(ITEM_TABS);
+        } else {
+            state.insert(ITEM_TABS.to_owned(), Value::Array(tabs));
+        }
+    }
     document.to_canvas_string()
 }
 
@@ -47,6 +83,22 @@ mod tests {
 
     fn document(json: &str) -> Document {
         Document::from_canvas_str(json).unwrap()
+    }
+
+    /// The text a save of `document` writes with `camera` and `tabs`.
+    fn saved(document: &Document, camera: Camera, tabs: &[(&str, Lens)]) -> String {
+        let tabs = (tabs.iter())
+            .map(|(item, lens)| SavedTab {
+                item: EntityId::from(*item),
+                lens: *lens,
+            })
+            .collect();
+        canvas_text(&SavedCanvas {
+            document: document.clone(),
+            camera,
+            tabs,
+        })
+        .unwrap()
     }
 
     #[test]
@@ -83,7 +135,7 @@ mod tests {
             r#"{"nodes":[],"edges":[],"appState":{"zoom":1,"pan":{"x":0,"y":0},"leftSidebarOpen":true}}"#,
         );
         let camera = Camera::new(Vec2::new(12.5, -40.0), 0.75);
-        let saved = self::document(&canvas_text(&document, camera).unwrap());
+        let saved = self::document(&saved(&document, camera, &[]));
         assert_eq!(camera_of(&saved), Some(camera));
         assert_eq!(
             saved.extra()[APP_STATE]["leftSidebarOpen"],
@@ -92,9 +144,43 @@ mod tests {
     }
 
     #[test]
+    fn the_item_tabs_are_written_in_order_and_read_back() {
+        let bare = document(r#"{"nodes":[],"edges":[]}"#);
+        let camera = Camera::default();
+        let text = saved(&bare, camera, &[("p2", Lens::Device), ("n", Lens::Fill)]);
+        let state = &serde_json::from_str::<Value>(&text).unwrap()[APP_STATE];
+        assert_eq!(
+            state[ITEM_TABS],
+            json!([{ "id": "p2", "lens": "device" }, { "id": "n", "lens": "fill" }])
+        );
+        let again = document(&text);
+        let read = tabs_of(&again);
+        let pairs: Vec<(&str, Lens)> = (read.iter())
+            .map(|tab| (tab.item.as_str(), tab.lens))
+            .collect();
+        assert_eq!(pairs, [("p2", Lens::Device), ("n", Lens::Fill)]);
+
+        // Closing the last tab takes the key out of the file.
+        let closed = saved(&again, camera, &[]);
+        assert!(!closed.contains(ITEM_TABS), "{closed}");
+
+        // What cannot be read as a tab is left out, and the rest is kept.
+        let odd = document(
+            r#"{"nodes":[],"edges":[],"appState":{"itemTabs":[7,{"lens":"device"},{"id":"a","lens":"wide"},{"id":"b"}]}}"#,
+        );
+        let read = tabs_of(&odd);
+        let pairs: Vec<(&str, Lens)> = (read.iter())
+            .map(|tab| (tab.item.as_str(), tab.lens))
+            .collect();
+        assert_eq!(pairs, [("a", Lens::Fill), ("b", Lens::Fill)]);
+        let not_a_list = document(r#"{"nodes":[],"edges":[],"appState":{"itemTabs":"p1"}}"#);
+        assert_eq!(tabs_of(&not_a_list), []);
+    }
+
+    #[test]
     fn the_zoom_is_written_as_the_number_it_is() {
         let camera = Camera::new(Vec2::new(-168.0, -518.0), 0.8);
-        let text = canvas_text(&document(r#"{"nodes":[],"edges":[]}"#), camera).unwrap();
+        let text = saved(&document(r#"{"nodes":[],"edges":[]}"#), camera, &[]);
         // Not 0.800000011920929, the `f32` widened.
         assert!(text.contains(r#""zoom": 0.8,"#), "{text}");
     }
@@ -103,13 +189,13 @@ mod tests {
     fn saving_a_file_without_app_state_adds_one() {
         let camera = Camera::new(Vec2::new(3.0, 4.0), 2.0);
         let bare = document(r#"{"nodes":[],"edges":[]}"#);
-        let text = canvas_text(&bare, camera).unwrap();
+        let text = saved(&bare, camera, &[]);
         assert_eq!(camera_of(&document(&text)), Some(camera));
         // The document it was given is left alone.
         assert!(bare.extra().get(APP_STATE).is_none());
         // An appState that is not an object is replaced by one.
         let broken = document(r#"{"nodes":[],"edges":[],"appState":7}"#);
-        let text = canvas_text(&broken, camera).unwrap();
+        let text = saved(&broken, camera, &[]);
         assert_eq!(camera_of(&document(&text)), Some(camera));
     }
 }

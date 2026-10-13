@@ -28,7 +28,8 @@ impl<W: ShellWindow> Runtime<W> {
     /// The `.canvas` text an autosave of the canvas showing would write now.
     pub fn canvas_text(&self) -> anyhow::Result<String> {
         let app = self.app();
-        canvas_text(&app.document_to_save(), app.canvas_camera())
-            .context("writing the canvas as text")
+        let canvas = (app.canvas_to_save(&app.space().active().id))
+            .context("the canvas showing is not in the space")?;
+        canvas_text(&canvas).context("writing the canvas as text")
     }
 }

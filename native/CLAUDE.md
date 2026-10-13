@@ -199,7 +199,8 @@ fn shift_drag_moves_the_page_along_one_axis() {
   the canvas;
   `act(Action::SetLens(Lens::Device))` changes it (`view.lens.<name>` as
   controls, with `view.minimize` beside them), read back with
-  `app().lens()`. Device hides what is not hooked to its item until
+  `app().lens()`. Opening a tab, closing one and a lens change each ask
+  for `Effect::Save`: the tabs are saved in `appState.itemTabs`. Device hides what is not hooked to its item until
   `act(Action::ShowOthers(true))` opens the eye (`view.others`), so open it
   before making or pressing anything beside the item. See
   `tests/it/lens.rs`.

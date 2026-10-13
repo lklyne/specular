@@ -155,3 +155,17 @@ The camera moves between the canvas, Device and Fill by a spring instead of land
 - **The target moves.** While it runs, `settle` keeps the target fitted after every event and samples the transition for the camera. A leave aims at a fixed camera, and `canvas_camera` reports that one, so a save during it writes what it would have without it.
 - **Camera input ends a leave** where the camera is: a wheel, a pinch, a zoom action, a gesture, a canvas switch.
 - **A session switch** (`Event::Motion`) turns it on. The windowed shells do; the testkit, `--snapshot`, `--script` and benchmarks do not, so the camera lands at once there.
+
+## Amendment, 2026-10-12: the open tabs are saved
+
+The tabs were lost at every quit, which made opening them feel wasted. Two statements above no longer hold: that the lens is never saved, and that the tab order starts over at launch.
+
+- **What is saved.** Each canvas's open tabs, in order, each with its lens. They go in the `.canvas` file's `appState.itemTabs`, beside the camera (`docs/file-formats.md`). `appState` already holds what belongs to looking at a canvas and not to the canvas, so the document proper is still untouched: opening a tab makes no undo step and changes no node.
+- **What is not saved.** Which tab is showing, the eye, and the prepared page. A space still opens on its Canvas tab, and a canvas switch still goes back to it.
+- **When.** `showing::enter`, `set_lens` and `close_tab` push `Effect::Save` when a tab opens, closes or changes lens. That is the debounced autosave the document uses, so nothing is written on a frame. Switching between tabs that are open asks for no save.
+- **Loading.** `OpenedCanvas::tabs` carries what the file had, and `Tabs::from_saved` drops any tab whose item is gone or cannot be shown alone. `Tabs::saved` leaves the same ones out of a write.
+- **One more reader.** `App::canvas_to_save` returns the tabs with the document and the camera (`SavedCanvas`). Add it to "Models and saving" above.
+- **A background canvas keeps its tabs when its file is edited from outside.** It used to lose them with the rest of its view.
+- **Electron.** It never had item tabs and saved nothing like them, so there was no key to match. It drops `itemTabs` when it writes the file.
+
+A per-space file under `.specular/` was the other place. The camera is already per canvas in the `.canvas` file and a tab names an entity of that one canvas, so the tabs go with it: a canvas that is renamed, duplicated or deleted needs no second file kept in step.

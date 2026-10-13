@@ -20,7 +20,9 @@
 //!   leaves a Device tab showing with nothing selected, and dropping the
 //!   lens from that rule takes a click on Fill's margin out of the tab.
 //! - per tab: keeping one lens in the session moves every tab at once, and
-//!   keeping the eye per tab opens it for one only.
+//!   keeping the eye per tab opens it for one only. Dropping the
+//!   `Effect::Save` from `showing::enter`, `set_lens` or `close_tab` loses
+//!   that tab, lens or close at the next launch.
 //! - making: dropping the `refuses` rule makes a shape that is hidden at
 //!   once, and leaving `only_page` set in Device hooks a shape made beside
 //!   the page to it.
@@ -147,7 +149,7 @@ fn device_holds_the_camera_and_leaving_centres_the_item_at_the_canvas_zoom() {
     let id = app.app().space().active().id.clone();
     assert_eq!(app.app().canvas_camera(), canvas_camera);
     assert_eq!(
-        app.app().canvas_to_save(&id).map(|saved| saved.1),
+        app.app().canvas_to_save(&id).map(|saved| saved.camera),
         Some(canvas_camera)
     );
 
@@ -210,31 +212,43 @@ fn the_lens_is_kept_by_each_tab() {
     assert_eq!(app.app().lens(), None);
     assert!(!control(&app, "view.lens.device") && !control(&app, "view.minimize"));
 
+    // The open tabs and their lenses are written with the canvas, so a
+    // change to them asks for a save and nothing else here does.
+    let saves = |app: &mut TestApp| {
+        (app.take_effects().iter()).any(|effect| matches!(effect, Effect::Save))
+    };
+
     // A tab starts in Fill, and Minimize is there to go back.
     app.act(show("p1"));
     assert_eq!(app.app().lens(), Some(Lens::Fill));
     assert!(control(&app, "view.minimize"));
+    assert!(saves(&mut app), "a tab was opened");
     // The eye is Device's, and one for every tab.
     assert!(!control(&app, "view.others"));
     app.click_control("view.lens.device");
     assert_eq!(app.app().lens(), Some(Lens::Device));
+    assert!(saves(&mut app), "its lens changed");
     app.click_control("view.others");
     assert!(app.app().shows_others());
+    assert!(!saves(&mut app), "the eye is not saved");
 
     app.act(show("p2"));
     assert_eq!(app.app().lens(), Some(Lens::Fill), "p2 has its own lens");
     assert!(app.app().shows_others(), "the eye is one for every tab");
+    app.take_effects();
     app.click_control("view.minimize");
     assert_eq!(app.app().showing(), Showing::Canvas);
 
     app.click_control("view.item.p1");
     assert_eq!(app.app().lens(), Some(Lens::Device), "p1 kept its lens");
+    assert!(!saves(&mut app), "which tab is showing is not saved");
+
+    app.act(Action::CloseTab(Some("p2".into())));
+    assert!(saves(&mut app), "a tab was closed");
 
     // None of it is a change to the document.
     assert_eq!(*app.document(), before);
     assert!(!app.app().can_undo());
-    let saves = (app.take_effects().iter()).any(|effect| matches!(effect, Effect::Save));
-    assert!(!saves, "the lens and the eye are not saved");
 }
 
 #[test]

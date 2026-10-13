@@ -1,7 +1,7 @@
 //! [`Space`]: the folder of canvases the app has open.
 //!
 //! Every canvas in the space is held whole: its [`Document`], its
-//! [`History`] and its own view (camera and selection). Exactly one is
+//! [`History`] and its own view (camera, selection and item tabs). Exactly one is
 //! active. The active canvas's state is [`App`]'s own `document`, `history`
 //! and `session`, so everything that reads the app reads the active canvas
 //! with no indirection; the others are parked in their [`Canvas`] entry.
@@ -21,7 +21,7 @@ pub use self::names::{DEFAULT_CANVAS_NAME, canvas_file_name, legacy_canvas_file_
 pub(crate) use self::ops::{act, create, file_changed, open};
 pub use self::tab_ref::{TabRefError, resolve_tab_ref};
 use crate::saved::{self, LoadedFits};
-use crate::{App, Selection};
+use crate::{App, SavedTab, Selection};
 
 /// Names one canvas of the space: the tab id the space's index keeps for it.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -127,6 +127,20 @@ pub struct OpenedCanvas {
     pub document: Document,
     /// The camera it was saved with, or the one to start from.
     pub camera: Camera,
+    /// The item tabs it was saved with, in order.
+    pub tabs: Vec<SavedTab>,
+}
+
+/// What a save of one canvas writes.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SavedCanvas {
+    /// The document, with every text the session left alone at the size it
+    /// was read with.
+    pub document: Document,
+    /// The canvas's own camera, whatever tab is showing.
+    pub camera: Camera,
+    /// The item tabs that are open, in order.
+    pub tabs: Vec<SavedTab>,
 }
 
 impl Default for Space {
@@ -214,16 +228,20 @@ impl App {
         )
     }
 
-    /// What a save of the canvas `id` writes: its document, with every text
-    /// the session left alone at the size it was read with, and its camera.
-    pub fn canvas_to_save(&self, id: &CanvasId) -> Option<(Document, Camera)> {
+    /// What a save of the canvas `id` writes, active or not.
+    pub fn canvas_to_save(&self, id: &CanvasId) -> Option<SavedCanvas> {
         let canvas = self.space.canvas(id)?;
         Some(match canvas.parked() {
-            None => (self.document_to_save(), self.canvas_camera()),
-            Some(parked) => (
-                saved::to_save(&parked.document, &parked.view.loaded_fits),
-                parked.view.camera,
-            ),
+            None => SavedCanvas {
+                document: self.document_to_save(),
+                camera: self.canvas_camera(),
+                tabs: self.session.tabs.saved(&self.document),
+            },
+            Some(parked) => SavedCanvas {
+                document: saved::to_save(&parked.document, &parked.view.loaded_fits),
+                camera: parked.view.camera,
+                tabs: parked.view.tabs.saved(&parked.document),
+            },
         })
     }
 

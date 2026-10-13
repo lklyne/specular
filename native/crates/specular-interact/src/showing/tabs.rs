@@ -1,5 +1,6 @@
-//! What a canvas's item tabs keep for the session: which items have one,
-//! in what order, and for each its lens.
+//! What a canvas's item tabs keep: which items have one, in what order, and
+//! for each its lens. A save writes them beside the canvas's camera
+//! ([`SavedTab`]), so they are there at the next launch.
 
 use std::collections::HashMap;
 
@@ -21,6 +22,34 @@ pub enum Lens {
 impl Lens {
     /// Every lens, in the order the control lists them.
     pub const ALL: [Self; 2] = [Self::Fill, Self::Device];
+
+    /// The name a saved tab and the lens control know it by.
+    #[must_use]
+    pub const fn key(self) -> &'static str {
+        match self {
+            Self::Fill => "fill",
+            Self::Device => "device",
+        }
+    }
+
+    /// The lens a saved tab names. Anything else is `Fill`, as a tab with
+    /// no lens kept is.
+    #[must_use]
+    pub fn from_key(key: &str) -> Self {
+        match key {
+            "device" => Self::Device,
+            _ => Self::Fill,
+        }
+    }
+}
+
+/// One item tab as its canvas's file keeps it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SavedTab {
+    /// The page or Document the tab shows.
+    pub item: EntityId,
+    /// How the tab looks at it.
+    pub lens: Lens,
 }
 
 /// The item tabs of one canvas.
@@ -34,6 +63,31 @@ pub(crate) struct Tabs {
 }
 
 impl Tabs {
+    /// The tabs a file kept, less those whose item `document` no longer
+    /// has, or has as something that cannot be shown alone.
+    pub(crate) fn from_saved(saved: Vec<SavedTab>, document: &Document) -> Self {
+        let mut tabs = Self::default();
+        for tab in saved {
+            if tabs.open(&tab.item) {
+                tabs.lenses.insert(tab.item, tab.lens);
+            }
+        }
+        tabs.settle(document);
+        tabs
+    }
+
+    /// The tabs as a save of `document` writes them, in order. A tab whose
+    /// item is gone is left out.
+    pub(crate) fn saved(&self, document: &Document) -> Vec<SavedTab> {
+        (self.order.iter())
+            .filter(|id| document.entity(id).is_some_and(can_show))
+            .map(|id| SavedTab {
+                item: id.clone(),
+                lens: self.lens(id),
+            })
+            .collect()
+    }
+
     /// The lens of `item`'s tab.
     pub(crate) fn lens(&self, item: &EntityId) -> Lens {
         self.lenses.get(item).copied().unwrap_or_default()
@@ -43,11 +97,14 @@ impl Tabs {
         self.lenses.insert(item.clone(), lens);
     }
 
-    /// Gives `item` a tab after the last one, unless it has one.
-    pub(crate) fn open(&mut self, item: &EntityId) {
-        if !self.order.contains(item) {
+    /// Gives `item` a tab after the last one, unless it has one. Says
+    /// whether it got one.
+    pub(crate) fn open(&mut self, item: &EntityId) -> bool {
+        let new = !self.order.contains(item);
+        if new {
             self.order.push(item.clone());
         }
+        new
     }
 
     /// Takes the tab of `item` away with its lens, and says

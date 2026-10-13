@@ -189,14 +189,14 @@ pub use settings::{
     SettingsModel, ShortcutRow, SpaceRow, TOOLS_DOCK_WIDTH, ToolsPlace, settings,
 };
 pub use showing::turn::Turning;
-pub use showing::{Lens, Showing};
+pub use showing::{Lens, SavedTab, Showing};
 pub use sidebar::{
     CanvasRow, RowKind, RowTarget, SIDEBAR_WIDTH, SectionHead, SidebarAction, SidebarModel,
     SidebarRow, SidebarSection, SidebarView, sidebar,
 };
 pub use space::{
-    Canvas, CanvasId, DEFAULT_CANVAS_NAME, OpenedCanvas, OpenedSpace, Space, TabRefError,
-    canvas_file_name, legacy_canvas_file_name, resolve_tab_ref,
+    Canvas, CanvasId, DEFAULT_CANVAS_NAME, OpenedCanvas, OpenedSpace, SavedCanvas, Space,
+    TabRefError, canvas_file_name, legacy_canvas_file_name, resolve_tab_ref,
 };
 pub use specular_agent::{
     Artifact, ArtifactTarget, Image as ThreadImage, Index as ThreadIndex, MediaType,

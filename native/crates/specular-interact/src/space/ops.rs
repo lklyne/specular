@@ -12,11 +12,12 @@ use std::mem;
 use specular_doc::Document;
 
 use super::{
-    Canvas, CanvasId, CanvasState, CanvasView, DEFAULT_CANVAS_NAME, OpenedSpace, Parked, Space,
-    canvas_file_name, names,
+    Canvas, CanvasId, CanvasState, CanvasView, DEFAULT_CANVAS_NAME, OpenedSpace, Parked,
+    SavedCanvas, Space, canvas_file_name, names,
 };
 use crate::focus::set_focus;
 use crate::pages::{self, HostedPage};
+use crate::showing::{SavedTab, Tabs};
 use crate::update::{drop_dangling, open_document};
 use crate::{App, CanvasAction, Effect, Session, comment, edit, images, notes};
 
@@ -72,7 +73,7 @@ pub(crate) fn open(app: &mut App, opened: OpenedSpace, effects: &mut Vec<Effect>
     comment::forget(app);
     set_focus(app, None, effects);
     crate::showing::restore(app);
-    app.session.tabs = crate::showing::Tabs::default();
+    app.session.tabs = Tabs::default();
 
     let OpenedSpace {
         folder,
@@ -85,7 +86,7 @@ pub(crate) fn open(app: &mut App, opened: OpenedSpace, effects: &mut Vec<Effect>
             id: canvas.id,
             name: canvas.name,
             file: canvas.file,
-            state: parked(canvas.document, canvas.camera, false),
+            state: parked(canvas.document, canvas.camera, canvas.tabs),
         })
         .collect();
     let made = entries.is_empty().then(|| {
@@ -222,9 +223,11 @@ pub(crate) fn duplicate(
     effects: &mut Vec<Effect>,
 ) -> Option<CanvasId> {
     let index = app.space.index_of(id)?;
-    let (document, camera) = app.canvas_to_save(id)?;
+    let SavedCanvas {
+        document, camera, ..
+    } = app.canvas_to_save(id)?;
     let name = names::copy_of(&app.space.canvases, &app.space.canvases[index].name);
-    let CanvasState::Parked(copy) = parked(document, camera, false) else {
+    let CanvasState::Parked(copy) = parked(document, camera, Vec::new()) else {
         return None;
     };
     let canvas = new_canvas(&mut app.session, &app.space.canvases, name, *copy);
@@ -301,6 +304,7 @@ pub(crate) fn file_changed(
                 view: CanvasView {
                     camera: view.camera,
                     selection: view.selection,
+                    tabs: view.tabs,
                     ..CanvasView::default()
                 },
             };
@@ -308,14 +312,16 @@ pub(crate) fn file_changed(
     }
 }
 
-/// A parked canvas holding `document`.
-fn parked(document: Document, camera: specular_core::Camera, fitted: bool) -> CanvasState {
+/// A parked canvas holding `document` as it was read, with the item tabs
+/// it was saved with.
+fn parked(document: Document, camera: specular_core::Camera, tabs: Vec<SavedTab>) -> CanvasState {
+    let tabs = Tabs::from_saved(tabs, &document);
     CanvasState::Parked(Box::new(Parked {
         document,
         history: specular_doc::History::default(),
         view: CanvasView {
             camera,
-            fitted,
+            tabs,
             ..CanvasView::default()
         },
     }))

@@ -27,7 +27,9 @@
 //!   click shows it (`prepare`). Nothing above follows that.
 //!
 //! An item has a tab once it has been shown alone, and until that tab is
-//! closed. Closing a tab leaves the item on the canvas.
+//! closed. Closing a tab leaves the item on the canvas. The tabs and their
+//! lenses are saved with the canvas, so opening one, closing one and a
+//! change of lens each ask for a save. Which tab is showing is not saved.
 
 mod gates;
 pub(crate) mod motion;
@@ -43,8 +45,8 @@ pub(crate) use self::gates::{
     comment_out_of_reach, hides, hides_comment, hides_new, only_page, out_of_reach, refuses,
 };
 pub(crate) use self::prepare::{prepare, prepared};
-pub use self::tabs::Lens;
 pub(crate) use self::tabs::Tabs;
+pub use self::tabs::{Lens, SavedTab};
 use crate::app::page_of;
 use crate::focus::set_focus;
 use crate::notes::{is_note_file, note_file};
@@ -190,7 +192,9 @@ fn enter(app: &mut App, item: &EntityId, from: Option<motion::Seen>, effects: &m
     let canvas_camera = app.canvas_camera();
     app.session.prepared = None;
     app.session.motion.begin(from, false);
-    app.session.tabs.open(item);
+    if app.session.tabs.open(item) {
+        effects.push(Effect::Save);
+    }
     app.session.selection.set([ItemId::Entity(item.clone())]);
     app.session.item_view = Some(ItemView {
         item: item.clone(),
@@ -204,6 +208,9 @@ pub(crate) fn set_lens(app: &mut App, lens: Lens, effects: &mut Vec<Effect>) {
     update::verb(app, effects, |app, effects| {
         if let Some(item) = app.shown_item().cloned() {
             let from = (app.document.entity(&item)).and_then(|entity| motion::seen(app, entity));
+            if app.session.tabs.lens(&item) != lens {
+                effects.push(Effect::Save);
+            }
             app.session.tabs.set_lens(&item, lens);
             enter(app, &item, from, effects);
         }
@@ -244,7 +251,9 @@ pub(crate) fn close_tab(app: &mut App, item: Option<EntityId>, effects: &mut Vec
         let Some(item) = item.or_else(|| app.shown_item().cloned()) else {
             return;
         };
-        app.session.tabs.close(&item);
+        if app.session.tabs.close(&item).is_some() {
+            effects.push(Effect::Save);
+        }
         if app.shown_item() == Some(&item) {
             leave(app);
             set_focus(app, None, effects);

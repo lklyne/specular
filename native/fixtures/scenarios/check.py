@@ -271,8 +271,10 @@ if n in RAN:
         "the new canvas holds only its own sticky": len(fresh["nodes"]) == 1,
         # Switching back shows the first canvas as it was left.
         "the first canvas is as it was left": back == duplicated,
-        # A page's tab is a way of looking: the file keeps the canvas's own camera.
-        "a page shown alone from its tab writes nothing": tabbed == back,
+        # A page's tab is a way of looking: the file keeps the canvas's own
+        # camera, and gains only the tab that is now open.
+        "a page shown alone from its tab writes only its tab": differences(back, tabbed)
+        == [("/appState/itemTabs", "<absent>", [{"id": "page-desktop", "lens": "device"}])],
         # In the tab the sticky lands on the page; the press beside the page made nothing.
         "a sticky placed in a page's tab is hooked to the page": len(stuck) == 1
         and hook(stuck[0]).get("pageId") == "page-desktop"

@@ -364,11 +364,10 @@ impl Headless {
 
     /// Writes the `.canvas` text an autosave would write now to `path`.
     fn save(&self, path: &Path) -> anyhow::Result<()> {
-        let text = canvas_text(
-            &self.app.app().document_to_save(),
-            self.app.app().canvas_camera(),
-        )
-        .with_context(|| format!("writing {}", path.display()))?;
+        let app = self.app.app();
+        let canvas = (app.canvas_to_save(&app.space().active().id))
+            .context("the canvas showing is not in the space")?;
+        let text = canvas_text(&canvas).with_context(|| format!("writing {}", path.display()))?;
         std::fs::write(path, text).with_context(|| format!("writing {}", path.display()))
     }
 }

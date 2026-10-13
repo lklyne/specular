@@ -53,6 +53,7 @@ pub(crate) fn open(
                 id: listed.id,
                 name: listed.name,
                 camera: persist::camera_of(&document).unwrap_or(start_camera),
+                tabs: persist::tabs_of(&document),
                 file: listed.file,
                 document,
             }),

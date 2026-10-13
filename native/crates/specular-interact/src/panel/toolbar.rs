@@ -154,12 +154,11 @@ fn theme_button(app: &App) -> ThemeButton {
     }
 }
 
-/// A lens as the control names it: its id, the word on its segment and
-/// its tooltip.
-const fn lens_words(lens: Lens) -> (&'static str, &'static str, &'static str) {
+/// A lens as the control shows it: the word on its segment and its tooltip.
+const fn lens_words(lens: Lens) -> (&'static str, &'static str) {
     match lens {
-        Lens::Fill => ("fill", "Fill", "Fill the window"),
-        Lens::Device => ("device", "Device", "Device size, fitted to the window"),
+        Lens::Fill => ("Fill", "Fill the window"),
+        Lens::Device => ("Device", "Device size, fitted to the window"),
     }
 }
 
@@ -193,9 +192,9 @@ fn view_controls(app: &App) -> Vec<Control> {
     });
     let id = ControlId::new("view.lens");
     let lenses = Lens::ALL.into_iter().map(|lens| {
-        let (name, word, hint) = lens_words(lens);
+        let (word, hint) = lens_words(lens);
         Control::Toggle(Toggle {
-            id: id.child(name),
+            id: id.child(lens.key()),
             label: hint.into(),
             face: Face::text(word),
             on: lens == now,

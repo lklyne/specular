@@ -174,7 +174,11 @@ Specular stores viewport and UI state in an `appState` field:
     "zoom": 0.5,
     "pan": { "x": -200, "y": -100 },
     "selectedEntityIds": ["abc123"],
-    "leftSidebarOpen": true
+    "leftSidebarOpen": true,
+    "itemTabs": [
+      { "id": "abc123", "lens": "device" },
+      { "id": "def456", "lens": "fill" }
+    ]
   }
 }
 ```
@@ -182,6 +186,15 @@ Specular stores viewport and UI state in an `appState` field:
 Other tools ignore this field per the spec's extensibility model. Older files
 may contain `browserTabMode`; Specular reads it only as a legacy restore hint
 and no longer writes it.
+
+`itemTabs` is written and read by the Rust app only. It lists the pages and
+Documents of this canvas that are open in a tab of their own, in tab order,
+each with its lens (`fill` or `device`, see ADR 0045). A canvas with no tab
+open has no `itemTabs`. On load an entry with no `id` is skipped, an entry
+whose node is gone or is not a page or a Document is dropped, and a missing or
+unknown `lens` is `fill`. Which tab was showing is not stored, so a space opens
+on its Canvas tab. The Electron app has no item tabs. It ignores the key and
+drops it when it saves the file.
 
 ### Annotations (extension)
 
