@@ -4,7 +4,7 @@
 use std::collections::HashMap;
 
 use glam::DVec2;
-use specular_doc::{Command, Document, Edge, EdgeId, Entity, EntityId, ItemId};
+use specular_doc::{Command, Document, Edge, EdgeId, Entity, EntityId, ItemId, Kind, Page};
 
 use crate::live::Start;
 use crate::scroll_follow::{self, Scrolls};
@@ -33,7 +33,9 @@ pub(crate) enum Orphan {
 ///
 /// The copies keep their order in the stack and go in front. A copy stays in
 /// its group unless the group is copied too, in which case it joins the
-/// group's copy. An edge is copied when both its ends are. A copy is made of
+/// group's copy. An edge is copied when both its ends are. Pages of one sync
+/// set copied together are a set of their own, and a page copied without
+/// its peers joins the set it came from. A copy is made of
 /// what is seen: one whose original has moved with its page lands `delta`
 /// from where the original is drawn. A copy hooked to a page is hooked to
 /// that page's copy when the page is copied with it, and is otherwise left
@@ -84,6 +86,27 @@ pub(crate) struct Source<'a> {
     pub(crate) scrolls: &'a Scrolls,
 }
 
+/// The sync set each copied page's copy is in, for the sets with two or
+/// more pages among the copies: a new one, named after the first copy.
+fn sync_sets(
+    source: &Document,
+    entity_ids: &HashMap<EntityId, EntityId>,
+) -> HashMap<String, String> {
+    let mut copied: HashMap<&str, (usize, &EntityId)> = HashMap::new();
+    for entity in source.entities() {
+        let (Some(copy), Kind::Page(page)) = (entity_ids.get(&entity.id), &entity.kind) else {
+            continue;
+        };
+        if let Some(set) = page.sync_id.as_deref() {
+            copied.entry(set).or_insert((0, copy)).0 += 1;
+        }
+    }
+    (copied.into_iter())
+        .filter(|(_, (count, _))| *count > 1)
+        .map(|(set, (_, first))| (set.to_owned(), format!("sync_{}", first.as_str())))
+        .collect()
+}
+
 /// The commands that insert copies of the entities of `source` that `copied`
 /// accepts, `delta` away, from stack position `at` up, and the id each
 /// original's copy got. `ids` are the copies' ids: the entities' first, in
@@ -113,6 +136,7 @@ pub(crate) fn insertions(
         .collect();
 
     let renamed = |id: &EntityId| entity_ids.get(id).cloned();
+    let sync_sets = sync_sets(source, &entity_ids);
     let mut commands = Vec::new();
     // Entities and edges share the stack, so the copies are walked in its
     // order and each goes in front of the one before.
@@ -142,10 +166,20 @@ pub(crate) fn insertions(
                         Orphan::Leaves => None,
                     })
                 });
+                let kind = match kind.unwrap_or_else(|| entity.kind.clone()) {
+                    Kind::Page(page) => {
+                        let together = page.sync_id.as_ref().and_then(|set| sync_sets.get(set));
+                        Kind::Page(Page {
+                            sync_id: together.cloned().or_else(|| page.sync_id.clone()),
+                            ..page
+                        })
+                    }
+                    kind => kind,
+                };
                 let copy = Entity {
                     id: new_id,
                     rect,
-                    kind: kind.unwrap_or_else(|| entity.kind.clone()),
+                    kind,
                     parent,
                     anchor,
                     ..entity.clone()

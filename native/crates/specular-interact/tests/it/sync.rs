@@ -149,6 +149,28 @@ fn a_page_that_navigates_takes_its_sync_set_there_and_no_arrival_echoes_back() {
 }
 
 #[test]
+fn pages_copied_together_are_a_set_of_their_own_and_one_copied_alone_joins_its_set() {
+    let mut app = synced_pair();
+    let set = set_of(&app, "p1").expect("p1 is in a set");
+    let copies = |app: &mut TestApp, pages: &[&str]| -> Vec<Option<String>> {
+        app.select(pages).act(Action::Duplicate);
+        let ids: Vec<String> = app.selected_ids().iter().map(ToString::to_string).collect();
+        ids.iter().map(|id| set_of(app, id)).collect()
+    };
+
+    let alone = copies(&mut app, &["p1"]);
+    assert_eq!(alone, [Some(set.clone())]);
+
+    let together = copies(&mut app, &["p1", "p2"]);
+    let [Some(first), Some(second)] = together.as_slice() else {
+        panic!("both copies are in a set: {together:?}");
+    };
+    assert_eq!(first, second);
+    assert_ne!(*first, set);
+    assert_eq!(set_of(&app, "p1"), Some(set));
+}
+
+#[test]
 fn the_history_buttons_and_the_address_field_drive_the_whole_sync_set() {
     let mut app = synced_pair();
     let history = |back| PageNotice::Loading {
