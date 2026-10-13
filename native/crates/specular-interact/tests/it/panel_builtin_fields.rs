@@ -40,6 +40,30 @@ fn size_of(app: &TestApp, id: &str) -> (f64, f64) {
 }
 
 #[test]
+fn an_address_typed_for_several_pages_takes_each_of_them_there() {
+    let mut app = TestApp::with_pages(2);
+    app.with_panels().select(&["p1", "p2"]);
+    app.take_effects();
+    app.enter_in_field("page.url", "example.org/docs");
+    let to = PageNav::To("https://example.org/docs".to_owned());
+    let sent: Vec<(String, PageNav)> = (app.take_effects().into_iter())
+        .filter_map(|effect| match effect {
+            Effect::Navigate { page, nav } => Some((page.as_str().to_owned(), nav)),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        sent,
+        [("p1".to_owned(), to.clone()), ("p2".to_owned(), to.clone())]
+    );
+    // A sync set of the same pages sends each one once.
+    app.act(specular_interact::Action::ToggleSync);
+    app.take_effects();
+    app.enter_in_field("page.url", "example.org/next");
+    assert_eq!(navigations(&mut app).len(), 2);
+}
+
+#[test]
 fn enter_sends_the_page_to_the_completed_address() {
     let mut app = app();
     app.take_effects();

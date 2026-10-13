@@ -76,6 +76,8 @@ fn several_pages_share_a_size_list_without_custom() {
     let mut app = TestApp::with_pages(2);
     app.select(&["p1", "p2"]);
     assert_dock_snapshot!(app, @r#"
+    field page.url "Page address" value="" placeholder="Type a URL for every page" Wide submit=PageUrl
+    ---
     dropdown page.size "Page size" shows icon=Proportions text="Multiple"
       options list
         option [ ] page.size.11 "iPhone 17 Pro Max" trailing="440×956" -> SetProperty(ViewportPreset(11))

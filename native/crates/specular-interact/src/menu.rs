@@ -293,9 +293,8 @@ pub(crate) fn has_target(app: &App, action: &Action) -> bool {
         Action::PageForward => page_can(app, |state| state.can_go_forward),
         Action::PageStop => page_can(app, |state| state.loading),
         Action::PageEdit(_) => Context::EnteredPage.holds(app),
-        Action::PageReload | Action::PageNavigate(_) | Action::EditPageUrl => {
-            page_state::target(app).is_some()
-        }
+        Action::PageReload => page_state::target(app).is_some(),
+        Action::PageNavigate(_) | Action::EditPageUrl => !page_state::addressed(app).is_empty(),
         Action::ToggleSync => app.selection_synced().is_some(),
     }
 }

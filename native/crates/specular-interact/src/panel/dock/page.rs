@@ -1,5 +1,5 @@
-//! The dock's controls for pages (`PagePopup.tsx`): history, reload and the address,
-//! then the size list, which also holds the device frame, orientation and
+//! The dock's controls for pages (`PagePopup.tsx`): history, reload and the address
+//! (several pages keep the address alone), then the size list, which also holds the device frame, orientation and
 //! color scheme, and the chain button that syncs the selected pages, and the
 //! repo control of a single page. Electron also infers a repo from a running dev server's base URL;
 //! this app runs no dev servers, so the origin's binding is the only source.
@@ -178,8 +178,8 @@ fn history(app: &App, page: &Entity) -> Vec<Control> {
     ]
 }
 
-/// The address the page shows, or nothing for a page that has none yet.
-fn address(app: &App, page: &Entity) -> Control {
+/// The address `page` shows, or nothing for a page that has none yet.
+fn shown(app: &App, page: &Entity) -> String {
     let live = app.page_state(&page.id).and_then(|state| state.url.clone());
     let stored = match &page.kind {
         Kind::Page(page) => page.url.clone(),
@@ -188,16 +188,32 @@ fn address(app: &App, page: &Entity) -> Control {
         }
     };
     let url = live.unwrap_or(stored);
+    if url == "about:blank" {
+        String::new()
+    } else {
+        url
+    }
+}
+
+/// The address field of `pages`. It holds the address they all show, and is
+/// empty where they differ. What is typed takes every one of them there.
+fn address(app: &App, pages: &[&Entity]) -> Control {
+    let mut shown = pages.iter().map(|page| shown(app, page));
+    let first = shown.next().unwrap_or_default();
+    let shared = shown.all(|url| url == first);
     Control::Field(Field {
         id: ControlId::new(PAGE_URL),
         label: "Page address".into(),
         caption: None,
-        value: if url == "about:blank" {
-            String::new()
-        } else {
-            url
-        },
-        placeholder: Some("Search or type a URL".into()),
+        value: if shared { first } else { String::new() },
+        placeholder: Some(
+            if shared {
+                "Search or type a URL"
+            } else {
+                "Type a URL for every page"
+            }
+            .into(),
+        ),
         width: FieldWidth::Wide,
         submit: FieldSubmit::PageUrl,
     })
@@ -456,7 +472,7 @@ pub(super) fn controls(app: &App, entities: &[&Entity]) -> ControlsModel {
     let controls = if let Some(page) = single {
         groups(vec![
             history(app, page),
-            vec![address(app, page)],
+            vec![address(app, entities)],
             vec![size_dropdown(app, single)],
             repo_control(app, page).into_iter().collect(),
             Actions {
@@ -468,6 +484,7 @@ pub(super) fn controls(app: &App, entities: &[&Entity]) -> ControlsModel {
         ])
     } else {
         groups(vec![
+            vec![address(app, entities)],
             vec![size_dropdown(app, None)],
             Actions {
                 sync: app.selection_synced(),

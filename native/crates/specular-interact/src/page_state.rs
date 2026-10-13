@@ -164,10 +164,10 @@ fn write_url(app: &mut App, page: &EntityId, url: &str) -> bool {
     }
 }
 
-/// Puts the caret in the address of the page the dock holds the controls
+/// Puts the caret in the address of the pages the dock holds the controls
 /// of, unless a drag is in flight. With no such page there is no address.
 pub(crate) fn edit_url(app: &mut App, effects: &mut Vec<Effect>) {
-    if app.session.gesture.is_none() && target(app).is_some() {
+    if app.session.gesture.is_none() && !addressed(app).is_empty() {
         let field = crate::ControlId::new(crate::panel::PAGE_URL);
         crate::edit::focus_field(app, &field, effects);
     }
@@ -181,9 +181,50 @@ pub(crate) fn target(app: &App) -> Option<&EntityId> {
     app.document.entity(page).and_then(page_of).map(|_| page)
 }
 
+/// The pages a typed address is for: the target page, or every page of a
+/// selection that is pages and nothing else.
+pub(crate) fn addressed(app: &App) -> Vec<EntityId> {
+    if let Some(page) = target(app) {
+        return vec![page.clone()];
+    }
+    let selection = &app.session.selection;
+    let is_page = |id: &EntityId| app.document.entity(id).and_then(page_of).is_some();
+    let pages: Vec<EntityId> = selection.entities().cloned().collect();
+    if pages.len() == selection.items().len() && pages.iter().all(is_page) {
+        pages
+    } else {
+        Vec::new()
+    }
+}
+
 /// Navigates the target page. Going back or forward does nothing where
-/// the page has said there is nowhere to go.
+/// the page has said there is nowhere to go. An address goes to every page
+/// it is for.
 pub(crate) fn navigate(app: &mut App, nav: PageNav, effects: &mut Vec<Effect>) {
+    if matches!(nav, PageNav::To(_)) {
+        let pages = addressed(app);
+        // A page of the selection is sent there itself, so a sync set does
+        // not send it again.
+        let mut followers = Vec::new();
+        for page in &pages {
+            sync::on_driven(app, page, &nav, &mut followers);
+            effects.push(Effect::Navigate {
+                page: page.clone(),
+                nav: nav.clone(),
+            });
+        }
+        let mut sent = pages;
+        for follower in followers {
+            if let Effect::Navigate { page, .. } = &follower {
+                if sent.contains(page) {
+                    continue;
+                }
+                sent.push(page.clone());
+            }
+            effects.push(follower);
+        }
+        return;
+    }
     let Some(page) = target(app) else {
         return;
     };
