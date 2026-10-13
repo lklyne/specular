@@ -51,6 +51,8 @@ actions!(
         About,
         /// Specular > Check for updates…
         CheckForUpdates,
+        /// Specular > Set up Specular…
+        SetUp,
         /// Hides the app.
         Hide,
         /// Hides every other app.
@@ -143,6 +145,7 @@ fn shell_menus() -> (Menu, Menu, Menu) {
     let app = Menu::new("Specular").items([
         MenuItem::action("About Specular", About),
         MenuItem::action("Check for updates…", CheckForUpdates),
+        MenuItem::action("Set up Specular…", SetUp),
         MenuItem::separator(),
         MenuItem::action("Settings…", Preferences),
         MenuItem::separator(),
@@ -353,6 +356,9 @@ pub(crate) fn install(cx: &mut App) {
     });
     cx.on_action(|_: &About, _| crate::native::show_about());
     cx.on_action(|_: &CheckForUpdates, _| crate::updates::check());
+    cx.on_action(|_: &SetUp, cx| {
+        shell::with_view(cx, |_, window, cx| crate::setup::open(window, cx));
+    });
     cx.on_action(|_: &Hide, cx| cx.hide());
     cx.on_action(|_: &HideOthers, cx| cx.hide_other_apps());
     cx.on_action(|_: &ShowAll, cx| cx.unhide_other_apps());

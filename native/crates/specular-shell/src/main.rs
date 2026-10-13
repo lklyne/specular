@@ -38,6 +38,8 @@ mod settings;
 #[cfg(target_os = "macos")]
 mod settings_repos;
 #[cfg(target_os = "macos")]
+mod setup;
+#[cfg(target_os = "macos")]
 mod shell;
 #[cfg(target_os = "macos")]
 mod spaces;
@@ -78,11 +80,13 @@ fn main() {
             eprintln!("specular could not start: {error:#}");
             std::process::exit(1);
         }
-        // A scripted run must not have an update sheet opened over it, and
-        // must not write outside the folders it was given.
+        // A scripted run must not have an update sheet or the setup dialog
+        // opened over it, and must not write outside the folders it was
+        // given.
         if !debug_input::scripted() {
             updates::start();
-            std::thread::spawn(specular_app::agent_tools::install);
+            std::thread::spawn(specular_app::agent_tools::update_skill);
+            setup::open_when_wanted(cx);
         }
     });
 }

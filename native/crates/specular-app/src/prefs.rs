@@ -30,6 +30,8 @@ const ONBOARDING_KEY: &str = "onboarding";
 /// Under `onboarding`: per skill, the hash of the skill file the app last
 /// installed.
 const SKILL_HASHES_KEY: &str = "skillHashes";
+/// Under `onboarding`: whether setup was finished or skipped.
+const SETUP_DONE_KEY: &str = "completed";
 /// Overrides the config folder, for a run that must not touch the real one.
 pub(crate) const CONFIG_DIR_VARIABLE: &str = "SPECULAR_NATIVE_CONFIG_DIR";
 
@@ -173,10 +175,7 @@ pub(crate) fn load_skill_hash(path: &Path, skill: &str) -> Option<String> {
 /// Records `hash` as the `skill` file last installed, keeping the rest of
 /// the setup record and the file's other keys.
 pub(crate) fn save_skill_hash(path: &Path, skill: &str, hash: &str) -> io::Result<()> {
-    let mut onboarding = match read(path)?.remove(ONBOARDING_KEY) {
-        Some(Value::Object(onboarding)) => onboarding,
-        _ => Map::new(),
-    };
+    let mut onboarding = onboarding(path)?;
     let mut hashes = match onboarding.remove(SKILL_HASHES_KEY) {
         Some(Value::Object(hashes)) => hashes,
         _ => Map::new(),
@@ -184,6 +183,28 @@ pub(crate) fn save_skill_hash(path: &Path, skill: &str, hash: &str) -> io::Resul
     hashes.insert(skill.to_owned(), Value::from(hash));
     onboarding.insert(SKILL_HASHES_KEY.to_owned(), Value::Object(hashes));
     save_key(path, ONBOARDING_KEY, Value::Object(onboarding))
+}
+
+/// Whether the user has been through setup, in this app or the Electron
+/// one.
+pub(crate) fn load_setup_done(path: &Path) -> bool {
+    onboarding(path)
+        .is_ok_and(|onboarding| onboarding.get(SETUP_DONE_KEY) == Some(&Value::Bool(true)))
+}
+
+/// Records that the user has been through setup.
+pub(crate) fn save_setup_done(path: &Path) -> io::Result<()> {
+    let mut onboarding = onboarding(path)?;
+    onboarding.insert(SETUP_DONE_KEY.to_owned(), Value::Bool(true));
+    save_key(path, ONBOARDING_KEY, Value::Object(onboarding))
+}
+
+/// The setup record, empty when the file has none.
+fn onboarding(path: &Path) -> io::Result<Map<String, Value>> {
+    Ok(match read(path)?.remove(ONBOARDING_KEY) {
+        Some(Value::Object(onboarding)) => onboarding,
+        _ => Map::new(),
+    })
 }
 
 fn save_key(path: &Path, key: &str, value: Value) -> io::Result<()> {
@@ -334,6 +355,19 @@ mod tests {
         assert_eq!(load_skill_hash(&path, "other").as_deref(), Some("aa"));
         let kept = read(&path).unwrap();
         assert_eq!(kept[ONBOARDING_KEY]["completed"], Value::from(true));
+        assert!(load_setup_done(&path));
+    }
+
+    #[test]
+    fn setup_is_not_done_until_it_is_recorded() {
+        let dir = TempDir::new("setup-done");
+        let path = dir.0.join(FILE_NAME);
+        assert!(!load_setup_done(&path));
+        save_skill_hash(&path, "specular", "aa").unwrap();
+        assert!(!load_setup_done(&path));
+        save_setup_done(&path).unwrap();
+        assert!(load_setup_done(&path));
+        assert_eq!(load_skill_hash(&path, "specular").as_deref(), Some("aa"));
     }
 
     #[test]

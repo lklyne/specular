@@ -30,7 +30,7 @@ Specular 0.10.0 is a new app written in Rust. It opens the same space folder and
 
 ### Agents
 
-- The `specular` command and the Claude Code skill are installed when the app starts, with nothing to click. A command 0.9.0 installed keeps working.
+- A setup dialog on first launch installs the `specular` command and the Claude Code skill. It is also under Specular > Set up Specular…. A command 0.9.0 installed keeps working, and anyone who went through setup in 0.9.0 is not asked again.
 - `specular record`, `print-pdf`, `design-system` and `component-states` are not in this version yet. Each says so when run.
 
 ## [0.9.0] - 2026-09-19 — Faster pages, auto-fix comments, no telemetry

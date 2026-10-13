@@ -46,18 +46,26 @@ into `specular-helper` as its `cli` service. `specular-cli.sh` runs it, and
 sits where the Electron app kept its own wrapper, so a link that app made
 on the `PATH` runs this one.
 
-A bundle installs both when it starts (`specular-app/src/agent_tools.rs`):
+Neither is installed until the user says so, in the setup dialog
+(`specular-shell/src/setup.rs` over `specular-app/src/agent_tools.rs`). The
+dialog opens by itself once a space is open, on every launch until the user
+presses Done, and from Specular > Set up Specular… at any time. "Skip for
+now" closes it and leaves it to open again. Done is recorded as
+`onboarding.completed` in `preferences.json`, the key the Electron app used,
+so someone who went through setup there is not asked again.
 
-- It links `specular` into `/usr/local/bin`, or `~/.local/bin` when that
-  cannot be written. A link or file already there that still works is left
-  alone. A link to a file that is gone is replaced.
-- It copies `skills/specular` to `~/.claude/skills/specular` when there is a
-  `~/.claude` and no skill in it, or when the skill there is the one the app
-  last wrote. The hash of what it wrote is in `preferences.json` under
-  `onboarding.skillHashes`, where the Electron app kept it. A skill edited
-  by hand is left alone.
+- The command is linked into `/usr/local/bin`, or `~/.local/bin` when that
+  cannot be written. A link already there that runs something else is named
+  in the dialog and its row starts unticked. A file that is not a link is
+  never replaced.
+- The skill is copied to `~/.claude/skills/specular`. The hash of what was
+  written goes in `preferences.json` under `onboarding.skillHashes`.
 
-Nothing is installed by a scripted run, a run with
+At each launch an installed skill is brought up to the bundled one when the
+installed copy is still the one the app wrote. A skill that was never
+installed, or was edited by hand, is left alone.
+
+Nothing is offered or written by a scripted run, a run with
 `SPECULAR_NATIVE_CONFIG_DIR` set, or an app opened from its disk image.
 
 ## Side by side with the Electron app

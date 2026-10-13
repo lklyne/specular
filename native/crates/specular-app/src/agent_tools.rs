@@ -2,9 +2,9 @@
 //! `specular` command on the `PATH` and the `specular` skill in Claude
 //! Code's skills folder.
 //!
-//! Both come from the app bundle. The canvas agent's prompt names the
-//! command and the skill, so a bundle installs them when it starts and
-//! nobody has to ask.
+//! Both come from the app bundle and are installed when the user says so,
+//! in the setup dialog. After that the skill follows the bundle on its own
+//! for as long as nobody edits the installed copy.
 
 use std::fmt::Write as _;
 use std::io;
@@ -23,71 +23,216 @@ const SKILL: &str = "../Resources/skills/specular";
 const SKILL_FILE: &str = "SKILL.md";
 const COMMAND: &str = "specular";
 
-/// Installs the command and the skill from the bundle this executable is
-/// in. Does nothing in a build that is not a bundle, in a run given a
-/// config folder of its own, and in an app opened from its disk image or
-/// from the folder macOS runs a quarantined app in: a link to either would
-/// stop working when it goes.
-pub fn install() {
-    if std::env::var_os(prefs::CONFIG_DIR_VARIABLE).is_some_and(|folder| !folder.is_empty()) {
-        return;
+/// Where one of the two is.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Status {
+    /// This app's, in place. For the command, the link's path.
+    Installed(Option<String>),
+    /// Not there.
+    Missing,
+    /// There, and not this app's: a command that runs something else, or a
+    /// skill that differs from the bundled one. Installing replaces it.
+    Differs(String),
+}
+
+impl Status {
+    /// Whether there is nothing to install.
+    pub fn installed(&self) -> bool {
+        matches!(self, Self::Installed(_))
     }
-    let Some(macos) = std::env::current_exe()
-        .ok()
-        .and_then(|exe| Some(exe.parent()?.to_owned()))
-    else {
-        return;
-    };
-    if macos.starts_with("/Volumes") || macos.iter().any(|part| part == "AppTranslocation") {
-        return;
-    }
-    let Some(home) = std::env::var_os("HOME").map(PathBuf::from) else {
-        return;
-    };
-    let wrapper = macos.join(WRAPPER);
-    if let Ok(wrapper) = wrapper.canonicalize() {
-        let links = [
-            PathBuf::from("/usr/local/bin").join(COMMAND),
-            home.join(".local/bin").join(COMMAND),
-        ];
-        if let Some(link) = link_command(&wrapper, &links) {
-            tracing::info!(link = %link.display(), "the specular command is linked");
-        } else {
-            tracing::info!(
-                "the specular command was not linked: another one is on the PATH, or no folder took the link"
-            );
+}
+
+/// What the setup dialog shows.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Setup {
+    /// The `specular` command.
+    pub command: Status,
+    /// The `specular` skill.
+    pub skill: Status,
+    /// Whether there is a `~/.claude` for the skill to be read from.
+    pub claude: bool,
+}
+
+/// The folders an install reads and writes.
+struct Places {
+    wrapper: PathBuf,
+    skill: PathBuf,
+    /// Where the command is linked, in the order tried.
+    links: [PathBuf; 2],
+    claude: PathBuf,
+    preferences: PathBuf,
+}
+
+impl Places {
+    /// The places for the bundle this executable is in. `Err` says why
+    /// nothing can be installed from here.
+    fn find() -> Result<Self, &'static str> {
+        const NO_BUNDLE: &str = "This build has no command or skill to install.";
+        if std::env::var_os(prefs::CONFIG_DIR_VARIABLE).is_some_and(|folder| !folder.is_empty()) {
+            return Err("This run has a data folder of its own and installs nothing.");
         }
+        let exe = std::env::current_exe().map_err(|_| NO_BUNDLE)?;
+        let macos = exe.parent().ok_or(NO_BUNDLE)?;
+        // A link to either would stop working when it goes.
+        if macos.starts_with("/Volumes") || macos.iter().any(|part| part == "AppTranslocation") {
+            return Err("Move Specular to the Applications folder first, then open it from there.");
+        }
+        let wrapper = macos.join(WRAPPER).canonicalize().map_err(|_| NO_BUNDLE)?;
+        let skill = macos.join(SKILL);
+        if !skill.join(SKILL_FILE).is_file() {
+            return Err(NO_BUNDLE);
+        }
+        let home = std::env::var_os("HOME")
+            .map(PathBuf::from)
+            .ok_or(NO_BUNDLE)?;
+        Ok(Self {
+            wrapper,
+            skill,
+            links: [
+                PathBuf::from("/usr/local/bin").join(COMMAND),
+                home.join(".local/bin").join(COMMAND),
+            ],
+            claude: home.join(".claude"),
+            preferences: prefs::file().ok_or(NO_BUNDLE)?,
+        })
     }
-    let skill = macos.join(SKILL);
-    if let (true, Some(preferences)) = (skill.join(SKILL_FILE).is_file(), prefs::file()) {
-        let recorded = prefs::load_skill_hash(&preferences, COMMAND);
-        match sync_skill(&skill, &home.join(".claude"), recorded.as_deref()) {
-            Ok(Some(hash)) if recorded.as_deref() != Some(&hash) => {
-                if let Err(error) = prefs::save_skill_hash(&preferences, COMMAND, &hash) {
-                    tracing::warn!("the skill's hash was not recorded: {error}");
-                }
-            }
-            Ok(_) => {}
-            Err(error) => tracing::warn!("the specular skill was not installed: {error}"),
+
+    fn installed_skill(&self) -> PathBuf {
+        self.claude.join("skills").join(COMMAND)
+    }
+
+    fn setup(&self) -> Setup {
+        Setup {
+            command: command_status(&self.wrapper, &self.links),
+            skill: skill_status(&self.skill, &self.installed_skill()),
+            claude: self.claude.is_dir(),
         }
     }
 }
 
-/// Makes the first of `links` that can be made point at `wrapper`, and
-/// returns the link that does. A link or file that someone else put there
-/// and that still works is theirs and stays; a link to a file that is gone
-/// is replaced.
-fn link_command(wrapper: &Path, links: &[PathBuf]) -> Option<PathBuf> {
+/// Where the command and the skill are now, or why this build installs
+/// neither.
+pub fn setup() -> Result<Setup, &'static str> {
+    Ok(Places::find()?.setup())
+}
+
+/// Whether to show the setup dialog without being asked: a bundle that can
+/// install, something to install, and a user who has not been through it.
+pub fn wants_setup() -> bool {
+    let Ok(places) = Places::find() else {
+        return false;
+    };
+    if prefs::load_setup_done(&places.preferences) {
+        return false;
+    }
+    let setup = places.setup();
+    !(setup.command.installed() && setup.skill.installed())
+}
+
+/// Records that the user has been through setup, installing or not.
+pub fn finish_setup() {
+    let Ok(places) = Places::find() else {
+        return;
+    };
+    if let Err(error) = prefs::save_setup_done(&places.preferences) {
+        tracing::warn!("setup was not recorded as done: {error}");
+    }
+}
+
+/// Installs what is asked for, replacing a command or a skill that is not
+/// this app's. Returns what went wrong, in words for the dialog.
+pub fn install(command: bool, skill: bool) -> Result<(), String> {
+    let places = Places::find().map_err(str::to_owned)?;
+    if command {
+        link_command(&places.wrapper, &places.links)
+            .map_err(|error| format!("The command was not installed: {error}"))?;
+    }
+    if skill {
+        copy_folder(&places.skill, &places.installed_skill())
+            .and_then(|()| record_skill(&places))
+            .map_err(|error| format!("The skill was not installed: {error}"))?;
+    }
+    Ok(())
+}
+
+/// Brings an installed skill up to the bundled one when the installed copy
+/// is the one this app wrote last. A skill that was never installed, or
+/// was edited since, is left as it is.
+pub fn update_skill() {
+    let Ok(places) = Places::find() else {
+        return;
+    };
+    let recorded = prefs::load_skill_hash(&places.preferences, COMMAND);
+    let installed = hash(&places.installed_skill().join(SKILL_FILE)).ok();
+    let bundled = hash(&places.skill.join(SKILL_FILE)).ok();
+    if installed.is_none() || installed != recorded || installed == bundled {
+        return;
+    }
+    match copy_folder(&places.skill, &places.installed_skill()).and_then(|()| record_skill(&places))
+    {
+        Ok(()) => tracing::info!("the specular skill was brought up to date"),
+        Err(error) => tracing::warn!("the specular skill was not updated: {error}"),
+    }
+}
+
+fn record_skill(places: &Places) -> io::Result<()> {
+    let bundled = hash(&places.skill.join(SKILL_FILE))?;
+    prefs::save_skill_hash(&places.preferences, COMMAND, &bundled)
+}
+
+fn command_status(wrapper: &Path, links: &[PathBuf]) -> Status {
+    let mut other = None;
     for link in links {
         match std::fs::read_link(link) {
-            Ok(target) if target == wrapper => return Some(link.clone()),
-            Ok(_) if link.exists() => return None,
+            Ok(target) if target == wrapper => {
+                return Status::Installed(Some(link.display().to_string()));
+            }
+            Ok(target) if link.exists() => {
+                other.get_or_insert(format!("{} runs {}", link.display(), target.display()));
+            }
+            Err(_) if link.symlink_metadata().is_ok() => {
+                other.get_or_insert(format!("{} is another program", link.display()));
+            }
+            // Nothing there, or a link to a file that is gone, which runs
+            // nothing.
+            Ok(_) | Err(_) => {}
+        }
+    }
+    other.map_or(Status::Missing, Status::Differs)
+}
+
+fn skill_status(bundled: &Path, installed: &Path) -> Status {
+    match (
+        hash(&installed.join(SKILL_FILE)),
+        hash(&bundled.join(SKILL_FILE)),
+    ) {
+        (Err(_), _) => Status::Missing,
+        (Ok(installed), Ok(bundled)) if installed == bundled => Status::Installed(None),
+        _ => Status::Differs("The installed skill differs from this version's".to_owned()),
+    }
+}
+
+/// Makes the first of `links` that can be made point at `wrapper`. A link
+/// already there is replaced, wherever it points. A file that is not a
+/// link is someone's program and is not touched.
+fn link_command(wrapper: &Path, links: &[PathBuf]) -> io::Result<PathBuf> {
+    let mut last = io::Error::new(io::ErrorKind::NotFound, "nowhere to link it");
+    for link in links {
+        match std::fs::read_link(link) {
+            Ok(target) if target == wrapper => return Ok(link.clone()),
             Ok(_) => {
-                if std::fs::remove_file(link).is_err() {
+                if let Err(error) = std::fs::remove_file(link) {
+                    last = error;
                     continue;
                 }
             }
-            Err(_) if link.symlink_metadata().is_ok() => return None,
+            Err(_) if link.symlink_metadata().is_ok() => {
+                last = io::Error::new(
+                    io::ErrorKind::AlreadyExists,
+                    format!("{} is another program", link.display()),
+                );
+                continue;
+            }
             Err(_) => {}
         }
         if let Some(folder) = link.parent() {
@@ -95,37 +240,12 @@ fn link_command(wrapper: &Path, links: &[PathBuf]) -> Option<PathBuf> {
             // needs a password this does not ask for.
             let _ = std::fs::create_dir_all(folder);
         }
-        if std::os::unix::fs::symlink(wrapper, link).is_ok() {
-            return Some(link.clone());
+        match std::os::unix::fs::symlink(wrapper, link) {
+            Ok(()) => return Ok(link.clone()),
+            Err(error) => last = error,
         }
     }
-    None
-}
-
-/// Copies the skill in `source` into `claude`'s skills folder when it is
-/// missing there, or when the one there is the one this app wrote last
-/// (`recorded`). An installed skill that is neither was edited by hand and
-/// is left alone. Returns the hash to record: the one now installed by us.
-fn sync_skill(source: &Path, claude: &Path, recorded: Option<&str>) -> io::Result<Option<String>> {
-    if !claude.is_dir() {
-        return Ok(None);
-    }
-    let bundled = hash(&source.join(SKILL_FILE))?;
-    let installed_dir = claude.join("skills").join(COMMAND);
-    let installed = match hash(&installed_dir.join(SKILL_FILE)) {
-        Ok(installed) => Some(installed),
-        Err(error) if error.kind() == io::ErrorKind::NotFound => None,
-        Err(error) => return Err(error),
-    };
-    if installed.as_deref() == Some(&bundled) {
-        return Ok(Some(bundled));
-    }
-    if installed.is_some() && installed.as_deref() != recorded {
-        tracing::info!("the installed specular skill was edited; leaving it as it is");
-        return Ok(None);
-    }
-    copy_folder(source, &installed_dir)?;
-    Ok(Some(bundled))
+    Err(last)
 }
 
 fn hash(file: &Path) -> io::Result<String> {
@@ -175,6 +295,13 @@ mod tests {
             std::fs::write(&file, text).unwrap();
             file
         }
+
+        fn link(&self, path: &str, target: &Path) -> PathBuf {
+            let link = self.0.join(path);
+            std::fs::create_dir_all(link.parent().unwrap()).unwrap();
+            std::os::unix::fs::symlink(target, &link).unwrap();
+            link
+        }
     }
 
     impl Drop for TempDir {
@@ -193,96 +320,80 @@ mod tests {
             dir.0.join("system/specular"),
             dir.0.join("home/bin/specular"),
         ];
-        assert_eq!(link_command(&wrapper, &links), Some(links[1].clone()));
+        assert_eq!(command_status(&wrapper, &links), Status::Missing);
+        assert_eq!(link_command(&wrapper, &links).unwrap(), links[1]);
         assert_eq!(std::fs::read_link(&links[1]).unwrap(), wrapper);
-        // A second launch finds it there and changes nothing.
-        assert_eq!(link_command(&wrapper, &links), Some(links[1].clone()));
+        assert_eq!(
+            command_status(&wrapper, &links),
+            Status::Installed(Some(links[1].display().to_string()))
+        );
     }
 
     #[test]
-    fn a_link_to_a_file_that_is_gone_is_replaced() {
+    fn a_link_to_a_file_that_is_gone_reads_as_missing_and_is_replaced() {
         let dir = TempDir::new("dangling");
         let wrapper = dir.file("app/specular-cli.sh", "");
-        let link = dir.0.join("bin/specular");
-        std::fs::create_dir_all(link.parent().unwrap()).unwrap();
-        std::os::unix::fs::symlink(dir.0.join("old-app/specular-cli.sh"), &link).unwrap();
-        assert_eq!(
-            link_command(&wrapper, std::slice::from_ref(&link)),
-            Some(link.clone())
-        );
+        let link = dir.link("bin/specular", &dir.0.join("old-app/specular-cli.sh"));
+        let links = std::slice::from_ref(&link);
+        assert_eq!(command_status(&wrapper, links), Status::Missing);
+        assert_eq!(link_command(&wrapper, links).unwrap(), link);
         assert_eq!(std::fs::read_link(&link).unwrap(), wrapper);
     }
 
     #[test]
-    fn a_working_link_or_a_file_someone_else_made_stays() {
+    fn a_working_link_elsewhere_is_named_and_an_install_replaces_it() {
         let dir = TempDir::new("theirs");
         let wrapper = dir.file("app/specular-cli.sh", "");
         let theirs = dir.file("repo/specular-cli.sh", "");
-        let link = dir.0.join("bin/specular");
-        std::fs::create_dir_all(link.parent().unwrap()).unwrap();
-        std::os::unix::fs::symlink(&theirs, &link).unwrap();
-        let later = dir.0.join("later/specular");
-        assert_eq!(link_command(&wrapper, &[link.clone(), later.clone()]), None);
-        assert_eq!(std::fs::read_link(&link).unwrap(), theirs);
-        assert!(!later.exists(), "a second command is not put behind theirs");
+        let link = dir.link("bin/specular", &theirs);
+        let links = std::slice::from_ref(&link);
+        assert!(matches!(
+            command_status(&wrapper, links),
+            Status::Differs(_)
+        ));
+        assert_eq!(
+            std::fs::read_link(&link).unwrap(),
+            theirs,
+            "looking changes nothing"
+        );
+        assert_eq!(link_command(&wrapper, links).unwrap(), link);
+        assert_eq!(std::fs::read_link(&link).unwrap(), wrapper);
+    }
 
-        let file = dir.file("other/specular", "#!/bin/sh");
-        assert_eq!(link_command(&wrapper, std::slice::from_ref(&file)), None);
+    #[test]
+    fn a_program_that_is_not_a_link_is_never_replaced() {
+        let dir = TempDir::new("program");
+        let wrapper = dir.file("app/specular-cli.sh", "");
+        let file = dir.file("bin/specular", "#!/bin/sh");
+        let links = std::slice::from_ref(&file);
+        assert!(matches!(
+            command_status(&wrapper, links),
+            Status::Differs(_)
+        ));
+        assert!(link_command(&wrapper, links).is_err());
         assert_eq!(std::fs::read_to_string(&file).unwrap(), "#!/bin/sh");
     }
 
     #[test]
-    fn a_missing_skill_is_installed_with_its_references() {
-        let dir = TempDir::new("missing");
+    fn the_skill_is_missing_then_installed_then_differs_when_either_side_changes() {
+        let dir = TempDir::new("skill");
+        let bundled = dir.0.join("skill");
+        let installed = dir.0.join("claude/skills/specular");
         dir.file("skill/SKILL.md", "one");
         dir.file("skill/references/apply.md", "apply");
-        std::fs::create_dir_all(dir.0.join("claude")).unwrap();
-        let hash = sync_skill(&dir.0.join("skill"), &dir.0.join("claude"), None).unwrap();
-        assert!(hash.is_some());
-        let installed = dir.0.join("claude/skills/specular");
-        assert_eq!(
-            std::fs::read_to_string(installed.join("SKILL.md")).unwrap(),
-            "one"
-        );
+        assert_eq!(skill_status(&bundled, &installed), Status::Missing);
+
+        copy_folder(&bundled, &installed).unwrap();
+        assert_eq!(skill_status(&bundled, &installed), Status::Installed(None));
         assert_eq!(
             std::fs::read_to_string(installed.join("references/apply.md")).unwrap(),
             "apply"
         );
-    }
-
-    #[test]
-    fn nothing_is_installed_for_someone_without_claude_code() {
-        let dir = TempDir::new("no-claude");
-        dir.file("skill/SKILL.md", "one");
-        let claude = dir.0.join("claude");
-        assert_eq!(
-            sync_skill(&dir.0.join("skill"), &claude, None).unwrap(),
-            None
-        );
-        assert!(!claude.exists());
-    }
-
-    #[test]
-    fn the_skill_we_wrote_is_updated_and_an_edited_one_is_left() {
-        let dir = TempDir::new("update");
-        let source = dir.0.join("skill");
-        let claude = dir.0.join("claude");
-        dir.file("skill/SKILL.md", "one");
-        std::fs::create_dir_all(&claude).unwrap();
-        let first = sync_skill(&source, &claude, None).unwrap();
 
         dir.file("skill/SKILL.md", "two");
-        let second = sync_skill(&source, &claude, first.as_deref()).unwrap();
-        assert_ne!(second, first);
-        let installed = claude.join("skills/specular/SKILL.md");
-        assert_eq!(std::fs::read_to_string(&installed).unwrap(), "two");
-
-        std::fs::write(&installed, "mine").unwrap();
-        dir.file("skill/SKILL.md", "three");
-        assert_eq!(
-            sync_skill(&source, &claude, second.as_deref()).unwrap(),
-            None
-        );
-        assert_eq!(std::fs::read_to_string(&installed).unwrap(), "mine");
+        assert!(matches!(
+            skill_status(&bundled, &installed),
+            Status::Differs(_)
+        ));
     }
 }
