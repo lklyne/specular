@@ -177,17 +177,44 @@ fn the_history_buttons_and_the_address_field_drive_the_whole_sync_set() {
         assert_eq!(asked(&mut app), expected, "{action:?}");
     }
 
-    // A peer with nowhere to go back to is loaded where the page was.
+    // A peer with nowhere to go back to waits for where the page lands, and
+    // is loaded there.
     app.page_reports("p2", history(false));
     app.act(Action::PageBack);
-    assert_eq!(
-        asked(&mut app),
-        ["p1 Back", "p2 To(\"https://site.test/\")"]
-    );
-
-    // What the driven pages then report is not sent round again.
+    assert_eq!(asked(&mut app), ["p1 Back"]);
     app.page_reports("p1", PageNotice::Url("https://site.test/z".to_owned()));
     assert_eq!(asked(&mut app), [] as [String; 0]);
+    app.tick(1_000);
+    assert_eq!(asked(&mut app), ["p2 To(\"https://site.test/z\")"]);
+
+    // A peer whose own step back landed somewhere else is put right, and
+    // one that landed where the page did is left alone.
+    app.tick(4_000);
+    app.page_reports("p2", PageNotice::Url("https://site.test/z".to_owned()));
+    app.page_reports("p2", history(true));
+    app.take_effects();
+    let rows: [(u64, &str, &[&str]); 2] = [
+        (
+            5_000,
+            "https://site.test/elsewhere",
+            &["p2 To(\"https://site.test/y\")"],
+        ),
+        (8_600, "https://site.test/y", &[]),
+    ];
+    for (at, landed, expected) in rows {
+        app.tick(at);
+        app.page_reports("p1", PageNotice::Url("https://site.test/x".to_owned()));
+        app.page_reports("p2", PageNotice::Url("https://site.test/x".to_owned()));
+        app.take_effects();
+        app.act(Action::PageBack);
+        assert_eq!(asked(&mut app), ["p1 Back", "p2 Back"]);
+        app.page_reports("p1", PageNotice::Url("https://site.test/y".to_owned()));
+        app.page_reports("p2", PageNotice::Url(landed.to_owned()));
+        app.tick(at + 500);
+        assert_eq!(asked(&mut app), expected, "{landed}");
+        app.page_reports("p2", PageNotice::Url("https://site.test/y".to_owned()));
+        app.take_effects();
+    }
 
     // A peer already at the address is not sent there again.
     app.tick(10_000);
@@ -206,7 +233,7 @@ fn the_history_buttons_and_the_address_field_drive_the_whole_sync_set() {
     app.act(Action::PageReload);
     assert_eq!(
         asked(&mut app),
-        ["p1 Reload", "p2 To(\"https://site.test/z\")"]
+        ["p1 Reload", "p2 To(\"https://site.test/y\")"]
     );
 }
 

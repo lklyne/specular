@@ -26,15 +26,23 @@ use crate::{App, Effect, PageNotice, update};
 /// that only one width takes to settle.
 const NAVIGATION_QUIET_MS: u64 = 1500;
 
+/// How long a peer has to report where its own step back or forward took
+/// it, in milliseconds, before it is loaded where the stepped page went.
+const STEP_SETTLE_MS: u64 = 400;
+
 /// What following needs to remember between events.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub(crate) struct SyncState {
     /// Until when each page's navigations are its own business, on the
     /// session's clock.
     quiet_until: HashMap<EntityId, u64>,
-    /// Where each peer is owed a navigation to, once the click that was
-    /// replayed on it has had its chance to take it there.
-    owed: HashMap<EntityId, String>,
+    /// Until when each page that was stepped back or forward leads its set:
+    /// where it says it went is where its peers are owed.
+    leading: HashMap<EntityId, u64>,
+    /// Where each peer is owed a navigation to and from when, once its own
+    /// step or the click that was replayed on it has had its chance to
+    /// take it there.
+    owed: HashMap<EntityId, (String, u64)>,
     /// Which page is captured and what its peers were asked.
     pub(crate) interaction: interaction::Interaction,
 }
@@ -43,6 +51,7 @@ impl SyncState {
     /// Forgets the pages `keep` turns down.
     pub(crate) fn retain(&mut self, mut keep: impl FnMut(&EntityId) -> bool) {
         self.quiet_until.retain(|page, _| keep(page));
+        self.leading.retain(|page, _| keep(page));
         self.owed.retain(|page, _| keep(page));
     }
 }
@@ -159,8 +168,10 @@ fn is_quiet(app: &App, page: &EntityId) -> bool {
 }
 
 /// `page` was sent through `nav` by the user or the API: sends its sync set
-/// the same way. A peer with no entry to step to, or showing another
-/// address, is loaded at the address `page` was showing instead.
+/// the same way. A reload loads a peer showing another address where `page`
+/// is. A step back or forward is taken by each peer that has an entry
+/// there, and `page` then leads: histories differ, so every peer is owed
+/// the address `page` reports.
 pub(crate) fn on_driven(app: &mut App, page: &EntityId, nav: &PageNav, effects: &mut Vec<Effect>) {
     let peers = peers(&app.document, page);
     if peers.is_empty() || *nav == PageNav::Stop {
@@ -168,11 +179,18 @@ pub(crate) fn on_driven(app: &mut App, page: &EntityId, nav: &PageNav, effects: 
     }
     let here = address(app, page);
     hush(app, page);
+    if matches!(nav, PageNav::Back | PageNav::Forward) {
+        let until = app.session.now_ms + NAVIGATION_QUIET_MS;
+        app.session.sync.leading.insert(page.clone(), until);
+    } else {
+        app.session.sync.leading.remove(page);
+    }
     for peer in peers {
         hush(app, &peer);
+        // A peer that was leading follows now.
+        app.session.sync.leading.remove(&peer);
         let there = address(app, &peer);
         let state = app.page_state(&peer);
-        let fallback = || here.clone().map(PageNav::To);
         let step = match nav {
             PageNav::To(url) => (there.as_deref() != Some(url)).then(|| nav.clone()),
             PageNav::Back if state.is_some_and(|state| state.can_go_back) => Some(PageNav::Back),
@@ -180,8 +198,8 @@ pub(crate) fn on_driven(app: &mut App, page: &EntityId, nav: &PageNav, effects: 
                 Some(PageNav::Forward)
             }
             PageNav::Reload if there == here => Some(PageNav::Reload),
-            PageNav::Back | PageNav::Forward | PageNav::Reload => fallback(),
-            PageNav::Stop => None,
+            PageNav::Reload => here.clone().map(PageNav::To),
+            PageNav::Back | PageNav::Forward | PageNav::Stop => None,
         };
         if let Some(nav) = step {
             effects.push(Effect::Navigate { page: peer, nav });
@@ -201,7 +219,11 @@ pub(crate) fn on_notice(
     match notice {
         // The first address a page reports is its own load, not a move.
         PageNotice::Url(url) if shown.is_some_and(|shown| shown != url) => {
-            on_navigated(app, page, url, effects);
+            if is_leading(app, page) {
+                on_stepped(app, page, url);
+            } else {
+                on_navigated(app, page, url, effects);
+            }
         }
         PageNotice::Scrolled { .. } if entered && app.is_synced(page) => {
             effects.push(Effect::AskScrollProgress(page.clone()));
@@ -238,6 +260,20 @@ pub(crate) fn on_notice(
     }
 }
 
+fn is_leading(app: &App, page: &EntityId) -> bool {
+    (app.session.sync.leading.get(page)).is_some_and(|until| *until > app.session.now_ms)
+}
+
+/// `page` says where its step back or forward took it. Its peers are owed
+/// that address, once the ones that stepped too have said where they went.
+fn on_stepped(app: &mut App, page: &EntityId, url: &str) {
+    let from = app.session.now_ms + STEP_SETTLE_MS;
+    for peer in peers(&app.document, page) {
+        hush(app, &peer);
+        (app.session.sync.owed).insert(peer, (url.to_owned(), from));
+    }
+}
+
 /// `page` went to `url` by itself: a link, a redirect, a script, or a
 /// change of hash. Its peers are sent there, and a peer already there is
 /// left alone. A change of hash is loaded like any address, which a
@@ -252,7 +288,7 @@ fn on_navigated(app: &mut App, page: &EntityId, url: &str, effects: &mut Vec<Eff
         // is given the time to follow it, so that it loads once.
         let now = app.session.now_ms;
         if (app.session.sync.interaction).is_following_a_click(&peer, now) {
-            app.session.sync.owed.insert(peer, url.to_owned());
+            app.session.sync.owed.insert(peer, (url.to_owned(), now));
             continue;
         }
         if address(app, &peer).as_deref() != Some(url) {
@@ -264,20 +300,22 @@ fn on_navigated(app: &mut App, page: &EntityId, url: &str, effects: &mut Vec<Eff
     }
 }
 
-/// The clock moved: a peer whose replayed click did not take it where its
-/// set went is sent there.
+/// The clock moved: a peer whose replayed click or own step did not take
+/// it where its set went is sent there.
 pub(crate) fn on_tick(app: &mut App, effects: &mut Vec<Effect>) {
     if app.session.sync.owed.is_empty() {
         return;
     }
     let now = app.session.now_ms;
     let state = &app.session.sync;
-    let due: Vec<EntityId> = (state.owed.keys())
-        .filter(|peer| !state.interaction.is_following_a_click(peer, now))
-        .cloned()
+    let due: Vec<EntityId> = (state.owed.iter())
+        .filter(|(peer, (_, from))| {
+            *from <= now && !state.interaction.is_following_a_click(peer, now)
+        })
+        .map(|(peer, _)| peer.clone())
         .collect();
     for peer in due {
-        let Some(url) = app.session.sync.owed.remove(&peer) else {
+        let Some((url, _)) = app.session.sync.owed.remove(&peer) else {
             continue;
         };
         if address(app, &peer).as_deref() != Some(url.as_str()) {
