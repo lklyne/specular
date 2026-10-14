@@ -227,6 +227,8 @@ Comments and chat are one conversation. Agent replies live only in the thread, n
 
 **Auto-fix** is the per-origin opt-out of Send (`boundOrigins[].autoFix` on the origin→repo binding; the Auto chip beside the composer's folder chip). A comment on an auto origin joins the active thread — draft or open, so the conversation keeps its history — and is sent the moment it is placed, aimed at that pin. A run already in flight keeps it queued and drains it when the run ends. The panel can be closed or backed out to the list; the pins keep firing. Canvas-bound comments have no origin to opt in with and always wait for Send.
 
+**Thread avatar** (Rust app): the Prism drawn beside each thread in the right panel's list and before the open thread's title. It animates only while that thread's agent works and otherwise holds a still picture, different per thread. See [ADR 0047](docs/adr/0047-thread-avatar-prism-on-wgpu.md).
+
 **New** and **Close** are separate. The switcher keeps threads. Close archives (`status: closed`). New is a clean transcript.
 
 One pin maps to at most one thread via `annotation.metadata.threadId`. Clicking a badge focuses the pin (`focusedAnnotationId`, `annotationOpenThread`) and selects that thread. The panel flashes the pin's message on every click, including a re-click of the focused pin. Back, Esc on the canvas, resolve, or delete clears the focus. There is no on-canvas thread popover.

@@ -47,6 +47,7 @@ tests and the headless modes below need no window.
 | `specular-scene` | lib | The `Scene` display list, `view` with one module a kind, the markdown parser, and the built-in panel painter |
 | `specular-api` | lib | The HTTP API with the socket taken off: a request and `&App` in, a read answer or an `Event::Api` out. Also the per-page CDP routing |
 | `specular-compositor` | lib | The wgpu renderer. Draws a `Scene` over the dot grid in one 4x multisampled pass: page textures, SDF shapes, glyphon text, lyon paths. Imports page IOSurfaces with no copy on macOS. Implements the text measure |
+| `specular-prism` | lib | The Prism, the thread avatar, rendered on wgpu from three's own WGSL at parity with the web build (ADR 0047). Depends on wgpu alone |
 | `specular-cef` | lib | The CEF offscreen `PageSource` (feature `cef`) and the CEF-free helpers it is built from. See [`crates/specular-cef/README.md`](crates/specular-cef/README.md) |
 | `specular-app` | lib + bin | `Runtime`, which owns the `App` and runs every effect: page hosts, space files, images, Documents, clipboard, the HTTP and CDP servers, the agent runner. Also the command line, the headless `--snapshot` and `--script` modes, `--bench`, and the winit window (binary `specular-app`) |
 | `specular-shell` | bin | The GPUI Kit window (binary `specular`, ADR 0040). The Kit draws the chrome (tab row, toolbar, dock), sidebar, menus, settings, first run and the chat panel from the models. The compositor draws the canvas in a view under GPUI's. It uses `specular-app`'s `Runtime` and command line |
@@ -61,7 +62,7 @@ As the manifests have it, each crate depending only on crates to its left:
 core, doc, agent  <-  interact  <-  scene  <-  compositor
                                 \-  api
 core  <-  cef, bench
-everything above  <-  app  <-  shell
+everything above  <-  app  <-  shell  ->  prism
 ```
 
 - `core`, `doc` and `agent` depend on no other crate here.
@@ -70,7 +71,7 @@ everything above  <-  app  <-  shell
 - `compositor` depends on `scene` and `core`. It names `doc` and `interact`
   only in its tests.
 - `app` depends on all of the above except the testkit. `shell` depends on
-  `app`.
+  `app`, and on `prism`, which depends on no other crate here.
 - `core`, `doc`, `agent`, `interact`, `scene` and `api` have no GPU, window,
   CEF or file I/O.
 
