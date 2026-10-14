@@ -1,5 +1,5 @@
-//! A thread's avatar: a small animated picture that a wgpu renderer draws
-//! and the Kit shows as an image.
+//! A thread's avatar: the Prism, drawn with wgpu and shown by the Kit as an
+//! image.
 //!
 //! GPUI paints with its own Metal device and takes no wgpu texture. Its
 //! `surface()` element takes only a biplanar YCbCr pixel buffer, which has
@@ -8,13 +8,15 @@
 //! frame after its draw, so the picture shown is the one finished last frame.
 //!
 //! The renderer runs on the compositor's device: one device, one queue, and
-//! everything on the main thread, as the canvas is.
+//! everything on the main thread, as the canvas is. Only its build, which
+//! compiles the shell shaders for about half a second, runs on a thread of
+//! its own.
 
 mod frames;
-mod gradient;
+mod prism;
 
 pub(crate) use self::frames::Frames;
-pub(crate) use self::gradient::Gradient;
+pub(crate) use self::prism::{Prism, STILL};
 
 /// The format an avatar is drawn in: what a GPUI image holds, BGRA with
 /// sRGB-encoded colour and straight alpha.
@@ -25,19 +27,4 @@ pub(crate) const FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8Unorm;
 pub(crate) struct Gpu {
     pub(crate) device: wgpu::Device,
     pub(crate) queue: wgpu::Queue,
-}
-
-/// Draws one frame of an avatar.
-pub(crate) trait AvatarRenderer {
-    /// Records the picture at `time` seconds into `target`, a [`FORMAT`]
-    /// texture `size` device pixels square. Whatever is outside the avatar's
-    /// shape is cleared to transparent.
-    fn render(
-        &mut self,
-        gpu: &Gpu,
-        encoder: &mut wgpu::CommandEncoder,
-        target: &wgpu::TextureView,
-        size: u32,
-        time: f32,
-    );
 }

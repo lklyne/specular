@@ -1,5 +1,5 @@
-//! One avatar's frames: the texture it is drawn into, the buffers it is
-//! read back through, and the image GPUI shows.
+//! One avatar's frames: the buffers its pictures are read back through,
+//! and the image GPUI shows.
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU8, Ordering};
@@ -7,7 +7,7 @@ use std::sync::atomic::{AtomicU8, Ordering};
 use gpui_kit::RenderImage;
 use image::{Frame, RgbaImage};
 
-use super::{AvatarRenderer, FORMAT, Gpu};
+use super::{Gpu, Prism};
 
 /// How many reads may be in flight: one landing while the next is drawn.
 const SLOTS: usize = 2;
@@ -29,8 +29,6 @@ struct Slot {
 #[derive(Debug)]
 pub(crate) struct Frames {
     size: u32,
-    texture: wgpu::Texture,
-    view: wgpu::TextureView,
     /// Bytes from one row to the next in a readback buffer.
     stride: u32,
     slots: [Slot; SLOTS],
@@ -44,21 +42,6 @@ impl Frames {
     /// An avatar `size` device pixels square.
     pub(crate) fn new(gpu: &Gpu, size: u32) -> Self {
         let size = size.max(1);
-        let texture = gpu.device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("avatar"),
-            size: wgpu::Extent3d {
-                width: size,
-                height: size,
-                depth_or_array_layers: 1,
-            },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: FORMAT,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
-            view_formats: &[],
-        });
-        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
         let stride = (size * 4).div_ceil(wgpu::COPY_BYTES_PER_ROW_ALIGNMENT)
             * wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
         let slot = || Slot {
@@ -73,8 +56,6 @@ impl Frames {
         };
         Self {
             size,
-            texture,
-            view,
             stride,
             slots: [slot(), slot()],
             draws: 0,
@@ -89,23 +70,27 @@ impl Frames {
     }
 
     /// Draws the picture at `time` and starts reading it back. Does nothing
-    /// while every buffer is still being read: the GPU is behind.
-    pub(crate) fn draw(&mut self, gpu: &Gpu, renderer: &mut dyn AvatarRenderer, time: f32) {
+    /// while every buffer is still being read (the GPU is behind) or while
+    /// `prism` is not ready. `prism` draws at this avatar's size.
+    pub(crate) fn draw(&mut self, gpu: &Gpu, prism: &mut Prism, time: f32) {
+        debug_assert_eq!(prism.size(), self.size);
         let Some(slot) =
             (self.slots.iter_mut()).find(|slot| slot.state.load(Ordering::Acquire) == FREE)
         else {
             return;
         };
-        self.draws += 1;
-        slot.draw = self.draws;
         let mut encoder = gpu
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("avatar"),
             });
-        renderer.render(gpu, &mut encoder, &self.view, self.size, time);
+        let Some(texture) = prism.render(&mut encoder, &gpu.queue, time) else {
+            return;
+        };
+        self.draws += 1;
+        slot.draw = self.draws;
         encoder.copy_texture_to_buffer(
-            self.texture.as_image_copy(),
+            texture.as_image_copy(),
             wgpu::TexelCopyBufferInfo {
                 buffer: &slot.buffer,
                 layout: wgpu::TexelCopyBufferLayout {
@@ -114,7 +99,7 @@ impl Frames {
                     rows_per_image: None,
                 },
             },
-            self.texture.size(),
+            texture.size(),
         );
         gpu.queue.submit([encoder.finish()]);
         slot.state.store(MAPPING, Ordering::Release);
@@ -169,7 +154,7 @@ impl Frames {
                 .copied()
                 .collect()
         };
-        // GPUI reads the bytes as BGRA, which is what `FORMAT` wrote.
+        // GPUI reads the bytes as BGRA, which is what the prism wrote.
         let buffer = RgbaImage::from_raw(self.size, self.size, bytes)?;
         Some(Arc::new(RenderImage::new(vec![Frame::new(buffer)])))
     }

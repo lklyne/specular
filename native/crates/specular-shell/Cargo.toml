@@ -24,6 +24,7 @@ specular-compositor = { workspace = true }
 specular-core = { workspace = true }
 specular-doc = { workspace = true }
 specular-interact = { workspace = true }
+specular-prism = { workspace = true }
 specular-scene = { workspace = true }
 anyhow = { workspace = true }
 glam = { workspace = true }

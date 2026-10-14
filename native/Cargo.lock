@@ -7847,6 +7847,7 @@ dependencies = [
  "specular-core",
  "specular-doc",
  "specular-interact",
+ "specular-prism",
  "specular-scene",
  "tracing",
  "wgpu 30.0.1",
