@@ -66,6 +66,8 @@ pub(super) struct ChatUi {
     draft: Option<String>,
     /// The hint the field was last given.
     placeholder: String,
+    /// Each thread's avatar.
+    avatars: avatar::Avatars,
 }
 
 impl ChatUi {
@@ -99,6 +101,7 @@ impl ChatUi {
             resizing: Rc::new(Cell::new(false)),
             draft: None,
             placeholder: String::new(),
+            avatars: avatar::Avatars::new(),
         }
     }
 }
@@ -160,7 +163,7 @@ impl ShellView {
                 .bg(theme::solid(theme::panel()))
                 .border_l_1()
                 .border_color(theme::solid(theme::chrome_border()))
-                .child(self.chat_header(model, window, cx))
+                .child(self.chat_header(model, cx))
                 .child(body)
                 .child(self.composer(&model.composer, window, cx)),
         )

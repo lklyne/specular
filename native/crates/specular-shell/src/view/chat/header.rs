@@ -17,7 +17,7 @@ use gpui_kit::{
 };
 use specular_interact::{Action, ChatModel, ThreadRow};
 
-use super::avatar::{keep_only, thread_avatar};
+use super::avatar::ThreadAvatar;
 use super::date::short_date;
 use super::run_keeping_field;
 use crate::assets::ShellIcon;
@@ -109,15 +109,14 @@ impl ShellView {
     /// The header strip: the title, then New, Close and Back. It is the
     /// dock's row carried across the panel, so the two read as one bar.
     pub(super) fn chat_header(
-        &self,
+        &mut self,
         model: &ChatModel,
-        window: &mut Window,
-        _cx: &mut Context<'_, Self>,
+        cx: &mut Context<'_, Self>,
     ) -> impl IntoElement + use<> {
         // Over an open thread, its avatar leads the title.
         let open = (model.transcript.as_ref())
             .and_then(|_| model.threads.iter().find(|row| row.active))
-            .map(|row| thread_avatar(row.id.as_str(), model.composer.running, window));
+            .map(|row| (self.chat.avatars).of(row.id.as_str(), model.composer.running, cx));
         let (new_thread, input) = (model.new_thread.clone(), self.chat.input.clone());
         let actions = h_flex()
             .flex_shrink_0()
@@ -168,7 +167,7 @@ impl ShellView {
             .child(actions)
     }
 
-    fn thread_row(&self, row: &ThreadRow, window: &mut Window) -> AnyElement {
+    fn thread_row(&self, row: &ThreadRow, avatar: Entity<ThreadAvatar>) -> AnyElement {
         let (select, input) = (row.select.clone(), self.chat.input.clone());
         let close = row.close.clone();
         let id = SharedString::from(format!("chat-thread-{}", row.id.as_str()));
@@ -187,7 +186,7 @@ impl ShellView {
                     run_keeping_field(&select, &input, window, cx);
                 }
             })
-            .child(thread_avatar(row.id.as_str(), row.running, window))
+            .child(avatar)
             .child(
                 div()
                     .flex_1()
@@ -220,14 +219,18 @@ impl ShellView {
 
     /// The canvas's threads, newest first, when none is open.
     pub(super) fn thread_list(
-        &self,
+        &mut self,
         model: &ChatModel,
         window: &mut Window,
-        _cx: &mut Context<'_, Self>,
+        cx: &mut Context<'_, Self>,
     ) -> impl IntoElement + use<> {
-        keep_only(model.threads.iter().map(|row| row.id.as_str()), window);
-        let rows: Vec<AnyElement> = (model.threads.iter())
-            .map(|row| self.thread_row(row, window))
+        let avatars = &mut self.chat.avatars;
+        avatars.keep_only(model.threads.iter().map(|row| row.id.as_str()), window, cx);
+        let shown: Vec<Entity<ThreadAvatar>> = (model.threads.iter())
+            .map(|row| avatars.of(row.id.as_str(), row.running, cx))
+            .collect();
+        let rows: Vec<AnyElement> = (model.threads.iter().zip(shown))
+            .map(|(row, avatar)| self.thread_row(row, avatar))
             .collect();
         v_flex()
             .id("chat-threads-list")
