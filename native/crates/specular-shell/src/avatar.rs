@@ -4,7 +4,7 @@
 //! GPUI paints with its own Metal device and takes no wgpu texture. Its
 //! `surface()` element takes only a biplanar YCbCr pixel buffer, which has
 //! no alpha and half-resolution colour, so the avatar is read back instead:
-//! at 24 points on a 2x display a frame is 48 x 48 x 4 bytes. A read lands a
+//! at 20 points on a 2x display a frame is 40 x 40 x 4 bytes. A read lands a
 //! frame after its draw, so the picture shown is the one finished last frame.
 //!
 //! The renderer runs on the compositor's device: one device, one queue, and
