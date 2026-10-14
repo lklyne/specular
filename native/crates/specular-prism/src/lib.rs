@@ -24,11 +24,14 @@ mod params;
 mod pipelines;
 mod resources;
 mod targets;
+mod tumble;
 mod uniforms;
 
 pub use params::{
-    Camera, Coverage, Environment, Grade, Gradient, Highlight, Light, PrismParams, Rim, Shell,
+    Camera, Coverage, Environment, Grade, Gradient, Highlight, Light, Pose, PrismParams, Rim, Shell,
 };
+
+pub use tumble::Tumble;
 
 use pipelines::Pipelines;
 use resources::Resources;

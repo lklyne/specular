@@ -5,7 +5,7 @@
 //! lists the same mapping as the capture decoded it.
 
 use crate::block::{Block, Value};
-use crate::params::{PrismParams, Shell};
+use crate::params::{Pose, PrismParams, Shell};
 
 const NEAR: f32 = 0.1;
 const FAR: f32 = 50.0;
@@ -62,9 +62,24 @@ fn scaling(s: f32) -> [[f32; 4]; 4] {
     m
 }
 
-fn normal_matrix(scale: f32) -> [[f32; 3]; 3] {
-    let s = 1.0 / scale;
-    [[s, 0.0, 0.0], [0.0, s, 0.0], [0.0, 0.0, s]]
+/// A shell of scale `scale` in `pose`: the pose's turn times the scale.
+fn shell_world(pose: &Pose, scale: f32) -> [[f32; 4]; 4] {
+    let r = pose.matrix();
+    let s = scale * pose.scale;
+    let mut m = IDENTITY4;
+    for (column, turned) in m.iter_mut().zip(r) {
+        for (value, v) in column.iter_mut().zip(turned) {
+            *value = v * s;
+        }
+    }
+    m
+}
+
+/// The inverse transpose of [`shell_world`]'s 3x3: a rotation's own, over
+/// the scale.
+fn normal_matrix(pose: &Pose, scale: f32) -> [[f32; 3]; 3] {
+    let s = 1.0 / (scale * pose.scale);
+    pose.matrix().map(|column| column.map(|v| v * s))
 }
 
 fn env_rotation(angle: f32) -> [[f32; 4]; 4] {
@@ -102,7 +117,7 @@ pub(crate) fn card_object(block: &mut Block, colors: &mut Block, p: &PrismParams
     block.set("nodeUniform9", Value::F32(g.posterize_levels));
     block.set("nodeUniform10", Value::F32(g.posterize_amount));
     block.set("nodeUniform11", Value::F32(1.0));
-    block.set("nodeUniform13", Value::Mat4(IDENTITY4));
+    block.set("nodeUniform13", Value::Mat4(scaling(p.pose.scale)));
     // Unused slots repeat the last colour, as three pads the array.
     let last = g.colors.last().copied().unwrap_or_default();
     let padded: Vec<[f32; 4]> = (0..8)
@@ -163,12 +178,12 @@ fn environment(block: &mut Block, p: &PrismParams, names: [&str; 5]) {
 /// Group 1 of the liquid.
 pub(crate) fn liquid_object(block: &mut Block, p: &PrismParams, f: Frame) {
     let s: &Shell = &p.liquid;
-    let world = Value::Mat4(scaling(s.scale));
+    let world = Value::Mat4(shell_world(&p.pose, s.scale));
     block.set("nodeUniform0", Value::Vec3(s.color));
     block.set("nodeUniform1", Value::F32(1.0));
     block.set("nodeUniform2", Value::F32(0.0));
     block.set("nodeUniform3", Value::F32(s.roughness));
-    block.set("nodeUniform5", Value::Mat3(normal_matrix(s.scale)));
+    block.set("nodeUniform5", Value::Mat3(normal_matrix(&p.pose, s.scale)));
     block.set("nodeUniform6", Value::F32(s.ior));
     block.set("nodeUniform7", Value::Vec3(s.specular_color));
     block.set("nodeUniform8", Value::F32(s.specular_intensity));
@@ -214,14 +229,14 @@ pub(crate) fn liquid_object(block: &mut Block, p: &PrismParams, f: Frame) {
 /// Group 1 of the glass.
 pub(crate) fn glass_object(block: &mut Block, p: &PrismParams, f: Frame) {
     let s: &Shell = &p.glass;
-    let world = Value::Mat4(scaling(s.scale));
+    let world = Value::Mat4(shell_world(&p.pose, s.scale));
     block.set("nodeUniform0", Value::Vec3(s.color));
     block.set("nodeUniform1", Value::F32(1.0));
     block.set("nodeUniform2", Value::F32(0.0));
     block.set("nodeUniform3", Value::F32(s.roughness));
     block.set("nodeUniform4", world);
     block.set("nodeUniform5", Value::F32(BRUSH_WORLD_SCALE));
-    block.set("nodeUniform7", Value::Mat3(normal_matrix(s.scale)));
+    block.set("nodeUniform7", Value::Mat3(normal_matrix(&p.pose, s.scale)));
     block.set("nodeUniform9", Value::F32(BRUSH_BLEND_SHARPNESS));
     block.set("nodeUniform11", Value::F32(BRUSH_STRENGTH));
     block.set("nodeUniform12", Value::F32(s.distortion_scale));

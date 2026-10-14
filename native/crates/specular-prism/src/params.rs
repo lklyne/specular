@@ -29,6 +29,8 @@ pub struct PrismParams {
     pub coverage: Coverage,
     /// How much of the world the frame shows.
     pub camera: Camera,
+    /// How the shells are turned and scaled about their centre.
+    pub pose: Pose,
 }
 
 /// The gradient card.
@@ -209,6 +211,58 @@ pub struct Camera {
     pub half_extent: f32,
 }
 
+/// A turn and a uniform scale of the shells about their centre. The card
+/// is drawn facing the camera whatever the pose (its shader is a
+/// billboard), so a turn shows as the glass and liquid turning around it.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Pose {
+    /// A unit quaternion `[x, y, z, w]`.
+    pub rotation: [f32; 4],
+    /// A factor on both shells' and the card's scale.
+    pub scale: f32,
+}
+
+impl Pose {
+    /// No turn, no scale: the web build's pose.
+    pub const IDENTITY: Self = Self {
+        rotation: [0.0, 0.0, 0.0, 1.0],
+        scale: 1.0,
+    };
+
+    /// The rotation as a 3x3 matrix, column-major.
+    #[expect(clippy::many_single_char_names, reason = "the quaternion's own names")]
+    pub fn matrix(&self) -> [[f32; 3]; 3] {
+        let [x, y, z, w] = self.rotation;
+        let n = (x * x + y * y + z * z + w * w)
+            .sqrt()
+            .max(f32::MIN_POSITIVE);
+        let (x, y, z, w) = (x / n, y / n, z / n, w / n);
+        [
+            [
+                1.0 - 2.0 * (y * y + z * z),
+                2.0 * (x * y + z * w),
+                2.0 * (x * z - y * w),
+            ],
+            [
+                2.0 * (x * y - z * w),
+                1.0 - 2.0 * (x * x + z * z),
+                2.0 * (y * z + x * w),
+            ],
+            [
+                2.0 * (x * z + y * w),
+                2.0 * (y * z - x * w),
+                1.0 - 2.0 * (x * x + y * y),
+            ],
+        ]
+    }
+}
+
+impl Default for Pose {
+    fn default() -> Self {
+        Self::IDENTITY
+    }
+}
+
 impl Default for PrismParams {
     #[expect(clippy::too_many_lines, reason = "one table of the preset's values")]
     fn default() -> Self {
@@ -328,6 +382,7 @@ impl Default for PrismParams {
                 softness: 0.04,
             },
             camera: Camera { half_extent: 0.7 },
+            pose: Pose::IDENTITY,
         }
     }
 }
