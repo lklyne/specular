@@ -6,7 +6,7 @@
 
 ## Context
 
-Each agent thread in the Kit's right panel shows the Prism as its avatar. The Prism is a gradient card inside a liquid shell and a glass shell, ported from a three.js build (lyle-klyne `builds/2026-10-11-prism`). It is 20 pt, 40 px on a 2x display, in each thread row and before the open thread's title. It animates while the thread's agent works.
+Each agent thread in the Kit's right panel shows the Prism as its avatar. The Prism is a gradient card inside a liquid shell and a glass shell, ported from a three.js build (lyle-klyne `builds/2026-10-11-prism`). It is 20 pt, 40 px on a 2x display, in each thread row, and 40 pt at the head of the open thread's run bar (the row that says what the agent is doing). It animates while the thread's agent works.
 
 The web build is three.js TSL on WebGPU, and the app draws with wgpu. GPUI draws with its own Metal device and takes no wgpu texture.
 
@@ -21,6 +21,8 @@ The web build is three.js TSL on WebGPU, and the app draws with wgpu. GPUI draws
 **Each thread has its own clock, which runs only while its agent works.** Scene time is `4 s + seed(thread id) × 30 s + time spent working`. At 4 s the key light has eased in, and it is the web build's canonical frame. The seed gives each thread its own colours. Because idle time never counts, an avatar that starts working moves on from the picture it held, and one that stops keeps the picture it stopped at. An idle avatar draws nothing, reads nothing and schedules nothing.
 
 **Each avatar is its own GPUI view and wakes itself at 30 fps.** A live avatar sets a timer on a fixed 33 ms cadence rather than asking for every display frame. In GPUI 0.3.8 a view that changes re-renders every view above it, and the Kit's root renders the shell's view on every frame. So a live avatar still re-renders the whole shell, but 30 times a second rather than 120.
+
+**The run bar's avatar tumbles, at 60 fps.** `specular_prism::Tumble` turns the shells (the card is a billboard and stays facing the camera) with a damped spring toward a target. Every 0.9 to 2 s of work a burst moves the target by one of the cube's own turns, mostly about a corner's or an edge's diagonal axis, and kicks it about a random axis. Because every target maps the cube onto itself, it always comes to rest looking like the still avatar, and stopping needs no jump. It steps at a fixed 240 Hz, so it moves the same at any frame rate, and the bursts are seeded by the thread id. A tumble at 30 fps looked steppy, so this one avatar draws at 60.
 
 ## Consequences
 
@@ -38,5 +40,6 @@ Debug build, Apple M3 Max, ProMotion display, two avatars live (`SPECULAR_AVATAR
 - The shell's view rendered 120 times a second when the avatars asked for every frame, and about 33 times a second with the 30 fps timer. With no avatar live it rendered only on input.
 - Recording and submitting one avatar frame took 1.25 ms of the main thread, and collecting its read 0.15 ms.
 - `PrismRenderer` cost about 1 ms a frame at 40 px, whatever the size, supersampling or segment count. The cost is fixed per pass, not fill.
+- The tumbling run bar avatar (80 px, the only live avatar while a thread is open): the shell's view rendered 60 times a second. One draw took 1.25 to 1.75 ms of the main thread in a debug build, and 0.25 to 0.5 ms in release.
 
 Not measured: a release build, true GPU time (the adapter has no timestamp queries inside encoders), and more than two avatars live.

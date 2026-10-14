@@ -6,11 +6,15 @@
 //! frame asked for. One that is not laid out (the panel closed,
 //! the list behind an open thread) is not drawn at all.
 //!
-//! Each avatar is its own view and wakes itself with a timer, at
-//! [`LIVE_FRAME`] while live. GPUI re-renders every view above one that
+//! Each avatar is its own view and wakes itself with a timer, at its
+//! kind's frame rate while live. GPUI re-renders every view above one that
 //! changes, and the Kit's root renders the shell's view on every frame, so
-//! a live avatar still re-renders the whole window, but at its own 30 fps
-//! rather than at the display's rate.
+//! a live avatar still re-renders the whole window, but at its own rate
+//! rather than at the display's.
+//!
+//! A thread shows its avatar beside its row in the list ([`Kind::Thread`]),
+//! and, larger and tumbling, leading the run bar while its agent works
+//! ([`Kind::Working`]).
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -23,22 +27,16 @@ use gpui_kit::{
     Styled as _, Task, Window, div, img, px,
 };
 
+use specular_prism::{Pose, Tumble};
+
 use crate::avatar::{Frames, Gpu, Prism, STILL};
 use crate::canvas as app_canvas;
 use crate::surface::CanvasSurface;
 use crate::theme;
 
-/// An avatar's side, in points.
-const SIZE: f32 = 20.0;
-
 /// The corner radius of the grey square shown until the first frame lands,
 /// near the glass's own.
 const PLACEHOLDER_RADIUS: f32 = 6.0;
-
-/// The least time between two pictures of a live avatar. The prism moves
-/// slowly, and each picture costs about a millisecond of the main thread
-/// in a debug build, so a live avatar draws at 30 fps.
-const LIVE_FRAME: Duration = Duration::from_millis(33);
 
 /// How early a timer may wake and still find its picture due.
 const EARLY: Duration = Duration::from_millis(2);
@@ -50,10 +48,51 @@ const POLL: Duration = Duration::from_millis(16);
 /// that each thread shows its own colours.
 const VARIETY: f32 = 30.0;
 
-/// The panel's avatars, one view per thread.
+/// Where an avatar is shown, which sets its size, framing and motion.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub(super) enum Kind {
+    /// Beside a thread's row in the list.
+    Thread,
+    /// In the run bar, tumbling while the agent works.
+    Working,
+}
+
+impl Kind {
+    /// The side, in points.
+    fn size(self) -> f32 {
+        match self {
+            Self::Thread => 20.0,
+            Self::Working => 40.0,
+        }
+    }
+
+    /// Half the frame's edge in world units. The glass's half-edge is 0.39:
+    /// a still avatar is framed to it with a hair for the rim, and a
+    /// tumbling one with room for its corners to swing out (28 points of
+    /// cube at rest in 40).
+    fn half_extent(self) -> f32 {
+        match self {
+            Self::Thread => 0.40,
+            Self::Working => 0.55,
+        }
+    }
+
+    /// The least time between two live pictures. Each costs about a
+    /// millisecond of the main thread in a debug build: the slow-moving
+    /// thread avatar draws at 30 fps, and the tumble, which steps at 30,
+    /// at 60.
+    fn frame(self) -> Duration {
+        match self {
+            Self::Thread => Duration::from_millis(33),
+            Self::Working => Duration::from_micros(16_667),
+        }
+    }
+}
+
+/// The panel's avatars, one view per thread and kind.
 pub(super) struct Avatars {
     drawer: Rc<RefCell<Drawer>>,
-    each: HashMap<String, Entity<ThreadAvatar>>,
+    each: HashMap<(Kind, String), Entity<ThreadAvatar>>,
 }
 
 impl Avatars {
@@ -61,7 +100,7 @@ impl Avatars {
         Self {
             drawer: Rc::new(RefCell::new(Drawer {
                 gpu: None,
-                prism: None,
+                prisms: HashMap::new(),
                 always_live: std::env::var_os("SPECULAR_AVATAR_LIVE").is_some(),
             })),
             each: HashMap::new(),
@@ -70,9 +109,29 @@ impl Avatars {
 
     /// The avatar of the thread `key`, animated while `working`.
     pub(super) fn of(&mut self, key: &str, working: bool, cx: &mut App) -> Entity<ThreadAvatar> {
-        let avatar = (self.each.entry(key.to_owned())).or_insert_with(|| {
+        self.get(Kind::Thread, key, working, cx)
+    }
+
+    /// The run bar's avatar of the thread `key`, tumbling while `working`.
+    pub(super) fn working(
+        &mut self,
+        key: &str,
+        working: bool,
+        cx: &mut App,
+    ) -> Entity<ThreadAvatar> {
+        self.get(Kind::Working, key, working, cx)
+    }
+
+    /// Whether `SPECULAR_AVATAR_LIVE` is set: every avatar animates as if
+    /// its agent worked, and the open thread shows a run bar.
+    pub(super) fn always_live(&self) -> bool {
+        self.drawer.borrow().always_live
+    }
+
+    fn get(&mut self, kind: Kind, key: &str, working: bool, cx: &mut App) -> Entity<ThreadAvatar> {
+        let avatar = (self.each.entry((kind, key.to_owned()))).or_insert_with(|| {
             let drawer = Rc::clone(&self.drawer);
-            cx.new(|_| ThreadAvatar::new(key, drawer))
+            cx.new(|_| ThreadAvatar::new(kind, key, drawer))
         });
         // It renders in this frame as a child of the panel, so no notify.
         avatar.update(cx, |avatar, _| avatar.working = working);
@@ -87,8 +146,8 @@ impl Avatars {
         cx: &mut App,
     ) {
         let keep: Vec<&str> = keys.into_iter().collect();
-        let leaving: Vec<String> = (self.each.keys())
-            .filter(|key| !keep.contains(&key.as_str()))
+        let leaving: Vec<(Kind, String)> = (self.each.keys())
+            .filter(|(_, key)| !keep.contains(&key.as_str()))
             .cloned()
             .collect();
         for key in leaving {
@@ -104,37 +163,38 @@ impl Avatars {
 struct Drawer {
     /// `None` until the canvas's surface exists.
     gpu: Option<Gpu>,
-    /// The renderer at the size the avatars are drawn at.
-    prism: Option<Prism>,
+    /// A renderer per kind, at the size that kind is drawn at.
+    prisms: HashMap<Kind, Prism>,
     /// Animates every avatar, working or not: `SPECULAR_AVATAR_LIVE=1`, a
     /// debug knob for a scripted run, which cannot start an agent.
     always_live: bool,
 }
 
 impl Drawer {
-    /// The device and a renderer `pixels` square, once the canvas has a
-    /// surface.
-    fn parts(&mut self, pixels: u32) -> Option<(&Gpu, &mut Prism)> {
+    /// The device and `kind`'s renderer `pixels` square, once the canvas
+    /// has a surface.
+    fn parts(&mut self, kind: Kind, pixels: u32) -> Option<(&Gpu, &mut Prism)> {
         if self.gpu.is_none() {
             self.gpu = app_canvas::with(|canvas| canvas.runtime.window().map(CanvasSurface::gpu))
                 .flatten();
         }
         let gpu = self.gpu.as_ref()?;
-        if self
-            .prism
-            .as_ref()
-            .is_none_or(|prism| prism.size() != pixels)
-        {
-            self.prism = Some(Prism::build(gpu, pixels));
+        let prism = (self.prisms.entry(kind))
+            .or_insert_with(|| Prism::build(gpu, pixels, kind.half_extent()));
+        if prism.size() != pixels {
+            *prism = Prism::build(gpu, pixels, kind.half_extent());
         }
-        Some((gpu, self.prism.as_mut()?))
+        Some((gpu, prism))
     }
 }
 
 /// One thread's avatar.
 pub(super) struct ThreadAvatar {
+    kind: Kind,
     drawer: Rc<RefCell<Drawer>>,
     working: bool,
+    /// How a working avatar is turned; `None` for one that holds still.
+    tumble: Option<Tumble>,
     /// `None` until the canvas's surface exists.
     frames: Option<Frames>,
     clock: Clock,
@@ -145,10 +205,12 @@ pub(super) struct ThreadAvatar {
 }
 
 impl ThreadAvatar {
-    fn new(key: &str, drawer: Rc<RefCell<Drawer>>) -> Self {
+    fn new(kind: Kind, key: &str, drawer: Rc<RefCell<Drawer>>) -> Self {
         Self {
+            kind,
             drawer,
             working: false,
+            tumble: (kind == Kind::Working).then(|| Tumble::new(seed(key))),
             frames: None,
             clock: Clock::of(key),
             due: None,
@@ -160,8 +222,10 @@ impl ThreadAvatar {
     /// how soon to render again, and the images to drop from the atlas.
     fn step(&mut self, pixels: u32) -> (Option<Arc<RenderImage>>, Option<Duration>, Images) {
         let mut drawer = self.drawer.borrow_mut();
-        let live = self.working || drawer.always_live;
-        let Some((gpu, prism)) = drawer.parts(pixels) else {
+        let working = self.working || drawer.always_live;
+        // A tumble still settling keeps it moving after the work stops.
+        let live = working || self.tumble.as_ref().is_some_and(|tumble| !tumble.at_rest());
+        let Some((gpu, prism)) = drawer.parts(self.kind, pixels) else {
             return (None, Some(POLL), Vec::new());
         };
         let mut retired = Vec::new();
@@ -175,16 +239,21 @@ impl ThreadAvatar {
         frames.collect(gpu);
         retired.extend(frames.take_retired());
         let still_missing = frames.image().is_none() && !frames.waiting();
-        let time = self.clock.tick(live);
+        let (time, elapsed) = self.clock.tick(live);
+        if let Some(tumble) = &mut self.tumble {
+            tumble.advance(elapsed, working);
+        }
+        let pose = (self.tumble.as_ref()).map_or(Pose::IDENTITY, Tumble::pose);
+        let frame = self.kind.frame();
         let now = Instant::now();
         let due = self.due.is_none_or(|due| now + EARLY >= due);
         if prism.ready() && ((live && due) || still_missing) {
-            frames.draw(gpu, prism, time);
+            frames.draw(gpu, prism, time, pose);
             // A frame that lands late keeps the cadence; one after a pause
             // starts it again.
             self.due = Some(match self.due {
-                Some(due) if now < due + LIVE_FRAME => due + LIVE_FRAME,
-                _ => now + LIVE_FRAME,
+                Some(due) if now < due + frame => due + frame,
+                _ => now + frame,
             });
         }
         let next = if live {
@@ -224,7 +293,8 @@ impl ThreadAvatar {
 
 impl Render for ThreadAvatar {
     fn render(&mut self, window: &mut Window, cx: &mut Context<'_, Self>) -> impl IntoElement {
-        let pixels = (SIZE * window.scale_factor()).round().max(1.0) as u32;
+        let size = self.kind.size();
+        let pixels = (size * window.scale_factor()).round().max(1.0) as u32;
         let (image, next, retired) = self.step(pixels);
         drop_images(retired, window);
         if let Some(after) = next {
@@ -232,11 +302,11 @@ impl Render for ThreadAvatar {
         }
         match image {
             Some(image) => img(ImageSource::Render(image))
-                .size(px(SIZE))
+                .size(px(size))
                 .flex_shrink_0()
                 .into_any_element(),
             None => div()
-                .size(px(SIZE))
+                .size(px(size))
                 .flex_shrink_0()
                 .rounded(px(PLACEHOLDER_RADIUS))
                 .bg(theme::solid(theme::zinc_100()))
@@ -262,33 +332,36 @@ struct Clock {
 impl Clock {
     fn of(key: &str) -> Self {
         Self {
-            start: STILL + seed(key) * VARIETY,
+            start: STILL + (seed(key) % 1000) as f32 / 1000.0 * VARIETY,
             run: 0.0,
             last: None,
         }
     }
 
-    /// The scene time to draw, the clock moving only while `live`.
-    fn tick(&mut self, live: bool) -> f32 {
+    /// The scene time to draw and the time since the last tick, the clock
+    /// moving only while `live`.
+    fn tick(&mut self, live: bool) -> (f32, Duration) {
+        let mut elapsed = Duration::ZERO;
         if live {
             let now = Instant::now();
             if let Some(last) = self.last {
-                self.run += now.duration_since(last).as_secs_f32();
+                elapsed = now.duration_since(last);
+                self.run += elapsed.as_secs_f32();
             }
             self.last = Some(now);
         } else {
             self.last = None;
         }
-        self.start + self.run
+        (self.start + self.run, elapsed)
     }
 }
 
-/// A number in `0..1` that a thread's id always gives (FNV-1a).
-fn seed(key: &str) -> f32 {
+/// A number that a thread's id always gives (FNV-1a).
+fn seed(key: &str) -> u64 {
     let hash = (key.bytes()).fold(0x811c_9dc5_u32, |hash, byte| {
         (hash ^ u32::from(byte)).wrapping_mul(0x0100_0193)
     });
-    (hash % 1000) as f32 / 1000.0
+    u64::from(hash)
 }
 
 /// Lets GPUI's atlas go of images no longer shown.

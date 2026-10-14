@@ -6,6 +6,7 @@ use std::sync::atomic::{AtomicU8, Ordering};
 
 use gpui_kit::RenderImage;
 use image::{Frame, RgbaImage};
+use specular_prism::Pose;
 
 use super::{Gpu, Prism};
 
@@ -69,10 +70,10 @@ impl Frames {
         self.size
     }
 
-    /// Draws the picture at `time` and starts reading it back. Does nothing
+    /// Draws the picture at `time` in `pose` and starts reading it back. Does nothing
     /// while every buffer is still being read (the GPU is behind) or while
     /// `prism` is not ready. `prism` draws at this avatar's size.
-    pub(crate) fn draw(&mut self, gpu: &Gpu, prism: &mut Prism, time: f32) {
+    pub(crate) fn draw(&mut self, gpu: &Gpu, prism: &mut Prism, time: f32, pose: Pose) {
         debug_assert_eq!(prism.size(), self.size);
         let Some(slot) =
             (self.slots.iter_mut()).find(|slot| slot.state.load(Ordering::Acquire) == FREE)
@@ -84,7 +85,7 @@ impl Frames {
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("avatar"),
             });
-        let Some(texture) = prism.render(&mut encoder, &gpu.queue, time) else {
+        let Some(texture) = prism.render(&mut encoder, &gpu.queue, time, pose) else {
             return;
         };
         self.draws += 1;

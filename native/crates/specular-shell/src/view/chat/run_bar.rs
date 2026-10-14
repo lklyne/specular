@@ -1,18 +1,18 @@
-//! The run bar: one rounded strip that says what the agent is doing now,
-//! with a stop button, and opens to the run's log (`AgentRunBar.tsx`).
+//! The run bar: one row that says what the agent is doing now, led by the
+//! thread's tumbling avatar, with a stop button, and opens to the run's
+//! log (`AgentRunBar.tsx`).
 
 use gpui_kit::component::button::{Button, ButtonVariants as _};
 use gpui_kit::component::collapsible::Collapsible;
-use gpui_kit::component::shimmer::ShimmerText;
 use gpui_kit::component::{ActiveTheme as _, Icon, IconName, Sizable as _, h_flex, v_flex};
-use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
-    App, FontWeight, InteractiveElement as _, IntoElement, ParentElement as _, ScrollHandle,
-    SharedString, StatefulInteractiveElement as _, Styled as _, WeakEntity, Window, div,
-    linear_color_stop, linear_gradient, px, relative, rgba,
+    App, Entity, FontWeight, InteractiveElement as _, IntoElement, ParentElement as _,
+    ScrollHandle, SharedString, StatefulInteractiveElement as _, Styled as _, WeakEntity, Window,
+    div, px, relative, rgba,
 };
 use specular_interact::RunBar;
 
+use super::avatar::ThreadAvatar;
 use crate::theme;
 use crate::view::{ShellView, run};
 
@@ -25,6 +25,8 @@ pub(super) struct RunBarView {
     pub(super) scroll: ScrollHandle,
     /// The view that owns `open`.
     pub(super) view: WeakEntity<ShellView>,
+    /// The thread's avatar, which leads the strip.
+    pub(super) avatar: Option<Entity<ThreadAvatar>>,
 }
 
 fn toggle(view: &WeakEntity<ShellView>, _: &mut Window, cx: &mut App) {
@@ -59,19 +61,20 @@ pub(super) fn run_bar(run_bar: &RunBar, bar: &RunBarView, cx: &App) -> impl Into
     let strip = h_flex()
         .h(px(36.0))
         .w_full()
-        .pl_3()
         .pr_2()
         .gap_1()
         .items_center()
-        // A clip is a rectangle, so the wash rounds its own corners inside
-        // the bar's edge.
-        .rounded_t(px(15.0))
-        .when(!bar.open, |this| this.rounded_b(px(15.0)))
-        .bg(linear_gradient(
-            90.0,
-            linear_color_stop(rgba(theme::wash_from()), 0.0),
-            linear_color_stop(rgba(theme::wash_to()), 1.0),
-        ))
+        // The avatar's picture is wider than the cube at rest, for the
+        // corners to swing out into: the cube lines up with the
+        // transcript's edge and the picture overhangs the row.
+        .children(bar.avatar.clone().map(|avatar| {
+            div()
+                .flex_shrink_0()
+                .my(px(-2.0))
+                .ml(px(-6.0))
+                .mr_1()
+                .child(avatar)
+        }))
         .child(
             div()
                 .id("chat-run-label")
@@ -80,9 +83,8 @@ pub(super) fn run_bar(run_bar: &RunBar, bar: &RunBarView, cx: &App) -> impl Into
                 .cursor_pointer()
                 .on_click(move |_, window, cx| toggle(&by_label, window, cx))
                 .child(
-                    ShimmerText::new(SharedString::from(run_bar.label.clone()))
-                        .id("chat-run-shimmer")
-                        .highlight_color(rgba(theme::label_bright()))
+                    div()
+                        .child(SharedString::from(run_bar.label.clone()))
                         .truncate()
                         .text_size(px(12.0))
                         .font_weight(FontWeight::MEDIUM)
@@ -114,11 +116,6 @@ pub(super) fn run_bar(run_bar: &RunBar, bar: &RunBarView, cx: &App) -> impl Into
         );
     Collapsible::new()
         .open(bar.open)
-        .overflow_hidden()
-        .rounded(px(16.0))
-        .border_1()
-        .border_color(theme::solid(theme::input_border()))
-        .bg(theme::solid(theme::input()))
         .child(strip)
         .content(log(run_bar, bar, cx))
 }

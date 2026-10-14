@@ -23,7 +23,7 @@ use gpui_kit::{
     StyleRefinement, Styled as _, StyledImage as _, div, img, px, relative, rgba,
 };
 use specular_interact::{
-    ArtifactCard, Bubble, ChatModel, RunBar, ThreadId, ThreadRole, Transcript,
+    Action, ArtifactCard, Bubble, ChatAction, ChatModel, RunBar, ThreadId, ThreadRole, Transcript,
 };
 
 use super::artifacts::cards;
@@ -279,10 +279,22 @@ impl ShellView {
         transcript: &Transcript,
         cx: &mut Context<'_, Self>,
     ) -> impl IntoElement + use<> {
-        let rows = rows_of(transcript);
-        let thread = (model.threads.iter())
-            .find(|row| row.active)
-            .map(|row| row.id.clone());
+        let mut rows = rows_of(transcript);
+        let active = (model.threads.iter()).find(|row| row.active);
+        let thread = active.map(|row| row.id.clone());
+        if self.chat.avatars.always_live() && transcript.run.is_none() {
+            // A scripted run cannot start an agent: show the bar it would.
+            rows.push(Row::Run(RunBar {
+                label: "List build folder and Leva files".to_owned(),
+                log: Vec::new(),
+                stop: Action::Chat(ChatAction::Stop),
+            }));
+        }
+        let has_bar = rows.iter().any(|row| matches!(row, Row::Run(_)));
+        let avatar = active.filter(|_| has_bar).map(|row| {
+            let working = model.composer.running;
+            (self.chat.avatars).working(row.id.as_str(), working, cx)
+        });
         self.sync_transcript(thread, &rows, cx);
 
         let rows = Rc::new(rows);
@@ -291,6 +303,7 @@ impl ShellView {
             open: self.chat.log_open,
             scroll: self.chat.log_scroll.clone(),
             view: cx.entity().downgrade(),
+            avatar,
         };
         let scroller = MessageScroller::new(
             "chat-transcript",

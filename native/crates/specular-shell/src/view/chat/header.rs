@@ -109,14 +109,10 @@ impl ShellView {
     /// The header strip: the title, then New, Close and Back. It is the
     /// dock's row carried across the panel, so the two read as one bar.
     pub(super) fn chat_header(
-        &mut self,
+        &self,
         model: &ChatModel,
-        cx: &mut Context<'_, Self>,
+        _cx: &mut Context<'_, Self>,
     ) -> impl IntoElement + use<> {
-        // Over an open thread, its avatar leads the title.
-        let open = (model.transcript.as_ref())
-            .and_then(|_| model.threads.iter().find(|row| row.active))
-            .map(|row| (self.chat.avatars).of(row.id.as_str(), model.composer.running, cx));
         let (new_thread, input) = (model.new_thread.clone(), self.chat.input.clone());
         let actions = h_flex()
             .flex_shrink_0()
@@ -161,8 +157,6 @@ impl ShellView {
                     .w(px(1.0))
                     .bg(theme::solid(theme::toolbar_border())),
             )
-            // The switcher's own inset reaches back over this margin.
-            .children(open.map(|avatar| div().flex_shrink_0().mr(px(8.0)).child(avatar)))
             .child(self.chat_title(model))
             .child(actions)
     }
