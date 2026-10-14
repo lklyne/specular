@@ -7,8 +7,6 @@
 use crate::block::{Block, Value};
 use crate::params::{PrismParams, Shell};
 
-/// Half the camera's view, in world units, at any canvas size.
-const HALF_EXTENT: f32 = 0.7;
 const NEAR: f32 = 0.1;
 const FAR: f32 = 50.0;
 const EYE_Z: f32 = 5.0;
@@ -39,11 +37,12 @@ pub(crate) struct Frame {
     pub(crate) size: f32,
 }
 
-fn projection() -> [[f32; 4]; 4] {
+fn projection(p: &PrismParams) -> [[f32; 4]; 4] {
     let depth = FAR - NEAR;
+    let half = p.camera.half_extent;
     [
-        [1.0 / HALF_EXTENT, 0.0, 0.0, 0.0],
-        [0.0, 1.0 / HALF_EXTENT, 0.0, 0.0],
+        [1.0 / half, 0.0, 0.0, 0.0],
+        [0.0, 1.0 / half, 0.0, 0.0],
         [0.0, 0.0, -1.0 / depth, 0.0],
         [0.0, 0.0, -NEAR / depth, 1.0],
     ]
@@ -80,7 +79,7 @@ fn env_rotation(angle: f32) -> [[f32; 4]; 4] {
 
 /// Group 0 of the card.
 pub(crate) fn card_render(block: &mut Block, p: &PrismParams) {
-    block.set("cameraProjectionMatrix", Value::Mat4(projection()));
+    block.set("cameraProjectionMatrix", Value::Mat4(projection(p)));
     block.set("cameraViewMatrix", Value::Mat4(translation(-EYE_Z)));
     block.set("nodeUniform12", Value::Vec3(p.light.ambient));
 }
@@ -116,8 +115,8 @@ pub(crate) fn card_object(block: &mut Block, colors: &mut Block, p: &PrismParams
 }
 
 /// The camera members both shells' group 0 share.
-fn shell_camera(block: &mut Block) {
-    block.set("cameraProjectionMatrix", Value::Mat4(projection()));
+fn shell_camera(block: &mut Block, p: &PrismParams) {
+    block.set("cameraProjectionMatrix", Value::Mat4(projection(p)));
     block.set("cameraViewMatrix", Value::Mat4(translation(-EYE_Z)));
     block.set("cameraWorldMatrix", Value::Mat4(translation(EYE_Z)));
     block.set("cameraPosition", Value::Vec3([0.0, 0.0, EYE_Z]));
@@ -125,7 +124,7 @@ fn shell_camera(block: &mut Block) {
 
 /// Group 0 of the liquid.
 pub(crate) fn liquid_render(block: &mut Block, p: &PrismParams, f: Frame) {
-    shell_camera(block);
+    shell_camera(block, p);
     block.set("nodeUniform20", Value::Vec3(p.light.color));
     block.set("nodeUniform21", Value::Vec3(p.light.ambient));
     block.set("nodeUniform18", Value::Vec3(p.light_position(f.t)));
@@ -136,7 +135,7 @@ pub(crate) fn liquid_render(block: &mut Block, p: &PrismParams, f: Frame) {
 
 /// Group 0 of the glass.
 pub(crate) fn glass_render(block: &mut Block, p: &PrismParams, f: Frame) {
-    shell_camera(block);
+    shell_camera(block, p);
     let light = p.light_position(f.t);
     block.set("nodeUniform23", Value::F32(f.t));
     block.set("nodeUniform34", Value::Vec3(p.light.color));

@@ -14,10 +14,9 @@ const PMREM_SIZE: (u32, u32) = (336, 256);
 const DFG: &[u8] = include_bytes!("../assets/dfg-lut-mip0.16x16.rg16f");
 const DFG_SIZE: u32 = 16;
 
-/// The edge of the unit shell and its subdivision, as the build makes it.
+/// The edge of the unit shell and its roundness, as the build makes it.
 const SHELL_SIZE: f64 = 1.2;
 const SHELL_SQUIRCLENESS: f64 = 4.0;
-const SHELL_SEGMENTS: u32 = 80;
 const CARD_SEGMENTS: u32 = 256;
 
 /// The full-screen triangle's UVs; three's post passes put `uv.y = 0` at
@@ -95,7 +94,12 @@ impl Resources {
         clippy::too_many_lines,
         reason = "one descriptor per resource, read top to bottom"
     )]
-    pub(crate) fn new(device: &wgpu::Device, queue: &wgpu::Queue, params: &PrismParams) -> Self {
+    pub(crate) fn new(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        params: &PrismParams,
+        shell_segments: u32,
+    ) -> Self {
         let vertex = wgpu::BufferUsages::VERTEX;
         let index = wgpu::BufferUsages::INDEX;
         let card = geometry::card(
@@ -103,7 +107,7 @@ impl Resources {
             f64::from(params.gradient.squircleness),
             CARD_SEGMENTS,
         );
-        let shell = geometry::shell(SHELL_SIZE, SHELL_SQUIRCLENESS, SHELL_SEGMENTS);
+        let shell = geometry::shell(SHELL_SIZE, SHELL_SQUIRCLENESS, shell_segments);
         let sampler = |label, address, mipmap| {
             device.create_sampler(&wgpu::SamplerDescriptor {
                 label: Some(label),

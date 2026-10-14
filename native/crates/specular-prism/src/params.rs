@@ -27,6 +27,8 @@ pub struct PrismParams {
     pub grade: Grade,
     /// Where the composite cuts the shape out of the scene's alpha.
     pub coverage: Coverage,
+    /// How much of the world the frame shows.
+    pub camera: Camera,
 }
 
 /// The gradient card.
@@ -198,6 +200,15 @@ pub struct Coverage {
     pub softness: f32,
 }
 
+/// The orthographic camera looking down -Z at the shells.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Camera {
+    /// Half the frame's edge in world units. The web build shows 0.7, where
+    /// the glass (half-edge 0.39) fills the middle 55%; about 0.4 fills the
+    /// frame with the shape.
+    pub half_extent: f32,
+}
+
 impl Default for PrismParams {
     #[expect(clippy::too_many_lines, reason = "one table of the preset's values")]
     fn default() -> Self {
@@ -316,6 +327,7 @@ impl Default for PrismParams {
                 threshold: 0.55,
                 softness: 0.04,
             },
+            camera: Camera { half_extent: 0.7 },
         }
     }
 }

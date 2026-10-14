@@ -27,13 +27,16 @@ mod targets;
 mod uniforms;
 
 pub use params::{
-    Coverage, Environment, Grade, Gradient, Highlight, Light, PrismParams, Rim, Shell,
+    Camera, Coverage, Environment, Grade, Gradient, Highlight, Light, PrismParams, Rim, Shell,
 };
 
 use pipelines::Pipelines;
 use resources::Resources;
 use targets::{Targets, Uniforms};
 use uniforms::Frame;
+
+/// The web build's shell subdivision.
+pub const SHELL_SEGMENTS: u32 = 80;
 
 /// How the output's colour relates to its alpha.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -58,6 +61,10 @@ pub struct PrismOptions {
     pub format: wgpu::TextureFormat,
     /// Whether the output's colour is premultiplied.
     pub alpha: Alpha,
+    /// Subdivisions per side of each face of the shells' rounded box. The
+    /// web build's 80 matters only at large sizes; at avatar sizes 24 looks
+    /// the same and draws a tenth of the triangles.
+    pub shell_segments: u32,
 }
 
 impl PrismOptions {
@@ -68,6 +75,7 @@ impl PrismOptions {
             supersample,
             format: wgpu::TextureFormat::Rgba8Unorm,
             alpha: Alpha::Premultiplied,
+            shell_segments: SHELL_SEGMENTS,
         }
     }
 }
@@ -109,11 +117,12 @@ impl PrismRenderer {
         let options = PrismOptions {
             size: options.size.max(1),
             supersample: options.supersample.max(1),
+            shell_segments: options.shell_segments.max(1),
             ..options
         };
         let params = PrismParams::default();
         let pipelines = Pipelines::new(device, options.format);
-        let resources = Resources::new(device, queue, &params);
+        let resources = Resources::new(device, queue, &params, options.shell_segments);
         let uniforms = Uniforms::new(device);
         let targets = Targets::new(
             device,
