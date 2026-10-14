@@ -2,10 +2,11 @@
 //! turn toward a target, and every second or two a burst moves the target
 //! and kicks it, so it snaps round with an overshoot and settles.
 //!
-//! Every target is a turn that maps the cube onto itself (a quarter or half
-//! turn about a face's axis, a third of a turn about a corner's), so
-//! wherever it comes to rest it looks like the still avatar, and stopping
-//! never needs a jump back.
+//! Every target is a turn that maps the cube onto itself, so wherever it
+//! comes to rest it looks like the still avatar, and stopping never needs
+//! a jump back. Most are about a diagonal axis (a third of a turn about a
+//! corner's, a half turn about an edge's), so it tumbles across several
+//! axes at once; a flat quarter turn about a face's axis is rare.
 //!
 //! The motion steps at a fixed rate, so it is the same at any frame rate,
 //! and the bursts come from a generator seeded by the thread, so each
@@ -160,9 +161,9 @@ impl Tumble {
     fn burst(&mut self) {
         let symmetry = SYMMETRIES[self.random.below(SYMMETRIES.len())];
         let axis = self.random.direction();
-        // The turn is about a screen axis (x tips it, z spins it in place),
-        // and the cube at rest is square to the screen, so the new target
-        // is still one of the cube's own turns.
+        // The turn is about a screen axis, and the cube at rest is square
+        // to the screen, so the new target is still one of the cube's own
+        // turns.
         self.target = Quat::about(axis_of(symmetry.0, &mut self.random), symmetry.1)
             .mul(self.target)
             .normalized();
@@ -187,18 +188,23 @@ fn spring(frequency: f32, damping: f32) -> (f32, f32) {
 enum Axis {
     /// Through the middle of two opposite faces.
     Face,
+    /// Through the middle of two opposite edges.
+    Edge,
     /// Through two opposite corners.
     Corner,
 }
 
-/// The turns a burst picks from, with how far they go. Quarter turns come
-/// twice, as they read best.
-const SYMMETRIES: [(Axis, f32); 5] = [
-    (Axis::Face, FRAC_PI_2),
-    (Axis::Face, FRAC_PI_2),
-    (Axis::Face, -FRAC_PI_2),
-    (Axis::Face, PI),
+/// The turns a burst picks from, with how far they go, weighted by how
+/// often they come: one in eight is about a single axis.
+const SYMMETRIES: [(Axis, f32); 8] = [
     (Axis::Corner, 2.0 * PI / 3.0),
+    (Axis::Corner, 2.0 * PI / 3.0),
+    (Axis::Corner, -2.0 * PI / 3.0),
+    (Axis::Corner, -2.0 * PI / 3.0),
+    (Axis::Edge, PI),
+    (Axis::Edge, PI),
+    (Axis::Edge, PI),
+    (Axis::Face, FRAC_PI_2),
 ];
 
 /// A random axis of `kind`, as the cube sits at rest.
@@ -209,10 +215,15 @@ fn axis_of(kind: Axis, random: &mut Random) -> [f32; 3] {
             axis[random.below(3)] = 1.0;
             axis
         }
+        Axis::Edge => {
+            let d = std::f32::consts::FRAC_1_SQRT_2;
+            let mut axis = [d, d, d];
+            axis[random.below(3)] = 0.0;
+            axis.map(|x| x * random.sign())
+        }
         Axis::Corner => {
-            let sign = |random: &mut Random| if random.below(2) == 0 { 1.0 } else { -1.0 };
             let d = 1.0 / 3.0_f32.sqrt();
-            [sign(random) * d, sign(random) * d, sign(random) * d]
+            [d, d, d].map(|x| x * random.sign())
         }
     }
 }
@@ -309,6 +320,10 @@ impl Random {
         (self.next() % n as u64) as usize
     }
 
+    fn sign(&mut self) -> f32 {
+        if self.below(2) == 0 { 1.0 } else { -1.0 }
+    }
+
     /// A unit vector, evenly over the sphere.
     fn direction(&mut self) -> [f32; 3] {
         let z = self.between((-1.0, 1.0));
@@ -362,6 +377,27 @@ mod tests {
         for gap in a.windows(2).map(|w| w[1] - w[0]) {
             assert!((0.89..=2.01).contains(&gap), "gap {gap} in {a:?}");
         }
+    }
+
+    #[test]
+    fn most_bursts_turn_about_a_diagonal_axis() {
+        let (mut bursts, mut flat) = (0, 0);
+        for seed in 0..20 {
+            let mut tumble = Tumble::new(seed);
+            for _ in 0..240 * 60 {
+                let before = tumble.target;
+                if tumble.step(true) {
+                    let turn = tumble.target.mul(before.conjugate()).log();
+                    let largest = turn.iter().fold(0.0_f32, |m, x| m.max(x.abs()));
+                    bursts += 1;
+                    if largest / length(turn) > 0.99 {
+                        flat += 1;
+                    }
+                }
+            }
+        }
+        assert!(bursts > 500, "{bursts}");
+        assert!(flat * 5 < bursts, "{flat} of {bursts} about one axis");
     }
 
     #[test]
