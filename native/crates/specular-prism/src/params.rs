@@ -1,8 +1,8 @@
 //! The Prism preset: every value the web build feeds its shaders, by name.
 //!
 //! Defaults are the values three uploaded for the Prism tab with every
-//! control at its default (`reference/uniforms/f0240.json`). Colours are
-//! linear, as the shaders take them.
+//! control at its default (the capture's `uniforms/f0240.json`, ADR 0047).
+//! Colours are linear, as the shaders take them.
 
 use std::f32::consts::PI;
 

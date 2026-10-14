@@ -9,7 +9,7 @@
 //! at `SIZE` pixels (default 40, a 20 pt slot at 2x) with straight alpha,
 //! laid over a light and a dark panel colour and blown up 8x, nearest. The
 //! first row is the web build's frame, Lanczos-downscaled to the same
-//! framing, when `.prism-work/reference` is on disk.
+//! framing, when `SPECULAR_PRISM_REFERENCE` names its capture (ADR 0047).
 
 use std::path::{Path, PathBuf};
 
@@ -42,10 +42,11 @@ fn main() -> Result<()> {
     let (device, queue) = pollster::block_on(gpu())?;
 
     let mut rows: Vec<Vec<RgbaImage>> = Vec::new();
-    let reference = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../../.prism-work/reference/shots/f0240-1024-alpha.png");
-    if let Ok(full) = image::open(&reference) {
-        let full = full.to_rgba8();
+    if let Some(capture) = std::env::var_os("SPECULAR_PRISM_REFERENCE") {
+        let reference = Path::new(&capture).join("shots/f0240-1024-alpha.png");
+        let full = image::open(&reference)
+            .with_context(|| format!("reading {}", reference.display()))?
+            .to_rgba8();
         let crop = (full.width() as f32 * 0.40 / WEB_HALF_EXTENT).round() as u32;
         let at = (full.width() - crop) / 2;
         let cut = imageops::crop_imm(&full, at, at, crop, crop).to_image();

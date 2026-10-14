@@ -2,12 +2,11 @@
 //! of the web build.
 //!
 //! ```sh
-//! cargo run -p specular-prism --example parity [REFERENCE_DIR] [OUT_DIR]
+//! cargo run -p specular-prism --example parity -- REFERENCE_DIR OUT_DIR
 //! ```
 //!
-//! `REFERENCE_DIR` defaults to the capture in `.prism-work/reference` at the
-//! repository root, and `OUT_DIR` to `.prism-work/parity/<unix time>`. It
-//! prints the max and mean absolute difference per pass (in 1/255 steps)
+//! `REFERENCE_DIR` is the capture of the web build (ADR 0047): its
+//! `uniform-bytes/`, `pass-outputs/` and `shots/`. It prints the max and mean absolute difference per pass (in 1/255 steps)
 //! and writes `<frame>-<pass>.png` (reference | ours | diff x8) for each.
 
 use std::path::{Path, PathBuf};
@@ -40,17 +39,16 @@ struct Image {
 }
 
 fn main() -> Result<()> {
+    const USAGE: &str = "usage: parity REFERENCE_DIR OUT_DIR";
     let mut args = std::env::args().skip(1);
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../.prism-work");
-    let reference = args
-        .next()
-        .map_or_else(|| root.join("reference"), PathBuf::from);
-    let stamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)?
-        .as_secs();
-    let out = args
-        .next()
-        .map_or_else(|| root.join(format!("parity/{stamp}")), PathBuf::from);
+    let reference = PathBuf::from(args.next().context(USAGE)?);
+    let out = PathBuf::from(args.next().context(USAGE)?);
+    if !reference.join("pass-outputs").is_dir() {
+        bail!(
+            "{} holds no pass-outputs/: it is not a capture of the web build",
+            reference.display()
+        );
+    }
     std::fs::create_dir_all(&out)?;
     let gpu = pollster::block_on(gpu())?;
 

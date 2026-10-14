@@ -6,8 +6,9 @@
 //!
 //! Submits each frame on its own and waits for the last, so the first
 //! figure is the per-frame cost when frames queue back to back. The second
-//! submits them all at once, which leaves mostly the GPU's own work. Debug build: the CPU
-//! side is slower than in release, the GPU side is the same.
+//! submits them all at once, which leaves mostly the GPU's own work. In a
+//! debug build the CPU side is slower than in release; the GPU side is the
+//! same.
 
 use std::time::Instant;
 

@@ -156,11 +156,6 @@ impl PrismRenderer {
         &mut self.params
     }
 
-    /// The output texture, as of the last render.
-    pub fn output(&self) -> &wgpu::Texture {
-        &self.targets.output
-    }
-
     /// Records the frame `t` seconds in and returns the output texture.
     pub fn render(
         &mut self,

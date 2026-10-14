@@ -1,5 +1,6 @@
 //! The five render pipelines, with the state the web build's pipelines had
-//! (`reference/pipelines/*.json`). Layouts are derived from the shaders.
+//! (the capture's `pipelines/*.json`, ADR 0047). Layouts are derived from
+//! the shaders.
 
 /// Three's generated WGSL, as dumped from the web build.
 pub(crate) mod source {

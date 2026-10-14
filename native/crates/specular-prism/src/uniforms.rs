@@ -1,8 +1,8 @@
 //! Fills each pass's uniform blocks from [`PrismParams`] and the time.
 //!
 //! The member names are three's (`nodeUniformN`); this file is the one
-//! place that knows which is which. `reference/passes.md` lists the same
-//! mapping as the capture decoded it.
+//! place that knows which is which. The capture's `passes.md` (ADR 0047)
+//! lists the same mapping as the capture decoded it.
 
 use crate::block::{Block, Value};
 use crate::params::{PrismParams, Shell};

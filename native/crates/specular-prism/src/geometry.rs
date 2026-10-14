@@ -124,14 +124,17 @@ mod tests {
             .map(|b| bytemuck::pod_collect_to_vec(&b))
     }
 
-    /// Against the web build's own buffers, when the capture is on disk.
+    /// Against the web build's own buffers, when `SPECULAR_PRISM_REFERENCE`
+    /// names its capture (ADR 0047).
     #[test]
     fn meshes_match_the_captured_buffers() {
-        let dir =
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../.prism-work/reference/geometry");
-        let Some(positions) = floats(&dir.join("02-ShellGlass-slot0.f32")) else {
+        let Some(capture) = std::env::var_os("SPECULAR_PRISM_REFERENCE") else {
+            eprintln!("skipped: SPECULAR_PRISM_REFERENCE is not set");
             return;
         };
+        let dir = Path::new(&capture).join("geometry");
+        let positions = floats(&dir.join("02-ShellGlass-slot0.f32"))
+            .unwrap_or_else(|| panic!("{} holds no captured geometry", dir.display()));
         let shell = shell(1.2, 4.0, 80);
         let normals = floats(&dir.join("02-ShellGlass-slot1.f32")).unwrap();
         let indices: Vec<u32> = bytemuck::pod_collect_to_vec(
