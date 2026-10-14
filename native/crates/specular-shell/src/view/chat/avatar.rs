@@ -13,8 +13,9 @@
 //! rather than at the display's.
 //!
 //! A thread shows its avatar beside its row in the list ([`Kind::Thread`]),
-//! and, larger and tumbling, leading the run bar while its agent works
-//! ([`Kind::Working`]).
+//! and, larger, at the end of its open transcript ([`Kind::Working`]): at
+//! rest while the agent waits, tumbling at the head of the run bar while it
+//! works.
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -53,7 +54,7 @@ const VARIETY: f32 = 30.0;
 pub(super) enum Kind {
     /// Beside a thread's row in the list.
     Thread,
-    /// In the run bar, tumbling while the agent works.
+    /// At the end of the open transcript, tumbling while the agent works.
     Working,
 }
 
@@ -112,7 +113,7 @@ impl Avatars {
         self.get(Kind::Thread, key, working, cx)
     }
 
-    /// The run bar's avatar of the thread `key`, tumbling while `working`.
+    /// The transcript's avatar of the thread `key`, tumbling while `working`.
     pub(super) fn working(
         &mut self,
         key: &str,

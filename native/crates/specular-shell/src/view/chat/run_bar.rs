@@ -1,14 +1,15 @@
-//! The run bar: one row that says what the agent is doing now, led by the
-//! thread's tumbling avatar, with a stop button, and opens to the run's
-//! log (`AgentRunBar.tsx`).
+//! The agent's row at the end of the transcript: the thread's avatar, at
+//! rest, or tumbling at the head of the run bar, which says what the agent
+//! is doing now, has a stop button, and opens to the run's log
+//! (`AgentRunBar.tsx`).
 
 use gpui_kit::component::button::{Button, ButtonVariants as _};
 use gpui_kit::component::collapsible::Collapsible;
 use gpui_kit::component::{ActiveTheme as _, Icon, IconName, Sizable as _, h_flex, v_flex};
 use gpui_kit::{
-    App, Entity, FontWeight, InteractiveElement as _, IntoElement, ParentElement as _,
-    ScrollHandle, SharedString, StatefulInteractiveElement as _, Styled as _, WeakEntity, Window,
-    div, px, relative, rgba,
+    AnyElement, App, Div, Entity, FontWeight, InteractiveElement as _, IntoElement,
+    ParentElement as _, ScrollHandle, SharedString, StatefulInteractiveElement as _, Styled as _,
+    WeakEntity, Window, div, px, relative, rgba,
 };
 use specular_interact::RunBar;
 
@@ -54,11 +55,10 @@ fn log(run: &RunBar, bar: &RunBarView, cx: &App) -> impl IntoElement + use<> {
         )
 }
 
-/// The bar for `run`.
-pub(super) fn run_bar(run_bar: &RunBar, bar: &RunBarView, cx: &App) -> impl IntoElement + use<> {
-    let stop = run_bar.stop.clone();
-    let (by_label, by_chevron) = (bar.view.clone(), bar.view.clone());
-    let strip = h_flex()
+/// The row led by the avatar, the same whether the agent works or not, so
+/// the cube holds still in place as a run starts and ends.
+fn strip(bar: &RunBarView) -> Div {
+    h_flex()
         .h(px(36.0))
         .w_full()
         .pr_2()
@@ -75,6 +75,21 @@ pub(super) fn run_bar(run_bar: &RunBar, bar: &RunBarView, cx: &App) -> impl Into
                 .mr_1()
                 .child(avatar)
         }))
+}
+
+/// The agent's row: the avatar alone while it waits, and the bar for `run`
+/// while it works.
+pub(super) fn agent_row(run: Option<&RunBar>, bar: &RunBarView, cx: &App) -> AnyElement {
+    match run {
+        Some(run) => run_bar(run, bar, cx).into_any_element(),
+        None => strip(bar).into_any_element(),
+    }
+}
+
+fn run_bar(run_bar: &RunBar, bar: &RunBarView, cx: &App) -> impl IntoElement + use<> {
+    let stop = run_bar.stop.clone();
+    let (by_label, by_chevron) = (bar.view.clone(), bar.view.clone());
+    let strip = strip(bar)
         .child(
             div()
                 .id("chat-run-label")

@@ -2,7 +2,8 @@
 //! `CommentBubble` in `CommentPrimitives.tsx`.
 //!
 //! The rows are the sent messages, then what the agent has said so far this
-//! run, then the run bar, then the last run's error or the empty hint. They
+//! run, then the last run's error or the empty hint, then the agent's row:
+//! its avatar, at rest or tumbling at the head of the run bar. They
 //! sit in the Kit's `MessageScroller`, which follows the end as rows arrive
 //! and grow unless the reader has scrolled up.
 
@@ -27,7 +28,7 @@ use specular_interact::{
 };
 
 use super::artifacts::cards;
-use super::run_bar::{RunBarView, run_bar};
+use super::run_bar::{RunBarView, agent_row};
 use crate::theme;
 use crate::view::{ShellView, run};
 
@@ -46,9 +47,10 @@ enum Row {
     Message(Bubble),
     Streaming(String),
     Making(Vec<ArtifactCard>),
-    Run(RunBar),
     Error(String),
     Hint(String),
+    /// The agent's row, with the run's bar while it works.
+    Agent(Option<RunBar>),
 }
 
 fn rows_of(transcript: &Transcript) -> Vec<Row> {
@@ -59,9 +61,10 @@ fn rows_of(transcript: &Transcript) -> Vec<Row> {
     if !transcript.making.is_empty() {
         rows.push(Row::Making(transcript.making.clone()));
     }
-    rows.extend(transcript.run.clone().map(Row::Run));
     rows.extend(transcript.error.clone().map(Row::Error));
     rows.extend(transcript.empty_hint.clone().map(Row::Hint));
+    // Last, so the avatar keeps its row as a run starts and ends.
+    rows.push(Row::Agent(transcript.run.clone()));
     rows
 }
 
@@ -74,7 +77,12 @@ fn signature(row: &Row, log_open: bool) -> u64 {
             (0, &bubble.id, &bubble.text, bubble.images.len(), cards).hash(&mut hasher);
         }
         Row::Streaming(text) => (1, text).hash(&mut hasher),
-        Row::Run(run) => (2, &run.label, log_open.then_some(&run.log)).hash(&mut hasher),
+        Row::Agent(run) => {
+            let run = run
+                .as_ref()
+                .map(|run| (&run.label, log_open.then_some(&run.log)));
+            (2, run).hash(&mut hasher);
+        }
         Row::Error(text) => (3, text).hash(&mut hasher),
         Row::Hint(text) => (4, text).hash(&mut hasher),
         Row::Making(cards) => (5, cards.len()).hash(&mut hasher),
@@ -238,7 +246,7 @@ impl ShellView {
         shown.rows = signatures;
 
         let log = rows.iter().find_map(|row| match row {
-            Row::Run(run) => Some(run.log.len()),
+            Row::Agent(run) => run.as_ref().map(|run| run.log.len()),
             Row::Message(_) | Row::Streaming(_) | Row::Making(_) | Row::Error(_) | Row::Hint(_) => {
                 None
             }
@@ -253,7 +261,7 @@ impl ShellView {
             Row::Message(_)
             | Row::Streaming(_)
             | Row::Making(_)
-            | Row::Run(_)
+            | Row::Agent(_)
             | Row::Error(_)
             | Row::Hint(_) => None,
         });
@@ -282,16 +290,17 @@ impl ShellView {
         let mut rows = rows_of(transcript);
         let active = (model.threads.iter()).find(|row| row.active);
         let thread = active.map(|row| row.id.clone());
-        if self.chat.avatars.always_live() && transcript.run.is_none() {
+        if let Some(Row::Agent(run @ None)) = rows.last_mut()
+            && self.chat.avatars.always_live()
+        {
             // A scripted run cannot start an agent: show the bar it would.
-            rows.push(Row::Run(RunBar {
+            *run = Some(RunBar {
                 label: "List build folder and Leva files".to_owned(),
                 log: Vec::new(),
                 stop: Action::Chat(ChatAction::Stop),
-            }));
+            });
         }
-        let has_bar = rows.iter().any(|row| matches!(row, Row::Run(_)));
-        let avatar = active.filter(|_| has_bar).map(|row| {
+        let avatar = active.map(|row| {
             let working = model.composer.running;
             (self.chat.avatars).working(row.id.as_str(), working, cx)
         });
@@ -327,7 +336,7 @@ impl ShellView {
                 },
                 Some(Row::Streaming(text)) => agent_text("chat-streaming".into(), text),
                 Some(Row::Making(made)) => cards("run", made).into_any_element(),
-                Some(Row::Run(run)) => run_bar(run, &bar, cx).into_any_element(),
+                Some(Row::Agent(run)) => agent_row(run.as_ref(), &bar, cx),
                 Some(Row::Error(text)) => note(text, theme::solid(theme::error())),
                 Some(Row::Hint(text)) => note(text, theme::tinted(theme::text_muted())),
                 None => div().into_any_element(),
