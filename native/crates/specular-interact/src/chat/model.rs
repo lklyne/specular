@@ -45,6 +45,8 @@ pub struct ThreadRow {
     pub draft: bool,
     /// Whether it is the open one.
     pub active: bool,
+    /// Whether its agent is working.
+    pub running: bool,
     /// When it last changed, ISO 8601.
     pub updated_at: String,
     /// Opens it.

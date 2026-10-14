@@ -7825,6 +7825,7 @@ dependencies = [
  "glam",
  "gpui-kit",
  "gpui-pre",
+ "image",
  "objc2 0.6.4",
  "objc2-core-foundation",
  "objc2-foundation 0.3.2",

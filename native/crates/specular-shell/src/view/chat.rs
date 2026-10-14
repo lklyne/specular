@@ -13,6 +13,7 @@
 //! panel's edge.
 
 mod artifacts;
+mod avatar;
 mod chips;
 mod composer;
 mod date;
@@ -146,7 +147,7 @@ impl ShellView {
         }
         let body = match &model.transcript {
             Some(transcript) => self.transcript(model, transcript, cx).into_any_element(),
-            None => self.thread_list(model, cx).into_any_element(),
+            None => self.thread_list(model, window, cx).into_any_element(),
         };
         Some(
             v_flex()
@@ -159,7 +160,7 @@ impl ShellView {
                 .bg(theme::solid(theme::panel()))
                 .border_l_1()
                 .border_color(theme::solid(theme::chrome_border()))
-                .child(self.chat_header(model, cx))
+                .child(self.chat_header(model, window, cx))
                 .child(body)
                 .child(self.composer(&model.composer, window, cx)),
         )

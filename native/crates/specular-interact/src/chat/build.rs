@@ -27,6 +27,7 @@ pub fn chat(app: &App) -> ChatModel {
             title: thread.title.clone(),
             draft: thread.status == Status::Draft,
             active: active.is_some_and(|open| open.id == thread.id),
+            running: app.threads.is_running(&thread.id),
             updated_at: thread.updated_at.clone(),
             select: act(ChatAction::SelectThread(thread.id.clone())),
             close: act(ChatAction::CloseThread(Some(thread.id.clone()))),

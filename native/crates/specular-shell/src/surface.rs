@@ -151,6 +151,14 @@ impl CanvasSurface {
         })
     }
 
+    /// The compositor's device, which the thread avatars draw on too.
+    pub(crate) fn gpu(&self) -> crate::avatar::Gpu {
+        crate::avatar::Gpu {
+            device: self.context.device.clone(),
+            queue: self.context.queue.clone(),
+        }
+    }
+
     /// The native view and window.
     pub(crate) fn native(&self) -> &NativeCanvas {
         &self.native

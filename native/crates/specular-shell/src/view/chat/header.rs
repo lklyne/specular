@@ -12,10 +12,12 @@ use gpui_kit::component::{Icon, IconName, Sizable as _, h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
     AnyElement, Context, Entity, FontWeight, InteractiveElement as _, IntoElement,
-    ParentElement as _, SharedString, StatefulInteractiveElement as _, Styled as _, div, px,
+    ParentElement as _, SharedString, StatefulInteractiveElement as _, Styled as _, Window, div,
+    px,
 };
 use specular_interact::{Action, ChatModel, ThreadRow};
 
+use super::avatar::{keep_only, thread_avatar};
 use super::date::short_date;
 use super::run_keeping_field;
 use crate::assets::ShellIcon;
@@ -109,8 +111,13 @@ impl ShellView {
     pub(super) fn chat_header(
         &self,
         model: &ChatModel,
+        window: &mut Window,
         _cx: &mut Context<'_, Self>,
     ) -> impl IntoElement + use<> {
+        // Over an open thread, its avatar leads the title.
+        let open = (model.transcript.as_ref())
+            .and_then(|_| model.threads.iter().find(|row| row.active))
+            .map(|row| thread_avatar(row.id.as_str(), model.composer.running, window));
         let (new_thread, input) = (model.new_thread.clone(), self.chat.input.clone());
         let actions = h_flex()
             .flex_shrink_0()
@@ -155,11 +162,13 @@ impl ShellView {
                     .w(px(1.0))
                     .bg(theme::solid(theme::toolbar_border())),
             )
+            // The switcher's own inset reaches back over this margin.
+            .children(open.map(|avatar| div().flex_shrink_0().mr(px(8.0)).child(avatar)))
             .child(self.chat_title(model))
             .child(actions)
     }
 
-    fn thread_row(&self, row: &ThreadRow) -> AnyElement {
+    fn thread_row(&self, row: &ThreadRow, window: &mut Window) -> AnyElement {
         let (select, input) = (row.select.clone(), self.chat.input.clone());
         let close = row.close.clone();
         let id = SharedString::from(format!("chat-thread-{}", row.id.as_str()));
@@ -178,6 +187,7 @@ impl ShellView {
                     run_keeping_field(&select, &input, window, cx);
                 }
             })
+            .child(thread_avatar(row.id.as_str(), row.running, window))
             .child(
                 div()
                     .flex_1()
@@ -212,10 +222,12 @@ impl ShellView {
     pub(super) fn thread_list(
         &self,
         model: &ChatModel,
+        window: &mut Window,
         _cx: &mut Context<'_, Self>,
     ) -> impl IntoElement + use<> {
+        keep_only(model.threads.iter().map(|row| row.id.as_str()), window);
         let rows: Vec<AnyElement> = (model.threads.iter())
-            .map(|row| self.thread_row(row))
+            .map(|row| self.thread_row(row, window))
             .collect();
         v_flex()
             .id("chat-threads-list")
