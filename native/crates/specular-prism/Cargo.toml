@@ -1,0 +1,20 @@
+[package]
+name = "specular-prism"
+description = "wgpu renderer for the Prism avatar: a gradient card inside liquid and glass shells, ported from the three.js build."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+bytemuck = { workspace = true }
+wgpu = { workspace = true }
+
+[dev-dependencies]
+anyhow = { workspace = true }
+image = { workspace = true }
+pollster = { workspace = true }
+
+[lints]
+workspace = true
