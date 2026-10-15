@@ -132,6 +132,11 @@ impl Launch {
         source_select::create_source(self.run.source, Host::Window, self.profile.as_deref())
     }
 
+    /// Whether the window opens on the first-run view, with no space.
+    pub fn asks_for_space(&self) -> bool {
+        self.ask.is_some()
+    }
+
     /// The window size asked for, in logical pixels.
     pub fn window_size(&self) -> Option<(u32, u32)> {
         self.run.window
