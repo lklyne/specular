@@ -12,10 +12,12 @@ use gpui_kit::component::{Icon, IconName, Sizable as _, h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
     AnyElement, Context, Entity, FontWeight, InteractiveElement as _, IntoElement,
-    ParentElement as _, SharedString, StatefulInteractiveElement as _, Styled as _, div, px,
+    ParentElement as _, SharedString, StatefulInteractiveElement as _, Styled as _, Window, div,
+    px,
 };
 use specular_interact::{Action, ChatModel, ThreadRow};
 
+use super::avatar::ThreadAvatar;
 use super::date::short_date;
 use super::run_keeping_field;
 use crate::assets::ShellIcon;
@@ -159,7 +161,7 @@ impl ShellView {
             .child(actions)
     }
 
-    fn thread_row(&self, row: &ThreadRow) -> AnyElement {
+    fn thread_row(&self, row: &ThreadRow, avatar: Entity<ThreadAvatar>) -> AnyElement {
         let (select, input) = (row.select.clone(), self.chat.input.clone());
         let close = row.close.clone();
         let id = SharedString::from(format!("chat-thread-{}", row.id.as_str()));
@@ -178,6 +180,7 @@ impl ShellView {
                     run_keeping_field(&select, &input, window, cx);
                 }
             })
+            .child(avatar)
             .child(
                 div()
                     .flex_1()
@@ -210,12 +213,18 @@ impl ShellView {
 
     /// The canvas's threads, newest first, when none is open.
     pub(super) fn thread_list(
-        &self,
+        &mut self,
         model: &ChatModel,
-        _cx: &mut Context<'_, Self>,
+        window: &mut Window,
+        cx: &mut Context<'_, Self>,
     ) -> impl IntoElement + use<> {
-        let rows: Vec<AnyElement> = (model.threads.iter())
-            .map(|row| self.thread_row(row))
+        let avatars = &mut self.chat.avatars;
+        avatars.keep_only(model.threads.iter().map(|row| row.id.as_str()), window, cx);
+        let shown: Vec<Entity<ThreadAvatar>> = (model.threads.iter())
+            .map(|row| avatars.of(row.id.as_str(), row.running, cx))
+            .collect();
+        let rows: Vec<AnyElement> = (model.threads.iter().zip(shown))
+            .map(|(row, avatar)| self.thread_row(row, avatar))
             .collect();
         v_flex()
             .id("chat-threads-list")

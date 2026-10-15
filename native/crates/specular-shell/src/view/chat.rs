@@ -13,6 +13,7 @@
 //! panel's edge.
 
 mod artifacts;
+mod avatar;
 mod chips;
 mod composer;
 mod date;
@@ -65,6 +66,8 @@ pub(super) struct ChatUi {
     draft: Option<String>,
     /// The hint the field was last given.
     placeholder: String,
+    /// Each thread's avatar.
+    avatars: avatar::Avatars,
 }
 
 impl ChatUi {
@@ -98,6 +101,7 @@ impl ChatUi {
             resizing: Rc::new(Cell::new(false)),
             draft: None,
             placeholder: String::new(),
+            avatars: avatar::Avatars::new(),
         }
     }
 }
@@ -146,7 +150,7 @@ impl ShellView {
         }
         let body = match &model.transcript {
             Some(transcript) => self.transcript(model, transcript, cx).into_any_element(),
-            None => self.thread_list(model, cx).into_any_element(),
+            None => self.thread_list(model, window, cx).into_any_element(),
         };
         Some(
             v_flex()

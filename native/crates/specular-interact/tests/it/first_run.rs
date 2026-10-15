@@ -23,30 +23,37 @@ fn labels(model: &OnboardingModel) -> Vec<(&str, bool)> {
 }
 
 #[test]
-fn a_first_run_explains_a_space_and_offers_to_make_or_open_one_and_never_picks() {
+fn a_first_run_welcomes_and_offers_a_folder_or_the_existing_space_and_never_picks() {
     assert_eq!(onboarding(TestApp::empty().app()), None);
 
     let app = asked(SpaceAsk::default());
     let model = onboarding(app.app()).unwrap();
     assert_eq!(model.title, "Welcome to Specular");
-    assert!(model.body[0].starts_with("A space is a folder on your computer."));
     assert_eq!(
-        labels(&model),
-        [
-            ("Create a new space\u{2026}", true),
-            ("Open an existing folder\u{2026}", false),
-        ]
+        model.body,
+        ["The browser whiteboard for designing and building with agents."]
     );
+    assert_eq!(labels(&model), [("Choose folder", true)]);
+    assert_eq!(model.note, None);
 
-    // The Electron app's folder is a third choice, named, and not taken.
+    // The Electron app's folder leads, named, and is not taken.
     let mut app = asked(SpaceAsk {
         missing: None,
         electron: Some(ELECTRON.to_owned()),
     });
     let model = onboarding(app.app()).unwrap();
-    assert_eq!(model.choices.len(), 3);
-    assert_eq!(model.choices[2].label, "Use the space from Specular");
-    assert!(model.choices[2].detail.contains(ELECTRON));
+    assert_eq!(
+        labels(&model),
+        [("Open existing space", true), ("Choose folder", false)]
+    );
+    assert!(model.choices[0].detail.contains(ELECTRON));
+    // Its warning is on the view, not only in the button's tooltip.
+    assert!(
+        model
+            .note
+            .as_deref()
+            .is_some_and(|note| note.starts_with("Quit the other Specular app first"))
+    );
     assert_eq!(app.app().space().folder(), None);
 
     let effects: Vec<_> = (model.choices.iter())
@@ -55,9 +62,8 @@ fn a_first_run_explains_a_space_and_offers_to_make_or_open_one_and_never_picks()
     assert_eq!(
         effects,
         [
-            Effect::ChooseSpace { create: true },
-            Effect::ChooseSpace { create: false },
             Effect::OpenSpace(ELECTRON.to_owned()),
+            Effect::ChooseSpace { create: false },
         ]
     );
     // Asking for a folder opens nothing: the view stays until one opens.
@@ -81,8 +87,8 @@ fn a_space_that_is_gone_is_named_and_can_be_located_replaced_or_left() {
     assert_eq!(
         labels(&model),
         [
-            ("Locate the folder\u{2026}", true),
-            ("Create a new space\u{2026}", false),
+            ("Locate folder", true),
+            ("Choose another folder", false),
             ("Quit", false),
         ]
     );

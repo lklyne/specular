@@ -24,6 +24,7 @@ specular-compositor = { workspace = true }
 specular-core = { workspace = true }
 specular-doc = { workspace = true }
 specular-interact = { workspace = true }
+specular-prism = { workspace = true }
 specular-scene = { workspace = true }
 anyhow = { workspace = true }
 glam = { workspace = true }
@@ -38,6 +39,8 @@ gpui-kit = { workspace = true }
 # Named only to hold the pin; the kit re-exports it.
 gpui-pre = { workspace = true }
 futures = { workspace = true }
+# A thread avatar's frames reach GPUI as images.
+image = { workspace = true }
 block2 = { workspace = true }
 objc2 = { workspace = true }
 objc2-foundation = { workspace = true }

@@ -26,7 +26,10 @@ use crate::view::ShellView;
 use crate::{debug_input, keys, menus, pins, refresh, spaces, theme};
 
 /// The window size when the command line names none: the Electron app's.
-const DEFAULT_SIZE: (u32, u32) = (1600, 1000);
+pub(crate) const DEFAULT_SIZE: (u32, u32) = (1600, 1000);
+/// The window while it shows the first-run view, which grows to
+/// [`DEFAULT_SIZE`] once a space opens.
+pub(crate) const WELCOME_SIZE: (u32, u32) = (720, 540);
 /// How long the canvas may go without a frame before GPUI gives it a turn:
 /// a display link stops while its window is covered, and autosave must not.
 /// A canvas at rest pauses its own link and asks for its turns sooner.
@@ -119,13 +122,58 @@ fn gpui_view(window: &Window) -> anyhow::Result<Id> {
     }
 }
 
-fn window_options(launch: &Launch) -> WindowOptions {
-    let (width, height) = launch.window_size().unwrap_or(DEFAULT_SIZE);
+/// The native canvas view under GPUI's, with the window placed.
+fn install_canvas(
+    window: &mut Window,
+    cx: &mut App,
+    remembered: bool,
+    bench: bool,
+) -> anyhow::Result<NativeCanvas> {
+    let native = NativeCanvas::install(gpui_view(window)?)?;
+    if remembered {
+        native.place_main_window(f64::from(DEFAULT_SIZE.0), f64::from(DEFAULT_SIZE.1));
+        // GPUI's own resize callback cannot reach the window while the app
+        // is borrowed, as it is here, so the window learns its new size now.
+        window.bounds_changed(cx);
+    }
+    // A covered window is given no frames, which a benchmark would record
+    // as a profile that drew nothing.
+    if bench || std::env::var_os("SPECULAR_FLOAT_WINDOW").is_some() {
+        native.float();
+    }
+    Ok(native)
+}
+
+/// Whether this run's window may take and save the place the user last
+/// left the canvas window in. One opened at a size asked for, for a
+/// benchmark or for a script may not.
+#[derive(Clone, Copy)]
+pub(crate) struct PlacesWindow(pub(crate) bool);
+
+impl Global for PlacesWindow {}
+
+fn places_window(launch: &Launch) -> bool {
+    launch.window_size().is_none() && launch.bench().is_none() && !debug_input::scripted()
+}
+
+/// Whether the window opens where the user last left it. One that opens on
+/// the first-run view takes that place once a space opens instead.
+fn remembers_place(launch: &Launch) -> bool {
+    places_window(launch) && !launch.asks_for_space()
+}
+
+fn window_options(launch: &Launch, cx: &App) -> WindowOptions {
+    let asked = launch.window_size();
+    let welcome = asked.is_none() && launch.asks_for_space();
+    let (width, height) = asked.unwrap_or(if welcome { WELCOME_SIZE } else { DEFAULT_SIZE });
+    let content = size(px(width as f32), px(height as f32));
+    let bounds = if welcome {
+        Bounds::centered(None, content, cx)
+    } else {
+        Bounds::new(point(px(80.0), px(60.0)), content)
+    };
     WindowOptions {
-        window_bounds: Some(WindowBounds::Windowed(Bounds::new(
-            point(px(80.0), px(60.0)),
-            size(px(width as f32), px(height as f32)),
-        ))),
+        window_bounds: Some(WindowBounds::Windowed(bounds)),
         // GPUI's Metal layer is opaque unless the window is transparent, and
         // an opaque layer above the canvas view would hide it.
         window_background: WindowBackgroundAppearance::Transparent,
@@ -186,6 +234,7 @@ pub(crate) fn open(launch: Launch, cx: &mut App) -> anyhow::Result<()> {
     let options = launch.runtime_options();
     let bench = launch.bench();
     let asks = Rc::new(WindowAsks::default());
+    cx.set_global(PlacesWindow(places_window(&launch)));
 
     // Not `gpui_kit::open_window`: the Kit's root paints the theme's
     // background over the whole window, which would cover the canvas, and
@@ -193,7 +242,7 @@ pub(crate) fn open(launch: Launch, cx: &mut App) -> anyhow::Result<()> {
     let mut root_view = None;
     let view_asks = Rc::clone(&asks);
     let window: AnyWindowHandle = cx
-        .open_window(window_options(&launch), |window, cx| {
+        .open_window(window_options(&launch, cx), |window, cx| {
             let view = cx.new(|cx| ShellView::new(view_asks, window, cx));
             root_view = Some(view.clone());
             cx.new(|cx| Root::new(view, window, cx).bg(transparent_black()))
@@ -205,14 +254,10 @@ pub(crate) fn open(launch: Launch, cx: &mut App) -> anyhow::Result<()> {
     let (wake, mut woken) = mpsc::channel::<()>(1);
     let (api_wake, mut api_woken) = mpsc::channel::<()>(1);
     let (again, mut run_again) = mpsc::channel::<()>(1);
+    let remembered = remembers_place(&launch);
     let opening = launch.into_opening();
-    window.update(cx, |_, window, _| -> anyhow::Result<()> {
-        let mut native = NativeCanvas::install(gpui_view(window)?)?;
-        // A covered window is given no frames, which a benchmark would
-        // record as a profile that drew nothing.
-        if bench.is_some() || std::env::var_os("SPECULAR_FLOAT_WINDOW").is_some() {
-            native.float();
-        }
+    window.update(cx, |_, window, cx| -> anyhow::Result<()> {
+        let mut native = install_canvas(window, cx, remembered, bench.is_some())?;
         native.start_display_link();
         let refresh = refresh::interval(native.window_number());
         let mut surface = CanvasSurface::new(native, Rc::clone(&asks))?;

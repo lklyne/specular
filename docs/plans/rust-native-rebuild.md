@@ -191,6 +191,7 @@ specular-interact    App, Session, Space, Event, Effect, Action, Tool, Gesture, 
 specular-scene       Scene display list types, view(), the markdown parser, the built-in panel painter.
 specular-api         HTTP routes as Events in and JSON out. No socket: the shell hosts the server. The CLI is the Electron one.
 specular-compositor  wgpu: draws a Scene. Kept its spike name; the plan called it specular-render.
+specular-prism       wgpu: the Prism thread avatar, three's WGSL at parity with the web build. ADR 0047.
 specular-cef         CEF page hosts. The plan called it specular-pages.
 specular-app         Runtime (every effect runner), the command line, headless modes, --bench, and the winit window.
 specular-shell       The GPUI Kit window, binary `specular`. Uses specular-app's Runtime.

@@ -7804,6 +7804,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "specular-prism"
+version = "0.10.0"
+dependencies = [
+ "anyhow",
+ "bytemuck",
+ "image",
+ "pollster 1.0.1",
+ "wgpu 30.0.1",
+]
+
+[[package]]
 name = "specular-scene"
 version = "0.10.0"
 dependencies = [
@@ -7825,6 +7836,7 @@ dependencies = [
  "glam",
  "gpui-kit",
  "gpui-pre",
+ "image",
  "objc2 0.6.4",
  "objc2-core-foundation",
  "objc2-foundation 0.3.2",
@@ -7835,6 +7847,7 @@ dependencies = [
  "specular-core",
  "specular-doc",
  "specular-interact",
+ "specular-prism",
  "specular-scene",
  "tracing",
  "wgpu 30.0.1",

@@ -13,6 +13,8 @@
 #[cfg(target_os = "macos")]
 mod assets;
 #[cfg(target_os = "macos")]
+mod avatar;
+#[cfg(target_os = "macos")]
 mod canvas;
 #[cfg(target_os = "macos")]
 mod cursors;

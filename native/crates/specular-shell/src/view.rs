@@ -55,8 +55,9 @@ use glam::Vec2;
 use gpui_kit::component::{ActiveTheme as _, h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
-    AnyElement, App, Context, ExternalPaths, FocusHandle, Global, InteractiveElement as _,
-    IntoElement, ParentElement as _, Render, Styled as _, Window, div, px,
+    AnyElement, App, AppContext as _, Context, Entity, ExternalPaths, FocusHandle, Global,
+    InteractiveElement as _, IntoElement, ParentElement as _, Render, Styled as _, Window, div, px,
+    size,
 };
 use specular_doc::ItemId;
 use specular_interact::{Action, CanvasAction, Event, SidebarAction, TOOLS_DOCK_WIDTH, ToolsPlace};
@@ -65,6 +66,7 @@ pub(crate) use self::named::shown as shown_controls;
 pub(crate) use self::palette::toggle as toggle_palette;
 use self::slot::Pointer;
 use crate::canvas::{self, Models};
+use crate::shell;
 use crate::surface::WindowAsks;
 use crate::theme;
 
@@ -161,6 +163,39 @@ pub(crate) fn focus_canvas(window: &mut Window, cx: &mut App) {
     }
 }
 
+/// A space opened from the first-run view: the window, still at its
+/// welcome size, takes the canvas window's place and size. One the user
+/// resized is left as it is, and so is one opened at a size asked for, for
+/// a benchmark or for a script.
+fn grow_from_welcome(window: &Window, cx: &mut App) {
+    if !cx
+        .try_global::<shell::PlacesWindow>()
+        .is_some_and(|places| places.0)
+    {
+        return;
+    }
+    let (width, height) = shell::WELCOME_SIZE;
+    let viewport = window.viewport_size();
+    if viewport != size(px(width as f32), px(height as f32)) {
+        return;
+    }
+    // Not from inside the render: the resize calls back into the window.
+    // That callback cannot reach the window while the app is borrowed, as
+    // it still is in a deferred call, so the window learns its new size here.
+    window.defer(cx, |window, cx| {
+        let placed = canvas::with(|canvas| {
+            canvas
+                .runtime
+                .window()
+                .map(|surface| surface.place_main_window(shell::DEFAULT_SIZE))
+        })
+        .flatten();
+        if placed.is_some() {
+            window.bounds_changed(cx);
+        }
+    });
+}
+
 /// The root view: it holds what only a view can (focus, the input method's
 /// marked text, the sidebar row a shift-click runs from) and draws
 /// everything else from the models.
@@ -174,6 +209,8 @@ pub(crate) struct ShellView {
     picked_last: Option<ItemId>,
     /// What the right panel keeps between frames.
     chat: chat::ChatUi,
+    /// The first-run view's Prism, while that view is shown.
+    hero: Option<Entity<onboarding::HeroPrism>>,
 }
 
 impl ShellView {
@@ -192,6 +229,7 @@ impl ShellView {
             marked: String::new(),
             picked_last: None,
             chat: chat::ChatUi::new(window, cx),
+            hero: None,
         }
     }
 }
@@ -220,7 +258,16 @@ impl Render for ShellView {
             .as_ref()
             .and_then(|models| models.onboarding.as_ref())
         {
-            return onboarding::onboarding(model).into_any_element();
+            let hero = (self
+                .hero
+                .get_or_insert_with(|| cx.new(|_| onboarding::HeroPrism::default())))
+            .clone();
+            return onboarding::onboarding(model, hero).into_any_element();
+        }
+        if let Some(hero) = self.hero.take() {
+            let images = hero.update(cx, |hero, _| hero.take_images());
+            crate::avatar::drop_images(images, window);
+            grow_from_welcome(window, cx);
         }
         div()
             .id("shell")

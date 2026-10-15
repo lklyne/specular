@@ -26,6 +26,12 @@ use specular_core::ledger::{self, Entry};
 /// An Objective-C object.
 pub(crate) type Id = *mut AnyObject;
 
+/// The name macOS keeps the canvas window's frame under, in the app's
+/// defaults.
+const FRAME_NAME: &str = "Specular canvas window";
+/// How much of the screen's usable area a first canvas window may take.
+const SCREEN_SHARE: f64 = 0.9;
+
 /// `NSViewWidthSizable | NSViewHeightSizable`.
 const FILLS_SUPERVIEW: usize = 2 | 16;
 /// `NSWindowBelow`.
@@ -323,6 +329,35 @@ impl NativeCanvas {
         unsafe {
             let _: () = msg_send![self.window, setTitle: &*title];
             let _: () = msg_send![self.window, setDocumentEdited: unsaved];
+        }
+    }
+
+    /// Puts the canvas window where the user last left it. The first time,
+    /// it is `width` by `height` points, at most nine tenths of the
+    /// screen's usable area (less the menu bar and the Dock), and centred.
+    /// From then on macOS saves each move and resize.
+    pub(crate) fn place_main_window(&self, width: f64, height: f64) {
+        let name = NSString::from_str(FRAME_NAME);
+        // SAFETY: documented calls on a live window and the screen it is
+        // on, on the main thread. A window off every screen has a nil
+        // `screen`, and the main screen stands in.
+        unsafe {
+            let restored: Bool = msg_send![self.window, setFrameUsingName: &*name];
+            if !restored.as_bool() {
+                let mut screen: *mut AnyObject = msg_send![self.window, screen];
+                if screen.is_null() {
+                    screen = msg_send![class!(NSScreen), mainScreen];
+                }
+                let (mut width, mut height) = (width, height);
+                if !screen.is_null() {
+                    let usable: NSRect = msg_send![screen, visibleFrame];
+                    width = width.min(usable.size.width * SCREEN_SHARE);
+                    height = height.min(usable.size.height * SCREEN_SHARE);
+                }
+                let _: () = msg_send![self.window, setContentSize: NSSize::new(width, height)];
+                let _: () = msg_send![self.window, center];
+            }
+            let _: Bool = msg_send![self.window, setFrameAutosaveName: &*name];
         }
     }
 

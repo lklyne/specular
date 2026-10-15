@@ -224,6 +224,12 @@ pub(crate) fn glyph_muted() -> u32 {
     pick(0x8181_81ff, 0xa7a5_a6ff)
 }
 
+/// Behind the first-run view: a step darker than the panel in light, the
+/// panel itself in dark.
+pub(crate) fn backdrop() -> u32 {
+    pick(0xe4e4_e4ff, panel())
+}
+
 /// The zinc scale the right panel's composer is built from: a chip and a
 /// hovered row (100) and its edge (300). The dark theme takes the opposite
 /// end of the scale.
@@ -254,13 +260,9 @@ pub(crate) fn wash_to() -> u32 {
     pick(0xffe2_c2ff, 0x8c6f_4fff)
 }
 
-/// The run bar's label at rest and under the shimmer: black at 55% and
-/// black, white at 60% and white in the dark.
+/// The run bar's label: black at 55%, white at 60% in the dark.
 pub(crate) fn label() -> u32 {
     pick(0x0000_008c, 0xffff_ff99)
-}
-pub(crate) fn label_bright() -> u32 {
-    pick(0x0000_00ff, 0xffff_ffff)
 }
 
 /// A failed run's words: red-600, red-400 in the dark.
