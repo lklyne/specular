@@ -69,12 +69,12 @@ impl Kind {
 
     /// Half the frame's edge in world units. The glass's half-edge is 0.39:
     /// a still avatar is framed to it with a hair for the rim, and a
-    /// tumbling one with room for its corners to swing out (28 points of
+    /// tumbling one with room for its corners to swing out (25 points of
     /// cube at rest in 40).
     fn half_extent(self) -> f32 {
         match self {
             Self::Thread => 0.40,
-            Self::Working => 0.55,
+            Self::Working => 0.62,
         }
     }
 
