@@ -102,7 +102,9 @@ impl Avatars {
             drawer: Rc::new(RefCell::new(Drawer {
                 gpu: None,
                 prisms: HashMap::new(),
-                always_live: std::env::var_os("SPECULAR_AVATAR_LIVE").is_some(),
+                // A debug build's knob only: a release ignores it.
+                always_live: cfg!(debug_assertions)
+                    && std::env::var_os("SPECULAR_AVATAR_LIVE").is_some(),
             })),
             each: HashMap::new(),
         }
@@ -123,8 +125,8 @@ impl Avatars {
         self.get(Kind::Working, key, working, cx)
     }
 
-    /// Whether `SPECULAR_AVATAR_LIVE` is set: every avatar animates as if
-    /// its agent worked, and the open thread shows a run bar.
+    /// Whether `SPECULAR_AVATAR_LIVE` is set in a debug build: every avatar
+    /// animates as if its agent worked, and the open thread shows a run bar.
     pub(super) fn always_live(&self) -> bool {
         self.drawer.borrow().always_live
     }
@@ -167,7 +169,7 @@ struct Drawer {
     /// A renderer per kind, at the size that kind is drawn at.
     prisms: HashMap<Kind, Prism>,
     /// Animates every avatar, working or not: `SPECULAR_AVATAR_LIVE=1`, a
-    /// debug knob for a scripted run, which cannot start an agent.
+    /// debug build's knob for a scripted run, which cannot start an agent.
     always_live: bool,
 }
 
