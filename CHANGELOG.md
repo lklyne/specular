@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-10-15 — The Prism
+
+### New
+
+- **Agents have a face.** Each agent thread shows the Prism, a small glass cube. It rests while the agent waits and tumbles while it works.
+- The run bar leads with the tumbling cube while a run is going.
+- **A new welcome screen.** First launch shows the turning Prism and two choices: open an existing space or choose a folder.
+
+### Improvements
+
+- The window opens where you last left it. On first launch it opens small and centred, and grows once you pick a space.
+
 ## [0.10.0] - 2026-10-12 — Rebuilt as a native app
 
 Specular 0.10.0 is a new app written in Rust. It opens the same space folder and the same `.canvas` files as 0.9.0.
