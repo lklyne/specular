@@ -90,7 +90,7 @@ app="$out/$APP_NAME.app"
 if [[ "$build" == 1 ]]; then
   flag=()
   [[ "$profile" == release ]] && flag=(--release)
-  (cd "$native_dir" && cargo build "${flag[@]}" -p specular-shell -p specular-cef-helper --features cef)
+  (cd "$native_dir" && cargo build ${flag[@]+"${flag[@]}"} -p specular-shell -p specular-cef-helper --features cef)
   (cd "$native_dir/helper" && bun install --frozen-lockfile && bun run build)
 fi
 # Built whatever --no-build says: its own cache makes a second run quick.
