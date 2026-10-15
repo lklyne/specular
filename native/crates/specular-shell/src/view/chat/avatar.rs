@@ -30,7 +30,7 @@ use gpui_kit::{
 
 use specular_prism::{Pose, Tumble};
 
-use crate::avatar::{Frames, Gpu, Prism, STILL};
+use crate::avatar::{Frames, Gpu, Prism, STILL, drop_images};
 use crate::canvas as app_canvas;
 use crate::surface::CanvasSurface;
 use crate::theme;
@@ -363,13 +363,4 @@ fn seed(key: &str) -> u64 {
         (hash ^ u32::from(byte)).wrapping_mul(0x0100_0193)
     });
     u64::from(hash)
-}
-
-/// Lets GPUI's atlas go of images no longer shown.
-fn drop_images(images: Images, window: &mut Window) {
-    for image in images {
-        if let Err(error) = window.drop_image(image) {
-            tracing::warn!("dropping an avatar frame: {error}");
-        }
-    }
 }

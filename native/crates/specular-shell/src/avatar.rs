@@ -12,11 +12,24 @@
 //! compiles the shell shaders for about half a second, runs on a thread of
 //! its own.
 
+use std::sync::Arc;
+
+use gpui_kit::{RenderImage, Window};
+
 mod frames;
 mod prism;
 
 pub(crate) use self::frames::Frames;
 pub(crate) use self::prism::{Prism, STILL};
+
+/// Lets GPUI's atlas go of images no longer shown.
+pub(crate) fn drop_images(images: Vec<Arc<RenderImage>>, window: &mut Window) {
+    for image in images {
+        if let Err(error) = window.drop_image(image) {
+            tracing::warn!("dropping an avatar frame: {error}");
+        }
+    }
+}
 
 /// The format an avatar is drawn in: what a GPUI image holds, BGRA with
 /// sRGB-encoded colour and straight alpha.

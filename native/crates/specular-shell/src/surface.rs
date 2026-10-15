@@ -151,6 +151,12 @@ impl CanvasSurface {
         })
     }
 
+    /// Puts the window where the user last left it, else at `size`
+    /// points, capped by the screen.
+    pub(crate) fn place_main_window(&self, (width, height): (u32, u32)) {
+        (self.native).place_main_window(f64::from(width), f64::from(height));
+    }
+
     /// The compositor's device, which the thread avatars draw on too.
     pub(crate) fn gpu(&self) -> crate::avatar::Gpu {
         crate::avatar::Gpu {

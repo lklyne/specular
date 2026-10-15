@@ -37,14 +37,15 @@ pub enum SpaceAction {
     Quit,
 }
 
-/// One button of the first-run view.
+/// One choice of the first-run view. The first two are its buttons, and
+/// any after them are quieter links below.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SpaceChoice {
     /// The control's name, for a scripted run.
     pub name: &'static str,
     /// The button's text.
     pub label: &'static str,
-    /// What choosing it does, in a sentence.
+    /// What choosing it does, in a sentence: the button's tooltip.
     pub detail: String,
     /// Whether it is the choice the view leads with.
     pub primary: bool,
@@ -57,16 +58,18 @@ pub struct SpaceChoice {
 pub struct OnboardingModel {
     /// The heading.
     pub title: &'static str,
-    /// What a space is, or what happened to the one that is gone.
+    /// The line under the heading: what Specular is, or what happened to
+    /// the space that is gone.
     pub body: Vec<String>,
     /// The choices, in order.
     pub choices: Vec<SpaceChoice>,
+    /// A warning shown under the choices, when one of them needs it.
+    pub note: Option<String>,
 }
 
-const WHAT_A_SPACE_IS: &str = "A space is a folder on your computer. Every canvas is a .canvas \
-    file in it, beside the images and notes you add. You choose where it lives, so you can open \
-    it in Finder, back it up, or keep it in a repo.";
-const NOTHING_IS_MOVED: &str = "Nothing is moved or copied from anywhere else.";
+const WHAT_SPECULAR_IS: &str = "The browser whiteboard for designing and building with agents.";
+const QUIT_THE_OTHER_APP: &str =
+    "Quit the other Specular app first: two apps writing one space overwrite each other.";
 
 fn choice(
     name: &'static str,
@@ -87,64 +90,58 @@ fn choice(
 /// open or the launch asked for none.
 pub fn onboarding(app: &App) -> Option<OnboardingModel> {
     let ask = app.space_ask.as_ref()?;
-    let create = choice(
-        "onboarding.create",
-        "Create a new space\u{2026}",
-        "Pick or make a folder. It starts with a welcome canvas.",
-        SpaceAction::Choose { create: true },
-    );
-    let open = choice(
-        "onboarding.open",
-        "Open an existing folder\u{2026}",
-        "Use a folder that already holds your canvases.",
+    // One folder dialog both finds a space and makes one: it has its own
+    // New Folder button, and a folder with no canvas gets the starter space.
+    let choose = choice(
+        "onboarding.choose",
+        "Choose folder",
+        "Pick a folder for your canvases, or make a new one. An empty folder starts with a \
+         welcome canvas.",
         SpaceAction::Choose { create: false },
     );
     let electron = ask.electron.as_ref().map(|folder| {
         choice(
             "onboarding.electron",
-            "Use the space from Specular",
-            &format!(
-                "Opens {folder}, the folder the Specular app uses. Quit Specular first: two apps \
-                 writing one space overwrite each other."
-            ),
+            "Open existing space",
+            &format!("Opens {folder}, the space you used in Specular before. {QUIT_THE_OTHER_APP}"),
             SpaceAction::Use(folder.clone()),
         )
     });
-    let (title, body, mut choices) = match &ask.missing {
+    // The warning is shown, not only the tooltip's, whenever that space is
+    // offered: a user with the other app running must read it before opening.
+    let note = (ask.missing.is_none() && electron.is_some()).then(|| QUIT_THE_OTHER_APP.to_owned());
+    let (title, body, mut choices): (_, _, Vec<SpaceChoice>) = match &ask.missing {
         None => (
             "Welcome to Specular",
-            vec![WHAT_A_SPACE_IS.to_owned(), NOTHING_IS_MOVED.to_owned()],
-            vec![create, open],
+            vec![WHAT_SPECULAR_IS.to_owned()],
+            electron.into_iter().chain([choose]).collect(),
         ),
         Some(folder) => (
             "Your space is not there",
+            vec![format!(
+                "{folder} could not be found. Its drive may not be connected, or the folder \
+                 was moved or renamed. Nothing was opened in its place."
+            )],
             vec![
-                format!(
-                    "{folder} could not be found. Its drive may not be connected, or the folder \
-                     was moved or renamed."
+                choice(
+                    "onboarding.locate",
+                    "Locate folder",
+                    "Find where the space is now.",
+                    SpaceAction::Choose { create: false },
                 ),
-                "Nothing was opened in its place.".to_owned(),
-            ],
-            vec![
                 SpaceChoice {
-                    name: "onboarding.locate",
-                    label: "Locate the folder\u{2026}",
-                    detail: "Find where the space is now.".to_owned(),
-                    ..open
+                    label: "Choose another folder",
+                    ..choose
                 },
-                create,
+                choice(
+                    "onboarding.quit",
+                    "Quit",
+                    "Leave everything as it is.",
+                    SpaceAction::Quit,
+                ),
             ],
         ),
     };
-    choices.extend(electron);
-    if ask.missing.is_some() {
-        choices.push(choice(
-            "onboarding.quit",
-            "Quit",
-            "Leave everything as it is.",
-            SpaceAction::Quit,
-        ));
-    }
     if let Some(first) = choices.first_mut() {
         first.primary = true;
     }
@@ -152,6 +149,7 @@ pub fn onboarding(app: &App) -> Option<OnboardingModel> {
         title,
         body,
         choices,
+        note,
     })
 }
 
