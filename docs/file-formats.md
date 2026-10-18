@@ -97,6 +97,19 @@ by other tools. Specular adds:
   the longest connected-repo prefix of the absolute file path — no
   metadata is required, and the entity heals automatically if a more
   specific repo is connected later.
+- An HTML file (`.html` / `.htm`) is a live page in the native shell,
+  loaded from its file's `file://` URL and reloaded when it or a
+  stylesheet, script or JSON file beside it changes. It stays a `file`
+  node: `presetIndex` and `metadata` hold its viewport preset and device
+  frame as a link's do, and the frame grows outward from `x`/`y`, which
+  place the page itself (a link's `x`/`y` place its frame's corner).
+- `specular.syncId` / `specular.colorScheme` — an HTML file's sync set and
+  color-scheme override, as `syncId` / `colorScheme` on a link. A sync set
+  holds links or HTML files, never both. The Electron app does not read
+  these and drops them when it saves the canvas.
+- A comment or item anchored to an HTML file in the space folder records
+  `pageUrl` as the file's path relative to that folder, never an absolute
+  `file://` URL, so the canvas moves with its folder.
 
 **On group nodes:**
 - `groupKind` — type of group (e.g., breakpoint set)
