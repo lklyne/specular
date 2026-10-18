@@ -29,6 +29,9 @@ pub struct App {
     pub(crate) session: Session,
     /// The folder of canvases. The fields above are its active canvas.
     pub(crate) space: Space,
+    /// The folder a document opened on its own sits in. It is no space:
+    /// only the document's relative file paths start from it.
+    pub(crate) document_folder: Option<String>,
     /// Every thread of the space. Space-wide like `space`: a thread belongs
     /// to a canvas by its tab id, and switching canvas leaves them alone.
     pub(crate) threads: Threads,
@@ -183,9 +186,15 @@ impl App {
     }
 
     /// The page `id` is, or `None` when it is not one. An HTML file's URL
-    /// is its file's, resolved against the space folder.
+    /// is its file's, resolved against [`files_folder`](Self::files_folder).
     pub fn page(&self, id: &EntityId) -> Option<Cow<'_, Page>> {
         page_of(self, self.document.entity(id)?)
+    }
+
+    /// The folder relative file paths start from: the space folder, else
+    /// the folder of a document opened on its own.
+    pub(crate) fn files_folder(&self) -> Option<&str> {
+        (self.space.folder()).or(self.document_folder.as_deref())
     }
 
     /// The pages, back-to-front, each with its placement.
@@ -219,12 +228,12 @@ impl App {
 }
 
 /// The page `entity` is, or `None` for every other kind: a link node, or
-/// an HTML file node with its path resolved against the space folder as
+/// an HTML file node with its path resolved against the files folder as
 /// its URL.
 pub(crate) fn page_of<'a>(app: &App, entity: &'a Entity) -> Option<Cow<'a, Page>> {
     let mut page = entity.kind.page_fields()?;
     if let Kind::File(file) = &entity.kind {
-        page.to_mut().url = crate::space_file::file_page_url(&file.file, app.space.folder());
+        page.to_mut().url = crate::space_file::file_page_url(&file.file, app.files_folder());
     }
     Some(page)
 }

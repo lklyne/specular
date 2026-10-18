@@ -77,7 +77,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         Event::DocumentOpened(document) => open_document(app, *document, &mut effects),
         Event::DocumentFolder(folder) => {
             let before = pages::snapshot(app);
-            app.space.set_folder(folder);
+            app.document_folder = Some(folder);
             pages::reconcile(&before, app, &mut effects);
         }
         Event::SpaceOpened(opened) => space::open(app, *opened, &mut effects),
