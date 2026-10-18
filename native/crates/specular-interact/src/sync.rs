@@ -100,14 +100,19 @@ impl App {
     }
 }
 
-/// The selection, when it is pages and nothing else.
+/// The selection, when it is pages and nothing else, and either all links
+/// or all HTML files: a set of both would send its links to files.
 fn selected_pages(app: &App) -> Option<Vec<EntityId>> {
     let selection = &app.session.selection;
     let pages: Vec<EntityId> = (selection.entities())
         .filter(|id| app.document.entity(id).is_some_and(is_page))
         .cloned()
         .collect();
-    (pages.len() == selection.items().len()).then_some(pages)
+    let file = |id: &EntityId| {
+        (app.document.entity(id)).is_some_and(|entity| matches!(entity.kind, Kind::File(_)))
+    };
+    let mixed = pages.iter().any(file) && !pages.iter().all(file);
+    (pages.len() == selection.items().len() && !mixed).then_some(pages)
 }
 
 /// Toggle-merge, as one undo step: selected pages that share one set leave
