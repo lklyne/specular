@@ -152,6 +152,8 @@ struct Headless {
     /// What pages have been asked and not yet answered.
     queries: PageQueries,
     images: ImageLoader,
+    /// The folder the document's relative file paths start from.
+    space: Option<PathBuf>,
     uploaded: Uploaded,
     notes: NoteLoader,
     /// Asked for and not yet answered.
@@ -199,7 +201,8 @@ impl Headless {
             queries: PageQueries::default(),
             images: ImageLoader::new(space.clone()).context("starting the decode thread")?,
             uploaded: Uploaded::default(),
-            notes: NoteLoader::new(space).context("starting the note thread")?,
+            notes: NoteLoader::new(space.clone()).context("starting the note thread")?,
+            space,
             loading_images: HashSet::new(),
             loading_notes: HashSet::new(),
             stand_ins: StandIns::default(),

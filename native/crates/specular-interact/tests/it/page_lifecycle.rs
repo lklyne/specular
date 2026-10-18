@@ -1,12 +1,15 @@
 //! What a hosted page reports of itself, and the browser verbs that act on
 //! it: the notices land in the app's page state, the address is saved
-//! without a history step, and a changed address navigates in place.
+//! without a history step, and a changed address navigates in place. An
+//! HTML file is hosted the same way and stays a file.
 
 #![expect(clippy::panic, reason = "a helper fails the test it is called from")]
 
-use specular_core::{Cursor, PageNav};
-use specular_doc::{Command, EntityId, Kind, Page};
-use specular_interact::{Action, ApiCall, ApiRun, Effect, Event, Focus, Key, PageNotice};
+use specular_core::{CssSize, Cursor, PageNav};
+use specular_doc::{Command, Document, EntityId, Kind, Page};
+use specular_interact::{
+    Action, ApiCall, ApiRun, Effect, Event, Focus, Key, PageAddress, PageNotice,
+};
 use specular_testkit::{CMD, TestApp};
 
 /// Inside p1 of `TestApp::with_pages(n)`.
@@ -314,4 +317,50 @@ fn an_entered_page_chooses_the_cursor_over_its_content() {
     assert_eq!(cursors(&mut app), [Cursor::Text]);
     app.key(Key::Escape);
     assert_eq!(cursors(&mut app), [Cursor::Default]);
+}
+
+fn hosting(effects: &[Effect]) -> Vec<&Effect> {
+    (effects.iter())
+        .filter(|effect| matches!(effect, Effect::CreatePage { .. } | Effect::ClosePage(_)))
+        .collect()
+}
+
+#[test]
+fn an_html_file_is_hosted_as_a_live_page_and_stays_a_file() {
+    let canvas = r#"{"nodes":[{"id":"h1","type":"file","file":"assets/demo.html",
+        "x":100,"y":100,"width":400,"height":300}],"edges":[]}"#;
+    let document = Document::from_canvas_str(canvas).expect("the canvas reads");
+    let file = file_kind(&document);
+    let mut app = TestApp::empty();
+    app.open(document);
+    let create = Effect::CreatePage {
+        page: id("h1"),
+        address: PageAddress::File("assets/demo.html".to_owned()),
+        viewport: CssSize::new(400, 300),
+    };
+    assert_eq!(hosting(&app.take_effects()), [&create]);
+    // Select-first, as a page is: the second click enters it and input
+    // goes to the page.
+    app.click(ON_P1).click(ON_P1);
+    assert_eq!(app.session().focus, Focus::Page(id("h1")));
+    // The address it reports is not written back: it is still the file.
+    app.take_effects();
+    app.page_reports(
+        "h1",
+        PageNotice::Url("file:///space/assets/demo.html".to_owned()),
+    );
+    assert_eq!(app.entity("h1").kind, file);
+    assert_eq!(app.take_effects(), []);
+    app.key(Key::Escape).key(Key::Backspace);
+    assert_eq!(hosting(&app.take_effects()), [&Effect::ClosePage(id("h1"))]);
+    app.undo();
+    assert_eq!(hosting(&app.take_effects()), [&create]);
+    app.assert_undo_returns_to_start();
+}
+
+fn file_kind(document: &Document) -> Kind {
+    match document.entity(&id("h1")).map(|entity| &entity.kind) {
+        Some(kind @ Kind::File(_)) => kind.clone(),
+        other => panic!("h1 is not a file node: {other:?}"),
+    }
 }

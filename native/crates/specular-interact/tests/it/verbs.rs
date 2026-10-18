@@ -6,7 +6,7 @@ use specular_doc::{
     Annotation, AnnotationAnchor, Color, Drawing, Entity, EntityId, JsonMap, Kind, PageAnchor,
     Point, Rect, RegionAnchor, Stroke,
 };
-use specular_interact::{Action, Effect, Key, PageNotice};
+use specular_interact::{Action, Effect, Key, PageAddress, PageNotice};
 use specular_testkit::{
     CMD, SHIFT, TestApp, assert_doc_snapshot, comment, connected, document, drawing, group, inside,
     page, shape, text, with_comment,
@@ -113,7 +113,7 @@ fn deleting_a_page_closes_it_and_frees_what_was_hooked_to_it_where_it_is_seen() 
         reopened,
         [Effect::CreatePage {
             page: EntityId::from("p1"),
-            url: "https://example.com/p1".to_owned(),
+            address: PageAddress::Url("https://example.com/p1".to_owned()),
             viewport: CssSize::new(400, 300)
         }]
     );

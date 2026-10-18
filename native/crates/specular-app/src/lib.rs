@@ -26,6 +26,7 @@ mod latency;
 mod launch;
 mod notes;
 pub mod offscreen;
+mod page_files;
 mod page_notice;
 mod page_queries;
 mod paint_lod;

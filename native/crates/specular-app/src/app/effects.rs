@@ -7,13 +7,15 @@ use anyhow::Context as _;
 use glam::Vec2;
 use specular_bench::PaintPolicy;
 use specular_core::{
-    InputEvent, PageId, PageSource, PageSourceError, PageSpec, PointerEvent, PointerEventKind,
+    CssSize, InputEvent, PageId, PageNav, PageSource, PageSourceError, PageSpec, PointerEvent,
+    PointerEventKind,
 };
 use specular_doc::{EntityId, Rect};
-use specular_interact::{Effect, Event, PageRegion, update};
+use specular_interact::{Effect, Event, PageAddress, PageRegion, update};
 
 use super::runtime::{PageHost, Runtime, ShellWindow};
 use super::settings::page_device;
+use crate::page_files::page_url;
 use crate::page_queries::css_rect;
 use crate::paint_lod::PageLod;
 
@@ -60,7 +62,7 @@ impl<W: ShellWindow> Runtime<W> {
         let camera = self.app.session().camera;
         (self.app.pages())
             .find(|(id, ..)| *id == page)
-            .map_or_else(PageLod::default, |(_, _, placement)| {
+            .map_or_else(PageLod::default, |(_, placement)| {
                 PageLod::starting_at(placement.display_scale(&camera))
             })
     }
@@ -69,22 +71,9 @@ impl<W: ShellWindow> Runtime<W> {
         match effect {
             Effect::CreatePage {
                 page,
-                url,
+                address,
                 viewport,
-            } => {
-                let lod = self.starting_lod(&page);
-                let scale = self.gpu.as_ref().map_or(1.0, W::scale_factor);
-                let mut spec = PageSpec::new(&url, viewport);
-                spec.texture_scale = scale * lod.texture().factor();
-                spec.device = page_device(&self.app, &page, scale);
-                let host = self
-                    .source
-                    .create_page(&spec)
-                    .with_context(|| format!("creating page for {url}"))?;
-                self.hosts
-                    .insert(page.clone(), PageHost { page: host, lod });
-                self.give_color_scheme(&page);
-            }
+            } => self.create_page(&page, &address, viewport)?,
             Effect::ClosePage(page) => self.close_page(&page),
             Effect::SetPageViewport { page, viewport } => self.set_page_viewport(&page, viewport),
             Effect::FocusPage(page) => self.focus_page(page.as_ref()),
@@ -187,7 +176,31 @@ impl<W: ShellWindow> Runtime<W> {
     }
 
     /// Stops hosting `page` and answers what was asked of it.
+    fn create_page(
+        &mut self,
+        page: &EntityId,
+        address: &PageAddress,
+        viewport: CssSize,
+    ) -> anyhow::Result<()> {
+        let url = page_url(address, self.space.as_deref());
+        self.page_files.hosted(page, address, self.space.as_deref());
+        let lod = self.starting_lod(page);
+        let scale = self.gpu.as_ref().map_or(1.0, W::scale_factor);
+        let mut spec = PageSpec::new(&url, viewport);
+        spec.texture_scale = scale * lod.texture().factor();
+        spec.device = page_device(&self.app, page, scale);
+        let host = self
+            .source
+            .create_page(&spec)
+            .with_context(|| format!("creating page for {url}"))?;
+        self.hosts
+            .insert(page.clone(), PageHost { page: host, lod });
+        self.give_color_scheme(page);
+        Ok(())
+    }
+
     fn close_page(&mut self, page: &EntityId) {
+        self.page_files.closed(page);
         if let Some(host) = self.hosts.remove(page) {
             if let Some(cdp) = &self.cdp {
                 cdp.page_closed(page);
@@ -198,6 +211,15 @@ impl<W: ShellWindow> Runtime<W> {
             }
         }
         self.give_up_on_page(page);
+    }
+
+    /// Loads again each page whose HTML file changed on disk.
+    pub(super) fn reload_changed_pages(&mut self, now: Instant) {
+        for page in self.page_files.changed(now) {
+            self.on_host(&page, |source, host| {
+                source.navigate(host, &PageNav::Reload)
+            });
+        }
     }
 
     /// Runs what a sync set asks of its pages (the capture of the entered

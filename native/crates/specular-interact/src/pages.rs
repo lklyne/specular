@@ -1,19 +1,60 @@
 //! Keeping hosted pages in step with the document: after a change that can
 //! add, remove or resize pages, the difference becomes page effects.
+//!
+//! Two kinds of entity are hosted: a page (a `link` node), and a file entity
+//! whose file is HTML, which is shown live and takes input as Electron's
+//! `specular.html` renderer does. The HTML file stays a `file` node, so
+//! nothing a page reports about itself is written back to it.
 
 use std::collections::HashMap;
 
 use specular_core::{CssSize, PageDevice, PageNav};
-use specular_doc::{ColorScheme, EntityId};
+use specular_doc::{ColorScheme, Entity, EntityId, Kind};
 
 use crate::app::page_of;
 use crate::{App, Effect, Gesture, PagePlacement};
+
+/// Where a hosted page loads its document from.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PageAddress {
+    /// A web address, loaded as it is.
+    Url(String),
+    /// An HTML file, by the path its file entity names. The shell resolves
+    /// it against the space folder and loads it from disk, so the file's
+    /// relative links find what sits next to it.
+    File(String),
+}
+
+/// Whether `file` is shown as a live page: Electron's `HTML_EXTENSIONS`.
+pub fn is_html_file(file: &str) -> bool {
+    file.rsplit_once('.').is_some_and(|(_, extension)| {
+        extension.eq_ignore_ascii_case("html") || extension.eq_ignore_ascii_case("htm")
+    })
+}
+
+/// Where the page `entity` hosts loads from, or `None` when it hosts none.
+pub(crate) fn address_of(entity: &Entity) -> Option<PageAddress> {
+    match &entity.kind {
+        Kind::Page(page) => Some(PageAddress::Url(page.url.clone())),
+        Kind::File(file) if is_html_file(&file.file) => Some(PageAddress::File(file.file.clone())),
+        Kind::File(_) | Kind::Text(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Shape(_) => None,
+    }
+}
+
+/// Whether `entity` is shown as a hosted page.
+pub(crate) fn hosts_page(entity: &Entity) -> bool {
+    match &entity.kind {
+        Kind::Page(_) => true,
+        Kind::File(file) => is_html_file(&file.file),
+        Kind::Text(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Shape(_) => false,
+    }
+}
 
 /// What a host needs to know about one page entity.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct HostedPage {
     id: EntityId,
-    url: String,
+    address: PageAddress,
     viewport: CssSize,
     scheme: Option<ColorScheme>,
     device: PageDevice,
@@ -26,16 +67,16 @@ pub(crate) fn snapshot(app: &App) -> Vec<HostedPage> {
     let laid_out = laid_out(app);
     (app.document.entities())
         .filter_map(|entity| {
-            let page = page_of(entity)?;
+            let address = address_of(entity)?;
             let viewport = (laid_out.iter().flatten())
                 .find(|(id, _)| *id == entity.id)
                 .map(|(_, size)| *size)
                 .or_else(|| Some(app.page_placement(&entity.id)?.viewport))?;
             Some(HostedPage {
                 id: entity.id.clone(),
-                url: page.url.clone(),
+                address,
                 viewport,
-                scheme: page.color_scheme,
+                scheme: page_of(entity).and_then(|page| page.color_scheme),
                 device: app.page_device(&entity.id),
             })
         })
@@ -48,7 +89,9 @@ pub(crate) type LaidOut = (EntityId, CssSize);
 /// The page the tab showing presents at a size of its own.
 fn presentation(app: &App) -> Option<LaidOut> {
     let entity = app.document.entity(app.shown_item()?)?;
-    page_of(entity)?;
+    if !hosts_page(entity) {
+        return None;
+    }
     let rect = crate::showing::presented_rect(app, entity)?;
     Some((entity.id.clone(), PagePlacement::viewport_for(rect)))
 }
@@ -160,23 +203,31 @@ fn follow_resize(before: &[LaidOut], app: &App, effects: &mut Vec<Effect>) {
 
 /// Appends the effects that take the hosts from `before` to the pages the
 /// document holds now: closes first, then creates and viewport changes in
-/// stack order. A page whose URL changed stays hosted and is sent there.
+/// stack order. A page whose URL changed stays hosted and is sent there. A
+/// host whose file changed is made again, since only the shell knows where
+/// the file is.
 pub(crate) fn reconcile(before: &[HostedPage], app: &App, effects: &mut Vec<Effect>) {
     let after = snapshot(app);
     let was: HashMap<&EntityId, &HostedPage> = before.iter().map(|page| (&page.id, page)).collect();
     let is: HashMap<&EntityId, &HostedPage> = after.iter().map(|page| (&page.id, page)).collect();
+    let moved = |page: &HostedPage| {
+        (is.get(&page.id)).is_some_and(|now| needs_new_host(&page.address, &now.address))
+    };
     for page in before {
-        if !is.contains_key(&page.id) {
+        if !is.contains_key(&page.id) || moved(page) {
             effects.push(Effect::ClosePage(page.id.clone()));
         }
     }
     for page in &after {
-        match was.get(&page.id) {
+        match was.get(&page.id).filter(|old| !moved(old)) {
             Some(old) => {
-                if old.url != page.url {
+                if let (PageAddress::Url(old_url), PageAddress::Url(url)) =
+                    (&old.address, &page.address)
+                    && old_url != url
+                {
                     effects.push(Effect::Navigate {
                         page: page.id.clone(),
-                        nav: PageNav::To(page.url.clone()),
+                        nav: PageNav::To(url.clone()),
                     });
                 }
                 if old.scheme != page.scheme {
@@ -199,10 +250,19 @@ pub(crate) fn reconcile(before: &[HostedPage], app: &App, effects: &mut Vec<Effe
             // makes it.
             None => effects.push(Effect::CreatePage {
                 page: page.id.clone(),
-                url: page.url.clone(),
+                address: page.address.clone(),
                 viewport: page.viewport,
             }),
         }
+    }
+}
+
+/// Whether a host loaded from `old` has to be made again to load from
+/// `new`: a URL is navigated to, and anything else is not.
+fn needs_new_host(old: &PageAddress, new: &PageAddress) -> bool {
+    match (old, new) {
+        (PageAddress::Url(_), PageAddress::Url(_)) => false,
+        _ => old != new,
     }
 }
 

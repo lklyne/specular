@@ -99,6 +99,7 @@ impl<W: ShellWindow> Runtime<W> {
             gpu.compositor_mut().release_idle(now);
         }
         self.sync_files();
+        self.reload_changed_pages(now);
         self.take_loaded_image();
         self.take_read_notes();
         self.take_agent_notices();

@@ -126,7 +126,7 @@ impl Scrolls {
         Self {
             pages: app
                 .pages()
-                .map(|(id, _, placement)| {
+                .map(|(id, placement)| {
                     let scroll = PageScroll {
                         live: app.page_scroll(id),
                         per_css: placement.canvas_per_css(),

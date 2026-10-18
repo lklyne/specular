@@ -164,6 +164,7 @@ pub use menu::{Menu, MenuEntry, MenuItem, binding_of, menus};
 pub use move_drag::{CopyPreview, MoveDrag};
 pub use notes::{NoteNotice, NoteState, is_note_file, note_file_name};
 pub use page_state::{PageState, ScreenFit};
+pub use pages::{PageAddress, is_html_file};
 pub use palette::{PaletteItem, PaletteMatch, PaletteRun, palette, search};
 pub use panel::builtin::PanelUi;
 pub use panel::{

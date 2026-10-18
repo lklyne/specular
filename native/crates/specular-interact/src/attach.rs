@@ -290,7 +290,7 @@ fn track(app: &mut App, effects: &mut Vec<Effect>) {
             }
         }
     }
-    let pages: Vec<EntityId> = app.pages().map(|(id, _, _)| id.clone()).collect();
+    let pages: Vec<EntityId> = app.pages().map(|(id, _)| id.clone()).collect();
     let tracked = &mut app.session.attach.tracked;
     tracked.retain(|page, _| pages.contains(page));
     for page in pages {

@@ -126,7 +126,7 @@ impl App {
     }
 
     /// Where the page `id` sits and the viewport it is laid out at, or `None`
-    /// when `id` is not a page.
+    /// when `id` hosts no page. An HTML file is placed as a page is.
     ///
     /// A page's viewport is its rect's size, as its handle is dragged too.
     /// A page that fills its tab sits at the rect the tab presents it at,
@@ -134,7 +134,9 @@ impl App {
     /// area of the screen its rect is, unless its document covers it.
     pub fn page_placement(&self, id: &EntityId) -> Option<PagePlacement> {
         let entity = self.document.entity(id)?;
-        page_of(entity)?;
+        if !crate::pages::hosts_page(entity) {
+            return None;
+        }
         if let Some(rect) = crate::showing::presented_rect(self, entity) {
             return Some(PagePlacement {
                 rect,
@@ -178,12 +180,11 @@ impl App {
         self.session.notes.scroll(entity)
     }
 
-    /// The pages, back-to-front, each with its placement.
-    pub fn pages(&self) -> impl Iterator<Item = (&EntityId, &Page, PagePlacement)> {
-        self.document.entities().filter_map(|entity| {
-            let page = page_of(entity)?;
-            Some((&entity.id, page, self.page_placement(&entity.id)?))
-        })
+    /// The hosted pages, back-to-front, each with its placement: the pages
+    /// and the HTML files.
+    pub fn pages(&self) -> impl Iterator<Item = (&EntityId, PagePlacement)> {
+        (self.document.entities())
+            .filter_map(|entity| Some((&entity.id, self.page_placement(&entity.id)?)))
     }
 
     /// An id no entity or edge in the document uses.

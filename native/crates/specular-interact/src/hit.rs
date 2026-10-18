@@ -3,7 +3,6 @@
 use glam::Vec2;
 use specular_doc::{AnnotationId, Drawing, EdgeId, EdgeSide, Entity, EntityId, ItemId, Kind};
 
-use crate::app::page_of;
 use crate::edge_path::distance_to_segment;
 use crate::geometry::ScreenRect;
 use crate::layout::handles::LayoutHandle;
@@ -302,7 +301,7 @@ fn entity_hit(app: &App, entity: &Entity, screen: Vec2) -> Hit {
 /// whatever is on top of it.
 pub(crate) fn page_at(app: &App, world: glam::DVec2) -> Option<(EntityId, PagePlacement)> {
     let entity = app.document.entities().rev().find(|entity| {
-        page_of(entity).is_some()
+        crate::pages::hosts_page(entity)
             && crate::shown_rect(app, entity).is_some_and(|rect| geometry::contains(rect, world))
     })?;
     Some((entity.id.clone(), app.page_placement(&entity.id)?))

@@ -127,7 +127,7 @@ fn creates_every_entity_kind_via_apply_incl_drawing_and_shape() {
     );
     assert!(session.effects.iter().any(|effect| matches!(
         effect,
-        specular_interact::Effect::CreatePage { url, .. } if url == "https://example.com"
+        specular_interact::Effect::CreatePage { address: specular_interact::PageAddress::Url(url), .. } if url == "https://example.com"
     )));
     assert_eq!(session.node(&created[3])["label"], "pair");
     assert_eq!(session.node(a)["specular"]["parentGroupId"], created[3]);
