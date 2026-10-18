@@ -6,7 +6,7 @@
 
 use specular_core::{CssSize, synthetic_element_at};
 use specular_doc::{Document, EntityId, Kind};
-use specular_interact::{Action, Effect, Event, Focus, Key, PageNotice, Showing, Tool};
+use specular_interact::{Action, Effect, Event, Focus, Key, PageNotice, Showing, Tool, settings};
 use specular_testkit::TestApp;
 
 /// Inside h1.
@@ -17,15 +17,22 @@ fn id(name: &str) -> EntityId {
     EntityId::new(name)
 }
 
-/// The file node h1 at (100, 100), 400x300, in the space folder `/space`.
-fn html_app() -> TestApp {
-    let canvas = r#"{"nodes":[{"id":"h1","type":"file","file":"assets/demo.html",
-        "x":100,"y":100,"width":400,"height":300}],"edges":[]}"#;
-    let document = Document::from_canvas_str(canvas).unwrap_or_default();
+const H1: &str = r#"{"id":"h1","type":"file","file":"assets/demo.html",
+    "x":100,"y":100,"width":400,"height":300}"#;
+
+/// A canvas of `nodes` opened on its own from the folder `/space`.
+fn opened_from_space(nodes: &[&str]) -> TestApp {
+    let canvas = format!(r#"{{"nodes":[{}],"edges":[]}}"#, nodes.join(","));
+    let document = Document::from_canvas_str(&canvas).unwrap_or_default();
     let mut app = TestApp::empty();
     app.send(Event::DocumentFolder("/space".to_owned()));
     app.open(document);
     app
+}
+
+/// The file node h1 at (100, 100), 400x300, in the folder `/space`.
+fn html_app() -> TestApp {
+    opened_from_space(&[H1])
 }
 
 fn file_kind(app: &TestApp) -> Kind {
@@ -78,9 +85,17 @@ fn a_comment_on_an_html_file_is_bound_to_its_page_and_shown_in_its_tab() {
     ));
     app.type_text("tighten this").key(Key::Enter);
     let binding = app.document().annotations()[0].page_anchor.clone();
+    // Recorded by its path in the folder, so the `.canvas` holds no
+    // absolute path and the comment survives the folder moving.
     let bound = binding.map(|anchor| (anchor.page_id, anchor.page_url));
-    assert_eq!(bound, Some((id("h1"), Some(URL.to_owned()))));
+    assert_eq!(bound, Some((id("h1"), Some("assets/demo.html".to_owned()))));
     assert_eq!(app.app().comment_marks().len(), 1, "the comment is shown");
+    app.send(Event::DocumentFolder("/moved".to_owned()));
+    assert_eq!(
+        app.app().comment_marks().len(),
+        1,
+        "and still is once moved"
+    );
     // Its own tab fills the view with it, laid out at the tab's size, and
     // the comment comes along.
     app.key(Key::Escape).key(Key::Escape).take_effects();
@@ -91,4 +106,24 @@ fn a_comment_on_an_html_file_is_bound_to_its_page_and_shown_in_its_tab() {
     assert!(resized, "the page is laid out at the tab's size");
     assert_eq!(app.app().comment_marks().len(), 1);
     app.assert_undo_returns_to_start();
+}
+
+#[test]
+fn a_canvas_opened_on_its_own_loads_its_files_from_its_folder_but_opens_no_space() {
+    let app = html_app();
+    assert_eq!(
+        app.app().page(&id("h1")).map(|page| page.url.clone()),
+        Some(URL.to_owned())
+    );
+    assert_eq!(settings(app.app()).general.space, None);
+}
+
+#[test]
+fn a_sync_set_is_links_or_html_files_never_both() {
+    let link = r#"{"id":"p1","type":"link","url":"https://example.com/",
+        "x":600,"y":100,"width":400,"height":300}"#;
+    let mut app = opened_from_space(&[H1, link]);
+    app.select(&["h1", "p1"]).act(Action::ToggleSync);
+    assert_eq!(app.app().selection_synced(), None);
+    assert!(!app.app().is_synced(&id("h1")) && !app.app().is_synced(&id("p1")));
 }
