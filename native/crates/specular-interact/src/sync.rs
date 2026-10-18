@@ -158,14 +158,6 @@ pub(crate) fn toggle(app: &mut App, effects: &mut Vec<Effect>) {
     }
 }
 
-/// The address `page` shows: what it last reported, or what the document
-/// has for a page that has reported nothing.
-fn address(app: &App, page: &EntityId) -> Option<String> {
-    (app.page_state(page).and_then(|state| state.url.clone()))
-        .or_else(|| Some(app.page(page)?.url.clone()))
-        .filter(|url| !url.is_empty())
-}
-
 fn hush(app: &mut App, page: &EntityId) {
     let until = app.session.now_ms + NAVIGATION_QUIET_MS;
     app.session.sync.quiet_until.insert(page.clone(), until);
@@ -185,7 +177,7 @@ pub(crate) fn on_driven(app: &mut App, page: &EntityId, nav: &PageNav, effects: 
     if peers.is_empty() || *nav == PageNav::Stop {
         return;
     }
-    let here = address(app, page);
+    let here = app.page_address(page);
     hush(app, page);
     if matches!(nav, PageNav::Back | PageNav::Forward) {
         let until = app.session.now_ms + NAVIGATION_QUIET_MS;
@@ -197,7 +189,7 @@ pub(crate) fn on_driven(app: &mut App, page: &EntityId, nav: &PageNav, effects: 
         hush(app, &peer);
         // A peer that was leading follows now.
         app.session.sync.leading.remove(&peer);
-        let there = address(app, &peer);
+        let there = app.page_address(&peer);
         let state = app.page_state(&peer);
         let step = match nav {
             PageNav::To(url) => (there.as_deref() != Some(url)).then(|| nav.clone()),
@@ -300,7 +292,7 @@ fn on_navigated(app: &mut App, page: &EntityId, url: &str, effects: &mut Vec<Eff
             app.session.sync.owed.insert(peer, (url.to_owned(), now));
             continue;
         }
-        if address(app, &peer).as_deref() != Some(url) {
+        if app.page_address(&peer).as_deref() != Some(url) {
             effects.push(Effect::Navigate {
                 page: peer,
                 nav: PageNav::To(url.to_owned()),
@@ -327,7 +319,7 @@ pub(crate) fn on_tick(app: &mut App, effects: &mut Vec<Effect>) {
         let Some((url, _)) = app.session.sync.owed.remove(&peer) else {
             continue;
         };
-        if address(app, &peer).as_deref() != Some(url.as_str()) {
+        if app.page_address(&peer).as_deref() != Some(url.as_str()) {
             hush(app, &peer);
             effects.push(Effect::Navigate {
                 page: peer,

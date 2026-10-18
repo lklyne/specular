@@ -69,6 +69,17 @@ pub fn file_url_path(url: &str) -> Option<PathBuf> {
     Some(PathBuf::from(percent_decode(path)))
 }
 
+/// The path inside `folder` of the file a `file://` URL names, as a node's
+/// `file` names it, or `None` for any other URL or a file outside it.
+pub(crate) fn path_in_folder(url: &str, folder: Option<&str>) -> Option<String> {
+    let path = file_url_path(url)?;
+    let relative = path.strip_prefix(folder?).ok()?;
+    let parts: Vec<_> = (relative.components())
+        .map(|part| part.as_os_str().to_string_lossy())
+        .collect();
+    (!parts.is_empty()).then(|| parts.join("/"))
+}
+
 /// `text` with each `%XX` turned back into its byte. A `%` that is not
 /// followed by two hex digits is kept.
 fn percent_decode(text: &str) -> String {

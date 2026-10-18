@@ -117,16 +117,16 @@ impl<'a> Tree<'a> {
                 let entity_count = leaves(&children);
                 (RowKind::Group { entity_count }, Icon::Folder, children)
             }
-            Kind::Page(page) => (
+            Kind::Page(_) => (
                 RowKind::Page,
                 page_icon(entity.rect.width),
-                self.page_children(&entity.id, &page.url),
+                self.page_children(&entity.id),
             ),
-            Kind::File(file) if file.is_html() => {
-                let url = (self.app.page(&entity.id)).map(|page| page.url.clone());
-                let children = self.page_children(&entity.id, &url.unwrap_or_default());
-                (RowKind::Page, file_icon(&file.file), children)
-            }
+            Kind::File(file) if file.is_html() => (
+                RowKind::Page,
+                file_icon(&file.file),
+                self.page_children(&entity.id),
+            ),
             Kind::Text(_) => (RowKind::Text, Icon::StickyNote, Vec::new()),
             Kind::File(file) => (RowKind::File, file_icon(&file.file), Vec::new()),
             Kind::Drawing(drawing) => {
@@ -170,11 +170,12 @@ impl<'a> Tree<'a> {
     /// What belongs to a page: the items hooked to it, front first, then
     /// the open comments bound to it, newest first. A row is dimmed when
     /// the page no longer shows the document it was placed on.
-    fn page_children(&self, id: &EntityId, url: &str) -> Vec<SidebarRow> {
+    fn page_children(&self, id: &EntityId) -> Vec<SidebarRow> {
+        let url = self.app.page_anchor_url(id);
         let hooked = (self.hooked.get(id).into_iter().flatten()).map(|entity| {
             let recorded = entity.anchor.as_ref().and_then(|a| a.page_url.as_deref());
             SidebarRow {
-                dimmed: !matches_page_url(recorded, Some(url)),
+                dimmed: !matches_page_url(recorded, url.as_deref()),
                 ..self.row(entity)
             }
         });
@@ -189,7 +190,7 @@ impl<'a> Tree<'a> {
                 glyph: Icon::MessageSquare,
                 trailing: (messages > 1).then(|| messages.to_string()),
                 selected: self.focused(&annotation.id),
-                dimmed: !matches_page_url(recorded, Some(url)),
+                dimmed: !matches_page_url(recorded, url.as_deref()),
                 expanded: None,
                 toggle: None,
                 children: Vec::new(),

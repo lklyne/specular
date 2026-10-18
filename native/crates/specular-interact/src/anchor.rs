@@ -14,6 +14,14 @@ pub(crate) fn canonical_page_url(url: &str) -> Option<String> {
     (!document.is_empty()).then(|| document.to_owned())
 }
 
+/// `url` as an anchor records it: in [`canonical_page_url`]'s form, with a
+/// file in `folder` named by its path inside it, so a `.canvas` holds no
+/// absolute path of the machine it was written on and moves with its folder.
+pub(crate) fn anchor_page_url(url: &str, folder: Option<&str>) -> Option<String> {
+    let url = canonical_page_url(url)?;
+    Some(crate::space_file::path_in_folder(&url, folder).unwrap_or(url))
+}
+
 /// Whether a recorded URL still names the page's current document. False
 /// only when both sides carry a URL and they disagree once trimmed and
 /// stripped of their hash. A missing recorded URL always matches, as does a
@@ -57,7 +65,7 @@ pub(crate) fn page_anchor_for(
     let rect = entity.rect;
     let centre = geometry::origin(rect) + geometry::size(rect) / 2.0;
     let hook = |candidate: &Entity| {
-        let url = scrolls.url(&candidate.id)?;
+        let url = scrolls.anchor_url(&candidate.id)?;
         let live = scrolls.live(&candidate.id);
         Some(PageAnchor {
             page_url: canonical_page_url(url),

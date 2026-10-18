@@ -165,13 +165,13 @@ fn page_of(app: &App, anchor: &AnnotationAnchor) -> Result<Option<PageAnchor>, R
         }
         AnnotationAnchor::Canvas { .. } | AnnotationAnchor::Region(_) => return Ok(None),
     };
-    match app.page(id) {
-        Some(page) => Ok(Some(PageAnchor {
-            page_url: Some(page.url.clone()),
-            ..PageAnchor::new(id.clone())
-        })),
-        None => Err(Response::not_found(format!("Page not found: {id}"))),
+    if app.page(id).is_none() {
+        return Err(Response::not_found(format!("Page not found: {id}")));
     }
+    Ok(Some(PageAnchor {
+        page_url: app.page_anchor_url(id),
+        ..PageAnchor::new(id.clone())
+    }))
 }
 
 fn author(request: &Request, fallback: Author) -> Author {

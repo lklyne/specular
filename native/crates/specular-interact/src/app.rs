@@ -191,6 +191,20 @@ impl App {
         page_of(self, self.document.entity(id)?)
     }
 
+    /// Where the page `id` is: the address it last reported, else the one
+    /// it has for a page that has reported nothing.
+    pub fn page_address(&self, id: &EntityId) -> Option<String> {
+        (self.page_state(id).and_then(|state| state.url.clone()))
+            .or_else(|| Some(self.page(id)?.url.clone()))
+            .filter(|url| !url.is_empty())
+    }
+
+    /// The page `id`'s address as an anchor records it, so a `.canvas`
+    /// names a file of its own folder by its relative path.
+    pub fn page_anchor_url(&self, id: &EntityId) -> Option<String> {
+        crate::anchor::anchor_page_url(&self.page_address(id)?, self.files_folder())
+    }
+
     /// The folder relative file paths start from: the space folder, else
     /// the folder of a document opened on its own.
     pub(crate) fn files_folder(&self) -> Option<&str> {

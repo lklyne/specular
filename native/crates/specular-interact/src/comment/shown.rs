@@ -26,7 +26,8 @@ pub(crate) fn shown(app: &App, annotation: &Annotation) -> bool {
     let Some(binding) = &annotation.page_anchor else {
         return true;
     };
-    (app.page(&binding.page_id))
-        .is_some_and(|page| matches_page_url(binding.page_url.as_deref(), Some(&page.url)))
+    let current = app.page_anchor_url(&binding.page_id);
+    app.page(&binding.page_id).is_some()
+        && matches_page_url(binding.page_url.as_deref(), current.as_deref())
         && !super::left_its_page(app, annotation)
 }

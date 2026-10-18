@@ -141,7 +141,7 @@ fn describe(app: &App, annotation: &Annotation) -> String {
 /// `page p1 (https://example.com/)`: the page's address as it is now, else
 /// as the comment recorded it.
 fn page_ref(app: &App, annotation: &Annotation, page: &EntityId) -> String {
-    let live = app.page(page).map(|page| page.url.clone());
+    let live = app.page_address(page);
     let recorded = annotation
         .page_anchor
         .as_ref()
