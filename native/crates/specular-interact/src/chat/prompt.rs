@@ -5,9 +5,7 @@ use std::fmt::Write as _;
 
 use serde_json::Value;
 use specular_agent::{CommentContext, Pill, PromptContext, ThreadId, WriteTarget, origin_of};
-use specular_doc::{
-    Annotation, AnnotationAnchor, AnnotationId, EntityId, Kind, Rect, RegionAnchor,
-};
+use specular_doc::{Annotation, AnnotationAnchor, AnnotationId, EntityId, Rect, RegionAnchor};
 
 use crate::App;
 
@@ -56,14 +54,9 @@ pub(crate) fn comment_origin(app: &App, annotation: &Annotation) -> Option<Strin
         let live = app
             .page_state(&anchor.page_id)
             .and_then(|s| s.url.as_deref());
-        let entity = match &app.document.entity(&anchor.page_id)?.kind {
-            Kind::Page(page) => Some(page.url.as_str()),
-            Kind::Text(_) | Kind::File(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Shape(_) => {
-                None
-            }
-        };
+        let entity = app.page(&anchor.page_id);
         live.and_then(origin_of)
-            .or_else(|| entity.and_then(origin_of))
+            .or_else(|| entity.and_then(|page| origin_of(&page.url)))
     })
 }
 
@@ -148,19 +141,11 @@ fn describe(app: &App, annotation: &Annotation) -> String {
 /// `page p1 (https://example.com/)`: the page's address as it is now, else
 /// as the comment recorded it.
 fn page_ref(app: &App, annotation: &Annotation, page: &EntityId) -> String {
-    let live = app
-        .document
-        .entity(page)
-        .and_then(|entity| match &entity.kind {
-            Kind::Page(page) => Some(page.url.as_str()),
-            Kind::Text(_) | Kind::File(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Shape(_) => {
-                None
-            }
-        });
+    let live = app.page(page).map(|page| page.url.clone());
     let recorded = annotation
         .page_anchor
         .as_ref()
-        .and_then(|a| a.page_url.as_deref());
+        .and_then(|a| a.page_url.clone());
     match live.or(recorded).filter(|url| !url.is_empty()) {
         Some(url) => format!("page {page} ({url})"),
         None => format!("page {page}"),

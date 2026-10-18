@@ -8,7 +8,7 @@
 
 use specular_doc::{Kind, Rect};
 use specular_interact::{
-    Action, AssetBytes, ClipboardContent, ClipboardImage, Effect, Event, Key, PageAddress, Paste,
+    Action, AssetBytes, ClipboardContent, ClipboardImage, Effect, Event, Key, Paste,
 };
 use specular_testkit::{
     CMD, TestApp, assert_doc_snapshot, connected, document, group, inside, shape,
@@ -172,7 +172,7 @@ fn a_pasted_url_makes_a_desktop_page_and_hosts_it() {
     assert!(
         effects.iter().any(|effect| matches!(
             effect,
-            Effect::CreatePage { address: PageAddress::Url(url), .. } if url == "https://example.com/docs"
+            Effect::CreatePage { url, .. } if url == "https://example.com/docs"
         )),
         "{effects:?}"
     );

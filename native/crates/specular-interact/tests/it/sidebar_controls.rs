@@ -161,18 +161,18 @@ fn a_page_row_wears_the_device_its_width_suggests_and_a_file_row_its_kind() {
     let glyphs = |rows: &[SidebarRow]| rows.iter().map(|row| row.glyph).collect::<Vec<_>>();
     assert_eq!(
         glyphs(&model.pages),
-        [Icon::Laptop, Icon::Tablet, Icon::Tablet, Icon::Device],
-        "front of the stack first"
+        [
+            Icon::Code,
+            Icon::Laptop,
+            Icon::Tablet,
+            Icon::Tablet,
+            Icon::Device
+        ],
+        "front of the stack first, an HTML file among the pages"
     );
     assert_eq!(
-        glyphs(&model.notes[1..=5]),
-        [
-            Icon::PenLine,
-            Icon::File,
-            Icon::Code,
-            Icon::Video,
-            Icon::Image
-        ]
+        glyphs(&model.notes[1..=4]),
+        [Icon::PenLine, Icon::File, Icon::Video, Icon::Image]
     );
     assert!(
         model

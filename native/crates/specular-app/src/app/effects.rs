@@ -11,11 +11,10 @@ use specular_core::{
     PointerEventKind,
 };
 use specular_doc::{EntityId, Rect};
-use specular_interact::{Effect, Event, PageAddress, PageRegion, update};
+use specular_interact::{Effect, Event, PageRegion, update};
 
 use super::runtime::{PageHost, Runtime, ShellWindow};
 use super::settings::page_device;
-use crate::page_files::page_url;
 use crate::page_queries::css_rect;
 use crate::paint_lod::PageLod;
 
@@ -71,9 +70,9 @@ impl<W: ShellWindow> Runtime<W> {
         match effect {
             Effect::CreatePage {
                 page,
-                address,
+                url,
                 viewport,
-            } => self.create_page(&page, &address, viewport)?,
+            } => self.create_page(&page, &url, viewport)?,
             Effect::ClosePage(page) => self.close_page(&page),
             Effect::SetPageViewport { page, viewport } => self.set_page_viewport(&page, viewport),
             Effect::FocusPage(page) => self.focus_page(page.as_ref()),
@@ -176,17 +175,11 @@ impl<W: ShellWindow> Runtime<W> {
     }
 
     /// Stops hosting `page` and answers what was asked of it.
-    fn create_page(
-        &mut self,
-        page: &EntityId,
-        address: &PageAddress,
-        viewport: CssSize,
-    ) -> anyhow::Result<()> {
-        let url = page_url(address, self.space.as_deref());
-        self.page_files.hosted(page, address, self.space.as_deref());
+    fn create_page(&mut self, page: &EntityId, url: &str, viewport: CssSize) -> anyhow::Result<()> {
+        self.page_files.hosted(page, url);
         let lod = self.starting_lod(page);
         let scale = self.gpu.as_ref().map_or(1.0, W::scale_factor);
-        let mut spec = PageSpec::new(&url, viewport);
+        let mut spec = PageSpec::new(url, viewport);
         spec.texture_scale = scale * lod.texture().factor();
         spec.device = page_device(&self.app, page, scale);
         let host = self

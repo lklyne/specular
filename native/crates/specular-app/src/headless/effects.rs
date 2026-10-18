@@ -19,7 +19,6 @@ use super::Headless;
 use crate::app::{in_window, page_color_scheme, page_device, page_own_scheme};
 use crate::images::LoadFailure;
 use crate::notes::ReadFailure;
-use crate::page_files::page_url;
 use crate::page_notice::notice_of;
 use crate::page_queries::css_rect;
 
@@ -75,12 +74,9 @@ impl Headless {
         match effect {
             Effect::CreatePage {
                 page,
-                address,
+                url,
                 viewport,
-            } => {
-                let url = page_url(&address, self.space.as_deref());
-                self.create_page(&page, &url, viewport)?;
-            }
+            } => self.create_page(&page, &url, viewport)?,
             Effect::ClosePage(page) => self.close_page(&page)?,
             Effect::SetPageViewport { page, viewport } => {
                 if let Some(&host) = self.hosts.get(&page) {

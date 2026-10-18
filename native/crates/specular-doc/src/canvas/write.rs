@@ -59,10 +59,7 @@ pub(super) fn write_node(entity: &Entity) -> Result<JsonMap, CanvasError> {
     node.set("id", &entity.id)?;
     node.set("type", &node_type(&entity.kind))?;
     // A framed page is placed by its shell's corner, as the reader undoes.
-    let shell = match &entity.kind {
-        Kind::Page(page) => page.shell(),
-        _ => None,
-    };
+    let shell = (entity.kind.page_fields()).and_then(|page| page.shell());
     let (left, top) = shell.map_or((0.0, 0.0), |shell| (shell.insets.left, shell.insets.top));
     node.set("x", &(entity.rect.x - left))?;
     node.set("y", &(entity.rect.y - top))?;
@@ -104,6 +101,8 @@ pub(super) fn write_node(entity: &Entity) -> Result<JsonMap, CanvasError> {
             node.put("objectFit", file.object_fit.as_ref())?;
             node.put("presetIndex", file.preset_index.as_ref())?;
             node.put("metadata", file.metadata.as_ref())?;
+            ext.put("syncId", file.sync_id.as_ref())?;
+            ext.put("colorScheme", file.color_scheme.as_ref())?;
             ext.put("parentGroupId", parent)?;
             ext.put("label", label)?;
         }

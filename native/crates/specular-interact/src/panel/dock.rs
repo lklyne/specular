@@ -50,6 +50,7 @@ fn family(kind: &Kind) -> Family {
         Kind::Shape(_) => Family::Shape,
         Kind::Drawing(_) => Family::Drawing,
         Kind::Group(_) => Family::Group,
+        Kind::File(file) if file.is_html() => Family::Page,
         Kind::File(_) => Family::File,
         Kind::Page(_) => Family::Page,
     }

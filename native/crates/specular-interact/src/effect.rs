@@ -33,8 +33,8 @@ pub enum Effect {
     CreatePage {
         /// The page entity.
         page: EntityId,
-        /// Where its document is.
-        address: crate::PageAddress,
+        /// The URL to load.
+        url: String,
         /// The layout viewport in CSS pixels.
         viewport: CssSize,
     },

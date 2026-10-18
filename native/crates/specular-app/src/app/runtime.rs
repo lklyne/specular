@@ -348,7 +348,13 @@ impl<W: ShellWindow> Runtime<W> {
                     self.scratch = self.space.clone();
                 }
             }
-            (None, Some(document)) => self.dispatch(Event::DocumentOpened(Box::new(document))),
+            (None, Some(document)) => {
+                if let Some(folder) = self.space.as_deref() {
+                    let folder = folder.to_string_lossy().into_owned();
+                    self.dispatch(Event::DocumentFolder(folder));
+                }
+                self.dispatch(Event::DocumentOpened(Box::new(document)));
+            }
             (None, None) => {}
         }
         Ok(())

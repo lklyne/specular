@@ -111,10 +111,14 @@ pub(crate) fn run(
     };
     let mut run = Headless::new(source, canvas, args)?;
     let (viewport, panels) = (run.viewport, args.panels);
+    let folder = (run.space.as_deref()).map(|folder| folder.to_string_lossy().into_owned());
     run.drive(|app| {
         app.viewport(viewport).send(Event::BuiltinPanels(panels));
         if let Some(theme) = args.theme {
             app.send(Event::ThemeLoaded(theme));
+        }
+        if let Some(folder) = folder {
+            app.send(Event::DocumentFolder(folder));
         }
         app.send(Event::DocumentOpened(Box::new(document)))
     })?;

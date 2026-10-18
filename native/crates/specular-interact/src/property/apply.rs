@@ -19,6 +19,11 @@ pub(super) fn entity(
     entity: &Entity,
     defaults: &ToolDefaults,
 ) -> Option<Entity> {
+    if let Kind::File(file) = &entity.kind
+        && file.is_html()
+    {
+        return html_file(property, entity);
+    }
     let mut next = entity.clone();
     let applies = match &mut next.kind {
         Kind::Text(text) => set_text(property, text, defaults),
@@ -29,6 +34,21 @@ pub(super) fn entity(
         Kind::File(_) => false,
     };
     applies.then_some(next)
+}
+
+/// The HTML file `entity` with the page property `property` set on the
+/// page fields it keeps, or `None` for a property that is no page's.
+fn html_file(property: &Property, entity: &Entity) -> Option<Entity> {
+    let mut page = entity.kind.page_fields()?.into_owned();
+    let mut rect = entity.rect;
+    if !page::set(property, &mut page, &mut rect) {
+        return None;
+    }
+    Some(Entity {
+        rect,
+        kind: entity.kind.with_page_fields(page)?,
+        ..entity.clone()
+    })
 }
 
 /// `edge` with `property` set, or `None` if the property does not apply to

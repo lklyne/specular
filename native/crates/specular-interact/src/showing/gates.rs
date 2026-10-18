@@ -6,7 +6,7 @@ use specular_doc::{Annotation, AnnotationAnchor, Entity, EntityId};
 
 use super::{ItemView, Lens};
 use crate::anchor::anchors_to_pages;
-use crate::app::page_of;
+use crate::app::is_page;
 use crate::{App, Tool, geometry};
 
 /// How much is seen beside the item shown, when it is not everything.
@@ -65,7 +65,7 @@ pub(crate) fn hides_new(app: &App, entity: &Entity) -> bool {
     let Some((view, _)) = narrowed(app) else {
         return false;
     };
-    let page = (app.document.entity(&view.item)).is_some_and(|item| page_of(item).is_some());
+    let page = (app.document.entity(&view.item)).is_some_and(is_page);
     let hooks = page && entity.parent.is_none() && anchors_to_pages(&entity.kind);
     !hooks
 }

@@ -6,7 +6,7 @@
 
 use specular_agent::origin_of;
 use specular_doc::{
-    ColorScheme, DeviceFrameColor, DeviceFrameStyle, Entity, Kind, PRESET_MAIN, PRESET_MENU,
+    ColorScheme, DeviceFrameColor, DeviceFrameStyle, Entity, PRESET_MAIN, PRESET_MENU,
     VIEWPORT_PRESETS,
 };
 
@@ -181,13 +181,8 @@ fn history(app: &App, page: &Entity) -> Vec<Control> {
 /// The address `page` shows, or nothing for a page that has none yet.
 fn shown(app: &App, page: &Entity) -> String {
     let live = app.page_state(&page.id).and_then(|state| state.url.clone());
-    let stored = match &page.kind {
-        Kind::Page(page) => page.url.clone(),
-        Kind::Text(_) | Kind::Shape(_) | Kind::Drawing(_) | Kind::Group(_) | Kind::File(_) => {
-            String::new()
-        }
-    };
-    let url = live.unwrap_or(stored);
+    let stored = || app.page(&page.id).map(|page| page.url.clone());
+    let url = live.or_else(stored).unwrap_or_default();
     if url == "about:blank" {
         String::new()
     } else {
@@ -403,13 +398,10 @@ fn repo_control(app: &App, page: &Entity) -> Option<Control> {
     let live = app
         .page_state(&page.id)
         .and_then(|state| state.url.as_deref());
-    let stored = match &page.kind {
-        Kind::Page(page) => Some(page.url.as_str()),
-        Kind::Text(_) | Kind::Shape(_) | Kind::Drawing(_) | Kind::Group(_) | Kind::File(_) => None,
-    };
+    let stored = app.page(&page.id);
     let origin = live
         .and_then(origin_of)
-        .or_else(|| stored.and_then(origin_of))?;
+        .or_else(|| stored.and_then(|page| origin_of(&page.url)))?;
     let bound = app
         .repos()
         .binding(&origin)

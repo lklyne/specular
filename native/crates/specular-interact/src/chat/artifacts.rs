@@ -70,11 +70,14 @@ fn showing_file<'a>(app: &'a App, path: &str) -> Option<&'a Entity> {
 fn item_card(app: &App, entity: &Entity, created: bool) -> ArtifactCard {
     let named = (entity.label.as_deref().map(str::trim)).filter(|label| !label.is_empty());
     let (label, detail, glyph) = match &entity.kind {
-        Kind::Page(page) => (
-            page_label(app, entity, page),
+        Kind::Page(_) => (
+            page_label(app, entity),
             "Page",
             page_icon(entity.rect.width),
         ),
+        Kind::File(file) if file.is_html() => {
+            (page_label(app, entity), "Page", file_icon(&file.file))
+        }
         Kind::Text(text) => (
             (named.or_else(|| first_line(&text.text)))
                 .unwrap_or("Text")

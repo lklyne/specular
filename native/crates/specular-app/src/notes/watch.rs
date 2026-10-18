@@ -6,9 +6,8 @@ use std::hash::{Hash, Hasher};
 use std::io;
 use std::path::{Path, PathBuf};
 
-use specular_interact::note_file_name;
+use specular_interact::{note_file_name, resolve_file};
 
-use crate::images::resolve::resolve;
 use crate::persist::{Stamp, stamp, write_atomic};
 
 /// Why a Document has no text.
@@ -57,7 +56,7 @@ impl Watcher {
     /// A file already watched is reported again, for whoever asked anew.
     pub(super) fn watch(&mut self, file: String, report: &mut impl FnMut(NoteRead)) {
         self.unwatch(&file);
-        let path = resolve(&file, self.space.as_deref());
+        let path = resolve_file(&file, self.space.as_deref());
         if path.is_none() {
             tracing::debug!(file, "document is not a file on disk");
         }
@@ -134,7 +133,7 @@ impl Watcher {
     /// the app has not heard of yet. That text is then what is known of the
     /// file, so the app can decide and write again.
     pub(super) fn write(&mut self, file: &str, text: &str) -> Written {
-        let Some(path) = resolve(file, self.space.as_deref()) else {
+        let Some(path) = resolve_file(file, self.space.as_deref()) else {
             tracing::warn!(file, "document is not a file on disk; not written");
             return Written::Failed;
         };

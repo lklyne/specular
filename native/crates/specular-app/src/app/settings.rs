@@ -3,7 +3,7 @@
 //! report.
 
 use specular_core::{PageColorScheme, PageDevice, PageNav};
-use specular_doc::{ColorScheme, Document, EntityId, Kind};
+use specular_doc::{ColorScheme, Document, EntityId};
 use specular_interact::{App, AppSettings, Appearance, Event, Theme, ToolDefaults};
 
 use super::runtime::{Runtime, ShellWindow};
@@ -120,8 +120,5 @@ pub(crate) fn in_window(device: PageDevice, scale: f32) -> PageDevice {
 
 /// The scheme the page `page` of `document` is set to, if it is set to one.
 pub(crate) fn page_own_scheme(document: &Document, page: &EntityId) -> Option<ColorScheme> {
-    match &document.entity(page)?.kind {
-        Kind::Page(page) => page.color_scheme,
-        Kind::Text(_) | Kind::File(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Shape(_) => None,
-    }
+    document.entity(page)?.kind.page_fields()?.color_scheme
 }

@@ -165,6 +165,10 @@ impl Space {
         self.folder.as_deref()
     }
 
+    pub(crate) fn set_folder(&mut self, folder: String) {
+        self.folder = Some(folder);
+    }
+
     /// Every canvas, in the space's order.
     pub fn canvases(&self) -> &[Canvas] {
         &self.canvases

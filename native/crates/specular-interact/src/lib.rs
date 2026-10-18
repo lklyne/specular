@@ -94,6 +94,7 @@ mod settings;
 mod showing;
 mod sidebar;
 mod space;
+mod space_file;
 mod stack_order;
 mod strokes;
 mod sync;
@@ -164,7 +165,6 @@ pub use menu::{Menu, MenuEntry, MenuItem, binding_of, menus};
 pub use move_drag::{CopyPreview, MoveDrag};
 pub use notes::{NoteNotice, NoteState, is_note_file, note_file_name};
 pub use page_state::{PageState, ScreenFit};
-pub use pages::{PageAddress, is_html_file};
 pub use palette::{PaletteItem, PaletteMatch, PaletteRun, palette, search};
 pub use panel::builtin::PanelUi;
 pub use panel::{
@@ -201,6 +201,7 @@ pub use space::{
     Canvas, CanvasId, DEFAULT_CANVAS_NAME, OpenedCanvas, OpenedSpace, SavedCanvas, Space,
     TabRefError, canvas_file_name, legacy_canvas_file_name, resolve_tab_ref,
 };
+pub use space_file::{file_url_path, resolve_file};
 pub use specular_agent::{
     Artifact, ArtifactTarget, Image as ThreadImage, Index as ThreadIndex, MediaType,
     Message as ThreadMessage, Model, Models, ModelsNews, Notice, Progress, ProgressKind, Repos,

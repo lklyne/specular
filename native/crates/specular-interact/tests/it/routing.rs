@@ -6,9 +6,7 @@ use specular_core::{
     PointerButton, PointerEvent, PointerEventKind, WheelEvent,
 };
 use specular_doc::{EntityId, Rect};
-use specular_interact::{
-    Action, Chord, Effect, Event, Focus, Key, MenuEntry, PageAddress, PageNotice, Tool,
-};
+use specular_interact::{Action, Chord, Effect, Event, Focus, Key, MenuEntry, PageNotice, Tool};
 use specular_testkit::{CMD, TestApp, document, page, pages};
 
 fn id(id: &str) -> EntityId {
@@ -61,7 +59,7 @@ fn opening_a_document_hosts_its_pages_in_stack_order() {
     app.open(document(pages(2)));
     let create = |page: &str| Effect::CreatePage {
         page: id(page),
-        address: PageAddress::Url(format!("https://example.com/{page}")),
+        url: format!("https://example.com/{page}"),
         viewport: CssSize::new(400, 300),
     };
     assert_eq!(app.take_effects(), [create("p1"), create("p2")]);

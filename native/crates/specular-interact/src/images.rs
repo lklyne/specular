@@ -139,12 +139,11 @@ fn wanted(document: &Document, theme: DeviceFrameColor) -> impl Iterator<Item = 
         .entities()
         .filter_map(move |entity| match &entity.kind {
             Kind::File(file) if is_image_file(&file.file) => Some(file.file.as_str()),
-            Kind::Page(page) => {
-                device_art(page).map(|art| art.asset(page.frame_color().unwrap_or(theme)))
+            kind @ (Kind::Page(_) | Kind::File(_)) => {
+                let page = kind.page_fields()?;
+                device_art(&page).map(|art| art.asset(page.frame_color().unwrap_or(theme)))
             }
-            Kind::File(_) | Kind::Text(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Shape(_) => {
-                None
-            }
+            Kind::Text(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Shape(_) => None,
         })
 }
 

@@ -165,12 +165,12 @@ fn page_of(app: &App, anchor: &AnnotationAnchor) -> Result<Option<PageAnchor>, R
         }
         AnnotationAnchor::Canvas { .. } | AnnotationAnchor::Region(_) => return Ok(None),
     };
-    match app.document().entity(id).map(|entity| &entity.kind) {
-        Some(Kind::Page(page)) => Ok(Some(PageAnchor {
+    match app.page(id) {
+        Some(page) => Ok(Some(PageAnchor {
             page_url: Some(page.url.clone()),
             ..PageAnchor::new(id.clone())
         })),
-        _ => Err(Response::not_found(format!("Page not found: {id}"))),
+        None => Err(Response::not_found(format!("Page not found: {id}"))),
     }
 }
 

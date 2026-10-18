@@ -107,6 +107,7 @@ pub(crate) fn anchor_shift(
 /// the document can read it.
 #[derive(Debug, Clone)]
 pub(crate) struct PageScroll {
+    url: String,
     live: DVec2,
     per_css: DVec2,
     places: HashMap<String, ElementPlace>,
@@ -128,6 +129,10 @@ impl Scrolls {
                 .pages()
                 .map(|(id, placement)| {
                     let scroll = PageScroll {
+                        url: app
+                            .page(id)
+                            .map(|page| page.url.clone())
+                            .unwrap_or_default(),
                         live: app.page_scroll(id),
                         per_css: placement.canvas_per_css(),
                         places: (app.page_state(id))
@@ -149,6 +154,11 @@ impl Scrolls {
     /// Whether `page` can be hooked to: no other page fills the view.
     pub(crate) fn offers(&self, page: &EntityId) -> bool {
         self.alone.as_ref().is_none_or(|alone| alone == page)
+    }
+
+    /// The URL of `page`, or `None` when it is no page.
+    pub(crate) fn url(&self, page: &EntityId) -> Option<&str> {
+        self.pages.get(page).map(|scroll| scroll.url.as_str())
     }
 
     /// The page's scroll, zero for a page that has not said or is gone.

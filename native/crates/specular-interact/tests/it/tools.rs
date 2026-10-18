@@ -7,9 +7,7 @@ use specular_doc::{
     Color, ColorPreset, Entity, EntityId, Kind, Page, PageSource, Rect, Shape, ShapeKind, Text,
     TextFont, TextStyle, WidthMode,
 };
-use specular_interact::{
-    Action, Effect, Key, PageAddress, PlacePreview, TextEdit, Tool, ToolDefaultPatch,
-};
+use specular_interact::{Action, Effect, Key, PlacePreview, TextEdit, Tool, ToolDefaultPatch};
 use specular_testkit::{SHIFT, TestApp, assert_doc_snapshot};
 
 /// The entity the last placement left selected.
@@ -229,7 +227,7 @@ fn clicking_with_the_page_tool_places_a_blank_page_and_hosts_it() {
     );
     assert!(app.effects().contains(&Effect::CreatePage {
         page: id.clone(),
-        address: PageAddress::Url("about:blank".to_owned()),
+        url: "about:blank".to_owned(),
         viewport: CssSize::new(375, 667),
     }));
     assert_eq!(app.session().tool, Tool::Select);

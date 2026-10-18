@@ -1,5 +1,7 @@
 //! [`App`]: the document, its history, and the [`Session`].
 
+use std::borrow::Cow;
+
 use glam::Vec2;
 use specular_core::{Camera, Modifiers};
 use specular_doc::{
@@ -126,7 +128,7 @@ impl App {
     }
 
     /// Where the page `id` sits and the viewport it is laid out at, or `None`
-    /// when `id` hosts no page. An HTML file is placed as a page is.
+    /// when `id` is not a page.
     ///
     /// A page's viewport is its rect's size, as its handle is dragged too.
     /// A page that fills its tab sits at the rect the tab presents it at,
@@ -134,7 +136,7 @@ impl App {
     /// area of the screen its rect is, unless its document covers it.
     pub fn page_placement(&self, id: &EntityId) -> Option<PagePlacement> {
         let entity = self.document.entity(id)?;
-        if !crate::pages::hosts_page(entity) {
+        if !is_page(entity) {
             return None;
         }
         if let Some(rect) = crate::showing::presented_rect(self, entity) {
@@ -180,8 +182,13 @@ impl App {
         self.session.notes.scroll(entity)
     }
 
-    /// The hosted pages, back-to-front, each with its placement: the pages
-    /// and the HTML files.
+    /// The page `id` is, or `None` when it is not one. An HTML file's URL
+    /// is its file's, resolved against the space folder.
+    pub fn page(&self, id: &EntityId) -> Option<Cow<'_, Page>> {
+        page_of(self, self.document.entity(id)?)
+    }
+
+    /// The pages, back-to-front, each with its placement.
     pub fn pages(&self) -> impl Iterator<Item = (&EntityId, PagePlacement)> {
         (self.document.entities())
             .filter_map(|entity| Some((&entity.id, self.page_placement(&entity.id)?)))
@@ -211,11 +218,23 @@ impl App {
     }
 }
 
-/// The page fields of `entity`, or `None` for every other kind.
-pub(crate) fn page_of(entity: &Entity) -> Option<&Page> {
+/// The page `entity` is, or `None` for every other kind: a link node, or
+/// an HTML file node with its path resolved against the space folder as
+/// its URL.
+pub(crate) fn page_of<'a>(app: &App, entity: &'a Entity) -> Option<Cow<'a, Page>> {
+    let mut page = entity.kind.page_fields()?;
+    if let Kind::File(file) = &entity.kind {
+        page.to_mut().url = crate::space_file::file_page_url(&file.file, app.space.folder());
+    }
+    Some(page)
+}
+
+/// Whether `entity` is a page: a link node or an HTML file node.
+pub(crate) fn is_page(entity: &Entity) -> bool {
     match &entity.kind {
-        Kind::Page(page) => Some(page),
-        Kind::Text(_) | Kind::File(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Shape(_) => None,
+        Kind::Page(_) => true,
+        Kind::File(file) => file.is_html(),
+        Kind::Text(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Shape(_) => false,
     }
 }
 

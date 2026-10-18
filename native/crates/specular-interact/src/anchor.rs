@@ -4,7 +4,6 @@
 
 use specular_doc::{Command, Document, Entity, EntityId, Kind, PageAnchor};
 
-use crate::app::page_of;
 use crate::geometry;
 use crate::scroll_follow::{self, Scrolls};
 
@@ -58,10 +57,10 @@ pub(crate) fn page_anchor_for(
     let rect = entity.rect;
     let centre = geometry::origin(rect) + geometry::size(rect) / 2.0;
     let hook = |candidate: &Entity| {
-        let page = page_of(candidate)?;
+        let url = scrolls.url(&candidate.id)?;
         let live = scrolls.live(&candidate.id);
         Some(PageAnchor {
-            page_url: canonical_page_url(&page.url),
+            page_url: canonical_page_url(url),
             scroll_x: Some(live.x),
             scroll_y: Some(live.y),
             ..PageAnchor::new(candidate.id.clone())

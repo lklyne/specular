@@ -5,7 +5,7 @@ use specular_core::CssSize;
 use specular_doc::{
     Color, Drawing, Entity, EntityId, JsonMap, Kind, PageAnchor, Point, Rect, Stroke,
 };
-use specular_interact::{Effect, PageAddress};
+use specular_interact::Effect;
 use specular_testkit::{
     ALT, SHIFT, TestApp, assert_doc_snapshot, connected, document, drawing, group, inside, page,
     shape, text,
@@ -276,7 +276,7 @@ fn option_drag_on_a_page_hosts_the_copy_and_undo_closes_it() {
         (
             vec![Effect::CreatePage {
                 page: copy.clone(),
-                address: PageAddress::Url("https://example.com/p1".to_owned()),
+                url: "https://example.com/p1".to_owned(),
                 viewport: CssSize::new(400, 300)
             }],
             vec![Effect::ClosePage(copy)]

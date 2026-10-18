@@ -18,7 +18,7 @@ use glam::Vec2;
 use specular_core::PageNav;
 use specular_doc::{Command, Document, EntityId, Kind, Page};
 
-use crate::app::page_of;
+use crate::app::is_page;
 use crate::{App, Effect, PageNotice, update};
 
 /// How long a page that was sent somewhere says nothing of where it goes,
@@ -57,7 +57,11 @@ impl SyncState {
 }
 
 fn sync_id<'a>(document: &'a Document, page: &EntityId) -> Option<&'a str> {
-    page_of(document.entity(page)?)?.sync_id.as_deref()
+    match &document.entity(page)?.kind {
+        Kind::Page(page) => page.sync_id.as_deref(),
+        Kind::File(file) if file.is_html() => file.sync_id.as_deref(),
+        Kind::File(_) | Kind::Text(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Shape(_) => None,
+    }
 }
 
 /// The other pages of `page`'s sync set, back to front.
@@ -67,7 +71,7 @@ fn peers(document: &Document, page: &EntityId) -> Vec<EntityId> {
     };
     (document.entities())
         .filter(|entity| entity.id != *page)
-        .filter(|entity| page_of(entity).is_some_and(|peer| peer.sync_id.as_deref() == Some(set)))
+        .filter(|entity| sync_id(document, &entity.id) == Some(set))
         .map(|entity| entity.id.clone())
         .collect()
 }
@@ -100,7 +104,7 @@ impl App {
 fn selected_pages(app: &App) -> Option<Vec<EntityId>> {
     let selection = &app.session.selection;
     let pages: Vec<EntityId> = (selection.entities())
-        .filter(|id| app.document.entity(id).and_then(page_of).is_some())
+        .filter(|id| app.document.entity(id).is_some_and(is_page))
         .cloned()
         .collect();
     (pages.len() == selection.items().len()).then_some(pages)
@@ -119,13 +123,13 @@ pub(crate) fn toggle(app: &mut App, effects: &mut Vec<Effect>) {
     let joined = (!leave).then(|| format!("sync_{}", app.fresh_id()));
     let mut after: Vec<(EntityId, Page, Option<String>)> = (app.document.entities())
         .filter_map(|entity| {
-            let page = page_of(entity)?;
+            let page = entity.kind.page_fields()?.into_owned();
             let set = if selected.contains(&entity.id) {
                 joined.clone()
             } else {
                 page.sync_id.clone()
             };
-            Some((entity.id.clone(), page.clone(), set))
+            Some((entity.id.clone(), page, set))
         })
         .collect();
     let mut members: HashMap<String, usize> = HashMap::new();
@@ -140,9 +144,13 @@ pub(crate) fn toggle(app: &mut App, effects: &mut Vec<Effect>) {
     let commands: Vec<Command> = after
         .into_iter()
         .filter(|(_, page, set)| page.sync_id != *set)
-        .map(|(id, page, sync_id)| Command::SetKind {
-            id,
-            kind: Box::new(Kind::Page(Page { sync_id, ..page })),
+        .filter_map(|(id, page, sync_id)| {
+            let kind =
+                (app.document.entity(&id)?.kind).with_page_fields(Page { sync_id, ..page })?;
+            Some(Command::SetKind {
+                id,
+                kind: Box::new(kind),
+            })
         })
         .collect();
     if !commands.is_empty() {
@@ -154,7 +162,7 @@ pub(crate) fn toggle(app: &mut App, effects: &mut Vec<Effect>) {
 /// has for a page that has reported nothing.
 fn address(app: &App, page: &EntityId) -> Option<String> {
     (app.page_state(page).and_then(|state| state.url.clone()))
-        .or_else(|| Some(page_of(app.document.entity(page)?)?.url.clone()))
+        .or_else(|| Some(app.page(page)?.url.clone()))
         .filter(|url| !url.is_empty())
 }
 

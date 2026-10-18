@@ -2,11 +2,11 @@
 
 use std::collections::HashMap;
 
-use specular_doc::{Annotation, AnnotationId, Entity, EntityId, ItemId, Kind, Page};
+use specular_doc::{Annotation, AnnotationId, Entity, EntityId, ItemId, Kind};
 
 use super::{RowKind, RowTarget, SidebarRow};
 use crate::anchor::matches_page_url;
-use crate::app::page_of;
+use crate::app::is_page;
 use crate::comment::is_open;
 use crate::labels::{
     comment_label, dimensions, file_icon, file_label, first_line, page_icon, page_label,
@@ -90,11 +90,13 @@ impl<'a> Tree<'a> {
     /// The page `entity` nests under: the one it is anchored to, when it is
     /// in no group and that page is on the canvas.
     fn hook(app: &'a App, entity: &'a Entity) -> Option<&'a EntityId> {
-        if matches!(entity.kind, Kind::Group(_) | Kind::Page(_)) {
+        if matches!(entity.kind, Kind::Group(_)) || is_page(entity) {
             return None;
         }
         let page = &entity.anchor.as_ref()?.page_id;
-        (app.document.entity(page)).and_then(page_of).map(|_| page)
+        (app.document.entity(page))
+            .filter(|it| is_page(it))
+            .map(|_| page)
     }
 
     /// The rows at the top level of the canvas.
@@ -118,8 +120,13 @@ impl<'a> Tree<'a> {
             Kind::Page(page) => (
                 RowKind::Page,
                 page_icon(entity.rect.width),
-                self.page_children(&entity.id, page),
+                self.page_children(&entity.id, &page.url),
             ),
+            Kind::File(file) if file.is_html() => {
+                let url = (self.app.page(&entity.id)).map(|page| page.url.clone());
+                let children = self.page_children(&entity.id, &url.unwrap_or_default());
+                (RowKind::Page, file_icon(&file.file), children)
+            }
             Kind::Text(_) => (RowKind::Text, Icon::StickyNote, Vec::new()),
             Kind::File(file) => (RowKind::File, file_icon(&file.file), Vec::new()),
             Kind::Drawing(drawing) => {
@@ -135,6 +142,9 @@ impl<'a> Tree<'a> {
         let trailing = match &entity.kind {
             Kind::Group(_) => Some(leaves(&children).to_string()),
             Kind::Page(_) => Some(dimensions(entity.rect.width, entity.rect.height)),
+            Kind::File(file) if file.is_html() => {
+                Some(dimensions(entity.rect.width, entity.rect.height))
+            }
             Kind::Text(_) | Kind::File(_) | Kind::Drawing(_) | Kind::Shape(_) => None,
         };
         let item = ItemId::Entity(entity.id.clone());
@@ -160,11 +170,11 @@ impl<'a> Tree<'a> {
     /// What belongs to a page: the items hooked to it, front first, then
     /// the open comments bound to it, newest first. A row is dimmed when
     /// the page no longer shows the document it was placed on.
-    fn page_children(&self, id: &EntityId, page: &Page) -> Vec<SidebarRow> {
+    fn page_children(&self, id: &EntityId, url: &str) -> Vec<SidebarRow> {
         let hooked = (self.hooked.get(id).into_iter().flatten()).map(|entity| {
             let recorded = entity.anchor.as_ref().and_then(|a| a.page_url.as_deref());
             SidebarRow {
-                dimmed: !matches_page_url(recorded, Some(&page.url)),
+                dimmed: !matches_page_url(recorded, Some(url)),
                 ..self.row(entity)
             }
         });
@@ -179,7 +189,7 @@ impl<'a> Tree<'a> {
                 glyph: Icon::MessageSquare,
                 trailing: (messages > 1).then(|| messages.to_string()),
                 selected: self.focused(&annotation.id),
-                dimmed: !matches_page_url(recorded, Some(&page.url)),
+                dimmed: !matches_page_url(recorded, Some(url)),
                 expanded: None,
                 toggle: None,
                 children: Vec::new(),
@@ -196,7 +206,8 @@ impl<'a> Tree<'a> {
     fn label(&self, entity: &Entity) -> String {
         let named = (entity.label.as_deref().map(str::trim)).filter(|label| !label.is_empty());
         match &entity.kind {
-            Kind::Page(page) => page_label(self.app, entity, page),
+            Kind::Page(_) => page_label(self.app, entity),
+            Kind::File(file) if file.is_html() => page_label(self.app, entity),
             Kind::Text(text) => (named.or_else(|| first_line(&text.text)))
                 .unwrap_or("Text")
                 .to_owned(),

@@ -206,7 +206,7 @@ pub fn to_end(app: &App) -> Option<EdgeEnd> {
 /// The viewport preset of pages. A page with a custom size has none.
 pub fn viewport_preset(app: &App) -> Option<u32> {
     of_entities(app, |entity, out| {
-        if let Kind::Page(page) = &entity.kind {
+        if let Some(page) = entity.kind.page_fields() {
             let custom = page.metadata.as_ref().is_some_and(page::is_custom);
             out.extend(page.preset_index.filter(|_| !custom));
         }
@@ -216,7 +216,7 @@ pub fn viewport_preset(app: &App) -> Option<u32> {
 /// The orientation of pages.
 pub fn orientation(app: &App) -> Option<Orientation> {
     of_entities(app, |entity, out| {
-        if let Kind::Page(page) = &entity.kind {
+        if let Some(page) = entity.kind.page_fields() {
             let meta = page.metadata.as_ref();
             out.push(meta.map_or(Orientation::Portrait, page::orientation_of));
         }
@@ -235,8 +235,8 @@ pub fn followed_color_scheme(app: &App) -> ColorScheme {
 /// realistic that has no drawing to show; the inner `None` is no frame.
 pub fn device_frame(app: &App) -> Option<Option<DeviceFrameStyle>> {
     of_entities(app, |entity, out| {
-        if let Kind::Page(page) = &entity.kind {
-            out.push(frame_shown(page));
+        if let Some(page) = entity.kind.page_fields() {
+            out.push(frame_shown(&page));
         }
     })
 }
@@ -256,8 +256,8 @@ pub(super) fn next_device_frame(app: &App) -> Option<DeviceFrameStyle> {
     let pages = gather(
         app,
         |entity, out| {
-            if let Kind::Page(page) = &entity.kind {
-                out.push((frame_shown(page), page.device_art().is_some()));
+            if let Some(page) = entity.kind.page_fields() {
+                out.push((frame_shown(&page), page.device_art().is_some()));
             }
         },
         |_, _| {},
@@ -277,10 +277,10 @@ pub(super) fn next_device_frame(app: &App) -> Option<DeviceFrameStyle> {
 /// left out.
 pub fn device_frame_color(app: &App) -> Option<DeviceFrameColor> {
     of_entities(app, |entity, out| {
-        if let Kind::Page(page) = &entity.kind
+        if let Some(page) = entity.kind.page_fields()
             && page.shell().is_some()
         {
-            out.push(app.device_frame_color(page));
+            out.push(app.device_frame_color(&page));
         }
     })
 }
@@ -290,7 +290,7 @@ pub fn any_device_frame(app: &App) -> bool {
     let framed = gather(
         app,
         |entity, out| {
-            if let Kind::Page(page) = &entity.kind
+            if let Some(page) = entity.kind.page_fields()
                 && page.shell().is_some()
             {
                 out.push(());
@@ -304,7 +304,7 @@ pub fn any_device_frame(app: &App) -> bool {
 /// The color-scheme override of pages; the inner `None` follows the system.
 pub fn color_scheme(app: &App) -> Option<Option<ColorScheme>> {
     of_entities(app, |entity, out| {
-        if let Kind::Page(page) = &entity.kind {
+        if let Some(page) = entity.kind.page_fields() {
             out.push(page.color_scheme);
         }
     })

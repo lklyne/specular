@@ -5,7 +5,6 @@ use specular_doc::{Annotation, AnnotationStatus};
 
 use crate::App;
 use crate::anchor::matches_page_url;
-use crate::app::page_of;
 
 /// Whether `status` is a thread still being worked on.
 pub(crate) const fn is_open(status: AnnotationStatus) -> bool {
@@ -27,8 +26,7 @@ pub(crate) fn shown(app: &App, annotation: &Annotation) -> bool {
     let Some(binding) = &annotation.page_anchor else {
         return true;
     };
-    (app.document.entity(&binding.page_id))
-        .and_then(page_of)
+    (app.page(&binding.page_id))
         .is_some_and(|page| matches_page_url(binding.page_url.as_deref(), Some(&page.url)))
         && !super::left_its_page(app, annotation)
 }
