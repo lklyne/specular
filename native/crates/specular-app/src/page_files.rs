@@ -2,9 +2,9 @@
 //! again when what it shows changes.
 //!
 //! A page at a `file://` URL (an HTML file node, or a link to a file) is
-//! watched with the stylesheets, scripts and other pages beside it, since
-//! editing one of those is editing the page. Images are left out: a picture
-//! dropped into the same folder changes nothing the page has loaded.
+//! watched with the stylesheets, scripts and data beside it, since editing
+//! one of those is editing the page. Other pages and images beside it are
+//! left out: they change nothing the page has loaded.
 
 use std::collections::HashMap;
 use std::collections::hash_map::DefaultHasher;
@@ -20,12 +20,12 @@ use specular_interact::file_url_path;
 const CHECK_INTERVAL: Duration = Duration::from_millis(500);
 
 /// The files beside a page that it may have loaded.
-const SIBLINGS: [&str; 6] = ["html", "htm", "css", "js", "mjs", "json"];
+const SIBLINGS: [&str; 4] = ["css", "js", "mjs", "json"];
 
 struct Watched {
     /// The file the page loads.
     path: PathBuf,
-    /// What its folder's watched files looked like when last looked at.
+    /// What it and the files beside it looked like when last looked at.
     stamp: u64,
 }
 
@@ -37,11 +37,12 @@ pub(crate) struct PageFiles {
 }
 
 impl PageFiles {
-    /// Watches the file the page `page` loads from `url`, if it is one.
+    /// Watches the file the page `page` loads from `url`, if it is one, in
+    /// place of any it loaded before.
     pub(crate) fn hosted(&mut self, page: &EntityId, url: &str) {
         self.watched.remove(page);
         if let Some(path) = file_url_path(url) {
-            let stamp = folder_stamp(&path);
+            let stamp = stamp(&path, &mut Listings::default());
             self.watched.insert(page.clone(), Watched { path, stamp });
         }
     }
@@ -49,6 +50,12 @@ impl PageFiles {
     /// Stops watching the file of the page `page`.
     pub(crate) fn closed(&mut self, page: &EntityId) {
         self.watched.remove(page);
+    }
+
+    /// Whether `url` is the file watched for the page `page`.
+    pub(crate) fn watches(&self, page: &EntityId, url: &str) -> bool {
+        (self.watched.get(page))
+            .is_some_and(|watched| file_url_path(url).is_some_and(|path| path == watched.path))
     }
 
     /// The pages whose files changed since they were last looked at. Looks
@@ -60,9 +67,10 @@ impl PageFiles {
             return Vec::new();
         }
         self.checked_at = Some(now);
+        let mut listings = Listings::default();
         let mut changed = Vec::new();
         for (page, watched) in &mut self.watched {
-            let now = folder_stamp(&watched.path);
+            let now = stamp(&watched.path, &mut listings);
             if now != watched.stamp {
                 watched.stamp = now;
                 changed.push(page.clone());
@@ -72,35 +80,48 @@ impl PageFiles {
     }
 }
 
-/// One number for the name, size and modification time of `path` and of
-/// each watched file beside it. Any of them changing, appearing or going
-/// changes it.
-fn folder_stamp(path: &Path) -> u64 {
-    let watched = |entry: &Path| {
-        entry == path
-            || (entry.extension().and_then(|it| it.to_str()))
-                .is_some_and(|it| SIBLINGS.iter().any(|known| it.eq_ignore_ascii_case(known)))
-    };
-    let entries = (path.parent())
-        .and_then(|folder| fs::read_dir(folder).ok())
-        .into_iter()
-        .flatten()
-        .flatten();
-    let mut stamp = 0_u64;
-    for entry in entries {
-        let entry = entry.path();
-        if !watched(&entry) {
-            continue;
-        }
-        let Ok(metadata) = fs::metadata(&entry) else {
-            continue;
-        };
-        let mut hasher = DefaultHasher::new();
-        (&entry, metadata.len(), metadata.modified().ok()).hash(&mut hasher);
-        // A sum, so the order the folder lists its files in does not matter.
-        stamp = stamp.wrapping_add(hasher.finish());
+/// The hashed sibling files of each folder looked at in one check, so pages
+/// that share a folder list it once.
+#[derive(Default)]
+struct Listings(HashMap<PathBuf, u64>);
+
+impl Listings {
+    /// One number for the sibling files in `folder`.
+    fn of(&mut self, folder: &Path) -> u64 {
+        *(self.0.entry(folder.to_owned())).or_insert_with(|| {
+            let entries = fs::read_dir(folder).into_iter().flatten().flatten();
+            (entries.map(|entry| entry.path()))
+                .filter(|entry| is_sibling(entry))
+                // A sum, so the order the folder lists its files in does not
+                // matter.
+                .fold(0_u64, |stamp, entry| stamp.wrapping_add(file_hash(&entry)))
+        })
     }
-    stamp
+}
+
+/// One number for the name, size and modification time of `path` and of
+/// each sibling file beside it. Any of them changing, appearing or going
+/// changes it.
+fn stamp(path: &Path, listings: &mut Listings) -> u64 {
+    let own = if is_sibling(path) { 0 } else { file_hash(path) };
+    let siblings = path.parent().map_or(0, |folder| listings.of(folder));
+    own.wrapping_add(siblings)
+}
+
+fn is_sibling(path: &Path) -> bool {
+    (path.extension().and_then(|it| it.to_str()))
+        .is_some_and(|it| SIBLINGS.iter().any(|known| it.eq_ignore_ascii_case(known)))
+}
+
+/// The name, size and modification time of `path` as one number, or 0 for
+/// a file that is not there.
+fn file_hash(path: &Path) -> u64 {
+    let Ok(metadata) = fs::metadata(path) else {
+        return 0;
+    };
+    let mut hasher = DefaultHasher::new();
+    (path, metadata.len(), metadata.modified().ok()).hash(&mut hasher);
+    hasher.finish()
 }
 
 #[cfg(test)]
@@ -131,8 +152,9 @@ mod tests {
             at += CHECK_INTERVAL;
             assert_eq!(files.changed(at), [], "{file} is said once");
         }
-        // A picture beside it is nothing the page loaded.
+        // A picture or another page beside it is nothing the page loaded.
         fs::write(folder.join("shot.png"), [0_u8; 8]).unwrap();
+        fs::write(folder.join("b.html"), "<p>other</p>").unwrap();
         assert_eq!(files.changed(at + CHECK_INTERVAL), []);
         files.closed(&page);
         fs::remove_dir_all(&folder).unwrap();

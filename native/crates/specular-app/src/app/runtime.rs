@@ -381,6 +381,7 @@ impl<W: ShellWindow> Runtime<W> {
         self.finish_notes();
         self.flush_files();
         self.hosts.clear();
+        self.page_files = PageFiles::default();
         self.closing = true;
     }
 

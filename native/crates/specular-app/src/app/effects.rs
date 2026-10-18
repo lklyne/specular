@@ -138,6 +138,9 @@ impl<W: ShellWindow> Runtime<W> {
             | Effect::CaptureElement { .. }
             | Effect::TrackElements { .. }) => self.run_sync(effect),
             Effect::Navigate { page, nav } => {
+                if let PageNav::To(url) = &nav {
+                    self.page_files.hosted(&page, url);
+                }
                 self.on_host(&page, |source, host| source.navigate(host, &nav));
             }
             Effect::QueryElement { page, point } => self.query_element(&page, point),
@@ -174,9 +177,8 @@ impl<W: ShellWindow> Runtime<W> {
         }
     }
 
-    /// Stops hosting `page` and answers what was asked of it.
+    /// Hosts `page` at `url`, watching the file it loads if it is one.
     fn create_page(&mut self, page: &EntityId, url: &str, viewport: CssSize) -> anyhow::Result<()> {
-        self.page_files.hosted(page, url);
         let lod = self.starting_lod(page);
         let scale = self.gpu.as_ref().map_or(1.0, W::scale_factor);
         let mut spec = PageSpec::new(url, viewport);
@@ -188,10 +190,12 @@ impl<W: ShellWindow> Runtime<W> {
             .with_context(|| format!("creating page for {url}"))?;
         self.hosts
             .insert(page.clone(), PageHost { page: host, lod });
+        self.page_files.hosted(page, url);
         self.give_color_scheme(page);
         Ok(())
     }
 
+    /// Stops hosting `page` and answers what was asked of it.
     fn close_page(&mut self, page: &EntityId) {
         self.page_files.closed(page);
         if let Some(host) = self.hosts.remove(page) {
@@ -206,9 +210,14 @@ impl<W: ShellWindow> Runtime<W> {
         self.give_up_on_page(page);
     }
 
-    /// Loads again each page whose HTML file changed on disk.
+    /// Loads again each page whose HTML file changed on disk, unless the
+    /// page has since gone somewhere else.
     pub(super) fn reload_changed_pages(&mut self, now: Instant) {
         for page in self.page_files.changed(now) {
+            let live = (self.app.page_state(&page)).and_then(|state| state.url.as_deref());
+            if live.is_some_and(|url| !self.page_files.watches(&page, url)) {
+                continue;
+            }
             self.on_host(&page, |source, host| {
                 source.navigate(host, &PageNav::Reload)
             });
