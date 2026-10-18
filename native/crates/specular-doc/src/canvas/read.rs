@@ -42,6 +42,13 @@ pub(super) fn read_node(mut node: JsonMap) -> Result<Entity, JsonMap> {
             entity.parent = take(&mut node, "parentGroupId").or(legacy);
             page.metadata = take(&mut node, "metadata");
             page.color_scheme = take(&mut node, "colorScheme");
+            // The file places a framed page by its shell's corner. The rect
+            // is the screen inside it. A framed HTML file is placed by its
+            // screen, as Electron places every file node.
+            if let Some(shell) = page.shell() {
+                entity.rect.x += shell.insets.left;
+                entity.rect.y += shell.insets.top;
+            }
         }
         Kind::Text(text) => {
             text.color = take_node_color(&mut node, &mut ext);
@@ -97,12 +104,6 @@ pub(super) fn read_node(mut node: JsonMap) -> Result<Entity, JsonMap> {
             shape.text_align = take(&mut ext, "textAlign");
             shape.text_vertical_align = take(&mut ext, "textVerticalAlign");
         }
-    }
-    // The file places a framed page by its shell's corner. The rect is the
-    // screen inside it.
-    if let Some(shell) = (entity.kind.page_fields()).and_then(|page| page.shell()) {
-        entity.rect.x += shell.insets.left;
-        entity.rect.y += shell.insets.top;
     }
     if !ext.is_empty() {
         node.insert("specular".to_owned(), Value::Object(ext));

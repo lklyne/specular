@@ -66,7 +66,7 @@ mod tests {
     #[test]
     fn an_html_file_keeps_a_pages_fields_and_stays_a_file_node() {
         let text = r#"{"nodes":[{"id":"h1","type":"file","file":"assets/a.html",
-            "x":0,"y":0,"width":393,"height":852,"presetIndex":3,
+            "x":40,"y":60,"width":393,"height":852,"presetIndex":3,
             "metadata":{"showDeviceFrame":true,"deviceId":"iphone-14-pro"},
             "specular":{"syncId":"s1","colorScheme":"dark"}}],"edges":[]}"#;
         let document = Document::from_canvas_str(text).unwrap();
@@ -75,7 +75,15 @@ mod tests {
         assert_eq!(page.sync_id.as_deref(), Some("s1"));
         assert_eq!(page.preset_index, Some(3));
         assert!(page.shell().is_some(), "its device frame is shown");
+        // Placed by its screen, as Electron places a file node, and not by
+        // its shell's corner as a link is.
+        assert_eq!((entity.rect.x, entity.rect.y), (40.0, 60.0));
         let written = document.to_canvas_string().unwrap();
+        let node = &serde_json::from_str::<serde_json::Value>(&written).unwrap()["nodes"][0];
+        assert_eq!(
+            (node["x"].as_f64(), node["y"].as_f64()),
+            (Some(40.0), Some(60.0))
+        );
         let again = Document::from_canvas_str(&written).unwrap();
         assert_eq!(again, document, "{written}");
         assert!(matches!(

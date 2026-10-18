@@ -59,7 +59,10 @@ pub(super) fn write_node(entity: &Entity) -> Result<JsonMap, CanvasError> {
     node.set("id", &entity.id)?;
     node.set("type", &node_type(&entity.kind))?;
     // A framed page is placed by its shell's corner, as the reader undoes.
-    let shell = (entity.kind.page_fields()).and_then(|page| page.shell());
+    let shell = match &entity.kind {
+        Kind::Page(page) => page.shell(),
+        _ => None,
+    };
     let (left, top) = shell.map_or((0.0, 0.0), |shell| (shell.insets.left, shell.insets.top));
     node.set("x", &(entity.rect.x - left))?;
     node.set("y", &(entity.rect.y - top))?;
