@@ -116,10 +116,7 @@ impl App {
 /// The address `page` shows: what it last reported, else the entity's.
 pub(crate) fn address(app: &App, page: &EntityId) -> Option<String> {
     let live = app.page_state(page).and_then(|state| state.url.clone());
-    live.or_else(|| {
-        let entity = app.document.entity(page)?;
-        Some(crate::app::page_of(entity)?.url.clone())
-    })
+    live.or_else(|| Some(app.page(page)?.url.clone()))
 }
 
 /// The pointer is over `hit` with the tool in hand and nothing dragging:
@@ -231,10 +228,7 @@ pub(crate) fn on_tool_change(app: &mut App) {
 /// Drops what is on a page that is gone, or on a canvas that was left.
 pub(crate) fn settle(app: &mut App, switched: bool) {
     let gone = |app: &App, target: &InspectTarget| {
-        switched
-            || (app.document.entity(&target.page))
-                .and_then(crate::app::page_of)
-                .is_none()
+        switched || !(app.document.entity(&target.page)).is_some_and(crate::app::is_page)
     };
     let state = &app.session.inspect;
     if state.selected.as_ref().is_some_and(|t| gone(app, t)) {

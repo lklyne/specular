@@ -42,7 +42,7 @@ impl<W: ShellWindow> Runtime<W> {
         let window_scale = self.gpu.as_ref().map_or(1.0, W::scale_factor);
         let camera = self.app.session().camera;
         let prepared = self.app.prepared_page();
-        for (id, _, placement) in self.app.pages() {
+        for (id, placement) in self.app.pages() {
             let Some(host) = self.hosts.get_mut(id) else {
                 continue;
             };

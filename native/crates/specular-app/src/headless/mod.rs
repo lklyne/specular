@@ -111,10 +111,14 @@ pub(crate) fn run(
     };
     let mut run = Headless::new(source, canvas, args)?;
     let (viewport, panels) = (run.viewport, args.panels);
+    let folder = (run.space.as_deref()).map(|folder| folder.to_string_lossy().into_owned());
     run.drive(|app| {
         app.viewport(viewport).send(Event::BuiltinPanels(panels));
         if let Some(theme) = args.theme {
             app.send(Event::ThemeLoaded(theme));
+        }
+        if let Some(folder) = folder {
+            app.send(Event::DocumentFolder(folder));
         }
         app.send(Event::DocumentOpened(Box::new(document)))
     })?;
@@ -152,6 +156,8 @@ struct Headless {
     /// What pages have been asked and not yet answered.
     queries: PageQueries,
     images: ImageLoader,
+    /// The folder the document's relative file paths start from.
+    space: Option<PathBuf>,
     uploaded: Uploaded,
     notes: NoteLoader,
     /// Asked for and not yet answered.
@@ -199,7 +205,8 @@ impl Headless {
             queries: PageQueries::default(),
             images: ImageLoader::new(space.clone()).context("starting the decode thread")?,
             uploaded: Uploaded::default(),
-            notes: NoteLoader::new(space).context("starting the note thread")?,
+            notes: NoteLoader::new(space.clone()).context("starting the note thread")?,
+            space,
             loading_images: HashSet::new(),
             loading_notes: HashSet::new(),
             stand_ins: StandIns::default(),

@@ -95,7 +95,7 @@ fn state() -> String {
             app.can_undo(),
             app.can_redo()
         );
-        for (id, _, _) in app.pages() {
+        for (id, _) in app.pages() {
             if let Some(page) = app.page_state(id) {
                 let scroll = page.scroll;
                 let _ = writeln!(

@@ -43,7 +43,8 @@ pub(super) fn read_node(mut node: JsonMap) -> Result<Entity, JsonMap> {
             page.metadata = take(&mut node, "metadata");
             page.color_scheme = take(&mut node, "colorScheme");
             // The file places a framed page by its shell's corner. The rect
-            // is the screen inside it.
+            // is the screen inside it. A framed HTML file is placed by its
+            // screen, as Electron places every file node.
             if let Some(shell) = page.shell() {
                 entity.rect.x += shell.insets.left;
                 entity.rect.y += shell.insets.top;
@@ -64,6 +65,8 @@ pub(super) fn read_node(mut node: JsonMap) -> Result<Entity, JsonMap> {
             file.object_fit = take(&mut node, "objectFit");
             file.preset_index = take(&mut node, "presetIndex");
             file.metadata = take(&mut node, "metadata");
+            file.sync_id = take(&mut ext, "syncId");
+            file.color_scheme = take(&mut ext, "colorScheme");
             entity.parent = take(&mut ext, "parentGroupId");
             entity.label = take(&mut ext, "label");
         }

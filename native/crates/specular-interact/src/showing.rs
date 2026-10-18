@@ -37,6 +37,8 @@ mod prepare;
 mod tabs;
 pub(crate) mod turn;
 
+use std::borrow::Cow;
+
 use glam::DVec2;
 use specular_core::Camera;
 use specular_doc::{Entity, EntityId, ItemId, Kind, Page, Rect};
@@ -47,7 +49,7 @@ pub(crate) use self::gates::{
 pub(crate) use self::prepare::{prepare, prepared};
 pub(crate) use self::tabs::Tabs;
 pub use self::tabs::{Lens, SavedTab};
-use crate::app::page_of;
+use crate::app::is_page;
 use crate::focus::set_focus;
 use crate::notes::{is_note_file, note_file};
 use crate::panel::PAGE_URL;
@@ -100,8 +102,8 @@ impl App {
     /// in from the window's edge, so its corners are the window's less that
     /// margin and the two curves stay the same distance apart.
     pub fn fill_corner_radius(&self, id: &EntityId) -> Option<f32> {
-        let page = self.document.entity(id).and_then(page_of);
-        (fills(self, id) && page.is_some()).then_some((WINDOW_CORNER_RADIUS - FILL_MARGIN) as f32)
+        let page = self.document.entity(id).is_some_and(is_page);
+        (fills(self, id) && page).then_some((WINDOW_CORNER_RADIUS - FILL_MARGIN) as f32)
     }
 
     /// The camera of the canvas itself: the one that is saved, and the zoom
@@ -119,11 +121,12 @@ pub(crate) fn fills(app: &App, id: &EntityId) -> bool {
     app.shown_item() == Some(id) && app.lens() == Some(Lens::Fill)
 }
 
-/// Whether `entity` can be shown alone: a page or a Document.
+/// Whether `entity` can be shown alone: a page, an HTML file among them, or
+/// a Document.
 pub(crate) fn can_show(entity: &Entity) -> bool {
     match &entity.kind {
         Kind::Page(_) => true,
-        Kind::File(file) => is_note_file(&file.file),
+        Kind::File(file) => file.is_html() || is_note_file(&file.file),
         Kind::Text(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Shape(_) => false,
     }
 }
@@ -188,7 +191,7 @@ fn enter(app: &mut App, item: &EntityId, from: Option<motion::Seen>, effects: &m
     let Some(entity) = app.document.entity(item).filter(|it| can_show(it)) else {
         return;
     };
-    let page = page_of(entity).map(|_| item.clone());
+    let page = is_page(entity).then(|| item.clone());
     let canvas_camera = app.canvas_camera();
     app.session.prepared = None;
     app.session.motion.begin(from, false);
@@ -290,7 +293,7 @@ const WINDOW_CORNER_RADIUS: f64 = 16.0;
 /// a fixed measure, as tall as the fit leaves room for, so the camera sits
 /// on it at 100% and the text scrolls inside.
 fn fill_rect(app: &App, entity: &Entity) -> Option<Rect> {
-    if page_of(entity).is_some() {
+    if is_page(entity) {
         let room = area(app).size - DVec2::splat(2.0 * FILL_MARGIN);
         let size = room.round().max(DVec2::ONE);
         return Some(Rect::new(entity.rect.x, entity.rect.y, size.x, size.y));
@@ -321,17 +324,13 @@ pub(crate) fn presented_rect(app: &App, entity: &Entity) -> Option<Rect> {
 /// the size the page is stored at.
 pub(crate) fn presented(app: &App, entity: &Entity) -> Option<Entity> {
     let rect = presented_rect(app, entity)?;
-    let kind = match &entity.kind {
-        Kind::Page(page) => Kind::Page(Page {
-            metadata: None,
-            ..page.clone()
-        }),
-        kind @ (Kind::Text(_)
-        | Kind::File(_)
-        | Kind::Group(_)
-        | Kind::Drawing(_)
-        | Kind::Shape(_)) => kind.clone(),
+    let bare = |page: Cow<'_, Page>| Page {
+        metadata: None,
+        ..page.into_owned()
     };
+    let kind = (entity.kind.page_fields())
+        .and_then(|page| entity.kind.with_page_fields(bare(page)))
+        .unwrap_or_else(|| entity.kind.clone());
     Some(Entity {
         rect,
         kind,
@@ -349,15 +348,17 @@ pub(crate) fn holds(app: &App, id: &EntityId) -> bool {
 /// a page that shows one.
 fn framed(entity: &Entity) -> Rect {
     let rect = entity.rect;
-    page_of(entity).and_then(Page::shell).map_or(rect, |shell| {
-        let insets = shell.insets;
-        Rect::new(
-            rect.x - insets.left,
-            rect.y - insets.top,
-            rect.width + insets.left + insets.right,
-            rect.height + insets.top + insets.bottom,
-        )
-    })
+    (entity.kind.page_fields())
+        .and_then(|page| page.shell())
+        .map_or(rect, |shell| {
+            let insets = shell.insets;
+            Rect::new(
+                rect.x - insets.left,
+                rect.y - insets.top,
+                rect.width + insets.left + insets.right,
+                rect.height + insets.top + insets.bottom,
+            )
+        })
 }
 
 /// The camera that holds `entity` in the free part of the viewport. A page
@@ -366,7 +367,7 @@ fn framed(entity: &Entity) -> Rect {
 fn fitted(app: &App, entity: &Entity) -> Camera {
     let free = area(app);
     let presented = presented_rect(app, entity);
-    if let Some(rect) = presented.filter(|_| page_of(entity).is_some()) {
+    if let Some(rect) = presented.filter(|_| is_page(entity)) {
         let corner = free.min + DVec2::splat(FILL_MARGIN);
         return Camera::new((corner - geometry::origin(rect)).as_vec2(), 1.0);
     }

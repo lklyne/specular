@@ -10,7 +10,6 @@ mod device_frames;
 mod gif;
 #[cfg(target_os = "macos")]
 mod heif;
-pub(crate) mod resolve;
 mod svg;
 mod upload;
 
@@ -188,7 +187,7 @@ impl ImageLoader {
         let drawing = device_frames::drawing(file);
         let path = match &drawing {
             Some(_) => Some(PathBuf::from(file)),
-            None => resolve::resolve(file, self.space.as_deref()),
+            None => specular_interact::resolve_file(file, self.space.as_deref()),
         };
         if path.is_none() {
             tracing::debug!(file, "image is not a file on disk");

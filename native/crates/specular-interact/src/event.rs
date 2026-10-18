@@ -81,6 +81,9 @@ pub enum Event {
     /// A document was loaded: at startup, on switching canvas, or when the
     /// file changed on disk. Replaces the current one and clears the history.
     DocumentOpened(Box<Document>),
+    /// The folder a document opened on its own sits in, which its relative
+    /// file paths start from: an HTML file's page is loaded from there.
+    DocumentFolder(String),
     /// A space folder was read: at startup, or when another is chosen.
     /// Replaces every canvas and shows the space's active one.
     SpaceOpened(Box<OpenedSpace>),

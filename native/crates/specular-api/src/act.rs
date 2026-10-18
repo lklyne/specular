@@ -79,12 +79,12 @@ pub(crate) fn select(app: &App, request: &Request, verb: &str) -> Result<Step, R
     Ok(Step::Run(run, Reply::Selection { ok }))
 }
 
-/// Whether `id` can be shown alone, in a tab of its own: a page or a
-/// Document.
+/// Whether `id` can be shown alone, in a tab of its own: a page, an HTML
+/// file among them, or a Document.
 fn has_a_tab(app: &App, id: &EntityId) -> bool {
     match app.document().entity(id).map(|entity| &entity.kind) {
         Some(Kind::Page(_)) => true,
-        Some(Kind::File(file)) => is_note_file(&file.file),
+        Some(Kind::File(file)) => file.is_html() || is_note_file(&file.file),
         Some(Kind::Text(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Shape(_)) | None => false,
     }
 }

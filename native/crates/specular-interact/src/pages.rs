@@ -1,12 +1,13 @@
 //! Keeping hosted pages in step with the document: after a change that can
-//! add, remove or resize pages, the difference becomes page effects.
+//! add, remove or resize pages, the difference becomes page effects. An
+//! HTML file is hosted at its `file://` URL, as a link is at its own.
 
 use std::collections::HashMap;
 
 use specular_core::{CssSize, PageDevice, PageNav};
 use specular_doc::{ColorScheme, EntityId};
 
-use crate::app::page_of;
+use crate::app::{is_page, page_of};
 use crate::{App, Effect, Gesture, PagePlacement};
 
 /// What a host needs to know about one page entity.
@@ -26,7 +27,7 @@ pub(crate) fn snapshot(app: &App) -> Vec<HostedPage> {
     let laid_out = laid_out(app);
     (app.document.entities())
         .filter_map(|entity| {
-            let page = page_of(entity)?;
+            let page = page_of(app, entity)?;
             let viewport = (laid_out.iter().flatten())
                 .find(|(id, _)| *id == entity.id)
                 .map(|(_, size)| *size)
@@ -48,7 +49,9 @@ pub(crate) type LaidOut = (EntityId, CssSize);
 /// The page the tab showing presents at a size of its own.
 fn presentation(app: &App) -> Option<LaidOut> {
     let entity = app.document.entity(app.shown_item()?)?;
-    page_of(entity)?;
+    if !is_page(entity) {
+        return None;
+    }
     let rect = crate::showing::presented_rect(app, entity)?;
     Some((entity.id.clone(), PagePlacement::viewport_for(rect)))
 }

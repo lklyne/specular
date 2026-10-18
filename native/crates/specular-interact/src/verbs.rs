@@ -58,7 +58,7 @@ fn deletion(
 ) -> Vec<Command> {
     let operands = scope::contained(document, entities);
     let pages: Vec<EntityId> = (operands.iter())
-        .filter(|id| document.entity(id).and_then(crate::app::page_of).is_some())
+        .filter(|id| document.entity(id).is_some_and(crate::app::is_page))
         .cloned()
         .collect();
     let freed = anchor::freed(document, scrolls, &pages, &operands);

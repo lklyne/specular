@@ -4,7 +4,7 @@
 use std::collections::HashMap;
 
 use glam::DVec2;
-use specular_doc::{Command, Document, Edge, EdgeId, Entity, EntityId, ItemId, Kind, Page};
+use specular_doc::{Command, Document, Edge, EdgeId, Entity, EntityId, ItemId, Page};
 
 use crate::live::Start;
 use crate::scroll_follow::{self, Scrolls};
@@ -92,18 +92,19 @@ fn sync_sets(
     source: &Document,
     entity_ids: &HashMap<EntityId, EntityId>,
 ) -> HashMap<String, String> {
-    let mut copied: HashMap<&str, (usize, &EntityId)> = HashMap::new();
+    let mut copied: HashMap<String, (usize, &EntityId)> = HashMap::new();
     for entity in source.entities() {
-        let (Some(copy), Kind::Page(page)) = (entity_ids.get(&entity.id), &entity.kind) else {
+        let (Some(copy), Some(page)) = (entity_ids.get(&entity.id), entity.kind.page_fields())
+        else {
             continue;
         };
-        if let Some(set) = page.sync_id.as_deref() {
+        if let Some(set) = page.into_owned().sync_id {
             copied.entry(set).or_insert((0, copy)).0 += 1;
         }
     }
     (copied.into_iter())
         .filter(|(_, (count, _))| *count > 1)
-        .map(|(set, (_, first))| (set.to_owned(), format!("sync_{}", first.as_str())))
+        .map(|(set, (_, first))| (set, format!("sync_{}", first.as_str())))
         .collect()
 }
 
@@ -166,16 +167,17 @@ pub(crate) fn insertions(
                         Orphan::Leaves => None,
                     })
                 });
-                let kind = match kind.unwrap_or_else(|| entity.kind.clone()) {
-                    Kind::Page(page) => {
-                        let together = page.sync_id.as_ref().and_then(|set| sync_sets.get(set));
-                        Kind::Page(Page {
-                            sync_id: together.cloned().or_else(|| page.sync_id.clone()),
-                            ..page
-                        })
+                let kind = kind.unwrap_or_else(|| entity.kind.clone());
+                let together = |page: Page| {
+                    let set = page.sync_id.as_ref().and_then(|set| sync_sets.get(set));
+                    Page {
+                        sync_id: set.cloned().or_else(|| page.sync_id.clone()),
+                        ..page
                     }
-                    kind => kind,
                 };
+                let kind = (kind.page_fields())
+                    .and_then(|page| kind.with_page_fields(together(page.into_owned())))
+                    .unwrap_or(kind);
                 let copy = Entity {
                     id: new_id,
                     rect,

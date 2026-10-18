@@ -228,8 +228,7 @@ pub(crate) fn created(app: &mut App, file: String, rect: Rect, effects: &mut Vec
         file,
         subpath: None,
         object_fit: None,
-        preset_index: None,
-        metadata: None,
+        ..FileRef::default()
     });
     crate::live::create(app, Entity::new(id.clone(), rect, kind), effects);
     app.session.selection.set([ItemId::Entity(id.clone())]);

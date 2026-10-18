@@ -34,10 +34,11 @@ const MEDIA_EXTENSIONS: [&str; 14] = [
 ];
 
 /// The smallest size, in canvas units, a resize may give an entity of this
-/// kind.
-pub const fn min_size(kind: &Kind) -> DVec2 {
+/// kind. An HTML file is a page.
+pub fn min_size(kind: &Kind) -> DVec2 {
     match kind {
         Kind::Page(_) => DVec2::new(320.0, 200.0),
+        Kind::File(file) if file.is_html() => DVec2::new(320.0, 200.0),
         Kind::Text(_) => DVec2::new(100.0, 60.0),
         Kind::File(_) => DVec2::new(80.0, 80.0),
         Kind::Group(_) => DVec2::new(120.0, 80.0),
@@ -52,6 +53,7 @@ pub fn aspect_mode(kind: &Kind) -> AspectMode {
         // A text's height follows its content, so a free vertical drag would
         // do nothing. Keeping the ratio makes that drag change the width.
         Kind::Text(_) => AspectMode::ShiftUnlocks,
+        Kind::File(file) if file.is_html() => AspectMode::Free,
         Kind::File(file) => {
             let media = file.file.rsplit_once('.').is_some_and(|(_, extension)| {
                 MEDIA_EXTENSIONS

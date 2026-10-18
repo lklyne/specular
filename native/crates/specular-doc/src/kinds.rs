@@ -189,8 +189,12 @@ pub struct FileRef {
     pub object_fit: Option<ObjectFit>,
     /// Index into the viewport preset table, for files shown at a breakpoint.
     pub preset_index: Option<u32>,
-    /// Renderer metadata.
+    /// Renderer metadata. An HTML file keeps a page's here.
     pub metadata: Option<JsonMap>,
+    /// An HTML file's sync set, as a page's.
+    pub sync_id: Option<String>,
+    /// An HTML file's color-scheme override, as a page's.
+    pub color_scheme: Option<ColorScheme>,
 }
 
 /// How media fills its rect.

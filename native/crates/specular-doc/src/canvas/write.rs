@@ -104,6 +104,8 @@ pub(super) fn write_node(entity: &Entity) -> Result<JsonMap, CanvasError> {
             node.put("objectFit", file.object_fit.as_ref())?;
             node.put("presetIndex", file.preset_index.as_ref())?;
             node.put("metadata", file.metadata.as_ref())?;
+            ext.put("syncId", file.sync_id.as_ref())?;
+            ext.put("colorScheme", file.color_scheme.as_ref())?;
             ext.put("parentGroupId", parent)?;
             ext.put("label", label)?;
         }

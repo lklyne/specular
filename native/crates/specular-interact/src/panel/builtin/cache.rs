@@ -143,6 +143,7 @@ pub(crate) fn keeps_layout(app: &App, event: &Event) -> bool {
         | Event::NoteHeights(_)
         | Event::ViewportResized(_)
         | Event::DocumentOpened(_)
+        | Event::DocumentFolder(_)
         | Event::SpaceOpened(_)
         | Event::CanvasFileChanged { .. }
         | Event::Clipboard(_)

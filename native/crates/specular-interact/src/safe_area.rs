@@ -10,9 +10,8 @@
 //! so every point mapped into a page goes through the same inset.
 
 use specular_core::{CssSize, PageDevice, PageSafeArea};
-use specular_doc::{EntityId, Page, Rect, SafeArea};
+use specular_doc::{EntityId, Rect, SafeArea};
 
-use crate::app::page_of;
 use crate::{App, Effect, ScreenFit};
 
 /// The colour round a document that names none: a browser's own white.
@@ -26,7 +25,11 @@ impl App {
         if crate::showing::fills(self, id) {
             return SafeArea::NONE;
         }
-        (self.document.entity(id).and_then(page_of)).map_or(SafeArea::NONE, Page::safe_area)
+        (self
+            .document
+            .entity(id)
+            .and_then(|it| it.kind.page_fields()))
+        .map_or(SafeArea::NONE, |page| page.safe_area())
     }
 
     /// How far in from each edge of its screen the document of the page

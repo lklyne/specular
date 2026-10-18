@@ -29,6 +29,7 @@ mod geometry;
 mod history;
 mod id;
 mod kinds;
+mod page_fields;
 mod presets;
 mod safe_area;
 

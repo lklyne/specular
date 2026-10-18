@@ -18,7 +18,7 @@ use glam::Vec2;
 use specular_core::PageNav;
 use specular_doc::{Command, Document, EntityId, Kind, Page};
 
-use crate::app::page_of;
+use crate::app::is_page;
 use crate::{App, Effect, PageNotice, update};
 
 /// How long a page that was sent somewhere says nothing of where it goes,
@@ -57,7 +57,11 @@ impl SyncState {
 }
 
 fn sync_id<'a>(document: &'a Document, page: &EntityId) -> Option<&'a str> {
-    page_of(document.entity(page)?)?.sync_id.as_deref()
+    match &document.entity(page)?.kind {
+        Kind::Page(page) => page.sync_id.as_deref(),
+        Kind::File(file) if file.is_html() => file.sync_id.as_deref(),
+        Kind::File(_) | Kind::Text(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Shape(_) => None,
+    }
 }
 
 /// The other pages of `page`'s sync set, back to front.
@@ -67,7 +71,7 @@ fn peers(document: &Document, page: &EntityId) -> Vec<EntityId> {
     };
     (document.entities())
         .filter(|entity| entity.id != *page)
-        .filter(|entity| page_of(entity).is_some_and(|peer| peer.sync_id.as_deref() == Some(set)))
+        .filter(|entity| sync_id(document, &entity.id) == Some(set))
         .map(|entity| entity.id.clone())
         .collect()
 }
@@ -96,14 +100,19 @@ impl App {
     }
 }
 
-/// The selection, when it is pages and nothing else.
+/// The selection, when it is pages and nothing else, and either all links
+/// or all HTML files: a set of both would send its links to files.
 fn selected_pages(app: &App) -> Option<Vec<EntityId>> {
     let selection = &app.session.selection;
     let pages: Vec<EntityId> = (selection.entities())
-        .filter(|id| app.document.entity(id).and_then(page_of).is_some())
+        .filter(|id| app.document.entity(id).is_some_and(is_page))
         .cloned()
         .collect();
-    (pages.len() == selection.items().len()).then_some(pages)
+    let file = |id: &EntityId| {
+        (app.document.entity(id)).is_some_and(|entity| matches!(entity.kind, Kind::File(_)))
+    };
+    let mixed = pages.iter().any(file) && !pages.iter().all(file);
+    (pages.len() == selection.items().len() && !mixed).then_some(pages)
 }
 
 /// Toggle-merge, as one undo step: selected pages that share one set leave
@@ -119,13 +128,13 @@ pub(crate) fn toggle(app: &mut App, effects: &mut Vec<Effect>) {
     let joined = (!leave).then(|| format!("sync_{}", app.fresh_id()));
     let mut after: Vec<(EntityId, Page, Option<String>)> = (app.document.entities())
         .filter_map(|entity| {
-            let page = page_of(entity)?;
+            let page = entity.kind.page_fields()?.into_owned();
             let set = if selected.contains(&entity.id) {
                 joined.clone()
             } else {
                 page.sync_id.clone()
             };
-            Some((entity.id.clone(), page.clone(), set))
+            Some((entity.id.clone(), page, set))
         })
         .collect();
     let mut members: HashMap<String, usize> = HashMap::new();
@@ -140,22 +149,18 @@ pub(crate) fn toggle(app: &mut App, effects: &mut Vec<Effect>) {
     let commands: Vec<Command> = after
         .into_iter()
         .filter(|(_, page, set)| page.sync_id != *set)
-        .map(|(id, page, sync_id)| Command::SetKind {
-            id,
-            kind: Box::new(Kind::Page(Page { sync_id, ..page })),
+        .filter_map(|(id, page, sync_id)| {
+            let kind =
+                (app.document.entity(&id)?.kind).with_page_fields(Page { sync_id, ..page })?;
+            Some(Command::SetKind {
+                id,
+                kind: Box::new(kind),
+            })
         })
         .collect();
     if !commands.is_empty() {
         update::document_step(app, Command::Batch(commands), effects);
     }
-}
-
-/// The address `page` shows: what it last reported, or what the document
-/// has for a page that has reported nothing.
-fn address(app: &App, page: &EntityId) -> Option<String> {
-    (app.page_state(page).and_then(|state| state.url.clone()))
-        .or_else(|| Some(page_of(app.document.entity(page)?)?.url.clone()))
-        .filter(|url| !url.is_empty())
 }
 
 fn hush(app: &mut App, page: &EntityId) {
@@ -177,7 +182,7 @@ pub(crate) fn on_driven(app: &mut App, page: &EntityId, nav: &PageNav, effects: 
     if peers.is_empty() || *nav == PageNav::Stop {
         return;
     }
-    let here = address(app, page);
+    let here = app.page_address(page);
     hush(app, page);
     if matches!(nav, PageNav::Back | PageNav::Forward) {
         let until = app.session.now_ms + NAVIGATION_QUIET_MS;
@@ -189,7 +194,7 @@ pub(crate) fn on_driven(app: &mut App, page: &EntityId, nav: &PageNav, effects: 
         hush(app, &peer);
         // A peer that was leading follows now.
         app.session.sync.leading.remove(&peer);
-        let there = address(app, &peer);
+        let there = app.page_address(&peer);
         let state = app.page_state(&peer);
         let step = match nav {
             PageNav::To(url) => (there.as_deref() != Some(url)).then(|| nav.clone()),
@@ -292,7 +297,7 @@ fn on_navigated(app: &mut App, page: &EntityId, url: &str, effects: &mut Vec<Eff
             app.session.sync.owed.insert(peer, (url.to_owned(), now));
             continue;
         }
-        if address(app, &peer).as_deref() != Some(url) {
+        if app.page_address(&peer).as_deref() != Some(url) {
             effects.push(Effect::Navigate {
                 page: peer,
                 nav: PageNav::To(url.to_owned()),
@@ -319,7 +324,7 @@ pub(crate) fn on_tick(app: &mut App, effects: &mut Vec<Effect>) {
         let Some((url, _)) = app.session.sync.owed.remove(&peer) else {
             continue;
         };
-        if address(app, &peer).as_deref() != Some(url.as_str()) {
+        if app.page_address(&peer).as_deref() != Some(url.as_str()) {
             hush(app, &peer);
             effects.push(Effect::Navigate {
                 page: peer,

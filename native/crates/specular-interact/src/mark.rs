@@ -4,7 +4,7 @@
 
 use specular_doc::EntityId;
 
-use crate::app::page_of;
+use crate::app::is_page;
 use crate::{App, Lens};
 
 /// The mark of an item that is selected, hovered or about to be taken by a
@@ -34,7 +34,7 @@ impl App {
             (false, true) => Some(Mark::Entered),
             (true, true) => None,
             (true, false) => {
-                let page = self.document.entity(id).and_then(page_of).is_some();
+                let page = self.document.entity(id).is_some_and(is_page);
                 (page && self.lens() == Some(Lens::Device)).then_some(Mark::Outline)
             }
         }

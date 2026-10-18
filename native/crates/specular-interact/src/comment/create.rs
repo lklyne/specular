@@ -7,8 +7,6 @@ use specular_doc::{
     Annotation, AnnotationAnchor, AnnotationId, EntityId, PageAnchor, Rect, RegionAnchor,
 };
 
-use crate::anchor::canonical_page_url;
-use crate::app::page_of;
 use crate::{App, time};
 
 /// A new, empty region comment by the user.
@@ -34,9 +32,9 @@ fn fresh(app: &mut App, anchor: AnnotationAnchor) -> Annotation {
 /// What binds a comment to `page`'s document as it is now, or `None` when
 /// `page` is not a page.
 pub(super) fn page_anchor(app: &App, page: &EntityId) -> Option<PageAnchor> {
-    let url = &page_of(app.document.entity(page)?)?.url;
+    app.page(page)?;
     Some(PageAnchor {
-        page_url: canonical_page_url(url),
+        page_url: app.page_anchor_url(page),
         ..PageAnchor::new(page.clone())
     })
 }

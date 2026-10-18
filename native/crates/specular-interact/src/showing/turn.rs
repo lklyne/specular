@@ -14,7 +14,6 @@ use specular_doc::{EntityId, Rect};
 
 use super::motion::{self, spring};
 use super::{App, Lens, framed, presented_rect};
-use crate::app::page_of;
 use crate::property::is_landscape;
 
 /// One page on its way round.
@@ -83,7 +82,7 @@ pub(crate) fn before(app: &App) -> Vec<Before> {
         .filter_map(|entity| {
             Some(Before {
                 page: entity.id.clone(),
-                landscape: is_landscape(page_of(entity)?),
+                landscape: is_landscape(&*entity.kind.page_fields()?),
                 shell: framed(entity),
                 reached: (app.turning(&entity.id)).map_or(0.0, |it| f64::from(it.angle)),
                 seen: motion::seen(app, entity),
@@ -100,7 +99,7 @@ pub(crate) fn begin(app: &mut App, before: Vec<Before>) {
         let Some(entity) = app.document.entity(&was.page) else {
             continue;
         };
-        let landscape = page_of(entity).is_some_and(is_landscape);
+        let landscape = (entity.kind.page_fields()).is_some_and(|page| is_landscape(&page));
         if landscape == was.landscape {
             continue;
         }
@@ -135,8 +134,10 @@ pub(crate) fn on_tick(app: &mut App) {
     let document = &app.document;
     app.session.turns.0.retain_mut(|turn| {
         turn.started_ms.get_or_insert(now);
-        let page = document.entity(&turn.page).and_then(page_of);
-        turn.progress(now).is_some() && page.is_some_and(|it| is_landscape(it) == turn.landscape)
+        let page = document
+            .entity(&turn.page)
+            .and_then(|it| it.kind.page_fields());
+        turn.progress(now).is_some() && page.is_some_and(|it| is_landscape(&it) == turn.landscape)
     });
 }
 
@@ -149,7 +150,7 @@ impl App {
         let entity = self.document.entity(id)?;
         let progress = turn.progress(self.session.now_ms)?;
         let shell = framed(entity);
-        (is_landscape(page_of(entity)?) == turn.landscape).then(|| Turning {
+        (is_landscape(&*entity.kind.page_fields()?) == turn.landscape).then(|| Turning {
             angle: (turn.from * (1.0 - progress)) as f32,
             progress: progress as f32,
             pivot: DVec2::new(shell.x + shell.width / 2.0, shell.y + shell.height / 2.0),

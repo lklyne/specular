@@ -1,6 +1,6 @@
 //! The words and glyphs items go by in the sidebar's rows and the tab row.
 
-use specular_doc::{Annotation, Entity, Page, ShapeKind};
+use specular_doc::{Annotation, Entity, Kind, ShapeKind};
 
 use crate::App;
 use crate::panel::Icon;
@@ -25,14 +25,19 @@ pub(crate) fn page_icon(width: f64) -> Icon {
 }
 
 /// What a page is called: the title it last reported, else its label, else
-/// its address's host.
-pub(crate) fn page_label(app: &App, entity: &Entity, page: &Page) -> String {
+/// its file's name for an HTML file and its address's host for a link.
+pub(crate) fn page_label(app: &App, entity: &Entity) -> String {
     let named = (entity.label.as_deref().map(str::trim)).filter(|label| !label.is_empty());
     let title = (app.page_state(&entity.id))
         .map(|state| state.title.trim())
         .filter(|title| !title.is_empty());
+    let fallback = || match &entity.kind {
+        Kind::File(file) => Some(file_label(&file.file)),
+        Kind::Page(page) => host_label(&page.url),
+        Kind::Text(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Shape(_) => None,
+    };
     (title.or(named).map(str::to_owned))
-        .or_else(|| host_label(&page.url))
+        .or_else(fallback)
         .unwrap_or_else(|| "Page".to_owned())
 }
 

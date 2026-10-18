@@ -16,7 +16,7 @@ use specular_core::{
 };
 use specular_doc::EntityId;
 
-use super::{address, peers};
+use super::peers;
 use crate::{App, Effect};
 
 /// What a peer was asked, by kind. A newer question of a kind replaces the
@@ -91,12 +91,12 @@ pub(crate) fn on_pointed(
     if app.session.sync.interaction.capturing.as_ref() != Some(page) {
         return;
     }
-    let here = address(app, page);
+    let here = app.page_address(page);
     let Some(here) = here.as_deref().and_then(origin) else {
         return;
     };
     for peer in peers(&app.document, page) {
-        if address(app, &peer).as_deref().and_then(origin) != Some(here) {
+        if app.page_address(&peer).as_deref().and_then(origin) != Some(here) {
             continue;
         }
         let state = &mut app.session.sync.interaction;

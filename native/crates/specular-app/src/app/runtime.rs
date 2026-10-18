@@ -26,6 +26,7 @@ use crate::cdp::CdpHost;
 use crate::images::{ImageLoader, Uploaded};
 use crate::latency::InputLatencyProbe;
 use crate::notes::NoteLoader;
+use crate::page_files::PageFiles;
 use crate::page_queries::PageQueries;
 use crate::paint_lod::PageLod;
 use crate::prefs;
@@ -147,6 +148,8 @@ pub struct Runtime<W> {
     /// says so while it is the open space.
     pub(crate) scratch: Option<PathBuf>,
     pub(crate) app: App,
+    /// The HTML files the hosted pages load, watched for changes.
+    pub(crate) page_files: PageFiles,
     /// The hosted page behind each page entity.
     pub(crate) hosts: HashMap<EntityId, PageHost>,
     /// What pages have been asked and not yet answered.
@@ -237,6 +240,7 @@ impl<W: ShellWindow> Runtime<W> {
             files: None,
             scratch: None,
             app,
+            page_files: PageFiles::default(),
             hosts: HashMap::new(),
             queries: PageQueries::default(),
             image_loader: image_run::start_loader(space_folder.clone()),
@@ -344,7 +348,13 @@ impl<W: ShellWindow> Runtime<W> {
                     self.scratch = self.space.clone();
                 }
             }
-            (None, Some(document)) => self.dispatch(Event::DocumentOpened(Box::new(document))),
+            (None, Some(document)) => {
+                if let Some(folder) = self.space.as_deref() {
+                    let folder = folder.to_string_lossy().into_owned();
+                    self.dispatch(Event::DocumentFolder(folder));
+                }
+                self.dispatch(Event::DocumentOpened(Box::new(document)));
+            }
             (None, None) => {}
         }
         Ok(())
@@ -371,6 +381,7 @@ impl<W: ShellWindow> Runtime<W> {
         self.finish_notes();
         self.flush_files();
         self.hosts.clear();
+        self.page_files = PageFiles::default();
         self.closing = true;
     }
 

@@ -75,6 +75,11 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         Event::Tick { unix_ms } => on_tick(app, unix_ms, &mut effects),
         Event::ViewportResized(size) => app.session.viewport = size,
         Event::DocumentOpened(document) => open_document(app, *document, &mut effects),
+        Event::DocumentFolder(folder) => {
+            let before = pages::snapshot(app);
+            app.document_folder = Some(folder);
+            pages::reconcile(&before, app, &mut effects);
+        }
         Event::SpaceOpened(opened) => space::open(app, *opened, &mut effects),
         Event::CanvasFileChanged { canvas, document } => {
             space::file_changed(app, &canvas, *document, &mut effects);

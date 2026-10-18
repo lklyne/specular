@@ -5,7 +5,6 @@ use specular_core::{PageDevice, PageSafeArea, PageUserAgent};
 use specular_doc::{EntityId, Page};
 
 use crate::App;
-use crate::app::page_of;
 
 const IPHONE: PageUserAgent = PageUserAgent {
     user_agent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 \
@@ -54,8 +53,11 @@ impl App {
         if crate::showing::fills(self, id) {
             return PageDevice::default();
         }
-        let device = (self.document.entity(id).and_then(page_of))
-            .map_or_else(PageDevice::default, preset_device);
+        let device = (self
+            .document
+            .entity(id)
+            .and_then(|it| it.kind.page_fields()))
+        .map_or_else(PageDevice::default, |page| preset_device(&page));
         PageDevice {
             safe_area: self.page_env(id),
             ..device
@@ -66,8 +68,8 @@ impl App {
 /// Whether the preset of the page `id` names a device that is not the
 /// browser as it is.
 pub(crate) fn has_own(app: &App, id: &EntityId) -> bool {
-    (app.document.entity(id).and_then(page_of))
-        .is_some_and(|page| preset_device(page) != PageDevice::default())
+    (app.document.entity(id).and_then(|it| it.kind.page_fields()))
+        .is_some_and(|page| preset_device(&page) != PageDevice::default())
 }
 
 /// The device the preset of `page` names. A laptop, a desktop and a page with a size of

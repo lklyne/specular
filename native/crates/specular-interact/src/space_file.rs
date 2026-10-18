@@ -1,18 +1,23 @@
-//! Where a file entity's `file` is on disk.
+//! Where a file entity's `file` is on disk, and the URL a page loads it
+//! from.
 //!
 //! A `.canvas` names files relative to its space folder, the directory it
 //! sits in (`docs/file-formats.md`). Electron's `filePathToSrc` also lets a
 //! path be absolute, a `local-file://` URL, or an `http(s)` URL.
 
+use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
 /// What `resources/starter-space/Welcome.canvas` writes for its space
 /// folder.
 const SPACE_TOKEN: &str = "__SPECULAR_SPACE__/";
 
+/// What an HTML file whose file cannot be found loads: nothing.
+const BLANK: &str = "about:blank";
+
 /// The file to read for `file`, or `None` when there is nothing on disk to
 /// read: a web URL, or a relative path with no space folder to start from.
-pub(crate) fn resolve(file: &str, space: Option<&Path>) -> Option<PathBuf> {
+pub fn resolve_file(file: &str, space: Option<&Path>) -> Option<PathBuf> {
     if file.starts_with("http://") || file.starts_with("https://") {
         return None;
     }
@@ -30,6 +35,49 @@ pub(crate) fn resolve(file: &str, space: Option<&Path>) -> Option<PathBuf> {
         return Some(path.to_owned());
     }
     Some(space?.join(path))
+}
+
+/// The URL a page loads the file `file` from: the file on disk as a
+/// `file://` URL, so the files it links to are found next to it. A web URL
+/// is itself, and a file with no space folder to find it in is blank.
+pub(crate) fn file_page_url(file: &str, space: Option<&str>) -> String {
+    if file.starts_with("http://") || file.starts_with("https://") {
+        return file.to_owned();
+    }
+    resolve_file(file, space.map(Path::new))
+        .map_or_else(|| BLANK.to_owned(), |path| file_url(&path))
+}
+
+/// `path` as a `file://` URL, with every byte a URL path cannot hold as is
+/// percent-encoded.
+fn file_url(path: &Path) -> String {
+    let mut url = String::from("file://");
+    for &byte in path.to_string_lossy().as_bytes() {
+        if byte.is_ascii_alphanumeric() || b"/-._~!$&'()*+,;=:@".contains(&byte) {
+            url.push(byte as char);
+        } else {
+            let _ = write!(url, "%{byte:02X}");
+        }
+    }
+    url
+}
+
+/// The file a `file://` URL names, or `None` for any other URL.
+pub fn file_url_path(url: &str) -> Option<PathBuf> {
+    let rest = url.strip_prefix("file://")?;
+    let path = rest.split(['?', '#']).next().unwrap_or(rest);
+    Some(PathBuf::from(percent_decode(path)))
+}
+
+/// The path inside `folder` of the file a `file://` URL names, as a node's
+/// `file` names it, or `None` for any other URL or a file outside it.
+pub(crate) fn path_in_folder(url: &str, folder: Option<&str>) -> Option<String> {
+    let path = file_url_path(url)?;
+    let relative = path.strip_prefix(folder?).ok()?;
+    let parts: Vec<_> = (relative.components())
+        .map(|part| part.as_os_str().to_string_lossy())
+        .collect();
+    (!parts.is_empty()).then(|| parts.join("/"))
 }
 
 /// `text` with each `%XX` turned back into its byte. A `%` that is not
@@ -63,7 +111,7 @@ mod tests {
     const SPACE: &str = "/Users/me/Specular";
 
     fn resolved(file: &str) -> Option<String> {
-        resolve(file, Some(Path::new(SPACE))).map(|path| path.display().to_string())
+        resolve_file(file, Some(Path::new(SPACE))).map(|path| path.display().to_string())
     }
 
     #[test]
@@ -89,9 +137,26 @@ mod tests {
 
     #[test]
     fn a_relative_path_needs_a_space_folder() {
-        assert_eq!(resolve("assets/shot.png", None), None);
-        assert_eq!(resolve("__SPECULAR_SPACE__/Welcome.md", None), None);
-        assert!(resolve("/tmp/photo.jpg", None).is_some());
+        assert_eq!(resolve_file("assets/shot.png", None), None);
+        assert_eq!(resolve_file("__SPECULAR_SPACE__/Welcome.md", None), None);
+        assert!(resolve_file("/tmp/photo.jpg", None).is_some());
+    }
+
+    #[test]
+    fn an_html_file_loads_from_the_space_folder_and_back() {
+        let space = Some("/Users/me/My Space");
+        for (file, url) in [
+            (
+                "assets/file_d2.html",
+                "file:///Users/me/My%20Space/assets/file_d2.html",
+            ),
+            ("/tmp/a#1.htm", "file:///tmp/a%231.htm"),
+        ] {
+            assert_eq!(file_page_url(file, space), url, "{file}");
+            assert_eq!(file_url_path(url), resolve_file(file, space.map(Path::new)));
+        }
+        assert_eq!(file_page_url("assets/a.html", None), BLANK);
+        assert_eq!(file_url_path("https://example.com/a.html"), None);
     }
 
     #[test]

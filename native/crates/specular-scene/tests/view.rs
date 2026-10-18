@@ -4,7 +4,7 @@
 use glam::Vec2;
 use specular_doc::{
     Annotation, AnnotationAnchor, AnnotationId, AnnotationStatus, Author, BorderStyle, BrushType,
-    Color, ColorPreset, Command, Drawing, Edge, EdgeEnd, Entity, EntityId, JsonMap, Kind,
+    Color, ColorPreset, Command, Drawing, Edge, EdgeEnd, Entity, EntityId, FileRef, JsonMap, Kind,
     LineStyle, Point, Rect, RegionAnchor, Shape, ShapeKind, Stroke, Text, TextAlign, TextFont,
     TextStyle, WidthMode,
 };
@@ -57,8 +57,19 @@ fn select(app: &mut TestApp, ids: &[&str]) {
 }
 
 #[test]
-fn a_page_is_its_frame_with_a_border() {
-    let app = TestApp::with_entities([page("p1", Rect::new(100.0, 100.0, 400.0, 300.0))]);
+fn a_page_and_an_html_file_are_a_frame_with_a_border() {
+    let html = FileRef {
+        file: "assets/demo.html".to_owned(),
+        ..FileRef::default()
+    };
+    let app = TestApp::with_entities([
+        page("p1", Rect::new(100.0, 100.0, 400.0, 300.0)),
+        Entity::new(
+            "h1",
+            Rect::new(600.0, 100.0, 400.0, 300.0),
+            Kind::File(html),
+        ),
+    ]);
     assert_scene_snapshot!(app);
 }
 

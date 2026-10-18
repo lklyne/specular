@@ -7,7 +7,7 @@
 
 use serde_json::{Value, json};
 use specular_core::PageNav;
-use specular_doc::{EntityId, Kind};
+use specular_doc::EntityId;
 use specular_interact::{ApiRun, App};
 
 use crate::cdp::Target;
@@ -76,15 +76,7 @@ pub(crate) fn navigate(app: &App, id: &str, verb: &str) -> Result<Step, Response
 pub(crate) fn cdp_target(app: &App, id: &str) -> Result<Step, Response> {
     let page = find(app, id)?;
     let state = app.page_state(&page);
-    let stored = app
-        .document()
-        .entity(&page)
-        .and_then(|entity| match &entity.kind {
-            Kind::Page(page) => Some(page.url.clone()),
-            Kind::Text(_) | Kind::Shape(_) | Kind::File(_) | Kind::Group(_) | Kind::Drawing(_) => {
-                None
-            }
-        });
+    let stored = app.page(&page).map(|page| page.url.clone());
     let target = Target {
         id: id.to_owned(),
         url: (state.and_then(|state| state.url.clone()))
