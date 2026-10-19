@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [0.10.2] - 2026-10-19 — Live HTML Files
+
+### New
+
+- **HTML files run on the canvas.** Drop an .html file onto the canvas and it loads as a live page, with scripts, styles and clicks all working.
+- HTML pages work like any other page: comment on them, inspect them, sync them, open one in its own tab, or put it in a device frame.
+- Save the file, or a stylesheet or script next to it, and the page reloads by itself.
+
 ## [0.10.1] - 2026-10-15 — The Prism
 
 ### New
