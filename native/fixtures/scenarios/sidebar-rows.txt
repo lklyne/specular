@@ -1,0 +1,58 @@
+# canvas: sidebar-rows.canvas
+# The sidebar's rows: notes and pages front of the stack first, what is
+# hooked to a page nested under it with its open comments, what was left on
+# another document of the page dimmed, groups closed and pages open, rows
+# that select, focus, reveal and extend the selection.
+camera 0,0,0.5
+sidebar on
+
+# notes and pages, front of the stack first, each with its glyph and what
+# it counts or measures
+expect sidebar is sidebar.notes.d1 "Plan" FileText
+expect sidebar is sidebar.notes.r1 "Rectangle" Shape(Rectangle)
+expect sidebar has sidebar.notes.s3 "its page is gone" StickyNote
+expect sidebar is sidebar.pages.p2 "example.com" Device "400×300"
+# a page starts open, with what is hooked to it and its open comments
+expect sidebar is sidebar.pages.p1 "example.com" Device "400×300" open
+expect sidebar is sidebar.pages.s1 "on the page" StickyNote in sidebar.pages.p1
+expect sidebar is sidebar.pages.s2 "left behind" StickyNote dimmed in sidebar.pages.p1
+expect sidebar is sidebar.pages.comment.c2 "button.cta" MessageSquare "2" dimmed in sidebar.pages.p1
+expect sidebar is sidebar.pages.comment.c1 "tighten this" MessageSquare in sidebar.pages.p1
+expect sidebar lacks done with
+expect sidebar lacks not on a page
+# a group starts closed, and each chevron flips its own row
+expect sidebar is sidebar.notes.g "Group" Folder "1" closed
+expect sidebar lacks in the group
+control sidebar.notes.g.toggle
+expect sidebar has sidebar.notes.g "Group" FolderOpen "1" open
+expect sidebar has sidebar.notes.s4 "in the group" StickyNote in sidebar.notes.g
+control sidebar.pages.p1.toggle
+expect sidebar has sidebar.pages.p1 "example.com" Device "400×300" closed
+expect sidebar lacks on the page
+control sidebar.pages.p1.toggle
+
+# a row selects its item and centres it in the part the sidebar leaves free
+control sidebar.notes.r1
+expect selection r1
+expect sidebar has sidebar.notes.r1 "Rectangle" Shape(Rectangle) selected
+# it is in the free part already, so the camera stays
+expect camera 0,0,0.5
+camera 0,0,1
+# off screen, it is centred in what the sidebar leaves free
+control sidebar.pages.p2
+expect camera -1872,250,1
+# shift extends the selection over the run of rows, command toggles one
+hold shift
+control sidebar.notes.d1
+hold none
+expect selection d1 p2 r1 s3 s4
+hold cmd
+control sidebar.notes.r1
+hold none
+expect selection d1 p2 s3 s4
+# a comment row focuses its comment
+control sidebar.pages.comment.c1
+expect comments has focus c1
+expect sidebar has sidebar.pages.comment.c1 "tighten this" MessageSquare selected
+sidebar off
+undo-to-start

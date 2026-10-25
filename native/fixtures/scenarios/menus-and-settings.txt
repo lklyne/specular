@@ -1,0 +1,156 @@
+# The menu bar, the right-click menu, the settings and the first-run view,
+# read from their models: each item's key is the binding table's, what has
+# nothing to act on is off, and each choice does what it says.
+given page p1 100 100 375 400
+given sticky n 600 100 200 100 note
+given shape a 900 100 200 100
+given shape b 1200 100 200 100
+given group g 100 600 400 200
+given inside g shape m 120 620 100 100
+given edge e a b
+camera 0,0,1
+
+# the menu bar's keys
+expect menubar has Edit > Undo disabled ⌘Z
+expect menubar has Edit > Redo disabled ⇧⌘Z
+expect menubar has Edit > Paste ⌘V
+expect menubar has Edit > Select all ⌘A
+expect menubar has Arrange > Bring to front disabled ⇧⌘]
+expect menubar has View > Zoom to fit ⌘1
+expect menubar has View > Toggle sidebar ⌘B
+expect menubar has Page > New page tab ⌘T
+expect menubar has Tools > Shape R
+expect menubar is Tools > Document
+# the page's history items have no key: Command-[ is the canvas's restack
+expect menubar is Page > Back disabled
+# the tool in hand is the one checked
+expect menubar has Tools > Select checked V
+key r
+expect menubar has Tools > Shape checked R
+expect menubar lacks Tools > Select checked
+key v
+# what has nothing to act on is off, and turns on when it has
+select n
+key cmd+d
+expect menubar is Edit > Undo ⌘Z
+expect menubar is Edit > Duplicate ⌘D
+expect menubar is Arrange > Send to back ⇧⌘[
+act undo
+expect menubar is Edit > Redo ⇧⌘Z
+expect menubar is Edit > Undo disabled ⌘Z
+# an edge cannot be copied, only deleted
+key escape
+click 1150 150
+expect selection e
+expect menubar has Edit > Copy disabled
+expect menubar is Edit > Delete ⌫
+key escape
+
+# the palette lists every command with the binding table's key, beside its
+# menu, enabled as the app's state allows
+expect palette has Edit > Duplicate disabled ⌘D
+expect palette has Tools > Ellipse
+expect palette lacks Cancel
+select n
+expect palette is Edit > Duplicate ⌘D
+expect palette has App > Save
+key escape
+
+# the right-click menu holds what the thing under the pointer can do
+right-click 900 900
+expect menu open
+expect controls has menu.paste
+expect controls has menu.select-all
+expect controls lacks menu.delete
+key escape
+expect menu closed
+right-click 650 150
+expect selection n
+expect controls has menu.cut
+expect controls has menu.send-to-back
+expect controls has menu.annotate-selection
+expect controls has menu.delete
+expect controls lacks menu.back
+key escape
+right-click 200 300
+expect controls has menu.back
+expect controls has menu.reload
+key escape
+select a b
+right-click 950 150
+expect selection a b
+expect controls has menu.group
+key escape
+right-click 110 780
+expect controls has menu.ungroup
+key escape
+right-click 1150 150
+expect controls has menu.delete
+expect controls lacks menu.copy
+key escape
+# a choice runs, closes the menu, and is one step
+right-click 650 150
+control menu.duplicate
+expect menu closed
+expect count sticky 2
+act undo
+expect count sticky 1
+# a tool in hand has no menu
+key r
+right-click 900 900
+expect menu closed
+key escape
+key v
+
+# the settings: the launch defaults, switched and saved
+expect settings has settings.show-sidebar no
+control settings.show-sidebar
+expect effects has save-settings
+expect settings has settings.show-sidebar yes
+expect sidebar off
+control settings.show-sidebar
+# loaded at launch, they are what shows
+settings-loaded sidebar
+expect sidebar on
+expect effects lacks save-settings
+key cmd+b
+expect settings has settings.show-sidebar yes
+settings-loaded
+# the shortcuts are the binding table, each with a name
+expect settings has shortcut ⇧⌘Z Redo Canvas and text
+expect settings has shortcut ⇧R Diamond shape Canvas
+expect settings has shortcut ⇧← Nudge left by 20 Canvas
+expect settings has shortcut ⌥⌘2 Heading 2 Text
+expect settings has shortcut ⌘[ Back Inside a page
+expect settings has shortcut ⎋ Cancel Everywhere
+expect settings has shortcut ⌘R Reload Page
+# the repos pane and the shell's About rows
+bind https://example.com /scratch/site
+
+expect repos has origin https://example.com auto no
+about CEF 154
+expect settings has about CEF 154
+
+# the first-run view welcomes, offers a folder or the old space, and never
+# picks for the user
+expect onboarding lacks title
+space-needed electron /Users/ada/Specular
+expect onboarding has title Welcome to Specular
+expect onboarding has choice onboarding.electron "Open existing space" "Opens /Users/ada/Specular
+expect onboarding has primary
+expect onboarding has note Quit the other Specular app first
+first-run-choice onboarding.electron
+expect effects is open-space("/Users/ada/Specular")
+first-run-choice onboarding.choose
+expect effects is choose-space { create: false }
+expect onboarding has title
+# a space that is gone is named, and can be located, replaced or left
+space-needed missing /Volumes/Work/Design
+expect onboarding has title Your space is not there
+expect onboarding has body /Volumes/Work/Design could not be found.
+expect onboarding has choice onboarding.locate "Locate folder"
+first-run-choice onboarding.locate
+expect effects is choose-space { create: false }
+first-run-choice onboarding.quit
+expect effects is quit
+undo-to-start

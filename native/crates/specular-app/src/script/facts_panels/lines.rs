@@ -29,6 +29,11 @@ pub(super) fn lines(app: &App, topic: Topic) -> Vec<String> {
         Topic::Onboarding => first_run(app, &mut out),
         Topic::Pages => pages(app, &mut out),
         Topic::Palette => palette_lines(app, &mut out),
+        Topic::Pointer => {
+            if let Some(hover) = &app.session().hover {
+                out.push(format!("hover {hover}"));
+            }
+        }
         Topic::Repos => repos(app, &mut out),
         Topic::Settings => settings_lines(app, &mut out),
         Topic::Sidebar => sidebar_lines(app, &mut out),

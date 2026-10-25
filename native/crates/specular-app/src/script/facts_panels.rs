@@ -12,7 +12,7 @@
 //! ```
 //!
 //! The topics are `chat`, `comments`, `controls`, `editor`, `effects`,
-//! `inspect`, `menubar`, `onboarding`, `pages`, `palette`, `repos`,
+//! `inspect`, `menubar`, `onboarding`, `pages`, `palette`, `pointer`, `repos`,
 //! `settings`, `sidebar` and `tabs` (see [`lines`]). A `state` step writes
 //! every line of every topic, each as the `expect .. has` that holds it.
 //! `effects` are the ones the step before asked of the shell, which only a
@@ -52,6 +52,8 @@ pub enum Topic {
     Pages,
     /// The command palette's items.
     Palette,
+    /// What the pointer is over.
+    Pointer,
     /// The connected repos.
     Repos,
     /// The settings window.
@@ -62,7 +64,7 @@ pub enum Topic {
     Tabs,
 }
 
-const TOPICS: [(&str, Topic); 14] = [
+const TOPICS: [(&str, Topic); 15] = [
     ("chat", Topic::Chat),
     ("comments", Topic::Comments),
     ("controls", Topic::Controls),
@@ -73,6 +75,7 @@ const TOPICS: [(&str, Topic); 14] = [
     ("onboarding", Topic::Onboarding),
     ("pages", Topic::Pages),
     ("palette", Topic::Palette),
+    ("pointer", Topic::Pointer),
     ("repos", Topic::Repos),
     ("settings", Topic::Settings),
     ("sidebar", Topic::Sidebar),

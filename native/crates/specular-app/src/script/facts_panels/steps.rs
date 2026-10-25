@@ -26,6 +26,10 @@
 //! model-saved default
 //! ime-cancel                           # the input method drops its composition
 //! prepare-tab p1                       # a tab pressed and held (none: let go)
+//! space-needed missing /gone electron /old   # no space: the first-run view
+//! first-run-choice open-existing       # a first-run choice, by name
+//! settings-loaded sidebar chat         # the launch settings read
+//! about CEF 154                        # the shell's versions
 //! ```
 
 use anyhow::{Context as _, bail};
@@ -71,6 +75,24 @@ pub enum PanelStep {
     ModelSaved(String),
     /// The input method drops its composition.
     ImeCancel,
+    /// The shell found no space to open: the first-run view asks for one.
+    SpaceNeeded {
+        /// The space that was remembered and is gone.
+        missing: Option<String>,
+        /// The Electron app's space, offered to open.
+        electron: Option<String>,
+    },
+    /// A first-run choice, by its name, run as its button runs it.
+    FirstRunChoice(String),
+    /// The settings read at launch: the sidebar and the right panel shown.
+    SettingsLoaded {
+        /// Whether the sidebar shows at launch.
+        sidebar: bool,
+        /// Whether the right panel shows at launch.
+        chat: bool,
+    },
+    /// The shell's own versions, for the settings' About rows.
+    About(String, String),
     /// A press on an item's tab, held: its page is laid out for the tab
     /// before the click shows it. `None` is the press let go elsewhere.
     PrepareTab(Option<String>),
@@ -130,6 +152,15 @@ pub(crate) fn parse(verb: &str, rest: &str) -> Option<anyhow::Result<PanelStep>>
             .map(PanelStep::Models),
         ("model-saved", [value]) => Ok(PanelStep::ModelSaved((*value).to_owned())),
         ("ime-cancel", []) => Ok(PanelStep::ImeCancel),
+        ("space-needed", words) => space_needed(words),
+        ("first-run-choice", [name]) => Ok(PanelStep::FirstRunChoice((*name).to_owned())),
+        ("settings-loaded", words) => Ok(PanelStep::SettingsLoaded {
+            sidebar: words.contains(&"sidebar"),
+            chat: words.contains(&"chat"),
+        }),
+        ("about", [name, version]) => {
+            Ok(PanelStep::About((*name).to_owned(), (*version).to_owned()))
+        }
         ("prepare-tab", ["none"]) => Ok(PanelStep::PrepareTab(None)),
         ("prepare-tab", [item]) => Ok(PanelStep::PrepareTab(Some((*item).to_owned()))),
         (
@@ -140,6 +171,19 @@ pub(crate) fn parse(verb: &str, rest: &str) -> Option<anyhow::Result<PanelStep>>
         _ => return None,
     };
     Some(step)
+}
+
+fn space_needed(words: &[&str]) -> anyhow::Result<PanelStep> {
+    let mut missing = None;
+    let mut electron = None;
+    for pair in words.chunks(2) {
+        match pair {
+            ["missing", path] => missing = Some(unescaped(path)),
+            ["electron", path] => electron = Some(unescaped(path)),
+            _ => bail!("`space-needed [missing PATH] [electron PATH]`"),
+        }
+    }
+    Ok(PanelStep::SpaceNeeded { missing, electron })
 }
 
 fn refused(file: &str, texts: &str) -> anyhow::Result<PanelStep> {
@@ -272,6 +316,30 @@ impl PanelStep {
             )),
             Self::ModelSaved(value) => Event::Models(ModelsNews::Saved(value.clone())),
             Self::ImeCancel => Event::Ime(specular_core::ImeEvent::Cancel),
+            Self::SpaceNeeded { missing, electron } => {
+                Event::SpaceNeeded(specular_interact::SpaceAsk {
+                    missing: missing.clone(),
+                    electron: electron.clone(),
+                })
+            }
+            Self::FirstRunChoice(name) => Event::Action(
+                (specular_interact::onboarding(app).into_iter())
+                    .flat_map(|view| view.choices)
+                    .find(|choice| choice.name == name)
+                    .map(|choice| choice.action)
+                    .with_context(|| format!("the first-run view has no choice `{name}`"))?,
+            ),
+            Self::SettingsLoaded { sidebar, chat } => {
+                Event::SettingsLoaded(specular_interact::AppSettings {
+                    show_sidebar: *sidebar,
+                    show_chat: *chat,
+                    ..specular_interact::AppSettings::default()
+                })
+            }
+            Self::About(name, version) => Event::About(vec![specular_interact::AboutRow {
+                name: name.clone(),
+                version: version.clone(),
+            }]),
             Self::PrepareTab(item) => Event::Action(Action::PrepareShow(
                 item.as_deref().map(specular_doc::EntityId::from),
             )),
