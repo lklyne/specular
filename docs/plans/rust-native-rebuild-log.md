@@ -1095,3 +1095,15 @@ Nothing was retired. Cleanup rows 1 and 2 in the plan say what now stands betwee
 - Gate: fmt, clippy for the workspace and for `specular-app` and `specular-shell` with `--features cef`, `cargo test --workspace` (1,425).
 - Needs a human at a Mac: none of it has been seen in a real page. The user asked for no scripted run and tests by hand.
 
+
+### BIG-RUN P5: the `specular` CLI in Rust (2026-10-25)
+
+- New crate `specular-cli`, binary `specular-cli`, linked onto the `PATH` as `specular` (the Kit shell already builds `target/debug/specular`). Hand parser with the TS value-flag table, `ureq` client, one module per verb group. Same verbs, JSON output, exit codes, discovery, headers, session id, presence and agent-browser spawning as the TS CLI.
+- Decision: the routes read loose JSON, so there were no request structs to share. `specular-api/src/wire.rs` types what the CLI decodes (discovery file, apply and placement answers) plus the footprint and layout check, and the routes build those answers from it. Typing every request body would be a route refactor.
+- Decision: in-CLI `&&` chaining is dropped. The TS CLI quoted every word, so it could not reach it; shell `&&` still works.
+- Cut `print-pdf`, `record`, `component-states`, `design-system` and `register-design-system` from the CLI, the skill and `unported.rs`; their routes are 404s now.
+- Found by the e2e runs: `update <group> --gap` was a no-op. A patch can now set a group's `layoutGap`.
+- `fixtures/scenarios/cli/run.sh` (12 cases) starts the Kit app on a scratch space and runs every verb. It replaced `contract.rs`, `documents.rs`, most of `tabs.rs` and `tasks.rs`, five `verbs.rs` tests and the socket session test. `cef/cli-pages.sh` runs the Rust CLI (`CLI=`).
+- `bundle-app.sh` puts `specular-cli` in `Contents/MacOS`; `agent_tools` links to it. `specular-cli.sh` and the helper's `cli` service are gone. `resources/specular-cli.sh` is the Electron build's and goes with phase 7.
+- Ran: gate, headless scenarios, `cli/run.sh` 12/12 on the Kit app.
+- Needs a human: a bundle build (not run here, nor `bun` in `native/helper`), the setup dialog replacing an old `specular-cli.sh` link, and `cef/cli-pages.sh` against a bundled CEF app with the patched agent-browser.
