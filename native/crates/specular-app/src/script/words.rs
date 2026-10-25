@@ -173,6 +173,9 @@ pub(super) fn action_named(name: &str) -> anyhow::Result<Action> {
         "toggle-sync" => Action::ToggleSync,
         "undo" => Action::Undo,
         "redo" => Action::Redo,
-        other => bail!("unknown action `{other}`"),
+        other => match super::facts_canvas::action_named(other) {
+            Some(action) => action,
+            None => bail!("unknown action `{other}`"),
+        },
     })
 }

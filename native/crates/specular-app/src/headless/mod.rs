@@ -233,6 +233,8 @@ struct Headless {
     out: PathBuf,
     /// What the `expect` steps compare with.
     checks: Checks,
+    /// The effects of the last step that was not a check, for `expect sent`.
+    sent: Vec<specular_interact::Effect>,
 }
 
 impl Headless {
@@ -280,6 +282,7 @@ impl Headless {
             now_ms: START_MS,
             out: out.to_owned(),
             checks: Checks::default(),
+            sent: Vec::new(),
         })
     }
 
@@ -290,6 +293,7 @@ impl Headless {
     ) -> anyhow::Result<()> {
         input(&mut self.app);
         for effect in self.app.take_effects() {
+            self.sent.push(effect.clone());
             self.run(effect)?;
         }
         Ok(())

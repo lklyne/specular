@@ -165,6 +165,7 @@ pub(super) fn lower(step: Step) -> Result<Do, String> {
         Step::Reopen => Do::Reopen,
         Step::UndoToStart(except) => Do::UndoToStart(except),
         Step::Window(step) => window(step),
+        Step::Canvas(step) => Do::Send(step.event()),
     })
 }
 

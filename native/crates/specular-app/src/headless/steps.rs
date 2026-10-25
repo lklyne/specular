@@ -6,7 +6,7 @@ use specular_doc::Document;
 use specular_interact::{Action, ControlId, Driver, Event, PageNotice};
 
 use super::Headless;
-use crate::script::{self, CameraArg, Step};
+use crate::script::{self, CameraArg, Expect, Step};
 
 /// More undo steps than any script makes: a history that never runs out is
 /// a bug, not a long session.
@@ -14,6 +14,13 @@ const UNDO_LIMIT: usize = 10_000;
 
 impl Headless {
     pub(super) fn step(&mut self, step: Step) -> anyhow::Result<()> {
+        let checks = matches!(
+            step,
+            Step::Expect(_) | Step::State(_) | Step::Mark(_) | Step::Save(_)
+        );
+        if !checks {
+            self.sent.clear();
+        }
         match step {
             Step::Move(at) => self.drive(|app| app.pointer_move(at)),
             Step::Press(at) => self.drive(|app| app.press(at)),
@@ -107,12 +114,16 @@ impl Headless {
                 let text = script::dump(self.app.app());
                 std::fs::write(&path, text).with_context(|| format!("writing {}", path.display()))
             }
+            Step::Expect(Expect::OnCanvas(fact)) if fact.is_sent() => {
+                script::check_sent(&self.sent, &fact)
+            }
             Step::Expect(expect) => self.checks.check(self.app.app(), &expect),
             Step::Mark(name) => self.checks.mark(self.app.app(), &name),
             Step::Reopen => self.reopen(),
             Step::UndoToStart(except) => self.undo_to_start(&except),
             // The run skips these before they get here.
             Step::Window(_) => Ok(()),
+            Step::Canvas(step) => self.drive(|app| app.send(step.event())),
         }?;
         self.frame_for_documents()
     }

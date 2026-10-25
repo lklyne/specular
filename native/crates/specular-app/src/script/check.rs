@@ -137,6 +137,7 @@ impl Checks {
             Expect::Saved(path, fact) => saved_fact(app, path, fact),
             Expect::SameAs(reference) => self.same_as(app, reference),
             Expect::ChangedFrom(reference, paths) => self.changed_from(app, reference, paths),
+            Expect::OnCanvas(fact) => super::facts_canvas::check(app, fact),
         }
     }
 

@@ -82,6 +82,8 @@ pub enum Expect {
     SameAs(Reference),
     /// It differs from another at exactly these paths.
     ChangedFrom(Reference, Vec<String>),
+    /// A fact about the canvas the pointer works on (see [`super::facts_canvas`]).
+    OnCanvas(super::facts_canvas::CanvasFact),
 }
 
 /// What an `expect count` counts.
@@ -193,7 +195,10 @@ pub(super) fn parse(rest: &str) -> anyhow::Result<Expect> {
             let (_, fact) = split(tail);
             Expect::Saved((*path).to_owned(), saved_fact(fact)?)
         }
-        _ => bail!("not a fact `expect` knows, or the wrong arguments"),
+        _ => match super::facts_canvas::fact(what, tail)? {
+            Some(fact) => Expect::OnCanvas(fact),
+            None => bail!("not a fact `expect` knows, or the wrong arguments"),
+        },
     })
 }
 

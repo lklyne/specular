@@ -126,6 +126,8 @@ pub enum Step {
     UndoToStart(Vec<String>),
     /// A step only a window can do. A headless run skips it and says so.
     Window(WindowStep),
+    /// Something a page or the system says (see [`super::facts_canvas`]).
+    Canvas(super::facts_canvas::CanvasStep),
 }
 
 impl Step {
@@ -204,7 +206,10 @@ pub(super) fn step(line: &str) -> anyhow::Result<Step> {
         ("undo-to-start", ["except", paths @ ..]) if !paths.is_empty() => {
             Step::UndoToStart(paths.iter().map(|&path| path.to_owned()).collect())
         }
-        _ => bail!("not a step, or the wrong number of arguments"),
+        _ => match super::facts_canvas::step(verb, rest)? {
+            Some(step) => Step::Canvas(step),
+            None => bail!("not a step, or the wrong number of arguments"),
+        },
     })
 }
 
