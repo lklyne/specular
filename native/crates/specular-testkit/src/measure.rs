@@ -13,7 +13,7 @@ use unicode_segmentation::UnicodeSegmentation;
 /// spaces at a break stay on the line they end, and a word longer than the
 /// line breaks wherever it has to.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct FixedAdvance {
+pub(crate) struct FixedAdvance {
     /// The width of every grapheme, in canvas units.
     pub advance: f32,
     /// The height of every line, in canvas units.

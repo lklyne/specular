@@ -59,9 +59,9 @@ A feature is one vertical slice. It touches the same places every time:
    `.canvas` read and write.
 2. `specular-interact`: the `Tool` or `Gesture` arm and the hit-test arm.
 3. `specular-scene`: the `view` arm.
-4. One behavior test: a scripted gesture through `specular-testkit` that
-   asserts on the document and ends with the undo check. See "Tests" below
-   for what else earns a test.
+4. One behavior check: a scenario in `fixtures/scenarios/` that drives the
+   gesture, checks the state with `expect` lines and ends with
+   `undo-to-start`. See "Tests" below for what else earns a test.
 
 Adding an enum variant should make the compiler list every `match` that
 needs a new arm. Do not add wildcard arms over `Kind`, `Tool` or `Gesture`.
@@ -96,153 +96,62 @@ survives a refactor, and reads on its own.
 Before adding a test, look for the one that already covers the behavior
 and extend its table.
 
-### The gesture test
+### Rust tests and the testkit
 
-It goes in the `tests/` directory of the crate that owns the behavior
-(`specular-interact/tests/it/gestures.rs` is the model), with
-`specular-testkit` as a dev-dependency. A crate's `src/` unit tests cannot
-use the testkit on that crate's own types.
+Behavior is checked by scenarios. The Rust tests that stay (round trips,
+pure rules, readbacks, pins, protocol formats) live in the `tests/`
+directory of the crate that owns the rule; a crate's `src/` unit tests
+cannot use the testkit on that crate's own types.
 
-```rust
-use specular_interact::Key;
-use specular_testkit::{SHIFT, TestApp, assert_doc_snapshot};
+`specular-testkit` holds what those tests use and nothing more:
 
-#[test]
-fn shift_drag_moves_the_page_along_one_axis() {
-    let mut app = TestApp::with_pages(2); // p1 at (100, 100), p2 at (700, 100), 400x300
-    app.press((200.0, 150.0)).hold(SHIFT).drag_to((260.0, 130.0)).release().let_go();
-    assert_doc_snapshot!(app, @"");       // the failure prints the text to put here
-    app.assert_undo_returns_to_start();   // every test that changes the document ends with this
-}
-```
+- `TestApp::with_pages(n)` (p1 at (100, 100), p2 at (700, 100), 400x300),
+  `with_entities([..])`, `from_document`, `from_canvas(json)`, `empty()`
+  and `with_space([("Home", document), ..])`. Entities come from `page`,
+  `text`, `shape`, `file`, `drawing` and `group`, each taking an id and a
+  rect; `sticky`, `plain_text` and `labelled` also take the text.
+  `inside("g", entity)` puts one in a group, `connected(document(..), "e1",
+  "a", "b")` adds an edge, and `with_comment(document, comment(..))` a
+  comment.
+- Input: `press`, `drag_to`, `release`, `drag`, `click`, `double_click`,
+  `key`, `chord(CMD, Key::Char('z'))`, `type_text`, `hold(SHIFT)` and
+  `let_go`, `tick`, `viewport`, `zoom`, `select`, `act(Action)` and
+  `send(Event)`. Text is measured by `FixedAdvance`: 10 units a character
+  and 20 a line.
+- Reading back: `app()`, `document()`, `session()`, `rect("p1")`,
+  `selected_ids()`, `editing_text()`, `caret()`, `take_effects()`,
+  `page_reports(..)`, `bind(..)` for a repo, and
+  `assert_undo_returns_to_start()`.
+- `assert_scene_snapshot!(app)` (`specular-scene/tests/`) prints one line
+  per display-list item in paint order, for a new draw rule.
 
-- Start from `TestApp::with_pages(n)`, `TestApp::with_entities([..])` or
-  `TestApp::from_canvas(json)`. Entities come from `page`, `text`, `shape`,
-  `file`, `drawing` and `group`, each taking an id and a rect. `sticky`,
-  `plain_text` and `labelled` also take the text.
-  `note(id, rect, "plan.md")` is a Document; its text arrives with
-  `note_text("plan.md", "..")`, and a double click then edits its source.
-  `inside("g", entity)` puts one in a group, and
-  `connected(document(entities), "e1", "a", "b")` adds an edge, and
-  `with_edge(document, Edge { from_side, label, ..Edge::new(..) })` one that
-  names sides, a label or a style.
-- Input chains: `pointer_move`, `press`, `drag_to`, `release`, `drag`,
-  `click`, `double_click`, `key`, `chord(CMD, Key::Char('z'))`,
-  `type_text("hi")`, `wheel`, `pinch`, `tick`. `hold(mods)` keeps modifiers
-  down until `let_go()`. `select`, `tool`, `zoom`, `undo`, `redo` and `act`
-  run `Action`s. Anything else goes through `send(Event)`.
-- Text editing: `double_click` a text, sticky or shape to edit it, then
-  `type_text`, `key`, `chord`, `triple_click`, `compose("に")`, `commit("日")`
-  and `paste("..")`. Read back with `editing_text()` and `caret()`, which is
-  `(caret, anchor)` in bytes. Text is measured by `FixedAdvance`: 10 units a
-  character and 20 a line, so `App::caret_rect()` is in round numbers.
-  `measure_with(Arc::new(..))` swaps the measure, for a test on real fonts.
-- Comments: `with_comment(document, comment(id, anchor, "text"))` starts
-  with one in the document. A click or a drag with `tool(Tool::Comment)`
-  opens a draft, read back with `comment_draft()`; `type_text` and
-  `key(Key::Enter)` commit it. `answer_element(..)` and `answer_grab(&[..])`
-  answer the latest `QueryElement` and `QueryRegionGrab` as the shell would.
-  With the tool in hand a `pointer_move` over a page asks `InspectAt` (answer
-  with `answer_inspect()`), and a drag asks `PreviewRegion` as it grows
-  (`answer_region_preview()`); `app().comment_highlights()` is what is
-  outlined.
-- The inspect tool: `tool(Tool::Inspect)` then `pointer_move` (a hover) or
-  `click` (a pick) asks the page, and `answer_inspect()` answers the latest
-  `InspectAt` from the synthetic page's grid as the shell would. Read back
-  with `inspect_model()` (outline and popover) and `app().inspected()` (the
-  pick, which is the chat pill's DOM node).
-- Canvases: `TestApp::with_space([("Home", document), ("Notes", document)])`
-  starts with several, the first active. `switch_to("Notes")` and
-  `act(Action::Canvas(..))` change them; read back with `canvas_names()`,
-  `active_canvas()` and `app().canvas_document(&id)`.
-- The right panel: `with_chat_panel()` tells the app the shell draws one,
-  so a comment draft is finished there and the canvas keeps only its marker.
-  `chat()` is the `ChatModel`, `chat_snapshot()` / `assert_chat_snapshot!`
-  hold it as text, `send_chat("..")` presses Send (`send_chat_with` adds
-  pasted images), and `agent_says(Notice::..)` plays the `claude` run of the
-  open thread (`agent_says_in(&id, ..)` another). Writes and runs come back
-  as `Effect::WriteThread`, `WriteThreadIndex` and `RunAgent`; read the
-  store with `app().threads()` and the open thread with `chat_thread_id()`.
-- Repos: `bind("https://example.com", "/scratch/site", auto)` binds an origin
-  to a repo folder (`with_repos(Repos)` loads a whole `repos.json`) without
-  effects. A comment on a page of that origin then writes to the repo: the
-  composer's `folder` and `auto` chips follow it and the `RunAgent` request
-  carries the repo as `cwd`. With `auto` on, placing the comment sends it. See
-  `fixtures/scenarios/repos-and-inspect.txt`.
-- Pages: `page_reports("p1", PageNotice::Scrolled { x: 0.0, y: 40.0 })` (or `Title`,
-  `Url`, `Loading`, `DevtoolsUrl`) is a page saying something about itself, as
-  the shell sends it; read back with `app().page_state(..)` and `page_scroll(..)`.
-  A sync set is made with `select(&["p1", "p2"]).act(Action::ToggleSync)`; its
-  following is asserted on the effects (`Navigate`, `ScrollPage`,
-  `AskCandidates`, `ReplayPointer`) after `page_reports` of `Url`,
-  `ScrollProgress`, `Pointed` and `Candidates`. See `tests/it/sync.rs`.
-- Read back with `document()`, `session()`, `selection()`, `selected()`,
-  `selected_ids()`, `rect("p1")` and `entity("p1")`. `take_effects()` drains the effects
-  returned since the last drain; call it before the step whose effects the
-  test asserts on.
-- `assert_doc_snapshot!(app)` keeps its snapshot in
-  `tests/snapshots/<test>.snap`; `INSTA_UPDATE=always cargo test` writes
-  it. Prefer the inline form for small documents: a failing run prints the
-  new text, and `cargo insta accept` (from `cargo install cargo-insta`)
-  writes it into the source. Read the snapshot before accepting it.
-- The built-in chrome (the tab row, the toolbar and the dock, which holds
-  the tool's or the selection's controls) is off in a test until
-  `app.with_panels()`. Then `click_control("text.color")` clicks a control
-  by its name, looking its rect up in the layout (`hover_control`,
-  `press_control`, `control_rect` likewise), `assert_panel_snapshot!(app)`
-  holds the layout as text, and `panel_scene_snapshot()` what the panels
-  draw. `view` never draws them, so `scene_snapshot()` is the same either
-  way.
-  The tab row's controls are `view.canvas` and `view.item.<entity id>`.
-  One shows the canvas and the other a page or Document alone
-  (`Action::Show`, ADR 0045); read back with `app().showing()`, and
-  `view_strip(app.app())` is the row's model. `view.add` (Command+T) makes
-  a page in a free spot and shows its tab with `page.url` being typed in.
-  See `fixtures/scenarios/tabs.txt`, and `item-view.txt` for what input
-  does in an item view: the page shown is entered, so send `Key::Escape`
-  before a canvas key or a tool's press, and a Document shown is a reading
-  column that one click edits. A tab starts in the Fill lens, or in Device when the
-  toolbar's expand button (`view.open`, `Action::OpenTab`) opens it from
-  the canvas;
-  `act(Action::SetLens(Lens::Device))` changes it (`view.lens.<name>` as
-  controls, with `view.minimize` beside them), read back with
-  `app().lens()`. Opening a tab, closing one and a lens change each ask
-  for `Effect::Save`: the tabs are saved in `appState.itemTabs`. Device hides what is not hooked to its item until
-  `act(Action::ShowOthers(true))` opens the eye (`view.others`), so open it
-  before making or pressing anything beside the item. See
-  `fixtures/scenarios/lens.txt`.
-  A text field is clicked like any control and then typed into:
-  `enter_in_field("page.url", "example.org")` replaces its text and presses
-  Enter, `field_edit()` reads what is typed so far, and Escape puts the
-  old value back.
-  The sidebar starts hidden, as in Electron: `show_sidebar(true)` (or
-  Command+B) shows it. Its controls are `sidebar.canvas.<n>` (by place, from 1)
-  (`.name` is the rename field, `.menu.rename` and `.menu.delete` the
-  right-click menu), `sidebar.add`, `sidebar.head.<canvases|notes|pages>`,
-  `sidebar.<notes|pages>.<entity id>` (`.toggle` its chevron) and
-  `sidebar.pages.comment.<id>`. Only rows in the window are laid out, so
-  scroll with `wheel` over the sidebar before clicking one below it.
-  `app.covered_left()` is the width it covers, which zoom to fit, a reveal
-  and zoom steps read.
-  `right_click(at)` opens the context menu, which is a `ControlsModel` of
-  choices (`context_menu(app, &target)`, drawn at the press in the
-  dropdown slot). `assert_menu_snapshot!(app)` holds its model,
-  `menu_open()` says whether one is open, and `click_control("menu.duplicate")`
-  picks an item (`menu.<label in lower case, dashes>`; a canvas row's menu is
-  `sidebar.canvas.<n>.menu.rename|delete`).
-  `app.control("text.color")` does what a click on a control does from the
-  models alone, with no `with_panels`, and `context_menu(at)` is the right
-  click that goes with it. `fixtures/scenarios/chrome-controls.txt` presses
-  them by name.
-- A page is select-first (ADR 0022). `click` selects it, a second `click`
-  or a `double_click` enters it, and only an entered page gets input.
-  `app().mark(&id)` says how it is marked: `Mark::Outline` with handles
-  when selected, `Mark::Entered` (a glow, no handles) when entered. In
-  its own tab a page is entered when it is shown, and by any click after.
-- The scene snapshot is `assert_scene_snapshot!(app)`, in
-  `specular-scene/tests/view.rs`. It prints one line per display-list item
-  in paint order. `TestApp::scene_snapshot()` returns the same text, and
-  `specular_scene::view(app.app(), viewport)` the `Scene` itself.
+### Scenario vocabulary
+
+What a script can name, beyond the steps in "Looking at what it draws":
+
+- Controls are pressed by the models' names (`control text.color`); no
+  panel is drawn headless, and the Kit window clicks the control where it
+  draws it. A name that is not there fails the run with the ones that are.
+- The tab row's controls are `view.canvas` and `view.item.<entity id>`
+  (`Action::Show`, ADR 0045); `view.add` (Command+T) makes a page and shows
+  its tab with `page.url` being typed in. A tab starts in the Fill lens, or
+  in Device from the toolbar's `view.open`; `view.lens.<name>`,
+  `view.minimize` and `view.others` sit beside them. In an item view the
+  page shown is entered, so send Escape before a canvas key, and a
+  Document shown is a reading column that one click edits. See `tabs.txt`,
+  `item-view.txt` and `lens.txt`.
+- The sidebar starts hidden (`sidebar on`, or Command+B). Its controls are
+  `sidebar.canvas.<n>` (by place, from 1; `.name` is the rename field,
+  `.menu.rename` and `.menu.delete` its menu), `sidebar.add`,
+  `sidebar.head.<canvases|notes|pages>`, `sidebar.<notes|pages>.<entity id>`
+  (`.toggle` its chevron) and `sidebar.pages.comment.<id>`. Shift- and
+  Command-clicks on rows widen the selection, from the row picked last.
+- A right click opens the context menu for what is under it; its items
+  are `menu.<label in lower case, dashes>`.
+- A page is select-first (ADR 0022): a click selects it, a second click or
+  a double click enters it, and only an entered page gets input.
+- A text field is pressed like a control and typed into; Enter keeps the
+  text and Escape puts the old value back.
 
 ## Looking at what it draws
 

@@ -21,7 +21,7 @@ const LONGEST_SPELLED_PATH: usize = 12;
 /// screen rect 100,100 400x300 r=8 stroke=#a6a09b/1/outside
 /// screen text "example.com/p1" 100,79.5 box-h=16.5 11/15.4 w500 #6b6b6b middle clip=100,79.5 400x20.5
 /// ```
-pub fn scene_snapshot(scene: &Scene) -> String {
+pub(crate) fn scene_snapshot(scene: &Scene) -> String {
     let lines: Vec<String> = scene.items.iter().map(item_line).collect();
     lines.join("\n")
 }

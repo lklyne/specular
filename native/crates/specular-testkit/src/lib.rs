@@ -28,31 +28,25 @@
 )]
 
 mod app;
-mod chat;
 mod comments;
 mod fixtures;
 mod input;
-mod inspect;
 mod measure;
-mod panel_snapshot;
 mod repos;
 mod scene_snapshot;
 mod snapshot;
 mod space;
 
 pub use app::TestApp;
-pub use chat::chat_snapshot;
 pub use comments::{comment, with_comment};
 pub use fixtures::{
-    connected, document, drawing, file, group, inside, labelled, note, page, pages, plain_text,
-    shape, sticky, text, with_edge,
+    connected, document, drawing, file, group, inside, labelled, page, pages, plain_text, shape,
+    sticky, text,
 };
-pub use measure::FixedAdvance;
-pub use panel_snapshot::{dock_snapshot, toolbar_snapshot};
-pub use scene_snapshot::scene_snapshot;
-pub use snapshot::doc_snapshot;
-pub use space::space;
-pub use specular_interact::driver::{ALT, CMD, CMD_SHIFT, CTRL, SHIFT};
+pub(crate) use measure::FixedAdvance;
+pub(crate) use scene_snapshot::scene_snapshot;
+pub(crate) use snapshot::doc_snapshot;
+pub use specular_interact::driver::{CMD, SHIFT};
 
 #[doc(hidden)]
 pub use insta;

@@ -120,7 +120,7 @@ impl TestApp {
     }
 
     /// What is selected.
-    pub fn selection(&self) -> &Selection {
+    pub(crate) fn selection(&self) -> &Selection {
         &self.app().session().selection
     }
 
@@ -133,14 +133,9 @@ impl TestApp {
             .collect()
     }
 
-    /// The selected entity's id, when exactly one entity is selected.
-    pub fn selected(&self) -> Option<&str> {
-        self.selection().single_entity().map(EntityId::as_str)
-    }
-
     /// The entity `id`.
     #[track_caller]
-    pub fn entity(&self, id: &str) -> &Entity {
+    pub(crate) fn entity(&self, id: &str) -> &Entity {
         match self.document().entity(&EntityId::from(id)) {
             Some(entity) => entity,
             None => panic!("the document has no entity {id:?}"),
@@ -153,40 +148,19 @@ impl TestApp {
         self.entity(id).rect
     }
 
-    /// The effects returned since the last [`TestApp::take_effects`].
-    pub fn effects(&self) -> &[Effect] {
-        self.driver.effects()
-    }
-
     /// Drains the effects returned since the last drain.
     pub fn take_effects(&mut self) -> Vec<Effect> {
         self.driver.take_effects()
     }
 
     /// Undoes one step.
-    pub fn undo(&mut self) -> &mut Self {
+    pub(crate) fn undo(&mut self) -> &mut Self {
         self.act(Action::Undo)
     }
 
     /// Redoes one step.
-    pub fn redo(&mut self) -> &mut Self {
+    pub(crate) fn redo(&mut self) -> &mut Self {
         self.act(Action::Redo)
-    }
-
-    /// The document as stable text. See [`doc_snapshot`].
-    pub fn doc_snapshot(&self) -> String {
-        doc_snapshot(self.document())
-    }
-
-    /// The toolbar as stable text. See [`toolbar_snapshot`].
-    pub fn toolbar_snapshot(&self) -> String {
-        crate::toolbar_snapshot(&specular_interact::toolbar(self.app()))
-    }
-
-    /// What the dock shows as stable text, `none` for an empty dock. See
-    /// [`dock_snapshot`].
-    pub fn dock_snapshot(&self) -> String {
-        crate::dock_snapshot(specular_interact::dock(self.app()).as_ref())
     }
 
     /// What the app draws, as stable text. See
