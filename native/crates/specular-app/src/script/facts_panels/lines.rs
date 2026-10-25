@@ -401,6 +401,18 @@ fn first_run(app: &App, out: &mut Vec<String>) {
 }
 
 fn pages(app: &App, out: &mut Vec<String>) {
+    // Each sync set by its members, which a script can name, not its id.
+    let mut sets: std::collections::BTreeMap<&str, Vec<&str>> = std::collections::BTreeMap::new();
+    for entity in app.document().entities() {
+        if let specular_doc::Kind::Page(page) = &entity.kind
+            && let Some(set) = &page.sync_id
+        {
+            sets.entry(set).or_default().push(entity.id.as_str());
+        }
+    }
+    let mut sets: Vec<String> = sets.into_values().map(|pages| pages.join(" ")).collect();
+    sets.sort();
+    out.extend(sets.into_iter().map(|pages| format!("sync {pages}")));
     for entity in app.document().entities() {
         let specular_doc::Kind::File(file) = &entity.kind else {
             continue;

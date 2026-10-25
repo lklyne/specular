@@ -13,7 +13,8 @@
 //!                                      # finished T, failed T, cancelled,
 //!                                      # made PATH new|edited
 //! page-reports p1 title Home           # url U, loading on|off back forward,
-//!                                      # scrolled X Y, loaded STATUS, devtools U,
+//!                                      # scrolled X Y, scroll-progress X Y,
+//!                                      # loaded STATUS, devtools U,
 //!                                      # cursor default|pointer|text
 //! bind https://example.com /scratch/site auto
 //! note-text plan.md # Plan\n\nBody     # a Document's file says this; also
@@ -194,6 +195,10 @@ fn page_notice(kind: &str, words: &[&str]) -> anyhow::Result<PageNotice> {
             can_go_forward: rest.contains(&"forward"),
         },
         ("scrolled", [x, y]) => PageNotice::Scrolled {
+            x: number(x)?,
+            y: number(y)?,
+        },
+        ("scroll-progress", [x, y]) => PageNotice::ScrollProgress {
             x: number(x)?,
             y: number(y)?,
         },
