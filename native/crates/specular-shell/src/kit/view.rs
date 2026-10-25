@@ -76,7 +76,8 @@ pub(crate) struct CanvasFocus(pub(crate) FocusHandle);
 
 impl Global for CanvasFocus {}
 
-/// Runs `action` through `update` and gives the keys back to the canvas.
+/// Runs `action` through `update` and gives the keys back to the canvas,
+/// unless a list it was chosen in is still open and has them.
 ///
 /// Renaming a canvas is the one action a renderer answers itself: the model
 /// asks for the row's name field to be typed in, and here that field is the
@@ -87,7 +88,9 @@ pub(crate) fn run(action: &Action, window: &mut Window, cx: &mut App) {
         return;
     }
     canvas::dispatch(Event::Action(action.clone()));
-    focus_canvas(window, cx);
+    if !dropdown::list_has_keys(window, cx) {
+        focus_canvas(window, cx);
+    }
 }
 
 /// Opens the name field on the row of `canvas`, or of the canvas showing,

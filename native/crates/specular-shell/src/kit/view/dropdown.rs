@@ -8,6 +8,8 @@ mod list;
 
 use self::list::{Dismiss, sections};
 
+use std::cell::RefCell;
+use std::collections::HashSet;
 use std::rc::Rc;
 
 use gpui_kit::component::button::{Button, ButtonVariants as _};
@@ -26,6 +28,19 @@ use super::controls::{CONTROL, element_id, face};
 use super::glyphs::{glyph, ink};
 use super::named::mark;
 use crate::{canvas, theme};
+
+thread_local! {
+    /// The dropdowns whose lists are open, by name.
+    static OPEN: RefCell<HashSet<ControlId>> = RefCell::new(HashSet::new());
+}
+
+/// Whether the keys are with an open list: a choice in it that leaves it
+/// open keeps them there, so Escape closes the list and does nothing else.
+/// A list that went with the controls around it without closing has taken
+/// its focus with it.
+pub(super) fn list_has_keys(window: &Window, cx: &App) -> bool {
+    OPEN.with(|open| !open.borrow().is_empty()) && window.focused(cx).is_some()
+}
 
 /// The dropdown named `id` as the models have it now. A list stays open
 /// across frames, so it is looked up each time and never kept.
@@ -160,11 +175,22 @@ fn opens(model: &Dropdown, trigger: Button) -> AnyElement {
     let trigger = trigger
         // The trigger is what the model's name for the dropdown opens.
         .child(mark(&model.id));
+    let named = model.id.clone();
     Popover::new(element_id(&model.id))
         // The room a Kit menu leaves around its rows, so every list that
         // opens has the same edge.
         .p_1()
         .trigger(trigger)
+        .on_open_change(move |opened, _, _| {
+            OPEN.with(|open| {
+                let mut open = open.borrow_mut();
+                if *opened {
+                    open.insert(named.clone());
+                } else {
+                    open.remove(&named);
+                }
+            });
+        })
         .content(move |_, window, cx| {
             let popover = cx.entity();
             let dismiss: Dismiss = Rc::new(move |window, cx| {
