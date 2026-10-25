@@ -14,7 +14,10 @@
 //! page-reports p1 title Home           # url U, loading on|off back forward,
 //!                                      # scrolled X Y, loaded STATUS, devtools U
 //! bind https://example.com /scratch/site auto
-//! note-text plan.md # Plan\n\nBody     # a Document's file says this
+//! note-text plan.md # Plan\n\nBody     # a Document's file says this; also
+//!                                      # note-missing F, note-failed F,
+//!                                      # note-refused F DISK | OURS; `\s` is
+//!                                      # a space in a file's name
 //! threads-loaded t1@tab_1 t2@tab_2     # the threads on disk, each canvas's open
 //! models default=Default|sonnet=Sonnet 5
 //! model-saved default
@@ -23,8 +26,8 @@
 
 use anyhow::{Context as _, bail};
 use specular_interact::{
-    Action, App, Artifact, ArtifactTarget, ChatAction, Event, Model, ModelsNews, Notice,
-    PageNotice, Progress, ProgressKind, Thread, ThreadId, ThreadIndex, chat,
+    Action, App, Artifact, ArtifactTarget, ChatAction, Event, Model, ModelsNews, NoteNotice,
+    Notice, PageNotice, Progress, ProgressKind, Thread, ThreadId, ThreadIndex, chat,
 };
 
 use crate::script::words::unescaped;
@@ -51,8 +54,8 @@ pub enum PanelStep {
         /// Whether a comment there is sent the moment it is placed.
         auto: bool,
     },
-    /// A Document's markdown file says this.
-    NoteText(String, String),
+    /// What the shell read of a Document's markdown file.
+    Note(String, NoteNotice),
     /// The threads read from disk: each id and the canvas it is open on.
     ThreadsLoaded(Vec<(String, String)>),
     /// The models the runtime lists.
@@ -88,10 +91,13 @@ pub(crate) fn parse(verb: &str, rest: &str) -> Option<anyhow::Result<PanelStep>>
             path: (*path).to_owned(),
             auto: true,
         }),
-        ("note-text", [file, ..]) => Ok(PanelStep::NoteText(
-            (*file).to_owned(),
-            unescaped(after_first(rest)),
+        ("note-text", [file, ..]) => Ok(PanelStep::Note(
+            unescaped(file),
+            NoteNotice::Text(unescaped(after_first(rest))),
         )),
+        ("note-missing", [file]) => Ok(PanelStep::Note(unescaped(file), NoteNotice::Missing)),
+        ("note-failed", [file]) => Ok(PanelStep::Note(unescaped(file), NoteNotice::Failed)),
+        ("note-refused", [file, ..]) => refused(file, after_first(rest)),
         ("threads-loaded", pairs) => pairs
             .iter()
             .map(|pair| {
@@ -121,6 +127,17 @@ pub(crate) fn parse(verb: &str, rest: &str) -> Option<anyhow::Result<PanelStep>>
         _ => return None,
     };
     Some(step)
+}
+
+fn refused(file: &str, texts: &str) -> anyhow::Result<PanelStep> {
+    let (disk, ours) = texts
+        .split_once('|')
+        .context("`note-refused FILE DISK | OURS`")?;
+    let notice = NoteNotice::Refused {
+        disk: unescaped(disk.trim()),
+        ours: unescaped(ours.trim()),
+    };
+    Ok(PanelStep::Note(unescaped(file), notice))
 }
 
 /// `text` after its first word.
@@ -213,9 +230,9 @@ impl PanelStep {
                 repos.set_auto_fix(origin, *auto);
                 Event::ReposLoaded(Box::new(repos))
             }
-            Self::NoteText(file, text) => Event::Note {
+            Self::Note(file, notice) => Event::Note {
                 file: file.clone(),
-                notice: specular_interact::NoteNotice::Text(text.clone()),
+                notice: notice.clone(),
             },
             Self::ThreadsLoaded(pairs) => threads_loaded(pairs),
             Self::Models(listed) => Event::Models(ModelsNews::Listed(

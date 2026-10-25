@@ -41,8 +41,6 @@ mod menus;
 mod motion;
 mod moves;
 mod named_controls;
-mod note_edit;
-mod notes;
 mod page_lifecycle;
 mod page_scroll;
 mod palette;

@@ -8,9 +8,9 @@ use specular_interact::panel::{
     view_strip,
 };
 use specular_interact::{
-    App, ArtifactCard, Chord, Effect, Lens, Mark, MarkShape, MenuEntry, PaletteRun, ScreenRect,
-    Showing, SidebarRow, ThreadRole, chat, menus, onboarding, palette, repos_pane, settings,
-    sidebar,
+    App, ArtifactCard, Chord, Effect, Lens, Mark, MarkShape, MenuEntry, NoteState, PaletteRun,
+    ScreenRect, Showing, SidebarRow, ThreadRole, chat, menus, onboarding, palette, repos_pane,
+    settings, sidebar,
 };
 
 use super::Topic;
@@ -401,6 +401,26 @@ fn first_run(app: &App, out: &mut Vec<String>) {
 }
 
 fn pages(app: &App, out: &mut Vec<String>) {
+    for entity in app.document().entities() {
+        let specular_doc::Kind::File(file) = &entity.kind else {
+            continue;
+        };
+        let Some(state) = app.note(&file.file) else {
+            continue;
+        };
+        let id = &entity.id;
+        let state = match state {
+            NoteState::Loading => "loading".to_owned(),
+            NoteState::Ready(text) => format!("ready {}", text.replace('\n', "\\n")),
+            NoteState::Missing => "missing".to_owned(),
+            NoteState::Failed => "failed".to_owned(),
+        };
+        out.push(format!("{id} note {state}"));
+        out.push(format!(
+            "{id} note-scroll {}",
+            n(f64::from(app.note_scroll(id)))
+        ));
+    }
     for (id, placement) in app.pages() {
         let viewport = placement.viewport;
         out.push(format!(
