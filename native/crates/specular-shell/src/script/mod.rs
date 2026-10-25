@@ -77,7 +77,7 @@ pub struct Line {
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Script {
     /// The canvas the `# canvas:` line names, as written.
-    pub(crate) canvas: Option<String>,
+    pub canvas: Option<String>,
     /// The `given` lines, in order.
     pub(crate) given: Vec<Given>,
     /// The steps, in order.

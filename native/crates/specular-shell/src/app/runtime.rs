@@ -245,7 +245,7 @@ impl<W: ShellWindow> Runtime<W> {
     }
 
     /// The folder of the open space, or of the one canvas file shown.
-    pub(crate) fn space_folder(&self) -> Option<&std::path::Path> {
+    pub fn space_folder(&self) -> Option<&std::path::Path> {
         self.space.as_deref()
     }
 

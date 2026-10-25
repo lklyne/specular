@@ -106,6 +106,12 @@ impl<W: ShellWindow> Runtime<W> {
         }
     }
 
+    /// Whether every image and Document asked for is in: what a window's
+    /// scripted run waits for after a step, as a headless one settles.
+    pub fn files_loaded(&self) -> bool {
+        self.loads.files_ready()
+    }
+
     /// Lets real pages run for `time`, passing on what they report: a
     /// script's `wait` is their only chance to animate, scroll or follow a
     /// link.

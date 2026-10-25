@@ -57,6 +57,21 @@ use crate::shell;
 /// lays the next frame out.
 const SETTLE: Duration = Duration::from_millis(160);
 
+/// How long a step's images and Documents are waited for.
+const LOAD_WAIT: Duration = Duration::from_secs(3);
+const LOAD_POLL: Duration = Duration::from_millis(20);
+
+/// Waits until what the step asked to load is in, as a headless run
+/// settles: an image dropped is sized once it is decoded.
+async fn files_loaded(cx: &gpui_kit::AsyncApp) {
+    let deadline = std::time::Instant::now() + LOAD_WAIT;
+    while canvas::with(|canvas| canvas.runtime.files_loaded()) == Some(false)
+        && std::time::Instant::now() < deadline
+    {
+        cx.background_executor().timer(LOAD_POLL).await;
+    }
+}
+
 /// Set when a step failed, so the run ends with a failing status.
 static FAILED: AtomicBool = AtomicBool::new(false);
 
@@ -89,6 +104,9 @@ struct EnvScript {
     given: Option<specular_doc::Document>,
     /// The folder a `same-as` path starts from.
     base: PathBuf,
+    /// The folder of the canvas the script names, which a headless run
+    /// reads a relative `drop` path from.
+    canvas_folder: PathBuf,
     /// Whether the run ends with the script: a file does, inline steps
     /// stay open until a `quit`.
     ends: bool,
@@ -113,6 +131,9 @@ fn script_from_env() -> Option<Result<EnvScript, String>> {
 
 fn read_script(text: &str, base: PathBuf, ends: bool) -> Result<EnvScript, String> {
     let script = Script::parse(text).map_err(|error| format!("script {error:#}"))?;
+    let canvas_folder = (script.canvas.as_deref())
+        .and_then(|canvas| Path::new(canvas).parent())
+        .map_or_else(|| base.clone(), |folder| base.join(folder));
     let given = script
         .given_document()
         .map_err(|error| format!("{error:#}"))?;
@@ -128,9 +149,29 @@ fn read_script(text: &str, base: PathBuf, ends: bool) -> Result<EnvScript, Strin
     Ok(EnvScript {
         steps,
         given,
+        canvas_folder,
         base,
         ends,
     })
+}
+
+/// The files a `drop` names, as the headless run finds them. The window
+/// opens a copy of the canvas's folder with its Documents and assets, so a
+/// relative path is read there when the copy has it, which keeps a file
+/// inside the space inside it, and from the canvas's own folder when not.
+fn dropped(paths: Vec<PathBuf>, canvas_folder: &Path) -> Vec<PathBuf> {
+    let space = canvas::with(|canvas| canvas.runtime.space_folder().map(Path::to_owned)).flatten();
+    (paths.into_iter())
+        .map(|path| {
+            if path.is_absolute() {
+                return path;
+            }
+            match space.as_ref().map(|space| space.join(&path)) {
+                Some(copied) if copied.exists() => copied,
+                _ => canvas_folder.join(&path),
+            }
+        })
+        .collect()
 }
 
 /// Reports a failed run and makes its exit status say so.
@@ -180,6 +221,10 @@ pub(crate) fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
             None => Checks::default(),
         };
         for (at, (text, step)) in script.steps.into_iter().enumerate() {
+            let step = match step {
+                Do::Drop(paths, at) => Do::Drop(dropped(paths, &script.canvas_folder), at),
+                step => step,
+            };
             let quits = step == Do::Quit;
             let waits = matches!(step, Do::Wait(_));
             // A check, a mark or a file written posts nothing to wait for.
@@ -202,6 +247,7 @@ pub(crate) fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
             }
             if !quiet {
                 cx.background_executor().timer(SETTLE).await;
+                files_loaded(cx).await;
             }
         }
         specular_core::ledger::flush();

@@ -62,8 +62,27 @@ async fn swipe(by: Vec2, ms: u64, late: u64, cx: &AsyncApp) {
     DOWN.set(false);
 }
 
+/// How long the window is given to take a release before the next press.
+const LIFTED: Duration = Duration::from_millis(100);
+
+/// Lets go of a button a script left down: a drag Escape cancelled is
+/// still held in the window, and a person lifts it before pressing again.
+/// Headless, the next press starts afresh by itself.
+pub(super) async fn lift(cx: &AsyncApp) {
+    if DOWN.replace(false) {
+        mouse(LEFT_UP, POINTER.get(), 1);
+        cx.background_executor().timer(LIFTED).await;
+    }
+}
+
 /// Does a step of the pointer, the wheel or the trackpad.
 pub(super) async fn pointer(step: Do, cx: &AsyncApp) -> Result<(), String> {
+    if matches!(
+        step,
+        Do::Press(_) | Do::Click(..) | Do::Drag(..) | Do::Swipe(..) | Do::ResizeDrag(..)
+    ) {
+        lift(cx).await;
+    }
     match step {
         Do::Move(place) => point(locate(place, cx).await?),
         Do::Press(place) => {

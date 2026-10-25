@@ -3,7 +3,7 @@
 # the ghost an armed tool shows, a shape dragged, clicked and kept square,
 # text, a sticky and a page placed, and the draw tool's strokes. Placing
 # tools are one-shot; the draw tool stays.
-camera 0,0,1
+camera 200,0,1
 
 # each tool key arms its tool
 key p
@@ -44,24 +44,24 @@ key escape
 # an armed tool previews what its click places, and nothing once spent
 tool sticky
 expect place-preview none
-move 105 95
+move 305 95
 expect place-preview sticky 100 100 200 200
 expect count entities 0
-click 105 95
+click 305 95
 expect entity @top rect 100 100 200 200
 expect place-preview none
 key escape
 key escape
 key cmd+z
 tool document
-move 105 95
+move 305 95
 expect place-preview document 100 100 300 300
 key escape
 expect place-preview none
 
 # dragging with the shape tool sizes a shape on the grid, in one step
 tool shape
-drag 105 95 251 178
+drag 305 95 451 178
 expect entity @top rect 100 100 140 80
 expect tool select
 expect editing none
@@ -71,20 +71,20 @@ expect undo none
 # a click places the default size at the press, and so does a drag too
 # small to size one
 tool shape
-click 212 148
+click 412 148
 expect entity @top rect 220 140 160 160
 tool shape
-drag 600 600 620 700
+drag 800 600 820 700
 expect entity @top rect 600 600 160 160
 key cmd+z
 key cmd+z
 # Shift keeps a dragged shape square, without the pointer moving
 tool shape
-press 100 100
-drag-to 200 140
+press 300 100
+drag-to 400 140
 expect entity @top rect 100 100 100 40
 hold shift
-drag-to 200 140
+drag-to 400 140
 expect entity @top rect 100 100 100 100
 release
 hold none
@@ -92,7 +92,7 @@ expect entity @top rect 100 100 100 100
 key cmd+z
 # Shift-R places a diamond
 key shift+r
-drag 400 200 500 300
+drag 600 200 700 300
 expect saved /nodes/@top/shapeKind = diamond
 key cmd+z
 key r
@@ -100,7 +100,7 @@ key escape
 
 # the text tool places plain text and starts editing it; the tool is spent
 key t
-click 212 148
+click 412 148
 expect entity @top at 220 140
 expect saved /nodes/@top/specular/textStyle = plain
 expect saved /nodes/@top/specular/widthMode = auto
@@ -110,7 +110,7 @@ key escape
 key escape
 # the sticky tool places a sticky where the press was and starts editing
 key s
-drag 100 100 400 400
+drag 300 100 600 400
 expect entity @top rect 100 100 200 200
 expect saved /nodes/@top/specular/textStyle = sticky
 expect saved /nodes/@top/color = "3"
@@ -127,7 +127,7 @@ expect selection @top
 key escape
 expect selection none
 # Command-B is bold in an edit and the sidebar on the canvas
-double-click 200 200
+double-click 400 200
 key cmd+a
 key cmd+b
 expect editing **v**
@@ -145,7 +145,7 @@ expect count entities 0
 # the page tool places a blank phone page and hosts it; the click is the
 # device's corner, and the screen sits 23 in and 94 down from it
 key p
-click 212 148
+click 412 148
 expect entity @top rect 243 234 375 667
 expect entity @top text about:blank
 expect saved /nodes/@top/presetIndex = 0
@@ -160,9 +160,9 @@ expect count entities 0
 # in canvas space, grown by half its width, and the tool stays. The pen
 # came back from the highlighter at the width nearest the highlighter's.
 tool draw
-press 100 100
-drag-to 140 120
-drag-to 180 90
+press 300 100
+drag-to 340 120
+drag-to 380 90
 release
 expect count drawing 1
 expect entity @top rect 98 88 84 34
@@ -172,24 +172,24 @@ expect saved /nodes/@top/strokes/0/brushType = pen
 expect tool draw
 expect selection none
 # a click leaves a dot
-click 50 60
+click 250 60
 expect entity @top rect 48 58 4 4
 # Shift keeps new points on a flat or a diagonal line from the first
-press 300 100
+press 500 100
 hold shift
-drag-to 400 108
+drag-to 600 108
 release
 hold none
 expect saved /nodes/@top/strokes/0/points/1/y = 100
-press 300 300
+press 500 300
 hold shift
-drag-to 390 370
+drag-to 590 370
 release
 hold none
 expect saved /nodes/@top/strokes/0/points/1 = {"x":380.62,"y":380.62}
 # a highlight stroke takes the highlight brush
 key shift+m
-drag 100 600 200 600
+drag 300 600 400 600
 expect saved /nodes/@top/strokes/0/brushType = highlight
 key m
 key escape

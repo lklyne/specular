@@ -93,8 +93,9 @@ expect undo none
 
 # a selection of several scales every entity inside its bounds: a group
 # with everything in it, a drawing's ink with it
+camera 300,0,0.5
 select g x
-drag 1100 800 1600 1000
+drag 850 400 1100 500
 expect entity g rect 600 600 600 400
 expect entity gm rect 640 640 200 160
 expect entity gd rect 640 840 200 100
@@ -104,15 +105,14 @@ expect selection g x
 key cmd+z
 # a side handle of the bounds scales one axis
 select s x
-drag 100 400 -200 400
+drag 350 200 200 200
 expect entity s rect -200 100 260 100
 expect entity x rect 970 600 130 100
 key cmd+z
 # pages in a scaled selection are laid out as it scales
-camera 0,0,0.5
 select p ps
-press 850 200
-drag-to 1150 350
+press 1150 200
+drag-to 1450 350
 expect sent viewport p 800 600
 release
 expect sent no viewport

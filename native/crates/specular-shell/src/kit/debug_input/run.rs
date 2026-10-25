@@ -2,7 +2,7 @@
 
 mod pointer;
 
-use self::pointer::{locate, mouse, point, pointer};
+use self::pointer::{lift, locate, mouse, point, pointer};
 
 use std::cell::Cell;
 use std::fmt::Write as _;
@@ -178,6 +178,7 @@ async fn press_control(name: &str, cx: &AsyncApp) -> Result<(), String> {
         locate(Place::Control(name.to_owned()), cx).await.ok()
     };
     if let Some(mut at) = drawn {
+        lift(cx).await;
         // A person's pointer is over a control before they press it, and
         // what shows on hover (a list row's fields, a tab's close button)
         // is drawn by then. It arrives by moving: GPUI works out the hover
@@ -366,7 +367,11 @@ pub(super) async fn step(
         Do::FullScreen => window::toggle_full_screen(),
         Do::MenuDump(path) => write(&path, &menu::dump())?,
         Do::MenuChoose(item) => menu::choose(&item),
-        Do::State(path) => write(&path, &state(typed_field(window, cx)))?,
+        Do::State(path) => {
+            let mut text = state(typed_field(window, cx));
+            let _ = writeln!(text, "# canvas-has-keys {}", canvas_has_keys(window, cx));
+            write(&path, &text)?;
+        }
         Do::Accessibility(path) => write(&path, &access::dump())?,
         // A picture is for a person to read, and a locked screen or a
         // covered window has none to take: the checks go on without it.
