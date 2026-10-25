@@ -1169,3 +1169,11 @@ Nothing was retired. Cleanup rows 1 and 2 in the plan say what now stands betwee
 - Ran: the strict gate (fmt, clippy, test, `run.sh` 20/20, `cli/run.sh` 12/12).
 - Over the ~120 target by about 25, all in the API routes, which the brief keeps.
 - By hand: nothing new to look at; the deleted tests guarded code, not screens.
+
+### BIG-RUN P3A: canvas gesture tests become scenarios
+
+- The canvas flows in `specular-interact/tests/it` (select, resize, hit test, edges, guides, moves, anchoring, groups, tools, layout, arrange, clipboard, canvases, theme and the rest: 320 tests in 38 files) are 21 new scenarios and additions to `guides`, `auto-layout`, `page-anchoring` and `reduced-motion`. 17 Rust tests stay in 10 files: resize, guide and paste tables, the binding table, the mac key table, tab refs, the estimate measure, svg/gif/changed-file image timing, the camera spring's first frame, and three flick pins.
+- New vocabulary in `script/facts_canvas.rs`: canvas facts (`hit`, `cursor`, `handles`, `guides`, `gaps`, `seen`, `page`, `order`, `edge`, `anchor`, `sent` effects of the last step ...) and steps (`page-says`, `appearance`, `theme-loaded`, `repeat`, `menu`, `act show:ID`). A headless run now does `drop` too, paths read from the canvas's folder.
+- Dropped: opening a space, a background file change and a space with no canvas (shell events with no step); the estimate-measure-free paths; the late capture answer; the cursor settings' draw filter; a pasted clipboard image; the flick's scroll-room ask. Each is plumbing or covered elsewhere.
+- Mutation check: 10 constants and branches broken (guide tolerance, group padding, nudge step, duplicate gap, group border, arrange gap, edge snap, page arrow, system theme save); all 10 failed a scenario once a Shift held over an undo in `guides-cases` was fixed.
+- Run: the strict gate script. A human: `fixtures/scenarios/run.sh --kit` for the new scenarios (`sent` lines hold in a window; `drop` reads paths from the cwd there).
