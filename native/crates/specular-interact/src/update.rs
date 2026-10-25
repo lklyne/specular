@@ -1,21 +1,23 @@
 //! [`update`]: the one function that changes an [`App`].
 
+mod document;
+mod page_event;
+
+use self::document::step_history;
+pub(crate) use self::document::{document_step, drop_dangling, open_document};
+use self::page_event::on_page_event;
+
 use glam::DVec2;
-use glam::Vec2;
 use specular_core::{InputEvent, PageNav};
-use specular_doc::{Command, CommandError, Document, EntityId, ItemId};
 
 use crate::focus::{leave_unless_selected, set_focus};
-use crate::images;
-use crate::notes;
 use crate::stack_order::Move;
-use crate::theme;
 use crate::{
-    Action, App, Effect, Event, Focus, PageNotice, Selection, ToolDefaultPatch, api, attach,
-    bindings, camera, chat, comment, cursor, edit, gesture, groups, inspect, page_state, pages,
-    pointer, property, reveal, space, sync, verbs,
+    Action, App, Effect, Event, Focus, ToolDefaultPatch, api, attach, bindings, camera, chat,
+    comment, cursor, edit, gesture, groups, inspect, page_state, pages, pointer, property, reveal,
+    space, sync, verbs,
 };
-use crate::{arrange, clipboard, drop, select_all, zoom};
+use crate::{arrange, clipboard, drop, images, notes, select_all, theme, zoom};
 
 /// A scroll goes to the Document under the pointer, else it moves the
 /// camera.
@@ -338,80 +340,6 @@ pub(crate) fn verb(
     }
 }
 
-/// Runs `command` as one undo step, then brings the page hosts and the
-/// session back in step with the document.
-pub(crate) fn document_step(app: &mut App, command: Command, effects: &mut Vec<Effect>) {
-    let before = pages::snapshot(app);
-    gesture::apply_step(app, command);
-    drop_dangling(app, effects);
-    pages::reconcile(&before, app, effects);
-}
-
-/// Runs an undo or a redo, unless a drag is in flight, puts back the
-/// selection the step carries, and brings the page hosts and the session
-/// back in step with the document.
-fn step_history(
-    app: &mut App,
-    effects: &mut Vec<Effect>,
-    step: impl FnOnce(&mut App) -> Result<Option<Selection>, CommandError>,
-) {
-    if app.session.gesture.is_some() {
-        return;
-    }
-    let before = pages::snapshot(app);
-    let notes_before = edit::note::held(app);
-    match step(app) {
-        Ok(Some(selection)) => app.session.selection = selection,
-        Ok(None) => return,
-        Err(error) => tracing::warn!("history step dropped: {error}"),
-    }
-    edit::note::write_stepped(app, &notes_before, effects);
-    drop_dangling(app, effects);
-    pages::reconcile(&before, app, effects);
-}
-
-pub(crate) fn open_document(app: &mut App, document: Document, effects: &mut Vec<Effect>) {
-    let before = pages::snapshot(app);
-    app.session.gesture = None;
-    app.session.entered_group = None;
-    edit::discard(app, effects);
-    comment::forget(app);
-    app.document = document;
-    edit::fit_all(app);
-    app.history.clear();
-    drop_dangling(app, effects);
-    pages::reconcile(&before, app, effects);
-    images::reopen(app, effects);
-    notes::reopen(app, effects);
-}
-
-/// Forgets selection, hover and focus that name something the document no
-/// longer holds.
-pub(crate) fn drop_dangling(app: &mut App, effects: &mut Vec<Effect>) {
-    let document = &app.document;
-    app.session.selection.retain(|item| match item {
-        ItemId::Entity(id) => document.entity(id).is_some(),
-        ItemId::Edge(id) => document.edge(id).is_some(),
-    });
-    let gone = |page: Option<&EntityId>| page.is_some_and(|id| app.page_placement(id).is_none());
-    let (pointer_gone, focus_gone) = (
-        gone(app.session.pointer_page.as_ref()),
-        gone(app.session.focus.page()),
-    );
-    if pointer_gone {
-        app.session.pointer_page = None;
-    }
-    if (app.session.hover.as_ref()).is_some_and(|id| app.document.entity(id).is_none()) {
-        app.session.hover = None;
-    }
-    if focus_gone {
-        set_focus(app, None, effects);
-    }
-    let document = &app.document;
-    (app.session.pages).retain(|page| document.entity(page).is_some());
-    (app.session.sync).retain(|page| document.entity(page).is_some());
-}
-
 /// The wall clock moved to `unix_ms`.
 fn on_tick(app: &mut App, unix_ms: u64, effects: &mut Vec<Effect>) {
     let elapsed = unix_ms.saturating_sub(app.session.now_ms);
@@ -424,68 +352,4 @@ fn on_tick(app: &mut App, unix_ms: u64, effects: &mut Vec<Effect>) {
     images::on_tick(app, effects);
     edit::note::autosave(app, effects);
     edit::autoscroll(app, elapsed);
-}
-
-/// A hosted page reported something.
-fn on_page_event(app: &mut App, page: &EntityId, notice: &PageNotice, effects: &mut Vec<Effect>) {
-    let shown = app.page_state(page).and_then(|state| state.url.clone());
-    let fitted = crate::safe_area::fitted(app, page);
-    // The address is the one thing a page reports that is saved.
-    if page_state::on_notice(app, page, notice) {
-        effects.push(Effect::Save);
-    }
-    crate::safe_area::follow_fit(fitted, app, page, effects);
-    sync::on_notice(app, page, notice, shown.as_deref(), effects);
-    crate::inspect::on_notice(app, page, notice);
-    match notice {
-        PageNotice::Scrolled { .. } => crate::flick::scrolled(app, page),
-        PageNotice::ScrollRoom(room) => crate::flick::room(app, page, *room),
-        PageNotice::RegionElements(boxes) => comment::on_elements(app, page, boxes),
-        PageNotice::OpenTab { url, foreground } => {
-            crate::link_open::open(app, page, url, *foreground, effects);
-        }
-        _ => {}
-    }
-    on_page_notice(app, page, notice, effects);
-}
-
-fn on_page_notice(app: &App, page: &EntityId, notice: &PageNotice, effects: &mut Vec<Effect>) {
-    match notice {
-        PageNotice::Loaded { .. }
-        | PageNotice::Crashed { .. }
-        | PageNotice::Title(_)
-        | PageNotice::Cursor(_)
-        | PageNotice::Favicon(_)
-        | PageNotice::Url(_)
-        | PageNotice::Loading { .. }
-        | PageNotice::Scrolled { .. }
-        | PageNotice::ScrollProgress { .. }
-        | PageNotice::ScrollRoom(_)
-        | PageNotice::Pointed { .. }
-        | PageNotice::Candidates { .. }
-        | PageNotice::Inspected { .. }
-        | PageNotice::RegionElements(_)
-        | PageNotice::ElementCaptured { .. }
-        | PageNotice::ElementPlaces(_)
-        | PageNotice::DevtoolsUrl(_)
-        | PageNotice::OpenTab { .. }
-        | PageNotice::ViewportFit { .. } => {}
-        PageNotice::ImeCompositionBounds(bounds) => {
-            if app.session.focus.page() == Some(page)
-                && let Some(bounds) = bounds
-                && let Some(placement) = app.page_placement(page)
-            {
-                let camera = &app.session.camera;
-                let per_css = placement.canvas_per_css().as_vec2();
-                let corner = Vec2::new(bounds.x as f32, bounds.y as f32);
-                let world = placement.rect_origin() + corner * per_css;
-                effects.push(Effect::SetImeCursorArea {
-                    origin: camera.world_to_screen(world),
-                    size: Vec2::new(bounds.width as f32, bounds.height as f32)
-                        * per_css
-                        * camera.zoom,
-                });
-            }
-        }
-    }
 }
