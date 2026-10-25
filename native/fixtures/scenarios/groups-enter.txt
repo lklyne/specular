@@ -1,0 +1,132 @@
+# canvas: groups-nested.canvas
+# Groups as one item (ADR 0034): a group is picked by its interior, border
+# or title, a marquee takes it whole, a double click steps in one level at
+# a time and Escape steps back out, and a double click on its title renames
+# it. `outer` holds `inner` (which holds `a` and `b`) and `c`; `out` is
+# loose to the right.
+camera 0,0,1
+expect saved same-as groups-nested.canvas
+
+# a member is hit before its group, and the interior, border and title of
+# the group are each its own
+expect hit 250 250 body a
+expect hit 150 450 body outer
+expect hit 104 300 border outer
+expect hit 400 496 border outer
+expect hit 110 300 body outer
+expect hit 110 90 label outer
+expect hit 160 90 empty
+# a click inside or on the border selects the group
+click 150 450
+expect selection outer
+click 1500 900
+click 103 400
+expect selection outer
+key escape
+
+# a marquee that encloses the group takes it as one
+drag 50 50 850 550
+expect selection outer
+# one over a member and something outside takes the whole group
+drag 1050 130 240 240
+expect selection outer out
+# a selected group stands for everything in it
+expect scope outer out | outer inner a b c out | 100 100 900 400
+key escape
+# a Command marquee started inside the group resolves to what is directly
+# in it: `a` becomes `inner`
+hold cmd
+press 780 480
+hold none
+drag-to 240 240
+release
+expect selection inner c
+key escape
+
+# a double click selects what is directly inside, one level at a time, and
+# enters the group
+double-click 150 450
+expect selection inner c
+expect entered-group outer
+double-click 350 340
+expect selection a b
+expect entered-group inner
+expect undo none
+# Escape steps out one level at a time, then deselects
+key escape
+expect selection inner
+expect entered-group outer
+key escape
+expect selection outer
+expect entered-group none
+key escape
+expect selection none
+
+# clicks, Shift-clicks and a marquee on its members keep the group entered
+double-click 150 450
+click 580 260
+expect selection c
+expect entered-group outer
+hold shift
+click 250 250
+hold none
+expect selection c a
+expect entered-group outer
+drag 700 340 600 300
+expect selection c
+expect entered-group outer
+# a click outside leaves it, and so does a click on the group itself
+click 1500 900
+expect entered-group none
+double-click 150 450
+click 150 450
+expect selection outer
+expect entered-group none
+# a group that goes away is no longer entered
+double-click 150 450
+select outer
+key backspace
+expect entered-group none
+key cmd+z
+expect saved same-as start
+
+# a double click on the title edits it with all of it selected
+double-click 110 90
+expect editing Outer
+expect caret 5 0
+expect selection outer
+# typing and Enter rename it in one step
+type Moodboard
+key enter
+expect editing none
+expect saved /nodes/outer/label = Moodboard
+expect selection outer
+key cmd+z
+expect saved same-as start
+# a press elsewhere commits the rename
+double-click 110 90
+type Moodboard
+click 1500 900
+expect saved /nodes/outer/label = Moodboard
+key cmd+z
+# an emptied or unchanged name keeps the label and records nothing
+double-click 110 90
+key backspace
+key enter
+expect saved /nodes/outer/label = Outer
+double-click 110 90
+key enter
+expect undo none
+
+# the group a drag would drop into is the innermost under the pointer
+press 950 170
+drag-to 350 340
+expect drop-target inner
+drag-to 700 450
+expect drop-target outer
+drag-to 1500 900
+expect drop-target none
+drag-to 700 450
+release
+expect entity out parent outer
+undo-to-start

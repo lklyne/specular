@@ -1,0 +1,144 @@
+# Selecting with the select tool: a page picked then entered (ADR 0022),
+# Shift-click, empty canvas, an edge, the marquee and its modes, groups as
+# one item (ADR 0034), and what the selection hands its handles. Nothing
+# here changes the document.
+given page p1 100 100 400 300
+given page p2 700 100 400 300
+given page p3 1300 100 400 300
+given shape t1 100 600 100 100
+given shape t2 500 600 100 100
+given edge e1 t1 t2
+given shape s1 400 300 50 50
+camera 0,0,1
+
+# the first click on a page selects it and tells the page nothing
+click 200 200
+expect selection p1
+expect focus canvas
+expect mark p1 outline
+expect handles entity p1
+expect sent no forward
+# a second click enters it without forwarding that click: no handles, the
+# system's arrow, and the keys go to the page
+click 200 200
+expect focus page p1
+expect mark p1 entered
+expect handles none
+expect cursor page-arrow
+expect sent focus-page p1
+expect sent no forward
+# now its clicks go to the page, in its own pixels
+click 200 250
+expect sent forward p1 down 100 150
+expect sent forward p1 up 100 150
+# a press just inside its right edge, where a handle would be, is the page's
+expect hit 498 250 page p1 398 150
+drag 498 250 460 250
+expect entity p1 rect 100 100 400 300
+# selecting another page leaves the entered one
+click 800 200
+expect selection p2
+expect focus canvas
+expect sent focus-page none
+
+# Shift-click adds and takes away; on the selected page it deselects
+# instead of entering
+hold shift
+click 200 200
+expect selection p1 p2
+click 200 200
+expect selection p2
+click 800 200
+expect selection none
+expect focus canvas
+# a Shift-click on empty canvas keeps the selection, a click clears it
+select p1 p2
+click 600 450
+expect selection p1 p2
+hold none
+click 600 450
+expect selection none
+
+# a click on an edge selects it; Shift adds an end
+click 350 650
+expect selection e1
+hold shift
+click 150 650
+hold none
+expect selection e1 t1
+# the edge is hit within seven pixels of its line, and not eight
+expect hit 350 656 edge e1
+expect hit 350 658 empty
+key escape
+
+# a marquee from empty canvas takes what it touches: p1 and p2, not p3
+drag 50 450 750 350
+expect selection p1 p2
+expect undo none
+# rects that miss every page: left, above, between, below
+drag 10 150 90 350
+expect selection none
+drag 50 10 750 90
+expect selection none
+drag 520 150 580 350
+expect selection none
+drag 50 420 750 480
+expect selection none
+# a press is not a marquee until it travels four pixels
+press 600 470
+drag-to 603 473
+expect marquee none
+drag-to 603 474
+expect marquee 600 470 3 4
+release
+# with Command it takes only what it encloses
+hold cmd
+drag 50 50 750 450
+hold none
+expect selection p1 s1
+# with Shift it toggles what it touches
+select p1 p3
+hold shift
+drag 50 450 750 350
+hold none
+expect selection p3 p2
+# it takes the edges it crosses, not one beside it
+key escape
+drag 300 560 400 760
+expect selection e1
+drag 300 800 400 900
+expect selection none
+# with Command, enclosing the edge's middle is not enough, nor one end
+hold cmd
+drag 300 560 400 760
+expect selection none
+drag 50 560 250 760
+expect selection t1
+hold none
+key escape
+hold cmd
+drag 50 560 650 760
+hold none
+expect selection t1 t2 e1
+key escape
+
+# the selection hands its handles: one entity's own, several the bounds'
+select t1 t2
+expect handles selection
+expect hit 600 700 handle selection bottom-right
+expect hit 100 600 handle selection top-left
+key escape
+
+# a double click enters a page that was not selected
+double-click 800 200
+expect focus page p2
+# an item over an entered page still takes the press
+click 200 200
+click 200 200
+expect focus page p1
+click 420 320
+expect selection s1
+expect focus canvas
+key escape
+expect undo none
+undo-to-start

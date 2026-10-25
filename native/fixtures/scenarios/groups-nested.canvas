@@ -1,0 +1,12 @@
+{
+  "nodes": [
+    {"id": "a", "type": "shape", "x": 220, "y": 220, "width": 100, "height": 100, "shapeKind": "rectangle", "text": "", "parentGroupId": "inner"},
+    {"id": "b", "type": "shape", "x": 360, "y": 220, "width": 100, "height": 100, "shapeKind": "rectangle", "text": "", "parentGroupId": "inner"},
+    {"id": "inner", "type": "group", "x": 200, "y": 200, "width": 300, "height": 160, "label": "Inner", "parentGroupId": "outer"},
+    {"id": "c", "type": "shape", "x": 560, "y": 220, "width": 100, "height": 100, "shapeKind": "rectangle", "text": "", "parentGroupId": "outer"},
+    {"id": "outer", "type": "group", "x": 100, "y": 100, "width": 700, "height": 400, "label": "Outer"},
+    {"id": "out", "type": "shape", "x": 900, "y": 150, "width": 100, "height": 40, "shapeKind": "rectangle", "text": ""}
+  ],
+  "edges": [],
+  "specular": {"entityOrder": ["a", "b", "inner", "c", "outer", "out"]}
+}

@@ -29,6 +29,7 @@
 //! expect default shape ellipse         # a tool default: shape, brush, sticky-font
 //! expect theme system dark             # the choice, and what is drawn
 //! expect motion running                # a camera or turn spring: running, still
+//! expect order a b @top c            # the stack, back to front, edges too
 //! expect synced p1 no                  # in a sync set: yes or no
 //! expect sent viewport p 500 300       # the last step asked the shell this
 //! expect sent no save                  # it asked nothing that starts so
@@ -142,6 +143,8 @@ pub enum Query {
     Synced(String),
     /// An image file's state.
     Image(String),
+    /// The stack, back to front, edges included.
+    Order,
 }
 
 /// The canvas fact `what` and `tail` state, or `None` when `what` is not one
@@ -182,6 +185,7 @@ pub(super) fn fact(what: &str, tail: &str) -> anyhow::Result<Option<CanvasFact>>
         "scope" => is(Query::Scope, &words),
         "theme" => is(Query::Theme, &words),
         "motion" => is(Query::Motion, &words),
+        "order" => is(Query::Order, &words),
         "guides" => match words.as_slice() {
             ["horizontal", wanted @ ..] => is(Query::Guides(GuideAxis::Horizontal), wanted),
             ["vertical", wanted @ ..] => is(Query::Guides(GuideAxis::Vertical), wanted),
@@ -223,8 +227,14 @@ pub(super) fn check(app: &App, fact: &CanvasFact) -> anyhow::Result<()> {
         return Ok(());
     };
     let found = read(app, query)?;
+    let wanted: Vec<String> = (wanted.iter())
+        .map(|word| match word.strip_prefix('@') {
+            Some(_) => super::check::resolve(app, word),
+            None => Ok(word.clone()),
+        })
+        .collect::<anyhow::Result<_>>()?;
     ensure!(
-        same_words(&found, wanted),
+        same_words(&found, &wanted),
         "{query:?} is `{}`, expected `{}`",
         found.join(" "),
         wanted.join(" ")
@@ -445,6 +455,9 @@ fn read(app: &App, query: &Query) -> anyhow::Result<Vec<String>> {
             let synced = app.is_synced(&entity_id(app, name)?);
             words_of(if synced { "yes" } else { "no" })
         }
+        Query::Order => (app.document().order().iter())
+            .map(|item| item.as_str().to_owned())
+            .collect(),
         Query::Image(file) => match app.image(file).map(|image| &image.state) {
             Some(ImageState::Loading) => words_of("loading"),
             Some(ImageState::Ready { width, height }) => {

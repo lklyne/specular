@@ -1,0 +1,16 @@
+{
+  "nodes": [
+    {"id": "a", "type": "shape", "x": 140, "y": 140, "width": 100, "height": 100, "shapeKind": "rectangle", "text": "", "parentGroupId": "g"},
+    {"id": "a2", "type": "shape", "x": 300, "y": 140, "width": 100, "height": 100, "shapeKind": "rectangle", "text": "", "parentGroupId": "g"},
+    {"id": "g", "type": "group", "x": 100, "y": 100, "width": 400, "height": 300, "label": "Group g"},
+    {"id": "b", "type": "shape", "x": 740, "y": 140, "width": 100, "height": 100, "shapeKind": "rectangle", "text": "", "parentGroupId": "h"},
+    {"id": "h", "type": "group", "x": 700, "y": 100, "width": 300, "height": 300, "label": "Group h"},
+    {"id": "c", "type": "shape", "x": 100, "y": 600, "width": 100, "height": 100, "shapeKind": "rectangle", "text": ""},
+    {"id": "p", "type": "link", "x": 1100, "y": 100, "width": 400, "height": 300, "url": "https://example.com/p"},
+    {"id": "k", "type": "group", "x": 1150, "y": 150, "width": 300, "height": 200, "label": "On the page"},
+    {"id": "x1", "type": "shape", "x": 1100, "y": 600, "width": 100, "height": 100, "shapeKind": "rectangle", "text": ""},
+    {"id": "x2", "type": "shape", "x": 1300, "y": 600, "width": 100, "height": 100, "shapeKind": "rectangle", "text": ""}
+  ],
+  "edges": [],
+  "specular": {"entityOrder": ["a", "a2", "g", "b", "h", "c", "p", "k", "x1", "x2"]}
+}

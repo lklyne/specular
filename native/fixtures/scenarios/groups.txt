@@ -1,0 +1,185 @@
+# canvas: groups-board.canvas
+# Group and ungroup, a group's rect following its members, and dragging
+# into and out of groups. `g` (loosely sized) holds `a` and `a2`, `h` holds
+# `b`, `c`, `x1` and `x2` are loose, `p` is a page and `k` a group on it. Membership, the
+# stack, page anchors and the move are one undo step each time.
+camera 0,0,1
+expect saved same-as groups-board.canvas
+
+# Cmd+G wraps the selection with 24 units of room, names it and selects it;
+# its members point at it, and it is saved as a freeform group
+select x1 x2
+key cmd+g
+expect entity @top kind group
+expect selection @top
+expect entity @top rect 1076 576 348 148
+expect entity x1 parent @top
+expect entity x2 parent @top
+expect saved /nodes/@top/label = Group
+expect saved /nodes/@top/layoutMode = freeform
+expect saved /nodes/@top/managedLayout = false
+expect order a a2 g b h c p k x1 x2 @top
+# Cmd+Shift+G frees the members and selects them
+key cmd+shift+g
+expect count group 3
+expect entity x1 parent none
+expect selection x1 x2
+key cmd+z
+key cmd+z
+expect saved same-as start
+# one item is not enough to group
+select x1
+key cmd+g
+expect undo none
+expect sent nothing
+# the run is gathered where its frontmost member was
+select c x2
+key cmd+g
+expect order a a2 g b h p k x1 c x2 @top
+key cmd+z
+# a group whose members are all selected stands for them
+select a a2 c
+key cmd+g
+expect entity g parent @selected
+expect entity a parent g
+expect entity c parent @selected
+key cmd+z
+# items taken out of a group leave it, and the new group is in the first
+# item's group
+select a c
+key cmd+g
+expect entity a parent @selected
+expect entity c parent @selected
+expect entity a2 parent g
+expect entity @selected parent g
+key cmd+z
+expect saved same-as start
+
+# a loosely sized group is left alone by an unrelated change
+select c
+key right
+expect entity g rect 100 100 400 300
+key cmd+z
+# a member moved inside the group refits it round its members as it moves
+press 350 190
+drag-to 380 190
+expect entity g rect 116 116 348 148
+release
+expect entity g rect 116 116 348 148
+key cmd+z
+# a resized member refits it, and the release keeps what the drag showed
+select a2
+press 401 241
+drag-to 441 281
+release
+expect entity g rect 116 116 348 188
+key cmd+z
+# a deleted member refits it
+select a2
+key backspace
+expect entity g rect 116 116 148 148
+key cmd+z
+# an item dropped out leaves the group fitted round the rest
+key escape
+drag 190 190 190 790
+expect entity a parent none
+expect entity a at 140 740
+expect entity g rect 276 116 148 148
+key cmd+z
+# the drop target is read from the groups as the drag began: dragged past
+# the group's edge it leaves, though the group grows under the drag
+press 350 190
+drag-to 600 190
+expect drop-target none
+release
+expect entity a2 parent none
+key cmd+z
+# moving a group whole does not refit it
+select g
+press 450 380
+drag-to 550 380
+release
+expect entity g rect 200 100 400 300
+expect entity a at 240 140
+key cmd+z
+expect saved same-as start
+
+# an item dropped on a group joins it, and the run gathers where its
+# frontmost member was
+key escape
+press 150 650
+drag-to 300 300
+expect drop-target g
+release
+expect drop-target none
+expect entity c parent g
+expect entity c at 260 260
+expect order b h a a2 c g p k x1 x2
+key cmd+z
+# released outside every group, a member is freed
+drag 190 190 190 790
+expect entity a parent none
+expect order a a2 g b h c p k x1 x2
+key cmd+z
+# Command keeps membership as it was, either way
+press 150 650
+hold cmd
+drag-to 300 300
+expect drop-target none
+release
+hold none
+expect entity c parent none
+expect entity c at 260 260
+key cmd+z
+press 190 190
+hold cmd
+drag-to 190 790
+release
+hold none
+expect entity a parent g
+key cmd+z
+# an Option-drag copies and changes no membership
+press 150 650
+hold alt
+drag-to 300 300
+expect drop-target none
+release
+hold none
+expect entity c parent none
+expect entity c at 100 600
+key cmd+z
+expect saved same-as start
+
+# a group dragged by its title onto another joins it with its members
+select g
+press 110 90
+drag-to 810 90
+expect drop-target none
+drag-to 810 180
+expect drop-target h
+release
+expect entity g parent h
+expect entity a parent g
+key cmd+z
+# with a member selected beside its group, it still travels inside it
+select g a
+press 110 90
+drag-to 810 180
+release
+expect entity g parent h
+expect entity a parent g
+key cmd+z
+expect saved same-as start
+
+# out of a group onto a page: freed, and hooked to the page
+key escape
+drag 190 190 1480 380
+expect entity a parent none
+expect saved /nodes/a/pageAnchor/pageId = p
+key cmd+z
+# into a group over a page: the group owns its movement, so no hook
+drag 150 650 1300 250
+expect entity c parent k
+expect saved /nodes/c/pageAnchor absent
+key cmd+z
+undo-to-start
