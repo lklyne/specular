@@ -143,6 +143,44 @@ impl ShellView {
         }
     }
 
+    /// The row under the field: what a message goes with, the folder it
+    /// writes to, the model, and the send button.
+    fn composer_chips(
+        &self,
+        model: &Composer,
+        ready: bool,
+        cx: &mut Context<'_, Self>,
+    ) -> AnyElement {
+        let folder = model.folder.as_ref().map(|folder| {
+            let target = model.folder_path.as_ref().unwrap_or(folder);
+            let written = SharedString::from(format!("Changes are written to {target}"));
+            chip("chat-folder", Icon::new(IconName::FolderOpen), folder)
+                .tooltip(move |window, cx| Tooltip::new(written.clone()).build(window, cx))
+        });
+        h_flex()
+            .min_w_0()
+            .gap_1()
+            .pt(px(2.0))
+            .items_center()
+            .child(
+                h_flex()
+                    .flex_1()
+                    .min_w_0()
+                    .gap_1()
+                    .items_center()
+                    .child(chip(
+                        "chat-pill",
+                        pill_icon(model.pill.kind),
+                        &model.pill.label,
+                    ))
+                    .children(folder)
+                    .children(model.auto.as_ref().map(auto_chip)),
+            )
+            .child(model_chip(&model.model, &self.chat.input))
+            .child(Self::send_button(ready, cx))
+            .into_any_element()
+    }
+
     /// The composer for `model`.
     pub(super) fn composer(
         &mut self,
@@ -173,33 +211,7 @@ impl ShellView {
                 view.update(cx, |this, cx| this.take_pasted(item, cx))
                     .unwrap_or(false)
             });
-        let folder = model.folder.as_ref().map(|folder| {
-            let target = model.folder_path.as_ref().unwrap_or(folder);
-            let written = SharedString::from(format!("Changes are written to {target}"));
-            chip("chat-folder", Icon::new(IconName::FolderOpen), folder)
-                .tooltip(move |window, cx| Tooltip::new(written.clone()).build(window, cx))
-        });
-        let bottom = h_flex()
-            .min_w_0()
-            .gap_1()
-            .pt(px(2.0))
-            .items_center()
-            .child(
-                h_flex()
-                    .flex_1()
-                    .min_w_0()
-                    .gap_1()
-                    .items_center()
-                    .child(chip(
-                        "chat-pill",
-                        pill_icon(model.pill.kind),
-                        &model.pill.label,
-                    ))
-                    .children(folder)
-                    .children(model.auto.as_ref().map(auto_chip)),
-            )
-            .child(model_chip(&model.model, &self.chat.input))
-            .child(Self::send_button(ready, cx));
+        let bottom = self.composer_chips(model, ready, cx);
 
         let focus_field = cx.listener(|this, _: &gpui_kit::ClickEvent, window, cx| {
             this.focus_composer(window, cx);

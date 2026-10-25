@@ -283,25 +283,7 @@ impl Canvas {
             }
         }
         if let Some(sample) = drawn {
-            if let Some(bench) = self.bench.as_mut() {
-                bench.presented(&self.runtime, &sample);
-            }
-            let end = Instant::now();
-            if end >= self.next_tick {
-                // This frame ran past the link's next tick, which is lost.
-                // The next frame starts at once and not a refresh later; the
-                // layer's drawables pace it, as they pace a loop that blocks
-                // on the display.
-                while self.next_tick <= end {
-                    self.next_tick += self.refresh;
-                }
-                // For a tenth of a second and no longer: without the limit
-                // the main thread never gets back to its run loop for as
-                // long as frames overrun, and no input arrives.
-                if end.duration_since(self.chain_start) < CATCH_UP_SPAN {
-                    let _ = self.again.try_send(());
-                }
-            }
+            self.presented(&sample);
         }
         // Whatever changes the app owes a frame, so a turn that owed none
         // has nothing new for GPUI either.
@@ -321,6 +303,30 @@ impl Canvas {
             // one must not be put off by a tick that comes a moment early.
             let bench_turn = bench_turn.map(|at| at.checked_sub(TICK_SLACK).unwrap_or(at));
             self.rest_until = Some(bench_turn.map_or(turn, |bench| turn.min(bench)));
+        }
+    }
+
+    /// A frame reached the screen: the benchmark hears of it, and a frame
+    /// that ran past the link's next tick asks for the next at once.
+    fn presented(&mut self, sample: &specular_compositor::FrameSample) {
+        if let Some(bench) = self.bench.as_mut() {
+            bench.presented(&self.runtime, sample);
+        }
+        let end = Instant::now();
+        if end >= self.next_tick {
+            // This frame ran past the link's next tick, which is lost.
+            // The next frame starts at once and not a refresh later; the
+            // layer's drawables pace it, as they pace a loop that blocks
+            // on the display.
+            while self.next_tick <= end {
+                self.next_tick += self.refresh;
+            }
+            // For a tenth of a second and no longer: without the limit
+            // the main thread never gets back to its run loop for as
+            // long as frames overrun, and no input arrives.
+            if end.duration_since(self.chain_start) < CATCH_UP_SPAN {
+                let _ = self.again.try_send(());
+            }
         }
     }
 

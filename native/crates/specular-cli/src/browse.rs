@@ -177,14 +177,7 @@ fn drive(
     let ran = match ran {
         Ok(ran) => ran,
         Err(error) if mutation => {
-            // The staleness warning and the hint say the same; one of them.
-            let hint = if parsed.target_ref.is_some() && warning.is_none() {
-                format!("\n{}", stale_ref_hint(&page))
-            } else {
-                String::new()
-            };
-            let prefix = warning.map(|w| format!("{w}\n\n")).unwrap_or_default();
-            bail!("{prefix}{error}{hint}");
+            return Err(mutation_failed(&error, &page, &parsed, warning.as_deref()));
         }
         Err(error) => return Err(error),
     };
@@ -193,13 +186,7 @@ fn drive(
     {
         return Ok(vec![block]);
     }
-    let mut text = if ran.stderr.is_empty() {
-        ran.stdout.clone()
-    } else {
-        format!("{}\n{}", ran.stdout, ran.stderr)
-    }
-    .trim()
-    .to_owned();
+    let mut text = output_of(&ran);
     if verb == "snapshot" {
         if let Some(mismatch) = origin_mismatch(&text, page_url) {
             text = format!("{mismatch}\n{text}");
@@ -223,20 +210,52 @@ fn drive(
         text
     })];
     if mutation && echo {
-        let snapshot = driver.run(&["snapshot", "-i", "-c"], Duration::from_secs(10));
-        if let Ok(snapshot) = snapshot.and_then(spawn::Ran::checked) {
-            let shown = snapshot.stdout.trim();
-            blocks.push(Block::Text(
-                if shown.is_empty() {
-                    "(no output)"
-                } else {
-                    shown
-                }
-                .to_owned(),
-            ));
-        }
+        blocks.extend(echo_snapshot(&driver));
     }
     Ok(blocks)
+}
+
+/// A failed mutation's error, with the staleness warning or the stale-ref
+/// hint: they say the same, so one of them.
+fn mutation_failed(
+    error: &anyhow::Error,
+    page: &str,
+    parsed: &Parsed,
+    warning: Option<&str>,
+) -> anyhow::Error {
+    let hint = if parsed.target_ref.is_some() && warning.is_none() {
+        format!("\n{}", stale_ref_hint(page))
+    } else {
+        String::new()
+    };
+    let prefix = warning.map(|w| format!("{w}\n\n")).unwrap_or_default();
+    anyhow::anyhow!("{prefix}{error}{hint}")
+}
+
+/// What a run printed, its errors after its output.
+fn output_of(ran: &spawn::Ran) -> String {
+    if ran.stderr.is_empty() {
+        ran.stdout.clone()
+    } else {
+        format!("{}\n{}", ran.stdout, ran.stderr)
+    }
+    .trim()
+    .to_owned()
+}
+
+/// The page's interactive elements again, after a mutation.
+fn echo_snapshot(driver: &Driver) -> Option<Block> {
+    let snapshot = driver.run(&["snapshot", "-i", "-c"], Duration::from_secs(10));
+    let snapshot = snapshot.and_then(spawn::Ran::checked).ok()?;
+    let shown = snapshot.stdout.trim();
+    Some(Block::Text(
+        if shown.is_empty() {
+            "(no output)"
+        } else {
+            shown
+        }
+        .to_owned(),
+    ))
 }
 
 fn run(client: &Client, args: &Args, argv: Vec<String>) -> anyhow::Result<i32> {

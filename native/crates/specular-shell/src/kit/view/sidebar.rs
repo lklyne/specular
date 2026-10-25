@@ -223,27 +223,8 @@ impl ShellView {
             .into_any_element()
     }
 
-    /// The sidebar for `model`, over the canvas's left edge under the
-    /// toolbar. The app counts that strip as covered whenever the model is
-    /// visible, which is exactly when this is drawn.
-    pub(super) fn sidebar(
-        model: &SidebarModel,
-        window: &mut Window,
-        cx: &mut Context<'_, Self>,
-    ) -> impl IntoElement {
-        let add = model.add_canvas.clone();
-        let folded = model.canvases_head.folded;
-        let mut list = v_flex()
-            .id("sidebar-rows")
-            .flex_1()
-            .min_h_0()
-            .overflow_y_scroll();
-        if !folded {
-            let canvases: Vec<AnyElement> = (model.canvases.iter())
-                .map(|row| Self::canvas_row(row, window, cx))
-                .collect();
-            list = list.child(v_flex().flex_shrink_0().pt_0p5().pb_2().children(canvases));
-        }
+    /// The notes and pages sections, each under its head unless folded.
+    fn item_sections(model: &SidebarModel, cx: &mut Context<'_, Self>) -> impl IntoElement {
         let mut sections = v_flex().flex_shrink_0().py_2();
         for (section, rows) in [
             (&model.notes_head, &model.notes),
@@ -267,6 +248,30 @@ impl ShellView {
                     .child("No items"),
             );
         }
+        sections
+    }
+
+    /// The sidebar for `model`, over the canvas's left edge under the
+    /// toolbar. The app counts that strip as covered whenever the model is
+    /// visible, which is exactly when this is drawn.
+    pub(super) fn sidebar(
+        model: &SidebarModel,
+        window: &mut Window,
+        cx: &mut Context<'_, Self>,
+    ) -> impl IntoElement {
+        let folded = model.canvases_head.folded;
+        let mut list = v_flex()
+            .id("sidebar-rows")
+            .flex_1()
+            .min_h_0()
+            .overflow_y_scroll();
+        if !folded {
+            let canvases: Vec<AnyElement> = (model.canvases.iter())
+                .map(|row| Self::canvas_row(row, window, cx))
+                .collect();
+            list = list.child(v_flex().flex_shrink_0().pt_0p5().pb_2().children(canvases));
+        }
+        let sections = Self::item_sections(model, cx);
         let rule = || {
             div()
                 .h(px(1.0))
@@ -284,32 +289,36 @@ impl ShellView {
             .bg(theme::solid(theme::panel()))
             .border_r_1()
             .border_color(theme::solid(theme::chrome_border()))
-            .child(
-                h_flex()
-                    .h(px(HEAD))
-                    .flex_shrink_0()
-                    .px(px(HEAD_PAD))
-                    .gap_1()
-                    .items_center()
-                    .child(head(&model.canvases_head))
-                    .child(
-                        div()
-                            .id("sidebar.add")
-                            .size(px(ADD))
-                            .flex()
-                            .flex_shrink_0()
-                            .items_center()
-                            .justify_center()
-                            .rounded(px(8.0))
-                            .cursor_pointer()
-                            .hover(|this| this.bg(theme::tinted(theme::row_selected())))
-                            .tooltip(crate::tip::view("New canvas"))
-                            .child(small(Icon::Plus, theme::text(), ICON))
-                            .child(mark(&ControlId::new("sidebar.add")))
-                            .on_click(move |_, window, cx| run(&add, window, cx)),
-                    ),
-            )
+            .child(canvases_head(model))
             .when(folded, |this| this.child(rule()))
             .child(list.child(rule()).child(sections))
     }
+}
+
+/// The canvases' head and its button for a new canvas.
+fn canvases_head(model: &SidebarModel) -> impl IntoElement {
+    let add = model.add_canvas.clone();
+    h_flex()
+        .h(px(HEAD))
+        .flex_shrink_0()
+        .px(px(HEAD_PAD))
+        .gap_1()
+        .items_center()
+        .child(head(&model.canvases_head))
+        .child(
+            div()
+                .id("sidebar.add")
+                .size(px(ADD))
+                .flex()
+                .flex_shrink_0()
+                .items_center()
+                .justify_center()
+                .rounded(px(8.0))
+                .cursor_pointer()
+                .hover(|this| this.bg(theme::tinted(theme::row_selected())))
+                .tooltip(crate::tip::view("New canvas"))
+                .child(small(Icon::Plus, theme::text(), ICON))
+                .child(mark(&ControlId::new("sidebar.add")))
+                .on_click(move |_, window, cx| run(&add, window, cx)),
+        )
 }

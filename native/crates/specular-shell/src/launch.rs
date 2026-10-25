@@ -50,17 +50,7 @@ pub fn launch(args: impl IntoIterator<Item = OsString>) -> anyhow::Result<Option
             std::process::exit(2);
         }
     };
-    // Logs go to stderr so `--bench` output on stdout stays pure JSON lines.
-    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into());
-    tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::fmt::layer()
-                .with_writer(std::io::stderr)
-                .with_ansi(std::io::stderr().is_terminal())
-                .with_filter(filter),
-        )
-        .with(crash_log::ErrorLayer)
-        .init();
+    start_logging();
 
     // A script names its own canvas on its first line.
     if run.canvas.is_none()
@@ -90,6 +80,36 @@ pub fn launch(args: impl IntoIterator<Item = OsString>) -> anyhow::Result<Option
     } else {
         scene::load_document(run.canvas.as_deref(), demo_pages, run.annotations)?
     };
+    let Some(document) = run_headless(&run, document)? else {
+        return Ok(None);
+    };
+    crash_log::install();
+    Ok(Some(Launch {
+        run,
+        space,
+        ask,
+        profile,
+        document,
+    }))
+}
+
+/// Logs to stderr, so `--bench` output on stdout stays pure JSON lines.
+fn start_logging() {
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into());
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::fmt::layer()
+                .with_writer(std::io::stderr)
+                .with_ansi(std::io::stderr().is_terminal())
+                .with_filter(filter),
+        )
+        .with(crash_log::ErrorLayer)
+        .init();
+}
+
+/// Runs a headless benchmark or script when the command line asks for one,
+/// and hands `document` back when it does not.
+fn run_headless(run: &cli::RunArgs, document: Document) -> anyhow::Result<Option<Document>> {
     if let Some(profiles) = run.bench.clone().filter(|_| run.bench_headless) {
         let source = source_select::create_source(run.source, Host::Headless, None)?;
         let args = headless::HeadlessArgs {
@@ -118,14 +138,7 @@ pub fn launch(args: impl IntoIterator<Item = OsString>) -> anyhow::Result<Option
         )?;
         return Ok(None);
     }
-    crash_log::install();
-    Ok(Some(Launch {
-        run,
-        space,
-        ask,
-        profile,
-        document,
-    }))
+    Ok(Some(document))
 }
 
 impl Launch {

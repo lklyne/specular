@@ -290,6 +290,25 @@ pub fn frame(started_us: u64, surface: PixelSize, reconfigured: bool) {
     );
 }
 
+/// The pages a frame drew, as a JSON list's items.
+fn frame_pages(out: &mut String, pages: &[PageDrawn], page_count: u8) {
+    let shown = usize::from(page_count).min(FRAME_PAGES);
+    for (at, page) in pages.iter().take(shown).enumerate() {
+        let _ = write!(
+            out,
+            "{}{{\"page\":{},\"want\":[{},{}],\"drawn\":[{},{}],\"texels\":[{},{}]}}",
+            if at == 0 { "" } else { "," },
+            page.page,
+            page.wanted.width,
+            page.wanted.height,
+            page.drawn.width,
+            page.drawn.height,
+            page.texels.width,
+            page.texels.height
+        );
+    }
+}
+
 fn line(out: &mut String, at_us: u64, entry: &Entry) {
     let _ = write!(out, "{{\"t\":{at_us},");
     let _ = match *entry {
@@ -349,21 +368,7 @@ fn line(out: &mut String, at_us: u64, entry: &Entry) {
                  \"acquire\":{acquire_us},\"page_count\":{page_count},\"pages\":[",
                 surface.width, surface.height
             );
-            let shown = usize::from(page_count).min(FRAME_PAGES);
-            for (at, page) in pages.iter().take(shown).enumerate() {
-                let _ = write!(
-                    out,
-                    "{}{{\"page\":{},\"want\":[{},{}],\"drawn\":[{},{}],\"texels\":[{},{}]}}",
-                    if at == 0 { "" } else { "," },
-                    page.page,
-                    page.wanted.width,
-                    page.wanted.height,
-                    page.drawn.width,
-                    page.drawn.height,
-                    page.texels.width,
-                    page.texels.height
-                );
-            }
+            frame_pages(out, &pages, page_count);
             write!(out, "]")
         }
         Entry::Import(page, dur_us) => {
