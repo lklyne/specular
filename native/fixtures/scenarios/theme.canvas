@@ -1,0 +1,8 @@
+{
+  "nodes": [
+    {"id": "p1", "type": "link", "x": 100, "y": 100, "width": 400, "height": 300, "url": "https://example.com/p1"},
+    {"id": "p2", "type": "link", "x": 700, "y": 100, "width": 400, "height": 300, "url": "https://example.com/p2", "colorScheme": "light"}
+  ],
+  "edges": [],
+  "specular": {"entityOrder": ["p1", "p2"]}
+}

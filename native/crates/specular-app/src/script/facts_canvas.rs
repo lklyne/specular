@@ -55,6 +55,7 @@
 //! theme-loaded light                   # the choice read from preferences
 //! repeat down                          # a key held down repeats
 //! menu Edit > Undo                     # a menu bar item chosen
+//! act show:p1                          # p1 alone in its tab; `act show-canvas`
 //! ```
 
 use anyhow::{Context as _, bail, ensure};
@@ -63,7 +64,7 @@ use specular_core::{ElementPlace, Modifiers, InputEvent, KeyEventKind, PixelRect
 use specular_doc::{EdgeId, EdgeSide, EntityId};
 use specular_interact::{
     Action, App, Appearance, CanvasAction, Corner, Effect, Event, GuideAxis, GuideReference,
-    Handle, HandleOwner, Hit, ImageState, KeyInput, LayoutHandle, Mark, PageNotice, PlacePreview,
+    Handle, HandleOwner, Hit, ImageState, KeyInput, LayoutHandle, Mark, PageNotice, PlacePreview, Showing,
     hit_test, shown_rect,
 };
 
@@ -788,7 +789,11 @@ fn notice(said: &[&str]) -> anyhow::Result<PageNotice> {
 
 /// The canvas verbs `act` names beyond the shared ones.
 pub(super) fn action_named(name: &str) -> Option<Action> {
+    if let Some(id) = name.strip_prefix("show:") {
+        return Some(Action::Show(Showing::Item(id.into())));
+    }
     Some(match name {
+        "show-canvas" => Action::Show(Showing::Canvas),
         "bring-forward" => Action::BringForward,
         "send-backward" => Action::SendBackward,
         "bring-to-front" => Action::BringToFront,
