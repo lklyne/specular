@@ -20,8 +20,8 @@ fn verbs(method: Method, segments: &[&str]) -> Option<(&'static str, &'static st
              devtools channel, and the API answers within one turn of the event loop",
         ),
         (_, ["pages" | "debug", ..]) => (
-            "the Electron app's own page reads (`/pages/snapshot`, `/pages/agent-snapshot`, \
-             `/pages/query-elements`, `/pages/find-target`, `/debug/cdp-proxy`)",
+            "the Electron app's own page reads (`/pages/query-elements`, \
+             `/pages/find-target`, `/debug/cdp-proxy`)",
             "use `specular snapshot -f <page>` and the other browse verbs, which go through \
              `/pages/<id>/cdp-target`",
         ),

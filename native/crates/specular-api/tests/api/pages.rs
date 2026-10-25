@@ -212,3 +212,111 @@ fn a_page_screenshot_is_the_named_page_or_the_selected_one() {
     let missing = session.post("/pages/screenshot", json!({ "pageId": "nope" }));
     assert_eq!(missing.status, 404);
 }
+
+#[test]
+fn a_snapshot_runs_a_script_in_the_named_or_selected_page() {
+    use specular_api::{Plan, Request, SnapshotKind};
+    let mut session = session();
+    let plan = |session: &mut Scripted, path: &str, body: serde_json::Value| {
+        session
+            .api
+            .plan(session.app.app(), &Request::post(path, body))
+    };
+    let script = |plan: &Plan| match plan {
+        Plan::PageScript(script) => Some((
+            script.page.as_str().to_owned(),
+            script.kind,
+            script.max_depth,
+        )),
+        _ => None,
+    };
+    let status = |plan: &Plan| match plan {
+        Plan::Answer(response) => response.status,
+        _ => 0,
+    };
+    let named = plan(
+        &mut session,
+        "/pages/agent-snapshot",
+        json!({ "pageId": "p2", "maxDepth": 3 }),
+    );
+    assert_eq!(
+        script(&named),
+        Some(("p2".to_owned(), SnapshotKind::Agent, 3))
+    );
+    assert_eq!(
+        status(&plan(&mut session, "/pages/agent-snapshot", json!({}))),
+        400
+    );
+    assert_eq!(
+        status(&plan(
+            &mut session,
+            "/pages/snapshot",
+            json!({ "pageId": "ghost" })
+        )),
+        404
+    );
+    assert_eq!(
+        status(&plan(&mut session, "/pages/snapshot", json!({}))),
+        400,
+        "nothing selected"
+    );
+    session.app.select(&["p1"]);
+    let selected = plan(&mut session, "/pages/snapshot", json!({}));
+    assert_eq!(
+        script(&selected),
+        Some(("p1".to_owned(), SnapshotKind::Outline, 10))
+    );
+}
+
+#[test]
+fn a_snapshot_answer_keeps_the_nodes_an_agent_can_use() {
+    use specular_api::{PageScript, SnapshotKind};
+    let node = |reference: &str| {
+        json!({ "ref": reference, "depth": 0, "tagName": "button", "interactive": true,
+                "bounds": { "x": 1, "y": 2, "width": 3, "height": 4 },
+                "elementPath": "button", "fullPath": "body > button" })
+    };
+    let page =
+        |value| json!({ "id": 7, "result": { "result": { "type": "object", "value": value } } });
+    let agent = PageScript {
+        page: "p1".into(),
+        kind: SnapshotKind::Agent,
+        max_depth: 10,
+    };
+    let outline = PageScript {
+        kind: SnapshotKind::Outline,
+        ..agent.clone()
+    };
+    let mut broken = node("@e2");
+    broken["bounds"] = json!(null);
+    let mut kept = node("@e1");
+    kept["parentRef"] = json!(null);
+    let rows = [
+        (
+            "an agent's snapshot names its page and drops a node it cannot use",
+            &agent,
+            page(json!({ "url": "https://a.test/", "title": "A", "nodes": [node("@e1"), broken] })),
+            200,
+            json!({ "snapshot": { "pageId": "p1", "url": "https://a.test/", "title": "A",
+                                  "nodes": [kept] } }),
+        ),
+        (
+            "an outline is the text the page wrote",
+            &outline,
+            page(json!("body [0,0 10x10] path=body\n")),
+            200,
+            json!({ "snapshot": "body [0,0 10x10] path=body\n" }),
+        ),
+        (
+            "a script that threw is a 500",
+            &agent,
+            json!({ "id": 7, "result": { "exceptionDetails": { "text": "Uncaught" } } }),
+            500,
+            json!({ "error": "snapshot failed: Uncaught" }),
+        ),
+    ];
+    for (name, script, message, status, body) in rows {
+        let response = script.answer(&message);
+        assert_eq!((response.status, response.body), (status, body), "{name}");
+    }
+}

@@ -50,7 +50,7 @@ impl CdpAsk {
 }
 
 /// The page `id`, or the 404 the Electron routes answer with.
-fn find(app: &App, id: &str) -> Result<EntityId, Response> {
+pub(crate) fn find(app: &App, id: &str) -> Result<EntityId, Response> {
     let page = EntityId::from(id);
     if app.page_placement(&page).is_none() {
         return Err(Response::not_found(format!("Page not found: {id}")));
@@ -94,19 +94,23 @@ pub(crate) fn snapshot_seen(app: &App, id: &str) -> Result<Step, Response> {
     }))
 }
 
+/// The one page selected, for a route whose `pageId` names none.
+pub(crate) fn selected(app: &App) -> Result<EntityId, Response> {
+    let mut selected = app.session().selection.entities();
+    (selected.next().filter(|_| selected.next().is_none()))
+        .filter(|id| app.page_placement(id).is_some())
+        .cloned()
+        .ok_or_else(|| Response::bad_request("pageId is required"))
+}
+
 /// `POST /pages/screenshot` and `/pages/screenshot-composite`: a picture of
 /// the page `pageId` names, or of the selected page. The first is the
 /// page's pixels alone, as the Electron app's `capturePage` gives them; the
 /// second is the page as the canvas shows it, border and all.
 pub(crate) fn screenshot(app: &App, request: &Request, chrome: bool) -> Result<Step, Response> {
-    let page = if let Some(id) = request.text("pageId") {
-        find(app, id)?
-    } else {
-        let mut selected = app.session().selection.entities();
-        (selected.next().filter(|_| selected.next().is_none()))
-            .filter(|id| app.page_placement(id).is_some())
-            .cloned()
-            .ok_or_else(|| Response::bad_request("pageId is required"))?
+    let page = match request.text("pageId") {
+        Some(id) => find(app, id)?,
+        None => selected(app)?,
     };
     let padding = if chrome {
         (request.body["padding"].as_f64()).map_or(COMPOSITE_PADDING, |padding| padding.max(0.0))
