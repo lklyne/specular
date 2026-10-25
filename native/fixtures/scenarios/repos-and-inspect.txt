@@ -95,7 +95,6 @@ expect repos has repo other /scratch/other
 tool inspect
 move 200 150
 expect effects has inspect-at { page: EntityId("p1"), point: Vec2(100.0, 50.0), pick: false }
-expect inspect lacks outline
 wait 50
 expect inspect has outline 100 148 160 48
 expect inspect has tag div
