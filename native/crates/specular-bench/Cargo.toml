@@ -1,6 +1,6 @@
 [package]
 name = "specular-bench"
-description = "Scripted pan/zoom gesture profiles (mirroring the Electron /perf/pan-zoom/run test) and frame-timing stats."
+description = "Scripted pan/zoom gesture profiles, frame-timing stats and process-tree memory for the Rust app."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

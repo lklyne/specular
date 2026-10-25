@@ -1095,3 +1095,12 @@ Nothing was retired. Cleanup rows 1 and 2 in the plan say what now stands betwee
 - Gate: fmt, clippy for the workspace and for `specular-app` and `specular-shell` with `--features cef`, `cargo test --workspace` (1,425).
 - Needs a human at a Mac: none of it has been seen in a real page. The user asked for no scripted run and tests by hand.
 
+
+### BIG-RUN P1. Deletions
+
+- `native/bakeoff` is gone. The images ADR 0039 and ADR 0040 link (the golden images and crops, and the thirteen linked `shots/*.png`) moved to `docs/adr/assets/0039/` and `assets/0040/`. The ADRs, and the handoff's item 44, point there. The ADR 0040 `.txt` reports it names went with the code.
+- `packages/vite` is gone, with its `pnpm-workspace.yaml` entry and lockfile importer. Nothing in `src/`, `native/`, `resources/`, the tsconfigs or CI used it.
+- `specular-bench` lost `compare`, `electron_trace`, the `compare` and `electron-trace` commands, the `--page-hosts-*` flags and `PageHostsSnapshot`, the `Shell` field on `RunReport`, the lab profile aliases (`fast-pan`, `pan-zoom`) and the error variants only they raised. It keeps profiles, frame stats, work, memory, `assemble`, `rss` and `resize-report`. The README is rewritten for the Rust-only bench, and `native/README.md` drops the Electron half.
+- `PaintPolicy::ElectronLod` stays: it names the app's own paint policy, not the comparison.
+- Gate: fmt, clippy, `cargo test --workspace` and `fixtures/scenarios/run.sh` pass. `pnpm typecheck` was not run (no node_modules in the worktree); no tsconfig includes `packages/`.
+- By hand: open ADR 0039 and 0040 in a Markdown viewer and check the images render.

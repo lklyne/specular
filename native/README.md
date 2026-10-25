@@ -51,7 +51,7 @@ tests and the headless modes below need no window.
 | `specular-cef` | lib | The CEF offscreen `PageSource` (feature `cef`) and the CEF-free helpers it is built from. See [`crates/specular-cef/README.md`](crates/specular-cef/README.md) |
 | `specular-app` | lib + bin | `Runtime`, which owns the `App` and runs every effect: page hosts, space files, images, Documents, clipboard, the HTTP and CDP servers, the agent runner. Also the command line, the headless `--snapshot` and `--script` modes, `--bench`, and the winit window (binary `specular-app`) |
 | `specular-shell` | bin | The GPUI Kit window (binary `specular`, ADR 0040). The Kit draws the chrome (tab row, toolbar, dock), sidebar, menus, settings, first run and the chat panel from the models. The compositor draws the canvas in a view under GPUI's. It uses `specular-app`'s `Runtime` and command line |
-| `specular-bench` | lib + bin | Gesture profiles, frame stats, per-frame work times, process-tree memory, the Electron trace converter and `compare`. See [`crates/specular-bench/README.md`](crates/specular-bench/README.md) |
+| `specular-bench` | lib + bin | Gesture profiles, frame stats, per-frame work times, process-tree memory and `assemble`. See [`crates/specular-bench/README.md`](crates/specular-bench/README.md) |
 | `specular-testkit` | lib, dev only | `TestApp`, snapshot macros and entity builders for tests |
 
 ### Dependency direction
@@ -276,10 +276,10 @@ BENCH="$PWD/target/release/specular-bench"
 `representative` is false when a presented frame came through a CPU upload.
 A failing IOSurface import shows as `drawsWithoutTexture` above 0.
 
-### The spike's comparison against Electron
+### Fixture runs with memory
 
-The spike's fixtures were last run three times each during the performance
-pass, on the Rust side only. This is that loop:
+The spike's fixtures, three runs each, with memory samples folded into one
+report per fixture:
 
 ```sh
 mkdir -p runs
@@ -301,17 +301,11 @@ done
 ```
 
 Take the idle memory sample at 12 seconds, not 6. At 6 the process tree still
-holds about 500 MB it lets go of by 10, and that early sample is what made
-the spike read as heavier than Electron.
+holds about 500 MB it lets go of by 10.
 
-The Electron half (capture a trace from a release Electron build over HTTP,
-convert it with `specular-bench electron-trace`, then `specular-bench
-compare`) is written up in
-[`crates/specular-bench/README.md`](crates/specular-bench/README.md). It has
-not been rerun since the spike, so check it against the current Electron app
-before relying on it. The spike's results table in
-[`docs/plans/rust-cef-spike.md`](../docs/plans/rust-cef-spike.md) was never
-filled in. The numbers are in the run log under "Performance".
+The spike's Electron comparison (`electron-trace` and `compare`) is
+deleted; `git log -- native/crates/specular-bench` has it. Its numbers are in
+the run log under "Performance".
 
 ## Bundle
 

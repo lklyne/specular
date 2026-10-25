@@ -1,5 +1,5 @@
-//! Pan/zoom benchmark for the Rust CEF spike, mirroring the Electron app's
-//! `POST /perf/pan-zoom/run` so the two shells are measured the same way.
+//! Pan/zoom benchmark for the Rust app. The gesture profiles and the result
+//! fields follow the Electron app's `POST /perf/pan-zoom/run`.
 //!
 //! - [`profile`]: the six gesture profiles, a port of
 //!   `src/shared/pan-zoom-perf-test.ts`, expanded into deterministic steps.
@@ -8,22 +8,18 @@
 //!   plus percentiles.
 //! - [`work`]: each frame's time step by step (update, view, cull, shaping,
 //!   batching, tessellation, glyphs, upload, submit) and what it drew.
-//! - [`textures`]: shared-texture pool counters with `PageHostStats` names,
-//!   read from Electron's `/perf/page-hosts`.
+//! - [`textures`]: shared-texture pool counters with `PageHostStats` names.
 //! - [`latency`]: event timestamp to the first presented frame reflecting it.
 //! - [`memory`]: physical footprint (macOS) and RSS summed over a shell's
 //!   whole process tree.
 //! - [`breakdown`]: the same tree one row a process, named by what each is.
 //! - [`bench_line`]: the JSON lines `specular-app` prints, read by
 //!   `assemble`.
-//! - [`report`]: the results file; [`electron_trace`] produces one from an
-//!   Electron trace, and [`compare`] renders two as a markdown table.
+//! - [`report`]: the results file `assemble` produces.
 
 pub mod bench_line;
 pub mod breakdown;
-pub mod compare;
 mod cpu;
-pub mod electron_trace;
 mod error;
 mod footprint;
 pub mod latency;
@@ -38,7 +34,6 @@ pub mod work;
 
 pub use bench_line::{BenchLine, InputLatencyLine, ProfileLine};
 pub use breakdown::{ProcessMemory, sample_breakdown};
-pub use compare::{LoadedRun, compare_markdown};
 pub use cpu::process_cpu_time;
 pub use error::BenchError;
 pub use latency::{InputSeq, LatencySummary, LatencyTracker};
@@ -48,7 +43,7 @@ pub use profile::{
     select_profiles,
 };
 pub use recorder::{PhaseRecorder, PresentedFrame};
-pub use report::{PaintPolicy, PhaseReport, RunReport, Shell};
+pub use report::{PaintPolicy, PhaseReport, RunReport};
 pub use stats::{FrameSummary, FrameTimes};
-pub use textures::{PageHostsSnapshot, TextureStats};
+pub use textures::TextureStats;
 pub use work::{FrameWork, StepStat, WorkRecorder, WorkReport};

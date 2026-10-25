@@ -1,5 +1,5 @@
-//! `specular-bench`: gesture plans, Electron trace conversion, process-tree
-//! memory sampling, and side-by-side comparison of results files.
+//! `specular-bench`: gesture plans, process-tree memory sampling, and the
+//! app's bench lines folded into a results file.
 
 mod attach;
 mod cli;
@@ -14,16 +14,6 @@ usage: specular-bench <command> [args]
 
   plan            [--profiles a,b] [--duration-ms N] [--frame-ms N]
                   Print the gesture steps each profile expands to.
-  compare         <baseline.json> <candidate.json>
-                  Markdown table of candidate against baseline.
-  electron-trace  <trace.json> | --response run.json
-                  [--frame-ms N] [--profiles a,b] [--duration-ms N]
-                  [--gap-ms 200] [--thread VizCompositorThread]
-                  [--paint-policy electron-lod|full-rate]
-                  [--fixture NAME] [--pages N]
-                  [--memory-idle f] [--memory-end f] [--memory-peak f]
-                  [--page-hosts-before f] [--page-hosts-after f]
-                  Reduce an Electron /perf/pan-zoom/run trace to a report.
   assemble        <bench.jsonl> [--fixture NAME] [--pages N] [--memory-* f]
                   Fold the Rust app's JSON lines (--bench profiles, and an
                   interactive session's inputLatency line) into a report.
@@ -40,8 +30,6 @@ fn main() -> anyhow::Result<()> {
     let args = Args::parse(raw)?;
     let output = match command.as_str() {
         "plan" => commands::plan(&args)?,
-        "compare" => commands::compare(&args)?,
-        "electron-trace" => commands::electron_trace(&args)?,
         "assemble" => commands::assemble(&args)?,
         "rss" => commands::rss(&args)?,
         "resize-report" => commands::resize_report(&args)?,

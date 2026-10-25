@@ -22,9 +22,6 @@ const STEP_ROUNDING_TOLERANCE: f64 = 1e-3;
 const ZOOM_LEAD_FRACTION: f64 = 1.0 / 6.0;
 
 /// Stable profile identifiers, serialized with the Electron ids.
-///
-/// Deserialization also accepts the ids the ADR 0038 Offscreen Rendering Lab
-/// used (`fast-pan`, `pan-zoom`), so its recorded results stay comparable.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ProfileId {
@@ -33,10 +30,8 @@ pub enum ProfileId {
     /// `slow-zoom`.
     SlowZoom,
     /// `fast-diagonal-pan`.
-    #[serde(alias = "fast-pan")]
     FastDiagonalPan,
     /// `slow-pan-zoom`.
-    #[serde(alias = "pan-zoom")]
     SlowPanZoom,
     /// `fast-pan-zoom`.
     FastPanZoom,
@@ -81,12 +76,8 @@ impl fmt::Display for ProfileId {
 impl FromStr for ProfileId {
     type Err = BenchError;
 
-    /// Parses an Electron id, or one of the lab aliases (`fast-pan`,
-    /// `pan-zoom`).
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "fast-pan" => Ok(Self::FastDiagonalPan),
-            "pan-zoom" => Ok(Self::SlowPanZoom),
             "idle" => Ok(Self::Idle),
             _ => Self::ALL
                 .into_iter()
@@ -321,18 +312,6 @@ mod tests {
     fn select_profiles_ignores_zero_duration_like_typescript() {
         let selected = select_profiles(&[ProfileId::SlowPan], Some(Duration::ZERO));
         assert_eq!(selected[0].duration, Duration::from_secs(2));
-    }
-
-    #[test]
-    fn profile_id_parses_lab_aliases() {
-        assert_eq!(
-            "pan-zoom".parse::<ProfileId>().unwrap(),
-            ProfileId::SlowPanZoom
-        );
-        assert_eq!(
-            "fast-pan".parse::<ProfileId>().unwrap(),
-            ProfileId::FastDiagonalPan
-        );
     }
 
     #[test]

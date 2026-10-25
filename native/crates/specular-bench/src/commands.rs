@@ -3,22 +3,13 @@
 use std::{fs, time::Duration};
 
 use anyhow::{Context as _, bail};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use specular_bench::{
-    BenchLine, LoadedRun, MemorySample, PaintPolicy, PeakSampler, ProfileId, RunReport,
-    STEP_INTERVAL, Shell, build_steps, compare_markdown,
-    electron_trace::{DEFAULT_THREAD, PRESENT_EVENT, phases_from_trace, present_count_warning},
+    BenchLine, MemorySample, PeakSampler, ProfileId, RunReport, STEP_INTERVAL, build_steps,
     sample_breakdown, sample_process_tree,
 };
 
-use crate::{
-    attach::{attach_run_extras, read_json},
-    cli::Args,
-};
-
-/// Bursts closer than this belong to one phase: under the test's 250 ms
-/// phase gap, with room for timer slop on either side.
-const DEFAULT_GAP: Duration = Duration::from_millis(200);
+use crate::{attach::attach_run_extras, cli::Args};
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -45,101 +36,6 @@ pub(crate) fn plan(args: &Args) -> anyhow::Result<String> {
     Ok(serde_json::to_string_pretty(&plan)?)
 }
 
-/// `compare a b`: markdown table of `b` against `a`.
-pub(crate) fn compare(args: &Args) -> anyhow::Result<String> {
-    let (Some(a), Some(b)) = (args.positional(0), args.positional(1)) else {
-        bail!("usage: specular-bench compare <baseline.json> <candidate.json>");
-    };
-    let load = |path: &str| -> anyhow::Result<LoadedRun> {
-        let text = fs::read_to_string(path).with_context(|| format!("reading {path}"))?;
-        Ok(LoadedRun::parse(&text, path)?)
-    };
-    Ok(compare_markdown(&load(a)?, &load(b)?))
-}
-
-/// The parts of a `/perf/pan-zoom/run` response the converter needs.
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct PanZoomRunResponse {
-    trace_path: String,
-    #[serde(default)]
-    frame_ms: Option<f64>,
-    #[serde(default)]
-    cancelled: bool,
-}
-
-/// `electron-trace`: an Electron pan/zoom trace reduced to a report.
-pub(crate) fn electron_trace(args: &Args) -> anyhow::Result<String> {
-    let response: Option<PanZoomRunResponse> = args.flag("response").map(read_json).transpose()?;
-    if response.as_ref().is_some_and(|r| r.cancelled) {
-        bail!("the pan/zoom run was cancelled; its trace covers only some profiles");
-    }
-    let trace_path = args
-        .positional(0)
-        .map(str::to_owned)
-        .or_else(|| response.as_ref().map(|r| r.trace_path.clone()))
-        .context("usage: specular-bench electron-trace <trace.json> | --response run.json")?;
-    let mut notes = Vec::new();
-    let frame_ms = match (
-        args.parsed::<f64>("frame-ms")?,
-        response.as_ref().and_then(|r| r.frame_ms),
-    ) {
-        (Some(ms), _) | (None, Some(ms)) => ms,
-        (None, None) => {
-            notes.push("frameMs assumed 8.33 (120 Hz); pass --frame-ms or --response".to_owned());
-            1_000.0 / 120.0
-        }
-    };
-    let budget = Duration::from_secs_f64(frame_ms / 1_000.0);
-    let thread = args.flag("thread").unwrap_or(DEFAULT_THREAD);
-    let gap = args.millis("gap-ms")?.unwrap_or(DEFAULT_GAP);
-    let profiles = args.profiles()?;
-
-    let trace = fs::read_to_string(&trace_path).with_context(|| format!("reading {trace_path}"))?;
-    let (timeline, phases) = phases_from_trace(&trace, thread, &profiles, budget, gap)?;
-    notes.push(format!(
-        "presents are `{PRESENT_EVENT}` slices on {} ({} total); phases recovered from \
-         idle gaps over {} ms",
-        timeline.thread,
-        timeline.presents_us.len(),
-        gap.as_millis()
-    ));
-    let warnings: Vec<String> = profiles
-        .iter()
-        .zip(&phases)
-        .filter_map(|(profile, phase)| present_count_warning(profile, phase, budget))
-        .collect();
-    if warnings.is_empty() {
-        notes.push(
-            "present counts match one window (about steps + 1 per phase); confirm once \
-             against a real ADR 0038 trace before trusting them"
-                .to_owned(),
-        );
-    }
-    notes.extend(warnings);
-    let mut report = RunReport {
-        shell: Shell::Electron,
-        source: "chromium-trace".to_owned(),
-        fixture: None,
-        page_count: None,
-        frame_ms,
-        representative: true,
-        paint_policy: Some(
-            args.parsed::<PaintPolicy>("paint-policy")?
-                .unwrap_or(PaintPolicy::ElectronLod),
-        ),
-        chrome: None,
-        annotations: None,
-        phases,
-        textures: None,
-        memory: None,
-        input_latency: None,
-        notes,
-    };
-    attach_run_extras(&mut report, args)?;
-    Ok(serde_json::to_string_pretty(&report)?)
-}
-
 /// `assemble`: the app's JSON lines folded into one report.
 pub(crate) fn assemble(args: &Args) -> anyhow::Result<String> {
     let path = args
@@ -155,7 +51,6 @@ pub(crate) fn assemble(args: &Args) -> anyhow::Result<String> {
 /// on source, page count, step interval, paint policy and chrome load.
 fn assemble_lines(text: &str) -> anyhow::Result<RunReport> {
     let mut report = RunReport {
-        shell: Shell::RustCef,
         source: String::new(),
         fixture: None,
         page_count: None,
