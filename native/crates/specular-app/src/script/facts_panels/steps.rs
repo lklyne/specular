@@ -13,7 +13,8 @@
 //!                                      # finished T, failed T, cancelled,
 //!                                      # made PATH new|edited
 //! page-reports p1 title Home           # url U, loading on|off back forward,
-//!                                      # scrolled X Y, loaded STATUS, devtools U
+//!                                      # scrolled X Y, loaded STATUS, devtools U,
+//!                                      # cursor default|pointer|text
 //! bind https://example.com /scratch/site auto
 //! note-text plan.md # Plan\n\nBody     # a Document's file says this; also
 //!                                      # note-missing F, note-failed F,
@@ -26,6 +27,7 @@
 //! ```
 
 use anyhow::{Context as _, bail};
+use specular_core::Cursor;
 use specular_interact::{
     Action, App, Artifact, ArtifactTarget, AssetBytes, ChatAction, Event, ImageUpload, MediaType,
     Model, ModelsNews, NoteNotice, Notice, PageNotice, Progress, ProgressKind, Thread, ThreadId,
@@ -199,7 +201,10 @@ fn page_notice(kind: &str, words: &[&str]) -> anyhow::Result<PageNotice> {
             http_status: status.parse().context("`loaded` takes a status")?,
         },
         ("devtools", [url]) => PageNotice::DevtoolsUrl((*url).to_owned()),
-        _ => bail!("a page reports title, url, loading, scrolled, loaded or devtools"),
+        ("cursor", ["default"]) => PageNotice::Cursor(Cursor::Default),
+        ("cursor", ["pointer"]) => PageNotice::Cursor(Cursor::Pointer),
+        ("cursor", ["text"]) => PageNotice::Cursor(Cursor::Text),
+        _ => bail!("a page reports title, url, loading, scrolled, loaded, devtools or cursor"),
     })
 }
 

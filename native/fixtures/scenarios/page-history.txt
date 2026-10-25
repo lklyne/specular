@@ -1,0 +1,128 @@
+# What a hosted page reports of itself, and the browser verbs: notices land
+# in the page's state, the address it reports is saved with no undo step,
+# back, forward, stop and reload wait until there is something to do and go
+# to the entered page or the one selected, and the page picks the cursor
+# over its content once it is entered.
+given page p1 100 100 400 300
+given page p2 700 100 400 300
+camera 0,0,1
+# the synthetic pages have loaded and named themselves
+wait 50
+
+# each notice lands in its page's state, and only there
+page-reports p1 title Example Domain
+page-reports p1 loading on back
+page-reports p1 scrolled 0 240.5
+page-reports p1 devtools ws://127.0.0.1:9222/x
+expect pages has p1 title Example Domain
+expect pages has p1 loading yes
+expect pages has p1 back yes
+expect pages has p1 forward no
+expect pages has p1 scroll 0 240.5
+expect pages has p1 devtools ws://127.0.0.1:9222/x
+expect pages has p2 scroll 0 0
+expect pages lacks p2 devtools
+page-reports p1 loading off back forward
+expect pages has p1 loading no
+expect pages has p1 forward yes
+
+# the address a page reports is saved, with no undo step and no navigation
+page-reports p2 url https://example.org/next
+expect entity p2 text https://example.org/next
+expect pages has p2 url https://example.org/next
+expect undo none
+expect effects is save
+expect effects lacks navigate
+page-reports p2 url https://example.org/next
+expect effects lacks save
+# another document starts at its top; a hash change keeps the scroll
+page-reports p2 scrolled 0 240
+page-reports p2 url https://example.org/next#install
+expect pages has p2 scroll 0 240
+page-reports p2 url https://example.org/other
+expect pages has p2 scroll 0 0
+
+# the verbs act on the single selected page, or none
+act page-reload
+expect effects lacks navigate
+select p1 p2
+act page-reload
+expect effects lacks navigate
+select p2
+act page-reload
+expect effects has navigate { page: EntityId("p2"), nav: Reload }
+# back and forward wait for the page to say there is somewhere to go
+page-reports p2 loading off
+act page-back
+act page-forward
+expect effects lacks navigate
+page-reports p2 loading off back
+act page-back
+expect effects has navigate { page: EntityId("p2"), nav: Back }
+act page-forward
+expect effects lacks navigate
+page-reports p2 loading off back forward
+act page-forward
+expect effects has navigate { page: EntityId("p2"), nav: Forward }
+# stop only while it loads
+act page-stop
+expect effects lacks navigate
+page-reports p2 loading on
+act page-stop
+expect effects has navigate { page: EntityId("p2"), nav: Stop }
+page-reports p2 loading off
+act page-stop
+expect effects lacks navigate
+# Command-R reloads a selected page
+key cmd+r
+expect effects has navigate { page: EntityId("p2"), nav: Reload }
+# Command-[ only restacks a selected page
+key cmd+[
+expect effects lacks navigate
+expect entity @1 text https://example.org/other
+act undo
+expect entity p2 text https://example.org/other
+
+# entered, the page is the target, and Command-[ and ] and R walk its
+# history instead of reaching the page as keys
+double-click 200 150
+expect focus page p1
+expect pages has p1 mark entered
+act page-reload
+expect effects has navigate { page: EntityId("p1"), nav: Reload }
+key cmd+[
+expect effects has navigate { page: EntityId("p1"), nav: Back }
+expect effects lacks forward-input
+key cmd+]
+expect effects has navigate { page: EntityId("p1"), nav: Forward }
+key cmd+r
+expect effects has navigate { page: EntityId("p1"), nav: Reload }
+expect effects lacks forward-input
+
+# an address typed in navigates the page in place; what the page then
+# reports is saved
+control page.url
+key cmd+a
+type example.org
+key enter
+expect effects has navigate { page: EntityId("p1"), nav: To("https://example.org/") }
+expect effects lacks close-page
+expect effects lacks create-page
+wait 100
+expect entity p1 text https://example.org/
+
+# an entered page chooses the cursor over its content; one that is not
+# entered is an item on the canvas
+key escape
+key escape
+move 800 150
+page-reports p2 cursor pointer
+expect effects lacks set-cursor
+double-click 800 150
+expect effects has set-cursor(Pointer)
+page-reports p2 cursor text
+expect effects is set-cursor(Text)
+key escape
+expect effects has set-cursor(Default)
+
+undo-to-start except /nodes/p1/url

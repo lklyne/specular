@@ -34,8 +34,6 @@ mod menus;
 mod motion;
 mod moves;
 mod named_controls;
-mod page_lifecycle;
-mod page_scroll;
 mod palette;
 mod panel_builtin;
 mod panel_builtin_cache;
