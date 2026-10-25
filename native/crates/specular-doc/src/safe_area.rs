@@ -29,11 +29,6 @@ impl SafeArea {
         bottom: 0.0,
         left: 0.0,
     };
-
-    /// Whether the whole screen is safe.
-    pub(crate) fn is_none(self) -> bool {
-        self == Self::NONE
-    }
 }
 
 /// One device's insets: the top and bottom standing up, and the bottom on

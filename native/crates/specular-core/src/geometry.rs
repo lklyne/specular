@@ -191,11 +191,6 @@ impl Rect {
         point.cmpge(self.min()).all() && point.cmple(self.max()).all()
     }
 
-    /// Width and height.
-    pub(crate) const fn size(self) -> Size {
-        Size::new(self.width, self.height)
-    }
-
     /// The middle of the rect.
     pub fn centre(self) -> Point {
         Point::new(self.x + self.width * 0.5, self.y + self.height * 0.5)
@@ -241,16 +236,6 @@ impl Rect {
         let right = self.right().min(other.right());
         let bottom = self.bottom().min(other.bottom());
         (right > x && bottom > y).then(|| Self::new(x, y, right - x, bottom - y))
-    }
-
-    /// The smallest rect holding both.
-    #[must_use]
-    pub(crate) fn union(self, other: Self) -> Self {
-        let x = self.x.min(other.x);
-        let y = self.y.min(other.y);
-        let right = self.right().max(other.right());
-        let bottom = self.bottom().max(other.bottom());
-        Self::new(x, y, right - x, bottom - y)
     }
 
     /// The smallest rect holding every point, or `None` for no points.

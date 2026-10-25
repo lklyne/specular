@@ -33,11 +33,6 @@ pub struct LatencyTracker {
 }
 
 impl LatencyTracker {
-    /// An empty tracker.
-    pub(crate) fn new() -> Self {
-        Self::default()
-    }
-
     /// Records an input event that happened at `at` (the OS event timestamp
     /// when available, else when the shell received it) and returns the
     /// number its effect must carry.
@@ -64,11 +59,6 @@ impl LatencyTracker {
             resolved += 1;
         }
         resolved
-    }
-
-    /// Events not yet reflected by a presented frame.
-    pub(crate) fn pending(&self) -> usize {
-        self.pending.len()
     }
 
     /// Resolved latencies, in resolution order.

@@ -88,29 +88,6 @@ impl DeviceArt {
         }
     }
 
-    /// The drawing's `name` in the manifest, which is its file's stem.
-    pub(crate) const fn name(self) -> &'static str {
-        match self {
-            Self::GooglePixel9 => "google-pixel-9",
-            Self::GooglePixel9ProXl => "google-pixel-9-pro-xl",
-            Self::IpadAir4 => "ipad-air-4",
-            Self::IpadMini => "ipad-mini",
-            Self::IpadPro11InchesM4 => "ipad-pro-11-inches-m4",
-            Self::IpadPro11inches => "ipad-pro-11inches",
-            Self::IpadPro12inchesGen4 => "ipad-pro-12inches-gen4",
-            Self::IpadPro13InchesM4 => "ipad-pro-13-inches-m4",
-            Self::Iphone13 => "iphone-13",
-            Self::Iphone16 => "iphone-16",
-            Self::Iphone16Plus => "iphone-16-plus",
-            Self::Iphone16Pro => "iphone-16-pro",
-            Self::Iphone16ProMax => "iphone-16-pro-max",
-            Self::IphoneAir => "iphone-air",
-            Self::IphoneSe => "iphone-se",
-            Self::MacbookPro => "macbook-pro",
-            Self::SamsungGalaxyS25 => "samsung-galaxy-s25",
-        }
-    }
-
     /// Whether the device is a tablet and not a phone.
     pub(crate) const fn is_tablet(self) -> bool {
         matches!(
