@@ -18,6 +18,7 @@
 //! threads-loaded t1@tab_1 t2@tab_2     # the threads on disk, each canvas's open
 //! models default=Default|sonnet=Sonnet 5
 //! model-saved default
+//! ime-cancel                           # the input method drops its composition
 //! ```
 
 use anyhow::{Context as _, bail};
@@ -58,6 +59,8 @@ pub enum PanelStep {
     Models(Vec<(String, String)>),
     /// The model chosen at an earlier launch.
     ModelSaved(String),
+    /// The input method drops its composition.
+    ImeCancel,
 }
 
 /// The step `verb` and `rest` name, when it is one of these.
@@ -109,6 +112,7 @@ pub(crate) fn parse(verb: &str, rest: &str) -> Option<anyhow::Result<PanelStep>>
             .collect::<anyhow::Result<_>>()
             .map(PanelStep::Models),
         ("model-saved", [value]) => Ok(PanelStep::ModelSaved((*value).to_owned())),
+        ("ime-cancel", []) => Ok(PanelStep::ImeCancel),
         (
             "chat-panel" | "chat" | "agent-says" | "page-reports" | "bind" | "note-text"
             | "model-saved",
@@ -224,6 +228,7 @@ impl PanelStep {
                     .collect(),
             )),
             Self::ModelSaved(value) => Event::Models(ModelsNews::Saved(value.clone())),
+            Self::ImeCancel => Event::Ime(specular_core::ImeEvent::Cancel),
         })
     }
 }
