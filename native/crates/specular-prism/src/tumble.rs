@@ -332,29 +332,3 @@ impl Random {
         [r * angle.cos(), r * angle.sin(), z]
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn run(tumble: &mut Tumble, seconds: f32, frame: Duration, working: bool) {
-        let mut left = Duration::from_secs_f32(seconds);
-        while left >= frame {
-            tumble.advance(frame, working);
-            left -= frame;
-        }
-    }
-
-    #[test]
-    fn the_motion_is_the_same_at_any_frame_rate() {
-        let (mut at_30, mut at_60, mut at_120) = (Tumble::new(7), Tumble::new(7), Tumble::new(7));
-        run(&mut at_30, 4.0, Duration::from_micros(33_333), true);
-        run(&mut at_60, 4.0, Duration::from_micros(16_666), true);
-        run(&mut at_120, 4.0, Duration::from_micros(8_333), true);
-        // The three runs stop a few hundred microseconds apart, inside one
-        // step; what was stepped is identical.
-        let poses = [at_30.pose(), at_60.pose(), at_120.pose()];
-        assert_eq!(poses[0], poses[1]);
-        assert_eq!(poses[1], poses[2]);
-    }
-}

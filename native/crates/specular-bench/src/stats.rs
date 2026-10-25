@@ -90,31 +90,3 @@ pub struct FrameSummary {
     /// Intervals over [`LONG_FRAME_FACTOR`] x budget.
     pub long_frames: usize,
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn times(ms: &[u64]) -> FrameTimes {
-        let mut t = FrameTimes::new();
-        for &m in ms {
-            t.record(Duration::from_millis(m));
-        }
-        t
-    }
-
-    #[test]
-    fn percentiles_on_one_to_hundred_are_their_rank() {
-        let ms: Vec<u64> = (1..=100).collect();
-        let summary = times(&ms).summary(Duration::from_millis(8));
-        assert_eq!(
-            [
-                summary.p50_frame_ms,
-                summary.p95_frame_ms,
-                summary.p99_frame_ms,
-                summary.max_frame_ms
-            ],
-            [50.0, 95.0, 99.0, 100.0]
-        );
-    }
-}

@@ -131,3 +131,57 @@ pub(crate) fn extent(size: PixelSize) -> wgpu::Extent3d {
         depth_or_array_layers: 1,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn frame(width: u32, height: u32, dirty: Vec<PixelRect>) -> CpuFrame {
+        CpuFrame {
+            size: PixelSize::new(width, height),
+            stride: width * 4,
+            bgra: vec![0; (width * height * 4) as usize],
+            dirty,
+        }
+    }
+
+    #[test]
+    fn validate_rejects_a_frame_that_cannot_be_read() {
+        let mut short_buffer = frame(8, 4, vec![]);
+        short_buffer.bgra.truncate(10);
+        let mut short_stride = frame(8, 4, vec![]);
+        short_stride.stride = 16;
+        for (name, frame, max, error) in [
+            (
+                "short buffer",
+                short_buffer,
+                8192,
+                FrameImportError::ShortBuffer {
+                    actual: 10,
+                    needed: 128,
+                },
+            ),
+            (
+                "short stride",
+                short_stride,
+                8192,
+                FrameImportError::ShortStride {
+                    stride: 16,
+                    width: 8,
+                },
+            ),
+            (
+                "oversized",
+                frame(16, 4, vec![]),
+                8,
+                FrameImportError::ExceedsDeviceLimit {
+                    width: 16,
+                    height: 4,
+                    max: 8,
+                },
+            ),
+        ] {
+            assert_eq!(validate_cpu_frame(&frame, max), Err(error), "{name}");
+        }
+    }
+}

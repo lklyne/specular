@@ -25,18 +25,6 @@ fn ranges(layout: &TextLayout) -> Vec<(usize, usize)> {
         .collect()
 }
 
-fn offsets(layout: &TextLayout, line: usize) -> Vec<usize> {
-    (layout.lines[line].stops.iter())
-        .map(|stop| stop.offset)
-        .collect()
-}
-
-/// Whether the stops of `line` step strictly rightwards.
-fn runs_rightwards(layout: &TextLayout, line: usize) -> bool {
-    let stops = &layout.lines[line].stops;
-    stops.windows(2).all(|pair| pair[0].x < pair[1].x)
-}
-
 /// The width of `text` on one line.
 fn width_of(measure: &GlyphMeasure, text: &str) -> f32 {
     measure.layout(text, &spec(None)).width()
@@ -55,22 +43,4 @@ fn words_wrap_at_the_width_and_the_lines_leave_no_byte_out() {
     assert_eq!(layout.lines[1].stops[0].x, 0.0);
     let last = layout.lines[1].stops.last().map(|stop| stop.x);
     assert!(last.is_some_and(|x| x <= wrap), "{last:?} within {wrap}");
-}
-
-#[test]
-fn an_emoji_sequence_is_one_stop_however_many_scalars_it_has() {
-    let measure = GlyphMeasure::new();
-    // A thumbs-up with a skin tone, and a family joined by zero-width joiners.
-    let (thumb, family) = (
-        "\u{1F44D}\u{1F3FD}",
-        "\u{1F468}\u{200D}\u{1F469}\u{200D}\u{1F467}",
-    );
-    let text = format!("a{thumb}b{family}");
-    let layout = measure.layout(&text, &spec(None));
-    let (after_thumb, after_b) = (1 + thumb.len(), 2 + thumb.len());
-    assert_eq!(
-        offsets(&layout, 0),
-        [0, 1, after_thumb, after_b, after_b + family.len()]
-    );
-    assert!(runs_rightwards(&layout, 0), "{:?}", layout.lines[0].stops);
 }

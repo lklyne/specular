@@ -102,3 +102,34 @@ fn character_code(character: char) -> Option<Code> {
         _ => return None,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use specular_interact::{App, MenuEntry, menus};
+
+    use super::*;
+
+    #[test]
+    fn no_two_menu_items_share_a_shortcut() {
+        let menus = menus(&App::new(0));
+        let mut seen = Vec::new();
+        for entry in menus.iter().flat_map(|menu| &menu.entries) {
+            let MenuEntry::Item(item) = entry else {
+                continue;
+            };
+            if let Some(shortcut) = item.chord.and_then(accelerator) {
+                assert!(
+                    !seen.contains(&shortcut),
+                    "{} repeats a shortcut",
+                    item.label
+                );
+                seen.push(shortcut);
+            }
+        }
+        // The shell's own: open, save and quit.
+        for character in ['o', 's', 'q'] {
+            let shortcut = accelerator(Chord::char(character).cmd());
+            assert!(shortcut.is_some_and(|shortcut| !seen.contains(&shortcut)));
+        }
+    }
+}

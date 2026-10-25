@@ -270,3 +270,50 @@ fn copy_folder(from: &Path, to: &Path) -> io::Result<()> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A fresh folder under the system temp dir, removed on drop.
+    struct TempDir(PathBuf);
+
+    impl TempDir {
+        fn new(name: &str) -> Self {
+            let dir = std::env::temp_dir().join(format!(
+                "specular-agent-tools-{name}-{}",
+                std::process::id()
+            ));
+            let _ = std::fs::remove_dir_all(&dir);
+            std::fs::create_dir_all(&dir).unwrap();
+            Self(dir)
+        }
+
+        fn file(&self, path: &str, text: &str) -> PathBuf {
+            let file = self.0.join(path);
+            std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+            std::fs::write(&file, text).unwrap();
+            file
+        }
+    }
+
+    impl Drop for TempDir {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    #[test]
+    fn a_program_that_is_not_a_link_is_never_replaced() {
+        let dir = TempDir::new("program");
+        let wrapper = dir.file("app/specular-cli.sh", "");
+        let file = dir.file("bin/specular", "#!/bin/sh");
+        let links = std::slice::from_ref(&file);
+        assert!(matches!(
+            command_status(&wrapper, links),
+            Status::Differs(_)
+        ));
+        assert!(link_command(&wrapper, links).is_err());
+        assert_eq!(std::fs::read_to_string(&file).unwrap(), "#!/bin/sh");
+    }
+}

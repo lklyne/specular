@@ -189,6 +189,14 @@ mod tests {
     }
 
     #[test]
+    fn an_external_edit_with_nothing_unsaved_reloads() {
+        let mut sync = synced();
+        assert_eq!(sync.disk_text("theirs", stamp(2, 6)), DiskChange::Reload);
+        // And it is now what we hold.
+        assert_eq!(sync.disk_text("theirs", stamp(3, 6)), DiskChange::Unchanged);
+    }
+
+    #[test]
     fn an_external_edit_with_unsaved_changes_keeps_ours_and_says_so_once() {
         let mut sync = synced();
         sync.request_save(100);
