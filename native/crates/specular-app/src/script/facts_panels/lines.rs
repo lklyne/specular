@@ -166,7 +166,7 @@ fn comments(app: &App, out: &mut Vec<String>) {
     for annotation in app.document().annotations() {
         let status = format!("{:?}", annotation.status).to_lowercase();
         let mut line = format!(
-            "comment {} {status} {} {:?}",
+            "comment {} {status} {} \"{}\"",
             annotation.id,
             anchor(&annotation.anchor),
             annotation.text
@@ -194,7 +194,7 @@ fn cards(cards: &[ArtifactCard], out: &mut Vec<String>) {
         let verb = if card.created { "new" } else { "edited" };
         let live = if card.focus.is_some() { " live" } else { "" };
         out.push(format!(
-            "card {:?} {} {verb}{live}",
+            "card \"{}\" {} {verb}{live}",
             card.label, card.detail
         ));
     }
@@ -203,14 +203,14 @@ fn cards(cards: &[ArtifactCard], out: &mut Vec<String>) {
 fn chat_lines(app: &App, out: &mut Vec<String>) {
     let model = chat(app);
     out.push(format!(
-        "chat available={} visible={} width={} title={:?}",
+        "chat available={} visible={} width={} title=\"{}\"",
         yes(model.available),
         yes(model.visible),
         model.width,
         model.title
     ));
     for row in &model.threads {
-        let mut line = format!("thread {:?}", row.title);
+        let mut line = format!("thread \"{}\"", row.title);
         for (on, word) in [
             (row.active, " active"),
             (row.draft, " draft"),
@@ -233,7 +233,7 @@ fn chat_lines(app: &App, out: &mut Vec<String>) {
     }
     let composer = &model.composer;
     if let Some(draft) = &composer.draft {
-        out.push(format!("draft {:?} {:?}", draft.kind, draft.label));
+        out.push(format!("draft {:?} \"{}\"", draft.kind, draft.label));
     }
     if let Some(open) = &composer.open_comments {
         out.push(format!("open-comments {}", open.count));
@@ -244,13 +244,13 @@ fn chat_lines(app: &App, out: &mut Vec<String>) {
         } else {
             ""
         };
-        out.push(format!("queued {:?}{pinned}", chip.text));
+        out.push(format!("queued \"{}\"{pinned}", chip.text));
     }
-    out.push(format!("placeholder {:?}", composer.placeholder));
+    out.push(format!("placeholder \"{}\"", composer.placeholder));
     out.push(format!("send-empty {}", yes(composer.can_send_empty)));
     out.push(format!("running {}", yes(composer.running)));
     out.push(format!(
-        "pill {:?} {:?}",
+        "pill {:?} \"{}\"",
         composer.pill.kind, composer.pill.label
     ));
     if let Some(folder) = &composer.folder {
@@ -262,17 +262,17 @@ fn chat_lines(app: &App, out: &mut Vec<String>) {
     out.push(format!("model {}", composer.model.label));
     for option in &composer.model.options {
         let chosen = if option.chosen { " chosen" } else { "" };
-        out.push(format!("model-option {:?}{chosen}", option.name));
+        out.push(format!("model-option \"{}\"{chosen}", option.name));
     }
     if let Some(button) = toolbar(app).chat {
         let open = if button.open { "open" } else { "closed" };
-        out.push(format!("toggle {open} {:?}", button.label));
+        out.push(format!("toggle {open} \"{}\"", button.label));
     }
     for thread in app.threads().all() {
         let status = format!("{:?}", thread.status).to_lowercase();
         let session = thread.claude_session_id.as_deref().unwrap_or("none");
         out.push(format!(
-            "stored {:?} {status} messages {} session {session}",
+            "stored \"{}\" {status} messages {} session {session}",
             thread.title,
             thread.messages.len()
         ));
@@ -285,7 +285,7 @@ fn transcript_lines(transcript: &specular_interact::Transcript, out: &mut Vec<St
             ThreadRole::User => "user",
             ThreadRole::Agent => "agent",
         };
-        let mut line = format!("bubble {role} {:?}", bubble.text);
+        let mut line = format!("bubble {role} \"{}\"", bubble.text);
         if bubble.annotation.is_some() {
             line.push_str(" pinned");
         }
@@ -302,20 +302,20 @@ fn transcript_lines(transcript: &specular_interact::Transcript, out: &mut Vec<St
         cards(&bubble.artifacts, out);
     }
     if let Some(text) = &transcript.streaming {
-        out.push(format!("streaming {text:?}"));
+        out.push(format!("streaming \"{text}\""));
     }
     cards(&transcript.making, out);
     if let Some(run) = &transcript.run {
-        out.push(format!("run {:?}", run.label));
+        out.push(format!("run \"{}\"", run.label));
         for line in &run.log {
-            out.push(format!("log {line:?}"));
+            out.push(format!("log \"{line}\""));
         }
     }
     if let Some(error) = &transcript.error {
-        out.push(format!("error {error:?}"));
+        out.push(format!("error \"{error}\""));
     }
     if let Some(hint) = &transcript.empty_hint {
-        out.push(format!("hint {hint:?}"));
+        out.push(format!("hint \"{hint}\""));
     }
 }
 
@@ -391,7 +391,7 @@ fn first_run(app: &App, out: &mut Vec<String>) {
     for choice in &view.choices {
         let primary = if choice.primary { " primary" } else { "" };
         out.push(format!(
-            "choice {} {:?} {:?}{primary}",
+            "choice {} \"{}\" \"{}\"{primary}",
             choice.name, choice.label, choice.detail
         ));
     }
@@ -495,7 +495,7 @@ fn settings_lines(app: &App, out: &mut Vec<String>) {
     let toggles = model.general.toggles.iter().chain(&model.general.cursors);
     for toggle in toggles {
         out.push(format!(
-            "{} {} {:?}",
+            "{} {} \"{}\"",
             toggle.name,
             yes(toggle.on),
             toggle.label
@@ -503,7 +503,7 @@ fn settings_lines(app: &App, out: &mut Vec<String>) {
     }
     for option in &model.general.tools.options {
         out.push(format!(
-            "{} {} {:?}",
+            "{} {} \"{}\"",
             option.name,
             yes(option.on),
             option.label
@@ -518,9 +518,9 @@ fn settings_lines(app: &App, out: &mut Vec<String>) {
 }
 
 fn sidebar_row(row: &SidebarRow, parent: Option<&ControlId>, out: &mut Vec<String>) {
-    let mut line = format!("{} {:?} {:?}", row.id, row.label, row.glyph);
+    let mut line = format!("{} \"{}\" {:?}", row.id, row.label, row.glyph);
     if let Some(trailing) = &row.trailing {
-        let _ = write!(line, " {trailing:?}");
+        let _ = write!(line, " \"{trailing}\"");
     }
     for (on, word) in [
         (row.selected, " selected"),
@@ -548,13 +548,13 @@ fn sidebar_lines(app: &App, out: &mut Vec<String>) {
     out.push(format!("visible {}", yes(model.visible)));
     let head = |head: &specular_interact::SectionHead| {
         let folded = if head.folded { " folded" } else { "" };
-        format!("{} {:?}{folded}", head.id, head.title)
+        format!("{} \"{}\"{folded}", head.id, head.title)
     };
     out.push(head(&model.canvases_head));
     for canvas in &model.canvases {
         let active = if canvas.active { " active" } else { "" };
         out.push(format!(
-            "{} {:?} {}{active}",
+            "{} \"{}\" {}{active}",
             canvas.control, canvas.label, canvas.entity_count
         ));
     }
@@ -571,7 +571,7 @@ fn sidebar_lines(app: &App, out: &mut Vec<String>) {
 fn tabs(app: &App, out: &mut Vec<String>) {
     let strip = view_strip(app);
     for tab in &strip.tabs {
-        let mut line = format!("{} {:?} {:?}", tab.id, tab.label, tab.icon);
+        let mut line = format!("{} \"{}\" {:?}", tab.id, tab.label, tab.icon);
         if tab.active {
             line.push_str(" active");
         }
@@ -605,7 +605,7 @@ fn line(id: &ControlId, on: bool, enabled: bool, value: Option<&str>, label: &st
     if let Some(value) = value {
         let _ = write!(line, " = {value}");
     }
-    let _ = write!(line, " {label:?}");
+    let _ = write!(line, " \"{label}\"");
     line
 }
 

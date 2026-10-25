@@ -5,6 +5,7 @@
 //! ```text
 //! chat-panel on                        # the shell draws a right panel
 //! send-chat make it blue               # Send, with this typed (none: empty)
+//! send-image see this                  # the same with a small PNG pasted
 //! chat new-thread                      # back, close, stop, toggle, drop-draft,
 //!                                      # resolve, open N, model N, card N M,
 //!                                      # bubble N, auto, resize W
@@ -26,8 +27,9 @@
 
 use anyhow::{Context as _, bail};
 use specular_interact::{
-    Action, App, Artifact, ArtifactTarget, ChatAction, Event, Model, ModelsNews, NoteNotice,
-    Notice, PageNotice, Progress, ProgressKind, Thread, ThreadId, ThreadIndex, chat,
+    Action, App, Artifact, ArtifactTarget, AssetBytes, ChatAction, Event, ImageUpload, MediaType,
+    Model, ModelsNews, NoteNotice, Notice, PageNotice, Progress, ProgressKind, Thread, ThreadId,
+    ThreadIndex, chat,
 };
 
 use crate::script::words::unescaped;
@@ -37,8 +39,9 @@ use crate::script::words::unescaped;
 pub enum PanelStep {
     /// Whether the shell draws a right panel.
     ChatPanel(bool),
-    /// Send pressed with this typed in the composer.
-    SendChat(String),
+    /// Send pressed with this typed in the composer, and a small PNG
+    /// pasted when the flag is on.
+    SendChat(String, bool),
     /// A button of the right panel, by its word and any number after it.
     Chat(String, Vec<usize>),
     /// The open thread's agent says this.
@@ -72,7 +75,8 @@ pub(crate) fn parse(verb: &str, rest: &str) -> Option<anyhow::Result<PanelStep>>
     let step = match (verb, words.as_slice()) {
         ("chat-panel", ["on"]) => Ok(PanelStep::ChatPanel(true)),
         ("chat-panel", ["off"]) => Ok(PanelStep::ChatPanel(false)),
-        ("send-chat", _) => Ok(PanelStep::SendChat(unescaped(rest))),
+        ("send-chat", _) => Ok(PanelStep::SendChat(unescaped(rest), false)),
+        ("send-image", _) => Ok(PanelStep::SendChat(unescaped(rest), true)),
         ("chat", [button, numbers @ ..]) => numbers
             .iter()
             .map(|number| number.parse().context("`chat` takes whole numbers"))
@@ -180,7 +184,7 @@ fn page_notice(kind: &str, words: &[&str]) -> anyhow::Result<PageNotice> {
             .with_context(|| format!("`{word}` is not a number"))
     };
     Ok(match (kind, words) {
-        ("title", _) => PageNotice::Title(words.join(" ")),
+        ("title", _) => PageNotice::Title(unescaped(&words.join(" "))),
         ("url", [url]) => PageNotice::Url((*url).to_owned()),
         ("loading", [on, rest @ ..]) => PageNotice::Loading {
             loading: *on == "on",
@@ -205,9 +209,14 @@ impl PanelStep {
     pub fn event(&self, app: &App) -> anyhow::Result<Event> {
         Ok(match self {
             Self::ChatPanel(on) => Event::ChatPanel(*on),
-            Self::SendChat(text) => Event::Action(Action::Chat(ChatAction::Send {
+            Self::SendChat(text, image) => Event::Action(Action::Chat(ChatAction::Send {
                 text: text.clone(),
-                images: Vec::new(),
+                images: (image.then(|| ImageUpload {
+                    media_type: MediaType::Png,
+                    bytes: AssetBytes::from(vec![1, 2, 3]),
+                }))
+                .into_iter()
+                .collect(),
             })),
             Self::Chat(button, numbers) => Event::Action(chat_button(app, button, numbers)?),
             Self::AgentSays(notice) => {
