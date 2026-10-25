@@ -38,8 +38,10 @@ hold shift
 drag-to 210 355
 expect guides horizontal top/u5.top 305 bottom/u5.bottom 405
 release
+hold none
 key cmd+z
 press 150 555
+hold shift
 drag-to 210 555
 expect guides horizontal none
 release
