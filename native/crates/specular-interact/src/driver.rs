@@ -11,9 +11,8 @@ use specular_core::{Camera, ImeEvent, Modifiers, PointerButton, PointerEventKind
 use specular_doc::{Document, EdgeId, EntityId, ItemId};
 
 use crate::{
-    Action, App, ClipboardContent, Effect, Event, Key, KeyInput, NoteNotice, PhysicalKey,
-    PointerInput, Session, SidebarAction, Tool, UnknownControl, WheelInput, control_named,
-    mac_key_input, update,
+    Action, App, Effect, Event, Key, KeyInput, PhysicalKey, PointerInput, Session, SidebarAction,
+    Tool, UnknownControl, WheelInput, control_named, mac_key_input, update,
 };
 
 const NONE: Modifiers = Modifiers {
@@ -98,11 +97,6 @@ impl Driver {
         })
     }
 
-    /// The effects returned since the last [`Driver::take_effects`].
-    pub fn effects(&self) -> &[Effect] {
-        &self.sink.effects
-    }
-
     /// Drains the effects returned since the last drain.
     pub fn take_effects(&mut self) -> Vec<Effect> {
         std::mem::take(&mut self.sink.effects)
@@ -148,7 +142,7 @@ impl<S: EventSink> Driver<S> {
     }
 
     /// The unsaved state: camera, tool, gesture, hover, focus.
-    pub fn session(&self) -> &Session {
+    pub(crate) fn session(&self) -> &Session {
         self.app().session()
     }
 
@@ -335,14 +329,6 @@ impl<S: EventSink> Driver<S> {
         }))
     }
 
-    /// The shell answers a paste with the clipboard's text.
-    pub fn paste(&mut self, text: &str) -> &mut Self {
-        self.send(Event::Clipboard(ClipboardContent {
-            text: Some(text.to_owned()),
-            image: None,
-        }))
-    }
-
     /// Scrolls by `delta` logical pixels where the pointer is. Positive `y`
     /// moves content down.
     pub fn wheel(&mut self, delta: impl Into<Vec2>) -> &mut Self {
@@ -355,15 +341,6 @@ impl<S: EventSink> Driver<S> {
     /// A trackpad pinch. Positive `delta` zooms in.
     pub fn pinch(&mut self, delta: f32) -> &mut Self {
         self.send(Event::Pinch { delta })
-    }
-
-    /// The shell read the markdown file `file`, or saw it change: it holds
-    /// `text`.
-    pub fn note_text(&mut self, file: &str, text: &str) -> &mut Self {
-        self.send(Event::Note {
-            file: file.to_owned(),
-            notice: NoteNotice::Text(text.to_owned()),
-        })
     }
 
     /// Advances the wall clock to `unix_ms`.
@@ -400,7 +377,7 @@ impl<S: EventSink> Driver<S> {
 
     /// Moves the pointer to `at` and presses and releases the right button
     /// there.
-    pub fn right_click(&mut self, at: impl Into<Vec2>) -> &mut Self {
+    pub(crate) fn right_click(&mut self, at: impl Into<Vec2>) -> &mut Self {
         let at = at.into();
         self.pointer_move(at).press_button(PointerButton::Right, at);
         self.pointer(PointerEventKind::Up {

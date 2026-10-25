@@ -45,12 +45,12 @@ impl ResizeDrag {
     }
 
     /// What is being resized.
-    pub fn owner(&self) -> &HandleOwner {
+    pub(crate) fn owner(&self) -> &HandleOwner {
         &self.owner
     }
 
     /// The handle being dragged.
-    pub fn handle(&self) -> Handle {
+    pub(crate) fn handle(&self) -> Handle {
         self.handle
     }
 

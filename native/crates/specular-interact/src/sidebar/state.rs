@@ -67,7 +67,12 @@ impl SidebarView {
 
     /// Whether the row for `entity` in `section` is open. A page starts
     /// open and a group closed, which `starts_open` says.
-    pub fn is_open(&self, section: SidebarSection, entity: &EntityId, starts_open: bool) -> bool {
+    pub(crate) fn is_open(
+        &self,
+        section: SidebarSection,
+        entity: &EntityId,
+        starts_open: bool,
+    ) -> bool {
         starts_open != self.flipped.contains(&(section, entity.clone()))
     }
 

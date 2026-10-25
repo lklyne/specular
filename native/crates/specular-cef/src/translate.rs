@@ -38,9 +38,9 @@ pub(crate) const INVALID_RANGE_BOUND: u32 = u32::MAX;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct CefRange {
     /// Start, in UTF-16 code units.
-    pub from: u32,
+    pub(crate) from: u32,
     /// End (exclusive), in UTF-16 code units.
-    pub to: u32,
+    pub(crate) to: u32,
 }
 
 impl CefRange {

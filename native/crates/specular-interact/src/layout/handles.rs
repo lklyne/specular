@@ -58,7 +58,7 @@ pub struct ReorderDot {
 #[derive(Debug, Clone, PartialEq)]
 pub struct GapHandle {
     /// The managed group whose gap it is, or `None` for a loose selection's.
-    pub group: Option<EntityId>,
+    pub(crate) group: Option<EntityId>,
     /// The axis the line is packed along.
     pub axis: Axis,
     /// The strip on screen: the gap along the axis, the whole line across

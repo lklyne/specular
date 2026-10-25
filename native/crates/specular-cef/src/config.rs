@@ -60,9 +60,9 @@ impl CefConfig {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Switch {
     /// Switch name without the leading `--`.
-    pub name: &'static str,
+    pub(crate) name: &'static str,
     /// Value for `--name=value`, or `None` for a bare flag.
-    pub value: Option<&'static str>,
+    pub(crate) value: Option<&'static str>,
 }
 
 /// Switches the browser process appends in `OnBeforeCommandLineProcessing`.

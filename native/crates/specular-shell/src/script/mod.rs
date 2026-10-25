@@ -75,9 +75,9 @@ pub struct Line {
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Script {
     /// The canvas the `# canvas:` line names, as written.
-    pub canvas: Option<String>,
+    pub(crate) canvas: Option<String>,
     /// The `given` lines, in order.
-    pub given: Vec<Given>,
+    pub(crate) given: Vec<Given>,
     /// The steps, in order.
     pub steps: Vec<Line>,
 }
@@ -117,7 +117,7 @@ impl Script {
     }
 
     /// The script in the file at `path`.
-    pub fn read(path: &Path) -> anyhow::Result<Self> {
+    pub(crate) fn read(path: &Path) -> anyhow::Result<Self> {
         let text =
             std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
         Self::parse(&text).with_context(|| format!("in {}", path.display()))

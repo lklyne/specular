@@ -59,7 +59,7 @@ impl Context {
     }
 
     /// Whether a binding with this context fires in `app` as it is now.
-    pub fn holds(self, app: &App) -> bool {
+    pub(crate) fn holds(self, app: &App) -> bool {
         let session = &app.session;
         match self {
             Self::Always => true,
@@ -83,9 +83,9 @@ pub struct Binding {
     /// Where it fires.
     pub context: Context,
     /// What it does.
-    pub action: Action,
+    pub(crate) action: Action,
     /// Whether holding the key down fires it again on each auto-repeat.
-    pub repeats: bool,
+    pub(crate) repeats: bool,
 }
 
 const fn once(chord: Chord, context: Context, action: Action) -> Binding {
@@ -386,7 +386,7 @@ pub enum ShellCommand {
 impl ShellCommand {
     /// The command's name in the command palette. The palette itself has no
     /// entry: it is already open when a command is picked.
-    pub const fn label(self) -> &'static str {
+    pub(crate) const fn label(self) -> &'static str {
         match self {
             Self::Quit => "Quit",
             Self::OpenSpace => "Open space",

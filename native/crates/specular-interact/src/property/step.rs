@@ -22,7 +22,7 @@ pub enum PageStep {
 
 impl PageStep {
     /// What the selected pages are set to next.
-    pub fn next(self, app: &App) -> Property {
+    pub(crate) fn next(self, app: &App) -> Property {
         match self {
             Self::Frame => Property::DeviceFrame(read::next_device_frame(app)),
             Self::FrameColor => {

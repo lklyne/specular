@@ -31,9 +31,9 @@ use crate::{Action, App, Effect, SidebarRow, edit, hit};
 #[error("no control `{name}` is shown; these are: {}", shown.join(" "))]
 pub struct UnknownControl {
     /// The name asked for.
-    pub name: String,
+    pub(crate) name: String,
     /// The names of the controls there are, in the models' order.
-    pub shown: Vec<String>,
+    pub(crate) shown: Vec<String>,
 }
 
 /// What activating a control does.

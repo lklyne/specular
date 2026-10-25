@@ -37,9 +37,9 @@ use crate::pool::OutstandingFrames;
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct PageGeometry {
     /// CSS viewport (`GetViewRect`).
-    pub viewport: CssSize,
+    pub(crate) viewport: CssSize,
     /// Device scale factor (`GetScreenInfo`).
-    pub scale: f32,
+    pub(crate) scale: f32,
     /// Last `OnPopupSize` rect in CSS, kept to re-place on scale changes.
     popup_css: Option<PixelRect>,
     /// The scale of the last frame that came at the size asked for.
@@ -180,23 +180,23 @@ pub(crate) fn clear_events() {
 #[derive(Debug, Clone)]
 pub(crate) struct PageContext {
     /// The page these handlers belong to.
-    pub id: PageId,
+    pub(crate) id: PageId,
     /// Geometry, mutated by the source on resize/rescale.
-    pub geometry: Arc<Mutex<PageGeometry>>,
+    pub(crate) geometry: Arc<Mutex<PageGeometry>>,
     /// The page's shared-texture cap.
     #[cfg_attr(
         not(target_os = "macos"),
         expect(dead_code, reason = "shared textures are only taken on macOS")
     )]
-    pub frames: OutstandingFrames,
+    pub(crate) frames: OutstandingFrames,
     /// Browsers created and not yet through `OnBeforeClose`, for shutdown.
-    pub alive: Arc<AtomicUsize>,
+    pub(crate) alive: Arc<AtomicUsize>,
     /// The thread that owns the event queue (the CEF UI thread).
     pub(crate) ui_thread: ThreadId,
     /// The device the page tells its documents it is on.
-    pub device: Arc<Mutex<PageDevice>>,
+    pub(crate) device: Arc<Mutex<PageDevice>>,
     /// The devtools messages the page has not answered.
-    pub pending: Pending,
+    pub(crate) pending: Pending,
 }
 
 #[cfg(feature = "cef")]

@@ -34,7 +34,7 @@ pub struct LatencyTracker {
 
 impl LatencyTracker {
     /// An empty tracker.
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self::default()
     }
 
@@ -67,7 +67,7 @@ impl LatencyTracker {
     }
 
     /// Events not yet reflected by a presented frame.
-    pub fn pending(&self) -> usize {
+    pub(crate) fn pending(&self) -> usize {
         self.pending.len()
     }
 

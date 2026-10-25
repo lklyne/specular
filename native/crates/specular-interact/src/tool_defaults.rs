@@ -17,7 +17,7 @@ use crate::Tool;
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct ToolDefaults {
     /// Plain text.
-    pub text: TextDefaults,
+    pub(crate) text: TextDefaults,
     /// Sticky notes.
     pub sticky: StickyDefaults,
     /// Shapes.
@@ -26,7 +26,7 @@ pub struct ToolDefaults {
     pub draw: DrawDefaults,
     /// Pages. Not stored: like Electron's, the size the next page is made
     /// at lasts as long as the app runs.
-    pub page: PageDefaults,
+    pub(crate) page: PageDefaults,
 }
 
 /// What `add-page` makes.
@@ -34,30 +34,30 @@ pub struct ToolDefaults {
 pub struct PageDefaults {
     /// The viewport preset, by index into
     /// [`VIEWPORT_PRESETS`](specular_doc::VIEWPORT_PRESETS).
-    pub preset: u32,
+    pub(crate) preset: u32,
     /// Whether the page keeps that size as a custom size rather than as the
     /// preset's.
-    pub custom: bool,
+    pub(crate) custom: bool,
 }
 
 /// What `add-text` stamps.
 #[derive(Debug, Clone, PartialEq)]
 pub struct TextDefaults {
     /// The ink. `None` follows the theme's foreground.
-    pub color: Option<Color>,
+    pub(crate) color: Option<Color>,
     /// Text size in pixels.
-    pub size: f64,
+    pub(crate) size: f64,
     /// Typeface.
-    pub font: TextFont,
+    pub(crate) font: TextFont,
 }
 
 /// What `add-sticky` stamps.
 #[derive(Debug, Clone, PartialEq)]
 pub struct StickyDefaults {
     /// The card's fill.
-    pub color: Color,
+    pub(crate) color: Color,
     /// Text size in pixels.
-    pub size: f64,
+    pub(crate) size: f64,
     /// Typeface.
     pub font: TextFont,
 }
@@ -68,11 +68,11 @@ pub struct ShapeDefaults {
     /// Which silhouette.
     pub kind: ShapeKind,
     /// Fill color.
-    pub color: Color,
+    pub(crate) color: Color,
     /// Border width in pixels.
-    pub stroke_width: f64,
+    pub(crate) stroke_width: f64,
     /// Label size in pixels.
-    pub text_size: f64,
+    pub(crate) text_size: f64,
 }
 
 /// What `draw` stamps on each stroke.
@@ -81,9 +81,9 @@ pub struct DrawDefaults {
     /// Pen or highlighter.
     pub brush: BrushType,
     /// Stroke color.
-    pub color: Color,
+    pub(crate) color: Color,
     /// Stroke width in canvas units.
-    pub stroke_width: f64,
+    pub(crate) stroke_width: f64,
 }
 
 const DEFAULT_TEXT_SIZE: f64 = 14.0;
@@ -167,7 +167,7 @@ pub enum ToolDefaultPatch {
 
 impl ToolDefaultPatch {
     /// The tool whose default this changes.
-    pub const fn tool(&self) -> Tool {
+    pub(crate) const fn tool(&self) -> Tool {
         match self {
             Self::TextColor(_) | Self::TextSize(_) | Self::TextFont(_) => Tool::AddText,
             Self::StickyColor(_) | Self::StickySize(_) | Self::StickyFont(_) => Tool::AddSticky,
@@ -223,7 +223,7 @@ pub(crate) fn nearest_width(brush: BrushType, width: f64) -> f64 {
 impl ToolDefaults {
     /// Applies one change. Changing the brush also moves the stroke width
     /// to the nearest width that brush is offered in.
-    pub fn apply(&mut self, patch: ToolDefaultPatch) {
+    pub(crate) fn apply(&mut self, patch: ToolDefaultPatch) {
         match patch {
             ToolDefaultPatch::TextColor(color) => self.text.color = color,
             ToolDefaultPatch::TextSize(size) => self.text.size = size,

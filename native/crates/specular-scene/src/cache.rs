@@ -49,12 +49,6 @@ pub(crate) struct StrokeOutline {
 }
 
 impl ViewCache {
-    /// How many Documents were parsed and strokes outlined by the latest
-    /// `view`, because nothing kept matched. A performance pin reads it.
-    pub fn built(&self) -> usize {
-        self.built.get()
-    }
-
     /// Starts a frame: what the last one did not use is dropped.
     pub(crate) fn begin(&self, appearance: Appearance) {
         self.built.set(0);

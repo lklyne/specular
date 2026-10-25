@@ -15,9 +15,9 @@ use crate::panel::DOCK_ROW;
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct Area {
     /// The top-left corner.
-    pub min: DVec2,
+    pub(crate) min: DVec2,
     /// The size, never negative.
-    pub size: DVec2,
+    pub(crate) size: DVec2,
 }
 
 impl Area {
@@ -50,7 +50,7 @@ impl App {
     /// under it the bar a shell that draws its own chrome keeps while a tab
     /// shows its item. On the canvas that bar comes and goes with the
     /// selection, over the canvas, and covers nothing.
-    pub fn covered_top(&self) -> f32 {
+    pub(crate) fn covered_top(&self) -> f32 {
         let panel = &self.session.panel;
         let bar = if panel.shell_chrome && self.lens().is_some() {
             DOCK_ROW

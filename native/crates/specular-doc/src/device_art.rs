@@ -90,7 +90,7 @@ pub struct ArtGeometry {
     /// The screen's width and height.
     pub screen_size: (f64, f64),
     /// The screen's corner radius.
-    pub screen_corner_radius: f64,
+    pub(crate) screen_corner_radius: f64,
     /// The left and top edge of the body: the device's main outline,
     /// without the buttons that stick out of it.
     pub(crate) body_origin: (f64, f64),

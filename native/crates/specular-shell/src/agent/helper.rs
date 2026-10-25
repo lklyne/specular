@@ -43,7 +43,7 @@ impl Helper {
     /// environment variable (`SPECULAR_HELPER`, `SPECULAR_CLAUDE_RUNTIME`),
     /// else the app bundle, else the dev build under `native/helper/`. A
     /// runtime is last looked for as the `claude` the user installed.
-    pub fn find() -> Option<Self> {
+    pub(crate) fn find() -> Option<Self> {
         let exe_dir = std::env::current_exe()
             .ok()
             .and_then(|exe| exe.parent().map(Path::to_path_buf));

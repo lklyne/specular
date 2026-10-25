@@ -48,22 +48,6 @@ impl Corner {
             Self::BottomLeft => DVec2::new(-1.0, 1.0),
         }
     }
-
-    /// Where this corner of `rect` is, in canvas space.
-    pub fn point(self, rect: Rect) -> DVec2 {
-        geometry::origin(rect) + geometry::size(rect) * (self.sign() * 0.5 + DVec2::splat(0.5))
-    }
-
-    /// The corner a resize from this one holds still.
-    #[must_use]
-    pub fn opposite(self) -> Self {
-        match self {
-            Self::TopLeft => Self::BottomRight,
-            Self::TopRight => Self::BottomLeft,
-            Self::BottomRight => Self::TopLeft,
-            Self::BottomLeft => Self::TopRight,
-        }
-    }
 }
 
 /// One of the eight resize handles: a corner square or a strip along a side.
@@ -78,7 +62,7 @@ pub enum Handle {
 impl Handle {
     /// Every handle in hit order. Corners come first, so a press at the very
     /// corner resizes diagonally and not along the side strip under it.
-    pub const ALL: [Self; 8] = [
+    pub(crate) const ALL: [Self; 8] = [
         Self::Corner(Corner::TopLeft),
         Self::Corner(Corner::TopRight),
         Self::Corner(Corner::BottomRight),
@@ -103,7 +87,7 @@ impl Handle {
 
     /// Where this handle sits on `rect`, in canvas space: the corner, or the
     /// middle of the side.
-    pub fn point(self, rect: Rect) -> DVec2 {
+    pub(crate) fn point(self, rect: Rect) -> DVec2 {
         geometry::origin(rect) + geometry::size(rect) * (self.sign() * 0.5 + DVec2::splat(0.5))
     }
 

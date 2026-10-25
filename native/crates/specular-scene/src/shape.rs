@@ -27,7 +27,7 @@ pub struct Stroke {
 
 impl Stroke {
     /// A stroke of `width`.
-    pub const fn new(color: Color, width: f32, align: StrokeAlign) -> Self {
+    pub(crate) const fn new(color: Color, width: f32, align: StrokeAlign) -> Self {
         Self {
             color,
             width,
@@ -36,7 +36,7 @@ impl Stroke {
     }
 
     /// How far the stroke reaches past the shape's edge.
-    pub fn outset(self) -> f32 {
+    pub(crate) fn outset(self) -> f32 {
         let width = self.width.max(0.0);
         match self.align {
             StrokeAlign::Inside => 0.0,
@@ -74,7 +74,7 @@ impl RectDraw {
     }
 
     /// An unfilled rect with square corners.
-    pub const fn outlined(rect: Rect, stroke: Stroke) -> Self {
+    pub(crate) const fn outlined(rect: Rect, stroke: Stroke) -> Self {
         Self {
             rect,
             corner_radius: 0.0,
@@ -135,7 +135,7 @@ pub struct EllipseDraw {
 
 impl EllipseDraw {
     /// A filled ellipse with no stroke.
-    pub const fn filled(rect: Rect, fill: Color) -> Self {
+    pub(crate) const fn filled(rect: Rect, fill: Color) -> Self {
         Self {
             rect,
             fill: Some(fill),

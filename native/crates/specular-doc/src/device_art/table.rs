@@ -44,7 +44,7 @@ pub enum DeviceArt {
 
 impl DeviceArt {
     /// Every drawing.
-    pub const ALL: [Self; 17] = [
+    pub(crate) const ALL: [Self; 17] = [
         Self::GooglePixel9,
         Self::GooglePixel9ProXl,
         Self::IpadAir4,
@@ -89,7 +89,7 @@ impl DeviceArt {
     }
 
     /// The drawing's `name` in the manifest, which is its file's stem.
-    pub const fn name(self) -> &'static str {
+    pub(crate) const fn name(self) -> &'static str {
         match self {
             Self::GooglePixel9 => "google-pixel-9",
             Self::GooglePixel9ProXl => "google-pixel-9-pro-xl",

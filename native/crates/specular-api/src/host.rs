@@ -88,7 +88,7 @@ impl Api {
 
     /// A read from `host`'s app or a write by running one event on it, or
     /// the script a page has to run first.
-    pub fn respond(&mut self, host: &mut impl Host, request: &Request) -> Answer {
+    pub(crate) fn respond(&mut self, host: &mut impl Host, request: &Request) -> Answer {
         let facts = Facts::gather(&*host, request);
         Answer::Now(match self.plan_with(host.app(), request, &facts) {
             Plan::PageScript(script) => return Answer::Later(script),

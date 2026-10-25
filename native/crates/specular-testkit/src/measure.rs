@@ -15,9 +15,9 @@ use unicode_segmentation::UnicodeSegmentation;
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct FixedAdvance {
     /// The width of every grapheme, in canvas units.
-    pub advance: f32,
+    pub(crate) advance: f32,
     /// The height of every line, in canvas units.
-    pub line_height: f32,
+    pub(crate) line_height: f32,
 }
 
 impl Default for FixedAdvance {

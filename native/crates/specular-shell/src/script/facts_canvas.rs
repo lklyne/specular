@@ -739,7 +739,7 @@ pub enum CanvasStep {
 
 impl CanvasStep {
     /// The event the step sends to `app` now.
-    pub fn event(&self, app: &App) -> anyhow::Result<Event> {
+    pub(crate) fn event(&self, app: &App) -> anyhow::Result<Event> {
         match self {
             Self::Send(event) => Ok(event.clone()),
             Self::Menu(path) => {

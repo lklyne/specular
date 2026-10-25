@@ -96,7 +96,7 @@ impl AgentRuns {
 
     /// Stops the thread's run and answers with one `Cancelled`. A thread
     /// with no run gets nothing.
-    pub fn cancel(&mut self, thread: &ThreadId) {
+    pub(crate) fn cancel(&mut self, thread: &ThreadId) {
         if let Some(mut run) = self.runs.remove(thread) {
             run.process.kill();
             self.queued.push((thread.clone(), Notice::Cancelled));

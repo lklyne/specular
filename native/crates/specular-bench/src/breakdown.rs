@@ -14,11 +14,11 @@ use crate::memory::{ProcessRow, parse_ps, tree_rows};
 #[serde(rename_all = "camelCase")]
 pub struct ProcessMemory {
     /// Process id.
-    pub pid: u32,
+    pub(crate) pid: u32,
     /// What the process is, from its command line: `browser` for the root,
     /// else Chromium's `--type` (`renderer`, `gpu-process`), with the
     /// service's name for a `utility`.
-    pub kind: String,
+    pub(crate) kind: String,
     /// Resident set size in MiB.
     pub(crate) rss_mb: f64,
     /// Physical footprint in MiB; `None` off macOS or when it cannot be

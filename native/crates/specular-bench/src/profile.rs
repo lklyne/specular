@@ -44,7 +44,7 @@ pub enum ProfileId {
 
 impl ProfileId {
     /// Electron's ids, in run order.
-    pub const ALL: [Self; 6] = [
+    pub(crate) const ALL: [Self; 6] = [
         Self::SlowPan,
         Self::SlowZoom,
         Self::FastDiagonalPan,
@@ -54,7 +54,7 @@ impl ProfileId {
     ];
 
     /// The Electron id (`slow-pan`, ...).
-    pub const fn as_str(self) -> &'static str {
+    pub(crate) const fn as_str(self) -> &'static str {
         match self {
             Self::SlowPan => "slow-pan",
             Self::SlowZoom => "slow-zoom",
@@ -97,9 +97,9 @@ pub struct GestureProfile {
     /// Wall-clock length.
     pub duration: Duration,
     /// Total screen-space pan in logical pixels.
-    pub pan: Vec2,
+    pub(crate) pan: Vec2,
     /// Total wheel-style zoom delta (negative zooms in).
-    pub zoom_delta_y: f32,
+    pub(crate) zoom_delta_y: f32,
 }
 
 /// The six profiles, in run order, with the Electron values.
@@ -203,9 +203,9 @@ pub fn select_profiles(ids: &[ProfileId], duration: Option<Duration>) -> Vec<Ges
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct GestureStep {
     /// Screen-space pan for this tick.
-    pub pan: Vec2,
+    pub(crate) pan: Vec2,
     /// Wheel-style zoom delta for this tick.
-    pub zoom_delta_y: f32,
+    pub(crate) zoom_delta_y: f32,
 }
 
 impl GestureStep {

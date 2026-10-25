@@ -27,7 +27,7 @@ pub(crate) const SIDES: [EdgeSide; 4] = [
 #[derive(Debug, Clone, PartialEq)]
 pub struct Anchor {
     /// The entity the anchor belongs to.
-    pub entity: EntityId,
+    pub(crate) entity: EntityId,
     /// The side it is on.
     pub side: EdgeSide,
     /// The centre of its dot, in logical screen pixels.

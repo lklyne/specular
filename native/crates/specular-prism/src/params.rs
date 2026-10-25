@@ -10,23 +10,23 @@ use std::f32::consts::PI;
 #[derive(Debug, Clone, PartialEq)]
 pub struct PrismParams {
     /// The mesh-gradient card inside the shells.
-    pub gradient: Gradient,
+    pub(crate) gradient: Gradient,
     /// The inner shell, a tinted liquid.
-    pub liquid: Shell,
+    pub(crate) liquid: Shell,
     /// The outer shell, clear glass.
-    pub glass: Shell,
+    pub(crate) glass: Shell,
     /// The glass's emissive rim.
-    pub rim: Rim,
+    pub(crate) rim: Rim,
     /// The glass's stylised specular highlight.
-    pub highlight: Highlight,
+    pub(crate) highlight: Highlight,
     /// The key light and the ambient term.
-    pub light: Light,
+    pub(crate) light: Light,
     /// The baked environment's strength and turn.
-    pub environment: Environment,
+    pub(crate) environment: Environment,
     /// The colour grade of the display pass.
     pub(crate) grade: Grade,
     /// Where the composite cuts the shape out of the scene's alpha.
-    pub coverage: Coverage,
+    pub(crate) coverage: Coverage,
     /// How much of the world the frame shows.
     pub camera: Camera,
     /// How the shells are turned and scaled about their centre.
@@ -37,9 +37,9 @@ pub struct PrismParams {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Gradient {
     /// The blob colours, linear RGB. The shader takes up to eight.
-    pub colors: Vec<[f32; 3]>,
+    pub(crate) colors: Vec<[f32; 3]>,
     /// Gradient seconds per second of time.
-    pub speed: f32,
+    pub(crate) speed: f32,
     /// How far the domain warp pushes the blobs.
     pub(crate) distortion: f32,
     /// The swirl around the card's centre.
@@ -57,7 +57,7 @@ pub struct Gradient {
     /// How much of the posterized colour is mixed in.
     pub(crate) posterize_amount: f32,
     /// The card's edge length in world units (the camera sees 1.4).
-    pub size: f32,
+    pub(crate) size: f32,
     /// The superellipse exponent of the card's outline.
     pub(crate) squircleness: f32,
 }
@@ -66,15 +66,15 @@ pub struct Gradient {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Shell {
     /// Uniform scale of the unit shell (edge 1.2 world units).
-    pub scale: f32,
+    pub(crate) scale: f32,
     /// Base colour.
-    pub color: [f32; 3],
+    pub(crate) color: [f32; 3],
     /// Surface roughness.
     pub(crate) roughness: f32,
     /// Index of refraction.
     pub(crate) ior: f32,
     /// Thickness for the refraction offset.
-    pub thickness: f32,
+    pub(crate) thickness: f32,
     /// Spread of the per-channel refraction.
     pub(crate) dispersion: f32,
     /// Specular strength.
@@ -119,9 +119,9 @@ pub struct Shell {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Rim {
     /// Emission colour.
-    pub color: [f32; 3],
+    pub(crate) color: [f32; 3],
     /// Fresnel power.
-    pub power: f32,
+    pub(crate) power: f32,
     /// Emission strength.
     pub(crate) intensity: f32,
     /// Pulse depth: the rim scales by `1 + pulse * sin(2t)`.
@@ -132,7 +132,7 @@ pub struct Rim {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Highlight {
     /// Highlight colour.
-    pub color: [f32; 3],
+    pub(crate) color: [f32; 3],
     /// Where the highlight's step starts.
     pub(crate) threshold: f32,
     /// Width of the step.
@@ -148,15 +148,15 @@ pub struct Highlight {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Light {
     /// Colour times intensity.
-    pub color: [f32; 3],
+    pub(crate) color: [f32; 3],
     /// Ambient light.
     pub(crate) ambient: [f32; 3],
     /// World position at time 0.
-    pub start: [f32; 3],
+    pub(crate) start: [f32; 3],
     /// World position it settles at.
-    pub target: [f32; 3],
+    pub(crate) target: [f32; 3],
     /// Share of the distance left after each second.
-    pub ease: f32,
+    pub(crate) ease: f32,
 }
 
 /// The baked environment map's strength and rotation.
@@ -165,7 +165,7 @@ pub struct Environment {
     /// Strength of the environment light.
     pub(crate) intensity: f32,
     /// Turn about Y, radians.
-    pub rotation: f32,
+    pub(crate) rotation: f32,
 }
 
 /// The display pass's grade, then the paper colour behind it.
@@ -186,11 +186,11 @@ pub(crate) struct Grade {
     /// Warm (positive) or cool shift.
     pub(crate) temperature: f32,
     /// Magenta (positive) or green shift.
-    pub tint: f32,
+    pub(crate) tint: f32,
     /// Mix of the graded colour.
-    pub amount: f32,
+    pub(crate) amount: f32,
     /// The paper colour uncovered pixels flatten to.
-    pub paper: [f32; 3],
+    pub(crate) paper: [f32; 3],
 }
 
 /// The composite's alpha cut: `smoothstep(threshold, threshold + softness, a)`.
@@ -231,7 +231,7 @@ impl Pose {
 
     /// The rotation as a 3x3 matrix, column-major.
     #[expect(clippy::many_single_char_names, reason = "the quaternion's own names")]
-    pub fn matrix(&self) -> [[f32; 3]; 3] {
+    pub(crate) fn matrix(&self) -> [[f32; 3]; 3] {
         let [x, y, z, w] = self.rotation;
         let n = (x * x + y * y + z * z + w * w)
             .sqrt()

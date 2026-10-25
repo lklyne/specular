@@ -101,7 +101,7 @@ pub struct PanelFact {
     /// What is read.
     pub(crate) topic: Topic,
     /// What must hold of it.
-    pub test: LineTest,
+    pub(crate) test: LineTest,
 }
 
 /// The fact `what` and `tail` state, when `what` is a topic.
@@ -138,7 +138,7 @@ impl PanelFact {
     /// Whether the fact holds for `app`, with `sent` the effects of the
     /// last step that was not a check, when the runner kept them. The error
     /// lists the lines found.
-    pub fn check(&self, app: &App, sent: Option<&[Effect]>) -> anyhow::Result<()> {
+    pub(crate) fn check(&self, app: &App, sent: Option<&[Effect]>) -> anyhow::Result<()> {
         let found = match (self.topic, sent) {
             (Topic::Effects, None) => {
                 tracing::warn!("effects are not seen by this runner; the check is skipped");

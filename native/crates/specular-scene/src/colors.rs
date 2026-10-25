@@ -31,26 +31,26 @@ pub enum Shade {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Hues {
     /// Preset 1.
-    pub red: Color,
+    pub(crate) red: Color,
     /// Preset 2.
-    pub orange: Color,
+    pub(crate) orange: Color,
     /// Preset 3.
-    pub yellow: Color,
+    pub(crate) yellow: Color,
     /// Preset 4.
-    pub green: Color,
+    pub(crate) green: Color,
     /// Preset 5.
-    pub cyan: Color,
+    pub(crate) cyan: Color,
     /// Preset 6.
-    pub purple: Color,
+    pub(crate) purple: Color,
     /// The seventh, this app's own.
-    pub blue: Color,
+    pub(crate) blue: Color,
 }
 
 /// What the canvas and the things on it are drawn in.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Colors {
     /// Which theme this is.
-    pub appearance: Appearance,
+    pub(crate) appearance: Appearance,
     /// The canvas under the dots.
     pub canvas: Color,
     /// The dots.
@@ -58,17 +58,17 @@ pub struct Colors {
     /// How faint a dense grid's dots may get: the floor of their opacity.
     pub dot_floor: f32,
     /// Default text, an edge's label, a Document's text.
-    pub ink: Color,
+    pub(crate) ink: Color,
     /// Text on a sticky note, whose paper is pale in both themes.
     pub(crate) paper_ink: Color,
     /// The neutral slot as a fill: an uncoloured sticky or shape.
     pub(crate) neutral_fill: Color,
     /// The vivid hues.
-    pub hues: Hues,
+    pub(crate) hues: Hues,
     /// Selection outlines, handles, the marquee and guides.
-    pub selection: Color,
+    pub(crate) selection: Color,
     /// The highlight behind selected text.
-    pub text_selection: Color,
+    pub(crate) text_selection: Color,
     /// A page's resting border.
     pub(crate) page_border: Color,
     /// The bezel of a page's device frame.
@@ -84,13 +84,13 @@ pub struct Colors {
     /// Page titles and file names.
     pub(crate) muted_text: Color,
     /// The inside of a file card and a Document.
-    pub card: Color,
+    pub(crate) card: Color,
     /// The alpha of the shadow under a sticky note and a card.
     pub(crate) card_shadow: u8,
     /// The glyph on a file card that has no preview.
     pub(crate) file_glyph: Color,
     /// A link in a Document.
-    pub link: Color,
+    pub(crate) link: Color,
     /// An untinted group's fill.
     pub(crate) group_fill: Color,
     /// An untinted group's border.
@@ -109,13 +109,13 @@ pub struct Colors {
     /// A shape's border from its hue.
     pub(crate) shape_border: Shade,
     /// A shape's label.
-    pub shape_label: Color,
+    pub(crate) shape_label: Color,
     /// How the highlighter lays its ink on what it marks. Multiplied, it
     /// tints pale paper and leaves dark text as dark as it was; on a dark
     /// canvas that would be black, so it is painted over instead.
-    pub highlight: Blend,
+    pub(crate) highlight: Blend,
     /// The comment composer's fill.
-    pub composer: Color,
+    pub(crate) composer: Color,
     /// Its border.
     pub(crate) composer_border: Color,
     /// Its text.
@@ -150,7 +150,7 @@ pub struct PanelColors {
     /// The wide one.
     pub(crate) shadow_far: Color,
     /// A menu of words.
-    pub menu: Color,
+    pub(crate) menu: Color,
     /// Its border.
     pub(crate) menu_border: Color,
     /// Its shadow.
@@ -168,15 +168,15 @@ pub struct PanelColors {
     /// A divider between groups.
     pub divider: Color,
     /// A line between sections of a list.
-    pub rule: Color,
+    pub(crate) rule: Color,
     /// The outline of a field.
     pub(crate) field_border: Color,
     /// A text field's fill.
-    pub input: Color,
+    pub(crate) input: Color,
     /// The ring of a text field that has the keys.
     pub(crate) input_ring: Color,
     /// A key hint's fill.
-    pub key: Color,
+    pub(crate) key: Color,
     /// A key hint's text.
     pub key_text: Color,
     /// The hairline around a swatch's dot.
@@ -195,7 +195,7 @@ pub struct PanelColors {
     pub scroll_thumb: Color,
     /// How far the paper of the sticky and shape glyphs is taken from the
     /// tool's colour.
-    pub paper: Shade,
+    pub(crate) paper: Shade,
 }
 
 impl Colors {

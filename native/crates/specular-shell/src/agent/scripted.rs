@@ -48,22 +48,18 @@ impl Scripted {
     }
 
     /// Reads a script file.
-    pub fn from_file(path: &Path) -> Result<Self, AgentError> {
+    pub(crate) fn from_file(path: &Path) -> Result<Self, AgentError> {
         let text = std::fs::read_to_string(path)
             .map_err(|error| AgentError::Script(format!("{}: {error}", path.display())))?;
         Self::from_text(&text)
     }
 
     /// Plays every `wait` at once, so a test never sleeps.
+    #[cfg(test)]
     #[must_use]
-    pub fn instant(mut self) -> Self {
+    pub(crate) fn instant(mut self) -> Self {
         self.instant = true;
         self
-    }
-
-    /// The requests started so far; reads stay valid after the backend moved.
-    pub fn started(&self) -> StartedRuns {
-        Arc::clone(&self.started)
     }
 }
 

@@ -19,9 +19,9 @@ const STEPS: u16 = 16;
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct PageBand {
     /// The page's rect.
-    pub page: Rect,
+    pub(crate) page: Rect,
     /// The height of the fade above the page and below it.
-    pub reach: f32,
+    pub(crate) reach: f32,
 }
 
 impl PageBand {

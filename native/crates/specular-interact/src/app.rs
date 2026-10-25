@@ -97,7 +97,7 @@ impl App {
     /// out or a stroke being drawn. It is in the document already, in front
     /// of everything, and is drawn like any other entity. Releasing makes it
     /// an undo step and cancelling takes it back.
-    pub fn creating(&self) -> Option<&EntityId> {
+    pub(crate) fn creating(&self) -> Option<&EntityId> {
         match &self.session.gesture {
             Some(Gesture::Place(drag)) => drag.live(),
             Some(Gesture::Draw(stroke)) => Some(stroke.drawing()),
@@ -299,7 +299,7 @@ pub struct Session {
     pub(crate) others_shown: bool,
     /// The group stepped into by a double click. It stays while the
     /// selection is inside it, and Escape steps out of it.
-    pub entered_group: Option<EntityId>,
+    pub(crate) entered_group: Option<EntityId>,
     /// The text, sticky or shape label being edited, with the edits so far.
     /// It stays in editing only while its entity is the whole selection, and
     /// Escape ends it. A comment draft's text is edited here too, whatever
@@ -322,10 +322,10 @@ pub struct Session {
     pub sidebar: crate::SidebarView,
     /// The right panel: whether the shell has one, whether it is open, and
     /// its width.
-    pub chat: crate::ChatView,
+    pub(crate) chat: crate::ChatView,
     /// Where the pointer is, in logical screen pixels. `None` when it is
     /// outside the window.
-    pub pointer: Option<Vec2>,
+    pub(crate) pointer: Option<Vec2>,
     /// The size on disk of each text that was measured when the document
     /// was opened.
     pub(crate) loaded_fits: LoadedFits,
@@ -399,7 +399,7 @@ impl Selection {
     }
 
     /// Whether nothing is selected.
-    pub fn is_empty(&self) -> bool {
+    pub(crate) fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
 

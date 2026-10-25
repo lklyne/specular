@@ -192,7 +192,7 @@ impl Rect {
     }
 
     /// Width and height.
-    pub const fn size(self) -> Size {
+    pub(crate) const fn size(self) -> Size {
         Size::new(self.width, self.height)
     }
 
@@ -245,7 +245,7 @@ impl Rect {
 
     /// The smallest rect holding both.
     #[must_use]
-    pub fn union(self, other: Self) -> Self {
+    pub(crate) fn union(self, other: Self) -> Self {
         let x = self.x.min(other.x);
         let y = self.y.min(other.y);
         let right = self.right().max(other.right());

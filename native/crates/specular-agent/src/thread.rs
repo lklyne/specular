@@ -24,7 +24,7 @@ pub enum Status {
 
 impl Status {
     /// The word the file stores.
-    pub fn as_str(self) -> &'static str {
+    pub(crate) fn as_str(self) -> &'static str {
         match self {
             Self::Draft => "draft",
             Self::Open => "open",
@@ -67,7 +67,7 @@ impl MediaType {
     }
 
     /// The format a MIME string names.
-    pub fn parse(value: &str) -> Option<Self> {
+    pub(crate) fn parse(value: &str) -> Option<Self> {
         [Self::Png, Self::Jpeg, Self::Gif, Self::Webp]
             .into_iter()
             .find(|kind| kind.as_str() == value)
@@ -134,7 +134,7 @@ pub struct Message {
 
 impl Message {
     /// A user message worth sending: words, images, or both.
-    pub fn has_content(&self) -> bool {
+    pub(crate) fn has_content(&self) -> bool {
         !self.text.trim().is_empty() || !self.images.is_empty()
     }
 }

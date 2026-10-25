@@ -46,7 +46,7 @@ impl Chord {
     }
 
     /// `key` with no modifiers.
-    pub const fn key(key: Key) -> Self {
+    pub(crate) const fn key(key: Key) -> Self {
         Self {
             key,
             cmd: false,
@@ -68,7 +68,7 @@ impl Chord {
 
     /// The same key with Shift held as well.
     #[must_use]
-    pub const fn shift(self) -> Self {
+    pub(crate) const fn shift(self) -> Self {
         Self {
             shift: true,
             ..self
@@ -77,7 +77,7 @@ impl Chord {
 
     /// The same key with Option held as well.
     #[must_use]
-    pub const fn alt(self) -> Self {
+    pub(crate) const fn alt(self) -> Self {
         Self { alt: true, ..self }
     }
 
@@ -85,7 +85,7 @@ impl Chord {
     ///
     /// Escape is Escape whatever is held with it, so it cancels a drag that
     /// has Shift or Option down.
-    pub fn of(input: &KeyInput) -> Self {
+    pub(crate) fn of(input: &KeyInput) -> Self {
         if input.key == Key::Escape {
             return Self::key(Key::Escape);
         }

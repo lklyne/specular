@@ -22,7 +22,7 @@ pub struct InspectTarget {
     /// The page entity.
     pub page: EntityId,
     /// The node.
-    pub node: InspectedNode,
+    pub(crate) node: InspectedNode,
 }
 
 /// What the inspect tool holds.

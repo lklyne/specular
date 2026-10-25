@@ -31,7 +31,7 @@ impl SafeArea {
     };
 
     /// Whether the whole screen is safe.
-    pub fn is_none(self) -> bool {
+    pub(crate) fn is_none(self) -> bool {
         self == Self::NONE
     }
 }

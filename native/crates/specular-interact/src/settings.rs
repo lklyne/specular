@@ -26,7 +26,7 @@ pub enum ToolsPlace {
 
 impl ToolsPlace {
     /// Every place, in the order the setting lists them.
-    pub const ALL: [Self; 3] = [Self::Docked, Self::FloatTop, Self::FloatBottom];
+    pub(crate) const ALL: [Self; 3] = [Self::Docked, Self::FloatTop, Self::FloatBottom];
 
     /// The name the place is saved and chosen by.
     pub const fn name(self) -> &'static str {
@@ -43,7 +43,7 @@ impl ToolsPlace {
     }
 
     /// What the setting calls it.
-    pub const fn label(self) -> &'static str {
+    pub(crate) const fn label(self) -> &'static str {
         match self {
             Self::Docked => "Docked on the left",
             Self::FloatTop => "Floating at the top",
@@ -187,7 +187,7 @@ pub struct SettingsModel {
     /// The space folder and the launch defaults.
     pub general: GeneralPane,
     /// The connected repos and the origins bound to them.
-    pub repos: ReposPane,
+    pub(crate) repos: ReposPane,
     /// Every key binding, in the table's order.
     pub shortcuts: Vec<ShortcutRow>,
     /// The app's version and those of what it is built from.

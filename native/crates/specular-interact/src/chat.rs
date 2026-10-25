@@ -71,18 +71,18 @@ impl Default for ChatView {
 impl ChatView {
     /// Whether the shell draws a right panel at all. Without one, a comment
     /// is written in the card on the canvas.
-    pub fn available(&self) -> bool {
+    pub(crate) fn available(self) -> bool {
         self.available
     }
 
     /// Whether the panel is open. It starts closed, and opens when a comment
     /// draft needs its field.
-    pub fn shown(&self) -> bool {
+    pub(crate) fn shown(self) -> bool {
         self.available && self.shown
     }
 
     /// The width the panel is laid out at, in logical pixels.
-    pub fn width(&self) -> f32 {
+    pub(crate) fn width(self) -> f32 {
         self.width
     }
 
@@ -110,11 +110,6 @@ impl App {
     /// runs in flight.
     pub fn threads(&self) -> &Threads {
         &self.threads
-    }
-
-    /// The models the agent can run and the one chosen.
-    pub fn models(&self) -> &specular_agent::Models {
-        &self.models
     }
 
     /// The right panel's state.

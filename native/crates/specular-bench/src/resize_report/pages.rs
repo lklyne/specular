@@ -14,23 +14,23 @@ const SWITCH_GAP_US: u64 = 400_000;
 #[derive(Debug, Clone, Default, PartialEq, Serialize)]
 pub struct PageSide {
     /// Asks made of page hosts: every `was_resized`.
-    pub asks: usize,
+    pub(crate) asks: usize,
     /// Asks for another texel size than the page's ask before.
-    pub requests: usize,
+    pub(crate) requests: usize,
     /// Shared-texture paints of a page's view.
-    pub paints: usize,
+    pub(crate) paints: usize,
     /// Paints of the texel size asked for at the time.
     pub(crate) paints_matching: usize,
     /// Requests no paint of their size came for before the same size was
     /// requested again.
-    pub unanswered: usize,
+    pub(crate) unanswered: usize,
     /// Paints dropped at the texture cap.
-    pub dropped: usize,
+    pub(crate) dropped: usize,
     /// Paints whose `content_rect` is smaller than the surface.
     pub(crate) letterboxed: usize,
     /// Paints whose `source_size` is set and is not the size of their
     /// `content_rect`: content captured at one size and scaled to another.
-    pub rescaled: usize,
+    pub(crate) rescaled: usize,
     /// Paints with `has_capture_counter` set.
     pub(crate) with_capture_counter: usize,
     /// Paints with `has_source_size` set.
@@ -49,7 +49,7 @@ pub struct PageSide {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Switch {
     /// How many asks it made.
-    pub asks: usize,
+    pub(crate) asks: usize,
     /// From the step, or the first ask of a burst, to the end of the first
     /// frame after it that drew the page at the last ask's CSS size, at
     /// any texel size. `None` if none did.

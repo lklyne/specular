@@ -30,9 +30,9 @@ use crate::footprint::phys_footprint;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ProcessRow {
     /// Process id.
-    pub pid: u32,
+    pub(crate) pid: u32,
     /// Parent process id.
-    pub ppid: u32,
+    pub(crate) ppid: u32,
     /// Resident set size in KiB.
     pub(crate) rss_kb: u64,
 }

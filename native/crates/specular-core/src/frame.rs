@@ -135,7 +135,7 @@ pub enum PageFrame {
 
 impl PageFrame {
     /// Size of the frame in texels.
-    pub fn size(&self) -> PixelSize {
+    pub(crate) fn size(&self) -> PixelSize {
         match self {
             Self::GpuShared(texture) => texture.size(),
             Self::Cpu(frame) => frame.size,

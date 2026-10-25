@@ -17,7 +17,7 @@ pub enum WriteTarget {
 
 impl WriteTarget {
     /// The folder the run works in when it is not the space folder.
-    pub fn cwd(&self) -> Option<&str> {
+    pub(crate) fn cwd(&self) -> Option<&str> {
         match self {
             Self::Space => None,
             Self::Repo { repo_path, .. } => Some(repo_path),

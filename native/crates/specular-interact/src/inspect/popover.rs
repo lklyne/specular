@@ -74,7 +74,7 @@ impl InspectPopover {
     }
 
     /// The card's size: its widest row and the rows stacked, with padding.
-    pub fn size_of(&self) -> Vec2 {
+    pub(crate) fn size_of(&self) -> Vec2 {
         let rows = self.rows();
         let widest = rows.iter().flatten().fold(0.0_f32, |most, w| most.max(*w));
         let mut height = Self::CHIP_HEIGHT;

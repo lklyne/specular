@@ -64,7 +64,7 @@ impl PathStroke {
 
     /// The same stroke, dashed.
     #[must_use]
-    pub const fn dashed(self, dash: Dash) -> Self {
+    pub(crate) const fn dashed(self, dash: Dash) -> Self {
         Self {
             dash: Some(dash),
             ..self
@@ -72,7 +72,7 @@ impl PathStroke {
     }
 
     /// How far the stroke can reach past the outline it follows.
-    pub fn outset(self) -> f32 {
+    pub(crate) fn outset(self) -> f32 {
         let width = self.width.max(0.0);
         // A miter runs up to the usual limit of four half-widths.
         match self.join {

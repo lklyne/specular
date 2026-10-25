@@ -56,7 +56,7 @@ pub struct PlaceDrag {
 
 impl PlaceDrag {
     /// The shape being dragged out, which is in the document already.
-    pub fn live(&self) -> Option<&EntityId> {
+    pub(crate) fn live(&self) -> Option<&EntityId> {
         self.live.as_ref()
     }
 }

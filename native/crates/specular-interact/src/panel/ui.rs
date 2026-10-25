@@ -22,12 +22,12 @@ pub struct PanelUi {
     /// draws none and presses controls by name.
     pub(crate) shell_chrome: bool,
     /// The dropdown opened by pressing its name.
-    pub open: Option<ControlId>,
+    pub(crate) open: Option<ControlId>,
     /// The context menu that is open, if one is.
     pub menu: Option<ContextMenu>,
     /// The item last picked in the sidebar, which a shift-click selects a
     /// run from.
-    pub anchor: Option<specular_doc::ItemId>,
+    pub(crate) anchor: Option<specular_doc::ItemId>,
 }
 
 impl PanelUi {

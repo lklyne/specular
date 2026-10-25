@@ -31,7 +31,7 @@ impl SelectionScope {
     /// Whether a press on `id` is a press on the selection: it is a member,
     /// a descendant of a member group, or hooked to a member page. Such a
     /// press keeps the selection, so a drag from it takes everything.
-    pub fn holds(&self, id: &EntityId) -> bool {
+    pub(crate) fn holds(&self, id: &EntityId) -> bool {
         self.operands.contains(id)
     }
 }

@@ -102,7 +102,7 @@ pub struct SceneStats {
     /// Triangles sent: two a quad or shape instance, plus the meshes'.
     pub triangles: u32,
     /// Polygons and paths drawn from a held mesh, and tessellated.
-    pub meshes: MeshCacheCounts,
+    pub(crate) meshes: MeshCacheCounts,
     /// Where the frame's CPU time went.
     pub times: StageTimes,
 }

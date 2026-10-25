@@ -15,10 +15,10 @@ pub use specular_core::text::{SourceSpan, SourceStyle};
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub(crate) struct SourceLine {
     /// The heading level, 1 to 6, or 0 for a line that is not a heading.
-    pub heading: u8,
+    pub(crate) heading: u8,
     /// The stretches set differently from plain text, in order and not
     /// overlapping, on character boundaries.
-    pub spans: Vec<SourceSpan>,
+    pub(crate) spans: Vec<SourceSpan>,
 }
 
 /// Styles every line of `text`, split at its line breaks.

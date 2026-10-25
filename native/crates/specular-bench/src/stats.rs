@@ -74,7 +74,7 @@ pub(crate) fn percentile(sorted: &[f64], p: f64) -> f64 {
 pub struct FrameSummary {
     /// Number of intervals (the lab's `draws`).
     #[serde(rename = "draws", alias = "frames")]
-    pub frames: usize,
+    pub(crate) frames: usize,
     /// Presented frames per second over the run.
     pub(crate) draw_fps: f64,
     /// Mean interval.

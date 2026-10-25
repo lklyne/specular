@@ -163,7 +163,7 @@ impl Default for Space {
 
 impl Space {
     /// The space folder, if the canvases are in one.
-    pub fn folder(&self) -> Option<&str> {
+    pub(crate) fn folder(&self) -> Option<&str> {
         self.folder.as_deref()
     }
 

@@ -66,11 +66,11 @@ impl FrameWork {
 #[serde(rename_all = "camelCase")]
 pub struct StepStat {
     /// Mean milliseconds a frame.
-    pub mean: f64,
+    pub(crate) mean: f64,
     /// 95th percentile.
     pub(crate) p95: f64,
     /// The slowest frame.
-    pub max: f64,
+    pub(crate) max: f64,
 }
 
 /// A profile's frames, step by step. Times are milliseconds a frame;
@@ -79,43 +79,43 @@ pub struct StepStat {
 #[serde(rename_all = "camelCase")]
 pub struct WorkReport {
     /// Frames drawn.
-    pub frames_drawn: usize,
+    pub(crate) frames_drawn: usize,
     /// Loop turns that drew nothing because nothing had changed.
     pub(crate) frames_skipped: usize,
     /// Every step on the CPU added up, a frame.
-    pub cpu: StepStat,
+    pub(crate) cpu: StepStat,
     /// See [`FrameWork::update_ms`].
-    pub update: StepStat,
+    pub(crate) update: StepStat,
     /// See [`FrameWork::view_ms`].
-    pub view: StepStat,
+    pub(crate) view: StepStat,
     /// See [`FrameWork::cull_ms`].
-    pub cull: StepStat,
+    pub(crate) cull: StepStat,
     /// See [`FrameWork::shaping_ms`].
-    pub shaping: StepStat,
+    pub(crate) shaping: StepStat,
     /// See [`FrameWork::batching_ms`].
-    pub batching: StepStat,
+    pub(crate) batching: StepStat,
     /// See [`FrameWork::tessellation_ms`].
-    pub tessellation: StepStat,
+    pub(crate) tessellation: StepStat,
     /// See [`FrameWork::build_ms`].
-    pub build: StepStat,
+    pub(crate) build: StepStat,
     /// See [`FrameWork::glyphs_ms`].
-    pub glyphs: StepStat,
+    pub(crate) glyphs: StepStat,
     /// See [`FrameWork::upload_ms`].
-    pub upload: StepStat,
+    pub(crate) upload: StepStat,
     /// See [`FrameWork::submit_ms`].
-    pub submit: StepStat,
+    pub(crate) submit: StepStat,
     /// See [`FrameWork::gpu_ms`].
-    pub gpu: StepStat,
+    pub(crate) gpu: StepStat,
     /// Most items any frame drew.
-    pub items: u32,
+    pub(crate) items: u32,
     /// Most batches.
-    pub batches: u32,
+    pub(crate) batches: u32,
     /// Most draw calls.
-    pub draw_calls: u32,
+    pub(crate) draw_calls: u32,
     /// Most glyphs.
-    pub glyph_count: u32,
+    pub(crate) glyph_count: u32,
     /// Most triangles.
-    pub triangles: u32,
+    pub(crate) triangles: u32,
     /// CPU seconds the whole process used a second of the profile (1.0 is
     /// one core), which also counts what no step above times: the shell's
     /// own toolkit, worker threads and the driver. Only a window run has it.
