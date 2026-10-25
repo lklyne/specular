@@ -5,7 +5,7 @@ use serde_json::Value;
 
 /// How a batch is arranged.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum Mode {
+pub(crate) enum Mode {
     Row,
     Column,
     Grid,
@@ -137,7 +137,7 @@ fn is_spacing(value: &Value) -> bool {
 
 /// Checks a `layout` directive and returns its mode, or the first problem
 /// in the words the CLI's own check uses.
-pub(super) fn validate(directive: &Value) -> Result<Mode, String> {
+pub(crate) fn validate(directive: &Value) -> Result<Mode, String> {
     if !directive.is_object() {
         return Err("layout: expected an object".to_owned());
     }

@@ -1,0 +1,26 @@
+[package]
+name = "specular-cli"
+description = "The `specular` command: the CLI an agent drives the running app with, over its HTTP API."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# Built as `specular-cli` so it never lands on the Kit shell's `specular` in
+# target/. It is installed on the PATH as `specular`, a link to the copy in
+# the app bundle's Contents/MacOS.
+[[bin]]
+name = "specular-cli"
+path = "src/main.rs"
+
+[dependencies]
+specular-api = { workspace = true }
+anyhow = { workspace = true }
+base64 = { workspace = true }
+# `preserve_order` prints an answer's keys in the order the app sent them.
+serde_json = { workspace = true, features = ["preserve_order"] }
+ureq = { workspace = true }
+
+[lints]
+workspace = true

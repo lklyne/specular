@@ -32,6 +32,7 @@ use crate::facts::Facts;
 use crate::http::strings;
 use crate::ids::Ids;
 use crate::reply::Reply;
+use crate::wire::Applied;
 use crate::{Request, Response, Step};
 
 /// A patch being turned into commands.
@@ -196,12 +197,13 @@ pub(crate) fn apply(
     builder.edge_items(array(patch, "edges")?)?;
     builder.delete(&delete, false)?;
     Ok(builder.finish(|done| {
-        json!({
-            "created": done.created,
-            "updated": done.updated,
-            "deleted": done.deleted,
-            "edges": done.edges,
-        })
+        let applied = Applied {
+            created: done.created.clone(),
+            updated: done.updated.clone(),
+            deleted: done.deleted.clone(),
+            edges: done.edges.clone(),
+        };
+        serde_json::to_value(applied).unwrap_or_default()
     }))
 }
 

@@ -34,6 +34,7 @@ mod reply;
 mod tabs;
 mod tasks;
 mod unported;
+mod wire;
 
 use std::path::PathBuf;
 
@@ -48,6 +49,7 @@ use self::ids::Ids;
 pub use self::pages::CdpAsk;
 pub use self::reply::Pending;
 use self::reply::Reply;
+pub use self::wire::{Applied, Discovery, Footprint, Placed, Position, check_layout, footprint};
 
 /// The API version the CLI checks the discovery file and `/health` for.
 pub const VERSION: &str = "1";
@@ -72,7 +74,12 @@ pub const NATIVE_DISCOVERY_FILE: &str = "specular-native-mcp.json";
 /// What the discovery file holds: where the server is and the secret every
 /// request must carry.
 pub fn discovery(port: u16, secret: &str) -> Value {
-    json!({ "port": port, "secret": secret, "version": VERSION })
+    let discovery = Discovery {
+        port,
+        secret: secret.to_owned(),
+        version: VERSION.to_owned(),
+    };
+    serde_json::to_value(discovery).unwrap_or_default()
 }
 
 /// What to do about a request.
