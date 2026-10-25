@@ -17,7 +17,7 @@ pub enum WriteTarget {
 
 impl WriteTarget {
     /// The folder the run works in when it is not the space folder.
-    pub fn cwd(&self) -> Option<&str> {
+    pub(crate) fn cwd(&self) -> Option<&str> {
         match self {
             Self::Space => None,
             Self::Repo { repo_path, .. } => Some(repo_path),
@@ -162,7 +162,7 @@ pub fn thread_prompt(thread: &Thread, ctx: &PromptContext) -> String {
 }
 
 /// The prompt for a follow-up turn on a resumed session.
-pub fn follow_up_prompt(
+pub(crate) fn follow_up_prompt(
     text: &str,
     ctx: &PromptContext,
     image_count: usize,

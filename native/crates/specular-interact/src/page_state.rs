@@ -31,7 +31,7 @@ pub struct PageState {
     /// document with none.
     pub title: String,
     /// The document's icon as a PNG, when it has one.
-    pub favicon: Option<Arc<[u8]>>,
+    pub(crate) favicon: Option<Arc<[u8]>>,
     /// The address the page shows, once it has reported one.
     pub url: Option<String>,
     /// Whether a load is in flight.
@@ -49,13 +49,13 @@ pub struct PageState {
     /// How the document fits its device's screen. Kept from one document
     /// to the next until the new one says, so a site that covers is not
     /// laid out twice a page.
-    pub fit: ScreenFit,
+    pub(crate) fit: ScreenFit,
     /// The colour the document has a browser paint round it. `None` until
     /// it says, and for a document that names none.
-    pub surround: Option<[u8; 3]>,
+    pub(crate) surround: Option<[u8; 3]>,
     /// Where the elements anchored items follow sit in the document, by
     /// selector (ADR 0032). A selector that finds nothing has no entry.
-    pub elements: HashMap<String, ElementPlace>,
+    pub(crate) elements: HashMap<String, ElementPlace>,
 }
 
 /// The live state of every hosted page that has reported anything.

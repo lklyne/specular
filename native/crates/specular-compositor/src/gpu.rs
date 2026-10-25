@@ -2,11 +2,9 @@
 
 use crate::error::CompositorError;
 
-/// An initialised wgpu instance, adapter, device and queue.
+/// An initialised wgpu adapter, device and queue.
 #[derive(Debug)]
 pub struct GpuContext {
-    /// The instance (needed to create window surfaces).
-    pub instance: wgpu::Instance,
     /// The chosen adapter.
     pub adapter: wgpu::Adapter,
     /// The device (cheaply cloneable handle).
@@ -43,7 +41,6 @@ impl GpuContext {
             })
             .await?;
         Ok(Self {
-            instance,
             adapter,
             device,
             queue,

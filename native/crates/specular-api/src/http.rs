@@ -26,7 +26,7 @@ impl Method {
     }
 
     /// The method as HTTP writes it.
-    pub const fn name(self) -> &'static str {
+    pub(crate) const fn name(self) -> &'static str {
         match self {
             Self::Get => "GET",
             Self::Post => "POST",
@@ -88,7 +88,7 @@ impl Request {
     }
 
     /// The first value the query string gives `key`.
-    pub fn query(&self, key: &str) -> Option<&str> {
+    pub(crate) fn query(&self, key: &str) -> Option<&str> {
         (self.query.iter())
             .find(|(name, _)| name == key)
             .map(|(_, value)| value.as_str())
@@ -167,10 +167,5 @@ impl Response {
     /// A `404`.
     pub(crate) fn not_found(message: impl Into<String>) -> Self {
         Self::error(404, message)
-    }
-
-    /// Whether the status is a success.
-    pub const fn is_ok(&self) -> bool {
-        self.status >= 200 && self.status < 300
     }
 }

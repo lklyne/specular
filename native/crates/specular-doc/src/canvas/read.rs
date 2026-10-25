@@ -56,7 +56,11 @@ pub(super) fn read_node(mut node: JsonMap) -> Result<Entity, JsonMap> {
             text.width_mode = take(&mut ext, "widthMode");
             text.size = take(&mut ext, "textSize");
             text.font = take(&mut ext, "textFont");
-            entity.anchor = take(&mut ext, "pageAnchor");
+            // Text keeps its anchor under `specular`, as Electron wrote it.
+            // One at the top level, where shapes and drawings keep theirs,
+            // is read too, and is written back under `specular`.
+            let nested = take(&mut ext, "pageAnchor");
+            entity.anchor = nested.or(take(&mut node, "pageAnchor"));
             entity.parent = take(&mut ext, "parentGroupId");
             entity.label = take(&mut ext, "label");
         }

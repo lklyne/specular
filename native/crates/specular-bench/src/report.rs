@@ -28,7 +28,7 @@ pub enum PaintPolicy {
 
 impl PaintPolicy {
     /// The name used on command lines and in reports.
-    pub const fn name(self) -> &'static str {
+    pub(crate) const fn name(self) -> &'static str {
         match self {
             Self::ElectronLod => "electron-lod",
             Self::FullRate => "full-rate",
@@ -96,22 +96,22 @@ pub struct RunReport {
 #[serde(rename_all = "camelCase")]
 pub struct PhaseReport {
     /// Profile id.
-    pub phase: ProfileId,
+    pub(crate) phase: ProfileId,
     /// First to last presented frame of the phase.
-    pub duration_ms: f64,
+    pub(crate) duration_ms: f64,
     /// Presented-frame interval statistics.
     #[serde(flatten)]
-    pub frames: FrameSummary,
+    pub(crate) frames: FrameSummary,
     /// Page frames admitted during the phase (the lab's `framesReceived`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub frames_received: Option<u64>,
+    pub(crate) frames_received: Option<u64>,
     /// Presented frames in which at least one visible page had no texture
     /// yet — the compositor-side gap the user sees as a blank page.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub draws_without_texture: Option<u64>,
+    pub(crate) draws_without_texture: Option<u64>,
     /// Texture counters accumulated during the phase.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub textures: Option<TextureStats>,
+    pub(crate) textures: Option<TextureStats>,
     /// The most shapes any presented frame of the phase drew (chrome load).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_shapes_drawn: Option<u64>,

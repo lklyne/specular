@@ -8,7 +8,7 @@ Electron app's `POST /perf/pan-zoom/run`, so old numbers still read the same.
 
 | Module | Purpose |
 |---|---|
-| `profile` | The six gesture profiles plus `idle`, `build_steps` and `select_profiles`. A port of `src/shared/pan-zoom-perf-test.ts`, with the same ids, durations and pan and zoom totals |
+| `profile` | The six gesture profiles plus `idle`, `build_steps` and `select_profiles`. A port of `git show bc5253fa:src/shared/pan-zoom-perf-test.ts`, with the same ids, durations and pan and zoom totals |
 | `stats` | `draws`, `drawFps`, `meanFrameMs`, `p50/p95/p99FrameMs`, `maxFrameMs`, `longFrames` (interval over 1.5 x `frameMs`) |
 | `recorder` | One phase's presents into a `PhaseReport`, plus `drawsWithoutTexture` |
 | `work` | Each frame's time step by step and what it drew |

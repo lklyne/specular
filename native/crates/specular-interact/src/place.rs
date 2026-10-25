@@ -33,7 +33,7 @@ const BLANK_URL: &str = "about:blank";
 
 /// What a placement makes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Placing {
+pub(crate) enum Placing {
     /// A page.
     Page,
     /// Plain text or a sticky note.
@@ -56,7 +56,7 @@ pub struct PlaceDrag {
 
 impl PlaceDrag {
     /// The shape being dragged out, which is in the document already.
-    pub fn live(&self) -> Option<&EntityId> {
+    pub(crate) fn live(&self) -> Option<&EntityId> {
         self.live.as_ref()
     }
 }

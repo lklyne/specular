@@ -131,7 +131,7 @@ pub enum DeviceKind {
 }
 
 /// The device frame around a page's screen: `DeviceDef` in the Electron
-/// app's `src/shared/device-catalog.ts`, already turned for the page's
+/// app's `git show bc5253fa:src/shared/device-catalog.ts`, already turned for the page's
 /// orientation.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct DeviceShell {
@@ -187,7 +187,7 @@ const COMPUTER: DeviceShell = shell((12.0, 12.0, 12.0, 12.0), 20.0, 8.0, DeviceK
 /// A device with a drawing has one shell in both styles, its drawing's
 /// body, so changing the style never moves or resizes it. Only a realistic
 /// shell names the drawing.
-pub fn device_shell(
+pub(crate) fn device_shell(
     device_id: Option<&str>,
     landscape: bool,
     style: DeviceFrameStyle,

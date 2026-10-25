@@ -130,14 +130,19 @@ pub struct TextRun {
 
 impl TextRun {
     /// Line height used by [`new`](Self::new), as a multiple of the size.
-    pub const DEFAULT_LINE_HEIGHT: f32 = 1.4;
+    pub(crate) const DEFAULT_LINE_HEIGHT: f32 = 1.4;
     /// Weight of headings and strong text in a Document.
-    pub const HEAVY: u16 = 600;
+    pub(crate) const HEAVY: u16 = 600;
 
     /// `text` set as `spec` says, starting at `origin`. `view` draws an
     /// entity's text with this run and the editor's measure shapes the same
     /// one, so a caret measured on it sits on the drawn glyphs.
-    pub fn set(text: impl Into<String>, spec: &TextSpec, origin: Point, color: Color) -> Self {
+    pub(crate) fn set(
+        text: impl Into<String>,
+        spec: &TextSpec,
+        origin: Point,
+        color: Color,
+    ) -> Self {
         Self {
             wrap_width: spec.wrap_width,
             family: match spec.font {
@@ -197,7 +202,7 @@ impl TextRun {
     }
 
     /// `text` laid out in `frame`, the place an entity's text sits.
-    pub fn framed(text: impl Into<String>, frame: &TextFrame, color: Color) -> Self {
+    pub(crate) fn framed(text: impl Into<String>, frame: &TextFrame, color: Color) -> Self {
         let origin = Point::new(frame.origin.x as f32, frame.origin.y as f32);
         Self {
             box_height: frame.box_height,

@@ -4,7 +4,7 @@
 use super::{Canvas, CanvasId};
 
 /// The name of the canvas an empty space starts with.
-pub const DEFAULT_CANVAS_NAME: &str = "Canvas 1";
+pub(crate) const DEFAULT_CANVAS_NAME: &str = "Canvas 1";
 
 /// The file a canvas named `name` with id `id` is kept in:
 /// `<name>-<first four characters of the id>.canvas`. The suffix keeps two

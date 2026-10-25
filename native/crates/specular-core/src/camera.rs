@@ -10,12 +10,12 @@ use glam::{Mat4, Vec2, Vec3};
 
 use crate::geometry::Rect;
 
-/// Smallest zoom the canvas allows (`CANVAS_MIN_ZOOM` in `src/shared/zoom.ts`).
-pub const MIN_ZOOM: f32 = 0.02;
-/// Largest zoom the canvas allows (`CANVAS_MAX_ZOOM` in `src/shared/zoom.ts`).
-pub const MAX_ZOOM: f32 = 3.0;
+/// Smallest zoom the canvas allows (`CANVAS_MIN_ZOOM` in `git show bc5253fa:src/shared/zoom.ts`).
+pub(crate) const MIN_ZOOM: f32 = 0.02;
+/// Largest zoom the canvas allows (`CANVAS_MAX_ZOOM` in `git show bc5253fa:src/shared/zoom.ts`).
+pub(crate) const MAX_ZOOM: f32 = 3.0;
 /// Zoom change per unit of wheel `deltaY` (`applyViewportInputDelta`).
-pub const ZOOM_PER_WHEEL_DELTA: f32 = 0.002;
+pub(crate) const ZOOM_PER_WHEEL_DELTA: f32 = 0.002;
 
 /// One tick of viewport input: what a wheel/trackpad event or one gesture
 /// profile step applies to the camera.
@@ -117,7 +117,7 @@ impl Camera {
 }
 
 /// Clamps a zoom value into [`MIN_ZOOM`]..=[`MAX_ZOOM`].
-pub fn clamp_zoom(zoom: f32) -> f32 {
+pub(crate) fn clamp_zoom(zoom: f32) -> f32 {
     zoom.clamp(MIN_ZOOM, MAX_ZOOM)
 }
 

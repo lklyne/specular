@@ -56,7 +56,7 @@ impl Pending {
     }
 
     /// The response, given how the event went and the app it left behind.
-    pub fn finish(self, app: &App, outcome: &ApiOutcome) -> Response {
+    pub(crate) fn finish(self, app: &App, outcome: &ApiOutcome) -> Response {
         if let ApiOutcome::Refused(reason) = outcome {
             // A tab verb refuses what the caller got wrong: a name that is
             // empty or taken.

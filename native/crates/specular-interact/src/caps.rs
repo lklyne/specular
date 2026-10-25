@@ -7,7 +7,7 @@ use specular_doc::Kind;
 
 /// How a resize treats an entity's aspect ratio.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum AspectMode {
+pub(crate) enum AspectMode {
     /// Width and height change independently.
     Free,
     /// Holding Shift keeps the ratio the drag started with.
@@ -18,7 +18,7 @@ pub enum AspectMode {
 
 impl AspectMode {
     /// Whether a resize keeps the ratio, given whether Shift is held.
-    pub const fn locks(self, shift: bool) -> bool {
+    pub(crate) const fn locks(self, shift: bool) -> bool {
         match self {
             Self::Free => false,
             Self::ShiftLocks => shift,
@@ -35,7 +35,7 @@ const MEDIA_EXTENSIONS: [&str; 14] = [
 
 /// The smallest size, in canvas units, a resize may give an entity of this
 /// kind. An HTML file is a page.
-pub fn min_size(kind: &Kind) -> DVec2 {
+pub(crate) fn min_size(kind: &Kind) -> DVec2 {
     match kind {
         Kind::Page(_) => DVec2::new(320.0, 200.0),
         Kind::File(file) if file.is_html() => DVec2::new(320.0, 200.0),
@@ -48,7 +48,7 @@ pub fn min_size(kind: &Kind) -> DVec2 {
 }
 
 /// The aspect rule a resize of this kind follows.
-pub fn aspect_mode(kind: &Kind) -> AspectMode {
+pub(crate) fn aspect_mode(kind: &Kind) -> AspectMode {
     match kind {
         // A text's height follows its content, so a free vertical drag would
         // do nothing. Keeping the ratio makes that drag change the width.
@@ -73,7 +73,7 @@ pub fn aspect_mode(kind: &Kind) -> AspectMode {
 
 /// Whether the kind shows edge anchors when selected. Drawings do not: the
 /// dots crowd a selected stroke and make it awkward to grab.
-pub const fn has_anchors(kind: &Kind) -> bool {
+pub(crate) const fn has_anchors(kind: &Kind) -> bool {
     match kind {
         Kind::Page(_) | Kind::Text(_) | Kind::File(_) | Kind::Group(_) | Kind::Shape(_) => true,
         Kind::Drawing(_) => false,

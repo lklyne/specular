@@ -24,7 +24,7 @@ impl InspectPopover {
     /// The text size, in logical pixels.
     pub const FONT_SIZE: f32 = 11.0;
     /// The width of one character of the 11 px monospace face, as the renderer sets it.
-    pub const ADVANCE: f32 = 6.7;
+    pub(crate) const ADVANCE: f32 = 6.7;
     /// The height of a row of plain text.
     pub const LINE: f32 = 14.0;
     /// The height of the row holding the tag chip.
@@ -43,7 +43,7 @@ impl InspectPopover {
     /// The space between two colours.
     pub const SWATCH_SPACING: f32 = 10.0;
     /// The widest the card grows.
-    pub const MAX_WIDTH: f32 = 360.0;
+    pub(crate) const MAX_WIDTH: f32 = 360.0;
 
     /// The width of `text` set in the card's face.
     pub fn text_width(text: &str) -> f32 {
@@ -74,7 +74,7 @@ impl InspectPopover {
     }
 
     /// The card's size: its widest row and the rows stacked, with padding.
-    pub fn size_of(&self) -> Vec2 {
+    pub(crate) fn size_of(&self) -> Vec2 {
         let rows = self.rows();
         let widest = rows.iter().flatten().fold(0.0_f32, |most, w| most.max(*w));
         let mut height = Self::CHIP_HEIGHT;

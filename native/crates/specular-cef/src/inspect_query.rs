@@ -3,7 +3,7 @@
 //! [`dom_query`](crate::dom_query): one `Runtime.evaluate` out, bytes in.
 //!
 //! The DOM rules are `inspectionPayload` in the Electron preload
-//! (`src/preload/dom-element-utils.ts`), minus the overlay skip: a CEF page
+//! (`git show bc5253fa:src/preload/dom-element-utils.ts`), minus the overlay skip: a CEF page
 //! has no Specular overlay injected into it.
 
 use serde_json::Value;
@@ -66,7 +66,7 @@ return JSON.stringify({
 "#;
 
 /// The message that asks for the node under a viewport point.
-pub fn inspect_at_message(id: i32, x: f32, y: f32) -> Vec<u8> {
+pub(crate) fn inspect_at_message(id: i32, x: f32, y: f32) -> Vec<u8> {
     let styles = STYLES
         .iter()
         .map(|(label, key)| format!("['{label}','{key}']"))
@@ -82,7 +82,7 @@ pub fn inspect_at_message(id: i32, x: f32, y: f32) -> Vec<u8> {
 
 /// The node an [`inspect_at_message`] found. `None` for a point on no
 /// element, a page that threw and an answer that cannot be read.
-pub fn parse_inspected(result: &[u8]) -> Option<InspectedNode> {
+pub(crate) fn parse_inspected(result: &[u8]) -> Option<InspectedNode> {
     let found: Value = serde_json::from_str(&returned(result)?).ok()?;
     let text = |key: &str| Some(found.get(key)?.as_str()?.to_owned());
     let int = |key: &str| found.get(key)?.as_i64();

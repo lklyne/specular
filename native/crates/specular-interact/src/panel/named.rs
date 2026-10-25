@@ -31,9 +31,9 @@ use crate::{Action, App, Effect, SidebarRow, edit, hit};
 #[error("no control `{name}` is shown; these are: {}", shown.join(" "))]
 pub struct UnknownControl {
     /// The name asked for.
-    pub name: String,
+    pub(crate) name: String,
     /// The names of the controls there are, in the models' order.
-    pub shown: Vec<String>,
+    pub(crate) shown: Vec<String>,
 }
 
 /// What activating a control does.
@@ -290,7 +290,7 @@ fn named(app: &App) -> Vec<Named> {
 
 /// The names of the controls there are now, whether or not anything draws
 /// them: what [`Event::Control`](crate::Event) takes.
-pub fn named_controls(app: &App) -> Vec<ControlId> {
+pub(crate) fn named_controls(app: &App) -> Vec<ControlId> {
     named(app).into_iter().map(|named| named.id).collect()
 }
 

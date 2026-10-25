@@ -307,6 +307,21 @@ fn page_reads_the_older_group_id_and_writes_both_names() {
 }
 
 #[test]
+fn text_reads_a_page_anchor_at_the_top_level_and_writes_it_under_specular() {
+    let anchor = json!({ "pageId": "p", "pageUrl": "https://example.com/" });
+    let document = load(&canvas(
+        json!([{ "id": "t", "type": "text", "x": 0, "y": 0, "width": 1, "height": 1,
+                 "text": "hi", "pageAnchor": anchor }]),
+        json!([]),
+    ));
+    let read = document.entity(&"t".into()).unwrap().anchor.as_ref();
+    assert_eq!(read.map(|anchor| anchor.page_id.as_str()), Some("p"));
+    let node = saved(&document)["nodes"][0].clone();
+    assert_eq!(node.get("pageAnchor"), None);
+    assert_eq!(node["specular"]["pageAnchor"]["pageId"], json!("p"));
+}
+
+#[test]
 fn numbers_are_rounded_to_hundredths_except_zoom() {
     let mut document = load(&json!({
         "nodes": [{ "id": "g", "type": "group", "x": 210.954_545_454_545_47, "y": -0.125,

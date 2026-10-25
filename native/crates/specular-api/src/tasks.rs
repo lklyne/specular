@@ -282,12 +282,9 @@ impl Cluster<'_> {
     }
 }
 
-/// `POST /tasks/apply`.
-pub(crate) fn apply(
-    ids: &mut Ids,
-    app: &specular_interact::App,
-    body: &Value,
-) -> Result<Step, Response> {
+/// What a breakpoint-map task asks for: the address, the preset labels in
+/// order, and their rows in the preset table.
+fn breakpoint_input(body: &Value) -> Result<(String, Vec<String>, Vec<usize>), Response> {
     let kind = body
         .get("taskKind")
         .and_then(Value::as_str)
@@ -313,6 +310,17 @@ pub(crate) fn apply(
         ));
     }
     let rows = resolve(&labels)?;
+    Ok((url, labels, rows))
+}
+
+/// `POST /tasks/apply`.
+pub(crate) fn apply(
+    ids: &mut Ids,
+    app: &specular_interact::App,
+    body: &Value,
+) -> Result<Step, Response> {
+    let input = &body["input"];
+    let (url, labels, rows) = breakpoint_input(body)?;
     let sizes: Vec<(f64, f64)> = (rows.iter())
         .map(|&row| (VIEWPORT_PRESETS[row].width, VIEWPORT_PRESETS[row].height))
         .collect();

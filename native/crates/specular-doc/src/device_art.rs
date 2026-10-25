@@ -33,7 +33,7 @@ impl DeviceFrameStyle {
 
     /// The style `metadata.deviceFrameStyle` names. No name, and one this
     /// build does not know, is clay.
-    pub fn from_name(name: Option<&str>) -> Self {
+    pub(crate) fn from_name(name: Option<&str>) -> Self {
         match name {
             Some("realistic") => Self::Realistic,
             _ => Self::Clay,
@@ -61,7 +61,7 @@ impl DeviceFrameColor {
 
     /// The colour `metadata.deviceFrameColor` names. No name, and one this
     /// build does not know, is none: the device follows the app's theme.
-    pub fn from_name(name: Option<&str>) -> Option<Self> {
+    pub(crate) fn from_name(name: Option<&str>) -> Option<Self> {
         match name {
             Some("light") => Some(Self::Light),
             Some("dark") => Some(Self::Dark),
@@ -90,14 +90,14 @@ pub struct ArtGeometry {
     /// The screen's width and height.
     pub screen_size: (f64, f64),
     /// The screen's corner radius.
-    pub screen_corner_radius: f64,
+    pub(crate) screen_corner_radius: f64,
     /// The left and top edge of the body: the device's main outline,
     /// without the buttons that stick out of it.
-    pub body_origin: (f64, f64),
+    pub(crate) body_origin: (f64, f64),
     /// The body's width and height.
-    pub body_size: (f64, f64),
+    pub(crate) body_size: (f64, f64),
     /// The body's corner radius.
-    pub body_corner_radius: f64,
+    pub(crate) body_corner_radius: f64,
 }
 
 impl DeviceArt {

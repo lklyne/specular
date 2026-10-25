@@ -2,7 +2,7 @@ use crate::stream::Progress;
 use crate::thread::{Artifact, Image};
 
 /// The run log keeps this many lines; older ones drop.
-pub const MAX_EVENTS: usize = 200;
+pub(crate) const MAX_EVENTS: usize = 200;
 
 /// Whether a run is going or stopped on an error.
 #[derive(Debug, Clone, PartialEq, Eq)]

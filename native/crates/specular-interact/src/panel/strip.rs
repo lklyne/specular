@@ -45,18 +45,7 @@ pub struct ViewStrip {
     pub add: Button,
 }
 
-impl ViewStrip {
-    /// The action of the tab named `id`, or of its close button,
-    /// `<tab>.close`.
-    pub fn action(&self, id: &ControlId) -> Option<Action> {
-        let closes = |tab: &&ViewTab| tab.close.is_some() && tab.id.child("close") == *id;
-        (self.tabs.iter())
-            .find(|tab| tab.id == *id)
-            .map(|tab| tab.action.clone())
-            .or_else(|| self.tabs.iter().find(closes)?.close.clone())
-            .or_else(|| (self.add.id == *id).then(|| self.add.action.clone()))
-    }
-}
+impl ViewStrip {}
 
 fn item_tab(app: &App, entity: &Entity) -> Option<ViewTab> {
     let (label, icon) = match &entity.kind {

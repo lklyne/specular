@@ -2,7 +2,7 @@
 //! fields follow the Electron app's `POST /perf/pan-zoom/run`.
 //!
 //! - [`profile`]: the six gesture profiles, a port of
-//!   `src/shared/pan-zoom-perf-test.ts`, expanded into deterministic steps.
+//!   `git show bc5253fa:src/shared/pan-zoom-perf-test.ts`, expanded into deterministic steps.
 //! - [`stats`], [`recorder`]: presented-frame intervals reduced to the ADR
 //!   0038 lab's fields (`drawFps`, `meanFrameMs`, `maxFrameMs`, `longFrames`)
 //!   plus percentiles.
@@ -17,20 +17,20 @@
 //!   `assemble`.
 //! - [`report`]: the results file `assemble` produces.
 
-pub mod bench_line;
-pub mod breakdown;
+pub(crate) mod bench_line;
+pub(crate) mod breakdown;
 mod cpu;
 mod error;
 mod footprint;
-pub mod latency;
-pub mod memory;
-pub mod profile;
-pub mod recorder;
-pub mod report;
+mod latency;
+mod memory;
+mod profile;
+mod recorder;
+mod report;
 pub mod resize_report;
-pub mod stats;
-pub mod textures;
-pub mod work;
+mod stats;
+mod textures;
+mod work;
 
 pub use bench_line::{BenchLine, InputLatencyLine, ProfileLine};
 pub use breakdown::{ProcessMemory, sample_breakdown};
@@ -39,11 +39,11 @@ pub use error::BenchError;
 pub use latency::{InputSeq, LatencySummary, LatencyTracker};
 pub use memory::{MemoryReport, MemorySample, PeakSampler, sample_process_tree};
 pub use profile::{
-    GestureProfile, GestureStep, IDLE, PHASE_GAP, PROFILES, ProfileId, STEP_INTERVAL, build_steps,
-    select_profiles,
+    GestureProfile, GestureStep, PHASE_GAP, ProfileId, STEP_INTERVAL, build_steps, select_profiles,
 };
 pub use recorder::{PhaseRecorder, PresentedFrame};
 pub use report::{PaintPolicy, PhaseReport, RunReport};
-pub use stats::{FrameSummary, FrameTimes};
+pub use stats::FrameSummary;
+pub(crate) use stats::FrameTimes;
 pub use textures::TextureStats;
 pub use work::{FrameWork, StepStat, WorkRecorder, WorkReport};

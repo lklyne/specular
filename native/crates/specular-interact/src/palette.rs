@@ -222,7 +222,7 @@ pub struct PaletteMatch {
     /// The index of the item in the slice that was searched.
     pub item: usize,
     /// How well it matched. Only comparable between matches of one query.
-    pub score: i32,
+    pub(crate) score: i32,
     /// The characters (not bytes) of the label that matched, ascending,
     /// for highlighting. Empty when the label did not match and a keyword
     /// or the group did, and for the empty query.

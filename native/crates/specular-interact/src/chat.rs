@@ -44,11 +44,11 @@ pub(crate) use self::notice::{on_agent, on_loaded, open_thread_of};
 use crate::App;
 
 /// The width the panel starts at: `DEVTOOLS_DEFAULT_WIDTH`.
-pub const CHAT_WIDTH: f32 = 400.0;
+pub(crate) const CHAT_WIDTH: f32 = 400.0;
 /// The narrowest the panel gets: `DEVTOOLS_MIN_WIDTH`.
-pub const CHAT_MIN_WIDTH: f32 = 280.0;
+pub(crate) const CHAT_MIN_WIDTH: f32 = 280.0;
 /// The widest the panel gets: `DEVTOOLS_MAX_WIDTH`.
-pub const CHAT_MAX_WIDTH: f32 = 960.0;
+pub(crate) const CHAT_MAX_WIDTH: f32 = 960.0;
 
 /// The panel's own state.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -71,18 +71,18 @@ impl Default for ChatView {
 impl ChatView {
     /// Whether the shell draws a right panel at all. Without one, a comment
     /// is written in the card on the canvas.
-    pub fn available(&self) -> bool {
+    pub(crate) fn available(self) -> bool {
         self.available
     }
 
     /// Whether the panel is open. It starts closed, and opens when a comment
     /// draft needs its field.
-    pub fn shown(&self) -> bool {
+    pub(crate) fn shown(self) -> bool {
         self.available && self.shown
     }
 
     /// The width the panel is laid out at, in logical pixels.
-    pub fn width(&self) -> f32 {
+    pub(crate) fn width(self) -> f32 {
         self.width
     }
 
@@ -112,13 +112,8 @@ impl App {
         &self.threads
     }
 
-    /// The models the agent can run and the one chosen.
-    pub fn models(&self) -> &specular_agent::Models {
-        &self.models
-    }
-
     /// The right panel's state.
-    pub fn chat_view(&self) -> &ChatView {
+    pub(crate) fn chat_view(&self) -> &ChatView {
         &self.session.chat
     }
 

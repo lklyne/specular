@@ -145,11 +145,6 @@ impl Compositor {
         self.scene_pass.column_heights()
     }
 
-    /// The colour format this compositor renders into.
-    pub fn target_format(&self) -> wgpu::TextureFormat {
-        self.target_format
-    }
-
     /// Ingests one event from a page source: frames replace the page's
     /// texture for that layer (the previous shared surface is released once
     /// the GPU is done with it); popup events show/hide/move the popup layer;

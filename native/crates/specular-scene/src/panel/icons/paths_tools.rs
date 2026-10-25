@@ -1,5 +1,5 @@
 //! Path data of the toolbar glyphs drawn from one or two outlines, as the
-//! Electron app ships it (`src/renderer/shared/icons/toolbar/*.svg` and
+//! Electron app ships it (`git show bc5253fa:src/renderer/shared/icons/toolbar/*.svg` and
 //! `CustomIcons.tsx`).
 
 /// The select arrow's silhouette.

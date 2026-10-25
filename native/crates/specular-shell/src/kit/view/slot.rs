@@ -126,7 +126,21 @@ struct SlotPaint {
 impl SlotPaint {
     fn paint(&self, bounds: Bounds<Pixels>, hitbox: &Hitbox, window: &mut Window, cx: &mut App) {
         window.set_cursor_style(cursor_style(self.asks.cursor.get()), hitbox);
+        self.on_press(bounds, hitbox, window, cx);
+        self.on_release(bounds, hitbox, window);
+        self.on_move(bounds, hitbox, window);
+        on_wheel_and_pinch(hitbox, window);
+        // The input method composes into the canvas only
+        // while a text is being edited or a page is entered.
+        if self.asks.ime_allowed.get() {
+            let handler = ElementInputHandler::new(bounds, self.entity.clone());
+            window.handle_input(&self.focus, handler, cx);
+        }
+    }
 
+    /// A press in the slot: the canvas's, unless it only gives the focus
+    /// back.
+    fn on_press(&self, bounds: Bounds<Pixels>, hitbox: &Hitbox, window: &mut Window, cx: &mut App) {
         // An open Kit list or menu holds the focus, and a press outside it
         // closes it. A field being typed in ends the same way, and its
         // controls go with the selection, so a press that also cleared the
@@ -166,7 +180,11 @@ impl SlotPaint {
             };
             pointer(kind, screen(event.position, bounds), event.modifiers);
         });
+    }
 
+    /// A release, the canvas's when its press was or it is over the slot.
+    fn on_release(&self, bounds: Bounds<Pixels>, hitbox: &Hitbox, window: &mut Window) {
+        let view = self.entity.entity_id();
         let (over, press) = (hitbox.clone(), Rc::clone(&self.pointer));
         window.on_mouse_event(move |event: &MouseUpEvent, phase, window, cx| {
             if phase != DispatchPhase::Bubble {
@@ -190,7 +208,11 @@ impl SlotPaint {
             };
             pointer(kind, screen(event.position, bounds), event.modifiers);
         });
+    }
 
+    /// A move over the slot, or anywhere while a press of its is held.
+    fn on_move(&self, bounds: Bounds<Pixels>, hitbox: &Hitbox, window: &mut Window) {
+        let view = self.entity.entity_id();
         let (over, press) = (hitbox.clone(), Rc::clone(&self.pointer));
         window.on_mouse_event(move |event: &MouseMoveEvent, phase, window, cx| {
             if phase != DispatchPhase::Bubble {
@@ -212,36 +234,32 @@ impl SlotPaint {
                 pointer(PointerEventKind::Leave, at, event.modifiers);
             }
         });
-
-        let over = hitbox.clone();
-        window.on_mouse_event(move |event: &ScrollWheelEvent, phase, window, _| {
-            if phase != DispatchPhase::Bubble || !over.is_hovered(window) {
-                return;
-            }
-            let delta = match event.delta {
-                ScrollDelta::Pixels(by) => Vec2::new(f32::from(by.x), f32::from(by.y)),
-                ScrollDelta::Lines(by) => Vec2::new(by.x, by.y) * PIXELS_PER_LINE,
-            };
-            canvas::dispatch(Event::Wheel(WheelInput {
-                delta,
-                modifiers: modifiers(event.modifiers),
-            }));
-        });
-
-        let over = hitbox.clone();
-        window.on_mouse_event(move |event: &PinchEvent, phase, window, _| {
-            if phase == DispatchPhase::Bubble && over.is_hovered(window) {
-                canvas::dispatch(Event::Pinch { delta: event.delta });
-            }
-        });
-
-        // The input method composes into the canvas only
-        // while a text is being edited or a page is entered.
-        if self.asks.ime_allowed.get() {
-            let handler = ElementInputHandler::new(bounds, self.entity.clone());
-            window.handle_input(&self.focus, handler, cx);
-        }
     }
+}
+
+/// The wheel and the trackpad's pinch over the slot.
+fn on_wheel_and_pinch(hitbox: &Hitbox, window: &mut Window) {
+    let over = hitbox.clone();
+    window.on_mouse_event(move |event: &ScrollWheelEvent, phase, window, _| {
+        if phase != DispatchPhase::Bubble || !over.is_hovered(window) {
+            return;
+        }
+        let delta = match event.delta {
+            ScrollDelta::Pixels(by) => Vec2::new(f32::from(by.x), f32::from(by.y)),
+            ScrollDelta::Lines(by) => Vec2::new(by.x, by.y) * PIXELS_PER_LINE,
+        };
+        canvas::dispatch(Event::Wheel(WheelInput {
+            delta,
+            modifiers: modifiers(event.modifiers),
+        }));
+    });
+
+    let over = hitbox.clone();
+    window.on_mouse_event(move |event: &PinchEvent, phase, window, _| {
+        if phase == DispatchPhase::Bubble && over.is_hovered(window) {
+            canvas::dispatch(Event::Pinch { delta: event.delta });
+        }
+    });
 }
 
 impl ShellView {

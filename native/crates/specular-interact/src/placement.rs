@@ -34,19 +34,19 @@ impl PagePlacement {
     }
 
     /// Canvas units per CSS pixel along each axis.
-    pub fn canvas_per_css(self) -> DVec2 {
+    pub(crate) fn canvas_per_css(self) -> DVec2 {
         geometry::size(self.rect) / self.css().max(DVec2::ONE)
     }
 
     /// A canvas point in the page's CSS pixels. Negative or past the
     /// viewport when the point is outside the page.
-    pub fn page_local(self, world: DVec2) -> DVec2 {
+    pub(crate) fn page_local(self, world: DVec2) -> DVec2 {
         let size = geometry::size(self.rect).max(DVec2::splat(f64::EPSILON));
         (world - geometry::origin(self.rect)) * self.css() / size
     }
 
     /// A point in the page's CSS pixels as a canvas point.
-    pub fn to_canvas(self, css: DVec2) -> DVec2 {
+    pub(crate) fn to_canvas(self, css: DVec2) -> DVec2 {
         geometry::origin(self.rect) + css * self.canvas_per_css()
     }
 

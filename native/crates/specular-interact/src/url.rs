@@ -1,10 +1,10 @@
 //! Telling a URL from other text, and completing one a person typed.
-//! Ported from `src/shared/url.ts`.
+//! Ported from `git show bc5253fa:src/shared/url.ts`.
 
 /// Whether `value` is a URL a page can show: it has an `http` or `https`
 /// scheme, or it reads as a bare host (`example.com/path`, `localhost:3000`).
 /// Text with whitespace in it, and any other scheme, is not.
-pub fn looks_like_url(value: &str) -> bool {
+pub(crate) fn looks_like_url(value: &str) -> bool {
     let trimmed = value.trim();
     if trimmed.is_empty() || trimmed.contains(char::is_whitespace) {
         return false;
@@ -29,7 +29,7 @@ pub fn looks_like_url(value: &str) -> bool {
 /// `value` as a full URL. Without a scheme it gets `http` for a local host
 /// and `https` for any other. The scheme and host come out in lower case and
 /// an empty path becomes `/`, as `new URL(value).toString()` gives.
-pub fn normalize_user_url(value: &str) -> String {
+pub(crate) fn normalize_user_url(value: &str) -> String {
     let trimmed = value.trim();
     let with_scheme = match trimmed.split_once("://") {
         Some((scheme, _)) if is_scheme(scheme) => trimmed.to_owned(),
@@ -59,7 +59,7 @@ pub fn normalize_user_url(value: &str) -> String {
 /// What an address field does with `value`: a URL is completed as
 /// [`normalize_user_url`] does, anything else becomes a web search for it.
 /// `None` for an empty field. Ported from `resolveAddressInput`.
-pub fn resolve_address_input(value: &str) -> Option<String> {
+pub(crate) fn resolve_address_input(value: &str) -> Option<String> {
     let trimmed = value.trim();
     if trimmed.is_empty() {
         return None;

@@ -21,16 +21,16 @@
 //!
 //! The canvas document is not here: it is `specular-doc`.
 
-pub mod camera;
-pub mod cursor;
-pub mod frame;
-pub mod geometry;
-pub mod input;
+mod camera;
+mod cursor;
+mod frame;
+mod geometry;
+mod input;
 pub mod ledger;
-pub mod locator;
-pub mod page;
-pub mod source;
-pub mod synthetic;
+mod locator;
+mod page;
+mod source;
+mod synthetic;
 pub mod text;
 
 pub use camera::{Camera, ViewportInputDelta};
@@ -45,8 +45,7 @@ pub use input::{
     PointerEvent, PointerEventKind, TouchEvent, TouchPhase, WheelEvent,
 };
 pub use locator::{
-    LOCATOR_CONFIDENCE_FLOOR, LOCATOR_RUNNER_UP_MARGIN, LocatorBundle, LocatorCandidate,
-    LocatorRect, LocatorResolution, dispatch_point, resolve_locator,
+    LocatorBundle, LocatorCandidate, LocatorRect, LocatorResolution, resolve_locator,
 };
 pub use page::{PageId, PageSpec, validate_texture_scale, validate_viewport};
 pub use source::{
@@ -54,7 +53,4 @@ pub use source::{
     PageColorScheme, PageDevice, PageElement, PageEvent, PageNav, PageSafeArea, PageSource,
     PageSourceError, PageUserAgent, PointKind,
 };
-pub use synthetic::{
-    SyntheticPageSource, synthetic_capture, synthetic_element_at, synthetic_elements_in,
-    synthetic_place,
-};
+pub use synthetic::SyntheticPageSource;

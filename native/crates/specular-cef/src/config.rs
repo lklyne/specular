@@ -42,13 +42,13 @@ pub enum Pump {
 impl CefConfig {
     /// Whether browsers should be created with `shared_texture_enabled` on
     /// the platform this was compiled for.
-    pub fn uses_shared_texture(&self) -> bool {
+    pub(crate) fn uses_shared_texture(&self) -> bool {
         self.shared_texture && cfg!(target_os = "macos")
     }
 
     /// The `remote_debugging_port` value for `cef_settings_t`: CEF accepts
     /// 1024..=65535 and treats 0 as disabled.
-    pub fn settings_debugging_port(&self) -> i32 {
+    pub(crate) fn settings_debugging_port(&self) -> i32 {
         match self.remote_debugging_port {
             Some(port) if port >= 1024 => i32::from(port),
             _ => 0,
@@ -58,11 +58,11 @@ impl CefConfig {
 
 /// A Chromium command-line switch to append in the browser process.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Switch {
+pub(crate) struct Switch {
     /// Switch name without the leading `--`.
-    pub name: &'static str,
+    pub(crate) name: &'static str,
     /// Value for `--name=value`, or `None` for a bare flag.
-    pub value: Option<&'static str>,
+    pub(crate) value: Option<&'static str>,
 }
 
 /// Switches the browser process appends in `OnBeforeCommandLineProcessing`.
@@ -72,7 +72,7 @@ pub struct Switch {
 ///   browser-hosted agent tools.
 /// - `use-mock-keychain` (macOS): otherwise the first cookie write in an
 ///   unsigned dev build pops a Keychain access prompt mid-benchmark.
-pub fn browser_switches(config: &CefConfig) -> Vec<Switch> {
+pub(crate) fn browser_switches(config: &CefConfig) -> Vec<Switch> {
     let mut switches = Vec::new();
     if config.settings_debugging_port() != 0 {
         switches.push(Switch {
@@ -91,22 +91,22 @@ pub fn browser_switches(config: &CefConfig) -> Vec<Switch> {
 
 /// Frame-rate ceiling Specular asks for: 60 Hz displays, or 120 Hz on
 /// high-refresh (`ProMotion`) displays.
-pub const MAX_WINDOWLESS_FRAME_RATE: u32 = 120;
+pub(crate) const MAX_WINDOWLESS_FRAME_RATE: u32 = 120;
 
 /// Clamps a requested page frame rate to what `SetWindowlessFrameRate`
 /// accepts (minimum 1) and the spike's ceiling.
-pub fn windowless_frame_rate(fps: u32) -> i32 {
+pub(crate) fn windowless_frame_rate(fps: u32) -> i32 {
     fps.clamp(1, MAX_WINDOWLESS_FRAME_RATE) as i32
 }
 
 /// The longest the message pump goes without running when CEF has asked
 /// for nothing, in seconds. CEF's own external pump uses the same ceiling.
-pub const PUMP_FALLBACK_SECONDS: f64 = 1.0 / 30.0;
+pub(crate) const PUMP_FALLBACK_SECONDS: f64 = 1.0 / 30.0;
 
 /// Seconds until the message pump should next run, for the delay CEF gave
 /// `OnScheduleMessagePumpWork`: at once for zero or less, and never later
 /// than the fallback.
-pub fn pump_delay_seconds(delay_ms: i64) -> f64 {
+pub(crate) fn pump_delay_seconds(delay_ms: i64) -> f64 {
     (delay_ms.max(0) as f64 / 1_000.0).min(PUMP_FALLBACK_SECONDS)
 }
 
@@ -117,7 +117,7 @@ pub fn pump_delay_seconds(delay_ms: i64) -> f64 {
 /// framework in `../Frameworks/`; helper executables live in
 /// `App.app/Contents/Frameworks/App Helper (X).app/Contents/MacOS/` and walk
 /// three levels up to reach the same `Frameworks/` directory.
-pub fn framework_library_path(exe: &Path, helper: bool) -> Option<PathBuf> {
+pub(crate) fn framework_library_path(exe: &Path, helper: bool) -> Option<PathBuf> {
     const FRAMEWORK: &str = "Chromium Embedded Framework.framework/Chromium Embedded Framework";
     let up = if helper { "../../.." } else { "../Frameworks" };
     Some(exe.parent()?.join(up).join(FRAMEWORK))
@@ -126,6 +126,6 @@ pub fn framework_library_path(exe: &Path, helper: bool) -> Option<PathBuf> {
 /// Whether `args` (the process argv) belong to a CEF subprocess. Chromium
 /// launches every child (renderer, GPU, utility) with `--type=<kind>`; the
 /// browser process never has it.
-pub fn is_subprocess<S: AsRef<str>>(args: &[S]) -> bool {
+pub(crate) fn is_subprocess<S: AsRef<str>>(args: &[S]) -> bool {
     args.iter().any(|arg| arg.as_ref().starts_with("--type="))
 }

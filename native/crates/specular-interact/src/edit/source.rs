@@ -13,16 +13,16 @@ pub use specular_core::text::{SourceSpan, SourceStyle};
 
 /// One line of markdown source, styled.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct SourceLine {
+pub(crate) struct SourceLine {
     /// The heading level, 1 to 6, or 0 for a line that is not a heading.
-    pub heading: u8,
+    pub(crate) heading: u8,
     /// The stretches set differently from plain text, in order and not
     /// overlapping, on character boundaries.
-    pub spans: Vec<SourceSpan>,
+    pub(crate) spans: Vec<SourceSpan>,
 }
 
 /// Styles every line of `text`, split at its line breaks.
-pub fn style_lines(text: &str) -> Vec<SourceLine> {
+pub(crate) fn style_lines(text: &str) -> Vec<SourceLine> {
     let mut fence: Option<&str> = None;
     text.split('\n')
         .map(|line| style_line(line, &mut fence))

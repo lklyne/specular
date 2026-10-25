@@ -10,7 +10,7 @@ use specular_compositor::GpuContext;
 
 /// Not an sRGB format, as the window's surface is not: colours blend
 /// encoded, as a browser's do. The bytes are in PNG order.
-pub const FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
+pub(crate) const FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
 
 /// A render target that can be read back.
 #[derive(Debug)]
@@ -52,7 +52,7 @@ impl Target {
     }
 
     /// Reads the texture back and writes it to `path` as a PNG.
-    pub fn save(&self, gpu: &GpuContext, path: &Path) -> anyhow::Result<()> {
+    pub(crate) fn save(&self, gpu: &GpuContext, path: &Path) -> anyhow::Result<()> {
         let png = self.png(gpu)?;
         std::fs::write(path, png).with_context(|| format!("writing {}", path.display()))
     }

@@ -6,7 +6,7 @@ use specular_core::DEVTOOLS_CLIENT_ID_BASE;
 
 /// Who a message from a page's devtools agent is for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Route {
+pub(crate) enum Route {
     /// The answer to a question the backend asked.
     Backend,
     /// A client's: the answer to a message it sent, or an event, which the
@@ -21,7 +21,7 @@ struct Head {
 
 /// Routes `message`, one devtools-protocol JSON object, by its `id`.
 /// Anything that is not such an object is the backend's to ignore.
-pub fn route(message: &[u8]) -> Route {
+pub(crate) fn route(message: &[u8]) -> Route {
     match serde_json::from_slice::<Head>(message) {
         Ok(Head { id: Some(id) }) if id < i64::from(DEVTOOLS_CLIENT_ID_BASE) => Route::Backend,
         Ok(_) => Route::Client,

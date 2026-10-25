@@ -62,7 +62,7 @@ pub struct TextCounts {
     /// Batches drawn from an earlier frame's layout.
     pub reused: u32,
     /// Glyphs in the batches drawn, laid out now or earlier.
-    pub glyphs: u32,
+    pub(crate) glyphs: u32,
     /// Whether a batch was drawn up to half a pixel off, as a pan by part
     /// of a pixel leaves it. A frame with the camera at rest puts it right.
     pub settling: bool,

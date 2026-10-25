@@ -128,10 +128,37 @@ fn outline_points(points: &[StrokePoint], size: f64, cap: bool) -> Vec<DVec2> {
     if size <= 0.0 {
         return Vec::new();
     }
-    let total_length = last.running_length;
-    let min_distance = (size * SMOOTHING).powi(2);
     let radius = (size / 2.0).max(MIN_RADIUS);
+    let (mut left, right) = sides(points, radius, (size * SMOOTHING).powi(2));
+    if points.len() == 1 {
+        return dot(first.point, radius);
+    }
+    let (Some(&first_left), Some(&first_right)) = (left.first(), right.first()) else {
+        return Vec::new();
+    };
+    let start_cap = if cap {
+        steps(1.0 / START_CAP_SEGMENTS, 1.0 / START_CAP_SEGMENTS, true)
+            .map(|t| rotate_around(first_right, first.point, FIXED_PI * t))
+            .collect()
+    } else {
+        flat_start_cap(first.point, first_left, first_right)
+    };
+    // Out along the left side, round the end, back along the right side,
+    // round the start.
+    left.extend(end_cap(last, radius, cap));
+    left.extend(right.into_iter().rev());
+    left.extend(start_cap);
+    left
+}
 
+/// The left and right edges of a stroke `radius` either side of its
+/// points, dropping points nearer than `min_distance` (squared) to the last
+/// one kept. A turn of more than a right angle gets a round cap.
+fn sides(points: &[StrokePoint], radius: f64, min_distance: f64) -> (Vec<DVec2>, Vec<DVec2>) {
+    let (Some(first), Some(last)) = (points.first(), points.last()) else {
+        return (Vec::new(), Vec::new());
+    };
+    let total_length = last.running_length;
     let mut left: Vec<DVec2> = Vec::new();
     let mut right: Vec<DVec2> = Vec::new();
     let mut previous_vector = first.vector;
@@ -193,22 +220,13 @@ fn outline_points(points: &[StrokePoint], size: f64, cap: bool) -> Vec<DVec2> {
         }
         previous_vector = vector;
     }
+    (left, right)
+}
 
-    if points.len() == 1 {
-        return dot(first.point, radius);
-    }
-    let (Some(&first_left), Some(&first_right)) = (left.first(), right.first()) else {
-        return Vec::new();
-    };
-    let start_cap = if cap {
-        steps(1.0 / START_CAP_SEGMENTS, 1.0 / START_CAP_SEGMENTS, true)
-            .map(|t| rotate_around(first_right, first.point, FIXED_PI * t))
-            .collect()
-    } else {
-        flat_start_cap(first.point, first_left, first_right)
-    };
+/// The end of a stroke past its last point: round, or squared off.
+fn end_cap(last: &StrokePoint, radius: f64, cap: bool) -> Vec<DVec2> {
     let direction = per(-last.vector);
-    let end_cap: Vec<DVec2> = if cap {
+    if cap {
         let start = last.point + direction * radius;
         steps(1.0 / END_CAP_SEGMENTS, 1.0 / END_CAP_SEGMENTS, false)
             .map(|t| rotate_around(start, last.point, FIXED_PI * 3.0 * t))
@@ -220,14 +238,7 @@ fn outline_points(points: &[StrokePoint], size: f64, cap: bool) -> Vec<DVec2> {
             last.point - direction * (radius * 0.99),
             last.point - direction * radius,
         ]
-    };
-
-    // Out along the left side, round the end, back along the right side,
-    // round the start.
-    left.extend(end_cap);
-    left.extend(right.into_iter().rev());
-    left.extend(start_cap);
-    left
+    }
 }
 
 fn flat_start_cap(centre: DVec2, left: DVec2, right: DVec2) -> Vec<DVec2> {

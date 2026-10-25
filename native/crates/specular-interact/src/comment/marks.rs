@@ -16,19 +16,19 @@ use crate::geometry::ScreenRect;
 /// A pill's height, in logical pixels.
 pub const PILL_HEIGHT: f32 = 26.0;
 /// The width of a pill counting up to nine.
-pub const PILL_WIDTH: f32 = 26.0;
+pub(crate) const PILL_WIDTH: f32 = 26.0;
 /// What each digit after the first adds to a pill's width.
-pub const PILL_DIGIT_WIDTH: f32 = 6.0;
+pub(crate) const PILL_DIGIT_WIDTH: f32 = 6.0;
 /// How far a pill on a page sits inside the page's edge, and how far an
 /// element's pill sits inside the corner of the element.
-pub const PILL_INSET: f32 = 8.0;
+pub(crate) const PILL_INSET: f32 = 8.0;
 /// How near the top or bottom of its page a pill on a page's side may
 /// centre.
-pub const PILL_EDGE_MARGIN: f32 = 10.0;
+pub(crate) const PILL_EDGE_MARGIN: f32 = 10.0;
 /// How far a region's frame reaches to either side of its edge for a press.
-pub const REGION_HIT_BAND: f32 = 6.0;
+pub(crate) const REGION_HIT_BAND: f32 = 6.0;
 /// The smallest a region's frame is drawn, each way.
-pub const REGION_MIN_SIZE: f32 = 4.0;
+pub(crate) const REGION_MIN_SIZE: f32 = 4.0;
 /// How far the focus ring stands outside a pill, and how thick it is.
 pub const FOCUS_RING_OUTSET: f32 = 3.0;
 /// The thickness of the focus ring.

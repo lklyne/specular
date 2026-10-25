@@ -1,6 +1,6 @@
 //! A text create that is really a Document: long or structured text goes to
 //! a `.md` file in the space folder, as `claimsAsNote` does in the Electron
-//! app (`src/main/entities/builtin/file.ts`).
+//! app (`git show bc5253fa:src/main/entities/builtin/file.ts`).
 
 use serde_json::{Value, json};
 use specular_doc::JsonMap;

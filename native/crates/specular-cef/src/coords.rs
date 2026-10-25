@@ -12,12 +12,12 @@ use specular_core::{PixelRect, PixelSize};
 
 /// Builds a [`PixelRect`] from CEF's signed `cef_rect_t` fields, treating a
 /// negative extent as empty.
-pub fn rect_from_cef(x: i32, y: i32, width: i32, height: i32) -> PixelRect {
+pub(crate) fn rect_from_cef(x: i32, y: i32, width: i32, height: i32) -> PixelRect {
     PixelRect::new(x, y, width.max(0) as u32, height.max(0) as u32)
 }
 
 /// Scales a CSS-space rect to the smallest texel rect covering it.
-pub fn css_rect_to_texels(rect: PixelRect, scale: f32) -> PixelRect {
+pub(crate) fn css_rect_to_texels(rect: PixelRect, scale: f32) -> PixelRect {
     let left = (rect.x as f32 * scale).floor();
     let top = (rect.y as f32 * scale).floor();
     let right = ((rect.x as f32 + rect.width as f32) * scale).ceil();
@@ -37,7 +37,7 @@ pub fn css_rect_to_texels(rect: PixelRect, scale: f32) -> PixelRect {
 /// back inside, and one larger than the view is pinned to its origin (the
 /// compositor clips it). Its size is never changed, because it must keep
 /// matching the `PET_POPUP` frames painted for it.
-pub fn place_popup(css: PixelRect, scale: f32, view: PixelSize) -> PixelRect {
+pub(crate) fn place_popup(css: PixelRect, scale: f32, view: PixelSize) -> PixelRect {
     let texels = css_rect_to_texels(css, scale);
     let fit = |pos: i32, len: u32, bound: u32| -> i32 {
         if len >= bound {
@@ -56,7 +56,7 @@ pub fn place_popup(css: PixelRect, scale: f32, view: PixelSize) -> PixelRect {
 
 /// Union of rects, e.g. IME character bounds into one composition box.
 /// Zero-width rects (a caret) still contribute their position.
-pub fn union_rects(rects: impl IntoIterator<Item = PixelRect>) -> Option<PixelRect> {
+pub(crate) fn union_rects(rects: impl IntoIterator<Item = PixelRect>) -> Option<PixelRect> {
     rects
         .into_iter()
         .map(|r| {

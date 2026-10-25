@@ -49,7 +49,7 @@ pub struct MenuItem {
 }
 
 /// The first row of the binding table that runs `action`.
-pub fn binding_of(action: &Action) -> Option<&'static Binding> {
+pub(crate) fn binding_of(action: &Action) -> Option<&'static Binding> {
     BINDINGS.iter().find(|binding| binding.action == *action)
 }
 

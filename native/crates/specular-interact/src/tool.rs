@@ -32,7 +32,7 @@ pub enum Tool {
 
 impl Tool {
     /// Every tool, in toolbar order.
-    pub const ALL: [Self; 9] = [
+    pub(crate) const ALL: [Self; 9] = [
         Self::Select,
         Self::AddPage,
         Self::AddText,
@@ -45,7 +45,7 @@ impl Tool {
     ];
 
     /// The cursor shown over the canvas while the tool is active.
-    pub const fn cursor(self) -> Cursor {
+    pub(crate) const fn cursor(self) -> Cursor {
         match self {
             Self::Select => Cursor::Default,
             Self::AddPage

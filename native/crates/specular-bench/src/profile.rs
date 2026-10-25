@@ -1,4 +1,4 @@
-//! Gesture profiles mirroring `src/shared/pan-zoom-perf-test.ts`.
+//! Gesture profiles mirroring `git show bc5253fa:src/shared/pan-zoom-perf-test.ts`.
 
 use std::{fmt, str::FromStr, time::Duration};
 
@@ -44,7 +44,7 @@ pub enum ProfileId {
 
 impl ProfileId {
     /// Electron's ids, in run order.
-    pub const ALL: [Self; 6] = [
+    pub(crate) const ALL: [Self; 6] = [
         Self::SlowPan,
         Self::SlowZoom,
         Self::FastDiagonalPan,
@@ -54,7 +54,7 @@ impl ProfileId {
     ];
 
     /// The Electron id (`slow-pan`, ...).
-    pub const fn as_str(self) -> &'static str {
+    pub(crate) const fn as_str(self) -> &'static str {
         match self {
             Self::SlowPan => "slow-pan",
             Self::SlowZoom => "slow-zoom",
@@ -97,13 +97,13 @@ pub struct GestureProfile {
     /// Wall-clock length.
     pub duration: Duration,
     /// Total screen-space pan in logical pixels.
-    pub pan: Vec2,
+    pub(crate) pan: Vec2,
     /// Total wheel-style zoom delta (negative zooms in).
-    pub zoom_delta_y: f32,
+    pub(crate) zoom_delta_y: f32,
 }
 
 /// The six profiles, in run order, with the Electron values.
-pub const PROFILES: [GestureProfile; 6] = [
+pub(crate) const PROFILES: [GestureProfile; 6] = [
     GestureProfile {
         id: ProfileId::SlowPan,
         label: "Slow pan",
@@ -150,7 +150,7 @@ pub const PROFILES: [GestureProfile; 6] = [
 
 /// A camera left alone. What a frame costs when nothing changes, which
 /// should be nothing: no frame drawn. Runs only when named.
-pub const IDLE: GestureProfile = GestureProfile {
+pub(crate) const IDLE: GestureProfile = GestureProfile {
     id: ProfileId::Idle,
     label: "Idle",
     duration: Duration::from_millis(5_000),
@@ -163,12 +163,12 @@ impl GestureProfile {
     /// `POST /perf/pan-zoom/run`. The totals are unchanged, so a shorter
     /// duration is a faster gesture.
     #[must_use]
-    pub fn with_duration(self, duration: Duration) -> Self {
+    pub(crate) fn with_duration(self, duration: Duration) -> Self {
         Self { duration, ..self }
     }
 
     /// Number of steps [`build_steps`] yields at `interval`.
-    pub fn step_count(&self, interval: Duration) -> usize {
+    pub(crate) fn step_count(&self, interval: Duration) -> usize {
         let interval_ms = interval.as_secs_f64() * 1_000.0;
         let duration_ms = self.duration.as_secs_f64() * 1_000.0;
         if interval_ms > 0.0 {
@@ -180,12 +180,6 @@ impl GestureProfile {
         } else {
             1
         }
-    }
-
-    /// Wall-clock time the profile occupies when each step is followed by a
-    /// wait of `interval` (the Electron loop applies, then waits).
-    pub fn planned_duration(&self, interval: Duration) -> Duration {
-        interval.saturating_mul(u32::try_from(self.step_count(interval)).unwrap_or(u32::MAX))
     }
 }
 
@@ -209,9 +203,9 @@ pub fn select_profiles(ids: &[ProfileId], duration: Option<Duration>) -> Vec<Ges
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct GestureStep {
     /// Screen-space pan for this tick.
-    pub pan: Vec2,
+    pub(crate) pan: Vec2,
     /// Wheel-style zoom delta for this tick.
-    pub zoom_delta_y: f32,
+    pub(crate) zoom_delta_y: f32,
 }
 
 impl GestureStep {

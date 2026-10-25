@@ -39,7 +39,7 @@ pub use cache::ViewCache;
 pub use color::Color;
 pub use colors::{Colors, Hues, PanelColors, Shade};
 pub use column::{ColumnDraw, Row, RowRule, RuleHeight};
-pub use fade::PageBand;
+pub(crate) use fade::PageBand;
 pub use item::{Blend, Draw, Item, Scene, Space};
 pub use media::{ImageDraw, ImageId, PageDraw};
 pub use panel::{arrow_cursor_svg, icon_svg, panel_color};

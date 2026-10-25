@@ -26,7 +26,7 @@ pub struct SidebarModel {
     /// Whether the sidebar is shown at all.
     pub visible: bool,
     /// What shows or hides it.
-    pub toggle: Action,
+    pub(crate) toggle: Action,
     /// The head of the Canvases list.
     pub canvases_head: SectionHead,
     /// The canvases of the space, in its order.
@@ -58,7 +58,7 @@ pub struct SectionHead {
     /// Its name.
     pub id: ControlId,
     /// Which section it heads.
-    pub section: SidebarSection,
+    pub(crate) section: SidebarSection,
     /// The title. A folded Canvases list is titled by the active canvas.
     pub title: String,
     /// Whether the section is folded away.
@@ -86,7 +86,7 @@ pub struct CanvasRow {
     /// empty or unchanged name asks for nothing.
     pub rename: Field,
     /// What removing it sends. Removing the last canvas leaves a fresh one.
-    pub delete: Action,
+    pub(crate) delete: Action,
 }
 
 /// One row of the Notes or Pages section.
@@ -96,9 +96,9 @@ pub struct SidebarRow {
     /// notes and pages has a row in each section.
     pub id: ControlId,
     /// What the row stands for.
-    pub target: RowTarget,
+    pub(crate) target: RowTarget,
     /// What sort of row it is.
-    pub kind: RowKind,
+    pub(crate) kind: RowKind,
     /// The text.
     pub label: String,
     /// The glyph before the text.
@@ -119,7 +119,7 @@ pub struct SidebarRow {
     pub children: Vec<Self>,
     /// What a click sends: select what the row stands for and bring it into
     /// view.
-    pub action: Action,
+    pub(crate) action: Action,
 }
 
 /// What a sidebar row stands for.

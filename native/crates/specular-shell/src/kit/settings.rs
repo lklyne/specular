@@ -1,4 +1,4 @@
-//! The settings dialog (`src/renderer/settings`), from
+//! The settings dialog (`git show bc5253fa:src/renderer/settings`), from
 //! [`SettingsModel`]: General, Repos, Shortcuts and About.
 //!
 //! The dialog's content is rebuilt on every frame it is drawn, so each

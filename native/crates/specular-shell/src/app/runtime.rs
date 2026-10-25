@@ -6,17 +6,19 @@
 //! and sends it [`Event`]s. `update` is the only thing that changes the
 //! app, and [`Runtime::dispatch`] is the only caller of `update`.
 
+mod window;
+
+pub use self::window::{PageOf, ShellWindow};
+
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use glam::Vec2;
 use specular_bench::{FrameWork, PaintPolicy};
-use specular_compositor::{Compositor, SceneStats};
-use specular_core::{Camera, PageEvent, PageId, PageSource};
+use specular_core::{PageEvent, PageId, PageSource};
 use specular_doc::{Document, EntityId};
-use specular_interact::{Action, ApiOutcome, App, Cursor, Event, ImageKey, SpaceAsk, update};
-use specular_scene::Scene;
+use specular_interact::{Action, ApiOutcome, App, Event, ImageKey, SpaceAsk, update};
 
 use super::demand::FrameDemand;
 use super::{START_CAMERA, agent_run, image_run, note_run, repos_run};
@@ -31,73 +33,6 @@ use crate::page_queries::PageQueries;
 use crate::paint_lod::PageLod;
 use crate::prefs;
 use crate::space::{SpaceFiles, SpaceStart};
-
-/// The backend page behind a page entity, for a renderer.
-pub type PageOf<'a> = &'a dyn Fn(&EntityId) -> Option<PageId>;
-
-/// What a [`Runtime`] needs of the window it draws into: the compositor,
-/// a frame on screen, and the few window calls an effect asks for.
-pub trait ShellWindow {
-    /// The compositor drawing into this window.
-    fn compositor(&self) -> &Compositor;
-
-    /// The compositor, to upload to.
-    fn compositor_mut(&mut self) -> &mut Compositor;
-
-    /// Device pixels per logical pixel.
-    fn scale_factor(&self) -> f32;
-
-    /// The canvas viewport in logical pixels.
-    fn logical_viewport(&self) -> Vec2;
-
-    /// Draws `scene` into a texture of `viewport` logical pixels at the
-    /// window's scale, whatever size the window is, and returns the PNG
-    /// with its size in device pixels.
-    fn capture_area(
-        &mut self,
-        camera: Camera,
-        viewport: Vec2,
-        scene: &Scene,
-        page_of: PageOf<'_>,
-    ) -> anyhow::Result<(Vec<u8>, u32, u32)>;
-
-    /// Renders and presents one frame of `scene`; `None` when there was no
-    /// frame to draw into. The scene is the window's to rework: one whose
-    /// viewport is only part of its surface moves the screen-space items.
-    fn render(
-        &mut self,
-        camera: Camera,
-        zooming: bool,
-        scene: &mut Scene,
-        page_of: PageOf<'_>,
-    ) -> Option<SceneStats>;
-
-    /// Draws `scene` into a texture and returns the PNG with its size in
-    /// device pixels. The window itself is not touched.
-    fn capture(
-        &mut self,
-        camera: Camera,
-        scene: &Scene,
-        page_of: PageOf<'_>,
-    ) -> anyhow::Result<(Vec<u8>, u32, u32)>;
-
-    /// Whether the input method may compose into the canvas.
-    fn set_ime_allowed(&self, allowed: bool);
-
-    /// Where the caret is, in logical pixels of the viewport, for the
-    /// input method's candidate window.
-    fn set_ime_cursor_area(&self, origin: Vec2, size: Vec2);
-
-    /// The pointer's shape over the canvas.
-    fn set_cursor(&self, cursor: Cursor);
-
-    /// Gives the keys to the field `field` of the chrome, with its text
-    /// selected. Only a window that draws the chrome itself is asked.
-    fn edit_field(&self, field: &specular_interact::ControlId);
-
-    /// The window's title, and whether it shows unsaved changes.
-    fn set_title(&self, title: &str, unsaved: bool);
-}
 
 /// How a [`Runtime`] runs, from the command line.
 #[derive(Debug, Clone, PartialEq)]
@@ -310,7 +245,7 @@ impl<W: ShellWindow> Runtime<W> {
     }
 
     /// The folder of the open space, or of the one canvas file shown.
-    pub fn space_folder(&self) -> Option<&std::path::Path> {
+    pub(crate) fn space_folder(&self) -> Option<&std::path::Path> {
         self.space.as_deref()
     }
 

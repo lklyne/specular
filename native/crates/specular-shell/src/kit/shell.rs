@@ -220,6 +220,50 @@ fn follow_system_appearance(window: AnyWindowHandle, cx: &mut App) -> anyhow::Re
     Ok(())
 }
 
+/// The loops that turn the canvas: on a wake from a page or the agent, on
+/// a catch-up asked by a late frame, on an API request, and on the idle
+/// timer that covers for a window the system gives no refreshes.
+fn spawn_loops(
+    mut woken: mpsc::Receiver<()>,
+    mut run_again: mpsc::Receiver<()>,
+    mut api_woken: mpsc::Receiver<()>,
+    cx: &mut App,
+) {
+    cx.spawn(async move |cx| {
+        while woken.next().await.is_some() {
+            cx.update(on_wake);
+        }
+    })
+    .detach();
+    cx.spawn(async move |_| {
+        while run_again.next().await.is_some() {
+            canvas::with(canvas::Canvas::catch_up);
+        }
+    })
+    .detach();
+    cx.spawn(async move |_| {
+        while api_woken.next().await.is_some() {
+            canvas::with(|canvas| {
+                canvas.runtime.serve_api();
+                canvas.refresh_models();
+            });
+        }
+    })
+    .detach();
+    cx.spawn(async move |cx| {
+        loop {
+            let wait = canvas::with(|canvas| canvas.timer_wait(IDLE_TURN)).unwrap_or(IDLE_TURN);
+            cx.background_executor().timer(wait).await;
+            canvas::with(|canvas| {
+                if canvas.last_frame().elapsed() >= wait {
+                    canvas.frame();
+                }
+            });
+        }
+    })
+    .detach();
+}
+
 /// Opens the window on `launch` and starts everything that runs with it.
 pub(crate) fn open(launch: Launch, cx: &mut App) -> anyhow::Result<()> {
     // GPUI has made `NSApp` by now, which CEF needs before it starts.
@@ -246,9 +290,9 @@ pub(crate) fn open(launch: Launch, cx: &mut App) -> anyhow::Result<()> {
         .into();
     let view = root_view.context("the window built no view")?;
 
-    let (wake, mut woken) = mpsc::channel::<()>(1);
-    let (api_wake, mut api_woken) = mpsc::channel::<()>(1);
-    let (again, mut run_again) = mpsc::channel::<()>(1);
+    let (wake, woken) = mpsc::channel::<()>(1);
+    let (api_wake, api_woken) = mpsc::channel::<()>(1);
+    let (again, run_again) = mpsc::channel::<()>(1);
     let remembered = remembers_place(&launch);
     let opening = launch.into_opening();
     window.update(cx, |_, window, cx| -> anyhow::Result<()> {
@@ -298,39 +342,7 @@ pub(crate) fn open(launch: Launch, cx: &mut App) -> anyhow::Result<()> {
         });
     })?;
 
-    cx.spawn(async move |cx| {
-        while woken.next().await.is_some() {
-            cx.update(on_wake);
-        }
-    })
-    .detach();
-    cx.spawn(async move |_| {
-        while run_again.next().await.is_some() {
-            canvas::with(canvas::Canvas::catch_up);
-        }
-    })
-    .detach();
-    cx.spawn(async move |_| {
-        while api_woken.next().await.is_some() {
-            canvas::with(|canvas| {
-                canvas.runtime.serve_api();
-                canvas.refresh_models();
-            });
-        }
-    })
-    .detach();
-    cx.spawn(async move |cx| {
-        loop {
-            let wait = canvas::with(|canvas| canvas.timer_wait(IDLE_TURN)).unwrap_or(IDLE_TURN);
-            cx.background_executor().timer(wait).await;
-            canvas::with(|canvas| {
-                if canvas.last_frame().elapsed() >= wait {
-                    canvas.frame();
-                }
-            });
-        }
-    })
-    .detach();
+    spawn_loops(woken, run_again, api_woken, cx);
     debug_input::run_from_env(window, cx);
     cx.activate(true);
     Ok(())

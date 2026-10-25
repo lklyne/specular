@@ -244,6 +244,48 @@ impl ShellView {
     }
 }
 
+impl ShellView {
+    /// The canvas slot with what floats over it, and the right panel.
+    fn slot_row(
+        &mut self,
+        models: Option<&Models>,
+        window: &mut Window,
+        cx: &mut Context<'_, Self>,
+    ) -> AnyElement {
+        h_flex()
+            .size_full()
+            .items_start()
+            .child(
+                div()
+                    .relative()
+                    .size_full()
+                    .child(self.canvas_slot(window, cx))
+                    .children(
+                        models
+                            .map(|models| over_slot(models, window, cx))
+                            .unwrap_or_default(),
+                    ),
+            )
+            .when_some(models, |row, models| {
+                row.children(self.chat_panel(&models.chat, window, cx))
+            })
+            .into_any_element()
+    }
+}
+
+/// The hairline under the chrome.
+fn chrome_hairline() -> impl IntoElement {
+    // The hairline under the chrome is its own, drawn last so
+    // nothing covers it.
+    div()
+        .absolute()
+        .top(px(theme::CHROME_HEIGHT - 1.0))
+        .left_0()
+        .right_0()
+        .h(px(1.0))
+        .bg(theme::solid(theme::toolbar_border()))
+}
+
 impl Render for ShellView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<'_, Self>) -> impl IntoElement {
         // What effects asked of the window is applied by this render.
@@ -282,25 +324,7 @@ impl Render for ShellView {
                     (canvas.runtime).drop_files(paths.paths().iter().cloned(), None);
                 });
             })
-            .child(
-                h_flex()
-                    .size_full()
-                    .items_start()
-                    .child(
-                        div()
-                            .relative()
-                            .size_full()
-                            .child(self.canvas_slot(window, cx))
-                            .children(
-                                (models.as_ref())
-                                    .map(|models| over_slot(models, window, cx))
-                                    .unwrap_or_default(),
-                            ),
-                    )
-                    .when_some(models.as_ref(), |row, models| {
-                        row.children(self.chat_panel(&models.chat, window, cx))
-                    }),
-            )
+            .child(self.slot_row(models.as_ref(), window, cx))
             .when_some(models.as_ref(), |root, models: &Models| {
                 root.when(models.sidebar.visible, |root| {
                     root.child(Self::sidebar(&models.sidebar, window, cx))
@@ -323,17 +347,7 @@ impl Render for ShellView {
                 })
                 .children(self.chat_resize_handle(&models.chat))
             })
-            .child(
-                // The hairline under the chrome is its own, drawn last so
-                // nothing covers it.
-                div()
-                    .absolute()
-                    .top(px(theme::CHROME_HEIGHT - 1.0))
-                    .left_0()
-                    .right_0()
-                    .h(px(1.0))
-                    .bg(theme::solid(theme::toolbar_border())),
-            )
+            .child(chrome_hairline())
             // A drag that began on the canvas is the canvas's until it ends:
             // nothing it passes over hovers, opens a tooltip or scrolls.
             .when(self.pointer.held(), |root| {

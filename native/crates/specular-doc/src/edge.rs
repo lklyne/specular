@@ -74,7 +74,7 @@ impl Edge {
     }
 
     /// Whether the edge starts or ends at `id`.
-    pub fn touches(&self, id: &EntityId) -> bool {
+    pub(crate) fn touches(&self, id: &EntityId) -> bool {
         self.from == *id || self.to == *id
     }
 }

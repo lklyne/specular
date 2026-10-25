@@ -84,13 +84,13 @@ pub struct SceneStats {
     pub items_drawn: u32,
     /// Items left out because they were off screen, clipped away or fully
     /// transparent.
-    pub items_culled: u32,
+    pub(crate) items_culled: u32,
     /// Text runs left out because they were too small to read.
-    pub text_runs_too_small: u32,
+    pub(crate) text_runs_too_small: u32,
     /// Draw batches the items were grouped into.
     pub batches: u32,
     /// How many of those batches were text, each with its own glyph buffer.
-    pub text_batches: u32,
+    pub(crate) text_batches: u32,
     /// How many text batches were laid out, and how many were drawn from an
     /// earlier frame's layout. When `settling` is set the frame is owed a
     /// successor with the camera where it is.
@@ -102,7 +102,7 @@ pub struct SceneStats {
     /// Triangles sent: two a quad or shape instance, plus the meshes'.
     pub triangles: u32,
     /// Polygons and paths drawn from a held mesh, and tessellated.
-    pub meshes: MeshCacheCounts,
+    pub(crate) meshes: MeshCacheCounts,
     /// Where the frame's CPU time went.
     pub times: StageTimes,
 }

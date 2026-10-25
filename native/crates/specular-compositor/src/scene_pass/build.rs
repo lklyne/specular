@@ -103,56 +103,8 @@ pub(crate) fn build(
             });
         };
         match batch.prim {
-            Prim::Page => {
-                for item in items() {
-                    let Draw::Page(draw) = &item.draw else {
-                        continue;
-                    };
-                    let Some((id, info)) = page(&draw.page, draw.viewport) else {
-                        counts.pages_without_texture += 1;
-                        continue;
-                    };
-                    counts.cpu_textures += u32::from(info.view_is_cpu);
-                    note_drawn(id, draw, &info);
-                    let layers = page_quads(item, draw, &info, view);
-                    for (layer, quad) in layers {
-                        let Some(quad) = quad else {
-                            continue;
-                        };
-                        let instance = out.quads.len() as u32;
-                        out.quads.push(quad.with_opacity(item.opacity.min(1.0)));
-                        out.page_layers.push(DrawItem { page: id, layer });
-                        push(Op::Quad {
-                            instance,
-                            texture: QuadTexture::Page(id, layer),
-                        });
-                    }
-                }
-            }
-            Prim::Image => {
-                for item in items() {
-                    let Draw::Image(draw) = &item.draw else {
-                        continue;
-                    };
-                    if !has_image(draw.image) {
-                        continue;
-                    }
-                    let source = draw.source;
-                    let instance = out.quads.len() as u32;
-                    let quad = canvas_quad(item, draw.rect, draw.corner_radius, view)
-                        .with_uv_rect([source.x, source.y, source.width, source.height])
-                        .with_opacity(item.opacity.min(1.0));
-                    out.quads.push(if item.turn == 0.0 {
-                        quad
-                    } else {
-                        quad.turned(item.turn)
-                    });
-                    push(Op::Quad {
-                        instance,
-                        texture: QuadTexture::Image(draw.image),
-                    });
-                }
-            }
+            Prim::Page => page_batch(items(), batch.scissor, view, &page, &mut counts, out),
+            Prim::Image => image_batch(items(), batch.scissor, view, &has_image, out),
             Prim::Shape => {
                 let start = out.shapes.len() as u32;
                 out.shapes
@@ -183,6 +135,79 @@ pub(crate) fn build(
         }
     }
     counts
+}
+
+/// The quads of a batch of pages, each layer that has painted.
+fn page_batch<'a>(
+    items: impl Iterator<Item = &'a Item>,
+    scissor: Option<Scissor>,
+    view: &ViewTransform,
+    page: &impl Fn(&OwnerId, CssSize) -> Option<(PageId, PageLayersInfo)>,
+    counts: &mut DrawCounts,
+    out: &mut Output<'_>,
+) {
+    for item in items {
+        let Draw::Page(draw) = &item.draw else {
+            continue;
+        };
+        let Some((id, info)) = page(&draw.page, draw.viewport) else {
+            counts.pages_without_texture += 1;
+            continue;
+        };
+        counts.cpu_textures += u32::from(info.view_is_cpu);
+        note_drawn(id, draw, &info);
+        let layers = page_quads(item, draw, &info, view);
+        for (layer, quad) in layers {
+            let Some(quad) = quad else {
+                continue;
+            };
+            let instance = out.quads.len() as u32;
+            out.quads.push(quad.with_opacity(item.opacity.min(1.0)));
+            out.page_layers.push(DrawItem { page: id, layer });
+            out.draws.push(DrawOp {
+                scissor,
+                op: Op::Quad {
+                    instance,
+                    texture: QuadTexture::Page(id, layer),
+                },
+            });
+        }
+    }
+}
+
+/// The quads of a batch of images, each one uploaded.
+fn image_batch<'a>(
+    items: impl Iterator<Item = &'a Item>,
+    scissor: Option<Scissor>,
+    view: &ViewTransform,
+    has_image: &impl Fn(ImageId) -> bool,
+    out: &mut Output<'_>,
+) {
+    for item in items {
+        let Draw::Image(draw) = &item.draw else {
+            continue;
+        };
+        if !has_image(draw.image) {
+            continue;
+        }
+        let source = draw.source;
+        let instance = out.quads.len() as u32;
+        let quad = canvas_quad(item, draw.rect, draw.corner_radius, view)
+            .with_uv_rect([source.x, source.y, source.width, source.height])
+            .with_opacity(item.opacity.min(1.0));
+        out.quads.push(if item.turn == 0.0 {
+            quad
+        } else {
+            quad.turned(item.turn)
+        });
+        out.draws.push(DrawOp {
+            scissor,
+            op: Op::Quad {
+                instance,
+                texture: QuadTexture::Image(draw.image),
+            },
+        });
+    }
 }
 
 /// Tells the resize ledger, when it is on, what a page is drawn from.

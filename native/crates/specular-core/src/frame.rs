@@ -133,15 +133,7 @@ pub enum PageFrame {
     Cpu(CpuFrame),
 }
 
-impl PageFrame {
-    /// Size of the frame in texels.
-    pub fn size(&self) -> PixelSize {
-        match self {
-            Self::GpuShared(texture) => texture.size(),
-            Self::Cpu(frame) => frame.size,
-        }
-    }
-}
+impl PageFrame {}
 
 /// Which surface of a page a frame paints (CEF `PET_VIEW` / `PET_POPUP`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

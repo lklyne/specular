@@ -32,12 +32,12 @@ const KEEP_FRAMES: u64 = 240;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct MeshCacheCounts {
     /// Items drawn from a mesh already held.
-    pub hits: u32,
+    pub(crate) hits: u32,
     /// Items tessellated this frame and kept.
-    pub misses: u32,
+    pub(crate) misses: u32,
     /// Items tessellated this frame and not kept: screen-space ones, whose
     /// geometry is the camera's.
-    pub uncached: u32,
+    pub(crate) uncached: u32,
 }
 
 #[derive(Debug)]

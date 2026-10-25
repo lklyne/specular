@@ -22,7 +22,7 @@ pub enum ColorPreset {
 
 impl ColorPreset {
     /// The preset's stored string.
-    pub const fn as_str(self) -> &'static str {
+    pub(crate) const fn as_str(self) -> &'static str {
         match self {
             Self::Red => "1",
             Self::Orange => "2",

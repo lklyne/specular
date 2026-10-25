@@ -14,15 +14,15 @@ use crate::translate::flags;
 /// The fields of a `SendKeyEvent` raw key-down: what the devtools message
 /// is built from, and what is sent the plain way if the page refuses it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct PlainKey {
+pub(crate) struct PlainKey {
     /// `cef_event_flags_t` bits.
-    pub flags: u32,
+    pub(crate) flags: u32,
     /// `windows_key_code`.
-    pub windows_key_code: i32,
+    pub(crate) windows_key_code: i32,
     /// `native_key_code`.
-    pub native_key_code: i32,
+    pub(crate) native_key_code: i32,
     /// `character` and `unmodified_character` (one UTF-16 unit).
-    pub character: u16,
+    pub(crate) character: u16,
 }
 
 /// The devtools protocol's modifier bits for CEF's.
@@ -40,7 +40,7 @@ fn protocol_modifiers(held: u32) -> u32 {
 
 /// The `Input.dispatchKeyEvent` message for the raw key-down `key` carrying
 /// `editing`'s commands.
-pub fn editing_key_down(id: i32, key: &PlainKey, editing: &EditingKey) -> Vec<u8> {
+pub(crate) fn editing_key_down(id: i32, key: &PlainKey, editing: &EditingKey) -> Vec<u8> {
     json!({
         "id": id,
         "method": "Input.dispatchKeyEvent",

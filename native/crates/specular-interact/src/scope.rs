@@ -24,14 +24,14 @@ pub struct SelectionScope {
     /// stored ones for what follows its page's scroll. What the selection's
     /// outline and handles wrap. Entities scrolled out of their page count
     /// for nothing.
-    pub shown_bounds: Option<Rect>,
+    pub(crate) shown_bounds: Option<Rect>,
 }
 
 impl SelectionScope {
     /// Whether a press on `id` is a press on the selection: it is a member,
     /// a descendant of a member group, or hooked to a member page. Such a
     /// press keeps the selection, so a drag from it takes everything.
-    pub fn holds(&self, id: &EntityId) -> bool {
+    pub(crate) fn holds(&self, id: &EntityId) -> bool {
         self.operands.contains(id)
     }
 }

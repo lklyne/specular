@@ -1,4 +1,4 @@
-//! The setup dialog (`src/renderer/onboarding`): installs the `specular`
+//! The setup dialog (`git show bc5253fa:src/renderer/onboarding`): installs the `specular`
 //! command and the skill an agent drives the app with, when the user says
 //! so. It opens by itself until setup is finished, and from Specular > Set
 //! up Specular… after that.

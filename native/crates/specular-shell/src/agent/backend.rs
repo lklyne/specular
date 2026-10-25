@@ -7,7 +7,7 @@ use super::{ClaudeCli, Helper, Scripted};
 
 /// Called from a worker thread whenever a run has output, so a loop that
 /// sleeps between events can wake and poll.
-pub type Waker = Arc<dyn Fn() + Send + Sync>;
+pub(crate) type Waker = Arc<dyn Fn() + Send + Sync>;
 
 /// Why a run could not start.
 #[derive(Debug, thiserror::Error)]
@@ -80,7 +80,7 @@ pub trait AgentProcess: Send {
 
 /// What headless runs and tests get: nothing can start a real run.
 #[derive(Debug, Default, Clone, Copy)]
-pub struct Disabled;
+pub(crate) struct Disabled;
 
 impl AgentBackend for Disabled {
     fn start(
@@ -96,7 +96,7 @@ impl AgentBackend for Disabled {
 /// `SPECULAR_AGENT_SCRIPT=<path>` plays that script in real time, with no
 /// CLI. Otherwise the Agent SDK through `specular-helper` when it is found,
 /// else the `claude` CLI.
-pub fn backend_from_env() -> Box<dyn AgentBackend> {
+pub(crate) fn backend_from_env() -> Box<dyn AgentBackend> {
     if let Some(path) = std::env::var_os("SPECULAR_AGENT_SCRIPT") {
         match Scripted::from_file(Path::new(&path)) {
             Ok(script) => return Box::new(script),

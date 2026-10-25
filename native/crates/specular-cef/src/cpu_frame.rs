@@ -9,7 +9,7 @@ use specular_core::{CpuFrame, PixelRect, PixelSize};
 
 /// Why a paint buffer could not be copied.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
-pub enum PaintBufferError {
+pub(crate) enum PaintBufferError {
     /// CEF reported a non-positive size.
     #[error("paint size {width}x{height} is empty")]
     Empty {
@@ -29,7 +29,7 @@ pub enum PaintBufferError {
 }
 
 /// Byte length of a tightly packed BGRA image, or `None` if non-positive.
-pub fn bgra_len(width: i32, height: i32) -> Option<usize> {
+pub(crate) fn bgra_len(width: i32, height: i32) -> Option<usize> {
     let width = usize::try_from(width).ok().filter(|w| *w > 0)?;
     let height = usize::try_from(height).ok().filter(|h| *h > 0)?;
     width.checked_mul(height)?.checked_mul(4)
@@ -37,7 +37,7 @@ pub fn bgra_len(width: i32, height: i32) -> Option<usize> {
 
 /// Copies a tightly packed BGRA `OnPaint` buffer (upper-left origin, stride
 /// `width * 4`) and its dirty rects (texels) into an owned frame.
-pub fn copy_paint(
+pub(crate) fn copy_paint(
     buffer: &[u8],
     width: i32,
     height: i32,

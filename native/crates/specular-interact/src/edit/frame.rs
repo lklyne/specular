@@ -144,7 +144,7 @@ fn label_frame(rect: Rect, shape: &Shape) -> TextFrame {
 /// Where the text of a Document at `rect` sits when it is scrolled down by
 /// `scroll`, and how its body text is set. Both its views use this: the
 /// markdown as read, and its source as edited.
-pub fn note_frame(rect: Rect, scroll: f32) -> TextFrame {
+pub(crate) fn note_frame(rect: Rect, scroll: f32) -> TextFrame {
     let padding = f64::from(NOTE_PADDING);
     TextFrame {
         origin: DVec2::new(rect.x + padding, rect.y + padding - f64::from(scroll)),

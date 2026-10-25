@@ -58,15 +58,15 @@ impl Ev {
 
 /// The middle, the tail and the worst of some times, in milliseconds.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Serialize)]
-pub struct Spread {
+pub(crate) struct Spread {
     /// How many times there were.
-    pub n: usize,
+    pub(crate) n: usize,
     /// The median.
-    pub p50: f64,
+    pub(crate) p50: f64,
     /// The 95th percentile.
-    pub p95: f64,
+    pub(crate) p95: f64,
     /// The longest.
-    pub max: f64,
+    pub(crate) max: f64,
 }
 
 impl Spread {
@@ -90,52 +90,52 @@ impl Spread {
 #[derive(Debug, Clone, Default, PartialEq, Serialize)]
 pub struct Summary {
     /// The ledger's file name without its extension.
-    pub run: String,
+    pub(crate) run: String,
     /// Time inside `AppKit` live resizes.
-    pub live_ms: f64,
+    pub(crate) live_ms: f64,
     /// `win.size` steps inside live resizes.
-    pub win_steps: usize,
+    pub(crate) win_steps: usize,
     /// Canvas frames drawn inside live resizes.
-    pub live_frames: usize,
+    pub(crate) live_frames: usize,
     /// Those frames a second of live resize.
-    pub live_fps: f64,
+    pub(crate) live_fps: f64,
     /// Display link ticks a second of live resize.
-    pub live_tick_hz: f64,
+    pub(crate) live_tick_hz: f64,
     /// From a `win.size` step to the end of the first frame whose surface
     /// has that size, for steps that got one before the next step.
-    pub win_to_frame: Spread,
+    pub(crate) win_to_frame: Spread,
     /// Steps that got no frame of their size before the next step.
-    pub win_unmatched: usize,
+    pub(crate) win_unmatched: usize,
     /// Frames that configured the surface again.
-    pub reconfigures: usize,
+    pub(crate) reconfigures: usize,
     /// What the pages were asked for and what they painted.
-    pub page: PageSide,
+    pub(crate) page: PageSide,
     /// Canvas frames that drew a page.
-    pub page_frames: usize,
+    pub(crate) page_frames: usize,
     /// The share of those that drew a page at another size than wanted.
-    pub stale_share: f64,
+    pub(crate) stale_share: f64,
     /// The widest wanted-minus-drawn gap of a page, in CSS pixels.
-    pub widest_gap_css: u32,
+    pub(crate) widest_gap_css: u32,
     /// Pumps of CEF's message loop, the short ones included.
-    pub pumps: u64,
+    pub(crate) pumps: u64,
     /// Time in the pumps long enough to be logged.
-    pub pump_total_ms: f64,
+    pub(crate) pump_total_ms: f64,
     /// The longest pump.
-    pub pump_max_ms: f64,
+    pub(crate) pump_max_ms: f64,
     /// The wait for a drawable.
-    pub acquire: Spread,
+    pub(crate) acquire: Spread,
     /// Shared surfaces imported: misses of the import cache.
-    pub import_misses: usize,
+    pub(crate) import_misses: usize,
     /// Time importing them.
-    pub import_total_ms: f64,
+    pub(crate) import_total_ms: f64,
     /// The share of the run the main run loop was busy.
-    pub busy_share: f64,
+    pub(crate) busy_share: f64,
     /// The same inside live resizes.
-    pub live_busy_share: f64,
+    pub(crate) live_busy_share: f64,
     /// The longest busy turn of the main run loop.
-    pub busy_max_ms: f64,
+    pub(crate) busy_max_ms: f64,
     /// Each burst of asks outside a live resize: a tab or lens switch.
-    pub switches: Vec<Switch>,
+    pub(crate) switches: Vec<Switch>,
 }
 
 fn ms(micros: u64) -> f64 {

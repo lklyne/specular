@@ -99,7 +99,7 @@ pub struct AlignmentGuide {
     /// Where it ends, their greatest edge.
     pub end: f64,
     /// The entity being dragged.
-    pub dragged: EntityId,
+    pub(crate) dragged: EntityId,
     /// The neighbour it lines up with.
     pub candidate: EntityId,
     /// The part of the dragged rect that is aligned.
@@ -129,9 +129,9 @@ pub struct DistributionGuide {
     /// The spacing.
     pub gap: f64,
     /// The entity being dragged.
-    pub dragged: EntityId,
+    pub(crate) dragged: EntityId,
     /// The neighbours in the run, in order along the axis.
-    pub candidates: Vec<EntityId>,
+    pub(crate) candidates: Vec<EntityId>,
     /// Every gap in the run.
     pub gaps: Vec<DistributionGap>,
 }

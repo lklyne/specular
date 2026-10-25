@@ -38,11 +38,13 @@ use anyhow::{Context as _, bail};
 use specular_core::Camera;
 use specular_doc::Document;
 
+pub use self::check::Checks;
 pub(crate) use self::check::is_markdown;
-pub use self::check::{Checks, saved_text};
+pub(crate) use self::check::saved_text;
 pub use self::expect::{Counted, EntityFact, Expect, Reference, SavedFact};
-pub use self::facts_canvas::{CanvasFact, CanvasStep, Query as CanvasQuery, check_sent};
-pub use self::facts_panels::{LineTest, PanelFact, PanelStep, Topic};
+pub(crate) use self::facts_canvas::check_sent;
+pub use self::facts_canvas::{CanvasFact, CanvasStep, Query as CanvasQuery};
+pub use self::facts_panels::{LineTest, PanelFact, PanelStep};
 pub use self::given::Given;
 pub use self::state::dump;
 pub use self::step::Step;
@@ -73,9 +75,9 @@ pub struct Line {
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Script {
     /// The canvas the `# canvas:` line names, as written.
-    pub canvas: Option<String>,
+    pub(crate) canvas: Option<String>,
     /// The `given` lines, in order.
-    pub given: Vec<Given>,
+    pub(crate) given: Vec<Given>,
     /// The steps, in order.
     pub steps: Vec<Line>,
 }
@@ -115,7 +117,7 @@ impl Script {
     }
 
     /// The script in the file at `path`.
-    pub fn read(path: &Path) -> anyhow::Result<Self> {
+    pub(crate) fn read(path: &Path) -> anyhow::Result<Self> {
         let text =
             std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
         Self::parse(&text).with_context(|| format!("in {}", path.display()))
