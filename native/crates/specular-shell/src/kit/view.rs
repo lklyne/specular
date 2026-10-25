@@ -61,6 +61,7 @@ use gpui_kit::{
 };
 use specular_interact::{Action, CanvasAction, Event, SidebarAction, TOOLS_DOCK_WIDTH, ToolsPlace};
 
+pub(crate) use self::field::typed as typed_field;
 pub(crate) use self::named::shown as shown_controls;
 pub(crate) use self::palette::toggle as toggle_palette;
 use self::slot::Pointer;

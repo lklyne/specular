@@ -13,8 +13,8 @@ use std::time::Duration;
 use glam::Vec2;
 use gpui_kit::{AnyWindowHandle, AsyncApp};
 use specular_doc::{Document, EdgeId, EntityId, ItemId};
-use specular_interact::{Action, Event, SidebarAction};
-use specular_shell::script::{self, Checks, PanelStep};
+use specular_interact::{Action, ControlId, Event, SidebarAction};
+use specular_shell::script::{self, Checks, Expect, PanelStep};
 
 use super::events::{self, LEFT_DOWN, LEFT_UP};
 use super::steps::{self, Do, Place};
@@ -26,6 +26,11 @@ use crate::{canvas, shell};
 /// that a click just opened is laid out a frame or two later.
 const CONTROL_WAIT: Duration = Duration::from_millis(1500);
 const CONTROL_POLL: Duration = Duration::from_millis(40);
+
+/// How long the pointer rests on a control before a click presses it.
+const HOVER: Duration = Duration::from_millis(150);
+/// How many times a control that keeps moving is followed before the click.
+const HOVER_TRIES: usize = 4;
 
 /// More undo steps than any script makes.
 const UNDO_LIMIT: usize = 10_000;
@@ -64,7 +69,7 @@ fn write(path: &Path, text: &str) -> Result<(), String> {
 /// What a check reads back: the `expect` facts, then what only the
 /// window knows: the camera, what covers the canvas, the tool's defaults,
 /// the pages' scroll, the controls on screen and the window's frame.
-fn state() -> String {
+fn state(typed: Option<(ControlId, String)>) -> String {
     let mut out = canvas::with(|canvas| {
         let app = canvas.runtime.app();
         let mut out = script::dump(app);
@@ -88,7 +93,14 @@ fn state() -> String {
         let names: Vec<String> = shown.into_iter().map(|(name, _)| name).collect();
         names.join(" ")
     };
-    let _ = writeln!(out, "# kit-controls {}", names(view::shown_controls()));
+    let shown = view::shown_controls();
+    for (name, at) in &shown {
+        let _ = writeln!(out, "# kit-control {name} at {:.0} {:.0}", at.x, at.y);
+    }
+    let _ = writeln!(out, "# kit-controls {}", names(shown));
+    if let Some((id, text)) = typed {
+        let _ = writeln!(out, "# kit-field {id} {text}");
+    }
     window::describe(&mut out);
     out
 }
@@ -114,9 +126,17 @@ fn undo_to_start(checks: &Checks, except: &[String]) -> Result<(), String> {
     checked(|app| checks.back_at_start(app, except))
 }
 
-/// Does a step that checks the app or remembers its canvas.
-fn check_step(step: Do, checks: &mut Checks) -> Result<(), String> {
+/// Does a step that checks the app or remembers its canvas. `typed` is
+/// the Kit field being typed in, if one is.
+fn check_step(
+    step: Do,
+    checks: &mut Checks,
+    typed: Option<(ControlId, String)>,
+) -> Result<(), String> {
     match step {
+        Do::Expect(Expect::Editing(wanted)) if let Some((_, typed)) = typed => {
+            typed_is(&typed, wanted)
+        }
         Do::Expect(expect) => checked(|app| checks.check(app, &expect)),
         Do::Mark(name) => canvas::with(|canvas| checks.mark(canvas.runtime.app(), &name))
             .ok_or("there is no canvas")?
@@ -157,8 +177,22 @@ async fn press_control(name: &str, cx: &AsyncApp) -> Result<(), String> {
     } else {
         locate(Place::Control(name.to_owned()), cx).await.ok()
     };
-    if let Some(at) = drawn {
-        point(at);
+    if let Some(mut at) = drawn {
+        // A person's pointer is over a control before they press it, and
+        // what shows on hover (a list row's fields, a tab's close button)
+        // is drawn by then. It arrives by moving: GPUI works out the hover
+        // again on a move, not when what is under a still pointer changes.
+        // A control that moved meanwhile (a tab row closing up) is followed.
+        for _ in 0..HOVER_TRIES {
+            point(at + Vec2::ONE);
+            point(at);
+            cx.background_executor().timer(HOVER).await;
+            let now = locate(Place::Control(name.to_owned()), cx).await?;
+            if now == at {
+                break;
+            }
+            at = now;
+        }
         mouse(LEFT_DOWN, at, 1);
         mouse(LEFT_UP, at, 1);
         return Ok(());
@@ -188,6 +222,27 @@ async fn hover_or_hold(step: Do, cx: &AsyncApp) -> Result<(), String> {
         .map_err(|error| error.to_string())?;
     eprintln!("specular: `{name}` is not drawn; nothing to point at");
     Ok(())
+}
+
+/// What is being typed in a Kit field, checked against `expect editing`.
+/// The app hands a field's keys to the Kit and edits nothing itself, so
+/// the window's field is what a headless run's edit is.
+fn typed_is(typed: &str, wanted: Option<String>) -> Result<(), String> {
+    if wanted.as_deref() == Some(typed) {
+        return Ok(());
+    }
+    let wanted = wanted.unwrap_or_else(|| "none".to_owned());
+    Err(format!(
+        "editing is {typed} in a Kit field, expected {wanted}"
+    ))
+}
+
+/// The Kit field being typed in, and its text.
+fn typed_field(window: AnyWindowHandle, cx: &mut AsyncApp) -> Option<(ControlId, String)> {
+    window
+        .update(cx, |_, window, cx| view::typed_field(window, cx))
+        .ok()
+        .flatten()
 }
 
 /// Whether the canvas has the keys, and not a Kit text field.
@@ -311,7 +366,7 @@ pub(super) async fn step(
         Do::FullScreen => window::toggle_full_screen(),
         Do::MenuDump(path) => write(&path, &menu::dump())?,
         Do::MenuChoose(item) => menu::choose(&item),
-        Do::State(path) => write(&path, &state())?,
+        Do::State(path) => write(&path, &state(typed_field(window, cx)))?,
         Do::Accessibility(path) => write(&path, &access::dump())?,
         // A picture is for a person to read, and a locked screen or a
         // covered window has none to take: the checks go on without it.
@@ -327,7 +382,7 @@ pub(super) async fn step(
             write(&path, &text)?;
         }
         step @ (Do::Expect(_) | Do::Mark(_) | Do::Reopen | Do::UndoToStart(_)) => {
-            check_step(step, checks)?;
+            check_step(step, checks, typed_field(window, cx))?;
         }
         Do::Quit => cx.update(shell::begin_exit),
     }

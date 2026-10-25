@@ -234,6 +234,17 @@ pub(super) fn holds_focus(focused: &FocusHandle, window: &Window, cx: &mut App) 
     (inputs.iter()).any(|input| input.read(cx).focus_handle(cx).contains(focused, window))
 }
 
+/// The field being typed in, by name, and its text as typed so far.
+pub(crate) fn typed(window: &Window, cx: &mut App) -> Option<(ControlId, String)> {
+    let held: Vec<(ControlId, Entity<InputState>)> = (cx.default_global::<Fields>().held.iter())
+        .map(|(id, held)| (id.clone(), held.input.clone()))
+        .collect();
+    held.into_iter().find_map(|(id, input)| {
+        let state = input.read(cx);
+        (state.focus_handle(cx).is_focused(window)).then(|| (id, state.value().to_string()))
+    })
+}
+
 /// Whether the field `id` is being typed in.
 pub(super) fn is_focused(id: &ControlId, window: &Window, cx: &mut App) -> bool {
     let input = (cx.default_global::<Fields>().held.get(id)).map(|held| held.input.clone());
