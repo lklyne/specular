@@ -2,7 +2,6 @@ name: Rust spike
 
 on:
   push:
-    branches: [main, rust-native]
     paths:
       - 'native/**'
       - '.github/workflows/rust-spike.yml'
@@ -32,7 +31,16 @@ jobs:
           workspaces: native
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      # Runs every headless scenario too (crates/specular-app/tests/scenarios.rs),
+      # which prints one pass or FAIL line each and is skipped with a note
+      # when the runner has no GPU adapter.
       - run: cargo test --workspace --locked
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: headless-scenarios
+          path: native/target/tmp/scenarios
+          if-no-files-found: ignore
 
   macos-cef:
     name: check with CEF (macOS)
@@ -45,3 +53,30 @@ jobs:
           workspaces: native
       # Downloads the CEF binary distribution in cef-dll-sys's build script.
       - run: cargo check -p specular-app --features cef --locked
+
+  # The scenarios in the GPUI Kit window, with real NSEvents. Expected to
+  # fail on a hosted runner until proven otherwise: there may be no window
+  # server session to post events into and no GPU to draw with, so the
+  # window can stay blank and pointer steps land nowhere. It never blocks;
+  # window runs stay local (`fixtures/scenarios/run.sh --kit`) until this
+  # job is seen to pass.
+  kit-window-scenarios:
+    name: Kit window scenarios (experimental)
+    runs-on: macos-latest
+    continue-on-error: true
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native
+      - run: cargo build -p specular-shell --locked
+      - name: scenarios in the Kit window
+        run: fixtures/scenarios/run.sh --kit
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kit-window-scenarios
+          path: native/runs/scenarios/kit
+          if-no-files-found: ignore

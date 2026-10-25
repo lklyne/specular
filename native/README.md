@@ -193,19 +193,25 @@ cargo run -p specular-app -- --script steps.txt FILE.canvas
   pixels.
 - A script is one step a line: `click x y`, `drag x1 y1 x2 y2`, `key cmd+z`,
   `type some text`, `tool shape`, `control shape.color`, `snapshot out.png`,
-  `save out.canvas` and more. [`CLAUDE.md`](CLAUDE.md), "Looking at what it
-  draws", has the whole list.
-- The chrome (tab row, toolbar and dock) is the built-in one, drawn and
-  clickable.
+  `save out.canvas` and more, and `expect ..` lines that check the state
+  and the saved canvas. The same file runs in the GPUI window. A script
+  that names its canvas on its first line needs no `FILE.canvas`.
+  [`CLAUDE.md`](CLAUDE.md), "Looking at what it draws", has the whole list,
+  and [`fixtures/scenarios/README.md`](fixtures/scenarios/README.md) the
+  checks.
+- `--script-panels off` runs without the built-in chrome, and a
+  `control NAME` step presses the control from the models.
 - Pages are synthetic unless the bundled binary is run with `--source cef`.
   Then the real pages load first and a script's input reaches an entered
   page.
 - The clipboard and new Documents are kept in memory, and the clock moves
   only on `wait`, so a script draws the same frames every run.
 
-The GPUI window has its own script driver for an agent with no hands:
-`SPECULAR_SHELL_SCRIPT="wait 2000; click 587 58; shot /tmp/a.png; quit"`
-posts real `NSEvent`s and captures the window. Set `SPECULAR_FLOAT_WINDOW=1`
+The GPUI window runs the same scripts with real `NSEvent`s:
+`SPECULAR_SHELL_SCRIPT_FILE=steps.txt` runs a file and quits at its end,
+and `SPECULAR_SHELL_SCRIPT="wait 2000; click 587 58; shot /tmp/a.png; quit"`
+runs steps inline. Window-only steps (`resize`, `keycode`, `menu-choose`
+...) run there and are skipped headless. Set `SPECULAR_FLOAT_WINDOW=1`
 with it. A covered window, a locked screen or a sleeping display draws
 nothing, and the capture then looks like blank pages.
 
@@ -222,14 +228,17 @@ nothing, and the capture then looks like blank pages.
 - `fixtures/bench/`: canvases that each load one part of the renderer (500
   and 2,000 stickies, 300 drawings, 200 edges, 50 Documents, `mixed`), with
   `generate.py` and the run scripts.
-- `fixtures/scenarios/`: eighteen whole sessions as scripts, `a` to `p`.
-  `run.sh` runs them headless into `runs/qa/` and `check.py` compares the
-  canvases they save. A PNG has no check, so open it. The
+- `fixtures/scenarios/`: whole sessions as scripts, one user flow a file,
+  each checking state with `expect` lines and ending with `undo-to-start`.
+  `run.sh` runs them headless (the default), `--kit` in the GPUI window,
+  `--cef` on real pages and `--cli` the CLI end to end, into
+  `runs/scenarios/<mode>/`, one pass or fail line each. `cargo test
+  --workspace` runs the headless ones too. The
   [README there](fixtures/scenarios/README.md) lists each session.
-- `fixtures/scenarios/cef/`: sessions that need the bundled CEF app.
-  `pages.txt` is real pages, comments and scroll. `cli-pages.sh` runs every
-  browse verb of the CLI against two pages. `sync.sh` runs a sync set of two
-  widths against its own web server.
+- `fixtures/scenarios/cef/`: the real-page suite for `run.sh --cef`, which
+  needs the bundled debug CEF app: `pages.txt` (comments and scroll),
+  `sync.txt` (a sync set of two widths, against a web server run.sh starts)
+  and `cli-pages.sh` (every browse verb of the CLI against two pages).
 - `fixtures/scenarios/app/first-run.sh`: the first run of the release bundle
   on a throwaway home folder.
 

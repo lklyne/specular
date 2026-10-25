@@ -4,6 +4,8 @@
 //! or a negative index from the end: `/nodes/s1/color`,
 //! `/annotations/-1/text`. Numbers compare by value, so `200` is `200.0`.
 
+use std::fmt::Write as _;
+
 use serde_json::Value;
 
 /// The value at `path` in `root`, if there is one.
@@ -142,10 +144,11 @@ fn walk(a: &Value, b: &Value, path: String, out: &mut Vec<Difference>) {
 
 /// `found` as lines under a heading, for a failure message.
 pub(super) fn listed(found: &[Difference]) -> String {
-    found
-        .iter()
-        .map(|(path, was, now)| format!("\n    {path}: {was} -> {now}"))
-        .collect()
+    let mut out = String::new();
+    for (path, was, now) in found {
+        let _ = write!(out, "\n    {path}: {was} -> {now}");
+    }
+    out
 }
 
 #[cfg(test)]

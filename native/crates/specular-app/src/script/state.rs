@@ -2,6 +2,7 @@
 //! `expect` without the word, so a line of a dump can be pasted into a
 //! script as a check.
 
+use specular_doc::ItemId;
 use specular_interact::{App, Focus, Showing};
 
 use super::check::{kind_word, note_of, text_of};
@@ -28,7 +29,7 @@ pub fn dump(app: &App) -> String {
         .selection
         .items()
         .iter()
-        .map(|item| item.as_str())
+        .map(ItemId::as_str)
         .collect();
     line(if selection.is_empty() {
         "selection none".to_owned()

@@ -39,6 +39,7 @@ use anyhow::{Context as _, bail};
 use specular_core::Camera;
 use specular_doc::Document;
 
+pub(crate) use self::check::is_markdown;
 pub use self::check::{Checks, saved_text};
 pub use self::expect::{Counted, EntityFact, Expect, Reference, SavedFact};
 pub use self::given::Given;

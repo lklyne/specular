@@ -125,6 +125,20 @@ fn undo_to_start(checks: &Checks, except: &[String]) -> Result<(), String> {
     checked(|app| checks.back_at_start(app, except))
 }
 
+/// Does a step that checks the app or remembers its canvas.
+fn check_step(step: Do, checks: &mut Checks) -> Result<(), String> {
+    match step {
+        Do::Expect(expect) => checked(|app| checks.check(app, &expect)),
+        Do::Mark(name) => canvas::with(|canvas| checks.mark(canvas.runtime.app(), &name))
+            .ok_or("there is no canvas")?
+            .map_err(|error| format!("{error:#}")),
+        Do::Reopen => reopen(),
+        Do::UndoToStart(except) => undo_to_start(checks, &except),
+        // `step` hands over only the steps above.
+        _ => Ok(()),
+    }
+}
+
 /// Writes the canvas as a save would and opens what was written.
 fn reopen() -> Result<(), String> {
     let text = canvas::with(|canvas| canvas.runtime.canvas_text())
@@ -132,6 +146,49 @@ fn reopen() -> Result<(), String> {
         .map_err(|error| format!("{error:#}"))?;
     let document = Document::from_canvas_str(&text).map_err(|error| error.to_string())?;
     canvas::dispatch(Event::DocumentOpened(Box::new(document)));
+    Ok(())
+}
+
+/// Clicks the control `name` where the window draws it. The settings
+/// dialog's switches, and a control the Kit does not draw (a sidebar row
+/// scrolled out of view, a choice in a menu that is not open), are pressed
+/// from the models, as a headless run presses them; the run says so.
+async fn press_control(name: &str, cx: &AsyncApp) -> Result<(), String> {
+    let drawn = if name.starts_with("settings.") {
+        None
+    } else {
+        locate(Place::Control(name.to_owned()), cx).await.ok()
+    };
+    if let Some(at) = drawn {
+        point(at);
+        mouse(LEFT_DOWN, at, 1);
+        mouse(LEFT_UP, at, 1);
+        return Ok(());
+    }
+    let control =
+        canvas::with(|canvas| specular_interact::control_named(canvas.runtime.app(), name))
+            .ok_or("there is no canvas")?
+            .map_err(|error| error.to_string())?;
+    if !name.starts_with("settings.") {
+        eprintln!("specular: `{name}` is not drawn; pressed from the models");
+    }
+    canvas::dispatch(Event::Control(control, specular_core::Modifiers::default()));
+    Ok(())
+}
+
+/// Moves onto or presses a named control. One that is not drawn has
+/// nowhere to point at; as headless, its name must still be a control's.
+async fn hover_or_hold(step: Do, cx: &AsyncApp) -> Result<(), String> {
+    let (Do::Move(Place::Control(name)) | Do::Press(Place::Control(name))) = &step else {
+        return pointer(step, cx).await;
+    };
+    if locate(Place::Control(name.clone()), cx).await.is_ok() {
+        return pointer(step, cx).await;
+    }
+    canvas::with(|canvas| specular_interact::control_named(canvas.runtime.app(), name))
+        .ok_or("there is no canvas")?
+        .map_err(|error| error.to_string())?;
+    eprintln!("specular: `{name}` is not drawn; nothing to point at");
     Ok(())
 }
 
@@ -309,15 +366,9 @@ pub(super) async fn step(
         );
     }
     match step {
-        // The settings dialog is a window of its own whose switches have no
-        // place in this one: they are pressed from the models.
-        Do::Click(Place::Control(name), _) if name.starts_with("settings.") => {
-            let control = canvas::with(|canvas| {
-                specular_interact::control_named(canvas.runtime.app(), &name)
-            })
-            .ok_or("there is no canvas")?
-            .map_err(|error| error.to_string())?;
-            canvas::dispatch(Event::Control(control, specular_core::Modifiers::default()));
+        Do::Click(Place::Control(name), 1) => press_control(&name, cx).await?,
+        step @ (Do::Move(Place::Control(_)) | Do::Press(Place::Control(_))) => {
+            hover_or_hold(step, cx).await?;
         }
         Do::Wait(ms) => {
             (cx.background_executor())
@@ -403,15 +454,9 @@ pub(super) async fn step(
                 .map_err(|error| format!("{error:#}"))?;
             write(&path, &text)?;
         }
-        Do::Expect(expect) => checked(|app| checks.check(app, &expect))?,
-        Do::Mark(name) => {
-            let marked = canvas::with(|canvas| checks.mark(canvas.runtime.app(), &name));
-            marked
-                .ok_or("there is no canvas")?
-                .map_err(|error| format!("{error:#}"))?;
+        step @ (Do::Expect(_) | Do::Mark(_) | Do::Reopen | Do::UndoToStart(_)) => {
+            check_step(step, checks)?;
         }
-        Do::Reopen => reopen()?,
-        Do::UndoToStart(except) => undo_to_start(checks, &except)?,
         Do::Skip => {}
         Do::Quit => cx.update(shell::begin_exit),
     }

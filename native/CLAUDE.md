@@ -84,7 +84,11 @@ on its own.
   and none that pin how a private function is called. If a pure rule is
   hard enough to get wrong (resize math, text segmentation, markdown), it
   gets one or two tests on its inputs and outputs.
-- A bug that only showed up in use goes into `fixtures/scenarios/`.
+- A behavior across features, or a bug that only showed up in use, is a
+  scenario in `fixtures/scenarios/`: a script that checks state with
+  `expect` lines and ends with `undo-to-start`. `cargo test --workspace`
+  runs them all headless; `fixtures/scenarios/run.sh --kit` runs them in
+  the window.
 
 Before adding a test, look for the one that already covers the behavior
 and extend its table.
@@ -209,7 +213,7 @@ fn shift_drag_moves_the_page_along_one_axis() {
   Enter, `field_edit()` reads what is typed so far, and Escape puts the
   old value back.
   The sidebar starts hidden, as in Electron: `show_sidebar(true)` (or
-  Command+B) shows it. Its controls are `sidebar.canvas.<id>`
+  Command+B) shows it. Its controls are `sidebar.canvas.<n>` (by place, from 1)
   (`.name` is the rename field, `.menu.rename` and `.menu.delete` the
   right-click menu), `sidebar.add`, `sidebar.head.<canvases|notes|pages>`,
   `sidebar.<notes|pages>.<entity id>` (`.toggle` its chevron) and
@@ -222,7 +226,7 @@ fn shift_drag_moves_the_page_along_one_axis() {
   dropdown slot). `assert_menu_snapshot!(app)` holds its model,
   `menu_open()` says whether one is open, and `click_control("menu.duplicate")`
   picks an item (`menu.<label in lower case, dashes>`; a canvas row's menu is
-  `sidebar.canvas.<id>.menu.rename|delete`).
+  `sidebar.canvas.<n>.menu.rename|delete`).
   `app.control("text.color")` does what a click on a control does from the
   models alone, with no `with_panels`, and `context_menu(at)` is the right
   click that goes with it. `tests/it/named_controls.rs` holds the two paths
@@ -257,40 +261,50 @@ cargo run -p specular-app -- --script steps.txt FILE.canvas
   `wait ms` lets pages run for that long. See `README.md`.
 - The camera is `fit` (the default) or `x,y,zoom`: the pan in screen
   pixels, so canvas point `(cx, cy)` at the top-left is `-cx*zoom,-cy*zoom,zoom`.
-- A script is one step a line, in the testkit's words: `click x y`,
-  `double-click x y`, `triple-click x y`, `move`, `press`, `drag-to`,
-  `release`, `drag x1 y1 x2 y2`, `hold shift+cmd` (`hold none`),
+- A script is one step a line, read by `specular_app::script`, the one
+  module both runners share: this headless one and the Kit window
+  (`SPECULAR_SHELL_SCRIPT_FILE`). Its first line may name the canvas
+  (`# canvas: ../kitchen-sink.canvas`), and `given` lines may describe the
+  starting document instead. Input steps: `click x y`, `double-click`,
+  `triple-click`, `right-click`, `move`, `press`, `drag-to`, `release`
+  (`release x y`), `drag x1 y1 x2 y2`, `hold shift+cmd` (`hold none`),
   `key cmd+z`, `type some text`, `compose にほ`, `commit 日本`,
-  `wheel dx dy`, `pinch 0.2`, `tool shape`, `select id ..`,
-  `act annotate-selection`, `act resolve-comment`, `act page-back`
-  (`-forward`, `-reload`, `-stop`), `act zoom-to-fit`, `act arrange-row`
-  (`-column`, `-grid`), `right-click x y`,
-  `sidebar on|off`, `camera ..`, `wait ms`, `motion on|off` (camera
-  transitions as in a window), `reduce-motion on|off`,
-  `page-opens-tab p1 URL [background]` (a link the page opens in a new tab),
-  `snapshot out.png`, `save out.canvas`. Positions are screen pixels. A snapshot between `press` and `release` shows a gesture in
-  flight.
-- The chrome is drawn and takes clicks, so the top 114 pixels
-  (`CHROME_HEIGHT`) are the tab row, the toolbar and the dock.
-  `control shape.color` clicks a control by its name wherever it is (`hover-control`, `press-control` likewise), and a
-  wrong name fails the run with the names that are shown. A field takes
-  `control page.url`, `key cmd+a`, `type ..`, `key enter`. A dropdown's
-  options have names once it is open. `panels off` runs without them, and
-  `--script-panels off` runs a whole script that way. A `control NAME` step
-  then does what the control does from the models alone
-  (`specular_interact::named_controls`, `Event::Control`): an option is
-  named whether or not its list is open, a sidebar row whether or not it is
-  scrolled into view, and `hover-control` and `press-control` only check
-  the name. A raw `click x y` aimed at a panel's pixels lands on the canvas.
+  `wheel dx dy`, `scroll x y dx dy`, `pinch 0.2`, `tool shape`,
+  `select id ..`, `act ..` (`annotate-selection`, `resolve-comment`,
+  `page-back|forward|reload|stop`, `zoom-to-fit`, `arrange-row|column|grid`,
+  `toggle-sync`, `undo`, `redo`), `sidebar on|off`, `camera ..`, `wait ms`,
+  `motion on|off`, `reduce-motion on|off`, `page-opens-tab p1 URL
+  [background]`, `control NAME`, `hover-control`, `press-control`. Positions
+  are screen pixels.
+- Checks: `expect ..` states a fact about the app (tool, selection, focus,
+  editing, showing, counts, an entity's kind, rect, text or parent, the
+  camera) or about the canvas as a save would write it (`expect saved
+  /nodes/s1/color = "4"`, `same-as start`, `changed-from start at PATH`).
+  `undo-to-start` undoes until nothing is left and checks the canvas is
+  the one the run opened. `mark NAME`, `reopen` and `state out.txt` (every
+  fact, in `expect` words) help write them. The vocabulary is in
+  `fixtures/scenarios/README.md` and `script/expect.rs`.
+- Output steps: `snapshot out.png`, `save out.canvas`, `state out.txt`.
+  Steps only a window can do (`resize`, `resize-drag`, `keycode`, `swipe`,
+  `pan`, `drop`, `menu-choose` ..., `script/window.rs`) are skipped headless
+  and listed when the run ends.
+- `--script-panels off` runs without the built-in toolbar and dock, as the
+  scenarios do: `control NAME` then does what the control does from the
+  models (`specular_interact::named_controls`, `Event::Control`), an option
+  whether or not its list is open, a sidebar row whether or not it is in
+  view. Canvas rows are named by place, `sidebar.canvas.1`. With the panels
+  on, the top 114 pixels are chrome and `control` clicks where it is drawn.
+  `settings.*` switches always come from the models.
 - The clipboard and the Documents a run makes are kept in memory:
   `clipboard some\ntext` is another app copying, `key cmd+v` pastes it,
   and `tool document` then a click makes `Untitled Note.md` with no file.
   `save` writes what an autosave would.
-- `fixtures/scenarios/` holds whole sessions as scripts, with a `run.sh`
-  that runs them all into `runs/qa/` and checks the canvases they save.
-  Run it after a change that crosses features, and add to it when a bug
-  only showed up in use. `PANELS=off fixtures/scenarios/run.sh` runs them
-  with the panels off into `runs/qa-panels-off/`.
+- `fixtures/scenarios/` holds whole sessions as scripts, one flow a file,
+  and `fixtures/scenarios/run.sh` runs them (`--kit` in the window, `--cef`
+  on real pages, `--cli` the CLI end to end) into
+  `runs/scenarios/<mode>/`. `cargo test --workspace` runs every headless
+  scenario too (`specular-app/tests/scenarios.rs`; `SCENARIO=name` for
+  one). Add to them when a bug only showed up in use.
 - `fixtures/kitchen-sink.canvas` has every kind in every style. Snapshot it
   after changing `specular-scene` or `specular-compositor` and open the PNG
   with the Read tool. A scene snapshot test cannot see a wrong colour or a
@@ -323,8 +337,8 @@ logs the port it took and the `SPECULAR_DISCOVERY_FILE=` to pass the CLI.
   `specular_api::cdp::PageProxy`, the sockets are `specular-app/src/cdp/`,
   and `fixtures/scenarios/cef/cli-pages.sh` runs every verb against a
   bundled debug CEF app on a scratch space (`CLI=` names the CLI binary).
-  `fixtures/scenarios/cef/sync.sh`
-  runs a sync set of two widths on the same bundle.
+  `fixtures/scenarios/run.sh --cef` runs it with `cef/sync.txt`, a sync
+  set of two widths, on the same bundle.
 - An agent cursor is drawn when the CLI runs the patched agent-browser:
   `export AGENT_BROWSER_PATH="$(scripts/build-agent-browser.sh)"`. It sends
   `Specular.willAct` before each targeted verb, `PageProxy` holds the

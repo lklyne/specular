@@ -134,7 +134,7 @@ impl Checks {
             Expect::Redo(some) => equal("something to redo", app.can_redo(), *some),
             Expect::Count(what, count) => equal(&counted_name(what), counted(app, what), *count),
             Expect::Entity(id, fact) => entity_fact(app, id, fact),
-            Expect::Saved(path, fact) => self.saved_fact(app, path, fact),
+            Expect::Saved(path, fact) => saved_fact(app, path, fact),
             Expect::SameAs(reference) => self.same_as(app, reference),
             Expect::ChangedFrom(reference, paths) => self.changed_from(app, reference, paths),
         }
@@ -193,40 +193,41 @@ impl Checks {
         );
         Ok(())
     }
+}
 
-    fn saved_fact(&self, app: &App, path: &str, fact: &SavedFact) -> anyhow::Result<()> {
-        let canvas = saved_json(app)?;
-        let path = resolve_path(app, path)?;
-        let found = at(&canvas, &path);
-        let shown = || found.map_or("nothing".to_owned(), Value::to_string);
-        match fact {
-            SavedFact::Equals(value) => ensure!(
-                found.is_some_and(|found| same(found, value)),
-                "saved {path} is {}, expected {value}",
-                shown()
-            ),
-            SavedFact::Absent => ensure!(found.is_none(), "saved {path} is {}", shown()),
-            SavedFact::Keys(keys) => {
-                let Some(Value::Object(map)) = found else {
-                    bail!("saved {path} is {}, not an object", shown());
-                };
-                let mut have: Vec<&str> = map.keys().map(String::as_str).collect();
-                let mut want: Vec<&str> = keys.iter().map(String::as_str).collect();
-                have.sort_unstable();
-                want.sort_unstable();
-                ensure!(have == want, "saved {path} has keys {}", have.join(" "));
-            }
-            SavedFact::Length(length) => {
-                let have = match found {
-                    Some(Value::Array(items)) => items.len(),
-                    Some(Value::Object(map)) => map.len(),
-                    _ => bail!("saved {path} is {}, not a list", shown()),
-                };
-                ensure!(have == *length, "saved {path} has {have} items");
-            }
+/// Whether `fact` holds at `path` in the canvas as a save would write it.
+fn saved_fact(app: &App, path: &str, fact: &SavedFact) -> anyhow::Result<()> {
+    let canvas = saved_json(app)?;
+    let path = resolve_path(app, path)?;
+    let found = at(&canvas, &path);
+    let shown = || found.map_or("nothing".to_owned(), Value::to_string);
+    match fact {
+        SavedFact::Equals(value) => ensure!(
+            found.is_some_and(|found| same(found, value)),
+            "saved {path} is {}, expected {value}",
+            shown()
+        ),
+        SavedFact::Absent => ensure!(found.is_none(), "saved {path} is {}", shown()),
+        SavedFact::Keys(keys) => {
+            let Some(Value::Object(map)) = found else {
+                bail!("saved {path} is {}, not an object", shown());
+            };
+            let mut have: Vec<&str> = map.keys().map(String::as_str).collect();
+            let mut want: Vec<&str> = keys.iter().map(String::as_str).collect();
+            have.sort_unstable();
+            want.sort_unstable();
+            ensure!(have == want, "saved {path} has keys {}", have.join(" "));
         }
-        Ok(())
+        SavedFact::Length(length) => {
+            let have = match found {
+                Some(Value::Array(items)) => items.len(),
+                Some(Value::Object(map)) => map.len(),
+                _ => bail!("saved {path} is {}, not a list", shown()),
+            };
+            ensure!(have == *length, "saved {path} has {have} items");
+        }
     }
+    Ok(())
 }
 
 /// The active canvas as a save would write it now.
@@ -257,6 +258,10 @@ fn name_of(reference: &Reference) -> String {
     }
 }
 
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "callers hand over the values they just worked out"
+)]
 fn equal<T: PartialEq + std::fmt::Display>(what: &str, found: T, wanted: T) -> anyhow::Result<()> {
     ensure!(found == wanted, "{what} is {found}, expected {wanted}");
     Ok(())
@@ -314,9 +319,16 @@ fn resolve_path(app: &App, path: &str) -> anyhow::Result<String> {
 pub(super) fn kind_word(entity: &Entity) -> &'static str {
     match &entity.kind {
         Kind::Text(text) if text.resolved_style() == TextStyle::Sticky => "sticky",
-        Kind::File(file) if file.file.ends_with(".md") => "document",
+        Kind::File(file) if is_markdown(&file.file) => "document",
         kind => kind.name(),
     }
+}
+
+/// Whether the file at `path` is markdown, which a Document shows.
+pub(crate) fn is_markdown(path: &str) -> bool {
+    std::path::Path::new(path)
+        .extension()
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("md"))
 }
 
 /// What `expect entity .. text` reads of `entity`.

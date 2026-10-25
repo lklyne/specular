@@ -303,7 +303,7 @@ impl Headless {
         self.drive(|app| app.tick(now).tick(now))?;
         self.settle()?;
         let path = self.out.join(path);
-        let items = self.draw(true)?;
+        let items = self.draw(true);
         self.target.save(&self.gpu, &path)?;
         tracing::info!(path = %path.display(), items, "snapshot");
         self.report_note_heights()
@@ -311,7 +311,7 @@ impl Headless {
 
     /// Draws a frame, with the built-in panels when `panels`, as a window
     /// would after a step, and returns how many items it drew.
-    fn draw(&mut self, panels: bool) -> anyhow::Result<usize> {
+    fn draw(&mut self, panels: bool) -> usize {
         let mut scene = specular_scene::view(self.app.app(), self.viewport, &self.view_cache);
         if panels {
             specular_scene::draw_panels(self.app.app(), &mut scene);
@@ -330,16 +330,17 @@ impl Headless {
                 hosts.get(entity).copied()
             });
         tracing::debug!(?stats, "frame");
-        Ok(scene.items.len())
+        scene.items.len()
     }
 
     /// Draws a frame when a Document is on the canvas: its rows are only
     /// measured when drawn, and their heights move what is below them.
     fn frame_for_documents(&mut self) -> anyhow::Result<()> {
-        let documents = (self.app.document().entities())
-            .any(|entity| matches!(&entity.kind, Kind::File(file) if file.file.ends_with(".md")));
+        let documents = (self.app.document().entities()).any(
+            |entity| matches!(&entity.kind, Kind::File(file) if script::is_markdown(&file.file)),
+        );
         if documents {
-            self.draw(false)?;
+            self.draw(false);
             self.report_note_heights()?;
         }
         Ok(())

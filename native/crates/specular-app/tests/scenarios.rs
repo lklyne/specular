@@ -3,7 +3,7 @@
 //! file name holds `name`. What a run saves and draws lands in
 //! `target/tmp/scenarios/<name>/`.
 
-#![expect(clippy::unwrap_used, clippy::panic, reason = "a test fails loudly")]
+#![expect(clippy::unwrap_used, reason = "a test fails loudly")]
 
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;

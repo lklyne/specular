@@ -118,6 +118,13 @@ impl Loopback {
         let secret = format!("x-specular-secret: {SECRET}\r\n");
         self.send(method, target, &secret, &body.to_string())
     }
+
+    /// The body of a call that must succeed.
+    fn ok(&mut self, method: &str, target: &str, body: &Value) -> Value {
+        let (status, answer) = self.call(method, target, body);
+        assert_eq!(status, 200, "{method} {target}: {answer}");
+        answer
+    }
 }
 
 #[test]

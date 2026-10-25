@@ -28,16 +28,16 @@ use super::words::number;
 #[derive(Debug, Clone, PartialEq)]
 pub enum Given {
     /// An entity, in the group named first if there is one.
-    Entity(Option<String>, Entity),
+    Entity(Option<String>, Box<Entity>),
     /// An edge from one entity to another.
-    Edge(Edge),
+    Edge(Box<Edge>),
 }
 
 /// The `given` line whose words follow `given`.
 pub(super) fn parse(rest: &str) -> anyhow::Result<Given> {
     let words: Vec<&str> = rest.split_whitespace().collect();
     match words.as_slice() {
-        ["edge", id, from, to] => Ok(Given::Edge(Edge::new(*id, *from, *to))),
+        ["edge", id, from, to] => Ok(Given::Edge(Box::new(Edge::new(*id, *from, *to)))),
         ["inside", group, ..] => {
             let tail = after(rest, 2);
             match parse(tail)? {
@@ -55,7 +55,7 @@ pub(super) fn parse(rest: &str) -> anyhow::Result<Given> {
             let text = after(rest, 6).to_owned();
             Ok(Given::Entity(
                 None,
-                Entity::new(*id, rect, kind_of(kind, *id, text)?),
+                Box::new(Entity::new(*id, rect, kind_of(kind, id, text)?)),
             ))
         }
         _ => bail!(
@@ -118,12 +118,12 @@ pub(super) fn document(given: &[Given]) -> anyhow::Result<Document> {
             Given::Entity(group, entity) => Command::InsertEntity {
                 entity: Box::new(Entity {
                     parent: group.map(EntityId::from),
-                    ..entity
+                    ..*entity
                 }),
                 at: document.stack_len(),
             },
             Given::Edge(edge) => Command::InsertEdge {
-                edge: Box::new(edge),
+                edge,
                 at: document.stack_len(),
             },
         };
