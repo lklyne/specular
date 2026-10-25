@@ -1,12 +1,18 @@
-# Two pages of one site in one sync set, 800 and 400 wide. Run by sync.sh,
-# which serves the site and writes the canvas. With the camera it sets, the
-# wide page is at screen x 40..640 and the narrow one at x 715..1015, both
-# y 80..455, at 0.75 of a CSS pixel.
-snapshot 01-loaded.png
+# Two pages of one site in one sync set, 800 and 400 wide. `{site}` is the
+# address run.sh serves this folder at. With this camera the wide page is at
+# screen x 40..640 and the narrow one at x 715..1015, both y 80..455, at 0.75
+# of a CSS pixel, in a 1400x800 viewport.
+given page p-wide 0 0 800 500 {site}/sync-site/index.html
+given page p-narrow 900 0 400 500 {site}/sync-site/index.html
+camera 40,80,0.75
+select p-wide p-narrow
+act toggle-sync
+wait 1500
 # Enter the wide page and click Menu: the narrow page's Menu button is
 # elsewhere, and its panel opens too.
 click 300 300
 click 300 300
+expect focus page p-wide
 move 100 110
 wait 500
 click 100 110
@@ -15,11 +21,12 @@ snapshot 02-menu.png
 # Follow the link: both pages go to the second page.
 click 250 110
 wait 2500
-snapshot 03-navigated.png
+expect entity p-wide text {site}/sync-site/second.html
+expect entity p-narrow text {site}/sync-site/second.html
 # Back from the wide page takes the narrow one back.
 act page-back
 wait 2500
-snapshot 04-back.png
+expect entity p-narrow text {site}/sync-site/index.html
 # Scroll the wide page: the narrow page, a longer document, goes to the
 # same fraction of its own length, which is further in pixels.
 wheel 0 -1200

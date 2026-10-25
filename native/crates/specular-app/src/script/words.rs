@@ -170,6 +170,7 @@ pub(super) fn action_named(name: &str) -> anyhow::Result<Action> {
         "page-reload" => Action::PageReload,
         "page-stop" => Action::PageStop,
         "zoom-to-fit" => Action::ZoomToFit,
+        "toggle-sync" => Action::ToggleSync,
         "undo" => Action::Undo,
         "redo" => Action::Redo,
         other => bail!("unknown action `{other}`"),
