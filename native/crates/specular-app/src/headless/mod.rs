@@ -1,37 +1,31 @@
 //! Headless runs: `--snapshot` and `--script` draw a canvas into PNG files
-//! on the real adapter, with no window.
+//! on the real adapter, with no window on screen.
 //!
-//! The app is a [`Driver`], the scripted hands the feature tests use too,
-//! with the compositor's text measure. Pages come from the
-//! synthetic source, or with `--source cef` from CEF, pumped here until they
-//! have loaded and painted. Images and Documents come from the shell's own
-//! loader threads. Nothing is written but the PNGs and what a `save` step names:
-//! autosaves, assets and preferences are dropped, and the clipboard and the
-//! Documents a session makes are kept in memory.
+//! The run is a [`Runtime`] like a window's, over a [`HeadlessWindow`], so
+//! every effect has the one runner the Kit window uses. A script's input
+//! goes through a [`Driver`], the scripted hands the testkit uses too.
+//! Pages come from the synthetic source, or with `--source cef` from CEF,
+//! pumped here until they have loaded and painted. Nothing is written but
+//! the PNGs and what a `save` step names: the runtime is told not to write,
+//! so autosaves, assets and preferences are dropped, and the clipboard and
+//! the Documents a run makes are kept in memory.
 
 mod bench;
-mod effects;
-mod stand_ins;
 mod steps;
+mod window;
 
-use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 
 use anyhow::Context as _;
-use glam::Vec2;
-use specular_compositor::{Compositor, DotGrid, FrameView, GpuContext};
-use specular_core::{PageId, PageSource};
-use specular_doc::{Document, EntityId, Kind};
-use specular_interact::{App, Driver, Event, ImageKey, Theme};
+use specular_bench::PaintPolicy;
+use specular_core::PageSource;
+use specular_doc::{Document, Kind};
+use specular_interact::{Driver, Event, Theme};
 
 pub(crate) use self::bench::{BenchPlan, START_CAMERA, run as run_bench, work_of};
-use self::stand_ins::StandIns;
+use self::window::HeadlessWindow;
+use crate::app::{Runtime, RuntimeOptions};
 use crate::cli::SourceKind;
-use crate::images::{ImageLoader, Uploaded};
-use crate::notes::NoteLoader;
-use crate::offscreen::{self, Target};
-use crate::page_queries::PageQueries;
 pub(crate) use crate::script::CameraArg;
 use crate::script::{self, Checks, Script, Step};
 
@@ -146,14 +140,11 @@ pub(crate) fn run(
         .map_or_else(PathBuf::new, Path::to_owned);
     let document = script.given_document()?.unwrap_or(document);
     let mut run = Headless::new(source, canvas, args, out)?;
-    let viewport = run.viewport;
-    let folder = (run.space.as_deref()).map(|folder| folder.to_string_lossy().into_owned());
     run.drive(|app| {
-        app.viewport(viewport);
         if let Some(theme) = args.theme {
             app.send(Event::ThemeLoaded(theme));
         }
-        if let Some(folder) = folder {
+        if let Some(folder) = run_folder(app.sink()) {
             app.send(Event::DocumentFolder(folder));
         }
         app.send(Event::DocumentOpened(Box::new(document)))
@@ -161,10 +152,10 @@ pub(crate) fn run(
     // A script's first step may ask a page something, and a real page has
     // nothing to say until it has loaded.
     if run.live {
-        run.settle()?;
+        run.runtime().settle(true);
     }
     run.step(Step::Camera(args.camera))?;
-    run.checks = Checks::begin(run.app.app(), &base)?;
+    run.checks = Checks::begin(run.hands.app(), &base)?;
     let mut report = Report::default();
     for line in script.steps {
         if line.step.window_only() {
@@ -179,7 +170,7 @@ pub(crate) fn run(
     if let Some(path) = &args.snapshot {
         run.snapshot(path)?;
     }
-    run.source.shutdown();
+    run.runtime().shut_down();
     if !report.skipped.is_empty() {
         eprintln!(
             "skipped {} window-only steps:\n  {}",
@@ -190,45 +181,24 @@ pub(crate) fn run(
     Ok(report)
 }
 
+/// The folder of the canvas a run shows, which its relative paths start
+/// from.
+fn run_folder(runtime: &Runtime<HeadlessWindow>) -> Option<String> {
+    let folder = runtime.space_folder()?;
+    Some(folder.to_string_lossy().into_owned())
+}
+
 struct Headless {
-    gpu: GpuContext,
-    compositor: Compositor,
-    target: Target,
-    source: Box<dyn PageSource>,
+    /// The script's hands, sending to the runtime.
+    hands: Driver<Runtime<HeadlessWindow>>,
     /// Whether the pages are real ones, which load and paint in their own
     /// time.
     live: bool,
-    /// The pages whose current document has not finished loading.
-    loading_pages: HashSet<PageId>,
-    /// The pages that have not painted since their document loaded.
-    unpainted_pages: HashSet<PageId>,
-    app: Driver,
-    /// The hosted page behind each page entity.
-    hosts: HashMap<EntityId, PageId>,
-    /// What pages have been asked and not yet answered.
-    queries: PageQueries,
-    images: ImageLoader,
-    /// The folder the document's relative file paths start from.
-    space: Option<PathBuf>,
-    uploaded: Uploaded,
-    notes: NoteLoader,
-    /// Asked for and not yet answered.
-    loading_images: HashSet<ImageKey>,
-    loading_notes: HashSet<String>,
-    stand_ins: StandIns,
-    /// The row heights last reported for each Document on screen.
-    note_heights: HashMap<EntityId, f32>,
-    /// What `view` keeps from one frame to the next.
-    view_cache: specular_scene::ViewCache,
-    viewport: Vec2,
-    scale: f32,
     now_ms: u64,
     /// The folder a script's relative paths are written in.
     out: PathBuf,
     /// What the `expect` steps compare with.
     checks: Checks,
-    /// The effects of the last step that was not a check, for `expect sent`.
-    sent: Vec<specular_interact::Effect>,
 }
 
 impl Headless {
@@ -238,59 +208,44 @@ impl Headless {
         args: &HeadlessArgs,
         out: &Path,
     ) -> anyhow::Result<Self> {
-        let gpu = pollster::block_on(GpuContext::headless()).context("no GPU to draw with")?;
-        let mut compositor =
-            Compositor::new(gpu.device.clone(), gpu.queue.clone(), offscreen::FORMAT);
-        compositor.warm_text();
-        let (width, height) = args.size;
-        let pixels = |side: u32| ((side as f32 * args.scale).round() as u32).max(1);
-        let target = Target::new(&gpu, pixels(width), pixels(height), offscreen::FORMAT);
-        let space = canvas
-            .and_then(|canvas| std::path::absolute(canvas).ok())
-            .and_then(|canvas| canvas.parent().map(Path::to_owned));
-        let mut app = Driver::new(App::new(0));
-        app.measure_with(Arc::new(compositor.text_measure()));
-        tracing::info!(adapter = %gpu.adapter.get_info().name, "drawing headless");
-        Ok(Self {
-            gpu,
-            compositor,
-            target,
+        let window = HeadlessWindow::new(args.size, args.scale)?;
+        let mut runtime = Runtime::new(
             source,
+            RuntimeOptions {
+                canvas: canvas.map(Path::to_owned),
+                paint_policy: PaintPolicy::FullRate,
+                chrome: true,
+                settings: false,
+                motion: false,
+                writes: false,
+                start_ms: Some(0),
+            },
+        );
+        runtime.attach_window(window);
+        runtime.clear_sent();
+        Ok(Self {
+            hands: Driver::over(runtime),
             live: args.source == SourceKind::Cef,
-            loading_pages: HashSet::new(),
-            unpainted_pages: HashSet::new(),
-            app,
-            hosts: HashMap::new(),
-            queries: PageQueries::default(),
-            images: ImageLoader::new(space.clone()).context("starting the decode thread")?,
-            uploaded: Uploaded::default(),
-            notes: NoteLoader::new(space.clone()).context("starting the note thread")?,
-            space,
-            loading_images: HashSet::new(),
-            loading_notes: HashSet::new(),
-            stand_ins: StandIns::default(),
-            note_heights: HashMap::new(),
-            view_cache: specular_scene::ViewCache::default(),
-            viewport: Vec2::new(width as f32, height as f32),
-            scale: args.scale,
             now_ms: START_MS,
             out: out.to_owned(),
             checks: Checks::default(),
-            sent: Vec::new(),
         })
     }
 
-    /// Scripts input into the app and runs the effects that come back.
+    fn runtime(&mut self) -> &mut Runtime<HeadlessWindow> {
+        self.hands.sink_mut()
+    }
+
+    /// Scripts input into the app. The runtime runs each effect as it
+    /// comes; one that fails ends the run.
     fn drive(
         &mut self,
-        input: impl for<'app> FnOnce(&'app mut Driver) -> &'app mut Driver,
+        input: impl for<'hands> FnOnce(
+            &'hands mut Driver<Runtime<HeadlessWindow>>,
+        ) -> &'hands mut Driver<Runtime<HeadlessWindow>>,
     ) -> anyhow::Result<()> {
-        input(&mut self.app);
-        for effect in self.app.take_effects() {
-            self.sent.push(effect.clone());
-            self.run(effect)?;
-        }
-        Ok(())
+        input(&mut self.hands);
+        self.runtime().take_error().map_or(Ok(()), Err)
     }
 
     /// Draws the app as it stands and writes the frame to `path`.
@@ -299,66 +254,35 @@ impl Headless {
         // they are shown at once the zoom has stopped.
         let now = self.now_ms;
         self.drive(|app| app.tick(now).tick(now))?;
-        self.settle()?;
+        let live = self.live;
+        self.runtime().settle(live);
         let path = self.out.join(path);
-        let items = self.draw();
-        self.target.save(&self.gpu, &path)?;
-        tracing::info!(path = %path.display(), items, "snapshot");
-        self.report_note_heights()
-    }
-
-    /// Draws a frame, as a window would after a step, and returns how many
-    /// items it drew.
-    fn draw(&mut self) -> usize {
-        let scene = specular_scene::view(self.app.app(), self.viewport, &self.view_cache);
-        let frame = FrameView {
-            camera: self.app.session().camera,
-            viewport: self.viewport,
-            scale_factor: self.scale,
-            grid: DotGrid::themed(scene.colors()),
-            zooming: false,
-        };
-        let hosts = &self.hosts;
-        let stats = self
-            .compositor
-            .render_scene(&self.target.view(), &frame, &scene, |entity| {
-                hosts.get(entity).copied()
-            });
-        tracing::debug!(?stats, "frame");
-        scene.items.len()
+        // The second frame is the settled one: text held at a zoom's old
+        // size is put right by it.
+        self.runtime().draw();
+        self.runtime().draw();
+        let window = (self.hands.sink().window()).context("the headless window is gone")?;
+        window.save(&path)?;
+        tracing::info!(path = %path.display(), "snapshot");
+        Ok(())
     }
 
     /// Draws a frame when a Document is on the canvas: its rows are only
     /// measured when drawn, and their heights move what is below them.
     fn frame_for_documents(&mut self) -> anyhow::Result<()> {
-        let documents = (self.app.document().entities()).any(
+        let documents = (self.hands.document().entities()).any(
             |entity| matches!(&entity.kind, Kind::File(file) if script::is_markdown(&file.file)),
         );
         if documents {
-            self.draw();
-            self.report_note_heights()?;
+            self.runtime().draw();
         }
-        Ok(())
-    }
-
-    /// Tells the app how tall each Document's rows came out in the frame
-    /// just drawn, as the shell does after every frame.
-    pub(super) fn report_note_heights(&mut self) -> anyhow::Result<()> {
-        let changed: Vec<_> = (self.compositor.column_heights().iter())
-            .filter(|(entity, height)| self.note_heights.get(entity) != Some(height))
-            .cloned()
-            .collect();
-        if changed.is_empty() {
-            return Ok(());
-        }
-        self.note_heights.extend(changed.iter().cloned());
-        self.drive(|app| app.send(Event::NoteHeights(changed)))
+        self.runtime().take_error().map_or(Ok(()), Err)
     }
 
     /// Writes the `.canvas` text an autosave would write now to `path`.
     fn save(&self, path: &Path) -> anyhow::Result<()> {
         let path = self.out.join(path);
-        let text = script::saved_text(self.app.app())?;
+        let text = script::saved_text(self.hands.app())?;
         std::fs::write(&path, text).with_context(|| format!("writing {}", path.display()))
     }
 }

@@ -15,7 +15,7 @@ use specular_bench::{
     FrameWork, GestureProfile, PaintPolicy, PhaseRecorder, PresentedFrame, ProfileLine,
     WorkRecorder, build_steps,
 };
-use specular_compositor::{DotGrid, FrameView, SceneStats};
+use specular_compositor::{RenderStats, SceneStats};
 use specular_core::{Camera, PageSource};
 use specular_doc::Document;
 use specular_interact::{Action, Event};
@@ -44,12 +44,10 @@ pub(crate) fn run(
     plan: &BenchPlan,
 ) -> anyhow::Result<()> {
     let mut run = Headless::new(source, canvas, args, std::path::Path::new(""))?;
-    let viewport = run.viewport;
-    run.drive(|app| {
-        app.viewport(viewport)
-            .send(Event::DocumentOpened(Box::new(document)))
-    })?;
-    run.settle()?;
+    run.runtime().options.chrome = plan.chrome;
+    run.drive(|app| app.send(Event::DocumentOpened(Box::new(document))))?;
+    let live = run.live;
+    run.runtime().settle(live);
     let name = canvas
         .and_then(Path::file_name)
         .map(|name| name.to_string_lossy().into_owned());
@@ -57,7 +55,7 @@ pub(crate) fn run(
         let line = run.profile(profile, plan, name.clone())?;
         println!("{}", serde_json::to_string(&line)?);
     }
-    run.source.shutdown();
+    run.runtime().shut_down();
     Ok(())
 }
 
@@ -72,28 +70,27 @@ impl Headless {
         self.drive(|app| app.act(Action::SetCamera(camera)))?;
         // One frame outside the record, so the profile starts warm as a
         // gesture on an open canvas does.
-        self.frame(plan.chrome, false)?;
+        self.frame()?;
+        let viewport = (self.hands.sink().window())
+            .map(crate::app::ShellWindow::logical_viewport)
+            .context("the headless window is gone")?;
         let mut frames = PhaseRecorder::new(profile.id);
         let mut work = WorkRecorder::new();
-        let mut drawn_zoom = camera.zoom;
         let mut next = Instant::now();
         for step in build_steps(profile, STEP) {
             let started = Instant::now();
             let before = camera;
-            camera.apply_input_delta(step.to_input(Some(self.viewport / 2.0)));
+            camera.apply_input_delta(step.to_input(Some(viewport / 2.0)));
             if camera != before {
                 self.drive(|app| app.act(Action::SetCamera(camera)))?;
             }
             let update = started.elapsed();
-            let zooming = (camera.zoom - drawn_zoom).abs() > f32::EPSILON;
-            drawn_zoom = camera.zoom;
-            let (mut frame, stats) = self.frame(plan.chrome, zooming)?;
+            let (mut frame, stats) = self.frame()?;
             frame.update_ms = millis(update);
             work.drawn(frame);
             frames.presented(Instant::now(), presented(&stats));
-            self.report_note_heights()?;
             next += STEP;
-            self.take_page_events()?;
+            self.runtime().take_pages();
             if let Some(wait) = next.checked_duration_since(Instant::now()) {
                 std::thread::sleep(wait);
             } else {
@@ -103,8 +100,8 @@ impl Headless {
         Ok(ProfileLine {
             phase: frames.finish(STEP),
             label: profile.label.to_owned(),
-            source: self.source.name().to_owned(),
-            pages: self.hosts.len(),
+            source: self.hands.sink().source_name().to_owned(),
+            pages: self.hands.sink().hosts.len(),
             // No presented frame at all, so nothing to compare with Electron.
             representative: false,
             step_interval_ms: millis(STEP),
@@ -119,40 +116,12 @@ impl Headless {
         })
     }
 
-    /// Draws one frame and waits for the GPU to finish it.
-    fn frame(&mut self, chrome: bool, zooming: bool) -> anyhow::Result<(FrameWork, SceneStats)> {
-        let started = Instant::now();
-        // No panels: a benchmark measures the canvas, in a window too.
-        let scene = if chrome {
-            specular_scene::view(self.app.app(), self.viewport, &self.view_cache)
-        } else {
-            specular_scene::view_without_chrome(self.app.app(), self.viewport, &self.view_cache)
-        };
-        let view = started.elapsed();
-        let frame = FrameView {
-            camera: self.app.session().camera,
-            viewport: self.viewport,
-            scale_factor: self.scale,
-            grid: DotGrid::default(),
-            zooming,
-        };
-        let hosts = &self.hosts;
-        let stats = self
-            .compositor
-            .render_scene(&self.target.view(), &frame, &scene, |entity| {
-                hosts.get(entity).copied()
-            });
-        let submitted = Instant::now();
-        self.gpu
-            .device
-            .poll(wgpu::PollType::wait_indefinitely())
-            .context("waiting for the frame")?;
-        let work = FrameWork {
-            view_ms: millis(view),
-            gpu_ms: millis(submitted.elapsed()),
-            ..work_of(&stats)
-        };
-        Ok((work, stats))
+    /// Draws one frame, which the headless window waits on the GPU for,
+    /// and says where its time went.
+    fn frame(&mut self) -> anyhow::Result<(FrameWork, RenderStats)> {
+        let runtime = self.runtime();
+        let sample = runtime.draw().context("the headless window drew nothing")?;
+        Ok((runtime.last_work, sample.stats))
     }
 }
 
@@ -177,8 +146,7 @@ pub(crate) fn work_of(stats: &SceneStats) -> FrameWork {
     }
 }
 
-fn presented(stats: &SceneStats) -> PresentedFrame {
-    let render = &stats.render;
+fn presented(render: &RenderStats) -> PresentedFrame {
     PresentedFrame {
         pages_without_texture: render.pages_without_texture,
         cpu_textures: render.cpu_textures,

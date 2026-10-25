@@ -22,28 +22,42 @@ pub(super) fn start_loader(space: Option<PathBuf>) -> Option<NoteLoader> {
 }
 
 impl<W: ShellWindow> Runtime<W> {
-    pub(super) fn load_note(&self, file: &str) {
+    pub(super) fn load_note(&mut self, file: &str) {
+        let held = (self.held_notes.as_ref()).and_then(|held| held.get(file));
+        if let Some(text) = held {
+            let notice = NoteNotice::Text(text.to_owned());
+            let file = file.to_owned();
+            self.dispatch(Event::Note { file, notice });
+            return;
+        }
         if let Some(loader) = self.note_loader.as_ref() {
+            self.loads.notes.insert(file.to_owned());
             loader.watch(file);
         }
     }
 
-    pub(super) fn drop_note(&self, file: &str) {
+    pub(super) fn drop_note(&mut self, file: &str) {
+        self.loads.notes.remove(file);
         if let Some(loader) = self.note_loader.as_ref() {
             loader.unwatch(file);
         }
     }
 
-    pub(super) fn write_note(&self, file: String, text: String) {
-        if let Some(loader) = self.note_loader.as_ref() {
+    pub(super) fn write_note(&mut self, file: String, text: String) {
+        if let Some(held) = self.held_notes.as_mut() {
+            held.write(&file, text);
+        } else if let Some(loader) = self.note_loader.as_ref() {
             loader.write(file, text);
         } else {
             tracing::warn!(file, "no note thread; the document is not written");
         }
     }
 
-    pub(super) fn create_note(&self, rect: Rect) {
-        if let Some(loader) = self.note_loader.as_ref() {
+    pub(super) fn create_note(&mut self, rect: Rect) {
+        if let Some(held) = self.held_notes.as_mut() {
+            let file = held.create();
+            self.dispatch(Event::NoteCreated { file, rect });
+        } else if let Some(loader) = self.note_loader.as_ref() {
             loader.create(rect);
         } else {
             tracing::warn!("no note thread; no document made");
@@ -82,6 +96,7 @@ impl<W: ShellWindow> Runtime<W> {
     /// last turn, every write it refused and every file it made. Text is cheap to hand over, so there is no cap per turn.
     pub(super) fn take_read_notes(&mut self) {
         while let Some(read) = self.note_loader.as_ref().and_then(NoteLoader::take) {
+            self.loads.notes.remove(&read.file);
             let notice = match read.result {
                 Ok(text) => NoteNotice::Text(text),
                 Err(ReadFailure::Missing) => NoteNotice::Missing,

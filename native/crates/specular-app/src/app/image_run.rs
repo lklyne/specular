@@ -30,6 +30,7 @@ pub(super) fn space_folder(canvas: &Path) -> Option<PathBuf> {
 impl<W: ShellWindow> Runtime<W> {
     pub(super) fn load_image(&mut self, image: ImageKey, file: &str) {
         self.images.insert(image);
+        self.loads.images.insert(image);
         let spec = self.gpu.as_ref().map(|gpu| gpu.compositor().image_spec());
         if let (Some(loader), Some(spec)) = (self.image_loader.as_ref(), spec) {
             loader.request(image, file, spec);
@@ -42,6 +43,7 @@ impl<W: ShellWindow> Runtime<W> {
         let spec = self.gpu.as_ref().map(|gpu| gpu.compositor().image_spec());
         let scale = self.gpu.as_ref().map_or(1.0, W::scale_factor);
         let device = |logical: u32| ((logical as f32 * scale).ceil() as u32).max(1);
+        self.loads.images.insert(image);
         if let (Some(loader), Some(spec)) = (self.image_loader.as_ref(), spec) {
             let want = PixelSize::new(device(size.width), device(size.height));
             loader.redraw(image, file, spec, want);
@@ -50,6 +52,7 @@ impl<W: ShellWindow> Runtime<W> {
 
     pub(super) fn drop_image(&mut self, image: ImageKey) {
         self.images.remove(&image);
+        self.loads.images.remove(&image);
         if let Some(loader) = self.image_loader.as_ref() {
             loader.forget(image);
         }
@@ -60,25 +63,29 @@ impl<W: ShellWindow> Runtime<W> {
 
     /// Uploads one image the decode thread finished and tells the app. One a
     /// turn, so a folder of large images does not land in a single frame.
-    /// Also tells the app of a file that changed on disk.
-    pub(super) fn take_loaded_image(&mut self) {
-        if let Some(image) = self
+    /// Also tells the app of a file that changed on disk. Returns whether
+    /// the thread had anything to hand over.
+    pub(super) fn take_loaded_image(&mut self) -> bool {
+        let changed = self
             .image_loader
             .as_ref()
-            .and_then(ImageLoader::take_changed)
+            .and_then(ImageLoader::take_changed);
+        if let Some(image) = changed
             && self.images.contains(&image)
         {
+            self.loads.images.insert(image);
             self.dispatch(Event::Image {
                 image,
                 notice: ImageNotice::Changed,
             });
         }
         let Some(loaded) = self.image_loader.as_ref().and_then(ImageLoader::take) else {
-            return;
+            return changed.is_some();
         };
+        self.loads.images.remove(&loaded.key);
         // Let go of while it was decoding.
         if !self.images.contains(&loaded.key) {
-            return;
+            return true;
         }
         let notice = match (loaded.result, self.gpu.as_mut()) {
             (Ok(content), Some(gpu)) => {
@@ -100,5 +107,6 @@ impl<W: ShellWindow> Runtime<W> {
             image: loaded.key,
             notice,
         });
+        true
     }
 }

@@ -33,6 +33,9 @@ impl<W: ShellWindow> Runtime<W> {
             tracing::trace!(event = name, "frame owed");
         }
         let effects = update(&mut self.app, event);
+        if let Some(sent) = self.sent.as_mut() {
+            sent.extend(effects.iter().cloned());
+        }
         let resized =
             (effects.iter()).any(|effect| matches!(effect, Effect::SetPageViewport { .. }));
         self.run_all(effects);
@@ -67,6 +70,9 @@ impl<W: ShellWindow> Runtime<W> {
     }
 
     fn run(&mut self, effect: Effect) -> anyhow::Result<()> {
+        if !self.options.writes && leaves_memory(&effect) {
+            return Ok(());
+        }
         match effect {
             Effect::CreatePage {
                 page,
@@ -190,6 +196,8 @@ impl<W: ShellWindow> Runtime<W> {
             .with_context(|| format!("creating page for {url}"))?;
         self.hosts
             .insert(page.clone(), PageHost { page: host, lod });
+        self.loads.pages.insert(host);
+        self.loads.unpainted.insert(host);
         self.page_files.hosted(page, url);
         self.give_color_scheme(page);
         Ok(())
@@ -202,6 +210,7 @@ impl<W: ShellWindow> Runtime<W> {
             if let Some(cdp) = &self.cdp {
                 cdp.page_closed(page);
             }
+            self.loads.page_closed(host.page);
             warn_on_error(self.source.close_page(host.page));
             if let Some(gpu) = self.gpu.as_mut() {
                 gpu.compositor_mut().remove_page(host.page);
@@ -375,6 +384,26 @@ impl<W: ShellWindow> Runtime<W> {
             self.latency.input_sent(host.page, Instant::now());
         }
     }
+}
+
+/// Whether `effect` writes to disk past the canvas and the Documents, or
+/// asks the user something: what a run that does not write leaves undone.
+const fn leaves_memory(effect: &Effect) -> bool {
+    matches!(
+        effect,
+        Effect::WriteAsset { .. }
+            | Effect::CopyAsset { .. }
+            | Effect::LoadThreads
+            | Effect::WriteThread(_)
+            | Effect::WriteThreadIndex
+            | Effect::RunAgent(_)
+            | Effect::CancelAgent(_)
+            | Effect::ChooseSpace { .. }
+            | Effect::OpenSpace(_)
+            | Effect::RevealSpace
+            | Effect::PickRepoFolder { .. }
+            | Effect::SaveRepos
+    )
 }
 
 fn warn_on_error<E: std::fmt::Display>(result: Result<(), E>) {

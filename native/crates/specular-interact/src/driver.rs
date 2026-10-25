@@ -1,9 +1,10 @@
-//! [`Driver`]: an [`App`] with scripted hands. Pointer, keys, text, wheel
-//! and pinch go in as the events a window would send, through [`update`],
-//! and the effects that come back pile up for the caller to run or read.
+//! [`Driver`]: scripted hands on an app. Pointer, keys, text, wheel and
+//! pinch go in as the events a window would send, to an [`EventSink`].
 //!
-//! The headless runner's script steps and the testkit's `TestApp` are both
-//! this with their own things around it.
+//! The sink is [`Owned`] by default: an [`App`] of the driver's own, whose
+//! effects pile up for the caller to read, as the testkit's `TestApp` does.
+//! The headless runner's sink is the shell's runtime, which runs each
+//! effect as a window's does.
 
 use std::sync::Arc;
 
@@ -44,12 +45,38 @@ pub const CMD_SHIFT: Modifiers = Modifiers {
     ..NONE
 };
 
-/// An [`App`] driven by scripted input, with no window behind it.
+/// Where a [`Driver`]'s events go, and the app they change.
+pub trait EventSink {
+    /// The app the events change.
+    fn app(&self) -> &App;
+
+    /// Sends one event through [`update`].
+    fn send(&mut self, event: Event);
+}
+
+/// An app of the driver's own, and what `update` has returned since the
+/// last drain.
 #[derive(Debug, Clone)]
-pub struct Driver {
+pub struct Owned {
     app: App,
-    /// What `update` has returned since the last drain.
     effects: Vec<Effect>,
+}
+
+impl EventSink for Owned {
+    fn app(&self) -> &App {
+        &self.app
+    }
+
+    fn send(&mut self, event: Event) {
+        let effects = update(&mut self.app, event);
+        self.effects.extend(effects);
+    }
+}
+
+/// An app driven by scripted input, with no window behind it.
+#[derive(Debug, Clone)]
+pub struct Driver<S = Owned> {
+    sink: S,
     /// Where the pointer was last put, in logical screen pixels.
     pointer: Vec2,
     /// The modifier keys held down.
@@ -80,40 +107,75 @@ impl Driver {
     /// Drives `app` from where it stands, with the pointer at the origin
     /// and no key held.
     pub fn new(app: App) -> Self {
-        Self {
+        Self::over(Owned {
             app,
             effects: Vec::new(),
+        })
+    }
+
+    /// Lays text out with `measure` from here on.
+    pub fn measure_with(&mut self, measure: Arc<dyn TextMeasure>) -> &mut Self {
+        self.sink.app.set_text_measure(measure);
+        self
+    }
+
+    /// The effects returned since the last [`Driver::take_effects`].
+    pub fn effects(&self) -> &[Effect] {
+        &self.sink.effects
+    }
+
+    /// Drains the effects returned since the last drain.
+    pub fn take_effects(&mut self) -> Vec<Effect> {
+        std::mem::take(&mut self.sink.effects)
+    }
+
+    /// Puts `effects` in place of the ones kept: what a caller took, ran
+    /// something it did not want the effects of, and gives back.
+    pub fn set_effects(&mut self, effects: Vec<Effect>) -> &mut Self {
+        self.sink.effects = effects;
+        self
+    }
+}
+
+impl<S: EventSink> Driver<S> {
+    /// Drives the app behind `sink`, with the pointer at the origin and no
+    /// key held.
+    pub fn over(sink: S) -> Self {
+        Self {
+            sink,
             pointer: Vec2::ZERO,
             held: NONE,
         }
     }
 
+    /// Where the events go.
+    pub fn sink(&self) -> &S {
+        &self.sink
+    }
+
+    /// Where the events go, to change.
+    pub fn sink_mut(&mut self) -> &mut S {
+        &mut self.sink
+    }
+
     /// The app being driven.
     pub fn app(&self) -> &App {
-        &self.app
+        self.sink.app()
     }
 
     /// The document.
     pub fn document(&self) -> &Document {
-        self.app.document()
+        self.app().document()
     }
 
     /// The unsaved state: camera, tool, gesture, hover, focus.
     pub fn session(&self) -> &Session {
-        self.app.session()
+        self.app().session()
     }
 
-    /// Lays text out with `measure` from here on.
-    pub fn measure_with(&mut self, measure: Arc<dyn TextMeasure>) -> &mut Self {
-        self.app.set_text_measure(measure);
-        self
-    }
-
-    /// Sends one event through [`update`] and keeps the effects. Every other
-    /// input method ends up here.
+    /// Sends one event to the sink. Every other input method ends up here.
     pub fn send(&mut self, event: Event) -> &mut Self {
-        let effects = update(&mut self.app, event);
-        self.effects.extend(effects);
+        self.sink.send(event);
         self
     }
 
@@ -121,28 +183,11 @@ impl Driver {
     pub fn act(&mut self, action: Action) -> &mut Self {
         self.send(Event::Action(action))
     }
-
-    /// The effects returned since the last [`Driver::take_effects`].
-    pub fn effects(&self) -> &[Effect] {
-        &self.effects
-    }
-
-    /// Drains the effects returned since the last drain.
-    pub fn take_effects(&mut self) -> Vec<Effect> {
-        std::mem::take(&mut self.effects)
-    }
-
-    /// Puts `effects` in place of the ones kept: what a caller took, ran
-    /// something it did not want the effects of, and gives back.
-    pub fn set_effects(&mut self, effects: Vec<Effect>) -> &mut Self {
-        self.effects = effects;
-        self
-    }
 }
 
 /// Pointer positions are logical screen pixels and take a tuple:
 /// `app.press((200.0, 150.0))`.
-impl Driver {
+impl<S: EventSink> Driver<S> {
     /// Holds these modifier keys down for every event until
     /// [`Driver::let_go`]. Replaces the ones held before.
     pub fn hold(&mut self, modifiers: Modifiers) -> &mut Self {
@@ -404,7 +449,7 @@ impl Driver {
     /// modifiers and no layout: the path a run with the panels off takes.
     /// A name no control has is an error that lists the ones there are.
     pub fn control(&mut self, name: &str) -> Result<&mut Self, UnknownControl> {
-        let control = control_named(&self.app, name)?;
+        let control = control_named(self.app(), name)?;
         Ok(self.send(Event::Control(control, self.held)))
     }
 

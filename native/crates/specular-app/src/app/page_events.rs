@@ -13,6 +13,7 @@ impl<W: ShellWindow> Runtime<W> {
     /// the event to the compositor for its frames.
     pub(super) fn handle_page_event(&mut self, event: PageEvent) {
         self.latency.observe(&event);
+        self.loads.page_event(&event);
         if matches!(
             event,
             PageEvent::Frame(_) | PageEvent::PopupVisibility { .. } | PageEvent::PopupRect { .. }

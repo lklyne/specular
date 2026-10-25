@@ -20,14 +20,16 @@ impl Headless {
         // check.
         match step {
             Step::Expect(Expect::OnCanvas(fact)) if fact.is_sent() => {
-                script::check_sent(self.app.app(), &self.sent, &fact)
+                let runtime = self.hands.sink();
+                script::check_sent(runtime.app(), runtime.sent(), &fact)
             }
             Step::Expect(Expect::Panel(fact)) if fact.reads_effects() => {
-                fact.check(self.app.app(), Some(&self.sent))
+                let runtime = self.hands.sink();
+                fact.check(runtime.app(), Some(runtime.sent()))
             }
             Step::Expect(_) | Step::State(_) | Step::Mark(_) | Step::Save(_) => self.do_step(step),
             _ => {
-                self.sent.clear();
+                self.runtime().clear_sent();
                 self.do_step(step)
             }
         }
@@ -57,7 +59,7 @@ impl Headless {
             Step::Compose(text) => self.drive(|app| app.compose(&text)),
             Step::Commit(text) => self.drive(|app| app.commit(&text)),
             Step::Clipboard(text) => {
-                self.stand_ins.clipboard = Some(text);
+                self.runtime().script_clipboard(Some(text));
                 Ok(())
             }
             Step::Wheel(delta) => self.drive(|app| app.wheel(delta)),
@@ -80,20 +82,25 @@ impl Headless {
             Step::Wait(ms) => {
                 // The pages run before the clock moves: what they report
                 // during the wait happened during it, not after it.
-                self.run_pages_for(std::time::Duration::from_millis(ms))?;
+                if self.live {
+                    self.runtime()
+                        .run_pages_for(std::time::Duration::from_millis(ms));
+                }
                 self.now_ms += ms;
                 let now = self.now_ms;
                 self.drive(|app| app.tick(now))?;
-                self.settle()
+                let live = self.live;
+                self.runtime().settle(live);
+                Ok(())
             }
             Step::Control(id) => {
-                self.app.control(&id)?;
-                self.drive(|app| app)
+                self.hands.control(&id)?;
+                self.runtime().take_error().map_or(Ok(()), Err)
             }
             // Nothing is drawn to point at or hold down. The name must still
             // be a control's.
             Step::HoverControl(id) | Step::PressControl(id) => {
-                specular_interact::control_named(self.app.app(), &id)?;
+                specular_interact::control_named(self.hands.app(), &id)?;
                 Ok(())
             }
             Step::Sidebar(shown) => self.drive(|app| app.show_sidebar(shown)),
@@ -110,25 +117,25 @@ impl Headless {
                 })
             }),
             Step::Panel(step) => {
-                let event = step.event(self.app.app())?;
+                let event = step.event(self.hands.app())?;
                 self.drive(|app| app.send(event))
             }
             Step::Snapshot(path) => self.snapshot(&path),
             Step::Save(path) => self.save(&path),
             Step::State(path) => {
                 let path = self.out.join(path);
-                let text = script::dump(self.app.app());
+                let text = script::dump(self.hands.app());
                 std::fs::write(&path, text).with_context(|| format!("writing {}", path.display()))
             }
-            Step::Expect(expect) => self.checks.check(self.app.app(), &expect),
-            Step::Mark(name) => self.checks.mark(self.app.app(), &name),
+            Step::Expect(expect) => self.checks.check(self.hands.app(), &expect),
+            Step::Mark(name) => self.checks.mark(self.hands.app(), &name),
             Step::Reopen => self.reopen(),
             Step::UndoToStart(except) => self.undo_to_start(&except),
             Step::Window(WindowStep::Drop(paths, at)) => self.drop_files(&paths, at),
             // The run skips these before they get here.
             Step::Window(_) => Ok(()),
             Step::Canvas(step) => step
-                .event(self.app.app())
+                .event(self.hands.app())
                 .and_then(|event| self.drive(|app| app.send(event))),
         }?;
         self.frame_for_documents()
@@ -139,7 +146,11 @@ impl Headless {
     /// folder.
     fn drop_files(&mut self, paths: &[PathBuf], at: Option<Vec2>) -> anyhow::Result<()> {
         let real = |path: PathBuf| std::fs::canonicalize(&path).unwrap_or(path);
-        let space = self.space.clone().map(real);
+        let space = self
+            .hands
+            .sink()
+            .space_folder()
+            .map(|folder| real(folder.to_owned()));
         let files = (paths.iter())
             .map(|path| match &space {
                 Some(space) if path.is_relative() => real(space.join(path)),
@@ -152,7 +163,7 @@ impl Headless {
 
     /// Writes the canvas as a save would and opens what was written.
     fn reopen(&mut self) -> anyhow::Result<()> {
-        let text = script::saved_text(self.app.app())?;
+        let text = script::saved_text(self.hands.app())?;
         let document = Document::from_canvas_str(&text).context("reading the saved canvas")?;
         self.drive(|app| app.send(Event::DocumentOpened(Box::new(document))))
     }
@@ -160,11 +171,11 @@ impl Headless {
     /// Undoes until nothing is left and checks the canvas is the start.
     fn undo_to_start(&mut self, except: &[String]) -> anyhow::Result<()> {
         for _ in 0..UNDO_LIMIT {
-            if !self.app.app().can_undo() {
+            if !self.hands.app().can_undo() {
                 break;
             }
             self.drive(|app| app.act(Action::Undo))?;
         }
-        self.checks.back_at_start(self.app.app(), except)
+        self.checks.back_at_start(self.hands.app(), except)
     }
 }

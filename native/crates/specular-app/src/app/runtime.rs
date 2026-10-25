@@ -101,6 +101,10 @@ pub trait ShellWindow {
 
 /// How a [`Runtime`] runs, from the command line.
 #[derive(Debug, Clone, PartialEq)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "independent switches: a benchmark, a headless run and a window each set them differently"
+)]
 pub struct RuntimeOptions {
     /// The `.canvas` file the document came from, when no space is opened.
     /// Its folder is where relative file paths start from.
@@ -115,6 +119,13 @@ pub struct RuntimeOptions {
     /// Whether the camera moves by a spring between the canvas, Device and
     /// Fill. Not in a benchmark, which needs the camera to land at once.
     pub(crate) motion: bool,
+    /// Whether effects may write to disk or ask the user: assets, Documents,
+    /// threads, folder dialogs. Off headless, where the Documents a run
+    /// makes and the clipboard are kept in memory.
+    pub(crate) writes: bool,
+    /// The clock the app starts at, for a run that must draw the same frame
+    /// each time. `None` is the wall clock.
+    pub(crate) start_ms: Option<u64>,
 }
 
 /// What a shell shows first: a space folder, or one document that is saved
@@ -175,6 +186,13 @@ pub struct Runtime<W> {
     /// The clipboard of a scripted run, which leaves the system's alone:
     /// what was last copied, by the app or by the script.
     pub(crate) scripted_clipboard: Option<super::scripted::HeldClipboard>,
+    /// The Documents a run that does not write makes, kept in memory.
+    pub(crate) held_notes: Option<super::held_notes::HeldNotes>,
+    /// What is asked for and not yet in: what a headless run waits on.
+    pub(crate) loads: super::loads::Loads,
+    /// The effects `update` returned since this was last taken, while a
+    /// script reads them.
+    pub(crate) sent: Option<Vec<specular_interact::Effect>>,
     /// The preferences file. `None` when settings are off, and when there
     /// is no home folder to keep it in.
     pub(crate) prefs: Option<PathBuf>,
@@ -232,7 +250,7 @@ impl<W: ShellWindow> Runtime<W> {
     pub fn new(source: Box<dyn PageSource>, options: RuntimeOptions) -> Self {
         let space_folder = options.canvas.as_deref().and_then(image_run::space_folder);
         let prefs = options.settings.then(prefs::file).flatten();
-        let mut app = App::new(unix_ms());
+        let mut app = App::new(options.start_ms.unwrap_or_else(unix_ms));
         update(&mut app, Event::Motion(options.motion));
         Self {
             source,
@@ -251,7 +269,10 @@ impl<W: ShellWindow> Runtime<W> {
             view_cache: specular_scene::ViewCache::default(),
             agents: agent_run::start_runs(options.settings),
             clipboard: None,
-            scripted_clipboard: None,
+            scripted_clipboard: (!options.writes).then(super::scripted::HeldClipboard::default),
+            held_notes: (!options.writes).then(super::held_notes::HeldNotes::default),
+            loads: super::loads::Loads::default(),
+            sent: None,
             prefs,
             repos_file: options.settings.then(repos_run::file).flatten(),
             space_dialog: None,

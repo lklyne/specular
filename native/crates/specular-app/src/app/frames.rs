@@ -72,7 +72,7 @@ impl<W: ShellWindow> Runtime<W> {
     }
 
     /// Pumps the page source and hands on what its pages reported.
-    fn take_page_events(&mut self) {
+    pub(super) fn take_page_events(&mut self) {
         self.source.pump();
         let mut events = std::mem::take(&mut self.events);
         self.source.drain_events(&mut events);
