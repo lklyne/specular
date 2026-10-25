@@ -38,8 +38,8 @@ fn lines_parse_into_steps() {
             ],
         ),
         (
-            "type Hello,  world",
-            vec![Step::Type("Hello,  world".to_owned())],
+            "type  Hello,  world ",
+            vec![Step::Type(" Hello,  world ".to_owned())],
         ),
         (
             r"clipboard one\ntwo\\n",
@@ -67,11 +67,12 @@ fn lines_parse_into_steps() {
             ],
         ),
         (
-            "mark arranged\nreopen\nundo-to-start",
+            "mark arranged\nreopen\nundo-to-start\nundo-to-start except /nodes/p/url",
             vec![
                 Step::Mark("arranged".to_owned()),
                 Step::Reopen,
-                Step::UndoToStart,
+                Step::UndoToStart(vec![]),
+                Step::UndoToStart(vec!["/nodes/p/url".to_owned()]),
             ],
         ),
         (

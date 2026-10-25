@@ -1,12 +1,14 @@
 # canvas: empty.canvas
 # A Document from nothing: place it, write markdown with the formatting
-# shortcuts, end the edit, reopen it, scroll, undo.
+# shortcuts, end the edit, reopen it, scroll, undo and redo.
 # panned down so the Document, at (200, 100) on the canvas, is clear of the chrome
 camera 0,120,1
 
 tool document
 click 200 220
-snapshot 01-placed-empty.png
+expect count document 1
+expect entity @top rect 200 100 300 300
+expect entity @top text Untitled Note.md
 
 # a heading with the shortcut, then body text with bold
 type Launch plan
@@ -32,23 +34,22 @@ key enter
 # a task list
 type smoke test on a clean machine
 key cmd+shift+9
-snapshot 02-typed.png
+expect editing # Launch plan\n\nWe ship on **Friday** if the build is green.\n\n- write the changelog\n- tag the release\n- tell support\n- [ ] smoke test on a clean machine
 
-# select a word and make it italic
+# select two words and make them italic
 hold shift+alt
 key left
 key left
 hold none
 key cmd+i
-snapshot 03-italic-selection.png
-
 key escape
+expect editing none
+expect entity @top note # Launch plan\n\nWe ship on **Friday** if the build is green.\n\n- write the changelog\n- tag the release\n- tell support\n- [ ] smoke test on a *clean machine*
+# the read view of a Document: headings, bold, italic, bullets, a task box
 snapshot 04-read-view.png
-save 04-document.canvas
 
-# reopen: the caret lands where the double click was
+# reopen, and a long tail of tasks
 double-click 300 300
-snapshot 05-reopened.png
 key cmd+down
 key enter
 type line 1
@@ -90,24 +91,23 @@ key enter
 type line 19
 key enter
 type line 20
-snapshot 06-long-typed.png
 key escape
-snapshot 07-long-read-view.png
+mark long
 
 # scroll the selected Document with the wheel, to the end and past it
 move 300 420
 wheel 0 -200
 wheel 0 -5000
-snapshot 09-scrolled-to-end.png
 wheel 0 60
-snapshot 10-scrolled-back-a-little.png
+expect selection @top
+expect saved same-as mark long
 
-# undo the second edit, the first edit, then the Document itself
+# undo the second edit, the first edit, then redo both
 key cmd+z
 key cmd+z
-snapshot 12-undo-first-edit.png
-key cmd+z
+expect entity @top note 
 key cmd+shift+z
 key cmd+shift+z
-key cmd+shift+z
-snapshot 14-redone.png
+expect redo none
+expect saved same-as mark long
+undo-to-start

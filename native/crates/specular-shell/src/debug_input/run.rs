@@ -114,7 +114,7 @@ fn checked(
 }
 
 /// Undoes until nothing is left, then checks the canvas is the start.
-fn undo_to_start(checks: &Checks) -> Result<(), String> {
+fn undo_to_start(checks: &Checks, except: &[String]) -> Result<(), String> {
     for _ in 0..UNDO_LIMIT {
         let more = canvas::with(|canvas| canvas.runtime.app().can_undo()).unwrap_or(false);
         if !more {
@@ -122,7 +122,7 @@ fn undo_to_start(checks: &Checks) -> Result<(), String> {
         }
         canvas::dispatch(Event::Action(Action::Undo));
     }
-    checked(|app| checks.back_at_start(app))
+    checked(|app| checks.back_at_start(app, except))
 }
 
 /// Writes the canvas as a save would and opens what was written.
@@ -392,7 +392,7 @@ pub(super) async fn step(
                 .map_err(|error| format!("{error:#}"))?;
         }
         Do::Reopen => reopen()?,
-        Do::UndoToStart => undo_to_start(checks)?,
+        Do::UndoToStart(except) => undo_to_start(checks, &except)?,
         Do::Skip => {}
         Do::Quit => cx.update(shell::begin_exit),
     }

@@ -82,9 +82,9 @@ impl Script {
     /// The script in `text`, or the first line that is not a step.
     pub fn parse(text: &str) -> anyhow::Result<Self> {
         let mut script = Self::default();
-        for (index, line) in text.lines().enumerate() {
+        for (index, raw) in text.lines().enumerate() {
             let number = index + 1;
-            let line = line.trim();
+            let line = raw.trim();
             if let Some(canvas) = line.strip_prefix("# canvas:") {
                 if number == 1 {
                     script.canvas = Some(canvas.trim().to_owned());
@@ -102,7 +102,7 @@ impl Script {
                 script.given.push(given::parse(rest).with_context(context)?);
                 continue;
             }
-            let step = step::step(line).with_context(context)?;
+            let step = step::step(raw.trim_start()).with_context(context)?;
             script.steps.push(Line {
                 number,
                 text: line.to_owned(),

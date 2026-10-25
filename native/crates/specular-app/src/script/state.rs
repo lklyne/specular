@@ -6,7 +6,7 @@ use std::fmt::Write as _;
 
 use specular_interact::{App, Focus, Showing};
 
-use super::check::{kind_word, text_of};
+use super::check::{kind_word, note_of, text_of};
 use super::words::{escaped, tool_word};
 
 /// The app's state, one fact a line.
@@ -31,6 +31,7 @@ pub fn dump(app: &App) -> String {
     } else {
         format!("selection {}", selection.join(" "))
     });
+    line(format!("count selected {}", selection.len()));
     line(match &session.focus {
         Focus::Canvas => "focus canvas".to_owned(),
         Focus::Page(id) => format!("focus page {id}"),
@@ -64,6 +65,9 @@ pub fn dump(app: &App) -> String {
         let text = text_of(entity);
         if !text.is_empty() {
             line(format!("entity {id} text {}", escaped(text)));
+        }
+        if let Some(note) = note_of(app, entity) {
+            line(format!("entity {id} note {}", escaped(note)));
         }
         if let Some(parent) = &entity.parent {
             line(format!("entity {id} parent {parent}"));

@@ -49,15 +49,20 @@ impl Checks {
         Ok(())
     }
 
-    /// Whether the active canvas is the one the run opened. Run once
-    /// nothing is left to undo.
-    pub fn back_at_start(&self, app: &App) -> anyhow::Result<()> {
+    /// Whether the active canvas is the one the run opened, but for
+    /// `except`, the paths undo does not take back. Run once nothing is
+    /// left to undo.
+    pub fn back_at_start(&self, app: &App, except: &[String]) -> anyhow::Result<()> {
         ensure!(
             !app.can_undo(),
             "undo did not run out of steps; a gesture or an edit may still be open"
         );
-        self.same_as(app, &Reference::Start)
-            .context("undoing every step did not return to the start")
+        let checked = if except.is_empty() {
+            self.same_as(app, &Reference::Start)
+        } else {
+            self.changed_from(app, &Reference::Start, except)
+        };
+        checked.context("undoing every step did not return to the start")
     }
 
     /// Whether `expect` holds for `app`. The error says what was found.
@@ -299,6 +304,14 @@ pub(super) fn text_of(entity: &Entity) -> &str {
     }
 }
 
+/// The text the document holds for the markdown file `entity` shows.
+pub(super) fn note_of<'a>(app: &'a App, entity: &Entity) -> Option<&'a str> {
+    match &entity.kind {
+        Kind::File(file) => app.document().note(&file.file),
+        _ => None,
+    }
+}
+
 fn counted_name(what: &Counted) -> String {
     match what {
         Counted::Entities => "entities".to_owned(),
@@ -306,6 +319,7 @@ fn counted_name(what: &Counted) -> String {
         Counted::Edges => "edges".to_owned(),
         Counted::Comments => "comments".to_owned(),
         Counted::Canvases => "canvases".to_owned(),
+        Counted::Selected => "selected items".to_owned(),
     }
 }
 
@@ -319,6 +333,7 @@ fn counted(app: &App, what: &Counted) -> usize {
         Counted::Edges => document.edges().count(),
         Counted::Comments => document.annotations().len(),
         Counted::Canvases => app.space().canvases().len(),
+        Counted::Selected => app.session().selection.items().len(),
     }
 }
 
@@ -382,6 +397,10 @@ fn entity_fact(app: &App, name: &str, fact: &EntityFact) -> anyhow::Result<()> {
             Ok(())
         }
         EntityFact::Text(text) => equal(&what("text"), escaped(text_of(entity)), escaped(text)),
+        EntityFact::Note(text) => {
+            let found = note_of(app, entity).map(escaped);
+            equal(&what("note"), or_none(found), escaped(text))
+        }
         EntityFact::Parent(parent) => {
             let found = entity.parent.as_ref().map(ToString::to_string);
             equal(&what("parent"), or_none(found), or_none(parent.clone()))

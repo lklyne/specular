@@ -110,7 +110,7 @@ pub(crate) fn script_canvas(script: &Path) -> anyhow::Result<Option<PathBuf>> {
 }
 
 /// Runs the scenario script at `script` headless on the synthetic pages,
-/// on the canvas its first line names (an empty one when it names none),
+/// with no built-in panels, on the canvas its first line names (an empty one when it names none),
 /// and writes what it saves and draws into `out`. Fails at the first step
 /// that fails or fact that does not hold.
 pub fn run_scenario(script: &Path, out: &Path) -> anyhow::Result<Report> {
@@ -126,6 +126,9 @@ pub fn run_scenario(script: &Path, out: &Path) -> anyhow::Result<Report> {
     )?;
     let args = HeadlessArgs {
         script: Some(script.to_owned()),
+        // The built-in panels are leaving (cleanup task 1); a control is
+        // pressed from the models, as a window with its own chrome does.
+        panels: false,
         ..HeadlessArgs::default()
     };
     run(source, document, canvas.as_deref(), &args, out)

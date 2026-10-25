@@ -1,0 +1,64 @@
+# canvas: ../kitchen-sink.canvas
+# The left sidebar on the kitchen sink: hidden, then shown with Command+B;
+# canvases added, switched to, renamed in place (Enter keeps the name, Escape
+# puts it back) and deleted from the menu; each section folded and opened;
+# a group opened; rows that select and bring a page and a comment into view;
+# a hovered row; zoom to fit with the sidebar and without. Canvas rows are
+# named by their place in the list, from 1.
+camera -2150,-1650,1
+expect sidebar off
+key cmd+b
+expect sidebar on
+
+# two more canvases, the second shown, then back to the first
+control sidebar.add
+control sidebar.add
+expect count canvases 3
+expect count entities 0
+control sidebar.canvas.1
+expect count entities 165
+
+# rename in place: Enter keeps what was typed
+control sidebar.canvas.2.menu.rename
+key cmd+a
+type Plans
+key enter
+control sidebar.canvas.2
+expect canvas Plans
+
+# Escape puts the old name back
+control sidebar.canvas.3.menu.rename
+key cmd+a
+type Scratch
+key escape
+control sidebar.canvas.3
+expect canvas Canvas 3
+
+# the menu's Delete takes the second canvas away
+control sidebar.canvas.1
+control sidebar.canvas.2.menu.delete
+expect count canvases 2
+expect count entities 165
+
+# folds
+control sidebar.head.canvases
+control sidebar.head.canvases
+control sidebar.head.notes
+control sidebar.head.notes
+
+# a group opened, and rows that select what they stand for
+control sidebar.notes.group-a.toggle
+control sidebar.pages.page-desktop
+expect selection page-desktop
+control sidebar.pages.comment.note-region-mobile
+hover-control sidebar.notes.group-b
+
+# zoom to fit leaves the sidebar's width out, and takes it back when hidden
+act zoom-to-fit
+sidebar off
+expect sidebar off
+act zoom-to-fit
+
+# all of that was a way of looking: the kitchen sink is as it was
+expect undo none
+expect saved same-as ../kitchen-sink.canvas

@@ -104,8 +104,9 @@ pub(super) enum Do {
     Mark(String),
     /// The canvas written and read back.
     Reopen,
-    /// Undone until nothing is left, and checked against the start.
-    UndoToStart,
+    /// Undone until nothing is left, and checked against the start but
+    /// for these paths.
+    UndoToStart(Vec<String>),
     /// Nothing: a step this window has no use for.
     Skip,
     Quit,
@@ -150,7 +151,7 @@ pub(super) fn lower(step: Step) -> Result<Do, String> {
         Step::Expect(expect) => Do::Expect(expect),
         Step::Mark(name) => Do::Mark(name),
         Step::Reopen => Do::Reopen,
-        Step::UndoToStart => Do::UndoToStart,
+        Step::UndoToStart(except) => Do::UndoToStart(except),
         Step::Window(step) => window(step),
     })
 }
@@ -271,7 +272,7 @@ mod tests {
             ("keycode 51", key(51, 0, "\u{7f}", "\u{7f}")),
             ("keys shift+cmd 6 z", key(6, SHIFT | COMMAND, "z", "z")),
             ("snapshot out.png", Do::Shot(PathBuf::from("out.png"))),
-            ("undo-to-start", Do::UndoToStart),
+            ("undo-to-start", Do::UndoToStart(vec![])),
             ("quit", Do::Quit),
         ] {
             assert_eq!(parse(text), expected, "{text}");

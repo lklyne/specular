@@ -10,12 +10,13 @@
 //! expect sidebar on
 //! expect menu closed
 //! expect undo none                  # nothing to undo; `undo some`, `redo none`
-//! expect count sticky 2             # entities, edges, comments, canvases, or a kind
+//! expect count sticky 2             # entities, edges, comments, canvases, selected, or a kind
 //! expect entity s1 kind sticky
 //! expect entity s1 rect 100 100 200 200
 //! expect entity s1 at 100 100
 //! expect entity s1 size 200 200
 //! expect entity s1 text Ship the beta
+//! expect entity d1 note # Plan     # a Document's markdown
 //! expect entity s1 parent g1        # or `parent none`
 //! expect entity s1 gone
 //! expect saved /nodes/s1/color = "4"
@@ -85,6 +86,8 @@ pub enum Counted {
     Comments,
     /// Canvases in the space.
     Canvases,
+    /// Selected items.
+    Selected,
 }
 
 /// A fact about one entity.
@@ -102,6 +105,8 @@ pub enum EntityFact {
     /// Its text: a text's or sticky's words, a shape's label, a file's path,
     /// a page's address.
     Text(String),
+    /// The text a Document holds for the markdown file it shows.
+    Note(String),
     /// The group it is in, or `None` for none.
     Parent(Option<String>),
     /// It is not in the document.
@@ -202,6 +207,7 @@ fn counted(word: &str) -> Counted {
         "edges" => Counted::Edges,
         "comments" => Counted::Comments,
         "canvases" => Counted::Canvases,
+        "selected" => Counted::Selected,
         kind => Counted::Kind(kind.to_owned()),
     }
 }
@@ -226,10 +232,11 @@ fn entity_fact(text: &str) -> anyhow::Result<EntityFact> {
         ("at", _) => EntityFact::At(numbers(&words)?),
         ("size", _) => EntityFact::Size(numbers(&words)?),
         ("text", _) => EntityFact::Text(unescaped(rest)),
+        ("note", _) => EntityFact::Note(unescaped(rest)),
         ("parent", ["none"]) => EntityFact::Parent(None),
         ("parent", [id]) => EntityFact::Parent(Some((*id).to_owned())),
         ("gone", []) => EntityFact::Gone,
-        _ => bail!("an entity fact is kind, rect, at, size, text, parent or gone"),
+        _ => bail!("an entity fact is kind, rect, at, size, text, note, parent or gone"),
     })
 }
 

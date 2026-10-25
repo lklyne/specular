@@ -102,8 +102,11 @@ pub enum Step {
     /// back, as a relaunch would open it.
     Reopen,
     /// `undo-to-start`: undoes until there is nothing left to undo, then
-    /// checks the canvas is the one the run opened.
-    UndoToStart,
+    /// checks the canvas is the one the run opened. `undo-to-start except
+    /// PATH..` names what undo does not take back, such as a page's
+    /// address after it navigated: the canvas differs from the start at
+    /// exactly those paths.
+    UndoToStart(Vec<String>),
     /// A step only a window can do. A headless run skips it and says so.
     Window(WindowStep),
 }
@@ -117,9 +120,11 @@ impl Step {
 
 /// The step `line` names. `line` is not blank and not a comment.
 pub(super) fn step(line: &str) -> anyhow::Result<Step> {
-    let line = line.trim();
-    let (verb, rest) = line.split_once(char::is_whitespace).unwrap_or((line, ""));
-    let rest = rest.trim();
+    let line = line.trim_start();
+    // What follows `type` and the other text verbs is kept as written,
+    // spaces at either end included.
+    let (verb, text) = line.split_once(char::is_whitespace).unwrap_or((line, ""));
+    let rest = text.trim();
     let words: Vec<&str> = rest.split_whitespace().collect();
     if let Some(step) = window::step(verb, rest)? {
         return Ok(Step::Window(step));
@@ -140,9 +145,9 @@ pub(super) fn step(line: &str) -> anyhow::Result<Step> {
             let (held, key) = chord.rsplit_once('+').unwrap_or(("", chord));
             Step::Key(modifiers(held)?, key_named(key)?)
         }
-        ("type", _) if !rest.is_empty() => Step::Type(rest.to_owned()),
-        ("compose", _) if !rest.is_empty() => Step::Compose(rest.to_owned()),
-        ("commit", _) if !rest.is_empty() => Step::Commit(rest.to_owned()),
+        ("type", _) if !text.is_empty() => Step::Type(text.to_owned()),
+        ("compose", _) if !text.is_empty() => Step::Compose(text.to_owned()),
+        ("commit", _) if !text.is_empty() => Step::Commit(text.to_owned()),
         ("clipboard", _) if !rest.is_empty() => Step::Clipboard(unescaped(rest)),
         ("wheel", [x, y]) => Step::Wheel(point(x, y)?),
         ("scroll", [x, y, dx, dy]) => Step::ScrollAt(point(x, y)?, point(dx, dy)?),
@@ -166,7 +171,10 @@ pub(super) fn step(line: &str) -> anyhow::Result<Step> {
         ("expect", _) if !rest.is_empty() => Step::Expect(expect::parse(rest)?),
         ("mark", [name]) => Step::Mark((*name).to_owned()),
         ("reopen", []) => Step::Reopen,
-        ("undo-to-start", []) => Step::UndoToStart,
+        ("undo-to-start", []) => Step::UndoToStart(Vec::new()),
+        ("undo-to-start", ["except", paths @ ..]) if !paths.is_empty() => {
+            Step::UndoToStart(paths.iter().map(|&path| path.to_owned()).collect())
+        }
         _ => bail!("not a step, or the wrong number of arguments"),
     })
 }

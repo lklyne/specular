@@ -1,14 +1,16 @@
 # canvas: empty.canvas
 # A first session on an empty canvas: two stickies, a pen stroke and a
-# highlight over one, three labelled shapes, a move and a resize, then undo
-# to nothing and redo it all.
+# highlight over one, three labelled shapes, a move and a resize, undo to
+# nothing and redo it all, then a save reopened untouched.
 camera 0,0,1
 
 tool sticky
 click 200 160
 type Ship the beta
 key escape
-snapshot 01-one-sticky.png
+expect editing none
+expect count sticky 1
+expect entity @top text Ship the beta
 
 tool sticky
 click 520 160
@@ -17,11 +19,13 @@ key enter
 type - tiers
 key enter
 type annual
+expect editing Ask Dana about pricing\n- tiers\n- annual
 key escape
-snapshot 02-two-stickies.png
+expect count sticky 2
 
 # pen stroke across the first sticky
 key m
+expect tool draw
 press 215 300
 drag-to 225 312
 drag-to 240 318
@@ -34,7 +38,6 @@ drag-to 330 312
 drag-to 345 300
 drag-to 360 306
 drag-to 375 318
-snapshot 03-pen-in-flight.png
 release
 # highlight over its text
 key shift+m
@@ -46,7 +49,7 @@ drag-to 280 179
 drag-to 292 180
 release
 key escape
-snapshot 04-strokes.png
+expect count drawing 2
 
 # three shapes with labels
 key r
@@ -70,52 +73,43 @@ release
 double-click 860 540
 type Ship?
 key escape
-snapshot 05-shapes.png
+expect count shape 3
+expect count entities 7
 
 # move the second sticky, resize the rectangle from its bottom-right corner
 drag 600 300 900 240
 click 300 540
+expect entity @selected text Draft
+expect entity @selected rect 200 480 200 120
 press 401 601
 drag-to 440 660
-snapshot 07-resize-in-flight.png
 release
+expect entity @selected rect 200 480 240 180
 key escape
-snapshot 08-arranged.png
-save 08-arranged.canvas
+mark arranged
 
-# undo everything, one step at a time
-key cmd+z
-key cmd+z
-key cmd+z
-snapshot 09-undo-3.png
-key cmd+z
-key cmd+z
-key cmd+z
-key cmd+z
-snapshot 09-undo-7.png
-key cmd+z
-key cmd+z
-key cmd+z
-key cmd+z
-key cmd+z
-key cmd+z
-key cmd+z
-snapshot 10-undone.png
-save 10-undone.canvas
+# undo all of it, one step a gesture, and redo it all
+undo-to-start
+expect count entities 0
+expect saved same-as empty.canvas
+key cmd+shift+z
+key cmd+shift+z
+key cmd+shift+z
+key cmd+shift+z
+key cmd+shift+z
+key cmd+shift+z
+key cmd+shift+z
+key cmd+shift+z
+key cmd+shift+z
+key cmd+shift+z
+key cmd+shift+z
+key cmd+shift+z
+key cmd+shift+z
+key cmd+shift+z
+expect redo none
+expect saved same-as mark arranged
 
-key cmd+shift+z
-key cmd+shift+z
-key cmd+shift+z
-key cmd+shift+z
-key cmd+shift+z
-key cmd+shift+z
-key cmd+shift+z
-key cmd+shift+z
-key cmd+shift+z
-key cmd+shift+z
-key cmd+shift+z
-key cmd+shift+z
-key cmd+shift+z
-key cmd+shift+z
-snapshot 12-redone.png
-save 12-redone.canvas
+# the canvas this app saved, read back as a relaunch reads it, is the same
+reopen
+expect undo none
+expect saved same-as mark arranged

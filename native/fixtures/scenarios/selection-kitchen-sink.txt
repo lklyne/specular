@@ -2,40 +2,40 @@
 # A mixed selection on the kitchen sink: marquee, move, resize, duplicate,
 # option-drag copy, nudge, delete, and an undo after each.
 camera 32,-368,0.8
+# what this app saves of the file it read is the file
+expect saved same-as ../kitchen-sink.canvas
 
 # marquee from the gap between the sticky rows down to the first shapes
 press 10 225
 drag-to 300 500
 drag-to 500 790
-snapshot 01-marquee-in-flight.png
 release
-save 02-start.canvas
+expect selection sticky-font-sans sticky-font-mono sticky-font-hand h-shape shape-rectangle shape-rounded shape-ellipse e-sticky-to-shape
+mark start
 
 # move it by a body
 press 96 720
 drag-to 150 740
 drag-to 216 760
-snapshot 03-move-in-flight.png
 release
-snapshot 04-moved.png
+expect undo some
 key cmd+z
-snapshot 05-move-undone.png
+expect saved same-as start
 
 # resize the whole selection from its bottom-right handle
 press 545 769
 drag-to 600 820
 drag-to 690 905
-snapshot 06-resize-in-flight.png
 release
-snapshot 07-resized.png
 key cmd+z
-save 08-resize-undone.canvas
+expect saved same-as start
 
 # duplicate
 key cmd+d
-snapshot 09-duplicated.png
+expect count entities 172
+expect count selected 7
 key cmd+z
-save 10-duplicate-undone.canvas
+expect saved same-as start
 
 # the duplicate landed off screen and the camera went to it; come back.
 # The undo put the selection back on the originals, so no second marquee.
@@ -46,29 +46,25 @@ hold alt
 press 96 720
 drag-to 300 800
 drag-to 700 560
-snapshot 11-option-drag-in-flight.png
 release
 hold none
-snapshot 12-option-drag-copied.png
 key cmd+z
-save 13-option-drag-undone.canvas
+expect saved same-as start
 
 # the undo selected the originals again, so the arrows move them
-
 # nudge: three small steps right, one big step down
 key right
 key right
 key right
 key shift+down
-snapshot 14-nudged.png
 key cmd+z
 key cmd+z
 key cmd+z
 key cmd+z
-save 15-nudges-undone.canvas
+expect saved same-as start
 
 # delete
 key backspace
-snapshot 16-deleted.png
 key cmd+z
-save 17-delete-undone.canvas
+expect saved same-as start
+undo-to-start

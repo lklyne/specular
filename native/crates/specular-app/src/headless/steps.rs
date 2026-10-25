@@ -96,7 +96,7 @@ impl Headless {
             Step::Expect(expect) => self.checks.check(self.app.app(), &expect),
             Step::Mark(name) => self.checks.mark(self.app.app(), &name),
             Step::Reopen => self.reopen(),
-            Step::UndoToStart => self.undo_to_start(),
+            Step::UndoToStart(except) => self.undo_to_start(&except),
             // The run skips these before they get here.
             Step::Window(_) => Ok(()),
         }?;
@@ -111,14 +111,14 @@ impl Headless {
     }
 
     /// Undoes until nothing is left and checks the canvas is the start.
-    fn undo_to_start(&mut self) -> anyhow::Result<()> {
+    fn undo_to_start(&mut self, except: &[String]) -> anyhow::Result<()> {
         for _ in 0..UNDO_LIMIT {
             if !self.app.app().can_undo() {
                 break;
             }
             self.drive(|app| app.act(Action::Undo))?;
         }
-        self.checks.back_at_start(self.app.app())
+        self.checks.back_at_start(self.app.app(), except)
     }
 
     /// Whether the built-in panels are on: a control is then clicked where
