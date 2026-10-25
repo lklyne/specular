@@ -1096,6 +1096,15 @@ Nothing was retired. Cleanup rows 1 and 2 in the plan say what now stands betwee
 - Needs a human at a Mac: none of it has been seen in a real page. The user asked for no scripted run and tests by hand.
 
 
+### BIG-RUN P9 validation
+
+- `validate-all.sh`: gate, headless, CEF, CLI and release pass; Kit 57 of 58 (from 26). Table and the one failure (`tabs`) in the big-run plan's "Validation".
+- Runner: headless scripts lay out under the Kit's chrome (`Event::ChromeLayout`: tab row 38, docked tools 36) and fail a pointer step that would land on chrome or off the window, so one script means one thing. The Kit runner takes posted moves, ignores the real mouse, tells the app light, Reduce motion off and no spring, rests on a control before clicking, lifts a held button before a press, waits for a step's files, reads `drop` paths as headless, names its canvas copy `Canvas 1`, leaves keys to the input method mid-composition, reads Kit fields for `expect editing`, and starts no real agent (it ran `claude` before).
+- App fixes (window only): a choice in a list that stays open keeps the keys, so Escape closes the list and keeps the selection; a press outside an open list goes no further; a left drag released with Control held ends (GPUI made it a right release, and the drag stuck).
+- Scripts: positions off the chrome, cameras and lens sizes for the smaller viewport, page answers awaited, checks a live synthetic page would overturn reworded. `validate-all` builds the patched agent-browser; `first-run.sh` uses the current first-run choice, a free port and a two-minute limit.
+- Warm `target/` from another worktree baked that worktree's path into `canvas_repo`; `cargo clean -p specular-doc` fixed the gate.
+- By hand: checklist items 29 to 32.
+
 ### BIG-RUN P8: tidy (narrowed API, split files and functions)
 
 - Task 8: every `pub` item no other crate, test, bench or example names is `pub(crate)`, found by a name scan and then by the compiler (narrow all, restore what breaks). `pub` declarations went from 3,212 to 2,493; the dead code that showed is deleted (about 45 items, about 450 lines). Without its `cef` feature `specular-cef` allows dead code: its CEF-free helpers then serve only their unit tests.

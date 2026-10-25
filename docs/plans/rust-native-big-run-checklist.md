@@ -60,4 +60,10 @@ Open `/tmp/specular-fixtures/pages.canvas`, or any canvas with a real site.
 26. **Error log.** With a page open, kill its renderer (`pkill -f "Specular Helper (Renderer)"`). `~/Library/Logs/Specular/errors.log` gets a line naming the page's URL and the reason. The app keeps running.
 27. **Release rehearsal.** Run the release workflow by hand (Actions > release > Run workflow, rehearsal mode). It builds, signs and notarizes without the deleted root files.
 28. **Branch protection.** Remove the `check` and `fallow` required checks, which no workflow reports any more, and require "Native" instead.
-29. **Kit scenario failures.** Read the `kit` table in `runs/validate/kit/log.txt`. Each failure that remains is listed with its reason in the PR. Watch one rerun (`fixtures/scenarios/run.sh --kit NAME`) and judge whether the app or the script is wrong.
+29. **Kit scenario failures.** Read the `kit` table in `runs/validate/kit/log.txt`. Phase 9 left one: `tabs`, where closing two tabs one after the other at the same spot loses the second close in the window (the close button gets the press and never the release). Close three page tabs by clicking the same spot quickly: each click closes one. If one is lost, that is the bug; if not, the script's posted events are to blame. Any other failure is listed with its reason in the big-run plan's "Validation".
+
+## Fixed in the Kit window by phase 9
+
+30. Select a sticky, open its colour list and pick a colour. The list stays open. Press Escape: the list closes and the sticky stays selected. Press Escape again: the selection goes.
+31. With a dock list open, click a tool button or the canvas. The list closes and nothing else happens: the tool stays, no marquee starts.
+32. Drag a sticky that sits on a page off the page, press Control before letting go, then let go. The drag ends there and the sticky keeps its page (it moves with the page). No context menu opens.

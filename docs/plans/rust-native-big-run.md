@@ -97,6 +97,24 @@ Narrow `pub` to `pub(crate)` (task 8) and delete what turns up dead. Split the f
 
 It prints one pass or fail table and writes screenshots and logs to `native/runs/validate/`.
 
+### Run of 2026-10-25 (phase 9)
+
+On Lyle's Mac (M3 Max, built-in display at scale 2, screen unlocked), from `bigrun/p9`:
+
+```text
+result step         time  note
+pass   gate          11s  
+pass   headless      19s  
+FAIL   kit          723s  exit 1, see runs/validate/kit/log.txt
+pass   cef          166s  
+pass   cli           11s  
+pass   release       42s  
+```
+
+Kit 57 of 58, CEF 3 of 3 (`cli-pages` 35 of 35 with the Rust CLI and the patched agent-browser), CLI 12 of 12, release first run passed (no PNGs: this terminal has no Screen Recording permission). One failure remains:
+
+- `tabs`: two tab closes in a row at one spot. The second close button gets the press and never the release in the window, so the tab stays. Not found to be the app or the script; checklist item 29 says how to judge it by hand.
+
 ## At the end
 
 The by-hand checks only a person can do (trackpad, IME, live resize, a second display, VoiceOver, the redrawn popups, new-tab links) are in [`rust-native-big-run-checklist.md`](./rust-native-big-run-checklist.md).
