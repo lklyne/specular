@@ -131,7 +131,7 @@ pub enum DeviceKind {
 }
 
 /// The device frame around a page's screen: `DeviceDef` in the Electron
-/// app's `src/shared/device-catalog.ts`, already turned for the page's
+/// app's `git show bc5253fa:src/shared/device-catalog.ts`, already turned for the page's
 /// orientation.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct DeviceShell {

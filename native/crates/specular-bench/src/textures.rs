@@ -1,5 +1,5 @@
 //! Shared-texture pool counters, named after the Electron page host's
-//! `PageHostStats` (`src/main/runtime/page-host.ts`).
+//! `PageHostStats` (`git show bc5253fa:src/main/runtime/page-host.ts`).
 //!
 //! The two drop counters mean different things and must not be merged (ADR
 //! 0038, "Correction"): `framesWithoutTexture` counts paints that arrived with

@@ -3,7 +3,7 @@
 //! [`dom_query`](crate::dom_query): one `Runtime.evaluate` out, bytes in.
 //!
 //! The DOM rules are `inspectionPayload` in the Electron preload
-//! (`src/preload/dom-element-utils.ts`), minus the overlay skip: a CEF page
+//! (`git show bc5253fa:src/preload/dom-element-utils.ts`), minus the overlay skip: a CEF page
 //! has no Specular overlay injected into it.
 
 use serde_json::Value;

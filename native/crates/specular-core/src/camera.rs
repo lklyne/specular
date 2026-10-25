@@ -10,9 +10,9 @@ use glam::{Mat4, Vec2, Vec3};
 
 use crate::geometry::Rect;
 
-/// Smallest zoom the canvas allows (`CANVAS_MIN_ZOOM` in `src/shared/zoom.ts`).
+/// Smallest zoom the canvas allows (`CANVAS_MIN_ZOOM` in `git show bc5253fa:src/shared/zoom.ts`).
 pub(crate) const MIN_ZOOM: f32 = 0.02;
-/// Largest zoom the canvas allows (`CANVAS_MAX_ZOOM` in `src/shared/zoom.ts`).
+/// Largest zoom the canvas allows (`CANVAS_MAX_ZOOM` in `git show bc5253fa:src/shared/zoom.ts`).
 pub(crate) const MAX_ZOOM: f32 = 3.0;
 /// Zoom change per unit of wheel `deltaY` (`applyViewportInputDelta`).
 pub(crate) const ZOOM_PER_WHEEL_DELTA: f32 = 0.002;

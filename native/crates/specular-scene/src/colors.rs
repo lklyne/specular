@@ -2,7 +2,7 @@
 //! set per [`Appearance`].
 //!
 //! The light values are Electron's light tokens
-//! (`src/renderer/shared/surfaceTheme.css`, the Tailwind classes of the
+//! (`git show bc5253fa:src/renderer/shared/surfaceTheme.css`, the Tailwind classes of the
 //! toolbar and popups, `canvas-colors.ts`). The dark ones are its `.dark`
 //! block and the `isDark` branches of the canvas renderers, with Tailwind's
 //! stone and zinc scales resolved to sRGB. Nothing drawn picks a colour

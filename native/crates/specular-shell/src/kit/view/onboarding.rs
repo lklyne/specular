@@ -1,4 +1,4 @@
-//! The first-run view (`src/renderer/onboarding`): shown in place of the
+//! The first-run view (`git show bc5253fa:src/renderer/onboarding`): shown in place of the
 //! canvas while no space is open, from [`OnboardingModel`].
 //!
 //! The Prism turns at its head, the heading and its line are centred under

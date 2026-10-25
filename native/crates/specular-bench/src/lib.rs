@@ -2,7 +2,7 @@
 //! fields follow the Electron app's `POST /perf/pan-zoom/run`.
 //!
 //! - [`profile`]: the six gesture profiles, a port of
-//!   `src/shared/pan-zoom-perf-test.ts`, expanded into deterministic steps.
+//!   `git show bc5253fa:src/shared/pan-zoom-perf-test.ts`, expanded into deterministic steps.
 //! - [`stats`], [`recorder`]: presented-frame intervals reduced to the ADR
 //!   0038 lab's fields (`drawFps`, `meanFrameMs`, `maxFrameMs`, `longFrames`)
 //!   plus percentiles.

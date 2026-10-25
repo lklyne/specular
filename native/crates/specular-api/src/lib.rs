@@ -15,7 +15,7 @@
 //! with that ticket, [`Pending::finish`] reads the answer off the `App`.
 //!
 //! The routes, the secret header, the port and the discovery file are the
-//! Electron app's (`src/main/routes/`), so its CLI talks to this app
+//! Electron app's (`git show bc5253fa:src/main/routes/`), so its CLI talks to this app
 //! unchanged. Nothing here opens a socket: the shell owns the server.
 
 mod act;

@@ -5,7 +5,7 @@
 //! Each question is one `Runtime.evaluate` of an expression that returns a
 //! JSON string, so the page does the DOM work in one round trip and the
 //! answer does not depend on devtools object ids. The DOM rules are the
-//! Electron preload's (`src/preload/dom-element-utils.ts`): the unique
+//! Electron preload's (`git show bc5253fa:src/preload/dom-element-utils.ts`): the unique
 //! selector is an `nth-of-type` chain up to the nearest unique id, the path
 //! is four readable segments, and a region grabs the visible interactive
 //! elements it wholly contains, and answers with the box of every visible

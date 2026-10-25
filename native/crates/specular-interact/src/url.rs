@@ -1,5 +1,5 @@
 //! Telling a URL from other text, and completing one a person typed.
-//! Ported from `src/shared/url.ts`.
+//! Ported from `git show bc5253fa:src/shared/url.ts`.
 
 /// Whether `value` is a URL a page can show: it has an `http` or `https`
 /// scheme, or it reads as a bare host (`example.com/path`, `localhost:3000`).

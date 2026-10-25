@@ -1,4 +1,4 @@
-//! Gesture profiles mirroring `src/shared/pan-zoom-perf-test.ts`.
+//! Gesture profiles mirroring `git show bc5253fa:src/shared/pan-zoom-perf-test.ts`.
 
 use std::{fmt, str::FromStr, time::Duration};
 

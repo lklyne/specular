@@ -1,8 +1,8 @@
 //! [`Icon`]: every glyph the toolbar and item dock models use, by name.
 //!
 //! A renderer maps each name to path data. Each variant says where the
-//! Electron app's glyph lives (`src/renderer/...`), so the shape can be
-//! lifted from there. Lucide names are from `lucide-react`.
+//! Electron app's glyph lived (under `git show bc5253fa:src/renderer/`), so
+//! the shape can be lifted from there. Lucide names are from `lucide-react`.
 
 use specular_doc::ShapeKind;
 
@@ -36,7 +36,7 @@ pub enum Icon {
     /// A page's repo binding. Lucide `FolderCode`.
     Repo,
     /// A shape silhouette: the path of that kind's row in
-    /// `src/shared/shapes.ts`, drawn by `shared/ShapeGlyph.tsx`.
+    /// `git show bc5253fa:src/shared/shapes.ts`, drawn by `shared/ShapeGlyph.tsx`.
     Shape(ShapeKind),
     /// Left-aligned text. Lucide `AlignLeft`.
     AlignLeft,

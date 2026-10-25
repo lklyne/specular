@@ -20,7 +20,7 @@ pub enum Appearance {
 }
 
 /// What the user chose: a fixed appearance, or the system's
-/// (`AppThemeMode` in `src/shared/types.ts`).
+/// (`AppThemeMode` in `git show bc5253fa:src/shared/types.ts`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum Theme {
     /// Follow the operating system.

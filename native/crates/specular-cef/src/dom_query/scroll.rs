@@ -5,8 +5,8 @@ use serde_json::Value;
 
 use super::{evaluate, expression, number, returned};
 
-/// How far the document can scroll along each axis, as
-/// `src/shared/scroll-sync.ts` measures it.
+/// How far the document can scroll along each axis, as Electron's scroll
+/// sync measured it (`git show bc5253fa:src/shared/scroll-sync.ts`).
 const SCROLL_EXTENT: &str = r"
 const root = document.documentElement, body = document.body;
 const maxX = Math.max(0, (root ? root.scrollWidth : 0) - innerWidth, (body ? body.scrollWidth : 0) - innerWidth);
