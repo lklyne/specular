@@ -105,4 +105,3 @@ fn a_change_of_view_moves_the_camera_by_a_spring_from_where_the_item_was() {
         assert!(!app.app().motion_running(), "{name}: still owes frames");
     }
 }
-

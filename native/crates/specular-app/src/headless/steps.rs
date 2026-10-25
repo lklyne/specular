@@ -16,13 +16,21 @@ const UNDO_LIMIT: usize = 10_000;
 
 impl Headless {
     pub(super) fn step(&mut self, step: Step) -> anyhow::Result<()> {
-        let checks = matches!(
-            step,
-            Step::Expect(_) | Step::State(_) | Step::Mark(_) | Step::Save(_)
-        );
-        if !checks {
-            self.sent.clear();
+        // `expect sent` reads the effects of the last step that was not a
+        // check.
+        match step {
+            Step::Expect(Expect::OnCanvas(fact)) if fact.is_sent() => {
+                script::check_sent(self.app.app(), &self.sent, &fact)
+            }
+            Step::Expect(_) | Step::State(_) | Step::Mark(_) | Step::Save(_) => self.do_step(step),
+            _ => {
+                self.sent.clear();
+                self.do_step(step)
+            }
         }
+    }
+
+    fn do_step(&mut self, step: Step) -> anyhow::Result<()> {
         match step {
             Step::Move(at) => self.drive(|app| app.pointer_move(at)),
             Step::Press(at) => self.drive(|app| app.press(at)),
@@ -116,34 +124,34 @@ impl Headless {
                 let text = script::dump(self.app.app());
                 std::fs::write(&path, text).with_context(|| format!("writing {}", path.display()))
             }
-            Step::Expect(Expect::OnCanvas(fact)) if fact.is_sent() => {
-                script::check_sent(self.app.app(), &self.sent, &fact)
-            }
             Step::Expect(expect) => self.checks.check(self.app.app(), &expect),
             Step::Mark(name) => self.checks.mark(self.app.app(), &name),
             Step::Reopen => self.reopen(),
             Step::UndoToStart(except) => self.undo_to_start(&except),
-            Step::Window(WindowStep::Drop(paths, at)) => {
-                // As a window gets them: whole paths, with no `..` in them.
-                let real = |path: PathBuf| std::fs::canonicalize(&path).unwrap_or(path);
-                let space = self.space.clone().map(real);
-                let files = (paths.iter())
-                    .map(|path| match &space {
-                        Some(space) if path.is_relative() => real(space.join(path)),
-                        _ => path.clone(),
-                    })
-                    .map(|path| crate::app::drop_run::dropped_file(&path, space.as_deref()))
-                    .collect();
-                self.drive(|app| app.send(Event::FilesDropped { files, screen: at }))
-            }
+            Step::Window(WindowStep::Drop(paths, at)) => self.drop_files(&paths, at),
             // The run skips these before they get here.
             Step::Window(_) => Ok(()),
-            Step::Canvas(step) => {
-                let event = step.event(self.app.app())?;
-                self.drive(|app| app.send(event))
-            }
+            Step::Canvas(step) => step
+                .event(self.app.app())
+                .and_then(|event| self.drive(|app| app.send(event))),
         }?;
         self.frame_for_documents()
+    }
+
+    /// Drops the files at `paths` at `at`, as a window gets them: whole
+    /// paths with no `..` in them, a relative one read from the canvas's
+    /// folder.
+    fn drop_files(&mut self, paths: &[PathBuf], at: Option<Vec2>) -> anyhow::Result<()> {
+        let real = |path: PathBuf| std::fs::canonicalize(&path).unwrap_or(path);
+        let space = self.space.clone().map(real);
+        let files = (paths.iter())
+            .map(|path| match &space {
+                Some(space) if path.is_relative() => real(space.join(path)),
+                _ => path.clone(),
+            })
+            .map(|path| crate::app::drop_run::dropped_file(&path, space.as_deref()))
+            .collect();
+        self.drive(|app| app.send(Event::FilesDropped { files, screen: at }))
     }
 
     /// Writes the canvas as a save would and opens what was written.

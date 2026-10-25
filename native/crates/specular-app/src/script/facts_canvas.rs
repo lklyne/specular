@@ -60,12 +60,14 @@
 
 use anyhow::{Context as _, bail, ensure};
 use glam::Vec2;
-use specular_core::{ElementPlace, Modifiers, InputEvent, KeyEventKind, PixelRect, PointerEventKind, TouchPhase};
+use specular_core::{
+    ElementPlace, InputEvent, KeyEventKind, Modifiers, PixelRect, PointerEventKind, TouchPhase,
+};
 use specular_doc::{EdgeId, EdgeSide, EntityId};
 use specular_interact::{
     Action, App, Appearance, CanvasAction, Corner, Effect, Event, GuideAxis, GuideReference,
-    Handle, HandleOwner, Hit, ImageState, KeyInput, LayoutHandle, Mark, Orientation, PageNotice, PlacePreview, Property, Showing,
-    hit_test, shown_rect,
+    Handle, HandleOwner, Hit, ImageState, KeyInput, LayoutHandle, Mark, Orientation, PageNotice,
+    PlacePreview, Property, Showing, hit_test, shown_rect,
 };
 
 use super::words::{key_named, number, theme_named};
@@ -208,7 +210,8 @@ pub(super) fn fact(what: &str, tail: &str) -> anyhow::Result<Option<CanvasFact>>
             ["none"] => is(Query::AnyGuides, &["none"]),
             _ => bail!("`guides horizontal|vertical ..` or `guides none`"),
         },
-        "mark" | "seen" | "page" | "synced" | "default" | "image" | "edge-ends" | "edge" | "shown-control" | "anchor" => {
+        "mark" | "seen" | "page" | "synced" | "default" | "image" | "edge-ends" | "edge"
+        | "shown-control" | "anchor" => {
             let (name, wanted) = id(&words)?;
             let query = match what {
                 "mark" => Query::Mark(name),
@@ -290,8 +293,11 @@ pub fn check_sent(app: &App, sent: &[Effect], fact: &CanvasFact) -> anyhow::Resu
                 };
                 effect.len() >= words.len()
                     && same_words(&effect[..before.len()], before)
-                    && (same_words(&effect[before.len()..=before.len()], std::slice::from_ref(last))
-                        || (!before.is_empty() && effect[before.len()].starts_with(last.as_str())))
+                    && (same_words(
+                        &effect[before.len()..=before.len()],
+                        std::slice::from_ref(last),
+                    ) || (!before.is_empty()
+                        && effect[before.len()].starts_with(last.as_str())))
             };
             let found = told.iter().any(starts);
             ensure!(
@@ -339,12 +345,19 @@ fn entity_id(app: &App, name: &str) -> anyhow::Result<EntityId> {
 }
 
 /// What `query` reads of `app`, as words.
+#[expect(
+    clippy::too_many_lines,
+    reason = "one short arm a fact, read side by side"
+)]
 fn read(app: &App, query: &Query) -> anyhow::Result<Vec<String>> {
     let session = app.session();
     Ok(match query {
         Query::Hit(at) => hit_words(&hit_test(app, *at)),
         Query::Cursor => vec![kebab(&format!("{:?}", session.cursor))],
-        Query::Hover => session.hover.as_ref().map_or_else(none, |id| vec![id.to_string()]),
+        Query::Hover => session
+            .hover
+            .as_ref()
+            .map_or_else(none, |id| vec![id.to_string()]),
         Query::Marquee => app.marquee().map_or_else(none, rect_words),
         Query::Mark(name) => match app.mark(&entity_id(app, name)?) {
             Some(Mark::Outline) => words_of("outline"),
@@ -361,7 +374,10 @@ fn read(app: &App, query: &Query) -> anyhow::Result<Vec<String>> {
             let lit = app.anchors().into_iter().find(|anchor| anchor.active);
             lit.map_or_else(none, |anchor| {
                 let mut words = vec![side_word(anchor.side).to_owned()];
-                words.extend(numbers(&[f64::from(anchor.point.x), f64::from(anchor.point.y)]));
+                words.extend(numbers(&[
+                    f64::from(anchor.point.x),
+                    f64::from(anchor.point.y),
+                ]));
                 words
             })
         }
@@ -388,7 +404,11 @@ fn read(app: &App, query: &Query) -> anyhow::Result<Vec<String>> {
                 .collect();
             if lines.is_empty() { none() } else { lines }
         }
-        Query::AnyGuides => words_of(if app.guides().is_empty() { "none" } else { "some" }),
+        Query::AnyGuides => words_of(if app.guides().is_empty() {
+            "none"
+        } else {
+            "some"
+        }),
         Query::Gaps => {
             let guides = app.guides();
             if guides.distribution.is_empty() {
@@ -406,11 +426,18 @@ fn read(app: &App, query: &Query) -> anyhow::Result<Vec<String>> {
                 words
             }
         }
-        Query::DropTarget => app.group_drop_target().map_or_else(none, |id| vec![id.to_string()]),
-        Query::EnteredGroup => app.entered_group().map_or_else(none, |id| vec![id.to_string()]),
+        Query::DropTarget => app
+            .group_drop_target()
+            .map_or_else(none, |id| vec![id.to_string()]),
+        Query::EnteredGroup => app
+            .entered_group()
+            .map_or_else(none, |id| vec![id.to_string()]),
         Query::Seen(name) => {
             let id = entity_id(app, name)?;
-            let entity = app.document().entity(&id).with_context(|| format!("no entity `{id}`"))?;
+            let entity = app
+                .document()
+                .entity(&id)
+                .with_context(|| format!("no entity `{id}`"))?;
             shown_rect(app, entity).map_or_else(none, rect_words)
         }
         Query::Page(name) => {
@@ -492,7 +519,10 @@ fn read(app: &App, query: &Query) -> anyhow::Result<Vec<String>> {
         }
         Query::Anchor(name) => {
             let id = entity_id(app, name)?;
-            let entity = app.document().entity(&id).with_context(|| format!("no entity `{id}`"))?;
+            let entity = app
+                .document()
+                .entity(&id)
+                .with_context(|| format!("no entity `{id}`"))?;
             (entity.anchor.as_ref()).map_or_else(none, |anchor| vec![anchor.page_id.to_string()])
         }
         Query::Control(name) => {
@@ -501,7 +531,9 @@ fn read(app: &App, query: &Query) -> anyhow::Result<Vec<String>> {
         }
         Query::Edge(name) => {
             let edge = edge_id(app, name).and_then(|id| app.document().edge(&id).cloned());
-            edge.map_or_else(none, |edge| vec![edge.from.to_string(), edge.to.to_string()])
+            edge.map_or_else(none, |edge| {
+                vec![edge.from.to_string(), edge.to.to_string()]
+            })
         }
         Query::EdgeEnds(name) => {
             let curve = edge_id(app, name).and_then(|id| app.edge_curve(&id));
@@ -549,7 +581,9 @@ fn hit_words(hit: &Hit) -> Vec<String> {
         }
         Hit::Anchor { entity, side } => format!("anchor {entity} {}", side_word(*side)),
         Hit::Layout(LayoutHandle::Reorder { entity }) => format!("dot {entity}"),
-        Hit::Layout(LayoutHandle::Gap { axis, .. }) => format!("gap {}", kebab(&format!("{axis:?}"))),
+        Hit::Layout(LayoutHandle::Gap { axis, .. }) => {
+            format!("gap {}", kebab(&format!("{axis:?}")))
+        }
         Hit::PageContent { page, local } => format!("page {page} {} {}", local.x, local.y),
         Hit::EntityBody { entity } => format!("body {entity}"),
         Hit::GroupBorder { group } => format!("border {group}"),
@@ -616,8 +650,15 @@ fn kebab(debug: &str) -> String {
 fn effect_words(effect: &Effect) -> Vec<String> {
     let text = match effect {
         Effect::ForwardInput { page, event } => format!("forward {page} {}", input_words(event)),
-        Effect::CreatePage { page, url, viewport } => {
-            format!("create-page {page} {url} {} {}", viewport.width, viewport.height)
+        Effect::CreatePage {
+            page,
+            url,
+            viewport,
+        } => {
+            format!(
+                "create-page {page} {url} {} {}",
+                viewport.width, viewport.height
+            )
         }
         Effect::ClosePage(page) => format!("close-page {page}"),
         Effect::SetPageViewport { page, viewport } => {
@@ -625,7 +666,10 @@ fn effect_words(effect: &Effect) -> Vec<String> {
         }
         Effect::SetCursor(cursor) => format!("cursor {}", kebab(&format!("{cursor:?}"))),
         Effect::FocusPage(page) => {
-            format!("focus-page {}", page.as_ref().map_or("none".to_owned(), ToString::to_string))
+            format!(
+                "focus-page {}",
+                page.as_ref().map_or("none".to_owned(), ToString::to_string)
+            )
         }
         Effect::WriteClipboard(text) => format!("clipboard {text}"),
         Effect::CaptureElement { page, point, .. } => {
@@ -765,8 +809,14 @@ fn notice(said: &[&str]) -> anyhow::Result<PageNotice> {
             y: f64::from(number(y)?),
         },
         ["url", url] => PageNotice::Url((*url).to_owned()),
-        ["fit", "covers"] => PageNotice::ViewportFit { covers: true, color: None },
-        ["fit", "inside"] => PageNotice::ViewportFit { covers: false, color: None },
+        ["fit", "covers"] => PageNotice::ViewportFit {
+            covers: true,
+            color: None,
+        },
+        ["fit", "inside"] => PageNotice::ViewportFit {
+            covers: false,
+            color: None,
+        },
         ["element", selector, x, y, fixed @ ..] => PageNotice::ElementPlaces(vec![(
             (*selector).to_owned(),
             Some(ElementPlace {
