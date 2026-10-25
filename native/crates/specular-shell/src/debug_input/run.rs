@@ -8,7 +8,8 @@ use std::time::{Duration, Instant};
 
 use glam::Vec2;
 use gpui_kit::{AnyWindowHandle, AsyncApp};
-use specular_doc::{EdgeId, EntityId, ItemId};
+use specular_app::script::{self, Checks};
+use specular_doc::{Document, EdgeId, EntityId, ItemId};
 use specular_interact::{Action, Event, SidebarAction};
 
 use super::events::{self, DRAGGED, LEFT_DOWN, LEFT_UP, MOVED};
@@ -21,6 +22,9 @@ use crate::{canvas, shell};
 /// that a click just opened is laid out a frame or two later.
 const CONTROL_WAIT: Duration = Duration::from_millis(1500);
 const CONTROL_POLL: Duration = Duration::from_millis(40);
+
+/// More undo steps than any script makes.
+const UNDO_LIMIT: usize = 10_000;
 
 /// How often a `pan` scrolls: a 120 Hz display's refresh.
 const REFRESH: Duration = Duration::from_micros(8333);
@@ -63,55 +67,25 @@ fn write(path: &Path, text: &str) -> Result<(), String> {
     std::fs::write(path, text).map_err(|error| format!("writing {}: {error}", path.display()))
 }
 
-/// What a check reads back: the canvas showing, the camera, the selection,
-/// what has the keys, the controls on screen, the window and every
-/// entity's rect, one a line.
+/// What a check reads back: the `expect` facts, then what only the
+/// window knows: the camera, what covers the canvas, the tool's defaults,
+/// the pages' scroll, the controls on screen and the window's frame.
 fn state() -> String {
     let mut out = canvas::with(|canvas| {
         let app = canvas.runtime.app();
-        let session = app.session();
-        let camera = session.camera;
-        let mut out = String::new();
-        let _ = writeln!(out, "canvas {}", app.space().active().name);
-        let _ = writeln!(
-            out,
-            "camera {:.1} {:.1} {:.3}",
-            camera.pan.x, camera.pan.y, camera.zoom
-        );
-        let _ = writeln!(out, "covered-left {}", app.covered_left());
-        let _ = writeln!(out, "tool {:?}", session.tool);
-        let _ = writeln!(out, "selection {:?}", session.selection.items());
-        let _ = writeln!(out, "focus {:?}", session.focus);
-        let _ = writeln!(out, "gesture {}", session.gesture.is_some());
-        let _ = writeln!(out, "tool-defaults {:?}", app.tool_defaults());
-        let _ = writeln!(
-            out,
-            "editing {:?}",
-            app.text_edit().map(specular_interact::TextEdit::text)
-        );
-        let _ = writeln!(
-            out,
-            "can-undo {} can-redo {}",
-            app.can_undo(),
-            app.can_redo()
-        );
+        let mut out = script::dump(app);
+        let _ = writeln!(out, "# covered-left {}", app.covered_left());
+        let _ = writeln!(out, "# gesture {}", app.session().gesture.is_some());
+        let _ = writeln!(out, "# tool-defaults {:?}", app.tool_defaults());
         for (id, _) in app.pages() {
             if let Some(page) = app.page_state(id) {
                 let scroll = page.scroll;
                 let _ = writeln!(
                     out,
-                    "page {id} scroll {:.0} {:.0} title {}",
+                    "# page {id} scroll {:.0} {:.0} title {}",
                     scroll.x, scroll.y, page.title
                 );
             }
-        }
-        for entity in app.document().entities() {
-            let rect = entity.rect;
-            let _ = writeln!(
-                out,
-                "entity {} {:.1} {:.1} {:.1} {:.1}",
-                entity.id, rect.x, rect.y, rect.width, rect.height
-            );
         }
         out
     })
@@ -120,10 +94,45 @@ fn state() -> String {
         let names: Vec<String> = shown.into_iter().map(|(name, _)| name).collect();
         names.join(" ")
     };
-    let _ = writeln!(out, "kit-controls {}", names(view::shown_controls()));
-    let _ = writeln!(out, "canvas-controls {}", names(control::in_canvas_pass()));
+    let _ = writeln!(out, "# kit-controls {}", names(view::shown_controls()));
+    let _ = writeln!(
+        out,
+        "# canvas-controls {}",
+        names(control::in_canvas_pass())
+    );
     window::describe(&mut out);
     out
+}
+
+/// Runs `check` on the app. With no canvas there is nothing to check.
+fn checked(
+    check: impl FnOnce(&specular_interact::App) -> anyhow::Result<()>,
+) -> Result<(), String> {
+    canvas::with(|canvas| check(canvas.runtime.app()))
+        .ok_or("there is no canvas")?
+        .map_err(|error| format!("{error:#}"))
+}
+
+/// Undoes until nothing is left, then checks the canvas is the start.
+fn undo_to_start(checks: &Checks) -> Result<(), String> {
+    for _ in 0..UNDO_LIMIT {
+        let more = canvas::with(|canvas| canvas.runtime.app().can_undo()).unwrap_or(false);
+        if !more {
+            break;
+        }
+        canvas::dispatch(Event::Action(Action::Undo));
+    }
+    checked(|app| checks.back_at_start(app))
+}
+
+/// Writes the canvas as a save would and opens what was written.
+fn reopen() -> Result<(), String> {
+    let text = canvas::with(|canvas| canvas.runtime.canvas_text())
+        .ok_or("there is no canvas")?
+        .map_err(|error| format!("{error:#}"))?;
+    let document = Document::from_canvas_str(&text).map_err(|error| error.to_string())?;
+    canvas::dispatch(Event::DocumentOpened(Box::new(document)));
+    Ok(())
 }
 
 /// Where `place` is now. A named control is waited for a moment.
@@ -288,6 +297,7 @@ async fn pointer(step: Do, cx: &AsyncApp) -> Result<(), String> {
 /// Does `step`. An error is why it could not be done.
 pub(super) async fn step(
     step: Do,
+    checks: &mut Checks,
     window: AnyWindowHandle,
     cx: &mut AsyncApp,
 ) -> Result<(), String> {
@@ -374,6 +384,16 @@ pub(super) async fn step(
                 .map_err(|error| format!("{error:#}"))?;
             write(&path, &text)?;
         }
+        Do::Expect(expect) => checked(|app| checks.check(app, &expect))?,
+        Do::Mark(name) => {
+            let marked = canvas::with(|canvas| checks.mark(canvas.runtime.app(), &name));
+            marked
+                .ok_or("there is no canvas")?
+                .map_err(|error| format!("{error:#}"))?;
+        }
+        Do::Reopen => reopen()?,
+        Do::UndoToStart => undo_to_start(checks)?,
+        Do::Skip => {}
         Do::Quit => cx.update(shell::begin_exit),
     }
     Ok(())

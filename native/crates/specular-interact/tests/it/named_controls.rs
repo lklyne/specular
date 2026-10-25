@@ -213,9 +213,7 @@ fn a_control_named_from_the_models_does_what_a_click_on_it_in_the_layout_does() 
             grouped,
             |hands| {
                 hands.app.show_sidebar(true);
-                hands
-                    .click("sidebar.canvas.tab_2")
-                    .click("sidebar.canvas.tab_1");
+                hands.click("sidebar.canvas.2").click("sidebar.canvas.1");
                 hands
                     .click("sidebar.notes.g.toggle")
                     .click("sidebar.notes.a");

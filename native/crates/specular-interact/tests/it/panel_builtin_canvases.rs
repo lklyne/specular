@@ -39,7 +39,7 @@ fn spaced() -> TestApp {
 #[test]
 fn a_click_on_a_canvas_switches_to_it() {
     let mut app = spaced();
-    app.click_control("sidebar.canvas.tab_2");
+    app.click_control("sidebar.canvas.2");
     assert_eq!(app.active_canvas(), "Plans");
     assert!(
         shown(&app, "sidebar.notes.b"),
@@ -65,15 +65,15 @@ fn the_add_button_makes_a_canvas_and_shows_it() {
 #[test]
 fn a_double_click_renames_in_place_and_enter_keeps_the_name() {
     let mut app = spaced();
-    let row = app.control_rect("sidebar.canvas.tab_2").centre();
+    let row = app.control_rect("sidebar.canvas.2").centre();
     app.double_click(row);
     assert_eq!(
         app.field_edit(),
         Some("Plans"),
         "the whole name is selected"
     );
-    assert!(shown(&app, "sidebar.canvas.tab_2.name"));
-    app.enter_in_field("sidebar.canvas.tab_2.name", "Roadmap");
+    assert!(shown(&app, "sidebar.canvas.2.name"));
+    app.enter_in_field("sidebar.canvas.2.name", "Roadmap");
     assert_eq!(app.canvas_names(), ["Home", "Roadmap"]);
     assert!(app.field_edit().is_none());
     let effects = app.take_effects();
@@ -86,7 +86,7 @@ fn a_double_click_renames_in_place_and_enter_keeps_the_name() {
 #[test]
 fn escape_puts_the_old_name_back_and_an_empty_name_asks_for_nothing() {
     let mut app = spaced();
-    let row = app.control_rect("sidebar.canvas.tab_2").centre();
+    let row = app.control_rect("sidebar.canvas.2").centre();
     app.double_click(row)
         .chord(CMD, Key::Char('a'))
         .type_text("Roadmap")
@@ -103,10 +103,10 @@ fn escape_puts_the_old_name_back_and_an_empty_name_asks_for_nothing() {
 #[test]
 fn a_right_click_opens_a_menu_that_renames_or_deletes() {
     let mut app = spaced();
-    right_click(&mut app, "sidebar.canvas.tab_2");
+    right_click(&mut app, "sidebar.canvas.2");
     let menu = app.panel_layout().dropdown.expect("the menu is open");
     assert!(menu.menu && menu.surface == Surface::Dropdown);
-    app.click_control("sidebar.canvas.tab_2.menu.rename");
+    app.click_control("sidebar.canvas.2.menu.rename");
     assert_eq!(app.field_edit(), Some("Plans"));
     app.key(Key::Escape);
     assert!(
@@ -114,8 +114,8 @@ fn a_right_click_opens_a_menu_that_renames_or_deletes() {
         "choosing closes the menu"
     );
 
-    right_click(&mut app, "sidebar.canvas.tab_2");
-    app.click_control("sidebar.canvas.tab_2.menu.delete");
+    right_click(&mut app, "sidebar.canvas.2");
+    app.click_control("sidebar.canvas.2.menu.delete");
     assert_eq!(app.canvas_names(), ["Home"]);
     let effects = app.take_effects();
     assert!(
@@ -129,8 +129,8 @@ fn a_right_click_opens_a_menu_that_renames_or_deletes() {
 fn the_last_canvas_can_be_deleted_and_leaves_a_fresh_one() {
     let mut app = TestApp::with_space([("Solo", document([sticky("a", BOX, "a")]))]);
     app.with_panels().show_sidebar(true);
-    right_click(&mut app, "sidebar.canvas.tab_1");
-    app.click_control("sidebar.canvas.tab_1.menu.delete");
+    right_click(&mut app, "sidebar.canvas.1");
+    app.click_control("sidebar.canvas.1.menu.delete");
     assert_eq!(app.canvas_names(), ["Canvas 1"]);
 }
 
@@ -138,10 +138,10 @@ fn the_last_canvas_can_be_deleted_and_leaves_a_fresh_one() {
 fn a_head_folds_its_section_and_a_folded_list_is_titled_by_the_canvas() {
     let mut app = spaced();
     let title = |app: &TestApp| specular_interact::sidebar(app.app()).canvases_head.title;
-    assert!(shown(&app, "sidebar.canvas.tab_1"));
+    assert!(shown(&app, "sidebar.canvas.1"));
     assert_eq!(title(&app), "Canvases");
     app.click_control("sidebar.head.canvases");
-    assert!(!shown(&app, "sidebar.canvas.tab_1"));
+    assert!(!shown(&app, "sidebar.canvas.1"));
     assert_eq!(title(&app), "Home", "titled by the canvas shown");
     assert!(
         shown(&app, "sidebar.notes.a"),
@@ -151,5 +151,5 @@ fn a_head_folds_its_section_and_a_folded_list_is_titled_by_the_canvas() {
     assert!(!shown(&app, "sidebar.notes.a"));
     app.click_control("sidebar.head.notes")
         .click_control("sidebar.head.canvases");
-    assert!(shown(&app, "sidebar.notes.a") && shown(&app, "sidebar.canvas.tab_1"));
+    assert!(shown(&app, "sidebar.notes.a") && shown(&app, "sidebar.canvas.1"));
 }

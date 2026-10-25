@@ -1,19 +1,19 @@
-//! A script's text as the things the window runner does.
+//! A script's steps as the things the window runner does.
 //!
-//! Two vocabularies meet here. The headless runner's (`--script`, one step a
-//! line, read by `specular_app::script::parse`) is taken as it is, so a
-//! scenario file runs in the window as written. The window's own steps are
-//! the ones a headless run has no use for: a capture of the real window,
-//! the menu bar, a key by its code. Nothing is skipped: a step with no
-//! equivalent in the window is an error that names it.
+//! The script is read by `specular_app::script`, the same module the
+//! headless runner reads it with, so a scenario file runs here as written.
+//! Each step is lowered here to what the window does for it: a pointer or
+//! key event posted to the application, an `Action` through `update`, or a
+//! check read from the app. `panels` has no meaning in this window, which
+//! always draws the Kit's own chrome, so it is skipped.
 
 use std::path::PathBuf;
 
 use glam::Vec2;
-use specular_app::script::{self, CameraArg};
+use specular_app::script::{CameraArg, Expect, Step, WindowStep};
 use specular_interact::Action;
 
-use super::us_keys::{COMMAND, CONTROL, OPTION, SHIFT, flags_of, key_of, key_step};
+use super::us_keys::{COMMAND, flags_of, key_of, key_step};
 
 /// Where a pointer step happens.
 #[derive(Debug, Clone, PartialEq)]
@@ -69,8 +69,7 @@ pub(super) enum Do {
     ResizeDrag(Vec2, u64),
     /// The pointer pressed where it is, dragged by this much over this many
     /// milliseconds with a move every refresh, and released this many
-    /// milliseconds after the last move: a flick when it is fast, and a
-    /// tap-and-drag's when the release is late.
+    /// milliseconds after the last move.
     Swipe(Vec2, u64, u64),
     /// A trackpad pinch where the pointer is.
     Pinch(f32),
@@ -85,14 +84,13 @@ pub(super) enum Do {
     Drop(Vec<PathBuf>, Option<Vec2>),
     /// The window's content resized to this many points.
     Resize(Vec2),
-    /// The window moved so its frame's corner is here, in the screen points
-    /// a state dump gives `window-frame` and each `screen` in.
+    /// The window moved so its frame's corner is here, in screen points.
     MoveWindow(Vec2),
     /// Into full screen, or back out.
     FullScreen,
     MenuDump(PathBuf),
     MenuChoose(String),
-    /// The app's state as text: selection, camera, entities, window.
+    /// The app's state as text, in the `expect` words, and the window's.
     State(PathBuf),
     /// What the window exposes to assistive apps, as text.
     Accessibility(PathBuf),
@@ -100,26 +98,27 @@ pub(super) enum Do {
     Shot(PathBuf),
     /// The `.canvas` text an autosave would write.
     Save(PathBuf),
+    /// A fact about the app or the saved canvas, which must hold.
+    Expect(Expect),
+    /// The canvas remembered under a name, for `same-as mark NAME`.
+    Mark(String),
+    /// The canvas written and read back.
+    Reopen,
+    /// Undone until nothing is left, and checked against the start.
+    UndoToStart,
+    /// Nothing: a step this window has no use for.
+    Skip,
     Quit,
 }
 
-/// How a script's text is read.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum Dialect {
-    /// `SPECULAR_SHELL_SCRIPT`: `key 51` is a key code, as it always was.
-    Inline,
-    /// A script file: every headless step means what it means headless.
-    File,
-}
-
-/// A headless step as what the window does for it.
-fn lower(step: script::Step) -> Result<Do, String> {
-    use script::Step;
+/// A script step as what the window does for it.
+pub(super) fn lower(step: Step) -> Result<Do, String> {
     Ok(match step {
         Step::Move(at) => Do::Move(Place::At(at)),
         Step::Press(at) => Do::Press(Place::At(at)),
         Step::DragTo(at) => Do::DragTo(at),
         Step::Release => Do::Release(Place::Pointer),
+        Step::ReleaseAt(at) => Do::Release(Place::At(at)),
         Step::Click(at) => Do::Click(Place::At(at), 1),
         Step::DoubleClick(at) => Do::Click(Place::At(at), 2),
         Step::TripleClick(at) => Do::Click(Place::At(at), 3),
@@ -132,6 +131,7 @@ fn lower(step: script::Step) -> Result<Do, String> {
         Step::Commit(text) => Do::Commit(text),
         Step::Clipboard(text) => Do::Clipboard(text),
         Step::Wheel(delta) => Do::Scroll(Place::Pointer, delta),
+        Step::ScrollAt(at, delta) => Do::Scroll(Place::At(at), delta),
         Step::Pinch(delta) => Do::Pinch(delta),
         Step::Tool(tool) => Do::Act(Action::SetTool(tool)),
         Step::Select(ids) => Do::Select(ids),
@@ -142,33 +142,46 @@ fn lower(step: script::Step) -> Result<Do, String> {
         Step::Control(name) => Do::Click(Place::Control(name), 1),
         Step::HoverControl(name) => Do::Move(Place::Control(name)),
         Step::PressControl(name) => Do::Press(Place::Control(name)),
-        Step::Panels(_) => {
-            return Err(
-                "`panels` has no equivalent in this window: the Kit's toolbar and sidebar \
-                 are always drawn"
-                    .to_owned(),
-            );
-        }
+        Step::Panels(_) => Do::Skip,
         Step::Sidebar(shown) => Do::Sidebar(shown),
         Step::Snapshot(path) => Do::Shot(path),
         Step::Save(path) => Do::Save(path),
+        Step::State(path) => Do::State(path),
+        Step::Expect(expect) => Do::Expect(expect),
+        Step::Mark(name) => Do::Mark(name),
+        Step::Reopen => Do::Reopen,
+        Step::UndoToStart => Do::UndoToStart,
+        Step::Window(step) => window(step),
     })
 }
 
-/// Modifier flags from `shift+cmd`.
-fn flags(names: &str) -> Option<usize> {
-    names.split('+').try_fold(0, |flags, name| {
-        Some(
-            flags
-                | match name {
-                    "shift" => SHIFT,
-                    "ctrl" => CONTROL,
-                    "alt" => OPTION,
-                    "cmd" => COMMAND,
-                    _ => return None,
-                },
-        )
-    })
+fn window(step: WindowStep) -> Do {
+    match step {
+        WindowStep::KeyCode { code, held, chars } => {
+            let characters = chars
+                .or_else(|| named_characters(code).map(str::to_owned))
+                .unwrap_or_default();
+            Do::Key {
+                code,
+                flags: flags_of(held),
+                plain: characters.clone(),
+                characters,
+            }
+        }
+        WindowStep::Pan(by, ms) => Do::Pan(by, ms),
+        WindowStep::ResizeDrag(by, ms) => Do::ResizeDrag(by, ms),
+        WindowStep::Swipe(by, ms, late) => Do::Swipe(by, ms, late),
+        WindowStep::Drop(paths, at) => Do::Drop(paths, at),
+        WindowStep::PasteImage(path) => Do::PasteImage(path),
+        WindowStep::Choose(name) => Do::Choose(name),
+        WindowStep::Resize(size) => Do::Resize(size),
+        WindowStep::MoveWindow(to) => Do::MoveWindow(to),
+        WindowStep::FullScreen => Do::FullScreen,
+        WindowStep::MenuDump(path) => Do::MenuDump(path),
+        WindowStep::MenuChoose(item) => Do::MenuChoose(item),
+        WindowStep::Accessibility(path) => Do::Accessibility(path),
+        WindowStep::Quit => Do::Quit,
+    }
 }
 
 /// The characters `AppKit` gives a key that types none of its own. GPUI
@@ -188,85 +201,27 @@ const fn named_characters(code: u16) -> Option<&'static str> {
     }
 }
 
-/// A step only the window has, or `None` when `verb` is not one of them.
-fn window_step(verb: &str, rest: &str, dialect: Dialect) -> Option<Result<Do, String>> {
-    let words: Vec<&str> = rest.split_whitespace().collect();
-    let number = |at: usize| words.get(at).and_then(|word| word.parse::<f32>().ok());
-    let point = |at: usize| Some(Vec2::new(number(at)?, number(at + 1)?));
-    let path = || (!rest.is_empty()).then(|| PathBuf::from(rest));
-    let coded = |held: usize, at: usize| {
-        let code = words.get(at)?.parse::<u16>().ok()?;
-        let characters = match (words.get(at + 1), named_characters(code)) {
-            (Some(given), _) => given,
-            (None, Some(named)) => named,
-            (None, None) => "",
-        }
-        .to_owned();
-        Some(Do::Key {
-            code,
-            flags: held,
-            plain: characters.clone(),
-            characters,
+/// `SPECULAR_SHELL_SCRIPT`'s `;`-separated steps as script lines. There a
+/// `key` followed by a number is a key code, as it was before `key cmd+z`
+/// existed.
+pub(super) fn inline_lines(script: &str) -> String {
+    let steps = script
+        .split(';')
+        .map(str::trim)
+        .filter(|step| !step.is_empty());
+    let lines: Vec<String> = steps
+        .map(|step| match step.strip_prefix("key ") {
+            Some(rest) if rest.split_whitespace().next().is_some_and(is_code) => {
+                format!("keycode {rest}")
+            }
+            _ => step.to_owned(),
         })
-    };
-    let step = match verb {
-        "release" if words.len() == 2 => point(0).map(|at| Do::Release(Place::At(at))),
-        "scroll" => point(0)
-            .zip(point(2))
-            .map(|(at, by)| Do::Scroll(Place::At(at), by)),
-        "pan" => point(0)
-            .zip(number(2))
-            .map(|(by, ms)| Do::Pan(by, ms as u64)),
-        "resize-drag" => point(0)
-            .zip(number(2))
-            .map(|(by, ms)| Do::ResizeDrag(by, ms as u64)),
-        "swipe" => point(0)
-            .zip(number(2))
-            .map(|(by, ms)| Do::Swipe(by, ms as u64, number(3).unwrap_or(0.0) as u64)),
-        "key" if dialect == Dialect::Inline && number(0).is_some() => coded(0, 0),
-        "keycode" => coded(0, 0),
-        "cmd-key" => coded(COMMAND, 0),
-        "shift-key" => coded(SHIFT, 0),
-        "keys" => words
-            .first()
-            .and_then(|held| flags(held))
-            .and_then(|held| coded(held, 1)),
-        "drop" => {
-            let (paths, at) = match words.as_slice() {
-                [paths @ .., "nowhere"] => (paths, Some(None)),
-                [paths @ .., _, _] => (paths, point(paths.len()).map(Some)),
-                _ => (&[][..], None),
-            };
-            at.filter(|_| !paths.is_empty())
-                .map(|at| Do::Drop(paths.iter().map(PathBuf::from).collect(), at))
-        }
-        "paste-image" => path().map(Do::PasteImage),
-        "choose" => (!rest.is_empty()).then(|| Do::Choose(rest.to_owned())),
-        "resize" => point(0).map(Do::Resize),
-        "window-to" => point(0).map(Do::MoveWindow),
-        "full-screen" => Some(Do::FullScreen),
-        "menu-dump" => path().map(Do::MenuDump),
-        "menu-choose" => (!rest.is_empty()).then(|| Do::MenuChoose(rest.to_owned())),
-        "state" => path().map(Do::State),
-        "accessibility" => path().map(Do::Accessibility),
-        "shot" => path().map(Do::Shot),
-        "quit" => Some(Do::Quit),
-        _ => return None,
-    };
-    Some(step.ok_or_else(|| "the wrong arguments".to_owned()))
+        .collect();
+    lines.join("\n")
 }
 
-/// One step of a script.
-pub(super) fn parse(text: &str, dialect: Dialect) -> Result<Do, String> {
-    let (verb, rest) = text.split_once(char::is_whitespace).unwrap_or((text, ""));
-    if let Some(step) = window_step(verb, rest.trim(), dialect) {
-        return step;
-    }
-    let mut steps = script::parse(text).map_err(|error| format!("{:#}", error.root_cause()))?;
-    match (steps.pop(), steps.is_empty()) {
-        (Some(step), true) => lower(step),
-        _ => Err("not one step".to_owned()),
-    }
+fn is_code(word: &str) -> bool {
+    word.parse::<u16>().is_ok()
 }
 
 /// Whether `step` copies, cuts or pastes by its key.
@@ -278,9 +233,9 @@ pub(super) fn is_clipboard_key(step: &Do) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use specular_core::Camera;
-    use specular_interact::Tool;
+    use specular_app::script::Script;
 
+    use super::super::us_keys::SHIFT;
     use super::*;
 
     fn key(code: u16, flags: usize, characters: &str, plain: &str) -> Do {
@@ -292,137 +247,46 @@ mod tests {
         }
     }
 
-    #[test]
-    fn every_headless_step_is_something_the_window_does_or_an_error_that_names_it() {
-        let at = Vec2::new(10.0, 20.0);
-        let there = Place::At(at);
-        let named = |name: &str| Place::Control(name.to_owned());
-        let cases = [
-            ("move 10 20", Do::Move(there.clone())),
-            ("press 10 20", Do::Press(there.clone())),
-            ("drag-to 10 20", Do::DragTo(at)),
-            ("release", Do::Release(Place::Pointer)),
-            ("click 10 20", Do::Click(there.clone(), 1)),
-            ("double-click 10 20", Do::Click(there.clone(), 2)),
-            ("triple-click 10 20", Do::Click(there, 3)),
-            ("right-click 10 20", Do::RightClick(at)),
-            ("drag 10 20 30 40", Do::Drag(at, Vec2::new(30.0, 40.0))),
-            ("hold shift+cmd", Do::Hold(SHIFT | COMMAND)),
-            ("hold none", Do::Hold(0)),
-            ("key cmd+z", key(6, COMMAND, "z", "z")),
-            ("key cmd+shift+z", key(6, COMMAND | SHIFT, "z", "Z")),
-            ("key shift+tab", key(48, SHIFT, "\t", "\t")),
-            ("key backspace", key(51, 0, "\u{7f}", "\u{7f}")),
-            ("key 5", key(23, 0, "5", "5")),
-            ("type Hi there", Do::Type("Hi there".to_owned())),
-            ("compose にほ", Do::Compose("にほ".to_owned())),
-            ("commit 日本", Do::Commit("日本".to_owned())),
-            (r"clipboard a\nb", Do::Clipboard("a\nb".to_owned())),
-            (
-                "wheel 0 -40",
-                Do::Scroll(Place::Pointer, Vec2::new(0.0, -40.0)),
-            ),
-            ("pinch 0.2", Do::Pinch(0.2)),
-            ("tool shape", Do::Act(Action::SetTool(Tool::AddShape))),
-            (
-                "select a b",
-                Do::Select(vec!["a".to_owned(), "b".to_owned()]),
-            ),
-            ("act zoom-to-fit", Do::Act(Action::ZoomToFit)),
-            ("camera fit", Do::Act(Action::ZoomToFit)),
-            (
-                "camera 40,-20,0.5",
-                Do::Act(Action::SetCamera(Camera::new(Vec2::new(40.0, -20.0), 0.5))),
-            ),
-            ("wait 250", Do::Wait(250)),
-            ("control shape.color", Do::Click(named("shape.color"), 1)),
-            ("hover-control tool.draw", Do::Move(named("tool.draw"))),
-            ("press-control tool.draw", Do::Press(named("tool.draw"))),
-            ("sidebar on", Do::Sidebar(true)),
-            ("snapshot out.png", Do::Shot(PathBuf::from("out.png"))),
-            ("save out.canvas", Do::Save(PathBuf::from("out.canvas"))),
-        ];
-        for (text, expected) in cases {
-            assert_eq!(parse(text, Dialect::File), Ok(expected), "{text}");
-        }
-        for (text, names) in [
-            ("panels off", "`panels`"),
-            ("key cmd+é", "`é`"),
-            ("frobnicate 1", "not a step"),
-        ] {
-            let error = parse(text, Dialect::File).unwrap_err();
-            assert!(error.contains(names), "{text}: {error}");
-        }
+    fn parse(text: &str) -> Do {
+        let mut script = Script::parse(text).unwrap();
+        lower(script.steps.remove(0).step).unwrap()
     }
 
     #[test]
-    fn the_window_s_own_steps_and_the_two_readings_of_key() {
-        let at = Place::At(Vec2::new(10.0, 20.0));
-        let cases = [
-            ("release 10 20", Do::Release(at.clone())),
-            ("scroll 10 20 0 -40", Do::Scroll(at, Vec2::new(0.0, -40.0))),
+    fn script_steps_become_what_the_window_does() {
+        let at = Vec2::new(10.0, 20.0);
+        let named = |name: &str| Place::Control(name.to_owned());
+        for (text, expected) in [
+            ("release", Do::Release(Place::Pointer)),
+            ("release 10 20", Do::Release(Place::At(at))),
+            ("double-click 10 20", Do::Click(Place::At(at), 2)),
+            ("key cmd+shift+z", key(6, COMMAND | SHIFT, "z", "Z")),
+            ("key backspace", key(51, 0, "\u{7f}", "\u{7f}")),
+            (
+                "scroll 10 20 0 -40",
+                Do::Scroll(Place::At(at), Vec2::new(0.0, -40.0)),
+            ),
+            ("control shape.color", Do::Click(named("shape.color"), 1)),
+            ("panels off", Do::Skip),
             ("keycode 51", key(51, 0, "\u{7f}", "\u{7f}")),
-            ("keycode 0", key(0, 0, "", "")),
-            ("shift-key 0 A", key(0, SHIFT, "A", "A")),
-            (
-                "paste-image /tmp/a.png",
-                Do::PasteImage(PathBuf::from("/tmp/a.png")),
-            ),
-            ("cmd-key 6 z", key(6, COMMAND, "z", "z")),
             ("keys shift+cmd 6 z", key(6, SHIFT | COMMAND, "z", "z")),
-            (
-                "drop /a.png /b.png 300 400",
-                Do::Drop(
-                    vec![PathBuf::from("/a.png"), PathBuf::from("/b.png")],
-                    Some(Vec2::new(300.0, 400.0)),
-                ),
-            ),
-            (
-                "drop /a.png nowhere",
-                Do::Drop(vec![PathBuf::from("/a.png")], None),
-            ),
-            ("resize 1200 800", Do::Resize(Vec2::new(1200.0, 800.0))),
-            ("pan -6 0 2000", Do::Pan(Vec2::new(-6.0, 0.0), 2000)),
-            ("swipe 0 -200 40", Do::Swipe(Vec2::new(0.0, -200.0), 40, 0)),
-            (
-                "swipe 0 -200 40 400",
-                Do::Swipe(Vec2::new(0.0, -200.0), 40, 400),
-            ),
-            (
-                "resize-drag -400 -250 1200",
-                Do::ResizeDrag(Vec2::new(-400.0, -250.0), 1200),
-            ),
-            (
-                "window-to -1700 200",
-                Do::MoveWindow(Vec2::new(-1700.0, 200.0)),
-            ),
-            (
-                "menu-choose Edit > Undo",
-                Do::MenuChoose("Edit > Undo".to_owned()),
-            ),
-            (
-                "choose first-run.new",
-                Do::Choose("first-run.new".to_owned()),
-            ),
-            ("shot /tmp/a.png", Do::Shot(PathBuf::from("/tmp/a.png"))),
+            ("snapshot out.png", Do::Shot(PathBuf::from("out.png"))),
+            ("undo-to-start", Do::UndoToStart),
             ("quit", Do::Quit),
-        ];
-        for dialect in [Dialect::Inline, Dialect::File] {
-            for (text, expected) in cases.clone() {
-                assert_eq!(parse(text, dialect), Ok(expected), "{text}");
-            }
+        ] {
+            assert_eq!(parse(text), expected, "{text}");
         }
-        // `key` with a number is a code only where it always was.
+        let mut script = Script::parse("key cmd+é").unwrap();
+        let error = lower(script.steps.remove(0).step).unwrap_err();
+        assert!(error.contains('é'), "{error}");
+    }
+
+    #[test]
+    fn an_inline_key_with_a_number_is_a_key_code() {
         assert_eq!(
-            parse("key 51", Dialect::Inline),
-            Ok(key(51, 0, "\u{7f}", "\u{7f}"))
+            inline_lines("wait 10; key 51; key cmd+z;"),
+            "wait 10\nkeycode 51\nkey cmd+z"
         );
-        assert_eq!(
-            parse("key cmd+z", Dialect::Inline),
-            Ok(key(6, COMMAND, "z", "z"))
-        );
-        assert!(parse("key 51", Dialect::File).is_err());
-        assert!(parse("drop 300 400", Dialect::File).is_err());
     }
 
     #[test]
@@ -435,8 +299,7 @@ mod tests {
             ("key c", false),
             ("type cxv", false),
         ] {
-            let step = parse(text, Dialect::File).unwrap();
-            assert_eq!(is_clipboard_key(&step), clipboard, "{text}");
+            assert_eq!(is_clipboard_key(&parse(text)), clipboard, "{text}");
         }
     }
 }

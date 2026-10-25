@@ -33,17 +33,13 @@ mod paint_lod;
 mod persist;
 mod prefs;
 mod scene;
+pub mod script;
 mod source_select;
 mod space;
 mod translate;
 
-/// The `--script` vocabulary, for a shell that runs the same steps in its
-/// window.
-pub mod script {
-    pub use crate::headless::script::{CameraArg, Step, parse};
-}
-
 pub use crate::app::{Opening, PageOf, Runtime, RuntimeOptions, ShellWindow, run_window};
 pub use crate::bench_drive::{Bench, BenchOptions};
+pub use crate::headless::{Report, run_scenario};
 pub use crate::launch::{Launch, Unnamed, launch};
 pub use crate::source_select::run_subprocess_if_needed;

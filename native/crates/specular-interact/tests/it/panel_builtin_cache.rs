@@ -253,11 +253,13 @@ fn the_sidebars_rows_follow_the_page_the_canvases_and_the_document() {
     fresh(&app, "a page address");
     app.click_control("sidebar.add");
     fresh(&app, "a new canvas");
-    let added = layout(app.app())
-        .controls()
-        .map(|control| control.as_str().to_owned())
-        .find(|name| name.starts_with("sidebar.canvas.") && !name.ends_with("tab_1"))
-        .expect("the new canvas has a row");
+    let added = "sidebar.canvas.2".to_owned();
+    assert!(
+        layout(app.app())
+            .controls()
+            .any(|control| control.as_str() == added),
+        "the new canvas has a row"
+    );
     let row = app.control_rect(&added).centre();
     app.double_click(row);
     app.enter_in_field(&format!("{added}.name"), "Roadmap");

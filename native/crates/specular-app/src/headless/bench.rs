@@ -43,7 +43,7 @@ pub(crate) fn run(
     args: &HeadlessArgs,
     plan: &BenchPlan,
 ) -> anyhow::Result<()> {
-    let mut run = Headless::new(source, canvas, args)?;
+    let mut run = Headless::new(source, canvas, args, std::path::Path::new(""))?;
     let viewport = run.viewport;
     run.drive(|app| {
         app.viewport(viewport)

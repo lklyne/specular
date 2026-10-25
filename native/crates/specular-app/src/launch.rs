@@ -3,7 +3,7 @@
 
 use std::ffi::OsString;
 use std::io::IsTerminal as _;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use specular_core::PageSource;
 use specular_doc::Document;
@@ -51,7 +51,7 @@ pub fn launch(
     args: impl IntoIterator<Item = OsString>,
     unnamed: Unnamed,
 ) -> anyhow::Result<Option<Launch>> {
-    let run = match cli::parse(args) {
+    let mut run = match cli::parse(args) {
         Ok(Command::Run(run)) => run,
         Ok(Command::Help) => {
             println!("{}", cli::USAGE);
@@ -69,6 +69,12 @@ pub fn launch(
         .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()))
         .init();
 
+    // A script names its own canvas on its first line.
+    if run.canvas.is_none()
+        && let Some(script) = &run.headless.script
+    {
+        run.canvas = headless::script_canvas(script)?;
+    }
     let choice = run.space_choice(match unnamed {
         Unnamed::Scratch => SpaceChoice::Scratch,
         Unnamed::Chosen => SpaceChoice::Chosen,
@@ -113,7 +119,13 @@ pub fn launch(
     }
     if run.headless.is_requested() {
         let source = source_select::create_source(run.headless.source, Host::Headless, None)?;
-        headless::run(source, document, run.canvas.as_deref(), &run.headless)?;
+        headless::run(
+            source,
+            document,
+            run.canvas.as_deref(),
+            &run.headless,
+            Path::new(""),
+        )?;
         return Ok(None);
     }
     Ok(Some(Launch {

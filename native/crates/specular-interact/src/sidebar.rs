@@ -160,9 +160,12 @@ pub enum RowKind {
 /// The sidebar for `app` as it is now.
 pub fn sidebar(app: &App) -> SidebarModel {
     let view = &app.session.sidebar;
-    let canvases: Vec<CanvasRow> = (app.space.canvases().iter())
-        .map(|canvas| {
-            let id = ControlId::new("sidebar.canvas").child(canvas.id.as_str());
+    // A row is named by its place in the list, from 1: a canvas's id is a
+    // hash of its file name in a window and a counter headless, and a
+    // script names the same row in both.
+    let canvases: Vec<CanvasRow> = (app.space.canvases().iter().enumerate())
+        .map(|(index, canvas)| {
+            let id = ControlId::new("sidebar.canvas").child(index + 1);
             CanvasRow {
                 control: id.clone(),
                 id: canvas.id.clone(),

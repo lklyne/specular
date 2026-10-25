@@ -11,8 +11,8 @@
 
 mod bench;
 mod effects;
-pub(crate) mod script;
 mod stand_ins;
+mod steps;
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -22,19 +22,18 @@ use anyhow::Context as _;
 use glam::Vec2;
 use specular_compositor::{Compositor, DotGrid, FrameView, GpuContext};
 use specular_core::{PageId, PageSource};
-use specular_doc::{Document, EntityId};
-use specular_interact::{Action, App, ControlId, Driver, Event, ImageKey, Theme};
+use specular_doc::{Document, EntityId, Kind};
+use specular_interact::{App, Driver, Event, ImageKey, Theme};
 
 pub(crate) use self::bench::{BenchPlan, START_CAMERA, run as run_bench, work_of};
-pub(crate) use self::script::CameraArg;
-use self::script::Step;
 use self::stand_ins::StandIns;
 use crate::cli::SourceKind;
 use crate::images::{ImageLoader, Uploaded};
 use crate::notes::NoteLoader;
 use crate::offscreen::{self, Target};
 use crate::page_queries::PageQueries;
-use crate::persist::canvas_text;
+pub(crate) use crate::script::CameraArg;
+use crate::script::{self, Checks, Script, Step};
 
 /// The clock a run starts at, so two runs of one script draw the same frame.
 const START_MS: u64 = 1_700_000_000_000;
@@ -93,23 +92,63 @@ pub(crate) fn camera_arg(value: &str) -> anyhow::Result<CameraArg> {
     script::camera(value)
 }
 
+/// What a finished script run did besides pass.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Report {
+    /// The steps only a window can do, which this run skipped, as
+    /// `line N: text`.
+    pub skipped: Vec<String>,
+}
+
+/// The canvas the script at `script` names on its first line, relative to
+/// the script's folder.
+pub(crate) fn script_canvas(script: &Path) -> anyhow::Result<Option<PathBuf>> {
+    let folder = script.parent().unwrap_or(Path::new(""));
+    Ok(Script::read(script)?
+        .canvas
+        .map(|canvas| folder.join(canvas)))
+}
+
+/// Runs the scenario script at `script` headless on the synthetic pages,
+/// on the canvas its first line names (an empty one when it names none),
+/// and writes what it saves and draws into `out`. Fails at the first step
+/// that fails or fact that does not hold.
+pub fn run_scenario(script: &Path, out: &Path) -> anyhow::Result<Report> {
+    let canvas = script_canvas(script)?;
+    let document = match &canvas {
+        Some(canvas) => crate::scene::load_document(Some(canvas), 0, 0)?,
+        None => Document::new(),
+    };
+    let source = crate::source_select::create_source(
+        SourceKind::Synthetic,
+        crate::source_select::Host::Headless,
+        None,
+    )?;
+    let args = HeadlessArgs {
+        script: Some(script.to_owned()),
+        ..HeadlessArgs::default()
+    };
+    run(source, document, canvas.as_deref(), &args, out)
+}
+
 /// Opens `document` (read from `canvas`, if from a file), runs the script
-/// and writes the snapshots.
+/// and writes the snapshots. Paths in the script are relative to `out`.
 pub(crate) fn run(
     source: Box<dyn PageSource>,
     document: Document,
     canvas: Option<&Path>,
     args: &HeadlessArgs,
-) -> anyhow::Result<()> {
-    let steps = match &args.script {
-        Some(path) => {
-            let text = std::fs::read_to_string(path)
-                .with_context(|| format!("reading {}", path.display()))?;
-            script::parse(&text).with_context(|| format!("in {}", path.display()))?
-        }
-        None => Vec::new(),
+    out: &Path,
+) -> anyhow::Result<Report> {
+    let script = match &args.script {
+        Some(path) => Script::read(path)?,
+        None => Script::default(),
     };
-    let mut run = Headless::new(source, canvas, args)?;
+    let base = (args.script.as_deref())
+        .and_then(Path::parent)
+        .map_or_else(PathBuf::new, Path::to_owned);
+    let document = script.given_document()?.unwrap_or(document);
+    let mut run = Headless::new(source, canvas, args, out)?;
     let (viewport, panels) = (run.viewport, args.panels);
     let folder = (run.space.as_deref()).map(|folder| folder.to_string_lossy().into_owned());
     run.drive(|app| {
@@ -128,14 +167,30 @@ pub(crate) fn run(
         run.settle()?;
     }
     run.step(Step::Camera(args.camera))?;
-    for step in steps {
-        run.step(step)?;
+    run.checks = Checks::begin(run.app.app(), &base)?;
+    let mut report = Report::default();
+    for line in script.steps {
+        if line.step.window_only() {
+            report
+                .skipped
+                .push(format!("line {}: {}", line.number, line.text));
+            continue;
+        }
+        run.step(line.step)
+            .with_context(|| format!("line {}: `{}`", line.number, line.text))?;
     }
     if let Some(path) = &args.snapshot {
         run.snapshot(path)?;
     }
     run.source.shutdown();
-    Ok(())
+    if !report.skipped.is_empty() {
+        eprintln!(
+            "skipped {} window-only steps:\n  {}",
+            report.skipped.len(),
+            report.skipped.join("\n  ")
+        );
+    }
+    Ok(report)
 }
 
 struct Headless {
@@ -171,6 +226,10 @@ struct Headless {
     viewport: Vec2,
     scale: f32,
     now_ms: u64,
+    /// The folder a script's relative paths are written in.
+    out: PathBuf,
+    /// What the `expect` steps compare with.
+    checks: Checks,
 }
 
 impl Headless {
@@ -178,6 +237,7 @@ impl Headless {
         source: Box<dyn PageSource>,
         canvas: Option<&Path>,
         args: &HeadlessArgs,
+        out: &Path,
     ) -> anyhow::Result<Self> {
         let gpu = pollster::block_on(GpuContext::headless()).context("no GPU to draw with")?;
         let mut compositor =
@@ -215,6 +275,8 @@ impl Headless {
             viewport: Vec2::new(width as f32, height as f32),
             scale: args.scale,
             now_ms: START_MS,
+            out: out.to_owned(),
+            checks: Checks::default(),
         })
     }
 
@@ -230,104 +292,6 @@ impl Headless {
         Ok(())
     }
 
-    fn step(&mut self, step: Step) -> anyhow::Result<()> {
-        match step {
-            Step::Move(at) => self.drive(|app| app.pointer_move(at)),
-            Step::Press(at) => self.drive(|app| app.press(at)),
-            Step::DragTo(at) => self.drive(|app| app.drag_to(at)),
-            Step::Release => self.drive(|app| app.release()),
-            Step::Click(at) => self.drive(|app| app.pointer_move(at).click(at)),
-            Step::DoubleClick(at) => self.drive(|app| app.pointer_move(at).double_click(at)),
-            Step::TripleClick(at) => self.drive(|app| app.pointer_move(at).triple_click(at)),
-            Step::RightClick(at) if self.laid_out() => self.drive(|app| app.right_click(at)),
-            Step::RightClick(at) => self.drive(|app| app.context_menu(at)),
-            Step::Drag(from, to) => self.drive(|app| {
-                app.pointer_move(from)
-                    .press(from)
-                    .drag_to(from.midpoint(to))
-                    .drag_to(to)
-                    .release()
-            }),
-            Step::Hold(modifiers) => self.drive(|app| app.hold(modifiers)),
-            Step::Key(modifiers, key) => self.drive(|app| app.chord(modifiers, key)),
-            Step::Type(text) => self.drive(|app| app.type_text(&text)),
-            Step::Compose(text) => self.drive(|app| app.compose(&text)),
-            Step::Commit(text) => self.drive(|app| app.commit(&text)),
-            Step::Clipboard(text) => {
-                self.stand_ins.clipboard = Some(text);
-                Ok(())
-            }
-            Step::Wheel(delta) => self.drive(|app| app.wheel(delta)),
-            Step::Pinch(delta) => self.drive(|app| app.pinch(delta)),
-            Step::Tool(tool) => self.drive(|app| app.tool(tool)),
-            Step::Act(action) => self.drive(|app| app.act(action)),
-            Step::Select(ids) => self.drive(|app| {
-                let ids: Vec<&str> = ids.iter().map(String::as_str).collect();
-                app.select(&ids)
-            }),
-            Step::Camera(CameraArg::Fit) => {
-                // The fit is of the document, which may still be growing as
-                // text is measured; loads do not move it.
-                self.drive(|app| app.act(Action::ZoomToFit))
-            }
-            Step::Camera(CameraArg::At(camera)) => {
-                self.drive(|app| app.act(Action::SetCamera(camera)))
-            }
-            Step::Wait(ms) => {
-                // The pages run before the clock moves: what they report
-                // during the wait happened during it, not after it.
-                self.run_pages_for(std::time::Duration::from_millis(ms))?;
-                self.now_ms += ms;
-                let now = self.now_ms;
-                self.drive(|app| app.tick(now))?;
-                self.settle()
-            }
-            Step::Control(id) if self.laid_out() => {
-                self.control(&id, |app, at| app.pointer_move(at).click(at))
-            }
-            Step::HoverControl(id) if self.laid_out() => self.control(&id, Driver::pointer_move),
-            Step::PressControl(id) if self.laid_out() => {
-                self.control(&id, |app, at| app.pointer_move(at).press(at))
-            }
-            Step::Control(id) => {
-                self.app.control(&id)?;
-                self.drive(|app| app)
-            }
-            // With nothing laid out there is nothing to point at or hold
-            // down. The name must still be a control's.
-            Step::HoverControl(id) | Step::PressControl(id) => {
-                specular_interact::control_named(self.app.app(), &id)?;
-                Ok(())
-            }
-            Step::Panels(on) => self.drive(|app| app.send(Event::BuiltinPanels(on))),
-            Step::Sidebar(shown) => self.drive(|app| app.show_sidebar(shown)),
-            Step::Snapshot(path) => self.snapshot(&path),
-            Step::Save(path) => self.save(&path),
-        }
-    }
-
-    /// Whether the built-in panels are on: a control is then clicked where
-    /// they lay it out. Off, a control is activated from the models.
-    fn laid_out(&self) -> bool {
-        self.app.session().panel.built_in
-    }
-
-    /// Points at the middle of the control named `id` and does `input`
-    /// there. A name that is not shown fails the run with the ones that are.
-    fn control(
-        &mut self,
-        id: &str,
-        input: impl for<'app> FnOnce(&'app mut Driver, Vec2) -> &'app mut Driver,
-    ) -> anyhow::Result<()> {
-        let layout = specular_interact::panel::builtin::layout(self.app.app());
-        let Some(node) = layout.node(&ControlId::from(id.to_owned())) else {
-            let shown: Vec<&str> = layout.controls().map(ControlId::as_str).collect();
-            anyhow::bail!("no control `{id}` is shown; these are: {}", shown.join(" "));
-        };
-        let at = node.rect.centre();
-        self.drive(|app| input(app, at))
-    }
-
     /// Draws the app as it stands and writes the frame to `path`.
     fn snapshot(&mut self, path: &Path) -> anyhow::Result<()> {
         // Two ticks with the camera held still: svgs are drawn at the size
@@ -335,8 +299,20 @@ impl Headless {
         let now = self.now_ms;
         self.drive(|app| app.tick(now).tick(now))?;
         self.settle()?;
+        let path = self.out.join(path);
+        let items = self.draw(true)?;
+        self.target.save(&self.gpu, &path)?;
+        tracing::info!(path = %path.display(), items, "snapshot");
+        self.report_note_heights()
+    }
+
+    /// Draws a frame, with the built-in panels when `panels`, as a window
+    /// would after a step, and returns how many items it drew.
+    fn draw(&mut self, panels: bool) -> anyhow::Result<usize> {
         let mut scene = specular_scene::view(self.app.app(), self.viewport, &self.view_cache);
-        specular_scene::draw_panels(self.app.app(), &mut scene);
+        if panels {
+            specular_scene::draw_panels(self.app.app(), &mut scene);
+        }
         let frame = FrameView {
             camera: self.app.session().camera,
             viewport: self.viewport,
@@ -350,9 +326,20 @@ impl Headless {
             .render_scene(&self.target.view(), &frame, &scene, |entity| {
                 hosts.get(entity).copied()
             });
-        self.target.save(&self.gpu, path)?;
-        tracing::info!(path = %path.display(), items = scene.items.len(), ?stats, "snapshot");
-        self.report_note_heights()
+        tracing::debug!(?stats, "frame");
+        Ok(scene.items.len())
+    }
+
+    /// Draws a frame when a Document is on the canvas: its rows are only
+    /// measured when drawn, and their heights move what is below them.
+    fn frame_for_documents(&mut self) -> anyhow::Result<()> {
+        let documents = (self.app.document().entities())
+            .any(|entity| matches!(&entity.kind, Kind::File(file) if file.file.ends_with(".md")));
+        if documents {
+            self.draw(false)?;
+            self.report_note_heights()?;
+        }
+        Ok(())
     }
 
     /// Tells the app how tall each Document's rows came out in the frame
@@ -371,10 +358,8 @@ impl Headless {
 
     /// Writes the `.canvas` text an autosave would write now to `path`.
     fn save(&self, path: &Path) -> anyhow::Result<()> {
-        let app = self.app.app();
-        let canvas = (app.canvas_to_save(&app.space().active().id))
-            .context("the canvas showing is not in the space")?;
-        let text = canvas_text(&canvas).with_context(|| format!("writing {}", path.display()))?;
-        std::fs::write(path, text).with_context(|| format!("writing {}", path.display()))
+        let path = self.out.join(path);
+        let text = script::saved_text(self.app.app())?;
+        std::fs::write(&path, text).with_context(|| format!("writing {}", path.display()))
     }
 }

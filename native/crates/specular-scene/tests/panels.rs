@@ -112,14 +112,14 @@ fn the_sidebar_with_its_canvases_groups_and_pages() {
     let mut app = sidebar_app();
     app.click_control("sidebar.notes.g.toggle")
         .select(&["s"])
-        .hover_control("sidebar.canvas.tab_2");
+        .hover_control("sidebar.canvas.2");
     assert_snapshot!("sidebar", app.panel_scene_snapshot());
 }
 
 #[test]
 fn the_sidebar_scrolled_with_a_name_being_edited() {
     let mut app = sidebar_app();
-    let row = app.control_rect("sidebar.canvas.tab_2").centre();
+    let row = app.control_rect("sidebar.canvas.2").centre();
     app.double_click(row).type_text("Roadmap");
     assert_snapshot!("sidebar_rename", app.panel_scene_snapshot());
     app.key(specular_interact::Key::Escape)

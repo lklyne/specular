@@ -1,51 +1,31 @@
 //! Scripted input for a run nobody is sitting at: an agent checking the
 //! window, a scenario replayed in it, or a capture for an ADR.
 //!
-//! `SPECULAR_SHELL_SCRIPT_FILE` names a script file, one step a line with
-//! `#` comments, in the headless runner's vocabulary (`--script`, see
-//! `native/CLAUDE.md`), so a file under `fixtures/scenarios/` runs here as
-//! written. The run quits when the file ends. `SPECULAR_SHELL_SCRIPT` holds
-//! steps separated by `;` and stays open until a `quit` step.
+//! `SPECULAR_SHELL_SCRIPT_FILE` names a scenario script, read by
+//! `specular_app::script` exactly as the headless runner reads it (see
+//! "Scenario scripts" in `native/CLAUDE.md`), so a file under
+//! `fixtures/scenarios/` runs here as written, `expect` steps included. The
+//! run quits when the file ends. `SPECULAR_SHELL_SCRIPT` holds steps
+//! separated by `;` and stays open until a `quit` step; there a `key`
+//! followed by a number is `keycode`.
 //!
 //! Pointer and key steps are posted to the application's own event queue,
 //! so they take the path a hardware event takes from `sendEvent:` on. Steps
 //! that are an app `Action` go through `update`. Positions are in points
 //! from the content's top-left corner, which is the app's screen. A step
-//! that fails ends the run with its text and exit status 1; one with no
-//! equivalent in a window fails by name. The clipboard of a scripted run is
-//! kept in memory, so it never reads or replaces what the person at the
-//! machine copied.
+//! that fails, or a fact that does not hold, ends the run with its text and
+//! exit status 1. The clipboard of a scripted run is kept in memory, so it
+//! never reads or replaces what the person at the machine copied.
 //!
 //! ```text
 //! wait 1500; control tool.shape; control shape.color.4; shot /tmp/a.png; quit
 //! ```
 //!
-//! Besides the headless steps, both forms take:
-//!
-//! | Step | What it does |
-//! |---|---|
-//! | `release X Y` | the button comes up at a point |
-//! | `scroll X Y DX DY` | a pixel scroll over a point (`wheel` scrolls where the pointer is) |
-//! | `keycode CODE [CHARS]`, `cmd-key CODE [CHARS]`, `shift-key CODE [CHARS]` | a key by its `kVK_*` code; Return, Tab, Space, Delete, Escape and the arrows carry their own characters |
-//! | `paste-image PATH` | the right panel's composer takes the image file as a paste would hand it over; the system pasteboard is not touched |
-//! | `keys shift+cmd CODE [CHARS]` | the same with any modifiers |
-//! | `pan DX DY MS` | a scroll by that much every refresh for that long, where the pointer is |
-//! | `drop PATH.. X Y`, `drop PATH.. nowhere` | files dropped at a point, or off the canvas |
-//! | `swipe DX DY MS [LATE]` | the pointer pressed where it is, dragged by that much over that long with a move every refresh, and released `LATE` ms after the last move: a flick when it is fast, and a tap-and-drag's when the release is late |
-//! | `resize-drag DX DY MS` | the window's bottom-right corner pressed, dragged by that much over that long with a move every refresh, and released: `AppKit`'s own live resize, which `resize` is not |
-//! | `resize W H` | the window's content resized, its top-left corner kept |
-//! | `window-to X Y` | the window moved, its frame's corner to that screen point |
-//! | `full-screen` | into full screen, or back out |
-//! | `choose NAME` | the first-run choice of that control name, run as its button runs it: for a run with the screen locked, when nothing is drawn to click on |
-//! | `menu-dump PATH` | writes the menu bar as `AppKit` shows it |
-//! | `menu-choose Menu > Item` | chooses a menu item as a click does |
-//! | `state PATH` | writes the selection, the camera, every entity's rect and the window |
-//! | `accessibility PATH` | writes what the window exposes to assistive apps |
-//! | `shot PATH` | the window as the window server composites it (`snapshot` is the same) |
-//! | `quit` | ends the run |
-//!
-//! In `SPECULAR_SHELL_SCRIPT` a `key` followed by a number is `keycode`,
-//! as it was before `key cmd+z` existed here.
+//! The steps only a window can do (`keycode`, `pan`, `swipe`, `resize`,
+//! `resize-drag`, `drop`, `menu-choose` and the rest) are listed with
+//! `specular_app::script::WindowStep`. `state PATH` writes the `expect`
+//! facts and then the window's own: the Kit's controls on screen and the
+//! window's frame.
 #![expect(
     clippy::multiple_unsafe_ops_per_block,
     reason = "each block builds one NSEvent and posts it, or reads one AppKit object"
@@ -60,12 +40,15 @@ mod steps;
 mod us_keys;
 mod window;
 
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use gpui_kit::{AnyWindowHandle, App};
+use specular_app::script::{Checks, Script};
+use specular_interact::Event;
 
-use self::steps::{Dialect, Do};
+use self::steps::Do;
 use crate::canvas;
 use crate::shell;
 
@@ -98,21 +81,56 @@ pub(crate) fn scripted() -> bool {
         .any(|name| std::env::var_os(name).is_some())
 }
 
-/// The script the environment names: its steps as written, and whether the
-/// run ends with it.
-fn script_from_env() -> Option<Result<(Vec<String>, Dialect), String>> {
-    if let Some(path) = std::env::var_os("SPECULAR_SHELL_SCRIPT_FILE") {
-        let read = std::fs::read_to_string(&path)
-            .map_err(|error| format!("reading {}: {error}", path.display()));
-        return Some(read.map(|text| {
-            let lines = (text.lines().map(str::trim))
-                .filter(|line| !line.is_empty() && !line.starts_with('#'));
-            (lines.map(str::to_owned).collect(), Dialect::File)
-        }));
-    }
-    let script = std::env::var("SPECULAR_SHELL_SCRIPT").ok()?;
-    let steps = (script.split(';').map(str::trim)).filter(|step| !step.is_empty());
-    Some(Ok((steps.map(str::to_owned).collect(), Dialect::Inline)))
+/// A script the environment names, read and lowered.
+struct EnvScript {
+    /// Each step as written, and what the window does for it.
+    steps: Vec<(String, Do)>,
+    /// The starting document the `given` lines describe, if any.
+    given: Option<specular_doc::Document>,
+    /// The folder a `same-as` path starts from.
+    base: PathBuf,
+    /// Whether the run ends with the script: a file does, inline steps
+    /// stay open until a `quit`.
+    ends: bool,
+}
+
+/// The script the environment names, if it names one.
+fn script_from_env() -> Option<Result<EnvScript, String>> {
+    let (text, base, ends) = if let Some(path) = std::env::var_os("SPECULAR_SHELL_SCRIPT_FILE") {
+        let path = PathBuf::from(path);
+        let text = match std::fs::read_to_string(&path) {
+            Ok(text) => text,
+            Err(error) => return Some(Err(format!("reading {}: {error}", path.display()))),
+        };
+        let base = path.parent().map_or_else(PathBuf::new, Path::to_owned);
+        (text, base, true)
+    } else {
+        let script = std::env::var("SPECULAR_SHELL_SCRIPT").ok()?;
+        (steps::inline_lines(&script), PathBuf::new(), false)
+    };
+    Some(read_script(&text, base, ends))
+}
+
+fn read_script(text: &str, base: PathBuf, ends: bool) -> Result<EnvScript, String> {
+    let script = Script::parse(text).map_err(|error| format!("script {error:#}"))?;
+    let given = script
+        .given_document()
+        .map_err(|error| format!("{error:#}"))?;
+    let steps = (script.steps.into_iter())
+        .map(|line| match steps::lower(line.step) {
+            Ok(step) => Ok((line.text, step)),
+            Err(error) => Err(format!(
+                "script line {} `{}`: {error}",
+                line.number, line.text
+            )),
+        })
+        .collect::<Result<_, _>>()?;
+    Ok(EnvScript {
+        steps,
+        given,
+        base,
+        ends,
+    })
 }
 
 /// Reports a failed run and makes its exit status say so.
@@ -127,15 +145,6 @@ pub(crate) fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
         return;
     };
     // The whole script is read before any of it runs, as headless.
-    let steps = script.and_then(|(lines, dialect)| {
-        let parsed: Result<Vec<(String, Do)>, String> = (lines.into_iter())
-            .map(|line| match steps::parse(&line, dialect) {
-                Ok(step) => Ok((line, step)),
-                Err(error) => Err(format!("script step `{line}`: {error}")),
-            })
-            .collect();
-        parsed.map(|steps| (steps, dialect))
-    });
     cx.on_app_quit(|_| {
         if FAILED.load(Ordering::Relaxed) {
             std::process::exit(1);
@@ -145,7 +154,7 @@ pub(crate) fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
     .detach();
     canvas::with(|canvas| canvas.runtime.script_clipboard(None));
     cx.spawn(async move |cx| {
-        let (steps, dialect) = match steps {
+        let script = match script {
             Ok(script) => script,
             Err(error) => {
                 fail(&error);
@@ -153,13 +162,32 @@ pub(crate) fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
                 return;
             }
         };
-        for (at, (text, step)) in steps.into_iter().enumerate() {
+        if let Some(document) = script.given {
+            canvas::dispatch(Event::DocumentOpened(Box::new(document)));
+        }
+        let begun = canvas::with(|canvas| Checks::begin(canvas.runtime.app(), &script.base));
+        let mut checks = match begun {
+            Some(Ok(checks)) => checks,
+            Some(Err(error)) => {
+                fail(&format!("{error:#}"));
+                cx.update(shell::begin_exit);
+                return;
+            }
+            None => Checks::default(),
+        };
+        for (at, (text, step)) in script.steps.into_iter().enumerate() {
             let quits = step == Do::Quit;
             let waits = matches!(step, Do::Wait(_));
+            // A check, a mark or a file written posts nothing to wait for.
+            let quiet = waits
+                || matches!(
+                    step,
+                    Do::Expect(_) | Do::Mark(_) | Do::Skip | Do::State(_) | Do::Save(_)
+                );
             if !waits {
                 specular_core::ledger::record(specular_core::ledger::Entry::Step(at as u32));
             }
-            if let Err(error) = run::step(step, window, cx).await {
+            if let Err(error) = run::step(step, &mut checks, window, cx).await {
                 fail(&format!("script step `{text}`: {error}"));
                 specular_core::ledger::flush();
                 cx.update(shell::begin_exit);
@@ -168,12 +196,12 @@ pub(crate) fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
             if quits {
                 return;
             }
-            if !waits {
+            if !quiet {
                 cx.background_executor().timer(SETTLE).await;
             }
         }
         specular_core::ledger::flush();
-        if dialect == Dialect::File {
+        if script.ends {
             cx.update(shell::begin_exit);
         }
     })
