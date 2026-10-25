@@ -110,7 +110,10 @@ impl Checks {
             Expect::Canvas(name) => equal("canvas", &app.space().active().name, name),
             Expect::Zoom(zoom) => {
                 let found = session.camera.zoom;
-                ensure!((found - zoom).abs() <= 0.001, "zoom is {found}, expected {zoom}");
+                ensure!(
+                    (found - zoom).abs() <= 0.001,
+                    "zoom is {found}, expected {zoom}"
+                );
                 Ok(())
             }
             Expect::Camera([x, y, zoom]) => {
@@ -126,10 +129,7 @@ impl Checks {
                 Ok(())
             }
             Expect::Sidebar(shown) => equal("sidebar", session.sidebar.shown(), *shown),
-            Expect::Menu(open) => {
-                let found = session.panel.menu.is_some() || session.panel.open.is_some();
-                equal("menu open", found, *open)
-            }
+            Expect::Menu(open) => equal("menu open", session.panel.menu.is_some(), *open),
             Expect::Undo(some) => equal("something to undo", app.can_undo(), *some),
             Expect::Redo(some) => equal("something to redo", app.can_redo(), *some),
             Expect::Count(what, count) => equal(&counted_name(what), counted(app, what), *count),
@@ -429,7 +429,10 @@ fn entity_fact(app: &App, name: &str, fact: &EntityFact) -> anyhow::Result<()> {
         }
         EntityFact::Parent(parent) => {
             let found = entity.parent.as_ref().map(ToString::to_string);
-            let wanted = parent.as_deref().map(|name| resolve(app, name)).transpose()?;
+            let wanted = parent
+                .as_deref()
+                .map(|name| resolve(app, name))
+                .transpose()?;
             equal(&what("parent"), or_none(found), or_none(wanted))
         }
     }

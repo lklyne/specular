@@ -50,7 +50,7 @@ pub fn dump(app: &App) -> String {
     });
     let shown = if session.sidebar.shown() { "on" } else { "off" };
     line(format!("sidebar {shown}"));
-    let open = session.panel.menu.is_some() || session.panel.open.is_some();
+    let open = session.panel.menu.is_some();
     line(format!("menu {}", if open { "open" } else { "closed" }));
     let some = |yes: bool| if yes { "some" } else { "none" };
     line(format!("undo {}", some(app.can_undo())));

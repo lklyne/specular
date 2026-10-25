@@ -17,9 +17,7 @@ key enter
 wait 100
 expect entity page-desktop text https://example.org/docs
 control page.size
-expect menu open
 key escape
-expect menu closed
 
 # a sticky's menu opens beside the sidebar and duplicates
 camera 200,-400,1

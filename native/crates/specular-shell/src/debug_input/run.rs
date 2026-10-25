@@ -332,7 +332,9 @@ pub(super) async fn step(
             flags,
             characters,
             plain,
-        } => events::key(code, flags, &characters, &plain),
+            // Modifiers a `hold` keeps down are down for keys too, as they
+            // are headless.
+        } => events::key(code, flags | HELD.get(), &characters, &plain),
         Do::Type(text) => events::type_text(&text)?,
         Do::Compose(text) => window::set_marked_text(&text)?,
         Do::Commit(text) => window::insert_text(&text)?,
@@ -377,7 +379,13 @@ pub(super) async fn step(
         Do::MenuChoose(item) => menu::choose(&item),
         Do::State(path) => write(&path, &state())?,
         Do::Accessibility(path) => write(&path, &access::dump())?,
-        Do::Shot(path) => shot(&path)?,
+        // A picture is for a person to read, and a locked screen or a
+        // covered window has none to take: the checks go on without it.
+        Do::Shot(path) => {
+            if let Err(error) = shot(&path) {
+                eprintln!("specular: no snapshot {}: {error}", path.display());
+            }
+        }
         Do::Save(path) => {
             let text = canvas::with(|canvas| canvas.runtime.canvas_text())
                 .ok_or("there is no canvas")?

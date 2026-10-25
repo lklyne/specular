@@ -31,7 +31,6 @@ expect entity @1 text https://example.org/docs
 
 # a custom size from the size list
 control page.size
-expect menu open
 control page.size.width
 key cmd+a
 type 900

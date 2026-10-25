@@ -21,7 +21,6 @@ expect saved /nodes/@1/specular/textSize = 14
 # the placed sticky's own popup: a new color, then a named size, then the
 # stepper, with Escape closing a list before it does anything else
 control text.color
-expect menu open
 control text.color.swatches.green
 key escape
 control text.size
@@ -29,7 +28,6 @@ control text.size.32
 control text.size
 control text.size.custom.inc
 key escape
-expect menu closed
 expect saved /nodes/@1/color = "4"
 expect saved /nodes/@1/specular/textSize = 33
 
@@ -109,9 +107,7 @@ expect tool select
 
 # the zoom list: Escape closes it and keeps the selection
 control zoom
-expect menu open
 key escape
-expect menu closed
 expect count selected 1
 control zoom
 control zoom.50

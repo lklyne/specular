@@ -10,7 +10,7 @@
 //! expect zoom 0.25
 //! expect camera -400,-900,2         # as the `camera` step sets it
 //! expect sidebar on
-//! expect menu closed
+//! expect menu closed               # the right-click menu
 //! expect undo none                  # nothing to undo; `undo some`, `redo none`
 //! expect count sticky 2             # entities, edges, comments, canvases, selected, or a kind
 //! expect entity s1 kind sticky
@@ -65,7 +65,8 @@ pub enum Expect {
     Camera([f32; 3]),
     /// Whether the left sidebar is shown.
     Sidebar(bool),
-    /// Whether a context menu or dropdown is open.
+    /// Whether a context menu is open. A dropdown's list is the shell's
+    /// own, so it is not a fact of the app's.
     Menu(bool),
     /// Whether there is something to undo.
     Undo(bool),
