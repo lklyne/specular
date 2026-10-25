@@ -62,12 +62,16 @@ expect effects has navigate { page: EntityId("p2"), nav: Back }
 act page-forward
 expect effects lacks navigate
 page-reports p2 loading off back forward
+expect controls is page.back "Back"
+expect controls is page.forward "Forward"
 act page-forward
 expect effects has navigate { page: EntityId("p2"), nav: Forward }
 # stop only while it loads
 act page-stop
 expect effects lacks navigate
 page-reports p2 loading on
+# the dock offers Stop while it loads
+expect controls has page.reload "Stop loading"
 act page-stop
 expect effects has navigate { page: EntityId("p2"), nav: Stop }
 page-reports p2 loading off

@@ -215,4 +215,15 @@ note-failed Untitled\sNote.md
 expect pages has note failed
 note-text Untitled\sNote.md back
 expect pages has note ready back
+# a Document's formatting buttons wait, disabled, until it is edited
+click 300 250
+expect controls has format.bold disabled
+control format.bold
+expect editing none
+double-click 300 250
+expect controls lacks disabled
+key cmd+a
+control format.bold
+expect editing **back**
+key escape
 undo-to-start

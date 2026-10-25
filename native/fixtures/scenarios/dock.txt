@@ -1,0 +1,241 @@
+# The dock: which controls each selection and each tool has, what pressing
+# them does to every selected item, one step a press and none for a press
+# that changes nothing, and the formatting buttons while a text is edited.
+given sticky a 100 100 200 200 one
+given sticky b 400 100 200 200 two
+given shape s 700 100 200 100
+given shape r 1000 100 200 100
+given text t 100 400 200 40 plain
+given page p 1000 400 400 300
+given edge e a s
+camera 0,0,1
+wait 50
+
+# nothing selected, two items of other kinds, a pair of edges: no controls
+# of their own
+expect controls lacks text.
+expect controls lacks shape.
+select a s
+expect controls has item.arrange.row
+expect controls has item.annotate "Annotate 2 items"
+expect controls lacks text.color
+expect controls lacks shape.color
+
+# a sticky: size, font and colour, and no formatting until it is edited
+select a
+expect controls has text.size.14 on
+expect controls has text.font.sans on
+expect controls has text.color "Set sticky note color"
+expect controls lacks format.
+# size, font and colour reach every selected text, one step each
+select a b
+control text.color.swatches.red
+expect controls has text.color.swatches.red on
+expect controls lacks text.color.swatches.blue on
+control text.size.32
+control text.font.mono
+expect saved /nodes/a/color = "1"
+expect saved /nodes/b/color = "1"
+expect saved /nodes/b/specular/textSize = 32
+expect saved /nodes/b/specular/textFont = mono
+mark styled
+# a press that changes nothing records nothing
+control text.color.swatches.red
+act undo
+expect saved changed-from mark styled at /nodes/a/specular/textFont /nodes/b/specular/textFont
+act undo
+act undo
+act undo
+expect undo none
+# a size outside the range is held to it
+select a
+control text.size.custom.dec
+expect saved /nodes/a/specular/textSize = 13
+act undo
+
+# a shape: its silhouette, label size and alignment, fill and border
+select s r
+control shape.kind.diamond
+control shape.size.32
+control shape.align.left
+expect saved /nodes/r/shapeKind = diamond
+expect saved /nodes/r/specular/textAlign = left
+expect saved /nodes/s/specular/textSize = 32
+select s
+control shape.color.swatches.transparent
+expect controls has shape.color.swatches.transparent on
+control shape.border.none
+# a borderless shape's border colour is off
+expect controls has shape.border.color.red disabled
+# a colour turns a transparent fill back to solid
+control shape.color.swatches.red
+expect saved /nodes/s/color = "1"
+expect saved /nodes/s/specular/fillStyle = solid
+act undo
+act undo
+act undo
+act undo
+act undo
+act undo
+
+# an edge: colour, line, arrowheads, a label, and delete
+select e
+expect controls has edge.end on
+control edge.color.swatches.red
+control edge.stroke.dashed
+control edge.stroke.thick
+control edge.start
+control edge.end
+expect saved /edges/e/color = "1"
+expect saved /edges/e/lineStyle = dashed
+expect saved /edges/e/strokeWidth = 3
+expect saved /edges/e/fromEnd = arrow
+expect saved /edges/e/toEnd = none
+# a label typed in the dock is kept, trimmed, with Enter
+control edge.label
+key space
+type depends on
+key space
+key enter
+expect saved /edges/e/label = depends on
+# Escape puts the old label back and records nothing
+control edge.label
+key cmd+a
+type new
+key escape
+expect saved /edges/e/label = depends on
+expect editing none
+# an emptied label takes the label off
+control edge.label
+key cmd+a
+key backspace
+key enter
+expect saved /edges/e/label absent
+act undo
+act undo
+expect saved /edges/e/label absent
+control edge.delete
+expect count edges 0
+expect controls lacks edge.
+act undo
+
+# a property waits while a drag is in flight
+select a
+press 150 150
+drag-to 200 200
+control text.color.swatches.blue
+release
+expect saved /nodes/a/color absent
+act undo
+
+# a property set during an edit survives the edit's end, and is its own step
+double-click 200 250
+type new
+control text.size.56
+control text.color.swatches.green
+expect editing new
+key escape
+expect saved /nodes/a/color = "4"
+expect saved /nodes/a/specular/textSize = 56
+act undo
+expect saved /nodes/a/color = "4"
+act undo
+act undo
+act undo
+
+# the formatting buttons: on inside a run, off outside, and a press formats
+# the selection and keeps the edit and the selection
+double-click 200 250
+key cmd+a
+type a **bold** b
+key cmd+up
+expect controls is format.bold "Bold"
+key right
+key right
+key right
+key right
+key right
+key right
+expect controls has format.bold on
+key right
+key right
+key right
+key right
+key right
+key right
+expect controls is format.bold "Bold"
+key cmd+a
+type make this bold
+key cmd+up
+key right
+key right
+key right
+key right
+key right
+hold shift
+key right
+key right
+key right
+key right
+hold none
+control format.bold
+expect editing make **this** bold
+expect editor is caret 11 7
+expect controls has format.bold on
+control format.bold
+expect editing make this bold
+control format.bullets
+expect editing - make this bold
+expect controls has format.bullets on
+key escape
+# a shape label being edited has no dock
+double-click 800 150
+expect controls lacks shape.
+key escape
+
+# the tools' own docks set what the next item is, and are no undo step
+mark before-tools
+tool shape
+expect controls has shape.kind "Set default shape"
+control shape.kind.pill
+expect effects has save-tool-defaults
+expect controls has shape.kind.pill on
+control shape.color.green
+expect controls has shape.color.green on
+# a tool's options win over the selection's, and stay while drawing
+select s
+tool draw
+expect controls has draw.color
+expect controls lacks shape.
+control brush.highlighter
+expect controls has brush.highlighter on
+press 300 700
+drag-to 340 730
+expect controls has brush.highlighter on
+release
+expect saved /nodes/@top/strokes/0/brushType = highlight
+# a drawing's brush moves its width to one the brush offers
+key escape
+tool select
+click 320 715
+expect controls has brush.highlighter on
+control brush.pen
+expect saved /nodes/@top/strokes/0/width = 4
+expect saved /nodes/@top/strokes/0/brushType = pen
+act undo
+act undo
+tool page
+expect controls has page.preset.0 on
+control page.preset.7
+expect controls has page.preset.7 on
+expect controls has page.preset = Desktop
+control page.preset.custom
+expect controls has page.preset.custom on
+tool select
+expect saved same-as mark before-tools
+# the toolbar marks the tool in hand, and its zoom readout rounds
+expect controls has tool.select on
+camera 0,0,0.797
+expect controls has zoom = 80%
+camera 0,0,1
+undo-to-start

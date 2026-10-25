@@ -1,0 +1,59 @@
+{
+  "nodes": [
+    {
+      "id": "p1",
+      "type": "link",
+      "x": 100,
+      "y": 100,
+      "width": 375,
+      "height": 667,
+      "url": "https://example.com/p1"
+    },
+    {
+      "id": "p2",
+      "type": "link",
+      "x": 700,
+      "y": 100,
+      "width": 375,
+      "height": 667,
+      "url": "https://example.com/p2"
+    },
+    {
+      "id": "phone",
+      "type": "link",
+      "x": 1300,
+      "y": 100,
+      "width": 393,
+      "height": 852,
+      "url": "https://example.com/phone",
+      "presetIndex": 1,
+      "metadata": {
+        "showDeviceFrame": true,
+        "deviceId": "iphone-14-pro"
+      }
+    },
+    {
+      "id": "desktop",
+      "type": "link",
+      "x": 1900,
+      "y": 100,
+      "width": 1440,
+      "height": 900,
+      "url": "https://example.com/desktop",
+      "presetIndex": 7,
+      "metadata": {
+        "deviceId": "desktop",
+        "deviceOrientation": "landscape"
+      }
+    }
+  ],
+  "edges": [],
+  "specular": {
+    "entityOrder": [
+      "p1",
+      "p2",
+      "phone",
+      "desktop"
+    ]
+  }
+}
