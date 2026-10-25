@@ -1,0 +1,79 @@
+# Alignment guides in their edge cases (ADR 0012): Shift holding an edge
+# off the grid where a guide can find it, the half-unit tolerance, the
+# neighbours fixed when the drag began, and a group standing for its
+# members on either side of the drag.
+given shape a 100 105 100 100
+given shape b 400 105 100 100
+given shape t5 100 305.5 100 100
+given shape u5 400 305 100 100
+given shape t6 100 505.6 100 100
+given shape u6 400 505 100 100
+given shape ra 100 800 100 100
+given shape far 1700 800 100 100
+given shape gs 700 600 100 100
+given group gg 1000 360 300 300
+given inside gg shape m 1020 400 100 100
+given group dg 100 2300 200 200
+given inside dg shape dm 120 2320 100 100
+given shape db 600 2320 100 100
+camera 0,0,1
+
+# Shift keeps a's y exactly, so its top and bottom stay on b's; without
+# it the grid takes it off the line and the guides go
+press 150 155
+hold shift
+drag-to 210 158
+expect guides horizontal top/b.top 105 bottom/b.bottom 205
+release
+hold none
+key cmd+z
+press 150 155
+drag-to 210 158
+expect guides horizontal none
+release
+key cmd+z
+# a guide tolerates half a unit and no more
+press 150 355
+hold shift
+drag-to 210 355
+expect guides horizontal top/u5.top 305 bottom/u5.bottom 405
+release
+key cmd+z
+press 150 555
+drag-to 210 555
+expect guides horizontal none
+release
+hold none
+key cmd+z
+
+# the neighbours are the ones in view when the drag began: far, level with
+# ra off the right of the view, is not one even panned into it
+press 150 850
+drag-to 190 850
+expect guides horizontal none
+wheel -400 0
+expect guides horizontal none
+release
+key cmd+z
+camera 0,0,1
+
+# a group in view stands for its members: m is level with gs, but only the
+# group's own edges count
+press 750 650
+drag-to 750 450
+expect guides horizontal none
+drag-to 750 410
+expect guides horizontal top/gg.top 360
+release
+key cmd+z
+
+# a dragged group's members are spoken for by the group: dm is level with
+# db, but it moves with dg, whose own edges are not
+camera 0,-2000,1
+select dg
+press 250 480
+drag-to 260 480
+expect guides horizontal none
+release
+key cmd+z
+undo-to-start

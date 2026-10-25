@@ -13,7 +13,7 @@
 //! expect anchors 4                     # how many edge anchors are offered
 //! expect anchor-lit right 308 150      # the one under the pointer, or `none`
 //! expect edge-preview snap             # an edge in flight: snap, free, none
-//! expect guides horizontal top/top 100 bottom/bottom 200   # or `none`
+//! expect guides horizontal top/b.top 100 bottom/b.bottom 200   # or `none`
 //! expect guides none                  # no line and no gap shows
 //! expect gaps horizontal 100 | 200 300 150 | 400 500 150   # or `none`
 //! expect drop-target g                 # the group a release would join
@@ -358,8 +358,9 @@ fn read(app: &App, query: &Query) -> anyhow::Result<Vec<String>> {
                 .flat_map(|guide| {
                     [
                         format!(
-                            "{}/{}",
+                            "{}/{}.{}",
                             reference_word(guide.dragged_reference),
+                            guide.candidate,
                             reference_word(guide.candidate_reference)
                         ),
                         format!("{}", guide.coordinate),
