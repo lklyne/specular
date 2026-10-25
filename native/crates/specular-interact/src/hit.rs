@@ -7,9 +7,7 @@ use crate::app::is_page;
 use crate::edge_path::distance_to_segment;
 use crate::geometry::ScreenRect;
 use crate::layout::handles::LayoutHandle;
-use crate::{
-    App, ControlId, Handle, HandleOwner, PagePlacement, anchors, comment, geometry, handles,
-};
+use crate::{App, Handle, HandleOwner, PagePlacement, anchors, comment, geometry, handles};
 
 /// A drawing's box is only as thick as its ink (zero for a flat line), so it
 /// is widened to at least this many logical pixels each way. A stroke is
@@ -92,25 +90,13 @@ pub enum Hit {
     },
     /// Empty canvas.
     Empty,
-    /// A built-in panel: a row of the chrome, the sidebar or an open list. Only
-    /// with the built-in panels on.
-    Panel {
-        /// The control there, if the point is on one.
-        control: Option<ControlId>,
-    },
 }
 
-/// What is under `screen`. The built-in panels come first, being drawn over
-/// everything. Then chrome (comment marks, group titles, then the
+/// What is under `screen`: chrome (comment marks, group titles, then the
 /// selection's resize handles, edge anchors, and a line's reorder dots and
 /// gap strips), then the bodies as
 /// [`body_at`] orders them.
 pub fn hit_test(app: &App, screen: Vec2) -> Hit {
-    if let Some(panel) = crate::panel::builtin::hit(app, screen) {
-        return Hit::Panel {
-            control: panel.control,
-        };
-    }
     let camera = &app.session.camera;
     let document = &app.document;
 
@@ -167,8 +153,7 @@ pub(crate) const fn entity_of(hit: &Hit) -> Option<&EntityId> {
         | Hit::Layout(LayoutHandle::Gap { .. })
         | Hit::Comment { .. }
         | Hit::Edge { .. }
-        | Hit::Empty
-        | Hit::Panel { .. } => None,
+        | Hit::Empty => None,
     }
 }
 
@@ -200,8 +185,7 @@ pub(crate) fn entity_under_edges(app: &App, screen: Vec2) -> Option<EntityId> {
         | Hit::GroupBorder { .. }
         | Hit::Layout(_)
         | Hit::Edge { .. }
-        | Hit::Empty
-        | Hit::Panel { .. } => None,
+        | Hit::Empty => None,
     }
 }
 

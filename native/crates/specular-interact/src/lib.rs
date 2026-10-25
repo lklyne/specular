@@ -168,7 +168,7 @@ pub use move_drag::{CopyPreview, MoveDrag};
 pub use notes::{NoteNotice, NoteState, is_note_file, note_file_name};
 pub use page_state::{PageState, ScreenFit};
 pub use palette::{PaletteItem, PaletteMatch, PaletteRun, palette, search};
-pub use panel::builtin::PanelUi;
+pub use panel::PanelUi;
 pub use panel::{
     Button, Choices, Control, ControlId, ControlsModel, Dropdown, DropdownOption, DropdownSection,
     Entries, Face, Field, FieldSubmit, FieldWidth, Icon, Label, MenuTarget, OptionLayout,

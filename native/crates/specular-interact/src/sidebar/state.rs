@@ -1,10 +1,8 @@
 //! What the sidebar remembers outside the document: whether it is shown,
 //! which sections are folded and which rows are open.
 //!
-//! This is session state, not the built-in renderer's: a renderer drawn by
-//! a UI library needs the same answers, and the model reports them. What
-//! only the built-in renderer needs, the scroll offset and the hover, is in
-//! [`PanelUi`](crate::PanelUi).
+//! This is session state, so whatever draws the sidebar reads it from the
+//! model and keeps none of it.
 
 use std::collections::HashSet;
 

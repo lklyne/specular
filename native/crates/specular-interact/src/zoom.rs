@@ -47,10 +47,10 @@ fn scale(app: &mut App, by: f32) {
 }
 
 /// Shows every entity, centred, as large as fits. An empty canvas goes back
-/// to its origin at 100%. With the built-in toolbar over the top of the
-/// viewport and the sidebar over its left edge, the fit is of what is left
-/// free, as the Electron app's canvas view starts below its toolbar and
-/// right of its sidebar.
+/// to its origin at 100%. With the chrome over the top of the viewport and
+/// the sidebar over its left edge, the fit is of what is left free, as the
+/// Electron app's canvas view starts below its toolbar and right of its
+/// sidebar.
 pub(crate) fn to_fit(app: &mut App) {
     let bounds = (app.document.entities())
         .map(|entity| entity.rect)

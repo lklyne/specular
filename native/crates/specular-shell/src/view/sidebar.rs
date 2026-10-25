@@ -4,28 +4,27 @@
 //! Everything it shows and does is the model's: whether it is there at all,
 //! which sections are folded and which rows are open, each row's glyph and
 //! far-end text, and the `Action` a click sends. The view keeps only what a
-//! renderer must: the scroll offset, the row a shift-click runs from, and
-//! the Kit text field of a canvas being renamed.
+//! renderer must: the scroll offset and the Kit text field of a canvas
+//! being renamed. A row is pressed by name, so the app keeps the row a
+//! shift-click runs from.
 //!
-//! The sizes are `left-sidebar/App.tsx`'s, as the built-in renderer has
-//! them in `panel/builtin/sidebar/metrics.rs`.
+//! The sizes are `left-sidebar/App.tsx`'s.
 
 use gpui_kit::component::menu::ContextMenuExt as _;
 use gpui_kit::component::{h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
-    AnyElement, ClickEvent, Context, InteractiveElement as _, IntoElement, Modifiers,
-    ParentElement as _, SharedString, StatefulInteractiveElement as _, Styled as _, Window, div,
-    px,
+    AnyElement, ClickEvent, Context, InteractiveElement as _, IntoElement, ParentElement as _,
+    SharedString, StatefulInteractiveElement as _, Styled as _, Window, div, px,
 };
 use specular_interact::{
-    Action, CanvasRow, ControlId, Icon, MenuTarget, SectionHead, SidebarModel, SidebarRow,
+    Action, CanvasRow, ControlId, Event, Icon, MenuTarget, SectionHead, SidebarModel, SidebarRow,
     context_menu,
 };
 
 use super::glyphs::{glyph, ink};
 use super::named::mark;
-use super::{ShellView, field, menu, pick, run};
+use super::{ShellView, field, focus_canvas, menu, run, slot};
 use crate::canvas;
 use crate::theme;
 
@@ -142,36 +141,17 @@ fn fold(row: &SidebarRow, toggle: &Action, open: bool) -> impl IntoElement {
 }
 
 impl ShellView {
-    /// What a click on a row sends with `keys` held: the row's own action,
-    /// its selection widened or narrowed as the keys ask.
-    fn picked(&mut self, action: &Action, keys: Modifiers) -> Action {
-        let Action::Reveal { select, focus } = action else {
-            return action.clone();
-        };
-        let order =
-            canvas::models().map_or_else(Vec::new, |models| pick::selectable(&models.sidebar));
-        let current = canvas::with(|canvas| {
-            let selection = &canvas.runtime.app().session().selection;
-            selection.items().to_vec()
-        })
-        .unwrap_or_default();
-        let anchor = self.picked_last.as_ref();
-        let select = pick::picked(&order, &current, anchor, focus, select.clone(), keys);
-        if order.contains(focus) {
-            self.picked_last = Some(focus.clone());
-        }
-        Action::Reveal {
-            select,
-            focus: focus.clone(),
-        }
-    }
-
     /// `row` and, while it is open, the rows inside it.
     fn rows(row: &SidebarRow, depth: u8, out: &mut Vec<AnyElement>, cx: &mut Context<'_, Self>) {
-        let action = row.action.clone();
-        let click = cx.listener(move |this, event: &ClickEvent, window, cx| {
-            let action = this.picked(&action, event.modifiers());
-            run(&action, window, cx);
+        // Pressed by name, so the app widens or narrows the selection by
+        // the keys held, as it does for a script.
+        let id = row.id.clone();
+        let click = cx.listener(move |_, event: &ClickEvent, window, cx| {
+            canvas::dispatch(Event::Control(
+                id.clone(),
+                slot::modifiers(event.modifiers()),
+            ));
+            focus_canvas(window, cx);
         });
         let trailing = row.trailing.clone().map(SharedString::from);
         // The chevron hangs off the glyph's left edge.

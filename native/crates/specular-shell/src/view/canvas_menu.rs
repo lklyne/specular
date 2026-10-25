@@ -20,7 +20,7 @@ use gpui_kit::{
     InteractiveElement as _, IntoElement as _, ParentElement as _, Styled as _, Subscription,
     Window, anchored, deferred, div, point, px,
 };
-use specular_interact::panel::builtin::ContextMenu;
+use specular_interact::panel::ContextMenu;
 use specular_interact::{ControlsModel, Event};
 
 use super::menu::{self, Pick};

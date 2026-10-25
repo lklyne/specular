@@ -60,8 +60,7 @@ pub(super) fn hint(label: &str, chord: Option<Chord>) -> SharedString {
     }
 }
 
-/// What a control shows: its glyph, its word, or a dot of its colour. As in
-/// the built-in panels, a control that is on is drawn in the full text
+/// What a control shows: its glyph, its word, or a dot of its colour. A control that is on is drawn in the full text
 /// colour and one at rest in the muted one.
 pub(super) fn face(face: &Face, on: bool) -> AnyElement {
     let tint =

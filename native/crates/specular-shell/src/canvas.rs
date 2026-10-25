@@ -13,7 +13,7 @@ use std::time::{Duration, Instant};
 
 use futures::channel::mpsc;
 use specular_app::{Bench, Runtime, ShellWindow as _};
-use specular_interact::panel::builtin::ContextMenu;
+use specular_interact::panel::ContextMenu;
 use specular_interact::{
     Appearance, ChatModel, ControlsModel, Event, Menu, OnboardingModel, SidebarModel, Theme,
     ToolbarModel, ViewStrip, chat, context_menu, dock, menus, onboarding, sidebar, tool_options,

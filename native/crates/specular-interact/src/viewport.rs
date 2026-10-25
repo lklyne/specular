@@ -9,7 +9,7 @@
 use glam::{DVec2, Vec2};
 
 use crate::App;
-use crate::panel::builtin::DOCK_ROW;
+use crate::panel::DOCK_ROW;
 
 /// A rect of the viewport in logical screen pixels.
 #[derive(Debug, Clone, Copy, PartialEq)]

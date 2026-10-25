@@ -118,9 +118,6 @@ impl App {
         let start = match &self.session.gesture {
             None => {
                 let pointer = self.session.pointer?;
-                if crate::panel::builtin::over(self) {
-                    return None;
-                }
                 let world = self.session.camera.screen_to_world(pointer).as_dvec2();
                 if showing::refuses(self, tool, world) {
                     return None;

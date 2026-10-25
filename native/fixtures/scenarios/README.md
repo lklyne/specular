@@ -22,7 +22,7 @@ when any fails. What a run saves and draws goes to
 (`crates/specular-app/tests/scenarios.rs`), so CI gets them with the
 tests.
 
-Headless runs use the synthetic pages and no built-in panels: a
+Headless runs use the synthetic pages and draw no panels: a
 `control NAME` step presses the control from the models. Steps only a
 window can do (`resize`, `keycode`, `swipe`, `menu-choose` ...) are skipped
 headless and listed when the run ends. In the Kit window a `control` step

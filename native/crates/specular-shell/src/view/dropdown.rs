@@ -32,7 +32,7 @@ use crate::theme;
 /// The room above and below a field in a row of a list.
 const FIELD_INSET: f32 = 3.0;
 
-/// How a list's rows are drawn, as the built-in panels have it.
+/// How a list's rows are drawn.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Rows {
     /// Words marked with a check: every row in the full text colour, and

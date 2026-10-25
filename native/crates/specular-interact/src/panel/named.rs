@@ -348,7 +348,7 @@ pub(crate) fn activate(app: &mut App, id: &ControlId, keys: Modifiers, effects: 
             enabled: true,
             closes,
         } => {
-            let action = super::builtin::picked(app, id, action, keys);
+            let action = crate::sidebar::picked(app, id, action, keys);
             // A paste lands where the menu was opened.
             if let (Action::Paste, Some(menu)) = (&action, &menu) {
                 app.session.pointer = Some(menu.at);
@@ -371,5 +371,5 @@ pub(crate) fn open_menu(app: &mut App, screen: Vec2) {
         return;
     }
     let under = hit::hit_test(app, screen);
-    super::builtin::open_menu_for_press(app, screen, &under);
+    super::open_menu_for_press(app, screen, &under);
 }

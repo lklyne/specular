@@ -1,5 +1,5 @@
-//! A glyph as SVG text, for a UI library that draws the panel models with
-//! components of its own and needs the same glyphs the built-in panels use.
+//! A glyph as SVG text, for the Kit, which draws the panel models with its
+//! own components.
 
 use std::fmt::Write as _;
 
@@ -73,7 +73,7 @@ fn markup(glyph: Glyph, inks: Inks) -> String {
     out
 }
 
-/// `icon` as an SVG document, drawn as the built-in panels draw it:
+/// `icon` as an SVG document:
 /// `current` is the text color of the control it is on, `tint` the color
 /// the glyph shows when it shows one, `on` whether the control is on and
 /// `appearance` the theme it is drawn for.

@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use anyhow::Context as _;
 use glam::Vec2;
 use specular_doc::Document;
-use specular_interact::{Action, ControlId, Driver, Event, PageNotice};
+use specular_interact::{Action, Event, PageNotice};
 
 use super::Headless;
 use crate::script::{self, CameraArg, Expect, Step, WindowStep};
@@ -43,7 +43,6 @@ impl Headless {
             Step::Click(at) => self.drive(|app| app.pointer_move(at).click(at)),
             Step::DoubleClick(at) => self.drive(|app| app.pointer_move(at).double_click(at)),
             Step::TripleClick(at) => self.drive(|app| app.pointer_move(at).triple_click(at)),
-            Step::RightClick(at) if self.laid_out() => self.drive(|app| app.right_click(at)),
             Step::RightClick(at) => self.drive(|app| app.context_menu(at)),
             Step::Drag(from, to) => self.drive(|app| {
                 app.pointer_move(from)
@@ -87,26 +86,16 @@ impl Headless {
                 self.drive(|app| app.tick(now))?;
                 self.settle()
             }
-            // The settings dialog is never a drawn panel: its switches are
-            // pressed from the models.
-            Step::Control(id) if self.laid_out() && !id.starts_with("settings.") => {
-                self.control(&id, |app, at| app.pointer_move(at).click(at))
-            }
-            Step::HoverControl(id) if self.laid_out() => self.control(&id, Driver::pointer_move),
-            Step::PressControl(id) if self.laid_out() => {
-                self.control(&id, |app, at| app.pointer_move(at).press(at))
-            }
             Step::Control(id) => {
                 self.app.control(&id)?;
                 self.drive(|app| app)
             }
-            // With nothing laid out there is nothing to point at or hold
-            // down. The name must still be a control's.
+            // Nothing is drawn to point at or hold down. The name must still
+            // be a control's.
             Step::HoverControl(id) | Step::PressControl(id) => {
                 specular_interact::control_named(self.app.app(), &id)?;
                 Ok(())
             }
-            Step::Panels(on) => self.drive(|app| app.send(Event::BuiltinPanels(on))),
             Step::Sidebar(shown) => self.drive(|app| app.show_sidebar(shown)),
             Step::Motion(on) => self.drive(|app| app.send(Event::Motion(on))),
             Step::ReduceMotion(on) => self.drive(|app| app.send(Event::ReduceMotion(on))),
@@ -177,27 +166,5 @@ impl Headless {
             self.drive(|app| app.act(Action::Undo))?;
         }
         self.checks.back_at_start(self.app.app(), except)
-    }
-
-    /// Whether the built-in panels are on: a control is then clicked where
-    /// they lay it out. Off, a control is activated from the models.
-    fn laid_out(&self) -> bool {
-        self.app.session().panel.built_in
-    }
-
-    /// Points at the middle of the control named `id` and does `input`
-    /// there. A name that is not shown fails the run with the ones that are.
-    fn control(
-        &mut self,
-        id: &str,
-        input: impl for<'app> FnOnce(&'app mut Driver, Vec2) -> &'app mut Driver,
-    ) -> anyhow::Result<()> {
-        let layout = specular_interact::panel::builtin::layout(self.app.app());
-        let Some(node) = layout.node(&ControlId::from(id.to_owned())) else {
-            let shown: Vec<&str> = layout.controls().map(ControlId::as_str).collect();
-            anyhow::bail!("no control `{id}` is shown; these are: {}", shown.join(" "));
-        };
-        let at = node.rect.centre();
-        self.drive(|app| input(app, at))
     }
 }

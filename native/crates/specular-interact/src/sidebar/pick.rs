@@ -3,13 +3,16 @@
 //! the run of rows from the one picked last, and a command- or
 //! control-click that row added to the selection or taken out of it.
 
-use gpui_kit::Modifiers;
+use specular_core::Modifiers;
 use specular_doc::ItemId;
-use specular_interact::{RowKind, RowTarget, SidebarModel, SidebarRow};
+
+use super::{RowKind, RowTarget, SidebarModel, SidebarRow};
+use crate::panel::ControlId;
+use crate::{Action, App};
 
 /// The items a click can select, in the order the rows are shown. A group
 /// is not one, and neither is a row inside a closed one.
-pub(super) fn selectable(model: &SidebarModel) -> Vec<ItemId> {
+fn selectable(model: &SidebarModel) -> Vec<ItemId> {
     fn walk(rows: &[SidebarRow], out: &mut Vec<ItemId>) {
         for row in rows {
             match (&row.target, row.kind) {
@@ -33,21 +36,27 @@ pub(super) fn selectable(model: &SidebarModel) -> Vec<ItemId> {
     out
 }
 
-/// The selection a click on the row for `focus` asks for. `plain` is what
-/// the row selects with no key held, `current` the selection now, `anchor`
-/// the row picked last and `order` every selectable row as shown.
-pub(super) fn picked(
-    order: &[ItemId],
-    current: &[ItemId],
-    anchor: Option<&ItemId>,
-    focus: &ItemId,
-    plain: Vec<ItemId>,
+/// What a press on the row `pressed` of the sidebar sends, given the keys
+/// held. Anything that is not a row of the list is sent as it is.
+pub(crate) fn picked(
+    app: &mut App,
+    pressed: &ControlId,
+    action: Action,
     keys: Modifiers,
-) -> Vec<ItemId> {
+) -> Action {
+    let Action::Reveal { select, focus } = action else {
+        return action;
+    };
+    if !pressed.as_str().starts_with("sidebar.") {
+        return Action::Reveal { select, focus };
+    }
+    let order = selectable(&crate::sidebar(app));
     let position = |item: &ItemId| order.iter().position(|other| other == item);
-    match (position(focus), anchor.and_then(position)) {
+    let current: Vec<ItemId> = app.session.selection.items().to_vec();
+    let anchor = app.session.panel.anchor.clone();
+    let select = match (position(&focus), anchor.as_ref().and_then(position)) {
         (Some(to), Some(from)) if keys.shift => {
-            let mut picked = current.to_vec();
+            let mut picked = current;
             for item in &order[from.min(to)..=from.max(to)] {
                 if !picked.contains(item) {
                     picked.push(item.clone());
@@ -55,15 +64,19 @@ pub(super) fn picked(
             }
             picked
         }
-        (Some(_), _) if keys.platform || keys.control => {
-            if current.contains(focus) {
-                (current.iter().filter(|item| *item != focus).cloned()).collect()
+        (Some(_), _) if keys.meta || keys.control => {
+            if current.contains(&focus) {
+                current.into_iter().filter(|item| *item != focus).collect()
             } else {
-                let mut picked = current.to_vec();
+                let mut picked = current;
                 picked.push(focus.clone());
                 picked
             }
         }
-        _ => plain,
+        _ => select,
+    };
+    if position(&focus).is_some() {
+        app.session.panel.anchor = Some(focus.clone());
     }
+    Action::Reveal { select, focus }
 }

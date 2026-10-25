@@ -117,7 +117,6 @@ impl<W: ShellWindow> Runtime<W> {
         } else {
             specular_scene::view_without_chrome(&self.app, viewport, &self.view_cache)
         };
-        specular_scene::draw_panels(&self.app, &mut scene);
         let view = started.elapsed();
         let camera = self.app.session().camera;
         // Text keeps its raster size while the zoom moves, and the first

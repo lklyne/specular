@@ -47,7 +47,7 @@ impl Pointer {
     }
 }
 
-fn modifiers(modifiers: Modifiers) -> specular_core::Modifiers {
+pub(super) fn modifiers(modifiers: Modifiers) -> specular_core::Modifiers {
     specular_core::Modifiers {
         shift: modifiers.shift,
         control: modifiers.control,
@@ -131,8 +131,7 @@ impl SlotPaint {
         // closes it. A field being typed in ends the same way, and its
         // controls go with the selection, so a press that also cleared the
         // selection would take the bar away with the caret. That press must
-        // not also start a gesture on the canvas (the built-in panels
-        // swallow it the same way), so a press that arrives while something
+        // not also start a gesture on the canvas, so a press that arrives while something
         // other than the canvas has the focus only gives the focus back.
         let closes_a_list =
             !self.composing && (window.focused(cx)).is_some_and(|focused| focused != self.focus);

@@ -35,7 +35,6 @@ mod input;
 mod inspect;
 mod measure;
 mod panel_snapshot;
-mod panels;
 mod repos;
 mod scene_snapshot;
 mod snapshot;
@@ -50,7 +49,6 @@ pub use fixtures::{
 };
 pub use measure::FixedAdvance;
 pub use panel_snapshot::{dock_snapshot, toolbar_snapshot};
-pub use panels::layout_snapshot;
 pub use scene_snapshot::scene_snapshot;
 pub use snapshot::doc_snapshot;
 pub use space::space;

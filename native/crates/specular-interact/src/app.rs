@@ -14,7 +14,7 @@ use crate::edit::{Measurer, TextEdit};
 use crate::images::Images;
 use crate::notes::Notes;
 use crate::page_input::ButtonCapture;
-use crate::panel::builtin::PanelUi;
+use crate::panel::PanelUi;
 use crate::saved::LoadedFits;
 use crate::space::Space;
 use crate::{Appearance, Cursor, Gesture, PagePlacement, Theme, ThemeState, Tool, ToolDefaults};
@@ -314,8 +314,8 @@ pub struct Session {
     pub(crate) region_preview: crate::comment::RegionPreview,
     /// The cursor the shell was last asked to show.
     pub cursor: Cursor,
-    /// The built-in panels: whether they are on, the open dropdown, and the
-    /// control under the pointer.
+    /// The chrome: whether the shell draws it, the open dropdown and menu,
+    /// and the sidebar row picked last.
     pub panel: PanelUi,
     /// Whether the sidebar is shown, and its folds. See
     /// [`App::covered_left`].

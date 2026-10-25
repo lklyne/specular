@@ -201,7 +201,7 @@ impl App {
     }
 
     /// How much of the canvas's left edge the docked ribbon takes, for a
-    /// shell that draws the chrome itself. The built-in chrome has the
+    /// shell that draws the chrome itself.
     /// tools in a row of their own.
     pub(crate) fn tools_dock_width(&self) -> f32 {
         if self.session.panel.shell_chrome && self.settings.tools == ToolsPlace::Docked {

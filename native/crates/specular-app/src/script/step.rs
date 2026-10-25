@@ -79,10 +79,6 @@ pub enum Step {
     /// `press-control tool.draw`: the button goes down on that control and
     /// stays down until a `release`.
     PressControl(String),
-    /// `panels off`, or `panels on`: whether the built-in toolbar and dock
-    /// are drawn and take clicks. The Kit always draws its own, so a window
-    /// skips this step.
-    Panels(bool),
     /// `sidebar on`, or `sidebar off`: whether the left sidebar is shown. It
     /// starts hidden, and covers the left of the canvas while it is shown.
     Sidebar(bool),
@@ -187,8 +183,6 @@ pub(super) fn step(line: &str) -> anyhow::Result<Step> {
         ("control", [id]) => Step::Control((*id).to_owned()),
         ("hover-control", [id]) => Step::HoverControl((*id).to_owned()),
         ("press-control", [id]) => Step::PressControl((*id).to_owned()),
-        ("panels", ["on"]) => Step::Panels(true),
-        ("panels", ["off"]) => Step::Panels(false),
         ("sidebar", ["on"]) => Step::Sidebar(true),
         ("sidebar", ["off"]) => Step::Sidebar(false),
         ("motion", [on]) => Step::Motion(switch(on)?),

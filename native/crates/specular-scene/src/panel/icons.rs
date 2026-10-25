@@ -1,4 +1,4 @@
-//! The glyphs of the built-in panels, as scene paths.
+//! The glyphs of the panels, as SVG text for the Kit to draw.
 //!
 //! Each [`Icon`] is a [`Glyph`]: a view box and layers of SVG path data,
 //! rects and discs, each filled and stroked in a [`Paint`]. The data is the
@@ -14,11 +14,7 @@ mod paths_popup;
 mod paths_tools;
 mod popup;
 mod sidebar;
-mod svg;
 mod tools;
-
-use std::collections::HashMap;
-use std::sync::{Arc, LazyLock, Mutex, PoisonError};
 
 use specular_interact::Icon;
 
@@ -26,7 +22,7 @@ pub use self::markup::{arrow_cursor_svg, icon_svg};
 
 use specular_interact::Appearance;
 
-use crate::{Color, Colors, Item, PathCommand, PathDraw, PathStroke, Point, Rect};
+use crate::{Color, Colors};
 
 /// The dark line of the toolbar glyphs: `#45403C`.
 const OUTLINE: Paint = Paint::Hex(0x45_403c);
@@ -157,20 +153,20 @@ impl Glyph {
 
 /// The colors a glyph is drawn in on one control.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub(super) struct Inks {
+struct Inks {
     /// The control's text color.
-    pub(super) current: Color,
+    current: Color,
     /// The color the glyph shows, when it shows one.
-    pub(super) tint: Option<Color>,
+    tint: Option<Color>,
     /// Whether the control is on.
-    pub(super) on: bool,
+    on: bool,
     /// The theme the glyph is drawn for.
-    pub(super) colors: &'static Colors,
+    colors: &'static Colors,
 }
 
 impl Inks {
     /// One color, for a glyph that shows none of its own.
-    pub(super) const fn plain(current: Color, colors: &'static Colors) -> Self {
+    const fn plain(current: Color, colors: &'static Colors) -> Self {
         Self {
             current,
             tint: None,
@@ -292,42 +288,6 @@ fn paint(paint: Paint, inks: Inks) -> Option<Color> {
     }
 }
 
-/// The commands of path data, parsed once: the same few dozen strings are
-/// drawn every frame.
-fn parsed(d: &'static str) -> Arc<[PathCommand]> {
-    static PARSED: LazyLock<Mutex<HashMap<usize, Arc<[PathCommand]>>>> =
-        LazyLock::new(Mutex::default);
-    let mut parsed = PARSED.lock().unwrap_or_else(PoisonError::into_inner);
-    // Each string is one constant, so where it lives names it.
-    let commands = parsed
-        .entry(d.as_ptr() as usize)
-        .or_insert_with(|| svg::parse(d).into());
-    Arc::clone(commands)
-}
-
-/// A rect with rounded corners as a path, drawn clockwise from the top.
-fn rounded(left: f32, top: f32, width: f32, height: f32, radius: f32) -> Arc<[PathCommand]> {
-    let radius = radius.min(width / 2.0).min(height / 2.0).max(0.0);
-    let (across, down) = (width - 2.0 * radius, height - 2.0 * radius);
-    let corner = format!("a{radius} {radius} 0 0 1");
-    let data = format!(
-        "M{} {top}h{across}{corner} {radius} {radius}v{down}{corner} -{radius} {radius}\
-         h-{across}{corner} -{radius} -{radius}v-{down}{corner} {radius} -{radius}z",
-        left + radius
-    );
-    svg::parse(&data).into()
-}
-
-fn outline(shape: Shape) -> Arc<[PathCommand]> {
-    match shape {
-        Shape::Path(d) => parsed(d),
-        Shape::Rect(x, y, width, height, radius) => rounded(x, y, width, height, radius),
-        Shape::Disc(cx, cy, radius) => {
-            rounded(cx - radius, cy - radius, radius * 2.0, radius * 2.0, radius)
-        }
-    }
-}
-
 /// The `matrix(a b c d e f)` of `turn`.
 fn matrix(turn: Turn) -> [f32; 6] {
     match turn {
@@ -346,68 +306,3 @@ fn matrix(turn: Turn) -> [f32; 6] {
         }
     }
 }
-
-/// `icon` fitted into `rect` keeping its proportions, as scene items.
-pub(super) fn draw(icon: Icon, rect: Rect, inks: Inks, out: &mut Vec<Item>) {
-    fit(glyph(icon), rect, inks, out);
-}
-
-/// The down chevron of a dropdown, fitted into `rect`.
-pub(super) fn chevron(rect: Rect, color: Color, colors: &'static Colors, out: &mut Vec<Item>) {
-    fit(lucide::CHEVRON, rect, Inks::plain(color, colors), out);
-}
-
-/// The check beside a selected row, fitted into `rect`.
-pub(super) fn check(rect: Rect, color: Color, colors: &'static Colors, out: &mut Vec<Item>) {
-    fit(lucide::CHECK, rect, Inks::plain(color, colors), out);
-}
-
-fn fit(glyph: Glyph, rect: Rect, inks: Inks, out: &mut Vec<Item>) {
-    let [view_x, view_y, view_width, view_height] = glyph.view;
-    let scale = (rect.width / view_width).min(rect.height / view_height);
-    let left = rect.x + (rect.width - view_width * scale) / 2.0 - view_x * scale;
-    let top = rect.y + (rect.height - view_height * scale) / 2.0 - view_y * scale;
-    for layer in glyph.layers {
-        let [xx, yx, xy, yy, dx, dy] = matrix(layer.turn);
-        let place = |point: Point| {
-            let across = xx * point.x + xy * point.y + dx;
-            let down = yx * point.x + yy * point.y + dy;
-            Point::new(left + across * scale, top + down * scale)
-        };
-        let commands = (outline(layer.shape).iter())
-            .map(|command| match *command {
-                PathCommand::MoveTo(to) => PathCommand::MoveTo(place(to)),
-                PathCommand::LineTo(to) => PathCommand::LineTo(place(to)),
-                PathCommand::QuadTo { control, to } => PathCommand::QuadTo {
-                    control: place(control),
-                    to: place(to),
-                },
-                PathCommand::CubicTo {
-                    control1,
-                    control2,
-                    to,
-                } => PathCommand::CubicTo {
-                    control1: place(control1),
-                    control2: place(control2),
-                    to: place(to),
-                },
-                PathCommand::Close => PathCommand::Close,
-            })
-            .collect();
-        let stroke =
-            paint(layer.stroke, inks).map(|color| PathStroke::new(color, layer.width * scale));
-        let item = Item::screen(PathDraw {
-            commands,
-            fill: glyph.fill(layer, inks),
-            stroke,
-        });
-        out.push(if glyph.clipped {
-            item.clipped(rect)
-        } else {
-            item
-        });
-    }
-}
-
-#[cfg(test)]
-mod tests;

@@ -1,4 +1,4 @@
-//! [`Colors`]: every colour `view` and the built-in panels draw with, one
+//! [`Colors`]: every colour `view` and the Kit's panels draw with, one
 //! set per [`Appearance`].
 //!
 //! The light values are Electron's light tokens
@@ -122,7 +122,7 @@ pub struct Colors {
     pub composer_ink: Color,
     /// Its hint.
     pub composer_hint: Color,
-    /// The built-in toolbar, popups and sidebar.
+    /// The toolbar, popups and sidebar, which the Kit draws.
     pub panel: PanelColors,
 }
 

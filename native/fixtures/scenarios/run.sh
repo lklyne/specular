@@ -8,8 +8,8 @@
 #   fixtures/scenarios/run.sh --cef [name..]   # the real-page suite, cef/
 #   fixtures/scenarios/run.sh --cli [case..]   # the CLI end to end, cli/
 #
-# headless  `specular --script` with the synthetic pages and no built-in
-#           panels. Steps only a window can do are skipped and listed.
+# headless  `specular --script` with the synthetic pages and no panels
+#           drawn. Steps only a window can do are skipped and listed.
 #           `cargo test --workspace` runs the same scenarios
 #           (crates/specular-app/tests/scenarios.rs).
 # --kit     the `specular` binary opens a window on a scratch copy of the
@@ -90,11 +90,11 @@ for name in "$@"; do
     log=$run/stderr.log
     case $mode in
         headless)
-            (cd "$run" && "$app" --script "$script" --script-panels off 2>"$log") ;;
+            (cd "$run" && "$app" --script "$script" 2>"$log") ;;
         cef)
             sed "s#{site}#$site#g" "$script" > "$run/$name.txt"
             canvas=$(canvas_of "$script")
-            (cd "$run" && "$app" --source cef --snapshot-size 1400x800 --script-panels off \
+            (cd "$run" && "$app" --source cef --snapshot-size 1400x800 \
                 --script "$run/$name.txt" "$canvas" 2>"$log") ;;
         kit)
             # The window saves into the canvas it opens and keeps its state

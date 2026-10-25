@@ -165,18 +165,9 @@ pub enum Event {
     /// A right press at this screen point from such a caller: the context
     /// menu opens for what is there, to be picked from by name.
     ContextMenu(Vec2),
-    /// Turns the built-in chrome on or off. A shell that draws it through
-    /// `specular-scene` sends `true` once at startup; one that draws the
-    /// panel models itself never does.
-    BuiltinPanels(bool),
-    /// Turns on only the built-in context menu. For a shell whose UI
-    /// library draws the chrome and the sidebar, while the menu a right
-    /// press on the canvas opens stays in the canvas's own pass.
-    BuiltinMenu,
-    /// The shell draws the chrome, the sidebar and the context menu itself.
-    /// Nothing built in is laid out or hit; a right press on the canvas
-    /// still opens the menu's state, which the shell draws and picks from
-    /// by name.
+    /// The shell draws the chrome, the sidebar and the context menu. A
+    /// right press on the canvas opens the menu's state, which the shell
+    /// draws and picks from by name. A headless run never sends it.
     ShellChrome,
     /// The shell's context menu closed with nothing picked: a press outside
     /// it, or Escape while it had the keys.

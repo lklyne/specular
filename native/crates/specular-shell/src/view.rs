@@ -41,7 +41,6 @@ mod named;
 mod onboarding;
 mod palette;
 mod palette_row;
-mod pick;
 mod raised;
 mod sidebar;
 mod slot;
@@ -60,7 +59,6 @@ use gpui_kit::{
     InteractiveElement as _, IntoElement, ParentElement as _, Render, Styled as _, Window, div, px,
     size,
 };
-use specular_doc::ItemId;
 use specular_interact::{Action, CanvasAction, Event, SidebarAction, TOOLS_DOCK_WIDTH, ToolsPlace};
 
 pub(crate) use self::named::shown as shown_controls;
@@ -206,8 +204,6 @@ pub(crate) struct ShellView {
     pointer: Rc<Pointer>,
     /// The input method's marked text, which GPUI asks back for.
     marked: String,
-    /// The item last picked in the sidebar.
-    picked_last: Option<ItemId>,
     /// What the right panel keeps between frames.
     chat: chat::ChatUi,
     /// The first-run view's Prism, while that view is shown.
@@ -230,7 +226,6 @@ impl ShellView {
             asks,
             pointer: Rc::new(Pointer::default()),
             marked: String::new(),
-            picked_last: None,
             chat: chat::ChatUi::new(window, cx),
             hero: None,
             menu: None,

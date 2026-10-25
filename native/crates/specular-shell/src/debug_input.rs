@@ -182,7 +182,7 @@ pub(crate) fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
             let quiet = waits
                 || matches!(
                     step,
-                    Do::Expect(_) | Do::Mark(_) | Do::Skip | Do::State(_) | Do::Save(_)
+                    Do::Expect(_) | Do::Mark(_) | Do::State(_) | Do::Save(_)
                 );
             if !waits {
                 specular_core::ledger::record(specular_core::ledger::Entry::Step(at as u32));

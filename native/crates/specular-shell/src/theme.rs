@@ -1,11 +1,9 @@
 //! The Electron app's themes in the Kit's theme, so the Kit's components come
 //! out in Specular's colours and not the Kit's defaults.
 //!
-//! The chrome colours are `specular_scene::PanelColors`, the same set the
-//! built-in renderer draws the panels with, so the two shells cannot
-//! disagree. The few the Kit draws that the built-in renderer does not
-//! (the right panel's zinc scale, the primary button) are here, light and
-//! dark, from `surfaceTheme.css` and the Tailwind classes of the right panel.
+//! The chrome colours are `specular_scene::PanelColors`, which the canvas
+//! reads too. The few only the Kit draws (the right panel's zinc scale,
+//! the primary button) are here, light and dark, from `surfaceTheme.css` and the Tailwind classes of the right panel.
 //! The colours are functions of the theme in force, which
 //! [`apply`] sets.
 
@@ -273,9 +271,7 @@ pub(crate) fn error() -> u32 {
 /// The chrome's one row, and the bar under it that holds the dock, which
 /// the app's own layout assumes too. Everything under the chrome reads
 /// `CHROME_HEIGHT`.
-pub(crate) use specular_interact::panel::builtin::{
-    DOCK_ROW, SHELL_CHROME_HEIGHT as CHROME_HEIGHT, TAB_ROW,
-};
+pub(crate) use specular_interact::panel::{CHROME_HEIGHT, DOCK_ROW, TAB_ROW};
 /// The sidebar's width, `LEFT_SIDEBAR_WIDTH` in `runtime-constants.ts`.
 pub(crate) const SIDEBAR_WIDTH: f32 = 256.0;
 

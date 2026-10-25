@@ -589,7 +589,6 @@ fn hit_words(hit: &Hit) -> Vec<String> {
         Hit::GroupBorder { group } => format!("border {group}"),
         Hit::Edge { edge } => format!("edge {edge}"),
         Hit::Empty => "empty".to_owned(),
-        Hit::Panel { .. } => "panel".to_owned(),
     };
     words_of(&words)
 }

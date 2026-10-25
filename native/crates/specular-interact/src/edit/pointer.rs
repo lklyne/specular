@@ -53,11 +53,9 @@ fn offset_at(app: &App, world: DVec2) -> Option<usize> {
 }
 
 /// Whether `screen` is on text being edited that sits in no entity's body:
-/// an edge's label, a comment's composer or a panel's field.
+/// an edge's label or a comment's composer.
 fn is_over_floating_text(app: &App, screen: glam::Vec2) -> bool {
-    super::edge_label::is_over(app, screen)
-        || crate::comment::is_over_composer(app, screen)
-        || super::field::is_over(app, screen)
+    super::edge_label::is_over(app, screen) || crate::comment::is_over_composer(app, screen)
 }
 
 /// Offers a left press to the text being edited. Returns the drag it starts
@@ -82,8 +80,7 @@ pub(crate) fn press(
             | Hit::GroupBorder { .. }
             | Hit::Layout(_)
             | Hit::Edge { .. }
-            | Hit::Empty
-            | Hit::Panel { .. } => return None,
+            | Hit::Empty => return None,
         }
     }
     let world = app.session.camera.screen_to_world(input.screen).as_dvec2();
@@ -211,8 +208,7 @@ pub(crate) fn is_over_text(app: &App) -> bool {
         | Hit::GroupBorder { .. }
         | Hit::Layout(_)
         | Hit::Edge { .. }
-        | Hit::Empty
-        | Hit::Panel { .. } => false,
+        | Hit::Empty => false,
     }
 }
 

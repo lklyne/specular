@@ -462,7 +462,6 @@ pub(super) async fn step(
         step @ (Do::Expect(_) | Do::Mark(_) | Do::Reopen | Do::UndoToStart(_)) => {
             check_step(step, checks)?;
         }
-        Do::Skip => {}
         Do::Quit => cx.update(shell::begin_exit),
     }
     Ok(())

@@ -41,7 +41,6 @@ impl App {
     /// gives one that shapes with the renderer's fonts.
     pub fn set_text_measure(&mut self, measure: Arc<dyn TextMeasure>) {
         self.measure = Measurer(measure);
-        crate::panel::builtin::forget_layout(self);
     }
 
     /// The measure the editor lays text out with.

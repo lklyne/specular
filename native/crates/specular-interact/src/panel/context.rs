@@ -7,13 +7,14 @@
 //! and keys the bindings give them. The edit and group items round it out
 //! to what the menu bar's Edit and Arrange menus offer for the same target.
 
+use glam::Vec2;
 use specular_doc::ItemId;
 
 use super::{
     Choices, Control, ControlId, ControlsModel, DropdownOption, DropdownSection, Face, OptionLayout,
 };
 use crate::menu::{self, MenuItem};
-use crate::{Action, App, CanvasAction, CanvasId, groups};
+use crate::{Action, App, CanvasAction, CanvasId, Hit, Tool, groups};
 
 /// What a context menu is about. It closes when its target changes.
 #[derive(Debug, Clone, PartialEq)]
@@ -24,6 +25,66 @@ pub enum MenuTarget {
     Selection(Vec<ItemId>),
     /// Empty canvas.
     Empty,
+}
+
+/// The menu a right press on a canvas, an item, or a canvas of the sidebar
+/// opened.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ContextMenu {
+    /// What it is about. It closes when that changes.
+    pub target: MenuTarget,
+    /// Where the pointer was, which is the menu's corner.
+    pub at: Vec2,
+}
+
+/// Opens the menu for a right press at `screen` that landed on `hit`, when
+/// the shell draws one. Returns whether the press was taken.
+pub(crate) fn open(app: &mut App, screen: Vec2, hit: &Hit) -> bool {
+    app.session.panel.shell_chrome && open_for_press(app, screen, hit)
+}
+
+/// Opens the menu for a right press at `screen` that landed on `hit`, after
+/// selecting what the press is on: an item that is not selected becomes the
+/// selection, one that is keeps it, and empty canvas clears it. Returns
+/// whether the press was taken. A press on the entered page belongs to the
+/// page, and so does any press while a tool, a drag or a text edit has the
+/// pointer.
+pub(crate) fn open_for_press(app: &mut App, screen: Vec2, hit: &Hit) -> bool {
+    let session = &app.session;
+    if session.tool != Tool::Select || session.gesture.is_some() || session.editing.is_some() {
+        return false;
+    }
+    let on = match hit {
+        Hit::PageContent { page, .. } if session.focus.page() == Some(page) => return false,
+        Hit::PageContent { page: entity, .. }
+        | Hit::EntityBody { entity }
+        | Hit::GroupLabel { group: entity }
+        | Hit::GroupBorder { group: entity } => Some(ItemId::Entity(entity.clone())),
+        Hit::Edge { edge } => Some(ItemId::Edge(edge.clone())),
+        // A handle and an anchor belong to what is already selected.
+        Hit::Handle { .. } | Hit::Anchor { .. } | Hit::Layout(_) => None,
+        Hit::Empty => {
+            app.session.selection.set([]);
+            None
+        }
+        Hit::Comment { .. } => return false,
+    };
+    if let Some(item) = on
+        && !app.session.selection.contains(&item)
+    {
+        app.session.selection.set([item]);
+    }
+    let items = app.session.selection.items().to_vec();
+    let target = if items.is_empty() {
+        MenuTarget::Empty
+    } else {
+        MenuTarget::Selection(items)
+    };
+    app.session.pointer = Some(screen);
+    app.session.panel.open = None;
+    let menu = ContextMenu { target, at: screen };
+    app.session.panel.menu = context_menu(app, &menu.target).map(|_| menu);
+    true
 }
 
 /// An item with the name its control has.

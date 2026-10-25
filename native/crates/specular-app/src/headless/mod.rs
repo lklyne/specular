@@ -53,8 +53,6 @@ pub(crate) struct HeadlessArgs {
     pub(crate) script: Option<PathBuf>,
     /// The page backend. Synthetic unless the command line names another.
     pub(crate) source: SourceKind,
-    /// Whether the built-in panels are on when the script starts.
-    pub(crate) panels: bool,
     /// The theme the run starts in. `None` is the system's, which a
     /// headless run reports as light.
     pub(crate) theme: Option<Theme>,
@@ -69,7 +67,6 @@ impl Default for HeadlessArgs {
             camera: CameraArg::Fit,
             script: None,
             source: SourceKind::Synthetic,
-            panels: true,
             theme: None,
         }
     }
@@ -110,7 +107,7 @@ pub(crate) fn script_canvas(script: &Path) -> anyhow::Result<Option<PathBuf>> {
 }
 
 /// Runs the scenario script at `script` headless on the synthetic pages,
-/// with no built-in panels, on the canvas its first line names (an empty one when it names none),
+/// with no panels, on the canvas its first line names (an empty one when it names none),
 /// and writes what it saves and draws into `out`. Fails at the first step
 /// that fails or fact that does not hold.
 pub fn run_scenario(script: &Path, out: &Path) -> anyhow::Result<Report> {
@@ -126,9 +123,6 @@ pub fn run_scenario(script: &Path, out: &Path) -> anyhow::Result<Report> {
     )?;
     let args = HeadlessArgs {
         script: Some(script.to_owned()),
-        // The built-in panels are leaving (cleanup task 1); a control is
-        // pressed from the models, as a window with its own chrome does.
-        panels: false,
         ..HeadlessArgs::default()
     };
     run(source, document, canvas.as_deref(), &args, out)
@@ -152,10 +146,10 @@ pub(crate) fn run(
         .map_or_else(PathBuf::new, Path::to_owned);
     let document = script.given_document()?.unwrap_or(document);
     let mut run = Headless::new(source, canvas, args, out)?;
-    let (viewport, panels) = (run.viewport, args.panels);
+    let viewport = run.viewport;
     let folder = (run.space.as_deref()).map(|folder| folder.to_string_lossy().into_owned());
     run.drive(|app| {
-        app.viewport(viewport).send(Event::BuiltinPanels(panels));
+        app.viewport(viewport);
         if let Some(theme) = args.theme {
             app.send(Event::ThemeLoaded(theme));
         }
@@ -307,19 +301,16 @@ impl Headless {
         self.drive(|app| app.tick(now).tick(now))?;
         self.settle()?;
         let path = self.out.join(path);
-        let items = self.draw(true);
+        let items = self.draw();
         self.target.save(&self.gpu, &path)?;
         tracing::info!(path = %path.display(), items, "snapshot");
         self.report_note_heights()
     }
 
-    /// Draws a frame, with the built-in panels when `panels`, as a window
-    /// would after a step, and returns how many items it drew.
-    fn draw(&mut self, panels: bool) -> usize {
-        let mut scene = specular_scene::view(self.app.app(), self.viewport, &self.view_cache);
-        if panels {
-            specular_scene::draw_panels(self.app.app(), &mut scene);
-        }
+    /// Draws a frame, as a window would after a step, and returns how many
+    /// items it drew.
+    fn draw(&mut self) -> usize {
+        let scene = specular_scene::view(self.app.app(), self.viewport, &self.view_cache);
         let frame = FrameView {
             camera: self.app.session().camera,
             viewport: self.viewport,
@@ -344,7 +335,7 @@ impl Headless {
             |entity| matches!(&entity.kind, Kind::File(file) if script::is_markdown(&file.file)),
         );
         if documents {
-            self.draw(false);
+            self.draw();
             self.report_note_heights()?;
         }
         Ok(())

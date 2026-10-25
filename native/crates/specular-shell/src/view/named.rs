@@ -2,8 +2,8 @@
 //!
 //! Every element that draws a model control holds a [`mark`]: a child that
 //! paints nothing and notes its parent's bounds as GPUI lays the frame out.
-//! A script then clicks `shape.color` wherever the Kit put it, as the
-//! headless runner clicks it wherever the built-in panels do. The names are
+//! A script then clicks `shape.color` wherever the Kit put it; a headless
+//! run presses it by name from the models. The names are
 //! the models' own, so a dropdown's trigger is the dropdown's name and a
 //! stepper's two buttons are its `.dec` and `.inc`.
 //!

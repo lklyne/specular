@@ -8,7 +8,6 @@ use specular_doc::{Command, CommandError, Document, EntityId, ItemId};
 use crate::focus::{leave_unless_selected, set_focus};
 use crate::images;
 use crate::notes;
-use crate::panel::builtin;
 use crate::stack_order::Move;
 use crate::theme;
 use crate::{
@@ -18,12 +17,11 @@ use crate::{
 };
 use crate::{arrange, clipboard, drop, select_all, zoom};
 
-/// A scroll goes to the panel under the pointer, else to the Document
-/// under it, else it moves the camera. A panel keeps it whether or not it
-/// scrolls: nothing of the chrome lies over canvas a pan should reach.
+/// A scroll goes to the Document under the pointer, else it moves the
+/// camera.
 fn on_wheel(app: &mut App, input: &crate::WheelInput, effects: &mut Vec<Effect>) {
     crate::flick::halt(app);
-    if !builtin::on_wheel(app, input) && !builtin::over(app) && !notes::on_wheel(app, input) {
+    if !notes::on_wheel(app, input) {
         camera::on_wheel(app, input, effects);
     }
 }
@@ -48,17 +46,12 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
     // A pointer event has already put the drag and the hover where it is,
     // unless it ended the drag: the hover is not kept up during one.
     let pointing = matches!(event, Event::Pointer(_));
-    let keeps_layout = builtin::keeps_layout(app, &event);
     let opened = attach::opens(&event);
     let layouts = pages::layouts(app);
     match event {
         Event::Pointer(input) => pointer::on_pointer(app, &input, &mut effects),
         Event::Wheel(input) => on_wheel(app, &input, &mut effects),
-        Event::Pinch { delta } => {
-            if !builtin::over(app) {
-                camera::on_pinch(app, delta);
-            }
-        }
+        Event::Pinch { delta } => camera::on_pinch(app, delta),
         Event::Key(input) => bindings::on_key(app, &input, &mut effects),
         Event::Ime(ime) => match &app.session.focus {
             Focus::Page(page) => effects.push(Effect::ForwardInput {
@@ -100,9 +93,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         Event::Action(action) => run_action(app, action, &mut effects),
         Event::Control(id, keys) => crate::panel::activate_control(app, &id, keys, &mut effects),
         Event::ContextMenu(screen) => crate::panel::open_menu_at(app, screen),
-        Event::BuiltinPanels(built_in) => builtin::turn(app, built_in),
-        Event::BuiltinMenu => app.session.panel = builtin::PanelUi::menu_alone(),
-        Event::ShellChrome => app.session.panel = builtin::PanelUi::drawn_by_shell(),
+        Event::ShellChrome => app.session.panel = crate::PanelUi::drawn_by_shell(),
         Event::MenuClosed => app.session.panel.menu = None,
         Event::ChatPanel(available) => app.session.chat.set_available(available),
         Event::Motion(on) => app.session.motion.enable(on),
@@ -120,7 +111,6 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
     crate::showing::motion::interrupt(app, leaving, camera, app.space.switches() != switches);
     crate::showing::settle(app);
     pages::follow_layouts(&layouts, app, &mut effects);
-    builtin::forget_layout_unless(app, keeps_layout);
     // Another canvas has another history: its revision says nothing about
     // whether this event made a step.
     let switched = app.space.switches() != switches;
@@ -141,7 +131,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
     settle_tool(app, tool);
     inspect::settle(app, switched);
     groups::keep_entered_valid(app);
-    builtin::tidy(app);
+    crate::panel::tidy(app);
     if edit::restart_blink(app, &caret) {
         notes::reveal_caret(app);
     }
@@ -181,7 +171,7 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         // Escape puts a field's old value back before it does anything else,
         // and closes an open dropdown before it backs out of anything.
         Action::Cancel if edit::cancel_field(app, effects) => {}
-        Action::Cancel if builtin::cancel(app) => {}
+        Action::Cancel if crate::panel::cancel(app) => {}
         Action::Cancel => cancel(app, effects),
         Action::SetTool(tool) => set_tool(app, tool, effects),
         Action::SetTheme(theme) => theme::choose(app, theme, true, effects),

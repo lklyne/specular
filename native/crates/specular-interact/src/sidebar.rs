@@ -8,11 +8,13 @@
 //! ([`SidebarView`]) and reported here, so whatever draws the sidebar holds
 //! none of it.
 
+mod pick;
 mod rows;
 mod state;
 
 use specular_doc::EntityId;
 
+pub(crate) use self::pick::picked;
 use self::rows::{Tree, leaves};
 pub use self::state::{SIDEBAR_WIDTH, SidebarAction, SidebarSection, SidebarView};
 use crate::panel::{ControlId, Field, FieldSubmit, FieldWidth, Icon};

@@ -1,5 +1,4 @@
-//! The models' glyphs as GPUI images. The path data is the built-in
-//! renderer's own, so both renderers draw one set of glyphs.
+//! The models' glyphs as GPUI images, from `specular_scene::icon_svg`.
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -19,7 +18,7 @@ thread_local! {
     static IMAGES: RefCell<HashMap<Key, Arc<Image>>> = RefCell::new(HashMap::new());
 }
 
-/// A stored colour as the built-in panels would paint it.
+/// A stored colour as a swatch paints it.
 pub(super) fn resolved(color: &specular_doc::Color, palette: Palette, role: PaintRole) -> Color {
     panel_color(color, palette, role, theme::appearance())
 }

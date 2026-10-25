@@ -112,8 +112,6 @@ pub(super) enum Do {
     /// Undone until nothing is left, and checked against the start but
     /// for these paths.
     UndoToStart(Vec<String>),
-    /// Nothing: a step this window has no use for.
-    Skip,
     Quit,
 }
 
@@ -148,7 +146,6 @@ pub(super) fn lower(step: Step) -> Result<Do, String> {
         Step::Control(name) => Do::Click(Place::Control(name), 1),
         Step::HoverControl(name) => Do::Move(Place::Control(name)),
         Step::PressControl(name) => Do::Press(Place::Control(name)),
-        Step::Panels(_) => Do::Skip,
         Step::Sidebar(shown) => Do::Sidebar(shown),
         Step::Motion(on) => Do::Send(Event::Motion(on)),
         Step::ReduceMotion(on) => Do::Send(Event::ReduceMotion(on)),
