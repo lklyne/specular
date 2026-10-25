@@ -4,8 +4,8 @@
 //! `PageContext` bundles it with the texture cap and the browser count.
 //!
 //! CEF invokes the handlers on the browser UI thread, which in this
-//! configuration (`multi_threaded_message_loop = 0`, pumped from the winit
-//! loop) is the process main thread. CEF still reference-counts handler
+//! configuration (`multi_threaded_message_loop = 0`, pumped from the main
+//! run loop) is the process main thread. CEF still reference-counts handler
 //! objects from other threads (the IO thread fetches the request handler for
 //! every network request), so whichever thread drops the last reference runs
 //! the handler's destructor. Everything a handler holds is therefore

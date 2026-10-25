@@ -25,11 +25,12 @@ fn cef_path(path: &std::path::Path) -> Result<CefString, CefError> {
 
 impl CefPageSource {
     /// Loads the framework (macOS) and initialises CEF in windowless,
-    /// external-message-pump mode, so the winit loop drives it through
-    /// [`PageSource::pump`]. Call [`run_subprocess_if_needed`](crate::run_subprocess_if_needed)
-    /// first in `main`. On macOS, create winit's `EventLoop` before this:
-    /// winit must install its `NSApplication` subclass before CEF touches
-    /// `NSApp`, or winit panics; this then adds `CefAppProtocol` to it.
+    /// external-message-pump mode, so the caller's loop (or, on macOS, a
+    /// run-loop timer) drives it through [`PageSource::pump`]. Call
+    /// [`run_subprocess_if_needed`](crate::run_subprocess_if_needed) first in
+    /// `main`. On macOS, start the window's toolkit before this: its
+    /// `NSApplication` must exist before CEF touches `NSApp`, or CEF makes a
+    /// plain one; this then adds `CefAppProtocol` to it.
     pub fn new(config: CefConfig) -> Result<Self, CefError> {
         #[cfg(target_os = "macos")]
         {

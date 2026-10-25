@@ -16,7 +16,7 @@ a whole and `docs/plans/rust-cef-spike.md` for what it measures.
 | `cpu_frame` | always | `OnPaint` buffer -> owned `CpuFrame` |
 | `dom_query` | always | the devtools messages that ask a page for the element under a point, the elements in a rect and its own target id, and reading the answers |
 | `process` | `cef` | `run_subprocess_if_needed`, API-version declaration, macOS framework load/unload |
-| `app_protocol` | `cef` + macOS | adds `CefAppProtocol` (`isHandlingSendEvent` / `setHandlingSendEvent:`) to winit's `NSApp` class before `cef_initialize` |
+| `app_protocol` | `cef` + macOS | adds `CefAppProtocol` (`isHandlingSendEvent` / `setHandlingSendEvent:`) to the window toolkit's `NSApp` class before `cef_initialize` |
 | `client` | `cef` | `wrap_*!` handler objects: app (switches), render, display, load, request, life-span, client |
 | `devtools` | `cef` | one page's in-process devtools channel: `SendDevToolsMessage`, the message observer, answers -> `PageEvent` |
 | `paint` | `cef` | `OnPaint` / `OnAcceleratedPaint` -> `FrameEvent` |
@@ -106,8 +106,9 @@ cargo clippy -p specular-cef --all-targets --features cef-dox \
 - **Message loop.** `multi_threaded_message_loop = 0`,
   `external_message_pump = 1`. On macOS a 240 Hz main-run-loop timer
   (`pump_timer`) calls `CefDoMessageLoopWork`: the call spins a nested
-  run-loop turn, which panics winit if made inside one of its handlers.
-  Elsewhere `PageSource::pump` calls it once per winit loop turn.
+  run-loop turn, which must not be made inside one of the window's event
+  handlers: it would deliver the window's queued events re-entrantly. Elsewhere
+  `PageSource::pump` calls it once per loop turn.
   `OnScheduleMessagePumpWork` is not used. A process with no event loop (the
   app's `--snapshot` and `--script` runs) sets `CefConfig.pump` to
   `Pump::Caller`: no timer, and `pump` makes the call itself.
@@ -155,10 +156,10 @@ cargo clippy -p specular-cef --all-targets --features cef-dox \
    `no_sandbox = 1` (the helper does not initialise `cef::sandbox::Sandbox`).
 
 4. **Startup order in `main`.** `run_subprocess_if_needed()` first (helpers
-   must not create windows). Then winit's `EventLoop::new()`, which installs
-   winit's `NSApplication` subclass. Then `CefPageSource::new()`. CEF would
-   otherwise create a plain `NSApplication` first, and winit panics when the
-   principal class is not its own.
+   must not create windows). Then the window's toolkit (GPUI, in the Kit
+   shell), which makes its `NSApplication`. Then `CefPageSource::new()`. CEF
+   would otherwise create a plain `NSApplication` first, and the toolkit's
+   own would never be installed.
 
 ## CEF calls in use
 
@@ -215,15 +216,16 @@ are on the by-hand checklist in the run log.
 
 ## Known risks to check first on a real run
 
-Checked on a real run so far: CEF starts under winit's `NSApp` and under a
+Checked on a real run so far: CEF starts under the Kit window's `NSApp` and
+under a
 plain one (headless), pages paint through IOSurfaces with no import
 failures, and two apps run side by side. Still open:
 
-1. **`CefAppProtocol` on winit's `NSApp`.** Chromium sends
-   `isHandlingSendEvent` / `setHandlingSendEvent:` to `NSApp`, and winit's
-   `WinitApplication` implements neither. `app_protocol::install` adds both
+1. **`CefAppProtocol` on the toolkit's `NSApp`.** Chromium sends
+   `isHandlingSendEvent` / `setHandlingSendEvent:` to `NSApp`, and the
+   toolkit's class implements neither. `app_protocol::install` adds both
    methods plus the `CrAppProtocol` / `CrAppControlProtocol` /
-   `CefAppProtocol` conformances to winit's class before `cef_initialize`
+   `CefAppProtocol` conformances to that class before `cef_initialize`
    and fails startup with `CefError::AppProtocol` if that does not take.
    Type-checked only: confirm CEF starts and a `<select>` popup opens
    without an "unrecognized selector" crash.

@@ -1,13 +1,13 @@
-//! Makes winit's `NSApplication` satisfy CEF's `CefAppProtocol` (macOS).
+//! Makes the window's `NSApplication` satisfy CEF's `CefAppProtocol` (macOS).
 //!
 //! CEF requires `NSApp` to implement `CefAppProtocol` (`cef_app_mac.h`):
 //! Chromium casts `NSApp` to `CrAppControlProtocol` and sends it
 //! `isHandlingSendEvent` / `setHandlingSendEvent:` (`ScopedSendingEvent`,
-//! `MessagePumpCrApplication`). winit owns `NSApp` here (it must be created
-//! before CEF initialises), and its subclass knows neither selector, so the
-//! first such send would die with "unrecognized selector". [`install`] adds
-//! both methods and the three protocol conformances to `NSApp`'s runtime
-//! class instead of replacing winit's subclass.
+//! `MessagePumpCrApplication`). The Kit window's toolkit, GPUI, owns `NSApp`
+//! here (it must exist before CEF initialises), and its class knows neither
+//! selector, so the first such send would die with "unrecognized selector".
+//! [`install`] adds both methods and the three protocol conformances to
+//! `NSApp`'s runtime class instead of replacing the toolkit's class.
 
 use std::ffi::CString;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -30,7 +30,8 @@ extern "C-unwind" fn set_handling_send_event(_this: *mut AnyObject, _cmd: Sel, h
 }
 
 /// Adds `CefAppProtocol` (and its parents) to `NSApp`'s class. Call on the
-/// main thread after winit created `NSApp` and the CEF framework is loaded,
+/// main thread after the window's toolkit created `NSApp` and the CEF
+/// framework is loaded,
 /// before `cef_initialize`.
 pub(crate) fn install() -> Result<(), CefError> {
     // SAFETY: `+[NSApplication sharedApplication]` takes no arguments and

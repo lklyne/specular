@@ -390,8 +390,8 @@ impl PageSource for CefPageSource {
 
     /// Closes the browsers, lets the pump timer run CEF until they are gone,
     /// then has the timer stop CEF: both the close and `cef::shutdown` spin
-    /// run-loop turns, which must happen outside winit's handlers and before
-    /// its event loop returns (see `pump_timer`).
+    /// run-loop turns, which must happen outside the window's event handlers
+    /// and before its run loop ends (see `pump_timer`).
     #[cfg(target_os = "macos")]
     fn poll_shutdown(&mut self) -> bool {
         if !self.running {
