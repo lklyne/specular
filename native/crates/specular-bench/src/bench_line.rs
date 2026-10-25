@@ -1,4 +1,4 @@
-//! The JSON lines `specular-app` prints on stdout, which `assemble` folds
+//! The JSON lines `specular` prints on stdout, which `assemble` folds
 //! into a [`RunReport`](crate::RunReport). One type on both sides, so a field
 //! renamed in the app fails `assemble` instead of reading as zero.
 
@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{LatencySummary, PaintPolicy, PhaseReport, WorkReport};
 
-/// One line of `specular-app` output.
+/// One line of `specular` output.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 #[expect(

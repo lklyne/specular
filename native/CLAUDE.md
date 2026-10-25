@@ -25,7 +25,7 @@ Event -> update(&mut App, Event) -> Vec<Effect>     pure, no I/O
   kind under `src/view/`.
 - `specular-api` turns an HTTP request and `&App` into a read answer or an
   `Event::Api`, so an agent's write goes through `update` like a key press.
-  The shell hosts the server (`specular-app/src/api/`).
+  The shell hosts the server (`specular-shell/src/api/`).
 - `App` owns one `Space`: every canvas of the open folder, each with its
   own `Document`, `History`, camera and selection. `app.document` is the
   active canvas's. Canvas operations are `Action::Canvas`, and the file
@@ -36,11 +36,13 @@ Event -> update(&mut App, Event) -> Vec<Effect>     pure, no I/O
   `Helper*.app`s, which Chromium's child processes run. It depends on `cef`
   alone. Keep the app's crates out of it: each one linked in is paid for
   five times.
-- There are two shells over one `specular_app::Runtime`, which runs every
-  effect. `specular-app` is the winit one. `specular-shell` (binary
-  `specular`) is the GPUI Kit one (ADR 0040): the Kit draws the chrome and
-  the sidebar from the models, and the compositor draws the canvas under it. A
-  new effect gets its runner in `specular-app/src/app/`, once, for both.
+- `specular-shell` is the shell. Its library is the `Runtime`, which runs
+  every effect, the command line and the headless modes; its binary
+  `specular` is the GPUI Kit window (ADR 0040, `src/kit/`): the Kit draws
+  the chrome and the sidebar from the models, and the compositor draws the
+  canvas under it. A headless run is a `Runtime` over an offscreen window
+  (`src/headless/`), so a new effect gets its runner in
+  `specular-shell/src/app/` once, for both.
 
 The Electron app was deleted in the big run. Its source is in git history
 at `bc5253fa` (the last `main` commit before the run): read a file with
@@ -244,14 +246,14 @@ fn shift_drag_moves_the_page_along_one_axis() {
 
 ## Looking at what it draws
 
-`specular-app` draws a canvas into a PNG with no window, on the real GPU
+`specular --snapshot` draws a canvas into a PNG with no window, on the real GPU
 with the synthetic page source. Nothing else is written.
 
 ```sh
-cargo run -p specular-app -- --snapshot out.png fixtures/kitchen-sink.canvas
-cargo run -p specular-app -- --snapshot out.png --snapshot-size 1200x800 \
+cargo run -p specular-shell -- --snapshot out.png fixtures/kitchen-sink.canvas
+cargo run -p specular-shell -- --snapshot out.png --snapshot-size 1200x800 \
     --snapshot-camera -400,-900,2 --snapshot-scale 2 FILE.canvas
-cargo run -p specular-app -- --script steps.txt FILE.canvas
+cargo run -p specular-shell -- --script steps.txt FILE.canvas
 ```
 
 - Pages are synthetic stand-ins. To see the real ones, build with
@@ -262,7 +264,7 @@ cargo run -p specular-app -- --script steps.txt FILE.canvas
   `wait ms` lets pages run for that long. See `README.md`.
 - The camera is `fit` (the default) or `x,y,zoom`: the pan in screen
   pixels, so canvas point `(cx, cy)` at the top-left is `-cx*zoom,-cy*zoom,zoom`.
-- A script is one step a line, read by `specular_app::script`, the one
+- A script is one step a line, read by `specular_shell::script`, the one
   module both runners share: this headless one and the Kit window
   (`SPECULAR_SHELL_SCRIPT_FILE`). Its first line may name the canvas
   (`# canvas: ../kitchen-sink.canvas`), and `given` lines may describe the
@@ -304,7 +306,7 @@ cargo run -p specular-app -- --script steps.txt FILE.canvas
   and `fixtures/scenarios/run.sh` runs them (`--kit` in the window, `--cef`
   on real pages, `--cli` the CLI end to end) into
   `runs/scenarios/<mode>/`. `cargo test --workspace` runs every headless
-  scenario too (`specular-app/tests/scenarios.rs`; `SCENARIO=name` for
+  scenario too (`specular-shell/tests/scenarios.rs`; `SCENARIO=name` for
   one). Add to them when a bug only showed up in use.
 - `fixtures/kitchen-sink.canvas` has every kind in every style. Snapshot it
   after changing `specular-scene` or `specular-compositor` and open the PNG
@@ -329,13 +331,13 @@ logs the port it took and the `SPECULAR_DISCOVERY_FILE=` to pass the CLI.
   file of its own, and runs `cases.py`, which asserts on each verb's output,
   exit code and the saved canvas. Add a case there for a new verb or route.
   `specular-api/tests/api/` keeps what the CLI cannot reach (the page
-  proxy, `Api::plan`, a write during a drag); `specular-app/src/api/tests.rs`
+  proxy, `Api::plan`, a write during a drag); `specular-shell/src/api/tests.rs`
   is the transport over a real socket.
 - A route the CLI can call and this app lacks gets a row in `unported.rs`,
   so the caller reads which verb is missing instead of a 404.
 - The browse verbs (`snapshot`, `click`, ...) reach a page through its own
   CDP websocket, which `GET /pages/<id>/cdp-target` names. The routing is
-  `specular_api::cdp::PageProxy`, the sockets are `specular-app/src/cdp/`,
+  `specular_api::cdp::PageProxy`, the sockets are `specular-shell/src/cdp/`,
   and `fixtures/scenarios/cef/cli-pages.sh` runs every verb against a
   bundled debug CEF app on a scratch space (`CLI=` names the CLI binary).
   `fixtures/scenarios/run.sh --cef` runs it with `cef/sync.txt`, a sync
@@ -344,7 +346,7 @@ logs the port it took and the `SPECULAR_DISCOVERY_FILE=` to pass the CLI.
   `export AGENT_BROWSER_PATH="$(scripts/build-agent-browser.sh)"`. It sends
   `Specular.willAct` before each targeted verb, `PageProxy` holds the
   answer, and `specular-interact/src/presence.rs` releases it when the
-  cursor is there (ADR 0046). `RUST_LOG=specular_app::app=debug` logs each
+  cursor is there (ADR 0046). `RUST_LOG=specular_shell::app=debug` logs each
   act and its go.
 
 ## Gate
@@ -376,7 +378,7 @@ time on different files.
   simplest option consistent with the architecture, record it under
   "Decisions" in the run log, and keep going.
 - Do not use `--release`, do not run `bundle-macos.sh`, and do not start or
-  kill any `specular-app` process. A benchmark may be running.
+  kill any `specular` process. A benchmark may be running.
 - Commit only your own files, staged by explicit path (never `git add -A`
   or `git add .`). Conventional message, scope `native`. Do not push, open
   PRs, or switch branches.

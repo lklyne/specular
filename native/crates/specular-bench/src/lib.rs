@@ -13,7 +13,7 @@
 //! - [`memory`]: physical footprint (macOS) and RSS summed over a shell's
 //!   whole process tree.
 //! - [`breakdown`]: the same tree one row a process, named by what each is.
-//! - [`bench_line`]: the JSON lines `specular-app` prints, read by
+//! - [`bench_line`]: the JSON lines `specular` prints, read by
 //!   `assemble`.
 //! - [`report`]: the results file `assemble` produces.
 

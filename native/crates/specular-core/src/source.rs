@@ -412,7 +412,7 @@ pub struct PageSafeArea {
 /// Object-safe on purpose: the app holds a `Box<dyn PageSource>` and picks the
 /// CEF or synthetic backend at startup, and the bench drives either through
 /// the same handle. Every method is called on the main thread (CEF on macOS
-/// requires its UI thread to be the process main thread, shared with winit),
+/// requires its UI thread to be the process main thread, shared with the window),
 /// so implementors need not be `Send`.
 pub trait PageSource {
     /// Short backend name for logs and bench reports (`"cef"`, `"synthetic"`).

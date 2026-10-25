@@ -1,6 +1,6 @@
 //! A script's steps as the things the window runner does.
 //!
-//! The script is read by `specular_app::script`, the same module the
+//! The script is read by `specular_shell::script`, the same module the
 //! headless runner reads it with, so a scenario file runs here as written.
 //! Each step is lowered here to what the window does for it: a pointer or
 //! key event posted to the application, an `Action` through `update`, or a
@@ -10,8 +10,8 @@
 use std::path::PathBuf;
 
 use glam::Vec2;
-use specular_app::script::{CameraArg, CanvasStep, Expect, PanelStep, Step, WindowStep};
 use specular_interact::{Action, Event, PageNotice};
+use specular_shell::script::{CameraArg, CanvasStep, Expect, PanelStep, Step, WindowStep};
 
 use super::us_keys::{COMMAND, flags_of, key_of, key_step};
 

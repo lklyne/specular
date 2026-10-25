@@ -2,7 +2,7 @@
 //! window, a scenario replayed in it, or a capture for an ADR.
 //!
 //! `SPECULAR_SHELL_SCRIPT_FILE` names a scenario script, read by
-//! `specular_app::script` exactly as the headless runner reads it (see
+//! `specular_shell::script` exactly as the headless runner reads it (see
 //! "Scenario scripts" in `native/CLAUDE.md`), so a file under
 //! `fixtures/scenarios/` runs here as written, `expect` steps included. The
 //! run quits when the file ends. `SPECULAR_SHELL_SCRIPT` holds steps
@@ -23,7 +23,7 @@
 //!
 //! The steps only a window can do (`keycode`, `pan`, `swipe`, `resize`,
 //! `resize-drag`, `drop`, `menu-choose` and the rest) are listed with
-//! `specular_app::script::WindowStep`. `state PATH` writes the `expect`
+//! `specular_shell::script::WindowStep`. `state PATH` writes the `expect`
 //! facts and then the window's own: the Kit's controls on screen and the
 //! window's frame.
 #![expect(
@@ -45,8 +45,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use gpui_kit::{AnyWindowHandle, App};
-use specular_app::script::{Checks, Script};
 use specular_interact::Event;
+use specular_shell::script::{Checks, Script};
 
 use self::steps::Do;
 use crate::canvas;

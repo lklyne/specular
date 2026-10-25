@@ -58,7 +58,7 @@ otherwise.
 ## Crash logs
 
 - Panics, page crashes and CEF child-process deaths go to
-  `~/Library/Logs/Specular/errors.log` (`specular-app/src/crash_log.rs`).
+  `~/Library/Logs/Specular/errors.log` (`specular-shell/src/crash_log.rs`).
 - Native crash dumps are not written yet: CEF's Crashpad needs a
   `crash_reporter.cfg` in the bundle.
 
@@ -83,8 +83,8 @@ undo is a stack of inverses (ADR 0041).
 The crates and their dependency direction are in `native/README.md`. The rules:
 
 - `specular-core`, `-doc`, `-agent`, `-interact`, `-scene` and `-api` do no
-  GPU, window, CEF or file I/O. Only the shell crates and `specular-cef` do I/O.
-- A new effect gets its runner once, in the runtime (`specular-app/src/app/`).
+  GPU, window, CEF or file I/O. Only `specular-shell` and `specular-cef` do I/O.
+- A new effect gets its runner once, in the runtime (`specular-shell/src/app/`).
 - `specular-cef-helper` depends on `cef` alone; each crate linked into it is
   paid for five times in the bundle.
 - UI is pure models (`&App` -> plain data) drawn by the Kit shell (ADR 0044).
@@ -151,7 +151,7 @@ native/CLAUDE.md ("Tests"). In short:
 
 The specular Claude Code skill lives in three places. Knowing which is which avoids silently-wasted edits:
 
-- **`resources/skills/specular/SKILL.md`** — canonical source. `bundle-app.sh` copies it into the app bundle (`Contents/Resources/skills/specular`), and the app's setup dialog installs it into `~/.claude/skills/specular/` (`specular-app/src/agent_tools.rs`). Default to editing this when updating guidance that should reach end users.
+- **`resources/skills/specular/SKILL.md`** — canonical source. `bundle-app.sh` copies it into the app bundle (`Contents/Resources/skills/specular`), and the app's setup dialog installs it into `~/.claude/skills/specular/` (`specular-shell/src/agent_tools.rs`). Default to editing this when updating guidance that should reach end users.
 - **`.claude/skills/specular/SKILL.md`** — repo-local copy Claude Code auto-loads when working inside this codebase. Keep it in sync with `resources/skills/` so in-repo agents and end users see the same guidance. A few dev-only sections (e.g. the tracking-issue GitHub link) are allowed to live here and not ship.
 - **`~/.claude/skills/specular/SKILL.md`** — each user's installed copy. Treat as read-only: at each launch the app brings it up to the bundled skill when the installed copy is still the one the app wrote. A hand-edited copy is left alone and stops getting updates.
 

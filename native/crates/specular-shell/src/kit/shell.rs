@@ -15,8 +15,8 @@ use gpui_kit::{
     size, transparent_black,
 };
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
-use specular_app::{Bench, Launch, Runtime};
 use specular_interact::Event;
+use specular_shell::{Bench, Launch, Runtime};
 
 use crate::canvas;
 use crate::native::{Id, NativeCanvas};

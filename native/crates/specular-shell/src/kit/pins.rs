@@ -48,7 +48,7 @@ pub(crate) fn about(backend: &str) -> Vec<specular_interact::AboutRow> {
 pub(crate) fn describe() -> String {
     format!(
         "checked against gpui-kit {GPUI_KIT} on gpui-pre {GPUI_PRE}; if the pin in \
-         native/Cargo.toml moved, read ADR 0040's Risks and crates/specular-shell/src/pins.rs"
+         native/Cargo.toml moved, read ADR 0040's Risks and crates/specular-shell/src/kit/pins.rs"
     )
 }
 
@@ -58,7 +58,7 @@ mod tests {
 
     /// The versions of `package` in the workspace lockfile.
     fn locked(package: &str) -> Vec<String> {
-        let lock = include_str!("../../../Cargo.lock");
+        let lock = include_str!("../../../../Cargo.lock");
         let header = format!("name = \"{package}\"");
         let mut lines = lock.lines();
         let mut versions = Vec::new();

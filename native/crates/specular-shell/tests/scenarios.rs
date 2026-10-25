@@ -51,7 +51,7 @@ fn every_headless_scenario_passes() {
                     let folder = out.join(&name);
                     let _ = std::fs::remove_dir_all(&folder);
                     std::fs::create_dir_all(&folder).unwrap();
-                    match specular_app::run_scenario(&script, &folder) {
+                    match specular_shell::run_scenario(&script, &folder) {
                         Ok(report) if report.skipped.is_empty() => eprintln!("pass {name}"),
                         Ok(report) => eprintln!(
                             "pass {name} (skipped {} window steps)",

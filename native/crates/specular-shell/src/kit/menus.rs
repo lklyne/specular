@@ -8,8 +8,8 @@
 //!
 //! A model item's key is bound under a context no element has. macOS shows
 //! it beside the item, and GPUI's keymap never fires it: over the canvas a
-//! key goes to `update` as a key, where the binding table decides, exactly
-//! as in the winit shell. Elsewhere in the window macOS matches the menu's
+//! key goes to `update` as a key, where the binding table decides.
+//! Elsewhere in the window macOS matches the menu's
 //! key equivalent and the item runs.
 //!
 //! macOS greys an item when GPUI says its action is not available, which

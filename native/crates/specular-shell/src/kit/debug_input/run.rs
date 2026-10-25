@@ -8,9 +8,9 @@ use std::time::{Duration, Instant};
 
 use glam::Vec2;
 use gpui_kit::{AnyWindowHandle, AsyncApp};
-use specular_app::script::{self, Checks, PanelStep};
 use specular_doc::{Document, EdgeId, EntityId, ItemId};
 use specular_interact::{Action, Event, SidebarAction};
+use specular_shell::script::{self, Checks, PanelStep};
 
 use super::events::{self, DRAGGED, LEFT_DOWN, LEFT_UP, MOVED};
 use super::steps::{self, Do, Place};

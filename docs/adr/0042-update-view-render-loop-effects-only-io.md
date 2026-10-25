@@ -27,7 +27,7 @@ window, CEF, HTTP, files ──> Event
 - A question to a page is an effect answered by an event that repeats the question, so nothing waits inside the session.
 - An agent's HTTP write is `Event::Api` and its answer is `Effect::ApiReply`. It goes through the same door as a key press and makes the same undo step.
 - `view` builds a flat display list from the app. It names no renderer type. The compositor draws the list and knows nothing about entities or tools.
-- Both shells share one `specular_app::Runtime`, which holds every effect runner. A new effect gets its runner once.
+- One `specular_shell::Runtime` holds every effect runner, for the window and for headless runs. A new effect gets its runner once.
 
 Today `Event` has 31 variants and `Effect` has 46.
 

@@ -3,7 +3,7 @@
 **Status:** Accepted, 2026-10-25, by Lyle with the [big run](../plans/rust-native-big-run.md)'s decisions. Built this way in `native/crates/specular-interact/src/space/` during the Rust rebuild.
 **Date:** 2026-10-08
 **Related:** [Rust native rebuild plan](../plans/rust-native-rebuild.md), task P5. [ADR 0033](./0033-user-chosen-space-folder.md), which defines the space folder. CONTEXT.md, "Tab" and "Tab context", the Electron design this departs from.
-**Code:** `specular-interact/src/space.rs` and `space/`, `specular-app/src/space/`.
+**Code:** `specular-interact/src/space.rs` and `space/`, `specular-shell/src/space/`.
 
 ## Context
 

@@ -11,7 +11,7 @@
 # headless  `specular --script` with the synthetic pages and no panels
 #           drawn. Steps only a window can do are skipped and listed.
 #           `cargo test --workspace` runs the same scenarios
-#           (crates/specular-app/tests/scenarios.rs).
+#           (crates/specular-shell/tests/scenarios.rs).
 # --kit     the `specular` binary opens a window on a scratch copy of the
 #           scenario's canvas and replays it with real events. It needs the
 #           display: a covered window or a locked screen draws nothing, so

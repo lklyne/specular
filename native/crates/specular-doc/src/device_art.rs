@@ -1,11 +1,11 @@
 //! The realistic device frames: which devices have art, and where the
 //! screen sits in each drawing.
 //!
-//! The drawings are the SVG files under `specular-app/assets/device-frames`,
+//! The drawings are the SVG files under `specular-shell/assets/device-frames`,
 //! converted from the Flutter `device_frame` package. [`DeviceArt`] and its
 //! numbers are in `device_art/table.rs`, which
 //! `native/scripts/device-art-table.py` writes from that folder's
-//! `manifest.json`. A test in `specular-app` holds the two together.
+//! `manifest.json`. A test in `specular-shell` holds the two together.
 
 mod table;
 

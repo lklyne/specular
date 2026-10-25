@@ -2,8 +2,8 @@
 
 Whole sessions, scripted, that use the features together and check what
 they leave. Each `.txt` here is one script in the one format that both
-runners read (`specular_app::script`): the headless runner
-(`specular-app --script`) and the Kit window (`SPECULAR_SHELL_SCRIPT_FILE`).
+runners read (`specular_shell::script`): the headless runner
+(`specular --script`) and the Kit window (`SPECULAR_SHELL_SCRIPT_FILE`).
 Scripts are grouped by user flow, one flow a file.
 
 ```sh
@@ -12,14 +12,14 @@ fixtures/scenarios/run.sh first-session      # one
 fixtures/scenarios/run.sh --kit              # in the Kit window (needs the display)
 fixtures/scenarios/run.sh --cef              # cef/: real pages, needs a CEF bundle
 fixtures/scenarios/run.sh --cli              # cli/: the CLI end to end
-SCENARIO=first cargo test -p specular-app --test scenarios   # headless, from cargo
+SCENARIO=first cargo test -p specular-shell --test scenarios   # headless, from cargo
 ```
 
 `run.sh` prints one `pass` or `FAIL` line a scenario and exits non-zero
 when any fails. What a run saves and draws goes to
 `native/runs/scenarios/<mode>/<scenario>/` with its `stderr.log`.
 `cargo test --workspace` runs every headless scenario too
-(`crates/specular-app/tests/scenarios.rs`), so CI gets them with the
+(`crates/specular-shell/tests/scenarios.rs`), so CI gets them with the
 tests.
 
 Headless runs use the synthetic pages and draw no panels: a
@@ -50,7 +50,7 @@ undo-to-start
   before the first step and describe the document inline:
   `given sticky s1 100 100 200 200 Hello`, `given page p1 ...`,
   `given inside g1 shape r1 ...`, `given edge e1 s1 r1`
-  (see `crates/specular-app/src/script/given.rs`).
+  (see `crates/specular-shell/src/script/given.rs`).
 - Start with a `camera x,y,zoom` step, so the positions that follow mean
   something. Positions are screen pixels in a 1600x1000 viewport.
 - Name controls with `control text.color`, never by where they are drawn.
@@ -93,7 +93,7 @@ expect saved changed-from start at /nodes/s1/x
 
 The canvas facts read what the pointer and the selection show, and
 what the last step asked the shell to do; the full list is at the top of
-`crates/specular-app/src/script/facts_canvas.rs`:
+`crates/specular-shell/src/script/facts_canvas.rs`:
 
 ```text
 expect hit 400 185 anchor f1 top    expect guides horizontal top/b.top 100
@@ -113,7 +113,7 @@ The panel facts read a topic's lines, the ones a `state` step writes as
 `TOPIC has LINE`: `chat`, `comments`, `controls`, `editor`, `effects`,
 `inspect`, `menubar`, `onboarding`, `pages`, `palette`, `pointer`,
 `repos`, `settings`, `sidebar` and `tabs` (see
-`crates/specular-app/src/script/facts_panels.rs`):
+`crates/specular-shell/src/script/facts_panels.rs`):
 
 ```text
 expect chat has bubble agent "Made it blue."   expect comments has mark a pill 466 237 26 26

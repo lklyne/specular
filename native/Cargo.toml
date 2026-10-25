@@ -23,7 +23,6 @@ specular-compositor = { path = "crates/specular-compositor" }
 specular-cef = { path = "crates/specular-cef" }
 specular-bench = { path = "crates/specular-bench" }
 specular-testkit = { path = "crates/specular-testkit" }
-specular-app = { path = "crates/specular-app" }
 specular-prism = { path = "crates/specular-prism" }
 
 anyhow = "1.0.100"

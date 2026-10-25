@@ -1,5 +1,5 @@
-//! Page paint LOD, ported from the Electron page host so both shells do the
-//! same work per page: `page-frame-rate.ts` (frame-rate tiers),
+//! Page paint LOD, ported from the Electron page host so the shell does the
+//! same work per page as it did: `page-frame-rate.ts` (frame-rate tiers),
 //! `page-texture-scale.ts` (texture-scale tiers) and the painting and settle
 //! rules in `page-host.ts` / `layout-engine.ts`.
 //!

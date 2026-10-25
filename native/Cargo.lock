@@ -6911,39 +6911,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "specular-app"
-version = "0.10.2"
-dependencies = [
- "anyhow",
- "arboard",
- "base64 0.23.1",
- "glam",
- "image",
- "pollster 1.0.1",
- "resvg 0.46.0",
- "rfd",
- "serde_json",
- "sha1_smol",
- "sha2 0.10.9",
- "specular-agent",
- "specular-api",
- "specular-bench",
- "specular-cef",
- "specular-compositor",
- "specular-core",
- "specular-doc",
- "specular-interact",
- "specular-scene",
- "specular-testkit",
- "thiserror 2.0.21",
- "tiny_http",
- "tracing",
- "tracing-subscriber",
- "trash",
- "wgpu 30.0.1",
-]
-
-[[package]]
 name = "specular-bench"
 version = "0.10.2"
 dependencies = [
@@ -7076,6 +7043,8 @@ name = "specular-shell"
 version = "0.10.2"
 dependencies = [
  "anyhow",
+ "arboard",
+ "base64 0.23.1",
  "block2 0.6.2",
  "futures",
  "glam",
@@ -7087,14 +7056,27 @@ dependencies = [
  "objc2-foundation 0.3.2",
  "pollster 1.0.1",
  "raw-window-handle",
- "specular-app",
+ "resvg 0.46.0",
+ "rfd",
+ "serde_json",
+ "sha1_smol",
+ "sha2 0.10.9",
+ "specular-agent",
+ "specular-api",
+ "specular-bench",
+ "specular-cef",
  "specular-compositor",
  "specular-core",
  "specular-doc",
  "specular-interact",
  "specular-prism",
  "specular-scene",
+ "specular-testkit",
+ "thiserror 2.0.21",
+ "tiny_http",
  "tracing",
+ "tracing-subscriber",
+ "trash",
  "wgpu 30.0.1",
 ]
 

@@ -9,7 +9,7 @@
 //! Times are microseconds since [`init_from_env`], from one monotonic clock.
 //! This is the one place in this crate that writes a file, and only when
 //! asked to by the environment: it lives here so the CEF source, the
-//! compositor and both shells can reach it.
+//! compositor and the shell can reach it.
 
 use std::fmt::Write as _;
 use std::path::PathBuf;

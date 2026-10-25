@@ -129,15 +129,15 @@ cargo clippy -p specular-cef --all-targets --features cef-dox \
 
    ```sh
    cd native
-   cargo build -p specular-app --release --features cef
+   cargo build -p specular-shell --release --features cef
    crates/specular-cef/scripts/bundle-macos.sh release
-   # -> target/release/specular-app.app
-   target/release/specular-app.app/Contents/MacOS/specular-app path/to/file.canvas
+   # -> target/release/specular.app
+   target/release/specular.app/Contents/MacOS/specular path/to/file.canvas
    ```
 
    Run the inner binary directly (not `open`) to keep stdout/stderr and argv.
    `bundle-macos.sh` copies the one binary into five helper bundles
-   (`specular-app Helper`, `Helper (GPU)`, `Helper (Renderer)`,
+   (`specular Helper`, `Helper (GPU)`, `Helper (Renderer)`,
    `Helper (Plugin)`, `Helper (Alerts)`), copies
    `Chromium Embedded Framework.framework`, writes the `Info.plist`s
    (helpers get `LSUIElement`), and ad-hoc signs the bundle. It mirrors

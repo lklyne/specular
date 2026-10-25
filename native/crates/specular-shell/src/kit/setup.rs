@@ -4,7 +4,7 @@
 //! up Specular… after that.
 //!
 //! What is installed is on disk and not in the app's model, so the dialog
-//! reads it through [`specular_app::agent_tools`] when it opens and after
+//! reads it through [`specular_shell::agent_tools`] when it opens and after
 //! each install.
 
 use std::cell::RefCell;
@@ -17,7 +17,7 @@ use gpui_kit::{
     App, FontWeight, Hsla, IntoElement, ParentElement as _, SharedString, Styled as _, Window, div,
     px,
 };
-use specular_app::agent_tools::{self, Setup, Status};
+use specular_shell::agent_tools::{self, Setup, Status};
 
 use crate::assets::ShellIcon;
 use crate::theme;

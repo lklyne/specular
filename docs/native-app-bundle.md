@@ -61,7 +61,7 @@ own `specular-cli.sh`, which this bundle does not have, so the setup dialog
 offers to replace it.
 
 Neither is installed until the user says so, in the setup dialog
-(`specular-shell/src/setup.rs` over `specular-app/src/agent_tools.rs`). The
+(`specular-shell/src/kit/setup.rs` over `specular-shell/src/agent_tools.rs`). The
 dialog opens by itself once a space is open, on every launch until the user
 presses Done, and from Specular > Set up Specular… at any time. "Skip for
 now" closes it and leaves it to open again. Done is recorded as

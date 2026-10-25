@@ -44,14 +44,13 @@ tests and the headless modes below need no window.
 | `specular-doc` | lib | The typed `Document`: entities, edges, annotations, `Command`s with inverses, `History`, and the `.canvas` reader and writer |
 | `specular-agent` | lib | The agent thread model: the `Threads` store, the thread files' shape, the prompts, the `claude` stream parser, repo bindings. Pure |
 | `specular-interact` | lib | `App`, `Session`, `Space`, `Event`, `Effect`, `Action`, `Tool`, `Gesture`, hit-test, `update`, the text editor, the key binding table, and every panel model (toolbar, dock, sidebar, menus, chat, settings, first run) |
-| `specular-scene` | lib | The `Scene` display list, `view` with one module a kind, the markdown parser, and the built-in panel painter |
+| `specular-scene` | lib | The `Scene` display list, `view` with one module a kind, the markdown parser, and the panel glyphs as SVG for the Kit |
 | `specular-api` | lib | The HTTP API with the socket taken off: a request and `&App` in, a read answer or an `Event::Api` out. Also the per-page CDP routing, and the JSON both ends share (`wire.rs`) |
 | `specular-cli` | bin | The `specular` command (binary `specular-cli`, linked onto the `PATH` as `specular`): every verb is one or two requests to the running app's API. Its end-to-end runs are `fixtures/scenarios/cli/run.sh` |
 | `specular-compositor` | lib | The wgpu renderer. Draws a `Scene` over the dot grid in one 4x multisampled pass: page textures, SDF shapes, glyphon text, lyon paths. Imports page IOSurfaces with no copy on macOS. Implements the text measure |
 | `specular-prism` | lib | The Prism, the thread avatar, rendered on wgpu from three's own WGSL at parity with the web build (ADR 0047). Depends on wgpu alone |
 | `specular-cef` | lib | The CEF offscreen `PageSource` (feature `cef`) and the CEF-free helpers it is built from. See [`crates/specular-cef/README.md`](crates/specular-cef/README.md) |
-| `specular-app` | lib + bin | `Runtime`, which owns the `App` and runs every effect: page hosts, space files, images, Documents, clipboard, the HTTP and CDP servers, the agent runner. Also the command line, the headless `--snapshot` and `--script` modes, `--bench`, and the winit window (binary `specular-app`) |
-| `specular-shell` | bin | The GPUI Kit window (binary `specular`, ADR 0040). The Kit draws the chrome (tab row, toolbar, dock), sidebar, menus, settings, first run and the chat panel from the models. The compositor draws the canvas in a view under GPUI's. It uses `specular-app`'s `Runtime` and command line |
+| `specular-shell` | lib + bin | The library is `Runtime`, which owns the `App` and runs every effect: page hosts, space files, images, Documents, clipboard, the HTTP and CDP servers, the agent runner. Also the command line, the headless `--snapshot` and `--script` modes (a `Runtime` over an offscreen window) and `--bench`. The binary `specular` (`src/kit/`, ADR 0040) is the GPUI Kit window: the Kit draws the chrome (tab row, toolbar, dock), sidebar, menus, settings, first run and the chat panel from the models, and the compositor draws the canvas in a view under GPUI's |
 | `specular-bench` | lib + bin | Gesture profiles, frame stats, per-frame work times, process-tree memory and `assemble`. See [`crates/specular-bench/README.md`](crates/specular-bench/README.md) |
 | `specular-testkit` | lib, dev only | `TestApp`, snapshot macros and entity builders for tests |
 
@@ -63,7 +62,7 @@ As the manifests have it, each crate depending only on crates to its left:
 core, doc, agent  <-  interact  <-  scene  <-  compositor
                                 \-  api
 core  <-  cef, bench
-everything above  <-  app  <-  shell  ->  prism
+everything above  <-  shell  ->  prism
 ```
 
 - `core`, `doc` and `agent` depend on no other crate here.
@@ -71,15 +70,15 @@ everything above  <-  app  <-  shell  ->  prism
   depend on `interact`, `doc` and `core`.
 - `compositor` depends on `scene` and `core`. It names `doc` and `interact`
   only in its tests.
-- `app` depends on all of the above except the testkit. `shell` depends on
-  `app`, and on `prism`, which depends on no other crate here.
+- `shell` depends on all of the above except the testkit, and on `prism`,
+  which depends on no other crate here.
 - `core`, `doc`, `agent`, `interact`, `scene` and `api` have no GPU, window,
   CEF or file I/O.
 
 Two things differ from the plan's diagram. There is no `specular-ui` or
-`specular-render` crate: panel models live in `interact`, panel painting in
-`scene`, and the renderer kept the name `specular-compositor`. And the GPUI
-shell sits on top of the winit shell's crate, not beside it.
+`specular-render` crate: panel models live in `interact`, the Kit draws
+them, and the renderer kept the name `specular-compositor`. And the shell
+is one crate: the runtime is its library and the window its binary.
 
 ## Build and gate
 
@@ -103,31 +102,25 @@ crates/specular-cef/scripts/bundle-macos.sh debug specular
 "target/debug/specular.app/Contents/MacOS/specular" fixtures/input.canvas
 ```
 
-For the winit shell, build `-p specular-app --features cef` and bundle with
-`bundle-macos.sh debug` (the binary name defaults to `specular-app`). CEF only
-runs from the `.app` layout. Run the inner binary directly so stdout, stderr
+CEF only runs from the `.app` layout. Run the inner binary directly so stdout, stderr
 and the arguments are kept, and bundle again after every rebuild, because the
 bundle holds copies.
 
 To type-check the CEF code without downloading CEF:
 
 ```sh
-cargo clippy --workspace --all-targets --features specular-app/cef,specular-cef/cef-dox -- -D warnings
+cargo clippy --workspace --all-targets --features specular-shell/cef,specular-cef/cef-dox -- -D warnings
 ```
 
 ## Run
 
-There are two shells over one runtime.
-
 ```sh
-cargo run -p specular-shell -- [OPTIONS] [FOLDER | FILE.canvas]   # binary `specular`, GPUI Kit
-cargo run -p specular-app   -- [OPTIONS] [FOLDER | FILE.canvas]   # winit, built-in panels
+cargo run -p specular-shell -- [OPTIONS] [FOLDER | FILE.canvas]   # binary `specular`
 ```
 
-`specular` is the app: Kit toolbar, sidebar, settings, the chat panel. It is
-macOS only. `specular-app` is the older window with the built-in panels. It
-stays until the user retires it (plan, "Cleanup tasks", rows 1 and 2). Both
-take the same command line, `--bench` included. `--help` prints all of it.
+`specular` is the app: Kit toolbar, sidebar, settings, the chat panel. The
+window is macOS only; `--snapshot` and `--script` run anywhere. `--help`
+prints the whole command line, `--bench` included.
 
 | Flag | What it does |
 |---|---|
@@ -154,9 +147,8 @@ Your real space is opt-in, because autosave writes into whatever is open.
 - **`--space user`** opens the space the Electron app has in Settings
   (`spacePath` in its `preferences.json`, read and never written), else the
   folder last chosen in this app. It is refused together with a path.
-- **With none of those**, the two shells differ. `specular-app` opens the
-  scratch space. `specular` opens the folder you chose in it, and shows the
-  first-run view when there is none or the folder is gone.
+- **With none of those**, `specular` opens the folder you chose in it, and
+  shows the first-run view when there is none or the folder is gone.
 - A `--bench`, `--snapshot`, `--script`, `--pages` or `--annotations` run
   opens no space. It shows one document and writes nothing.
 
@@ -179,14 +171,14 @@ headless run start no server.
 
 ## Snapshot and script
 
-Either binary draws a canvas into a PNG with no window, on the real GPU.
+`specular` draws a canvas into a PNG with no window, on the real GPU.
 Nothing else is written.
 
 ```sh
-cargo run -p specular-app -- --snapshot out.png fixtures/kitchen-sink.canvas
-cargo run -p specular-app -- --snapshot out.png --snapshot-size 1200x800 \
+cargo run -p specular-shell -- --snapshot out.png fixtures/kitchen-sink.canvas
+cargo run -p specular-shell -- --snapshot out.png --snapshot-size 1200x800 \
     --snapshot-camera -400,-900,2 --snapshot-scale 2 FILE.canvas
-cargo run -p specular-app -- --script steps.txt FILE.canvas
+cargo run -p specular-shell -- --script steps.txt FILE.canvas
 ```
 
 - The camera is `fit` (the default) or `x,y,zoom`, with the pan in screen
@@ -199,8 +191,8 @@ cargo run -p specular-app -- --script steps.txt FILE.canvas
   [`CLAUDE.md`](CLAUDE.md), "Looking at what it draws", has the whole list,
   and [`fixtures/scenarios/README.md`](fixtures/scenarios/README.md) the
   checks.
-- `--script-panels off` runs without the built-in chrome, and a
-  `control NAME` step presses the control from the models.
+- No panels are drawn: a `control NAME` step presses the control from the
+  models.
 - Pages are synthetic unless the bundled binary is run with `--source cef`.
   Then the real pages load first and a script's input reaches an entered
   page.
@@ -246,26 +238,22 @@ nothing, and the capture then looks like blank pages.
 
 ## Bench
 
-`--bench` runs in either window, and each line says which (`"shell"`: `winit`
-or `kit`). Each profile prints one JSON line with frame stats and a `work` object: milliseconds a frame in update, view, cull,
+`--bench` runs in the window, or headless with `--bench-target headless`. Each profile prints one JSON line with frame stats and a `work` object: milliseconds a frame in update, view, cull,
 shaping, batching, tessellation, build, glyphs, upload and submit, and the
 most items, batches, draw calls, glyphs and triangles one frame drew.
 
 ```
-specular     --bench all|slow-pan,slow-zoom,idle [--bench-target window|headless]
-             [--bench-duration-ms N] [--warmup-ms N] [--window WxH] FILE.canvas
-specular-app --bench ...        # the same run in the winit window
+specular --bench all|slow-pan,slow-zoom,idle [--bench-target window|headless]
+         [--bench-duration-ms N] [--warmup-ms N] [--window WxH] FILE.canvas
 ```
 
 - `--bench-target headless` draws into a texture with no vsync and times each
   frame until the GPU is done. Its frame intervals mean nothing. Read `work`.
 - `idle` is a seventh profile, run only when named. In a window it should
   report `framesDrawn: 0`.
-- `fixtures/bench/run.sh LABEL headless|window synthetic|cef [winit|kit]`
+- `fixtures/bench/run.sh LABEL headless|window synthetic|cef`
   runs pan, zoom and idle over the bench canvases into `runs/perf/LABEL/`
-  and prints a table. To compare the windows pass `--window 1600x960`: on a
-  laptop screen macOS shrinks a 1600x1000 winit window to 968 high and
-  leaves the Kit's alone. `idle.py` is a 30 second idle run with the process tree's CPU.
+  and prints a table. `idle.py` is a 30 second idle run with the process tree's CPU.
   `memory.py` prints the tree's footprint by kind of process.
 - Synthetic pages upload on the CPU and always animate. Their numbers are
   not the real cost, and a canvas with them is never idle.
@@ -276,9 +264,9 @@ build running elsewhere doubles the numbers.
 
 ```sh
 cargo build --release -p specular-bench
-cargo build --release -p specular-app --features cef
+cargo build --release -p specular-shell --features cef
 crates/specular-cef/scripts/bundle-macos.sh release
-APP="$PWD/target/release/specular-app.app/Contents/MacOS/specular-app"
+APP="$PWD/target/release/specular.app/Contents/MacOS/specular"
 BENCH="$PWD/target/release/specular-bench"
 "$APP" --pages 4 --bench slow-pan --warmup-ms 5000   # want "representative":true, "drawsWithoutTexture":0
 ```

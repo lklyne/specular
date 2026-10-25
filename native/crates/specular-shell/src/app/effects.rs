@@ -25,7 +25,7 @@ impl<W: ShellWindow> Runtime<W> {
         // Any event may change what a frame shows. The clock is the one
         // sent with nothing to say, and it goes through `demand::tick`.
         self.demand.changed();
-        // `RUST_LOG=specular_app::app::effects=trace` says why frames are
+        // `RUST_LOG=specular_shell::app::effects=trace` says why frames are
         // being drawn on a canvas that should be idle.
         if tracing::enabled!(tracing::Level::TRACE) {
             let event = format!("{event:?}");

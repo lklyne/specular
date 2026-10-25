@@ -12,13 +12,13 @@ use std::rc::Rc;
 use std::time::{Duration, Instant};
 
 use futures::channel::mpsc;
-use specular_app::{Bench, Runtime, ShellWindow as _};
 use specular_interact::panel::ContextMenu;
 use specular_interact::{
     Appearance, ChatModel, ControlsModel, Event, Menu, OnboardingModel, SidebarModel, Theme,
     ToolbarModel, ViewStrip, chat, context_menu, dock, menus, onboarding, sidebar, tool_options,
     toolbar, view_strip,
 };
+use specular_shell::{Bench, Runtime, ShellWindow as _};
 
 use crate::surface::{CanvasSurface, WindowAsks};
 

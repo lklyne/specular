@@ -11,12 +11,12 @@ use std::rc::Rc;
 
 use anyhow::Context as _;
 use glam::Vec2;
-use specular_app::offscreen::Target;
-use specular_app::{PageOf, ShellWindow};
 use specular_compositor::{Compositor, DotGrid, FrameView, GpuContext, SceneStats};
 use specular_core::Camera;
 use specular_interact::{ControlId, Cursor};
 use specular_scene::{Draw, Item, Scene, Space};
+use specular_shell::offscreen::Target;
+use specular_shell::{PageOf, ShellWindow};
 
 use crate::native::NativeCanvas;
 use crate::pacing::Pacing;

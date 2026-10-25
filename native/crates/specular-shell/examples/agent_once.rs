@@ -1,6 +1,6 @@
 //! One real run through `ClaudeCli` and `AgentRuns`, printing every notice.
 //!
-//! `cargo run -p specular-app --example agent_once -- <dir> <prompt..>
+//! `cargo run -p specular-shell --example agent_once -- <dir> <prompt..>
 //! [--resume <session id>] [--image <path relative to dir>]`
 
 use std::path::PathBuf;
@@ -8,7 +8,7 @@ use std::process::ExitCode;
 use std::time::Duration;
 
 use specular_agent::{Image, MediaType, Notice, RunRequest, ThreadId};
-use specular_app::agent::{AgentRuns, ClaudeCli};
+use specular_shell::agent::{AgentRuns, ClaudeCli};
 
 fn media_type(path: &str) -> Option<MediaType> {
     let ext = path.rsplit('.').next()?.to_ascii_lowercase();

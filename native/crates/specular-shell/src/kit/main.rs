@@ -1,10 +1,10 @@
 //! `specular`: the GPUI Kit shell (ADR 0040).
 //!
 //! One GPUI window. GPUI Kit draws the toolbar, the sidebar, the menus and
-//! the dialogs from the app's pure models, and the unchanged compositor
-//! draws the canvas and its pages into a view under GPUI's. The runtime,
-//! the command line, the `--snapshot` and `--script` modes and the
-//! `--bench` driver are the winit shell's own, from `specular-app`.
+//! the dialogs from the app's pure models, and the compositor draws the
+//! canvas and its pages into a view under GPUI's. The runtime, the command
+//! line, the `--snapshot` and `--script` modes and the `--bench` driver are
+//! this crate's library.
 //!
 //! ```sh
 //! cargo run -p specular-shell -- fixtures/kitchen-sink.canvas
@@ -59,10 +59,10 @@ mod view;
 
 #[cfg(target_os = "macos")]
 fn main() {
-    if let Some(code) = specular_app::run_subprocess_if_needed() {
+    if let Some(code) = specular_shell::run_subprocess_if_needed() {
         std::process::exit(code);
     }
-    let launch = match specular_app::launch(std::env::args_os().skip(1)) {
+    let launch = match specular_shell::launch(std::env::args_os().skip(1)) {
         Ok(Some(launch)) => launch,
         // Help was printed, or a headless run is finished.
         Ok(None) => return,
@@ -88,14 +88,26 @@ fn main() {
         // given.
         if !debug_input::scripted() {
             updates::start();
-            std::thread::spawn(specular_app::agent_tools::update_skill);
+            std::thread::spawn(specular_shell::agent_tools::update_skill);
             setup::open_when_wanted(cx);
         }
     });
 }
 
+/// The headless modes run anywhere; the window is macOS only for now.
 #[cfg(not(target_os = "macos"))]
 fn main() {
-    eprintln!("specular: the GPUI Kit shell is macOS only for now; run specular-app");
-    std::process::exit(2);
+    match specular_shell::launch(std::env::args_os().skip(1)) {
+        Ok(None) => {}
+        Ok(Some(_)) => {
+            eprintln!(
+                "specular: the window is macOS only for now; --snapshot and --script run anywhere"
+            );
+            std::process::exit(2);
+        }
+        Err(error) => {
+            eprintln!("specular: {error:#}");
+            std::process::exit(1);
+        }
+    }
 }

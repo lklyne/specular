@@ -47,7 +47,7 @@ pub(crate) fn assemble(args: &Args) -> anyhow::Result<String> {
     Ok(serde_json::to_string_pretty(&report)?)
 }
 
-/// Folds `specular-app` output lines into a report. Profile lines must agree
+/// Folds `specular` output lines into a report. Profile lines must agree
 /// on source, page count, step interval, paint policy and chrome load.
 fn assemble_lines(text: &str) -> anyhow::Result<RunReport> {
     let mut report = RunReport {

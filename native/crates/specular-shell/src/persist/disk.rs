@@ -53,8 +53,7 @@ mod tests {
 
     impl TempDir {
         fn new(name: &str) -> Self {
-            let dir =
-                std::env::temp_dir().join(format!("specular-app-{name}-{}", std::process::id()));
+            let dir = std::env::temp_dir().join(format!("specular-{name}-{}", std::process::id()));
             let _ = fs::remove_dir_all(&dir);
             fs::create_dir_all(&dir).unwrap();
             Self(dir)
