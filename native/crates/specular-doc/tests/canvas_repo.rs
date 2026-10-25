@@ -1,6 +1,6 @@
 //! Loads and saves every `.canvas` file checked into the repository and
-//! compares JSON values: the integration-test snapshots, the starter space,
-//! the benchmark fixtures and this crate's own fixtures.
+//! compares JSON values: the starter space, the benchmark fixtures and this
+//! crate's own fixtures.
 #![expect(
     clippy::unwrap_used,
     reason = "shared test helpers panic to fail the test on an unreadable file"
@@ -12,8 +12,7 @@ use serde_json::{Value, json};
 use specular_doc::Document;
 
 /// Directories searched, relative to the repository root.
-const ROOTS: [&str; 4] = [
-    "tests/integration",
+const ROOTS: [&str; 3] = [
     "resources/starter-space",
     "native/fixtures",
     "native/crates",
@@ -101,12 +100,11 @@ fn every_canvas_in_the_repo_loads_and_saves_to_the_same_json_value() {
 }
 
 /// Files already in the writer's canonical form: every key in the Electron
-/// writer's order. The Electron app wrote the first three. `Welcome.canvas`
+/// writer's order. The Electron app wrote the first two. `Welcome.canvas`
 /// has `"syncId": null` nodes, which must stay in the `syncId` slot.
 /// `kitchen-sink.canvas` has every kind in every style, annotations included.
-const CANONICAL: [&str; 4] = [
+const CANONICAL: [&str; 3] = [
     "resources/starter-space/Welcome.canvas",
-    "tests/integration/__snapshots__/rich-workspace.canvas",
     "native/crates/specular-doc/tests/fixtures/rich-workspace.canvas",
     "native/fixtures/kitchen-sink.canvas",
 ];

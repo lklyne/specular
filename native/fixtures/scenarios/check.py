@@ -66,7 +66,7 @@ def saved(scenario, file):
 EMPTY = load(HERE / "empty.canvas")
 SINK = load(HERE / "../kitchen-sink.canvas")
 WELCOME = load(HERE / "../../../resources/starter-space/Welcome.canvas")
-RICH = load(HERE / "../../../tests/integration/__snapshots__/rich-workspace.canvas")
+RICH = load(HERE / "../../crates/specular-doc/tests/fixtures/rich-workspace.canvas")
 NUDGED = "shape_10ac9206"
 
 a = "a-first-session"
