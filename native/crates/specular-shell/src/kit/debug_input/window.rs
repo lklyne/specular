@@ -73,17 +73,20 @@ pub(super) fn resize(width: f64, height: f64) {
     }
 }
 
-/// Lets the window take the pointer moves a script posts. GPUI hears of
-/// hardware moves through a tracking area and leaves the window's own
+/// Gives the pointer to the script alone. GPUI hears of hardware moves
+/// through a tracking area and leaves the window's own
 /// `acceptsMouseMovedEvents` off, so a posted move would be dropped by
-/// `-[NSWindow sendEvent:]`.
-pub(super) fn accept_posted_moves() {
+/// `-[NSWindow sendEvent:]`; it is turned on. The window lets the real
+/// mouse through to what is under it, so a person using the machine
+/// neither moves the run's pointer nor clicks into the floating window.
+pub(super) fn script_owns_pointer() {
     let Some(window) = window() else {
         return;
     };
-    // SAFETY: a documented call on a live window, on the main thread.
+    // SAFETY: documented calls on a live window, on the main thread.
     unsafe {
         let _: () = msg_send![window, setAcceptsMouseMovedEvents: true];
+        let _: () = msg_send![window, setIgnoresMouseEvents: true];
     }
 }
 

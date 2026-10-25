@@ -203,7 +203,7 @@ pub(crate) fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
                 return;
             }
         };
-        window::accept_posted_moves();
+        window::script_owns_pointer();
         // The camera lands at once unless the script turns the spring on,
         // as headless.
         canvas::dispatch(Event::Motion(false));
