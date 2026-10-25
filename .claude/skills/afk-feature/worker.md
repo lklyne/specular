@@ -82,10 +82,11 @@ git switch -c claude/task-<short-id> <FEATURE_BRANCH>
 
 Implement the task per its description. Stay narrowly scoped to that step — do not touch anything outside what the step describes.
 
-Before committing, run the checks the repo expects:
-- `pnpm typecheck`
-- `pnpm test:unit`
-- `pnpm test:integration` only if your changes touched `src/main/`, IPC, or persistence
+Before committing, run the checks the repo expects, from `native/`:
+- `cargo fmt --all --check`
+- `cargo clippy --workspace --all-targets -- -D warnings`
+- `cargo test --workspace`
+- `fixtures/scenarios/run.sh`
 
 If checks fail, see Failure handling below — do not commit broken code.
 

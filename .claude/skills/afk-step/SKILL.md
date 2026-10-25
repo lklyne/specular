@@ -43,7 +43,7 @@ Worker.md was written for the cloud routine. When running locally, skip:
 - `RemoteTrigger run <SELF_ROUTINE_ID>` — no self-trigger; the user (or the loop script) handles re-firing.
 - `RemoteTrigger update <SELF_ROUTINE_ID> {"enabled": false}` — no self-disable; user disables manually if needed.
 
-Everything else (git, gh, dex, pnpm checks) runs identically.
+Everything else (git, gh, dex, cargo checks) runs identically.
 
 ## Hard rules (inherited from worker.md)
 

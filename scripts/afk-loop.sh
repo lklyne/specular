@@ -29,7 +29,7 @@
 #                     (default 15)
 #   AFK_WORKER        which CLI runs each fire: "claude" (default) or "codex"
 #   AFK_SOFT_CHECKS   comma-separated CI check names allowed to fail without
-#                     blocking a merge (default "fallow")
+#                     blocking a merge (default: none)
 #
 # Stop with Ctrl+C.
 
@@ -69,7 +69,7 @@ MAX_ROUNDS="${MAX_ROUNDS:-40}"
 SLEEP_SECONDS="${SLEEP_SECONDS:-5}"
 CI_POLL_SECONDS="${CI_POLL_SECONDS:-15}"
 AFK_WORKER="${AFK_WORKER:-claude}"
-AFK_SOFT_CHECKS="${AFK_SOFT_CHECKS:-fallow}"
+AFK_SOFT_CHECKS="${AFK_SOFT_CHECKS:-}"
 export AFK_WORKER AFK_SOFT_CHECKS
 
 case "$AFK_WORKER" in
