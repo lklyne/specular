@@ -1,7 +1,7 @@
 //! [`FileSync`]: when to save and what to do when the file changes under
 //! us. No I/O here; [`Persistence`](super::Persistence) does what this says.
 
-use std::time::SystemTime;
+pub(crate) use crate::watch::Stamp;
 
 /// How long after the latest change the save runs. Electron's autosave
 /// waits the same.
@@ -9,18 +9,8 @@ pub(crate) const SAVE_DEBOUNCE_MS: u64 = 350;
 /// The longest a change waits to be saved while newer changes keep
 /// restarting the debounce.
 const SAVE_MAX_WAIT_MS: u64 = 2_000;
-/// How often the file is looked at for an edit from outside.
-const DISK_CHECK_MS: u64 = 500;
 /// How long a failed save waits before it is tried again.
 const SAVE_RETRY_MS: u64 = 5_000;
-
-/// What `stat` says about the file. Two different stamps mean the file may
-/// have changed; the text settles it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct Stamp {
-    pub(crate) modified: Option<SystemTime>,
-    pub(crate) len: u64,
-}
 
 /// What a loop turn should do about the file.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -99,7 +89,7 @@ impl FileSync {
             return Step::Save;
         }
         if self.check_due <= now_ms {
-            self.check_due = now_ms + DISK_CHECK_MS;
+            self.check_due = now_ms + crate::watch::INTERVAL.as_millis() as u64;
             return Step::CheckDisk;
         }
         Step::Idle

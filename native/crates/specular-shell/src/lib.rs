@@ -36,8 +36,9 @@ mod scene;
 pub mod script;
 mod source_select;
 mod space;
+mod watch;
 
-pub use crate::app::{Opening, PageOf, Runtime, RuntimeOptions, ShellWindow};
+pub use crate::app::{FolderAsk, Opening, PageOf, Runtime, RuntimeOptions, ShellWindow};
 pub use crate::bench_drive::{Bench, BenchOptions};
 pub use crate::headless::{Report, run_scenario};
 pub use crate::launch::{Launch, launch};

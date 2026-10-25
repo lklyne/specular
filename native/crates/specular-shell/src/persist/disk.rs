@@ -4,17 +4,7 @@ use std::fs::{self, File};
 use std::io::{self, Write as _};
 use std::path::{Path, PathBuf};
 
-use super::file_sync::Stamp;
-
-/// The file's stamp, or `None` when it cannot be read (it may be mid-rename
-/// by another writer).
-pub(crate) fn stamp(path: &Path) -> Option<Stamp> {
-    let metadata = fs::metadata(path).ok()?;
-    Some(Stamp {
-        modified: metadata.modified().ok(),
-        len: metadata.len(),
-    })
-}
+pub(crate) use crate::watch::stamp;
 
 /// Writes `text` to `path` by writing a sibling temp file and renaming it
 /// over `path`, so a reader or a crash sees the old file or the new one.

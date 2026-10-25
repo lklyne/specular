@@ -2,8 +2,8 @@
 //!
 //! One worker thread reads, decodes and builds the mip levels. The main
 //! thread is left the texture upload, which it does when it takes the
-//! result. The same thread looks at the loaded files' stamps twice a second,
-//! as the note thread does, and says which changed.
+//! result. The same thread watches the loaded files ([`crate::watch`]) and
+//! says which changed.
 
 mod decode;
 mod device_frames;
@@ -13,11 +13,9 @@ mod heif;
 mod svg;
 mod upload;
 
-use std::collections::HashMap;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
-use std::time::{Duration, SystemTime};
 
 use specular_compositor::{ImageMips, ImageSpec};
 use specular_core::PixelSize;
@@ -26,8 +24,7 @@ use specular_interact::ImageKey;
 pub(crate) use self::decode::dimensions;
 pub(crate) use self::upload::Uploaded;
 
-/// How often the loaded files are looked at for a change from outside.
-const CHECK_EVERY: Duration = Duration::from_millis(500);
+use crate::watch::{self, Polled};
 
 /// Why an image has no pixels.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -86,14 +83,6 @@ enum Command {
     Forget(ImageKey),
 }
 
-/// What changes when a file does.
-type Stamp = Option<(SystemTime, u64)>;
-
-fn stamp(path: &Path) -> Stamp {
-    let meta = std::fs::metadata(path).ok()?;
-    Some((meta.modified().ok()?, meta.len()))
-}
-
 /// The decode thread and the queue of what it has finished.
 #[derive(Debug)]
 pub(crate) struct ImageLoader {
@@ -117,16 +106,13 @@ impl ImageLoader {
         std::thread::Builder::new()
             .name("image-decode".to_owned())
             .spawn(move || {
-                let mut watched: HashMap<ImageKey, (PathBuf, Stamp)> = HashMap::new();
+                let mut watched: Polled<ImageKey> = Polled::default();
                 // Ends when the loader, and with it the command sender, is gone.
                 loop {
-                    match command_queue.recv_timeout(CHECK_EVERY) {
+                    match command_queue.recv_timeout(watch::INTERVAL) {
                         Ok(Command::Load(job)) => {
-                            let at = stamp(&job.path);
-                            if job.fresh {
-                                watched.insert(job.key, (job.path.clone(), at));
-                            } else {
-                                (watched.entry(job.key)).or_insert_with(|| (job.path.clone(), at));
+                            if job.fresh || !watched.contains(&job.key) {
+                                watched.watch(job.key, [job.path.clone()]);
                             }
                             let result = load(&job);
                             let loaded = Loaded {
@@ -137,17 +123,11 @@ impl ImageLoader {
                                 break;
                             }
                         }
-                        Ok(Command::Forget(key)) => {
-                            watched.remove(&key);
-                        }
+                        Ok(Command::Forget(key)) => watched.forget(&key),
                         Err(RecvTimeoutError::Timeout) => {
-                            for (key, (path, seen)) in &mut watched {
-                                let now = stamp(path);
-                                if now != *seen {
-                                    *seen = now;
-                                    if changed_tx.send(*key).is_err() {
-                                        return;
-                                    }
+                            for key in watched.changed() {
+                                if changed_tx.send(key).is_err() {
+                                    return;
                                 }
                             }
                         }

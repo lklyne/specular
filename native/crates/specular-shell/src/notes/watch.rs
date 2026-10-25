@@ -8,7 +8,8 @@ use std::path::{Path, PathBuf};
 
 use specular_interact::{note_file_name, resolve_file};
 
-use crate::persist::{Stamp, stamp, write_atomic};
+use crate::persist::write_atomic;
+use crate::watch::{Polled, Stamp, stamp};
 
 /// Why a Document has no text.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -31,8 +32,6 @@ struct Watched {
     file: String,
     /// `None` when there is nothing on disk to read.
     path: Option<PathBuf>,
-    /// The file's stamp at the last read; `None` when it was not there.
-    stamp: Option<Stamp>,
     /// What the last read reported: a hash of the text, or the failure.
     reported: Result<u64, ReadFailure>,
 }
@@ -42,6 +41,8 @@ pub(super) struct Watcher {
     /// The space folder relative paths start from.
     space: Option<PathBuf>,
     watched: Vec<Watched>,
+    /// The stamps of the ones on disk, by the name the file entity uses.
+    stamps: Polled<String>,
 }
 
 impl Watcher {
@@ -49,6 +50,7 @@ impl Watcher {
         Self {
             space,
             watched: Vec::new(),
+            stamps: Polled::default(),
         }
     }
 
@@ -69,35 +71,34 @@ impl Watcher {
             file: file.clone(),
             result,
         });
+        if let Some(path) = &path {
+            (self.stamps).watch_stamped(file.clone(), [(path.clone(), stamp)]);
+        }
         self.watched.push(Watched {
             file,
             path,
-            stamp,
             reported,
         });
     }
 
     pub(super) fn unwatch(&mut self, file: &str) {
         self.watched.retain(|watched| watched.file != file);
+        self.stamps.forget(&file.to_owned());
     }
 
     /// Reads every file whose stamp moved since its last read, and reports
     /// the ones that now read differently. A `touch`, or a save that wrote
     /// the same text, reports nothing.
     pub(super) fn check(&mut self, report: &mut impl FnMut(NoteRead)) {
-        for watched in &mut self.watched {
-            let Some(path) = watched.path.as_deref() else {
+        for file in self.stamps.changed() {
+            let Some(watched) = self.watched.iter_mut().find(|it| it.file == file) else {
                 continue;
             };
-            if stamp(path) == watched.stamp {
-                continue;
-            }
-            let (stamp, result) = read(Some(path));
+            let (_, result) = read(watched.path.as_deref());
             let reported = result
                 .as_ref()
                 .map(|text| hash(text))
                 .map_err(|&failure| failure);
-            watched.stamp = stamp;
             if reported != watched.reported {
                 watched.reported = reported;
                 report(NoteRead {
@@ -143,7 +144,7 @@ impl Watcher {
         let mut seen = |reported: Result<u64, ReadFailure>| {
             if let Some(watched) = self.watched.iter_mut().find(|it| it.file == file) {
                 watched.reported = reported;
-                watched.stamp = stamp(&path);
+                self.stamps.restamp(&file.to_owned());
             }
         };
         match disk {

@@ -15,8 +15,7 @@ use specular_doc::Document;
 use specular_interact::{App, CanvasId};
 
 pub(crate) use self::app_state::{camera_of, canvas_text, tabs_of};
-pub(crate) use self::disk::{stamp, write_atomic};
-pub(crate) use self::file_sync::Stamp;
+pub(crate) use self::disk::write_atomic;
 use self::file_sync::{DiskChange, FileSync, Step};
 
 /// The `.canvas` file of one canvas of the space.

@@ -2,8 +2,8 @@
 //! reading them again when they change on disk.
 //!
 //! One worker thread holds the list of watched files. It reads a file when
-//! it is first watched, then looks at every file's stamp twice a second and
-//! reads the ones whose stamp moved. The main thread only takes what was
+//! it is first watched, then reads again the ones whose stamp moved
+//! ([`crate::watch`]). The main thread only takes what was
 //! read.
 
 mod watch;
@@ -11,15 +11,11 @@ mod watch;
 use std::io;
 use std::path::PathBuf;
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
-use std::time::Duration;
 
 use specular_doc::Rect;
 
 pub(crate) use self::watch::{NoteRead, ReadFailure};
 use self::watch::{Watcher, Written};
-
-/// How often the watched files are looked at for an edit from outside.
-const CHECK_EVERY: Duration = Duration::from_millis(500);
 
 enum Command {
     Watch(String),
@@ -77,7 +73,7 @@ impl NoteLoader {
                     let _ = read_tx.send(read);
                 };
                 loop {
-                    match command_queue.recv_timeout(CHECK_EVERY) {
+                    match command_queue.recv_timeout(crate::watch::INTERVAL) {
                         Ok(Command::Watch(file)) => watcher.watch(file, &mut send),
                         Ok(Command::Unwatch(file)) => watcher.unwatch(&file),
                         Ok(Command::Write { file, text }) => {
