@@ -15,7 +15,7 @@
 //! page-reports p1 title Home           # url U, loading on|off back forward,
 //!                                      # scrolled X Y, scroll-progress X Y,
 //!                                      # loaded STATUS, devtools U,
-//!                                      # cursor default|pointer|text
+//!                                      # cursor default|pointer|text, favicon
 //! bind https://example.com /scratch/site auto
 //! note-text plan.md # Plan\n\nBody     # a Document's file says this; also
 //!                                      # note-missing F, note-failed F,
@@ -25,6 +25,7 @@
 //! models default=Default|sonnet=Sonnet 5
 //! model-saved default
 //! ime-cancel                           # the input method drops its composition
+//! prepare-tab p1                       # a tab pressed and held (none: let go)
 //! ```
 
 use anyhow::{Context as _, bail};
@@ -70,6 +71,9 @@ pub enum PanelStep {
     ModelSaved(String),
     /// The input method drops its composition.
     ImeCancel,
+    /// A press on an item's tab, held: its page is laid out for the tab
+    /// before the click shows it. `None` is the press let go elsewhere.
+    PrepareTab(Option<String>),
 }
 
 /// The step `verb` and `rest` name, when it is one of these.
@@ -126,6 +130,8 @@ pub(crate) fn parse(verb: &str, rest: &str) -> Option<anyhow::Result<PanelStep>>
             .map(PanelStep::Models),
         ("model-saved", [value]) => Ok(PanelStep::ModelSaved((*value).to_owned())),
         ("ime-cancel", []) => Ok(PanelStep::ImeCancel),
+        ("prepare-tab", ["none"]) => Ok(PanelStep::PrepareTab(None)),
+        ("prepare-tab", [item]) => Ok(PanelStep::PrepareTab(Some((*item).to_owned()))),
         (
             "chat-panel" | "chat" | "agent-says" | "page-reports" | "bind" | "note-text"
             | "model-saved",
@@ -206,6 +212,7 @@ fn page_notice(kind: &str, words: &[&str]) -> anyhow::Result<PageNotice> {
             http_status: status.parse().context("`loaded` takes a status")?,
         },
         ("devtools", [url]) => PageNotice::DevtoolsUrl((*url).to_owned()),
+        ("favicon", []) => PageNotice::Favicon(Some(vec![0x89, b'P', b'N', b'G'].into())),
         ("cursor", ["default"]) => PageNotice::Cursor(Cursor::Default),
         ("cursor", ["pointer"]) => PageNotice::Cursor(Cursor::Pointer),
         ("cursor", ["text"]) => PageNotice::Cursor(Cursor::Text),
@@ -265,6 +272,9 @@ impl PanelStep {
             )),
             Self::ModelSaved(value) => Event::Models(ModelsNews::Saved(value.clone())),
             Self::ImeCancel => Event::Ime(specular_core::ImeEvent::Cancel),
+            Self::PrepareTab(item) => Event::Action(Action::PrepareShow(
+                item.as_deref().map(specular_doc::EntityId::from),
+            )),
         })
     }
 }

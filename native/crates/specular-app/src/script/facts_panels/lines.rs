@@ -445,6 +445,7 @@ fn pages(app: &App, out: &mut Vec<String>) {
             None => "none",
         };
         out.push(format!("{id} mark {mark}"));
+        out.push(format!("{id} touch {}", yes(app.page_device(id).touch)));
         let Some(state) = app.page_state(id) else {
             continue;
         };
@@ -590,6 +591,9 @@ fn tabs(app: &App, out: &mut Vec<String>) {
         if tab.close.is_some() {
             line.push_str(" closes");
         }
+        if tab.favicon.is_some() {
+            line.push_str(" favicon");
+        }
         out.push(line);
     }
     out.push(match app.showing() {
@@ -602,6 +606,17 @@ fn tabs(app: &App, out: &mut Vec<String>) {
         None => "lens none".to_owned(),
     });
     out.push(format!("others {}", yes(app.shows_others())));
+    if let Some(page) = app.prepared_page() {
+        out.push(format!("prepared {page}"));
+    }
+    // What an item view lets be seen beside its item.
+    if matches!(app.showing(), Showing::Item(_)) {
+        for entity in app.document().entities() {
+            if specular_interact::seen(app, entity).is_some() {
+                out.push(format!("seen {}", entity.id));
+            }
+        }
+    }
 }
 
 /// A control's line: its name, `on` when it is on or chosen, `disabled`,
