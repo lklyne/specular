@@ -309,6 +309,16 @@ pub(super) async fn step(
         );
     }
     match step {
+        // The settings dialog is a window of its own whose switches have no
+        // place in this one: they are pressed from the models.
+        Do::Click(Place::Control(name), _) if name.starts_with("settings.") => {
+            let control = canvas::with(|canvas| {
+                specular_interact::control_named(canvas.runtime.app(), &name)
+            })
+            .ok_or("there is no canvas")?
+            .map_err(|error| error.to_string())?;
+            canvas::dispatch(Event::Control(control, specular_core::Modifiers::default()));
+        }
         Do::Wait(ms) => {
             (cx.background_executor())
                 .timer(Duration::from_millis(ms))
@@ -342,6 +352,7 @@ pub(super) async fn step(
             canvas::with(|canvas| canvas.runtime.script_clipboard(Some(text)));
         }
         Do::Act(action) => canvas::dispatch(Event::Action(action)),
+        Do::Send(event) => canvas::dispatch(event),
         Do::Select(ids) => select(&ids),
         Do::Sidebar(shown) => show_sidebar(shown),
         Do::Drop(paths, Some(at)) => view::drop_files(paths, at),

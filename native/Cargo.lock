@@ -7666,6 +7666,7 @@ name = "specular-api"
 version = "0.10.2"
 dependencies = [
  "glam",
+ "serde",
  "serde_json",
  "specular-core",
  "specular-doc",
@@ -7742,6 +7743,17 @@ name = "specular-cef-helper"
 version = "0.10.2"
 dependencies = [
  "cef",
+]
+
+[[package]]
+name = "specular-cli"
+version = "0.10.2"
+dependencies = [
+ "anyhow",
+ "base64 0.23.1",
+ "serde_json",
+ "specular-api",
+ "ureq",
 ]
 
 [[package]]

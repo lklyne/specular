@@ -8,9 +8,9 @@ use std::sync::mpsc::{self, Receiver};
 use std::time::Duration;
 
 use serde_json::{Value, json};
-use specular_api::{CdpAsk, Host, Response, Screenshot};
+use specular_api::{CdpAsk, Host, LaterReply, PageScript, Response, Screenshot};
 use specular_interact::{ApiOutcome, App, Effect, Event};
-use specular_testkit::{TestApp, assert_doc_snapshot};
+use specular_testkit::TestApp;
 
 use super::ApiHost;
 
@@ -39,6 +39,16 @@ impl Host for Seat {
 
     fn cdp(&mut self, _ask: &CdpAsk) -> Result<Value, Response> {
         Err(Response::error(503, "a test has no page backend"))
+    }
+
+    /// The page answers from another thread a moment later, as a real one
+    /// answers from inside the backend's pump.
+    fn page_script(&mut self, script: PageScript, reply: LaterReply) {
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(20));
+            let value = json!({ "url": "https://example.com/", "title": "Example", "nodes": [] });
+            reply(script.answer(&json!({ "id": 1, "result": { "result": { "value": value } } })));
+        });
     }
 }
 
@@ -108,13 +118,6 @@ impl Loopback {
         let secret = format!("x-specular-secret: {SECRET}\r\n");
         self.send(method, target, &secret, &body.to_string())
     }
-
-    #[track_caller]
-    fn ok(&mut self, method: &str, target: &str, body: &Value) -> Value {
-        let (status, body) = self.call(method, target, body);
-        assert_eq!(status, 200, "{target}: {body}");
-        body
-    }
 }
 
 #[test]
@@ -174,80 +177,17 @@ fn a_tab_ref_arrives_decoded() {
 }
 
 #[test]
-fn a_session_over_http_builds_a_canvas() {
-    let mut server = Loopback::new();
-    // What `specular add note` does: ask where it goes, then apply.
-    let spot = server.ok(
-        "POST",
-        "/layout/batch-placement",
-        &json!({ "items": [{ "width": 200, "height": 200, "insetX": 0, "insetY": 0 }], "anchor": "selection_or_empty_region" }),
-    );
-    let at = &spot["positions"][0];
-    assert_eq!(at, &json!({ "canvasX": 80, "canvasY": 80 }));
-    let note = server.ok(
+fn a_page_snapshot_is_answered_once_the_page_has_answered() {
+    let mut loopback = Loopback::new();
+    let made = loopback.ok(
         "POST",
         "/canvas/apply",
-        &json!({ "entities": [{ "kind": "text", "text": "ship it", "canvasX": at["canvasX"], "canvasY": at["canvasY"], "color": "4" }] }),
+        &json!({ "entities": [{ "kind": "page", "url": "https://example.com/" }] }),
     );
-    let note = note["created"][0].clone();
-    // `specular add page <url> --at 400,80 --preset 1`.
-    let page = server.ok(
-        "POST",
-        "/canvas/apply",
-        &json!({ "entities": [{ "kind": "page", "url": "http://localhost:4321/garden", "presetIndex": 1, "canvasX": 400, "canvasY": 80 }] }),
-    )["created"][0]
-        .clone();
-    // `specular link`, `specular update --text`, `specular annotate-selection`.
-    let edge = server.ok(
-        "POST",
-        "/canvas/apply",
-        &json!({ "edges": [{ "fromEntityId": note, "toEntityId": page, "kind": "connection", "label": "about" }] }),
-    )["edges"][0]
-        .clone();
-    server.ok(
-        "POST",
-        "/canvas/apply",
-        &json!({ "entities": [{ "id": note, "text": "ship it today" }] }),
-    );
-    let comment = server.ok(
-        "POST",
-        "/selection/annotate",
-        &json!({ "text": "check the hero", "entityIds": [page] }),
-    );
+    let page = made["created"][0].clone();
+    let body = loopback.ok("POST", "/pages/agent-snapshot", &json!({ "pageId": page }));
     assert_eq!(
-        comment["selectionTarget"]["url"],
-        "http://localhost:4321/garden"
+        body["snapshot"],
+        json!({ "pageId": page, "url": "https://example.com/", "title": "Example", "nodes": [] })
     );
-
-    // The read sees what the writes made, and the edge between them.
-    let canvas = server.ok("GET", "/canvas", &json!({}));
-    let ids: Vec<&Value> = canvas["nodes"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|node| &node["id"])
-        .collect();
-    assert_eq!(ids, [&note, &page]);
-    assert_eq!(canvas["edges"][0]["id"], edge);
-    assert_eq!(
-        canvas["appState"]["activeTab"],
-        json!({ "id": "tab_1", "name": "Canvas 1" })
-    );
-    let listed = server.ok("GET", "/annotations?status=unresolved", &json!({}));
-    assert_eq!(listed["annotations"][0]["text"], "check the hero");
-
-    // A refusal reaches the caller as the CLI expects it: a status and `error`.
-    assert_eq!(
-        server
-            .call(
-                "POST",
-                "/canvas/apply",
-                &json!({ "entities": [{ "kind": "page", "url": "/garden" }] })
-            )
-            .0,
-        400
-    );
-    assert_doc_snapshot!("a_session_over_http_builds_a_canvas", server.seat.0);
-    // Each write was one step, so undo walks all the way back.
-    server.seat.0.assert_undo_returns_to_start();
 }

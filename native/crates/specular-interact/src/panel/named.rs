@@ -225,7 +225,7 @@ fn sidebar(app: &App, out: &mut Vec<Named>) {
 }
 
 /// Every control there is now, in the models' order: the tab row, the
-/// toolbar, the dock, the sidebar, the context menu.
+/// toolbar, the dock, the sidebar, the settings' switches, the context menu.
 fn named(app: &App) -> Vec<Named> {
     let mut out = Vec::new();
     let plain = Inside::Nothing;
@@ -260,6 +260,16 @@ fn named(app: &App) -> Vec<Named> {
         control(model, &plain, &mut out);
     }
     sidebar(app, &mut out);
+    let (launch, cursors) = crate::settings::setting_toggles(app);
+    for toggle in launch.iter().chain(&cursors) {
+        out.push(run(
+            &ControlId::new(toggle.name),
+            &toggle.action,
+            true,
+            true,
+            &plain,
+        ));
+    }
     match &app.session.panel.menu {
         Some(open) if !matches!(open.target, MenuTarget::Canvas(_)) => {
             menu(app, &open.target, &mut out);

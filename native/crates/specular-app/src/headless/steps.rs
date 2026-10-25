@@ -3,7 +3,7 @@
 use anyhow::Context as _;
 use glam::Vec2;
 use specular_doc::Document;
-use specular_interact::{Action, ControlId, Driver, Event};
+use specular_interact::{Action, ControlId, Driver, Event, PageNotice};
 
 use super::Headless;
 use crate::script::{self, CameraArg, Step};
@@ -67,7 +67,9 @@ impl Headless {
                 self.drive(|app| app.tick(now))?;
                 self.settle()
             }
-            Step::Control(id) if self.laid_out() => {
+            // The settings dialog is never a drawn panel: its switches are
+            // pressed from the models.
+            Step::Control(id) if self.laid_out() && !id.starts_with("settings.") => {
                 self.control(&id, |app, at| app.pointer_move(at).click(at))
             }
             Step::HoverControl(id) if self.laid_out() => self.control(&id, Driver::pointer_move),
@@ -86,6 +88,18 @@ impl Headless {
             }
             Step::Panels(on) => self.drive(|app| app.send(Event::BuiltinPanels(on))),
             Step::Sidebar(shown) => self.drive(|app| app.show_sidebar(shown)),
+            Step::Motion(on) => self.drive(|app| app.send(Event::Motion(on))),
+            Step::ReduceMotion(on) => self.drive(|app| app.send(Event::ReduceMotion(on))),
+            Step::PageOpensTab {
+                page,
+                url,
+                foreground,
+            } => self.drive(|app| {
+                app.send(Event::Page {
+                    page: page.as_str().into(),
+                    notice: PageNotice::OpenTab { url, foreground },
+                })
+            }),
             Step::Snapshot(path) => self.snapshot(&path),
             Step::Save(path) => self.save(&path),
             Step::State(path) => {

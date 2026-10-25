@@ -1,0 +1,23 @@
+# canvas: anchoring.canvas
+# macOS Reduce motion: with transitions on as in a window, opening a page's
+# tab springs the camera; with Reduce motion on, it lands at once. The
+# camera's path is asserted in specular-interact's tests/it/motion.rs. Then
+# the settings' cursor switches, which change no document.
+camera 0,0,0.5
+motion on
+select p1
+control view.open
+expect showing p1
+# with transitions on, the camera has not moved yet
+expect camera 0,0,0.5
+wait 2000
+control view.canvas
+wait 2000
+reduce-motion on
+select p1
+control view.open
+# with Reduce motion on, it is there at once
+expect camera 460,220,1
+control settings.agent-cursors
+control settings.synced-cursors
+expect saved same-as start

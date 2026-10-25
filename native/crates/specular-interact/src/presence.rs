@@ -257,8 +257,12 @@ pub(crate) fn on_tick(app: &mut App, effects: &mut Vec<Effect>) {
 
 impl App {
     /// The agent cursors on the canvas shown, in the order their sessions
-    /// first acted.
+    /// first acted. None while the setting hides them; the agents act all
+    /// the same.
     pub fn agent_cursors(&self) -> Vec<AgentCursor> {
+        if self.settings.hidden_cursors.agent {
+            return Vec::new();
+        }
         (self.session.presence.cursors.iter())
             .filter(|cursor| {
                 (self.document.entity(&cursor.page))

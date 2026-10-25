@@ -21,6 +21,7 @@ mod comments;
 mod commit;
 mod draft;
 mod effects;
+mod fix;
 mod model;
 mod notice;
 mod pill;
@@ -34,6 +35,7 @@ pub use self::action::{ChatAction, ImageUpload};
 pub(crate) use self::artifacts::note_changes;
 pub use self::build::chat;
 pub(crate) use self::commit::comment as commit_comment;
+pub use self::fix::{FixTarget, fixable};
 pub use self::model::{
     ArtifactCard, AutoChip, Bubble, ChatModel, Composer, DraftChip, DraftKind, ModelChip,
     ModelOption, OpenComments, PillChip, PillKind, QueuedChip, RunBar, ThreadRow, Transcript,

@@ -11,7 +11,7 @@ use std::path::PathBuf;
 
 use glam::Vec2;
 use specular_app::script::{CameraArg, Expect, Step, WindowStep};
-use specular_interact::Action;
+use specular_interact::{Action, Event, PageNotice};
 
 use super::us_keys::{COMMAND, flags_of, key_of, key_step};
 
@@ -74,6 +74,8 @@ pub(super) enum Do {
     /// A trackpad pinch where the pointer is.
     Pinch(f32),
     Act(Action),
+    /// An event as the shell or a page would send it.
+    Send(Event),
     Select(Vec<String>),
     Sidebar(bool),
     /// The right panel's composer is handed this image file as a paste.
@@ -145,6 +147,16 @@ pub(super) fn lower(step: Step) -> Result<Do, String> {
         Step::PressControl(name) => Do::Press(Place::Control(name)),
         Step::Panels(_) => Do::Skip,
         Step::Sidebar(shown) => Do::Sidebar(shown),
+        Step::Motion(on) => Do::Send(Event::Motion(on)),
+        Step::ReduceMotion(on) => Do::Send(Event::ReduceMotion(on)),
+        Step::PageOpensTab {
+            page,
+            url,
+            foreground,
+        } => Do::Send(Event::Page {
+            page: page.as_str().into(),
+            notice: PageNotice::OpenTab { url, foreground },
+        }),
         Step::Snapshot(path) => Do::Shot(path),
         Step::Save(path) => Do::Save(path),
         Step::State(path) => Do::State(path),

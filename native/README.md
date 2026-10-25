@@ -45,13 +45,14 @@ tests and the headless modes below need no window.
 | `specular-agent` | lib | The agent thread model: the `Threads` store, the thread files' shape, the prompts, the `claude` stream parser, repo bindings. Pure |
 | `specular-interact` | lib | `App`, `Session`, `Space`, `Event`, `Effect`, `Action`, `Tool`, `Gesture`, hit-test, `update`, the text editor, the key binding table, and every panel model (toolbar, dock, sidebar, menus, chat, settings, first run) |
 | `specular-scene` | lib | The `Scene` display list, `view` with one module a kind, the markdown parser, and the built-in panel painter |
-| `specular-api` | lib | The HTTP API with the socket taken off: a request and `&App` in, a read answer or an `Event::Api` out. Also the per-page CDP routing |
+| `specular-api` | lib | The HTTP API with the socket taken off: a request and `&App` in, a read answer or an `Event::Api` out. Also the per-page CDP routing, and the JSON both ends share (`wire.rs`) |
+| `specular-cli` | bin | The `specular` command (binary `specular-cli`, linked onto the `PATH` as `specular`): every verb is one or two requests to the running app's API. Its end-to-end runs are `fixtures/scenarios/cli/run.sh` |
 | `specular-compositor` | lib | The wgpu renderer. Draws a `Scene` over the dot grid in one 4x multisampled pass: page textures, SDF shapes, glyphon text, lyon paths. Imports page IOSurfaces with no copy on macOS. Implements the text measure |
 | `specular-prism` | lib | The Prism, the thread avatar, rendered on wgpu from three's own WGSL at parity with the web build (ADR 0047). Depends on wgpu alone |
 | `specular-cef` | lib | The CEF offscreen `PageSource` (feature `cef`) and the CEF-free helpers it is built from. See [`crates/specular-cef/README.md`](crates/specular-cef/README.md) |
 | `specular-app` | lib + bin | `Runtime`, which owns the `App` and runs every effect: page hosts, space files, images, Documents, clipboard, the HTTP and CDP servers, the agent runner. Also the command line, the headless `--snapshot` and `--script` modes, `--bench`, and the winit window (binary `specular-app`) |
 | `specular-shell` | bin | The GPUI Kit window (binary `specular`, ADR 0040). The Kit draws the chrome (tab row, toolbar, dock), sidebar, menus, settings, first run and the chat panel from the models. The compositor draws the canvas in a view under GPUI's. It uses `specular-app`'s `Runtime` and command line |
-| `specular-bench` | lib + bin | Gesture profiles, frame stats, per-frame work times, process-tree memory, the Electron trace converter and `compare`. See [`crates/specular-bench/README.md`](crates/specular-bench/README.md) |
+| `specular-bench` | lib + bin | Gesture profiles, frame stats, per-frame work times, process-tree memory and `assemble`. See [`crates/specular-bench/README.md`](crates/specular-bench/README.md) |
 | `specular-testkit` | lib, dev only | `TestApp`, snapshot macros and entity builders for tests |
 
 ### Dependency direction
@@ -276,10 +277,10 @@ BENCH="$PWD/target/release/specular-bench"
 `representative` is false when a presented frame came through a CPU upload.
 A failing IOSurface import shows as `drawsWithoutTexture` above 0.
 
-### The spike's comparison against Electron
+### Fixture runs with memory
 
-The spike's fixtures were last run three times each during the performance
-pass, on the Rust side only. This is that loop:
+The spike's fixtures, three runs each, with memory samples folded into one
+report per fixture:
 
 ```sh
 mkdir -p runs
@@ -301,17 +302,11 @@ done
 ```
 
 Take the idle memory sample at 12 seconds, not 6. At 6 the process tree still
-holds about 500 MB it lets go of by 10, and that early sample is what made
-the spike read as heavier than Electron.
+holds about 500 MB it lets go of by 10.
 
-The Electron half (capture a trace from a release Electron build over HTTP,
-convert it with `specular-bench electron-trace`, then `specular-bench
-compare`) is written up in
-[`crates/specular-bench/README.md`](crates/specular-bench/README.md). It has
-not been rerun since the spike, so check it against the current Electron app
-before relying on it. The spike's results table in
-[`docs/plans/rust-cef-spike.md`](../docs/plans/rust-cef-spike.md) was never
-filled in. The numbers are in the run log under "Performance".
+The spike's Electron comparison (`electron-trace` and `compare`) is
+deleted; `git log -- native/crates/specular-bench` has it. Its numbers are in
+the run log under "Performance".
 
 ## Bundle
 

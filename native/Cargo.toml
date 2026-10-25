@@ -75,6 +75,9 @@ thiserror = "2.0"
 trash = "5.2"
 # The HTTP API's server: blocking, one thread, no async runtime.
 tiny_http = "0.12"
+# The `specular` CLI's client for that API: blocking, and plain HTTP only,
+# since the app listens on 127.0.0.1.
+ureq = { version = "3.4", default-features = false }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 # Grapheme and word boundaries for the text editor.

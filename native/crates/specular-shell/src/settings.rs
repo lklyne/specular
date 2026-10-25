@@ -143,6 +143,15 @@ fn general(pane: &GeneralPane) -> SettingPage {
                 .title("Layout")
                 .item(choice(&pane.tools)),
         )
+        .group(
+            SettingGroup::new()
+                .title("Cursors")
+                .description(
+                    "Hiding a cursor only stops drawing it. Agents keep working and synced \
+                     pages keep following.",
+                )
+                .items(pane.cursors.iter().map(toggle)),
+        )
 }
 
 fn shortcut(row: &ShortcutRow) -> impl IntoElement + use<> {

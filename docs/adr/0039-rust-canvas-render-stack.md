@@ -3,7 +3,7 @@
 **Status:** Accepted, 2026-10-25, by Lyle with the [big run](../plans/rust-native-big-run.md)'s decisions. Measured headless on one machine.
 **Date:** 2026-10-07
 **Related:** [Rust native rebuild plan](../plans/rust-native-rebuild.md), task M1 and its "Rendering and text" section. [ADR 0038](./0038-offscreen-texture-canvas-for-live-pages.md), which made every page a texture.
-**Code:** `native/bakeoff/`, a throwaway cargo workspace outside `native/Cargo.toml`. Golden images are in `native/bakeoff/golden/`.
+**Code:** `native/bakeoff/`, a throwaway cargo workspace outside `native/Cargo.toml`, since deleted (see `git log -- native/bakeoff`). Golden images are in [`assets/0039/`](./assets/0039/).
 
 ## Decision
 
@@ -53,7 +53,7 @@ Vello's cost is CPU time. It resolves every glyph outline on every frame, about 
 
 Glyphon's cost during a zoom is that each new scale is a new glyph size, so it rasterises and lays out quads again. The usual fix is to hold the rasterised size while the gesture runs and re-rasterise when it settles. I did not build that.
 
-Text sharpness, judged from `golden/compare-5x-zoom-*.png` with vello on the left:
+Text sharpness, judged from `assets/0039/compare-5x-zoom-*.png` with vello on the left:
 
 - **Zoom 1 and 3.** No difference I can see at 5x magnification. Both are sharp.
 - **Zoom 0.25.** Text is 3.5 px and unreadable in both. Vello's is even. Glyphon snaps glyphs to whole pixels, so its lines look uneven.
@@ -73,13 +73,13 @@ What we give up: painter's order with no batching work, even text at tiny sizes,
 
 ## egui for panels
 
-egui-wgpu 0.36.2 takes a wgpu 30 device and renders into a pass we begin ourselves with `LoadOp::Load`. That is the "toolbar over the compositor's pass" the plan asked for. A toolbar and a sidebar with a 40-row scroll list cost 0.25 ms of CPU and about 1.1 ms to GPU completion, over either candidate. See `golden/sdf-egui.png`. The panel code is 112 lines and fits the architecture as planned: a function of state that returns events. egui-winit 0.36.2 accepts winit 0.30.13, so the shell keeps its event loop and feeds egui the events it has already routed.
+egui-wgpu 0.36.2 takes a wgpu 30 device and renders into a pass we begin ourselves with `LoadOp::Load`. That is the "toolbar over the compositor's pass" the plan asked for. A toolbar and a sidebar with a 40-row scroll list cost 0.25 ms of CPU and about 1.1 ms to GPU completion, over either candidate. See [`assets/0039/sdf-egui.png`](./assets/0039/sdf-egui.png). The panel code is 112 lines and fits the architecture as planned: a function of state that returns events. egui-winit 0.36.2 accepts winit 0.30.13, so the shell keeps its event loop and feeds egui the events it has already routed.
 
 The fallback of HTML panels in CEF is not needed.
 
 ## GPUI
 
-Read from gpui 0.2.2 on crates.io and Zed main at `72d073d6`. A proof is in `native/bakeoff/gpui-proof/`.
+Read from gpui 0.2.2 on crates.io and Zed main at `72d073d6`. A proof was in `native/bakeoff/gpui-proof/`, since deleted.
 
 **Does it have a wgpu renderer on macOS?** No. macOS uses gpui's own Metal renderer, in 0.2.2 and on main, where `gpui_macos` imports `gpui_apple::metal_renderer`. Main has a `gpui_wgpu` crate, pinned to wgpu 29, and only the Linux and web platforms select it. The crates.io release is a year old. Zed has not published the split crates. A third party republishes main as `gpui-pre`.
 
@@ -114,7 +114,7 @@ Read from gpui 0.2.2 on crates.io and Zed main at `72d073d6`. A proof is in `nat
 
 ## Needs a human at a Mac
 
-1. Open `native/bakeoff/golden/compare-5x-zoom-*.png` and the crops on a real display and confirm the sharpness call.
+1. Open `assets/0039/compare-5x-zoom-*.png` and the crops on a real display and confirm the sharpness call.
 2. Zoom slowly with glyphon text on screen and judge whether glyphs shimmer as they snap to pixels. A still image cannot show this. If it is bad, the held-raster approach above also fixes it during gestures.
-3. Look at `golden/sdf-egui.png` and decide whether egui's look is acceptable once themed. It was tested at 1 point per pixel only.
+3. Look at `assets/0039/sdf-egui.png` and decide whether egui's look is acceptable once themed. It was tested at 1 point per pixel only.
 4. Type into an egui text field with an IME through egui-winit.

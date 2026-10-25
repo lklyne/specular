@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 
 use serde_json::{Value, json};
-use specular_api::{Api, CdpAsk, Host, Method, Request, Response, Screenshot, ShotArea};
+use specular_api::{Api, CdpAsk, Host, Request, Response, Screenshot, ShotArea};
 use specular_interact::{ApiOutcome, App, DroppedFile, Effect, Event};
 use specular_testkit::TestApp;
 
@@ -116,10 +116,6 @@ impl Scripted {
 
     pub(crate) fn post(&mut self, target: &str, body: Value) -> Response {
         self.call(&Request::post(target, body))
-    }
-
-    pub(crate) fn delete(&mut self, target: &str) -> Response {
-        self.call(&Request::new(Method::Delete, target, json!({})))
     }
 
     /// Posts a patch, which must be accepted, and returns its answer.

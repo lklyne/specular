@@ -76,9 +76,12 @@ impl ApiHost {
     /// Answers every request that has arrived, against `host`.
     pub(crate) fn serve(&mut self, host: &mut impl Host) {
         while let Ok(job) = self.inbox.try_recv() {
-            let response = self.api.answer(host, &job.request);
+            let reply = job.reply;
             // The server thread gives up on a request that takes too long.
-            let _ = job.reply.send(response);
+            let send = Box::new(move |response| {
+                let _ = reply.send(response);
+            });
+            self.api.answer_to(host, &job.request, send);
         }
     }
 }

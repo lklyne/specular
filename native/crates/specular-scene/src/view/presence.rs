@@ -1,6 +1,8 @@
 //! The agent cursors, over everything else the canvas draws: an arrow at
 //! the point an agent is acting on and a chip saying what it is doing. Both
-//! keep their pixel size at any zoom.
+//! keep their pixel size at any zoom. The synced cursor, an arrow alone in
+//! a colour no agent has, is where the entered page's pointer was replayed
+//! on each of its sync set's other pages.
 
 use specular_interact::{AgentCursor, InspectPopover};
 
@@ -28,10 +30,30 @@ const COLORS: [Color; 6] = [
     Color::rgba(6, 182, 212, 255),
 ];
 
+/// The synced cursor's colour, Electron's `SYNCED_CURSOR_COLOR`.
+const SYNCED: Color = Color::rgba(0, 194, 255, 255);
+
 pub(crate) fn draw(frame: &Frame<'_>, scene: &mut Scene) {
+    for at in frame.app.synced_cursors() {
+        let tip = frame.screen_point(at);
+        let reach = Rect::new(tip.x, tip.y, ARROW[3].0, ARROW[1].1);
+        if frame.sees_screen(reach) {
+            draw_arrow(tip, SYNCED, scene);
+        }
+    }
     for cursor in frame.app.agent_cursors() {
         draw_cursor(frame, &cursor, scene);
     }
+}
+
+fn draw_arrow(tip: Point, color: Color, scene: &mut Scene) {
+    scene.push(Item::screen(PolygonDraw {
+        points: (ARROW.iter())
+            .map(|(x, y)| Point::new(tip.x + x, tip.y + y))
+            .collect(),
+        fill: Some(color),
+        stroke: Some(PathStroke::new(Color::WHITE, ARROW_EDGE)),
+    }));
 }
 
 fn draw_cursor(frame: &Frame<'_>, cursor: &AgentCursor, scene: &mut Scene) {
@@ -53,13 +75,7 @@ fn draw_cursor(frame: &Frame<'_>, cursor: &AgentCursor, scene: &mut Scene) {
         return;
     }
     let color = COLORS[cursor.slot % COLORS.len()];
-    scene.push(Item::screen(PolygonDraw {
-        points: (ARROW.iter())
-            .map(|(x, y)| Point::new(tip.x + x, tip.y + y))
-            .collect(),
-        fill: Some(color),
-        stroke: Some(PathStroke::new(Color::WHITE, ARROW_EDGE)),
-    }));
+    draw_arrow(tip, color, scene);
     scene.push(Item::screen(
         RectDraw::filled(chip, color).with_corner_radius(CHIP_RADIUS),
     ));

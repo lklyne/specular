@@ -14,10 +14,10 @@ use sha2::{Digest as _, Sha256};
 
 use crate::prefs;
 
-/// The command's wrapper script, from the executable in `Contents/MacOS`.
-/// The Electron app kept its wrapper at the same place in its bundle, so a
-/// link it made still points at one.
-const WRAPPER: &str = "../Resources/specular-cli.sh";
+/// The CLI, beside the executable in `Contents/MacOS`. The link on the
+/// `PATH` is named `specular`; the binary is not, so it never collides
+/// with the Kit shell's own `specular` in a build folder.
+const WRAPPER: &str = "specular-cli";
 /// The skill's folder, from the executable in `Contents/MacOS`.
 const SKILL: &str = "../Resources/skills/specular";
 const SKILL_FILE: &str = "SKILL.md";

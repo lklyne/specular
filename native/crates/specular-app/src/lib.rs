@@ -20,6 +20,7 @@ mod bench_drive;
 mod bench_run;
 mod cdp;
 mod cli;
+mod crash_log;
 mod headless;
 mod images;
 mod latency;

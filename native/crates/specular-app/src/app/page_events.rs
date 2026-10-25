@@ -25,8 +25,12 @@ impl<W: ShellWindow> Runtime<W> {
                 tracing::info!(%page, http_status, "page loaded");
             }
             PageEvent::Crashed { page, reason } => {
-                tracing::error!(%page, reason, "page host crashed");
-                if let Some(entity) = self.entity_of(*page) {
+                let entity = self.entity_of(*page);
+                let url = (entity.as_ref())
+                    .and_then(|entity| self.app.page_address(entity))
+                    .unwrap_or_default();
+                tracing::error!(%page, url, reason, "render-process-gone");
+                if let Some(entity) = entity {
                     self.give_up_on_page(&entity);
                 }
             }

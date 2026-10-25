@@ -199,7 +199,7 @@ specular-cef         CEF page hosts. The plan called it specular-pages.
 specular-app         Runtime (every effect runner), the command line, headless modes, --bench, and the winit window.
 specular-shell       The GPUI Kit window, binary `specular`. Uses specular-app's Runtime.
 specular-testkit     TestApp, snapshot macros, entity builders. Dev-dependency only.
-specular-bench       Profiles, frame stats, memory, the Electron comparison.
+specular-bench       Profiles, frame stats, memory.
 ```
 
 Dependencies point one way: `core`, `doc`, `agent` <- `interact` <- `scene` <- `compositor`, with `api` beside `scene`, then `app`, then `shell`. Only `app`, `shell` and `cef` do I/O. There is no `specular-ui`: panel models are in `interact` and panel painting in `scene`. `native/README.md` has the full table.

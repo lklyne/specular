@@ -36,7 +36,7 @@ pub struct ProfileLine {
     /// Pages on the canvas.
     pub pages: usize,
     /// False when the source is synthetic or any frame drawn came from a CPU
-    /// upload: such runs must not be compared against Electron (ADR 0038).
+    /// upload, which does not measure the real page cost (ADR 0038).
     pub representative: bool,
     /// Refresh interval the profile was stepped at.
     pub step_interval_ms: f64,

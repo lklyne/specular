@@ -154,6 +154,7 @@ pub(crate) fn on_notice(app: &mut App, page: &EntityId, notice: &PageNotice) -> 
         PageNotice::Crashed { .. } => state.loading = false,
         PageNotice::Loaded { .. }
         | PageNotice::ImeCompositionBounds(_)
+        | PageNotice::OpenTab { .. }
         | PageNotice::ScrollProgress { .. }
         | PageNotice::ScrollRoom(_)
         | PageNotice::Pointed { .. }

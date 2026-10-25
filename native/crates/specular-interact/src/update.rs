@@ -104,6 +104,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         Event::BuiltinMenu => app.session.panel = builtin::PanelUi::menu_alone(),
         Event::ChatPanel(available) => app.session.chat.set_available(available),
         Event::Motion(on) => app.session.motion.enable(on),
+        Event::ReduceMotion(on) => app.session.motion.reduce(on),
         Event::ThreadsLoaded { threads, index } => chat::on_loaded(app, threads, &index),
         Event::Agent { thread, notice } => chat::on_agent(app, &thread, notice, &mut effects),
         Event::ReposLoaded(repos) => app.repos = *repos,
@@ -448,6 +449,9 @@ fn on_page_event(app: &mut App, page: &EntityId, notice: &PageNotice, effects: &
         PageNotice::Scrolled { .. } => crate::flick::scrolled(app, page),
         PageNotice::ScrollRoom(room) => crate::flick::room(app, page, *room),
         PageNotice::RegionElements(boxes) => comment::on_elements(app, page, boxes),
+        PageNotice::OpenTab { url, foreground } => {
+            crate::link_open::open(app, page, url, *foreground, effects);
+        }
         _ => {}
     }
     on_page_notice(app, page, notice, effects);
@@ -472,6 +476,7 @@ fn on_page_notice(app: &App, page: &EntityId, notice: &PageNotice, effects: &mut
         | PageNotice::ElementCaptured { .. }
         | PageNotice::ElementPlaces(_)
         | PageNotice::DevtoolsUrl(_)
+        | PageNotice::OpenTab { .. }
         | PageNotice::ViewportFit { .. } => {}
         PageNotice::ImeCompositionBounds(bounds) => {
             if app.session.focus.page() == Some(page)

@@ -6,6 +6,7 @@
 #   fixtures/scenarios/run.sh first-session    # one, by name
 #   fixtures/scenarios/run.sh --kit [name..]   # in the Kit window
 #   fixtures/scenarios/run.sh --cef [name..]   # the real-page suite, cef/
+#   fixtures/scenarios/run.sh --cli [case..]   # the CLI end to end, cli/
 #
 # headless  `specular-app --script` with the synthetic pages and no built-in
 #           panels. Steps only a window can do are skipped and listed.
@@ -21,6 +22,8 @@
 #           `specular` CLI is installed. It needs a bundled debug CEF build
 #           (see native/README.md); CEF_APP names its inner binary. `{site}`
 #           in a script is the address cef/ is served at.
+# --cli     cli/run.sh: every `specular` CLI verb against the Kit app on a
+#           scratch space, one case a line (cli/cases.py).
 #
 # Output goes to native/runs/scenarios/<mode>/<scenario>/: what the run
 # saved and drew, and stderr.log. SCENARIO_OUT moves it.
@@ -33,8 +36,9 @@ mode=headless
 case ${1:-} in
     --kit) mode=kit; shift ;;
     --cef) mode=cef; shift ;;
+    --cli) shift; OUT=${SCENARIO_OUT:-$native/runs/scenarios/cli} exec "$here/cli/run.sh" "$@" ;;
     --headless) shift ;;
-    -*) echo "unknown mode $1 (expected --kit or --cef)" >&2; exit 2 ;;
+    -*) echo "unknown mode $1 (expected --kit, --cef or --cli)" >&2; exit 2 ;;
 esac
 out=${SCENARIO_OUT:-$native/runs/scenarios/$mode}
 folder=$here

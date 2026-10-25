@@ -37,6 +37,8 @@ have been looked at.
 | `i-comments` | Comments on the kitchen sink: a point, one on a sticky, one on a page's element, a region on empty canvas and one over a page, an empty draft escaped, a two-line draft, focusing a pill, delete and undo, annotating a selection, resolving, undoing all of it. |
 | `j-toolbar-and-popups` | Empty canvas, every change made by naming a control: tools picked from the toolbar, a sticky and two shapes placed with their popup defaults, then recolored, resized and restyled, an edge dragged between the shapes and restyled, undo and redo across a property change, Escape and an outside press closing a list, the zoom list. |
 
+| `r-new-tab-links` | Links a page opens in a new tab: a `target=_blank` click, a Command-click in the background and a `javascript:` link that opens nothing, then both pages undone. |
+| `s-reduced-motion` | A page's tab opened with transitions on and then with Reduce motion on, and the settings' agent and synced cursor switches. |
 | `q-anchoring` | A sticky, a text and a region comment on a page that is scrolled under them, with an edge to the sticky: the fade at the page's top, a resize and a text edit while carried, a duplicate, the page deleted and brought back. |
 
 ## What `check.py` holds
@@ -56,6 +58,11 @@ have been looked at.
   property it names (a sticky's color and size, a shape's kind and border, an
   edge's color, width, dash and arrowheads), undo takes back one of them and
   redo returns it, and picking a zoom level changes no document.
+
+- In r, each link adds one page at the source's size with the link's
+  address, made from a link and in no sync set, overlapping nothing; a
+  `javascript:` link adds none, and undo takes both away.
+- In s, the cursor switches change no document.
 
 - In q, a resize while the page is scrolled stores what was seen, an edit
   and a region are attached to the grid cell under them, a duplicate off
@@ -84,3 +91,8 @@ The camera in `appState` is left out of every comparison.
 - Number the snapshots and name them for what they should show. Where the
   outcome is a document, `save` it and add a line to `check.py` instead of
   a snapshot.
+
+`cli/run.sh` is the `specular` CLI end to end: it starts the Kit app on a
+scratch space and runs every verb against it, asserting on output, exit
+codes and the saved canvas (`cli/cases.py`). `cli/run.sh tabs_are_made_shown_written_in_the_background_and_deleted`
+runs one case. `cef/cli-pages.sh` runs the browse verbs on real pages.

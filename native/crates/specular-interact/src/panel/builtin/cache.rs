@@ -160,6 +160,7 @@ pub(crate) fn keeps_layout(app: &App, event: &Event) -> bool {
         | Event::BuiltinMenu
         | Event::ChatPanel(_)
         | Event::Motion(_)
+        | Event::ReduceMotion(_)
         | Event::ThreadsLoaded { .. }
         | Event::ReposLoaded(_)
         | Event::Models(_)

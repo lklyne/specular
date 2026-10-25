@@ -1,7 +1,7 @@
-//! The results file both shells are reduced to, and that `compare` reads.
+//! The results file `assemble` folds a run into.
 //!
 //! Field names follow the Electron sources where an equivalent exists: the
-//! lab's per-phase result (`phase`, `durationMs`, `draws`, `drawFps`,
+//! ADR 0038 lab's per-phase result (`phase`, `durationMs`, `draws`, `drawFps`,
 //! `meanFrameMs`, `maxFrameMs`, `longFrames`, `framesReceived`), the page
 //! host's `PageHostStats` for texture counters, and `frameMs` for the
 //! refresh interval the run stepped at.
@@ -9,26 +9,6 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{BenchError, FrameSummary, LatencySummary, MemoryReport, ProfileId, TextureStats};
-
-/// Which shell produced a report.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum Shell {
-    /// The shipped Electron app.
-    Electron,
-    /// The Rust + CEF spike.
-    RustCef,
-}
-
-impl Shell {
-    /// Column heading for comparison tables.
-    pub const fn label(self) -> &'static str {
-        match self {
-            Self::Electron => "Electron",
-            Self::RustCef => "Rust/CEF",
-        }
-    }
-}
 
 /// How a shell throttles page painting. Recorded in every report because the
 /// policy changes how much work each page does per second, so runs under
@@ -67,12 +47,10 @@ impl std::str::FromStr for PaintPolicy {
     }
 }
 
-/// One shell's run over the gesture profiles.
+/// One run over the gesture profiles.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RunReport {
-    /// Producer.
-    pub shell: Shell,
     /// Where frames came from: `cef`, `synthetic`, `chromium-trace`, ...
     pub source: String,
     /// Fixture name, e.g. `static-20` or `animated-20`.
@@ -84,14 +62,14 @@ pub struct RunReport {
     /// Refresh interval the profiles were stepped at, and the budget long
     /// frames are measured against (Electron's `frameMs`).
     pub frame_ms: f64,
-    /// False when any frame came through a CPU copy or a synthetic source;
-    /// such runs must not be compared with Electron (ADR 0038).
+    /// False when any frame came through a CPU copy or a synthetic source,
+    /// which do not measure the real page cost (ADR 0038).
     pub representative: bool,
     /// The page paint policy the shell ran under (absent in older files).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub paint_policy: Option<PaintPolicy>,
     /// Whether the canvas chrome layer (page borders, selection, annotations)
-    /// was drawn every frame (absent in older files and for Electron).
+    /// was drawn every frame (absent in older files).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub chrome: Option<bool>,
     /// Annotations the run drew every frame (absent in older files).
@@ -118,7 +96,6 @@ pub struct RunReport {
 #[serde(rename_all = "camelCase")]
 pub struct PhaseReport {
     /// Profile id.
-    #[serde(alias = "profile")]
     pub phase: ProfileId,
     /// First to last presented frame of the phase.
     pub duration_ms: f64,
@@ -162,18 +139,6 @@ mod tests {
         assert_eq!(
             (&json["phase"], &json["draws"]),
             (&"slow-pan".into(), &240.into())
-        );
-    }
-
-    #[test]
-    fn phase_report_reads_lab_result_shape() {
-        let lab = r#"{"phase":"fast-pan","durationMs":450,"draws":54,"drawFps":120,
-            "meanFrameMs":8.33,"maxFrameMs":9.4,"longFrames":0,"framesReceived":12,
-            "p50FrameMs":8.3,"p95FrameMs":8.9,"p99FrameMs":9.3}"#;
-        let phase: PhaseReport = serde_json::from_str(lab).unwrap();
-        assert_eq!(
-            (phase.phase, phase.frames.frames, phase.frames_received),
-            (ProfileId::FastDiagonalPan, 54, Some(12))
         );
     }
 }

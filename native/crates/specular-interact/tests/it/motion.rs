@@ -13,11 +13,13 @@
 //!   page's host a frame behind, starting the shell anywhere but a quarter
 //!   turn back makes it jump, and a turn that outlives an undo draws a
 //!   shell the page no longer has.
+//! - reduced: a transition that ignores Reduce motion still springs for
+//!   someone who asked the system for none.
 
 use glam::Vec2;
 use specular_core::Camera;
 use specular_doc::Rect;
-use specular_interact::{Action, Lens, Orientation, Property, Showing};
+use specular_interact::{Action, Event, Lens, Orientation, Property, Showing};
 use specular_testkit::{TestApp, page};
 
 const START: u64 = 1_000_000;
@@ -110,6 +112,36 @@ fn a_change_of_view_moves_the_camera_by_a_spring_from_where_the_item_was() {
             "{name}: lands off target"
         );
         assert!(!app.app().motion_running(), "{name}: still owes frames");
+    }
+}
+
+#[test]
+fn reduce_motion_lands_every_change_of_view_and_every_turn_at_once() {
+    let device = Action::SetLens(Lens::Device);
+    let lie_down = Action::SetProperty(Property::Orientation(Orientation::Landscape));
+    let rows: [(&str, Vec<Action>, Action); 4] = [
+        ("enter", vec![], show("p1")),
+        ("lens", vec![show("p1")], device.clone()),
+        (
+            "leave",
+            vec![show("p1"), device],
+            Action::Show(Showing::Canvas),
+        ),
+        ("turn", vec![], lie_down),
+    ];
+    for (name, steps, change) in rows {
+        let mut twin = app(false);
+        prepared(&mut twin, &steps);
+        twin.select(&["p1"]).act(change.clone());
+        let landed = (twin.session().camera, twin.rect("p1"));
+
+        let mut app = app(true);
+        app.send(Event::ReduceMotion(true));
+        prepared(&mut app, &steps);
+        app.select(&["p1"]).act(change);
+        assert_eq!((app.session().camera, app.rect("p1")), landed, "{name}");
+        assert!(!app.app().motion_running(), "{name}: springs");
+        assert_eq!(app.app().turning(&"p1".into()), None, "{name}: turns");
     }
 }
 

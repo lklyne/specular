@@ -7,9 +7,8 @@
  */
 
 import { agent } from './agent'
-import { cli } from './cli'
 
-const services: Record<string, () => Promise<void>> = { agent, cli }
+const services: Record<string, () => Promise<void>> = { agent }
 
 const name = process.argv[2] ?? ''
 const service = services[name]

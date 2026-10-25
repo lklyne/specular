@@ -1095,3 +1095,35 @@ Nothing was retired. Cleanup rows 1 and 2 in the plan say what now stands betwee
 - Gate: fmt, clippy for the workspace and for `specular-app` and `specular-shell` with `--features cef`, `cargo test --workspace` (1,425).
 - Needs a human at a Mac: none of it has been seen in a real page. The user asked for no scripted run and tests by hand.
 
+
+### BIG-RUN P1. Deletions
+
+- `native/bakeoff` is gone. The images ADR 0039 and ADR 0040 link (the golden images and crops, and the thirteen linked `shots/*.png`) moved to `docs/adr/assets/0039/` and `assets/0040/`. The ADRs, and the handoff's item 44, point there. The ADR 0040 `.txt` reports it names went with the code.
+- `packages/vite` is gone, with its `pnpm-workspace.yaml` entry and lockfile importer. Nothing in `src/`, `native/`, `resources/`, the tsconfigs or CI used it.
+- `specular-bench` lost `compare`, `electron_trace`, the `compare` and `electron-trace` commands, the `--page-hosts-*` flags and `PageHostsSnapshot`, the `Shell` field on `RunReport`, the lab profile aliases (`fast-pan`, `pan-zoom`) and the error variants only they raised. It keeps profiles, frame stats, work, memory, `assemble`, `rss` and `resize-report`. The README is rewritten for the Rust-only bench, and `native/README.md` drops the Electron half.
+- `PaintPolicy::ElectronLod` stays: it names the app's own paint policy, not the comparison.
+- Gate: fmt, clippy, `cargo test --workspace` and `fixtures/scenarios/run.sh` pass. `pnpm typecheck` was not run (no node_modules in the worktree); no tsconfig includes `packages/`.
+- By hand: open ADR 0039 and 0040 in a Markdown viewer and check the images render.
+
+### BIG-RUN P5: the `specular` CLI in Rust (2026-10-25)
+
+- New crate `specular-cli`, binary `specular-cli`, linked onto the `PATH` as `specular` (the Kit shell already builds `target/debug/specular`). Hand parser with the TS value-flag table, `ureq` client, one module per verb group. Same verbs, JSON output, exit codes, discovery, headers, session id, presence and agent-browser spawning as the TS CLI.
+- Decision: the routes read loose JSON, so there were no request structs to share. `specular-api/src/wire.rs` types what the CLI decodes (discovery file, apply and placement answers) plus the footprint and layout check, and the routes build those answers from it. Typing every request body would be a route refactor.
+- Decision: in-CLI `&&` chaining is dropped. The TS CLI quoted every word, so it could not reach it; shell `&&` still works.
+- Cut `print-pdf`, `record`, `component-states`, `design-system` and `register-design-system` from the CLI, the skill and `unported.rs`; their routes are 404s now.
+- Found by the e2e runs: `update <group> --gap` was a no-op. A patch can now set a group's `layoutGap`.
+- `fixtures/scenarios/cli/run.sh` (12 cases) starts the Kit app on a scratch space and runs every verb. It replaced `contract.rs`, `documents.rs`, most of `tabs.rs` and `tasks.rs`, five `verbs.rs` tests and the socket session test. `cef/cli-pages.sh` runs the Rust CLI (`CLI=`).
+- `bundle-app.sh` puts `specular-cli` in `Contents/MacOS`; `agent_tools` links to it. `specular-cli.sh` and the helper's `cli` service are gone. `resources/specular-cli.sh` is the Electron build's and goes with phase 7.
+- Ran: gate, headless scenarios, `cli/run.sh` 12/12 on the Kit app.
+- Needs a human: a bundle build (not run here, nor `bun` in `native/helper`), the setup dialog replacing an old `specular-cli.sh` link, and `cef/cli-pages.sh` against a bundled CEF app with the patched agent-browser.
+
+### BIG-RUN P6: parity (new-tab links, error log, Reduce motion, cursor settings, fix and snapshot routes)
+
+- New-tab links: CEF's `on_before_popup` and `on_open_urlfrom_tab` cancel the popup and send `PageNotice::OpenTab`; `link_open.rs` puts a page at the source's size in a free spot beside it, in no sync set, one undo step. Foreground selects it and reveals it (a pan, not Electron's centring glide); Command-click and middle click leave both. Decision: a popup with window features and a Shift-click's new window open a page too, since an off-screen page cannot have a window. The page joins no group.
+- Error log: `crash_log.rs` writes panics and every tracing ERROR (failed effects, `render-process-gone` with url and reason) to `~/Library/Logs/Specular/errors.log`, capped at 50 MB, `SPECULAR_ERROR_LOG` overrides. Only window runs keep it. CEF has no Crashpad setup, so there are no native dumps yet.
+- Reduce motion: the Kit shell reads `accessibilityDisplayShouldReduceMotion` at start and every second and sends `Event::ReduceMotion`; `App::reduce_motion()`. The camera spring, page turns and agent cursor travel land at once; the thread avatars and the first-run Prism hold still. The run bar has no shimmer or pulse natively yet, and the bubble flash (a colour fade) is left. The winit shell does not send it (phase 4 removes it).
+- Cursors: `Agent cursors` and `Synced cursors` switches in settings (`settings.agent-cursors`, `settings.synced-cursors`, named controls), saved as Electron's `hideAgentCursors`/`hideSyncedCursors`. The synced cursor is new: an arrow in #00C2FF where the entered page's pointer was last replayed on each peer, cleared when the capture ends.
+- Routes: `POST /annotations/fix` (`ChatAction::Fix`; only comments on a repo-bound origin; a thread-less comment joins the draft) and `POST /pages/snapshot` / `/pages/agent-snapshot` (a script ported from the preload, run with `Runtime.evaluate` on the page's devtools channel; ids from `cdp::APP_ID_BASE`). These are the API's first deferred answers: `Api::answer_to`, `Host::page_script`. Their unported rows are gone.
+- Tests: scenarios `r-new-tab-links` (checked in check.py) and `s-reduced-motion` (frames to look at; the camera is asserted in `tests/it/motion.rs`), script steps `page-opens-tab`, `motion`, `reduce-motion`; `tests/it/cursors.rs`; `tests/api/fix.rs`, two snapshot cases in `tests/api/pages.rs`, one over the socket; two crash log tests.
+- Gate: fmt, clippy (workspace, and app and shell with `--features cef`), `cargo test --workspace`, `fixtures/scenarios/run.sh`, all pass. A bundled debug CEF run on a local page: a `target=_blank` click and `window.open` each opened a foreground page beside the source, a Command-click a background one, and a plain click still navigated in place. Middle click was not tried (no script step for it).
+- Needs a human: toggle Reduce motion in System Settings with the app open and watch a tab open and the avatar; cmd-click and middle-click a link in a real page; the two cursor switches with an agent and a sync set; read errors.log after killing a renderer.

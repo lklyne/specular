@@ -114,7 +114,7 @@ Items marked (winit) need `cargo run -p specular-app -- FILE`, because the GPUI 
 41. Build the bundle and run `fixtures/scenarios/app/first-run.sh` with the screen on. Read `2-space-created.png` and `3-settings.png`.
 42. Open a `.canvas` from Finder with the app running and with it closed. Log in to a site, quit, reopen: still logged in.
 43. On a quiet machine, rerun the bench loop in `native/README.md` and look at long frames. Open 40 pages with the Kit's panels open.
-44. Open `native/bakeoff/golden/compare-5x-zoom-*.png` and confirm ADR 0039's sharpness call. Its two egui checks no longer apply.
+44. Open [`docs/adr/assets/0039/compare-5x-zoom-*.png`](../adr/assets/0039/) and confirm ADR 0039's sharpness call. Its two egui checks no longer apply.
 
 ## Known bugs
 

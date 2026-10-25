@@ -24,14 +24,14 @@ bundle holds copies of the binary.
 Specular.app/Contents/
   Info.plist
   MacOS/Specular                                    the `specular` binary
-  MacOS/specular-helper                             the Agent SDK host and the CLI, from native/helper
+  MacOS/specular-cli                                the `specular` command, from native/crates/specular-cli
+  MacOS/specular-helper                             the Agent SDK host, from native/helper
   Helpers/claude                                    the Claude Code runtime the SDK runs
   Frameworks/Chromium Embedded Framework.framework  from CEF_PATH
   Frameworks/Specular Helper.app                    and (GPU), (Renderer), (Plugin), (Alerts)
   Frameworks/Sparkle.framework                      the updater
   Resources/Assets.car, AppIcon.icns                compiled from specular-shell/assets/AppIcon.icon
   Resources/starter-space/                          resources/starter-space
-  Resources/specular-cli.sh                         the `specular` command
   Resources/bin/agent-browser                       the CLI's browse verbs, from native/scripts/build-agent-browser.sh
   Resources/skills/specular, skills/core            the specular skill, and the one agent-browser reads
 ```
@@ -41,10 +41,12 @@ Each Chromium helper holds `specular-cef-helper`. Chromium starts it with a
 
 ### The command and the skill
 
-The CLI is the Electron app's source (`src/main/cli-commands.ts`), compiled
-into `specular-helper` as its `cli` service. `specular-cli.sh` runs it, and
-sits where the Electron app kept its own wrapper, so a link that app made
-on the `PATH` runs this one.
+The CLI is the Rust binary `specular-cli` (crate `native/crates/specular-cli`).
+It is built under that name so it never lands on the Kit shell's `specular`
+in `target/`, and the link on the `PATH` is named `specular`. It finds the
+bundled agent-browser in `../Resources/bin` beside itself. A link the
+Electron app made pointed at its own `specular-cli.sh`, which this bundle
+does not have, so the setup dialog offers to replace it.
 
 Neither is installed until the user says so, in the setup dialog
 (`specular-shell/src/setup.rs` over `specular-app/src/agent_tools.rs`). The
