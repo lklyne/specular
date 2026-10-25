@@ -41,6 +41,7 @@ use serde_json::Value;
 use specular_interact::Tool;
 
 use super::CameraArg;
+use super::facts_panels::{self, PanelFact};
 use super::words::{camera, number, tool_named, unescaped};
 
 /// One `expect` line.
@@ -84,6 +85,8 @@ pub enum Expect {
     ChangedFrom(Reference, Vec<String>),
     /// A fact about the canvas the pointer works on (see [`super::facts_canvas`]).
     OnCanvas(super::facts_canvas::CanvasFact),
+    /// A fact about what a panel, the editor or the shell shows.
+    Panel(PanelFact),
 }
 
 /// What an `expect count` counts.
@@ -197,7 +200,10 @@ pub(super) fn parse(rest: &str) -> anyhow::Result<Expect> {
         }
         _ => match super::facts_canvas::fact(what, tail)? {
             Some(fact) => Expect::OnCanvas(fact),
-            None => bail!("not a fact `expect` knows, or the wrong arguments"),
+            None => match facts_panels::parse(what, tail) {
+                Some(fact) => Expect::Panel(fact?),
+                None => bail!("not a fact `expect` knows, or the wrong arguments"),
+            },
         },
     })
 }

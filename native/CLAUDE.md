@@ -166,7 +166,7 @@ fn shift_drag_moves_the_page_along_one_axis() {
   effects. A comment on a page of that origin then writes to the repo: the
   composer's `folder` and `auto` chips follow it and the `RunAgent` request
   carries the repo as `cwd`. With `auto` on, placing the comment sends it. See
-  `tests/it/repos.rs`.
+  `fixtures/scenarios/repos-and-inspect.txt`.
 - Pages: `page_reports("p1", PageNotice::Scrolled { x: 0.0, y: 40.0 })` (or `Title`,
   `Url`, `Loading`, `DevtoolsUrl`) is a page saying something about itself, as
   the shell sends it; read back with `app().page_state(..)` and `page_scroll(..)`.
@@ -196,7 +196,7 @@ fn shift_drag_moves_the_page_along_one_axis() {
   (`Action::Show`, ADR 0045); read back with `app().showing()`, and
   `view_strip(app.app())` is the row's model. `view.add` (Command+T) makes
   a page in a free spot and shows its tab with `page.url` being typed in.
-  See `tests/it/showing.rs`, and `tests/it/item_view.rs` for what input
+  See `fixtures/scenarios/tabs.txt`, and `item-view.txt` for what input
   does in an item view: the page shown is entered, so send `Key::Escape`
   before a canvas key or a tool's press, and a Document shown is a reading
   column that one click edits. A tab starts in the Fill lens, or in Device when the
@@ -208,7 +208,7 @@ fn shift_drag_moves_the_page_along_one_axis() {
   for `Effect::Save`: the tabs are saved in `appState.itemTabs`. Device hides what is not hooked to its item until
   `act(Action::ShowOthers(true))` opens the eye (`view.others`), so open it
   before making or pressing anything beside the item. See
-  `tests/it/lens.rs`.
+  `fixtures/scenarios/lens.txt`.
   A text field is clicked like any control and then typed into:
   `enter_in_field("page.url", "example.org")` replaces its text and presses
   Enter, `field_edit()` reads what is typed so far, and Escape puts the
@@ -230,8 +230,8 @@ fn shift_drag_moves_the_page_along_one_axis() {
   `sidebar.canvas.<n>.menu.rename|delete`).
   `app.control("text.color")` does what a click on a control does from the
   models alone, with no `with_panels`, and `context_menu(at)` is the right
-  click that goes with it. `tests/it/named_controls.rs` holds the two paths
-  to the same result.
+  click that goes with it. `fixtures/scenarios/chrome-controls.txt` presses
+  them by name.
 - A page is select-first (ADR 0022). `click` selects it, a second `click`
   or a `double_click` enters it, and only an entered page gets input.
   `app().mark(&id)` says how it is marked: `Mark::Outline` with handles

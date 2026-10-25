@@ -24,6 +24,7 @@
 mod check;
 mod expect;
 mod facts_canvas;
+mod facts_panels;
 mod given;
 mod saved;
 mod state;
@@ -41,6 +42,7 @@ pub(crate) use self::check::is_markdown;
 pub use self::check::{Checks, saved_text};
 pub use self::expect::{Counted, EntityFact, Expect, Reference, SavedFact};
 pub use self::facts_canvas::{CanvasFact, CanvasStep, Query as CanvasQuery, check_sent};
+pub use self::facts_panels::{LineTest, PanelFact, PanelStep, Topic};
 pub use self::given::Given;
 pub use self::state::dump;
 pub use self::step::Step;

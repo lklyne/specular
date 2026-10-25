@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 
 use glam::Vec2;
 use gpui_kit::{AnyWindowHandle, AsyncApp};
-use specular_app::script::{self, Checks};
+use specular_app::script::{self, Checks, PanelStep};
 use specular_doc::{Document, EdgeId, EntityId, ItemId};
 use specular_interact::{Action, Event, SidebarAction};
 
@@ -132,6 +132,15 @@ fn check_step(step: Do, checks: &mut Checks) -> Result<(), String> {
         // `step` hands over only the steps above.
         _ => Ok(()),
     }
+}
+
+/// Sends the event a panel step stands for, read against the app now.
+fn panel(step: &PanelStep) -> Result<(), String> {
+    let event = canvas::with(|canvas| step.event(canvas.runtime.app()))
+        .ok_or("there is no canvas")?
+        .map_err(|error| format!("{error:#}"))?;
+    canvas::dispatch(event);
+    Ok(())
 }
 
 /// Writes the canvas as a save would and opens what was written.
@@ -399,6 +408,7 @@ pub(super) async fn step(
         }
         Do::Act(action) => canvas::dispatch(Event::Action(action)),
         Do::Send(event) => canvas::dispatch(event),
+        Do::Panel(step) => panel(&step)?,
         Do::Select(ids) => select(&ids),
         Do::Sidebar(shown) => show_sidebar(shown),
         Do::Drop(paths, Some(at)) => view::drop_files(paths, at),

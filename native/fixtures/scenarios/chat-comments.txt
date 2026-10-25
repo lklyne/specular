@@ -1,0 +1,234 @@
+# canvas: empty.canvas
+# Comments and chat are one conversation: with a right panel a comment is
+# finished in the panel, queued into a thread and saved with its id; Send
+# runs the agent, which answers in the thread. The agent's side is played
+# by `agent-says`.
+given page p1 100 100 400 300
+given file f2 100 1100 100 100 assets/shot.png
+given text t1 300 1100 400 40 Make   the headline bigger and bolder, please do it now
+given shape s1 800 1100 100 100
+camera 0,0,1
+chat-panel on
+tool comment
+
+# placing a comment opens a passive draft: the field is the panel's, so the
+# canvas has no text edit and no card
+click 600 500
+expect editing none
+expect comments lacks composer
+expect chat has draft Point "Canvas point"
+expect chat has placeholder "Add a comment…"
+expect chat has list
+# Send queues it into a new draft thread without a run
+send-chat   move this\s
+expect effects has write-thread(
+expect effects has write-thread-index
+expect effects lacks run-agent
+expect chat has title="move this"
+expect chat has thread "move this" active draft
+expect chat has queued "move this" pinned
+expect chat has placeholder "Add or edit…"
+expect chat has send-empty yes
+expect chat has pill Comment "move this"
+expect comments has "move this" thread thread_
+# chat is not undoable: the thread keeps its message
+act undo
+expect count comments 0
+expect chat has stored "move this" draft messages 1
+act redo
+
+# a draft with nothing to send stays open
+click 600 650
+send-chat \s\s\s
+expect comments has draft canvas-point 600 650
+expect count comments 1
+# a second comment joins the draft thread, in the order placed
+send-chat two
+expect count comments 2
+expect chat has stored "move this" draft messages 2
+expect chat count 1 thread "
+
+# an element comment names its anchor in the draft chip
+click 200 200
+wait 50
+expect chat has draft Element "div.cell[data-col="0"][data-row="2"]"
+key escape
+expect comments lacks draft
+# the chip drops a draft too
+click 600 800
+chat drop-draft
+expect comments lacks draft
+# leaving the tool drops a point draft
+click 600 800
+tool select
+expect comments lacks draft
+
+# Send with nothing typed runs the agent on the queued comments, with the
+# space folder as its working directory
+send-chat
+expect effects has write-thread(
+expect effects has run-agent resume none
+expect effects has run-agent prompt Working directory (space folder):
+expect effects has run-agent prompt [User] move this
+expect effects has at canvas point (600, 500))
+expect chat lacks queued
+expect chat has bubble user "move this" pinned
+expect chat has bubble user "two" pinned
+expect chat has running yes
+expect chat has placeholder "Queue a follow-up…"
+# the run streams into the panel
+agent-says session sess-1
+agent-says progress Reading
+agent-says text Hel
+agent-says delta lo
+expect chat has streaming "Hello"
+expect chat has run "Reading"
+expect chat has log "Reading the page"
+expect chat has thread "move this" active draft running
+# a message sent during a run waits, and goes as a resume when it ends
+send-chat now darker
+expect effects lacks run-agent
+expect chat has queued "now darker"
+agent-says finished Made it blue.\n<<RESOLVE>>
+expect effects has run-agent resume sess-1
+expect effects has run-agent prompt The user followed up
+expect effects has run-agent prompt [User] now darker
+expect chat has bubble agent "Made it blue."
+expect chat has stored "move this" open messages 4 session sess-1
+# Stop cancels the run, and the agent's cancel clears the run bar
+agent-says progress Writing
+chat stop
+expect effects has cancel-agent(
+agent-says cancelled
+expect chat lacks run "
+expect chat has running no
+expect chat has placeholder "Follow up…"
+expect chat has open-comments 2
+
+# a failed resume starts over with the whole thread
+send-chat again
+expect effects has run-agent resume sess-1
+agent-says failed no such session
+expect effects has run-agent resume none
+expect effects has run-agent prompt Thread:
+expect chat has stored "move this" open messages 5 session none
+# a failed first run shows its error, and a follow-up stays queued
+send-chat typed meanwhile
+agent-says failed claude is not installed
+expect chat has error "claude is not installed"
+expect chat has queued "typed meanwhile"
+expect chat has send-empty yes
+
+# a pasted image is written before the run and listed in the request
+send-image see this
+expect effects has write-asset { file: ".specular/threads/
+expect effects has run-agent images 1
+expect effects has run-agent image .specular/threads/
+agent-says finished ok
+
+# threads are made, left, opened and closed
+chat new-thread
+expect chat has title="New thread"
+expect chat count 2 thread "
+chat back
+expect chat has title="Threads"
+expect chat has list
+chat open 2
+expect chat has title="move this"
+# focusing a comment opens its thread and marks its bubble
+chat new-thread
+expect chat has title="New thread"
+click 600 500
+expect chat has title="move this"
+expect chat has bubble user "move this" pinned focused live
+key escape
+# a thread cannot be closed while it runs
+send-chat once more
+chat close
+expect effects lacks write-thread
+expect chat count 3 thread "
+agent-says finished done
+# resolving the thread's sent comments is one step
+expect chat has open-comments
+chat resolve
+expect chat lacks open-comments
+act undo
+expect chat has open-comments 2
+act redo
+expect comments count 0 pending
+
+chat close
+expect effects has write-thread(
+expect chat count 2 thread "
+expect chat has stored "move this" closed
+
+# what a run made or edited is a card under its answer
+chat open 1
+send-chat write it up
+agent-says made /repo/src/button.css new
+expect chat has card "button.css" File new
+agent-says finished done
+expect chat has bubble agent "done"
+expect chat has card "button.css" File new
+
+# the chosen model names the chip, is saved, and runs the next turn
+models default=Default (recommended)|claude-fable-5-1=Fable 5.1|sonnet=Sonnet 5
+model-saved default
+expect effects lacks save-agent-model
+expect chat has model Default
+expect chat has model-option "Default (recommended)" chosen
+chat model 2
+expect effects has save-agent-model("claude-fable-5-1")
+expect chat has model Fable 5.1
+send-chat go
+expect effects has run-agent model claude-fable-5-1
+agent-says finished ok
+
+# the toolbar's panel toggle, and the panel's width within its limits
+chat toggle
+expect chat has toggle closed
+expect controls has chat.toggle "Expand right panel"
+chat toggle
+chat resize 5000
+expect chat has visible=yes width=960
+chat resize 10
+expect chat has width=280
+chat-panel off
+expect controls lacks chat.toggle
+expect chat has available=no
+chat-panel on
+
+# the pill names what this turn is about: the selection by its kind, a
+# page by its live title, several by their count, else the canvas
+tool select
+select p1
+expect chat has pill Selection "Synthetic example.com/p1"
+page-reports p1 title \sHome page\s
+expect chat has pill Selection "Home page"
+page-reports p1 title \s\s
+expect chat has pill Selection "page"
+select f2
+expect chat has pill Selection "shot.png"
+select t1
+expect chat has pill Selection "Make the headline bigger and bolder, pl…"
+select s1
+expect chat has pill Selection "shape"
+select p1 f2 s1
+expect chat has pill Selection "3 items"
+key escape
+expect chat has pill Canvas "Canvas 1"
+
+# switching canvas clears a draft
+tool comment
+click 900 700
+expect comments has draft
+sidebar on
+control sidebar.add
+expect comments lacks draft
+expect count canvases 2
+expect chat has title="Threads"
+# each canvas has its own threads
+control sidebar.canvas.1
+expect chat has title="write it up"
+sidebar off
+undo-to-start

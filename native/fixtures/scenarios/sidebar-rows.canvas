@@ -1,0 +1,200 @@
+{
+  "nodes": [
+    {
+      "id": "p1",
+      "type": "link",
+      "x": 100,
+      "y": 100,
+      "width": 400,
+      "height": 300,
+      "url": "https://example.com/p1"
+    },
+    {
+      "id": "p2",
+      "type": "link",
+      "x": 2600,
+      "y": 100,
+      "width": 400,
+      "height": 300,
+      "url": "https://example.com/p2"
+    },
+    {
+      "id": "s1",
+      "type": "text",
+      "x": 100,
+      "y": 800,
+      "width": 200,
+      "height": 100,
+      "text": "on the page",
+      "specular": {
+        "textStyle": "sticky",
+        "pageAnchor": {
+          "pageId": "p1",
+          "pageUrl": "https://example.com/p1"
+        }
+      }
+    },
+    {
+      "id": "s2",
+      "type": "text",
+      "x": 400,
+      "y": 800,
+      "width": 200,
+      "height": 100,
+      "text": "left behind",
+      "specular": {
+        "textStyle": "sticky",
+        "pageAnchor": {
+          "pageId": "p1",
+          "pageUrl": "https://example.com/elsewhere"
+        }
+      }
+    },
+    {
+      "id": "s3",
+      "type": "text",
+      "x": 700,
+      "y": 800,
+      "width": 200,
+      "height": 100,
+      "text": "its page is gone",
+      "specular": {
+        "textStyle": "sticky",
+        "pageAnchor": {
+          "pageId": "gone",
+          "pageUrl": "https://example.com/p1"
+        }
+      }
+    },
+    {
+      "id": "g",
+      "type": "group",
+      "x": 1000,
+      "y": 100,
+      "width": 500,
+      "height": 500
+    },
+    {
+      "id": "s4",
+      "type": "text",
+      "x": 1050,
+      "y": 150,
+      "width": 200,
+      "height": 100,
+      "text": "in the group",
+      "specular": {
+        "textStyle": "sticky",
+        "parentGroupId": "g"
+      }
+    },
+    {
+      "id": "r1",
+      "type": "shape",
+      "x": 1600,
+      "y": 100,
+      "width": 200,
+      "height": 100,
+      "shapeKind": "rectangle",
+      "text": ""
+    },
+    {
+      "id": "d1",
+      "type": "file",
+      "x": 1900,
+      "y": 100,
+      "width": 300,
+      "height": 300,
+      "file": "notes/Plan.md"
+    }
+  ],
+  "edges": [],
+  "specular": {
+    "entityOrder": [
+      "p1",
+      "p2",
+      "s1",
+      "s2",
+      "s3",
+      "g",
+      "s4",
+      "r1",
+      "d1"
+    ]
+  },
+  "annotations": [
+    {
+      "id": "c1",
+      "anchor": {
+        "type": "page",
+        "pageId": "p1",
+        "offsetX": 0.1,
+        "offsetY": 0.1
+      },
+      "author": "user",
+      "text": "tighten this",
+      "status": "pending",
+      "replies": [],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "pageAnchor": {
+        "pageId": "p1",
+        "pageUrl": "https://example.com/p1"
+      }
+    },
+    {
+      "id": "c2",
+      "anchor": {
+        "type": "page",
+        "pageId": "p1",
+        "offsetX": 0.1,
+        "offsetY": 0.1
+      },
+      "author": "user",
+      "text": "",
+      "status": "pending",
+      "replies": [
+        {
+          "author": "agent",
+          "text": "done",
+          "timestamp": "2026-01-03T00:00:00.000Z"
+        }
+      ],
+      "createdAt": "2026-01-02T00:00:00.000Z",
+      "elementName": "button.cta",
+      "pageAnchor": {
+        "pageId": "p1",
+        "pageUrl": "https://example.com/elsewhere"
+      }
+    },
+    {
+      "id": "c3",
+      "anchor": {
+        "type": "page",
+        "pageId": "p1",
+        "offsetX": 0.1,
+        "offsetY": 0.1
+      },
+      "author": "user",
+      "text": "done with",
+      "status": "resolved",
+      "replies": [],
+      "createdAt": "2026-01-04T00:00:00.000Z",
+      "pageAnchor": {
+        "pageId": "p1",
+        "pageUrl": "https://example.com/p1"
+      }
+    },
+    {
+      "id": "c4",
+      "anchor": {
+        "type": "canvas",
+        "canvasX": 0,
+        "canvasY": 0
+      },
+      "author": "user",
+      "text": "not on a page",
+      "status": "pending",
+      "replies": [],
+      "createdAt": "2026-01-01T00:00:00.000Z"
+    }
+  ]
+}

@@ -1,0 +1,486 @@
+# The text editor from start to end: what starts and ends an edit and the
+# one undo step it leaves, the keys (words, lines, bullets, its own undo),
+# the pointer in the text, and the input method.
+given page p 400 100 400 300
+given sticky n 100 100 200 200 hello
+given shape s 900 100 200 200
+given edge e1 n s
+camera 0,0,1
+
+# one click selects, a double click edits with all of the text selected
+click 150 250
+expect selection n
+expect editing none
+double-click 150 250
+expect editing hello
+expect editor is caret 5 0
+expect effects has set-ime-allowed(true)
+expect effects has set-cursor(Text)
+
+# the document waits for the edit to end, which is one step
+key end
+type  there
+key enter
+type friend
+expect entity n text hello
+expect undo none
+key escape
+expect editing none
+expect selection n
+expect entity n text hello there\nfriend
+expect effects has set-ime-allowed(false)
+expect effects has save
+act undo
+expect entity n text hello
+expect undo none
+act redo
+key escape
+expect selection none
+
+# an edit that changes nothing is no step and no save
+double-click 150 250
+key end
+type !
+key backspace
+key escape
+expect effects lacks save
+expect entity n rect 100 100 200 200
+act undo
+expect entity n text hello
+act redo
+
+# a press anywhere else ends the edit and then does what it does
+double-click 150 250
+type bye
+click 500 350
+expect editing none
+expect selection p
+expect entity n text bye
+double-click 150 250
+type gone
+click 1200 900
+expect selection none
+expect entity n text gone
+
+# a tool change, a new selection or a verb ends the edit first
+double-click 150 250
+type b
+tool draw
+expect editing none
+expect entity n text b
+expect tool draw
+tool select
+double-click 150 250
+type c
+select s
+expect editing none
+expect entity n text c
+# the arrange verbs end it too
+double-click 150 250
+type d
+select n s
+act arrange-row
+expect editing none
+expect entity n text d
+act undo
+
+# the sticky grows downward with its text, live, and its undo shrinks it
+double-click 150 250
+key end
+key enter
+key enter
+key enter
+key enter
+key enter
+key enter
+key enter
+expect entity n size 200 200
+key enter
+key enter
+key enter
+key enter
+expect entity n rect 100 100 200 268
+key cmd+z
+expect entity n rect 100 100 200 247
+key escape
+
+# a text left empty is deleted with its edges, in one step
+double-click 150 250
+key backspace
+key space
+key space
+key escape
+expect entity n gone
+expect count edges 0
+expect selection none
+act undo
+expect entity n kind sticky
+expect count edges 1
+act redo
+act undo
+
+# a sticky placed and typed into is one step; one left empty is no step
+mark before-placing
+tool sticky
+click 200 600
+expect count sticky 2
+type note
+key escape
+expect entity @top text note
+expect effects has save
+act undo
+expect count sticky 1
+expect saved same-as mark before-placing
+act redo
+act undo
+tool text
+click 200 600
+expect count entities 4
+type x
+key backspace
+key escape
+expect count entities 3
+expect editing none
+expect selection none
+expect effects lacks save
+expect redo some
+
+# plain text hugs its lines, and an empty one fits its prompt
+tool text
+click 200 600
+expect editor has caret 0 0
+expect entity @top size 64 21
+type hello world
+expect entity @top size 81 21
+key enter
+type more
+expect entity @top size 81 42
+key cmd+a
+type hi
+# never under 64 wide
+expect entity @top size 64 21
+key escape
+
+# Option deletes a word, Command to the end of the line and then the break
+double-click 150 250
+type one two three
+key cmd+up
+key alt+delete
+expect editing \stwo three
+key end
+key alt+backspace
+expect editing \stwo\s
+key cmd+backspace
+expect editor lacks caret 1
+key cmd+a
+type one
+key enter
+type two
+key cmd+up
+key right
+key cmd+delete
+expect editing o\ntwo
+key cmd+delete
+expect editing otwo
+key cmd+a
+type one
+key enter
+type two
+key cmd+down
+key left
+key cmd+backspace
+expect editing one\no
+key cmd+backspace
+expect editing oneo
+
+# the arrows move by grapheme, word, line and document
+key cmd+a
+type one two
+key enter
+type three four
+key cmd+up
+key alt+right
+expect editor is caret 3 3
+key cmd+right
+expect editor is caret 7 7
+key right
+expect editor is caret 8 8
+key alt+right
+expect editor is caret 13 13
+key cmd+down
+expect editor is caret 18 18
+key alt+left
+expect editor is caret 14 14
+key cmd+left
+expect editor is caret 8 8
+key end
+expect editor is caret 18 18
+key cmd+home
+expect editor is caret 0 0
+key end
+expect editor is caret 7 7
+key cmd+end
+expect editor is caret 18 18
+key home
+key left
+expect editor is caret 7 7
+
+# shift extends from the anchor, and a plain arrow collapses to an edge
+key cmd+a
+type one two three
+key cmd+up
+key alt+right
+hold shift
+key alt+right
+key right
+expect editor is caret 8 3
+key cmd+left
+expect editor is caret 0 3
+key cmd+down
+expect editor is caret 13 3
+hold none
+key left
+expect editor is caret 3 3
+hold shift
+key alt+right
+hold none
+key right
+expect editor is caret 7 7
+key shift+left
+type x
+expect editing one twx three
+
+# up and down keep their column across a short line
+key cmd+a
+type abcdef
+key enter
+type ab
+key enter
+type abcdef
+key cmd+up
+key right
+key right
+key right
+key right
+key right
+key down
+expect editor is caret 9 9
+key down
+expect editor is caret 15 15
+key up
+key up
+expect editor is caret 5 5
+key up
+expect editor is caret 0 0
+key down
+key down
+expect editor is caret 15 15
+key cmd+up
+key down
+key down
+expect editor is caret 10 10
+key down
+expect editor is caret 16 16
+key cmd+up
+key right
+hold shift
+key down
+key down
+hold none
+expect editor is caret 11 1
+
+# Enter continues a bullet list and leaves it on an empty item
+key cmd+a
+type - one
+key enter
+type two
+expect editing - one\n- two
+key enter
+expect editing - one\n- two\n-\s
+key enter
+expect editing - one\n- two\n
+expect editor is caret 12 12
+type plain
+key shift+enter
+expect editing - one\n- two\nplain\n
+
+# Tab nests the bullet lines in the selection, Backspace takes a marker off
+key cmd+a
+type - one
+key enter
+key enter
+type text
+key enter
+key space
+key space
+type - two
+key cmd+up
+expect editing - one\ntext\n\s\s- two
+key tab
+expect editing \s\s- one\ntext\n\s\s- two
+expect editor is caret 2 2
+key cmd+a
+key tab
+expect editing \s\s\s\s- one\ntext\n\s\s\s\s- two
+expect editor is caret 24 2
+key shift+tab
+expect editing \s\s- one\ntext\n\s\s- two
+key shift+tab
+key shift+tab
+expect editing - one\ntext\n- two
+key cmd+up
+key down
+key tab
+expect editing - one\ntext\n- two
+key cmd+up
+key right
+key right
+key backspace
+expect editing one\ntext\n- two
+expect editor is caret 0 0
+key cmd+down
+key left
+key backspace
+expect editing one\ntext\n- to
+
+# the editor's own undo steps through runs of typing, and keeps a redo
+key cmd+a
+type ab
+key escape
+double-click 150 250
+key end
+type cd
+key left
+type x
+key backspace
+key backspace
+expect editing abd
+key cmd+z
+expect editing abcxd
+expect editor is caret 4 4
+key cmd+z
+expect editing abcd
+key cmd+z
+expect editing ab
+key cmd+z
+expect editing ab
+key cmd+shift+z
+key cmd+shift+z
+expect editing abcxd
+key cmd+z
+expect editing abcd
+key cmd+shift+z
+type !
+key cmd+shift+z
+expect editing abcx!d
+key escape
+
+# a shape label has no lists
+double-click 1000 200
+type - a
+key enter
+key tab
+expect editing - a\n
+key backspace
+key left
+key backspace
+expect editing -a
+key escape
+
+# the pointer in the text: a click puts the caret at the nearest boundary,
+# past a line's end, and below the last line
+double-click 150 250
+key cmd+a
+type one two three four
+key enter
+type foo
+click 113 118
+expect editor is caret 1 1
+click 125 118
+expect editor is caret 2 2
+click 290 140
+expect editor is caret 22 22
+click 110 290
+expect editor is caret 19 19
+# a drag selects from the press to the pointer, and the sticky stays put
+press 122 118
+drag-to 160 118
+expect editor is caret 7 2
+drag-to 110 118
+release
+expect editor is caret 0 2
+expect entity n rect 100 100 200 200
+type X
+expect editing Xe two three four\nfoo
+# a shift-click extends from the anchor
+click 122 118
+hold shift
+click 165 118
+expect editor is caret 8 2
+click 110 118
+hold none
+expect editor is caret 0 2
+# a double click takes a word, a triple click the paragraph
+double-click 140 118
+expect editor is caret 6 3
+triple-click 140 140
+expect editor is caret 21 18
+type 2
+expect editing Xe two three four\n2
+# a press on something else ends the edit
+click 1000 200
+expect editing none
+expect selection s
+
+# the input method: a composition sits in the text, marked, until committed
+double-click 150 250
+key cmd+a
+type ab
+compose に
+expect editing abに
+expect editor has composing 2 5
+expect editor is caret 5 5
+compose にほ
+expect editor has composing 2 8
+expect effects has set-ime-cursor-area
+commit 日本
+expect editing ab日本
+expect editor lacks composing
+expect editor is caret 8 8
+key cmd+z
+expect editing ab
+# a cancelled one leaves the text and the undo as they were
+type c
+compose x
+compose xy
+ime-cancel
+expect editing abc
+expect editor lacks composing
+key cmd+z
+expect editing ab
+# macOS clears the preedit before a commit: still one step
+compose に
+ime-cancel
+commit 日
+expect editing ab日
+key cmd+z
+expect editing ab
+# a composition replaces the selection and owns the keys while it runs
+key cmd+a
+compose k
+expect editing k
+expect editor has composing 0 1
+key left
+key backspace
+type z
+expect editing k
+expect editor is caret 1 1
+commit か
+expect editing か
+# a click takes the text out of the input method's hands
+compose に
+click 110 118
+expect editor lacks composing
+key escape
+
+undo-to-start

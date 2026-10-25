@@ -138,6 +138,7 @@ impl Checks {
             Expect::SameAs(reference) => self.same_as(app, reference),
             Expect::ChangedFrom(reference, paths) => self.changed_from(app, reference, paths),
             Expect::OnCanvas(fact) => super::facts_canvas::check(app, fact),
+            Expect::Panel(fact) => fact.check(app, None),
         }
     }
 

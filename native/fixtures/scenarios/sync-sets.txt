@@ -1,0 +1,77 @@
+# Sync sets (ADR 0027): the chain button merges the selected pages into one
+# set and takes one apart, copies keep or make their own set, and the
+# entered page's scroll moves its set to the same fraction. How a set
+# follows a navigation, a history button and a click is in cef/sync.txt.
+given page p1 100 100 400 300
+given page p2 700 100 400 300
+given page p3 1300 100 400 300
+given page p4 100 600 400 300
+camera 0,0,0.8
+wait 50
+
+# two loose pages join a new set, and the button reads as on
+select p1 p2
+control page.sync
+expect pages is sync p1 p2
+expect controls has page.sync on
+# a selection across a set and a loose page merges into a new set, and p1,
+# left alone in the old one, is in none
+select p2 p3
+control page.sync
+expect pages is sync p2 p3
+expect pages lacks p1 p
+# one undo puts the first set back whole
+act undo
+expect pages is sync p1 p2
+# a whole set selected leaves it, and so does one page of a set
+select p1 p2
+control page.sync
+expect pages lacks sync
+act undo
+select p1
+control page.sync
+expect pages lacks sync
+act undo
+# a page in no set has no chain button, and the action does nothing
+select p4
+expect controls lacks page.sync
+act toggle-sync
+expect pages is sync p1 p2
+
+# a page copied alone joins its set; pages copied together are a set of
+# their own
+select p1
+key cmd+d
+expect pages has sync p1 p2
+expect pages count 1 sync
+select p1 p2
+key cmd+d
+expect pages count 2 sync
+act undo
+act undo
+key escape
+camera 0,0,0.8
+
+# the entered page's scroll asks how far through its document it is, and
+# its peers go to the same fraction; a page that is not entered scrolled by
+# itself moves nobody
+page-reports p1 scrolled 0 300
+expect effects lacks ask-scroll-progress
+click 300 200
+click 300 200
+expect focus page p1
+page-reports p1 scrolled 0 300
+expect effects has ask-scroll-progress(EntityId("p1"))
+page-reports p1 scroll-progress 0 0.5
+expect effects has scroll-page { page: EntityId("p2"), progress: Vec2(0.0, 0.5) }
+# the follower's own report goes nowhere
+page-reports p2 scrolled 0 450
+expect effects lacks ask-scroll-progress
+key escape
+# an entered page in no set has nobody to move
+click 1500 200
+click 1500 200
+page-reports p3 scrolled 0 300
+expect effects lacks ask-scroll-progress
+key escape
+undo-to-start

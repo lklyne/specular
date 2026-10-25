@@ -1,0 +1,67 @@
+# A page's scroll: comments on it are stored in its document and follow
+# it, and a shape hooked to it is seen, hit, marqueed and moved where the
+# scroll has put it. The page p1 is at (100, 100), 400 by 300.
+given page p1 100 100 400 300
+camera 0,0,1
+wait 50
+
+# a region made on a scrolled page is stored in document coordinates, and
+# drawn where it was made
+page-reports p1 scrolled 0 200
+tool comment
+drag 110 110 430 260
+wait 50
+type tighten
+key enter
+expect comments has comment
+expect comments has page-region 10 210 320 150
+expect comments has region 110 110 320 150
+# scrolled further it is cut to the page, then gone, then back
+page-reports p1 scrolled 0 300
+expect comments has region 110 10 320 150
+page-reports p1 scrolled 0 600
+expect comments lacks mark
+page-reports p1 scrolled 0 200
+expect comments has region 110 110 320 150
+
+# an element comment follows the scroll it was made at
+page-reports p1 scrolled 0 0
+tool comment
+click 300 330
+wait 50
+type small
+key enter
+expect comments has pill 386 300 26 26
+page-reports p1 scrolled 0 30
+expect comments has pill 386 270 26 26
+page-reports p1 scrolled 0 0
+key escape
+
+# a shape placed on a scrolled page records the scroll it was placed at
+page-reports p1 scrolled 0 120
+tool shape
+drag 300 150 400 250
+expect saved /nodes/@top/pageAnchor/pageId = p1
+expect saved /nodes/@top/pageAnchor/scrollY = 120
+expect entity @top rect 300 160 100 100
+key escape
+# scrolled 40 more it is seen 40 up, though its rect is as stored, and it is
+# pressed where it is seen
+page-reports p1 scrolled 0 160
+expect entity @top rect 300 160 100 100
+click 350 130
+expect selection @top
+click 350 280
+expect selection p1
+# a marquee takes what it sees
+key escape
+drag 50 230 480 250
+expect selection p1
+drag 50 115 480 125
+expect count selected 2
+# a drag folds the scroll into the rect and restamps the anchor
+key escape
+drag 350 130 390 130
+expect entity @top rect 340 120 100 100
+expect saved /nodes/@top/pageAnchor/scrollY = 160
+undo-to-start

@@ -1,0 +1,134 @@
+# The chrome's controls pressed by name: the toolbar's second click, a
+# list and Escape, a press outside an open list, a control that is off,
+# the address and size fields, canvases renamed and the last one deleted,
+# and the right-click menu's paste and its items that are off.
+given page p1 100 100 400 300
+given page p2 700 100 400 300
+given sticky n 100 600 200 100 note
+camera 0,0,1
+wait 50
+
+# a second click puts the draw and comment tools down, and no other
+control tool.draw
+control tool.draw
+expect tool select
+control tool.comment
+control tool.comment
+expect tool select
+control tool.shape
+control tool.shape
+expect tool shape
+control tool.select
+# the draw button keeps the brush that the draw key would reset
+control tool.draw
+control brush.highlighter
+control tool.select
+control tool.draw
+expect controls has brush.highlighter on
+control tool.select
+
+# Escape closes an open list first, then does what it did
+select n
+control text.color
+key escape
+expect selection n
+key escape
+expect selection none
+# a press outside an open list closes it and goes no further
+select n
+control text.color
+control tool.draw
+expect tool select
+expect selection n
+key escape
+
+# a control that is off takes no press
+select p1
+expect controls has page.back disabled
+control page.back
+expect effects lacks navigate
+
+# the address: Enter sends the page to the completed address
+control page.url
+key cmd+a
+type example.org
+key enter
+expect effects has navigate { page: EntityId("p1"), nav: To("https://example.org/") }
+# Escape puts the old value back and navigates nowhere
+control page.url
+key cmd+a
+type nowhere.test
+key escape
+expect effects lacks navigate
+expect editing none
+# typing in a field never reaches the canvas keys
+control page.url
+key cmd+a
+type rvmt
+expect tool select
+expect editing rvmt
+# a press elsewhere keeps what was typed, as a blur does: a search
+click 900 800
+expect editing none
+expect effects has navigate { page: EntityId("p1"), nav: To("https://www.google.com/search?q=rvmt") }
+# an address typed for several pages takes each of them there
+select p1 p2
+control page.url
+type example.net
+key enter
+expect effects has navigate { page: EntityId("p1"), nav: To("https://example.net/") }
+expect effects has navigate { page: EntityId("p2"), nav: To("https://example.net/") }
+wait 100
+# a size that is not a number puts the old one back
+select p1
+control page.size
+control page.size.width
+key cmd+a
+type wide
+key enter
+expect entity p1 size 400 300
+key escape
+key escape
+
+# the right-click menu: a paste lands where the menu was opened
+clipboard pasted here
+right-click 1300 700
+control menu.paste
+expect entity @top text pasted here
+expect entity @top at 1300 700
+act undo
+# an item that is off does nothing, and the menu stays
+right-click 1300 700
+expect controls lacks menu.delete
+key escape
+# a right press inside the entered page goes to the page
+click 300 250
+click 300 250
+expect focus page p1
+right-click 300 250
+expect menu closed
+key escape
+
+# the hover follows the document when undo moves an item from under the
+# pointer
+drag 150 650 650 650
+move 650 650
+expect pointer is hover n
+key cmd+z
+expect entity n at 100 600
+expect pointer lacks hover
+key cmd+shift+z
+expect pointer is hover n
+undo-to-start except /nodes/p1/url /nodes/p2/url
+
+# canvases: an empty name asks for nothing, and the last canvas deleted
+# leaves a fresh one
+sidebar on
+control sidebar.canvas.1.name
+key cmd+a
+key backspace
+key enter
+expect canvas Canvas 1
+control sidebar.canvas.1.menu.delete
+expect count canvases 1
+expect count entities 0

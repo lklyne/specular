@@ -1,0 +1,159 @@
+# canvas: empty.canvas
+# A page's origin linked to a repo: the dock's repo list, the write target
+# that decides the composer's chips and the agent's working directory, and
+# auto-fix. Then the inspect tool: the node under the pointer outlined with
+# its popover, and a click that picks it for the next turn.
+given page p1 100 100 400 300
+given page p2 700 100 400 300
+camera 0,0,1
+chat-panel on
+
+# a selected page offers to link its origin to a folder
+select p1
+expect controls is page.repo "Link a repo"
+expect controls has page.repo.origin disabled "https://example.com"
+expect controls has page.repo.folder = Choose… "No repo linked"
+control page.repo
+control page.repo.folder
+expect effects has pick-repo-folder { origin: Some("https://example.com") }
+key escape
+
+# bound, the selected page's turn writes to the repo
+bind https://example.com /scratch/site
+select p1
+expect repos has repo site /scratch/site
+expect repos has origin https://example.com auto no
+expect controls has page.repo.folder = Change…
+expect controls has page.repo.unlink
+expect chat has folder site
+expect chat has auto https://example.com no
+send-chat fix it
+expect effects has run-agent cwd /scratch/site
+expect effects has run-agent prompt Working directory (linked repo): /scratch/site
+agent-says finished ok
+# two pages selected, or none: the space folder
+select p1 p2
+expect chat lacks folder site
+expect chat lacks auto
+key escape
+expect chat lacks folder site
+
+# a comment on a bound page writes to the repo, and waits for Send while
+# auto-fix is off
+tool comment
+click 200 200
+wait 50
+send-chat make it blue
+expect chat has folder site
+expect effects lacks run-agent
+expect chat has queued "make it blue"
+# the auto chip turns auto-fix on for its origin
+chat auto
+expect effects has save-repos
+expect chat has auto https://example.com yes
+expect repos has origin https://example.com auto yes
+send-chat
+expect effects has run-agent cwd /scratch/site
+agent-says session sess-1
+agent-says finished done
+
+# with auto-fix on, a comment is sent the moment it is placed, into the
+# open thread
+tool comment
+click 200 260
+wait 50
+send-chat and bigger
+expect effects has run-agent resume sess-1
+expect effects has run-agent cwd /scratch/site
+expect effects has run-agent prompt [User] and bigger
+# placed during a run, it is sent when the run ends
+tool comment
+click 300 260
+wait 50
+send-chat and rounder
+expect effects lacks run-agent
+expect chat has queued "and rounder"
+key escape
+agent-says finished done
+expect effects has run-agent prompt [User] and rounder
+agent-says finished done
+# a canvas comment still waits for Send
+tool comment
+click 900 700
+send-chat on the canvas
+expect effects lacks run-agent
+expect chat has queued "on the canvas"
+key escape
+key escape
+
+# an unbound origin has no repo; a page with no origin no repo control
+bind https://other.dev /scratch/other
+expect repos has repo other /scratch/other
+
+# the inspect tool: a hover asks the page in its own pixels and shows the
+# node under the pointer, outlined, with its popover
+tool inspect
+move 200 150
+expect effects has inspect-at { page: EntityId("p1"), point: Vec2(100.0, 50.0), pick: false }
+expect inspect lacks outline
+wait 50
+expect inspect has outline 100 148 160 48
+expect inspect has tag div
+expect inspect has remainder #cell-0-1.cell
+expect inspect has size 160 × 48
+expect inspect has font Inter 14px · 400
+expect inspect has swatch text rgb(17, 24, 39)
+expect inspect has swatch bg rgb(255, 255, 255)
+expect inspect has popover 100 72 324.7 70
+# the same CSS pixel is not asked again
+move 200.6 150.4
+expect effects lacks inspect-at
+move 280 150
+wait 50
+expect inspect has remainder #cell-1-1.cell
+# over the canvas the hover goes
+move 50 50
+expect inspect lacks outline
+
+# a click picks the node: it is the pill and what the next turn is about,
+# and on a bound origin the turn writes to that repo
+click 200 150
+expect effects has inspect-at { page: EntityId("p1"), point: Vec2(100.0, 50.0), pick: true }
+wait 50
+expect inspect has picked p1
+expect chat has pill Dom "div "Cell 0,1""
+expect chat has folder site
+send-chat make it blue
+expect effects has run-agent prompt The user has selected DOM node "div "Cell 0,1"" on page p1
+expect effects has run-agent cwd /scratch/site
+agent-says finished ok
+# the entered page hears nothing while the tool is in hand
+expect effects lacks forward-input
+# putting the tool down keeps the pick but not the hover; back in hand,
+# the pick is what shows
+move 280 150
+wait 50
+tool select
+expect inspect lacks outline
+expect inspect has picked p1
+tool inspect
+expect inspect has remainder #cell-0-1.cell
+# the first Escape puts the tool down, the second drops the pick
+key escape
+expect tool select
+expect inspect has picked p1
+key escape
+expect inspect lacks picked
+# a press off page content selects, and the tool stays in hand
+key i
+click 900 50
+tool inspect
+click 200 150
+wait 50
+page-reports p2 url https://other.test/
+expect inspect has picked p1
+page-reports p1 url https://example.com/p1#top
+expect inspect has picked p1
+page-reports p1 url https://other.test/
+expect inspect lacks picked
+undo-to-start except /nodes/p1/url /nodes/p2/url

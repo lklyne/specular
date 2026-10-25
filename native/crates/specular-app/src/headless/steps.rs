@@ -22,6 +22,9 @@ impl Headless {
             Step::Expect(Expect::OnCanvas(fact)) if fact.is_sent() => {
                 script::check_sent(self.app.app(), &self.sent, &fact)
             }
+            Step::Expect(Expect::Panel(fact)) if fact.reads_effects() => {
+                fact.check(self.app.app(), Some(&self.sent))
+            }
             Step::Expect(_) | Step::State(_) | Step::Mark(_) | Step::Save(_) => self.do_step(step),
             _ => {
                 self.sent.clear();
@@ -117,6 +120,10 @@ impl Headless {
                     notice: PageNotice::OpenTab { url, foreground },
                 })
             }),
+            Step::Panel(step) => {
+                let event = step.event(self.app.app())?;
+                self.drive(|app| app.send(event))
+            }
             Step::Snapshot(path) => self.snapshot(&path),
             Step::Save(path) => self.save(&path),
             Step::State(path) => {

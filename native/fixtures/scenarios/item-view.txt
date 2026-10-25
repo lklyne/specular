@@ -1,0 +1,120 @@
+# What input does in an item view, and the view verbs. A page shown alone
+# is entered: the wheel scrolls it, Escape leaves it and one click enters
+# it again; what is made on it is hooked to it; what the view hides takes
+# no press, no creation and no paste. A Document fills its tab as a reading
+# column. Then select all, the zoom steps and zoom to fit.
+given page p1 100 100 400 300
+given page over 300 100 400 300
+given page p2 1200 100 400 300
+given file n 100 600 300 400 plan.md
+given group g 1700 600 300 300
+given inside g shape a 1720 620 100 100
+camera 0,0,1
+wait 50
+note-text plan.md # Plan\n\nOne line.
+
+# a shown page is entered, and the wheel goes to it
+select p1
+control view.open
+control view.lens.fill
+expect focus page p1
+move 800 500
+wheel 0 -40
+expect effects has forward-input { page: EntityId("p1"), event: Wheel(
+# Escape leaves it, the canvas keys work, and one click enters it again
+key escape
+expect focus canvas
+key cmd+b
+expect sidebar on
+key cmd+b
+click 800 500
+expect focus page p1
+expect selection p1
+# the item shown has no mark, in Fill or in Device until it is left
+expect pages has p1 mark none
+key escape
+control view.lens.device
+expect pages has p1 mark none
+key escape
+expect pages has p1 mark outline
+
+# what is made on the shown page is hooked to it and seen
+control tool.sticky
+click 800 500
+type note
+key escape
+expect saved /nodes/@top/specular/pageAnchor/pageId = p1
+expect tabs count 2 seen
+key escape
+# a page an item view hides is not hooked to: over p1 and the hidden page
+# `over`, a shape is p1's
+control tool.shape
+drag 950 450 1010 510
+expect saved /nodes/@top/pageAnchor/pageId = p1
+key escape
+# a creation press that would make what the view hides makes nothing
+control tool.page
+drag 1500 900 1560 960
+expect count entities 8
+control tool.document
+drag 1500 900 1560 960
+expect effects lacks create-note
+expect count entities 8
+key escape
+# a paste lands on the page shown, or nowhere
+clipboard a thought
+move 800 500
+key cmd+v
+expect count entities 9
+expect saved /nodes/@top/specular/pageAnchor/pageId = p1
+key escape
+mark pasted
+clipboard https://example.org
+move 1500 900
+key cmd+v
+expect saved same-as mark pasted
+control view.canvas
+
+# outside an item view, a shape over `over` is hooked to it
+camera 0,0,1
+control tool.shape
+drag 480 120 720 380
+expect saved /nodes/@top/pageAnchor/pageId = over
+key escape
+
+# a Document fills its tab as a reading column, one click edits it, and its
+# stored rect is not written
+select n
+control view.open
+control view.lens.fill
+click 800 500
+type x
+key escape
+expect entity n note # Plan\n\nOne line.x
+expect entity n rect 100 600 300 400
+control view.lens.device
+expect entity n rect 100 600 300 400
+control view.canvas
+expect entity n rect 100 600 300 400
+
+# select all takes everything not inside a group
+key cmd+a
+expect count selected 9
+expect selection p1 over p2 n g @7 @8 @9 @10
+key escape
+# zoom steps about the middle of the viewport, and zoom to fit works from
+# inside a page too
+camera 0,0,1
+key cmd+=
+expect zoom 1.25
+expect camera -200,-125,1.25
+key cmd+-
+key cmd+-
+expect zoom 0.8
+click 300 200
+click 300 200
+expect focus page p1
+key cmd+1
+expect focus page p1
+expect camera -13.5,73.9,0.775
+undo-to-start
