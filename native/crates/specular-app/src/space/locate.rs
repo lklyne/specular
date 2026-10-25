@@ -3,9 +3,8 @@
 //! The app opens the folder the user chose in it, which it remembers in
 //! its own preferences. With none chosen, or with the chosen one gone, it
 //! opens nothing and asks (ADR 0033): it never picks a folder, and never
-//! makes an empty space where one went missing. The winit shell has no view
-//! to ask in, so a launch of it that names no space opens the scratch
-//! space: a copy of the starter space in this app's own data folder.
+//! makes an empty space where one went missing. `--space scratch` opens the
+//! scratch space: a copy of the starter space in this app's own data folder.
 //!
 //! The Electron app kept its user's choice as `spacePath` in the same
 //! `preferences.json`, and before that used one fixed folder. That folder
@@ -31,12 +30,11 @@ const SCRATCH_SPACE: &str = "scratch-space";
 /// Which space the command line asked for.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub(crate) enum SpaceChoice {
-    /// `--space scratch`, and the winit shell with none named: the scratch
-    /// space.
+    /// `--space scratch`: the scratch space.
     #[default]
     Scratch,
-    /// The GPUI Kit shell with none named: the folder chosen in this app,
-    /// and the first-run view when there is none.
+    /// None named: the folder chosen in this app, and the first-run view
+    /// when there is none.
     Chosen,
     /// `--space user`: the space the Electron app opens, else the folder
     /// last chosen in this app.

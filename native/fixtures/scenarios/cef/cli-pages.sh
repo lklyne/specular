@@ -9,13 +9,13 @@
 # Usage: cli-pages.sh [app-binary] [out-dir]
 #   CLI=path    the CLI (default target/debug/specular-cli), run as `specular`
 #   app-binary  the inner binary of a debug CEF bundle
-#               (default target/debug/specular-app.app/Contents/MacOS/specular-app)
+#               (default target/debug/specular.app/Contents/MacOS/specular)
 #   out-dir     where transcript.txt and the PNGs go (default runs/a3-cli-pages)
 set -uo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
 native="$(cd "$here/../../.." && pwd)"
-app="${1:-$native/target/debug/specular-app.app/Contents/MacOS/specular-app}"
+app="${1:-$native/target/debug/specular.app/Contents/MacOS/specular}"
 out="${2:-$native/runs/a3-cli-pages}"
 [[ -x "$app" ]] || { echo "missing $app; build with --features cef and bundle it" >&2; exit 2; }
 cli="${CLI:-$native/target/debug/specular-cli}"

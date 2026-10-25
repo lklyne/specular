@@ -36,8 +36,6 @@ bytemuck = { version = "1.25", features = ["derive"] }
 glyphon = "0.12.0"
 lyon = "1.0.19"
 rustc-hash = "2.1"
-# The native menu bar.
-muda = "0.21.1"
 # The GPUI Kit shell (ADR 0040). Both are pinned exactly: the kit names its
 # GPUI snapshot with `=`, and the shell leans on three facts about that
 # snapshot's macOS backend that no API promises. `specular-shell` checks
@@ -83,7 +81,6 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 # Grapheme and word boundaries for the text editor.
 unicode-segmentation = "1.13"
 wgpu = "30.0"
-winit = "0.30.13"
 
 # CEF: only ever compiled with `--features cef` (its build script downloads the
 # CEF binary distribution). `accelerated_osr` is deliberately not enabled: the

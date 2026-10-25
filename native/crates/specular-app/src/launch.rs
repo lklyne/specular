@@ -1,4 +1,4 @@
-//! What both shells do before a window opens: read the command line, start
+//! What the shell does before a window opens: read the command line, start
 //! logging, work out what to show, and run a headless request to its end.
 
 use std::ffi::OsString;
@@ -34,24 +34,11 @@ pub struct Launch {
     pub(crate) document: Document,
 }
 
-/// What a launch that names no space opens.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Unnamed {
-    /// The scratch space: for a shell with no view to ask in.
-    Scratch,
-    /// The space chosen in this app, and the first-run view when there is
-    /// none or it is gone.
-    Chosen,
-}
-
 /// Reads `args` (without the program name) and starts logging. `None` when
 /// there is no window to open: help was printed, or the run was a
 /// `--snapshot` or `--script` and is finished. A wrong argument prints the
 /// usage and exits the process.
-pub fn launch(
-    args: impl IntoIterator<Item = OsString>,
-    unnamed: Unnamed,
-) -> anyhow::Result<Option<Launch>> {
+pub fn launch(args: impl IntoIterator<Item = OsString>) -> anyhow::Result<Option<Launch>> {
     let mut run = match cli::parse(args) {
         Ok(Command::Run(run)) => run,
         Ok(Command::Help) => {
@@ -81,10 +68,7 @@ pub fn launch(
     {
         run.canvas = headless::script_canvas(script)?;
     }
-    let choice = run.space_choice(match unnamed {
-        Unnamed::Scratch => SpaceChoice::Scratch,
-        Unnamed::Chosen => SpaceChoice::Chosen,
-    });
+    let choice = run.space_choice();
     let (space, ask) = match space_to_open(&run, &choice) {
         Some(Startup::Open(space)) => (Some(space), None),
         Some(Startup::Ask(ask)) => (None, Some(ask)),

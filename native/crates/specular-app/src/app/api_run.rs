@@ -8,13 +8,6 @@ use serde_json::{Value, json};
 use specular_api::{CdpAsk, Host, LaterReply, PageScript, Response, Screenshot};
 use specular_interact::{ApiOutcome, App, DroppedFile, Event, PageNotice};
 
-/// What another thread can ask the event loop to do.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum ShellEvent {
-    /// The API has requests waiting.
-    Api,
-}
-
 impl<W: ShellWindow> Runtime<W> {
     /// Starts the API and the page CDP endpoints. `wake` is called on a
     /// server thread when a request is waiting, and the shell then calls

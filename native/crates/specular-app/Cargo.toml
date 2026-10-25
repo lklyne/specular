@@ -1,6 +1,6 @@
 [package]
 name = "specular-app"
-description = "winit shell for the Rust CEF spike: canvas camera, compositor, and a page source."
+description = "The runtime under the Kit window: every effect runner, the command line and the headless modes."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -38,12 +38,9 @@ tracing = { workspace = true }
 trash = { workspace = true }
 tracing-subscriber = { workspace = true }
 wgpu = { workspace = true }
-winit = { workspace = true }
 
-# The menu bar and the dialogs it opens are AppKit's. Other platforms attach
-# a menu to a window, which this shell does not do yet.
+# The native open dialog is AppKit's.
 [target.'cfg(target_os = "macos")'.dependencies]
-muda = { workspace = true }
 rfd = { workspace = true }
 
 [dev-dependencies]

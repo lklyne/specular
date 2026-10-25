@@ -8,7 +8,7 @@
 #   fixtures/scenarios/run.sh --cef [name..]   # the real-page suite, cef/
 #   fixtures/scenarios/run.sh --cli [case..]   # the CLI end to end, cli/
 #
-# headless  `specular-app --script` with the synthetic pages and no built-in
+# headless  `specular --script` with the synthetic pages and no built-in
 #           panels. Steps only a window can do are skipped and listed.
 #           `cargo test --workspace` runs the same scenarios
 #           (crates/specular-app/tests/scenarios.rs).
@@ -46,8 +46,8 @@ folder=$here
 
 case $mode in
     headless)
-        (cd "$native" && cargo build -q -p specular-app) || exit 1
-        app=$target/debug/specular-app ;;
+        (cd "$native" && cargo build -q -p specular-shell) || exit 1
+        app=$target/debug/specular ;;
     kit)
         if [ -n "${KIT_APP:-}" ]; then
             app=$(cd "$(dirname "$KIT_APP")" && pwd)/$(basename "$KIT_APP")
@@ -56,7 +56,7 @@ case $mode in
             app=$target/debug/specular
         fi ;;
     cef)
-        app=${CEF_APP:-$target/debug/specular-app.app/Contents/MacOS/specular-app}
+        app=${CEF_APP:-$target/debug/specular.app/Contents/MacOS/specular}
         [ -x "$app" ] || {
             echo "missing $app; build with --features cef and bundle it (native/README.md)" >&2
             exit 2

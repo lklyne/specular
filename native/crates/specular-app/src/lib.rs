@@ -8,8 +8,7 @@
 //! request with no window at all. [`Bench`] is `--bench` in a window: a
 //! shell steps it each loop turn and hands it the frames it presents.
 //!
-//! [`run_window`] is the winit shell, the `specular-app` binary. The GPUI
-//! Kit shell is the `specular-shell` crate (ADR 0040).
+//! The window is the GPUI Kit shell, the `specular-shell` crate (ADR 0040).
 
 pub mod agent;
 #[cfg(unix)]
@@ -37,10 +36,9 @@ mod scene;
 pub mod script;
 mod source_select;
 mod space;
-mod translate;
 
-pub use crate::app::{Opening, PageOf, Runtime, RuntimeOptions, ShellWindow, run_window};
+pub use crate::app::{Opening, PageOf, Runtime, RuntimeOptions, ShellWindow};
 pub use crate::bench_drive::{Bench, BenchOptions};
 pub use crate::headless::{Report, run_scenario};
-pub use crate::launch::{Launch, Unnamed, launch};
+pub use crate::launch::{Launch, launch};
 pub use crate::source_select::run_subprocess_if_needed;

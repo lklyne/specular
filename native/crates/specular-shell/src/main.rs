@@ -62,16 +62,15 @@ fn main() {
     if let Some(code) = specular_app::run_subprocess_if_needed() {
         std::process::exit(code);
     }
-    let launch =
-        match specular_app::launch(std::env::args_os().skip(1), specular_app::Unnamed::Chosen) {
-            Ok(Some(launch)) => launch,
-            // Help was printed, or a headless run is finished.
-            Ok(None) => return,
-            Err(error) => {
-                eprintln!("specular: {error:#}");
-                std::process::exit(1);
-            }
-        };
+    let launch = match specular_app::launch(std::env::args_os().skip(1)) {
+        Ok(Some(launch)) => launch,
+        // Help was printed, or a headless run is finished.
+        Ok(None) => return,
+        Err(error) => {
+            eprintln!("specular: {error:#}");
+            std::process::exit(1);
+        }
+    };
     let application = gpui_kit::application().with_assets(assets::ShellAssets);
     application.on_open_urls(|urls| spaces::opened_from_finder(&urls));
     application.run(move |cx| {

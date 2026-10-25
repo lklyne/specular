@@ -1,6 +1,5 @@
-//! Files dragged onto the window. winit reports them one at a time with no
-//! position, so a turn's worth is gathered and sent as one drop at the
-//! pointer's last known position.
+//! Files dragged onto the window, gathered over a turn and sent as one
+//! drop.
 
 use std::path::{Path, PathBuf};
 
@@ -11,7 +10,6 @@ use specular_interact::{DroppedFile, Event, is_image_file};
 use super::runtime::{Runtime, ShellWindow};
 
 impl<W: ShellWindow> Runtime<W> {
-    /// Sends the files dropped since the last turn as one event.
     /// Files dragged onto the window at `screen`, in logical pixels of the
     /// viewport. They reach the app on the next turn, as one drop.
     pub fn drop_files(&mut self, paths: impl IntoIterator<Item = PathBuf>, screen: Option<Vec2>) {
@@ -19,6 +17,7 @@ impl<W: ShellWindow> Runtime<W> {
         self.dropped_at = screen;
     }
 
+    /// Sends the files dropped since the last turn as one event.
     pub(super) fn flush_drops(&mut self) {
         if self.dropped.is_empty() {
             return;

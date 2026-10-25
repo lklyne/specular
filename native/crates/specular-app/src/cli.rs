@@ -12,7 +12,7 @@ use crate::space::SpaceChoice;
 
 /// Usage text for `--help` and argument errors.
 pub(crate) const USAGE: &str = "\
-usage: specular-app [OPTIONS] [FOLDER | FILE.canvas]
+usage: specular [OPTIONS] [FOLDER | FILE.canvas]
 
   FOLDER              open the folder as the space: every .canvas file in it
                       is a canvas, and a folder with none gets the starter
@@ -21,9 +21,8 @@ usage: specular-app [OPTIONS] [FOLDER | FILE.canvas]
                       that file
                       With neither, and no --space, `specular` opens the
                       space you chose in it, and asks on a first run or when
-                      that folder is gone; `specular-app` opens the scratch
-                      space. A --bench, --snapshot or --script run shows
-                      FILE alone and writes nothing
+                      that folder is gone. A --bench, --snapshot or --script
+                      run shows FILE alone and writes nothing
   --space user|scratch|PATH
                       user: the space the Electron app has open (`spacePath`
                       in its preferences.json), else the one chosen in this
@@ -402,14 +401,14 @@ fn profiles_for(
 }
 
 impl RunArgs {
-    /// Which space the arguments ask for, with `unnamed` for a launch that
-    /// names none.
-    pub(crate) fn space_choice(&self, unnamed: SpaceChoice) -> SpaceChoice {
+    /// Which space the arguments ask for. A launch that names none opens
+    /// the space chosen in the app.
+    pub(crate) fn space_choice(&self) -> SpaceChoice {
         match (&self.canvas, self.named_space) {
             (Some(path), _) => SpaceChoice::Path(path.clone()),
             (None, Some(NamedSpace::User)) => SpaceChoice::User,
             (None, Some(NamedSpace::Scratch)) => SpaceChoice::Scratch,
-            (None, None) => unnamed,
+            (None, None) => SpaceChoice::Chosen,
         }
     }
 }

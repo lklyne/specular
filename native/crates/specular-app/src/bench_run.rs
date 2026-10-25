@@ -76,7 +76,7 @@ pub(crate) struct RunSource {
     pub(crate) annotations: usize,
     /// The canvas shown, by file name.
     pub(crate) canvas: Option<String>,
-    /// The shell whose window presents the frames (`winit`, `kit`).
+    /// The shell whose window presents the frames (`kit`).
     pub(crate) shell: &'static str,
 }
 
