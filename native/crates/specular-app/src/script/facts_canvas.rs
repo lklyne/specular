@@ -236,12 +236,7 @@ pub(super) fn check(app: &App, fact: &CanvasFact) -> anyhow::Result<()> {
         return Ok(());
     };
     let found = read(app, query)?;
-    let wanted: Vec<String> = (wanted.iter())
-        .map(|word| match word.strip_prefix('@') {
-            Some(_) => super::check::resolve(app, word),
-            None => Ok(word.clone()),
-        })
-        .collect::<anyhow::Result<_>>()?;
+    let wanted = resolved(app, wanted)?;
     ensure!(
         same_words(&found, &wanted),
         "{query:?} is `{}`, expected `{}`",
@@ -251,8 +246,18 @@ pub(super) fn check(app: &App, fact: &CanvasFact) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// `words` with each `@` name read as the entity it stands for now.
+fn resolved(app: &App, words: &[String]) -> anyhow::Result<Vec<String>> {
+    (words.iter())
+        .map(|word| match word.strip_prefix('@') {
+            Some(_) => super::check::resolve(app, word),
+            None => Ok(word.clone()),
+        })
+        .collect()
+}
+
 /// Whether a `sent` fact holds for the effects of the last step.
-pub fn check_sent(sent: &[Effect], fact: &CanvasFact) -> anyhow::Result<()> {
+pub fn check_sent(app: &App, sent: &[Effect], fact: &CanvasFact) -> anyhow::Result<()> {
     let told: Vec<Vec<String>> = sent.iter().map(effect_words).collect();
     let listed = || {
         let lines: Vec<String> = told.iter().map(|words| words.join(" ")).collect();
@@ -265,6 +270,7 @@ pub fn check_sent(sent: &[Effect], fact: &CanvasFact) -> anyhow::Result<()> {
     match fact {
         CanvasFact::SentNothing => ensure!(told.is_empty(), "the last step sent:{}", listed()),
         CanvasFact::Sent { none, words } => {
+            let words = &resolved(app, words)?;
             let starts = |effect: &Vec<String>| {
                 effect.len() >= words.len() && same_words(&effect[..words.len()], words)
             };

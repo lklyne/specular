@@ -1,0 +1,195 @@
+# The creation tools on an empty canvas: each tool's key and its variants,
+# the ghost an armed tool shows, a shape dragged, clicked and kept square,
+# text, a sticky and a page placed, and the draw tool's strokes. Placing
+# tools are one-shot; the draw tool stays.
+camera 0,0,1
+
+# each tool key arms its tool
+key p
+expect tool page
+key t
+expect tool text
+key s
+expect tool sticky
+key r
+expect tool shape
+key c
+expect tool comment
+key i
+expect tool inspect
+key m
+expect tool draw
+key v
+expect tool select
+# a variant key arms the tool and writes the variant to the defaults, which
+# are saved only when they change
+key r
+expect sent no save-tool-defaults
+key o
+expect tool shape
+expect default shape ellipse
+expect sent save-tool-defaults
+key shift+r
+expect default shape diamond
+key r
+expect default shape rectangle
+key shift+m
+expect tool draw
+expect default brush highlight
+key m
+expect default brush pen
+key escape
+
+# an armed tool previews what its click places, and nothing once spent
+tool sticky
+expect place-preview none
+move 105 95
+expect place-preview sticky 100 100 200 200
+expect count entities 0
+click 105 95
+expect entity @top rect 100 100 200 200
+expect place-preview none
+key escape
+key escape
+key cmd+z
+tool document
+move 105 95
+expect place-preview document 100 100 300 300
+key escape
+expect place-preview none
+
+# dragging with the shape tool sizes a shape on the grid, in one step
+tool shape
+drag 105 95 251 178
+expect entity @top rect 100 100 140 80
+expect tool select
+expect editing none
+expect saved /nodes/@top/shapeKind = rectangle
+key cmd+z
+expect undo none
+# a click places the default size at the press, and so does a drag too
+# small to size one
+tool shape
+click 212 148
+expect entity @top rect 220 140 160 160
+tool shape
+drag 600 600 620 700
+expect entity @top rect 600 600 160 160
+key cmd+z
+key cmd+z
+# Shift keeps a dragged shape square, without the pointer moving
+tool shape
+press 100 100
+drag-to 200 140
+expect entity @top rect 100 100 100 40
+hold shift
+drag-to 200 140
+expect entity @top rect 100 100 100 100
+release
+hold none
+expect entity @top rect 100 100 100 100
+key cmd+z
+# Shift-R places a diamond
+key shift+r
+drag 400 0 500 100
+expect saved /nodes/@top/shapeKind = diamond
+key cmd+z
+key r
+key escape
+
+# the text tool places plain text and starts editing it; the tool is spent
+key t
+click 212 148
+expect entity @top at 220 140
+expect saved /nodes/@top/specular/textStyle = plain
+expect saved /nodes/@top/specular/widthMode = auto
+expect caret 0 0
+expect tool select
+key escape
+key escape
+# the sticky tool places a sticky where the press was and starts editing
+key s
+drag 100 100 400 400
+expect entity @top rect 100 100 200 200
+expect saved /nodes/@top/specular/textStyle = sticky
+expect saved /nodes/@top/color = "3"
+# while it is edited, letters are not tool keys and Backspace is typing
+key m
+key backspace
+key v
+expect tool select
+expect count entities 1
+# Escape ends the edit first, then deselects
+key escape
+expect editing none
+expect selection @top
+key escape
+expect selection none
+# Command-B is bold in an edit and the sidebar on the canvas
+double-click 200 200
+key cmd+a
+key cmd+b
+expect editing **v**
+expect sidebar off
+key escape
+key escape
+key cmd+b
+expect sidebar on
+key cmd+b
+expect sidebar off
+key cmd+z
+key cmd+z
+expect count entities 0
+
+# the page tool places a blank phone page and hosts it; the click is the
+# device's corner, and the screen sits 23 in and 94 down from it
+key p
+click 212 148
+expect entity @top rect 243 234 375 667
+expect entity @top text about:blank
+expect saved /nodes/@top/presetIndex = 0
+expect saved /nodes/@top/source = manual
+expect sent create-page @top about:blank 375 667
+expect tool select
+key cmd+z
+expect sent close-page
+expect count entities 0
+
+# the draw tool: one press, drag and release is one stroke in one drawing,
+# in canvas space, grown by half its width, and the tool stays. The pen
+# came back from the highlighter at the width nearest the highlighter's.
+tool draw
+press 100 100
+drag-to 140 120
+drag-to 180 90
+release
+expect count drawing 1
+expect entity @top rect 98 88 84 34
+expect saved /nodes/@top/strokes/0/points = [{"x":100,"y":100},{"x":140,"y":120},{"x":180,"y":90}]
+expect saved /nodes/@top/strokes/0/width = 4
+expect saved /nodes/@top/strokes/0/brushType = pen
+expect tool draw
+expect selection none
+# a click leaves a dot
+click 50 60
+expect entity @top rect 48 58 4 4
+# Shift keeps new points on a flat or a diagonal line from the first
+press 300 100
+hold shift
+drag-to 400 108
+release
+hold none
+expect saved /nodes/@top/strokes/0/points/1/y = 100
+press 300 300
+hold shift
+drag-to 390 370
+release
+hold none
+expect saved /nodes/@top/strokes/0/points/1 = {"x":380.62,"y":380.62}
+# a highlight stroke takes the highlight brush
+key shift+m
+drag 100 600 200 600
+expect saved /nodes/@top/strokes/0/brushType = highlight
+key m
+key escape
+undo-to-start

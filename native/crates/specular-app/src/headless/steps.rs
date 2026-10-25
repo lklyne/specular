@@ -115,7 +115,7 @@ impl Headless {
                 std::fs::write(&path, text).with_context(|| format!("writing {}", path.display()))
             }
             Step::Expect(Expect::OnCanvas(fact)) if fact.is_sent() => {
-                script::check_sent(&self.sent, &fact)
+                script::check_sent(self.app.app(), &self.sent, &fact)
             }
             Step::Expect(expect) => self.checks.check(self.app.app(), &expect),
             Step::Mark(name) => self.checks.mark(self.app.app(), &name),
