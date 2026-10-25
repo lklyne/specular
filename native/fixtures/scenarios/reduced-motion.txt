@@ -11,8 +11,8 @@ motion on
 select p1
 control view.open
 expect showing p1
-# with transitions on, the camera has not moved yet
-expect camera 0,0,0.5
+# with transitions on, the camera springs; its first frame is pinned in
+# tests/it/motion.rs, as a window's clock runs on between steps
 expect motion running
 # the spring's clock starts at the first frame after the change
 wait 10
