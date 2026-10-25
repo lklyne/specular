@@ -11,9 +11,22 @@
 //! elements it wholly contains, and answers with the box of every visible
 //! element it wholly contains, for the outlines drawn while it is dragged.
 
-use glam::Vec2;
+mod device;
+mod scroll;
+
+#[cfg(feature = "cef")]
+pub(crate) use self::device::{
+    color_scheme_message, device_methods, method_message, parse_viewport_fit, target_info_message,
+    viewport_fit_message,
+};
+#[cfg(feature = "cef")]
+pub(crate) use self::scroll::{
+    parse_scroll_progress, parse_scroll_room, scroll_progress_message, scroll_room_message,
+    scroll_to_message,
+};
+
 use serde_json::{Value, json};
-use specular_core::{CssRect, PageColorScheme, PageDevice, PageElement, PixelRect};
+use specular_core::{CssRect, PageElement, PixelRect};
 
 /// The most elements a region counts, as Electron's region select does.
 const MAX_GRABBED: u32 = 15;
@@ -121,80 +134,6 @@ while ((count < __MAX__ || boxes.length < __BOXES__) && walker.nextNode()) {
 return JSON.stringify({ count, boxes });
 ";
 
-/// How far the document can scroll along each axis, as
-/// `src/shared/scroll-sync.ts` measures it.
-const SCROLL_EXTENT: &str = r"
-const root = document.documentElement, body = document.body;
-const maxX = Math.max(0, (root ? root.scrollWidth : 0) - innerWidth, (body ? body.scrollWidth : 0) - innerWidth);
-const maxY = Math.max(0, (root ? root.scrollHeight : 0) - innerHeight, (body ? body.scrollHeight : 0) - innerHeight);
-";
-
-const SCROLL_PROGRESS: &str = r"
-return JSON.stringify({ x: maxX > 0 ? scrollX / maxX : 0, y: maxY > 0 ? scrollY / maxY : 0 });
-";
-
-/// Whether a finger at a point, moving by `(__DX__, __DY__)`, has anything
-/// to scroll: a scroller above the element there with room left that way,
-/// or the document itself. What is inside a frame cannot be seen from
-/// here, so a frame is taken to have room.
-const SCROLL_ROOM: &str = r"
-const vertical = Math.abs(__DY__) >= Math.abs(__DX__);
-// A finger that moves down scrolls back towards the start.
-const back = (vertical ? __DY__ : __DX__) > 0;
-const room = (el) => {
-  const at = vertical ? el.scrollTop : el.scrollLeft;
-  const max = vertical ? el.scrollHeight - el.clientHeight : el.scrollWidth - el.clientWidth;
-  return back ? at > 0.5 : at < max - 0.5;
-};
-const root = document.scrollingElement || document.documentElement;
-let el = document.elementFromPoint(__X__, __Y__);
-for (; el; el = el.parentElement || el.getRootNode().host) {
-  if (el.tagName === 'IFRAME') return 'true';
-  if (el === root || el === document.body || el === document.documentElement) continue;
-  const style = getComputedStyle(el);
-  const flow = vertical ? style.overflowY : style.overflowX;
-  if ((flow === 'auto' || flow === 'scroll') && room(el)) return 'true';
-}
-return String(room(root));
-";
-
-/// `instant` so a page styled with `scroll-behavior: smooth` lands where it
-/// was sent and not somewhere on the way.
-const SCROLL_TO: &str = r"
-scrollTo({ left: maxX * __X__, top: maxY * __Y__, behavior: 'instant' });
-return 'ok';
-";
-
-/// What the document says of the screen around it: whether its viewport
-/// meta asks to cover the screen, and the colour a browser paints round it,
-/// its `theme-color` or else its background. Answered once the document is
-/// parsed, so a question put while it loads waits for that.
-const VIEWPORT_FIT: &str = r#"
-if (document.readyState === 'loading') {
-  await new Promise((done) => document.addEventListener('DOMContentLoaded', done, { once: true }));
-}
-const metas = (name) => [...document.querySelectorAll('meta[name="' + name + '"]')];
-const fit = metas('viewport').map((meta) => meta.content || '').join(',');
-const rgb = (css) => {
-  if (!css || !CSS.supports('color', css)) return null;
-  const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = 1;
-  const context = canvas.getContext('2d', { willReadFrequently: true });
-  if (!context) return null;
-  context.fillStyle = css;
-  context.fillRect(0, 0, 1, 1);
-  const [r, g, b, a] = context.getImageData(0, 0, 1, 1).data;
-  if (a === 0) return null;
-  // What shows through is the browser's white.
-  return [r, g, b].map((c) => Math.round((c * a + 255 * (255 - a)) / 255));
-};
-const theme = metas('theme-color').find((meta) => !meta.media || matchMedia(meta.media).matches);
-const background = (e) => (e ? rgb(getComputedStyle(e).backgroundColor) : null);
-const color = (theme && rgb(theme.content))
-  || background(document.body) || background(document.documentElement);
-return JSON.stringify({ covers: /viewport-fit\s*=\s*cover/i.test(fit), color });
-"#;
-
 /// A finite number as a JavaScript literal. Anything else reads as zero, so
 /// a bad coordinate cannot break out of the expression.
 pub(crate) fn number(value: f32) -> String {
@@ -242,155 +181,6 @@ pub(crate) fn elements_in_rect_message(id: i32, rect: CssRect) -> Vec<u8> {
         ("__H__", number(rect.height)),
     ];
     evaluate(id, &expression(ELEMENTS_IN_RECT, &values))
-}
-
-/// The message that asks how far through its document a page is scrolled.
-pub(crate) fn scroll_progress_message(id: i32) -> Vec<u8> {
-    evaluate(
-        id,
-        &format!("(() => {{{SCROLL_EXTENT}{SCROLL_PROGRESS}}})()"),
-    )
-}
-
-/// The message that asks whether anything under `at` can scroll with a
-/// finger that moves `toward`.
-pub(crate) fn scroll_room_message(id: i32, at: Vec2, toward: Vec2) -> Vec<u8> {
-    let values = [
-        ("__X__", number(at.x)),
-        ("__Y__", number(at.y)),
-        ("__DX__", number(toward.x)),
-        ("__DY__", number(toward.y)),
-    ];
-    evaluate(id, &expression(SCROLL_ROOM, &values))
-}
-
-/// What a [`scroll_room_message`] found. `None` for an answer that cannot
-/// be read.
-pub(crate) fn parse_scroll_room(result: &[u8]) -> Option<bool> {
-    returned(result)?.parse().ok()
-}
-
-/// The message that scrolls a page to a fraction of how far it can scroll.
-pub(crate) fn scroll_to_message(id: i32, x: f32, y: f32) -> Vec<u8> {
-    let body = SCROLL_TO
-        .replace("__X__", &number(x.clamp(0.0, 1.0)))
-        .replace("__Y__", &number(y.clamp(0.0, 1.0)));
-    evaluate(id, &format!("(() => {{{SCROLL_EXTENT}{body}}})()"))
-}
-
-/// The fractions a [`scroll_progress_message`] found. `None` for an answer
-/// that cannot be read.
-pub(crate) fn parse_scroll_progress(result: &[u8]) -> Option<(f32, f32)> {
-    let found: Value = serde_json::from_str(&returned(result)?).ok()?;
-    let along = |key: &str| Some((found.get(key)?.as_f64()? as f32).clamp(0.0, 1.0));
-    Some((along("x")?, along("y")?))
-}
-
-/// The message that asks a document how it fits its screen. The answer
-/// waits for the document to be parsed.
-pub(crate) fn viewport_fit_message(id: i32) -> Vec<u8> {
-    json!({
-        "id": id,
-        "method": "Runtime.evaluate",
-        "params": {
-            "expression": format!("(async () => {{{VIEWPORT_FIT}}})()"),
-            "returnByValue": true,
-            "awaitPromise": true,
-        },
-    })
-    .to_string()
-    .into_bytes()
-}
-
-/// Whether the document covers its screen and the colour round it, as a
-/// [`viewport_fit_message`] found them. `None` for an answer that cannot be
-/// read, as that of a document that went away while it was asked.
-pub(crate) fn parse_viewport_fit(result: &[u8]) -> Option<(bool, Option<[u8; 3]>)> {
-    let found: Value = serde_json::from_str(&returned(result)?).ok()?;
-    let covers = found.get("covers")?.as_bool()?;
-    let color = (found.get("color").cloned())
-        .and_then(|color| serde_json::from_value::<[u8; 3]>(color).ok());
-    Some((covers, color))
-}
-
-/// The message that makes a page report `scheme` as its
-/// `prefers-color-scheme`: `applyPageColorScheme`'s
-/// `Emulation.setEmulatedMedia`, over the page's devtools channel.
-pub(crate) fn color_scheme_message(id: i32, scheme: PageColorScheme) -> Vec<u8> {
-    let value = match scheme {
-        PageColorScheme::Light => "light",
-        PageColorScheme::Dark => "dark",
-    };
-    json!({
-        "id": id,
-        "method": "Emulation.setEmulatedMedia",
-        "params": { "features": [{ "name": "prefers-color-scheme", "value": value }] },
-    })
-    .to_string()
-    .into_bytes()
-}
-
-/// The devtools methods that make a page tell its document it is on
-/// `device`, each with its params: the ones Chrome's device mode sends.
-/// Every one is sent whatever the device, so a page that was a phone stops
-/// being one.
-pub(crate) fn device_methods(device: &PageDevice) -> [(&'static str, Value); 4] {
-    let user_agent = device.user_agent.map_or_else(
-        // An empty user agent is the browser's own.
-        || json!({ "userAgent": "" }),
-        |agent| {
-            json!({
-                "userAgent": agent.user_agent,
-                "platform": agent.navigator_platform,
-                "userAgentMetadata": {
-                    "platform": agent.hint_platform,
-                    "platformVersion": "",
-                    "architecture": "",
-                    "model": agent.model,
-                    "mobile": true,
-                },
-            })
-        },
-    );
-    // No width or height: the page keeps the viewport it is laid out at.
-    // Chromium rasters at the screen's scale whatever ratio is reported.
-    let metrics = json!({
-        "width": 0,
-        "height": 0,
-        "deviceScaleFactor": device.pixel_ratio.unwrap_or(0.0),
-        "mobile": device.mobile,
-    });
-    let touch = json!({ "enabled": device.touch, "maxTouchPoints": 5 });
-    // The insets `env(safe-area-inset-*)` resolve to. The `Max` ones are
-    // what `env(safe-area-max-inset-*)` do, the same on a screen whose safe
-    // area does not move.
-    let area = device.safe_area;
-    let safe_area = json!({ "insets": {
-        "top": area.top, "topMax": area.top,
-        "right": area.right, "rightMax": area.right,
-        "bottom": area.bottom, "bottomMax": area.bottom,
-        "left": area.left, "leftMax": area.left,
-    }});
-    [
-        ("Emulation.setUserAgentOverride", user_agent),
-        ("Emulation.setDeviceMetricsOverride", metrics),
-        ("Emulation.setTouchEmulationEnabled", touch),
-        ("Emulation.setSafeAreaInsetsOverride", safe_area),
-    ]
-}
-
-/// The message that calls the devtools `method` with `params`.
-pub(crate) fn method_message(id: i32, method: &str, params: &Value) -> Vec<u8> {
-    json!({ "id": id, "method": method, "params": params })
-        .to_string()
-        .into_bytes()
-}
-
-/// The message that asks a page for its own devtools target.
-pub(crate) fn target_info_message(id: i32) -> Vec<u8> {
-    json!({ "id": id, "method": "Target.getTargetInfo" })
-        .to_string()
-        .into_bytes()
 }
 
 /// The string an expression returned, from a `Runtime.evaluate` result.
