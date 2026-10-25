@@ -81,7 +81,7 @@ expect menu open
 expect selection page-desktop
 key escape
 sidebar on
-right-click 258 700
+right-click 300 700
 expect menu open
 key escape
 sidebar off

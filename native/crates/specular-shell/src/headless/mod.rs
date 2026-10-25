@@ -141,6 +141,11 @@ pub(crate) fn run(
     let document = script.given_document()?.unwrap_or(document);
     let mut run = Headless::new(source, canvas, args, out)?;
     run.drive(|app| {
+        // A script's positions and cameras are the Kit window's, whose
+        // chrome covers the viewport's top and left edges.
+        if args.script.is_some() {
+            app.send(Event::ChromeLayout);
+        }
         if let Some(theme) = args.theme {
             app.send(Event::ThemeLoaded(theme));
         }

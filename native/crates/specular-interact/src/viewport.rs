@@ -50,9 +50,9 @@ impl App {
     /// under it the bar a shell that draws its own chrome keeps while a tab
     /// shows its item. On the canvas that bar comes and goes with the
     /// selection, over the canvas, and covers nothing.
-    pub(crate) fn covered_top(&self) -> f32 {
+    pub fn covered_top(&self) -> f32 {
         let panel = &self.session.panel;
-        let bar = if panel.shell_chrome && self.lens().is_some() {
+        let bar = if panel.chrome_covers && self.lens().is_some() {
             DOCK_ROW
         } else {
             0.0

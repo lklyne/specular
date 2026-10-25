@@ -107,7 +107,7 @@ key escape
 camera 0,0,1
 key cmd+=
 expect zoom 1.25
-expect camera -200,-125,1.25
+expect camera -204.5,-129.75,1.25
 key cmd+-
 key cmd+-
 expect zoom 0.8
@@ -116,5 +116,5 @@ click 300 200
 expect focus page p1
 key cmd+1
 expect focus page p1
-expect camera -13.5,73.9,0.775
+expect camera 24.4,103.3,0.7558
 undo-to-start

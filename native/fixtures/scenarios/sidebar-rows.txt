@@ -40,7 +40,7 @@ expect camera 0,0,0.5
 camera 0,0,1
 # off screen, it is centred in what the sidebar leaves free
 control sidebar.pages.p2
-expect camera -1872,250,1
+expect camera -1854,269,1
 # shift extends the selection over the run of rows, command toggles one
 hold shift
 control sidebar.notes.d1

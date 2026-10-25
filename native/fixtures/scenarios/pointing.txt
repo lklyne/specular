@@ -111,20 +111,21 @@ key escape
 
 # a diagonal stroke is hit on its ink, not in the empty corner of its box,
 # and what is under that corner can be pressed
+camera 0,-900,1
 tool draw
-drag 800 0 1000 200
+drag 800 100 1000 300
 key escape
-expect hit 900 100 body @top
-expect hit 904 98 body @top
-expect hit 920 80 empty
-expect hit 980 40 body under
-move 975 75
+expect hit 900 200 body @top
+expect hit 904 198 body @top
+expect hit 920 180 empty
+expect hit 980 140 body under
+move 975 175
 expect hover none
-click 975 75
+click 975 175
 expect selection none
 # selected, its whole box drags it
-click 900 100
-expect hit 975 75 body @top
-drag 975 75 995 75
+click 900 200
+expect hit 975 175 body @top
+drag 975 175 995 175
 expect entity @top at 819 999
 undo-to-start

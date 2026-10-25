@@ -6,7 +6,7 @@ camera 32,-368,0.8
 expect saved same-as ../kitchen-sink.canvas
 
 # marquee from the gap between the sticky rows down to the first shapes
-press 10 225
+press 40 225
 drag-to 300 500
 drag-to 500 790
 release

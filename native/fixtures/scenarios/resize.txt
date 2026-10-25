@@ -109,9 +109,10 @@ expect entity s rect -200 100 260 100
 expect entity x rect 970 600 130 100
 key cmd+z
 # pages in a scaled selection are laid out as it scales
+camera 0,0,0.5
 select p ps
-press 1700 400
-drag-to 2300 700
+press 850 200
+drag-to 1150 350
 expect sent viewport p 800 600
 release
 expect sent no viewport

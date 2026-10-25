@@ -31,12 +31,12 @@ expect undo none
 expect selection none
 expect camera 0,0,1
 tool sticky
-click 200 200
+click 500 200
 type hello
 key escape
 key escape
 # a text edit open at a switch is kept, and its canvas written
-double-click 300 300
+double-click 600 300
 key cmd+down
 type  there
 control sidebar.canvas.1

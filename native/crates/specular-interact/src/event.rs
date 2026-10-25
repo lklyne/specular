@@ -170,6 +170,10 @@ pub enum Event {
     /// right press on the canvas opens the menu's state, which the shell
     /// draws and picks from by name. A headless run never sends it.
     ShellChrome,
+    /// The viewport is laid out as under the shell's chrome, the chrome
+    /// and the docked tools covering its edges, by a caller that draws
+    /// none: a headless script, so it means what it means in a window.
+    ChromeLayout,
     /// The shell's context menu closed with nothing picked: a press outside
     /// it, or Escape while it had the keys.
     MenuClosed,

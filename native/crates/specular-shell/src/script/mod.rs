@@ -22,6 +22,7 @@
 //! run, which says so when it ends.
 
 mod check;
+mod chrome;
 mod expect;
 mod facts_canvas;
 mod facts_panels;
@@ -41,6 +42,7 @@ use specular_doc::Document;
 pub use self::check::Checks;
 pub(crate) use self::check::is_markdown;
 pub(crate) use self::check::saved_text;
+pub(crate) use self::chrome::kit_chrome_at;
 pub use self::expect::{Counted, EntityFact, Expect, Reference, SavedFact};
 pub(crate) use self::facts_canvas::check_sent;
 pub use self::facts_canvas::{CanvasFact, CanvasStep, Query as CanvasQuery};

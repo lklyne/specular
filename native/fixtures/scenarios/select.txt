@@ -76,9 +76,9 @@ drag 50 450 750 350
 expect selection p1 p2
 expect undo none
 # rects that miss every page: left, above, between, below
-drag 10 150 90 350
+drag 40 150 90 350
 expect selection none
-drag 50 10 750 90
+drag 50 40 750 90
 expect selection none
 drag 520 150 580 350
 expect selection none

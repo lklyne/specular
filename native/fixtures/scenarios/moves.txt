@@ -236,5 +236,5 @@ expect saved same-as start
 camera 0,-1900,1
 select wide
 key cmd+d
-expect camera -2032,-1900,1
+expect camera -1996,-1900,1
 undo-to-start

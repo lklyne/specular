@@ -38,11 +38,11 @@ expect undo none
 # a copied group is pasted with its members inside the copy
 select g
 key cmd+c
-move 1000 0
+move 1000 100
 key cmd+v
 expect selection @6
 expect entity @7 parent @6
-expect entity @7 rect 1020 20 100 100
+expect entity @7 rect 1020 120 100 100
 key cmd+z
 
 # an address from another app makes a desktop page and hosts it

@@ -16,7 +16,7 @@ expect saved /nodes/wrapped/height = 500
 expect saved /nodes/hugging/width = 300
 expect saved /nodes/note/height = 50
 # a text the session moved is saved where and as it now is
-drag 10 610 110 610
+drag 50 610 150 610
 expect entity hugging rect 100 600 119 21
 expect saved /nodes/hugging/x = 100
 expect saved /nodes/hugging/width = 119

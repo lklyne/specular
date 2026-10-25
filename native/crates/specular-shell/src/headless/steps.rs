@@ -36,6 +36,7 @@ impl Headless {
     }
 
     fn do_step(&mut self, step: Step) -> anyhow::Result<()> {
+        self.clear_of_kit_chrome(&step)?;
         match step {
             Step::Move(at) => self.drive(|app| app.pointer_move(at)),
             Step::Press(at) => self.drive(|app| app.press(at)),
@@ -139,6 +140,33 @@ impl Headless {
                 .and_then(|event| self.drive(|app| app.send(event))),
         }?;
         self.frame_for_documents()
+    }
+
+    /// Fails a step that would put the pointer down, or move it with no
+    /// button held, where the Kit window draws its chrome: there the window
+    /// would hand it to the chrome, not the canvas. A drag already under
+    /// way keeps the pointer wherever it goes, as the window does.
+    fn clear_of_kit_chrome(&self, step: &Step) -> anyhow::Result<()> {
+        let app = self.hands.app();
+        let at = match step {
+            Step::Move(at) if app.session().gesture.is_none() => *at,
+            Step::Press(at)
+            | Step::Click(at)
+            | Step::DoubleClick(at)
+            | Step::TripleClick(at)
+            | Step::RightClick(at)
+            | Step::Drag(at, _)
+            | Step::ScrollAt(at, _) => *at,
+            _ => return Ok(()),
+        };
+        match script::kit_chrome_at(app, at) {
+            Some(chrome) => anyhow::bail!(
+                "({}, {}) is under {chrome} in the Kit window; keep pointer steps on the canvas",
+                at.x,
+                at.y
+            ),
+            None => Ok(()),
+        }
     }
 
     /// Drops the files at `paths` at `at`, as a window gets them: whole

@@ -21,6 +21,11 @@ pub struct PanelUi {
     /// and the docked tools its chrome has. Off in a headless run, which
     /// draws none and presses controls by name.
     pub(crate) shell_chrome: bool,
+    /// Whether the chrome and the docked tools cover the viewport's edges.
+    /// They do wherever the shell draws them, and in a script run that
+    /// draws none but lays out as the window does, so a position or a
+    /// camera in a script means the same in both.
+    pub(crate) chrome_covers: bool,
     /// The dropdown opened by pressing its name.
     pub(crate) open: Option<ControlId>,
     /// The context menu that is open, if one is.
@@ -33,7 +38,7 @@ pub struct PanelUi {
 impl PanelUi {
     /// How much of the viewport's top edge the chrome covers.
     pub(crate) const fn chrome_height(&self) -> f32 {
-        if self.shell_chrome {
+        if self.chrome_covers {
             CHROME_HEIGHT
         } else {
             0.0
@@ -44,6 +49,7 @@ impl PanelUi {
     pub(crate) fn drawn_by_shell() -> Self {
         Self {
             shell_chrome: true,
+            chrome_covers: true,
             ..Self::default()
         }
     }

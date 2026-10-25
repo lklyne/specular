@@ -96,6 +96,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         Event::Control(id, keys) => crate::panel::activate_control(app, &id, keys, &mut effects),
         Event::ContextMenu(screen) => crate::panel::open_menu_at(app, screen),
         Event::ShellChrome => app.session.panel = crate::PanelUi::drawn_by_shell(),
+        Event::ChromeLayout => app.session.panel.chrome_covers = true,
         Event::MenuClosed => app.session.panel.menu = None,
         Event::ChatPanel(available) => app.session.chat.set_available(available),
         Event::Motion(on) => app.session.motion.enable(on),

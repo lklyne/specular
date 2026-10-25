@@ -13,8 +13,8 @@ select p1
 control view.open
 control view.lens.fill
 expect tabs has lens fill
-expect effects has set-page-viewport { page: EntityId("p1"), viewport: CssSize { width: 1592, height: 992 } }
-expect pages has p1 viewport 1592x992
+expect effects has set-page-viewport { page: EntityId("p1"), viewport: CssSize { width: 1556, height: 918 } }
+expect pages has p1 viewport 1556x918
 expect focus page p1
 wait 50
 expect tabs has seen on
@@ -38,12 +38,12 @@ expect tabs has seen on
 expect tabs has seen placed
 expect tabs lacks seen by
 expect tabs has others no
-expect camera 500,250,1
+expect camera 518,287,1
 # Device holds the camera: a wheel over the canvas around it pans nothing
 key escape
 move 1500 900
 wheel 120 80
-expect camera 500,250,1
+expect camera 518,287,1
 # what is made beside the item with the eye shut is not made; on the page
 # it is, and hooked to it
 tool shape

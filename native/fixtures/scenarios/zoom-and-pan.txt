@@ -55,7 +55,7 @@ key cmd+z
 
 # a marquee, with a pan halfway through
 camera 32,-368,0.8
-press 10 225
+press 40 225
 drag-to 300 420
 wheel 0 -200
 
