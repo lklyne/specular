@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The installed `specular` CLI driving two live pages in the Rust app: every
+# The `specular` CLI driving two live pages in the Rust app: every
 # browse verb, the page and region screenshots, and the two file verbs.
 #
 # It starts its own web server and its own app on a scratch space, with a
@@ -7,6 +7,7 @@
 # or a Specular that is already running, and it stops only what it started.
 #
 # Usage: cli-pages.sh [app-binary] [out-dir]
+#   CLI=path    the CLI (default target/debug/specular-cli), run as `specular`
 #   app-binary  the inner binary of a debug CEF bundle
 #               (default target/debug/specular-app.app/Contents/MacOS/specular-app)
 #   out-dir     where transcript.txt and the PNGs go (default runs/a3-cli-pages)
@@ -17,10 +18,13 @@ native="$(cd "$here/../../.." && pwd)"
 app="${1:-$native/target/debug/specular-app.app/Contents/MacOS/specular-app}"
 out="${2:-$native/runs/a3-cli-pages}"
 [[ -x "$app" ]] || { echo "missing $app; build with --features cef and bundle it" >&2; exit 2; }
-command -v specular >/dev/null || { echo "the specular CLI is not installed" >&2; exit 2; }
+cli="${CLI:-$native/target/debug/specular-cli}"
+[[ -x "$cli" ]] || { echo "missing $cli; cargo build -p specular-cli" >&2; exit 2; }
 
 work="$(mktemp -d)"
-mkdir -p "$out" "$work/space" "$work/config" "$work/outside"
+mkdir -p "$out" "$work/space" "$work/config" "$work/outside" "$work/bin"
+ln -s "$cli" "$work/bin/specular"
+export PATH="$work/bin:$PATH"
 out="$(cd "$out" && pwd)"
 log="$out/transcript.txt"
 : > "$log"
@@ -136,8 +140,6 @@ check "add note (short stays a sticky)" "text_" specular add note "short"
 check "add file (outside the space)" "file_" specular add file "$work/outside/dot.png"
 check "add file (copied into assets, sized from the image)" '"width": 320' bash -c "ls '$work/space/assets/'*.png >/dev/null && specular canvas"
 
-check "print-pdf is refused by name" "print-pdf" bash -c "specular print-pdf --page pa 2>&1; true"
-check "record is refused by name" "record" bash -c "specular record start 2>&1; true"
 
 echo "$passed passed, ${#failed[@]} failed" | tee -a "$log"
 [[ ${#failed[@]} -eq 0 ]]

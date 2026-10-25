@@ -45,7 +45,8 @@ tests and the headless modes below need no window.
 | `specular-agent` | lib | The agent thread model: the `Threads` store, the thread files' shape, the prompts, the `claude` stream parser, repo bindings. Pure |
 | `specular-interact` | lib | `App`, `Session`, `Space`, `Event`, `Effect`, `Action`, `Tool`, `Gesture`, hit-test, `update`, the text editor, the key binding table, and every panel model (toolbar, dock, sidebar, menus, chat, settings, first run) |
 | `specular-scene` | lib | The `Scene` display list, `view` with one module a kind, the markdown parser, and the built-in panel painter |
-| `specular-api` | lib | The HTTP API with the socket taken off: a request and `&App` in, a read answer or an `Event::Api` out. Also the per-page CDP routing |
+| `specular-api` | lib | The HTTP API with the socket taken off: a request and `&App` in, a read answer or an `Event::Api` out. Also the per-page CDP routing, and the JSON both ends share (`wire.rs`) |
+| `specular-cli` | bin | The `specular` command (binary `specular-cli`, linked onto the `PATH` as `specular`): every verb is one or two requests to the running app's API. Its end-to-end runs are `fixtures/scenarios/cli/run.sh` |
 | `specular-compositor` | lib | The wgpu renderer. Draws a `Scene` over the dot grid in one 4x multisampled pass: page textures, SDF shapes, glyphon text, lyon paths. Imports page IOSurfaces with no copy on macOS. Implements the text measure |
 | `specular-prism` | lib | The Prism, the thread avatar, rendered on wgpu from three's own WGSL at parity with the web build (ADR 0047). Depends on wgpu alone |
 | `specular-cef` | lib | The CEF offscreen `PageSource` (feature `cef`) and the CEF-free helpers it is built from. See [`crates/specular-cef/README.md`](crates/specular-cef/README.md) |

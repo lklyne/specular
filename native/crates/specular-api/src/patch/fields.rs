@@ -113,8 +113,18 @@ impl Sort {
                     ]
                 }
             }
-            // `text` renames a group, and an explicit `label` wins.
-            Self::Group => const { &[renamed("text", "label"), top("label"), COLOR] },
+            // `text` renames a group, and an explicit `label` wins. A
+            // managed group's `layoutGap` repacks its members.
+            Self::Group => {
+                const {
+                    &[
+                        renamed("text", "label"),
+                        top("label"),
+                        COLOR,
+                        top("layoutGap"),
+                    ]
+                }
+            }
             Self::Drawing => const { &[top("strokes"), top("label")] },
             Self::Shape => {
                 const {
