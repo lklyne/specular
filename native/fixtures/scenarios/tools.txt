@@ -1,3 +1,4 @@
+# canvas: empty.canvas
 # The creation tools on an empty canvas: each tool's key and its variants,
 # the ghost an armed tool shows, a shape dragged, clicked and kept square,
 # text, a sticky and a page placed, and the draw tool's strokes. Placing
