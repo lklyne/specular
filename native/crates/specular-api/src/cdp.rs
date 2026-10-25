@@ -45,7 +45,7 @@ const INVALID_PARAMS: i32 = -32602;
 pub const APP_ID_BASE: i32 = i32::MAX - (1 << 24);
 
 /// The method a client announces an act with before it dispatches input.
-pub const WILL_ACT: &str = "Specular.willAct";
+pub(crate) const WILL_ACT: &str = "Specular.willAct";
 
 /// What a client is about to do to the page.
 #[derive(Debug, Clone, PartialEq)]

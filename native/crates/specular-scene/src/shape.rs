@@ -85,7 +85,7 @@ impl RectDraw {
 
     /// The same rect with rounded corners.
     #[must_use]
-    pub const fn with_corner_radius(self, corner_radius: f32) -> Self {
+    pub(crate) const fn with_corner_radius(self, corner_radius: f32) -> Self {
         Self {
             corner_radius,
             ..self
@@ -94,7 +94,7 @@ impl RectDraw {
 
     /// The same rect with an outline.
     #[must_use]
-    pub const fn with_stroke(self, stroke: Stroke) -> Self {
+    pub(crate) const fn with_stroke(self, stroke: Stroke) -> Self {
         Self {
             stroke: Some(stroke),
             ..self
@@ -145,7 +145,7 @@ impl EllipseDraw {
 
     /// The same ellipse with an outline.
     #[must_use]
-    pub const fn with_stroke(self, stroke: Stroke) -> Self {
+    pub(crate) const fn with_stroke(self, stroke: Stroke) -> Self {
         Self {
             stroke: Some(stroke),
             ..self

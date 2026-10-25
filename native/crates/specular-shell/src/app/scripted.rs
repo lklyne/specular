@@ -31,11 +31,6 @@ impl<W: ShellWindow> Runtime<W> {
         self.scripted_clipboard = Some(HeldClipboard(text));
     }
 
-    /// Whether the clipboard is kept in memory.
-    pub fn clipboard_is_scripted(&self) -> bool {
-        self.scripted_clipboard.is_some()
-    }
-
     /// The `.canvas` text an autosave of the canvas showing would write now.
     pub fn canvas_text(&self) -> anyhow::Result<String> {
         let app = self.app();

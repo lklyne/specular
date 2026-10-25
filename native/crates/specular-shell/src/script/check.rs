@@ -233,7 +233,7 @@ fn saved_fact(app: &App, path: &str, fact: &SavedFact) -> anyhow::Result<()> {
 }
 
 /// The active canvas as a save would write it now.
-pub fn saved_text(app: &App) -> anyhow::Result<String> {
+pub(crate) fn saved_text(app: &App) -> anyhow::Result<String> {
     saved_text_of(app, &app.space().active().id)
 }
 

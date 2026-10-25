@@ -6,16 +6,14 @@
 //! The headless runner's sink is the shell's runtime, which runs each
 //! effect as a window's does.
 
-use std::sync::Arc;
-
 use glam::Vec2;
 use specular_core::{Camera, ImeEvent, Modifiers, PointerButton, PointerEventKind};
 use specular_doc::{Document, EdgeId, EntityId, ItemId};
 
 use crate::{
     Action, App, ClipboardContent, Effect, Event, Key, KeyInput, NoteNotice, PhysicalKey,
-    PointerInput, Session, SidebarAction, TextMeasure, Tool, UnknownControl, WheelInput,
-    control_named, mac_key_input, update,
+    PointerInput, Session, SidebarAction, Tool, UnknownControl, WheelInput, control_named,
+    mac_key_input, update,
 };
 
 const NONE: Modifiers = Modifiers {
@@ -29,21 +27,8 @@ pub const SHIFT: Modifiers = Modifiers {
     shift: true,
     ..NONE
 };
-/// Control.
-pub const CTRL: Modifiers = Modifiers {
-    control: true,
-    ..NONE
-};
-/// Option.
-pub const ALT: Modifiers = Modifiers { alt: true, ..NONE };
 /// Command.
 pub const CMD: Modifiers = Modifiers { meta: true, ..NONE };
-/// Command and Shift.
-pub const CMD_SHIFT: Modifiers = Modifiers {
-    shift: true,
-    meta: true,
-    ..NONE
-};
 
 /// Where a [`Driver`]'s events go, and the app they change.
 pub trait EventSink {
@@ -111,12 +96,6 @@ impl Driver {
             app,
             effects: Vec::new(),
         })
-    }
-
-    /// Lays text out with `measure` from here on.
-    pub fn measure_with(&mut self, measure: Arc<dyn TextMeasure>) -> &mut Self {
-        self.sink.app.set_text_measure(measure);
-        self
     }
 
     /// The effects returned since the last [`Driver::take_effects`].
@@ -266,11 +245,6 @@ impl<S: EventSink> Driver<S> {
         self.double_click(at).button(true, 3).button(false, 3)
     }
 
-    /// The pointer leaves the window.
-    pub fn pointer_leave(&mut self) -> &mut Self {
-        self.pointer(PointerEventKind::Leave)
-    }
-
     fn key_event(&mut self, key: Key, pressed: bool, extra: Modifiers) -> &mut Self {
         let modifiers = both(self.held, extra);
         let typed = match key {
@@ -319,16 +293,6 @@ impl<S: EventSink> Driver<S> {
             },
         };
         self.send(Event::Key(input))
-    }
-
-    /// Presses `key` and leaves it down.
-    pub fn key_down(&mut self, key: Key) -> &mut Self {
-        self.key_event(key, true, NONE)
-    }
-
-    /// Releases `key`.
-    pub fn key_up(&mut self, key: Key) -> &mut Self {
-        self.key_event(key, false, NONE)
     }
 
     /// Presses and releases `key`.
@@ -466,7 +430,7 @@ impl<S: EventSink> Driver<S> {
     }
 
     /// Presses a button other than the left one at `at`.
-    pub fn press_button(&mut self, button: PointerButton, at: impl Into<Vec2>) -> &mut Self {
+    pub(crate) fn press_button(&mut self, button: PointerButton, at: impl Into<Vec2>) -> &mut Self {
         self.pointer = at.into();
         self.pointer(PointerEventKind::Down {
             button,

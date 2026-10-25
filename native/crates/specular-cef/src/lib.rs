@@ -23,18 +23,22 @@
 //! See this crate's `README.md` for macOS bundling and the list of CEF calls
 //! that have only been type-checked.
 
-pub mod attach_query;
-pub mod config;
-pub mod coords;
-pub mod cpu_frame;
-pub mod devtools_route;
-pub mod dom_query;
-pub mod inspect_query;
-pub mod key_message;
-pub mod page;
-pub mod pool;
-pub mod sync_query;
-pub mod translate;
+// Without `cef` the CEF-free helpers are compiled for their unit tests alone,
+// so most of them have no caller.
+#![cfg_attr(not(feature = "cef"), allow(dead_code))]
+
+mod attach_query;
+mod config;
+mod coords;
+mod cpu_frame;
+mod devtools_route;
+mod dom_query;
+mod inspect_query;
+mod key_message;
+mod page;
+mod pool;
+mod sync_query;
+mod translate;
 
 #[cfg(all(feature = "cef", target_os = "macos"))]
 mod app_protocol;

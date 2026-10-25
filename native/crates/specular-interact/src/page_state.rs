@@ -52,7 +52,7 @@ pub struct PageState {
     pub fit: ScreenFit,
     /// The colour the document has a browser paint round it. `None` until
     /// it says, and for a document that names none.
-    pub surround: Option<[u8; 3]>,
+    pub(crate) surround: Option<[u8; 3]>,
     /// Where the elements anchored items follow sit in the document, by
     /// selector (ADR 0032). A selector that finds nothing has no entry.
     pub elements: HashMap<String, ElementPlace>,

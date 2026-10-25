@@ -4,8 +4,7 @@
 
 use specular_doc::{
     BorderStyle, BrushType, Color, ColorScheme, DeviceFrameColor, DeviceFrameStyle, Edge, EdgeEnd,
-    Entity, FillStyle, ItemId, Kind, LineStyle, Page, ShapeKind, TextAlign, TextFont, TextStyle,
-    VerticalAlign,
+    Entity, FillStyle, ItemId, Kind, LineStyle, Page, ShapeKind, TextAlign, TextFont,
 };
 
 use super::Orientation;
@@ -13,11 +12,11 @@ use super::page;
 use crate::App;
 
 /// The size text is drawn at when it names none.
-pub const DEFAULT_TEXT_SIZE: f64 = 14.0;
+pub(crate) const DEFAULT_TEXT_SIZE: f64 = 14.0;
 /// A shape's border width when it names none.
-pub const DEFAULT_BORDER_WIDTH: f64 = 2.0;
+pub(crate) const DEFAULT_BORDER_WIDTH: f64 = 2.0;
 /// An edge's line width when it names none.
-pub const DEFAULT_EDGE_WIDTH: f64 = 1.5;
+pub(crate) const DEFAULT_EDGE_WIDTH: f64 = 1.5;
 
 /// What `entity` and `edge` give for each selected item, gathered in
 /// selection order.
@@ -61,7 +60,7 @@ fn of_edges<T: PartialEq>(app: &App, read: impl Fn(&Edge) -> T) -> Option<T> {
 
 /// The color of texts, shapes, groups, drawings' strokes and edges, as stored.
 /// An item with no stored color is left out of the comparison.
-pub fn color(app: &App) -> Option<Color> {
+pub(crate) fn color(app: &App) -> Option<Color> {
     common(gather(
         app,
         |entity, out| match &entity.kind {
@@ -76,7 +75,7 @@ pub fn color(app: &App) -> Option<Color> {
 }
 
 /// A shape's border color, as stored.
-pub fn border_color(app: &App) -> Option<Color> {
+pub(crate) fn border_color(app: &App) -> Option<Color> {
     of_entities(app, |entity, out| {
         if let Kind::Shape(shape) = &entity.kind {
             out.extend(shape.border_color.clone());
@@ -85,7 +84,7 @@ pub fn border_color(app: &App) -> Option<Color> {
 }
 
 /// The size of texts and shape labels.
-pub fn text_size(app: &App) -> Option<f64> {
+pub(crate) fn text_size(app: &App) -> Option<f64> {
     of_entities(app, |entity, out| match &entity.kind {
         Kind::Text(text) => out.push(text.size.unwrap_or(DEFAULT_TEXT_SIZE)),
         Kind::Shape(shape) => out.push(shape.text_size.unwrap_or(DEFAULT_TEXT_SIZE)),
@@ -94,7 +93,7 @@ pub fn text_size(app: &App) -> Option<f64> {
 }
 
 /// The typeface of texts.
-pub fn text_font(app: &App) -> Option<TextFont> {
+pub(crate) fn text_font(app: &App) -> Option<TextFont> {
     of_entities(app, |entity, out| {
         if let Kind::Text(text) = &entity.kind {
             out.push(text.font.unwrap_or(TextFont::Sans));
@@ -102,17 +101,8 @@ pub fn text_font(app: &App) -> Option<TextFont> {
     })
 }
 
-/// Whether texts are stickies or plain text.
-pub fn text_style(app: &App) -> Option<TextStyle> {
-    of_entities(app, |entity, out| {
-        if let Kind::Text(text) = &entity.kind {
-            out.push(text.resolved_style());
-        }
-    })
-}
-
 /// The horizontal alignment of shape labels.
-pub fn text_align(app: &App) -> Option<TextAlign> {
+pub(crate) fn text_align(app: &App) -> Option<TextAlign> {
     of_entities(app, |entity, out| {
         if let Kind::Shape(shape) = &entity.kind {
             out.push(shape.text_align.unwrap_or(TextAlign::Center));
@@ -120,17 +110,8 @@ pub fn text_align(app: &App) -> Option<TextAlign> {
     })
 }
 
-/// The vertical alignment of shape labels.
-pub fn text_vertical_align(app: &App) -> Option<VerticalAlign> {
-    of_entities(app, |entity, out| {
-        if let Kind::Shape(shape) = &entity.kind {
-            out.push(shape.text_vertical_align.unwrap_or(VerticalAlign::Middle));
-        }
-    })
-}
-
 /// The silhouette of shapes.
-pub fn shape_kind(app: &App) -> Option<ShapeKind> {
+pub(crate) fn shape_kind(app: &App) -> Option<ShapeKind> {
     of_entities(app, |entity, out| {
         if let Kind::Shape(shape) = &entity.kind {
             out.push(shape.shape);
@@ -139,7 +120,7 @@ pub fn shape_kind(app: &App) -> Option<ShapeKind> {
 }
 
 /// Whether shapes are painted.
-pub fn fill_style(app: &App) -> Option<FillStyle> {
+pub(crate) fn fill_style(app: &App) -> Option<FillStyle> {
     of_entities(app, |entity, out| {
         if let Kind::Shape(shape) = &entity.kind {
             out.push(shape.fill_style.unwrap_or(FillStyle::Solid));
@@ -148,7 +129,7 @@ pub fn fill_style(app: &App) -> Option<FillStyle> {
 }
 
 /// The border style of shapes.
-pub fn border_style(app: &App) -> Option<BorderStyle> {
+pub(crate) fn border_style(app: &App) -> Option<BorderStyle> {
     of_entities(app, |entity, out| {
         if let Kind::Shape(shape) = &entity.kind {
             out.push(shape.border_style.unwrap_or(BorderStyle::Solid));
@@ -157,7 +138,7 @@ pub fn border_style(app: &App) -> Option<BorderStyle> {
 }
 
 /// The width of shape borders, drawings' strokes and edges.
-pub fn stroke_width(app: &App) -> Option<f64> {
+pub(crate) fn stroke_width(app: &App) -> Option<f64> {
     common(gather(
         app,
         |entity, out| match &entity.kind {
@@ -170,7 +151,7 @@ pub fn stroke_width(app: &App) -> Option<f64> {
 }
 
 /// The brush of drawings' strokes.
-pub fn brush(app: &App) -> Option<BrushType> {
+pub(crate) fn brush(app: &App) -> Option<BrushType> {
     of_entities(app, |entity, out| {
         if let Kind::Drawing(drawing) = &entity.kind {
             out.extend(
@@ -184,27 +165,27 @@ pub fn brush(app: &App) -> Option<BrushType> {
 }
 
 /// The line style of edges.
-pub fn line_style(app: &App) -> Option<LineStyle> {
+pub(crate) fn line_style(app: &App) -> Option<LineStyle> {
     of_edges(app, |edge| edge.line_style.unwrap_or(LineStyle::Solid))
 }
 
 /// The label of edges, empty when they have none.
-pub fn edge_label(app: &App) -> Option<String> {
+pub(crate) fn edge_label(app: &App) -> Option<String> {
     of_edges(app, |edge| edge.label.clone().unwrap_or_default())
 }
 
 /// The endpoint shape at the start of edges.
-pub fn from_end(app: &App) -> Option<EdgeEnd> {
+pub(crate) fn from_end(app: &App) -> Option<EdgeEnd> {
     of_edges(app, |edge| edge.from_end.unwrap_or(EdgeEnd::None))
 }
 
 /// The endpoint shape at the end of edges.
-pub fn to_end(app: &App) -> Option<EdgeEnd> {
+pub(crate) fn to_end(app: &App) -> Option<EdgeEnd> {
     of_edges(app, |edge| edge.to_end.unwrap_or(EdgeEnd::Arrow))
 }
 
 /// The viewport preset of pages. A page with a custom size has none.
-pub fn viewport_preset(app: &App) -> Option<u32> {
+pub(crate) fn viewport_preset(app: &App) -> Option<u32> {
     of_entities(app, |entity, out| {
         if let Some(page) = entity.kind.page_fields() {
             let custom = page.metadata.as_ref().is_some_and(page::is_custom);
@@ -214,7 +195,7 @@ pub fn viewport_preset(app: &App) -> Option<u32> {
 }
 
 /// The orientation of pages.
-pub fn orientation(app: &App) -> Option<Orientation> {
+pub(crate) fn orientation(app: &App) -> Option<Orientation> {
     of_entities(app, |entity, out| {
         if let Some(page) = entity.kind.page_fields() {
             let meta = page.metadata.as_ref();
@@ -224,7 +205,7 @@ pub fn orientation(app: &App) -> Option<Orientation> {
 }
 
 /// The color scheme a page with none of its own is shown in: the app's.
-pub fn followed_color_scheme(app: &App) -> ColorScheme {
+pub(crate) fn followed_color_scheme(app: &App) -> ColorScheme {
     match app.appearance() {
         crate::Appearance::Light => ColorScheme::Light,
         crate::Appearance::Dark => ColorScheme::Dark,
@@ -233,7 +214,11 @@ pub fn followed_color_scheme(app: &App) -> ColorScheme {
 
 /// The device frame pages are drawn in, which is clay for a page kept as
 /// realistic that has no drawing to show; the inner `None` is no frame.
-pub fn device_frame(app: &App) -> Option<Option<DeviceFrameStyle>> {
+#[expect(
+    clippy::option_option,
+    reason = "the outer None is no page or a mixed selection, the inner one no frame"
+)]
+pub(crate) fn device_frame(app: &App) -> Option<Option<DeviceFrameStyle>> {
     of_entities(app, |entity, out| {
         if let Some(page) = entity.kind.page_fields() {
             out.push(frame_shown(&page));
@@ -275,7 +260,7 @@ pub(super) fn next_device_frame(app: &App) -> Option<DeviceFrameStyle> {
 /// The colour the devices of framed pages are drawn in: each page's own,
 /// or the app theme's for a page that keeps none. A page with no frame is
 /// left out.
-pub fn device_frame_color(app: &App) -> Option<DeviceFrameColor> {
+pub(crate) fn device_frame_color(app: &App) -> Option<DeviceFrameColor> {
     of_entities(app, |entity, out| {
         if let Some(page) = entity.kind.page_fields()
             && page.shell().is_some()
@@ -286,7 +271,7 @@ pub fn device_frame_color(app: &App) -> Option<DeviceFrameColor> {
 }
 
 /// Whether a selected page shows a device frame, and so has a colour to set.
-pub fn any_device_frame(app: &App) -> bool {
+pub(crate) fn any_device_frame(app: &App) -> bool {
     let framed = gather(
         app,
         |entity, out| {
@@ -302,7 +287,11 @@ pub fn any_device_frame(app: &App) -> bool {
 }
 
 /// The color-scheme override of pages; the inner `None` follows the system.
-pub fn color_scheme(app: &App) -> Option<Option<ColorScheme>> {
+#[expect(
+    clippy::option_option,
+    reason = "the outer None is no page or a mixed selection, the inner one the system's"
+)]
+pub(crate) fn color_scheme(app: &App) -> Option<Option<ColorScheme>> {
     of_entities(app, |entity, out| {
         if let Some(page) = entity.kind.page_fields() {
             out.push(page.color_scheme);

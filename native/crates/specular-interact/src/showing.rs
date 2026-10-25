@@ -81,7 +81,7 @@ impl App {
     }
 
     /// The item a tab is showing, or `None` while the canvas is shown.
-    pub fn shown_item(&self) -> Option<&EntityId> {
+    pub(crate) fn shown_item(&self) -> Option<&EntityId> {
         self.session.item_view.as_ref().map(|view| &view.item)
     }
 

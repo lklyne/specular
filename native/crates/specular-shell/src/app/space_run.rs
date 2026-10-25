@@ -15,7 +15,7 @@ impl<W: ShellWindow> Runtime<W> {
     /// Shows the space at `folder` in place of what is open, which is
     /// saved first. `file` names the canvas file to show; without it the
     /// space's last active canvas is.
-    pub fn open_space(&mut self, folder: &Path, file: Option<&str>) -> anyhow::Result<()> {
+    pub(crate) fn open_space(&mut self, folder: &Path, file: Option<&str>) -> anyhow::Result<()> {
         let folder = std::path::absolute(folder)?;
         let opened = space::open(&folder, file, START_CAMERA)?;
         self.flush_files();
@@ -65,7 +65,7 @@ impl<W: ShellWindow> Runtime<W> {
 
     /// Remembers `folder` as the space to open when the Electron app's
     /// settings name none.
-    pub fn remember_space(&self, folder: &Path) {
+    pub(crate) fn remember_space(&self, folder: &Path) {
         let Some(path) = self.prefs.as_deref() else {
             return;
         };

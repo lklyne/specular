@@ -92,7 +92,7 @@ pub struct LatencySummary {
     #[serde(default)]
     pub unresolved: usize,
     /// Mean latency.
-    pub mean_ms: f64,
+    pub(crate) mean_ms: f64,
     /// Median latency.
     pub p50_ms: f64,
     /// 95th percentile latency.
@@ -103,7 +103,7 @@ pub struct LatencySummary {
 
 impl LatencySummary {
     /// Summarises `samples`, noting `unresolved` events alongside.
-    pub fn from_samples(samples: &[Duration], unresolved: usize) -> Self {
+    pub(crate) fn from_samples(samples: &[Duration], unresolved: usize) -> Self {
         let mut ms: Vec<f64> = samples.iter().map(|d| d.as_secs_f64() * 1_000.0).collect();
         if ms.is_empty() {
             return Self {

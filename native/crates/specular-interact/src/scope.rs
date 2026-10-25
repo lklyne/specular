@@ -24,7 +24,7 @@ pub struct SelectionScope {
     /// stored ones for what follows its page's scroll. What the selection's
     /// outline and handles wrap. Entities scrolled out of their page count
     /// for nothing.
-    pub shown_bounds: Option<Rect>,
+    pub(crate) shown_bounds: Option<Rect>,
 }
 
 impl SelectionScope {

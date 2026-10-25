@@ -23,7 +23,7 @@ fn segment(id: &str) -> io::Result<&str> {
 }
 
 /// Writes `<space>/.specular/threads/<tab id>/<id>.json`.
-pub fn write_thread(space: &Path, thread: &Thread) -> io::Result<()> {
+pub(crate) fn write_thread(space: &Path, thread: &Thread) -> io::Result<()> {
     let dir = threads_dir(space).join(segment(&thread.tab_id)?);
     let file = dir.join(format!("{}.json", segment(thread.id.as_str())?));
     fs::create_dir_all(&dir)?;
@@ -31,7 +31,7 @@ pub fn write_thread(space: &Path, thread: &Thread) -> io::Result<()> {
 }
 
 /// Writes `<space>/.specular/threads/index.json`.
-pub fn write_index(space: &Path, json: &str) -> io::Result<()> {
+pub(crate) fn write_index(space: &Path, json: &str) -> io::Result<()> {
     let dir = threads_dir(space);
     fs::create_dir_all(&dir)?;
     write_atomic(&dir.join("index.json"), json)

@@ -16,10 +16,10 @@
 use serde::{Deserialize, Deserializer, Serialize};
 
 /// Minimum top score for a structural (non-identity) confident match.
-pub const LOCATOR_CONFIDENCE_FLOOR: f64 = 300.0;
+pub(crate) const LOCATOR_CONFIDENCE_FLOOR: f64 = 300.0;
 
 /// How far the top structural score must clear the runner-up to be confident.
-pub const LOCATOR_RUNNER_UP_MARGIN: f64 = 120.0;
+pub(crate) const LOCATOR_RUNNER_UP_MARGIN: f64 = 120.0;
 
 /// A rectangle in the page's own content coordinate space.
 #[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
@@ -120,7 +120,7 @@ where
 /// source's within-element offset fraction. The offset is clamped to 0..1 so a
 /// stale or out-of-range fraction still lands on the element rather than
 /// beside it.
-pub fn dispatch_point(rect: LocatorRect, offset_x: f64, offset_y: f64) -> (f64, f64) {
+pub(crate) fn dispatch_point(rect: LocatorRect, offset_x: f64, offset_y: f64) -> (f64, f64) {
     let fx = offset_x.clamp(0.0, 1.0);
     let fy = offset_y.clamp(0.0, 1.0);
     (

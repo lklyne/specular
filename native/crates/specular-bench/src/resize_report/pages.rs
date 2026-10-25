@@ -20,28 +20,28 @@ pub struct PageSide {
     /// Shared-texture paints of a page's view.
     pub paints: usize,
     /// Paints of the texel size asked for at the time.
-    pub paints_matching: usize,
+    pub(crate) paints_matching: usize,
     /// Requests no paint of their size came for before the same size was
     /// requested again.
     pub unanswered: usize,
     /// Paints dropped at the texture cap.
     pub dropped: usize,
     /// Paints whose `content_rect` is smaller than the surface.
-    pub letterboxed: usize,
+    pub(crate) letterboxed: usize,
     /// Paints whose `source_size` is set and is not the size of their
     /// `content_rect`: content captured at one size and scaled to another.
     pub rescaled: usize,
     /// Paints with `has_capture_counter` set.
-    pub with_capture_counter: usize,
+    pub(crate) with_capture_counter: usize,
     /// Paints with `has_source_size` set.
-    pub with_source_size: usize,
+    pub(crate) with_source_size: usize,
     /// From the first ask CEF had not read to its reading the view rect.
-    pub ask_to_view_rect: Spread,
+    pub(crate) ask_to_view_rect: Spread,
     /// From that reading to the first paint of the size read.
-    pub view_rect_to_paint: Spread,
+    pub(crate) view_rect_to_paint: Spread,
     /// From a paint to the end of the first frame started after it that
     /// drew a texture of the paint's size.
-    pub paint_to_frame: Spread,
+    pub(crate) paint_to_frame: Spread,
 }
 
 /// The asks one scripted step led to, outside a live resize. In a ledger
@@ -53,9 +53,9 @@ pub struct Switch {
     /// From the step, or the first ask of a burst, to the end of the first
     /// frame after it that drew the page at the last ask's CSS size, at
     /// any texel size. `None` if none did.
-    pub css_ms: Option<f64>,
+    pub(crate) css_ms: Option<f64>,
     /// The same for a frame that also has the last ask's texel size.
-    pub settle_ms: Option<f64>,
+    pub(crate) settle_ms: Option<f64>,
 }
 
 fn texels(event: &Ev, scale: f32) -> [u32; 2] {

@@ -162,7 +162,7 @@ pub fn thread_prompt(thread: &Thread, ctx: &PromptContext) -> String {
 }
 
 /// The prompt for a follow-up turn on a resumed session.
-pub fn follow_up_prompt(
+pub(crate) fn follow_up_prompt(
     text: &str,
     ctx: &PromptContext,
     image_count: usize,

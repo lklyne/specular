@@ -91,7 +91,7 @@ pub enum CanvasFact {
 
 impl CanvasFact {
     /// Whether the fact is about effects, which only a headless run sees.
-    pub fn is_sent(&self) -> bool {
+    pub(crate) fn is_sent(&self) -> bool {
         matches!(self, Self::Sent { .. } | Self::SentNothing)
     }
 }
@@ -271,7 +271,7 @@ fn resolved(app: &App, words: &[String]) -> anyhow::Result<Vec<String>> {
 }
 
 /// Whether a `sent` fact holds for the effects of the last step.
-pub fn check_sent(app: &App, sent: &[Effect], fact: &CanvasFact) -> anyhow::Result<()> {
+pub(crate) fn check_sent(app: &App, sent: &[Effect], fact: &CanvasFact) -> anyhow::Result<()> {
     let told: Vec<Vec<String>> = sent.iter().map(effect_words).collect();
     let listed = || {
         let lines: Vec<String> = told.iter().map(|words| words.join(" ")).collect();

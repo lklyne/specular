@@ -35,13 +35,6 @@ impl ClaudeCli {
         Self::default()
     }
 
-    /// Runs this program instead of looking for `claude`.
-    #[must_use]
-    pub fn with_program(mut self, program: impl Into<PathBuf>) -> Self {
-        self.program = Some(program.into());
-        self
-    }
-
     fn program(&self) -> Result<PathBuf, AgentError> {
         if let Some(program) = &self.program {
             return Ok(program.clone());

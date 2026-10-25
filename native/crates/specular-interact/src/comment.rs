@@ -28,10 +28,7 @@ pub(crate) use drag::{begin, drag, finish, on_element};
 pub(crate) use grab::on_region_grab;
 pub use grab::{PageGrab, PageRegion};
 pub(crate) use marks::at as mark_at;
-pub use marks::{
-    CommentMark, FOCUS_RING_OUTSET, FOCUS_RING_STROKE, MarkShape, PILL_DIGIT_WIDTH,
-    PILL_EDGE_MARGIN, PILL_HEIGHT, PILL_INSET, PILL_WIDTH, REGION_HIT_BAND, REGION_MIN_SIZE,
-};
+pub use marks::{CommentMark, FOCUS_RING_OUTSET, FOCUS_RING_STROKE, MarkShape, PILL_HEIGHT};
 pub(crate) use preview::{
     RegionPreview, follow as follow_region, on_elements, settle as settle_preview,
 };

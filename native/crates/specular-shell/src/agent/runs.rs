@@ -6,10 +6,10 @@ use specular_agent::{
     Model, Notice, Progress, ProgressKind, RunRequest, ThreadId, parse_line, parse_models,
 };
 
-use super::{AgentBackend, AgentProcess, Output, Waker};
+use super::{AgentBackend, AgentProcess, Output};
 
 /// A run with no end after this long is stopped.
-pub const DEFAULT_TIMEOUT: Duration = Duration::from_mins(10);
+pub(crate) const DEFAULT_TIMEOUT: Duration = Duration::from_mins(10);
 
 /// The models are listed within this long, or not at all.
 const MODELS_TIMEOUT: Duration = Duration::from_secs(20);
@@ -56,18 +56,6 @@ impl AgentRuns {
             timeout: DEFAULT_TIMEOUT,
             models: None,
         }
-    }
-
-    /// Stops a run that has gone on this long.
-    #[must_use]
-    pub fn with_timeout(mut self, timeout: Duration) -> Self {
-        self.timeout = timeout;
-        self
-    }
-
-    /// Hands the backend the hook to call when output arrives.
-    pub fn set_waker(&mut self, waker: Waker) {
-        self.backend.set_waker(waker);
     }
 
     /// Starts a run in the request's `cwd`, or in the space folder `space`
@@ -121,7 +109,7 @@ impl AgentRuns {
     }
 
     /// [`poll`](Self::poll) with the clock given, for the timeout.
-    pub fn poll_at(&mut self, now: Instant) -> Vec<(ThreadId, Notice)> {
+    pub(crate) fn poll_at(&mut self, now: Instant) -> Vec<(ThreadId, Notice)> {
         let mut out = std::mem::take(&mut self.queued);
         let mut ended = Vec::new();
         for (thread, run) in &mut self.runs {
@@ -146,7 +134,7 @@ impl AgentRuns {
 
     /// Asks the backend which models a run can use. The answer comes from
     /// [`take_models`](Self::take_models), once, if the backend can say.
-    pub fn ask_models(&mut self) {
+    pub(crate) fn ask_models(&mut self) {
         self.models = self.backend.ask_models().map(|process| ModelsAsk {
             process,
             started: Instant::now(),
@@ -154,7 +142,7 @@ impl AgentRuns {
     }
 
     /// The models the backend listed since the last call, never blocking.
-    pub fn take_models(&mut self) -> Option<Vec<Model>> {
+    pub(crate) fn take_models(&mut self) -> Option<Vec<Model>> {
         let ask = self.models.as_mut()?;
         let mut over = ask.started.elapsed() >= MODELS_TIMEOUT;
         let mut listed = None;

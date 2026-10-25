@@ -56,12 +56,12 @@ impl SidebarView {
     }
 
     /// How much of the canvas viewport's left edge the sidebar covers.
-    pub fn covered_width(&self) -> f32 {
+    pub(crate) fn covered_width(&self) -> f32 {
         if self.shown { SIDEBAR_WIDTH } else { 0.0 }
     }
 
     /// Whether `section` is folded away.
-    pub fn is_folded(&self, section: SidebarSection) -> bool {
+    pub(crate) fn is_folded(&self, section: SidebarSection) -> bool {
         self.folded.contains(&section)
     }
 

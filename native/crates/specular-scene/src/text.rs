@@ -130,9 +130,9 @@ pub struct TextRun {
 
 impl TextRun {
     /// Line height used by [`new`](Self::new), as a multiple of the size.
-    pub const DEFAULT_LINE_HEIGHT: f32 = 1.4;
+    pub(crate) const DEFAULT_LINE_HEIGHT: f32 = 1.4;
     /// Weight of headings and strong text in a Document.
-    pub const HEAVY: u16 = 600;
+    pub(crate) const HEAVY: u16 = 600;
 
     /// `text` set as `spec` says, starting at `origin`. `view` draws an
     /// entity's text with this run and the editor's measure shapes the same

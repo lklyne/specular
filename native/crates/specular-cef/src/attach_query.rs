@@ -176,7 +176,7 @@ fn number(value: f32) -> String {
 
 /// The message that asks which element an item centred on the document
 /// point (`x`, `y`) should follow.
-pub fn capture_message(id: i32, x: f32, y: f32) -> Vec<u8> {
+pub(crate) fn capture_message(id: i32, x: f32, y: f32) -> Vec<u8> {
     let body = CAPTURE
         .replace("__X__", &number(x))
         .replace("__Y__", &number(y));
@@ -185,7 +185,7 @@ pub fn capture_message(id: i32, x: f32, y: f32) -> Vec<u8> {
 
 /// The message that asks where the elements `selectors` name have moved to.
 /// The answer waits for one to move, up to two seconds.
-pub fn track_message(id: i32, selectors: &[String]) -> Vec<u8> {
+pub(crate) fn track_message(id: i32, selectors: &[String]) -> Vec<u8> {
     let list = serde_json::to_string(selectors).unwrap_or_else(|_| "[]".to_owned());
     evaluate(id, &TRACK.replace("__SELECTORS__", &list), true)
 }
@@ -211,7 +211,7 @@ impl Found {
 
 /// The element a [`capture_message`] found. `None` for a document with no
 /// body and for an answer that cannot be read.
-pub fn parse_capture(result: &[u8]) -> Option<CapturedElement> {
+pub(crate) fn parse_capture(result: &[u8]) -> Option<CapturedElement> {
     let found: Found = serde_json::from_str(&returned(result)?).ok()?;
     Some(CapturedElement {
         place: found.place()?,
@@ -222,7 +222,7 @@ pub fn parse_capture(result: &[u8]) -> Option<CapturedElement> {
 /// The places a [`track_message`] found changed: each selector with where
 /// its element is now, or `None` when it finds nothing. Empty for an answer
 /// that cannot be read.
-pub fn parse_places(result: &[u8]) -> Vec<(String, Option<ElementPlace>)> {
+pub(crate) fn parse_places(result: &[u8]) -> Vec<(String, Option<ElementPlace>)> {
     let found: Vec<Found> = returned(result)
         .and_then(|text| serde_json::from_str(&text).ok())
         .unwrap_or_default();

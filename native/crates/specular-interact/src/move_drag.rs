@@ -61,7 +61,7 @@ pub(crate) enum Click {
 
 impl MoveDrag {
     /// Whether releasing now leaves copies.
-    pub fn is_copying(&self) -> bool {
+    pub(crate) fn is_copying(&self) -> bool {
         self.dragged && self.copying
     }
 

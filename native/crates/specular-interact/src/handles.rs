@@ -145,7 +145,7 @@ impl App {
     /// The selected entity and its rect, when exactly one entity is selected.
     /// The item shown in a tab is the whole view, so it has nothing to
     /// resize, and neither has an entered page, whose edge is its own.
-    pub fn handle_target(&self) -> Option<(&EntityId, Rect)> {
+    pub(crate) fn handle_target(&self) -> Option<(&EntityId, Rect)> {
         let entity = self
             .document
             .entity(self.session.selection.single_entity()?)?;

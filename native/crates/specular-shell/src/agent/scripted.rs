@@ -8,7 +8,7 @@ use specular_agent::RunRequest;
 use super::{AgentBackend, AgentError, AgentProcess, Output};
 
 /// Every request a [`Scripted`] backend was started with, and where.
-pub type StartedRuns = Arc<Mutex<Vec<(RunRequest, PathBuf)>>>;
+pub(crate) type StartedRuns = Arc<Mutex<Vec<(RunRequest, PathBuf)>>>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Step {
@@ -32,7 +32,7 @@ pub struct Scripted {
 
 impl Scripted {
     /// Reads a script. Waits are real time.
-    pub fn from_text(text: &str) -> Result<Self, AgentError> {
+    pub(crate) fn from_text(text: &str) -> Result<Self, AgentError> {
         let mut steps = Vec::new();
         for line in text.lines().map(str::trim) {
             if line.is_empty() || line.starts_with('#') {

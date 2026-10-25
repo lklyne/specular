@@ -20,14 +20,14 @@ pub struct ProcessMemory {
     /// service's name for a `utility`.
     pub kind: String,
     /// Resident set size in MiB.
-    pub rss_mb: f64,
+    pub(crate) rss_mb: f64,
     /// Physical footprint in MiB; `None` off macOS or when it cannot be
     /// read.
-    pub footprint_mb: Option<f64>,
+    pub(crate) footprint_mb: Option<f64>,
 }
 
 /// What a process is, from its command line. `root` is the shell itself.
-pub fn process_kind(command: &str, root: bool) -> String {
+pub(crate) fn process_kind(command: &str, root: bool) -> String {
     let value_of = |flag: &str| {
         command
             .split_whitespace()
@@ -49,7 +49,7 @@ pub fn process_kind(command: &str, root: bool) -> String {
 /// The rows of `tree` with their kinds, largest footprint first. `command`
 /// gives a process's command line and `footprint` its physical footprint in
 /// bytes.
-pub fn breakdown(
+pub(crate) fn breakdown(
     tree: &[ProcessRow],
     root: u32,
     command: impl Fn(u32) -> String,

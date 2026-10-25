@@ -103,7 +103,7 @@ pub struct GestureProfile {
 }
 
 /// The six profiles, in run order, with the Electron values.
-pub const PROFILES: [GestureProfile; 6] = [
+pub(crate) const PROFILES: [GestureProfile; 6] = [
     GestureProfile {
         id: ProfileId::SlowPan,
         label: "Slow pan",
@@ -150,7 +150,7 @@ pub const PROFILES: [GestureProfile; 6] = [
 
 /// A camera left alone. What a frame costs when nothing changes, which
 /// should be nothing: no frame drawn. Runs only when named.
-pub const IDLE: GestureProfile = GestureProfile {
+pub(crate) const IDLE: GestureProfile = GestureProfile {
     id: ProfileId::Idle,
     label: "Idle",
     duration: Duration::from_millis(5_000),
@@ -163,12 +163,12 @@ impl GestureProfile {
     /// `POST /perf/pan-zoom/run`. The totals are unchanged, so a shorter
     /// duration is a faster gesture.
     #[must_use]
-    pub fn with_duration(self, duration: Duration) -> Self {
+    pub(crate) fn with_duration(self, duration: Duration) -> Self {
         Self { duration, ..self }
     }
 
     /// Number of steps [`build_steps`] yields at `interval`.
-    pub fn step_count(&self, interval: Duration) -> usize {
+    pub(crate) fn step_count(&self, interval: Duration) -> usize {
         let interval_ms = interval.as_secs_f64() * 1_000.0;
         let duration_ms = self.duration.as_secs_f64() * 1_000.0;
         if interval_ms > 0.0 {
@@ -180,12 +180,6 @@ impl GestureProfile {
         } else {
             1
         }
-    }
-
-    /// Wall-clock time the profile occupies when each step is followed by a
-    /// wait of `interval` (the Electron loop applies, then waits).
-    pub fn planned_duration(&self, interval: Duration) -> Duration {
-        interval.saturating_mul(u32::try_from(self.step_count(interval)).unwrap_or(u32::MAX))
     }
 }
 

@@ -14,29 +14,29 @@ use specular_core::{
 use crate::key_message::PlainKey;
 
 /// CEF `cef_event_flags_t` bits (`include/internal/cef_types.h`).
-pub mod flags {
+pub(crate) mod flags {
     /// `EVENTFLAG_SHIFT_DOWN`.
-    pub const SHIFT_DOWN: u32 = 1 << 1;
+    pub(crate) const SHIFT_DOWN: u32 = 1 << 1;
     /// `EVENTFLAG_CONTROL_DOWN`.
-    pub const CONTROL_DOWN: u32 = 1 << 2;
+    pub(crate) const CONTROL_DOWN: u32 = 1 << 2;
     /// `EVENTFLAG_ALT_DOWN`.
-    pub const ALT_DOWN: u32 = 1 << 3;
+    pub(crate) const ALT_DOWN: u32 = 1 << 3;
     /// `EVENTFLAG_LEFT_MOUSE_BUTTON`.
-    pub const LEFT_MOUSE_BUTTON: u32 = 1 << 4;
+    pub(crate) const LEFT_MOUSE_BUTTON: u32 = 1 << 4;
     /// `EVENTFLAG_MIDDLE_MOUSE_BUTTON`.
-    pub const MIDDLE_MOUSE_BUTTON: u32 = 1 << 5;
+    pub(crate) const MIDDLE_MOUSE_BUTTON: u32 = 1 << 5;
     /// `EVENTFLAG_RIGHT_MOUSE_BUTTON`.
-    pub const RIGHT_MOUSE_BUTTON: u32 = 1 << 6;
+    pub(crate) const RIGHT_MOUSE_BUTTON: u32 = 1 << 6;
     /// `EVENTFLAG_COMMAND_DOWN` (macOS Command).
-    pub const COMMAND_DOWN: u32 = 1 << 7;
+    pub(crate) const COMMAND_DOWN: u32 = 1 << 7;
 }
 
 /// CEF's `CefRange::InvalidRange()` component, meaning "no range".
-pub const INVALID_RANGE_BOUND: u32 = u32::MAX;
+pub(crate) const INVALID_RANGE_BOUND: u32 = u32::MAX;
 
 /// A UTF-16 range as CEF's `cef_range_t` (`from`, `to`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CefRange {
+pub(crate) struct CefRange {
     /// Start, in UTF-16 code units.
     pub from: u32,
     /// End (exclusive), in UTF-16 code units.
@@ -45,7 +45,7 @@ pub struct CefRange {
 
 impl CefRange {
     /// `CefRange::InvalidRange()`.
-    pub const INVALID: Self = Self {
+    pub(crate) const INVALID: Self = Self {
         from: INVALID_RANGE_BOUND,
         to: INVALID_RANGE_BOUND,
     };
@@ -56,7 +56,7 @@ impl CefRange {
     /// a valid empty range at offset 0, which macOS would honour as "replace
     /// nothing at the start of the field". The sentinel is always passed
     /// explicitly instead.
-    pub fn from_option(range: Option<&std::ops::Range<u32>>) -> Self {
+    pub(crate) fn from_option(range: Option<&std::ops::Range<u32>>) -> Self {
         range.map_or(Self::INVALID, |r| Self {
             from: r.start,
             to: r.end,
@@ -66,7 +66,7 @@ impl CefRange {
 
 /// One `CefBrowserHost` call, with CEF's argument types.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum HostCall<'a> {
+pub(crate) enum HostCall<'a> {
     /// `SendMouseMoveEvent(event, mouse_leave)`.
     MouseMove {
         /// View x, CSS px.
@@ -168,7 +168,7 @@ pub enum HostCall<'a> {
 }
 
 /// The `cef_event_flags_t` bits for held modifier keys.
-pub fn modifier_flags(modifiers: Modifiers) -> u32 {
+pub(crate) fn modifier_flags(modifiers: Modifiers) -> u32 {
     [
         (modifiers.shift, flags::SHIFT_DOWN),
         (modifiers.control, flags::CONTROL_DOWN),
@@ -199,14 +199,14 @@ fn view_point(position: Vec2) -> (i32, i32) {
 /// and sub-pixel wheel remainders (trackpads deliver fractional deltas that
 /// would otherwise be truncated away).
 #[derive(Debug, Clone, Default)]
-pub struct InputTranslator {
+pub(crate) struct InputTranslator {
     held_buttons: u32,
     wheel_remainder: Vec2,
 }
 
 impl InputTranslator {
     /// A translator with no buttons held.
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self::default()
     }
 
@@ -217,7 +217,10 @@ impl InputTranslator {
     /// Translation happens eagerly (held buttons and wheel remainders update
     /// now); the result is a fixed two-slot buffer, so the per-event input
     /// path never allocates.
-    pub fn translate<'a>(&mut self, event: &'a InputEvent) -> impl Iterator<Item = HostCall<'a>> {
+    pub(crate) fn translate<'a>(
+        &mut self,
+        event: &'a InputEvent,
+    ) -> impl Iterator<Item = HostCall<'a>> {
         let calls: [Option<HostCall<'a>>; 2] = match event {
             InputEvent::Pointer(pointer) => [Some(self.pointer(pointer)), None],
             InputEvent::Touch(touch) => {

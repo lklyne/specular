@@ -85,7 +85,7 @@ impl<W: ShellWindow> Runtime<W> {
     /// Opens `folder` as the space and remembers it for the next launch.
     /// The space that was open is saved first and otherwise left alone. A
     /// folder that cannot be opened changes nothing.
-    pub fn choose_space(&mut self, folder: &Path) {
+    pub(crate) fn choose_space(&mut self, folder: &Path) {
         match self.open_space(folder, None) {
             Ok(()) => self.remember_space(folder),
             Err(error) => tracing::error!("{error:#}"),

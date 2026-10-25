@@ -108,7 +108,7 @@ pub struct PhaseReport {
     /// Presented frames in which at least one visible page had no texture
     /// yet — the compositor-side gap the user sees as a blank page.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub draws_without_texture: Option<u64>,
+    pub(crate) draws_without_texture: Option<u64>,
     /// Texture counters accumulated during the phase.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub textures: Option<TextureStats>,

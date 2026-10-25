@@ -31,7 +31,7 @@ pub(super) use self::steps::parse as parse_step;
 
 /// A topic whose lines a [`PanelFact`] tests.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Topic {
+pub(crate) enum Topic {
     /// The right panel: threads, transcript, composer.
     Chat,
     /// Comment marks, the draft, the focus, the outlines, each comment.
@@ -99,7 +99,7 @@ pub enum LineTest {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PanelFact {
     /// What is read.
-    pub topic: Topic,
+    pub(crate) topic: Topic,
     /// What must hold of it.
     pub test: LineTest,
 }
@@ -131,7 +131,7 @@ fn parse_test(tail: &str) -> anyhow::Result<LineTest> {
 impl PanelFact {
     /// Whether the fact reads the effects of the step before, which only
     /// the runner that ran them has.
-    pub fn reads_effects(&self) -> bool {
+    pub(crate) fn reads_effects(&self) -> bool {
         self.topic == Topic::Effects
     }
 

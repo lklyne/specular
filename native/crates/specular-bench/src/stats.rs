@@ -6,27 +6,27 @@ use serde::{Deserialize, Serialize};
 
 /// A frame counts as long when its interval exceeds this multiple of the
 /// display budget — i.e. at least one refresh was visibly missed.
-pub const LONG_FRAME_FACTOR: f64 = 1.5;
+pub(crate) const LONG_FRAME_FACTOR: f64 = 1.5;
 
 /// Collected presented-frame intervals for one profile run.
 #[derive(Debug, Clone, Default)]
-pub struct FrameTimes {
+pub(crate) struct FrameTimes {
     intervals: Vec<Duration>,
 }
 
 impl FrameTimes {
     /// An empty recorder.
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self::default()
     }
 
     /// Records the time between two consecutive presented frames.
-    pub fn record(&mut self, interval: Duration) {
+    pub(crate) fn record(&mut self, interval: Duration) {
         self.intervals.push(interval);
     }
 
     /// Summarises against a display frame `budget` (e.g. 8.33 ms at 120 Hz).
-    pub fn summary(&self, budget: Duration) -> FrameSummary {
+    pub(crate) fn summary(&self, budget: Duration) -> FrameSummary {
         let mut ms: Vec<f64> = self
             .intervals
             .iter()
@@ -76,17 +76,17 @@ pub struct FrameSummary {
     #[serde(rename = "draws", alias = "frames")]
     pub frames: usize,
     /// Presented frames per second over the run.
-    pub draw_fps: f64,
+    pub(crate) draw_fps: f64,
     /// Mean interval.
-    pub mean_frame_ms: f64,
+    pub(crate) mean_frame_ms: f64,
     /// Median interval.
-    pub p50_frame_ms: f64,
+    pub(crate) p50_frame_ms: f64,
     /// 95th percentile interval.
-    pub p95_frame_ms: f64,
+    pub(crate) p95_frame_ms: f64,
     /// 99th percentile interval.
-    pub p99_frame_ms: f64,
+    pub(crate) p99_frame_ms: f64,
     /// Worst interval.
-    pub max_frame_ms: f64,
+    pub(crate) max_frame_ms: f64,
     /// Intervals over [`LONG_FRAME_FACTOR`] x budget.
-    pub long_frames: usize,
+    pub(crate) long_frames: usize,
 }

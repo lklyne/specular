@@ -181,7 +181,7 @@ impl ToolDefaultPatch {
     }
 
     /// Whether the preferences file keeps what this changes.
-    pub const fn is_stored(&self) -> bool {
+    pub(crate) const fn is_stored(&self) -> bool {
         match self {
             Self::PagePreset(_) | Self::PageCustom => false,
             Self::TextColor(_)

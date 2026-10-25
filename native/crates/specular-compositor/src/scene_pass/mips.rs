@@ -12,7 +12,7 @@ use crate::upload;
 pub struct ImageSpec {
     /// Whether the texture is sampled as sRGB, so alpha and the mip filter
     /// have to work in linear light.
-    pub linear_light: bool,
+    pub(crate) linear_light: bool,
     /// The largest texture side the device takes.
     pub max_dimension: u32,
 }

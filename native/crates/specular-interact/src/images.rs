@@ -44,7 +44,7 @@ pub struct Image {
     pub state: ImageState,
     /// For an svg, the width in logical pixels of the raster last asked for,
     /// and so of the one that is or will be on screen.
-    pub raster_width: Option<u32>,
+    pub(crate) raster_width: Option<u32>,
 }
 
 impl ImageKey {

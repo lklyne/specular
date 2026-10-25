@@ -163,7 +163,7 @@ impl App {
 
     /// How far the page `id` is scrolled, in its CSS pixels. Zero for a page
     /// that has not said.
-    pub fn page_scroll(&self, id: &EntityId) -> glam::DVec2 {
+    pub(crate) fn page_scroll(&self, id: &EntityId) -> glam::DVec2 {
         self.page_state(id)
             .map_or(glam::DVec2::ZERO, |state| state.scroll)
     }

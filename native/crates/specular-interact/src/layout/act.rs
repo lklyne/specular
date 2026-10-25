@@ -92,7 +92,7 @@ pub(crate) fn set_gap(app: &mut App, gap: f64, effects: &mut Vec<Effect>) {
 
 /// The step that sets the managed group `group`'s gap, or `None` when it
 /// has that gap, is not managed, or `gap` is not a number.
-pub fn gap_command(app: &App, group: &EntityId, gap: f64) -> Option<Command> {
+pub(crate) fn gap_command(app: &App, group: &EntityId, gap: f64) -> Option<Command> {
     let document = &app.document;
     line_axis(group_of(document.entity(group)?)?)?;
     let gap = normal_gap(gap)?;
@@ -120,7 +120,7 @@ pub(crate) const fn mode_of(axis: Axis) -> LayoutMode {
 impl App {
     /// The axis the group `id` packs its members along and the gap it packs
     /// with, when it manages them.
-    pub fn group_layout(&self, id: &EntityId) -> Option<(Axis, f64)> {
+    pub(crate) fn group_layout(&self, id: &EntityId) -> Option<(Axis, f64)> {
         let group = group_of(self.document.entity(id)?)?;
         Some((line_axis(group)?, super::gap_of(group)))
     }

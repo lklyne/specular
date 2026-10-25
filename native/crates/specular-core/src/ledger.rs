@@ -20,13 +20,13 @@ use std::time::Instant;
 use crate::{CssSize, PixelSize};
 
 /// The environment variable naming the file the ledger is written to.
-pub const TRACE_ENV: &str = "SPECULAR_RESIZE_TRACE";
+pub(crate) const TRACE_ENV: &str = "SPECULAR_RESIZE_TRACE";
 
 /// How many entries the ring holds: a run of a few minutes.
 const CAPACITY: usize = 400_000;
 
 /// The most pages one frame entry names.
-pub const FRAME_PAGES: usize = 4;
+pub(crate) const FRAME_PAGES: usize = 4;
 
 /// A pump shorter than this is counted and not logged.
 const SHORT_PUMP_US: u64 = 50;

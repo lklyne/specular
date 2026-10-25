@@ -33,7 +33,7 @@ const BLANK_URL: &str = "about:blank";
 
 /// What a placement makes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Placing {
+pub(crate) enum Placing {
     /// A page.
     Page,
     /// Plain text or a sticky note.

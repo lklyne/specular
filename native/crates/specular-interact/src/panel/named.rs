@@ -290,7 +290,7 @@ fn named(app: &App) -> Vec<Named> {
 
 /// The names of the controls there are now, whether or not anything draws
 /// them: what [`Event::Control`](crate::Event) takes.
-pub fn named_controls(app: &App) -> Vec<ControlId> {
+pub(crate) fn named_controls(app: &App) -> Vec<ControlId> {
     named(app).into_iter().map(|named| named.id).collect()
 }
 

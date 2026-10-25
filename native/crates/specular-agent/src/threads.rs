@@ -201,7 +201,7 @@ impl Threads {
     /// [`queue_comment`](Self::queue_comment) for a comment that carries pasted
     /// images. With images and no words the message reads `(comment)`.
     #[expect(clippy::too_many_arguments, reason = "mirrors queue_comment")]
-    pub fn queue_comment_with_images(
+    pub(crate) fn queue_comment_with_images(
         &mut self,
         tab: &str,
         new_thread_id: ThreadId,
@@ -259,18 +259,6 @@ impl Threads {
             index: before != self.active,
         };
         (id, changed)
-    }
-
-    /// The thread a comment on `annotation_id` would be queued into:
-    /// `new_thread_id` when it would start a draft. Callers use it to name
-    /// files that belong to the thread before queuing.
-    pub fn comment_thread(
-        &self,
-        tab: &str,
-        annotation_id: &str,
-        new_thread_id: &ThreadId,
-    ) -> ThreadId {
-        self.comment_thread_joining(tab, annotation_id, new_thread_id, Join::Draft)
     }
 
     /// [`comment_thread`](Self::comment_thread) for a comment queued with

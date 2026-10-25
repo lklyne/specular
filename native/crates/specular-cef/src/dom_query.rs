@@ -225,14 +225,14 @@ pub(crate) fn evaluate(id: i32, expression: &str) -> Vec<u8> {
 }
 
 /// The message that asks for the element under a viewport point.
-pub fn element_at_message(id: i32, x: f32, y: f32) -> Vec<u8> {
+pub(crate) fn element_at_message(id: i32, x: f32, y: f32) -> Vec<u8> {
     let values = [("__X__", number(x)), ("__Y__", number(y))];
     evaluate(id, &expression(ELEMENT_AT, &values))
 }
 
 /// The message that asks how many elements a viewport rect grabs, and for
 /// the boxes of the visible elements wholly inside it.
-pub fn elements_in_rect_message(id: i32, rect: CssRect) -> Vec<u8> {
+pub(crate) fn elements_in_rect_message(id: i32, rect: CssRect) -> Vec<u8> {
     let values = [
         ("__MAX__", MAX_GRABBED.to_string()),
         ("__BOXES__", MAX_BOXES.to_string()),
@@ -245,7 +245,7 @@ pub fn elements_in_rect_message(id: i32, rect: CssRect) -> Vec<u8> {
 }
 
 /// The message that asks how far through its document a page is scrolled.
-pub fn scroll_progress_message(id: i32) -> Vec<u8> {
+pub(crate) fn scroll_progress_message(id: i32) -> Vec<u8> {
     evaluate(
         id,
         &format!("(() => {{{SCROLL_EXTENT}{SCROLL_PROGRESS}}})()"),
@@ -254,7 +254,7 @@ pub fn scroll_progress_message(id: i32) -> Vec<u8> {
 
 /// The message that asks whether anything under `at` can scroll with a
 /// finger that moves `toward`.
-pub fn scroll_room_message(id: i32, at: Vec2, toward: Vec2) -> Vec<u8> {
+pub(crate) fn scroll_room_message(id: i32, at: Vec2, toward: Vec2) -> Vec<u8> {
     let values = [
         ("__X__", number(at.x)),
         ("__Y__", number(at.y)),
@@ -266,12 +266,12 @@ pub fn scroll_room_message(id: i32, at: Vec2, toward: Vec2) -> Vec<u8> {
 
 /// What a [`scroll_room_message`] found. `None` for an answer that cannot
 /// be read.
-pub fn parse_scroll_room(result: &[u8]) -> Option<bool> {
+pub(crate) fn parse_scroll_room(result: &[u8]) -> Option<bool> {
     returned(result)?.parse().ok()
 }
 
 /// The message that scrolls a page to a fraction of how far it can scroll.
-pub fn scroll_to_message(id: i32, x: f32, y: f32) -> Vec<u8> {
+pub(crate) fn scroll_to_message(id: i32, x: f32, y: f32) -> Vec<u8> {
     let body = SCROLL_TO
         .replace("__X__", &number(x.clamp(0.0, 1.0)))
         .replace("__Y__", &number(y.clamp(0.0, 1.0)));
@@ -280,7 +280,7 @@ pub fn scroll_to_message(id: i32, x: f32, y: f32) -> Vec<u8> {
 
 /// The fractions a [`scroll_progress_message`] found. `None` for an answer
 /// that cannot be read.
-pub fn parse_scroll_progress(result: &[u8]) -> Option<(f32, f32)> {
+pub(crate) fn parse_scroll_progress(result: &[u8]) -> Option<(f32, f32)> {
     let found: Value = serde_json::from_str(&returned(result)?).ok()?;
     let along = |key: &str| Some((found.get(key)?.as_f64()? as f32).clamp(0.0, 1.0));
     Some((along("x")?, along("y")?))
@@ -288,7 +288,7 @@ pub fn parse_scroll_progress(result: &[u8]) -> Option<(f32, f32)> {
 
 /// The message that asks a document how it fits its screen. The answer
 /// waits for the document to be parsed.
-pub fn viewport_fit_message(id: i32) -> Vec<u8> {
+pub(crate) fn viewport_fit_message(id: i32) -> Vec<u8> {
     json!({
         "id": id,
         "method": "Runtime.evaluate",
@@ -305,7 +305,7 @@ pub fn viewport_fit_message(id: i32) -> Vec<u8> {
 /// Whether the document covers its screen and the colour round it, as a
 /// [`viewport_fit_message`] found them. `None` for an answer that cannot be
 /// read, as that of a document that went away while it was asked.
-pub fn parse_viewport_fit(result: &[u8]) -> Option<(bool, Option<[u8; 3]>)> {
+pub(crate) fn parse_viewport_fit(result: &[u8]) -> Option<(bool, Option<[u8; 3]>)> {
     let found: Value = serde_json::from_str(&returned(result)?).ok()?;
     let covers = found.get("covers")?.as_bool()?;
     let color = (found.get("color").cloned())
@@ -316,7 +316,7 @@ pub fn parse_viewport_fit(result: &[u8]) -> Option<(bool, Option<[u8; 3]>)> {
 /// The message that makes a page report `scheme` as its
 /// `prefers-color-scheme`: `applyPageColorScheme`'s
 /// `Emulation.setEmulatedMedia`, over the page's devtools channel.
-pub fn color_scheme_message(id: i32, scheme: PageColorScheme) -> Vec<u8> {
+pub(crate) fn color_scheme_message(id: i32, scheme: PageColorScheme) -> Vec<u8> {
     let value = match scheme {
         PageColorScheme::Light => "light",
         PageColorScheme::Dark => "dark",
@@ -334,7 +334,7 @@ pub fn color_scheme_message(id: i32, scheme: PageColorScheme) -> Vec<u8> {
 /// `device`, each with its params: the ones Chrome's device mode sends.
 /// Every one is sent whatever the device, so a page that was a phone stops
 /// being one.
-pub fn device_methods(device: &PageDevice) -> [(&'static str, Value); 4] {
+pub(crate) fn device_methods(device: &PageDevice) -> [(&'static str, Value); 4] {
     let user_agent = device.user_agent.map_or_else(
         // An empty user agent is the browser's own.
         || json!({ "userAgent": "" }),
@@ -380,14 +380,14 @@ pub fn device_methods(device: &PageDevice) -> [(&'static str, Value); 4] {
 }
 
 /// The message that calls the devtools `method` with `params`.
-pub fn method_message(id: i32, method: &str, params: &Value) -> Vec<u8> {
+pub(crate) fn method_message(id: i32, method: &str, params: &Value) -> Vec<u8> {
     json!({ "id": id, "method": method, "params": params })
         .to_string()
         .into_bytes()
 }
 
 /// The message that asks a page for its own devtools target.
-pub fn target_info_message(id: i32) -> Vec<u8> {
+pub(crate) fn target_info_message(id: i32) -> Vec<u8> {
     json!({ "id": id, "method": "Target.getTargetInfo" })
         .to_string()
         .into_bytes()
@@ -405,7 +405,7 @@ pub(crate) fn returned(result: &[u8]) -> Option<String> {
 
 /// The element an [`element_at_message`] found. `None` for a point on no
 /// element and for an answer that cannot be read.
-pub fn parse_element(result: &[u8]) -> Option<PageElement> {
+pub(crate) fn parse_element(result: &[u8]) -> Option<PageElement> {
     let found: Value = serde_json::from_str(&returned(result)?).ok()?;
     let int = |key: &str| found.get(key)?.as_i64();
     let side = |key: &str| Some(u32::try_from(int(key)?.max(0)).unwrap_or(u32::MAX));
@@ -425,7 +425,7 @@ pub fn parse_element(result: &[u8]) -> Option<PageElement> {
 
 /// The count and the boxes an [`elements_in_rect_message`] found; none for
 /// an answer that cannot be read.
-pub fn parse_elements_in_rect(result: &[u8]) -> (usize, Vec<CssRect>) {
+pub(crate) fn parse_elements_in_rect(result: &[u8]) -> (usize, Vec<CssRect>) {
     let found: Option<Value> = returned(result).and_then(|text| serde_json::from_str(&text).ok());
     let Some(found) = found else {
         return (0, Vec::new());
@@ -441,7 +441,7 @@ pub fn parse_elements_in_rect(result: &[u8]) -> (usize, Vec<CssRect>) {
 }
 
 /// The target id in a `Target.getTargetInfo` result.
-pub fn parse_target_id(result: &[u8]) -> Option<String> {
+pub(crate) fn parse_target_id(result: &[u8]) -> Option<String> {
     let result: Value = serde_json::from_slice(result).ok()?;
     let id = result.get("targetInfo")?.get("targetId")?.as_str()?;
     (!id.is_empty()).then(|| id.to_owned())

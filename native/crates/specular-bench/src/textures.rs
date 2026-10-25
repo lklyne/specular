@@ -17,7 +17,7 @@ pub struct TextureStats {
     /// Popup-layer frames admitted.
     pub popup_frames: u64,
     /// Paints that carried no texture.
-    pub frames_without_texture: u64,
+    pub(crate) frames_without_texture: u64,
     /// Frames refused at the pool cap.
     pub frames_dropped_for_pool_pressure: u64,
     /// Textures held right now, summed over pages.

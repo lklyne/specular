@@ -28,18 +28,18 @@ use crate::footprint::phys_footprint;
 
 /// One `ps` row.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ProcessRow {
+pub(crate) struct ProcessRow {
     /// Process id.
     pub pid: u32,
     /// Parent process id.
     pub ppid: u32,
     /// Resident set size in KiB.
-    pub rss_kb: u64,
+    pub(crate) rss_kb: u64,
 }
 
 /// Parses `ps -axo pid=,ppid=,rss=` output, skipping lines that do not hold
 /// three integers (a process can exit mid-listing).
-pub fn parse_ps(output: &str) -> Vec<ProcessRow> {
+pub(crate) fn parse_ps(output: &str) -> Vec<ProcessRow> {
     output
         .lines()
         .filter_map(|line| {
@@ -63,27 +63,27 @@ pub fn parse_ps(output: &str) -> Vec<ProcessRow> {
 #[serde(rename_all = "camelCase")]
 pub struct MemorySample {
     /// Root process id.
-    pub root_pid: u32,
+    pub(crate) root_pid: u32,
     /// Processes in the tree, root included.
-    pub processes: usize,
+    pub(crate) processes: usize,
     /// Summed RSS in MiB.
-    pub rss_mb: f64,
+    pub(crate) rss_mb: f64,
     /// Summed physical footprint in MiB over the processes that could be
     /// read; `None` off macOS.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub footprint_mb: Option<f64>,
+    pub(crate) footprint_mb: Option<f64>,
 }
 
 impl MemorySample {
     /// The number memory is judged by: footprint when known, else RSS.
-    pub fn verdict_mb(&self) -> f64 {
+    pub(crate) fn verdict_mb(&self) -> f64 {
         self.footprint_mb.unwrap_or(self.rss_mb)
     }
 }
 
 /// The rows of `root` and all its descendants, or `None` when `root` is
 /// absent.
-pub fn tree_rows(rows: &[ProcessRow], root: u32) -> Option<Vec<ProcessRow>> {
+pub(crate) fn tree_rows(rows: &[ProcessRow], root: u32) -> Option<Vec<ProcessRow>> {
     let mut children: HashMap<u32, Vec<&ProcessRow>> = HashMap::new();
     let mut root_row = None;
     for row in rows {
@@ -106,7 +106,7 @@ pub fn tree_rows(rows: &[ProcessRow], root: u32) -> Option<Vec<ProcessRow>> {
 
 /// Sums RSS (and, via `footprint`, physical footprint) over the tree rooted
 /// at `root`, or `None` when `root` is absent.
-pub fn tree_sample(
+pub(crate) fn tree_sample(
     rows: &[ProcessRow],
     root: u32,
     footprint: impl Fn(u32) -> Option<u64>,

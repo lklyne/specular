@@ -95,7 +95,7 @@ impl SyntheticPageSource {
     }
 
     /// [`pump`](PageSource::pump) with an explicit clock, for deterministic tests.
-    pub fn pump_at(&mut self, now: Instant) {
+    pub(crate) fn pump_at(&mut self, now: Instant) {
         self.flush_devtools();
         for (&id, page) in &mut self.pages {
             if !page.painting || page.next_paint.is_some_and(|due| now < due) {
@@ -181,7 +181,7 @@ const CELL: (u32, u32) = (160, 48);
 /// The frames show no such grid. It stands in for a DOM so that what is
 /// built on an element answer runs with no browser, and gives the same
 /// answer every time.
-pub fn synthetic_element_at(viewport: CssSize, point: Vec2) -> Option<PageElement> {
+pub(crate) fn synthetic_element_at(viewport: CssSize, point: Vec2) -> Option<PageElement> {
     let inside = point.x >= 0.0
         && point.y >= 0.0
         && point.x < viewport.width as f32
@@ -211,7 +211,7 @@ fn cell_selector(column: u32, row: u32) -> String {
 /// The element a synthetic page offers an item centred on the document point
 /// `point` to follow: the grid cell holding it, or the body for a point
 /// outside the document, which is one viewport wide and three tall.
-pub fn synthetic_capture(viewport: CssSize, point: Vec2) -> CapturedElement {
+pub(crate) fn synthetic_capture(viewport: CssSize, point: Vec2) -> CapturedElement {
     let inside = point.x >= 0.0
         && point.y >= 0.0
         && point.x < viewport.width as f32
@@ -231,7 +231,7 @@ pub fn synthetic_capture(viewport: CssSize, point: Vec2) -> CapturedElement {
 /// Where the element `selector` names sits in a synthetic page's document:
 /// a grid cell's corner, the origin for the body, and `None` for a selector
 /// the grid does not write. The grid never reflows, so a place never moves.
-pub fn synthetic_place(selector: &str) -> Option<ElementPlace> {
+pub(crate) fn synthetic_place(selector: &str) -> Option<ElementPlace> {
     let at = |doc| ElementPlace {
         doc,
         viewport_positioned: false,
@@ -268,12 +268,6 @@ fn element_scrolled(viewport: CssSize, scroll: Vec2, point: Vec2) -> Option<Page
             CELL.1,
         ),
     })
-}
-
-/// [`inspected_scrolled`] for a page that has not scrolled: what a synthetic
-/// page answers an inspect at `point` with.
-pub fn synthetic_inspected_at(viewport: CssSize, point: Vec2) -> Option<InspectedNode> {
-    inspected_scrolled(viewport, Vec2::ZERO, point)
 }
 
 /// The cell of a synthetic page's grid under the viewport point `point`, as
@@ -313,7 +307,11 @@ fn inspected_scrolled(viewport: CssSize, scroll: Vec2, point: Vec2) -> Option<In
 /// as its box, row by row. Both are in the viewport CSS pixels of a page
 /// laid out at `viewport` and scrolled by `scroll`. A cell the rect only
 /// clips is not grabbed.
-pub fn synthetic_elements_in(viewport: CssSize, scroll: Vec2, rect: CssRect) -> Vec<CssRect> {
+pub(crate) fn synthetic_elements_in(
+    viewport: CssSize,
+    scroll: Vec2,
+    rect: CssRect,
+) -> Vec<CssRect> {
     let (left, top) = (rect.x + scroll.x, rect.y + scroll.y);
     let (right, bottom) = (left + rect.width, top + rect.height);
     let cells = |from: f32, to: f32, cell: u32, limit: f32| {

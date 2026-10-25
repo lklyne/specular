@@ -44,11 +44,11 @@ pub(crate) use self::notice::{on_agent, on_loaded, open_thread_of};
 use crate::App;
 
 /// The width the panel starts at: `DEVTOOLS_DEFAULT_WIDTH`.
-pub const CHAT_WIDTH: f32 = 400.0;
+pub(crate) const CHAT_WIDTH: f32 = 400.0;
 /// The narrowest the panel gets: `DEVTOOLS_MIN_WIDTH`.
-pub const CHAT_MIN_WIDTH: f32 = 280.0;
+pub(crate) const CHAT_MIN_WIDTH: f32 = 280.0;
 /// The widest the panel gets: `DEVTOOLS_MAX_WIDTH`.
-pub const CHAT_MAX_WIDTH: f32 = 960.0;
+pub(crate) const CHAT_MAX_WIDTH: f32 = 960.0;
 
 /// The panel's own state.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -118,7 +118,7 @@ impl App {
     }
 
     /// The right panel's state.
-    pub fn chat_view(&self) -> &ChatView {
+    pub(crate) fn chat_view(&self) -> &ChatView {
         &self.session.chat
     }
 

@@ -164,7 +164,7 @@ pub struct Thread {
 
 /// The title a thread gets from its messages: the first user text, cut to 48
 /// characters.
-pub fn title_from_messages(messages: &[Message]) -> String {
+pub(crate) fn title_from_messages(messages: &[Message]) -> String {
     let first = messages
         .iter()
         .find(|m| m.role == Role::User && !m.text.trim().is_empty());

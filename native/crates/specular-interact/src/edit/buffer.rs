@@ -103,7 +103,7 @@ impl TextEdit {
     }
 
     /// Whether this is an edit of a Document's markdown source.
-    pub fn is_note(&self) -> bool {
+    pub(crate) fn is_note(&self) -> bool {
         self.target == Target::Note
     }
 

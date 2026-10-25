@@ -181,7 +181,7 @@ impl Api {
     }
 
     /// [`plan`](Self::plan) with what the host found on disk.
-    pub fn plan_with(&mut self, app: &App, request: &Request, facts: &Facts) -> Plan {
+    pub(crate) fn plan_with(&mut self, app: &App, request: &Request, facts: &Facts) -> Plan {
         let segments: Vec<&str> = request.path.split('/').filter(|s| !s.is_empty()).collect();
         let canvas = match background_target(app, request, &segments) {
             Ok(canvas) => canvas,

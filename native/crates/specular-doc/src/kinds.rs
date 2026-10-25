@@ -65,7 +65,7 @@ impl Page {
 
     /// The style the page's frame is kept in, whether or not the frame is
     /// shown and whether or not the page has a drawing for it.
-    pub fn frame_style(&self) -> crate::DeviceFrameStyle {
+    pub(crate) fn frame_style(&self) -> crate::DeviceFrameStyle {
         let name = (self.metadata.as_ref())
             .and_then(|meta| meta.get("deviceFrameStyle"))
             .and_then(serde_json::Value::as_str);

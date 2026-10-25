@@ -16,11 +16,11 @@ mod process;
 mod runs;
 mod scripted;
 
-pub use self::backend::{
-    AgentBackend, AgentError, AgentProcess, Disabled, Output, Waker, backend_from_env,
-};
+pub use self::backend::{AgentBackend, AgentError, AgentProcess, Output};
+pub(crate) use self::backend::{Disabled, Waker, backend_from_env};
 pub use self::claude::ClaudeCli;
-pub use self::files::{load, write_index, write_thread};
+pub use self::files::load;
+pub(crate) use self::files::{write_index, write_thread};
 pub use self::helper::Helper;
-pub use self::runs::{AgentRuns, DEFAULT_TIMEOUT};
-pub use self::scripted::{Scripted, StartedRuns};
+pub use self::runs::AgentRuns;
+pub use self::scripted::Scripted;

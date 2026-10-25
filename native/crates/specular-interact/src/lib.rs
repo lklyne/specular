@@ -80,7 +80,7 @@ mod place;
 mod placement;
 mod pointer;
 mod presence;
-pub mod property;
+mod property;
 mod repos;
 mod resize;
 mod resize_drag;
@@ -109,29 +109,23 @@ mod verbs;
 mod viewport;
 mod zoom;
 
-pub use anchor::{anchors_to_pages, matches_page_url};
 pub use anchors::Anchor;
 pub use api::{ApiCall, ApiOutcome, ApiRun};
 pub use app::{App, Focus, Selection, Session};
 pub use arrange::{ArrangeMode, arrange_command, place_command};
 pub use asset::AssetBytes;
-pub use bindings::{
-    BINDINGS, Binding, Context, SHELL_KEYS, ShellCommand, binding_for, kept_from_page, page_edit,
-    page_edit_for,
-};
-pub use caps::{AspectMode, aspect_mode, has_anchors, min_size};
+pub(crate) use bindings::page_edit;
+pub use bindings::{BINDINGS, Binding, Context, SHELL_KEYS, ShellCommand, kept_from_page};
 pub use chat::{
-    ArtifactCard, AutoChip, Bubble, CHAT_MAX_WIDTH, CHAT_MIN_WIDTH, CHAT_WIDTH, ChatAction,
-    ChatModel, ChatView, Composer, DraftChip, DraftKind, FixTarget, ImageUpload, ModelChip,
-    ModelOption, OpenComments, PillChip, PillKind, QueuedChip, RunBar, ThreadRow, Transcript, chat,
-    fixable,
+    ArtifactCard, AutoChip, Bubble, ChatAction, ChatModel, ChatView, Composer, DraftChip,
+    DraftKind, FixTarget, ImageUpload, ModelChip, ModelOption, OpenComments, PillChip, PillKind,
+    QueuedChip, RunBar, ThreadRow, Transcript, chat, fixable,
 };
 pub use chord::Chord;
 pub use clipboard::{ClipboardContent, ClipboardImage, Paste};
 pub use comment::{
-    CommentDrag, CommentMark, FOCUS_RING_OUTSET, FOCUS_RING_STROKE, MarkShape, PILL_DIGIT_WIDTH,
-    PILL_EDGE_MARGIN, PILL_HEIGHT, PILL_INSET, PILL_WIDTH, PageGrab, PageRegion, REGION_HIT_BAND,
-    REGION_MIN_SIZE, element_on_canvas, left_its_page, page_clip, region_annotation,
+    CommentDrag, CommentMark, FOCUS_RING_OUTSET, FOCUS_RING_STROKE, MarkShape, PILL_HEIGHT,
+    PageGrab, PageRegion, element_on_canvas, left_its_page, page_clip, region_annotation,
     region_on_canvas, selection_metadata,
 };
 pub use draw::DrawStroke;
@@ -140,9 +134,9 @@ pub use drop::{DroppedFile, default_size as dropped_size, shown_path};
 pub use edge_drag::{EdgeDrag, EdgePreview};
 pub use edge_path::EdgeCurve;
 pub use edit::{
-    CaretStop, EDGE_LABEL_SIZE, EditMarks, Format, LayoutLine, NOTE_PADDING, SourceLine, SourceRow,
-    SourceSpan, SourceStyle, StackCache, TITLE_GAP, TITLE_LINE, TITLE_SIZE, TextEdit, TextFrame,
-    TextLayout, TextMeasure, TextSelectDrag, TextSpec, note_frame, source_rows, style_lines,
+    CaretStop, EDGE_LABEL_SIZE, EditMarks, Format, LayoutLine, NOTE_PADDING, SourceRow, SourceSpan,
+    SourceStyle, StackCache, TITLE_GAP, TITLE_LINE, TITLE_SIZE, TextEdit, TextFrame, TextLayout,
+    TextMeasure, TextSelectDrag, TextSpec, source_rows,
 };
 pub use effect::Effect;
 pub use event::{Action, CanvasAction, Event, Key, KeyInput, PageNotice, PointerInput, WheelInput};
@@ -158,12 +152,13 @@ pub use hit::{Hit, hit_test, title_scale};
 pub use images::{Image, ImageKey, ImageNotice, ImageState, is_image_file};
 pub use inspect::{InspectFont, InspectModel, InspectPopover, InspectSwatch, InspectTarget};
 pub use layout::Axis as LayoutAxis;
-pub use layout::act::{gap_command, make_command as auto_layout_command, reorder_command};
+pub use layout::act::{make_command as auto_layout_command, reorder_command};
 pub use layout::drag::{LineDrag, ReorderGhost};
 pub use layout::handles::{DOT_RADIUS, GapHandle, LayoutHandle, ReorderDot};
 pub use mark::Mark;
 pub use marquee::MarqueeMode;
-pub use menu::{Menu, MenuEntry, MenuItem, binding_of, menus};
+pub(crate) use menu::binding_of;
+pub use menu::{Menu, MenuEntry, MenuItem, menus};
 pub use move_drag::{CopyPreview, MoveDrag};
 pub use notes::{NoteNotice, NoteState, is_note_file, note_file_name};
 pub use page_state::{PageState, ScreenFit};
@@ -174,10 +169,11 @@ pub use panel::{
     Entries, Face, Field, FieldSubmit, FieldWidth, Icon, Label, MenuTarget, OptionLayout,
     PaintRole, Palette, SidebarButton, Stepper, Swatch, Swatches, ThemeButton, Toggle, ToolButton,
     ToolbarModel, ToolbarSection, UnknownControl, ViewStrip, ViewTab, context_menu, control_named,
-    dock, named_controls, tool_options, toolbar, view_strip,
+    dock, tool_options, toolbar, view_strip,
 };
-pub use physical_key::{PhysicalKey, mac_key_input};
-pub use place::{PlaceDrag, PlacePreview, Placing};
+pub(crate) use physical_key::PhysicalKey;
+pub use physical_key::mac_key_input;
+pub use place::{PlaceDrag, PlacePreview};
 pub use placement::PagePlacement;
 pub use presence::{AgentAct, AgentCursor};
 pub use property::{Orientation, PageStep, Property};
@@ -185,9 +181,9 @@ pub use repos::{BoundOriginRow, RepoAction, RepoRow, ReposPane, repos_pane};
 pub use resize_drag::ResizeDrag;
 pub use safe_area::within as within_safe_area;
 pub use scope::SelectionScope;
-pub use scroll_follow::{
-    PAGE_FADE, Seen, doc_to_viewport, hittable_rect, left_page, out_of_page, recorded_scroll, seen,
-    shown_rect, viewport_to_doc,
+pub use scroll_follow::{PAGE_FADE, Seen, seen, shown_rect};
+pub(crate) use scroll_follow::{
+    doc_to_viewport, hittable_rect, out_of_page, recorded_scroll, viewport_to_doc,
 };
 pub use settings::{
     AboutRow, AppSettings, GeneralPane, HiddenCursors, SettingAction, SettingChoice, SettingOption,
@@ -200,8 +196,8 @@ pub use sidebar::{
     SidebarRow, SidebarSection, SidebarView, sidebar,
 };
 pub use space::{
-    Canvas, CanvasId, DEFAULT_CANVAS_NAME, OpenedCanvas, OpenedSpace, SavedCanvas, Space,
-    TabRefError, canvas_file_name, legacy_canvas_file_name, resolve_tab_ref,
+    Canvas, CanvasId, OpenedCanvas, OpenedSpace, SavedCanvas, Space, TabRefError, canvas_file_name,
+    legacy_canvas_file_name,
 };
 pub use space_file::{file_url_path, resolve_file};
 pub use specular_agent::{
@@ -211,7 +207,8 @@ pub use specular_agent::{
     WriteTarget, origin_of,
 };
 pub use specular_core::Cursor;
-pub use theme::{Appearance, Theme, ThemeState};
+pub(crate) use theme::ThemeState;
+pub use theme::{Appearance, Theme};
 pub use time::iso8601;
 pub use tool::Tool;
 pub use tool_defaults::{
@@ -219,6 +216,6 @@ pub use tool_defaults::{
     ToolDefaults,
 };
 pub use update::update;
-pub use url::{looks_like_url, normalize_user_url, resolve_address_input};
+pub(crate) use url::resolve_address_input;
 pub use verbs::{delete_commands, move_commands};
 pub use zoom::fitting as fit_camera;

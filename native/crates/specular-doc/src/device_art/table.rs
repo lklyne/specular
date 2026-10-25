@@ -65,7 +65,7 @@ impl DeviceArt {
     ];
 
     /// The drawing a page of the preset device `device_id` is shown in.
-    pub fn of_device(device_id: &str) -> Option<Self> {
+    pub(crate) fn of_device(device_id: &str) -> Option<Self> {
         match device_id {
             "iphone-17-pro-max" => Some(Self::Iphone16ProMax),
             "iphone-17" => Some(Self::Iphone16Pro),
@@ -112,7 +112,7 @@ impl DeviceArt {
     }
 
     /// Whether the device is a tablet and not a phone.
-    pub const fn is_tablet(self) -> bool {
+    pub(crate) const fn is_tablet(self) -> bool {
         matches!(
             self,
             Self::IpadAir4
@@ -126,7 +126,7 @@ impl DeviceArt {
 
     /// Whether the device is a computer, which has no notch or home
     /// indicator of its own to draw.
-    pub const fn is_computer(self) -> bool {
+    pub(crate) const fn is_computer(self) -> bool {
         matches!(self, Self::MacbookPro)
     }
 

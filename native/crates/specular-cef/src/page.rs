@@ -35,7 +35,7 @@ use crate::pool::OutstandingFrames;
 
 /// Geometry the render handler reports to CEF and uses to place popups.
 #[derive(Debug, Clone, PartialEq)]
-pub struct PageGeometry {
+pub(crate) struct PageGeometry {
     /// CSS viewport (`GetViewRect`).
     pub viewport: CssSize,
     /// Device scale factor (`GetScreenInfo`).
@@ -48,7 +48,7 @@ pub struct PageGeometry {
 
 impl PageGeometry {
     /// Geometry for a newly created page.
-    pub fn new(spec: &PageSpec) -> Self {
+    pub(crate) fn new(spec: &PageSpec) -> Self {
         Self {
             viewport: spec.viewport,
             scale: spec.texture_scale,
@@ -58,7 +58,7 @@ impl PageGeometry {
     }
 
     /// View frame size in texels.
-    pub fn view_texels(&self) -> PixelSize {
+    pub(crate) fn view_texels(&self) -> PixelSize {
         self.viewport.to_pixels(self.scale)
     }
 
@@ -66,7 +66,7 @@ impl PageGeometry {
     /// asked for shows the viewport. Any other was painted before a resize
     /// or a rescale took effect, at the scale of the last frame that did
     /// match.
-    pub fn frame_viewport(&mut self, texels: PixelSize) -> CssSize {
+    pub(crate) fn frame_viewport(&mut self, texels: PixelSize) -> CssSize {
         if texels == self.view_texels() {
             self.painted_scale = self.scale;
             return self.viewport;
@@ -76,18 +76,18 @@ impl PageGeometry {
     }
 
     /// Records a popup move/resize and returns its texel placement.
-    pub fn set_popup(&mut self, css: PixelRect) -> PixelRect {
+    pub(crate) fn set_popup(&mut self, css: PixelRect) -> PixelRect {
         self.popup_css = Some(css);
         place_popup(css, self.scale, self.view_texels())
     }
 
     /// Forgets the popup when it closes.
-    pub fn clear_popup(&mut self) {
+    pub(crate) fn clear_popup(&mut self) {
         self.popup_css = None;
     }
 
     /// Current popup placement in texels, if a popup is open.
-    pub fn popup(&self) -> Option<PixelRect> {
+    pub(crate) fn popup(&self) -> Option<PixelRect> {
         self.popup_css
             .map(|css| place_popup(css, self.scale, self.view_texels()))
     }
@@ -100,7 +100,7 @@ impl PageGeometry {
 /// scale first and the frame asked for a round trip later. So a change is
 /// only noted here, and the host is told once of all a turn changed.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub struct Unsent {
+pub(crate) struct Unsent {
     /// What changed.
     change: Option<GeometryChange>,
     /// Whether a pump has passed since the change.
@@ -109,7 +109,7 @@ pub struct Unsent {
 
 /// What of a page's geometry changed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum GeometryChange {
+pub(crate) enum GeometryChange {
     /// The CSS viewport alone, which the screen info does not carry.
     Viewport,
     /// The scale alone.
@@ -120,7 +120,7 @@ pub enum GeometryChange {
 
 impl GeometryChange {
     /// The change's name in the resize ledger.
-    pub fn name(self) -> &'static str {
+    pub(crate) fn name(self) -> &'static str {
         match self {
             Self::Viewport => "viewport",
             Self::Scale => "scale",
@@ -131,7 +131,7 @@ impl GeometryChange {
 
 impl Unsent {
     /// Part of the geometry changed.
-    pub fn changed(&mut self, change: GeometryChange) {
+    pub(crate) fn changed(&mut self, change: GeometryChange) {
         self.change = Some(match self.change {
             Some(earlier) if earlier != change => GeometryChange::Both,
             _ => change,
@@ -139,14 +139,14 @@ impl Unsent {
     }
 
     /// What to tell the host of now, at the end of a turn's changes.
-    pub fn take(&mut self) -> Option<GeometryChange> {
+    pub(crate) fn take(&mut self) -> Option<GeometryChange> {
         std::mem::take(self).change
     }
 
     /// What to tell the host of at a pump, which comes before a turn's
     /// changes: only a change that an earlier pump already saw, and so one
     /// that no end of a turn took.
-    pub fn take_at_pump(&mut self) -> Option<GeometryChange> {
+    pub(crate) fn take_at_pump(&mut self) -> Option<GeometryChange> {
         if self.pumped {
             return self.take();
         }
@@ -192,7 +192,7 @@ pub(crate) struct PageContext {
     /// Browsers created and not yet through `OnBeforeClose`, for shutdown.
     pub alive: Arc<AtomicUsize>,
     /// The thread that owns the event queue (the CEF UI thread).
-    pub ui_thread: ThreadId,
+    pub(crate) ui_thread: ThreadId,
     /// The device the page tells its documents it is on.
     pub device: Arc<Mutex<PageDevice>>,
     /// The devtools messages the page has not answered.

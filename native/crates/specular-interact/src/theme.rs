@@ -67,7 +67,7 @@ impl Theme {
 
 /// The choice and what the system last said, which together say what to draw.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub struct ThemeState {
+pub(crate) struct ThemeState {
     pub(crate) choice: Theme,
     pub(crate) system: Appearance,
 }
@@ -75,13 +75,13 @@ pub struct ThemeState {
 impl ThemeState {
     /// The user's choice.
     #[must_use]
-    pub const fn choice(self) -> Theme {
+    pub(crate) const fn choice(self) -> Theme {
         self.choice
     }
 
     /// What is drawn now.
     #[must_use]
-    pub const fn appearance(self) -> Appearance {
+    pub(crate) const fn appearance(self) -> Appearance {
         self.choice.resolve(self.system)
     }
 
@@ -90,7 +90,7 @@ impl ThemeState {
     /// system again, so the button never leaves a choice that only happens
     /// to match and stops following.
     #[must_use]
-    pub const fn toggled(self) -> Theme {
+    pub(crate) const fn toggled(self) -> Theme {
         match (self.appearance(), self.system) {
             (Appearance::Light, Appearance::Dark) | (Appearance::Dark, Appearance::Light) => {
                 Theme::System

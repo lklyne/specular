@@ -47,7 +47,7 @@ pub struct FrameWork {
 
 impl FrameWork {
     /// The frame's time on the CPU: every step but the GPU wait.
-    pub fn cpu_ms(&self) -> f64 {
+    pub(crate) fn cpu_ms(&self) -> f64 {
         self.update_ms
             + self.view_ms
             + self.cull_ms
@@ -68,7 +68,7 @@ pub struct StepStat {
     /// Mean milliseconds a frame.
     pub mean: f64,
     /// 95th percentile.
-    pub p95: f64,
+    pub(crate) p95: f64,
     /// The slowest frame.
     pub max: f64,
 }
@@ -81,7 +81,7 @@ pub struct WorkReport {
     /// Frames drawn.
     pub frames_drawn: usize,
     /// Loop turns that drew nothing because nothing had changed.
-    pub frames_skipped: usize,
+    pub(crate) frames_skipped: usize,
     /// Every step on the CPU added up, a frame.
     pub cpu: StepStat,
     /// See [`FrameWork::update_ms`].

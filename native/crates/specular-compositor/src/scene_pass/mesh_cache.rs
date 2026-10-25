@@ -37,7 +37,7 @@ pub struct MeshCacheCounts {
     pub misses: u32,
     /// Items tessellated this frame and not kept: screen-space ones, whose
     /// geometry is the camera's.
-    pub uncached: u32,
+    pub(crate) uncached: u32,
 }
 
 #[derive(Debug)]

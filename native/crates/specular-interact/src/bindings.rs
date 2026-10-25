@@ -432,7 +432,7 @@ pub fn kept_from_page() -> impl Iterator<Item = Chord> {
 }
 
 /// The Edit menu command `action` is inside a page, if it is one.
-pub const fn page_edit(action: &Action) -> Option<PageEdit> {
+pub(crate) const fn page_edit(action: &Action) -> Option<PageEdit> {
     match action {
         Action::Undo => Some(PageEdit::Undo),
         Action::Redo => Some(PageEdit::Redo),
@@ -450,7 +450,7 @@ const PASTE_AND_MATCH_STYLE: Chord = Chord::char('v').cmd().shift().alt();
 /// The Edit menu command a press of `input` is the key equivalent of inside
 /// a page: the key of that item's row in [`BINDINGS`], with Command and not
 /// Control.
-pub fn page_edit_for(input: &KeyInput) -> Option<PageEdit> {
+pub(crate) fn page_edit_for(input: &KeyInput) -> Option<PageEdit> {
     if !input.modifiers.meta || input.modifiers.control {
         return None;
     }
@@ -465,7 +465,7 @@ pub fn page_edit_for(input: &KeyInput) -> Option<PageEdit> {
 }
 
 /// The binding `input`'s key and modifiers fire in `app` as it is now.
-pub fn binding_for(app: &App, input: &KeyInput) -> Option<&'static Binding> {
+pub(crate) fn binding_for(app: &App, input: &KeyInput) -> Option<&'static Binding> {
     let chord = Chord::of(input);
     BINDINGS
         .iter()

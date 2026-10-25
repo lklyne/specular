@@ -20,7 +20,7 @@ pub struct PanelUi {
     /// Whether the shell draws the chrome and the sidebar, with the height
     /// and the docked tools its chrome has. Off in a headless run, which
     /// draws none and presses controls by name.
-    pub shell_chrome: bool,
+    pub(crate) shell_chrome: bool,
     /// The dropdown opened by pressing its name.
     pub open: Option<ControlId>,
     /// The context menu that is open, if one is.
@@ -32,7 +32,7 @@ pub struct PanelUi {
 
 impl PanelUi {
     /// How much of the viewport's top edge the chrome covers.
-    pub const fn chrome_height(&self) -> f32 {
+    pub(crate) const fn chrome_height(&self) -> f32 {
         if self.shell_chrome {
             CHROME_HEIGHT
         } else {
@@ -41,7 +41,7 @@ impl PanelUi {
     }
 
     /// The chrome drawn by the shell, with nothing open.
-    pub fn drawn_by_shell() -> Self {
+    pub(crate) fn drawn_by_shell() -> Self {
         Self {
             shell_chrome: true,
             ..Self::default()

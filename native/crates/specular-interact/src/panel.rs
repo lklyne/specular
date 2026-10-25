@@ -36,7 +36,8 @@ pub use model::{
 pub use models::{
     ControlsModel, SidebarButton, ThemeButton, ToolButton, ToolbarModel, ToolbarSection,
 };
-pub use named::{UnknownControl, control_named, named_controls};
+pub(crate) use named::named_controls;
+pub use named::{UnknownControl, control_named};
 pub(crate) use named::{activate as activate_control, open_menu as open_menu_at};
 pub use strip::{ViewStrip, ViewTab, view_strip};
 pub use toolbar::toolbar;

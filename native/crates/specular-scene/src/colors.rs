@@ -60,9 +60,9 @@ pub struct Colors {
     /// Default text, an edge's label, a Document's text.
     pub ink: Color,
     /// Text on a sticky note, whose paper is pale in both themes.
-    pub paper_ink: Color,
+    pub(crate) paper_ink: Color,
     /// The neutral slot as a fill: an uncoloured sticky or shape.
-    pub neutral_fill: Color,
+    pub(crate) neutral_fill: Color,
     /// The vivid hues.
     pub hues: Hues,
     /// Selection outlines, handles, the marquee and guides.
@@ -70,44 +70,44 @@ pub struct Colors {
     /// The highlight behind selected text.
     pub text_selection: Color,
     /// A page's resting border.
-    pub page_border: Color,
+    pub(crate) page_border: Color,
     /// The bezel of a page's device frame.
-    pub device_bezel: Color,
+    pub(crate) device_bezel: Color,
     /// The shadow a device frame drops.
-    pub device_shadow: Color,
+    pub(crate) device_shadow: Color,
     /// A phone's notch.
-    pub device_notch: Color,
+    pub(crate) device_notch: Color,
     /// The ring of a home button in a phone's chin.
-    pub device_indicator: Color,
+    pub(crate) device_indicator: Color,
     /// The hairline in the bezel around the screen.
-    pub device_screen_ring: Color,
+    pub(crate) device_screen_ring: Color,
     /// Page titles and file names.
-    pub muted_text: Color,
+    pub(crate) muted_text: Color,
     /// The inside of a file card and a Document.
     pub card: Color,
     /// The alpha of the shadow under a sticky note and a card.
-    pub card_shadow: u8,
+    pub(crate) card_shadow: u8,
     /// The glyph on a file card that has no preview.
-    pub file_glyph: Color,
+    pub(crate) file_glyph: Color,
     /// A link in a Document.
     pub link: Color,
     /// An untinted group's fill.
-    pub group_fill: Color,
+    pub(crate) group_fill: Color,
     /// An untinted group's border.
-    pub group_border: Color,
+    pub(crate) group_border: Color,
     /// An untinted group's title.
-    pub group_title: Color,
+    pub(crate) group_title: Color,
     /// A tinted group's title.
-    pub group_tinted_title: Color,
+    pub(crate) group_tinted_title: Color,
     /// How much of the hue a tinted group's fill is.
-    pub group_tint: f32,
+    pub(crate) group_tint: f32,
     /// What a tinted group's border is mixed toward, and how much of the
     /// hue stays.
-    pub group_border_mix: (Color, f32),
+    pub(crate) group_border_mix: (Color, f32),
     /// A shape's fill from its hue.
-    pub shape_fill: Shade,
+    pub(crate) shape_fill: Shade,
     /// A shape's border from its hue.
-    pub shape_border: Shade,
+    pub(crate) shape_border: Shade,
     /// A shape's label.
     pub shape_label: Color,
     /// How the highlighter lays its ink on what it marks. Multiplied, it
@@ -117,11 +117,11 @@ pub struct Colors {
     /// The comment composer's fill.
     pub composer: Color,
     /// Its border.
-    pub composer_border: Color,
+    pub(crate) composer_border: Color,
     /// Its text.
-    pub composer_ink: Color,
+    pub(crate) composer_ink: Color,
     /// Its hint.
-    pub composer_hint: Color,
+    pub(crate) composer_hint: Color,
     /// The toolbar, popups and sidebar, which the Kit draws.
     pub panel: PanelColors,
 }
@@ -134,27 +134,27 @@ pub struct PanelColors {
     /// The line under the toolbar.
     pub toolbar_border: Color,
     /// A tool button that is hovered or on.
-    pub tool_fill: Color,
+    pub(crate) tool_fill: Color,
     /// Toolbar text at rest and when hovered.
     pub toolbar_text: Color,
     /// Toolbar text when hovered or on.
     pub toolbar_text_strong: Color,
     /// The chevron beside the zoom readout.
-    pub toolbar_chevron: Color,
+    pub(crate) toolbar_chevron: Color,
     /// A floating panel.
     pub popup: Color,
     /// Its border.
     pub popup_border: Color,
     /// The tight shadow under it.
-    pub shadow_near: Color,
+    pub(crate) shadow_near: Color,
     /// The wide one.
-    pub shadow_far: Color,
+    pub(crate) shadow_far: Color,
     /// A menu of words.
     pub menu: Color,
     /// Its border.
-    pub menu_border: Color,
+    pub(crate) menu_border: Color,
     /// Its shadow.
-    pub menu_shadow: Color,
+    pub(crate) menu_shadow: Color,
     /// Panel text.
     pub text: Color,
     /// Quiet panel text.
@@ -164,17 +164,17 @@ pub struct PanelColors {
     /// A control that is on.
     pub on: Color,
     /// The highlighted row of a menu.
-    pub menu_hover: Color,
+    pub(crate) menu_hover: Color,
     /// A divider between groups.
     pub divider: Color,
     /// A line between sections of a list.
     pub rule: Color,
     /// The outline of a field.
-    pub field_border: Color,
+    pub(crate) field_border: Color,
     /// A text field's fill.
     pub input: Color,
     /// The ring of a text field that has the keys.
-    pub input_ring: Color,
+    pub(crate) input_ring: Color,
     /// A key hint's fill.
     pub key: Color,
     /// A key hint's text.

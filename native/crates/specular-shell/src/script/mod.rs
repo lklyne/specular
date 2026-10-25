@@ -38,11 +38,13 @@ use anyhow::{Context as _, bail};
 use specular_core::Camera;
 use specular_doc::Document;
 
+pub use self::check::Checks;
 pub(crate) use self::check::is_markdown;
-pub use self::check::{Checks, saved_text};
+pub(crate) use self::check::saved_text;
 pub use self::expect::{Counted, EntityFact, Expect, Reference, SavedFact};
-pub use self::facts_canvas::{CanvasFact, CanvasStep, Query as CanvasQuery, check_sent};
-pub use self::facts_panels::{LineTest, PanelFact, PanelStep, Topic};
+pub(crate) use self::facts_canvas::check_sent;
+pub use self::facts_canvas::{CanvasFact, CanvasStep, Query as CanvasQuery};
+pub use self::facts_panels::{LineTest, PanelFact, PanelStep};
 pub use self::given::Given;
 pub use self::state::dump;
 pub use self::step::Step;
