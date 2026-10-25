@@ -109,6 +109,32 @@ With them come the steps `page-says p1 scrolled 0 40` (or `url`, `fit`,
 `repeat down`, `menu Edit > Undo`, and `act show:p1`. A headless run
 does `drop` too, a relative path read from the canvas's folder.
 
+The panel facts read a topic's lines, the ones a `state` step writes as
+`TOPIC has LINE`: `chat`, `comments`, `controls`, `editor`, `effects`,
+`inspect`, `menubar`, `onboarding`, `pages`, `palette`, `pointer`,
+`repos`, `settings`, `sidebar` and `tabs` (see
+`crates/specular-app/src/script/facts_panels.rs`):
+
+```text
+expect chat has bubble agent "Made it blue."   expect comments has mark a pill 466 237 26 26
+expect controls is page.back disabled "Back"   expect editor is caret 5 0
+expect effects has run-agent cwd /scratch/site expect comments count 10 mark\s
+expect chat lacks queued                       expect tabs has lens device
+```
+
+`has` and `lacks` look for the text in any line, `is` for a whole line,
+and `count N` counts the lines that hold it. `effects` reads what the step
+before asked the shell, the same effects as `expect sent`, and only a
+headless run sees them. The steps that play the shell's and the agent's
+side are listed in `facts_panels/steps.rs`: `chat-panel on`, `send-chat
+TEXT`, `chat new-thread|back|close|stop|resolve|open N ...`, `agent-says
+session|text|delta|progress|finished|failed|cancelled|made ...`,
+`page-reports p1 title|url|loading|scrolled|scroll-progress|cursor|favicon
+...`, `bind ORIGIN PATH [auto]`, `note-text FILE TEXT` (and
+`note-missing`, `note-failed`, `note-refused`), `models`, `model-saved`,
+`ime-cancel`, `prepare-tab`, `space-needed`, `first-run-choice`,
+`settings-loaded` and `about`.
+
 `saved` reads the canvas as a save would write it now; a path steps
 through arrays by item id or index (`-1` is the last). Numbers compare by
 value. `same-as` and `changed-from` leave out `appState` (the camera and
@@ -161,6 +187,23 @@ uses `\n`, `\t` and `\s` (a space at either end).
 | `images` | The kitchen sink's images loaded, missing or never asked for. |
 | `drop` | Files dropped from outside and inside the space, and several cascading. |
 | `reduced-motion` | A page's tab opened with transitions on, then with Reduce motion on, and the settings' cursor switches. |
+| `text-editing` | The editor from start to end: the one undo step, words, lines, bullets, its own undo, the pointer and the input method. |
+| `document-files` | A Document's file written as it is edited, reloaded from disk, a conflict kept as a copy, its formats, its wheel. |
+| `comment-tool` | The comment tool on two pages: points, elements, regions, the draft's card, Escape, empty drafts, a press elsewhere. |
+| `comment-marks` | Pills and frames by anchor, what a press on them does, focus, resolve and delete, marks that follow a page. |
+| `chat-comments` | Comments queued into threads, Send and the agent's run, follow-ups, failures, threads, cards, the model, the pill. |
+| `repos-and-inspect` | A page's origin linked to a repo, auto-fix, and the inspect tool's hover, popover and pick. |
+| `page-history` | What a page reports of itself, and back, forward, stop and reload on the selected or entered page. |
+| `page-scroll` | Comments and a hooked shape on a scrolled page: stored in its document, seen and pressed where the scroll puts them. |
+| `sync-sets` | The chain button's merge, copies and their sets, and the entered page's scroll moving its set. |
+| `tabs` | Tabs opened, ordered, closed, a new tab, Command-L, next and previous, a press that lays a page out. |
+| `lens` | A page's tab in Fill and Device, the eye, what is made beside it, a desktop browser in Fill. |
+| `item-view` | Input in an item view: the shown page entered, hidden things untouchable, a Document as a reading column; view verbs. |
+| `page-properties` | Size presets, turns, custom sizes, frames, the device colour and the colour scheme, from the popup and the keys. |
+| `dock` | Each selection's and each tool's controls, one step a press, edges and labels, the formatting buttons. |
+| `menus-and-settings` | The menu bar, the palette, the right-click menu, the settings and the first-run view. |
+| `sidebar-rows` | The sidebar's rows: order, nesting, dimming, chevrons, rows that select, extend and focus. |
+| `chrome-controls` | The toolbar's second click, lists and Escape, address and size fields, the menu's paste, canvases. |
 
 `cef/` holds the real-page suite (`run.sh --cef`): `pages.txt` (comments
 on page elements, a scrolled page, a reload) and `sync.txt` (a sync set

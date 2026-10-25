@@ -1170,6 +1170,16 @@ Nothing was retired. Cleanup rows 1 and 2 in the plan say what now stands betwee
 - Over the ~120 target by about 25, all in the API routes, which the brief keeps.
 - By hand: nothing new to look at; the deleted tests guarded code, not screens.
 
+### BIG-RUN P3B: text, comments, chat, pages and panels tests become scenarios
+
+- `specular-interact/tests/it`: the text, comment, chat, page, view and panel flows went from about 330 Rust tests to 12: text segmentation (`text_rules.rs`, 3), pill placement and the selection target (`comment_rules.rs`, 2), the sync protocol's timing with requests answered by id (`sync.rs`, 3) and palette ranking (`palette.rs`, 4). Every `panel_builtin*` test is gone with the built-in renderer; what its controls do is pressed by name.
+- Seventeen new scenarios (`text-editing`, `document-files`, `comment-tool`, `comment-marks`, `chat-comments`, `repos-and-inspect`, `page-history`, `page-scroll`, `sync-sets`, `tabs`, `lens`, `item-view`, `page-properties`, `dock`, `menus-and-settings`, `sidebar-rows`, `chrome-controls`) and four canvases.
+- `script/facts_panels.rs`: topic facts (`expect chat|comments|controls|editor|effects|inspect|menubar|onboarding|pages|palette|pointer|repos|settings|sidebar|tabs has|lacks|is|count ..`), and steps for the shell's and agent's side (`send-chat`, `agent-says`, `page-reports`, `bind`, `note-text`, `prepare-tab`, `space-needed` ...). `effects` reads 3a's `sent` buffer. The Kit runner sends the panel steps; it skips `effects` checks.
+- Mutation check: 10 of 10 breaks caught (word motion and deletion, the note save delay, the newest pill, auto-fix, the sync toggle, dimmed rows, item-view hiding, the dock's Back, the inspect pixel cache).
+- Found, not fixed: a text node's `pageAnchor` at the top level of a `.canvas` is not read (only under `specular`); a Document's scroll extent grows over a frame or two as its rows are measured.
+- Dropped as unreachable from a script or trivial: the API-driven address change and its undo, the dragged double-click (kept in Rust), the late answer to a click on a page, the canvas switch with an item view, a paste of an API card, opening a space asking for threads.
+- Ran the gate script. A person should run `fixtures/scenarios/run.sh --kit` on the new scenarios: the Kit sends the panel steps but has not run them yet.
+
 ### BIG-RUN P3A: canvas gesture tests become scenarios
 
 - The canvas flows in `specular-interact/tests/it` (select, resize, hit test, edges, guides, moves, anchoring, groups, tools, layout, arrange, clipboard, canvases, theme and the rest: 320 tests in 38 files) are 21 new scenarios and additions to `guides`, `auto-layout`, `page-anchoring` and `reduced-motion`. 17 Rust tests stay in 10 files: resize, guide and paste tables, the binding table, the mac key table, tab refs, the estimate measure, svg/gif/changed-file image timing, the camera spring's first frame, and three flick pins.
