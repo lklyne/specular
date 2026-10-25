@@ -79,7 +79,7 @@ on its own.
 - A performance pin when a change exists to make something cheaper: a
   cache hit, a draw-call count, an idle frame that is not drawn.
 - A `.canvas` round trip or byte test for anything read or written.
-- An API contract case for a new route.
+- A case in `fixtures/scenarios/cli/cases.py` for a new route or verb.
 - No unit tests on trivial helpers, none that restate the type system,
   and none that pin how a private function is called. If a pure rule is
   hard enough to get wrong (resize math, text segmentation, markdown), it
@@ -296,24 +296,32 @@ cargo run -p specular-app -- --script steps.txt FILE.canvas
 
 ## Driving it from outside
 
-The running app answers the Electron app's HTTP routes, so the `specular`
-CLI and the skill file work against it. It listens on 29979 and writes
+The running app answers the Electron app's HTTP routes, and the `specular`
+CLI (`crates/specular-cli`, binary `specular-cli`, linked onto the `PATH` as
+`specular` by the setup dialog) drives it. It listens on 29979 and writes
 `~/.specular/specular-mcp.json` unless the Electron app has them. Then it
 logs the port it took and the `SPECULAR_DISCOVERY_FILE=` to pass the CLI.
+`cargo run -p specular-cli -- canvas` runs a verb from the checkout.
 
 - A route is an arm in `specular_api::Api::route` and a handler returning
   `Step`. A read answers from `&App`. A write returns an `ApiRun`: an
   `Action` the window already has, or one `Command` for one undo step.
-- Test a route in `specular-api/tests/api/` through `Scripted`, which runs
-  the planned event through `update`. `specular-app/src/api/tests.rs` is the
-  same over a real socket.
+  JSON the CLI decodes is typed once in `specular-api/src/wire.rs`.
+- A verb is tested end to end: `fixtures/scenarios/cli/run.sh` builds the
+  CLI and the Kit app, starts the app on a scratch space with a discovery
+  file of its own, and runs `cases.py`, which asserts on each verb's output,
+  exit code and the saved canvas. Add a case there for a new verb or route.
+  `specular-api/tests/api/` keeps what the CLI cannot reach (the page
+  proxy, `Api::plan`, a write during a drag); `specular-app/src/api/tests.rs`
+  is the transport over a real socket.
 - A route the CLI can call and this app lacks gets a row in `unported.rs`,
   so the caller reads which verb is missing instead of a 404.
 - The browse verbs (`snapshot`, `click`, ...) reach a page through its own
   CDP websocket, which `GET /pages/<id>/cdp-target` names. The routing is
   `specular_api::cdp::PageProxy`, the sockets are `specular-app/src/cdp/`,
   and `fixtures/scenarios/cef/cli-pages.sh` runs every verb against a
-  bundled debug CEF app on a scratch space. `fixtures/scenarios/cef/sync.sh`
+  bundled debug CEF app on a scratch space (`CLI=` names the CLI binary).
+  `fixtures/scenarios/cef/sync.sh`
   runs a sync set of two widths on the same bundle.
 - An agent cursor is drawn when the CLI runs the patched agent-browser:
   `export AGENT_BROWSER_PATH="$(scripts/build-agent-browser.sh)"`. It sends

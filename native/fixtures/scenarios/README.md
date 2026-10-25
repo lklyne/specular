@@ -84,3 +84,8 @@ The camera in `appState` is left out of every comparison.
 - Number the snapshots and name them for what they should show. Where the
   outcome is a document, `save` it and add a line to `check.py` instead of
   a snapshot.
+
+`cli/run.sh` is the `specular` CLI end to end: it starts the Kit app on a
+scratch space and runs every verb against it, asserting on output, exit
+codes and the saved canvas (`cli/cases.py`). `cli/run.sh tabs_are_made_shown_written_in_the_background_and_deleted`
+runs one case. `cef/cli-pages.sh` runs the browse verbs on real pages.
