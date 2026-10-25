@@ -9,13 +9,14 @@ use specular_core::PageSource;
 use specular_doc::Document;
 use specular_interact::SpaceAsk;
 use tracing_subscriber::EnvFilter;
+use tracing_subscriber::prelude::*;
 
 use crate::app::{Opening, RuntimeOptions};
 use crate::bench_drive::BenchOptions;
 use crate::cli::{self, Command, RunArgs};
 use crate::source_select::{self, Host};
 use crate::space::{SpaceChoice, SpaceStart, Startup};
-use crate::{headless, prefs, scene, space};
+use crate::{crash_log, headless, prefs, scene, space};
 
 /// The pages' profile, in this app's data folder: cookies and logins.
 const PROFILE_FOLDER: &str = "cef-profile";
@@ -63,10 +64,15 @@ pub fn launch(
         }
     };
     // Logs go to stderr so `--bench` output on stdout stays pure JSON lines.
-    tracing_subscriber::fmt()
-        .with_writer(std::io::stderr)
-        .with_ansi(std::io::stderr().is_terminal())
-        .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()))
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into());
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::fmt::layer()
+                .with_writer(std::io::stderr)
+                .with_ansi(std::io::stderr().is_terminal())
+                .with_filter(filter),
+        )
+        .with(crash_log::ErrorLayer)
         .init();
 
     let choice = run.space_choice(match unnamed {
@@ -116,6 +122,7 @@ pub fn launch(
         headless::run(source, document, run.canvas.as_deref(), &run.headless)?;
         return Ok(None);
     }
+    crash_log::install();
     Ok(Some(Launch {
         run,
         space,
