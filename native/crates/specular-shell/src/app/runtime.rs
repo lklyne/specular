@@ -54,6 +54,10 @@ pub struct RuntimeOptions {
     /// Whether the camera moves by a spring between the canvas, Device and
     /// Fill. Not in a benchmark, which needs the camera to land at once.
     pub(crate) motion: bool,
+    /// Whether a thread's send starts a real agent run. Not headless, in a
+    /// benchmark or in a scripted window run, where the script plays the
+    /// agent's side.
+    pub(crate) agents: bool,
     /// Whether effects may write to disk or ask the user: assets, Documents,
     /// threads, folder dialogs. Off headless, where the Documents a run
     /// makes and the clipboard are kept in memory.
@@ -61,6 +65,18 @@ pub struct RuntimeOptions {
     /// The clock the app starts at, for a run that must draw the same frame
     /// each time. `None` is the wall clock.
     pub(crate) start_ms: Option<u64>,
+}
+
+impl RuntimeOptions {
+    /// The options for a window a script drives: the script plays the
+    /// agent's side, so no real agent runs.
+    #[must_use]
+    pub fn scripted(self) -> Self {
+        Self {
+            agents: false,
+            ..self
+        }
+    }
 }
 
 /// What a shell shows first: a space folder, or one document that is saved
@@ -201,7 +217,7 @@ impl<W: ShellWindow> Runtime<W> {
             note_loader: note_run::start_loader(space_folder),
             note_heights: HashMap::new(),
             view_cache: specular_scene::ViewCache::default(),
-            agents: agent_run::start_runs(options.settings),
+            agents: agent_run::start_runs(options.agents),
             clipboard: None,
             scripted_clipboard: (!options.writes).then(super::scripted::HeldClipboard::default),
             held_notes: (!options.writes).then(super::held_notes::HeldNotes::default),

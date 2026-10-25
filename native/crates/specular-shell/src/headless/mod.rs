@@ -222,6 +222,7 @@ impl Headless {
                 chrome: true,
                 settings: false,
                 motion: false,
+                agents: false,
                 writes: false,
                 start_ms: Some(0),
             },

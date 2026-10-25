@@ -70,6 +70,11 @@ impl<W: ShellWindow> Runtime<W> {
         if !self.options.writes && leaves_memory(&effect) {
             return Ok(());
         }
+        // Where no agent runs, a script plays its side: the run stays in
+        // flight until the script says how it went.
+        if !self.options.agents && matches!(effect, Effect::RunAgent(_) | Effect::CancelAgent(_)) {
+            return Ok(());
+        }
         match effect {
             Effect::CreatePage {
                 page,

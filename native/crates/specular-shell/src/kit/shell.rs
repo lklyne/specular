@@ -271,6 +271,11 @@ pub(crate) fn open(launch: Launch, cx: &mut App) -> anyhow::Result<()> {
         .create_source()
         .context("creating the page backend")?;
     let options = launch.runtime_options();
+    let options = if debug_input::scripted() {
+        options.scripted()
+    } else {
+        options
+    };
     let bench = launch.bench();
     let asks = Rc::new(WindowAsks::default());
     cx.set_global(PlacesWindow(places_window(&launch)));

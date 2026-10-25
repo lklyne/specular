@@ -180,6 +180,7 @@ impl Launch {
             // A benchmark neither reads nor writes settings.
             settings: self.run.bench.is_none(),
             motion: self.run.bench.is_none(),
+            agents: self.run.bench.is_none(),
             writes: true,
             start_ms: None,
         }
