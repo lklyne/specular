@@ -249,6 +249,14 @@ fn typed_field(window: AnyWindowHandle, cx: &mut AsyncApp) -> Option<(ControlId,
         .flatten()
 }
 
+/// Whether the app's text edit has an input method's composition running.
+fn composing() -> bool {
+    canvas::with(|canvas| {
+        (canvas.runtime.app().text_edit()).is_some_and(|edit| edit.composition().is_some())
+    })
+    .unwrap_or(false)
+}
+
 /// Whether the canvas has the keys, and not a Kit text field.
 fn canvas_has_keys(window: AnyWindowHandle, cx: &mut AsyncApp) -> bool {
     window
@@ -318,6 +326,10 @@ pub(super) async fn step(
         | Do::Swipe(..)
         | Do::Pinch(_)) => pointer(step, cx).await?,
         Do::Hold(held) => HELD.set(held),
+        // While a composition runs, a person's keys go to the input method,
+        // which keeps them in its preedit. The script's composition has no
+        // input method behind it, so its keys are the method's to drop.
+        Do::Key { .. } | Do::Type(_) if composing() => {}
         Do::Key {
             code,
             flags,
