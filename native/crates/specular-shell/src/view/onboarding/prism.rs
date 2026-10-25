@@ -81,12 +81,21 @@ impl HeroPrism {
         retired.extend(frames.take_retired());
         let now = Instant::now();
         let ready = prism.ready();
-        if ready && self.due.is_none_or(|due| now >= due) {
-            let seconds = self.start.get_or_insert(now).elapsed().as_secs_f32();
+        // Reduce motion draws one picture, at rest, and stops.
+        let still = crate::motion::reduced();
+        let drawn = frames.image().is_some() || frames.waiting();
+        if ready && self.due.is_none_or(|due| now >= due) && !(still && drawn) {
+            let seconds = if still {
+                0.0
+            } else {
+                self.start.get_or_insert(now).elapsed().as_secs_f32()
+            };
             frames.draw(gpu, prism, STILL + seconds, turn(seconds));
             self.due = Some(now + FRAME);
         }
-        let next = if ready {
+        let next = if still && drawn {
+            frames.waiting().then_some(POLL)
+        } else if ready {
             let wait = (self.due).map_or(POLL, |due| due.saturating_duration_since(now));
             Some(wait.max(Duration::from_millis(2)))
         } else if prism.building() {

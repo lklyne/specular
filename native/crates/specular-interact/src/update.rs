@@ -104,6 +104,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         Event::BuiltinMenu => app.session.panel = builtin::PanelUi::menu_alone(),
         Event::ChatPanel(available) => app.session.chat.set_available(available),
         Event::Motion(on) => app.session.motion.enable(on),
+        Event::ReduceMotion(on) => app.session.motion.reduce(on),
         Event::ThreadsLoaded { threads, index } => chat::on_loaded(app, threads, &index),
         Event::Agent { thread, notice } => chat::on_agent(app, &thread, notice, &mut effects),
         Event::ReposLoaded(repos) => app.repos = *repos,

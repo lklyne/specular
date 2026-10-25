@@ -182,6 +182,10 @@ pub enum Event {
     /// A windowed shell sends `true` once at startup; without it the camera
     /// lands at once.
     Motion(bool),
+    /// Whether the system asks for reduced motion (macOS's Reduce motion).
+    /// The shell reads it at startup and sends it again when it changes.
+    /// With it on, transitions and travels land at once.
+    ReduceMotion(bool),
     /// The threads of the space folder: the answer to an
     /// [`Effect::LoadThreads`](crate::Effect::LoadThreads). Replaces every
     /// thread held.
