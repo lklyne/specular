@@ -3,6 +3,9 @@
 # and deleting it. Two pages, p1 at (100, 100) and p2 at (700, 100), with
 # comments on page points, elements, page regions and the canvas.
 camera 0,0,1
+# the draft is written in its card on the canvas, as a shell with no
+# right panel has it
+chat-panel off
 
 # a pill sits by its anchor, inside its page; a canvas point has one centred
 # on it; a region is its frame, never under four pixels

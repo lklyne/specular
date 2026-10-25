@@ -161,7 +161,7 @@ impl Headless {
         };
         match script::kit_chrome_at(app, at) {
             Some(chrome) => anyhow::bail!(
-                "({}, {}) is under {chrome} in the Kit window; keep pointer steps on the canvas",
+                "({}, {}) is {chrome} in the Kit window; keep pointer steps on the canvas",
                 at.x,
                 at.y
             ),

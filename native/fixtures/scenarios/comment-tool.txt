@@ -6,6 +6,9 @@ given page p2 700 100 400 300
 given sticky s 200 150 100 100 note
 given shape r 600 500 100 100
 camera 0,0,1
+# the draft is written in its card on the canvas, as a shell with no
+# right panel has it
+chat-panel off
 tool comment
 
 # a click on empty canvas writes a comment on that point, as one step
@@ -151,9 +154,9 @@ tool select
 expect count comments 6
 
 # the card keeps its size on screen at any zoom
-camera 0,0,2
+camera -600,-1500,2
 tool comment
-click 1200 1900
+click 600 400
 expect comments has composer 607 943.5 130 15.7
 key escape
 tool select
