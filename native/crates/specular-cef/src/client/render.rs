@@ -1,0 +1,171 @@
+//! The render handler: the page's view, screen and paints.
+
+use std::os::raw::c_int;
+
+use cef::rc::Rc as _;
+use cef::{
+    AcceleratedPaintInfo, Browser, ImplRenderHandler, PaintElementType, Range, Rect, RenderHandler,
+    ScreenInfo, WrapRenderHandler, wrap_render_handler,
+};
+use specular_core::PageEvent;
+
+use crate::coords::{rect_from_cef, union_rects};
+use crate::cpu_frame::bgra_len;
+use crate::page::PageContext;
+use crate::paint;
+
+/// The view rect CEF asks for: the page's CSS viewport at the origin.
+/// CEF requires a non-empty rect.
+fn view_rect(ctx: &PageContext) -> Rect {
+    let viewport = ctx.geometry().viewport;
+    Rect {
+        x: 0,
+        y: 0,
+        width: viewport.width.max(1) as i32,
+        height: viewport.height.max(1) as i32,
+    }
+}
+
+wrap_render_handler! {
+    pub(super) struct PageRenderHandler {
+        ctx: PageContext,
+    }
+
+    impl RenderHandler {
+        fn view_rect(&self, _browser: Option<&mut Browser>, rect: Option<&mut Rect>) {
+            if let Some(rect) = rect {
+                *rect = view_rect(&self.ctx);
+            }
+            if specular_core::ledger::enabled() {
+                let geometry = self.ctx.geometry().clone();
+                crate::trace::view_rect_read(self.ctx.id, &geometry);
+            }
+        }
+
+        fn screen_info(
+            &self,
+            _browser: Option<&mut Browser>,
+            screen_info: Option<&mut ScreenInfo>,
+        ) -> c_int {
+            let Some(info) = screen_info else {
+                return 0;
+            };
+            // The "screen" is the view itself, so Chromium keeps popups
+            // (<select> lists, date pickers) inside the page's texture.
+            let rect = view_rect(&self.ctx);
+            info.device_scale_factor = self.ctx.geometry().scale;
+            info.rect = rect.clone();
+            info.available_rect = rect;
+            1
+        }
+
+        fn screen_point(
+            &self,
+            _browser: Option<&mut Browser>,
+            view_x: c_int,
+            view_y: c_int,
+            screen_x: Option<&mut c_int>,
+            screen_y: Option<&mut c_int>,
+        ) -> c_int {
+            // View and screen coincide (see `screen_info`).
+            let (Some(screen_x), Some(screen_y)) = (screen_x, screen_y) else {
+                return 0;
+            };
+            *screen_x = view_x;
+            *screen_y = view_y;
+            1
+        }
+
+        fn on_popup_show(&self, _browser: Option<&mut Browser>, show: c_int) {
+            let visible = show != 0;
+            if !visible {
+                self.ctx.geometry().clear_popup();
+            }
+            self.ctx.push(PageEvent::PopupVisibility {
+                page: self.ctx.id,
+                visible,
+            });
+        }
+
+        fn on_popup_size(&self, _browser: Option<&mut Browser>, rect: Option<&Rect>) {
+            let Some(rect) = rect else {
+                return;
+            };
+            let css = rect_from_cef(rect.x, rect.y, rect.width, rect.height);
+            let placed = self.ctx.geometry().set_popup(css);
+            self.ctx.push(PageEvent::PopupRect {
+                page: self.ctx.id,
+                rect: placed,
+            });
+        }
+
+        fn on_paint(
+            &self,
+            _browser: Option<&mut Browser>,
+            type_: PaintElementType,
+            dirty_rects: Option<&[Rect]>,
+            buffer: *const u8,
+            width: c_int,
+            height: c_int,
+        ) {
+            let Some(len) = bgra_len(width, height) else {
+                return;
+            };
+            if buffer.is_null() {
+                return;
+            }
+            // SAFETY: CEF documents `buffer` as `width * height * 4` bytes of
+            // BGRA, valid for the duration of OnPaint; `len` is exactly that
+            // size, and the slice does not outlive this callback (`on_paint`
+            // copies it before returning).
+            let bytes = unsafe { std::slice::from_raw_parts(buffer, len) };
+            paint::on_paint(&self.ctx, type_, dirty_rects, bytes, width, height);
+        }
+
+        fn on_accelerated_paint(
+            &self,
+            _browser: Option<&mut Browser>,
+            type_: PaintElementType,
+            _dirty_rects: Option<&[Rect]>,
+            info: Option<&AcceleratedPaintInfo>,
+        ) {
+            #[cfg(target_os = "macos")]
+            paint::on_accelerated_paint(&self.ctx, type_, info);
+            #[cfg(not(target_os = "macos"))]
+            {
+                // Shared textures are only requested on macOS
+                // (`CefConfig::uses_shared_texture`).
+                let _ = (type_, info);
+                tracing::warn!(page = %self.ctx.id, "unexpected accelerated paint off macOS");
+            }
+        }
+
+        /// CEF reports the root scroll in device pixels, so a page drawn at
+        /// twice the scale says twice the offset. The app keeps CSS pixels.
+        fn on_scroll_offset_changed(&self, _browser: Option<&mut Browser>, x: f64, y: f64) {
+            let scale = f64::from(self.ctx.geometry().scale);
+            self.ctx.push(PageEvent::Scrolled {
+                page: self.ctx.id,
+                offset: glam::Vec2::new((x / scale) as f32, (y / scale) as f32),
+            });
+        }
+
+        fn on_ime_composition_range_changed(
+            &self,
+            _browser: Option<&mut Browser>,
+            _selected_range: Option<&Range>,
+            character_bounds: Option<&[Rect]>,
+        ) {
+            let bounds = union_rects(
+                character_bounds
+                    .unwrap_or_default()
+                    .iter()
+                    .map(|r| rect_from_cef(r.x, r.y, r.width, r.height)),
+            );
+            self.ctx.push(PageEvent::ImeCompositionBounds {
+                page: self.ctx.id,
+                bounds,
+            });
+        }
+    }
+}
