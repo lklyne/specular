@@ -117,8 +117,5 @@ pub(crate) fn hit_rect(rect: ScreenRect, side: EdgeSide, zoom: f32) -> ScreenRec
         Vec2::new(across, along)
     };
     let centre = side_point(rect, side) + out * (GAP + across / 2.0);
-    ScreenRect {
-        min: centre - size / 2.0,
-        size,
-    }
+    ScreenRect::at(centre - size / 2.0, size)
 }

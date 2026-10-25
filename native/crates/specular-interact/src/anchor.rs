@@ -76,7 +76,10 @@ pub(crate) fn page_anchor_for(
     };
     (document.entities().rev())
         .filter(|candidate| {
-            scrolls.offers(&candidate.id) && geometry::contains(candidate.rect, centre)
+            scrolls.offers(&candidate.id)
+                && candidate
+                    .rect
+                    .contains(specular_doc::Point::new(centre.x, centre.y))
         })
         .find_map(hook)
         .or_else(|| hook(document.entity(scrolls.alone()?)?))

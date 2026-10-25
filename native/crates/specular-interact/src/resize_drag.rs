@@ -8,7 +8,7 @@ use specular_doc::{Drawing, EdgeSide, EntityId, Kind, Rect, Text, WidthMode};
 use crate::guides::{self, GuideCapture};
 use crate::live::{self, Start};
 use crate::scroll_follow::{Scrolls, shift_for};
-use crate::{App, Corner, Handle, HandleOwner, anchor, caps, edit, geometry, resize, strokes};
+use crate::{App, Corner, Handle, HandleOwner, anchor, caps, edit, resize, strokes};
 
 /// The size a text is drawn at when it has none of its own, and the limits a
 /// resize keeps it within.
@@ -81,7 +81,7 @@ pub(crate) fn begin(
         .collect();
     let bounds = (starts.iter().zip(&shifts))
         .map(|(start, shift)| seen(start.rect, *shift))
-        .reduce(geometry::union)?;
+        .reduce(Rect::union)?;
     // Neither the selection nor anything inside what is resized is a
     // neighbour.
     let resized: Vec<EntityId> = starts.iter().map(|start| start.id.clone()).collect();

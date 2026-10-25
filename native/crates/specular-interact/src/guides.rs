@@ -16,7 +16,7 @@ mod distribution;
 use glam::DVec2;
 use specular_doc::{EdgeSide, EntityId, Kind, Rect};
 
-use crate::{App, Corner, Gesture, Handle, HandleOwner, geometry};
+use crate::{App, Corner, Gesture, Handle, HandleOwner};
 
 pub(crate) use self::alignment::alignment_guides;
 pub(crate) use self::distribution::distribution_guides;
@@ -190,7 +190,7 @@ fn candidates(app: &App, excluded: &[EntityId]) -> Vec<SnapCandidate> {
         .filter(|entity| !excluded.contains(&entity.id))
         .filter_map(|entity| {
             let rect = crate::shown_rect(app, entity)?;
-            geometry::intersection(rect, viewport)
+            rect.intersection(viewport)
                 .is_some()
                 .then(|| SnapCandidate {
                     id: entity.id.clone(),

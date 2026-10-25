@@ -48,18 +48,7 @@ pub(crate) fn draw(frame: &Frame<'_>, scene: &mut Scene) {
     comment_draft::marker(frame, scene);
 }
 
-/// A scene rect from a screen rect of the interaction layer.
-pub(super) fn scene_rect(on_screen: ScreenRect) -> Rect {
-    Rect::new(
-        on_screen.min.x,
-        on_screen.min.y,
-        on_screen.size.x,
-        on_screen.size.y,
-    )
-}
-
 fn region(frame: &Frame<'_>, mark: &CommentMark, on_screen: ScreenRect, scene: &mut Scene) {
-    let on_screen = scene_rect(on_screen);
     if !frame.sees_screen(on_screen) {
         return;
     }
@@ -72,7 +61,7 @@ fn region(frame: &Frame<'_>, mark: &CommentMark, on_screen: ScreenRect, scene: &
     let items = region_items(on_screen, REGION_COLOR, REGION_STROKE_ALPHA, fill)
         .map(|item| item.with_opacity(opacity));
     // On a page, a region shows only through the page it scrolls with.
-    match mark.clip.map(scene_rect) {
+    match mark.clip {
         Some(page) => {
             let band = PageBand {
                 page,
@@ -110,7 +99,7 @@ pub(crate) fn region_items(
 
 /// A count pill, ringed when its comment has the focus.
 fn pill(frame: &Frame<'_>, mark: &CommentMark, on_screen: ScreenRect, scene: &mut Scene) {
-    let pill = scene_rect(on_screen);
+    let pill = on_screen;
     let ring = pill.outset(FOCUS_RING_OUTSET);
     if !frame.sees_screen(if mark.focused { ring } else { pill }) {
         return;

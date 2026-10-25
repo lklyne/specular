@@ -260,7 +260,7 @@ fn paste_items(app: &mut App, copied: &Document, at: DVec2, effects: &mut Vec<Ef
 fn bounds(document: &Document) -> Option<Rect> {
     (document.entities())
         .map(|entity| entity.rect)
-        .reduce(geometry::union)
+        .reduce(Rect::union)
 }
 
 /// The page a pasted URL makes: Electron's `paste_url` page at the Desktop

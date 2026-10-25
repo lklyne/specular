@@ -45,7 +45,7 @@ fn pill(app: &TestApp) -> (f32, f32, f32, f32) {
         panic!("expected one mark, got {marks:?}");
     };
     match mark.shape {
-        MarkShape::Badge(rect) => (rect.min.x, rect.min.y, rect.size.x, rect.size.y),
+        MarkShape::Badge(rect) => (rect.min().x, rect.min().y, rect.extent().x, rect.extent().y),
         MarkShape::Region(_) => panic!("expected a pill, got {mark:?}"),
     }
 }

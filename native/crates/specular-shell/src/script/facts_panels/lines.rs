@@ -59,7 +59,12 @@ fn rect(rect: Rect) -> String {
 }
 
 fn screen(rect: ScreenRect) -> String {
-    let [x, y, width, height] = [rect.min.x, rect.min.y, rect.size.x, rect.size.y];
+    let ScreenRect {
+        x,
+        y,
+        width,
+        height,
+    } = rect;
     format!(
         "{} {} {} {}",
         n(f64::from(x)),

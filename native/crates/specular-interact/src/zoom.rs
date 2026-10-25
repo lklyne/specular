@@ -54,7 +54,7 @@ fn scale(app: &mut App, by: f32) {
 pub(crate) fn to_fit(app: &mut App) {
     let bounds = (app.document.entities())
         .map(|entity| entity.rect)
-        .reduce(geometry::union);
+        .reduce(Rect::union);
     let free = area(app);
     app.session.camera = match bounds {
         Some(bounds) => {

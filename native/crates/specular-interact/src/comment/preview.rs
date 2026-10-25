@@ -82,7 +82,7 @@ impl App {
         let on_screen = |page: &EntityId, css: Rect| {
             let placement = self.page_placement(page)?;
             let canvas = super::css_on_canvas(placement, css);
-            Some(ScreenRect::of(&self.session.camera, canvas))
+            Some(crate::geometry::on_screen(&self.session.camera, canvas))
         };
         if self.session.comment_preview().is_some() {
             return (self.session.region_preview.boxes.iter())

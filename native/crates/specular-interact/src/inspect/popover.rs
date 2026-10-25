@@ -109,7 +109,7 @@ impl InspectPopover {
         };
         let size = popover.size_of();
         let at = place(target, size, viewport);
-        popover.rect = ScreenRect { min: at, size };
+        popover.rect = ScreenRect::at(at, size);
         popover
     }
 }
@@ -167,8 +167,8 @@ fn swatches(node: &InspectedNode) -> Vec<InspectSwatch> {
 /// when that leaves the window's padding, else below it.
 pub(super) fn place(target: ScreenRect, popover: Vec2, viewport: Vec2) -> Vec2 {
     let max_left = (viewport.x - popover.x - VIEWPORT_PADDING).max(VIEWPORT_PADDING);
-    let left = target.min.x.round().clamp(VIEWPORT_PADDING, max_left);
-    let above = target.min.y.round() - popover.y - TARGET_GAP;
+    let left = target.min().x.round().clamp(VIEWPORT_PADDING, max_left);
+    let above = target.min().y.round() - popover.y - TARGET_GAP;
     let below = target.max().y.round() + TARGET_GAP;
     let max_top = (viewport.y - popover.y - VIEWPORT_PADDING).max(VIEWPORT_PADDING);
     let top = if above >= VIEWPORT_PADDING {

@@ -49,7 +49,7 @@ pub(crate) fn draw(frame: &Frame<'_>, scene: &mut Scene) {
 }
 
 fn outline(frame: &Frame<'_>, outline: ScreenRect, scene: &mut Scene) {
-    let target = Rect::new(outline.min.x, outline.min.y, outline.size.x, outline.size.y);
+    let target = outline;
     if frame.sees_screen(target) {
         scene.push(Item::screen(RectDraw::filled(
             target,
@@ -70,8 +70,7 @@ fn outline(frame: &Frame<'_>, outline: ScreenRect, scene: &mut Scene) {
 }
 
 fn card(popover: &InspectPopover, chip: Color, scene: &mut Scene) {
-    let min = popover.rect.min;
-    let rect = Rect::new(min.x, min.y, popover.rect.size.x, popover.rect.size.y);
+    let rect = popover.rect;
     scene.push(Item::screen(ShadowDraw {
         rect: Rect::new(rect.x, rect.y + CARD_SHADOW_DROP, rect.width, rect.height),
         corner_radius: CARD_RADIUS,

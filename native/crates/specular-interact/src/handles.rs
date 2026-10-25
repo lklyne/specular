@@ -110,23 +110,23 @@ impl Handle {
     /// Where a press counts as this handle, given the selection outline on
     /// screen. A side strip runs the outline's full length.
     fn hit_rect(self, outline: ScreenRect) -> ScreenRect {
-        let (min, max, half) = (outline.min, outline.max(), HANDLE_HIT / 2.0);
+        let (min, max, half) = (outline.min(), outline.max(), HANDLE_HIT / 2.0);
         match self {
             Self::Corner(corner) => {
                 let unit = (corner.sign() * 0.5 + DVec2::splat(0.5)).as_vec2();
-                ScreenRect::square(min + outline.size * unit, HANDLE_HIT)
+                ScreenRect::square(min + outline.extent() * unit, HANDLE_HIT)
             }
             Self::Side(EdgeSide::Top) => {
-                ScreenRect::new(min.x, min.y - half, outline.size.x, HANDLE_HIT)
+                ScreenRect::new(min.x, min.y - half, outline.extent().x, HANDLE_HIT)
             }
             Self::Side(EdgeSide::Bottom) => {
-                ScreenRect::new(min.x, max.y - half, outline.size.x, HANDLE_HIT)
+                ScreenRect::new(min.x, max.y - half, outline.extent().x, HANDLE_HIT)
             }
             Self::Side(EdgeSide::Left) => {
-                ScreenRect::new(min.x - half, min.y, HANDLE_HIT, outline.size.y)
+                ScreenRect::new(min.x - half, min.y, HANDLE_HIT, outline.extent().y)
             }
             Self::Side(EdgeSide::Right) => {
-                ScreenRect::new(max.x - half, min.y, HANDLE_HIT, outline.size.y)
+                ScreenRect::new(max.x - half, min.y, HANDLE_HIT, outline.extent().y)
             }
         }
     }
@@ -180,7 +180,7 @@ impl App {
 /// the outline the selection draws, so the target size is constant at any
 /// zoom.
 pub(crate) fn hit(bounds: ScreenRect, screen: Vec2) -> Option<Handle> {
-    let outline = bounds.inflated(OUTLINE_PADDING);
+    let outline = bounds.outset(OUTLINE_PADDING);
     Handle::ALL
         .into_iter()
         .find(|handle| handle.hit_rect(outline).contains(screen))

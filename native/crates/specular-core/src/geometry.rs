@@ -8,6 +8,7 @@
 //! - **Pixel space** ([`PixelSize`], [`PixelRect`]): texels of a painted frame,
 //!   `css * texture_scale`.
 
+use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
 /// A page's layout viewport in CSS pixels.
@@ -108,6 +109,12 @@ impl Point {
     }
 }
 
+impl From<Point> for Vec2 {
+    fn from(point: Point) -> Self {
+        Self::new(point.x, point.y)
+    }
+}
+
 /// A width and height.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Size {
@@ -148,9 +155,40 @@ impl Rect {
         }
     }
 
+    /// The rect with its top-left corner at `min`, `size` across.
+    pub const fn at(min: Vec2, size: Vec2) -> Self {
+        Self::new(min.x, min.y, size.x, size.y)
+    }
+
+    /// The square of side `side` centred on `centre`.
+    pub fn square(centre: Vec2, side: f32) -> Self {
+        Self::at(centre - Vec2::splat(side / 2.0), Vec2::splat(side))
+    }
+
     /// Top-left corner.
     pub const fn origin(self) -> Point {
         Point::new(self.x, self.y)
+    }
+
+    /// Top-left corner, as a vector.
+    pub const fn min(self) -> Vec2 {
+        Vec2::new(self.x, self.y)
+    }
+
+    /// Bottom-right corner, as a vector.
+    pub fn max(self) -> Vec2 {
+        Vec2::new(self.right(), self.bottom())
+    }
+
+    /// Width and height, as a vector.
+    pub const fn extent(self) -> Vec2 {
+        Vec2::new(self.width, self.height)
+    }
+
+    /// Whether `point` is inside, all four edges included: a pointer on
+    /// the last pixel row of a handle is on the handle.
+    pub fn contains(self, point: Vec2) -> bool {
+        point.cmpge(self.min()).all() && point.cmple(self.max()).all()
     }
 
     /// Width and height.

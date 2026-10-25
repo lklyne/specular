@@ -102,7 +102,7 @@ impl App {
             glam::DVec2::new(f64::from(css.width), f64::from(css.height))
                 * placement.canvas_per_css(),
         );
-        let outline = ScreenRect::of(&self.session.camera, canvas);
+        let outline = crate::geometry::on_screen(&self.session.camera, canvas);
         let popover = InspectPopover::of(&target.node, outline, self.session.viewport);
         Some(InspectModel { outline, popover })
     }

@@ -5,7 +5,7 @@ use serde_json::{Value, json};
 use specular_doc::{Document, EntityId, ItemId, JsonMap, Kind};
 
 use super::{create, draft};
-use crate::{App, Effect, geometry, groups};
+use crate::{App, Effect, groups};
 
 /// Opens a draft on the region the selected entities span. Edges are left
 /// out, and with no entity selected nothing happens. The region is the
@@ -15,7 +15,7 @@ pub(crate) fn annotate(app: &mut App, effects: &mut Vec<Effect>) {
     let bounds = (ids.iter())
         .filter_map(|id| app.document.entity(id))
         .map(|entity| crate::scroll_follow::placed_rect(app, entity))
-        .reduce(geometry::union);
+        .reduce(specular_doc::Rect::union);
     let Some(bounds) = bounds else {
         return;
     };

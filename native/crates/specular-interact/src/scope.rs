@@ -4,7 +4,7 @@
 
 use specular_doc::{Document, Entity, EntityId, Kind, Rect};
 
-use crate::{App, geometry};
+use crate::App;
 
 /// The selection resolved for gestures and verbs.
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -72,12 +72,12 @@ impl App {
             .iter()
             .filter_map(|id| document.entity(id))
             .map(|entity| entity.rect)
-            .reduce(geometry::union);
+            .reduce(Rect::union);
         let shown_bounds = operands
             .iter()
             .filter_map(|id| document.entity(id))
             .filter_map(|entity| crate::shown_rect(self, entity))
-            .reduce(geometry::union);
+            .reduce(Rect::union);
         SelectionScope {
             members,
             operands,

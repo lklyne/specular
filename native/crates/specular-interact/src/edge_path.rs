@@ -112,7 +112,7 @@ impl App {
     /// page is not where it is stored. `None` when it is hidden.
     pub(crate) fn shown_on_screen(&self, entity: &specular_doc::Entity) -> Option<ScreenRect> {
         let rect = crate::shown_rect(self, entity)?;
-        Some(ScreenRect::of(&self.session.camera, rect))
+        Some(crate::geometry::on_screen(&self.session.camera, rect))
     }
 }
 
@@ -120,9 +120,9 @@ impl App {
 pub(crate) fn side_point(rect: ScreenRect, side: EdgeSide) -> Vec2 {
     let (centre, max) = (rect.centre(), rect.max());
     match side {
-        EdgeSide::Top => Vec2::new(centre.x, rect.min.y),
+        EdgeSide::Top => Vec2::new(centre.x, rect.min().y),
         EdgeSide::Bottom => Vec2::new(centre.x, max.y),
-        EdgeSide::Left => Vec2::new(rect.min.x, centre.y),
+        EdgeSide::Left => Vec2::new(rect.min().x, centre.y),
         EdgeSide::Right => Vec2::new(max.x, centre.y),
     }
 }
@@ -145,7 +145,7 @@ pub(crate) const fn outward(side: EdgeSide) -> Vec2 {
 
 /// The sides two entities face each other with, for an edge that names none.
 pub(crate) fn facing_sides(from: ScreenRect, to: ScreenRect) -> (EdgeSide, EdgeSide) {
-    let delta = to.centre() - from.centre();
+    let delta = Vec2::from(to.centre()) - Vec2::from(from.centre());
     if delta.x.abs() > delta.y.abs() {
         if delta.x > 0.0 {
             (EdgeSide::Right, EdgeSide::Left)
