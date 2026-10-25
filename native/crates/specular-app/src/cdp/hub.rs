@@ -12,7 +12,8 @@ use std::sync::mpsc::Sender;
 use std::sync::{Mutex, MutexGuard, PoisonError};
 
 use serde_json::{Value, json};
-use specular_api::cdp::{Out, PageProxy, Target, WillAct};
+use specular_api::cdp::{APP_ID_BASE, Out, PageProxy, Target, WillAct};
+use specular_api::{LaterReply, PageScript, Response};
 use specular_core::PageId;
 use specular_doc::EntityId;
 
@@ -73,6 +74,16 @@ struct State {
     /// The client and the answer each waiting act is owed, by ticket.
     acts: HashMap<u64, (u64, String)>,
     next_act: u64,
+    /// Each script sent to a page by the app, by its message id.
+    scripts: HashMap<i32, Waiting>,
+    next_script: i32,
+}
+
+/// A script waiting for its page's answer.
+struct Waiting {
+    entity: EntityId,
+    script: PageScript,
+    reply: LaterReply,
 }
 
 impl State {
@@ -201,6 +212,17 @@ impl Hub {
     /// hung up on.
     pub(super) fn page_closed(&self, entity: &EntityId) {
         let mut state = self.state();
+        let gone: Vec<i32> = (state.scripts.iter())
+            .filter(|(_, waiting)| waiting.entity == *entity)
+            .map(|(id, _)| *id)
+            .collect();
+        let gone: Vec<Waiting> = gone
+            .iter()
+            .filter_map(|id| state.scripts.remove(id))
+            .collect();
+        for waiting in gone {
+            (waiting.reply)(Response::error(503, format!("Page {entity} closed")));
+        }
         state.generations.remove(entity);
         let Some(token) = state.token_of(entity) else {
             return;
@@ -213,8 +235,55 @@ impl Hub {
         }
     }
 
+    /// Notes `script`, about to be sent to `entity`'s page, and returns the
+    /// id its message carries. `reply` is called with the answer.
+    pub(super) fn expect_script(
+        &self,
+        entity: &EntityId,
+        script: PageScript,
+        reply: LaterReply,
+    ) -> i32 {
+        let mut state = self.state();
+        let id = APP_ID_BASE.saturating_add(state.next_script);
+        state.next_script = (state.next_script + 1) % (i32::MAX - APP_ID_BASE);
+        let entity = entity.clone();
+        state.scripts.insert(
+            id,
+            Waiting {
+                entity,
+                script,
+                reply,
+            },
+        );
+        id
+    }
+
+    /// The script `id` could not be sent: its caller hears why.
+    pub(super) fn script_failed(&self, id: i32, reason: &str) {
+        let waiting = self.state().scripts.remove(&id);
+        if let Some(waiting) = waiting {
+            (waiting.reply)(Response::error(500, format!("snapshot failed: {reason}")));
+        }
+    }
+
+    /// The answer to one of the app's scripts, taken out of the waiting
+    /// list, or `None` for a message that is not one.
+    fn script_answer(&self, text: &str) -> Option<(Waiting, Value)> {
+        let message: Value = serde_json::from_str(text).ok()?;
+        let id = i32::try_from(message["id"].as_i64()?).ok()?;
+        if id < APP_ID_BASE {
+            return None;
+        }
+        Some((self.state().scripts.remove(&id)?, message))
+    }
+
     /// A message from the page `page`'s devtools agent.
     pub(super) fn page_said(&self, page: PageId, text: &str) {
+        if let Some((waiting, message)) = self.script_answer(text) {
+            // Called outside the lock: the reply may take its time.
+            (waiting.reply)(waiting.script.answer(&message));
+            return;
+        }
         let mut state = self.state();
         let Some(entry) = (state.pages.values_mut())
             .find(|entry| entry.page == page && entry.proxy.has_clients())

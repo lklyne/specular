@@ -446,12 +446,59 @@ fn termination_reason(status: TerminationStatus) -> &'static str {
     }
 }
 
+/// Whether a link opened with `disposition` goes to a new page, and if so
+/// whether that page comes to the front. A page here never gets a window of
+/// its own: off-screen, it would sit outside the canvas. So a popup with
+/// window features and a Shift-click's new window open a page too.
+fn new_page_for(disposition: WindowOpenDisposition) -> Option<bool> {
+    use cef::sys::cef_window_open_disposition_t as Wod;
+    match *disposition.as_ref() {
+        Wod::CEF_WOD_NEW_FOREGROUND_TAB | Wod::CEF_WOD_NEW_POPUP | Wod::CEF_WOD_NEW_WINDOW => {
+            Some(true)
+        }
+        Wod::CEF_WOD_NEW_BACKGROUND_TAB => Some(false),
+        _ => None,
+    }
+}
+
+impl PageContext {
+    /// Tells the app the page asked for `url` in a new tab.
+    fn open_tab(&self, url: Option<&CefString>, foreground: bool) {
+        let url = url.map(ToString::to_string).unwrap_or_default();
+        tracing::info!(page = %self.id, url, foreground, "link opens a new page");
+        self.push(PageEvent::OpenTab {
+            page: self.id,
+            url,
+            foreground,
+        });
+    }
+}
+
 wrap_request_handler! {
     struct PageRequestHandler {
         ctx: PageContext,
     }
 
     impl RequestHandler {
+        /// A Command-click or a middle click on a plain link. Cancelled
+        /// here, and opened as a page beside this one.
+        fn on_open_urlfrom_tab(
+            &self,
+            _browser: Option<&mut Browser>,
+            _frame: Option<&mut Frame>,
+            target_url: Option<&CefString>,
+            target_disposition: WindowOpenDisposition,
+            _user_gesture: c_int,
+        ) -> c_int {
+            match new_page_for(target_disposition) {
+                Some(foreground) => {
+                    self.ctx.open_tab(target_url, foreground);
+                    1
+                }
+                None => 0,
+            }
+        }
+
         fn on_render_process_terminated(
             &self,
             _browser: Option<&mut Browser>,
@@ -482,7 +529,7 @@ wrap_life_span_handler! {
             _popup_id: c_int,
             target_url: Option<&CefString>,
             _target_frame_name: Option<&CefString>,
-            _target_disposition: WindowOpenDisposition,
+            target_disposition: WindowOpenDisposition,
             _user_gesture: c_int,
             _popup_features: Option<&PopupFeatures>,
             _window_info: Option<&mut WindowInfo>,
@@ -491,11 +538,11 @@ wrap_life_span_handler! {
             _extra_info: Option<&mut Option<DictionaryValue>>,
             _no_javascript_access: Option<&mut c_int>,
         ) -> c_int {
-            // `window.open` / target=_blank would otherwise open a native
-            // (non-OSR) window outside the canvas. Blocked: new pages on the
-            // canvas are an app decision, not the page's.
-            let url = target_url.map(ToString::to_string).unwrap_or_default();
-            tracing::info!(page = %self.ctx.id, url, "blocked window.open popup");
+            // `window.open` and target=_blank would otherwise open a native
+            // window outside the canvas. Always cancelled; the app opens a
+            // page on the canvas instead.
+            let foreground = new_page_for(target_disposition).unwrap_or(true);
+            self.ctx.open_tab(target_url, foreground);
             1
         }
 

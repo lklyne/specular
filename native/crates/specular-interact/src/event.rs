@@ -182,6 +182,10 @@ pub enum Event {
     /// A windowed shell sends `true` once at startup; without it the camera
     /// lands at once.
     Motion(bool),
+    /// Whether the system asks for reduced motion (macOS's Reduce motion).
+    /// The shell reads it at startup and sends it again when it changes.
+    /// With it on, transitions and travels land at once.
+    ReduceMotion(bool),
     /// The threads of the space folder: the answer to an
     /// [`Effect::LoadThreads`](crate::Effect::LoadThreads). Replaces every
     /// thread held.
@@ -392,6 +396,17 @@ pub enum PageNotice {
     Cursor(Cursor),
     /// The page's remote-debugging websocket is known.
     DevtoolsUrl(String),
+    /// The page asked for a link to open in a new tab: `target=_blank`,
+    /// `window.open`, a Command-click or a middle click. The page was not
+    /// let open it itself.
+    OpenTab {
+        /// The address.
+        url: String,
+        /// Whether the tab would have come to the front: a plain click on
+        /// a `target=_blank` link or `window.open`, not a Command-click or
+        /// a middle click.
+        foreground: bool,
+    },
     /// What the document says of the screen around it.
     ViewportFit {
         /// Whether it asks for the whole screen (`viewport-fit=cover`),

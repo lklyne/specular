@@ -8,7 +8,7 @@ use std::sync::mpsc::{self, Receiver};
 use std::time::Duration;
 
 use serde_json::{Value, json};
-use specular_api::{CdpAsk, Host, Response, Screenshot};
+use specular_api::{CdpAsk, Host, LaterReply, PageScript, Response, Screenshot};
 use specular_interact::{ApiOutcome, App, Effect, Event};
 use specular_testkit::TestApp;
 
@@ -39,6 +39,16 @@ impl Host for Seat {
 
     fn cdp(&mut self, _ask: &CdpAsk) -> Result<Value, Response> {
         Err(Response::error(503, "a test has no page backend"))
+    }
+
+    /// The page answers from another thread a moment later, as a real one
+    /// answers from inside the backend's pump.
+    fn page_script(&mut self, script: PageScript, reply: LaterReply) {
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(20));
+            let value = json!({ "url": "https://example.com/", "title": "Example", "nodes": [] });
+            reply(script.answer(&json!({ "id": 1, "result": { "result": { "value": value } } })));
+        });
     }
 }
 
@@ -163,5 +173,21 @@ fn a_tab_ref_arrives_decoded() {
             400,
             json!({ "error": "unknown tab 'sync roads' \u{2014} available: tab_1 (Canvas 1)" })
         )
+    );
+}
+
+#[test]
+fn a_page_snapshot_is_answered_once_the_page_has_answered() {
+    let mut loopback = Loopback::new();
+    let made = loopback.ok(
+        "POST",
+        "/canvas/apply",
+        &json!({ "entities": [{ "kind": "page", "url": "https://example.com/" }] }),
+    );
+    let page = made["created"][0].clone();
+    let body = loopback.ok("POST", "/pages/agent-snapshot", &json!({ "pageId": page }));
+    assert_eq!(
+        body["snapshot"],
+        json!({ "pageId": page, "url": "https://example.com/", "title": "Example", "nodes": [] })
     );
 }

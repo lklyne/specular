@@ -4,6 +4,7 @@
 
 mod cdp;
 mod common;
+mod fix;
 mod pages;
 mod plan;
 mod tabs;

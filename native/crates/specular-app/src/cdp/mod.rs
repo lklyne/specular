@@ -28,6 +28,7 @@ use std::sync::mpsc::{self, Receiver};
 use glam::DVec2;
 use serde_json::{Value, json};
 use specular_api::cdp::Target;
+use specular_api::{LaterReply, PageScript};
 use specular_core::{DevtoolsSink, PageId, PageSource};
 use specular_doc::EntityId;
 use specular_interact::AgentAct;
@@ -73,6 +74,22 @@ impl CdpHost {
     /// An agent read the page; see [`Hub::snapshot_seen`].
     pub(crate) fn snapshot_seen(&self, entity: &EntityId) -> u64 {
         self.hub.snapshot_seen(entity)
+    }
+
+    /// Sends `script` to `entity`'s page, hosted as `page`, and calls
+    /// `reply` with the page's answer.
+    pub(crate) fn run_script(
+        &self,
+        source: &mut dyn PageSource,
+        (entity, page): (&EntityId, PageId),
+        script: PageScript,
+        reply: LaterReply,
+    ) {
+        let message_of = script.clone();
+        let id = self.hub.expect_script(entity, script, reply);
+        if let Err(error) = source.devtools_send(page, &message_of.devtools_message(id)) {
+            self.hub.script_failed(id, &error.to_string());
+        }
     }
 
     /// The page shows another address.

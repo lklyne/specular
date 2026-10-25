@@ -14,22 +14,14 @@ fn verbs(method: Method, segments: &[&str]) -> Option<(&'static str, &'static st
             "page duplication at a position",
             "use `specular add page <url> --at x,y`",
         ),
-        (
-            _,
-            [
-                "pages",
-                "snapshot" | "agent-snapshot" | "query-elements" | "find-target",
-            ]
-            | ["debug", ..],
-        ) => (
-            "the Electron app's own page reads (`/pages/snapshot`, `/pages/agent-snapshot`, \
-             `/pages/query-elements`, `/pages/find-target`, `/debug/cdp-proxy`)",
+        (_, ["pages", "query-elements" | "find-target"] | ["debug", ..]) => (
+            "the Electron app's own page reads (`/pages/query-elements`, \
+             `/pages/find-target`, `/debug/cdp-proxy`)",
             "use `specular snapshot -f <page>` and the other browse verbs, which go through \
              `/pages/<id>/cdp-target`",
         ),
         (_, ["selection", "enter-group" | "overlay-state"]) => ("entering a group", LATER),
         (_, ["groups", "delete"]) => ("group delete by route", "use `specular delete <id>`"),
-        (_, ["annotations", "fix"]) => ("the comment fix loop", LATER),
         (_, ["perf", ..]) => ("perf tracing", "the Rust app has its own `--bench`"),
         (_, ["sidebar" | "text-entities" | "file-entities" | "drawing-entities"]) => {
             ("the per-kind read routes", "read `specular canvas` instead")

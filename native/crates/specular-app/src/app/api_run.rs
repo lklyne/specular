@@ -5,7 +5,7 @@ use super::runtime::{Runtime, ShellWindow, unix_ms};
 use crate::api::ApiHost;
 use crate::cdp::CdpHost;
 use serde_json::{Value, json};
-use specular_api::{CdpAsk, Host, Response, Screenshot};
+use specular_api::{CdpAsk, Host, LaterReply, PageScript, Response, Screenshot};
 use specular_interact::{ApiOutcome, App, DroppedFile, Event, PageNotice};
 
 /// What another thread can ask the event loop to do.
@@ -115,6 +115,27 @@ impl<W: ShellWindow> Host for Runtime<W> {
                 Ok(json!({ "ok": true, "generation": cdp.snapshot_seen(page) }))
             }
         }
+    }
+
+    fn page_script(&mut self, script: PageScript, reply: LaterReply) {
+        let Some(cdp) = self.cdp.as_ref() else {
+            reply(Response::error(
+                503,
+                "the page devtools channel did not start; see the app's log",
+            ));
+            return;
+        };
+        let Some(host) = self.hosts.get(&script.page).map(|host| host.page) else {
+            reply(Response::error(
+                503,
+                format!("Page {} is not hosted yet", script.page),
+            ));
+            return;
+        };
+        let page = script.page.clone();
+        cdp.run_script(self.source.as_mut(), (&page, host), script, reply);
+        // A backend with no loop of its own answers when pumped.
+        self.source.pump();
     }
 
     fn inspect_file(&self, path: &str) -> Option<DroppedFile> {

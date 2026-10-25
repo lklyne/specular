@@ -1,0 +1,26 @@
+# canvas: anchoring.canvas
+# macOS Reduce motion: with transitions on as in a window, opening a page's
+# tab springs the camera; with Reduce motion on, it lands at once. The
+# frames are for looking: 01 is mid-spring, 03 already where 04 is. The
+# camera is asserted in specular-interact's tests/it/motion.rs. Then the
+# settings' cursor switches, which change no document.
+camera 0,0,0.5
+save 00-start.canvas
+motion on
+select p1
+control view.open
+snapshot 01-springing.png
+wait 2000
+snapshot 02-landed.png
+control view.canvas
+wait 2000
+reduce-motion on
+select p1
+control view.open
+snapshot 03-at-once.png
+wait 2000
+snapshot 04-landed.png
+panels off
+control settings.agent-cursors
+control settings.synced-cursors
+save 05-cursors-hidden.canvas

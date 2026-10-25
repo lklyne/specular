@@ -23,9 +23,11 @@ mod annotations;
 mod canvas;
 pub mod cdp;
 mod facts;
+mod fix;
 mod host;
 mod http;
 mod ids;
+mod page_script;
 mod pages;
 mod patch;
 mod placement;
@@ -43,9 +45,10 @@ use specular_doc::{EntityId, Rect};
 use specular_interact::{ApiCall, ApiRun, App, CanvasId, Event, ThreadId};
 
 pub use self::facts::Facts;
-pub use self::host::Host;
+pub use self::host::{Answer, Host, LaterReply};
 pub use self::http::{Method, Request, Response, percent_decode};
 use self::ids::Ids;
+pub use self::page_script::{PageScript, SnapshotKind};
 pub use self::pages::CdpAsk;
 pub use self::reply::Pending;
 use self::reply::Reply;
@@ -109,6 +112,9 @@ pub enum Plan {
     },
     /// Ask the shell about a page's devtools endpoint, which it serves.
     Cdp(CdpAsk),
+    /// Run a script in a page and answer with what it returns, once the
+    /// page has answered.
+    PageScript(PageScript),
 }
 
 /// A request for a picture of the canvas.
@@ -147,6 +153,7 @@ pub(crate) enum Step {
     Screenshot(Screenshot),
     Annotated(Value, Screenshot),
     Cdp(CdpAsk),
+    PageScript(PageScript),
 }
 
 /// The API's state between requests: the sequences ids and tickets are
@@ -207,6 +214,7 @@ impl Api {
             Ok(Step::Screenshot(shot)) => Plan::Screenshot(shot),
             Ok(Step::Annotated(body, shot)) => Plan::Annotated { body, shot },
             Ok(Step::Cdp(ask)) => Plan::Cdp(ask),
+            Ok(Step::PageScript(script)) => Plan::PageScript(script),
             Err(response) => Plan::Answer(response),
         }
     }
@@ -251,6 +259,12 @@ impl Api {
             (Post, ["layout", "apply-directive"]) => placement::directive(app, &request.body),
             (Get, ["pages", id, "cdp-target"]) => pages::cdp_target(app, id),
             (Post, ["pages", id, "snapshot-seen"]) => pages::snapshot_seen(app, id),
+            (Post, ["pages", "snapshot"]) => {
+                page_script::snapshot(app, request, SnapshotKind::Outline)
+            }
+            (Post, ["pages", "agent-snapshot"]) => {
+                page_script::snapshot(app, request, SnapshotKind::Agent)
+            }
             (Post, ["pages", "screenshot"]) => pages::screenshot(app, request, false),
             (Post, ["pages", "screenshot-composite"]) => pages::screenshot(app, request, true),
             (Post, ["pages", id, verb @ ("back" | "forward" | "reload")]) => {
@@ -259,6 +273,7 @@ impl Api {
             (Get, ["annotations"]) => Ok(Step::Answer(annotations::list(app, request))),
             (Get, ["annotations", id]) => annotations::detail(app, id),
             (Post, ["annotations"]) => annotations::create(ids, app, request),
+            (Post, ["annotations", "fix"]) => fix::fix(app, request),
             (Post, ["annotations", id, verb]) => annotations::respond(app, request, id, verb),
             (Delete, ["annotations", id]) => annotations::delete(app, id),
             (Post, ["window", "screenshot"]) => Ok(Step::Screenshot(Screenshot {

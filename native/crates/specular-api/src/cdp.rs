@@ -39,6 +39,11 @@ const SERVER_ERROR: i32 = -32000;
 /// The JSON-RPC code for parameters that name nothing.
 const INVALID_PARAMS: i32 = -32602;
 
+/// The first id of the app's own devtools messages to a page, such as a
+/// snapshot's script. A client's ids are kept below it, so an answer is
+/// never taken for the other's.
+pub const APP_ID_BASE: i32 = i32::MAX - (1 << 24);
+
 /// The method a client announces an act with before it dispatches input.
 pub const WILL_ACT: &str = "Specular.willAct";
 
@@ -275,7 +280,9 @@ impl PageProxy {
 
     fn fresh_id(&mut self) -> i32 {
         let id = self.next_id;
-        self.next_id = (self.next_id.checked_add(1)).unwrap_or(DEVTOOLS_CLIENT_ID_BASE);
+        self.next_id = (self.next_id.checked_add(1))
+            .filter(|next| *next < APP_ID_BASE)
+            .unwrap_or(DEVTOOLS_CLIENT_ID_BASE);
         id
     }
 

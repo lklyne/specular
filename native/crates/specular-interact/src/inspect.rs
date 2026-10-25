@@ -215,6 +215,7 @@ pub(crate) fn on_notice(app: &mut App, page: &EntityId, notice: &PageNotice) {
         | PageNotice::ElementCaptured { .. }
         | PageNotice::ElementPlaces(_)
         | PageNotice::DevtoolsUrl(_)
+        | PageNotice::OpenTab { .. }
         | PageNotice::ViewportFit { .. } => {}
     }
 }

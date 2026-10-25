@@ -23,7 +23,7 @@ use glam::Vec2;
 use specular_compositor::{Compositor, DotGrid, FrameView, GpuContext};
 use specular_core::{PageId, PageSource};
 use specular_doc::{Document, EntityId};
-use specular_interact::{Action, App, ControlId, Driver, Event, ImageKey, Theme};
+use specular_interact::{Action, App, ControlId, Driver, Event, ImageKey, PageNotice, Theme};
 
 pub(crate) use self::bench::{BenchPlan, START_CAMERA, run as run_bench, work_of};
 pub(crate) use self::script::CameraArg;
@@ -301,6 +301,18 @@ impl Headless {
             }
             Step::Panels(on) => self.drive(|app| app.send(Event::BuiltinPanels(on))),
             Step::Sidebar(shown) => self.drive(|app| app.show_sidebar(shown)),
+            Step::Motion(on) => self.drive(|app| app.send(Event::Motion(on))),
+            Step::ReduceMotion(on) => self.drive(|app| app.send(Event::ReduceMotion(on))),
+            Step::PageOpensTab {
+                page,
+                url,
+                foreground,
+            } => self.drive(|app| {
+                app.send(Event::Page {
+                    page: page.as_str().into(),
+                    notice: PageNotice::OpenTab { url, foreground },
+                })
+            }),
             Step::Snapshot(path) => self.snapshot(&path),
             Step::Save(path) => self.save(&path),
         }

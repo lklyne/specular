@@ -94,6 +94,23 @@ pub enum Step {
     /// `sidebar on`, or `sidebar off`: whether the left sidebar is shown. It
     /// starts hidden, and covers the left of the canvas while it is shown.
     Sidebar(bool),
+    /// `motion on`, or `motion off`: whether camera transitions run, as in
+    /// a window. They start off, so a script's camera lands at once.
+    Motion(bool),
+    /// `reduce-motion on`, or `reduce-motion off`: the system's Reduce
+    /// motion setting, as the shell reads it.
+    ReduceMotion(bool),
+    /// `page-opens-tab p1 https://example.com/b`, or with `background`
+    /// after the address: the page `p1` asks for a link to open in a new
+    /// tab, as a `target=_blank` click (or a Command-click) does.
+    PageOpensTab {
+        /// The page entity.
+        page: String,
+        /// The address.
+        url: String,
+        /// Whether the tab would come to the front.
+        foreground: bool,
+    },
     /// `snapshot out.png`.
     Snapshot(PathBuf),
     /// `save out.canvas`: the text an autosave would write now.
@@ -154,10 +171,31 @@ fn step(line: &str) -> anyhow::Result<Step> {
         ("panels", ["off"]) => Step::Panels(false),
         ("sidebar", ["on"]) => Step::Sidebar(true),
         ("sidebar", ["off"]) => Step::Sidebar(false),
+        ("motion", [on]) => Step::Motion(switch(on)?),
+        ("reduce-motion", [on]) => Step::ReduceMotion(switch(on)?),
+        ("page-opens-tab", [page, url]) => Step::PageOpensTab {
+            page: (*page).to_owned(),
+            url: (*url).to_owned(),
+            foreground: true,
+        },
+        ("page-opens-tab", [page, url, "background"]) => Step::PageOpensTab {
+            page: (*page).to_owned(),
+            url: (*url).to_owned(),
+            foreground: false,
+        },
         ("snapshot", [path]) => Step::Snapshot(PathBuf::from(path)),
         ("save", [path]) => Step::Save(PathBuf::from(path)),
         _ => bail!("not a step, or the wrong number of arguments"),
     })
+}
+
+/// `on` or `off`.
+fn switch(word: &str) -> anyhow::Result<bool> {
+    match word {
+        "on" => Ok(true),
+        "off" => Ok(false),
+        _ => bail!("expected `on` or `off`, got `{word}`"),
+    }
 }
 
 /// `text` with `\n`, `\t` and `\\` turned into what they name.

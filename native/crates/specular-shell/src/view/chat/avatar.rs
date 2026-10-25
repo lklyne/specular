@@ -225,9 +225,12 @@ impl ThreadAvatar {
     /// how soon to render again, and the images to drop from the atlas.
     fn step(&mut self, pixels: u32) -> (Option<Arc<RenderImage>>, Option<Duration>, Images) {
         let mut drawer = self.drawer.borrow_mut();
-        let working = self.working || drawer.always_live;
+        // Reduce motion holds every avatar at rest, working or not.
+        let still = crate::motion::reduced();
+        let working = (self.working || drawer.always_live) && !still;
         // A tumble still settling keeps it moving after the work stops.
-        let live = working || self.tumble.as_ref().is_some_and(|tumble| !tumble.at_rest());
+        let live =
+            !still && (working || self.tumble.as_ref().is_some_and(|tumble| !tumble.at_rest()));
         let Some((gpu, prism)) = drawer.parts(self.kind, pixels) else {
             return (None, Some(POLL), Vec::new());
         };
