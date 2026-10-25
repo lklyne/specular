@@ -69,7 +69,9 @@ fn write(path: &Path, text: &str) -> Result<(), String> {
 /// What a check reads back: the `expect` facts, then what only the
 /// window knows: the camera, what covers the canvas, the tool's defaults,
 /// the pages' scroll, the controls on screen and the window's frame.
-fn state(typed: Option<(ControlId, String)>) -> String {
+fn state(window: AnyWindowHandle, cx: &mut AsyncApp) -> String {
+    let typed = typed_field(window, cx);
+    let keys = canvas_has_keys(window, cx);
     let mut out = canvas::with(|canvas| {
         let app = canvas.runtime.app();
         let mut out = script::dump(app);
@@ -101,6 +103,7 @@ fn state(typed: Option<(ControlId, String)>) -> String {
     if let Some((id, text)) = typed {
         let _ = writeln!(out, "# kit-field {id} {text}");
     }
+    let _ = writeln!(out, "# canvas-has-keys {keys}");
     window::describe(&mut out);
     out
 }
@@ -367,11 +370,7 @@ pub(super) async fn step(
         Do::FullScreen => window::toggle_full_screen(),
         Do::MenuDump(path) => write(&path, &menu::dump())?,
         Do::MenuChoose(item) => menu::choose(&item),
-        Do::State(path) => {
-            let mut text = state(typed_field(window, cx));
-            let _ = writeln!(text, "# canvas-has-keys {}", canvas_has_keys(window, cx));
-            write(&path, &text)?;
-        }
+        Do::State(path) => write(&path, &state(window, cx))?,
         Do::Accessibility(path) => write(&path, &access::dump())?,
         // A picture is for a person to read, and a locked screen or a
         // covered window has none to take: the checks go on without it.

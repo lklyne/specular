@@ -149,8 +149,8 @@ fn read_script(text: &str, base: PathBuf, ends: bool) -> Result<EnvScript, Strin
     Ok(EnvScript {
         steps,
         given,
-        canvas_folder,
         base,
+        canvas_folder,
         ends,
     })
 }
