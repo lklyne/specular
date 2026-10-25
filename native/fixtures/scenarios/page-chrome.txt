@@ -5,30 +5,33 @@
 # of it undone.
 camera 0,0,0.5
 control tool.page
-snapshot 01-page-tool-popup.png
+expect tool page
 control page.preset
 control page.preset.7
 click 300 300
-save 02-page-placed.canvas
-snapshot 02-page-placed.png
+# the Desktop preset the page tool was set to, not the first one
+expect entity @1 kind page
+expect entity @1 size 1440 900
+expect saved /nodes/@1/presetIndex = 7
 
 # the address: Enter navigates the page in place
 control page.url
 key cmd+a
 type example.org/docs
 key enter
-snapshot 03-address-entered.png
+wait 100
+expect entity @1 text https://example.org/docs
 
 # a long address scrolls inside its field and Escape puts the old one back
 control page.url
 type -with-a-very-long-path/and/more/and/more/and/more/and/more/and/more/and/more
-snapshot 04-address-long.png
 key escape
-snapshot 05-address-restored.png
+expect editing none
+expect entity @1 text https://example.org/docs
 
 # a custom size from the size list
 control page.size
-snapshot 06-size-list.png
+expect menu open
 control page.size.width
 key cmd+a
 type 900
@@ -37,9 +40,10 @@ control page.size.height
 key cmd+a
 type 600
 key enter
-save 07-custom-size.canvas
-snapshot 07-custom-size.png
+expect entity @1 size 900 600
+expect saved /nodes/@1/metadata/pageSizeMode = custom
 key escape
 key cmd+z
 key cmd+z
-save 08-size-undone.canvas
+expect entity @1 size 1440 900
+undo-to-start

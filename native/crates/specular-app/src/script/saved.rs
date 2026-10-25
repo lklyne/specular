@@ -35,6 +35,28 @@ fn item<'a>(items: &'a [Value], step: &str) -> Option<&'a Value> {
     items.get(index)
 }
 
+/// `path` as [`differences`] names it: an array step that is an index is
+/// written as the item's `id`, when it has one in `root`.
+pub(super) fn canonical(root: &Value, path: &str) -> String {
+    let mut here = Some(root);
+    let mut out = String::new();
+    for step in path.split('/').skip(1) {
+        let next = match here {
+            Some(Value::Object(map)) => map.get(step),
+            Some(Value::Array(items)) => item(items, step),
+            _ => None,
+        };
+        let named = next
+            .filter(|_| matches!(here, Some(Value::Array(_))))
+            .and_then(|item| item.get("id"))
+            .and_then(Value::as_str);
+        out.push('/');
+        out.push_str(named.unwrap_or(step));
+        here = next;
+    }
+    out
+}
+
 /// Whether `a` and `b` are the same JSON, numbers compared by value.
 pub(super) fn same(a: &Value, b: &Value) -> bool {
     match (a, b) {

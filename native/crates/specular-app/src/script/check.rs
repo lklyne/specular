@@ -10,7 +10,7 @@ use specular_doc::{Entity, EntityId, Kind, TextStyle};
 use specular_interact::{App, CanvasId, Focus, Showing};
 
 use super::expect::{Counted, EntityFact, Expect, Reference, SavedFact};
-use super::saved::{at, differences, listed, same};
+use super::saved::{at, canonical, differences, listed, same};
 use super::words::{escaped, tool_word};
 use crate::persist::canvas_text;
 
@@ -176,10 +176,11 @@ impl Checks {
         reference: &Reference,
         paths: &[String],
     ) -> anyhow::Result<()> {
-        let found = differences(&self.reference(app, reference)?, &saved_json(app)?);
+        let before = self.reference(app, reference)?;
+        let found = differences(&before, &saved_json(app)?);
         let mut changed: Vec<&str> = found.iter().map(|(path, _, _)| path.as_str()).collect();
         let mut wanted: Vec<String> = (paths.iter())
-            .map(|path| resolve_path(app, path))
+            .map(|path| Ok(canonical(&before, &resolve_path(app, path)?)))
             .collect::<anyhow::Result<_>>()?;
         changed.sort_unstable();
         wanted.sort();
@@ -428,7 +429,8 @@ fn entity_fact(app: &App, name: &str, fact: &EntityFact) -> anyhow::Result<()> {
         }
         EntityFact::Parent(parent) => {
             let found = entity.parent.as_ref().map(ToString::to_string);
-            equal(&what("parent"), or_none(found), or_none(parent.clone()))
+            let wanted = parent.as_deref().map(|name| resolve(app, name)).transpose()?;
+            equal(&what("parent"), or_none(found), or_none(wanted))
         }
     }
 }
