@@ -1,0 +1,26 @@
+# canvas: text-fit.canvas
+# A text's size is its content's: a canvas read from disk gets measured
+# text sizes with no undo step and no save, and a save keeps the size on
+# disk of every text the session left alone.
+camera 0,0,1
+expect entity wrapped rect 0 0 120 42
+expect entity hugging rect 0 600 119 21
+expect entity note rect 400 0 200 331
+expect entity shape rect 400 600 200 100
+expect undo none
+# one change: the shape moves 100 to the right; the texts are saved as
+# they were read
+drag 500 650 600 650
+expect saved /nodes/shape/x = 500
+expect saved /nodes/wrapped/height = 500
+expect saved /nodes/hugging/width = 300
+expect saved /nodes/note/height = 50
+# a text the session moved is saved where and as it now is
+drag 10 610 110 610
+expect entity hugging rect 100 600 119 21
+expect saved /nodes/hugging/x = 100
+expect saved /nodes/hugging/width = 119
+# and undone, it is as it was read again
+key cmd+z
+expect saved /nodes/hugging/width = 300
+undo-to-start
