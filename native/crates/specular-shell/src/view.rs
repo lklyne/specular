@@ -28,6 +28,7 @@
 //! beside the slot, so opening it or dragging its edge makes the app's
 //! viewport narrower.
 
+mod canvas_menu;
 mod chat;
 mod controls;
 mod dock;
@@ -211,6 +212,8 @@ pub(crate) struct ShellView {
     chat: chat::ChatUi,
     /// The first-run view's Prism, while that view is shown.
     hero: Option<Entity<onboarding::HeroPrism>>,
+    /// The context menu a right press on the canvas opened, while it is.
+    menu: Option<canvas_menu::CanvasMenu>,
 }
 
 impl ShellView {
@@ -230,6 +233,7 @@ impl ShellView {
             picked_last: None,
             chat: chat::ChatUi::new(window, cx),
             hero: None,
+            menu: None,
         }
     }
 }
@@ -269,6 +273,7 @@ impl Render for ShellView {
             crate::avatar::drop_images(images, window);
             grow_from_welcome(window, cx);
         }
+        let menu = self.canvas_menu(window, cx);
         div()
             .id("shell")
             .size_full()
@@ -339,6 +344,7 @@ impl Render for ShellView {
             .when(self.pointer.held(), |root| {
                 root.child(div().absolute().inset_0().occlude())
             })
+            .children(menu)
             .into_any_element()
     }
 }

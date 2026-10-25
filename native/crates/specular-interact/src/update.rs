@@ -102,6 +102,8 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         Event::ContextMenu(screen) => crate::panel::open_menu_at(app, screen),
         Event::BuiltinPanels(built_in) => builtin::turn(app, built_in),
         Event::BuiltinMenu => app.session.panel = builtin::PanelUi::menu_alone(),
+        Event::ShellChrome => app.session.panel = builtin::PanelUi::drawn_by_shell(),
+        Event::MenuClosed => app.session.panel.menu = None,
         Event::ChatPanel(available) => app.session.chat.set_available(available),
         Event::Motion(on) => app.session.motion.enable(on),
         Event::ReduceMotion(on) => app.session.motion.reduce(on),

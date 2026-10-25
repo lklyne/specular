@@ -13,10 +13,11 @@ use std::time::{Duration, Instant};
 
 use futures::channel::mpsc;
 use specular_app::{Bench, Runtime, ShellWindow as _};
+use specular_interact::panel::builtin::ContextMenu;
 use specular_interact::{
     Appearance, ChatModel, ControlsModel, Event, Menu, OnboardingModel, SidebarModel, Theme,
-    ToolbarModel, ViewStrip, chat, dock, menus, onboarding, sidebar, tool_options, toolbar,
-    view_strip,
+    ToolbarModel, ViewStrip, chat, context_menu, dock, menus, onboarding, sidebar, tool_options,
+    toolbar, view_strip,
 };
 
 use crate::surface::{CanvasSurface, WindowAsks};
@@ -174,6 +175,9 @@ pub(crate) struct Canvas {
     /// A folder dialog the app asked for, until GPUI shows it: whether it
     /// is worded for making a space.
     space_dialog: Option<bool>,
+    /// The context menu GPUI was last told of. It skips the models' gate,
+    /// so a right press shows its menu on the next frame.
+    menu: Option<ContextMenu>,
 }
 
 /// How long frames may follow one another without waiting for the display
@@ -240,6 +244,7 @@ pub(crate) fn install(
         },
         finished: false,
         space_dialog: None,
+        menu: None,
     };
     CANVAS.with(|cell| *cell.0.borrow_mut() = Some(canvas));
 }
@@ -265,6 +270,17 @@ pub(crate) fn models() -> Option<Models> {
         }
         canvas.models.clone()
     })
+}
+
+/// The context menu that is open, with its items as the app has them now.
+pub(crate) fn open_menu() -> Option<(ContextMenu, ControlsModel)> {
+    with(|canvas| {
+        let app = canvas.runtime.app();
+        let open = app.session().panel.menu.clone()?;
+        let model = context_menu(app, &open.target)?;
+        Some((open, model))
+    })
+    .flatten()
 }
 
 /// The display link fired: one turn, and a frame if one is owed.
@@ -353,6 +369,11 @@ impl Canvas {
             if std::mem::take(&mut self.unseen) {
                 self.wake_now();
             }
+        }
+        let menu = &self.runtime.app().session().panel.menu;
+        if *menu != self.menu {
+            self.menu.clone_from(menu);
+            self.wake_now();
         }
         let asked = self.runtime.take_space_dialog();
         if asked.is_some() {

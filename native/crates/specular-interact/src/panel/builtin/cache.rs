@@ -158,6 +158,8 @@ pub(crate) fn keeps_layout(app: &App, event: &Event) -> bool {
         | Event::ContextMenu(_)
         | Event::BuiltinPanels(_)
         | Event::BuiltinMenu
+        | Event::ShellChrome
+        | Event::MenuClosed
         | Event::ChatPanel(_)
         | Event::Motion(_)
         | Event::ReduceMotion(_)

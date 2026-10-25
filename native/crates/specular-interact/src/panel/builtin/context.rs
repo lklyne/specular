@@ -63,9 +63,10 @@ pub(super) fn layout(
 /// selection, one that is keeps it, and empty canvas clears it. Returns
 /// whether the press was taken. A press on the entered page belongs to the
 /// page, and so does any press while a tool, a drag or a text edit has the
-/// pointer.
+/// pointer. With no panels drawn by anyone, a right press opens nothing.
 pub(crate) fn open(app: &mut App, screen: Vec2, hit: &Hit) -> bool {
-    app.session.panel.built_in && open_for_press(app, screen, hit)
+    let panel = &app.session.panel;
+    (panel.built_in || panel.shell_chrome) && open_for_press(app, screen, hit)
 }
 
 /// [`open`] whether or not the built-in panels are on: the menu is then

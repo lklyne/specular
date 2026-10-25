@@ -60,9 +60,9 @@ use crate::App;
 pub struct PanelUi {
     /// Whether the built-in panels are shown, hit and clicked at all.
     pub built_in: bool,
-    /// Whether only the context menu is built in: the chrome and the
-    /// sidebar are someone else's to draw.
-    pub menu_only: bool,
+    /// Whether the shell draws the chrome and the sidebar itself, with the
+    /// height and the docked tools its own chrome has.
+    pub shell_chrome: bool,
     /// The dropdown that is open.
     pub open: Option<ControlId>,
     /// The control under the pointer.
@@ -93,10 +93,10 @@ impl PanelUi {
     /// How much of the viewport's top edge the chrome covers: the built-in
     /// rows, or the rows of the shell that draws its own.
     pub const fn chrome_height(&self) -> f32 {
-        match (self.built_in, self.menu_only) {
-            (false, _) => 0.0,
-            (true, true) => SHELL_CHROME_HEIGHT,
+        match (self.built_in, self.shell_chrome) {
+            (_, true) => SHELL_CHROME_HEIGHT,
             (true, false) => CHROME_HEIGHT,
+            (false, false) => 0.0,
         }
     }
 
@@ -104,7 +104,16 @@ impl PanelUi {
     pub fn menu_alone() -> Self {
         Self {
             built_in: true,
-            menu_only: true,
+            shell_chrome: true,
+            ..Self::default()
+        }
+    }
+
+    /// Nothing built in: the shell draws the chrome, the sidebar and the
+    /// context menu.
+    pub fn drawn_by_shell() -> Self {
+        Self {
+            shell_chrome: true,
             ..Self::default()
         }
     }
@@ -301,7 +310,7 @@ fn build(app: &App) -> PanelLayout {
     let menu = (ui.menu.as_ref())
         .and_then(|open| Some((context::model(&ctx, open)?, open.at)))
         .and_then(|(model, at)| context::layout(&ctx, &model, at, viewport));
-    if ui.menu_only {
+    if ui.shell_chrome {
         return PanelLayout {
             dropdown: menu,
             ..PanelLayout::default()
