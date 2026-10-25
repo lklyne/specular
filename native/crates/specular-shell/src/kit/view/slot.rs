@@ -38,6 +38,8 @@ pub(super) struct Pointer {
     /// Whether the press now held only closed a Kit list or menu, so its
     /// release is not the canvas's either.
     swallowed: Cell<bool>,
+    /// The button of the press held.
+    button: Cell<Option<PointerButton>>,
 }
 
 impl Pointer {
@@ -169,6 +171,7 @@ impl SlotPaint {
                 return;
             };
             press.held.set(true);
+            press.button.set(Some(button));
             // The drag is the canvas's wherever it goes: the pointer stays
             // the slot's, and the view draws its shield over the panels.
             window.capture_pointer(over.id);
@@ -198,15 +201,25 @@ impl SlotPaint {
                 cx.notify(view);
             }
             let ours = held || over.is_hovered(window);
-            let Some(button) = button(event.button).filter(|_| ours) else {
+            let Some(mut button) = button(event.button).filter(|_| ours) else {
                 return;
             };
+            let mut keys = event.modifiers;
+            // GPUI turns a left release with Control held into a right one,
+            // to pair with the right press it makes of a Control-click. A
+            // left drag that Control joined mid-way is still left, and its
+            // release keeps Control.
+            let pressed = press.button.take();
+            if held && button == PointerButton::Right && pressed == Some(PointerButton::Left) {
+                button = PointerButton::Left;
+                keys.control = true;
+            }
             let click_count = u8::try_from(event.click_count).unwrap_or(u8::MAX);
             let kind = PointerEventKind::Up {
                 button,
                 click_count,
             };
-            pointer(kind, screen(event.position, bounds), event.modifiers);
+            pointer(kind, screen(event.position, bounds), keys);
         });
     }
 

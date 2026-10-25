@@ -23,6 +23,9 @@ drag 450 380 750 380
 expect saved /nodes/h/pageAnchor/pageId = p1
 key cmd+z
 key escape
+# p1 has named the element under h by now, which no undo takes back
+wait 100
+mark hooked
 
 # a sticky whose centre lands on a page is hooked to it at its scroll
 tool sticky
@@ -35,7 +38,7 @@ key escape
 key escape
 key cmd+z
 key cmd+z
-expect saved same-as start
+expect saved same-as mark hooked
 # a shape is hooked by where its centre is, not where the drag began
 tool shape
 drag 600 300 840 380
@@ -54,7 +57,7 @@ expect saved /nodes/@top/pageAnchor absent
 key escape
 key cmd+z
 key cmd+z
-expect saved same-as start
+expect saved same-as mark hooked
 
 # dragged onto a page it is hooked in the same step as the move
 drag 350 650 350 250
@@ -83,7 +86,7 @@ release
 hold none
 expect saved /nodes/h/pageAnchor/pageId = p1
 key cmd+z
-expect saved same-as start
+expect saved same-as mark hooked
 
 # with p1 scrolled 40 down, h is seen 40 above where it is stored
 page-says p1 scrolled 0 40
@@ -129,7 +132,9 @@ move 800 200
 key cmd+v
 expect saved /nodes/@top/pageAnchor/pageId = p2
 expect saved /nodes/@top/pageAnchor/scrollY = 25
-expect saved /nodes/@top/pageAnchor/element absent
+# and p2 names the element under it in its own time
+wait 100
+expect saved /nodes/@top/pageAnchor/element/docY = 144
 key cmd+z
 move 200 600
 key cmd+v
@@ -149,7 +154,7 @@ key cmd+v
 expect anchor @top @8
 expect saved /nodes/@top/pageAnchor/scrollY = 0
 key cmd+z
-expect saved same-as start
+expect saved same-as mark hooked
 
 # an attached item is seen where its element went, the stored rect kept
 page-says p3 element #hero 100 160
@@ -176,7 +181,7 @@ page-says p3 scrolled 0 0
 page-says p3 element #hero 100 140
 drag 1450 290 1490 290
 expect entity at rect 1440 240 100 100
-expect saved /nodes/at/pageAnchor/element/docY = 140
+expect saved /nodes/at/pageAnchor/element keys selector docX docY
 expect seen at 1440 240 100 100
 key cmd+z
 
