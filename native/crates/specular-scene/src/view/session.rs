@@ -36,6 +36,21 @@ const PREVIEW_FILL_ALPHA: f32 = 0.1;
 const COPY_GHOST_OPACITY: f32 = 0.5;
 
 pub(crate) fn draw(frame: &Frame<'_>, scene: &mut Scene) {
+    outlines(frame, scene);
+    if let Some(preview) = frame.app.copy_preview() {
+        push_copy_ghosts(frame, &preview, scene);
+    }
+    group_rings(frame, scene);
+    guides::draw(frame, scene);
+    layout_handles::draw(frame, scene);
+    handles(frame, scene);
+    drags(frame, scene);
+    edge_chrome::draw(frame, scene);
+}
+
+/// The outlines of what is selected, hovered, or would be taken by the
+/// marquee.
+fn outlines(frame: &Frame<'_>, scene: &mut Scene) {
     let app = frame.app;
     let session = app.session();
     let selected = |id: &EntityId| session.selection.contains(&ItemId::Entity(id.clone()));
@@ -62,11 +77,12 @@ pub(crate) fn draw(frame: &Frame<'_>, scene: &mut Scene) {
             push_outline(frame, seen, app.turning(id), scene);
         }
     }
+}
 
-    if let Some(preview) = app.copy_preview() {
-        push_copy_ghosts(frame, &preview, scene);
-    }
-
+/// The rings round the group being worked inside and the group a release
+/// would drop into.
+fn group_rings(frame: &Frame<'_>, scene: &mut Scene) {
+    let app = frame.app;
     // The group being worked inside: a dashed ring in the selection colour a
     // few pixels outside it, apart from a selected group's solid outline.
     if let Some(group) = (app.entered_group()).and_then(|id| app.document().entity(id)) {
@@ -95,10 +111,11 @@ pub(crate) fn draw(frame: &Frame<'_>, scene: &mut Scene) {
             scene.push(Item::screen(RectDraw::outlined(ring, stroke)));
         }
     }
+}
 
-    guides::draw(frame, scene);
-    layout_handles::draw(frame, scene);
-
+/// The selection's resize handles.
+fn handles(frame: &Frame<'_>, scene: &mut Scene) {
+    let app = frame.app;
     if let Some((owner, bounds)) = app.handles() {
         match owner {
             // The entity's own outline is already there.
@@ -115,7 +132,12 @@ pub(crate) fn draw(frame: &Frame<'_>, scene: &mut Scene) {
             scene.extend(Corner::ALL.map(|corner| handle(outline, corner, frame.colors.selection)));
         }
     }
+}
 
+/// The marquee and the comment tool's region while they are dragged out.
+fn drags(frame: &Frame<'_>, scene: &mut Scene) {
+    let app = frame.app;
+    let session = app.session();
     if let Some(marquee) = app.marquee() {
         let border = Stroke::new(
             palette::with_alpha(frame.colors.selection, MARQUEE_BORDER_ALPHA),
@@ -135,7 +157,6 @@ pub(crate) fn draw(frame: &Frame<'_>, scene: &mut Scene) {
             PREVIEW_FILL_ALPHA,
         ));
     }
-    edge_chrome::draw(frame, scene);
 }
 
 /// A one-pixel ring just outside `rect`, so it never covers what it frames.

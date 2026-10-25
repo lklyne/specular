@@ -99,39 +99,7 @@ pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, page: &Page, scene: &mut 
         under_page(device, &carry, screen, shell, art.is_some(), scene);
     }
     let screen_radius = shell.map_or(plain_radius, |shell| shell.screen_corner_radius as f32);
-    // A frame painted before the turn does not cover the screen on its way
-    // round, and a page with no bezel has nothing else under it.
-    if carry.turning() && shell.is_none() {
-        scene.push(carry.canvas(screen, |rect| {
-            Item::canvas(
-                RectDraw::filled(rect, frame.colors.card).with_corner_radius(screen_radius),
-            )
-        }));
-    }
-    // A document laid out inside its screen's safe area leaves strips of
-    // the screen bare, which are its colour as a phone paints them.
-    let inset = frame.app.page_inset(&entity.id);
-    let document = canvas_rect(within_safe_area(entity.rect, inset));
-    let inside = document != screen;
-    if inside {
-        let [r, g, b] = frame.app.page_surround(&entity.id);
-        scene.push(carry.canvas(screen, |rect| {
-            Item::canvas(
-                RectDraw::filled(rect, Color::rgb(r, g, b)).with_corner_radius(screen_radius),
-            )
-        }));
-    }
-    scene.push(carry.canvas(document, |rect| {
-        Item::canvas(PageDraw {
-            page: entity.id.clone(),
-            rect,
-            viewport: (frame.app.page_placement(&entity.id))
-                .map_or_else(CssSize::default, |placement| placement.viewport),
-            // The strips have the screen's corners, and the document's own
-            // are square between them.
-            corner_radius: if inside { 0.0 } else { screen_radius },
-        })
-    }));
+    let inside = screen_and_document(frame, entity, &carry, screen_radius, shell.is_some(), scene);
     if !frame.chrome {
         return;
     }
@@ -163,6 +131,54 @@ pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, page: &Page, scene: &mut 
             Item::screen(RectDraw::outlined(rect, border).with_corner_radius(outer_radius * zoom))
         }));
     }
+}
+
+/// The page's screen and the document on it: a card under a turning page
+/// with no bezel, the safe area's strips, then the document. Whether the
+/// document sits inside a safe area.
+fn screen_and_document(
+    frame: &Frame<'_>,
+    entity: &Entity,
+    carry: &Carry,
+    screen_radius: f32,
+    shelled: bool,
+    scene: &mut Scene,
+) -> bool {
+    let screen = canvas_rect(entity.rect);
+    // A frame painted before the turn does not cover the screen on its way
+    // round, and a page with no bezel has nothing else under it.
+    if carry.turning() && !shelled {
+        scene.push(carry.canvas(screen, |rect| {
+            Item::canvas(
+                RectDraw::filled(rect, frame.colors.card).with_corner_radius(screen_radius),
+            )
+        }));
+    }
+    // A document laid out inside its screen's safe area leaves strips of
+    // the screen bare, which are its colour as a phone paints them.
+    let inset = frame.app.page_inset(&entity.id);
+    let document = canvas_rect(within_safe_area(entity.rect, inset));
+    let inside = document != screen;
+    if inside {
+        let [r, g, b] = frame.app.page_surround(&entity.id);
+        scene.push(carry.canvas(screen, |rect| {
+            Item::canvas(
+                RectDraw::filled(rect, Color::rgb(r, g, b)).with_corner_radius(screen_radius),
+            )
+        }));
+    }
+    scene.push(carry.canvas(document, |rect| {
+        Item::canvas(PageDraw {
+            page: entity.id.clone(),
+            rect,
+            viewport: (frame.app.page_placement(&entity.id))
+                .map_or_else(CssSize::default, |placement| placement.viewport),
+            // The strips have the screen's corners, and the document's own
+            // are square between them.
+            corner_radius: if inside { 0.0 } else { screen_radius },
+        })
+    }));
+    inside
 }
 
 /// The shell around `screen`, in canvas units.
