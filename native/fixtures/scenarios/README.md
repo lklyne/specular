@@ -15,6 +15,16 @@ fixtures/scenarios/run.sh --cli              # cli/: the CLI end to end
 SCENARIO=first cargo test -p specular-shell --test scenarios   # headless, from cargo
 ```
 
+What the window runner does so a script means the same as headless: it
+lets the window take posted pointer moves, tells the app the system is
+light with Reduce motion off and the camera spring off unless a step says
+otherwise, rests on a control before it clicks it (what shows on hover is
+drawn by then), lifts a button a script left down before the next press,
+waits for a step's images and Documents, reads a relative `drop` path from
+the canvas's folder, opens its copy of the canvas as `Canvas 1.canvas`,
+leaves keys to the input method while a composition runs, reads a Kit
+field's text for `expect editing`, and starts no real agent.
+
 `run.sh` prints one `pass` or `FAIL` line a scenario and exits non-zero
 when any fails. What a run saves and draws goes to
 `native/runs/scenarios/<mode>/<scenario>/` with its `stderr.log`.
@@ -52,7 +62,14 @@ undo-to-start
   `given inside g1 shape r1 ...`, `given edge e1 s1 r1`
   (see `crates/specular-shell/src/script/given.rs`).
 - Start with a `camera x,y,zoom` step, so the positions that follow mean
-  something. Positions are screen pixels in a 1600x1000 viewport.
+  something. Positions are screen pixels in a 1600x1000 viewport, laid out
+  as the Kit window lays it out in both runners: the tab row covers the top
+  38, the docked tools the left 36 (the sidebar 256 more while it is
+  shown), and fits, zoom steps and a tab's lens see what is left. A
+  pointer step that would land on the Kit's chrome fails headless with
+  what is there: the tab row, the docked tools, the armed tool's options
+  beside them, the dock's bar (38 to 74, while something is selected),
+  the right panel or outside the window. A drag under way may go anywhere.
 - Name controls with `control text.color`, never by where they are drawn.
   Sidebar canvas rows are named by place: `sidebar.canvas.1`.
 - Check state with `expect` lines, not pictures. `state out.txt` writes
@@ -63,7 +80,11 @@ undo-to-start
   undo does not take back (a page's address after it navigates) is named:
   `undo-to-start except /nodes/p1/url`.
 - A page answers in its own time. After a click or a scroll that asks a
-  page something, `wait 100` before checking what came back.
+  page something, `wait 100` before checking what came back. In the window
+  the synthetic pages answer between steps too, so do not check that a
+  page has not answered yet, and do not expect an address or an element
+  the script told the app (`page-says`, `page-reports`) to outlast a
+  reload or a move: the live page says its own.
 - New ids differ from run to run in a window, so name what a script made
   with `@top` (the front-most entity), `@N` (the Nth from the back) or
   `@selected`.

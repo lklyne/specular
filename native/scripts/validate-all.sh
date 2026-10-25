@@ -73,15 +73,33 @@ headless() { SCENARIO_OUT="$1/runs" fixtures/scenarios/run.sh; }
 
 kit() { SCENARIO_OUT="$1/runs" fixtures/scenarios/run.sh --kit; }
 
+# The patched agent-browser the CLI's browse verbs and the release bundle
+# need (scripts/build-agent-browser.sh), built once a run. AGENT_BROWSER_BIN
+# names one already built.
+agent_browser() {
+    local built="$out/agent-browser-path"
+    if [ -n "${AGENT_BROWSER_BIN:-}" ]; then
+        echo "$AGENT_BROWSER_BIN"
+    elif [ -s "$built" ]; then
+        cat "$built"
+    else
+        scripts/build-agent-browser.sh | tail -n 1 | tee "$built"
+    fi
+}
+
 # The CEF bundle is the bare layout bundle-macos.sh makes. The CLI goes on
-# the PATH as `specular` so run.sh also runs cef/cli-pages.sh.
+# the PATH as `specular` so run.sh also runs cef/cli-pages.sh, and drives the
+# patched agent-browser: an older one on the PATH lacks the hook the cursor
+# needs and some verbs the CLI sends.
 cef() {
-    local bin="$1/bin"
+    local bin="$1/bin" browser
     cargo build -p specular-shell --features cef &&
         cargo build -p specular-cli &&
         crates/specular-cef/scripts/bundle-macos.sh debug specular || return 1
+    browser="$(agent_browser)" && [ -x "$browser" ] || return 1
     mkdir -p "$bin" && ln -sf "$target/debug/specular-cli" "$bin/specular"
     PATH="$bin:$PATH" CLI="$target/debug/specular-cli" SCENARIO_OUT="$1/runs" \
+        AGENT_BROWSER_PATH="$browser" \
         CEF_APP="$target/debug/specular.app/Contents/MacOS/specular" \
         fixtures/scenarios/run.sh --cef
 }
@@ -89,7 +107,10 @@ cef() {
 cli() { SCENARIO_OUT="$1/runs" fixtures/scenarios/run.sh --cli; }
 
 release() {
-    crates/specular-shell/scripts/bundle-app.sh --profile release --out "$1/bundle" &&
+    local browser
+    browser="$(agent_browser)" && [ -x "$browser" ] || return 1
+    AGENT_BROWSER_BIN="$browser" \
+        crates/specular-shell/scripts/bundle-app.sh --profile release --out "$1/bundle" &&
         codesign --verify --deep --strict "$1/bundle/Specular.app" &&
         fixtures/scenarios/app/first-run.sh "$1/bundle/Specular.app" "$1/first-run"
 }

@@ -22,7 +22,9 @@ control view.canvas
 expect motion running
 wait 10
 wait 60
-# a scroll ends the way back where the camera is
+# a scroll ends the way back where the camera is; the window's pointer
+# is on the tab it pressed, so it comes back over the canvas first
+move 800 500
 wheel 0 40
 expect motion still
 wait 2000
