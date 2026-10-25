@@ -200,13 +200,10 @@ cargo run -p specular-shell -- --script steps.txt FILE.canvas
   Steps only a window can do (`resize`, `resize-drag`, `keycode`, `swipe`,
   `pan`, `drop`, `menu-choose` ..., `script/window.rs`) are skipped headless
   and listed when the run ends.
-- `--script-panels off` runs without the built-in toolbar and dock, as the
-  scenarios do: `control NAME` then does what the control does from the
-  models (`specular_interact::named_controls`, `Event::Control`), an option
-  whether or not its list is open, a sidebar row whether or not it is in
-  view. Canvas rows are named by place, `sidebar.canvas.1`. With the panels
-  on, the top 114 pixels are chrome and `control` clicks where it is drawn.
-  `settings.*` switches always come from the models.
+- No panels are drawn headless: `control NAME` does what the control does
+  from the models (`specular_interact::named_controls`, `Event::Control`),
+  an option whether or not its list is open, a sidebar row whether or not
+  it is in view. Canvas rows are named by place, `sidebar.canvas.1`.
 - The clipboard and the Documents a run makes are kept in memory:
   `clipboard some\ntext` is another app copying, `key cmd+v` pastes it,
   and `tool document` then a click makes `Untitled Note.md` with no file.
