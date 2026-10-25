@@ -16,6 +16,7 @@ mod comment_marks;
 mod comment_state;
 mod comments;
 mod context_menu;
+mod cursors;
 mod draw;
 mod drop;
 mod edge_labels;

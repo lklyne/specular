@@ -265,7 +265,9 @@ cargo run -p specular-app -- --script steps.txt FILE.canvas
   `act annotate-selection`, `act resolve-comment`, `act page-back`
   (`-forward`, `-reload`, `-stop`), `act zoom-to-fit`, `act arrange-row`
   (`-column`, `-grid`), `right-click x y`,
-  `sidebar on|off`, `camera ..`, `wait ms`,
+  `sidebar on|off`, `camera ..`, `wait ms`, `motion on|off` (camera
+  transitions as in a window), `reduce-motion on|off`,
+  `page-opens-tab p1 URL [background]` (a link the page opens in a new tab),
   `snapshot out.png`, `save out.canvas`. Positions are screen pixels. A snapshot between `press` and `release` shows a gesture in
   flight.
 - The chrome is drawn and takes clicks, so the top 114 pixels

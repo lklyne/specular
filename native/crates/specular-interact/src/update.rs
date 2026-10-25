@@ -449,6 +449,9 @@ fn on_page_event(app: &mut App, page: &EntityId, notice: &PageNotice, effects: &
         PageNotice::Scrolled { .. } => crate::flick::scrolled(app, page),
         PageNotice::ScrollRoom(room) => crate::flick::room(app, page, *room),
         PageNotice::RegionElements(boxes) => comment::on_elements(app, page, boxes),
+        PageNotice::OpenTab { url, foreground } => {
+            crate::link_open::open(app, page, url, *foreground, effects);
+        }
         _ => {}
     }
     on_page_notice(app, page, notice, effects);
@@ -473,6 +476,7 @@ fn on_page_notice(app: &App, page: &EntityId, notice: &PageNotice, effects: &mut
         | PageNotice::ElementCaptured { .. }
         | PageNotice::ElementPlaces(_)
         | PageNotice::DevtoolsUrl(_)
+        | PageNotice::OpenTab { .. }
         | PageNotice::ViewportFit { .. } => {}
         PageNotice::ImeCompositionBounds(bounds) => {
             if app.session.focus.page() == Some(page)

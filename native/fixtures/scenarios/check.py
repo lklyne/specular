@@ -284,6 +284,40 @@ if n in RAN:
         print(f"{'ok  ' if held else 'FAIL'} {n}: {name}")
         if not held:
             failures.append(f"{n}: {name}")
+r = "r-new-tab-links"
+if r in RAN:
+    start = saved(r, "01-start.canvas")
+    fore = saved(r, "02-foreground.canvas")
+    back = saved(r, "03-background.canvas")
+    source = next(n for n in start["nodes"] if n["id"] == "p1")
+    opened = [n for n in back["nodes"] if n.get("url", "").startswith("https://example.com/")
+              and n["id"] != "p1"]
+    checks = {
+        # Each link is one new page, at the source's size, with the address
+        # the link named, made from a link and in no sync set.
+        "a foreground link adds one page": len(fore["nodes"]) == len(start["nodes"]) + 1,
+        "a background link adds one page": len(back["nodes"]) == len(fore["nodes"]) + 1,
+        "the pages have the links' addresses": sorted(n["url"] for n in opened)
+        == ["https://example.com/behind", "https://example.com/opened"],
+        "the pages keep the source's size": all(
+            (n["width"], n["height"]) == (source["width"], source["height"]) for n in opened),
+        "the pages are made from a link": all(
+            n.get("metadata", {}).get("createdFrom") == "link" for n in opened),
+        "the pages join no sync set": all("syncId" not in json.dumps(n) for n in opened),
+        "no page overlaps another": all(
+            a is b or a["x"] + a["width"] <= b["x"] or b["x"] + b["width"] <= a["x"]
+            or a["y"] + a["height"] <= b["y"] or b["y"] + b["height"] <= a["y"]
+            for a in opened + [source] for b in opened + [source]),
+    }
+    for name, held in checks.items():
+        print(f"{'ok  ' if held else 'FAIL'} {r}: {name}")
+        if not held:
+            failures.append(f"{r}: {name}")
+    # A javascript: link opens nothing, and each page is one undo step.
+    expect(r, back, saved(r, "04-refused.canvas"))
+    expect(r, start, saved(r, "05-undone.canvas"))
+s = "s-reduced-motion"
+expect(s, saved(s, "00-start.canvas"), saved(s, "05-cursors-hidden.canvas"))
 f1 = "f1-reload-own-save"
 expect(f"{a}+{f1}", saved(a, "08-arranged.canvas"), saved(f1, "01-reloaded.canvas"))
 f2 = "f2-electron-file-one-change"

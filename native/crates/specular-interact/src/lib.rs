@@ -63,6 +63,7 @@ mod images;
 mod inspect;
 mod labels;
 mod layout;
+mod link_open;
 mod live;
 mod mark;
 mod marquee;

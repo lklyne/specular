@@ -203,7 +203,7 @@ fn moved(start: &Start, delta: DVec2) -> Vec<Command> {
 /// Where a copy of something filling `source` goes: on the grid to its
 /// right, or below it, or the first free spot found scanning on from there.
 /// A spot is free when it is [`PLACEMENT_GAP`] clear of every entity.
-fn free_spot(app: &App, source: Rect) -> DVec2 {
+pub(crate) fn free_spot(app: &App, source: Rect) -> DVec2 {
     let size = DVec2::new(grid::snap(source.width), grid::snap(source.height));
     let occupied: Vec<Rect> = app.document.entities().map(|entity| entity.rect).collect();
     let free = |at: DVec2| {

@@ -98,6 +98,17 @@ pub enum PageEvent {
         /// The address now shown.
         url: String,
     },
+    /// The page asked for a link to open in a new tab (CEF
+    /// `OnBeforePopup` or `OnOpenURLFromTab`). The backend refused it the
+    /// window; the app decides whether a page opens instead.
+    OpenTab {
+        /// The page.
+        page: PageId,
+        /// The address.
+        url: String,
+        /// Whether the tab would have come to the front.
+        foreground: bool,
+    },
     /// What is under the pointer asks for another cursor (CEF
     /// `OnCursorChange`).
     Cursor {

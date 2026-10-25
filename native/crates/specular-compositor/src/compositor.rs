@@ -185,6 +185,7 @@ impl Compositor {
             | PageEvent::Cursor { .. }
             | PageEvent::Favicon { .. }
             | PageEvent::Url { .. }
+            | PageEvent::OpenTab { .. }
             | PageEvent::Loading { .. }
             | PageEvent::Scrolled { .. }
             | PageEvent::ScrollProgress { .. }

@@ -29,6 +29,17 @@ pub(crate) fn notice_of(
         PageEvent::Cursor { page, cursor } => (*page, PageNotice::Cursor(*cursor)),
         PageEvent::Favicon { page, png } => (*page, PageNotice::Favicon(png.clone())),
         PageEvent::Url { page, url } => (*page, PageNotice::Url(url.clone())),
+        PageEvent::OpenTab {
+            page,
+            url,
+            foreground,
+        } => (
+            *page,
+            PageNotice::OpenTab {
+                url: url.clone(),
+                foreground: *foreground,
+            },
+        ),
         PageEvent::Loading {
             page,
             loading,
