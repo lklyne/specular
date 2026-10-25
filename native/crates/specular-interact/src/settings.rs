@@ -65,11 +65,19 @@ pub struct AppSettings {
     pub show_chat: bool,
     /// Where the tools' ribbon is.
     pub tools: ToolsPlace,
-    /// Whether agent cursors go undrawn. The agents act all the same.
-    pub hide_agent_cursors: bool,
-    /// Whether the cursor mirrored onto the other pages of a sync set goes
-    /// undrawn. The pages follow all the same.
-    pub hide_synced_cursors: bool,
+    /// Which cursors go undrawn.
+    pub hidden_cursors: HiddenCursors,
+}
+
+/// The cursors the user has chosen not to see. Hiding one only stops
+/// drawing it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct HiddenCursors {
+    /// Agent cursors. The agents act all the same.
+    pub agent: bool,
+    /// The cursor mirrored onto the other pages of a sync set. The pages
+    /// follow all the same.
+    pub synced: bool,
 }
 
 /// A change to the [`AppSettings`].
@@ -271,14 +279,14 @@ pub(crate) fn setting_toggles(app: &App) -> (Vec<SettingToggle>, Vec<SettingTogg
             "settings.agent-cursors",
             "Agent cursors",
             "Show a cursor where an agent is working, on the canvas and inside pages.",
-            !settings.hide_agent_cursors,
+            !settings.hidden_cursors.agent,
             SettingAction::ShowAgentCursors,
         ),
         toggle(
             "settings.synced-cursors",
             "Synced cursors",
             "Show your cursor mirrored onto the other pages of a sync set while you browse one.",
-            !settings.hide_synced_cursors,
+            !settings.hidden_cursors.synced,
             SettingAction::ShowSyncedCursors,
         ),
     ];
@@ -366,8 +374,8 @@ pub(crate) fn run(app: &mut App, action: SettingAction, effects: &mut Vec<Effect
         SettingAction::ShowSidebar(on) => app.settings.show_sidebar = on,
         SettingAction::ShowChat(on) => app.settings.show_chat = on,
         SettingAction::Tools(place) => app.settings.tools = place,
-        SettingAction::ShowAgentCursors(on) => app.settings.hide_agent_cursors = !on,
-        SettingAction::ShowSyncedCursors(on) => app.settings.hide_synced_cursors = !on,
+        SettingAction::ShowAgentCursors(on) => app.settings.hidden_cursors.agent = !on,
+        SettingAction::ShowSyncedCursors(on) => app.settings.hidden_cursors.synced = !on,
     }
     if app.settings != before {
         effects.push(Effect::SaveSettings(app.settings));

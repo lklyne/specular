@@ -189,8 +189,8 @@ pub use scroll_follow::{
     shown_rect, viewport_to_doc,
 };
 pub use settings::{
-    AboutRow, AppSettings, GeneralPane, SettingAction, SettingChoice, SettingOption, SettingToggle,
-    SettingsModel, ShortcutRow, SpaceRow, TOOLS_DOCK_WIDTH, ToolsPlace, settings,
+    AboutRow, AppSettings, GeneralPane, HiddenCursors, SettingAction, SettingChoice, SettingOption,
+    SettingToggle, SettingsModel, ShortcutRow, SpaceRow, TOOLS_DOCK_WIDTH, ToolsPlace, settings,
 };
 pub use showing::turn::Turning;
 pub use showing::{Lens, SavedTab, Showing};

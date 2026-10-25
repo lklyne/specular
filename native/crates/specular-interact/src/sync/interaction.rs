@@ -175,7 +175,7 @@ impl App {
     /// set. None while the setting hides them; the peers follow all the
     /// same.
     pub fn synced_cursors(&self) -> Vec<DVec2> {
-        if self.settings.hide_synced_cursors {
+        if self.settings.hidden_cursors.synced {
             return Vec::new();
         }
         let mut cursors: Vec<(&EntityId, &Vec2)> =

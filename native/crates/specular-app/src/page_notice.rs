@@ -5,6 +5,7 @@ use specular_interact::PageNotice;
 
 /// What the app is told about `event`, with the backend page it is about.
 /// `None` for frames, popups and answers, which go elsewhere.
+#[expect(clippy::too_many_lines, reason = "one arm per kind of event")]
 pub(crate) fn notice_of(
     event: &PageEvent,
     devtools_port: Option<u16>,

@@ -12,7 +12,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use serde_json::{Map, Value};
-use specular_interact::{AppSettings, Theme, ToolDefaults, ToolsPlace};
+use specular_interact::{AppSettings, HiddenCursors, Theme, ToolDefaults, ToolsPlace};
 
 use crate::persist::write_atomic;
 
@@ -155,8 +155,10 @@ pub(crate) fn load_settings(path: &Path) -> AppSettings {
         show_sidebar: shown("sidebar"),
         show_chat: shown("rightPanel"),
         tools,
-        hide_agent_cursors: hidden(HIDE_AGENT_CURSORS_KEY),
-        hide_synced_cursors: hidden(HIDE_SYNCED_CURSORS_KEY),
+        hidden_cursors: HiddenCursors {
+            agent: hidden(HIDE_AGENT_CURSORS_KEY),
+            synced: hidden(HIDE_SYNCED_CURSORS_KEY),
+        },
     }
 }
 
@@ -172,12 +174,12 @@ pub(crate) fn save_settings(path: &Path, settings: AppSettings) -> io::Result<()
     save_key(
         path,
         HIDE_AGENT_CURSORS_KEY,
-        Value::from(settings.hide_agent_cursors),
+        Value::from(settings.hidden_cursors.agent),
     )?;
     save_key(
         path,
         HIDE_SYNCED_CURSORS_KEY,
-        Value::from(settings.hide_synced_cursors),
+        Value::from(settings.hidden_cursors.synced),
     )
 }
 
@@ -344,8 +346,10 @@ mod tests {
             show_sidebar: true,
             show_chat: false,
             tools: ToolsPlace::FloatBottom,
-            hide_agent_cursors: true,
-            hide_synced_cursors: false,
+            hidden_cursors: HiddenCursors {
+                agent: true,
+                synced: false,
+            },
         };
         save_settings(&path, settings).unwrap();
         assert_eq!(load_settings(&path), settings);

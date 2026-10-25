@@ -16,7 +16,7 @@ use specular_testkit::TestApp;
 fn with_both_cursors(switches: &[&str]) -> (TestApp, bool, bool) {
     let mut app = TestApp::with_pages(2);
     for switch in switches {
-        app.control(switch).expect("a settings switch");
+        assert!(app.control(switch).is_ok(), "no switch {switch}");
     }
     app.select(&["p1", "p2"]).act(Action::ToggleSync);
     for page in ["p1", "p2"] {

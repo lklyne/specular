@@ -21,14 +21,13 @@ const POLL: Duration = Duration::from_secs(1);
 
 /// Whether the system asks for reduced motion now.
 fn system_reduces_motion() -> bool {
-    // SAFETY: `+[NSWorkspace sharedWorkspace]` returns the process's shared
-    // workspace, never nil, and `accessibilityDisplayShouldReduceMotion` is a
-    // BOOL property of it, available since macOS 10.12 and safe to read from
-    // any thread.
-    let reduce: Bool = unsafe {
-        let workspace: *mut AnyObject = msg_send![class!(NSWorkspace), sharedWorkspace];
-        msg_send![workspace, accessibilityDisplayShouldReduceMotion]
-    };
+    // SAFETY: `+[NSWorkspace sharedWorkspace]` takes no arguments and
+    // returns the process's shared workspace, never nil.
+    let workspace: *mut AnyObject = unsafe { msg_send![class!(NSWorkspace), sharedWorkspace] };
+    // SAFETY: `workspace` is a live NSWorkspace, and
+    // `accessibilityDisplayShouldReduceMotion` is a BOOL property of it,
+    // available since macOS 10.12 and safe to read from any thread.
+    let reduce: Bool = unsafe { msg_send![workspace, accessibilityDisplayShouldReduceMotion] };
     reduce.as_bool()
 }
 

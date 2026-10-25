@@ -330,6 +330,7 @@ pub(super) async fn step(
             canvas::with(|canvas| canvas.runtime.script_clipboard(Some(text)));
         }
         Do::Act(action) => canvas::dispatch(Event::Action(action)),
+        Do::Send(event) => canvas::dispatch(event),
         Do::Select(ids) => select(&ids),
         Do::Sidebar(shown) => show_sidebar(shown),
         Do::Drop(paths, Some(at)) => view::drop_files(paths, at),

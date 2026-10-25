@@ -260,7 +260,7 @@ impl App {
     /// first acted. None while the setting hides them; the agents act all
     /// the same.
     pub fn agent_cursors(&self) -> Vec<AgentCursor> {
-        if self.settings.hide_agent_cursors {
+        if self.settings.hidden_cursors.agent {
             return Vec::new();
         }
         (self.session.presence.cursors.iter())
