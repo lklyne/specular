@@ -1,18 +1,24 @@
 //! Whether an `expect` holds, read from the app alone, so a headless run and
 //! a window check the same thing the same way.
 
+mod entity;
+mod saved;
+
+use self::entity::{counted, counted_name, entity_fact};
+pub(crate) use self::saved::saved_text;
+use self::saved::{saved_fact, saved_json, saved_json_of};
+
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context as _, anyhow, bail, ensure};
 use serde_json::Value;
-use specular_doc::{Entity, EntityId, Kind, TextStyle};
+use specular_doc::{Entity, Kind, TextStyle};
 use specular_interact::{App, CanvasId, Focus, Showing};
 
-use super::expect::{Counted, EntityFact, Expect, Reference, SavedFact};
-use super::saved::{at, canonical, differences, listed, same};
+use super::expect::{Expect, Reference};
+use super::saved::{canonical, differences, listed};
 use super::words::{escaped, tool_word};
-use crate::persist::canvas_text;
 
 /// How far apart two coordinates may be and still be the same.
 const NEAR: f64 = 0.5;
@@ -197,61 +203,6 @@ impl Checks {
     }
 }
 
-/// Whether `fact` holds at `path` in the canvas as a save would write it.
-fn saved_fact(app: &App, path: &str, fact: &SavedFact) -> anyhow::Result<()> {
-    let canvas = saved_json(app)?;
-    let path = resolve_path(app, path)?;
-    let found = at(&canvas, &path);
-    let shown = || found.map_or("nothing".to_owned(), Value::to_string);
-    match fact {
-        SavedFact::Equals(value) => ensure!(
-            found.is_some_and(|found| same(found, value)),
-            "saved {path} is {}, expected {value}",
-            shown()
-        ),
-        SavedFact::Absent => ensure!(found.is_none(), "saved {path} is {}", shown()),
-        SavedFact::Keys(keys) => {
-            let Some(Value::Object(map)) = found else {
-                bail!("saved {path} is {}, not an object", shown());
-            };
-            let mut have: Vec<&str> = map.keys().map(String::as_str).collect();
-            let mut want: Vec<&str> = keys.iter().map(String::as_str).collect();
-            have.sort_unstable();
-            want.sort_unstable();
-            ensure!(have == want, "saved {path} has keys {}", have.join(" "));
-        }
-        SavedFact::Length(length) => {
-            let have = match found {
-                Some(Value::Array(items)) => items.len(),
-                Some(Value::Object(map)) => map.len(),
-                _ => bail!("saved {path} is {}, not a list", shown()),
-            };
-            ensure!(have == *length, "saved {path} has {have} items");
-        }
-    }
-    Ok(())
-}
-
-/// The active canvas as a save would write it now.
-pub(crate) fn saved_text(app: &App) -> anyhow::Result<String> {
-    saved_text_of(app, &app.space().active().id)
-}
-
-fn saved_text_of(app: &App, id: &CanvasId) -> anyhow::Result<String> {
-    let canvas = app
-        .canvas_to_save(id)
-        .context("the canvas showing is not in the space")?;
-    canvas_text(&canvas).context("writing the canvas as text")
-}
-
-fn saved_json(app: &App) -> anyhow::Result<Value> {
-    saved_json_of(app, &app.space().active().id)
-}
-
-fn saved_json_of(app: &App, id: &CanvasId) -> anyhow::Result<Value> {
-    Ok(serde_json::from_str(&saved_text_of(app, id)?)?)
-}
-
 fn name_of(reference: &Reference) -> String {
     match reference {
         Reference::Start => "the start".to_owned(),
@@ -349,105 +300,5 @@ pub(super) fn note_of<'a>(app: &'a App, entity: &Entity) -> Option<&'a str> {
     match &entity.kind {
         Kind::File(file) => app.document().note(&file.file),
         _ => None,
-    }
-}
-
-fn counted_name(what: &Counted) -> String {
-    match what {
-        Counted::Entities => "entities".to_owned(),
-        Counted::Kind(kind) => format!("{kind} entities"),
-        Counted::Edges => "edges".to_owned(),
-        Counted::Comments => "comments".to_owned(),
-        Counted::Canvases => "canvases".to_owned(),
-        Counted::Selected => "selected items".to_owned(),
-    }
-}
-
-fn counted(app: &App, what: &Counted) -> usize {
-    let document = app.document();
-    match what {
-        Counted::Entities => document.entities().count(),
-        Counted::Kind(kind) => (document.entities())
-            .filter(|entity| kind_word(entity) == kind)
-            .count(),
-        Counted::Edges => document.edges().count(),
-        Counted::Comments => document.annotations().len(),
-        Counted::Canvases => app.space().canvases().len(),
-        Counted::Selected => app.session().selection.items().len(),
-    }
-}
-
-fn near(found: &[f64], wanted: &[f64]) -> bool {
-    found.iter().zip(wanted).all(|(a, b)| (a - b).abs() <= NEAR)
-}
-
-fn numbers(values: &[f64]) -> String {
-    let shown: Vec<String> = values.iter().map(|value| format!("{value}")).collect();
-    shown.join(" ")
-}
-
-fn entity_fact(app: &App, name: &str, fact: &EntityFact) -> anyhow::Result<()> {
-    let id = resolve(app, name)?;
-    let entity = app.document().entity(&EntityId::from(id.as_str()));
-    let Some(entity) = entity else {
-        ensure!(
-            *fact == EntityFact::Gone,
-            "there is no entity `{id}`; there are {}",
-            (app.document().entities())
-                .map(|entity| entity.id.to_string())
-                .collect::<Vec<_>>()
-                .join(" ")
-        );
-        return Ok(());
-    };
-    let rect = entity.rect;
-    let what = |fact: &str| format!("entity {id} {fact}");
-    match fact {
-        EntityFact::Gone => bail!("entity {id} is still there"),
-        EntityFact::Kind(kind) => equal(&what("kind"), kind_word(entity), kind.as_str()),
-        EntityFact::Rect(wanted) => {
-            let found = [rect.x, rect.y, rect.width, rect.height];
-            ensure!(
-                near(&found, wanted),
-                "{} is {}, expected {}",
-                what("rect"),
-                numbers(&found),
-                numbers(wanted)
-            );
-            Ok(())
-        }
-        EntityFact::At(wanted) => {
-            let found = [rect.x, rect.y];
-            ensure!(
-                near(&found, wanted),
-                "{} is {}",
-                what("at"),
-                numbers(&found)
-            );
-            Ok(())
-        }
-        EntityFact::Size(wanted) => {
-            let found = [rect.width, rect.height];
-            ensure!(
-                near(&found, wanted),
-                "{} is {}",
-                what("size"),
-                numbers(&found)
-            );
-            Ok(())
-        }
-        EntityFact::Text(text) => equal(&what("text"), escaped(text_of(entity)), escaped(text)),
-        EntityFact::Note(text) => {
-            let found = note_of(app, entity).map(escaped);
-            equal(&what("note"), or_none(found), escaped(text))
-        }
-        EntityFact::Parent(parent) => {
-            let found = entity.parent.as_ref().map(ToString::to_string);
-            let wanted = parent
-                .as_deref()
-                .map(|name| resolve(app, name))
-                .transpose()?;
-            equal(&what("parent"), or_none(found), or_none(wanted))
-        }
     }
 }

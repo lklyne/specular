@@ -1,22 +1,18 @@
 //! The effect runner: sends an [`Event`] through `update` and does the I/O
 //! that comes back.
 
+mod asking;
+mod hosting;
+
 use std::time::Instant;
 
-use anyhow::Context as _;
-use glam::Vec2;
 use specular_bench::PaintPolicy;
-use specular_core::{
-    CssSize, InputEvent, PageId, PageNav, PageSource, PageSourceError, PageSpec, PointerEvent,
-    PointerEventKind,
-};
-use specular_doc::{EntityId, Rect};
-use specular_interact::{Effect, Event, PageRegion, update};
+use specular_core::PageNav;
+use specular_doc::EntityId;
+use specular_interact::{Effect, Event, update};
 
 use super::FolderAsk;
-use super::runtime::{PageHost, Runtime, ShellWindow};
-use super::settings::page_device;
-use crate::page_queries::css_rect;
+use super::runtime::{Runtime, ShellWindow};
 use crate::paint_lod::PageLod;
 
 impl<W: ShellWindow> Runtime<W> {
@@ -163,227 +159,6 @@ impl<W: ShellWindow> Runtime<W> {
             Effect::PreviewRegion { pages } => self.preview_region(&pages),
         }
         Ok(())
-    }
-
-    fn focus_page(&mut self, page: Option<&EntityId>) {
-        let host = page.and_then(|page| self.hosts.get(page));
-        warn_on_error(self.source.set_focus(host.map(|host| host.page)));
-    }
-
-    fn set_page_viewport(&mut self, page: &EntityId, viewport: specular_core::CssSize) {
-        if let Some(host) = self.hosts.get(page) {
-            warn_on_error(self.source.set_viewport(host.page, viewport));
-        }
-    }
-
-    /// Lets the agent whose cursor has arrived carry out its act.
-    fn agent_go(&self, ticket: u64) {
-        tracing::debug!(ticket, "the agent's cursor is there");
-        if let Some(cdp) = &self.cdp {
-            cdp.go(ticket);
-        }
-    }
-
-    /// Hosts `page` at `url`, watching the file it loads if it is one.
-    fn create_page(&mut self, page: &EntityId, url: &str, viewport: CssSize) -> anyhow::Result<()> {
-        let lod = self.starting_lod(page);
-        let scale = self.gpu.as_ref().map_or(1.0, W::scale_factor);
-        let mut spec = PageSpec::new(url, viewport);
-        spec.texture_scale = scale * lod.texture().factor();
-        spec.device = page_device(&self.app, page, scale);
-        let host = self
-            .source
-            .create_page(&spec)
-            .with_context(|| format!("creating page for {url}"))?;
-        self.hosts
-            .insert(page.clone(), PageHost { page: host, lod });
-        self.loads.pages.insert(host);
-        self.loads.unpainted.insert(host);
-        self.page_files.hosted(page, url);
-        self.give_color_scheme(page);
-        Ok(())
-    }
-
-    /// Stops hosting `page` and answers what was asked of it.
-    fn close_page(&mut self, page: &EntityId) {
-        self.page_files.closed(page);
-        if let Some(host) = self.hosts.remove(page) {
-            if let Some(cdp) = &self.cdp {
-                cdp.page_closed(page);
-            }
-            self.loads.page_closed(host.page);
-            warn_on_error(self.source.close_page(host.page));
-            if let Some(gpu) = self.gpu.as_mut() {
-                gpu.compositor_mut().remove_page(host.page);
-            }
-        }
-        self.give_up_on_page(page);
-    }
-
-    /// Loads again each page whose HTML file changed on disk, unless the
-    /// page has since gone somewhere else.
-    pub(super) fn reload_changed_pages(&mut self, now: Instant) {
-        for page in self.page_files.changed(now) {
-            let live = (self.app.page_state(&page)).and_then(|state| state.url.as_deref());
-            if live.is_some_and(|url| !self.page_files.watches(&page, url)) {
-                continue;
-            }
-            self.on_host(&page, |source, host| {
-                source.navigate(host, &PageNav::Reload)
-            });
-        }
-    }
-
-    /// Runs what a sync set asks of its pages (the capture of the entered
-    /// page, a peer's candidates, a replayed pointer and the scroll) and
-    /// what element attachment asks of them (the element under an item, and
-    /// the ones to track).
-    fn run_sync(&mut self, effect: Effect) {
-        match effect {
-            Effect::CapturePage(page) => self.capture_page(page.as_ref()),
-            Effect::AskCandidates {
-                page,
-                request,
-                bundle,
-            } => self.on_host(&page, |source, host| {
-                source.query_candidates(host, &bundle, request)
-            }),
-            Effect::ReplayPointer { page, kind, point } => {
-                self.on_host(&page, |source, host| {
-                    source.replay_pointer(host, kind, point)
-                });
-            }
-            Effect::AskScrollProgress(page) => {
-                self.on_host(&page, |source, host| source.scroll_progress(host));
-            }
-            Effect::AskScrollRoom { page, at, toward } => {
-                self.on_host(&page, |source, host| source.scroll_room(host, at, toward));
-            }
-            Effect::ScrollPage { page, progress } => {
-                self.on_host(&page, |source, host| source.scroll_to(host, progress));
-            }
-            Effect::CaptureElement {
-                page,
-                request,
-                point,
-            } => self.on_host(&page, |source, host| {
-                source.capture_element(host, point, request)
-            }),
-            Effect::TrackElements { page, selectors } => {
-                self.on_host(&page, |source, host| {
-                    source.track_elements(host, &selectors)
-                });
-            }
-            _ => {}
-        }
-    }
-
-    /// Asks something of the backend page that hosts `page`, if one does. A
-    /// refusal is logged: the page may be closing or between documents.
-    fn on_host(
-        &mut self,
-        page: &EntityId,
-        ask: impl FnOnce(&mut dyn PageSource, PageId) -> Result<(), PageSourceError>,
-    ) {
-        if let Some(host) = self.hosts.get(page) {
-            warn_on_error(ask(self.source.as_mut(), host.page));
-        }
-    }
-
-    /// Names the page whose hovers and clicks the backend reports.
-    fn capture_page(&mut self, page: Option<&EntityId>) {
-        let host = page.and_then(|page| self.hosts.get(page));
-        warn_on_error(self.source.set_capture(host.map(|host| host.page)));
-    }
-
-    /// Asks the page for the element at `point`. The answer comes back
-    /// through the page's events; a page that cannot be asked has none.
-    fn query_element(&mut self, page: &EntityId, point: Vec2) {
-        let request = self.queries.ask_element(page.clone(), point);
-        let asked = (self.hosts.get(page))
-            .is_some_and(|host| self.source.query_element(host.page, point, request).is_ok());
-        if !asked && let Some(answer) = self.queries.element_answer(request, None) {
-            self.dispatch(answer);
-        }
-    }
-
-    /// Asks the page for the node at `point` as the inspect tool reads it.
-    /// A page that cannot be asked has none.
-    fn inspect_at(&mut self, page: &EntityId, point: Vec2, pick: bool) {
-        let request = self.queries.ask_inspect(page.clone(), point, pick);
-        let asked = (self.hosts.get(page))
-            .is_some_and(|host| self.source.inspect_at(host.page, point, request).is_ok());
-        if !asked && let Some(answer) = self.queries.inspect_answer(request, None) {
-            self.dispatch(answer);
-        }
-    }
-
-    /// Asks each page what the region grabbed in it. The answer goes to the
-    /// app once every page has said; a page that cannot be asked grabbed
-    /// nothing.
-    fn query_region_grab(&mut self, region: Rect, pages: &[PageRegion]) {
-        let ids = pages.iter().map(|covered| covered.page.clone()).collect();
-        let requests = self.queries.ask_grab(region, ids);
-        for (covered, request) in pages.iter().zip(requests) {
-            let rect = css_rect(covered.rect);
-            let asked = self.hosts.get(&covered.page).is_some_and(|host| {
-                (self.source.query_elements_in_rect(host.page, rect, request)).is_ok()
-            });
-            if !asked {
-                self.queries.grab_answer(request, 0);
-            }
-        }
-        self.answer_settled_grabs();
-    }
-
-    /// Asks each page what a region still being dragged has inside it. Each
-    /// answers for itself; a page that cannot be asked is not answered for.
-    fn preview_region(&mut self, pages: &[PageRegion]) {
-        for covered in pages {
-            let Some(host) = self.hosts.get(&covered.page).map(|host| host.page) else {
-                continue;
-            };
-            let request = self.queries.ask_preview(covered.page.clone());
-            let rect = css_rect(covered.rect);
-            if (self.source.query_elements_in_rect(host, rect, request)).is_err() {
-                self.queries.preview_answer(request, &[]);
-            }
-        }
-    }
-
-    /// Tells the app about the regions every page has now answered for.
-    pub(super) fn answer_settled_grabs(&mut self) {
-        for answer in self.queries.settled() {
-            self.dispatch(answer);
-        }
-    }
-
-    /// Answers what was still being asked of a page that will not answer.
-    pub(super) fn give_up_on_page(&mut self, page: &EntityId) {
-        for answer in self.queries.give_up_on(page) {
-            self.dispatch(answer);
-        }
-        self.answer_settled_grabs();
-    }
-
-    fn send_to_page(&mut self, page: &EntityId, event: &InputEvent) {
-        let Some(host) = self.hosts.get(page) else {
-            return;
-        };
-        if let Err(error) = self.source.send_input(host.page, event) {
-            tracing::warn!("{error}");
-            return;
-        }
-        let is_hover = matches!(
-            event,
-            InputEvent::Pointer(PointerEvent {
-                kind: PointerEventKind::Move | PointerEventKind::Leave,
-                ..
-            })
-        );
-        if !is_hover {
-            self.latency.input_sent(host.page, Instant::now());
-        }
     }
 }
 
