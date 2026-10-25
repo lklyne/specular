@@ -146,25 +146,6 @@ mod tests {
     }
 
     #[test]
-    fn an_upload_covers_the_dirty_rects_inside_the_frame_or_all_of_it() {
-        for (name, dirty, expected) in [
-            (
-                "empty list is the whole frame",
-                vec![],
-                PixelRect::new(0, 0, 8, 4),
-            ),
-            (
-                "clamped to the frame",
-                vec![PixelRect::new(-2, 2, 20, 10)],
-                PixelRect::new(0, 2, 8, 2),
-            ),
-        ] {
-            let regions: Vec<_> = upload_regions(&frame(8, 4, dirty), false).collect();
-            assert_eq!(regions, [expected], "{name}");
-        }
-    }
-
-    #[test]
     fn validate_rejects_a_frame_that_cannot_be_read() {
         let mut short_buffer = frame(8, 4, vec![]);
         short_buffer.bgra.truncate(10);
@@ -202,13 +183,5 @@ mod tests {
         ] {
             assert_eq!(validate_cpu_frame(&frame, max), Err(error), "{name}");
         }
-    }
-
-    #[test]
-    fn validate_accepts_padded_rows_without_trailing_padding() {
-        let mut frame = frame(8, 4, vec![]);
-        frame.stride = 40;
-        frame.bgra = vec![0; 40 * 3 + 32];
-        assert_eq!(validate_cpu_frame(&frame, 8192), Ok(()));
     }
 }

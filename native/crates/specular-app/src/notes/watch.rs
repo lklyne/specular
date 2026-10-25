@@ -229,121 +229,12 @@ mod tests {
             std::fs::create_dir_all(dir.join("notes")).unwrap();
             Self(dir)
         }
-
-        fn write(&self, file: &str, text: &str) {
-            std::fs::write(self.0.join(file), text).unwrap();
-        }
-
-        fn watcher(&self) -> Watcher {
-            Watcher::new(Some(self.0.clone()))
-        }
     }
 
     impl Drop for Space {
         fn drop(&mut self) {
             let _ = std::fs::remove_dir_all(&self.0);
         }
-    }
-
-    fn watch(watcher: &mut Watcher, file: &str) -> Vec<NoteRead> {
-        let mut reads = Vec::new();
-        watcher.watch(file.to_owned(), &mut |read| reads.push(read));
-        reads
-    }
-
-    fn check(watcher: &mut Watcher) -> Vec<(String, Result<String, ReadFailure>)> {
-        let mut reads = Vec::new();
-        watcher.check(&mut |read: NoteRead| reads.push((read.file, read.result)));
-        reads
-    }
-
-    fn text(file: &str, text: &str) -> (String, Result<String, ReadFailure>) {
-        (file.to_owned(), Ok(text.to_owned()))
-    }
-
-    #[test]
-    fn watching_reads_the_file_from_the_space_folder() {
-        let space = Space::new("reads");
-        space.write("notes/plan.md", "# Plan\n");
-        let reads = watch(&mut space.watcher(), "notes/plan.md");
-        assert_eq!(reads.len(), 1);
-        assert_eq!(reads[0].file, "notes/plan.md");
-        assert_eq!(reads[0].result.as_deref(), Ok("# Plan\n"));
-    }
-
-    #[test]
-    fn a_changed_file_is_read_again_and_an_unchanged_one_is_not() {
-        let space = Space::new("changes");
-        space.write("a.md", "one");
-        space.write("b.md", "same");
-        let mut watcher = space.watcher();
-        watch(&mut watcher, "a.md");
-        watch(&mut watcher, "b.md");
-        assert_eq!(check(&mut watcher), []);
-        // A save of the same text moves the stamp and reports nothing.
-        let later = std::time::SystemTime::now() + std::time::Duration::from_secs(5);
-        let b = std::fs::File::options()
-            .write(true)
-            .open(space.0.join("b.md"))
-            .unwrap();
-        b.set_modified(later).unwrap();
-        assert_eq!(check(&mut watcher), []);
-        // A different length, so the stamp moves even on a coarse clock.
-        space.write("a.md", "one, two");
-        assert_eq!(check(&mut watcher), [text("a.md", "one, two")]);
-        assert_eq!(check(&mut watcher), []);
-    }
-
-    #[test]
-    fn a_missing_file_is_reported_once_and_read_when_it_appears() {
-        let space = Space::new("appears");
-        let mut watcher = space.watcher();
-        let reads = watch(&mut watcher, "later.md");
-        assert_eq!(reads[0].result, Err(ReadFailure::Missing));
-        assert_eq!(check(&mut watcher), []);
-        space.write("later.md", "here now");
-        assert_eq!(check(&mut watcher), [text("later.md", "here now")]);
-        std::fs::remove_file(space.0.join("later.md")).unwrap();
-        assert_eq!(
-            check(&mut watcher),
-            [("later.md".to_owned(), Err(ReadFailure::Missing))]
-        );
-    }
-
-    #[test]
-    fn a_file_that_is_not_text_and_a_web_url_fail() {
-        let space = Space::new("fails");
-        std::fs::write(space.0.join("bad.md"), [0xff, 0xfe, 0x00]).unwrap();
-        let mut watcher = space.watcher();
-        assert_eq!(
-            watch(&mut watcher, "bad.md")[0].result,
-            Err(ReadFailure::Failed)
-        );
-        let url = "https://example.com/readme.md";
-        assert_eq!(watch(&mut watcher, url)[0].result, Err(ReadFailure::Failed));
-        assert_eq!(check(&mut watcher), []);
-    }
-
-    #[test]
-    fn an_unwatched_file_is_left_alone() {
-        let space = Space::new("unwatch");
-        space.write("a.md", "one");
-        let mut watcher = space.watcher();
-        watch(&mut watcher, "a.md");
-        watcher.unwatch("a.md");
-        space.write("a.md", "one, two");
-        assert_eq!(check(&mut watcher), []);
-    }
-
-    #[test]
-    fn watching_again_reports_the_file_again() {
-        let space = Space::new("again");
-        space.write("a.md", "one");
-        let mut watcher = space.watcher();
-        watch(&mut watcher, "a.md");
-        assert_eq!(watch(&mut watcher, "a.md")[0].result.as_deref(), Ok("one"));
-        space.write("a.md", "one, two");
-        assert_eq!(check(&mut watcher), [text("a.md", "one, two")]);
     }
 
     #[test]
@@ -372,24 +263,5 @@ mod tests {
         watcher.check(&mut |read| reads.push(read));
         assert_eq!(reads, []);
         assert_eq!(std::fs::read_to_string(&path).unwrap(), "ours again");
-    }
-
-    #[test]
-    fn a_new_document_takes_the_first_name_no_file_has() {
-        let space = Space::new("create");
-        let watcher = Watcher::new(Some(space.0.clone()));
-        std::fs::write(space.0.join("Untitled Note 2.md"), "kept").unwrap();
-        let names: Vec<_> = (0..3).map(|_| watcher.create().unwrap()).collect();
-        assert_eq!(
-            names,
-            [
-                "Untitled Note.md",
-                "Untitled Note 3.md",
-                "Untitled Note 4.md"
-            ]
-        );
-        let kept = std::fs::read_to_string(space.0.join("Untitled Note 2.md")).unwrap();
-        assert_eq!(kept, "kept");
-        assert!(Watcher::new(None).create().is_err());
     }
 }

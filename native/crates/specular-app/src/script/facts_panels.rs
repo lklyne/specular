@@ -15,8 +15,8 @@
 //! `inspect`, `menubar`, `onboarding`, `pages`, `palette`, `pointer`, `repos`,
 //! `settings`, `sidebar` and `tabs` (see [`lines`]). A `state` step writes
 //! every line of every topic, each as the `expect .. has` that holds it.
-//! `effects` are the ones the step before asked of the shell, which only a
-//! headless run sees.
+//! `effects` are the ones the step before asked of the shell (the same ones
+//! `expect sent` reads), which only a headless run sees.
 
 mod lines;
 mod steps;
@@ -104,32 +104,6 @@ pub struct PanelFact {
     pub test: LineTest,
 }
 
-/// The effects the step before asked of the shell, as lines, when the
-/// runner sees them. A window runs them where a script cannot watch.
-#[derive(Debug, Default)]
-pub struct EffectLog(Option<Vec<String>>);
-
-impl EffectLog {
-    /// Starts seeing effects.
-    pub fn watch(&mut self) {
-        self.0 = Some(Vec::new());
-    }
-
-    /// Forgets what the last step asked, as the next one starts.
-    pub fn clear(&mut self) {
-        if let Some(seen) = &mut self.0 {
-            seen.clear();
-        }
-    }
-
-    /// Remembers `effect`.
-    pub fn saw(&mut self, effect: &Effect) {
-        if let Some(seen) = &mut self.0 {
-            lines::effect(effect, seen);
-        }
-    }
-}
-
 /// The fact `what` and `tail` state, when `what` is a topic.
 pub(super) fn parse(what: &str, tail: &str) -> Option<anyhow::Result<PanelFact>> {
     let topic = TOPICS.iter().find(|(word, _)| *word == what)?.1;
@@ -155,14 +129,28 @@ fn parse_test(tail: &str) -> anyhow::Result<LineTest> {
 }
 
 impl PanelFact {
-    /// Whether the fact holds for `app`. The error lists the lines found.
-    pub fn check(&self, app: &App, effects: &EffectLog) -> anyhow::Result<()> {
-        let found = match (self.topic, &effects.0) {
+    /// Whether the fact reads the effects of the step before, which only
+    /// the runner that ran them has.
+    pub fn reads_effects(&self) -> bool {
+        self.topic == Topic::Effects
+    }
+
+    /// Whether the fact holds for `app`, with `sent` the effects of the
+    /// last step that was not a check, when the runner kept them. The error
+    /// lists the lines found.
+    pub fn check(&self, app: &App, sent: Option<&[Effect]>) -> anyhow::Result<()> {
+        let found = match (self.topic, sent) {
             (Topic::Effects, None) => {
                 tracing::warn!("effects are not seen by this runner; the check is skipped");
                 return Ok(());
             }
-            (Topic::Effects, Some(seen)) => seen.clone(),
+            (Topic::Effects, Some(sent)) => {
+                let mut seen = Vec::new();
+                for effect in sent {
+                    lines::effect(effect, &mut seen);
+                }
+                seen
+            }
             (topic, _) => lines::lines(app, topic),
         };
         let holding = |text: &str| found.iter().filter(|line| line.contains(text)).count();

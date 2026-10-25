@@ -1,0 +1,44 @@
+# canvas: html-file.canvas
+# An HTML file node is a page like a link node: hosted at its file's URL in
+# the canvas's folder, entered, commented on and shown in its own tab, and
+# still a `file` node in the `.canvas` whatever its page does.
+camera 0,0,1
+expect entity h1 kind file
+expect page h1 100 100 400 300 viewport 400 300
+# select first, as a page is: the second click enters it
+click 200 150
+click 200 150
+expect focus page h1
+# where the page goes from its file is not written back
+page-says h1 url https://example.com/
+expect sent nothing
+expect saved /nodes/h1/file = assets/demo.html
+expect saved /nodes/h1/type = file
+# deleted it is closed; undone it is hosted at its file's URL again
+key escape
+key backspace
+expect sent close-page h1
+key cmd+z
+expect sent create-page h1 file:///
+# a comment on it is bound to its page by its path in the folder
+key escape
+tool comment
+click 200 150
+wait 100
+type tighten this
+key enter
+expect saved /annotations/0/pageAnchor/pageId = h1
+expect saved /annotations/0/pageAnchor/pageUrl = assets/demo.html
+key escape
+key escape
+# its own tab fills the view with it, laid out at the tab's size
+act show:h1
+expect showing h1
+expect sent viewport h1
+act show-canvas
+# a sync set is links or HTML files, never both
+select h1 p1
+act toggle-sync
+expect synced h1 no
+expect synced p1 no
+undo-to-start

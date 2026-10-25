@@ -43,25 +43,3 @@ impl StandIns {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn new_documents_take_the_next_free_name() {
-        let mut stand_ins = StandIns::default();
-        assert_eq!(stand_ins.create_note(), "Untitled Note.md");
-        assert_eq!(stand_ins.create_note(), "Untitled Note 2.md");
-    }
-
-    #[test]
-    fn only_documents_the_run_made_are_written() {
-        let mut stand_ins = StandIns::default();
-        let file = stand_ins.create_note();
-        stand_ins.write_note(&file, "# Plan".to_owned());
-        stand_ins.write_note("on-disk.md", "lost".to_owned());
-        assert_eq!(stand_ins.note(&file), Some("# Plan"));
-        assert_eq!(stand_ins.note("on-disk.md"), None);
-    }
-}

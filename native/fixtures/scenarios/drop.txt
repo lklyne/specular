@@ -1,0 +1,28 @@
+# canvas: empty.canvas
+# Files dropped on the canvas: a picture from outside the space is copied
+# into its assets and shown at its size, a file inside it is shown where it
+# is, and several cascade from the drop point as one undo step.
+camera 0,0,1
+drop ../assets/kitchen-sink.png 207 93
+expect selection @top
+expect entity @top rect 200 100 320 200
+expect sent copy-asset
+expect sent load-image assets/
+key cmd+z
+# a file inside the space is shown where it is, and not copied
+drop README.md 0 0
+expect entity @top text README.md
+expect entity @top kind document
+expect sent no copy-asset
+expect sent load-note README.md
+key cmd+z
+# several cascade from the drop point, as one step; what is not shown is
+# left out
+drop ../assets/kitchen-sink.png ../assets/archive.zip README.md 100 100
+expect count entities 2
+expect entity @1 at 100 100
+expect entity @2 at 120 120
+expect count selected 2
+key cmd+z
+expect count entities 0
+undo-to-start

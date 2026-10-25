@@ -14,6 +14,8 @@ expect entity left parent @top
 expect saved /nodes/@top/managedLayout = true
 expect saved /nodes/@top/layoutMode = row
 expect saved /nodes/@top/layoutGap absent
+expect saved /nodes/@top/label = Auto-layout
+expect entity @top rect 176 176 508 148
 expect entity left at 200 200
 expect entity a at 380 200
 expect entity right at 560 200

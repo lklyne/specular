@@ -243,20 +243,3 @@ pub(crate) fn fitted(rect: Rect, text: &Text, working: &str, measure: &dyn TextM
     };
     Rect::new(rect.x, rect.y, width, height)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_label_box_is_inset_where_the_silhouette_is_narrow() {
-        let rect = Rect::new(100.0, 200.0, 200.0, 100.0);
-        let rows = [
-            (ShapeKind::Diamond, Rect::new(150.0, 225.0, 100.0, 50.0)),
-            (ShapeKind::Hexagon, rect),
-        ];
-        for (kind, want) in rows {
-            assert_eq!(label_box(kind, rect), want, "{kind:?}");
-        }
-    }
-}

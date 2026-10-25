@@ -1,5 +1,7 @@
-//! Image files: `update` asks the shell for each one, and keeps what the
-//! shell answers.
+//! Image files over time: an svg rastered again only once the zoom leaves
+//! its band, a file changed on disk keeping its picture until the new one
+//! is ready, and a gif's frame following the clock. Loading in use is in
+//! `fixtures/scenarios/images.txt`.
 
 use std::sync::Arc;
 
@@ -7,7 +9,7 @@ use glam::Vec2;
 use specular_core::Camera;
 use specular_doc::{Document, Entity, FileRef, Kind, Rect};
 use specular_interact::{Action, Effect, Event, ImageNotice, ImageState};
-use specular_testkit::{TestApp, document, file, page};
+use specular_testkit::{TestApp, document};
 
 const BOX: Rect = Rect::new(100.0, 100.0, 240.0, 160.0);
 
@@ -40,33 +42,6 @@ fn image_effects(effects: &[Effect]) -> Vec<(u64, &str)> {
 
 fn state(app: &TestApp, file: &str) -> Option<ImageState> {
     app.app().image(file).map(|image| image.state)
-}
-
-#[test]
-fn opening_a_document_asks_for_each_image_file_once() {
-    let mut app = opened(document([
-        file_at("a", "assets/shot.png"),
-        file_at("b", "assets/shot.png"),
-        file_at("c", "/abs/photo.JPG"),
-        file_at("d", "notes.md"),
-        page("p1", BOX),
-    ]));
-    assert_eq!(
-        image_effects(&app.take_effects()),
-        [(0, "assets/shot.png"), (1, "/abs/photo.JPG")]
-    );
-    assert_eq!(state(&app, "assets/shot.png"), Some(ImageState::Loading));
-    assert_eq!(state(&app, "notes.md"), None);
-}
-
-#[test]
-fn opening_another_document_drops_what_it_does_not_show_and_keeps_the_rest() {
-    let mut app = opened(document([file("a", BOX), file("b", BOX)]));
-    app.take_effects();
-    app.open(document([file("b", BOX), file("c", BOX)]));
-    // `a` (key 0) goes, `b` (key 1) is not loaded again, `c` is new.
-    assert_eq!(image_effects(&app.take_effects()), [(0, ""), (2, "c.png")]);
-    assert_eq!(state(&app, "a.png"), None);
 }
 
 /// Answers the load of `file` with `notice`.

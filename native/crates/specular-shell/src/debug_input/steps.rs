@@ -10,7 +10,7 @@
 use std::path::PathBuf;
 
 use glam::Vec2;
-use specular_app::script::{CameraArg, Expect, PanelStep, Step, WindowStep};
+use specular_app::script::{CameraArg, CanvasStep, Expect, PanelStep, Step, WindowStep};
 use specular_interact::{Action, Event, PageNotice};
 
 use super::us_keys::{COMMAND, flags_of, key_of, key_step};
@@ -169,6 +169,8 @@ pub(super) fn lower(step: Step) -> Result<Do, String> {
         Step::UndoToStart(except) => Do::UndoToStart(except),
         Step::Panel(step) => Do::Panel(step),
         Step::Window(step) => window(step),
+        Step::Canvas(CanvasStep::Menu(item)) => Do::MenuChoose(item),
+        Step::Canvas(CanvasStep::Send(event)) => Do::Send(event),
     })
 }
 
@@ -246,77 +248,4 @@ pub(super) fn is_clipboard_key(step: &Do) -> bool {
     let keys = ['c', 'x', 'v'].map(|key| key_of(key).map(|(code, _)| code));
     matches!(step, Do::Key { code, flags, .. }
         if flags & COMMAND != 0 && keys.contains(&Some(*code)))
-}
-
-#[cfg(test)]
-mod tests {
-    use specular_app::script::Script;
-
-    use super::super::us_keys::SHIFT;
-    use super::*;
-
-    fn key(code: u16, flags: usize, characters: &str, plain: &str) -> Do {
-        Do::Key {
-            code,
-            flags,
-            characters: characters.to_owned(),
-            plain: plain.to_owned(),
-        }
-    }
-
-    fn parse(text: &str) -> Do {
-        let mut script = Script::parse(text).unwrap();
-        lower(script.steps.remove(0).step).unwrap()
-    }
-
-    #[test]
-    fn script_steps_become_what_the_window_does() {
-        let at = Vec2::new(10.0, 20.0);
-        let named = |name: &str| Place::Control(name.to_owned());
-        for (text, expected) in [
-            ("release", Do::Release(Place::Pointer)),
-            ("release 10 20", Do::Release(Place::At(at))),
-            ("double-click 10 20", Do::Click(Place::At(at), 2)),
-            ("key cmd+shift+z", key(6, COMMAND | SHIFT, "z", "Z")),
-            ("key backspace", key(51, 0, "\u{7f}", "\u{7f}")),
-            (
-                "scroll 10 20 0 -40",
-                Do::Scroll(Place::At(at), Vec2::new(0.0, -40.0)),
-            ),
-            ("control shape.color", Do::Click(named("shape.color"), 1)),
-            ("panels off", Do::Skip),
-            ("keycode 51", key(51, 0, "\u{7f}", "\u{7f}")),
-            ("keys shift+cmd 6 z", key(6, SHIFT | COMMAND, "z", "z")),
-            ("snapshot out.png", Do::Shot(PathBuf::from("out.png"))),
-            ("undo-to-start", Do::UndoToStart(vec![])),
-            ("quit", Do::Quit),
-        ] {
-            assert_eq!(parse(text), expected, "{text}");
-        }
-        let mut script = Script::parse("key cmd+é").unwrap();
-        let error = lower(script.steps.remove(0).step).unwrap_err();
-        assert!(error.contains('é'), "{error}");
-    }
-
-    #[test]
-    fn an_inline_key_with_a_number_is_a_key_code() {
-        assert_eq!(
-            inline_lines("wait 10; key 51; key cmd+z;"),
-            "wait 10\nkeycode 51\nkey cmd+z"
-        );
-    }
-
-    #[test]
-    fn only_command_c_x_and_v_are_clipboard_keys() {
-        for (text, clipboard) in [
-            ("key cmd+c", true),
-            ("key cmd+x", true),
-            ("key cmd+shift+v", true),
-            ("key cmd+z", false),
-            ("key c", false),
-            ("type cxv", false),
-        ] {
-            assert_eq!(is_clipboard_key(&parse(text)), clipboard, "{text}");
-        }
-    }
 }

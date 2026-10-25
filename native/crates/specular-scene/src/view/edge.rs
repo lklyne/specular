@@ -145,36 +145,3 @@ fn label(curve: &EdgeCurve, text: &str, zoom: f32, color: Color) -> Item {
         ..TextRun::new(text, vec_point(curve.point(0.5)), LABEL_SIZE * zoom, color)
     })
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn heading_follows_the_control_point_and_falls_back_to_the_chord() {
-        let end = Vec2::new(10.0, 0.0);
-        assert_eq!(
-            (
-                heading(Vec2::new(10.0, -5.0), end, Vec2::ZERO),
-                heading(end, end, Vec2::ZERO)
-            ),
-            (Vec2::Y, Vec2::X)
-        );
-    }
-
-    #[test]
-    fn an_arrowhead_points_along_its_heading() {
-        let item = arrowhead(Vec2::new(100.0, 50.0), Vec2::X, 2.0, DEFAULT_COLOR);
-        let crate::Draw::Polygon(polygon) = item.draw else {
-            panic!("an arrowhead is a polygon");
-        };
-        assert_eq!(
-            polygon.points,
-            [
-                crate::Point::new(91.5, 56.0),
-                crate::Point::new(101.5, 50.0),
-                crate::Point::new(91.5, 44.0),
-            ]
-        );
-    }
-}

@@ -95,11 +95,6 @@ fn state() -> String {
         names.join(" ")
     };
     let _ = writeln!(out, "# kit-controls {}", names(view::shown_controls()));
-    let _ = writeln!(
-        out,
-        "# canvas-controls {}",
-        names(control::in_canvas_pass())
-    );
     window::describe(&mut out);
     out
 }

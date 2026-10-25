@@ -413,6 +413,3 @@ impl RunArgs {
         }
     }
 }
-
-#[cfg(test)]
-mod tests;

@@ -1,0 +1,12 @@
+{
+  "nodes": [
+    {"id": "port", "type": "link", "x": 100, "y": 100, "width": 402, "height": 874, "url": "https://example.com/", "metadata": {"showDeviceFrame": true, "deviceId": "iphone-17"}},
+    {"id": "land", "type": "link", "x": 600, "y": 100, "width": 874, "height": 402, "url": "https://example.com/", "metadata": {"showDeviceFrame": true, "deviceId": "iphone-17", "deviceOrientation": "landscape"}},
+    {"id": "clay", "type": "link", "x": 1600, "y": 100, "width": 402, "height": 874, "url": "https://example.com/", "metadata": {"showDeviceFrame": true, "deviceId": "iphone-17", "deviceFrameStyle": "clay"}},
+    {"id": "bare", "type": "link", "x": 2100, "y": 100, "width": 402, "height": 874, "url": "https://example.com/", "metadata": {"showDeviceFrame": false, "deviceId": "iphone-17"}},
+    {"id": "se", "type": "link", "x": 2600, "y": 100, "width": 375, "height": 667, "url": "https://example.com/", "metadata": {"showDeviceFrame": true, "deviceId": "iphone-se"}},
+    {"id": "pad", "type": "link", "x": 3100, "y": 100, "width": 744, "height": 1133, "url": "https://example.com/", "metadata": {"showDeviceFrame": true, "deviceId": "ipad-mini"}}
+  ],
+  "edges": [],
+  "specular": {"entityOrder": ["port", "land", "clay", "bare", "se", "pad"]}
+}

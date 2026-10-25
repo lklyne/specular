@@ -8,9 +8,7 @@ use std::path::{Path, PathBuf};
 use serde_json::{Value, json};
 use specular_core::Camera;
 use specular_doc::{EntityId, ItemId};
-use specular_interact::{
-    Action, App, CanvasAction, CanvasId, Effect, Event, Lens, Showing, update, view_strip,
-};
+use specular_interact::{Action, App, CanvasAction, CanvasId, Effect, Event, update};
 
 use super::files::SpaceFiles;
 use super::{listing, open};
@@ -58,17 +56,6 @@ fn canvas(id: &str) -> String {
     format!(
         r#"{{"nodes":[{{"id":"{id}","type":"text","x":0,"y":0,"width":200,"height":200,"text":"{id}","specular":{{"textStyle":"sticky"}}}}],"edges":[]}}"#
     )
-}
-
-/// A canvas file holding a page for each of `ids`, side by side.
-fn pages(ids: &[&str]) -> String {
-    let nodes: Vec<Value> = (ids.iter().enumerate())
-        .map(|(index, id)| {
-            json!({ "id": id, "type": "link", "x": 500 * index, "y": 0, "width": 400,
-                    "height": 300, "url": "https://example.com/" })
-        })
-        .collect();
-    json!({ "nodes": nodes, "edges": [] }).to_string()
 }
 
 fn node_ids(text: &str) -> Vec<String> {
@@ -135,14 +122,6 @@ impl OnDisk {
             .collect()
     }
 
-    /// The ids of the item tabs of the canvas showing, in order.
-    fn tabs(&self) -> Vec<String> {
-        (view_strip(&self.app).tabs.iter())
-            .filter_map(|tab| tab.id.as_str().strip_prefix("view.item."))
-            .map(str::to_owned)
-            .collect()
-    }
-
     fn delete_entity(&mut self, id: &str) {
         self.act(Action::Select(vec![ItemId::Entity(EntityId::from(id))]));
         self.act(Action::Delete);
@@ -171,97 +150,6 @@ fn writing_the_index_keeps_what_this_app_does_not_use() {
     );
     assert_eq!(meta["tabs"][1]["name"], "Canvas 2");
     assert_eq!(meta["tabs"][1]["expanded"], true);
-}
-
-#[test]
-fn opening_shows_the_last_active_canvas_or_the_file_asked_for() {
-    let dir = TempDir::new("open");
-    dir.write("A-aaaa.canvas", &canvas("a"));
-    dir.write(
-        "B-bbbb.canvas",
-        r#"{"nodes":[],"edges":[],"appState":{"zoom":0.5,"pan":{"x":10,"y":20}}}"#,
-    );
-    dir.write("broken.canvas", "{ not json");
-    let start = Camera::new(glam::Vec2::new(40.0, 40.0), 0.25);
-
-    let opened = open(&dir.0, Some("B-bbbb.canvas"), start).unwrap();
-    let names: Vec<&str> = opened
-        .canvases
-        .iter()
-        .map(|canvas| canvas.name.as_str())
-        .collect();
-    assert_eq!(names, ["A", "B"], "a file that cannot be read is left out");
-    assert_eq!(opened.active.as_ref(), Some(&opened.canvases[1].id));
-    assert_eq!(opened.canvases[0].camera, start);
-    assert_eq!(
-        opened.canvases[1].camera,
-        Camera::new(glam::Vec2::new(10.0, 20.0), 0.5)
-    );
-    assert_eq!(dir.read("broken.canvas"), "{ not json");
-
-    // Switching is remembered for the next launch.
-    let mut space = OnDisk::open(&dir.0);
-    assert_eq!(space.app.space().active().name, "A");
-    let b = space.id("B");
-    space.act(Action::Canvas(CanvasAction::Switch(b.clone())));
-    assert_eq!(open(&dir.0, None, start).unwrap().active, Some(b));
-}
-
-/// Breaks when a save stops writing `appState.itemTabs`, when opening a
-/// space stops reading it, or when a tab change stops asking for a save.
-#[test]
-fn the_tabs_left_open_come_back_with_their_canvas() {
-    let dir = TempDir::new("tabs");
-    dir.write("A-aaaa.canvas", &pages(&["p1", "p2", "p3"]));
-    dir.write("B-bbbb.canvas", &pages(&["p1"]));
-    let show = |id: &str| Action::Show(Showing::Item(id.into()));
-    let mut space = OnDisk::open(&dir.0);
-    assert_eq!(space.tabs(), [] as [&str; 0]);
-
-    // Three tabs on A, the first in Device, and one of them closed again.
-    space.act(show("p2"));
-    space.act(Action::SetLens(Lens::Device));
-    space.act(show("p3"));
-    space.act(show("p1"));
-    space.act(Action::CloseTab(Some("p3".into())));
-    assert!(
-        !dir.read("A-aaaa.canvas").contains("itemTabs"),
-        "a tab is saved with the autosave, not as it is pressed"
-    );
-    // Quitting writes what is pending.
-    space.files.flush(&space.app);
-    assert_eq!(
-        dir.json("A-aaaa.canvas")["appState"]["itemTabs"],
-        json!([{ "id": "p2", "lens": "device" }, { "id": "p1", "lens": "fill" }])
-    );
-    assert!(!dir.read("B-bbbb.canvas").contains("itemTabs"));
-
-    // The next launch has them, in the order they were opened, on the
-    // Canvas tab. B has a page of the same id and no tab.
-    let mut again = OnDisk::open(&dir.0);
-    assert_eq!(again.tabs(), ["p2", "p1"]);
-    assert_eq!(again.app.showing(), Showing::Canvas);
-    again.act(show("p2"));
-    assert_eq!(again.app.lens(), Some(Lens::Device));
-    let (a, b) = (again.id("A"), again.id("B"));
-    again.act(Action::Canvas(CanvasAction::Switch(b)));
-    assert_eq!(again.tabs(), [] as [&str; 0]);
-    again.act(Action::Canvas(CanvasAction::Switch(a)));
-    assert_eq!(again.tabs(), ["p2", "p1"]);
-
-    // A tab whose page was taken out of the file since is not opened.
-    let mut edited = dir.json("A-aaaa.canvas");
-    (edited["nodes"].as_array_mut().unwrap()).retain(|node| node["id"] != "p2");
-    dir.write("A-aaaa.canvas", &edited.to_string());
-    assert_eq!(OnDisk::open(&dir.0).tabs(), ["p1"]);
-}
-
-#[test]
-fn a_new_folder_opens_on_the_starter_space() {
-    let dir = TempDir::new("fresh");
-    let space = OnDisk::open(&dir.0.join("My space"));
-    assert_eq!(space.names(), ["Welcome"]);
-    assert!(dir.0.join("My space/Welcome.md").is_file());
 }
 
 #[test]
@@ -332,30 +220,4 @@ fn a_save_goes_to_the_canvas_that_changed_after_a_switch() {
     space.files.flush(&space.app);
     assert_eq!(node_ids(&dir.read("A-aaaa.canvas")), [] as [&str; 0]);
     assert_eq!(node_ids(&dir.read("B-bbbb.canvas")), ["b"]);
-}
-
-#[test]
-fn a_background_canvas_follows_its_file() {
-    let dir = TempDir::new("watch");
-    dir.write("A-aaaa.canvas", &canvas("a"));
-    dir.write("B-bbbb.canvas", &canvas("b"));
-    let mut space = OnDisk::open(&dir.0);
-    let b = space.id("B");
-    dir.write("B-bbbb.canvas", &canvas("from-outside"));
-
-    let changed = space.files.turn(&space.app);
-    let ids: Vec<&CanvasId> = changed.iter().map(|(id, _)| id).collect();
-    assert_eq!(ids, [&b]);
-    for (canvas, document) in changed {
-        space.send(Event::CanvasFileChanged {
-            canvas,
-            document: Box::new(document),
-        });
-    }
-    let held: Vec<&str> = (space.app.canvas_document(&b).unwrap().entities())
-        .map(|entity| entity.id.as_str())
-        .collect();
-    assert_eq!(held, ["from-outside"]);
-    assert_eq!(space.app.space().active().name, "A");
-    assert!(space.files.turn(&space.app).is_empty(), "it is read once");
 }

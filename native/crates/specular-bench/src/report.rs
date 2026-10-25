@@ -116,29 +116,3 @@ pub struct PhaseReport {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_shapes_drawn: Option<u64>,
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn phase_report_flattens_frame_summary_with_lab_names() {
-        let phase = PhaseReport {
-            phase: ProfileId::SlowPan,
-            duration_ms: 2_000.0,
-            frames: FrameSummary {
-                frames: 240,
-                ..FrameSummary::default()
-            },
-            frames_received: None,
-            draws_without_texture: None,
-            textures: None,
-            max_shapes_drawn: None,
-        };
-        let json = serde_json::to_value(phase).unwrap();
-        assert_eq!(
-            (&json["phase"], &json["draws"]),
-            (&"slow-pan".into(), &240.into())
-        );
-    }
-}

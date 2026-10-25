@@ -86,23 +86,3 @@ pub(crate) fn render(
         },
     })
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    const SVG: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" width="80" height="40" viewBox="0 0 80 40"><rect width="80" height="40" fill="#f00"/></svg>"##;
-
-    #[test]
-    fn the_intrinsic_size_is_the_svgs_and_the_raster_is_the_size_wanted() {
-        let at_home = render(SVG, None, 8192).unwrap();
-        assert_eq!(at_home.intrinsic, PixelSize::new(80, 40));
-        assert_eq!(at_home.raster.size, PixelSize::new(80, 40));
-        let zoomed = render(SVG, Some(PixelSize::new(400, 200)), 8192).unwrap();
-        assert_eq!(zoomed.intrinsic, PixelSize::new(80, 40));
-        assert_eq!(zoomed.raster.size, PixelSize::new(400, 200));
-        assert_eq!(&zoomed.raster.rgba[..4], &[255, 0, 0, 255]);
-        let capped = render(SVG, Some(PixelSize::new(80_000, 40_000)), 8192).unwrap();
-        assert_eq!(capped.raster.size, PixelSize::new(MAX_SIDE, MAX_SIDE / 2));
-    }
-}

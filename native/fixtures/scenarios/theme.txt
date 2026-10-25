@@ -1,0 +1,38 @@
+# canvas: theme.canvas
+# The theme: the button steps the choice, the choice and the system's
+# appearance decide what is drawn, and pages are told which scheme to
+# report. p2 sets its own, light, and keeps it.
+camera 0,0,1
+expect saved /nodes/p2/colorScheme = light
+# the system choice draws what the system is
+expect theme system light
+appearance dark
+expect theme system dark
+expect sent scheme p1 none
+expect sent scheme p2 light
+# the button flips what is drawn: away from the system is a fixed choice,
+# the press back follows the system again; each saves the choice
+control theme
+expect theme light light
+expect sent save-theme light
+expect sent scheme p2 light
+control theme
+expect theme system dark
+expect sent save-theme system
+# following again, it turns with the system
+appearance light
+expect theme system light
+expect sent no save-theme
+control theme
+expect theme dark dark
+expect sent save-theme dark
+# a choice read from the preferences is not written back
+theme-loaded light
+expect theme light light
+expect sent no save-theme
+expect sent scheme p1 none
+# a fixed choice lasts until the system changes, which it then follows
+appearance dark
+expect theme system dark
+expect sent save-theme system
+expect undo none

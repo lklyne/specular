@@ -91,27 +91,3 @@ pub(crate) fn opened_from_finder(urls: &[String]) {
 pub(crate) fn take_waiting() -> Option<PathBuf> {
     WAITING.with(|waiting| waiting.borrow_mut().take())
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_file_url_is_its_path_with_the_escapes_undone() {
-        for (url, path) in [
-            (
-                "file:///Users/ada/Space/Home.canvas",
-                Some("/Users/ada/Space/Home.canvas"),
-            ),
-            (
-                "file:///Users/ada/My%20Space/caf%C3%A9.canvas",
-                Some("/Users/ada/My Space/café.canvas"),
-            ),
-            ("file://localhost/tmp/a.canvas", Some("/tmp/a.canvas")),
-            ("https://example.com/a.canvas", None),
-            ("file:///tmp/bad%2", None),
-        ] {
-            assert_eq!(file_path(url), path.map(PathBuf::from), "{url}");
-        }
-    }
-}

@@ -1,0 +1,8 @@
+{
+  "nodes": [
+    {"id": "h1", "type": "file", "file": "assets/demo.html", "x": 100, "y": 100, "width": 400, "height": 300},
+    {"id": "p1", "type": "link", "url": "https://example.com/", "x": 600, "y": 100, "width": 400, "height": 300}
+  ],
+  "edges": [],
+  "specular": {"entityOrder": ["h1", "p1"]}
+}

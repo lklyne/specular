@@ -144,26 +144,3 @@ fn exit(code: i32, done: &mut bool) -> Output {
         detail: format!("exit code {code}"),
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_script_reads_each_kind_of_step_and_rejects_the_rest() {
-        let text = "# hi\n\n{\"type\":\"x\"}\nwait 5\nstderr boom\nexit 2\n";
-        let script = Scripted::from_text(text).unwrap();
-        assert_eq!(
-            script.steps,
-            [
-                Step::Stdout("{\"type\":\"x\"}".to_owned()),
-                Step::Wait(Duration::from_millis(5)),
-                Step::Stderr("boom".to_owned()),
-                Step::Exit(2),
-            ]
-        );
-        assert!(Scripted::from_text("dance").is_err());
-        assert!(Scripted::from_text("wait soon").is_err());
-        assert!(Scripted::from_text("exit soon").is_err());
-    }
-}

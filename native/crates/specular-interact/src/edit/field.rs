@@ -66,7 +66,7 @@ pub(crate) fn begin(app: &mut App, id: &ControlId, effects: &mut Vec<Effect>) {
 /// the field is: the built-in one is edited here, and a shell that draws the
 /// chrome itself is asked to give its own the keys.
 pub(crate) fn focus(app: &mut App, id: &ControlId, effects: &mut Vec<Effect>) {
-    if !app.session.panel.menu_only {
+    if !app.session.panel.shell_chrome {
         begin(app, id, effects);
     } else if field_named(app, id).is_some() {
         super::end(app, effects);

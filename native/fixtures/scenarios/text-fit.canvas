@@ -1,0 +1,10 @@
+{
+  "nodes": [
+    {"id": "wrapped", "type": "text", "x": 0, "y": 0, "width": 120, "height": 500, "text": "aaaa bbbb cccc dddd eeee", "specular": {"textStyle": "plain", "widthMode": "fixed"}},
+    {"id": "hugging", "type": "text", "x": 0, "y": 600, "width": 300, "height": 300, "text": "hello there world", "specular": {"textStyle": "plain", "widthMode": "auto"}},
+    {"id": "note", "type": "text", "x": 400, "y": 0, "width": 200, "height": 50, "text": "x\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\n", "specular": {"textStyle": "sticky"}},
+    {"id": "shape", "type": "shape", "x": 400, "y": 600, "width": 200, "height": 100, "shapeKind": "rectangle", "text": "a label"}
+  ],
+  "edges": [],
+  "specular": {"entityOrder": ["wrapped", "hugging", "note", "shape"]}
+}

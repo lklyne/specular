@@ -1,0 +1,159 @@
+# canvas: resize.canvas
+# Resizing from the handles: the cursor over each, a press off a handle's
+# centre, the ratio Shift flips per kind, a drawing's ink, a group alone, a
+# page laid out as it is dragged, and a selection of several scaled inside
+# its bounds. Each resize is one undo step.
+camera 0,0,1
+expect saved same-as resize.canvas
+
+# the cursor says which way the handle under the pointer resizes
+select s
+move 300 200
+expect cursor resize-nwse
+move 302 202
+expect cursor resize-nwse
+move 300 100
+expect cursor resize-nesw
+move 100 100
+expect cursor resize-nwse
+move 100 200
+expect cursor resize-nesw
+move 300 150
+expect cursor resize-ew
+move 200 150
+expect cursor default
+# a press off the centre of a handle does not make the rect jump
+press 306 206
+drag-to 311 211
+release
+expect entity s rect 100 100 200 100
+expect undo none
+
+# a shape is free until Shift, which keeps its ratio
+drag 300 200 400 220
+expect entity s rect 100 100 300 120
+key cmd+z
+hold shift
+drag 300 200 400 220
+hold none
+expect entity s rect 100 100 300 150
+key cmd+z
+# a picture is locked until Shift frees it
+select f
+drag 300 500 400 520
+expect entity f rect 100 400 300 150
+key cmd+z
+hold shift
+drag 300 500 400 520
+hold none
+expect entity f rect 100 400 300 120
+key cmd+z
+# a Document is free like a shape
+select n
+drag 300 800 400 820
+expect entity n rect 100 700 300 120
+key cmd+z
+expect saved same-as start
+
+# a drawing stretches its points into the new box: the top-left corner
+# moves, so they translate as well as scale
+select d
+drag 600 400 560 340
+expect entity d rect 560 340 140 160
+expect saved /nodes/d/strokes/0/points = [{"x":560,"y":340},{"x":630,"y":340},{"x":700,"y":500}]
+key cmd+z
+# a group resized alone moves its border and not its members
+select g
+drag 600 600 560 540
+expect entity g rect 560 540 340 260
+expect entity gm rect 620 620 100 80
+key cmd+z
+
+# a page is laid out at each size its side handle is dragged to, and
+# nothing more when the button comes up
+select p
+press 1500 250
+drag-to 1600 250
+expect sent viewport p 500 300
+drag-to 1700 250
+expect sent viewport p 600 300
+expect page p 1100 100 600 300 viewport 600 300
+release
+expect sent no viewport
+expect entity p rect 1100 100 600 300
+key cmd+z
+expect sent viewport p 400 300
+# abandoned, it is laid out as it started
+press 1500 250
+drag-to 1700 250
+key escape
+expect sent viewport p 400 300
+expect entity p rect 1100 100 400 300
+expect undo none
+
+# a selection of several scales every entity inside its bounds: a group
+# with everything in it, a drawing's ink with it
+select g x
+drag 1100 800 1600 1000
+expect entity g rect 600 600 600 400
+expect entity gm rect 640 640 200 160
+expect entity gd rect 640 840 200 100
+expect saved /nodes/gd/strokes/0/points = [{"x":640,"y":840},{"x":840,"y":940}]
+expect entity x rect 1400 600 200 200
+expect selection g x
+key cmd+z
+# a side handle of the bounds scales one axis
+select s x
+drag 100 400 -200 400
+expect entity s rect -200 100 260 100
+expect entity x rect 970 600 130 100
+key cmd+z
+# pages in a scaled selection are laid out as it scales
+select p ps
+press 1700 400
+drag-to 2300 700
+expect sent viewport p 800 600
+release
+expect sent no viewport
+expect entity p rect 1100 100 800 600
+key cmd+z
+expect saved same-as start
+
+# Text: the sides reflow and keep the type size, a corner scales the type
+# with the width, and the height is the content's either way. A sticky is
+# square until it is wider than a default note is tall.
+camera 0,-900,1
+select t
+drag 300 200 400 200
+expect entity t rect 100 1000 300 200
+expect saved /nodes/t/specular/widthMode = fixed
+expect saved /nodes/t/specular/textSize absent
+key cmd+z
+drag 100 200 0 200
+expect entity t rect 0 1000 300 200
+key cmd+z
+drag 300 300 500 400
+expect entity t rect 100 1000 400 400
+expect saved /nodes/t/specular/textSize = 28
+key cmd+z
+# the type size stays within its limits
+select big
+drag 300 636 500 736
+expect saved /nodes/big/specular/textSize = 256
+key cmd+z
+select small
+drag 800 600 600 400
+expect saved /nodes/small/specular/textSize = 8
+key cmd+z
+# a narrowed text grows as tall as its wrapped lines, and the new width
+# mode and rect are the one undo step
+select w
+press 788 110
+drag-to 720 110
+expect entity w rect 600 1000 120 42
+release
+expect saved /nodes/w/specular/widthMode = fixed
+key cmd+z
+expect entity w rect 600 1000 188 21
+expect saved /nodes/w/specular/widthMode = auto
+undo-to-start

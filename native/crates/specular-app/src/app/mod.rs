@@ -11,7 +11,7 @@ mod api_run;
 mod asset_run;
 mod clipboard_run;
 mod demand;
-mod drop_run;
+pub(crate) mod drop_run;
 mod effects;
 #[cfg(target_os = "macos")]
 mod file_menu;

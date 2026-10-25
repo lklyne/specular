@@ -1,0 +1,245 @@
+# canvas: layout.canvas
+# Lines (ADR 0015): a managed row laid out again by whatever changes it,
+# its reorder dots and gap strips, and the same handles on a loose even
+# selection with no group. `g` is a managed row of `a`, `b` and `c`, 100
+# wide and 40 apart, with `d` loose below it; `la`, `lb` and `lc` are a
+# loose even row.
+camera 0,0,1
+expect saved same-as layout.canvas
+
+# a line shows its handles while it or a member is selected, and not with
+# a tool armed
+expect dots none
+select g
+expect dots a b c
+expect gap-strips 2
+select b
+expect dots a b c
+select a c
+expect dots a b c
+tool text
+expect dots none
+key escape
+key escape
+# a dot is over its box and a strip fills the gap; off the dot, the box is
+# a body again
+select g
+expect hit 150 150 dot a
+expect hit 220 150 gap x
+expect hit 156 144 dot a
+expect hit 120 120 body a
+expect hit 158 150 body a
+
+# whatever changes a managed row lays it out again in the same step: its
+# gap set from the dock
+control group.gap.inc
+expect saved /nodes/g/layoutGap = 60
+expect entity b at 260 100
+control group.gap.dec
+expect entity b at 240 100
+key cmd+z
+key cmd+z
+# a member resized by its right handle
+select a
+drag 200 150 260 150
+expect entity b at 300 100
+expect entity c at 440 100
+expect entity g rect 76 76 488 148
+key cmd+z
+# a member deleted
+select a
+key delete
+expect entity b at 240 100
+expect entity g rect 216 76 288 148
+key cmd+z
+# a member sent to the back leads
+select c
+key cmd+shift+[
+expect entity c at 100 100
+expect entity a at 240 100
+key cmd+z
+# turned into a column, and turned off from the dock
+select g
+control group.layout.column
+expect saved /nodes/g/layoutMode = column
+expect entity c at 100 380
+expect entity g rect 76 76 148 428
+control group.layout.column
+expect saved /nodes/g/managedLayout = false
+expect shown-control group.gap.inc no
+key cmd+z
+key cmd+z
+expect saved same-as start
+# an item dropped into it joins last, from in front of everything
+key escape
+drag 130 530 270 170
+expect entity d parent g
+expect entity d rect 520 100 60 60
+expect entity g rect 76 76 528 148
+key cmd+z
+# one sent behind everything first joins first
+select d
+key cmd+shift+[
+key escape
+drag 130 530 270 170
+expect entity d rect 100 100 60 60
+key cmd+z
+key cmd+z
+# dragging a member's body, off its dot, moves the whole group
+select b
+drag 310 120 350 220
+expect entity a at 140 200
+expect entity b at 280 200
+expect entity g rect 116 176 428 148
+expect entity b parent g
+key cmd+z
+# turned off, its members stay and then move freely
+select g
+control group.layout.row
+expect saved /nodes/g/managedLayout = false
+expect saved /nodes/g/layoutMode = freeform
+expect entity b at 240 100
+select a
+drag 150 150 150 250
+expect entity a at 100 200
+expect entity b at 240 100
+key cmd+z
+key cmd+z
+expect saved same-as start
+
+# dragging c's dot to the front of the row moves it there: in flight the
+# line already shows where a release leaves it, and the strips sit between
+# the boxes as shown
+select c
+press 430 150
+drag-to 120 150
+expect entity c at 100 100
+expect entity a at 240 100
+release
+expect entity c at 100 100
+expect entity b at 380 100
+expect order c a b g d la lb lc na nb nc ua ub uc wa wb wc low high lg ea em inner row2 g1 g2
+key cmd+z
+# short of half way to the next slot, nothing moves and nothing is recorded
+select c
+press 430 150
+drag-to 370 150
+release
+expect entity c at 380 100
+expect saved same-as start
+# a strip dragged changes the gap by the pointer's travel, in whole units
+select g
+press 220 150
+drag-to 240 170
+expect entity b at 260 100
+release
+expect saved /nodes/g/layoutGap = 60
+key cmd+z
+select g
+press 220 150
+drag-to 100 170
+release
+expect entity b at 200 100
+expect entity c at 300 100
+expect saved /nodes/g/layoutGap = 0
+key cmd+z
+select g
+# away from a first: the hovered box's anchor would cover the strip
+move 900 600
+press 220 150
+drag-to 240.4 170
+release
+expect saved /nodes/g/layoutGap = 60
+key cmd+z
+expect saved same-as start
+
+# a loose even row: the same handles and no group
+camera 0,-1000,1
+select la lb lc
+expect dots la lb lc
+expect gap-strips 2
+# a loose pair has one strip
+select la lc
+expect dots la lc
+expect gap-strips 1
+# one box has none
+select la
+expect dots none
+# the box being reordered floats under the pointer without a dot and shows
+# no guides; Escape puts it back
+select la lb lc
+press 150 150
+drag-to 450 190
+expect ghost la 20 40
+expect dots lb lc
+expect guides none
+key escape
+release
+expect entity la at 100 1100
+expect undo none
+# a dot dragged to the back, and one slot along
+press 150 150
+drag-to 450 150
+release
+expect entity la at 380 1100
+expect entity lb at 100 1100
+key cmd+z
+select la lb lc
+press 150 150
+drag-to 230 150
+release
+expect entity la at 240 1100
+expect entity lb at 100 1100
+key cmd+z
+# a strip dragged narrower and wider
+select la lb lc
+press 220 150
+drag-to 205 170
+release
+expect entity lb at 225 1100
+expect entity lc at 350 1100
+key cmd+z
+select la lb lc
+press 220 150
+drag-to 260 170
+release
+expect entity lc at 460 1100
+key cmd+z
+
+# gaps four apart are even, five are not
+camera 0,-1300,1
+select na nb nc
+expect dots na nb nc
+select ua ub uc
+expect dots none
+# gaps of 40 and 43 start from their mean, 41.5, taken as 42
+select wa wb wc
+expect dots wa wb wc
+camera 0,-1900,1
+press 220 150
+drag-to 240 170
+release
+expect entity wb at 262 2000
+expect entity wc at 424 2000
+key cmd+z
+# an even row of groups has no handles
+select g1 g2
+expect dots none
+expect saved same-as start
+
+# a lone group is managed along the axis its members are spread on
+select lg
+act auto-layout
+expect saved /nodes/lg/layoutMode = column
+expect entity high rect 100 2300 100 100
+expect entity low rect 100 2480 100 100
+key cmd+z
+# a group inside a row travels with everything in it
+select row2
+camera 0,-3000,1
+control group.gap.dec
+control group.gap.dec
+expect saved /nodes/row2/layoutGap = 0
+expect entity inner rect 200 3100 98 98
+expect entity em rect 224 3124 50 50
+undo-to-start

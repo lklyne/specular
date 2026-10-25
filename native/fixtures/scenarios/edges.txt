@@ -1,0 +1,221 @@
+# Edges: drawn from a hovered item's anchor, snapped to another's, ended on
+# a body or on nothing, an end dragged to another item or away, an edge
+# following what it is drawn to, and its label edited in place. The shapes
+# stand at zoom 1: a side's dot sits 8 outside its middle, so a's right dot
+# is (308, 150), b's left (492, 150) and c's top (200, 392).
+given shape a 100 100 200 100
+given shape b 500 100 200 100
+given shape c 100 400 200 100
+camera 0,0,1
+
+# the hovered item offers its four anchors and lights the one under the
+# pointer
+move 200 150
+expect anchors 4
+expect anchor-lit none
+move 315 150
+expect anchor-lit right 308 150
+
+# a drag from an anchor to another anchor makes an arrow on top of the
+# stack, from a's right to b's left, and selects nothing
+move 200 150
+press 310 150
+drag-to 480 150
+expect edge-preview snap
+release
+expect edge-preview none
+expect count edges 1
+expect saved /edges/0/fromNode = a
+expect saved /edges/0/toNode = b
+expect saved /edges/0/fromSide = right
+expect saved /edges/0/toSide = left
+expect saved /edges/0/toEnd = arrow
+
+expect selection none
+key cmd+z
+expect count edges 0
+key cmd+shift+z
+expect count edges 1
+key cmd+z
+# from a selected item it leaves the selection as it was
+click 200 150
+press 310 150
+drag-to 492 150
+release
+expect selection a
+expect count edges 1
+key cmd+z
+key escape
+# released on a body, it meets that item's facing side
+move 200 150
+press 310 150
+drag-to 600 150
+release
+expect saved /edges/0/toNode = b
+expect saved /edges/0/toSide = left
+key cmd+z
+move 200 150
+press 310 150
+drag-to 200 445
+release
+expect saved /edges/0/toNode = c
+expect saved /edges/0/toSide = top
+key cmd+z
+# released on empty canvas it makes nothing and saves nothing
+move 200 150
+press 310 150
+drag-to 400 300
+release
+expect count edges 0
+expect sent no save
+expect undo none
+# the snap reaches 48 pixels at zoom 1, and less zoomed out: 24 at half
+move 200 150
+press 310 150
+drag-to 452 150
+expect edge-preview snap
+key escape
+release
+camera 0,0,0.5
+move 100 75
+press 162 75
+drag-to 216 75
+expect edge-preview free
+drag-to 236 75
+expect edge-preview snap
+key escape
+release
+expect count edges 0
+camera 0,0,1
+
+# the edge to work on, a's right to b's left
+move 200 150
+press 310 150
+drag-to 492 150
+release
+mark linked
+# its end dragged to another item re-routes it, one undo step
+move 600 150
+press 490 150
+drag-to 200 392
+release
+expect saved /edges/0/toNode = c
+expect saved /edges/0/toSide = top
+key cmd+z
+expect saved same-as mark linked
+# dropped on nothing, the edge is deleted and saved so; undo brings it back
+move 600 150
+press 490 150
+drag-to 400 700
+release
+expect count edges 0
+expect sent save
+key cmd+z
+expect count edges 1
+# Escape during a re-route deletes the edge too
+move 600 150
+press 490 150
+drag-to 200 392
+key escape
+expect count edges 0
+expect sent save
+release
+key cmd+z
+expect saved same-as mark linked
+# a click on its end without a drag leaves it as it is
+move 600 150
+press 490 150
+release
+expect saved same-as mark linked
+# the edge follows the item it is drawn to as it is dragged
+expect edge-ends @last 308 150 492 150
+press 600 150
+drag-to 600 350
+expect edge-ends @last 308 150 492 350
+release
+expect saved /edges/0/toNode = b
+key cmd+z
+# deleting an item deletes its edges in the same step
+select b
+key backspace
+expect count edges 0
+key cmd+z
+expect count edges 1
+expect saved same-as mark linked
+key escape
+
+# a selected item offers anchors; a selection of several does not
+click 200 150
+expect anchors 4
+move 900 900
+expect anchors 4
+select a b
+expect anchors 0
+move 200 150
+expect anchors 0
+# no anchors during a move or while text is edited
+key escape
+click 200 150
+press 200 150
+drag-to 260 190
+expect anchors 0
+release
+double-click 260 190
+expect anchors 0
+key escape
+key escape
+key cmd+z
+expect saved same-as mark linked
+
+# the label: one click selects the edge, a double click edits its label
+click 400 150
+expect editing none
+expect count selected 1
+double-click 400 150
+expect caret 0 0
+# typing then Enter sets it as one step, and the edge stays selected
+type uses
+key enter
+expect editing none
+expect saved /edges/0/label = uses
+expect count selected 1
+key cmd+z
+expect saved /edges/0/label absent
+# a label emptied is removed
+double-click 400 150
+type old
+key enter
+double-click 400 150
+key backspace
+key enter
+expect saved /edges/0/label absent
+key cmd+z
+expect saved /edges/0/label = old
+key cmd+z
+# Escape and a press elsewhere keep what was typed
+double-click 400 150
+type kept
+key escape
+expect editing none
+expect saved /edges/0/label = kept
+key cmd+z
+double-click 400 150
+type kept
+click 400 600
+expect editing none
+expect saved /edges/0/label = kept
+key cmd+z
+# a press on the label places the caret and keeps editing
+double-click 400 150
+type abcd
+click 390 150
+expect caret 1 1
+key escape
+key cmd+z
+# pasted line breaks become spaces
+double-click 400 150
+clipboard a\nb
+key cmd+v
+key enter
+expect saved /edges/0/label = a b
+undo-to-start

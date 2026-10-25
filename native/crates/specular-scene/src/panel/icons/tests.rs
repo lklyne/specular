@@ -1,5 +1,4 @@
 use specular_doc::ShapeKind;
-use specular_interact::Appearance;
 
 use super::*;
 
@@ -90,32 +89,4 @@ fn every_glyph_is_path_data_read_to_its_end() {
             }
         }
     }
-}
-
-#[test]
-fn a_glyph_is_fitted_into_its_box_keeping_its_proportions() {
-    // A 17 by 9 stroke sample in a square: full width, centred down it.
-    let mut out = Vec::new();
-    let area = Rect::new(100.0, 200.0, 34.0, 34.0);
-    draw(
-        Icon::StrokeThin,
-        area,
-        Inks::plain(Color::BLACK, Colors::of(Appearance::Light)),
-        &mut out,
-    );
-    let [item] = out.as_slice() else {
-        panic!("one layer");
-    };
-    let crate::Draw::Path(path) = &item.draw else {
-        panic!("a path");
-    };
-    // `M0.5 4.42` in the sample's own units, doubled.
-    assert_eq!(
-        path.commands.first(),
-        Some(&PathCommand::MoveTo(Point::new(
-            101.0,
-            208.0 + 4.42123 * 2.0
-        )))
-    );
-    assert_eq!(path.stroke.map(|stroke| stroke.width), Some(2.0));
 }

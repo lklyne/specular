@@ -1,0 +1,108 @@
+# An entered page (ADR 0022) has the pointer, the wheel, the keys, the
+# input method and the Edit menu, while the canvas keeps Command-wheel zoom
+# and its own history; and what asks for a save. The pages are 400x300.
+given page p1 100 100 400 300
+given page p2 700 100 400 300
+camera 0,0,1
+
+# a drag on a page selects it and moves it by the pointer's travel, and
+# asks for one save when the button comes up
+press 200 150
+drag-to 260 130
+expect entity p1 at 160 80
+expect selection p1
+expect sent nothing
+release
+expect sent save
+# undo and redo each ask for a save
+key cmd+z
+expect sent save
+key cmd+shift+z
+expect sent save
+key cmd+z
+# what leaves the document alone asks for nothing
+click 200 200
+expect sent no save
+wheel 0 40
+expect sent no save
+pinch 0.1
+expect sent no save
+select p2
+expect sent no save
+camera 0,0,1
+# reading the canvas again asks for nothing, and keeps the camera and the
+# selection
+reopen
+expect sent no save
+expect selection p2
+expect camera 0,0,1
+
+# enter p1: a drag that starts in it stays with it until the release, in
+# its own pixels
+click 200 200
+click 200 200
+expect focus page p1
+press 200 200
+drag-to 710 150
+expect sent forward p1 move 610 50
+release
+expect sent forward p1 up 610 50
+expect selection p1
+# the wheel over it scrolls it, in CSS pixels, and the canvas stays
+camera 0,0,0.5
+move 100 100
+wheel 0 -30
+expect sent forward p1 wheel 0 -60
+expect camera 0,0,0.5
+# Command-wheel zooms the canvas about the pointer even over it
+camera 0,0,1
+move 200 200
+hold cmd
+wheel 0 100
+hold none
+expect zoom 1.2
+expect hit 200 200 page p1 100 100
+expect sent no forward
+camera 0,0,1
+
+# keys go to it instead of the bindings: one press and one release each,
+# with the key's code
+key c
+expect sent forward p1 key down 8
+expect tool select
+key backspace
+expect sent forward p1 key down 51
+expect sent forward p1 key up 51
+expect count entities 2
+key left
+expect sent forward p1 key down 123
+key enter
+expect sent forward p1 key down 36
+# so does the input method's text
+commit ok
+expect sent forward p1 ime
+# and the candidate window follows its composition, at the zoom
+camera 0,0,0.5
+page-says p1 composition 20 40 60 16
+expect sent ime-area 60 70 30 8
+camera 0,0,1
+# the Edit menu acts on the page and leaves the canvas's history alone
+menu Edit > Undo
+expect sent forward p1 edit undo
+menu Edit > Redo
+expect sent forward p1 edit redo
+expect undo none
+expect entity p1 at 100 100
+
+# a page selected but not entered hears no input method and moves no
+# candidate window
+key escape
+key escape
+click 200 200
+expect selection p1
+expect focus canvas
+commit ok
+expect sent nothing
+page-says p1 composition 20 40 60 16
+expect sent nothing
+undo-to-start

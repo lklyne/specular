@@ -1,0 +1,194 @@
+# canvas: anchor-cases.canvas
+# Page anchoring (ADR 0031) and element attachment (ADR 0032): an item
+# whose centre lands on a page is hooked to it and moves with it, a move
+# re-hooks by where it ends, copies are hooked by where they land, an item
+# hooked to a scrolled page is worked on where it is seen, and an attached
+# item follows its element. `h` is hooked to `p1`, `s` is free, and `at`
+# and `fx` are attached to elements of `p3`, `fx` to a fixed one.
+camera 0,0,1
+expect saved same-as anchor-cases.canvas
+
+# a selected page stands for what is hooked to it
+select p1
+expect scope p1 | p1 h | 100 100 400 300
+# what is hooked to a page moves with it, and no page is laid out again
+drag 450 350 550 410
+expect entity p1 at 200 160
+expect entity h at 300 260
+expect sent no viewport
+key cmd+z
+# dragged with its page it stays hooked, even under a page in front
+select p1 h
+drag 450 380 750 380
+expect saved /nodes/h/pageAnchor/pageId = p1
+key cmd+z
+key escape
+
+# a sticky whose centre lands on a page is hooked to it at its scroll
+tool sticky
+click 380 160
+expect saved /nodes/@top/specular/pageAnchor/pageId = p1
+expect saved /nodes/@top/specular/pageAnchor/pageUrl = https://example.com/p1
+expect saved /nodes/@top/specular/pageAnchor/scrollY = 0
+type note
+key escape
+key escape
+key cmd+z
+key cmd+z
+expect saved same-as start
+# a shape is hooked by where its centre is, not where the drag began
+tool shape
+drag 600 300 840 380
+expect saved /nodes/@top/pageAnchor/pageId = p2
+key cmd+z
+tool shape
+drag 480 460 640 540
+expect saved /nodes/@top/pageAnchor absent
+key cmd+z
+# a stroke drawn on a page is hooked to it; one on the canvas is free
+tool draw
+drag 750 150 850 250
+expect saved /nodes/@top/pageAnchor/pageId = p2
+drag 700 700 800 800
+expect saved /nodes/@top/pageAnchor absent
+key escape
+key cmd+z
+key cmd+z
+expect saved same-as start
+
+# dragged onto a page it is hooked in the same step as the move
+drag 350 650 350 250
+expect entity s at 300 200
+expect saved /nodes/s/pageAnchor/pageId = p1
+key cmd+z
+expect saved /nodes/s/pageAnchor absent
+expect undo none
+# dragged from one page to another, the hook moves with its address
+drag 250 250 850 250
+expect saved /nodes/h/pageAnchor/pageId = p2
+expect saved /nodes/h/pageAnchor/pageUrl = https://example.com/p2
+key cmd+z
+# Command or Control held at the release keeps every anchor
+press 350 650
+drag-to 350 250
+hold cmd
+release
+hold none
+expect saved /nodes/s/pageAnchor absent
+key cmd+z
+press 250 250
+drag-to 250 650
+hold ctrl
+release
+hold none
+expect saved /nodes/h/pageAnchor/pageId = p1
+key cmd+z
+expect saved same-as start
+
+# with p1 scrolled 40 down, h is seen 40 above where it is stored
+page-says p1 scrolled 0 40
+expect seen h 200 160 100 100
+expect entity h rect 200 200 100 100
+# a resize works on what is seen and stores it there, restamped at the
+# scroll it was folded at, in one step
+select h
+drag 300 260 340 300
+expect entity h rect 200 160 140 140
+expect seen h 200 160 140 140
+expect saved /nodes/h/pageAnchor/scrollY = 40
+key cmd+z
+expect undo none
+# a selection resized with a carried item scales what is seen: h seen at
+# (200, 160) and a shape placed free beside it
+tool shape
+drag 520 160 620 260
+hold shift
+click 250 210
+hold none
+expect count selected 2
+drag 620 260 1040 360
+expect entity h rect 200 160 200 200
+expect entity @top rect 840 160 200 200
+key cmd+z
+key cmd+z
+key escape
+# an Option-drag copy is made of what is seen and hooked where it lands
+hold alt
+drag 250 210 850 210
+hold none
+expect entity @top rect 800 160 100 100
+expect saved /nodes/@top/pageAnchor/pageId = p2
+expect saved /nodes/h/pageAnchor/pageId = p1
+key cmd+z
+# a pasted copy is hooked to the page it lands on, at that page's scroll,
+# or to none
+page-says p2 scrolled 0 25
+select h
+act copy
+move 800 200
+key cmd+v
+expect saved /nodes/@top/pageAnchor/pageId = p2
+expect saved /nodes/@top/pageAnchor/scrollY = 25
+expect saved /nodes/@top/pageAnchor/element absent
+key cmd+z
+move 200 600
+key cmd+v
+expect saved /nodes/@top/pageAnchor absent
+key cmd+z
+move 300 200
+key cmd+v
+expect saved /nodes/@top/pageAnchor/pageId = p1
+expect saved /nodes/@top/pageAnchor/scrollY = 40
+key cmd+z
+# a copy made with its page is hooked to the page's copy, at its top, and
+# sits on it as it was seen
+select p1
+act copy
+move 100 600
+key cmd+v
+expect anchor @top @8
+expect saved /nodes/@top/pageAnchor/scrollY = 0
+key cmd+z
+expect saved same-as start
+
+# an attached item is seen where its element went, the stored rect kept
+page-says p3 element #hero 100 160
+expect seen at 1400 260 100 100
+expect entity at rect 1400 200 100 100
+page-says p3 element #other 0 999
+expect seen at 1400 260 100 100
+page-says p3 element #hero 140 100
+expect seen at 1440 200 100 100
+# scrolled, it goes with the document
+page-says p3 scrolled 0 200
+page-says p3 element #hero 100 130
+expect seen at 1400 30 100 100
+page-says p3 scrolled 0 0
+# on a fixed element it stays in the frame through a scroll, and when the
+# page says where the element went nothing moves
+page-says p3 element #bar 250 100 fixed
+page-says p3 scrolled 0 80
+expect seen fx 1550 200 100 100
+page-says p3 element #bar 250 180 fixed
+expect seen fx 1550 200 100 100
+page-says p3 scrolled 0 0
+# a move folds the element's travel into the rect and restamps it there
+page-says p3 element #hero 100 140
+drag 1450 290 1490 290
+expect entity at rect 1440 240 100 100
+expect saved /nodes/at/pageAnchor/element/docY = 140
+expect seen at 1440 240 100 100
+key cmd+z
+
+# an item put on a page is attached to the element under it with no undo
+# step: the page names the grid cell under its middle in its own time
+tool shape
+drag 200 200 300 300
+wait 100
+expect saved /nodes/@top/pageAnchor/element keys selector docX docY
+key cmd+z
+# each undo that moved an attached item asked the page again what it is
+# over, and the answers are stamped with no undo step
+expect saved /nodes/at/pageAnchor/element/selector = div.cell[data-col="0"][data-row="3"]
+expect saved /nodes/h/pageAnchor/element keys selector docX docY
+undo-to-start except /nodes/h/pageAnchor/element /nodes/at/pageAnchor/element/docX /nodes/at/pageAnchor/element/docY /nodes/at/pageAnchor/element/selector

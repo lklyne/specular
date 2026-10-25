@@ -171,7 +171,6 @@ pub(crate) fn run(
     }
     run.step(Step::Camera(args.camera))?;
     run.checks = Checks::begin(run.app.app(), &base)?;
-    run.checks.effects.watch();
     let mut report = Report::default();
     for line in script.steps {
         if line.step.window_only() {
@@ -234,6 +233,8 @@ struct Headless {
     out: PathBuf,
     /// What the `expect` steps compare with.
     checks: Checks,
+    /// The effects of the last step that was not a check, for `expect sent`.
+    sent: Vec<specular_interact::Effect>,
 }
 
 impl Headless {
@@ -281,6 +282,7 @@ impl Headless {
             now_ms: START_MS,
             out: out.to_owned(),
             checks: Checks::default(),
+            sent: Vec::new(),
         })
     }
 
@@ -291,7 +293,7 @@ impl Headless {
     ) -> anyhow::Result<()> {
         input(&mut self.app);
         for effect in self.app.take_effects() {
-            self.checks.effects.saw(&effect);
+            self.sent.push(effect.clone());
             self.run(effect)?;
         }
         Ok(())

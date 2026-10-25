@@ -10,7 +10,6 @@ use specular_doc::{Entity, EntityId, Kind, TextStyle};
 use specular_interact::{App, CanvasId, Focus, Showing};
 
 use super::expect::{Counted, EntityFact, Expect, Reference, SavedFact};
-use super::facts_panels::EffectLog;
 use super::saved::{at, canonical, differences, listed, same};
 use super::words::{escaped, tool_word};
 use crate::persist::canvas_text;
@@ -26,8 +25,6 @@ pub struct Checks {
     base: PathBuf,
     start: HashMap<CanvasId, Value>,
     marks: HashMap<String, Value>,
-    /// What the step before asked of the shell, when the runner sees it.
-    pub effects: EffectLog,
 }
 
 impl Checks {
@@ -43,7 +40,6 @@ impl Checks {
             base: base.to_owned(),
             start,
             marks: HashMap::new(),
-            effects: EffectLog::default(),
         })
     }
 
@@ -141,7 +137,8 @@ impl Checks {
             Expect::Saved(path, fact) => saved_fact(app, path, fact),
             Expect::SameAs(reference) => self.same_as(app, reference),
             Expect::ChangedFrom(reference, paths) => self.changed_from(app, reference, paths),
-            Expect::Panel(fact) => fact.check(app, &self.effects),
+            Expect::OnCanvas(fact) => super::facts_canvas::check(app, fact),
+            Expect::Panel(fact) => fact.check(app, None),
         }
     }
 

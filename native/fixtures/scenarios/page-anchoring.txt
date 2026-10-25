@@ -88,6 +88,7 @@ expect saved /nodes/@top/y = 80
 mark duplicated
 select p1
 key backspace
+expect sent close-page p1
 # deleting the page frees what was hooked to it where it was seen, 100
 # above where the sticky was stored
 expect entity p1 gone
@@ -97,6 +98,7 @@ expect saved /nodes/note/y = 80
 expect saved /nodes/caption/y = 240
 expect saved /annotations/0/pageAnchor absent
 key cmd+z
+expect sent create-page p1
 expect saved same-as mark duplicated
 # the cell the page named for the edited caption is not taken back by
 # undo, which restores its text

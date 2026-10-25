@@ -204,7 +204,7 @@ impl App {
     /// shell that draws the chrome itself. The built-in chrome has the
     /// tools in a row of their own.
     pub(crate) fn tools_dock_width(&self) -> f32 {
-        if self.session.panel.menu_only && self.settings.tools == ToolsPlace::Docked {
+        if self.session.panel.shell_chrome && self.settings.tools == ToolsPlace::Docked {
             TOOLS_DOCK_WIDTH
         } else {
             0.0

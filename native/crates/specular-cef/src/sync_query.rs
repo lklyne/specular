@@ -275,44 +275,4 @@ mod tests {
         assert!((bundle.offset_x - 0.25).abs() < f64::EPSILON);
         assert_eq!(parse_captured(b"not json").len(), 0);
     }
-
-    #[test]
-    fn a_candidates_question_quotes_the_identity_keys_and_its_answer_is_read() {
-        let bundle = LocatorBundle {
-            id: Some("a\"]); alert(1); (\"".to_owned()),
-            ..LocatorBundle::default()
-        };
-        let message: Value = serde_json::from_slice(&candidates_message(9, &bundle)).unwrap();
-        let expression = message["params"]["expression"].as_str().unwrap();
-        assert!(expression.contains(r#"const id = "a\"]); alert(1); (\"", testId = null;"#));
-        assert!(!expression.contains("__"), "a placeholder was left in");
-
-        let answer = r#"[{"id":"go","testId":null,"role":null,"name":"button \"Go\"","text":"Go","tag":"button","elementPath":"button#go","fullPath":"body > button#go","interactive":true,"rect":{"x":10,"y":20,"width":40,"height":20}}]"#;
-        let candidates = parse_candidates(&value_result(answer));
-        assert_eq!(candidates.len(), 1);
-        assert!(candidates[0].interactive);
-        assert!((candidates[0].rect.width - 40.0).abs() < f64::EPSILON);
-        assert_eq!(parse_candidates(b"not json").len(), 0);
-    }
-
-    #[test]
-    fn a_click_is_replayed_as_a_press_and_a_release_and_a_hover_as_a_move() {
-        let message = |event: &str, button: &str, clicks: u8| {
-            json!({
-                "method": "Input.dispatchMouseEvent",
-                "params": { "type": event, "x": 30.0, "y": 40.0, "button": button, "clickCount": clicks },
-            })
-        };
-        assert_eq!(
-            replay_messages(PointKind::Hover, 30.0, 40.0),
-            [message("mouseMoved", "none", 0)]
-        );
-        assert_eq!(
-            replay_messages(PointKind::Click, 30.0, 40.0),
-            [
-                message("mousePressed", "left", 1),
-                message("mouseReleased", "left", 1)
-            ]
-        );
-    }
 }

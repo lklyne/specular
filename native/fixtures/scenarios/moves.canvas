@@ -1,0 +1,25 @@
+{
+  "nodes": [
+    {"id": "a", "type": "shape", "x": 100, "y": 100, "width": 200, "height": 100, "shapeKind": "rectangle", "text": ""},
+    {"id": "b", "type": "shape", "x": 400, "y": 100, "width": 200, "height": 100, "shapeKind": "rectangle", "text": ""},
+    {"id": "c", "type": "shape", "x": 100, "y": 400, "width": 100, "height": 100, "shapeKind": "rectangle", "text": ""},
+    {"id": "o", "type": "shape", "x": 705, "y": 401, "width": 100, "height": 100, "shapeKind": "rectangle", "text": ""},
+    {"id": "p1", "type": "link", "x": 1100, "y": 100, "width": 400, "height": 300, "url": "https://example.com/p1"},
+    {"id": "d", "type": "drawing", "x": 1100, "y": 600, "width": 60, "height": 40, "strokes": [{"id": "ink", "color": "neutral", "width": 2, "points": [{"x": 1100, "y": 600}, {"x": 1160, "y": 640}]}]},
+    {"id": "g", "type": "group", "x": 80, "y": 1080, "width": 540, "height": 440, "label": "Flow"},
+    {"id": "ga", "type": "shape", "x": 100, "y": 1100, "width": 200, "height": 100, "shapeKind": "rectangle", "text": "", "parentGroupId": "g"},
+    {"id": "inner", "type": "group", "x": 380, "y": 1080, "width": 240, "height": 140, "parentGroupId": "g"},
+    {"id": "gb", "type": "shape", "x": 400, "y": 1100, "width": 200, "height": 100, "shapeKind": "rectangle", "text": "", "parentGroupId": "inner"},
+    {"id": "out", "type": "shape", "x": 700, "y": 1400, "width": 100, "height": 100, "shapeKind": "rectangle", "text": ""},
+    {"id": "q", "type": "shape", "x": 1000, "y": 800, "width": 100, "height": 100, "shapeKind": "rectangle", "text": ""},
+    {"id": "qr", "type": "shape", "x": 1180, "y": 800, "width": 100, "height": 100, "shapeKind": "rectangle", "text": ""},
+    {"id": "wide", "type": "shape", "x": 0, "y": 2000, "width": 2000, "height": 100, "shapeKind": "rectangle", "text": ""}
+  ],
+  "edges": [
+    {"id": "ab", "fromNode": "a", "toNode": "b"},
+    {"id": "ac", "fromNode": "a", "toNode": "c"},
+    {"id": "gin", "fromNode": "ga", "toNode": "gb"},
+    {"id": "gout", "fromNode": "ga", "toNode": "out"}
+  ],
+  "specular": {"entityOrder": ["a", "b", "c", "o", "p1", "d", "g", "ga", "inner", "gb", "out", "q", "qr", "wide", "ab", "ac", "gin", "gout"]}
+}

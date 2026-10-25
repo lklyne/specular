@@ -33,7 +33,9 @@ pub enum WindowStep {
     /// `swipe dx dy ms [late]`: pressed where the pointer is, dragged by that
     /// much over that long, released `late` ms after the last move.
     Swipe(Vec2, u64, u64),
-    /// `drop PATH.. x y`, or `drop PATH.. nowhere`: files dropped.
+    /// `drop PATH.. x y`, or `drop PATH.. nowhere`: files dropped. A
+    /// headless run drops them too, a relative path read from the canvas's
+    /// folder.
     Drop(Vec<PathBuf>, Option<Vec2>),
     /// `paste-image PATH`: the right panel's composer takes the image file
     /// as a paste.

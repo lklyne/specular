@@ -134,39 +134,4 @@ mod tests {
         );
         assert_eq!(word_end_after(text, 15), 15);
     }
-
-    #[test]
-    fn a_double_click_takes_the_word_under_it_or_the_gap() {
-        let text = "one, two  three";
-        // (text, offset, range). The boundary after a word still takes it, and
-        // inside the gap the gap is taken.
-        let rows = [
-            (text, 1, 0..3),
-            (text, 3, 0..3),
-            (text, 8, 5..8),
-            (text, 9, 8..10),
-            (text, 15, 10..15),
-            ("", 0, 0..0),
-        ];
-        for (text, at, want) in rows {
-            assert_eq!(word_at(text, at), want, "{text:?} at {at}");
-        }
-    }
-
-    #[test]
-    fn a_paragraph_stops_at_the_line_breaks_around_it() {
-        let text = "one\ntwo\n";
-        assert_eq!(
-            [0, 3, 4, 7, 8].map(|at| paragraph_at(text, at)),
-            [0..3, 0..3, 4..7, 4..7, 8..8]
-        );
-    }
-
-    #[test]
-    fn utf16_offsets_map_to_byte_offsets_and_clamp() {
-        assert_eq!(
-            [0, 1, 3, 4, 99].map(|units| from_utf16("a😀b", units)),
-            [0, 1, 5, 6, 6]
-        );
-    }
 }

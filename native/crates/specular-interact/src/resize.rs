@@ -268,34 +268,6 @@ mod tests {
     }
 
     #[test]
-    fn selection_bounds_follow_the_pointer_exactly_down_to_their_minimum() {
-        let rows = [
-            (
-                BOTTOM_RIGHT,
-                at(547.0, 351.0),
-                Rect::new(100.0, 100.0, 447.0, 251.0),
-            ),
-            (
-                TOP_LEFT,
-                at(900.0, 900.0),
-                Rect::new(480.0, 280.0, 20.0, 20.0),
-            ),
-            (
-                Handle::Side(EdgeSide::Left),
-                at(0.0, 900.0),
-                Rect::new(0.0, 100.0, 500.0, 200.0),
-            ),
-        ];
-        for (handle, pointer, want) in rows {
-            assert_eq!(
-                resized_bounds(START, handle, pointer),
-                want,
-                "{handle:?} to {pointer}"
-            );
-        }
-    }
-
-    #[test]
     fn entities_keep_their_share_of_the_bounds_on_whole_units() {
         let from = Rect::new(0.0, 0.0, 300.0, 100.0);
         let to = Rect::new(0.0, 0.0, 450.0, 50.0);

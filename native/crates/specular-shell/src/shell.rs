@@ -191,13 +191,12 @@ fn window_options(launch: &Launch, cx: &App) -> WindowOptions {
 
 /// Tells the app which of its chrome this shell draws itself.
 fn say_what_the_kit_draws(runtime: &mut Runtime<CanvasSurface>, benching: bool) {
-    // The Kit draws the chrome and the sidebar. The menu a right press on
-    // the canvas opens stays in the canvas's own pass, except in a
-    // benchmark, which draws the canvas alone as the winit shell's does.
+    // The Kit draws the chrome, the sidebar and the context menu, except in
+    // a benchmark, which draws the canvas alone as the winit shell's does.
     runtime.dispatch(if benching {
         Event::BuiltinPanels(false)
     } else {
-        Event::BuiltinMenu
+        Event::ShellChrome
     });
     if !benching {
         // The Kit draws a right panel, so a comment is written there and

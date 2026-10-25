@@ -52,7 +52,7 @@ impl App {
     /// selection, over the canvas, and covers nothing.
     pub fn covered_top(&self) -> f32 {
         let panel = &self.session.panel;
-        let bar = if panel.menu_only && self.lens().is_some() {
+        let bar = if panel.shell_chrome && self.lens().is_some() {
             DOCK_ROW
         } else {
             0.0

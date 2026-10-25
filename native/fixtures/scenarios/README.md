@@ -91,6 +91,24 @@ expect saved same-as start | mark NAME | ../kitchen-sink.canvas
 expect saved changed-from start at /nodes/s1/x
 ```
 
+The canvas facts read what the pointer and the selection show, and
+what the last step asked the shell to do; the full list is at the top of
+`crates/specular-app/src/script/facts_canvas.rs`:
+
+```text
+expect hit 400 185 anchor f1 top    expect guides horizontal top/b.top 100
+expect cursor resize-nwse           expect gaps horizontal 100 | 200 300 150
+expect handles entity s1            expect drop-target g | entered-group g
+expect seen s1 200 160 100 100      expect page p1 100 100 400 300 viewport 400 300
+expect order a b @top               expect edge @last @3 @4
+expect sent viewport p 500 300      expect sent no save | sent nothing
+```
+
+With them come the steps `page-says p1 scrolled 0 40` (or `url`, `fit`,
+`element`, `composition`), `appearance dark`, `theme-loaded light`,
+`repeat down`, `menu Edit > Undo`, and `act show:p1`. A headless run
+does `drop` too, a relative path read from the canvas's folder.
+
 `saved` reads the canvas as a save would write it now; a path steps
 through arrays by item id or index (`-1` is the last). Numbers compare by
 value. `same-as` and `changed-from` leave out `appState` (the camera and
@@ -104,7 +122,7 @@ uses `\n`, `\t` and `\s` (a space at either end).
 |---|---|
 | `first-session` | Empty canvas: two stickies, a pen and a highlight stroke, three labelled shapes, a move, a resize, undo to nothing, redo, and the save read back. |
 | `selection-kitchen-sink` | A marquee over stickies, text, shapes and an edge; move, resize, duplicate, Option-drag, nudge, delete, each undone. |
-| `document-editing` | A Document written with the formatting shortcuts, reopened, a long tail of tasks, scrolled, undone and redone. |
+| `document-editing` | A Document written with the formatting shortcuts, reopened, a long tail of tasks, scrolled, undone and redone; a second with a numbered list nested and brought back. |
 | `text-edge-cases` | Emoji, CJK through the input method, a long word, empty lines, replace-all, a multi-line paste, a shape label, editing at zoom 0.25 and 3. |
 | `clipboard` | Text between stickies, a cut, a copied entity, a pasted URL, pasted text with nothing selected. |
 | `reload-electron-welcome` | The starter space's `Welcome.canvas`, which Electron wrote, saved as read, one shape nudged changes one field, read back. |
@@ -113,7 +131,7 @@ uses `\n`, `\t` and `\s` (a space at either end).
 | `tools-and-escape` | Tool keys in a row, Escape at each stage of each gesture, a tool change mid-drag and mid-edit. |
 | `comments` | Comments on the kitchen sink in Electron's shape: points, a page element, two regions, an empty draft, a two-line draft, delete and undo, annotate a selection, resolve. |
 | `toolbar-and-popups` | Every change made by naming a control: a sticky and shapes placed with their tool defaults, restyled, an edge dragged and restyled, undo and redo across a property change, the zoom list. |
-| `page-chrome` | The page controls: the page tool's preset, an address entered and one abandoned, a custom size, undone. |
+| `page-chrome` | The page controls: the page tool's preset, an address entered (a local one over http) and one abandoned, a custom size, undone. |
 | `sidebar` | Canvases added, renamed (Enter, Escape) and deleted, sections folded, rows that select and reveal, zoom to fit with and without the sidebar; the kitchen sink is unchanged. |
 | `context-menu-and-arrange` | The right-click menu on a sticky, empty canvas and a page, a row and a column arranged and undone, bold put on mid-edit. |
 | `chrome-session` | A page from its row, its address and size list, a duplicate from the menu, a second canvas, a page shown alone and a sticky hooked to it there. |
@@ -121,6 +139,27 @@ uses `\n`, `\t` and `\s` (a space at either end).
 | `auto-layout` | Three shapes made a managed row, regapped, turned to a column and back, reordered by a dot; a loose pair reordered with no group. |
 | `page-anchoring` | Items hooked to a scrolled page: a resize, an edit and a region attached to the cell under them, a duplicate that is free, the page deleted and brought back; one snapshot of the fade. |
 | `new-tab-links` | Links a page opens in a new tab, foreground and background, and a `javascript:` link that opens nothing. |
+| `select` | Pages picked then entered, Shift-click, edges, the marquee's modes, handles. |
+| `pointing` | What a point hits: page pixels, handles, anchors, ink, group borders and titles, hover. |
+| `groups-enter` | A group picked whole, stepped into and out of, renamed by its title, the innermost drop target. |
+| `groups` | Group and ungroup, a group refitting round its members, dragging into and out of groups. |
+| `resize` | Every resize rule: cursors, ratios by kind, ink, a group alone, pages laid out, a scaled selection, text. |
+| `edges` | Edges drawn, snapped, re-routed, deleted with their ends, followed, and labelled. |
+| `moves` | Moves on and off the grid, Shift, Option copies, delete, duplicate, nudge, selection across undo. |
+| `tools` | Tool keys and variants, the armed tool's ghost, shapes, text, stickies, pages and strokes placed. |
+| `guides-cases` | Guides with Shift off the grid, the half-unit tolerance, neighbours fixed at the press, groups. |
+| `arrange` | The stack order verbs and keys, and arranging in a row, a column and a grid. |
+| `layout-lines` | A managed row laid out again by each change, reorder dots and gap strips, loose lines. |
+| `anchor-cases` | Items hooked to pages by where they land, carried items resized and copied, element attachment. |
+| `entered-page` | An entered page's pointer, wheel, keys, input method and Edit menu; what asks for a save. |
+| `clipboard-items` | Items copied, cut and pasted with their edges, a group pasted whole, an address and text. |
+| `canvases` | Canvases made, switched, renamed, duplicated and deleted, each with its own history. |
+| `theme` | The theme button, the system's appearance, and the scheme pages are told. |
+| `safe-area` | Framed pages laid out inside their device's safe area until the document covers it. |
+| `html-file` | An HTML file node hosted, entered, commented on and shown in a tab, still a file. |
+| `text-fit` | Text measured on load with no step, and saved at its size on disk until changed. |
+| `images` | The kitchen sink's images loaded, missing or never asked for. |
+| `drop` | Files dropped from outside and inside the space, and several cascading. |
 | `reduced-motion` | A page's tab opened with transitions on, then with Reduce motion on, and the settings' cursor switches. |
 
 `cef/` holds the real-page suite (`run.sh --cef`): `pages.txt` (comments

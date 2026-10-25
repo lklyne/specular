@@ -1,12 +1,14 @@
 //! One step of a script, done headless.
 
+use std::path::PathBuf;
+
 use anyhow::Context as _;
 use glam::Vec2;
 use specular_doc::Document;
 use specular_interact::{Action, ControlId, Driver, Event, PageNotice};
 
 use super::Headless;
-use crate::script::{self, CameraArg, Step};
+use crate::script::{self, CameraArg, Expect, Step, WindowStep};
 
 /// More undo steps than any script makes: a history that never runs out is
 /// a bug, not a long session.
@@ -14,9 +16,24 @@ const UNDO_LIMIT: usize = 10_000;
 
 impl Headless {
     pub(super) fn step(&mut self, step: Step) -> anyhow::Result<()> {
-        if !matches!(step, Step::Expect(_) | Step::State(_) | Step::Mark(_)) {
-            self.checks.effects.clear();
+        // `expect sent` reads the effects of the last step that was not a
+        // check.
+        match step {
+            Step::Expect(Expect::OnCanvas(fact)) if fact.is_sent() => {
+                script::check_sent(self.app.app(), &self.sent, &fact)
+            }
+            Step::Expect(Expect::Panel(fact)) if fact.reads_effects() => {
+                fact.check(self.app.app(), Some(&self.sent))
+            }
+            Step::Expect(_) | Step::State(_) | Step::Mark(_) | Step::Save(_) => self.do_step(step),
+            _ => {
+                self.sent.clear();
+                self.do_step(step)
+            }
         }
+    }
+
+    fn do_step(&mut self, step: Step) -> anyhow::Result<()> {
         match step {
             Step::Move(at) => self.drive(|app| app.pointer_move(at)),
             Step::Press(at) => self.drive(|app| app.press(at)),
@@ -118,10 +135,30 @@ impl Headless {
             Step::Mark(name) => self.checks.mark(self.app.app(), &name),
             Step::Reopen => self.reopen(),
             Step::UndoToStart(except) => self.undo_to_start(&except),
+            Step::Window(WindowStep::Drop(paths, at)) => self.drop_files(&paths, at),
             // The run skips these before they get here.
             Step::Window(_) => Ok(()),
+            Step::Canvas(step) => step
+                .event(self.app.app())
+                .and_then(|event| self.drive(|app| app.send(event))),
         }?;
         self.frame_for_documents()
+    }
+
+    /// Drops the files at `paths` at `at`, as a window gets them: whole
+    /// paths with no `..` in them, a relative one read from the canvas's
+    /// folder.
+    fn drop_files(&mut self, paths: &[PathBuf], at: Option<Vec2>) -> anyhow::Result<()> {
+        let real = |path: PathBuf| std::fs::canonicalize(&path).unwrap_or(path);
+        let space = self.space.clone().map(real);
+        let files = (paths.iter())
+            .map(|path| match &space {
+                Some(space) if path.is_relative() => real(space.join(path)),
+                _ => path.clone(),
+            })
+            .map(|path| crate::app::drop_run::dropped_file(&path, space.as_deref()))
+            .collect();
+        self.drive(|app| app.send(Event::FilesDropped { files, screen: at }))
     }
 
     /// Writes the canvas as a save would and opens what was written.

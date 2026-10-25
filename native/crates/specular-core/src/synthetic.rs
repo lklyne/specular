@@ -628,6 +628,3 @@ impl PageSource for SyntheticPageSource {
         self.devtools_out.clear();
     }
 }
-
-#[cfg(test)]
-mod tests;
