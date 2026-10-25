@@ -1096,6 +1096,17 @@ Nothing was retired. Cleanup rows 1 and 2 in the plan say what now stands betwee
 - Needs a human at a Mac: none of it has been seen in a real page. The user asked for no scripted run and tests by hand.
 
 
+### BIG-RUN P8: tidy (narrowed API, split files and functions)
+
+- Task 8: every `pub` item no other crate, test, bench or example names is `pub(crate)`, found by a name scan and then by the compiler (narrow all, restore what breaks). `pub` declarations went from 3,212 to 2,493; the dead code that showed is deleted (about 45 items, about 450 lines). Without its `cef` feature `specular-cef` allows dead code: its CEF-free helpers then serve only their unit tests.
+- Task 11: 30 files over 400 lines split along their seams into 46 new files. Left at the line: `cef/source.rs` (422, the one `PageSource` impl of 30 short methods; an impl cannot span files) and files at 397 to 401.
+- Task 12: broke up the long procedural functions (freehand outlines, session marks, the inspect card, a page's screen, page and image batches, clone copies, the CLI's browse run, the bench's page side, the canvas reader, launch, the ledger line, the API's breakpoint task, and in the Kit the slot's handlers, `open`, `render`, the composer, the sidebar and the frame). `Runtime::render`/`capture` were already one frame setup after P4b.
+- Left long on purpose: flat dispatchers (`update`, `run_action`, `effects::run`, `do_step`, the window runner's `step`, `notice_of`, `host_call::dispatch`, `on_dev_tools_method_result`, `page_state::on_notice`, `cli::parse`, the canvas node reader and writer, the facts `read`), declarative tables (device art, the prism preset, prism targets, resources and pipelines, `menus`, the tool dock's `controls`, the frame drawings) and the compositor's `prepare_scene`/`encode_scene_pass`, whose stages share split borrows of one struct.
+- Fixes: a text node's top-level `pageAnchor` is read (Electron read only `specular.pageAnchor`; now both, written back under `specular`), with a doc test. `specular-cef` docs describe the Kit window's `NSApp`, not winit's. Comments cite Electron files as `git show bc5253fa:src/...`.
+- Lines: 110,614 before, 111,111 after (splits add a header and imports per file; the narrowing deleted about 450).
+- Ran: the strict gate (fmt, clippy, tests, `run.sh`, `cli/run.sh`), and clippy for `specular-shell` and `specular-cef` with `--features cef`.
+- By hand: nothing behaves differently; a quick look at the Kit window (canvas input, the sidebar, the chat composer, the inspect card) checks the refactored view code.
+
 ### BIG-RUN P1. Deletions
 
 - `native/bakeoff` is gone. The images ADR 0039 and ADR 0040 link (the golden images and crops, and the thirteen linked `shots/*.png`) moved to `docs/adr/assets/0039/` and `assets/0040/`. The ADRs, and the handoff's item 44, point there. The ADR 0040 `.txt` reports it names went with the code.
