@@ -114,6 +114,28 @@ fn screenshot_block(stdout: &str) -> Option<Block> {
     Some(Block::Image { data, jpeg })
 }
 
+/// Tells the app's cursor what is about to happen on `page`, so it can
+/// move there first.
+fn tell_cursor(client: &Client, page: &str, parsed: &Parsed) {
+    let Some(label) = parsed.label() else { return };
+    let intent = parsed.effective();
+    let editing = matches!(intent, Some("fill" | "type"));
+    client.notify(
+        "/session/presence/intent",
+        &json!({
+            "sessionId": client.session(),
+            "clientName": client.name(),
+            "command": intent,
+            "labelKey": label,
+            "pageId": page,
+            "labelHint": if editing { json!("editing control") } else { Value::Null },
+            "targetRef": parsed.target_ref,
+            "targetRefSource": parsed.target_ref.as_ref().map(|_| "agent-browser"),
+            "targetQuery": parsed.target_ref.is_none().then(|| parsed.target_query()).flatten(),
+        }),
+    );
+}
+
 /// Runs `argv` against `page` (or the selected entity), with the cursor
 /// told first. `echo` snapshots the page again after a mutation.
 fn drive(
@@ -135,25 +157,7 @@ fn drive(
     let page_url = target["url"].as_str().unwrap_or_default();
     let driver = Driver::new(client.session(), &page, cdp);
 
-    if let Some(label) = parsed.label() {
-        let intent = parsed.effective();
-        let editing = matches!(intent, Some("fill" | "type"));
-        client.notify(
-            "/session/presence/intent",
-            &json!({
-                "sessionId": client.session(),
-                "clientName": client.name(),
-                "command": intent,
-                "labelKey": label,
-                "pageId": page,
-                "labelHint": if editing { json!("editing control") } else { Value::Null },
-                "targetRef": parsed.target_ref,
-                "targetRefSource": parsed.target_ref.as_ref().map(|_| "agent-browser"),
-                "targetQuery": parsed.target_ref.is_none().then(|| parsed.target_query()).flatten(),
-            }),
-        );
-    }
-
+    tell_cursor(client, &page, &parsed);
     let verb = parsed.verb.as_deref().unwrap_or_default();
     let mutation = parsed.mutation().is_some();
     let warning = mutation

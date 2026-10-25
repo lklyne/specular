@@ -4,8 +4,6 @@
 
 mod cdp;
 mod common;
-mod contract;
-mod documents;
 mod pages;
 mod plan;
 mod tabs;
