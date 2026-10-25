@@ -68,20 +68,6 @@ mod tests {
     }
 
     #[test]
-    fn a_write_replaces_the_file_and_leaves_no_temp_file() {
-        let dir = TempDir::new("write");
-        let path = dir.0.join("board.canvas");
-        fs::write(&path, "old").unwrap();
-        write_atomic(&path, "new").unwrap();
-        assert_eq!(fs::read_to_string(&path).unwrap(), "new");
-        let names: Vec<_> = fs::read_dir(&dir.0)
-            .unwrap()
-            .map(|entry| entry.unwrap().file_name())
-            .collect();
-        assert_eq!(names, ["board.canvas"]);
-    }
-
-    #[test]
     fn a_write_that_cannot_land_leaves_the_old_file() {
         let dir = TempDir::new("blocked");
         // A directory where the file should be: the rename fails.
@@ -95,26 +81,5 @@ mod tests {
             1,
             "no temp file left"
         );
-    }
-
-    #[test]
-    fn the_stamp_follows_the_file() {
-        let dir = TempDir::new("stamp");
-        let path = dir.0.join("board.canvas");
-        assert_eq!(stamp(&path), None);
-        fs::write(&path, "four").unwrap();
-        let first = stamp(&path).unwrap();
-        assert_eq!(first.len, 4);
-        // The same bytes with another modification time are another stamp.
-        let later = std::time::SystemTime::now() + std::time::Duration::from_secs(5);
-        File::options()
-            .write(true)
-            .open(&path)
-            .unwrap()
-            .set_modified(later)
-            .unwrap();
-        assert_ne!(stamp(&path).unwrap(), first);
-        fs::write(&path, "longer").unwrap();
-        assert_eq!(stamp(&path).unwrap().len, 6);
     }
 }

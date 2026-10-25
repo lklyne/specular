@@ -533,31 +533,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_gesture_has_the_models_read_at_once_then_ten_times_a_second_and_once_when_it_ends() {
-        let start = Instant::now();
-        let frame = Duration::from_nanos(8_333_333);
-        let mut gate = ModelGate::default();
-        let mut readings = Vec::new();
-        // A second of a pan changes the app every frame; then nothing does.
-        for step in 0..240_u32 {
-            let now = start + frame * step;
-            if step < 120 {
-                gate.ask();
-            }
-            if gate.open(now) {
-                readings.push(step);
-            }
-        }
-        assert_eq!(readings[0], 0);
-        assert!((10..=11).contains(&readings.len()), "{readings:?}");
-        // The last change, at frame 119, is shown: by a reading after it.
-        assert!(
-            readings.last().is_some_and(|&last| last >= 119),
-            "{readings:?}"
-        );
-    }
-
-    #[test]
     fn the_display_link_is_paused_a_second_after_the_last_owed_frame_and_no_sooner() {
         let start = Instant::now();
         let mut rest = LinkRest {

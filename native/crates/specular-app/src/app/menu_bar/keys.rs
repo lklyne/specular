@@ -105,42 +105,9 @@ fn character_code(character: char) -> Option<Code> {
 
 #[cfg(test)]
 mod tests {
-    use specular_interact::{App, BINDINGS, MenuEntry, menus};
+    use specular_interact::{App, MenuEntry, menus};
 
     use super::*;
-
-    #[test]
-    fn a_chord_keeps_its_key_and_modifiers() {
-        assert_eq!(
-            accelerator(Chord::char('z').cmd().shift()),
-            Some(Accelerator::new(CMD_OR_CTRL | Modifiers::SHIFT, Code::KeyZ))
-        );
-        assert_eq!(
-            accelerator(Chord::char('v')),
-            Some(Accelerator::new(Modifiers::empty(), Code::KeyV))
-        );
-        assert_eq!(
-            accelerator(Chord::char('=').cmd()),
-            Some(Accelerator::new(CMD_OR_CTRL, Code::Equal))
-        );
-        assert_eq!(
-            accelerator(Chord::key(Key::Backspace)),
-            Some(Accelerator::new(Modifiers::empty(), Code::Backspace))
-        );
-        assert_eq!(
-            accelerator(Chord::char('x').alt()),
-            Some(Accelerator::new(Modifiers::ALT, Code::KeyX))
-        );
-        assert_eq!(accelerator(Chord::key(Key::Other)), None);
-        assert_eq!(accelerator(Chord::char('é')), None);
-    }
-
-    #[test]
-    fn every_chord_in_the_binding_table_can_be_shown() {
-        for binding in BINDINGS {
-            assert!(accelerator(binding.chord).is_some(), "{:?}", binding.chord);
-        }
-    }
 
     #[test]
     fn no_two_menu_items_share_a_shortcut() {

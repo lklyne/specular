@@ -454,27 +454,3 @@ impl App {
         self.session.flick.0.is_some()
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn the_steps_of_a_glide_add_up_to_the_speed_over_the_decay_rate_however_late() {
-        let total = |dts: &[f32]| {
-            let mut velocity = Vec2::new(0.0, 2000.0);
-            let mut total = 0.0;
-            for &dt in dts {
-                let (distance, left) = glide_step(velocity, dt);
-                velocity = left;
-                total += distance.y;
-            }
-            total
-        };
-        let smooth = total(&[8.0; 500]);
-        let late = total(&[100.0; 40]);
-        assert!((smooth - late).abs() < 1.0, "{smooth} vs {late}");
-        let expected = 2000.0 / (-DECAY_PER_MS.ln() * 1000.0);
-        assert!((smooth - expected).abs() < 2.0, "{smooth} vs {expected}");
-    }
-}

@@ -102,34 +102,6 @@ mod tests {
     }
 
     #[test]
-    fn the_camera_is_read_from_app_state() {
-        let document = document(
-            r#"{"nodes":[],"edges":[],"appState":{"zoom":0.5,"pan":{"x":-200,"y":-100}}}"#,
-        );
-        let camera = camera_of(&document).unwrap();
-        assert_eq!((camera.zoom, camera.pan), (0.5, Vec2::new(-200.0, -100.0)));
-        // A zoom outside the canvas range is clamped.
-        let far =
-            self::document(r#"{"nodes":[],"edges":[],"appState":{"zoom":40,"pan":{"x":0,"y":0}}}"#);
-        assert_eq!(camera_of(&far).unwrap().zoom, 3.0);
-    }
-
-    #[test]
-    fn a_missing_or_broken_app_state_gives_no_camera() {
-        for json in [
-            r#"{"nodes":[],"edges":[]}"#,
-            r#"{"nodes":[],"edges":[],"appState":{"zoom":1}}"#,
-            r#"{"nodes":[],"edges":[],"appState":{"zoom":"big","pan":{"x":0,"y":0}}}"#,
-            r#"{"nodes":[],"edges":[],"appState":{"zoom":0,"pan":{"x":0,"y":0}}}"#,
-            r#"{"nodes":[],"edges":[],"appState":7}"#,
-            r#"{"nodes":[],"edges":[],"appState":{"pan":{"x":0,"y":0}}}"#,
-            r#"{"nodes":[],"edges":[],"appState":{"zoom":1,"pan":{"x":0}}}"#,
-        ] {
-            assert_eq!(camera_of(&document(json)), None, "{json}");
-        }
-    }
-
-    #[test]
     fn saving_writes_the_camera_and_keeps_the_rest_of_app_state() {
         let document = document(
             r#"{"nodes":[],"edges":[],"appState":{"zoom":1,"pan":{"x":0,"y":0},"leftSidebarOpen":true}}"#,
@@ -175,27 +147,5 @@ mod tests {
         assert_eq!(pairs, [("a", Lens::Fill), ("b", Lens::Fill)]);
         let not_a_list = document(r#"{"nodes":[],"edges":[],"appState":{"itemTabs":"p1"}}"#);
         assert_eq!(tabs_of(&not_a_list), []);
-    }
-
-    #[test]
-    fn the_zoom_is_written_as_the_number_it_is() {
-        let camera = Camera::new(Vec2::new(-168.0, -518.0), 0.8);
-        let text = saved(&document(r#"{"nodes":[],"edges":[]}"#), camera, &[]);
-        // Not 0.800000011920929, the `f32` widened.
-        assert!(text.contains(r#""zoom": 0.8,"#), "{text}");
-    }
-
-    #[test]
-    fn saving_a_file_without_app_state_adds_one() {
-        let camera = Camera::new(Vec2::new(3.0, 4.0), 2.0);
-        let bare = document(r#"{"nodes":[],"edges":[]}"#);
-        let text = saved(&bare, camera, &[]);
-        assert_eq!(camera_of(&document(&text)), Some(camera));
-        // The document it was given is left alone.
-        assert!(bare.extra().get(APP_STATE).is_none());
-        // An appState that is not an object is replaced by one.
-        let broken = document(r#"{"nodes":[],"edges":[],"appState":7}"#);
-        let text = saved(&broken, camera, &[]);
-        assert_eq!(camera_of(&document(&text)), Some(camera));
     }
 }

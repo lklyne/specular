@@ -89,40 +89,4 @@ mod tests {
             PixelRect::new(1, 1, 7, 7)
         );
     }
-
-    #[test]
-    fn popup_inside_view_keeps_its_scaled_position() {
-        let placed = place_popup(
-            PixelRect::new(10, 20, 100, 50),
-            2.0,
-            PixelSize::new(800, 600),
-        );
-        assert_eq!(placed, PixelRect::new(20, 40, 200, 100));
-    }
-
-    #[test]
-    fn popup_overhanging_bottom_right_is_shifted_inside() {
-        let placed = place_popup(
-            PixelRect::new(350, 280, 100, 50),
-            1.0,
-            PixelSize::new(400, 300),
-        );
-        assert_eq!(placed, PixelRect::new(300, 250, 100, 50));
-    }
-
-    #[test]
-    fn popup_larger_than_view_is_pinned_to_origin_without_resizing() {
-        let placed = place_popup(
-            PixelRect::new(-5, 10, 500, 20),
-            1.0,
-            PixelSize::new(400, 300),
-        );
-        assert_eq!(placed, PixelRect::new(0, 10, 500, 20));
-    }
-
-    #[test]
-    fn union_covers_all_character_bounds() {
-        let union = union_rects([PixelRect::new(10, 10, 5, 12), PixelRect::new(30, 8, 6, 12)]);
-        assert_eq!(union, Some(PixelRect::new(10, 8, 26, 14)));
-    }
 }

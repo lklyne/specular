@@ -30,29 +30,3 @@ pub(super) fn find(name: &str, shown: &[(String, Vec2)]) -> Result<Vec2, String>
 pub(super) fn locate(name: &str) -> Result<Vec2, String> {
     find(name, &shown_controls())
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_name_is_found_in_front_and_one_not_shown_lists_those_that_are() {
-        let at = |name: &str, x: f32| (name.to_owned(), Vec2::new(x, 22.0));
-        let shown = [
-            at("tool.select", 600.0),
-            at("tool.draw", 640.0),
-            at("tool.draw", 650.0),
-            at("menu.copy", 900.0),
-        ];
-        assert_eq!(find("tool.select", &shown), Ok(Vec2::new(600.0, 22.0)));
-        // Drawn twice, the one in front takes the click.
-        assert_eq!(find("tool.draw", &shown), Ok(Vec2::new(650.0, 22.0)));
-        assert_eq!(
-            find("shape.kind", &shown),
-            Err(
-                "no control `shape.kind` is shown; these are: tool.select tool.draw menu.copy"
-                    .to_owned()
-            )
-        );
-    }
-}

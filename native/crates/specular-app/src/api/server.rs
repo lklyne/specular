@@ -53,11 +53,6 @@ impl Server {
         })
     }
 
-    #[cfg(test)]
-    pub(super) fn port(&self) -> u16 {
-        (self.listener.server_addr().to_ip()).map_or(0, |address| address.port())
-    }
-
     /// Stops accepting requests and waits for the thread to end.
     pub(super) fn stop(&mut self) {
         self.listener.unblock();

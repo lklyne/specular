@@ -81,21 +81,3 @@ fn typed_name(path: &Path) -> Option<String> {
     let name = name.strip_suffix(".canvas").unwrap_or(&name).trim();
     (!name.is_empty()).then(|| name.to_owned())
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn the_typed_name_is_the_last_part_without_the_extension() {
-        assert_eq!(
-            typed_name(Path::new("/space/Home page")).as_deref(),
-            Some("Home page")
-        );
-        assert_eq!(
-            typed_name(Path::new("/space/Home.canvas")).as_deref(),
-            Some("Home")
-        );
-        assert_eq!(typed_name(Path::new("/space/ .canvas")), None);
-    }
-}

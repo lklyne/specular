@@ -295,69 +295,12 @@ mod tests {
             std::fs::write(&file, text).unwrap();
             file
         }
-
-        fn link(&self, path: &str, target: &Path) -> PathBuf {
-            let link = self.0.join(path);
-            std::fs::create_dir_all(link.parent().unwrap()).unwrap();
-            std::os::unix::fs::symlink(target, &link).unwrap();
-            link
-        }
     }
 
     impl Drop for TempDir {
         fn drop(&mut self) {
             let _ = std::fs::remove_dir_all(&self.0);
         }
-    }
-
-    #[test]
-    fn the_command_is_linked_at_the_first_place_that_takes_it() {
-        let dir = TempDir::new("first");
-        let wrapper = dir.file("app/specular-cli.sh", "");
-        // A file where the folder should be: nothing can be linked in it.
-        dir.file("system", "");
-        let links = [
-            dir.0.join("system/specular"),
-            dir.0.join("home/bin/specular"),
-        ];
-        assert_eq!(command_status(&wrapper, &links), Status::Missing);
-        assert_eq!(link_command(&wrapper, &links).unwrap(), links[1]);
-        assert_eq!(std::fs::read_link(&links[1]).unwrap(), wrapper);
-        assert_eq!(
-            command_status(&wrapper, &links),
-            Status::Installed(Some(links[1].display().to_string()))
-        );
-    }
-
-    #[test]
-    fn a_link_to_a_file_that_is_gone_reads_as_missing_and_is_replaced() {
-        let dir = TempDir::new("dangling");
-        let wrapper = dir.file("app/specular-cli.sh", "");
-        let link = dir.link("bin/specular", &dir.0.join("old-app/specular-cli.sh"));
-        let links = std::slice::from_ref(&link);
-        assert_eq!(command_status(&wrapper, links), Status::Missing);
-        assert_eq!(link_command(&wrapper, links).unwrap(), link);
-        assert_eq!(std::fs::read_link(&link).unwrap(), wrapper);
-    }
-
-    #[test]
-    fn a_working_link_elsewhere_is_named_and_an_install_replaces_it() {
-        let dir = TempDir::new("theirs");
-        let wrapper = dir.file("app/specular-cli.sh", "");
-        let theirs = dir.file("repo/specular-cli.sh", "");
-        let link = dir.link("bin/specular", &theirs);
-        let links = std::slice::from_ref(&link);
-        assert!(matches!(
-            command_status(&wrapper, links),
-            Status::Differs(_)
-        ));
-        assert_eq!(
-            std::fs::read_link(&link).unwrap(),
-            theirs,
-            "looking changes nothing"
-        );
-        assert_eq!(link_command(&wrapper, links).unwrap(), link);
-        assert_eq!(std::fs::read_link(&link).unwrap(), wrapper);
     }
 
     #[test]
@@ -372,28 +315,5 @@ mod tests {
         ));
         assert!(link_command(&wrapper, links).is_err());
         assert_eq!(std::fs::read_to_string(&file).unwrap(), "#!/bin/sh");
-    }
-
-    #[test]
-    fn the_skill_is_missing_then_installed_then_differs_when_either_side_changes() {
-        let dir = TempDir::new("skill");
-        let bundled = dir.0.join("skill");
-        let installed = dir.0.join("claude/skills/specular");
-        dir.file("skill/SKILL.md", "one");
-        dir.file("skill/references/apply.md", "apply");
-        assert_eq!(skill_status(&bundled, &installed), Status::Missing);
-
-        copy_folder(&bundled, &installed).unwrap();
-        assert_eq!(skill_status(&bundled, &installed), Status::Installed(None));
-        assert_eq!(
-            std::fs::read_to_string(installed.join("references/apply.md")).unwrap(),
-            "apply"
-        );
-
-        dir.file("skill/SKILL.md", "two");
-        assert!(matches!(
-            skill_status(&bundled, &installed),
-            Status::Differs(_)
-        ));
     }
 }

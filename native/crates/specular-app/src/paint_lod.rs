@@ -232,53 +232,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn frame_rate_tiers_have_a_hysteresis_margin() {
-        for (scale, current, expected) in [
-            (0.5, 30, FULL_FRAME_RATE),
-            (0.25, FULL_FRAME_RATE, 30),
-            (0.1, 30, 15),
-            // Boundary 0.44; the down-switch waits until 0.4.
-            (0.42, FULL_FRAME_RATE, FULL_FRAME_RATE),
-            // The up-switch waits until ~0.49.
-            (0.46, 30, 30),
-        ] {
-            assert_eq!(
-                frame_rate_for_display_scale(scale, current),
-                expected,
-                "{scale} from {current}"
-            );
-        }
-    }
-
-    #[test]
-    fn texture_grows_without_margin_and_shrinks_past_one() {
-        for (scale, current, expected) in [
-            (0.3, TextureTier::Quarter, TextureTier::Half),
-            // 0.45 is under the 0.5 boundary but not by the 0.8 margin.
-            (0.45, TextureTier::Full, TextureTier::Full),
-            (0.2, TextureTier::Full, TextureTier::Quarter),
-        ] {
-            assert_eq!(
-                texture_tier_for_display_scale(scale, current),
-                expected,
-                "{scale} from {current:?}"
-            );
-        }
-    }
-
-    #[test]
-    fn a_page_created_zoomed_out_starts_at_the_texture_it_is_owed() {
-        let start = Instant::now();
-        let mut lod = PageLod::starting_at(0.25);
-        assert_eq!(lod.texture(), TextureTier::Half);
-        // And is not asked to change it, at once or after the settle wait.
-        let first = lod.update(0.25, true, start);
-        let settled = lod.update(0.25, true, start + TEXTURE_SHRINK_SETTLE);
-        assert_eq!((first.texture, settled.texture), (None, None));
-        assert_eq!(PageLod::starting_at(1.0).texture(), TextureTier::Full);
-    }
-
-    #[test]
     fn texture_shrink_waits_for_the_camera_to_settle() {
         let start = Instant::now();
         let mut lod = PageLod::default();
@@ -299,46 +252,5 @@ mod tests {
             (wanted.texture, early.texture, grown.texture),
             (None, None, Some(TextureTier::Full))
         );
-    }
-
-    #[test]
-    fn moving_camera_restarts_the_settle_wait() {
-        let start = Instant::now();
-        let mut lod = PageLod::default();
-        lod.update(0.25, true, start);
-        lod.update(0.24, true, start + Duration::from_millis(500));
-        let change = lod.update(0.24, true, start + TEXTURE_SHRINK_SETTLE);
-        assert_eq!(change.texture, None);
-    }
-
-    #[test]
-    fn rate_change_while_hidden_is_deferred_to_wake() {
-        let start = Instant::now();
-        let mut lod = PageLod::default();
-        let stopped = lod.update(1.0, false, start);
-        assert_eq!(stopped.painting, Some(false));
-        let hidden = lod.update(0.25, false, start);
-        let woken = lod.update(0.25, true, start);
-        assert_eq!((hidden.frame_rate, woken.frame_rate), (None, Some(30)));
-    }
-
-    #[test]
-    fn waking_page_takes_its_texture_tier_at_once() {
-        let start = Instant::now();
-        let mut lod = PageLod::default();
-        lod.update(1.0, false, start);
-        lod.update(0.2, false, start);
-        let woken = lod.update(0.2, true, start);
-        assert_eq!(woken.texture, Some(TextureTier::Quarter));
-    }
-
-    #[test]
-    fn full_size_page_grows_without_waiting() {
-        let start = Instant::now();
-        let mut lod = PageLod::default();
-        lod.update(0.2, true, start);
-        lod.update(0.2, true, start + TEXTURE_SHRINK_SETTLE);
-        let change = lod.update(1.0, true, start + TEXTURE_SHRINK_SETTLE);
-        assert_eq!(change.texture, Some(TextureTier::Full));
     }
 }

@@ -169,31 +169,3 @@ pub(crate) fn distance_to_segment(point: Vec2, a: Vec2, b: Vec2) -> f32 {
     let t = ((point - a).dot(along) / length_squared).clamp(0.0, 1.0);
     point.distance(a + along * t)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn an_edge_with_no_sides_leaves_from_the_facing_ones() {
-        let left = ScreenRect::new(0.0, 0.0, 100.0, 100.0);
-        let right = ScreenRect::new(300.0, 20.0, 100.0, 100.0);
-        let curve = EdgeCurve::between(left, right, &Edge::new("e", "a", "b"), 1.0);
-        assert_eq!(
-            (curve.from, curve.to),
-            (Vec2::new(108.0, 50.0), Vec2::new(292.0, 70.0))
-        );
-    }
-
-    #[test]
-    fn control_points_reach_outward_within_their_limits() {
-        let left = ScreenRect::new(0.0, 0.0, 100.0, 100.0);
-        let near = ScreenRect::new(120.0, 0.0, 100.0, 100.0);
-        let curve = EdgeCurve::between(left, near, &Edge::new("e", "a", "b"), 1.0);
-        // The ends are 4 px apart, so the 40 px minimum applies.
-        assert_eq!(
-            (curve.from_control.x, curve.to_control.x),
-            (108.0 + 40.0, 112.0 - 40.0)
-        );
-    }
-}

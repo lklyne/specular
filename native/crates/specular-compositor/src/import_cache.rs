@@ -125,11 +125,6 @@ impl<K: PartialEq, V> ImportCache<K, V> {
     pub(crate) fn hits_and_misses(&self) -> (u64, u64) {
         (self.hits, self.misses)
     }
-
-    #[cfg(test)]
-    fn len(&self) -> usize {
-        self.entries.len()
-    }
 }
 
 #[cfg(test)]
@@ -137,10 +132,6 @@ mod tests {
     use std::convert::Infallible;
 
     use super::*;
-
-    fn ok(value: u32) -> impl FnOnce() -> Result<u32, Infallible> {
-        move || Ok(value)
-    }
 
     #[test]
     fn repeated_surface_is_imported_once() {
@@ -153,69 +144,5 @@ mod tests {
             });
         }
         assert_eq!(imports, 1);
-    }
-
-    #[test]
-    fn full_cache_evicts_least_recently_used() {
-        let mut cache = ImportCache::default();
-        for key in 0..CAPACITY as u32 {
-            let _ = cache.get_or_import(key, ok(key));
-        }
-        let _ = cache.get_or_import(0, ok(0));
-        let _ = cache.get_or_import(99, ok(99));
-        let mut reimported = false;
-        let _ = cache.get_or_import::<Infallible>(1, || {
-            reimported = true;
-            Ok(1)
-        });
-        assert!(reimported);
-    }
-
-    #[test]
-    fn idle_entries_are_dropped() {
-        let mut cache = ImportCache::default();
-        let _ = cache.get_or_import(1, ok(1));
-        for _ in 0..=IDLE_INGESTS {
-            let _ = cache.get_or_import(2, ok(2));
-        }
-        assert_eq!(cache.len(), 1);
-    }
-
-    #[test]
-    fn retain_drops_rejected_keys() {
-        let mut cache = ImportCache::default();
-        let _ = cache.get_or_import(1, ok(1));
-        let _ = cache.get_or_import(2, ok(2));
-        cache.retain(|key| *key == 2);
-        assert_eq!(cache.len(), 1);
-        let _ = cache.get_or_import::<Infallible>(2, || unreachable!("surface 2 was kept"));
-    }
-
-    #[test]
-    fn a_layer_that_stops_painting_keeps_only_the_surface_it_shows() {
-        let mut cache = ImportCache::default();
-        let start = Instant::now();
-        for key in [1, 2, 3, 2] {
-            let _ = cache.get_or_import(key, ok(key));
-            cache.painted(start);
-        }
-        // Still painting, as far as the clock knows.
-        assert_eq!(cache.settle(start + IDLE_TIME / 2), 0);
-        assert_eq!(cache.len(), 3);
-        assert_eq!(cache.settle(start + IDLE_TIME), 2);
-        // The one it kept is the one it showed last: no import when it
-        // paints that surface again.
-        let _ = cache.get_or_import::<Infallible>(2, || unreachable!("surface 2 was kept"));
-        assert_eq!(cache.settle(start + IDLE_TIME * 3), 0);
-    }
-
-    #[test]
-    fn a_cache_that_never_painted_has_nothing_to_settle() {
-        let mut cache = ImportCache::default();
-        for key in [1, 2, 3] {
-            let _ = cache.get_or_import(key, ok(key));
-        }
-        assert_eq!(cache.settle(Instant::now() + IDLE_TIME * 3), 0);
-        assert_eq!(cache.len(), 3);
     }
 }

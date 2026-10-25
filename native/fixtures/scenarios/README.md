@@ -104,7 +104,7 @@ uses `\n`, `\t` and `\s` (a space at either end).
 |---|---|
 | `first-session` | Empty canvas: two stickies, a pen and a highlight stroke, three labelled shapes, a move, a resize, undo to nothing, redo, and the save read back. |
 | `selection-kitchen-sink` | A marquee over stickies, text, shapes and an edge; move, resize, duplicate, Option-drag, nudge, delete, each undone. |
-| `document-editing` | A Document written with the formatting shortcuts, reopened, a long tail of tasks, scrolled, undone and redone. |
+| `document-editing` | A Document written with the formatting shortcuts, reopened, a long tail of tasks, scrolled, undone and redone; a second with a numbered list nested and brought back. |
 | `text-edge-cases` | Emoji, CJK through the input method, a long word, empty lines, replace-all, a multi-line paste, a shape label, editing at zoom 0.25 and 3. |
 | `clipboard` | Text between stickies, a cut, a copied entity, a pasted URL, pasted text with nothing selected. |
 | `reload-electron-welcome` | The starter space's `Welcome.canvas`, which Electron wrote, saved as read, one shape nudged changes one field, read back. |
@@ -113,7 +113,7 @@ uses `\n`, `\t` and `\s` (a space at either end).
 | `tools-and-escape` | Tool keys in a row, Escape at each stage of each gesture, a tool change mid-drag and mid-edit. |
 | `comments` | Comments on the kitchen sink in Electron's shape: points, a page element, two regions, an empty draft, a two-line draft, delete and undo, annotate a selection, resolve. |
 | `toolbar-and-popups` | Every change made by naming a control: a sticky and shapes placed with their tool defaults, restyled, an edge dragged and restyled, undo and redo across a property change, the zoom list. |
-| `page-chrome` | The page controls: the page tool's preset, an address entered and one abandoned, a custom size, undone. |
+| `page-chrome` | The page controls: the page tool's preset, an address entered (a local one over http) and one abandoned, a custom size, undone. |
 | `sidebar` | Canvases added, renamed (Enter, Escape) and deleted, sections folded, rows that select and reveal, zoom to fit with and without the sidebar; the kitchen sink is unchanged. |
 | `context-menu-and-arrange` | The right-click menu on a sticky, empty canvas and a page, a row and a column arranged and undone, bold put on mid-edit. |
 | `chrome-session` | A page from its row, its address and size list, a duplicate from the menu, a second canvas, a page shown alone and a sticky hooked to it there. |

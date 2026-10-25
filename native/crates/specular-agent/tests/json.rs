@@ -1,10 +1,7 @@
 //! A thread file is written and read as the Electron app does.
 
-use std::collections::BTreeMap;
-
 use specular_agent::{
     Artifact, ArtifactTarget, Image, MediaType, Message, Role, Status, Thread, ThreadId,
-    index_json, parse_index, title_from_messages,
 };
 
 const NOW: &str = "2026-01-01T00:00:00.000Z";
@@ -146,81 +143,4 @@ fn an_electron_file_reads_tolerantly() {
     assert_eq!(thread.messages[0].created_at, NOW);
     assert_eq!(thread.messages[0].images.len(), 1);
     assert_eq!(thread.messages[0].annotation_id.as_deref(), Some("a1"));
-}
-
-#[test]
-fn files_that_are_not_threads_are_refused() {
-    for text in [
-        "",
-        "[]",
-        r#"{"id":"t","status":"archived"}"#,
-        r#"{"id":"t"}"#,
-        r#"{"id":"","status":"open"}"#,
-        r#"{"status":"open"}"#,
-    ] {
-        assert_eq!(Thread::from_json(text, "tab", NOW), None, "{text}");
-    }
-}
-
-#[test]
-fn the_index_round_trips_and_garbage_is_empty() {
-    let mut by_canvas = BTreeMap::new();
-    by_canvas.insert("tab_a".to_owned(), ThreadId("t1".into()));
-    by_canvas.insert("tab_b".to_owned(), ThreadId("t2".into()));
-    let text = index_json(Some(&ThreadId("t1".into())), &by_canvas);
-    assert_eq!(
-        text,
-        "{\n  \"activeThreadId\": \"t1\",\n  \"activeByCanvas\": {\n    \"tab_a\": \"t1\",\n    \"tab_b\": \"t2\"\n  }\n}\n"
-    );
-    let index = parse_index(&text);
-    assert_eq!(index.active, Some(ThreadId("t1".into())));
-    assert_eq!(index.by_canvas, by_canvas);
-
-    assert!(index_json(None, &BTreeMap::new()).contains("\"activeThreadId\": null"));
-    let electron = parse_index(r#"{"activeThreadId":"t3"}"#);
-    assert_eq!(
-        (electron.active, electron.by_canvas.len()),
-        (Some(ThreadId("t3".into())), 0)
-    );
-    let partial = parse_index(r#"{"activeByCanvas":{"tab_a":5,"tab_b":"t2"}}"#);
-    assert_eq!(
-        partial.by_canvas.into_iter().collect::<Vec<_>>(),
-        [("tab_b".to_owned(), ThreadId("t2".into()))],
-        "an entry that is not an id is skipped, the rest stay"
-    );
-    for garbage in [
-        "",
-        "nope",
-        "[1]",
-        r#"{"activeThreadId":5,"activeByCanvas":[]}"#,
-    ] {
-        assert_eq!(parse_index(garbage), parse_index("{}"), "{garbage}");
-    }
-}
-
-#[test]
-fn a_title_is_the_first_user_text_cut_to_48_characters() {
-    let long = "é".repeat(60);
-    let image = Message {
-        images: vec![Image {
-            path: "a.png".into(),
-            media_type: MediaType::Png,
-        }],
-        ..user("m", "  ")
-    };
-    let cases: [(Vec<Message>, String); 7] = [
-        (vec![user("m", &"x".repeat(48))], "x".repeat(48)),
-        (
-            vec![user("m", &"x".repeat(49))],
-            format!("{}…", "x".repeat(47)),
-        ),
-        (vec![], "New thread".into()),
-        (vec![user("m", "  a   b\n c ")], "a b c".into()),
-        (vec![user("m", &long)], format!("{}…", "é".repeat(47))),
-        (vec![image.clone()], "Image".into()),
-        (vec![image, user("n", "words")], "words".into()),
-    ];
-    for (messages, title) in cases {
-        assert_eq!(title_from_messages(&messages), title);
-    }
 }

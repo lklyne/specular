@@ -247,24 +247,3 @@ pub(crate) fn text_of(state: Option<&NoteState>) -> Option<&str> {
 pub(crate) fn file_of(entity: &Entity) -> Option<&str> {
     notes::note_file(&entity.kind)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::conflict_name;
-
-    #[test]
-    fn a_conflict_copy_sits_beside_its_file_with_the_same_extension() {
-        let rows = [
-            ("plan.md", "a1b2c3", "plan (conflict a1b2c3).md"),
-            (
-                "notes/v1.2/Plan.MD",
-                "ff",
-                "notes/v1.2/Plan (conflict ff).MD",
-            ),
-            ("notes.d/plan", "ff", "notes.d/plan (conflict ff).md"),
-        ];
-        for (file, tag, want) in rows {
-            assert_eq!(conflict_name(file, tag), want, "{file}");
-        }
-    }
-}

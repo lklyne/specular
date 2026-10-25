@@ -7773,7 +7773,6 @@ dependencies = [
  "specular-doc",
  "specular-interact",
  "specular-scene",
- "specular-testkit",
  "thiserror 2.0.21",
  "tracing",
  "unicode-segmentation",

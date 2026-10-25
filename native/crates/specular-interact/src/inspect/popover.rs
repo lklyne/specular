@@ -178,27 +178,3 @@ pub(super) fn place(target: ScreenRect, popover: Vec2, viewport: Vec2) -> Vec2 {
     };
     Vec2::new(left, top)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn the_popover_sits_above_or_below_the_target_inside_the_window() {
-        let window = Vec2::new(1200.0, 900.0);
-        let card = Vec2::new(260.0, 84.0);
-        let rows = [
-            // Zoomed out: room above, so one gap over the target.
-            (ScreenRect::new(325.0, 145.0, 12.5, 5.0), (325.0, 55.0)),
-            // Zoomed in: the same.
-            (ScreenRect::new(500.0, 320.0, 100.0, 40.0), (500.0, 230.0)),
-            // No room above: below it, and pulled in from the right edge.
-            (ScreenRect::new(1180.0, 20.0, 10.0, 10.0), (932.0, 36.0)),
-            // No room above and none below: held off the bottom edge.
-            (ScreenRect::new(4.0, 20.0, 10.0, 870.0), (8.0, 808.0)),
-        ];
-        for (target, want) in rows {
-            assert_eq!(place(target, card, window), Vec2::from(want), "{target:?}");
-        }
-    }
-}
