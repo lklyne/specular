@@ -88,7 +88,7 @@ pub(crate) fn run(action: &Action, window: &mut Window, cx: &mut App) {
         return;
     }
     canvas::dispatch(Event::Action(action.clone()));
-    if !dropdown::list_has_keys(window, cx) {
+    if !dropdown::list_open(window, cx) {
         focus_canvas(window, cx);
     }
 }
@@ -355,6 +355,11 @@ impl Render for ShellView {
             // A drag that began on the canvas is the canvas's until it ends:
             // nothing it passes over hovers, opens a tooltip or scrolls.
             .when(self.pointer.held(), |root| {
+                root.child(div().absolute().inset_0().occlude())
+            })
+            // A press outside an open list closes it and reaches nothing
+            // under it, as a macOS menu's does.
+            .when(dropdown::list_open(window, cx), |root| {
                 root.child(div().absolute().inset_0().occlude())
             })
             .children(menu)

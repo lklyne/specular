@@ -34,12 +34,17 @@ thread_local! {
     static OPEN: RefCell<HashSet<ControlId>> = RefCell::new(HashSet::new());
 }
 
-/// Whether the keys are with an open list: a choice in it that leaves it
-/// open keeps them there, so Escape closes the list and does nothing else.
-/// A list that went with the controls around it without closing has taken
-/// its focus with it.
-pub(super) fn list_has_keys(window: &Window, cx: &App) -> bool {
-    OPEN.with(|open| !open.borrow().is_empty()) && window.focused(cx).is_some()
+/// Whether a list is open: its press outside closes it and goes no
+/// further, and a choice in it that leaves it open keeps the keys there, so
+/// Escape closes the list and does nothing else. A list whose dropdown the
+/// models no longer have is gone, and so is one that took the focus away
+/// with it.
+pub(super) fn list_open(window: &Window, cx: &App) -> bool {
+    OPEN.with(|open| {
+        let mut open = open.borrow_mut();
+        open.retain(|id| find_dropdown(id).is_some());
+        !open.is_empty()
+    }) && window.focused(cx).is_some()
 }
 
 /// The dropdown named `id` as the models have it now. A list stays open

@@ -99,10 +99,11 @@ for name in "$@"; do
         kit)
             # The window saves into the canvas it opens and keeps its state
             # beside it, so it opens a copy, with the files the canvas names.
+            # The copy is named as a headless run names its one canvas.
             canvas=$(canvas_of "$script")
             space=$run/space
             mkdir -p "$space" "$run/config"
-            cp "$canvas" "$space/"
+            cp "$canvas" "$space/Canvas 1.canvas"
             for beside in "$(dirname "$canvas")"/*.md "$(dirname "$canvas")"/assets; do
                 [ -e "$beside" ] && cp -R "$beside" "$space/"
             done
@@ -111,7 +112,7 @@ for name in "$@"; do
                 SPECULAR_NATIVE_CONFIG_DIR="$run/config" \
                 SPECULAR_PORT=0 SPECULAR_DISCOVERY_FILE="$run/discovery.json" \
                 ${KIT_WRAP:-} perl -e 'alarm 300; exec @ARGV' \
-                "$app" ${KIT_ARGS:-} "$space/$(basename "$canvas")" 2>"$log") ;;
+                "$app" ${KIT_ARGS:-} "$space/Canvas 1.canvas" 2>"$log") ;;
     esac
     status=$?
     if [ $status -eq 0 ]; then
