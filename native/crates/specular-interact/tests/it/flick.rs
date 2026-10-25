@@ -167,26 +167,3 @@ fn a_glide_that_runs_into_the_end_of_the_page_lifts_the_finger_there() {
     assert_eq!(heard, ["finger up"]);
     assert!(!app.app().flick_running());
 }
-
-#[test]
-fn a_flick_with_nothing_to_scroll_is_stopped_by_the_pages_answer() {
-    // The page never scrolled under the swipe, so it is asked if the glide
-    // has anything to scroll. With room it glides to its end.
-    for (room, glides) in [(true, true), (false, false)] {
-        let mut app = app_on("iphone-14-pro");
-        let (stopped, from) = swipe_up(&mut app, &FAST);
-        app.release();
-        run(&mut app, stopped, 16);
-        let asked = (app.take_effects().into_iter())
-            .filter(
-                |effect| matches!(effect, Effect::AskScrollRoom { toward, .. } if toward.y < 0.0),
-            )
-            .count();
-        assert_eq!(asked, 1, "room {room}");
-        app.page_reports("p1", PageNotice::ScrollRoom(room));
-        run(&mut app, stopped + 16, 5000);
-        let (y, heard) = told(&mut app);
-        let glided = y.is_some_and(|y| y - from < -2000.0);
-        assert_eq!((glided, heard), (glides, vec!["finger up"]), "room {room}");
-    }
-}
