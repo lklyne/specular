@@ -10,7 +10,7 @@
 use std::path::PathBuf;
 
 use glam::Vec2;
-use specular_app::script::{CameraArg, Expect, Step, WindowStep};
+use specular_app::script::{CameraArg, CanvasStep, Expect, Step, WindowStep};
 use specular_interact::{Action, Event, PageNotice};
 
 use super::us_keys::{COMMAND, flags_of, key_of, key_step};
@@ -165,7 +165,8 @@ pub(super) fn lower(step: Step) -> Result<Do, String> {
         Step::Reopen => Do::Reopen,
         Step::UndoToStart(except) => Do::UndoToStart(except),
         Step::Window(step) => window(step),
-        Step::Canvas(step) => Do::Send(step.event()),
+        Step::Canvas(CanvasStep::Menu(item)) => Do::MenuChoose(item),
+        Step::Canvas(CanvasStep::Send(event)) => Do::Send(event),
     })
 }
 

@@ -123,7 +123,10 @@ impl Headless {
             Step::UndoToStart(except) => self.undo_to_start(&except),
             // The run skips these before they get here.
             Step::Window(_) => Ok(()),
-            Step::Canvas(step) => self.drive(|app| app.send(step.event())),
+            Step::Canvas(step) => {
+                let event = step.event(self.app.app())?;
+                self.drive(|app| app.send(event))
+            }
         }?;
         self.frame_for_documents()
     }

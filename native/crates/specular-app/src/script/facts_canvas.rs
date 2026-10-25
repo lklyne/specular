@@ -53,6 +53,7 @@
 //! appearance dark                      # the system's light or dark
 //! theme-loaded light                   # the choice read from preferences
 //! repeat down                          # a key held down repeats
+//! menu Edit > Undo                     # a menu bar item chosen
 //! ```
 
 use anyhow::{Context as _, bail, ensure};
@@ -674,14 +675,39 @@ fn input_words(event: &InputEvent) -> String {
 }
 
 /// A canvas step: something a page or the system says, as the shell would
-/// pass it on.
+/// pass it on, or a menu bar item chosen.
 #[derive(Debug, Clone, PartialEq)]
-pub struct CanvasStep(Event);
+pub enum CanvasStep {
+    /// This event, as the shell sends it.
+    Send(Event),
+    /// `menu Edit > Undo`: the item of that label in that menu, chosen.
+    Menu(String),
+}
 
 impl CanvasStep {
-    /// The event the step sends.
-    pub fn event(&self) -> Event {
-        self.0.clone()
+    /// The event the step sends to `app` now.
+    pub fn event(&self, app: &App) -> anyhow::Result<Event> {
+        match self {
+            Self::Send(event) => Ok(event.clone()),
+            Self::Menu(path) => {
+                let (title, label) = (path.split_once('>'))
+                    .map(|(title, label)| (title.trim(), label.trim()))
+                    .with_context(|| format!("`menu {path}` is `menu Title > Item`"))?;
+                let menu = (specular_interact::menus(app).into_iter())
+                    .find(|menu| menu.title == title)
+                    .with_context(|| format!("no menu `{title}`"))?;
+                let item = (menu.entries.into_iter())
+                    .find_map(|entry| match entry {
+                        specular_interact::MenuEntry::Item(item) if item.label == label => {
+                            Some(item)
+                        }
+                        _ => None,
+                    })
+                    .with_context(|| format!("no item `{label}` in `{title}`"))?;
+                ensure!(item.enabled, "`{title} > {label}` is not enabled");
+                Ok(Event::Action(item.action))
+            }
+        }
     }
 }
 
@@ -711,9 +737,10 @@ pub(super) fn step(verb: &str, rest: &str) -> anyhow::Result<Option<CanvasStep>>
         ("page-says" | "appearance" | "theme-loaded" | "repeat", _) => {
             bail!("the wrong arguments")
         }
+        ("menu", _) if rest.contains('>') => return Ok(Some(CanvasStep::Menu(rest.to_owned()))),
         _ => return Ok(None),
     };
-    Ok(Some(CanvasStep(event)))
+    Ok(Some(CanvasStep::Send(event)))
 }
 
 fn notice(said: &[&str]) -> anyhow::Result<PageNotice> {
