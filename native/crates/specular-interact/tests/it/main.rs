@@ -19,8 +19,6 @@ mod context_menu;
 mod cursors;
 mod draw;
 mod drop;
-mod edge_labels;
-mod edges;
 mod first_run;
 mod flick;
 mod gestures;

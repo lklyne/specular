@@ -29,6 +29,7 @@
 //! expect default shape ellipse         # a tool default: shape, brush, sticky-font
 //! expect theme system dark             # the choice, and what is drawn
 //! expect motion running                # a camera or turn spring: running, still
+//! expect edge-ends e1 208 150 492 150  # an edge's ends on screen; `@last`
 //! expect order a b @top c            # the stack, back to front, edges too
 //! expect synced p1 no                  # in a sync set: yes or no
 //! expect sent viewport p 500 300       # the last step asked the shell this
@@ -53,7 +54,7 @@
 use anyhow::{Context as _, bail, ensure};
 use glam::Vec2;
 use specular_core::{ElementPlace, InputEvent, KeyEventKind, PixelRect, PointerEventKind, TouchPhase};
-use specular_doc::{EdgeSide, EntityId};
+use specular_doc::{EdgeId, EdgeSide, EntityId};
 use specular_interact::{
     Action, App, Appearance, Corner, Effect, Event, GuideAxis, GuideReference,
     Handle, HandleOwner, Hit, ImageState, LayoutHandle, Mark, PageNotice, PlacePreview,
@@ -145,6 +146,8 @@ pub enum Query {
     Image(String),
     /// The stack, back to front, edges included.
     Order,
+    /// Where an edge leaves and reaches its entities, on screen.
+    EdgeEnds(String),
 }
 
 /// The canvas fact `what` and `tail` state, or `None` when `what` is not one
@@ -192,7 +195,7 @@ pub(super) fn fact(what: &str, tail: &str) -> anyhow::Result<Option<CanvasFact>>
             ["none"] => is(Query::AnyGuides, &["none"]),
             _ => bail!("`guides horizontal|vertical ..` or `guides none`"),
         },
-        "mark" | "seen" | "page" | "synced" | "default" | "image" => {
+        "mark" | "seen" | "page" | "synced" | "default" | "image" | "edge-ends" => {
             let (name, wanted) = id(&words)?;
             let query = match what {
                 "mark" => Query::Mark(name),
@@ -200,6 +203,7 @@ pub(super) fn fact(what: &str, tail: &str) -> anyhow::Result<Option<CanvasFact>>
                 "page" => Query::Page(name),
                 "synced" => Query::Synced(name),
                 "default" => Query::Default(name),
+                "edge-ends" => Query::EdgeEnds(name),
                 _ => Query::Image(name),
             };
             Ok(Some(CanvasFact::Is(query, wanted)))
@@ -454,6 +458,17 @@ fn read(app: &App, query: &Query) -> anyhow::Result<Vec<String>> {
         Query::Synced(name) => {
             let synced = app.is_synced(&entity_id(app, name)?);
             words_of(if synced { "yes" } else { "no" })
+        }
+        Query::EdgeEnds(name) => {
+            let id = match name.as_str() {
+                "@last" => app.document().edges().last().map(|edge| edge.id.clone()),
+                _ => Some(EdgeId::from(name.as_str())),
+            };
+            let curve = id.and_then(|id| app.edge_curve(&id));
+            curve.map_or_else(none, |curve| {
+                let ends = [curve.from.x, curve.from.y, curve.to.x, curve.to.y];
+                numbers(&ends.map(f64::from))
+            })
         }
         Query::Order => (app.document().order().iter())
             .map(|item| item.as_str().to_owned())
