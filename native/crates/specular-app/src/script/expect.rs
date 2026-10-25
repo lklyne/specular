@@ -41,6 +41,7 @@ use serde_json::Value;
 use specular_interact::Tool;
 
 use super::CameraArg;
+use super::facts_panels::{self, PanelFact};
 use super::words::{camera, number, tool_named, unescaped};
 
 /// One `expect` line.
@@ -82,6 +83,8 @@ pub enum Expect {
     SameAs(Reference),
     /// It differs from another at exactly these paths.
     ChangedFrom(Reference, Vec<String>),
+    /// A fact about what a panel, the editor or the shell shows.
+    Panel(PanelFact),
 }
 
 /// What an `expect count` counts.
@@ -193,7 +196,10 @@ pub(super) fn parse(rest: &str) -> anyhow::Result<Expect> {
             let (_, fact) = split(tail);
             Expect::Saved((*path).to_owned(), saved_fact(fact)?)
         }
-        _ => bail!("not a fact `expect` knows, or the wrong arguments"),
+        _ => match facts_panels::parse(what, tail) {
+            Some(fact) => Expect::Panel(fact?),
+            None => bail!("not a fact `expect` knows, or the wrong arguments"),
+        },
     })
 }
 

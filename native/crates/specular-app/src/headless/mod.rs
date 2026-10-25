@@ -171,6 +171,7 @@ pub(crate) fn run(
     }
     run.step(Step::Camera(args.camera))?;
     run.checks = Checks::begin(run.app.app(), &base)?;
+    run.checks.effects.watch();
     let mut report = Report::default();
     for line in script.steps {
         if line.step.window_only() {
@@ -290,6 +291,7 @@ impl Headless {
     ) -> anyhow::Result<()> {
         input(&mut self.app);
         for effect in self.app.take_effects() {
+            self.checks.effects.saw(&effect);
             self.run(effect)?;
         }
         Ok(())

@@ -10,7 +10,7 @@
 use std::path::PathBuf;
 
 use glam::Vec2;
-use specular_app::script::{CameraArg, Expect, Step, WindowStep};
+use specular_app::script::{CameraArg, Expect, PanelStep, Step, WindowStep};
 use specular_interact::{Action, Event, PageNotice};
 
 use super::us_keys::{COMMAND, flags_of, key_of, key_step};
@@ -76,6 +76,9 @@ pub(super) enum Do {
     Act(Action),
     /// An event as the shell or a page would send it.
     Send(Event),
+    /// The shell's or the agent's side of a panel, read against the app
+    /// when it is its turn.
+    Panel(PanelStep),
     Select(Vec<String>),
     Sidebar(bool),
     /// The right panel's composer is handed this image file as a paste.
@@ -164,6 +167,7 @@ pub(super) fn lower(step: Step) -> Result<Do, String> {
         Step::Mark(name) => Do::Mark(name),
         Step::Reopen => Do::Reopen,
         Step::UndoToStart(except) => Do::UndoToStart(except),
+        Step::Panel(step) => Do::Panel(step),
         Step::Window(step) => window(step),
     })
 }

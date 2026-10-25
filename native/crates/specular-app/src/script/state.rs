@@ -78,5 +78,6 @@ pub fn dump(app: &App) -> String {
             line(format!("entity {id} parent {parent}"));
         }
     }
+    super::facts_panels::dump(app, &mut out);
     out
 }

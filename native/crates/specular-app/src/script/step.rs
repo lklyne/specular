@@ -9,6 +9,7 @@ use specular_interact::{Action, Key, Tool};
 
 use super::CameraArg;
 use super::expect::{self, Expect};
+use super::facts_panels::{self, PanelStep};
 use super::window::{self, WindowStep};
 use super::words::{
     action_named, camera, key_named, modifiers, point, theme_named, tool_named, unescaped,
@@ -124,6 +125,8 @@ pub enum Step {
     /// address after it navigated: the canvas differs from the start at
     /// exactly those paths.
     UndoToStart(Vec<String>),
+    /// The shell's or the agent's side of a panel: see [`PanelStep`].
+    Panel(PanelStep),
     /// A step only a window can do. A headless run skips it and says so.
     Window(WindowStep),
 }
@@ -145,6 +148,9 @@ pub(super) fn step(line: &str) -> anyhow::Result<Step> {
     let words: Vec<&str> = rest.split_whitespace().collect();
     if let Some(step) = window::step(verb, rest)? {
         return Ok(Step::Window(step));
+    }
+    if let Some(step) = facts_panels::parse_step(verb, text) {
+        return Ok(Step::Panel(step?));
     }
     Ok(match (verb, words.as_slice()) {
         ("move", [x, y]) => Step::Move(point(x, y)?),

@@ -14,6 +14,9 @@ const UNDO_LIMIT: usize = 10_000;
 
 impl Headless {
     pub(super) fn step(&mut self, step: Step) -> anyhow::Result<()> {
+        if !matches!(step, Step::Expect(_) | Step::State(_) | Step::Mark(_)) {
+            self.checks.effects.clear();
+        }
         match step {
             Step::Move(at) => self.drive(|app| app.pointer_move(at)),
             Step::Press(at) => self.drive(|app| app.press(at)),
@@ -100,6 +103,10 @@ impl Headless {
                     notice: PageNotice::OpenTab { url, foreground },
                 })
             }),
+            Step::Panel(step) => {
+                let event = step.event(self.app.app())?;
+                self.drive(|app| app.send(event))
+            }
             Step::Snapshot(path) => self.snapshot(&path),
             Step::Save(path) => self.save(&path),
             Step::State(path) => {
