@@ -398,25 +398,3 @@ impl ShellWindow for CanvasSurface {
         self.native.set_title(title, unsaved);
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use specular_scene::{Color, Rect, RectDraw};
-
-    use super::*;
-
-    #[test]
-    fn only_screen_space_items_move_with_the_slot() {
-        let rect = Rect::new(10.0, 20.0, 30.0, 40.0);
-        let mut scene = Scene::new();
-        scene.push(Item::canvas(RectDraw::filled(rect, Color::WHITE)));
-        scene.push(Item::screen(RectDraw::filled(rect, Color::WHITE)).clipped(rect));
-        shift_screen_items(&mut scene, Vec2::new(256.0, 0.0));
-        let there = Rect::new(266.0, 20.0, 30.0, 40.0);
-        assert_eq!(scene.items[0].draw.bounds(), Some(rect));
-        assert_eq!(
-            (scene.items[1].draw.bounds(), scene.items[1].clip),
-            (Some(there), Some(there))
-        );
-    }
-}

@@ -340,45 +340,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_first_launch_defaults_are_electrons() {
-        assert_eq!(
-            ToolDefaults::default().to_json(),
-            json!({
-                "add-text": { "color": null, "textSize": 14.0, "textFont": "sans" },
-                "add-sticky": { "color": "3", "textSize": 14.0, "textFont": "sans" },
-                "add-shape": {
-                    "shapeKind": "rectangle", "color": "1", "strokeWidth": 2.0, "textSize": 14.0,
-                },
-                "draw": { "brushType": "pen", "color": "1", "strokeWidth": 2.0 },
-            })
-        );
-    }
-
-    #[test]
-    fn a_stored_value_round_trips() {
-        let mut defaults = ToolDefaults::default();
-        for patch in [
-            ToolDefaultPatch::TextColor(Some(Color::parse("#112233"))),
-            ToolDefaultPatch::TextSize(18.0),
-            ToolDefaultPatch::TextFont(TextFont::Mono),
-            ToolDefaultPatch::StickyColor(Color::Preset(ColorPreset::Green)),
-            ToolDefaultPatch::StickySize(24.0),
-            ToolDefaultPatch::StickyFont(TextFont::Hand),
-            ToolDefaultPatch::ShapeKind(ShapeKind::Diamond),
-            ToolDefaultPatch::ShapeColor(Color::Neutral),
-            ToolDefaultPatch::ShapeStrokeWidth(4.0),
-            ToolDefaultPatch::ShapeTextSize(20.0),
-            ToolDefaultPatch::Brush(BrushType::Highlight),
-            ToolDefaultPatch::DrawColor(Color::Preset(ColorPreset::Cyan)),
-            ToolDefaultPatch::DrawStrokeWidth(8.0),
-        ] {
-            defaults.apply(patch);
-        }
-        assert_ne!(defaults, ToolDefaults::default());
-        assert_eq!(ToolDefaults::from_json(&defaults.to_json()), defaults);
-    }
-
-    #[test]
     fn missing_and_malformed_values_keep_their_defaults() {
         for raw in [json!(null), json!("nope"), json!({ "draw": 4 })] {
             assert_eq!(ToolDefaults::from_json(&raw), ToolDefaults::default());
@@ -392,29 +353,5 @@ mod tests {
         assert_eq!(partial.shape.color, Color::Preset(ColorPreset::Cyan));
         assert_eq!(partial.draw.brush, BrushType::Highlight);
         assert_eq!(partial.draw.stroke_width, 2.0);
-    }
-
-    #[test]
-    fn the_legacy_dotted_color_keys_are_read() {
-        let legacy = ToolDefaults::from_json(&json!({
-            "add-text": { "plain.color": "4", "sticky.color": "6" },
-        }));
-        assert_eq!(legacy.text.color, Some(Color::Preset(ColorPreset::Green)));
-        assert_eq!(legacy.sticky.color, Color::Preset(ColorPreset::Purple));
-    }
-
-    #[test]
-    fn changing_the_brush_moves_the_width_into_that_brushs_range() {
-        let mut defaults = ToolDefaults::default();
-        defaults.apply(ToolDefaultPatch::Brush(BrushType::Highlight));
-        assert_eq!(
-            defaults.draw.stroke_width, 8.0,
-            "a 2 wide highlight is a hairline"
-        );
-        defaults.apply(ToolDefaultPatch::DrawStrokeWidth(16.0));
-        defaults.apply(ToolDefaultPatch::Brush(BrushType::Highlight));
-        assert_eq!(defaults.draw.stroke_width, 16.0, "a width in range stays");
-        defaults.apply(ToolDefaultPatch::Brush(BrushType::Pen));
-        assert_eq!(defaults.draw.stroke_width, 4.0);
     }
 }

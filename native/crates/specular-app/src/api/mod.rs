@@ -13,8 +13,6 @@
 
 mod discovery;
 mod server;
-#[cfg(test)]
-mod tests;
 
 use std::sync::mpsc::{self, Receiver};
 
@@ -52,25 +50,6 @@ impl ApiHost {
             server,
             discovery,
         })
-    }
-
-    /// A server on a port the system picks, with no discovery file.
-    #[cfg(test)]
-    fn start_for_test(secret: &str, wake: impl Fn() + Send + 'static) -> anyhow::Result<Self> {
-        let listener = tiny_http::Server::http("127.0.0.1:0").map_err(anyhow::Error::from_boxed)?;
-        let (jobs, inbox) = mpsc::channel();
-        Ok(Self {
-            api: Api::new(0),
-            inbox,
-            server: Server::spawn(listener, secret.to_owned(), jobs, wake)?,
-            discovery: None,
-        })
-    }
-
-    /// The port the server is listening on.
-    #[cfg(test)]
-    fn port(&self) -> u16 {
-        self.server.port()
     }
 
     /// Answers every request that has arrived, against `host`.

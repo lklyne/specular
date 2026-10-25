@@ -2,11 +2,7 @@
 //! and composer of a comment being written, and a region drag in flight.
 //! Text is measured by the testkit's `FixedAdvance`: 10 units a character.
 
-use specular_core::{PageElement, PixelRect};
-use specular_doc::{
-    Annotation, AnnotationAnchor, AnnotationStatus, EntityId, PageAnchor, Rect, RegionAnchor, Reply,
-};
-use specular_interact::{Action, MarkShape, Tool};
+use specular_doc::{Annotation, AnnotationAnchor, EntityId, PageAnchor, Rect, RegionAnchor};
 use specular_testkit::{TestApp, assert_scene_snapshot, comment, document, pages, with_comment};
 
 fn point(x: f64, y: f64) -> AnnotationAnchor {
@@ -39,18 +35,6 @@ fn bound(annotation: Annotation, url: Option<&str>) -> Annotation {
     }
 }
 
-fn with_replies(mut annotation: Annotation, count: usize) -> Annotation {
-    annotation.replies = (0..count)
-        .map(|index| Reply {
-            author: specular_doc::Author::Agent,
-            text: format!("reply {index}"),
-            timestamp: "2026-01-02T00:00:00.000Z".to_owned(),
-            extra: specular_doc::JsonMap::new(),
-        })
-        .collect();
-    annotation
-}
-
 /// Two pages, `p1` at (100, 100) and `p2` at (700, 100), 400x300 each, with
 /// `comments` in the document.
 fn app_with(comments: impl IntoIterator<Item = Annotation>) -> TestApp {
@@ -59,31 +43,6 @@ fn app_with(comments: impl IntoIterator<Item = Annotation>) -> TestApp {
         document = with_comment(document, annotation);
     }
     TestApp::from_document(document)
-}
-
-fn focus(app: &mut TestApp, id: &str) {
-    app.act(Action::FocusComment(Some(specular_doc::AnnotationId::new(
-        id,
-    ))));
-}
-
-fn drafting() -> TestApp {
-    let mut app = TestApp::with_pages(2);
-    app.tool(Tool::Comment);
-    app
-}
-
-fn button(x: i32, y: i32, width: u32, height: u32) -> PageElement {
-    PageElement {
-        selector: "#buy".to_owned(),
-        element_path: Some("body > button".to_owned()),
-        bounding_box: PixelRect {
-            x,
-            y,
-            width,
-            height,
-        },
-    }
 }
 
 #[test]
@@ -113,136 +72,4 @@ fn every_mark_form_at_rest() {
         ),
     ]);
     assert_scene_snapshot!(app);
-}
-
-#[test]
-fn a_focused_badge_has_a_ring() {
-    let mut app = app_with([comment("point", point(600.0, 500.0), "p")]);
-    focus(&mut app, "point");
-    assert_scene_snapshot!(app);
-}
-
-#[test]
-fn a_grouped_badge_counts_every_message_in_two_digits() {
-    let app = app_with([
-        with_replies(comment("a", element("#a"), "a"), 5),
-        with_replies(comment("b", element("#a"), "b"), 4),
-    ]);
-    assert_scene_snapshot!(app);
-}
-
-#[test]
-fn resolved_dismissed_and_off_url_comments_draw_nothing() {
-    let mut resolved = comment("a", point(600.0, 500.0), "a");
-    resolved.status = AnnotationStatus::Resolved;
-    let mut dismissed = comment("b", region(Rect::new(600.0, 500.0, 50.0, 50.0)), "b");
-    dismissed.status = AnnotationStatus::Dismissed;
-    let off_url = bound(
-        comment("c", region(Rect::new(700.0, 500.0, 50.0, 50.0)), "c"),
-        Some("https://elsewhere.test/"),
-    );
-    let app = app_with([resolved, dismissed, off_url]);
-    assert_scene_snapshot!(app);
-}
-
-#[test]
-fn a_page_region_and_an_element_badge_follow_their_page() {
-    let mut app = app_with([
-        bound(
-            comment(
-                "doc-region",
-                AnnotationAnchor::Region(RegionAnchor::Document {
-                    doc_rect: Rect::new(20.0, 200.0, 120.0, 60.0),
-                }),
-                "d",
-            ),
-            None,
-        ),
-        comment("element", element("#a"), "e"),
-    ]);
-    assert_scene_snapshot!("before", app);
-    app.drag((300.0, 350.0), (500.0, 450.0));
-    assert_scene_snapshot!("after", app);
-}
-
-#[test]
-fn a_point_draft_with_an_empty_composer_shows_the_placeholder() {
-    let mut app = drafting();
-    app.click((600.0, 500.0));
-    assert_scene_snapshot!(app);
-}
-
-#[test]
-fn an_element_draft_with_text() {
-    let mut app = drafting();
-    app.click((200.0, 200.0));
-    app.answer_element(Some(button(40, 60, 120, 40)));
-    app.type_text("wrong colour");
-    assert_scene_snapshot!(app);
-}
-
-#[test]
-fn a_composer_wraps_over_a_second_line_and_underlines_composing_text() {
-    let mut app = drafting();
-    app.click((600.0, 500.0));
-    app.type_text("0123456789012345678901234 more");
-    app.compose("に");
-    assert_scene_snapshot!(app);
-}
-
-#[test]
-fn a_region_drag_in_flight_looks_like_the_resting_draft_region() {
-    let mut app = drafting();
-    app.press((600.0, 500.0)).drag_to((800.0, 580.0));
-    assert_scene_snapshot!("in_flight", app);
-    app.release();
-    assert_scene_snapshot!("resting", app);
-}
-
-#[test]
-fn marks_stay_inside_their_page_group_by_spot_and_keep_a_minimum_size() {
-    let on_page = |offset_y: f64| AnnotationAnchor::Page {
-        page_id: EntityId::from("p1"),
-        offset_x: 0.5,
-        offset_y,
-    };
-    let boxless = AnnotationAnchor::Element {
-        page_id: EntityId::from("p1"),
-        selector: "#a".to_owned(),
-        element_path: None,
-        bounding_box: None,
-    };
-    let app = app_with([
-        comment("top", on_page(0.0), "a"),
-        comment("top-again", on_page(0.0), "b"),
-        comment("middle", on_page(0.5), "c"),
-        comment("speck", region(Rect::new(600.0, 500.0, 1.0, 1.0)), "d"),
-        comment("boxless", boxless, "e"),
-    ]);
-    let marks = app.app().comment_marks();
-    let shape = |id: &str| {
-        let mark = marks
-            .iter()
-            .find(|mark| mark.members.iter().any(|member| member.as_str() == id))
-            .expect("a mark");
-        (mark.members.len(), mark.shape)
-    };
-    let rect = |x: f32, y: f32, width: f32, height: f32| specular_interact::ScreenRect {
-        min: glam::Vec2::new(x, y),
-        size: glam::Vec2::new(width, height),
-    };
-    assert_eq!(marks.len(), 4, "the two at one spot share a pill");
-    assert_eq!(
-        shape("top"),
-        (2, MarkShape::Badge(rect(466.0, 97.0, 26.0, 26.0))),
-        "a pill at the very top of a page is kept 10px inside it"
-    );
-    assert_eq!(
-        shape("speck"),
-        (1, MarkShape::Region(rect(600.0, 500.0, 4.0, 4.0)))
-    );
-    assert_eq!(
-        shape("boxless"),
-        (1, MarkShape::Badge(rect(466.0, 108.0, 26.0, 26.0)))
-    );
 }

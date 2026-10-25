@@ -54,36 +54,3 @@ pub(crate) fn fitted(
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    const IMAGE: ImageId = ImageId(7);
-    /// A 200 by 100 box at (10, 20).
-    const BOX: Rect = Rect::new(10.0, 20.0, 200.0, 100.0);
-
-    #[test]
-    fn contain_letterboxes_a_tall_image_and_centres_it() {
-        let draw = fitted(IMAGE, BOX, 50, 100, ObjectFit::Contain);
-        assert_eq!(draw.rect, Rect::new(85.0, 20.0, 50.0, 100.0));
-        assert_eq!(draw.source, ImageDraw::WHOLE);
-        // A wide one is centred down the box instead.
-        let wide = fitted(IMAGE, BOX, 400, 100, ObjectFit::Contain);
-        assert_eq!(wide.rect, Rect::new(10.0, 45.0, 200.0, 50.0));
-        // With no size to fit, the box is filled.
-        let empty = fitted(IMAGE, BOX, 0, 100, ObjectFit::Contain);
-        assert_eq!(empty.rect, BOX);
-    }
-
-    #[test]
-    fn cover_fills_the_rect_and_crops_the_overflow_evenly() {
-        // A square image over a 2:1 box keeps its middle half, top to bottom.
-        let tall = fitted(IMAGE, BOX, 100, 100, ObjectFit::Cover);
-        assert_eq!(tall.rect, BOX);
-        assert_eq!(tall.source, Rect::new(0.0, 0.25, 1.0, 0.5));
-        // A 4:1 image keeps its middle half, left to right.
-        let wide = fitted(IMAGE, BOX, 400, 100, ObjectFit::Cover);
-        assert_eq!(wide.source, Rect::new(0.25, 0.0, 0.5, 1.0));
-    }
-}

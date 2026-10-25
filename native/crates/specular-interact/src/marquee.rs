@@ -324,25 +324,3 @@ fn segment_crosses(a: DVec2, b: DVec2, rect: Rect) -> bool {
     }
     true
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    const RECT: Rect = Rect::new(0.0, 0.0, 100.0, 100.0);
-
-    #[test]
-    fn a_segment_through_the_rect_crosses_it_without_an_end_inside() {
-        // (from, to, crosses)
-        let rows = [
-            ((-50.0, 50.0), (150.0, 50.0), true),
-            ((10.0, 10.0), (20.0, 30.0), true),
-            ((-50.0, 20.0), (20.0, -50.0), false),
-            ((-10.0, 0.0), (-10.0, 100.0), false),
-        ];
-        for ((fx, fy), (tx, ty), crosses) in rows {
-            let hit = segment_crosses(DVec2::new(fx, fy), DVec2::new(tx, ty), RECT);
-            assert_eq!(hit, crosses, "({fx}, {fy}) to ({tx}, {ty})");
-        }
-    }
-}

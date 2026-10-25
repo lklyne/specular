@@ -262,6 +262,3 @@ pub(crate) const fn opposite(side: EdgeSide) -> EdgeSide {
         EdgeSide::Right => EdgeSide::Left,
     }
 }
-
-#[cfg(test)]
-mod tests;

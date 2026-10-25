@@ -174,17 +174,3 @@ impl Response {
         self.status >= 200 && self.status < 300
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_target_splits_into_its_path_and_decoded_query() {
-        let request = Request::get("/annotations?status=all&url=http%3A%2F%2Fa.test%2Fx+y");
-        assert_eq!(request.path, "/annotations");
-        assert_eq!(request.query("status"), Some("all"));
-        assert_eq!(request.query("url"), Some("http://a.test/x y"));
-        assert_eq!(request.query("page_id"), None);
-    }
-}

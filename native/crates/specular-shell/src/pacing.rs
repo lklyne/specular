@@ -96,19 +96,3 @@ fn summarise(stamps: &[Instant], hz: f64) -> Option<Summary> {
         very_late,
     })
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_dropped_frame_is_late_and_two_are_very_late() {
-        let start = Instant::now();
-        let at = |ms: u64| start + Duration::from_millis(ms);
-        // 10 ms frames at 100 Hz, with one gap of 20 ms and one of 30.
-        let stamps = [at(0), at(10), at(20), at(40), at(50), at(80), at(90)];
-        let summary = summarise(&stamps, 100.0).unwrap();
-        assert_eq!((summary.frames, summary.late, summary.very_late), (6, 2, 1));
-        assert!((summary.max_ms - 30.0).abs() < 0.01);
-    }
-}

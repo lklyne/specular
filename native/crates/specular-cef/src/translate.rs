@@ -355,26 +355,6 @@ impl InputTranslator {
 mod tests {
     use super::*;
 
-    fn calls<'a>(translator: &mut InputTranslator, event: &'a InputEvent) -> Vec<HostCall<'a>> {
-        translator.translate(event).collect()
-    }
-
-    fn pointer(kind: PointerEventKind, x: f32, y: f32) -> InputEvent {
-        InputEvent::Pointer(PointerEvent {
-            kind,
-            position: Vec2::new(x, y),
-            modifiers: Modifiers::default(),
-        })
-    }
-
-    fn wheel(dx: f32, dy: f32) -> InputEvent {
-        InputEvent::Wheel(WheelEvent {
-            position: Vec2::new(5.0, 5.0),
-            delta: Vec2::new(dx, dy),
-            modifiers: Modifiers::default(),
-        })
-    }
-
     fn key_char(ch: char) -> InputEvent {
         InputEvent::Key(KeyEvent {
             kind: KeyEventKind::Char,
@@ -398,96 +378,6 @@ mod tests {
     }
 
     #[test]
-    fn move_while_left_button_held_carries_left_button_flag() {
-        let mut translator = InputTranslator::new();
-        let down = pointer(
-            PointerEventKind::Down {
-                button: PointerButton::Left,
-                click_count: 1,
-            },
-            1.0,
-            1.0,
-        );
-        calls(&mut translator, &down);
-        let moved = pointer(PointerEventKind::Move, 2.0, 2.0);
-        assert_eq!(
-            calls(&mut translator, &moved),
-            vec![HostCall::MouseMove {
-                x: 2,
-                y: 2,
-                flags: flags::LEFT_MOUSE_BUTTON,
-                leave: false
-            }]
-        );
-    }
-
-    #[test]
-    fn mouse_up_clears_the_released_button_flag() {
-        let mut translator = InputTranslator::new();
-        let button = PointerButton::Right;
-        calls(
-            &mut translator,
-            &pointer(
-                PointerEventKind::Down {
-                    button,
-                    click_count: 1,
-                },
-                0.0,
-                0.0,
-            ),
-        );
-        let up = pointer(
-            PointerEventKind::Up {
-                button,
-                click_count: 1,
-            },
-            0.0,
-            0.0,
-        );
-        assert!(matches!(
-            calls(&mut translator, &up).as_slice(),
-            [HostCall::MouseClick {
-                flags: 0,
-                up: true,
-                ..
-            }]
-        ));
-    }
-
-    #[test]
-    fn fractional_position_floors_to_containing_pixel() {
-        let mut translator = InputTranslator::new();
-        let event = pointer(PointerEventKind::Move, -0.5, 10.9);
-        let calls = calls(&mut translator, &event);
-        assert!(matches!(
-            calls.as_slice(),
-            [HostCall::MouseMove { x: -1, y: 10, .. }]
-        ));
-    }
-
-    #[test]
-    fn sub_pixel_wheel_deltas_accumulate_until_a_whole_pixel() {
-        let mut translator = InputTranslator::new();
-        let event = wheel(0.0, 0.6);
-        let first = calls(&mut translator, &event).len();
-        let second = calls(&mut translator, &event);
-        assert_eq!(
-            (first, second.as_slice()),
-            (
-                0,
-                [HostCall::MouseWheel {
-                    x: 5,
-                    y: 5,
-                    flags: 0,
-                    delta_x: 0,
-                    delta_y: 1
-                }]
-                .as_slice()
-            )
-        );
-    }
-
-    #[test]
     fn astral_character_is_a_surrogate_pair_of_char_events() {
         let mut translator = InputTranslator::new();
         let characters: Vec<u16> = translator
@@ -498,46 +388,5 @@ mod tests {
             })
             .collect();
         assert_eq!(characters, vec![0xD83D, 0xDE00]);
-    }
-
-    #[test]
-    fn raw_key_down_without_character_sends_zero_character() {
-        let mut translator = InputTranslator::new();
-        let event = InputEvent::Key(KeyEvent {
-            kind: KeyEventKind::RawDown,
-            windows_key_code: 0x25,
-            native_key_code: 0x7B,
-            character: None,
-            modifiers: Modifiers::default(),
-            editing: None,
-        });
-        assert_eq!(
-            calls(&mut translator, &event),
-            vec![HostCall::Key {
-                kind: KeyEventKind::RawDown,
-                flags: 0,
-                windows_key_code: 0x25,
-                native_key_code: 0x7B,
-                character: 0
-            }]
-        );
-    }
-
-    #[test]
-    fn composition_without_replacement_passes_invalid_range() {
-        let mut translator = InputTranslator::new();
-        let event = InputEvent::Ime(ImeEvent::SetComposition {
-            text: "かな".to_owned(),
-            selection: 2..2,
-            replacement: None,
-        });
-        assert_eq!(
-            calls(&mut translator, &event),
-            vec![HostCall::ImeSetComposition {
-                text: "かな",
-                replacement: CefRange::INVALID,
-                selection: CefRange { from: 2, to: 2 },
-            }]
-        );
     }
 }

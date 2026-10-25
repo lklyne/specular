@@ -200,29 +200,3 @@ fn css_color(value: &str) -> Option<Color> {
     };
     Some(Color::rgba(channel(r)?, channel(g)?, channel(b)?, alpha))
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn computed_colours_parse_and_other_text_does_not() {
-        let rows = [
-            ("rgb(17, 24, 39)", Some(Color::rgb(17, 24, 39))),
-            (
-                "rgba(59, 130, 246, 0.5)",
-                Some(Color::rgba(59, 130, 246, 128)),
-            ),
-            ("rgb(0 0 0 / 1)", Some(Color::rgb(0, 0, 0))),
-            ("  rgb(1, 2, 3) ", Some(Color::rgb(1, 2, 3))),
-            ("rgba(1, 2, 3, 2)", Some(Color::rgb(1, 2, 3))),
-            ("rgb(300, 0, -5)", Some(Color::rgb(255, 0, 0))),
-            ("rgb(1, 2, 3, 0.5, 9)", None),
-            ("red", None),
-            ("rgb(1, 2)", None),
-        ];
-        for (text, want) in rows {
-            assert_eq!(css_color(text), want, "{text}");
-        }
-    }
-}

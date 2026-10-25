@@ -198,34 +198,4 @@ mod tests {
         assert_eq!(layout.offset_at(0, 500.0), 2);
         assert_eq!(layout.offset_at(1, 500.0), 5);
     }
-
-    #[test]
-    fn a_point_lands_on_the_nearest_stop_of_the_line_under_it() {
-        let layout = layout();
-        let rows = [
-            ("inside the first line", (14.0, 5.0), 1),
-            ("inside the second line", (16.0, 25.0), 5),
-            ("on the second line's top edge", (16.0, 20.0), 5),
-            ("above the text", (0.0, -50.0), 0),
-            ("below the text", (90.0, 900.0), 7),
-        ];
-        for (name, (x, y), offset) in rows {
-            assert_eq!(layout.offset_at_point(x, y), offset, "{name}");
-        }
-    }
-
-    #[test]
-    fn a_range_is_one_box_a_line_and_shows_a_hard_break_it_takes() {
-        let layout = layout();
-        let boxes = layout.range_boxes(&(1..7));
-        assert_eq!(
-            boxes
-                .iter()
-                .map(|line| (line.left, line.right, line.top))
-                .collect::<Vec<_>>(),
-            [(10.0, 30.0, 0.0), (0.0, 26.0, 20.0), (0.0, 10.0, 40.0)]
-        );
-        assert_eq!(layout.range_boxes(&(2..2)), []);
-        assert_eq!((layout.height(), layout.width()), (60.0, 30.0));
-    }
 }

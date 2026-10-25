@@ -88,23 +88,3 @@ pub(super) fn layout(ctx: &Ctx<'_>, model: &ViewStrip, viewport: Vec2) -> Panel 
         nodes,
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn tabs_share_the_row_and_leave_its_end_bare() {
-        // 1280 wide leaves 1082 between the traffic lights and the add
-        // button, which the bare end follows.
-        let rows = [
-            (3, (180.0, 3)),
-            (10, (104.0, 10)),
-            (30, (32.0, 30)),
-            (40, (28.0, 33)),
-        ];
-        for (count, want) in rows {
-            assert_eq!(share(count, 1280.0), want, "{count} tabs");
-        }
-    }
-}

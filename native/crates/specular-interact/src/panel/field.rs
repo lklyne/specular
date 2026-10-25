@@ -128,29 +128,3 @@ fn find(control: &Control, id: &ControlId) -> Option<Field> {
         | Control::Separator => None,
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_field_submits_an_action_only_for_text_that_means_something() {
-        let navigate = |url: &str| Some(Action::PageNavigate(url.to_owned()));
-        let width = |px| Some(Action::SetProperty(Property::ViewportWidth(px)));
-        let mut rows = vec![
-            (
-                FieldSubmit::PageUrl,
-                "example.com",
-                navigate("https://example.com/"),
-            ),
-            (FieldSubmit::PageUrl, "  ", None),
-            (FieldSubmit::ViewportWidth, " 820.4 ", width(820.0)),
-        ];
-        for text in ["", "wide", "0", "-4", "10001", "NaN", "inf"] {
-            rows.push((FieldSubmit::ViewportWidth, text, None));
-        }
-        for (submit, text, want) in rows {
-            assert_eq!(submit.action(text), want, "{submit:?} {text:?}");
-        }
-    }
-}

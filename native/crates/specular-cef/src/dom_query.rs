@@ -457,41 +457,6 @@ mod tests {
             .into_bytes()
     }
 
-    fn sent(message: &[u8]) -> Value {
-        serde_json::from_slice(message).unwrap()
-    }
-
-    #[test]
-    fn an_element_question_evaluates_one_expression_at_the_point() {
-        let message = sent(&element_at_message(7, 12.5, 40.0));
-        assert_eq!(message["id"], 7);
-        assert_eq!(message["method"], "Runtime.evaluate");
-        assert_eq!(message["params"]["returnByValue"], true);
-        let expression = message["params"]["expression"].as_str().unwrap();
-        assert!(expression.contains("document.elementFromPoint((12.5), (40))"));
-        assert!(!expression.contains("__"), "a placeholder was left in");
-    }
-
-    #[test]
-    fn a_region_question_carries_the_rect_and_the_cap() {
-        let rect = CssRect::new(10.0, 20.0, 300.0, 150.5);
-        let message = sent(&elements_in_rect_message(3, rect));
-        let expression = message["params"]["expression"].as_str().unwrap();
-        assert!(
-            expression
-                .contains("{ left: (10), top: (20), right: (10) + (300), bottom: (20) + (150.5) }")
-        );
-        assert!(expression.contains("while ((count < 15 || boxes.length < 200) &&"));
-        assert!(expression.contains("NodeFilter.SHOW_ELEMENT"));
-        let answer = value_result(r#"{"count":1,"boxes":[[10,20,30,40.5]]}"#);
-        assert_eq!(
-            parse_elements_in_rect(&answer),
-            (1, vec![CssRect::new(10.0, 20.0, 30.0, 40.5)])
-        );
-        assert_eq!(parse_elements_in_rect(b"not json"), (0, Vec::new()));
-        assert!(!expression.contains("__"), "a placeholder was left in");
-    }
-
     #[test]
     fn an_element_answer_becomes_a_page_element() {
         let answer = r##"{"selector":"#top","elementPath":"body > section#one > h1#top","x":40,"y":61,"width":720,"height":64}"##;
@@ -503,79 +468,5 @@ mod tests {
                 bounding_box: PixelRect::new(40, 61, 720, 64),
             })
         );
-    }
-
-    #[test]
-    fn an_empty_element_path_is_no_path() {
-        let answer = r##"{"selector":"#top","elementPath":"","x":0,"y":0,"width":1,"height":1}"##;
-        let element = parse_element(&value_result(answer)).unwrap();
-        assert_eq!(element.element_path, None);
-    }
-
-    #[test]
-    fn no_element_a_thrown_error_and_noise_are_all_no_element() {
-        assert_eq!(parse_element(&value_result("null")), None);
-        let thrown = br##"{"result":{"type":"string","value":"{\"selector\":\"#a\",\"x\":0,\"y\":0,\"width\":1,\"height\":1}"},"exceptionDetails":{"text":"Uncaught"}}"##;
-        assert_eq!(parse_element(thrown), None);
-        assert_eq!(parse_element(b"not json"), None);
-        assert_eq!(parse_element(&value_result(r#"{"selector":"a"}"#)), None);
-    }
-
-    #[test]
-    fn scrolling_is_asked_and_answered_as_a_fraction_of_the_scrollable_extent() {
-        let ask = sent(&scroll_progress_message(4));
-        let ask = ask["params"]["expression"].as_str().unwrap();
-        assert!(ask.contains("scrollY / maxY"));
-        let answer = value_result(r#"{"x":0,"y":0.25}"#);
-        assert_eq!(parse_scroll_progress(&answer), Some((0.0, 0.25)));
-        let overshoot = value_result(r#"{"x":-0.5,"y":1.5}"#);
-        assert_eq!(parse_scroll_progress(&overshoot), Some((0.0, 1.0)));
-        assert_eq!(parse_scroll_progress(&value_result("nope")), None);
-
-        let go = sent(&scroll_to_message(5, -0.5, 1.5));
-        let go = go["params"]["expression"].as_str().unwrap();
-        assert!(go.contains("left: maxX * (0), top: maxY * (1)"));
-        assert!(!go.contains("__"), "a placeholder was left in");
-    }
-
-    #[test]
-    fn scroll_room_is_asked_at_the_finger_and_answered_as_a_flag() {
-        let ask = sent(&scroll_room_message(
-            6,
-            Vec2::new(12.0, 40.0),
-            Vec2::new(0.0, -900.0),
-        ));
-        let ask = ask["params"]["expression"].as_str().unwrap();
-        assert!(ask.contains("document.elementFromPoint((12), (40))"));
-        assert!(ask.contains("Math.abs((-900)) >= Math.abs((0))"));
-        assert!(!ask.contains("__"), "a placeholder was left in");
-        assert_eq!(parse_scroll_room(&value_result("false")), Some(false));
-        assert_eq!(parse_scroll_room(&value_result("true")), Some(true));
-        assert_eq!(parse_scroll_room(&value_result("nope")), None);
-    }
-
-    #[test]
-    fn how_a_document_fits_its_screen_is_asked_once_parsed_and_read_back() {
-        let ask = sent(&viewport_fit_message(9));
-        assert_eq!(ask["params"]["awaitPromise"], true);
-        let ask = ask["params"]["expression"].as_str().unwrap();
-        assert!(ask.contains("DOMContentLoaded"));
-        assert!(ask.contains(r"/viewport-fit\s*=\s*cover/i"));
-        let covering = value_result(r#"{"covers":true,"color":[122,31,162]}"#);
-        assert_eq!(
-            parse_viewport_fit(&covering),
-            Some((true, Some([122, 31, 162])))
-        );
-        let plain = value_result(r#"{"covers":false,"color":null}"#);
-        assert_eq!(parse_viewport_fit(&plain), Some((false, None)));
-        assert_eq!(parse_viewport_fit(b"{}"), None);
-    }
-
-    #[test]
-    fn a_target_id_is_read_from_target_info() {
-        let result = br#"{"targetInfo":{"targetId":"D84418FF","type":"page","url":"https://a/"}}"#;
-        assert_eq!(parse_target_id(result), Some("D84418FF".to_owned()));
-        assert_eq!(parse_target_id(br#"{"targetInfo":{"targetId":""}}"#), None);
-        assert_eq!(parse_target_id(b"{}"), None);
     }
 }

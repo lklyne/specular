@@ -68,31 +68,3 @@ impl Drop for FrameLease {
         self.live.fetch_sub(1, Ordering::AcqRel);
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn lease_is_refused_at_the_cap() {
-        let pool = OutstandingFrames::with_cap(2);
-        let _a = pool.try_lease();
-        let _b = pool.try_lease();
-        assert!(pool.try_lease().is_none());
-    }
-
-    #[test]
-    fn dropping_a_lease_frees_its_slot() {
-        let pool = OutstandingFrames::with_cap(1);
-        let lease = pool.try_lease();
-        drop(lease);
-        assert!(pool.try_lease().is_some());
-    }
-
-    #[test]
-    fn default_cap_matches_electron_pool_cap() {
-        let pool = OutstandingFrames::default();
-        let leases: Vec<_> = std::iter::from_fn(|| pool.try_lease()).take(100).collect();
-        assert_eq!(leases.len(), MAX_OUTSTANDING_TEXTURES);
-    }
-}

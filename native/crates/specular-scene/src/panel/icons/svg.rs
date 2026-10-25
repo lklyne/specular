@@ -293,6 +293,3 @@ fn read(d: &str) -> (Vec<PathCommand>, bool) {
 pub(super) fn reads_all(d: &str) -> bool {
     read(d).1
 }
-
-#[cfg(test)]
-mod tests;

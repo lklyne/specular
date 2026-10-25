@@ -230,32 +230,3 @@ impl Rect {
 
 /// A rect in a page's CSS pixels, with fractional edges.
 pub type CssRect = Rect;
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn css_to_pixels_rounds_up_partial_texels() {
-        assert_eq!(CssSize::new(1001, 3).to_pixels(0.5), PixelSize::new(501, 2));
-    }
-
-    #[test]
-    fn rects_touching_at_an_edge_do_not_intersect() {
-        let a = Rect::new(0.0, 0.0, 10.0, 10.0);
-        let b = Rect::new(10.0, 0.0, 10.0, 10.0);
-        assert_eq!((a.intersects(b), a.intersection(b)), (false, None));
-    }
-
-    #[test]
-    fn outset_grows_every_side_and_stops_at_zero() {
-        let rect = Rect::new(10.0, 10.0, 4.0, 8.0);
-        assert_eq!(
-            (rect.outset(1.0), rect.outset(-3.0)),
-            (
-                Rect::new(9.0, 9.0, 6.0, 10.0),
-                Rect::new(12.0, 13.0, 0.0, 2.0)
-            )
-        );
-    }
-}

@@ -65,12 +65,6 @@ pub(crate) struct Batcher {
 }
 
 impl Batcher {
-    /// How many pairs of bounds the last frame compared.
-    #[cfg(test)]
-    pub(crate) fn overlap_tests(&self) -> u64 {
-        self.overlap_tests
-    }
-
     /// Batches `placed`, in the order the batches are drawn.
     pub(crate) fn batch(&mut self, placed: &[Placed], view: &ViewTransform) -> Vec<Batch> {
         self.cells.resize_with(COLUMNS * ROWS, Vec::new);

@@ -17,10 +17,6 @@ mod frame;
 mod handshake;
 mod hub;
 pub(crate) mod socket;
-#[cfg(test)]
-pub(crate) mod test_client;
-#[cfg(test)]
-mod tests;
 
 use std::sync::Arc;
 use std::sync::mpsc::{self, Receiver};

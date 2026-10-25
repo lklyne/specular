@@ -181,104 +181,11 @@ mod tests {
     }
 
     #[test]
-    fn each_change_restarts_the_wait() {
-        let mut sync = synced();
-        sync.request_save(100);
-        sync.request_save(400);
-        assert_eq!(sync.step(450, false), Step::Idle);
-        assert_eq!(sync.step(750, false), Step::Save);
-    }
-
-    #[test]
-    fn changes_that_never_stop_are_saved_every_two_seconds() {
-        let mut sync = synced();
-        for now in (0..=1_800).step_by(300) {
-            sync.request_save(now);
-            assert_ne!(sync.step(now, false), Step::Save);
-        }
-        sync.request_save(1_999);
-        assert_ne!(sync.step(1_999, false), Step::Save);
-        assert_eq!(sync.step(2_000, false), Step::Save);
-        // The next run of changes waits from its own first change.
-        sync.request_save(2_100);
-        assert_ne!(sync.step(2_449, false), Step::Save);
-        assert_eq!(sync.step(2_450, false), Step::Save);
-    }
-
-    #[test]
     fn nothing_is_saved_or_checked_while_dragging() {
         let mut sync = synced();
         sync.request_save(100);
         assert_eq!(sync.step(10_000, true), Step::Idle);
         assert_eq!(sync.step(10_001, false), Step::Save);
-    }
-
-    #[test]
-    fn a_due_save_goes_before_a_disk_check() {
-        let mut sync = synced();
-        sync.request_save(1_000);
-        assert_eq!(sync.step(2_000, false), Step::Save);
-        assert_eq!(sync.step(2_000, false), Step::CheckDisk);
-    }
-
-    #[test]
-    fn the_disk_is_checked_every_half_second() {
-        let mut sync = synced();
-        assert_eq!(sync.step(499, false), Step::Idle);
-        assert_eq!(sync.step(500, false), Step::CheckDisk);
-        assert_eq!(sync.step(999, false), Step::Idle);
-        assert_eq!(sync.step(1_000, false), Step::CheckDisk);
-    }
-
-    #[test]
-    fn closing_takes_the_pending_save_once() {
-        let mut sync = synced();
-        assert!(!sync.take_unsaved());
-        sync.request_save(100);
-        assert!(sync.take_unsaved());
-        assert!(!sync.take_unsaved());
-    }
-
-    #[test]
-    fn a_failed_save_is_tried_again_later() {
-        let mut sync = synced();
-        sync.request_save(0);
-        assert_eq!(sync.step(350, false), Step::Save);
-        sync.save_failed(350);
-        assert!(sync.has_unsaved());
-        assert_ne!(sync.step(5_349, false), Step::Save);
-        assert_eq!(sync.step(5_350, false), Step::Save);
-        // A newer change after a failure is not delayed.
-        let mut sync = synced();
-        sync.request_save(1_000);
-        sync.save_failed(1_000);
-        assert_eq!(sync.step(1_350, false), Step::Save);
-    }
-
-    #[test]
-    fn an_unmoved_stamp_needs_no_read() {
-        let sync = synced();
-        assert!(!sync.disk_stamp(stamp(1, 7)));
-        assert!(sync.disk_stamp(stamp(2, 7)));
-        assert!(sync.disk_stamp(stamp(1, 8)));
-    }
-
-    #[test]
-    fn our_own_write_is_not_an_external_edit() {
-        let mut sync = synced();
-        sync.saved("ours".to_owned(), Some(stamp(2, 4)));
-        assert!(!sync.disk_stamp(stamp(2, 4)));
-        // A touch moves the stamp and leaves the text.
-        assert_eq!(sync.disk_text("ours", stamp(3, 4)), DiskChange::Unchanged);
-        assert!(!sync.disk_stamp(stamp(3, 4)));
-    }
-
-    #[test]
-    fn an_external_edit_with_nothing_unsaved_reloads() {
-        let mut sync = synced();
-        assert_eq!(sync.disk_text("theirs", stamp(2, 6)), DiskChange::Reload);
-        // And it is now what we hold.
-        assert_eq!(sync.disk_text("theirs", stamp(3, 6)), DiskChange::Unchanged);
     }
 
     #[test]

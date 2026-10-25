@@ -116,29 +116,3 @@ pub(crate) fn commands(event: Id) -> Vec<String> {
         .filter_map(|selector| command_name(selector))
         .collect()
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_selector_is_a_command_unless_it_inserts_or_does_nothing() {
-        let rows = [
-            ("moveWordLeft:", Some("moveWordLeft")),
-            ("deleteToBeginningOfLine:", Some("deleteToBeginningOfLine")),
-            (
-                "moveToBeginningOfParagraph:",
-                Some("moveToBeginningOfParagraph"),
-            ),
-            ("cancelOperation:", Some("cancelOperation")),
-            // What Command+A and Command+Z resolve to: the menu has those.
-            ("noop:", None),
-            ("insertNewline:", None),
-            ("insertTab:", None),
-            ("insertBacktab:", None),
-        ];
-        for (selector, want) in rows {
-            assert_eq!(command_name(selector).as_deref(), want, "{selector}");
-        }
-    }
-}

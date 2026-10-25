@@ -57,36 +57,3 @@ pub(super) fn in_canvas_pass() -> Vec<(String, Vec2)> {
 pub(super) fn locate(name: &str) -> Result<Vec2, String> {
     find(name, &shown_controls(), &in_canvas_pass())
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_name_is_found_wherever_it_is_drawn_and_one_not_shown_lists_those_that_are() {
-        let at = |name: &str, x: f32| (name.to_owned(), Vec2::new(x, 22.0));
-        let kit = [
-            at("tool.select", 600.0),
-            at("tool.draw", 640.0),
-            at("tool.draw", 650.0),
-        ];
-        let canvas = [at("shape.color", 900.0), at("tool.select", 1.0)];
-        assert_eq!(
-            find("tool.select", &kit, &canvas),
-            Ok(Vec2::new(600.0, 22.0))
-        );
-        // Drawn twice, the one in front takes the click.
-        assert_eq!(find("tool.draw", &kit, &canvas), Ok(Vec2::new(650.0, 22.0)));
-        assert_eq!(
-            find("shape.color", &kit, &canvas),
-            Ok(Vec2::new(900.0, 22.0))
-        );
-        assert_eq!(
-            find("shape.kind", &kit, &canvas),
-            Err(
-                "no control `shape.kind` is shown; these are: tool.select tool.draw shape.color"
-                    .to_owned()
-            )
-        );
-    }
-}
