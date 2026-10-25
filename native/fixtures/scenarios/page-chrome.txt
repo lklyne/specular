@@ -22,6 +22,19 @@ key enter
 wait 100
 expect entity @1 text https://example.org/docs
 
+# a local address is reached over http
+control page.url
+key cmd+a
+type localhost:4321/garden
+key enter
+wait 100
+expect entity @1 text http://localhost:4321/garden
+control page.url
+key cmd+a
+type example.org/docs
+key enter
+wait 100
+
 # a long address scrolls inside its field and Escape puts the old one back
 control page.url
 type -with-a-very-long-path/and/more/and/more/and/more/and/more/and/more/and/more
