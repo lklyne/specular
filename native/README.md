@@ -1,9 +1,9 @@
 # native/: Specular in Rust
 
-A rebuild of Specular's canvas as one Rust process. It opens the same space
-folders and `.canvas` files as the Electron app under `../src`, hosts pages
-through CEF offscreen rendering, and answers the same HTTP routes, so the
-`specular` CLI drives it.
+Specular as one Rust process. It replaced the Electron app, which was
+deleted (its source is in git history at `bc5253fa`). It opens the same space
+folders and `.canvas` files that app did, hosts pages through CEF offscreen
+rendering, and answers the same HTTP routes, so the `specular` CLI drives it.
 
 It started as a spike that measured a Rust and CEF shell against Electron.
 That question is answered, and the measurement tools are still here (see
@@ -322,14 +322,14 @@ the run log under "Performance".
 ```sh
 export CEF_PATH="$HOME/.local/share/cef"
 crates/specular-shell/scripts/bundle-app.sh
-open "target/release/bundle/Specular Native.app"
+open target/release/bundle/Specular.app
 ```
 
-This builds `Specular Native.app`: the GPUI Kit shell with CEF, the starter
-space and an icon, signed ad hoc, so it runs on the Mac that built it. It
-opens on a first-run view until you choose a space folder.
+This builds `Specular.app`: the GPUI Kit shell with CEF, the CLI, the agent
+helper, the starter space and an icon, signed ad hoc, so it runs on the Mac
+that built it. It opens on a first-run view until you choose a space folder.
 [`docs/native-app-bundle.md`](../docs/native-app-bundle.md) has the layout,
-what it shares with the Electron app, and what distribution still needs.
+how a release is signed and published, and what is left.
 
 `crates/specular-cef/scripts/bundle-macos.sh` is the plain development
 bundle used above. It wraps a built binary in the layout CEF needs and adds
@@ -347,6 +347,6 @@ no icon, starter space or signature.
   and a test fails if the lockfile has other versions.
 - No wildcard arms over `Kind`, `Tool` or `Gesture`.
 - Vocabulary follows [`CONTEXT.md`](../CONTEXT.md), which has a "Rust
-  rebuild" section mapping its terms to the Rust names.
-- The Electron app under `../src` is the behavior spec, not the structure
-  spec. Do not edit it from here.
+  names" section mapping its terms to the Rust names.
+- The deleted Electron app (`git show bc5253fa:src/...`) is a behavior
+  reference, not a structure spec.

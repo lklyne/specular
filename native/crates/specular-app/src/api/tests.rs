@@ -119,11 +119,11 @@ impl Loopback {
         self.send(method, target, &secret, &body.to_string())
     }
 
-    /// The body of a call that must succeed.
+    #[track_caller]
     fn ok(&mut self, method: &str, target: &str, body: &Value) -> Value {
-        let (status, answer) = self.call(method, target, body);
-        assert_eq!(status, 200, "{method} {target}: {answer}");
-        answer
+        let (status, body) = self.call(method, target, body);
+        assert_eq!(status, 200, "{target}: {body}");
+        body
     }
 }
 

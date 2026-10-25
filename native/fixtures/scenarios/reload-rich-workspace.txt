@@ -1,9 +1,9 @@
-# canvas: rich-workspace.canvas
+# canvas: ../../crates/specular-doc/tests/fixtures/rich-workspace.canvas
 # Save and reload: the Electron integration suite's fixture (a group, a
 # sticky shorter than a sticky's floor, a Document, a drawing), with the
 # shape nudged 20 down. Only its y differs in the save.
 camera 0,0,1
-expect saved same-as rich-workspace.canvas
+expect saved same-as ../../crates/specular-doc/tests/fixtures/rich-workspace.canvas
 select generated-id-2
 key shift+down
 expect saved changed-from start at /nodes/generated-id-2/y

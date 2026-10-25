@@ -1,19 +1,19 @@
 ---
 name: release
 description: Cut a new Specular release. Bumps the version, updates CHANGELOG.md, tags, and pushes — CI builds and publishes. Use when the user says "cut a release", "ship a release", "release v0.2.6", "bump the version", or wants to update the changelog and tag.
-allowed-tools: Bash(git *), Bash(pnpm *), Bash(npm version*), Edit, Write, Read, AskUserQuestion
+allowed-tools: Bash(git *), Bash(cargo *), Bash(gh *), Edit, Write, Read, AskUserQuestion
 ---
 
 # Release Skill
 
-Cuts a new release of Specular. Updates the changelog, bumps the version, tags, and pushes. The `release.yml` GitHub Action handles build and publish.
+Cuts a new release of Specular. Updates the changelog, bumps the version in `native/Cargo.toml`, tags, and pushes. The `release.yml` GitHub Action builds, signs, notarizes and publishes the DMG, the updater zip and the Sparkle feed.
 
 ## Guiding principles
 
 - **The changelog is user-facing.** Commits are developer-facing. Translate, group, and trim — don't dump commit messages.
 - **Ask before writing.** Version bump and changelog wording are the two decisions that matter. Never guess silently.
-- **One commit per release.** The version bump commit includes the staged CHANGELOG. `npm version` handles this for us.
-- **No prereleases.** SemVer prerelease suffixes (`-alpha.N`, `-beta.N`) are a footgun with `update.electronjs.org`. Patch/minor/major only.
+- **Two commits per release.** The changelog, then the version bump, with the tag on the bump.
+- **No prereleases.** The app's updater follows the newest GitHub release, so a prerelease suffix (`-alpha.N`, `-beta.N`) would reach everyone. Patch/minor/major only.
 
 ## Workflow
 
@@ -31,28 +31,19 @@ If any check fails, explain what's off and stop — don't try to fix it silently
 
 Collect in parallel:
 
-- Current version: `node -p "require('./package.json').version"`
+- Current version: `sed -n '/^\[workspace.package\]/,/^\[/s/^version = "\(.*\)"/\1/p' native/Cargo.toml`
 - Last tag: `git describe --tags --abbrev=0`
 - Commits since last tag: `git log <last-tag>..HEAD --oneline`
 - Full commit bodies for those commits: `git log <last-tag>..HEAD --format="%h%n%s%n%b%n---"`
-- Existing `## [Unreleased]` section from `changelog.md`
-- Bundled agent-browser freshness: `pnpm check:agent-browser`
+- Existing `## [Unreleased]` section from `CHANGELOG.md`
 
 If there are zero commits since the last tag, stop — nothing to release.
-
-If `check:agent-browser` reports we're behind, surface it: show the pinned →
-latest versions and the release notes it printed, and ask the user whether to
-bump the pin as part of this release (it's a judgment call — patch-level upstream
-fixes are usually worth it; skip if the notes look risky or unrelated). To bump:
-set `VERSION` in `scripts/fetch-agent-browser.sh`, run `pnpm fetch:agent-browser`
-to get the new `SHA256`, paste it back, and commit alongside the changelog. Don't
-bump silently and don't block the release on it.
 
 ### Step 3: Infer version bump, ask user to confirm
 
 Infer the bump from commits — don't present it as an open question. Read the actual changes, not just prefixes:
 
-- Breaking change to data model, file format, IPC surface, CLI, or HTTP API → **major**
+- Breaking change to data model, file format, CLI, or HTTP API → **major**
 - New feature, new entity type, new surface, or meaningful capability → **minor**
 - Fixes, polish, internal changes, docs → **patch**
 
@@ -71,7 +62,7 @@ Every release gets a **title** — a short headline that captures what's in this
 
 Then build the body — combine:
 
-1. Everything already under `## [Unreleased]` in `changelog.md`
+1. Everything already under `## [Unreleased]` in `CHANGELOG.md`
 2. User-facing summaries of commits since the last tag (deduped against the Unreleased items — many will already be covered)
 
 The target voice is **Conductor's changelog** (`conductor.build/changelog`): punchy, conversational, user-facing, light on ceremony. Not strict Keep a Changelog — warmer than that.
@@ -88,7 +79,7 @@ Style rules:
 
 ### Step 5: Confirm the draft
 
-Show the user the full drafted section — title + body, formatted as it will appear in `changelog.md`. Use **AskUserQuestion** with options:
+Show the user the full drafted section — title + body, formatted as it will appear in `CHANGELOG.md`. Use **AskUserQuestion** with options:
 
 - `approve` — write it as shown
 - `edit title` — user wants to change the title; iterate
@@ -101,7 +92,7 @@ Iterate until the user approves. Respect their wording exactly — don't "improv
 
 Compute the new version: apply the chosen bump to the current version (e.g., `0.2.5` + patch → `0.2.6`).
 
-Edit `changelog.md`:
+Edit `CHANGELOG.md`:
 
 - Replace the `## [Unreleased]` heading (and its contents) with:
   ```
@@ -116,26 +107,24 @@ Edit `changelog.md`:
 
 ### Step 7: Commit changelog, bump, tag
 
-npm 10+ refuses to run `npm version` when the tree has any porcelain output — staged files count as dirty, so the changelog has to land in its own commit before the bump.
-
 1. Commit the changelog on its own:
    ```
    git add CHANGELOG.md
    git commit -m "docs: changelog for X.Y.Z"
    ```
-   (Git stores the file as `CHANGELOG.md` on case-insensitive macOS filesystems even though the path is `changelog.md` — either works for `git add`.)
-2. Run the matching release script on a clean tree:
-   - patch → `pnpm release:patch`
-   - minor → `pnpm release:minor`
-   - major → no script exists; run `npm version major && git push --follow-tags` directly, and tell the user you're adding a `release:major` script next time they're in `package.json` (don't modify it now)
+2. Set `version = "X.Y.Z"` under `[workspace.package]` in `native/Cargo.toml`.
+   Then `cd native && cargo check --workspace` so `Cargo.lock` picks up the new
+   version of every workspace crate.
+3. Commit, tag and push:
+   ```
+   git add native/Cargo.toml native/Cargo.lock
+   git commit -m "chore: release X.Y.Z"
+   git tag -a vX.Y.Z -m "vX.Y.Z"
+   git push --follow-tags
+   ```
 
-`npm version` will:
-- Bump `package.json`
-- Create a `chore: bump version to X.Y.Z`-style commit (package.json only)
-- Create an annotated tag `vX.Y.Z`
-- (The `release:*` scripts then push with `--follow-tags`)
-
-Result: two commits land (`docs: changelog ...` then the version bump), with the tag on the bump commit. If `npm version` still errors about a dirty tree, stop and investigate — something unexpected is staged or modified.
+`release.yml` refuses a tag that does not match the version in
+`native/Cargo.toml`, so bump before tagging.
 
 ### Step 8: Report
 
@@ -144,11 +133,10 @@ Tell the user:
 - New version and tag (e.g., `v0.2.6`)
 - Tag has been pushed; the `release.yml` workflow will build and publish
 - Link to the Actions tab: `https://github.com/lklyne/specular/actions`
-- Reminder to check the GitHub Release draft and flip "prerelease" off if needed before publishing
+- The workflow publishes the release itself (not a draft); installed apps see the update through the Sparkle feed once it is up
 
 ## Notes
 
-- Never use `--no-verify` or `-f` on `npm version`. If it fails, the tree is dirty for a reason — investigate.
-- The `update.electronjs.org` caveat is in `changelog.md` line 5. If a user asks for an alpha release, point them there and confirm they really want to do it before proceeding.
-- `changelog.md` and `CHANGELOG.md` resolve to the same file on macOS (case-insensitive FS). Use `changelog.md` — that's what exists on disk.
+- A tag push publishes for real. To rehearse a release, run the Release workflow by hand from the Actions tab (`workflow_dispatch`): it builds, signs and notarizes the branch and keeps the files as a run artifact.
+- The release notes are copied from this version's section of `CHANGELOG.md`, so the heading must be `## [X.Y.Z] - YYYY-MM-DD — <Title>`.
 - If the user invokes this skill mid-session with uncommitted work, offer to stash it before preflight fails, but don't auto-stash.

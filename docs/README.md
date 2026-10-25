@@ -2,6 +2,8 @@
 
 This is the table of contents for `docs/` and `docs/adr/`. Read the one-line summary here first; open the actual file only when working in that area.
 
+Specular is the Rust app under `native/` (start with [`native/README.md`](../native/README.md) and [`native/CLAUDE.md`](../native/CLAUDE.md)). ADRs 0001 to 0038 were written for the Electron app, which was deleted; its source is in git history at `bc5253fa`. Their decisions about behavior hold where the Rust app ported them. Their mechanisms (IPC, `aboveView`, the Y.Doc, `WebContentsView`) are history.
+
 ## ADRs
 
 - [0001 — Click-to-enter frame focus replaces rasterization-dependent gate](adr/0001-click-to-enter-frame-focus.md) — aboveView is the single input authority; click enters native focus instead of waiting on bgView rasterization.
@@ -54,27 +56,13 @@ This is the table of contents for `docs/` and `docs/adr/`. Read the one-line sum
 
 ## Docs
 
-- [architecture.md](architecture.md) — process model, IPC/HTTP surfaces, and the two-layer (Y.Doc + runtime) state model.
-- [architecture-audit.md](architecture-audit.md) — how to run a simplify/deepen audit pass without gutting load-bearing nuance; invariant preamble to paste into audit runs.
-- [canvas-motion-research.md](canvas-motion-research.md) — research note on canvas-anchored overlay animation jitter and how to make motion smooth without per-frame IPC.
-- [canvas-stacking-research.md](canvas-stacking-research.md) — historical research note that seeded ADR 0014 (canvas stack order / sidebar tree); read the ADR instead unless doing archaeology.
-- [cli-architecture-review.md](cli-architecture-review.md) — tradeoff analysis of the MCP tool-schema approach vs a CLI-first agent interface.
-- [development.md](development.md) — prerequisites, dev commands, env vars, and release process.
-- [divergence-input-authority.md](divergence-input-authority.md) — running status/phase table tracking where the input-authority refactor implementation diverged from its plan.
 - [file-formats.md](file-formats.md) — .canvas (JSON Canvas v1.0) spec, spaces/vault model, and persistence details.
-- [input-authority-audit.md](input-authority-audit.md) — live classification table of every canvas gesture path (router-owned vs native vs visual-only) post input-authority refactor.
-- [interaction-layer.md](interaction-layer.md) — architecture spec for gestures/overlays/focus handoffs; §6 load-bearing invariants must be read before touching input.
-- [native-app-bundle.md](native-app-bundle.md) — building `Specular Native.app` from the Rust rebuild: the script, what the bundle holds, how it stays apart from the Electron app, first run, and what distribution still needs.
+- [native-app-bundle.md](native-app-bundle.md) — building `Specular.app`: the script, what the bundle holds, the command and the skill, first run, how a release is signed and published, and what is left.
 - [plans/rust-native-big-run.md](plans/rust-native-big-run.md): the run that finishes the Rust rebuild. Fourteen decisions and nine phases, from deleting the bake-off to deleting the Electron app, with one validation script at the end.
 - [plans/rust-native-rebuild.md](plans/rust-native-rebuild.md): the plan for the Rust rebuild under `native/`, with a status table of every wave and task, the architecture as built, and the cleanup tasks left.
 - [plans/rust-native-rebuild-handoff.md](plans/rust-native-rebuild-handoff.md): one page for whoever picks up the Rust rebuild. What works, what no person has checked, the by-hand checklist, known bugs, the decisions taken and the risks.
 - [plans/page-resize-jank.md](plans/page-resize-jank.md): how a page resize travels through GPUI, the canvas layer and CEF in the Rust app, the questions that rank the suspects, and the instrumentation to build before any fix.
 - [plans/rust-native-rebuild-log.md](plans/rust-native-rebuild-log.md): the run log of the Rust rebuild. Decisions grouped by area, then one entry per task with what was built, what was run and what was left.
-- [offscreen-rendering-research.md](offscreen-rendering-research.md) — research into GPU offscreen rendering (e.g. Ultralight) as a strategy for scaling many live web frames.
-- [one-live-view-research.md](one-live-view-research.md) — assessment of "one interactive view, GPU textures everywhere else" against Electron 43 source and the recorded perf work: `offscreen` cannot be toggled at runtime, so the design is either every-page-offscreen with forwarded input or the current live-view-plus-freeze model; re-scoped spike plan, and §6 documents the Offscreen Rendering Lab window (View menu) that runs both spikes.
-- [pan-zoom-perf-unknowns.md](pan-zoom-perf-unknowns.md) — *(not on this branch, present on main)* — deep research sweep of Chromium/Electron internals for pan/zoom perf options beyond bitmap-freeze/WCV-fold; corrects part of the ADR 0023 postmortem.
-- [perf-zoom-pan-log.md](perf-zoom-pan-log.md) — running iteration log for canvas pan/zoom perf, newest at the bottom: what was tried, the measured before/after, and what was rejected. Exp F–H cover the pan pass (snapshot storm, the dot grid, the rejected pan freeze) and end with how to reproduce the numbers and the two measurement traps that produced wrong answers.
-- [perf-tracing.md](perf-tracing.md) — *(not on this branch, present on main)* — how to record and read Chromium performance traces of Specular via UI or HTTP API.
 - [product.md](product.md) — product philosophy: who Specular is for, what it is, and the open/local-first core beliefs.
 
 Subdirectories (see files within for detail, not indexed individually here):
@@ -82,8 +70,4 @@ Subdirectories (see files within for detail, not indexed individually here):
 - `adr/` — architecture decision records; see ADRs section above.
 - `agents/` — agent-facing process docs (issue tracker usage, triage labels, domain-doc conventions).
 - `plans/` — in-flight and historical implementation plans for specific features/refactors.
-- `explorations/` — early-stage design explorations not yet promoted to a plan or ADR.
-- `audit/` — output of architecture/codebase audit passes (fallow, ponytail, deepen reports).
-- `internal/` — internal research/planning notes not meant for the ADR/plan pipeline.
 - `orchestrator/` — journal and operating rules for the AFK/orchestrator agent workflow.
-- `superpowers/` — plans related to the superpowers skill/workflow.

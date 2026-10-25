@@ -4,78 +4,53 @@ Specular is a spatial canvas for designers and frontend developers. Part browser
 part design iteration surface. Users pull live web content onto a freeform canvas
 to think, arrange, and iterate spatially.
 
+The app is one Rust process under `native/`. [`CLAUDE.md`](CLAUDE.md) is the
+full guide for agents working in this repo; this file is the short version.
+
+Read native/CLAUDE.md for the architecture, how to add a feature and the test bar.
+Read native/README.md for the crates and how to run the app.
+Read CONTEXT.md for the glossary.
 Read docs/product.md for product philosophy and audience.
-Read docs/architecture.md for the full system map.
-Read docs/file-formats.md for .canvas spec and persistence details.
+Read docs/file-formats.md for the .canvas spec and persistence details.
 
 ## Build & verify
 
+From `native/`, before every commit:
+
 ```
-pnpm install                 # install dependencies
-pnpm dev                     # start the Electron app (foreground)
-pnpm typecheck               # type-check both node and web tsconfigs
-pnpm test:unit               # fast unit tests (no Electron)
-pnpm test:integration        # real runtime in-process (no Electron, seconds)
-pnpm test:boot               # ~3 real-Electron boot checks (pre-release only)
-pnpm build                   # package for distribution
+cargo fmt --all --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace
+fixtures/scenarios/run.sh
 ```
 
-Run `pnpm dev` in its own terminal or pane so the app can be watched and stopped
-independently. Don't kill or restart a dev app you didn't start.
-
-After any structural change, run `typecheck` + `test:unit` at minimum.
-After changes to runtime, IPC, or persistence, run `test:integration`.
+`cargo run -p specular-shell` runs the app with synthetic pages. Real pages need
+`CEF_PATH` and a bundle (`crates/specular-shell/scripts/bundle-app.sh --profile debug`).
+Run the app in its own terminal or pane. Don't kill or restart an app you didn't start.
 
 ## Architecture (quick reference)
 
-Electron app with four source layers:
-
 ```
-src/main/          Main process: state, persistence, HTTP API, CLI, IPC routing
-src/preload/       Context bridges: one per renderer overlay (10 total)
-src/renderer/      React apps: canvas-bg, toolbar, sidebar, inspector, overlays
-src/shared/        Types and pure utilities shared across processes
+Event -> update(&mut App, Event) -> Vec<Effect>     pure, no I/O
+         view(&App) -> Scene                        pure, no GPU
+         render(&Scene)                             wgpu
 ```
 
-State flows down: Main owns truth -> IPC broadcasts -> Renderers display.
-Actions flow up: Renderer -> preload API -> IPC -> Main mutates state.
-
-### Two-layer state model (details in src/main/runtime/CLAUDE.md)
-
-```
-Y.Doc (Yjs)         Persisted, undoable workspace state (entities, groups, edges)
-Runtime variables    Ephemeral state (views, interaction mode, hover, timers)
-```
-
-### Key domains in src/main/runtime/
-
-```
-workspace-*          Persistence, tabs, model, Y.Doc, undo, autosave
-runtime-core.ts      High-level state mutations
-runtime-context.ts   Ephemeral state (zoom, pan, interaction, views)
-selection-*          Selection state and mutations
-page-*.ts            Frame (webview) creation and lifecycle
-layout-*.ts          View positioning, z-order, dirty tracking
-*-entity-state.ts    Per-entity-kind mutations (text, file, group, drawing)
-```
-
-## Layer rules
-
-- `src/renderer/` must NOT import from `src/main/`
-- `src/shared/` must have no side effects and no process-specific imports
-- `src/preload/` bridges IPC only — no business logic
-- `src/main/runtime/` is the single owner of workspace state
-- Renderer state is derived from IPC broadcasts, never authoritative
+- `specular-doc` owns the typed `Document`; every change is a `Command` whose
+  inverse is the undo step.
+- `specular-interact` owns `App`, `Event`, `Effect`, `Tool`, `Gesture` and `update`.
+- Only the shell crates and `specular-cef` do I/O. Everything else runs in tests
+  with no window, GPU or CEF.
 
 ## Terminology
 
-We follow the JSON Canvas spec (jsoncanvas.org) for our data model nouns:
+We follow the JSON Canvas spec (jsoncanvas.org) on disk:
 
-- **Node** — any entity on the canvas (text, link, file, group)
-- **Edge** — a connection between two nodes
+- **Node** — a disk-layer word for an entry in a `.canvas` file. In code and UI it is an entity / canvas item.
+- **Edge** — a connection between two canvas items
 - **Canvas** — a single .canvas file; the spatial document
 - **Space** — a folder of canvases (like an Obsidian vault)
-- **Frame** — our current UI term for link nodes (live web pages)
+- **Page** — a live web page on the canvas, a `link` node on disk
 
 ## File format principles
 
@@ -84,30 +59,13 @@ We follow the JSON Canvas spec (jsoncanvas.org) for our data model nouns:
 - Files live on disk in the user's space folder — the file system is the data model
 - Files must be diffable, versionable, and editable by agents and other tools
 
-## View modes
-
-Browser and Canvas are different views of the same data:
-- **Canvas mode** — spatial freeform surface; nodes arranged freely
-- **Browser mode** — traditional tab navigation between frames
-
-Both operate on the same underlying .canvas data and share primitives.
-
 ## Code principles
 
 Build toward small, obvious pieces.
 
-- Keep `App.tsx` files thin — orchestrate state, hooks, and views only.
 - Extract by responsibility, not by size. One behavior, one view, or one utility per file.
-- Prefer pure helpers for math, shaping, and derived state.
-- Prefer concrete hooks over generic wrappers. Name hooks after the behavior they own.
+- Prefer pure functions for math, shaping, and derived state.
 - Delete dead code and stale APIs quickly. Do not preserve unused abstractions.
 - Reuse shared primitives only when behavior is truly shared.
 - If the cleanest solution wants a different shape, propose that change.
 - Preserve existing UX unless a cleaner design is intentionally chosen.
-
-## Testing patterns
-
-- **Unit tests** — pure logic, no Electron. `tests/unit/`
-- **Integration tests** — real runtime in-process, electron stubbed. `tests/integration/`
-- **Boot tests** — real Electron, pre-release only. `tests/boot/`
-- **Agent tests** — scenario scripts. `tests/agent/`

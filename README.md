@@ -12,17 +12,17 @@ Code is the source of truth for making ideas real, but long chat threads and sin
 - Annotate live websites and pass the feedback straight back to an agent
 - Lay out a page at multiple device breakpoints to check responsiveness
 - Ask an agent to share its thinking visually, or ingest a repo's design system
-- Switch to browser mode for a classic tab-based browser
+- Open a page or document in its own tab to work on it alone
 
 ## Key features
 
 - **Canvas** — Real browser windows on an infinite, zoomable canvas
-- **Agent-friendly** — Agents drive the canvas through a `specular` CLI (primary) or MCP server (fallback): creating frames, navigating, inspecting the DOM, clicking, typing, screenshotting
+- **Agent-friendly** — Agents drive the canvas through the `specular` CLI: creating pages, navigating, inspecting the DOM, clicking, typing, screenshotting. An agent chat runs Claude Code beside the canvas
 - **Agent presence** — See an agent's live cursor and task status as it works alongside you
-- **Annotations** — Comment on any frame, usable by people and agents
+- **Annotations** — Comment on any page, usable by people and agents
 - **Device frames** — Preview sites at preset device sizes with visual device shells
-- **Groups & edges** — Organize frames into freeform/row/grid groups and draw connections between them
-- **Local-first** — No sign-in, no account; full undo history backed by Yjs CRDTs
+- **Groups & edges** — Organize items into freeform or auto-layout groups and draw connections between them
+- **Local-first** — No sign-in, no account; full undo history, kept per canvas
 - **Open formats** — Layout uses [JSON Canvas](https://jsoncanvas.org); text and media are plain `.md`, `.png`, and `.webm` files on disk
 
 ## Inspiration and related products
@@ -41,7 +41,7 @@ Code is the source of truth for making ideas real, but long chat threads and sin
 
 Download the latest release from the [GitHub Releases](https://github.com/lklyne/specular/releases) page.
 
-Updates are delivered automatically via `update-electron-app`. You'll be prompted to restart when a new version is ready.
+The app updates itself with [Sparkle](https://sparkle-project.org) from the same releases.
 
 ## Using with AI agents
 
@@ -49,12 +49,16 @@ The `specular` CLI is the main interface for agents — composable commands that
 
 ```bash
 specular canvas                          # inspect the current canvas
-specular create frame <url>              # pull a live page onto the canvas
-specular snapshot -i                     # get element refs for the selected frame
+specular create page <url>               # pull a live page onto the canvas
+specular snapshot -i -f <pageId>         # get element refs for a page
 specular annotate "<feedback>"           # leave a comment for a human or agent
 ```
 
-A Claude Code skill ships with the app — see [`resources/skills/specular/SKILL.md`](resources/skills/specular/SKILL.md) for the full surface. An [MCP server](src/main/mcp-tools.ts) covers the same operations for clients that prefer it.
+A Claude Code skill ships with the app — see [`resources/skills/specular/SKILL.md`](resources/skills/specular/SKILL.md) for the full surface. The app's setup dialog puts the command on your `PATH` and installs the skill.
+
+## Building from source
+
+The app is Rust, under [`native/`](native/). See [`native/README.md`](native/README.md) to build and run it, and [`CLAUDE.md`](CLAUDE.md) for the gate.
 
 ## Security
 

@@ -1,9 +1,9 @@
 //! Load, mutate and save round trips against `.canvas` files written by the
 //! Electron app.
 //!
-//! - `rich-workspace.canvas` is a copy of the integration-test snapshot in
-//!   `tests/integration/__snapshots__/` (five entity kinds, an edge, the
-//!   top-level `specular` and `appState` extensions, nested drawing strokes).
+//! - `rich-workspace.canvas` is the Electron integration suite's snapshot
+//!   (five entity kinds, an edge, the top-level `specular` and `appState`
+//!   extensions, nested drawing strokes).
 //! - `pages.canvas` holds the four `link` nodes of
 //!   `resources/starter-space/Welcome.canvas` verbatim (with their
 //!   `metadata`, `syncId`, `presetIndex` extensions), that file's `appState`,

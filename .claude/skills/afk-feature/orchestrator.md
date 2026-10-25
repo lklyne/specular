@@ -53,8 +53,8 @@ gh pr checks <pr> --watch
 ```
 
 When it finishes, read the rollup (`gh pr view <pr> --json statusCheckRollup`):
-- If every check passed **except** ones on the soft-allowlist (default: `fallow`,
-  which fails on pre-existing repo-wide health issues and does not gate) →
+- If every check passed **except** ones on the soft-allowlist (`AFK_SOFT_CHECKS`,
+  empty by default) →
   merge: `gh pr merge <pr> --squash --delete-branch`. Then advance dex: derive
   the task id from the branch name (`claude/task-<id>` → `<id>`), run
   `dex complete <id> --result "Merged step PR #<pr>." --commit <squash-sha>`,
