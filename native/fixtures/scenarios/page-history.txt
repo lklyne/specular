@@ -83,9 +83,9 @@ expect effects has navigate { page: EntityId("p2"), nav: Reload }
 # Command-[ only restacks a selected page
 key cmd+[
 expect effects lacks navigate
-expect entity @1 text https://example.org/other
+expect order p2 p1
 act undo
-expect entity p2 text https://example.org/other
+expect order p1 p2
 
 # entered, the page is the target, and Command-[ and ] and R walk its
 # history instead of reaching the page as keys
