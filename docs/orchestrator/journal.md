@@ -2247,3 +2247,11 @@ Surveyed: `main` HEAD (still `bc5253f`), issues updated since Oct 23 (none), `or
 Acted: Nothing to file or close.
 Notes: twenty-sixth quiet day. Journal PR #169 is still open and holds only quiet-day entries.
 Hint for next run: if `main` is still `bc5253f` and nothing new has appeared, write a one-line entry; don't manufacture a proposal.
+
+---
+
+## 2026-10-25
+Surveyed: `main` HEAD (still `bc5253f`), open PRs, `orchestrator-proposal` queue (empty), journal PR #169.
+Acted: Nothing to file or close.
+Notes: twenty-seventh quiet day on main. One new signal: PR #436 "Rust native: the big run" opened today, a large single-instance integration PR with 0 comments. One instance only, so no proposal.
+Hint for next run: if #436 merges or draws review activity, look at how it was reviewed; otherwise write a one-line entry.
