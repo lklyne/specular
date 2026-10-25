@@ -62,7 +62,7 @@ use glam::Vec2;
 use specular_core::{ElementPlace, Modifiers, InputEvent, KeyEventKind, PixelRect, PointerEventKind, TouchPhase};
 use specular_doc::{EdgeId, EdgeSide, EntityId};
 use specular_interact::{
-    Action, App, Appearance, Corner, Effect, Event, GuideAxis, GuideReference,
+    Action, App, Appearance, CanvasAction, Corner, Effect, Event, GuideAxis, GuideReference,
     Handle, HandleOwner, Hit, ImageState, KeyInput, LayoutHandle, Mark, PageNotice, PlacePreview,
     hit_test, shown_rect,
 };
@@ -281,8 +281,8 @@ pub fn check_sent(app: &App, sent: &[Effect], fact: &CanvasFact) -> anyhow::Resu
         CanvasFact::SentNothing => ensure!(told.is_empty(), "the last step sent:{}", listed()),
         CanvasFact::Sent { none, words } => {
             let words = &resolved(app, words)?;
-            // The last word may be the start of the effect's: a clipboard
-            // write is one long word.
+            // Past the effect's name, the last word may be the start of the
+            // effect's: a clipboard write is one long word.
             let starts = |effect: &Vec<String>| {
                 let Some((last, before)) = words.split_last() else {
                     return true;
@@ -290,7 +290,7 @@ pub fn check_sent(app: &App, sent: &[Effect], fact: &CanvasFact) -> anyhow::Resu
                 effect.len() >= words.len()
                     && same_words(&effect[..before.len()], before)
                     && (same_words(&effect[before.len()..=before.len()], std::slice::from_ref(last))
-                        || effect[before.len()].starts_with(last.as_str()))
+                        || (!before.is_empty() && effect[before.len()].starts_with(last.as_str())))
             };
             let found = told.iter().any(starts);
             ensure!(
@@ -798,6 +798,9 @@ pub(super) fn action_named(name: &str) -> Option<Action> {
         "duplicate" => Action::Duplicate,
         "copy" => Action::Copy,
         "delete" => Action::Delete,
+        "new-canvas" => Action::Canvas(CanvasAction::New),
+        "duplicate-canvas" => Action::Canvas(CanvasAction::Duplicate(None)),
+        "delete-canvas" => Action::Canvas(CanvasAction::Delete(None)),
         _ => return None,
     })
 }
