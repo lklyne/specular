@@ -1148,3 +1148,12 @@ Nothing was retired. Cleanup rows 1 and 2 in the plan say what now stands betwee
 - Undo leaves a page's navigation and a page-named element on an edited caption in place; the scenarios name these with `except`. `Loopback::ok` (api tests) was missing after the run-branch merge; restored.
 - Ran: gate (fmt, clippy, 1,461 tests), `run.sh` 20/20, `run.sh --cli` 12/12, `run.sh --cef` on a debug CEF bundle (`pages` and `sync` pass; `cli-pages` 29/35 with the installed CLI, the `find .. click` navigation chain failing), `run.sh --kit` 13/20 on this Mac (failures: window geometry differs from headless for a marquee, an edge drag and a typed size field, plus occluded-window flakes).
 - By hand: make `run.sh --kit` pass (positions in `selection-kitchen-sink`, `toolbar-and-popups`, `page-chrome`), and check the first CI run of the Kit job.
+
+### BIG-RUN P3C: tests outside interact's gesture tests
+
+- Tests outside `specular-interact/tests/` went from 830 to 146. What stays: `.canvas` byte and round-trip tests (doc 29, the space's on-disk files and `appState` in app), the API route tests as they were (35), pure rules (camera zoom, text hit-testing, resize, segmentation, markdown, the freehand pin), 11 GPU readbacks in one binary (`specular-compositor/tests/gpu.rs`), performance pins (idle, caret and gif frames, mesh, text layout and import caches, batch count, culling), and protocol formats (claude stream-json, thread and repo files, CEF key and answer formats, WebSocket frames).
+- Gone: unit tests on helpers, per-function tests, draw-state scene snapshots (7 kept, one a draw rule each), the synthetic page's tests (every scenario drives it), bench tests, agent queue tests (interact's chat tests cover the same flows), testkit's own tests.
+- Scenarios: `document-editing` adds a numbered list nested and brought back, Backspace after a marker, a task line carried on, the heading toggle; `page-chrome` adds a local address over http. Mutation-checked 8 of these: all 8 fail the scenario.
+- Ran: the strict gate (fmt, clippy, test, `run.sh` 20/20, `cli/run.sh` 12/12).
+- Over the ~120 target by about 25, all in the API routes, which the brief keeps.
+- By hand: nothing new to look at; the deleted tests guarded code, not screens.
