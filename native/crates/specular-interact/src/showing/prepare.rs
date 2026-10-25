@@ -9,7 +9,8 @@
 use specular_core::CssSize;
 use specular_doc::EntityId;
 
-use super::{Lens, fill_rect};
+use super::Lens;
+use super::present::fill_rect;
 use crate::app::is_page;
 use crate::{App, PagePlacement};
 
