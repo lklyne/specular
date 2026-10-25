@@ -50,6 +50,8 @@ pub enum ChatAction {
     /// Resolve every open comment of the open thread that was sent, as one
     /// undo step.
     ResolveComments,
+    /// Send comments to the agent to fix, on the origin's repo.
+    Fix(super::FixTarget),
 }
 
 /// Runs `action`.
@@ -98,6 +100,7 @@ pub(crate) fn run(app: &mut App, action: ChatAction, effects: &mut Vec<Effect>) 
             effects.push(Effect::SaveAgentModel(app.models.chosen().to_owned()));
         }
         ChatAction::ResolveComments => comments::resolve_sent(app, effects),
+        ChatAction::Fix(target) => super::fix::run(app, &target, effects),
     }
 }
 

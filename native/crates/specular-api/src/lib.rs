@@ -23,6 +23,7 @@ mod annotations;
 mod canvas;
 pub mod cdp;
 mod facts;
+mod fix;
 mod host;
 mod http;
 mod ids;
@@ -252,6 +253,7 @@ impl Api {
             (Get, ["annotations"]) => Ok(Step::Answer(annotations::list(app, request))),
             (Get, ["annotations", id]) => annotations::detail(app, id),
             (Post, ["annotations"]) => annotations::create(ids, app, request),
+            (Post, ["annotations", "fix"]) => fix::fix(app, request),
             (Post, ["annotations", id, verb]) => annotations::respond(app, request, id, verb),
             (Delete, ["annotations", id]) => annotations::delete(app, id),
             (Post, ["window", "screenshot"]) => Ok(Step::Screenshot(Screenshot {

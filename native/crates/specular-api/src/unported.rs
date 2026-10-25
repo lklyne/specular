@@ -33,7 +33,6 @@ fn verbs(method: Method, segments: &[&str]) -> Option<(&'static str, &'static st
             "it needs a frame tap on the compositor and a video encoder, neither of which exists",
         ),
         (_, ["design-system", ..]) => ("`design-system` and `register-design-system`", LATER),
-        (_, ["annotations", "fix"]) => ("the comment fix loop", LATER),
         (_, ["perf", ..]) => ("perf tracing", "the Rust app has its own `--bench`"),
         (_, ["sidebar" | "text-entities" | "file-entities" | "drawing-entities"]) => {
             ("the per-kind read routes", "read `specular canvas` instead")

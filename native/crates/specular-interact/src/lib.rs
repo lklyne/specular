@@ -122,8 +122,9 @@ pub use bindings::{
 pub use caps::{AspectMode, aspect_mode, has_anchors, min_size};
 pub use chat::{
     ArtifactCard, AutoChip, Bubble, CHAT_MAX_WIDTH, CHAT_MIN_WIDTH, CHAT_WIDTH, ChatAction,
-    ChatModel, ChatView, Composer, DraftChip, DraftKind, ImageUpload, ModelChip, ModelOption,
-    OpenComments, PillChip, PillKind, QueuedChip, RunBar, ThreadRow, Transcript, chat,
+    ChatModel, ChatView, Composer, DraftChip, DraftKind, FixTarget, ImageUpload, ModelChip,
+    ModelOption, OpenComments, PillChip, PillKind, QueuedChip, RunBar, ThreadRow, Transcript, chat,
+    fixable,
 };
 pub use chord::Chord;
 pub use clipboard::{ClipboardContent, ClipboardImage, Paste};
