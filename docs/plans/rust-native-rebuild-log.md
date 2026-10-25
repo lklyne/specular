@@ -1148,3 +1148,15 @@ Nothing was retired. Cleanup rows 1 and 2 in the plan say what now stands betwee
 - Undo leaves a page's navigation and a page-named element on an edited caption in place; the scenarios name these with `except`. `Loopback::ok` (api tests) was missing after the run-branch merge; restored.
 - Ran: gate (fmt, clippy, 1,461 tests), `run.sh` 20/20, `run.sh --cli` 12/12, `run.sh --cef` on a debug CEF bundle (`pages` and `sync` pass; `cli-pages` 29/35 with the installed CLI, the `find .. click` navigation chain failing), `run.sh --kit` 13/20 on this Mac (failures: window geometry differs from headless for a marquee, an edge drag and a typed size field, plus occluded-window flakes).
 - By hand: make `run.sh --kit` pass (positions in `selection-kitchen-sink`, `toolbar-and-popups`, `page-chrome`), and check the first CI run of the Kit job.
+
+### BIG-RUN P4a: the Kit draws the context menu
+
+- What the built-in renderer still drew in the Kit window was the context menu alone: the item and page popups became the dock in `d0662ec1`. The Kit shell now sends `Event::ShellChrome` (nothing built in is laid out or drawn) instead of `BuiltinMenu`. `PanelUi::menu_only` is `shell_chrome`.
+- A right press still opens `panel.menu` in the app. `view/canvas_menu.rs` draws it as a Kit `PopupMenu` at the press, from `context_menu`. A pick sends `Event::Control(name)`, so a paste lands where the menu opened; Escape or a press outside sends `Event::MenuClosed`. The menu has arrow, Return and Escape keys. The canvas reads the menu outside the models' 100 ms gate, so it shows on the next frame.
+- Canvas anchoring: the menu is fixed to the press point, as the built-in one was. A layer under it takes the pointer, wheel and pinch while it is open (macOS menus do the same), so the camera cannot move under it and there is no lag to measure.
+- Without built-in panels a press while the menu is open only closes it, headless too.
+- The window runner finds `menu.<label>` where the Kit draws it; the canvas-pass lookup is gone. `context-menu-and-arrange` adds a press outside, copy and paste through the menus, and select all. Two GPUI tests cover the drawn menu (position, disabled row, keys, the layer).
+- Left for 4b: the shell still imports `panel::builtin::{ContextMenu, SHELL_CHROME_HEIGHT, DOCK_ROW, TAB_ROW}`; `Event::BuiltinMenu` and `menu_alone` remain for one interact test.
+- Ran: gate (fmt, clippy, tests, headless scenarios). `run.sh --kit context-menu-and-arrange` passed, but the screen was locked: the window drew nothing, menu items were pressed from the models, and the light and dark snapshots failed (`screencapture` had no image).
+- By hand: the context menu items in the big-run checklist.
+
