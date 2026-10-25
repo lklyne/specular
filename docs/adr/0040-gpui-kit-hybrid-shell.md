@@ -3,7 +3,7 @@
 **Status:** Accepted, 2026-10-25, by Lyle with the [big run](../plans/rust-native-big-run.md)'s decisions. The shell was built on this ADR at the user's direction, as `native/crates/specular-shell` (binary `specular`) beside the winit shell. The user chose GPUI Kit for the UI around the canvas. Measured on one machine with scripted input. The shell now matches the winit one on everything a script can check (run log, "SHELL-PARITY").
 **Date:** 2026-10-07
 **Related:** [ADR 0039](./0039-rust-canvas-render-stack.md), which turned GPUI down as the renderer of pages and canvas items. This ADR tests a different arrangement and does not reverse that finding. [Rust native rebuild plan](../plans/rust-native-rebuild.md).
-**Code:** `native/bakeoff/gpui-kit-hybrid/`, a standalone cargo workspace outside `native/Cargo.toml`. Reports and captures are in its `shots/`. `scripts/run-all.sh` reproduces all of it.
+**Code:** `native/bakeoff/gpui-kit-hybrid/`, a standalone cargo workspace outside `native/Cargo.toml`, since deleted (see `git log -- native/bakeoff/gpui-kit-hybrid`). The captures this ADR links are in [`assets/0040/`](./assets/0040/). The `shots/` reports it names went with the code.
 
 ## Verdict
 
@@ -78,10 +78,10 @@ Everything runs on the main thread: GPUI's frame, our frame and CEF's pump. That
 | Who gets a click on the canvas | GPUI | the native view | GPUI |
 | Escape after a click on the canvas | reaches GPUI | goes to the native view | reaches GPUI |
 
-Below: [dropdown](../../native/bakeoff/gpui-kit-hybrid/shots/overlays-below-dropdown.png), [popover](../../native/bakeoff/gpui-kit-hybrid/shots/overlays-below-popover.png), [context menu](../../native/bakeoff/gpui-kit-hybrid/shots/overlays-below-context-menu.png), [dialog](../../native/bakeoff/gpui-kit-hybrid/shots/overlays-below-dialog.png).
-Above: [dropdown hidden but for a sliver](../../native/bakeoff/gpui-kit-hybrid/shots/overlays-above-dropdown.png), [dialog open and invisible](../../native/bakeoff/gpui-kit-hybrid/shots/overlays-above-dialog.png), [context menu opened under the canvas](../../native/bakeoff/gpui-kit-hybrid/shots/overlays-above-through-context-menu.png).
+Below: [dropdown](./assets/0040/overlays-below-dropdown.png), [popover](./assets/0040/overlays-below-popover.png), [context menu](./assets/0040/overlays-below-context-menu.png), [dialog](./assets/0040/overlays-below-dialog.png).
+Above: [dropdown hidden but for a sliver](./assets/0040/overlays-above-dropdown.png), [dialog open and invisible](./assets/0040/overlays-above-dialog.png), [context menu opened under the canvas](./assets/0040/overlays-above-through-context-menu.png).
 
-![A GPUI Kit dropdown over the wgpu canvas](../../native/bakeoff/gpui-kit-hybrid/shots/overlays-below-dropdown.png)
+![A GPUI Kit dropdown over the wgpu canvas](./assets/0040/overlays-below-dropdown.png)
 
 Above is the airspace problem, and it breaks more than drawing. The native view becomes first responder on a click, so Escape no longer closes a GPUI menu. The Kit's resize handle is a band centered on the divider, and the half on the canvas side is dead because the native view takes the press. A press on that half moved nothing (`shots/resize-above-grab-on-divider.txt`).
 
@@ -104,7 +104,7 @@ The script drags the Kit's resize handle 240 points out and back at 6 points a f
 
 Above, the native view's frame commits with the CoreAnimation transaction and GPUI's Metal drawable presents a frame later, so the canvas view leads GPUI by one frame. Drawing the canvas from GPUI's own frame did not change it. GPUI's renderer only presents with the transaction during a live resize, and that switch is private.
 
-Below has nothing to disagree. The canvas view does not move, and the edge of the canvas is an edge GPUI drew. [Below mid-drag](../../native/bakeoff/gpui-kit-hybrid/shots/resize-below-drag-21.png), [above with the gap](../../native/bakeoff/gpui-kit-hybrid/shots/resize-above-drag-21.png), [above with the stripe covered](../../native/bakeoff/gpui-kit-hybrid/shots/resize-above-drag-63.png).
+Below has nothing to disagree. The canvas view does not move, and the edge of the canvas is an edge GPUI drew. [Below mid-drag](./assets/0040/resize-below-drag-21.png), [above with the gap](./assets/0040/resize-above-drag-21.png), [above with the stripe covered](./assets/0040/resize-above-drag-63.png).
 
 What the canvas must do below is treat the slot's rect as its viewport. The spike does not: zoom-to-fit centers on the whole window, so content sits partly under the sidebar. The slot's bounds are known in `prepaint`, a frame before they show, so the camera can use them in the same frame.
 
@@ -132,9 +132,9 @@ The local monitor fills the gap. `+[NSEvent addLocalMonitorForEventsMatchingMask
 
 IME goes through GPUI. The slot registers an `ElementInputHandler`, and GPUI's `NSTextInputClient` calls it with marked text and ranges. The spike forwards those as `ImeEvent::SetComposition` and `ImeEvent::Commit`. A dead key through the system input context (Option+E) arrived as marked text `´`.
 
-![Keys and a composition typed into a CEF page](../../native/bakeoff/gpui-kit-hybrid/shots/cef-below-composing.png)
+![Keys and a composition typed into a CEF page](./assets/0040/cef-below-composing.png)
 
-The page's field reads `hi にほ` with the composition marked, then [`hi 日本` after the commit](../../native/bakeoff/gpui-kit-hybrid/shots/cef-below-typed.png). The letters went through the monitor, the composition through GPUI.
+The page's field reads `hi にほ` with the composition marked, then [`hi 日本` after the commit](./assets/0040/cef-below-typed.png). The letters went through the monitor, the composition through GPUI.
 
 Two things to know. A key GPUI binds to an action is still seen by the monitor first, so an entered page can be given the key and GPUI denied it by returning nil from the monitor. And synthesized scroll, pinch and right-click events reach the process with no window, so the script routes them to the view under the point by hand. GPUI's own translation of the real `NSEvent` did run. AppKit's routing of those three is the untested step.
 
@@ -163,7 +163,7 @@ Not tested: 40 pages, popups such as `<select>`, devtools, and the sandbox.
 **Kept.**
 
 - `specular-doc`, `specular-interact`'s `update`, `specular-scene`'s `view`, `specular-compositor`, `specular-cef`, `specular-api`. The spike links the first five unchanged.
-- The pure models. `toolbar(&App)` and `sidebar(&App)` drove GPUI Kit `Button`s and `SidebarMenuItem`s directly: each control's label and `active` or `selected` flag set the component, and a click sent the control's own `Action` through `update`. No adapter layer was needed. [The Kit sidebar built from `SidebarModel`, the Kit tool buttons from `ToolbarModel`](../../native/bakeoff/gpui-kit-hybrid/shots/model-below-tool-armed.png). `Dropdown`, `Swatches`, `Toggle` and `Stepper` were not mapped. The Kit has a dropdown menu, a color picker, a switch and a number input to map them to.
+- The pure models. `toolbar(&App)` and `sidebar(&App)` drove GPUI Kit `Button`s and `SidebarMenuItem`s directly: each control's label and `active` or `selected` flag set the component, and a click sent the control's own `Action` through `update`. No adapter layer was needed. [The Kit sidebar built from `SidebarModel`, the Kit tool buttons from `ToolbarModel`](./assets/0040/model-below-tool-armed.png). `Dropdown`, `Swatches`, `Toggle` and `Stepper` were not mapped. The Kit has a dropdown menu, a color picker, a switch and a number input to map them to.
 
 **Canvas-anchored UI stays in our wgpu pass.** Selection handles, the item popup that follows an entity, page chrome, comment pins, the marquee. GPUI could draw a popover at a canvas position, and it would be right at rest. During a pan it would be wrong by up to a frame, because GPUI lays out and presents in its own layer on its own frame, and section 3 shows what that looks like at an edge. In the capture above, the handles on the selected page and the sticky tool's popup are ours, drawn in the canvas pass, while the sidebar and buttons are the Kit's.
 
