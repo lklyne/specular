@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+### Misc
+
+- The old Electron app is gone from the repository. Specular is the native app only, and it builds from `native/`.
+
 ## [0.10.2] - 2026-10-19 — Live HTML Files
 
 ### New

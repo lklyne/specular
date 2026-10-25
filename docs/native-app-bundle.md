@@ -1,7 +1,7 @@
-# Specular Native: the app bundle
+# Specular: the app bundle
 
-How to build `Specular Native.app` from the Rust rebuild, what is in it, how
-it stays apart from the Electron app, and what it does not do yet.
+How to build `Specular.app`, what is in it, how a release is made, and what
+it does not do yet.
 
 ## Build
 
@@ -9,14 +9,21 @@ it stays apart from the Electron app, and what it does not do yet.
 cd native
 export CEF_PATH="$HOME/.local/share/cef"   # the first build downloads about 300 MB here
 crates/specular-shell/scripts/bundle-app.sh
-open "target/release/bundle/Specular Native.app"
+open target/release/bundle/Specular.app
 ```
 
-The script runs `cargo build --release -p specular-shell --features cef`,
-lays the bundle out and signs it ad hoc. `--no-build` wraps the binary that
-is already there, `--profile debug` wraps a debug build, and `--out DIR`
-puts the app somewhere else. Run it again after every rebuild, because the
-bundle holds copies of the binary.
+The script builds the Kit shell with CEF, the CEF helper, the `specular` CLI
+and the agent helper (`native/helper`, with Bun), lays the bundle out and
+signs it ad hoc. `--no-build` wraps what is already built, `--profile debug`
+wraps a debug build, and `--out DIR` puts the app somewhere else. Run it
+again after every rebuild, because the bundle holds copies of the binaries.
+An ad hoc signature runs on the Mac that built it; any other Mac's
+Gatekeeper refuses it.
+
+The bundle reads two folders outside `native/`: `resources/starter-space`
+and `resources/skills/specular`. The icon is
+`native/crates/specular-shell/assets/AppIcon.icon`, with a compiled copy in
+`AppIcon.compiled` for an Xcode too old to read it (`compile-icon.sh`).
 
 ## What is in it
 
@@ -39,22 +46,26 @@ Specular.app/Contents/
 Each Chromium helper holds `specular-cef-helper`. Chromium starts it with a
 `--type=` switch and it runs as a child process.
 
+The name, the bundle id (`com.lyleklyne.specular`) and the data folder
+(`~/Library/Application Support/Specular`) are the ones the Electron app
+used, so an existing install's preferences, repo bindings and space carry
+over.
+
 ### The command and the skill
 
-The CLI is the Rust binary `specular-cli` (crate `native/crates/specular-cli`).
-It is built under that name so it never lands on the Kit shell's `specular`
-in `target/`, and the link on the `PATH` is named `specular`. It finds the
-bundled agent-browser in `../Resources/bin` beside itself. A link the
-Electron app made pointed at its own `specular-cli.sh`, which this bundle
-does not have, so the setup dialog offers to replace it.
+The CLI is the Rust binary `specular-cli`. It is built under that name so it
+never lands on the Kit shell's `specular` in `target/`, and the link on the
+`PATH` is named `specular`. It finds the bundled agent-browser in
+`../Resources/bin` beside itself. A link the Electron app made pointed at its
+own `specular-cli.sh`, which this bundle does not have, so the setup dialog
+offers to replace it.
 
 Neither is installed until the user says so, in the setup dialog
 (`specular-shell/src/setup.rs` over `specular-app/src/agent_tools.rs`). The
 dialog opens by itself once a space is open, on every launch until the user
 presses Done, and from Specular > Set up Specular… at any time. "Skip for
 now" closes it and leaves it to open again. Done is recorded as
-`onboarding.completed` in `preferences.json`, the key the Electron app used,
-so someone who went through setup there is not asked again.
+`onboarding.completed` in `preferences.json`.
 
 - The command is linked into `/usr/local/bin`, or `~/.local/bin` when that
   cannot be written. A link already there that runs something else is named
@@ -70,52 +81,24 @@ installed, or was edited by hand, is left alone.
 Nothing is offered or written by a scripted run, a run with
 `SPECULAR_NATIVE_CONFIG_DIR` set, or an app opened from its disk image.
 
-## Side by side with the Electron app
-
-| | Electron | Rust |
-|---|---|---|
-| Name | Specular | Specular Native |
-| Bundle id | `com.lyleklyne.specular` | `com.lyleklyne.specular.native` |
-| Data folder | `~/Library/Application Support/Specular` | `~/Library/Application Support/Specular Native` |
-| Preferences | `preferences.json` there | its own `preferences.json` |
-| Repo bindings | `repos.json` there | its own `repos.json` |
-| Page profile | Chromium's, in the data folder | `cef-profile/` in its data folder |
-
-The Rust app reads two of the Electron app's files and writes neither:
-
-- `preferences.json`, for `spacePath`. The first-run view offers that
-  folder as "Use the space from Specular". It is opened only if chosen.
-- `repos.json`, while the Rust app has no `repos.json` of its own. The
-  bindings made in Electron show in Settings > Repos, and the first change
-  made in the Rust app writes its own file.
-
-Two things are still shared:
-
-- The space folder, if you point both apps at one. Each keeps the canvas
-  list in `.specular/` and rewrites it, so run one at a time.
-- The agent port. The first app to start takes 29979 and
-  `~/.specular/specular-mcp.json`. The Rust app, started second, logs the
-  port and the discovery file it fell back to.
-
 ## Info.plist
 
 - **Documents.** `.canvas` is declared as an imported type,
   `org.jsoncanvas.canvas`, conforming to `public.json`. The app is an
-  Editor for it with rank Alternate. Opening a `.canvas` from Finder opens
-  the folder it is in as the space and shows that canvas. The folder is not
-  remembered as your space. The Electron app claims no document type, so
-  nothing competes.
-- **URL schemes.** None. The Electron app registers none with the system
-  (`local-file:` is a scheme inside its own pages). A scheme both apps
-  claimed would open whichever one the system saw last.
+  Editor for it with rank Alternate, so it does not take the extension from
+  an app that owns it. Opening a `.canvas` from Finder opens the folder it
+  is in as the space and shows that canvas. The folder is not remembered as
+  your space.
+- **URL schemes.** None.
+- **Updates.** `SUFeedURL` names the release feed and `SUPublicEDKey` the
+  key updates are signed with.
 
 ## First run and the space folder
 
-The app keeps the folder you chose as `spacePath` in its own preferences.
-With none chosen it shows the first-run view: "Create a new space…", "Open
-an existing folder…", and "Use the space from Specular" when the Electron
-app has one. A folder with no canvas gets the starter space. A folder with
-canvases is opened as it is. Nothing is moved or copied from another
+The app keeps the folder you chose as `spacePath` in its preferences. With
+none chosen it shows the first-run view: "Create a new space…" and "Open an
+existing folder…". A folder with no canvas gets the starter space. A folder
+with canvases is opened as it is. Nothing is moved or copied from another
 folder (ADR 0033).
 
 If the chosen folder is missing at launch, the app opens nothing and shows
@@ -125,10 +108,9 @@ Settings > General > Change… opens another folder and leaves the current
 one alone. It does not offer to move the canvases across.
 
 From the command line, `--space PATH` or a bare path opens that folder or
-file, `--space scratch` opens a throwaway copy of the starter space, and
-`--space user` opens the Electron app's space. `SPECULAR_NATIVE_CONFIG_DIR`
-moves the data folder, and `SPECULAR_SPACE_PICK=FOLDER` answers the folder
-dialog in a scripted run.
+file, and `--space scratch` opens a throwaway copy of the starter space.
+`SPECULAR_NATIVE_CONFIG_DIR` moves the data folder, and
+`SPECULAR_SPACE_PICK=FOLDER` answers the folder dialog in a scripted run.
 
 ## Logins
 
@@ -138,22 +120,31 @@ profile. A second copy of the app started while the first runs logs that
 the profile is in use and keeps its own in memory. A run on a fixture, a
 path or the scratch space always uses a profile in memory.
 
+## A release
+
+`bundle-app.sh --sign IDENTITY --notarize --dist` signs every executable with
+the hardened runtime, has Apple notarize the app and the disk image, staples
+the tickets, and writes beside the app:
+
+- `Specular-<version>-<arch>.dmg`, to download;
+- `Specular-<version>-<arch>.zip`, which the updater downloads;
+- `appcast.xml`, the Sparkle feed naming that zip, signed with
+  `SPARKLE_PRIVATE_KEY` (else the key in the login keychain under the
+  account `specular`).
+
+Notarization takes `NOTARY_PROFILE`, or `APPLE_ID`, `APPLE_PASSWORD` and
+`APPLE_TEAM_ID`. The version is `[workspace.package] version` in
+`native/Cargo.toml`. Pushing a matching `v*` tag runs
+`.github/workflows/release.yml`, which does all of this on CI and publishes
+the three files as a GitHub release; running the workflow by hand is a
+rehearsal that keeps them as a run artifact instead. The feed's address
+follows the newest release, so it never changes.
+
 ## What remains
 
-These need your credentials or a decision, and none is started:
-
-- **Developer ID signing.** The bundle is signed ad hoc, so it runs on the
-  Mac that built it. Another Mac's Gatekeeper refuses it. Signing for
-  distribution needs the certificate, the hardened runtime and CEF's
-  entitlements on the helpers (JIT and unsigned executable memory for the
-  renderer).
-- **Notarization.** Needs the Apple ID, team id and an app-specific
-  password that `forge.config.ts` reads from the environment.
-- **A disk image or installer.** The script stops at the `.app`.
-- **Updates.** No feed and no updater. The Electron app's GitHub release
-  feed serves the Electron app only.
 - **Universal build.** The bundle is for the Mac's own architecture.
 - **Sandbox.** CEF runs with `no_sandbox`. The helpers do not start the
   macOS sandbox.
-- **The CLI and the skill.** Not bundled and not installed (see above).
+- **Crash dumps.** CEF's Crashpad needs a `crash_reporter.cfg` in the
+  bundle, which it does not have, so only `errors.log` is written.
 - **Moving a space.** ADR 0033's "Move my canvases" is not built.

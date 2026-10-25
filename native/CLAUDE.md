@@ -42,10 +42,12 @@ Event -> update(&mut App, Event) -> Vec<Effect>     pure, no I/O
   the sidebar from the models, and the compositor draws the canvas under it. A
   new effect gets its runner in `specular-app/src/app/`, once, for both.
 
-The Electron app under `../src` is the behavior spec, not the structure
-spec. Read the TypeScript to learn what a feature does and to port pure
-math and test cases. Do not copy its layering (IPC, broadcasts, stores,
-registries). Never edit anything under `../src`.
+The Electron app was deleted in the big run. Its source is in git history
+at `bc5253fa` (the last `main` commit before the run): read a file with
+`git show bc5253fa:src/main/<path>`, or list them with
+`git ls-tree -r --name-only bc5253fa src`. It is a behavior spec, not a
+structure spec: read it to learn what a feature did, and do not copy its
+layering (IPC, broadcasts, stores, registries).
 
 ## Adding a feature
 

@@ -4,124 +4,94 @@ Specular is a spatial canvas for designers and frontend developers. Part browser
 part design iteration surface. Users pull live web content onto a freeform canvas
 to think, arrange, and iterate spatially.
 
+The app is one Rust process under `native/`: a GPUI Kit window around a wgpu
+canvas, with live pages hosted by CEF offscreen rendering. The Electron app it
+replaced was deleted; its source is in git history at `bc5253fa`
+(`git show bc5253fa:src/main/<path>`).
+
+Read native/CLAUDE.md before changing code: the architecture, how to add a
+feature, the test bar and the gate.
+Read native/README.md for the crates, how to run, the headless modes and the bench.
 Read CONTEXT.md for the canonical glossary (canvas items, entities, tools, text styles, edges).
 Read docs/product.md for product philosophy and audience.
-Read docs/architecture.md for the full system map.
-Read docs/file-formats.md for .canvas spec and persistence details.
-Read docs/interaction-layer.md before adding gestures, overlays, focus
-handoffs, or drop targets — the invariants in §6 are load-bearing.
+Read docs/file-formats.md for the .canvas spec and persistence details.
 Read docs/README.md for a one-line map of every doc and ADR — check it
 before starting deep work in an area. Rejected/superseded ADRs record
 approaches that were tried and abandoned; read their postmortems before
-re-attempting anything in their territory.
+re-attempting anything in their territory. ADRs 0001–0038 were written for
+the Electron app: their decisions about behavior still hold where the Rust
+app ported them, their mechanisms do not.
 
 When a domain term resolves during a session (rename, new concept, deprecation), update CONTEXT.md inline. If the decision is hard to reverse and surprising without context, add an ADR under docs/adr/ and link it from the relevant CONTEXT.md entry.
 
 ## Build & verify
 
+From `native/`:
+
 ```
-pnpm install                 # install dependencies
-pnpm dev                     # start the Electron app (foreground)
-pnpm typecheck               # type-check both node and web tsconfigs
-pnpm test:unit               # fast unit tests (no Electron)
-pnpm test:integration        # real runtime in-process (no Electron, seconds)
-pnpm test:boot               # ~3 real-Electron boot checks (pre-release only)
-pnpm build                   # package for distribution
+cargo fmt --all --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace                 # no CEF, no window
+fixtures/scenarios/run.sh              # headless scenario scripts
+cargo run -p specular-shell            # the app, with synthetic pages
 ```
+
+Real pages need the `cef` feature and an app bundle:
+
+```
+export CEF_PATH="$HOME/.local/share/cef"   # the first build downloads about 300 MB
+crates/specular-shell/scripts/bundle-app.sh --profile debug
+```
+
+`native/README.md` has the dev bundle, the command line and the flags. The
+agent helper (`native/helper`, the Agent SDK host under Bun) builds with
+`bun install && bun run build`; `bun run typecheck` checks it.
 
 Dev app workflow:
-- Run `pnpm dev` in its own terminal or pane, so the app can be watched and
+- Run the app in its own terminal or pane, so it can be watched and
   stopped independently of other work.
-- Don't kill or restart a dev app you didn't start.
-- App errors go to `errors.log` (see Crash logs below); perf traces to the logs folder.
+- Don't kill or restart an app you didn't start.
 
-After any structural change, run `typecheck` + `test:unit` at minimum.
-After changes to runtime, IPC, or persistence, run `test:integration`.
-`test:boot` needs a built app + the Electron binary; run it before releases, not per-change.
+Run the full gate before every commit. Debug builds unless a task says
+otherwise.
 
 ## Crash logs
 
-Set up in `src/main/index.ts`:
-- JS errors, unhandled rejections, and renderer/child process deaths → `~/Library/Logs/Specular/errors.log`
-- Native crash dumps (Crashpad) → `~/Library/Application Support/Specular/Crashpad/completed/*.dmp`
+- Panics, page crashes and CEF child-process deaths go to
+  `~/Library/Logs/Specular/errors.log` (`specular-app/src/crash_log.rs`).
+- Native crash dumps are not written yet: CEF's Crashpad needs a
+  `crash_reporter.cfg` in the bundle.
 
-When investigating unexpected quits, `errors.log` is the first place to look — `render-process-gone` entries include a `reason` field (`crashed`, `oom`, `killed`, `launch-failed`).
-
-## Perf tracing
-
-All-process Chromium traces (pan/zoom jank attribution) can be recorded from
-the View menu (`Cmd+Alt+Shift+P`), the debug window's Performance section, or
-by agents over HTTP (`POST localhost:29979/perf/trace/start` / `/stop` with
-`{"summarize": true}`). Trace + summary JSON land in the logs folder above.
-Full instructions and how to read results: `docs/perf-tracing.md`.
+When investigating unexpected quits, `errors.log` is the first place to look.
 
 ## Architecture (quick reference)
 
-Electron app with four source layers:
-
 ```
-src/main/          Main process: state, persistence, HTTP API, CLI, IPC routing
-src/preload/       Context bridges: one per renderer overlay (9 total)
-src/renderer/      React apps: canvas-bg, toolbar, sidebar, inspector, overlays
-src/shared/        Types and pure utilities shared across processes
+Event -> update(&mut App, Event) -> Vec<Effect>     pure, no I/O
+         view(&App) -> Scene                        pure, no GPU
+         render(&Scene)                             wgpu
 ```
 
-State flows down: Main owns truth -> IPC broadcasts -> Renderers display.
-Actions flow up: Renderer -> preload API -> IPC -> Main mutates state.
-
-### Two-layer state model (details in src/main/runtime/CLAUDE.md)
-
-```
-Y.Doc (Yjs)         Persisted, undoable workspace state (entities, groups, edges)
-Runtime variables    Ephemeral state (views, interaction mode, hover, timers)
-```
-
-Forward sync: runtime -> Y.Doc on mutation.
-Reverse sync: Y.Doc -> runtime on undo/redo.
-Persistence: Y.Doc -> .canvas files on disk (350ms debounce).
-
-### Key domains in src/main/runtime/
-
-```
-space-*              Persistence, tabs, model, Y.Doc, undo, autosave
-runtime-core.ts      High-level state mutations
-runtime-context.ts   Ephemeral state (zoom, pan, interaction, views)
-selection-*          Selection state and mutations
-page-*.ts            Page (webview) creation and lifecycle
-layout-*.ts          View positioning, z-order, dirty tracking
-*-entity-state.ts    Per-entity-kind mutations (text, file, group, drawing)
-```
-
-### Renderer structure
-
-Each renderer is an isolated React app. The main surface is canvas-bg/.
-Others (toolbar, left-sidebar, right-details-panel) are
-smaller overlay panels with their own preload bridge.
-
-### Entity-renderer plugins
-
-File entities pick a renderer through a small registry, not an extension switch.
-
-- `src/main/plugins/registry.ts` — internal API (`registerEntityRenderer`, `pickRenderer`, `getRendererTagFor`).
-- `src/main/plugins/builtin/` — one claim per renderer (image, video, markdown, component).
-- `src/renderer/canvas-bg/entity-renderers/` — the React mounts plus `RendererSwitch.tsx`.
-
-Main calls `getRendererTagFor` in `buildFileEntitySceneEntity` and broadcasts the
-tag on every file scene entity; the renderer reads `entity.rendererTag` and
-`RendererSwitch` picks the component. To add a renderer, add a claim file under
-`builtin/`, a React file under `entity-renderers/`, and a case in `RendererSwitch.tsx`.
+`update` is the only thing that changes the app. Anything outside it — a file
+write, a page host, an agent run — is an `Effect` the shell runs. That is why
+the tests and the headless scenario runs need no window. The document is typed
+structs; every change is a `Command` whose `apply` returns its inverse, and
+undo is a stack of inverses (ADR 0041).
 
 ## Layer rules
 
-- `src/renderer/` must NOT import from `src/main/`
-- `src/shared/` must have no side effects and no process-specific imports
-- `src/preload/` bridges IPC only — no business logic
-- Bridge functions never receive DOM/React events — wrap in an arrow with
-  explicit arguments (`onClick={() => api.fn()}`, never `onClick={api.fn}`).
-  contextBridge deep-serializes arguments; an event graph reaches `window`
-  and stalls the browser process (enforced by `local/no-bridge-event-handlers`)
-- `src/main/runtime/` is the single owner of workspace state
-- Renderer state is derived from IPC broadcasts, never authoritative
+The crates and their dependency direction are in `native/README.md`. The rules:
+
+- `specular-core`, `-doc`, `-agent`, `-interact`, `-scene` and `-api` do no
+  GPU, window, CEF or file I/O. Only the shell crates and `specular-cef` do I/O.
+- A new effect gets its runner once, in the runtime (`specular-app/src/app/`).
+- `specular-cef-helper` depends on `cef` alone; each crate linked into it is
+  paid for five times in the bundle.
+- UI is pure models (`&App` -> plain data) drawn by the Kit shell (ADR 0044).
+- No wildcard arms over `Kind`, `Tool` or `Gesture`.
+- Workspace lints are the contract: no `unwrap`/`expect` outside tests,
+  `#[expect(lint, reason = "...")]` instead of `#[allow]`, docs on public
+  items, `// SAFETY:` on every `unsafe` block.
 
 ## File format principles
 
@@ -131,69 +101,47 @@ tag on every file scene entity; the renderer reads `entity.rendererTag` and
 - Files must be diffable, versionable, and editable by agents and other tools
 - No proprietary blobs, no server dependencies for core data
 
-## View modes
-
-Browser and Canvas are different views of the same data:
-
-- **Canvas mode** — spatial freeform surface; nodes arranged freely
-- **Browser mode** — traditional tab navigation between pages
-
-Both operate on the same underlying .canvas data and share primitives.
-Maximize overlap between modes.
-
 ## Code principles
 
 Build toward small, obvious pieces.
 
-- Keep `App.tsx` files thin — orchestrate state, hooks, and views only.
 - Extract by responsibility, not by size. One behavior, one view, or one utility per file.
-- Prefer pure helpers for math, shaping, and derived state.
-- Prefer concrete hooks over generic wrappers. Name hooks after the behavior they own.
+- Prefer pure functions for math, shaping, and derived state.
 - Delete dead code and stale APIs quickly. Do not preserve unused abstractions.
 - Reuse shared primitives only when behavior is truly shared.
 - If the cleanest solution wants a different shape, propose that change.
 - Preserve existing UX unless a cleaner design is intentionally chosen.
+- Keep files under about 400 lines.
 - Comment the timeless "why" only when the code is non-obvious. Don't narrate the change — a comment that says what the code "now" does, "no longer" does, "used to" do, or "moved away from" is describing the diff, not the code. Write it as if the prior version never existed; the git history already holds that. (Backward-compat notes explaining why a dead-looking branch must stay are "why", and are fine.)
-
-When refactoring, optimize for clarity, smaller files, and stronger boundaries.
-
-When a UI pattern is shared across entity types (chrome headers, inline menus, selection outlines), prefer compound components over prop-heavy wrappers. Style once in subcomponents, compose differently per use case — like base-ui's `Tabs.Root > Tabs.List > Tabs.Tab` pattern. Use React context for shared state within the compound (theme, visibility), children/slots for per-use content. See `EntityChrome.Root / .DragTrigger / .Title / .Actions / .Button` for the model.
 
 ## Common workflows (context, not constraints)
 
 These are the patterns users gravitate toward. The app supports them through
 primitives and tools, not dedicated workflow features:
 
-- **Multi-breakpoint iteration** — linked pages at different viewport presets
+- **Multi-breakpoint iteration** — synced pages at different viewport presets
 - **Live site annotation** — annotating running pages to iterate on fixes
 - **Research & spatial organization** — collecting and arranging web references
 - **Wireframing & broad strokes** — rough spatial layouts before implementation
 
 ## Agent integration
 
-Agent interaction is moving to a CLI for better context management.
-Agents can also read and write .canvas files directly — they are just JSON.
-The HTTP API (src/main/routes/) remains available for runtime interaction.
-
-## Testing patterns
-
-- **Unit tests** — pure logic, no Electron. `tests/unit/`
-- **Integration tests** — the real main-process runtime, in-process (electron aliased to a stub). `tests/integration/`, gated in CI. See ADR 0024.
-- **Boot tests** — real Electron, ~3 checks, pre-release only. `tests/boot/`
-- **Agent tests** — scenario scripts. `tests/agent/`
-- **Harness** — `bootWorkspaceHarness()` in `tests/integration/harness.ts` boots the runtime against a temp dir; tests call the same mutators the IPC handlers call and assert on runtime arrays, the Y.Doc, and `.canvas` files.
-
-Before writing a test, re-read `tests/README.md` — it documents the four-criterion bar a test must clear to earn its keep, the bucket selection guide, and the mutation-verification convention.
+Agents drive the running app with the `specular` CLI (`native/crates/specular-cli`),
+which talks to the app's HTTP API. They can also read and write .canvas files
+directly — they are just JSON. The agent chat in the app runs Claude Code through
+`native/helper`.
 
 ## Test contract
 
-The suite stays small on purpose. To prevent drift back to a pile of low-value tests, the following apply:
+The suite stays small on purpose. The bar and what earns a test are in
+native/CLAUDE.md ("Tests"). In short:
 
-- Any new entity kind ships with integration coverage of its persistence + undo round-trip.
-- Any new runtime mutator ships with forward/reverse sync coverage (one Y.Doc transaction per mutation; undo round-trips cleanly).
-- PRs touching `src/main/runtime/space-*.ts` require integration coverage updates unless the change is pure refactor with no behavior delta.
-- No new `.todo()` test merged without a linked issue describing what would unblock it.
-- Before writing a test, re-read `tests/README.md` and confirm it clears the four-criterion bar.
+- Any new entity kind ships with a `.canvas` round trip and an undo round trip.
+- Any new `Command` ships with a test that its inverse returns the document
+  to the start.
+- A behavior test ends with the undo-returns-to-start check.
+- A new CLI verb or route gets a case in `native/fixtures/scenarios/cli/cases.py`.
+- A bug that only showed up in use goes into `native/fixtures/scenarios/`.
 
 ## Specular CLI
 
@@ -203,11 +151,18 @@ The suite stays small on purpose. To prevent drift back to a pile of low-value t
 
 The specular Claude Code skill lives in three places. Knowing which is which avoids silently-wasted edits:
 
-- **`resources/skills/specular/SKILL.md`** — canonical source. Bundled into the packaged app (`native/crates/specular-shell/scripts/bundle-app.sh` for the Rust app, `forge.config.ts` for Electron), then copied into every user's `~/.claude/skills/specular/` at app launch (`native/crates/specular-app/src/agent_tools.rs`, or `src/main/skill-install.ts` in Electron). Default to editing this when updating guidance that should reach end users.
+- **`resources/skills/specular/SKILL.md`** — canonical source. `bundle-app.sh` copies it into the app bundle (`Contents/Resources/skills/specular`), and the app's setup dialog installs it into `~/.claude/skills/specular/` (`specular-app/src/agent_tools.rs`). Default to editing this when updating guidance that should reach end users.
 - **`.claude/skills/specular/SKILL.md`** — repo-local copy Claude Code auto-loads when working inside this codebase. Keep it in sync with `resources/skills/` so in-repo agents and end users see the same guidance. A few dev-only sections (e.g. the tracking-issue GitHub link) are allowed to live here and not ship.
-- **`~/.claude/skills/specular/SKILL.md`** — each user's installed copy. Treat as read-only: the app compares the bundled hash to what's installed and re-copies the bundled version whenever the installed one is the one it last wrote, so hand-edits here get silently overwritten on the next app launch after a release.
+- **`~/.claude/skills/specular/SKILL.md`** — each user's installed copy. Treat as read-only: at each launch the app brings it up to the bundled skill when the installed copy is still the one the app wrote. A hand-edited copy is left alone and stops getting updates.
 
 When patching the skill, default to updating both `resources/skills/specular/SKILL.md` and `.claude/skills/specular/SKILL.md` in the same commit.
+
+## Releases
+
+The version is `[workspace.package] version` in `native/Cargo.toml`. A `v*`
+tag that matches it makes `.github/workflows/release.yml` build, sign,
+notarize and publish the DMG, the updater zip and the Sparkle feed. The
+`release` skill walks it. `docs/native-app-bundle.md` has the bundle's layout.
 
 ## Agent skills
 
