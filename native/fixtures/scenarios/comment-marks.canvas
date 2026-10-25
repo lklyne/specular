@@ -20,6 +20,12 @@
     }
   ],
   "edges": [],
+  "specular": {
+    "entityOrder": [
+      "p1",
+      "p2"
+    ]
+  },
   "annotations": [
     {
       "id": "a",
@@ -69,7 +75,7 @@
         "type": "page",
         "pageId": "p1",
         "offsetX": 0.5,
-        "offsetY": 0.0
+        "offsetY": 0
       },
       "author": "user",
       "text": "stale",
@@ -87,7 +93,7 @@
         "type": "page",
         "pageId": "p1",
         "offsetX": 0.5,
-        "offsetY": 0.0
+        "offsetY": 0
       },
       "author": "user",
       "text": "query",
@@ -105,7 +111,7 @@
         "type": "page",
         "pageId": "p1",
         "offsetX": 0.5,
-        "offsetY": 1.0
+        "offsetY": 1
       },
       "author": "user",
       "text": "hash",
@@ -297,11 +303,5 @@
         "pageId": "p1"
       }
     }
-  ],
-  "specular": {
-    "entityOrder": [
-      "p1",
-      "p2"
-    ]
-  }
+  ]
 }

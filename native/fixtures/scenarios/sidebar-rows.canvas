@@ -108,6 +108,19 @@
     }
   ],
   "edges": [],
+  "specular": {
+    "entityOrder": [
+      "p1",
+      "p2",
+      "s1",
+      "s2",
+      "s3",
+      "g",
+      "s4",
+      "r1",
+      "d1"
+    ]
+  },
   "annotations": [
     {
       "id": "c1",
@@ -146,11 +159,11 @@
         }
       ],
       "createdAt": "2026-01-02T00:00:00.000Z",
+      "elementName": "button.cta",
       "pageAnchor": {
         "pageId": "p1",
         "pageUrl": "https://example.com/elsewhere"
-      },
-      "elementName": "button.cta"
+      }
     },
     {
       "id": "c3",
@@ -183,18 +196,5 @@
       "replies": [],
       "createdAt": "2026-01-01T00:00:00.000Z"
     }
-  ],
-  "specular": {
-    "entityOrder": [
-      "p1",
-      "p2",
-      "s1",
-      "s2",
-      "s3",
-      "g",
-      "s4",
-      "r1",
-      "d1"
-    ]
-  }
+  ]
 }
