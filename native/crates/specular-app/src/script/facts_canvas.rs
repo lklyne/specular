@@ -30,6 +30,7 @@
 //! expect theme system dark             # the choice, and what is drawn
 //! expect motion running                # a camera or turn spring: running, still
 //! expect edge-ends e1 208 150 492 150  # an edge's ends on screen; `@last`
+//! expect edge @last @3 @4              # what an edge runs from and to
 //! expect order a b @top c            # the stack, back to front, edges too
 //! expect synced p1 no                  # in a sync set: yes or no
 //! expect sent viewport p 500 300       # the last step asked the shell this
@@ -49,19 +50,20 @@
 //! page-says p1 composition 20 40 60 16 # the input method's box, or `none`
 //! appearance dark                      # the system's light or dark
 //! theme-loaded light                   # the choice read from preferences
+//! repeat down                          # a key held down repeats
 //! ```
 
 use anyhow::{Context as _, bail, ensure};
 use glam::Vec2;
-use specular_core::{ElementPlace, InputEvent, KeyEventKind, PixelRect, PointerEventKind, TouchPhase};
+use specular_core::{ElementPlace, Modifiers, InputEvent, KeyEventKind, PixelRect, PointerEventKind, TouchPhase};
 use specular_doc::{EdgeId, EdgeSide, EntityId};
 use specular_interact::{
     Action, App, Appearance, Corner, Effect, Event, GuideAxis, GuideReference,
-    Handle, HandleOwner, Hit, ImageState, LayoutHandle, Mark, PageNotice, PlacePreview,
+    Handle, HandleOwner, Hit, ImageState, KeyInput, LayoutHandle, Mark, PageNotice, PlacePreview,
     hit_test, shown_rect,
 };
 
-use super::words::{number, theme_named};
+use super::words::{key_named, number, theme_named};
 
 /// A canvas fact: something read from the app, compared as words.
 #[derive(Debug, Clone, PartialEq)]
@@ -148,6 +150,8 @@ pub enum Query {
     Order,
     /// Where an edge leaves and reaches its entities, on screen.
     EdgeEnds(String),
+    /// The entities an edge runs from and to.
+    Edge(String),
 }
 
 /// The canvas fact `what` and `tail` state, or `None` when `what` is not one
@@ -195,7 +199,7 @@ pub(super) fn fact(what: &str, tail: &str) -> anyhow::Result<Option<CanvasFact>>
             ["none"] => is(Query::AnyGuides, &["none"]),
             _ => bail!("`guides horizontal|vertical ..` or `guides none`"),
         },
-        "mark" | "seen" | "page" | "synced" | "default" | "image" | "edge-ends" => {
+        "mark" | "seen" | "page" | "synced" | "default" | "image" | "edge-ends" | "edge" => {
             let (name, wanted) = id(&words)?;
             let query = match what {
                 "mark" => Query::Mark(name),
@@ -204,6 +208,7 @@ pub(super) fn fact(what: &str, tail: &str) -> anyhow::Result<Option<CanvasFact>>
                 "synced" => Query::Synced(name),
                 "default" => Query::Default(name),
                 "edge-ends" => Query::EdgeEnds(name),
+                "edge" => Query::Edge(name),
                 _ => Query::Image(name),
             };
             Ok(Some(CanvasFact::Is(query, wanted)))
@@ -459,12 +464,12 @@ fn read(app: &App, query: &Query) -> anyhow::Result<Vec<String>> {
             let synced = app.is_synced(&entity_id(app, name)?);
             words_of(if synced { "yes" } else { "no" })
         }
+        Query::Edge(name) => {
+            let edge = edge_id(app, name).and_then(|id| app.document().edge(&id).cloned());
+            edge.map_or_else(none, |edge| vec![edge.from.to_string(), edge.to.to_string()])
+        }
         Query::EdgeEnds(name) => {
-            let id = match name.as_str() {
-                "@last" => app.document().edges().last().map(|edge| edge.id.clone()),
-                _ => Some(EdgeId::from(name.as_str())),
-            };
-            let curve = id.and_then(|id| app.edge_curve(&id));
+            let curve = edge_id(app, name).and_then(|id| app.edge_curve(&id));
             curve.map_or_else(none, |curve| {
                 let ends = [curve.from.x, curve.from.y, curve.to.x, curve.to.y];
                 numbers(&ends.map(f64::from))
@@ -482,6 +487,14 @@ fn read(app: &App, query: &Query) -> anyhow::Result<Vec<String>> {
             None => none(),
         },
     })
+}
+
+/// The edge `name` names: its id, or `@last` for the front-most.
+fn edge_id(app: &App, name: &str) -> Option<EdgeId> {
+    match name {
+        "@last" => app.document().edges().last().map(|edge| edge.id.clone()),
+        _ => Some(EdgeId::from(name)),
+    }
 }
 
 fn hit_words(hit: &Hit) -> Vec<String> {
@@ -660,7 +673,20 @@ pub(super) fn step(verb: &str, rest: &str) -> anyhow::Result<Option<CanvasStep>>
         ("appearance", ["light"]) => Event::SystemAppearance(Appearance::Light),
         ("appearance", ["dark"]) => Event::SystemAppearance(Appearance::Dark),
         ("theme-loaded", [name]) => Event::ThemeLoaded(theme_named(name)?),
-        ("page-says" | "appearance" | "theme-loaded", _) => bail!("the wrong arguments"),
+        ("repeat", [key]) => Event::Key(KeyInput {
+            key: key_named(key)?,
+            pressed: true,
+            repeat: true,
+            text: None,
+            character: None,
+            modifiers: Modifiers::default(),
+            windows_key_code: 0,
+            native_key_code: 0,
+            commands: Vec::new(),
+        }),
+        ("page-says" | "appearance" | "theme-loaded" | "repeat", _) => {
+            bail!("the wrong arguments")
+        }
         _ => return Ok(None),
     };
     Ok(Some(CanvasStep(event)))
