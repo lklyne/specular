@@ -26,6 +26,17 @@ pub(crate) const fn of_system(appearance: WindowAppearance) -> Appearance {
     }
 }
 
+/// What the app is told the system looks like at start. A scripted run is
+/// told light, as a headless one is, and its `appearance` steps are the
+/// system from then on, so the same script means the same in both.
+pub(crate) fn system_or_script(appearance: WindowAppearance) -> Appearance {
+    if crate::debug_input::scripted() {
+        Appearance::Light
+    } else {
+        of_system(appearance)
+    }
+}
+
 thread_local! {
     /// The choice `AppKit` was last told of.
     static CHOICE: Cell<Choice> = const { Cell::new(Choice::System) };
@@ -49,7 +60,7 @@ pub(crate) fn choose(theme: Choice) -> Option<Appearance> {
         Choice::Light => Some(false),
         Choice::Dark => Some(true),
     });
-    (theme == Choice::System).then(|| {
+    (theme == Choice::System && !crate::debug_input::scripted()).then(|| {
         if crate::native::system_is_dark() {
             Appearance::Dark
         } else {

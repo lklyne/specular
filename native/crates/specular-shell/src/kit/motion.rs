@@ -31,8 +31,13 @@ fn system_reduces_motion() -> bool {
     reduce.as_bool()
 }
 
-/// Tells the app the setting now, and again each time it changes.
+/// Tells the app the setting now, and again each time it changes. A
+/// scripted run leaves it off, as a headless one does, so its
+/// `reduce-motion` steps decide it.
 pub(crate) fn follow_system(cx: &mut App) {
+    if crate::debug_input::scripted() {
+        return;
+    }
     let mut told = system_reduces_motion();
     canvas::dispatch(Event::ReduceMotion(told));
     cx.spawn(async move |cx| {

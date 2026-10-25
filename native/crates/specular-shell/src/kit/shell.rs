@@ -210,7 +210,7 @@ fn follow_system_appearance(window: AnyWindowHandle, cx: &mut App) -> anyhow::Re
             .observe_window_appearance(|window, _| {
                 // A window told to be light or dark says that, not what
                 // the system is.
-                if theme::follows_system() {
+                if theme::follows_system() && !debug_input::scripted() {
                     let system = theme::of_system(window.appearance());
                     canvas::dispatch(Event::SystemAppearance(system));
                 }
@@ -308,7 +308,7 @@ pub(crate) fn open(launch: Launch, cx: &mut App) -> anyhow::Result<()> {
         );
         runtime.attach_window(surface);
         say_what_the_kit_draws(&mut runtime, bench.is_some());
-        runtime.dispatch(Event::SystemAppearance(theme::of_system(
+        runtime.dispatch(Event::SystemAppearance(theme::system_or_script(
             window.appearance(),
         )));
         runtime.open(opening)?;

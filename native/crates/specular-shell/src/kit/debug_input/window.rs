@@ -73,6 +73,20 @@ pub(super) fn resize(width: f64, height: f64) {
     }
 }
 
+/// Lets the window take the pointer moves a script posts. GPUI hears of
+/// hardware moves through a tracking area and leaves the window's own
+/// `acceptsMouseMovedEvents` off, so a posted move would be dropped by
+/// `-[NSWindow sendEvent:]`.
+pub(super) fn accept_posted_moves() {
+    let Some(window) = window() else {
+        return;
+    };
+    // SAFETY: a documented call on a live window, on the main thread.
+    unsafe {
+        let _: () = msg_send![window, setAcceptsMouseMovedEvents: true];
+    }
+}
+
 /// Moves the window so its frame's bottom-left corner is at `(x, y)` in
 /// screen points, which is how it gets to another display.
 pub(super) fn move_to(x: f64, y: f64) {
