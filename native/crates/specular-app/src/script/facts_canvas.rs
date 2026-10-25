@@ -36,6 +36,7 @@
 //! expect order a b @top c            # the stack, back to front, edges too
 //! expect synced p1 no                  # in a sync set: yes or no
 //! expect sent viewport p 500 300       # the last step asked the shell this
+//! expect sent clipboard specular:canvas:  # its last word may be a prefix
 //! expect sent no save                  # it asked nothing that starts so
 //! expect sent nothing                  # it asked nothing at all
 //! ```
@@ -280,8 +281,16 @@ pub fn check_sent(app: &App, sent: &[Effect], fact: &CanvasFact) -> anyhow::Resu
         CanvasFact::SentNothing => ensure!(told.is_empty(), "the last step sent:{}", listed()),
         CanvasFact::Sent { none, words } => {
             let words = &resolved(app, words)?;
+            // The last word may be the start of the effect's: a clipboard
+            // write is one long word.
             let starts = |effect: &Vec<String>| {
-                effect.len() >= words.len() && same_words(&effect[..words.len()], words)
+                let Some((last, before)) = words.split_last() else {
+                    return true;
+                };
+                effect.len() >= words.len()
+                    && same_words(&effect[..before.len()], before)
+                    && (same_words(&effect[before.len()..=before.len()], std::slice::from_ref(last))
+                        || effect[before.len()].starts_with(last.as_str()))
             };
             let found = told.iter().any(starts);
             ensure!(
