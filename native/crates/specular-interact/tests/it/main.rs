@@ -26,7 +26,6 @@ mod flick;
 mod gestures;
 mod guides;
 mod history_selection;
-mod hit_test;
 mod html_files;
 mod images;
 mod inspect;

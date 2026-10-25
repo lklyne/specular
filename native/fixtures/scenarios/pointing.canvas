@@ -1,0 +1,24 @@
+{
+  "nodes": [
+    {"id": "f1", "type": "link", "x": 200, "y": 200, "width": 400, "height": 300, "url": "https://example.com/f1"},
+    {"id": "ink", "type": "drawing", "x": 220, "y": 170, "width": 100, "height": 80, "strokes": [{"id": "s", "color": "neutral", "width": 2, "points": [{"x": 230, "y": 175}, {"x": 230, "y": 240}]}]},
+    {"id": "line", "type": "drawing", "x": 420, "y": 260, "width": 150, "height": 0, "strokes": []},
+    {"id": "g1", "type": "group", "x": 800, "y": 100, "width": 600, "height": 500, "label": "Group"},
+    {"id": "c1", "type": "shape", "x": 850, "y": 150, "width": 100, "height": 100, "shapeKind": "rectangle", "text": "", "parentGroupId": "g1"},
+    {"id": "m2", "type": "shape", "x": 1000, "y": 300, "width": 100, "height": 40, "shapeKind": "rectangle", "text": "", "parentGroupId": "g2"},
+    {"id": "g2", "type": "group", "x": 980, "y": 280, "width": 300, "height": 200},
+    {"id": "sib", "type": "shape", "x": 1500, "y": 50, "width": 100, "height": 600, "shapeKind": "rectangle", "text": ""},
+    {"id": "o1", "type": "shape", "x": 200, "y": 700, "width": 200, "height": 200, "shapeKind": "rectangle", "text": ""},
+    {"id": "o2", "type": "shape", "x": 200, "y": 700, "width": 200, "height": 200, "shapeKind": "rectangle", "text": ""},
+    {"id": "t1", "type": "shape", "x": 600, "y": 700, "width": 50, "height": 50, "shapeKind": "rectangle", "text": ""},
+    {"id": "t2", "type": "shape", "x": 700, "y": 800, "width": 80, "height": 40, "shapeKind": "rectangle", "text": ""},
+    {"id": "tiny", "type": "group", "x": 900, "y": 700, "width": 120, "height": 80, "label": "A long title for a small group"},
+    {"id": "short", "type": "group", "x": 1300, "y": 700, "width": 400, "height": 80, "label": "abcd"},
+    {"id": "ea", "type": "shape", "x": 0, "y": 1100, "width": 100, "height": 100, "shapeKind": "rectangle", "text": ""},
+    {"id": "eb", "type": "shape", "x": 600, "y": 1100, "width": 100, "height": 100, "shapeKind": "rectangle", "text": ""},
+    {"id": "es", "type": "text", "x": 250, "y": 1050, "width": 200, "height": 200, "text": "in the way", "specular": {"textStyle": "sticky"}},
+    {"id": "under", "type": "shape", "x": 960, "y": 1020, "width": 40, "height": 40, "shapeKind": "rectangle", "text": ""}
+  ],
+  "edges": [{"id": "e1", "fromNode": "ea", "toNode": "eb"}],
+  "specular": {"entityOrder": ["f1", "ink", "line", "g1", "c1", "m2", "g2", "sib", "o1", "o2", "t1", "t2", "tiny", "short", "ea", "eb", "es", "under", "e1"]}
+}
