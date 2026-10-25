@@ -65,6 +65,11 @@ pub struct AppSettings {
     pub show_chat: bool,
     /// Where the tools' ribbon is.
     pub tools: ToolsPlace,
+    /// Whether agent cursors go undrawn. The agents act all the same.
+    pub hide_agent_cursors: bool,
+    /// Whether the cursor mirrored onto the other pages of a sync set goes
+    /// undrawn. The pages follow all the same.
+    pub hide_synced_cursors: bool,
 }
 
 /// A change to the [`AppSettings`].
@@ -76,6 +81,10 @@ pub enum SettingAction {
     ShowChat(bool),
     /// Put the tools' ribbon somewhere else.
     Tools(ToolsPlace),
+    /// Draw agent cursors, or do not.
+    ShowAgentCursors(bool),
+    /// Draw the synced cursor, or do not.
+    ShowSyncedCursors(bool),
 }
 
 /// One part the app is built from, for the About pane.
@@ -149,6 +158,8 @@ pub struct GeneralPane {
     pub toggles: Vec<SettingToggle>,
     /// Where the tools' ribbon is.
     pub tools: SettingChoice,
+    /// Which cursors are drawn.
+    pub cursors: Vec<SettingToggle>,
 }
 
 /// One row of the shortcuts table.
@@ -202,33 +213,12 @@ pub fn settings(app: &App) -> SettingsModel {
         path: path.to_owned(),
         reveal: Action::Space(SpaceAction::Reveal),
     });
-    let toggle = |name, label, detail, on, action: fn(bool) -> SettingAction| SettingToggle {
-        name,
-        label,
-        detail,
-        on,
-        action: Action::Setting(action(!on)),
-    };
+    let (toggles, cursors) = setting_toggles(app);
     SettingsModel {
         general: GeneralPane {
             space,
             change: Action::Space(SpaceAction::Choose { create: true }),
-            toggles: vec![
-                toggle(
-                    "settings.show-sidebar",
-                    "Show the sidebar at launch",
-                    "The list of canvases, notes and pages on the left.",
-                    app.settings.show_sidebar,
-                    SettingAction::ShowSidebar,
-                ),
-                toggle(
-                    "settings.show-chat",
-                    "Show the right panel at launch",
-                    "The agent threads and the composer on the right.",
-                    app.settings.show_chat,
-                    SettingAction::ShowChat,
-                ),
-            ],
+            toggles,
             tools: SettingChoice {
                 label: "Tools",
                 detail: "Docked, the tools take a strip beside the canvas. Floating, they sit over it.",
@@ -241,11 +231,58 @@ pub fn settings(app: &App) -> SettingsModel {
                     })
                     .collect(),
             },
+            cursors,
         },
         repos: repos_pane(app),
         shortcuts: shortcuts(app),
         about: app.about.clone(),
     }
+}
+
+/// The General pane's switches: what is shown at launch, and which cursors
+/// are drawn.
+pub(crate) fn setting_toggles(app: &App) -> (Vec<SettingToggle>, Vec<SettingToggle>) {
+    let toggle = |name, label, detail, on, action: fn(bool) -> SettingAction| SettingToggle {
+        name,
+        label,
+        detail,
+        on,
+        action: Action::Setting(action(!on)),
+    };
+    let settings = &app.settings;
+    let launch = vec![
+        toggle(
+            "settings.show-sidebar",
+            "Show the sidebar at launch",
+            "The list of canvases, notes and pages on the left.",
+            settings.show_sidebar,
+            SettingAction::ShowSidebar,
+        ),
+        toggle(
+            "settings.show-chat",
+            "Show the right panel at launch",
+            "The agent threads and the composer on the right.",
+            settings.show_chat,
+            SettingAction::ShowChat,
+        ),
+    ];
+    let cursors = vec![
+        toggle(
+            "settings.agent-cursors",
+            "Agent cursors",
+            "Show a cursor where an agent is working, on the canvas and inside pages.",
+            !settings.hide_agent_cursors,
+            SettingAction::ShowAgentCursors,
+        ),
+        toggle(
+            "settings.synced-cursors",
+            "Synced cursors",
+            "Show your cursor mirrored onto the other pages of a sync set while you browse one.",
+            !settings.hide_synced_cursors,
+            SettingAction::ShowSyncedCursors,
+        ),
+    ];
+    (launch, cursors)
 }
 
 fn shortcuts(app: &App) -> Vec<ShortcutRow> {
@@ -329,6 +366,8 @@ pub(crate) fn run(app: &mut App, action: SettingAction, effects: &mut Vec<Effect
         SettingAction::ShowSidebar(on) => app.settings.show_sidebar = on,
         SettingAction::ShowChat(on) => app.settings.show_chat = on,
         SettingAction::Tools(place) => app.settings.tools = place,
+        SettingAction::ShowAgentCursors(on) => app.settings.hide_agent_cursors = !on,
+        SettingAction::ShowSyncedCursors(on) => app.settings.hide_synced_cursors = !on,
     }
     if app.settings != before {
         effects.push(Effect::SaveSettings(app.settings));

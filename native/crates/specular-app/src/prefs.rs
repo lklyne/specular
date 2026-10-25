@@ -1,7 +1,8 @@
 //! The preferences file: app settings that are not part of any canvas.
 //!
 //! One JSON object in the app's config folder. This shell reads and writes
-//! `toolDefaults`, `spacePath`, `show`, `themeMode` and `agentModel`, and keeps
+//! `toolDefaults`, `spacePath`, `show`, `tools`, `hideAgentCursors`,
+//! `hideSyncedCursors`, `themeMode` and `agentModel`, and keeps
 //! every other
 //! key as it found it. The folder is the one the Electron app used, so its
 //! `spacePath` and its other keys are read where they already are.
@@ -21,6 +22,9 @@ const SPACE_PATH_KEY: &str = "spacePath";
 /// What is shown when the app opens: `{"sidebar": bool, "rightPanel": bool}`.
 const SHOW_KEY: &str = "show";
 const TOOLS_KEY: &str = "tools";
+/// The Electron app's keys for which cursors go undrawn.
+const HIDE_AGENT_CURSORS_KEY: &str = "hideAgentCursors";
+const HIDE_SYNCED_CURSORS_KEY: &str = "hideSyncedCursors";
 /// The key the Electron app stores its theme under too.
 const THEME_KEY: &str = "themeMode";
 /// The model the canvas agent runs, as the picker names it.
@@ -146,22 +150,35 @@ pub(crate) fn load_settings(path: &Path) -> AppSettings {
         .and_then(Value::as_str)
         .and_then(ToolsPlace::named)
         .unwrap_or_default();
+    let hidden = |key: &str| preferences.get(key).and_then(Value::as_bool) == Some(true);
     AppSettings {
         show_sidebar: shown("sidebar"),
         show_chat: shown("rightPanel"),
         tools,
+        hide_agent_cursors: hidden(HIDE_AGENT_CURSORS_KEY),
+        hide_synced_cursors: hidden(HIDE_SYNCED_CURSORS_KEY),
     }
 }
 
-/// Writes `settings` under `show` and `tools`, keeping the file's other
-/// keys.
+/// Writes `settings` under `show`, `tools` and the cursor keys, keeping
+/// the file's other keys.
 pub(crate) fn save_settings(path: &Path, settings: AppSettings) -> io::Result<()> {
     let show = serde_json::json!({
         "sidebar": settings.show_sidebar,
         "rightPanel": settings.show_chat,
     });
     save_key(path, SHOW_KEY, show)?;
-    save_key(path, TOOLS_KEY, Value::from(settings.tools.name()))
+    save_key(path, TOOLS_KEY, Value::from(settings.tools.name()))?;
+    save_key(
+        path,
+        HIDE_AGENT_CURSORS_KEY,
+        Value::from(settings.hide_agent_cursors),
+    )?;
+    save_key(
+        path,
+        HIDE_SYNCED_CURSORS_KEY,
+        Value::from(settings.hide_synced_cursors),
+    )
 }
 
 /// The hash of the `skill` file this app, or the Electron app, last
@@ -327,6 +344,8 @@ mod tests {
             show_sidebar: true,
             show_chat: false,
             tools: ToolsPlace::FloatBottom,
+            hide_agent_cursors: true,
+            hide_synced_cursors: false,
         };
         save_settings(&path, settings).unwrap();
         assert_eq!(load_settings(&path), settings);

@@ -10,7 +10,7 @@
 
 use std::collections::HashMap;
 
-use glam::Vec2;
+use glam::{DVec2, Vec2};
 use specular_core::{
     LocatorBundle, LocatorCandidate, LocatorResolution, PointKind, resolve_locator,
 };
@@ -40,6 +40,9 @@ pub(crate) struct Interaction {
     /// Until when each peer may be on its way somewhere by a click that
     /// was replayed on it, on the session's clock.
     clicked_until: HashMap<EntityId, u64>,
+    /// Where input was last replayed on each peer, in its viewport CSS
+    /// pixels: the synced cursor drawn there while the capture lasts.
+    replayed_at: HashMap<EntityId, Vec2>,
 }
 
 /// How long a replayed click is given to take its page somewhere, in
@@ -74,6 +77,7 @@ pub(crate) fn refresh_capture(app: &mut App, effects: &mut Vec<Effect>) {
     let state = &mut app.session.sync.interaction;
     if state.capturing != wanted {
         state.asked.clear();
+        state.replayed_at.clear();
         state.capturing.clone_from(&wanted);
         effects.push(Effect::CapturePage(wanted));
     }
@@ -152,12 +156,37 @@ pub(crate) fn on_candidates(
                 let state = &mut app.session.sync.interaction;
                 state.clicked_until.insert(peer.clone(), until);
             }
+            let point = Vec2::new(point.0 as f32, point.1 as f32);
+            let state = &mut app.session.sync.interaction;
+            state.replayed_at.insert(peer.clone(), point);
             effects.push(Effect::ReplayPointer {
                 page: peer.clone(),
                 kind,
-                point: Vec2::new(point.0 as f32, point.1 as f32),
+                point,
             });
         }
         LocatorResolution::Ambiguous | LocatorResolution::None => {}
+    }
+}
+
+impl App {
+    /// The synced cursors on the canvas shown, in canvas space: where the
+    /// entered page's pointer was last replayed on each peer of its sync
+    /// set. None while the setting hides them; the peers follow all the
+    /// same.
+    pub fn synced_cursors(&self) -> Vec<DVec2> {
+        if self.settings.hide_synced_cursors {
+            return Vec::new();
+        }
+        let mut cursors: Vec<(&EntityId, &Vec2)> =
+            self.session.sync.interaction.replayed_at.iter().collect();
+        cursors.sort_by(|a, b| a.0.cmp(b.0));
+        (cursors.into_iter())
+            .filter(|(peer, _)| {
+                (self.document.entity(peer))
+                    .is_some_and(|entity| crate::shown_rect(self, entity).is_some())
+            })
+            .filter_map(|(peer, at)| Some(self.page_placement(peer)?.to_canvas(at.as_dvec2())))
+            .collect()
     }
 }
