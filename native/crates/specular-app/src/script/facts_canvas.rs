@@ -31,6 +31,7 @@
 //! expect motion running                # a camera or turn spring: running, still
 //! expect edge-ends e1 208 150 492 150  # an edge's ends on screen; `@last`
 //! expect edge @last @3 @4              # what an edge runs from and to
+//! expect shown-control group.gap.inc no   # whether a control is offered
 //! expect order a b @top c            # the stack, back to front, edges too
 //! expect synced p1 no                  # in a sync set: yes or no
 //! expect sent viewport p 500 300       # the last step asked the shell this
@@ -152,6 +153,8 @@ pub enum Query {
     EdgeEnds(String),
     /// The entities an edge runs from and to.
     Edge(String),
+    /// Whether a control of that name is offered now.
+    Control(String),
 }
 
 /// The canvas fact `what` and `tail` state, or `None` when `what` is not one
@@ -199,7 +202,7 @@ pub(super) fn fact(what: &str, tail: &str) -> anyhow::Result<Option<CanvasFact>>
             ["none"] => is(Query::AnyGuides, &["none"]),
             _ => bail!("`guides horizontal|vertical ..` or `guides none`"),
         },
-        "mark" | "seen" | "page" | "synced" | "default" | "image" | "edge-ends" | "edge" => {
+        "mark" | "seen" | "page" | "synced" | "default" | "image" | "edge-ends" | "edge" | "shown-control" => {
             let (name, wanted) = id(&words)?;
             let query = match what {
                 "mark" => Query::Mark(name),
@@ -209,6 +212,7 @@ pub(super) fn fact(what: &str, tail: &str) -> anyhow::Result<Option<CanvasFact>>
                 "default" => Query::Default(name),
                 "edge-ends" => Query::EdgeEnds(name),
                 "edge" => Query::Edge(name),
+                "shown-control" => Query::Control(name),
                 _ => Query::Image(name),
             };
             Ok(Some(CanvasFact::Is(query, wanted)))
@@ -470,6 +474,10 @@ fn read(app: &App, query: &Query) -> anyhow::Result<Vec<String>> {
         Query::Synced(name) => {
             let synced = app.is_synced(&entity_id(app, name)?);
             words_of(if synced { "yes" } else { "no" })
+        }
+        Query::Control(name) => {
+            let shown = specular_interact::control_named(app, name).is_ok();
+            words_of(if shown { "yes" } else { "no" })
         }
         Query::Edge(name) => {
             let edge = edge_id(app, name).and_then(|id| app.document().edge(&id).cloned());

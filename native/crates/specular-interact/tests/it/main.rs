@@ -3,9 +3,7 @@
 //! `snapshots/`, named `it__<module>__<test>.snap`.
 
 mod anchoring;
-mod arrange;
 mod attachment;
-mod auto_layout;
 mod bindings;
 mod chat_comments;
 mod chat_pill;
@@ -26,7 +24,6 @@ mod html_files;
 mod images;
 mod inspect;
 mod item_view;
-mod layout_handles;
 mod lens;
 mod menus;
 mod motion;
@@ -66,7 +63,6 @@ mod showing;
 mod sidebar;
 mod sidebar_controls;
 mod space;
-mod stack_order;
 mod sync;
 mod text_edit;
 mod text_fit;

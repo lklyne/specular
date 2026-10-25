@@ -1,0 +1,32 @@
+{
+  "nodes": [
+    {"id": "a", "type": "shape", "x": 100, "y": 100, "width": 100, "height": 100, "shapeKind": "rectangle", "text": "", "parentGroupId": "g"},
+    {"id": "b", "type": "shape", "x": 240, "y": 100, "width": 100, "height": 100, "shapeKind": "rectangle", "text": "", "parentGroupId": "g"},
+    {"id": "c", "type": "shape", "x": 380, "y": 100, "width": 100, "height": 100, "shapeKind": "rectangle", "text": "", "parentGroupId": "g"},
+    {"id": "g", "type": "group", "x": 76, "y": 76, "width": 428, "height": 148, "label": "Row", "layoutMode": "row", "managedLayout": true, "layoutGap": 40},
+    {"id": "d", "type": "shape", "x": 100, "y": 500, "width": 60, "height": 60, "shapeKind": "rectangle", "text": ""},
+    {"id": "la", "type": "shape", "x": 100, "y": 1100, "width": 100, "height": 100, "shapeKind": "rectangle", "text": ""},
+    {"id": "lb", "type": "shape", "x": 240, "y": 1100, "width": 100, "height": 100, "shapeKind": "rectangle", "text": ""},
+    {"id": "lc", "type": "shape", "x": 380, "y": 1100, "width": 100, "height": 100, "shapeKind": "rectangle", "text": ""},
+    {"id": "na", "type": "shape", "x": 100, "y": 1400, "width": 100, "height": 100, "shapeKind": "rectangle", "text": ""},
+    {"id": "nb", "type": "shape", "x": 240, "y": 1400, "width": 100, "height": 100, "shapeKind": "rectangle", "text": ""},
+    {"id": "nc", "type": "shape", "x": 384, "y": 1400, "width": 100, "height": 100, "shapeKind": "rectangle", "text": ""},
+    {"id": "ua", "type": "shape", "x": 100, "y": 1700, "width": 100, "height": 100, "shapeKind": "rectangle", "text": ""},
+    {"id": "ub", "type": "shape", "x": 240, "y": 1700, "width": 100, "height": 100, "shapeKind": "rectangle", "text": ""},
+    {"id": "uc", "type": "shape", "x": 385, "y": 1700, "width": 100, "height": 100, "shapeKind": "rectangle", "text": ""},
+    {"id": "wa", "type": "shape", "x": 100, "y": 2000, "width": 100, "height": 100, "shapeKind": "rectangle", "text": ""},
+    {"id": "wb", "type": "shape", "x": 240, "y": 2000, "width": 100, "height": 100, "shapeKind": "rectangle", "text": ""},
+    {"id": "wc", "type": "shape", "x": 383, "y": 2000, "width": 100, "height": 100, "shapeKind": "rectangle", "text": ""},
+    {"id": "low", "type": "shape", "x": 100, "y": 2600, "width": 100, "height": 100, "shapeKind": "rectangle", "text": "", "parentGroupId": "lg"},
+    {"id": "high", "type": "shape", "x": 120, "y": 2300, "width": 100, "height": 100, "shapeKind": "rectangle", "text": "", "parentGroupId": "lg"},
+    {"id": "lg", "type": "group", "x": 76, "y": 2276, "width": 168, "height": 448},
+    {"id": "ea", "type": "shape", "x": 100, "y": 3100, "width": 100, "height": 100, "shapeKind": "rectangle", "text": "", "parentGroupId": "row2"},
+    {"id": "em", "type": "shape", "x": 424, "y": 3124, "width": 50, "height": 50, "shapeKind": "rectangle", "text": "", "parentGroupId": "inner"},
+    {"id": "inner", "type": "group", "x": 400, "y": 3100, "width": 98, "height": 98, "parentGroupId": "row2"},
+    {"id": "row2", "type": "group", "x": 76, "y": 3076, "width": 446, "height": 148, "layoutMode": "row", "managedLayout": true, "layoutGap": 40},
+    {"id": "g1", "type": "group", "x": 100, "y": 3500, "width": 100, "height": 100},
+    {"id": "g2", "type": "group", "x": 240, "y": 3500, "width": 100, "height": 100}
+  ],
+  "edges": [],
+  "specular": {"entityOrder": ["a", "b", "c", "g", "d", "la", "lb", "lc", "na", "nb", "nc", "ua", "ub", "uc", "wa", "wb", "wc", "low", "high", "lg", "ea", "em", "inner", "row2", "g1", "g2"]}
+}
