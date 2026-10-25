@@ -2,8 +2,6 @@
 //! file, so the crate is linked once and not once a file. Snapshots are in
 //! `snapshots/`, named `it__<module>__<test>.snap`.
 
-mod anchoring;
-mod attachment;
 mod bindings;
 mod chat_comments;
 mod chat_pill;
