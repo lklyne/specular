@@ -1,6 +1,6 @@
 # ADR 0047: A thread's avatar is the Prism, drawn on wgpu and read back into GPUI
 
-**Status:** Proposed. Built this way in `native/`. The user has not reviewed this ADR.
+**Status:** Accepted, 2026-10-25, by Lyle with the [big run](../plans/rust-native-big-run.md)'s decisions. Built this way in `native/`.
 **Date:** 2026-10-14
 **Related:** [ADR 0040](./0040-gpui-kit-hybrid-shell.md), whose GPUI shell shows the avatar. [ADR 0039](./0039-rust-canvas-render-stack.md), which found the `surface()` limit this works around.
 

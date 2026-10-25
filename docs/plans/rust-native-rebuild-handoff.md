@@ -1,6 +1,6 @@
 # Rust rebuild: handoff
 
-**As of:** commit `07285583` on `rust-native` (then `claude/rust-chrome-spike`), 2026-10-08.
+**As of:** 0.10.2 (`441dbdbc`) on `rust-native`, 2026-10-24. Written at `07285583` (2026-10-08) and refreshed for the [big run](./rust-native-big-run.md), which carries out the decisions this page used to list as waiting.
 **For:** whoever owns `native/` next. Sources are in brackets: a name in capitals is an entry in the [run log](./rust-native-rebuild-log.md), and "code" means I read it in the tree at that commit.
 
 The short version. In about a day, agents built a Rust app that opens Specular's real space folders, draws every kind of canvas item, hosts live pages through CEF, edits text, saves files Electron can read, answers the CLI, and has a chat panel, sync sets and an app bundle. It was checked by about 1,300 tests, 18 headless session scripts and scripted window captures. Nobody has sat down and used it. Expect the by-hand pass to find things.
@@ -13,7 +13,8 @@ The short version. In about a day, agents built a Rust app that opens Specular's
 - **The API.** The Electron CLI runs against this app unchanged. `print-pdf`, `record`, `component-states` and `design-system` answer 501. [A1, A3, ARRANGE]
 - **Speed.** A pan frame costs 0.4 to 1.6 ms of CPU on the bench canvases, and an idle winit window draws almost nothing. Settled idle memory for 20 static pages was 2,546 MB against Electron's recorded 3,623 MB. [Performance, part 2]
 - **The GPUI Kit shell** held 120 fps with synthetic and CEF pages in debug builds, typed into a CEF field and a sticky by script. [GPUI-SHELL]
-- **The bundle.** `Specular Native.app` builds, verifies under `codesign --verify --deep --strict`, asks for a space on first launch and reopens it on the next. [APP-BUNDLE]
+- **The bundle.** `Specular.app` builds with the Electron app's bundle id, signs with a Developer ID, notarizes into a disk image and updates itself through Sparkle. It asks for a space on first launch, reopens it on the next, and a setup dialog installs the `specular` command and the skill. [APP-BUNDLE, release workflow]
+- **Since the first handoff.** Themes (light, dark, system), element attachment and the scroll rebase on resize, svg and animated gif images, HTML file nodes as live pages, the Prism thread avatar, device frames, tabs with lenses, the command palette, and the Kit's own toolbar, tabs and full sidebar. [THEMES, ANCHORING, IMAGES]
 
 ## What no person has verified
 
@@ -121,11 +122,10 @@ Each with the shortest way to see it. "Seen once" means one scripted run.
 
 - **Backspace removes two characters in a page field.** GPUI shell, enter the input on `input.canvas`, type, press Backspace. Seen once, never checked in the winit shell. [GPUI-SHELL]
 - **Cmd+Z in the chat field undoes the canvas.** Type in the chat field, press Cmd+Z. Seen once. Menu keys other than the eight held back still reach the canvas while typing: select two items, click the chat field, press Cmd+G. [RIGHT-PANEL]
-- **GPUI menu items are never greyed.** Open Edit with nothing selected. A disabled item does nothing when chosen. [GPUI-SHELL]
-- **The GPUI shell has no context menu on canvas items, and no sidebar toggle or folds.** Right-click a sticky. This is from the log. A parity branch was in progress when this was written. [GPUI-SHELL, P3/P4]
+- **The Kit shows the built-in renderer's popups.** The item popup, the context menu and the page popup are drawn in the canvas pass, not by the Kit. Phase 4 of the big run redraws them. [SHELL-PARITY]
 - **"Show the sidebar at launch" does nothing on screen.** Turn it off in Settings, relaunch. [APP-BUNDLE]
 - **The GPUI shell never rests.** It calls `turn` and `draw` every frame, so an idle window still draws. Watch its CPU with a still canvas. [Performance, part 2; code: no `frame_wanted` call in `specular-shell`]
-- **A click that dismisses a Kit dropdown may also start a gesture on the canvas.** Seen in the spike, not rechecked in the real shell. Open the zoom list, click the canvas. [ADR 0040]
+- **A click that dismisses a Kit dropdown may also start a gesture on the canvas.** A guard is in, unchecked by hand. Open the zoom list, click the canvas. [ADR 0040, SHELL-PARITY]
 - **Dropped files may land in the wrong place.** They go to the pointer's last position before the drag. [log, "Needs a human" 9]
 - **An outside edit is overwritten when you have unsaved changes.** Change the canvas and, inside the 350 ms before the save, write the file from another tool. A warning is logged. [S9]
 - **Deleting a page leaves its comments bound to it, and they stop drawing.** Comment on a page, delete the page. [C1 to C3]
@@ -136,18 +136,16 @@ Each with the shortest way to see it. "Seen once" means one scripted run.
 - **The repo folder dialog has no parent window and is opened from inside a GPUI event.** Page popup, folder control, Choose. No failure was seen. [APP-BUNDLE, INSPECT-LOOP]
 - **A `.canvas` added to the folder by another tool is not seen** until the space is reopened. [P5]
 
-Known gaps against Electron, not bugs: hand and mono fonts fall back to system fonts, an edge label has the line running through it, a comment badge has no icon, the highlighter has no gradient or grain, there is no dark theme, and followers in a sync set jump instead of easing. [log, "Needs a human"; SYNC-SETS]
+Known gaps against Electron, not bugs: hand and mono fonts fall back to system fonts, an edge label has the line running through it, a comment badge has no icon, the highlighter has no gradient or grain, and followers in a sync set jump instead of easing. Phase 6 of the big run closes new-tab links, the error log, reduced motion, cursor settings, `/annotations/fix` and the page snapshot routes. [log, "Needs a human"; SYNC-SETS]
 
-## Decisions waiting on the user
+## Decisions taken
 
-1. **ADR sign-offs.** Six are Proposed: [0039](../adr/0039-rust-canvas-render-stack.md) (render stack, whose egui half was never built), [0040](../adr/0040-gpui-kit-hybrid-shell.md) (GPUI Kit shell, built at your direction, text not signed off), and [0041](../adr/0041-typed-document-inverse-command-undo.md) to [0044](../adr/0044-ui-as-pure-models-with-replaceable-renderers.md), written after the fact for decisions the run made on its own.
-2. **The four cleanup cuts** in the plan's "Cleanup tasks":
-   - Task 1, retire the built-in panel renderer, about 7,000 lines. The Kit cannot run headless, so first choose: scripts name controls through the models with nothing drawn, or the built-in renderer stays as the headless one.
-   - Task 2, retire the winit window, about 1,700 lines. `--bench` runs only there. Port it and compare one run across both shells first.
-   - Task 3, one shell crate, after task 2.
-   - Task 4, retire the Electron comparison half of `specular-bench`, about 1,200 lines. Keep it only if another comparison is planned.
-3. **Distribution.** Nothing is started and each needs your credentials or a call: Developer ID signing with CEF's helper entitlements, notarization, a disk image, an update feed, a universal build, the sandbox (CEF runs with `no_sandbox`), and whether to bundle the CLI and the skill. [`docs/native-app-bundle.md`]
-4. **Whether to go on.** The spike's performance case came out neutral to mildly good. The case for the rebuild is the architecture. That is a product call, and the by-hand pass is the evidence for it.
+All taken by Lyle on 2026-10-25. The list is in the plan's "Decisions" section and the [big run](./rust-native-big-run.md) carries them out.
+
+1. **ADR sign-offs.** 0039 to 0044 and 0047 are Accepted. 0045 and 0046 stay Proposed.
+2. **The four cleanup cuts.** All four go ahead: the built-in panel renderer (headless presses controls through the models, with nothing drawn), the winit window, one shell crate, and the Electron half of `specular-bench`.
+3. **Distribution.** Developer ID signing, notarization, a disk image, Sparkle updates and a bundled CLI and skill are done. The CLI moves to Rust in the big run. A universal build and the sandbox (CEF runs with `no_sandbox`) are not started.
+4. **Whether to go on.** Yes. The Rust app is the product, and the Electron app is deleted in the big run.
 
 ## Risks an owner should know
 
@@ -155,7 +153,6 @@ Known gaps against Electron, not bugs: hand and mono fonts fall back to system f
 - **The mock keychain.** CEF runs with `use-mock-keychain`, so cookies in `cef-profile/` are encrypted with Chromium's fixed mock key and are not protected by the login keychain. My reading: a saved login is only as safe as the data folder's file permissions. [APP-BUNDLE; code: `specular-cef/src/config.rs`]
 - **Captures taken with the screen locked.** The app-bundle run's captures of settings and the post-first-run canvas do not exist. More broadly, a covered window, a locked screen or a sleeping display makes a capture look like blank pages, so an agent's "PNG read" is only as good as the screen state it ran under. [APP-BUNDLE, GPUI-SHELL]
 - **Your real space is opt-in, and autosave is why.** `specular-app` opens a scratch copy unless given `--space user` or a path. `specular` opens only a folder you chose in it, or the Electron space if you click "Use the space from Specular". Once open, it is autosaved into. Do not run both apps on one space: each rewrites `.specular/workspace-meta.json`. [Scratch space, APP-BUNDLE, P5]
-- **The agent port.** Whichever app starts first takes 29979. If this one does, the Electron app starts with no API. [A1]
+- **The agent port.** Whichever app starts first takes 29979. Moot once the Electron app is gone. [A1]
 - **Agents graded their own work.** The log is candid about what was not run, and this page repeats it, but the tests and the PNG readings were made by the same kind of agent that wrote the code.
-- **Nothing has been pushed or reviewed.** One commit a task on a local branch with no upstream and no PRs. [Orchestrator; `git` at this commit]
 - **macOS on Apple Silicon only.** The GPUI shell and both menu bars are macOS code. [GPUI-SHELL, Shell batch]

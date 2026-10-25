@@ -1,6 +1,6 @@
 # ADR 0040 — GPUI Kit as the shell around our own canvas view
 
-**Status:** Proposed. The shell was built on this ADR at the user's direction, as `native/crates/specular-shell` (binary `specular`) beside the winit shell, which stays until parity. The user chose GPUI Kit for the UI around the canvas and has not signed off this ADR's text. Measured on one machine with scripted input. The shell now matches the winit one on everything a script can check (run log, "SHELL-PARITY"). The "Needs a human at a Mac" list is what is still unchecked.
+**Status:** Accepted, 2026-10-25, by Lyle with the [big run](../plans/rust-native-big-run.md)'s decisions. The shell was built on this ADR at the user's direction, as `native/crates/specular-shell` (binary `specular`) beside the winit shell. The user chose GPUI Kit for the UI around the canvas. Measured on one machine with scripted input. The shell now matches the winit one on everything a script can check (run log, "SHELL-PARITY").
 **Date:** 2026-10-07
 **Related:** [ADR 0039](./0039-rust-canvas-render-stack.md), which turned GPUI down as the renderer of pages and canvas items. This ADR tests a different arrangement and does not reverse that finding. [Rust native rebuild plan](../plans/rust-native-rebuild.md).
 **Code:** `native/bakeoff/gpui-kit-hybrid/`, a standalone cargo workspace outside `native/Cargo.toml`. Reports and captures are in its `shots/`. `scripts/run-all.sh` reproduces all of it.

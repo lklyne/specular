@@ -1,13 +1,13 @@
 # Rust native rebuild
 
-**Status:** Built, and mostly unchecked by a person. Every wave below has landed on `rust-native`, along with most of what this plan deferred. The work was done in about a day by agents and verified by tests, headless scenario scripts and scripted window captures. Almost nothing has been used by hand. Start with the [handoff](./rust-native-rebuild-handoff.md).
+**Status:** Built, released as 0.10.2, and mostly unchecked by a person. Every wave below has landed on `rust-native`, along with most of what this plan deferred. The work was done by agents and verified by tests, headless scenario scripts and scripted window captures. Little has been used by hand. Start with the [handoff](./rust-native-rebuild-handoff.md). The [big run](./rust-native-big-run.md) carries out the decisions below.
 **Builds on:** [`rust-cef-spike.md`](./rust-cef-spike.md).
 **Scope as planned:** the core canvas. Pages, text, sticky notes, documents, shapes, drawings, edges, groups, comments, selection, undo, persistence. Agent chat, sync sets and auto-update were to come after.
-**See also:** the [run log](./rust-native-rebuild-log.md), [`native/README.md`](../../native/README.md), and ADRs [0039](../adr/0039-rust-canvas-render-stack.md) to [0044](../adr/0044-ui-as-pure-models-with-replaceable-renderers.md).
+**See also:** the [run log](./rust-native-rebuild-log.md), [`native/README.md`](../../native/README.md), and ADRs [0039](../adr/0039-rust-canvas-render-stack.md) to [0047](../adr/0047-thread-avatar-prism-on-wgpu.md).
 
 ## Status
 
-As of commit `07285583` (2026-10-08). "Done" means built, gated and, where the log says so, run by script. It does not mean a person has tried it. "By hand" marks tasks whose feel nobody has judged. The run log entry of the same name has the detail.
+As of 0.10.2 (`441dbdbc`, 2026-10-24). "Done" means built, gated and, where the log says so, run by script. It does not mean a person has tried it. "By hand" marks tasks whose feel nobody has judged. The run log entry of the same name has the detail.
 
 | Task | Status | What is missing |
 |---|---|---|
@@ -20,7 +20,7 @@ As of commit `07285583` (2026-10-08). "Done" means built, gated and, where the l
 | F6 testkit | Partial | No golden-image helper. GPU readback tests and headless PNGs do that job |
 | F7 `native/CLAUDE.md` | Done | |
 | **Wave 1, decisions and measurement** | | |
-| M1 render bake-off | Done | ADR 0039, still Proposed. Its by-hand look was never done, and its egui choice was overtaken by ADR 0040 |
+| M1 render bake-off | Done | ADR 0039, Accepted. Its egui choice was overtaken by ADR 0040. The bake-off code is deleted (decision 1) |
 | M2 memory | Done | The extra memory was a 6 second sample. Settled, Rust is lighter (log, "Performance, part 2") |
 | M3 results table in `rust-cef-spike.md` | Not done | The table is still empty. The numbers are in the log |
 | **Wave 2, select tool** | | |
@@ -39,8 +39,8 @@ As of commit `07285583` (2026-10-08). "Done" means built, gated and, where the l
 | K3 text | Done | Hand and mono fonts fall back to system fonts |
 | K4 group | Done | By hand |
 | K5 edge | Done | The line runs through its label. By hand |
-| K6 image file | Partial | png, jpeg, webp and gif only. No svg, no animated gif, no reload when the file changes |
-| K7 page anchoring | Done, and past the plan | Scroll-follow is in. Element attachment (ADR 0032) is not. A resize does not fold the scroll shift |
+| K6 image file | Done | png, jpeg, webp, HEIC, svg rastered at the drawn size, animated gif on screen only, reload when the file changes (log, "IMAGES") |
+| K7 page anchoring | Done, and past the plan | Scroll-follow, element attachment (ADR 0032) and the scroll rebase on resize are in (log, "ANCHORING") |
 | **Wave 4, text editing and documents** | | |
 | T1 edit text in place | Done | By hand. No drag and drop of selected text, no caret affinity at a wrapped line's end |
 | T2 IME | Done | Never typed with a real input method |
@@ -48,21 +48,21 @@ As of commit `07285583` (2026-10-08). "Done" means built, gated and, where the l
 | T4 markdown editing | Done | By hand. No rename of the file, no smart paste |
 | T5 formatting shortcuts | Done | The built-in popup has the buttons. Not in a menu |
 | **Wave 5, panels** | | |
-| P1 toolbar | Done in both renderers | No hand or theme button |
+| P1 toolbar | Done in both renderers | No hand button |
 | P2 item popup | Done | By hand |
 | P3 page chrome | Done | No spin on reload. The address shows the old URL until the page reports the new one |
-| P4 left sidebar | Done in the built-in renderer, partial in the GPUI shell | The GPUI shell lacks the toggle, folds and the newer row fields. No drag-reorder or favicons in either |
+| P4 left sidebar | Done in both | The Kit draws the whole model, with Cmd+B and favicons. No drag-reorder |
 | P5 tabs and space folder | Done | Never run in a window when it landed. A `.canvas` another tool adds is not seen until the space reopens |
-| P6 menu bar and context menu | Partial | Menu bar in both shells. The context menu exists only in the built-in renderer. GPUI menu items are never greyed |
+| P6 menu bar and context menu | Done | Menu bar in both shells, greyed items in the Kit. The Kit shows the built-in context menu in the canvas pass until phase 4 of the big run redraws it |
 | **Wave 6, comments and API** | | |
 | C1 annotation model | Done | |
 | C2 comment tool | Done | No way to edit a kept comment's text or to dismiss one from the canvas |
 | C3 badges and regions | Done | A badge has no icon. Deleting a page leaves its comments bound to it |
 | A1 HTTP server | Done | |
-| A2 CLI verbs | Done | No second CLI. The Electron CLI runs against this app unchanged |
-| A3 page snapshot and screenshot | Done | `print-pdf`, `record`, `component-states` and `design-system` answer 501 |
+| A2 CLI verbs | Done | The TypeScript CLI ships in the bundle and runs against this app. Phase 5 of the big run ports it to Rust |
+| A3 page snapshot and screenshot | Done | `print-pdf`, `record`, `component-states` and `design-system` answer 501. Decision 13 cuts them |
 | **Built beyond this plan** | | |
-| GPUI Kit shell (`specular`) | Done, behind parity | ADR 0040. Not at parity with the winit shell (see P4, P6). It never rests when idle |
+| GPUI Kit shell (`specular`) | Done | ADR 0040, Accepted. At parity with the winit shell on everything a script checks (log, "SHELL-PARITY"). It never rests when idle |
 | Performance pass | Done | Long frames not settled. The numbers were taken on the winit shell |
 | Audit and test prune | Done | 1,778 tests cut to 1,074. Later work brought the suite to about 1,300 |
 | Cleanup tasks 5, 6, 9, 10, 13 | Done | See "Cleanup tasks" |
@@ -70,10 +70,13 @@ As of commit `07285583` (2026-10-08). "Done" means built, gated and, where the l
 | Sync sets, scroll and interaction sync | Done | No synced cursor. Followers jump where Electron eases. No text input sync |
 | Alignment guides, auto-layout groups | Done | By hand |
 | Inspect tool, repo bindings, auto-fix | Done | No inspect tree or box-model strips |
-| First run, settings, `Specular Native.app` | Done | Ad hoc signed. Settings and the canvas after first run were never seen on a capture |
-| **Not started** | | |
+| First run, settings, the app bundle | Done | `Specular.app`, with the Electron app's bundle id. A setup dialog installs the command and the skill |
+| Themes | Done | Light, dark and system, following the OS live (log, "THEMES") |
+| Signing, notarization, Sparkle | Done | Developer ID, a notarized disk image, Sparkle updates, a release workflow on macOS |
+| HTML file nodes | Done | An `.html` file in the space is a live page, sized and synced as one |
+| Thread avatar | Done | The Prism on wgpu, ADR 0047, Accepted |
 | Agent cursors | Done | agent-browser announces each act and waits for the cursor (ADR 0046). Needs the patched binary from `native/scripts/build-agent-browser.sh` as `AGENT_BROWSER_PATH`; the bundle does not ship it yet. No synced cursor, no click ripple, no setting to hide them |
-| Themes, auto-update, signing and notarization, element attachment, the focus session | Not done | Themes were in progress on another branch when this was written |
+| The focus session | Not done | |
 
 ## Where the spike stood
 
@@ -156,7 +159,7 @@ pub enum Kind { Page(Page), Text(Text), File(FileRef), Group(Group), Drawing(Dra
 - `extra` keeps unknown JSON fields so a load and save never drops another tool's data.
 - `.canvas` stays JSON Canvas v1.0 with the `specular: {}` extension object. No format change.
 
-**Decided: yrs is dropped.** The spike kept the document in a yrs doc, as the Electron app does. In Rust that meant string-keyed map access with runtime errors, and typed structs as a second copy to keep in sync. Inverse commands do the undo job. If cloud sync (ADR 0018) comes back, the command log is the place to attach it. See [ADR 0041](../adr/0041-typed-document-inverse-command-undo.md), Proposed.
+**Decided: yrs is dropped.** The spike kept the document in a yrs doc, as the Electron app does. In Rust that meant string-keyed map access with runtime errors, and typed structs as a second copy to keep in sync. Inverse commands do the undo job. If cloud sync (ADR 0018) comes back, the command log is the place to attach it. See [ADR 0041](../adr/0041-typed-document-inverse-command-undo.md), Accepted.
 
 ### Interaction
 
@@ -176,8 +179,8 @@ Keys, menu items, panel controls and API act routes all ask for an `Action`. Key
 
 The bake-off (task M1) settled the canvas renderer, and a later spike changed the panel choice.
 
-- **Canvas items** draw in the compositor's own wgpu pass: rounded rects and ellipses on the SDF shape layer, text through glyphon on cosmic-text, strokes and paths tessellated by lyon, in one 4x multisampled pass with the page quads. Vello was turned down: it was 2 to 3 times slower with dense text and copies page textures into its atlas ([ADR 0039](../adr/0039-rust-canvas-render-stack.md), Proposed).
-- **Panels** are not egui. ADR 0039 chose egui and it was never built. Panels are pure models with two renderers: a built-in one that paints scene items, and GPUI Kit in the `specular` shell ([ADR 0044](../adr/0044-ui-as-pure-models-with-replaceable-renderers.md) and [ADR 0040](../adr/0040-gpui-kit-hybrid-shell.md), both Proposed). The CEF-HTML fallback was not needed.
+- **Canvas items** draw in the compositor's own wgpu pass: rounded rects and ellipses on the SDF shape layer, text through glyphon on cosmic-text, strokes and paths tessellated by lyon, in one 4x multisampled pass with the page quads. Vello was turned down: it was 2 to 3 times slower with dense text and copies page textures into its atlas ([ADR 0039](../adr/0039-rust-canvas-render-stack.md), Accepted).
+- **Panels** are not egui. ADR 0039 chose egui and it was never built. Panels are pure models with two renderers: a built-in one that paints scene items, and GPUI Kit in the `specular` shell ([ADR 0044](../adr/0044-ui-as-pure-models-with-replaceable-renderers.md) and [ADR 0040](../adr/0040-gpui-kit-hybrid-shell.md), both Accepted). The CEF-HTML fallback was not needed.
 - **Text editing** is the app's own editor in `specular-interact/src/edit/`, not a layout crate's. It asks a `TextMeasure` for a layout as plain data and computes carets, selections and motion from that. The compositor implements the measure on the font system glyphon draws with, so the caret sits where the glyphs are. IME events come from the shell.
 - **Markdown documents** are read through pulldown-cmark into rows of styled text. An edit shows the source, one row a line, styled by a small hand-written styler. That replaces CodeMirror and react-markdown, and it is plainer than CodeMirror.
 
@@ -228,7 +231,7 @@ This plan deferred the following "until the core is solid". The run did not wait
 - alignment and distribution guides
 - first run, the settings dialog, and an ad hoc signed app bundle
 
-Still not built: element attachment (ADR 0032), the focus session, themes, auto-update, Developer ID signing and notarization.
+Built since: element attachment (ADR 0032), themes, Sparkle updates, Developer ID signing and notarization. Still not built: the focus session.
 
 ## What the full core takes
 
@@ -333,18 +336,39 @@ The next steps, in order:
 2. The decisions only the user can make: ADR sign-offs, the four cleanup cuts below, distribution.
 3. GPUI shell parity (context menu, sidebar folds, greyed menu items, resting when idle), then the cleanup cuts that depend on it.
 
+## Decisions (2026-10-25)
+
+Lyle approved these on 2026-10-25. The [big run](./rust-native-big-run.md) carries them out, one phase each or more.
+
+1. Delete `native/bakeoff`. Its images move under `docs/adr/` first.
+2. Delete `packages/vite`.
+3. Retire the Electron comparison half of `specular-bench` (cleanup task 4).
+4. One scenario script format, run by the headless runner and the Kit window. Window-only steps are skipped headless.
+5. Scenarios assert on the state dump and the saved canvas, with screenshots for a few draw rules only. A scenario that changes the document ends with an undo-returns-to-start check.
+6. CI runs headless scenarios on every push and tries a hosted macOS runner for the Kit window.
+7. Synthetic pages by default. A separate CEF suite covers page input, scroll, sync and the CLI's browse verbs.
+8. Gesture tests become scenarios grouped by user flow. About 150 tests stay: `.canvas` byte and round-trip tests, API contract tests until the CLI replaces them, a few pure-math tests, a few GPU colour readbacks and performance pins.
+9. Retire the winit window (task 2) with the built-in toolbar and sidebar (task 1a). Headless presses controls by name with no panels drawn.
+10. Headless is a `Runtime<HeadlessWindow>`, so each `Effect` has one runner.
+11. The Kit redraws the item popup, the context menu and the page popup, and the rest of `interact/panel/builtin` goes (task 1b).
+12. Merge `specular-app` and `specular-shell` (task 3), with one rect type (task 7).
+13. Port the `specular` CLI to Rust on `specular-api`'s types. Cut `print-pdf`, `record`, `component-states` and `design-system`. `native/helper` keeps only the Agent SDK.
+14. Delete the Electron app: `src/`, the TypeScript tests, its build configs and CI.
+
+ADRs 0039 to 0044 and 0047 are Accepted.
+
 ## Cleanup tasks
 
 From the audit in the run log ("AUDIT, part 1"). The audit cut the tests from 1,778 to about half, removed dead public items, put the f32 rects on one type and split the files it could. These are the larger cuts it left, ranked by lines removed for the risk taken. Line counts are source lines without tests, measured after the chrome branch landed.
 
-**Status.** Tasks 5, 6, 9, 10 and 13 are done (log, "CLEANUP-A"). Tasks 1 to 4 wait on a decision from the user. Tasks 7, 8, 11 and 12 are open and need only a quiet tree.
+**Status.** Tasks 5, 6, 9, 10 and 13 are done (log, "CLEANUP-A"). Tasks 1 to 4 are decided (see "Decisions" above) and, with 7, 8, 11 and 12, are phases of the [big run](./rust-native-big-run.md).
 
 | # | Task | Removes | Risk and what it needs |
 |---|---|---|---|
-| 1 | **Needs a decision.** Retire the built-in toolbar, popup and sidebar renderer. It is no longer one deletion, because the Kit shell itself still draws with part of it (log, "SHELL-PARITY"). Three parts: (a) the toolbar and sidebar halves, which only the winit window and headless PNGs use: `builtin/toolbar.rs`, `builtin/sidebar*` and their half of `scene/panel/surface.rs` (about 860), testkit's `panels.rs` (248), and the eight `panel_builtin*` test files with `scene/tests/panels.rs` (about 1,800). (b) The canvas-pass popups the Kit shell draws through `Event::BuiltinCanvasPopups` (item popup, context menu, page popup and their lists): about 2,740 lines of `interact/panel/builtin` and 440 of `scene/panel`. These stay until those popups are redesigned or drawn by the Kit. (c) `scene/panel/icons.rs` and `colors.rs`, which the Kit uses and which stay. | (a) about 2,900 with tests. (b) about 3,200, not yet | Scripts no longer need a drawn panel: `control NAME` resolves from the models (`--script-panels off`, `PANELS=off fixtures/scenarios/run.sh`), and the Kit window runs every scenario (`run-kit.sh`). Between (a) and deletion: 1. Scenarios `d`, `l` and `n` click panel pixels by raw position and differ with panels off. `l` and `n` click canvas rows, whose id is `tab_1` headless and a hash of the file name in a window, so give canvas rows a name that is the same in both. 2. Port the tests that use `click_control` and the panel snapshots to `app.control(..)`. 3. Accept headless PNGs with no toolbar or sidebar, or keep (a) for them. 4. Move what is app behaviour out of `builtin`: `PanelUi`'s fields, `ContextMenu` and `open_for_press`, `sidebar::picked` (the Kit has a copy in `view/pick.rs`), `route::cancel` and `tidy`, `TOOLBAR_HEIGHT`, `field_box`. 5. Row 2, since the winit window draws (a). |
-| 2 | **Needs a decision.** Retire `specular-app`'s winit window. The Kit shell is at parity on everything a script can check (log, "SHELL-PARITY"). The window is whole files: `app/winit_window.rs` (the `Shell`, its event handler and `run_window`), `app/input.rs`, `app/turn.rs`, `app/file_menu.rs`, `app/gpu_window.rs`, `app/menu_bar/`, `translate.rs` and `main.rs`. Delete them with their `mod` and `use` lines in `app/mod.rs` and `lib.rs` and the `specular-app` binary, and drop the `winit` and `muda` dependencies. `api_run::ShellEvent` is then unused. | about 1,700 | Done first, as this row asked: `--bench` runs in the Kit window through `bench_drive.rs`, which names no window, and the key tables are `specular_interact::PhysicalKey`, read from `NSEvent`. One bench run across both shells is a tie on every canvas but synthetic `mixed`, where the Kit is 2 to 4% behind (log). Between this and deletion: 1. The human list at the end of ADR 0040, nine items. 2. Synthetic `mixed`: a frame that overruns a tick, which only main-thread page paints do today. CEF `mixed` tied. 3. Idle costs the Kit 0.4 to 0.6% of a core against 0.15 to 0.3%, from GPUI's own display link. Accept it or drive the canvas from GPUI's frame. 4. A light frame costs the Kit about 0.1 ms more CPU, not yet sampled. 5. Reword the comments that name winit in files that stay (`lib.rs`, `app/drop_run.rs`, `bench_drive.rs`, `bench_run.rs`, `space/locate.rs`) and the crate's description. 6. Row 1 (a) can go in the same change. |
-| 3 | **Needs a decision.** One shell crate. After 2, `specular-app` is a `Runtime` library plus a headless runner, and `specular-shell` is the only window. Merge them, or rename `specular-app` to what it is. | under 200, and one crate | Mechanical, but it touches every import in both. Do it when nobody else has a branch open on either. |
-| 4 | **Needs a decision.** Retire the Electron comparison half of `specular-bench`: `compare`, `electron_trace`, `profile` aliases and the commands that read Electron's output. | about 1,200 | The spike's question is answered (run log, "Performance"). Keep it if another Electron comparison is planned. Decision only. |
+| 1 | **Decided.** Retire the built-in toolbar, popup and sidebar renderer. It is no longer one deletion, because the Kit shell itself still draws with part of it (log, "SHELL-PARITY"). Three parts: (a) the toolbar and sidebar halves, which only the winit window and headless PNGs use: `builtin/toolbar.rs`, `builtin/sidebar*` and their half of `scene/panel/surface.rs` (about 860), testkit's `panels.rs` (248), and the eight `panel_builtin*` test files with `scene/tests/panels.rs` (about 1,800). (b) The canvas-pass popups the Kit shell draws through `Event::BuiltinCanvasPopups` (item popup, context menu, page popup and their lists): about 2,740 lines of `interact/panel/builtin` and 440 of `scene/panel`. These stay until those popups are redesigned or drawn by the Kit. (c) `scene/panel/icons.rs` and `colors.rs`, which the Kit uses and which stay. | (a) about 2,900 with tests. (b) about 3,200, not yet | Scripts no longer need a drawn panel: `control NAME` resolves from the models (`--script-panels off`, `PANELS=off fixtures/scenarios/run.sh`), and the Kit window runs every scenario (`run-kit.sh`). Between (a) and deletion: 1. Scenarios `d`, `l` and `n` click panel pixels by raw position and differ with panels off. `l` and `n` click canvas rows, whose id is `tab_1` headless and a hash of the file name in a window, so give canvas rows a name that is the same in both. 2. Port the tests that use `click_control` and the panel snapshots to `app.control(..)`. 3. Accept headless PNGs with no toolbar or sidebar, or keep (a) for them. 4. Move what is app behaviour out of `builtin`: `PanelUi`'s fields, `ContextMenu` and `open_for_press`, `sidebar::picked` (the Kit has a copy in `view/pick.rs`), `route::cancel` and `tidy`, `TOOLBAR_HEIGHT`, `field_box`. 5. Row 2, since the winit window draws (a). |
+| 2 | **Decided.** Retire `specular-app`'s winit window. The Kit shell is at parity on everything a script can check (log, "SHELL-PARITY"). The window is whole files: `app/winit_window.rs` (the `Shell`, its event handler and `run_window`), `app/input.rs`, `app/turn.rs`, `app/file_menu.rs`, `app/gpu_window.rs`, `app/menu_bar/`, `translate.rs` and `main.rs`. Delete them with their `mod` and `use` lines in `app/mod.rs` and `lib.rs` and the `specular-app` binary, and drop the `winit` and `muda` dependencies. `api_run::ShellEvent` is then unused. | about 1,700 | Done first, as this row asked: `--bench` runs in the Kit window through `bench_drive.rs`, which names no window, and the key tables are `specular_interact::PhysicalKey`, read from `NSEvent`. One bench run across both shells is a tie on every canvas but synthetic `mixed`, where the Kit is 2 to 4% behind (log). Between this and deletion: 1. The human list at the end of ADR 0040, nine items. 2. Synthetic `mixed`: a frame that overruns a tick, which only main-thread page paints do today. CEF `mixed` tied. 3. Idle costs the Kit 0.4 to 0.6% of a core against 0.15 to 0.3%, from GPUI's own display link. Accept it or drive the canvas from GPUI's frame. 4. A light frame costs the Kit about 0.1 ms more CPU, not yet sampled. 5. Reword the comments that name winit in files that stay (`lib.rs`, `app/drop_run.rs`, `bench_drive.rs`, `bench_run.rs`, `space/locate.rs`) and the crate's description. 6. Row 1 (a) can go in the same change. |
+| 3 | **Decided.** One shell crate. After 2, `specular-app` is a `Runtime` library plus a headless runner, and `specular-shell` is the only window. Merge them, or rename `specular-app` to what it is. | under 200, and one crate | Mechanical, but it touches every import in both. Do it when nobody else has a branch open on either. |
+| 4 | **Decided.** Retire the Electron comparison half of `specular-bench`: `compare`, `electron_trace`, `profile` aliases and the commands that read Electron's output. | about 1,200 | The spike's question is answered (run log, "Performance"). Keep it if another Electron comparison is planned. Decision only. |
 | 5 | Take `specular-testkit` out of `specular-app`'s normal dependencies. The headless runner is built on `TestApp`, so test support ships in the binary. Move the script driver's core (press, drag, key, type) into `specular-interact` as a small `Driver`, and let testkit and the runner both wrap it. | about 300 of duplication | Touches every test's import path if done carelessly. Keep `TestApp`'s API as it is and change what is under it. |
 | 6 | **Done**, with an `OwnerId` alias in place of the opaque `u64`. Fix the renderer's dependency direction. `specular-compositor` depends on `specular-interact` for `TextMeasure`, `TextLayout` and `CaretStop`, and on `specular-doc` for `EntityId` and `TextAlign`. Move the text-measure trait and its layout types into `specular-scene` (or a small text crate under interact), and key the compositor's text areas by an opaque `u64`. | 0, but the plan's rule holds again | A wide rename across interact, scene, compositor and both shells. Collides with any text work in flight. |
 | 7 | The remaining rect types. `interact::PanelRect` (x, y, width, height in f32) is `core::Rect` under another name; `interact::ScreenRect` (min and size) differs only in shape. `interact/geometry.rs` has free functions `union`, `intersection` and `contains` over `doc::Rect` that belong on the type. | about 150 | `PanelRect` is in 12 panel files and goes away with task 1, so do this after deciding 1. `ScreenRect`'s `contains` includes all four edges and `Rect`'s does not: check each hit-test caller. |

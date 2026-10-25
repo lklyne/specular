@@ -1,6 +1,6 @@
 # ADR 0039 — Render and UI stack for the Rust canvas
 
-**Status:** Proposed. Measured headless on one machine. The "Needs a human at a Mac" list below is the gate to Accepted.
+**Status:** Accepted, 2026-10-25, by Lyle with the [big run](../plans/rust-native-big-run.md)'s decisions. Measured headless on one machine.
 **Date:** 2026-10-07
 **Related:** [Rust native rebuild plan](../plans/rust-native-rebuild.md), task M1 and its "Rendering and text" section. [ADR 0038](./0038-offscreen-texture-canvas-for-live-pages.md), which made every page a texture.
 **Code:** `native/bakeoff/`, a throwaway cargo workspace outside `native/Cargo.toml`. Golden images are in `native/bakeoff/golden/`.

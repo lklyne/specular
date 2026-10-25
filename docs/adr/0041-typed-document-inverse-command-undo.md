@@ -1,6 +1,6 @@
 # ADR 0041: A typed document with inverse-command undo, and no yrs
 
-**Status:** Proposed. Built this way in `native/crates/specular-doc` during the Rust rebuild. The user has not reviewed this ADR.
+**Status:** Accepted, 2026-10-25, by Lyle with the [big run](../plans/rust-native-big-run.md)'s decisions. Built this way in `native/crates/specular-doc` during the Rust rebuild.
 **Date:** 2026-10-08
 **Related:** [Rust native rebuild plan](../plans/rust-native-rebuild.md), tasks F2 and F3. [ADR 0018](./0018-cloud-sync-and-canvas-sharing.md), which assumes a Y.Doc. [ADR 0023](./0023-note-content-in-ydoc-for-undo.md) and [ADR 0025](./0025-single-workspace-mutation-seam.md), the Electron decisions this replaces in Rust.
 **Code:** `native/crates/specular-doc/src/{document,command,history,entity}.rs` and `src/canvas/`.

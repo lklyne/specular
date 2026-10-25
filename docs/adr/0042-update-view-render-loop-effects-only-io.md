@@ -1,6 +1,6 @@
 # ADR 0042: One update, view, render loop, with effects as the only I/O
 
-**Status:** Proposed. Built this way across `native/crates` during the Rust rebuild. The user has not reviewed this ADR.
+**Status:** Accepted, 2026-10-25, by Lyle with the [big run](../plans/rust-native-big-run.md)'s decisions. Built this way across `native/crates` during the Rust rebuild.
 **Date:** 2026-10-08
 **Related:** [Rust native rebuild plan](../plans/rust-native-rebuild.md), "One loop, three pure functions". [ADR 0041](./0041-typed-document-inverse-command-undo.md). [ADR 0036](./0036-diffed-runtime-store.md) and [ADR 0025](./0025-single-workspace-mutation-seam.md), the Electron machinery this makes unnecessary.
 **Code:** `specular-interact/src/{update,event,effect}.rs`, `specular-scene/src/view.rs`, `specular-compositor`, and the effect runners in `specular-app/src/app/`.
