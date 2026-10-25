@@ -64,7 +64,7 @@ use specular_core::{ElementPlace, Modifiers, InputEvent, KeyEventKind, PixelRect
 use specular_doc::{EdgeId, EdgeSide, EntityId};
 use specular_interact::{
     Action, App, Appearance, CanvasAction, Corner, Effect, Event, GuideAxis, GuideReference,
-    Handle, HandleOwner, Hit, ImageState, KeyInput, LayoutHandle, Mark, PageNotice, PlacePreview, Showing,
+    Handle, HandleOwner, Hit, ImageState, KeyInput, LayoutHandle, Mark, Orientation, PageNotice, PlacePreview, Property, Showing,
     hit_test, shown_rect,
 };
 
@@ -794,6 +794,8 @@ pub(super) fn action_named(name: &str) -> Option<Action> {
     }
     Some(match name {
         "show-canvas" => Action::Show(Showing::Canvas),
+        "landscape" => Action::SetProperty(Property::Orientation(Orientation::Landscape)),
+        "portrait" => Action::SetProperty(Property::Orientation(Orientation::Portrait)),
         "bring-forward" => Action::BringForward,
         "send-backward" => Action::SendBackward,
         "bring-to-front" => Action::BringToFront,
