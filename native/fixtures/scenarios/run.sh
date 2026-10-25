@@ -94,7 +94,7 @@ for name in "$@"; do
         cef)
             sed "s#{site}#$site#g" "$script" > "$run/$name.txt"
             canvas=$(canvas_of "$script")
-            (cd "$run" && "$app" --source cef --snapshot-size 1400x800 \
+            (cd "$run" && "$app" --source cef --snapshot-size 1400x800 --script-panels off \
                 --script "$run/$name.txt" "$canvas" 2>"$log") ;;
         kit)
             # The window saves into the canvas it opens and keeps its state
