@@ -1,0 +1,183 @@
+# The comment tool on two pages, p1 at (100, 100) and p2 at (700, 100): a
+# click comments on a point or a page's element, a drag on a region, the
+# draft's card, and each comment as one annotation and one undo step.
+given page p1 100 100 400 300
+given page p2 700 100 400 300
+given sticky s 200 150 100 100 note
+given shape r 600 500 100 100
+camera 0,0,1
+tool comment
+
+# a click on empty canvas writes a comment on that point, as one step
+click 600 700
+expect comments has draft canvas-point 600 700
+expect comments has draft page none
+expect count comments 0
+# its card sits beside the point
+expect comments has composer 614 687 260 31.4
+type move this
+key enter
+expect count comments 1
+expect comments lacks draft
+expect comments has focus
+act undo
+expect count comments 0
+act redo
+
+# a click on a sticky or a shape is a canvas point, and no page is asked
+click 250 200
+expect comments has draft canvas-point 250 200
+expect comments has draft page none
+expect effects lacks query-element
+click 650 550
+expect comments has draft canvas-point 650 550
+expect selection none
+key escape
+
+# a click on a page asks it, in its own pixels, for the element there, and
+# neither selects nor enters it
+click 400 300
+expect effects has query-element { page: EntityId("p1"), point: Vec2(300.0, 200.0) }
+wait 50
+expect comments has draft element p1 div.cell[data-col="1"][data-row="4"]
+expect comments has draft page p1
+expect selection none
+expect focus canvas
+# the card goes under the element
+expect comments has composer 260 348 260 31.4
+type too small
+key enter
+expect saved /annotations/-1/anchor/type = element
+expect saved /annotations/-1/pageAnchor/pageId = p1
+
+# a drag on empty canvas writes a comment on that region; no page is asked
+drag 650 860 550 800
+expect comments has draft canvas-region 550 800 100 60
+expect effects lacks query-region-grab
+expect comments has composer 470 868 260 31.4
+type group these
+key enter
+expect saved /annotations/-1/anchor keys type canvasRect
+
+# a drag over pages asks each what it grabbed, front to back, and the
+# region is the first page's that grabbed something
+drag 450 150 750 250
+expect effects has query-region-grab { region: Rect { x: 450.0, y: 150.0, width: 300.0, height: 100.0 }, pages: [PageRegion { page: EntityId("p2")
+wait 50
+# it grabbed nothing whole, so it stays on the canvas
+expect comments has draft canvas-region 450 150 300 100
+expect comments has draft page none
+key escape
+drag 450 140 1000 300
+wait 50
+expect comments has draft page-region
+type fix the header
+key enter
+expect saved /annotations/-1/anchor keys type docRect
+expect saved /annotations/-1/pageAnchor/pageId = p2
+
+# the tool outlines the element under the pointer, with no popover
+move 380 180
+expect effects has inspect-at { page: EntityId("p1"), point: Vec2(280.0, 80.0), pick: false }
+wait 50
+expect comments has highlight 260 148 160 48
+expect inspect lacks popover
+move 600 900
+expect comments lacks highlight
+# and while a region grows, the elements wholly inside it
+press 90 90
+drag-to 430 200
+expect effects has preview-region
+wait 50
+expect comments count 4 highlight
+release
+expect comments lacks highlight
+key escape
+
+# a press is a click until it has travelled four pixels
+press 600 900
+drag-to 603.5 900
+expect comments lacks preview
+release
+expect comments has draft canvas-point 600 900
+key escape
+press 800 900
+drag-to 804 900
+expect comments has preview 800 900 4 0
+drag-to 801 901
+release
+expect comments has draft canvas-region 800 900 1 1
+key escape
+
+# Escape drops a draft and leaves the tool armed; the next puts it down
+click 300 700
+type never mind
+key escape
+expect comments lacks draft
+expect editing none
+expect count comments 4
+expect tool comment
+key escape
+expect tool select
+
+# a draft with no text, or only spaces, commits nothing
+tool comment
+click 300 700
+key enter
+expect comments lacks draft
+click 300 700
+key space
+key space
+key enter
+expect count comments 4
+
+# a press elsewhere commits what was written, trimmed, and starts the next
+click 300 700
+key space
+type one
+key space
+press 900 900
+expect count comments 5
+expect saved /annotations/-1/text = one
+release
+expect comments has draft canvas-point 900 900
+expect comments lacks focus
+key escape
+
+# switching tool commits the draft
+click 200 760
+type kept
+tool select
+expect count comments 6
+
+# the card keeps its size on screen at any zoom
+camera 0,0,2
+tool comment
+click 1200 1900
+expect comments has composer 607 943.5 130 15.7
+key escape
+tool select
+camera 0,0,1
+
+# annotating one selected page is a region of the canvas, though a page
+# fills it; two pages are one region round both
+select p1
+act annotate-selection
+expect comments has draft canvas-region 100 100 400 300
+expect comments has draft page none
+type tighten this
+key enter
+select p1 p2
+act annotate-selection
+expect comments has draft canvas-region 100 100 1000 300
+key escape
+undo-to-start
+
+# a new document drops a draft
+tool comment
+click 600 820
+type lost
+reopen
+expect comments lacks draft
+expect editing none
+expect count comments 0

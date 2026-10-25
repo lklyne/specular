@@ -1,0 +1,307 @@
+{
+  "nodes": [
+    {
+      "id": "p1",
+      "type": "link",
+      "x": 100,
+      "y": 100,
+      "width": 400,
+      "height": 300,
+      "url": "https://example.com/p1"
+    },
+    {
+      "id": "p2",
+      "type": "link",
+      "x": 700,
+      "y": 100,
+      "width": 400,
+      "height": 300,
+      "url": "https://example.com/p2"
+    }
+  ],
+  "edges": [],
+  "annotations": [
+    {
+      "id": "a",
+      "anchor": {
+        "type": "page",
+        "pageId": "p1",
+        "offsetX": 0.5,
+        "offsetY": 0.5
+      },
+      "author": "user",
+      "text": "a",
+      "status": "pending",
+      "replies": [],
+      "createdAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "res",
+      "anchor": {
+        "type": "page",
+        "pageId": "p1",
+        "offsetX": 0.5,
+        "offsetY": 0.2
+      },
+      "author": "user",
+      "text": "res",
+      "status": "resolved",
+      "replies": [],
+      "createdAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "dis",
+      "anchor": {
+        "type": "page",
+        "pageId": "p1",
+        "offsetX": 0.5,
+        "offsetY": 0.8
+      },
+      "author": "user",
+      "text": "dis",
+      "status": "dismissed",
+      "replies": [],
+      "createdAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "stale",
+      "anchor": {
+        "type": "page",
+        "pageId": "p1",
+        "offsetX": 0.5,
+        "offsetY": 0.0
+      },
+      "author": "user",
+      "text": "stale",
+      "status": "pending",
+      "replies": [],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "pageAnchor": {
+        "pageId": "p1",
+        "pageUrl": "https://example.com/other"
+      }
+    },
+    {
+      "id": "query",
+      "anchor": {
+        "type": "page",
+        "pageId": "p1",
+        "offsetX": 0.5,
+        "offsetY": 0.0
+      },
+      "author": "user",
+      "text": "query",
+      "status": "pending",
+      "replies": [],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "pageAnchor": {
+        "pageId": "p1",
+        "pageUrl": "https://example.com/p1?tab=2"
+      }
+    },
+    {
+      "id": "hash",
+      "anchor": {
+        "type": "page",
+        "pageId": "p1",
+        "offsetX": 0.5,
+        "offsetY": 1.0
+      },
+      "author": "user",
+      "text": "hash",
+      "status": "pending",
+      "replies": [],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "pageAnchor": {
+        "pageId": "p1",
+        "pageUrl": "https://example.com/p1#top"
+      }
+    },
+    {
+      "id": "pt-old",
+      "anchor": {
+        "type": "canvas",
+        "canvasX": 600,
+        "canvasY": 500
+      },
+      "author": "user",
+      "text": "pt-old",
+      "status": "pending",
+      "replies": [],
+      "createdAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "pt-new",
+      "anchor": {
+        "type": "canvas",
+        "canvasX": 610,
+        "canvasY": 500
+      },
+      "author": "user",
+      "text": "pt-new",
+      "status": "pending",
+      "replies": [],
+      "createdAt": "2026-02-01T00:00:00.000Z"
+    },
+    {
+      "id": "reg",
+      "anchor": {
+        "type": "region",
+        "canvasRect": {
+          "x": 600,
+          "y": 650,
+          "width": 100,
+          "height": 80
+        }
+      },
+      "author": "user",
+      "text": "reg",
+      "status": "pending",
+      "replies": [],
+      "createdAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "tiny",
+      "anchor": {
+        "type": "region",
+        "canvasRect": {
+          "x": 800,
+          "y": 650,
+          "width": 1,
+          "height": 1
+        }
+      },
+      "author": "user",
+      "text": "tiny",
+      "status": "pending",
+      "replies": [],
+      "createdAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "ack",
+      "anchor": {
+        "type": "canvas",
+        "canvasX": 900,
+        "canvasY": 500
+      },
+      "author": "user",
+      "text": "ack",
+      "status": "acknowledged",
+      "replies": [],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "metadata": {
+        "dismissReason": "stale",
+        "pageName": "Home"
+      }
+    },
+    {
+      "id": "gone",
+      "anchor": {
+        "type": "region",
+        "canvasRect": {
+          "x": 1000,
+          "y": 650,
+          "width": 100,
+          "height": 80
+        }
+      },
+      "author": "user",
+      "text": "gone",
+      "status": "pending",
+      "replies": [],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "pageAnchor": {
+        "pageId": "p9"
+      }
+    },
+    {
+      "id": "el-old",
+      "anchor": {
+        "type": "element",
+        "pageId": "p2",
+        "selector": "#a",
+        "boundingBox": {
+          "x": 50,
+          "y": 40,
+          "width": 100,
+          "height": 30
+        }
+      },
+      "author": "user",
+      "text": "el-old",
+      "status": "pending",
+      "replies": [],
+      "createdAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "el-new",
+      "anchor": {
+        "type": "element",
+        "pageId": "p2",
+        "selector": "#a",
+        "boundingBox": {
+          "x": 50,
+          "y": 40,
+          "width": 100,
+          "height": 30
+        }
+      },
+      "author": "user",
+      "text": "el-new",
+      "status": "pending",
+      "replies": [
+        {
+          "author": "agent",
+          "text": "on it",
+          "timestamp": "2026-02-01T00:01:00.000Z"
+        }
+      ],
+      "createdAt": "2026-02-01T00:00:00.000Z"
+    },
+    {
+      "id": "el-other",
+      "anchor": {
+        "type": "element",
+        "pageId": "p2",
+        "selector": "#b",
+        "boundingBox": {
+          "x": 250,
+          "y": 200,
+          "width": 100,
+          "height": 30
+        }
+      },
+      "author": "user",
+      "text": "el-other",
+      "status": "pending",
+      "replies": [],
+      "createdAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "pr",
+      "anchor": {
+        "type": "region",
+        "docRect": {
+          "x": 50,
+          "y": 150,
+          "width": 100,
+          "height": 30
+        }
+      },
+      "author": "user",
+      "text": "pr",
+      "status": "pending",
+      "replies": [],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "pageAnchor": {
+        "pageId": "p1"
+      }
+    }
+  ],
+  "specular": {
+    "entityOrder": [
+      "p1",
+      "p2"
+    ]
+  }
+}
