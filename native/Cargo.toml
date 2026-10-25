@@ -60,8 +60,6 @@ pollster = "1.0"
 # Markdown for Documents. Only the parser: no HTML output, no CLI.
 pulldown-cmark = { version = "0.13.4", default-features = false }
 raw-window-handle = "0.6"
-# The native open dialog.
-rfd = "0.17.2"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 # SHA-256 for a connected repo's id, which the Electron app derives the same way.

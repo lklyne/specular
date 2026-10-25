@@ -1,14 +1,16 @@
-//! The folder dialogs and the files Finder hands over.
+//! The folder dialog and the files Finder hands over.
 //!
-//! The app asks for a space folder through an effect and the runtime leaves
-//! a note; this shows the dialog on GPUI's next turn and gives the runtime
-//! the answer. A `.canvas` opened from Finder arrives as a `file://` URL,
+//! The app asks for a folder (a space, a repo) through an effect and the
+//! runtime leaves a note; this shows the dialog on GPUI's next turn and
+//! gives the runtime the answer. A `.canvas` opened from Finder arrives as a `file://` URL,
 //! before the window exists on a cold launch and at any time after.
 
 use std::cell::RefCell;
 use std::path::PathBuf;
 
 use gpui_kit::{App, PathPromptOptions};
+
+use specular_shell::FolderAsk;
 
 use crate::canvas;
 
@@ -18,15 +20,14 @@ thread_local! {
     static WAITING: RefCell<Option<PathBuf>> = const { RefCell::new(None) };
 }
 
-/// Asks for a folder and opens it as the space. `create` only words the
-/// dialog. A cancelled dialog changes nothing.
-pub(crate) fn choose(create: bool, cx: &mut App) {
-    let prompt = if create { "Create space" } else { "Open space" };
+/// Asks for the folder `ask` wants and gives it to the runtime. A cancelled
+/// dialog changes nothing.
+pub(crate) fn choose_folder(ask: FolderAsk, cx: &mut App) {
     let chosen = cx.prompt_for_paths(PathPromptOptions {
         files: false,
         directories: true,
         multiple: false,
-        prompt: Some(prompt.into()),
+        prompt: Some(ask.prompt().into()),
     });
     cx.spawn(async move |cx| {
         let Ok(Ok(Some(paths))) = chosen.await else {
@@ -36,11 +37,11 @@ pub(crate) fn choose(create: bool, cx: &mut App) {
             return;
         };
         canvas::with(|canvas| {
-            canvas.runtime.choose_space(folder);
+            canvas.runtime.folder_chosen(ask, folder);
             canvas.refresh_models();
         });
-        // The settings dialog names the space and is not drawn from the
-        // models.
+        // The settings dialog names the space and the repos, and is not
+        // drawn from the models.
         cx.update(App::refresh_windows);
     })
     .detach();

@@ -174,7 +174,7 @@ pub(crate) struct Canvas {
     finished: bool,
     /// A folder dialog the app asked for, until GPUI shows it: whether it
     /// is worded for making a space.
-    space_dialog: Option<bool>,
+    folder_dialog: Option<specular_shell::FolderAsk>,
     /// The context menu GPUI was last told of. It skips the models' gate,
     /// so a right press shows its menu on the next frame.
     menu: Option<ContextMenu>,
@@ -243,7 +243,7 @@ pub(crate) fn install(
             paused: false,
         },
         finished: false,
-        space_dialog: None,
+        folder_dialog: None,
         menu: None,
     };
     CANVAS.with(|cell| *cell.0.borrow_mut() = Some(canvas));
@@ -375,18 +375,19 @@ impl Canvas {
             self.menu.clone_from(menu);
             self.wake_now();
         }
-        let asked = self.runtime.take_space_dialog();
-        if asked.is_some() {
-            self.space_dialog = asked;
+        let asked = self.runtime.take_folder_dialog();
+        let asked_one = asked.is_some();
+        if asked_one {
+            self.folder_dialog = asked;
         }
-        if asked.is_some() || self.asks.changed.get() {
+        if asked_one || self.asks.changed.get() {
             self.wake_now();
         }
     }
 
     /// The folder dialog the app asked for, once.
-    pub(crate) fn take_space_dialog(&mut self) -> Option<bool> {
-        self.space_dialog.take()
+    pub(crate) fn take_folder_dialog(&mut self) -> Option<specular_shell::FolderAsk> {
+        self.folder_dialog.take()
     }
 
     /// Builds the models again if the app may have changed since they were.

@@ -340,7 +340,9 @@ pub(crate) fn install(cx: &mut App) {
         }
     });
     cx.on_action(|_: &Quit, cx| shell::begin_exit(cx));
-    cx.on_action(|_: &OpenSpace, cx| crate::spaces::choose(false, cx));
+    cx.on_action(|_: &OpenSpace, cx| {
+        crate::spaces::choose_folder(specular_shell::FolderAsk::Space { create: false }, cx);
+    });
     cx.on_action(|_: &OpenCanvas, cx| choose_canvas(cx));
     cx.on_action(|_: &Save, _| {
         canvas::with(|canvas| canvas.runtime.flush_files());

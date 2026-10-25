@@ -94,8 +94,8 @@ fn on_wake(cx: &mut App) {
         finish(cx);
         return;
     }
-    if let Some(create) = canvas::with(canvas::Canvas::take_space_dialog).flatten() {
-        spaces::choose(create, cx);
+    if let Some(ask) = canvas::with(canvas::Canvas::take_folder_dialog).flatten() {
+        spaces::choose_folder(ask, cx);
     }
     if let Some(models) = canvas::models() {
         menus::sync(&models.menus, cx);

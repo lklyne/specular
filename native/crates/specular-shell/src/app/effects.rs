@@ -13,6 +13,7 @@ use specular_core::{
 use specular_doc::{EntityId, Rect};
 use specular_interact::{Effect, Event, PageRegion, update};
 
+use super::FolderAsk;
 use super::runtime::{PageHost, Runtime, ShellWindow};
 use super::settings::page_device;
 use crate::page_queries::css_rect;
@@ -152,12 +153,12 @@ impl<W: ShellWindow> Runtime<W> {
             Effect::QueryElement { page, point } => self.query_element(&page, point),
             Effect::InspectAt { page, point, pick } => self.inspect_at(&page, point, pick),
             Effect::SaveRepos => self.save_repos(),
-            Effect::ChooseSpace { create } => self.ask_for_space(create),
+            Effect::ChooseSpace { create } => self.ask_for_folder(FolderAsk::Space { create }),
             Effect::OpenSpace(folder) => self.choose_space(std::path::Path::new(&folder)),
             Effect::RevealSpace => self.reveal_space(),
             Effect::Quit => self.exit(),
             Effect::SaveSettings(settings) => self.save_settings(settings),
-            Effect::PickRepoFolder { origin } => self.pick_repo_folder(origin),
+            Effect::PickRepoFolder { origin } => self.ask_for_folder(FolderAsk::Repo { origin }),
             Effect::QueryRegionGrab { region, pages } => self.query_region_grab(region, &pages),
             Effect::PreviewRegion { pages } => self.preview_region(&pages),
         }

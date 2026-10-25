@@ -199,9 +199,8 @@ pub struct Runtime<W> {
     /// The repos file. `None` when settings are off, and when no folder
     /// can be found for it.
     pub(crate) repos_file: Option<PathBuf>,
-    /// A folder dialog the app asked for and the shell has yet to show:
-    /// whether it is worded for making a space.
-    pub(crate) space_dialog: Option<bool>,
+    /// A folder dialog the app asked for and the window has yet to show.
+    pub(crate) folder_dialog: Option<super::FolderAsk>,
     /// Files dropped on the window, not yet sent to the app.
     pub(crate) dropped: Vec<PathBuf>,
     /// Where they were dropped, in logical pixels of the viewport.
@@ -275,7 +274,7 @@ impl<W: ShellWindow> Runtime<W> {
             sent: None,
             prefs,
             repos_file: options.settings.then(repos_run::file).flatten(),
-            space_dialog: None,
+            folder_dialog: None,
             dropped: Vec::new(),
             dropped_at: None,
             api: None,

@@ -33,6 +33,7 @@ use glam::Vec2;
 use specular_core::Camera;
 
 pub use self::runtime::{Opening, PageOf, Runtime, RuntimeOptions, ShellWindow};
+pub use self::space_choice::FolderAsk;
 
 /// Camera a canvas with no saved one opens at, and each bench profile starts
 /// from.
