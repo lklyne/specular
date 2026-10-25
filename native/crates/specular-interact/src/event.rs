@@ -173,6 +173,14 @@ pub enum Event {
     /// library draws the chrome and the sidebar, while the menu a right
     /// press on the canvas opens stays in the canvas's own pass.
     BuiltinMenu,
+    /// The shell draws the chrome, the sidebar and the context menu itself.
+    /// Nothing built in is laid out or hit; a right press on the canvas
+    /// still opens the menu's state, which the shell draws and picks from
+    /// by name.
+    ShellChrome,
+    /// The shell's context menu closed with nothing picked: a press outside
+    /// it, or Escape while it had the keys.
+    MenuClosed,
     /// Whether the shell draws a right panel. A shell that does sends `true`
     /// once at startup: a comment draft is then finished in the panel's
     /// field, and the canvas draws only its marker. Without it the draft is

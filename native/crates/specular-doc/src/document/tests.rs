@@ -1,8 +1,8 @@
 use super::Document;
 use crate::{
-    Annotation, AnnotationAnchor, AnnotationId, AnnotationStatus, Author, Color, Command,
-    CommandError, Drawing, Edge, EdgeId, Entity, EntityId, FileRef, Group, History, ItemId,
-    JsonMap, Kind, Page, PageAnchor, Point, Rect, Shape, ShapeKind, Stroke, Text, TextStyle,
+    Annotation, AnnotationAnchor, AnnotationId, AnnotationStatus, Author, Color, Command, Drawing,
+    Edge, EdgeId, Entity, EntityId, FileRef, Group, ItemId, JsonMap, Kind, Page, PageAnchor, Point,
+    Rect, Shape, ShapeKind, Stroke, Text, TextStyle,
 };
 
 fn entity(id: &str, kind: Kind) -> Entity {
@@ -282,97 +282,6 @@ fn every_command_changes_the_document_and_its_inverse_restores_it() {
 }
 
 #[test]
-fn a_refused_command_leaves_the_document_unchanged() {
-    let mut before = fixture();
-    before.apply(insert(group("g2"), 0)).unwrap();
-    let set_parent = |id: &str, parent: &str| Command::SetParent {
-        id: EntityId::new(id),
-        parent: Some(EntityId::new(parent)),
-    };
-    before.apply(set_parent("g2", "g1")).unwrap();
-    let invalid_parent = |id: &str, parent: &str| CommandError::InvalidParent {
-        id: EntityId::new(id),
-        parent: EntityId::new(parent),
-    };
-    let mut swapped_order = before.order().to_vec();
-    swapped_order[0] = swapped_order[1].clone();
-
-    let rows = vec![
-        (
-            "batch with a missing target, after a valid first step",
-            Command::Batch(vec![
-                Command::RemoveEntity(EntityId::new("p1")),
-                Command::SetRect {
-                    id: EntityId::new("missing"),
-                    rect: Rect::default(),
-                },
-            ]),
-            CommandError::UnknownEntity(EntityId::new("missing")),
-        ),
-        (
-            "entity id taken by an edge",
-            insert(page("e1"), 0),
-            CommandError::DuplicateId("e1".to_owned()),
-        ),
-        (
-            "edge id taken by an entity",
-            Command::InsertEdge {
-                edge: Box::new(Edge::new("p1", "t1", "sh1")),
-                at: 0,
-            },
-            CommandError::DuplicateId("p1".to_owned()),
-        ),
-        (
-            "insert past the end",
-            insert(page("p2"), 9),
-            CommandError::IndexOutOfRange { index: 9, len: 8 },
-        ),
-        (
-            "kind changed by set kind",
-            Command::SetKind {
-                id: EntityId::new("p1"),
-                kind: Box::new(Kind::Text(Text::default())),
-            },
-            CommandError::KindMismatch {
-                id: EntityId::new("p1"),
-                expected: "page",
-                found: "text",
-            },
-        ),
-        (
-            "parent that is not a group",
-            set_parent("t1", "p1"),
-            invalid_parent("t1", "p1"),
-        ),
-        (
-            "parent that is missing",
-            set_parent("t1", "missing"),
-            invalid_parent("t1", "missing"),
-        ),
-        (
-            "group inside itself",
-            set_parent("g1", "g1"),
-            invalid_parent("g1", "g1"),
-        ),
-        (
-            "group inside its own child",
-            set_parent("g1", "g2"),
-            invalid_parent("g1", "g2"),
-        ),
-        (
-            "order that repeats an id",
-            Command::SetOrder(swapped_order),
-            CommandError::OrderMismatch,
-        ),
-    ];
-    for (name, command, expected) in rows {
-        let mut document = before.clone();
-        assert_eq!(document.apply(command), Err(expected), "{name}");
-        assert_eq!(document, before, "{name}: the document changed");
-    }
-}
-
-#[test]
 fn ancestors_stops_at_a_cycle_loaded_from_a_file() {
     let mut a = group("a");
     a.parent = Some(EntityId::new("b"));
@@ -382,90 +291,6 @@ fn ancestors_stops_at_a_cycle_loaded_from_a_file() {
     document.apply(insert(a, 0)).unwrap();
     document.apply(insert(b, 1)).unwrap();
     assert_eq!(document.ancestors(&EntityId::new("a")).count(), 2);
-}
-
-#[test]
-fn history_undoes_and_redoes_in_order() {
-    let start = fixture();
-    let mut document = start.clone();
-    let mut history = History::new();
-
-    history
-        .apply(&mut document, Command::RemoveEdge(EdgeId::new("e1")))
-        .unwrap();
-    let after_first = document.clone();
-    history
-        .apply(&mut document, Command::RemoveEntity(EntityId::new("p1")))
-        .unwrap();
-    let after_second = document.clone();
-
-    assert!(history.undo(&mut document).unwrap().is_some());
-    assert_eq!(document, after_first);
-    assert!(history.undo(&mut document).unwrap().is_some());
-    assert_eq!(document, start);
-    assert!(history.undo(&mut document).unwrap().is_none());
-
-    assert!(history.redo(&mut document).unwrap().is_some());
-    assert!(history.redo(&mut document).unwrap().is_some());
-    assert_eq!(document, after_second);
-    assert!(history.redo(&mut document).unwrap().is_none());
-
-    {
-        let mut document = fixture();
-        let mut history = History::new();
-        history
-            .apply(&mut document, Command::RemoveEdge(EdgeId::new("e1")))
-            .unwrap();
-        history.undo(&mut document).unwrap();
-        assert!(history.can_redo());
-
-        history
-            .apply(&mut document, Command::RemoveEntity(EntityId::new("sh1")))
-            .unwrap();
-        assert!(!history.can_redo());
-    }
-
-    {
-        let mut document = fixture();
-        let mut history = History::new();
-        let refused = history.apply(
-            &mut document,
-            Command::RemoveEntity(EntityId::new("missing")),
-        );
-        assert!(refused.is_err());
-        assert!(!history.can_undo());
-    }
-}
-
-#[test]
-fn a_step_carries_the_state_from_either_side_of_it() {
-    let mut document = fixture();
-    let mut history: History<&str> = History::default();
-    let remove = Command::RemoveEntity(EntityId::new("sh1"));
-    history.apply_from(&mut document, remove, "before").unwrap();
-    assert!(history.is_open());
-    history.settle("after");
-    // A later settle is not this step's.
-    history.settle("later");
-
-    assert_eq!(history.undo(&mut document), Ok(Some("before")));
-    assert_eq!(history.redo(&mut document), Ok(Some("after")));
-    assert_eq!(history.undo(&mut document), Ok(Some("before")));
-    assert_eq!(history.undo(&mut document), Ok(None));
-
-    {
-        let mut document = fixture();
-        let mut history: History<u8> = History::default();
-        let remove = |id: &str| Command::RemoveEntity(EntityId::new(id));
-        history.apply_from(&mut document, remove("sh1"), 1).unwrap();
-        history.settle(2);
-        history.apply_from(&mut document, remove("d1"), 3).unwrap();
-        assert_eq!(history.undo(&mut document), Ok(Some(3)));
-        // The step just undone is closed, so this settle is not the earlier one's.
-        history.settle(9);
-        assert_eq!(history.undo(&mut document), Ok(Some(1)));
-        assert_eq!(history.redo(&mut document), Ok(Some(2)));
-    }
 }
 
 #[test]

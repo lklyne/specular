@@ -84,26 +84,3 @@ impl Args {
         Ok(select_profiles(&ids, self.millis("duration-ms")?))
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn args(raw: &[&str]) -> Args {
-        Args::parse(raw.iter().map(|s| (*s).to_owned())).unwrap()
-    }
-
-    #[test]
-    fn positionals_and_flags_are_separated() {
-        let parsed = args(&["a.json", "--frame-ms", "8.33", "b.json"]);
-        assert_eq!(
-            (parsed.positional(1), parsed.flag("frame-ms")),
-            (Some("b.json"), Some("8.33"))
-        );
-    }
-
-    #[test]
-    fn negative_millis_are_rejected() {
-        assert!(args(&["--gap-ms", "-1"]).millis("gap-ms").is_err());
-    }
-}

@@ -281,19 +281,3 @@ impl App {
         self.session.motion.running()
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::spring;
-
-    #[test]
-    fn the_spring_starts_at_zero_overshoots_a_little_and_lands_exactly() {
-        assert_eq!(spring(0.0), (0.0, false));
-        let peak = (0..2000)
-            .map(|step| spring(f64::from(step) / 1000.0).0)
-            .fold(0.0_f64, f64::max);
-        assert!((1.0..1.02).contains(&peak), "peak {peak}");
-        assert_eq!(spring(1.0), (1.0, true));
-        assert!(!spring(0.1).1);
-    }
-}

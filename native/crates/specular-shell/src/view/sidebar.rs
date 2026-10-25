@@ -234,7 +234,9 @@ impl ShellView {
             .context_menu(move |popup, _, _| {
                 let model = canvas::with(|canvas| context_menu(canvas.runtime.app(), &target));
                 match model.flatten() {
-                    Some(model) => menu::filled(popup, &model),
+                    Some(model) => menu::filled(popup, &model, |_, action, window, cx| {
+                        run(action, window, cx);
+                    }),
                     None => popup,
                 }
             })

@@ -110,4 +110,31 @@ key cmd+shift+z
 key cmd+shift+z
 expect redo none
 expect saved same-as mark long
+# a second Document: a numbered list counts on, Tab nests a line and
+# Shift-Tab brings it back, Backspace after a fresh marker takes all of it,
+# a task line carries on as a task, and the heading shortcut toggles off
+tool document
+click 700 220
+type 1. unpack
+key enter
+type pack
+key tab
+expect editing 1. unpack\n  2. pack
+key shift+tab
+expect editing 1. unpack\n2. pack
+key enter
+key backspace
+expect editing 1. unpack\n2. pack\n
+type check
+key cmd+shift+9
+key enter
+expect editing 1. unpack\n2. pack\n- [ ] check\n- [ ]\s
+key enter
+type Title
+key cmd+alt+1
+expect editing 1. unpack\n2. pack\n- [ ] check\n# Title
+key cmd+alt+1
+expect editing 1. unpack\n2. pack\n- [ ] check\nTitle
+key escape
+expect entity @top note 1. unpack\n2. pack\n- [ ] check\nTitle
 undo-to-start

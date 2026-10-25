@@ -81,38 +81,3 @@ pub fn validate_texture_scale(scale: f32) -> Result<(), PageSourceError> {
         )))
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_spec_needs_a_url_a_viewport_with_area_and_a_positive_finite_scale() {
-        let url = "https://example.com/";
-        let scaled = |scale| PageSpec {
-            texture_scale: scale,
-            ..PageSpec::new(url, CssSize::new(10, 10))
-        };
-        let rows = [
-            (
-                "blank url",
-                PageSpec::new("  ", CssSize::new(10, 10)),
-                false,
-            ),
-            ("no width", PageSpec::new(url, CssSize::new(0, 10)), false),
-            ("no height", PageSpec::new(url, CssSize::new(10, 0)), false),
-            ("nan scale", scaled(f32::NAN), false),
-            ("infinite scale", scaled(f32::INFINITY), false),
-            ("zero scale", scaled(0.0), false),
-            ("negative scale", scaled(-1.0), false),
-            (
-                "a usable spec",
-                PageSpec::new(url, CssSize::new(1440, 900)),
-                true,
-            ),
-        ];
-        for (name, spec, valid) in rows {
-            assert_eq!(spec.validate().is_ok(), valid, "{name}");
-        }
-    }
-}

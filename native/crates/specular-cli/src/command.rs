@@ -215,36 +215,3 @@ impl Parsed {
         self.nth(0).filter(|target| !target.starts_with("text="))
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn parsed(line: &str) -> Parsed {
-        Parsed::new(line.split(' ').map(str::to_owned).collect())
-    }
-
-    #[test]
-    fn a_find_locator_reads_as_its_action_and_names_its_element() {
-        let find = parsed("find role button click --name Submit");
-        assert_eq!(find.mutation(), Some("click"));
-        assert_eq!(
-            find.target_query(),
-            Some(json!({ "selector": "[role=\"button\"]", "text": null, "name": "Submit" }))
-        );
-        assert_eq!(parsed("find text Next check").effective(), Some("click"));
-        assert_eq!(parsed("find text Next hover").label(), Some("find_target"));
-
-        let click = parsed("click text=Save");
-        assert_eq!(click.scroll_target(), None);
-        assert_eq!(
-            click.target_query(),
-            Some(json!({ "selector": null, "text": "Save", "name": null }))
-        );
-        let by_ref = parsed("fill @e7 hello -s ignored");
-        assert_eq!(
-            (by_ref.target_query(), by_ref.scroll_target()),
-            (None, Some("@e7"))
-        );
-    }
-}

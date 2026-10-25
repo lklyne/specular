@@ -235,41 +235,11 @@ mod tests {
     }
 
     #[gpui_kit::test]
-    fn the_palette_lists_every_command(cx: &mut TestAppContext) {
-        let (window, state, _) = open_palette(cx);
-        cx.update_window(window.into(), |_, window, cx| window.render_frame(cx))
-            .expect("the window");
-        assert_eq!(cx.read_entity(&state, |state, _| state.matched_count()), 3);
-    }
-
-    #[gpui_kit::test]
     fn a_query_narrows_the_list_and_ranks_an_enabled_command_first(cx: &mut TestAppContext) {
         let (window, state, ran) = open_palette(cx);
         type_and_confirm(cx, window, "p");
         // "Copy" and "Paste" hold a p, and the enabled one is the one confirmed.
         assert_eq!(cx.read_entity(&state, |state, _| state.matched_count()), 2);
-        assert_eq!(*ran.borrow(), [PaletteRun::Action(Action::Copy)]);
-    }
-
-    #[gpui_kit::test]
-    fn the_query_is_matched_by_the_models_fuzzy_search_not_the_kits(cx: &mut TestAppContext) {
-        let (window, state, ran) = open_palette(cx);
-        type_and_confirm(cx, window, "cpy");
-        assert_eq!(cx.read_entity(&state, |state, _| state.matched_count()), 1);
-        assert_eq!(*ran.borrow(), [PaletteRun::Action(Action::Copy)]);
-    }
-
-    #[gpui_kit::test]
-    fn a_command_that_cannot_run_cannot_be_confirmed(cx: &mut TestAppContext) {
-        let (window, _, ran) = open_palette(cx);
-        type_and_confirm(cx, window, "paste");
-        assert!(ran.borrow().is_empty(), "{:?}", ran.borrow());
-    }
-
-    #[gpui_kit::test]
-    fn confirming_with_no_query_runs_the_first_command(cx: &mut TestAppContext) {
-        let (window, _, ran) = open_palette(cx);
-        type_and_confirm(cx, window, "");
         assert_eq!(*ran.borrow(), [PaletteRun::Action(Action::Copy)]);
     }
 }

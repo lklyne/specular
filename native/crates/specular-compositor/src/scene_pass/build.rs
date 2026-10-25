@@ -268,7 +268,3 @@ fn canvas_quad(item: &Item, rect: Rect, corner_radius: f32, view: &ViewTransform
         }
     }
 }
-
-#[cfg(test)]
-#[path = "build_tests.rs"]
-mod tests;

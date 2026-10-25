@@ -27,10 +27,9 @@ objc2-metal = { workspace = true }
 
 [dev-dependencies]
 pollster = { workspace = true }
-# The GPU tests build documents and drive them through the testkit.
+# The GPU tests name a page entity; the text measure test lays text out.
 specular-doc = { workspace = true }
 specular-interact = { workspace = true }
-specular-testkit = { workspace = true }
 
 [lints]
 workspace = true

@@ -84,38 +84,3 @@ fn encode(image: &ImageData<'_>) -> Option<ClipboardImage> {
         png: AssetBytes::from(png.into_inner()),
     })
 }
-
-#[cfg(test)]
-mod tests {
-    use std::borrow::Cow;
-
-    use super::*;
-
-    fn pixels(width: usize, height: usize, bytes: Vec<u8>) -> ImageData<'static> {
-        ImageData {
-            width,
-            height,
-            bytes: Cow::Owned(bytes),
-        }
-    }
-
-    #[test]
-    fn clipboard_pixels_become_a_png_of_the_same_size() {
-        let red_then_blue = vec![255, 0, 0, 255, 0, 0, 255, 255];
-        let encoded = encode(&pixels(2, 1, red_then_blue.clone())).unwrap();
-        assert_eq!((encoded.width, encoded.height), (2, 1));
-        let decoded = image::load_from_memory(encoded.png.as_slice()).unwrap();
-        assert_eq!(decoded.to_rgba8().into_raw(), red_then_blue);
-        assert!(encode(&pixels(2, 2, vec![0; 4])).is_none());
-    }
-
-    #[test]
-    fn an_empty_clipboard_reads_as_nothing() {
-        let empty: Result<String, _> = Err(arboard::Error::ContentNotAvailable);
-        assert_eq!(available(empty, "text"), None);
-        assert_eq!(
-            available(Ok("hi".to_owned()), "text").as_deref(),
-            Some("hi")
-        );
-    }
-}

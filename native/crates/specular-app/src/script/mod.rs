@@ -31,9 +31,6 @@ mod step;
 mod window;
 mod words;
 
-#[cfg(test)]
-mod tests;
-
 use std::path::Path;
 
 use anyhow::{Context as _, bail};

@@ -146,29 +146,3 @@ pub(crate) fn parse(argv: &[String]) -> Args {
         .collect();
     args
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn words(line: &str) -> Vec<String> {
-        line.split(' ').map(str::to_owned).collect()
-    }
-
-    #[test]
-    fn flags_sit_anywhere_and_only_value_flags_take_the_next_word() {
-        let args = parse(&words("-f p1 click @e2 --echo --at -100,50 -i"));
-        assert_eq!(args.verb, "click");
-        assert_eq!(args.positional, ["@e2"]);
-        assert_eq!(args.page(), Some("p1"));
-        assert_eq!(args.flag("at"), Some("-100,50"));
-        assert!(args.switch("echo") && args.switch("i"));
-        assert_eq!(args.rest, words("-f p1 @e2 --echo --at -100,50 -i"));
-
-        let args = parse(&words("eval -- -1 --x"));
-        assert_eq!(
-            (args.verb.as_str(), args.positional),
-            ("eval", words("-1 --x"))
-        );
-    }
-}

@@ -129,6 +129,11 @@ fn on_down(
     effects: &mut Vec<Effect>,
 ) {
     app.session.pointer = Some(input.screen);
+    // A press anywhere while the context menu is open closes it, and that
+    // is all it does. The built-in panels take that press before here.
+    if app.session.panel.menu.take().is_some() {
+        return;
+    }
     if button == PointerButton::Left && app.session.editing.is_some() {
         // A press in the text being edited is the editor's. Anywhere else it
         // ends the edit before it does what it would have done.

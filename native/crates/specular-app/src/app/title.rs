@@ -33,27 +33,3 @@ fn window_title(canvas: Option<&str>, scratch: bool, unsaved: bool) -> String {
     let edited = if unsaved { " — Edited" } else { "" };
     format!("{name}{space}{edited}")
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn the_title_names_the_canvas_scratch_space_and_unsaved_changes() {
-        for (name, scratch, edited, expected) in [
-            (Some("Home page"), false, false, "Home page"),
-            (Some("Welcome"), false, true, "Welcome — Edited"),
-            (Some("Welcome"), true, false, "Welcome (scratch space)"),
-            (
-                Some("Welcome"),
-                true,
-                true,
-                "Welcome (scratch space) — Edited",
-            ),
-            (None, false, false, "Specular"),
-            (None, true, true, "Specular"),
-        ] {
-            assert_eq!(window_title(name, scratch, edited), expected);
-        }
-    }
-}

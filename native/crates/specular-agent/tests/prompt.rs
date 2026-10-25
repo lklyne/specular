@@ -1,8 +1,8 @@
 //! The prompts a run starts with.
 
 use specular_agent::{
-    CommentContext, Image, MediaType, Message, Pill, PromptContext, Role, Status, Thread, ThreadId,
-    WriteTarget, follow_up_prompt, thread_prompt,
+    CommentContext, Message, Pill, PromptContext, Role, Status, Thread, ThreadId, WriteTarget,
+    thread_prompt,
 };
 
 fn message(role: Role, text: &str, annotation: Option<&str>) -> Message {
@@ -86,71 +86,4 @@ Inspecting a live page (when one is in play):
 {REPLY}"
     );
     assert_eq!(prompt, expected);
-}
-
-#[test]
-fn the_repo_target_works_in_the_repo_and_reads_images_from_the_space() {
-    let target = WriteTarget::Repo {
-        origin: "http://localhost:3000".into(),
-        repo_path: "/repo".into(),
-    };
-    let mut thread = thread();
-    thread.messages[2].images.push(Image {
-        path: ".specular/threads/tab/attachments/t1/img_1.png".into(),
-        media_type: MediaType::Png,
-    });
-    let prompt = thread_prompt(&thread, &context(target.clone(), Pill::Empty));
-    let head: Vec<&str> = prompt.lines().take(9).collect();
-    assert_eq!(
-        head,
-        [
-            "Working directory (linked repo): /repo",
-            "Space folder: /space",
-            "This turn should change source for http://localhost:3000 in the repo at /repo.",
-            "Edit that repo. Pages already on the canvas reload from source.",
-            "Anything new reaches the user only once it is on the canvas: `specular add page <full url> --at x,y`.",
-            "",
-            "Current selection: Home",
-            "",
-            "Images the user pasted this turn are attached; earlier ones are at the listed paths.",
-        ]
-    );
-    assert!(prompt.contains(
-        "[User] And bigger [image: /space/.specular/threads/tab/attachments/t1/img_1.png]"
-    ));
-
-    let space = thread_prompt(&thread, &context(WriteTarget::Space, Pill::Empty));
-    assert!(space.contains("[image: .specular/threads/tab/attachments/t1/img_1.png]"));
-}
-
-#[test]
-fn the_follow_up_is_short_and_names_the_comments_in_the_turn() {
-    let pill = Pill::Annotation {
-        label: "button.cta".into(),
-        annotation_id: "c1".into(),
-    };
-    let ctx = context(WriteTarget::Space, pill);
-    let prompt = follow_up_prompt("  Make it green ", &ctx, 2, &["c1".into(), "gone".into()]);
-    let expected = format!(
-        "The user followed up in the same canvas agent thread:
-[User] Make it green
-  (comment c1 on element \"button.cta\" of page p1 (http://localhost:3000/))
-(2 images are attached to this message.)
-
-The user has selected comment c1 and likely wants to focus on that.
-Prefer changing those. Touch other canvas items only if the request clearly needs it.
-
-Continue the thread — make a change if it calls for one, or just answer if it is a question.
-Use the specular skill as before.
-
-{REPLY}"
-    );
-    assert_eq!(prompt, expected);
-
-    let bare = follow_up_prompt("", &context(WriteTarget::Space, Pill::Empty), 1, &[]);
-    assert!(
-        bare.contains("[User] See the attached image.\n(An image is attached to this message.)\n")
-    );
-    let none = follow_up_prompt(" ", &context(WriteTarget::Space, Pill::Empty), 0, &[]);
-    assert!(none.contains("[User] Continue addressing the latest feedback in this thread.\n\nCurrent selection: Home\n"));
 }

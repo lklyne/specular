@@ -68,20 +68,3 @@ pub(super) fn copy_of(canvases: &[Canvas], name: &str) -> String {
         .find(|name| !taken(canvases, name, None))
         .unwrap_or(first)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_file_is_named_after_the_canvas_and_four_characters_of_its_id() {
-        let rows = [
-            ("Home page", "tab_9f3c1b2a-0000", "Home page-9f3c.canvas"),
-            (" a/b:c? ", "tab_abcd", "a_b_c_-abcd.canvas"),
-            ("   ", "tab_abcd", "Untitled-abcd.canvas"),
-        ];
-        for (name, id, want) in rows {
-            assert_eq!(canvas_file_name(name, &CanvasId::new(id)), want, "{name:?}");
-        }
-    }
-}

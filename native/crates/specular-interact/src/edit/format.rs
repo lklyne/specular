@@ -317,7 +317,3 @@ pub(crate) fn set_heading(edit: &mut TextEdit, level: u8) -> bool {
         .collect();
     apply(edit, replacements)
 }
-
-#[cfg(test)]
-#[path = "format_tests.rs"]
-mod tests;

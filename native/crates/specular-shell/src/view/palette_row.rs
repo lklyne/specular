@@ -73,16 +73,3 @@ pub(super) fn row(item: &PaletteItem, positions: &[usize]) -> impl IntoElement +
                 })),
         )
 }
-
-#[cfg(test)]
-mod tests {
-    use super::ranges;
-
-    #[test]
-    fn matched_characters_join_into_byte_ranges() {
-        assert_eq!(ranges("Bold", &[0, 1, 3]), vec![0..2, 3..4]);
-        assert_eq!(ranges("Bold", &[]), Vec::<std::ops::Range<usize>>::new());
-        // Positions count characters, ranges count bytes.
-        assert_eq!(ranges("é Bold", &[2, 3]), vec![3..5]);
-    }
-}

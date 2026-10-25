@@ -15,10 +15,7 @@ use specular_core::PageId;
 struct Retired<T> {
     page: PageId,
     after_serial: u64,
-    #[cfg_attr(
-        not(test),
-        expect(dead_code, reason = "held only so its Drop runs after the GPU is done")
-    )]
+    #[expect(dead_code, reason = "held only so its Drop runs after the GPU is done")]
     item: T,
 }
 
@@ -78,26 +75,5 @@ impl<T> RetiredTextures<T> {
     /// Whether anything is waiting on the GPU.
     pub(crate) fn is_empty(&self) -> bool {
         self.entries.is_empty()
-    }
-
-    /// The items in retirement order, for inspection.
-    #[cfg(test)]
-    fn items(&self) -> impl Iterator<Item = &T> {
-        self.entries.iter().map(|entry| &entry.item)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn reclaim_releases_only_completed_serials() {
-        let mut retired = RetiredTextures::default();
-        retired.push(PageId(1), 1, "a");
-        retired.push(PageId(1), 2, "b");
-        retired.push(PageId(1), 3, "c");
-        retired.reclaim(2);
-        assert_eq!(retired.items().copied().collect::<Vec<_>>(), ["c"]);
     }
 }

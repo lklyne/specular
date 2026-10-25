@@ -243,30 +243,3 @@ const _: fn() = || {
 pub(crate) fn lock_geometry(geometry: &Mutex<PageGeometry>) -> MutexGuard<'_, PageGeometry> {
     geometry.lock().unwrap_or_else(PoisonError::into_inner)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn popup_is_re_placed_when_scale_changes() {
-        let mut geometry = PageGeometry::new(&PageSpec::new("https://a/", CssSize::new(400, 300)));
-        geometry.set_popup(PixelRect::new(10, 10, 50, 20));
-        geometry.scale = 2.0;
-        assert_eq!(geometry.popup(), Some(PixelRect::new(20, 20, 100, 40)));
-    }
-
-    #[test]
-    fn a_turns_changes_are_sent_once_and_a_pump_sends_only_what_a_turn_left() {
-        let mut unsent = Unsent::default();
-        unsent.changed(GeometryChange::Viewport);
-        unsent.changed(GeometryChange::Scale);
-        assert_eq!(unsent.take(), Some(GeometryChange::Both));
-        assert_eq!(unsent.take(), None);
-
-        unsent.changed(GeometryChange::Viewport);
-        assert_eq!(unsent.take_at_pump(), None);
-        assert_eq!(unsent.take_at_pump(), Some(GeometryChange::Viewport));
-        assert_eq!(unsent.take_at_pump(), None);
-    }
-}

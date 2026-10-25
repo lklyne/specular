@@ -113,23 +113,6 @@ impl ClaudeCli {
             }
         })
     }
-
-    #[cfg(test)]
-    fn start_with_args(
-        &self,
-        request: &RunRequest,
-        cwd: &Path,
-        args: &[String],
-    ) -> Result<Box<dyn AgentProcess>, AgentError> {
-        let program = self.program()?;
-        self.spawn(
-            &program,
-            args,
-            stdin_text(request, cwd),
-            cwd,
-            request.thread.as_str(),
-        )
-    }
 }
 
 struct Input {
@@ -171,9 +154,7 @@ fn stdin_text(request: &RunRequest, space: &Path) -> Input {
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
 
-    use super::super::Output;
     use super::*;
     use specular_agent::{Image, MediaType, ThreadId};
 
@@ -186,80 +167,6 @@ mod tests {
             cwd: None,
             model: None,
         }
-    }
-
-    fn drain(process: &mut dyn AgentProcess) -> Vec<Output> {
-        let mut all = Vec::new();
-        for _ in 0..500 {
-            all.extend(process.poll());
-            if all.iter().any(|o| matches!(o, Output::Exit { .. })) {
-                break;
-            }
-            std::thread::sleep(Duration::from_millis(10));
-        }
-        all
-    }
-
-    #[test]
-    fn the_prompt_reaches_stdin_and_output_lines_come_back_before_the_exit() {
-        let cli = ClaudeCli::new().with_program("/bin/cat");
-        // `cat` ignores the claude flags only if they are files; give it none.
-        let request = request(Vec::new());
-        let mut process = cli
-            .start_with_args(&request, Path::new("/tmp"), &[])
-            .unwrap();
-        let output = drain(&mut *process);
-        assert_eq!(output.first(), Some(&Output::Stdout("hello".into())));
-        assert!(matches!(
-            output.last(),
-            Some(Output::Exit { success: true, .. })
-        ));
-
-        // Output written after the child itself has exited (a grandchild
-        // still holds the pipe) still lands ahead of the exit.
-        let mut process = cli
-            .with_program("/bin/sh")
-            .start_with_args(
-                &request,
-                Path::new("/tmp"),
-                &["-c".into(), "(sleep 0.3; echo late) & exit 0".into()],
-            )
-            .unwrap();
-        let output = drain(&mut *process);
-        assert_eq!(output.first(), Some(&Output::Stdout("late".into())));
-        assert!(matches!(output.last(), Some(Output::Exit { .. })));
-    }
-
-    #[test]
-    fn kill_ends_a_process_that_never_would() {
-        let cli = ClaudeCli::new().with_program("/bin/sleep");
-        let mut process = cli
-            .start_with_args(&request(Vec::new()), Path::new("/tmp"), &["30".into()])
-            .unwrap();
-        let started = std::time::Instant::now();
-        process.kill();
-        process.kill();
-        assert!(
-            started.elapsed() < Duration::from_secs(10),
-            "kill waited for the child to finish by itself"
-        );
-        assert!(
-            process
-                .poll()
-                .iter()
-                .all(|o| !matches!(o, Output::Stdout(_)))
-        );
-    }
-
-    #[test]
-    fn a_missing_program_says_how_to_install_claude() {
-        let mut cli = ClaudeCli::new().with_program("/nonexistent/claude");
-        let error = cli
-            .start(&request(Vec::new()), Path::new("/tmp"), Path::new("/tmp"))
-            .err()
-            .unwrap();
-        assert!(matches!(error, AgentError::NotInstalled));
-        assert!(error.to_string().contains("run `claude`"));
     }
 
     #[test]

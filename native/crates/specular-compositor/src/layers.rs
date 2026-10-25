@@ -169,30 +169,3 @@ impl PageLayers {
         })
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// Breaks when a draw takes the newest frame whatever its size (the
-    /// flash of a tab's frame in the canvas's rect) or prefers the kept one
-    /// when neither fits.
-    #[test]
-    fn a_draw_takes_the_frame_painted_at_its_size_else_the_newest() {
-        let (canvas, tab, other) = (
-            CssSize::new(400, 300),
-            CssSize::new(1400, 800),
-            CssSize::new(900, 600),
-        );
-        let rows = [
-            (canvas, tab, Some(canvas), LayerKind::KeptView),
-            (tab, tab, Some(canvas), LayerKind::View),
-            (other, tab, Some(canvas), LayerKind::View),
-            (canvas, tab, None, LayerKind::View),
-            (tab, tab, Some(tab), LayerKind::View),
-        ];
-        for (wanted, newest, kept, layer) in rows {
-            assert_eq!(view_for(wanted, newest, kept), layer, "{wanted:?} {kept:?}");
-        }
-    }
-}

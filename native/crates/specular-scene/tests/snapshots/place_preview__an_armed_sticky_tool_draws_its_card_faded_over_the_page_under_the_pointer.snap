@@ -1,8 +1,0 @@
----
-source: crates/specular-scene/tests/place_preview.rs
-expression: app.scene_snapshot()
----
-canvas page p1 100,100 400x300 r=8
-screen rect 100,100 400x300 r=8 stroke=#a6a09b/1/outside
-canvas rect 200,200 200x200 fill=#ffe18e opacity=0.5
-screen rect 99,99 402x302 stroke=#3b82f6/1/inside

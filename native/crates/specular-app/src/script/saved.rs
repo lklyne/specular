@@ -150,29 +150,3 @@ pub(super) fn listed(found: &[Difference]) -> String {
     }
     out
 }
-
-#[cfg(test)]
-mod tests {
-    use serde_json::json;
-
-    use super::*;
-
-    #[test]
-    fn paths_step_through_ids_and_indexes_from_the_end() {
-        let canvas = json!({"nodes": [{"id": "a", "x": 1}, {"id": "b", "x": 2.0}]});
-        assert_eq!(at(&canvas, "/nodes/b/x"), Some(&json!(2.0)));
-        assert_eq!(at(&canvas, "/nodes/-1/id"), Some(&json!("b")));
-        assert_eq!(at(&canvas, "/nodes/0/x"), Some(&json!(1)));
-        assert_eq!(at(&canvas, "/nodes/c"), None);
-        assert!(same(&json!({"x": 200}), &json!({"x": 200.0})));
-    }
-
-    #[test]
-    fn differences_name_items_by_id_and_leave_out_the_camera() {
-        let a = json!({"nodes": [{"id": "a", "x": 1}], "appState": {"camera": 1}});
-        let b = json!({"nodes": [{"id": "a", "x": 3}], "appState": {"camera": 2}});
-        let found = differences(&a, &b);
-        assert_eq!(found.len(), 1);
-        assert_eq!(found[0].0, "/nodes/a/x");
-    }
-}

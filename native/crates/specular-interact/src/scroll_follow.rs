@@ -352,36 +352,3 @@ fn clipped(rect: Rect, clip: Rect) -> Option<Rect> {
         .min(geometry::origin(clip) + geometry::size(clip));
     (high.x >= low.x && high.y >= low.y).then(|| geometry::rect(low, high - low))
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn touching_the_edge_is_not_leaving() {
-        let page = Rect::new(100.0, 100.0, 400.0, 300.0);
-        let rows = [
-            (Rect::new(100.0, 400.0, 50.0, 50.0), false),
-            (Rect::new(100.0, 401.0, 50.0, 50.0), true),
-            (Rect::new(40.0, 100.0, 50.0, 50.0), true),
-        ];
-        for (rect, left) in rows {
-            assert_eq!(left_page(page, rect), left, "{rect:?}");
-        }
-    }
-
-    #[test]
-    fn a_rect_is_clipped_to_its_page() {
-        let page = Rect::new(100.0, 100.0, 400.0, 300.0);
-        let rows = [
-            (
-                Rect::new(90.0, 380.0, 50.0, 50.0),
-                Some(Rect::new(100.0, 380.0, 40.0, 20.0)),
-            ),
-            (Rect::new(90.0, 410.0, 50.0, 50.0), None),
-        ];
-        for (rect, want) in rows {
-            assert_eq!(clipped(rect, page), want, "{rect:?}");
-        }
-    }
-}

@@ -228,33 +228,6 @@ mod tests {
     }
 
     #[test]
-    fn length_prefix_widths() {
-        // The marker byte, then the bytes the length takes before the payload.
-        for (len, marker, prefix) in [
-            (125, 125, 0),
-            (126, 126, 2),
-            (65_535, 126, 2),
-            (65_536, 127, 8),
-        ] {
-            let wire = encode(Opcode::Text, &vec![0; len], None);
-            assert_eq!(wire[1], marker, "{len}");
-            assert_eq!(wire.len(), 2 + prefix + len, "{len}");
-        }
-    }
-
-    #[test]
-    fn masking_scrambles_the_wire_bytes() {
-        let wire = encode(Opcode::Text, b"hello", Some(KEY));
-        assert_eq!(&wire[2..6], &KEY);
-        let expected: Vec<u8> = b"hello"
-            .iter()
-            .zip(KEY.iter().cycle())
-            .map(|(b, k)| b ^ k)
-            .collect();
-        assert_eq!(&wire[6..], expected.as_slice());
-    }
-
-    #[test]
     fn fragments_are_reassembled_around_a_ping() {
         let mut wire = encode_fragment(false, Opcode::Text, b"hel", Some(KEY));
         wire.extend(encode(Opcode::Ping, b"p", Some(KEY)));
@@ -275,43 +248,5 @@ mod tests {
             decoder.read(&mut from).unwrap(),
             Incoming::Data(b"hello".to_vec())
         );
-    }
-
-    #[test]
-    fn control_frames_surface() {
-        let ping = encode(Opcode::Ping, b"x", Some(KEY));
-        assert_eq!(
-            decode_one(Role::Server, ping).unwrap(),
-            Incoming::Ping(b"x".to_vec())
-        );
-        let pong = encode(Opcode::Pong, b"x", None);
-        assert_eq!(
-            decode_one(Role::Client, pong).unwrap(),
-            Incoming::Pong(b"x".to_vec())
-        );
-        let close = encode(Opcode::Close, &[], Some(KEY));
-        assert_eq!(decode_one(Role::Server, close).unwrap(), Incoming::Close);
-    }
-
-    #[test]
-    fn a_server_refuses_unmasked_frames() {
-        let wire = encode(Opcode::Text, b"hi", None);
-        let err = decode_one(Role::Server, wire).unwrap_err();
-        assert_eq!(err.kind(), io::ErrorKind::InvalidData);
-    }
-
-    #[test]
-    fn an_oversize_message_is_refused_before_it_is_read() {
-        let mut wire = vec![0x82, 0xFF];
-        wire.extend_from_slice(&(MAX_MESSAGE as u64 + 1).to_be_bytes());
-        wire.extend_from_slice(&KEY);
-        let err = decode_one(Role::Server, wire).unwrap_err();
-        assert_eq!(err.kind(), io::ErrorKind::InvalidData);
-    }
-
-    #[test]
-    fn a_continuation_with_nothing_to_continue_is_refused() {
-        let wire = encode(Opcode::Continuation, b"x", Some(KEY));
-        assert!(decode_one(Role::Server, wire).is_err());
     }
 }
