@@ -1,12 +1,14 @@
 //! One step of a script, done headless.
 
+use std::path::PathBuf;
+
 use anyhow::Context as _;
 use glam::Vec2;
 use specular_doc::Document;
 use specular_interact::{Action, ControlId, Driver, Event, PageNotice};
 
 use super::Headless;
-use crate::script::{self, CameraArg, Expect, Step};
+use crate::script::{self, CameraArg, Expect, Step, WindowStep};
 
 /// More undo steps than any script makes: a history that never runs out is
 /// a bug, not a long session.
@@ -121,6 +123,19 @@ impl Headless {
             Step::Mark(name) => self.checks.mark(self.app.app(), &name),
             Step::Reopen => self.reopen(),
             Step::UndoToStart(except) => self.undo_to_start(&except),
+            Step::Window(WindowStep::Drop(paths, at)) => {
+                // As a window gets them: whole paths, with no `..` in them.
+                let real = |path: PathBuf| std::fs::canonicalize(&path).unwrap_or(path);
+                let space = self.space.clone().map(real);
+                let files = (paths.iter())
+                    .map(|path| match &space {
+                        Some(space) if path.is_relative() => real(space.join(path)),
+                        _ => path.clone(),
+                    })
+                    .map(|path| crate::app::drop_run::dropped_file(&path, space.as_deref()))
+                    .collect();
+                self.drive(|app| app.send(Event::FilesDropped { files, screen: at }))
+            }
             // The run skips these before they get here.
             Step::Window(_) => Ok(()),
             Step::Canvas(step) => {

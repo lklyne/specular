@@ -133,7 +133,8 @@ pub enum Step {
 impl Step {
     /// Whether only a window can do this step.
     pub fn window_only(&self) -> bool {
-        matches!(self, Self::Window(_))
+        // A headless run drops files itself.
+        matches!(self, Self::Window(step) if !matches!(step, WindowStep::Drop(..)))
     }
 }
 

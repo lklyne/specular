@@ -13,7 +13,6 @@ mod comment_state;
 mod comments;
 mod context_menu;
 mod cursors;
-mod drop;
 mod first_run;
 mod flick;
 mod guides;
