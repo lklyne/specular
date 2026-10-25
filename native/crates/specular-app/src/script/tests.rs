@@ -236,3 +236,10 @@ fn bad_lines_are_rejected_with_their_number() {
     let error = Script::parse("click 1 2\nclick 1").unwrap_err();
     assert!(format!("{error:#}").starts_with("line 2"));
 }
+
+#[test]
+fn escaped_text_reads_back_as_written() {
+    for text in ["", " beta gamma ", "a\n\tb\\c", "   "] {
+        assert_eq!(words::unescaped(&words::escaped(text)), text, "{text:?}");
+    }
+}

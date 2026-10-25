@@ -15,7 +15,8 @@ pub(super) const NO_MODIFIERS: Modifiers = Modifiers {
     meta: false,
 };
 
-/// `text` with `\n`, `\t` and `\\` turned into what they name.
+/// `text` with `\n`, `\t`, `\s` (a space) and `\\` turned into what they
+/// name.
 pub(super) fn unescaped(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     let mut characters = text.chars();
@@ -27,6 +28,7 @@ pub(super) fn unescaped(text: &str) -> String {
         match characters.next() {
             Some('n') => out.push('\n'),
             Some('t') => out.push('\t'),
+            Some('s') => out.push(' '),
             Some(other) => out.push(other),
             None => out.push('\\'),
         }
@@ -34,12 +36,23 @@ pub(super) fn unescaped(text: &str) -> String {
     out
 }
 
-/// `text` with line breaks, tabs and backslashes written as `unescaped`
-/// reads them.
+/// `text` with line breaks, tabs, backslashes and end spaces written as
+/// `unescaped` reads them.
 pub(super) fn escaped(text: &str) -> String {
-    text.replace('\\', "\\\\")
+    let inner = text
+        .replace('\\', "\\\\")
         .replace('\n', "\\n")
-        .replace('\t', "\\t")
+        .replace('\t', "\\t");
+    // A line is trimmed when it is read, so a space at either end is
+    // written as `\s`.
+    let start = inner.len() - inner.trim_start_matches(' ').len();
+    let end = inner.trim_end_matches(' ').len().max(start);
+    format!(
+        "{}{}{}",
+        "\\s".repeat(start),
+        &inner[start..end],
+        "\\s".repeat(inner.len() - end)
+    )
 }
 
 /// A number, or an error that quotes it.

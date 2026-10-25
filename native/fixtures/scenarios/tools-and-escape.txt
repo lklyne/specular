@@ -9,7 +9,8 @@ click 200 160
 type keep me
 key escape
 key escape
-save 00-start.canvas
+expect count entities 1
+mark one-sticky
 
 # tool keys with no click between them create nothing
 key r
@@ -28,9 +29,8 @@ key escape
 key r
 press 500 200
 drag-to 620 300
-snapshot 02-shape-in-flight.png
 key escape
-snapshot 03-shape-escaped.png
+expect count entities 1
 release
 key m
 press 500 200
@@ -52,7 +52,7 @@ key escape
 press 100 140
 drag-to 450 450
 key escape
-snapshot 06-marquee-escaped.png
+expect selection none
 release
 press 300 300
 drag-to 500 500
@@ -66,23 +66,21 @@ release
 hold alt
 press 300 300
 drag-to 600 600
-snapshot 09-option-drag-in-flight.png
 key escape
 release
 hold none
-save 09-gestures-escaped.canvas
+# every gesture up to here was escaped and left nothing
+expect saved same-as mark one-sticky
 
 # Escape while composing, then while selecting text with the pointer
 double-click 300 300
 key cmd+down
 compose にほ
 key escape
-snapshot 10-compose-escaped.png
 press 215 180
 drag-to 260 180
 key escape
 release
-snapshot 11-text-select-escaped.png
 key escape
 key escape
 
@@ -95,15 +93,20 @@ drag-to 960 340
 release
 key v
 key escape
-snapshot 12-tool-switch-mid-drag.png
+expect tool select
+expect count shape 1
+expect entity @2 rect 800 200 160 140
 
 # change tools while a text edit is open
 double-click 300 300
 key cmd+down
 type !
 tool shape
-snapshot 13-tool-change-while-editing.png
+expect tool shape
+expect editing none
 key escape
 key escape
-snapshot 14-end.png
-save 14-end.canvas
+# the sticky was typed into and one shape was drawn; nothing else remains
+expect count entities 2
+expect entity @1 kind sticky
+undo-to-start

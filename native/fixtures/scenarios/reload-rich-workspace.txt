@@ -1,9 +1,12 @@
-# canvas: ../../../tests/integration/__snapshots__/rich-workspace.canvas
-# Save and reload, part three: the integration suite's Electron-shaped
-# fixture (a group, a sticky shorter than a sticky's floor, a Document, a
-# drawing), with the shape nudged 20 down.
+# canvas: rich-workspace.canvas
+# Save and reload: the Electron integration suite's fixture (a group, a
+# sticky shorter than a sticky's floor, a Document, a drawing), with the
+# shape nudged 20 down. Only its y differs in the save.
 camera 0,0,1
+expect saved same-as rich-workspace.canvas
 select generated-id-2
 key shift+down
-snapshot 01-nudged.png
-save 01-one-change.canvas
+expect saved changed-from start at /nodes/generated-id-2/y
+undo-to-start
+reopen
+expect saved same-as start

@@ -11,6 +11,7 @@ type  launch
 commit 👨‍👩‍👧
 key enter
 compose にほ
+# the composition is drawn underlined at the caret, not yet in the text
 snapshot 01-composing.png
 compose 日本語
 commit 日本語
@@ -21,55 +22,55 @@ key enter
 key enter
 key enter
 type after two empty lines
-snapshot 02-mixed-scripts.png
-# walk back over the emoji a grapheme at a time
+expect editing 🎉🚀 launch 👨‍👩‍👧\n日本語 ok\nPneumonoultramicroscopicsilicovolcanoconiosis_and_then_some_more_text\n\n\nafter two empty lines
+# walk back over the emoji a grapheme at a time, and delete the second
 key cmd+up
 key right
 key right
-snapshot 03-caret-after-two-emoji.png
 key backspace
 key escape
-snapshot 05-sticky-done.png
+expect entity @1 text 🎉 launch 👨‍👩‍👧\n日本語 ok\nPneumonoultramicroscopicsilicovolcanoconiosis_and_then_some_more_text\n\n\nafter two empty lines
 
 # reopen (everything selected) and type over it
 double-click 300 200
-snapshot 06-reopened-all-selected.png
 type Replaced
+expect editing Replaced
 # select all again and paste several lines over it
 key cmd+a
 clipboard first line\nsecond line\n\nfourth line after a gap\n\ttabbed
 key cmd+v
-snapshot 08-pasted-multiline.png
 key escape
+expect entity @1 text first line\nsecond line\n\nfourth line after a gap\n\ttabbed
 
-# a plain text
+# a plain text grows as wide as its longest line
 tool text
 click 520 160
 type Plain text grows as wide as it needs to, with no wrapping at all
 key enter
 type and a second line
 key escape
+expect entity @2 kind text
+expect entity @2 text Plain text grows as wide as it needs to, with no wrapping at all\nand a second line
 
-# a shape label longer than its shape
+# a shape label longer than its shape leaves the shape its size
 key r
 press 200 520
 drag-to 360 600
 release
 double-click 280 560
 type A label that is a good deal longer than the shape is wide
-snapshot 10-label-editing.png
 key escape
-snapshot 11-label-done.png
+expect entity @3 rect 200 520 160 80
+expect entity @3 text A label that is a good deal longer than the shape is wide
 
 # edit at zoom 0.25
 camera 0,100,0.25
 double-click 75 170
 key cmd+down
 type  tny
-snapshot 12-zoom-quarter-editing.png
 key escape
 
-# edit at zoom 3
+# edit at zoom 3, with a selection left at the end
 camera -560,-440,3
 double-click 300 200
 key cmd+down
@@ -80,18 +81,7 @@ key left
 key left
 key left
 hold none
-snapshot 13-zoom-three-editing.png
 key escape
-camera 0,0,1
-snapshot 14-final.png
-save 14-final.canvas
-
-key cmd+z
-key cmd+z
-key cmd+z
-key cmd+z
-key cmd+z
-key cmd+z
-key cmd+z
-key cmd+z
-save 15-undone.canvas
+expect entity @1 text first line\nsecond line\n\nfourth line after a gap\n\ttabbed tny HUGE
+expect entity @1 rect 200 160 200 200
+undo-to-start

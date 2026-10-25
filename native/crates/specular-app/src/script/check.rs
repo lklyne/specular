@@ -108,6 +108,23 @@ impl Checks {
                 )
             }
             Expect::Canvas(name) => equal("canvas", &app.space().active().name, name),
+            Expect::Zoom(zoom) => {
+                let found = session.camera.zoom;
+                ensure!((found - zoom).abs() <= 0.001, "zoom is {found}, expected {zoom}");
+                Ok(())
+            }
+            Expect::Camera([x, y, zoom]) => {
+                let camera = session.camera;
+                let near_pan = (camera.pan.x - x).abs() <= 0.5 && (camera.pan.y - y).abs() <= 0.5;
+                ensure!(
+                    near_pan && (camera.zoom - zoom).abs() <= 0.001,
+                    "camera is {},{},{}, expected {x},{y},{zoom}",
+                    camera.pan.x,
+                    camera.pan.y,
+                    camera.zoom
+                );
+                Ok(())
+            }
             Expect::Sidebar(shown) => equal("sidebar", session.sidebar.shown(), *shown),
             Expect::Menu(open) => {
                 let found = session.panel.menu.is_some() || session.panel.open.is_some();
@@ -256,8 +273,8 @@ fn or_none(text: Option<String>) -> String {
     text.unwrap_or_else(|| "none".to_owned())
 }
 
-/// The id `name` stands for: itself, or the entity `@selected` or `@top`
-/// is now.
+/// The id `name` stands for: itself, or the entity `@selected`, `@top` or
+/// `@N` (the Nth from the back, from 1) is now.
 pub(super) fn resolve(app: &App, name: &str) -> anyhow::Result<String> {
     match name {
         "@selected" => {
@@ -270,15 +287,23 @@ pub(super) fn resolve(app: &App, name: &str) -> anyhow::Result<String> {
         "@top" => (app.document().entities().last())
             .map(|entity| entity.id.to_string())
             .ok_or_else(|| anyhow!("`@top` needs an entity")),
-        id => Ok(id.to_owned()),
+        _ => match name.strip_prefix('@').map(str::parse::<usize>) {
+            Some(Ok(place)) => (app.document().entities().nth(place.wrapping_sub(1)))
+                .map(|entity| entity.id.to_string())
+                .ok_or_else(|| anyhow!("there is no entity `{name}`")),
+            _ => Ok(name.to_owned()),
+        },
     }
 }
 
 fn resolve_path(app: &App, path: &str) -> anyhow::Result<String> {
     let steps: Vec<String> = (path.split('/'))
-        .map(|step| match step {
-            "@selected" | "@top" => resolve(app, step),
-            step => Ok(step.to_owned()),
+        .map(|step| {
+            if step.starts_with('@') {
+                resolve(app, step)
+            } else {
+                Ok(step.to_owned())
+            }
         })
         .collect::<anyhow::Result<_>>()?;
     Ok(steps.join("/"))

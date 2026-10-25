@@ -20,7 +20,7 @@ double-click 620 260
 key cmd+down
 key enter
 key cmd+v
-snapshot 01-text-pasted-into-second.png
+expect editing second\nalpha beta gamma
 key escape
 
 # cut a word out of the first
@@ -30,7 +30,7 @@ hold shift+alt
 key right
 hold none
 key cmd+x
-snapshot 02-word-cut.png
+expect editing \sbeta gamma
 key escape
 
 # copy the first sticky itself and paste it at the pointer
@@ -38,7 +38,10 @@ click 300 300
 key cmd+c
 move 900 500
 key cmd+v
-snapshot 03-entity-pasted.png
+expect count sticky 3
+expect entity @top rect 900 500 200 200
+expect entity @top text \sbeta gamma
+expect selection @top
 
 # a URL from another app, with nothing selected, becomes a page
 key escape
@@ -46,22 +49,16 @@ clipboard https://example.com/pricing
 move 300 620
 key cmd+v
 wait 200
-snapshot 04-url-pasted.png
+expect entity @top kind page
+expect entity @top text https://example.com/pricing
 
 # plain text with nothing selected becomes a sticky
 key escape
 clipboard Just a sentence copied from somewhere else.\nWith a second line.
 move 1200 200
 key cmd+v
-snapshot 05-text-pasted-as-sticky.png
-save 05-final.canvas
-
-key cmd+z
-key cmd+z
-key cmd+z
-key cmd+z
-key cmd+z
-key cmd+z
-key cmd+z
-snapshot 07-undone.png
-save 07-undone.canvas
+expect entity @top kind sticky
+expect entity @top rect 1200 200 200 200
+expect entity @top text Just a sentence copied from somewhere else.\nWith a second line.
+expect count entities 5
+undo-to-start

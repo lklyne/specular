@@ -2,8 +2,6 @@
 //! `expect` without the word, so a line of a dump can be pasted into a
 //! script as a check.
 
-use std::fmt::Write as _;
-
 use specular_interact::{App, Focus, Showing};
 
 use super::check::{kind_word, note_of, text_of};
@@ -19,6 +17,12 @@ pub fn dump(app: &App) -> String {
     };
     line(format!("canvas {}", app.space().active().name));
     line(format!("count canvases {}", app.space().canvases().len()));
+    let camera = session.camera;
+    line(format!(
+        "camera {:.1},{:.1},{:.3}",
+        camera.pan.x, camera.pan.y, camera.zoom
+    ));
+    line(format!("zoom {:.3}", camera.zoom));
     line(format!("tool {}", tool_word(session.tool)));
     let selection: Vec<&str> = session
         .selection
@@ -73,11 +77,5 @@ pub fn dump(app: &App) -> String {
             line(format!("entity {id} parent {parent}"));
         }
     }
-    let camera = session.camera;
-    let _ = writeln!(
-        out,
-        "# camera {:.1},{:.1},{:.3}",
-        camera.pan.x, camera.pan.y, camera.zoom
-    );
     out
 }

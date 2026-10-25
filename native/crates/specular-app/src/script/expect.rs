@@ -7,6 +7,8 @@
 //! expect editing Ship the beta      # the text being edited; `none`
 //! expect showing canvas             # or the id of the page shown alone
 //! expect canvas Notes               # the active canvas's name
+//! expect zoom 0.25
+//! expect camera -400,-900,2         # as the `camera` step sets it
 //! expect sidebar on
 //! expect menu closed
 //! expect undo none                  # nothing to undo; `undo some`, `redo none`
@@ -27,8 +29,10 @@
 //! expect saved changed-from start at /nodes/s1/x
 //! ```
 //!
-//! An entity is named by its id, `@selected` (the one selected entity) or
-//! `@top` (the front-most). Both work in a `saved` path too.
+//! An entity is named by its id, `@selected` (the one selected entity),
+//! `@top` (the front-most) or `@N` (the Nth from the back, from 1), which
+//! is how a script names what it made: new ids differ from run to run in a
+//! window. Each works in a `saved` path too.
 
 use std::path::PathBuf;
 
@@ -36,7 +40,8 @@ use anyhow::{Context as _, bail};
 use serde_json::Value;
 use specular_interact::Tool;
 
-use super::words::{number, tool_named, unescaped};
+use super::CameraArg;
+use super::words::{camera, number, tool_named, unescaped};
 
 /// One `expect` line.
 #[derive(Debug, Clone, PartialEq)]
@@ -53,6 +58,11 @@ pub enum Expect {
     Showing(Option<String>),
     /// The active canvas's name.
     Canvas(String),
+    /// The camera's zoom, within a thousandth.
+    Zoom(f32),
+    /// The camera's pan in screen pixels and its zoom, within half a pixel
+    /// and a thousandth.
+    Camera([f32; 3]),
     /// Whether the left sidebar is shown.
     Sidebar(bool),
     /// Whether a context menu or dropdown is open.
@@ -154,6 +164,11 @@ pub(super) fn parse(rest: &str) -> anyhow::Result<Expect> {
         ("showing", ["canvas"]) => Expect::Showing(None),
         ("showing", [id]) => Expect::Showing(Some((*id).to_owned())),
         ("canvas", _) if !tail.is_empty() => Expect::Canvas(tail.to_owned()),
+        ("zoom", [zoom]) => Expect::Zoom(number(zoom)?),
+        ("camera", [value]) => match camera(value)? {
+            CameraArg::At(camera) => Expect::Camera([camera.pan.x, camera.pan.y, camera.zoom]),
+            CameraArg::Fit => bail!("a camera to expect is `x,y,zoom`"),
+        },
         ("sidebar", [on]) => Expect::Sidebar(on_off(on, "on", "off")?),
         ("menu", [open]) => Expect::Menu(on_off(open, "open", "closed")?),
         ("undo", [some]) => Expect::Undo(on_off(some, "some", "none")?),
