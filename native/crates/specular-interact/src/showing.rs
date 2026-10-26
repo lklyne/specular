@@ -248,17 +248,26 @@ pub(crate) fn step(app: &mut App, forward: bool, effects: &mut Vec<Effect>) {
 }
 
 /// Closes the tab of `item`, or with `None` the tab showing. The item stays
-/// on the canvas. When the tab was the one showing, the canvas is shown. The
-/// Canvas tab cannot be closed.
+/// on the canvas. When the tab was the one showing, its neighbour is shown,
+/// as a browser does: the tab that took its place, or the one before it
+/// when it was the last. The canvas is shown only when no other tab is
+/// left. The Canvas tab cannot be closed.
 pub(crate) fn close_tab(app: &mut App, item: Option<EntityId>, effects: &mut Vec<Effect>) {
     update::verb(app, effects, |app, effects| {
         let Some(item) = item.or_else(|| app.shown_item().cloned()) else {
             return;
         };
-        if app.session.tabs.close(&item).is_some() {
-            effects.push(Effect::Save);
+        let Some(at) = app.session.tabs.close(&item) else {
+            return;
+        };
+        effects.push(Effect::Save);
+        if app.shown_item() != Some(&item) {
+            return;
         }
-        if app.shown_item() == Some(&item) {
+        let order = &app.session.tabs.order;
+        if let Some(next) = order.get(at).or_else(|| order.last()).cloned() {
+            show_item(app, &next, effects);
+        } else {
             leave(app);
             set_focus(app, None, effects);
         }

@@ -136,7 +136,7 @@ The item view is camera and size management over the one canvas, and nothing mor
 - **The Canvas lens is removed.** It was a second canvas inside the item view, with a camera the tab kept. Lenses are Fill and Device, and in an item view the camera is always held on the item. Nothing is kept per tab but the lens.
 - **The eye is removed.** Fill keeps its rule (only the item and what follows one of its elements is seen and can be made). Device sees and makes everything by the canvas's rules. Superseded the same day by "the eye and the mark" below.
 - **The item shown has no selection chrome.** In Fill and Device it draws no outline and no resize handles, and its handles cannot be hit. Superseded the same day by "the eye and the mark" below.
-- **Leaving centres the item at the canvas zoom.** Minimize, the Canvas tab and closing the tab showing keep the zoom the canvas had and centre the item's stored rect (with its device frame) in the free part of the viewport, so the item shrinks in place. If the item is gone the canvas gets its camera back unchanged. Closing the tab showing goes to the canvas.
+- **Leaving centres the item at the canvas zoom.** Minimize, the Canvas tab and closing the last tab keep the zoom the canvas had and centre the item's stored rect (with its device frame) in the free part of the viewport, so the item shrinks in place. If the item is gone the canvas gets its camera back unchanged. Closing the tab showing shows its neighbour, as a browser does: the tab that took its place, or the one before it when it was the last. It goes to the canvas only when no other tab is left.
 
 ## Amendment, 2026-10-10: the eye and the mark
 

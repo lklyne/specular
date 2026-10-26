@@ -95,15 +95,21 @@ expect editing https://example.com/p1
 key escape
 key escape
 
-# closing the tab showing shows the canvas, which keeps its tab
+# closing the tab showing shows the tab that took its place, or the one
+# before it when it was the last, as a browser does; the canvas only when
+# no other tab is left, and its own tab never closes
 control view.item.n
 key cmd+w
-expect showing canvas
+expect showing p2
+expect tabs has view.item.p2 "Synthetic example.com/p2" Device active
 expect tabs count 3 view.
 key cmd+w
-expect tabs count 3 view.
-control view.item.p1.close
-control view.item.p2.close
+expect showing p1
+expect tabs count 2 view.
+key cmd+w
+expect showing canvas
+expect tabs count 1 view.
+key cmd+w
 expect tabs count 1 view.
 # a tab's own close button takes it whichever tab shows, and what shows
 # stays unless it was that one
