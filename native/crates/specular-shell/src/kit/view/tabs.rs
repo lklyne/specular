@@ -145,16 +145,19 @@ fn bare_strip() -> impl IntoElement {
         })
 }
 
-/// The button at a tab's far end that closes it, there while the pointer is
-/// over the tab. It sits on `fill`, the colour the tab has then, over the
-/// end of the label. Its press is its own: the tab under it neither lays
-/// its page out nor shows it.
-fn close(id: &ControlId, action: Action, fill: u32, hover: u32) -> impl IntoElement {
+/// The button at a tab's far end that closes it: always there on the tab
+/// showing, as a browser has it, and on another while the pointer is over
+/// it. It sits on `fill`, the colour the tab has then, over the end of the
+/// label. Its press is its own: the tab under it neither lays its page out
+/// nor shows it.
+fn close(id: &ControlId, action: Action, active: bool, fill: u32, hover: u32) -> impl IntoElement {
     let id = id.child("close");
     h_flex()
         .id(element_id(&id))
-        .invisible()
-        .group_hover(HOVERED, gpui_kit::Styled::visible)
+        .when(!active, |this| {
+            this.invisible()
+                .group_hover(HOVERED, gpui_kit::Styled::visible)
+        })
         .absolute()
         .right(px(RIM + 4.0))
         .top(px((TAB.2 - CLOSE) / 2.0))
@@ -242,7 +245,7 @@ fn tab(model: &ViewTab) -> impl IntoElement {
             } else {
                 (theme::tab_hover(), theme::raised_fill())
             };
-            close(&model.id, action, under, over)
+            close(&model.id, action, model.active, under, over)
         }))
         .when_some(model.prepare.clone(), |this, prepare| {
             this.on_mouse_down(MouseButton::Left, move |_, _, _| {

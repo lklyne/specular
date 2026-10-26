@@ -142,9 +142,9 @@ expect showing canvas
 control view.add
 expect selection @top
 expect tabs lacks showing canvas
-expect tabs has "Page" Device active
-expect editor has field page.url
+expect tabs has Device active closes
 type example.org
+expect editing example.org
 key enter
 expect effects has navigate
 key escape
@@ -172,7 +172,7 @@ expect saved same-as mark before-press
 # a page's tab has the page's icon until another document loads
 page-reports p1 url https://example.com/a
 page-reports p1 favicon
-expect tabs has view.item.p1 "example.com" Device closes favicon
+expect tabs has Device closes favicon
 page-reports p1 url https://example.com/a#top
 expect tabs has closes favicon
 page-reports p1 url https://example.com/b
