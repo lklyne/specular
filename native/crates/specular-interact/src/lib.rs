@@ -107,6 +107,7 @@ mod url;
 mod verbs;
 mod viewport;
 mod zoom;
+mod zoom_settle;
 
 pub use anchor::{anchors_to_pages, matches_page_url};
 pub use anchors::Anchor;
@@ -220,3 +221,4 @@ pub use update::update;
 pub use url::{looks_like_url, normalize_user_url, resolve_address_input};
 pub use verbs::{delete_commands, move_commands};
 pub use zoom::fitting as fit_camera;
+pub use zoom_settle::ZOOM_SETTLE_MS;

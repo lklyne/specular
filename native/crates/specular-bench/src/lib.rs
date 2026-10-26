@@ -44,8 +44,8 @@ pub use error::BenchError;
 pub use latency::{InputSeq, LatencySummary, LatencyTracker};
 pub use memory::{MemoryReport, MemorySample, PeakSampler, sample_process_tree};
 pub use profile::{
-    GestureProfile, GestureStep, IDLE, PHASE_GAP, PROFILES, ProfileId, STEP_INTERVAL, build_steps,
-    select_profiles,
+    GestureProfile, GestureStep, IDLE, PHASE_GAP, PROFILES, ProfileId, STEP_INTERVAL,
+    TRACKPAD_ZOOM, build_steps, select_profiles,
 };
 pub use recorder::{PhaseRecorder, PresentedFrame};
 pub use report::{PaintPolicy, PhaseReport, RunReport, Shell};

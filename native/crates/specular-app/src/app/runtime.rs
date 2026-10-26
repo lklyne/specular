@@ -196,9 +196,6 @@ pub struct Runtime<W> {
     pub(crate) api_outcome: Option<ApiOutcome>,
     /// The window title as last set.
     pub(crate) title: String,
-    /// The zoom the previous frame was drawn at, to tell when a zoom is in
-    /// flight.
-    pub(crate) drawn_zoom: f32,
     /// The window, once it is open.
     pub(crate) gpu: Option<W>,
     pub(crate) events: Vec<PageEvent>,
@@ -261,7 +258,6 @@ impl<W: ShellWindow> Runtime<W> {
             cdp: None,
             api_outcome: None,
             title: String::new(),
-            drawn_zoom: START_CAMERA.zoom,
             gpu: None,
             events: Vec::new(),
             latency: InputLatencyProbe::default(),

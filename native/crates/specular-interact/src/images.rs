@@ -109,9 +109,6 @@ pub(crate) struct Images {
     by_file: BTreeMap<String, Image>,
     next_key: u64,
     animations: Animations,
-    /// The zoom when rasters were last considered: a raster is only asked
-    /// for once the zoom has held still between two looks.
-    zoom_seen: f32,
 }
 
 impl Images {

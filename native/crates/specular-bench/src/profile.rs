@@ -43,6 +43,11 @@ pub enum ProfileId {
     /// `zoom-out-then-pan`: a quick zoom-out, then a fast pan still running
     /// when a zoom settle would land.
     ZoomOutThenPan,
+    /// `trackpad-zoom`: the slow zoom as a trackpad sends it, its steps
+    /// landing on two refreshes in three, so some frames come between two
+    /// steps with the zoom where it was. Not one of Electron's, and not
+    /// part of `all`.
+    TrackpadZoom,
     /// `idle`: nothing moves. Not one of Electron's, and not part of `all`.
     Idle,
 }
@@ -67,6 +72,7 @@ impl ProfileId {
             Self::SlowPanZoom => "slow-pan-zoom",
             Self::FastPanZoom => "fast-pan-zoom",
             Self::ZoomOutThenPan => "zoom-out-then-pan",
+            Self::TrackpadZoom => "trackpad-zoom",
             Self::Idle => "idle",
         }
     }
@@ -88,6 +94,7 @@ impl FromStr for ProfileId {
             "fast-pan" => Ok(Self::FastDiagonalPan),
             "pan-zoom" => Ok(Self::SlowPanZoom),
             "idle" => Ok(Self::Idle),
+            "trackpad-zoom" => Ok(Self::TrackpadZoom),
             _ => Self::ALL
                 .into_iter()
                 .find(|id| id.as_str() == s)
@@ -167,6 +174,19 @@ pub const IDLE: GestureProfile = GestureProfile {
     zoom_delta_y: 0.0,
 };
 
+/// The slow zoom with a refresh in three that has no step. Runs only when
+/// named.
+pub const TRACKPAD_ZOOM: GestureProfile = GestureProfile {
+    id: ProfileId::TrackpadZoom,
+    label: "Trackpad zoom",
+    duration: Duration::from_millis(2_000),
+    pan: Vec2::ZERO,
+    zoom_delta_y: -140.0,
+};
+
+/// In [`TRACKPAD_ZOOM`], every this-many-th refresh has no step.
+const TRACKPAD_GAP_EVERY: usize = 3;
+
 impl GestureProfile {
     /// The profile with its duration replaced, as `durationMs` does on
     /// `POST /perf/pan-zoom/run`. The totals are unchanged, so a shorter
@@ -206,6 +226,10 @@ pub fn select_profiles(ids: &[ProfileId], duration: Option<Duration>) -> Vec<Ges
     PROFILES
         .into_iter()
         .filter(|profile| ids.is_empty() || ids.contains(&profile.id))
+        .chain(
+            ids.contains(&ProfileId::TrackpadZoom)
+                .then_some(TRACKPAD_ZOOM),
+        )
         .chain(ids.contains(&ProfileId::Idle).then_some(IDLE))
         .map(|profile| match duration {
             Some(duration) if !duration.is_zero() => profile.with_duration(duration),
@@ -254,6 +278,21 @@ pub fn build_steps(profile: &GestureProfile, interval: Duration) -> Vec<GestureS
             .chain(std::iter::repeat_n(pan, pan_steps))
             .collect();
     }
+    if profile.id == ProfileId::TrackpadZoom {
+        let gap = |index: usize| index % TRACKPAD_GAP_EVERY == TRACKPAD_GAP_EVERY - 1;
+        let moving = (0..step_count).filter(|&index| !gap(index)).count().max(1);
+        let step = GestureStep {
+            pan: profile.pan / moving as f32,
+            zoom_delta_y: profile.zoom_delta_y / moving as f32,
+        };
+        let still = GestureStep {
+            pan: Vec2::ZERO,
+            zoom_delta_y: 0.0,
+        };
+        return (0..step_count)
+            .map(|index| if gap(index) { still } else { step })
+            .collect();
+    }
     let step = GestureStep {
         pan: profile.pan / step_count as f32,
         zoom_delta_y: profile.zoom_delta_y / step_count as f32,
@@ -298,13 +337,20 @@ mod tests {
 
     #[test]
     fn every_profile_sums_to_its_totals() {
-        for p in PROFILES {
+        for p in PROFILES.into_iter().chain([TRACKPAD_ZOOM]) {
             let steps = build_steps(&p, STEP_INTERVAL);
             let pan: Vec2 = steps.iter().map(|s| s.pan).sum();
             let zoom: f32 = steps.iter().map(|s| s.zoom_delta_y).sum();
             assert!(pan.abs_diff_eq(p.pan, 1e-2), "{}", p.id);
             assert!((zoom - p.zoom_delta_y).abs() < 1e-2, "{}", p.id);
         }
+    }
+
+    #[test]
+    fn trackpad_zoom_leaves_every_third_refresh_without_a_step() {
+        let steps = build_steps(&TRACKPAD_ZOOM, STEP_INTERVAL);
+        let still: Vec<bool> = steps.iter().map(|s| s.zoom_delta_y == 0.0).collect();
+        assert_eq!(still[..6], [false, false, true, false, false, true]);
     }
 
     #[test]

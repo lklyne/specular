@@ -121,9 +121,8 @@ impl<W: ShellWindow> Runtime<W> {
         let view = started.elapsed();
         let camera = self.app.session().camera;
         // Text keeps its raster size while the zoom moves, and the first
-        // frame at a steady zoom sharpens it.
-        let zooming = (camera.zoom - self.drawn_zoom).abs() > f32::EPSILON;
-        self.drawn_zoom = camera.zoom;
+        // frame once it has settled sharpens it.
+        let zooming = self.app.zoom_moving();
         let hosts = &self.hosts;
         let page_of = |entity: &EntityId| hosts.get(entity).map(|host| host.page);
         let started = Instant::now();
