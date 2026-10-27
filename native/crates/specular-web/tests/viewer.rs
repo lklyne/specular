@@ -275,7 +275,10 @@ fn the_canvas_keeps_the_comments_it_was_published_with() {
     let mut viewer = open(&published(&document), Access::Comment, 1);
     let theirs = remote_comment("a1", (600.0, 600.0), "from Dana");
     viewer.set_comments(vec![theirs.clone()]);
-    assert_eq!(viewer.app().document().annotations(), &[mine.clone(), theirs.clone()]);
+    assert_eq!(
+        viewer.app().document().annotations(),
+        &[mine.clone(), theirs.clone()]
+    );
     // The server's copy of a published comment (resolved there) wins.
     let resolved = Annotation {
         status: specular_doc::AnnotationStatus::Resolved,
