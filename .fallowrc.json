@@ -39,7 +39,14 @@
 
     "vite.main.config.ts",
     "vite.preload.config.ts",
-    "vite.renderer.config.ts"
+    "vite.renderer.config.ts",
+
+    "server/src/worker.ts",
+    "server/scripts/share.ts",
+    "server/test/**/*.test.ts",
+    "server/vitest.config.ts",
+    "server/drizzle.config.ts",
+    "web/index.html"
   ],
   "ignorePatterns": ["native/crates/specular-prism/capture/**"],
   "rules": {

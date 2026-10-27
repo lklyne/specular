@@ -38,7 +38,7 @@ Connection tokens go in `Authorization: Bearer <token>`.
 ## Run it locally
 
 ```sh
-pnpm install --ignore-workspace
+pnpm install                         # its own pnpm workspace, apart from the app's
 ../web/build.sh                      # the viewer's WebAssembly, into web/pkg
 printf 'BETTER_AUTH_SECRET=dev\nBETTER_AUTH_URL=http://localhost:8787\n' > .dev.vars
 npx wrangler d1 migrations apply specular-auth --local

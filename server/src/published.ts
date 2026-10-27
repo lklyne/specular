@@ -15,7 +15,7 @@ const MAX_MANIFEST_BYTES = 256 * 1024;
  * each file the canvas names, all as content-addressed asset hashes
  * (`specular-web/src/bundle.rs` is the other side of this).
  */
-export interface Manifest {
+interface Manifest {
   format: number;
   title: string;
   publishedAt: string;
@@ -31,7 +31,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /** Why `value` is not a manifest this server takes, or `null` when it is. */
-export function manifestProblem(value: unknown): string | null {
+function manifestProblem(value: unknown): string | null {
   if (!isRecord(value)) return "not an object";
   if (value.format !== FORMAT) return `format must be ${FORMAT}`;
   if (typeof value.title !== "string" || value.title.length > 200) {

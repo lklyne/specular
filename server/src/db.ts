@@ -13,7 +13,7 @@ export function getDb(env: Env) {
 /** Capability scopes, widest-first. `edit` is the only writable scope. */
 export type Scope = "view" | "comment" | "edit";
 
-export const SCOPES: readonly Scope[] = ["view", "comment", "edit"];
+const SCOPES: readonly Scope[] = ["view", "comment", "edit"];
 
 export function isScope(value: unknown): value is Scope {
   return typeof value === "string" && (SCOPES as readonly string[]).includes(value);

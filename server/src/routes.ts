@@ -311,6 +311,62 @@ async function getAsset(env: Env, hash: string): Promise<Response> {
   return new Response(object.body, { headers });
 }
 
+type Handler = (
+  request: Request,
+  env: Env,
+  params: string[],
+) => Promise<Response>;
+
+/**
+ * The HTTP surface. A `:` segment matches any one path segment and is passed
+ * to the handler, in order, as `params`.
+ */
+const ROUTES: [string, Partial<Record<string, Handler>>][] = [
+  ["assets/:hash", {
+    GET: (_, env, [hash]) => getAsset(env, hash),
+    HEAD: (_, env, [hash]) => getAsset(env, hash),
+  }],
+  ["redeem", { POST: (request, env) => redeem(request, env) }],
+  ["docs", { POST: (request, env) => createDoc(request, env) }],
+  ["docs/:doc/links", {
+    POST: (request, env, [doc]) => createLink(request, env, doc),
+    GET: (request, env, [doc]) => listLinks(request, env, doc),
+  }],
+  ["docs/:doc/links/:grant", {
+    DELETE: (request, env, [doc, grant]) => revokeLink(request, env, doc, grant),
+  }],
+  ["docs/:doc/links/:grant/reset", {
+    POST: (request, env, [doc, grant]) => resetLink(request, env, doc, grant),
+  }],
+  ["docs/:doc/connect", { POST: (request, env, [doc]) => ownerConnect(request, env, doc) }],
+  ["docs/:doc/assets", { POST: (request, env, [doc]) => uploadAsset(request, env, doc) }],
+  ["docs/:doc/versions", { POST: (request, env, [doc]) => publish(request, env, doc) }],
+  ["docs/:doc/manifest", { GET: (request, env, [doc]) => getManifest(request, env, doc) }],
+  ["docs/:doc/comments", {
+    GET: (request, env, [doc]) => listComments(request, env, doc),
+    POST: (request, env, [doc]) => createComment(request, env, doc),
+  }],
+  ["docs/:doc/comments/:id", {
+    PATCH: (request, env, [doc, id]) => setStatus(request, env, doc, id),
+    DELETE: (request, env, [doc, id]) => deleteComment(request, env, doc, id),
+  }],
+  ["docs/:doc/comments/:id/replies", {
+    POST: (request, env, [doc, id]) => addReply(request, env, doc, id),
+  }],
+];
+
+/** The `:` segments of `segments` when they fit `pattern`, else `null`. */
+function match(pattern: string, segments: string[]): string[] | null {
+  const parts = pattern.split("/");
+  if (parts.length !== segments.length) return null;
+  const params: string[] = [];
+  for (const [i, part] of parts.entries()) {
+    if (part.startsWith(":")) params.push(segments[i]);
+    else if (part !== segments[i]) return null;
+  }
+  return params;
+}
+
 /**
  * Dispatch the HTTP surface. Returns `null` when the path is not one
  * of these routes so the worker can fall through to the web viewer.
@@ -319,87 +375,13 @@ export async function handleApiRequest(
   request: Request,
   env: Env,
 ): Promise<Response | null> {
-  const url = new URL(request.url);
-  const segments = url.pathname.split("/").filter(Boolean);
-  const method = request.method;
-
-  // /assets/:hash
-  if (segments[0] === "assets" && segments.length === 2) {
-    if (method === "GET" || method === "HEAD") return getAsset(env, segments[1]);
-    return json({ error: "method not allowed" }, 405);
+  const segments = new URL(request.url).pathname.split("/").filter(Boolean);
+  for (const [pattern, methods] of ROUTES) {
+    const params = match(pattern, segments);
+    if (!params) continue;
+    const handler = methods[request.method];
+    if (!handler) return json({ error: "method not allowed" }, 405);
+    return handler(request, env, params);
   }
-
-  if (segments[0] === "redeem" && segments.length === 1) {
-    if (method === "POST") return redeem(request, env);
-    return json({ error: "method not allowed" }, 405);
-  }
-
-  if (segments[0] === "docs") {
-    // POST /docs
-    if (segments.length === 1) {
-      if (method === "POST") return createDoc(request, env);
-      return json({ error: "method not allowed" }, 405);
-    }
-
-    const docId = segments[1];
-
-    // /docs/:docId/links[...]
-    if (segments[2] === "links") {
-      if (segments.length === 3) {
-        if (method === "POST") return createLink(request, env, docId);
-        if (method === "GET") return listLinks(request, env, docId);
-        return json({ error: "method not allowed" }, 405);
-      }
-      const grantId = segments[3];
-      if (segments.length === 4 && method === "DELETE") {
-        return revokeLink(request, env, docId, grantId);
-      }
-      if (segments.length === 5 && segments[4] === "reset" && method === "POST") {
-        return resetLink(request, env, docId, grantId);
-      }
-      return json({ error: "not found" }, 404);
-    }
-
-    if (segments[2] === "connect" && segments.length === 3) {
-      if (method === "POST") return ownerConnect(request, env, docId);
-      return json({ error: "method not allowed" }, 405);
-    }
-
-    if (segments[2] === "assets" && segments.length === 3) {
-      if (method === "POST") return uploadAsset(request, env, docId);
-      return json({ error: "method not allowed" }, 405);
-    }
-
-    // /docs/:docId/versions — publish; /docs/:docId/manifest — the newest.
-    if (segments[2] === "versions" && segments.length === 3) {
-      if (method === "POST") return publish(request, env, docId);
-      return json({ error: "method not allowed" }, 405);
-    }
-    if (segments[2] === "manifest" && segments.length === 3) {
-      if (method === "GET") return getManifest(request, env, docId);
-      return json({ error: "method not allowed" }, 405);
-    }
-
-    // /docs/:docId/comments[/:id[/replies]]
-    if (segments[2] === "comments") {
-      if (segments.length === 3) {
-        if (method === "GET") return listComments(request, env, docId);
-        if (method === "POST") return createComment(request, env, docId);
-        return json({ error: "method not allowed" }, 405);
-      }
-      const id = segments[3];
-      if (segments.length === 4) {
-        if (method === "PATCH") return setStatus(request, env, docId, id);
-        if (method === "DELETE") return deleteComment(request, env, docId, id);
-        return json({ error: "method not allowed" }, 405);
-      }
-      if (segments.length === 5 && segments[4] === "replies") {
-        if (method === "POST") return addReply(request, env, docId, id);
-        return json({ error: "method not allowed" }, 405);
-      }
-      return json({ error: "not found" }, 404);
-    }
-  }
-
   return null;
 }

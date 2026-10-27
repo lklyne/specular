@@ -25,7 +25,7 @@ export interface ResolvedConnection {
  *
  * Owner-shortcut tokens carry no parent and pass on TTL alone.
  */
-export async function resolveConnectionToken(
+async function resolveConnectionToken(
   db: Db,
   token: string,
 ): Promise<ResolvedConnection | null> {
