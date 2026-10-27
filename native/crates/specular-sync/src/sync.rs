@@ -487,13 +487,33 @@ impl<S: Clone + Default> CanvasSync<S> {
     /// shared document, and returns the commands that ran.
     fn project(&self, document: &mut Document) -> Option<Command> {
         let dirty = std::mem::take(&mut *lock(&self.dirty));
+        let Run {
+            mut ran, refused, ..
+        } = self.project_dirty(document, &dirty);
+        let repaired = repair_cycles(document, &refused, &mut ran);
+        if !repaired.is_empty() {
+            {
+                let mut txn = self.doc.transact_mut_with(QUIET);
+                self.write(&mut txn, document, &repaired);
+            }
+            self.clear_dirty();
+        }
+        match ran.len() {
+            0 => None,
+            1 => ran.pop(),
+            _ => Some(Command::Batch(ran)),
+        }
+    }
+
+    fn project_dirty<'a>(&self, document: &'a mut Document, dirty: &Dirty) -> Run<'a> {
         let txn = self.doc.transact();
         let mut run = Run {
             document,
             ran: Vec::new(),
+            refused: Vec::new(),
         };
-        self.project_stack(&txn, &dirty, &mut run);
-        self.project_annotations(&txn, &dirty, &mut run);
+        self.project_stack(&txn, dirty, &mut run);
+        self.project_annotations(&txn, dirty, &mut run);
         for file in &dirty.notes {
             let wanted = match self.notes.get(&txn, file) {
                 Some(Out::YText(text)) => Some(text.get_string(&txn)),
@@ -506,12 +526,7 @@ impl<S: Clone + Default> CanvasSync<S> {
                 });
             }
         }
-        let mut ran = run.ran;
-        match ran.len() {
-            0 => None,
-            1 => ran.pop(),
-            _ => Some(Command::Batch(ran)),
-        }
+        run
     }
 
     /// Entities, edges and their stack order.
@@ -606,18 +621,68 @@ impl<S: Clone + Default> CanvasSync<S> {
 struct Run<'a> {
     document: &'a mut Document,
     ran: Vec<Command>,
+    refused: Vec<Command>,
 }
 
 impl Run<'_> {
     fn run(&mut self, command: Command) {
         match self.document.apply(command.clone()) {
             Ok(_) => self.ran.push(command),
-            // A peer's change can be refused here, such as a group moved
-            // into a group another peer moved into it. The shared document
-            // keeps it; this copy skips it.
-            Err(error) => tracing::warn!("a peer's change was refused: {error}"),
+            Err(error) => {
+                tracing::warn!("a peer's change was refused: {error}");
+                self.refused.push(command);
+            }
         }
     }
+}
+
+/// Two peers that each move a group into the other at the same time leave
+/// a loop in the shared document, which this document refuses, so each
+/// peer would keep a different half of it. Every peer breaks such a loop
+/// the same way: the group with the greatest id in it is taken out of its
+/// parent. The other move is then applied, and what was repaired is
+/// returned to be written back, so the shared document holds no loop
+/// either.
+fn repair_cycles(document: &mut Document, refused: &[Command], ran: &mut Vec<Command>) -> Touched {
+    let mut repaired = Touched::default();
+    for command in refused {
+        let Command::SetParent {
+            id,
+            parent: Some(parent),
+        } = command
+        else {
+            continue;
+        };
+        // The loop: `id`, `parent`, and the groups above `parent` up to `id`.
+        let mut members = vec![id.clone(), parent.clone()];
+        members.extend(
+            document
+                .ancestors(parent)
+                .map(|group| group.id.clone())
+                .take_while(|group| group != id),
+        );
+        if !document.ancestors(parent).any(|group| group.id == *id) {
+            continue;
+        }
+        let Some(breaker) = members.iter().max().cloned() else {
+            continue;
+        };
+        let mut steps = vec![Command::SetParent {
+            id: breaker.clone(),
+            parent: None,
+        }];
+        if breaker != *id {
+            steps.push(command.clone());
+        }
+        for step in steps {
+            if document.apply(step.clone()).is_ok() {
+                ran.push(step);
+            }
+        }
+        repaired.entities.insert(breaker);
+        repaired.entities.insert(id.clone());
+    }
+    repaired
 }
 
 /// `items` sorted by `key`, an order key and an id. Keyless items, which a
@@ -654,6 +719,15 @@ impl Touched {
         let mut touched = Self::default();
         touched.add(command);
         touched
+    }
+
+    fn is_empty(&self) -> bool {
+        self.entities.is_empty()
+            && self.edges.is_empty()
+            && self.annotations.is_empty()
+            && self.notes.is_empty()
+            && !self.order
+            && !self.annotation_order
     }
 
     fn add(&mut self, command: &Command) {

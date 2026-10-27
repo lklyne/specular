@@ -259,6 +259,36 @@ fn reorders_made_at_the_same_time_converge() {
 }
 
 #[test]
+fn groups_moved_into_each_other_at_the_same_time_end_the_same_everywhere() {
+    let mut ann = Peer::publish(document([
+        group("g1", rect(0.0, 0.0)),
+        group("g2", rect(300.0, 0.0)),
+    ]));
+    let mut ben = Peer::join(&ann);
+    let parent_of = |peer: &Peer, id: &str| {
+        let entity = peer.doc.entity(&EntityId::from(id)).expect("entity");
+        entity.parent.clone()
+    };
+
+    ann.act(Command::SetParent {
+        id: "g1".into(),
+        parent: Some("g2".into()),
+    });
+    ben.act(Command::SetParent {
+        id: "g2".into(),
+        parent: Some("g1".into()),
+    });
+    exchange(&mut [&mut ann, &mut ben]);
+    exchange(&mut [&mut ann, &mut ben]);
+    assert_same(&ann.doc, &ben.doc);
+    // Each peer refused the other's move; both break the loop the same way.
+    for peer in [&ann, &ben] {
+        assert_eq!(parent_of(peer, "g1"), Some("g2".into()));
+        assert_eq!(parent_of(peer, "g2"), None);
+    }
+}
+
+#[test]
 fn edits_made_offline_merge_when_peers_reconnect() {
     let mut ann = Peer::publish(three_stickies());
     let mut ben = Peer::join(&ann);
