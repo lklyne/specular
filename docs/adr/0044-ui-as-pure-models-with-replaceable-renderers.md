@@ -1,6 +1,6 @@
 # ADR 0044: UI as pure models with replaceable renderers
 
-**Status:** Proposed. Built this way in `native/crates/specular-interact/src/panel/` and beside it during the Rust rebuild. The user has not reviewed this ADR.
+**Status:** Accepted, 2026-10-25, by Lyle with the [big run](../plans/rust-native-big-run.md)'s decisions. Built this way in `native/crates/specular-interact/src/panel/` and beside it during the Rust rebuild.
 **Date:** 2026-10-08
 **Related:** [ADR 0039](./0039-rust-canvas-render-stack.md), which chose egui for panels and was never built that way. [ADR 0040](./0040-gpui-kit-hybrid-shell.md), the GPUI Kit shell. [ADR 0042](./0042-update-view-render-loop-effects-only-io.md). [ADR 0008](./0008-unified-canvas-item-popup.md), the popup this models.
 **Code:** `specular-interact/src/{panel,sidebar,menu,chat,settings,first_run}`, the built-in renderer in `specular-interact/src/panel/builtin/` and `specular-scene/src/panel/`, the Kit renderer in `specular-shell/src/view/`.

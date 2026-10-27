@@ -137,7 +137,7 @@ impl Pill {
 }
 
 /// A soft focus for the prompt. Not a write fence.
-pub fn focus_prompt(pill: &Pill) -> Option<String> {
+pub(crate) fn focus_prompt(pill: &Pill) -> Option<String> {
     match pill {
         Pill::Selection { entity_ids, .. } if !entity_ids.is_empty() => Some(format!(
             "The user has selected {} and likely wants to focus on those.",

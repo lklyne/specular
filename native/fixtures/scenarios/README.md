@@ -1,86 +1,242 @@
 # Scenario scripts
 
-Whole sessions, scripted, that use the features together. Each `.txt` is a
-`--script` file and reads as what a person would do. The step names are in
-"Looking at what it draws" in [`native/CLAUDE.md`](../../CLAUDE.md).
+Whole sessions, scripted, that use the features together and check what
+they leave. Each `.txt` here is one script in the one format that both
+runners read (`specular_shell::script`): the headless runner
+(`specular --script`) and the Kit window (`SPECULAR_SHELL_SCRIPT_FILE`).
+Scripts are grouped by user flow, one flow a file.
 
 ```sh
-fixtures/scenarios/run.sh                      # all of them
-fixtures/scenarios/run.sh c-document           # one
-QA_OUT=/tmp/qa fixtures/scenarios/run.sh       # somewhere else
+fixtures/scenarios/run.sh                    # every scenario, headless
+fixtures/scenarios/run.sh first-session      # one
+fixtures/scenarios/run.sh --kit              # in the Kit window (needs the display)
+fixtures/scenarios/run.sh --cef              # cef/: real pages, needs a CEF bundle
+fixtures/scenarios/run.sh --cli              # cli/: the CLI end to end
+SCENARIO=first cargo test -p specular-shell --test scenarios   # headless, from cargo
 ```
 
-`run.sh` builds `specular-app`, runs each script headless and leaves its
-PNGs and saved `.canvas` files in `native/runs/qa/<scenario>/`, which is
-not checked in. It prints any warning a run logged. `check.py` then
-compares the saved canvases as JSON and exits non-zero if a session left
-something it should not have. A PNG has no check. Open it with the Read
-tool. A scene or compositor change is not done until the frames it touches
-have been looked at.
+What the window runner does so a script means the same as headless: it
+lets the window take posted pointer moves, tells the app the system is
+light with Reduce motion off and the camera spring off unless a step says
+otherwise, rests on a control before it clicks it (what shows on hover is
+drawn by then), lifts a button a script left down before the next press,
+waits for a step's images and Documents, reads a relative `drop` path from
+the canvas's folder, opens its copy of the canvas as `Canvas 1.canvas`,
+leaves keys to the input method while a composition runs, reads a Kit
+field's text for `expect editing`, and starts no real agent.
+
+`run.sh` prints one `pass` or `FAIL` line a scenario and exits non-zero
+when any fails. What a run saves and draws goes to
+`native/runs/scenarios/<mode>/<scenario>/` with its `stderr.log`.
+`cargo test --workspace` runs every headless scenario too
+(`crates/specular-shell/tests/scenarios.rs`), so CI gets them with the
+tests.
+
+Headless runs use the synthetic pages and draw no panels: a
+`control NAME` step presses the control from the models. Steps only a
+window can do (`resize`, `keycode`, `swipe`, `menu-choose` ...) are skipped
+headless and listed when the run ends. In the Kit window a `control` step
+clicks the control where it is drawn; one that is not drawn (a sidebar row
+out of view, a choice in a closed list, a settings switch) is pressed from
+the models, and the run says so.
+
+## A script
+
+```text
+# canvas: ../kitchen-sink.canvas
+# What the session is, in a sentence or two.
+camera 32,-368,0.8
+tool sticky
+click 200 160
+type Ship the beta
+key escape
+expect count sticky 21
+expect entity @top text Ship the beta
+undo-to-start
+```
+
+- The first line names the canvas, relative to this folder. A script with
+  none starts from `empty.canvas`, or from its `given` lines, which come
+  before the first step and describe the document inline:
+  `given sticky s1 100 100 200 200 Hello`, `given page p1 ...`,
+  `given inside g1 shape r1 ...`, `given edge e1 s1 r1`
+  (see `crates/specular-shell/src/script/given.rs`).
+- Start with a `camera x,y,zoom` step, so the positions that follow mean
+  something. Positions are screen pixels in a 1600x1000 viewport, laid out
+  as the Kit window lays it out in both runners: the tab row covers the top
+  38, the docked tools the left 36 (the sidebar 256 more while it is
+  shown), and fits, zoom steps and a tab's lens see what is left. A
+  pointer step that would land on the Kit's chrome fails headless with
+  what is there: the tab row, the docked tools, the armed tool's options
+  beside them, the dock's bar (38 to 74, while something is selected),
+  the right panel or outside the window. A drag under way may go anywhere.
+- Name controls with `control text.color`, never by where they are drawn.
+  Sidebar canvas rows are named by place: `sidebar.canvas.1`.
+- Check state with `expect` lines, not pictures. `state out.txt` writes
+  every fact a run can check, each line an `expect` without the word, so
+  the way to write one is to run a `state`, read it and paste.
+- Every scenario that changes the document checks `undo-to-start`: undo
+  until nothing is left, then compare with the canvas the run opened. What
+  undo does not take back (a page's address after it navigates) is named:
+  `undo-to-start except /nodes/p1/url`.
+- A page answers in its own time. After a click or a scroll that asks a
+  page something, `wait 100` before checking what came back. In the window
+  the synthetic pages answer between steps too, so do not check that a
+  page has not answered yet, and do not expect an address or an element
+  the script told the app (`page-says`, `page-reports`) to outlast a
+  reload or a move: the live page says its own.
+- New ids differ from run to run in a window, so name what a script made
+  with `@top` (the front-most entity), `@N` (the Nth from the back) or
+  `@selected`.
+- `snapshot NN-name.png` is kept for a few draw rules a state check cannot
+  see. A person reads them; nothing compares them.
+
+## The facts
+
+```text
+expect tool sticky                  expect count sticky 2
+expect selection s1 s2 | none       expect count entities|edges|comments|canvases|selected N
+expect focus canvas | page p1       expect entity s1 kind sticky
+expect editing Some text\nmore      expect entity s1 rect 100 100 200 200
+expect showing canvas | p1          expect entity s1 at 100 100 | size 200 200
+expect canvas Notes                 expect entity s1 text Ship it
+expect zoom 0.5                     expect entity d1 note # Plan
+expect camera -400,-900,2           expect entity s1 parent g1 | none
+expect sidebar on|off               expect entity s1 gone
+expect menu open|closed             expect undo some|none, expect redo some|none
+expect saved /nodes/s1/color = "4"
+expect saved /nodes/s1/specular/pageAnchor absent
+expect saved /annotations/-1 keys id anchor text ...
+expect saved /annotations length 6
+expect saved same-as start | mark NAME | ../kitchen-sink.canvas
+expect saved changed-from start at /nodes/s1/x
+```
+
+The canvas facts read what the pointer and the selection show, and
+what the last step asked the shell to do; the full list is at the top of
+`crates/specular-shell/src/script/facts_canvas.rs`:
+
+```text
+expect hit 400 185 anchor f1 top    expect guides horizontal top/b.top 100
+expect cursor resize-nwse           expect gaps horizontal 100 | 200 300 150
+expect handles entity s1            expect drop-target g | entered-group g
+expect seen s1 200 160 100 100      expect page p1 100 100 400 300 viewport 400 300
+expect order a b @top               expect edge @last @3 @4
+expect sent viewport p 500 300      expect sent no save | sent nothing
+```
+
+With them come the steps `page-says p1 scrolled 0 40` (or `url`, `fit`,
+`element`, `composition`), `appearance dark`, `theme-loaded light`,
+`repeat down`, `menu Edit > Undo`, and `act show:p1`. A headless run
+does `drop` too, a relative path read from the canvas's folder.
+
+The panel facts read a topic's lines, the ones a `state` step writes as
+`TOPIC has LINE`: `chat`, `comments`, `controls`, `editor`, `effects`,
+`inspect`, `menubar`, `onboarding`, `pages`, `palette`, `pointer`,
+`repos`, `settings`, `sidebar` and `tabs` (see
+`crates/specular-shell/src/script/facts_panels.rs`):
+
+```text
+expect chat has bubble agent "Made it blue."   expect comments has mark a pill 466 237 26 26
+expect controls is page.back disabled "Back"   expect editor is caret 5 0
+expect effects has run-agent cwd /scratch/site expect comments count 10 mark\s
+expect chat lacks queued                       expect tabs has lens device
+```
+
+`has` and `lacks` look for the text in any line, `is` for a whole line,
+and `count N` counts the lines that hold it. `effects` reads what the step
+before asked the shell, the same effects as `expect sent`, and only a
+headless run sees them. The steps that play the shell's and the agent's
+side are listed in `facts_panels/steps.rs`: `chat-panel on`, `send-chat
+TEXT`, `chat new-thread|back|close|stop|resolve|open N ...`, `agent-says
+session|text|delta|progress|finished|failed|cancelled|made ...`,
+`page-reports p1 title|url|loading|scrolled|scroll-progress|cursor|favicon
+...`, `bind ORIGIN PATH [auto]`, `note-text FILE TEXT` (and
+`note-missing`, `note-failed`, `note-refused`), `models`, `model-saved`,
+`ime-cancel`, `prepare-tab`, `space-needed`, `first-run-choice`,
+`settings-loaded` and `about`.
+
+`saved` reads the canvas as a save would write it now; a path steps
+through arrays by item id or index (`-1` is the last). Numbers compare by
+value. `same-as` and `changed-from` leave out `appState` (the camera and
+the open tabs). `mark NAME` remembers the canvas for a later `same-as`, and
+`reopen` writes the canvas and reads it back as a relaunch would. Text
+uses `\n`, `\t` and `\s` (a space at either end).
+
+## The scenarios
 
 | Script | The session |
 |---|---|
-| `a-first-session` | Empty canvas: two stickies, a pen and a highlight stroke, three labelled shapes, a move, a resize, undo to nothing, redo. |
-| `b-kitchen-sink-selection` | A marquee over stickies, text, shapes and an edge; move, resize, duplicate, Option-drag, nudge, delete, each undone. |
-| `c-document` | Add a Document, write markdown with the formatting shortcuts, end, reopen, scroll to the end and back, undo. |
-| `d-text-edge-cases` | Emoji, CJK through the input method, a long word, empty lines, replace-all, a multi-line paste, a shape label, editing at zoom 0.25 and 3. |
-| `e-clipboard` | Text between stickies, a cut, a copied entity, a pasted URL, pasted text with nothing selected. |
-| `k-page-chrome` | The page controls in the dock: a page placed at the preset the page tool was set to, an address typed, entered, scrolled and abandoned, a custom width and height typed into the size list, undone. |
-| `l-sidebar` | The kitchen sink with the left sidebar: shown with Command+B, canvases added, renamed in place (Enter, Escape) and deleted from the menu, sections folded, the list scrolled and a group opened, rows that bring a page and a comment into view, zoom to fit beside the sidebar and without it. |
-| `m-context-menu-and-arrange` | The kitchen sink with the right-click menu on a sticky (a duplicate chosen and undone), on empty canvas, on a page, in the corner and beside the sidebar, the multi-select and mixed popups, a row and a column arranged and undone, and bold put on a sticky mid-edit with the popup's button. |
-| `n-chrome-session` | One session through the chrome with the sidebar shown: a page picked from its row, the dock's address and size list, the right-click menu duplicating a sticky, a second canvas added and given a sticky, the first canvas switched back to and saved, a page shown alone from its tab and the Canvas tab pressed again. |
-| `f1-reload-own-save` | The canvas `a-first-session` saved, reopened and saved untouched. Run `a-first-session` first. |
-| `f2-electron-file-one-change` | The starter space's `Welcome.canvas`, which Electron wrote, with one shape nudged. |
-| `f3-fixture-one-change` | The integration suite's `rich-workspace.canvas` with one shape nudged. |
-| `g-zoom-and-pan` | Both zoom limits, Command-wheel zoom, and a pan or pinch in the middle of a move, a marquee, a resize and a stroke. |
-| `h-tools-and-escape` | Tool keys in a row, Escape at each stage of each gesture, a tool change mid-drag and mid-edit. |
-| `i-comments` | Comments on the kitchen sink: a point, one on a sticky, one on a page's element, a region on empty canvas and one over a page, an empty draft escaped, a two-line draft, focusing a pill, delete and undo, annotating a selection, resolving, undoing all of it. |
-| `j-toolbar-and-popups` | Empty canvas, every change made by naming a control: tools picked from the toolbar, a sticky and two shapes placed with their popup defaults, then recolored, resized and restyled, an edge dragged between the shapes and restyled, undo and redo across a property change, Escape and an outside press closing a list, the zoom list. |
+| `first-session` | Empty canvas: two stickies, a pen and a highlight stroke, three labelled shapes, a move, a resize, undo to nothing, redo, and the save read back. |
+| `selection-kitchen-sink` | A marquee over stickies, text, shapes and an edge; move, resize, duplicate, Option-drag, nudge, delete, each undone. |
+| `document-editing` | A Document written with the formatting shortcuts, reopened, a long tail of tasks, scrolled, undone and redone; a second with a numbered list nested and brought back. |
+| `text-edge-cases` | Emoji, CJK through the input method, a long word, empty lines, replace-all, a multi-line paste, a shape label, editing at zoom 0.25 and 3. |
+| `clipboard` | Text between stickies, a cut, a copied entity, a pasted URL, pasted text with nothing selected. |
+| `reload-electron-welcome` | The starter space's `Welcome.canvas`, which Electron wrote, saved as read, one shape nudged changes one field, read back. |
+| `reload-rich-workspace` | The Electron suite's `rich-workspace.canvas`, the same way. |
+| `zoom-and-pan` | Both zoom limits, Command-wheel zoom, and a pan or pinch in the middle of a move, a marquee, a resize and a stroke. |
+| `tools-and-escape` | Tool keys in a row, Escape at each stage of each gesture, a tool change mid-drag and mid-edit. |
+| `comments` | Comments on the kitchen sink in Electron's shape: points, a page element, two regions, an empty draft, a two-line draft, delete and undo, annotate a selection, resolve. |
+| `toolbar-and-popups` | Every change made by naming a control: a sticky and shapes placed with their tool defaults, restyled, an edge dragged and restyled, undo and redo across a property change, the zoom list. |
+| `page-chrome` | The page controls: the page tool's preset, an address entered (a local one over http) and one abandoned, a custom size, undone. |
+| `sidebar` | Canvases added, renamed (Enter, Escape) and deleted, sections folded, rows that select and reveal, zoom to fit with and without the sidebar; the kitchen sink is unchanged. |
+| `context-menu-and-arrange` | The right-click menu on a sticky, empty canvas and a page, a row and a column arranged and undone, bold put on mid-edit. |
+| `chrome-session` | A page from its row, its address and size list, a duplicate from the menu, a second canvas, a page shown alone and a sticky hooked to it there. |
+| `guides` | Alignment guides on a move, a copy and a resize; one snapshot of the lines. |
+| `auto-layout` | Three shapes made a managed row, regapped, turned to a column and back, reordered by a dot; a loose pair reordered with no group. |
+| `page-anchoring` | Items hooked to a scrolled page: a resize, an edit and a region attached to the cell under them, a duplicate that is free, the page deleted and brought back; one snapshot of the fade. |
+| `new-tab-links` | Links a page opens in a new tab, foreground and background, and a `javascript:` link that opens nothing. |
+| `select` | Pages picked then entered, Shift-click, edges, the marquee's modes, handles. |
+| `pointing` | What a point hits: page pixels, handles, anchors, ink, group borders and titles, hover. |
+| `groups-enter` | A group picked whole, stepped into and out of, renamed by its title, the innermost drop target. |
+| `groups` | Group and ungroup, a group refitting round its members, dragging into and out of groups. |
+| `resize` | Every resize rule: cursors, ratios by kind, ink, a group alone, pages laid out, a scaled selection, text. |
+| `edges` | Edges drawn, snapped, re-routed, deleted with their ends, followed, and labelled. |
+| `moves` | Moves on and off the grid, Shift, Option copies, delete, duplicate, nudge, selection across undo. |
+| `tools` | Tool keys and variants, the armed tool's ghost, shapes, text, stickies, pages and strokes placed. |
+| `guides-cases` | Guides with Shift off the grid, the half-unit tolerance, neighbours fixed at the press, groups. |
+| `arrange` | The stack order verbs and keys, and arranging in a row, a column and a grid. |
+| `layout-lines` | A managed row laid out again by each change, reorder dots and gap strips, loose lines. |
+| `anchor-cases` | Items hooked to pages by where they land, carried items resized and copied, element attachment. |
+| `entered-page` | An entered page's pointer, wheel, keys, input method and Edit menu; what asks for a save. |
+| `clipboard-items` | Items copied, cut and pasted with their edges, a group pasted whole, an address and text. |
+| `canvases` | Canvases made, switched, renamed, duplicated and deleted, each with its own history. |
+| `theme` | The theme button, the system's appearance, and the scheme pages are told. |
+| `safe-area` | Framed pages laid out inside their device's safe area until the document covers it. |
+| `html-file` | An HTML file node hosted, entered, commented on and shown in a tab, still a file. |
+| `text-fit` | Text measured on load with no step, and saved at its size on disk until changed. |
+| `images` | The kitchen sink's images loaded, missing or never asked for. |
+| `drop` | Files dropped from outside and inside the space, and several cascading. |
+| `reduced-motion` | A page's tab opened with transitions on, then with Reduce motion on, and the settings' cursor switches. |
+| `text-editing` | The editor from start to end: the one undo step, words, lines, bullets, its own undo, the pointer and the input method. |
+| `document-files` | A Document's file written as it is edited, reloaded from disk, a conflict kept as a copy, its formats, its wheel. |
+| `comment-tool` | The comment tool on two pages: points, elements, regions, the draft's card, Escape, empty drafts, a press elsewhere. |
+| `comment-marks` | Pills and frames by anchor, what a press on them does, focus, resolve and delete, marks that follow a page. |
+| `chat-comments` | Comments queued into threads, Send and the agent's run, follow-ups, failures, threads, cards, the model, the pill. |
+| `repos-and-inspect` | A page's origin linked to a repo, auto-fix, and the inspect tool's hover, popover and pick. |
+| `page-history` | What a page reports of itself, and back, forward, stop and reload on the selected or entered page. |
+| `page-scroll` | Comments and a hooked shape on a scrolled page: stored in its document, seen and pressed where the scroll puts them. |
+| `sync-sets` | The chain button's merge, copies and their sets, and the entered page's scroll moving its set. |
+| `tabs` | Tabs opened, ordered, closed, a new tab, Command-L, next and previous, a press that lays a page out. |
+| `lens` | A page's tab in Fill and Device, the eye, what is made beside it, a desktop browser in Fill. |
+| `item-view` | Input in an item view: the shown page entered, hidden things untouchable, a Document as a reading column; view verbs. |
+| `page-properties` | Size presets, turns, custom sizes, frames, the device colour and the colour scheme, from the popup and the keys. |
+| `dock` | Each selection's and each tool's controls, one step a press, edges and labels, the formatting buttons. |
+| `menus-and-settings` | The menu bar, the palette, the right-click menu, the settings and the first-run view. |
+| `sidebar-rows` | The sidebar's rows: order, nesting, dimming, chevrons, rows that select, extend and focus. |
+| `chrome-controls` | The toolbar's second click, lists and Escape, address and size fields, the menu's paste, canvases. |
 
-| `q-anchoring` | A sticky, a text and a region comment on a page that is scrolled under them, with an edge to the sticky: the fade at the page's top, a resize and a text edit while carried, a duplicate, the page deleted and brought back. |
+`cef/` holds the real-page suite (`run.sh --cef`): `pages.txt` (comments
+on page elements, a scrolled page, a reload) and `sync.txt` (a sync set
+followed through a click, a link and a scroll), then `cef/cli-pages.sh`,
+the browse verbs on real pages. `{site}` in a script is where `run.sh`
+serves `cef/`.
 
-## What `check.py` holds
+`cli/run.sh` (`run.sh --cli`) is the `specular` CLI end to end: it starts
+the Kit app on a scratch space and runs every verb against it, asserting
+on output, exit codes and the saved canvas (`cli/cases.py`).
+`cli/run.sh tabs_are_made_shown_written_in_the_background_and_deleted`
+runs one case.
 
-- In a, b, d, e and g, undoing every step gives back the canvas the session
-  opened. In a, redoing gives back what it had.
-- In h, an escaped gesture leaves nothing.
-- In i, undoing every step gives back the kitchen sink, and the six
-  comments it saved have Electron's field shape.
-- In l, the kitchen sink is as it was after everything the sidebar does.
-- In f1, a canvas saved, reopened and saved again is the same.
-- In f2 and f3, one change to a canvas from the Electron app changes one
-  field in the file. Every text keeps the size it was read with, though
-  this renderer measures it differently.
-
-- In i, each change the popups make lands in the saved canvas as the
-  property it names (a sticky's color and size, a shape's kind and border, an
-  edge's color, width, dash and arrowheads), undo takes back one of them and
-  redo returns it, and picking a zoom level changes no document.
-
-- In q, a resize while the page is scrolled stores what was seen, an edit
-  and a region are attached to the grid cell under them, a duplicate off
-  the page is free, and deleting the page frees what was hooked to it in
-  place, which one undo takes back.
-
-The camera in `appState` is left out of every comparison.
-
-## Writing one
-
-- The first line names the canvas: `# canvas: ../kitchen-sink.canvas`,
-  relative to this folder, or `runs:<scenario>/<file>` for one an earlier
-  script saved.
-- Start with a `camera x,y,zoom` step, so the positions that follow mean
-  something. Positions are screen pixels in a 1600x1000 viewport.
-- The chrome is the top 118 pixels: the tab row, the toolbar and the dock,
-  which holds the selection's controls. It takes the clicks that land on it. Click a control by its name
-  with `control text.color`, not by where it is.
-- A press with no `move` or `click` before it lands on whatever is there.
-  Snapshot and look.
-- Cmd+D pans the camera when the copies land off screen. Put a `camera`
-  step after it before going on by position.
-- A headless run keeps the clipboard and new Documents in memory, so
-  `key cmd+c`, `key cmd+v`, `clipboard some text` and `tool document` work
-  and nothing is written beside the canvas.
-- Number the snapshots and name them for what they should show. Where the
-  outcome is a document, `save` it and add a line to `check.py` instead of
-  a snapshot.
+`app/first-run.sh` and `resize/` drive the release bundle for the first
+run and the live-resize report; they are not scenarios.

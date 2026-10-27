@@ -1,0 +1,13 @@
+# canvas: ../kitchen-sink.canvas
+# Image files on the kitchen sink: each is asked for once and kept as the
+# shell answers, a missing one is known missing, and what is not a picture
+# is never asked for.
+camera fit
+wait 300
+expect image assets/kitchen-sink.png ready 320 200
+expect image assets/kitchen-sink.gif ready 64 64
+expect image assets/kitchen-sink.svg ready 120 80
+expect image assets/not-there.png missing
+expect image assets/archive.zip none
+expect image kitchen-sink.md none
+expect undo none

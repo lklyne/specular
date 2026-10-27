@@ -32,7 +32,7 @@ pub enum TabRefError {
 /// once trimmed. It never guesses: an ambiguous name lists the ids that
 /// have it and an unknown ref lists every canvas, so a caller can retry
 /// without asking again.
-pub fn resolve_tab_ref<'a>(
+pub(crate) fn resolve_tab_ref<'a>(
     canvases: &'a [Canvas],
     tab_ref: &str,
 ) -> Result<&'a Canvas, TabRefError> {

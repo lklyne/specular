@@ -1,0 +1,146 @@
+# The stack order (ADR 0014) and arranging in a row, a column or a grid.
+# Each verb moves the selection as one undo step, a group's members stay
+# in one run of the stack, and an arrange keeps the footprint the items
+# have and evens the spacing inside it.
+given shape a 100 100 100 100
+given shape b 100 100 100 100
+given shape c 100 100 100 100
+given shape d 100 100 100 100
+given inside g shape m 400 100 100 100
+given inside g shape n 400 100 100 100
+given group g 400 100 100 100
+given shape x 400 100 100 100
+given shape r1 1000 0 100 80
+given shape r2 1150 40 100 80
+given shape r3 1400 20 100 80
+given shape c1 2010 0 80 50
+given shape c2 2040 100 80 50
+given shape c3 2000 500 80 50
+given shape g1 3000 0 100 100
+given shape g2 3130 8 100 100
+given shape g3 3012 220 100 100
+given shape s1 4000 0 100 80
+given shape s2 4000 200 100 80
+given shape s3 4000 420 100 80
+given shape t1 5000 0 100 80
+given shape t2 5000 200 100 80
+given shape t3 5000 390 100 80
+given shape big 6000 0 300 50
+given shape in 6050 100 50 50
+given shape out 6200 200 50 50
+given inside ag shape am 7020 320 60 60
+given group ag 7000 300 200 100
+given shape as 7700 0 100 100
+given shape lone 8007 3 100 80
+given shape x2 700 100 100 100
+given inside h shape hm 700 100 100 100
+given inside h shape hn 700 100 100 100
+given group h 700 100 100 100
+camera 0,0,1
+
+# forward and backward move a block past the next item
+select b c
+act bring-forward
+expect order a d b c m n g x r1 r2 r3 c1 c2 c3 g1 g2 g3 s1 s2 s3 t1 t2 t3 big in out am ag as lone x2 hm hn h
+key cmd+z
+act send-backward
+expect order b c a d m n g x r1 r2 r3 c1 c2 c3 g1 g2 g3 s1 s2 s3 t1 t2 t3 big in out am ag as lone x2 hm hn h
+key cmd+z
+# to front and to back keep the selection in its own order
+select d b
+act bring-to-front
+expect order a c m n g x r1 r2 r3 c1 c2 c3 g1 g2 g3 s1 s2 s3 t1 t2 t3 big in out am ag as lone x2 hm hn h b d
+key cmd+z
+select b d
+act send-to-back
+expect order b d a c m n g x r1 r2 r3 c1 c2 c3 g1 g2 g3 s1 s2 s3 t1 t2 t3 big in out am ag as lone x2 hm hn h
+key cmd+z
+# the keys run the verbs
+select a
+key cmd+]
+expect order b a c d m n g x r1 r2 r3 c1 c2 c3 g1 g2 g3 s1 s2 s3 t1 t2 t3 big in out am ag as lone x2 hm hn h
+key cmd+shift+]
+expect order b c d m n g x r1 r2 r3 c1 c2 c3 g1 g2 g3 s1 s2 s3 t1 t2 t3 big in out am ag as lone x2 hm hn h a
+key cmd+[
+expect order b c d m n g x r1 r2 r3 c1 c2 c3 g1 g2 g3 s1 s2 s3 t1 t2 t3 big in out am ag as lone x2 a hm hn h
+key cmd+shift+[
+expect order a b c d m n g x r1 r2 r3 c1 c2 c3 g1 g2 g3 s1 s2 s3 t1 t2 t3 big in out am ag as lone x2 hm hn h
+key cmd+z
+key cmd+z
+key cmd+z
+key cmd+z
+expect saved same-as start
+# a group moves with its members as one unit
+select g
+act bring-forward
+expect order a b c d x m n g r1 r2 r3 c1 c2 c3 g1 g2 g3 s1 s2 s3 t1 t2 t3 big in out am ag as lone x2 hm hn h
+key cmd+z
+# a member that would step past its group's own slot drags the run with it,
+# so nothing changes and no step is recorded
+select hn
+act bring-forward
+expect undo none
+expect saved same-as start
+
+# a row, a column and a grid even the spacing as one step
+select r1 r2 r3
+act arrange-row
+expect entity r1 rect 1000 0 100 80
+expect entity r2 rect 1200 0 100 80
+expect entity r3 rect 1400 0 100 80
+key cmd+z
+expect entity r2 rect 1150 40 100 80
+key cmd+shift+z
+expect entity r2 rect 1200 0 100 80
+key cmd+z
+select c1 c2 c3
+act arrange-column
+expect entity c1 at 2000 0
+expect entity c2 at 2000 250
+expect entity c3 at 2000 500
+key cmd+z
+# a grid: two columns and two rows, the gaps floored at 80 and on the grid
+select g1 g2 g3
+act arrange-grid
+expect entity g1 at 3000 0
+expect entity g2 at 3200 0
+expect entity g3 at 3000 220
+key cmd+z
+# a cluster collapsed on the axis spreads over its other extent, on the
+# grid: 500 down makes a gap of 100, 470 a gap of 85 put at 80
+select s1 s2 s3
+act arrange-row
+expect entity s1 at 4000 0
+expect entity s2 at 4200 0
+expect entity s3 at 4400 0
+key cmd+z
+select t1 t2 t3
+act arrange-row
+expect entity t2 at 5180 0
+expect entity t3 at 5360 0
+key cmd+z
+# a grid keeps items inside a wide one in its band
+select big in out
+act arrange-grid
+expect entity big at 6000 0
+expect entity in at 6060 140
+expect entity out at 6200 280
+key cmd+z
+# a group takes what is inside it along
+select ag as
+act arrange-row
+expect entity ag at 7000 0
+expect entity as at 7700 0
+expect entity am at 7020 20
+key cmd+z
+# one item has nothing to arrange, and a tidy row records no second step
+select lone
+act arrange-row
+expect entity lone at 8007 3
+expect undo none
+select r1 r2 r3
+act arrange-row
+act arrange-row
+key cmd+z
+expect entity r2 rect 1150 40 100 80
+undo-to-start

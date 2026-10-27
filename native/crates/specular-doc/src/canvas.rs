@@ -56,21 +56,17 @@ enum Item {
     Edge(Box<Edge>),
 }
 
-impl Document {
-    /// Reads a `.canvas` file's text.
-    pub fn from_canvas_str(json: &str) -> Result<Self, CanvasError> {
-        Self::from_canvas_value(serde_json::from_str(json).map_err(CanvasError::Parse)?)
-    }
+/// A file's nodes and edges read, keyed by id, with what could not be read.
+struct ReadNodes {
+    items: HashMap<String, Item>,
+    /// The ids in the order the file lists them.
+    file_order: Vec<String>,
+    stray_nodes: Vec<Value>,
+    stray_edges: Vec<Value>,
+}
 
-    /// Reads a `.canvas` file's parsed JSON.
-    pub fn from_canvas_value(value: Value) -> Result<Self, CanvasError> {
-        let Value::Object(mut top) = value else {
-            return Err(CanvasError::NotAnObject);
-        };
-        let nodes = take_array(&mut top, NODES)?;
-        let edges = take_array(&mut top, EDGES)?;
-        let annotations = take_array(&mut top, ANNOTATIONS)?;
-
+impl ReadNodes {
+    fn read(nodes: Vec<Value>, edges: Vec<Value>) -> Self {
         // Entities and edges share one id namespace and one stack order.
         let mut items = HashMap::new();
         let mut file_order = Vec::new();
@@ -102,6 +98,58 @@ impl Document {
                 Some(_) | None => stray_edges.push(raw),
             }
         }
+        Self {
+            items,
+            file_order,
+            stray_nodes,
+            stray_edges,
+        }
+    }
+}
+
+/// Adds each annotation that reads and is not a repeat; the rest come back
+/// to be kept as they were.
+fn insert_annotations(
+    document: &mut Document,
+    annotations: Vec<Value>,
+) -> Result<Vec<Value>, CanvasError> {
+    let mut stray_annotations = Vec::new();
+    let mut seen = HashSet::new();
+    for raw in annotations {
+        match read_loose::<Annotation>(&raw) {
+            Some(annotation) if seen.insert(annotation.id.clone()) => {
+                document.apply(Command::InsertAnnotation {
+                    annotation: Box::new(annotation),
+                    at: document.annotations().len(),
+                })?;
+            }
+            Some(_) | None => stray_annotations.push(raw),
+        }
+    }
+    Ok(stray_annotations)
+}
+
+impl Document {
+    /// Reads a `.canvas` file's text.
+    pub fn from_canvas_str(json: &str) -> Result<Self, CanvasError> {
+        Self::from_canvas_value(serde_json::from_str(json).map_err(CanvasError::Parse)?)
+    }
+
+    /// Reads a `.canvas` file's parsed JSON.
+    pub fn from_canvas_value(value: Value) -> Result<Self, CanvasError> {
+        let Value::Object(mut top) = value else {
+            return Err(CanvasError::NotAnObject);
+        };
+        let nodes = take_array(&mut top, NODES)?;
+        let edges = take_array(&mut top, EDGES)?;
+        let annotations = take_array(&mut top, ANNOTATIONS)?;
+
+        let ReadNodes {
+            mut items,
+            file_order,
+            stray_nodes,
+            stray_edges,
+        } = ReadNodes::read(nodes, edges);
 
         let mut specular: JsonMap = take(&mut top, SPECULAR).unwrap_or_default();
         let saved_order: Vec<String> = take(&mut specular, ENTITY_ORDER).unwrap_or_default();
@@ -124,19 +172,7 @@ impl Document {
             document.apply(command)?;
         }
 
-        let mut stray_annotations = Vec::new();
-        let mut seen = HashSet::new();
-        for raw in annotations {
-            match read_loose::<Annotation>(&raw) {
-                Some(annotation) if seen.insert(annotation.id.clone()) => {
-                    document.apply(Command::InsertAnnotation {
-                        annotation: Box::new(annotation),
-                        at: document.annotations().len(),
-                    })?;
-                }
-                Some(_) | None => stray_annotations.push(raw),
-            }
-        }
+        let stray_annotations = insert_annotations(&mut document, annotations)?;
 
         for (key, stray) in [
             (NODES, stray_nodes),

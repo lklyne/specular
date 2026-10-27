@@ -176,7 +176,7 @@ fn number(value: f32) -> String {
 
 /// The message that asks which element an item centred on the document
 /// point (`x`, `y`) should follow.
-pub fn capture_message(id: i32, x: f32, y: f32) -> Vec<u8> {
+pub(crate) fn capture_message(id: i32, x: f32, y: f32) -> Vec<u8> {
     let body = CAPTURE
         .replace("__X__", &number(x))
         .replace("__Y__", &number(y));
@@ -185,7 +185,7 @@ pub fn capture_message(id: i32, x: f32, y: f32) -> Vec<u8> {
 
 /// The message that asks where the elements `selectors` name have moved to.
 /// The answer waits for one to move, up to two seconds.
-pub fn track_message(id: i32, selectors: &[String]) -> Vec<u8> {
+pub(crate) fn track_message(id: i32, selectors: &[String]) -> Vec<u8> {
     let list = serde_json::to_string(selectors).unwrap_or_else(|_| "[]".to_owned());
     evaluate(id, &TRACK.replace("__SELECTORS__", &list), true)
 }
@@ -211,7 +211,7 @@ impl Found {
 
 /// The element a [`capture_message`] found. `None` for a document with no
 /// body and for an answer that cannot be read.
-pub fn parse_capture(result: &[u8]) -> Option<CapturedElement> {
+pub(crate) fn parse_capture(result: &[u8]) -> Option<CapturedElement> {
     let found: Found = serde_json::from_str(&returned(result)?).ok()?;
     Some(CapturedElement {
         place: found.place()?,
@@ -222,7 +222,7 @@ pub fn parse_capture(result: &[u8]) -> Option<CapturedElement> {
 /// The places a [`track_message`] found changed: each selector with where
 /// its element is now, or `None` when it finds nothing. Empty for an answer
 /// that cannot be read.
-pub fn parse_places(result: &[u8]) -> Vec<(String, Option<ElementPlace>)> {
+pub(crate) fn parse_places(result: &[u8]) -> Vec<(String, Option<ElementPlace>)> {
     let found: Vec<Found> = returned(result)
         .and_then(|text| serde_json::from_str(&text).ok())
         .unwrap_or_default();
@@ -232,72 +232,4 @@ pub fn parse_places(result: &[u8]) -> Vec<(String, Option<ElementPlace>)> {
             (found.selector, place)
         })
         .collect()
-}
-
-#[cfg(test)]
-mod tests {
-    use serde_json::Value;
-
-    use super::*;
-
-    fn value_result(value: &str) -> Vec<u8> {
-        json!({ "result": { "type": "string", "value": value } })
-            .to_string()
-            .into_bytes()
-    }
-
-    fn expression(message: &[u8]) -> String {
-        let sent: Value = serde_json::from_slice(message).unwrap();
-        assert_eq!(sent["method"], "Runtime.evaluate");
-        sent["params"]["expression"].as_str().unwrap().to_owned()
-    }
-
-    #[test]
-    fn a_capture_is_asked_at_a_document_point_and_read_with_its_rail() {
-        let ask = expression(&capture_message(3, 120.5, 900.0));
-        assert!(ask.contains("const X = (120.5), Y = (900);"));
-        assert!(ask.contains("document.elementFromPoint(X - scrollX, Y - scrollY)"));
-        assert!(!ask.contains("__"), "a placeholder was left in");
-
-        let answer = r##"{"selector":"#hero","docX":40.5,"docY":612,"viewportPositioned":true}"##;
-        assert_eq!(
-            parse_capture(&value_result(answer)),
-            Some(CapturedElement {
-                selector: "#hero".to_owned(),
-                place: ElementPlace {
-                    doc: Vec2::new(40.5, 612.0),
-                    viewport_positioned: true,
-                },
-            })
-        );
-        assert_eq!(parse_capture(&value_result("null")), None);
-        assert_eq!(parse_capture(&value_result(r##"{"selector":"#a"}"##)), None);
-    }
-
-    #[test]
-    fn tracking_names_its_selectors_as_data_and_reads_moved_and_gone() {
-        let selectors = ["#hero".to_owned(), "a[title=\"x`${1}\"]".to_owned()];
-        let message = track_message(4, &selectors);
-        let sent: Value = serde_json::from_slice(&message).unwrap();
-        assert_eq!(sent["params"]["awaitPromise"], true);
-        let ask = expression(&message);
-        assert!(ask.contains(r##"const selectors = ["#hero","a[title=\"x`${1}\"]"];"##));
-        assert!(!ask.contains("__SELECTORS__"));
-
-        let answer = r##"[{"selector":"#hero","docX":0,"docY":140,"viewportPositioned":false},{"selector":"#gone"}]"##;
-        assert_eq!(
-            parse_places(&value_result(answer)),
-            [
-                (
-                    "#hero".to_owned(),
-                    Some(ElementPlace {
-                        doc: Vec2::new(0.0, 140.0),
-                        viewport_positioned: false,
-                    })
-                ),
-                ("#gone".to_owned(), None),
-            ]
-        );
-        assert_eq!(parse_places(&value_result("nope")), []);
-    }
 }

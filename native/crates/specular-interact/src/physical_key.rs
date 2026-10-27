@@ -16,7 +16,7 @@ macro_rules! physical_keys {
         /// A key by its place on the keyboard, whatever the layout prints
         /// on it. Named as the DOM `KeyboardEvent.code` values are.
         #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-        pub enum PhysicalKey {
+        pub(crate) enum PhysicalKey {
             $(#[doc = concat!("`", stringify!($name), "`.")] $name,)*
         }
 
@@ -125,7 +125,7 @@ physical_keys! {
 impl PhysicalKey {
     /// The key with macOS virtual key code `code`, or `None` for a key the
     /// table does not hold (the keypad's digits, F13 and up, media keys).
-    pub fn from_mac_key_code(code: u16) -> Option<Self> {
+    pub(crate) fn from_mac_key_code(code: u16) -> Option<Self> {
         // An ISO keyboard's extra key (`kVK_ISO_Section`) sits where ANSI
         // has the backquote.
         if code == 10 {
@@ -137,14 +137,14 @@ impl PhysicalKey {
     }
 
     /// The Windows virtual-key code.
-    pub fn windows_key_code(self) -> i32 {
+    pub(crate) fn windows_key_code(self) -> i32 {
         KEYS.iter()
             .find(|&&(key, _, _)| key == self)
             .map_or(0, |&(_, _, windows)| windows)
     }
 
     /// The binding identity of the key.
-    pub fn key(self) -> Key {
+    pub(crate) fn key(self) -> Key {
         match self {
             Self::Escape => Key::Escape,
             Self::Enter | Self::NumpadEnter => Key::Enter,
@@ -166,7 +166,7 @@ impl PhysicalKey {
 
     /// The key that `key` names on a US keyboard, for input that starts from
     /// a binding key: a script or a test. `None` for [`Key::Other`].
-    pub fn for_key(key: Key) -> Option<Self> {
+    pub(crate) fn for_key(key: Key) -> Option<Self> {
         if key == Key::Other {
             return None;
         }
@@ -176,14 +176,14 @@ impl PhysicalKey {
     }
 
     /// The macOS virtual key code, `kVK_*`.
-    pub fn mac_key_code(self) -> u16 {
+    pub(crate) fn mac_key_code(self) -> u16 {
         KEYS.iter()
             .find(|&&(key, _, _)| key == self)
             .map_or(0, |&(_, mac, _)| mac)
     }
 
     /// DOM `KeyboardEvent.code`.
-    pub const fn dom_code(self) -> &'static str {
+    pub(crate) const fn dom_code(self) -> &'static str {
         match self {
             Self::SuperLeft => "MetaLeft",
             Self::SuperRight => "MetaRight",
@@ -195,7 +195,7 @@ impl PhysicalKey {
     /// key's name for one that types nothing, and otherwise what it typed,
     /// or its US-layout character when a held modifier left it with none
     /// that prints (Control+A carries U+0001).
-    pub fn dom_key(self, character: Option<char>) -> String {
+    pub(crate) fn dom_key(self, character: Option<char>) -> String {
         let named = match self {
             Self::NumpadEnter => "Enter",
             Self::ShiftLeft | Self::ShiftRight => "Shift",

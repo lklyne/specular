@@ -9,15 +9,15 @@
 use glam::{DVec2, Vec2};
 
 use crate::App;
-use crate::panel::builtin::DOCK_ROW;
+use crate::panel::DOCK_ROW;
 
 /// A rect of the viewport in logical screen pixels.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct Area {
     /// The top-left corner.
-    pub min: DVec2,
+    pub(crate) min: DVec2,
     /// The size, never negative.
-    pub size: DVec2,
+    pub(crate) size: DVec2,
 }
 
 impl Area {
@@ -52,7 +52,7 @@ impl App {
     /// selection, over the canvas, and covers nothing.
     pub fn covered_top(&self) -> f32 {
         let panel = &self.session.panel;
-        let bar = if panel.menu_only && self.lens().is_some() {
+        let bar = if panel.chrome_covers && self.lens().is_some() {
             DOCK_ROW
         } else {
             0.0

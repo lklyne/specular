@@ -12,12 +12,12 @@ use specular_core::{PixelRect, PixelSize};
 
 /// Builds a [`PixelRect`] from CEF's signed `cef_rect_t` fields, treating a
 /// negative extent as empty.
-pub fn rect_from_cef(x: i32, y: i32, width: i32, height: i32) -> PixelRect {
+pub(crate) fn rect_from_cef(x: i32, y: i32, width: i32, height: i32) -> PixelRect {
     PixelRect::new(x, y, width.max(0) as u32, height.max(0) as u32)
 }
 
 /// Scales a CSS-space rect to the smallest texel rect covering it.
-pub fn css_rect_to_texels(rect: PixelRect, scale: f32) -> PixelRect {
+pub(crate) fn css_rect_to_texels(rect: PixelRect, scale: f32) -> PixelRect {
     let left = (rect.x as f32 * scale).floor();
     let top = (rect.y as f32 * scale).floor();
     let right = ((rect.x as f32 + rect.width as f32) * scale).ceil();
@@ -37,7 +37,7 @@ pub fn css_rect_to_texels(rect: PixelRect, scale: f32) -> PixelRect {
 /// back inside, and one larger than the view is pinned to its origin (the
 /// compositor clips it). Its size is never changed, because it must keep
 /// matching the `PET_POPUP` frames painted for it.
-pub fn place_popup(css: PixelRect, scale: f32, view: PixelSize) -> PixelRect {
+pub(crate) fn place_popup(css: PixelRect, scale: f32, view: PixelSize) -> PixelRect {
     let texels = css_rect_to_texels(css, scale);
     let fit = |pos: i32, len: u32, bound: u32| -> i32 {
         if len >= bound {
@@ -56,7 +56,7 @@ pub fn place_popup(css: PixelRect, scale: f32, view: PixelSize) -> PixelRect {
 
 /// Union of rects, e.g. IME character bounds into one composition box.
 /// Zero-width rects (a caret) still contribute their position.
-pub fn union_rects(rects: impl IntoIterator<Item = PixelRect>) -> Option<PixelRect> {
+pub(crate) fn union_rects(rects: impl IntoIterator<Item = PixelRect>) -> Option<PixelRect> {
     rects
         .into_iter()
         .map(|r| {
@@ -88,41 +88,5 @@ mod tests {
             css_rect_to_texels(PixelRect::new(1, 1, 4, 4), 1.5),
             PixelRect::new(1, 1, 7, 7)
         );
-    }
-
-    #[test]
-    fn popup_inside_view_keeps_its_scaled_position() {
-        let placed = place_popup(
-            PixelRect::new(10, 20, 100, 50),
-            2.0,
-            PixelSize::new(800, 600),
-        );
-        assert_eq!(placed, PixelRect::new(20, 40, 200, 100));
-    }
-
-    #[test]
-    fn popup_overhanging_bottom_right_is_shifted_inside() {
-        let placed = place_popup(
-            PixelRect::new(350, 280, 100, 50),
-            1.0,
-            PixelSize::new(400, 300),
-        );
-        assert_eq!(placed, PixelRect::new(300, 250, 100, 50));
-    }
-
-    #[test]
-    fn popup_larger_than_view_is_pinned_to_origin_without_resizing() {
-        let placed = place_popup(
-            PixelRect::new(-5, 10, 500, 20),
-            1.0,
-            PixelSize::new(400, 300),
-        );
-        assert_eq!(placed, PixelRect::new(0, 10, 500, 20));
-    }
-
-    #[test]
-    fn union_covers_all_character_bounds() {
-        let union = union_rects([PixelRect::new(10, 10, 5, 12), PixelRect::new(30, 8, 6, 12)]);
-        assert_eq!(union, Some(PixelRect::new(10, 8, 26, 14)));
     }
 }

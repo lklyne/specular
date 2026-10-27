@@ -41,12 +41,6 @@ impl App {
     /// gives one that shapes with the renderer's fonts.
     pub fn set_text_measure(&mut self, measure: Arc<dyn TextMeasure>) {
         self.measure = Measurer(measure);
-        crate::panel::builtin::forget_layout(self);
-    }
-
-    /// The measure the editor lays text out with.
-    pub fn text_measure(&self) -> &dyn TextMeasure {
-        self.measure.0.as_ref()
     }
 
     /// The edit session, if text is being edited.
@@ -79,7 +73,7 @@ impl App {
     }
 
     /// The layout of the text being edited, as it stands.
-    pub fn editing_layout(&self) -> Option<Arc<TextLayout>> {
+    pub(crate) fn editing_layout(&self) -> Option<Arc<TextLayout>> {
         layout_of(self, self.session.editing.as_ref()?)
     }
 
@@ -90,18 +84,6 @@ impl App {
         let (frame, layout) = geometry(self, edit)?;
         let caret = layout.caret_box(edit.caret)?;
         Some(frame.rect_of(&layout, caret))
-    }
-
-    /// The selected text, one rect per line it touches. Empty when nothing
-    /// is selected.
-    pub fn selection_rects(&self) -> Vec<Rect> {
-        self.edit_marks(&StackCache::default()).selection
-    }
-
-    /// The text the input method is composing, one rect per line it
-    /// touches, to underline.
-    pub fn composition_rects(&self) -> Vec<Rect> {
-        self.edit_marks(&StackCache::default()).composition
     }
 
     /// The selection, the composition and the caret of the text being

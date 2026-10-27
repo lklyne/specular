@@ -103,7 +103,7 @@ impl Item {
     }
 
     /// An unclipped, fully opaque item in screen space.
-    pub fn screen(draw: impl Into<Draw>) -> Self {
+    pub(crate) fn screen(draw: impl Into<Draw>) -> Self {
         Self::new(Space::Screen, draw)
     }
 
@@ -135,7 +135,7 @@ impl Item {
 
     /// The same item turned by `turn` radians about the centre of its rect.
     #[must_use]
-    pub fn turned(self, turn: f32) -> Self {
+    pub(crate) fn turned(self, turn: f32) -> Self {
         Self { turn, ..self }
     }
 
@@ -156,12 +156,12 @@ pub struct Scene {
     pub items: Vec<Item>,
     /// The theme the scene is drawn in, which also says what the canvas
     /// and its dots are.
-    pub appearance: specular_interact::Appearance,
+    pub(crate) appearance: specular_interact::Appearance,
 }
 
 impl Scene {
     /// An empty scene.
-    pub const fn new() -> Self {
+    pub(crate) const fn new() -> Self {
         Self {
             items: Vec::new(),
             appearance: specular_interact::Appearance::Light,
@@ -174,7 +174,7 @@ impl Scene {
     }
 
     /// Adds an item on top of everything pushed so far.
-    pub fn push(&mut self, item: Item) {
+    pub(crate) fn push(&mut self, item: Item) {
         self.items.push(item);
     }
 }

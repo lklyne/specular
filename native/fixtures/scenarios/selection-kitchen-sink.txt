@@ -1,0 +1,70 @@
+# canvas: ../kitchen-sink.canvas
+# A mixed selection on the kitchen sink: marquee, move, resize, duplicate,
+# option-drag copy, nudge, delete, and an undo after each.
+camera 32,-368,0.8
+# what this app saves of the file it read is the file
+expect saved same-as ../kitchen-sink.canvas
+
+# marquee from the gap between the sticky rows down to the first shapes
+press 40 225
+drag-to 300 500
+drag-to 500 790
+release
+expect selection sticky-font-sans sticky-font-mono sticky-font-hand h-shape shape-rectangle shape-rounded shape-ellipse e-sticky-to-shape
+mark start
+
+# move it by a body
+press 96 720
+drag-to 150 740
+drag-to 216 760
+release
+expect undo some
+key cmd+z
+expect saved same-as start
+
+# resize the whole selection from its bottom-right handle
+press 545 769
+drag-to 600 820
+drag-to 690 905
+release
+key cmd+z
+expect saved same-as start
+
+# duplicate
+key cmd+d
+expect count entities 172
+expect count selected 7
+key cmd+z
+expect saved same-as start
+
+# the duplicate landed off screen and the camera went to it; come back.
+# The undo put the selection back on the originals, so no second marquee.
+camera 32,-368,0.8
+
+# option-drag a copy
+hold alt
+press 96 720
+drag-to 300 800
+drag-to 700 560
+release
+hold none
+key cmd+z
+expect saved same-as start
+
+# the undo selected the originals again, so the arrows move them
+# nudge: three small steps right, one big step down
+key right
+key right
+key right
+key shift+down
+key cmd+z
+key cmd+z
+key cmd+z
+key cmd+z
+expect saved same-as start
+
+# delete
+key backspace
+key cmd+z
+expect saved same-as start
+undo-to-start

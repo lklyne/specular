@@ -1,7 +1,7 @@
 //! The popup's own glyphs: the pens and stroke samples of
 //! `shared/CustomIcons.tsx`, the line glyphs of `BorderDropdown.tsx` and
 //! `EdgeStrokeDropdown.tsx`, the color scheme assets, and the shape
-//! silhouettes of `src/shared/shapes.ts` as `ShapeGlyph.tsx` draws them.
+//! silhouettes of `git show bc5253fa:src/shared/shapes.ts` as `ShapeGlyph.tsx` draws them.
 
 use specular_doc::ShapeKind;
 

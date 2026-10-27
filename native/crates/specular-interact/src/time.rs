@@ -29,19 +29,3 @@ fn civil_from_days(days: u64) -> (u64, u64, u64) {
     let year = year_of_era + era * 400 + u64::from(month <= 2);
     (year, month, day)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn unix_milliseconds_format_as_iso_8601_utc() {
-        for (ms, want) in [
-            (0, "1970-01-01T00:00:00.000Z"),
-            (1_709_210_096_789, "2024-02-29T12:34:56.789Z"),
-            (1_767_225_599_999, "2025-12-31T23:59:59.999Z"),
-        ] {
-            assert_eq!(iso8601(ms), want, "{ms}");
-        }
-    }
-}

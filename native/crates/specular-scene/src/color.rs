@@ -34,7 +34,7 @@ impl Color {
 
     /// The same colour at another alpha.
     #[must_use]
-    pub const fn with_alpha(self, a: u8) -> Self {
+    pub(crate) const fn with_alpha(self, a: u8) -> Self {
         Self { a, ..self }
     }
 }

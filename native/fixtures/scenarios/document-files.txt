@@ -1,0 +1,229 @@
+# A Document and its markdown file: the tool makes the file, edits write
+# it a third of a second after the last change, a session is one undo
+# step, a change on disk reloads, and one made while editing keeps both
+# texts. Then the formatting a Document and a sticky each take, and the
+# wheel over a Document.
+given sticky s 1200 100 200 200 word
+camera 0,0,1
+# the clock starts
+wait 10
+
+# the tool asks for a file, then places it and edits it
+tool document
+click 205 95
+expect effects has create-note
+expect tool select
+expect count document 1
+expect entity @top rect 200 100 300 300
+expect entity @top text Untitled Note.md
+expect editor is caret 0 0
+type one
+# the shell's first read of the empty file changes nothing
+note-text Untitled\sNote.md
+expect editing one
+# the file is written a third of a second after the last change, once
+wait 200
+expect effects lacks write-note
+wait 200
+expect effects has write-note { file: "Untitled Note.md", text: "one" }
+wait 1000
+expect effects lacks write-note
+# the editor's undo is its own
+key left
+key right
+type ab
+key cmd+z
+expect editing one
+key cmd+shift+z
+expect editing oneab
+# ending the edit writes what is unsaved, and the session is one step
+key escape
+expect effects has write-note { file: "Untitled Note.md", text: "oneab" }
+expect effects has save
+expect entity @top note oneab
+act undo
+expect effects has write-note { file: "Untitled Note.md", text: "" }
+act redo
+expect pages has note ready oneab
+# an edit that changes nothing writes the file but leaves no step
+double-click 300 250
+type a
+key backspace
+key escape
+act undo
+expect pages has note ready\s
+act redo
+
+# a change on disk while not editing reloads it; undo goes back from it
+note-text Untitled\sNote.md theirs
+expect pages has note ready theirs
+expect effects lacks write-note
+# undo puts back the text the edit started from, redo the one from disk
+act undo
+expect effects has write-note { file: "Untitled Note.md", text: "" }
+act redo
+expect effects has write-note { file: "Untitled Note.md", text: "theirs" }
+
+# a change on disk while editing keeps both texts: a copy beside it
+double-click 300 250
+key cmd+up
+type mine 
+note-text Untitled\sNote.md theirs2
+expect effects has write-note { file: "Untitled Note (conflict
+expect effects has text: "theirs2" }
+expect effects has write-note { file: "Untitled Note.md", text: "mine theirs" }
+expect editing mine theirs
+expect count document 2
+expect entity @top rect 520 100 300 300
+wait 1000
+expect effects lacks write-note
+
+# the same text from disk is not a conflict: our own write read back, an
+# editor saving the same, or the disk holding what the edit holds
+type a
+wait 400
+expect effects has write-note { file: "Untitled Note.md", text: "mine atheirs" }
+note-text Untitled\sNote.md mine atheirs
+type b
+note-text Untitled\sNote.md mine atheirs
+expect effects lacks write-note
+note-text Untitled\sNote.md mine abtheirs
+wait 1000
+expect effects lacks write-note
+expect count document 2
+expect editing mine abtheirs
+key escape
+
+# a refused write keeps both texts with no edit open
+note-refused Untitled\sNote.md on disk | ours
+expect effects count 2 write-note
+expect effects has text: "on disk"
+expect effects has write-note { file: "Untitled Note.md", text: "ours" }
+expect count document 3
+expect pages has note ready ours
+
+# a Document takes every format, and Tab types an indent
+double-click 300 250
+key cmd+a
+type word here
+key cmd+up
+hold shift
+key alt+right
+hold none
+key cmd+e
+expect editing `word` here
+key cmd+b
+expect editing `**word**` here
+key cmd+shift+7
+expect editing 1. `**word**` here
+key cmd+shift+9
+expect editing - [ ] `**word**` here
+key cmd+shift+9
+key cmd+alt+2
+expect editing ## `**word**` here
+key cmd+alt+0
+expect editing `**word**` here
+key cmd+up
+key tab
+expect editing \s\s`**word**` here
+key escape
+
+# a sticky takes bold, italic, strike and bullets only
+double-click 1300 200
+key tab
+expect editing word
+key cmd+e
+key cmd+shift+7
+expect editing word
+key cmd+b
+expect editing **word**
+key cmd+i
+key cmd+shift+x
+expect editing ***~~word~~***
+key cmd+shift+8
+expect editing - ***~~word~~***
+key tab
+expect editing \s\s- ***~~word~~***
+key escape
+
+# the wheel scrolls the selected Document under the pointer, and stops at
+# its end once the rows are measured
+note-text Untitled\sNote.md line 0\n\nline 1\n\nline 2\n\nline 3\n\nline 4\n\nline 5\n\nline 6\n\nline 7\n\nline 8\n\nline 9\n\nline 10\n\nline 11\n\nline 12\n\nline 13\n\nline 14\n\nline 15\n\nline 16\n\nline 17\n\nline 18\n\nline 19\n\nline 20\n\nline 21\n\nline 22\n\nline 23\n\nline 24\n\nline 25\n\nline 26\n\nline 27\n\nline 28\n\nline 29
+click 300 250
+expect count selected 1
+scroll 300 250 0 -60
+expect pages has note-scroll 60
+expect camera 0,0,1
+scroll 300 250 0 25
+expect pages has note-scroll 35
+scroll 300 250 0 500
+expect pages has note-scroll 0
+scroll 300 250 0 -5000
+# its rows are measured as they are drawn, a frame or two
+wait 10
+wait 10
+expect pages has note-scroll 963
+scroll 300 250 0 24
+expect pages has note-scroll 939
+# not the whole selection, or over empty canvas: the canvas pans
+hold shift
+click 1300 200
+hold none
+scroll 300 250 0 -60
+expect camera 0,-60,1
+expect pages has note-scroll 939
+camera 0,0,1
+# Command held, the wheel zooms
+click 300 250
+hold cmd
+scroll 300 250 0 -60
+hold none
+expect pages has note-scroll 939
+expect zoom 0.88
+
+# while it is edited the caret is kept in view, and the page keys move by
+# the window
+double-click 300 250
+key cmd+down
+expect editor is caret 258 258
+expect pages has note-scroll 963
+key pageup
+expect editor is caret 195 195
+expect pages has note-scroll 924
+key pagedown
+expect editor is caret 250 250
+expect pages has note-scroll 942
+key cmd+up
+expect pages has note-scroll 0
+key escape
+
+# a second Document of the same file asks for nothing; a deleted one keeps
+# its text for the undo
+click 300 250
+key cmd+d
+expect count document 4
+expect effects lacks load-note
+key backspace
+key backspace
+act undo
+expect effects lacks load-note
+expect pages has note ready line 0
+# the shell says the file went missing, failed, then came back
+note-missing Untitled\sNote.md
+expect pages has note missing
+note-failed Untitled\sNote.md
+expect pages has note failed
+note-text Untitled\sNote.md back
+expect pages has note ready back
+# a Document's formatting buttons wait, disabled, until it is edited
+click 300 250
+expect controls has format.bold disabled
+control format.bold
+expect editing none
+double-click 300 250
+expect controls lacks disabled
+key cmd+a
+control format.bold
+expect editing **back**
+key escape
+undo-to-start

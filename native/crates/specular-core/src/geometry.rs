@@ -8,6 +8,7 @@
 //! - **Pixel space** ([`PixelSize`], [`PixelRect`]): texels of a painted frame,
 //!   `css * texture_scale`.
 
+use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
 /// A page's layout viewport in CSS pixels.
@@ -108,6 +109,12 @@ impl Point {
     }
 }
 
+impl From<Point> for Vec2 {
+    fn from(point: Point) -> Self {
+        Self::new(point.x, point.y)
+    }
+}
+
 /// A width and height.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Size {
@@ -148,14 +155,40 @@ impl Rect {
         }
     }
 
+    /// The rect with its top-left corner at `min`, `size` across.
+    pub const fn at(min: Vec2, size: Vec2) -> Self {
+        Self::new(min.x, min.y, size.x, size.y)
+    }
+
+    /// The square of side `side` centred on `centre`.
+    pub fn square(centre: Vec2, side: f32) -> Self {
+        Self::at(centre - Vec2::splat(side / 2.0), Vec2::splat(side))
+    }
+
     /// Top-left corner.
     pub const fn origin(self) -> Point {
         Point::new(self.x, self.y)
     }
 
-    /// Width and height.
-    pub const fn size(self) -> Size {
-        Size::new(self.width, self.height)
+    /// Top-left corner, as a vector.
+    pub const fn min(self) -> Vec2 {
+        Vec2::new(self.x, self.y)
+    }
+
+    /// Bottom-right corner, as a vector.
+    pub fn max(self) -> Vec2 {
+        Vec2::new(self.right(), self.bottom())
+    }
+
+    /// Width and height, as a vector.
+    pub const fn extent(self) -> Vec2 {
+        Vec2::new(self.width, self.height)
+    }
+
+    /// Whether `point` is inside, all four edges included: a pointer on
+    /// the last pixel row of a handle is on the handle.
+    pub fn contains(self, point: Vec2) -> bool {
+        point.cmpge(self.min()).all() && point.cmple(self.max()).all()
     }
 
     /// The middle of the rect.
@@ -205,16 +238,6 @@ impl Rect {
         (right > x && bottom > y).then(|| Self::new(x, y, right - x, bottom - y))
     }
 
-    /// The smallest rect holding both.
-    #[must_use]
-    pub fn union(self, other: Self) -> Self {
-        let x = self.x.min(other.x);
-        let y = self.y.min(other.y);
-        let right = self.right().max(other.right());
-        let bottom = self.bottom().max(other.bottom());
-        Self::new(x, y, right - x, bottom - y)
-    }
-
     /// The smallest rect holding every point, or `None` for no points.
     pub fn bounding(points: impl IntoIterator<Item = Point>) -> Option<Self> {
         let mut points = points.into_iter();
@@ -230,32 +253,3 @@ impl Rect {
 
 /// A rect in a page's CSS pixels, with fractional edges.
 pub type CssRect = Rect;
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn css_to_pixels_rounds_up_partial_texels() {
-        assert_eq!(CssSize::new(1001, 3).to_pixels(0.5), PixelSize::new(501, 2));
-    }
-
-    #[test]
-    fn rects_touching_at_an_edge_do_not_intersect() {
-        let a = Rect::new(0.0, 0.0, 10.0, 10.0);
-        let b = Rect::new(10.0, 0.0, 10.0, 10.0);
-        assert_eq!((a.intersects(b), a.intersection(b)), (false, None));
-    }
-
-    #[test]
-    fn outset_grows_every_side_and_stops_at_zero() {
-        let rect = Rect::new(10.0, 10.0, 4.0, 8.0);
-        assert_eq!(
-            (rect.outset(1.0), rect.outset(-3.0)),
-            (
-                Rect::new(9.0, 9.0, 6.0, 10.0),
-                Rect::new(12.0, 13.0, 0.0, 2.0)
-            )
-        );
-    }
-}

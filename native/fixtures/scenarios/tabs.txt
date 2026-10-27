@@ -1,0 +1,180 @@
+# The tab row: a page or Document opened in a tab of its own and shown
+# alone, the tabs' order, closing them, a new tab, Command-L, next and
+# previous, a press that lays a page out before its tab shows, and the
+# canvas camera kept through it all with nothing written.
+given page p1 100 100 400 300
+given shape s 100 500 100 100
+given file n 700 100 300 400 plan.md
+given file img 700 600 100 100 img.png
+given page p2 1200 100 390 844
+camera -20,10,0.5
+wait 50
+
+# nothing has a tab until it is opened in one, and only one page or one
+# Document selected can be
+expect tabs is view.canvas "Canvas" File active
+expect controls lacks view.open
+select s
+expect controls lacks view.open
+select img
+expect controls lacks view.open
+select p1 p2
+expect controls lacks view.open
+select n
+expect controls has view.open
+select p1
+control view.open
+expect showing p1
+expect tabs has lens device
+expect controls lacks view.open
+expect saved same-as start
+# the canvas camera is the one saved, though the view is fitted to p1
+expect saved /appState/zoom = 0.5
+control view.canvas
+expect zoom 0.5
+select n
+control view.open
+control view.canvas
+select p2
+control view.open
+expect tabs has view.item.p1 "Synthetic example.com/p1"
+expect tabs has view.item.n "plan"
+expect tabs has view.item.p2 "Synthetic example.com/p2" Device active
+# opening a tab asks for a save of the tabs, and is no undo step
+expect effects has save
+expect undo none
+# the tabs keep the order they were opened in: neither the stack nor
+# showing one again reorders them
+control view.canvas
+select p2
+key cmd+shift+[
+control view.item.n
+# switching between open tabs is not a change to save
+expect effects lacks save
+expect tabs count 4 view.
+
+# next and previous tab go round, pages entered on the way
+key escape
+control view.canvas
+key cmd+alt+right
+expect showing p1
+expect focus page p1
+key cmd+alt+right
+expect showing n
+key cmd+alt+right
+expect showing p2
+key cmd+alt+right
+expect showing canvas
+key cmd+alt+left
+expect showing p2
+key cmd+alt+left
+expect showing n
+
+# in an item view the rest is hidden from presses: p1 lies under this
+# point and takes none; Command-A takes only the item
+control view.item.p2
+key escape
+click 800 500
+expect selection p2
+key cmd+a
+expect selection p2
+
+# Command-L puts the caret in the address of the page in the dock: the one
+# entered in its tab, or the one selected on the canvas; none for a
+# Document
+key cmd+l
+expect editing https://example.com/p2
+key escape
+control view.item.n
+key cmd+l
+expect editor lacks field
+control view.canvas
+select p1
+key cmd+l
+expect editing https://example.com/p1
+key escape
+key escape
+
+# closing the tab showing shows the tab that took its place, or the one
+# before it when it was the last, as a browser does; the canvas only when
+# no other tab is left, and its own tab never closes
+control view.item.n
+key cmd+w
+expect showing p2
+expect tabs has view.item.p2 "Synthetic example.com/p2" Device active
+expect tabs count 3 view.
+key cmd+w
+expect showing p1
+expect tabs count 2 view.
+key cmd+w
+expect showing canvas
+expect tabs count 1 view.
+key cmd+w
+expect tabs count 1 view.
+# a tab's own close button takes it whichever tab shows, and what shows
+# stays unless it was that one
+select p1
+control view.open
+control view.canvas
+select p2
+control view.open
+control view.item.p1.close
+expect showing p2
+control view.item.p2.close
+expect showing canvas
+expect tabs is view.canvas "Canvas" File active
+
+# an item view whose item goes falls back to the canvas
+select p1
+control view.open
+key escape
+key delete
+expect showing canvas
+expect tabs count 1 view.
+act undo
+select p1
+key cmd+d
+control view.open
+act undo
+expect showing canvas
+
+# a new tab is a page in a free spot, shown, with the caret in its address
+control view.add
+expect selection @top
+expect tabs lacks showing canvas
+expect tabs has Device active closes
+type example.org
+expect editing example.org
+key enter
+expect effects has navigate
+key escape
+act undo
+expect showing canvas
+expect count page 2
+
+mark before-press
+# a press on a page's tab lays its page out for the tab, and nothing drawn
+# or written follows it; let go elsewhere, it goes back
+select p1
+control view.open
+# a tab in Fill lays its page out at the area under the chrome
+control view.lens.fill
+control view.canvas
+prepare-tab p1
+expect effects has set-page-viewport { page: EntityId("p1")
+expect tabs has prepared p1
+expect showing canvas
+prepare-tab none
+expect effects has set-page-viewport { page: EntityId("p1"), viewport: CssSize { width: 400, height: 300 } }
+expect tabs lacks prepared
+expect saved same-as mark before-press
+
+# a page's tab has the page's icon until another document loads
+page-reports p1 url https://example.com/a
+page-reports p1 favicon
+expect tabs has Device closes favicon
+page-reports p1 url https://example.com/a#top
+expect tabs has closes favicon
+page-reports p1 url https://example.com/b
+expect tabs lacks favicon
+undo-to-start except /nodes/p1/url

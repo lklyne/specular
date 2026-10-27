@@ -19,7 +19,7 @@ from pathlib import Path as FsPath
 
 REPO = "github.com/aloisdeniel/flutter_device_preview"
 DEVICES_DIR = "device_frame/lib/src/devices"
-DEFAULT_OUT = FsPath(__file__).resolve().parents[2] / "crates/specular-app/assets/device-frames"
+DEFAULT_OUT = FsPath(__file__).resolve().parents[2] / "crates/specular-shell/assets/device-frames"
 
 
 class Unsupported(Exception):

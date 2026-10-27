@@ -44,7 +44,7 @@ pub struct Image {
     pub state: ImageState,
     /// For an svg, the width in logical pixels of the raster last asked for,
     /// and so of the one that is or will be on screen.
-    pub raster_width: Option<u32>,
+    pub(crate) raster_width: Option<u32>,
 }
 
 impl ImageKey {
@@ -109,9 +109,6 @@ pub(crate) struct Images {
     by_file: BTreeMap<String, Image>,
     next_key: u64,
     animations: Animations,
-    /// The zoom when rasters were last considered: a raster is only asked
-    /// for once the zoom has held still between two looks.
-    zoom_seen: f32,
 }
 
 impl Images {

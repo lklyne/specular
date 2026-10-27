@@ -7,7 +7,7 @@ use specular_doc::{Annotation, AnnotationAnchor, Entity, EntityId};
 use super::{ItemView, Lens};
 use crate::anchor::anchors_to_pages;
 use crate::app::is_page;
-use crate::{App, Tool, geometry};
+use crate::{App, Tool};
 
 /// How much is seen beside the item shown, when it is not everything.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -82,8 +82,11 @@ pub(crate) fn refuses(app: &App, tool: Tool, world: DVec2) -> bool {
         Tool::AddPage | Tool::AddDocument => false,
         Tool::Select | Tool::Inspect => return false,
     };
-    let on_page = (app.page_placement(&view.item))
-        .is_some_and(|placement| geometry::contains(placement.rect, world));
+    let on_page = (app.page_placement(&view.item)).is_some_and(|placement| {
+        placement
+            .rect
+            .contains(specular_doc::Point::new(world.x, world.y))
+    });
     !(hooks && on_page)
 }
 

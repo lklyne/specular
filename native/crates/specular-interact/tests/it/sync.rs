@@ -1,24 +1,18 @@
-//! Sync sets (ADR 0027): the chain button's toggle-merge, and a set's
-//! pages following each other's navigations and the entered page's scroll,
-//! hovers and clicks (ADR 0030).
-
-#![expect(clippy::panic, reason = "a helper fails the test it is called from")]
+//! Sync sets (ADR 0027): the timing a set's pages follow each other by,
+//! with the page's answers given by request: a navigation and its arrival,
+//! the history buttons, and the entered page's hovers and clicks (ADR
+//! 0030). The chain button, copies and the scroll are in
+//! `fixtures/scenarios/sync-sets.txt`, and the whole of it on real pages in
+//! `cef/sync.txt`.
 
 use glam::Vec2;
 use specular_core::{LocatorBundle, LocatorCandidate, LocatorRect, PointKind};
-use specular_doc::{EntityId, Kind};
+use specular_doc::EntityId;
 use specular_interact::{Action, Effect, Key, PageNotice};
 use specular_testkit::TestApp;
 
 /// Inside p1 of `TestApp::with_pages(n)`.
 const ON_P1: (f32, f32) = (200.0, 150.0);
-
-fn set_of(app: &TestApp, name: &str) -> Option<String> {
-    match &app.entity(name).kind {
-        Kind::Page(page) => page.sync_id.clone(),
-        other => panic!("{name} is not a page: {other:?}"),
-    }
-}
 
 /// Three pages with p1 and p2 in one sync set, each having reported the
 /// address it loaded, and no effects pending.
@@ -46,52 +40,6 @@ fn asked(app: &mut TestApp) -> Vec<String> {
             _ => None,
         })
         .collect()
-}
-
-#[test]
-fn the_chain_button_merges_the_selected_pages_into_one_set_and_takes_one_set_apart() {
-    let mut app = TestApp::with_pages(4);
-    app.with_panels();
-
-    // Two loose pages join a new set, and the button reads as on.
-    app.select(&["p1", "p2"]).click_control("page.sync");
-    let first = set_of(&app, "p1").expect("p1 joined a set");
-    assert!(first.starts_with("sync_"));
-    assert_eq!(set_of(&app, "p2").as_deref(), Some(first.as_str()));
-    assert_eq!(app.app().selection_synced(), Some(true));
-
-    // A selection straddling a set and a loose page merges into a new set;
-    // p1, left alone in the old one, is no longer in any.
-    app.select(&["p2", "p3"]).click_control("page.sync");
-    let second = set_of(&app, "p2").expect("p2 joined a set");
-    assert_ne!(second, first);
-    assert_eq!(set_of(&app, "p3").as_deref(), Some(second.as_str()));
-    assert_eq!(set_of(&app, "p1"), None);
-
-    // One undo puts the first set back whole.
-    app.undo();
-    assert_eq!(set_of(&app, "p1").as_deref(), Some(first.as_str()));
-    assert_eq!(set_of(&app, "p2").as_deref(), Some(first.as_str()));
-    assert_eq!(set_of(&app, "p3"), None);
-
-    // A whole set selected leaves it, and so does one page of a set.
-    app.select(&["p1", "p2"]).click_control("page.sync");
-    assert_eq!((set_of(&app, "p1"), set_of(&app, "p2")), (None, None));
-    app.undo().select(&["p1"]).click_control("page.sync");
-    assert_eq!((set_of(&app, "p1"), set_of(&app, "p2")), (None, None));
-
-    // A page in no set has no chain button, and the action does nothing.
-    app.select(&["p4"]);
-    assert_eq!(app.app().selection_synced(), None);
-    let before = app.document().clone();
-    app.act(Action::ToggleSync);
-    assert_eq!(*app.document(), before);
-    // It recorded no step of its own: one undo takes back the page leaving.
-    app.undo();
-    assert_ne!(*app.document(), before);
-    app.redo();
-
-    app.assert_undo_returns_to_start();
 }
 
 #[test]
@@ -146,28 +94,6 @@ fn a_page_that_navigates_takes_its_sync_set_there_and_no_arrival_echoes_back() {
     app.tick(12_000);
     app.page_reports("p1", PageNotice::Url("https://site.test/b#x".to_owned()));
     assert_eq!(asked(&mut app), [] as [String; 0]);
-}
-
-#[test]
-fn pages_copied_together_are_a_set_of_their_own_and_one_copied_alone_joins_its_set() {
-    let mut app = synced_pair();
-    let set = set_of(&app, "p1").expect("p1 is in a set");
-    let copies = |app: &mut TestApp, pages: &[&str]| -> Vec<Option<String>> {
-        app.select(pages).act(Action::Duplicate);
-        let ids: Vec<String> = app.selected_ids().iter().map(ToString::to_string).collect();
-        ids.iter().map(|id| set_of(app, id)).collect()
-    };
-
-    let alone = copies(&mut app, &["p1"]);
-    assert_eq!(alone, [Some(set.clone())]);
-
-    let together = copies(&mut app, &["p1", "p2"]);
-    let [Some(first), Some(second)] = together.as_slice() else {
-        panic!("both copies are in a set: {together:?}");
-    };
-    assert_eq!(first, second);
-    assert_ne!(*first, set);
-    assert_eq!(set_of(&app, "p1"), Some(set));
 }
 
 #[test]
@@ -257,40 +183,6 @@ fn the_history_buttons_and_the_address_field_drive_the_whole_sync_set() {
         asked(&mut app),
         ["p1 Reload", "p2 To(\"https://site.test/y\")"]
     );
-}
-
-#[test]
-fn the_entered_pages_scroll_moves_its_sync_set_to_the_same_fraction() {
-    let mut app = synced_pair();
-    let scrolled = PageNotice::Scrolled { x: 0.0, y: 300.0 };
-
-    // A page that is not entered scrolled by itself: nobody follows.
-    app.page_reports("p1", scrolled.clone());
-    assert_eq!(asked(&mut app), [] as [String; 0]);
-
-    // The entered page asks how far through its document it is, and the
-    // answer goes to its peers as a fraction, so each lands at the same
-    // place in a document of its own height.
-    app.click(ON_P1).click(ON_P1);
-    app.take_effects();
-    app.page_reports("p1", scrolled);
-    assert_eq!(asked(&mut app), ["p1 progress?"]);
-    app.page_reports("p1", PageNotice::ScrollProgress { x: 0.0, y: 0.5 });
-    assert_eq!(
-        asked(&mut app),
-        [format!("p2 scroll {}", Vec2::new(0.0, 0.5))]
-    );
-
-    // The follower's own scroll report goes nowhere.
-    app.page_reports("p2", PageNotice::Scrolled { x: 0.0, y: 450.0 });
-    app.page_reports("p2", PageNotice::ScrollProgress { x: 0.0, y: 0.5 });
-    assert_eq!(asked(&mut app), [] as [String; 0]);
-
-    // An entered page in no set has nobody to move.
-    app.click((1400.0, 250.0)).click((1400.0, 250.0));
-    app.take_effects();
-    app.page_reports("p3", PageNotice::Scrolled { x: 0.0, y: 300.0 });
-    assert_eq!(asked(&mut app), [] as [String; 0]);
 }
 
 fn button(id: Option<&str>, name: &str, x: f64) -> LocatorCandidate {

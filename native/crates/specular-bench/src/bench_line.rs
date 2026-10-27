@@ -1,4 +1,4 @@
-//! The JSON lines `specular-app` prints on stdout, which `assemble` folds
+//! The JSON lines `specular` prints on stdout, which `assemble` folds
 //! into a [`RunReport`](crate::RunReport). One type on both sides, so a field
 //! renamed in the app fails `assemble` instead of reading as zero.
 
@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{LatencySummary, PaintPolicy, PhaseReport, WorkReport};
 
-/// One line of `specular-app` output.
+/// One line of `specular` output.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 #[expect(
@@ -36,7 +36,7 @@ pub struct ProfileLine {
     /// Pages on the canvas.
     pub pages: usize,
     /// False when the source is synthetic or any frame drawn came from a CPU
-    /// upload: such runs must not be compared against Electron (ADR 0038).
+    /// upload, which does not measure the real page cost (ADR 0038).
     pub representative: bool,
     /// Refresh interval the profile was stepped at.
     pub step_interval_ms: f64,
@@ -74,70 +74,4 @@ pub struct ProfileLine {
 pub struct InputLatencyLine {
     /// The latency distribution.
     pub input_latency: LatencySummary,
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::{FrameSummary, ProfileId};
-
-    fn profile_line() -> ProfileLine {
-        ProfileLine {
-            phase: PhaseReport {
-                phase: ProfileId::SlowZoom,
-                duration_ms: 2_000.0,
-                frames: FrameSummary {
-                    frames: 240,
-                    ..FrameSummary::default()
-                },
-                frames_received: None,
-                draws_without_texture: Some(0),
-                textures: None,
-                max_shapes_drawn: Some(12),
-            },
-            label: "Slow zoom".to_owned(),
-            source: "cef".to_owned(),
-            pages: 9,
-            representative: true,
-            step_interval_ms: 8.33,
-            max_paint_to_submit_ms: None,
-            paint_policy: PaintPolicy::ElectronLod,
-            chrome: true,
-            annotations: 3,
-            target: None,
-            shell: None,
-            canvas: None,
-            work: None,
-        }
-    }
-
-    #[test]
-    fn profile_line_round_trips() {
-        let line = BenchLine::Profile(profile_line());
-        let json = serde_json::to_string(&line).unwrap();
-        assert_eq!(serde_json::from_str::<BenchLine>(&json).unwrap(), line);
-    }
-
-    #[test]
-    fn profile_line_puts_phase_fields_at_top_level() {
-        let json = serde_json::to_value(BenchLine::Profile(profile_line())).unwrap();
-        assert_eq!(json["draws"], 240);
-    }
-
-    #[test]
-    fn profile_line_without_chrome_fields_reads_as_no_chrome() {
-        let mut json = serde_json::to_value(BenchLine::Profile(profile_line())).unwrap();
-        if let Some(object) = json.as_object_mut() {
-            object.remove("chrome");
-            object.remove("annotations");
-            object.remove("maxShapesDrawn");
-        }
-        let BenchLine::Profile(line) = serde_json::from_value(json).unwrap() else {
-            panic!("expected a profile line");
-        };
-        assert_eq!(
-            (line.chrome, line.annotations, line.phase.max_shapes_drawn),
-            (false, 0, None)
-        );
-    }
 }

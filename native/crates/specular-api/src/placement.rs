@@ -8,12 +8,14 @@
 //! `specular_interact::free_spot`, which a new page tab also asks.
 
 pub(crate) mod arrange;
-mod layout;
+pub(crate) mod layout;
 
 use serde_json::{Value, json};
 use specular_doc::EntityId;
 use specular_interact::App;
 use specular_interact::free_spot::{self, place, snap};
+
+use crate::wire::{Placed, Position};
 
 use self::layout::{Mode, Size};
 use crate::{Response, Step};
@@ -25,12 +27,18 @@ fn beside_selection(body: &Value) -> bool {
     body.get("anchor").and_then(Value::as_str) != Some("empty_region")
 }
 
-fn positions_json(positions: &[(f64, f64)], insets: &[(f64, f64)]) -> Vec<Value> {
-    (positions.iter().zip(insets))
-        .map(|((x, y), (inset_x, inset_y))| {
-            json!({ "canvasX": x + inset_x, "canvasY": y + inset_y })
+fn placed(
+    positions: &[(f64, f64)],
+    insets: &[(f64, f64)],
+    kinds: Option<Vec<Option<String>>>,
+) -> Value {
+    let positions = (positions.iter().zip(insets))
+        .map(|((x, y), (inset_x, inset_y))| Position {
+            canvas_x: x + inset_x,
+            canvas_y: y + inset_y,
         })
-        .collect()
+        .collect();
+    serde_json::to_value(Placed { positions, kinds }).unwrap_or_default()
 }
 
 fn number(value: &Value, key: &str) -> Option<f64> {
@@ -87,14 +95,12 @@ pub(crate) fn batch(app: &App, body: &Value) -> Result<Step, Response> {
         })
         .collect();
     if sizes.is_empty() {
-        return Ok(Step::Answer(json!({ "positions": [] })));
+        return Ok(Step::Answer(placed(&[], &[], None)));
     }
     let bounds = layout::bounds(&sizes, mode, gap, gap, None);
     let spot = place(app, bounds.width, bounds.height, beside_selection(body));
     let positions = layout::positions(&sizes, mode, gap, gap, (spot.x, spot.y), None);
-    Ok(Step::Answer(
-        json!({ "positions": positions_json(&positions, &insets) }),
-    ))
+    Ok(Step::Answer(placed(&positions, &insets, None)))
 }
 
 /// `POST /layout/apply-directive`: positions for new items and for existing
@@ -126,7 +132,7 @@ pub(crate) fn directive(app: &App, body: &Value) -> Result<Step, Response> {
                 height: number(item, "height").unwrap_or(rect.height),
             });
             insets.push((0.0, 0.0));
-            kinds.push(json!(entity.kind.name()));
+            kinds.push(Some(entity.kind.name().to_owned()));
             existing =
                 Some(existing.map_or((rect.x, rect.y), |(x, y)| (x.min(rect.x), y.min(rect.y))));
             continue;
@@ -141,10 +147,10 @@ pub(crate) fn directive(app: &App, body: &Value) -> Result<Step, Response> {
             number(item, "insetX").unwrap_or(0.0),
             number(item, "insetY").unwrap_or(0.0),
         ));
-        kinds.push(Value::Null);
+        kinds.push(None);
     }
     let Some(first_inset) = insets.first().copied() else {
-        return Ok(Step::Answer(json!({ "positions": [], "kinds": [] })));
+        return Ok(Step::Answer(placed(&[], &[], Some(Vec::new()))));
     };
 
     let given = number(directive, "originX").zip(number(directive, "originY"));
@@ -171,8 +177,5 @@ pub(crate) fn directive(app: &App, body: &Value) -> Result<Step, Response> {
         (spot.x, spot.y)
     };
     let positions = layout::positions(&sizes, mode, col_gap, row_gap, origin, cols);
-    Ok(Step::Answer(json!({
-        "positions": positions_json(&positions, &insets),
-        "kinds": kinds,
-    })))
+    Ok(Step::Answer(placed(&positions, &insets, Some(kinds))))
 }

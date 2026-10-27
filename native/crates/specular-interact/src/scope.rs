@@ -4,7 +4,7 @@
 
 use specular_doc::{Document, Entity, EntityId, Kind, Rect};
 
-use crate::{App, geometry};
+use crate::App;
 
 /// The selection resolved for gestures and verbs.
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -24,14 +24,14 @@ pub struct SelectionScope {
     /// stored ones for what follows its page's scroll. What the selection's
     /// outline and handles wrap. Entities scrolled out of their page count
     /// for nothing.
-    pub shown_bounds: Option<Rect>,
+    pub(crate) shown_bounds: Option<Rect>,
 }
 
 impl SelectionScope {
     /// Whether a press on `id` is a press on the selection: it is a member,
     /// a descendant of a member group, or hooked to a member page. Such a
     /// press keeps the selection, so a drag from it takes everything.
-    pub fn holds(&self, id: &EntityId) -> bool {
+    pub(crate) fn holds(&self, id: &EntityId) -> bool {
         self.operands.contains(id)
     }
 }
@@ -72,12 +72,12 @@ impl App {
             .iter()
             .filter_map(|id| document.entity(id))
             .map(|entity| entity.rect)
-            .reduce(geometry::union);
+            .reduce(Rect::union);
         let shown_bounds = operands
             .iter()
             .filter_map(|id| document.entity(id))
             .filter_map(|entity| crate::shown_rect(self, entity))
-            .reduce(geometry::union);
+            .reduce(Rect::union);
         SelectionScope {
             members,
             operands,

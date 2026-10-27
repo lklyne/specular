@@ -25,7 +25,7 @@ Event -> update(&mut App, Event) -> Vec<Effect>     pure, no I/O
   kind under `src/view/`.
 - `specular-api` turns an HTTP request and `&App` into a read answer or an
   `Event::Api`, so an agent's write goes through `update` like a key press.
-  The shell hosts the server (`specular-app/src/api/`).
+  The shell hosts the server (`specular-shell/src/api/`).
 - `App` owns one `Space`: every canvas of the open folder, each with its
   own `Document`, `History`, camera and selection. `app.document` is the
   active canvas's. Canvas operations are `Action::Canvas`, and the file
@@ -36,16 +36,20 @@ Event -> update(&mut App, Event) -> Vec<Effect>     pure, no I/O
   `Helper*.app`s, which Chromium's child processes run. It depends on `cef`
   alone. Keep the app's crates out of it: each one linked in is paid for
   five times.
-- There are two shells over one `specular_app::Runtime`, which runs every
-  effect. `specular-app` is the winit one. `specular-shell` (binary
-  `specular`) is the GPUI Kit one (ADR 0040): the Kit draws the chrome and
-  the sidebar from the models, and the compositor draws the canvas under it. A
-  new effect gets its runner in `specular-app/src/app/`, once, for both.
+- `specular-shell` is the shell. Its library is the `Runtime`, which runs
+  every effect, the command line and the headless modes; its binary
+  `specular` is the GPUI Kit window (ADR 0040, `src/kit/`): the Kit draws
+  the chrome and the sidebar from the models, and the compositor draws the
+  canvas under it. A headless run is a `Runtime` over an offscreen window
+  (`src/headless/`), so a new effect gets its runner in
+  `specular-shell/src/app/` once, for both.
 
-The Electron app under `../src` is the behavior spec, not the structure
-spec. Read the TypeScript to learn what a feature does and to port pure
-math and test cases. Do not copy its layering (IPC, broadcasts, stores,
-registries). Never edit anything under `../src`.
+The Electron app was deleted in the big run. Its source is in git history
+at `bc5253fa` (the last `main` commit before the run): read a file with
+`git show bc5253fa:src/main/<path>`, or list them with
+`git ls-tree -r --name-only bc5253fa src`. It is a behavior spec, not a
+structure spec: read it to learn what a feature did, and do not copy its
+layering (IPC, broadcasts, stores, registries).
 
 ## Adding a feature
 
@@ -55,19 +59,18 @@ A feature is one vertical slice. It touches the same places every time:
    `.canvas` read and write.
 2. `specular-interact`: the `Tool` or `Gesture` arm and the hit-test arm.
 3. `specular-scene`: the `view` arm.
-4. One behavior test: a scripted gesture through `specular-testkit` that
-   asserts on the document and ends with the undo check. See "Tests" below
-   for what else earns a test.
+4. One behavior check: a scenario in `fixtures/scenarios/` that drives the
+   gesture, checks the state with `expect` lines and ends with
+   `undo-to-start`. See "Tests" below for what else earns a test.
 
 Adding an enum variant should make the compiler list every `match` that
 needs a new arm. Do not add wildcard arms over `Kind`, `Tool` or `Gesture`.
 
 ### Tests
 
-The suite stays small on purpose. A test has to clear the four-criterion
-bar in [`tests/README.md`](../tests/README.md): it catches a regression you
-can name, asserts on an observable outcome, survives a refactor, and reads
-on its own.
+The suite stays small on purpose. A test has to clear four bars: it
+catches a regression you can name, asserts on an observable outcome,
+survives a refactor, and reads on its own.
 
 - One behavior test per user-visible behavior. When the same gesture or
   verb runs on several kinds, handles or modifiers, that is one
@@ -79,174 +82,87 @@ on its own.
 - A performance pin when a change exists to make something cheaper: a
   cache hit, a draw-call count, an idle frame that is not drawn.
 - A `.canvas` round trip or byte test for anything read or written.
-- An API contract case for a new route.
+- A case in `fixtures/scenarios/cli/cases.py` for a new route or verb.
 - No unit tests on trivial helpers, none that restate the type system,
   and none that pin how a private function is called. If a pure rule is
   hard enough to get wrong (resize math, text segmentation, markdown), it
   gets one or two tests on its inputs and outputs.
-- A bug that only showed up in use goes into `fixtures/scenarios/`.
+- A behavior across features, or a bug that only showed up in use, is a
+  scenario in `fixtures/scenarios/`: a script that checks state with
+  `expect` lines and ends with `undo-to-start`. `cargo test --workspace`
+  runs them all headless; `fixtures/scenarios/run.sh --kit` runs them in
+  the window.
 
 Before adding a test, look for the one that already covers the behavior
 and extend its table.
 
-### The gesture test
+### Rust tests and the testkit
 
-It goes in the `tests/` directory of the crate that owns the behavior
-(`specular-interact/tests/it/gestures.rs` is the model), with
-`specular-testkit` as a dev-dependency. A crate's `src/` unit tests cannot
-use the testkit on that crate's own types.
+Behavior is checked by scenarios. The Rust tests that stay (round trips,
+pure rules, readbacks, pins, protocol formats) live in the `tests/`
+directory of the crate that owns the rule; a crate's `src/` unit tests
+cannot use the testkit on that crate's own types.
 
-```rust
-use specular_interact::Key;
-use specular_testkit::{SHIFT, TestApp, assert_doc_snapshot};
+`specular-testkit` holds what those tests use and nothing more:
 
-#[test]
-fn shift_drag_moves_the_page_along_one_axis() {
-    let mut app = TestApp::with_pages(2); // p1 at (100, 100), p2 at (700, 100), 400x300
-    app.press((200.0, 150.0)).hold(SHIFT).drag_to((260.0, 130.0)).release().let_go();
-    assert_doc_snapshot!(app, @"");       // the failure prints the text to put here
-    app.assert_undo_returns_to_start();   // every test that changes the document ends with this
-}
-```
+- `TestApp::with_pages(n)` (p1 at (100, 100), p2 at (700, 100), 400x300),
+  `with_entities([..])`, `from_document`, `from_canvas(json)`, `empty()`
+  and `with_space([("Home", document), ..])`. Entities come from `page`,
+  `text`, `shape`, `file`, `drawing` and `group`, each taking an id and a
+  rect; `sticky`, `plain_text` and `labelled` also take the text.
+  `inside("g", entity)` puts one in a group, `connected(document(..), "e1",
+  "a", "b")` adds an edge, and `with_comment(document, comment(..))` a
+  comment.
+- Input: `press`, `drag_to`, `release`, `drag`, `click`, `double_click`,
+  `key`, `chord(CMD, Key::Char('z'))`, `type_text`, `hold(SHIFT)` and
+  `let_go`, `tick`, `viewport`, `zoom`, `select`, `act(Action)` and
+  `send(Event)`. Text is measured by `FixedAdvance`: 10 units a character
+  and 20 a line.
+- Reading back: `app()`, `document()`, `session()`, `rect("p1")`,
+  `selected_ids()`, `editing_text()`, `caret()`, `take_effects()`,
+  `page_reports(..)`, `bind(..)` for a repo, and
+  `assert_undo_returns_to_start()`.
+- `assert_scene_snapshot!(app)` (`specular-scene/tests/`) prints one line
+  per display-list item in paint order, for a new draw rule.
 
-- Start from `TestApp::with_pages(n)`, `TestApp::with_entities([..])` or
-  `TestApp::from_canvas(json)`. Entities come from `page`, `text`, `shape`,
-  `file`, `drawing` and `group`, each taking an id and a rect. `sticky`,
-  `plain_text` and `labelled` also take the text.
-  `note(id, rect, "plan.md")` is a Document; its text arrives with
-  `note_text("plan.md", "..")`, and a double click then edits its source.
-  `inside("g", entity)` puts one in a group, and
-  `connected(document(entities), "e1", "a", "b")` adds an edge, and
-  `with_edge(document, Edge { from_side, label, ..Edge::new(..) })` one that
-  names sides, a label or a style.
-- Input chains: `pointer_move`, `press`, `drag_to`, `release`, `drag`,
-  `click`, `double_click`, `key`, `chord(CMD, Key::Char('z'))`,
-  `type_text("hi")`, `wheel`, `pinch`, `tick`. `hold(mods)` keeps modifiers
-  down until `let_go()`. `select`, `tool`, `zoom`, `undo`, `redo` and `act`
-  run `Action`s. Anything else goes through `send(Event)`.
-- Text editing: `double_click` a text, sticky or shape to edit it, then
-  `type_text`, `key`, `chord`, `triple_click`, `compose("に")`, `commit("日")`
-  and `paste("..")`. Read back with `editing_text()` and `caret()`, which is
-  `(caret, anchor)` in bytes. Text is measured by `FixedAdvance`: 10 units a
-  character and 20 a line, so `App::caret_rect()` is in round numbers.
-  `measure_with(Arc::new(..))` swaps the measure, for a test on real fonts.
-- Comments: `with_comment(document, comment(id, anchor, "text"))` starts
-  with one in the document. A click or a drag with `tool(Tool::Comment)`
-  opens a draft, read back with `comment_draft()`; `type_text` and
-  `key(Key::Enter)` commit it. `answer_element(..)` and `answer_grab(&[..])`
-  answer the latest `QueryElement` and `QueryRegionGrab` as the shell would.
-  With the tool in hand a `pointer_move` over a page asks `InspectAt` (answer
-  with `answer_inspect()`), and a drag asks `PreviewRegion` as it grows
-  (`answer_region_preview()`); `app().comment_highlights()` is what is
-  outlined.
-- The inspect tool: `tool(Tool::Inspect)` then `pointer_move` (a hover) or
-  `click` (a pick) asks the page, and `answer_inspect()` answers the latest
-  `InspectAt` from the synthetic page's grid as the shell would. Read back
-  with `inspect_model()` (outline and popover) and `app().inspected()` (the
-  pick, which is the chat pill's DOM node).
-- Canvases: `TestApp::with_space([("Home", document), ("Notes", document)])`
-  starts with several, the first active. `switch_to("Notes")` and
-  `act(Action::Canvas(..))` change them; read back with `canvas_names()`,
-  `active_canvas()` and `app().canvas_document(&id)`.
-- The right panel: `with_chat_panel()` tells the app the shell draws one,
-  so a comment draft is finished there and the canvas keeps only its marker.
-  `chat()` is the `ChatModel`, `chat_snapshot()` / `assert_chat_snapshot!`
-  hold it as text, `send_chat("..")` presses Send (`send_chat_with` adds
-  pasted images), and `agent_says(Notice::..)` plays the `claude` run of the
-  open thread (`agent_says_in(&id, ..)` another). Writes and runs come back
-  as `Effect::WriteThread`, `WriteThreadIndex` and `RunAgent`; read the
-  store with `app().threads()` and the open thread with `chat_thread_id()`.
-- Repos: `bind("https://example.com", "/scratch/site", auto)` binds an origin
-  to a repo folder (`with_repos(Repos)` loads a whole `repos.json`) without
-  effects. A comment on a page of that origin then writes to the repo: the
-  composer's `folder` and `auto` chips follow it and the `RunAgent` request
-  carries the repo as `cwd`. With `auto` on, placing the comment sends it. See
-  `tests/it/repos.rs`.
-- Pages: `page_reports("p1", PageNotice::Scrolled { x: 0.0, y: 40.0 })` (or `Title`,
-  `Url`, `Loading`, `DevtoolsUrl`) is a page saying something about itself, as
-  the shell sends it; read back with `app().page_state(..)` and `page_scroll(..)`.
-  A sync set is made with `select(&["p1", "p2"]).act(Action::ToggleSync)`; its
-  following is asserted on the effects (`Navigate`, `ScrollPage`,
-  `AskCandidates`, `ReplayPointer`) after `page_reports` of `Url`,
-  `ScrollProgress`, `Pointed` and `Candidates`. See `tests/it/sync.rs`.
-- Read back with `document()`, `session()`, `selection()`, `selected()`,
-  `selected_ids()`, `rect("p1")` and `entity("p1")`. `take_effects()` drains the effects
-  returned since the last drain; call it before the step whose effects the
-  test asserts on.
-- `assert_doc_snapshot!(app)` keeps its snapshot in
-  `tests/snapshots/<test>.snap`; `INSTA_UPDATE=always cargo test` writes
-  it. Prefer the inline form for small documents: a failing run prints the
-  new text, and `cargo insta accept` (from `cargo install cargo-insta`)
-  writes it into the source. Read the snapshot before accepting it.
-- The built-in chrome (the tab row, the toolbar and the dock, which holds
-  the tool's or the selection's controls) is off in a test until
-  `app.with_panels()`. Then `click_control("text.color")` clicks a control
-  by its name, looking its rect up in the layout (`hover_control`,
-  `press_control`, `control_rect` likewise), `assert_panel_snapshot!(app)`
-  holds the layout as text, and `panel_scene_snapshot()` what the panels
-  draw. `view` never draws them, so `scene_snapshot()` is the same either
-  way.
-  The tab row's controls are `view.canvas` and `view.item.<entity id>`.
-  One shows the canvas and the other a page or Document alone
-  (`Action::Show`, ADR 0045); read back with `app().showing()`, and
-  `view_strip(app.app())` is the row's model. `view.add` (Command+T) makes
-  a page in a free spot and shows its tab with `page.url` being typed in.
-  See `tests/it/showing.rs`, and `tests/it/item_view.rs` for what input
-  does in an item view: the page shown is entered, so send `Key::Escape`
-  before a canvas key or a tool's press, and a Document shown is a reading
-  column that one click edits. A tab starts in the Fill lens, or in Device when the
-  toolbar's expand button (`view.open`, `Action::OpenTab`) opens it from
-  the canvas;
-  `act(Action::SetLens(Lens::Device))` changes it (`view.lens.<name>` as
-  controls, with `view.minimize` beside them), read back with
-  `app().lens()`. Opening a tab, closing one and a lens change each ask
-  for `Effect::Save`: the tabs are saved in `appState.itemTabs`. Device hides what is not hooked to its item until
-  `act(Action::ShowOthers(true))` opens the eye (`view.others`), so open it
-  before making or pressing anything beside the item. See
-  `tests/it/lens.rs`.
-  A text field is clicked like any control and then typed into:
-  `enter_in_field("page.url", "example.org")` replaces its text and presses
-  Enter, `field_edit()` reads what is typed so far, and Escape puts the
-  old value back.
-  The sidebar starts hidden, as in Electron: `show_sidebar(true)` (or
-  Command+B) shows it. Its controls are `sidebar.canvas.<id>`
-  (`.name` is the rename field, `.menu.rename` and `.menu.delete` the
-  right-click menu), `sidebar.add`, `sidebar.head.<canvases|notes|pages>`,
-  `sidebar.<notes|pages>.<entity id>` (`.toggle` its chevron) and
-  `sidebar.pages.comment.<id>`. Only rows in the window are laid out, so
-  scroll with `wheel` over the sidebar before clicking one below it.
-  `app.covered_left()` is the width it covers, which zoom to fit, a reveal
-  and zoom steps read.
-  `right_click(at)` opens the context menu, which is a `ControlsModel` of
-  choices (`context_menu(app, &target)`, drawn at the press in the
-  dropdown slot). `assert_menu_snapshot!(app)` holds its model,
-  `menu_open()` says whether one is open, and `click_control("menu.duplicate")`
-  picks an item (`menu.<label in lower case, dashes>`; a canvas row's menu is
-  `sidebar.canvas.<id>.menu.rename|delete`).
-  `app.control("text.color")` does what a click on a control does from the
-  models alone, with no `with_panels`, and `context_menu(at)` is the right
-  click that goes with it. `tests/it/named_controls.rs` holds the two paths
-  to the same result.
-- A page is select-first (ADR 0022). `click` selects it, a second `click`
-  or a `double_click` enters it, and only an entered page gets input.
-  `app().mark(&id)` says how it is marked: `Mark::Outline` with handles
-  when selected, `Mark::Entered` (a glow, no handles) when entered. In
-  its own tab a page is entered when it is shown, and by any click after.
-- The scene snapshot is `assert_scene_snapshot!(app)`, in
-  `specular-scene/tests/view.rs`. It prints one line per display-list item
-  in paint order. `TestApp::scene_snapshot()` returns the same text, and
-  `specular_scene::view(app.app(), viewport)` the `Scene` itself.
+### Scenario vocabulary
+
+What a script can name, beyond the steps in "Looking at what it draws":
+
+- Controls are pressed by the models' names (`control text.color`); no
+  panel is drawn headless, and the Kit window clicks the control where it
+  draws it. A name that is not there fails the run with the ones that are.
+- The tab row's controls are `view.canvas` and `view.item.<entity id>`
+  (`Action::Show`, ADR 0045); `view.add` (Command+T) makes a page and shows
+  its tab with `page.url` being typed in. A tab starts in the Fill lens, or
+  in Device from the toolbar's `view.open`; `view.lens.<name>`,
+  `view.minimize` and `view.others` sit beside them. In an item view the
+  page shown is entered, so send Escape before a canvas key, and a
+  Document shown is a reading column that one click edits. See `tabs.txt`,
+  `item-view.txt` and `lens.txt`.
+- The sidebar starts hidden (`sidebar on`, or Command+B). Its controls are
+  `sidebar.canvas.<n>` (by place, from 1; `.name` is the rename field,
+  `.menu.rename` and `.menu.delete` its menu), `sidebar.add`,
+  `sidebar.head.<canvases|notes|pages>`, `sidebar.<notes|pages>.<entity id>`
+  (`.toggle` its chevron) and `sidebar.pages.comment.<id>`. Shift- and
+  Command-clicks on rows widen the selection, from the row picked last.
+- A right click opens the context menu for what is under it; its items
+  are `menu.<label in lower case, dashes>`.
+- A page is select-first (ADR 0022): a click selects it, a second click or
+  a double click enters it, and only an entered page gets input.
+- A text field is pressed like a control and typed into; Enter keeps the
+  text and Escape puts the old value back.
 
 ## Looking at what it draws
 
-`specular-app` draws a canvas into a PNG with no window, on the real GPU
+`specular --snapshot` draws a canvas into a PNG with no window, on the real GPU
 with the synthetic page source. Nothing else is written.
 
 ```sh
-cargo run -p specular-app -- --snapshot out.png fixtures/kitchen-sink.canvas
-cargo run -p specular-app -- --snapshot out.png --snapshot-size 1200x800 \
+cargo run -p specular-shell -- --snapshot out.png fixtures/kitchen-sink.canvas
+cargo run -p specular-shell -- --snapshot out.png --snapshot-size 1200x800 \
     --snapshot-camera -400,-900,2 --snapshot-scale 2 FILE.canvas
-cargo run -p specular-app -- --script steps.txt FILE.canvas
+cargo run -p specular-shell -- --script steps.txt FILE.canvas
 ```
 
 - Pages are synthetic stand-ins. To see the real ones, build with
@@ -257,38 +173,47 @@ cargo run -p specular-app -- --script steps.txt FILE.canvas
   `wait ms` lets pages run for that long. See `README.md`.
 - The camera is `fit` (the default) or `x,y,zoom`: the pan in screen
   pixels, so canvas point `(cx, cy)` at the top-left is `-cx*zoom,-cy*zoom,zoom`.
-- A script is one step a line, in the testkit's words: `click x y`,
-  `double-click x y`, `triple-click x y`, `move`, `press`, `drag-to`,
-  `release`, `drag x1 y1 x2 y2`, `hold shift+cmd` (`hold none`),
+- A script is one step a line, read by `specular_shell::script`, the one
+  module both runners share: this headless one and the Kit window
+  (`SPECULAR_SHELL_SCRIPT_FILE`). Its first line may name the canvas
+  (`# canvas: ../kitchen-sink.canvas`), and `given` lines may describe the
+  starting document instead. Input steps: `click x y`, `double-click`,
+  `triple-click`, `right-click`, `move`, `press`, `drag-to`, `release`
+  (`release x y`), `drag x1 y1 x2 y2`, `hold shift+cmd` (`hold none`),
   `key cmd+z`, `type some text`, `compose にほ`, `commit 日本`,
-  `wheel dx dy`, `pinch 0.2`, `tool shape`, `select id ..`,
-  `act annotate-selection`, `act resolve-comment`, `act page-back`
-  (`-forward`, `-reload`, `-stop`), `act zoom-to-fit`, `act arrange-row`
-  (`-column`, `-grid`), `right-click x y`,
-  `sidebar on|off`, `camera ..`, `wait ms`,
-  `snapshot out.png`, `save out.canvas`. Positions are screen pixels. A snapshot between `press` and `release` shows a gesture in
-  flight.
-- The chrome is drawn and takes clicks, so the top 114 pixels
-  (`CHROME_HEIGHT`) are the tab row, the toolbar and the dock.
-  `control shape.color` clicks a control by its name wherever it is (`hover-control`, `press-control` likewise), and a
-  wrong name fails the run with the names that are shown. A field takes
-  `control page.url`, `key cmd+a`, `type ..`, `key enter`. A dropdown's
-  options have names once it is open. `panels off` runs without them, and
-  `--script-panels off` runs a whole script that way. A `control NAME` step
-  then does what the control does from the models alone
-  (`specular_interact::named_controls`, `Event::Control`): an option is
-  named whether or not its list is open, a sidebar row whether or not it is
-  scrolled into view, and `hover-control` and `press-control` only check
-  the name. A raw `click x y` aimed at a panel's pixels lands on the canvas.
+  `wheel dx dy`, `scroll x y dx dy`, `pinch 0.2`, `tool shape`,
+  `select id ..`, `act ..` (`annotate-selection`, `resolve-comment`,
+  `page-back|forward|reload|stop`, `zoom-to-fit`, `arrange-row|column|grid`,
+  `toggle-sync`, `undo`, `redo`), `sidebar on|off`, `camera ..`, `wait ms`,
+  `motion on|off`, `reduce-motion on|off`, `page-opens-tab p1 URL
+  [background]`, `control NAME`, `hover-control`, `press-control`. Positions
+  are screen pixels.
+- Checks: `expect ..` states a fact about the app (tool, selection, focus,
+  editing, showing, counts, an entity's kind, rect, text or parent, the
+  camera) or about the canvas as a save would write it (`expect saved
+  /nodes/s1/color = "4"`, `same-as start`, `changed-from start at PATH`).
+  `undo-to-start` undoes until nothing is left and checks the canvas is
+  the one the run opened. `mark NAME`, `reopen` and `state out.txt` (every
+  fact, in `expect` words) help write them. The vocabulary is in
+  `fixtures/scenarios/README.md` and `script/expect.rs`.
+- Output steps: `snapshot out.png`, `save out.canvas`, `state out.txt`.
+  Steps only a window can do (`resize`, `resize-drag`, `keycode`, `swipe`,
+  `pan`, `drop`, `menu-choose` ..., `script/window.rs`) are skipped headless
+  and listed when the run ends.
+- No panels are drawn headless: `control NAME` does what the control does
+  from the models (`specular_interact::named_controls`, `Event::Control`),
+  an option whether or not its list is open, a sidebar row whether or not
+  it is in view. Canvas rows are named by place, `sidebar.canvas.1`.
 - The clipboard and the Documents a run makes are kept in memory:
   `clipboard some\ntext` is another app copying, `key cmd+v` pastes it,
   and `tool document` then a click makes `Untitled Note.md` with no file.
   `save` writes what an autosave would.
-- `fixtures/scenarios/` holds whole sessions as scripts, with a `run.sh`
-  that runs them all into `runs/qa/` and checks the canvases they save.
-  Run it after a change that crosses features, and add to it when a bug
-  only showed up in use. `PANELS=off fixtures/scenarios/run.sh` runs them
-  with the panels off into `runs/qa-panels-off/`.
+- `fixtures/scenarios/` holds whole sessions as scripts, one flow a file,
+  and `fixtures/scenarios/run.sh` runs them (`--kit` in the window, `--cef`
+  on real pages, `--cli` the CLI end to end) into
+  `runs/scenarios/<mode>/`. `cargo test --workspace` runs every headless
+  scenario too (`specular-shell/tests/scenarios.rs`; `SCENARIO=name` for
+  one). Add to them when a bug only showed up in use.
 - `fixtures/kitchen-sink.canvas` has every kind in every style. Snapshot it
   after changing `specular-scene` or `specular-compositor` and open the PNG
   with the Read tool. A scene snapshot test cannot see a wrong colour or a
@@ -296,30 +221,38 @@ cargo run -p specular-app -- --script steps.txt FILE.canvas
 
 ## Driving it from outside
 
-The running app answers the Electron app's HTTP routes, so the `specular`
-CLI and the skill file work against it. It listens on 29979 and writes
+The running app answers the Electron app's HTTP routes, and the `specular`
+CLI (`crates/specular-cli`, binary `specular-cli`, linked onto the `PATH` as
+`specular` by the setup dialog) drives it. It listens on 29979 and writes
 `~/.specular/specular-mcp.json` unless the Electron app has them. Then it
 logs the port it took and the `SPECULAR_DISCOVERY_FILE=` to pass the CLI.
+`cargo run -p specular-cli -- canvas` runs a verb from the checkout.
 
 - A route is an arm in `specular_api::Api::route` and a handler returning
   `Step`. A read answers from `&App`. A write returns an `ApiRun`: an
   `Action` the window already has, or one `Command` for one undo step.
-- Test a route in `specular-api/tests/api/` through `Scripted`, which runs
-  the planned event through `update`. `specular-app/src/api/tests.rs` is the
-  same over a real socket.
+  JSON the CLI decodes is typed once in `specular-api/src/wire.rs`.
+- A verb is tested end to end: `fixtures/scenarios/cli/run.sh` builds the
+  CLI and the Kit app, starts the app on a scratch space with a discovery
+  file of its own, and runs `cases.py`, which asserts on each verb's output,
+  exit code and the saved canvas. Add a case there for a new verb or route.
+  `specular-api/tests/api/` keeps what the CLI cannot reach (the page
+  proxy, `Api::plan`, a write during a drag); `specular-shell/src/api/tests.rs`
+  is the transport over a real socket.
 - A route the CLI can call and this app lacks gets a row in `unported.rs`,
   so the caller reads which verb is missing instead of a 404.
 - The browse verbs (`snapshot`, `click`, ...) reach a page through its own
   CDP websocket, which `GET /pages/<id>/cdp-target` names. The routing is
-  `specular_api::cdp::PageProxy`, the sockets are `specular-app/src/cdp/`,
+  `specular_api::cdp::PageProxy`, the sockets are `specular-shell/src/cdp/`,
   and `fixtures/scenarios/cef/cli-pages.sh` runs every verb against a
-  bundled debug CEF app on a scratch space. `fixtures/scenarios/cef/sync.sh`
-  runs a sync set of two widths on the same bundle.
+  bundled debug CEF app on a scratch space (`CLI=` names the CLI binary).
+  `fixtures/scenarios/run.sh --cef` runs it with `cef/sync.txt`, a sync
+  set of two widths, on the same bundle.
 - An agent cursor is drawn when the CLI runs the patched agent-browser:
   `export AGENT_BROWSER_PATH="$(scripts/build-agent-browser.sh)"`. It sends
   `Specular.willAct` before each targeted verb, `PageProxy` holds the
   answer, and `specular-interact/src/presence.rs` releases it when the
-  cursor is there (ADR 0046). `RUST_LOG=specular_app::app=debug` logs each
+  cursor is there (ADR 0046). `RUST_LOG=specular_shell::app=debug` logs each
   act and its go.
 
 ## Gate
@@ -351,7 +284,7 @@ time on different files.
   simplest option consistent with the architecture, record it under
   "Decisions" in the run log, and keep going.
 - Do not use `--release`, do not run `bundle-macos.sh`, and do not start or
-  kill any `specular-app` process. A benchmark may be running.
+  kill any `specular` process. A benchmark may be running.
 - Commit only your own files, staged by explicit path (never `git add -A`
   or `git add .`). Conventional message, scope `native`. Do not push, open
   PRs, or switch branches.

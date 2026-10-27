@@ -73,7 +73,7 @@ fn centre_of(rect: Rect) -> DVec2 {
 /// Where `entity` is on screen under the camera and layout now, when
 /// transitions are on.
 pub(crate) fn seen(app: &App, entity: &Entity) -> Option<Seen> {
-    if !app.session.motion.enabled {
+    if !app.session.motion.enabled() {
         return None;
     }
     let rect = layout_rect(app, entity);
@@ -129,15 +129,29 @@ impl Active {
 /// The transition state of a session.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub(crate) struct Motion {
-    enabled: bool,
+    /// Whether the shell runs transitions at all.
+    windowed: bool,
+    /// Whether the system asks for reduced motion.
+    reduced: bool,
     active: Option<Active>,
     begun: u64,
 }
 
 impl Motion {
     pub(crate) fn enable(&mut self, on: bool) {
-        self.enabled = on;
-        if !on {
+        self.windowed = on;
+        self.stop_unless_enabled();
+    }
+
+    /// Follows the system's Reduce motion: with it on, the camera lands at
+    /// once and a transition in flight ends where it was heading.
+    pub(crate) fn reduce(&mut self, on: bool) {
+        self.reduced = on;
+        self.stop_unless_enabled();
+    }
+
+    fn stop_unless_enabled(&mut self) {
+        if !self.enabled() {
             self.active = None;
         }
     }
@@ -164,7 +178,7 @@ impl Motion {
     /// and target arrive with [`follow`].
     pub(crate) fn begin(&mut self, from: Option<Seen>, leaving: bool) {
         self.begun += 1;
-        self.active = from.filter(|_| self.enabled).map(|from| Active {
+        self.active = from.filter(|_| self.enabled()).map(|from| Active {
             from,
             anchor: DVec2::ZERO,
             layout_width: 1.0,
@@ -247,32 +261,23 @@ pub(crate) fn interrupt(app: &mut App, leaving: Option<u64>, before: Camera, swi
 }
 
 impl Motion {
-    /// Whether the shell runs transitions.
+    /// Whether transitions run: the shell runs them and the system does
+    /// not ask for reduced motion.
     pub(crate) const fn enabled(&self) -> bool {
-        self.enabled
+        self.windowed && !self.reduced
     }
 }
 
 impl App {
+    /// Whether the system asks for reduced motion, so the shell's own
+    /// animations hold still too.
+    pub fn reduce_motion(&self) -> bool {
+        self.session.motion.reduced
+    }
+
     /// Whether a camera transition is running, so the shell keeps ticking
     /// and drawing until it lands.
     pub fn motion_running(&self) -> bool {
         self.session.motion.running()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::spring;
-
-    #[test]
-    fn the_spring_starts_at_zero_overshoots_a_little_and_lands_exactly() {
-        assert_eq!(spring(0.0), (0.0, false));
-        let peak = (0..2000)
-            .map(|step| spring(f64::from(step) / 1000.0).0)
-            .fold(0.0_f64, f64::max);
-        assert!((1.0..1.02).contains(&peak), "peak {peak}");
-        assert_eq!(spring(1.0), (1.0, true));
-        assert!(!spring(0.1).1);
     }
 }

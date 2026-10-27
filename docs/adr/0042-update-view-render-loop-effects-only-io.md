@@ -1,6 +1,6 @@
 # ADR 0042: One update, view, render loop, with effects as the only I/O
 
-**Status:** Proposed. Built this way across `native/crates` during the Rust rebuild. The user has not reviewed this ADR.
+**Status:** Accepted, 2026-10-25, by Lyle with the [big run](../plans/rust-native-big-run.md)'s decisions. Built this way across `native/crates` during the Rust rebuild.
 **Date:** 2026-10-08
 **Related:** [Rust native rebuild plan](../plans/rust-native-rebuild.md), "One loop, three pure functions". [ADR 0041](./0041-typed-document-inverse-command-undo.md). [ADR 0036](./0036-diffed-runtime-store.md) and [ADR 0025](./0025-single-workspace-mutation-seam.md), the Electron machinery this makes unnecessary.
 **Code:** `specular-interact/src/{update,event,effect}.rs`, `specular-scene/src/view.rs`, `specular-compositor`, and the effect runners in `specular-app/src/app/`.
@@ -27,7 +27,7 @@ window, CEF, HTTP, files ──> Event
 - A question to a page is an effect answered by an event that repeats the question, so nothing waits inside the session.
 - An agent's HTTP write is `Event::Api` and its answer is `Effect::ApiReply`. It goes through the same door as a key press and makes the same undo step.
 - `view` builds a flat display list from the app. It names no renderer type. The compositor draws the list and knows nothing about entities or tools.
-- Both shells share one `specular_app::Runtime`, which holds every effect runner. A new effect gets its runner once.
+- One `specular_shell::Runtime` holds every effect runner, for the window and for headless runs. A new effect gets its runner once.
 
 Today `Event` has 31 variants and `Effect` has 46.
 

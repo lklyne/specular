@@ -1,14 +1,20 @@
 //! The page backend contract.
 
+mod device;
+mod element;
+mod event;
+
+pub use self::device::{PageColorScheme, PageDevice, PageSafeArea, PageUserAgent};
+pub use self::element::{CapturedElement, ElementPlace, InspectedNode, PageElement};
+pub use self::event::PageEvent;
+
 use std::sync::Arc;
 
 use glam::Vec2;
 
-use crate::cursor::Cursor;
-use crate::frame::FrameEvent;
-use crate::geometry::{CssRect, CssSize, PixelRect};
+use crate::geometry::{CssRect, CssSize};
 use crate::input::InputEvent;
-use crate::locator::{LocatorBundle, LocatorCandidate};
+use crate::locator::LocatorBundle;
 use crate::page::{PageId, PageSpec};
 
 /// Errors a [`PageSource`] reports.
@@ -23,217 +29,6 @@ pub enum PageSourceError {
     /// The backend (CEF) refused or failed the call.
     #[error("page backend error: {0}")]
     Backend(#[source] Box<dyn std::error::Error + Send + Sync>),
-}
-
-/// Something that happened to a page, drained by [`PageSource::drain_events`].
-#[derive(Debug)]
-pub enum PageEvent {
-    /// A layer painted.
-    Frame(FrameEvent),
-    /// The source refused a shared-texture paint because the page already
-    /// held [`MAX_OUTSTANDING_TEXTURES`](crate::MAX_OUTSTANDING_TEXTURES)
-    /// (Electron's `framesDroppedForPoolPressure`).
-    FrameDropped {
-        /// The page.
-        page: PageId,
-    },
-    /// A popup widget opened or closed (CEF `OnPopupShow`). While hidden, the
-    /// compositor drops the page's popup layer.
-    PopupVisibility {
-        /// The page.
-        page: PageId,
-        /// Whether the popup is now shown.
-        visible: bool,
-    },
-    /// A popup widget moved/resized (CEF `OnPopupSize`), in view texels.
-    PopupRect {
-        /// The page.
-        page: PageId,
-        /// New placement within the view frame.
-        rect: PixelRect,
-    },
-    /// The IME caret/composition bounds changed (CEF
-    /// `OnImeCompositionRangeChanged`), so the app can place the candidate
-    /// window. Union of character bounds, in page-local CSS pixels.
-    ImeCompositionBounds {
-        /// The page.
-        page: PageId,
-        /// Bounds of the composition, or `None` when there is none.
-        bounds: Option<PixelRect>,
-    },
-    /// Main-frame load finished (HTTP status, 0 for non-HTTP).
-    Loaded {
-        /// The page.
-        page: PageId,
-        /// HTTP status code.
-        http_status: i32,
-    },
-    /// The page host went away without being closed (renderer crash/OOM).
-    Crashed {
-        /// The page.
-        page: PageId,
-        /// Backend-provided reason, e.g. `crashed`, `oom`, `killed`.
-        reason: String,
-    },
-    /// The document's title changed (CEF `OnTitleChange`).
-    Title {
-        /// The page.
-        page: PageId,
-        /// The new title; empty when the document has none.
-        title: String,
-    },
-    /// The document's icon changed (CEF `OnFaviconURLChange`).
-    Favicon {
-        /// The page.
-        page: PageId,
-        /// The icon as a PNG; `None` when the document has none, or it
-        /// could not be fetched.
-        png: Option<Arc<[u8]>>,
-    },
-    /// The main frame shows another address (CEF `OnAddressChange`): a
-    /// navigation committed, or the page changed its own URL in place.
-    Url {
-        /// The page.
-        page: PageId,
-        /// The address now shown.
-        url: String,
-    },
-    /// What is under the pointer asks for another cursor (CEF
-    /// `OnCursorChange`).
-    Cursor {
-        /// The page.
-        page: PageId,
-        /// The cursor asked for.
-        cursor: Cursor,
-    },
-    /// The page started or stopped loading, or its session history moved
-    /// (CEF `OnLoadingStateChange`).
-    Loading {
-        /// The page.
-        page: PageId,
-        /// Whether a load is in flight.
-        loading: bool,
-        /// Whether [`PageNav::Back`] has somewhere to go.
-        can_go_back: bool,
-        /// Whether [`PageNav::Forward`] has somewhere to go.
-        can_go_forward: bool,
-    },
-    /// The main frame scrolled (CEF `OnScrollOffsetChanged`).
-    Scrolled {
-        /// The page.
-        page: PageId,
-        /// The document's scroll offset, in CSS pixels.
-        offset: Vec2,
-    },
-    /// The answer to a [`PageSource::scroll_room`].
-    ScrollRoom {
-        /// The page.
-        page: PageId,
-        /// Whether something under the point can scroll the way asked.
-        room: bool,
-    },
-    /// The answer to a [`PageSource::scroll_progress`].
-    ScrollProgress {
-        /// The page.
-        page: PageId,
-        /// How far the document is scrolled along each axis, as a fraction
-        /// of how far it can scroll: 0 at the start, 1 at the end, and 0
-        /// along an axis that does not scroll.
-        progress: Vec2,
-    },
-    /// The captured page ([`PageSource::set_capture`]) was pointed at by
-    /// real input: the pointer moved onto or within an element, or clicked
-    /// one.
-    Pointed {
-        /// The page.
-        page: PageId,
-        /// Whether it was a move or a click.
-        kind: PointKind,
-        /// The element, described so that another page can find its own.
-        bundle: Box<LocatorBundle>,
-    },
-    /// The answer to a [`PageSource::query_candidates`].
-    Candidates {
-        /// The page.
-        page: PageId,
-        /// The `request` the question carried.
-        request: u64,
-        /// The page's visible elements, or the one that carries the
-        /// bundle's id.
-        candidates: Vec<LocatorCandidate>,
-    },
-    /// The answer to a [`PageSource::query_element`].
-    ElementAt {
-        /// The page.
-        page: PageId,
-        /// The `request` the question carried.
-        request: u64,
-        /// The element under the point, or `None` when nothing is there.
-        element: Option<PageElement>,
-    },
-    /// The answer to a [`PageSource::inspect_at`].
-    Inspected {
-        /// The page.
-        page: PageId,
-        /// The `request` the question carried.
-        request: u64,
-        /// The node under the point, or `None` when nothing is there.
-        node: Option<Box<InspectedNode>>,
-    },
-    /// The answer to a [`PageSource::query_elements_in_rect`].
-    ElementsInRect {
-        /// The page.
-        page: PageId,
-        /// The `request` the question carried.
-        request: u64,
-        /// How many elements a region there grabs.
-        count: usize,
-        /// The box of each visible element that lies wholly in the rect,
-        /// in the page's viewport CSS pixels and document order.
-        boxes: Vec<CssRect>,
-    },
-    /// The answer to a [`PageSource::capture_element`].
-    ElementCaptured {
-        /// The page.
-        page: PageId,
-        /// The `request` the question carried.
-        request: u64,
-        /// The element to attach to, or `None` for a document with no body
-        /// and for an answer that could not be read.
-        element: Option<CapturedElement>,
-    },
-    /// Where the elements a page is tracking ([`PageSource::track_elements`])
-    /// now sit in its document. Only the ones that moved, appeared or went
-    /// are listed.
-    ElementPlaces {
-        /// The page.
-        page: PageId,
-        /// Each selector with where its element is, or `None` when the
-        /// selector finds nothing.
-        places: Vec<(String, Option<ElementPlace>)>,
-    },
-    /// What the document says of the screen around it, told after it has
-    /// been parsed and again once it has loaded.
-    ViewportFit {
-        /// The page.
-        page: PageId,
-        /// Whether its viewport meta asks for `viewport-fit=cover`: the
-        /// whole screen, under whatever the device puts over it.
-        covers: bool,
-        /// The colour a browser paints round it, as red, green and blue:
-        /// its `theme-color`, else its background. `None` when it names
-        /// neither.
-        color: Option<[u8; 3]>,
-    },
-    /// The page's remote-debugging (CDP) target id is known. With
-    /// [`PageSource::devtools_port`] it names the page's websocket:
-    /// `ws://127.0.0.1:<port>/devtools/page/<id>`.
-    DevtoolsTarget {
-        /// The page.
-        page: PageId,
-        /// The CDP target id.
-        id: String,
-    },
 }
 
 /// The first message id a devtools client's message may carry through
@@ -272,136 +67,12 @@ pub enum PageNav {
     Stop,
 }
 
-/// A DOM element a page found under a point: what a comment on it records.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PageElement {
-    /// A CSS selector that finds the element in its document.
-    pub selector: String,
-    /// A readable path to the element, when the backend builds one.
-    pub element_path: Option<String>,
-    /// The element's box in the page's viewport, in CSS pixels.
-    pub bounding_box: PixelRect,
-}
-
-/// A DOM node as the inspect tool reads it: what its outline, its popover
-/// and the chat's pill show (`inspectionPayload` in the Electron app).
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct InspectedNode {
-    /// What names the node within its page: its `id` attribute, else its
-    /// `data-testid`, else `tag@left:top`.
-    pub node_id: String,
-    /// The tag name, in lower case.
-    pub tag_name: String,
-    /// The tag and the node's text in quotes (`button "Save"`), or the tag
-    /// alone when it has no text, label, title, value, placeholder or alt.
-    pub name: String,
-    /// A CSS selector that finds the node in its document.
-    pub selector: String,
-    /// The `id` attribute, when it has one.
-    pub id_attribute: Option<String>,
-    /// The node's classes, in document order.
-    pub classes: Vec<String>,
-    /// Computed styles as `(property, value)`, in this order: `display`,
-    /// `position`, `font-family`, `font-size`, `font-weight`, `color`,
-    /// `background`, `padding`, `margin`. `background` is the computed
-    /// background colour.
-    pub styles: Vec<(String, String)>,
-    /// The node's box in the page's viewport, in CSS pixels.
-    pub bounding_box: PixelRect,
-}
-
-impl InspectedNode {
-    /// The computed value of `property`, when the page reported it.
-    pub fn style(&self, property: &str) -> Option<&str> {
-        self.styles
-            .iter()
-            .find(|(name, _)| name == property)
-            .map(|(_, value)| value.as_str())
-    }
-}
-
-/// Where an element sits in its page's document.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct ElementPlace {
-    /// The top-left corner of the element's box, in document CSS pixels.
-    pub doc: Vec2,
-    /// Whether the element sits in a fixed or sticky container, so that its
-    /// place in the document moves as the page scrolls.
-    pub viewport_positioned: bool,
-}
-
-/// The element a page offers for an item placed over it to follow
-/// (ADR 0032): what a [`PageSource::capture_element`] finds.
-#[derive(Debug, Clone, PartialEq)]
-pub struct CapturedElement {
-    /// A CSS selector that finds the element in its document.
-    pub selector: String,
-    /// Where the element is now.
-    pub place: ElementPlace,
-}
-
-/// The `prefers-color-scheme` a page reports.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum PageColorScheme {
-    /// `light`.
-    Light,
-    /// `dark`.
-    Dark,
-}
-
-/// The user agent a page sends in place of the browser's own.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct PageUserAgent {
-    /// The `User-Agent` header and `navigator.userAgent`.
-    pub user_agent: &'static str,
-    /// `navigator.platform`.
-    pub navigator_platform: &'static str,
-    /// The platform its client hints name (`Sec-CH-UA-Platform`).
-    pub hint_platform: &'static str,
-    /// The model its client hints name (`Sec-CH-UA-Model`).
-    pub model: &'static str,
-}
-
-/// The device a page tells its document it is on. The default is the
-/// browser as it is: a desktop whose pixel ratio is the texture scale.
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
-pub struct PageDevice {
-    /// The user agent it sends, as a mobile one. `None` is the browser's.
-    pub user_agent: Option<PageUserAgent>,
-    /// Whether it lays out as a phone does: `<meta viewport>` is followed,
-    /// scrollbars overlay the content and text is sized for a small screen.
-    pub mobile: bool,
-    /// Whether it has a touch screen: `pointer: coarse`, `hover: none` and
-    /// touch points.
-    pub touch: bool,
-    /// Its `devicePixelRatio`, whatever scale its texture is rastered at.
-    /// `None` is the texture scale.
-    pub pixel_ratio: Option<f32>,
-    /// What its `env(safe-area-inset-*)` are. None for a page laid out
-    /// inside its screen's safe area, which has nothing to keep clear of.
-    pub safe_area: PageSafeArea,
-}
-
-/// How far in from each edge of its viewport a page is told the screen's
-/// safe area starts, in CSS pixels: its `env(safe-area-inset-*)`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
-pub struct PageSafeArea {
-    /// `safe-area-inset-top`.
-    pub top: u32,
-    /// `safe-area-inset-right`.
-    pub right: u32,
-    /// `safe-area-inset-bottom`.
-    pub bottom: u32,
-    /// `safe-area-inset-left`.
-    pub left: u32,
-}
-
 /// A backend that hosts offscreen pages and delivers their painted frames.
 ///
 /// Object-safe on purpose: the app holds a `Box<dyn PageSource>` and picks the
 /// CEF or synthetic backend at startup, and the bench drives either through
 /// the same handle. Every method is called on the main thread (CEF on macOS
-/// requires its UI thread to be the process main thread, shared with winit),
+/// requires its UI thread to be the process main thread, shared with the window),
 /// so implementors need not be `Send`.
 pub trait PageSource {
     /// Short backend name for logs and bench reports (`"cef"`, `"synthetic"`).

@@ -1095,3 +1095,127 @@ Nothing was retired. Cleanup rows 1 and 2 in the plan say what now stands betwee
 - Gate: fmt, clippy for the workspace and for `specular-app` and `specular-shell` with `--features cef`, `cargo test --workspace` (1,425).
 - Needs a human at a Mac: none of it has been seen in a real page. The user asked for no scripted run and tests by hand.
 
+
+### BIG-RUN P9 validation
+
+- `validate-all.sh`: gate, headless, CEF, CLI and release pass; Kit 57 of 58 (from 26). Table and the one failure (`tabs`) in the big-run plan's "Validation".
+- Runner: headless scripts lay out under the Kit's chrome (`Event::ChromeLayout`: tab row 38, docked tools 36) and fail a pointer step that would land on chrome or off the window, so one script means one thing. The Kit runner takes posted moves, ignores the real mouse, tells the app light, Reduce motion off and no spring, rests on a control before clicking, lifts a held button before a press, waits for a step's files, reads `drop` paths as headless, names its canvas copy `Canvas 1`, leaves keys to the input method mid-composition, reads Kit fields for `expect editing`, and starts no real agent (it ran `claude` before).
+- App fixes (window only): a choice in a list that stays open keeps the keys, so Escape closes the list and keeps the selection; a press outside an open list goes no further; a left drag released with Control held ends (GPUI made it a right release, and the drag stuck).
+- Scripts: positions off the chrome, cameras and lens sizes for the smaller viewport, page answers awaited, checks a live synthetic page would overturn reworded. `validate-all` builds the patched agent-browser; `first-run.sh` uses the current first-run choice, a free port and a two-minute limit.
+- Warm `target/` from another worktree baked that worktree's path into `canvas_repo`; `cargo clean -p specular-doc` fixed the gate.
+- By hand: checklist items 29 to 32.
+
+### BIG-RUN P8: tidy (narrowed API, split files and functions)
+
+- Task 8: every `pub` item no other crate, test, bench or example names is `pub(crate)`, found by a name scan and then by the compiler (narrow all, restore what breaks). `pub` declarations went from 3,212 to 2,493; the dead code that showed is deleted (about 45 items, about 450 lines). Without its `cef` feature `specular-cef` allows dead code: its CEF-free helpers then serve only their unit tests.
+- Task 11: 30 files over 400 lines split along their seams into 46 new files. Left at the line: `cef/source.rs` (422, the one `PageSource` impl of 30 short methods; an impl cannot span files) and files at 397 to 401.
+- Task 12: broke up the long procedural functions (freehand outlines, session marks, the inspect card, a page's screen, page and image batches, clone copies, the CLI's browse run, the bench's page side, the canvas reader, launch, the ledger line, the API's breakpoint task, and in the Kit the slot's handlers, `open`, `render`, the composer, the sidebar and the frame). `Runtime::render`/`capture` were already one frame setup after P4b.
+- Left long on purpose: flat dispatchers (`update`, `run_action`, `effects::run`, `do_step`, the window runner's `step`, `notice_of`, `host_call::dispatch`, `on_dev_tools_method_result`, `page_state::on_notice`, `cli::parse`, the canvas node reader and writer, the facts `read`), declarative tables (device art, the prism preset, prism targets, resources and pipelines, `menus`, the tool dock's `controls`, the frame drawings) and the compositor's `prepare_scene`/`encode_scene_pass`, whose stages share split borrows of one struct.
+- Fixes: a text node's top-level `pageAnchor` is read (Electron read only `specular.pageAnchor`; now both, written back under `specular`), with a doc test. `specular-cef` docs describe the Kit window's `NSApp`, not winit's. Comments cite Electron files as `git show bc5253fa:src/...`.
+- Lines: 110,614 before, 111,111 after (splits add a header and imports per file; the narrowing deleted about 450).
+- Ran: the strict gate (fmt, clippy, tests, `run.sh`, `cli/run.sh`), and clippy for `specular-shell` and `specular-cef` with `--features cef`.
+- By hand: nothing behaves differently; a quick look at the Kit window (canvas input, the sidebar, the chat composer, the inspect card) checks the refactored view code.
+
+### BIG-RUN P1. Deletions
+
+- `native/bakeoff` is gone. The images ADR 0039 and ADR 0040 link (the golden images and crops, and the thirteen linked `shots/*.png`) moved to `docs/adr/assets/0039/` and `assets/0040/`. The ADRs, and the handoff's item 44, point there. The ADR 0040 `.txt` reports it names went with the code.
+- `packages/vite` is gone, with its `pnpm-workspace.yaml` entry and lockfile importer. Nothing in `src/`, `native/`, `resources/`, the tsconfigs or CI used it.
+- `specular-bench` lost `compare`, `electron_trace`, the `compare` and `electron-trace` commands, the `--page-hosts-*` flags and `PageHostsSnapshot`, the `Shell` field on `RunReport`, the lab profile aliases (`fast-pan`, `pan-zoom`) and the error variants only they raised. It keeps profiles, frame stats, work, memory, `assemble`, `rss` and `resize-report`. The README is rewritten for the Rust-only bench, and `native/README.md` drops the Electron half.
+- `PaintPolicy::ElectronLod` stays: it names the app's own paint policy, not the comparison.
+- Gate: fmt, clippy, `cargo test --workspace` and `fixtures/scenarios/run.sh` pass. `pnpm typecheck` was not run (no node_modules in the worktree); no tsconfig includes `packages/`.
+- By hand: open ADR 0039 and 0040 in a Markdown viewer and check the images render.
+
+### BIG-RUN P5: the `specular` CLI in Rust (2026-10-25)
+
+- New crate `specular-cli`, binary `specular-cli`, linked onto the `PATH` as `specular` (the Kit shell already builds `target/debug/specular`). Hand parser with the TS value-flag table, `ureq` client, one module per verb group. Same verbs, JSON output, exit codes, discovery, headers, session id, presence and agent-browser spawning as the TS CLI.
+- Decision: the routes read loose JSON, so there were no request structs to share. `specular-api/src/wire.rs` types what the CLI decodes (discovery file, apply and placement answers) plus the footprint and layout check, and the routes build those answers from it. Typing every request body would be a route refactor.
+- Decision: in-CLI `&&` chaining is dropped. The TS CLI quoted every word, so it could not reach it; shell `&&` still works.
+- Cut `print-pdf`, `record`, `component-states`, `design-system` and `register-design-system` from the CLI, the skill and `unported.rs`; their routes are 404s now.
+- Found by the e2e runs: `update <group> --gap` was a no-op. A patch can now set a group's `layoutGap`.
+- `fixtures/scenarios/cli/run.sh` (12 cases) starts the Kit app on a scratch space and runs every verb. It replaced `contract.rs`, `documents.rs`, most of `tabs.rs` and `tasks.rs`, five `verbs.rs` tests and the socket session test. `cef/cli-pages.sh` runs the Rust CLI (`CLI=`).
+- `bundle-app.sh` puts `specular-cli` in `Contents/MacOS`; `agent_tools` links to it. `specular-cli.sh` and the helper's `cli` service are gone. `resources/specular-cli.sh` is the Electron build's and goes with phase 7.
+- Ran: gate, headless scenarios, `cli/run.sh` 12/12 on the Kit app.
+- Needs a human: a bundle build (not run here, nor `bun` in `native/helper`), the setup dialog replacing an old `specular-cli.sh` link, and `cef/cli-pages.sh` against a bundled CEF app with the patched agent-browser.
+
+### BIG-RUN P6: parity (new-tab links, error log, Reduce motion, cursor settings, fix and snapshot routes)
+
+- New-tab links: CEF's `on_before_popup` and `on_open_urlfrom_tab` cancel the popup and send `PageNotice::OpenTab`; `link_open.rs` puts a page at the source's size in a free spot beside it, in no sync set, one undo step. Foreground selects it and reveals it (a pan, not Electron's centring glide); Command-click and middle click leave both. Decision: a popup with window features and a Shift-click's new window open a page too, since an off-screen page cannot have a window. The page joins no group.
+- Error log: `crash_log.rs` writes panics and every tracing ERROR (failed effects, `render-process-gone` with url and reason) to `~/Library/Logs/Specular/errors.log`, capped at 50 MB, `SPECULAR_ERROR_LOG` overrides. Only window runs keep it. CEF has no Crashpad setup, so there are no native dumps yet.
+- Reduce motion: the Kit shell reads `accessibilityDisplayShouldReduceMotion` at start and every second and sends `Event::ReduceMotion`; `App::reduce_motion()`. The camera spring, page turns and agent cursor travel land at once; the thread avatars and the first-run Prism hold still. The run bar has no shimmer or pulse natively yet, and the bubble flash (a colour fade) is left. The winit shell does not send it (phase 4 removes it).
+- Cursors: `Agent cursors` and `Synced cursors` switches in settings (`settings.agent-cursors`, `settings.synced-cursors`, named controls), saved as Electron's `hideAgentCursors`/`hideSyncedCursors`. The synced cursor is new: an arrow in #00C2FF where the entered page's pointer was last replayed on each peer, cleared when the capture ends.
+- Routes: `POST /annotations/fix` (`ChatAction::Fix`; only comments on a repo-bound origin; a thread-less comment joins the draft) and `POST /pages/snapshot` / `/pages/agent-snapshot` (a script ported from the preload, run with `Runtime.evaluate` on the page's devtools channel; ids from `cdp::APP_ID_BASE`). These are the API's first deferred answers: `Api::answer_to`, `Host::page_script`. Their unported rows are gone.
+- Tests: scenarios `r-new-tab-links` (checked in check.py) and `s-reduced-motion` (frames to look at; the camera is asserted in `tests/it/motion.rs`), script steps `page-opens-tab`, `motion`, `reduce-motion`; `tests/it/cursors.rs`; `tests/api/fix.rs`, two snapshot cases in `tests/api/pages.rs`, one over the socket; two crash log tests.
+- Gate: fmt, clippy (workspace, and app and shell with `--features cef`), `cargo test --workspace`, `fixtures/scenarios/run.sh`, all pass. A bundled debug CEF run on a local page: a `target=_blank` click and `window.open` each opened a foreground page beside the source, a Command-click a background one, and a plain click still navigated in place. Middle click was not tried (no script step for it).
+- Needs a human: toggle Reduce motion in System Settings with the app open and watch a tab open and the avatar; cmd-click and middle-click a link in a real page; the two cursor switches with an agent and a sync set; read errors.log after killing a renderer.
+
+### BIG-RUN P7: delete the Electron app
+
+- Deleted `src/`, the TS `tests/`, forge/vite/vitest/tsconfig/eslint configs, `package.json` and the pnpm workspace, `.npmrc`, `.fallowrc.json`, `.env.example`, root `assets/` and `build/` (Electron icons; the bundle uses `specular-shell/assets`), `resources/specular-cli.sh`, `resources/bin`, `resources/skills/agent-browser`, the agent-browser fetch scripts, `ci.yml` and the `fallow` skill. `release.yml` was already native-only. `skills-lock.json` stays (it pins `.agents/skills`).
+- Native tests and scenario `f3` read `tests/integration/__snapshots__/rich-workspace.canvas`; they now read the identical copy in `specular-doc/tests/fixtures/` (one-line edits to `check.py` and `f3-fixture-one-change.txt`, phase 2's area).
+- Fixed the phase 5/6 merge: `Loopback::ok` was dropped while the new snapshot test used it, so `specular-app`'s lib tests did not build.
+- Docs: rewrote `CLAUDE.md`, `AGENTS.md`, `README.md`, `CONTEXT.md` (Electron mechanisms out, "Rust names" section), `docs/README.md`, `file-formats.md`, `native-app-bundle.md`; deleted the Electron-internal docs, audits and research notes. The Electron source is cited at `bc5253fa`. Release skill bumps `native/Cargo.toml`; AFK worker runs the cargo gate.
+- Ran: fmt, clippy, `cargo test --workspace`, `fixtures/scenarios/run.sh`, `bun install && bun run typecheck` in `native/helper`, and a full `bundle-app.sh --profile debug` (all resources found). All pass.
+- Left for later: rename `rust-spike.yml` to `native.yml` and add `resources/**` to its paths (phase 2 owns it); `native/CLAUDE.md` "Tests" still links the deleted `tests/README.md`; code comments citing `src/...` provenance remain.
+- Needs a human: drop the `check` and `fallow` required checks from branch protection (no workflow reports them now).
+
+### BIG-RUN P2: one scenario format
+
+- `specular_app::script` is the one parser and step set for the headless runner and the Kit window (`SPECULAR_SHELL_SCRIPT_FILE`). Window-only steps (`resize`, `keycode`, `swipe`, `menu-choose` ...) are skipped headless and listed. New: `expect ..` facts on app state and the saved canvas, `undo-to-start [except PATH..]`, `mark`, `reopen`, `state`, `given` lines for an inline starting document, `@top`/`@N`/`@selected` names.
+- Scenarios renamed by flow (`first-session`, `comments` ...), 20 of them, each asserting with `expect` and ending with `undo-to-start`; `check.py` and `run-kit.sh` are gone; f1 folded into `first-session` (`reopen`); `reload-rich-workspace` reads `specular-doc/tests/fixtures/rich-workspace.canvas`. Five snapshots remain, for draw rules.
+- Headless scenarios run with panels off. Sidebar canvas rows are `sidebar.canvas.<n>`, by place. `settings.*` and any control the Kit does not draw are pressed from the models in both runners.
+- `cargo test --workspace` runs every headless scenario (`specular-app/tests/scenarios.rs`, ~2 s); `run.sh` has `--kit`, `--cef` (folds `cef/sync.sh` in) and `--cli` modes. CI: the test job covers headless; a `continue-on-error` macOS job tries `--kit` and uploads logs. Window runs stay local until that job is seen to pass.
+- CI: `rust-spike.yml` is now `native.yml` ("Native"), with `resources/**` in its paths. `native/CLAUDE.md` inlines the four test bars.
+- Undo leaves a page's navigation and a page-named element on an edited caption in place; the scenarios name these with `except`. `Loopback::ok` (api tests) was missing after the run-branch merge; restored.
+- Ran: gate (fmt, clippy, 1,461 tests), `run.sh` 20/20, `run.sh --cli` 12/12, `run.sh --cef` on a debug CEF bundle (`pages` and `sync` pass; `cli-pages` 29/35 with the installed CLI, the `find .. click` navigation chain failing), `run.sh --kit` 13/20 on this Mac (failures: window geometry differs from headless for a marquee, an edge drag and a typed size field, plus occluded-window flakes).
+- By hand: make `run.sh --kit` pass (positions in `selection-kitchen-sink`, `toolbar-and-popups`, `page-chrome`), and check the first CI run of the Kit job.
+
+### BIG-RUN P4b: one window, one shell crate
+
+- The winit window, its menu bar and `translate.rs` are gone; `winit`, `muda` and `rfd` left the workspace. Every mode (`--snapshot`, `--script`, `--bench`) runs from the `specular` binary.
+- The built-in panel renderer is gone: `interact/panel/builtin`, the panel painter in `scene/panel` (the glyphs as SVG and `panel_color` stay), `Event::BuiltinPanels`, `Event::BuiltinMenu`, `Hit::Panel`, the `panels` step and `--script-panels`. What was app behaviour moved: `PanelUi` (shell chrome, open dropdown, menu, sidebar anchor) and the row heights to `panel/ui.rs`, `ContextMenu` and its opening to `panel/context.rs`, and the sidebar pick to `sidebar/pick.rs`. The Kit's sidebar rows are pressed by name, so its copy of the pick is gone.
+- A headless run is a `Runtime<HeadlessWindow>` (an offscreen texture), driven through interact's `Driver`, now generic over where its events go. `headless/effects.rs` is gone: each effect has one runner. A runtime told not to write keeps the clipboard and new Documents in memory and drops assets, threads and dialogs; `Loads` tracks what a run waits on.
+- One crate: `specular-shell`. The library is the runtime, the command line and the headless modes; the binary `specular` is the Kit window in `src/kit/`, so the scenarios link without GPUI. Kept the shell name because it is the architecture's word for the one crate that does I/O.
+- One of each: the screen rect is `core::Rect` (`ScreenRect` is its role name; its `contains` keeps all four edges, as the old type did, and `doc::Rect`'s half-open `contains`, `union` and `intersection` moved onto the type); one polling watcher (`watch.rs`: one `Stamp`, one interval, `Polled` for Documents, images and page files); one folder-dialog path (`FolderAsk`, shown by the window, answered with `folder_chosen`); no `specular-cli.sh` remains. The testkit shrank to what the remaining tests use (1,831 to about 1,080 lines).
+- Lines: step 1 -2,463, step 2 -5,246 (+303), step 3 -829 (+638), crate merge about -50, rect, watcher and dialog about even, testkit -913.
+- Ran: the strict gate after each step (fmt, clippy, tests, `run.sh` 58/58, `cli/run.sh` 12/12). `run.sh --kit`: 31/58, the same failures as the run branch before this phase (30/58, built from `e003230d` and run on this Mac the same hour); they are window geometry and timing differences, already open from P2 and P3. A debug CEF bundle (`bundle-app.sh --profile debug`) launched on a scratch space with `SPECULAR_NATIVE_CONFIG_DIR`, loaded the starter pages in CEF and quit cleanly.
+- Left: `specular-cef`'s comments still name winit; the page-files watcher reads its folder every interval, as before.
+- By hand: right-click menus, sidebar shift- and command-clicks, Settings > Repos > connect (the dialog is GPUI's now, not rfd's), File > Open space, editing an HTML file a page shows.
+
+### BIG-RUN P4a: the Kit draws the context menu
+
+- What the built-in renderer still drew in the Kit window was the context menu alone: the item and page popups became the dock in `d0662ec1`. The Kit shell now sends `Event::ShellChrome` (nothing built in is laid out or drawn) instead of `BuiltinMenu`. `PanelUi::menu_only` is `shell_chrome`.
+- A right press still opens `panel.menu` in the app. `view/canvas_menu.rs` draws it as a Kit `PopupMenu` at the press, from `context_menu`. A pick sends `Event::Control(name)`, so a paste lands where the menu opened; Escape or a press outside sends `Event::MenuClosed`. The menu has arrow, Return and Escape keys. The canvas reads the menu outside the models' 100 ms gate, so it shows on the next frame.
+- Canvas anchoring: the menu is fixed to the press point, as the built-in one was. A layer under it takes the pointer, wheel and pinch while it is open (macOS menus do the same), so the camera cannot move under it and there is no lag to measure.
+- Without built-in panels a press while the menu is open only closes it, headless too.
+- The window runner finds `menu.<label>` where the Kit draws it; the canvas-pass lookup is gone. `context-menu-and-arrange` adds a press outside, copy and paste through the menus, and select all. Two GPUI tests cover the drawn menu (position, disabled row, keys, the layer).
+- Left for 4b: the shell still imports `panel::builtin::{ContextMenu, SHELL_CHROME_HEIGHT, DOCK_ROW, TAB_ROW}`; `Event::BuiltinMenu` and `menu_alone` remain for one interact test.
+- Ran: gate (fmt, clippy, tests, headless scenarios). `run.sh --kit context-menu-and-arrange` passed, but the screen was locked: the window drew nothing, menu items were pressed from the models, and the light and dark snapshots failed (`screencapture` had no image).
+- By hand: the context menu items in the big-run checklist.
+
+
+### BIG-RUN P3C: tests outside interact's gesture tests
+
+- Tests outside `specular-interact/tests/` went from 830 to 146. What stays: `.canvas` byte and round-trip tests (doc 29, the space's on-disk files and `appState` in app), the API route tests as they were (35), pure rules (camera zoom, text hit-testing, resize, segmentation, markdown, the freehand pin), 11 GPU readbacks in one binary (`specular-compositor/tests/gpu.rs`), performance pins (idle, caret and gif frames, mesh, text layout and import caches, batch count, culling), and protocol formats (claude stream-json, thread and repo files, CEF key and answer formats, WebSocket frames).
+- Gone: unit tests on helpers, per-function tests, draw-state scene snapshots (7 kept, one a draw rule each), the synthetic page's tests (every scenario drives it), bench tests, agent queue tests (interact's chat tests cover the same flows), testkit's own tests.
+- Scenarios: `document-editing` adds a numbered list nested and brought back, Backspace after a marker, a task line carried on, the heading toggle; `page-chrome` adds a local address over http. Mutation-checked 8 of these: all 8 fail the scenario.
+- Ran: the strict gate (fmt, clippy, test, `run.sh` 20/20, `cli/run.sh` 12/12).
+- Over the ~120 target by about 25, all in the API routes, which the brief keeps.
+- By hand: nothing new to look at; the deleted tests guarded code, not screens.
+
+### BIG-RUN P3B: text, comments, chat, pages and panels tests become scenarios
+
+- `specular-interact/tests/it`: the text, comment, chat, page, view and panel flows went from about 330 Rust tests to 12: text segmentation (`text_rules.rs`, 3), pill placement and the selection target (`comment_rules.rs`, 2), the sync protocol's timing with requests answered by id (`sync.rs`, 3) and palette ranking (`palette.rs`, 4). Every `panel_builtin*` test is gone with the built-in renderer; what its controls do is pressed by name.
+- Seventeen new scenarios (`text-editing`, `document-files`, `comment-tool`, `comment-marks`, `chat-comments`, `repos-and-inspect`, `page-history`, `page-scroll`, `sync-sets`, `tabs`, `lens`, `item-view`, `page-properties`, `dock`, `menus-and-settings`, `sidebar-rows`, `chrome-controls`) and four canvases.
+- `script/facts_panels.rs`: topic facts (`expect chat|comments|controls|editor|effects|inspect|menubar|onboarding|pages|palette|pointer|repos|settings|sidebar|tabs has|lacks|is|count ..`), and steps for the shell's and agent's side (`send-chat`, `agent-says`, `page-reports`, `bind`, `note-text`, `prepare-tab`, `space-needed` ...). `effects` reads 3a's `sent` buffer. The Kit runner sends the panel steps; it skips `effects` checks.
+- Mutation check: 10 of 10 breaks caught (word motion and deletion, the note save delay, the newest pill, auto-fix, the sync toggle, dimmed rows, item-view hiding, the dock's Back, the inspect pixel cache).
+- Found, not fixed: a text node's `pageAnchor` at the top level of a `.canvas` is not read (only under `specular`); a Document's scroll extent grows over a frame or two as its rows are measured.
+- Dropped as unreachable from a script or trivial: the API-driven address change and its undo, the dragged double-click (kept in Rust), the late answer to a click on a page, the canvas switch with an item view, a paste of an API card, opening a space asking for threads.
+- Ran the gate script. A person should run `fixtures/scenarios/run.sh --kit` on the new scenarios: the Kit sends the panel steps but has not run them yet.
+
+### BIG-RUN P3A: canvas gesture tests become scenarios
+
+- The canvas flows in `specular-interact/tests/it` (select, resize, hit test, edges, guides, moves, anchoring, groups, tools, layout, arrange, clipboard, canvases, theme and the rest: 320 tests in 38 files) are 21 new scenarios and additions to `guides`, `auto-layout`, `page-anchoring` and `reduced-motion`. 17 Rust tests stay in 10 files: resize, guide and paste tables, the binding table, the mac key table, tab refs, the estimate measure, svg/gif/changed-file image timing, the camera spring's first frame, and three flick pins.
+- New vocabulary in `script/facts_canvas.rs`: canvas facts (`hit`, `cursor`, `handles`, `guides`, `gaps`, `seen`, `page`, `order`, `edge`, `anchor`, `sent` effects of the last step ...) and steps (`page-says`, `appearance`, `theme-loaded`, `repeat`, `menu`, `act show:ID`). A headless run now does `drop` too, paths read from the canvas's folder.
+- Dropped: opening a space, a background file change and a space with no canvas (shell events with no step); the estimate-measure-free paths; the late capture answer; the cursor settings' draw filter; a pasted clipboard image; the flick's scroll-room ask. Each is plumbing or covered elsewhere.
+- Mutation check: 10 constants and branches broken (guide tolerance, group padding, nudge step, duplicate gap, group border, arrange gap, edge snap, page arrow, system theme save); all 10 failed a scenario once a Shift held over an undo in `guides-cases` was fixed.
+- Run: the strict gate script. A human: `fixtures/scenarios/run.sh --kit` for the new scenarios (`sent` lines hold in a window; `drop` reads paths from the cwd there).

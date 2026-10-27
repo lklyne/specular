@@ -76,9 +76,6 @@ pub struct TextEdit {
     pub(crate) active_ms: u64,
     /// The file the text is written to as it changes, for a Document.
     pub(crate) note: Option<NoteSave>,
-    /// How far a field's line is scrolled left to keep the caret in view, in
-    /// logical pixels.
-    pub(crate) scroll: f32,
 }
 
 impl TextEdit {
@@ -97,7 +94,6 @@ impl TextEdit {
             origin,
             active_ms: 0,
             note: None,
-            scroll: 0.0,
         }
     }
 
@@ -107,7 +103,7 @@ impl TextEdit {
     }
 
     /// Whether this is an edit of a Document's markdown source.
-    pub fn is_note(&self) -> bool {
+    pub(crate) fn is_note(&self) -> bool {
         self.target == Target::Note
     }
 

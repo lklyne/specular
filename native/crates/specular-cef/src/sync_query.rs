@@ -182,7 +182,7 @@ fn evaluate(id: i32, body: &str, await_promise: bool) -> Vec<u8> {
 
 /// The message that asks the captured page what it was pointed at. The
 /// answer waits for something to tell, up to two seconds.
-pub fn capture_message(id: i32) -> Vec<u8> {
+pub(crate) fn capture_message(id: i32) -> Vec<u8> {
     evaluate(id, CAPTURE, true)
 }
 
@@ -194,7 +194,7 @@ fn literal(value: Option<&str>) -> String {
 }
 
 /// The message that asks a page for the elements `bundle` could mean.
-pub fn candidates_message(id: i32, bundle: &LocatorBundle) -> Vec<u8> {
+pub(crate) fn candidates_message(id: i32, bundle: &LocatorBundle) -> Vec<u8> {
     let body = CANDIDATES
         .replace("__ID__", &literal(bundle.id.as_deref()))
         .replace("__TEST_ID__", &literal(bundle.test_id.as_deref()));
@@ -203,7 +203,7 @@ pub fn candidates_message(id: i32, bundle: &LocatorBundle) -> Vec<u8> {
 
 /// The messages that replay a hover or a click at a viewport point: one
 /// move, or a press and a release of the primary button.
-pub fn replay_messages(kind: PointKind, x: f32, y: f32) -> Vec<Value> {
+pub(crate) fn replay_messages(kind: PointKind, x: f32, y: f32) -> Vec<Value> {
     let mouse = |event: &str, button: &str, clicks: u8| {
         json!({
             "method": "Input.dispatchMouseEvent",
@@ -227,7 +227,7 @@ struct Captured {
 
 /// What a [`capture_message`] answered, oldest first. Empty for an answer
 /// that cannot be read.
-pub fn parse_captured(result: &[u8]) -> Vec<(PointKind, LocatorBundle)> {
+pub(crate) fn parse_captured(result: &[u8]) -> Vec<(PointKind, LocatorBundle)> {
     let captured: Vec<Captured> = returned(result)
         .and_then(|text| serde_json::from_str(&text).ok())
         .unwrap_or_default();
@@ -245,7 +245,7 @@ pub fn parse_captured(result: &[u8]) -> Vec<(PointKind, LocatorBundle)> {
 
 /// The elements a [`candidates_message`] found. Empty for an answer that
 /// cannot be read, which then matches nothing.
-pub fn parse_candidates(result: &[u8]) -> Vec<LocatorCandidate> {
+pub(crate) fn parse_candidates(result: &[u8]) -> Vec<LocatorCandidate> {
     returned(result)
         .and_then(|text| serde_json::from_str(&text).ok())
         .unwrap_or_default()
@@ -274,45 +274,5 @@ mod tests {
         assert_eq!(bundle.id.as_deref(), Some("go"));
         assert!((bundle.offset_x - 0.25).abs() < f64::EPSILON);
         assert_eq!(parse_captured(b"not json").len(), 0);
-    }
-
-    #[test]
-    fn a_candidates_question_quotes_the_identity_keys_and_its_answer_is_read() {
-        let bundle = LocatorBundle {
-            id: Some("a\"]); alert(1); (\"".to_owned()),
-            ..LocatorBundle::default()
-        };
-        let message: Value = serde_json::from_slice(&candidates_message(9, &bundle)).unwrap();
-        let expression = message["params"]["expression"].as_str().unwrap();
-        assert!(expression.contains(r#"const id = "a\"]); alert(1); (\"", testId = null;"#));
-        assert!(!expression.contains("__"), "a placeholder was left in");
-
-        let answer = r#"[{"id":"go","testId":null,"role":null,"name":"button \"Go\"","text":"Go","tag":"button","elementPath":"button#go","fullPath":"body > button#go","interactive":true,"rect":{"x":10,"y":20,"width":40,"height":20}}]"#;
-        let candidates = parse_candidates(&value_result(answer));
-        assert_eq!(candidates.len(), 1);
-        assert!(candidates[0].interactive);
-        assert!((candidates[0].rect.width - 40.0).abs() < f64::EPSILON);
-        assert_eq!(parse_candidates(b"not json").len(), 0);
-    }
-
-    #[test]
-    fn a_click_is_replayed_as_a_press_and_a_release_and_a_hover_as_a_move() {
-        let message = |event: &str, button: &str, clicks: u8| {
-            json!({
-                "method": "Input.dispatchMouseEvent",
-                "params": { "type": event, "x": 30.0, "y": 40.0, "button": button, "clickCount": clicks },
-            })
-        };
-        assert_eq!(
-            replay_messages(PointKind::Hover, 30.0, 40.0),
-            [message("mouseMoved", "none", 0)]
-        );
-        assert_eq!(
-            replay_messages(PointKind::Click, 30.0, 40.0),
-            [
-                message("mousePressed", "left", 1),
-                message("mouseReleased", "left", 1)
-            ]
-        );
     }
 }

@@ -87,7 +87,7 @@ impl App {
     /// [`Action::ToggleSync`](crate::Action::ToggleSync) would take them
     /// out of it. `None` when toggling would do nothing: something other
     /// than pages is selected, or one page that is in no set.
-    pub fn selection_synced(&self) -> Option<bool> {
+    pub(crate) fn selection_synced(&self) -> Option<bool> {
         let pages = selected_pages(self)?;
         match pages.as_slice() {
             [] => None,
@@ -262,6 +262,7 @@ pub(crate) fn on_notice(
         | PageNotice::ElementCaptured { .. }
         | PageNotice::ElementPlaces(_)
         | PageNotice::DevtoolsUrl(_)
+        | PageNotice::OpenTab { .. }
         | PageNotice::ViewportFit { .. } => {}
     }
 }

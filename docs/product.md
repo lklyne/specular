@@ -49,7 +49,7 @@ layout is part of the work product.
 
 ### Browser-native fidelity
 
-Web content renders in real Electron webviews, not screenshots or proxies.
+Web content renders in real Chromium pages (CEF), not screenshots or proxies.
 Users can interact with live pages, inspect DOM, navigate, and see responsive
 behavior at different viewport presets. Page nodes are real browser surfaces,
 even though the app stays organized as one spatial canvas.

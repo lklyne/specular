@@ -11,7 +11,6 @@ use specular_doc::{Annotation, AnnotationAnchor, AnnotationId, EntityId, Rect, V
 
 use crate::edit::{self, Origin, Target, TextEdit};
 use crate::focus::set_focus;
-use crate::geometry::ScreenRect;
 use crate::gesture;
 use crate::{App, Effect, TextFrame, TextSpec, Tool, chat, geometry};
 
@@ -137,15 +136,15 @@ fn card_corner(app: &App, draft: &Annotation) -> Option<Vec2> {
             Some(camera.world_to_screen(point) + POINT_OFFSET)
         }
         AnnotationAnchor::Region(_) => {
-            let region = ScreenRect::of(camera, super::region_on_canvas(app, draft)?);
+            let region = crate::geometry::on_screen(camera, super::region_on_canvas(app, draft)?);
             Some(Vec2::new(
                 region.centre().x - CARD_WIDTH / 2.0,
                 region.max().y + GAP,
             ))
         }
         AnnotationAnchor::Element { .. } => {
-            let element = ScreenRect::of(camera, super::element_on_canvas(app, draft)?);
-            Some(Vec2::new(element.min.x, element.max().y + GAP))
+            let element = crate::geometry::on_screen(camera, super::element_on_canvas(app, draft)?);
+            Some(Vec2::new(element.min().x, element.max().y + GAP))
         }
         // No draft is made on a page point.
         AnnotationAnchor::Page { .. } => None,
@@ -177,7 +176,7 @@ pub(crate) fn frame(app: &App) -> Option<TextFrame> {
 /// Whether `screen` is on the composer, where a press is the text's.
 pub(crate) fn is_over_composer(app: &App, screen: Vec2) -> bool {
     app.comment_composer()
-        .is_some_and(|card| ScreenRect::of(&app.session.camera, card).contains(screen))
+        .is_some_and(|card| crate::geometry::on_screen(&app.session.camera, card).contains(screen))
 }
 
 impl App {

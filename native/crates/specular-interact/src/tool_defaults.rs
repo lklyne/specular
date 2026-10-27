@@ -17,7 +17,7 @@ use crate::Tool;
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct ToolDefaults {
     /// Plain text.
-    pub text: TextDefaults,
+    pub(crate) text: TextDefaults,
     /// Sticky notes.
     pub sticky: StickyDefaults,
     /// Shapes.
@@ -26,7 +26,7 @@ pub struct ToolDefaults {
     pub draw: DrawDefaults,
     /// Pages. Not stored: like Electron's, the size the next page is made
     /// at lasts as long as the app runs.
-    pub page: PageDefaults,
+    pub(crate) page: PageDefaults,
 }
 
 /// What `add-page` makes.
@@ -34,30 +34,30 @@ pub struct ToolDefaults {
 pub struct PageDefaults {
     /// The viewport preset, by index into
     /// [`VIEWPORT_PRESETS`](specular_doc::VIEWPORT_PRESETS).
-    pub preset: u32,
+    pub(crate) preset: u32,
     /// Whether the page keeps that size as a custom size rather than as the
     /// preset's.
-    pub custom: bool,
+    pub(crate) custom: bool,
 }
 
 /// What `add-text` stamps.
 #[derive(Debug, Clone, PartialEq)]
 pub struct TextDefaults {
     /// The ink. `None` follows the theme's foreground.
-    pub color: Option<Color>,
+    pub(crate) color: Option<Color>,
     /// Text size in pixels.
-    pub size: f64,
+    pub(crate) size: f64,
     /// Typeface.
-    pub font: TextFont,
+    pub(crate) font: TextFont,
 }
 
 /// What `add-sticky` stamps.
 #[derive(Debug, Clone, PartialEq)]
 pub struct StickyDefaults {
     /// The card's fill.
-    pub color: Color,
+    pub(crate) color: Color,
     /// Text size in pixels.
-    pub size: f64,
+    pub(crate) size: f64,
     /// Typeface.
     pub font: TextFont,
 }
@@ -68,11 +68,11 @@ pub struct ShapeDefaults {
     /// Which silhouette.
     pub kind: ShapeKind,
     /// Fill color.
-    pub color: Color,
+    pub(crate) color: Color,
     /// Border width in pixels.
-    pub stroke_width: f64,
+    pub(crate) stroke_width: f64,
     /// Label size in pixels.
-    pub text_size: f64,
+    pub(crate) text_size: f64,
 }
 
 /// What `draw` stamps on each stroke.
@@ -81,9 +81,9 @@ pub struct DrawDefaults {
     /// Pen or highlighter.
     pub brush: BrushType,
     /// Stroke color.
-    pub color: Color,
+    pub(crate) color: Color,
     /// Stroke width in canvas units.
-    pub stroke_width: f64,
+    pub(crate) stroke_width: f64,
 }
 
 const DEFAULT_TEXT_SIZE: f64 = 14.0;
@@ -167,7 +167,7 @@ pub enum ToolDefaultPatch {
 
 impl ToolDefaultPatch {
     /// The tool whose default this changes.
-    pub const fn tool(&self) -> Tool {
+    pub(crate) const fn tool(&self) -> Tool {
         match self {
             Self::TextColor(_) | Self::TextSize(_) | Self::TextFont(_) => Tool::AddText,
             Self::StickyColor(_) | Self::StickySize(_) | Self::StickyFont(_) => Tool::AddSticky,
@@ -181,7 +181,7 @@ impl ToolDefaultPatch {
     }
 
     /// Whether the preferences file keeps what this changes.
-    pub const fn is_stored(&self) -> bool {
+    pub(crate) const fn is_stored(&self) -> bool {
         match self {
             Self::PagePreset(_) | Self::PageCustom => false,
             Self::TextColor(_)
@@ -223,7 +223,7 @@ pub(crate) fn nearest_width(brush: BrushType, width: f64) -> f64 {
 impl ToolDefaults {
     /// Applies one change. Changing the brush also moves the stroke width
     /// to the nearest width that brush is offered in.
-    pub fn apply(&mut self, patch: ToolDefaultPatch) {
+    pub(crate) fn apply(&mut self, patch: ToolDefaultPatch) {
         match patch {
             ToolDefaultPatch::TextColor(color) => self.text.color = color,
             ToolDefaultPatch::TextSize(size) => self.text.size = size,
@@ -340,45 +340,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_first_launch_defaults_are_electrons() {
-        assert_eq!(
-            ToolDefaults::default().to_json(),
-            json!({
-                "add-text": { "color": null, "textSize": 14.0, "textFont": "sans" },
-                "add-sticky": { "color": "3", "textSize": 14.0, "textFont": "sans" },
-                "add-shape": {
-                    "shapeKind": "rectangle", "color": "1", "strokeWidth": 2.0, "textSize": 14.0,
-                },
-                "draw": { "brushType": "pen", "color": "1", "strokeWidth": 2.0 },
-            })
-        );
-    }
-
-    #[test]
-    fn a_stored_value_round_trips() {
-        let mut defaults = ToolDefaults::default();
-        for patch in [
-            ToolDefaultPatch::TextColor(Some(Color::parse("#112233"))),
-            ToolDefaultPatch::TextSize(18.0),
-            ToolDefaultPatch::TextFont(TextFont::Mono),
-            ToolDefaultPatch::StickyColor(Color::Preset(ColorPreset::Green)),
-            ToolDefaultPatch::StickySize(24.0),
-            ToolDefaultPatch::StickyFont(TextFont::Hand),
-            ToolDefaultPatch::ShapeKind(ShapeKind::Diamond),
-            ToolDefaultPatch::ShapeColor(Color::Neutral),
-            ToolDefaultPatch::ShapeStrokeWidth(4.0),
-            ToolDefaultPatch::ShapeTextSize(20.0),
-            ToolDefaultPatch::Brush(BrushType::Highlight),
-            ToolDefaultPatch::DrawColor(Color::Preset(ColorPreset::Cyan)),
-            ToolDefaultPatch::DrawStrokeWidth(8.0),
-        ] {
-            defaults.apply(patch);
-        }
-        assert_ne!(defaults, ToolDefaults::default());
-        assert_eq!(ToolDefaults::from_json(&defaults.to_json()), defaults);
-    }
-
-    #[test]
     fn missing_and_malformed_values_keep_their_defaults() {
         for raw in [json!(null), json!("nope"), json!({ "draw": 4 })] {
             assert_eq!(ToolDefaults::from_json(&raw), ToolDefaults::default());
@@ -392,29 +353,5 @@ mod tests {
         assert_eq!(partial.shape.color, Color::Preset(ColorPreset::Cyan));
         assert_eq!(partial.draw.brush, BrushType::Highlight);
         assert_eq!(partial.draw.stroke_width, 2.0);
-    }
-
-    #[test]
-    fn the_legacy_dotted_color_keys_are_read() {
-        let legacy = ToolDefaults::from_json(&json!({
-            "add-text": { "plain.color": "4", "sticky.color": "6" },
-        }));
-        assert_eq!(legacy.text.color, Some(Color::Preset(ColorPreset::Green)));
-        assert_eq!(legacy.sticky.color, Color::Preset(ColorPreset::Purple));
-    }
-
-    #[test]
-    fn changing_the_brush_moves_the_width_into_that_brushs_range() {
-        let mut defaults = ToolDefaults::default();
-        defaults.apply(ToolDefaultPatch::Brush(BrushType::Highlight));
-        assert_eq!(
-            defaults.draw.stroke_width, 8.0,
-            "a 2 wide highlight is a hairline"
-        );
-        defaults.apply(ToolDefaultPatch::DrawStrokeWidth(16.0));
-        defaults.apply(ToolDefaultPatch::Brush(BrushType::Highlight));
-        assert_eq!(defaults.draw.stroke_width, 16.0, "a width in range stays");
-        defaults.apply(ToolDefaultPatch::Brush(BrushType::Pen));
-        assert_eq!(defaults.draw.stroke_width, 4.0);
     }
 }

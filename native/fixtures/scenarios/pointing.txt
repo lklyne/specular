@@ -1,0 +1,131 @@
+# canvas: pointing.canvas
+# What is under the pointer: a page's body in its own pixels, handles that
+# win over the body, the edge anchors a hovered or selected item offers,
+# ink over a page, group interiors, borders and titles, overlap, the hover
+# that follows it all, and a press where two things meet.
+camera 0,0,1
+
+# a page's body reports the point in the page's pixels
+expect hit 400 350 page f1 200 150
+# a drawing in front of the page wins only where its ink is
+expect hit 230 185 body ink
+expect hit 230 215 body ink
+expect hit 280 215 page f1 80 15
+expect hit 280 185 empty
+# a flat line is widened enough to grab, and no more
+expect hit 500 263 body line
+expect hit 500 267 page f1 300 67
+
+# the hovered page offers its anchors without being selected, and keeps
+# its hover while the pointer is on one
+move 400 350
+expect hover f1
+expect anchors 4
+expect hit 400 185 anchor f1 top
+move 400 185
+expect hover f1
+# hover follows the pointer over any kind and ends off the window
+move 250 750
+expect hover o2
+move 1550 900
+expect hover none
+
+# selected, its corner handle wins over the body, a few pixels past the
+# corner still, and each side's strip runs the whole side
+select f1
+expect hit 600 200 handle f1 top-right
+expect hit 606 194 handle f1 top-right
+expect hit 608 194 empty
+expect hit 560 195 handle f1 top
+expect hit 603 480 handle f1 right
+expect hit 560 505 handle f1 bottom
+expect hit 196 480 handle f1 left
+# anchors shrink with the canvas, down to a floor
+camera 0,0,0.1
+expect hit 40 10 anchor f1 top
+expect hit 40 3 empty
+expect hit 54 10 empty
+camera 0,0,1
+
+# every kind gets handles when it is selected
+select ink
+expect handles entity ink
+select g1
+expect handles entity g1
+select o1
+expect handles entity o1
+# a selection of several has handles on its bounds only
+select t1 t2
+expect handles selection
+expect hit 780 840 handle selection bottom-right
+expect hit 600 700 handle selection top-left
+expect hit 649 749 body t1
+# a group selected with a sibling gets handles around both; the group's
+# own corner is its border
+select g1 sib
+expect hit 1600 650 handle selection bottom-right
+expect hit 800 50 handle selection top-left
+expect hit 1400 600 border g1
+key escape
+
+# a member is hit before its group, in front of it or behind
+expect hit 900 200 body c1
+expect hit 1050 320 body m2
+# a group's interior and its border are different hits
+expect hit 1300 550 body g1
+expect hit 804 400 border g1
+expect hit 1100 596 border g1
+expect hit 809 400 body g1
+# the front of two overlapping entities is hit
+expect hit 300 800 body o2
+
+# a group's title is hit above its corner, no wider than the group and no
+# taller than drawn
+expect hit 825 90 label g1
+expect hit 860 90 empty
+expect hit 1010 690 label tiny
+expect hit 1060 690 empty
+expect hit 1010 665 empty
+# zoomed out, the title is hit where it is drawn, half its size
+camera 0,0,0.25
+expect hit 230 170 label tiny
+expect hit 230 167 label tiny
+expect hit 230 160 empty
+expect hit 260 170 empty
+expect hit 330 172 label short
+expect hit 343 172 empty
+expect undo none
+
+# a drag from an edge where it crosses a sticky moves the sticky; a click
+# there selects the edge
+camera 0,-1000,1
+expect hit 350 150 edge e1
+drag 350 150 350 350
+expect entity es at 260 1260
+expect selection es
+key cmd+z
+key escape
+click 350 150
+expect selection e1
+key escape
+
+# a diagonal stroke is hit on its ink, not in the empty corner of its box,
+# and what is under that corner can be pressed
+camera 0,-900,1
+tool draw
+drag 800 100 1000 300
+key escape
+expect hit 900 200 body @top
+expect hit 904 198 body @top
+expect hit 920 180 empty
+expect hit 980 140 body under
+move 975 175
+expect hover none
+click 975 175
+expect selection none
+# selected, its whole box drags it
+click 900 200
+expect hit 975 175 body @top
+drag 975 175 995 175
+expect entity @top at 819 999
+undo-to-start

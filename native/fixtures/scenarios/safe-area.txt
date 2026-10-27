@@ -1,0 +1,31 @@
+# canvas: safe-area.canvas
+# A page in a device frame is laid out inside its device's safe area until
+# its document says it covers the screen, and is then told the insets. The
+# entity is still the screen, which sits inside the frame drawn round it.
+camera 0,0,1
+# the island above and the home indicator below
+expect page port 115 177 402 778 viewport 402 778
+expect entity port size 402 874
+# on its side the island's inset is on both short edges
+expect page land 677 115 750 381 viewport 750 381
+# the clay frame is the same device
+expect page clay 1615 177 402 778 viewport 402 778
+# no frame, no device over the page
+expect page bare 2100 100 402 874 viewport 402 874
+# screens with nothing over them
+expect page se 2623 194 375 667 viewport 375 667
+expect page pad 3167 167 744 1133 viewport 744 1133
+# a document that does not cover changes nothing
+page-says port fit inside
+expect sent nothing
+# one that covers gets the whole screen and is told the insets
+page-says port fit covers
+expect sent set-page-device
+expect sent viewport port 402 874
+expect page port 115 115 402 874 viewport 402 874
+# the next that does not is back inside, with the insets cleared
+page-says port fit inside
+expect sent viewport port 402 778
+expect sent set-page-device
+expect page port 115 177 402 778 viewport 402 778
+expect undo none

@@ -1,0 +1,65 @@
+# canvas: ../kitchen-sink.canvas
+# One session through the chrome with the sidebar shown: a page picked from
+# its row, the dock's address and size list, the right-click menu on a
+# sticky (a duplicate), a second canvas added and a sticky placed on it, the
+# first canvas switched back to, and a page shown alone from its tab.
+camera -2300,-1600,1
+sidebar on
+
+# a page's row brings it into view and its controls fill the dock
+control sidebar.pages.page-desktop
+expect selection page-desktop
+control page.url
+
+key cmd+a
+type example.org/docs
+key enter
+wait 100
+expect entity page-desktop text https://example.org/docs
+control page.size
+key escape
+
+# a sticky's menu opens beside the sidebar and duplicates
+camera 200,-400,1
+right-click 500 250
+expect menu open
+control menu.duplicate
+expect count entities 166
+mark duplicated
+
+# a new canvas takes a sticky of its own
+control sidebar.add
+control tool.sticky
+click 700 400
+type second canvas
+key escape
+expect count entities 1
+expect entity @top text second canvas
+
+# back on the first canvas nothing of the second is there
+control sidebar.canvas.1
+expect saved same-as mark duplicated
+
+# a page's tab shows it alone at its own size; the file gains only the tab
+select page-desktop
+control view.open
+expect showing page-desktop
+expect saved same-as mark duplicated
+expect saved /appState/itemTabs = [{"id": "page-desktop", "lens": "device"}]
+
+# a sticky put on the page in its tab is hooked to it, and a press beside
+# the page makes nothing
+control tool.sticky
+click 800 500
+type on the page
+key escape
+expect entity @top text on the page
+expect saved /nodes/@top/specular/pageAnchor/pageId = page-desktop
+control tool.sticky
+click 800 975
+key escape
+expect count entities 167
+control view.canvas
+expect showing canvas
+# the address the page went to is the page's own, which undo leaves
+undo-to-start except /nodes/page-desktop/url

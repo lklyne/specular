@@ -16,7 +16,7 @@ mod distribution;
 use glam::DVec2;
 use specular_doc::{EdgeSide, EntityId, Kind, Rect};
 
-use crate::{App, Corner, Gesture, Handle, HandleOwner, geometry};
+use crate::{App, Corner, Gesture, Handle, HandleOwner};
 
 pub(crate) use self::alignment::alignment_guides;
 pub(crate) use self::distribution::distribution_guides;
@@ -99,7 +99,7 @@ pub struct AlignmentGuide {
     /// Where it ends, their greatest edge.
     pub end: f64,
     /// The entity being dragged.
-    pub dragged: EntityId,
+    pub(crate) dragged: EntityId,
     /// The neighbour it lines up with.
     pub candidate: EntityId,
     /// The part of the dragged rect that is aligned.
@@ -129,9 +129,9 @@ pub struct DistributionGuide {
     /// The spacing.
     pub gap: f64,
     /// The entity being dragged.
-    pub dragged: EntityId,
+    pub(crate) dragged: EntityId,
     /// The neighbours in the run, in order along the axis.
-    pub candidates: Vec<EntityId>,
+    pub(crate) candidates: Vec<EntityId>,
     /// Every gap in the run.
     pub gaps: Vec<DistributionGap>,
 }
@@ -190,7 +190,7 @@ fn candidates(app: &App, excluded: &[EntityId]) -> Vec<SnapCandidate> {
         .filter(|entity| !excluded.contains(&entity.id))
         .filter_map(|entity| {
             let rect = crate::shown_rect(app, entity)?;
-            geometry::intersection(rect, viewport)
+            rect.intersection(viewport)
                 .is_some()
                 .then(|| SnapCandidate {
                     id: entity.id.clone(),

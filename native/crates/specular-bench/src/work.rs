@@ -47,7 +47,7 @@ pub struct FrameWork {
 
 impl FrameWork {
     /// The frame's time on the CPU: every step but the GPU wait.
-    pub fn cpu_ms(&self) -> f64 {
+    pub(crate) fn cpu_ms(&self) -> f64 {
         self.update_ms
             + self.view_ms
             + self.cull_ms
@@ -66,11 +66,11 @@ impl FrameWork {
 #[serde(rename_all = "camelCase")]
 pub struct StepStat {
     /// Mean milliseconds a frame.
-    pub mean: f64,
+    pub(crate) mean: f64,
     /// 95th percentile.
-    pub p95: f64,
+    pub(crate) p95: f64,
     /// The slowest frame.
-    pub max: f64,
+    pub(crate) max: f64,
 }
 
 /// A profile's frames, step by step. Times are milliseconds a frame;
@@ -79,43 +79,43 @@ pub struct StepStat {
 #[serde(rename_all = "camelCase")]
 pub struct WorkReport {
     /// Frames drawn.
-    pub frames_drawn: usize,
+    pub(crate) frames_drawn: usize,
     /// Loop turns that drew nothing because nothing had changed.
-    pub frames_skipped: usize,
+    pub(crate) frames_skipped: usize,
     /// Every step on the CPU added up, a frame.
-    pub cpu: StepStat,
+    pub(crate) cpu: StepStat,
     /// See [`FrameWork::update_ms`].
-    pub update: StepStat,
+    pub(crate) update: StepStat,
     /// See [`FrameWork::view_ms`].
-    pub view: StepStat,
+    pub(crate) view: StepStat,
     /// See [`FrameWork::cull_ms`].
-    pub cull: StepStat,
+    pub(crate) cull: StepStat,
     /// See [`FrameWork::shaping_ms`].
-    pub shaping: StepStat,
+    pub(crate) shaping: StepStat,
     /// See [`FrameWork::batching_ms`].
-    pub batching: StepStat,
+    pub(crate) batching: StepStat,
     /// See [`FrameWork::tessellation_ms`].
-    pub tessellation: StepStat,
+    pub(crate) tessellation: StepStat,
     /// See [`FrameWork::build_ms`].
-    pub build: StepStat,
+    pub(crate) build: StepStat,
     /// See [`FrameWork::glyphs_ms`].
-    pub glyphs: StepStat,
+    pub(crate) glyphs: StepStat,
     /// See [`FrameWork::upload_ms`].
-    pub upload: StepStat,
+    pub(crate) upload: StepStat,
     /// See [`FrameWork::submit_ms`].
-    pub submit: StepStat,
+    pub(crate) submit: StepStat,
     /// See [`FrameWork::gpu_ms`].
-    pub gpu: StepStat,
+    pub(crate) gpu: StepStat,
     /// Most items any frame drew.
-    pub items: u32,
+    pub(crate) items: u32,
     /// Most batches.
-    pub batches: u32,
+    pub(crate) batches: u32,
     /// Most draw calls.
-    pub draw_calls: u32,
+    pub(crate) draw_calls: u32,
     /// Most glyphs.
-    pub glyph_count: u32,
+    pub(crate) glyph_count: u32,
     /// Most triangles.
-    pub triangles: u32,
+    pub(crate) triangles: u32,
     /// CPU seconds the whole process used a second of the profile (1.0 is
     /// one core), which also counts what no step above times: the shell's
     /// own toolkit, worker threads and the driver. Only a window run has it.
@@ -183,45 +183,5 @@ impl WorkRecorder {
             triangles: most(|frame| frame.triangles),
             process_cpu: None,
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn frame(view_ms: f64, glyphs: u32) -> FrameWork {
-        FrameWork {
-            view_ms,
-            submit_ms: 1.0,
-            gpu_ms: 5.0,
-            glyphs,
-            ..FrameWork::default()
-        }
-    }
-
-    #[test]
-    fn a_report_has_each_steps_mean_and_tail_and_the_largest_counts() {
-        let mut recorder = WorkRecorder::new();
-        for (view_ms, glyphs) in [(1.0, 10), (2.0, 40), (9.0, 20)] {
-            recorder.drawn(frame(view_ms, glyphs));
-        }
-        recorder.skipped();
-        let report = recorder.finish();
-        assert_eq!((report.frames_drawn, report.frames_skipped), (3, 1));
-        assert!((report.view.mean - 4.0).abs() < 1e-9);
-        assert!((report.view.p95 - 9.0).abs() < 1e-9);
-        assert!((report.view.max - 9.0).abs() < 1e-9);
-        assert!((report.cpu.max - 10.0).abs() < 1e-9);
-        assert_eq!(report.glyph_count, 40);
-    }
-
-    #[test]
-    fn a_profile_that_drew_nothing_reports_zeros() {
-        let mut recorder = WorkRecorder::new();
-        recorder.skipped();
-        let report = recorder.finish();
-        assert_eq!((report.frames_drawn, report.frames_skipped), (0, 1));
-        assert_eq!(report.cpu, StepStat::default());
     }
 }

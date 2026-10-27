@@ -3,8 +3,9 @@
 //! Copy puts the selection on the system clipboard as text: a prefix, then
 //! the copied entities and the edges between them as a small `.canvas`
 //! document. Paste asks the shell for the clipboard and decides from what
-//! comes back, in the order `src/main/clipboard-paste.ts` does: copied
-//! entities, then an image, then a URL, then any other text.
+//! comes back, in the order Electron's paste took them (`git show
+//! bc5253fa:src/main/clipboard-paste.ts`): copied entities, then an image,
+//! then a URL, then any other text.
 
 use glam::DVec2;
 use serde_json::json;
@@ -260,7 +261,7 @@ fn paste_items(app: &mut App, copied: &Document, at: DVec2, effects: &mut Vec<Ef
 fn bounds(document: &Document) -> Option<Rect> {
     (document.entities())
         .map(|entity| entity.rect)
-        .reduce(geometry::union)
+        .reduce(Rect::union)
 }
 
 /// The page a pasted URL makes: Electron's `paste_url` page at the Desktop

@@ -7,9 +7,7 @@ use crate::app::is_page;
 use crate::edge_path::distance_to_segment;
 use crate::geometry::ScreenRect;
 use crate::layout::handles::LayoutHandle;
-use crate::{
-    App, ControlId, Handle, HandleOwner, PagePlacement, anchors, comment, geometry, handles,
-};
+use crate::{App, Handle, HandleOwner, PagePlacement, anchors, comment, handles};
 
 /// A drawing's box is only as thick as its ink (zero for a flat line), so it
 /// is widened to at least this many logical pixels each way. A stroke is
@@ -92,25 +90,13 @@ pub enum Hit {
     },
     /// Empty canvas.
     Empty,
-    /// A built-in panel: a row of the chrome, the sidebar or an open list. Only
-    /// with the built-in panels on.
-    Panel {
-        /// The control there, if the point is on one.
-        control: Option<ControlId>,
-    },
 }
 
-/// What is under `screen`. The built-in panels come first, being drawn over
-/// everything. Then chrome (comment marks, group titles, then the
+/// What is under `screen`: chrome (comment marks, group titles, then the
 /// selection's resize handles, edge anchors, and a line's reorder dots and
 /// gap strips), then the bodies as
 /// [`body_at`] orders them.
 pub fn hit_test(app: &App, screen: Vec2) -> Hit {
-    if let Some(panel) = crate::panel::builtin::hit(app, screen) {
-        return Hit::Panel {
-            control: panel.control,
-        };
-    }
     let camera = &app.session.camera;
     let document = &app.document;
 
@@ -120,7 +106,13 @@ pub fn hit_test(app: &App, screen: Vec2) -> Hit {
 
     let label = document.entities().rev().find(|entity| {
         crate::shown_rect(app, entity)
-            .and_then(|seen| group_label_rect(entity, ScreenRect::of(camera, seen), camera.zoom))
+            .and_then(|seen| {
+                group_label_rect(
+                    entity,
+                    crate::geometry::on_screen(camera, seen),
+                    camera.zoom,
+                )
+            })
             .is_some_and(|rect| rect.contains(screen))
     });
     if let Some(group) = label {
@@ -130,7 +122,7 @@ pub fn hit_test(app: &App, screen: Vec2) -> Hit {
     }
 
     if let Some((owner, bounds)) = app.handles()
-        && let Some(handle) = handles::hit(ScreenRect::of(camera, bounds), screen)
+        && let Some(handle) = handles::hit(crate::geometry::on_screen(camera, bounds), screen)
     {
         return Hit::Handle { owner, handle };
     }
@@ -167,8 +159,7 @@ pub(crate) const fn entity_of(hit: &Hit) -> Option<&EntityId> {
         | Hit::Layout(LayoutHandle::Gap { .. })
         | Hit::Comment { .. }
         | Hit::Edge { .. }
-        | Hit::Empty
-        | Hit::Panel { .. } => None,
+        | Hit::Empty => None,
     }
 }
 
@@ -200,8 +191,7 @@ pub(crate) fn entity_under_edges(app: &App, screen: Vec2) -> Option<EntityId> {
         | Hit::GroupBorder { .. }
         | Hit::Layout(_)
         | Hit::Edge { .. }
-        | Hit::Empty
-        | Hit::Panel { .. } => None,
+        | Hit::Empty => None,
     }
 }
 
@@ -233,7 +223,7 @@ fn body_among(app: &App, screen: Vec2, edges: bool) -> Hit {
                 let Some(hittable) = crate::hittable_rect(app, entity) else {
                     continue;
                 };
-                let rect = ScreenRect::of(camera, hittable);
+                let rect = crate::geometry::on_screen(camera, hittable);
                 let inside = match &entity.kind {
                     Kind::Group(_) => {
                         groups.push((id, rect));
@@ -273,8 +263,8 @@ fn body_among(app: &App, screen: Vec2, edges: bool) -> Hit {
             }
         })
         .map_or(Hit::Empty, |(id, rect)| {
-            let inside = rect.inflated(-GROUP_BORDER);
-            let interior = screen.cmpgt(inside.min).all() && screen.cmplt(inside.max()).all();
+            let inside = rect.outset(-GROUP_BORDER);
+            let interior = screen.cmpgt(inside.min()).all() && screen.cmplt(inside.max()).all();
             if interior {
                 Hit::EntityBody { entity: id.clone() }
             } else {
@@ -303,7 +293,8 @@ fn entity_hit(app: &App, entity: &Entity, screen: Vec2) -> Hit {
 pub(crate) fn page_at(app: &App, world: glam::DVec2) -> Option<(EntityId, PagePlacement)> {
     let entity = app.document.entities().rev().find(|entity| {
         is_page(entity)
-            && crate::shown_rect(app, entity).is_some_and(|rect| geometry::contains(rect, world))
+            && crate::shown_rect(app, entity)
+                .is_some_and(|rect| rect.contains(specular_doc::Point::new(world.x, world.y)))
     })?;
     Some((entity.id.clone(), app.page_placement(&entity.id)?))
 }
@@ -343,11 +334,8 @@ fn on_drawing(app: &App, id: &EntityId, drawing: &Drawing, screen: Vec2) -> bool
 }
 
 fn drawing_rect(rect: ScreenRect) -> ScreenRect {
-    let size = rect.size.max(Vec2::splat(DRAWING_MIN_HIT));
-    ScreenRect {
-        min: rect.min - (size - rect.size) / 2.0,
-        size,
-    }
+    let size = rect.extent().max(Vec2::splat(DRAWING_MIN_HIT));
+    ScreenRect::at(rect.min() - (size - rect.extent()) / 2.0, size)
 }
 
 /// The title box of a labelled group whose rect is `rect` on screen. It is
@@ -363,9 +351,9 @@ fn group_label_rect(entity: &Entity, rect: ScreenRect, zoom: f32) -> Option<Scre
     let width = label.chars().count() as f32 * GROUP_LABEL_CHAR_WIDTH * scale;
     let height = GROUP_LABEL_HEIGHT * scale;
     Some(ScreenRect::new(
-        rect.min.x,
-        rect.min.y - height,
-        width.min(rect.size.x),
+        rect.min().x,
+        rect.min().y - height,
+        width.min(rect.extent().x),
         height,
     ))
 }

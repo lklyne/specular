@@ -1,0 +1,23 @@
+# canvas: anchoring.canvas
+# Links a page opens in a new tab: a target=_blank click (foreground), a
+# Command-click (background) and a javascript: link, which opens nothing.
+# Each new page lands beside the source at its size, made from a link and in
+# no sync set, and is one undo step.
+camera 0,0,0.5
+expect count page 1
+page-opens-tab p1 https://example.com/opened
+expect count page 2
+expect entity @top text https://example.com/opened
+expect saved /nodes/@top/metadata/createdFrom = link
+expect saved /nodes/@top/syncId absent
+# beside the source, at its size, overlapping nothing
+expect entity @top rect 100 540 480 360
+page-opens-tab p1 https://example.com/behind background
+expect count page 3
+expect entity @top text https://example.com/behind
+expect saved /nodes/@top/metadata/createdFrom = link
+expect entity @top rect 920 100 480 360
+page-opens-tab p1 javascript:void(0)
+expect count page 3
+key escape
+undo-to-start

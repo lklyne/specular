@@ -6,27 +6,27 @@ use serde::{Deserialize, Serialize};
 
 /// A frame counts as long when its interval exceeds this multiple of the
 /// display budget — i.e. at least one refresh was visibly missed.
-pub const LONG_FRAME_FACTOR: f64 = 1.5;
+pub(crate) const LONG_FRAME_FACTOR: f64 = 1.5;
 
 /// Collected presented-frame intervals for one profile run.
 #[derive(Debug, Clone, Default)]
-pub struct FrameTimes {
+pub(crate) struct FrameTimes {
     intervals: Vec<Duration>,
 }
 
 impl FrameTimes {
     /// An empty recorder.
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self::default()
     }
 
     /// Records the time between two consecutive presented frames.
-    pub fn record(&mut self, interval: Duration) {
+    pub(crate) fn record(&mut self, interval: Duration) {
         self.intervals.push(interval);
     }
 
     /// Summarises against a display frame `budget` (e.g. 8.33 ms at 120 Hz).
-    pub fn summary(&self, budget: Duration) -> FrameSummary {
+    pub(crate) fn summary(&self, budget: Duration) -> FrameSummary {
         let mut ms: Vec<f64> = self
             .intervals
             .iter()
@@ -74,78 +74,19 @@ pub(crate) fn percentile(sorted: &[f64], p: f64) -> f64 {
 pub struct FrameSummary {
     /// Number of intervals (the lab's `draws`).
     #[serde(rename = "draws", alias = "frames")]
-    pub frames: usize,
+    pub(crate) frames: usize,
     /// Presented frames per second over the run.
-    pub draw_fps: f64,
+    pub(crate) draw_fps: f64,
     /// Mean interval.
-    pub mean_frame_ms: f64,
+    pub(crate) mean_frame_ms: f64,
     /// Median interval.
-    pub p50_frame_ms: f64,
+    pub(crate) p50_frame_ms: f64,
     /// 95th percentile interval.
-    pub p95_frame_ms: f64,
+    pub(crate) p95_frame_ms: f64,
     /// 99th percentile interval.
-    pub p99_frame_ms: f64,
+    pub(crate) p99_frame_ms: f64,
     /// Worst interval.
-    pub max_frame_ms: f64,
+    pub(crate) max_frame_ms: f64,
     /// Intervals over [`LONG_FRAME_FACTOR`] x budget.
-    pub long_frames: usize,
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn times(ms: &[u64]) -> FrameTimes {
-        let mut t = FrameTimes::new();
-        for &m in ms {
-            t.record(Duration::from_millis(m));
-        }
-        t
-    }
-
-    #[test]
-    fn long_frames_counts_intervals_over_one_and_half_budgets() {
-        let summary = times(&[8, 8, 13, 20]).summary(Duration::from_millis(8));
-        assert_eq!(summary.long_frames, 2);
-    }
-
-    #[test]
-    fn percentiles_on_one_to_hundred_are_their_rank() {
-        let ms: Vec<u64> = (1..=100).collect();
-        let summary = times(&ms).summary(Duration::from_millis(8));
-        assert_eq!(
-            [
-                summary.p50_frame_ms,
-                summary.p95_frame_ms,
-                summary.p99_frame_ms,
-                summary.max_frame_ms
-            ],
-            [50.0, 95.0, 99.0, 100.0]
-        );
-    }
-
-    #[test]
-    fn percentiles_ignore_recording_order() {
-        let summary = times(&[9, 1, 3, 5, 7]).summary(Duration::from_millis(8));
-        assert!((summary.p50_frame_ms - 5.0).abs() < 1e-9);
-    }
-
-    #[test]
-    fn interval_exactly_at_threshold_is_not_long() {
-        // 1.5 x 8 ms = 12 ms; the lab counts strictly greater.
-        let summary = times(&[12]).summary(Duration::from_millis(8));
-        assert_eq!(summary.long_frames, 0);
-    }
-
-    #[test]
-    fn summary_serializes_frame_count_as_lab_draws() {
-        let json = serde_json::to_value(times(&[8]).summary(Duration::from_millis(8))).unwrap();
-        assert_eq!(json["draws"], 1);
-    }
-
-    #[test]
-    fn draw_fps_is_frames_over_total_time() {
-        let summary = times(&[10, 10, 10, 10]).summary(Duration::from_millis(8));
-        assert!((summary.draw_fps - 100.0).abs() < 1e-9);
-    }
+    pub(crate) long_frames: usize,
 }

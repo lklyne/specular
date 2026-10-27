@@ -4,7 +4,7 @@ many frames it draws while nothing happens.
 
     python3 fixtures/bench/idle.py APP [--source synthetic|cef] CANVAS
 
-APP is either shell's binary: `specular-app` (winit) or `specular` (Kit).
+APP is the `specular` binary, or a bundle's inner binary.
 
 Prints one JSON object: CPU seconds used a second of wall time over the
 middle 20 seconds (1.0 is one core), split into the app and its children,

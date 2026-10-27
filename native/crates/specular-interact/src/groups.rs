@@ -72,7 +72,7 @@ pub fn group_command(
     let content = (roots.iter())
         .filter_map(|id| document.entity(id))
         .map(|entity| entity.rect)
-        .reduce(crate::geometry::union)?;
+        .reduce(Rect::union)?;
     let parent = roots
         .first()
         .and_then(|id| document.entity(id)?.parent.clone());

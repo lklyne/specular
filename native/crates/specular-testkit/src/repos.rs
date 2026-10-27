@@ -7,7 +7,7 @@ use crate::TestApp;
 impl TestApp {
     /// Replaces the connected repos, as loading `repos.json` does. No effect
     /// comes back, so a test needs no `take_effects` after it.
-    pub fn with_repos(&mut self, repos: Repos) -> &mut Self {
+    pub(crate) fn with_repos(&mut self, repos: Repos) -> &mut Self {
         self.send(Event::ReposLoaded(Box::new(repos)))
     }
 

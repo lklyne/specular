@@ -17,9 +17,11 @@ use specular_core::Camera;
 use specular_doc::{Document, History};
 
 pub(crate) use self::background::in_background;
-pub use self::names::{DEFAULT_CANVAS_NAME, canvas_file_name, legacy_canvas_file_name};
+pub(crate) use self::names::DEFAULT_CANVAS_NAME;
+pub use self::names::{canvas_file_name, legacy_canvas_file_name};
 pub(crate) use self::ops::{act, create, file_changed, open};
-pub use self::tab_ref::{TabRefError, resolve_tab_ref};
+pub use self::tab_ref::TabRefError;
+pub(crate) use self::tab_ref::resolve_tab_ref;
 use crate::saved::{self, LoadedFits};
 use crate::{App, SavedTab, Selection};
 
@@ -161,7 +163,7 @@ impl Default for Space {
 
 impl Space {
     /// The space folder, if the canvases are in one.
-    pub fn folder(&self) -> Option<&str> {
+    pub(crate) fn folder(&self) -> Option<&str> {
         self.folder.as_deref()
     }
 
@@ -200,7 +202,7 @@ impl Space {
 
 impl Canvas {
     /// Whether this is the canvas the window shows.
-    pub fn is_active(&self) -> bool {
+    pub(crate) fn is_active(&self) -> bool {
         matches!(self.state, CanvasState::Active)
     }
 

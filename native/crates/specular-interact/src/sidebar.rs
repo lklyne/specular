@@ -8,11 +8,13 @@
 //! ([`SidebarView`]) and reported here, so whatever draws the sidebar holds
 //! none of it.
 
+mod pick;
 mod rows;
 mod state;
 
 use specular_doc::EntityId;
 
+pub(crate) use self::pick::picked;
 use self::rows::{Tree, leaves};
 pub use self::state::{SIDEBAR_WIDTH, SidebarAction, SidebarSection, SidebarView};
 use crate::panel::{ControlId, Field, FieldSubmit, FieldWidth, Icon};
@@ -24,7 +26,7 @@ pub struct SidebarModel {
     /// Whether the sidebar is shown at all.
     pub visible: bool,
     /// What shows or hides it.
-    pub toggle: Action,
+    pub(crate) toggle: Action,
     /// The head of the Canvases list.
     pub canvases_head: SectionHead,
     /// The canvases of the space, in its order.
@@ -56,7 +58,7 @@ pub struct SectionHead {
     /// Its name.
     pub id: ControlId,
     /// Which section it heads.
-    pub section: SidebarSection,
+    pub(crate) section: SidebarSection,
     /// The title. A folded Canvases list is titled by the active canvas.
     pub title: String,
     /// Whether the section is folded away.
@@ -84,7 +86,7 @@ pub struct CanvasRow {
     /// empty or unchanged name asks for nothing.
     pub rename: Field,
     /// What removing it sends. Removing the last canvas leaves a fresh one.
-    pub delete: Action,
+    pub(crate) delete: Action,
 }
 
 /// One row of the Notes or Pages section.
@@ -94,9 +96,9 @@ pub struct SidebarRow {
     /// notes and pages has a row in each section.
     pub id: ControlId,
     /// What the row stands for.
-    pub target: RowTarget,
+    pub(crate) target: RowTarget,
     /// What sort of row it is.
-    pub kind: RowKind,
+    pub(crate) kind: RowKind,
     /// The text.
     pub label: String,
     /// The glyph before the text.
@@ -117,7 +119,7 @@ pub struct SidebarRow {
     pub children: Vec<Self>,
     /// What a click sends: select what the row stands for and bring it into
     /// view.
-    pub action: Action,
+    pub(crate) action: Action,
 }
 
 /// What a sidebar row stands for.
@@ -160,9 +162,12 @@ pub enum RowKind {
 /// The sidebar for `app` as it is now.
 pub fn sidebar(app: &App) -> SidebarModel {
     let view = &app.session.sidebar;
-    let canvases: Vec<CanvasRow> = (app.space.canvases().iter())
-        .map(|canvas| {
-            let id = ControlId::new("sidebar.canvas").child(canvas.id.as_str());
+    // A row is named by its place in the list, from 1: a canvas's id is a
+    // hash of its file name in a window and a counter headless, and a
+    // script names the same row in both.
+    let canvases: Vec<CanvasRow> = (app.space.canvases().iter().enumerate())
+        .map(|(index, canvas)| {
+            let id = ControlId::new("sidebar.canvas").child(index + 1);
             CanvasRow {
                 control: id.clone(),
                 id: canvas.id.clone(),

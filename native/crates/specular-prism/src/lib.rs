@@ -28,7 +28,7 @@ mod tumble;
 mod uniforms;
 
 pub use params::{
-    Camera, Coverage, Environment, Grade, Gradient, Highlight, Light, Pose, PrismParams, Rim, Shell,
+    Camera, Coverage, Environment, Gradient, Highlight, Light, Pose, PrismParams, Rim, Shell,
 };
 
 pub use tumble::Tumble;

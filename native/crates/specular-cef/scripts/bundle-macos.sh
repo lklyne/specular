@@ -1,23 +1,22 @@
 #!/usr/bin/env bash
-# Wraps a built `specular-app` binary in the .app layout CEF requires on macOS:
+# Wraps a built `specular` binary in the .app layout CEF requires on macOS:
 #
-#   specular-app.app/Contents/
-#     MacOS/specular-app                         browser process
+#   specular.app/Contents/
+#     MacOS/specular                             browser process
 #     Resources/Assets.car, AppIcon.icns         the icon, when Xcode can compile it
 #     Frameworks/Chromium Embedded Framework.framework
-#     Frameworks/specular-app Helper.app          utility/network children
-#     Frameworks/specular-app Helper (GPU).app
-#     Frameworks/specular-app Helper (Renderer).app
-#     Frameworks/specular-app Helper (Plugin).app
-#     Frameworks/specular-app Helper (Alerts).app
+#     Frameworks/specular Helper.app          utility/network children
+#     Frameworks/specular Helper (GPU).app
+#     Frameworks/specular Helper (Renderer).app
+#     Frameworks/specular Helper (Plugin).app
+#     Frameworks/specular Helper (Alerts).app
 #
 # Every helper is a copy of the same binary: `run_subprocess_if_needed` sees
 # Chromium's `--type=` switch and runs the child. Mirrors
 # cef::build_util::mac::bundle, which this script exists to avoid needing a
 # separate bundler crate and a debug-only `cargo build`.
 #
-# Usage: bundle-macos.sh [profile] [binary]   (default: release specular-app)
-# `binary` is `specular` for the GPUI Kit shell (`-p specular-shell`).
+# Usage: bundle-macos.sh [profile] [binary]   (default: release specular)
 # Needs CEF_PATH pointing at the CEF distribution the build used (set it for
 # the build too, so the download is reused).
 set -euo pipefail
@@ -25,7 +24,7 @@ set -euo pipefail
 profile="${1:-release}"
 native_dir="$(cd "$(dirname "$0")/../../.." && pwd)"
 target_dir="${CARGO_TARGET_DIR:-$native_dir/target}/$profile"
-name="${2:-specular-app}"
+name="${2:-specular}"
 bin="$target_dir/$name"
 app="$target_dir/$name.app"
 

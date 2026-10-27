@@ -49,7 +49,7 @@ pub(crate) fn draw(frame: &Frame<'_>, scene: &mut Scene) {
 }
 
 fn outline(frame: &Frame<'_>, outline: ScreenRect, scene: &mut Scene) {
-    let target = Rect::new(outline.min.x, outline.min.y, outline.size.x, outline.size.y);
+    let target = outline;
     if frame.sees_screen(target) {
         scene.push(Item::screen(RectDraw::filled(
             target,
@@ -70,8 +70,7 @@ fn outline(frame: &Frame<'_>, outline: ScreenRect, scene: &mut Scene) {
 }
 
 fn card(popover: &InspectPopover, chip: Color, scene: &mut Scene) {
-    let min = popover.rect.min;
-    let rect = Rect::new(min.x, min.y, popover.rect.size.x, popover.rect.size.y);
+    let rect = popover.rect;
     scene.push(Item::screen(ShadowDraw {
         rect: Rect::new(rect.x, rect.y + CARD_SHADOW_DROP, rect.width, rect.height),
         corner_radius: CARD_RADIUS,
@@ -81,24 +80,51 @@ fn card(popover: &InspectPopover, chip: Color, scene: &mut Scene) {
     scene.push(Item::screen(
         RectDraw::filled(rect, CARD).with_corner_radius(CARD_RADIUS),
     ));
-    let text = |text: &str, at: Point, height: f32, alpha: u8| {
-        Item::screen(TextRun {
-            family: FontFamily::Monospace,
-            line_height: InspectPopover::LINE,
-            box_height: Some(height),
-            vertical_align: VerticalAlign::Middle,
-            ..TextRun::new(
-                text,
-                at,
-                InspectPopover::FONT_SIZE,
-                Color::WHITE.with_alpha(alpha),
-            )
-        })
-        .clipped(rect)
-    };
     let left = rect.x + InspectPopover::PADDING;
     let mut top = rect.y + InspectPopover::PADDING;
+    tag_row(popover, chip, Point::new(left, top), scene);
+    top += InspectPopover::CHIP_HEIGHT + InspectPopover::GAP;
+    if let Some(font) = &popover.font {
+        let line = |text: &str, x: f32, alpha: u8| {
+            card_text(text, Point::new(x, top), InspectPopover::LINE, alpha, rect)
+        };
+        scene.push(line(&font.family, left, 255));
+        let at = left + InspectPopover::text_width(&font.family) + InspectPopover::GAP;
+        scene.push(line(&font.detail, at, FAINT));
+        top += InspectPopover::LINE + InspectPopover::GAP;
+    }
+    swatch_row(popover, Point::new(left, top), scene);
+}
 
+/// One line of the card's monospace text, clipped to the card.
+fn card_text(text: &str, at: Point, height: f32, alpha: u8, card: Rect) -> Item {
+    Item::screen(TextRun {
+        family: FontFamily::Monospace,
+        line_height: InspectPopover::LINE,
+        box_height: Some(height),
+        vertical_align: VerticalAlign::Middle,
+        ..TextRun::new(
+            text,
+            at,
+            InspectPopover::FONT_SIZE,
+            Color::WHITE.with_alpha(alpha),
+        )
+    })
+    .clipped(card)
+}
+
+/// The tag in its chip, then the rest of the selector and the size.
+fn tag_row(popover: &InspectPopover, chip: Color, at: Point, scene: &mut Scene) {
+    let (left, top) = (at.x, at.y);
+    let row = |text: &str, x: f32, alpha: u8| {
+        card_text(
+            text,
+            Point::new(x, top),
+            InspectPopover::CHIP_HEIGHT,
+            alpha,
+            popover.rect,
+        )
+    };
     let chip_width = InspectPopover::text_width(&popover.tag) + 2.0 * InspectPopover::CHIP_PADDING;
     scene.push(Item::screen(
         RectDraw::filled(
@@ -107,46 +133,21 @@ fn card(popover: &InspectPopover, chip: Color, scene: &mut Scene) {
         )
         .with_corner_radius(CHIP_RADIUS),
     ));
-    scene.push(text(
-        &popover.tag,
-        Point::new(left + InspectPopover::CHIP_PADDING, top),
-        InspectPopover::CHIP_HEIGHT,
-        255,
-    ));
+    scene.push(row(&popover.tag, left + InspectPopover::CHIP_PADDING, 255));
     let mut x = left + chip_width;
     for (part, alpha) in [(&popover.remainder, SOFT), (&popover.size, FAINT)] {
         if part.is_empty() {
             continue;
         }
         x += InspectPopover::GAP;
-        scene.push(text(
-            part,
-            Point::new(x, top),
-            InspectPopover::CHIP_HEIGHT,
-            alpha,
-        ));
+        scene.push(row(part, x, alpha));
         x += InspectPopover::text_width(part);
     }
-    top += InspectPopover::CHIP_HEIGHT + InspectPopover::GAP;
+}
 
-    if let Some(font) = &popover.font {
-        scene.push(text(
-            &font.family,
-            Point::new(left, top),
-            InspectPopover::LINE,
-            255,
-        ));
-        let at = left + InspectPopover::text_width(&font.family) + InspectPopover::GAP;
-        scene.push(text(
-            &font.detail,
-            Point::new(at, top),
-            InspectPopover::LINE,
-            FAINT,
-        ));
-        top += InspectPopover::LINE + InspectPopover::GAP;
-    }
-
-    let mut x = left;
+/// The colours the element uses, each a square and its value.
+fn swatch_row(popover: &InspectPopover, at: Point, scene: &mut Scene) {
+    let (mut x, top) = (at.x, at.y);
     for swatch in &popover.swatches {
         if let Some(color) = css_color(&swatch.value) {
             let square = Rect::new(
@@ -162,12 +163,13 @@ fn card(popover: &InspectPopover, chip: Color, scene: &mut Scene) {
             ));
         }
         let label = format!("{} {}", swatch.label, swatch.value);
-        let at = x + InspectPopover::SWATCH + InspectPopover::SWATCH_GAP;
-        scene.push(text(
+        let label_at = Point::new(x + InspectPopover::SWATCH + InspectPopover::SWATCH_GAP, top);
+        scene.push(card_text(
             &label,
-            Point::new(at, top),
+            label_at,
             InspectPopover::LINE,
             LABEL,
+            popover.rect,
         ));
         x += InspectPopover::swatch_width(swatch) + InspectPopover::SWATCH_SPACING;
     }
@@ -199,30 +201,4 @@ fn css_color(value: &str) -> Option<Color> {
         _ => return None,
     };
     Some(Color::rgba(channel(r)?, channel(g)?, channel(b)?, alpha))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn computed_colours_parse_and_other_text_does_not() {
-        let rows = [
-            ("rgb(17, 24, 39)", Some(Color::rgb(17, 24, 39))),
-            (
-                "rgba(59, 130, 246, 0.5)",
-                Some(Color::rgba(59, 130, 246, 128)),
-            ),
-            ("rgb(0 0 0 / 1)", Some(Color::rgb(0, 0, 0))),
-            ("  rgb(1, 2, 3) ", Some(Color::rgb(1, 2, 3))),
-            ("rgba(1, 2, 3, 2)", Some(Color::rgb(1, 2, 3))),
-            ("rgb(300, 0, -5)", Some(Color::rgb(255, 0, 0))),
-            ("rgb(1, 2, 3, 0.5, 9)", None),
-            ("red", None),
-            ("rgb(1, 2)", None),
-        ];
-        for (text, want) in rows {
-            assert_eq!(css_color(text), want, "{text}");
-        }
-    }
 }

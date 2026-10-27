@@ -1,0 +1,180 @@
+# canvas: comment-marks.canvas
+# What each comment draws, what a press on it does, and focusing, resolving
+# and deleting it. Two pages, p1 at (100, 100) and p2 at (700, 100), with
+# comments on page points, elements, page regions and the canvas.
+camera 0,0,1
+# the draft is written in its card on the canvas, as a shell with no
+# right panel has it
+chat-panel off
+
+# a pill sits by its anchor, inside its page; a canvas point has one centred
+# on it; a region is its frame, never under four pixels
+expect comments has mark a pill 466 237 26 26
+expect comments has mark hash pill 466 377 26 26
+expect comments has mark pt-old pill 587 487 26 26
+expect comments has mark reg region 600 650 100 80
+expect comments has mark tiny region 800 650 4 4
+expect comments has mark pr region 150 250 100 30
+# comments on one element share a pill that counts every message, and the
+# newest speaks for it
+expect comments has mark el-new pill 816 148 26 26 count 3 members el-new,el-old
+expect comments has mark el-other pill
+# resolved and dismissed comments have none; acknowledged ones do
+expect comments lacks mark res
+expect comments lacks mark dis
+expect comments has mark ack pill 887 487 26 26
+# nor do comments bound to a document the page no longer shows (a hash is
+# the same document), nor one bound to a page that is gone
+expect comments lacks mark stale
+expect comments lacks mark query
+expect comments lacks mark gone
+expect comments count 10 mark\s
+# zoomed in, a pill keeps its size
+camera 0,0,2
+expect comments has mark pt-old pill 1187 987 26 26
+camera 0,0,1
+
+# a press on a pill focuses its comment, the newest where pills overlap,
+# and hides the page under it
+click 605 500
+expect comments has focus pt-new
+click 590 500
+expect comments has focus pt-old
+click 480 250
+expect comments has focus a
+expect comments has mark a pill 466 237 26 26 focused
+expect selection none
+click 460 250
+expect selection p1
+expect comments lacks focus
+# a region is pressed on its edge, not in its inside
+click 595 690
+expect comments has focus reg
+key escape
+click 650 690
+expect comments lacks focus
+click 605 690
+expect comments has focus reg
+key escape
+click 607 690
+expect comments lacks focus
+
+# focusing a comment clears the selection, and selecting clears the focus
+select p2
+click 480 250
+expect selection none
+expect comments has focus a
+click 900 300
+expect selection p2
+expect comments lacks focus
+select p1
+expect comments lacks focus
+
+# Escape lets go of the focus, and the next Escape does what it did
+tool comment
+click 480 250
+expect comments has focus a
+key escape
+expect comments lacks focus
+expect tool comment
+key escape
+expect tool select
+
+# the menu items are enabled only with something to act on
+key escape
+expect menubar has Comment > Annotate selection disabled
+expect menubar has Comment > Resolve comment disabled
+expect menubar has Comment > Delete comment disabled
+select p2
+expect menubar is Comment > Annotate selection
+expect menubar has Comment > Resolve comment disabled
+click 480 250
+expect menubar has Comment > Annotate selection disabled
+expect menubar is Comment > Resolve comment
+expect menubar is Comment > Delete comment
+expect menubar has Edit > Delete ⌫
+expect menubar lacks Edit > Delete disabled
+
+# with nothing focused, resolve does nothing and records nothing
+key escape
+mark untouched
+act resolve-comment
+expect saved same-as mark untouched
+
+# resolving marks it resolved by the user, in one step
+click 480 250
+act resolve-comment
+expect comments has comment a resolved
+expect comments has comment a metadata {"resolvedBy":"user"}
+expect comments lacks focus
+expect comments lacks mark a\s
+act undo
+expect comments has comment a pending
+expect comments has mark a pill
+act redo
+act undo
+# resolving a dismissed one drops its reason
+click 900 500
+act resolve-comment
+expect comments has comment ack metadata {"pageName":"Home","resolvedBy":"user"}
+act undo
+# resolving the focus of a shared pill resolves every comment in it
+click 829 161
+expect comments has focus el-new
+act resolve-comment
+expect comments has comment el-new resolved
+expect comments has comment el-old resolved
+expect comments has comment el-other pending
+act undo
+expect comments has comment el-old pending
+expect comments has comment el-new pending
+
+# Backspace and Delete remove the focused comment
+click 480 250
+key backspace
+expect comments lacks comment a\s
+expect comments lacks focus
+act undo
+click 480 250
+key delete
+expect comments lacks comment a\s
+act undo
+# but not while a comment is being written
+click 480 250
+tool comment
+click 800 900
+type abc
+key backspace
+expect editing ab
+expect count comments 16
+# the comment being written is not a mark
+expect comments count 10 mark\s
+key escape
+key escape
+
+# a page deleted takes its marks, and undo brings them back
+select p1
+key backspace
+expect comments lacks mark a\s
+expect comments lacks mark pr
+act undo
+expect comments has mark a pill 466 237 26 26
+expect comments has mark pr region 150 250 100 30
+
+# the marks follow their page when it moves
+drag 300 350 500 450
+expect entity p1 rect 300 200 400 300
+expect comments has mark a pill 666 337 26 26
+expect comments has mark pr region 350 350 100 30
+act undo
+
+# annotating a selection ends with the new comment focused, nothing selected
+select p2
+act annotate-selection
+type check this
+key enter
+expect count comments 17
+expect selection none
+expect comments lacks focus a
+expect comments has focus
+undo-to-start

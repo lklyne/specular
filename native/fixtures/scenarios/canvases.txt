@@ -1,0 +1,103 @@
+# Several canvases in one space: each keeps its own document, history,
+# camera and selection; a switch closes the pages left and hosts the pages
+# entered, keeps a text edit open at the switch and writes its canvas; and
+# canvases are made, renamed, duplicated and deleted with the files that
+# follow them.
+given page p1 100 100 400 300
+given page p2 700 100 400 300
+camera 0,0,1
+sidebar on
+expect count canvases 1
+mark home
+
+# a change, a camera and a selection on the first canvas
+select p1
+key right
+camera -50,20,0.5
+
+# a new canvas is named in sequence, shown and written; the pages of the
+# one left are closed, and showing it changes no document
+act new-canvas
+expect count canvases 2
+expect canvas Canvas 2
+expect count entities 0
+expect sent write-canvas
+expect sent save-space-meta
+expect sent close-page p1
+expect sent close-page p2
+expect sent no save
+# none of the first canvas's steps, selection or camera are here
+expect undo none
+expect selection none
+expect camera 0,0,1
+tool sticky
+click 500 200
+type hello
+key escape
+key escape
+# a text edit open at a switch is kept, and its canvas written
+double-click 600 300
+key cmd+down
+type  there
+control sidebar.canvas.1
+expect sent write-canvas
+expect sent create-page p1
+expect sent create-page p2
+expect sent no save
+expect editing none
+# the first canvas is as it was left
+expect camera -50,20,0.5
+expect selection p1
+expect entity p1 at 105 100
+key cmd+z
+expect entity p1 at 100 100
+expect saved same-as mark home
+# and the second kept the edit, and its own history
+control sidebar.canvas.2
+expect entity @top text hello there
+key cmd+z
+expect entity @top text hello
+
+# a rename moves the file; a name taken, empty or the same is refused
+control sidebar.canvas.2.menu.rename
+key cmd+a
+type   Landing page 
+key enter
+expect canvas Landing page
+expect sent rename-canvas-file
+control sidebar.canvas.2.menu.rename
+key cmd+a
+type Canvas 1
+key enter
+expect canvas Landing page
+expect sent no rename-canvas-file
+
+# a duplicate sits after its source, is shown, and starts with no history
+act duplicate-canvas
+expect count canvases 3
+expect canvas Landing page Copy
+expect entity @top text hello
+expect undo none
+expect sent write-canvas
+control sidebar.canvas.2
+act duplicate-canvas
+expect canvas Landing page Copy 2
+expect count canvases 4
+
+# deleting the active canvas shows its neighbour and trashes its file; the
+# last in the list falls back to the one before it
+control sidebar.canvas.2
+act delete-canvas
+expect count canvases 3
+expect canvas Landing page Copy 2
+expect sent trash-canvas-file
+control sidebar.canvas.3
+act delete-canvas
+expect canvas Landing page Copy 2
+# deleting the only canvas leaves an empty Canvas 1
+act delete-canvas
+act delete-canvas
+expect count canvases 1
+expect canvas Canvas 1
+expect count entities 0
+expect sent write-canvas

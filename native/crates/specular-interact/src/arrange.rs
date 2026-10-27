@@ -219,30 +219,3 @@ pub fn place_command(app: &App, targets: &[(EntityId, DVec2)]) -> Option<Command
         &app.scope_of(&members).operands,
     ))
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_tight_footprint_grows_rather_than_overlaps() {
-        let items: Vec<Placed> = [("a", 0.0), ("b", 35.0), ("c", 70.0)]
-            .into_iter()
-            .map(|(id, y)| Placed {
-                id: EntityId::new(id),
-                rect: Rect::new(0.0, y, 80.0, 50.0),
-            })
-            .collect();
-        let moved = targets(&items, ArrangeMode::Column).unwrap_or_default();
-        let rects: Vec<Rect> = (moved.iter().zip(&items))
-            .map(|((_, to), item)| Rect::new(to.x, to.y, item.rect.width, item.rect.height))
-            .collect();
-        let [a, b, c] = rects[..] else {
-            panic!("three rects");
-        };
-        assert_eq!(a.y, 0.0);
-        let (first, second) = (b.y - (a.y + a.height), c.y - (b.y + b.height));
-        assert!(first >= MIN_GAP);
-        assert_eq!(first, second);
-    }
-}

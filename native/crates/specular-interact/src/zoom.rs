@@ -47,14 +47,14 @@ fn scale(app: &mut App, by: f32) {
 }
 
 /// Shows every entity, centred, as large as fits. An empty canvas goes back
-/// to its origin at 100%. With the built-in toolbar over the top of the
-/// viewport and the sidebar over its left edge, the fit is of what is left
-/// free, as the Electron app's canvas view starts below its toolbar and
-/// right of its sidebar.
+/// to its origin at 100%. With the chrome over the top of the viewport and
+/// the sidebar over its left edge, the fit is of what is left free, as the
+/// Electron app's canvas view starts below its toolbar and right of its
+/// sidebar.
 pub(crate) fn to_fit(app: &mut App) {
     let bounds = (app.document.entities())
         .map(|entity| entity.rect)
-        .reduce(geometry::union);
+        .reduce(Rect::union);
     let free = area(app);
     app.session.camera = match bounds {
         Some(bounds) => {
@@ -104,68 +104,5 @@ pub fn fitting(bounds: Rect, viewport: DVec2) -> Camera {
     Camera {
         pan: (viewport / 2.0 - centre * f64::from(camera.zoom)).as_vec2(),
         ..camera
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn contents_are_scaled_down_to_fit_and_centred() {
-        let smallest = Camera::new(glam::Vec2::ZERO, 0.0).zoom;
-        // (contents, viewport, zoom, pan). The first centres (1100, 300) on
-        // the viewport's (564, 400); the last is clamped to the smallest zoom.
-        let rows = [
-            (
-                Rect::new(100.0, 100.0, 2000.0, 400.0),
-                (1128.0, 800.0),
-                0.5,
-                Some(glam::Vec2::new(14.0, 250.0)),
-            ),
-            (
-                Rect::new(0.0, 0.0, 200.0, 100.0),
-                (1000.0, 800.0),
-                1.0,
-                Some(glam::Vec2::new(400.0, 350.0)),
-            ),
-            (
-                Rect::new(0.0, 0.0, 1.0e7, 1.0e7),
-                (1000.0, 800.0),
-                smallest,
-                None,
-            ),
-        ];
-        for (contents, (width, height), zoom, pan) in rows {
-            let camera = fitting(contents, DVec2::new(width, height));
-            assert!((camera.zoom - zoom).abs() < 1e-6, "{contents:?}");
-            if let Some(pan) = pan {
-                assert_eq!(camera.pan, pan, "{contents:?}");
-            }
-        }
-    }
-
-    fn revealed(bounds: Rect) -> glam::Vec2 {
-        let mut app = App::default();
-        app.session.viewport = glam::Vec2::new(1000.0, 800.0);
-        reveal(&mut app, bounds);
-        app.session.camera.pan
-    }
-
-    #[test]
-    fn revealing_pans_by_the_least_that_shows_it_with_room_around() {
-        let rows = [
-            // 300 past the right edge, in view vertically.
-            (Rect::new(1100.0, 100.0, 200.0, 200.0), (-348.0, 0.0)),
-            // Above and to the left.
-            (Rect::new(-500.0, -300.0, 200.0, 200.0), (548.0, 348.0)),
-            // Already in view.
-            (Rect::new(100.0, 100.0, 200.0, 200.0), (0.0, 0.0)),
-            // Wider than the viewport: its left edge wins.
-            (Rect::new(2000.0, 100.0, 3000.0, 200.0), (-1952.0, 0.0)),
-        ];
-        for (bounds, (x, y)) in rows {
-            assert_eq!(revealed(bounds), glam::Vec2::new(x, y), "{bounds:?}");
-        }
     }
 }

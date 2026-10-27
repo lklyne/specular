@@ -1,0 +1,100 @@
+# canvas: ../kitchen-sink.canvas
+# The right-click menu and the arrange buttons on the kitchen sink: the menu
+# on a sticky, on empty canvas, on a page and beside the window's edge,
+# choices from it, a press outside closing it, the multi-select popup, a row and a column arranged and
+# undone, and bold put on a sticky while it is edited, which keeps the edit.
+camera -100,-400,1
+expect count entities 165
+
+# the menu on a sticky selects it, and a choice runs on it as one step
+right-click 200 250
+expect menu open
+expect selection sticky-color-1
+control menu.duplicate
+expect count entities 166
+expect count sticky 21
+key cmd+z
+expect saved same-as start
+
+# a press outside the menu closes it and does nothing else
+camera -100,-400,1
+right-click 200 250
+expect menu open
+click 1400 700
+expect menu closed
+expect selection sticky-color-1
+
+# copy from an item's menu, paste from empty canvas's where it opened
+right-click 200 250
+control menu.copy
+expect menu closed
+right-click 1400 700
+expect menu open
+expect selection none
+control menu.paste
+expect count entities 166
+key cmd+z
+expect saved same-as start
+
+# empty canvas: select all, and the menu stays inside the window
+right-click 1400 700
+control menu.select-all
+expect menu closed
+expect count selected 160
+right-click 1590 990
+expect menu open
+key escape
+expect menu closed
+
+# several selected: the menu keeps them, the popup arranges and annotates
+select shape-rectangle shape-ellipse shape-pill
+camera -100,-1100,1
+right-click 380 260
+expect menu open
+expect selection shape-rectangle shape-ellipse shape-pill
+key escape
+control item.arrange.row
+# evened gaps across the row's footprint, tops lined up
+expect entity shape-rectangle at 0 1300
+expect entity shape-ellipse at 600 1300
+expect entity shape-pill at 1200 1300
+key cmd+z
+expect saved same-as start
+select shape-rectangle shape-rounded shape-ellipse
+control item.arrange.column
+# the left edges lined up
+expect entity shape-rectangle at 0 1300
+expect entity shape-rounded at 0 1520
+expect entity shape-ellipse at 0 1740
+key cmd+z
+expect saved same-as start
+
+# mixed kinds get a popup of their own
+select sticky-color-1 shape-rectangle
+camera -100,-400,1
+key escape
+
+# a page: its history first, and the sidebar's width kept clear
+camera -2300,-1600,1
+right-click 300 300
+expect menu open
+expect selection page-desktop
+key escape
+sidebar on
+right-click 300 700
+expect menu open
+key escape
+sidebar off
+
+# bold while editing: the button shows on where the caret is in bold text,
+# a press keeps the edit and the selection
+camera -500,-400,1
+double-click 900 420
+expect editing Todo\n- first item\n- second item\n  - nested item\n- third
+key cmd+a
+control format.bold
+key escape
+# a press on the bold button wraps the selected text and keeps the edit
+expect entity sticky-list text **Todo\n- first item\n- second item\n  - nested item\n- third**
+key cmd+z
+undo-to-start

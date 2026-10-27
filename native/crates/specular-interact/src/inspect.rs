@@ -22,7 +22,7 @@ pub struct InspectTarget {
     /// The page entity.
     pub page: EntityId,
     /// The node.
-    pub node: InspectedNode,
+    pub(crate) node: InspectedNode,
 }
 
 /// What the inspect tool holds.
@@ -102,7 +102,7 @@ impl App {
             glam::DVec2::new(f64::from(css.width), f64::from(css.height))
                 * placement.canvas_per_css(),
         );
-        let outline = ScreenRect::of(&self.session.camera, canvas);
+        let outline = crate::geometry::on_screen(&self.session.camera, canvas);
         let popover = InspectPopover::of(&target.node, outline, self.session.viewport);
         Some(InspectModel { outline, popover })
     }
@@ -215,6 +215,7 @@ pub(crate) fn on_notice(app: &mut App, page: &EntityId, notice: &PageNotice) {
         | PageNotice::ElementCaptured { .. }
         | PageNotice::ElementPlaces(_)
         | PageNotice::DevtoolsUrl(_)
+        | PageNotice::OpenTab { .. }
         | PageNotice::ViewportFit { .. } => {}
     }
 }

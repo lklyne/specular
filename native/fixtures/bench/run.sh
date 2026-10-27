@@ -2,11 +2,10 @@
 # Runs the pan, zoom and idle profiles on every bench canvas and writes one
 # .jsonl a canvas into runs/perf/LABEL/, then prints the table.
 #
-#   fixtures/bench/run.sh LABEL [headless|window] [synthetic|cef] [winit|kit]
+#   fixtures/bench/run.sh LABEL [headless|window] [synthetic|cef]
 #
-# From native/, after a release build. The last argument picks the shell
-# whose window is measured: `winit` is target/release/specular-app and `kit`
-# is target/release/specular. APP names another binary, and with `cef` it
+# From native/, after a release build of target/release/specular. APP
+# names another binary, and with `cef` it
 # must be the bundle's inner binary (see README.md, "Morning run"). A window
 # run needs the display awake and the window uncovered, or macOS presents
 # nothing.
@@ -14,13 +13,7 @@ set -eu
 label="$1"
 target="${2:-headless}"
 source="${3:-synthetic}"
-shell="${4:-winit}"
-case "$shell" in
-  winit) binary=target/release/specular-app ;;
-  kit) binary=target/release/specular ;;
-  *) echo "unknown shell \`$shell\` (expected winit or kit)" >&2; exit 2 ;;
-esac
-app="${APP:-$binary}"
+app="${APP:-target/release/specular}"
 out="runs/perf/$label"
 mkdir -p "$out"
 canvases="${CANVASES:-kitchen-sink bench/stickies-500 bench/stickies-2000 bench/drawings-300 bench/edges-200 bench/documents-50 bench/mixed}"

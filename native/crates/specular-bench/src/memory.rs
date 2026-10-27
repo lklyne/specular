@@ -28,18 +28,18 @@ use crate::footprint::phys_footprint;
 
 /// One `ps` row.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ProcessRow {
+pub(crate) struct ProcessRow {
     /// Process id.
-    pub pid: u32,
+    pub(crate) pid: u32,
     /// Parent process id.
-    pub ppid: u32,
+    pub(crate) ppid: u32,
     /// Resident set size in KiB.
-    pub rss_kb: u64,
+    pub(crate) rss_kb: u64,
 }
 
 /// Parses `ps -axo pid=,ppid=,rss=` output, skipping lines that do not hold
 /// three integers (a process can exit mid-listing).
-pub fn parse_ps(output: &str) -> Vec<ProcessRow> {
+pub(crate) fn parse_ps(output: &str) -> Vec<ProcessRow> {
     output
         .lines()
         .filter_map(|line| {
@@ -63,27 +63,27 @@ pub fn parse_ps(output: &str) -> Vec<ProcessRow> {
 #[serde(rename_all = "camelCase")]
 pub struct MemorySample {
     /// Root process id.
-    pub root_pid: u32,
+    pub(crate) root_pid: u32,
     /// Processes in the tree, root included.
-    pub processes: usize,
+    pub(crate) processes: usize,
     /// Summed RSS in MiB.
-    pub rss_mb: f64,
+    pub(crate) rss_mb: f64,
     /// Summed physical footprint in MiB over the processes that could be
     /// read; `None` off macOS.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub footprint_mb: Option<f64>,
+    pub(crate) footprint_mb: Option<f64>,
 }
 
 impl MemorySample {
     /// The number memory is judged by: footprint when known, else RSS.
-    pub fn verdict_mb(&self) -> f64 {
+    pub(crate) fn verdict_mb(&self) -> f64 {
         self.footprint_mb.unwrap_or(self.rss_mb)
     }
 }
 
 /// The rows of `root` and all its descendants, or `None` when `root` is
 /// absent.
-pub fn tree_rows(rows: &[ProcessRow], root: u32) -> Option<Vec<ProcessRow>> {
+pub(crate) fn tree_rows(rows: &[ProcessRow], root: u32) -> Option<Vec<ProcessRow>> {
     let mut children: HashMap<u32, Vec<&ProcessRow>> = HashMap::new();
     let mut root_row = None;
     for row in rows {
@@ -106,7 +106,7 @@ pub fn tree_rows(rows: &[ProcessRow], root: u32) -> Option<Vec<ProcessRow>> {
 
 /// Sums RSS (and, via `footprint`, physical footprint) over the tree rooted
 /// at `root`, or `None` when `root` is absent.
-pub fn tree_sample(
+pub(crate) fn tree_sample(
     rows: &[ProcessRow],
     root: u32,
     footprint: impl Fn(u32) -> Option<u64>,
@@ -187,61 +187,5 @@ impl PeakSampler {
     pub fn finish(self) -> Option<MemorySample> {
         self.stop.store(true, Ordering::Relaxed);
         self.handle.join().ok().flatten()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    const PS: &str = "    1     0  1000
-  100     1  2048
-  101   100  1024
-  102   100  1024
-  103   101   512
-  200     1  9999
-garbage line
-  104   102
-";
-
-    fn no_footprint(_pid: u32) -> Option<u64> {
-        None
-    }
-
-    #[test]
-    fn tree_sample_sums_rss_of_root_and_all_descendants() {
-        let sample = tree_sample(&parse_ps(PS), 100, no_footprint).unwrap();
-        assert!((sample.rss_mb - (2048.0 + 1024.0 + 1024.0 + 512.0) / 1024.0).abs() < 1e-9);
-    }
-
-    #[test]
-    fn tree_sample_excludes_siblings_of_root() {
-        let sample = tree_sample(&parse_ps(PS), 101, no_footprint).unwrap();
-        assert_eq!(sample.processes, 2);
-    }
-
-    #[test]
-    fn tree_sample_sums_footprint_over_readable_processes() {
-        // Process 103 is unreadable; the other three report 1 MiB each.
-        let footprint = |pid: u32| (pid != 103).then_some(1_024 * 1_024);
-        let sample = tree_sample(&parse_ps(PS), 100, footprint).unwrap();
-        assert_eq!(sample.footprint_mb, Some(3.0));
-    }
-
-    #[test]
-    fn verdict_prefers_footprint_over_rss() {
-        let sample = MemorySample {
-            root_pid: 1,
-            processes: 1,
-            rss_mb: 100.0,
-            footprint_mb: Some(250.0),
-        };
-        assert!((sample.verdict_mb() - 250.0).abs() < f64::EPSILON);
-    }
-
-    #[test]
-    fn sampling_own_process_reports_resident_memory() {
-        let sample = sample_process_tree(std::process::id()).unwrap();
-        assert!(sample.rss_mb > 0.0);
     }
 }

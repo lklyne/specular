@@ -1,0 +1,140 @@
+# canvas: empty.canvas
+# A Document from nothing: place it, write markdown with the formatting
+# shortcuts, end the edit, reopen it, scroll, undo and redo.
+# panned down so the Document, at (200, 100) on the canvas, is clear of the chrome
+camera 0,120,1
+
+tool document
+click 200 220
+expect count document 1
+expect entity @top rect 200 100 300 300
+expect entity @top text Untitled Note.md
+
+# a heading with the shortcut, then body text with bold
+type Launch plan
+key cmd+alt+1
+key enter
+key enter
+type We ship on 
+key cmd+b
+type Friday
+key cmd+b
+type  if the build is green.
+key enter
+key enter
+# a bullet list with the shortcut
+type write the changelog
+key cmd+shift+8
+key enter
+type tag the release
+key enter
+type tell support
+key enter
+key enter
+# a task list
+type smoke test on a clean machine
+key cmd+shift+9
+expect editing # Launch plan\n\nWe ship on **Friday** if the build is green.\n\n- write the changelog\n- tag the release\n- tell support\n- [ ] smoke test on a clean machine
+
+# select two words and make them italic
+hold shift+alt
+key left
+key left
+hold none
+key cmd+i
+key escape
+expect editing none
+expect entity @top note # Launch plan\n\nWe ship on **Friday** if the build is green.\n\n- write the changelog\n- tag the release\n- tell support\n- [ ] smoke test on a *clean machine*
+# the read view of a Document: headings, bold, italic, bullets, a task box
+snapshot 04-read-view.png
+
+# reopen, and a long tail of tasks
+double-click 300 300
+key cmd+down
+key enter
+type line 1
+key enter
+type line 2
+key enter
+type line 3
+key enter
+type line 4
+key enter
+type line 5
+key enter
+type line 6
+key enter
+type line 7
+key enter
+type line 8
+key enter
+type line 9
+key enter
+type line 10
+key enter
+type line 11
+key enter
+type line 12
+key enter
+type line 13
+key enter
+type line 14
+key enter
+type line 15
+key enter
+type line 16
+key enter
+type line 17
+key enter
+type line 18
+key enter
+type line 19
+key enter
+type line 20
+key escape
+mark long
+
+# scroll the selected Document with the wheel, to the end and past it
+move 300 420
+wheel 0 -200
+wheel 0 -5000
+wheel 0 60
+expect selection @top
+expect saved same-as mark long
+
+# undo the second edit, the first edit, then redo both
+key cmd+z
+key cmd+z
+expect entity @top note 
+key cmd+shift+z
+key cmd+shift+z
+expect redo none
+expect saved same-as mark long
+# a second Document: a numbered list counts on, Tab nests a line and
+# Shift-Tab brings it back, Backspace after a fresh marker takes all of it,
+# a task line carries on as a task, and the heading shortcut toggles off
+tool document
+click 700 220
+type 1. unpack
+key enter
+type pack
+key tab
+expect editing 1. unpack\n  2. pack
+key shift+tab
+expect editing 1. unpack\n2. pack
+key enter
+key backspace
+expect editing 1. unpack\n2. pack\n
+type check
+key cmd+shift+9
+key enter
+expect editing 1. unpack\n2. pack\n- [ ] check\n- [ ]\s
+key enter
+type Title
+key cmd+alt+1
+expect editing 1. unpack\n2. pack\n- [ ] check\n# Title
+key cmd+alt+1
+expect editing 1. unpack\n2. pack\n- [ ] check\nTitle
+key escape
+expect entity @top note 1. unpack\n2. pack\n- [ ] check\nTitle
+undo-to-start

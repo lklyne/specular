@@ -248,21 +248,17 @@ fn what_is_not_ported_says_so_by_name() {
     let mut api = api();
     let mut plan = |method, path: &str| api.plan(app.app(), &Request::new(method, path, json!({})));
 
-    let pdf = answer(plan(Method::Post, "/pages/p1/print-pdf"));
-    assert_eq!(pdf.status, 501);
-    let error = pdf.body["error"].as_str().unwrap_or_default();
-    let start = "not implemented in the native app (it needs an answer that waits for the page";
-    assert!(error.starts_with(start), "{error}");
-    assert!(
-        error.ends_with("): `print-pdf`. Route: POST /pages/p1/print-pdf"),
-        "{error}"
-    );
-
     refused(
-        plan(Method::Post, "/tasks/component-states"),
+        plan(Method::Post, "/groups/delete"),
         501,
-        "not implemented in the native app (not ported yet): `component-states`. \
-         Route: POST /tasks/component-states",
+        "not implemented in the native app (use `specular delete <id>`): group delete by \
+         route. Route: POST /groups/delete",
+    );
+    // Cut, not missing: no verb calls it.
+    refused(
+        plan(Method::Post, "/pages/p1/print-pdf"),
+        404,
+        "Unknown route: POST /pages/p1/print-pdf",
     );
     refused(
         plan(Method::Post, "/nope"),

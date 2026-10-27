@@ -5,7 +5,7 @@
 use specular_doc::{EntityId, Rect};
 
 use super::{create, draft};
-use crate::{App, Effect, geometry};
+use crate::{App, Effect};
 
 /// A page a comment region lies over, and the part of the page it covers.
 #[derive(Debug, Clone, PartialEq)]
@@ -43,7 +43,7 @@ pub(super) fn pages_under(app: &App, region: Rect) -> Vec<PageRegion> {
         .pages()
         .filter_map(|(id, placement)| {
             crate::shown_rect(app, app.document.entity(id)?)?;
-            let covered = geometry::intersection(region, placement.rect)?;
+            let covered = region.intersection(placement.rect)?;
             Some(PageRegion {
                 page: id.clone(),
                 rect: super::canvas_in_css(placement, covered),

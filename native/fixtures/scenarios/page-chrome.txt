@@ -1,0 +1,61 @@
+# canvas: empty.canvas
+# The page popup's chrome: a page placed at the preset the page tool was set
+# to, an address typed and entered, a long one scrolled and abandoned with
+# Escape, a custom width and height typed into the size list, and the whole
+# of it undone.
+camera 0,0,0.5
+control tool.page
+expect tool page
+control page.preset
+control page.preset.7
+click 300 300
+# the Desktop preset the page tool was set to, not the first one
+expect entity @1 kind page
+expect entity @1 size 1440 900
+expect saved /nodes/@1/presetIndex = 7
+
+# the address: Enter navigates the page in place
+control page.url
+key cmd+a
+type example.org/docs
+key enter
+wait 100
+expect entity @1 text https://example.org/docs
+
+# a local address is reached over http
+control page.url
+key cmd+a
+type localhost:4321/garden
+key enter
+wait 100
+expect entity @1 text http://localhost:4321/garden
+control page.url
+key cmd+a
+type example.org/docs
+key enter
+wait 100
+
+# a long address scrolls inside its field and Escape puts the old one back
+control page.url
+type -with-a-very-long-path/and/more/and/more/and/more/and/more/and/more/and/more
+key escape
+expect editing none
+expect entity @1 text https://example.org/docs
+
+# a custom size from the size list
+control page.size
+control page.size.width
+key cmd+a
+type 900
+key enter
+control page.size.height
+key cmd+a
+type 600
+key enter
+expect entity @1 size 900 600
+expect saved /nodes/@1/metadata/pageSizeMode = custom
+key escape
+key cmd+z
+key cmd+z
+expect entity @1 size 1440 900
+undo-to-start

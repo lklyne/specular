@@ -1,0 +1,240 @@
+# canvas: moves.canvas
+# Moving the selection by its body, on the grid or not, with Shift's axis
+# lock and Option's copy; delete, duplicate and the arrow-key nudge; and
+# the selection each undo and redo puts back. Each change is one undo step.
+camera 0,0,1
+expect saved same-as moves.canvas
+
+# a drag on an unselected body selects it and moves it
+drag 150 150 250 190
+expect selection a
+expect entity a rect 200 140 200 100
+expect entity b rect 400 100 200 100
+key cmd+z
+# undoing a move selects what moved, even after the selection went
+# elsewhere; redoing it does too
+select b
+key cmd+z
+key cmd+shift+z
+expect selection a
+key cmd+z
+# a drag from one selected item moves the whole selection
+select a c
+drag 150 150 250 190
+expect entity a at 200 140
+expect entity c at 200 440
+expect entity b at 400 100
+expect selection a c
+key cmd+z
+# the pressed item lands on the grid and the rest keep their offsets: 33
+# right and 8 up puts o's corner at 740 and 393 back at 400
+select o a
+drag 720 420 753 412
+expect entity o at 740 400
+expect entity a at 135 99
+key cmd+z
+# zoomed out, 20 pixels are 40 units
+camera 0,0,0.5
+drag 75 75 95 75
+expect entity a at 140 100
+key cmd+z
+camera 0,0,1
+# Shift goes down after the press and keeps the move on the axis the
+# pointer took further
+select a
+press 150 150
+hold shift
+drag-to 250 190
+expect entity a at 200 100
+drag-to 190 250
+expect entity a at 100 200
+release
+hold none
+key cmd+z
+# undo is ignored while a drag is in flight, and takes nothing from history
+drag 150 150 190 150
+press 190 150
+drag-to 230 150
+key cmd+z
+expect entity a at 180 100
+release
+key cmd+z
+expect entity a at 140 100
+key cmd+z
+expect saved same-as start
+
+# a drawing takes its points with it and ignores the grid
+key escape
+drag 1130 620 1163 612
+expect entity d rect 1133 592 60 40
+expect saved /nodes/d/strokes/0/points = [{"x":1133,"y":592},{"x":1193,"y":632}]
+key cmd+z
+
+# Option-drag leaves the original and selects a copy where the drag ends
+key escape
+hold alt
+drag 150 150 250 190
+hold none
+expect count entities 15
+expect entity @top at 200 140
+expect selection @top
+expect entity a at 100 100
+key cmd+z
+# on a page, the copy is hosted, and undo closes it
+hold alt
+drag 1200 200 1200 600
+expect sent create-page
+hold none
+expect entity @top kind page
+key cmd+z
+expect sent close-page
+expect saved same-as start
+
+# delete: Backspace removes the selection and every edge that touched it,
+# in one step, and leaves nothing selected
+select a
+key backspace
+expect entity a gone
+expect count edges 2
+expect selection none
+# undoing a delete selects what came back; redoing it selects nothing
+key cmd+z
+expect selection a
+key cmd+shift+z
+expect selection none
+key cmd+z
+# an edge selected along with its end is removed once
+select ab b
+key backspace
+expect order a c o p1 d g ga inner gb out q qr wide ac gin gout
+key cmd+z
+# delete, duplicate and nudge with nothing selected record nothing
+key escape
+key backspace
+key cmd+d
+key right
+expect undo none
+
+# Command-D copies to the right, 80 clear and on the grid, and selects it
+select b
+key cmd+d
+expect entity @top at 680 100
+expect selection @top
+# undoing it selects the original, redoing it the copy, and the selection
+# an undo puts back is live
+key cmd+z
+expect selection b
+key cmd+shift+z
+expect selection @top
+key cmd+z
+key right
+expect entity b at 405 100
+key cmd+z
+# with the right taken it goes below, and further right when both are
+select q
+key cmd+d
+expect entity @top at 1000 980
+key cmd+z
+select a
+key cmd+d
+expect entity @top at 680 100
+key cmd+z
+# duplicating several keeps their layout and the edges between them
+select a b
+key cmd+d
+expect count entities 16
+expect count edges 5
+expect count selected 2
+expect edge @last @15 @16
+key cmd+z
+expect saved same-as start
+
+# an arrow nudges the selection five units, exactly, off the grid if it was
+select o c
+key right
+expect entity o at 710 401
+key down
+expect entity o at 710 406
+key left
+key left
+key up
+key up
+expect entity o at 700 396
+expect entity c at 95 395
+key cmd+z
+key cmd+z
+key cmd+z
+key cmd+z
+key cmd+z
+key cmd+z
+# Shift nudges twenty
+select o
+key shift+down
+expect entity o at 705 421
+# Control stands in for Command
+key ctrl+z
+expect entity o at 705 401
+key ctrl+shift+z
+expect entity o at 705 421
+key cmd+z
+# a held arrow keeps nudging; a held Backspace deletes once
+key down
+repeat down
+repeat down
+expect entity o at 705 416
+key cmd+z
+key cmd+z
+key cmd+z
+key backspace
+key cmd+z
+repeat backspace
+expect entity o at 705 401
+expect saved same-as start
+
+# a group takes everything inside it, dragged by a point with no member
+key escape
+camera 0,-1000,1
+select g
+drag 300 300 340 400
+expect entity g at 120 1180
+expect entity ga at 140 1200
+expect entity inner at 420 1180
+expect entity gb at 440 1200
+expect entity out at 700 1400
+expect selection g
+key cmd+z
+# a drag on its title or on the band inside its border moves it
+key escape
+drag 90 70 130 70
+expect entity g at 120 1080
+key cmd+z
+key escape
+drag 87 300 127 300
+expect selection g
+expect entity g at 120 1080
+key cmd+z
+# a nudged group takes its members
+select g
+key right
+expect entity gb at 405 1100
+key cmd+z
+# Option-drag on a group copies its members into the copy, and the edge
+# between them, not the one that leaves it
+select g
+hold alt
+drag 150 150 150 450
+hold none
+expect count entities 18
+expect count edges 5
+expect entity @15 kind group
+expect entity @16 parent @15
+expect edge @last @16 @18
+key cmd+z
+expect saved same-as start
+
+# a duplicate that lands off screen is brought into view
+camera 0,-1900,1
+select wide
+key cmd+d
+expect camera -1996,-1900,1
+undo-to-start

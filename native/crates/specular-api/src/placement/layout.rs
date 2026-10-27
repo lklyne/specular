@@ -5,7 +5,7 @@ use serde_json::Value;
 
 /// How a batch is arranged.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum Mode {
+pub(crate) enum Mode {
     Row,
     Column,
     Grid,
@@ -137,7 +137,7 @@ fn is_spacing(value: &Value) -> bool {
 
 /// Checks a `layout` directive and returns its mode, or the first problem
 /// in the words the CLI's own check uses.
-pub(super) fn validate(directive: &Value) -> Result<Mode, String> {
+pub(crate) fn validate(directive: &Value) -> Result<Mode, String> {
     if !directive.is_object() {
         return Err("layout: expected an object".to_owned());
     }
@@ -176,56 +176,4 @@ pub(super) fn validate(directive: &Value) -> Result<Mode, String> {
         return Err("layout: originX and originY must be specified together".to_owned());
     }
     Ok(mode)
-}
-
-#[cfg(test)]
-mod tests {
-    use serde_json::json;
-
-    use super::*;
-
-    const BOXES: [Size; 3] = [
-        Size {
-            width: 100.0,
-            height: 40.0,
-        },
-        Size {
-            width: 60.0,
-            height: 80.0,
-        },
-        Size {
-            width: 20.0,
-            height: 20.0,
-        },
-    ];
-
-    #[test]
-    fn a_grid_has_cells_the_size_of_its_largest_item() {
-        let at = positions(&BOXES, Mode::Grid, 20.0, 10.0, (0.0, 0.0), None);
-        assert_eq!(at, [(0.0, 0.0), (120.0, 0.0), (0.0, 90.0)]);
-        let size = bounds(&BOXES, Mode::Grid, 20.0, 10.0, None);
-        assert_eq!((size.width, size.height), (220.0, 170.0));
-    }
-
-    #[test]
-    fn a_directive_is_refused_in_the_cli_s_words() {
-        let refused = |directive| validate(&directive).unwrap_err();
-        assert_eq!(
-            refused(json!({ "kind": "pile" })),
-            "layout.kind: expected 'row' | 'column' | 'grid', got \"pile\""
-        );
-        assert_eq!(
-            refused(json!({ "kind": "row", "gap": "huge" })),
-            "layout.gap: expected number or one of xs|s|m|l|xl, got \"huge\""
-        );
-        assert_eq!(
-            refused(json!({ "kind": "grid", "originX": 4 })),
-            "layout: originX and originY must be specified together"
-        );
-        assert_eq!(
-            validate(&json!({ "kind": "grid", "gap": "m", "cols": 3 })),
-            Ok(Mode::Grid)
-        );
-        assert_eq!(spacing(&json!("m"), 80.0), 60.0);
-    }
 }

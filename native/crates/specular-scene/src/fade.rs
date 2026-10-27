@@ -17,11 +17,11 @@ const STEPS: u16 = 16;
 /// A page and how far past its top and bottom what follows it still shows,
 /// in one item space.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct PageBand {
+pub(crate) struct PageBand {
     /// The page's rect.
-    pub page: Rect,
+    pub(crate) page: Rect,
     /// The height of the fade above the page and below it.
-    pub reach: f32,
+    pub(crate) reach: f32,
 }
 
 impl PageBand {
@@ -29,7 +29,7 @@ impl PageBand {
     /// faded strips, then the part over the page at its own opacity.
     /// `extent` is where the item may paint when its draw cannot say (text),
     /// so strips it cannot touch are left out.
-    pub fn through(self, item: Item, extent: Rect, out: &mut Vec<Item>) {
+    pub(crate) fn through(self, item: Item, extent: Rect, out: &mut Vec<Item>) {
         let extent = item.draw.bounds().unwrap_or(extent);
         let inside = |rect: Rect| {
             if !rect.intersects(extent) {

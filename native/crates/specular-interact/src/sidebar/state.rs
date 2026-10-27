@@ -1,10 +1,8 @@
 //! What the sidebar remembers outside the document: whether it is shown,
 //! which sections are folded and which rows are open.
 //!
-//! This is session state, not the built-in renderer's: a renderer drawn by
-//! a UI library needs the same answers, and the model reports them. What
-//! only the built-in renderer needs, the scroll offset and the hover, is in
-//! [`PanelUi`](crate::PanelUi).
+//! This is session state, so whatever draws the sidebar reads it from the
+//! model and keeps none of it.
 
 use std::collections::HashSet;
 
@@ -58,18 +56,23 @@ impl SidebarView {
     }
 
     /// How much of the canvas viewport's left edge the sidebar covers.
-    pub fn covered_width(&self) -> f32 {
+    pub(crate) fn covered_width(&self) -> f32 {
         if self.shown { SIDEBAR_WIDTH } else { 0.0 }
     }
 
     /// Whether `section` is folded away.
-    pub fn is_folded(&self, section: SidebarSection) -> bool {
+    pub(crate) fn is_folded(&self, section: SidebarSection) -> bool {
         self.folded.contains(&section)
     }
 
     /// Whether the row for `entity` in `section` is open. A page starts
     /// open and a group closed, which `starts_open` says.
-    pub fn is_open(&self, section: SidebarSection, entity: &EntityId, starts_open: bool) -> bool {
+    pub(crate) fn is_open(
+        &self,
+        section: SidebarSection,
+        entity: &EntityId,
+        starts_open: bool,
+    ) -> bool {
         starts_open != self.flipped.contains(&(section, entity.clone()))
     }
 

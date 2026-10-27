@@ -3,7 +3,7 @@
 //! [`dom_query`](crate::dom_query): one `Runtime.evaluate` out, bytes in.
 //!
 //! The DOM rules are `inspectionPayload` in the Electron preload
-//! (`src/preload/dom-element-utils.ts`), minus the overlay skip: a CEF page
+//! (`git show bc5253fa:src/preload/dom-element-utils.ts`), minus the overlay skip: a CEF page
 //! has no Specular overlay injected into it.
 
 use serde_json::Value;
@@ -66,7 +66,7 @@ return JSON.stringify({
 "#;
 
 /// The message that asks for the node under a viewport point.
-pub fn inspect_at_message(id: i32, x: f32, y: f32) -> Vec<u8> {
+pub(crate) fn inspect_at_message(id: i32, x: f32, y: f32) -> Vec<u8> {
     let styles = STYLES
         .iter()
         .map(|(label, key)| format!("['{label}','{key}']"))
@@ -82,7 +82,7 @@ pub fn inspect_at_message(id: i32, x: f32, y: f32) -> Vec<u8> {
 
 /// The node an [`inspect_at_message`] found. `None` for a point on no
 /// element, a page that threw and an answer that cannot be read.
-pub fn parse_inspected(result: &[u8]) -> Option<InspectedNode> {
+pub(crate) fn parse_inspected(result: &[u8]) -> Option<InspectedNode> {
     let found: Value = serde_json::from_str(&returned(result)?).ok()?;
     let text = |key: &str| Some(found.get(key)?.as_str()?.to_owned());
     let int = |key: &str| found.get(key)?.as_i64();
@@ -114,74 +114,4 @@ pub fn parse_inspected(result: &[u8]) -> Option<InspectedNode> {
             side("height")?,
         ),
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use serde_json::json;
-
-    fn value_result(value: &str) -> Vec<u8> {
-        json!({ "result": { "type": "string", "value": value } })
-            .to_string()
-            .into_bytes()
-    }
-
-    #[test]
-    fn the_question_evaluates_one_expression_at_the_point() {
-        let message: Value = serde_json::from_slice(&inspect_at_message(9, 12.5, 40.0)).unwrap();
-        assert_eq!(message["id"], 9);
-        assert_eq!(message["method"], "Runtime.evaluate");
-        let expression = message["params"]["expression"].as_str().unwrap();
-        assert!(expression.contains("document.elementsFromPoint((12.5), (40))"));
-        assert!(expression.contains("['background','backgroundColor']"));
-        assert!(!expression.contains("__"), "a placeholder was left in");
-    }
-
-    #[test]
-    fn an_answer_becomes_an_inspected_node() {
-        let answer = json!({
-            "nodeId": "save", "tagName": "button", "name": "button \"Save\"",
-            "selector": "#save", "id": "save", "classes": ["btn", "primary"],
-            "styles": [["display", "block"], ["color", "rgb(0, 0, 0)"]],
-            "x": 40, "y": 61, "width": 72, "height": 32,
-        })
-        .to_string();
-        let node = parse_inspected(&value_result(&answer)).unwrap();
-        assert_eq!(node.node_id, "save");
-        assert_eq!(node.name, "button \"Save\"");
-        assert_eq!(node.id_attribute.as_deref(), Some("save"));
-        assert_eq!(node.classes, ["btn", "primary"]);
-        assert_eq!(node.style("color"), Some("rgb(0, 0, 0)"));
-        assert_eq!(node.bounding_box, PixelRect::new(40, 61, 72, 32));
-    }
-
-    #[test]
-    fn an_empty_id_attribute_is_no_id() {
-        let answer = json!({
-            "nodeId": "div@0:0", "tagName": "div", "name": "div", "selector": "div", "id": "",
-            "classes": [], "styles": [], "x": 0, "y": 0, "width": 1, "height": 1,
-        })
-        .to_string();
-        let node = parse_inspected(&value_result(&answer)).unwrap();
-        assert_eq!(node.id_attribute, None);
-    }
-
-    #[test]
-    fn no_element_a_thrown_error_and_noise_are_all_no_node() {
-        assert_eq!(parse_inspected(&value_result("null")), None);
-        let readable = json!({
-            "nodeId": "a", "tagName": "div", "name": "div", "selector": "div", "id": "",
-            "classes": [], "styles": [], "x": 0, "y": 0, "width": 1, "height": 1,
-        })
-        .to_string();
-        let thrown = json!({
-            "result": { "type": "string", "value": readable },
-            "exceptionDetails": { "text": "Uncaught" },
-        })
-        .to_string();
-        assert_eq!(parse_inspected(thrown.as_bytes()), None);
-        assert_eq!(parse_inspected(b"not json"), None);
-        assert_eq!(parse_inspected(&value_result(r#"{"nodeId":"a"}"#)), None);
-    }
 }

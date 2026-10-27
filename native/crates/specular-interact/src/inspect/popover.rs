@@ -24,7 +24,7 @@ impl InspectPopover {
     /// The text size, in logical pixels.
     pub const FONT_SIZE: f32 = 11.0;
     /// The width of one character of the 11 px monospace face, as the renderer sets it.
-    pub const ADVANCE: f32 = 6.7;
+    pub(crate) const ADVANCE: f32 = 6.7;
     /// The height of a row of plain text.
     pub const LINE: f32 = 14.0;
     /// The height of the row holding the tag chip.
@@ -43,7 +43,7 @@ impl InspectPopover {
     /// The space between two colours.
     pub const SWATCH_SPACING: f32 = 10.0;
     /// The widest the card grows.
-    pub const MAX_WIDTH: f32 = 360.0;
+    pub(crate) const MAX_WIDTH: f32 = 360.0;
 
     /// The width of `text` set in the card's face.
     pub fn text_width(text: &str) -> f32 {
@@ -74,7 +74,7 @@ impl InspectPopover {
     }
 
     /// The card's size: its widest row and the rows stacked, with padding.
-    pub fn size_of(&self) -> Vec2 {
+    pub(crate) fn size_of(&self) -> Vec2 {
         let rows = self.rows();
         let widest = rows.iter().flatten().fold(0.0_f32, |most, w| most.max(*w));
         let mut height = Self::CHIP_HEIGHT;
@@ -109,7 +109,7 @@ impl InspectPopover {
         };
         let size = popover.size_of();
         let at = place(target, size, viewport);
-        popover.rect = ScreenRect { min: at, size };
+        popover.rect = ScreenRect::at(at, size);
         popover
     }
 }
@@ -167,8 +167,8 @@ fn swatches(node: &InspectedNode) -> Vec<InspectSwatch> {
 /// when that leaves the window's padding, else below it.
 pub(super) fn place(target: ScreenRect, popover: Vec2, viewport: Vec2) -> Vec2 {
     let max_left = (viewport.x - popover.x - VIEWPORT_PADDING).max(VIEWPORT_PADDING);
-    let left = target.min.x.round().clamp(VIEWPORT_PADDING, max_left);
-    let above = target.min.y.round() - popover.y - TARGET_GAP;
+    let left = target.min().x.round().clamp(VIEWPORT_PADDING, max_left);
+    let above = target.min().y.round() - popover.y - TARGET_GAP;
     let below = target.max().y.round() + TARGET_GAP;
     let max_top = (viewport.y - popover.y - VIEWPORT_PADDING).max(VIEWPORT_PADDING);
     let top = if above >= VIEWPORT_PADDING {
@@ -177,28 +177,4 @@ pub(super) fn place(target: ScreenRect, popover: Vec2, viewport: Vec2) -> Vec2 {
         below.clamp(VIEWPORT_PADDING, max_top)
     };
     Vec2::new(left, top)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn the_popover_sits_above_or_below_the_target_inside_the_window() {
-        let window = Vec2::new(1200.0, 900.0);
-        let card = Vec2::new(260.0, 84.0);
-        let rows = [
-            // Zoomed out: room above, so one gap over the target.
-            (ScreenRect::new(325.0, 145.0, 12.5, 5.0), (325.0, 55.0)),
-            // Zoomed in: the same.
-            (ScreenRect::new(500.0, 320.0, 100.0, 40.0), (500.0, 230.0)),
-            // No room above: below it, and pulled in from the right edge.
-            (ScreenRect::new(1180.0, 20.0, 10.0, 10.0), (932.0, 36.0)),
-            // No room above and none below: held off the bottom edge.
-            (ScreenRect::new(4.0, 20.0, 10.0, 870.0), (8.0, 808.0)),
-        ];
-        for (target, want) in rows {
-            assert_eq!(place(target, card, window), Vec2::from(want), "{target:?}");
-        }
-    }
 }

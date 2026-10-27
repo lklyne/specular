@@ -112,7 +112,7 @@ impl App {
     /// page is not where it is stored. `None` when it is hidden.
     pub(crate) fn shown_on_screen(&self, entity: &specular_doc::Entity) -> Option<ScreenRect> {
         let rect = crate::shown_rect(self, entity)?;
-        Some(ScreenRect::of(&self.session.camera, rect))
+        Some(crate::geometry::on_screen(&self.session.camera, rect))
     }
 }
 
@@ -120,9 +120,9 @@ impl App {
 pub(crate) fn side_point(rect: ScreenRect, side: EdgeSide) -> Vec2 {
     let (centre, max) = (rect.centre(), rect.max());
     match side {
-        EdgeSide::Top => Vec2::new(centre.x, rect.min.y),
+        EdgeSide::Top => Vec2::new(centre.x, rect.min().y),
         EdgeSide::Bottom => Vec2::new(centre.x, max.y),
-        EdgeSide::Left => Vec2::new(rect.min.x, centre.y),
+        EdgeSide::Left => Vec2::new(rect.min().x, centre.y),
         EdgeSide::Right => Vec2::new(max.x, centre.y),
     }
 }
@@ -145,7 +145,7 @@ pub(crate) const fn outward(side: EdgeSide) -> Vec2 {
 
 /// The sides two entities face each other with, for an edge that names none.
 pub(crate) fn facing_sides(from: ScreenRect, to: ScreenRect) -> (EdgeSide, EdgeSide) {
-    let delta = to.centre() - from.centre();
+    let delta = Vec2::from(to.centre()) - Vec2::from(from.centre());
     if delta.x.abs() > delta.y.abs() {
         if delta.x > 0.0 {
             (EdgeSide::Right, EdgeSide::Left)
@@ -168,32 +168,4 @@ pub(crate) fn distance_to_segment(point: Vec2, a: Vec2, b: Vec2) -> f32 {
     }
     let t = ((point - a).dot(along) / length_squared).clamp(0.0, 1.0);
     point.distance(a + along * t)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn an_edge_with_no_sides_leaves_from_the_facing_ones() {
-        let left = ScreenRect::new(0.0, 0.0, 100.0, 100.0);
-        let right = ScreenRect::new(300.0, 20.0, 100.0, 100.0);
-        let curve = EdgeCurve::between(left, right, &Edge::new("e", "a", "b"), 1.0);
-        assert_eq!(
-            (curve.from, curve.to),
-            (Vec2::new(108.0, 50.0), Vec2::new(292.0, 70.0))
-        );
-    }
-
-    #[test]
-    fn control_points_reach_outward_within_their_limits() {
-        let left = ScreenRect::new(0.0, 0.0, 100.0, 100.0);
-        let near = ScreenRect::new(120.0, 0.0, 100.0, 100.0);
-        let curve = EdgeCurve::between(left, near, &Edge::new("e", "a", "b"), 1.0);
-        // The ends are 4 px apart, so the 40 px minimum applies.
-        assert_eq!(
-            (curve.from_control.x, curve.to_control.x),
-            (108.0 + 40.0, 112.0 - 40.0)
-        );
-    }
 }

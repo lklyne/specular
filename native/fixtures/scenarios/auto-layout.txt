@@ -1,0 +1,68 @@
+# canvas: guides.canvas
+# Auto-layout: three shapes made a managed row, its dots and gap bars, the
+# popup's gap and direction, a gap strip dragged, a dot dragged to another
+# slot with the box floating under the pointer, a loose even selection
+# reordered with no group, and every step undone.
+camera 0,0,1
+
+# three shapes become a row, in the order they read, 80 apart
+select left right a
+key cmd+shift+a
+# Electron's shape: three fields on the group, resolved rects on the members
+expect entity @top kind group
+expect entity left parent @top
+expect saved /nodes/@top/managedLayout = true
+expect saved /nodes/@top/layoutMode = row
+expect saved /nodes/@top/layoutGap absent
+expect saved /nodes/@top/label = Auto-layout
+expect entity @top rect 176 176 508 148
+expect entity left at 200 200
+expect entity a at 380 200
+expect entity right at 560 200
+
+# the popup: the gap down a step, then a column, then a row again
+control group.gap.dec
+control group.layout.column
+expect saved /nodes/@top/layoutMode = column
+control group.layout.row
+expect saved /nodes/@top/layoutMode = row
+
+# a gap strip dragged 20 to the left closes the gap by 20
+press 330 250
+drag-to 310 250
+release
+expect saved /nodes/@top/layoutGap = 40
+expect entity a at 340 200
+expect entity right at 480 200
+
+# the last box's dot dragged to the front: it floats, the others make room
+press 530 250
+drag-to 215 285
+# the dragged box floats under the pointer and the others make room
+snapshot 06-reorder-in-flight.png
+release
+# the sequence is the stack order
+expect entity right at 200 200
+expect entity left at 340 200
+expect entity a at 480 200
+
+# everything undone, one step an action
+key cmd+z
+key cmd+z
+key cmd+z
+key cmd+z
+key cmd+z
+key cmd+z
+undo-to-start
+
+# a loose even selection has the same handles and no group
+select left right
+press 250 250
+drag-to 660 250
+release
+# a loose pair swaps places and makes no group
+expect entity right at 200 200
+expect entity left at 600 200
+expect count group 0
+key cmd+z
+undo-to-start

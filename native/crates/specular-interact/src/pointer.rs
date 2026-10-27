@@ -5,10 +5,6 @@
 //! entered page (the one with keyboard focus) hears the pointer: moves over
 //! its body, presses on it, and everything up to the release of a press it
 //! got.
-//!
-//! The built-in panels are offered every event before any of that, and what
-//! they take goes no further: a press on a dock control leaves the
-//! selection, the tool in hand and a text edit as they were.
 
 use glam::Vec2;
 use specular_core::{PointerButton, PointerEventKind};
@@ -26,11 +22,6 @@ pub(crate) fn on_pointer(app: &mut App, input: &PointerInput, effects: &mut Vec<
     if matches!(input.kind, PointerEventKind::Down { .. }) {
         // A press stops a page that is gliding, wherever it lands.
         crate::flick::halt(app);
-    }
-    if crate::panel::builtin::on_pointer(app, input, effects) {
-        // The pointer is on a panel, not on page content.
-        crate::inspect::clear_hover(app);
-        return;
     }
     match input.kind {
         PointerEventKind::Move => on_move(app, input, effects),
@@ -129,6 +120,11 @@ fn on_down(
     effects: &mut Vec<Effect>,
 ) {
     app.session.pointer = Some(input.screen);
+    // A press anywhere while the context menu is open closes it, and that
+    // is all it does.
+    if app.session.panel.menu.take().is_some() {
+        return;
+    }
     if button == PointerButton::Left && app.session.editing.is_some() {
         // A press in the text being edited is the editor's. Anywhere else it
         // ends the edit before it does what it would have done.
@@ -142,7 +138,8 @@ fn on_down(
         return;
     }
     let under = hit::hit_test(app, input.screen);
-    if button == PointerButton::Right && crate::panel::builtin::open_menu(app, input.screen, &under)
+    if button == PointerButton::Right
+        && crate::panel::open_menu_for_right_press(app, input.screen, &under)
     {
         return;
     }
@@ -188,8 +185,7 @@ fn entered_page(app: &App, hit: Hit) -> Option<(EntityId, Vec2)> {
         | Hit::GroupBorder { .. }
         | Hit::Layout(_)
         | Hit::Edge { .. }
-        | Hit::Empty
-        | Hit::Panel { .. } => None,
+        | Hit::Empty => None,
     }
 }
 

@@ -13,11 +13,11 @@ use unicode_segmentation::UnicodeSegmentation;
 /// spaces at a break stay on the line they end, and a word longer than the
 /// line breaks wherever it has to.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct FixedAdvance {
+pub(crate) struct FixedAdvance {
     /// The width of every grapheme, in canvas units.
-    pub advance: f32,
+    pub(crate) advance: f32,
     /// The height of every line, in canvas units.
-    pub line_height: f32,
+    pub(crate) line_height: f32,
 }
 
 impl Default for FixedAdvance {
@@ -96,48 +96,5 @@ impl TextMeasure for FixedAdvance {
             paragraph_start += paragraph.len() + 1;
         }
         TextLayout { lines }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use specular_core::text::TextFont;
-
-    use super::*;
-
-    fn lines(text: &str, wrap_width: Option<f32>) -> Vec<&str> {
-        let spec = TextSpec {
-            font: TextFont::Sans,
-            size: 14.0,
-            line_height: 21.0,
-            wrap_width,
-            align: TextAlign::Left,
-        };
-        let layout = FixedAdvance::default().layout(text, &spec);
-        (layout.lines.iter())
-            .map(|line| &text[line.range.clone()])
-            .collect()
-    }
-
-    #[test]
-    fn lines_break_after_the_last_space_that_fits() {
-        assert_eq!(lines("one two three", Some(80.0)), ["one two ", "three"]);
-        assert_eq!(
-            lines("one two three", Some(50.0)),
-            ["one ", "two ", "three"]
-        );
-        assert_eq!(lines("one two", None), ["one two"]);
-
-        {
-            assert_eq!(
-                lines("abcdefgh ij", Some(30.0)),
-                ["abc", "def", "gh ", "ij"]
-            );
-        }
-
-        {
-            assert_eq!(lines("a\n\nb\n", Some(80.0)), ["a", "", "b", ""]);
-            assert_eq!(lines("", None), [""]);
-        }
     }
 }

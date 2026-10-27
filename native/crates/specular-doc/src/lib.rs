@@ -50,9 +50,10 @@ pub use kinds::{
     Page, PageSource, Shape, ShapeKind, Stroke, Text, TextAlign, TextFont, TextStyle,
     VerticalAlign, WidthMode,
 };
+pub(crate) use presets::device_shell;
 pub use presets::{
     DeviceKind, DeviceShell, LAPTOP, PRESET_MAIN, PRESET_MENU, ShellInsets, VIEWPORT_PRESETS,
-    ViewportPreset, device_shell, preset, preset_named,
+    ViewportPreset, preset, preset_named,
 };
 pub use safe_area::{SafeArea, safe_area};
 

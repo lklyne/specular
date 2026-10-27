@@ -3,7 +3,7 @@
 
 use specular_doc::Color;
 
-use super::model::{Control, Dropdown, Entries, Label};
+use super::model::{Control, Dropdown, Label};
 use super::{ControlId, Icon};
 use crate::{Action, Chord, Tool, ToolsPlace};
 
@@ -13,7 +13,7 @@ pub struct ToolButton {
     /// Its name.
     pub id: ControlId,
     /// The tool it arms.
-    pub tool: Tool,
+    pub(crate) tool: Tool,
     /// What it is called.
     pub label: Label,
     /// The glyph.
@@ -88,32 +88,7 @@ pub struct ToolbarModel {
     pub view: Vec<Control>,
 }
 
-impl ToolbarModel {
-    /// Every control and option with its action.
-    pub fn entries(&self) -> Entries<'_> {
-        let mut out = vec![(self.theme.id.clone(), Some(&self.theme.action))];
-        out.extend((self.chat.iter()).map(|button| (button.id.clone(), Some(&button.action))));
-        for section in &self.sections {
-            match section {
-                ToolbarSection::Tools(tools) => {
-                    out.extend(tools.iter().map(|t| (t.id.clone(), Some(&t.action))));
-                }
-                ToolbarSection::Zoom(dropdown) => dropdown.entries(&mut out),
-            }
-        }
-        for control in &self.view {
-            control.entries(&mut out);
-        }
-        out
-    }
-
-    /// The action of the control or option named `id`.
-    pub fn action(&self, id: &ControlId) -> Option<Action> {
-        (self.entries().into_iter())
-            .find(|(entry, _)| entry == id)
-            .and_then(|(_, action)| action.cloned())
-    }
-}
+impl ToolbarModel {}
 
 /// A set of controls shown together: the dock's row for the tool in hand
 /// or the selection, or the one list of choices that is a context menu.
@@ -123,20 +98,4 @@ pub struct ControlsModel {
     pub controls: Vec<Control>,
 }
 
-impl ControlsModel {
-    /// Every control and option with its action.
-    pub fn entries(&self) -> Entries<'_> {
-        let mut out = Vec::new();
-        for control in &self.controls {
-            control.entries(&mut out);
-        }
-        out
-    }
-
-    /// The action of the control or option named `id`.
-    pub fn action(&self, id: &ControlId) -> Option<Action> {
-        (self.entries().into_iter())
-            .find(|(entry, _)| entry == id)
-            .and_then(|(_, action)| action.cloned())
-    }
-}
+impl ControlsModel {}

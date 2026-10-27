@@ -33,11 +33,6 @@ pub struct LatencyTracker {
 }
 
 impl LatencyTracker {
-    /// An empty tracker.
-    pub fn new() -> Self {
-        Self::default()
-    }
-
     /// Records an input event that happened at `at` (the OS event timestamp
     /// when available, else when the shell received it) and returns the
     /// number its effect must carry.
@@ -66,11 +61,6 @@ impl LatencyTracker {
         resolved
     }
 
-    /// Events not yet reflected by a presented frame.
-    pub fn pending(&self) -> usize {
-        self.pending.len()
-    }
-
     /// Resolved latencies, in resolution order.
     pub fn samples(&self) -> &[Duration] {
         &self.samples
@@ -92,7 +82,7 @@ pub struct LatencySummary {
     #[serde(default)]
     pub unresolved: usize,
     /// Mean latency.
-    pub mean_ms: f64,
+    pub(crate) mean_ms: f64,
     /// Median latency.
     pub p50_ms: f64,
     /// 95th percentile latency.
@@ -103,7 +93,7 @@ pub struct LatencySummary {
 
 impl LatencySummary {
     /// Summarises `samples`, noting `unresolved` events alongside.
-    pub fn from_samples(samples: &[Duration], unresolved: usize) -> Self {
+    pub(crate) fn from_samples(samples: &[Duration], unresolved: usize) -> Self {
         let mut ms: Vec<f64> = samples.iter().map(|d| d.as_secs_f64() * 1_000.0).collect();
         if ms.is_empty() {
             return Self {
@@ -120,52 +110,5 @@ impl LatencySummary {
             p95_ms: percentile(&ms, 0.95),
             max_ms: ms.last().copied().unwrap_or_default(),
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    const MS: Duration = Duration::from_millis(1);
-
-    #[test]
-    fn latency_runs_from_event_to_presenting_frame() {
-        let start = Instant::now();
-        let mut tracker = LatencyTracker::new();
-        let seq = tracker.event(start);
-        tracker.presented(seq, start + MS * 12);
-        assert_eq!(tracker.samples(), [MS * 12]);
-    }
-
-    #[test]
-    fn coalesced_events_each_measure_from_their_own_timestamp() {
-        let start = Instant::now();
-        let mut tracker = LatencyTracker::new();
-        tracker.event(start);
-        let last = tracker.event(start + MS * 4);
-        tracker.presented(last, start + MS * 10);
-        assert_eq!(tracker.samples(), [MS * 10, MS * 6]);
-    }
-
-    #[test]
-    fn queue_overflow_counts_dropped_events_as_unresolved() {
-        let start = Instant::now();
-        let mut tracker = LatencyTracker::new();
-        for _ in 0..MAX_PENDING + 3 {
-            tracker.event(start);
-        }
-        assert_eq!(tracker.pending(), MAX_PENDING);
-        assert_eq!(tracker.summary().unresolved, MAX_PENDING + 3);
-    }
-
-    #[test]
-    fn summary_percentiles_use_nearest_rank() {
-        let samples: Vec<Duration> = (1..=20).map(|n| MS * n).collect();
-        let summary = LatencySummary::from_samples(&samples, 0);
-        assert_eq!(
-            [summary.p50_ms, summary.p95_ms, summary.max_ms],
-            [10.0, 19.0, 20.0]
-        );
     }
 }

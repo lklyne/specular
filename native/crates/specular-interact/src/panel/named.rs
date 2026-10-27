@@ -31,9 +31,9 @@ use crate::{Action, App, Effect, SidebarRow, edit, hit};
 #[error("no control `{name}` is shown; these are: {}", shown.join(" "))]
 pub struct UnknownControl {
     /// The name asked for.
-    pub name: String,
+    pub(crate) name: String,
     /// The names of the controls there are, in the models' order.
-    pub shown: Vec<String>,
+    pub(crate) shown: Vec<String>,
 }
 
 /// What activating a control does.
@@ -225,7 +225,7 @@ fn sidebar(app: &App, out: &mut Vec<Named>) {
 }
 
 /// Every control there is now, in the models' order: the tab row, the
-/// toolbar, the dock, the sidebar, the context menu.
+/// toolbar, the dock, the sidebar, the settings' switches, the context menu.
 fn named(app: &App) -> Vec<Named> {
     let mut out = Vec::new();
     let plain = Inside::Nothing;
@@ -260,6 +260,16 @@ fn named(app: &App) -> Vec<Named> {
         control(model, &plain, &mut out);
     }
     sidebar(app, &mut out);
+    let (launch, cursors) = crate::settings::setting_toggles(app);
+    for toggle in launch.iter().chain(&cursors) {
+        out.push(run(
+            &ControlId::new(toggle.name),
+            &toggle.action,
+            true,
+            true,
+            &plain,
+        ));
+    }
     match &app.session.panel.menu {
         Some(open) if !matches!(open.target, MenuTarget::Canvas(_)) => {
             menu(app, &open.target, &mut out);
@@ -280,7 +290,7 @@ fn named(app: &App) -> Vec<Named> {
 
 /// The names of the controls there are now, whether or not anything draws
 /// them: what [`Event::Control`](crate::Event) takes.
-pub fn named_controls(app: &App) -> Vec<ControlId> {
+pub(crate) fn named_controls(app: &App) -> Vec<ControlId> {
     named(app).into_iter().map(|named| named.id).collect()
 }
 
@@ -338,7 +348,7 @@ pub(crate) fn activate(app: &mut App, id: &ControlId, keys: Modifiers, effects: 
             enabled: true,
             closes,
         } => {
-            let action = super::builtin::picked(app, id, action, keys);
+            let action = crate::sidebar::picked(app, id, action, keys);
             // A paste lands where the menu was opened.
             if let (Action::Paste, Some(menu)) = (&action, &menu) {
                 app.session.pointer = Some(menu.at);
@@ -361,5 +371,5 @@ pub(crate) fn open_menu(app: &mut App, screen: Vec2) {
         return;
     }
     let under = hit::hit_test(app, screen);
-    super::builtin::open_menu_for_press(app, screen, &under);
+    super::open_menu_for_press(app, screen, &under);
 }

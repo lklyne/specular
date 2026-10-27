@@ -4,18 +4,18 @@
     python3 native/scripts/device-art-table.py
 
 The drawings and `manifest.json` under
-`crates/specular-app/assets/device-frames/` come from
+`crates/specular-shell/assets/device-frames/` come from
 `scripts/device-frames/convert.py`. This script picks the drawings the
 viewport presets use and writes two files, which are checked in:
 
 - `crates/specular-doc/src/device_art/table.rs`: `DeviceArt`, each
   drawing's geometry, and which preset device is drawn as which.
-- `crates/specular-app/src/images/device_frames/drawings.rs`: the SVG
+- `crates/specular-shell/src/images/device_frames/drawings.rs`: the SVG
   files in the binary.
 
 Run it after the manifest changes or a preset's drawing does. A drawing the
 manifest does not have yet is left out, and its devices are drawn in clay.
-A test in `specular-app` fails when the tables and the manifest disagree.
+A test in `specular-shell` fails when the tables and the manifest disagree.
 """
 
 import json
@@ -24,9 +24,9 @@ import sys
 from pathlib import Path
 
 NATIVE = Path(__file__).resolve().parent.parent
-ASSETS = NATIVE / "crates/specular-app/assets/device-frames"
+ASSETS = NATIVE / "crates/specular-shell/assets/device-frames"
 DOC_TABLE = NATIVE / "crates/specular-doc/src/device_art/table.rs"
-APP_TABLE = NATIVE / "crates/specular-app/src/images/device_frames/drawings.rs"
+APP_TABLE = NATIVE / "crates/specular-shell/src/images/device_frames/drawings.rs"
 
 # A preset's `deviceId` and the drawing it is shown in: the manifest's
 # `name`. The id says which preset and the name which drawing, so a newer

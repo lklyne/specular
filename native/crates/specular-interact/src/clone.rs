@@ -150,42 +150,7 @@ pub(crate) fn insertions(
                 };
                 let folded = scroll_follow::fold(scrolls, entity);
                 let entity = folded.as_ref().unwrap_or(entity);
-                let (rect, kind) = Start::of(entity).moved(delta);
-                // The page's copy starts at the top of its document, and
-                // the element is found again where the copy lands.
-                let anchor = entity.anchor.as_ref().and_then(|anchor| {
-                    Some(specular_doc::PageAnchor {
-                        page_url: anchor.page_url.clone(),
-                        scroll_x: Some(0.0),
-                        scroll_y: Some(0.0),
-                        ..specular_doc::PageAnchor::new(renamed(&anchor.page_id)?)
-                    })
-                });
-                let parent = entity.parent.as_ref().and_then(|parent| {
-                    renamed(parent).or_else(|| match orphan {
-                        Orphan::Stays => Some(parent.clone()),
-                        Orphan::Leaves => None,
-                    })
-                });
-                let kind = kind.unwrap_or_else(|| entity.kind.clone());
-                let together = |page: Page| {
-                    let set = page.sync_id.as_ref().and_then(|set| sync_sets.get(set));
-                    Page {
-                        sync_id: set.cloned().or_else(|| page.sync_id.clone()),
-                        ..page
-                    }
-                };
-                let kind = (kind.page_fields())
-                    .and_then(|page| kind.with_page_fields(together(page.into_owned())))
-                    .unwrap_or(kind);
-                let copy = Entity {
-                    id: new_id,
-                    rect,
-                    kind,
-                    parent,
-                    anchor,
-                    ..entity.clone()
-                };
+                let copy = entity_copy(entity, new_id, delta, orphan, &renamed, &sync_sets);
                 commands.push(Command::InsertEntity {
                     entity: Box::new(copy),
                     at,
@@ -212,4 +177,52 @@ pub(crate) fn insertions(
         }
     }
     (commands, entity_ids)
+}
+
+/// The copy of `entity` as `new_id`, `delta` away. What it refers to among
+/// the copied items is `renamed`; a page joins its set's copy.
+fn entity_copy(
+    entity: &Entity,
+    new_id: EntityId,
+    delta: DVec2,
+    orphan: Orphan,
+    renamed: &impl Fn(&EntityId) -> Option<EntityId>,
+    sync_sets: &HashMap<String, String>,
+) -> Entity {
+    let (rect, kind) = Start::of(entity).moved(delta);
+    // The page's copy starts at the top of its document, and
+    // the element is found again where the copy lands.
+    let anchor = entity.anchor.as_ref().and_then(|anchor| {
+        Some(specular_doc::PageAnchor {
+            page_url: anchor.page_url.clone(),
+            scroll_x: Some(0.0),
+            scroll_y: Some(0.0),
+            ..specular_doc::PageAnchor::new(renamed(&anchor.page_id)?)
+        })
+    });
+    let parent = entity.parent.as_ref().and_then(|parent| {
+        renamed(parent).or_else(|| match orphan {
+            Orphan::Stays => Some(parent.clone()),
+            Orphan::Leaves => None,
+        })
+    });
+    let kind = kind.unwrap_or_else(|| entity.kind.clone());
+    let together = |page: Page| {
+        let set = page.sync_id.as_ref().and_then(|set| sync_sets.get(set));
+        Page {
+            sync_id: set.cloned().or_else(|| page.sync_id.clone()),
+            ..page
+        }
+    };
+    let kind = (kind.page_fields())
+        .and_then(|page| kind.with_page_fields(together(page.into_owned())))
+        .unwrap_or(kind);
+    Entity {
+        id: new_id,
+        rect,
+        kind,
+        parent,
+        anchor,
+        ..entity.clone()
+    }
 }

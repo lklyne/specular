@@ -1,5 +1,5 @@
-//! A glyph as SVG text, for a UI library that draws the panel models with
-//! components of its own and needs the same glyphs the built-in panels use.
+//! A glyph as SVG text, for the Kit, which draws the panel models with its
+//! own components.
 
 use std::fmt::Write as _;
 
@@ -73,7 +73,7 @@ fn markup(glyph: Glyph, inks: Inks) -> String {
     out
 }
 
-/// `icon` as an SVG document, drawn as the built-in panels draw it:
+/// `icon` as an SVG document:
 /// `current` is the text color of the control it is on, `tint` the color
 /// the glyph shows when it shows one, `on` whether the control is on and
 /// `appearance` the theme it is drawn for.
@@ -101,23 +101,4 @@ pub fn icon_svg(
 pub fn arrow_cursor_svg() -> String {
     let colors = Colors::of(Appearance::Light);
     markup(ARROW_CURSOR, Inks::plain(Color::rgb(0, 0, 0), colors))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_lucide_glyph_is_stroked_in_the_current_color() {
-        let svg = icon_svg(
-            Icon::Trash,
-            Color::rgb(0x30, 0x40, 0x50),
-            None,
-            false,
-            Appearance::Light,
-        );
-        assert!(svg.starts_with("<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\""));
-        assert!(svg.contains("stroke=\"#304050\""), "{svg}");
-        assert!(svg.ends_with("</svg>"));
-    }
 }

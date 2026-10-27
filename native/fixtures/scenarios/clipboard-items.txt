@@ -1,0 +1,71 @@
+# Copy, cut and paste of items: what goes on the clipboard, copies landing
+# at the pointer with the edges between them, a cut in one step, a group
+# pasted with its members inside the copy, and a pasted address or line of
+# text from another app.
+given shape a 40 20 100 100
+given shape b 240 20 100 100
+given shape c 0 300 100 100
+given edge e1 a b
+given group g 600 600 300 300
+given inside g shape m 620 620 100 100
+camera 0,0,1
+
+# copy writes the selection and leaves the document alone
+select a b
+key cmd+c
+expect sent clipboard specular:canvas:{"nodes":[{"id":"a",
+expect undo none
+# pasted copies land at the pointer with their edge, selected, one step
+move 505 395
+key cmd+v
+expect count entities 7
+expect entity @6 rect 500 400 100 100
+expect entity @7 rect 700 400 100 100
+expect edge @last @6 @7
+expect selection @6 @7
+expect sent save
+key cmd+z
+expect count entities 5
+# cut copies, then removes in one step, the edge that lost an end with it
+select a
+key cmd+x
+expect sent clipboard specular:canvas:
+expect entity a gone
+expect count edges 0
+key cmd+z
+expect count edges 1
+expect undo none
+# a copied group is pasted with its members inside the copy
+select g
+key cmd+c
+move 1000 100
+key cmd+v
+expect selection @6
+expect entity @7 parent @6
+expect entity @7 rect 1020 120 100 100
+key cmd+z
+
+# an address from another app makes a desktop page and hosts it
+key escape
+clipboard \sexample.com/docs\s
+move 95 515
+key cmd+v
+expect entity @top kind page
+expect entity @top size 1440 900
+expect entity @top text https://example.com/docs
+expect saved /nodes/@top/presetIndex = 7
+expect saved /nodes/@top/metadata/createdFrom = paste_url
+expect saved /nodes/@top/metadata/deviceId = desktop
+expect sent create-page @top https://example.com/docs
+expect count selected 1
+key cmd+z
+# other text makes a sticky with the sticky defaults, not being edited
+clipboard ship it\non Friday\n
+move 95 515
+key cmd+v
+expect entity @top kind sticky
+expect entity @top text ship it\non Friday
+expect entity @top at 100 520
+expect saved /nodes/@top/color = "3"
+expect editing none
+undo-to-start

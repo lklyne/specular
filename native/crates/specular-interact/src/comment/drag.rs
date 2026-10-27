@@ -28,7 +28,7 @@ pub struct CommentDrag {
 impl CommentDrag {
     /// The region dragged out so far, in canvas space. `None` while the
     /// press is still a click.
-    pub fn region(&self) -> Option<Rect> {
+    pub(crate) fn region(&self) -> Option<Rect> {
         (self.dragged).then(|| geometry::spanning(self.start, self.current))
     }
 }
@@ -80,7 +80,6 @@ fn click(app: &mut App, drag: &CommentDrag, effects: &mut Vec<Effect>) {
         | Hit::GroupBorder { .. }
         | Hit::Layout(_)
         | Hit::Edge { .. }
-        | Hit::Panel { .. }
         | Hit::Empty => {
             let made = create::canvas_point(app, drag.start);
             draft::open(app, made, effects);

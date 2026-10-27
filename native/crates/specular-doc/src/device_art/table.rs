@@ -44,7 +44,7 @@ pub enum DeviceArt {
 
 impl DeviceArt {
     /// Every drawing.
-    pub const ALL: [Self; 17] = [
+    pub(crate) const ALL: [Self; 17] = [
         Self::GooglePixel9,
         Self::GooglePixel9ProXl,
         Self::IpadAir4,
@@ -65,7 +65,7 @@ impl DeviceArt {
     ];
 
     /// The drawing a page of the preset device `device_id` is shown in.
-    pub fn of_device(device_id: &str) -> Option<Self> {
+    pub(crate) fn of_device(device_id: &str) -> Option<Self> {
         match device_id {
             "iphone-17-pro-max" => Some(Self::Iphone16ProMax),
             "iphone-17" => Some(Self::Iphone16Pro),
@@ -88,31 +88,8 @@ impl DeviceArt {
         }
     }
 
-    /// The drawing's `name` in the manifest, which is its file's stem.
-    pub const fn name(self) -> &'static str {
-        match self {
-            Self::GooglePixel9 => "google-pixel-9",
-            Self::GooglePixel9ProXl => "google-pixel-9-pro-xl",
-            Self::IpadAir4 => "ipad-air-4",
-            Self::IpadMini => "ipad-mini",
-            Self::IpadPro11InchesM4 => "ipad-pro-11-inches-m4",
-            Self::IpadPro11inches => "ipad-pro-11inches",
-            Self::IpadPro12inchesGen4 => "ipad-pro-12inches-gen4",
-            Self::IpadPro13InchesM4 => "ipad-pro-13-inches-m4",
-            Self::Iphone13 => "iphone-13",
-            Self::Iphone16 => "iphone-16",
-            Self::Iphone16Plus => "iphone-16-plus",
-            Self::Iphone16Pro => "iphone-16-pro",
-            Self::Iphone16ProMax => "iphone-16-pro-max",
-            Self::IphoneAir => "iphone-air",
-            Self::IphoneSe => "iphone-se",
-            Self::MacbookPro => "macbook-pro",
-            Self::SamsungGalaxyS25 => "samsung-galaxy-s25",
-        }
-    }
-
     /// Whether the device is a tablet and not a phone.
-    pub const fn is_tablet(self) -> bool {
+    pub(crate) const fn is_tablet(self) -> bool {
         matches!(
             self,
             Self::IpadAir4
@@ -126,7 +103,7 @@ impl DeviceArt {
 
     /// Whether the device is a computer, which has no notch or home
     /// indicator of its own to draw.
-    pub const fn is_computer(self) -> bool {
+    pub(crate) const fn is_computer(self) -> bool {
         matches!(self, Self::MacbookPro)
     }
 

@@ -1,0 +1,62 @@
+# canvas: guides.canvas
+# Alignment and distribution guides: a shape dragged level with two others
+# shows the lines along its edges and the measures of the even gaps, a copy
+# lines up with its original, a resize confirms the edge its handle moves,
+# and the lines keep their weight zoomed out. Nothing pulls: the grid does.
+camera 0,0,1
+expect saved same-as guides.canvas
+
+# a press that has not travelled shows nothing
+press 450 550
+expect guides none
+# level with left and right, midway: lines top and bottom, two gap measures
+drag-to 450 250
+expect guides horizontal top/left.top 200 bottom/left.bottom 300 top/right.top 200 bottom/right.bottom 300 top/tall.top 200
+expect gaps horizontal 100 | 300 400 250 | 500 600 250
+# a centre shows only where the grid allows it: these are 100 wide
+expect guides vertical none
+# the lines along its top and bottom edges and the two even gaps' measures
+snapshot 01-aligned-and-even.png
+# the grid rounds 7 short back onto the line
+drag-to 450 257
+expect guides horizontal top/left.top 200 bottom/left.bottom 300 top/right.top 200 bottom/right.bottom 300 top/tall.top 200
+# a little off the row: the grid has not put it on the line, so no guides
+drag-to 450 262
+expect guides horizontal none
+# one row down: its top on their bottom, and its middle on the tall one's,
+# which is kept because their edges do not both agree
+drag-to 450 350
+expect guides horizontal top/left.bottom 300 top/right.bottom 300 middle/tall.middle 350
+drag-to 450 250
+release
+expect guides none
+expect entity a rect 400 200 100 100
+key cmd+z
+expect saved same-as start
+
+# an Option-drag: the copy below lines up with the original's sides
+press 450 550
+hold alt
+drag-to 450 750
+expect guides vertical left/a:origin.left 400 right/a:origin.right 500
+hold none
+drag-to 450 550
+release
+
+# a resize: the right handle reaching the tall shape's left edge
+select left
+press 300 250
+drag-to 900 250
+expect entity left rect 200 200 700 100
+expect guides vertical right/tall.left 900
+expect guides horizontal none
+release
+key cmd+z
+
+# zoomed out the lines are still a pixel and the caps the same height
+camera 100,100,0.5
+press 325 375
+drag-to 325 225
+release
+key cmd+z
+undo-to-start

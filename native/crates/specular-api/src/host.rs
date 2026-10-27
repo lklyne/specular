@@ -6,7 +6,7 @@ use serde_json::Value;
 use specular_interact::{ApiOutcome, App, DroppedFile, Event};
 
 use crate::facts::Facts;
-use crate::{Api, CdpAsk, Plan, Request, Response, Screenshot};
+use crate::{Api, CdpAsk, PageScript, Plan, Request, Response, Screenshot};
 
 /// The owner of an [`App`]: it can show it, run an event through `update`
 /// on it, and draw it.
@@ -29,6 +29,18 @@ pub trait Host {
     /// and `lastSnapshotGeneration`; for [`CdpAsk::SnapshotSeen`], `ok` and
     /// `generation`.
     fn cdp(&mut self, ask: &CdpAsk) -> Result<Value, Response>;
+
+    /// Runs `script` in its page and calls `reply` with
+    /// [`PageScript::answer`] once the page has answered, or with why it
+    /// could not. A host with no pages to run it in says so at once.
+    fn page_script(&mut self, script: PageScript, reply: LaterReply) {
+        let _ = script;
+        reply(Response::error(
+            501,
+            "this host cannot run a script in a page",
+        ));
+    }
+
     /// What a `file` create needs to know about `path`, which may be
     /// relative to the space folder: the same facts a dropped file has.
     /// `None` when there is no such file. A host with no disk finds none.
@@ -43,12 +55,43 @@ pub trait Host {
     }
 }
 
+/// Where an answer that comes later goes.
+pub type LaterReply = Box<dyn FnOnce(Response) + Send>;
+
+/// What [`Api::respond`] decided.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Answer {
+    /// This response, now.
+    Now(Response),
+    /// A script to run in a page; the response comes when the page answers.
+    Later(PageScript),
+}
+
 impl Api {
-    /// Answers `request` against `host`: a read from its app, a write by
-    /// running one event on it.
+    /// Answers `request` against `host`, calling `reply` with the response:
+    /// at once, or once a page has answered a script.
+    pub fn answer_to(&mut self, host: &mut impl Host, request: &Request, reply: LaterReply) {
+        match self.respond(host, request) {
+            Answer::Now(response) => reply(response),
+            Answer::Later(script) => host.page_script(script, reply),
+        }
+    }
+
+    /// Answers `request` against `host` now. A request that needs a page's
+    /// answer is refused; [`answer_to`](Self::answer_to) waits for it.
     pub fn answer(&mut self, host: &mut impl Host, request: &Request) -> Response {
+        match self.respond(host, request) {
+            Answer::Now(response) => response,
+            Answer::Later(_) => Response::error(501, "this request waits for a page's answer"),
+        }
+    }
+
+    /// A read from `host`'s app or a write by running one event on it, or
+    /// the script a page has to run first.
+    pub(crate) fn respond(&mut self, host: &mut impl Host, request: &Request) -> Answer {
         let facts = Facts::gather(&*host, request);
-        match self.plan_with(host.app(), request, &facts) {
+        Answer::Now(match self.plan_with(host.app(), request, &facts) {
+            Plan::PageScript(script) => return Answer::Later(script),
             Plan::Answer(response) => response,
             Plan::Run { event, pending } => match host.run(event) {
                 Some(outcome) => pending.finish(host.app(), &outcome),
@@ -75,6 +118,6 @@ impl Api {
                 }
                 Err(response) => response,
             },
-        }
+        })
     }
 }

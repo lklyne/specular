@@ -1,0 +1,117 @@
+# canvas: empty.canvas
+# A whole session through the toolbar and the item popups, every change made
+# by naming the control. Tools are picked from the toolbar, a sticky and a
+# shape are placed with their popup defaults, then recolored and restyled,
+# joined by an edge that is restyled, undone and redone, with Escape closing
+# a dropdown on the way.
+camera 0,0,1
+
+# the sticky tool: its popup sets what the next sticky is
+control tool.sticky
+expect tool sticky
+control sticky.color.blue
+click 300 400
+type first note
+key escape
+# the sticky tool's blue
+expect saved /nodes/@1/color = "7"
+expect saved /nodes/@1/text = first note
+expect saved /nodes/@1/specular/textSize = 14
+
+# the placed sticky's own popup: a new color, then a named size, then the
+# stepper, with Escape closing a list before it does anything else
+control text.color
+control text.color.swatches.green
+key escape
+control text.size
+control text.size.32
+control text.size
+control text.size.custom.inc
+key escape
+expect saved /nodes/@1/color = "4"
+expect saved /nodes/@1/specular/textSize = 33
+
+# the shape tool: a diamond is what the next shape is
+control tool.shape
+control shape.kind
+control shape.kind.diamond
+control shape.color.yellow
+drag 800 400 1000 520
+# the shape tool's diamond and yellow
+expect saved /nodes/@2/shapeKind = diamond
+expect saved /nodes/@2/color = "3"
+expect saved /nodes/@2/strokeWidth = 2
+expect saved /nodes/@2/borderStyle absent
+expect saved /nodes/@2/borderColor absent
+
+# the placed shape's own popup: another kind from the grid, then its border
+control shape.kind
+control shape.kind.hexagon
+control shape.border
+control shape.border.dashed
+control shape.border.w3
+control shape.border.color.red
+key escape
+expect saved /nodes/@2/shapeKind = hexagon
+expect saved /nodes/@2/color = "3"
+expect saved /nodes/@2/strokeWidth = 3
+expect saved /nodes/@2/borderStyle = dashed
+expect saved /nodes/@2/borderColor = "1"
+
+# a second shape from the toolbar, and an edge dragged between the two
+control tool.shape
+drag 1250 400 1450 520
+move 900 460
+press 1008 460
+drag-to 1300 460
+release
+# an edge dragged between the shapes is plain, with an arrow at its end
+expect count edges 1
+expect saved /edges/0/color absent
+expect saved /edges/0/strokeWidth absent
+expect saved /edges/0/lineStyle absent
+expect saved /edges/0/fromEnd absent
+expect saved /edges/0/toEnd = arrow
+
+# the edge: select it, restyle it
+click 1125 460
+expect count selected 1
+control edge.color
+control edge.color.swatches.blue
+key escape
+control edge.stroke
+control edge.stroke.thick
+control edge.stroke.dashed
+key escape
+control edge.start
+expect saved /edges/0/color = "7"
+expect saved /edges/0/strokeWidth = 3
+expect saved /edges/0/lineStyle = dashed
+expect saved /edges/0/fromEnd = arrow
+expect saved /edges/0/toEnd = arrow
+mark edge-restyled
+
+# undo and redo across a property change
+key cmd+z
+# undo takes back the arrowhead only, and redo puts it back
+expect saved changed-from mark edge-restyled at /edges/0/fromEnd
+key cmd+shift+z
+expect saved same-as mark edge-restyled
+
+# a press on a toolbar button that slides off it does nothing
+hover-control tool.draw
+press-control tool.draw
+move 1200 800
+release
+expect tool select
+
+# the zoom list: Escape closes it and keeps the selection
+control zoom
+key escape
+expect count selected 1
+control zoom
+control zoom.50
+expect zoom 0.5
+# picking a zoom level and closing a list change no document
+expect saved same-as mark edge-restyled
+undo-to-start

@@ -21,7 +21,7 @@ pub enum Lens {
 
 impl Lens {
     /// Every lens, in the order the control lists them.
-    pub const ALL: [Self; 2] = [Self::Fill, Self::Device];
+    pub(crate) const ALL: [Self; 2] = [Self::Fill, Self::Device];
 
     /// The name a saved tab and the lens control know it by.
     #[must_use]

@@ -58,7 +58,7 @@ pub struct ReorderDot {
 #[derive(Debug, Clone, PartialEq)]
 pub struct GapHandle {
     /// The managed group whose gap it is, or `None` for a loose selection's.
-    pub group: Option<EntityId>,
+    pub(crate) group: Option<EntityId>,
     /// The axis the line is packed along.
     pub axis: Axis,
     /// The strip on screen: the gap along the axis, the whole line across
@@ -137,11 +137,11 @@ impl App {
             .flat_map(|(_, row)| row.boxes)
             .filter(|(id, _)| moving != Some(id))
             .map(|(entity, rect)| {
-                let on_screen = ScreenRect::of(camera, rect);
-                let shortest = on_screen.size.min_element();
+                let on_screen = crate::geometry::on_screen(camera, rect);
+                let shortest = on_screen.extent().min_element();
                 let mut dot = ReorderDot {
                     entity,
-                    centre: on_screen.centre(),
+                    centre: on_screen.centre().into(),
                     hit: DOT_HIT.min(shortest * DOT_HIT_FRACTION),
                     hovered: false,
                 };
@@ -170,12 +170,12 @@ impl App {
             let axis = row.axis;
             let across = axis.other();
             let mut boxes: Vec<ScreenRect> = (row.boxes.iter())
-                .map(|(_, rect)| ScreenRect::of(camera, *rect))
+                .map(|(_, rect)| crate::geometry::on_screen(camera, *rect))
                 .collect();
-            let lead = |rect: &ScreenRect| axis.of(rect.min.as_dvec2()) as f32;
+            let lead = |rect: &ScreenRect| axis.of(rect.min().as_dvec2()) as f32;
             let trail = |rect: &ScreenRect| axis.of(rect.max().as_dvec2()) as f32;
             let low = (boxes.iter())
-                .map(|rect| across.of(rect.min.as_dvec2()) as f32)
+                .map(|rect| across.of(rect.min().as_dvec2()) as f32)
                 .fold(f32::INFINITY, f32::min);
             let high = (boxes.iter())
                 .map(|rect| across.of(rect.max().as_dvec2()) as f32)
@@ -194,7 +194,7 @@ impl App {
                 let size = axis
                     .point(f64::from(thickness), f64::from(high - low))
                     .as_vec2();
-                let rect = ScreenRect { min, size };
+                let rect = ScreenRect::at(min, size);
                 out.push(GapHandle {
                     hovered: resting
                         && !over_dot

@@ -52,22 +52,19 @@ pub(crate) use buffer::{Origin, Target};
 pub use edge_label::LABEL_SIZE as EDGE_LABEL_SIZE;
 pub(crate) use edge_label::begin as begin_edge_label;
 pub(crate) use edge_label::selected_key as selected_edge_key;
-pub(crate) use field::{
-    begin as begin_field, cancel as cancel_field, focus as focus_field,
-    follow_caret as follow_field_caret,
-};
+pub(crate) use field::{begin as begin_field, cancel as cancel_field, focus as focus_field};
 pub(crate) use fit::{fit_all, fitted, refit_edited};
 use fit::{refit, set_rect};
 pub use formatting::Format;
 pub(crate) use formatting::run as format;
-pub use frame::{NOTE_PADDING, TextFrame, note_frame};
+pub use frame::{NOTE_PADDING, TextFrame};
 use history::Change;
 pub(crate) use measure::Measurer;
 pub use measure::{CaretStop, LayoutLine, TextLayout, TextMeasure, TextSpec};
 pub use pointer::TextSelectDrag;
 pub(crate) use pointer::{autoscroll, drag, is_over_text, press};
 pub use read::EditMarks;
-pub use source::{SourceLine, SourceSpan, SourceStyle, style_lines};
+pub use source::{SourceSpan, SourceStyle};
 pub use stack::{SourceRow, StackCache, source_rows};
 pub use title::{TITLE_GAP, TITLE_LINE, TITLE_SIZE};
 pub(crate) use title::{is_editing as is_editing_title, on_key};
@@ -105,7 +102,8 @@ fn frame_of(app: &App, edit: &TextEdit) -> Option<TextFrame> {
     match edit.target {
         Target::EdgeLabel => edge_label::frame(app, &edit.entity),
         Target::Comment => comment::frame(app),
-        Target::Field => field::frame(app, edit),
+        // A field is drawn by the shell, which lays its text out itself.
+        Target::Field => None,
         Target::Text | Target::Label => {
             let entity = app.document.entity(&edit.entity)?;
             frame::of(entity, crate::scroll_follow::placed_rect(app, entity))

@@ -1,0 +1,91 @@
+# canvas: ../kitchen-sink.canvas
+# Zoom to both ends, then pan and zoom while a gesture is in flight: the
+# thing under the pointer should stay under the pointer.
+camera fit
+
+# pinch out as far as it goes, about the middle
+move 800 500
+pinch -1
+pinch -1
+pinch -1
+pinch -1
+pinch -1
+pinch -1
+pinch -1
+pinch -1
+expect zoom 0.02
+
+# and in as far as it goes, over the stickies
+camera fit
+move 520 200
+pinch 1
+pinch 1
+pinch 1
+pinch 1
+pinch 1
+pinch 1
+pinch 1
+pinch 1
+pinch 1
+pinch 1
+pinch 1
+pinch 1
+expect zoom 3
+
+# wheel-zoom with the command key
+camera 32,-368,0.8
+move 112 320
+hold cmd
+wheel 0 120
+wheel 0 120
+hold none
+expect zoom 1.28
+
+# a move, with the canvas scrolled under the pointer halfway through
+camera 32,-368,0.8
+press 60 340
+drag-to 248 420
+wheel -200 -150
+
+drag-to 268 440
+release
+expect selection sticky-font-sans
+expect undo some
+key cmd+z
+
+# a marquee, with a pan halfway through
+camera 32,-368,0.8
+press 40 225
+drag-to 300 420
+wheel 0 -200
+
+drag-to 320 440
+release
+key escape
+
+# a resize, with a pinch halfway through
+camera 32,-368,0.8
+click 96 720
+press 161 769
+drag-to 220 820
+pinch 0.3
+
+drag-to 240 840
+release
+key cmd+z
+
+# a pen stroke, with a pan halfway through
+camera 32,-368,0.8
+key m
+press 600 480
+drag-to 700 520
+drag-to 800 480
+wheel -150 0
+drag-to 800 560
+drag-to 900 600
+
+release
+key escape
+expect count drawing 14
+key cmd+z
+undo-to-start

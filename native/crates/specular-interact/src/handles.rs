@@ -48,22 +48,6 @@ impl Corner {
             Self::BottomLeft => DVec2::new(-1.0, 1.0),
         }
     }
-
-    /// Where this corner of `rect` is, in canvas space.
-    pub fn point(self, rect: Rect) -> DVec2 {
-        geometry::origin(rect) + geometry::size(rect) * (self.sign() * 0.5 + DVec2::splat(0.5))
-    }
-
-    /// The corner a resize from this one holds still.
-    #[must_use]
-    pub fn opposite(self) -> Self {
-        match self {
-            Self::TopLeft => Self::BottomRight,
-            Self::TopRight => Self::BottomLeft,
-            Self::BottomRight => Self::TopLeft,
-            Self::BottomLeft => Self::TopRight,
-        }
-    }
 }
 
 /// One of the eight resize handles: a corner square or a strip along a side.
@@ -78,7 +62,7 @@ pub enum Handle {
 impl Handle {
     /// Every handle in hit order. Corners come first, so a press at the very
     /// corner resizes diagonally and not along the side strip under it.
-    pub const ALL: [Self; 8] = [
+    pub(crate) const ALL: [Self; 8] = [
         Self::Corner(Corner::TopLeft),
         Self::Corner(Corner::TopRight),
         Self::Corner(Corner::BottomRight),
@@ -103,30 +87,30 @@ impl Handle {
 
     /// Where this handle sits on `rect`, in canvas space: the corner, or the
     /// middle of the side.
-    pub fn point(self, rect: Rect) -> DVec2 {
+    pub(crate) fn point(self, rect: Rect) -> DVec2 {
         geometry::origin(rect) + geometry::size(rect) * (self.sign() * 0.5 + DVec2::splat(0.5))
     }
 
     /// Where a press counts as this handle, given the selection outline on
     /// screen. A side strip runs the outline's full length.
     fn hit_rect(self, outline: ScreenRect) -> ScreenRect {
-        let (min, max, half) = (outline.min, outline.max(), HANDLE_HIT / 2.0);
+        let (min, max, half) = (outline.min(), outline.max(), HANDLE_HIT / 2.0);
         match self {
             Self::Corner(corner) => {
                 let unit = (corner.sign() * 0.5 + DVec2::splat(0.5)).as_vec2();
-                ScreenRect::square(min + outline.size * unit, HANDLE_HIT)
+                ScreenRect::square(min + outline.extent() * unit, HANDLE_HIT)
             }
             Self::Side(EdgeSide::Top) => {
-                ScreenRect::new(min.x, min.y - half, outline.size.x, HANDLE_HIT)
+                ScreenRect::new(min.x, min.y - half, outline.extent().x, HANDLE_HIT)
             }
             Self::Side(EdgeSide::Bottom) => {
-                ScreenRect::new(min.x, max.y - half, outline.size.x, HANDLE_HIT)
+                ScreenRect::new(min.x, max.y - half, outline.extent().x, HANDLE_HIT)
             }
             Self::Side(EdgeSide::Left) => {
-                ScreenRect::new(min.x - half, min.y, HANDLE_HIT, outline.size.y)
+                ScreenRect::new(min.x - half, min.y, HANDLE_HIT, outline.extent().y)
             }
             Self::Side(EdgeSide::Right) => {
-                ScreenRect::new(max.x - half, min.y, HANDLE_HIT, outline.size.y)
+                ScreenRect::new(max.x - half, min.y, HANDLE_HIT, outline.extent().y)
             }
         }
     }
@@ -145,7 +129,7 @@ impl App {
     /// The selected entity and its rect, when exactly one entity is selected.
     /// The item shown in a tab is the whole view, so it has nothing to
     /// resize, and neither has an entered page, whose edge is its own.
-    pub fn handle_target(&self) -> Option<(&EntityId, Rect)> {
+    pub(crate) fn handle_target(&self) -> Option<(&EntityId, Rect)> {
         let entity = self
             .document
             .entity(self.session.selection.single_entity()?)?;
@@ -180,7 +164,7 @@ impl App {
 /// the outline the selection draws, so the target size is constant at any
 /// zoom.
 pub(crate) fn hit(bounds: ScreenRect, screen: Vec2) -> Option<Handle> {
-    let outline = bounds.inflated(OUTLINE_PADDING);
+    let outline = bounds.outset(OUTLINE_PADDING);
     Handle::ALL
         .into_iter()
         .find(|handle| handle.hit_rect(outline).contains(screen))

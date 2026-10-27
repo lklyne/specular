@@ -1,0 +1,88 @@
+//! What the page backend reports: frames for the compositor, answers to the
+//! questions the app asked, and the few things the app acts on.
+
+use specular_core::{PageEvent, PageId};
+use specular_doc::EntityId;
+use specular_interact::Event;
+
+use super::runtime::{Runtime, ShellWindow};
+use crate::page_notice::notice_of;
+
+impl<W: ShellWindow> Runtime<W> {
+    /// Logs what a page reported, tells the app what it acts on, and hands
+    /// the event to the compositor for its frames.
+    pub(super) fn handle_page_event(&mut self, event: PageEvent) {
+        self.latency.observe(&event);
+        self.loads.page_event(&event);
+        if matches!(
+            event,
+            PageEvent::Frame(_) | PageEvent::PopupVisibility { .. } | PageEvent::PopupRect { .. }
+        ) {
+            tracing::trace!("frame owed: a page painted");
+            self.demand.changed();
+        }
+        match &event {
+            PageEvent::Loaded { page, http_status } => {
+                tracing::info!(%page, http_status, "page loaded");
+            }
+            PageEvent::Crashed { page, reason } => {
+                let entity = self.entity_of(*page);
+                let url = (entity.as_ref())
+                    .and_then(|entity| self.app.page_address(entity))
+                    .unwrap_or_default();
+                tracing::error!(%page, url, reason, "render-process-gone");
+                if let Some(entity) = entity {
+                    self.give_up_on_page(&entity);
+                }
+            }
+            PageEvent::ElementAt {
+                request, element, ..
+            } => {
+                if let Some(answer) = self.queries.element_answer(*request, element.clone()) {
+                    self.dispatch(answer);
+                }
+            }
+            PageEvent::Url { page, url } => {
+                if let (Some(cdp), Some(entity)) = (&self.cdp, self.entity_of(*page)) {
+                    cdp.navigated(&entity, url);
+                }
+            }
+            PageEvent::Inspected { request, node, .. } => {
+                if let Some(answer) = self.queries.inspect_answer(*request, node.clone()) {
+                    self.dispatch(answer);
+                }
+            }
+            PageEvent::ElementsInRect {
+                request,
+                count,
+                boxes,
+                ..
+            } => {
+                if let Some(answer) = self.queries.preview_answer(*request, boxes) {
+                    self.dispatch(answer);
+                } else {
+                    self.queries.grab_answer(*request, *count);
+                    self.answer_settled_grabs();
+                }
+            }
+            _ => {}
+        }
+        if let Some((host, notice)) = notice_of(&event, self.source.devtools_port())
+            && let Some(page) = self.entity_of(host)
+        {
+            tracing::debug!(%page, ?notice, "page notice");
+            self.dispatch(Event::Page { page, notice });
+        }
+        if let Some(gpu) = self.gpu.as_mut()
+            && let Err(error) = gpu.compositor_mut().handle_page_event(event)
+        {
+            tracing::warn!("{error}");
+        }
+    }
+
+    /// The page entity a backend page is hosting.
+    fn entity_of(&self, page: PageId) -> Option<EntityId> {
+        let (entity, _) = self.hosts.iter().find(|(_, host)| host.page == page)?;
+        Some(entity.clone())
+    }
+}

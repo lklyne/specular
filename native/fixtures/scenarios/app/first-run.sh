@@ -55,15 +55,17 @@ PY
 server=$!
 trap 'kill "$server" 2>/dev/null || true' EXIT
 
+# Each launch has two minutes: a run that does not quit is a failure, not
+# a wait. Its API takes a free port, so a Specular already running keeps its.
 launch() { # name script [pick]
-  HOME="$home" SPECULAR_FLOAT_WINDOW=1 SPECULAR_SPACE_PICK="${3:-}" \
-    SPECULAR_SHELL_SCRIPT="$2" "$bin" --window 1200x800 > "$out/$1.log" 2>&1 \
-    || fail "$1 exited with an error; see $out/$1.log"
+  HOME="$home" SPECULAR_FLOAT_WINDOW=1 SPECULAR_SPACE_PICK="${3:-}" SPECULAR_PORT=0 \
+    SPECULAR_SHELL_SCRIPT="$2" perl -e 'alarm 120; exec @ARGV' "$bin" --window 1200x800 \
+    > "$out/$1.log" 2>&1 || fail "$1 exited with an error; see $out/$1.log"
 }
 
 # 1. No space chosen: the first-run view, then a space made in a scratch
 #    folder, then the settings dialog over it.
-launch 1-first-run "wait 3000; shot $out/1-first-run.png; choose onboarding.create; \
+launch 1-first-run "wait 3000; shot $out/1-first-run.png; choose onboarding.choose; \
 wait 3000; shot $out/2-space-created.png; cmd-key 43 ,; wait 1200; shot $out/3-settings.png; quit" "$space"
 grep -q "no space is chosen yet" "$out/1-first-run.log" || fail "the first launch did not ask for a space"
 [[ -f "$space/Welcome.canvas" && -f "$space/Welcome.md" ]] || fail "the starter space was not copied into $space"
@@ -101,10 +103,10 @@ launch 4-missing "wait 3000; shot $out/6-missing.png; choose onboarding.quit"
 grep -q "the chosen space folder is not there" "$out/4-missing.log" || fail "the missing space was not noticed"
 [[ ! -e "$space" ]] || fail "a folder was made where the space went missing"
 
-shots="$(ls "$out"/*.png 2>/dev/null | wc -l | tr -d ' ')"
+shots="$(find "$out" -maxdepth 1 -name '*.png' | wc -l | tr -d ' ')"
 echo "ok: first run, relaunch, kept login and missing space all check out"
 if [[ "$shots" -lt 6 ]]; then
-  echo "note: $shots of 6 PNGs were captured; the window is not drawn while the screen is locked or the display is asleep"
+  echo "note: $shots of 6 PNGs were captured; the window is not drawn while the screen is locked or the display is asleep, and screencapture needs Screen Recording permission"
 else
   echo "read the PNGs in $out"
 fi

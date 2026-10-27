@@ -21,7 +21,7 @@ impl App {
     /// The safe area of the screen the page `id` is shown as: its device's
     /// while its frame is drawn. None where the page fills the view, since
     /// it is a browser tab there and no device.
-    pub fn page_safe_area(&self, id: &EntityId) -> SafeArea {
+    pub(crate) fn page_safe_area(&self, id: &EntityId) -> SafeArea {
         if crate::showing::fills(self, id) {
             return SafeArea::NONE;
         }

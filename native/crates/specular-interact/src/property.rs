@@ -10,7 +10,7 @@
 
 mod apply;
 mod page;
-pub mod read;
+pub(crate) mod read;
 mod step;
 
 pub use step::PageStep;
@@ -97,7 +97,7 @@ pub enum Property {
 impl Property {
     /// Whether the selection holds an item this property means something
     /// for, whether or not it would change.
-    pub fn applies_to(&self, app: &App) -> bool {
+    pub(crate) fn applies_to(&self, app: &App) -> bool {
         app.session.selection.items().iter().any(|item| match item {
             ItemId::Entity(id) => (app.document.entity(id)).is_some_and(|e| self.reaches(app, e)),
             ItemId::Edge(id) => {

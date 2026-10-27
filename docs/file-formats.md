@@ -23,17 +23,15 @@ the tab's id. The suffix is what makes the path unique: two tabs sharing a name
 would otherwise share one file, and saving, renaming, or deleting either would
 clobber the other. Renaming a tab renames its file; the suffix stays.
 
-Canvases are auto-saved to whatever `spaceDir()` resolves to
+Canvases are auto-saved to the space folder
 ([ADR 0033](adr/0033-user-chosen-space-folder.md)): the user-chosen
 `spacePath` preference, with `.canvas` files and `assets/` sitting directly
-inside it — no `workspaces/<id>/` nesting. A new install picks its space
-during onboarding, defaulting to `~/Specular` (one click to accept); an
-existing space can be changed later from Settings → General, which prompts
-to move canvases into the new folder, start fresh there, or cancel — it
-never guesses. Installs that predate the ADR keep an unset `spacePath`,
-which resolves to the legacy location — on macOS,
-`~/Library/Application Support/Specular/workspaces/default/` — until the
-user changes it. App metadata (`workspace-meta.json`) lives in a
+inside it — no `workspaces/<id>/` nesting. A new install picks its space on
+the first-run view (create a new folder or open an existing one); Settings →
+General opens another folder later and leaves the current one alone. An
+install whose `spacePath` was never set opens the legacy location — on
+macOS, `~/Library/Application Support/Specular/workspaces/default/`. App
+metadata (`workspace-meta.json`) lives in a
 `.specular/` subdirectory of the space, with a read-side fallback to a meta
 file at the space's root for spaces written before that convention existed.
 
@@ -97,7 +95,7 @@ by other tools. Specular adds:
   the longest connected-repo prefix of the absolute file path — no
   metadata is required, and the entity heals automatically if a more
   specific repo is connected later.
-- An HTML file (`.html` / `.htm`) is a live page in the native shell,
+- An HTML file (`.html` / `.htm`) is a live page,
   loaded from its file's `file://` URL and reloaded when it or a
   stylesheet, script or JSON file beside it changes. It stays a `file`
   node: `presetIndex` and `metadata` hold its viewport preset and device
@@ -105,8 +103,7 @@ by other tools. Specular adds:
   place the page itself (a link's `x`/`y` place its frame's corner).
 - `specular.syncId` / `specular.colorScheme` — an HTML file's sync set and
   color-scheme override, as `syncId` / `colorScheme` on a link. A sync set
-  holds links or HTML files, never both. The Electron app does not read
-  these and drops them when it saves the canvas.
+  holds links or HTML files, never both.
 - A comment or item anchored to an HTML file in the space folder records
   `pageUrl` as the file's path relative to that folder, never an absolute
   `file://` URL, so the canvas moves with its folder.
@@ -200,14 +197,13 @@ Other tools ignore this field per the spec's extensibility model. Older files
 may contain `browserTabMode`; Specular reads it only as a legacy restore hint
 and no longer writes it.
 
-`itemTabs` is written and read by the Rust app only. It lists the pages and
+`itemTabs` lists the pages and
 Documents of this canvas that are open in a tab of their own, in tab order,
 each with its lens (`fill` or `device`, see ADR 0045). A canvas with no tab
 open has no `itemTabs`. On load an entry with no `id` is skipped, an entry
 whose node is gone or is not a page or a Document is dropped, and a missing or
 unknown `lens` is `fill`. Which tab was showing is not stored, so a space opens
-on its Canvas tab. The Electron app has no item tabs. It ignores the key and
-drops it when it saves the file.
+on its Canvas tab.
 
 ### Annotations (extension)
 
@@ -280,12 +276,15 @@ restore hint and no longer writes it.
 
 ## Type definitions
 
-See `src/shared/json-canvas-types.ts` for the full TypeScript types.
-See `src/shared/types.ts` for internal entity types.
+The reader and writer are `native/crates/specular-doc/src/canvas/`
+(`read.rs`, `write.rs`, `fields.rs`). The typed entities they produce are in
+`native/crates/specular-doc/src/`. A save writes keys in the order the
+Electron app did, so a file it wrote loads and saves to the same bytes
+(`specular-doc/tests/canvas_repo.rs`).
 
 ## Compatibility
 
 .canvas files created by Specular should open in Obsidian and other tools
 that support JSON Canvas v1.0. Specular-specific extensions are ignored by
 those tools. Conversely, .canvas files from other tools should open in
-Specular (link nodes render as live webviews, text nodes as notes, etc.).
+Specular (link nodes render as live pages, text nodes as notes, etc.).

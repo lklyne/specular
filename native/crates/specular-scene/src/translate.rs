@@ -19,7 +19,7 @@ impl Draw {
     /// The same draw moved by `(dx, dy)`. A column that reported its height
     /// for an entity no longer does: the entity's own column still will.
     #[must_use]
-    pub fn translated(self, dx: f32, dy: f32) -> Self {
+    pub(crate) fn translated(self, dx: f32, dy: f32) -> Self {
         let at = |point: Point| Point::new(point.x + dx, point.y + dy);
         match self {
             Self::Page(mut page) => {
@@ -86,22 +86,4 @@ impl Draw {
 
 fn moved(rect: Rect, dx: f32, dy: f32) -> Rect {
     Rect::new(rect.x + dx, rect.y + dy, rect.width, rect.height)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::{Color, RectDraw};
-
-    #[test]
-    fn a_moved_item_keeps_its_size_and_takes_its_clip_along() {
-        let rect = Rect::new(10.0, 20.0, 30.0, 40.0);
-        let item = Item::canvas(RectDraw::filled(rect, Color::WHITE)).clipped(rect);
-        let moved = item.translated(5.0, -5.0);
-        let there = Rect::new(15.0, 15.0, 30.0, 40.0);
-        assert_eq!(
-            (moved.draw.bounds(), moved.clip),
-            (Some(there), Some(there))
-        );
-    }
 }

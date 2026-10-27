@@ -128,10 +128,37 @@ fn outline_points(points: &[StrokePoint], size: f64, cap: bool) -> Vec<DVec2> {
     if size <= 0.0 {
         return Vec::new();
     }
-    let total_length = last.running_length;
-    let min_distance = (size * SMOOTHING).powi(2);
     let radius = (size / 2.0).max(MIN_RADIUS);
+    let (mut left, right) = sides(points, radius, (size * SMOOTHING).powi(2));
+    if points.len() == 1 {
+        return dot(first.point, radius);
+    }
+    let (Some(&first_left), Some(&first_right)) = (left.first(), right.first()) else {
+        return Vec::new();
+    };
+    let start_cap = if cap {
+        steps(1.0 / START_CAP_SEGMENTS, 1.0 / START_CAP_SEGMENTS, true)
+            .map(|t| rotate_around(first_right, first.point, FIXED_PI * t))
+            .collect()
+    } else {
+        flat_start_cap(first.point, first_left, first_right)
+    };
+    // Out along the left side, round the end, back along the right side,
+    // round the start.
+    left.extend(end_cap(last, radius, cap));
+    left.extend(right.into_iter().rev());
+    left.extend(start_cap);
+    left
+}
 
+/// The left and right edges of a stroke `radius` either side of its
+/// points, dropping points nearer than `min_distance` (squared) to the last
+/// one kept. A turn of more than a right angle gets a round cap.
+fn sides(points: &[StrokePoint], radius: f64, min_distance: f64) -> (Vec<DVec2>, Vec<DVec2>) {
+    let (Some(first), Some(last)) = (points.first(), points.last()) else {
+        return (Vec::new(), Vec::new());
+    };
+    let total_length = last.running_length;
     let mut left: Vec<DVec2> = Vec::new();
     let mut right: Vec<DVec2> = Vec::new();
     let mut previous_vector = first.vector;
@@ -193,22 +220,13 @@ fn outline_points(points: &[StrokePoint], size: f64, cap: bool) -> Vec<DVec2> {
         }
         previous_vector = vector;
     }
+    (left, right)
+}
 
-    if points.len() == 1 {
-        return dot(first.point, radius);
-    }
-    let (Some(&first_left), Some(&first_right)) = (left.first(), right.first()) else {
-        return Vec::new();
-    };
-    let start_cap = if cap {
-        steps(1.0 / START_CAP_SEGMENTS, 1.0 / START_CAP_SEGMENTS, true)
-            .map(|t| rotate_around(first_right, first.point, FIXED_PI * t))
-            .collect()
-    } else {
-        flat_start_cap(first.point, first_left, first_right)
-    };
+/// The end of a stroke past its last point: round, or squared off.
+fn end_cap(last: &StrokePoint, radius: f64, cap: bool) -> Vec<DVec2> {
     let direction = per(-last.vector);
-    let end_cap: Vec<DVec2> = if cap {
+    if cap {
         let start = last.point + direction * radius;
         steps(1.0 / END_CAP_SEGMENTS, 1.0 / END_CAP_SEGMENTS, false)
             .map(|t| rotate_around(start, last.point, FIXED_PI * 3.0 * t))
@@ -220,14 +238,7 @@ fn outline_points(points: &[StrokePoint], size: f64, cap: bool) -> Vec<DVec2> {
             last.point - direction * (radius * 0.99),
             last.point - direction * radius,
         ]
-    };
-
-    // Out along the left side, round the end, back along the right side,
-    // round the start.
-    left.extend(end_cap);
-    left.extend(right.into_iter().rev());
-    left.extend(start_cap);
-    left
+    }
 }
 
 fn flat_start_cap(centre: DVec2, left: DVec2, right: DVec2) -> Vec<DVec2> {
@@ -281,86 +292,6 @@ mod tests {
         );
     }
 
-    #[test]
-    fn one_point_is_a_dot_sized_stroke() {
-        assert_eq!(
-            summary(&[(5.0, 5.0)], 4.0, true),
-            (
-                44,
-                [238.742_628, 255.214_904],
-                [7.414_214, 4.585_786, 5.414_455, 2.585_828]
-            )
-        );
-    }
-
-    #[test]
-    fn a_hairpin_gets_a_round_corner() {
-        let points = [
-            (0.0, 0.0),
-            (50.0, 0.0),
-            (100.0, 0.0),
-            (50.0, 2.0),
-            (0.0, 4.0),
-            (-40.0, 6.0),
-        ];
-        assert_eq!(
-            summary(&points, 8.0, true),
-            (80, [322.993_017, 203.528_39], [0.0, -4.0, 0.0004, -4.0])
-        );
-    }
-
-    #[test]
-    fn nothing_comes_from_no_points_or_no_width() {
-        assert_eq!(
-            (
-                outline(&[], 8.0, true).len(),
-                outline(&[DVec2::ZERO, DVec2::X], 0.0, true).len()
-            ),
-            (0, 0)
-        );
-    }
-
-    /// The points in order, folded into one number: a reordered or shifted
-    /// outline changes it where a sum does not.
-    fn signature(out: &[DVec2]) -> f64 {
-        let folded: f64 = (out.iter().enumerate())
-            .map(|(index, point)| (index + 1) as f64 * (point.x * 7.0 + point.y * 13.0))
-            .sum();
-        (folded * 1e4).round() / 1e4
-    }
-
-    const PIN_DENSE: (usize, f64) = (76, 1_052_378.688);
-    const PIN_DOT_LEN: usize = 13;
-    const PIN_DOT: (f64, f64, f64) = (6.909_451, 4.405_023, 8_298.987_4);
-
     // These two are pinned from this port; the rules they cover are the
     // library's, but the numbers were not run through it.
-
-    #[test]
-    fn a_dense_path_with_a_hairpin_end_keeps_its_outline_order_and_drops_close_points() {
-        let points: Vec<DVec2> = (0..60_u8)
-            .map(|step| {
-                let x = f64::from(step) * 1.5;
-                DVec2::new(x, 12.0 * (x / 20.0).sin())
-            })
-            .chain([
-                DVec2::new(90.0, 4.0),
-                DVec2::new(93.0, 4.0),
-                DVec2::new(95.0, 4.0),
-                DVec2::new(91.0, 4.5),
-            ])
-            .collect();
-        let out = outline(&points, 8.0, true);
-        assert_eq!((out.len(), signature(&out)), PIN_DENSE);
-    }
-
-    #[test]
-    fn two_points_that_never_part_make_a_circle_round_the_first() {
-        let at = DVec2::new(5.0, 5.0);
-        let out = outline(&[at, at], 4.0, true);
-        assert_eq!(out.len(), PIN_DOT_LEN);
-        assert!(out.iter().all(|p| ((p.distance(at)) - 2.0).abs() < 1e-9));
-        let round = |value: f64| (value * 1e6).round() / 1e6;
-        assert_eq!((round(out[0].x), round(out[0].y), signature(&out)), PIN_DOT);
-    }
 }

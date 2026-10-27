@@ -8,14 +8,17 @@
 //! An entered page has every key but the ones [`kept_from_page`] lists, as
 //! a browser's content has every key its chrome does not keep.
 
-use specular_core::{PageEdit, PointerEventKind};
+mod route;
+mod shell;
+
+pub(crate) use self::route::{binding_for, on_key, page_edit, page_edit_for};
+pub use self::shell::{SHELL_KEYS, ShellCommand, kept_from_page};
+
 use specular_doc::{BrushType, ShapeKind};
 
 use crate::PageStep;
-use crate::update::run_action;
 use crate::{
-    Action, App, Chord, Effect, Focus, Format, Key, KeyInput, PointerInput, SidebarAction, Tool,
-    ToolDefaultPatch, edit, gesture, grid, page_input, page_state,
+    Action, App, Chord, Focus, Format, Key, SidebarAction, Tool, ToolDefaultPatch, grid, page_state,
 };
 
 /// How far an arrow key moves the selection, in canvas units. Shift moves it
@@ -59,7 +62,7 @@ impl Context {
     }
 
     /// Whether a binding with this context fires in `app` as it is now.
-    pub fn holds(self, app: &App) -> bool {
+    pub(crate) fn holds(self, app: &App) -> bool {
         let session = &app.session;
         match self {
             Self::Always => true,
@@ -83,9 +86,9 @@ pub struct Binding {
     /// Where it fires.
     pub context: Context,
     /// What it does.
-    pub action: Action,
+    pub(crate) action: Action,
     /// Whether holding the key down fires it again on each auto-repeat.
-    pub repeats: bool,
+    pub(crate) repeats: bool,
 }
 
 const fn once(chord: Chord, context: Context, action: Action) -> Binding {
@@ -358,147 +361,3 @@ pub const BINDINGS: &[Binding] = &[
     ),
     once(Chord::key(Key::Escape), Context::Always, Action::Cancel),
 ];
-
-/// What the window does itself, outside `update`: the keys of the app,
-/// File and Window menus.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum ShellCommand {
-    /// Quits.
-    Quit,
-    /// Opens another space.
-    OpenSpace,
-    /// Opens a canvas file.
-    OpenCanvas,
-    /// Writes every canvas now.
-    Save,
-    /// Opens the settings.
-    Settings,
-    /// Hides the app.
-    Hide,
-    /// Hides every other app.
-    HideOthers,
-    /// Minimizes the window.
-    Minimize,
-    /// Opens the command palette.
-    CommandPalette,
-}
-
-impl ShellCommand {
-    /// The command's name in the command palette. The palette itself has no
-    /// entry: it is already open when a command is picked.
-    pub const fn label(self) -> &'static str {
-        match self {
-            Self::Quit => "Quit",
-            Self::OpenSpace => "Open space",
-            Self::OpenCanvas => "Open",
-            Self::Save => "Save",
-            Self::Settings => "Settings",
-            Self::Hide => "Hide",
-            Self::HideOthers => "Hide others",
-            Self::Minimize => "Minimize",
-            Self::CommandPalette => "Command palette",
-        }
-    }
-}
-
-/// The window's own keys. They fire wherever the keys are, an entered page
-/// and a text field included, so none may be a chord of [`BINDINGS`].
-pub const SHELL_KEYS: &[(Chord, ShellCommand)] = &[
-    (Chord::char('q').cmd(), ShellCommand::Quit),
-    (Chord::char('o').cmd().shift(), ShellCommand::OpenSpace),
-    (Chord::char('o').cmd(), ShellCommand::OpenCanvas),
-    (Chord::char('s').cmd(), ShellCommand::Save),
-    (Chord::char(',').cmd(), ShellCommand::Settings),
-    (Chord::char('h').cmd(), ShellCommand::Hide),
-    (Chord::char('h').cmd().alt(), ShellCommand::HideOthers),
-    (Chord::char('m').cmd(), ShellCommand::Minimize),
-    (Chord::char('k').cmd(), ShellCommand::CommandPalette),
-];
-
-/// Every chord the app keeps for itself while a page is entered, as a
-/// browser's chrome keeps a few from its content. Any other key is the
-/// page's.
-pub fn kept_from_page() -> impl Iterator<Item = Chord> {
-    let bound = BINDINGS
-        .iter()
-        .filter(|binding| {
-            matches!(
-                binding.context,
-                Context::Always | Context::EnteredPage | Context::PageTarget
-            )
-        })
-        .map(|binding| binding.chord);
-    bound.chain(SHELL_KEYS.iter().map(|&(chord, _)| chord))
-}
-
-/// The Edit menu command `action` is inside a page, if it is one.
-pub const fn page_edit(action: &Action) -> Option<PageEdit> {
-    match action {
-        Action::Undo => Some(PageEdit::Undo),
-        Action::Redo => Some(PageEdit::Redo),
-        Action::Cut => Some(PageEdit::Cut),
-        Action::Copy => Some(PageEdit::Copy),
-        Action::Paste => Some(PageEdit::Paste),
-        Action::SelectAll => Some(PageEdit::SelectAll),
-        _ => None,
-    }
-}
-
-/// A browser's Edit menu has one item the canvas has no meaning for.
-const PASTE_AND_MATCH_STYLE: Chord = Chord::char('v').cmd().shift().alt();
-
-/// The Edit menu command a press of `input` is the key equivalent of inside
-/// a page: the key of that item's row in [`BINDINGS`], with Command and not
-/// Control.
-pub fn page_edit_for(input: &KeyInput) -> Option<PageEdit> {
-    if !input.modifiers.meta || input.modifiers.control {
-        return None;
-    }
-    let chord = Chord::of(input);
-    if chord == PASTE_AND_MATCH_STYLE {
-        return Some(PageEdit::PasteAndMatchStyle);
-    }
-    BINDINGS
-        .iter()
-        .filter(|binding| binding.chord == chord)
-        .find_map(|binding| page_edit(&binding.action))
-}
-
-/// The binding `input`'s key and modifiers fire in `app` as it is now.
-pub fn binding_for(app: &App, input: &KeyInput) -> Option<&'static Binding> {
-    let chord = Chord::of(input);
-    BINDINGS
-        .iter()
-        .find(|binding| binding.chord == chord && binding.context.holds(app))
-}
-
-pub(crate) fn on_key(app: &mut App, input: &KeyInput, effects: &mut Vec<Effect>) {
-    app.session.modifiers = input.modifiers;
-    // A drag reads Shift, Option and Command, so one that changes while the
-    // pointer is still takes effect at once.
-    if let (Some(_), Some(screen)) = (&app.session.gesture, app.session.pointer) {
-        let held = PointerInput {
-            kind: PointerEventKind::Move,
-            screen,
-            modifiers: input.modifiers,
-        };
-        gesture::drag(app, &held);
-    }
-    // The text being edited has the keys first. It leaves Escape, undo and
-    // redo to the table.
-    if edit::on_key(app, input, effects) {
-        return;
-    }
-    match binding_for(app, input) {
-        Some(binding) => {
-            // The release of a bound key goes nowhere either.
-            if input.pressed && (binding.repeats || !input.repeat) {
-                run_action(app, binding.action.clone(), effects);
-            }
-        }
-        None => match &app.session.focus {
-            Focus::Page(page) => page_input::forward_key(page, input, effects),
-            Focus::Canvas => {}
-        },
-    }
-}

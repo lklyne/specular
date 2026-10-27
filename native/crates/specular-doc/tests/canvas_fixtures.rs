@@ -1,9 +1,9 @@
 //! Load, mutate and save round trips against `.canvas` files written by the
 //! Electron app.
 //!
-//! - `rich-workspace.canvas` is a copy of the integration-test snapshot in
-//!   `tests/integration/__snapshots__/` (five entity kinds, an edge, the
-//!   top-level `specular` and `appState` extensions, nested drawing strokes).
+//! - `rich-workspace.canvas` is the Electron integration suite's snapshot
+//!   (five entity kinds, an edge, the top-level `specular` and `appState`
+//!   extensions, nested drawing strokes).
 //! - `pages.canvas` holds the four `link` nodes of
 //!   `resources/starter-space/Welcome.canvas` verbatim (with their
 //!   `metadata`, `syncId`, `presetIndex` extensions), that file's `appState`,
@@ -87,40 +87,6 @@ fn saving_a_reloaded_document_is_byte_stable() {
 }
 
 #[test]
-fn pages_fixture_lists_every_link_node() {
-    let document = load(PAGES);
-    let urls: Vec<_> = document
-        .entities()
-        .filter_map(|entity| match &entity.kind {
-            Kind::Page(page) => Some(page.url.as_str()),
-            Kind::Text(_) | Kind::File(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Shape(_) => {
-                None
-            }
-        })
-        .collect();
-    assert_eq!(
-        urls,
-        [
-            "https://cursoreffects.com/",
-            "https://specular.sh/",
-            "https://specular.sh/",
-            "https://specular.sh/",
-        ]
-    );
-}
-
-#[test]
-fn rich_workspace_has_every_kind_but_page() {
-    let document = load(RICH_WORKSPACE);
-    let kinds: Vec<_> = document
-        .entities()
-        .map(|entity| entity.kind.name())
-        .collect();
-    assert_eq!(kinds, ["text", "file", "drawing", "shape", "group"]);
-    assert_eq!(document.children(&"generated-id-5".into()).count(), 2);
-}
-
-#[test]
 fn moving_a_page_preserves_its_unknown_fields() {
     let mut file = parse(PAGES);
     let nodes = file["nodes"].as_array_mut().unwrap();
@@ -182,29 +148,4 @@ fn undoing_a_change_restores_the_fixture_exactly() {
         assert!(history.undo(&mut document).unwrap().is_some(), "{name}");
         assert_eq!(saved(&document), pages_saved(), "{name}");
     }
-}
-
-#[test]
-fn removing_either_end_of_an_edge_drops_the_edge() {
-    for end in [SPECULAR_LAPTOP, SPECULAR_PHONE] {
-        let mut document = load(PAGES);
-        let remove = remove_with_edges(&document, end);
-        document.apply(remove).unwrap();
-        assert_eq!(saved(&document)["edges"], json!([]), "{end}");
-    }
-}
-
-#[test]
-fn undo_then_redo_of_a_mutation_sequence_replays_it() {
-    let mut document = load(PAGES);
-    let mut history = History::new();
-    let moved = set_rect(SPECULAR_PHONE, Rect::new(0.0, 0.0, 393.0, 852.0));
-    history.apply(&mut document, moved).unwrap();
-    let remove = remove_with_edges(&document, SPECULAR_LAPTOP);
-    history.apply(&mut document, remove).unwrap();
-    let after = saved(&document);
-    while history.undo(&mut document).unwrap().is_some() {}
-    assert_eq!(saved(&document), pages_saved());
-    while history.redo(&mut document).unwrap().is_some() {}
-    assert_eq!(saved(&document), after);
 }

@@ -113,8 +113,8 @@ pub enum Effect {
         event: InputEvent,
     },
     /// Give the keys to the field named here, with its text selected. Only
-    /// asked of a shell that draws the chrome itself: the built-in field is
-    /// edited by `update`.
+    /// asked of a shell that draws the chrome: with none, `update` edits the
+    /// field itself.
     EditField(crate::ControlId),
     /// Turn the OS input method on or off for the window.
     SetImeAllowed(bool),

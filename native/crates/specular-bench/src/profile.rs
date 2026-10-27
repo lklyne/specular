@@ -1,4 +1,4 @@
-//! Gesture profiles mirroring `src/shared/pan-zoom-perf-test.ts`.
+//! Gesture profiles mirroring `git show bc5253fa:src/shared/pan-zoom-perf-test.ts`.
 
 use std::{fmt, str::FromStr, time::Duration};
 
@@ -22,9 +22,6 @@ const STEP_ROUNDING_TOLERANCE: f64 = 1e-3;
 const ZOOM_LEAD_FRACTION: f64 = 1.0 / 6.0;
 
 /// Stable profile identifiers, serialized with the Electron ids.
-///
-/// Deserialization also accepts the ids the ADR 0038 Offscreen Rendering Lab
-/// used (`fast-pan`, `pan-zoom`), so its recorded results stay comparable.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ProfileId {
@@ -33,23 +30,26 @@ pub enum ProfileId {
     /// `slow-zoom`.
     SlowZoom,
     /// `fast-diagonal-pan`.
-    #[serde(alias = "fast-pan")]
     FastDiagonalPan,
     /// `slow-pan-zoom`.
-    #[serde(alias = "pan-zoom")]
     SlowPanZoom,
     /// `fast-pan-zoom`.
     FastPanZoom,
     /// `zoom-out-then-pan`: a quick zoom-out, then a fast pan still running
     /// when a zoom settle would land.
     ZoomOutThenPan,
+    /// `trackpad-zoom`: the slow zoom as a trackpad sends it, its steps
+    /// landing on two refreshes in three, so some frames come between two
+    /// steps with the zoom where it was. Not one of Electron's, and not
+    /// part of `all`.
+    TrackpadZoom,
     /// `idle`: nothing moves. Not one of Electron's, and not part of `all`.
     Idle,
 }
 
 impl ProfileId {
     /// Electron's ids, in run order.
-    pub const ALL: [Self; 6] = [
+    pub(crate) const ALL: [Self; 6] = [
         Self::SlowPan,
         Self::SlowZoom,
         Self::FastDiagonalPan,
@@ -59,7 +59,7 @@ impl ProfileId {
     ];
 
     /// The Electron id (`slow-pan`, ...).
-    pub const fn as_str(self) -> &'static str {
+    pub(crate) const fn as_str(self) -> &'static str {
         match self {
             Self::SlowPan => "slow-pan",
             Self::SlowZoom => "slow-zoom",
@@ -67,6 +67,7 @@ impl ProfileId {
             Self::SlowPanZoom => "slow-pan-zoom",
             Self::FastPanZoom => "fast-pan-zoom",
             Self::ZoomOutThenPan => "zoom-out-then-pan",
+            Self::TrackpadZoom => "trackpad-zoom",
             Self::Idle => "idle",
         }
     }
@@ -81,13 +82,10 @@ impl fmt::Display for ProfileId {
 impl FromStr for ProfileId {
     type Err = BenchError;
 
-    /// Parses an Electron id, or one of the lab aliases (`fast-pan`,
-    /// `pan-zoom`).
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "fast-pan" => Ok(Self::FastDiagonalPan),
-            "pan-zoom" => Ok(Self::SlowPanZoom),
             "idle" => Ok(Self::Idle),
+            "trackpad-zoom" => Ok(Self::TrackpadZoom),
             _ => Self::ALL
                 .into_iter()
                 .find(|id| id.as_str() == s)
@@ -106,13 +104,13 @@ pub struct GestureProfile {
     /// Wall-clock length.
     pub duration: Duration,
     /// Total screen-space pan in logical pixels.
-    pub pan: Vec2,
+    pub(crate) pan: Vec2,
     /// Total wheel-style zoom delta (negative zooms in).
-    pub zoom_delta_y: f32,
+    pub(crate) zoom_delta_y: f32,
 }
 
 /// The six profiles, in run order, with the Electron values.
-pub const PROFILES: [GestureProfile; 6] = [
+pub(crate) const PROFILES: [GestureProfile; 6] = [
     GestureProfile {
         id: ProfileId::SlowPan,
         label: "Slow pan",
@@ -159,7 +157,7 @@ pub const PROFILES: [GestureProfile; 6] = [
 
 /// A camera left alone. What a frame costs when nothing changes, which
 /// should be nothing: no frame drawn. Runs only when named.
-pub const IDLE: GestureProfile = GestureProfile {
+pub(crate) const IDLE: GestureProfile = GestureProfile {
     id: ProfileId::Idle,
     label: "Idle",
     duration: Duration::from_millis(5_000),
@@ -167,17 +165,30 @@ pub const IDLE: GestureProfile = GestureProfile {
     zoom_delta_y: 0.0,
 };
 
+/// The slow zoom with a refresh in three that has no step. Runs only when
+/// named.
+pub(crate) const TRACKPAD_ZOOM: GestureProfile = GestureProfile {
+    id: ProfileId::TrackpadZoom,
+    label: "Trackpad zoom",
+    duration: Duration::from_millis(2_000),
+    pan: Vec2::ZERO,
+    zoom_delta_y: -140.0,
+};
+
+/// In [`TRACKPAD_ZOOM`], every this-many-th refresh has no step.
+const TRACKPAD_GAP_EVERY: usize = 3;
+
 impl GestureProfile {
     /// The profile with its duration replaced, as `durationMs` does on
     /// `POST /perf/pan-zoom/run`. The totals are unchanged, so a shorter
     /// duration is a faster gesture.
     #[must_use]
-    pub fn with_duration(self, duration: Duration) -> Self {
+    pub(crate) fn with_duration(self, duration: Duration) -> Self {
         Self { duration, ..self }
     }
 
     /// Number of steps [`build_steps`] yields at `interval`.
-    pub fn step_count(&self, interval: Duration) -> usize {
+    pub(crate) fn step_count(&self, interval: Duration) -> usize {
         let interval_ms = interval.as_secs_f64() * 1_000.0;
         let duration_ms = self.duration.as_secs_f64() * 1_000.0;
         if interval_ms > 0.0 {
@@ -190,12 +201,6 @@ impl GestureProfile {
             1
         }
     }
-
-    /// Wall-clock time the profile occupies when each step is followed by a
-    /// wait of `interval` (the Electron loop applies, then waits).
-    pub fn planned_duration(&self, interval: Duration) -> Duration {
-        interval.saturating_mul(u32::try_from(self.step_count(interval)).unwrap_or(u32::MAX))
-    }
 }
 
 /// The profiles a run executes, mirroring `runPanZoomPerfTest` options: an
@@ -206,6 +211,10 @@ pub fn select_profiles(ids: &[ProfileId], duration: Option<Duration>) -> Vec<Ges
     PROFILES
         .into_iter()
         .filter(|profile| ids.is_empty() || ids.contains(&profile.id))
+        .chain(
+            ids.contains(&ProfileId::TrackpadZoom)
+                .then_some(TRACKPAD_ZOOM),
+        )
         .chain(ids.contains(&ProfileId::Idle).then_some(IDLE))
         .map(|profile| match duration {
             Some(duration) if !duration.is_zero() => profile.with_duration(duration),
@@ -218,9 +227,9 @@ pub fn select_profiles(ids: &[ProfileId], duration: Option<Duration>) -> Vec<Ges
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct GestureStep {
     /// Screen-space pan for this tick.
-    pub pan: Vec2,
+    pub(crate) pan: Vec2,
     /// Wheel-style zoom delta for this tick.
-    pub zoom_delta_y: f32,
+    pub(crate) zoom_delta_y: f32,
 }
 
 impl GestureStep {
@@ -254,90 +263,24 @@ pub fn build_steps(profile: &GestureProfile, interval: Duration) -> Vec<GestureS
             .chain(std::iter::repeat_n(pan, pan_steps))
             .collect();
     }
+    if profile.id == ProfileId::TrackpadZoom {
+        let gap = |index: usize| index % TRACKPAD_GAP_EVERY == TRACKPAD_GAP_EVERY - 1;
+        let moving = (0..step_count).filter(|&index| !gap(index)).count().max(1);
+        let step = GestureStep {
+            pan: profile.pan / moving as f32,
+            zoom_delta_y: profile.zoom_delta_y / moving as f32,
+        };
+        let still = GestureStep {
+            pan: Vec2::ZERO,
+            zoom_delta_y: 0.0,
+        };
+        return (0..step_count)
+            .map(|index| if gap(index) { still } else { step })
+            .collect();
+    }
     let step = GestureStep {
         pan: profile.pan / step_count as f32,
         zoom_delta_y: profile.zoom_delta_y / step_count as f32,
     };
     vec![step; step_count]
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn profile(id: ProfileId) -> GestureProfile {
-        PROFILES.into_iter().find(|p| p.id == id).unwrap()
-    }
-
-    #[test]
-    fn zoom_out_then_pan_zooms_before_panning() {
-        let steps = build_steps(&profile(ProfileId::ZoomOutThenPan), STEP_INTERVAL);
-        // 150 steps: round(150 / 6) = 25 zoom steps lead.
-        assert!(steps[24].zoom_delta_y > 0.0 && steps[25].zoom_delta_y == 0.0);
-    }
-
-    #[test]
-    fn step_counts_match_typescript_ceil_of_duration_over_interval() {
-        let counts: Vec<usize> = PROFILES
-            .iter()
-            .map(|p| build_steps(p, STEP_INTERVAL).len())
-            .collect();
-        // ceil(2000/16)=125, ceil(450/16)=29, ceil(2400/16)=150.
-        assert_eq!(counts, [125, 125, 29, 125, 29, 150]);
-    }
-
-    #[test]
-    fn step_count_at_120hz_matches_typescript() {
-        // ceil(2000 / 8.333...) = 240 at the 120 Hz refresh interval.
-        let interval = Duration::from_secs_f64(1.0 / 120.0);
-        assert_eq!(
-            build_steps(&profile(ProfileId::SlowPan), interval).len(),
-            240
-        );
-    }
-
-    #[test]
-    fn every_profile_sums_to_its_totals() {
-        for p in PROFILES {
-            let steps = build_steps(&p, STEP_INTERVAL);
-            let pan: Vec2 = steps.iter().map(|s| s.pan).sum();
-            let zoom: f32 = steps.iter().map(|s| s.zoom_delta_y).sum();
-            assert!(pan.abs_diff_eq(p.pan, 1e-2), "{}", p.id);
-            assert!((zoom - p.zoom_delta_y).abs() < 1e-2, "{}", p.id);
-        }
-    }
-
-    #[test]
-    fn select_profiles_keeps_run_order_not_request_order() {
-        let ids: Vec<ProfileId> =
-            select_profiles(&[ProfileId::FastPanZoom, ProfileId::SlowPan], None)
-                .iter()
-                .map(|p| p.id)
-                .collect();
-        assert_eq!(ids, [ProfileId::SlowPan, ProfileId::FastPanZoom]);
-    }
-
-    #[test]
-    fn select_profiles_ignores_zero_duration_like_typescript() {
-        let selected = select_profiles(&[ProfileId::SlowPan], Some(Duration::ZERO));
-        assert_eq!(selected[0].duration, Duration::from_secs(2));
-    }
-
-    #[test]
-    fn profile_id_parses_lab_aliases() {
-        assert_eq!(
-            "pan-zoom".parse::<ProfileId>().unwrap(),
-            ProfileId::SlowPanZoom
-        );
-        assert_eq!(
-            "fast-pan".parse::<ProfileId>().unwrap(),
-            ProfileId::FastDiagonalPan
-        );
-    }
-
-    #[test]
-    fn profile_ids_serialize_with_electron_names() {
-        let json = serde_json::to_string(&ProfileId::FastDiagonalPan).unwrap();
-        assert_eq!(json, "\"fast-diagonal-pan\"");
-    }
 }

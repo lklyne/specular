@@ -1,19 +1,18 @@
 //! Drives CEF's external message pump from the main run loop (macOS).
 //!
-//! `CefDoMessageLoopWork` spins a nested run-loop turn. Called from inside a
-//! winit handler, that turn delivers winit's queued events re-entrantly and
-//! winit panics ("tried to handle event while another event is currently
-//! being handled"). A run-loop timer fires between winit's handlers, where
-//! the nested turn is safe.
+//! `CefDoMessageLoopWork` spins a nested run-loop turn. Called from inside
+//! one of the window's event handlers, that turn delivers the window's
+//! queued events re-entrantly, inside the handler still running. A run-loop
+//! timer fires between the window's handlers, where the nested turn is safe.
 //!
 //! The timer fires when CEF asks for work
 //! (`OnScheduleMessagePumpWork`, see [`schedule`]) and otherwise at a slow
 //! fallback rate, so an app whose pages are still does not wake hundreds of
 //! times a second to find nothing to do.
 //!
-//! `cef::shutdown` spins the run loop too, and winit's run-loop observers
-//! panic once its event loop has returned, so the timer also stops CEF, on
-//! request, while the loop still runs.
+//! `cef::shutdown` spins the run loop too, which must happen while the
+//! window's run loop still runs, so the timer also stops CEF, on request,
+//! before the app quits.
 
 use std::ffi::c_void;
 use std::sync::atomic::{AtomicBool, AtomicPtr, AtomicU8, Ordering};

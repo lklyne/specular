@@ -19,6 +19,10 @@
 //!            +---------- press or finger back: the page is caught
 //! ```
 
+mod touch;
+
+use self::touch::{Drag, Phase, Touch, glide_step};
+
 use glam::Vec2;
 use specular_core::{InputEvent, Modifiers, TouchEvent, TouchPhase};
 use specular_doc::EntityId;
@@ -94,160 +98,6 @@ pub(crate) fn finger(page: EntityId, phase: TouchPhase, at: Vec2, modifiers: Mod
 /// The finger a touch page has on it, from the press to the lift.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub(crate) struct Flick(Option<Touch>);
-
-#[derive(Debug, Clone, PartialEq)]
-struct Touch {
-    page: EntityId,
-    /// Where the finger is, in the page's CSS pixels.
-    at: Vec2,
-    /// Where the finger came down, which settled what it scrolls.
-    origin: Vec2,
-    /// When the page last said it had scrolled with this finger on it. A
-    /// scroller inside the page says nothing as it scrolls.
-    scrolled_ms: Option<u64>,
-    /// When a glide next asks the page whether it has anything to scroll.
-    ask_room_ms: u64,
-    phase: Phase,
-}
-
-impl Touch {
-    fn glide(&mut self, velocity: Vec2, last_ms: u64, now_ms: u64, button_down: bool) {
-        // The wait for the page's end starts over with the glide.
-        self.scrolled_ms = self.scrolled_ms.map(|_| now_ms);
-        self.ask_room_ms = now_ms;
-        self.phase = Phase::Glide {
-            velocity,
-            last_ms,
-            button_down,
-        };
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-enum Phase {
-    /// The button is down and the pointer moves the finger.
-    Drag(Drag),
-    /// The finger moves on by itself.
-    Glide {
-        /// CSS pixels a second.
-        velocity: Vec2,
-        last_ms: u64,
-        /// Whether the button is still down: the finger left a trackpad
-        /// whose tap-and-drag has not let go yet.
-        button_down: bool,
-    },
-    /// The finger rests until it can be lifted with no speed.
-    Settle { until_ms: u64 },
-}
-
-#[derive(Debug, Clone, PartialEq)]
-struct Drag {
-    /// From where the pointer is to where the finger is. A page caught in
-    /// its glide is not where the pointer left it.
-    offset: Vec2,
-    /// Where the finger was and when, newest last, one a millisecond.
-    samples: Vec<(u64, Vec2)>,
-    /// The length of the path so far.
-    travelled: f32,
-    /// Whether the press caught a page in its glide, whose finger was
-    /// moving until then.
-    caught: bool,
-    /// How many ticks running found the finger where the last one left it.
-    /// One is not a stop: the loop may only have been late, with the
-    /// pointer's moves still waiting to be read.
-    still_ticks: u8,
-}
-
-impl Drag {
-    fn new(offset: Vec2, now_ms: u64, at: Vec2, caught: bool) -> Self {
-        Self {
-            offset,
-            samples: vec![(now_ms, at)],
-            travelled: 0.0,
-            caught,
-            still_ticks: 0,
-        }
-    }
-
-    fn sample(&mut self, now_ms: u64, at: Vec2) {
-        let Some(&(last_ms, last)) = self.samples.last() else {
-            self.samples.push((now_ms, at));
-            return;
-        };
-        if at == last {
-            return;
-        }
-        self.travelled += at.distance(last);
-        self.still_ticks = 0;
-        // Pointer events in one turn share a time; the latest wins.
-        if last_ms == now_ms {
-            self.samples.pop();
-        }
-        self.samples.push((now_ms, at));
-        self.samples
-            .retain(|&(at_ms, _)| at_ms + 2 * WINDOW_MS >= now_ms);
-    }
-
-    fn last_ms(&self) -> u64 {
-        self.samples.last().map_or(0, |&(at_ms, _)| at_ms)
-    }
-
-    /// Whether the finger left the trackpad in mid swipe: the pointer was
-    /// fast on its last move and has not moved since.
-    fn lifted(&self, now_ms: u64) -> bool {
-        let [.., (before_ms, before), (last_ms, last)] = self.samples[..] else {
-            return false;
-        };
-        let span_ms = last_ms.saturating_sub(before_ms).max(1);
-        self.still_ticks >= 2
-            && now_ms.saturating_sub(last_ms) >= LIFT_MS
-            && last.distance(before) / (span_ms as f32 / 1000.0) >= LIFT_SPEED
-    }
-
-    /// The velocity of the swipe's last moments, if it was fast and long
-    /// enough to be a flick.
-    fn velocity(&self) -> Option<Vec2> {
-        let &(last_ms, last) = self.samples.last()?;
-        if self.travelled < MIN_TRAVEL {
-            return None;
-        }
-        // Read back from the last move, not the release: the wait for the
-        // button is not part of the flick. When the loop was late and the
-        // window holds the last move alone, the one before it is the best
-        // there is to measure from.
-        let earlier = self.samples.len().checked_sub(2)?;
-        let from = (self.samples.iter())
-            .position(|&(at_ms, _)| at_ms + WINDOW_MS >= last_ms)?
-            .min(earlier);
-        let &(first_ms, first) = self.samples.get(from)?;
-        let span_ms = last_ms.checked_sub(first_ms).filter(|&span| span > 0)?;
-        let mut velocity = (last - first) / (span_ms as f32 / 1000.0);
-        let speed = velocity.length();
-        if speed < MIN_SPEED {
-            return None;
-        }
-        velocity *= speed.min(MAX_SPEED) / speed * MOUSE_BOOST;
-        let (major, minor) = if velocity.x.abs() >= velocity.y.abs() {
-            (velocity.x.abs(), &mut velocity.y)
-        } else {
-            (velocity.y.abs(), &mut velocity.x)
-        };
-        if minor.abs() < major * AXIS_LOCK {
-            *minor = 0.0;
-        }
-        Some(velocity)
-    }
-}
-
-/// How far a finger at `velocity` moves in `dt_ms`, and the velocity it is
-/// left with. The distance is the integral of the decaying speed, so a late
-/// frame covers the same ground as the frames it replaced.
-fn glide_step(velocity: Vec2, dt_ms: f32) -> (Vec2, Vec2) {
-    let remaining = DECAY_PER_MS.powf(dt_ms);
-    let per_ms = -DECAY_PER_MS.ln();
-    let distance = velocity / 1000.0 * ((1.0 - remaining) / per_ms);
-    (distance, velocity * remaining)
-}
 
 /// Whether `page` is a touch device.
 fn is_touch(app: &App, page: &EntityId) -> bool {
@@ -452,29 +302,5 @@ impl App {
     /// glide and lifts the finger at its end.
     pub fn flick_running(&self) -> bool {
         self.session.flick.0.is_some()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn the_steps_of_a_glide_add_up_to_the_speed_over_the_decay_rate_however_late() {
-        let total = |dts: &[f32]| {
-            let mut velocity = Vec2::new(0.0, 2000.0);
-            let mut total = 0.0;
-            for &dt in dts {
-                let (distance, left) = glide_step(velocity, dt);
-                velocity = left;
-                total += distance.y;
-            }
-            total
-        };
-        let smooth = total(&[8.0; 500]);
-        let late = total(&[100.0; 40]);
-        assert!((smooth - late).abs() < 1.0, "{smooth} vs {late}");
-        let expected = 2000.0 / (-DECAY_PER_MS.ln() * 1000.0);
-        assert!((smooth - expected).abs() < 2.0, "{smooth} vs {expected}");
     }
 }

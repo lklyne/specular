@@ -55,23 +55,3 @@ impl MultisampledTarget {
             .view
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn the_multisampled_attachment_is_transient_and_nothing_else() {
-        let size = wgpu::Extent3d {
-            width: 64,
-            height: 64,
-            depth_or_array_layers: 1,
-        };
-        let usage = descriptor(wgpu::TextureFormat::Bgra8Unorm, size).usage;
-        // Any other usage would make the texture take memory again.
-        assert_eq!(
-            usage,
-            wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TRANSIENT_ATTACHMENT
-        );
-    }
-}

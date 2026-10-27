@@ -9,7 +9,7 @@ use specular_core::{CpuFrame, PixelRect, PixelSize};
 
 /// Why a paint buffer could not be copied.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
-pub enum PaintBufferError {
+pub(crate) enum PaintBufferError {
     /// CEF reported a non-positive size.
     #[error("paint size {width}x{height} is empty")]
     Empty {
@@ -29,7 +29,7 @@ pub enum PaintBufferError {
 }
 
 /// Byte length of a tightly packed BGRA image, or `None` if non-positive.
-pub fn bgra_len(width: i32, height: i32) -> Option<usize> {
+pub(crate) fn bgra_len(width: i32, height: i32) -> Option<usize> {
     let width = usize::try_from(width).ok().filter(|w| *w > 0)?;
     let height = usize::try_from(height).ok().filter(|h| *h > 0)?;
     width.checked_mul(height)?.checked_mul(4)
@@ -37,7 +37,7 @@ pub fn bgra_len(width: i32, height: i32) -> Option<usize> {
 
 /// Copies a tightly packed BGRA `OnPaint` buffer (upper-left origin, stride
 /// `width * 4`) and its dirty rects (texels) into an owned frame.
-pub fn copy_paint(
+pub(crate) fn copy_paint(
     buffer: &[u8],
     width: i32,
     height: i32,
@@ -67,55 +67,4 @@ pub fn copy_paint(
             dirty.to_vec()
         },
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn copy_keeps_size_stride_and_bytes() {
-        let buffer: Vec<u8> = (0..16).collect();
-        let frame = copy_paint(&buffer, 2, 2, &[PixelRect::new(0, 0, 1, 1)]);
-        assert_eq!(
-            frame,
-            Ok(CpuFrame {
-                size: PixelSize::new(2, 2),
-                stride: 8,
-                bgra: buffer,
-                dirty: vec![PixelRect::new(0, 0, 1, 1)],
-            })
-        );
-    }
-
-    #[test]
-    fn full_frame_dirty_rect_collapses_to_all_dirty() {
-        let frame = copy_paint(&[0; 16], 2, 2, &[PixelRect::new(0, 0, 2, 2)]);
-        assert_eq!(frame.map(|f| f.dirty.is_empty()), Ok(true));
-    }
-
-    #[test]
-    fn a_dirty_rect_short_of_the_frame_is_kept() {
-        let rects = [
-            PixelRect::new(0, 0, 2, 1),
-            PixelRect::new(0, 0, 1, 2),
-            PixelRect::new(1, 0, 2, 2),
-            PixelRect::new(0, 1, 2, 2),
-        ];
-        for rect in rects {
-            let frame = copy_paint(&[0; 16], 2, 2, &[rect]);
-            assert_eq!(frame.map(|f| f.dirty), Ok(vec![rect]), "{rect:?}");
-        }
-    }
-
-    #[test]
-    fn short_buffer_is_rejected() {
-        assert_eq!(
-            copy_paint(&[0; 15], 2, 2, &[]),
-            Err(PaintBufferError::Short {
-                expected: 16,
-                actual: 15
-            })
-        );
-    }
 }

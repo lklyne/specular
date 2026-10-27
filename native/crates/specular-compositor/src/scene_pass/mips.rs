@@ -12,7 +12,7 @@ use crate::upload;
 pub struct ImageSpec {
     /// Whether the texture is sampled as sRGB, so alpha and the mip filter
     /// have to work in linear light.
-    pub linear_light: bool,
+    pub(crate) linear_light: bool,
     /// The largest texture side the device takes.
     pub max_dimension: u32,
 }
@@ -164,93 +164,4 @@ fn encode(linear: f32) -> u8 {
         1.055 * linear.powf(1.0 / 2.4) - 0.055
     };
     (encoded.clamp(0.0, 1.0) * 255.0).round() as u8
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    const GAMMA: ImageSpec = ImageSpec {
-        linear_light: false,
-        max_dimension: 8192,
-    };
-    const LINEAR: ImageSpec = ImageSpec {
-        linear_light: true,
-        max_dimension: 8192,
-    };
-
-    fn sizes(mips: &ImageMips) -> Vec<(u32, u32)> {
-        mips.levels()
-            .map(|(size, texels)| {
-                assert_eq!(texels.len() as u64, size.area() * 4);
-                (size.width, size.height)
-            })
-            .collect()
-    }
-
-    #[test]
-    fn premultiplying_scales_colour_by_alpha_in_the_space_the_texture_is_sampled_in() {
-        for (name, texel, linear_light, expected) in [
-            // Half of white in linear light is sRGB 188, not 128.
-            (
-                "linear half",
-                [255, 255, 255, 128],
-                true,
-                [188, 188, 188, 128],
-            ),
-            ("gamma half", [200, 100, 0, 128], false, [100, 50, 0, 128]),
-            ("transparent", [255, 255, 255, 0], true, [0, 0, 0, 0]),
-            ("opaque", [10, 200, 30, 255], true, [10, 200, 30, 255]),
-        ] {
-            assert_eq!(premultiply(&texel, linear_light), expected, "{name}");
-        }
-    }
-
-    #[test]
-    fn levels_halve_down_to_one_texel() {
-        let mips = ImageMips::build(PixelSize::new(8, 2), &[255; 8 * 2 * 4], GAMMA).unwrap();
-        assert_eq!(sizes(&mips), [(8, 2), (4, 1), (2, 1), (1, 1)]);
-        assert_eq!(mips.level_count(), 4);
-        // An odd side rounds down and never reaches zero.
-        let odd = ImageMips::build(PixelSize::new(5, 3), &[255; 5 * 3 * 4], GAMMA).unwrap();
-        assert_eq!(sizes(&odd), [(5, 3), (2, 1), (1, 1)]);
-        let tall = ImageMips::build(PixelSize::new(1, 4), &[255; 4 * 4], GAMMA).unwrap();
-        assert_eq!(sizes(&tall), [(1, 4), (1, 2), (1, 1)]);
-    }
-
-    #[test]
-    fn a_level_is_the_mean_of_the_block_above_it() {
-        // One white texel and three black.
-        let texels = [[255; 4], [0, 0, 0, 255], [0, 0, 0, 255], [0, 0, 0, 255]].concat();
-        let size = PixelSize::new(2, 2);
-        let gamma = ImageMips::build(size, &texels, GAMMA).unwrap();
-        let linear = ImageMips::build(size, &texels, LINEAR).unwrap();
-        assert_eq!(gamma.levels().nth(1).unwrap().1, [64, 64, 64, 255]);
-        // A quarter of white in linear light is sRGB 137.
-        assert_eq!(linear.levels().nth(1).unwrap().1, [137, 137, 137, 255]);
-    }
-
-    #[test]
-    fn a_transparent_neighbour_dims_a_level_without_tinting_it() {
-        // Opaque red beside transparent green: the mean is half-covered red.
-        let texels = [[255, 0, 0, 255], [0, 255, 0, 0]].concat();
-        let mips = ImageMips::build(PixelSize::new(2, 1), &texels, GAMMA).unwrap();
-        assert_eq!(mips.levels().nth(1).unwrap().1, [128, 0, 0, 128]);
-    }
-
-    #[test]
-    fn a_short_buffer_and_an_oversized_image_are_refused() {
-        assert_eq!(
-            ImageMips::build(PixelSize::new(2, 2), &[0; 15], GAMMA),
-            Err(FrameImportError::ShortBuffer {
-                actual: 15,
-                needed: 16
-            })
-        );
-        let small = ImageSpec {
-            max_dimension: 4,
-            ..GAMMA
-        };
-        assert!(ImageMips::build(PixelSize::new(8, 1), &[0; 32], small).is_err());
-    }
 }

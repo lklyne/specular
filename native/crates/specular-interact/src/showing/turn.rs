@@ -55,7 +55,7 @@ pub struct Turning {
     /// The point the shell turns about: its centre, in canvas units.
     pub pivot: DVec2,
     /// Its shell before the turn, in canvas units.
-    pub was: Rect,
+    pub(crate) was: Rect,
 }
 
 /// A page as it was before a change that may have turned it.

@@ -16,19 +16,19 @@ use crate::geometry::ScreenRect;
 /// A pill's height, in logical pixels.
 pub const PILL_HEIGHT: f32 = 26.0;
 /// The width of a pill counting up to nine.
-pub const PILL_WIDTH: f32 = 26.0;
+pub(crate) const PILL_WIDTH: f32 = 26.0;
 /// What each digit after the first adds to a pill's width.
-pub const PILL_DIGIT_WIDTH: f32 = 6.0;
+pub(crate) const PILL_DIGIT_WIDTH: f32 = 6.0;
 /// How far a pill on a page sits inside the page's edge, and how far an
 /// element's pill sits inside the corner of the element.
-pub const PILL_INSET: f32 = 8.0;
+pub(crate) const PILL_INSET: f32 = 8.0;
 /// How near the top or bottom of its page a pill on a page's side may
 /// centre.
-pub const PILL_EDGE_MARGIN: f32 = 10.0;
+pub(crate) const PILL_EDGE_MARGIN: f32 = 10.0;
 /// How far a region's frame reaches to either side of its edge for a press.
-pub const REGION_HIT_BAND: f32 = 6.0;
+pub(crate) const REGION_HIT_BAND: f32 = 6.0;
 /// The smallest a region's frame is drawn, each way.
-pub const REGION_MIN_SIZE: f32 = 4.0;
+pub(crate) const REGION_MIN_SIZE: f32 = 4.0;
 /// How far the focus ring stands outside a pill, and how thick it is.
 pub const FOCUS_RING_OUTSET: f32 = 3.0;
 /// The thickness of the focus ring.
@@ -72,8 +72,8 @@ impl CommentMark {
         match self.shape {
             MarkShape::Badge(pill) => pill.contains(screen),
             MarkShape::Region(frame) => {
-                frame.inflated(REGION_HIT_BAND).contains(screen)
-                    && !frame.inflated(-REGION_HIT_BAND).contains(screen)
+                frame.outset(REGION_HIT_BAND).contains(screen)
+                    && !frame.outset(-REGION_HIT_BAND).contains(screen)
             }
         }
     }
@@ -127,7 +127,7 @@ impl App {
                     shape: shape(self, representative, count)?,
                     focused: focused.is_some_and(|id| members.iter().any(|each| each.id == *id)),
                     clip: super::page_clip(self, representative)
-                        .map(|page| ScreenRect::of(&self.session.camera, page)),
+                        .map(|page| crate::geometry::on_screen(&self.session.camera, page)),
                 })
             })
             .collect();
@@ -175,18 +175,15 @@ fn shape(app: &App, representative: &Annotation, count: usize) -> Option<MarkSha
     let size = pill_size(count);
     match &representative.anchor {
         AnnotationAnchor::Region(_) => {
-            let frame = ScreenRect::of(camera, region_on_canvas(app, representative)?);
-            Some(MarkShape::Region(ScreenRect {
-                min: frame.min,
-                size: frame.size.max(Vec2::splat(REGION_MIN_SIZE)),
-            }))
+            let frame = crate::geometry::on_screen(camera, region_on_canvas(app, representative)?);
+            Some(MarkShape::Region(ScreenRect::at(
+                frame.min(),
+                frame.extent().max(Vec2::splat(REGION_MIN_SIZE)),
+            )))
         }
         AnnotationAnchor::Canvas { canvas_x, canvas_y } => {
             let at = camera.world_to_screen(Vec2::new(*canvas_x as f32, *canvas_y as f32));
-            Some(MarkShape::Badge(ScreenRect {
-                min: at - size / 2.0,
-                size,
-            }))
+            Some(MarkShape::Badge(ScreenRect::at(at - size / 2.0, size)))
         }
         AnnotationAnchor::Page {
             page_id, offset_y, ..
@@ -194,30 +191,30 @@ fn shape(app: &App, representative: &Annotation, count: usize) -> Option<MarkSha
             let page = page_on_screen(app, page_id)?;
             // The side of the page, at the height recorded as a fraction of
             // it, kept off the page's top and bottom.
-            let middle = (page.min.y + *offset_y as f32 * page.size.y)
-                .max(page.min.y + PILL_EDGE_MARGIN)
+            let middle = (page.min().y + *offset_y as f32 * page.extent().y)
+                .max(page.min().y + PILL_EDGE_MARGIN)
                 .min(page.max().y - PILL_EDGE_MARGIN);
-            Some(MarkShape::Badge(ScreenRect {
-                min: Vec2::new(page.max().x - PILL_INSET - size.x, middle - size.y / 2.0),
+            Some(MarkShape::Badge(ScreenRect::at(
+                Vec2::new(page.max().x - PILL_INSET - size.x, middle - size.y / 2.0),
                 size,
-            }))
+            )))
         }
         AnnotationAnchor::Element { page_id, .. } => {
             let page = page_on_screen(app, page_id)?;
             // The element's top-right corner, or the page's when the element
             // was recorded with no box, tucked inside the page.
             let element = element_on_canvas(app, representative)
-                .map_or(page, |rect| ScreenRect::of(camera, rect));
+                .map_or(page, |rect| crate::geometry::on_screen(camera, rect));
             let right = (element.max().x - PILL_INSET)
                 .min(page.max().x - PILL_INSET)
-                .max(page.min.x + PILL_INSET);
-            let top = (element.min.y + PILL_INSET)
+                .max(page.min().x + PILL_INSET);
+            let top = (element.min().y + PILL_INSET)
                 .min(page.max().y - PILL_INSET)
-                .max(page.min.y + PILL_INSET);
-            Some(MarkShape::Badge(ScreenRect {
-                min: Vec2::new(right - size.x, top),
+                .max(page.min().y + PILL_INSET);
+            Some(MarkShape::Badge(ScreenRect::at(
+                Vec2::new(right - size.x, top),
                 size,
-            }))
+            )))
         }
     }
 }
@@ -225,5 +222,5 @@ fn shape(app: &App, representative: &Annotation, count: usize) -> Option<MarkSha
 /// The page `id` as the camera shows it.
 fn page_on_screen(app: &App, id: &EntityId) -> Option<ScreenRect> {
     let rect = app.page_placement(id)?.rect;
-    Some(ScreenRect::of(&app.session.camera, rect))
+    Some(crate::geometry::on_screen(&app.session.camera, rect))
 }

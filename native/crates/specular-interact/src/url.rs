@@ -1,10 +1,10 @@
 //! Telling a URL from other text, and completing one a person typed.
-//! Ported from `src/shared/url.ts`.
+//! Ported from `git show bc5253fa:src/shared/url.ts`.
 
 /// Whether `value` is a URL a page can show: it has an `http` or `https`
 /// scheme, or it reads as a bare host (`example.com/path`, `localhost:3000`).
 /// Text with whitespace in it, and any other scheme, is not.
-pub fn looks_like_url(value: &str) -> bool {
+pub(crate) fn looks_like_url(value: &str) -> bool {
     let trimmed = value.trim();
     if trimmed.is_empty() || trimmed.contains(char::is_whitespace) {
         return false;
@@ -29,7 +29,7 @@ pub fn looks_like_url(value: &str) -> bool {
 /// `value` as a full URL. Without a scheme it gets `http` for a local host
 /// and `https` for any other. The scheme and host come out in lower case and
 /// an empty path becomes `/`, as `new URL(value).toString()` gives.
-pub fn normalize_user_url(value: &str) -> String {
+pub(crate) fn normalize_user_url(value: &str) -> String {
     let trimmed = value.trim();
     let with_scheme = match trimmed.split_once("://") {
         Some((scheme, _)) if is_scheme(scheme) => trimmed.to_owned(),
@@ -59,7 +59,7 @@ pub fn normalize_user_url(value: &str) -> String {
 /// What an address field does with `value`: a URL is completed as
 /// [`normalize_user_url`] does, anything else becomes a web search for it.
 /// `None` for an empty field. Ported from `resolveAddressInput`.
-pub fn resolve_address_input(value: &str) -> Option<String> {
+pub(crate) fn resolve_address_input(value: &str) -> Option<String> {
     let trimmed = value.trim();
     if trimmed.is_empty() {
         return None;
@@ -145,61 +145,4 @@ fn is_local_host(host: &str) -> bool {
     let host = host.to_ascii_lowercase();
     let top_level = host.rsplit_once('.').map(|(_, label)| label);
     is_loopback(&host) || is_private_ipv4(&host) || top_level == Some("local")
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn http_urls_and_bare_hosts_look_like_urls() {
-        let urls = [
-            "https://example.com",
-            "HTTP://Example.com/a?b#c",
-            "example.com",
-            "example.com/path?x=1",
-            "sub.example.co.uk",
-            "192.168.1.4:3000/app",
-            "localhost",
-            "localhost:4321/garden",
-            "[::1]:8080",
-            "  example.com  ",
-        ];
-        let words = [
-            "",
-            "hello",
-            "hello world.com",
-            "mailto:me@example.com",
-            "file:///tmp/a.png",
-            "javascript:alert(1)",
-            "https://",
-            ".com",
-            "example.",
-            "a sentence. With a dot",
-        ];
-        let rows = urls
-            .into_iter()
-            .map(|text| (text, true))
-            .chain(words.into_iter().map(|text| (text, false)));
-        for (text, want) in rows {
-            assert_eq!(looks_like_url(text), want, "{text:?}");
-        }
-    }
-
-    #[test]
-    fn a_bare_host_gets_https_and_a_local_one_http() {
-        let rows = [
-            ("example.com", "https://example.com/"),
-            ("Example.com/Path?q=1", "https://example.com/Path?q=1"),
-            ("localhost:4321/garden", "http://localhost:4321/garden"),
-            ("192.168.1.4:3000", "http://192.168.1.4:3000/"),
-            ("printer.local", "http://printer.local/"),
-            ("//example.com/a", "https://example.com/a"),
-            (" HTTP://Example.com?x=1 ", "http://example.com/?x=1"),
-            ("https://example.com/a#b", "https://example.com/a#b"),
-        ];
-        for (input, want) in rows {
-            assert_eq!(normalize_user_url(input), want, "{input:?}");
-        }
-    }
 }

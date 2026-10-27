@@ -28,7 +28,7 @@ pub struct Face {
 
 impl Face {
     /// A glyph.
-    pub fn icon(icon: Icon) -> Self {
+    pub(crate) fn icon(icon: Icon) -> Self {
         Self {
             icon: Some(icon),
             ..Self::default()
@@ -44,7 +44,7 @@ impl Face {
     }
 
     /// A dot of `color`.
-    pub fn dot(color: Option<Color>) -> Self {
+    pub(crate) fn dot(color: Option<Color>) -> Self {
         Self {
             color,
             ..Self::default()
@@ -53,7 +53,7 @@ impl Face {
 
     /// The same face painted in `color`.
     #[must_use]
-    pub fn tinted(self, color: Option<Color>) -> Self {
+    pub(crate) fn tinted(self, color: Option<Color>) -> Self {
         Self { color, ..self }
     }
 
@@ -142,7 +142,7 @@ pub struct Swatch {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Swatches {
     /// Its name.
-    pub id: ControlId,
+    pub(crate) id: ControlId,
     /// The hues to draw the colors from.
     pub palette: Palette,
     /// How the colors are used.
@@ -289,53 +289,6 @@ pub enum Control {
 /// Controls that run nothing themselves, such as a dropdown, have none.
 pub type Entries<'a> = Vec<(ControlId, Option<&'a Action>)>;
 
-impl Control {
-    /// Adds this control, and the ones inside it, to `out`.
-    pub fn entries<'a>(&'a self, out: &mut Entries<'a>) {
-        match self {
-            Self::Button(button) => out.push((button.id.clone(), Some(&button.action))),
-            Self::Toggle(toggle) => out.push((toggle.id.clone(), Some(&toggle.action))),
-            Self::Swatches(swatches) => {
-                for swatch in &swatches.options {
-                    out.push((swatch.id.clone(), Some(&swatch.action)));
-                }
-            }
-            Self::Dropdown(dropdown) => dropdown.entries(out),
-            Self::Stepper(stepper) => {
-                out.push((stepper.id.child("dec"), Some(&stepper.decrement)));
-                out.push((stepper.id.child("inc"), Some(&stepper.increment)));
-            }
-            // What a field runs depends on the text, so it has no action to
-            // list.
-            Self::Field(field) => out.push((field.id.clone(), None)),
-            Self::Choices(choices) => section_entries(&choices.content, out),
-            Self::Separator => {}
-        }
-    }
-}
+impl Control {}
 
-impl Dropdown {
-    /// Adds this dropdown, and the options and controls inside it, to `out`.
-    pub fn entries<'a>(&'a self, out: &mut Entries<'a>) {
-        out.push((self.id.clone(), None));
-        section_entries(&self.content, out);
-    }
-}
-
-fn section_entries<'a>(content: &'a [DropdownSection], out: &mut Entries<'a>) {
-    for section in content {
-        match section {
-            DropdownSection::Options { options, .. } => {
-                for option in options {
-                    out.push((option.id.clone(), Some(&option.action)));
-                    out.extend(option.fields.iter().map(|field| (field.id.clone(), None)));
-                }
-            }
-            DropdownSection::Controls(controls) => {
-                for control in controls {
-                    control.entries(out);
-                }
-            }
-        }
-    }
-}
+impl Dropdown {}

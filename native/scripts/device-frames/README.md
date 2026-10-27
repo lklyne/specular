@@ -2,7 +2,7 @@
 
 `convert.py` turns the painters of the Flutter package
 [`device_frame`](https://github.com/aloisdeniel/flutter_device_preview/tree/master/device_frame)
-(MIT) into the SVGs in `crates/specular-app/assets/device-frames/`. The
+(MIT) into the SVGs in `crates/specular-shell/assets/device-frames/`. The
 package has no SVG files. Each device is a Dart `CustomPainter`, so the
 script runs every `paint()` body through a small interpreter for the subset
 of Dart those files use and writes the draw calls out as SVG.

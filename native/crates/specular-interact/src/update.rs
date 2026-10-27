@@ -1,29 +1,29 @@
 //! [`update`]: the one function that changes an [`App`].
 
+mod document;
+mod page_event;
+
+use self::document::step_history;
+pub(crate) use self::document::{document_step, drop_dangling, open_document};
+use self::page_event::on_page_event;
+
 use glam::DVec2;
-use glam::Vec2;
 use specular_core::{InputEvent, PageNav};
-use specular_doc::{Command, CommandError, Document, EntityId, ItemId};
 
 use crate::focus::{leave_unless_selected, set_focus};
-use crate::images;
-use crate::notes;
-use crate::panel::builtin;
 use crate::stack_order::Move;
-use crate::theme;
 use crate::{
-    Action, App, Effect, Event, Focus, PageNotice, Selection, ToolDefaultPatch, api, attach,
-    bindings, camera, chat, comment, cursor, edit, gesture, groups, inspect, page_state, pages,
-    pointer, property, reveal, space, sync, verbs,
+    Action, App, Effect, Event, Focus, ToolDefaultPatch, api, attach, bindings, camera, chat,
+    comment, cursor, edit, gesture, groups, inspect, page_state, pages, pointer, property, reveal,
+    space, sync, verbs,
 };
-use crate::{arrange, clipboard, drop, select_all, zoom};
+use crate::{arrange, clipboard, drop, images, notes, select_all, theme, zoom};
 
-/// A scroll goes to the panel under the pointer, else to the Document
-/// under it, else it moves the camera. A panel keeps it whether or not it
-/// scrolls: nothing of the chrome lies over canvas a pan should reach.
+/// A scroll goes to the Document under the pointer, else it moves the
+/// camera.
 fn on_wheel(app: &mut App, input: &crate::WheelInput, effects: &mut Vec<Effect>) {
     crate::flick::halt(app);
-    if !builtin::on_wheel(app, input) && !builtin::over(app) && !notes::on_wheel(app, input) {
+    if !notes::on_wheel(app, input) {
         camera::on_wheel(app, input, effects);
     }
 }
@@ -48,17 +48,12 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
     // A pointer event has already put the drag and the hover where it is,
     // unless it ended the drag: the hover is not kept up during one.
     let pointing = matches!(event, Event::Pointer(_));
-    let keeps_layout = builtin::keeps_layout(app, &event);
     let opened = attach::opens(&event);
     let layouts = pages::layouts(app);
     match event {
         Event::Pointer(input) => pointer::on_pointer(app, &input, &mut effects),
         Event::Wheel(input) => on_wheel(app, &input, &mut effects),
-        Event::Pinch { delta } => {
-            if !builtin::over(app) {
-                camera::on_pinch(app, delta);
-            }
-        }
+        Event::Pinch { delta } => camera::on_pinch(app, delta),
         Event::Key(input) => bindings::on_key(app, &input, &mut effects),
         Event::Ime(ime) => match &app.session.focus {
             Focus::Page(page) => effects.push(Effect::ForwardInput {
@@ -100,10 +95,12 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         Event::Action(action) => run_action(app, action, &mut effects),
         Event::Control(id, keys) => crate::panel::activate_control(app, &id, keys, &mut effects),
         Event::ContextMenu(screen) => crate::panel::open_menu_at(app, screen),
-        Event::BuiltinPanels(built_in) => builtin::turn(app, built_in),
-        Event::BuiltinMenu => app.session.panel = builtin::PanelUi::menu_alone(),
+        Event::ShellChrome => app.session.panel = crate::PanelUi::drawn_by_shell(),
+        Event::ChromeLayout => app.session.panel.chrome_covers = true,
+        Event::MenuClosed => app.session.panel.menu = None,
         Event::ChatPanel(available) => app.session.chat.set_available(available),
         Event::Motion(on) => app.session.motion.enable(on),
+        Event::ReduceMotion(on) => app.session.motion.reduce(on),
         Event::ThreadsLoaded { threads, index } => chat::on_loaded(app, threads, &index),
         Event::Agent { thread, notice } => chat::on_agent(app, &thread, notice, &mut effects),
         Event::ReposLoaded(repos) => app.repos = *repos,
@@ -117,7 +114,6 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
     crate::showing::motion::interrupt(app, leaving, camera, app.space.switches() != switches);
     crate::showing::settle(app);
     pages::follow_layouts(&layouts, app, &mut effects);
-    builtin::forget_layout_unless(app, keeps_layout);
     // Another canvas has another history: its revision says nothing about
     // whether this event made a step.
     let switched = app.space.switches() != switches;
@@ -138,7 +134,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
     settle_tool(app, tool);
     inspect::settle(app, switched);
     groups::keep_entered_valid(app);
-    builtin::tidy(app);
+    crate::panel::tidy(app);
     if edit::restart_blink(app, &caret) {
         notes::reveal_caret(app);
     }
@@ -151,6 +147,8 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         effects.push(Effect::Save);
     }
     attach::settle(app, stepped, switched || opened, &mut effects);
+    let zoom = app.session.camera.zoom;
+    app.session.zoom_settle.observe(zoom, app.session.now_ms);
     if !ticks {
         cursor::refresh(app, &mut effects);
     }
@@ -178,7 +176,7 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         // Escape puts a field's old value back before it does anything else,
         // and closes an open dropdown before it backs out of anything.
         Action::Cancel if edit::cancel_field(app, effects) => {}
-        Action::Cancel if builtin::cancel(app) => {}
+        Action::Cancel if crate::panel::cancel(app) => {}
         Action::Cancel => cancel(app, effects),
         Action::SetTool(tool) => set_tool(app, tool, effects),
         Action::SetTheme(theme) => theme::choose(app, theme, true, effects),
@@ -345,80 +343,6 @@ pub(crate) fn verb(
     }
 }
 
-/// Runs `command` as one undo step, then brings the page hosts and the
-/// session back in step with the document.
-pub(crate) fn document_step(app: &mut App, command: Command, effects: &mut Vec<Effect>) {
-    let before = pages::snapshot(app);
-    gesture::apply_step(app, command);
-    drop_dangling(app, effects);
-    pages::reconcile(&before, app, effects);
-}
-
-/// Runs an undo or a redo, unless a drag is in flight, puts back the
-/// selection the step carries, and brings the page hosts and the session
-/// back in step with the document.
-fn step_history(
-    app: &mut App,
-    effects: &mut Vec<Effect>,
-    step: impl FnOnce(&mut App) -> Result<Option<Selection>, CommandError>,
-) {
-    if app.session.gesture.is_some() {
-        return;
-    }
-    let before = pages::snapshot(app);
-    let notes_before = edit::note::held(app);
-    match step(app) {
-        Ok(Some(selection)) => app.session.selection = selection,
-        Ok(None) => return,
-        Err(error) => tracing::warn!("history step dropped: {error}"),
-    }
-    edit::note::write_stepped(app, &notes_before, effects);
-    drop_dangling(app, effects);
-    pages::reconcile(&before, app, effects);
-}
-
-pub(crate) fn open_document(app: &mut App, document: Document, effects: &mut Vec<Effect>) {
-    let before = pages::snapshot(app);
-    app.session.gesture = None;
-    app.session.entered_group = None;
-    edit::discard(app, effects);
-    comment::forget(app);
-    app.document = document;
-    edit::fit_all(app);
-    app.history.clear();
-    drop_dangling(app, effects);
-    pages::reconcile(&before, app, effects);
-    images::reopen(app, effects);
-    notes::reopen(app, effects);
-}
-
-/// Forgets selection, hover and focus that name something the document no
-/// longer holds.
-pub(crate) fn drop_dangling(app: &mut App, effects: &mut Vec<Effect>) {
-    let document = &app.document;
-    app.session.selection.retain(|item| match item {
-        ItemId::Entity(id) => document.entity(id).is_some(),
-        ItemId::Edge(id) => document.edge(id).is_some(),
-    });
-    let gone = |page: Option<&EntityId>| page.is_some_and(|id| app.page_placement(id).is_none());
-    let (pointer_gone, focus_gone) = (
-        gone(app.session.pointer_page.as_ref()),
-        gone(app.session.focus.page()),
-    );
-    if pointer_gone {
-        app.session.pointer_page = None;
-    }
-    if (app.session.hover.as_ref()).is_some_and(|id| app.document.entity(id).is_none()) {
-        app.session.hover = None;
-    }
-    if focus_gone {
-        set_focus(app, None, effects);
-    }
-    let document = &app.document;
-    (app.session.pages).retain(|page| document.entity(page).is_some());
-    (app.session.sync).retain(|page| document.entity(page).is_some());
-}
-
 /// The wall clock moved to `unix_ms`.
 fn on_tick(app: &mut App, unix_ms: u64, effects: &mut Vec<Effect>) {
     let elapsed = unix_ms.saturating_sub(app.session.now_ms);
@@ -428,67 +352,11 @@ fn on_tick(app: &mut App, unix_ms: u64, effects: &mut Vec<Effect>) {
     sync::on_tick(app, effects);
     crate::presence::on_tick(app, effects);
     crate::flick::on_tick(app, effects);
+    // A camera transition has taken this tick's step, which an svg's raster
+    // waits out like any other zoom.
+    let zoom = app.session.camera.zoom;
+    app.session.zoom_settle.observe(zoom, unix_ms);
     images::on_tick(app, effects);
     edit::note::autosave(app, effects);
     edit::autoscroll(app, elapsed);
-}
-
-/// A hosted page reported something.
-fn on_page_event(app: &mut App, page: &EntityId, notice: &PageNotice, effects: &mut Vec<Effect>) {
-    let shown = app.page_state(page).and_then(|state| state.url.clone());
-    let fitted = crate::safe_area::fitted(app, page);
-    // The address is the one thing a page reports that is saved.
-    if page_state::on_notice(app, page, notice) {
-        effects.push(Effect::Save);
-    }
-    crate::safe_area::follow_fit(fitted, app, page, effects);
-    sync::on_notice(app, page, notice, shown.as_deref(), effects);
-    crate::inspect::on_notice(app, page, notice);
-    match notice {
-        PageNotice::Scrolled { .. } => crate::flick::scrolled(app, page),
-        PageNotice::ScrollRoom(room) => crate::flick::room(app, page, *room),
-        PageNotice::RegionElements(boxes) => comment::on_elements(app, page, boxes),
-        _ => {}
-    }
-    on_page_notice(app, page, notice, effects);
-}
-
-fn on_page_notice(app: &App, page: &EntityId, notice: &PageNotice, effects: &mut Vec<Effect>) {
-    match notice {
-        PageNotice::Loaded { .. }
-        | PageNotice::Crashed { .. }
-        | PageNotice::Title(_)
-        | PageNotice::Cursor(_)
-        | PageNotice::Favicon(_)
-        | PageNotice::Url(_)
-        | PageNotice::Loading { .. }
-        | PageNotice::Scrolled { .. }
-        | PageNotice::ScrollProgress { .. }
-        | PageNotice::ScrollRoom(_)
-        | PageNotice::Pointed { .. }
-        | PageNotice::Candidates { .. }
-        | PageNotice::Inspected { .. }
-        | PageNotice::RegionElements(_)
-        | PageNotice::ElementCaptured { .. }
-        | PageNotice::ElementPlaces(_)
-        | PageNotice::DevtoolsUrl(_)
-        | PageNotice::ViewportFit { .. } => {}
-        PageNotice::ImeCompositionBounds(bounds) => {
-            if app.session.focus.page() == Some(page)
-                && let Some(bounds) = bounds
-                && let Some(placement) = app.page_placement(page)
-            {
-                let camera = &app.session.camera;
-                let per_css = placement.canvas_per_css().as_vec2();
-                let corner = Vec2::new(bounds.x as f32, bounds.y as f32);
-                let world = placement.rect_origin() + corner * per_css;
-                effects.push(Effect::SetImeCursorArea {
-                    origin: camera.world_to_screen(world),
-                    size: Vec2::new(bounds.width as f32, bounds.height as f32)
-                        * per_css
-                        * camera.zoom,
-                });
-            }
-        }
-    }
 }

@@ -3,7 +3,7 @@
 use serde_json::Value;
 
 /// The model a run uses until one is chosen.
-pub const DEFAULT_MODEL: &str = "sonnet";
+pub(crate) const DEFAULT_MODEL: &str = "sonnet";
 
 /// The models on offer, in order: each family's alias, which the runtime
 /// keeps pointed at the family's latest version.

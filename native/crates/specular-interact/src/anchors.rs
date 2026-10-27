@@ -27,7 +27,7 @@ pub(crate) const SIDES: [EdgeSide; 4] = [
 #[derive(Debug, Clone, PartialEq)]
 pub struct Anchor {
     /// The entity the anchor belongs to.
-    pub entity: EntityId,
+    pub(crate) entity: EntityId,
     /// The side it is on.
     pub side: EdgeSide,
     /// The centre of its dot, in logical screen pixels.
@@ -117,8 +117,5 @@ pub(crate) fn hit_rect(rect: ScreenRect, side: EdgeSide, zoom: f32) -> ScreenRec
         Vec2::new(across, along)
     };
     let centre = side_point(rect, side) + out * (GAP + across / 2.0);
-    ScreenRect {
-        min: centre - size / 2.0,
-        size,
-    }
+    ScreenRect::at(centre - size / 2.0, size)
 }

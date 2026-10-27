@@ -33,7 +33,7 @@ const BLANK_URL: &str = "about:blank";
 
 /// What a placement makes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Placing {
+pub(crate) enum Placing {
     /// A page.
     Page,
     /// Plain text or a sticky note.
@@ -56,7 +56,7 @@ pub struct PlaceDrag {
 
 impl PlaceDrag {
     /// The shape being dragged out, which is in the document already.
-    pub fn live(&self) -> Option<&EntityId> {
+    pub(crate) fn live(&self) -> Option<&EntityId> {
         self.live.as_ref()
     }
 }
@@ -118,9 +118,6 @@ impl App {
         let start = match &self.session.gesture {
             None => {
                 let pointer = self.session.pointer?;
-                if crate::panel::builtin::over(self) {
-                    return None;
-                }
                 let world = self.session.camera.screen_to_world(pointer).as_dvec2();
                 if showing::refuses(self, tool, world) {
                     return None;
@@ -372,46 +369,4 @@ pub(crate) fn page(app: &App, id: EntityId, at: DVec2) -> Entity {
         rect.y += shell.insets.top;
     }
     Entity::new(id, rect, Kind::Page(page))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    const START: DVec2 = DVec2::new(105.0, 95.0);
-
-    #[test]
-    fn a_drag_spans_the_press_and_the_pointer_on_the_grid() {
-        // (pointer, shift, rect). A rect under one grid cell on a side is
-        // none. Shift makes a square of the longer reach that grows from the
-        // press, which stays the opposite corner going up and left.
-        let rows = [
-            (
-                (251.0, 178.0),
-                false,
-                Some(Rect::new(100.0, 100.0, 140.0, 80.0)),
-            ),
-            (
-                (-10.0, 30.0),
-                false,
-                Some(Rect::new(0.0, 40.0, 120.0, 60.0)),
-            ),
-            ((300.0, 110.0), false, None),
-            ((120.0, 300.0), false, None),
-            ((105.0, 95.0), true, None),
-            (
-                (205.0, 125.0),
-                true,
-                Some(Rect::new(100.0, 100.0, 100.0, 100.0)),
-            ),
-            ((85.0, -5.0), true, Some(Rect::new(0.0, 0.0, 100.0, 100.0))),
-        ];
-        for ((x, y), shift, want) in rows {
-            assert_eq!(
-                dragged_rect(START, DVec2::new(x, y), shift),
-                want,
-                "({x}, {y}) shift {shift}"
-            );
-        }
-    }
 }

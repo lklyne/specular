@@ -70,16 +70,6 @@ pub fn file(id: &str, rect: Rect) -> Entity {
     Entity::new(id, rect, Kind::File(file))
 }
 
-/// A Document `id` at `rect`: a file entity showing the markdown file
-/// `path`. Its text arrives with [`TestApp::note_text`](crate::TestApp::note_text).
-pub fn note(id: &str, rect: Rect, path: &str) -> Entity {
-    let file = FileRef {
-        file: path.to_owned(),
-        ..FileRef::default()
-    };
-    Entity::new(id, rect, Kind::File(file))
-}
-
 /// A drawing `id` with no strokes, whose box is `rect`.
 pub fn drawing(id: &str, rect: Rect) -> Entity {
     Entity::new(id, rect, Kind::Drawing(Drawing::default()))
@@ -142,7 +132,7 @@ pub fn connected(document: Document, id: &str, from: &str, to: &str) -> Document
 /// sides, a label or a style.
 #[track_caller]
 #[must_use]
-pub fn with_edge(mut document: Document, edge: Edge) -> Document {
+pub(crate) fn with_edge(mut document: Document, edge: Edge) -> Document {
     let id = edge.id.clone();
     let command = Command::InsertEdge {
         edge: Box::new(edge),

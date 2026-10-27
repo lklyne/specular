@@ -11,7 +11,7 @@
 
 use specular_doc::{Command, Document, EntityId, Kind, Rect};
 
-use crate::{geometry, layout};
+use crate::layout;
 
 /// Room kept between a group's edge and the members it wraps.
 pub(crate) const PADDING: f64 = 24.0;
@@ -55,7 +55,7 @@ fn settle_in_place(
         }
         let Some(rect) = (document.children(id))
             .map(|child| child.rect)
-            .reduce(geometry::union)
+            .reduce(Rect::union)
         else {
             continue;
         };

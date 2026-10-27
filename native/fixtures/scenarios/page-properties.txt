@@ -1,0 +1,166 @@
+# canvas: page-properties.canvas
+# A page's settings from its popup: size presets that name a device, a
+# turn, a custom size typed in, the device frame and its colour, the
+# colour scheme, and the keys that step them. p1 and p2 are 375 by 667,
+# `phone` an iPhone 16 in a simple frame, `desktop` a framed-free desktop.
+camera 0,0,0.4
+wait 50
+
+# a preset resizes every selected page, names its device, and resizes the
+# hosts
+select p1 p2
+control page.size
+control page.size.1
+expect entity p1 size 393 852
+expect entity p2 size 393 852
+expect saved /nodes/p1/presetIndex = 1
+expect saved /nodes/p1/metadata/deviceId = iphone-14-pro
+expect effects count 2 set-page-viewport
+expect controls has page.size = iPhone 16
+act undo
+key escape
+
+# a turn turns the size about the page's middle, and back
+select p1
+control page.size
+control page.size.0
+control page.rotate.landscape
+expect entity p1 rect -46 246 667 375
+expect effects has set-page-viewport { page: EntityId("p1"), viewport: CssSize { width: 667, height: 375 } }
+control page.rotate.portrait
+expect entity p1 rect 100 100 375 667
+control page.rotate.landscape
+control page.size.1
+expect entity p1 rect -46 246 852 393
+control page.rotate.portrait
+expect entity p1 size 393 852
+act undo
+act undo
+act undo
+act undo
+act undo
+act undo
+
+# Custom keeps the size and drops the device; a turn still turns it, and
+# the same way twice is no turn
+control page.size.custom
+expect saved /nodes/p1/metadata/pageSizeMode = custom
+expect saved /nodes/p1/metadata/customSize = {"width": 375, "height": 667}
+expect controls has page.size.custom on
+control page.rotate.landscape
+expect entity p1 rect -46 246 667 375
+control page.rotate.landscape
+expect entity p1 size 667 375
+control page.rotate.portrait
+act undo
+act undo
+act undo
+
+# a typed width or height makes the size custom and keeps the other side;
+# one step each, none for a repeat
+control page.size.1
+control page.size.width
+key cmd+a
+type 500
+key enter
+expect entity p1 size 500 852
+expect saved /nodes/p1/metadata/pageSizeMode = custom
+expect effects count 1 set-page-viewport
+control page.size.height
+key cmd+a
+type 300
+key enter
+expect entity p1 size 500 300
+control page.size.height
+key cmd+a
+type 300
+key enter
+act undo
+expect entity p1 size 500 852
+act undo
+expect entity p1 size 393 852
+act undo
+key escape
+
+# the frame and the colour scheme are page settings, and move no host
+select p1 p2
+control page.size
+control page.frame.simple
+expect saved /nodes/p1/metadata/showDeviceFrame = true
+expect saved /nodes/p2/metadata/showDeviceFrame = true
+expect effects lacks set-page-viewport
+key escape
+select p2
+control page.size
+control page.scheme.dark
+expect saved /nodes/p2/colorScheme = dark
+expect effects lacks set-page-viewport
+control page.frame.none
+control page.scheme.light
+expect controls has page.frame.none on
+act undo
+act undo
+act undo
+act undo
+key escape
+
+# a selected page's keys step its frame, turn and colour scheme
+select p1
+control page.size
+control page.size.1
+key cmd+alt+f
+expect controls has page.frame.simple on
+key cmd+alt+r
+expect entity p1 size 852 393
+key cmd+alt+l
+expect controls has page.scheme.dark on
+
+# the frame steps none, simple, realistic, and skips what cannot be drawn;
+# a frame never moves the page it is drawn round
+select phone
+expect entity phone rect 1320 120 393 852
+key cmd+alt+f
+expect controls has page.frame.realistic on
+expect saved /nodes/phone/metadata/deviceFrameStyle = realistic
+expect entity phone rect 1320 120 393 852
+key cmd+alt+f
+expect controls has page.frame.none on
+expect entity phone rect 1300 100 393 852
+key cmd+alt+f
+expect controls has page.frame.simple on
+expect entity phone rect 1320 120 393 852
+# a desktop has no realistic frame
+select desktop
+key cmd+alt+f
+expect controls has page.frame.simple on
+key cmd+alt+f
+expect controls has page.frame.none on
+# a realistic frame is simple at a custom size, and comes back with a preset
+select phone
+control page.size
+control page.frame.realistic
+control page.size.width
+key cmd+a
+type 500
+key enter
+expect controls has page.frame.simple on
+control page.size.7
+expect controls has page.frame.simple on
+control page.size.0
+expect controls has page.frame.realistic on
+key escape
+
+# the device colour steps between light and dark, is kept by the page, and
+# never moves it; only a page with a realistic-capable device offers it
+select desktop
+expect controls lacks page.frame-color
+select phone
+expect controls has page.frame-color.light on
+key cmd+alt+shift+f
+expect controls has page.frame-color.dark on
+expect saved /nodes/phone/metadata/deviceFrameColor = dark
+key cmd+alt+shift+f
+expect saved /nodes/phone/metadata/deviceFrameColor = light
+act undo
+expect controls has page.frame-color.dark on
+undo-to-start

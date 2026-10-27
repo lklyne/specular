@@ -1,0 +1,128 @@
+# canvas: lens.canvas
+# A page shown in its own tab, through each lens: Fill lays the page out at
+# the free area, as a desktop browser; Device holds the camera on the page
+# at its own size, and the eye shows what is beside it. `on` follows an
+# element of p1, `placed` is hooked to p1 where it was put, `by` lies beside
+# it, and p2 and the Document n are further off.
+camera -320,75,0.5
+wait 50
+
+# a tab opens in Fill: the page is laid out at the area under the chrome
+# and entered; only what follows its content is seen beside it
+select p1
+control view.open
+control view.lens.fill
+expect tabs has lens fill
+expect effects has set-page-viewport { page: EntityId("p1"), viewport: CssSize { width: 1556, height: 918 } }
+expect pages has p1 viewport 1556x918
+expect focus page p1
+wait 50
+expect tabs has seen on
+expect tabs lacks seen placed
+expect tabs lacks seen by
+# a page that fills the view is a desktop browser, whatever its device
+expect pages has p1 touch no
+# a preset in Fill sizes the stored page and leaves the layout alone
+key escape
+control page.size
+control page.size.0
+expect effects lacks set-page-viewport
+act undo
+
+# Device: the page at its own size, the camera held on it; what is hooked
+# to it is seen, the eye shut
+control view.lens.device
+expect tabs has lens device
+expect effects has set-page-viewport { page: EntityId("p1"), viewport: CssSize { width: 400, height: 300 } }
+expect tabs has seen on
+expect tabs has seen placed
+expect tabs lacks seen by
+expect tabs has others no
+expect camera 518,287,1
+# Device holds the camera: a wheel over the canvas around it pans nothing
+key escape
+move 1500 900
+wheel 120 80
+expect camera 518,287,1
+# what is made beside the item with the eye shut is not made; on the page
+# it is, and hooked to it
+tool shape
+drag 1300 100 1360 160
+expect count entities 6
+tool shape
+drag 650 400 710 460
+expect count entities 7
+expect saved /nodes/@top/pageAnchor/pageId = p1
+# the eye shows what is beside it; what is made there is kept, unhooked
+control view.others
+expect tabs has others yes
+expect tabs has seen by
+expect tabs has seen p2
+expect tabs has seen n
+tool shape
+drag 1300 100 1360 160
+expect count entities 8
+expect saved /nodes/@top/pageAnchor absent
+# shutting the eye lets go of what it hid from the selection
+key escape
+select by
+control view.others
+expect selection none
+# a phone page in Device is a touch device; filling the view, a desktop
+# browser
+select p1
+control page.size
+control page.size.0
+expect pages has p1 touch yes
+control view.lens.fill
+expect pages has p1 touch no
+expect effects has set-page-device
+control view.lens.device
+expect pages has p1 touch yes
+
+# leaving centres the item at the canvas zoom, and the canvas camera is
+# what is saved
+expect saved /appState/zoom = 0.5
+control view.minimize
+expect showing canvas
+expect zoom 0.5
+expect pages has p1 touch yes
+# the lens is kept by each tab, and which tab shows is not saved
+control view.item.p1
+expect tabs has lens device
+select p2
+key escape
+control view.canvas
+select p2
+control view.open
+control view.lens.fill
+expect tabs has lens fill
+control view.item.p1
+expect tabs has lens device
+expect effects lacks save
+control view.item.p2.close
+expect effects has save
+expect showing p1
+# a click on the canvas around a Device tab goes back, as minimize does;
+# a drag or a shift-click there does not
+key escape
+control view.others
+drag 1500 900 1540 940
+expect showing p1
+hold shift
+click 1500 900
+hold none
+expect showing p1
+click 1500 900
+expect showing canvas
+expect focus canvas
+# a reveal of another item leaves a view held on its item
+control view.item.p1
+key escape
+control view.others
+sidebar on
+control sidebar.pages.p2
+expect showing canvas
+expect selection p2
+sidebar off
+undo-to-start

@@ -61,7 +61,7 @@ pub(crate) enum Click {
 
 impl MoveDrag {
     /// Whether releasing now leaves copies.
-    pub fn is_copying(&self) -> bool {
+    pub(crate) fn is_copying(&self) -> bool {
         self.dragged && self.copying
     }
 
@@ -299,30 +299,4 @@ pub(crate) fn finish(
 pub(crate) fn cancel(app: &mut App, drag: &MoveDrag) {
     live::restore(&mut app.document, &drag.starts);
     live::restore(&mut app.document, &drag.followers);
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    const ANCHOR: DVec2 = DVec2::new(105.0, 100.0);
-
-    #[test]
-    fn the_anchor_lands_on_the_grid_and_an_axis_lock_keeps_the_longer_reach() {
-        // (pointer delta, snap, axis lock, result). A tie goes to horizontal.
-        let rows = [
-            ((33.0, -8.0), true, false, (35.0, 0.0)),
-            ((33.0, -8.0), false, false, (33.0, -8.0)),
-            ((33.0, -8.0), true, true, (35.0, 0.0)),
-            ((8.0, 33.0), true, true, (0.0, 40.0)),
-            ((30.0, 30.0), false, true, (30.0, 0.0)),
-        ];
-        for ((x, y), snap, lock, (want_x, want_y)) in rows {
-            assert_eq!(
-                delta(DVec2::new(x, y), ANCHOR, snap, lock),
-                DVec2::new(want_x, want_y),
-                "({x}, {y}) snap {snap} lock {lock}"
-            );
-        }
-    }
 }

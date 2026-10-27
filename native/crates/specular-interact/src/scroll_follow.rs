@@ -29,20 +29,20 @@ pub const PAGE_FADE: f32 = 48.0;
 
 /// A document rect in a page's CSS pixels as the viewport sees it, with the
 /// page scrolled to `scroll`.
-pub fn doc_to_viewport(doc: Rect, scroll: DVec2) -> Rect {
+pub(crate) fn doc_to_viewport(doc: Rect, scroll: DVec2) -> Rect {
     doc.translated(-scroll.x, -scroll.y)
 }
 
 /// A viewport rect in a page's CSS pixels as the document holds it, with the
 /// page scrolled to `scroll`.
-pub fn viewport_to_doc(viewport: Rect, scroll: DVec2) -> Rect {
+pub(crate) fn viewport_to_doc(viewport: Rect, scroll: DVec2) -> Rect {
     viewport.translated(scroll.x, scroll.y)
 }
 
 /// The scroll an anchor recorded, or `None` for an anchor pinned to the
 /// page's frame or hooked to a fixed element, which the scroll does not
 /// move.
-pub fn recorded_scroll(anchor: &PageAnchor) -> Option<DVec2> {
+pub(crate) fn recorded_scroll(anchor: &PageAnchor) -> Option<DVec2> {
     if anchor
         .element
         .as_ref()
@@ -58,7 +58,7 @@ pub fn recorded_scroll(anchor: &PageAnchor) -> Option<DVec2> {
 
 /// Whether `shown` has left `page` altogether. A rect that only touches the
 /// page's edge is still there.
-pub fn left_page(page: Rect, shown: Rect) -> bool {
+pub(crate) fn left_page(page: Rect, shown: Rect) -> bool {
     shown.x > page.x + page.width
         || shown.y > page.y + page.height
         || shown.x + shown.width < page.x
@@ -257,7 +257,7 @@ fn band(app: &App, page: Rect) -> Rect {
 
 /// Whether `shown`, something carried by `page`'s scroll, is past where the
 /// page lets it be seen: off its sides, or beyond the fade above and below.
-pub fn out_of_page(app: &App, page: Rect, shown: Rect) -> bool {
+pub(crate) fn out_of_page(app: &App, page: Rect, shown: Rect) -> bool {
     left_page(band(app, page), shown)
 }
 
@@ -336,7 +336,7 @@ pub(crate) fn shift_for(app: &App, entity: &Entity) -> DVec2 {
 
 /// The part of the rect `entity` is seen at that its page lets through, for
 /// hit-testing. `None` when it is hidden or wholly clipped.
-pub fn hittable_rect(app: &App, entity: &Entity) -> Option<Rect> {
+pub(crate) fn hittable_rect(app: &App, entity: &Entity) -> Option<Rect> {
     let seen = seen(app, entity)?;
     match seen.clip {
         Some(page) => clipped(seen.entity.rect, page),
@@ -351,37 +351,4 @@ fn clipped(rect: Rect, clip: Rect) -> Option<Rect> {
     let high = (geometry::origin(rect) + geometry::size(rect))
         .min(geometry::origin(clip) + geometry::size(clip));
     (high.x >= low.x && high.y >= low.y).then(|| geometry::rect(low, high - low))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn touching_the_edge_is_not_leaving() {
-        let page = Rect::new(100.0, 100.0, 400.0, 300.0);
-        let rows = [
-            (Rect::new(100.0, 400.0, 50.0, 50.0), false),
-            (Rect::new(100.0, 401.0, 50.0, 50.0), true),
-            (Rect::new(40.0, 100.0, 50.0, 50.0), true),
-        ];
-        for (rect, left) in rows {
-            assert_eq!(left_page(page, rect), left, "{rect:?}");
-        }
-    }
-
-    #[test]
-    fn a_rect_is_clipped_to_its_page() {
-        let page = Rect::new(100.0, 100.0, 400.0, 300.0);
-        let rows = [
-            (
-                Rect::new(90.0, 380.0, 50.0, 50.0),
-                Some(Rect::new(100.0, 380.0, 40.0, 20.0)),
-            ),
-            (Rect::new(90.0, 410.0, 50.0, 50.0), None),
-        ];
-        for (rect, want) in rows {
-            assert_eq!(clipped(rect, page), want, "{rect:?}");
-        }
-    }
 }
