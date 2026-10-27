@@ -24,7 +24,9 @@ Event -> update(&mut App, Event) -> Vec<Effect>     pure, no I/O
 - `specular-sync` owns `CanvasSync`, a yrs mirror of one canvas's
   `Document` for editing it from several places at once (ADR 0048).
   Local commands go out as yrs updates and peers' updates come in as
-  commands. It is pure and not yet wired into the app.
+  commands. Interact's `shared` module holds one per shared canvas in
+  place of the plain `History`, and the shell carries `Effect::ShareSend`
+  (no transport yet).
 - `specular-scene` owns the `Scene` display list and `view`, one module per
   kind under `src/view/`.
 - `specular-api` turns an HTTP request and `&App` into a read answer or an

@@ -110,6 +110,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         Event::SpaceNeeded(ask) => app.space_ask = Some(ask),
         Event::AgentAct(act) => crate::presence::on_act(app, act, &mut effects),
         Event::Api(call) => api::run(app, call, &mut effects),
+        Event::Share(event) => crate::shared::on_event(app, event, &mut effects),
     }
     crate::showing::motion::interrupt(app, leaving, camera, app.space.switches() != switches);
     crate::showing::settle(app);
@@ -152,6 +153,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
     if !ticks {
         cursor::refresh(app, &mut effects);
     }
+    crate::shared::flush(app, &mut effects);
     effects
 }
 

@@ -16,6 +16,7 @@ use yrs::{
 
 use crate::fields::{self, Fields, ORDER};
 use crate::order;
+use crate::touched::{Shadow, Touched};
 
 /// Local edits that are undo steps.
 const LOCAL: &str = "specular:local";
@@ -76,6 +77,10 @@ pub struct CanvasSync<S = ()> {
     redo_states: Vec<Step<S>>,
     open: bool,
     revision: u64,
+    /// The document as last copied in or out.
+    shadow: Shadow,
+    /// The [`Document::stamp`] the shadow was last known to match.
+    seen: u64,
 }
 
 impl<S> std::fmt::Debug for CanvasSync<S> {
@@ -108,30 +113,22 @@ struct Dirty {
     annotation_order: bool,
 }
 
-/// The items a command touches, which are the ones to copy into the shared
-/// document after it runs.
-#[derive(Debug, Default)]
-struct Touched {
-    entities: BTreeSet<EntityId>,
-    edges: BTreeSet<EdgeId>,
-    annotations: BTreeSet<AnnotationId>,
-    notes: BTreeSet<String>,
-    order: bool,
-    annotation_order: bool,
-}
-
 impl<S: Clone + Default> CanvasSync<S> {
     /// A shared document holding `document`, for the peer that publishes
     /// it. Peers that join use [`join`](Self::join) instead, so that two
     /// copies of the same canvas are not merged item by item.
     pub fn new(document: &Document) -> Self {
-        let sync = Self::empty();
+        let mut sync = Self::empty();
         let touched = Touched::everything(document);
         {
             let mut txn = sync.doc.transact_mut_with(QUIET);
             sync.write(&mut txn, document, &touched);
         }
         sync.clear_dirty();
+        sync.shadow = Shadow::of(document);
+        sync.seen = document.stamp();
+        // The seed is the state a joining peer starts from, not an update.
+        sync.take_outgoing();
         sync
     }
 
@@ -214,6 +211,8 @@ impl<S: Clone + Default> CanvasSync<S> {
             redo_states: Vec::new(),
             open: false,
             revision: 0,
+            shadow: Shadow::default(),
+            seen: 0,
         }
     }
 
@@ -233,10 +232,7 @@ impl<S: Clone + Default> CanvasSync<S> {
         let touched = Touched::by(&command);
         // The step starts from what the document holds now, even if a drag
         // already shared frames past it, so that its undo comes back here.
-        {
-            let mut txn = self.doc.transact_mut_with(QUIET);
-            self.write(&mut txn, document, &touched);
-        }
+        self.reconcile(document);
         document.apply(command)?;
         let stack = self.undo.undo_stack().len();
         {
@@ -244,6 +240,9 @@ impl<S: Clone + Default> CanvasSync<S> {
             self.write(&mut txn, document, &touched);
         }
         self.clear_dirty();
+        self.shadow.update(document, &touched);
+        // Only this command changed the document since the reconcile.
+        self.seen = document.stamp();
         if self.undo.undo_stack().len() > stack {
             self.undo_states.push(Step {
                 after: before.clone(),
@@ -260,12 +259,33 @@ impl<S: Clone + Default> CanvasSync<S> {
     /// step: a frame of a drag, or anything else that changed the document
     /// outside [`apply`](Self::apply).
     pub fn record(&mut self, document: &Document, command: &Command) {
-        let touched = Touched::by(command);
+        self.copy_in(document, &Touched::by(command));
+    }
+
+    /// Shares whatever `document` holds that the shared document has not
+    /// seen, with no undo step. This finds changes made straight to the
+    /// document without being told about them, so a caller can run it after
+    /// every event instead of reporting each change with
+    /// [`record`](Self::record). It costs a comparison of every item when
+    /// nothing changed.
+    pub fn reconcile(&mut self, document: &Document) {
+        if document.stamp() == self.seen {
+            return;
+        }
+        let touched = self.shadow.changes(document);
+        if !touched.is_empty() {
+            self.copy_in(document, &touched);
+        }
+        self.seen = document.stamp();
+    }
+
+    fn copy_in(&mut self, document: &Document, touched: &Touched) {
         {
             let mut txn = self.doc.transact_mut_with(QUIET);
-            self.write(&mut txn, document, &touched);
+            self.write(&mut txn, document, touched);
         }
         self.clear_dirty();
+        self.shadow.update(document, touched);
     }
 
     /// Gives the latest step the state it left behind, as
@@ -291,6 +311,20 @@ impl<S: Clone + Default> CanvasSync<S> {
         self.step(document, false).map(|step| step.after)
     }
 
+    /// Whether the latest step is still waiting for [`settle`](Self::settle).
+    pub fn is_open(&self) -> bool {
+        self.open
+    }
+
+    /// Forgets every undo and redo step, as after the document was replaced
+    /// by a read of its file. The shared document is kept.
+    pub fn clear_undo(&mut self) {
+        self.undo.clear_all();
+        self.undo_states.clear();
+        self.redo_states.clear();
+        self.open = false;
+    }
+
     /// Whether [`undo`](Self::undo) has a step to try.
     pub fn can_undo(&self) -> bool {
         self.undo.can_undo()
@@ -309,6 +343,9 @@ impl<S: Clone + Default> CanvasSync<S> {
 
     fn step(&mut self, document: &mut Document, undoing: bool) -> Option<Step<S>> {
         self.open = false;
+        // Anything the document holds that the shared one lacks goes in
+        // first, so the step lands on what the document really holds.
+        self.reconcile(document);
         let (from, to) = if undoing {
             (self.undo.undo_stack().len(), self.undo.redo_stack().len())
         } else {
@@ -359,6 +396,7 @@ impl<S: Clone + Default> CanvasSync<S> {
         document: &mut Document,
     ) -> Result<Option<Command>, SyncError> {
         let update = Update::decode_v1(update).map_err(|e| SyncError::Decode(e.to_string()))?;
+        self.reconcile(document);
         {
             let mut txn = self.doc.transact_mut_with(REMOTE);
             txn.apply_update(update)
@@ -483,15 +521,24 @@ impl<S: Clone + Default> CanvasSync<S> {
 
     /// Applies to `document` whatever the last transactions changed in the
     /// shared document, and returns the commands that ran.
-    fn project(&self, document: &mut Document) -> Option<Command> {
+    /// Callers reconcile first, so the shadow matches the document going
+    /// in and still does coming out.
+    fn project(&mut self, document: &mut Document) -> Option<Command> {
         let dirty = std::mem::take(&mut *lock(&self.dirty));
+        let ran = self.project_dirty(document, &dirty);
+        self.shadow.update(document, &dirty.touched());
+        self.seen = document.stamp();
+        ran
+    }
+
+    fn project_dirty(&self, document: &mut Document, dirty: &Dirty) -> Option<Command> {
         let txn = self.doc.transact();
         let mut run = Run {
             document,
             ran: Vec::new(),
         };
-        self.project_stack(&txn, &dirty, &mut run);
-        self.project_annotations(&txn, &dirty, &mut run);
+        self.project_stack(&txn, dirty, &mut run);
+        self.project_annotations(&txn, dirty, &mut run);
         for file in &dirty.notes {
             let wanted = match self.notes.get(&txn, file) {
                 Some(Out::YText(text)) => Some(text.get_string(&txn)),
@@ -600,6 +647,23 @@ impl<S: Clone + Default> CanvasSync<S> {
     }
 }
 
+impl Dirty {
+    /// The items to copy back into the shadow once the document has them.
+    fn touched(&self) -> Touched {
+        fn ids<T: for<'a> From<&'a str> + Ord>(set: &BTreeSet<String>) -> BTreeSet<T> {
+            set.iter().map(|id| T::from(id.as_str())).collect()
+        }
+        Touched {
+            entities: ids(&self.entities),
+            edges: ids(&self.edges),
+            annotations: ids(&self.annotations),
+            notes: self.notes.clone(),
+            order: self.order,
+            annotation_order: self.annotation_order,
+        }
+    }
+}
+
 /// The document a projection changes, and the commands it ran.
 struct Run<'a> {
     document: &'a mut Document,
@@ -630,80 +694,6 @@ fn sorted<I>(
         (order.is_none(), order, id)
     });
     items
-}
-
-impl Touched {
-    fn everything(document: &Document) -> Self {
-        Self {
-            entities: document.entities().map(|e| e.id.clone()).collect(),
-            edges: document.edges().map(|e| e.id.clone()).collect(),
-            annotations: document
-                .annotations()
-                .iter()
-                .map(|a| a.id.clone())
-                .collect(),
-            notes: document.notes().map(|(file, _)| file.to_owned()).collect(),
-            order: true,
-            annotation_order: true,
-        }
-    }
-
-    fn by(command: &Command) -> Self {
-        let mut touched = Self::default();
-        touched.add(command);
-        touched
-    }
-
-    fn add(&mut self, command: &Command) {
-        match command {
-            Command::InsertEntity { entity, .. } => {
-                self.entities.insert(entity.id.clone());
-                self.order = true;
-            }
-            Command::RemoveEntity(id) => {
-                self.entities.insert(id.clone());
-                self.order = true;
-            }
-            Command::SetRect { id, .. }
-            | Command::SetLabel { id, .. }
-            | Command::SetParent { id, .. }
-            | Command::SetAnchor { id, .. }
-            | Command::SetKind { id, .. } => {
-                self.entities.insert(id.clone());
-            }
-            Command::InsertEdge { edge, .. } => {
-                self.edges.insert(edge.id.clone());
-                self.order = true;
-            }
-            Command::RemoveEdge(id) => {
-                self.edges.insert(id.clone());
-                self.order = true;
-            }
-            Command::ReplaceEdge(edge) => {
-                self.edges.insert(edge.id.clone());
-            }
-            Command::SetOrder(_) => self.order = true,
-            Command::InsertAnnotation { annotation, .. } => {
-                self.annotations.insert(annotation.id.clone());
-                self.annotation_order = true;
-            }
-            Command::RemoveAnnotation(id) => {
-                self.annotations.insert(id.clone());
-                self.annotation_order = true;
-            }
-            Command::ReplaceAnnotation(annotation) => {
-                self.annotations.insert(annotation.id.clone());
-            }
-            Command::SetNote { file, .. } => {
-                self.notes.insert(file.clone());
-            }
-            Command::Batch(commands) => {
-                for command in commands {
-                    self.add(command);
-                }
-            }
-        }
-    }
 }
 
 /// The commands that turn `document`'s entity `id` into `wanted`, field by

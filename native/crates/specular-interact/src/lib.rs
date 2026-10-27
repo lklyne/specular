@@ -92,6 +92,7 @@ mod scroll_follow;
 mod select;
 mod select_all;
 mod settings;
+mod shared;
 mod showing;
 mod sidebar;
 mod space;
@@ -190,6 +191,7 @@ pub use settings::{
     AboutRow, AppSettings, GeneralPane, HiddenCursors, SettingAction, SettingChoice, SettingOption,
     SettingToggle, SettingsModel, ShortcutRow, SpaceRow, TOOLS_DOCK_WIDTH, ToolsPlace, settings,
 };
+pub use shared::ShareEvent;
 pub use showing::turn::Turning;
 pub use showing::{Lens, SavedTab, Showing};
 pub use sidebar::{

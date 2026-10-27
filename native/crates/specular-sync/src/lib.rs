@@ -19,5 +19,6 @@
 mod fields;
 mod order;
 mod sync;
+mod touched;
 
 pub use sync::{CanvasSync, SyncError};

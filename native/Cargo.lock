@@ -7005,6 +7005,7 @@ dependencies = [
  "specular-agent",
  "specular-core",
  "specular-doc",
+ "specular-sync",
  "specular-testkit",
  "thiserror 2.0.21",
  "tracing",

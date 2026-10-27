@@ -112,6 +112,13 @@ impl<W: ShellWindow> Runtime<W> {
             }
             Effect::TrashCanvasFile { canvas, file } => self.trash_canvas_file(&canvas, &file),
             Effect::SaveSpaceMeta => self.save_space_meta(),
+            // No transport carries shared canvases yet (ADR 0048).
+            Effect::ShareSend { canvas, update } => {
+                tracing::debug!(
+                    "share update for {canvas}: {} bytes, not sent",
+                    update.len()
+                );
+            }
             Effect::LoadImage { image, file } => self.load_image(image, &file),
             Effect::RasterImage { image, file, size } => self.raster_image(image, &file, size),
             Effect::DropImage(image) => self.drop_image(image),

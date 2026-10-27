@@ -13,7 +13,9 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
-yrs = "0.28"
+# `sync` makes the document and its undo manager `Send`, so the app that
+# holds them can move between threads.
+yrs = { version = "0.28", features = ["sync"] }
 
 [dev-dependencies]
 specular-testkit = { workspace = true }

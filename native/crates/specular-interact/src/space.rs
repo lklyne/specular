@@ -1,8 +1,8 @@
 //! [`Space`]: the folder of canvases the app has open.
 //!
-//! Every canvas in the space is held whole: its [`Document`], its
-//! [`History`] and its own view (camera, selection and item tabs). Exactly one is
-//! active. The active canvas's state is [`App`]'s own `document`, `history`
+//! Every canvas in the space is held whole: its [`Document`], its undo
+//! history and its own view (camera, selection and item tabs). Exactly one
+//! is active. The active canvas's state is [`App`]'s own `document`, `history`
 //! and `session`, so everything that reads the app reads the active canvas
 //! with no indirection; the others are parked in their [`Canvas`] entry.
 //! Switching moves the three out and the other three in. Nothing is
@@ -14,7 +14,7 @@ mod ops;
 mod tab_ref;
 
 use specular_core::Camera;
-use specular_doc::{Document, History};
+use specular_doc::Document;
 
 pub(crate) use self::background::in_background;
 pub(crate) use self::names::DEFAULT_CANVAS_NAME;
@@ -86,7 +86,7 @@ enum CanvasState {
 #[derive(Debug, Clone, PartialEq, Default)]
 pub(crate) struct Parked {
     pub(crate) document: Document,
-    pub(crate) history: History<Selection>,
+    pub(crate) history: crate::shared::Undo,
     pub(crate) view: CanvasView,
 }
 
@@ -197,6 +197,25 @@ impl Space {
 
     pub(crate) fn index_of(&self, id: &CanvasId) -> Option<usize> {
         self.canvases.iter().position(|canvas| canvas.id == *id)
+    }
+
+    /// The background canvas `id`, whole.
+    pub(crate) fn parked_mut(&mut self, id: &CanvasId) -> Option<&mut Parked> {
+        let index = self.index_of(id)?;
+        match &mut self.canvases[index].state {
+            CanvasState::Parked(parked) => Some(parked),
+            CanvasState::Active => None,
+        }
+    }
+
+    /// Every background canvas, by id.
+    pub(crate) fn parked(&self) -> impl Iterator<Item = (&CanvasId, &Parked)> {
+        self.canvases
+            .iter()
+            .filter_map(|canvas| match &canvas.state {
+                CanvasState::Parked(parked) => Some((&canvas.id, &**parked)),
+                CanvasState::Active => None,
+            })
     }
 }
 

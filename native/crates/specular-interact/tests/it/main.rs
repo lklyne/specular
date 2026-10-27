@@ -12,6 +12,7 @@ mod motion;
 mod palette;
 mod physical_key;
 mod resizes;
+mod shared;
 mod space;
 mod sync;
 mod text_fit;

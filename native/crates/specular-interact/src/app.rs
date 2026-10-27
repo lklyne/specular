@@ -7,7 +7,7 @@ pub use self::session::{Focus, Selection, Session};
 use std::borrow::Cow;
 
 use specular_agent::{Repos, Threads};
-use specular_doc::{AnnotationId, Document, Entity, EntityId, History, Kind, Page};
+use specular_doc::{AnnotationId, Document, Entity, EntityId, Kind, Page};
 
 use crate::edit::Measurer;
 use crate::space::Space;
@@ -19,7 +19,7 @@ pub struct App {
     pub(crate) document: Document,
     /// Each step carries the selection from either side of it, so undo and
     /// redo put back what was selected along with what changed.
-    pub(crate) history: History<Selection>,
+    pub(crate) history: crate::shared::Undo,
     pub(crate) session: Session,
     /// The folder of canvases. The fields above are its active canvas.
     pub(crate) space: Space,
