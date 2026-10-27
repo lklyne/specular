@@ -1,0 +1,13 @@
+---
+source: crates/specular-scene/tests/view.rs
+expression: app.scene_snapshot()
+---
+canvas shadow 78,94 560x732 r=35 blur=16 fill=#000000cc
+canvas rect 78,78 560x732 r=35 fill=#292524
+canvas image 0 100,100 516x688 r=15.01
+screen rect 100,100 516x688 r=15.01 stroke=#ffffff0f/1.5/outside
+screen rect 78,78 560x732 r=35 stroke=#a6a09b/1/outside
+canvas shadow 778,94 560x732 r=35 blur=16 fill=#000000cc
+canvas rect 799,99 518x690 r=16.01 fill=#000000
+canvas image 1 800,100 516x688 r=15.01
+canvas image 2 778.25,77 561x733

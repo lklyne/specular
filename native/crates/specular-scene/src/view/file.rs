@@ -1,6 +1,6 @@
 //! File entities. A markdown file is a Document. An HTML file is a page,
 //! drawn as a link's page is. An image file that has loaded
-//! is its pixels. Every other file, and an image that is loading, missing
+//! is its pixels, on a device's screen when it is framed. Every other file, and an image that is loading, missing
 //! or unreadable, is a card with a file glyph and its name.
 
 use specular_doc::{Entity, FileRef, ObjectFit};
@@ -40,7 +40,10 @@ pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, file: &FileRef, scene: &m
                 // A gif is its frames, each its own texture.
                 let texture = key.texture(frame.app.image_frame(&file.file));
                 let draw = image::fitted(ImageId(texture), rect, width, height, fit);
-                scene.push(Item::canvas(draw));
+                match entity.shell() {
+                    Some(shell) => page::draw_framed_image(frame, entity, &shell, draw, scene),
+                    None => scene.push(Item::canvas(draw)),
+                }
                 return;
             }
             ImageState::Loading | ImageState::Missing | ImageState::Failed => {}

@@ -28,6 +28,7 @@ mod entity;
 mod geometry;
 mod history;
 mod id;
+mod image_frame;
 mod kinds;
 mod page_fields;
 mod presets;
@@ -45,6 +46,7 @@ pub use entity::{Entity, Kind};
 pub use geometry::{Point, Rect};
 pub use history::History;
 pub use id::{AnnotationId, EdgeId, EntityId, ItemId};
+pub use image_frame::{is_image_path, screenshot_device};
 pub use kinds::{
     BorderStyle, BrushType, ColorScheme, Drawing, FileRef, FillStyle, Group, LayoutMode, ObjectFit,
     Page, PageSource, Shape, ShapeKind, Stroke, Text, TextAlign, TextFont, TextStyle,

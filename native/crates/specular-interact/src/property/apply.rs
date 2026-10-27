@@ -5,7 +5,7 @@ use specular_doc::{
     Color, Drawing, Edge, Entity, FillStyle, Group, Kind, Rect, Shape, Text, TextStyle, WidthMode,
 };
 
-use super::{Property, page};
+use super::{Property, image, page};
 use crate::tool_defaults::{ToolDefaults, nearest_width};
 use crate::{App, edit, strokes};
 
@@ -31,7 +31,7 @@ pub(super) fn entity(
         Kind::Group(group) => set_group(property, group),
         Kind::Drawing(drawing) => set_drawing(property, drawing, &mut next.rect),
         Kind::Page(page) => page::set(property, page, &mut next.rect),
-        Kind::File(_) => false,
+        Kind::File(file) => image::set(property, file, next.rect),
     };
     applies.then_some(next)
 }

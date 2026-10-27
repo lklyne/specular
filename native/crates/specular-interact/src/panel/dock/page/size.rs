@@ -149,8 +149,9 @@ pub(super) fn size_dropdown(app: &App, single: Option<&Entity>) -> Control {
     );
     // How the pages are shown, under the sizes. Several pages share only
     // the frame, and a device has a colour only while it is drawn.
-    sections.push(frame_choice(app));
-    sections.extend(read::any_device_frame(app).then(|| frame_color_choice(app)));
+    sections.push(frame_choice(app, "page.frame"));
+    sections
+        .extend(read::any_device_frame(app).then(|| frame_color_choice(app, "page.frame-color")));
     if single.is_some() {
         sections.extend([orientation_choice(app), scheme_choice(app)]);
     }
@@ -199,10 +200,10 @@ fn choice<T: PartialEq + Copy>(
     }
 }
 
-/// The device frame the pages are drawn in.
-fn frame_choice(app: &App) -> DropdownSection {
+/// The device frame the selection is drawn in, named `id`.
+pub(in super::super) fn frame_choice(app: &App, id: &'static str) -> DropdownSection {
     choice(
-        "page.frame",
+        id,
         "Frame",
         read::device_frame(app),
         &[
@@ -214,10 +215,10 @@ fn frame_choice(app: &App) -> DropdownSection {
     )
 }
 
-/// The colour the devices are drawn in.
-fn frame_color_choice(app: &App) -> DropdownSection {
+/// The colour the devices are drawn in, named `id`.
+pub(in super::super) fn frame_color_choice(app: &App, id: &'static str) -> DropdownSection {
     choice(
-        "page.frame-color",
+        id,
         "Color",
         read::device_frame_color(app),
         &[
