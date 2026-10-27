@@ -49,7 +49,7 @@ The `Document` stays the app's only copy of the canvas. `CanvasSync` holds a yrs
 ## Consequences
 
 - A cloud transport now has something to carry. Nothing ships until the app uses `CanvasSync` for shared canvases (see below).
-- Two copies of state exist again, but only for a shared canvas, and the copy runs one way through `Command`s. A peer's change the document refuses (for example two groups moved into each other at the same time) stays in the yrs document and is skipped locally with a warning, so that peer's document can drift from the others. Repairing that drift is left for later.
+- Two copies of state exist again, but only for a shared canvas, and the copy runs one way through `Command`s. A peer's change the document refuses stays in the yrs document and is skipped locally with a warning. The one such case found so far, two groups moved into each other at the same time, is repaired: every peer breaks the loop at the group with the greatest id, takes the other move, and writes the result back, so all peers end the same. Any other refused change could still leave a peer's document drifting from the others.
 - Document-level `extra` (view state such as `appState`) is not shared.
 - A sticky's text and drawing points are last writer wins.
 - The yrs document keeps deleted items so that undo can restore them, so it grows with history. Compaction is a server concern.

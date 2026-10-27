@@ -525,17 +525,28 @@ impl<S: Clone + Default> CanvasSync<S> {
     /// in and still does coming out.
     fn project(&mut self, document: &mut Document) -> Option<Command> {
         let dirty = std::mem::take(&mut *lock(&self.dirty));
-        let ran = self.project_dirty(document, &dirty);
+        let Run {
+            mut ran, refused, ..
+        } = self.project_dirty(document, &dirty);
         self.shadow.update(document, &dirty.touched());
+        let repaired = repair_cycles(document, &refused, &mut ran);
+        if !repaired.is_empty() {
+            self.copy_in(document, &repaired);
+        }
         self.seen = document.stamp();
-        ran
+        match ran.len() {
+            0 => None,
+            1 => ran.pop(),
+            _ => Some(Command::Batch(ran)),
+        }
     }
 
-    fn project_dirty(&self, document: &mut Document, dirty: &Dirty) -> Option<Command> {
+    fn project_dirty<'a>(&self, document: &'a mut Document, dirty: &Dirty) -> Run<'a> {
         let txn = self.doc.transact();
         let mut run = Run {
             document,
             ran: Vec::new(),
+            refused: Vec::new(),
         };
         self.project_stack(&txn, dirty, &mut run);
         self.project_annotations(&txn, dirty, &mut run);
@@ -551,12 +562,7 @@ impl<S: Clone + Default> CanvasSync<S> {
                 });
             }
         }
-        let mut ran = run.ran;
-        match ran.len() {
-            0 => None,
-            1 => ran.pop(),
-            _ => Some(Command::Batch(ran)),
-        }
+        run
     }
 
     /// Entities, edges and their stack order.
@@ -668,18 +674,68 @@ impl Dirty {
 struct Run<'a> {
     document: &'a mut Document,
     ran: Vec<Command>,
+    refused: Vec<Command>,
 }
 
 impl Run<'_> {
     fn run(&mut self, command: Command) {
         match self.document.apply(command.clone()) {
             Ok(_) => self.ran.push(command),
-            // A peer's change can be refused here, such as a group moved
-            // into a group another peer moved into it. The shared document
-            // keeps it; this copy skips it.
-            Err(error) => tracing::warn!("a peer's change was refused: {error}"),
+            Err(error) => {
+                tracing::warn!("a peer's change was refused: {error}");
+                self.refused.push(command);
+            }
         }
     }
+}
+
+/// Two peers that each move a group into the other at the same time leave
+/// a loop in the shared document, which this document refuses, so each
+/// peer would keep a different half of it. Every peer breaks such a loop
+/// the same way: the group with the greatest id in it is taken out of its
+/// parent. The other move is then applied, and what was repaired is
+/// returned to be written back, so the shared document holds no loop
+/// either.
+fn repair_cycles(document: &mut Document, refused: &[Command], ran: &mut Vec<Command>) -> Touched {
+    let mut repaired = Touched::default();
+    for command in refused {
+        let Command::SetParent {
+            id,
+            parent: Some(parent),
+        } = command
+        else {
+            continue;
+        };
+        // The loop: `id`, `parent`, and the groups above `parent` up to `id`.
+        let mut members = vec![id.clone(), parent.clone()];
+        members.extend(
+            document
+                .ancestors(parent)
+                .map(|group| group.id.clone())
+                .take_while(|group| group != id),
+        );
+        if !document.ancestors(parent).any(|group| group.id == *id) {
+            continue;
+        }
+        let Some(breaker) = members.iter().max().cloned() else {
+            continue;
+        };
+        let mut steps = vec![Command::SetParent {
+            id: breaker.clone(),
+            parent: None,
+        }];
+        if breaker != *id {
+            steps.push(command.clone());
+        }
+        for step in steps {
+            if document.apply(step.clone()).is_ok() {
+                ran.push(step);
+            }
+        }
+        repaired.entities.insert(breaker);
+        repaired.entities.insert(id.clone());
+    }
+    repaired
 }
 
 /// `items` sorted by `key`, an order key and an id. Keyless items, which a
