@@ -93,12 +93,36 @@ pub(crate) fn create_page_texture(
 }
 
 /// Writes the regions of a validated `frame` into `texture`.
+/// What a CPU frame's BGRA texels are uploaded as. WebGL2 has no BGRA
+/// textures, so in a browser they are swizzled to RGBA on the way up.
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) const CPU_TEXEL_FORMAT: specular_core::PixelFormat =
+    specular_core::PixelFormat::Bgra8Unorm;
+/// What a CPU frame's BGRA texels are uploaded as. WebGL2 has no BGRA
+/// textures, so in a browser they are swizzled to RGBA on the way up.
+#[cfg(target_arch = "wasm32")]
+pub(crate) const CPU_TEXEL_FORMAT: specular_core::PixelFormat =
+    specular_core::PixelFormat::Rgba8Unorm;
+
+/// `bgra` as the bytes a texture of [`CPU_TEXEL_FORMAT`] takes.
+fn cpu_texels(bgra: &[u8]) -> std::borrow::Cow<'_, [u8]> {
+    if CPU_TEXEL_FORMAT == specular_core::PixelFormat::Bgra8Unorm {
+        return std::borrow::Cow::Borrowed(bgra);
+    }
+    let mut rgba = bgra.to_vec();
+    for texel in rgba.as_chunks_mut::<4>().0 {
+        texel.swap(0, 2);
+    }
+    std::borrow::Cow::Owned(rgba)
+}
+
 pub(crate) fn write_frame(
     queue: &wgpu::Queue,
     texture: &wgpu::Texture,
     frame: &CpuFrame,
     full: bool,
 ) {
+    let texels = cpu_texels(&frame.bgra);
     for region in upload_regions(frame, full) {
         let offset = u64::from(frame.stride) * region.y as u64 + u64::from(region.x as u32) * 4;
         queue.write_texture(
@@ -112,7 +136,7 @@ pub(crate) fn write_frame(
                 },
                 aspect: wgpu::TextureAspect::All,
             },
-            &frame.bgra,
+            &texels,
             wgpu::TexelCopyBufferLayout {
                 offset,
                 bytes_per_row: Some(frame.stride),

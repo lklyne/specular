@@ -1,6 +1,6 @@
 //! The textures the compositor holds for each page.
 
-use std::time::{Duration, Instant};
+use web_time::{Duration, Instant};
 
 use specular_core::{CssSize, PixelRect, PixelSize, SharedTexture};
 

@@ -4,7 +4,7 @@
 //! camera, so the flattening tolerance and the hairline floor are in pixels
 //! and canvas and screen items share one vertex buffer.
 
-use std::time::{Duration, Instant};
+use web_time::{Duration, Instant};
 
 use glam::Vec2;
 use lyon::math::{Point as LyonPoint, point};

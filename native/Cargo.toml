@@ -26,6 +26,7 @@ specular-bench = { path = "crates/specular-bench" }
 specular-testkit = { path = "crates/specular-testkit" }
 specular-app = { path = "crates/specular-app" }
 specular-prism = { path = "crates/specular-prism" }
+specular-web = { path = "crates/specular-web" }
 
 anyhow = "1.0.100"
 # The system clipboard, text and images.
@@ -80,8 +81,20 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 # Grapheme and word boundaries for the text editor.
 unicode-segmentation = "1.13"
+# `Instant` that works in a browser too: std's panics on wasm32. On every
+# other target it is std's own type, re-exported.
+web-time = "1.1"
 wgpu = "30.0"
 winit = "0.30.13"
+
+# The web viewer's browser half (`specular-web`, wasm32 only). wasm-bindgen
+# is pinned exactly: the `wasm-bindgen` CLI that writes the JavaScript glue
+# has to be the same version.
+console_error_panic_hook = "0.1.7"
+js-sys = "0.3.106"
+wasm-bindgen = "=0.2.129"
+wasm-bindgen-futures = "0.4.79"
+web-sys = "0.3.106"
 
 # CEF: only ever compiled with `--features cef` (its build script downloads the
 # CEF binary distribution). `accelerated_osr` is deliberately not enabled: the
@@ -130,3 +143,14 @@ debug = "line-tables-only"
 
 [profile.bench]
 inherits = "release"
+
+# The web viewer's WebAssembly (`web/build.sh`): what a share link downloads,
+# so size counts more than the last few percent of speed.
+[profile.web]
+inherits = "release"
+opt-level = "s"
+lto = true
+codegen-units = 1
+debug = false
+strip = true
+panic = "abort"

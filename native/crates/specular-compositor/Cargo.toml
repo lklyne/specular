@@ -16,6 +16,7 @@ glyphon = { workspace = true }
 lyon = { workspace = true }
 rustc-hash = { workspace = true }
 thiserror = { workspace = true }
+web-time = { workspace = true }
 tracing = { workspace = true }
 unicode-segmentation = { workspace = true }
 wgpu = { workspace = true }

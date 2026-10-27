@@ -15,7 +15,7 @@
 //! counts no ingests, so after [`IDLE_TIME`] without one it keeps only the
 //! surface it last showed: a still page pins one surface, not a pool.
 
-use std::time::{Duration, Instant};
+use web_time::{Duration, Instant};
 
 /// Most surfaces remembered per layer; above Chromium's capture-pool depth,
 /// so a steady pool never misses.

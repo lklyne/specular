@@ -6,7 +6,7 @@
 //! against Electron.
 
 use std::collections::BTreeMap;
-use std::time::{Duration, Instant};
+use web_time::{Duration, Instant};
 
 use glam::Vec2;
 

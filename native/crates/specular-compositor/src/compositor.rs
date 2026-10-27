@@ -4,7 +4,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::{Duration, Instant};
+use web_time::{Duration, Instant};
 
 use specular_core::{
     CpuFrame, FrameEvent, FrameLayer, PageEvent, PageFrame, PageId, PixelSize, SharedTexture,
