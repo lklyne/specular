@@ -19,6 +19,7 @@ specular-agent = { path = "crates/specular-agent" }
 specular-core = { path = "crates/specular-core" }
 specular-interact = { path = "crates/specular-interact" }
 specular-scene = { path = "crates/specular-scene" }
+specular-sync = { path = "crates/specular-sync" }
 specular-compositor = { path = "crates/specular-compositor" }
 specular-cef = { path = "crates/specular-cef" }
 specular-bench = { path = "crates/specular-bench" }

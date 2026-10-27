@@ -224,6 +224,13 @@ impl Entity {
             _ => Ok(JsonMap::new()),
         }
     }
+
+    /// [`to_node`](Self::to_node) without rounding numbers, so that
+    /// [`from_node`](Self::from_node) gives back an equal entity. For
+    /// moving an entity between documents, not for saving.
+    pub fn to_exact_node(&self) -> Result<JsonMap, CanvasError> {
+        write::write_node(self)
+    }
 }
 
 /// Writes the numbers in `value` as a save writes them: floats rounded to a

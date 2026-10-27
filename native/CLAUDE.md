@@ -21,6 +21,10 @@ Event -> update(&mut App, Event) -> Vec<Effect>     pure, no I/O
 - `specular-agent` owns the canvas agent threads: the `Threads` store, the
   thread files' shape, the prompts and the `claude` stream. It is pure.
   Interact holds the state and `chat(&App)` is the right panel's model.
+- `specular-sync` owns `CanvasSync`, a yrs mirror of one canvas's
+  `Document` for editing it from several places at once (ADR 0048).
+  Local commands go out as yrs updates and peers' updates come in as
+  commands. It is pure and not yet wired into the app.
 - `specular-scene` owns the `Scene` display list and `view`, one module per
   kind under `src/view/`.
 - `specular-api` turns an HTTP request and `&App` into a read answer or an
