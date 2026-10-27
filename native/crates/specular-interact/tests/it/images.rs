@@ -8,7 +8,7 @@ use std::sync::Arc;
 use glam::Vec2;
 use specular_core::Camera;
 use specular_doc::{Document, Entity, FileRef, Kind, Rect};
-use specular_interact::{Action, Effect, Event, ImageNotice, ImageState};
+use specular_interact::{Action, Effect, Event, ImageNotice, ImageState, ZOOM_SETTLE_MS};
 use specular_testkit::{TestApp, document};
 
 const BOX: Rect = Rect::new(100.0, 100.0, 240.0, 160.0);
@@ -82,12 +82,17 @@ fn an_svg_is_rastered_at_its_drawn_size_and_again_only_once_the_zoom_leaves_the_
     // Drawn 1.4 times as wide: still inside the band, so the raster stays.
     app.zoom(1.4).tick(START + 20).tick(START + 30);
     assert_eq!(rasters(&app.take_effects()), []);
-    // Drawn twice as wide is outside it, but not while the zoom is moving:
-    // the first look sees a new zoom, the second sees it held.
-    app.zoom(2.0).tick(START + 40);
+    // Drawn twice as wide is outside it, but not while the zoom is moving.
+    // A tick that comes between two steps of the gesture, as a gif's next
+    // frame does, sees the zoom where it was and is not the zoom stopping.
+    app.zoom(1.9).tick(START + 40).tick(START + 50);
+    app.zoom(2.0).tick(START + 60);
     assert_eq!(rasters(&app.take_effects()), []);
-    app.tick(START + 50);
+    assert!(app.app().zoom_moving());
+    // Held still for the settle time, it is rastered once at the new size.
+    app.tick(START + 60 + ZOOM_SETTLE_MS);
     assert_eq!(rasters(&app.take_effects()), [(480, 320)]);
+    assert!(!app.app().zoom_moving());
     // The old raster is still what is on screen until the new one is ready.
     assert!(matches!(
         state(&app, "art.svg"),

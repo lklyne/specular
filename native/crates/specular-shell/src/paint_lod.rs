@@ -23,8 +23,9 @@ const FRAME_RATE_HYSTERESIS: f32 = 0.1;
 /// How far below a texture boundary the scale must fall before shrinking.
 const TEXTURE_SHRINK_MARGIN: f32 = 0.8;
 
-/// Settle wait before a texture grows (`TEXTURE_GROW_SETTLE_MS`).
-const TEXTURE_GROW_SETTLE: Duration = Duration::from_millis(120);
+/// Settle wait before a texture grows (`TEXTURE_GROW_SETTLE_MS`): the
+/// wait canvas text and svgs keep before they are rastered for a new zoom.
+const TEXTURE_GROW_SETTLE: Duration = Duration::from_millis(specular_interact::ZOOM_SETTLE_MS);
 
 /// Settle wait before a texture shrinks (`TEXTURE_SHRINK_SETTLE_MS`).
 const TEXTURE_SHRINK_SETTLE: Duration = Duration::from_millis(600);

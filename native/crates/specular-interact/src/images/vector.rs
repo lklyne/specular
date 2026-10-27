@@ -37,16 +37,13 @@ fn drawn_width(file: &FileRef, rect: (f64, f64), image: (u32, u32), zoom: f32) -
 /// Asks for a new raster of each svg on screen whose drawn size is outside
 /// the band of its last one.
 ///
-/// Nothing is asked for while the zoom is moving: it has to be the same at
-/// two looks in a row, so a pinch or a wheel gesture rasters once, when it
-/// ends.
+/// Nothing is asked for while the zoom is moving ([`App::zoom_moving`]),
+/// so a pinch or a wheel gesture rasters once, when it has settled.
 pub(super) fn request(app: &mut App, effects: &mut Vec<Effect>) {
-    let zoom = app.session.camera.zoom;
-    let seen = std::mem::replace(&mut app.session.images.zoom_seen, zoom);
-    let held = (seen - zoom).abs() <= f32::EPSILON;
-    if !held {
+    if app.zoom_moving() {
         return;
     }
+    let zoom = app.session.camera.zoom;
     // The widest each svg is drawn, by file.
     let mut wanted: Vec<(String, f32)> = Vec::new();
     for (entity, file) in shown(app) {

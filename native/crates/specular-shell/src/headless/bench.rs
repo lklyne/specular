@@ -18,9 +18,12 @@ use specular_bench::{
 use specular_compositor::{RenderStats, SceneStats};
 use specular_core::{Camera, PageSource};
 use specular_doc::Document;
-use specular_interact::{Action, Event};
+use specular_interact::{Action, Event, ZOOM_SETTLE_MS};
 
 use super::{Headless, HeadlessArgs};
+
+/// The app's clock when the first profile starts.
+const START_MS: u64 = 1_700_000_000_000;
 
 /// The interval a 120 Hz display steps a gesture at.
 const STEP: Duration = Duration::from_nanos(8_333_333);
@@ -67,7 +70,16 @@ impl Headless {
         canvas: Option<String>,
     ) -> anyhow::Result<ProfileLine> {
         let mut camera = plan.start;
-        self.drive(|app| app.act(Action::SetCamera(camera)))?;
+        // The app's clock steps with the profile, a refresh a step, so a
+        // zoom settles as it does in a window.
+        let start_ms = self.runtime().app.session().now_ms.max(START_MS);
+        let clock = |step: usize| {
+            let since = STEP.saturating_mul(u32::try_from(step).unwrap_or(u32::MAX));
+            let since = u64::try_from(since.as_millis()).unwrap_or(u64::MAX);
+            start_ms + ZOOM_SETTLE_MS + since
+        };
+        self.drive(|app| app.tick(start_ms).act(Action::SetCamera(camera)))?;
+        self.drive(|app| app.tick(clock(0)))?;
         // One frame outside the record, so the profile starts warm as a
         // gesture on an open canvas does.
         self.frame()?;
@@ -77,13 +89,18 @@ impl Headless {
         let mut frames = PhaseRecorder::new(profile.id);
         let mut work = WorkRecorder::new();
         let mut next = Instant::now();
-        for step in build_steps(profile, STEP) {
+        for (index, step) in build_steps(profile, STEP).into_iter().enumerate() {
             let started = Instant::now();
             let before = camera;
             camera.apply_input_delta(step.to_input(Some(viewport / 2.0)));
-            if camera != before {
-                self.drive(|app| app.act(Action::SetCamera(camera)))?;
-            }
+            self.drive(|app| {
+                let app = app.tick(clock(index + 1));
+                if camera == before {
+                    app
+                } else {
+                    app.act(Action::SetCamera(camera))
+                }
+            })?;
             let update = started.elapsed();
             let (mut frame, stats) = self.frame()?;
             frame.update_ms = millis(update);

@@ -147,6 +147,8 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         effects.push(Effect::Save);
     }
     attach::settle(app, stepped, switched || opened, &mut effects);
+    let zoom = app.session.camera.zoom;
+    app.session.zoom_settle.observe(zoom, app.session.now_ms);
     if !ticks {
         cursor::refresh(app, &mut effects);
     }
@@ -350,6 +352,10 @@ fn on_tick(app: &mut App, unix_ms: u64, effects: &mut Vec<Effect>) {
     sync::on_tick(app, effects);
     crate::presence::on_tick(app, effects);
     crate::flick::on_tick(app, effects);
+    // A camera transition has taken this tick's step, which an svg's raster
+    // waits out like any other zoom.
+    let zoom = app.session.camera.zoom;
+    app.session.zoom_settle.observe(zoom, unix_ms);
     images::on_tick(app, effects);
     edit::note::autosave(app, effects);
     edit::autoscroll(app, elapsed);

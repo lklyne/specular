@@ -142,6 +142,8 @@ impl FrameDemand {
 struct Pulse {
     caret_shown: bool,
     camera: Camera,
+    /// The zoom settling is owed a frame that sharpens what it held back.
+    zoom_moving: bool,
     animation_frames: u64,
     agent_cursors: u64,
 }
@@ -151,6 +153,7 @@ impl Pulse {
         Self {
             caret_shown: app.caret_visible(),
             camera: app.session().camera,
+            zoom_moving: app.zoom_moving(),
             animation_frames: app.animation_epoch(),
             agent_cursors: app.agent_cursor_epoch(),
         }
@@ -244,6 +247,22 @@ mod tests {
         let now = Instant::now();
         assert!(demand.next_turn(&app, now) <= now + Duration::from_millis(30));
         assert_eq!(demand.next_turn(&off_screen, now), now + IDLE_TURN);
+    }
+
+    #[test]
+    fn a_zoom_is_held_through_a_pause_between_steps_and_sharpened_once_it_settles() {
+        let mut app = one_sticky();
+        app.tick(START_MS).zoom(1.5).tick(START_MS + 8);
+        let mut app = app.app().clone();
+        // A tick between two steps of the gesture changes nothing on screen.
+        assert!(app.zoom_moving());
+        assert!(!tick(&mut app, START_MS + 16).1);
+        assert!(app.zoom_moving());
+        // Held for the settle time, the zoom is still and the frame stale.
+        let settled = START_MS + 8 + specular_interact::ZOOM_SETTLE_MS;
+        assert!(tick(&mut app, settled).1);
+        assert!(!app.zoom_moving());
+        assert!(!tick(&mut app, settled + 8).1);
     }
 
     #[test]

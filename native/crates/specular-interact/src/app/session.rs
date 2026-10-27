@@ -85,6 +85,8 @@ pub struct Session {
     /// The wall clock at the latest tick, in milliseconds since the Unix
     /// epoch.
     pub now_ms: u64,
+    /// When the zoom last changed, for [`App::zoom_moving`](crate::App::zoom_moving).
+    pub(crate) zoom_settle: crate::zoom_settle::ZoomSettle,
     /// The page the pointer's moves are going to, which is owed a leave.
     pub(crate) inspect: crate::inspect::InspectState,
     pub(crate) pointer_page: Option<EntityId>,

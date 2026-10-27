@@ -108,6 +108,7 @@ mod url;
 mod verbs;
 mod viewport;
 mod zoom;
+mod zoom_settle;
 
 pub use anchors::Anchor;
 pub use api::{ApiCall, ApiOutcome, ApiRun};
@@ -219,3 +220,4 @@ pub use update::update;
 pub(crate) use url::resolve_address_input;
 pub use verbs::{delete_commands, move_commands};
 pub use zoom::fitting as fit_camera;
+pub use zoom_settle::ZOOM_SETTLE_MS;
