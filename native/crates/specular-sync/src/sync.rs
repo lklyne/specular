@@ -125,13 +125,15 @@ impl<S: Clone + Default> CanvasSync<S> {
     /// it. Peers that join use [`join`](Self::join) instead, so that two
     /// copies of the same canvas are not merged item by item.
     pub fn new(document: &Document) -> Self {
-        let sync = Self::empty();
+        let mut sync = Self::empty();
         let touched = Touched::everything(document);
         {
             let mut txn = sync.doc.transact_mut_with(QUIET);
             sync.write(&mut txn, document, &touched);
         }
         sync.clear_dirty();
+        // The seed is the state a joining peer starts from, not an update.
+        sync.take_outgoing();
         sync
     }
 
