@@ -126,6 +126,10 @@ pub fn is_image_file(file: &str) -> bool {
 /// The image files `document` shows, and the drawings of the realistic
 /// device frames round its pages and images, which are asked for by name
 /// as a file is. A frame that keeps no colour is drawn in `theme`'s.
+///
+/// A drawing is asked for as soon as a frame is shown that could be drawn
+/// with it, clay too: rastering one takes a moment, and the frame key
+/// steps clay before realistic, so the drawing is ready by then.
 fn wanted(document: &Document, theme: DeviceFrameColor) -> impl Iterator<Item = &str> {
     document.entities().flat_map(move |entity| {
         let file = match &entity.kind {
@@ -142,9 +146,10 @@ fn wanted(document: &Document, theme: DeviceFrameColor) -> impl Iterator<Item = 
     })
 }
 
-/// The drawing `entity`'s frame is shown as, if it is a realistic one.
+/// The drawing `entity`'s frame is or could be shown as, while it shows
+/// one.
 fn device_art(entity: &Entity) -> Option<DeviceArt> {
-    entity.shell().and_then(|shell| shell.art)
+    entity.shell().and(entity.device_art())
 }
 
 /// The device colour a page that keeps none is drawn in: the app theme's.
