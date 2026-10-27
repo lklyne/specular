@@ -1,0 +1,22 @@
+[package]
+name = "specular-sync"
+description = "A yrs mirror of the canvas document: local commands out as CRDT updates, remote updates in as commands, and undo that reverts only local edits."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+specular-doc = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+yrs = "0.28"
+
+[dev-dependencies]
+specular-testkit = { workspace = true }
+
+[lints]
+workspace = true
