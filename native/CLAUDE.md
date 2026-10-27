@@ -27,6 +27,12 @@ Event -> update(&mut App, Event) -> Vec<Effect>     pure, no I/O
   commands. It is pure and not yet wired into the app.
 - `specular-scene` owns the `Scene` display list and `view`, one module per
   kind under `src/view/`.
+- `specular-web` is the view-and-comment web viewer (ADR 0049): an `App`
+  driven by a browser, answered from a published bundle, drawn by the
+  compositor on WebGPU or WebGL2. Its rules (`Viewer`) are pure and tested
+  natively; the browser half (`web.rs`) builds only for wasm32. Keep the
+  crates it uses free of `std::time::Instant` (use `web_time`), threads
+  and the file system.
 - `specular-api` turns an HTTP request and `&App` into a read answer or an
   `Event::Api`, so an agent's write goes through `update` like a key press.
   The shell hosts the server (`specular-app/src/api/`).

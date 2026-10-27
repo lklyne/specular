@@ -329,7 +329,11 @@ Live cursors rendered on the canvas: agent sessions, so a watching user can foll
 
 ## Cloud sync & sharing
 
-Proposed, not yet built — see [ADR 0018](./docs/adr/0018-cloud-sync-and-canvas-sharing.md). The local-first disk path (`.canvas` files) remains the only shipping mode until the auth/token layer lands. Terms recorded ahead of implementation so planning shares vocabulary:
+Proposed, not yet built — see [ADR 0018](./docs/adr/0018-cloud-sync-and-canvas-sharing.md). The local-first disk path (`.canvas` files) remains the only shipping mode until the auth/token layer lands. Terms recorded ahead of implementation so planning shares vocabulary. The first slice, view and comment with no live editing, is built in the Rust tree ([ADR 0049](./docs/adr/0049-view-and-comment-web-client.md)):
+
+- **Published version** — one publish of a canvas: a manifest naming the `.canvas` text, a snapshot PNG per page and every file the canvas names, all as content-addressed assets. A link shows the newest. Built by `server/scripts/share.ts` until the desktop has a Share button.
+- **Web viewer** — the page a link opens (`web/`, `/c/<doc id>#t=<link token>`). It is the Rust `App` compiled to WebAssembly (`specular-web`), so the canvas is drawn by the same scene and compositor as on the desktop. A viewer can pan and comment but not edit.
+- **Web comment** — a comment made in the web viewer. Stored on the server as the annotation a `.canvas` holds, plus `authorName` and `via: "web"`, and merged into the file by id when the desktop pulls.
 
 - **Doc id** — the stable identifier for a canvas as a synced unit. One doc id ⇔ one Durable Object ⇔ one shared `Y.Doc`. Distinct from a tab id or a filename.
 - **Durable Object per canvas** — the Cloudflare unit that runs the Yjs sync server (`y-partykit`, WebSocket Hibernation) and persists the doc. The data plane: a canvas lives in the cloud whether or not a desktop app is connected.
