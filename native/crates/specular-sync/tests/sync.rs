@@ -139,6 +139,7 @@ fn edits_made_at_the_same_time_all_land_and_every_peer_agrees() {
     let mut ann = Peer::publish(start);
     let mut ben = Peer::join(&ann);
     let mut cat = Peer::join(&ann);
+    assert!(ann.sync.take_outgoing().is_none(), "the seed is not sent");
 
     // Different fields of one sticky, a removal, an insert, an edge and a
     // comment, all before anyone hears from anyone.
