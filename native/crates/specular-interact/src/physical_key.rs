@@ -182,6 +182,14 @@ impl PhysicalKey {
             .map_or(0, |&(_, mac, _)| mac)
     }
 
+    /// The key with DOM `KeyboardEvent.code` `code`, for a shell that runs
+    /// in a browser. `None` for a key the table does not hold.
+    pub fn from_dom_code(code: &str) -> Option<Self> {
+        KEYS.iter()
+            .map(|&(key, _, _)| key)
+            .find(|key| key.dom_code() == code)
+    }
+
     /// DOM `KeyboardEvent.code`.
     pub const fn dom_code(self) -> &'static str {
         match self {
