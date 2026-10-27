@@ -11,7 +11,8 @@ use glam::Vec2;
 use js_sys::Uint8Array;
 use specular_compositor::{Compositor, DotGrid, FrameView};
 use specular_core::{
-    FrameEvent, FrameLayer, Modifiers, PageEvent, PageFrame, PointerButton, PointerEventKind,
+    FrameEvent, FrameLayer, Modifiers, PageEvent, PageFrame, PixelSize, PointerButton,
+    PointerEventKind,
 };
 use specular_scene::{ImageId, ViewCache};
 use wasm_bindgen::prelude::*;
@@ -20,6 +21,7 @@ use web_time::Instant;
 
 use crate::keys::key_input;
 use specular_doc::AnnotationId;
+use specular_interact::ImageKey;
 
 use crate::viewer::{Access, Mode, Upload, Viewer};
 
@@ -147,7 +149,7 @@ impl WebViewer {
         gpu.config.width = ((width * scale).round() as u32).max(1);
         gpu.config.height = ((height * scale).round() as u32).max(1);
         gpu.surface.configure(&gpu.device, &gpu.config);
-        self.viewer.resize(self.viewport);
+        self.viewer.resize(self.viewport, scale);
     }
 
     /// A published image or markdown file, by the path the canvas writes.
@@ -163,6 +165,59 @@ impl WebViewer {
     /// A page's snapshot PNG.
     pub fn add_snapshot(&mut self, page: &str, png: &Uint8Array) {
         self.viewer.add_snapshot(page, png.to_vec());
+    }
+
+    /// The svgs to draw since the last call, as `{ image, file, width,
+    /// height }`: `image` is answered to [`WebViewer::svg_drawn`], and the
+    /// width and height in device pixels are absent for the svg's own size.
+    pub fn take_svg_jobs(&mut self) -> js_sys::Array {
+        (self.viewer.take_svg_jobs().into_iter())
+            .map(|job| {
+                let object = js_sys::Object::new();
+                let set = |key: &str, value: JsValue| {
+                    let _ = js_sys::Reflect::set(&object, &key.into(), &value);
+                };
+                set("image", JsValue::from(job.image.0));
+                set("file", job.file.into());
+                if let Some(want) = job.want {
+                    set("width", want.width.into());
+                    set("height", want.height.into());
+                }
+                object
+            })
+            .collect()
+    }
+
+    /// The svg `image` drawn into `width` by `height` pixels of RGBA, at
+    /// its own size `intrinsic_width` by `intrinsic_height`.
+    pub fn svg_drawn(
+        &mut self,
+        image: u64,
+        intrinsic_width: u32,
+        intrinsic_height: u32,
+        width: u32,
+        height: u32,
+        rgba: &Uint8Array,
+    ) {
+        self.viewer.svg_drawn(
+            ImageKey(image),
+            PixelSize::new(intrinsic_width, intrinsic_height),
+            PixelSize::new(width, height),
+            rgba.to_vec(),
+        );
+    }
+
+    /// The svg `image` could not be drawn.
+    pub fn svg_failed(&mut self, image: u64) {
+        self.viewer.svg_failed(ImageKey(image));
+    }
+
+    /// Two fingers on a touch screen, in CSS pixels: their midpoint is at
+    /// (`x`, `y`) and moved by (`dx`, `dy`), and they are `spread` times as
+    /// far apart as they were.
+    pub fn touch_gesture(&mut self, x: f32, y: f32, dx: f32, dy: f32, spread: f32) {
+        self.viewer
+            .touch_gesture(Vec2::new(x, y), Vec2::new(dx, dy), spread);
     }
 
     /// A pointer event: `kind` is `move`, `down`, `up` or `leave`, at CSS
@@ -184,9 +239,11 @@ impl WebViewer {
         self.viewer.pointer(kind, Vec2::new(x, y), modifiers(mods));
     }
 
-    /// A wheel event's deltas, in CSS pixels.
+    /// A wheel event's `deltaX` and `deltaY`, in CSS pixels. The DOM's
+    /// positive `deltaY` scrolls down, moving content up, the opposite of
+    /// the app's.
     pub fn wheel(&mut self, dx: f32, dy: f32, mods: u8) {
-        self.viewer.wheel(Vec2::new(dx, dy), modifiers(mods));
+        self.viewer.wheel(-Vec2::new(dx, dy), modifiers(mods));
     }
 
     /// A key event. Returns whether the viewer used it, so the page can

@@ -23,8 +23,8 @@ const DISCOVERY_FILES = ["specular-native-mcp.json", "specular-mcp.json"];
 interface State {
   /** Server URL → the owner's session cookie there. */
   sessions: Record<string, string>;
-  /** Absolute canvas path → where it was published. */
-  canvases: Record<string, { server: string; docId: string }>;
+  /** Absolute canvas path → where it was published, and as what. */
+  canvases: Record<string, { server: string; docId: string; title?: string }>;
 }
 
 interface Manifest {
@@ -197,13 +197,19 @@ async function publish(path: string, args: string[]): Promise<void> {
     await writeState(state);
   }
   const token = await editToken(server, cookie, docId);
+  const title =
+    option(args, "--title") ?? known?.title ?? path.split("/").pop()!.replace(/\.canvas$/, "");
+  if (title !== state.canvases[path].title) {
+    state.canvases[path].title = title;
+    await writeState(state);
+  }
 
   const text = await readFile(path, "utf8");
   const canvas = JSON.parse(text) as Json;
   const folder = dirname(path);
   const manifest: Manifest = {
     format: 1,
-    title: option(args, "--title") ?? path.split("/").pop()!.replace(/\.canvas$/, ""),
+    title,
     publishedAt: new Date().toISOString(),
     canvas: await upload(server, docId, token, new TextEncoder().encode(text), "application/json"),
     pages: {},
@@ -279,9 +285,16 @@ async function pull(path: string): Promise<void> {
   const merged = annotations.map((each) => byId.get(each.id) ?? each);
   const local = new Set(annotations.map((each) => each.id));
   const added = comments.filter((comment) => !local.has(comment.id));
+  const updated = annotations.filter(
+    (each) => byId.has(each.id) && JSON.stringify(byId.get(each.id)) !== JSON.stringify(each),
+  );
+  if (!added.length && !updated.length) {
+    console.log("No new comments.");
+    return;
+  }
   canvas.annotations = [...merged, ...added];
   await writeFile(path, JSON.stringify(canvas, null, 2));
-  console.log(`${added.length} new comments, ${comments.length - added.length} updated.`);
+  console.log(`${added.length} new comments, ${updated.length} updated.`);
 }
 
 async function links(path: string): Promise<void> {

@@ -24,4 +24,4 @@ mod web;
 
 pub use bundle::{FORMAT, Manifest, Snapshot};
 pub use keys::key_input;
-pub use viewer::{Access, Mode, Upload, Viewer, ViewerError};
+pub use viewer::{Access, Mode, SvgJob, Upload, Viewer, ViewerError};

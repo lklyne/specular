@@ -10,6 +10,13 @@ publish.workspace = true
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[features]
+default = ["webgl"]
+# Draws on WebGL2 where a browser has no WebGPU. Costs about 2 MB of
+# WebAssembly (wgpu's own backend and shader translator), so web/build.sh
+# also builds without it for the browsers that have WebGPU.
+webgl = ["wgpu/webgl"]
+
 [dependencies]
 specular-core = { workspace = true }
 specular-doc = { workspace = true }
@@ -32,7 +39,7 @@ wasm-bindgen = { workspace = true }
 wasm-bindgen-futures = { workspace = true }
 web-sys = { workspace = true, features = ["HtmlCanvasElement", "console"] }
 web-time = { workspace = true }
-wgpu = { workspace = true, features = ["webgpu", "webgl"] }
+wgpu = { workspace = true, features = ["webgpu"] }
 
 [dev-dependencies]
 specular-testkit = { workspace = true }

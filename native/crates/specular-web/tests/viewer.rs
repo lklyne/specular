@@ -6,9 +6,9 @@
 )]
 
 use glam::Vec2;
-use specular_core::{Modifiers, PageId, PointerButton, PointerEventKind};
+use specular_core::{Modifiers, PageId, PixelSize, PointerButton, PointerEventKind};
 use specular_doc::{Annotation, AnnotationAnchor, AnnotationId, Document, Rect};
-use specular_interact::NoteState;
+use specular_interact::{ImageState, NoteState};
 use specular_testkit::{document, note, page, sticky};
 use specular_web::{Access, Mode, Upload, Viewer, key_input};
 
@@ -47,7 +47,7 @@ fn open(canvas: &str, access: Access, seed: u64) -> Viewer {
 fn viewer(access: Access) -> Viewer {
     let mut viewer = open(&canvas(), access, 7);
     viewer.tick(1_761_500_000_000);
-    viewer.resize(Vec2::new(1200.0, 800.0));
+    viewer.resize(Vec2::new(1200.0, 800.0), 1.0);
     viewer
 }
 
@@ -138,6 +138,30 @@ fn a_drag_in_pan_mode_moves_the_camera_and_leaves_the_canvas() {
     assert_eq!(
         rect_of(&viewer, "s1"),
         Some(Rect::new(700.0, 100.0, 200.0, 200.0))
+    );
+}
+
+#[test]
+fn two_fingers_zoom_about_their_midpoint_and_pan() {
+    let mut viewer = viewer(Access::Comment);
+    let before = viewer.app().session().camera;
+    let centre = Vec2::new(600.0, 400.0);
+    let world = before.screen_to_world(centre);
+    viewer.touch_gesture(centre, Vec2::ZERO, 2.0);
+    let zoomed = viewer.app().session().camera;
+    assert!(
+        (zoomed.zoom / before.zoom - 2.0).abs() < 1e-3,
+        "{} then {}",
+        before.zoom,
+        zoomed.zoom
+    );
+    let stayed = zoomed.world_to_screen(world) - centre;
+    assert!(stayed.length() < 0.5, "the midpoint holds still: {stayed}");
+    viewer.touch_gesture(centre + Vec2::new(30.0, 40.0), Vec2::new(30.0, 40.0), 1.0);
+    let followed = viewer.app().session().camera.world_to_screen(world) - centre;
+    assert!(
+        (followed - Vec2::new(30.0, 40.0)).length() < 0.5,
+        "the canvas follows: {followed}"
     );
 }
 
@@ -249,6 +273,46 @@ fn a_page_shows_its_snapshot_once_it_arrives() {
     );
     assert_eq!(&frame.bgra[..4], &[0, 0, 128, 128], "premultiplied BGRA");
     assert_eq!((viewport.width, viewport.height), (400, 300));
+}
+
+#[test]
+fn the_page_draws_an_svg_and_draws_it_again_at_the_size_it_is_shown() {
+    let document: Document =
+        document([note("logo", Rect::new(0.0, 0.0, 800.0, 400.0), "logo.svg")]);
+    let mut viewer = open(&published(&document), Access::View, 1);
+    viewer.resize(Vec2::new(1200.0, 800.0), 2.0);
+    viewer.add_file("logo.svg", b"<svg/>".to_vec());
+    let first = viewer.take_svg_jobs();
+    assert_eq!(first.len(), 1, "{first:?}");
+    assert_eq!(first[0].file, "logo.svg");
+    viewer.svg_drawn(
+        first[0].image,
+        PixelSize::new(80, 40),
+        PixelSize::new(80, 40),
+        [255, 0, 0, 255].repeat(80 * 40),
+    );
+    let ready = matches!(
+        viewer.app().image("logo.svg").map(|image| &image.state),
+        Some(ImageState::Ready {
+            width: 80,
+            height: 40
+        })
+    );
+    assert!(
+        ready,
+        "the app knows the svg's own size: {:?}",
+        viewer.app().image("logo.svg")
+    );
+    let uploaded = (viewer.take_uploads().into_iter()).any(
+        |upload| matches!(upload, Upload::Image { size, .. } if size == PixelSize::new(80, 40)),
+    );
+    assert!(uploaded, "the drawing goes to the renderer");
+    viewer.tick(1_761_500_000_000);
+    let again = viewer.take_svg_jobs();
+    let Some(want) = again.last().and_then(|job| job.want) else {
+        panic!("drawn again at the size it is shown: {again:?}");
+    };
+    assert!(want.width > 800, "in device pixels: {want:?}");
 }
 
 #[test]

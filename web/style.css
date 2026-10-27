@@ -101,6 +101,7 @@ button {
   padding: 5px 10px;
   background: transparent;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 button.mode[aria-pressed="true"] {

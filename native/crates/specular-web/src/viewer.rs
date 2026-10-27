@@ -80,6 +80,18 @@ pub enum Upload {
     DropImage(ImageKey),
 }
 
+/// An svg for the page to draw: the file `file`, into `want` pixels or, when
+/// there is no `want`, at its own size.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SvgJob {
+    /// The texture's key.
+    pub image: ImageKey,
+    /// The path the canvas writes it with.
+    pub file: String,
+    /// The device pixels to fill, keeping its proportions.
+    pub want: Option<PixelSize>,
+}
+
 /// Why a viewer could not be made.
 #[derive(Debug, thiserror::Error)]
 pub enum ViewerError {
@@ -124,7 +136,12 @@ pub struct Viewer {
     snapshots: HashMap<EntityId, Arc<[u8]>>,
     hosts: HashMap<EntityId, Host>,
     next_page: u64,
-    images_waiting: Vec<(ImageKey, String)>,
+    /// Images to answer once their files arrive, with the device pixels an
+    /// svg is drawn at when the app asked for a size.
+    images_waiting: Vec<(ImageKey, String, Option<PixelSize>)>,
+    /// Svgs for the page to draw, and the ones it is drawing.
+    svg_jobs: Vec<SvgJob>,
+    svgs_drawing: HashSet<ImageKey>,
     notes_waiting: Vec<String>,
     uploads: Vec<Upload>,
     /// The comments the canvas was published with: the desktop's own.
@@ -140,6 +157,8 @@ pub struct Viewer {
     comments_waiting: bool,
     press: Option<Press>,
     viewport: Option<Vec2>,
+    /// Device pixels to a logical pixel.
+    scale: f32,
     cursor: specular_core::Cursor,
     /// Whether something changed that a frame has not shown yet.
     dirty: bool,
@@ -162,6 +181,8 @@ impl Viewer {
             hosts: HashMap::new(),
             next_page: 1,
             images_waiting: Vec::new(),
+            svg_jobs: Vec::new(),
+            svgs_drawing: HashSet::new(),
             notes_waiting: Vec::new(),
             uploads: Vec::new(),
             published: document.annotations().to_vec(),
@@ -171,6 +192,7 @@ impl Viewer {
             comments_waiting: false,
             press: None,
             viewport: None,
+            scale: 1.0,
             cursor: specular_core::Cursor::Default,
             dirty: true,
         };
@@ -194,11 +216,12 @@ impl Viewer {
         self.app.set_text_measure(measure);
     }
 
-    /// The canvas element is `viewport` logical pixels. The first size fits
-    /// the canvas in it.
-    pub fn resize(&mut self, viewport: Vec2) {
+    /// The canvas element is `viewport` logical pixels, each `scale` device
+    /// pixels. The first size fits the canvas in it.
+    pub fn resize(&mut self, viewport: Vec2, scale: f32) {
         let first = self.viewport.is_none();
         self.viewport = Some(viewport);
+        self.scale = scale;
         self.send(Event::ViewportResized(viewport));
         if first {
             self.act(Action::ZoomToFit);
@@ -270,6 +293,49 @@ impl Viewer {
     /// What the renderer has to be given since the last call.
     pub fn take_uploads(&mut self) -> Vec<Upload> {
         std::mem::take(&mut self.uploads)
+    }
+
+    /// The svgs the page has to draw since the last call. Each is answered
+    /// with [`Viewer::svg_drawn`] or [`Viewer::svg_failed`].
+    pub fn take_svg_jobs(&mut self) -> Vec<SvgJob> {
+        std::mem::take(&mut self.svg_jobs)
+    }
+
+    /// The page drew the svg `image` into `size` pixels of straight-alpha
+    /// RGBA. `intrinsic` is the size its own `width`, `height` and `viewBox`
+    /// give it.
+    pub fn svg_drawn(
+        &mut self,
+        image: ImageKey,
+        intrinsic: PixelSize,
+        size: PixelSize,
+        rgba: Vec<u8>,
+    ) {
+        if !self.svgs_drawing.remove(&image) {
+            return;
+        }
+        self.uploads.push(Upload::Image {
+            key: image,
+            size,
+            rgba,
+        });
+        self.send(Event::Image {
+            image,
+            notice: ImageNotice::Ready {
+                width: intrinsic.width,
+                height: intrinsic.height,
+            },
+        });
+    }
+
+    /// The page could not draw the svg `image`.
+    pub fn svg_failed(&mut self, image: ImageKey) {
+        if self.svgs_drawing.remove(&image) {
+            self.send(Event::Image {
+                image,
+                notice: ImageNotice::Failed,
+            });
+        }
     }
 
     /// The pointer moved, pressed or released at `screen`.
@@ -349,6 +415,26 @@ impl Viewer {
     /// the desktop; a browser reports a trackpad pinch that way too.
     pub fn wheel(&mut self, delta: Vec2, modifiers: Modifiers) {
         self.input(Event::Wheel(WheelInput { delta, modifiers }));
+    }
+
+    /// Two fingers on a touch screen: their midpoint is at `centre` and moved
+    /// by `moved`, and they are `spread` times as far apart as they were.
+    /// The canvas follows the fingers, zooming about their midpoint.
+    pub fn touch_gesture(&mut self, centre: Vec2, moved: Vec2, spread: f32) {
+        self.press = None;
+        self.send(Event::Pointer(PointerInput {
+            kind: PointerEventKind::Move,
+            screen: centre,
+            modifiers: Modifiers::default(),
+        }));
+        self.send(Event::Pinch {
+            delta: spread - 1.0,
+        });
+        self.send(Event::Wheel(WheelInput {
+            delta: moved,
+            modifiers: Modifiers::default(),
+        }));
+        self.dirty = true;
     }
 
     /// A key went down or up. Returns whether the viewer used it, so the
@@ -564,12 +650,13 @@ impl Viewer {
                     }
                 }
             }
-            Effect::LoadImage { image, file } => {
-                self.images_waiting.push((image, file));
-                self.answer_waiting();
-            }
+            Effect::LoadImage { image, file } => self.ask_image(image, file, None),
+            Effect::RasterImage { image, file, size } => self.ask_image(image, file, Some(size)),
             Effect::DropImage(image) => {
-                self.images_waiting.retain(|(waiting, _)| *waiting != image);
+                self.images_waiting
+                    .retain(|(waiting, ..)| *waiting != image);
+                self.svg_jobs.retain(|job| job.image != image);
+                self.svgs_drawing.remove(&image);
                 self.uploads.push(Upload::DropImage(image));
             }
             Effect::LoadNote { file } => {
@@ -589,7 +676,7 @@ impl Viewer {
             }),
             Effect::SetCursor(cursor) => self.cursor = cursor,
             // There is no page to talk to, no disk, no clipboard and no
-            // agent; an svg is not drawn yet, so never drawn again either.
+            // agent.
             Effect::ApiReply { .. }
             | Effect::AgentGo { .. }
             | Effect::Navigate { .. }
@@ -613,7 +700,6 @@ impl Viewer {
             | Effect::ReadClipboard
             | Effect::WriteAsset { .. }
             | Effect::CopyAsset { .. }
-            | Effect::RasterImage { .. }
             | Effect::WriteNote { .. }
             | Effect::CreateNote { .. }
             | Effect::InspectAt { .. }
@@ -640,6 +726,16 @@ impl Viewer {
         }
     }
 
+    /// Answers `image` once its file arrives, an svg drawn at `size`
+    /// logical pixels when the app asks for one. A browser draws svgs, with
+    /// its own fonts, so they are handed to the page.
+    fn ask_image(&mut self, image: ImageKey, file: String, size: Option<PixelSize>) {
+        let device = |logical: u32| ((logical as f32 * self.scale).ceil() as u32).max(1);
+        let want = size.map(|size| PixelSize::new(device(size.width), device(size.height)));
+        self.images_waiting.push((image, file, want));
+        self.answer_waiting();
+    }
+
     /// Answers the images and Documents asked for whose files have arrived,
     /// and, once every file has, the ones that are not there.
     fn answer_waiting(&mut self) {
@@ -647,8 +743,20 @@ impl Viewer {
         let complete = self.files_complete;
         let files = &self.files;
         let uploads = &mut self.uploads;
-        self.images_waiting.retain(|(image, file)| {
+        let svg_jobs = &mut self.svg_jobs;
+        let svgs_drawing = &mut self.svgs_drawing;
+        self.images_waiting.retain(|(image, file, want)| {
             let notice = match files.get(file) {
+                Some(_) if is_svg(file) => {
+                    svg_jobs.retain(|job| job.image != *image);
+                    svg_jobs.push(SvgJob {
+                        image: *image,
+                        file: file.clone(),
+                        want: *want,
+                    });
+                    svgs_drawing.insert(*image);
+                    return false;
+                }
                 Some(bytes) => match decode(bytes) {
                     Some((size, rgba)) => {
                         uploads.push(Upload::Image {
@@ -732,6 +840,12 @@ fn with_comments(mut document: Document, comments: Vec<Annotation>) -> Document 
         });
     }
     document
+}
+
+/// Whether the file at `path` is an svg.
+fn is_svg(path: &str) -> bool {
+    path.rsplit_once('.')
+        .is_some_and(|(_, extension)| extension.eq_ignore_ascii_case("svg"))
 }
 
 /// An image file's first frame as straight-alpha RGBA.

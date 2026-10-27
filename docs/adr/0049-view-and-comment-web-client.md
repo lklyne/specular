@@ -35,9 +35,9 @@ The Rust core (`specular-doc`, `-interact`, `-scene`, `-compositor`) compiles fo
 
 ## Consequences
 
-- The WebAssembly is about 10 MB (4 MB gzipped), 3.6 MB of it the bundled fonts. A font subset or lazy loading would cut it.
-- SVG files are not drawn on the web yet (`resvg`'s system fonts are off there), and an animated GIF shows its first frame.
+- The WebAssembly is 5.9 MB for a browser with WebGPU and 7.9 MB for one without, which also carries wgpu's WebGL2 backend and shader translator; `web/build.sh` builds both and the page loads the one it can use. The fonts in it are the bundled ones cut to Latin, Greek, Cyrillic and common symbols (`specular-compositor/fonts/web`), since a browser lends WebAssembly no system fonts to fall back on anyway.
+- The browser draws SVG files, not `resvg`: the viewer asks the page for a raster at the size the app wants, as the desktop's loader is asked, and the page draws it with an `<img>`, which runs no script and fetches nothing. That costs no WebAssembly (`resvg` and its text stack were 3.4 MB) and sets SVG text in the viewer's own system fonts. An animated GIF shows its first frame.
 - Pages are only as fresh as the last publish. Their snapshots come from the running app's `/pages/screenshot`; with the app closed a page publishes as an empty frame.
-- Touch can pan but not pinch. Text typed through an input method (IME) does not reach a comment.
+- On a touch screen one finger acts as the mouse and two pan and pinch-zoom. Text typed through an input method (IME) does not reach a comment.
 - Publishing is a script (`server/scripts/share.ts`) until the desktop has a Share button. It keeps the owner's session in `~/.specular/share.json`, never beside the canvas.
 - `std::time::Instant` panics on wasm32, so the compositor and `specular-core` use `web-time`'s, which is std's own type on every other target.

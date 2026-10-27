@@ -60,3 +60,5 @@ jobs:
           workspaces: native
       # The browser half of specular-web only builds for wasm32.
       - run: cargo clippy -p specular-web --target wasm32-unknown-unknown --locked -- -D warnings
+      # The build for browsers with WebGPU, without the WebGL2 backend.
+      - run: cargo clippy -p specular-web --target wasm32-unknown-unknown --no-default-features --locked -- -D warnings

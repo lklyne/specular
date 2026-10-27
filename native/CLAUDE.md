@@ -32,7 +32,8 @@ Event -> update(&mut App, Event) -> Vec<Effect>     pure, no I/O
   compositor on WebGPU or WebGL2. Its rules (`Viewer`) are pure and tested
   natively; the browser half (`web.rs`) builds only for wasm32. Keep the
   crates it uses free of `std::time::Instant` (use `web_time`), threads
-  and the file system.
+  and the file system. Its fonts are `specular-compositor/fonts/web`, made by
+  `subset.sh` there: run it again when a bundled font changes.
 - `specular-api` turns an HTTP request and `&App` into a read answer or an
   `Event::Api`, so an agent's write goes through `update` like a key press.
   The shell hosts the server (`specular-app/src/api/`).

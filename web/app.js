@@ -4,9 +4,11 @@
 // (native/crates/specular-web, built into ./pkg), and comments go to and come
 // from the server. Every route used here is in server/src/routes.ts.
 
-import init, { WebViewer } from "./pkg/specular_web.js";
-
 const POLL_MS = 5000;
+/** How far a finger may move, in CSS pixels, and still be a tap. */
+const TOUCH_SLOP = 6;
+/** The longest side of an svg's raster, as on the desktop. */
+const SVG_MAX_SIDE = 4096;
 const NAME_KEY = "specular.name";
 
 const $ = (id) => document.getElementById(id);
@@ -22,9 +24,23 @@ const state = {
   comments: [],
   /** Comments made here that are on their way to the server. */
   sending: [],
+  /** Each published svg, as a URL an <img> can load, by its path. */
+  svgs: new Map(),
   showResolved: false,
   focused: null,
 };
+
+/**
+ * The viewer's module. A browser with WebGPU gets the build without WebGL2,
+ * which is about 2 MB smaller; the rest get the one that can draw on either.
+ */
+async function loadViewer() {
+  const adapter = await navigator.gpu?.requestAdapter().catch(() => null);
+  const name = adapter ? "specular_web_webgpu" : "specular_web";
+  const module = await import(`./pkg/${name}.js`);
+  await module.default();
+  return module;
+}
 
 function show(message, isError = false) {
   status.textContent = message;
@@ -101,8 +117,8 @@ async function main() {
   document.title = `${manifest.title || "Canvas"} · Specular`;
   $("mode-comment").hidden = !state.canComment;
 
-  const [, canvasText] = await Promise.all([
-    init(),
+  const [{ WebViewer }, canvasText] = await Promise.all([
+    loadViewer(),
     asset(manifest.canvas).then((bytes) => new TextDecoder().decode(bytes)),
   ]);
   sizeCanvas();
@@ -134,10 +150,42 @@ function loadFiles(manifest) {
   );
   const files = Object.entries(manifest.files || {}).map(([path, hash]) =>
     asset(hash)
-      .then((bytes) => viewer.add_file(path, bytes))
+      .then((bytes) => {
+        if (/\.svg$/i.test(path)) {
+          state.svgs.set(path, URL.createObjectURL(new Blob([bytes], { type: "image/svg+xml" })));
+        }
+        viewer.add_file(path, bytes);
+      })
       .catch((error) => console.warn(`file ${path}:`, error)),
   );
   Promise.all([...pages, ...files]).then(() => viewer.files_complete());
+}
+
+/**
+ * Draws an svg the viewer asked for, as the desktop does: filling the device
+ * pixels asked for (or at its own size), keeping its proportions, and at
+ * most SVG_MAX_SIDE on its longer side. An <img> draws it with no scripts
+ * and nothing fetched.
+ */
+async function drawSvg({ image, file, width, height }) {
+  try {
+    const img = new Image();
+    img.src = state.svgs.get(file);
+    await img.decode();
+    const ownWidth = Math.max(1, Math.round(img.naturalWidth));
+    const ownHeight = Math.max(1, Math.round(img.naturalHeight));
+    let scale = width ? Math.max(width / ownWidth, height / ownHeight) : 1;
+    scale = Math.min(scale, SVG_MAX_SIDE / Math.max(ownWidth, ownHeight));
+    const w = Math.max(1, Math.ceil(ownWidth * scale));
+    const h = Math.max(1, Math.ceil(ownHeight * scale));
+    const context = new OffscreenCanvas(w, h).getContext("2d");
+    context.drawImage(img, 0, 0, w, h);
+    const { data } = context.getImageData(0, 0, w, h);
+    state.viewer.svg_drawn(image, ownWidth, ownHeight, w, h, new Uint8Array(data.buffer));
+  } catch (error) {
+    console.warn(`svg ${file}:`, error);
+    state.viewer.svg_failed(image);
+  }
 }
 
 function sizeCanvas() {
@@ -157,6 +205,7 @@ function frame() {
   const viewer = state.viewer;
   try {
     viewer.frame(Date.now());
+    for (const job of viewer.take_svg_jobs()) drawSvg(job);
     canvas.style.cursor = viewer.cursor();
     sendNewComments();
     const focused = viewer.focused_comment() ?? null;
@@ -187,21 +236,84 @@ function editingText(event) {
   return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
 }
 
+/**
+ * Touch: one finger is the mouse, two pan and pinch-zoom the canvas. A
+ * finger's press waits until it moves or lifts, so a second finger landing
+ * makes a pinch rather than a tap or the start of a comment.
+ */
+function touchInput(viewer) {
+  const fingers = new Map();
+  let waiting = null;
+  let pressed = null;
+  let gesture = null;
+  const spanOf = () => {
+    const [[ax, ay], [bx, by]] = [...fingers.values()];
+    return { x: (ax + bx) / 2, y: (ay + by) / 2, apart: Math.hypot(bx - ax, by - ay) || 1 };
+  };
+  const press = () => {
+    viewer.pointer("down", ...waiting.at, 0, 0);
+    pressed = waiting.id;
+    waiting = null;
+  };
+  return {
+    down(event) {
+      fingers.set(event.pointerId, local(event));
+      if (fingers.size === 1 && !gesture) {
+        waiting = { id: event.pointerId, at: local(event) };
+      } else if (fingers.size === 2 && pressed === null) {
+        waiting = null;
+        gesture = spanOf();
+      }
+    },
+    move(event) {
+      if (!fingers.has(event.pointerId)) return;
+      fingers.set(event.pointerId, local(event));
+      if (gesture && fingers.size >= 2) {
+        const now = spanOf();
+        viewer.touch_gesture(now.x, now.y, now.x - gesture.x, now.y - gesture.y, now.apart / gesture.apart);
+        gesture = now;
+        return;
+      }
+      if (waiting?.id === event.pointerId) {
+        const [x, y] = local(event);
+        if (Math.hypot(x - waiting.at[0], y - waiting.at[1]) < TOUCH_SLOP) return;
+        press();
+      }
+      if (pressed === event.pointerId) viewer.pointer("move", ...local(event), 0, 0);
+    },
+    up(event) {
+      fingers.delete(event.pointerId);
+      if (waiting?.id === event.pointerId) press();
+      if (pressed === event.pointerId) {
+        viewer.pointer("up", ...local(event), 0, 0);
+        pressed = null;
+      }
+      // The gesture lasts until every finger has lifted.
+      if (fingers.size === 0) gesture = null;
+    },
+  };
+}
+
 function wireInput() {
   const viewer = state.viewer;
+  const touch = touchInput(viewer);
   canvas.addEventListener("pointerdown", (event) => {
     canvas.focus();
     canvas.setPointerCapture(event.pointerId);
-    viewer.pointer("down", ...local(event), event.button, modifiers(event));
     event.preventDefault();
+    if (event.pointerType === "touch") return touch.down(event);
+    viewer.pointer("down", ...local(event), event.button, modifiers(event));
   });
   canvas.addEventListener("pointermove", (event) => {
+    if (event.pointerType === "touch") return touch.move(event);
     viewer.pointer("move", ...local(event), event.button, modifiers(event));
   });
   canvas.addEventListener("pointerup", (event) => {
+    if (event.pointerType === "touch") return touch.up(event);
     viewer.pointer("up", ...local(event), event.button, modifiers(event));
   });
   canvas.addEventListener("pointercancel", (event) => {
+    if (event.pointerType === "touch") return touch.up(event);
     viewer.pointer("up", ...local(event), event.button, modifiers(event));
   });
   canvas.addEventListener("pointerleave", (event) => {
