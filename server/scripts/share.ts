@@ -4,8 +4,14 @@
 // page snapshots, the running app's local API.
 //
 //   node scripts/share.ts publish <file.canvas> [--server <url>] [--title <name>]
+//   node scripts/share.ts live <file.canvas> [--server <url>] [--title <name>]
 //   node scripts/share.ts pull <file.canvas>
 //   node scripts/share.ts links <file.canvas>
+//
+// `live` publishes, then connects the canvas open in the app to its live
+// room, so edits reach every peer and the web viewer as they happen
+// (ADR 0050). It prints an edit link for another app to join with
+// `specular share join <link>`.
 //
 // The owner's session and which doc each canvas was published as are kept
 // in ~/.specular/share.json, never next to the canvas, so a shared folder
@@ -183,7 +189,7 @@ function option(args: string[], name: string): string | undefined {
   return index >= 0 ? args[index + 1] : undefined;
 }
 
-async function publish(path: string, args: string[]): Promise<void> {
+async function publish(path: string, args: string[], links = true): Promise<void> {
   const state = await readState();
   const known = state.canvases[path];
   const server = (option(args, "--server") ?? known?.server ?? DEFAULT_SERVER).replace(/\/$/, "");
@@ -249,19 +255,61 @@ async function publish(path: string, args: string[]): Promise<void> {
     `Published ${manifest.title}: ${Object.keys(manifest.pages).length} page snapshots, ` +
       `${Object.keys(manifest.files).length} files.`,
   );
-  await printLinks(server, cookie, docId);
+  if (links) await printLinks(server, cookie, docId);
 }
 
-async function printLinks(server: string, cookie: string, docId: string): Promise<void> {
-  for (const scope of ["comment", "view"]) {
-    const res = await call(`${server}/docs/${docId}/links`, {
-      method: "POST",
-      headers: { cookie, origin: server, "content-type": "application/json" },
-      body: JSON.stringify({ scope }),
-    });
-    const link = (await res.json()) as { url: string };
-    console.log(`  ${scope === "comment" ? "Can comment" : "View only  "}  ${server}${link.url}`);
+const LINK_LABELS: Record<string, string> = {
+  edit: "Can edit   ",
+  comment: "Can comment",
+  view: "View only  ",
+};
+
+async function link(server: string, cookie: string, docId: string, scope: string): Promise<string> {
+  const res = await call(`${server}/docs/${docId}/links`, {
+    method: "POST",
+    headers: { cookie, origin: server, "content-type": "application/json" },
+    body: JSON.stringify({ scope }),
+  });
+  return `${server}${((await res.json()) as { url: string }).url}`;
+}
+
+async function printLinks(
+  server: string,
+  cookie: string,
+  docId: string,
+  scopes = ["comment", "view"],
+): Promise<void> {
+  for (const scope of scopes) {
+    console.log(`  ${LINK_LABELS[scope]}  ${await link(server, cookie, docId, scope)}`);
   }
+}
+
+/**
+ * Publishes, then has the app connect the canvas it shows to the doc's
+ * live room through an edit link. The canvas must be the one open.
+ */
+async function live(path: string, args: string[]): Promise<void> {
+  await publish(path, args, false);
+  const state = await readState();
+  const known = state.canvases[path];
+  const cookie = await session(state, known.server);
+  const edit = await link(known.server, cookie, known.docId, "edit");
+  const app = await localApp();
+  if (!app) {
+    console.warn("  the app is not running: open the canvas, then run");
+    console.warn(`    specular share ${edit}`);
+  } else {
+    const res = await fetch(`${app.url}/share`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-specular-secret": app.secret },
+      body: JSON.stringify({ link: edit }),
+    });
+    const body = await res.text();
+    if (!res.ok) fail(`the app would not share: ${body}`);
+    console.log("Live: the canvas open in the app is shared.");
+  }
+  await printLinks(known.server, cookie, known.docId, ["edit", "comment", "view"]);
+  console.log("  Another app joins with: specular share join <the Can edit link>");
 }
 
 /**
@@ -305,11 +353,12 @@ async function links(path: string): Promise<void> {
 
 const [command, file, ...rest] = process.argv.slice(2);
 if (!command || !file) {
-  fail("usage: share.ts publish|pull|links <file.canvas> [--server <url>] [--title <name>]");
+  fail("usage: share.ts publish|live|pull|links <file.canvas> [--server <url>] [--title <name>]");
 }
 const path = resolve(file);
 const commands: Record<string, () => Promise<void>> = {
   publish: () => publish(path, rest),
+  live: () => live(path, rest),
   pull: () => pull(path),
   links: () => links(path),
 };

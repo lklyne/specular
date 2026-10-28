@@ -24,6 +24,7 @@ mod repos_run;
 mod runtime;
 mod scripted;
 mod settings;
+mod share_run;
 mod shots;
 mod space_choice;
 mod space_run;

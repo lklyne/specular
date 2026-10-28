@@ -4,6 +4,8 @@ export interface Env {
   ASSETS: R2Bucket;
   /** The web viewer's static files (`web/`), served for every other path. */
   WEB?: Fetcher;
+  /** One live room per shared canvas, named by its doc id. */
+  LIVE_ROOM: DurableObjectNamespace;
   BETTER_AUTH_SECRET: string;
   BETTER_AUTH_URL: string;
 }

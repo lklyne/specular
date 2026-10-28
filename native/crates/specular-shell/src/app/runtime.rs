@@ -130,6 +130,8 @@ pub struct Runtime<W> {
     pub(crate) note_heights: HashMap<EntityId, f32>,
     /// What `view` keeps from one frame to the next.
     pub(crate) view_cache: specular_scene::ViewCache,
+    /// The live room connection of each shared canvas.
+    pub(crate) shares: super::share_run::Shares,
     /// The `claude` runs in flight, one a thread.
     pub(crate) agents: AgentRuns,
     /// The system clipboard, once something has been copied or pasted.
@@ -214,6 +216,7 @@ impl<W: ShellWindow> Runtime<W> {
             note_loader: note_run::start_loader(space_folder),
             note_heights: HashMap::new(),
             view_cache: specular_scene::ViewCache::default(),
+            shares: super::share_run::Shares::default(),
             agents: agent_run::start_runs(options.agents),
             clipboard: None,
             scripted_clipboard: (!options.writes).then(super::scripted::HeldClipboard::default),

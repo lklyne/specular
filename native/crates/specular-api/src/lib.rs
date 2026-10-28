@@ -33,6 +33,7 @@ mod patch;
 mod placement;
 mod presets;
 mod reply;
+mod share;
 mod tabs;
 mod tasks;
 mod unported;
@@ -236,6 +237,9 @@ impl Api {
             (Get, ["health"]) => Ok(Step::Answer(json!({ "version": VERSION }))),
             (Get, ["canvas"]) => canvas::read(app, user),
             (Get, ["tabs"]) => Ok(Step::Answer(tabs::identity(user))),
+            (Get, ["share"]) => Ok(Step::Answer(share::status(user))),
+            (Post, ["share"]) => share::start(request),
+            (Post, ["share", "stop"]) => Ok(share::stop()),
             (Post, ["tabs"]) => Ok(tabs::create(request)),
             (Post, ["tabs", "delete"]) => tabs::delete(user, request),
             (Post, ["tabs", "switch"]) => tabs::switch(user, request),

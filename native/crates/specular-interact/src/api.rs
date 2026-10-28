@@ -74,6 +74,17 @@ pub enum ApiRun {
         /// The name.
         name: String,
     },
+    /// Share the active canvas through the live room `link` opens, or,
+    /// with `fresh`, a new empty canvas made and shown first, so joining a
+    /// share never replaces the canvas the user was on.
+    Share {
+        /// The link: `<server>/c/<doc id>#t=<link token>`.
+        link: String,
+        /// Make a new canvas for it.
+        fresh: bool,
+    },
+    /// Stop sharing the active canvas. Its document stays as it is.
+    Unshare,
 }
 
 /// How an [`ApiCall`] went.
@@ -158,6 +169,8 @@ fn run_call(app: &mut App, run: ApiRun, effects: &mut Vec<Effect>) -> ApiOutcome
                 return ApiOutcome::Refused(reason);
             }
         }
+        ApiRun::Share { link, fresh } => return crate::shared::connect(app, link, fresh, effects),
+        ApiRun::Unshare => crate::shared::on_event(app, crate::ShareEvent::Stop, effects),
     }
     ApiOutcome::Done
 }

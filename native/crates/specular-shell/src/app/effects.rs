@@ -113,7 +113,9 @@ impl<W: ShellWindow> Runtime<W> {
             Effect::TrashCanvasFile { canvas, file } => self.trash_canvas_file(&canvas, &file),
             Effect::SaveSpaceMeta => self.save_space_meta(),
             // No transport carries shared canvases yet (ADR 0048).
-            Effect::ShareSend { canvas, update } => share_send(&canvas, &update),
+            Effect::ShareSend { canvas, update } => self.share_send(&canvas, update),
+            Effect::ShareConnect { canvas, link } => self.share_connect(canvas, &link),
+            Effect::ShareDisconnect(canvas) => self.share_disconnect(&canvas),
             Effect::LoadImage { image, file } => self.load_image(image, &file),
             Effect::RasterImage { image, file, size } => self.raster_image(image, &file, size),
             Effect::DropImage(image) => self.drop_image(image),
@@ -186,15 +188,8 @@ const fn leaves_memory(effect: &Effect) -> bool {
             | Effect::RevealSpace
             | Effect::PickRepoFolder { .. }
             | Effect::SaveRepos
+            | Effect::ShareConnect { .. }
     )
-}
-
-/// No transport carries a shared canvas's updates yet (ADR 0048).
-fn share_send(canvas: &specular_interact::CanvasId, update: &[u8]) {
-    tracing::debug!(
-        "share update for {canvas}: {} bytes, not sent",
-        update.len()
-    );
 }
 
 fn warn_on_error<E: std::fmt::Display>(result: Result<(), E>) {

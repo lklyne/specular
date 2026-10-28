@@ -16,7 +16,8 @@
   "dependencies": {
     "@better-auth/api-key": "^1.6.23",
     "better-auth": "^1.6.23",
-    "drizzle-orm": "^0.45.2"
+    "drizzle-orm": "^0.45.2",
+    "yjs": "^13.6.33"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260702.1",

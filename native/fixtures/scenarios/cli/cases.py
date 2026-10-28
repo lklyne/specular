@@ -205,6 +205,25 @@ def tabs_are_made_shown_written_in_the_background_and_deleted():
     check(all(t["name"] != "Back room" for t in ok("tab")["tabs"]), "it is gone")
 
 
+# --- share ------------------------------------------------------------------
+
+
+@case
+def share_connects_a_canvas_or_joins_in_a_new_one_and_stops():
+    fresh("Shares")
+    equal(ok("share")["shared"], False, "share status")
+    refused("usage: specular share", "share", "nonsense")
+    refused("must be a share link", "share", "join", "https://nowhere.example/doc")
+    # Nothing listens on port 9: the canvas is connecting until a room answers.
+    link = "http://127.0.0.1:9/c/doc#t=edit"
+    equal(ok("share", link)["connecting"], True, "share <link>")
+    equal(ok("share")["shared"], False, "not shared before the room answers")
+    tabs = len(ok("tab")["tabs"])
+    equal(ok("share", "join", link)["join"], True, "share join")
+    equal(len(ok("tab")["tabs"]), tabs + 1, "joining makes a canvas")
+    equal(ok("share", "stop")["shared"], False, "share stop")
+
+
 # --- add, update, delete ----------------------------------------------------
 
 

@@ -72,6 +72,19 @@ export async function connectionFor(
   const token = auth.toLowerCase().startsWith("bearer ")
     ? auth.slice(7).trim()
     : null;
+  return connectionForToken(token, env, docId);
+}
+
+/**
+ * The connection `token` names, if it resolves for THIS docId; otherwise
+ * the 401 to answer with. For a websocket upgrade, which a browser cannot
+ * give an `Authorization` header, so the token rides in the query.
+ */
+export async function connectionForToken(
+  token: string | null,
+  env: Env,
+  docId: string,
+): Promise<ResolvedConnection | Response> {
   if (!token) return json({ error: "unauthorized" }, 401);
   const resolved = await resolveConnectionToken(getDb(env), token);
   if (!resolved || resolved.docId !== docId) {

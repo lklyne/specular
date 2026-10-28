@@ -32,6 +32,7 @@ usage: specular <verb> [args...] [--flag value]
 Canvas: canvas, add, update, delete, arrange, focus, group, ungroup
 Tabs: tab, tab new <name>, tab switch <tab-id|tab-name>, tab delete <tab-id|tab-name>
   --tab <tab-id|tab-name> targets another canvas without switching focus
+Share: share, share <link>, share join <link>, share stop
 Browse: snapshot, click, fill, type, select, screenshot, scroll, wait
 Annotations: annotations, annotation, annotate, annotate-selection, ack, resolve, dismiss, reply
 Other: breakpoints, apply, upsert, link, unlink, auto-layout, find-placement
@@ -63,6 +64,7 @@ fn verb(name: &str) -> Verb {
         // `workspace` is the verb's older name, kept for skills that use it.
         "canvas" | "workspace" => canvas::canvas,
         "tab" => canvas::tab,
+        "share" => canvas::share,
         "selection" => canvas::selection,
         "find-placement" => canvas::find_placement,
         "breakpoints" => canvas::breakpoints,

@@ -13,7 +13,7 @@ use specular_sync::CanvasSync;
 
 use crate::space::{CanvasId, Parked};
 use crate::update::{drop_dangling, open_document};
-use crate::{App, Effect, Selection, edit, pages};
+use crate::{ApiOutcome, App, Effect, Selection, edit, pages};
 
 /// A shared canvas's part in an [`Event`](crate::Event).
 #[derive(Debug, Clone, PartialEq)]
@@ -31,6 +31,17 @@ pub enum ShareEvent {
         canvas: CanvasId,
         /// The yrs update.
         update: Vec<u8>,
+    },
+    /// The live room of a canvas [`Effect::ShareConnect`] connected
+    /// answered with `state`, everything shared so far. Empty, the room is
+    /// new and the canvas is shared from here; otherwise the canvas shows
+    /// the shared one. Again after a dropped connection, the two are
+    /// merged and the canvas sends what the room may have missed.
+    Connected {
+        /// The canvas.
+        canvas: CanvasId,
+        /// The room's whole state, as one yrs update.
+        state: Vec<u8>,
     },
     /// Stop sharing the active canvas. Its document stays as it is.
     Stop,
@@ -172,7 +183,62 @@ pub(crate) fn on_event(app: &mut App, event: ShareEvent, effects: &mut Vec<Effec
         ShareEvent::Start => start(app, effects),
         ShareEvent::Join(state) => join(app, &state, effects),
         ShareEvent::Receive { canvas, update } => receive(app, &canvas, &update, effects),
-        ShareEvent::Stop => app.history.shared = None,
+        ShareEvent::Connected { canvas, state } => connected(app, &canvas, &state, effects),
+        ShareEvent::Stop => {
+            if app.history.shared.take().is_some() {
+                effects.push(Effect::ShareDisconnect(app.space.active().id.clone()));
+            }
+        }
+    }
+}
+
+/// Starts connecting the active canvas, or a new one with `fresh`, to the
+/// live room `link` opens.
+pub(crate) fn connect(
+    app: &mut App,
+    link: String,
+    fresh: bool,
+    effects: &mut Vec<Effect>,
+) -> ApiOutcome {
+    if fresh {
+        if let Err(reason) = crate::space::create(app, None, true, effects) {
+            return ApiOutcome::Refused(reason);
+        }
+    } else if app.history.is_shared() {
+        return ApiOutcome::Refused("this canvas is shared already".to_owned());
+    }
+    let canvas = app.space.active().id.clone();
+    effects.push(Effect::ShareConnect { canvas, link });
+    ApiOutcome::Done
+}
+
+fn connected(app: &mut App, canvas: &CanvasId, state: &[u8], effects: &mut Vec<Effect>) {
+    let shared = if *canvas == app.space.active().id {
+        app.history.shared.clone()
+    } else {
+        let parked = app.space.parked_mut(canvas);
+        parked.and_then(|parked| parked.history.shared.clone())
+    };
+    if let Some(shared) = shared {
+        // Back after a drop: take what the room has, and send it everything
+        // this canvas holds, which may include edits it never got.
+        receive(app, canvas, state, effects);
+        let update = shared.lock().encode_state();
+        effects.push(Effect::ShareSend {
+            canvas: canvas.clone(),
+            update,
+        });
+        return;
+    }
+    if *canvas != app.space.active().id {
+        tracing::warn!("a share connected after its canvas was left; it is closed");
+        effects.push(Effect::ShareDisconnect(canvas.clone()));
+        return;
+    }
+    if state.is_empty() {
+        start(app, effects);
+    } else {
+        join(app, state, effects);
     }
 }
 
@@ -227,6 +293,13 @@ fn receive(app: &mut App, canvas: &CanvasId, update: &[u8], effects: &mut Vec<Ef
     edit::note::write_stepped(app, &notes_before, effects);
     drop_dangling(app, effects);
     pages::reconcile(&before, app, effects);
+}
+
+impl App {
+    /// Whether the canvas the window shows is shared.
+    pub fn is_shared(&self) -> bool {
+        self.history.is_shared()
+    }
 }
 
 impl Undo {

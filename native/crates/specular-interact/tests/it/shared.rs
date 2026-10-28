@@ -2,7 +2,7 @@
 //! the other, and undo takes back only the undoing app's own steps.
 
 use specular_doc::{Command, Document, Kind, Rect};
-use specular_interact::{Action, Effect, Event, Key, ShareEvent};
+use specular_interact::{Action, ApiCall, ApiRun, Effect, Event, Key, ShareEvent};
 use specular_testkit::{TestApp, document, page, sticky};
 
 /// Delivers each app's share updates to the other until neither has
@@ -133,4 +133,96 @@ fn typing_deleting_and_changes_made_outside_a_step_reach_the_peer() {
     exchange(&mut a, &mut b);
     assert_eq!(b.rect("s1"), rect(0.0, 600.0));
     assert_eq!(b.document(), a.document());
+}
+
+/// What a live room does with its first answer: `state` as it stands.
+fn connected(app: &mut TestApp, state: Vec<u8>) {
+    let canvas = app.app().space().active().id.clone();
+    app.send(Event::Share(ShareEvent::Connected { canvas, state }));
+}
+
+fn share(app: &mut TestApp, fresh: bool) -> Vec<Effect> {
+    let run = ApiRun::Share {
+        link: "https://specular.example/c/doc#t=edit".to_owned(),
+        fresh,
+    };
+    let call = ApiCall {
+        ticket: 1,
+        canvas: None,
+        thread: None,
+        run,
+    };
+    app.send(Event::Api(call));
+    app.take_effects()
+}
+
+#[test]
+fn a_live_room_shares_the_first_canvas_and_a_joiner_gets_it_in_a_new_one() {
+    let mut a = TestApp::from_document(document([
+        sticky("s1", rect(0.0, 0.0), "one"),
+        sticky("s2", rect(400.0, 0.0), "two"),
+    ]));
+    let effects = share(&mut a, false);
+    assert!(
+        effects
+            .iter()
+            .any(|effect| matches!(effect, Effect::ShareConnect { link, .. } if link.ends_with("#t=edit"))),
+        "{effects:?}"
+    );
+    // An empty room: this canvas is the shared one.
+    connected(&mut a, Vec::new());
+    let mut room = sent(&mut a);
+    assert_eq!(room.len(), 1, "the whole canvas goes to the room");
+    assert!(a.app().is_shared());
+
+    let mut b = TestApp::from_document(document([sticky("mine", rect(0.0, 300.0), "keep")]));
+    let mine = b.app().space().active().id.clone();
+    share(&mut b, true);
+    assert_ne!(b.app().space().active().id, mine, "joining makes a canvas");
+    connected(&mut b, room.remove(0));
+    b.take_effects();
+    assert_eq!(b.document().order(), a.document().order());
+    let kept = b.app().canvas_document(&mine).expect("the old canvas");
+    assert!(
+        kept.entity(&"mine".into()).is_some(),
+        "the old canvas is left as it was"
+    );
+
+    // B drops off, edits offline, and comes back to a room that moved on.
+    a.drag((100.0, 50.0), (100.0, 450.0));
+    let missed = sent(&mut a);
+    b.drag((500.0, 50.0), (500.0, 450.0));
+    sent(&mut b);
+    let moved_by_b = b.rect("s2");
+    assert_ne!(moved_by_b, rect(400.0, 0.0));
+    let mut state_now = missed;
+    connected(&mut b, state_now.remove(0));
+    let catch_up = sent(&mut b);
+    assert_eq!(catch_up.len(), 1, "a reconnect sends everything it holds");
+    deliver(&mut a, catch_up);
+    exchange(&mut a, &mut b);
+    assert_eq!(a.document(), b.document());
+    assert_eq!(
+        a.rect("s2"),
+        moved_by_b,
+        "the offline edit reached the room"
+    );
+    assert_ne!(
+        b.rect("s1"),
+        rect(0.0, 0.0),
+        "and the edit it missed reached it"
+    );
+
+    a.send(Event::Api(ApiCall {
+        ticket: 2,
+        canvas: None,
+        thread: None,
+        run: ApiRun::Unshare,
+    }));
+    assert!(
+        a.take_effects()
+            .iter()
+            .any(|effect| matches!(effect, Effect::ShareDisconnect(_)))
+    );
+    assert!(!a.app().is_shared());
 }

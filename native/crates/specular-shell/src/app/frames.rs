@@ -19,8 +19,8 @@ use super::runtime::{Runtime, ShellWindow, unix_ms};
 /// can wake the loop far more often than they need to run.
 const CHORE_INTERVAL: Duration = Duration::from_millis(8);
 
-/// How often a run in flight is listened to when nothing else turns the
-/// loop.
+/// How often a run in flight or a live room is listened to when nothing
+/// else turns the loop.
 const AGENT_INTERVAL: Duration = Duration::from_millis(50);
 
 impl<W: ShellWindow> Runtime<W> {
@@ -50,8 +50,9 @@ impl<W: ShellWindow> Runtime<W> {
             // Its pages only paint when pumped, so keep to the display's pace.
             return wake.min(now + CHORE_INTERVAL);
         }
-        if self.agent_running() {
-            // A run reports from its own threads, with no event to wake on.
+        if self.agent_running() || self.sharing() {
+            // A run and a live room report from their own threads, with no
+            // event to wake on.
             return wake.min(now + AGENT_INTERVAL);
         }
         wake
@@ -103,6 +104,7 @@ impl<W: ShellWindow> Runtime<W> {
         self.take_loaded_image();
         self.take_read_notes();
         self.take_agent_notices();
+        self.take_share_notices();
         self.flush_drops();
     }
 

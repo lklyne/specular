@@ -41,6 +41,22 @@ pub(crate) fn tab(client: &Client, args: &Args) -> anyhow::Result<i32> {
     Ok(0)
 }
 
+/// `share`: connect the canvas to a share link's live room, join one in a
+/// new canvas, stop, or say whether the canvas is shared.
+pub(crate) fn share(client: &Client, args: &Args) -> anyhow::Result<i32> {
+    let answer = match (args.nth(0), args.nth(1)) {
+        (None | Some("status"), None) => client.get("/share")?,
+        (Some("stop"), None) => client.post("/share/stop", &json!({}))?,
+        (Some("join"), Some(link)) => client.post("/share", &json!({ "link": link, "join": true }))?,
+        (Some(link), None) if link.contains("#t=") => {
+            client.post("/share", &json!({ "link": link }))?
+        }
+        _ => return usage("specular share [<link> | join <link> | stop | status]"),
+    };
+    output::json(&answer);
+    Ok(0)
+}
+
 /// `selection`.
 pub(crate) fn selection(client: &Client, _args: &Args) -> anyhow::Result<i32> {
     output::json(&client.get("/selection")?);

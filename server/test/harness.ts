@@ -83,6 +83,7 @@ export async function bootServerHarness(
     defaultPersistRoot: options.persistRoot,
     d1Databases: { DB: "specular-auth-test" },
     r2Buckets: ["ASSETS"],
+    durableObjects: { LIVE_ROOM: { className: "LiveRoom", useSQLite: true } },
     bindings: {
       BETTER_AUTH_SECRET: "test-secret-please-change",
       BETTER_AUTH_URL: "http://localhost",

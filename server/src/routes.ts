@@ -8,7 +8,7 @@ import {
   listComments,
   setStatus,
 } from "./comments";
-import { connectionFor, json } from "./connection-auth";
+import { connectionFor, connectionForToken, json } from "./connection-auth";
 import {
   getDb,
   isScope,
@@ -311,6 +311,24 @@ async function getAsset(env: Env, hash: string): Promise<Response> {
   return new Response(object.body, { headers });
 }
 
+/**
+ * GET /docs/:docId/live?token=<connection token> — the websocket into the
+ * canvas's live room. Every scope may listen; the room lets only edit
+ * peers send changes.
+ */
+async function live(request: Request, env: Env, docId: string): Promise<Response> {
+  if (request.headers.get("upgrade")?.toLowerCase() !== "websocket") {
+    return json({ error: "expected a websocket" }, 426);
+  }
+  const token = new URL(request.url).searchParams.get("token");
+  const resolved = await connectionForToken(token, env, docId);
+  if (resolved instanceof Response) return resolved;
+  const room = env.LIVE_ROOM.get(env.LIVE_ROOM.idFromName(docId));
+  const upgrade = new Request(request);
+  upgrade.headers.set("x-specular-scope", resolved.scope);
+  return room.fetch(upgrade);
+}
+
 type Handler = (
   request: Request,
   env: Env,
@@ -341,6 +359,7 @@ const ROUTES: [string, Partial<Record<string, Handler>>][] = [
   ["docs/:doc/connect", { POST: (request, env, [doc]) => ownerConnect(request, env, doc) }],
   ["docs/:doc/assets", { POST: (request, env, [doc]) => uploadAsset(request, env, doc) }],
   ["docs/:doc/versions", { POST: (request, env, [doc]) => publish(request, env, doc) }],
+  ["docs/:doc/live", { GET: (request, env, [doc]) => live(request, env, doc) }],
   ["docs/:doc/manifest", { GET: (request, env, [doc]) => getManifest(request, env, doc) }],
   ["docs/:doc/comments", {
     GET: (request, env, [doc]) => listComments(request, env, doc),

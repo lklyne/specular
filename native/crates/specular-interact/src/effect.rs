@@ -144,6 +144,17 @@ pub enum Effect {
         /// The update.
         update: Vec<u8>,
     },
+    /// Connect the canvas `canvas` to the live room a share link opens.
+    /// The room's first answer comes back as
+    /// [`ShareEvent::Connected`](crate::ShareEvent::Connected).
+    ShareConnect {
+        /// The canvas.
+        canvas: CanvasId,
+        /// The link: `<server>/c/<doc id>#t=<link token>`.
+        link: String,
+    },
+    /// Close the canvas's connection to its live room.
+    ShareDisconnect(CanvasId),
     /// A canvas was renamed: move its file, inside the space folder. What
     /// is unsaved goes to the old name first.
     RenameCanvasFile {

@@ -2,11 +2,14 @@ import { createAuth } from "./auth";
 import type { Env } from "./env";
 import { handleApiRequest } from "./routes";
 
+export { LiveRoom } from "./live-room";
+
 /**
  * Worker entry. Three surfaces:
  *  - `/api/auth/*` → better-auth (accounts, anonymous principals, api keys).
  *  - the HTTP surface in `routes.ts`: docs and their share links, link
- *    redemption, assets, published versions and comments.
+ *    redemption, assets, published versions, comments and the websocket
+ *    into a canvas's live room (`live-room.ts`).
  *  - everything else → the web viewer's static files (`web/`), whose
  *    `/c/:docId` page is the one a share link opens.
  */
