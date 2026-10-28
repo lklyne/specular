@@ -39,6 +39,11 @@ After any structural change, run `typecheck` + `test:unit` at minimum.
 After changes to runtime, IPC, or persistence, run `test:integration`.
 `test:boot` needs a built app + the Electron binary; run it before releases, not per-change.
 
+Rust `target/` folders grow 10–75 GB per worktree. When you finish a branch
+that built `native/`, run `scripts/clean-builds.sh --apply`: it removes
+worktrees whose PR merged and sweeps stale artifacts from the rest, skipping
+any worktree with a build running. Run it without flags to see sizes first.
+
 ## Crash logs
 
 Set up in `src/main/index.ts`:
