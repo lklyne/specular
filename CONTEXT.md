@@ -229,7 +229,11 @@ Live cursors on the canvas: agent sessions, so a watching user can follow what a
 
 ## Cloud sync & sharing
 
-Proposed, not built — see [ADR 0018](./docs/adr/0018-cloud-sync-and-canvas-sharing.md). The ADR was written for the Electron app's Y.Doc; the Rust app has no CRDT ([ADR 0041](./docs/adr/0041-typed-document-inverse-command-undo.md)), so its sync design would start over. The local-first disk path (`.canvas` files) is the only shipping mode. Terms recorded ahead of implementation:
+Proposed, not yet shipped — see [ADR 0018](./docs/adr/0018-cloud-sync-and-canvas-sharing.md). The local-first disk path (`.canvas` files) is the only shipping mode. Live editing runs on a yrs mirror of the document ([ADR 0048](./docs/adr/0048-crdt-sync-as-a-yrs-mirror.md)). Terms recorded ahead of implementation so planning shares vocabulary. The first slice, view and comment with no live editing, is built in the Rust tree ([ADR 0049](./docs/adr/0049-view-and-comment-web-client.md)):
+
+- **Published version** — one publish of a canvas: a manifest naming the `.canvas` text, a snapshot PNG per page and every file the canvas names, all as content-addressed assets. A link shows the newest. Built by `server/scripts/share.ts` until the desktop has a Share button.
+- **Web viewer** — the page a link opens (`web/`, `/c/<doc id>#t=<link token>`). It is the Rust `App` compiled to WebAssembly (`specular-web`), so the canvas is drawn by the same scene and compositor as on the desktop. A viewer can pan and comment but not edit.
+- **Web comment** — a comment made in the web viewer. Stored on the server as the annotation a `.canvas` holds, plus `authorName` and `via: "web"`, and merged into the file by id when the desktop pulls.
 
 - **Doc id** — the stable identifier for a canvas as a synced unit. Distinct from a tab id or a filename.
 - **Split data plane** — the doc holds *references*, blob storage holds *bytes*. Image/video binaries never enter the doc. Mirrors the local model (bytes in `assets/`, a reference on the entity).

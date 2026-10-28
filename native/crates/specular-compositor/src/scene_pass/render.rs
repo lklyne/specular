@@ -1,6 +1,6 @@
 //! [`Compositor::render_scene`]: one multisampled pass for a whole scene.
 
-use std::time::{Duration, Instant};
+use web_time::{Duration, Instant};
 
 use specular_core::PageId;
 use specular_scene::OwnerId;

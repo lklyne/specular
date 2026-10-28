@@ -13,7 +13,7 @@ use self::grid::{element_scrolled, inspected_scrolled, synthetic_capture, synthe
 use self::page::{SyntheticPage, paint, title_of};
 
 use std::collections::BTreeMap;
-use std::time::{Duration, Instant};
+use web_time::{Duration, Instant};
 
 use glam::Vec2;
 

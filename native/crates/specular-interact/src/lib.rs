@@ -173,8 +173,7 @@ pub use panel::{
     ToolbarModel, ToolbarSection, UnknownControl, ViewStrip, ViewTab, context_menu, control_named,
     dock, tool_options, toolbar, view_strip,
 };
-pub(crate) use physical_key::PhysicalKey;
-pub use physical_key::mac_key_input;
+pub use physical_key::{PhysicalKey, mac_key_input};
 pub use place::{PlaceDrag, PlacePreview};
 pub use placement::PagePlacement;
 pub use presence::{AgentAct, AgentCursor};

@@ -4,7 +4,7 @@
 //! app's bench runner implements it and hands each frame to the bench
 //! crate's recorder, so the compositor stays free of statistics code.
 
-use std::time::{Duration, Instant};
+use web_time::{Duration, Instant};
 
 use crate::scene::RenderStats;
 

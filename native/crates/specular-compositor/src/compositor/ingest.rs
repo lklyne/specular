@@ -59,7 +59,7 @@ impl Compositor {
             return Ok(());
         }
         // The CPU path assumes BGRA: that is what CEF `OnPaint` delivers.
-        let format = upload::page_texture_format(specular_core::PixelFormat::Bgra8Unorm, srgb);
+        let format = upload::page_texture_format(upload::CPU_TEXEL_FORMAT, srgb);
         let texture = upload::create_page_texture(&self.device, frame.size, format);
         upload::write_frame(&self.queue, &texture, frame, true);
         let bind_group = self.pipelines.texture_bind_group(&self.device, &texture);

@@ -10,7 +10,7 @@
 use std::ffi::c_void;
 use std::fmt;
 use std::ptr::NonNull;
-use std::time::Instant;
+use web_time::Instant;
 
 use crate::geometry::{CssSize, PixelRect, PixelSize};
 use crate::page::PageId;

@@ -21,7 +21,7 @@
 //! clip and the paint order of the text they belong to.
 
 use std::collections::HashMap;
-use std::time::{Duration, Instant};
+use web_time::{Duration, Instant};
 
 use glam::Vec2;
 use glyphon::{

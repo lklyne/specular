@@ -56,6 +56,23 @@ jobs:
       # Downloads the CEF binary distribution in cef-dll-sys's build script.
       - run: cargo check -p specular-shell --features cef --locked
 
+  web:
+    name: web viewer (wasm32 clippy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native
+      # The browser half of specular-web only builds for wasm32.
+      - run: cargo clippy -p specular-web --target wasm32-unknown-unknown --locked -- -D warnings
+      # The build for browsers with WebGPU, without the WebGL2 backend.
+      - run: cargo clippy -p specular-web --target wasm32-unknown-unknown --no-default-features --locked -- -D warnings
+
   # The scenarios in the GPUI Kit window, with real NSEvents. Expected to
   # fail on a hosted runner until proven otherwise: there may be no window
   # server session to post events into and no GPU to draw with, so the

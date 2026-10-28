@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="referrer" content="no-referrer" />
+    <title>Specular</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <main id="stage">
+      <canvas id="canvas" tabindex="0" aria-label="Canvas"></canvas>
+      <header class="bar" id="bar">
+        <span class="title" id="title">Loading…</span>
+        <div class="modes" role="group" aria-label="Tool">
+          <button type="button" id="mode-pan" class="mode" aria-pressed="true" title="Move around (V)">Move</button>
+          <button type="button" id="mode-comment" class="mode" aria-pressed="false" title="Comment (C)" hidden>Comment</button>
+        </div>
+        <button type="button" id="fit" class="plain" title="Fit everything (Shift+1)">Fit</button>
+        <button type="button" id="toggle-comments" class="plain" aria-expanded="true">Comments <span id="count"></span></button>
+      </header>
+      <p class="hint" id="hint" hidden>Click to comment on a spot, or drag to comment on an area. Enter posts, Esc cancels.</p>
+      <div class="status" id="status" role="status"></div>
+    </main>
+    <aside id="sidebar" aria-label="Comments">
+      <div class="sidebar-head">
+        <h2>Comments</h2>
+        <label class="resolved-toggle"><input type="checkbox" id="show-resolved" /> Resolved</label>
+      </div>
+      <ol id="threads"></ol>
+      <p class="empty" id="empty">No comments yet.</p>
+    </aside>
+    <dialog id="name-dialog">
+      <form method="dialog">
+        <h2>What should we call you?</h2>
+        <p>Your name shows next to your comments.</p>
+        <input id="name-input" name="name" maxlength="80" autocomplete="name" placeholder="Your name" />
+        <menu>
+          <button value="skip" type="submit" class="plain">Skip</button>
+          <button value="ok" type="submit" class="primary">Continue</button>
+        </menu>
+      </form>
+    </dialog>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
