@@ -20,6 +20,7 @@ use super::glyphs::{glyph, ink};
 use super::named::mark;
 use super::raised::{RIM, Raised, plate};
 use super::run;
+use super::share::share;
 use super::toolbar::{panel_toggle, zoom};
 use crate::{canvas, theme};
 
@@ -283,8 +284,8 @@ fn add(model: &Button) -> impl IntoElement {
 /// The tab row of `model`. The tabs share what the traffic lights, the add
 /// button and the bare strip leave, shrinking together; past their least
 /// width the row cuts them off, so the strip is always there to drag the
-/// window by. The zoom readout and the right panel's toggle, both of
-/// `toolbar`, end the row.
+/// window by. The zoom readout, the Share button and the right panel's
+/// toggle, all of `toolbar`, end the row.
 pub(super) fn tabs(model: &ViewStrip, toolbar: &ToolbarModel) -> impl IntoElement {
     FAVICONS.with_borrow_mut(|favicons| {
         favicons.retain(|id, _| model.tabs.iter().any(|tab| tab.id == *id));
@@ -313,6 +314,7 @@ pub(super) fn tabs(model: &ViewStrip, toolbar: &ToolbarModel) -> impl IntoElemen
                 .items_center()
                 .text_color(theme::solid(theme::toolbar_text()))
                 .children(zoom(toolbar))
+                .child(share(&toolbar.share))
                 .children(toolbar.chat.as_ref().map(panel_toggle)),
         )
 }

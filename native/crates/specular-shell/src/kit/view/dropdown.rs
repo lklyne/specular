@@ -72,9 +72,12 @@ fn find_dropdown(id: &ControlId) -> Option<Dropdown> {
         })
     }
     fn in_toolbar(toolbar: &ToolbarModel, id: &ControlId) -> Option<Dropdown> {
-        toolbar.sections.iter().find_map(|section| match section {
-            ToolbarSection::Zoom(dropdown) if dropdown.id == *id => Some(dropdown.clone()),
-            ToolbarSection::Zoom(_) | ToolbarSection::Tools(_) => None,
+        let share = (toolbar.share.menu.as_ref()).filter(|menu| menu.id == *id);
+        (share.cloned()).or_else(|| {
+            toolbar.sections.iter().find_map(|section| match section {
+                ToolbarSection::Zoom(dropdown) if dropdown.id == *id => Some(dropdown.clone()),
+                ToolbarSection::Zoom(_) | ToolbarSection::Tools(_) => None,
+            })
         })
     }
     let models = canvas::models()?;
@@ -175,7 +178,7 @@ pub(super) fn dropdown_compact(model: &Dropdown) -> AnyElement {
 }
 
 /// `trigger` opening the sections of `model` in a Kit popover.
-fn opens(model: &Dropdown, trigger: Button) -> AnyElement {
+pub(super) fn opens(model: &Dropdown, trigger: Button) -> AnyElement {
     let id = model.id.clone();
     let trigger = trigger
         // The trigger is what the model's name for the dropdown opens.
