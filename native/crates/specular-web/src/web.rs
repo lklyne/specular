@@ -330,6 +330,26 @@ impl WebViewer {
         self.viewer.zoom_to_fit();
     }
 
+    /// Zooms one step closer, or with `closer` false one step out.
+    pub fn zoom_step(&mut self, closer: bool) {
+        self.viewer.zoom_step(closer);
+    }
+
+    /// Zooms to 100%.
+    pub fn zoom_reset(&mut self) {
+        self.viewer.zoom_reset();
+    }
+
+    /// The zoom, 1 at 100%.
+    pub fn zoom(&self) -> f32 {
+        self.viewer.app().session().camera.zoom
+    }
+
+    /// Whether the page is in the dark theme.
+    pub fn set_dark(&mut self, dark: bool) {
+        self.viewer.set_dark(dark);
+    }
+
     /// One animation frame at `now_ms` (`Date.now()`). Draws only when
     /// something changed. Returns whether it drew.
     pub fn frame(&mut self, now_ms: f64) -> Result<bool, JsValue> {

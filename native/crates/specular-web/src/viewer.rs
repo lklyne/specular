@@ -26,8 +26,8 @@ use specular_core::{
 };
 use specular_doc::{Annotation, AnnotationId, CanvasError, Command, Document, EntityId};
 use specular_interact::{
-    Action, App, Effect, Event, ImageKey, ImageNotice, KeyInput, NoteNotice, PageNotice,
-    PointerInput, TextMeasure, Tool, WheelInput, update,
+    Action, App, Appearance, Effect, Event, ImageKey, ImageNotice, KeyInput, NoteNotice,
+    PageNotice, PointerInput, TextMeasure, Tool, WheelInput, update,
 };
 
 /// How far a press may move, in logical pixels, and still be a click.
@@ -477,6 +477,31 @@ impl Viewer {
     /// Fits the whole canvas in the view.
     pub fn zoom_to_fit(&mut self) {
         self.act(Action::ZoomToFit);
+    }
+
+    /// Zooms one step in or out about the middle of the view, as the app's
+    /// zoom menu does.
+    pub fn zoom_step(&mut self, closer: bool) {
+        self.act(if closer {
+            Action::ZoomIn
+        } else {
+            Action::ZoomOut
+        });
+    }
+
+    /// Zooms to 100% about the middle of the view.
+    pub fn zoom_reset(&mut self) {
+        self.act(Action::ZoomReset);
+    }
+
+    /// Draws the canvas in the dark theme or the light, as the browser
+    /// prefers. A canvas follows the system the way the app's does.
+    pub fn set_dark(&mut self, dark: bool) {
+        self.send(Event::SystemAppearance(if dark {
+            Appearance::Dark
+        } else {
+            Appearance::Light
+        }));
     }
 
     /// Gives the comment `id` the focus, or with `None` takes it away.

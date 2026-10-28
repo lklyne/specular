@@ -8,7 +8,7 @@
 use glam::Vec2;
 use specular_core::{Modifiers, PageId, PixelSize, PointerButton, PointerEventKind};
 use specular_doc::{Annotation, AnnotationAnchor, AnnotationId, Document, Rect};
-use specular_interact::{ImageState, NoteState};
+use specular_interact::{Appearance, ImageState, NoteState};
 use specular_testkit::{document, note, page, sticky};
 use specular_web::{Access, Mode, Upload, Viewer, key_input};
 
@@ -350,4 +350,23 @@ fn the_canvas_keeps_the_comments_it_was_published_with() {
     };
     viewer.set_comments(vec![resolved.clone(), theirs.clone()]);
     assert_eq!(viewer.app().document().annotations(), &[resolved, theirs]);
+}
+
+#[test]
+fn the_canvas_takes_the_browsers_theme_and_the_zoom_menu_zooms() {
+    let mut viewer = viewer(Access::View);
+    viewer.set_dark(true);
+    assert_eq!(viewer.app().appearance(), Appearance::Dark);
+    viewer.set_dark(false);
+    assert_eq!(viewer.app().appearance(), Appearance::Light);
+
+    viewer.zoom_reset();
+    let zoom = || viewer.app().session().camera.zoom;
+    assert!((zoom() - 1.0).abs() < 1e-4, "reset to {}", zoom());
+    viewer.zoom_step(true);
+    let closer = viewer.app().session().camera.zoom;
+    assert!(closer > 1.0, "zoomed in to {closer}");
+    viewer.zoom_step(false);
+    viewer.zoom_step(false);
+    assert!(viewer.app().session().camera.zoom < 1.0);
 }
