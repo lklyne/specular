@@ -22,6 +22,8 @@ const status = $("status");
 
 const state = {
   docId: null,
+  /** What the link allows: view, comment or edit. */
+  scope: null,
   token: null,
   /** The share link's own token, redeemed again when the live room drops. */
   linkToken: null,
@@ -35,18 +37,59 @@ const state = {
   svgs: new Map(),
   showResolved: false,
   focused: null,
+  /** The zoom the readout shows. */
+  zoom: null,
+  /** Whether the frame drawn still has to be looked at; see `checkDrawn`. */
+  checkFirstFrame: false,
 };
+
+/** `?webgl` in the address draws on WebGL2 where WebGPU would be used. */
+const FORCE_WEBGL = new URLSearchParams(location.search).has("webgl");
 
 /**
  * The viewer's module. A browser with WebGPU gets the build without WebGL2,
  * which is about 2 MB smaller; the rest get the one that can draw on either.
  */
 async function loadViewer() {
-  const adapter = await navigator.gpu?.requestAdapter().catch(() => null);
+  const adapter = !FORCE_WEBGL && (await navigator.gpu?.requestAdapter().catch(() => null));
   const name = adapter ? "specular_web_webgpu" : "specular_web";
   const module = await import(`./pkg/${name}.js`);
   await module.default();
-  return module;
+  return { module, webgpu: Boolean(adapter) };
+}
+
+/** Opens the page again drawing on WebGL2, for a browser whose WebGPU fails. */
+function reopenOnWebgl(why) {
+  console.warn(`WebGPU ${why}; drawing on WebGL2 instead.`);
+  const url = new URL(location.href);
+  url.searchParams.set("webgl", "");
+  location.replace(url);
+}
+
+/**
+ * Whether the frame just drawn reached the screen. Some browsers' WebGPU
+ * draws without error and shows nothing, which leaves the page's own colour
+ * or black. The canvas is never either, so a frame that is only those at a
+ * handful of spots did not arrive. It has to be read in the task it was
+ * drawn in, before the browser takes the frame away.
+ */
+function frameArrived() {
+  const probe = document.createElement("canvas");
+  probe.width = probe.height = 1;
+  const context = probe.getContext("2d", { willReadFrequently: true });
+  const spots = [
+    [0.5, 0.5],
+    [0.1, 0.9],
+    [0.9, 0.9],
+    [0.9, 0.2],
+    [0.2, 0.2],
+  ];
+  return spots.some(([x, y]) => {
+    context.clearRect(0, 0, 1, 1);
+    context.drawImage(canvas, Math.floor(canvas.width * x), Math.floor(canvas.height * y), 1, 1, 0, 0, 1, 1);
+    const [r, g, b, a] = context.getImageData(0, 0, 1, 1).data;
+    return a !== 0 && r + g + b !== 0;
+  });
 }
 
 function show(message, isError = false) {
@@ -157,28 +200,38 @@ async function main() {
   const { manifest, scope } = await api(`/docs/${state.docId}/manifest`).catch((error) => {
     throw new Error(error.status === 404 ? "Nothing has been published here yet." : error.message);
   });
+  state.scope = scope;
   state.canComment = scope === "comment" || scope === "edit";
   $("title").textContent = manifest.title || "Untitled canvas";
   document.title = `${manifest.title || "Canvas"} · Specular`;
   $("mode-comment").hidden = !state.canComment;
 
-  const [{ WebViewer }, canvasText] = await Promise.all([
+  const [{ module, webgpu }, canvasText] = await Promise.all([
     loadViewer(),
     asset(manifest.canvas).then((bytes) => new TextDecoder().decode(bytes)),
   ]);
   sizeCanvas();
   const seed = crypto.getRandomValues(new Uint32Array(2));
-  state.viewer = await WebViewer.create(
-    canvas,
-    canvasText,
-    state.canComment,
-    seed[0] * 2 ** 21 + (seed[1] >>> 11),
-  );
+  try {
+    state.viewer = await module.WebViewer.create(
+      canvas,
+      canvasText,
+      state.canComment,
+      seed[0] * 2 ** 21 + (seed[1] >>> 11),
+      FORCE_WEBGL,
+    );
+  } catch (error) {
+    if (webgpu) return reopenOnWebgl(`could not start (${error})`);
+    throw error;
+  }
+  state.checkFirstFrame = webgpu;
+  followTheme();
   resize();
   show("");
 
   loadFiles(manifest);
   wireInput();
+  wireChrome();
   wireSidebar();
   await refreshComments();
   connectLive();
@@ -250,7 +303,12 @@ function resize() {
 function frame() {
   const viewer = state.viewer;
   try {
-    viewer.frame(Date.now());
+    const drew = viewer.frame(Date.now());
+    if (drew && state.checkFirstFrame) {
+      state.checkFirstFrame = false;
+      if (!frameArrived()) return reopenOnWebgl("drew nothing");
+    }
+    showZoom();
     for (const job of viewer.take_svg_jobs()) drawSvg(job);
     canvas.style.cursor = viewer.cursor();
     sendNewComments();
@@ -394,7 +452,76 @@ function wireInput() {
 
   $("mode-pan").addEventListener("click", () => setMode("pan"));
   $("mode-comment").addEventListener("click", () => setMode("comment"));
-  $("fit").addEventListener("click", () => viewer.zoom_to_fit());
+}
+
+/** The canvas in the browser's theme, as the app follows the system's. */
+function followTheme() {
+  const dark = window.matchMedia("(prefers-color-scheme: dark)");
+  state.viewer.set_dark(dark.matches);
+  dark.addEventListener("change", (event) => state.viewer.set_dark(event.matches));
+}
+
+// ---- The tab row -----------------------------------------------------------
+
+function showZoom() {
+  const zoom = Math.round(state.viewer.zoom() * 100);
+  if (zoom === state.zoom) return;
+  state.zoom = zoom;
+  $("zoom-level").textContent = `${zoom}%`;
+}
+
+/** A button that opens `panel` under it, closed by a click elsewhere or Esc. */
+function opens(button, panel) {
+  const set = (open) => {
+    panel.hidden = !open;
+    button.setAttribute("aria-expanded", String(open));
+  };
+  button.addEventListener("click", () => set(panel.hidden));
+  document.addEventListener("pointerdown", (event) => {
+    if (!panel.hidden && !panel.contains(event.target) && !button.contains(event.target)) set(false);
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !panel.hidden) set(false);
+  });
+  return () => set(false);
+}
+
+const SCOPES = {
+  edit: ["Can edit", "Anyone with this link can edit and comment."],
+  comment: ["Can comment", "Anyone with this link can look and comment."],
+  view: ["View only", "Anyone with this link can look."],
+};
+
+function wireChrome() {
+  const viewer = state.viewer;
+  const closeZoom = opens($("zoom"), $("zoom-menu"));
+  const steps = {
+    in: () => viewer.zoom_step(true),
+    out: () => viewer.zoom_step(false),
+    reset: () => viewer.zoom_reset(),
+    fit: () => viewer.zoom_to_fit(),
+  };
+  for (const item of $("zoom-menu").querySelectorAll("[data-zoom]")) {
+    item.addEventListener("click", () => {
+      steps[item.dataset.zoom]();
+      closeZoom();
+      canvas.focus();
+    });
+  }
+
+  opens($("share"), $("share-popover"));
+  const [scope, note] = SCOPES[state.scope] ?? SCOPES.view;
+  $("share-scope").textContent = scope;
+  $("share-note").textContent = note;
+  const copy = $("copy-link");
+  copy.addEventListener("click", async () => {
+    // The link this page was opened with: a visitor cannot make others.
+    const link = new URL(location.href);
+    link.searchParams.delete("webgl");
+    await navigator.clipboard.writeText(link.href);
+    copy.textContent = "Copied";
+    setTimeout(() => (copy.textContent = "Copy link"), 1500);
+  });
 }
 
 async function setMode(mode) {
@@ -506,7 +633,7 @@ function renderThreads() {
     comment.onServer = listed.has(comment.id);
   }
   const open = all.filter((comment) => !done(comment)).length;
-  $("count").textContent = open ? `(${open})` : "";
+  $("count").textContent = open ? String(open) : "";
   const shown = all.filter((comment) => state.showResolved || !done(comment));
   shown.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
   $("empty").hidden = shown.length > 0;
@@ -560,9 +687,10 @@ function thread(comment) {
 
 function actions(comment) {
   const input = element("input", { placeholder: "Reply…", maxLength: 10000 });
-  const reply = element("button", { type: "submit", textContent: "Reply" });
+  const reply = element("button", { type: "submit", className: "secondary", textContent: "Reply" });
   const resolve = element("button", {
     type: "button",
+    className: "secondary",
     textContent: done(comment) ? "Reopen" : "Resolve",
   });
   const form = element("form", { className: "actions" }, input, reply, resolve);
