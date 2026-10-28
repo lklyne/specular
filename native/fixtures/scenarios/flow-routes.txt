@@ -1,0 +1,20 @@
+# canvas: flow-routes.canvas
+# A laid-out edge follows its route, at right angles, while its ends still
+# meet their entities: it is pressed where it is drawn, on its corner runs.
+# Moving an entity draws it as a curve again, with the route kept; undo
+# puts the entity back and the route with it.
+camera 0,0,1
+expect edge-ends e1 208 150 392 350
+expect hit 300 180 edge e1
+expect hit 250 150 edge e1
+
+# dragging b away leaves the route behind: the edge is a curve to b's new
+# place, and the route's corner run is empty canvas
+drag 450 350 450 450
+expect entity b at 400 400
+expect edge-ends e1 208 150 392 450
+expect hit 300 180 empty
+expect saved /edges/0/route length 4
+key cmd+z
+expect hit 300 180 edge e1
+undo-to-start

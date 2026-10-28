@@ -110,6 +110,7 @@ pub(super) fn create(builder: &mut Builder<'_>, at: &str, item: &JsonMap) -> Res
         None => (sort, item),
     };
     let id = builder.fresh_id(sort.name());
+    name_ref(builder, at, item, &id)?;
     if sort == Sort::Group {
         return create_group(builder, at, item, id);
     }
@@ -166,6 +167,25 @@ pub(super) fn create(builder: &mut Builder<'_>, at: &str, item: &JsonMap) -> Res
         at,
     )?;
     builder.created.push(id);
+    Ok(())
+}
+
+/// Records the id a created item's `ref` names, for the patch's edges.
+fn name_ref(builder: &mut Builder<'_>, at: &str, item: &JsonMap, id: &str) -> Result<(), Response> {
+    let Some(name) = item.get("ref").filter(|name| !name.is_null()) else {
+        return Ok(());
+    };
+    let Some(name) = name.as_str().filter(|name| !name.is_empty()) else {
+        return Err(Response::bad_request(format!(
+            "{at}.ref: expected a non-empty string"
+        )));
+    };
+    if builder.refs.contains_key(name) {
+        return Err(Response::bad_request(format!(
+            "{at}.ref: '{name}' names another entity of this patch"
+        )));
+    }
+    builder.refs.insert(name.to_owned(), id.to_owned());
     Ok(())
 }
 

@@ -1,0 +1,12 @@
+---
+source: crates/specular-scene/tests/view.rs
+expression: "TestApp::from_document(document).scene_snapshot()"
+---
+canvas rect 100,100 100x100 fill=#b5b9c0 stroke=#464a53/2/centre
+canvas rect 400,300 100x100 fill=#b5b9c0 stroke=#464a53/2/centre
+screen path M208,150 L288,150 Q300,150 300,162 L300,338 Q300,350 312,350 L392,350 stroke=#94a3b8/1.5 cap=Butt join=Miter
+screen polygon 385.63,354.5 393.13,350 385.63,345.5 fill=#94a3b8
+screen text "go" 346,350 16/22.4 #1c1917 centre middle
+screen path M208,150 C316.71,150 283.29,350 392,350 stroke=#94a3b8/1.5 cap=Butt join=Miter
+screen polygon 385.63,354.5 393.13,350 385.63,345.5 fill=#94a3b8
+screen text "go" 300,250 16/22.4 #1c1917 centre middle

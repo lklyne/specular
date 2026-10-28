@@ -169,8 +169,15 @@ Connections between two nodes:
 ```
 
 Specular extensions: `strokeWidth`, `lineStyle` (`solid` or `dashed`),
-`edgeKind`, and `edgeMetadata`. Missing stroke fields render as a 1.5px solid
-connection for compatibility with existing canvases.
+`edgeKind`, `edgeMetadata` and `route`. Missing stroke fields render as a 1.5px
+solid connection for compatibility with existing canvases.
+
+`route` is the path a flow layout gave the edge: its corners in canvas
+units, `[[x, y], ...]`, from where it leaves `fromNode` to where it reaches
+`toNode`, every run level or upright. It is drawn only while its first point
+sits on `fromSide` of its first node and its last on `toSide` of the other;
+once either node moves, the edge is drawn as a curve again and the route is
+kept until the next layout replaces it. Other tools can ignore it.
 
 ### App state (extension)
 

@@ -94,6 +94,7 @@ and reflows its children; it no-ops on unmanaged groups.
 | Command | Purpose |
 |---|---|
 | `specular arrange row\|column\|grid [id…] [--cols N]` | Tidy entities (ids, or current selection) in place: keep the footprint, even the gaps. Add `--gap m` to pack tight to a fixed gap instead |
+| `specular arrange flow [id…] [--dir LR\|TB]` | Lay entities out as a flow along the edges between them, and route those edges at right angles (see [Screen flows](#screen-flows)) |
 | `specular group <id…>` | Group entities together |
 | `specular ungroup <groupId>` | Dissolve a group |
 | `specular auto-layout <id…> [--gap N]` | Make a managed auto-layout row or column from a selection (or convert a single group) — the mode follows the selection's dominant axis; children pack along it and can be drag-reordered; `--gap N` sets the packing gap (px) |
@@ -102,6 +103,38 @@ and reflows its children; it no-ops on unmanaged groups.
 | `specular unlink <edgeId…>` | Remove edges |
 | `specular find-placement` | Find open canvas space for new entities |
 | `specular breakpoints <url>` | Lay a URL out across device breakpoints |
+
+## Screen flows
+
+To show how screens lead to each other (the states of an app or a site, and
+what takes you from one to the next), save each state as an image, link the
+images by what leads where, and lay them out as a flow. One `apply` does it:
+
+```bash
+specular apply <<'JSON'
+{ "entities": [
+    {"kind":"file","path":"/abs/flow/cart.png","ref":"cart"},
+    {"kind":"file","path":"/abs/flow/pay.png","ref":"pay"},
+    {"kind":"file","path":"/abs/flow/declined.png","ref":"declined"} ],
+  "edges": [
+    {"fromEntityId":"cart","toEntityId":"pay","label":"Checkout"},
+    {"fromEntityId":"pay","toEntityId":"declined","label":"Card declined"},
+    {"fromEntityId":"declined","toEntityId":"pay","label":"Try again"} ],
+  "layout": {"kind":"flow","dir":"LR"} }
+JSON
+```
+
+- `ref` names a new entity for the patch's edges before it has an id; the
+  reply's `refs` maps each ref to the id it got.
+- The flow puts the screens in columns (`"dir":"TB"` for rows) so every
+  arrow runs one way. An edge back to an earlier screen, such as a retry or
+  "Back", is routed round the screens between. Every edge gets a
+  right-angle route; label it with what the user does.
+- A new flow goes in a free spot; `originX`/`originY` place it.
+- Moving a screen by hand draws its edges as curves again. Run
+  `specular arrange flow <id…>` to lay the flow out and route it again,
+  after moving screens or linking more of them.
+- Pages work as well as images: `arrange flow` takes any entities.
 
 ## Comment
 
@@ -234,7 +267,8 @@ one transaction.
 See [references/apply.md](references/apply.md) for worked examples — batch
 page creation at breakpoints, reorganizing existing entities into a grid.
 
-The `layout` directive takes a `kind` (`row` / `column` / `grid`), a `gap`
+The `layout` directive takes a `kind` (`row` / `column` / `grid`, or `flow`,
+which the app lays out along the patch's edges: see [Screen flows](#screen-flows)), a `gap`
 (token or pixel number), and an anchor (`originX`/`originY`, `near: <id>`, or
 implicit). It places new entities *and* reorganizes existing ones. Without
 `originX/Y` or `near`, it anchors at the bounding box of any existing entities
@@ -316,7 +350,6 @@ specular add page http://localhost:3000 && specular snapshot -i -f <pageId>
 When you encounter new gaps, append them to the tracking issue (see below).
 
 - **`specular breakpoints <url>` may produce malformed page URLs** — confirm the new pages loaded the intended host before relying on them.
-- **`specular link` does not validate entity ids** — self-edges and edges to nonexistent ids are accepted and stored. Confirm both endpoints exist before calling `link`.
 - **Search box `fill` + `click` may not trigger navigation** — `fill` may not fire input events. If a click on Search fails, re-fill and retry, or click an autocomplete option ref instead.
 - **`update <pageId> --url` lags `canvas`** — changing a page's URL navigates the page async, so the new URL isn't readable via `specular canvas` for a few hundred ms after the `updated` reply. Re-read (or brief wait) before relying on it in an `update → canvas` chain.
 - **Google Sheets (and likely other canvas-rendered grids): no per-cell refs** — the grid is a single `<canvas>` element, not DOM cells, so snapshots can never target cells. Before driving Sheets, read [references/google-sheets.md](references/google-sheets.md) — it has the one write path that works (Name box → formula bar) and the focus traps that silently eat input while reporting "✓ Done".

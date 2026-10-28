@@ -2,8 +2,8 @@
 //! layer over them. Read a `.snap` before accepting a change to it.
 
 use specular_doc::{
-    Color, ColorPreset, Command, Edge, EdgeEnd, Entity, EntityId, Kind, LineStyle, Rect, Shape,
-    ShapeKind, Text,
+    Color, ColorPreset, Command, Edge, EdgeEnd, EdgeSide, Entity, EntityId, Kind, LineStyle, Rect,
+    Shape, ShapeKind, Text,
 };
 use specular_interact::{Action, Event, ImageNotice, Theme};
 use specular_testkit::{
@@ -94,6 +94,49 @@ fn an_edge_is_a_curve_with_arrowheads_and_a_label() {
         .unwrap();
     let dangling = connected(document, "dangling", "a", "missing");
     assert_scene_snapshot!(TestApp::from_document(dangling));
+}
+
+#[test]
+fn a_routed_edge_turns_on_rounded_corners_until_an_end_moves() {
+    let boxes = document([
+        shape("a", Rect::new(100.0, 100.0, 100.0, 100.0)),
+        shape("b", Rect::new(400.0, 300.0, 100.0, 100.0)),
+    ]);
+    let route = vec![
+        [200.0, 150.0],
+        [300.0, 150.0],
+        [300.0, 350.0],
+        [400.0, 350.0],
+    ];
+    let routed = Edge {
+        from_side: Some(EdgeSide::Right),
+        to_side: Some(EdgeSide::Left),
+        label: Some("go".to_owned()),
+        route: Some(route.clone()),
+        ..Edge::new("routed", "a", "b")
+    };
+    // Laid out before both moved 50 left: drawn as a curve.
+    let left_behind = Edge {
+        route: Some(route.into_iter().map(|[x, y]| [x + 50.0, y]).collect()),
+        ..routed.clone()
+    };
+    let mut document = boxes;
+    for edge in [
+        routed,
+        Edge {
+            id: "stale".into(),
+            ..left_behind
+        },
+    ] {
+        let at = document.stack_len();
+        document
+            .apply(Command::InsertEdge {
+                edge: Box::new(edge),
+                at,
+            })
+            .unwrap();
+    }
+    assert_scene_snapshot!(TestApp::from_document(document));
 }
 
 #[test]

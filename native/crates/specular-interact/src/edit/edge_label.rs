@@ -25,9 +25,9 @@ const LINE_HEIGHT: f32 = 1.4;
 const SLACK: f32 = 4.0;
 
 /// Where the label of the edge named by `key` is laid out: centred, in
-/// canvas space, on the middle of its curve.
+/// canvas space, where the scene draws it.
 pub(super) fn frame(app: &App, key: &EntityId) -> Option<TextFrame> {
-    let middle = app.edge_curve(&EdgeId::from(key.as_str()))?.point(0.5);
+    let middle = app.edge_path(&EdgeId::from(key.as_str()))?.middle();
     let middle = app.session.camera.screen_to_world(middle).as_dvec2();
     let line = LABEL_SIZE * LINE_HEIGHT;
     Some(TextFrame {
@@ -108,8 +108,8 @@ pub(crate) fn is_over(app: &App, screen: Vec2) -> bool {
         });
     on_text
         || app
-            .edge_curve(&EdgeId::from(edit.entity.as_str()))
-            .is_some_and(|curve| curve.hit(screen, camera.zoom))
+            .edge_path(&EdgeId::from(edit.entity.as_str()))
+            .is_some_and(|path| path.hit(screen, camera.zoom))
 }
 
 /// The edge whose label is the whole selection, named by the key an edit of

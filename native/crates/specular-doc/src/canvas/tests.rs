@@ -73,7 +73,8 @@ fn everything() -> Value {
             { "id": "edge", "fromNode": "page", "toNode": "shape", "fromSide": "right",
               "toSide": "left", "fromEnd": "none", "toEnd": "arrow", "color": "5",
               "label": "to", "strokeWidth": 2, "lineStyle": "dashed",
-              "edgeKind": "connection", "edgeMetadata": { "k": 1 }, "otherTool": 1 },
+              "edgeKind": "connection", "edgeMetadata": { "k": 1 },
+              "route": [[500, 100], [540, 100], [540, 220.5], [580, 220.5]], "otherTool": 1 },
         ],
         "specular": {
             "entityOrder": ["page", "edge", "text", "file", "drawing", "shape", "group"],
@@ -141,6 +142,7 @@ fn modeled_fields_are_read_into_typed_fields_not_extra() {
 
     let edge = document.edge(&"edge".into()).unwrap();
     assert_eq!(edge.kind, Some(EdgeKind::Connection));
+    assert_eq!(edge.route.as_ref().map(Vec::len), Some(4));
     assert_eq!(edge.extra.keys().collect::<Vec<_>>(), ["otherTool"]);
     assert_eq!(document.annotations().len(), 2);
     assert_eq!(

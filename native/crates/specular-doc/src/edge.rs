@@ -47,6 +47,12 @@ pub struct Edge {
     /// Edge metadata.
     #[serde(rename = "edgeMetadata", skip_serializing_if = "Option::is_none")]
     pub metadata: Option<JsonMap>,
+    /// The path a laid-out edge takes, from where it leaves `from` to where
+    /// it reaches `to`, in canvas units, turning at right angles. It is
+    /// drawn only while its ends still sit on their entities' sides; once
+    /// either entity moves, the edge is drawn as a curve again.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub route: Option<Vec<[f64; 2]>>,
     /// Unmodeled fields.
     #[serde(flatten)]
     pub extra: JsonMap,
@@ -69,6 +75,7 @@ impl Edge {
             line_style: None,
             kind: None,
             metadata: None,
+            route: None,
             extra: JsonMap::new(),
         }
     }

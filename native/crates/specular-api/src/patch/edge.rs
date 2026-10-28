@@ -1,5 +1,6 @@
 //! One edge item of a patch. An id that names an edge patches it in place;
-//! anything else creates one.
+//! anything else creates one. Its ends name entities by id, or by the `ref`
+//! of one the patch made.
 
 use serde_json::{Value, json};
 use specular_doc::{Command, Edge, EdgeId, EntityId, JsonMap};
@@ -37,6 +38,13 @@ pub(super) fn upsert(builder: &mut Builder<'_>, at: &str, item: &JsonMap) -> Res
     for (from, to) in FIELDS {
         if let Some(value) = item.get(from).filter(|value| !value.is_null()) {
             edge[to] = value.clone();
+        }
+    }
+    // An end may name an entity this patch made by its `ref`.
+    for key in ["fromNode", "toNode"] {
+        if let Some(name) = edge.get(key).and_then(Value::as_str) {
+            let id = builder.resolve(name).to_owned();
+            edge[key] = json!(id);
         }
     }
     for (key, end) in [("fromNode", "fromEntityId"), ("toNode", "toEntityId")] {

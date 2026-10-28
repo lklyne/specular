@@ -52,7 +52,9 @@ pub use self::page_script::{PageScript, SnapshotKind};
 pub use self::pages::CdpAsk;
 pub use self::reply::Pending;
 use self::reply::Reply;
-pub use self::wire::{Applied, Discovery, Footprint, Placed, Position, check_layout, footprint};
+pub use self::wire::{
+    Applied, Discovery, Footprint, Placed, Position, check_layout, footprint, is_flow,
+};
 
 /// The API version the CLI checks the discovery file and `/health` for.
 pub const VERSION: &str = "1";

@@ -83,16 +83,20 @@ pub(crate) fn breakpoints(client: &Client, args: &Args) -> anyhow::Result<i32> {
     Ok(0)
 }
 
-/// `arrange <row|column|grid> [id...]`: tidy in place, or pack at `--gap`.
-/// No ids arranges the selection.
+/// `arrange <row|column|grid|flow> [id...]`: tidy in place, or pack at
+/// `--gap`; `flow` lays them out along their edges, running `--dir`. No ids
+/// arranges the selection.
 pub(crate) fn arrange(client: &Client, args: &Args) -> anyhow::Result<i32> {
-    let Some(mode @ ("row" | "column" | "grid")) = args.nth(0) else {
+    let Some(mode @ ("row" | "column" | "grid" | "flow")) = args.nth(0) else {
         return usage(
-            "specular arrange <row|column|grid> [id...] [--gap m] [--cols N]  \
+            "specular arrange <row|column|grid|flow> [id...] [--gap m] [--cols N] [--dir LR|TB]  \
              (no ids uses current selection)",
         );
     };
     let mut body = json!({ "mode": mode });
+    if let Some(dir) = args.flag("dir") {
+        body["dir"] = json!(dir);
+    }
     let ids = args.positional.get(1..).unwrap_or_default();
     if !ids.is_empty() {
         body["entityIds"] = json!(ids);

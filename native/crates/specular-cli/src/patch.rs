@@ -7,7 +7,7 @@ use std::io::Write as _;
 
 use anyhow::Context as _;
 use serde_json::{Map, Value, json};
-use specular_api::{Applied, Placed, footprint};
+use specular_api::{Applied, Placed, footprint, is_flow};
 
 use crate::client::Client;
 use crate::js::num;
@@ -109,13 +109,17 @@ fn in_free_spot(client: &Client, items: &mut [Value], batch: &Batch) -> anyhow::
 }
 
 /// Sends `patch` (`entities`, `edges`, `delete` and a `layout` directive)
-/// as one transaction, after placing its new items.
+/// as one transaction, after placing its new items. A `flow` directive goes
+/// with it, for the app to lay out.
 pub(crate) fn apply(client: &Client, patch: &Value, batch: &Batch) -> anyhow::Result<Applied> {
     let mut body = Map::new();
     match patch.get("entities") {
         Some(Value::Array(items)) => {
             let mut entities = items.clone();
-            if let Some(directive) = patch.get("layout").filter(|layout| !layout.is_null()) {
+            let directive = patch.get("layout").filter(|layout| !layout.is_null());
+            // A flow is laid out by the app once the entities and edges are
+            // made; the rest are placed here first.
+            if let Some(directive) = directive.filter(|directive| !is_flow(directive)) {
                 by_directive(client, &mut entities, directive)?;
             }
             in_free_spot(client, &mut entities, batch)?;
@@ -129,7 +133,7 @@ pub(crate) fn apply(client: &Client, patch: &Value, batch: &Batch) -> anyhow::Re
             body.insert("entities".to_owned(), Value::Array(Vec::new()));
         }
     }
-    for key in ["edges", "delete"] {
+    for key in ["edges", "delete", "layout"] {
         if let Some(value) = patch.get(key).filter(|value| !value.is_null()) {
             body.insert(key.to_owned(), value.clone());
         }

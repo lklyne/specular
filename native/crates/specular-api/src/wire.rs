@@ -5,6 +5,8 @@
 //! use, in the Electron app's words. What is here is what the CLI itself
 //! decodes, plus the checks it runs before it sends anything.
 
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -35,6 +37,9 @@ pub struct Applied {
     pub deleted: Vec<String>,
     /// The edges made or changed.
     pub edges: Vec<String>,
+    /// The id each entity made with a `ref` was given, by that ref.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub refs: BTreeMap<String, String>,
 }
 
 /// Where one item goes: its own top-left on the canvas.
@@ -93,5 +98,14 @@ pub fn footprint(item: &Value) -> Footprint {
 /// Checks a patch's `layout` directive, returning the first problem in the
 /// words the routes use.
 pub fn check_layout(directive: &Value) -> Result<(), String> {
-    layout::validate(directive).map(|_| ())
+    match layout::flow(directive) {
+        Some(flow) => flow.map(|_| ()),
+        None => layout::validate(directive).map(|_| ()),
+    }
+}
+
+/// Whether a patch's `layout` directive lays out a flow, which the app does
+/// itself after making the patch's entities and edges.
+pub fn is_flow(directive: &Value) -> bool {
+    layout::flow(directive).is_some()
 }
