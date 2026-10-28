@@ -68,7 +68,7 @@ pub fn kept_from_page() -> impl Iterator<Item = Chord> {
         .filter(|binding| {
             matches!(
                 binding.context,
-                Context::Always | Context::EnteredPage | Context::PageTarget
+                Context::Always | Context::EnteredPage | Context::PageTarget | Context::FrameTarget
             )
         })
         .map(|binding| binding.chord);

@@ -7005,6 +7005,7 @@ version = "0.11.0"
 dependencies = [
  "glam",
  "pulldown-cmark",
+ "serde_json",
  "specular-core",
  "specular-doc",
  "specular-interact",

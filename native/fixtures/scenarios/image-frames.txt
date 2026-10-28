@@ -1,0 +1,49 @@
+# A screenshot in a device frame: the device is the one the image's size
+# says it was taken on, the frame goes round the image and never moves it,
+# and an image of no device's shape gets a plain frame. `pad` is an iPad
+# Pro 13 screenshot at two pixels a point, `phone` an iPhone 17 Pro Max one
+# at three on its side, and `square` no device's.
+given file pad 100 100 2064 2752 shots/pad.png
+given file phone 2400 100 2868 1320 shots/phone.png
+given file square 2400 1800 800 800 shots/square.png
+camera 0,0,0.2
+
+# the frame list is the image's, and starts with no frame
+select pad
+expect controls has image.frame.none on
+control image.device
+control image.frame.simple
+expect saved /nodes/pad/metadata/showDeviceFrame = true
+expect saved /nodes/pad/metadata/deviceId = "ipad-pro-13"
+expect controls has image.frame.simple on
+expect entity pad rect 100 100 2064 2752
+control image.frame.realistic
+expect saved /nodes/pad/metadata/deviceFrameStyle = "realistic"
+expect controls has image.frame.realistic on
+control image.frame-color.dark
+expect saved /nodes/pad/metadata/deviceFrameColor = "dark"
+control image.frame.none
+expect saved /nodes/pad/metadata/showDeviceFrame = false
+expect entity pad rect 100 100 2064 2752
+key escape
+
+# the frame key steps an image as it steps a page, and a phone on its side
+# is still a phone
+select phone
+key cmd+alt+f
+expect controls has image.frame.simple on
+expect saved /nodes/phone/metadata/deviceId = "iphone-17-pro-max"
+key cmd+alt+f
+expect controls has image.frame.realistic on
+key escape
+
+# no device is this shape: a plain frame, and no realistic one to step to
+select square
+key cmd+alt+f
+expect controls has image.frame.simple on
+expect saved /nodes/square/metadata/deviceId absent
+key cmd+alt+f
+expect controls has image.frame.none on
+key escape
+
+undo-to-start

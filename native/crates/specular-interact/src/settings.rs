@@ -315,6 +315,7 @@ fn shortcuts(app: &App) -> Vec<ShortcutRow> {
                 Context::Editing => "Text",
                 Context::EnteredPage => "Inside a page",
                 Context::PageTarget => "Page",
+                Context::FrameTarget => "Page or image",
             },
         })
         .collect()

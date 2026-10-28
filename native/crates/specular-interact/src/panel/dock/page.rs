@@ -10,6 +10,7 @@ mod size;
 use self::repo::repo_control;
 pub(super) use self::size::preset_sections;
 use self::size::size_dropdown;
+pub(super) use self::size::{frame_choice, frame_color_choice};
 
 use specular_doc::Entity;
 

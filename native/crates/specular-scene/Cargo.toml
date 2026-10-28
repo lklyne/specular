@@ -15,6 +15,7 @@ glam = { workspace = true }
 pulldown-cmark = { workspace = true }
 
 [dev-dependencies]
+serde_json = { workspace = true }
 specular-testkit = { workspace = true }
 
 [lints]

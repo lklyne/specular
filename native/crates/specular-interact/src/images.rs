@@ -15,8 +15,8 @@
 //! - a file changed on disk is asked for again, and the picture on screen
 //!   stays until the new one is ready.
 //!
-//! A page in a realistic device frame wants its device's drawing the same
-//! way, under [`DeviceArt::asset`]. The shell holds those drawings itself
+//! A page or an image in a realistic device frame wants its device's
+//! drawing the same way, under [`DeviceArt::asset`]. The shell holds those drawings itself
 //! and rasters each once.
 
 mod animation;
@@ -25,7 +25,7 @@ mod vector;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use specular_doc::{DeviceArt, DeviceFrameColor, Document, Entity, FileRef, Kind, Page};
+use specular_doc::{DeviceArt, DeviceFrameColor, Document, Entity, FileRef, Kind};
 
 pub(crate) use self::animation::Animations;
 
@@ -120,33 +120,36 @@ impl Images {
 /// Whether `file` is drawn as an image: Electron's `IMAGE_EXTENSIONS`, and
 /// an iPhone's photos, which macOS decodes.
 pub fn is_image_file(file: &str) -> bool {
-    const EXTENSIONS: [&str; 10] = [
-        "png", "jpg", "jpeg", "gif", "svg", "webp", "bmp", "ico", "heic", "heif",
-    ];
-    file.rsplit_once('.').is_some_and(|(_, extension)| {
-        (EXTENSIONS.iter()).any(|known| extension.eq_ignore_ascii_case(known))
+    specular_doc::is_image_path(file)
+}
+
+/// The image files `document` shows, and the drawings of the realistic
+/// device frames round its pages and images, which are asked for by name
+/// as a file is. A frame that keeps no colour is drawn in `theme`'s.
+///
+/// A drawing is asked for as soon as a frame is shown that could be drawn
+/// with it, clay too: rastering one takes a moment, and the frame key
+/// steps clay before realistic, so the drawing is ready by then.
+fn wanted(document: &Document, theme: DeviceFrameColor) -> impl Iterator<Item = &str> {
+    document.entities().flat_map(move |entity| {
+        let file = match &entity.kind {
+            Kind::File(file) if is_image_file(&file.file) => Some(file.file.as_str()),
+            Kind::Page(_)
+            | Kind::File(_)
+            | Kind::Text(_)
+            | Kind::Group(_)
+            | Kind::Drawing(_)
+            | Kind::Shape(_) => None,
+        };
+        let art = device_art(entity).map(|art| art.asset(entity.frame_color().unwrap_or(theme)));
+        file.into_iter().chain(art)
     })
 }
 
-/// The image files `document` shows, and the drawings of its pages'
-/// realistic device frames, which are asked for by name as a file is. A
-/// page that keeps no colour is drawn in `theme`'s.
-fn wanted(document: &Document, theme: DeviceFrameColor) -> impl Iterator<Item = &str> {
-    document
-        .entities()
-        .filter_map(move |entity| match &entity.kind {
-            Kind::File(file) if is_image_file(&file.file) => Some(file.file.as_str()),
-            kind @ (Kind::Page(_) | Kind::File(_)) => {
-                let page = kind.page_fields()?;
-                device_art(&page).map(|art| art.asset(page.frame_color().unwrap_or(theme)))
-            }
-            Kind::Text(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Shape(_) => None,
-        })
-}
-
-/// The drawing `page`'s frame is shown as, if it is a realistic one.
-fn device_art(page: &Page) -> Option<DeviceArt> {
-    page.shell().and_then(|shell| shell.art)
+/// The drawing `entity`'s frame is or could be shown as, while it shows
+/// one.
+fn device_art(entity: &Entity) -> Option<DeviceArt> {
+    entity.shell().and(entity.device_art())
 }
 
 /// The device colour a page that keeps none is drawn in: the app theme's.
@@ -275,10 +278,10 @@ fn shown(app: &App) -> impl Iterator<Item = (&Entity, &FileRef)> {
 }
 
 impl App {
-    /// The colour `page`'s device is drawn in: its own, or the app theme's
-    /// when it keeps none.
-    pub fn device_frame_color(&self, page: &Page) -> DeviceFrameColor {
-        (page.frame_color()).unwrap_or_else(|| theme_device_color(self))
+    /// The colour `entity`'s device is drawn in: its own, or the app
+    /// theme's when it keeps none.
+    pub fn device_frame_color(&self, entity: &Entity) -> DeviceFrameColor {
+        (entity.frame_color()).unwrap_or_else(|| theme_device_color(self))
     }
 
     /// The drawing of `art` in `color` once the shell has it, one image for
