@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-10-28 — Device Frames on Images
+
+### New
+
+- **Device frames on images.** Put a phone, tablet or laptop frame around any image on the canvas, such as a screenshot, using the same frame control and keys as pages. It works on several selected images at once.
+
 ## [0.11.0] - 2026-10-26 — New-Tab Links, Reduce Motion, a Faster CLI
 
 ### New

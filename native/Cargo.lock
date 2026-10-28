@@ -6863,7 +6863,7 @@ dependencies = [
 
 [[package]]
 name = "specular-agent"
-version = "0.11.0"
+version = "0.11.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -6872,7 +6872,7 @@ dependencies = [
 
 [[package]]
 name = "specular-api"
-version = "0.11.0"
+version = "0.11.1"
 dependencies = [
  "glam",
  "serde",
@@ -6885,7 +6885,7 @@ dependencies = [
 
 [[package]]
 name = "specular-bench"
-version = "0.11.0"
+version = "0.11.1"
 dependencies = [
  "anyhow",
  "glam",
@@ -6898,7 +6898,7 @@ dependencies = [
 
 [[package]]
 name = "specular-cef"
-version = "0.11.0"
+version = "0.11.1"
 dependencies = [
  "cef",
  "glam",
@@ -6914,14 +6914,14 @@ dependencies = [
 
 [[package]]
 name = "specular-cef-helper"
-version = "0.11.0"
+version = "0.11.1"
 dependencies = [
  "cef",
 ]
 
 [[package]]
 name = "specular-cli"
-version = "0.11.0"
+version = "0.11.1"
 dependencies = [
  "anyhow",
  "base64 0.23.1",
@@ -6932,7 +6932,7 @@ dependencies = [
 
 [[package]]
 name = "specular-compositor"
-version = "0.11.0"
+version = "0.11.1"
 dependencies = [
  "bytemuck",
  "glam",
@@ -6955,7 +6955,7 @@ dependencies = [
 
 [[package]]
 name = "specular-core"
-version = "0.11.0"
+version = "0.11.1"
 dependencies = [
  "glam",
  "serde",
@@ -6965,7 +6965,7 @@ dependencies = [
 
 [[package]]
 name = "specular-doc"
-version = "0.11.0"
+version = "0.11.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -6974,7 +6974,7 @@ dependencies = [
 
 [[package]]
 name = "specular-interact"
-version = "0.11.0"
+version = "0.11.1"
 dependencies = [
  "glam",
  "serde",
@@ -6990,7 +6990,7 @@ dependencies = [
 
 [[package]]
 name = "specular-prism"
-version = "0.11.0"
+version = "0.11.1"
 dependencies = [
  "anyhow",
  "bytemuck",
@@ -7001,7 +7001,7 @@ dependencies = [
 
 [[package]]
 name = "specular-scene"
-version = "0.11.0"
+version = "0.11.1"
 dependencies = [
  "glam",
  "pulldown-cmark",
@@ -7014,7 +7014,7 @@ dependencies = [
 
 [[package]]
 name = "specular-shell"
-version = "0.11.0"
+version = "0.11.1"
 dependencies = [
  "anyhow",
  "arboard",
@@ -7055,7 +7055,7 @@ dependencies = [
 
 [[package]]
 name = "specular-testkit"
-version = "0.11.0"
+version = "0.11.1"
 dependencies = [
  "glam",
  "insta",
