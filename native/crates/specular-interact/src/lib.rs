@@ -170,9 +170,9 @@ pub use panel::PanelUi;
 pub use panel::{
     Button, Choices, Control, ControlId, ControlsModel, Dropdown, DropdownOption, DropdownSection,
     Entries, Face, Field, FieldSubmit, FieldWidth, Icon, Label, MenuTarget, OptionLayout,
-    PaintRole, Palette, SidebarButton, Stepper, Swatch, Swatches, ThemeButton, Toggle, ToolButton,
-    ToolbarModel, ToolbarSection, UnknownControl, ViewStrip, ViewTab, context_menu, control_named,
-    dock, tool_options, toolbar, view_strip,
+    PaintRole, Palette, ShareButton, ShareState, SidebarButton, Stepper, Swatch, Swatches,
+    ThemeButton, Toggle, ToolButton, ToolbarModel, ToolbarSection, UnknownControl, ViewStrip,
+    ViewTab, context_menu, control_named, dock, tool_options, toolbar, view_strip,
 };
 pub use physical_key::{PhysicalKey, mac_key_input};
 pub use place::{PlaceDrag, PlacePreview};
