@@ -401,3 +401,79 @@ fn plain_text_is_sized_to_its_words_and_a_write_ends_the_open_text_edit() {
             .is_some_and(|text| text.contains('!'))
     );
 }
+
+#[test]
+fn a_patch_lays_out_its_screens_as_a_flow_in_one_step() {
+    let mut session = three_notes();
+    let screen = |name: &str| json!({ "kind": "shape", "ref": name, "width": 390, "height": 844 });
+    let made = session.apply(json!({
+        "entities": [screen("cart"), screen("pay"), screen("done")],
+        "edges": [
+            { "fromEntityId": "cart", "toEntityId": "pay", "label": "Checkout" },
+            { "fromEntityId": "pay", "toEntityId": "done" },
+            { "fromEntityId": "done", "toEntityId": "cart", "label": "Shop again" },
+        ],
+        "layout": { "kind": "flow" },
+    }));
+    let id = |name: &str| made["refs"][name].clone();
+    let x = |session: &mut Scripted, name: &str| session.node(&id(name))["x"].as_f64();
+    let (cart, pay, done) = (
+        x(&mut session, "cart"),
+        x(&mut session, "pay"),
+        x(&mut session, "done"),
+    );
+    // Left to right, a column a screen, and clear of the notes already there.
+    assert!(
+        cart.zip(pay).is_some_and(|(cart, pay)| pay >= cart + 390.0),
+        "{made}"
+    );
+    assert!(
+        pay.zip(done).is_some_and(|(pay, done)| done >= pay + 390.0),
+        "{made}"
+    );
+    let canvas = session.canvas();
+    let edges = canvas["edges"].as_array().cloned().unwrap_or_default();
+    let routed = (edges.iter())
+        .filter(|edge| {
+            edge["route"]
+                .as_array()
+                .is_some_and(|route| route.len() >= 2)
+        })
+        .count();
+    assert_eq!(routed, 3, "every edge of the flow is routed: {canvas}");
+
+    // The whole patch is one step.
+    session.undo();
+    assert_eq!(session.node(&id("cart")), Value::Null);
+    session.app.assert_undo_returns_to_start();
+}
+
+#[test]
+fn arrange_flow_lays_out_what_is_there_and_routes_its_edges() {
+    let mut session = three_notes();
+    // a is linked to b; c follows b.
+    session.apply(json!({ "edges": [{ "fromEntityId": "b", "toEntityId": "c" }] }));
+    let laid = ok(
+        &mut session,
+        "/selection/arrange",
+        json!({ "mode": "flow", "dir": "TB", "entityIds": ["a", "b", "c"] }),
+    );
+    assert_eq!(laid, json!({ "changed": true }));
+    let y = |session: &mut Scripted, id: &str| session.node(&json!(id))["y"].as_f64();
+    let (a, b, c) = (
+        y(&mut session, "a"),
+        y(&mut session, "b"),
+        y(&mut session, "c"),
+    );
+    assert!(
+        a.zip(b).is_some_and(|(a, b)| b >= a + 200.0)
+            && b.zip(c).is_some_and(|(b, c)| c >= b + 200.0)
+    );
+    assert_eq!(session.canvas()["edges"][0]["fromSide"], "bottom");
+    let refused = session.post(
+        "/selection/arrange",
+        json!({ "mode": "flow", "dir": "sideways", "entityIds": ["a", "b"] }),
+    );
+    assert_eq!(refused.status, 400);
+    session.app.assert_undo_returns_to_start();
+}

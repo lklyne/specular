@@ -130,6 +130,14 @@ fn a_bad_patch_is_answered_without_an_event() {
             "edges[0].toEntityId: unknown entity 'ghost'",
         ),
         (json!({ "delete": [1] }), "delete: expected an array of ids"),
+        (
+            json!({ "entities": [{ "kind": "shape", "ref": "x" }, { "kind": "shape", "ref": "x" }] }),
+            "entities[1].ref: 'x' names another entity of this patch",
+        ),
+        (
+            json!({ "layout": { "kind": "flow", "dir": "up" } }),
+            "layout.dir: expected 'LR' | 'TB', got \"up\"",
+        ),
     ];
     for (patch, error) in rows {
         let row = patch.to_string();

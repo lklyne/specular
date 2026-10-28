@@ -204,8 +204,8 @@ fn body_among(app: &App, screen: Vec2, edges: bool) -> Hit {
             ItemId::Edge(id) => {
                 if edges
                     && app
-                        .edge_curve(id)
-                        .is_some_and(|curve| curve.hit(screen, camera.zoom))
+                        .edge_path(id)
+                        .is_some_and(|path| path.hit(screen, camera.zoom))
                 {
                     return Hit::Edge { edge: id.clone() };
                 }

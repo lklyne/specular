@@ -1,13 +1,14 @@
-//! Edges: a curve between two entities, arrowheads at its ends and a label
-//! at its middle.
+//! Edges: a curve between two entities, or the right-angle route a flow
+//! laid out with its corners rounded, arrowheads at its ends and a label at
+//! its middle.
 //!
-//! The curve comes from [`App::edge_curve`](specular_interact::App::edge_curve),
+//! The path comes from [`App::edge_path`](specular_interact::App::edge_path),
 //! the same one hit-testing uses, so an edge is drawn where it is hit. It is
 //! in screen space; the line width follows the zoom.
 
 use glam::Vec2;
 use specular_doc::{Edge, EdgeEnd, EntityId, ItemId, LineStyle};
-use specular_interact::EdgeCurve;
+use specular_interact::{EdgePath, EdgeRoute};
 
 use super::editing;
 use super::frame::{Frame, vec_point};
@@ -30,17 +31,19 @@ const ARROW_BACK: f32 = 4.25;
 const ARROW_HALF_WIDTH: f32 = 3.0;
 /// Label size in canvas units.
 const LABEL_SIZE: f32 = specular_interact::EDGE_LABEL_SIZE;
+/// The radius a route's corners are rounded to, in canvas units, at most:
+/// a short run between two corners takes a smaller one.
+const CORNER_RADIUS: f32 = 12.0;
 
 pub(crate) fn draw(frame: &Frame<'_>, edge: &Edge, scene: &mut Scene) {
     // The rubber band of a drag stands in for an edge whose end is moving.
     if frame.app.rerouting() == Some(&edge.id) {
         return;
     }
-    let Some(curve) = frame.app.edge_curve(&edge.id) else {
+    let Some(path) = frame.app.edge_path(&edge.id) else {
         return;
     };
-    let ends = [curve.from, curve.from_control, curve.to_control, curve.to];
-    let Some(bounds) = Rect::bounding(ends.map(vec_point)) else {
+    let Some(bounds) = Rect::bounding(path.hull().into_iter().map(vec_point)) else {
         return;
     };
     if !frame.sees_screen(bounds) {
@@ -67,8 +70,8 @@ pub(crate) fn draw(frame: &Frame<'_>, edge: &Edge, scene: &mut Scene) {
             off: width * DASH_OFF,
         }),
     };
-    scene.push(Item::screen(PathDraw {
-        commands: vec![
+    let commands = match &path {
+        EdgePath::Curve(curve) => vec![
             PathCommand::MoveTo(vec_point(curve.from)),
             PathCommand::CubicTo {
                 control1: vec_point(curve.from_control),
@@ -76,6 +79,10 @@ pub(crate) fn draw(frame: &Frame<'_>, edge: &Edge, scene: &mut Scene) {
                 to: vec_point(curve.to),
             },
         ],
+        EdgePath::Route(route) => rounded(route, CORNER_RADIUS * frame.zoom()),
+    };
+    scene.push(Item::screen(PathDraw {
+        commands,
         fill: None,
         stroke: Some(PathStroke {
             color,
@@ -88,12 +95,12 @@ pub(crate) fn draw(frame: &Frame<'_>, edge: &Edge, scene: &mut Scene) {
 
     let arrow = |end: Option<EdgeEnd>, default: EdgeEnd| end.unwrap_or(default) == EdgeEnd::Arrow;
     if arrow(edge.from_end, EdgeEnd::None) {
-        let heading = heading(curve.from_control, curve.from, curve.to);
-        scene.push(arrowhead(curve.from, heading, width, color));
+        let heading = heading(path.after_from(), path.from(), path.to());
+        scene.push(arrowhead(path.from(), heading, width, color));
     }
     if arrow(edge.to_end, EdgeEnd::Arrow) {
-        let heading = heading(curve.to_control, curve.to, curve.from);
-        scene.push(arrowhead(curve.to, heading, width, color));
+        let heading = heading(path.before_to(), path.to(), path.from());
+        scene.push(arrowhead(path.to(), heading, width, color));
     }
     if let Some(shown) = frame.app.editing_edge_label(&edge.id) {
         let key = EntityId::from(edge.id.as_str());
@@ -104,7 +111,7 @@ pub(crate) fn draw(frame: &Frame<'_>, edge: &Edge, scene: &mut Scene) {
     }
     match edge.label.as_deref() {
         Some(label) if !label.is_empty() => {
-            scene.push(self::label(&curve, label, frame.zoom(), frame.colors.ink));
+            scene.push(self::label(&path, label, frame.zoom(), frame.colors.ink));
         }
         Some(_) | None => {}
     }
@@ -137,11 +144,32 @@ fn arrowhead(end: Vec2, heading: Vec2, width: f32, color: Color) -> Item {
     })
 }
 
-/// The label, centred on the middle of the curve and upright.
-fn label(curve: &EdgeCurve, text: &str, zoom: f32, color: Color) -> Item {
+/// The label, centred on the middle of the path and upright.
+fn label(path: &EdgePath, text: &str, zoom: f32, color: Color) -> Item {
     Item::screen(TextRun {
         align: TextAlign::Centre,
         vertical_align: VerticalAlign::Middle,
-        ..TextRun::new(text, vec_point(curve.point(0.5)), LABEL_SIZE * zoom, color)
+        ..TextRun::new(text, vec_point(path.middle()), LABEL_SIZE * zoom, color)
     })
+}
+
+/// A route as straight runs whose corners turn on a quarter curve of up
+/// to `radius`, and less where a run is too short to give it either side.
+fn rounded(route: &EdgeRoute, radius: f32) -> Vec<PathCommand> {
+    let points = &route.points;
+    let mut commands = vec![PathCommand::MoveTo(vec_point(points[0]))];
+    for corner in 1..points.len() - 1 {
+        let (before, at, after) = (points[corner - 1], points[corner], points[corner + 1]);
+        let room = (at.distance(before) / 2.0).min(at.distance(after) / 2.0);
+        let radius = radius.min(room);
+        let into = (at - before).normalize_or_zero();
+        let out = (after - at).normalize_or_zero();
+        commands.push(PathCommand::LineTo(vec_point(at - into * radius)));
+        commands.push(PathCommand::QuadTo {
+            control: vec_point(at),
+            to: vec_point(at + out * radius),
+        });
+    }
+    commands.push(PathCommand::LineTo(vec_point(points[points.len() - 1])));
+    commands
 }

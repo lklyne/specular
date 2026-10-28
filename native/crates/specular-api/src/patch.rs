@@ -1,13 +1,17 @@
 //! `POST /canvas/apply`: the one declarative door (ADR 0019). A patch is
 //!
 //! ```json
-//! { "entities": [ {"kind": "text", ...}, {"id": "text_7", ...} ],
-//!   "edges":    [ {"fromEntityId": "a", "toEntityId": "b"} ],
-//!   "delete":   ["text_3", "edge_9"] }
+//! { "entities": [ {"kind": "text", "ref": "start", ...}, {"id": "text_7", ...} ],
+//!   "edges":    [ {"fromEntityId": "start", "toEntityId": "text_7"} ],
+//!   "delete":   ["text_3", "edge_9"],
+//!   "layout":   {"kind": "flow", "dir": "LR"} }
 //! ```
 //!
 //! An entity with no `id` is created and one with an `id` is updated, its
-//! kind read from the document. The whole patch becomes one
+//! kind read from the document. A created entity's `ref` names it for the
+//! patch's edges before it has an id. A `flow` layout lays the patch's
+//! entities out along its edges once they are made (the other layouts are
+//! placed by the CLI before it sends the patch). The whole patch becomes one
 //! [`Command::Batch`], so it is one undo step, and a patch with a bad item
 //! changes nothing.
 //!
@@ -24,13 +28,19 @@ mod note;
 pub(crate) use self::file::file_path;
 pub(crate) use self::note::note_text;
 
+use std::collections::BTreeMap;
+
+use glam::DVec2;
 use serde_json::{Value, json};
 use specular_doc::{Command, Document, EdgeId, EntityId, JsonMap};
-use specular_interact::{ApiRun, App, Effect, delete_commands};
+use specular_interact::{
+    ApiRun, App, Effect, FlowDirection, delete_commands, flow_plan, free_spot, plan_commands,
+};
 
 use crate::facts::Facts;
 use crate::http::strings;
 use crate::ids::Ids;
+use crate::placement::layout;
 use crate::reply::Reply;
 use crate::wire::Applied;
 use crate::{Request, Response, Step};
@@ -45,6 +55,8 @@ pub(crate) struct Builder<'a> {
     updated: Vec<String>,
     deleted: Vec<String>,
     edges: Vec<String>,
+    /// The id each created entity's `ref` names.
+    refs: BTreeMap<String, String>,
     /// What the host found on disk, when the request was planned with it.
     facts: Option<&'a Facts>,
     /// The file writes and copies the created entities need first.
@@ -63,6 +75,7 @@ impl<'a> Builder<'a> {
             updated: Vec::new(),
             deleted: Vec::new(),
             edges: Vec::new(),
+            refs: BTreeMap::new(),
             facts: None,
             effects: Vec::new(),
             claimed: Vec::new(),
@@ -134,6 +147,56 @@ impl<'a> Builder<'a> {
         Ok(())
     }
 
+    /// The entity a patch item names: a `ref` made earlier in the patch, or
+    /// an id.
+    fn resolve<'s>(&'s self, name: &'s str) -> &'s str {
+        self.refs.get(name).map_or(name, String::as_str)
+    }
+
+    /// Lays out the patch's entities as a flow along the edges between
+    /// them: at `origin`, else in a free spot when the patch made any, else
+    /// where they already start.
+    fn flow(
+        &mut self,
+        app: &App,
+        direction: FlowDirection,
+        origin: Option<DVec2>,
+    ) -> Result<(), Response> {
+        let ids: Vec<EntityId> = (self.created.iter().chain(&self.updated))
+            .map(|id| EntityId::from(id.as_str()))
+            .collect();
+        let origin = match origin {
+            Some(origin) => Some(origin),
+            None if !self.created.is_empty() => {
+                let Some(plan) = flow_plan(&self.trial, &ids, direction, Some(DVec2::ZERO)) else {
+                    return Ok(());
+                };
+                let far = (plan.targets.iter())
+                    .filter_map(|(id, at)| {
+                        let rect = self.trial.entity(id)?.rect;
+                        Some(*at + DVec2::new(rect.width, rect.height))
+                    })
+                    .fold(DVec2::ZERO, DVec2::max);
+                let spot = free_spot::place(app, far.x, far.y, true);
+                Some(DVec2::new(spot.x, spot.y))
+            }
+            None => None,
+        };
+        let Some(plan) = flow_plan(&self.trial, &ids, direction, origin) else {
+            return Ok(());
+        };
+        for command in plan_commands(&self.trial, &plan) {
+            self.push(command, "layout")?;
+        }
+        for edge in plan.edges {
+            let id = edge.id.as_str().to_owned();
+            if !self.edges.contains(&id) {
+                self.edges.push(id);
+            }
+        }
+        Ok(())
+    }
+
     /// The patch as one step, answered with `reply`'s view of what it did.
     fn finish(self, reply: impl FnOnce(&Self) -> Value) -> Step {
         let body = reply(&self);
@@ -196,12 +259,22 @@ pub(crate) fn apply(
     builder.entities(array(patch, "entities")?)?;
     builder.edge_items(array(patch, "edges")?)?;
     builder.delete(&delete, false)?;
+    let layout = patch.get("layout").filter(|layout| !layout.is_null());
+    if let Some(flow) = layout.and_then(layout::flow) {
+        let direction = flow.map_err(Response::bad_request)?;
+        let layout = layout.unwrap_or(&Value::Null);
+        let origin = (layout["originX"].as_f64())
+            .zip(layout["originY"].as_f64())
+            .map(|(x, y)| DVec2::new(x, y));
+        builder.flow(app, direction, origin)?;
+    }
     Ok(builder.finish(|done| {
         let applied = Applied {
             created: done.created.clone(),
             updated: done.updated.clone(),
             deleted: done.deleted.clone(),
             edges: done.edges.clone(),
+            refs: done.refs.clone(),
         };
         serde_json::to_value(applied).unwrap_or_default()
     }))

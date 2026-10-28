@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+### New
+
+- **Screen flows.** An agent can lay screens out as a flow diagram: each screen in a column by what leads to it, so the arrows run one way, and every arrow routed at right angles round the screens. `specular apply` with a `flow` layout makes and lays out the screens and their edges in one step, and `specular arrange flow` lays out what is already on the canvas. Move a screen by hand and its arrows go back to curves until the flow is laid out again.
+
 ## [0.11.1] - 2026-10-28 — Device Frames on Images
 
 ### New

@@ -223,9 +223,10 @@ pub(super) fn read(app: &App, query: &Query) -> anyhow::Result<Vec<String>> {
             })
         }
         Query::EdgeEnds(name) => {
-            let curve = edge_id(app, name).and_then(|id| app.edge_curve(&id));
-            curve.map_or_else(none, |curve| {
-                let ends = [curve.from.x, curve.from.y, curve.to.x, curve.to.y];
+            let path = edge_id(app, name).and_then(|id| app.edge_path(&id));
+            path.map_or_else(none, |path| {
+                let (from, to) = (path.from(), path.to());
+                let ends = [from.x, from.y, to.x, to.y];
                 numbers(&ends.map(f64::from))
             })
         }

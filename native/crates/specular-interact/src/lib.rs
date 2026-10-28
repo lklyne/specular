@@ -48,6 +48,7 @@ mod effect;
 mod event;
 mod first_run;
 mod flick;
+mod flow;
 mod focus;
 pub mod free_spot;
 mod geometry;
@@ -133,7 +134,7 @@ pub use draw::DrawStroke;
 pub use driver::{Driver, EventSink};
 pub use drop::{DroppedFile, default_size as dropped_size, shown_path};
 pub use edge_drag::{EdgeDrag, EdgePreview};
-pub use edge_path::EdgeCurve;
+pub use edge_path::{EdgeCurve, EdgePath, EdgeRoute};
 pub use edit::{
     CaretStop, EDGE_LABEL_SIZE, EditMarks, Format, LayoutLine, NOTE_PADDING, SourceRow, SourceSpan,
     SourceStyle, StackCache, TITLE_GAP, TITLE_LINE, TITLE_SIZE, TextEdit, TextFrame, TextLayout,
@@ -142,6 +143,7 @@ pub use edit::{
 pub use effect::Effect;
 pub use event::{Action, CanvasAction, Event, Key, KeyInput, PageNotice, PointerInput, WheelInput};
 pub use first_run::{OnboardingModel, SpaceAction, SpaceAsk, SpaceChoice, onboarding};
+pub use flow::{FlowDirection, FlowPlan, flow_command, flow_plan, plan_commands};
 pub use geometry::{ScreenRect, to_canvas_rect};
 pub use gesture::Gesture;
 pub use groups::group_command;

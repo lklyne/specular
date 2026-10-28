@@ -21,6 +21,8 @@ const VALUE_FLAGS: &[&str] = &[
     "--height",
     "--size",
     "--cols",
+    // A flow's direction: `arrange flow --dir TB`.
+    "--dir",
     "--anchor",
     "--label",
     "--color",

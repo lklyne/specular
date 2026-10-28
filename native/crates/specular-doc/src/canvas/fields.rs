@@ -59,6 +59,7 @@ impl Loose for Edge {
         "lineStyle",
         "edgeKind",
         "edgeMetadata",
+        "route",
     ];
 
     fn extra_mut(&mut self) -> &mut JsonMap {

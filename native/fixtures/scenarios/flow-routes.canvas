@@ -1,0 +1,10 @@
+{
+  "nodes": [
+    {"id": "a", "type": "shape", "x": 100, "y": 100, "width": 100, "height": 100, "shapeKind": "rectangle", "text": ""},
+    {"id": "b", "type": "shape", "x": 400, "y": 300, "width": 100, "height": 100, "shapeKind": "rectangle", "text": ""}
+  ],
+  "edges": [
+    {"id": "e1", "fromNode": "a", "toNode": "b", "fromSide": "right", "toSide": "left", "toEnd": "arrow", "label": "next", "route": [[200, 150], [300, 150], [300, 350], [400, 350]]}
+  ],
+  "specular": {"entityOrder": ["a", "b", "e1"]}
+}

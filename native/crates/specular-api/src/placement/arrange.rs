@@ -6,7 +6,8 @@ use glam::DVec2;
 use serde_json::{Value, json};
 use specular_doc::{Entity, EntityId, ItemId, Kind};
 use specular_interact::{
-    ApiRun, App, ArrangeMode, arrange_command, auto_layout_command, place_command, reorder_command,
+    ApiRun, App, ArrangeMode, arrange_command, auto_layout_command, flow_command, place_command,
+    reorder_command,
 };
 
 use super::layout::{self, Mode, Size};
@@ -31,18 +32,24 @@ fn changed(command: Option<specular_doc::Command>) -> Step {
     }
 }
 
-/// `POST /selection/arrange`: `{mode, entityIds?, gap?, cols?}`. With no
-/// gap the items keep their footprint and the spacing inside it is evened
-/// (ADR 0026). With one they are packed at it from their top-left, in
-/// reading order.
+/// `POST /selection/arrange`: `{mode, entityIds?, gap?, cols?, dir?}`. With
+/// no gap the items keep their footprint and the spacing inside it is
+/// evened (ADR 0026). With one they are packed at it from their top-left,
+/// in reading order. `flow` lays them out along the edges between them,
+/// running `dir` (`LR` or `TB`), and routes those edges.
 pub(crate) fn arrange(app: &App, request: &Request) -> Result<Step, Response> {
     let body = &request.body;
-    let directive = json!({ "kind": body["mode"], "gap": body["gap"], "cols": body["cols"] });
-    let mode = layout::validate(&directive).map_err(Response::bad_request)?;
     let ids: Vec<EntityId> = match request.strings("entityIds") {
         Some(ids) => ids.into_iter().map(EntityId::from).collect(),
         None => app.selection_scope().members,
     };
+    let flow = json!({ "kind": body["mode"], "dir": body["dir"] });
+    if let Some(direction) = layout::flow(&flow) {
+        let direction = direction.map_err(Response::bad_request)?;
+        return Ok(changed(flow_command(app, &ids, direction)));
+    }
+    let directive = json!({ "kind": body["mode"], "gap": body["gap"], "cols": body["cols"] });
+    let mode = layout::validate(&directive).map_err(Response::bad_request)?;
     if body.get("gap").is_none_or(Value::is_null) {
         let mode = match mode {
             Mode::Row => ArrangeMode::Row,

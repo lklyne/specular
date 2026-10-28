@@ -6,6 +6,7 @@ mod bindings;
 mod clipboard;
 mod comment_rules;
 mod flick;
+mod flow;
 mod guides;
 mod images;
 mod motion;

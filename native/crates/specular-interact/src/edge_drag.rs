@@ -180,6 +180,10 @@ fn run(app: &mut App, outcome: Outcome, effects: &mut Vec<Effect>) {
                 End::From => (moved.from, moved.from_side) = (target, Some(target_side)),
                 End::To => (moved.to, moved.to_side) = (target, Some(target_side)),
             }
+            // A laid-out route no longer leads where the end went.
+            if app.document.edge(&edge) != Some(&moved) {
+                moved.route = None;
+            }
             if app.document.edge(&edge) != Some(&moved) {
                 update::document_step(app, Command::ReplaceEdge(Box::new(moved)), effects);
             }

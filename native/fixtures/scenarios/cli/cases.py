@@ -483,13 +483,47 @@ def link_group_auto_layout_arrange_and_focus():
     equal([node(i)["x"] for i in (a, b, c)], [0, 220, 440], "packed in reading order")
     ok("arrange", "column", a, b, c, "--gap", "m")
     equal({node(i)["x"] for i in (a, b, c)}, {0}, "a column")
-    refused("usage: specular arrange <row|column|grid>", "arrange", "pile")
+    refused("usage: specular arrange <row|column|grid|flow>", "arrange", "pile")
     http("/selection/deselect")
     equal(ok("arrange", "row"), {"changed": False}, "no ids and nothing selected")
 
     focused = ok("focus", a)
     check(focused.get("ok", True), f"focus: {focused}")
     refused("usage: specular focus", "focus")
+
+
+@case
+def screens_are_laid_out_as_a_flow_along_their_edges():
+    fresh("Flow")
+    screen = lambda ref: {"kind": "shape", "ref": ref, "width": 390, "height": 844}
+    made = ok(
+        "apply",
+        stdin=json.dumps(
+            {
+                "entities": [screen("cart"), screen("pay"), screen("done")],
+                "edges": [
+                    {"fromEntityId": "cart", "toEntityId": "pay", "label": "Checkout"},
+                    {"fromEntityId": "pay", "toEntityId": "done"},
+                    {"fromEntityId": "done", "toEntityId": "cart", "label": "Shop again"},
+                ],
+                "layout": {"kind": "flow"},
+            }
+        ),
+    )
+    cart, pay, done = (made["refs"][ref] for ref in ("cart", "pay", "done"))
+    xs = [node(i)["x"] for i in (cart, pay, done)]
+    check(xs[0] + 390 <= xs[1] and xs[1] + 390 <= xs[2], f"a column a screen, left to right: {xs}")
+    routes = [edge.get("route", []) for edge in ok("canvas")["edges"]]
+    equal(sum(1 for route in routes if len(route) >= 2), 3, "every edge is routed")
+
+    equal(ok("arrange", "flow", cart, pay, done, "--dir", "TB"), {"changed": True}, "arrange flow")
+    ys = [node(i)["y"] for i in (cart, pay, done)]
+    check(ys[0] + 844 <= ys[1] and ys[1] + 844 <= ys[2], f"a row a screen, top to bottom: {ys}")
+    refused("layout.dir: expected 'LR' | 'TB'", "arrange", "flow", cart, pay, "--dir", "up")
+    refused("apply: layout.dir", "apply", stdin=json.dumps({"layout": {"kind": "flow", "dir": 3}}))
+    undo()
+    undo()
+    equal(ok("canvas")["nodes"], [], "the flow and its layout are two undo steps")
 
 
 @case

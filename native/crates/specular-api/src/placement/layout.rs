@@ -2,6 +2,7 @@
 //! for one.
 
 use serde_json::Value;
+use specular_interact::FlowDirection;
 
 /// How a batch is arranged.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -135,6 +136,40 @@ fn is_spacing(value: &Value) -> bool {
     value.is_number() || (value.as_str()).is_some_and(|name| TOKENS.iter().any(|(t, _)| *t == name))
 }
 
+/// The `kind` of a directive that lays out a flow.
+const FLOW: &str = "flow";
+
+/// A `flow` directive's direction, or the first problem with it. `None`
+/// when the directive is not a flow.
+pub(crate) fn flow(directive: &Value) -> Option<Result<FlowDirection, String>> {
+    (directive["kind"].as_str() == Some(FLOW)).then(|| {
+        let dir = &directive["dir"];
+        let direction = if dir.is_null() {
+            FlowDirection::default()
+        } else {
+            (dir.as_str())
+                .and_then(FlowDirection::parse)
+                .ok_or_else(|| format!("layout.dir: expected 'LR' | 'TB', got {dir}"))?
+        };
+        check_origin(directive)?;
+        Ok(direction)
+    })
+}
+
+/// Checks a directive's `originX` and `originY`.
+fn check_origin(directive: &Value) -> Result<(), String> {
+    for key in ["originX", "originY"] {
+        let value = &directive[key];
+        if !value.is_null() && !value.is_number() {
+            return Err(format!("layout.{key}: expected number, got {value}"));
+        }
+    }
+    if directive["originX"].is_null() != directive["originY"].is_null() {
+        return Err("layout: originX and originY must be specified together".to_owned());
+    }
+    Ok(())
+}
+
 /// Checks a `layout` directive and returns its mode, or the first problem
 /// in the words the CLI's own check uses.
 pub(crate) fn validate(directive: &Value) -> Result<Mode, String> {
@@ -142,6 +177,12 @@ pub(crate) fn validate(directive: &Value) -> Result<Mode, String> {
         return Err("layout: expected an object".to_owned());
     }
     let kind = &directive["kind"];
+    if kind.as_str() == Some(FLOW) {
+        return Err(
+            "layout.kind: 'flow' lays out a patch's own entities and edges; send it with apply"
+                .to_owned(),
+        );
+    }
     let mode = kind
         .as_str()
         .and_then(Mode::parse)
@@ -160,20 +201,12 @@ pub(crate) fn validate(directive: &Value) -> Result<Mode, String> {
             "layout.cols: expected positive integer, got {cols}"
         ));
     }
-    for key in ["originX", "originY"] {
-        let value = &directive[key];
-        if !value.is_null() && !value.is_number() {
-            return Err(format!("layout.{key}: expected number, got {value}"));
-        }
-    }
+    check_origin(directive)?;
     let near = &directive["near"];
     if !near.is_null() && !near.is_string() {
         return Err(format!(
             "layout.near: expected entity id string, got {near}"
         ));
-    }
-    if directive["originX"].is_null() != directive["originY"].is_null() {
-        return Err("layout: originX and originY must be specified together".to_owned());
     }
     Ok(mode)
 }
