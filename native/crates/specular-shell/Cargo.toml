@@ -36,6 +36,7 @@ glam = { workspace = true }
 image = { workspace = true }
 resvg = { workspace = true }
 pollster = { workspace = true }
+serde = { workspace = true }
 serde_json = { workspace = true }
 sha1_smol = { workspace = true }
 sha2 = { workspace = true }

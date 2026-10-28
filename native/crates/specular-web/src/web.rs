@@ -277,6 +277,21 @@ impl WebViewer {
         .to_owned()
     }
 
+    /// The live room's whole state: the first frame of a connection.
+    pub fn live_state(&mut self, state: &Uint8Array) {
+        self.viewer.live_state(state.to_vec());
+    }
+
+    /// One update from the live room.
+    pub fn live_update(&mut self, update: &Uint8Array) {
+        self.viewer.live_update(update.to_vec());
+    }
+
+    /// Whether the canvas shown is the live one.
+    pub fn is_live(&self) -> bool {
+        self.viewer.is_live()
+    }
+
     /// The server's comments, as a JSON array of `.canvas` annotations.
     pub fn set_comments(&mut self, json: &str) -> Result<(), JsValue> {
         let comments = serde_json::from_str(json).map_err(error)?;

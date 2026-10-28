@@ -47,7 +47,9 @@ pub(crate) fn share(client: &Client, args: &Args) -> anyhow::Result<i32> {
     let answer = match (args.nth(0), args.nth(1)) {
         (None | Some("status"), None) => client.get("/share")?,
         (Some("stop"), None) => client.post("/share/stop", &json!({}))?,
-        (Some("join"), Some(link)) => client.post("/share", &json!({ "link": link, "join": true }))?,
+        (Some("join"), Some(link)) => {
+            client.post("/share", &json!({ "link": link, "join": true }))?
+        }
         (Some(link), None) if link.contains("#t=") => {
             client.post("/share", &json!({ "link": link }))?
         }

@@ -6,6 +6,9 @@
 //! SPECULAR_LIVE_LINK='http://localhost:8787/c/<doc>#t=<edit token>' \
 //!   cargo test -p specular-shell --lib through_a_room -- --ignored
 //! ```
+//!
+//! The publish test makes its own doc on `SPECULAR_SHARE_SERVER`, signing
+//! in under `$HOME/.specular/share.json`, so run it with a scratch `HOME`.
 
 use std::time::{Duration, Instant};
 
@@ -13,6 +16,7 @@ use specular_doc::Rect;
 use specular_interact::{Effect, Event, ShareEvent};
 use specular_testkit::{TestApp, document, sticky};
 
+use super::publish::{self, Publish};
 use super::{Incoming, LiveLink, ShareLink};
 
 /// An app and its connection, wired as the runtime wires them.
@@ -81,4 +85,42 @@ fn two_apps_edit_one_canvas_through_a_room() {
     }
     assert_eq!(ann.app.document(), ben.app.document());
     assert_ne!(ben.app.rect("s1"), Rect::new(0.0, 0.0, 200.0, 100.0));
+}
+
+#[test]
+#[ignore = "needs a share server: SPECULAR_SHARE_SERVER"]
+fn a_published_canvas_goes_live_and_a_peer_joins_it() {
+    let Ok(server) = std::env::var("SPECULAR_SHARE_SERVER") else {
+        return;
+    };
+    let folder = std::env::temp_dir().join(format!("specular-publish-{}", std::process::id()));
+    std::fs::create_dir_all(&folder).expect("a folder");
+    let file = folder.join("Shared.canvas");
+    let canvas = r#"{"nodes":[{"id":"t1","type":"text","x":0,"y":0,"width":200,"height":60,"text":"hi"}],"edges":[]}"#;
+    std::fs::write(&file, canvas).expect("the canvas");
+    let links = publish::start(Publish {
+        file,
+        title: "Shared".to_owned(),
+        server,
+    })
+    .recv_timeout(Duration::from_secs(30))
+    .expect("an answer")
+    .expect("published");
+    assert!(links.view.contains("/c/") && links.view != links.edit);
+
+    let second = Duration::from_secs(1);
+    let mut ann = Peer::connect(
+        TestApp::from_document(document([sticky(
+            "s1",
+            Rect::new(0.0, 0.0, 200.0, 100.0),
+            "one",
+        )])),
+        &links.edit,
+    );
+    ann.pump(2 * second);
+    assert!(ann.app.app().is_shared());
+    let mut ben = Peer::connect(TestApp::empty(), &links.edit);
+    ben.pump(2 * second);
+    assert_eq!(ben.app.document().order(), ann.app.document().order());
+    let _ = std::fs::remove_dir_all(folder);
 }

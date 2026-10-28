@@ -10,6 +10,11 @@ const TOUCH_SLOP = 6;
 /** The longest side of an svg's raster, as on the desktop. */
 const SVG_MAX_SIDE = 4096;
 const NAME_KEY = "specular.name";
+/** The live room's frame tags (server/src/live-room.ts). */
+const LIVE_STATE = 0;
+const LIVE_UPDATE = 1;
+/** The longest wait before the live room is tried again. */
+const LIVE_MOST_BACKOFF_MS = 30_000;
 
 const $ = (id) => document.getElementById(id);
 const canvas = $("canvas");
@@ -18,6 +23,8 @@ const status = $("status");
 const state = {
   docId: null,
   token: null,
+  /** The share link's own token, redeemed again when the live room drops. */
+  linkToken: null,
   canComment: false,
   viewer: null,
   /** The server's comments, oldest first. */
@@ -76,6 +83,43 @@ async function api(path, { method = "GET", body } = {}) {
   return json;
 }
 
+/**
+ * Follows the canvas's live room (ADR 0050): its first frame is everything
+ * shared so far and each one after is an edit, so the canvas moves as the
+ * desktop does. A dropped socket comes back with a fresh connection token,
+ * since the first one lasts an hour.
+ */
+function connectLive(backoff = 1000) {
+  const badge = $("live");
+  const url = new URL(`/docs/${state.docId}/live`, location.href);
+  url.protocol = location.protocol === "https:" ? "wss:" : "ws:";
+  url.searchParams.set("token", state.token);
+  const socket = new WebSocket(url);
+  socket.binaryType = "arraybuffer";
+  socket.addEventListener("message", (event) => {
+    if (typeof event.data === "string") return;
+    const frame = new Uint8Array(event.data);
+    const payload = frame.subarray(1);
+    if (frame[0] === LIVE_STATE) state.viewer.live_state(payload);
+    else if (frame[0] === LIVE_UPDATE) state.viewer.live_update(payload);
+    const live = state.viewer.is_live();
+    badge.hidden = !live;
+    badge.classList.remove("away");
+    if (live) backoff = 1000;
+  });
+  socket.addEventListener("close", async () => {
+    badge.classList.add("away");
+    await new Promise((resolve) => setTimeout(resolve, backoff));
+    const redeemed = await fetch("/redeem", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ token: state.linkToken }),
+    }).catch(() => null);
+    if (redeemed?.ok) state.token = (await redeemed.json()).token;
+    connectLive(Math.min(backoff * 2, LIVE_MOST_BACKOFF_MS));
+  });
+}
+
 async function asset(hash) {
   const res = await fetch(`/assets/${hash}`);
   if (!res.ok) throw new Error(`asset ${hash} is missing`);
@@ -96,6 +140,7 @@ async function main() {
     return;
   }
   state.docId = link.docId;
+  state.linkToken = link.token;
   show("Opening…");
   const redeemed = await fetch("/redeem", {
     method: "POST",
@@ -136,6 +181,7 @@ async function main() {
   wireInput();
   wireSidebar();
   await refreshComments();
+  connectLive();
   setInterval(() => document.visibilityState === "visible" && refreshComments(), POLL_MS);
   requestAnimationFrame(frame);
 }

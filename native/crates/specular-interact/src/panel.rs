@@ -16,6 +16,7 @@ mod id;
 mod model;
 mod models;
 mod named;
+mod share;
 mod strip;
 mod toolbar;
 mod ui;
@@ -34,7 +35,8 @@ pub use model::{
     OptionLayout, PaintRole, Palette, Stepper, Swatch, Swatches, Toggle,
 };
 pub use models::{
-    ControlsModel, SidebarButton, ThemeButton, ToolButton, ToolbarModel, ToolbarSection,
+    ControlsModel, ShareButton, ShareState, SidebarButton, ThemeButton, ToolButton, ToolbarModel,
+    ToolbarSection,
 };
 pub(crate) use named::named_controls;
 pub use named::{UnknownControl, control_named};

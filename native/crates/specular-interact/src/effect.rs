@@ -155,6 +155,16 @@ pub enum Effect {
     },
     /// Close the canvas's connection to its live room.
     ShareDisconnect(CanvasId),
+    /// Write the canvas's file and publish it to the share server, as
+    /// `title`. The answer comes back as
+    /// [`ShareEvent::Published`](crate::ShareEvent::Published) or
+    /// [`ShareEvent::PublishFailed`](crate::ShareEvent::PublishFailed).
+    SharePublish {
+        /// The canvas.
+        canvas: CanvasId,
+        /// What the shared canvas is called.
+        title: String,
+    },
     /// A canvas was renamed: move its file, inside the space folder. What
     /// is unsaved goes to the old name first.
     RenameCanvasFile {

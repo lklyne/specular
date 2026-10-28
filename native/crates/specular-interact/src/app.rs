@@ -44,6 +44,8 @@ pub struct App {
     pub(crate) theme: ThemeState,
     /// Lays text out for the editor.
     pub(crate) measure: Measurer,
+    /// Each canvas's share as the Share button shows it.
+    pub(crate) shares: crate::share_button::Shares,
 }
 
 impl App {

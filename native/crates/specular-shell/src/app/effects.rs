@@ -116,6 +116,7 @@ impl<W: ShellWindow> Runtime<W> {
             Effect::ShareSend { canvas, update } => self.share_send(&canvas, update),
             Effect::ShareConnect { canvas, link } => self.share_connect(canvas, &link),
             Effect::ShareDisconnect(canvas) => self.share_disconnect(&canvas),
+            Effect::SharePublish { canvas, title } => self.share_publish(canvas, title),
             Effect::LoadImage { image, file } => self.load_image(image, &file),
             Effect::RasterImage { image, file, size } => self.raster_image(image, &file, size),
             Effect::DropImage(image) => self.drop_image(image),
@@ -189,6 +190,7 @@ const fn leaves_memory(effect: &Effect) -> bool {
             | Effect::PickRepoFolder { .. }
             | Effect::SaveRepos
             | Effect::ShareConnect { .. }
+            | Effect::SharePublish { .. }
     )
 }
 

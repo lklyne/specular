@@ -45,6 +45,29 @@ pub enum ShareEvent {
     },
     /// Stop sharing the active canvas. Its document stays as it is.
     Stop,
+    /// The shell published a canvas for
+    /// [`Effect::SharePublish`]; it goes live through the edit link.
+    Published {
+        /// The canvas.
+        canvas: CanvasId,
+        /// Its links.
+        links: crate::ShareLinks,
+    },
+    /// Publishing a canvas failed.
+    PublishFailed {
+        /// The canvas.
+        canvas: CanvasId,
+        /// Why, for the person.
+        reason: String,
+    },
+    /// A canvas's room refused it for good: the link was revoked or cannot
+    /// edit. The canvas is no longer shared.
+    Ended {
+        /// The canvas.
+        canvas: CanvasId,
+        /// Why, for the person.
+        reason: String,
+    },
 }
 
 /// A canvas's undo steps: a plain [`History`], or the shared document's
@@ -86,6 +109,12 @@ impl Undo {
     /// Whether the canvas is shared.
     pub(crate) fn is_shared(&self) -> bool {
         self.shared.is_some()
+    }
+
+    /// Stops sharing; the steps made while shared are forgotten with the
+    /// shared document.
+    pub(crate) fn unshare(&mut self) {
+        self.shared = None;
     }
 
     /// Runs `command` on `document` as one undo step.
@@ -189,6 +218,13 @@ pub(crate) fn on_event(app: &mut App, event: ShareEvent, effects: &mut Vec<Effec
                 effects.push(Effect::ShareDisconnect(app.space.active().id.clone()));
             }
         }
+        ShareEvent::Published { canvas, links } => {
+            crate::share_button::published(app, canvas, links, effects);
+        }
+        ShareEvent::PublishFailed { canvas, reason } => {
+            (app.shares).set(canvas, crate::share_button::Status::Failed(reason));
+        }
+        ShareEvent::Ended { canvas, reason } => crate::share_button::ended(app, &canvas, reason),
     }
 }
 
@@ -208,6 +244,8 @@ pub(crate) fn connect(
         return ApiOutcome::Refused("this canvas is shared already".to_owned());
     }
     let canvas = app.space.active().id.clone();
+    let status = crate::share_button::Status::Joined(link.clone());
+    app.shares.set(canvas.clone(), status);
     effects.push(Effect::ShareConnect { canvas, link });
     ApiOutcome::Done
 }

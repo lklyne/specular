@@ -275,6 +275,7 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         Action::Repo(action) => crate::repos::run(app, action, effects),
         Action::Space(action) => crate::first_run::run(action, effects),
         Action::Setting(action) => crate::settings::run(app, action, effects),
+        Action::Share(action) => crate::share_button::run(app, action, effects),
     }
 }
 

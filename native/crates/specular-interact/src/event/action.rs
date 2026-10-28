@@ -183,6 +183,9 @@ pub enum Action {
     Space(SpaceAction),
     /// A change to what is kept between launches.
     Setting(SettingAction),
+    /// Publish the active canvas, copy one of its links, or stop sharing
+    /// it.
+    Share(crate::ShareAction),
     /// Set one field of the selection, as a dock control does. It applies
     /// to every selected item it means something for, as one undo step.
     SetProperty(Property),

@@ -7073,6 +7073,7 @@ dependencies = [
  "pollster 1.0.1",
  "raw-window-handle",
  "resvg 0.46.0",
+ "serde",
  "serde_json",
  "sha1_smol",
  "sha2 0.10.9",

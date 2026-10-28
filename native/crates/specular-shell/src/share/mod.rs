@@ -6,7 +6,9 @@
 //! the room sent with [`LiveLink::take`]. Updates handed in while the socket
 //! is down wait and go out once it is back.
 
+mod account;
 mod link;
+pub(crate) mod publish;
 mod socket;
 #[cfg(test)]
 mod through_a_room;

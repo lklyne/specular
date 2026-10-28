@@ -27,7 +27,7 @@ use specular_core::{
 use specular_doc::{Annotation, AnnotationId, CanvasError, Command, Document, EntityId};
 use specular_interact::{
     Action, App, Effect, Event, ImageKey, ImageNotice, KeyInput, NoteNotice, PageNotice,
-    PointerInput, TextMeasure, Tool, WheelInput, update,
+    PointerInput, ShareEvent, TextMeasure, Tool, WheelInput, update,
 };
 
 /// How far a press may move, in logical pixels, and still be a click.
@@ -506,6 +506,62 @@ impl Viewer {
         }
     }
 
+    /// The live room's whole state, the first frame of each connection to
+    /// it (ADR 0050). From the first one the canvas is the live one, not
+    /// the published one, and every [`live_update`](Self::live_update)
+    /// moves it on. An empty state is a room nobody has shared into yet.
+    pub fn live_state(&mut self, state: Vec<u8>) {
+        if state.is_empty() {
+            return;
+        }
+        let event = if self.app.is_shared() {
+            let canvas = self.app.space().active().id.clone();
+            ShareEvent::Receive {
+                canvas,
+                update: state,
+            }
+        } else {
+            ShareEvent::Join(state)
+        };
+        self.live(event);
+    }
+
+    /// One update from the live room. The first into a room that was
+    /// empty is the sharer's whole canvas, which the viewer joins.
+    pub fn live_update(&mut self, update: Vec<u8>) {
+        let event = if self.app.is_shared() {
+            let canvas = self.app.space().active().id.clone();
+            ShareEvent::Receive { canvas, update }
+        } else {
+            ShareEvent::Join(update)
+        };
+        self.live(event);
+    }
+
+    /// Whether the canvas is the live one.
+    pub fn is_live(&self) -> bool {
+        self.app.is_shared()
+    }
+
+    /// Takes in what the room sent, as the canvas a viewer may not change,
+    /// and keeps the server's comments over it.
+    fn live(&mut self, event: ShareEvent) {
+        self.send(Event::Share(event));
+        // The desktop's own comments come with the live canvas now.
+        let ours: HashSet<&AnnotationId> = (self.remote.iter().chain(&self.posted))
+            .map(|each| &each.id)
+            .collect();
+        self.published = (self.app.document().annotations().iter())
+            .filter(|each| !ours.contains(&each.id))
+            .cloned()
+            .collect();
+        self.accept();
+        self.comments_waiting = true;
+        if self.app.comment_draft().is_none() {
+            self.show_comments();
+        }
+    }
+
     /// The comments made here since the last call, for the page to send.
     pub fn take_new_comments(&mut self) -> Vec<Annotation> {
         std::mem::take(&mut self.outbox)
@@ -625,31 +681,13 @@ impl Viewer {
 
     fn run(&mut self, effect: Effect, queue: &mut Vec<Event>) {
         match effect {
-            Effect::CreatePage { page, viewport, .. } => {
-                let host = Host {
-                    page: PageId(self.next_page),
-                    viewport,
-                };
-                self.next_page += 1;
-                self.hosts.insert(page.clone(), host);
-                if self.snapshots.contains_key(&page) {
-                    self.show_snapshot(&page, host);
-                }
-            }
+            Effect::CreatePage { page, viewport, .. } => self.create_host(page, viewport),
             Effect::ClosePage(page) => {
                 if let Some(host) = self.hosts.remove(&page) {
                     self.uploads.push(Upload::ClosePage(host.page));
                 }
             }
-            Effect::SetPageViewport { page, viewport } => {
-                if let Some(host) = self.hosts.get_mut(&page) {
-                    host.viewport = viewport;
-                    let host = *host;
-                    if self.snapshots.contains_key(&page) {
-                        self.show_snapshot(&page, host);
-                    }
-                }
-            }
+            Effect::SetPageViewport { page, viewport } => self.resize_host(&page, viewport),
             Effect::LoadImage { image, file } => self.ask_image(image, file, None),
             Effect::RasterImage { image, file, size } => self.ask_image(image, file, Some(size)),
             Effect::DropImage(image) => {
@@ -719,11 +757,37 @@ impl Viewer {
             | Effect::SetPageColorScheme { .. }
             | Effect::SetPageDevice { .. }
             | Effect::ShareSend { .. }
+            | Effect::ShareConnect { .. }
+            | Effect::ShareDisconnect(_)
+            | Effect::SharePublish { .. }
             | Effect::LoadThreads
             | Effect::WriteThread(_)
             | Effect::WriteThreadIndex
             | Effect::RunAgent(_)
             | Effect::CancelAgent(_) => {}
+        }
+    }
+
+    /// A page entity's host: its snapshot, when there is one.
+    fn create_host(&mut self, page: EntityId, viewport: CssSize) {
+        let host = Host {
+            page: PageId(self.next_page),
+            viewport,
+        };
+        self.next_page += 1;
+        if self.snapshots.contains_key(&page) {
+            self.show_snapshot(&page, host);
+        }
+        self.hosts.insert(page, host);
+    }
+
+    fn resize_host(&mut self, page: &EntityId, viewport: CssSize) {
+        if let Some(host) = self.hosts.get_mut(page) {
+            host.viewport = viewport;
+            let host = *host;
+            if self.snapshots.contains_key(page) {
+                self.show_snapshot(page, host);
+            }
         }
     }
 

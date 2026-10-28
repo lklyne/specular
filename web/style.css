@@ -331,3 +331,32 @@ dialog menu {
     width: calc(100% - 32px);
   }
 }
+
+/* The canvas follows the desktop's live room. */
+.live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--panel);
+  border-radius: 8px;
+  padding: 6px 10px;
+  box-shadow: var(--shadow);
+}
+
+.live::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #34c759;
+}
+
+.live.away::before {
+  background: var(--muted);
+}
+
+.live[hidden] {
+  display: none;
+}
