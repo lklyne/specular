@@ -30,12 +30,15 @@ const state = {
   focused: null,
 };
 
+/** `?webgl` in the address draws on WebGL2 where WebGPU would be used. */
+const FORCE_WEBGL = new URLSearchParams(location.search).has("webgl");
+
 /**
  * The viewer's module. A browser with WebGPU gets the build without WebGL2,
  * which is about 2 MB smaller; the rest get the one that can draw on either.
  */
 async function loadViewer() {
-  const adapter = await navigator.gpu?.requestAdapter().catch(() => null);
+  const adapter = !FORCE_WEBGL && (await navigator.gpu?.requestAdapter().catch(() => null));
   const name = adapter ? "specular_web_webgpu" : "specular_web";
   const module = await import(`./pkg/${name}.js`);
   await module.default();
@@ -128,6 +131,7 @@ async function main() {
     canvasText,
     state.canComment,
     seed[0] * 2 ** 21 + (seed[1] >>> 11),
+    FORCE_WEBGL,
   );
   resize();
   show("");

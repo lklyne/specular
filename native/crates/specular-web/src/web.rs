@@ -73,20 +73,26 @@ fn error(message: impl std::fmt::Display) -> JsValue {
 #[wasm_bindgen]
 impl WebViewer {
     /// Opens `canvas_text` in `canvas`. `can_comment` is what the link
-    /// allows; `seed` starts the ids of comments made here.
+    /// allows; `seed` starts the ids of comments made here. `webgl` draws
+    /// on WebGL2 even where the browser has WebGPU.
     pub async fn create(
         canvas: HtmlCanvasElement,
         canvas_text: String,
         can_comment: bool,
         seed: f64,
+        webgl: bool,
     ) -> Result<WebViewer, JsValue> {
         console_error_panic_hook::set_once();
         let (width, height) = (canvas.width().max(1), canvas.height().max(1));
-        let instance = wgpu::util::new_instance_with_webgpu_detection(wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::BROWSER_WEBGPU | wgpu::Backends::GL,
+        let descriptor = wgpu::InstanceDescriptor {
+            backends: if webgl {
+                wgpu::Backends::GL
+            } else {
+                wgpu::Backends::BROWSER_WEBGPU | wgpu::Backends::GL
+            },
             ..wgpu::InstanceDescriptor::new_without_display_handle()
-        })
-        .await;
+        };
+        let instance = wgpu::util::new_instance_with_webgpu_detection(descriptor).await;
         let surface = instance
             .create_surface(wgpu::SurfaceTarget::Canvas(canvas))
             .map_err(error)?;
@@ -105,6 +111,11 @@ impl WebViewer {
             })
             .await
             .map_err(error)?;
+        // wgpu's own handler panics, which would leave the page with a
+        // viewer that can no longer be called.
+        device.on_uncaptured_error(Arc::new(|gpu_error| {
+            web_sys::console::error_1(&format!("GPU error: {gpu_error}").into());
+        }));
         let mut config = surface
             .get_default_config(&adapter, width, height)
             .ok_or_else(|| error("the canvas cannot be drawn on by this GPU"))?;
