@@ -4,6 +4,7 @@
 use serde_json::{Value, json};
 use specular_api::{Request, Response};
 use specular_doc::Rect;
+use specular_interact::Effect;
 use specular_testkit::{TestApp, document, pages, sticky};
 
 use crate::common::Scripted;
@@ -43,4 +44,30 @@ fn a_background_write_goes_through_while_the_user_drags() {
     session.app.release();
     let read = ok(session.call(&tabbed(Request::get("/canvas"), "Notes")));
     assert_eq!(node_ids(&read), [] as [&str; 0]);
+}
+
+#[test]
+fn a_background_add_of_a_file_outside_the_space_copies_it_in() {
+    let mut session = space();
+    let shot = specular_interact::DroppedFile {
+        path: "/Users/me/Desktop/shot.png".to_owned(),
+        space_path: None,
+        image_size: Some((320, 180)),
+    };
+    session.disk.files.insert(shot.path.clone(), shot);
+    let patch = json!({ "entities": [{ "kind": "file", "file": "/Users/me/Desktop/shot.png" }] });
+    let created = ok(session.call(&tabbed(Request::post("/canvas/apply", patch), "Notes")));
+    let id = created["created"][0]
+        .as_str()
+        .unwrap_or_default()
+        .to_owned();
+    let copy = format!("assets/{id}.png");
+    assert!(
+        session.effects.iter().any(|effect| matches!(
+            effect,
+            Effect::CopyAsset { from, file } if from == "/Users/me/Desktop/shot.png" && *file == copy
+        )),
+        "{:?}",
+        session.effects
+    );
 }

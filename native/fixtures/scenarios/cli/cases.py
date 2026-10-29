@@ -195,6 +195,15 @@ def tabs_are_made_shown_written_in_the_background_and_deleted():
     back = ok("canvas", "--tab", "Back room")
     check(any(n["id"] == text for n in back["nodes"]), "the background canvas holds it")
     saved("Back room", lambda d: text in saved_ids(d), "the background note")
+    png = os.path.join(SPACE, "..", "behind.png")
+    write_png(png, 64, 48)
+    picture = ok("add", "file", png, "--tab", "Back room")["created"][0]
+    copy = os.path.join(SPACE, "assets", f"{picture}.png")
+    for _ in range(30):
+        if os.path.exists(copy):
+            break
+        time.sleep(0.1)
+    check(os.path.exists(copy), "a --tab add copies the image into assets")
     refused("--tab is not supported", "unlink", "e1", "--tab", "Back room")
     refused("Back nowhere", "canvas", "--tab", "Back nowhere")
 

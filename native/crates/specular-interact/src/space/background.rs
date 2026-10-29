@@ -13,9 +13,10 @@ use crate::{App, Effect, Session};
 /// step.
 ///
 /// The canvas has no page hosts, images or Documents loaded, so of the
-/// effects `run` returns only the reply is kept. Whatever it changed is
-/// loaded when the canvas is switched to. If it made an undo step the
-/// canvas is written. Returns `false` when `id` is the active canvas or
+/// effects `run` returns only the reply and the files it puts in the space
+/// folder are kept: the entities it added point at those files, and are
+/// loaded from them when the canvas is switched to. If it made an undo
+/// step the canvas is written. Returns `false` when `id` is the active canvas or
 /// names none; `run` is not called then.
 pub(crate) fn in_background(
     app: &mut App,
@@ -77,7 +78,18 @@ pub(crate) fn in_background(
     if changed {
         effects.push(Effect::WriteCanvas(id.clone()));
     }
-    effects
-        .extend((returned.into_iter()).filter(|effect| matches!(effect, Effect::ApiReply { .. })));
+    effects.extend((returned.into_iter()).filter(kept));
     true
+}
+
+/// Whether a background run's `effect` still has to happen: its reply, and
+/// the files the entities it added are shown from.
+fn kept(effect: &Effect) -> bool {
+    matches!(
+        effect,
+        Effect::ApiReply { .. }
+            | Effect::WriteAsset { .. }
+            | Effect::CopyAsset { .. }
+            | Effect::WriteNote { .. }
+    )
 }
