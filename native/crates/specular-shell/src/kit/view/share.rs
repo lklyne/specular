@@ -22,8 +22,8 @@ const RADIUS: f32 = 8.0;
 const WIDTH: f32 = 300.0;
 const ROW: f32 = 34.0;
 
-fn text(label: impl ToString) -> impl gpui_kit::IntoElement {
-    div().text_sm().child(SharedString::from(label.to_string()))
+fn text(label: String) -> impl gpui_kit::IntoElement {
+    div().text_sm().child(SharedString::from(label))
 }
 
 /// The popover's rows for `model`.
@@ -62,7 +62,7 @@ fn content(model: &ShareButton) -> AnyElement {
         .h(px(ROW))
         .rounded(px(RADIUS))
         .disabled(!model.copy.enabled)
-        .child(text(&model.copy.label))
+        .child(text(model.copy.label.to_string()))
         .child(mark(&model.copy.id))
         .on_click(move |_, window, cx| run(&action, window, cx));
     v_flex()
