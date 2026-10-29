@@ -1,94 +1,76 @@
-//! The Share button: Share while the canvas is not shared, Live and its
-//! list of links while it is (ADR 0050).
+//! The Share button's popover (ADR 0050): who the link lets in, and Copy
+//! link.
 
-use super::model::{Dropdown, DropdownOption, DropdownSection, Face, OptionLayout};
-use super::{ControlId, ShareButton, ShareState};
-use crate::share_button::{Status, link};
+use super::model::{Button, Dropdown, DropdownOption, DropdownSection, Face, OptionLayout};
+use super::{ControlId, ShareButton};
+use crate::share_button::{Status, is_sharing};
 use crate::{Action, App, LinkScope, ShareAction};
 
-/// The links the list offers, in its order, with what each is called.
-const SCOPES: [(LinkScope, &str, &str); 3] = [
-    (LinkScope::Edit, "edit", "Can edit"),
-    (LinkScope::Comment, "comment", "Can comment"),
-    (LinkScope::View, "view", "View only"),
+/// The choices of who the link lets in, in the list's order.
+const ACCESS: [(Option<LinkScope>, &str, &str); 4] = [
+    (None, "private", "Only you"),
+    (
+        Some(LinkScope::View),
+        "view",
+        "Anyone with the link can view",
+    ),
+    (
+        Some(LinkScope::Comment),
+        "comment",
+        "Anyone with the link can comment",
+    ),
+    (
+        Some(LinkScope::Edit),
+        "edit",
+        "Anyone with the link can edit",
+    ),
 ];
 
 pub(super) fn button(app: &App) -> ShareButton {
     let id = ControlId::new("share");
-    let status = app.shares.of(&app.space.active().id);
-    let publish = Some(Action::Share(ShareAction::Publish));
-    let (state, label, tip, action) = match status {
-        _ if app.is_shared() => (ShareState::Live, "Live", "Shared: copy a link", None),
-        Some(Status::Publishing | Status::Published(_) | Status::Joined(_)) => (
-            ShareState::Starting,
-            "Sharing…",
-            "Connecting to the share server",
-            None,
-        ),
-        Some(Status::Failed(reason)) => {
-            let tip = format!("Not shared: {reason}. Press to try again.");
-            return ShareButton {
-                id,
-                state: ShareState::Failed,
-                label: "Share".into(),
-                tip: tip.into(),
-                action: publish,
-                menu: None,
-            };
-        }
-        None => (ShareState::Off, "Share", "Share this canvas", publish),
-    };
-    let menu = (state == ShareState::Live).then(|| menu(&id, status));
-    ShareButton {
-        id,
-        state,
-        label: label.into(),
-        tip: tip.into(),
-        action,
-        menu,
-    }
-}
-
-fn menu(id: &ControlId, status: Option<&Status>) -> Dropdown {
-    let row =
-        |id: ControlId, face: &str, trailing: Option<&str>, action: ShareAction| DropdownOption {
-            id,
-            label: face.to_owned().into(),
-            face: Face::text(face.to_owned()),
-            trailing: trailing.map(|text| text.to_owned().into()),
+    let canvas = &app.space.active().id;
+    let status = app.shares.of(canvas);
+    let chosen = is_sharing(app, canvas).then(|| app.shares.access(canvas));
+    let access_id = id.child("access");
+    let options = (ACCESS.iter())
+        .map(|&(scope, name, label)| DropdownOption {
+            id: access_id.child(name),
+            label: label.into(),
+            face: Face::text(label),
+            trailing: None,
             fields: Vec::new(),
             chord: None,
-            selected: false,
+            selected: scope == chosen,
             enabled: true,
-            action: Action::Share(action),
-        };
-    let links = (SCOPES.iter())
-        .filter(|(scope, ..)| link(status, *scope).is_some())
-        .map(|&(scope, name, label)| {
-            row(
-                id.child(name),
-                label,
-                Some("Copy link"),
-                ShareAction::CopyLink(scope),
-            )
+            action: Action::Share(ShareAction::SetAccess(scope)),
         })
-        .collect::<Vec<_>>();
-    let stop = row(id.child("stop"), "Stop sharing", None, ShareAction::Stop);
-    let mut content = Vec::new();
-    if !links.is_empty() {
-        content.push(DropdownSection::Options {
-            layout: OptionLayout::List,
-            options: links,
-        });
-    }
-    content.push(DropdownSection::Options {
-        layout: OptionLayout::List,
-        options: vec![stop],
-    });
-    Dropdown {
-        id: id.clone(),
-        label: "Share".into(),
-        summary: Face::text("Live"),
-        content,
+        .collect();
+    let summary = (ACCESS.iter())
+        .find(|(scope, ..)| *scope == chosen)
+        .map_or("Only you", |(_, _, label)| label);
+    let publishing = matches!(status, Some(Status::Publishing { .. }));
+    ShareButton {
+        access: Dropdown {
+            id: access_id,
+            label: "Who can open the link".into(),
+            summary: Face::text(summary),
+            content: vec![DropdownSection::Options {
+                layout: OptionLayout::List,
+                options,
+            }],
+        },
+        copy: Button {
+            id: id.child("copy"),
+            label: "Copy link".into(),
+            face: Face::text("Copy link"),
+            enabled: !publishing,
+            chord: None,
+            action: Action::Share(ShareAction::CopyLink),
+        },
+        note: match status {
+            Some(Status::Failed(reason)) => Some(format!("Not shared: {reason}").into()),
+            _ => None,
+        },
+        id,
     }
 }

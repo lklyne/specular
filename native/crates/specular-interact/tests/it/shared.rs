@@ -2,7 +2,7 @@
 //! the other, and undo takes back only the undoing app's own steps.
 
 use specular_doc::{Command, Document, Kind, Rect};
-use specular_interact::panel::{ShareButton, ShareState, toolbar};
+use specular_interact::panel::{ShareButton, toolbar};
 use specular_interact::{
     Action, ApiCall, ApiRun, Effect, Event, Key, LinkScope, ShareAction, ShareEvent, ShareLinks,
 };
@@ -239,23 +239,34 @@ fn share_button(app: &TestApp) -> ShareButton {
     toolbar(app.app()).share
 }
 
+fn access(app: &TestApp) -> String {
+    (share_button(app).access.summary.text).map_or_else(String::new, |text| text.to_string())
+}
+
+fn copied(effects: &[Effect]) -> Option<&str> {
+    effects.iter().find_map(|effect| match effect {
+        Effect::WriteClipboard(link) => Some(link.as_str()),
+        _ => None,
+    })
+}
+
 #[test]
-fn the_share_button_publishes_goes_live_copies_a_link_and_stops() {
+fn copy_link_publishes_goes_live_and_copies_the_link_for_the_access_picked() {
     let mut app = TestApp::from_document(document([sticky("s1", rect(0.0, 0.0), "one")]));
-    assert_eq!(share_button(&app).state, ShareState::Off);
+    assert_eq!(access(&app), "Only you");
     let canvas = app.app().space().active().id.clone();
 
-    let effects = press_share(&mut app, ShareAction::Publish);
+    let effects = press_share(&mut app, ShareAction::CopyLink);
     assert!(
         (effects.iter())
             .any(|effect| matches!(effect, Effect::SharePublish { canvas: c, .. } if *c == canvas)),
         "{effects:?}"
     );
-    assert_eq!(share_button(&app).state, ShareState::Starting);
     assert!(
-        press_share(&mut app, ShareAction::Publish).is_empty(),
-        "a second press while publishing does nothing"
+        !share_button(&app).copy.enabled,
+        "no second publish while one runs"
     );
+    assert_eq!(press_share(&mut app, ShareAction::CopyLink), Vec::new());
 
     let links = ShareLinks {
         edit: "https://s.example/c/d#t=e".to_owned(),
@@ -267,6 +278,11 @@ fn the_share_button_publishes_goes_live_copies_a_link_and_stops() {
         links,
     }));
     let effects = app.take_effects();
+    assert_eq!(
+        copied(&effects),
+        Some("https://s.example/c/d#t=e"),
+        "edit is the default"
+    );
     assert!(
         (effects.iter()).any(
             |effect| matches!(effect, Effect::ShareConnect { link, .. } if link.ends_with("#t=e"))
@@ -275,37 +291,50 @@ fn the_share_button_publishes_goes_live_copies_a_link_and_stops() {
     );
     connected(&mut app, Vec::new());
     app.take_effects();
-    let button = share_button(&app);
-    assert_eq!(button.state, ShareState::Live);
-    let menu = button.menu.expect("a live share opens its links");
-    assert_eq!(menu.content.len(), 2, "the links, then Stop sharing");
+    assert!(app.app().is_shared());
+    assert_eq!(access(&app), "Anyone with the link can edit");
 
-    let effects = press_share(&mut app, ShareAction::CopyLink(LinkScope::View));
-    assert!(
-        (effects.iter())
-            .any(|effect| matches!(effect, Effect::WriteClipboard(link) if link.ends_with("#t=v"))),
-        "{effects:?}"
-    );
+    press_share(&mut app, ShareAction::SetAccess(Some(LinkScope::View)));
+    assert_eq!(access(&app), "Anyone with the link can view");
+    let effects = press_share(&mut app, ShareAction::CopyLink);
+    assert_eq!(copied(&effects), Some("https://s.example/c/d#t=v"));
 
-    let effects = press_share(&mut app, ShareAction::Stop);
+    let effects = press_share(&mut app, ShareAction::SetAccess(None));
     assert!((effects.iter()).any(|effect| matches!(effect, Effect::ShareDisconnect(_))));
     assert!(!app.app().is_shared());
-    assert_eq!(share_button(&app).state, ShareState::Off);
+    assert_eq!(access(&app), "Only you");
+}
+
+#[test]
+fn picking_who_can_open_the_link_shares_without_copying() {
+    let mut app = TestApp::from_document(document([sticky("s1", rect(0.0, 0.0), "one")]));
+    let canvas = app.app().space().active().id.clone();
+    let effects = press_share(&mut app, ShareAction::SetAccess(Some(LinkScope::Comment)));
+    assert!((effects.iter()).any(|effect| matches!(effect, Effect::SharePublish { .. })));
+    let links = ShareLinks {
+        edit: "https://s.example/c/d#t=e".to_owned(),
+        comment: "https://s.example/c/d#t=c".to_owned(),
+        view: "https://s.example/c/d#t=v".to_owned(),
+    };
+    app.send(Event::Share(ShareEvent::Published { canvas, links }));
+    assert_eq!(copied(&app.take_effects()), None);
+    assert_eq!(access(&app), "Anyone with the link can comment");
 }
 
 #[test]
 fn a_failed_publish_or_a_refused_room_says_why_and_can_be_tried_again() {
     let mut app = TestApp::from_document(document([sticky("s1", rect(0.0, 0.0), "one")]));
     let canvas = app.app().space().active().id.clone();
-    press_share(&mut app, ShareAction::Publish);
+    press_share(&mut app, ShareAction::CopyLink);
     app.send(Event::Share(ShareEvent::PublishFailed {
         canvas: canvas.clone(),
         reason: "the share server answered 500".to_owned(),
     }));
     let button = share_button(&app);
-    assert_eq!(button.state, ShareState::Failed);
-    assert!(button.tip.to_string().contains("500"), "{:?}", button.tip);
-    assert_eq!(button.action, Some(Action::Share(ShareAction::Publish)));
+    let note = button.note.expect("a reason").to_string();
+    assert!(note.contains("500"), "{note}");
+    assert!(button.copy.enabled);
+    assert_eq!(access(&app), "Only you");
 
     share(&mut app, false);
     connected(&mut app, Vec::new());
@@ -316,5 +345,5 @@ fn a_failed_publish_or_a_refused_room_says_why_and_can_be_tried_again() {
         reason: "the link is revoked or wrong".to_owned(),
     }));
     assert!(!app.app().is_shared());
-    assert_eq!(share_button(&app).state, ShareState::Failed);
+    assert!(share_button(&app).note.is_some());
 }

@@ -15,12 +15,12 @@ ADR 0048 gave a canvas a yrs document beside the typed one and proved two apps c
 
 **The first canvas into an empty room is the shared one.** An app that connects to an empty room shares its canvas; one that connects to a room with state joins it, replacing its document (`specular share join` makes a new canvas for it). After a dropped connection the app takes the room's state and sends everything it holds, so edits made offline reach the room.
 
-**The desktop publishes in Rust.** The Share button publishes the active canvas (anonymous sign-in, doc, assets, version, the three capability links) on a thread of the shell, then connects through the edit link. The owner's session and which doc each canvas file became stay in `~/.specular/share.json`, the format `share.ts` writes. `SPECULAR_SHARE_SERVER` picks the server.
+**The desktop publishes in Rust.** Copy link in the Share popover publishes the active canvas the first time (anonymous sign-in, doc, assets, version, the three capability links) on a thread of the shell, then connects through the edit link. The owner's session and which doc each canvas file became stay in `~/.specular/share.json`, the format `share.ts` writes. `SPECULAR_SHARE_SERVER` picks the server.
 
 **The web viewer follows the room.** It joins the room's state, or the first update into a room that was empty, and from then on shows the live canvas instead of the published version. It still cannot edit (ADR 0049).
 
 ## Consequences
 
 - Page snapshots are not published by the Share button yet: the publish thread cannot reach the page hosts, so the web shows a page as its card until `share.ts publish` adds snapshots.
-- A share link revoked on the server ends the live share on the next connection: the room refuses it and the button says why.
+- A share link revoked on the server ends the live share on the next connection: the room refuses it and the popover says why under Copy link.
 - Nothing is deployed. The deployed worker needs the `LiveRoom` Durable Object binding and its migration (`server/wrangler.jsonc`).

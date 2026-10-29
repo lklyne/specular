@@ -308,36 +308,28 @@ button.icon:hover,
 
 .popover {
   width: 300px;
-  padding: 12px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.popover h2 {
-  font-size: 13px;
-  font-weight: 600;
-  margin: 0 0 10px;
-}
-
-.share-row {
+/* Who the link lets in. Only the owner, in the app, can change it. */
+.access {
+  height: 34px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  padding: 0 12px;
+  border: 1px solid var(--field-border);
+  border-radius: 8px;
+  background: var(--input);
 }
 
-.scope {
-  font-weight: 500;
-}
-
-.scope-note,
-.share-foot {
-  color: var(--text-muted);
-  font-size: 12px;
-}
-
-.share-foot {
-  margin: 10px 0 0;
-  padding-top: 10px;
-  border-top: 1px solid var(--rule);
+.popover .copy {
+  height: 34px;
+  border-radius: 8px;
+  justify-content: center;
+  text-align: center;
 }
 
 /* ---- The canvas and its ribbon ----------------------------------------- */

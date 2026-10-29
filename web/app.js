@@ -486,10 +486,11 @@ function opens(button, panel) {
   return () => set(false);
 }
 
-const SCOPES = {
-  edit: ["Can edit", "Anyone with this link can edit and comment."],
-  comment: ["Can comment", "Anyone with this link can look and comment."],
-  view: ["View only", "Anyone with this link can look."],
+/** Who a link lets in, as the desktop's Share popover says it. */
+const ACCESS = {
+  edit: "Anyone with the link can edit",
+  comment: "Anyone with the link can comment",
+  view: "Anyone with the link can view",
 };
 
 function wireChrome() {
@@ -510,9 +511,7 @@ function wireChrome() {
   }
 
   opens($("share"), $("share-popover"));
-  const [scope, note] = SCOPES[state.scope] ?? SCOPES.view;
-  $("share-scope").textContent = scope;
-  $("share-note").textContent = note;
+  $("share-access").textContent = ACCESS[state.scope] ?? ACCESS.view;
   const copy = $("copy-link");
   copy.addEventListener("click", async () => {
     // The link this page was opened with: a visitor cannot make others.

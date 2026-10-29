@@ -41,16 +41,9 @@
       </button>
       <div class="share">
         <button type="button" id="share" class="primary" aria-haspopup="dialog" aria-expanded="false">Share</button>
-        <div class="popover" id="share-popover" role="dialog" aria-label="Share this canvas" hidden>
-          <h2>Share this canvas</h2>
-          <div class="share-row">
-            <div>
-              <div class="scope" id="share-scope">Can view</div>
-              <div class="scope-note" id="share-note">Anyone with this link can look.</div>
-            </div>
-            <button type="button" id="copy-link" class="secondary">Copy link</button>
-          </div>
-          <p class="share-foot">Only the canvas's owner can make other links, in the Specular app.</p>
+        <div class="popover" id="share-popover" role="dialog" aria-label="Share" hidden>
+          <div class="access" id="share-access">Anyone with the link can view</div>
+          <button type="button" id="copy-link" class="primary copy">Copy link</button>
         </div>
       </div>
     </header>

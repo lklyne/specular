@@ -35,7 +35,7 @@ pub use model::{
     OptionLayout, PaintRole, Palette, Stepper, Swatch, Swatches, Toggle,
 };
 pub use models::{
-    ControlsModel, ShareButton, ShareState, SidebarButton, ThemeButton, ToolButton, ToolbarModel,
+    ControlsModel, ShareButton, SidebarButton, ThemeButton, ToolButton, ToolbarModel,
     ToolbarSection,
 };
 pub(crate) use named::named_controls;

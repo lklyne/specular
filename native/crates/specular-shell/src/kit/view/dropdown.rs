@@ -72,7 +72,7 @@ fn find_dropdown(id: &ControlId) -> Option<Dropdown> {
         })
     }
     fn in_toolbar(toolbar: &ToolbarModel, id: &ControlId) -> Option<Dropdown> {
-        let share = (toolbar.share.menu.as_ref()).filter(|menu| menu.id == *id);
+        let share = Some(&toolbar.share.access).filter(|access| access.id == *id);
         (share.cloned()).or_else(|| {
             toolbar.sections.iter().find_map(|section| match section {
                 ToolbarSection::Zoom(dropdown) if dropdown.id == *id => Some(dropdown.clone()),

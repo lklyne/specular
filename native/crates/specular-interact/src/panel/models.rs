@@ -3,7 +3,7 @@
 
 use specular_doc::Color;
 
-use super::model::{Control, Dropdown, Label};
+use super::model::{Button, Control, Dropdown, Label};
 use super::{ControlId, Icon};
 use crate::{Action, Chord, Tool, ToolsPlace};
 
@@ -54,36 +54,19 @@ pub struct SidebarButton {
     pub action: Action,
 }
 
-/// The Share button at the right end of the tab row, and what it opens.
+/// The Share button at the right end of the tab row, and the popover it
+/// opens.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ShareButton {
     /// Its name.
     pub id: ControlId,
-    /// Where the active canvas's share stands.
-    pub state: ShareState,
-    /// What it says.
-    pub label: Label,
-    /// What the pointer over it reads: what pressing it does, or why the
-    /// last share failed.
-    pub tip: Label,
-    /// What pressing it does, while it opens no list.
-    pub action: Option<Action>,
-    /// The list it opens while the canvas is live: a row to copy each link
-    /// it has, then Stop sharing.
-    pub menu: Option<Dropdown>,
-}
-
-/// Where a canvas's share stands, as the Share button draws it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ShareState {
-    /// Not shared.
-    Off,
-    /// Publishing, or waiting for its room's first answer.
-    Starting,
-    /// Shared: its edits reach its peers as they happen.
-    Live,
-    /// The last try failed.
-    Failed,
+    /// Who the link lets in: only you, or anyone with it, to view, comment
+    /// or edit.
+    pub access: Dropdown,
+    /// Copies the link, sharing the canvas first when it is not shared.
+    pub copy: Button,
+    /// Why the last share failed, under the button.
+    pub note: Option<Label>,
 }
 
 /// The toolbar's theme button, which flips the theme between light and
