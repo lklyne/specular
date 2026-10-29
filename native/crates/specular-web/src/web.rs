@@ -44,7 +44,9 @@ pub struct WebViewer {
     cache: ViewCache,
     viewport: Vec2,
     scale: f32,
-    drawn_zoom: f32,
+    /// Whether the last frame drawn owes another: its text held at an
+    /// older zoom's raster, or laid out a part of a pixel off.
+    owed: bool,
 }
 
 /// Modifier keys as the page packs them: shift 1, control 2, alt 4, meta 8.
@@ -147,7 +149,7 @@ impl WebViewer {
             cache: ViewCache::default(),
             viewport: Vec2::ZERO,
             scale: 1.0,
-            drawn_zoom: 0.0,
+            owed: false,
         })
     }
 
@@ -370,17 +372,13 @@ impl WebViewer {
     pub fn frame(&mut self, now_ms: f64) -> Result<bool, JsValue> {
         self.viewer.tick(now_ms as u64);
         self.upload()?;
-        let zoom = self.viewer.app().session().camera.zoom;
-        let zooming = (zoom - self.drawn_zoom).abs() > f32::EPSILON;
-        if !self.viewer.take_dirty() && !zooming {
+        if !self.viewer.take_dirty() && !self.owed {
             return Ok(false);
         }
-        self.drawn_zoom = zoom;
-        self.draw(zooming);
-        // A zoom that just stopped is drawn once more with sharp text.
-        if zooming {
-            self.draw(false);
-        }
+        // Text keeps its raster size while the zoom moves, as on the
+        // desktop, and the first frame once it has settled sharpens it.
+        let zooming = self.viewer.app().zoom_moving();
+        self.owed = self.draw(zooming) || zooming;
         Ok(true)
     }
 }
@@ -414,7 +412,9 @@ impl WebViewer {
         Ok(())
     }
 
-    fn draw(&mut self, zooming: bool) {
+    /// Draws a frame. Returns whether its text is still settling, so the
+    /// next frame must be drawn too.
+    fn draw(&mut self, zooming: bool) -> bool {
         let app = self.viewer.app();
         let scene = specular_scene::view(app, self.viewport, &self.cache);
         let frame = FrameView {
@@ -429,14 +429,16 @@ impl WebViewer {
         | wgpu::CurrentSurfaceTexture::Suboptimal(texture)) = gpu.surface.get_current_texture()
         else {
             gpu.surface.configure(&gpu.device, &gpu.config);
-            return;
+            return true;
         };
         let target = texture
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
         let viewer = &self.viewer;
-        gpu.compositor
+        let stats = gpu
+            .compositor
             .render_scene(&target, &frame, &scene, |entity| viewer.page_of(entity));
         gpu.queue.present(texture);
+        stats.text.settling
     }
 }
