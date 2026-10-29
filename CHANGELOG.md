@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [0.11.2] - 2026-10-29 — Bug Fixes
+
 ### Fixes
 
 - An image added with `specular add file --tab` onto a canvas you aren't looking at now shows. The file was never copied into the space's `assets/` folder, so the canvas drew a placeholder card. A Document added with `specular add note --tab` is written to disk for the same reason.
