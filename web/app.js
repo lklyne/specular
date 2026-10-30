@@ -45,6 +45,8 @@ const state = {
 
 /** `?webgl` in the address draws on WebGL2 where WebGPU would be used. */
 const FORCE_WEBGL = new URLSearchParams(location.search).has("webgl");
+/** Draws canvas text afresh on every frame of a zoom, to compare. */
+const NO_TEXT_HOLD = new URLSearchParams(location.search).has("nohold");
 
 /**
  * The viewer's module. A browser with WebGPU gets the build without WebGL2,
@@ -225,6 +227,7 @@ async function main() {
     throw error;
   }
   state.checkFirstFrame = webgpu;
+  state.viewer.set_hold_text(!NO_TEXT_HOLD);
   followTheme();
   resize();
   show("");
