@@ -47,8 +47,6 @@ pub struct WebViewer {
     /// Whether the last frame drawn owes another: its text held at an
     /// older zoom's raster, or laid out a part of a pixel off.
     owed: bool,
-    /// Whether canvas text keeps its raster size while the zoom moves.
-    hold_text: bool,
 }
 
 /// Modifier keys as the page packs them: shift 1, control 2, alt 4, meta 8.
@@ -152,7 +150,6 @@ impl WebViewer {
             viewport: Vec2::ZERO,
             scale: 1.0,
             owed: false,
-            hold_text: true,
         })
     }
 
@@ -365,10 +362,12 @@ impl WebViewer {
         self.viewer.app().session().camera.zoom
     }
 
-    /// Whether canvas text keeps its raster size while the zoom moves, or
-    /// is rasterised afresh every frame.
-    pub fn set_hold_text(&mut self, hold: bool) {
-        self.hold_text = hold;
+    /// Draws text only through pass viewports inside the canvas, for a
+    /// browser whose WebGPU rejects one that reaches past it, as Safari's
+    /// does: it drops the whole frame, and the canvas freezes while the
+    /// camera moves.
+    pub fn keep_viewports_inside_canvas(&mut self) {
+        self.gpu.compositor.keep_viewports_inside_target();
     }
 
     /// Whether the page is in the dark theme.
@@ -386,7 +385,7 @@ impl WebViewer {
         }
         // Text keeps its raster size while the zoom moves, as on the
         // desktop, and the first frame once it has settled sharpens it.
-        let zooming = self.hold_text && self.viewer.app().zoom_moving();
+        let zooming = self.viewer.app().zoom_moving();
         self.owed = self.draw(zooming) || zooming;
         Ok(true)
     }

@@ -129,6 +129,14 @@ impl Compositor {
             .warm_text(&self.device, &self.queue, self.target_format);
     }
 
+    /// Draws text only through pass viewports inside the target, laying it
+    /// out again whenever the camera moves instead of placing an earlier
+    /// layout. Safari's WebGPU rejects a viewport that reaches past the
+    /// target, and with it the whole frame.
+    pub fn keep_viewports_inside_target(&mut self) {
+        self.scene_pass.viewports_inside_target = true;
+    }
+
     /// A text measure on the fonts this compositor draws with, for
     /// `App::set_text_measure`:
     /// the editor's caret, selection and wrapping then agree with the drawn

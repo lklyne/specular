@@ -45,8 +45,6 @@ const state = {
 
 /** `?webgl` in the address draws on WebGL2 where WebGPU would be used. */
 const FORCE_WEBGL = new URLSearchParams(location.search).has("webgl");
-/** Draws canvas text afresh on every frame of a zoom, to compare. */
-const NO_TEXT_HOLD = new URLSearchParams(location.search).has("nohold");
 
 /**
  * The viewer's module. A browser with WebGPU gets the build without WebGL2,
@@ -58,6 +56,12 @@ async function loadViewer() {
   const module = await import(`./pkg/${name}.js`);
   await module.default();
   return { module, webgpu: Boolean(adapter) };
+}
+
+/** Safari, whose WebGPU drops a frame with a viewport past the canvas. */
+function isSafari() {
+  const agent = navigator.userAgent;
+  return /AppleWebKit/.test(agent) && !/Chrome|Chromium|Edg|Firefox|FxiOS|CriOS/.test(agent);
 }
 
 /** Opens the page again drawing on WebGL2, for a browser whose WebGPU fails. */
@@ -227,7 +231,7 @@ async function main() {
     throw error;
   }
   state.checkFirstFrame = webgpu;
-  state.viewer.set_hold_text(!NO_TEXT_HOLD);
+  if (webgpu && isSafari()) state.viewer.keep_viewports_inside_canvas();
   followTheme();
   resize();
   show("");

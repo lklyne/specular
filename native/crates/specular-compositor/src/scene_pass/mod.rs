@@ -124,6 +124,8 @@ pub(crate) struct ScenePass {
     fonts: Fonts,
     multisampled: Option<MultisampledTarget>,
     images: HashMap<ImageId, ImageTexture>,
+    /// Whether text is drawn only through viewports inside the target.
+    pub(crate) viewports_inside_target: bool,
 }
 
 impl ScenePass {
@@ -167,6 +169,7 @@ impl ScenePass {
             fonts: Fonts::default(),
             multisampled: None,
             images: HashMap::new(),
+            viewports_inside_target: false,
         }
     }
 }
