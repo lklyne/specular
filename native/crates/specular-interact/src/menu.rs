@@ -214,7 +214,7 @@ fn page_item(app: &App, label: &'static str, action: Action) -> MenuEntry {
 /// An item of the Page menu as a [`MenuItem`].
 pub(crate) fn page_menu_item(app: &App, label: &'static str, action: Action) -> MenuItem {
     let chord = binding_of(&action)
-        .filter(|binding| binding.context == Context::PageTarget)
+        .filter(|binding| matches!(binding.context, Context::PageTarget | Context::FrameTarget))
         .map(|binding| binding.chord);
     MenuItem {
         label: Cow::Borrowed(label),

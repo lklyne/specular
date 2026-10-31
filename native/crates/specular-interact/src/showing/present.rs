@@ -80,20 +80,18 @@ pub(crate) fn holds(app: &App, id: &EntityId) -> bool {
 }
 
 /// The stored rect of `entity` with its device frame around it, when it is
-/// a page that shows one.
+/// a page or an image that shows one.
 pub(super) fn framed(entity: &Entity) -> Rect {
     let rect = entity.rect;
-    (entity.kind.page_fields())
-        .and_then(|page| page.shell())
-        .map_or(rect, |shell| {
-            let insets = shell.insets;
-            Rect::new(
-                rect.x - insets.left,
-                rect.y - insets.top,
-                rect.width + insets.left + insets.right,
-                rect.height + insets.top + insets.bottom,
-            )
-        })
+    entity.shell().map_or(rect, |shell| {
+        let insets = shell.insets;
+        Rect::new(
+            rect.x - insets.left,
+            rect.y - insets.top,
+            rect.width + insets.left + insets.right,
+            rect.height + insets.top + insets.bottom,
+        )
+    })
 }
 
 /// The camera that holds `entity` in the free part of the viewport. A page

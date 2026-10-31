@@ -1,14 +1,17 @@
 //! Image files over time: an svg rastered again only once the zoom leaves
 //! its band, a file changed on disk keeping its picture until the new one
-//! is ready, and a gif's frame following the clock. Loading in use is in
+//! is ready, a gif's frame following the clock, and a device's drawing
+//! asked for before it is shown. Loading in use is in
 //! `fixtures/scenarios/images.txt`.
 
 use std::sync::Arc;
 
 use glam::Vec2;
 use specular_core::Camera;
-use specular_doc::{Document, Entity, FileRef, Kind, Rect};
-use specular_interact::{Action, Effect, Event, ImageNotice, ImageState, ZOOM_SETTLE_MS};
+use specular_doc::{
+    DeviceArt, DeviceFrameColor, DeviceFrameStyle, Document, Entity, EntityId, FileRef, Kind, Rect,
+};
+use specular_interact::{Action, Effect, Event, ImageNotice, ImageState, Property, ZOOM_SETTLE_MS};
 use specular_testkit::{TestApp, document};
 
 const BOX: Rect = Rect::new(100.0, 100.0, 240.0, 160.0);
@@ -160,4 +163,24 @@ fn a_gif_shows_the_frame_the_clock_is_at_and_only_while_it_is_on_screen() {
     app.tick(START + 700).tick(START + 900);
     assert_eq!(app.app().animation_epoch(), epoch);
     assert_eq!(app.app().next_frame_in_ms(), None);
+}
+
+#[test]
+fn a_clay_framed_screenshot_asks_for_its_devices_drawing_before_realistic_is_picked() {
+    let mut shot = file_at("pad", "shots/pad.png");
+    shot.rect = Rect::new(0.0, 0.0, 2064.0, 2752.0);
+    let mut app = opened(document([shot]));
+    app.take_effects();
+    app.act(Action::Select(vec![EntityId::from("pad").into()]));
+    app.act(Action::SetProperty(Property::DeviceFrame(Some(
+        DeviceFrameStyle::Clay,
+    ))));
+    let drawing = DeviceArt::IpadPro13InchesM4.asset(DeviceFrameColor::Light);
+    let asked = app.take_effects();
+    assert!(
+        image_effects(&asked)
+            .iter()
+            .any(|(_, file)| *file == drawing),
+        "{drawing} is asked for once the clay frame is on"
+    );
 }

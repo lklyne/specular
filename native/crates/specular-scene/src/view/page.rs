@@ -1,4 +1,5 @@
-//! Pages: the live frame, and around it a border or a device.
+//! Pages: the live frame, and around it a border or a device. A framed
+//! image is drawn on a device's screen the same way.
 
 use specular_core::CssSize;
 use specular_doc::{DeviceArt, DeviceFrameColor, DeviceKind, DeviceShell, Entity, Page};
@@ -85,7 +86,7 @@ pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, page: &Page, scene: &mut 
     let outer_radius = shell.map_or(plain_radius, |shell| shell.corner_radius as f32);
     // A realistic frame is its device's drawing once the shell has it.
     // Until then, and for a clay frame, the shell is drawn here.
-    let color = frame.app.device_frame_color(page);
+    let color = frame.app.device_frame_color(entity);
     let art = shell.and_then(|shell| {
         let image = frame.app.device_frame_image(shell.art?, color)?;
         Some((shell.art?, ImageId(image.texture(0))))
@@ -131,6 +132,55 @@ pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, page: &Page, scene: &mut 
             Item::screen(RectDraw::outlined(rect, border).with_corner_radius(outer_radius * zoom))
         }));
     }
+}
+
+/// A framed image: `image` on the screen `entity.rect` is, in `shell`. The
+/// device is drawn as a page's is, with no notch or home button, as the
+/// screenshot shows its own. The frame is the image's content, so a
+/// screenshot of the canvas keeps it.
+pub(crate) fn draw_framed_image(
+    frame: &Frame<'_>,
+    entity: &Entity,
+    shell: &DeviceShell,
+    image: ImageDraw,
+    scene: &mut Scene,
+) {
+    let screen = canvas_rect(entity.rect);
+    let carry = Carry::of(frame, entity);
+    let color = frame.app.device_frame_color(entity);
+    let art = shell.art.and_then(|art| {
+        let drawing = frame.app.device_frame_image(art, color)?;
+        Some((art, ImageId(drawing.texture(0))))
+    });
+    let device = Colors::of(match color {
+        DeviceFrameColor::Light => Appearance::Light,
+        DeviceFrameColor::Dark => Appearance::Dark,
+    });
+    under_page(device, &carry, screen, shell, art.is_some(), scene);
+    let screen_radius = shell.screen_corner_radius as f32;
+    scene.push(Item::canvas(ImageDraw {
+        corner_radius: screen_radius,
+        ..image
+    }));
+    if let Some((art, drawing)) = art {
+        let (rect, turn) = art_rect(screen, shell, art);
+        scene.push(carry.image(drawing, rect, turn));
+        return;
+    }
+    let zoom = frame.zoom();
+    let ring = Stroke::new(
+        device.device_screen_ring,
+        SCREEN_RING_WIDTH,
+        StrokeAlign::Outside,
+    );
+    scene.push(Item::screen(
+        RectDraw::outlined(frame.project(screen), ring).with_corner_radius(screen_radius * zoom),
+    ));
+    let border = Stroke::new(frame.colors.page_border, BORDER_WIDTH, StrokeAlign::Outside);
+    let outer = frame.project(shell_rect(screen, shell));
+    scene.push(Item::screen(
+        RectDraw::outlined(outer, border).with_corner_radius(shell.corner_radius as f32 * zoom),
+    ));
 }
 
 /// The page's screen and the document on it: a card under a turning page

@@ -66,19 +66,15 @@ impl Page {
     /// The style the page's frame is kept in, whether or not the frame is
     /// shown and whether or not the page has a drawing for it.
     pub(crate) fn frame_style(&self) -> crate::DeviceFrameStyle {
-        let name = (self.metadata.as_ref())
-            .and_then(|meta| meta.get("deviceFrameStyle"))
-            .and_then(serde_json::Value::as_str);
-        crate::DeviceFrameStyle::from_name(name)
+        (self.metadata.as_ref()).map_or(crate::DeviceFrameStyle::Clay, |meta| {
+            crate::image_frame::frame_style_in(meta)
+        })
     }
 
     /// The colour the page's device is kept in, or `None` for a page that
     /// follows the app's theme.
     pub fn frame_color(&self) -> Option<crate::DeviceFrameColor> {
-        let name = (self.metadata.as_ref())
-            .and_then(|meta| meta.get("deviceFrameColor"))
-            .and_then(serde_json::Value::as_str);
-        crate::DeviceFrameColor::from_name(name)
+        crate::image_frame::frame_color_in(self.metadata.as_ref()?)
     }
 
     /// The realistic drawing the page can be framed in: its device's, when

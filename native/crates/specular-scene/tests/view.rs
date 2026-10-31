@@ -5,9 +5,10 @@ use specular_doc::{
     Color, ColorPreset, Command, Edge, EdgeEnd, Entity, EntityId, Kind, LineStyle, Rect, Shape,
     ShapeKind, Text,
 };
-use specular_interact::{Action, Event, Theme};
+use specular_interact::{Action, Event, ImageNotice, Theme};
 use specular_testkit::{
-    TestApp, assert_scene_snapshot, connected, document, page, plain_text, shape, sticky, text,
+    TestApp, assert_scene_snapshot, connected, document, file, page, plain_text, shape, sticky,
+    text,
 };
 
 fn text_entity(id: &str, rect: Rect, fields: Text) -> Entity {
@@ -125,5 +126,48 @@ fn the_dark_theme_draws_ink_paper_shapes_and_frames_in_its_own_colours() {
         red,
     ]);
     app.send(Event::ThemeLoaded(Theme::Dark));
+    assert_scene_snapshot!(app);
+}
+
+/// An image file `id` in a device frame of `style` on the iPad Pro 13.
+fn framed_image(id: &str, rect: Rect, style: &str) -> Entity {
+    let mut image = file(id, rect);
+    if let Kind::File(fields) = &mut image.kind {
+        fields.metadata = serde_json::json!({
+            "showDeviceFrame": true,
+            "deviceId": "ipad-pro-13",
+            "deviceFrameStyle": style,
+            "deviceFrameColor": "dark",
+        })
+        .as_object()
+        .cloned();
+    }
+    image
+}
+
+/// Answers the load of `file` as a `width` by `height` image.
+fn loaded(app: &mut TestApp, file: &str, (width, height): (u32, u32)) {
+    let key = app.app().image(file).map(|image| image.key);
+    assert!(key.is_some(), "{file} was asked for");
+    if let Some(image) = key {
+        app.send(Event::Image {
+            image,
+            notice: ImageNotice::Ready { width, height },
+        });
+    }
+}
+
+#[test]
+fn a_framed_screenshot_sits_on_its_devices_screen_in_clay_or_its_drawing() {
+    // Half the preset's size, so the shell is drawn at half its bezel.
+    let mut app = TestApp::with_entities([
+        framed_image("clay", Rect::new(100.0, 100.0, 516.0, 688.0), "clay"),
+        framed_image("real", Rect::new(800.0, 100.0, 516.0, 688.0), "realistic"),
+    ]);
+    loaded(&mut app, "clay.png", (2064, 2752));
+    loaded(&mut app, "real.png", (2064, 2752));
+    let art =
+        specular_doc::DeviceArt::IpadPro13InchesM4.asset(specular_doc::DeviceFrameColor::Dark);
+    loaded(&mut app, art, (1200, 1600));
     assert_scene_snapshot!(app);
 }

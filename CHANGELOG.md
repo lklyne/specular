@@ -6,9 +6,45 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
-### Misc
+## [0.11.2] - 2026-10-29 — Bug Fixes
 
-- The old Electron app is gone from the repository. Specular is the native app only, and it builds from `native/`.
+### Fixes
+
+- An image added with `specular add file --tab` onto a canvas you aren't looking at now shows. The file was never copied into the space's `assets/` folder, so the canvas drew a placeholder card. A Document added with `specular add note --tab` is written to disk for the same reason.
+
+## [0.11.1] - 2026-10-28 — Device Frames on Images
+
+### New
+
+- **Device frames on images.** Put a phone, tablet or laptop frame around any image on the canvas, such as a screenshot, using the same frame control and keys as pages. It works on several selected images at once.
+
+## [0.11.0] - 2026-10-26 — New-Tab Links, Reduce Motion, a Faster CLI
+
+### New
+
+- **Links that open a new tab open a page beside the one you clicked.** That covers `target=_blank`, `window.open`, Command-click and middle-click. Command-click and middle-click leave you where you are, the others bring the new page into view.
+- **Reduce motion is honoured.** Turn it on in System Settings and tabs jump instead of springing, the Prism holds still and agent cursors land without travelling.
+- **Hide cursors.** Settings has switches for agent cursors and for the cursor a sync set shows on its other pages. Hidden cursors still click.
+- **Synced cursors.** In a sync set, the other pages show where your pointer is.
+
+### Improvements
+
+- **Closing a tab shows the one next to it**, as a browser does, and the canvas only when no other tab is left. The tab showing always has its close button.
+- The right-click menu is drawn with the rest of the app's chrome: keys, greyed items, arrow keys and Escape all work, and a click outside it only closes it.
+- The `specular` command is now part of the app itself, so it starts faster and needs nothing else installed.
+- Errors and crashes are written to `~/Library/Logs/Specular/errors.log`.
+- **Smoother zoom with Documents and images on screen.** Text, svgs and pages are redrawn sharp once the zoom has settled, not between pinch steps, so a zoom no longer stutters.
+
+### Fixes
+
+- Escape with a list open closes the list and keeps your selection.
+- A click outside an open list closes it without also clicking what's under it.
+- A drag released with Control held now ends.
+- A text item's page anchor written at the top level of a `.canvas` file is read.
+
+### Removed
+
+- The `print-pdf`, `record`, `component-states` and `design-system` commands are gone from the CLI and the API.
 
 ## [0.10.2] - 2026-10-19 — Live HTML Files
 

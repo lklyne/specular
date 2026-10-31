@@ -9,6 +9,7 @@
 //! [`read`] has the matching reads: the value the whole selection shares.
 
 mod apply;
+mod image;
 mod page;
 pub(crate) mod read;
 mod step;
@@ -86,9 +87,10 @@ pub enum Property {
     ViewportHeight(f64),
     /// A page's orientation.
     Orientation(Orientation),
-    /// The device frame a page is drawn in. `None` is no frame.
+    /// The device frame a page or an image is drawn in. `None` is no
+    /// frame.
     DeviceFrame(Option<DeviceFrameStyle>),
-    /// The colour of a page's device, in either frame style.
+    /// The colour of a page's or an image's device, in either frame style.
     DeviceFrameColor(DeviceFrameColor),
     /// A page's color-scheme override. `None` follows the system.
     ColorScheme(Option<ColorScheme>),

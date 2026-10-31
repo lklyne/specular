@@ -14,7 +14,7 @@ mod shell;
 pub(crate) use self::route::{binding_for, on_key, page_edit, page_edit_for};
 pub use self::shell::{SHELL_KEYS, ShellCommand, kept_from_page};
 
-use specular_doc::{BrushType, ShapeKind};
+use specular_doc::{BrushType, ItemId, Kind, ShapeKind};
 
 use crate::PageStep;
 use crate::{
@@ -43,6 +43,10 @@ pub enum Context {
     /// While a page is entered, or is the whole selection with keys going
     /// to the canvas and no text being edited.
     PageTarget,
+    /// Where [`PageTarget`](Self::PageTarget) holds, and where the
+    /// selection is images and nothing else with keys going to the canvas
+    /// and no text being edited: what a device frame can be put round.
+    FrameTarget,
 }
 
 impl Context {
@@ -74,8 +78,22 @@ impl Context {
                 page_state::target(app).is_some()
                     && (Self::EnteredPage.holds(app) || Self::Canvas.holds(app))
             }
+            Self::FrameTarget => {
+                Self::PageTarget.holds(app) || (Self::Canvas.holds(app) && images_selected(app))
+            }
         }
     }
+}
+
+/// Whether something is selected and every selected item is an image.
+fn images_selected(app: &App) -> bool {
+    let items = app.session.selection.items();
+    !items.is_empty()
+        && items.iter().all(|item| match item {
+            ItemId::Entity(id) => (app.document.entity(id))
+                .is_some_and(|entity| matches!(&entity.kind, Kind::File(file) if file.is_image())),
+            ItemId::Edge(_) => false,
+        })
 }
 
 /// One row of the binding table.
@@ -310,12 +328,12 @@ pub const BINDINGS: &[Binding] = &[
     // own keys, which a page expects to get.
     once(
         Chord::char('f').cmd().alt(),
-        Context::PageTarget,
+        Context::FrameTarget,
         Action::StepPage(PageStep::Frame),
     ),
     once(
         Chord::char('f').cmd().alt().shift(),
-        Context::PageTarget,
+        Context::FrameTarget,
         Action::StepPage(PageStep::FrameColor),
     ),
     once(

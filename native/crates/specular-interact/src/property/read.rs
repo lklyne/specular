@@ -4,7 +4,8 @@
 
 use specular_doc::{
     BorderStyle, BrushType, Color, ColorScheme, DeviceFrameColor, DeviceFrameStyle, Edge, EdgeEnd,
-    Entity, FillStyle, ItemId, Kind, LineStyle, Page, ShapeKind, TextAlign, TextFont,
+    Entity, FillStyle, ItemId, Kind, LineStyle, ShapeKind, TextAlign, TextFont, VIEWPORT_PRESETS,
+    ViewportPreset,
 };
 
 use super::Orientation;
@@ -212,37 +213,48 @@ pub(crate) fn followed_color_scheme(app: &App) -> ColorScheme {
     }
 }
 
-/// The device frame pages are drawn in, which is clay for a page kept as
-/// realistic that has no drawing to show; the inner `None` is no frame.
+/// The device frame pages and images are drawn in, which is clay for one
+/// kept as realistic that has no drawing to show; the inner `None` is no
+/// frame.
 #[expect(
     clippy::option_option,
     reason = "the outer None is no page or a mixed selection, the inner one no frame"
 )]
 pub(crate) fn device_frame(app: &App) -> Option<Option<DeviceFrameStyle>> {
     of_entities(app, |entity, out| {
-        if let Some(page) = entity.kind.page_fields() {
-            out.push(frame_shown(&page));
+        if can_frame(entity) {
+            out.push(frame_shown(entity));
         }
     })
 }
 
-fn frame_shown(page: &Page) -> Option<DeviceFrameStyle> {
-    page.shell().map(|shell| match shell.art {
+/// Whether `entity` can be shown in a device frame: a page, an HTML file
+/// or an image.
+fn can_frame(entity: &Entity) -> bool {
+    match &entity.kind {
+        Kind::Page(_) => true,
+        Kind::File(file) => file.is_html() || file.is_image(),
+        Kind::Text(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Shape(_) => false,
+    }
+}
+
+fn frame_shown(entity: &Entity) -> Option<DeviceFrameStyle> {
+    entity.shell().map(|shell| match shell.art {
         Some(_) => DeviceFrameStyle::Realistic,
         None => DeviceFrameStyle::Clay,
     })
 }
 
-/// The frame one more press gives the selected pages: none, clay,
-/// realistic, and round again. Any page without a frame gets one first.
-/// Realistic is left out when no page has a drawing for it, so a press
-/// always changes something.
+/// The frame one more press gives the selected pages and images: none,
+/// clay, realistic, and round again. Any without a frame gets one first.
+/// Realistic is left out when none has a drawing for it, so a press always
+/// changes something.
 pub(super) fn next_device_frame(app: &App) -> Option<DeviceFrameStyle> {
     let pages = gather(
         app,
         |entity, out| {
-            if let Some(page) = entity.kind.page_fields() {
-                out.push((frame_shown(&page), page.device_art().is_some()));
+            if can_frame(entity) {
+                out.push((frame_shown(entity), entity.device_art().is_some()));
             }
         },
         |_, _| {},
@@ -257,27 +269,42 @@ pub(super) fn next_device_frame(app: &App) -> Option<DeviceFrameStyle> {
     }
 }
 
-/// The colour the devices of framed pages are drawn in: each page's own,
-/// or the app theme's for a page that keeps none. A page with no frame is
-/// left out.
+/// The device the selected framed images are shown as, when they share
+/// one.
+pub(crate) fn framed_device(app: &App) -> Option<&'static ViewportPreset> {
+    of_entities(app, |entity, out| {
+        if let Kind::File(file) = &entity.kind
+            && entity.shell().is_some()
+        {
+            let device = (file.metadata.as_ref())
+                .and_then(|meta| meta.get("deviceId"))
+                .and_then(serde_json::Value::as_str);
+            out.push(device.and_then(|device| {
+                (VIEWPORT_PRESETS.iter()).find(|preset| preset.device_id == device)
+            }));
+        }
+    })
+    .flatten()
+}
+
+/// The colour the devices of framed pages and images are drawn in: each
+/// one's own, or the app theme's for one that keeps none. One with no
+/// frame is left out.
 pub(crate) fn device_frame_color(app: &App) -> Option<DeviceFrameColor> {
     of_entities(app, |entity, out| {
-        if let Some(page) = entity.kind.page_fields()
-            && page.shell().is_some()
-        {
-            out.push(app.device_frame_color(&page));
+        if entity.shell().is_some() {
+            out.push(app.device_frame_color(entity));
         }
     })
 }
 
-/// Whether a selected page shows a device frame, and so has a colour to set.
+/// Whether a selected page or image shows a device frame, and so has a
+/// colour to set.
 pub(crate) fn any_device_frame(app: &App) -> bool {
     let framed = gather(
         app,
         |entity, out| {
-            if let Some(page) = entity.kind.page_fields()
-                && page.shell().is_some()
-            {
+            if entity.shell().is_some() {
                 out.push(());
             }
         },
