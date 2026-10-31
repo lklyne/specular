@@ -27,9 +27,34 @@ export default {
     if (env.WEB && request.method === "GET") {
       // A link's page is the viewer's one page; its own path picks the doc.
       const page = url.pathname.startsWith("/c/") ? new URL("/", url) : url;
-      return env.WEB.fetch(new Request(page, request));
+      return withViewerHeaders(await env.WEB.fetch(new Request(page, request)), url);
     }
 
     return new Response("Not found", { status: 404 });
   },
 };
+
+/**
+ * The viewer's own files run only its own script and WebAssembly, talk only
+ * to this origin, and cannot be framed by another site.
+ */
+function withViewerHeaders(response: Response, url: URL): Response {
+  const out = new Response(response.body, response);
+  const socket = `${url.protocol === "https:" ? "wss:" : "ws:"}//${url.host}`;
+  out.headers.set(
+    "content-security-policy",
+    [
+      "default-src 'self'",
+      "script-src 'self' 'wasm-unsafe-eval'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: blob:",
+      `connect-src 'self' ${socket}`,
+      "object-src 'none'",
+      "base-uri 'none'",
+      "frame-ancestors 'none'",
+    ].join("; "),
+  );
+  out.headers.set("x-content-type-options", "nosniff");
+  out.headers.set("referrer-policy", "no-referrer");
+  return out;
+}

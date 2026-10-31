@@ -20,6 +20,12 @@ export const UPDATE = 1;
 /** Past this many stored updates the room merges them into one row. */
 const COMPACT_AFTER = 64;
 
+/** The largest frame a peer may send. */
+export const MAX_FRAME_BYTES = 2 * 1024 * 1024;
+
+/** The most a room keeps, merged. Past it the room takes no more edits. */
+export const MAX_ROOM_BYTES = 64 * 1024 * 1024;
+
 interface Peer {
   scope: Scope;
 }
@@ -27,6 +33,8 @@ interface Peer {
 export class LiveRoom extends DurableObject<Env> {
   /** The stored updates, read from SQLite on the first use after a wake. */
   private updates: Uint8Array[] | null = null;
+  /** Their total size, kept beside them. */
+  private bytes = 0;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -52,6 +60,10 @@ export class LiveRoom extends DurableObject<Env> {
 
   async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
     if (typeof message === "string") return;
+    if (message.byteLength > MAX_FRAME_BYTES) {
+      ws.close(4009, "frame too large");
+      return;
+    }
     const bytes = new Uint8Array(message);
     const peer = ws.deserializeAttachment() as Peer;
     if (bytes[0] !== UPDATE) return;
@@ -65,6 +77,11 @@ export class LiveRoom extends DurableObject<Env> {
       Y.mergeUpdates([update]);
     } catch {
       ws.close(4000, "not an update");
+      return;
+    }
+    this.stored();
+    if (this.bytes + update.length > MAX_ROOM_BYTES) {
+      ws.close(4009, "this canvas is full");
       return;
     }
     this.keep(update);
@@ -88,6 +105,7 @@ export class LiveRoom extends DurableObject<Env> {
         .exec<{ data: ArrayBuffer }>("SELECT data FROM updates ORDER BY seq")
         .toArray()
         .map((row) => new Uint8Array(row.data));
+      this.bytes = this.updates.reduce((sum, u) => sum + u.length, 0);
     }
     return this.updates;
   }
@@ -101,6 +119,7 @@ export class LiveRoom extends DurableObject<Env> {
   private keep(update: Uint8Array): void {
     const updates = this.stored();
     updates.push(update.slice());
+    this.bytes += update.length;
     this.ctx.storage.sql.exec("INSERT INTO updates (data) VALUES (?)", update);
     if (updates.length > COMPACT_AFTER) {
       const merged = Y.mergeUpdates(updates);
@@ -109,6 +128,7 @@ export class LiveRoom extends DurableObject<Env> {
         this.ctx.storage.sql.exec("INSERT INTO updates (data) VALUES (?)", merged);
       });
       this.updates = [merged];
+      this.bytes = merged.length;
     }
   }
 }
