@@ -5,6 +5,7 @@ mod apply;
 mod tests;
 
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::{Annotation, AnnotationId, Edge, EdgeId, Entity, EntityId, ItemId, JsonMap, Kind};
 
@@ -17,7 +18,7 @@ use crate::{Annotation, AnnotationId, Edge, EdgeId, Entity, EntityId, ItemId, Js
 /// References between items are ids and may dangle: a file written by
 /// another tool can name a missing group or page, and loading must keep it.
 /// Accessors that follow a reference return `None` or skip when it dangles.
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone)]
 pub struct Document {
     entities: HashMap<EntityId, Entity>,
     edges: HashMap<EdgeId, Edge>,
@@ -27,6 +28,39 @@ pub struct Document {
     /// The text of markdown files that have been edited, by the `file` path
     /// file entities name them with. Not saved: see [`Document::note`].
     notes: HashMap<String, String>,
+    /// See [`Document::stamp`]. Left out of equality.
+    stamp: u64,
+}
+
+impl Default for Document {
+    fn default() -> Self {
+        Self {
+            entities: HashMap::new(),
+            edges: HashMap::new(),
+            order: Vec::new(),
+            annotations: Vec::new(),
+            extra: JsonMap::new(),
+            notes: HashMap::new(),
+            stamp: fresh_stamp(),
+        }
+    }
+}
+
+impl PartialEq for Document {
+    fn eq(&self, other: &Self) -> bool {
+        self.entities == other.entities
+            && self.edges == other.edges
+            && self.order == other.order
+            && self.annotations == other.annotations
+            && self.extra == other.extra
+            && self.notes == other.notes
+    }
+}
+
+/// A number no document has had yet.
+pub(super) fn fresh_stamp() -> u64 {
+    static NEXT: AtomicU64 = AtomicU64::new(1);
+    NEXT.fetch_add(1, Ordering::Relaxed)
 }
 
 impl Document {
@@ -126,6 +160,14 @@ impl Document {
     /// The edges that start or end at `id`, back-to-front.
     pub fn edges_touching(&self, id: &EntityId) -> impl Iterator<Item = &Edge> {
         self.edges().filter(move |edge| edge.touches(id))
+    }
+
+    /// A number that changes whenever a command changes the document, and
+    /// that no other document has unless it is an unchanged clone of this
+    /// one. A caller that remembers it can tell that nothing changed
+    /// without comparing. [`extra_mut`](Self::extra_mut) leaves it alone.
+    pub fn stamp(&self) -> u64 {
+        self.stamp
     }
 
     /// Unmodeled top-level fields of the file, such as `appState`.

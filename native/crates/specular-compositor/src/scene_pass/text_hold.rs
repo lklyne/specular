@@ -198,3 +198,40 @@ impl Laid {
         right > 0.0 && bottom > 0.0 && left < width && top < height
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use glam::Vec2;
+    use specular_scene::Space;
+
+    use super::{Laid, TextFrame};
+
+    fn frame(origin: Vec2, limit: f32) -> TextFrame {
+        TextFrame {
+            space: Space::Canvas,
+            scale: 2.0,
+            stretch: 1.0,
+            origin,
+            target: [800, 600],
+            limit,
+        }
+    }
+
+    #[test]
+    fn a_layout_with_no_room_past_the_target_is_drawn_over_it_exactly() {
+        let laid = Laid::new(&frame(Vec2::new(10.0, 20.0), 800.0), vec![1]);
+        let placed = laid.own_placement(&frame(Vec2::new(10.0, 20.0), 800.0));
+        let placed = placed.map(|at| (at.x, at.y, at.width, at.height));
+        assert_eq!(placed, Some((0.0, 0.0, 800.0, 600.0)));
+        // A pan of a pixel or more has it laid out again.
+        let panned = laid.placement(&frame(Vec2::new(14.0, 20.0), 800.0), &[1]);
+        assert_eq!(panned, None);
+    }
+
+    #[test]
+    fn a_layout_with_room_is_placed_past_the_target_under_a_pan() {
+        let laid = Laid::new(&frame(Vec2::new(10.0, 20.0), 8192.0), vec![1]);
+        let panned = laid.placement(&frame(Vec2::new(14.0, 20.0), 8192.0), &[1]);
+        assert!(panned.is_some_and(|at| at.x < 0.0 && at.width > 800.0));
+    }
+}

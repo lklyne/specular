@@ -36,6 +36,7 @@ glam = { workspace = true }
 image = { workspace = true }
 resvg = { workspace = true }
 pollster = { workspace = true }
+serde = { workspace = true }
 serde_json = { workspace = true }
 sha1_smol = { workspace = true }
 sha2 = { workspace = true }
@@ -44,6 +45,9 @@ tiny_http = { workspace = true }
 tracing = { workspace = true }
 trash = { workspace = true }
 tracing-subscriber = { workspace = true }
+# The live room of a share link (ADR 0050): redeem the link, then the socket.
+tungstenite = { workspace = true }
+ureq = { workspace = true, features = ["rustls"] }
 wgpu = { workspace = true }
 
 # GPUI's window is an NSWindow and the canvas is a sibling NSView under

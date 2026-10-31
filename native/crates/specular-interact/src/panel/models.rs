@@ -3,7 +3,7 @@
 
 use specular_doc::Color;
 
-use super::model::{Control, Dropdown, Label};
+use super::model::{Button, Control, Dropdown, Label};
 use super::{ControlId, Icon};
 use crate::{Action, Chord, Tool, ToolsPlace};
 
@@ -54,6 +54,21 @@ pub struct SidebarButton {
     pub action: Action,
 }
 
+/// The Share button at the right end of the tab row, and the popover it
+/// opens.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ShareButton {
+    /// Its name.
+    pub id: ControlId,
+    /// Who the link lets in: only you, or anyone with it, to view, comment
+    /// or edit.
+    pub access: Dropdown,
+    /// Copies the link, sharing the canvas first when it is not shared.
+    pub copy: Button,
+    /// Why the last share failed, under the button.
+    pub note: Option<Label>,
+}
+
 /// The toolbar's theme button, which flips the theme between light and
 /// dark.
 #[derive(Debug, Clone, PartialEq)]
@@ -75,6 +90,8 @@ pub struct ToolbarModel {
     /// The button for the right panel, at the right edge. Only a shell that
     /// has a right panel gets one.
     pub chat: Option<SidebarButton>,
+    /// The Share button, just before the right panel's.
+    pub share: ShareButton,
     /// The theme button, just before the zoom readout.
     pub theme: ThemeButton,
     /// The blocks, left to right.

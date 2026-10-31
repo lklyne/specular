@@ -42,6 +42,7 @@ mod onboarding;
 mod palette;
 mod palette_row;
 mod raised;
+mod share;
 mod sidebar;
 mod slot;
 mod squircle;

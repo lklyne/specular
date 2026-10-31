@@ -15,6 +15,12 @@ impl Document {
     ///
     /// On error the document is unchanged.
     pub fn apply(&mut self, command: Command) -> Result<Command, CommandError> {
+        let inverse = self.run(command)?;
+        self.stamp = super::fresh_stamp();
+        Ok(inverse)
+    }
+
+    fn run(&mut self, command: Command) -> Result<Command, CommandError> {
         match command {
             Command::InsertEntity { entity, at } => self.insert_entity(*entity, at),
             Command::RemoveEntity(id) => self.remove_entity(id),

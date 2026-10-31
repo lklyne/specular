@@ -4,7 +4,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::{Duration, Instant};
+use web_time::{Duration, Instant};
 
 use specular_core::{
     CpuFrame, FrameEvent, FrameLayer, PageEvent, PageFrame, PageId, PixelSize, SharedTexture,
@@ -127,6 +127,14 @@ impl Compositor {
     pub fn warm_text(&mut self) {
         self.scene_pass
             .warm_text(&self.device, &self.queue, self.target_format);
+    }
+
+    /// Draws text only through pass viewports inside the target, laying it
+    /// out again whenever the camera moves instead of placing an earlier
+    /// layout. Safari's WebGPU rejects a viewport that reaches past the
+    /// target, and with it the whole frame.
+    pub fn keep_viewports_inside_target(&mut self) {
+        self.scene_pass.viewports_inside_target = true;
     }
 
     /// A text measure on the fonts this compositor draws with, for

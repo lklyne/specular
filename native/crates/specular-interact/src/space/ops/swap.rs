@@ -21,7 +21,7 @@ pub(super) fn parked(
     let tabs = Tabs::from_saved(tabs, &document);
     CanvasState::Parked(Box::new(Parked {
         document,
-        history: specular_doc::History::default(),
+        history: crate::shared::Undo::default(),
         view: CanvasView {
             camera,
             tabs,

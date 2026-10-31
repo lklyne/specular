@@ -21,8 +21,21 @@ Event -> update(&mut App, Event) -> Vec<Effect>     pure, no I/O
 - `specular-agent` owns the canvas agent threads: the `Threads` store, the
   thread files' shape, the prompts and the `claude` stream. It is pure.
   Interact holds the state and `chat(&App)` is the right panel's model.
+- `specular-sync` owns `CanvasSync`, a yrs mirror of one canvas's
+  `Document` for editing it from several places at once (ADR 0048).
+  Local commands go out as yrs updates and peers' updates come in as
+  commands. Interact's `shared` module holds one per shared canvas in
+  place of the plain `History`, and the shell carries `Effect::ShareSend`
+  (no transport yet).
 - `specular-scene` owns the `Scene` display list and `view`, one module per
   kind under `src/view/`.
+- `specular-web` is the view-and-comment web viewer (ADR 0049): an `App`
+  driven by a browser, answered from a published bundle, drawn by the
+  compositor on WebGPU or WebGL2. Its rules (`Viewer`) are pure and tested
+  natively; the browser half (`web.rs`) builds only for wasm32. Keep the
+  crates it uses free of `std::time::Instant` (use `web_time`), threads
+  and the file system. Its fonts are `specular-compositor/fonts/web`, made by
+  `subset.sh` there: run it again when a bundled font changes.
 - `specular-api` turns an HTTP request and `&App` into a read answer or an
   `Event::Api`, so an agent's write goes through `update` like a key press.
   The shell hosts the server (`specular-shell/src/api/`).

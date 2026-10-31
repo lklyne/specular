@@ -34,6 +34,7 @@ mod persist;
 mod prefs;
 mod scene;
 pub mod script;
+mod share;
 mod source_select;
 mod space;
 mod watch;

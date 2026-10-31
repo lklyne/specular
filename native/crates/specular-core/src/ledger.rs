@@ -18,7 +18,7 @@ use self::json::text;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::{Mutex, MutexGuard, OnceLock};
-use std::time::Instant;
+use web_time::Instant;
 
 use crate::{CssSize, PixelSize};
 

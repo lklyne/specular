@@ -21,7 +21,7 @@
 //! clip and the paint order of the text they belong to.
 
 use std::collections::HashMap;
-use std::time::{Duration, Instant};
+use web_time::{Duration, Instant};
 
 use glam::Vec2;
 use glyphon::{
@@ -111,6 +111,9 @@ pub(crate) struct TextSystem {
     column_heights: Vec<(OwnerId, f32)>,
     /// Time spent shaping this frame.
     shaping_time: Duration,
+    /// Whether this frame's text is drawn only through viewports inside
+    /// the target.
+    inside_target: bool,
 }
 
 impl std::fmt::Debug for TextSystem {
@@ -160,6 +163,7 @@ impl TextSystem {
             last_camera: None,
             column_heights: Vec::new(),
             shaping_time: Duration::ZERO,
+            inside_target: false,
         }
     }
 
@@ -169,8 +173,10 @@ impl TextSystem {
         device: &wgpu::Device,
         view: &ViewTransform,
         zooming: bool,
+        inside_target: bool,
     ) {
         self.frame += 1;
+        self.inside_target = inside_target;
         self.column_heights.clear();
         self.shaping_time = Duration::ZERO;
         let zoom = view.camera.zoom;
@@ -180,7 +186,8 @@ impl TextSystem {
         // texture limit; if it would, rasterise at the real zoom after all.
         let limit = device.limits().max_texture_dimension_2d as f32;
         let stretched = |side: u32| (side as f32 / self.stretch).ceil().max(1.0) * self.stretch;
-        if view.target.iter().any(|&side| stretched(side) > limit) {
+        // A stretched layout cannot sit exactly inside the target either.
+        if inside_target || view.target.iter().any(|&side| stretched(side) > limit) {
             self.hold.release(zoom);
             self.raster_zoom = zoom;
             self.stretch = 1.0;
@@ -237,7 +244,13 @@ impl TextSystem {
             stretch,
             origin,
             target: view.target,
-            limit: device.limits().max_texture_dimension_2d as f32,
+            // No room past the target leaves a layout no margin, so it is
+            // placed only where it was laid out, over the target exactly.
+            limit: if self.inside_target {
+                view.target[0].max(view.target[1]) as f32
+            } else {
+                device.limits().max_texture_dimension_2d as f32
+            },
         }
     }
 

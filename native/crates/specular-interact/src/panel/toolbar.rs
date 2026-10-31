@@ -249,6 +249,7 @@ pub fn toolbar(app: &App) -> ToolbarModel {
     ToolbarModel {
         theme: theme_button(app),
         chat,
+        share: super::share::button(app),
         sections,
         tools: app.settings().tools,
         view: view_controls(app),

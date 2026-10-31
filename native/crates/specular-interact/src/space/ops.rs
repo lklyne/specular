@@ -117,7 +117,7 @@ pub(crate) fn open(app: &mut App, opened: OpenedSpace, effects: &mut Vec<Effect>
         active: index,
         switches: app.space.switches + 1,
     };
-    app.history = specular_doc::History::default();
+    app.history = crate::shared::Undo::default();
     if let CanvasState::Parked(entering) = entering {
         enter(app, *entering, &before, effects);
     }
@@ -302,9 +302,13 @@ pub(crate) fn file_changed(
         CanvasState::Active => open_document(app, document, effects),
         CanvasState::Parked(parked) => {
             let view = mem::take(&mut parked.view);
+            // A shared canvas stays shared; its peers get the new file's
+            // contents on the next flush.
+            let mut history = mem::take(&mut parked.history);
+            history.clear();
             **parked = Parked {
                 document,
-                history: specular_doc::History::default(),
+                history,
                 view: CanvasView {
                     camera: view.camera,
                     selection: view.selection,

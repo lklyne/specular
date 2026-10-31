@@ -261,6 +261,7 @@ pub(crate) fn has_target(app: &App, action: &Action) -> bool {
         | Action::Repo(_)
         | Action::Space(_)
         | Action::Setting(_)
+        | Action::Share(_)
         | Action::Cancel
         | Action::SetTool(_)
         | Action::SetToolDefault(_)

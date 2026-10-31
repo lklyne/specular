@@ -135,6 +135,36 @@ pub enum Effect {
     /// changed. What to write is
     /// [`App::canvas_to_save`](crate::App::canvas_to_save).
     WriteCanvas(CanvasId),
+    /// Send a yrs update of the shared canvas `canvas` to its peers. The
+    /// first one after [`ShareEvent::Start`](crate::ShareEvent::Start) is
+    /// the whole shared document.
+    ShareSend {
+        /// The canvas.
+        canvas: CanvasId,
+        /// The update.
+        update: Vec<u8>,
+    },
+    /// Connect the canvas `canvas` to the live room a share link opens.
+    /// The room's first answer comes back as
+    /// [`ShareEvent::Connected`](crate::ShareEvent::Connected).
+    ShareConnect {
+        /// The canvas.
+        canvas: CanvasId,
+        /// The link: `<server>/c/<doc id>#t=<link token>`.
+        link: String,
+    },
+    /// Close the canvas's connection to its live room.
+    ShareDisconnect(CanvasId),
+    /// Write the canvas's file and publish it to the share server, as
+    /// `title`. The answer comes back as
+    /// [`ShareEvent::Published`](crate::ShareEvent::Published) or
+    /// [`ShareEvent::PublishFailed`](crate::ShareEvent::PublishFailed).
+    SharePublish {
+        /// The canvas.
+        canvas: CanvasId,
+        /// What the shared canvas is called.
+        title: String,
+    },
     /// A canvas was renamed: move its file, inside the space folder. What
     /// is unsaved goes to the old name first.
     RenameCanvasFile {

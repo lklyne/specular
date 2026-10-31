@@ -1,6 +1,6 @@
 //! One synthetic page: its spec, its scroll and the frames it paints.
 
-use std::time::Instant;
+use web_time::Instant;
 
 use glam::Vec2;
 

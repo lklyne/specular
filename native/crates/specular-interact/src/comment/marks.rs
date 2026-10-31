@@ -87,6 +87,13 @@ pub(crate) fn at(app: &App, screen: Vec2) -> Option<AnnotationId> {
 }
 
 impl App {
+    /// The comment a press at `screen` would focus, frontmost mark first:
+    /// what a shell that hit-tests on its own (the web viewer's pan mode)
+    /// asks before it passes a click on.
+    pub fn comment_mark_at(&self, screen: Vec2) -> Option<AnnotationId> {
+        at(self, screen)
+    }
+
     /// The marks to draw and to hit, back to front.
     ///
     /// A comment that is resolved, dismissed or about a document its page no

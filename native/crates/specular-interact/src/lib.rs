@@ -92,6 +92,8 @@ mod scroll_follow;
 mod select;
 mod select_all;
 mod settings;
+mod share_button;
+mod shared;
 mod showing;
 mod sidebar;
 mod space;
@@ -168,12 +170,11 @@ pub use panel::PanelUi;
 pub use panel::{
     Button, Choices, Control, ControlId, ControlsModel, Dropdown, DropdownOption, DropdownSection,
     Entries, Face, Field, FieldSubmit, FieldWidth, Icon, Label, MenuTarget, OptionLayout,
-    PaintRole, Palette, SidebarButton, Stepper, Swatch, Swatches, ThemeButton, Toggle, ToolButton,
-    ToolbarModel, ToolbarSection, UnknownControl, ViewStrip, ViewTab, context_menu, control_named,
-    dock, tool_options, toolbar, view_strip,
+    PaintRole, Palette, ShareButton, SidebarButton, Stepper, Swatch, Swatches, ThemeButton, Toggle,
+    ToolButton, ToolbarModel, ToolbarSection, UnknownControl, ViewStrip, ViewTab, context_menu,
+    control_named, dock, tool_options, toolbar, view_strip,
 };
-pub(crate) use physical_key::PhysicalKey;
-pub use physical_key::mac_key_input;
+pub use physical_key::{PhysicalKey, mac_key_input};
 pub use place::{PlaceDrag, PlacePreview};
 pub use placement::PagePlacement;
 pub use presence::{AgentAct, AgentCursor};
@@ -190,6 +191,8 @@ pub use settings::{
     AboutRow, AppSettings, GeneralPane, HiddenCursors, SettingAction, SettingChoice, SettingOption,
     SettingToggle, SettingsModel, ShortcutRow, SpaceRow, TOOLS_DOCK_WIDTH, ToolsPlace, settings,
 };
+pub use share_button::{LinkScope, ShareAction, ShareLinks};
+pub use shared::ShareEvent;
 pub use showing::turn::Turning;
 pub use showing::{Lens, SavedTab, Showing};
 pub use sidebar::{

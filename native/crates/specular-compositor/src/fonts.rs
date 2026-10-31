@@ -13,18 +13,29 @@ pub const MONO_FAMILY: &str = "Geist Mono";
 
 /// The font files the app ships, so text looks the same on a Mac that has
 /// none of them installed: Inter, Geist Mono and Kalam (the hand font).
-const BUNDLED: [&[u8]; 10] = [
-    include_bytes!("../fonts/Inter-Regular.ttf"),
-    include_bytes!("../fonts/Inter-Medium.ttf"),
-    include_bytes!("../fonts/Inter-SemiBold.ttf"),
-    include_bytes!("../fonts/Inter-Bold.ttf"),
-    include_bytes!("../fonts/Inter-Italic.ttf"),
-    include_bytes!("../fonts/Inter-BoldItalic.ttf"),
-    include_bytes!("../fonts/GeistMono-Regular.ttf"),
-    include_bytes!("../fonts/GeistMono-Bold.ttf"),
-    include_bytes!("../fonts/Kalam-Regular.ttf"),
-    include_bytes!("../fonts/Kalam-Bold.ttf"),
-];
+/// The web viewer ships `fonts/web`, the same files cut down to the scripts
+/// a browser can draw without system fonts, at under two thirds the size.
+macro_rules! bundled {
+    ($dir:literal) => {
+        [
+            include_bytes!(concat!($dir, "Inter-Regular.ttf")),
+            include_bytes!(concat!($dir, "Inter-Medium.ttf")),
+            include_bytes!(concat!($dir, "Inter-SemiBold.ttf")),
+            include_bytes!(concat!($dir, "Inter-Bold.ttf")),
+            include_bytes!(concat!($dir, "Inter-Italic.ttf")),
+            include_bytes!(concat!($dir, "Inter-BoldItalic.ttf")),
+            include_bytes!(concat!($dir, "GeistMono-Regular.ttf")),
+            include_bytes!(concat!($dir, "GeistMono-Bold.ttf")),
+            include_bytes!(concat!($dir, "Kalam-Regular.ttf")),
+            include_bytes!(concat!($dir, "Kalam-Bold.ttf")),
+        ]
+    };
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+const BUNDLED: [&[u8]; 10] = bundled!("../fonts/");
+#[cfg(target_arch = "wasm32")]
+const BUNDLED: [&[u8]; 10] = bundled!("../fonts/web/");
 
 /// The bundled font files, for a text system other than the canvas's own
 /// (the shell's panels) to load.

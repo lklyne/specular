@@ -1,6 +1,6 @@
 //! [`Compositor::render_scene`]: one multisampled pass for a whole scene.
 
-use std::time::{Duration, Instant};
+use web_time::{Duration, Instant};
 
 use specular_core::PageId;
 use specular_scene::OwnerId;
@@ -142,12 +142,13 @@ impl Compositor {
             text,
             fonts,
             images,
+            viewports_inside_target,
             ..
         } = scene_pass;
 
         start_text(text, fonts, device, queue, *target_format, scene);
         if let Some(text) = text {
-            text.begin_frame(device, view, zooming);
+            text.begin_frame(device, view, zooming, *viewports_inside_target);
         }
 
         let mut times = StageTimes::default();

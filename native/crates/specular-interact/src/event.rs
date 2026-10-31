@@ -215,6 +215,8 @@ pub enum Event {
     /// is answered with an [`Effect::AgentGo`](crate::Effect::AgentGo)
     /// carrying its ticket.
     AgentAct(crate::AgentAct),
+    /// Sharing a canvas with peers, and what they send (ADR 0048).
+    Share(crate::ShareEvent),
     /// A change the HTTP API asked for. It is answered with an
     /// [`Effect::ApiReply`](crate::Effect::ApiReply) carrying its ticket.
     Api(ApiCall),

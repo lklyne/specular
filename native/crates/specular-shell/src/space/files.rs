@@ -46,6 +46,11 @@ impl SpaceFiles {
         }
     }
 
+    /// Where the canvas `id`'s file is.
+    pub(crate) fn path_of(&self, app: &App, id: &CanvasId) -> Option<PathBuf> {
+        Some(self.folder.join(&app.space().canvas(id)?.file))
+    }
+
     /// The canvas `id` changed: save it once changes stop.
     pub(crate) fn request_save(&mut self, id: &CanvasId) {
         if let Some(file) = self.files.get_mut(id) {
