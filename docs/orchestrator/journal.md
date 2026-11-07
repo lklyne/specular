@@ -2351,3 +2351,11 @@ Surveyed: `rust-native` head (still #443 merge from Oct 31), open PRs (#445, #44
 Acted: Nothing to file or close. #446 is below the 7-day stale threshold.
 Notes: Sixth quiet day; no new instances to cite. The journal itself is now mostly "nothing changed" entries — on a dormant trunk the nightly cadence is the cost, not the signal.
 Hint for next run: if #446 is still silent at day 7 (Nov 7), close it as stale and write what channel Lyle actually responds to rather than refiling.
+
+---
+
+## 2026-11-07
+Surveyed: `rust-native` head (still #443 merge from Oct 31, 7 days quiet), open PRs (#445, #442, #441 unchanged), `orchestrator-proposal` queue (#446 only, day 7, 0 comments), journal PR #169.
+Acted: Closed #446 as `not_planned` (stale; 7 days, 0 comments). Not refiling.
+Notes: The channel question: issues filed by the orchestrator get no response, including the self-modifying one. Journal PR #169 is the only surface that is read at all (merged-to-main cadence aside), and it is also a no-op stream on a dormant trunk. Nothing new has two instances, so there is nothing to propose. If the dormant trunk persists, the honest fix is cadence (a weekly run or skip-when-no-trunk-activity), which is a self-modifying prompt change Lyle would have to make; I am not refiling it for a run with no new evidence.
+Hint for next run: if `rust-native` still has no commits, write a one-line entry; only propose again when a new instance appears or trunk activity resumes.
