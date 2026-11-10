@@ -2373,3 +2373,10 @@ Hint for next run: only write more than a line if `rust-native` or main gets com
 Surveyed: `rust-native` (0 commits since Nov 1; last merge #443, Oct 31), open PRs unchanged (#445, #442, #441 plus older stale ones), no open `orchestrator-proposal` issues.
 Notes: Dormant trunk, last 3 proposals closed `not_planned` so no proposing. Nothing new with two instances.
 Hint for next run: only write more than a line if `rust-native` or main gets commits.
+
+---
+
+## 2026-11-10
+Surveyed: `rust-native` (no commits since Oct 31), `main` (frozen since Sep 28), open PRs unchanged, no open `orchestrator-proposal` issues.
+Notes: Dormant trunk; last 3 proposals closed `not_planned`, so no proposing. Nothing new with two instances.
+Hint for next run: only write more than a line if `rust-native` or main gets commits.
