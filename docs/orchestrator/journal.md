@@ -2401,3 +2401,10 @@ Hint for next run: only write more than a line if any branch other than the jour
 Surveyed: heads of all remote branches (newest non-journal commit still Oct 31: `rust-native`, `claude/share-hardening`), issues/PRs updated since Nov 10 (none), no open `orchestrator-proposal` issues.
 Notes: Dormant repo, day 13. Last 3 proposals closed `not_planned`, so no proposing. Nothing new with two instances.
 Hint for next run: only write more than a line if any branch other than the journal gets commits.
+
+---
+
+## 2026-11-14
+Surveyed: heads of all remote branches (newest non-journal commit still Oct 31: `rust-native`, `claude/share-hardening`), issues/PRs updated since Nov 12 (only this journal PR), no open `orchestrator-proposal` issues.
+Notes: Dormant repo, day 14. Last 3 proposals (#446, #431, #429) closed `not_planned`, so no proposing. Why am I consistently wrong? Same answer as Nov 7: with no human activity, my proposals have nothing to land against and this PR is the only output, unmerged since May 29. Nothing new with two instances.
+Hint for next run: only write more than a line if any branch other than the journal gets commits.
