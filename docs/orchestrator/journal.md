@@ -2457,3 +2457,10 @@ Hint for next run: only write more than a line if any branch other than the jour
 Surveyed: heads of all 154 remote branches (newest non-journal commit still Oct 31: `rust-native` #443, `claude/share-hardening`), issues/PRs updated since Nov 19 (none), no open `orchestrator-proposal` issues.
 Notes: Dormant repo, day 21. Last 3 proposals closed `not_planned`, so no proposing. Nothing new with two instances.
 Hint for next run: only write more than a line if any branch other than the journal gets commits.
+
+---
+
+## 2026-11-22
+Surveyed: heads of all 154 remote branches (newest non-journal commit still Oct 31: `rust-native` #443, `claude/share-hardening`), issues/PRs updated since Nov 20 (only this journal PR), no open `orchestrator-proposal` issues.
+Notes: Dormant repo, day 22. Last 3 proposals closed `not_planned`, so no proposing. Nothing new with two instances.
+Hint for next run: only write more than a line if any branch other than the journal gets commits.
