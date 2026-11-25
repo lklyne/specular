@@ -1,58 +1,91 @@
-# ADR 0055: Chrome arrangement as files first, scripted panels over the models later
+# ADR 0055: The interface as files: scripted chrome, pages as canvas extensions
 
-**Status:** Proposed, and deferred until the shell question ([ADR 0051](./0051-rune-shell-around-the-compositor.md)) is settled. Not built.
+**Status:** Proposed. Not built. Depends on [ADR 0051](./0051-rune-shell-around-the-compositor.md): the scripting lane named here is Rune's. Step S7 of [the spike](../plans/rune-spike.md) tests it. Revised 2026-11-25, the day it was written: the first draft had scripts return the semantic controls only, which ruled out restyling.
 **Date:** 2026-11-25
-**Related:** [ADR 0044](./0044-ui-as-pure-models-with-replaceable-renderers.md), the panel models. [ADR 0016](./0016-tools-as-capability-registry.md), tools as a registry. [ADR 0052](./0052-one-runner-one-state-document.md), the state document and action table this reuses.
+**Related:** [ADR 0044](./0044-ui-as-pure-models-with-replaceable-renderers.md), the panel models. [ADR 0016](./0016-tools-as-capability-registry.md), tools as a registry. [ADR 0052](./0052-one-runner-one-state-document.md), the state document and action table this reuses. [ADR 0054](./0054-every-editor-is-an-actor.md), actors.
 
 ## Context
 
-Herdr's desktop app (`herdrdev/herdr-app`) lets an agent or a person rebuild its window. Read at its 2026-11-24 head:
+Herdr's desktop app (`herdrdev/herdr-app`) is built so that a person, or their agent, can rebuild its window. Read at its 2026-11-24 head, what makes that work is less the script engine than the habits around it:
 
-- A **layout** is one JSON file: a tree of blocks, rows, columns and stacks that says which panel goes where.
-- A **mod** is a folder with a JavaScript class whose `render()` returns a declarative element tree. Rust keeps the tree and replays it each frame; script runs on a state change or an event, never per frame.
-- Mods read state through published JSON snapshots with read tracking, so only a mod that read a changed key re-renders. They change things only through one table of 78 named commands, the same one keys, menus and the CLI use.
-- Nearly all of Herdr's own chrome is mods: about 9,100 lines of JavaScript on the API third parties get.
-- The runtime is not Herdr's. It is `gpui-shell`, a crate of GPUI Kit, on QuickJS. Herdr carries 130 patch sites in it.
-- Mods are trusted code with unrestricted exec and network. Herdr's docs say this is not a security boundary.
-- Its changelog records what scripted UI cost: window freezes while mods ran, a VM memory leak that broke every mod, idle mods waking 20 times a second.
+- **The interface is a folder of files.** Layouts, keys, themes and panels. The window redraws from them within a second of a save. The folder holds a guide the app rewrites on every start, with a test that it names every command.
+- **Nothing shipped is special.** The sidebar, tab bar, menus and dialogs are mods on the API a user gets: 21 mods, 3,921 lines of JavaScript. A confirm dialog is 53 lines; the spaces sidebar, the largest, is 573.
+- **Clone to own.** Shipped files are replaced on every start. A person's clone is theirs, is never updated, and records what it was cloned from.
+- **It cannot be broken.** A bad save keeps the last good version and writes the error beside the file. One key combination nothing can rebind returns to the default layout.
+- **A rule keeps the native core small.** Three questions are answered before anything is added in Rust, and a request a mod could meet is closed.
+- **One way to read, one way to write.** Mods read published JSON snapshots, with read tracking so only a mod that read a changed key re-renders. They change things only through one table of 78 named commands, the one keys, menus and the CLI use.
+- **Script never runs per frame.** `render()` returns a description that Rust keeps and replays.
 
-Specular already has the three parts that are hard to add late: one `Action` table every input goes through, panels as pure models of `&App`, and a renderer that is replaceable.
+Its headless core adds two things for extensions: an API that only grows, with a test that fails on a breaking change, and small shared stores (labels, and versioned JSON documents with compare-and-set).
+
+What it cost them is in the changelog: window freezes while mods ran, a VM leak that broke every mod, idle mods waking 20 times a second. Mods are trusted code with unrestricted exec and network, which their docs say is not a security boundary. The runtime is `gpui-shell` on QuickJS, which calls itself a feasibility baseline and which Herdr carries 130 patch sites in.
+
+Specular has the parts that are hard to add late: one `Action` table every input goes through, panels as pure functions of `&App`, and a replaceable renderer. Rune has the rest in `rune-luau` (read, not run): a sandboxed Luau VM whose `render` builds Rune elements, reused without entering the VM until the script's version moves; hot reload that carries state across; an error card in place of a crash; a 250 ms CPU watchdog and a 64 MB heap per script; host signals and async functions.
+
+The Rune port rewrites about 5,700 lines of view adapters whatever is decided here. That is the cheapest moment to write them as scripts.
 
 ## Decision
 
-Two steps, the second only after the first has been used.
+Three lanes, and two rules.
 
-**Step 0: arrangement, keys and theme as files. No scripting.**
+**1. The chrome is scripts.**
 
-- The chrome's arrangement is a JSON layout over the existing native panels: which panel sits in which region, sizes, what is hidden.
-- Key bindings and the theme are files beside it.
-- Shipped files are replaced on start. A person's copy is theirs and is never updated. A save reloads the window; a bad save keeps the last good version and writes the error beside the file.
-- The `Action` table describes itself (names, arguments, help) over the API and CLI, and the state document of ADR 0052 is the read side.
+- A panel is a Luau script: `render` over a read-only snapshot of the app, building Rune elements.
+- A script changes the app only through `run(action, args)`, the `Action` table. It keeps its own panel state.
+- The shipped toolbar, dock, sidebar, tab row, menus, palette, settings and chat panel are written this way, on the API a person's own panel gets.
+- The models stay. `toolbar(&App)`, `dock(&App)` and the rest are what the snapshot is made of, so a script lays out and styles what the model says is there. Which controls exist for a selection, and what each does, stays in Rust and stays tested there.
+- Script runs on a snapshot change or an event, never per frame. The camera is not in the snapshot a panel can read, so a pan or zoom cannot enter a script.
+- No file, process or network access to begin with. A capability is added when a shipped panel needs it, and granted per script.
 
-**Step 1: scripted panels that return the semantic model.**
+**2. Canvas extensions are pages.**
 
-- A script is `render(snapshot) -> controls` plus handlers. It returns the controls the models already use (`Button`, `Toggle`, `Dropdown`, `Field` and the rest, each with an id and an `Action`), not layout primitives.
-- A handler may call `run(action, args)` and set its panel's own state. Nothing else: no file, process or network access.
-- Script runs on a snapshot change or an event. The camera is never a key a panel can read, so a pan or zoom cannot enter a script.
-- A `.canvas` file or a page can never name or load a script. A layout can, so a shared layout is code and is treated as such.
-- One real panel is rewritten as a script before any API is published.
+- An HTML file in the space folder is already a live page on the canvas. A page from the space gets a bridge: the snapshot to read, and `run(action, args)` to write.
+- A custom canvas widget is then one HTML file, which an agent can write, on an item that already moves, resizes, syncs and undoes like any other.
+- The bridge is for pages loaded from the space folder. A page from the web never gets it.
+- Tools, gestures and how the canvas draws its own kinds stay native. The file-renderer registry stays the lane for a new file kind.
 
-Canvas item renderers, tools and gestures are not opened to scripts. For those the lanes are the native file-renderer registry and the fact that a page is already a sandboxed, scriptable canvas item.
+**3. Arrangement, keys and theme are files.**
 
-## Why the semantic level
+- A layout is JSON: which panel sits in which region, sizes, what is hidden. Keys and the theme are files beside it.
+- Shipped files are replaced on start. A clone is the person's and is never updated.
+- A save reloads the window. A bad save keeps the last good version and writes the error beside the file. One fixed key returns to the shipped layout.
+- The folder carries a generated guide for agents, checked against the action table by a test.
 
-Herdr's mods emit layout primitives, which is what makes a full reskin possible. It also exposes the UI library's whole style and component surface as API, tied to that library. Returning our own controls keeps the API small enough to version, keeps it valid across a change of shell, and makes a panel checkable as data: script plus snapshot in, controls and actions out, no window. The cost is that a script cannot restyle the app.
+**Rule: nothing shipped is special.** A capability the shipped chrome uses is one a person's panel can use. If the chrome needs something scripts cannot do, the API grows; the chrome does not get a private door.
+
+**Rule: the native core answers for itself.** Before a feature goes into Rust, say why a script or a page could not do it.
+
+**Where extension state lives.** In the canvas's own `specular` fields. With ADR 0054 the mirror then syncs it and each actor can undo it, and it is in the `.canvas` for other tools to read.
+
+## Trust
+
+Specular loads live web pages and `.canvas` files from disk, so Herdr's "read the mod before you install it" is not enough.
+
+- A `.canvas` file or a web page can never name, load or select a script.
+- A layout names scripts, so a shared layout is code and is installed as code.
+- Scripts start with no capabilities. The bridge in lane 2 is limited to the space folder's own files.
 
 ## Alternatives
 
-**Herdr's design on `gpui-shell`.** One dependency away while the shell is GPUI Kit. The crate calls itself a feasibility baseline, and it ends with a move off GPUI.
+**Scripts return the semantic controls only**, this ADR's first draft. A small API that survives a change of shell and is checkable as plain data. It cannot restyle anything, so the shipped chrome could not be written in it and nothing would prove the API by use.
 
-**Rune's Luau lane.** The equivalent if the shell moves. Either engine sits behind the same small host module, so the choice is reversible.
+**Keep the chrome in Rust; add scripting later.** No second language now. The adapters are then written twice, and the API is designed without a real client.
+
+**`gpui-shell`**, Herdr's runtime. One dependency away on the GPUI Kit shell, and it ends with that shell.
 
 **Process plugins**, as Herdr's older terminal app had. Any language, no native UI.
 
+## What is not known
+
+- `rune-luau` was read, not run. It is as young as Rune and is not in Rune's default build; it needs a host C++ compiler.
+- What a panel costs: a render of the sidebar on a canvas with hundreds of items, and how coarse the snapshot's keys must be to keep renders rare.
+- Whether Rune's headless tree shows script-built elements under their keys, which ADR 0052 depends on.
+- How pages in lane 2 get the bridge: CEF's message router, or the devtools channel `dom_query` already uses.
+
 ## Consequences
 
-- Step 0 gets "an agent can rearrange the app" with files and no new runtime.
-- Step 1 adds a second language, a script watchdog, and an API that has to be kept stable.
-- Script budgets must sit inside a frame. Herdr's are 50 ms a render and 500 ms a handler, which a 120 Hz canvas cannot share a thread with unless script is kept off the pan and zoom path entirely.
+- A person or an agent can rearrange, restyle and add to the window by editing files, and add to the canvas by writing a page.
+- The script API is Rune's element vocabulary. It is tied to Rune and moves when Rune's does.
+- A second language for the chrome, with its own tests: a script plus a snapshot gives a tree and the actions it ran, checked with no window.
+- A watchdog, counters for script renders a second, and a rule that script stays off the pan and zoom path are needed from the first panel.
+- The API has to be kept. Herdr's grows every release by request; the small-core rule is what pays for that.

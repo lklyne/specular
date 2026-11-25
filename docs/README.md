@@ -60,7 +60,7 @@ Specular is the Rust app under `native/` (start with [`native/README.md`](../nat
 - [0052: One runner and one state document for driving and checking the app](adr/0052-one-runner-one-state-document.md): **Proposed**. One script interpreter in tests, headless and in a window; `expect <path> <op> <value>` over a JSON state document; the same step and state calls over HTTP in every mode.
 - [0053: Page frames follow the display, and the canvas pass loses multisampling](adr/0053-page-frames-follow-the-display.md): **Proposed**. The entered page paints at the display's rate, a paint wakes the canvas, meshes get analytic edges. Begin frames and a page-host process wait on measured numbers.
 - [0054: Every editor is an actor with its own undo](adr/0054-every-editor-is-an-actor.md): **Proposed**. The yrs mirror is always on, each person, agent session and peer has its own undo stack, and `History` goes. What Cmd+Z does to an agent's work is open.
-- [0055: Chrome arrangement as files first, scripted panels over the models later](adr/0055-chrome-as-files-then-scripted-panels.md): **Proposed**, deferred. Lessons from Herdr's mods: layout, keys and theme as hot-reloaded files, then scripts that return the semantic controls and may only run actions.
+- [0055: The interface as files: scripted chrome, pages as canvas extensions](adr/0055-chrome-as-files-then-scripted-panels.md): **Proposed**. Lessons from Herdr's mods: the chrome as Luau scripts over a state snapshot and the action table, HTML pages from the space folder as canvas extensions, and layout, keys and theme as hot-reloaded files. Nothing shipped is special.
 
 ## Docs
 

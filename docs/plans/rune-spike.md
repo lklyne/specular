@@ -24,6 +24,7 @@ Rune is pinned to one revision of `dev` for the whole spike. The pin and the rea
 | 7 | Does CEF's external pump share the run loop with Rune's event loop? | Pages load and paint; shutdown is clean; no re-entrant event delivery | Mac |
 | 8 | Do keys and composition reach a page? | Digit 1 and numpad 1 arrive with their own key codes from `on_physical_input`; a scripted composition lands in a CEF text field | Mac |
 | 9 | Does 120 Hz hold? | 40 CEF pages under a pan with a Rune popover open: p99 interval under 1.5 frames, on a quiet machine, release build | Mac |
+| 10 | Can a panel be a script? ([ADR 0055](../adr/0055-chrome-as-files-then-scripted-panels.md)) | The toolbar as a Luau script over a snapshot of `toolbar(&App)`: `--tree` lists its controls under the same keys, a scripted tap runs the `Action`, and a saved edit reloads it with no rebuild | Linux |
 
 ## Measurements for ADR 0053
 
@@ -42,8 +43,9 @@ Taken on the Mac in the same session, on the existing Kit shell first so there i
 4. **S4, Mac.** The same binary in a window on Metal. Answers 2 on Metal, and 5.
 5. **S5, Mac.** CEF behind `--features cef`: bundle, pump, import, input. Answers 6, 7 and 8.
 6. **S6, Mac.** Pacing and the ADR 0053 numbers. Answers 9.
+7. **S7, Linux.** The toolbar as a `rune-luau` script beside the Rust one. Answers 10, and records what a render costs and what the script could not say.
 
-S1 to S3 need no Mac and run first. S4 to S6 need macOS on Apple Silicon with a display, the CEF download and a bundle.
+S1 to S3 and S7 need no Mac and run first. S4 to S6 need macOS on Apple Silicon with a display, the CEF download and a bundle.
 
 ## What a fail means
 

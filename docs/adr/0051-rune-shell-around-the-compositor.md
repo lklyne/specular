@@ -1,6 +1,6 @@
 # ADR 0051: Rune as the shell, with the compositor drawing inside its frame
 
-**Status:** Proposed, pending the spike in [`docs/plans/rune-spike.md`](../plans/rune-spike.md). Nothing here has been built or run. If the spike passes, this supersedes [ADR 0040](./0040-gpui-kit-hybrid-shell.md).
+**Status:** Proposed, pending the spike in [`docs/plans/rune-spike.md`](../plans/rune-spike.md). Its Linux steps have run and passed; the Mac steps have not. If the spike passes, this supersedes [ADR 0040](./0040-gpui-kit-hybrid-shell.md).
 **Date:** 2026-11-25
 **Related:** [ADR 0039](./0039-rust-canvas-render-stack.md), the canvas's own wgpu pass, which stays. [ADR 0040](./0040-gpui-kit-hybrid-shell.md), the GPUI Kit shell this would replace. [ADR 0044](./0044-ui-as-pure-models-with-replaceable-renderers.md), which made the shell replaceable. [ADR 0052](./0052-one-runner-one-state-document.md), the testing this unlocks. [ADR 0053](./0053-page-frames-follow-the-display.md), the page pipeline changes made alongside.
 
@@ -51,6 +51,25 @@ Nothing was built. From Rune's source and docs:
 - Rune takes an instance, not a device. Every GPU resource, page imports included, is made on its device, and a compositor must handle `device_key` changes and `release_gpu`.
 - There is no child-view or webview embedding. Offscreen textures are the only way to show a page, which is what we do.
 - There is no live control socket; `--window-script` is fixed at launch. Our HTTP API stays the live channel (ADR 0052).
+
+## Spike results so far
+
+Steps S1 to S3, run on Linux with a software GPU (lavapipe) at Rune `a1fbe7ff`. The log is in [the plan](../plans/rune-spike.md). The Mac steps have not run.
+
+- Rune and our crates build into one binary with one `wgpu` 30.0.1. The lockfile is 500 packages against the app's 951. `wgpu` has to be held at 30.0.1; a fresh resolve takes 30.0.2 over the patched 30.0.1 `wgpu-hal`.
+- `specular-compositor` drew inside a Rune `Compositor` with no change to it. Against `specular --snapshot` of the same canvas, 0 of 902,400 pixels differ below the toolbar, at three cameras. [Reference](./assets/0051/reference-kitchen-sink.png), [under Rune](./assets/0051/rune-kitchen-sink.png).
+- A toolbar built from `toolbar(&App)` needed no adapter. The tree lists each control under its `ControlId`, and a scripted tap changed the tool through `update`. [After the tap](./assets/0051/rune-after-tap-shape.png).
+- A `cargo test` on Rune's `Runtime` tapped a control and read `App` with no Vulkan driver present.
+
+What it found that a real shell has to deal with:
+
+- `Frame::draw_ui()` clears the target, so it cannot follow our pass. The spike calls the renderer's public pieces with `LoadOp::Load`.
+- `render_scene` makes and submits its own encoder, so a frame is two submits. It should take Rune's encoder.
+- `specular_shell::Runtime` assumes its window always owns a compositor. Under Rune the compositor exists only inside a frame, and the spike rewrote the effect runner (about 560 lines) around that.
+- The device scale arrives with the first frame, after `Effect::CreatePage` has run.
+- Text measure before a device exists means a second font system beside the compositor's.
+- The lockfile is part of what a snapshot looks like: a lyon patch release moved the dashes on one curved edge.
+- Our pass has only 4x pipelines, so on a Mac it must run on `GpuBackend::Wgpu` until ADR 0053's single-sampled pass exists.
 
 ## Risks
 
