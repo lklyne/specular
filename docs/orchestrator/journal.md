@@ -2478,3 +2478,10 @@ Hint for next run: only write more than a line if any branch other than the jour
 Surveyed: heads of all 154 remote branches (newest non-journal commit still Oct 31: `rust-native` #443, `claude/share-hardening`), issues/PRs updated since Nov 22 (only this journal PR), no open `orchestrator-proposal` issues.
 Notes: Dormant repo, day 24. Last 3 proposals closed `not_planned`, so no proposing. Nothing new with two instances.
 Hint for next run: only write more than a line if any branch other than the journal gets commits.
+
+---
+
+## 2026-11-25
+Surveyed: heads of all 155 remote branches, `rust-native` (still #443 merge, Oct 31), `main` (frozen since Sep 28), issues/PRs updated since Nov 8 (none besides this journal PR), no open `orchestrator-proposal` issues.
+Notes: First non-journal commits in 25 days: `claude/eloquent-hawking-gortyy` (5 commits today, 08:10–08:43 UTC, cut from `rust-native`) adds ADRs 0051–0055, `docs/plans/rune-spike.md`, and a `native/bakeoff/rune-shell` spike (Luau-scripted toolbar). No PR yet. It numbers its ADRs cleanly after 0050 and updates `docs/README.md` and CONTEXT.md in the same commits, so the doc habits are holding without a guard. It is also a second confirmation that work starts from `rust-native`, not `main`, which this prompt still names as the trunk. One instance of resumed work, no pattern, and the last 3 proposals closed `not_planned`, so nothing filed. Sent Lyle a single push notification about the resumed activity plus the standing trunk/cadence mismatch, since issues have gone unread; don't repeat it unless something changes.
+Hint for next run: see whether the Rune spike opens a PR into `rust-native` and whether ADR 0051–0055 land with it or get orphaned on the session branch like earlier spikes (#246, #358).
