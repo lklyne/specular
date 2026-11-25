@@ -1,0 +1,23 @@
+# The reference image for the spike's pixel comparison, on Linux.
+#
+# `cargo run -p specular-shell -- --snapshot` does not build off macOS: the
+# `specular` binary is the GPUI Kit window. The headless run it would do is
+# in the shell's library, behind `specular_shell::launch`, which does build
+# here. This is that call and nothing else, in a workspace of its own so the
+# spike's lockfile (question 1) holds only what the spike links. Its
+# lockfile started as a copy of `native/Cargo.lock`, so it draws with the
+# versions the app does (unpatched wgpu-hal and naga 30.0.1).
+[workspace]
+resolver = "3"
+
+[package]
+name = "specular-reference"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.99"
+license = "UNLICENSED"
+publish = false
+
+[dependencies]
+specular-shell = { path = "../../../crates/specular-shell" }
+anyhow = "1.0.100"

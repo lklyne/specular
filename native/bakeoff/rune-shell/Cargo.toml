@@ -1,0 +1,48 @@
+# The Rune spike (docs/plans/rune-spike.md, ADR 0051). Throwaway code in a
+# workspace of its own: Rune's eight `[patch.crates-io]` entries must sit at
+# a workspace root, and they are kept out of `native/Cargo.toml` until the
+# spike has said whether Rune can host the compositor.
+[workspace]
+resolver = "3"
+
+[package]
+name = "rune-shell-spike"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.99"
+license = "UNLICENSED"
+publish = false
+
+[[bin]]
+name = "rune-shell"
+path = "src/main.rs"
+
+[dependencies]
+# Pinned to one revision of `dev` (2026-11-24). The patches below name the
+# same revision; a bump moves all nine together.
+rune = { git = "https://github.com/anomalyco/rune", rev = "a1fbe7ff5a33663a87edbdffbbcc37260c549106" }
+
+specular-core = { path = "../../crates/specular-core" }
+specular-doc = { path = "../../crates/specular-doc" }
+specular-interact = { path = "../../crates/specular-interact" }
+specular-scene = { path = "../../crates/specular-scene" }
+specular-compositor = { path = "../../crates/specular-compositor" }
+
+# The same requirements `native/Cargo.toml` states.
+wgpu = "30.0"
+glam = { version = "0.33", features = ["bytemuck", "serde"] }
+# What `specular-shell` decodes image files with, for the same pixels.
+image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "webp", "gif"] }
+resvg = { version = "0.46", default-features = false, features = ["text", "system-fonts"] }
+
+# Rune's patched forks, as its README's "Add it" lists them. Cargo does not
+# inherit a dependency's patches.
+[patch.crates-io]
+winit = { git = "https://github.com/anomalyco/rune", rev = "a1fbe7ff5a33663a87edbdffbbcc37260c549106" }
+sctk-adwaita = { git = "https://github.com/anomalyco/rune", rev = "a1fbe7ff5a33663a87edbdffbbcc37260c549106" }
+parley_engine = { git = "https://github.com/anomalyco/rune", rev = "a1fbe7ff5a33663a87edbdffbbcc37260c549106" }
+wgpu-hal = { git = "https://github.com/anomalyco/rune", rev = "a1fbe7ff5a33663a87edbdffbbcc37260c549106" }
+naga = { git = "https://github.com/anomalyco/rune", rev = "a1fbe7ff5a33663a87edbdffbbcc37260c549106" }
+accesskit_windows = { git = "https://github.com/anomalyco/rune", rev = "a1fbe7ff5a33663a87edbdffbbcc37260c549106" }
+accesskit_macos = { git = "https://github.com/anomalyco/rune", rev = "a1fbe7ff5a33663a87edbdffbbcc37260c549106" }
+accesskit_atspi_common = { git = "https://github.com/anomalyco/rune", rev = "a1fbe7ff5a33663a87edbdffbbcc37260c549106" }
