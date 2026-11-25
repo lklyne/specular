@@ -19,6 +19,8 @@ Rune is pinned to `a1fbe7ff5a33663a87edbdffbbcc37260c549106` (`dev`,
 | `src/files.rs` | Image files to pixels, as the real shell decodes them |
 | `src/chrome.rs` | The Rune view: one keyed element per control of the toolbar model |
 | `src/canvas.rs` | The Rune `Compositor` that hosts ours and draws Rune's UI over it |
+| `src/input.rs`, `src/keys.rs` | Canvas input: a window-sized element under the toolbar, keys and the input method, as the app's `Event`s |
+| `tests/canvas_input.rs` | Drag, click and delete, wheel, pinch and Cmd+Z over the canvas, on the GPU-free `Runtime` |
 | `tests/toolbar.rs` | The GPU-free `Runtime` test (question 4) |
 | `panels/toolbar/init.luau` | The same toolbar as a Luau script (question 10) |
 | `src/panel.rs` | The host's side of a scripted panel: the snapshot, `run`, `ui.control` |
@@ -147,6 +149,22 @@ python3 tools/diff.py $OUT/wgpu1.png $OUT/metal1.png --skip-top 48
 # a window; RUNE_SHELL_PACE prints frame bursts to stderr
 RUNE_SHELL_PACE=1 target/debug/rune-shell ../../fixtures/kitchen-sink.canvas \
     --camera 20,60,0.25 --window-script scripts/open-zoom.json
+```
+
+Canvas input: `src/input.rs` puts one window-sized element under the
+toolbar. Its `on_drag` takes a press, drag and release (primary, secondary,
+middle) with the run of clicks, `on_pointer_move_local` the hover,
+`on_wheel` the scroll (Cmd zooms), and `on_magnify` a pinch or Control and
+the wheel. Keys go to the window's `on_key` (presses nothing focused took,
+modifier keys alone with `App::modifier_keys`) and the root's `on_key_up`;
+composed text to `App::on_ime` while the app turns the input method on.
+Everything goes through `Shell::dispatch`.
+
+```sh
+# drag sticky-color-3, wheel up, Cmd+Z: prints the sticky selected; the
+# snaps show it dragged at 0.5 and back in place, panned, at 1.2
+$RUN --script scripts/drag-sticky.json --snap $OUT/dragged.png --at 0.5
+$RUN --script scripts/drag-sticky.json --snap $OUT/undone.png --at 1.2
 ```
 
 Rune's `--window-script` replays taps and keys in a real window, timed from

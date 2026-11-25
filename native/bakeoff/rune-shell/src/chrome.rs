@@ -183,6 +183,7 @@ fn dropdown(model: &Dropdown, open: bool) -> El {
         .role("menu")
         .label(model.label.as_ref())
         .absolute(0.0, BUTTON_HEIGHT + 6.0)
+        .hit()
         .padding(4.0)
         .radius(8.0)
         .fill(surface())
@@ -245,6 +246,8 @@ fn ribbon(model: &ToolbarModel, open_list: Option<&ControlId>) -> El {
         .key("toolbar")
         .role("toolbar")
         .label("Tools")
+        // A press between the controls is the ribbon's, not the canvas's.
+        .hit()
         .padding(4.0)
         .gap(2.0)
         .items_center()
@@ -254,20 +257,21 @@ fn ribbon(model: &ToolbarModel, open_list: Option<&ControlId>) -> El {
         .children(items)
 }
 
-/// The whole window: nothing but the ribbon, centred at the top. The rest
-/// is left unpainted, and the canvas the compositor drew shows through.
+/// The whole window: the ribbon, centred at the top, over the canvas's input
+/// element. The rest is left unpainted, and the canvas the compositor drew
+/// shows through.
 ///
 /// With a scripted panel (`--chrome luau`) the whole window is the script's
 /// instead: its root is this column and its ribbon is its own.
 pub fn view(shell: &Shell, cx: &mut Cx<Shell>) -> El {
-    if let Some(panel) = &shell.panel {
-        return panel.view(shell, cx);
-    }
-    let model = toolbar(&shell.app);
-    col()
-        .w_full()
-        .h_full()
-        .items_center()
-        .padding(INSET)
-        .child(ribbon(&model, shell.open_list.as_ref()))
+    let chrome = match &shell.panel {
+        Some(panel) => panel.view(shell, cx),
+        None => col()
+            .w_full()
+            .h_full()
+            .items_center()
+            .padding(INSET)
+            .child(ribbon(&toolbar(&shell.app), shell.open_list.as_ref())),
+    };
+    crate::input::window(shell, chrome)
 }

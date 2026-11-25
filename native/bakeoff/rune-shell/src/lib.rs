@@ -9,12 +9,16 @@
 //! - [`chrome`]: the Rune view, a toolbar built from the panel model.
 //! - [`canvas`]: the Rune `Compositor` that hosts `specular-compositor` on
 //!   Rune's device and draws Rune's UI over it.
+//! - [`input`] and [`keys`]: the canvas's pointer, wheel, pinch, keys and
+//!   input method, as the app's events.
 //! - [`panel`]: the same toolbar as a Luau script (step S7, ADR 0055),
 //!   chosen with `--chrome luau`.
 
 pub mod canvas;
 pub mod chrome;
 pub mod files;
+pub mod input;
+pub mod keys;
 pub mod panel;
 pub mod shell;
 
@@ -95,6 +99,7 @@ pub fn app(options: Options) -> App<Shell> {
     let spec = AppSpec {
         poll: Some(shell::poll),
         setup: Some(setup),
+        on_key: Some(keys::on_key),
         ..AppSpec::new(
             "Specular (Rune spike)",
             options.size,
@@ -102,31 +107,35 @@ pub fn app(options: Options) -> App<Shell> {
             chrome::view,
         )
     };
-    App::new(spec).init(move || {
-        let clock = if options.still {
-            Clock::Still
-        } else {
-            Clock::Running
-        };
-        let mut shell = Shell::new(options.size, options.scale, clock);
-        if let Chrome::Luau(dir) = &options.chrome {
-            match Panel::from_dir(dir) {
-                Ok(panel) => {
-                    panel.watch(dir);
-                    shell.panel = Some(panel);
-                }
-                Err(error) => {
-                    eprintln!("rune-shell: reading {}: {error}", dir.display());
-                    std::process::exit(1);
+    // Modifier keys alone reach `on_key`, as the Kit sends flag changes.
+    App::new(spec)
+        .modifier_keys()
+        .on_ime(keys::on_ime)
+        .init(move || {
+            let clock = if options.still {
+                Clock::Still
+            } else {
+                Clock::Running
+            };
+            let mut shell = Shell::new(options.size, options.scale, clock);
+            if let Chrome::Luau(dir) = &options.chrome {
+                match Panel::from_dir(dir) {
+                    Ok(panel) => {
+                        panel.watch(dir);
+                        shell.panel = Some(panel);
+                    }
+                    Err(error) => {
+                        eprintln!("rune-shell: reading {}: {error}", dir.display());
+                        std::process::exit(1);
+                    }
                 }
             }
-        }
-        if let Some(canvas) = &options.canvas
-            && let Err(error) = shell.open(canvas, options.camera)
-        {
-            eprintln!("rune-shell: {error}");
-            std::process::exit(1);
-        }
-        shell
-    })
+            if let Some(canvas) = &options.canvas
+                && let Err(error) = shell.open(canvas, options.camera)
+            {
+                eprintln!("rune-shell: {error}");
+                std::process::exit(1);
+            }
+            shell
+        })
 }

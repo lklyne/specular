@@ -80,6 +80,8 @@ pub struct Shell {
     pub panel: Option<crate::panel::Panel>,
     /// How many events have gone through `update`.
     pub dispatched: u64,
+    /// The cursor and the input method, as effects last asked.
+    pub asks: crate::input::Asks,
 }
 
 impl std::fmt::Debug for Shell {
@@ -126,6 +128,7 @@ impl Shell {
             open_list: None,
             panel: None,
             dispatched: 0,
+            asks: crate::input::Asks::default(),
         };
         shell.dispatch(Event::Motion(false));
         shell.dispatch(Event::ViewportResized(shell.viewport));
@@ -239,6 +242,9 @@ impl Shell {
     /// rest (saving, the clipboard, agents, sharing, settings) is dropped,
     /// as a headless run of the real shell drops what would write.
     fn run(&mut self, effect: Effect) {
+        if self.asks.note(&effect) {
+            return;
+        }
         match effect {
             Effect::CreatePage {
                 page,
