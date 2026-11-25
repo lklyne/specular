@@ -5,7 +5,8 @@
 //! [`KeyInput`], which `specular-interact` builds from a macOS key code and
 //! the characters the key carried, as the Kit's `keys.rs` does from the raw
 //! `NSEvent`. So the physical key is named by its DOM code, looked up in
-//! [`PhysicalKey`]'s table, and handed to [`mac_key_input`] with its code.
+//! [`PhysicalKey`]'s table (or the keypad's, which it lacks), and handed to
+//! [`mac_key_input`] as its macOS code.
 //!
 //! Presses come through the window's `on_key`, which hears every key nothing
 //! focused took, releases through the root's `on_key_up`, and modifier keys
@@ -32,16 +33,42 @@ pub fn modifiers(mods: Mods) -> Modifiers {
     }
 }
 
-/// The key behind `code`. Winit names its key codes as the DOM does, but for
-/// the logo keys.
-fn physical(code: PhysicalKeyCode) -> Option<PhysicalKey> {
+/// The macOS virtual key code (`kVK_*`) of the key behind `code`. Winit
+/// names its key codes as the DOM does, but for the logo keys. The keypad's
+/// keys are not in [`PhysicalKey`]'s table; the Kit reads their codes off
+/// `NSEvent.keyCode`, so they are listed here.
+pub fn mac_code(code: PhysicalKeyCode) -> Option<u16> {
+    use PhysicalKeyCode as C;
+    let keypad = match code {
+        C::Numpad0 => 82,
+        C::Numpad1 => 83,
+        C::Numpad2 => 84,
+        C::Numpad3 => 85,
+        C::Numpad4 => 86,
+        C::Numpad5 => 87,
+        C::Numpad6 => 88,
+        C::Numpad7 => 89,
+        C::Numpad8 => 91,
+        C::Numpad9 => 92,
+        C::NumpadDecimal => 65,
+        C::NumpadMultiply => 67,
+        C::NumpadAdd => 69,
+        C::NumLock => 71,
+        C::NumpadDivide => 75,
+        C::NumpadSubtract => 78,
+        C::NumpadEqual => 81,
+        _ => 0,
+    };
+    if keypad != 0 {
+        return Some(keypad);
+    }
     let name = format!("{code:?}");
     let dom = match name.as_str() {
         "SuperLeft" => "MetaLeft",
         "SuperRight" => "MetaRight",
         other => other,
     };
-    PhysicalKey::from_dom_code(dom)
+    PhysicalKey::from_dom_code(dom).map(PhysicalKey::mac_key_code)
 }
 
 /// The key a logical key sits on in a US layout, for a key with no physical
@@ -103,21 +130,37 @@ fn characters(event: &KeyEvent) -> String {
 /// `event` as the app's key transition, or `None` for a key the app has no
 /// name for (a media key, Fn).
 fn key_input(event: &KeyEvent, pressed: bool, tx: &Tx) -> Option<KeyInput> {
+    input_for(
+        event,
+        pressed,
+        pressed && tx.key_repeat(),
+        tx.physical_key(),
+    )
+}
+
+/// [`key_input`] with the physical key given: `physical` is what Rune says
+/// the key was, `None` for a key with no physical origin.
+pub fn input_for(
+    event: &KeyEvent,
+    pressed: bool,
+    repeat: bool,
+    physical: Option<PhysicalKeyCode>,
+) -> Option<KeyInput> {
     let pressed = match event.key {
         Key::Modifier { pressed, .. } => pressed,
         _ => pressed,
     };
-    let key = match event.key {
+    let code = match event.key {
         // A modifier key's own code is the side Rune names, not the key
         // that changed the flags last.
-        Key::Modifier { modifier, .. } => modifier_key(modifier),
-        _ => tx.physical_key().and_then(physical),
+        Key::Modifier { modifier, .. } => modifier_key(modifier).map(PhysicalKey::mac_key_code),
+        _ => physical.and_then(mac_code),
     }
-    .or_else(|| us_key(&event.key))?;
+    .or_else(|| us_key(&event.key).map(PhysicalKey::mac_key_code))?;
     Some(mac_key_input(
-        key.mac_key_code(),
+        code,
         pressed,
-        pressed && tx.key_repeat(),
+        repeat,
         &characters(event),
         modifiers(event.mods),
     ))
@@ -173,4 +216,22 @@ pub fn on_ime(shell: &mut Shell, ime: &Ime, _: &mut Tx) -> bool {
     };
     shell.dispatch(Event::Ime(event));
     true
+}
+
+/// `--probe-keys SECONDS`: digit 1, then keypad 1, each pressed and let go,
+/// built by [`input_for`] from the physical key as `on_key` builds them from
+/// Rune's. A headless script cannot name a keypad key (Rune's key names
+/// have none), so this stands in for the keyboard.
+pub fn probe(shell: &mut Shell) {
+    for code in [PhysicalKeyCode::Digit1, PhysicalKeyCode::Numpad1] {
+        let event = KeyEvent {
+            key: Key::Text("1".to_owned()),
+            mods: Mods::default(),
+        };
+        for pressed in [true, false] {
+            if let Some(input) = input_for(&event, pressed, false, Some(code)) {
+                shell.dispatch(Event::Key(input));
+            }
+        }
+    }
 }

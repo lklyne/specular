@@ -38,11 +38,24 @@ glam = { version = "0.33", features = ["bytemuck", "serde"] }
 image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "webp", "gif"] }
 resvg = { version = "0.46", default-features = false, features = ["text", "system-fonts"] }
 
+# Step S5: real pages through CEF, with `--features cef`. The crate's own
+# `cef` feature pulls in the CEF download; set `CEF_PATH` so it is reused.
+specular-cef = { path = "../../crates/specular-cef", optional = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+# The run-loop observer that wakes Rune when a page has painted (S5).
+# `[NSBundle mainBundle]` made on the main thread before CEF loads (S5).
+objc2 = { version = "0.6", optional = true }
+objc2-core-foundation = { version = "0.3", optional = true, default-features = false, features = ["std", "CFRunLoop", "CFDate"] }
+
 [features]
 # Rune's headless flags (`--snap`, `--tree`, `--script`) in a release build,
 # for timing: `cargo build --release --features tooling`. Debug builds always
 # have them.
 tooling = ["rune/tooling"]
+# Real pages in CEF (`--source cef`), step S5. Off by default: the default
+# build stays as S4 left it. Needs a bundle to run (see the README).
+cef = ["dep:specular-cef", "specular-cef/cef", "dep:objc2", "dep:objc2-core-foundation"]
 
 [dev-dependencies]
 # Rune's accessibility dump is a `serde_json::Value`; the tests walk it.

@@ -2,7 +2,7 @@
 
 Throwaway code for [`docs/plans/rune-spike.md`](../../../docs/plans/rune-spike.md)
 and [ADR 0051](../../../docs/adr/0051-rune-shell-around-the-compositor.md).
-Steps S1 to S4 and S7 are here. The findings are in the plan's log, not in this file.
+Steps S1 to S5 and S7 are here. The findings are in the plan's log, not in this file.
 
 One binary, `rune-shell`: a [Rune](https://github.com/anomalyco/rune) app
 whose frame is drawn by `specular-compositor` on Rune's device, with a
@@ -15,7 +15,10 @@ Rune is pinned to `a1fbe7ff5a33663a87edbdffbbcc37260c549106` (`dev`,
 
 | File | What |
 |---|---|
-| `src/shell.rs` | The Rune app's state: an `App`, the synthetic pages, a cut-down effect runner. No GPU |
+| `src/shell.rs` | The Rune app's state: an `App`, its pages, a cut-down effect runner. No GPU |
+| `src/pages.rs` | The page source (synthetic or CEF) behind an `Rc<RefCell<..>>`, and its queue |
+| `src/cef.rs` | Feature `cef`: starts CEF, wakes Rune when a page paints, waits headless runs out |
+| `fixtures/` | `cef-pages.canvas`: two local HTML pages (a key logger, a scrolling page) and a sticky over both |
 | `src/files.rs` | Image files to pixels, as the real shell decodes them |
 | `src/chrome.rs` | The Rune view: one keyed element per control of the toolbar model |
 | `src/canvas.rs` | The Rune `Compositor` that hosts ours and draws Rune's UI over it |
@@ -134,6 +137,17 @@ Everything else on the command line is Rune's (`--snap`, `--tree`,
   apart) when a gap ends it: frame intervals, our render's CPU time and
   Rune's `update_ms`. A headless run prints its one burst in the summary.
 
+- `--source synthetic|cef`: what hosts the pages. `synthetic` unless said;
+  `cef` needs `--features cef` and the bundle (S5 below).
+- `--pump timer|caller`: with `--source cef`, who turns CEF's loop.
+  `timer` (the default) is `specular-cef`'s run-loop timer, as in a window;
+  a headless run spins the main run loop for 4 ms each poll so the timer
+  and the wake observer fire. `caller` pumps from each poll, as the real
+  shell's headless run does.
+- `--probe-keys SECONDS`: at that time, digit 1 then keypad 1, built from
+  their physical keys as `on_key` builds them. Rune's script key names
+  have no keypad keys.
+
 With none of Rune's headless flags it opens a window.
 
 ## S4: macOS
@@ -171,3 +185,40 @@ Rune's `--window-script` replays taps and keys in a real window, timed from
 its first frame; it refuses `resize`. To capture or click the window with
 macOS tools, wrap the binary in a throwaway `.app` with a bundle id: an
 unbundled process is not offered to them.
+
+## S5: CEF pages
+
+`--features cef` links `specular-cef` (off by default; the default build is
+unchanged). CEF needs the `.app` layout: the bundle script copies the
+binary into the five helpers, and `main` sends Chromium's children to
+`run_subprocess_if_needed` first. Run the bundle's inner binary.
+
+```sh
+export CEF_PATH="$HOME/.local/share/cef"      # the CEF 154 download, reused
+cargo build --features cef
+CARGO_TARGET_DIR=$PWD/target ../../crates/specular-cef/scripts/bundle-macos.sh debug rune-shell
+CEF=target/debug/rune-shell.app/Contents/MacOS/rune-shell
+PAGES="fixtures/cef-pages.canvas --camera 100,140,1 --source cef"
+
+# two pages and a sticky over both; waits for both to paint first
+$CEF $PAGES --snap $OUT/cef-rest.png --at 0.5
+
+# select then enter page A, click its field, digit 1 (script) then digit 1
+# and keypad 1 (probe), type "ab", compose にほん and commit 日本, then
+# enter page B and wheel it; a close request at 4.7. --realtime gives CEF
+# wall-clock time. Each page title change prints (the key logger puts the
+# last event in it). --at 5.5 runs past the close.
+$CEF $PAGES --realtime --script scripts/cef-keys.json --probe-keys 1.5 \
+    --snap $OUT/cef-keys.png --at 4.5
+
+# a close request: the window waits for CEF to stop, then closes
+$CEF $PAGES --realtime --script scripts/cef-close.json --snap $OUT/close.png --at 2.0
+$CEF $PAGES --pump caller --realtime --script scripts/cef-close.json --snap $OUT/close.png --at 2.0
+
+# a window (not run by the spike's agents): pages paint with no input
+$CEF fixtures/cef-pages.canvas --source cef
+```
+
+After a run the summary says how page frames came (`shared (IOSurface)`
+or `cpu`), the mean and longest delay from CEF's paint to the poll that
+took it, and how often the observer woke Rune.

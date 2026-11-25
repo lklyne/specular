@@ -1,0 +1,15 @@
+{"events": [
+  {"t": 0.2, "type": "tap", "x": 300, "y": 300},
+  {"t": 0.6, "type": "tap", "x": 300, "y": 300},
+  {"t": 1.0, "type": "tap", "x": 250, "y": 210},
+  {"t": 1.4, "type": "key", "name": "1", "code": "Digit1"},
+  {"t": 1.6, "type": "type", "text": "ab"},
+  {"t": 2.0, "type": "ime", "preedit": "にほ", "cursor": [6, 6]},
+  {"t": 2.3, "type": "ime", "preedit": "にほん", "cursor": [9, 9]},
+  {"t": 2.6, "type": "ime", "commit": "日本"},
+  {"t": 3.0, "type": "tap", "x": 860, "y": 300},
+  {"t": 3.4, "type": "tap", "x": 860, "y": 300},
+  {"t": 3.8, "type": "wheel", "x": 860, "y": 300, "dx": 0, "dy": -240},
+  {"t": 4.7, "close_request": true},
+  {"t": 5.6, "type": "mark", "name": "end"}
+]}

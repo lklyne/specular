@@ -43,6 +43,7 @@ struct Seen {
     adapter: String,
     stats: SceneStats,
     state: String,
+    pages: String,
 }
 
 /// With `RUNE_SHELL_PACE=1`: the frames of one burst (frames less than
@@ -108,6 +109,9 @@ pub struct Canvas {
     seen: Seen,
     /// Whether the last frame changed something the next one shows.
     owes_frame: bool,
+    /// The window is closing and the compositor holding page surfaces has
+    /// been let go of.
+    released: bool,
 }
 
 impl Canvas {
@@ -120,6 +124,7 @@ impl Canvas {
             host: None,
             seen: Seen::default(),
             owes_frame: false,
+            released: false,
         }
     }
 
@@ -169,6 +174,9 @@ impl Canvas {
 /// Gives `host` what the shell gathered since the last frame: page frames,
 /// closed pages, and images decoded, redrawn or let go of.
 fn sync(host: &mut Host, shell: &mut Shell) {
+    if shell.closing.is_some() {
+        shell.page_events.clear();
+    }
     for event in shell.page_events.drain(..) {
         if let Err(error) = host.compositor.handle_page_event(event) {
             eprintln!("rune-shell: {error}");
@@ -209,12 +217,41 @@ fn sync(host: &mut Host, shell: &mut Shell) {
     }
 }
 
+/// How page frames came: zero-copy surfaces or CPU bytes, and how long a
+/// frame waited between CEF's paint and the poll that took it.
+fn page_line(shell: &Shell) -> String {
+    let tally = shell.pages.tally;
+    let count = (tally.shared + tally.cpu).max(1);
+    #[cfg(feature = "cef")]
+    let wakes = crate::cef::wakes();
+    #[cfg(not(feature = "cef"))]
+    let wakes = 0;
+    format!(
+        "pages from {}: {} shared (IOSurface) frames, {} cpu frames, paint to poll mean {:.2} ms \
+         max {:.2} ms, {} wakes on paint",
+        shell.pages.name,
+        tally.shared,
+        tally.cpu,
+        tally.delay_us as f64 / count as f64 / 1e3,
+        tally.max_delay_us as f64 / 1e3,
+        wakes,
+    )
+}
+
 impl RuneCompositor<Shell> for Canvas {
     fn render(&mut self, f: &mut Frame<'_, Shell>) {
         let started = std::time::Instant::now();
         let scale = f.rt.window_scale();
         let viewport = Vec2::new(f.size.0 as f32 / scale, f.size.1 as f32 / scale);
         self.seen.srgb_blend = f.srgb_blend();
+        // CEF stops slowly, and a run that ends with it stopping hit
+        // Chromium's teardown watchdog, while the compositor still holds
+        // page surfaces. A closing window hands them back first; the pages
+        // draw as placeholders until it goes.
+        if f.rt.state.closing.is_some() && !self.released {
+            self.released = true;
+            self.host = None;
+        }
         let host = self.host_for(f);
 
         let shell = &mut f.rt.state;
@@ -238,6 +275,7 @@ impl RuneCompositor<Shell> for Canvas {
         // move what is below: the next frame shows it.
         let heights = host.compositor.column_heights().to_vec();
         let moved = shell.report_note_heights(&heights);
+        let pages = page_line(shell);
         let state = format!(
             "tool={:?} selection={:?} entities={}",
             shell.app.session().tool,
@@ -277,6 +315,7 @@ impl RuneCompositor<Shell> for Canvas {
         self.seen.frames += 1;
         self.seen.stats = stats;
         self.seen.state = state;
+        self.seen.pages = pages;
     }
 
     fn release_gpu(&mut self) {
@@ -294,12 +333,16 @@ impl RuneCompositor<Shell> for Canvas {
         if let Some(pace) = &mut self.pace {
             pace.report((0, 0), 0.0);
         }
+        // The run is over. Page surfaces go back to CEF before the shell,
+        // which Rune drops first, stops it.
+        self.host = None;
         let seen = &self.seen;
         Some(format!(
             "specular: {} frames on {} device(s), adapter {}, target {:?}, srgb_blend {}, \
              {} samples\n\
              specular: last frame drew {} items in {} draw calls, {} glyphs, {} triangles, \
              {} pages without a texture\n\
+             specular: {}\n\
              specular: {}",
             seen.frames,
             seen.devices,
@@ -313,6 +356,7 @@ impl RuneCompositor<Shell> for Canvas {
             seen.stats.triangles,
             seen.stats.render.pages_without_texture,
             seen.state,
+            seen.pages,
         ))
     }
 }

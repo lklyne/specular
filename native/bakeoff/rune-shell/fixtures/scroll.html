@@ -1,0 +1,22 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>scroll 0</title>
+<style>
+  body { margin: 0; font: 15px/1.4 -apple-system, sans-serif; }
+  .band { height: 120px; display: flex; align-items: center; padding-left: 16px; font-size: 22px; font-weight: 600; color: white; }
+</style>
+<script>
+  // The title reports the scroll offset, so a wheel into the page shows on
+  // stderr as well as in the frame.
+  addEventListener('scroll', () => { document.title = 'scroll ' + Math.round(scrollY); });
+  const colors = ['#d62d5a', '#e07b16', '#c9a400', '#2a9d4b', '#178fa8', '#3d4fd6', '#8a3dd6'];
+  document.addEventListener('DOMContentLoaded', () => {
+    for (let i = 0; i < 28; i++) {
+      const band = document.createElement('div');
+      band.className = 'band';
+      band.style.background = colors[i % colors.length];
+      band.textContent = 'Page B, band ' + i;
+      document.body.appendChild(band);
+    }
+  });
+</script>

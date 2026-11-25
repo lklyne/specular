@@ -1,5 +1,6 @@
-//! [`Shell`]: the Rune app's state. An [`App`], the synthetic pages, and a
-//! cut-down runner for the effects `update` returns.
+//! [`Shell`]: the Rune app's state. An [`App`], its pages (synthetic or
+//! CEF, see [`pages`](crate::pages)), and a cut-down runner for the effects
+//! `update` returns.
 //!
 //! It stands in for `specular_shell::Runtime`, which the spike cannot use:
 //! that runtime owns its window's compositor (`ShellWindow`), and here the
@@ -13,16 +14,15 @@ use std::sync::Arc;
 
 use glam::Vec2;
 use specular_compositor::GlyphMeasure;
-use specular_core::{
-    Camera, CssSize, PageEvent, PageId, PageSource as _, PageSpec, SyntheticPageSource,
-};
+use specular_core::{Camera, CssSize, PageEvent, PageId, PageSpec};
 use specular_doc::{Document, EntityId};
 use specular_interact::{
-    Action, App, ControlId, Effect, Event, ImageKey, NoteNotice, PageNotice, resolve_file, update,
+    Action, App, ControlId, Effect, Event, ImageKey, NoteNotice, resolve_file, update,
 };
 use specular_scene::{Scene, ViewCache};
 
 use crate::files::{self, Decoded};
+use crate::pages::{Pages, notice_of};
 
 /// The clock `specular --snapshot` holds its app at.
 pub const STILL_MS: u64 = 1_700_000_000_000;
@@ -53,7 +53,8 @@ pub struct HeldImage {
 pub struct Shell {
     /// The app. Only [`Shell::dispatch`] changes it.
     pub app: App,
-    source: SyntheticPageSource,
+    /// The page source and what it reported.
+    pub pages: Pages,
     /// The hosted page behind each page entity.
     pub hosts: HashMap<EntityId, PageId>,
     /// The folder relative file paths start from.
@@ -82,6 +83,12 @@ pub struct Shell {
     pub dispatched: u64,
     /// The cursor and the input method, as effects last asked.
     pub asks: crate::input::Asks,
+    /// When the window asked to close; the page source is shutting down.
+    pub closing: Option<std::time::Instant>,
+    /// The page source has shut down.
+    pub closed: bool,
+    /// `--probe-keys`: when to send digit 1 and keypad 1.
+    pub probe_keys_at: Option<f64>,
 }
 
 impl std::fmt::Debug for Shell {
@@ -113,7 +120,7 @@ impl Shell {
         app.set_text_measure(Arc::new(GlyphMeasure::new()));
         let mut shell = Self {
             app,
-            source: SyntheticPageSource::new(),
+            pages: Pages::synthetic(),
             hosts: HashMap::new(),
             space: None,
             page_events: Vec::new(),
@@ -129,6 +136,9 @@ impl Shell {
             panel: None,
             dispatched: 0,
             asks: crate::input::Asks::default(),
+            closing: None,
+            closed: false,
+            probe_keys_at: None,
         };
         shell.dispatch(Event::Motion(false));
         shell.dispatch(Event::ViewportResized(shell.viewport));
@@ -170,8 +180,8 @@ impl Shell {
         if scale != self.scale {
             self.scale = scale;
             for host in self.hosts.values() {
-                let _ = self.source.set_texture_scale(*host, scale);
-                let _ = self.source.set_painting(*host, true);
+                let _ = self.pages.get().set_texture_scale(*host, scale);
+                let _ = self.pages.get().set_painting(*host, true);
             }
         }
         if viewport != self.viewport {
@@ -208,20 +218,22 @@ impl Shell {
             Clock::Running => STILL_MS + (seconds * 1_000.0) as u64,
         };
         self.dispatch(Event::Tick { unix_ms });
-        self.source.pump();
         let mut events = Vec::new();
-        self.source.drain_events(&mut events);
+        self.pages.take_events(&mut events);
         for event in events {
             // The reference snapshot shows each synthetic page's first
             // frame. With the clock held, so does this.
             if self.clock == Clock::Still
                 && let PageEvent::Frame(frame) = &event
             {
-                let _ = self.source.set_painting(frame.page, false);
+                let _ = self.pages.get().set_painting(frame.page, false);
             }
             if let Some((host, notice)) = notice_of(&event)
                 && let Some(page) = self.entity_of(host)
             {
+                if let specular_interact::PageNotice::Title(title) = &notice {
+                    eprintln!("rune-shell: page {page} title {title}");
+                }
                 self.dispatch(Event::Page { page, notice });
             }
             self.page_events.push(event);
@@ -253,22 +265,22 @@ impl Shell {
             } => self.create_page(&page, &url, viewport),
             Effect::ClosePage(page) => {
                 if let Some(host) = self.hosts.remove(&page) {
-                    let _ = self.source.close_page(host);
+                    let _ = self.pages.get().close_page(host);
                     self.closed_pages.push(host);
                 }
             }
             Effect::SetPageViewport { page, viewport } => {
                 if let Some(host) = self.hosts.get(&page) {
-                    let _ = self.source.set_viewport(*host, viewport);
+                    let _ = self.pages.get().set_viewport(*host, viewport);
                 }
             }
             Effect::FocusPage(page) => {
                 let host = page.and_then(|page| self.hosts.get(&page).copied());
-                let _ = self.source.set_focus(host);
+                let _ = self.pages.get().set_focus(host);
             }
             Effect::ForwardInput { page, event } => {
                 if let Some(host) = self.hosts.get(&page) {
-                    let _ = self.source.send_input(*host, &event);
+                    let _ = self.pages.get().send_input(*host, &event);
                 }
             }
             Effect::LoadImage { image, file } => self.load_image(image, &file, None),
@@ -283,7 +295,7 @@ impl Shell {
             Effect::LoadNote { file } => self.load_note(file),
             Effect::TrackElements { page, selectors } => {
                 if let Some(host) = self.hosts.get(&page) {
-                    let _ = self.source.track_elements(*host, &selectors);
+                    let _ = self.pages.get().track_elements(*host, &selectors);
                 }
             }
             _ => {}
@@ -296,7 +308,7 @@ impl Shell {
         let mut device = self.app.page_device(page);
         device.pixel_ratio = device.pixel_ratio.or(Some(self.scale));
         spec.device = device;
-        match self.source.create_page(&spec) {
+        match self.pages.get().create_page(&spec) {
             Ok(host) => {
                 self.hosts.insert(page.clone(), host);
             }
@@ -334,51 +346,41 @@ impl Shell {
     }
 }
 
-/// What the app is told about a page event: the kinds a synthetic page
-/// reports that change what is drawn. `specular_shell::page_notice` has
-/// them all.
-fn notice_of(event: &PageEvent) -> Option<(PageId, PageNotice)> {
-    Some(match event {
-        PageEvent::Loaded { page, http_status } => (
-            *page,
-            PageNotice::Loaded {
-                http_status: *http_status,
-            },
-        ),
-        PageEvent::Title { page, title } => (*page, PageNotice::Title(title.clone())),
-        PageEvent::Url { page, url } => (*page, PageNotice::Url(url.clone())),
-        PageEvent::Loading {
-            page,
-            loading,
-            can_go_back,
-            can_go_forward,
-        } => (
-            *page,
-            PageNotice::Loading {
-                loading: *loading,
-                can_go_back: *can_go_back,
-                can_go_forward: *can_go_forward,
-            },
-        ),
-        PageEvent::Scrolled { page, offset } => (
-            *page,
-            PageNotice::Scrolled {
-                x: f64::from(offset.x),
-                y: f64::from(offset.y),
-            },
-        ),
-        PageEvent::ElementPlaces { page, places } => {
-            (*page, PageNotice::ElementPlaces(places.clone()))
-        }
-        _ => return None,
-    })
-}
-
-/// `AppSpec::poll`: Rune calls it at the start of every frame.
+/// `AppSpec::poll`: Rune calls it at the start of every frame, and when
+/// the loop is woken (a page painted, with CEF in a window).
 pub fn poll(shell: &mut Shell, seconds: f64, tx: &mut rune::el::Tx) -> bool {
+    #[cfg(feature = "cef")]
+    if shell.pages.spin {
+        crate::cef::spin();
+    }
+    if let Some(asked) = shell.closing {
+        if shell.closed {
+            return false;
+        }
+        shell.pages.get().pump();
+        if shell.pages.poll_shutdown() {
+            shell.closed = true;
+            eprintln!(
+                "rune-shell: page source shut down {} ms after the close",
+                asked.elapsed().as_millis()
+            );
+            tx.close_window();
+        } else {
+            tx.wake_after(std::time::Duration::from_millis(8));
+        }
+        return false;
+    }
+    if shell.probe_keys_at.is_some_and(|at| seconds >= at) {
+        shell.probe_keys_at = None;
+        crate::keys::probe(shell);
+    }
     let before = shell.dispatched;
+    let waiting = shell.page_events.len();
     shell.turn(seconds);
+    // A synthetic page paints on every pump; only a real one asks for a
+    // frame when it does.
+    let painted = shell.pages.name == "cef" && shell.page_events.len() > waiting;
     let scripted = crate::panel::poll(shell, seconds, tx);
     // The tick alone changes nothing the chrome shows.
-    scripted || shell.dispatched > before + 1
+    scripted || painted || shell.dispatched > before + 1
 }

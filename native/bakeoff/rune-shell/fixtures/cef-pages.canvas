@@ -1,0 +1,9 @@
+{
+  "nodes": [
+    {"id": "page-keys", "type": "file", "x": 0, "y": 0, "width": 480, "height": 360, "file": "keys.html"},
+    {"id": "page-scroll", "type": "file", "x": 520, "y": 0, "width": 480, "height": 360, "file": "scroll.html"},
+    {"id": "sticky-over", "type": "text", "x": 380, "y": 220, "width": 240, "height": 200, "text": "Sticky over both pages", "color": "3"}
+  ],
+  "edges": [],
+  "appState": {"zoom": 1, "pan": {"x": 100, "y": 120}}
+}

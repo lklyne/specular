@@ -1,0 +1,4 @@
+{"events": [
+  {"t": 0.5, "close_request": true},
+  {"t": 2.5, "type": "mark", "name": "end"}
+]}

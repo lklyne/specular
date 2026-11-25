@@ -1,0 +1,42 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>keys ready</title>
+<style>
+  body { margin: 0; font: 15px/1.35 -apple-system, sans-serif; background: #eef4ff; color: #123; }
+  header { background: #2557d6; color: white; padding: 10px 14px; font-weight: 600; }
+  main { padding: 12px 14px; }
+  input { font: 18px -apple-system, sans-serif; width: 300px; padding: 6px; }
+  #log { font: 13px ui-monospace, monospace; white-space: pre; margin-top: 10px; }
+  #state { font: 13px ui-monospace, monospace; margin-top: 6px; color: #a03; }
+</style>
+<header>Page A: key logger</header>
+<main>
+  <input id="field" autofocus placeholder="type here">
+  <div id="state">no keys yet</div>
+  <div id="log"></div>
+</main>
+<script>
+  // Every key and composition event, newest first. The title carries the
+  // latest so the shell prints it to stderr.
+  const field = document.getElementById('field');
+  const log = document.getElementById('log');
+  const state = document.getElementById('state');
+  const lines = [];
+  function note(line) {
+    lines.unshift(line);
+    lines.length = Math.min(lines.length, 14);
+    log.textContent = lines.join('\n');
+    state.textContent = 'value=' + JSON.stringify(field.value) + ' focus=' + (document.activeElement === field);
+    document.title = line + ' | value=' + field.value;
+  }
+  for (const type of ['keydown', 'keyup']) {
+    document.addEventListener(type, (e) => {
+      note(type + ' code=' + e.code + ' key=' + e.key + ' keyCode=' + e.keyCode + ' loc=' + e.location);
+    }, true);
+  }
+  for (const type of ['compositionstart', 'compositionupdate', 'compositionend']) {
+    field.addEventListener(type, (e) => note(type + ' data=' + e.data));
+  }
+  field.addEventListener('input', (e) => note('input ' + e.inputType + ' data=' + e.data));
+  document.addEventListener('mousedown', (e) => note('mousedown ' + e.clientX + ',' + e.clientY));
+</script>

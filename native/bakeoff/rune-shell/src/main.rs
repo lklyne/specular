@@ -1,5 +1,6 @@
 //! `rune-shell [FILE.canvas] [--camera x,y,zoom] [--still] [--chrome rust|luau]
-//! [--panel DIR] [Rune's flags]`
+//! [--panel DIR] [--source synthetic|cef] [--pump timer|caller]
+//! [--probe-keys SECONDS] [Rune's flags]`
 //!
 //! A window with no flags of Rune's; headless with `--snap`, `--tree` or
 //! `--script` (see the README beside this crate).
@@ -9,6 +10,7 @@ use std::path::PathBuf;
 use glam::Vec2;
 use rune::GpuBackend;
 use rune_shell_spike::canvas::Canvas;
+use rune_shell_spike::pages::{PumpKind, SourceKind};
 use rune_shell_spike::{Chrome, Options, app, toolbar_panel};
 use specular_core::Camera;
 
@@ -31,6 +33,13 @@ fn size(value: &str) -> Option<(f32, f32)> {
 }
 
 fn main() {
+    // Chromium's children are copies of this binary in the bundle's helpers.
+    #[cfg(feature = "cef")]
+    if let Some(code) = rune_shell_spike::cef::run_subprocess_if_needed() {
+        std::process::exit(code);
+    }
+    #[cfg(feature = "cef")]
+    rune_shell_spike::cef::make_main_bundle();
     let mut options = Options::default();
     // Rune's headless runs draw at 2 device pixels a point unless told.
     let mut scale = None;
@@ -52,6 +61,34 @@ fn main() {
                 options.camera = Some(at);
             }
             "--still" => options.still = true,
+            "--source" => {
+                options.source = match args.next().unwrap_or_default().as_str() {
+                    "synthetic" => SourceKind::Synthetic,
+                    "cef" => SourceKind::Cef,
+                    other => {
+                        eprintln!("rune-shell: --source expects synthetic or cef, got `{other}`");
+                        std::process::exit(2);
+                    }
+                };
+            }
+            "--pump" => {
+                options.pump = match args.next().unwrap_or_default().as_str() {
+                    "timer" => PumpKind::Timer,
+                    "caller" => PumpKind::Caller,
+                    other => {
+                        eprintln!("rune-shell: --pump expects timer or caller, got `{other}`");
+                        std::process::exit(2);
+                    }
+                };
+            }
+            "--probe-keys" => {
+                let value = args.next().unwrap_or_default();
+                let Ok(at) = value.parse() else {
+                    eprintln!("rune-shell: --probe-keys expects seconds, got `{value}`");
+                    std::process::exit(2);
+                };
+                options.probe_keys_at = Some(at);
+            }
             "--backend" => {
                 backend = match args.next().unwrap_or_default().as_str() {
                     "wgpu" => GpuBackend::Wgpu,
@@ -108,6 +145,7 @@ fn main() {
         }
     }
     options.scale = scale.unwrap_or(if headless { 2.0 } else { 1.0 });
+    options.headless = headless;
     rune::prewarm_gpu_on(backend);
     let samples = options.samples;
     app(options)
