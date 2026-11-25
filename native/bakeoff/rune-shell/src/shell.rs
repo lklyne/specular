@@ -75,6 +75,9 @@ pub struct Shell {
     /// The dropdown of the chrome that is open. Renderer state, as the Kit
     /// keeps its own: the model does not say which list is open.
     pub open_list: Option<ControlId>,
+    /// The chrome as a script, with `--chrome luau`. `None` is the Rust
+    /// toolbar of [`chrome`](crate::chrome).
+    pub panel: Option<crate::panel::Panel>,
     /// How many events have gone through `update`.
     pub dispatched: u64,
 }
@@ -121,6 +124,7 @@ impl Shell {
             viewport: Vec2::new(size.0, size.1),
             scale,
             open_list: None,
+            panel: None,
             dispatched: 0,
         };
         shell.dispatch(Event::Motion(false));
@@ -365,9 +369,10 @@ fn notice_of(event: &PageEvent) -> Option<(PageId, PageNotice)> {
 }
 
 /// `AppSpec::poll`: Rune calls it at the start of every frame.
-pub fn poll(shell: &mut Shell, seconds: f64, _: &mut rune::el::Tx) -> bool {
+pub fn poll(shell: &mut Shell, seconds: f64, tx: &mut rune::el::Tx) -> bool {
     let before = shell.dispatched;
     shell.turn(seconds);
+    let scripted = crate::panel::poll(shell, seconds, tx);
     // The tick alone changes nothing the chrome shows.
-    shell.dispatched > before + 1
+    scripted || shell.dispatched > before + 1
 }

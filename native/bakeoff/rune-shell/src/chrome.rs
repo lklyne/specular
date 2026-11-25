@@ -39,22 +39,22 @@ fn srgb(r: u8, g: u8, b: u8, a: f32) -> Color {
     }
 }
 
-fn surface() -> Color {
+pub(crate) fn surface() -> Color {
     srgb(252, 252, 251, 1.0)
 }
-fn edge() -> Color {
+pub(crate) fn edge() -> Color {
     srgb(0, 0, 0, 0.12)
 }
-fn ink() -> Color {
+pub(crate) fn ink() -> Color {
     srgb(60, 60, 58, 1.0)
 }
-fn ink_strong() -> Color {
+pub(crate) fn ink_strong() -> Color {
     srgb(20, 20, 20, 1.0)
 }
-fn raised() -> Color {
+pub(crate) fn raised() -> Color {
     srgb(226, 232, 255, 1.0)
 }
-fn hover() -> Color {
+pub(crate) fn hover() -> Color {
     srgb(0, 0, 0, 0.06)
 }
 
@@ -256,7 +256,13 @@ fn ribbon(model: &ToolbarModel, open_list: Option<&ControlId>) -> El {
 
 /// The whole window: nothing but the ribbon, centred at the top. The rest
 /// is left unpainted, and the canvas the compositor drew shows through.
-pub fn view(shell: &Shell, _: &mut Cx<Shell>) -> El {
+///
+/// With a scripted panel (`--chrome luau`) the whole window is the script's
+/// instead: its root is this column and its ribbon is its own.
+pub fn view(shell: &Shell, cx: &mut Cx<Shell>) -> El {
+    if let Some(panel) = &shell.panel {
+        return panel.view(shell, cx);
+    }
     let model = toolbar(&shell.app);
     col()
         .w_full()

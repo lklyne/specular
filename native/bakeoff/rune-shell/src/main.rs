@@ -1,4 +1,5 @@
-//! `rune-shell [FILE.canvas] [--camera x,y,zoom] [--still] [Rune's flags]`
+//! `rune-shell [FILE.canvas] [--camera x,y,zoom] [--still] [--chrome rust|luau]
+//! [--panel DIR] [Rune's flags]`
 //!
 //! A window with no flags of Rune's; headless with `--snap`, `--tree` or
 //! `--script` (see the README beside this crate).
@@ -7,7 +8,7 @@ use std::path::PathBuf;
 
 use glam::Vec2;
 use rune_shell_spike::canvas::Canvas;
-use rune_shell_spike::{Options, app};
+use rune_shell_spike::{Chrome, Options, app, toolbar_panel};
 use specular_core::Camera;
 
 fn camera(value: &str) -> Option<Camera> {
@@ -47,6 +48,21 @@ fn main() {
                 options.camera = Some(at);
             }
             "--still" => options.still = true,
+            "--chrome" => {
+                let value = args.next().unwrap_or_default();
+                options.chrome = match value.as_str() {
+                    "rust" => Chrome::Rust,
+                    "luau" => Chrome::Luau(toolbar_panel()),
+                    _ => {
+                        eprintln!("rune-shell: --chrome expects rust or luau, got `{value}`");
+                        std::process::exit(2);
+                    }
+                };
+            }
+            // The toolbar script's folder, when it is not the shipped one.
+            "--panel" => {
+                options.chrome = Chrome::Luau(PathBuf::from(args.next().unwrap_or_default()));
+            }
             "--size" => {
                 let value = args.next().unwrap_or_default();
                 if let Some(points) = size(&value) {

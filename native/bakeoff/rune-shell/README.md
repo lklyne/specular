@@ -2,7 +2,7 @@
 
 Throwaway code for [`docs/plans/rune-spike.md`](../../../docs/plans/rune-spike.md)
 and [ADR 0051](../../../docs/adr/0051-rune-shell-around-the-compositor.md).
-Steps S1 to S3 are here. The findings are in the plan's log, not in this file.
+Steps S1 to S3 and S7 are here. The findings are in the plan's log, not in this file.
 
 One binary, `rune-shell`: a [Rune](https://github.com/anomalyco/rune) app
 whose frame is drawn by `specular-compositor` on Rune's device, with a
@@ -20,6 +20,9 @@ Rune is pinned to `a1fbe7ff5a33663a87edbdffbbcc37260c549106` (`dev`,
 | `src/chrome.rs` | The Rune view: one keyed element per control of the toolbar model |
 | `src/canvas.rs` | The Rune `Compositor` that hosts ours and draws Rune's UI over it |
 | `tests/toolbar.rs` | The GPU-free `Runtime` test (question 4) |
+| `panels/toolbar/init.luau` | The same toolbar as a Luau script (question 10) |
+| `src/panel.rs` | The host's side of a scripted panel: the snapshot, `run`, `ui.control` |
+| `tests/luau_toolbar.rs` | Question 10 on the GPU-free `Runtime`: tree, reload, cost, sandbox |
 | `reference/` | `specular --snapshot` for Linux, where the `specular` binary does not build |
 | `tools/`, `scripts/` | The pixel diff, the tree listing, and the Rune input scripts |
 
@@ -66,6 +69,47 @@ rows). After a headless run the spike prints three `specular:` lines: the
 device, target format and frame count, what the last frame drew, and the
 app's tool and selection.
 
+## S7: the toolbar as a script
+
+`--chrome luau` draws the toolbar from `panels/toolbar/init.luau` instead
+of `src/chrome.rs`. Building it needs a C++ compiler (`mlua` compiles Luau).
+
+```sh
+LUAU="$RUN --chrome luau"
+
+# a. the same controls under the same keys, roles, names and states
+$RUN  --tree $OUT/tree-rust.json && python3 tools/tree.py $OUT/tree-rust.json
+$LUAU --tree $OUT/tree-luau.json && python3 tools/tree.py $OUT/tree-luau.json
+
+# b. a scripted tap runs the control's Action; the zoom list opens and picks
+$LUAU --script scripts/tap-shape.json --snap $OUT/luau-shape.png --at 0.5   # prints tool=AddShape
+$LUAU --script scripts/open-zoom.json --tree $OUT/luau-zoom.json --at 0.2
+$LUAU --script scripts/open-zoom.json --snap $OUT/luau-zoom50.png --at 0.6
+
+# c. both chromes, pixel for pixel
+$RUN  --snap $OUT/rust.png --at 0.05
+$LUAU --snap $OUT/luau.png --at 0.05
+python3 tools/diff.py $OUT/rust.png $OUT/luau.png
+
+# d, e, f and the cost table: no GPU, and it prints what it measured
+VK_ICD_FILENAMES=/nonexistent cargo test --test luau_toolbar -- --nocapture --test-threads=1
+```
+
+Hot reload by hand: run `rune-shell FILE.canvas --chrome luau` in a window
+and save `panels/toolbar/init.luau`. That has not been run (no display);
+the test does the same through the file watcher on a copy of the script.
+
+What crosses the boundary:
+
+- Down: `require("@specular/app").toolbar`, a signal the host fires with
+  the toolbar as plain data when `toolbar(&App)` differs from what it last
+  sent. The script keeps the table and renders from it.
+- Up: `app.run(id)`, where `id` is a control of that data. The host looks
+  the id up in the model as it is then and sends that control's `Action`
+  through `update`.
+- `ui.control` is a node the host adds for the roles, `checked` and
+  `hasPopup`, which `@rune/ui` has no prop for.
+
 ## The spike's own flags
 
 Everything else on the command line is Rune's (`--snap`, `--tree`,
@@ -74,6 +118,8 @@ Everything else on the command line is Rune's (`--snap`, `--tree`,
 - `FILE.canvas`: the canvas to open.
 - `--camera x,y,zoom`: as `--snapshot-camera`. Without it the document is
   fitted.
+- `--chrome rust|luau`: what draws the toolbar. `rust` unless said.
+- `--panel DIR`: `--chrome luau` with the toolbar script from `DIR`.
 - `--still`: hold the app's clock and each synthetic page's first frame, as
   the reference snapshot does. Without it the clock is Rune's, which is
   virtual in a headless run.
