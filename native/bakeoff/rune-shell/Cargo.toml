@@ -38,6 +38,12 @@ glam = { version = "0.33", features = ["bytemuck", "serde"] }
 image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "webp", "gif"] }
 resvg = { version = "0.46", default-features = false, features = ["text", "system-fonts"] }
 
+[features]
+# Rune's headless flags (`--snap`, `--tree`, `--script`) in a release build,
+# for timing: `cargo build --release --features tooling`. Debug builds always
+# have them.
+tooling = ["rune/tooling"]
+
 [dev-dependencies]
 # Rune's accessibility dump is a `serde_json::Value`; the tests walk it.
 serde_json = "1"

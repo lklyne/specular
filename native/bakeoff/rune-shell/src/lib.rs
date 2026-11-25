@@ -64,6 +64,9 @@ pub struct Options {
     /// `--scale` in a headless run. A window finds its own in its first
     /// frame.
     pub scale: f32,
+    /// Samples per pixel of the scene pass: 4, or 1 for a backend with no
+    /// multisampling.
+    pub samples: u32,
 }
 
 impl Default for Options {
@@ -75,6 +78,7 @@ impl Default for Options {
             size: WINDOW,
             chrome: Chrome::Rust,
             scale: 1.0,
+            samples: 4,
         }
     }
 }

@@ -45,9 +45,65 @@ struct Seen {
     state: String,
 }
 
+/// With `RUNE_SHELL_PACE=1`: the frames of one burst (frames less than
+/// 100 ms apart), printed when a gap ends it, with the CPU time our
+/// `render` took over them.
+#[derive(Debug, Default)]
+struct Pace {
+    last: Option<std::time::Instant>,
+    intervals: Vec<f64>,
+    cpu: Vec<f64>,
+    update: Vec<f64>,
+}
+
+impl Pace {
+    fn frame(
+        &mut self,
+        now: std::time::Instant,
+        (cpu_ms, update_ms): (f64, f64),
+        size: (u32, u32),
+    ) {
+        if let Some(last) = self.last {
+            let gap = now.duration_since(last).as_secs_f64() * 1e3;
+            if gap > 100.0 {
+                self.report(size, gap);
+            } else {
+                self.intervals.push(gap);
+            }
+        }
+        self.last = Some(now);
+        self.cpu.push(cpu_ms);
+        self.update.push(update_ms);
+    }
+
+    fn report(&mut self, size: (u32, u32), gap: f64) {
+        let mut intervals = std::mem::take(&mut self.intervals);
+        let cpu = std::mem::take(&mut self.cpu);
+        let update = std::mem::take(&mut self.update);
+        let mean_update = update.iter().sum::<f64>() / update.len().max(1) as f64;
+        intervals.sort_by(f64::total_cmp);
+        let at = |q: f64| intervals.get(((intervals.len() as f64 - 1.0) * q).round() as usize);
+        let mean_cpu = cpu.iter().sum::<f64>() / cpu.len().max(1) as f64;
+        eprintln!(
+            "rune-shell: burst {} frames, interval p50 {:.2} ms p95 {:.2} ms max {:.2} ms, \
+             render cpu mean {:.2} ms, rune update mean {:.2} ms, size {:?}, then idle {:.0} ms",
+            cpu.len(),
+            at(0.5).copied().unwrap_or(0.0),
+            at(0.95).copied().unwrap_or(0.0),
+            intervals.last().copied().unwrap_or(0.0),
+            mean_cpu,
+            mean_update,
+            size,
+            gap,
+        );
+    }
+}
+
 /// The canvas under Rune's UI.
-#[derive(Default)]
 pub struct Canvas {
+    pace: Option<Pace>,
+    /// Samples per pixel of our scene pass.
+    samples: u32,
     host: Option<Host>,
     seen: Seen,
     /// Whether the last frame changed something the next one shows.
@@ -56,9 +112,15 @@ pub struct Canvas {
 
 impl Canvas {
     /// A canvas with no compositor yet: Rune's device comes with the first
-    /// frame.
-    pub fn new() -> Self {
-        Self::default()
+    /// frame. `samples` is 4, or 1 on a backend with no multisampling.
+    pub fn new(samples: u32) -> Self {
+        Self {
+            samples,
+            pace: std::env::var_os("RUNE_SHELL_PACE").map(|_| Pace::default()),
+            host: None,
+            seen: Seen::default(),
+            owes_frame: false,
+        }
     }
 
     /// The compositor for this frame's device and format, made again when
@@ -68,7 +130,8 @@ impl Canvas {
         let stale =
             (self.host.as_ref()).is_none_or(|host| host.key != key || host.format != f.format);
         if stale {
-            let mut compositor = Compositor::new(f.device.clone(), f.queue.clone(), f.format);
+            let mut compositor =
+                Compositor::with_samples(f.device.clone(), f.queue.clone(), f.format, self.samples);
             compositor.warm_text();
             self.seen.devices += 1;
             self.seen.format = Some(f.format);
@@ -76,6 +139,22 @@ impl Canvas {
                 let info = adapter.get_info();
                 format!("{} ({:?})", info.name, info.backend)
             });
+            // What S5's IOSurface import asks of the device.
+            #[cfg(target_os = "macos")]
+            // SAFETY: the guard is dropped at once; nothing is done through it.
+            let metal_hal = unsafe { f.device.as_hal::<wgpu::hal::api::Metal>() }.is_some();
+            #[cfg(not(target_os = "macos"))]
+            let metal_hal = false;
+            eprintln!(
+                "rune-shell: compositor on {} target {:?} srgb_blend {} {} samples size {:?}, \
+                 as_hal::<Metal> {}",
+                self.seen.adapter,
+                f.format,
+                f.srgb_blend(),
+                self.samples,
+                f.size,
+                if metal_hal { "answers" } else { "none" },
+            );
             self.host = Some(Host {
                 key,
                 format: f.format,
@@ -132,6 +211,7 @@ fn sync(host: &mut Host, shell: &mut Shell) {
 
 impl RuneCompositor<Shell> for Canvas {
     fn render(&mut self, f: &mut Frame<'_, Shell>) {
+        let started = std::time::Instant::now();
         let scale = f.rt.window_scale();
         let viewport = Vec2::new(f.size.0 as f32 / scale, f.size.1 as f32 / scale);
         self.seen.srgb_blend = f.srgb_blend();
@@ -187,6 +267,13 @@ impl RuneCompositor<Shell> for Canvas {
         );
 
         self.owes_frame = moved || stats.text.settling || frame.zooming;
+        if let Some(pace) = &mut self.pace {
+            pace.frame(
+                started,
+                (started.elapsed().as_secs_f64() * 1e3, f.update_ms),
+                f.size,
+            );
+        }
         self.seen.frames += 1;
         self.seen.stats = stats;
         self.seen.state = state;
@@ -204,9 +291,13 @@ impl RuneCompositor<Shell> for Canvas {
     }
 
     fn summary(&mut self, _: &wgpu::Device) -> Option<String> {
+        if let Some(pace) = &mut self.pace {
+            pace.report((0, 0), 0.0);
+        }
         let seen = &self.seen;
         Some(format!(
-            "specular: {} frames on {} device(s), adapter {}, target {:?}, srgb_blend {}\n\
+            "specular: {} frames on {} device(s), adapter {}, target {:?}, srgb_blend {}, \
+             {} samples\n\
              specular: last frame drew {} items in {} draw calls, {} glyphs, {} triangles, \
              {} pages without a texture\n\
              specular: {}",
@@ -215,6 +306,7 @@ impl RuneCompositor<Shell> for Canvas {
             seen.adapter,
             seen.format,
             seen.srgb_blend,
+            self.samples,
             seen.stats.items_drawn,
             seen.stats.draw_calls,
             seen.stats.glyphs,

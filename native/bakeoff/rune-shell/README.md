@@ -2,7 +2,7 @@
 
 Throwaway code for [`docs/plans/rune-spike.md`](../../../docs/plans/rune-spike.md)
 and [ADR 0051](../../../docs/adr/0051-rune-shell-around-the-compositor.md).
-Steps S1 to S3 and S7 are here. The findings are in the plan's log, not in this file.
+Steps S1 to S4 and S7 are here. The findings are in the plan's log, not in this file.
 
 One binary, `rune-shell`: a [Rune](https://github.com/anomalyco/rune) app
 whose frame is drawn by `specular-compositor` on Rune's device, with a
@@ -123,6 +123,33 @@ Everything else on the command line is Rune's (`--snap`, `--tree`,
 - `--still`: hold the app's clock and each synthetic page's first frame, as
   the reference snapshot does. Without it the clock is Rune's, which is
   virtual in a headless run.
+- `--backend wgpu|metal`: the GPU backend on macOS. `wgpu` unless said;
+  `metal` is Rune's own, which has no multisampling, so it needs
+  `--samples 1`.
+- `--samples 4|1`: samples per pixel of our scene pass
+  (`Compositor::with_samples`). 4 unless said.
+- `RUNE_SHELL_PACE=1`: print each burst of frames (frames under 100 ms
+  apart) when a gap ends it: frame intervals, our render's CPU time and
+  Rune's `update_ms`. A headless run prints its one burst in the summary.
 
-With none of Rune's headless flags it opens a window. That has not been
-run: there is no display here.
+With none of Rune's headless flags it opens a window.
+
+## S4: macOS
+
+```sh
+cargo build --release --features tooling   # --snap and friends in release, for timing
+
+# the same snap on Rune's Metal backend, single-sampled, and against wgpu
+$RUN --backend metal --samples 1 --snap $OUT/metal1.png --at 0.2
+$RUN --backend wgpu  --samples 1 --snap $OUT/wgpu1.png  --at 0.2
+python3 tools/diff.py $OUT/wgpu1.png $OUT/metal1.png --skip-top 48
+
+# a window; RUNE_SHELL_PACE prints frame bursts to stderr
+RUNE_SHELL_PACE=1 target/debug/rune-shell ../../fixtures/kitchen-sink.canvas \
+    --camera 20,60,0.25 --window-script scripts/open-zoom.json
+```
+
+Rune's `--window-script` replays taps and keys in a real window, timed from
+its first frame; it refuses `resize`. To capture or click the window with
+macOS tools, wrap the binary in a throwaway `.app` with a bundle id: an
+unbundled process is not offered to them.

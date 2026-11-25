@@ -1,6 +1,6 @@
 # ADR 0051: Rune as the shell, with the compositor drawing inside its frame
 
-**Status:** Proposed, pending the spike in [`docs/plans/rune-spike.md`](../plans/rune-spike.md). Its Linux steps have run and passed; the Mac steps have not. If the spike passes, this supersedes [ADR 0040](./0040-gpui-kit-hybrid-shell.md).
+**Status:** Proposed, pending the spike in [`docs/plans/rune-spike.md`](../plans/rune-spike.md). Its Linux steps and S4, the first Mac step, have run and passed; CEF (S5) and pacing (S6) have not. If the spike passes, this supersedes [ADR 0040](./0040-gpui-kit-hybrid-shell.md).
 **Date:** 2026-11-25
 **Related:** [ADR 0039](./0039-rust-canvas-render-stack.md), the canvas's own wgpu pass, which stays. [ADR 0040](./0040-gpui-kit-hybrid-shell.md), the GPUI Kit shell this would replace. [ADR 0044](./0044-ui-as-pure-models-with-replaceable-renderers.md), which made the shell replaceable. [ADR 0052](./0052-one-runner-one-state-document.md), the testing this unlocks. [ADR 0053](./0053-page-frames-follow-the-display.md), the page pipeline changes made alongside.
 
@@ -54,7 +54,7 @@ Nothing was built. From Rune's source and docs:
 
 ## Spike results so far
 
-Steps S1 to S3, run on Linux with a software GPU (lavapipe) at Rune `a1fbe7ff`. The log is in [the plan](../plans/rune-spike.md). The Mac steps have not run.
+Steps S1 to S3, run on Linux with a software GPU (lavapipe) at Rune `a1fbe7ff`. The log is in [the plan](../plans/rune-spike.md). The Mac results are in the next section.
 
 - Rune and our crates build into one binary with one `wgpu` 30.0.1. The lockfile is 500 packages against the app's 951. `wgpu` has to be held at 30.0.1; a fresh resolve takes 30.0.2 over the patched 30.0.1 `wgpu-hal`.
 - `specular-compositor` drew inside a Rune `Compositor` with no change to it. Against `specular --snapshot` of the same canvas, 0 of 902,400 pixels differ below the toolbar, at three cameras. [Reference](./assets/0051/reference-kitchen-sink.png), [under Rune](./assets/0051/rune-kitchen-sink.png).
@@ -70,6 +70,23 @@ What it found that a real shell has to deal with:
 - Text measure before a device exists means a second font system beside the compositor's.
 - The lockfile is part of what a snapshot looks like: a lyon patch release moved the dashes on one curved edge.
 - Our pass has only 4x pipelines, so on a Mac it must run on `GpuBackend::Wgpu` until ADR 0053's single-sampled pass exists.
+
+## Spike results on the Mac
+
+Step S4, run on an M3 Max with its built-in ProMotion display. The log entry is in [the plan](../plans/rune-spike.md).
+
+- The same binary built on macOS with no change. Headless on Metal, the canvas matches `specular --snapshot` pixel for pixel; the one camera that differed did so only inside the synthetic pages, where the reference painted a second frame.
+- In a window the surface is `Bgra8Unorm` with sRGB blending, at scale 2. The canvas, the toolbar over it and the zoom list over both draw, text is sharp, and colours match the headless snap once the system's sRGB-to-P3 conversion is accounted for. A corner resize redrew cleanly. [The window](./assets/0051/mac-window-wgpu.jpg), [resized](./assets/0051/mac-window-resized.jpg).
+- The window draws nothing at rest. In release, animating frames come at a p50 of 10 to 14 ms against an 8.3 ms vblank, with our render at about 2 ms; S6 has to find where the rest goes.
+- Rune's own Metal backend runs our pass once it is single-sampled. That took one option in `specular-compositor` (`Compositor::with_samples`, about 100 lines, 4x stays the default). At 1 sample the two backends give identical pixels, and Rune's backend used about 25% less frame CPU in release (p50 0.18 against 0.25 ms). [On Rune's backend, zoom list open](./assets/0051/mac-window-metal-1x-zoom-open.jpg).
+- Single-sampled, every lyon mesh stair-steps: strokes, edges, arrowheads, dashes and the non-rectangular shape outlines. SDF shapes, text and pages do not change. [4x against 1x](./assets/0051/drawings-4x-vs-1x.png).
+
+What it found:
+
+- `device.as_hal::<Metal>()` returns none on Rune's backend, a `wgpu::custom` device, so the IOSurface page import works only on `GpuBackend::Wgpu`. Moving to Rune's backend needs ADR 0053's analytic edges and a page import into Rune's device.
+- The toolbar shows up in macOS accessibility as a toolbar of toggles, but an `AXPress` does not run a control's press.
+- `--window-script` replays taps in a real window but refuses a resize.
+- CEF's pump can go in `AppSpec::poll`, woken by Rune's `Waker`. That was read, not run; S5 tries it.
 
 ## Risks
 

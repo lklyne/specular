@@ -7,6 +7,7 @@
 use std::path::PathBuf;
 
 use glam::Vec2;
+use rune::GpuBackend;
 use rune_shell_spike::canvas::Canvas;
 use rune_shell_spike::{Chrome, Options, app, toolbar_panel};
 use specular_core::Camera;
@@ -34,6 +35,9 @@ fn main() {
     // Rune's headless runs draw at 2 device pixels a point unless told.
     let mut scale = None;
     let mut headless = false;
+    // Rune's own Metal backend panics on multisampling, which our 4x pass
+    // needs, so wgpu's unless told.
+    let mut backend = GpuBackend::Wgpu;
     // Ours are taken out; the rest is handed to Rune as it came.
     let mut runes = Vec::new();
     let mut args = std::env::args().skip(1);
@@ -48,6 +52,26 @@ fn main() {
                 options.camera = Some(at);
             }
             "--still" => options.still = true,
+            "--backend" => {
+                backend = match args.next().unwrap_or_default().as_str() {
+                    "wgpu" => GpuBackend::Wgpu,
+                    "metal" => GpuBackend::Metal,
+                    other => {
+                        eprintln!("rune-shell: --backend expects wgpu or metal, got `{other}`");
+                        std::process::exit(2);
+                    }
+                };
+            }
+            "--samples" => {
+                let value = args.next().unwrap_or_default();
+                options.samples = match value.parse() {
+                    Ok(samples @ (1 | 4)) => samples,
+                    _ => {
+                        eprintln!("rune-shell: --samples expects 1 or 4, got `{value}`");
+                        std::process::exit(2);
+                    }
+                };
+            }
             "--chrome" => {
                 let value = args.next().unwrap_or_default();
                 options.chrome = match value.as_str() {
@@ -84,5 +108,11 @@ fn main() {
         }
     }
     options.scale = scale.unwrap_or(if headless { 2.0 } else { 1.0 });
-    app(options).args(runes).compositor(Canvas::new()).run();
+    rune::prewarm_gpu_on(backend);
+    let samples = options.samples;
+    app(options)
+        .gpu_backend(backend)
+        .args(runes)
+        .compositor(Canvas::new(samples))
+        .run();
 }
