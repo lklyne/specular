@@ -6,9 +6,9 @@
 //! timer fires between the window's handlers, where the nested turn is safe.
 //!
 //! The timer fires when CEF asks for work
-//! (`OnScheduleMessagePumpWork`, see [`schedule`]) and otherwise at a slow
-//! fallback rate, so an app whose pages are still does not wake hundreds of
-//! times a second to find nothing to do.
+//! (`OnScheduleMessagePumpWork`, see [`schedule`]) and otherwise once a
+//! second, so an app whose pages are still does not wake to find nothing
+//! to do.
 //!
 //! `cef::shutdown` spins the run loop too, which must happen while the
 //! window's run loop still runs, so the timer also stops CEF, on request,
@@ -21,7 +21,7 @@ use objc2_core_foundation::{
     CFAbsoluteTimeGetCurrent, CFRetained, CFRunLoop, CFRunLoopTimer, kCFRunLoopCommonModes,
 };
 
-use crate::config::{PUMP_FALLBACK_SECONDS, pump_delay_seconds};
+use crate::config::{PUMP_FALLBACK_SECONDS, pump_delay_seconds, pump_moves};
 use crate::error::CefError;
 
 /// The running timer, for [`schedule`], which CEF calls from any thread.
@@ -75,9 +75,13 @@ impl PumpTimer {
     /// Asks the next timer fire to stop CEF instead of pumping it. Returns
     /// whether this call made the request (`false` when already asked).
     pub(crate) fn request_stop() -> bool {
-        STATE
+        let asked = STATE
             .compare_exchange(RUNNING, STOP_REQUESTED, Ordering::AcqRel, Ordering::Acquire)
-            .is_ok()
+            .is_ok();
+        if asked {
+            schedule(0);
+        }
+        asked
     }
 
     /// Whether a requested stop has finished: CEF is shut down.
@@ -94,8 +98,9 @@ impl Drop for PumpTimer {
 }
 
 /// CEF has work for its UI thread in `delay_ms` milliseconds, or now when
-/// that is zero or less. Moves the timer's next fire up to then. Callable
-/// from any thread, as `OnScheduleMessagePumpWork` is.
+/// that is zero or less. Moves the timer's next fire up to then, never
+/// later than a fire already due ([`pump_moves`]). Callable from any
+/// thread, as `OnScheduleMessagePumpWork` is.
 pub(crate) fn schedule(delay_ms: i64) {
     let timer = TIMER.load(Ordering::Acquire);
     // SAFETY: the pointer is null or the timer `PumpTimer::start` leaked a
@@ -104,7 +109,11 @@ pub(crate) fn schedule(delay_ms: i64) {
     let Some(timer) = (unsafe { timer.as_ref() }) else {
         return;
     };
-    timer.set_next_fire_date(CFAbsoluteTimeGetCurrent() + pump_delay_seconds(delay_ms));
+    let now = CFAbsoluteTimeGetCurrent();
+    let asked = now + pump_delay_seconds(delay_ms);
+    if pump_moves(asked, timer.next_fire_date(), now) {
+        timer.set_next_fire_date(asked);
+    }
 }
 
 unsafe extern "C-unwind" fn pump(_timer: *mut CFRunLoopTimer, _info: *mut c_void) {
