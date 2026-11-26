@@ -59,11 +59,23 @@ pub struct CefPageSource {
     alive: Arc<AtomicUsize>,
     ui_thread: std::thread::ThreadId,
     running: bool,
+    /// An agent is driving a page, so the pump hurries as for a load.
+    driven: bool,
     #[cfg(target_os = "macos")]
     pump_timer: Option<PumpTimer>,
     /// Set by the first `poll_shutdown`: when to stop waiting for browsers.
     #[cfg(target_os = "macos")]
     close_deadline: Option<Instant>,
+}
+
+impl CefPageSource {
+    /// CEF asks for only part of what a load or a devtools request needs
+    /// (a screenshot waits on frames it never asks to pump), so the pump runs
+    /// at the hurried rate while a page loads or an agent drives one.
+    fn hurry_pump(&self) {
+        #[cfg(target_os = "macos")]
+        crate::pump_timer::hurry(self.driven || self.pages.values().any(|entry| entry.loading));
+    }
 }
 
 impl fmt::Debug for CefPageSource {
@@ -358,6 +370,11 @@ impl PageSource for CefPageSource {
         set_page_wake(wake);
     }
 
+    fn set_driven(&mut self, driven: bool) {
+        self.driven = driven;
+        self.hurry_pump();
+    }
+
     fn drain_events(&mut self, out: &mut Vec<PageEvent>) {
         let from = out.len();
         drain_events(out);
@@ -371,8 +388,7 @@ impl PageSource for CefPageSource {
                 entry.loading = loading;
             }
         }
-        #[cfg(target_os = "macos")]
-        crate::pump_timer::hurry(self.pages.values().any(|entry| entry.loading));
+        self.hurry_pump();
     }
 
     fn devtools_port(&self) -> Option<u16> {

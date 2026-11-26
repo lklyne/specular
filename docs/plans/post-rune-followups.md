@@ -93,3 +93,9 @@ Every phase builds on `claude/post-rune-followups`, which sits on `claude/rune-s
 | pan start: longest of the first 5 intervals ms | 24.2 [19.4 to 29.0] | 22.8 [14.6 to 29.0] |
 
 - **Reading:** no change beyond the known spread. Main thread time per frame is the same, and so is p99 (about 16.5 ms, a single 60 Hz frame). Pan 20 leans toward more long frames after (30 against 22), but the ranges overlap. The resting link costs about 0.7 ms at most before the first present, under a tenth of a refresh. Both builds have the same hitch near the start of every pan: the first two frames come within 1 ms of each other, then there is a 20 to 29 ms gap before the steady 8.3 ms. That hitch predates the follow-ups. Also seen: on the before build, every scripted run hung at exit until it was killed; the after build exits cleanly.
+
+### Screenshot fix, 2026-11-26. The pump hurries while an agent drives a page
+
+- **Found:** on this branch an API page screenshot (`POST /pages/screenshot`, the CLI's `screenshot`) showed the page's top-left quarter at double size; `rust-native` showed the whole page. Bisected over debug CEF bundles with `cli-pages.sh` to `e0d273e2` (phase 4, pump on CEF's asks with a 1 s fallback). As with loads, CEF does not ask for all the work a capture needs, so the capture ran before the page caught up.
+- **Fix:** `PageSource::set_driven`; the shell sets it while any page is agent-driven (`settle_pages`), and the CEF source then holds the pump at the load rate, 30 Hz. Idle with no agent is unchanged.
+- **Check:** `cli-pages.sh` has a "screenshot shows the whole page" case that samples the right of page B's shot. Three runs at load 25 to 30: 30 pass, 6 fail, the same 6 navigation cases (`find`, `wait --url`, `forward`, `reload`, `get title`, `canvas`) that fail on `rust-native`. The `add note` file case now waits up to 2 s for the file, which is written a turn after the answer; it was there at once in every run since.

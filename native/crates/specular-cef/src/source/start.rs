@@ -82,6 +82,7 @@ impl CefPageSource {
             alive: Arc::new(AtomicUsize::new(0)),
             ui_thread: std::thread::current().id(),
             running: true,
+            driven: false,
             #[cfg(target_os = "macos")]
             pump_timer: match config.pump {
                 Pump::RunLoopTimer => Some(PumpTimer::start()?),

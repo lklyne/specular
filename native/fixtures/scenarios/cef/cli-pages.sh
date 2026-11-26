@@ -127,6 +127,14 @@ check "screenshot -f pb" ".png" specular screenshot -f pb
 check "canvas (pa's url followed)" "a2.html" specular canvas
 
 check "POST /pages/screenshot" "png 1600x1000" bash -c "$(declare -f post png); api=$api secret=$secret; post /pages/screenshot '{\"pageId\":\"pb\"}' | png '$out/page-pb.png' base64"
+# Page B's form ends left of x 800 at 2x. A shot taken before the page
+# caught up shows its top-left quarter at double size, form past x 1000.
+check "screenshot shows the whole page" "whole" python3 -c '
+import sys
+from PIL import Image
+im = Image.open(sys.argv[1]).convert("L")
+dark = sum(1 for x in range(1000, 1600, 4) for y in range(350, 460, 4) if im.getpixel((x, y)) < 128)
+print("whole" if dark == 0 else "zoomed in: %d dark samples right of the form" % dark)' "$out/page-pb.png"
 check "POST /pages/screenshot-composite" "png " bash -c "$(declare -f post png); api=$api secret=$secret; post /pages/screenshot-composite '{\"pageId\":\"pa\"}' | png '$out/page-pa-composite.png' base64"
 made="$(post /annotations '{"text":"look here","anchor":{"type":"region","canvasRect":{"x":600,"y":-40,"width":500,"height":300}}}')"
 annotation="$(python3 -c 'import json,sys; print(json.loads(sys.argv[1]).get("id",""))' "$made")"
@@ -135,7 +143,8 @@ check "annotation <id>" "image" specular annotation "$annotation"
 
 long="# Findings"$'\n\n'"A note with a heading is a Document, not a sticky."
 check "add note (long)" "file_" specular add note "$long"
-check "add note (the .md is in the space)" "A note with a heading" cat "$work/space/Findings.md"
+# The file is written on a turn after the answer, so give it up to 2 s.
+check "add note (the .md is in the space)" "A note with a heading" bash -c "for i in \$(seq 40); do [ -f '$work/space/Findings.md' ] && { echo \"after ~\$(( (i - 1) * 50 )) ms\"; cat '$work/space/Findings.md'; exit 0; }; sleep 0.05; done; exit 1"
 check "add note (short stays a sticky)" "text_" specular add note "short"
 check "add file (outside the space)" "file_" specular add file "$work/outside/dot.png"
 check "add file (copied into assets, sized from the image)" '"width": 320' bash -c "ls '$work/space/assets/'*.png >/dev/null && specular canvas"

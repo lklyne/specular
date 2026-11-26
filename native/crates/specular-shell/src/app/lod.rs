@@ -44,6 +44,8 @@ impl<W: ShellWindow> Runtime<W> {
     /// and a new scale is not first painted at the old scale.
     pub(super) fn settle_pages(&mut self, now: Instant) {
         self.pages_settled = true;
+        let driven = self.app.agent_wake_lapses_in_ms().is_some_and(|ms| ms > 0);
+        self.source.set_driven(driven);
         if self.options.paint_policy == PaintPolicy::ElectronLod
             && let Some(viewport) = self.gpu.as_ref().map(W::logical_viewport)
         {

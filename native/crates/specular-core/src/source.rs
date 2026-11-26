@@ -156,6 +156,11 @@ pub trait PageSource {
     /// it.
     fn set_page_wake(&mut self, _wake: Option<PageWake>) {}
 
+    /// Whether an agent is driving a page through its devtools channel. A
+    /// source that does some of a page's work only on a timer does it
+    /// promptly while one is, so the agent's requests are not left waiting.
+    fn set_driven(&mut self, _driven: bool) {}
+
     /// Moves every pending event into `out` (appending; `out` is not cleared),
     /// so the caller can reuse one buffer across frames.
     fn drain_events(&mut self, out: &mut Vec<PageEvent>);

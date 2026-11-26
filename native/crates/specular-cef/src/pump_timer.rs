@@ -105,10 +105,10 @@ impl Drop for PumpTimer {
     }
 }
 
-/// Whether a page is loading. While one is, the pump runs at least every
-/// [`HURRY_SECONDS`].
-pub(crate) fn hurry(loading: bool) {
-    if HURRY.swap(loading, Ordering::AcqRel) != loading && loading {
+/// Whether the pump should hurry: a page is loading or an agent is driving
+/// one. While it should, the pump runs at least every [`HURRY_SECONDS`].
+pub(crate) fn hurry(on: bool) {
+    if HURRY.swap(on, Ordering::AcqRel) != on && on {
         schedule((HURRY_SECONDS * 1_000.0) as i64);
     }
 }
