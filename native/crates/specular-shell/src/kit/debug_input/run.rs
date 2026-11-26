@@ -289,6 +289,17 @@ fn show_sidebar(shown: bool) {
     });
 }
 
+/// Picks the first-run view's choice called `name`.
+fn choose(name: &str) -> Result<(), String> {
+    let action = canvas::models()
+        .and_then(|models| models.onboarding)
+        .and_then(|view| view.choices.into_iter().find(|choice| choice.name == name))
+        .map(|choice| choice.action)
+        .ok_or_else(|| format!("the first-run view has no choice `{name}`"))?;
+    canvas::dispatch(Event::Action(action));
+    Ok(())
+}
+
 /// Runs the command `name` from the registry, as `POST /run` does.
 fn run_command(name: &str, args: &serde_json::Value, cx: &mut AsyncApp) -> Result<(), String> {
     let run = canvas::with(|canvas| specular_interact::run_named(canvas.runtime.app(), name, args))
@@ -382,14 +393,7 @@ pub(super) async fn step(
                 }
             });
         }),
-        Do::Choose(name) => {
-            let action = canvas::models()
-                .and_then(|models| models.onboarding)
-                .and_then(|view| view.choices.into_iter().find(|choice| choice.name == name))
-                .map(|choice| choice.action)
-                .ok_or_else(|| format!("the first-run view has no choice `{name}`"))?;
-            canvas::dispatch(Event::Action(action));
-        }
+        Do::Choose(name) => choose(&name)?,
         Do::Resize(size) => window::resize(f64::from(size.x), f64::from(size.y)),
         Do::MoveWindow(to) => window::move_to(f64::from(to.x), f64::from(to.y)),
         Do::FullScreen => window::toggle_full_screen(),
