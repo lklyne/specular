@@ -98,15 +98,26 @@ impl CdpHost {
         self.hub.page_closed(entity);
     }
 
-    /// Sends every waiting client message to its page. Returns the acts
-    /// clients have announced, each to be answered with [`go`](Self::go),
-    /// with how far its page was scrolled when the client measured the
-    /// point.
-    pub(crate) fn serve(&mut self, source: &mut dyn PageSource) -> Vec<(AgentAct, Option<DVec2>)> {
+    /// What clients have said since the last call, to be sent on with
+    /// [`send`](Self::send).
+    pub(crate) fn take(&self) -> Said {
+        Said(self.inbox.try_iter().collect())
+    }
+
+    /// Sends what clients said to their pages. Returns the acts clients
+    /// have announced, each to be answered with [`go`](Self::go), with how
+    /// far its page was scrolled when the client measured the point.
+    pub(crate) fn send(
+        &self,
+        said: Said,
+        source: &mut dyn PageSource,
+    ) -> Vec<(AgentAct, Option<DVec2>)> {
         let mut acts = Vec::new();
-        while let Ok(message) = self.inbox.try_recv() {
+        for message in said.0 {
             match message {
-                ToLoop::Page(ToPage { page, id, message }) => {
+                ToLoop::Page(ToPage {
+                    page, id, message, ..
+                }) => {
                     if let Err(error) = source.devtools_send(page, &message) {
                         self.hub.refuse(page, id, &error.to_string());
                     }
@@ -139,6 +150,26 @@ impl CdpHost {
     /// How many endpoints and connected clients there are, for the log.
     pub(crate) fn counts(&self) -> (usize, usize) {
         self.hub.counts()
+    }
+}
+
+/// Messages and acts from clients, taken from the queue and not yet sent.
+pub(crate) struct Said(Vec<ToLoop>);
+
+impl Said {
+    /// Each page a message or an act is for, once.
+    pub(crate) fn pages(&self) -> Vec<EntityId> {
+        let mut pages: Vec<EntityId> = Vec::new();
+        for message in &self.0 {
+            let page = match message {
+                ToLoop::Page(to_page) => &to_page.entity,
+                ToLoop::Act(act) => &act.entity,
+            };
+            if !pages.contains(page) {
+                pages.push(page.clone());
+            }
+        }
+        pages
     }
 }
 

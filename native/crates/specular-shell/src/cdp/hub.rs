@@ -25,6 +25,7 @@ pub(super) const PATH: &str = "/cdp/page/";
 /// A client's message on its way to a page's devtools channel.
 #[derive(Debug)]
 pub(super) struct ToPage {
+    pub(super) entity: EntityId,
     pub(super) page: PageId,
     /// The message's id on that channel, to refuse it by.
     pub(super) id: i32,
@@ -97,7 +98,12 @@ impl State {
                     }
                 }
                 Out::ToPage { id, message } => {
-                    to_loop.push(ToLoop::Page(ToPage { page, id, message }));
+                    to_loop.push(ToLoop::Page(ToPage {
+                        entity: entity.clone(),
+                        page,
+                        id,
+                        message,
+                    }));
                 }
                 Out::Act { client, act, reply } => {
                     let ticket = if act.wait {

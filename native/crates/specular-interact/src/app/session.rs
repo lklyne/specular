@@ -42,6 +42,8 @@ pub struct Session {
     pub(crate) turns: crate::showing::turn::Turns,
     /// The agent cursors, and the acts waiting for one to arrive.
     pub(crate) presence: crate::presence::Presence,
+    /// The pages an agent drove lately, which stay awake.
+    pub(crate) agent_wake: crate::agent_wake::AgentWake,
     /// The item tabs of the active canvas: their order and the lens each
     /// keeps.
     pub(crate) tabs: crate::showing::Tabs,

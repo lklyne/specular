@@ -215,6 +215,10 @@ pub enum Event {
     /// is answered with an [`Effect::AgentGo`](crate::Effect::AgentGo)
     /// carrying its ticket.
     AgentAct(crate::AgentAct),
+    /// An agent sent a page a devtools message: a CDP command, or a script
+    /// the API runs there. The page stays awake for a while (see
+    /// [`App::agent_driving`](crate::App::agent_driving)).
+    AgentDrove(specular_doc::EntityId),
     /// Sharing a canvas with peers, and what they send (ADR 0048).
     Share(crate::ShareEvent),
     /// A change the HTTP API asked for. It is answered with an
