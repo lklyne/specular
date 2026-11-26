@@ -6,8 +6,9 @@ use crate::gpu_types::{FRAME_UNIFORMS_SIZE, MeshVertex, QuadInstance, ShapeInsta
 /// WGSL source for all pipelines.
 pub(crate) const SHADER_SOURCE: &str = include_str!("shaders/canvas.wgsl");
 
-/// Samples per pixel of the scene pass. Tessellated edges have no
-/// antialiasing of their own (ADR 0039).
+/// Samples per pixel of the scene pass unless a compositor is made with
+/// another count. Tessellated edges have no antialiasing of their own
+/// (ADR 0039).
 pub(crate) const SCENE_SAMPLES: u32 = 4;
 
 /// The pipelines of one pass, all built for the same sample count.
@@ -24,15 +25,19 @@ pub(crate) struct PassPipelines {
 /// Long-lived GPU objects that do not depend on scene content.
 #[derive(Debug)]
 pub(crate) struct Pipelines {
-    /// For the multisampled scene pass.
-    pub(crate) multisampled: PassPipelines,
+    /// For the scene pass, at its sample count.
+    pub(crate) scene: PassPipelines,
     pub(crate) frame_layout: wgpu::BindGroupLayout,
     pub(crate) texture_layout: wgpu::BindGroupLayout,
     pub(crate) sampler: wgpu::Sampler,
 }
 
 impl Pipelines {
-    pub(crate) fn new(device: &wgpu::Device, target_format: wgpu::TextureFormat) -> Self {
+    pub(crate) fn new(
+        device: &wgpu::Device,
+        target_format: wgpu::TextureFormat,
+        samples: u32,
+    ) -> Self {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("canvas-shader"),
             source: wgpu::ShaderSource::Wgsl(SHADER_SOURCE.into()),
@@ -49,19 +54,16 @@ impl Pipelines {
             bind_group_layouts: &[Some(&frame_layout), Some(&texture_layout)],
             immediate_size: 0,
         });
-        let pass = |samples| {
-            PassPipelines::new(
-                device,
-                &PassSpec {
-                    shader: &shader,
-                    untextured: &untextured,
-                    textured: &textured,
-                    target_format,
-                    samples,
-                },
-            )
-        };
-        let multisampled = pass(SCENE_SAMPLES);
+        let scene = PassPipelines::new(
+            device,
+            &PassSpec {
+                shader: &shader,
+                untextured: &untextured,
+                textured: &textured,
+                target_format,
+                samples,
+            },
+        );
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             label: Some("page-sampler"),
             mag_filter: wgpu::FilterMode::Linear,
@@ -71,7 +73,7 @@ impl Pipelines {
             ..wgpu::SamplerDescriptor::default()
         });
         Self {
-            multisampled,
+            scene,
             frame_layout,
             texture_layout,
             sampler,
