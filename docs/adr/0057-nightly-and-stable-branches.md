@@ -1,8 +1,8 @@
 # ADR 0057: Work lands on `nightly`, and `main` only moves when a release ships
 
-**Status:** Proposed. Waiting on Lyle's review. Nothing on GitHub has changed yet: `nightly` does not exist, and `rust-native` is still the working branch.
+**Status:** Accepted by Lyle on 2026-11-26. The workflow and skill changes are in a separate PR. The branch rename, the default-branch switch and the protection rules are done in repository settings.
 **Date:** 2026-11-26
-**Related:** `CLAUDE.md` (Branches, Releases), `.claude/skills/release/SKILL.md`, `.github/workflows/release.yml`.
+**Related:** `CLAUDE.md` (Branches, Releases), `.claude/skills/release/SKILL.md`, `.github/workflows/release.yml`, `.github/workflows/nightly.yml`.
 
 ## Context
 
@@ -14,20 +14,20 @@ We want to merge often into one branch so we can test it, and to move a separate
 
 **Two long-lived branches.**
 
-- **`nightly`** is where work lands and the default branch on GitHub. Feature and fix PRs target it. CI has to pass, but merging needs no review, so it can move many times a day. `rust-native` is renamed to `nightly`, which keeps its history and open PRs, and GitHub redirects the old name.
+- **`nightly`** is where work lands and the default branch on GitHub. Feature and fix PRs target it. Merging needs no review, so it can move many times a day. `rust-native` is renamed to `nightly`, which keeps its history and open PRs, and GitHub redirects the old name.
 - **`main`** is stable. It always matches the newest release, and it only moves by a promotion PR or a hotfix. Release tags `vX.Y.Z` are only cut on `main`.
 
 **Promotion.** To release:
 
-1. On `nightly`, run the `release` skill's changelog and version-bump commits as a PR into `nightly` and merge it.
+1. On `nightly`, commit the changelog and the version bump (the `release` skill does this).
 2. Open a PR from `nightly` into `main` titled `Release vX.Y.Z`. Merge it with **Create a merge commit**, never squash or rebase, so `main` stays an ancestor of `nightly` and the next promotion carries only new commits.
-3. Tag the merge commit on `main` as `vX.Y.Z` and push the tag. `release.yml` builds, signs, notarizes and publishes, and refuses a tag that is not on `main`.
+3. Tag the merge commit on `main` as `vX.Y.Z` and push the tag. `release.yml` builds, signs, notarizes and publishes, and refuses a tag that is not on `main`. Tags sit on merge commits that `nightly` doesn't contain, so find the last release with `git describe --tags --abbrev=0 origin/main`.
 
 **Hotfixes.** Branch from `main`, PR into `main`, release as a patch from `main`, then merge `main` back into `nightly` so the fix is not lost at the next promotion.
 
 **Nightly builds.** A scheduled workflow builds and signs `nightly` once a night when it has new commits, and keeps the DMG as a workflow artifact. It does not publish a GitHub release or an appcast. Sparkle follows the newest GitHub release, so publishing nightlies there would push them to every user.
 
-**Protection.** `main` accepts changes only through PRs, with Native CI required. `nightly` requires CI and nothing else.
+**Protection.** `main` accepts changes only through PRs and can't be force-pushed or deleted. `nightly` can't be force-pushed or deleted. Neither one requires checks: Native and Server CI only run when their paths change, so a required check would block every docs-only PR forever. Merge when the CI that ran is green.
 
 ## Consequences
 
