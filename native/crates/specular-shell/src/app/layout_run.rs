@@ -2,9 +2,12 @@
 //!
 //! - `default.json` is the shipped layout, written again on every start,
 //!   so a release that changes it reaches everyone. An edit to it applies
-//!   when it is saved.
+//!   when it is saved, and lasts until the next start.
+//! - `mine.json` is the person's own layout. When it is there it is the
+//!   one in force, and the app never writes it; copying `default.json` to
+//!   it is how a person keeps their edits.
 //! - A save that is not a layout leaves the last good one in force and
-//!   writes the reason to `default.error` beside it, which the next good
+//!   writes the reason to `<name>.error` beside it, which the next good
 //!   save takes away.
 //! - What a person hid and showed at run time is `.state/default.json`,
 //!   apart from the file they edit, so a click never rewrites it.
@@ -41,27 +44,55 @@ impl LayoutFiles {
         }
     }
 
-    fn layout_path(&self) -> PathBuf {
+    fn shipped_path(&self) -> PathBuf {
         self.folder.join("default.json")
     }
 
+    fn own_path(&self) -> PathBuf {
+        self.folder.join("mine.json")
+    }
+
+    /// The layout in force: the person's own when there is one.
+    fn layout_path(&self) -> PathBuf {
+        let own = self.own_path();
+        if own.is_file() {
+            own
+        } else {
+            self.shipped_path()
+        }
+    }
+
     fn error_path(&self) -> PathBuf {
-        self.folder.join("default.error")
+        self.layout_path().with_extension("error")
     }
 
     fn toggles_path(&self) -> PathBuf {
         self.folder.join(".state").join("default.json")
     }
 
-    /// Writes the shipped layout over `default.json` and watches it.
+    /// Writes the shipped layout over `default.json` and watches it and
+    /// the person's own, which may come or go while the app runs.
     fn write_shipped(&mut self) -> io::Result<()> {
         std::fs::create_dir_all(&self.folder)?;
-        let path = self.layout_path();
+        let path = self.shipped_path();
         write_atomic(&path, &Layout::shipped().to_text())?;
         self.file.reset();
-        remove(&self.error_path());
-        self.polled.watch((), [path]);
+        remove(&path.with_extension("error"));
+        self.polled.watch((), [path, self.own_path()]);
         Ok(())
+    }
+
+    /// Sets the person's own layout aside as `mine.json.aside`, for the
+    /// reset key: the shipped layout is in force again, and nothing they
+    /// wrote is lost.
+    fn set_own_aside(&self) {
+        let own = self.own_path();
+        if own.is_file() {
+            let aside = self.folder.join("mine.json.aside");
+            if let Err(error) = std::fs::rename(&own, &aside) {
+                tracing::warn!(path = %own.display(), "not set aside: {error}");
+            }
+        }
     }
 
     /// The layout file read again, when it changed: the layout to hand the
@@ -168,12 +199,14 @@ impl<W: ShellWindow> Runtime<W> {
         warn_on(written);
     }
 
-    /// Sets the toggles aside and writes the shipped layout again.
+    /// Sets the toggles and the person's own layout aside and writes the
+    /// shipped layout again.
     fn reset_layout(&mut self) {
         let Some(files) = self.layouts.as_mut() else {
             return;
         };
         remove(&files.toggles_path());
+        files.set_own_aside();
         warn_on(files.write_shipped());
     }
 }

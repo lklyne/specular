@@ -61,8 +61,8 @@ fn a_clone_is_marked_and_with_use_the_layout_names_it() {
         !copy.join("gpui-kit.d.ts").exists(),
         "what a load writes is left out"
     );
-    let layout = read(&home.join("layouts/default.json"));
-    assert_eq!(layout["tabs"]["mod"], "my-tabs");
+    let layout = read(&home.join("layouts/mine.json"));
+    assert_eq!(layout["tabs"]["mod"], "my-tabs", "the person's own layout");
     assert_eq!(
         layout["tabs"]["props"],
         json!({ "hidden": [] }),

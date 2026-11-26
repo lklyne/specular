@@ -270,7 +270,8 @@ logs the port it took and the `SPECULAR_DISCOVERY_FILE=` to pass the CLI.
   as JSON from `&App`. `GET /state` (`?key=` for one) and `specular state
   [key]` answer it; the Kit window publishes it into a `Revisions` whose
   per-key revision moves only when the value does. The camera is in no
-  key. The layout file is `<app home>/layouts/default.json`
+  key. The layout file is `<app home>/layouts/default.json`, rewritten on
+  every start, or the person's own `mine.json` beside it when that exists
   (`specular-shell/src/app/layout_run.rs`).
 - A page whose address is a file inside the space folder gets the page
   bridge, `window.specular` (`state`, `run`, `commands`, `subscribe`):

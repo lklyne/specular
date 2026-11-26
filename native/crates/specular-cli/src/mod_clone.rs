@@ -174,13 +174,31 @@ fn clone_mod(home: &Path, from: &str, to: &str, use_it: bool) -> Result<Cloned, 
     manifest.insert("cloned_from".to_owned(), Value::String(from.to_owned()));
     write_object(&manifest_path, manifest)?;
     let layout = if use_it {
-        let path = home.join("layouts").join("default.json");
+        let path = own_layout(home)?;
         let named = point_layout(&path, from, to, place.as_deref())?;
         Some((path, named))
     } else {
         None
     };
     Ok(Cloned { dir, layout })
+}
+
+/// The person's own layout, `layouts/mine.json`, started from the shipped
+/// one when there is none yet. The app rewrites `default.json` on every
+/// start and never touches `mine.json`, so a layout pointed at a clone has
+/// to be this one.
+fn own_layout(home: &std::path::Path) -> Result<PathBuf, String> {
+    let folder = home.join("layouts");
+    let mine = folder.join("mine.json");
+    if !mine.exists() {
+        std::fs::copy(folder.join("default.json"), &mine).map_err(|error| {
+            format!(
+                "{} not started from the shipped layout: {error}",
+                mine.display()
+            )
+        })?;
+    }
+    Ok(mine)
 }
 
 /// `mod clone <name> [new-name] [--use]`.

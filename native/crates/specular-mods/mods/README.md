@@ -36,7 +36,8 @@ export default class Hello extends View {
 }
 ```
 
-Put it in a region with the layout file, `../layouts/default.json`:
+Put it in a region with your own layout file, `../layouts/mine.json` (copy
+`default.json` to start it):
 
 ```json
 { "toolbar": { "mod": "hello", "props": {} } }
@@ -56,6 +57,9 @@ Then check it with no window: `specular mod check ~/path/to/mods/hello`.
   `palette`, `welcome`), whether it is hidden, and the `props` each mod gets.
   `"mod": null` is the app's own panel. The app writes the shipped layout
   over this file on every start, so an edit lasts until the next start.
+- `../layouts/mine.json`: your own layout. When it is there it is the one
+  in force, and the app never writes it. Control+Option+Shift+Escape sets it
+  aside as `mine.json.aside` and brings the shipped layout back.
 - `../layouts/.state/`: what was hidden and shown at run time
   (`ui.toggle`), apart from the file you edit.
 
