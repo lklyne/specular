@@ -195,7 +195,7 @@ const fn leaves_memory(effect: &Effect) -> bool {
     )
 }
 
-fn warn_on_error<E: std::fmt::Display>(result: Result<(), E>) {
+pub(super) fn warn_on_error<E: std::fmt::Display>(result: Result<(), E>) {
     if let Err(error) = result {
         tracing::warn!("{error}");
     }

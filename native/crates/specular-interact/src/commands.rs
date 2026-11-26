@@ -117,6 +117,7 @@ static ALL: LazyLock<Vec<CommandSpec>> = LazyLock::new(|| {
         canvas::APP,
         canvas::CANVAS,
         edit::EDIT,
+        edit::ITEM,
         edit::TEXT,
         selection::ARRANGE,
         selection::COMMENT,

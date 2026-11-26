@@ -35,7 +35,7 @@ fn every_command_is_named_once_in_dotted_lower_case_and_builds_bare_when_it_take
 fn running_by_name_builds_with_args_and_refuses_what_it_cannot_run() {
     let app = TestApp::empty();
     let app = app.app();
-    let rows: [(&str, Value, Result<Run, &str>); 6] = [
+    let rows: [(&str, Value, Result<Run, &str>); 7] = [
         (
             "tool.set",
             json!({ "tool": "draw" }),
@@ -50,6 +50,11 @@ fn running_by_name_builds_with_args_and_refuses_what_it_cannot_run() {
             "tool.set",
             json!({ "tool": "hand" }),
             Err("`tool.set` takes {tool:"),
+        ),
+        (
+            "item.add",
+            json!({ "kind": "page", "x": 0, "y": 0 }),
+            Err("`item.add` takes {kind: sticky|text|shape"),
         ),
         ("edit.undoo", Value::Null, Err("did you mean edit.undo")),
         ("edit.undo", Value::Null, Err("`edit.undo` cannot run now")),

@@ -3,6 +3,7 @@
 //! `snapshots/`, named `it__<module>__<test>.snap`.
 
 mod bindings;
+mod bridge;
 mod clipboard;
 mod commands;
 mod comment_rules;

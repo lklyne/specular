@@ -52,6 +52,9 @@ impl<W: ShellWindow> Runtime<W> {
         self.loads.unpainted.insert(host);
         self.page_files.hosted(page, url);
         self.give_color_scheme(page);
+        // Asked before the first document begins, so it has the bridge
+        // from its first script.
+        self.check_bridge(host, url);
         Ok(())
     }
 
@@ -63,6 +66,7 @@ impl<W: ShellWindow> Runtime<W> {
                 cdp.page_closed(page);
             }
             self.loads.page_closed(host.page);
+            self.bridge_closed(host.page);
             warn_on_error(self.source.close_page(host.page));
             if let Some(gpu) = self.gpu.as_mut() {
                 gpu.compositor_mut().remove_page(host.page);

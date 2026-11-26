@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tool widget</title>
+<style>
+  body { margin: 0; padding: 24px; font: 16px/1.4 system-ui, sans-serif; color: #222; background: #fdf6e3; }
+  .label { margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: #777; }
+  #tool { margin: 4px 0 0; font-size: 32px; font-weight: 600; }
+  #add { position: absolute; left: 24px; top: 160px; width: 200px; height: 48px; font: inherit; border-radius: 8px; }
+  #status { position: absolute; left: 24px; top: 220px; margin: 0; font-size: 13px; color: #777; }
+</style>
+</head>
+<body>
+<p class="label">Current tool</p>
+<p id="tool">…</p>
+<button id="add" disabled>Add a sticky</button>
+<p id="status">Waiting for the bridge. It is only given to a file in the open space folder.</p>
+<script>
+  // A widget is a page in the space folder: `window.specular` reads the
+  // app's keyed state and runs its commands. See the specular skill.
+  const tool = document.getElementById('tool');
+  const add = document.getElementById('add');
+  const status = document.getElementById('status');
+
+  const start = () => {
+    status.textContent = 'Connected.';
+    add.disabled = false;
+    specular.subscribe('panels/toolbar', (toolbar) => {
+      const tools = (toolbar?.sections ?? []).flatMap((section) => section.tools ?? []);
+      const active = tools.find((button) => button.active);
+      tool.textContent = active ? active.label : 'None';
+    });
+    add.addEventListener('click', async () => {
+      try {
+        await specular.run('item.add', { kind: 'sticky', x: 560, y: 100, text: 'From the widget' });
+        status.textContent = 'Placed a sticky. Cmd+Z takes it back.';
+      } catch (error) {
+        status.textContent = error.message;
+      }
+    });
+  };
+
+  if (window.specular) start();
+  else window.addEventListener('specular-ready', start, { once: true });
+</script>
+</body>
+</html>

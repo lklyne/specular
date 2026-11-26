@@ -21,6 +21,7 @@
 //! gesture that creates an entity works the same way: the entity is in the
 //! document while it is dragged out, and [`App::creating`] names it.
 
+mod add_item;
 mod anchor;
 mod anchors;
 mod api;
@@ -29,6 +30,7 @@ mod arrange;
 mod asset;
 mod attach;
 mod bindings;
+mod bridge;
 mod camera;
 mod caps;
 mod chat;
@@ -115,6 +117,7 @@ mod viewport;
 mod zoom;
 mod zoom_settle;
 
+pub use add_item::{NewItem, NewKind};
 pub use anchors::Anchor;
 pub use api::{ApiCall, ApiOutcome, ApiRun};
 pub use app::{App, Focus, Selection, Session};
@@ -122,6 +125,7 @@ pub use arrange::{ArrangeMode, arrange_command, place_command};
 pub use asset::AssetBytes;
 pub(crate) use bindings::page_edit;
 pub use bindings::{BINDINGS, Binding, Context, SHELL_KEYS, ShellCommand, kept_from_page};
+pub use bridge::bridge_allowed;
 pub use chat::{
     ArtifactCard, AutoChip, Bubble, ChatAction, ChatModel, ChatView, Composer, DraftChip,
     DraftKind, FixTarget, ImageUpload, ModelChip, ModelOption, OpenComments, PillChip, PillKind,

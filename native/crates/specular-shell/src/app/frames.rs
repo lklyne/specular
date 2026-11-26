@@ -107,6 +107,7 @@ impl<W: ShellWindow> Runtime<W> {
         self.take_agent_notices();
         self.take_share_notices();
         self.flush_drops();
+        self.push_bridge_changes();
     }
 
     /// Renders and presents one frame of the app as it stands. `None` when

@@ -8,8 +8,9 @@
 //!   mapping, popup placement), [`translate`] (core `InputEvent` -> exact `CefBrowserHost` calls),
 //!   [`pool`] (the per-page shared-texture cap), [`page`] (view and popup
 //!   geometry), [`cpu_frame`] (`OnPaint` copies), [`dom_query`] (the
-//!   devtools messages that ask a page about its elements, and their answers)
-//!   and [`devtools_route`] (whose a devtools message is).
+//!   devtools messages that ask a page about its elements, and their answers),
+//!   [`bridge_query`] (the page bridge's messages) and [`devtools_route`]
+//!   (whose a devtools message is).
 //! - **Feature `cef`**: `CefPageSource`, a [`specular_core::PageSource`] on
 //!   windowless CEF browsers, and `run_subprocess_if_needed`:
 //!   - `OnAcceleratedPaint` (macOS IOSurface) -> [`specular_core::PageFrame::GpuShared`],
@@ -28,6 +29,7 @@
 #![cfg_attr(not(feature = "cef"), allow(dead_code))]
 
 mod attach_query;
+mod bridge_query;
 mod config;
 mod coords;
 mod cpu_frame;
@@ -44,6 +46,8 @@ mod translate;
 mod app_protocol;
 #[cfg(feature = "cef")]
 mod attach_host;
+#[cfg(feature = "cef")]
+mod bridge_host;
 #[cfg(feature = "cef")]
 mod client;
 #[cfg(feature = "cef")]

@@ -85,6 +85,19 @@ pub enum PageEvent {
         /// The address now shown.
         url: String,
     },
+    /// The page's document called the bridge binding
+    /// ([`BRIDGE_BINDING`](crate::BRIDGE_BINDING)) with `payload`, while its
+    /// main frame showed `url`. Only a page the bridge was put in can call
+    /// it, and the app checks `url` again before it answers.
+    BridgeCall {
+        /// The page.
+        page: PageId,
+        /// The main frame's address when the call came, as the backend
+        /// knows it, not as the page says.
+        url: String,
+        /// What the page passed: one JSON request, as text.
+        payload: String,
+    },
     /// The page asked for a link to open in a new tab (CEF
     /// `OnBeforePopup` or `OnOpenURLFromTab`). The backend refused it the
     /// window; the app decides whether a page opens instead.

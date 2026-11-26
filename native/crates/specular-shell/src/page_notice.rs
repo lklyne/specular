@@ -117,7 +117,8 @@ pub(crate) fn notice_of(
         | PageEvent::PopupRect { .. }
         | PageEvent::ElementAt { .. }
         | PageEvent::Inspected { .. }
-        | PageEvent::ElementsInRect { .. } => return None,
+        | PageEvent::ElementsInRect { .. }
+        | PageEvent::BridgeCall { .. } => return None,
     };
     Some(notice)
 }

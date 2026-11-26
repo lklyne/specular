@@ -1,8 +1,12 @@
-//! The Edit menu's commands, the selection, and the text formats.
+//! The Edit menu's commands, the selection, making items by name, and the
+//! text formats.
 
-use super::CommandSpec;
-use super::args::{act, always, can, idle, items, number};
-use crate::{Action, Format};
+use glam::DVec2;
+use serde_json::Value;
+
+use super::args::{act, always, can, choice, idle, items, maybe_text, number};
+use super::{CommandSpec, Run, RunError};
+use crate::{Action, Format, NewItem, NewKind};
 
 /// Undo, the clipboard, the selection.
 pub(super) const EDIT: &[CommandSpec] = &[
@@ -100,6 +104,33 @@ pub(super) const EDIT: &[CommandSpec] = &[
         },
     },
 ];
+
+fn add_item(args: &Value) -> Result<Run, RunError> {
+    let kind = choice(
+        args,
+        "kind",
+        &[
+            ("sticky", NewKind::Sticky),
+            ("text", NewKind::Text),
+            ("shape", NewKind::Shape),
+        ],
+    )?;
+    act(Action::AddItem(NewItem {
+        kind,
+        at: DVec2::new(number(args, "x")?, number(args, "y")?),
+        text: maybe_text(args, "text").unwrap_or_default(),
+    }))
+}
+
+/// Making items by name.
+pub(super) const ITEM: &[CommandSpec] = &[CommandSpec {
+    name: "item.add",
+    label: "",
+    args: "{kind: sticky|text|shape, x: number, y: number, text?: string}",
+    about: "Place a new item with its top-left at a canvas point, in the tool's style, and select it.",
+    enabled: idle,
+    build: add_item,
+}];
 
 /// Whether there is text being edited to format.
 fn editing(app: &crate::App) -> bool {

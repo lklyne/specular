@@ -22,8 +22,8 @@ use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use cef::rc::Rc as _;
 use cef::{
-    Browser, BrowserHost, DevToolsMessageObserver, ImplBrowser, ImplBrowserHost,
-    ImplDevToolsMessageObserver, Registration, WrapDevToolsMessageObserver,
+    Browser, BrowserHost, CefString, DevToolsMessageObserver, ImplBrowser, ImplBrowserHost,
+    ImplDevToolsMessageObserver, ImplFrame, Registration, WrapDevToolsMessageObserver,
     wrap_dev_tools_message_observer,
 };
 use specular_core::{DevtoolsSink, KeyEventKind, PageDevice, PageEvent};
@@ -32,7 +32,7 @@ use crate::devtools_route::{Route, route};
 use crate::host_call::send_key;
 use crate::key_message::PlainKey;
 use crate::page::PageContext;
-use crate::{attach_query, dom_query, inspect_query, sync_query};
+use crate::{attach_query, bridge_query, dom_query, inspect_query, sync_query};
 
 /// What a message sent to a page asked for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -154,10 +154,21 @@ wrap_dev_tools_message_observer! {
     impl DevToolsMessageObserver {
         fn on_dev_tools_message(
             &self,
-            _browser: Option<&mut Browser>,
+            browser: Option<&mut Browser>,
             message: Option<&[u8]>,
         ) -> c_int {
             let message = message.unwrap_or_default();
+            // The bridge's calls are the app's, never a devtools client's.
+            if let Some(payload) = bridge_query::bridge_call(message) {
+                let url = (browser.and_then(|browser| browser.main_frame()))
+                    .map_or_else(String::new, |frame| CefString::from(&frame.url()).to_string());
+                self.ctx.push(PageEvent::BridgeCall {
+                    page: self.ctx.id,
+                    url,
+                    payload,
+                });
+                return 1;
+            }
             if route(message) == Route::Backend {
                 // Not handled: CEF goes on to `on_dev_tools_method_result`.
                 return 0;

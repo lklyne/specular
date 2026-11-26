@@ -2,6 +2,7 @@
 //! in, the event it plans goes through `update`, and the response and the
 //! document come out.
 
+mod bridge;
 mod cdp;
 mod commands;
 mod common;

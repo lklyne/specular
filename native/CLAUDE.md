@@ -272,6 +272,13 @@ logs the port it took and the `SPECULAR_DISCOVERY_FILE=` to pass the CLI.
   per-key revision moves only when the value does. The camera is in no
   key. The layout file is `<app home>/layouts/default.json`
   (`specular-shell/src/app/layout_run.rs`).
+- A page whose address is a file inside the space folder gets the page
+  bridge, `window.specular` (`state`, `run`, `commands`, `subscribe`):
+  the check is `specular_interact::bridge_allowed`, the messages are
+  `specular_api::bridge` (the `/state`, `/commands` and `/run` routes
+  planned without a socket), the transport is `specular-cef/src/bridge_*`
+  and `specular-shell/src/app/bridge_run.rs`. Sample:
+  `fixtures/bridge/space/widget.html`, run by `fixtures/scenarios/cef/bridge.txt`.
 - A route the CLI can call and this app lacks gets a row in `unported.rs`,
   so the caller reads which verb is missing instead of a 404.
 - The browse verbs (`snapshot`, `click`, ...) reach a page through its own

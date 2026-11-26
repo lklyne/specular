@@ -297,6 +297,40 @@ Drop a `.html` file onto the canvas to render it inline (charts, mockups,
 generated visualizations): `specular add file /abs/path/viz.html`. Rendered
 display-only; edit the file to update.
 
+## Widget pages: the page bridge
+
+An HTML file inside the open space folder gets `window.specular`, so a
+canvas widget is one file you write and place with `specular add file`.
+Only a `file://` page inside the space folder has it: a web page, a file
+elsewhere on disk, or the same page after it navigates away never does.
+
+```js
+specular.state(key)              // Promise: the keyed state value (`specular state` lists the keys)
+specular.run(name, args)         // Promise: runs a registry command (`specular commands`), one undo step; rejects with why
+specular.commands()              // Promise: every command, with `name`, `args`, `about`, `enabled`
+specular.subscribe(key, cb)      // cb(value) now and on every change, pushed; returns an unsubscribe function
+```
+
+The bridge can arrive after the page's first script, so start on it or on
+its event:
+
+```html
+<script>
+  const start = () => {
+    specular.subscribe('panels/toolbar', (bar) => {
+      const tool = bar.sections.flatMap((s) => s.tools).find((t) => t.active);
+      document.title = tool ? tool.label : 'none';
+    });
+    button.onclick = () =>
+      specular.run('item.add', { kind: 'sticky', x: 560, y: 100, text: 'Hello' });
+  };
+  if (window.specular) start(); else addEventListener('specular-ready', start, { once: true });
+</script>
+```
+
+`item.add {kind: sticky|text|shape, x, y, text?}` places an item at a canvas
+point. A working sample is `native/fixtures/bridge/space/widget.html`.
+
 ## Passing URLs
 
 Always pass full URLs (including scheme and host) to `specular add page`. The

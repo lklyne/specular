@@ -277,3 +277,138 @@ Not verified here (Linux): every Kit edit (`kit/canvas.rs`,
 `kit/debug_input/run.rs`); the region hiding in the window; the layout
 file's write/watch/error path and the reset key in the window; and the
 `cli/cases.py` case, which needs the Kit app.
+
+## Phase 2: the page bridge
+
+**Built.** A page whose address is a file inside the open space folder gets
+`window.specular`; no other page does.
+
+```js
+specular.state(key)          // Promise<any>: the keyed state value
+specular.run(name, args?)    // Promise<{ok, name}>: a registry command; rejects with its error
+specular.commands()          // Promise<Array<{name, args, about, label, enabled}>>
+specular.subscribe(key, cb)  // cb(value) now and on every change; returns an unsubscribe function
+```
+
+A `specular-ready` event fires on `window` when the bridge arrives after
+the page's own first script.
+
+- **The trust check** is one pure function,
+  `specular_interact::bridge_allowed(page_url, space_root)`
+  (`specular-interact/src/bridge.rs`): true only for a `file://` URL, or a
+  `local-file://` one read by the `space_file` rules, whose path lies
+  inside the space folder once `.` and `..` are taken out as written
+  (percent-escapes decoded first). Nothing on disk is read, so a symlink
+  inside the folder counts as inside: it is the folder owner's own.
+  `tests/it/bridge.rs` is the table (space file, subfolder, `..` and
+  `%2E%2E` escapes, the folder itself, a sibling folder with the same
+  prefix, elsewhere, `file://localhost`, http, https, `about:blank`,
+  `data:`). The shell asks it on every address a page shows (`PageEvent::Url`)
+  and again on every call, with the main frame's URL as the browser
+  process reports it at that moment, not as the page says.
+- **The messages** are `specular_api::bridge` (pure): `Api::bridge(app,
+  payload, nonce)` turns `{id, op, nonce, key?, name?, args?}` into a
+  `BridgeStep`. `state`, `commands` and `run` are `GET /state`, `GET
+  /commands` and `POST /run` planned without a socket, so a page's `run` is
+  the same `Event::Api` as `POST /run`, through `update`, one undo step,
+  refused with the same words (unknown name with suggestions, bad args,
+  disabled, a window command). `subscribe` answers with the value and
+  `Subscriptions` pushes a key when its revision moves (it publishes only
+  subscribed keys, and reads nothing from the app while nobody
+  subscribes). An unknown op answers with the ops; a call without the
+  page's nonce, or that is not JSON with an `id`, gets no answer.
+  `tests/api/bridge.rs` covers a `run` becoming the event and undoing to
+  the start, the reads and six refusals, and pushes going only to
+  subscribers, once.
+- **`item.add {kind: sticky|text|shape, x, y, text?}`** is a new registry
+  command (`Action::AddItem`, `specular-interact/src/add_item.rs`): the
+  tool defaults' style, top-left at the point, in front, selected, one
+  `InsertEntity` step. `fixtures/scenarios/item-add.txt` places a sticky
+  and a shape by name, checks them, undoes and redoes, and ends with
+  `undo-to-start`.
+
+**Transport: the page's own devtools channel, not CEF's message router.**
+`Runtime.addBinding` named `__specular`, `Page.addScriptToEvaluateOnNewDocument`
+with the install script (`specular-api/src/bridge/install.js`), and a
+`Runtime.evaluate` of it in the document shown; calls come back as
+`Runtime.bindingCalled` and answers go in as evaluated scripts
+(`window.__specularReceive(..)`). Why: every other question the app puts
+to a page already goes this way (`devtools.rs`, `dom_query`, `sync_query`,
+`attach_query`), with its observer, its pending ids and its `PageEvent`s,
+so the bridge is two `PageSource` methods (`set_bridge`, `bridge_send`)
+and one event (`PageEvent::BridgeCall`). The message router needs a
+render-process handler and V8 code in the helper executable, which this
+repo keeps to the `cef` crate alone (it is linked five times). Details:
+
+- The install script deletes `window.__specular` in every frame and wraps
+  it only in a top-level `file:` document, as a frozen, non-writable
+  `window.specular`. Calls carry a per-page nonce held only in the script's
+  closure, so a frame the page embeds cannot speak for it, and a call
+  without it is dropped.
+- Taking the bridge out is `Runtime.removeBinding`: the binding's calls stop
+  being reported, and the install script, still added for new documents,
+  finds nothing to wrap. A page that navigates to the web loses it at its
+  next address change; until then the per-call URL check refuses it.
+- The shell asks for the bridge right after it creates a page (so the first
+  document has it from its first script), on every address change, and
+  again at load end, which is idempotent.
+- Pushes go out in the runtime's chores (every 8 ms while the loop turns),
+  for keys whose revision moved.
+- The `Runtime.bindingCalled` event is taken before devtools routing, so a
+  CDP client on the same page (agent-browser) never sees the bridge's
+  traffic.
+
+**Try it by hand on a Mac** (debug CEF bundle, see `native/README.md`):
+
+```sh
+cd native
+target/debug/specular.app/Contents/MacOS/specular --source cef fixtures/bridge/space/Widget.canvas
+```
+
+The widget shows the current tool; press `S`, `M`, `V` on the canvas and
+it follows. Enter the widget (click it twice), press **Add a sticky**: a
+sticky "From the widget" lands at (560, 100), selected. Cmd+Z takes it
+back. Copy `widget.html` somewhere outside the folder and open it as a
+page (or `specular run page.navigate '{"url":"https://example.com"}'`
+with it in the dock): it says it is waiting for the bridge, and nothing it
+does reaches the app. `fixtures/scenarios/run.sh --cef bridge` runs the
+same as `cef/bridge.txt`: the click, the sticky, one Cmd+Z, then the
+widget page taken to `cef/site/bridge-probe.html`, a web page that calls
+`window.specular` and the raw binding if either is there, and the sticky
+count still 0.
+
+Calls made:
+
+- The bridge's `run` reply is `POST /run`'s body (`{ok: true, name}`), and
+  `commands()` is the list without its `{commands: ..}` wrapper.
+- A page that reloads keeps its subscriptions on the app's side (the new
+  document's pushes are ignored until it subscribes again); they go when
+  the bridge is taken out or the page closes. There are 11 keys, so they
+  cannot pile up.
+- The bridge is offered in every runtime, headless included; the synthetic
+  source runs no script, so headless the bridge methods do nothing.
+
+Not verified here (Linux):
+
+- Nothing CEF ran. `cargo check -p specular-shell --features cef` was not
+  tried: this box has 6.6 GB free, and the Linux cef bindings already fail
+  to type-check this crate before this change (`on_cursor_change` and
+  `on_key_event` take the macOS signatures). The new CEF code was
+  type-checked and linted with `cargo clippy -p specular-cef --all-targets
+  --features cef-dox` with those two signatures patched locally to the
+  Linux types (and reverted); no new warnings. macOS CI's `cargo check`
+  is the first real compile.
+- `cef/bridge.txt` has not run. Whether `Page.addScriptToEvaluateOnNewDocument`
+  and `Runtime.bindingCalled` need `Page.enable` / `Runtime.enable` on the
+  in-process channel is the first thing to check if the widget stays on
+  "Waiting for the bridge"; the evaluate at load end should cover the
+  first, the second would need a `Runtime.enable` in `attach_methods`.
+- The scenario can check the item count and the saved canvas but not a
+  page's DOM: there is no `expect` for a page's text or a script's result.
+  The widget following the tool is checked by its snapshot
+  (`02-draw-tool.png`) only, and "the web page has no `window.specular`"
+  is shown by the probe placing nothing. A `page-eval` step reading a
+  `Runtime.evaluate` result would close that.
+- An `<iframe>` already in a widget when the bridge is first put in keeps
+  the raw binding (the attach-time evaluate runs in the main frame only);
+  without the nonce its calls are dropped.

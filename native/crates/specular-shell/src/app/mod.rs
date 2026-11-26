@@ -9,6 +9,7 @@ mod agent_run;
 mod api_files;
 mod api_run;
 mod asset_run;
+mod bridge_run;
 mod clipboard_run;
 mod demand;
 pub(crate) mod drop_run;

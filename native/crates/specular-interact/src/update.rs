@@ -176,6 +176,16 @@ fn set_tool(app: &mut App, tool: crate::Tool, effects: &mut Vec<Effect>) {
     }
 }
 
+/// Takes the variant's tool in hand with the variant as its default. A
+/// gesture in flight keeps its tool.
+fn set_tool_variant(app: &mut App, patch: ToolDefaultPatch, effects: &mut Vec<Effect>) {
+    if app.session.gesture.is_none() {
+        edit::end(app, effects);
+        app.session.tool = patch.tool();
+        set_tool_default(app, patch, effects);
+    }
+}
+
 pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect>) {
     match action {
         // Escape puts a field's old value back before it does anything else,
@@ -186,13 +196,7 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         Action::SetTool(tool) => set_tool(app, tool, effects),
         Action::SetTheme(theme) => theme::choose(app, theme, true, effects),
         Action::SetToolDefault(patch) => set_tool_default(app, patch, effects),
-        Action::SetToolVariant(patch) => {
-            if app.session.gesture.is_none() {
-                edit::end(app, effects);
-                app.session.tool = patch.tool();
-                set_tool_default(app, patch, effects);
-            }
-        }
+        Action::SetToolVariant(patch) => set_tool_variant(app, patch, effects),
         Action::PageEdit(edit) => crate::page_input::edit(app, edit, effects),
         // While text is edited, undo and redo are the editor's own.
         Action::Undo | Action::Redo if app.session.editing.is_some() => {
@@ -220,6 +224,7 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         Action::Nudge { dx, dy } => verb(app, effects, |app, effects| {
             verbs::nudge(app, DVec2::new(dx, dy), effects);
         }),
+        Action::AddItem(item) => verb(app, effects, |app, fx| crate::add_item::add(app, item, fx)),
         Action::SetProperty(property) => property::set(app, &property, effects),
         Action::StepPage(step) => property::set(app, &step.next(app), effects),
         Action::Format(format) if app.session.gesture.is_none() => edit::format(app, format),

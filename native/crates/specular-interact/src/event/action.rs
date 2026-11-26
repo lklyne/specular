@@ -197,6 +197,9 @@ pub enum Action {
     /// Hide or show a region of the window or a control, over what the
     /// layout file says, or go back to the shipped layout.
     Layout(crate::LayoutAction),
+    /// Place a new item at a canvas point in the tool defaults' style, as
+    /// one undo step, and select it.
+    AddItem(crate::NewItem),
     /// Move the selection by exactly this many canvas units.
     Nudge {
         /// Along x. Positive is right.

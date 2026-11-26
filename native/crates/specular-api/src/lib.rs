@@ -20,6 +20,7 @@
 
 mod act;
 mod annotations;
+pub mod bridge;
 mod canvas;
 pub mod cdp;
 mod commands;

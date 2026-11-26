@@ -161,6 +161,8 @@ pub struct Runtime<W> {
     pub(crate) dropped: Vec<PathBuf>,
     /// Where they were dropped, in logical pixels of the viewport.
     pub(crate) dropped_at: Option<Vec2>,
+    /// The page bridge in each page from the space folder.
+    pub(crate) bridges: super::bridge_run::Bridges,
     /// The HTTP API. `None` until started, and when it could not start.
     pub(crate) api: Option<ApiHost>,
     /// Each page's CDP websocket. Started and stopped with the API.
@@ -233,6 +235,7 @@ impl<W: ShellWindow> Runtime<W> {
             folder_dialog: None,
             dropped: Vec::new(),
             dropped_at: None,
+            bridges: super::bridge_run::Bridges::default(),
             api: None,
             cdp: None,
             api_outcome: None,
