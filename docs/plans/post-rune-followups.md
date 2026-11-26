@@ -55,3 +55,7 @@ Every phase builds on `claude/post-rune-followups`, which sits on `claude/rune-s
 - **Unchanged:** pans p99 15.9/15.6/15.7 to 15.9/15.8/15.5 ms, main thread 1.40 to 1.45 ms a frame both; idle still-20 175 to 177 turns/s, 30.4 pumps/s, 0 frames, CPU 3.2% both.
 - **Begin frames (item 4):** tried uncommitted, not adopted: 115 paints/s entered but key to present p50 21.8 ms. Numbers in ADR 0053 item 4.
 - **For phase 4:** idle is where phase 2 left it (176 turns/s, 30 pumps/s): the 30 Hz pump fallback and the 50 ms idle turn are now the whole cost. `bench.sh idle` reruns it. 120 for the entered page is a CEF question, not ours.
+
+### Phase 5, 2026-11-25. Built, not adopted
+
+- Built on `claude/analytic-edges` (`1fbf29ea`, pushed, unmerged): feathered mesh edges and a single-sampled pass, with a readback test whose mutation checks fail as they should. It matched 4x in snapshots but raised release pan frame CPU from about 1.25 to 1.7 ms (tessellation 0.18 to 0.40 ms, triangles 6.5k to 17.6k). Stopped before the caching round: with Rune deferred the change buys nothing on this Mac (4x touches only mesh edges, its attachment is transient, S6 found no GPU time difference). ADR 0053 item 3 records it as not adopted.
