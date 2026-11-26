@@ -94,13 +94,12 @@ fn member(entity: &Entity) -> Value {
 fn selected(annotation: &Annotation) -> Vec<EntityId> {
     (annotation.metadata.as_ref())
         .and_then(|metadata| metadata.get("selectionEntityIds")?.as_array())
-        .map(|ids| {
+        .map_or_default(|ids| {
             ids.iter()
                 .filter_map(Value::as_str)
                 .map(EntityId::from)
                 .collect()
         })
-        .unwrap_or_default()
 }
 
 /// `GET /annotations/<id>`: the annotation, for a selection comment the

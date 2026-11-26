@@ -199,8 +199,7 @@ fn drain(run: &mut Run, thread: &ThreadId, out: &mut Vec<(ThreadId, Notice)>) ->
                 let tail = run
                     .stderr_tail
                     .as_deref()
-                    .map(|line| format!(": {}", truncate(line)))
-                    .unwrap_or_default();
+                    .map_or_default(|line| format!(": {}", truncate(line)));
                 let failed = Notice::Failed {
                     error: format!("The agent stopped without a result ({detail}){tail}"),
                 };

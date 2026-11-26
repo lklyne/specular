@@ -132,9 +132,7 @@ impl Scrolls {
                         anchor_url: app.page_anchor_url(id).unwrap_or_default(),
                         live: app.page_scroll(id),
                         per_css: placement.canvas_per_css(),
-                        places: (app.page_state(id))
-                            .map(|state| state.elements.clone())
-                            .unwrap_or_default(),
+                        places: (app.page_state(id)).map_or_default(|state| state.elements.clone()),
                     };
                     (id.clone(), scroll)
                 })
