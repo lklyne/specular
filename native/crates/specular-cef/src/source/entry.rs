@@ -42,6 +42,8 @@ pub(crate) struct PageEntry {
     pub(crate) tracking: Tracking,
     /// The page's texture cap, which says when a dropped paint is owed.
     pub(super) frames: OutstandingFrames,
+    /// Whether a load is in flight, from creation to its `Loaded`.
+    pub(super) loading: bool,
 }
 
 impl PageEntry {
@@ -140,6 +142,7 @@ impl CefPageSource {
                 frame_rate: windowless_frame_rate(spec.frame_rate),
                 tracking: Tracking::default(),
                 frames: ctx.frames.clone(),
+                loading: true,
             },
         );
         Ok(id)

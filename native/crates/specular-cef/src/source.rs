@@ -359,7 +359,20 @@ impl PageSource for CefPageSource {
     }
 
     fn drain_events(&mut self, out: &mut Vec<PageEvent>) {
+        let from = out.len();
         drain_events(out);
+        for event in &out[from..] {
+            let (page, loading) = match event {
+                PageEvent::Loading { page, loading, .. } => (page, *loading),
+                PageEvent::Loaded { page, .. } | PageEvent::Crashed { page, .. } => (page, false),
+                _ => continue,
+            };
+            if let Some(entry) = self.pages.get_mut(page) {
+                entry.loading = loading;
+            }
+        }
+        #[cfg(target_os = "macos")]
+        crate::pump_timer::hurry(self.pages.values().any(|entry| entry.loading));
     }
 
     fn devtools_port(&self) -> Option<u16> {

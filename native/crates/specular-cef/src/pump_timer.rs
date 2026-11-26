@@ -6,9 +6,9 @@
 //! timer fires between the window's handlers, where the nested turn is safe.
 //!
 //! The timer fires when CEF asks for work
-//! (`OnScheduleMessagePumpWork`, see [`schedule`]) and otherwise once a
-//! second, so an app whose pages are still does not wake to find nothing
-//! to do.
+//! (`OnScheduleMessagePumpWork`, see [`schedule`]), at 30 Hz while a page
+//! loads ([`hurry`]), and otherwise once a second, so an app whose pages
+//! are still does not wake to find nothing to do.
 //!
 //! `cef::shutdown` spins the run loop too, which must happen while the
 //! window's run loop still runs, so the timer also stops CEF, on request,
@@ -21,7 +21,7 @@ use objc2_core_foundation::{
     CFAbsoluteTimeGetCurrent, CFRetained, CFRunLoop, CFRunLoopTimer, kCFRunLoopCommonModes,
 };
 
-use crate::config::{PUMP_FALLBACK_SECONDS, pump_delay_seconds, pump_moves};
+use crate::config::{HURRY_SECONDS, PUMP_FALLBACK_SECONDS, pump_delay_seconds, pump_moves};
 use crate::error::CefError;
 
 /// The running timer, for [`schedule`], which CEF calls from any thread.
@@ -31,6 +31,14 @@ static TIMER: AtomicPtr<CFRunLoopTimer> = AtomicPtr::new(std::ptr::null_mut());
 
 /// Set while the callback runs: the nested run-loop turn must not pump again.
 static PUMPING: AtomicBool = AtomicBool::new(false);
+
+/// Set while a page loads: CEF does not ask for all the work of a load,
+/// so the pump keeps a quick pace of its own until loads are done.
+static HURRY: AtomicBool = AtomicBool::new(false);
+
+/// Set when the timer fired inside a pump and was skipped: work CEF asked
+/// for during the pump, which the pump that is running may not have done.
+static MISSED: AtomicBool = AtomicBool::new(false);
 
 const RUNNING: u8 = 0;
 const STOP_REQUESTED: u8 = 1;
@@ -97,6 +105,14 @@ impl Drop for PumpTimer {
     }
 }
 
+/// Whether a page is loading. While one is, the pump runs at least every
+/// [`HURRY_SECONDS`].
+pub(crate) fn hurry(loading: bool) {
+    if HURRY.swap(loading, Ordering::AcqRel) != loading && loading {
+        schedule((HURRY_SECONDS * 1_000.0) as i64);
+    }
+}
+
 /// CEF has work for its UI thread in `delay_ms` milliseconds, or now when
 /// that is zero or less. Moves the timer's next fire up to then, never
 /// later than a fire already due ([`pump_moves`]). Callable from any
@@ -116,8 +132,9 @@ pub(crate) fn schedule(delay_ms: i64) {
     }
 }
 
-unsafe extern "C-unwind" fn pump(_timer: *mut CFRunLoopTimer, _info: *mut c_void) {
+unsafe extern "C-unwind" fn pump(timer: *mut CFRunLoopTimer, _info: *mut c_void) {
     if PUMPING.swap(true, Ordering::AcqRel) {
+        MISSED.store(true, Ordering::Release);
         return;
     }
     match STATE.load(Ordering::Acquire) {
@@ -133,4 +150,22 @@ unsafe extern "C-unwind" fn pump(_timer: *mut CFRunLoopTimer, _info: *mut c_void
         _ => {}
     }
     PUMPING.store(false, Ordering::Release);
+    // A fire skipped inside the pump has had its next fire put off by the
+    // timer's whole interval; the work it was for runs now instead.
+    // SAFETY: CoreFoundation passes the timer that is firing, alive for
+    // the callout.
+    let Some(timer) = (unsafe { timer.as_ref() }) else {
+        return;
+    };
+    let now = CFAbsoluteTimeGetCurrent();
+    let next = if MISSED.swap(false, Ordering::AcqRel) {
+        now
+    } else if HURRY.load(Ordering::Acquire) {
+        now + HURRY_SECONDS
+    } else {
+        return;
+    };
+    if pump_moves(next, timer.next_fire_date(), now) {
+        timer.set_next_fire_date(next);
+    }
 }
