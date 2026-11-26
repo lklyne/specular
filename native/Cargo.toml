@@ -41,8 +41,8 @@ rustc-hash = "2.1"
 # GPUI snapshot with `=`, and the shell leans on three facts about that
 # snapshot's macOS backend that no API promises. `specular-shell` checks
 # them at startup, so a bump that breaks one fails on the first launch.
-gpui-kit = "=0.7.1"
-gpui-pre = "=0.3.8"
+gpui-kit = "=0.11.0"
+gpui-pre = "=0.3.14"
 # Waking GPUI from the canvas's own frame.
 futures = "0.3.34"
 # AppKit glue for the canvas view under GPUI's.

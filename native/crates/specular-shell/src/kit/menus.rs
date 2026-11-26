@@ -19,9 +19,11 @@
 //! draws it grey and does not match its key.
 
 use std::collections::HashSet;
+use std::rc::Rc;
 
 use gpui_kit::{
-    Action, App, Global, KeyBinding, Menu, MenuItem, PathPromptOptions, SystemMenuType, actions,
+    Action, App, Global, KeyBinding, KeyBindingContextPredicate, Menu, MenuItem, PathPromptOptions,
+    SystemMenuType, actions,
 };
 use specular_interact::{CanvasAction, Chord, Event, Key, MenuEntry, SHELL_KEYS, ShellCommand};
 
@@ -193,9 +195,9 @@ pub(crate) fn sync(models: &[specular_interact::Menu], cx: &mut App) {
             if let Some(keys) = keystroke(chord) {
                 // Both, so a greyed item still shows its key.
                 let command = MenuCommand { menu, item };
-                bindings.push(KeyBinding::new(&keys, command, Some(MENU_ONLY)));
+                bindings.extend(binding(&keys, command, Some(MENU_ONLY), cx));
                 let unavailable = MenuUnavailable { menu, item };
-                bindings.push(KeyBinding::new(&keys, unavailable, Some(MENU_ONLY)));
+                bindings.extend(binding(&keys, unavailable, Some(MENU_ONLY), cx));
                 cx.global_mut::<Shown>().bound.insert((menu, item, chord));
             }
         }
@@ -306,6 +308,16 @@ fn shell_action(command: ShellCommand) -> Box<dyn Action> {
     }
 }
 
+/// A binding for keys the shell builds at run time. GPUI's `KeyBinding::new`
+/// takes only static strings.
+fn binding(keys: &str, action: impl Action, context: Option<&str>, cx: &App) -> Option<KeyBinding> {
+    let predicate = match context {
+        Some(context) => Some(Rc::new(KeyBindingContextPredicate::parse(context).ok()?)),
+        None => None,
+    };
+    KeyBinding::load(keys, Box::new(action), predicate, false, None, cx).ok()
+}
+
 /// Does what the menu item for `command` does.
 pub(crate) fn run_shell(command: ShellCommand, cx: &mut App) {
     cx.dispatch_action(shell_action(command).as_ref());
@@ -314,21 +326,24 @@ pub(crate) fn run_shell(command: ShellCommand, cx: &mut App) {
 /// Binds the shell's own keys and installs every action's handler.
 pub(crate) fn install(cx: &mut App) {
     cx.set_global(Shown::default());
-    let shell_keys = SHELL_KEYS.iter().filter_map(|&(chord, command)| {
-        let keys = keystroke(chord)?;
-        Some(match command {
-            ShellCommand::Quit => KeyBinding::new(&keys, Quit, None),
-            ShellCommand::OpenSpace => KeyBinding::new(&keys, OpenSpace, None),
-            ShellCommand::OpenCanvas => KeyBinding::new(&keys, OpenCanvas, None),
-            ShellCommand::Save => KeyBinding::new(&keys, Save, None),
-            ShellCommand::Settings => KeyBinding::new(&keys, Preferences, None),
-            ShellCommand::Hide => KeyBinding::new(&keys, Hide, None),
-            ShellCommand::HideOthers => KeyBinding::new(&keys, HideOthers, None),
-            ShellCommand::Minimize => KeyBinding::new(&keys, Minimize, None),
-            ShellCommand::CommandPalette => KeyBinding::new(&keys, CommandPalette, None),
+    let shell_keys: Vec<KeyBinding> = SHELL_KEYS
+        .iter()
+        .filter_map(|&(chord, command)| {
+            let keys = keystroke(chord)?;
+            match command {
+                ShellCommand::Quit => binding(&keys, Quit, None, cx),
+                ShellCommand::OpenSpace => binding(&keys, OpenSpace, None, cx),
+                ShellCommand::OpenCanvas => binding(&keys, OpenCanvas, None, cx),
+                ShellCommand::Save => binding(&keys, Save, None, cx),
+                ShellCommand::Settings => binding(&keys, Preferences, None, cx),
+                ShellCommand::Hide => binding(&keys, Hide, None, cx),
+                ShellCommand::HideOthers => binding(&keys, HideOthers, None, cx),
+                ShellCommand::Minimize => binding(&keys, Minimize, None, cx),
+                ShellCommand::CommandPalette => binding(&keys, CommandPalette, None, cx),
+            }
         })
-    });
-    cx.bind_keys(shell_keys.chain([
+        .collect();
+    cx.bind_keys(shell_keys.into_iter().chain([
         // Not kept from a page: the Kit's root would move the focus on Tab,
         // and over the canvas Tab is a key like any other.
         KeyBinding::new("tab", CanvasKey, Some("Canvas")),
