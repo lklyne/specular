@@ -19,9 +19,19 @@ impl<W: ShellWindow> Runtime<W> {
     /// Applies `event` to the app and runs its effects in order. A page that
     /// cannot be hosted ends the run.
     pub fn dispatch(&mut self, event: Event) {
-        // Any event may change what a frame shows. The clock is the one
-        // sent with nothing to say, and it goes through `demand::tick`.
-        self.demand.changed();
+        self.apply(event, false);
+    }
+
+    /// [`dispatch`](Self::dispatch) for what the user did: a pointer, wheel,
+    /// key or input-method event. Frames keep coming for a moment after it
+    /// (see [`input`](Self::input)), unless all it did was reach the entered
+    /// page: that page's paint wakes the canvas, and nothing else is new.
+    pub fn dispatch_input(&mut self, event: Event) {
+        self.apply(event, true);
+    }
+
+    fn apply(&mut self, event: Event, input: bool) {
+        self.pages_settled = false;
         // `RUST_LOG=specular_shell::app::effects=trace` says why frames are
         // being drawn on a canvas that should be idle.
         if tracing::enabled!(tracing::Level::TRACE) {
@@ -29,7 +39,15 @@ impl<W: ShellWindow> Runtime<W> {
             let name = event.split([' ', '(', '{']).next().unwrap_or_default();
             tracing::trace!(event = name, "frame owed");
         }
+        let before = input.then(|| PageOnly::before(&self.app));
         let effects = update(&mut self.app, event);
+        // Any event may change what a frame shows. The clock is the one
+        // sent with nothing to say, and it goes through `demand::tick`.
+        match before {
+            Some(before) if before.still(&self.app, &effects) => {}
+            Some(_) => self.demand.input(),
+            None => self.demand.changed(),
+        }
         if let Some(sent) = self.sent.as_mut() {
             sent.extend(effects.iter().cloned());
         }
@@ -197,5 +215,35 @@ const fn leaves_memory(effect: &Effect) -> bool {
 fn warn_on_error<E: std::fmt::Display>(result: Result<(), E>) {
     if let Err(error) = result {
         tracing::warn!("{error}");
+    }
+}
+
+/// What an input event must leave alone to have only reached the entered
+/// page: the hover, and no gesture or tool that draws under the pointer.
+struct PageOnly {
+    hover: Option<EntityId>,
+}
+
+impl PageOnly {
+    fn before(app: &specular_interact::App) -> Self {
+        Self {
+            hover: app.session().hover.clone(),
+        }
+    }
+
+    /// Whether `effects` only sent input into a page (and set the cursor),
+    /// and the app is as it was for anything a frame draws.
+    fn still(&self, app: &specular_interact::App, effects: &[Effect]) -> bool {
+        let session = app.session();
+        let forwarded =
+            (effects.iter()).any(|effect| matches!(effect, Effect::ForwardInput { .. }));
+        let only_page = (effects.iter())
+            .all(|effect| matches!(effect, Effect::ForwardInput { .. } | Effect::SetCursor(_)));
+        forwarded
+            && only_page
+            && session.focus.page().is_some()
+            && session.gesture.is_none()
+            && session.tool == specular_interact::Tool::Select
+            && session.hover == self.hover
     }
 }

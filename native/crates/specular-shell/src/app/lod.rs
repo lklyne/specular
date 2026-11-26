@@ -28,6 +28,7 @@ impl<W: ShellWindow> Runtime<W> {
     /// this turn its new geometry as one resize: a page shown at a new size
     /// and a new scale is not first painted at the old scale.
     pub(super) fn settle_pages(&mut self, now: Instant) {
+        self.pages_settled = true;
         if self.options.paint_policy == PaintPolicy::ElectronLod
             && let Some(viewport) = self.gpu.as_ref().map(W::logical_viewport)
         {

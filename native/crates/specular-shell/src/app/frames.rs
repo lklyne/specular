@@ -119,7 +119,10 @@ impl<W: ShellWindow> Runtime<W> {
     /// Renders and presents one frame of the app as it stands. `None` when
     /// the window had no frame to give.
     pub fn draw(&mut self) -> Option<FrameSample> {
-        self.settle_pages(Instant::now());
+        // Graded once a turn: again here only if something changed since.
+        if !self.pages_settled {
+            self.settle_pages(Instant::now());
+        }
         let viewport = self.gpu.as_ref()?.logical_viewport();
         let started = Instant::now();
         let mut scene = if self.options.chrome {
