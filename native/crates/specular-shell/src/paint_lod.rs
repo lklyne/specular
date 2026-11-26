@@ -5,13 +5,15 @@
 //!
 //! A page's *display scale* is screen pixels per CSS pixel. It earns a frame
 //! rate (60/30/15) and a texture scale (1/0.5/0.25) by that scale, each with
-//! hysteresis so a zoom hovering near a boundary does not flap. Texture
+//! hysteresis so a zoom hovering near a boundary does not flap. The page the
+//! user is in paints at the display's rate instead (ADR 0053). Texture
 //! shrinks and grows wait for the camera to settle; an off-screen page stops
 //! painting and wakes at the texture scale it is owed.
 
 use std::time::{Duration, Instant};
 
-/// The full paint rate (`FULL_FRAME_RATE`).
+/// The full paint rate (`FULL_FRAME_RATE`), and the rate of a display that
+/// does not say its own.
 pub(crate) const FULL_FRAME_RATE: u32 = 60;
 
 /// `(min display scale, fps)`, large to small (`TIERS`).
@@ -161,11 +163,14 @@ impl PageLod {
     }
 
     /// One layout pass for a page showing at `display_scale` that is
-    /// `on_screen` or not: `setDisplayScale` then `setPainting`.
+    /// `on_screen` or not: `setDisplayScale` then `setPainting`. `focus_rate`
+    /// is the display's rate for the page the user is in (entered, or
+    /// filling its tab), which paints at it whatever its scale.
     pub(crate) fn update(
         &mut self,
         display_scale: f32,
         on_screen: bool,
+        focus_rate: Option<u32>,
         now: Instant,
     ) -> LodChange {
         let mut change = LodChange::default();
@@ -182,7 +187,8 @@ impl PageLod {
             self.wanted_texture = texture_tier_for_display_scale(display_scale, self.texture);
             self.reconcile_texture(false, now, &mut change);
         }
-        let next = frame_rate_for_display_scale(display_scale, self.frame_rate);
+        let next = focus_rate
+            .unwrap_or_else(|| frame_rate_for_display_scale(display_scale, self.frame_rate));
         if next != self.frame_rate {
             self.frame_rate = next;
             if self.painting {
@@ -236,9 +242,9 @@ mod tests {
     fn texture_shrink_waits_for_the_camera_to_settle() {
         let start = Instant::now();
         let mut lod = PageLod::default();
-        let first = lod.update(0.25, true, start);
-        let early = lod.update(0.25, true, start + TEXTURE_SHRINK_SETTLE / 2);
-        let settled = lod.update(0.25, true, start + TEXTURE_SHRINK_SETTLE);
+        let first = lod.update(0.25, true, None, start);
+        let early = lod.update(0.25, true, None, start + TEXTURE_SHRINK_SETTLE / 2);
+        let settled = lod.update(0.25, true, None, start + TEXTURE_SHRINK_SETTLE);
         // 0.25 is not 0.8x under the quarter boundary, so half is owed.
         assert_eq!(
             (first.texture, early.texture, settled.texture),
@@ -246,12 +252,34 @@ mod tests {
         );
         // Growing waits too, but for the shorter wait.
         let later = start + TEXTURE_SHRINK_SETTLE;
-        let wanted = lod.update(0.6, true, later);
-        let early = lod.update(0.6, true, later + TEXTURE_GROW_SETTLE / 2);
-        let grown = lod.update(0.6, true, later + TEXTURE_GROW_SETTLE);
+        let wanted = lod.update(0.6, true, None, later);
+        let early = lod.update(0.6, true, None, later + TEXTURE_GROW_SETTLE / 2);
+        let grown = lod.update(0.6, true, None, later + TEXTURE_GROW_SETTLE);
         assert_eq!(
             (wanted.texture, early.texture, grown.texture),
             (None, None, Some(TextureTier::Full))
         );
+    }
+
+    #[test]
+    fn a_page_paints_at_its_scales_tier_and_the_page_the_user_is_in_at_the_displays_rate() {
+        let now = Instant::now();
+        // (display scale, focus rate, rate asked for)
+        let rows = [
+            (1.0, None, None),
+            (0.3, None, Some(30)),
+            (0.1, None, Some(15)),
+            (0.3, Some(120), Some(120)),
+            (1.0, Some(120), Some(120)),
+        ];
+        for (scale, focus, asked) in rows {
+            let mut lod = PageLod::default();
+            let change = lod.update(scale, true, focus, now);
+            assert_eq!(change.frame_rate, asked, "scale {scale}, focus {focus:?}");
+        }
+        // Let go of, it falls back to its tier.
+        let mut lod = PageLod::default();
+        lod.update(1.0, true, Some(120), now);
+        assert_eq!(lod.update(1.0, true, None, now).frame_rate, Some(60));
     }
 }

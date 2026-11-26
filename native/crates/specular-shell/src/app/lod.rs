@@ -9,7 +9,7 @@ use specular_core::{PageId, PageSource};
 use specular_interact::to_canvas_rect;
 
 use super::runtime::{Runtime, ShellWindow};
-use crate::paint_lod::LodChange;
+use crate::paint_lod::{FULL_FRAME_RATE, LodChange};
 
 impl<W: ShellWindow> Runtime<W> {
     /// The window moved to a display of another scale: every page is asked
@@ -37,11 +37,20 @@ impl<W: ShellWindow> Runtime<W> {
     }
 
     /// One layout pass: grades every page by its on-screen scale and
-    /// visibility and applies what changed.
+    /// visibility and applies what changed. The page the user is in, entered
+    /// or filling its tab, paints at the display's rate. In a window no one
+    /// can see, no page paints.
     fn update_paint_lod(&mut self, viewport: Vec2, now: Instant) {
-        let window_scale = self.gpu.as_ref().map_or(1.0, W::scale_factor);
+        let Some(window) = self.gpu.as_ref() else {
+            return;
+        };
+        let window_scale = window.scale_factor();
+        let display_rate = window.refresh_rate().unwrap_or(FULL_FRAME_RATE);
+        let seen = !window.occluded();
         let camera = self.app.session().camera;
         let prepared = self.app.prepared_page();
+        let entered = self.app.session().focus.page();
+        let filling = self.app.filling_item();
         for (id, placement) in self.app.pages() {
             let Some(host) = self.hosts.get_mut(id) else {
                 continue;
@@ -56,7 +65,11 @@ impl<W: ShellWindow> Runtime<W> {
                     camera.is_visible(to_canvas_rect(placement.rect), viewport),
                 )
             };
-            let change = host.lod.update(display_scale, on_screen, now);
+            let in_use = [prepared, entered, filling].contains(&Some(id));
+            let focus_rate = in_use.then_some(display_rate);
+            let change = host
+                .lod
+                .update(display_scale, on_screen && seen, focus_rate, now);
             apply_lod_change(self.source.as_mut(), host.page, change, window_scale);
         }
     }

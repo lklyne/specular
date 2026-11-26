@@ -273,6 +273,14 @@ impl ShellWindow for CanvasSurface {
         self.slot_size
     }
 
+    fn refresh_rate(&self) -> Option<u32> {
+        self.native.refresh_rate()
+    }
+
+    fn occluded(&self) -> bool {
+        !self.native.visible()
+    }
+
     fn render(
         &mut self,
         camera: Camera,

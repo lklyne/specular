@@ -23,7 +23,7 @@ use crate::native::{Id, NativeCanvas};
 use crate::pacing::Pacing;
 use crate::surface::{CanvasSurface, WindowAsks};
 use crate::view::ShellView;
-use crate::{debug_input, keys, menus, motion, pins, refresh, spaces, theme};
+use crate::{debug_input, keys, menus, motion, pins, spaces, theme};
 
 /// The window size when the command line names none: the Electron app's.
 pub(crate) const DEFAULT_SIZE: (u32, u32) = (1600, 1000);
@@ -324,7 +324,8 @@ pub(crate) fn open(launch: Launch, cx: &mut App) -> anyhow::Result<()> {
     window.update(cx, |_, window, cx| -> anyhow::Result<()> {
         let mut native = install_canvas(window, cx, remembered, bench.is_some())?;
         native.start_display_link();
-        let refresh = refresh::interval(native.window_number());
+        let refresh = (native.refresh_rate())
+            .map(|hz| std::time::Duration::from_secs_f64(1.0 / f64::from(hz)));
         let mut surface = CanvasSurface::new(native, Rc::clone(&asks))?;
         surface.pacing = Pacing::from_env();
         let mut runtime = Runtime::new(source, options);

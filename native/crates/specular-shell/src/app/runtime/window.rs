@@ -25,6 +25,18 @@ pub trait ShellWindow {
     /// The canvas viewport in logical pixels.
     fn logical_viewport(&self) -> Vec2;
 
+    /// The refresh rate of the display the window is on, in Hz. `None`
+    /// for a window on no display.
+    fn refresh_rate(&self) -> Option<u32> {
+        None
+    }
+
+    /// Whether none of the window can be seen: minimised, on another space
+    /// or covered. Its pages then stop painting.
+    fn occluded(&self) -> bool {
+        false
+    }
+
     /// Draws `scene` into a texture of `viewport` logical pixels at the
     /// window's scale, whatever size the window is, and returns the PNG
     /// with its size in device pixels.
