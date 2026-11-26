@@ -1,6 +1,7 @@
 [workspace]
 resolver = "3"
 members = ["crates/*"]
+exclude = ["vendor"]
 
 [workspace.package]
 version = "0.11.2"
@@ -152,3 +153,12 @@ codegen-units = 1
 debug = false
 strip = true
 panic = "abort"
+
+# gpui-pre-macos 0.3.8 as published, except that a window's display link
+# stops once the window has gone a quarter second without drawing, and
+# gpui's frame demand (`frame_waker`, `schedule_frame`) starts it again.
+# Without it every visible window wakes the main thread at the display's
+# rate forever. The changes are marked `Specular:` in src/window.rs and
+# src/display_link.rs; diff against the registry copy to see them.
+[patch.crates-io]
+gpui-pre-macos = { path = "vendor/gpui-pre-macos" }
