@@ -110,9 +110,7 @@ impl Canvas {
     /// system gives no refreshes.
     pub(crate) fn timer_wait(&self, otherwise: Duration) -> Duration {
         match self.rest_until {
-            Some(until) if self.rest.paused => {
-                (until.saturating_duration_since(Instant::now())).min(otherwise)
-            }
+            Some(until) if self.rest.paused => until.saturating_duration_since(Instant::now()),
             _ => otherwise,
         }
     }

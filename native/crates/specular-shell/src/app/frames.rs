@@ -55,7 +55,19 @@ impl<W: ShellWindow> Runtime<W> {
             // event to wake on.
             return wake.min(now + AGENT_INTERVAL);
         }
+        if self.work_out() {
+            return wake.min(now + demand::IDLE_TURN);
+        }
         wake
+    }
+
+    /// Whether something the loop polls for is under way: an image or a
+    /// note on a loader thread, a page loading, a save due, a drop.
+    fn work_out(&self) -> bool {
+        !self.loads.files_ready()
+            || !self.loads.pages.is_empty()
+            || !self.dropped.is_empty()
+            || (self.files.as_ref()).is_some_and(crate::space::SpaceFiles::any_unsaved)
     }
 
     /// The user did something. Frames keep coming for a moment afterwards,
@@ -72,12 +84,12 @@ impl<W: ShellWindow> Runtime<W> {
         self.take_page_events();
     }
 
-    /// Has the page source call `wake` when a page queues a frame between
-    /// turns, so the shell takes it in and draws it without waiting for its
-    /// next turn. `wake` runs inside the backend's paint callback and may
-    /// only schedule that turn.
-    pub fn on_page_paint(&mut self, wake: impl Fn() + Send + Sync + 'static) {
-        self.source.set_paint_wake(Some(std::sync::Arc::new(wake)));
+    /// Has the page source call `wake` when a page queues an event (a
+    /// frame, a load, an answer) between turns, so the shell takes it in,
+    /// and draws a frame, without waiting for its next turn. `wake` runs
+    /// inside the backend's callback and may only schedule that turn.
+    pub fn on_page_event(&mut self, wake: impl Fn() + Send + Sync + 'static) {
+        self.source.set_page_wake(Some(std::sync::Arc::new(wake)));
     }
 
     /// Pumps the page source and hands on what its pages reported.

@@ -32,7 +32,7 @@ pub(crate) const DEFAULT_SIZE: (u32, u32) = (1600, 1000);
 pub(crate) const WELCOME_SIZE: (u32, u32) = (720, 540);
 /// How long the canvas may go without a frame before GPUI gives it a turn:
 /// a display link stops while its window is covered, and autosave must not.
-/// A canvas at rest pauses its own link and asks for its turns sooner.
+/// A canvas at rest pauses its own link and asks for its turns itself.
 const IDLE_TURN: Duration = Duration::from_millis(250);
 
 /// The window and its root view, for an action that needs them.
@@ -220,6 +220,19 @@ fn follow_system_appearance(window: AnyWindowHandle, cx: &mut App) -> anyhow::Re
     Ok(())
 }
 
+/// Turns the canvas when the window is covered, minimised or shown again,
+/// so its pages stop or start painting then and not at the next turn.
+fn follow_visibility(window: AnyWindowHandle, cx: &mut App) -> anyhow::Result<()> {
+    window.update(cx, |_, window, _| {
+        window
+            .observe_window_visibility(|_, _, _| {
+                canvas::with(canvas::Canvas::turn_now);
+            })
+            .detach();
+    })?;
+    Ok(())
+}
+
 /// What wakes the canvas besides the display link.
 struct Wakes {
     /// GPUI has something new to show.
@@ -228,12 +241,12 @@ struct Wakes {
     run_again: mpsc::Receiver<()>,
     /// An API request is waiting.
     api_woken: mpsc::Receiver<()>,
-    /// A page queued a frame.
-    painted: mpsc::Receiver<()>,
+    /// A page queued an event.
+    page_woken: mpsc::Receiver<()>,
 }
 
 /// The loops that turn the canvas: on a wake from a page or the agent, on
-/// a catch-up asked by a late frame, on an API request, on a page's paint,
+/// a catch-up asked by a late frame, on an API request, on a page's event,
 /// and on the idle timer that covers for a window the system gives no
 /// refreshes.
 fn spawn_loops(wakes: Wakes, cx: &mut App) {
@@ -241,11 +254,11 @@ fn spawn_loops(wakes: Wakes, cx: &mut App) {
         mut woken,
         mut run_again,
         mut api_woken,
-        mut painted,
+        mut page_woken,
     } = wakes;
     cx.spawn(async move |_| {
-        while painted.next().await.is_some() {
-            canvas::on_page_paint();
+        while page_woken.next().await.is_some() {
+            canvas::on_page_event();
         }
     })
     .detach();
@@ -263,10 +276,7 @@ fn spawn_loops(wakes: Wakes, cx: &mut App) {
     .detach();
     cx.spawn(async move |_| {
         while api_woken.next().await.is_some() {
-            canvas::with(|canvas| {
-                canvas.runtime.serve_api();
-                canvas.refresh_models();
-            });
+            canvas::with(canvas::Canvas::serve_api);
         }
     })
     .detach();
@@ -318,7 +328,7 @@ pub(crate) fn open(launch: Launch, cx: &mut App) -> anyhow::Result<()> {
     let (wake, woken) = mpsc::channel::<()>(1);
     let (api_wake, api_woken) = mpsc::channel::<()>(1);
     let (again, run_again) = mpsc::channel::<()>(1);
-    let (paint_wake, painted) = mpsc::channel::<()>(0);
+    let (page_wake, page_woken) = mpsc::channel::<()>(0);
     let remembered = remembers_place(&launch);
     let opening = launch.into_opening();
     window.update(cx, |_, window, cx| -> anyhow::Result<()> {
@@ -335,9 +345,9 @@ pub(crate) fn open(launch: Launch, cx: &mut App) -> anyhow::Result<()> {
         );
         runtime.attach_window(surface);
         // A full channel means a turn is already on its way.
-        let paint_wake = std::sync::Mutex::new(paint_wake);
-        runtime.on_page_paint(move || {
-            if let Ok(mut wake) = paint_wake.lock() {
+        let page_wake = std::sync::Mutex::new(page_wake);
+        runtime.on_page_event(move || {
+            if let Ok(mut wake) = page_wake.lock() {
                 let _ = wake.try_send(());
             }
         });
@@ -363,6 +373,7 @@ pub(crate) fn open(launch: Launch, cx: &mut App) -> anyhow::Result<()> {
     })??;
 
     follow_system_appearance(window, cx)?;
+    follow_visibility(window, cx)?;
     motion::follow_system(cx);
     cx.set_global(ShellHandle { window, view });
     keys::install_monitor();
@@ -380,7 +391,7 @@ pub(crate) fn open(launch: Launch, cx: &mut App) -> anyhow::Result<()> {
         woken,
         run_again,
         api_woken,
-        painted,
+        page_woken,
     };
     spawn_loops(wakes, cx);
     debug_input::run_from_env(window, cx);

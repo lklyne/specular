@@ -25,7 +25,7 @@ use std::thread::{self, ThreadId};
 
 use specular_core::{CssSize, FrameLayer, PageEvent, PageId, PageSpec, PixelRect, PixelSize};
 #[cfg(feature = "cef")]
-use specular_core::{PageDevice, PaintWake};
+use specular_core::{PageDevice, PageWake};
 
 use crate::coords::place_popup;
 #[cfg(feature = "cef")]
@@ -175,33 +175,33 @@ pub(crate) fn oldest_queued_frame(
 thread_local! {
     /// Events raised by handlers on the UI thread, drained by the source.
     static EVENTS: RefCell<Vec<PageEvent>> = const { RefCell::new(Vec::new()) };
-    /// What tells the host a frame was queued.
-    static PAINT_WAKE: RefCell<Option<PaintWake>> = const { RefCell::new(None) };
-    /// Whether a frame was queued since the last drain. Every paint after
+    /// What tells the host an event was queued.
+    static PAGE_WAKE: RefCell<Option<PageWake>> = const { RefCell::new(None) };
+    /// Whether an event was queued since the last drain. Every event after
     /// the first lands in the turn the first one woke.
-    static FRAME_QUEUED: Cell<bool> = const { Cell::new(false) };
+    static QUEUED: Cell<bool> = const { Cell::new(false) };
 }
 
 /// Moves every queued event into `out`. Call on the UI thread.
 #[cfg(feature = "cef")]
 pub(crate) fn drain_events(out: &mut Vec<PageEvent>) {
     EVENTS.with_borrow_mut(|events| out.append(events));
-    FRAME_QUEUED.set(false);
+    QUEUED.set(false);
 }
 
-/// Sets what a queued frame calls. Call on the UI thread.
+/// Sets what a queued event calls. Call on the UI thread.
 #[cfg(feature = "cef")]
-pub(crate) fn set_paint_wake(wake: Option<PaintWake>) {
-    PAINT_WAKE.set(wake);
+pub(crate) fn set_page_wake(wake: Option<PageWake>) {
+    PAGE_WAKE.set(wake);
 }
 
-/// Tells the host of the first frame queued since the last drain.
+/// Tells the host of the first event queued since the last drain.
 #[cfg(feature = "cef")]
-fn frame_queued() {
-    if FRAME_QUEUED.replace(true) {
+fn queued() {
+    if QUEUED.replace(true) {
         return;
     }
-    let wake = PAINT_WAKE.with_borrow(Clone::clone);
+    let wake = PAGE_WAKE.with_borrow(Clone::clone);
     if let Some(wake) = wake {
         wake();
     }
@@ -256,11 +256,8 @@ impl PageContext {
     /// Queues `event` for the source, if called on the UI thread.
     pub(crate) fn push(&self, event: PageEvent) {
         if thread::current().id() == self.ui_thread {
-            let frame = matches!(event, PageEvent::Frame(_));
             EVENTS.with_borrow_mut(|events| events.push(event));
-            if frame {
-                frame_queued();
-            }
+            queued();
         } else {
             tracing::warn!(page = %self.id, "CEF callback off the UI thread; event dropped");
         }

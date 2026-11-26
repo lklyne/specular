@@ -42,12 +42,13 @@ pub const DEVTOOLS_CLIENT_ID_BASE: i32 = 1 << 30;
 /// from inside [`PageSource::pump`] or the backend's own message loop.
 pub type DevtoolsSink = Arc<dyn Fn(PageId, &str) + Send + Sync>;
 
-/// Called when a page queues a frame, so its host takes it in at once and
-/// not at its next turn. Called on the thread that drains the events, from
-/// inside the backend's paint callback: it may only schedule a turn, never
-/// run one. A source calls it for the first frame queued after each
-/// [`PageSource::drain_events`], so the paints a turn takes in wake it once.
-pub type PaintWake = Arc<dyn Fn() + Send + Sync>;
+/// Called when a page queues an event (a frame, a load, an answer), so its
+/// host takes it in at once and not at its next turn. Called on the thread
+/// that drains the events, from inside the backend's callback: it may only
+/// schedule a turn, never run one. A source calls it for the first event
+/// queued after each [`PageSource::drain_events`], so the events a turn
+/// takes in wake it once.
+pub type PageWake = Arc<dyn Fn() + Send + Sync>;
 
 /// What a pointer did to an element: the two things interaction sync
 /// replays (ADR 0030).
@@ -149,10 +150,11 @@ pub trait PageSource {
         false
     }
 
-    /// Sets what is called when a page queues a frame between pumps. A
-    /// source whose pages only paint inside [`pump`](Self::pump) has nothing
-    /// to wake its host for, and keeps the default, which ignores it.
-    fn set_paint_wake(&mut self, _wake: Option<PaintWake>) {}
+    /// Sets what is called when a page queues an event between pumps. A
+    /// source whose pages only report inside [`pump`](Self::pump) has
+    /// nothing to wake its host for, and keeps the default, which ignores
+    /// it.
+    fn set_page_wake(&mut self, _wake: Option<PageWake>) {}
 
     /// Moves every pending event into `out` (appending; `out` is not cleared),
     /// so the caller can reuse one buffer across frames.
