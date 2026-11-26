@@ -280,12 +280,29 @@ impl Api {
             (Post, ["annotations", "fix"]) => fix::fix(app, request),
             (Post, ["annotations", id, verb]) => annotations::respond(app, request, id, verb),
             (Delete, ["annotations", id]) => annotations::delete(app, id),
+            (Post, ["session", "presence"]) => Ok(report(request.text("labelKey"))),
+            (Post, ["mcp", "session", "close"]) => Ok(report(Some("departing"))),
             (Post, ["window", "screenshot"]) => Ok(Step::Screenshot(Screenshot {
                 path: request.text("path").map(PathBuf::from),
                 area: ShotArea::Window,
             })),
             _ => unported::answer(request, segments),
         }
+    }
+}
+
+/// What the CLI says its agent is doing, for that agent's cursor. A report
+/// with no label moves nothing.
+fn report(key: Option<&str>) -> Step {
+    let done = json!({ "ok": true });
+    match key {
+        Some(key) => Step::Run(
+            ApiRun::Report {
+                key: key.to_owned(),
+            },
+            Reply::Fixed(done),
+        ),
+        None => Step::Answer(done),
     }
 }
 

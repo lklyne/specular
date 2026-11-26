@@ -11,6 +11,7 @@ mod images;
 mod motion;
 mod palette;
 mod physical_key;
+mod presence;
 mod resizes;
 mod shared;
 mod space;
