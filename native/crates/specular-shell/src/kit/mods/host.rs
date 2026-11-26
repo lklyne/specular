@@ -113,7 +113,7 @@ pub(super) fn components(revisions: Rc<RefCell<Revisions>>) -> Components {
         .with("Share", |_, _, _| crate::view::share_slot())
         .with("Prism", |_, _, _| {
             crate::mods::hero()
-                .map_or_else(|| div().into_any_element(), |hero| hero.into_any_element())
+                .map_or_else(|| div().into_any_element(), gpui_kit::IntoElement::into_any_element)
         })
         .with("Icon", move |args, window, cx| {
             let control = control_of(args.props());
