@@ -55,17 +55,14 @@ pub(crate) fn settle(app: &mut App) {
 /// every comment on the focused comment's mark.
 fn targets(app: &App, id: Option<&AnnotationId>) -> Vec<AnnotationId> {
     if let Some(id) = id {
-        return (app.document.annotation(id))
-            .map(|_| vec![id.clone()])
-            .unwrap_or_default();
+        return (app.document.annotation(id)).map_or_default(|_| vec![id.clone()]);
     }
     let Some(focused) = &app.session.focused_comment else {
         return Vec::new();
     };
     (app.comment_marks().into_iter())
         .find(|mark| mark.members.contains(focused))
-        .map(|mark| mark.members)
-        .unwrap_or_default()
+        .map_or_default(|mark| mark.members)
 }
 
 /// Marks the targets resolved, by the user, as one step. A comment already

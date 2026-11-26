@@ -167,8 +167,7 @@ fn result(message: &Value) -> Vec<Notice> {
     let errors: Vec<&str> = message
         .get("errors")
         .and_then(Value::as_array)
-        .map(|list| list.iter().filter_map(Value::as_str).collect())
-        .unwrap_or_default();
+        .map_or_default(|list| list.iter().filter_map(Value::as_str).collect());
     let error = if !errors.is_empty() {
         errors.join("; ")
     } else if !text.is_empty() {

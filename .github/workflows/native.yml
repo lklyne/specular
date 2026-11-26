@@ -46,7 +46,7 @@ jobs:
 
   macos-cef:
     name: check with CEF (macOS)
-    runs-on: macos-14
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable

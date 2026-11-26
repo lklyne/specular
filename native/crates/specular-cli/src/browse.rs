@@ -228,7 +228,7 @@ fn mutation_failed(
     } else {
         String::new()
     };
-    let prefix = warning.map(|w| format!("{w}\n\n")).unwrap_or_default();
+    let prefix = warning.map_or_default(|w| format!("{w}\n\n"));
     anyhow::anyhow!("{prefix}{error}{hint}")
 }
 
