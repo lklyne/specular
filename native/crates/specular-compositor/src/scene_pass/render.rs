@@ -143,10 +143,12 @@ impl Compositor {
             fonts,
             images,
             viewports_inside_target,
+            samples,
             ..
         } = scene_pass;
 
-        start_text(text, fonts, device, queue, *target_format, scene);
+        let spec = (*target_format, *samples);
+        start_text(text, fonts, device, queue, spec, scene);
         if let Some(text) = text {
             text.begin_frame(device, view, zooming, *viewports_inside_target);
         }
@@ -233,22 +235,24 @@ impl Compositor {
             text,
             multisampled,
             images,
+            samples,
             ..
         } = &mut self.scene_pass;
-        let attachment =
-            MultisampledTarget::for_size(multisampled, &self.device, self.target_format, size);
-        let pipelines = &self.pipelines.multisampled;
+        let gpu = (&self.device, self.target_format, *samples);
+        let (view, resolve_target, store) =
+            MultisampledTarget::attachment(multisampled, gpu, size, target);
+        let pipelines = &self.pipelines.scene;
         let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("specular-scene"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: attachment,
+                view,
                 depth_slice: None,
-                resolve_target: Some(target),
+                resolve_target,
                 ops: wgpu::Operations {
-                    // The grid overwrites every pixel, and only the resolved
-                    // target is kept.
+                    // The grid overwrites every pixel, and only the target
+                    // is kept.
                     load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
-                    store: wgpu::StoreOp::Discard,
+                    store,
                 },
             })],
             ..wgpu::RenderPassDescriptor::default()
@@ -336,13 +340,19 @@ fn start_text(
     fonts: &crate::fonts::Fonts,
     device: &wgpu::Device,
     queue: &wgpu::Queue,
-    target_format: wgpu::TextureFormat,
+    (target_format, samples): (wgpu::TextureFormat, u32),
     scene: &Scene,
 ) {
     let has_text =
         (scene.items.iter()).any(|item| matches!(item.draw, Draw::Text(_) | Draw::Column(_)));
     if text.is_none() && has_text {
-        *text = Some(TextSystem::new(device, queue, target_format, fonts.clone()));
+        *text = Some(TextSystem::new(
+            device,
+            queue,
+            target_format,
+            samples,
+            fonts.clone(),
+        ));
     }
 }
 

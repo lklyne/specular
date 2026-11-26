@@ -122,6 +122,8 @@ pub(crate) struct ScenePass {
     text: Option<TextSystem>,
     /// The fonts the text system shapes with, and any measure handed out.
     fonts: Fonts,
+    /// Samples per pixel; above 1 the pass draws into `multisampled`.
+    samples: u32,
     multisampled: Option<MultisampledTarget>,
     images: HashMap<ImageId, ImageTexture>,
     /// Whether text is drawn only through viewports inside the target.
@@ -136,9 +138,10 @@ impl ScenePass {
         queue: &wgpu::Queue,
         target_format: wgpu::TextureFormat,
     ) {
-        let fonts = &self.fonts;
-        self.text
-            .get_or_insert_with(|| TextSystem::new(device, queue, target_format, fonts.clone()));
+        let (fonts, samples) = (&self.fonts, self.samples);
+        self.text.get_or_insert_with(|| {
+            TextSystem::new(device, queue, target_format, samples, fonts.clone())
+        });
     }
 
     /// The height of each owned column the latest frame drew.
@@ -151,7 +154,7 @@ impl ScenePass {
         GlyphMeasure::sharing(self.fonts.clone())
     }
 
-    pub(crate) fn new(device: &wgpu::Device) -> Self {
+    pub(crate) fn new(device: &wgpu::Device, samples: u32) -> Self {
         Self {
             placed: Vec::new(),
             batcher: Batcher::default(),
@@ -167,6 +170,7 @@ impl ScenePass {
             ),
             text: None,
             fonts: Fonts::default(),
+            samples,
             multisampled: None,
             images: HashMap::new(),
             viewports_inside_target: false,

@@ -1,8 +1,8 @@
 //! Laying a space's text batches out, or reusing what is held.
 
 use super::{
-    Areas, Laid, Placement, Resolution, SCENE_SAMPLES, Slot, Space, TextArea, TextBatch,
-    TextCounts, TextFrame, TextItem, TextRenderer, TextSystem, Viewport, member_key, solid,
+    Areas, Laid, Placement, Resolution, Slot, Space, TextArea, TextBatch, TextCounts, TextFrame,
+    TextItem, TextRenderer, TextSystem, Viewport, member_key, solid,
 };
 
 impl TextSystem {
@@ -15,14 +15,14 @@ impl TextSystem {
         moving: bool,
         counts: &mut TextCounts,
     ) {
-        let cache = &self.cache;
+        let (cache, samples) = (&self.cache, self.samples);
         let layer = match frame.space {
             Space::Canvas => &mut self.canvas,
             Space::Screen => &mut self.screen,
         };
         while layer.slots.len() < batches.len() {
             let multisample = wgpu::MultisampleState {
-                count: SCENE_SAMPLES,
+                count: samples,
                 ..wgpu::MultisampleState::default()
             };
             layer.slots.push(Slot {
