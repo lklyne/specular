@@ -1,6 +1,6 @@
 # ADR 0053: Page frames follow the display, and the canvas pass loses multisampling
 
-**Status:** Proposed. Not built. Items 1 to 3 are decided on what the code shows; items 4 and 5 wait on numbers the spike takes ([`docs/plans/rune-spike.md`](../plans/rune-spike.md)).
+**Status:** Proposed. Item 2 is built (the CEF source wakes the Kit canvas on a queued frame; see the follow-ups plan's Phase 2 log); the rest is not. Items 1 to 3 are decided on what the code shows; items 4 and 5 wait on numbers the spike takes ([`docs/plans/rune-spike.md`](../plans/rune-spike.md)).
 **Date:** 2026-11-25
 **Related:** [ADR 0038](./0038-offscreen-texture-canvas-for-live-pages.md), every page a texture. [ADR 0039](./0039-rust-canvas-render-stack.md), the canvas pass. [ADR 0045](./0045-item-view-as-session-state.md), the Fill lens. [ADR 0035](./0035-idle-cpu-throttling-for-pages.md), the tiers this keeps for pages that are not entered. [ADR 0051](./0051-rune-shell-around-the-compositor.md).
 
