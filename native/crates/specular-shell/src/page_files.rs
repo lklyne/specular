@@ -63,8 +63,10 @@ impl PageFiles {
         }
         self.checked_at = Some(now);
         let mut changed = self.polled.changed();
+        // Pages often share a folder, which is read once a look.
+        let mut folders = HashMap::new();
         for (page, (path, paths)) in &mut self.loads {
-            let now = watched_paths(path);
+            let now = watched_paths_in(path, &mut folders);
             if now != *paths {
                 self.polled.watch(page.clone(), now.clone());
                 *paths = now;
@@ -79,15 +81,29 @@ impl PageFiles {
 
 /// The page's own file and the siblings beside it, in a stable order.
 fn watched_paths(path: &Path) -> Vec<PathBuf> {
+    watched_paths_in(path, &mut HashMap::new())
+}
+
+/// [`watched_paths`], with the sibling files of each folder already read
+/// taken from `folders`.
+fn watched_paths_in(path: &Path, folders: &mut HashMap<PathBuf, Vec<PathBuf>>) -> Vec<PathBuf> {
     let mut paths = vec![path.to_owned()];
     if let Some(folder) = path.parent() {
-        let entries = fs::read_dir(folder).into_iter().flatten().flatten();
-        paths.extend((entries.map(|entry| entry.path())).filter(|entry| {
-            entry != path
-                && (entry.extension().and_then(|it| it.to_str()))
-                    .is_some_and(|it| SIBLINGS.iter().any(|known| it.eq_ignore_ascii_case(known)))
-        }));
-        paths[1..].sort();
+        let siblings = (folders.entry(folder.to_owned())).or_insert_with(|| siblings_in(folder));
+        paths.extend(siblings.iter().filter(|entry| *entry != path).cloned());
     }
     paths
+}
+
+/// The files in `folder` a page there may have loaded, sorted.
+fn siblings_in(folder: &Path) -> Vec<PathBuf> {
+    let entries = fs::read_dir(folder).into_iter().flatten().flatten();
+    let mut siblings: Vec<_> = (entries.map(|entry| entry.path()))
+        .filter(|entry| {
+            (entry.extension().and_then(|it| it.to_str()))
+                .is_some_and(|it| SIBLINGS.iter().any(|known| it.eq_ignore_ascii_case(known)))
+        })
+        .collect();
+    siblings.sort();
+    siblings
 }
