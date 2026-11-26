@@ -1,0 +1,22 @@
+[package]
+name = "specular-mods"
+description = "The mod host (ADR 0055): mods run by gpui-shell, the `specular` host module, mod.json, and which keys each mod read."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+anyhow = { workspace = true }
+gpui-pre = { workspace = true }
+gpui-shell = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+gpui-pre = { workspace = true, features = ["test-support"] }
+
+[lints]
+workspace = true

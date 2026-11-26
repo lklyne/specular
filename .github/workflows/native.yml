@@ -37,6 +37,9 @@ jobs:
       # which prints one pass or FAIL line each and is skipped with a note
       # when the runner has no GPU adapter.
       - run: cargo test --workspace --locked
+      # The mod runtime's frame budget (ADR 0055): a scripted toolbar's
+      # median render under 2 ms and none over 8 ms, in a release build.
+      - run: cargo test -p specular-mods --release --locked --test toolbar -- --nocapture
       - if: failure()
         uses: actions/upload-artifact@v4
         with:
