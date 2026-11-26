@@ -21,6 +21,7 @@
 //! gesture that creates an entity works the same way: the entity is in the
 //! document while it is dragged out, and [`App::creating`] names it.
 
+mod agent_wake;
 mod anchor;
 mod anchors;
 mod api;

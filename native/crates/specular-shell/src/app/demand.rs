@@ -133,6 +133,10 @@ impl FrameDemand {
         if let Some(ms) = app.next_frame_in_ms() {
             wake = wake.min(now + Duration::from_millis(ms));
         }
+        // A page an agent drove goes back to sleep on time.
+        if let Some(ms) = app.agent_wake_lapses_in_ms() {
+            wake = wake.min(now + Duration::from_millis(ms));
+        }
         // A camera transition, a page turning, an agent cursor on its way
         // and a swipe or a glide on a touch page are stepped by the clock,
         // a frame at a time.

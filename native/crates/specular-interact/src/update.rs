@@ -108,7 +108,11 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         Event::SettingsLoaded(settings) => crate::settings::load(app, settings),
         Event::About(rows) => app.about = rows,
         Event::SpaceNeeded(ask) => app.space_ask = Some(ask),
-        Event::AgentAct(act) => crate::presence::on_act(app, act, &mut effects),
+        Event::AgentAct(act) => {
+            crate::agent_wake::on_drive(app, act.page.clone());
+            crate::presence::on_act(app, act, &mut effects);
+        }
+        Event::AgentDrove(page) => crate::agent_wake::on_drive(app, page),
         Event::Api(call) => api::run(app, call, &mut effects),
         Event::Share(event) => crate::shared::on_event(app, event, &mut effects),
     }
@@ -354,6 +358,7 @@ fn on_tick(app: &mut App, unix_ms: u64, effects: &mut Vec<Effect>) {
     crate::showing::turn::on_tick(app);
     sync::on_tick(app, effects);
     crate::presence::on_tick(app, effects);
+    crate::agent_wake::on_tick(app);
     crate::flick::on_tick(app, effects);
     // A camera transition has taken this tick's step, which an svg's raster
     // waits out like any other zoom.

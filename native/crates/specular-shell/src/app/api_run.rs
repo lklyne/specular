@@ -40,8 +40,13 @@ impl<W: ShellWindow> Runtime<W> {
             api.serve(self);
             self.api = Some(api);
         }
-        if let Some(cdp) = self.cdp.as_mut() {
-            let acts = cdp.serve(self.source.as_mut());
+        if let Some(cdp) = self.cdp.take() {
+            let said = cdp.take();
+            // A page that is not painting is woken before it is spoken to,
+            // so a screenshot or a wait finds it running.
+            self.agent_drove(said.pages());
+            let acts = cdp.send(said, self.source.as_mut());
+            self.cdp = Some(cdp);
             // A backend with no loop of its own answers when pumped.
             self.source.pump();
             for (act, scroll) in acts {
@@ -111,13 +116,13 @@ impl<W: ShellWindow> Host for Runtime<W> {
     }
 
     fn page_script(&mut self, script: PageScript, reply: LaterReply) {
-        let Some(cdp) = self.cdp.as_ref() else {
+        if self.cdp.is_none() {
             reply(Response::error(
                 503,
                 "the page devtools channel did not start; see the app's log",
             ));
             return;
-        };
+        }
         let Some(host) = self.hosts.get(&script.page).map(|host| host.page) else {
             reply(Response::error(
                 503,
@@ -126,6 +131,10 @@ impl<W: ShellWindow> Host for Runtime<W> {
             return;
         };
         let page = script.page.clone();
+        self.agent_drove(vec![page.clone()]);
+        let Some(cdp) = self.cdp.as_ref() else {
+            return;
+        };
         cdp.run_script(self.source.as_mut(), (&page, host), script, reply);
         // A backend with no loop of its own answers when pumped.
         self.source.pump();
