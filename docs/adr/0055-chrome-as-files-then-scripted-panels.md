@@ -1,6 +1,6 @@
 # ADR 0055: The interface as mods: scripted chrome and tools on the Kit shell, pages as canvas extensions
 
-**Status:** Proposed, revised 2026-11-26. The first version (2026-11-25) put the scripts on Rune's Luau lane and went on hold when [ADR 0051](./0051-rune-shell-around-the-compositor.md) was deferred. This version moves them to `gpui-shell` on the GPUI Kit shell that stays ([ADR 0040](./0040-gpui-kit-hybrid-shell.md)), and opens the API from "restyle the controls Rust lists" to "show, hide, replace or add any part of the chrome, and add tools and new kinds of canvas item". Not built.
+**Status:** Proposed, revised 2026-11-26. The first version (2026-11-25) put the scripts on Rune's Luau lane and went on hold when [ADR 0051](./0051-rune-shell-around-the-compositor.md) was deferred. This version moves them to `gpui-shell` on the GPUI Kit shell that stays ([ADR 0040](./0040-gpui-kit-hybrid-shell.md)), and opens the API from "restyle the controls Rust lists" to "show, hide, replace or add any part of the chrome, and add tools and new kinds of canvas item, with their own GPU shaders". Not built.
 **Date:** 2026-11-25
 **Related:** [ADR 0044](./0044-ui-as-pure-models-with-replaceable-renderers.md), the panel models. [ADR 0016](./0016-tools-as-capability-registry.md), tools as a registry. [ADR 0052](./0052-one-runner-one-state-document.md), the state document and action table this reuses. [ADR 0054](./0054-every-editor-is-an-actor.md), actors. [ADR 0051](./0051-rune-shell-around-the-compositor.md), the deferred Rune shell the first version depended on.
 
@@ -44,10 +44,11 @@ A mod can add a new kind of thing to the canvas, not only arrange the chrome aro
 
 - **Mod items.** `Kind` gets one variant, `Kind::Mod(ModItem)`: the mod's name, its props as JSON, and the frame every item has. It moves, resizes, groups, syncs, undoes and saves like any other item, because those are done by the canvas on the frame, not by the mod. With one variant the no-wildcard rule holds and the compiler lists every place that must handle mod items once.
 - **In the `.canvas` file.** A mod item is a JSON Canvas node whose `specular` fields name the mod and hold its props. Its base `type` is a fallback other tools can show: a `link` or `file` node when the item wraps a URL or a file, otherwise a `text` node with the mod's name. A space whose mod is missing shows a placeholder and keeps the props untouched.
-- **What an item shows.** Its content is one of three surfaces, all composited by the canvas pass so a pan or zoom never enters the script:
+- **What an item shows.** Its content is one of four surfaces, all composited by the canvas pass so a pan or zoom never enters the script:
   - **A description**: rects, paths, text, images and video frames in item space, kept by the canvas and redrawn from the description until the script changes it. Paths can be stamped strokes: a texture stamped along the points with per-point size, opacity and jitter, and a blend mode, for a simple textured brush. This is what an image viewer or a chart uses.
   - **Web content**: an HTML file from the mod's folder or a granted URL, hosted by CEF the way a page is, with the bridge to read the snapshot and `run`. A page-like viewer is this.
   - **A frame source**: a stream of frames from a host module (a camera, a screen, a video file, a phone, a local process), drawn through the same import path as a page's frames (`PageSource` in `specular-core`). A recorder or a mirror is this.
+  - **A GPU surface**: a texture the mod renders into with its own WGSL shaders through the `gpu` host module, on the canvas's device. A watercolor brush or a 3D viewer is this.
 - **Input.** A mod item gets pointer, wheel and key events in item space once it is entered, the way a page is entered, and the canvas keeps select, move and resize when it is not.
 - **State.** Durable state is the item's props, changed through `run("item.set", {id, props})`, so it is one undo step on the actor that made it and syncs through ADR 0054's mirror. Transient state (a playing stream, a scroll offset) stays in the mod.
 - **Tools.** A mod can register a tool: an id, an icon, a cursor, a key, and pointer handlers in world coordinates. While the pointer is down the tool returns a preview description that the canvas draws in world space. On release it commits through `run`, as one undo step, usually by placing one of its own items. `Tool` gets one variant, `Tool::Mod(ModToolId)`, and the registry of ADR 0016 lists shipped and scripted tools together.
@@ -82,7 +83,7 @@ A mod is JavaScript, but what it can reach is Rust. `gpui-shell` calls these hos
 - `media`: decode images and video, play audio, and turn a stream into a frame source: a URL (HLS, MJPEG, WebRTC), a file, or a local process that writes frames.
 - `capture`: camera, microphone and screen, through the OS's own permission prompts, and recording to a file.
 - `process`: start a helper program and talk to it over its pipes.
-- `gpu`, later: the WebGPU API (`navigator.gpu`, WGSL) bound onto the canvas's own wgpu device, so a mod can render into a texture the canvas pass draws with no copy. wgpu already implements WebGPU, and naga validates every shader, which is the sandbox for a mod's own WGSL.
+- `gpu`: the WebGPU API, on the canvas's own wgpu device. Specified in the next section.
 
 Each one is behind a capability in `mod.json`. When a mod needs something no host module offers (a phone's screen over USB, say), the answer is a new host module in Rust, added under the core rule, and every mod gets it. Most needs can be met sooner by `process` plus `media`: a helper program that already speaks to the device writes frames, and the mod shows them.
 
@@ -101,6 +102,44 @@ The same split fits us, and the alternatives do not:
 
 So: Rust for the host, the canvas, the document and host modules; JavaScript for the chrome, mod items, tools and everything a person or an agent adds.
 
+## The `gpu` host module
+
+A mod that brings its own shaders (a watercolor brush, a particle field, a shader toy, a 3D viewer) renders on the GPU through `gpu`. It is the WebGPU API, run by the wgpu the canvas already uses (`wgpu` 30), on the canvas's own device, so what a mod draws is a texture the canvas pass samples with no copy and no second process.
+
+**The API.** The W3C WebGPU JavaScript API, so code written for the browser runs as it is: `navigator.gpu.requestAdapter()` and `requestDevice()`, then buffers, textures, samplers, bind groups and layouts, WGSL shader modules, compute and render pipelines, command encoders, `queue.writeBuffer`, `writeTexture`, `submit`, `onSubmittedWorkDone`, and `mapAsync` for reading back. A library that accepts a device, as `webgpu-brush`'s `initDevice({ device })` and three.js's `WebGPURenderer` do, works without change, and that is a test. Left out to begin with: an HTML canvas context (there is no DOM; see surfaces below), SPIR-V and GLSL, timestamp and occlusion queries for mods, and video as an external texture (later, from `media`'s frame sources).
+
+**Surfaces.** A mod draws into a surface the host gives it, not a swap chain:
+
+- `gpu.surface(itemId, { scale })` returns a texture sized to the item in device pixels (times `scale`), double-buffered. The mod renders into it and calls `present()`. The item's content is then that surface, the fourth kind beside a description, web content and a frame source.
+- The canvas keeps drawing the last presented texture through a pan or zoom without entering the script. When a zoom settles, the mod gets a `resolution` event with the new size, and may re-render sharper. The camera stays out of the snapshot.
+- A tool's preview can be a surface too, so a brush shows its real paint while the pointer is down.
+
+**Sharing the device safely.** One wgpu device serves the canvas and every mod.
+
+- Each mod's objects live in their own arena. Handles are opaque and scoped to the mod: a mod cannot name another mod's resources or the canvas's own, and its surface is the only canvas-visible texture it can write.
+- A mod's command buffers are submitted by the host on the canvas's queue, before the canvas pass of that frame, so a presented surface is ready when it is sampled, with no extra synchronization.
+- Device loss is reported to every mod as `device.lost`, and each one recreates its resources, as a browser page would.
+
+**Validation.** Nothing a mod sends reaches the driver unchecked.
+
+- Every shader is WGSL, parsed and validated by naga. There is no passthrough: no SPIR-V, no MSL, no unchecked shader creation.
+- Shaders are compiled with naga's bounds checks on, so an out-of-range index in a buffer or texture read is clamped and cannot read another mod's memory.
+- Every call goes through wgpu's validation: usage flags, bind group layouts, buffer ranges, texture formats, limits. An error goes to the mod's `device` as a WebGPU error, never a panic.
+
+**Limits.** Per mod, set by the host, raisable in the manifest up to a cap:
+
+- Memory: 256 MB of buffers and textures by default. An allocation past it fails as an out-of-memory error.
+- Size: at most 8,192 pixels a side for a texture, and the WebGPU default limits for everything else.
+- Time: the host measures each mod's GPU time per frame from timestamp queries where the adapter has them, otherwise from submission to completion. A mod over 4 ms a frame for a second is throttled to fewer frames, and one that keeps on is suspended with an error card. A GPU cannot be preempted, so a single runaway dispatch can still stall the frame. That is why `gpu` is a granted capability and not a default.
+
+**Permission.** `"capabilities": { "gpu": { "memory": "512MB" } }` in `mod.json`. It is shown before the mod first runs, like any other grant, and a shipped mod that uses it is listed in the test of shipped grants.
+
+**Binding.** The objects are Rust classes exposed to QuickJS. Their promises (`requestDevice`, `mapAsync`, `onSubmittedWorkDone`) resolve on the host's event loop, and data crosses as typed arrays copied into wgpu's queue. Deno binds WebGPU to V8 over `wgpu-core` in `deno_webgpu`, and its Rust layer is the reference, and possibly reusable.
+
+**Headless.** `specular mod check` and the headless runs use a headless wgpu adapter where one exists, and `check` can save a surface as a PNG, so a GPU mod is checked like any other.
+
+**Web content is separate.** A page or a mod's web content in CEF has Chromium's own WebGPU, on its own device, and reaches the canvas as frames through the page import path. `gpu` is for mods that render natively and share the canvas's device.
+
 ## The watercolor brush and `webgpu-brush`
 
 The brush test uses `webgpu-brush` (npm `webgpu-brush` 3.0.0, Lyle's WebGPU port of p5.brush), not stamped strokes. It paints natural brushes, washes and hatching in WGSL compute and render passes, with the geometry kept on the GPU. Two facts decide where it can run:
@@ -110,8 +149,8 @@ The brush test uses `webgpu-brush` (npm `webgpu-brush` 3.0.0, Lyle's WebGPU port
 
 So the brush is built in two steps:
 
-1. **Now, as web content.** The brush's items show web content: a page from the mod's folder runs `webgpu-brush` in CEF, which has WebGPU, and the canvas draws its frames like any page's. The tool sends the stroke's points over the bridge, and the points are the item's props, so the stroke reloads, syncs and undoes as data. This needs no new host module.
-2. **Later, on the `gpu` host module.** The same code is handed the canvas's own device and paints into a texture the canvas pass draws. That drops a browser per brush layer and the frame copy, and is the general route for any mod that brings its own shaders.
+1. **First, as web content.** The brush's items show web content: a page from the mod's folder runs `webgpu-brush` in CEF, which has WebGPU, and the canvas draws its frames like any page's. The tool sends the stroke's points over the bridge, and the points are the item's props, so the stroke reloads, syncs and undoes as data. This needs no new host module.
+2. **Then on the `gpu` host module.** The same code is handed the canvas's own device (`initDevice({ device })`) and paints into an item's surface. That drops a browser per brush layer and the frame copy. The brush running unchanged on `gpu` is that module's acceptance test.
 
 ## Sandbox
 
@@ -155,7 +194,8 @@ S7 ran the toolbar as a Luau script (181 lines; the Rust one is 273) beside the 
 
 - What `gpui-shell` costs inside the Kit shell: build time, binary size, and a render of the sidebar on a canvas with hundreds of items.
 - How a scripted tool's or an entered mod item's pointer moves stay cheap: coalesced to the display rate, or with the preview kept host-side between script calls.
-- How much work the `gpu` host module is: binding WebGPU onto QuickJS over wgpu (Deno does the same over V8 in `deno_webgpu`), and the limits that keep one mod from starving the canvas of GPU time or memory.
+- How much of `deno_webgpu` can be reused for the `gpu` binding, and how much is new work against QuickJS.
+- Whether the GPU time limits hold up: how coarse timing is on adapters without timestamp queries, and what a stalled frame costs before a mod is suspended.
 - What a canvas of many mod items costs: how many descriptions the canvas pass can keep, and how many frame sources it can import at once.
 - Whether web content in a mod item can share the page pipeline (CEF offscreen, frame import) without a page's own state, or needs its own host.
 - Whether `specular mod check`'s element tree is enough for the headless runner to press controls a mod adds that no Rust model lists.
@@ -206,7 +246,7 @@ Most of the work is in Rust, and most of it is worth doing whether or not a line
 3. **Models become queries.** `toolbar(&App)`, `dock(&App)` and the rest stay in `specular-interact`, still pure and still tested, but published as data under `panels/*`. The smart part (which properties apply to this selection, and their current values) becomes its own query, `properties(selection)`, so a mod that draws its own dock does not have to redo it.
 4. **A layout tree from a file.** The Kit shell's fixed regions (`shell.rs`, `slot.rs`) become a tree read from `layouts/<name>.json`: rows, columns, stacks, a `canvas` block, a `mod` block, and `hidden` ids. Herdr's locked primitives are the model.
 5. **Stable ids on every control**, so a layout can hide one and a script can name one.
-6. **Mod items and tools in the core.** `Kind::Mod(ModItem)` with its `.canvas` form, and the canvas pass learns to draw a kept description and a frame source on an item. `Tool::Mod(ModToolId)` and a world-space preview layer. Tool defaults (ADR 0009) are keyed by tool id, so a scripted tool keeps its own. The page pipeline's frame import is generalized from pages to any frame source.
+6. **Mod items and tools in the core.** `Kind::Mod(ModItem)` with its `.canvas` form, and the canvas pass learns to draw a kept description, a frame source and a mod's GPU surface on an item. `Tool::Mod(ModToolId)` and a world-space preview layer. Tool defaults (ADR 0009) are keyed by tool id, so a scripted tool keeps its own. The page pipeline's frame import is generalized from pages to any frame source.
 7. **Headless by name, kept.** Headless runs already press controls by name through the models (`named_controls`), with nothing drawn. A scripted panel has to keep that: `specular mod check` gives an element tree with the same ids, so the scenarios can press a mod's own controls too, including ones no Rust model lists.
 
 ## Phases
@@ -216,9 +256,10 @@ Each phase ships on its own and leaves the app working.
 1. **Rust groundwork, no script.** The command table and its schema check, the keyed state, the layout file with `hidden` and `ui.toggle`, stable ids, and the reset key. Hiding and showing anything works at the end of this phase.
 2. **The runtime.** `gpui-shell` 0.11 in the Kit shell, the CPU budget and heap cap, `specular mod check` and `specular shot`, the generated guide and `.d.ts`. The toolbar is the first shipped mod, and its Kit adapter is deleted.
 3. **The small panels.** Dock, tab row, context menu, palette, share, welcome, toast. Each one deletes its Kit adapter in the same PR, and the scenarios press its controls through `check`'s tree.
-4. **Mod items and tools.** `Kind::Mod`, the three surfaces, the `media`, `net` and `capture` host modules, and `Tool::Mod`. Four mods test it: a watercolor brush (a tool on the main toolbar beside stickies and documents, with a live preview while drawing, painting with [`webgpu-brush`](https://github.com/lklyne/webgpu-brush); see below), an image feed (a description, with `net`), a video recorder (a frame source from `capture`, saving to the space folder), and a phone mirror (a frame source from a helper process).
-5. **The big panels.** The sidebar on a virtual list, then settings, then chat, the largest and the one with streaming. Chat goes last and can stay native longer without blocking anything else.
-6. **Opening it up.** `specular mod clone`, installing other people's mods with the capability prompt, and the page bridge of lane 4.
+4. **Mod items and tools.** `Kind::Mod`, the description, web content and frame source surfaces, the `media`, `net` and `capture` host modules, and `Tool::Mod`. Four mods test it: a watercolor brush (a tool on the main toolbar beside stickies and documents, with a live preview while drawing, painting with [`webgpu-brush`](https://github.com/lklyne/webgpu-brush); see below), an image feed (a description, with `net`), a video recorder (a frame source from `capture`, saving to the space folder), and a phone mirror (a frame source from a helper process).
+5. **The `gpu` host module.** The WebGPU binding, surfaces, per-mod arenas, the limits and the grant. The watercolor brush moves from web content onto it unchanged, and `webgpu-brush` and three.js's `WebGPURenderer` run on an injected device in tests.
+6. **The big panels.** The sidebar on a virtual list, then settings, then chat, the largest and the one with streaming. Chat goes last and can stay native longer without blocking anything else.
+7. **Opening it up.** `specular mod clone`, installing other people's mods with the capability prompt, and the page bridge of lane 4.
 
 ## Consequences
 
