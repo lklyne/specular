@@ -620,3 +620,217 @@ Not verified here (Linux):
 - **`cases.py` has not run.** It needs the Kit app.
 - **The headless numbers are not macOS numbers.** CI runs the same release
   test on macOS.
+
+## Phase 4: the small panels
+
+**Result: four of seven panels are mods in the shipped layout, two more are
+opt-in, and two have no mod yet.** `specular mod clone` is built. Every
+native Kit adapter is still there and is drawn for `"mod": null`; none was
+deleted, because nobody has looked at the mods in a window yet. Deleting
+them waits for a person on a Mac.
+
+| Panel | Mod | In the shipped layout | Gate |
+|---|---|---|---|
+| Tab row | `mods/tabs` | yes | passes |
+| Context menu | `mods/menu` | no, opt-in | passes |
+| Share | `mods/share` | yes | passes |
+| Notices | `mods/toast` | yes | passes |
+| Palette | none | native | not started |
+| Dock | none | native | not started |
+| Welcome | `mods/welcome` | no, opt-in | passes |
+
+Numbers, from `cargo test -p specular-mods --release --test panels --
+--nocapture --test-threads=1` (Linux x86_64, GPUI's headless test
+platform). Each test changes the state the mod reads at every step:
+
+| Mod | What changes each step | Load and first render | Median | p95 | Slowest |
+|---|---|---|---|---|---|
+| tabs | the tab shown, canvas or page | 9.0 ms | 0.22 ms | 0.32 ms | 0.69 ms |
+| menu | the menu closes and opens at another point | 11.5 ms | 0.31 ms | 0.38 ms | 0.73 ms |
+| share | who the link lets in | 8.5 ms | 0.17 ms | 0.25 ms | 0.61 ms |
+| toast | a page stops, then loads again | 9.0 ms | 0.12 ms | 0.18 ms | 0.29 ms |
+| welcome | the first-run ask, first run or space gone | 8.2 ms | 0.14 ms | 0.19 ms | 0.69 ms |
+
+Every mod renders 0 times in 100 idle frames and 0 times on a pan and a
+zoom (with the state dump unchanged). Run in parallel, as CI runs it, the
+slowest renders reach 2 to 3.5 ms (other tests share the cores); the gate
+is 8 ms. The toolbar's numbers are unchanged (median 0.43 ms, slowest
+1.0 ms).
+
+What each panel's end test checks (`crates/specular-mods/tests/panels/`,
+on a shared harness in `tests/support/`):
+
+- **Parity.** The tree holds every control id the native model lists, and
+  leaves out the ids in `props.hidden`. Tabs: each tab, each item tab's
+  close button, `view.add`, `chat.toggle`, the zoom readout while no mod
+  draws the tools, and the Share slot. Menu: every item of the open menu.
+  Share: the button, the access dropdown, its four choices (once opened in
+  place) and Copy link. Notices: each notice and its Reload. Welcome: each
+  first-run choice, in both asks (first run, space gone), and the Prism.
+- **Clicks.** A simulated click reaches the host: a tab as `control.press
+  {"id": "view.item.p1"}` (and the first tab along the row is the canvas),
+  a menu item by its id, Copy link as `share.copy-link` and a choice as
+  `share.access {scope}`, a notice's Reload as `page.navigate {page, url}`
+  and its close as `notice.dismiss {id}`, a first-run choice as
+  `control.press {"id": "onboarding.choose"}`.
+- **Renders.** Each mod reads exactly its props, its key and `theme`.
+
+**Built.**
+
+- **Overlays in the layout.** The layout file names five overlays beside
+  the five regions: `menu`, `share`, `toast`, `palette`, `welcome`
+  (`Overlay`, `Layout::overlay`, `Layout::nodes`). They take no room from
+  the canvas. `ui.toggle`/`ui.show`/`ui.hide` take their names, and a
+  hidden overlay's mod is not drawn (the native Share button hides with
+  the `share` overlay too). `ModSet::sync` loads what any node names,
+  once even when two nodes name it.
+- **Where each is drawn** (`kit/view/mod_bar.rs`, `kit/mods.rs`):
+  - The tab row mod fills the tab row's box, on the chrome's background.
+  - The menu mod is drawn at the menu's point, over the same layer as the
+    native menu. A press on the layer closes the menu (`Event::MenuClosed`);
+    a press on the mod is the mod's. The keys stay with the canvas, whose
+    Escape closes the menu.
+  - The Share slot is filled each frame (`fill_share_slot`): the share mod,
+    its error card, nothing while hidden, or the native button. Both the
+    native tab row and the tab row mod's `Share` draw what is there.
+  - The notices are drawn over the canvas slot's lower right corner.
+  - The welcome mod replaces the first-run view over the whole window; the
+    mods are brought in step on that path too, since the first-run view
+    returns before the rest of the window is drawn.
+- **New state keys.**
+  - `notices` (`specular-interact/src/notices.rs`): `[{id, level, text,
+    action, dismiss}]`. A page whose process went away
+    (`page.<id>.crashed`, offering Reload as `page.navigate`), a page whose
+    load ended in HTTP 400 or over (`page.<id>.http`), and a share that
+    failed (`share.failed`, offering Try again). `PageState` now keeps
+    `crashed` and `http_error`; a load starting clears both.
+    `notice.dismiss {id}` (`Action::DismissNotice`) clears one; the share's
+    cannot be dismissed and goes when a share works.
+  - `panels/welcome`: the `OnboardingModel` (it and `SpaceChoice` derive
+    `Serialize`; a choice's `name` is written as `id`), or `null` while a
+    space is open.
+  - `panels/strip` gains `chat` (the right panel's toggle) and `zoom`
+    (`{id}` while no mod draws the tools, else `null`), so the tab row mod
+    reads one key and never renders for a tool change.
+- **The first-run choices are controls.** `named()` lists them while the
+  first-run view is up, so `control.press {"id": "onboarding.choose"}` and
+  a script's `control onboarding.choose` press them.
+- **Host components.** `Favicon {tab, icon, size, color, control}` (a tab's
+  glyph until the window has the page's own icon), `WindowDrag` (bare
+  title bar: drag the window, double click to zoom), `Share` (the Share
+  slot) and `Prism` (the first-run view's turning Prism, handed to the
+  component through a thread-local while the view is up). Headless, all
+  four are placeholders; the window's are in `kit/mods/host.rs`.
+- **`colors()`** gains `primary`, `primaryHover`, `primaryForeground`,
+  `error`, `warning` and `backdrop`.
+- **`specular mod clone <name> [new-name] [--use]`**
+  (`specular-cli/src/mod_clone.rs`). It copies `<app home>/mods/<name>` to
+  `mods/<new-name>` (`my-<name>` by default), leaving out the files a load
+  writes, and writes `"cloned_from": "<name>"` into the copy's `mod.json`.
+  `--use` rewrites `layouts/default.json` so every node naming `<name>`
+  names the copy, or, when none does, the node of the mod's `place`. It
+  prints the folder. It finds the app home as the app does
+  (`SPECULAR_NATIVE_CONFIG_DIR`, else Application Support, else the XDG
+  config folder) and needs no running app. A bad name, a name in use and
+  a mod that is not there are refused. `tests/mod_clone.rs` runs the
+  binary over a scratch home.
+
+Calls made:
+
+- **Tabs, Share and the notices are in the shipped layout; the menu and
+  welcome are not.** All five pass their gates. The menu mod leaves the
+  keys with the canvas, so its arrows and Return do not move through the
+  items as the native menu's do, and an arrow would nudge the selection
+  under an open menu: a regression a person would feel. The welcome mod
+  depends on `Prism`, a GPU host piece nothing headless can draw, and it
+  is the first thing a new person sees.
+- **The tab row is a mod although it uses `WindowDrag` and `Share`.** Both
+  are the native code moved behind a component (`drag_area`, `share`), not
+  new behaviour, the way phase 3's `Zoom` and `ToolOptions` were. A tab's
+  press no longer lays its page out on button down (`PrepareShow` is not a
+  registry command); the page is laid out on the click, about 40 ms later.
+- **The Share popover uses gpui-base's `Popover`**, with the open state on
+  the mod's view. The access choices open in place under their row, as
+  the native popover has them.
+- **The notices are a new panel.** The native app has no toast: the update
+  notice is Sparkle's own window, and a crashed page or an HTTP error
+  showed nothing. The toast mod shows those now, so a page that crashes
+  or answers 404 puts a card in the canvas's corner. The update notice
+  stays Sparkle's; it is not in the app's state.
+- **A notice is dismissed by clearing its cause in `PageState`**, so a page
+  that fails again shows again, with no set of dismissed ids to keep.
+- **Tests run against one harness.** `tests/support/mod.rs` loads any
+  shipped mod in a box of its region's size; `tests/panels/` is one test
+  binary for every small panel, so CI runs one more release line.
+  `gpui_shell::init` is called there, as the window's `gpui_kit::init`
+  does, because the Share popover needs gpui-base's globals.
+
+**Not built, and what is left.**
+
+- **Palette: not started.** Its open state and query live in the Kit's
+  dialog, not in the app, and its search is Rust's fuzzy `search`. A mod
+  needs: a `Field` host component (built in the shell over
+  `kit/view/field.rs`/`ime.rs`, publishing its text as a key such as
+  `fields/<id>` so the mod can read the query); the palette's open state
+  in the app or a dialog the window opens around the mod; the matches as
+  a key (or a registry query); and a way to run an entry with arguments
+  (today `panels/palette` gives the command's name without its args, and
+  the canvas-switch entries have none).
+- **Dock: not started.** It needs the same `Field`, plus the open
+  dropdown (`app.session.panel.open`) in `panels/dock` so a JS dropdown
+  can draw its list, and the shared controls (button, toggle, swatches,
+  dropdown, stepper, field, choices) as `mods/dock/controls.js`. The
+  dropdown list's placement and Escape are the rabbit hole.
+- The overlays' `hidden` is honoured where a mod is drawn and by the
+  native Share button; the native menu, palette and first-run view ignore
+  it.
+- `--use` lasts until the next start: the app writes its shipped layout
+  over `layouts/default.json` on every start (phase 1b). A person's own
+  layout that survives a start is the next step for clones to stick.
+
+**Try it by hand on a Mac.**
+
+```sh
+cd native
+cargo run -p specular-shell -- fixtures/kitchen-sink.canvas
+```
+
+1. **Tab row** (default). It should look like the native row: the canvas
+   tab raised, a page's tab with its favicon once it loads, the close
+   button on the tab shown and on hover, the add button, the Share button
+   and the right panel's toggle at the far end (no zoom: the toolbar mod
+   has it). Drag the window by the bare row and double click it. Open and
+   close tabs; Command+T.
+2. **Share** (default). Click Share: the popover opens under the button.
+   Open "Who can open the link", pick one, Copy link.
+3. **Notices** (default). Point a page at `https://example.com/nope`
+   (a 404): a card says so in the canvas's lower right corner, with Reload
+   and a close button.
+4. **Menu** (opt-in). In `<app home>/layouts/default.json` set
+   `"menu": { "mod": "menu" }` and save. Right click the canvas and an
+   item: the mod's menu opens at the press; a pick runs it (paste lands at
+   the press); a click outside and Escape close it.
+5. **Welcome** (opt-in). Set `"welcome": { "mod": "welcome" }`, then
+   launch with no space (`SPECULAR_NATIVE_CONFIG_DIR=$(mktemp -d) cargo
+   run -p specular-shell`): the first-run view is the mod, the Prism
+   turning at its head.
+6. **Fallback.** `"tabs": { "mod": null }`, `"share": { "mod": null }`,
+   `"toast": { "mod": null }` give the native panels back.
+7. `specular mod clone tabs --use`, then edit
+   `<app home>/mods/my-tabs/main.js`: a save reloads it.
+8. `specular mod stats` lists each mod's renders; none should grow while
+   the window is idle.
+
+Not verified here (Linux):
+
+- **No Kit code compiled.** The edits to `kit/canvas.rs`,
+  `kit/canvas/models.rs`, `kit/mods.rs`, `kit/mods/host.rs`, `kit/view.rs`,
+  `kit/view/mod_bar.rs`, `kit/view/canvas_menu.rs`, `kit/view/tabs.rs` and
+  `kit/view/share.rs` were written against the APIs they call and
+  formatted, not compiled. macOS CI's build is the first compile.
+- **Nothing ran in a window.** The mods' look beside the native panels,
+  the Share popover's anchoring at the row's right end, the tab row's
+  window drag, the notices' corner, the menu's layer and its Escape, and
+  the Prism inside the welcome mod are unseen.
+- **The headless numbers are not macOS numbers.** CI runs `--test panels`
+  in release on macOS.

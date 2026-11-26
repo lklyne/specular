@@ -308,19 +308,33 @@ A mod (ADR 0055) is a folder of `mod.json` and `main.js`, run by
   or state key must be named in both the guide and the d.ts; the test in
   `tests/shipped.rs` fails otherwise.
 - **How a mod is placed.** The layout file names the mod for a region
-  (`"toolbar": {"mod": "toolbar", "props": {..}}`); `"mod": null` is the
-  Kit's own panel. `ModSet` loads the mods, publishes `mods/<name>/props`,
-  writes `<name>.error` and renders a mod only when a key it read moved.
-  The window's side is `src/kit/mods.rs` and `src/kit/mods/host.rs`.
+  (`tabs`, `toolbar`, `dock`, `sidebar`, `chat`) or an overlay (`menu`,
+  `share`, `toast`, `palette`, `welcome`): `"toolbar": {"mod": "toolbar",
+  "props": {..}}`; `"mod": null` is the Kit's own panel, and every native
+  adapter stays as that fallback. `ModSet` loads the mods, publishes
+  `mods/<name>/props`, writes `<name>.error` and renders a mod only when a
+  key it read moved. The window's side is `src/kit/mods.rs`,
+  `src/kit/mods/host.rs` and `src/kit/view/mod_bar.rs` (where each mod is
+  drawn); the menu mod is placed in `view/canvas_menu.rs`.
+- **The shipped mods.** `toolbar`, `tabs`, `share` and `toast` are in the
+  shipped layout (`Layout::shipped`); `menu` and `welcome` are opt-in. The
+  palette and the dock have no mod yet (they need a `Field` host
+  component; see the run log's phase 4).
 - **What a mod can call.** `run` resolves through `run_named` and the work
   is deferred out of the script call. Rust-drawn pieces are host
-  components (`Components`): `Icon`, `Zoom`, `ToolOptions`. A new one goes
-  in `HOST_COMPONENTS`, the d.ts and the guide.
+  components (`Components`): `Icon`, `Zoom`, `ToolOptions`, `Favicon`,
+  `WindowDrag`, `Share`, `Prism`. Headless, the window-only ones are
+  placeholders. A new one goes in `HOST_COMPONENTS`, the d.ts and the
+  guide; the window's version in `kit/mods/host.rs`.
 - **Checking and measuring.** `specular mod check <dir> [--state
   fixture.json]` (the `specular-mod-check` crate) renders a mod headless.
-  `specular mod stats` is `GET /mods`. The toolbar's gate is `cargo test -p
-  specular-mods --release --test toolbar -- --nocapture`: median under
-  2 ms, none over 8 ms, no render while idle or on a camera move.
+  `specular mod stats` is `GET /mods`. `specular mod clone <name>
+  [new-name] [--use]` copies a mod to one the person owns. The gates are
+  `cargo test -p specular-mods --release --test toolbar` and `--test
+  panels` (`-- --nocapture` for the numbers): median under 2 ms, none
+  over 8 ms, no render while idle or on a camera move, every id the
+  native model lists, a click reaching the host. A new panel's gate goes
+  in `tests/panels/`, on `tests/support/`.
 
 ## Gate
 

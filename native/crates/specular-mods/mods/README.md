@@ -130,14 +130,34 @@ Elements a mod places but cannot draw itself, imported from `specular`:
   a fresh app's state when none is given), and prints its element tree with
   ids and its `console.log` lines. It exits non-zero and writes
   `<name>.error` when the mod fails.
+- `specular mod clone <name> [new-name] [--use]` copies a mod to a folder
+  you own (`my-<name>` by default) and prints where it is. `--use` points
+  the layout at the copy; the app writes its shipped layout over the file
+  on its next start, so run it again then (or keep your own layout edit).
 - `specular mod stats` prints, per loaded mod, its script renders, the mean
   and slowest render and the keys it read. A mod that renders while nothing
   changes is a bug.
 - `console.log` goes to the app's log (`gpui_shell::script`).
 
+## The shipped mods
+
+| Mod | Draws | Reads | In the shipped layout |
+|---|---|---|---|
+| `toolbar` | the tools, the zoom readout, the theme button | `panels/toolbar`, `panels/tool_options` | yes |
+| `tabs` | the tab row: tabs, add, title bar, zoom, Share, right panel toggle | `panels/strip` | yes |
+| `share` | the Share button and its popover | `panels/share` | yes |
+| `toast` | the notices, in the canvas's lower right corner | `notices` | yes |
+| `menu` | the canvas's context menu | `panels/menu` | no: `"menu": { "mod": "menu" }` |
+| `welcome` | the first-run view | `panels/welcome` | no: `"welcome": { "mod": "welcome" }` |
+
+The menu mod leaves the keys with the canvas: Escape closes it, but the
+arrows and Return do not move through it as the app's own menu's do.
+
 ## Your own mods
 
 A mod folder whose `mod.json` has `"cloned_from"` is yours and is never
-replaced. Copy a shipped mod to a new name, add `"cloned_from": "toolbar"`,
-and point the layout at it. Mods are trusted code: a mod has your files,
-network and processes, like a shell script you run.
+replaced. `specular mod clone tabs my-tabs --use` copies a mod to a new
+folder, marks it, and points the layout at it; edit `mods/my-tabs/main.js`
+and each save reloads it. Without `--use`, set a region's `"mod"` yourself.
+Mods are trusted code: a mod has your files, network and processes, like a
+shell script you run.
