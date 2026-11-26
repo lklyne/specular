@@ -100,6 +100,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         Event::ChromeLayout => app.session.panel.chrome_covers = true,
         Event::LayoutLoaded(layout) => app.chrome.layout = *layout,
         Event::LayoutToggles(toggles) => app.chrome.toggles = toggles,
+        Event::ModPalette(entries) => app.chrome.mod_palette = entries,
         Event::MenuClosed => app.session.panel.menu = None,
         Event::ChatPanel(available) => app.session.chat.set_available(available),
         Event::Motion(on) => app.session.motion.enable(on),

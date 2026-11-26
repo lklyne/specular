@@ -4,11 +4,11 @@
 //! Electron app's glyph lived (under `git show bc5253fa:src/renderer/`), so
 //! the shape can be lifted from there. Lucide names are from `lucide-react`.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use specular_doc::ShapeKind;
 
 /// A glyph.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Icon {
     /// The select tool. `shared/icons/toolbar/select.svg`.

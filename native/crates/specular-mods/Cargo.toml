@@ -13,11 +13,16 @@ gpui-pre = { workspace = true }
 gpui-shell = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+specular-doc = { workspace = true }
 specular-interact = { workspace = true }
+specular-scene = { workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]
 gpui-pre = { workspace = true, features = ["test-support"] }
+glam = { workspace = true }
+specular-core = { workspace = true }
+specular-testkit = { workspace = true }
 
 [lints]
 workspace = true

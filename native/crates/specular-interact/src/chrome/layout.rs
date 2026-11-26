@@ -4,7 +4,7 @@
 //! ```json
 //! {
 //!   "tabs":    { "mod": null, "hidden": false, "props": {} },
-//!   "toolbar": { "mod": null, "hidden": false, "props": { "hidden": ["tool.inspect"] } },
+//!   "toolbar": { "mod": "toolbar", "hidden": false, "props": { "hidden": ["tool.inspect"] } },
 //!   "dock":    { "mod": null, "hidden": false, "props": {} },
 //!   "sidebar": { "mod": null, "hidden": false, "props": {} },
 //!   "chat":    { "mod": null, "hidden": false, "props": {} }
@@ -84,10 +84,14 @@ impl From<serde_json::Error> for LayoutError {
 }
 
 impl Layout {
-    /// The layout the app ships: every region drawn, each with the app's
-    /// own panel, and the toolbar's `props.hidden` there to be filled in.
+    /// The layout the app ships: every region drawn, the toolbar by the
+    /// shipped `toolbar` mod with its `props.hidden` there to be filled in,
+    /// and the rest by the app's own panels.
     pub fn shipped() -> Self {
-        let mut toolbar = RegionNode::default();
+        let mut toolbar = RegionNode {
+            fill: Some("toolbar".to_owned()),
+            ..RegionNode::default()
+        };
         toolbar
             .props
             .insert("hidden".to_owned(), Value::Array(Vec::new()));

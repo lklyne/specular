@@ -3,9 +3,9 @@
 use std::time::Instant;
 
 use specular_interact::{
-    Appearance, ChatModel, ControlsModel, Insets, Menu, OnboardingModel, Regions, SidebarModel,
-    Theme, ToolbarModel, ViewStrip, chat, dock, menus, onboarding, publish_state, sidebar,
-    tool_options, toolbar, view_strip,
+    Appearance, ChatModel, ControlsModel, Insets, Layout, Menu, OnboardingModel, Regions,
+    SidebarModel, Theme, ToolbarModel, ViewStrip, chat, dock, menus, onboarding, publish_state,
+    sidebar, tool_options, toolbar, view_strip,
 };
 use specular_shell::Runtime;
 
@@ -41,6 +41,9 @@ pub(crate) struct Models {
     /// How far in from each edge the canvas is seen, which places the
     /// regions drawn over it.
     pub(crate) insets: Insets,
+    /// The layout in force, whose nodes name the mods drawn in place of
+    /// the app's own panels.
+    pub(crate) layout: Layout,
 }
 
 impl Models {
@@ -64,6 +67,7 @@ impl Models {
             theme: app.theme(),
             regions: app.regions(),
             insets: app.insets(),
+            layout: app.layout().clone(),
         }
     }
 }
@@ -109,7 +113,12 @@ impl Canvas {
         if !std::mem::take(&mut self.stale) {
             return;
         }
-        publish_state(&mut self.state, self.runtime.app());
+        let moved = publish_state(&mut self.state.borrow_mut(), self.runtime.app());
+        // A key can move with no model changing (a mod reads keys no
+        // native panel draws), and the mods render on GPUI's next draw.
+        if !moved.is_empty() {
+            self.unseen = true;
+        }
         let models = Models::of(&self.runtime);
         if models != self.models {
             self.models = models;

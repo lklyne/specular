@@ -133,8 +133,8 @@ pub use chat::{
 };
 pub use chord::Chord;
 pub use chrome::{
-    Insets, Layout, LayoutAction, LayoutError, LayoutFile, Region, RegionNode, Regions,
-    SIDEBAR_WIDTH, TOOLS_DOCK_WIDTH, Toggles,
+    Insets, Layout, LayoutAction, LayoutError, LayoutFile, ModPaletteEntry, Region, RegionNode,
+    Regions, SIDEBAR_WIDTH, TOOLS_DOCK_WIDTH, Toggles,
 };
 pub use clipboard::{ClipboardContent, ClipboardImage, Paste};
 pub use commands::{CommandSpec, Run, RunError, command, commands, run_named};

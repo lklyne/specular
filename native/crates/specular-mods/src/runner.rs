@@ -4,18 +4,16 @@
 //! another's and gives [`ModStats`] per mod, at the price of a `QuickJS` heap
 //! each, which is small beside the window.
 
-use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use anyhow::Context as _;
-use gpui::{App, Entity, Window};
+use gpui::{AnyView, App, Entity, Window};
 use gpui_shell::policy::{self, Policy};
-use gpui_shell::{RuntimeMetrics, ShellRoot, ShellRuntime, Watcher};
+use gpui_shell::{RuntimeMetrics, ScriptView, ShellRoot, ShellRuntime, Watcher};
 
-use crate::host::{ModHost, specular_module};
+use crate::host::{Hosting, specular_module};
 use crate::manifest::ModManifest;
-use crate::{Reads, Revisions};
 
 /// A loaded mod.
 pub struct Mod {
@@ -60,6 +58,20 @@ impl From<RuntimeMetrics> for ModStats {
     }
 }
 
+/// The authority the mod `id` runs under: everything the person has, its
+/// own data folder, and the `specular` module.
+fn policy_for(id: &str, dir: &Path, data_dir: &Path, hosting: &Hosting) -> anyhow::Result<Policy> {
+    std::fs::create_dir_all(data_dir)
+        .with_context(|| format!("creating {}", data_dir.display()))?;
+    Policy::new()
+        .with_application(id)
+        .with_capabilities(crate::grant::trusted(dir, data_dir))
+        .with_data_dir(data_dir.to_path_buf())
+        .with_storage_path(data_dir.join("store.json"))
+        .with_host_module(specular_module(id, hosting))
+        .map_err(|error| anyhow::anyhow!("{}", error.message()))
+}
+
 /// Runs `body` with `policy` as the default, then puts back the empty
 /// default. `gpui-shell` reads the default when it loads and mounts a
 /// script, and the view keeps the policy it was mounted under.
@@ -74,34 +86,19 @@ impl Mod {
     /// Loads the mod in `dir` under the id `id`, with `data_dir` for its own
     /// state. With `watch`, a save to its files reloads it in place; a load
     /// that fails keeps the old build running and shows why.
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "the host's parts, passed once at load"
-    )]
     pub fn load(
         id: &str,
         dir: &Path,
         data_dir: &Path,
-        host: Rc<dyn ModHost>,
-        revisions: Rc<RefCell<Revisions>>,
-        reads: &Rc<RefCell<Reads>>,
+        hosting: &Hosting,
         watch: bool,
         window: &mut Window,
         cx: &mut App,
     ) -> anyhow::Result<Self> {
         let manifest = ModManifest::read(dir)?;
-        std::fs::create_dir_all(data_dir)
-            .with_context(|| format!("creating {}", data_dir.display()))?;
-        let module = specular_module(id, host, revisions, reads.clone());
-        let policy = Policy::new()
-            .with_application(id)
-            .with_capabilities(crate::grant::trusted(dir, data_dir))
-            .with_data_dir(data_dir.to_path_buf())
-            .with_storage_path(data_dir.join("store.json"))
-            .with_host_module(module)
-            .map_err(|error| anyhow::anyhow!("{}", error.message()))?;
         let runtime = ShellRuntime::new_isolated()?;
-        reads.borrow_mut().begin(id);
+        let policy = policy_for(id, dir, data_dir, hosting)?;
+        hosting.reads.borrow_mut().begin(id);
         let root = under(policy, || runtime.try_load(dir, window, cx))
             .with_context(|| format!("loading mod `{id}`"))?;
         let watcher = if watch {
@@ -125,6 +122,24 @@ impl Mod {
         })
     }
 
+    /// Loads the mod in `dir` and renders it once in `window`, which it
+    /// takes over, returning the element tree it described. A load, a
+    /// render or a host component that fails is the error.
+    pub fn check(
+        id: &str,
+        dir: &Path,
+        data_dir: &Path,
+        hosting: &Hosting,
+        window: &mut Window,
+        cx: &mut App,
+    ) -> anyhow::Result<String> {
+        ModManifest::read(dir)?;
+        let runtime = ShellRuntime::new_isolated()?;
+        let policy = policy_for(id, dir, data_dir, hosting)?;
+        under(policy, || runtime.check(dir, window, cx))
+            .with_context(|| format!("checking mod `{id}`"))
+    }
+
     /// The mod's id.
     pub fn id(&self) -> &str {
         &self.id
@@ -145,15 +160,32 @@ impl Mod {
         &self.root
     }
 
+    /// The mod's view, to place in a region. Placed without the runtime's
+    /// own window root, which paints a background over its whole box and
+    /// would hold its view's description past a camera move.
+    pub fn view(&self, cx: &App) -> AnyView {
+        self.root.read(cx).content().clone()
+    }
+
+    /// The element tree its last script render described, with ids: what
+    /// `specular mod check` prints. `Err` is why the render failed.
+    pub fn tree(&self, cx: &App) -> Result<String, String> {
+        let view = (self.view(cx).downcast::<ScriptView>())
+            .map_err(|_| "the mod failed to load".to_owned())?;
+        let view = view.read(cx);
+        if let Some(error) = view.build_error() {
+            return Err(error.to_owned());
+        }
+        view.snapshot()
+            .map(gpui_shell::RenderSnapshot::debug_tree)
+            .ok_or_else(|| "the mod has not rendered yet".to_owned())
+    }
+
     /// Renders the mod again if a key it read has moved. Returns whether it
     /// will.
-    pub fn refresh_if_stale(
-        &self,
-        revisions: &Revisions,
-        reads: &RefCell<Reads>,
-        cx: &mut App,
-    ) -> bool {
-        if !reads.borrow().stale(&self.id, revisions) {
+    pub fn refresh_if_stale(&self, hosting: &Hosting, cx: &mut App) -> bool {
+        let reads = &hosting.reads;
+        if !reads.borrow().stale(&self.id, &hosting.revisions.borrow()) {
             return false;
         }
         reads.borrow_mut().begin(&self.id);

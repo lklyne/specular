@@ -22,6 +22,7 @@ use crate::watch::{self, Polled};
 /// The layouts folder and what was last read from it.
 #[derive(Debug)]
 pub(crate) struct LayoutFiles {
+    home: PathBuf,
     folder: PathBuf,
     file: LayoutFile,
     polled: Polled<()>,
@@ -32,6 +33,7 @@ impl LayoutFiles {
     /// The layouts under the app's data folder `home`.
     pub(crate) fn new(home: &Path) -> Self {
         Self {
+            home: home.to_path_buf(),
             folder: home.join("layouts"),
             file: LayoutFile::default(),
             polled: Polled::default(),
@@ -105,6 +107,12 @@ fn warn_on(result: io::Result<()>) {
 }
 
 impl<W: ShellWindow> Runtime<W> {
+    /// The app's data folder, which holds `layouts/` and `mods/`: `None`
+    /// when settings are off, as in a headless run.
+    pub fn app_home(&self) -> Option<&Path> {
+        self.layouts.as_ref().map(|files| files.home.as_path())
+    }
+
     /// Writes the shipped layout, then hands the app it and the toggles an
     /// earlier run kept.
     pub(super) fn load_layout(&mut self) {

@@ -39,6 +39,7 @@ mod field;
 mod glyphs;
 mod ime;
 mod menu;
+mod mod_bar;
 mod named;
 mod onboarding;
 mod palette;
@@ -65,9 +66,10 @@ use gpui_kit::{
 use specular_interact::{Action, CanvasAction, Event, SidebarAction, TOOLS_DOCK_WIDTH, ToolsPlace};
 
 pub(crate) use self::field::typed as typed_field;
-pub(crate) use self::named::shown as shown_controls;
+pub(crate) use self::named::{mark, shown as shown_controls};
 pub(crate) use self::palette::toggle as toggle_palette;
 use self::slot::Pointer;
+pub(crate) use self::toolbar::{tool_options, zoom_readout};
 use crate::canvas::{self, Models};
 use crate::shell;
 use crate::surface::WindowAsks;
@@ -91,6 +93,12 @@ pub(crate) fn run(action: &Action, window: &mut Window, cx: &mut App) {
         return;
     }
     canvas::dispatch(Event::Action(action.clone()));
+    give_back_keys(window, cx);
+}
+
+/// Gives the keys back to the canvas after a control ran, unless a list it
+/// was chosen in is still open and has them.
+pub(crate) fn give_back_keys(window: &mut Window, cx: &mut App) {
     if !dropdown::list_open(window, cx) {
         focus_canvas(window, cx);
     }
@@ -125,8 +133,13 @@ pub(crate) fn drop_files(paths: Vec<PathBuf>, at: Vec2) {
 }
 
 /// What lies over the slot and moves with its edges: the dock's bar, and
-/// the tools while they float.
-fn over_slot(models: &Models, window: &mut Window, cx: &mut App) -> Vec<AnyElement> {
+/// the tools while they float, drawn by `ribbon` when a mod draws them.
+fn over_slot(
+    models: &Models,
+    ribbon: Option<AnyElement>,
+    window: &mut Window,
+    cx: &mut App,
+) -> Vec<AnyElement> {
     let left = models.insets.left;
     let dock = if models.regions.dock {
         dock::dock(models.dock.as_ref(), &models.toolbar, left, window, cx)
@@ -143,9 +156,13 @@ fn over_slot(models: &Models, window: &mut Window, cx: &mut App) -> Vec<AnyEleme
         .collect();
     if models.regions.toolbar && models.toolbar.tools != ToolsPlace::Docked {
         let shown = models.tool_options.as_ref();
-        out.push(
-            toolbar::floating(&models.toolbar, shown, (left, top), window, cx).into_any_element(),
-        );
+        out.push(match ribbon {
+            Some(ribbon) => {
+                mod_bar::floating(ribbon, models.toolbar.tools, (left, top)).into_any_element()
+            }
+            None => toolbar::floating(&models.toolbar, shown, (left, top), window, cx)
+                .into_any_element(),
+        });
     }
     out
 }
@@ -205,6 +222,8 @@ pub(crate) struct ShellView {
     hero: Option<Entity<onboarding::HeroPrism>>,
     /// The context menu a right press on the canvas opened, while it is.
     menu: Option<canvas_menu::CanvasMenu>,
+    /// The mods the layout names, drawn in place of the app's own panels.
+    mods: crate::mods::Mods,
 }
 
 impl ShellView {
@@ -224,6 +243,7 @@ impl ShellView {
             chat: chat::ChatUi::new(window, cx),
             hero: None,
             menu: None,
+            mods: crate::mods::Mods::default(),
         }
     }
 }
@@ -244,6 +264,7 @@ impl ShellView {
     fn slot_row(
         &mut self,
         models: Option<&Models>,
+        ribbon: Option<AnyElement>,
         window: &mut Window,
         cx: &mut Context<'_, Self>,
     ) -> AnyElement {
@@ -255,7 +276,9 @@ impl ShellView {
                     .relative()
                     .size_full()
                     .child(self.canvas_slot(window, cx))
-                    .children(models.map_or_default(|models| over_slot(models, window, cx))),
+                    .children(
+                        models.map_or_default(|models| over_slot(models, ribbon, window, cx)),
+                    ),
             )
             .when_some(
                 models.filter(|models| models.regions.chat),
@@ -305,6 +328,8 @@ impl Render for ShellView {
             grow_from_welcome(window, cx);
         }
         let menu = self.canvas_menu(window, cx);
+        let (zoom_in_tabs, docked_ribbon, floating_ribbon) =
+            self.mod_ribbon(models.as_ref(), window, cx);
         div()
             .id("shell")
             .size_full()
@@ -318,7 +343,7 @@ impl Render for ShellView {
                     (canvas.runtime).drop_files(paths.paths().iter().cloned(), None);
                 });
             })
-            .child(self.slot_row(models.as_ref(), window, cx))
+            .child(self.slot_row(models.as_ref(), floating_ribbon, window, cx))
             .when_some(models.as_ref(), |root, models: &Models| {
                 let regions = models.regions;
                 root.when(regions.sidebar && models.sidebar.visible, |root| {
@@ -334,7 +359,7 @@ impl Render for ShellView {
                             .left_0()
                             .right_0()
                             .bg(theme::solid(theme::toolbar()))
-                            .child(tabs::tabs(&models.strip, &models.toolbar)),
+                            .child(tabs::tabs(&models.strip, &models.toolbar, zoom_in_tabs)),
                     )
                 })
                 .when(
@@ -342,7 +367,16 @@ impl Render for ShellView {
                     |root| {
                         let left = models.insets.left - TOOLS_DOCK_WIDTH;
                         let shown = models.tool_options.as_ref();
-                        root.child(toolbar::docked(&models.toolbar, shown, left, window, cx))
+                        match docked_ribbon {
+                            Some(ribbon) => root.child(mod_bar::docked(ribbon, left)),
+                            None => root.child(toolbar::docked(
+                                &models.toolbar,
+                                shown,
+                                left,
+                                window,
+                                cx,
+                            )),
+                        }
                     },
                 )
                 .when(regions.chat, |root| {

@@ -8643,15 +8643,31 @@ dependencies = [
 ]
 
 [[package]]
-name = "specular-mods"
+name = "specular-mod-check"
 version = "0.11.2"
 dependencies = [
  "anyhow",
  "gpui-pre",
+ "serde_json",
+ "specular-mods",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "specular-mods"
+version = "0.11.2"
+dependencies = [
+ "anyhow",
+ "glam",
+ "gpui-pre",
  "gpui-shell",
  "serde",
  "serde_json",
+ "specular-core",
+ "specular-doc",
  "specular-interact",
+ "specular-scene",
+ "specular-testkit",
  "tracing",
 ]
 
@@ -8710,6 +8726,7 @@ dependencies = [
  "specular-core",
  "specular-doc",
  "specular-interact",
+ "specular-mods",
  "specular-prism",
  "specular-scene",
  "specular-testkit",

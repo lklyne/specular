@@ -53,6 +53,13 @@ pub trait Host {
     fn space_entries(&self) -> Vec<String> {
         Vec::new()
     }
+
+    /// The mods the window has loaded and what each has cost, `GET /mods`'s
+    /// body: `{mods: [{id, renders, meanMs, slowestMs, reads}]}`. A host
+    /// with no window has none.
+    fn mods(&self) -> Value {
+        serde_json::json!({ "mods": [] })
+    }
 }
 
 /// Where an answer that comes later goes.
@@ -111,6 +118,7 @@ impl Api {
                 }
                 Response::ok(body)
             }
+            Plan::Mods => Response::ok(host.mods()),
             Plan::Cdp(ask) => match host.cdp(&ask) {
                 Ok(mut body) => {
                     ask.describe(&mut body);

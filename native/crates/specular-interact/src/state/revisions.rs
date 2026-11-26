@@ -39,6 +39,12 @@ impl Revisions {
         self.keys.get(key).map_or(0, |(revision, _)| *revision)
     }
 
+    /// A count that moves whenever any key's value does: a reader that saw
+    /// the same count last time has nothing new to look at.
+    pub const fn clock(&self) -> u64 {
+        self.clock
+    }
+
     /// The published keys, in order.
     pub fn keys(&self) -> impl Iterator<Item = &str> {
         self.keys.keys().map(String::as_str)

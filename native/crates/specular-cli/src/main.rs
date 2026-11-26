@@ -14,6 +14,7 @@ mod client;
 mod command;
 mod edit;
 mod js;
+mod mods;
 mod output;
 mod patch;
 mod registry;
@@ -38,6 +39,7 @@ Browse: snapshot, click, fill, type, select, screenshot, scroll, wait
 Annotations: annotations, annotation, annotate, annotate-selection, ack, resolve, dismiss, reply
 Commands: commands, run <name> [json-args]   e.g. run tool.set '{\"tool\":\"draw\"}'
 State: state [key]   e.g. state panels/toolbar
+Mods: mod check <dir> [--state fixture.json], mod stats, mod state [key]
 Other: breakpoints, apply, upsert, link, unlink, auto-layout, find-placement
 
 Unknown verbs pass through to the bundled agent-browser as raw commands
@@ -97,6 +99,7 @@ fn verb(name: &str) -> Verb {
         "commands" => registry::commands,
         "run" => registry::run,
         "state" => registry::state,
+        "mod" => mods::verb,
         _ => browse::passthrough,
     }
 }
@@ -117,6 +120,9 @@ fn run(argv: &[String]) -> anyhow::Result<i32> {
     if args.verb.is_empty() {
         output::text_line(HELP);
         return Ok(0);
+    }
+    if mods::is_check(&args) {
+        return mods::check(&args);
     }
     let client = Client::new(args.flag("tab"));
     client.open_session();

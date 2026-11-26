@@ -182,6 +182,20 @@ pub(crate) struct ChromeState {
     pub(crate) layout: Layout,
     /// What was toggled at run time.
     pub(crate) toggles: Toggles,
+    /// The palette entries the loaded mods add.
+    pub(crate) mod_palette: Vec<ModPaletteEntry>,
+}
+
+/// A palette entry a loaded mod adds from its `mod.json`: choosing it runs
+/// the registry command `run` with `args`, by name.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ModPaletteEntry {
+    /// What the palette shows.
+    pub title: String,
+    /// The command it runs.
+    pub run: String,
+    /// The command's arguments.
+    pub args: serde_json::Value,
 }
 
 impl ChromeState {

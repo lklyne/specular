@@ -152,6 +152,8 @@ pub struct Runtime<W> {
     /// The layout files. `None` when settings are off, and when there is
     /// no home folder to keep them in.
     pub(crate) layouts: Option<super::layout_run::LayoutFiles>,
+    /// What the window's mods have cost, as `GET /mods` answers it.
+    pub(crate) mod_stats: Option<serde_json::Value>,
     /// The repos file. `None` when settings are off, and when no folder
     /// can be found for it.
     pub(crate) repos_file: Option<PathBuf>,
@@ -231,6 +233,7 @@ impl<W: ShellWindow> Runtime<W> {
             prefs,
             layouts: (options.settings.then(prefs::folder).flatten())
                 .map(|home| super::layout_run::LayoutFiles::new(&home)),
+            mod_stats: None,
             repos_file: options.settings.then(repos_run::file).flatten(),
             folder_dialog: None,
             dropped: Vec::new(),

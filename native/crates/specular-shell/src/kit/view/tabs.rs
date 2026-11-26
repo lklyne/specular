@@ -285,8 +285,13 @@ fn add(model: &Button) -> impl IntoElement {
 /// button and the bare strip leave, shrinking together; past their least
 /// width the row cuts them off, so the strip is always there to drag the
 /// window by. The zoom readout, the Share button and the right panel's
-/// toggle, all of `toolbar`, end the row.
-pub(super) fn tabs(model: &ViewStrip, toolbar: &ToolbarModel) -> impl IntoElement {
+/// toggle, all of `toolbar`, end the row; the zoom only with `zoom`, as a
+/// toolbar mod places its own.
+pub(super) fn tabs(
+    model: &ViewStrip,
+    toolbar: &ToolbarModel,
+    zoom_shown: bool,
+) -> impl IntoElement {
     FAVICONS.with_borrow_mut(|favicons| {
         favicons.retain(|id, _| model.tabs.iter().any(|tab| tab.id == *id));
     });
@@ -313,7 +318,7 @@ pub(super) fn tabs(model: &ViewStrip, toolbar: &ToolbarModel) -> impl IntoElemen
                 .flex_shrink_0()
                 .items_center()
                 .text_color(theme::solid(theme::toolbar_text()))
-                .children(zoom(toolbar))
+                .children(zoom_shown.then(|| zoom(toolbar)).flatten())
                 .child(share(&toolbar.share))
                 .children(toolbar.chat.as_ref().map(panel_toggle)),
         )

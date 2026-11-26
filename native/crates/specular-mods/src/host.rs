@@ -1,7 +1,8 @@
 //! The `specular` host module: what a mod imports to reach the app.
 //!
 //! ```js
-//! import { state, run, commands, shared, setShared, props, notify } from "specular";
+//! import { state, run, commands, shared, setShared, props, notify, colors } from "specular";
+//! import { Icon, Zoom, ToolOptions } from "specular";
 //! ```
 //!
 //! Every mod gets its own instance of the module, built by
@@ -16,6 +17,8 @@ use std::rc::Rc;
 use gpui_shell::{HostError, HostModule, HostValue};
 use serde_json::Value;
 
+use crate::chrome::{appearance_of, chrome_colors};
+use crate::components::Components;
 use crate::value::{from_host, to_host};
 use crate::{Reads, Revisions};
 
@@ -55,13 +58,49 @@ pub const MODULE: &str = "specular";
 
 const DECLARATIONS: &str = include_str!("../specular.d.ts");
 
+/// What every mod of one window shares: the app it reaches, the state it
+/// reads, who read what, and the host components it places.
+#[derive(Clone)]
+pub struct Hosting {
+    /// Runs commands and shows notices.
+    pub host: Rc<dyn ModHost>,
+    /// The keyed state, with a revision per key.
+    pub revisions: Rc<RefCell<Revisions>>,
+    /// Which keys each mod read.
+    pub reads: Rc<RefCell<Reads>>,
+    /// The Rust-built elements a mod places.
+    pub components: Components,
+}
+
+impl Hosting {
+    /// `host` over fresh state, with the window-less host components.
+    pub fn new(host: Rc<dyn ModHost>) -> Self {
+        let revisions = Rc::new(RefCell::new(Revisions::default()));
+        Self {
+            host,
+            components: Components::standard(revisions.clone()),
+            revisions,
+            reads: Rc::new(RefCell::new(Reads::default())),
+        }
+    }
+}
+
+impl std::fmt::Debug for Hosting {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Hosting")
+            .field("components", &self.components)
+            .finish_non_exhaustive()
+    }
+}
+
 /// The `specular` module for the mod `id`.
-pub fn specular_module(
-    id: &str,
-    host: Rc<dyn ModHost>,
-    revisions: Rc<RefCell<Revisions>>,
-    reads: Rc<RefCell<Reads>>,
-) -> HostModule {
+pub fn specular_module(id: &str, hosting: &Hosting) -> HostModule {
+    let Hosting {
+        host,
+        revisions,
+        reads,
+        components,
+    } = hosting.clone();
     let read = {
         let (id, revisions) = (id.to_owned(), revisions.clone());
         move |key: &str| -> HostValue {
@@ -74,15 +113,20 @@ pub fn specular_module(
     let props_key = format!("mods/{id}/props");
     let state = read.clone();
     let shared = read.clone();
+    let theme = read.clone();
     let props = read;
     let runner = host.clone();
     let lister = host.clone();
     let notifier = host.clone();
     let writer = host;
-    HostModule::new(MODULE)
+    let mut module = HostModule::new(MODULE)
         .declarations(DECLARATIONS)
         .function("state", move |arguments| Ok(state(arguments.string(0)?)))
         .function("props", move |_| Ok(props(&props_key)))
+        .function("colors", move |_| {
+            let appearance = appearance_of(Some(&from_host(&theme("theme"))));
+            Ok(to_host(&chrome_colors(appearance)))
+        })
         .function("shared", move |arguments| {
             Ok(shared(&format!("shared/{}", arguments.string(0)?)))
         })
@@ -111,5 +155,10 @@ pub fn specular_module(
                 .unwrap_or("info");
             notifier.notify(level, text);
             Ok(HostValue::Null)
-        })
+        });
+    for (name, build) in components.iter() {
+        let build = build.clone();
+        module = module.component(name, move |args, window, cx| build(args, window, cx));
+    }
+    module
 }

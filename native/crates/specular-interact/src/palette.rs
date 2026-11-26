@@ -25,6 +25,14 @@ pub enum PaletteRun {
     Action(Action),
     /// The shell does it itself.
     Shell(ShellCommand),
+    /// Run the registry command `name` with `args`, by name: what a mod's
+    /// palette entry does.
+    Named {
+        /// The command.
+        name: String,
+        /// Its arguments.
+        args: serde_json::Value,
+    },
 }
 
 /// One command in the palette.
@@ -80,6 +88,9 @@ const EXTRAS: &[(&str, &str)] = &[
 /// The group of the window's own commands.
 const SHELL_GROUP: &str = "App";
 
+/// The group of the entries the loaded mods add.
+const MODS_GROUP: &str = "Mods";
+
 /// Words besides the label that find an action: what a person calls it
 /// where the menu calls it something else.
 fn keywords(action: &Action) -> &'static [&'static str] {
@@ -114,9 +125,10 @@ fn keywords(action: &Action) -> &'static [&'static str] {
 
 /// Every command, grouped, for `app` as it is now: one group per menu in
 /// the menu bar's order, in which the extra commands that belong with a
-/// menu come last; then a group for each of the others; then the window's.
-/// The list's membership never changes with the state of the app, except
-/// for the Canvas group's canvases. Only `enabled` and `checked` do.
+/// menu come last; then a group for each of the others; then the window's;
+/// then the loaded mods' entries. The list's membership never changes with
+/// the state of the app, except for the Canvas group's canvases and the
+/// mods loaded. Only `enabled` and `checked` do.
 pub fn palette(app: &App) -> Vec<PaletteItem> {
     let mut groups: Vec<(&'static str, Vec<PaletteItem>)> = Vec::new();
     for menu in menus(app) {
@@ -163,7 +175,28 @@ pub fn palette(app: &App) -> Vec<PaletteItem> {
         })
         .collect();
     groups.push((SHELL_GROUP, shell));
+    groups.push((MODS_GROUP, mod_items(app)));
     groups.into_iter().flat_map(|(_, items)| items).collect()
+}
+
+/// The entries the loaded mods add, each enabled while its command could
+/// run. One naming no command is listed, disabled, so its mod's author
+/// sees it and the palette does not hide the mistake.
+fn mod_items(app: &App) -> Vec<PaletteItem> {
+    (app.chrome.mod_palette.iter())
+        .map(|entry| PaletteItem {
+            label: Cow::Owned(entry.title.clone()),
+            group: MODS_GROUP,
+            run: PaletteRun::Named {
+                name: entry.run.clone(),
+                args: entry.args.clone(),
+            },
+            chord: None,
+            enabled: crate::commands::run_named(app, &entry.run, &entry.args).is_ok(),
+            checked: None,
+            keywords: &[],
+        })
+        .collect()
 }
 
 /// The registry command `name` as a palette item of `group`.

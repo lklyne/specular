@@ -96,14 +96,15 @@ pub fn publish(revisions: &mut Revisions, app: &App) -> Vec<&'static str> {
 fn palette_json(app: &App) -> Value {
     let items: Vec<Value> = (palette(app).into_iter())
         .map(|item| {
-            let run = match item.run {
-                PaletteRun::Action(action) => Run::Action(action),
-                PaletteRun::Shell(command) => Run::Shell(command),
+            let command = match item.run {
+                PaletteRun::Action(action) => naming(&Run::Action(action)).map(|spec| spec.name),
+                PaletteRun::Shell(command) => naming(&Run::Shell(command)).map(|spec| spec.name),
+                PaletteRun::Named { name, .. } => crate::command(&name).map(|spec| spec.name),
             };
             json!({
                 "label": item.label,
                 "group": item.group,
-                "command": naming(&run).map(|spec| spec.name),
+                "command": command,
                 "chord": item.chord,
                 "enabled": item.enabled,
                 "checked": item.checked,

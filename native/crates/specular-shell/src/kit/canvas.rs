@@ -19,7 +19,7 @@ use std::time::{Duration, Instant};
 
 use futures::channel::mpsc;
 use specular_interact::panel::ContextMenu;
-use specular_interact::{ControlsModel, Event, Revisions, context_menu};
+use specular_interact::{ControlsModel, Event, Revisions, ToolbarModel, context_menu};
 use specular_shell::{Bench, Runtime, ShellWindow as _};
 
 use crate::surface::{CanvasSurface, WindowAsks};
@@ -38,8 +38,9 @@ pub(crate) struct Canvas {
     pub(crate) asks: Rc<WindowAsks>,
     models: Models,
     /// The app as keyed state, published each time the models are read,
-    /// with a revision per key that moves only when its value does.
-    state: Revisions,
+    /// with a revision per key that moves only when its value does. Shared
+    /// with the mods, which read it as they render.
+    state: Rc<RefCell<Revisions>>,
     /// Whether the app may have changed since the models were read.
     stale: bool,
     /// Whether the models changed since GPUI was last told.
@@ -123,7 +124,7 @@ pub(crate) fn install(
         runtime,
         asks,
         models,
-        state: Revisions::default(),
+        state: Rc::default(),
         stale: false,
         unseen: false,
         gate: ModelGate::default(),
@@ -167,6 +168,22 @@ pub(crate) fn models() -> Option<Models> {
         }
         canvas.models.clone()
     })
+}
+
+/// The toolbar's model and the options of the tool in hand, as last read:
+/// what the window's own `Zoom` and `ToolOptions` draw inside a mod.
+pub(crate) fn tool_models() -> Option<(ToolbarModel, Option<ControlsModel>)> {
+    with(|canvas| {
+        (
+            canvas.models.toolbar.clone(),
+            canvas.models.tool_options.clone(),
+        )
+    })
+}
+
+/// The keyed state the mods read, which the models' reading publishes.
+pub(crate) fn state() -> Option<Rc<RefCell<Revisions>>> {
+    with(|canvas| canvas.state.clone())
 }
 
 /// The context menu that is open, with its items as the app has them now.
