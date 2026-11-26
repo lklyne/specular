@@ -16,6 +16,7 @@ mod effects;
 mod frames;
 mod held_notes;
 mod image_run;
+mod layout_run;
 mod loads;
 mod lod;
 mod note_run;

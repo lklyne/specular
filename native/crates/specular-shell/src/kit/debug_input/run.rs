@@ -75,7 +75,7 @@ fn state(window: AnyWindowHandle, cx: &mut AsyncApp) -> String {
     let mut out = canvas::with(|canvas| {
         let app = canvas.runtime.app();
         let mut out = script::dump(app);
-        let _ = writeln!(out, "# covered-left {}", app.covered_left());
+        let _ = writeln!(out, "# covered-left {}", app.insets().left);
         let _ = writeln!(out, "# gesture {}", app.session().gesture.is_some());
         let _ = writeln!(out, "# tool-defaults {:?}", app.tool_defaults());
         for (id, _) in app.pages() {

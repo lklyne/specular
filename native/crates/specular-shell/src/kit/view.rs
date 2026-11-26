@@ -15,15 +15,17 @@
 //! ```
 //!
 //! The slot fills the window beside the right panel, as the app's own
-//! layout assumes, and everything else lies over it. The app counts as
-//! covered the tab row (`CHROME_HEIGHT`), the sidebar while its model says
-//! it is visible, and the tools while they are docked
-//! (`App::covered_left`). The tools can float over the slot's top or bottom
-//! instead, covering nothing the app counts.
+//! layout assumes, and everything else lies over it. What the app counts
+//! as covered is `App::insets`, which the models carry: the tab row, the
+//! sidebar while its model says it is visible, and the tools while they are
+//! docked. The tools can float over the slot's top or bottom instead,
+//! covering nothing the app counts. A region the layout hides is not drawn
+//! and the insets do not count it (`Models::regions`), so the canvas has
+//! its room.
 //!
 //! The dock is a bar over the top of the slot. In a tab that shows its
-//! item it is always there, holding the lens, and the app counts it
-//! (`App::covered_top`). On the canvas it comes with a selection and goes
+//! item it is always there, holding the lens, and the app counts it. On the
+//! canvas it comes with a selection and goes
 //! with it, over the canvas, so nothing under it moves. The right panel is
 //! beside the slot, so opening it or dragging its edge makes the app's
 //! viewport narrower.
@@ -122,28 +124,16 @@ pub(crate) fn drop_files(paths: Vec<PathBuf>, at: Vec2) {
     });
 }
 
-/// How much of the slot's left edge the Kit covers: the sidebar, and the
-/// tools while they are docked.
-fn covered_left(models: &Models) -> f32 {
-    let sidebar = if models.sidebar.visible {
-        theme::SIDEBAR_WIDTH
-    } else {
-        0.0
-    };
-    let tools = if models.toolbar.tools == ToolsPlace::Docked {
-        TOOLS_DOCK_WIDTH
-    } else {
-        0.0
-    };
-    sidebar + tools
-}
-
 /// What lies over the slot and moves with its edges: the dock's bar, and
 /// the tools while they float.
 fn over_slot(models: &Models, window: &mut Window, cx: &mut App) -> Vec<AnyElement> {
-    let left = covered_left(models);
-    let dock = dock::dock(models.dock.as_ref(), &models.toolbar, left, window, cx);
-    let mut top = theme::CHROME_HEIGHT;
+    let left = models.insets.left;
+    let dock = if models.regions.dock {
+        dock::dock(models.dock.as_ref(), &models.toolbar, left, window, cx)
+    } else {
+        None
+    };
+    let mut top = theme::chrome_top();
     if dock.is_some() {
         top += theme::DOCK_ROW;
     }
@@ -151,7 +141,7 @@ fn over_slot(models: &Models, window: &mut Window, cx: &mut App) -> Vec<AnyEleme
         .into_iter()
         .map(IntoElement::into_any_element)
         .collect();
-    if models.toolbar.tools != ToolsPlace::Docked {
+    if models.regions.toolbar && models.toolbar.tools != ToolsPlace::Docked {
         let shown = models.tool_options.as_ref();
         out.push(
             toolbar::floating(&models.toolbar, shown, (left, top), window, cx).into_any_element(),
@@ -267,9 +257,10 @@ impl ShellView {
                     .child(self.canvas_slot(window, cx))
                     .children(models.map_or_default(|models| over_slot(models, window, cx))),
             )
-            .when_some(models, |row, models| {
-                row.children(self.chat_panel(&models.chat, window, cx))
-            })
+            .when_some(
+                models.filter(|models| models.regions.chat),
+                |row, models| row.children(self.chat_panel(&models.chat, window, cx)),
+            )
             .into_any_element()
     }
 }
@@ -280,7 +271,7 @@ fn chrome_hairline() -> impl IntoElement {
     // nothing covers it.
     div()
         .absolute()
-        .top(px(theme::CHROME_HEIGHT - 1.0))
+        .top(px(theme::TAB_ROW - 1.0))
         .left_0()
         .right_0()
         .h(px(1.0))
@@ -296,6 +287,8 @@ impl Render for ShellView {
         }
         named::begin_frame();
         let models = canvas::models();
+        let tab_row = models.as_ref().is_none_or(|models| models.regions.tabs);
+        theme::set_chrome_top(if tab_row { theme::TAB_ROW } else { 0.0 });
         if let Some(model) = models
             .as_ref()
             .and_then(|models| models.onboarding.as_ref())
@@ -327,28 +320,36 @@ impl Render for ShellView {
             })
             .child(self.slot_row(models.as_ref(), window, cx))
             .when_some(models.as_ref(), |root, models: &Models| {
-                root.when(models.sidebar.visible, |root| {
+                let regions = models.regions;
+                root.when(regions.sidebar && models.sidebar.visible, |root| {
                     root.child(Self::sidebar(&models.sidebar, window, cx))
                 })
-                .child(
-                    v_flex()
-                        .id("chrome")
-                        .occlude()
-                        .absolute()
-                        .top_0()
-                        .left_0()
-                        .right_0()
-                        .bg(theme::solid(theme::toolbar()))
-                        .child(tabs::tabs(&models.strip, &models.toolbar)),
-                )
-                .when(models.toolbar.tools == ToolsPlace::Docked, |root| {
-                    let left = covered_left(models) - TOOLS_DOCK_WIDTH;
-                    let shown = models.tool_options.as_ref();
-                    root.child(toolbar::docked(&models.toolbar, shown, left, window, cx))
+                .when(regions.tabs, |root| {
+                    root.child(
+                        v_flex()
+                            .id("chrome")
+                            .occlude()
+                            .absolute()
+                            .top_0()
+                            .left_0()
+                            .right_0()
+                            .bg(theme::solid(theme::toolbar()))
+                            .child(tabs::tabs(&models.strip, &models.toolbar)),
+                    )
                 })
-                .children(self.chat_resize_handle(&models.chat))
+                .when(
+                    regions.toolbar && models.toolbar.tools == ToolsPlace::Docked,
+                    |root| {
+                        let left = models.insets.left - TOOLS_DOCK_WIDTH;
+                        let shown = models.tool_options.as_ref();
+                        root.child(toolbar::docked(&models.toolbar, shown, left, window, cx))
+                    },
+                )
+                .when(regions.chat, |root| {
+                    root.children(self.chat_resize_handle(&models.chat))
+                })
             })
-            .child(chrome_hairline())
+            .when(tab_row, |root| root.child(chrome_hairline()))
             // A drag that began on the canvas is the canvas's until it ends:
             // nothing it passes over hovers, opens a tooltip or scrolls.
             .when(self.pointer.held(), |root| {

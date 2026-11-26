@@ -164,6 +164,7 @@ impl<W: ShellWindow> Runtime<W> {
             Effect::RevealSpace => self.reveal_space(),
             Effect::Quit => self.exit(),
             Effect::SaveSettings(settings) => self.save_settings(settings),
+            effect @ (Effect::SaveLayoutToggles(_) | Effect::ResetLayout) => self.layout(effect),
             Effect::PickRepoFolder { origin } => self.ask_for_folder(FolderAsk::Repo { origin }),
             Effect::QueryRegionGrab { region, pages } => self.query_region_grab(region, &pages),
             Effect::PreviewRegion { pages } => self.preview_region(&pages),

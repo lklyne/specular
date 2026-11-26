@@ -3,8 +3,9 @@
 use std::time::Instant;
 
 use specular_interact::{
-    Appearance, ChatModel, ControlsModel, Menu, OnboardingModel, SidebarModel, Theme, ToolbarModel,
-    ViewStrip, chat, dock, menus, onboarding, sidebar, tool_options, toolbar, view_strip,
+    Appearance, ChatModel, ControlsModel, Insets, Menu, OnboardingModel, Regions, SidebarModel,
+    Theme, ToolbarModel, ViewStrip, chat, dock, menus, onboarding, publish_state, sidebar,
+    tool_options, toolbar, view_strip,
 };
 use specular_shell::Runtime;
 
@@ -35,6 +36,11 @@ pub(crate) struct Models {
     pub(crate) appearance: Appearance,
     /// The choice behind it, which `AppKit` is told of.
     pub(crate) theme: Theme,
+    /// Which regions the layout lets be drawn.
+    pub(crate) regions: Regions,
+    /// How far in from each edge the canvas is seen, which places the
+    /// regions drawn over it.
+    pub(crate) insets: Insets,
 }
 
 impl Models {
@@ -56,6 +62,8 @@ impl Models {
             onboarding: onboarding(app),
             appearance: app.appearance(),
             theme: app.theme(),
+            regions: app.regions(),
+            insets: app.insets(),
         }
     }
 }
@@ -101,6 +109,7 @@ impl Canvas {
         if !std::mem::take(&mut self.stale) {
             return;
         }
+        publish_state(&mut self.state, self.runtime.app());
         let models = Models::of(&self.runtime);
         if models != self.models {
             self.models = models;

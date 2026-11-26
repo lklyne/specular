@@ -165,6 +165,14 @@ What a script can name, beyond the steps in "Looking at what it draws":
   a double click enters it, and only an entered page gets input.
 - A text field is pressed like a control and typed into; Enter keeps the
   text and Escape puts the old value back.
+- The window's regions are `tabs`, `toolbar`, `dock`, `sidebar` and
+  `chat` (ADR 0055). `run ui.toggle {"id":"toolbar"}` (and `ui.show`,
+  `ui.hide`, by a region or a control id) hides one over the layout file,
+  and the canvas takes its room; `key ctrl+alt+shift+escape` or `run
+  ui.reset` goes back to the shipped layout. `expect layout is region
+  toolbar hidden`, `expect layout is toggled toolbar hidden` and `expect
+  layout is insets LEFT TOP RIGHT BOTTOM` (what the canvas is seen
+  between, `App::insets`) check it. See `regions.txt`.
 
 ## Looking at what it draws
 
@@ -257,6 +265,13 @@ logs the port it took and the `SPECULAR_DISCOVERY_FILE=` to pass the CLI.
   the context menu, the scripts' `run` step, `GET /commands`, `POST /run`
   and the CLI's `commands` and `run` read it. A new command is a row
   there; its label, if a menu shows it, is written there once.
+- What a mod reads is the keyed state (`specular-interact/src/state.rs`):
+  `panels/toolbar`, `panels/dock`, `theme`, `keys`, `layout` and the rest,
+  as JSON from `&App`. `GET /state` (`?key=` for one) and `specular state
+  [key]` answer it; the Kit window publishes it into a `Revisions` whose
+  per-key revision moves only when the value does. The camera is in no
+  key. The layout file is `<app home>/layouts/default.json`
+  (`specular-shell/src/app/layout_run.rs`).
 - A route the CLI can call and this app lacks gets a row in `unported.rs`,
   so the caller reads which verb is missing instead of a 404.
 - The browse verbs (`snapshot`, `click`, ...) reach a page through its own

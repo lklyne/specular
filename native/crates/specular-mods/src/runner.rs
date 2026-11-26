@@ -15,7 +15,7 @@ use gpui_shell::{RuntimeMetrics, ShellRoot, ShellRuntime, Watcher};
 
 use crate::host::{ModHost, specular_module};
 use crate::manifest::ModManifest;
-use crate::reads::{Reads, Revisions};
+use crate::{Reads, Revisions};
 
 /// A loaded mod.
 pub struct Mod {

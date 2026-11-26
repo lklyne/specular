@@ -16,8 +16,8 @@ use std::rc::Rc;
 use gpui_shell::{HostError, HostModule, HostValue};
 use serde_json::Value;
 
-use crate::reads::{Reads, Revisions};
 use crate::value::{from_host, to_host};
+use crate::{Reads, Revisions};
 
 /// Why a command a mod ran did not run.
 #[derive(Debug, Clone, PartialEq, Eq)]

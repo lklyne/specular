@@ -194,6 +194,9 @@ pub enum Action {
     /// how a caller that cannot name an [`Action`] presses a control the
     /// models show. A name no control has now does nothing.
     PressControl(crate::ControlId),
+    /// Hide or show a region of the window or a control, over what the
+    /// layout file says, or go back to the shipped layout.
+    Layout(crate::LayoutAction),
     /// Move the selection by exactly this many canvas units.
     Nudge {
         /// Along x. Positive is right.

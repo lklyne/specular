@@ -367,7 +367,7 @@ pub(crate) fn activate(app: &mut App, id: &ControlId, keys: Modifiers, effects: 
 /// does a press that belongs to a page, a tool, a drag or a text edit.
 pub(crate) fn open_menu(app: &mut App, screen: Vec2) {
     app.session.panel.menu = None;
-    if screen.x < app.covered_left() {
+    if screen.x < app.insets().left {
         return;
     }
     let under = hit::hit_test(app, screen);

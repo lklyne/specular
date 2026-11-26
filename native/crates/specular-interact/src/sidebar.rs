@@ -16,7 +16,7 @@ use specular_doc::EntityId;
 
 pub(crate) use self::pick::picked;
 use self::rows::{Tree, leaves};
-pub use self::state::{SIDEBAR_WIDTH, SidebarAction, SidebarSection, SidebarView};
+pub use self::state::{SidebarAction, SidebarSection, SidebarView};
 use crate::panel::{ControlId, Field, FieldSubmit, FieldWidth, Icon};
 use crate::{Action, App, CanvasAction, CanvasId};
 

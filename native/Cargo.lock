@@ -8651,6 +8651,7 @@ dependencies = [
  "gpui-shell",
  "serde",
  "serde_json",
+ "specular-interact",
  "tracing",
 ]
 

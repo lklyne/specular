@@ -1,5 +1,6 @@
-//! The verbs over the app's command registry: `commands` lists every
-//! command the app can run by name, and `run <name> [json-args]` runs one.
+//! The verbs over the app's command registry and keyed state: `commands`
+//! lists every command the app can run by name, `run <name> [json-args]`
+//! runs one, and `state [key]` reads what a mod reads.
 
 use serde_json::{Value, json};
 
@@ -31,4 +32,27 @@ pub(crate) fn run(client: &Client, args: &Args) -> anyhow::Result<i32> {
     let body = json!({ "name": name, "args": command_args });
     output::json(&client.post("/run", &body)?);
     Ok(0)
+}
+
+/// `state [key]`: every key of the app's keyed state, or the one named.
+pub(crate) fn state(client: &Client, args: &Args) -> anyhow::Result<i32> {
+    let path = match args.nth(0) {
+        Some(key) => format!("/state?key={}", encode(key)),
+        None => "/state".to_owned(),
+    };
+    output::json(&client.get(&path)?);
+    Ok(0)
+}
+
+/// `key` as a query value: a state key is lower case words, `/` and `_`,
+/// and anything else is escaped.
+fn encode(key: &str) -> String {
+    key.bytes()
+        .map(|byte| match byte {
+            b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'/' | b'_' | b'-' | b'.' => {
+                char::from(byte).to_string()
+            }
+            other => format!("%{other:02X}"),
+        })
+        .collect()
 }

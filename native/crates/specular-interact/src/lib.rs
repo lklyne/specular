@@ -33,6 +33,7 @@ mod camera;
 mod caps;
 mod chat;
 mod chord;
+pub mod chrome;
 mod clipboard;
 mod clone;
 mod commands;
@@ -100,6 +101,7 @@ mod sidebar;
 mod space;
 mod space_file;
 mod stack_order;
+mod state;
 mod strokes;
 mod sync;
 mod theme;
@@ -126,6 +128,10 @@ pub use chat::{
     QueuedChip, RunBar, ThreadRow, Transcript, chat, fixable,
 };
 pub use chord::Chord;
+pub use chrome::{
+    Insets, Layout, LayoutAction, LayoutError, LayoutFile, Region, RegionNode, Regions,
+    SIDEBAR_WIDTH, TOOLS_DOCK_WIDTH, Toggles,
+};
 pub use clipboard::{ClipboardContent, ClipboardImage, Paste};
 pub use commands::{CommandSpec, Run, RunError, command, commands, run_named};
 pub use comment::{
@@ -191,15 +197,15 @@ pub(crate) use scroll_follow::{
 };
 pub use settings::{
     AboutRow, AppSettings, GeneralPane, HiddenCursors, SettingAction, SettingChoice, SettingOption,
-    SettingToggle, SettingsModel, ShortcutRow, SpaceRow, TOOLS_DOCK_WIDTH, ToolsPlace, settings,
+    SettingToggle, SettingsModel, ShortcutRow, SpaceRow, ToolsPlace, settings,
 };
 pub use share_button::{LinkScope, ShareAction, ShareLinks};
 pub use shared::ShareEvent;
 pub use showing::turn::Turning;
 pub use showing::{Lens, SavedTab, Showing};
 pub use sidebar::{
-    CanvasRow, RowKind, RowTarget, SIDEBAR_WIDTH, SectionHead, SidebarAction, SidebarModel,
-    SidebarRow, SidebarSection, SidebarView, sidebar,
+    CanvasRow, RowKind, RowTarget, SectionHead, SidebarAction, SidebarModel, SidebarRow,
+    SidebarSection, SidebarView, sidebar,
 };
 pub use space::{
     Canvas, CanvasId, OpenedCanvas, OpenedSpace, SavedCanvas, Space, TabRefError, canvas_file_name,
@@ -213,6 +219,7 @@ pub use specular_agent::{
     WriteTarget, origin_of,
 };
 pub use specular_core::Cursor;
+pub use state::{Revisions, STATE_KEYS, publish as publish_state, state, state_key};
 pub(crate) use theme::ThemeState;
 pub use theme::{Appearance, Theme};
 pub use time::iso8601;

@@ -19,7 +19,7 @@ use std::time::{Duration, Instant};
 
 use futures::channel::mpsc;
 use specular_interact::panel::ContextMenu;
-use specular_interact::{ControlsModel, Event, context_menu};
+use specular_interact::{ControlsModel, Event, Revisions, context_menu};
 use specular_shell::{Bench, Runtime, ShellWindow as _};
 
 use crate::surface::{CanvasSurface, WindowAsks};
@@ -37,6 +37,9 @@ pub(crate) struct Canvas {
     /// What effects asked of the window.
     pub(crate) asks: Rc<WindowAsks>,
     models: Models,
+    /// The app as keyed state, published each time the models are read,
+    /// with a revision per key that moves only when its value does.
+    state: Revisions,
     /// Whether the app may have changed since the models were read.
     stale: bool,
     /// Whether the models changed since GPUI was last told.
@@ -120,6 +123,7 @@ pub(crate) fn install(
         runtime,
         asks,
         models,
+        state: Revisions::default(),
         stale: false,
         unseen: false,
         gate: ModelGate::default(),

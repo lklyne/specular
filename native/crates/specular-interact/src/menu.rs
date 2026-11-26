@@ -321,6 +321,7 @@ pub(crate) fn has_target(app: &App, action: &Action) -> bool {
         | Action::NewPageTab
         | Action::Nudge { .. }
         | Action::PressControl(_)
+        | Action::Layout(_)
         | Action::Paste
         | Action::ZoomIn
         | Action::ZoomOut

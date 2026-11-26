@@ -174,3 +174,106 @@ Kit app (the Linux binary has no window and no server); `cef/sync.txt` and
 now must be enabled when they run. Two compositor GPU readback tests
 (`a_clip_cuts_an_item_to_its_rect`, `opacity_blends_an_item_with_what_is_under_it`)
 fail on this box's software Vulkan driver with and without this change.
+
+## Phase 1b: keyed state, the layout file, insets, the reset key
+
+**Built.**
+
+- **Keyed state** (`specular-interact/src/state.rs`, pure): `state(&App)`
+  gives eleven keys of JSON, `state_key`, `STATE_KEYS`, and
+  `publish_state(&mut Revisions, &App)` returns the keys whose revision
+  moved. `Revisions` moved here from `specular-mods/src/reads.rs`
+  (`specular-mods` depends on interact and re-exports it; `Reads` stays
+  there). The panel models derive `Serialize`; every `Action` field is
+  skipped, the `ControlId` written beside it is what `control.press` takes.
+  Keys and shapes:
+  - `panels/toolbar`: `ToolbarModel` without `share` (its own key):
+    `{chat, theme, sections: [{tools: [..]}, {zoom: {id}}], tools, view}`.
+  - `panels/tool_options`, `panels/dock`: `{controls: [{kind: button|toggle|
+    swatches|dropdown|stepper|field|choices|separator, id, ..}]}` or `null`
+    (the dock is `null` while a tool has options, as the window shows it).
+  - `panels/strip`: `{tabs: [{id, label, icon, active}], add}`.
+  - `panels/menu`: `{at: [x, y], menu: {controls}}` or `null`.
+  - `panels/palette`: `[{label, group, command, chord, enabled, checked,
+    keywords}]`, `command` the registry name.
+  - `panels/share`: the Share button and its access dropdown.
+  - `theme`: `{appearance: light|dark, choice: system|light|dark}`.
+  - `settings`: `{showSidebar, showChat, tools, hideAgentCursors,
+    hideSyncedCursors}`.
+  - `keys`: `[{keys: "⇧⌘Z", context, command, args}]`, the binding table,
+    then the window's keys, then `{keys: "⌃⌥⇧⎋", command: "ui.reset",
+    fixed: true}`.
+  - `layout`: `{file: <the layout>, toggles: {hidden: {id: bool}}, hidden:
+    [regions hidden]}`.
+- `GET /state` (`?key=` one, 404 with the keys for an unknown one),
+  `specular state [key]`, a `cli/cases.py` case and an API test. The Kit's
+  `Canvas` owns a `Revisions` and publishes into it each time it reads the
+  models; nothing reads it until the mod host does.
+- **The layout file** (`chrome/layout.rs`): `{tabs, toolbar, dock, sidebar,
+  chat}`, each `{"mod": name|null, "hidden": bool, "props": {..}}`; a
+  region left out is the app's own, unknown keys are errors, `props` is
+  carried untouched and its `hidden` lists control ids. `Layout::parse`
+  returns `LayoutError`; `LayoutFile` keeps the last good layout past a bad
+  read. On disk: `<app home>/layouts/default.json` (the folder that holds
+  `preferences.json`: `~/Library/Application Support/Specular` on macOS,
+  `SPECULAR_NATIVE_CONFIG_DIR` when set), written with the shipped layout
+  on every start, polled every 500 ms (`watch::Polled`), a bad save keeps
+  the last good one and writes `default.error`; toggles are
+  `layouts/.state/default.json` (`specular-shell/src/app/layout_run.rs`).
+  Only a runtime with settings on (the window) touches these; headless runs
+  start on the shipped layout.
+- **Commands**: `ui.toggle {id}`, `ui.show {id}`, `ui.hide {id}` (a region
+  name or a control id) and `ui.reset`, as `Action::Layout(LayoutAction)`.
+  A toggle equal to what the layout says is dropped, so `.state` holds only
+  differences. `Effect::SaveLayoutToggles` and `Effect::ResetLayout`.
+- **Insets** (`chrome.rs`): `insets(Regions, Shown) -> Insets {left, top,
+  right, bottom}` is the one function; `App::insets()` replaces
+  `covered_left`/`covered_top`, and `viewport::area`, `named::open_menu`,
+  `script/chrome.rs` and the Kit's `view.rs` read it. The region sizes
+  (`TAB_ROW`, `DOCK_ROW`, `CHROME_HEIGHT`, `TOOLS_DOCK_WIDTH`,
+  `SIDEBAR_WIDTH`) live in `chrome.rs` alone, re-exported at their old
+  paths. The shipped layout gives exactly the old numbers (every existing
+  scenario passes unchanged).
+- **The reset key**: Control+Option+Shift+Escape (not Command), checked
+  first in `bindings::on_key`, before the editor and an entered page; it
+  runs `ui.reset`.
+- **Tests**: `fixtures/scenarios/regions.txt` (toolbar, tabs, sidebar,
+  dock toggled with the insets checked, a control id, the reset key,
+  `ui.reset`, `undo-to-start`); new `expect` topic `layout` (`region NAME
+  shown|hidden`, `toggled ID hidden|shown`, `insets L T R B`);
+  `tests/it/layout.rs` (round trip with props, bad saves keep the last
+  good); `tests/it/state.rs` (publishing twice moves nothing; a pan and a
+  zoom move no key, a tool change moves `panels/toolbar`).
+
+Calls made:
+
+- **`Event::Insets` is not an event.** The insets depend on state `update`
+  itself changes in the middle of an event (the sidebar opening, a tab
+  showing its item, which the camera fits under), so numbers sent by the
+  shell would be one event behind. Instead the shell sends the layout
+  (`Event::LayoutLoaded`, `Event::LayoutToggles`), the app keeps it beside
+  the toggles, and `App::insets()` computes them from it by the one pure
+  function both runners use. `Event::ShellChrome`/`ChromeLayout` still say
+  whether the chrome covers the viewport.
+- The zoom readout is written as `{zoom: {id}}`: its face and its levels'
+  checks follow the camera. Whatever shows the zoom will be a host element.
+- Hiding `toolbar` hides the tool ribbon (docked or floating); the Share,
+  chat and view controls drawn in the tab row go with `tabs`. Hiding
+  `sidebar` keeps the sidebar's own open flag (Command+B still flips it),
+  and it is drawn only when both say so. `chat` is beside the slot, so
+  hiding it widens the viewport the window reports; its inset is 0.
+- A control id toggled is kept and published (`layout.toggles`) but the
+  app's own panels do not filter by it yet: `props.hidden` is for mods.
+- Keys are not a file yet, so the reset key and `ui.reset` reset the layout
+  and its toggles only.
+- The Kit places the regions under the tab row at `theme::chrome_top()`, a
+  thread-local each render sets from the models, the way the theme's
+  colours are functions of the theme in force, rather than a new argument
+  through five views.
+
+Not verified here (Linux): every Kit edit (`kit/canvas.rs`,
+`kit/canvas/models.rs`, `kit/theme.rs`, `kit/view.rs`, `kit/view/toolbar.rs`,
+`kit/view/sidebar.rs`, `kit/view/dock.rs`, `kit/view/chat.rs`,
+`kit/debug_input/run.rs`); the region hiding in the window; the layout
+file's write/watch/error path and the reset key in the window; and the
+`cli/cases.py` case, which needs the Kit app.

@@ -137,7 +137,7 @@ does `drop` too, a relative path read from the canvas's folder.
 
 The panel facts read a topic's lines, the ones a `state` step writes as
 `TOPIC has LINE`: `chat`, `comments`, `controls`, `editor`, `effects`,
-`inspect`, `menubar`, `onboarding`, `pages`, `palette`, `pointer`,
+`inspect`, `layout`, `menubar`, `onboarding`, `pages`, `palette`, `pointer`,
 `repos`, `settings`, `sidebar` and `tabs` (see
 `crates/specular-shell/src/script/facts_panels.rs`):
 
@@ -146,6 +146,7 @@ expect chat has bubble agent "Made it blue."   expect comments has mark a pill 4
 expect controls is page.back disabled "Back"   expect editor is caret 5 0
 expect effects has run-agent cwd /scratch/site expect comments count 10 mark\s
 expect chat lacks queued                       expect tabs has lens device
+expect layout is region toolbar hidden         expect layout is insets 36 38 0 0
 ```
 
 `has` and `lacks` look for the text in any line, `is` for a whole line,
@@ -223,6 +224,7 @@ uses `\n`, `\t` and `\s` (a space at either end).
 | `page-scroll` | Comments and a hooked shape on a scrolled page: stored in its document, seen and pressed where the scroll puts them. |
 | `sync-sets` | The chain button's merge, copies and their sets, and the entered page's scroll moving its set. |
 | `tabs` | Tabs opened, ordered, closed, a new tab, Command-L, next and previous, a press that lays a page out. |
+| `regions` | The window's regions hidden and shown by `ui.toggle`, `ui.show` and `ui.hide`, the canvas taking their room, and the reset key. |
 | `lens` | A page's tab in Fill and Device, the eye, what is made beside it, a desktop browser in Fill. |
 | `item-view` | Input in an item view: the shown page entered, hidden things untouchable, a Document as a reading column; view verbs. |
 | `page-properties` | Size presets, turns, custom sizes, frames, the device colour and the colour scheme, from the popup and the keys. |

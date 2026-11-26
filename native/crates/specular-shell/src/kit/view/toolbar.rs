@@ -266,7 +266,7 @@ pub(super) fn docked(
         .occlude()
         .absolute()
         .left(px(left))
-        .top(px(theme::CHROME_HEIGHT))
+        .top(px(theme::chrome_top()))
         .bottom_0()
         .w(px(TOOLS_DOCK_WIDTH))
         .py(px(RIBBON_PAD))

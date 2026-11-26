@@ -1,6 +1,7 @@
 //! The two models themselves: the toolbar, and a set of controls. Their
 //! controls are in [`model`](super::model).
 
+use serde::Serialize;
 use specular_doc::Color;
 
 use super::model::{Button, Control, Dropdown, Label};
@@ -8,11 +9,12 @@ use super::{ControlId, Icon};
 use crate::{Action, Chord, Tool, ToolsPlace};
 
 /// A tool button of the toolbar.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct ToolButton {
     /// Its name.
     pub id: ControlId,
     /// The tool it arms.
+    #[serde(skip)]
     pub(crate) tool: Tool,
     /// What it is called.
     pub label: Label,
@@ -27,6 +29,7 @@ pub struct ToolButton {
     pub chord: Option<Chord>,
     /// What pressing it does: arm the tool, or put it down when it is one
     /// that a second press puts down.
+    #[serde(skip)]
     pub action: Action,
 }
 
@@ -39,8 +42,25 @@ pub enum ToolbarSection {
     Zoom(Dropdown),
 }
 
+/// The zoom readout is written as its id alone. Its face and its levels'
+/// checks follow the camera, and the camera stays out of the keyed state
+/// so a pan or a pinch moves no key: whatever shows the zoom is the host's.
+impl Serialize for ToolbarSection {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeMap as _;
+        let mut map = serializer.serialize_map(Some(1))?;
+        match self {
+            Self::Tools(tools) => map.serialize_entry("tools", tools)?,
+            Self::Zoom(readout) => {
+                map.serialize_entry("zoom", &serde_json::json!({ "id": readout.id }))?;
+            }
+        }
+        map.end()
+    }
+}
+
 /// A button of the toolbar that shows and hides a side panel.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct SidebarButton {
     /// Its name.
     pub id: ControlId,
@@ -51,12 +71,13 @@ pub struct SidebarButton {
     /// Whether the panel is shown.
     pub open: bool,
     /// What pressing it does.
+    #[serde(skip)]
     pub action: Action,
 }
 
 /// The Share button at the right end of the tab row, and the popover it
 /// opens.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct ShareButton {
     /// Its name.
     pub id: ControlId,
@@ -71,7 +92,7 @@ pub struct ShareButton {
 
 /// The toolbar's theme button, which flips the theme between light and
 /// dark.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct ThemeButton {
     /// Its name.
     pub id: ControlId,
@@ -81,16 +102,18 @@ pub struct ThemeButton {
     pub icon: Icon,
     /// What pressing it does: draw the other, as a fixed choice or by
     /// following the system again.
+    #[serde(skip)]
     pub action: Action,
 }
 
 /// The toolbar as it is now.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct ToolbarModel {
     /// The button for the right panel, at the right edge. Only a shell that
     /// has a right panel gets one.
     pub chat: Option<SidebarButton>,
     /// The Share button, just before the right panel's.
+    #[serde(skip)]
     pub share: ShareButton,
     /// The theme button, just before the zoom readout.
     pub theme: ThemeButton,
@@ -109,7 +132,7 @@ impl ToolbarModel {}
 
 /// A set of controls shown together: the dock's row for the tool in hand
 /// or the selection, or the one list of choices that is a context menu.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct ControlsModel {
     /// Its controls in order, with a separator between groups.
     pub controls: Vec<Control>,

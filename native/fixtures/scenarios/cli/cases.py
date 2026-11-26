@@ -628,6 +628,25 @@ def commands_lists_the_registry_and_run_runs_one_by_name():
     refused("the window's own", "run", "app.quit")
 
 
+
+@case
+def state_reads_the_keyed_state_and_ui_toggle_moves_it():
+    fresh("State", notes=True)
+    every = ok("state")
+    for key in ("panels/toolbar", "panels/dock", "panels/strip", "theme", "settings", "keys", "layout"):
+        check(key in every, f"state has {key}: {sorted(every)}")
+    toolbar = ok("state", "panels/toolbar")
+    check("zoom" in json.dumps(toolbar), "the zoom readout is named")
+    check("%" not in json.dumps(toolbar["sections"]), "and carries no camera value")
+    check(any(k["command"] == "ui.reset" and k.get("fixed") for k in ok("state", "keys")), "the reset key")
+    equal(ok("state", "layout")["hidden"], [], "nothing hidden")
+    ok("run", "ui.toggle", '{"id": "toolbar"}')
+    equal(ok("state", "layout")["hidden"], ["toolbar"], "ui.toggle hides a region")
+    ok("run", "ui.reset")
+    equal(ok("state", "layout")["hidden"], [], "ui.reset shows it again")
+    refused("no state key `nope`", "state", "nope")
+
+
 # --- browse verbs with no page ------------------------------------------------
 
 

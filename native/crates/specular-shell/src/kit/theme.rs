@@ -280,9 +280,26 @@ pub(crate) fn error() -> u32 {
 }
 
 /// The chrome's one row, and the bar under it that holds the dock, which
-/// the app's own layout assumes too. Everything under the chrome reads
-/// `CHROME_HEIGHT`.
+/// the app's own layout assumes too. Everything under the chrome starts at
+/// [`chrome_top`], which is `CHROME_HEIGHT` while the tab row is drawn.
 pub(crate) use specular_interact::panel::{CHROME_HEIGHT, DOCK_ROW, TAB_ROW};
+
+thread_local! {
+    /// Where the regions under the tab row start: under it, or at the
+    /// window's top while the layout hides it.
+    static CHROME_TOP: Cell<f32> = const { Cell::new(CHROME_HEIGHT) };
+}
+
+/// Where the regions under the tab row start, as the last render set it.
+pub(crate) fn chrome_top() -> f32 {
+    CHROME_TOP.get()
+}
+
+/// Sets where the regions under the tab row start, for this render.
+pub(crate) fn set_chrome_top(top: f32) {
+    CHROME_TOP.set(top);
+}
+
 /// The sidebar's width, `LEFT_SIDEBAR_WIDTH` in `runtime-constants.ts`.
 pub(crate) const SIDEBAR_WIDTH: f32 = 256.0;
 

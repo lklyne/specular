@@ -26,8 +26,9 @@ mod value;
 
 pub use host::{MODULE, ModHost, RunError, specular_module};
 pub use manifest::{API, FILE as MANIFEST_FILE, ManifestError, ModManifest, PaletteEntry};
-pub use reads::{Reads, Revisions};
+pub use reads::Reads;
 pub use runner::{Mod, ModStats};
+pub use specular_interact::Revisions;
 pub use value::{from_host, to_host};
 
 /// The runtime's own types, for a host that embeds a mod's view.

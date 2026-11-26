@@ -35,6 +35,7 @@ mod placement;
 mod presets;
 mod reply;
 mod share;
+mod state;
 mod tabs;
 mod tasks;
 mod unported;
@@ -240,6 +241,7 @@ impl Api {
             (Get, ["tabs"]) => Ok(Step::Answer(tabs::identity(user))),
             (Get, ["commands"]) => Ok(Step::Answer(commands::list(app))),
             (Post, ["run"]) => commands::run(app, request),
+            (Get, ["state"]) => state::read(app, request),
             (Get, ["share"]) => Ok(Step::Answer(share::status(user))),
             (Post, ["share"]) => share::start(request),
             (Post, ["share", "stop"]) => Ok(share::stop()),

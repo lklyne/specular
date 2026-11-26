@@ -7,6 +7,7 @@
 
 use super::{Control, ControlId, DropdownSection, Label, dock};
 use crate::{Action, App, CanvasAction, CanvasId, Property, resolve_address_input};
+use serde::Serialize;
 
 /// The name of a page's address field in the dock.
 pub(crate) const PAGE_URL: &str = "page.url";
@@ -15,7 +16,8 @@ pub(crate) const PAGE_URL: &str = "page.url";
 const SIZE_RANGE: (f64, f64) = (1.0, 10_000.0);
 
 /// How much room a field asks for.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum FieldWidth {
     /// Room for a line such as an address, and any more it is given.
     Wide,
@@ -75,7 +77,7 @@ fn size(text: &str) -> Option<f64> {
 }
 
 /// A line of text to type.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Field {
     /// Its name.
     pub id: ControlId,
@@ -90,6 +92,7 @@ pub struct Field {
     /// How much room it asks for.
     pub width: FieldWidth,
     /// What entering its text does.
+    #[serde(skip)]
     pub submit: FieldSubmit,
 }
 

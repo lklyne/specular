@@ -46,6 +46,8 @@ pub struct App {
     pub(crate) measure: Measurer,
     /// Each canvas's share as the Share button shows it.
     pub(crate) shares: crate::share_button::Shares,
+    /// The layout file in force and what was toggled over it.
+    pub(crate) chrome: crate::chrome::ChromeState,
 }
 
 impl App {

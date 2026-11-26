@@ -2,6 +2,7 @@
 //! now, their state, and the [`Action`] each one dispatches. Nothing here
 //! says how a control looks or where it sits on screen.
 
+use serde::Serialize;
 use std::borrow::Cow;
 
 use specular_doc::{Color, TextFont};
@@ -13,7 +14,7 @@ use crate::{Action, Chord};
 pub type Label = Cow<'static, str>;
 
 /// A glyph, a word, or both, plus what tints them.
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize)]
 pub struct Face {
     /// The glyph.
     pub icon: Option<Icon>,
@@ -68,7 +69,7 @@ impl Face {
 }
 
 /// A control that runs its action when pressed.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Button {
     /// Its name.
     pub id: ControlId,
@@ -81,11 +82,12 @@ pub struct Button {
     /// The key that does the same, from the binding table.
     pub chord: Option<Chord>,
     /// What pressing it does.
+    #[serde(skip)]
     pub action: Action,
 }
 
 /// A control that is on or off, and flips when pressed.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Toggle {
     /// Its name.
     pub id: ControlId,
@@ -101,12 +103,14 @@ pub struct Toggle {
     pub chord: Option<Chord>,
     /// What pressing it does. It names the state to go to, so a renderer
     /// never works out the opposite of `on`.
+    #[serde(skip)]
     pub action: Action,
 }
 
 /// The hues a color is drawn from, which differ between surfaces: the same
 /// stored color reads muted on a sticky and saturated on a pen stroke.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Palette {
     /// Muted pastels: stickies, shapes, the highlighter.
     Soft,
@@ -115,7 +119,8 @@ pub enum Palette {
 }
 
 /// How a color is used, which only changes the theme-aware neutral.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum PaintRole {
     /// A background.
     Fill,
@@ -124,7 +129,7 @@ pub enum PaintRole {
 }
 
 /// One choice in a row of swatches.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Swatch {
     /// Its name.
     pub id: ControlId,
@@ -135,11 +140,12 @@ pub struct Swatch {
     /// Whether it is the current value.
     pub selected: bool,
     /// What choosing it does.
+    #[serde(skip)]
     pub action: Action,
 }
 
 /// A row of color choices.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Swatches {
     /// Its name.
     pub(crate) id: ControlId,
@@ -154,7 +160,8 @@ pub struct Swatches {
 }
 
 /// How the options of one dropdown section are laid out.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(tag = "kind", rename_all = "lowercase")]
 pub enum OptionLayout {
     /// One under another.
     List,
@@ -174,7 +181,7 @@ pub enum OptionLayout {
 }
 
 /// One choice in a dropdown.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct DropdownOption {
     /// Its name.
     pub id: ControlId,
@@ -195,6 +202,7 @@ pub struct DropdownOption {
     /// Whether it can be chosen now.
     pub enabled: bool,
     /// What choosing it does.
+    #[serde(skip)]
     pub action: Action,
 }
 
@@ -207,7 +215,8 @@ impl DropdownOption {
 }
 
 /// One block of a dropdown's content. Blocks are set apart from each other.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum DropdownSection {
     /// Choices.
     Options {
@@ -221,7 +230,7 @@ pub enum DropdownSection {
 }
 
 /// A control that opens more controls.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Dropdown {
     /// Its name.
     pub id: ControlId,
@@ -235,7 +244,7 @@ pub struct Dropdown {
 
 /// Choices shown in place, the list that is a context menu, rather than
 /// behind a control.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Choices {
     /// Its name.
     pub id: ControlId,
@@ -246,7 +255,7 @@ pub struct Choices {
 }
 
 /// A number with a control for each direction.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Stepper {
     /// Its name. The buttons are its children `dec` and `inc`.
     pub id: ControlId,
@@ -255,17 +264,20 @@ pub struct Stepper {
     /// The value as shown.
     pub value: Label,
     /// Lowers the value.
+    #[serde(skip)]
     pub decrement: Action,
     /// Whether the value can go lower.
     pub can_decrement: bool,
     /// Raises the value.
+    #[serde(skip)]
     pub increment: Action,
     /// Whether the value can go higher.
     pub can_increment: bool,
 }
 
 /// One control of the dock, a dropdown or a context menu.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(tag = "kind", rename_all = "lowercase")]
 pub enum Control {
     /// Runs an action.
     Button(Button),

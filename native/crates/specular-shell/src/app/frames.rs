@@ -100,6 +100,7 @@ impl<W: ShellWindow> Runtime<W> {
             gpu.compositor_mut().release_idle(now);
         }
         self.sync_files();
+        self.poll_layout(now);
         self.reload_changed_pages(now);
         self.take_loaded_image();
         self.take_read_notes();

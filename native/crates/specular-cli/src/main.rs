@@ -37,6 +37,7 @@ Share: share, share <link>, share join <link>, share stop
 Browse: snapshot, click, fill, type, select, screenshot, scroll, wait
 Annotations: annotations, annotation, annotate, annotate-selection, ack, resolve, dismiss, reply
 Commands: commands, run <name> [json-args]   e.g. run tool.set '{\"tool\":\"draw\"}'
+State: state [key]   e.g. state panels/toolbar
 Other: breakpoints, apply, upsert, link, unlink, auto-layout, find-placement
 
 Unknown verbs pass through to the bundled agent-browser as raw commands
@@ -95,6 +96,7 @@ fn verb(name: &str) -> Verb {
         "skills" => browse::skills,
         "commands" => registry::commands,
         "run" => registry::run,
+        "state" => registry::state,
         _ => browse::passthrough,
     }
 }

@@ -69,7 +69,7 @@ pub struct Session {
     /// and the sidebar row picked last.
     pub panel: PanelUi,
     /// Whether the sidebar is shown, and its folds. See
-    /// [`App::covered_left`].
+    /// [`App::insets`].
     pub sidebar: crate::SidebarView,
     /// The right panel: whether the shell has one, whether it is open, and
     /// its width.

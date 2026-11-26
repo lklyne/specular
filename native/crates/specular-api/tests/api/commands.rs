@@ -62,3 +62,21 @@ fn run_runs_a_command_by_name_as_one_step_and_commands_lists_them() {
     ok(&mut session, json!({ "name": "edit.undo" }));
     assert_eq!(session.node(&json!("b"))["x"], 300);
 }
+
+#[test]
+fn state_answers_every_key_or_the_one_asked_for() {
+    let mut session = two_notes();
+    let every = session.get("/state").body;
+    for key in ["panels/toolbar", "panels/strip", "theme", "keys", "layout"] {
+        assert!(every.get(key).is_some(), "{key}: {every}");
+    }
+    assert_eq!(session.get("/state?key=layout").body["hidden"], json!([]));
+    ok(
+        &mut session,
+        json!({ "name": "ui.toggle", "args": { "id": "sidebar" } }),
+    );
+    let layout = session.get("/state?key=layout").body;
+    assert_eq!(layout["hidden"], json!(["sidebar"]), "{layout}");
+    let missing = session.get("/state?key=nope");
+    assert_eq!(missing.status, 404, "{}", missing.body);
+}

@@ -17,6 +17,7 @@ mod canvas;
 mod edit;
 mod page;
 mod selection;
+mod ui;
 mod view;
 
 use std::sync::LazyLock;
@@ -123,6 +124,7 @@ static ALL: LazyLock<Vec<CommandSpec>> = LazyLock::new(|| {
         page::TAB,
         view::TOOL,
         view::VIEW,
+        ui::UI,
         canvas::SHARE,
         canvas::CONTROL,
     ]

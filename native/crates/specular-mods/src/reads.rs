@@ -1,4 +1,4 @@
-//! Narrow re-renders: a revision per key, and which keys each mod read.
+//! Narrow re-renders: which keys each mod read.
 //!
 //! A key's revision moves when its value does ([`Revisions::publish`]). While
 //! a mod renders, every key it reads is recorded against it ([`Reads`]). A mod
@@ -8,54 +8,7 @@
 
 use std::collections::BTreeMap;
 
-use serde_json::Value;
-
-/// Every published key with its value and the revision it is at.
-#[derive(Debug, Default)]
-pub struct Revisions {
-    keys: BTreeMap<String, (u64, Value)>,
-    clock: u64,
-}
-
-impl Revisions {
-    /// Sets `key` to `value`. Returns whether it changed, which is when its
-    /// revision moved.
-    pub fn publish(&mut self, key: &str, value: Value) -> bool {
-        if let Some((_, old)) = self.keys.get(key)
-            && *old == value
-        {
-            return false;
-        }
-        self.clock += 1;
-        self.keys.insert(key.to_owned(), (self.clock, value));
-        true
-    }
-
-    /// The value of `key`, if it was ever published.
-    pub fn get(&self, key: &str) -> Option<&Value> {
-        self.keys.get(key).map(|(_, value)| value)
-    }
-
-    /// The revision of `key`, or 0 for a key never published.
-    pub fn revision(&self, key: &str) -> u64 {
-        self.keys.get(key).map_or(0, |(revision, _)| *revision)
-    }
-
-    /// The published keys, in order.
-    pub fn keys(&self) -> impl Iterator<Item = &str> {
-        self.keys.keys().map(String::as_str)
-    }
-
-    /// Every key and its value: what `specular mod state` writes and what
-    /// `specular mod check` reads back as a fixture.
-    pub fn dump(&self) -> Value {
-        Value::Object(
-            (self.keys.iter())
-                .map(|(key, (_, value))| (key.clone(), value.clone()))
-                .collect(),
-        )
-    }
-}
+use specular_interact::Revisions;
 
 /// The keys each mod read in its last render, with the revision each was at.
 #[derive(Debug, Default)]

@@ -98,6 +98,8 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         Event::ContextMenu(screen) => crate::panel::open_menu_at(app, screen),
         Event::ShellChrome => app.session.panel = crate::PanelUi::drawn_by_shell(),
         Event::ChromeLayout => app.session.panel.chrome_covers = true,
+        Event::LayoutLoaded(layout) => app.chrome.layout = *layout,
+        Event::LayoutToggles(toggles) => app.chrome.toggles = toggles,
         Event::MenuClosed => app.session.panel.menu = None,
         Event::ChatPanel(available) => app.session.chat.set_available(available),
         Event::Motion(on) => app.session.motion.enable(on),
@@ -278,6 +280,7 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         Action::Setting(action) => crate::settings::run(app, action, effects),
         Action::Share(action) => crate::share_button::run(app, action, effects),
         Action::PressControl(id) => activate_control(app, &id, Modifiers::default(), effects),
+        Action::Layout(action) => crate::chrome::run_layout_action(app, action, effects),
     }
 }
 

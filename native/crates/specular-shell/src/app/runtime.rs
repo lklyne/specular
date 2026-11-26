@@ -149,6 +149,9 @@ pub struct Runtime<W> {
     /// The preferences file. `None` when settings are off, and when there
     /// is no home folder to keep it in.
     pub(crate) prefs: Option<PathBuf>,
+    /// The layout files. `None` when settings are off, and when there is
+    /// no home folder to keep them in.
+    pub(crate) layouts: Option<super::layout_run::LayoutFiles>,
     /// The repos file. `None` when settings are off, and when no folder
     /// can be found for it.
     pub(crate) repos_file: Option<PathBuf>,
@@ -224,6 +227,8 @@ impl<W: ShellWindow> Runtime<W> {
             loads: super::loads::Loads::default(),
             sent: None,
             prefs,
+            layouts: (options.settings.then(prefs::folder).flatten())
+                .map(|home| super::layout_run::LayoutFiles::new(&home)),
             repos_file: options.settings.then(repos_run::file).flatten(),
             folder_dialog: None,
             dropped: Vec::new(),
@@ -301,6 +306,7 @@ impl<W: ShellWindow> Runtime<W> {
         self.load_tool_defaults();
         self.load_settings();
         self.load_theme();
+        self.load_layout();
         self.load_models();
         self.load_repos();
         if let Some(ask) = opening.ask {
