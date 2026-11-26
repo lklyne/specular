@@ -188,16 +188,18 @@ pub(crate) fn on_display_link() {
     });
 }
 
-/// A page queued a frame: drawn now, or at the display link's next tick.
-pub(crate) fn on_page_paint() {
-    with(Canvas::page_painted);
+/// A page queued an event: taken in now, or at the display link's next
+/// tick.
+pub(crate) fn on_page_event() {
+    with(Canvas::page_reported);
 }
 
 impl Canvas {
-    /// A page queued a frame. It goes up at once, unless a frame went up
-    /// less than a refresh ago or the display link's next tick is about to
-    /// take it: many paints between two ticks make one frame.
-    fn page_painted(&mut self) {
+    /// A page queued an event, most often a frame. It is taken in and goes
+    /// up at once, unless a frame went up less than a refresh ago or the
+    /// display link's next tick is about to take it: many paints between
+    /// two ticks make one frame.
+    fn page_reported(&mut self) {
         let now = Instant::now();
         let at = (self.last_present, self.next_tick);
         if paint_draws_now(now, at, self.refresh, self.rest.paused) {
@@ -208,6 +210,25 @@ impl Canvas {
     /// The frame a late one asked for, without waiting for the display link.
     pub(crate) fn catch_up(&mut self) {
         self.run_frame();
+    }
+
+    /// Answers what the API and CDP clients asked, and runs a turn now if
+    /// the link rests: a write owes a frame no tick is coming to draw.
+    pub(crate) fn serve_api(&mut self) {
+        self.runtime.serve_api();
+        self.rest_until = None;
+        self.refresh_models();
+        if self.rest.paused {
+            self.frame();
+        }
+    }
+
+    /// A full turn now: something outside the app changed, such as the
+    /// window being covered or shown again, that the next turn would see
+    /// late.
+    pub(crate) fn turn_now(&mut self) {
+        self.rest_until = None;
+        self.frame();
     }
 
     /// Sends `event` through `update`, then brings the models in step.

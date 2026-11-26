@@ -10,9 +10,19 @@ use std::time::{Duration, Instant};
 use specular_core::Camera;
 use specular_interact::{App, Effect, Event, Gesture, update};
 
-/// How long the loop sleeps when nothing is owed: the slowest anything the
-/// shell polls (decoded images, read notes, files edited outside) is seen.
+/// How long the loop sleeps when nothing is owed but the app changed in
+/// the last [`BUSY_FOR`], or work is out (an image decoding, a note being
+/// read, a page loading, a save due): the slowest anything polled for it
+/// is seen.
 pub(crate) const IDLE_TURN: Duration = Duration::from_millis(50);
+/// How long the loop sleeps once nothing has changed for [`BUSY_FOR`]:
+/// as often as files edited outside are looked at. A page's event, an API
+/// request and input each turn the loop when they come.
+pub(crate) const STILL_TURN: Duration = crate::watch::INTERVAL;
+/// How long after the last change the loop keeps to [`IDLE_TURN`]: past
+/// the longest a save waits for changes to stop, and the time a page's
+/// texture and its held surfaces settle after it last painted.
+const BUSY_FOR: Duration = Duration::from_secs(3);
 /// The sleep while text is being edited, so the caret blinks on time.
 const EDITING_TURN: Duration = Duration::from_millis(16);
 /// How long frames keep coming after the last input. A display shown no
@@ -38,6 +48,8 @@ pub(crate) struct FrameDemand {
     input: bool,
     /// Frames are drawn until then whether or not anything changed.
     tail_until: Option<Instant>,
+    /// When a frame was last owed.
+    active_at: Instant,
     drawn: u64,
     skipped: u64,
 }
@@ -50,6 +62,7 @@ impl Default for FrameDemand {
             not_before: None,
             input: false,
             tail_until: None,
+            active_at: Instant::now(),
             drawn: 0,
             skipped: 0,
         }
@@ -79,6 +92,9 @@ impl FrameDemand {
             self.tail_until = None;
         }
         let held = self.not_before.is_some_and(|until| now < until);
+        if self.owed || self.tail_until.is_some() {
+            self.active_at = now;
+        }
         if (self.owed || self.tail_until.is_some()) && !held {
             return true;
         }
@@ -106,8 +122,10 @@ impl FrameDemand {
     pub(crate) fn next_turn(&self, app: &App, now: Instant) -> Instant {
         let turn = if app.session().editing.is_some() {
             EDITING_TURN
-        } else {
+        } else if now.saturating_duration_since(self.active_at) < BUSY_FOR {
             IDLE_TURN
+        } else {
+            STILL_TURN
         };
         let mut wake = now + turn;
         // A gif on screen is the one thing the clock alone redraws, and it
@@ -247,6 +265,25 @@ mod tests {
         let now = Instant::now();
         assert!(demand.next_turn(&app, now) <= now + Duration::from_millis(30));
         assert_eq!(demand.next_turn(&off_screen, now), now + IDLE_TURN);
+    }
+
+    #[test]
+    fn a_canvas_still_for_a_while_turns_at_the_file_watchers_pace() {
+        let app = one_sticky();
+        let app = app.app();
+        let mut demand = FrameDemand::default();
+        let start = Instant::now();
+        assert!(demand.wanted(start));
+        demand.drawn(false);
+        let soon = start + Duration::from_secs(1);
+        assert_eq!(demand.next_turn(app, soon), soon + IDLE_TURN);
+        let still = start + BUSY_FOR;
+        assert!(!demand.wanted(still));
+        assert_eq!(demand.next_turn(app, still), still + STILL_TURN);
+        // A change brings the quick turns back.
+        demand.changed();
+        assert!(demand.wanted(still));
+        assert_eq!(demand.next_turn(app, still), still + IDLE_TURN);
     }
 
     #[test]

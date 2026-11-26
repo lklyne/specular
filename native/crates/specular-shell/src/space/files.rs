@@ -63,6 +63,11 @@ impl SpaceFiles {
         self.files.get(id).is_some_and(Persistence::has_unsaved)
     }
 
+    /// Whether any canvas has a change that is not in its file yet.
+    pub(crate) fn any_unsaved(&self) -> bool {
+        self.files.values().any(Persistence::has_unsaved)
+    }
+
     /// One loop turn: writes the saves that are due and looks at each file
     /// for an edit from outside. Returns the canvases whose file changed,
     /// each with the document to put in its place. Only the active canvas
