@@ -30,7 +30,7 @@ If every child task is `completed`:
     git add .dex/ && git commit -m "chore(afk): sync dex state" && git push
   fi
   ```
-- Check for an integration PR: `gh pr list --head <FEATURE_BRANCH> --base main --state open --json number`
+- Check for an integration PR: `gh pr list --head <FEATURE_BRANCH> --base nightly --state open --json number`
 - If none exists, open it: title `<slug>: integration`, body lists every child task ID and its merged step PR.
 - Disable self: `RemoteTrigger update <SELF_ROUTINE_ID> body:{"enabled": false}`.
 - Exit. The user reviews and merges the integration PR.
@@ -132,7 +132,7 @@ If none of the above apply — exit silently. The next cron fire (or a self-trig
 
 ## Hard rules
 
-- Never push to `main`.
+- Never push to `main` or `nightly`.
 - Never `git reset --hard`, never `git push --force` (use `--force-with-lease` only on your own step branches before the PR is merged).
 - Never modify the dex epic itself (only child tasks).
 - Never create new RemoteTrigger routines. Only call `run` and `update enabled:false` on your own ID.

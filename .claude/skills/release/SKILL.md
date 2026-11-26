@@ -6,13 +6,13 @@ allowed-tools: Bash(git *), Bash(cargo *), Bash(gh *), Edit, Write, Read, AskUse
 
 # Release Skill
 
-Cuts a new release of Specular. Updates the changelog, bumps the version in `native/Cargo.toml`, tags, and pushes. The `release.yml` GitHub Action builds, signs, notarizes and publishes the DMG, the updater zip and the Sparkle feed.
+Cuts a new release of Specular. Updates the changelog and bumps the version in `native/Cargo.toml` on `nightly`, promotes `nightly` into `main` with a `Release vX.Y.Z` PR, then tags `main` and pushes the tag. See ADR 0057 for the branch flow. The `release.yml` GitHub Action builds, signs, notarizes and publishes the DMG, the updater zip and the Sparkle feed.
 
 ## Guiding principles
 
 - **The changelog is user-facing.** Commits are developer-facing. Translate, group, and trim — don't dump commit messages.
 - **Ask before writing.** Version bump and changelog wording are the two decisions that matter. Never guess silently.
-- **Two commits per release.** The changelog, then the version bump, with the tag on the bump.
+- **Two commits per release, on `nightly`.** The changelog, then the version bump. The tag goes on the promotion's merge commit on `main`, never on `nightly`.
 - **No prereleases.** The app's updater follows the newest GitHub release, so a prerelease suffix (`-alpha.N`, `-beta.N`) would reach everyone. Patch/minor/major only.
 
 ## Workflow
@@ -22,8 +22,9 @@ Cuts a new release of Specular. Updates the changelog, bumps the version in `nat
 Stop and report to the user if any of these fail:
 
 - Working tree is clean (`git status --porcelain` empty)
-- On `main` (or user explicitly said to release from another branch)
-- Up to date with `origin/main` (`git fetch` then compare)
+- On `nightly`, up to date with `origin/nightly` (`git fetch` then compare)
+- `origin/main` is an ancestor of `origin/nightly` (`git merge-base --is-ancestor origin/main origin/nightly`). If not, a hotfix on `main` was never merged back: merge `origin/main` into `nightly` first.
+- A hotfix release is the exception: it runs from a branch off `main` and its PR targets `main`. Only do that when the user says it is a hotfix.
 
 If any check fails, explain what's off and stop — don't try to fix it silently.
 
@@ -32,7 +33,7 @@ If any check fails, explain what's off and stop — don't try to fix it silently
 Collect in parallel:
 
 - Current version: `sed -n '/^\[workspace.package\]/,/^\[/s/^version = "\(.*\)"/\1/p' native/Cargo.toml`
-- Last tag: `git describe --tags --abbrev=0`
+- Last tag: `git describe --tags --abbrev=0 origin/main` (tags sit on `main`'s merge commits, which `nightly` does not contain)
 - Commits since last tag: `git log <last-tag>..HEAD --oneline`
 - Full commit bodies for those commits: `git log <last-tag>..HEAD --format="%h%n%s%n%b%n---"`
 - Existing `## [Unreleased]` section from `CHANGELOG.md`
@@ -105,7 +106,7 @@ Edit `CHANGELOG.md`:
 - Use today's date from the environment (`currentDate`).
 - Leave the rest of the file untouched.
 
-### Step 7: Commit changelog, bump, tag
+### Step 7: Commit changelog and bump on `nightly`
 
 1. Commit the changelog on its own:
    ```
@@ -115,18 +116,34 @@ Edit `CHANGELOG.md`:
 2. Set `version = "X.Y.Z"` under `[workspace.package]` in `native/Cargo.toml`.
    Then `cd native && cargo check --workspace` so `Cargo.lock` picks up the new
    version of every workspace crate.
-3. Commit, tag and push:
+3. Commit and push to `nightly`:
    ```
    git add native/Cargo.toml native/Cargo.lock
    git commit -m "chore: release X.Y.Z"
-   git tag -a vX.Y.Z -m "vX.Y.Z"
-   git push --follow-tags
+   git push origin nightly
+   ```
+
+### Step 8: Promote `nightly` into `main`
+
+1. Open the promotion PR:
+   ```
+   gh pr create --base main --head nightly --title "Release vX.Y.Z" --body "<the approved changelog section>"
+   ```
+2. Wait for Native CI to pass on it. Merging it is the user's call: ask, and
+   only merge yourself if they say so, with a **merge commit**
+   (`gh pr merge <n> --merge`). Never squash or rebase, or `main` stops being an
+   ancestor of `nightly`.
+3. Tag the merge commit and push only the tag:
+   ```
+   git fetch origin main
+   git tag -a vX.Y.Z -m "vX.Y.Z" origin/main
+   git push origin vX.Y.Z
    ```
 
 `release.yml` refuses a tag that does not match the version in
-`native/Cargo.toml`, so bump before tagging.
+`native/Cargo.toml`, and a tag that is not on `main`.
 
-### Step 8: Report
+### Step 9: Report
 
 Tell the user:
 
