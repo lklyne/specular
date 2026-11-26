@@ -67,7 +67,7 @@ As of 0.10.2 (`441dbdbc`, 2026-10-24). "Done" means built, gated and, where the 
 | Audit and test prune | Done | 1,778 tests cut to 1,074. Later work brought the suite to about 1,300 |
 | Cleanup tasks 5, 6, 9, 10, 13 | Done | See "Cleanup tasks" |
 | Agent chat (right panel) | Done in the GPUI shell | No thread routes in the HTTP API, no model chip |
-| Sync sets, scroll and interaction sync | Done | No synced cursor. Followers jump where Electron eases. No text input sync |
+| Sync sets, scroll and interaction sync | Done | Followers jump where Electron eases. No text input sync. The synced cursor is a plain arrow, with no halo and no refused-click wiggle |
 | Alignment guides, auto-layout groups | Done | By hand |
 | Inspect tool, repo bindings, auto-fix | Done | No inspect tree or box-model strips |
 | First run, settings, the app bundle | Done | `Specular.app`, with the Electron app's bundle id. A setup dialog installs the command and the skill |
@@ -75,7 +75,8 @@ As of 0.10.2 (`441dbdbc`, 2026-10-24). "Done" means built, gated and, where the 
 | Signing, notarization, Sparkle | Done | Developer ID, a notarized disk image, Sparkle updates, a release workflow on macOS |
 | HTML file nodes | Done | An `.html` file in the space is a live page, sized and synced as one |
 | Thread avatar | Done | The Prism on wgpu, ADR 0047, Accepted |
-| Agent cursors | Done | agent-browser announces each act and waits for the cursor (ADR 0046). Needs the patched binary from `native/scripts/build-agent-browser.sh` as `AGENT_BROWSER_PATH`; the bundle does not ship it yet. No synced cursor, no click ripple, no setting to hide them |
+| Agent cursors on pages (browse verbs) | Done | agent-browser announces each act and waits for the cursor (ADR 0046). The bundle ships the patched binary (`bundle-app.sh` copies it to `Resources/bin`). Settings > Cursors hides agent and synced cursors (log, "BIG-RUN P6"). Plainer than Electron: the cursor travels in a straight eased line, with no spline path, particle trail, ambient drift between commands, thinking or departing state, or click ripple |
+| Agent cursors for canvas verbs | Not done | Electron moves the cursor to what a canvas verb touches (edges, groups, auto-layout, `camera/focus`, annotations, a new page) and sweeps it over entities on a per-kind read. Here the CLI still posts `/session/presence`, and `specular-api/src/unported.rs` accepts it and drops it, so an agent editing the canvas shows no cursor |
 | The focus session | Not done | |
 
 ## Where the spike stood
