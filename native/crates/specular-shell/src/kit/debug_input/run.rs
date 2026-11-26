@@ -289,6 +289,18 @@ fn show_sidebar(shown: bool) {
     });
 }
 
+/// Runs the command `name` from the registry, as `POST /run` does.
+fn run_command(name: &str, args: &serde_json::Value, cx: &mut AsyncApp) -> Result<(), String> {
+    let run = canvas::with(|canvas| specular_interact::run_named(canvas.runtime.app(), name, args))
+        .ok_or("there is no canvas")?
+        .map_err(|error| error.to_string())?;
+    match run.into_event() {
+        Ok(event) => canvas::dispatch(event),
+        Err(command) => cx.update(|cx| crate::menus::run_shell(command, cx)),
+    }
+    Ok(())
+}
+
 /// Does `step`. An error is why it could not be done.
 pub(super) async fn step(
     step: Do,
@@ -345,17 +357,7 @@ pub(super) async fn step(
             canvas::with(|canvas| canvas.runtime.script_clipboard(Some(text)));
         }
         Do::Act(action) => canvas::dispatch(Event::Action(action)),
-        Do::Run(name, args) => {
-            let run = canvas::with(|canvas| {
-                specular_interact::run_named(canvas.runtime.app(), &name, &args)
-            })
-            .ok_or("there is no canvas")?
-            .map_err(|error| error.to_string())?;
-            match run.into_event() {
-                Ok(event) => canvas::dispatch(event),
-                Err(command) => cx.update(|cx| crate::menus::run_shell(command, cx)),
-            }
-        }
+        Do::Run(name, args) => run_command(&name, &args, cx)?,
         Do::Send(event) => canvas::dispatch(event),
         Do::Panel(step) => panel(&step)?,
         Do::Select(ids) => select(&ids),
