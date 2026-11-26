@@ -12,7 +12,7 @@ use gpui_kit::{
     App, Bounds, Context, CursorStyle, DispatchPhase, ElementInputHandler, Entity, ExternalPaths,
     FocusHandle, Hitbox, HitboxBehavior, InteractiveElement as _, IntoElement, KeyDownEvent,
     KeyUpEvent, Modifiers, ModifiersChangedEvent, MouseButton, MouseDownEvent, MouseMoveEvent,
-    MouseUpEvent, ParentElement as _, PinchEvent, Pixels, Point, ScrollDelta, ScrollWheelEvent,
+    MouseUpEvent, ParentElement as _, PinchEvent, Pixels, Point, ScrollDelta, ScrollEvent,
     Styled as _, Window, canvas, div,
 };
 use specular_core::{PointerButton, PointerEventKind};
@@ -253,7 +253,7 @@ impl SlotPaint {
 /// The wheel and the trackpad's pinch over the slot.
 fn on_wheel_and_pinch(hitbox: &Hitbox, window: &mut Window) {
     let over = hitbox.clone();
-    window.on_mouse_event(move |event: &ScrollWheelEvent, phase, window, _| {
+    window.on_mouse_event(move |event: &ScrollEvent, phase, window, _| {
         if phase != DispatchPhase::Bubble || !over.is_hovered(window) {
             return;
         }
