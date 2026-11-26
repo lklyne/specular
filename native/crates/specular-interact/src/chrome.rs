@@ -77,6 +77,50 @@ impl Region {
     }
 }
 
+/// Something the window draws over everything else, at a place of its
+/// own, which a layout can fill with a mod as it fills a region. Unlike a
+/// region, an overlay takes no room from the canvas.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Overlay {
+    /// The context menu a right press on the canvas opens, at the press.
+    Menu,
+    /// The Share button at the end of the tab row, and its popover.
+    Share,
+    /// The notices, in the canvas's lower right corner.
+    Toast,
+    /// The command palette.
+    Palette,
+    /// The first-run view, in place of the canvas while no space is open.
+    Welcome,
+}
+
+impl Overlay {
+    /// Every overlay, in the layout file's order.
+    pub const ALL: [Self; 5] = [
+        Self::Menu,
+        Self::Share,
+        Self::Toast,
+        Self::Palette,
+        Self::Welcome,
+    ];
+
+    /// The name the layout file and `ui.toggle` call it by.
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Menu => "menu",
+            Self::Share => "share",
+            Self::Toast => "toast",
+            Self::Palette => "palette",
+            Self::Welcome => "welcome",
+        }
+    }
+
+    /// The overlay called `name`.
+    pub fn named(name: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|overlay| overlay.name() == name)
+    }
+}
+
 /// Which regions the layout and the toggles let be drawn. A region let be
 /// drawn may still have nothing to show: the sidebar while it is closed,
 /// the dock with nothing selected.

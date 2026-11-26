@@ -27,7 +27,7 @@ pub(super) const UI: &[CommandSpec] = &[
     CommandSpec {
         name: "ui.toggle",
         label: "",
-        args: "{id: tabs|toolbar|dock|sidebar|chat|<control id>}",
+        args: "{id: tabs|toolbar|dock|sidebar|chat|menu|share|toast|palette|welcome|<control id>}",
         about: "Hide a region of the window or a control if it is shown, show it if hidden.",
         enabled: always,
         build: |args| layout(LayoutAction::Toggle(id(args)?)),
@@ -35,7 +35,7 @@ pub(super) const UI: &[CommandSpec] = &[
     CommandSpec {
         name: "ui.show",
         label: "",
-        args: "{id: tabs|toolbar|dock|sidebar|chat|<control id>}",
+        args: "{id: tabs|toolbar|dock|sidebar|chat|menu|share|toast|palette|welcome|<control id>}",
         about: "Show a region of the window or a control.",
         enabled: always,
         build: |args| layout(LayoutAction::Show(id(args)?)),
@@ -43,7 +43,7 @@ pub(super) const UI: &[CommandSpec] = &[
     CommandSpec {
         name: "ui.hide",
         label: "",
-        args: "{id: tabs|toolbar|dock|sidebar|chat|<control id>}",
+        args: "{id: tabs|toolbar|dock|sidebar|chat|menu|share|toast|palette|welcome|<control id>}",
         about: "Hide a region of the window or a control, giving its room to the canvas.",
         enabled: always,
         build: |args| layout(LayoutAction::Hide(id(args)?)),
@@ -57,3 +57,13 @@ pub(super) const UI: &[CommandSpec] = &[
         build: |_| layout(LayoutAction::Reset),
     },
 ];
+
+/// The notices a toast shows.
+pub(super) const NOTICE: &[CommandSpec] = &[CommandSpec {
+    name: "notice.dismiss",
+    label: "",
+    args: "{id: notice id}",
+    about: "Take away a page's notice in the `notices` key; it comes back if the page fails again.",
+    enabled: always,
+    build: |args| act(Action::DismissNotice(text(args, "id")?)),
+}];

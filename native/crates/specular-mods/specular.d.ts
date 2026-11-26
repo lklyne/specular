@@ -12,14 +12,16 @@
  * - `panels/toolbar`: `{chat, theme, sections: [{tools: [..]}, {zoom: {id}}], tools: "docked"|"top"|"bottom", view}`
  * - `panels/tool_options`: the armed tool's options `{controls: [..]}`, or null
  * - `panels/dock`: the selection's controls `{controls: [..]}`, or null while a tool has options
- * - `panels/strip`: the tab row `{tabs: [{id, label, icon, active}], add}`
+ * - `panels/strip`: the tab row `{tabs: [{id, label, icon, active}], add, chat, zoom}`: `chat` is the right panel's toggle or null, `zoom` is `{id}` while no mod draws the tools, else null
  * - `panels/menu`: the open context menu `{at: [x, y], menu: {controls}}`, or null
  * - `panels/palette`: `[{label, group, command, chord, enabled, checked, keywords}]`
  * - `panels/share`: the Share button and its access dropdown
+ * - `panels/welcome`: the first-run view while no space is open `{title, body: [line], choices: [{id, label, detail, primary}], note}`, or null. A choice is pressed with `control.press {id}`
  * - `theme`: `{appearance: "light"|"dark", choice: "system"|"light"|"dark"}`
  * - `settings`: `{showSidebar, showChat, tools, hideAgentCursors, hideSyncedCursors}`
  * - `keys`: `[{keys, context, command, args}]`, every key binding
  * - `layout`: `{file, toggles: {hidden: {id: bool}}, hidden: [region names]}`
+ * - `notices`: `[{id, level: "info"|"warning"|"error", text, action: {label, run, args} | null, dismiss}]`: a page that stopped or answered an HTTP error, a share that failed. `notice.dismiss {id}` takes one away when `dismiss` is true
  */
 export type StateKey =
   | "panels/toolbar"
@@ -29,10 +31,12 @@ export type StateKey =
   | "panels/menu"
   | "panels/palette"
   | "panels/share"
+  | "panels/welcome"
   | "theme"
   | "settings"
   | "keys"
-  | "layout";
+  | "layout"
+  | "notices";
 /**
  * Every command `run` takes, with its arguments and what it does.
  *
@@ -125,10 +129,11 @@ export type StateKey =
  * - `view.reveal` `{id: entity id}`: Select an entity and pan it into view.
  * - `view.theme` `{theme: light|dark|system}`: Choose the theme and save the choice.
  * - `view.toggle-sidebar`: Show the sidebar, or hide it.
- * - `ui.toggle` `{id: tabs|toolbar|dock|sidebar|chat|<control id>}`: Hide a region of the window or a control if it is shown, show it if hidden.
- * - `ui.show` `{id: tabs|toolbar|dock|sidebar|chat|<control id>}`: Show a region of the window or a control.
- * - `ui.hide` `{id: tabs|toolbar|dock|sidebar|chat|<control id>}`: Hide a region of the window or a control, giving its room to the canvas.
+ * - `ui.toggle` `{id: tabs|toolbar|dock|sidebar|chat|menu|share|toast|palette|welcome|<control id>}`: Hide a region of the window or a control if it is shown, show it if hidden.
+ * - `ui.show` `{id: tabs|toolbar|dock|sidebar|chat|menu|share|toast|palette|welcome|<control id>}`: Show a region of the window or a control.
+ * - `ui.hide` `{id: tabs|toolbar|dock|sidebar|chat|menu|share|toast|palette|welcome|<control id>}`: Hide a region of the window or a control, giving its room to the canvas.
  * - `ui.reset`: Set aside what was hidden and shown, and go back to the shipped layout.
+ * - `notice.dismiss` `{id: notice id}`: Take away a page's notice in the `notices` key; it comes back if the page fails again.
  * - `share.copy-link`: Copy the active canvas's link, publishing it first when it is not shared.
  * - `share.access` `{scope: edit|comment|view|none}`: Choose who the active canvas's link lets in; none stops sharing it.
  * - `share.join` `{link: url, fresh?: bool}`: Share the active canvas through a link's live room, or a new canvas with fresh.
@@ -229,6 +234,7 @@ export type CommandName =
   | "ui.show"
   | "ui.hide"
   | "ui.reset"
+  | "notice.dismiss"
   | "share.copy-link"
   | "share.access"
   | "share.join"
@@ -255,7 +261,8 @@ export function colors(): {
   popup: string; popupBorder: string; text: string; textMuted: string; hover: string; on: string;
   divider: string; keyText: string; sidebar: string; sidebarRule: string; interactive: string;
   interactiveHover: string; raisedFill: string; raisedRim: string; raisedShadowNear: string;
-  raisedShadowFar: string; tabHover: string;
+  raisedShadowFar: string; tabHover: string; primary: string; primaryHover: string;
+  primaryForeground: string; error: string; warning: string; backdrop: string;
 };
 
 /** A Rust-built element: give it an id and its props, and style the box it sits in. */
@@ -268,3 +275,11 @@ export const Icon: HostComponent<{ name: any; size?: number; color?: string; tin
 export const Zoom: HostComponent<{ compact?: boolean }>;
 /** `ToolOptions`: the options of the tool in hand, beside its button: place it inside the button's `relative()` box. `place` is `panels/toolbar`'s `tools`. */
 export const ToolOptions: HostComponent<{ place: "docked" | "top" | "bottom" }>;
+/** `Favicon`: a tab's glyph: the page's own icon once the window has it, else the panel glyph `icon` (`tabs[].icon`) as `Icon` draws it. `tab` is the tab's id. */
+export const Favicon: HostComponent<{ tab: string; icon: any; size?: number; color?: string; control?: string }>;
+/** `WindowDrag`: bare title bar. A press that moves drags the window, and a double click does what the system says a title bar's does. It fills the box it is put in. */
+export const WindowDrag: HostComponent<{}>;
+/** `Share`: what the layout puts in the Share slot: the `share` mod when the layout names one, else the app's own Share button and popover. */
+export const Share: HostComponent<{}>;
+/** `Prism`: the turning Prism at the head of the first-run view, 160 points square, drawn on the GPU by the window. */
+export const Prism: HostComponent<{}>;

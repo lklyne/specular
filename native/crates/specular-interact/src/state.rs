@@ -6,14 +6,16 @@
 //! | `panels/toolbar` | [`toolbar`]: the tools, the theme button, the view controls |
 //! | `panels/tool_options` | [`tool_options`]: the armed tool's options, or `null` |
 //! | `panels/dock` | [`dock`]: the selection's controls, or `null` while a tool has options |
-//! | `panels/strip` | [`view_strip`]: the tab row |
+//! | `panels/strip` | [`view_strip`]: the tab row, with the right panel's toggle and, while no mod draws the tools, the zoom readout |
 //! | `panels/menu` | the open context menu and where it opened, or `null` |
 //! | `panels/palette` | [`palette`]: every command a person can pick, with its command name |
 //! | `panels/share` | the Share button and its popover |
+//! | `panels/welcome` | [`onboarding`](crate::onboarding): the first-run view while no space is open, or `null` |
 //! | `theme` | the appearance drawn and the choice behind it |
 //! | `settings` | what is kept between launches |
 //! | `keys` | every key binding: its keys, where it fires and the command it runs |
 //! | `layout` | the layout file in force, what was toggled over it, and the regions hidden |
+//! | `notices` | [`notices`]: a page that stopped or failed to load, a share that failed |
 //!
 //! A control's `action` is left out: a reader presses a control with
 //! `control.press {id}`, by the id written beside it. The camera is in no
@@ -35,7 +37,7 @@ use crate::{
 };
 
 /// Every key, in the order [`state`] lists them.
-pub const STATE_KEYS: [&str; 11] = [
+pub const STATE_KEYS: [&str; 13] = [
     "panels/toolbar",
     "panels/tool_options",
     "panels/dock",
@@ -43,10 +45,12 @@ pub const STATE_KEYS: [&str; 11] = [
     "panels/menu",
     "panels/palette",
     "panels/share",
+    "panels/welcome",
     "theme",
     "settings",
     "keys",
     "layout",
+    "notices",
 ];
 
 fn to_json(value: impl serde::Serialize) -> Value {
@@ -68,14 +72,16 @@ pub fn state(app: &App) -> BTreeMap<&'static str, Value> {
         ("panels/toolbar", to_json(&bar)),
         ("panels/tool_options", to_json(options)),
         ("panels/dock", to_json(docked)),
-        ("panels/strip", to_json(view_strip(app))),
+        ("panels/strip", strip_json(app, &bar)),
         ("panels/menu", menu.unwrap_or(Value::Null)),
         ("panels/palette", palette_json(app)),
         ("panels/share", to_json(&bar.share)),
+        ("panels/welcome", to_json(crate::onboarding(app))),
         ("theme", theme_json(app)),
         ("settings", settings_json(app)),
         ("keys", keys::bindings()),
         ("layout", layout_json(app)),
+        ("notices", to_json(crate::notices(app))),
     ];
     entries.into_iter().collect()
 }
@@ -91,6 +97,24 @@ pub fn publish(revisions: &mut Revisions, app: &App) -> Vec<&'static str> {
     (state(app).into_iter())
         .filter_map(|(key, value)| revisions.publish(key, value).then_some(key))
         .collect()
+}
+
+/// The tab row as it draws: its tabs and its add button, then what ends
+/// the row. The zoom readout is there only while the tools are the app's
+/// own: a toolbar mod carries it in its ribbon.
+fn strip_json(app: &App, bar: &crate::ToolbarModel) -> Value {
+    let mut strip = to_json(view_strip(app));
+    if let Value::Object(fields) = &mut strip {
+        fields.insert("chat".to_owned(), to_json(&bar.chat));
+        let zoom = app
+            .layout()
+            .toolbar
+            .fill
+            .is_none()
+            .then(|| json!({ "id": "zoom" }));
+        fields.insert("zoom".to_owned(), zoom.unwrap_or(Value::Null));
+    }
+    strip
 }
 
 fn palette_json(app: &App) -> Value {

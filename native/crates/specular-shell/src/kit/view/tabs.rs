@@ -67,22 +67,28 @@ const HOVERED: &str = "tab";
 
 /// The glyph before a tab's label: the page's own icon when it has one.
 fn lead(model: &ViewTab, text: u32) -> AnyElement {
-    let Some(png) = &model.favicon else {
-        return glyph(model.icon, ink(text), None, false, TAB_GLYPH).into_any_element();
-    };
+    match &model.favicon {
+        Some(png) => favicon(&model.id, png, TAB_GLYPH),
+        None => glyph(model.icon, ink(text), None, false, TAB_GLYPH).into_any_element(),
+    }
+}
+
+/// The page's own icon on the tab `id`, `size` points square: also what a
+/// tab row mod's `Favicon` shows once the page has one.
+pub(crate) fn favicon(id: &ControlId, png: &Arc<[u8]>, size: f32) -> AnyElement {
     let image = FAVICONS.with_borrow_mut(|favicons| {
         let kept = favicons
-            .get(&model.id)
+            .get(id)
             .filter(|(bytes, _)| Arc::ptr_eq(bytes, png));
         if let Some((_, image)) = kept {
             return Arc::clone(image);
         }
         let image = Arc::new(Image::from_bytes(ImageFormat::Png, png.to_vec()));
-        favicons.insert(model.id.clone(), (Arc::clone(png), Arc::clone(&image)));
+        favicons.insert(id.clone(), (Arc::clone(png), Arc::clone(&image)));
         image
     });
     img(image)
-        .size(px(TAB_GLYPH))
+        .size(px(size))
         .flex_shrink_0()
         .rounded(px(3.0))
         .into_any_element()
@@ -120,17 +126,26 @@ fn label(model: &ViewTab, fill: u32, hovered: Option<u32>) -> impl IntoElement {
         )
 }
 
-/// A stretch of the row with nothing on it. The row is taller than the
-/// title bar macOS drags and zooms by itself: here a press that moves drags
-/// the window, and a double click does what the system setting says a
-/// title bar's does.
+/// A stretch of the row with nothing on it, at its least [`BARE`] wide.
 fn bare_strip() -> impl IntoElement {
-    h_flex()
-        .id("tabs-bare")
+    drag_area()
         .flex_1()
         .flex_shrink_0()
         .min_w(px(BARE))
         .h_full()
+}
+
+/// What a tab row mod's `WindowDrag` draws: bare title bar filling its box.
+pub(crate) fn window_drag() -> AnyElement {
+    drag_area().size_full().into_any_element()
+}
+
+/// Bare title bar. The row is taller than the title bar macOS drags and
+/// zooms by itself: here a press that moves drags the window, and a double
+/// click does what the system setting says a title bar's does.
+fn drag_area() -> gpui_kit::Stateful<gpui_kit::Div> {
+    h_flex()
+        .id("tabs-bare")
         .on_mouse_down(MouseButton::Left, |_, _, _| DRAG_ARMED.set(true))
         .on_mouse_up(MouseButton::Left, |_, _, _| DRAG_ARMED.set(false))
         .on_mouse_down_out(|_, _, _| DRAG_ARMED.set(false))
@@ -319,7 +334,7 @@ pub(super) fn tabs(
                 .items_center()
                 .text_color(theme::solid(theme::toolbar_text()))
                 .children(zoom_shown.then(|| zoom(toolbar)).flatten())
-                .child(share(&toolbar.share))
+                .child(crate::mods::share_slot().unwrap_or_else(|| share(&toolbar.share)))
                 .children(toolbar.chat.as_ref().map(panel_toggle)),
         )
 }

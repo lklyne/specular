@@ -13,7 +13,7 @@ use std::time::SystemTime;
 
 use gpui::{AnyView, App, Window};
 use serde_json::{Value, json};
-use specular_interact::{Layout, ModPaletteEntry, Region};
+use specular_interact::{Layout, ModPaletteEntry};
 
 use crate::host::Hosting;
 use crate::runner::Mod;
@@ -88,14 +88,15 @@ impl ModSet {
     /// loaded changed.
     pub fn sync(&mut self, layout: &Layout, window: &mut Window, cx: &mut App) -> bool {
         let mut named = Vec::new();
-        for region in Region::ALL {
-            let node = layout.node(region);
+        for (_, node) in layout.nodes() {
             let Some(name) = node.fill.as_deref() else {
                 continue;
             };
             let props = Value::Object(node.props.clone());
             (self.hosting.revisions.borrow_mut()).publish(&format!("mods/{name}/props"), props);
-            named.push(name.to_owned());
+            if !named.iter().any(|seen| seen == name) {
+                named.push(name.to_owned());
+            }
         }
         let before = self.slots.len();
         let reads = self.hosting.reads.clone();

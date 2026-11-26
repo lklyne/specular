@@ -120,6 +120,17 @@ fn content(model: &ShareButton) -> AnyElement {
         .into_any_element()
 }
 
+/// What the Share slot holds this frame, for a tab row mod's `Share`: a
+/// share mod, or the app's own button.
+pub(crate) fn share_slot() -> AnyElement {
+    crate::mods::share_slot().unwrap_or_else(|| {
+        canvas::tool_models().map_or_else(
+            || div().into_any_element(),
+            |(toolbar, _)| share(&toolbar.share),
+        )
+    })
+}
+
 pub(super) fn share(model: &ShareButton) -> AnyElement {
     let trigger = Button::new(element_id(&model.id.child("trigger")))
         .primary()

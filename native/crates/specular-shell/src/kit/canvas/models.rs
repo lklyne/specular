@@ -3,7 +3,7 @@
 use std::time::Instant;
 
 use specular_interact::{
-    Appearance, ChatModel, ControlsModel, Insets, Layout, Menu, OnboardingModel, Regions,
+    Appearance, ChatModel, ControlsModel, Insets, Layout, Menu, OnboardingModel, Overlay, Regions,
     SidebarModel, Theme, ToolbarModel, ViewStrip, chat, dock, menus, onboarding, publish_state,
     sidebar, tool_options, toolbar, view_strip,
 };
@@ -44,6 +44,15 @@ pub(crate) struct Models {
     /// The layout in force, whose nodes name the mods drawn in place of
     /// the app's own panels.
     pub(crate) layout: Layout,
+    /// The overlays the layout and the toggles let be drawn.
+    pub(crate) overlays: Vec<Overlay>,
+}
+
+impl Models {
+    /// Whether `overlay` may be drawn.
+    pub(crate) fn shows(&self, overlay: Overlay) -> bool {
+        self.overlays.contains(&overlay)
+    }
 }
 
 impl Models {
@@ -68,6 +77,9 @@ impl Models {
             regions: app.regions(),
             insets: app.insets(),
             layout: app.layout().clone(),
+            overlays: (Overlay::ALL.into_iter())
+                .filter(|overlay| !app.is_hidden(overlay.name()))
+                .collect(),
         }
     }
 }

@@ -9,18 +9,21 @@
 //! own [`Revisions`](specular_interact::Revisions), published each time the
 //! models are read, so a pan, which moves no key, never enters a script.
 //! What the mods cost goes to the runtime for `GET /mods`, and their
-//! palette entries to the app.
+//! palette entries to the app. An overlay the layout fills with a mod (the
+//! context menu, the Share slot, the notices, the first-run view) is drawn
+//! where the app's own one would be.
 
 mod host;
 
+use std::cell::RefCell;
 use std::path::PathBuf;
 
 use gpui_kit::{
-    AnyElement, App, InteractiveElement as _, IntoElement as _, ParentElement as _, Styled as _,
-    Window, div, px,
+    AnyElement, AnyView, App, InteractiveElement as _, IntoElement as _, ParentElement as _,
+    Styled as _, Window, div, px,
 };
 use serde_json::Value;
-use specular_interact::{Event, Layout, ModPaletteEntry, Region};
+use specular_interact::{Event, Layout, ModPaletteEntry, Overlay, Region, RegionNode};
 use specular_mods::{Hosting, ModSet, Placed, shipped};
 
 use crate::{canvas, theme};
@@ -97,12 +100,88 @@ impl Mods {
     /// the mod's view, or why it did not load. `None` draws the app's own
     /// panel.
     pub(crate) fn region(&self, region: Region, layout: &Layout, cx: &App) -> Option<AnyElement> {
-        let name = layout.node(region).fill.as_deref()?;
-        let placed = self.set.as_ref()?.placed(name, cx)?;
-        Some(match placed {
-            Placed::View(view) => view.into_any_element(),
-            Placed::Failed(error) => error_card(name, error),
+        self.node(layout.node(region), cx).map(Slot::element)
+    }
+
+    /// What the layout's node for `overlay` places, as [`Mods::region`].
+    pub(crate) fn overlay(
+        &self,
+        overlay: Overlay,
+        layout: &Layout,
+        cx: &App,
+    ) -> Option<AnyElement> {
+        self.node(layout.overlay(overlay), cx).map(Slot::element)
+    }
+
+    fn node(&self, node: &RegionNode, cx: &App) -> Option<Slot> {
+        let name = node.fill.as_deref()?;
+        Some(match self.set.as_ref()?.placed(name, cx)? {
+            Placed::View(view) => Slot::View(view),
+            Placed::Failed(error) => Slot::Failed(name.to_owned(), error.to_owned()),
         })
+    }
+
+    /// Puts what the layout names for the Share slot where this frame's
+    /// tab row finds it, the app's own or a mod's.
+    pub(crate) fn fill_share_slot(&self, layout: &Layout, shown: bool, cx: &App) {
+        let slot = if shown {
+            self.node(layout.overlay(Overlay::Share), cx)
+                .unwrap_or(Slot::Native)
+        } else {
+            Slot::Hidden
+        };
+        SHARE.with_borrow_mut(|share| *share = Some(slot));
+    }
+}
+
+/// What a slot the layout names holds this frame.
+#[derive(Clone)]
+enum Slot {
+    /// The app's own panel.
+    Native,
+    /// Nothing: the layout or a toggle hides it.
+    Hidden,
+    /// A mod's view.
+    View(AnyView),
+    /// The mod's name and why it did not load.
+    Failed(String, String),
+}
+
+impl Slot {
+    fn element(self) -> AnyElement {
+        match self {
+            Self::View(view) => view.into_any_element(),
+            Self::Failed(name, error) => error_card(&name, &error),
+            Self::Native | Self::Hidden => div().into_any_element(),
+        }
+    }
+}
+
+thread_local! {
+    /// The Share slot as the root view last filled it.
+    static SHARE: RefCell<Option<Slot>> = const { RefCell::new(None) };
+    /// The first-run view's Prism while that view is shown, for a welcome
+    /// mod's `Prism`.
+    static HERO: RefCell<Option<AnyView>> = const { RefCell::new(None) };
+}
+
+/// Hands the first-run view's Prism to a welcome mod's `Prism`, or takes
+/// it back with `None`.
+pub(crate) fn set_hero(hero: Option<AnyView>) {
+    HERO.with_borrow_mut(|held| *held = hero);
+}
+
+/// The first-run view's Prism, for a welcome mod's `Prism`.
+pub(crate) fn hero() -> Option<AnyView> {
+    HERO.with_borrow(Clone::clone)
+}
+
+/// The Share slot for this frame: a mod's view or its error card, `None`
+/// for the app's own Share button, or an empty element while it is hidden.
+pub(crate) fn share_slot() -> Option<AnyElement> {
+    match SHARE.with_borrow(Clone::clone).unwrap_or(Slot::Native) {
+        Slot::Native => None,
+        slot => Some(slot.element()),
     }
 }
 

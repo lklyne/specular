@@ -287,6 +287,9 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         Action::Share(action) => crate::share_button::run(app, action, effects),
         Action::PressControl(id) => activate_control(app, &id, Modifiers::default(), effects),
         Action::Layout(action) => crate::chrome::run_layout_action(app, action, effects),
+        Action::DismissNotice(id) => {
+            crate::notices::dismiss(app, &id);
+        }
     }
 }
 

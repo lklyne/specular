@@ -2,7 +2,7 @@
 //! that leaves the last good layout in force.
 
 use serde_json::json;
-use specular_interact::{Layout, LayoutFile, Toggles};
+use specular_interact::{Layout, LayoutFile, RegionNode, Toggles};
 
 #[test]
 fn a_layout_reads_back_as_written_with_its_props_untouched() {
@@ -18,7 +18,8 @@ fn a_layout_reads_back_as_written_with_its_props_untouched() {
     assert!(layout.hides("sidebar") && layout.hides("tool.inspect"));
     assert!(!layout.hides("tabs") && !layout.hides("tool.select"));
     assert_eq!(
-        layout.tabs, shipped.tabs,
+        layout.tabs,
+        RegionNode::default(),
         "a region left out is the app's own"
     );
     assert_eq!(Layout::parse(&layout.to_text()), Ok(layout));

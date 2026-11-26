@@ -56,6 +56,12 @@ pub struct PageState {
     /// Where the elements anchored items follow sit in the document, by
     /// selector (ADR 0032). A selector that finds nothing has no entry.
     pub(crate) elements: HashMap<String, ElementPlace>,
+    /// Why the page's process went away, until a load starts or the notice
+    /// is dismissed.
+    pub crashed: Option<String>,
+    /// The HTTP status of a load that ended in an error (400 and over),
+    /// until a load starts or the notice is dismissed.
+    pub http_error: Option<i32>,
 }
 
 /// The live state of every hosted page that has reported anything.
@@ -71,6 +77,16 @@ impl PageStates {
     pub(crate) fn place(&mut self, page: &EntityId, selector: &str, place: ElementPlace) {
         let state = self.0.entry(page.clone()).or_default();
         state.elements.insert(selector.to_owned(), place);
+    }
+
+    /// Every page that has reported anything, and its state.
+    pub(crate) fn iter(&self) -> impl Iterator<Item = (&EntityId, &PageState)> {
+        self.0.iter()
+    }
+
+    /// The state of `page`, to change, if it has reported anything.
+    pub(crate) fn get_mut(&mut self, page: &EntityId) -> Option<&mut PageState> {
+        self.0.get_mut(page)
     }
 
     /// Forgets the pages `keep` turns down.
@@ -98,6 +114,10 @@ pub(crate) fn on_notice(app: &mut App, page: &EntityId, notice: &PageNotice) -> 
             can_go_back,
             can_go_forward,
         } => {
+            if *loading {
+                state.crashed = None;
+                state.http_error = None;
+            }
             state.loading = *loading;
             state.can_go_back = *can_go_back;
             state.can_go_forward = *can_go_forward;
@@ -151,9 +171,14 @@ pub(crate) fn on_notice(app: &mut App, page: &EntityId, notice: &PageNotice) -> 
                 return write_url(app, page, url);
             }
         }
-        PageNotice::Crashed { .. } => state.loading = false,
-        PageNotice::Loaded { .. }
-        | PageNotice::ImeCompositionBounds(_)
+        PageNotice::Crashed { reason } => {
+            state.loading = false;
+            state.crashed = Some(reason.clone());
+        }
+        PageNotice::Loaded { http_status } => {
+            state.http_error = (*http_status >= 400).then_some(*http_status);
+        }
+        PageNotice::ImeCompositionBounds(_)
         | PageNotice::OpenTab { .. }
         | PageNotice::ScrollProgress { .. }
         | PageNotice::ScrollRoom(_)

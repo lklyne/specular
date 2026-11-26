@@ -40,6 +40,9 @@ jobs:
       # The mod runtime's frame budget (ADR 0055): a scripted toolbar's
       # median render under 2 ms and none over 8 ms, in a release build.
       - run: cargo test -p specular-mods --release --locked --test toolbar -- --nocapture
+      # The same budget for each small panel's mod (phase 4): tabs, menu,
+      # share, notices, welcome.
+      - run: cargo test -p specular-mods --release --locked --test panels -- --nocapture
       - if: failure()
         uses: actions/upload-artifact@v4
         with:

@@ -74,6 +74,7 @@ mod marquee;
 mod menu;
 mod move_drag;
 mod notes;
+mod notices;
 mod page_input;
 mod page_state;
 mod pages;
@@ -133,8 +134,8 @@ pub use chat::{
 };
 pub use chord::Chord;
 pub use chrome::{
-    Insets, Layout, LayoutAction, LayoutError, LayoutFile, ModPaletteEntry, Region, RegionNode,
-    Regions, SIDEBAR_WIDTH, TOOLS_DOCK_WIDTH, Toggles,
+    Insets, Layout, LayoutAction, LayoutError, LayoutFile, ModPaletteEntry, Overlay, Region,
+    RegionNode, Regions, SIDEBAR_WIDTH, TOOLS_DOCK_WIDTH, Toggles,
 };
 pub use clipboard::{ClipboardContent, ClipboardImage, Paste};
 pub use commands::{CommandSpec, Run, RunError, command, commands, run_named};
@@ -176,6 +177,7 @@ pub(crate) use menu::binding_of;
 pub use menu::{Menu, MenuEntry, MenuItem, menus};
 pub use move_drag::{CopyPreview, MoveDrag};
 pub use notes::{NoteNotice, NoteState, is_note_file, note_file_name};
+pub use notices::{AppNotice, NoticeAction, notices};
 pub use page_state::{PageState, ScreenFit};
 pub use palette::{PaletteItem, PaletteMatch, PaletteRun, palette, search};
 pub use panel::PanelUi;

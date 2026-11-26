@@ -323,6 +323,7 @@ pub(crate) fn has_target(app: &App, action: &Action) -> bool {
         | Action::AddItem(_)
         | Action::PressControl(_)
         | Action::Layout(_)
+        | Action::DismissNotice(_)
         | Action::Paste
         | Action::ZoomIn
         | Action::ZoomOut

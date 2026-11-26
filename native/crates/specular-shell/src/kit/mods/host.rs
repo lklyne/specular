@@ -4,7 +4,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use gpui_kit::{App, IntoElement as _, ParentElement as _, Styled as _, div};
+use gpui_kit::{AnyElement, App, IntoElement as _, ParentElement as _, Styled as _, div};
 use serde_json::{Value, json};
 use specular_interact::{ControlId, Run};
 use specular_mods::{Components, HostValue, ModHost, Revisions, RunError, with_current_app};
@@ -70,27 +70,58 @@ impl ModHost for KitHost {
     }
 }
 
-/// The host components, with the window's own `Zoom` and `ToolOptions`,
-/// and an `Icon` that notes where the control it names is, so a scripted
-/// run's `control NAME` clicks it where the mod drew it.
+/// The control `props.control` names, if it names one.
+fn control_of(props: &HostValue) -> Option<ControlId> {
+    (props.get("control").and_then(HostValue::as_str)).map(|id| ControlId::from(id.to_owned()))
+}
+
+/// `glyph` with the mark of `control`, so a scripted run's `control NAME`
+/// clicks it where the mod drew it.
+fn marked(control: Option<ControlId>, glyph: AnyElement) -> AnyElement {
+    match control {
+        Some(id) => (div().relative().flex_shrink_0())
+            .child(glyph)
+            .child(crate::view::mark(&id))
+            .into_any_element(),
+        None => glyph,
+    }
+}
+
+/// The host components, with the window's own `Zoom`, `ToolOptions`,
+/// `WindowDrag`, `Share` and `Prism`, a `Favicon` that shows the page's
+/// own icon, and an `Icon` that notes where the control it names is.
 pub(super) fn components(revisions: Rc<RefCell<Revisions>>) -> Components {
     let standard = Components::standard(revisions);
     let icon = standard.get("Icon");
+    let glyph = standard.get("Favicon");
     standard
-        .with("Icon", move |args, window, cx| {
-            let control = (args.props().get("control").and_then(HostValue::as_str))
+        .with("Favicon", move |args, window, cx| {
+            let props = args.props();
+            let control = control_of(props);
+            let tab = (props.get("tab").and_then(HostValue::as_str))
                 .map(|id| ControlId::from(id.to_owned()));
+            let size = (props.get("size").and_then(HostValue::as_number)).unwrap_or(14.0) as f32;
+            let png = tab.as_ref().and_then(canvas::favicon);
+            let shown = match (tab, png, glyph.as_ref()) {
+                (Some(tab), Some(png), _) => crate::view::favicon(&tab, &png, size),
+                (_, _, Some(glyph)) => glyph(args, window, cx),
+                (_, _, None) => div().into_any_element(),
+            };
+            marked(control, shown)
+        })
+        .with("WindowDrag", |_, _, _| crate::view::window_drag())
+        .with("Share", |_, _, _| crate::view::share_slot())
+        .with("Prism", |_, _, _| {
+            crate::mods::hero()
+                .map_or_else(|| div().into_any_element(), |hero| hero.into_any_element())
+        })
+        .with("Icon", move |args, window, cx| {
+            let control = control_of(args.props());
             let glyph = match icon.as_ref() {
                 Some(icon) => icon(args, window, cx),
                 None => div().into_any_element(),
             };
-            match control {
-                Some(id) => (div().relative().flex_shrink_0())
-                    .child(glyph)
-                    .child(crate::view::mark(&id))
-                    .into_any_element(),
-                None => glyph,
-            }
+            marked(control, glyph)
         })
         .with("Zoom", |args, _, _| {
             let compact =

@@ -52,8 +52,10 @@ Then check it with no window: `specular mod check ~/path/to/mods/hello`.
   command. `gpui-kit.d.ts`, written into a mod's folder when it loads, has the
   element and style surface (`div`, `h_flex`, `Button`, `.bg(..)`, ...).
 - `../layouts/default.json`: which mod fills which region (`tabs`, `toolbar`,
-  `dock`, `sidebar`, `chat`), whether a region is hidden, and the `props` each
-  mod gets. `"mod": null` is the app's own panel.
+  `dock`, `sidebar`, `chat`) and which overlay (`menu`, `share`, `toast`,
+  `palette`, `welcome`), whether it is hidden, and the `props` each mod gets.
+  `"mod": null` is the app's own panel. The app writes the shipped layout
+  over this file on every start, so an edit lasts until the next start.
 - `../layouts/.state/`: what was hidden and shown at run time
   (`ui.toggle`), apart from the file you edit.
 
@@ -64,7 +66,8 @@ renders again when that key changes and at no other time, never per frame.
 The camera is in no key, so panning and zooming never run a script; the zoom
 readout is the `Zoom` host component. The keys: `panels/toolbar`,
 `panels/tool_options`, `panels/dock`, `panels/strip`, `panels/menu`,
-`panels/palette`, `panels/share`, `theme`, `settings`, `keys`, `layout`.
+`panels/palette`, `panels/share`, `panels/welcome`, `theme`, `settings`, `keys`, `layout`,
+`notices`.
 `specular state [key]` prints them from the running app.
 
 `props()` is what the layout hands the mod. By convention `props().hidden`
@@ -96,7 +99,8 @@ app's log. The commands:
 - **tab**: `tab.show` `{item?: entity id}`, `tab.open` `{item: entity id}`, `tab.close` `{item?: entity id}`, `tab.next`, `tab.previous`, `tab.lens` `{lens: fill|device}`, `tab.others` `{shown: bool}`
 - **tool**: `tool.set` `{tool: select|page|text|sticky|document|shape|draw|comment|inspect}`, `tool.ellipse`, `tool.diamond`, `tool.highlighter`
 - **view**: `view.zoom-in`, `view.zoom-out`, `view.zoom-reset`, `view.zoom-to-fit`, `view.zoom` `{percent: number}`, `view.camera` `{x: number, y: number, zoom: number}`, `view.reveal` `{id: entity id}`, `view.theme` `{theme: light|dark|system}`, `view.toggle-sidebar`
-- **ui**: `ui.toggle` `{id: tabs|toolbar|dock|sidebar|chat|<control id>}`, `ui.show` `{id: tabs|toolbar|dock|sidebar|chat|<control id>}`, `ui.hide` `{id: tabs|toolbar|dock|sidebar|chat|<control id>}`, `ui.reset`
+- **ui**: `ui.toggle` `{id: tabs|toolbar|dock|sidebar|chat|menu|share|toast|palette|welcome|<control id>}`, `ui.show` `{id: tabs|toolbar|dock|sidebar|chat|menu|share|toast|palette|welcome|<control id>}`, `ui.hide` `{id: tabs|toolbar|dock|sidebar|chat|menu|share|toast|palette|welcome|<control id>}`, `ui.reset`
+- **notice**: `notice.dismiss` `{id: notice id}`
 - **share**: `share.copy-link`, `share.access` `{scope: edit|comment|view|none}`, `share.join` `{link: url, fresh?: bool}`, `share.stop`
 - **control**: `control.press` `{id: control name}`
 
@@ -110,6 +114,14 @@ Elements a mod places but cannot draw itself, imported from `specular`:
 - `Zoom`, `Zoom.new(id, { compact })`: the zoom readout and its levels.
 - `ToolOptions`, `ToolOptions.new(id, { place })`: the options of the tool
   in hand, inside its button's `relative()` box.
+- `Favicon`, `Favicon.new(id, { tab, icon, size, color, control })`: a tab's
+  glyph, which becomes the page's own icon once the window has it.
+- `WindowDrag`, `WindowDrag.new(id, {})`: bare title bar to drag the window
+  by; a double click zooms it as the system says. It fills its box.
+- `Share`, `Share.new(id, {})`: the Share slot: the `share` mod when the
+  layout names one, else the app's own Share button.
+- `Prism`, `Prism.new(id, {})`: the first-run view's turning Prism, 160
+  points square.
 
 ## Tools
 

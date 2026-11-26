@@ -6,6 +6,8 @@
 //! choice is an [`Action::Space`], and the folder work comes back as
 //! effects.
 
+use serde::Serialize;
+
 use crate::{Action, App, Effect};
 
 /// Why no space is open, as the shell found it at launch.
@@ -39,9 +41,10 @@ pub enum SpaceAction {
 
 /// One choice of the first-run view. The first two are its buttons, and
 /// any after them are quieter links below.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct SpaceChoice {
-    /// The control's name, for a scripted run.
+    /// The control's name, for a scripted run and for `control.press`.
+    #[serde(rename = "id")]
     pub name: &'static str,
     /// The button's text.
     pub label: &'static str,
@@ -50,11 +53,12 @@ pub struct SpaceChoice {
     /// Whether it is the choice the view leads with.
     pub primary: bool,
     /// What it runs.
+    #[serde(skip)]
     pub action: Action,
 }
 
 /// The view shown in place of the canvas while no space is open.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct OnboardingModel {
     /// The heading.
     pub title: &'static str,

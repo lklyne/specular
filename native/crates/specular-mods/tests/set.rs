@@ -57,7 +57,16 @@ fn a_mod_that_fails_says_why_until_its_files_are_fixed(cx: &mut TestAppContext) 
         Some(&json!({ "hidden": [] })),
         "the layout's props are published"
     );
-    assert_eq!(set.palette().len(), 1, "the toolbar's palette entry");
+    let titles: Vec<String> = set.palette().into_iter().map(|entry| entry.title).collect();
+    assert_eq!(
+        titles,
+        [
+            "Copy the canvas link",
+            "Toggle the tab row",
+            "Toggle the toolbar"
+        ],
+        "the palette entries of the mods the shipped layout names"
+    );
 
     // A save that fixes it loads it.
     std::thread::sleep(std::time::Duration::from_millis(20));

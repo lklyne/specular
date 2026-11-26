@@ -26,20 +26,39 @@ pub struct Shipped {
     pub files: &'static [File],
 }
 
+/// A shipped mod of `mod.json` and `main.js`, and any other files named,
+/// compiled in from `mods/<name>/`.
+macro_rules! shipped {
+    ($name:literal $(, $file:literal)*) => {
+        Shipped {
+            name: $name,
+            files: &[
+                File {
+                    name: "mod.json",
+                    text: include_str!(concat!("../mods/", $name, "/mod.json")),
+                },
+                File {
+                    name: "main.js",
+                    text: include_str!(concat!("../mods/", $name, "/main.js")),
+                },
+                $(File {
+                    name: $file,
+                    text: include_str!(concat!("../mods/", $name, "/", $file)),
+                },)*
+            ],
+        }
+    };
+}
+
 /// Every mod the app ships.
-pub const MODS: &[Shipped] = &[Shipped {
-    name: "toolbar",
-    files: &[
-        File {
-            name: "mod.json",
-            text: include_str!("../mods/toolbar/mod.json"),
-        },
-        File {
-            name: "main.js",
-            text: include_str!("../mods/toolbar/main.js"),
-        },
-    ],
-}];
+pub const MODS: &[Shipped] = &[
+    shipped!("toolbar"),
+    shipped!("tabs"),
+    shipped!("menu"),
+    shipped!("share"),
+    shipped!("toast"),
+    shipped!("welcome"),
+];
 
 /// The `specular` module's declarations, `mods/specular.d.ts`.
 pub const DECLARATIONS: &str = include_str!("../specular.d.ts");

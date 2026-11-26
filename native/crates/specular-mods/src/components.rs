@@ -6,12 +6,20 @@
 //! Icon.new("tool.draw.glyph", { name: "draw-pen-tool", tint: "1", size: 20 })
 //! Zoom.new("zoom", { compact: false })
 //! ToolOptions.new("tool-options", { place: "docked" })
+//! Favicon.new("view.item.p1.icon", { tab: "view.item.p1", icon: "page", size: 14 })
+//! WindowDrag.new("tabs-bare", {})
+//! Share.new("share", {})
+//! Prism.new("prism", {})
 //! ```
 //!
-//! `Icon` is drawn here from the panel glyphs. `Zoom` shows the camera,
-//! which is in no state key so that a pan never enters a script, and
-//! `ToolOptions` is the dock's own controls; only the window has either,
-//! so here they are placeholders the window replaces
+//! `Icon` is drawn here from the panel glyphs, and `Favicon` is a tab's
+//! glyph until the window has the page's own icon, which no state key
+//! carries. `Zoom` shows the camera, which is in no state key so that a pan
+//! never enters a script; `ToolOptions` is the dock's own controls;
+//! `WindowDrag` is bare title bar the window is dragged and zoomed by; and
+//! `Share` is whatever the layout puts in the Share slot; `Prism` is the
+//! first-run view's turning Prism, drawn on the GPU. Only the window
+//! has those, so here they are placeholders the window replaces
 //! ([`Components::with`]).
 
 use std::cell::RefCell;
@@ -33,8 +41,19 @@ use crate::value::from_host;
 /// Builds one host component's element from its id and props.
 pub type Build = Rc<dyn for<'a> Fn(ComponentArgs<'a>, &mut Window, &mut App) -> AnyElement>;
 
+/// The Prism's side, in points, as the window draws it.
+const PRISM: f32 = 160.0;
+
 /// The names of the host components every mod can import.
-pub const HOST_COMPONENTS: [&str; 3] = ["Icon", "ToolOptions", "Zoom"];
+pub const HOST_COMPONENTS: [&str; 7] = [
+    "Favicon",
+    "Icon",
+    "Prism",
+    "Share",
+    "ToolOptions",
+    "WindowDrag",
+    "Zoom",
+];
 
 /// The host components a mod's `specular` module exports, by name.
 #[derive(Clone)]
@@ -53,14 +72,33 @@ impl Components {
     /// whose colours follow the `theme` key in `revisions`, and
     /// placeholders for the rest.
     pub fn standard(revisions: Rc<RefCell<Revisions>>) -> Self {
-        let icon: Build = Rc::new(move |args, _, _| {
+        let glyph = {
+            let revisions = revisions.clone();
+            Rc::new(
+                move |args: ComponentArgs<'_>, _: &mut Window, _: &mut App| {
+                    let appearance = appearance_of(revisions.borrow().get("theme"));
+                    icon(args.props(), appearance)
+                },
+            )
+        };
+        let favicon: Build = Rc::new(move |args, _, _| {
             let appearance = appearance_of(revisions.borrow().get("theme"));
-            icon(args.props(), appearance)
+            icon(&favicon_as_icon(args.props()), appearance)
         });
-        let mut by_name = BTreeMap::new();
-        by_name.insert("Icon", icon);
+        let mut by_name: BTreeMap<&'static str, Build> = BTreeMap::new();
+        by_name.insert("Icon", glyph);
+        by_name.insert("Favicon", favicon);
         by_name.insert("Zoom", placeholder("100%"));
         by_name.insert("ToolOptions", placeholder(""));
+        by_name.insert(
+            "WindowDrag",
+            Rc::new(|_, _, _| div().size_full().into_any_element()),
+        );
+        by_name.insert("Share", placeholder("Share"));
+        by_name.insert(
+            "Prism",
+            Rc::new(|_, _, _| div().size(px(PRISM)).into_any_element()),
+        );
         Self { by_name }
     }
 
@@ -83,6 +121,21 @@ impl Components {
     pub(crate) fn iter(&self) -> impl Iterator<Item = (&'static str, &Build)> {
         self.by_name.iter().map(|(name, build)| (*name, build))
     }
+}
+
+/// `Favicon {tab, icon, size?, color?, control?}` as the `Icon` it is
+/// until the page's own icon is there: its `icon` as the glyph's name.
+fn favicon_as_icon(props: &HostValue) -> HostValue {
+    let mut fields = Vec::new();
+    for key in ["size", "color", "control"] {
+        if let Some(value) = props.get(key) {
+            fields.push((key.to_owned(), value.clone()));
+        }
+    }
+    if let Some(name) = props.get("icon") {
+        fields.push(("name".to_owned(), name.clone()));
+    }
+    HostValue::Object(fields)
 }
 
 /// A component only a window can draw, standing in with `text`.

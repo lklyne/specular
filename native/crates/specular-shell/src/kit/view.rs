@@ -68,7 +68,9 @@ use specular_interact::{Action, CanvasAction, Event, SidebarAction, TOOLS_DOCK_W
 pub(crate) use self::field::typed as typed_field;
 pub(crate) use self::named::{mark, shown as shown_controls};
 pub(crate) use self::palette::toggle as toggle_palette;
+pub(crate) use self::share::share_slot;
 use self::slot::Pointer;
+pub(crate) use self::tabs::{favicon, window_drag};
 pub(crate) use self::toolbar::{tool_options, zoom_readout};
 use crate::canvas::{self, Models};
 use crate::shell;
@@ -260,11 +262,12 @@ impl ShellView {
 }
 
 impl ShellView {
-    /// The canvas slot with what floats over it, and the right panel.
+    /// The canvas slot with what floats over it (a floating toolbar mod
+    /// and a notices mod among it), and the right panel.
     fn slot_row(
         &mut self,
         models: Option<&Models>,
-        ribbon: Option<AnyElement>,
+        (ribbon, toast): (Option<AnyElement>, Option<AnyElement>),
         window: &mut Window,
         cx: &mut Context<'_, Self>,
     ) -> AnyElement {
@@ -276,9 +279,8 @@ impl ShellView {
                     .relative()
                     .size_full()
                     .child(self.canvas_slot(window, cx))
-                    .children(
-                        models.map_or_default(|models| over_slot(models, ribbon, window, cx)),
-                    ),
+                    .children(models.map_or_default(|models| over_slot(models, ribbon, window, cx)))
+                    .children(toast),
             )
             .when_some(
                 models.filter(|models| models.regions.chat),
@@ -320,16 +322,26 @@ impl Render for ShellView {
                 .hero
                 .get_or_insert_with(|| cx.new(|_| onboarding::HeroPrism::default())))
             .clone();
+            if let Some(welcome) = self.welcome_mod(models.as_ref(), &hero, window, cx) {
+                return welcome;
+            }
             return onboarding::onboarding(model, hero).into_any_element();
         }
         if let Some(hero) = self.hero.take() {
+            crate::mods::set_hero(None);
             let images = hero.update(cx, |hero, _| hero.take_images());
             crate::avatar::drop_images(images, window);
             grow_from_welcome(window, cx);
         }
-        let menu = self.canvas_menu(window, cx);
-        let (zoom_in_tabs, docked_ribbon, floating_ribbon) =
-            self.mod_ribbon(models.as_ref(), window, cx);
+        let panels = self.mod_panels(models.as_ref(), window, cx);
+        let menu = self.canvas_menu(models.as_ref(), window, cx);
+        let mod_bar::ModPanels {
+            zoom_in_tabs,
+            docked: docked_ribbon,
+            floating: floating_ribbon,
+            tabs: tab_row_mod,
+            toast,
+        } = panels;
         div()
             .id("shell")
             .size_full()
@@ -343,7 +355,7 @@ impl Render for ShellView {
                     (canvas.runtime).drop_files(paths.paths().iter().cloned(), None);
                 });
             })
-            .child(self.slot_row(models.as_ref(), floating_ribbon, window, cx))
+            .child(self.slot_row(models.as_ref(), (floating_ribbon, toast), window, cx))
             .when_some(models.as_ref(), |root, models: &Models| {
                 let regions = models.regions;
                 root.when(regions.sidebar && models.sidebar.visible, |root| {
@@ -359,7 +371,11 @@ impl Render for ShellView {
                             .left_0()
                             .right_0()
                             .bg(theme::solid(theme::toolbar()))
-                            .child(tabs::tabs(&models.strip, &models.toolbar, zoom_in_tabs)),
+                            .child(match tab_row_mod {
+                                Some(row) => mod_bar::tab_row(row),
+                                None => tabs::tabs(&models.strip, &models.toolbar, zoom_in_tabs)
+                                    .into_any_element(),
+                            }),
                     )
                 })
                 .when(

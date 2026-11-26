@@ -126,6 +126,7 @@ static ALL: LazyLock<Vec<CommandSpec>> = LazyLock::new(|| {
         view::TOOL,
         view::VIEW,
         ui::UI,
+        ui::NOTICE,
         canvas::SHARE,
         canvas::CONTROL,
     ]

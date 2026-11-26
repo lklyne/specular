@@ -34,15 +34,22 @@ pub(crate) fn appearance_of(theme: Option<&Value>) -> Appearance {
     }
 }
 
-/// The raised face of the control that is on, which only the Kit draws:
-/// the same values as `specular-shell/src/kit/theme.rs` (`raised_fill`,
-/// `raised_rim`, `raised_shadow`), light then dark.
-const RAISED: [(&str, u32, u32); 5] = [
+/// What only the Kit draws: the raised face of the control that is on and
+/// the primary button, the same values as `specular-shell/src/kit/theme.rs`
+/// (`raised_fill`, `raised_rim`, `raised_shadow`, `tab_hover`, `primary`,
+/// `primary_hover`, `primary_foreground`, `error`), light then dark, and
+/// the warning amber the notices use (Tailwind's amber-600 and -400).
+const RAISED: [(&str, u32, u32); 10] = [
     ("raisedFill", 0xede9_e7ff, 0x5450_4bff),
     ("raisedRim", 0x0000_0014, 0xffff_ff26),
     ("raisedShadowNear", 0x0000_001a, 0x0000_0040),
     ("raisedShadowFar", 0x0000_000d, 0x0000_0026),
     ("tabHover", 0xdfdc_daff, 0x4b47_42ff),
+    ("primary", 0x1c19_17ff, 0xf5f5_f4ff),
+    ("primaryHover", 0x4440_3bff, 0xd6d3_d1ff),
+    ("primaryForeground", 0xfafa_f9ff, 0x1c19_17ff),
+    ("error", 0xe700_0bff, 0xff64_67ff),
+    ("warning", 0xd977_06ff, 0xfbbf_24ff),
 ];
 
 /// Every colour a mod may draw the chrome with, by name.
@@ -76,5 +83,12 @@ pub fn chrome_colors(appearance: Appearance) -> Value {
         };
         colors.insert(name.to_owned(), Value::String(packed(rgba)));
     }
+    // Behind the first-run view: a step darker than the panel in light, the
+    // panel itself in dark, as the Kit's `backdrop`.
+    let backdrop = match appearance {
+        Appearance::Light => packed(0xe4e4_e4ff),
+        Appearance::Dark => hex(panel.sidebar),
+    };
+    colors.insert("backdrop".to_owned(), Value::String(backdrop));
     Value::Object(colors)
 }

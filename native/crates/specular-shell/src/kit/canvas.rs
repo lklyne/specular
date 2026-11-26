@@ -15,11 +15,12 @@ use self::pacing::{LinkRest, ModelGate};
 
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use futures::channel::mpsc;
 use specular_interact::panel::ContextMenu;
-use specular_interact::{ControlsModel, Event, Revisions, ToolbarModel, context_menu};
+use specular_interact::{ControlId, ControlsModel, Event, Revisions, ToolbarModel, context_menu};
 use specular_shell::{Bench, Runtime, ShellWindow as _};
 
 use crate::surface::{CanvasSurface, WindowAsks};
@@ -179,6 +180,16 @@ pub(crate) fn tool_models() -> Option<(ToolbarModel, Option<ControlsModel>)> {
             canvas.models.tool_options.clone(),
         )
     })
+}
+
+/// The page's own icon on the tab `id`, as last read, when it has one.
+pub(crate) fn favicon(id: &ControlId) -> Option<Arc<[u8]>> {
+    with(|canvas| {
+        (canvas.models.strip.tabs.iter())
+            .find(|tab| tab.id == *id)
+            .and_then(|tab| tab.favicon.clone())
+    })
+    .flatten()
 }
 
 /// The keyed state the mods read, which the models' reading publishes.
