@@ -12,7 +12,7 @@ const SMOOTHING: f32 = 0.6;
 
 /// The outline of `bounds` with corners of `radius`, or `None` when there is
 /// no room to draw one.
-pub(super) fn squircle(bounds: Bounds<Pixels>, radius: f32) -> Option<Path<Pixels>> {
+pub(super) fn squircle(bounds: Bounds<Pixels>, radius: f32) -> Option<Path> {
     let (left, top) = (f32::from(bounds.origin.x), f32::from(bounds.origin.y));
     let (width, height) = (f32::from(bounds.size.width), f32::from(bounds.size.height));
     let most = width.min(height) / 2.0;

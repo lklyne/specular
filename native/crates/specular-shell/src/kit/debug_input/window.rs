@@ -27,7 +27,7 @@ struct Range {
 // view declares for it, which the debug checks of a message send compare.
 unsafe impl objc2::Encode for Range {
     const ENCODING: objc2::Encoding =
-        objc2::Encoding::Struct("NSRange", &[usize::ENCODING, usize::ENCODING]);
+        objc2::Encoding::Struct("_NSRange", &[usize::ENCODING, usize::ENCODING]);
 }
 
 fn window() -> Option<Id> {

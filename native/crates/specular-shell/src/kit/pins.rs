@@ -21,9 +21,9 @@
 //! the versions the facts were checked against.
 
 /// The `gpui-kit` release the shell is written against.
-pub(crate) const GPUI_KIT: &str = "0.7.1";
+pub(crate) const GPUI_KIT: &str = "0.11.0";
 /// The GPUI snapshot that release is built on.
-pub(crate) const GPUI_PRE: &str = "0.3.8";
+pub(crate) const GPUI_PRE: &str = "0.3.14";
 
 /// The `cef` crate release, whose build number is Chromium's.
 pub(crate) const CEF: &str = "154.3.0+154.0.32";
