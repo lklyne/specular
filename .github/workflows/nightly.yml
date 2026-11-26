@@ -1,0 +1,90 @@
+name: Nightly
+
+# Builds, signs and notarizes `nightly` once a night when it has new commits,
+# and keeps the DMG as a run artifact for testing. It never publishes a GitHub
+# release or an appcast: Sparkle follows the newest release, so a nightly
+# there would reach every user (ADR 0057).
+
+on:
+  schedule:
+    - cron: '0 9 * * *' # 09:00 UTC, 1 AM Pacific
+  workflow_dispatch:
+
+concurrency:
+  group: nightly
+  cancel-in-progress: true
+
+jobs:
+  nightly-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: nightly
+      - name: Skip if nightly has not changed in a day
+        id: changed
+        run: |
+          LAST="$(git log -1 --format=%ct)"
+          NOW="$(date +%s)"
+          if [ "${{ github.event_name }}" = "schedule" ] && [ $((NOW - LAST)) -gt 86400 ]; then
+            echo "No commits on nightly in the last 24 hours; skipping."
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+      - if: steps.changed.outputs.build == 'true'
+        uses: dtolnay/rust-toolchain@stable
+      - if: steps.changed.outputs.build == 'true'
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native
+      - if: steps.changed.outputs.build == 'true'
+        uses: oven-sh/setup-bun@v2
+      - name: Import code signing certificate
+        if: steps.changed.outputs.build == 'true'
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+        run: |
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
+
+          # Decode certificate
+          echo "$CSC_LINK" | base64 -d > $RUNNER_TEMP/certificate.p12
+
+          # Create and configure keychain
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          # Import certificate
+          security import $RUNNER_TEMP/certificate.p12 -P "$CSC_KEY_PASSWORD" \
+            -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security set-key-partition-list -S apple-tool:,apple: \
+            -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          # Add to search list
+          security list-keychains -d user -s $KEYCHAIN_PATH login.keychain-db
+      - name: Build, sign, notarize and package
+        if: steps.changed.outputs.build == 'true'
+        working-directory: native
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          # The CEF build script downloads the distribution here on the first build.
+          export CEF_PATH="$HOME/.local/share/cef"
+          IDENTITY="$(security find-identity -v -p codesigning \
+            | sed -n 's/.*"\(Developer ID Application: .*\)"/\1/p' | head -n 1)"
+          [ -n "$IDENTITY" ] || { echo "no Developer ID Application identity in the keychain" >&2; exit 1; }
+          crates/specular-shell/scripts/bundle-app.sh --sign "$IDENTITY" --notarize --dist
+      - name: Keep the DMG
+        if: steps.changed.outputs.build == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: specular-nightly-${{ steps.changed.outputs.sha }}
+          path: native/target/release/bundle/Specular-*.dmg
+          retention-days: 14

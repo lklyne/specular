@@ -2,7 +2,7 @@ name: Server
 
 on:
   push:
-    branches: [main, rust-native]
+    branches: [main, nightly]
     paths:
       - 'server/**'
       - '.github/workflows/server.yml'

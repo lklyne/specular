@@ -33,8 +33,8 @@ the epic: `dex show <EPIC_ID> --json`.
 
 If every child task is `completed`:
 - If an integration PR is already open (`gh pr list --head <FEATURE_BRANCH>
-  --base main --state open`), you are done.
-- Otherwise open it: base `main`, head `<FEATURE_BRANCH>`, title
+  --base nightly --state open`), you are done.
+- Otherwise open it: base `nightly`, head `<FEATURE_BRANCH>`, title
   `<slug>: integration`. Write a **real** body — list each Part, its merged step
   PR number, and the test results. This is the one place you summarize; it is
   worth doing well because the user reviews this PR.
@@ -86,7 +86,7 @@ epic and open PRs. Nothing is lost.
 
 ## Hard rules
 
-- Never push to `main`. Never merge the integration PR.
+- Never push to `main` or `nightly`. Never merge the integration PR.
 - Never `git reset --hard` outside the loop's own working-tree refresh.
 - One worker fire in flight at a time — merge the open step PR before spawning
   the next fire, so each task branches off the prior task's merged work.

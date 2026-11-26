@@ -60,8 +60,8 @@ Wait for explicit confirmation. Don't proceed silently.
 ### 5. Create the feature branch
 
 ```
-git fetch origin main
-git switch -c claude/feat-<slug> origin/main
+git fetch origin nightly
+git switch -c claude/feat-<slug> origin/nightly
 ```
 
 If the branch already exists locally or on origin, switch to it instead of recreating.
