@@ -834,3 +834,19 @@ Not verified here (Linux):
   the Prism inside the welcome mod are unseen.
 - **The headless numbers are not macOS numbers.** CI runs `--test panels`
   in release on macOS.
+
+## Integration notes
+
+- macOS CI numbers for the gate tests (GitHub's macOS runner, release):
+  the phase 0 spike toolbar rendered at a median of 0.045 ms (slowest
+  0.49 ms); the shipped toolbar mod over a real-App fixture at a median of
+  0.33 ms, p95 1.1 ms, slowest 2.7 ms. Both inside the 2 ms / 8 ms gate.
+- A person's own layout is `layouts/mine.json`. `default.json` is the
+  shipped layout and is rewritten on every start, so an edit to it lasts one
+  run; `mine.json`, when present, is the layout in force and the app never
+  writes it. `specular mod clone --use` starts it from the shipped one, and
+  the reset key sets it aside as `mine.json.aside`.
+- No native Kit adapter is deleted. The ADR deletes an adapter in the PR
+  that shows its numbers; the numbers are met, but nobody has looked at the
+  mods in the window yet, so every native panel stays as the `"mod": null`
+  fallback until a person has.
