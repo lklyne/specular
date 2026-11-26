@@ -109,8 +109,7 @@ pub(super) struct NoteRoute {
 /// queues the write of its text, and returns the item as a file create.
 pub(super) fn route(builder: &mut Builder<'_>, item: &JsonMap) -> Option<NoteRoute> {
     let text = note_text(item)?;
-    let listed: Vec<String> = (builder.facts.map(Facts::space_entries))
-        .unwrap_or_default()
+    let listed: Vec<String> = (builder.facts.map_or_default(Facts::space_entries))
         .iter()
         .map(|name| name.to_lowercase())
         .collect();

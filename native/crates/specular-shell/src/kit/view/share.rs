@@ -50,9 +50,7 @@ fn content(model: &ShareButton) -> AnyElement {
                 .items_center()
                 .justify_between()
                 .child(text(
-                    (access.summary.text.as_ref())
-                        .map(ToString::to_string)
-                        .unwrap_or_default(),
+                    (access.summary.text.as_ref()).map_or_default(ToString::to_string),
                 ))
                 .child(glyph(
                     Icon::ChevronDown,

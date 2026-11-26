@@ -62,21 +62,17 @@ pub(crate) fn comment_origin(app: &App, annotation: &Annotation) -> Option<Strin
 
 /// The prompt context for a turn on `thread` aimed at `pill`.
 pub(super) fn context(app: &App, thread: &ThreadId, pill: Pill) -> PromptContext {
-    let comments = app
-        .threads
-        .get(thread)
-        .map(|thread| {
-            thread
-                .annotation_ids
-                .iter()
-                .filter_map(|id| app.document.annotation(&AnnotationId::new(id.as_str())))
-                .map(|annotation| CommentContext {
-                    annotation_id: annotation.id.as_str().to_owned(),
-                    description: describe(app, annotation),
-                })
-                .collect()
-        })
-        .unwrap_or_default();
+    let comments = app.threads.get(thread).map_or_default(|thread| {
+        thread
+            .annotation_ids
+            .iter()
+            .filter_map(|id| app.document.annotation(&AnnotationId::new(id.as_str())))
+            .map(|annotation| CommentContext {
+                annotation_id: annotation.id.as_str().to_owned(),
+                description: describe(app, annotation),
+            })
+            .collect()
+    });
     PromptContext {
         space_path: app.space.folder().unwrap_or_default().to_owned(),
         write_target: write_target(app, &pill),

@@ -66,7 +66,7 @@ fn editing(input: &KeyInput) -> Option<EditingKey> {
         commands,
         code: physical.map_or("", PhysicalKey::dom_code),
         key: physical.map_or_else(
-            || input.character.map(String::from).unwrap_or_default(),
+            || input.character.map_or_default(String::from),
             |physical| physical.dom_key(input.character),
         ),
     })
