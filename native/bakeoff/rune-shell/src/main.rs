@@ -40,6 +40,14 @@ fn main() {
     }
     #[cfg(feature = "cef")]
     rune_shell_spike::cef::make_main_bundle();
+    // `SPECULAR_RESIZE_TRACE=FILE`: the ledger the Kit shell writes, with
+    // CEF's pumps and the main run loop's busy turns (S6).
+    specular_core::ledger::init_from_env();
+    #[cfg(feature = "cef")]
+    rune_shell_spike::cef::watch_loop();
+    let mut bench_ids: Option<Vec<specular_bench::ProfileId>> = None;
+    let mut warmup = std::time::Duration::from_millis(2000);
+    let mut bench_duration = None;
     let mut options = Options::default();
     // Rune's headless runs draw at 2 device pixels a point unless told.
     let mut scale = None;
@@ -61,6 +69,40 @@ fn main() {
                 options.camera = Some(at);
             }
             "--still" => options.still = true,
+            "--shimmer" => options.shimmer = true,
+            "--quit-after" => {
+                let value = args.next().unwrap_or_default();
+                options.quit_after = value.parse().ok();
+            }
+            "--page-fps" => {
+                let value = args.next().unwrap_or_default();
+                options.page_fps = value.parse().ok();
+            }
+            "--bench" => {
+                let value = args.next().unwrap_or_default();
+                let ids: Result<Vec<specular_bench::ProfileId>, _> =
+                    value.split(',').map(str::parse).collect();
+                match ids {
+                    Ok(ids) => bench_ids = Some(ids),
+                    Err(error) => {
+                        eprintln!("rune-shell: --bench: {error}");
+                        std::process::exit(2);
+                    }
+                }
+            }
+            "--warmup-ms" | "--bench-duration-ms" => {
+                let value = args.next().unwrap_or_default();
+                let Ok(ms) = value.parse::<u64>() else {
+                    eprintln!("rune-shell: {arg} expects milliseconds, got `{value}`");
+                    std::process::exit(2);
+                };
+                let ms = std::time::Duration::from_millis(ms);
+                if arg == "--warmup-ms" {
+                    warmup = ms;
+                } else {
+                    bench_duration = Some(ms);
+                }
+            }
             "--source" => {
                 options.source = match args.next().unwrap_or_default().as_str() {
                     "synthetic" => SourceKind::Synthetic,
@@ -144,11 +186,24 @@ fn main() {
             _ => runes.push(arg),
         }
     }
+    if let Some(ids) = bench_ids {
+        options.bench = Some((
+            specular_bench::select_profiles(&ids, bench_duration),
+            warmup,
+        ));
+    }
     options.scale = scale.unwrap_or(if headless { 2.0 } else { 1.0 });
     options.headless = headless;
     rune::prewarm_gpu_on(backend);
     let samples = options.samples;
+    // A bench window floats, as the Kit's does (`NativeWindow::float`), so
+    // nothing covers it while it is measured.
+    let window = rune::WindowOptions {
+        always_on_top: options.bench.is_some() || runes.iter().any(|arg| arg == "--window-script"),
+        ..Default::default()
+    };
     app(options)
+        .window_options(window)
         .gpu_backend(backend)
         .args(runes)
         .compositor(Canvas::new(samples))

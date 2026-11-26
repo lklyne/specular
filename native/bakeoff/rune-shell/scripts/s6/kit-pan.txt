@@ -1,0 +1,14 @@
+# S6: the Kit's chat panel open, pages loading, then a scripted pan. With
+# the shimmer mode a message is sent and run first, so an agent run (SPECULAR_AGENT_SCRIPT,
+# one long wait) animates the run bar for the whole pan.
+chat-panel on
+control chat.toggle
+wait 2000
+@S@send-chat keep working on the hero
+@S@wait 300
+@S@send-chat
+wait 18000
+move 700 500
+pan -3 0 6000
+mark end
+wait 500

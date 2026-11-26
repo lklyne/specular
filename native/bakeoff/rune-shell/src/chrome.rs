@@ -257,6 +257,57 @@ fn ribbon(model: &ToolbarModel, open_list: Option<&ControlId>) -> El {
         .children(items)
 }
 
+/// `--shimmer` (S6): a "Working" label with a bright band sliding across it
+/// for ever, as the Kit's agent run label did, built the way Rune's own
+/// shimmer test builds one. It animates on Rune's retained loop tracks, so
+/// the view does not run again to move it.
+fn shimmer() -> El {
+    const LABEL_W: f32 = 52.0;
+    const BAND: f32 = 30.0;
+    const SPEED: f32 = 90.0;
+    let period = f64::from((LABEL_W + BAND) / SPEED);
+    let spec = |a: f32, b: f32| {
+        rune::LoopSpec::slide(period, [a, 0.0], [b, 0.0]).easing(rune::Easing::LINEAR)
+    };
+    let lit = el()
+        .key("shimmer.lit")
+        .absolute(0.0, 0.0)
+        .w(BAND)
+        .h_full()
+        .looping(spec(1.0, -LABEL_W / BAND))
+        .child(
+            text("Working")
+                .font(type_::LABEL)
+                .color(Color::WHITE)
+                .absolute(0.0, 0.0),
+        );
+    let sheen = el()
+        .key("shimmer.sheen")
+        .absolute(0.0, 0.0)
+        .w(BAND)
+        .h_full()
+        .clip_fade(BAND / 2.0, 0.0, BAND / 2.0, 0.0)
+        .looping(spec(-1.0, LABEL_W / BAND))
+        .child(lit);
+    row()
+        .key("shimmer")
+        .mt(8.0)
+        .padding(6.0)
+        .radius(6.0)
+        .fill(surface())
+        .border(1.0, edge())
+        .child(
+            row()
+                .child(
+                    text("Working")
+                        .key("shimmer.label")
+                        .font(type_::LABEL)
+                        .color(ink()),
+                )
+                .child(sheen),
+        )
+}
+
 /// The whole window: the ribbon, centred at the top, over the canvas's input
 /// element. The rest is left unpainted, and the canvas the compositor drew
 /// shows through.
@@ -271,7 +322,8 @@ pub fn view(shell: &Shell, cx: &mut Cx<Shell>) -> El {
             .h_full()
             .items_center()
             .padding(INSET)
-            .child(ribbon(&toolbar(&shell.app), shell.open_list.as_ref())),
+            .child(ribbon(&toolbar(&shell.app), shell.open_list.as_ref()))
+            .children(shell.shimmer.then(shimmer)),
     };
     crate::input::window(shell, chrome)
 }

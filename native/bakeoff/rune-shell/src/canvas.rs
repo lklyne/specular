@@ -112,6 +112,10 @@ pub struct Canvas {
     /// The window is closing and the compositor holding page surfaces has
     /// been let go of.
     released: bool,
+    /// `RUNE_SHELL_GPU_TIME=1` (S6): wait for the GPU before and after our
+    /// pass, and time it from its submit to done. It stalls each frame on
+    /// the GPU, so its frame intervals are not the shell's.
+    gpu_time: bool,
 }
 
 impl Canvas {
@@ -125,6 +129,7 @@ impl Canvas {
             seen: Seen::default(),
             owes_frame: false,
             released: false,
+            gpu_time: std::env::var_os("RUNE_SHELL_GPU_TIME").is_some(),
         }
     }
 
@@ -241,6 +246,7 @@ fn page_line(shell: &Shell) -> String {
 impl RuneCompositor<Shell> for Canvas {
     fn render(&mut self, f: &mut Frame<'_, Shell>) {
         let started = std::time::Instant::now();
+        let traced_at = specular_core::ledger::now_us();
         let scale = f.rt.window_scale();
         let viewport = Vec2::new(f.size.0 as f32 / scale, f.size.1 as f32 / scale);
         self.seen.srgb_blend = f.srgb_blend();
@@ -252,11 +258,16 @@ impl RuneCompositor<Shell> for Canvas {
             self.released = true;
             self.host = None;
         }
+        let gpu_time = self.gpu_time;
         let host = self.host_for(f);
 
         let shell = &mut f.rt.state;
         shell.resized(viewport, scale);
         sync(host, shell);
+        if let Some(mut bench) = shell.bench.take() {
+            bench.before_frame(shell, started);
+            shell.bench = Some(bench);
+        }
         let scene = shell.scene();
         let frame = FrameView {
             camera: shell.app.session().camera,
@@ -265,12 +276,27 @@ impl RuneCompositor<Shell> for Canvas {
             grid: DotGrid::themed(scene.colors()),
             zooming: shell.app.zoom_moving(),
         };
+        let wait = wgpu::PollType::Wait {
+            submission_index: None,
+            timeout: None,
+        };
+        if gpu_time {
+            let _ = f.device.poll(wait.clone());
+        }
         let hosts = &shell.hosts;
         let stats = host
             .compositor
             .render_scene(f.target, &frame, &scene, |entity: &EntityId| {
                 hosts.get(entity).copied()
             });
+        if gpu_time {
+            let submitted = std::time::Instant::now();
+            let _ = f.device.poll(wait);
+            let ms = submitted.elapsed().as_secs_f64() * 1e3;
+            if let Some(bench) = shell.bench.as_mut() {
+                bench.gpu(ms);
+            }
+        }
         // A Document's rows are measured by drawing them, and their heights
         // move what is below: the next frame shows it.
         let heights = host.compositor.column_heights().to_vec();
@@ -304,7 +330,23 @@ impl RuneCompositor<Shell> for Canvas {
             &mut |_, _| {},
         );
 
-        self.owes_frame = moved || stats.text.settling || frame.zooming;
+        let render_ms = started.elapsed().as_secs_f64() * 1e3;
+        if specular_core::ledger::enabled() {
+            let size = specular_core::PixelSize::new(f.size.0, f.size.1);
+            specular_core::ledger::frame(traced_at, size, false);
+        }
+        let pacing =
+            (f.rt.surface_stats()).map(|stats| (stats.pacing.to_string(), stats.totals.presents));
+        let update_ms = f.update_ms;
+        f.rt.state.latency.presented();
+        let benching = match f.rt.state.bench.as_mut() {
+            Some(bench) => {
+                bench.after_frame(started, &stats, (render_ms, update_ms), pacing);
+                bench.animating(std::time::Instant::now())
+            }
+            None => false,
+        };
+        self.owes_frame = moved || stats.text.settling || frame.zooming || benching;
         if let Some(pace) = &mut self.pace {
             pace.frame(
                 started,

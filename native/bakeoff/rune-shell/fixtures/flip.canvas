@@ -1,0 +1,6 @@
+{
+  "nodes": [
+    {"id": "page-flip", "type": "file", "x": 0, "y": 0, "width": 800, "height": 600, "file": "flip.html"}
+  ],
+  "edges": []
+}

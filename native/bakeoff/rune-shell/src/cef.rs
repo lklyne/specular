@@ -190,3 +190,53 @@ pub fn settle(shell: &mut Shell) {
         started.elapsed().as_millis()
     );
 }
+
+/// When the main run loop last woke, in ledger time plus one; 0 asleep.
+static WOKE_AT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+unsafe extern "C-unwind" fn observe_loop(
+    _observer: *mut CFRunLoopObserver,
+    activity: CFRunLoopActivity,
+    _info: *mut c_void,
+) {
+    use specular_core::ledger;
+    use std::sync::atomic::Ordering;
+    if activity == CFRunLoopActivity::AfterWaiting {
+        WOKE_AT.store(ledger::now_us() + 1, Ordering::Relaxed);
+        return;
+    }
+    let woke = WOKE_AT.swap(0, Ordering::Relaxed);
+    if woke != 0 {
+        ledger::record(ledger::Entry::Loop(
+            (ledger::now_us() + 1).saturating_sub(woke),
+        ));
+    }
+}
+
+/// With the ledger on, logs how long each turn of the main run loop was
+/// busy, as the Kit shell's `resize_trace` does, so both shells' ledgers
+/// read the same.
+pub fn watch_loop() {
+    if !specular_core::ledger::enabled() {
+        return;
+    }
+    let activities = CFRunLoopActivity::AfterWaiting | CFRunLoopActivity::BeforeWaiting;
+    // SAFETY: the callout matches `CFRunLoopObserverCallBack` and uses no
+    // context, so a null context pointer is valid.
+    let observer = unsafe {
+        CFRunLoopObserver::new(
+            None,
+            activities.0,
+            true,
+            0,
+            Some(observe_loop),
+            std::ptr::null_mut(),
+        )
+    };
+    let (Some(observer), Some(run_loop)) = (observer, CFRunLoop::main()) else {
+        return;
+    };
+    // SAFETY: reading an immutable CoreFoundation constant.
+    let modes = unsafe { kCFRunLoopCommonModes };
+    run_loop.add_observer(Some(&observer), modes);
+}

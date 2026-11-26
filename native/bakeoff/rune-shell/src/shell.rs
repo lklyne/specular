@@ -89,6 +89,85 @@ pub struct Shell {
     pub closed: bool,
     /// `--probe-keys`: when to send digit 1 and keypad 1.
     pub probe_keys_at: Option<f64>,
+    /// `--bench`: the profiles being run.
+    pub bench: Option<crate::bench::Bench>,
+    /// `--shimmer`: the chrome shows a label that animates for ever.
+    pub shimmer: bool,
+    /// `--quit-after SECONDS`: print the latency line and close then, since
+    /// a window script cannot ask to close.
+    pub quit_at: Option<f64>,
+    /// `--page-fps`: the windowless frame rate pages are made with.
+    pub page_fps: Option<u32>,
+    /// Forwarded input to the frame showing the page's next paint, as the
+    /// Kit's `InputLatencyProbe` measures it (S6).
+    pub latency: Latency,
+}
+
+/// The Kit's input-to-present probe (`specular_shell::latency`): input
+/// forwarded to a page, that page's next frame, then the end of the canvas
+/// frame that drew it. Rune presents after our render returns, so this
+/// stops before Rune's present, where the Kit's stops after its own.
+#[derive(Debug, Default)]
+pub struct Latency {
+    tracker: specular_bench::LatencyTracker,
+    awaiting_paint: Option<(PageId, specular_bench::InputSeq)>,
+    awaiting_present: Option<specular_bench::InputSeq>,
+    /// Paint (CEF's `produced_at`) to the end of the frame that drew it,
+    /// for the frames that answered an input.
+    pub paint_to_present_ms: Vec<f64>,
+    paint_at: Option<std::time::Instant>,
+}
+
+impl Latency {
+    fn sent(&mut self, page: PageId) {
+        let seq = self.tracker.event(std::time::Instant::now());
+        self.awaiting_paint = Some((page, seq));
+    }
+
+    fn observe(&mut self, event: &PageEvent) {
+        if let (Some((page, seq)), PageEvent::Frame(frame)) = (self.awaiting_paint, event)
+            && frame.page == page
+        {
+            self.awaiting_paint = None;
+            self.awaiting_present = Some(seq);
+            self.paint_at = Some(frame.produced_at);
+        }
+    }
+
+    /// The canvas frame that may show the awaited paint has been drawn.
+    pub fn presented(&mut self) {
+        if let Some(seq) = self.awaiting_present.take() {
+            let now = std::time::Instant::now();
+            self.tracker.presented(seq, now);
+            if let Some(at) = self.paint_at.take() {
+                self.paint_to_present_ms
+                    .push(now.saturating_duration_since(at).as_secs_f64() * 1e3);
+            }
+        }
+    }
+
+    /// The Kit's `{"inputLatency": ..}` line, with paint to present beside it.
+    pub fn report(&self) {
+        let summary = self.tracker.summary();
+        if summary.samples == 0 {
+            return;
+        }
+        let mut paint = self.paint_to_present_ms.clone();
+        paint.sort_by(f64::total_cmp);
+        let at = |q: f64| {
+            paint
+                .get(((paint.len() as f64 - 1.0) * q).round() as usize)
+                .copied()
+        };
+        println!(
+            "{}",
+            serde_json::json!({
+                "inputLatency": summary,
+                "paintToPresentP50Ms": at(0.5),
+                "paintToPresentP95Ms": at(0.95),
+            })
+        );
+    }
 }
 
 impl std::fmt::Debug for Shell {
@@ -139,6 +218,11 @@ impl Shell {
             closing: None,
             closed: false,
             probe_keys_at: None,
+            bench: None,
+            shimmer: false,
+            quit_at: None,
+            page_fps: None,
+            latency: Latency::default(),
         };
         shell.dispatch(Event::Motion(false));
         shell.dispatch(Event::ViewportResized(shell.viewport));
@@ -221,6 +305,7 @@ impl Shell {
         let mut events = Vec::new();
         self.pages.take_events(&mut events);
         for event in events {
+            self.latency.observe(&event);
             // The reference snapshot shows each synthetic page's first
             // frame. With the clock held, so does this.
             if self.clock == Clock::Still
@@ -279,8 +364,19 @@ impl Shell {
                 let _ = self.pages.get().set_focus(host);
             }
             Effect::ForwardInput { page, event } => {
-                if let Some(host) = self.hosts.get(&page) {
-                    let _ = self.pages.get().send_input(*host, &event);
+                if let Some(host) = self.hosts.get(&page).copied() {
+                    let hover = matches!(
+                        event,
+                        specular_core::InputEvent::Pointer(specular_core::PointerEvent {
+                            kind: specular_core::PointerEventKind::Move
+                                | specular_core::PointerEventKind::Leave,
+                            ..
+                        })
+                    );
+                    if !hover {
+                        self.latency.sent(host);
+                    }
+                    let _ = self.pages.get().send_input(host, &event);
                 }
             }
             Effect::LoadImage { image, file } => self.load_image(image, &file, None),
@@ -305,6 +401,9 @@ impl Shell {
     fn create_page(&mut self, page: &EntityId, url: &str, viewport: CssSize) {
         let mut spec = PageSpec::new(url, viewport);
         spec.texture_scale = self.scale;
+        if let Some(fps) = self.page_fps {
+            spec.frame_rate = fps;
+        }
         let mut device = self.app.page_device(page);
         device.pixel_ratio = device.pixel_ratio.or(Some(self.scale));
         spec.device = device;
@@ -370,6 +469,39 @@ pub fn poll(shell: &mut Shell, seconds: f64, tx: &mut rune::el::Tx) -> bool {
         }
         return false;
     }
+    let bench_wants = match shell.bench.as_mut() {
+        Some(bench) if bench.done() => {
+            bench.print();
+            specular_core::ledger::flush();
+            shell.bench = None;
+            tx.close_window();
+            false
+        }
+        Some(bench) => {
+            let now = std::time::Instant::now();
+            let wants = bench.poll(now);
+            if let Some(until) = bench.waits_until(now) {
+                tx.wake_after(until.saturating_duration_since(now));
+                bench.arm();
+            }
+            wants
+        }
+        None => false,
+    };
+    if shell.quit_at.is_some_and(|at| seconds >= at) {
+        shell.quit_at = None;
+        shell.latency.report();
+        if shell.pages.name == "cef" {
+            shell.closing = Some(std::time::Instant::now());
+            tx.wake_after(std::time::Duration::ZERO);
+        } else {
+            tx.close_window();
+        }
+        return false;
+    }
+    if let Some(at) = shell.quit_at {
+        tx.wake_after(std::time::Duration::from_secs_f64((at - seconds).max(0.0)));
+    }
     if shell.probe_keys_at.is_some_and(|at| seconds >= at) {
         shell.probe_keys_at = None;
         crate::keys::probe(shell);
@@ -382,5 +514,5 @@ pub fn poll(shell: &mut Shell, seconds: f64, tx: &mut rune::el::Tx) -> bool {
     let painted = shell.pages.name == "cef" && shell.page_events.len() > waiting;
     let scripted = crate::panel::poll(shell, seconds, tx);
     // The tick alone changes nothing the chrome shows.
-    scripted || painted || shell.dispatched > before + 1
+    bench_wants || scripted || painted || shell.dispatched > before + 1
 }

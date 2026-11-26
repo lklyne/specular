@@ -43,6 +43,15 @@ From `specular-cef`, `specular-compositor` and `specular-shell` at `d375c2ee`, a
 - A page that gets no begin frames runs no `requestAnimationFrame` and no CSS animation. A page with a CDP client attached needs a floor rate.
 - Not measured anywhere: the pump's duration, GPU time in a window, input to scan-out, the cost of an import miss, 40 CEF pages under either shell on a quiet machine, a 5K target.
 
+## Measured
+
+Step S6 of [the Rune spike](../plans/rune-spike.md), 2026-11-25: release builds, an M3 Max with its ProMotion display, real CEF 154 pages (live sites), a 6 s pan in a 1600x1000 window at scale 2, three runs each on the Kit shell and the Rune spike. The machine was not quiet. These are the numbers items 4 and 5 wait on; the decisions above are unchanged.
+
+- **`CefDoMessageLoopWork` during a pan** (the ledger's `Pump` entries; pumps under 50 µs are only counted, and taken as 25 µs). Kit, then Rune: mean 0.09 / 0.07 ms at 9 pages, 0.06 / 0.07 at 20, 0.05 / 0.05 at 40; p95 0.25 / 0.18, 0.19 / 0.18, 0.14 / 0.12 ms; 11 to 31 ms of pumping a second; single pumps up to 7 to 10 ms a few times a run. The pump time between two frames at p95 is 0.38 / 0.29, 0.29 / 0.34 and 0.39 / 0.30 ms. Item 5's 1 ms at p95 with 40 pages is not reached.
+- **Input to present, entered page, 60 fps windowless** (the `inputLatency` probe: forwarded input, the page's next paint, the frame that drew it; no screen recording): Kit p50 8.4 ms, p95 25.7. Rune, which wakes on paint, p50 12.1, p95 14.5; at 120 fps p50 12.7, p95 14.3, so 120 did not lower it there. The Kit's endpoint is after its present returns and Rune's before Rune presents. The Kit at 120 needs `FULL_FRAME_RATE` changed; begin frames (item 4) were not tried.
+- **Paint to present with a wake on paint** (Rune): p50 5.6 ms, p95 8.2 at 60 fps. Without one was not measured: in Rune nothing else wakes an idle window.
+- **GPU time a frame, 4x against 1x** (Rune's device, waiting on the GPU from our submit to done, 20 pages): 1.91 ms [1.81 to 2.32] against 1.99 [1.88 to 2.01]. The method does not resolve a difference; Metal timestamp queries need a device feature the host did not ask for.
+
 ## Consequences
 
 - The page a user is in runs at the display's rate.

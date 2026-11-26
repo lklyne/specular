@@ -30,6 +30,10 @@ specular-doc = { path = "../../crates/specular-doc" }
 specular-interact = { path = "../../crates/specular-interact" }
 specular-scene = { path = "../../crates/specular-scene" }
 specular-compositor = { path = "../../crates/specular-compositor" }
+# Step S6: the Kit bench's profiles and frame statistics, for `--bench`.
+specular-bench = { path = "../../crates/specular-bench" }
+serde_json = "1"
+libc = "0.2"
 
 # The same requirements `native/Cargo.toml` states.
 wgpu = "30.0"
@@ -58,8 +62,6 @@ tooling = ["rune/tooling"]
 cef = ["dep:specular-cef", "specular-cef/cef", "dep:objc2", "dep:objc2-core-foundation"]
 
 [dev-dependencies]
-# Rune's accessibility dump is a `serde_json::Value`; the tests walk it.
-serde_json = "1"
 
 # Rune's patched forks, as its README's "Add it" lists them. Cargo does not
 # inherit a dependency's patches.

@@ -17,6 +17,7 @@
 //!   starts CEF, wakes Rune when a page paints, and waits headless runs out
 //!   (step S5).
 
+pub mod bench;
 pub mod canvas;
 #[cfg(feature = "cef")]
 pub mod cef;
@@ -87,6 +88,15 @@ pub struct Options {
     pub headless: bool,
     /// `--probe-keys SECONDS`: digit 1 and keypad 1 at that time.
     pub probe_keys_at: Option<f64>,
+    /// `--bench`: the Kit bench's profiles, run in the window (S6).
+    pub bench: Option<(Vec<specular_bench::GestureProfile>, std::time::Duration)>,
+    /// `--shimmer`: a label in the chrome that animates for ever (S6).
+    pub shimmer: bool,
+    /// `--page-fps N`: pages' windowless frame rate (`PageSpec`'s default
+    /// is 60, as in the Kit).
+    pub page_fps: Option<u32>,
+    /// `--quit-after SECONDS`: report and close at that time.
+    pub quit_after: Option<f64>,
 }
 
 impl Default for Options {
@@ -103,6 +113,10 @@ impl Default for Options {
             pump: PumpKind::Timer,
             headless: false,
             probe_keys_at: None,
+            bench: None,
+            shimmer: false,
+            page_fps: None,
+            quit_after: None,
         }
     }
 }
@@ -152,6 +166,7 @@ fn on_close_request(shell: &mut Shell, tx: &mut rune::Tx) -> rune::CloseResponse
         return rune::CloseResponse::Close;
     }
     eprintln!("rune-shell: close asked for; shutting the page source down");
+    shell.latency.report();
     shell.closing = Some(std::time::Instant::now());
     tx.wake_after(std::time::Duration::ZERO);
     rune::CloseResponse::Defer
@@ -192,6 +207,12 @@ pub fn app(options: Options) -> App<Shell> {
         let mut shell = Shell::new(options.size, options.scale, clock);
         start_pages(&mut shell, &options);
         shell.probe_keys_at = options.probe_keys_at;
+        shell.shimmer = options.shimmer;
+        shell.page_fps = options.page_fps;
+        shell.quit_at = options.quit_after;
+        if let Some((profiles, warmup)) = &options.bench {
+            shell.bench = Some(bench::Bench::new(profiles.clone(), *warmup));
+        }
         if let Chrome::Luau(dir) = &options.chrome {
             match Panel::from_dir(dir) {
                 Ok(panel) => {

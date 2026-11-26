@@ -1,6 +1,6 @@
 # ADR 0051: Rune as the shell, with the compositor drawing inside its frame
 
-**Status:** Proposed, pending the spike in [`docs/plans/rune-spike.md`](../plans/rune-spike.md). Its Linux steps and S4, the first Mac step, have run and passed; CEF (S5) and pacing (S6) have not. If the spike passes, this supersedes [ADR 0040](./0040-gpui-kit-hybrid-shell.md).
+**Status:** Proposed, pending the spike in [`docs/plans/rune-spike.md`](../plans/rune-spike.md). Its Linux steps, S4 and S5 have run and passed. S6, pacing against the Kit shell, ran and failed question 9; see "Performance against the Kit shell". If the spike passes, this supersedes [ADR 0040](./0040-gpui-kit-hybrid-shell.md).
 **Date:** 2026-11-25
 **Related:** [ADR 0039](./0039-rust-canvas-render-stack.md), the canvas's own wgpu pass, which stays. [ADR 0040](./0040-gpui-kit-hybrid-shell.md), the GPUI Kit shell this would replace. [ADR 0044](./0044-ui-as-pure-models-with-replaceable-renderers.md), which made the shell replaceable. [ADR 0052](./0052-one-runner-one-state-document.md), the testing this unlocks. [ADR 0053](./0053-page-frames-follow-the-display.md), the page pipeline changes made alongside.
 
@@ -87,6 +87,26 @@ What it found:
 - The toolbar shows up in macOS accessibility as a toolbar of toggles, but an `AXPress` does not run a control's press.
 - `--window-script` replays taps in a real window but refuses a resize.
 - CEF's pump can go in `AppSpec::poll`, woken by Rune's `Waker`. That was read, not run; S5 tries it.
+
+## Performance against the Kit shell
+
+Step S6, release builds of both shells on an M3 Max with real CEF pages, three runs a case, interleaved in one session on a machine that was not quiet. The thresholds were written before the runs; a row is a win only if the two shells' ranges do not overlap. The method and caveats are in [the plan's S6 entry](../plans/rune-spike.md), every row with its range in [the run tables](./assets/0051/s6-tables.md); `native/bakeoff/rune-shell/scripts/bench-s6.sh` reruns it.
+
+| Case | Kit | Rune | Threshold | Result |
+|---|---|---|---|---|
+| Pan, 9 pages | p99 15.6 ms; main thread 1.25 ms/frame | p99 12.6; 1.88 | 15% p99 or 20% main-thread CPU | Split: Rune on p99 (−19%), Kit on CPU (−34%) |
+| Pan, 20 pages | p99 9.2; 1.29 | p99 13.6; 1.90 | same | Kit on CPU (−32%); p99 inconclusive (Kit range 9.0 to 16.0) |
+| Pan, 40 pages | p99 9.4; 1.32 | p99 13.9; 1.79 | same | Kit (p99 −32%, CPU −26%) |
+| Pan, 40 pages, popover open (question 9) | not available | p99 16.5 | under 12.5 ms | Fail |
+| Pump p95, 9/20/40 | 0.25 / 0.19 / 0.14 ms | 0.18 / 0.18 / 0.12 | 20% lower | No (ranges overlap; same CEF) |
+| Animated chrome while panning | p99 10.1 with, 14.6 without | p99 16.8 with, 14.8 without | under 5% against 15% | No: neither pays 15% |
+| Idle, still pages | 176 wakeups/s, 2.9% CPU | 32/s, 1.3% | 20% | Rune |
+| Idle, live sites | 18.8% CPU, 1,031 wakeups/s | 25.9%, 846/s | 20% | Kit on CPU; wakeups under threshold |
+| Key to present, 60 fps pages | p50 8.4, p95 25.7 ms | p50 12.1, p95 14.5 | 8.3 ms | Inconclusive: each ahead on one percentile, endpoints differ |
+| Memory, 20 pages | 3,009 MB | 2,928 MB | 10% | No (−2.7%) |
+| GPU time, 4x against 1x | not measurable | 1.91 against 1.99 ms | 20% | No difference found |
+
+**Recommendation.** The measured performance does not justify the port. On the case that matters most, a pan over many pages, the Kit holds 120 Hz better at 20 and 40 pages and spends 26 to 34% less main-thread time a frame, because it redraws only the canvas while Rune prepares and encodes its whole UI every frame; Rune fails question 9 where the Kit's same pan passes. Rune's only clear win is idle with still pages, about 1.6 points of one core, and the key-to-present result splits on endpoints the two probes do not share. The port can still be argued on headless scenarios, accessibility and one frame (ADR 0051), but not on speed. What would change this: Rune skipping its UI's prepare and encode when the chrome has not changed (or caching it as a layer), measured with the canvas still drawn every frame; Rune's Metal backend with a page import into its device (S4 measured 25% less frame CPU there, without pages); a quiet-machine rerun, on this Mac and the Air, that moves the 20 and 40 page rows; and a shared present-time probe for key to present.
 
 ## Risks
 

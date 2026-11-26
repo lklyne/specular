@@ -3731,12 +3731,14 @@ version = "0.0.0"
 dependencies = [
  "glam",
  "image",
+ "libc",
  "objc2 0.6.5",
  "objc2-core-foundation",
  "resvg 0.46.0",
  "rune",
  "rune-luau",
  "serde_json",
+ "specular-bench",
  "specular-cef",
  "specular-compositor",
  "specular-core",
@@ -4203,6 +4205,19 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+]
+
+[[package]]
+name = "specular-bench"
+version = "0.11.2"
+dependencies = [
+ "anyhow",
+ "glam",
+ "libc",
+ "serde",
+ "serde_json",
+ "specular-core",
+ "thiserror 2.0.21",
 ]
 
 [[package]]

@@ -2,7 +2,7 @@
 
 Throwaway code for [`docs/plans/rune-spike.md`](../../../docs/plans/rune-spike.md)
 and [ADR 0051](../../../docs/adr/0051-rune-shell-around-the-compositor.md).
-Steps S1 to S5 and S7 are here. The findings are in the plan's log, not in this file.
+Steps S1 to S7 are here. The findings are in the plan's log, not in this file.
 
 One binary, `rune-shell`: a [Rune](https://github.com/anomalyco/rune) app
 whose frame is drawn by `specular-compositor` on Rune's device, with a
@@ -222,3 +222,24 @@ $CEF fixtures/cef-pages.canvas --source cef
 After a run the summary says how page frames came (`shared (IOSurface)`
 or `cpu`), the mean and longest delay from CEF's paint to the poll that
 took it, and how often the observer woke Rune.
+
+## S6: against the Kit shell
+
+`scripts/bench-s6.sh OUT [CASES]` builds both release bundles and runs every
+case on both shells, interleaved, three times each; `tools/s6_table.py OUT`
+prints the tables. `tools/s6_run.py` runs one case and measures from
+outside (main-thread CPU from `ps -M`, the CEF children's CPU, the ledger's
+pumps). The spike's flags for it:
+
+- `--bench PROFILE --warmup-ms N --bench-duration-ms N`: the Kit's
+  `--bench` (same profiles, start camera, lead-in, gap and stepping),
+  one JSON line a profile, with Rune's pacing as `SurfaceStats` said it.
+- `--shimmer`: a "Working" label whose sheen loops for ever on Rune's tracks.
+- `--page-fps N`: the pages' windowless frame rate (60 unless said).
+- `SPECULAR_RESIZE_TRACE=FILE`: the Kit's ledger, with CEF's pumps.
+- `RUNE_SHELL_GPU_TIME=1`: waits for the GPU around our pass and times it.
+- `RUNE_SHELL_POPOVER=1`: the zoom list open through a bench run.
+- At a close, the Kit's `{"inputLatency": ..}` line for forwarded input.
+
+`--window-script` needs `--features tooling` in a release build; the
+latency case builds it, the others run without it.
