@@ -100,14 +100,26 @@ pub(crate) fn windowless_frame_rate(fps: u32) -> i32 {
 }
 
 /// The longest the message pump goes without running when CEF has asked
-/// for nothing, in seconds. CEF's own external pump uses the same ceiling.
-pub(crate) const PUMP_FALLBACK_SECONDS: f64 = 1.0 / 30.0;
+/// for nothing, in seconds. CEF asks for every piece of work it has, now
+/// or after a delay, through `OnScheduleMessagePumpWork`; this only bounds
+/// the cost of an ask that never came. `cefclient`'s 30 Hz ceiling woke a
+/// still app 30 times a second for nothing.
+pub(crate) const PUMP_FALLBACK_SECONDS: f64 = 1.0;
 
 /// Seconds until the message pump should next run, for the delay CEF gave
 /// `OnScheduleMessagePumpWork`: at once for zero or less, and never later
 /// than the fallback.
 pub(crate) fn pump_delay_seconds(delay_ms: i64) -> f64 {
     (delay_ms.max(0) as f64 / 1_000.0).min(PUMP_FALLBACK_SECONDS)
+}
+
+/// Whether a pump asked for at `asked` moves the timer, whose next fire is
+/// `due`, at `now` (all in seconds on one clock). Only to an earlier time:
+/// CEF asks from several threads, and a delayed ask that lands after one
+/// for now must not put that work off. A `due` already past is a timer
+/// firing now, whose next fire is still to be set.
+pub(crate) fn pump_moves(asked: f64, due: f64, now: f64) -> bool {
+    due <= now || asked < due
 }
 
 /// Path of the CEF framework binary relative to the running executable
@@ -128,4 +140,34 @@ pub(crate) fn framework_library_path(exe: &Path, helper: bool) -> Option<PathBuf
 /// browser process never has it.
 pub(crate) fn is_subprocess<S: AsRef<str>>(args: &[S]) -> bool {
     args.iter().any(|arg| arg.as_ref().starts_with("--type="))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_pump_ask_only_ever_brings_the_next_pump_forward() {
+        // (asked, due, now, moves)
+        let rows = [
+            // A delayed ask after one for now leaves the early pump.
+            (10.5, 10.0, 9.99, false),
+            // An ask for now brings a delayed pump forward.
+            (10.0, 10.5, 10.0, true),
+            // Inside the timer's own fire, its next fire is still the one
+            // that is firing: any ask sets it.
+            (11.0, 10.0, 10.0, true),
+            (12.0, 9.0, 10.0, true),
+        ];
+        for (asked, due, now, moves) in rows {
+            assert_eq!(
+                pump_moves(asked, due, now),
+                moves,
+                "asked {asked}, due {due}, now {now}"
+            );
+        }
+        assert_eq!(pump_delay_seconds(-1), 0.0);
+        assert_eq!(pump_delay_seconds(250), 0.25);
+        assert_eq!(pump_delay_seconds(60_000), PUMP_FALLBACK_SECONDS);
+    }
 }
