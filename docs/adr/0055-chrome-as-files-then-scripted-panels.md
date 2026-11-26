@@ -63,7 +63,9 @@ Three lanes and two rules.
 
 Mods are trusted code, as in Herdr. A mod is something a person or their agent wrote or chose to install, and it has that person's access. There is no capability prompt, no per-mod grant and no list of shipped grants to keep.
 
-**The one exception: content from other people never becomes code.** A `.canvas` file or a web page can never name, load or select a mod, and a page from the web never gets the bridge. This costs one check where mods are loaded and one where the bridge is attached, and it is what lets a person open someone else's canvas safely.
+**The one exception: content from other people never runs code on its own.** Opening a `.canvas` file or a web page never loads, installs or runs a mod, and a page from the web never gets the bridge. This costs one check where mods are loaded and one where the bridge is attached, and it is what lets a person open someone else's canvas safely.
+
+A canvas may still say which mods it needs. It lists the mods its items use, and when one is missing the person is offered "Install mods" on open. Nothing is installed or run until they say yes, and until then those items show a placeholder or their saved snapshot. The list, the prompt and the snapshot are specified with mod items in [ADR 0057](./0057-mod-items-and-tools.md).
 
 A layout names mods, so a layout from someone else is code, and is read before it is installed like any mod.
 

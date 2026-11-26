@@ -13,7 +13,7 @@ ADR 0055 makes the chrome mods. Its second version also let a mod add a new kind
 - `Tool` is `Copy` and sits in const tables, and `ToolDefaults` has one typed field per tool. Neither takes a new tool at run time as written.
 - The web viewer (`specular-web`) and sync peers have no script runtime, so they cannot draw what only a script knows.
 
-Mods are trusted (ADR 0055, "Trust"), and a `.canvas` file never loads one.
+Mods are trusted (ADR 0055, "Trust"), and opening a `.canvas` file never runs one on its own.
 
 ## Decision
 
@@ -22,7 +22,14 @@ Mods are trusted (ADR 0055, "Trust"), and a `.canvas` file never loads one.
 - `Kind` gets one variant, `Kind::Mod(ModItem)`: the mod's name, its props as JSON, and the frame every item has. It moves, resizes, groups, syncs, undoes and saves like any other item, because the canvas does those on the frame.
 - With one variant the no-wildcard rule holds, and the compiler lists every place that must handle it once.
 - In the `.canvas` file it is a JSON Canvas node whose `specular` fields name the mod and hold its props. Its base `type` is a fallback other tools can show: a `link` or `file` node when the item wraps a URL or a file, otherwise a `text` node with the mod's name.
-- A reader without the mod shows a placeholder and keeps the props untouched. That includes the web viewer and a peer, to begin with.
+
+**A canvas lists the mods it needs, and the person installs them.**
+
+- The `.canvas` file's `specular` fields carry a `mods` list: the name of each mod its items use, its `api` generation, and where it can be had. The list is data. Reading it loads nothing.
+- On open, if a listed mod is not installed, the person is offered "Install mods", naming each one and where it comes from. Installing is running code with the person's access, and the prompt says so. Declining is remembered for that canvas.
+- Until a mod is installed, its items show their saved snapshot when they have one, otherwise a placeholder with the mod's name. Their props are kept untouched either way.
+- A snapshot is a still image of the item as it last drew, saved as a file in the space folder beside the canvas and named in the item's fields. It is written when the item's props change, not on every redraw. A display-list item or a web-content item has one. A live source (a camera, a screen) does not.
+- The web viewer and a sync peer have no script runtime. They show the same snapshot or placeholder.
 
 **An item shows one of two surfaces.** Both are composited by the canvas pass, so a pan or zoom never enters the script.
 
@@ -47,14 +54,15 @@ Mods are trusted (ADR 0055, "Trust"), and a `.canvas` file never loads one.
 
 ## Phases
 
-1. **The image feed.** `Kind::Mod` with its `.canvas` round trip and undo round trip, the display list surface, and one mod: an image feed that fetches and shows pictures. Nothing else.
+1. **The image feed.** `Kind::Mod` with its `.canvas` round trip and undo round trip, the display list surface, the canvas's `mods` list with the install prompt and the snapshot, and one mod: an image feed that fetches and shows pictures. Nothing else.
 2. **A tool.** `Tool::Mod`, the effect and event, and the preview. The watercolor brush is the test: a tool whose items show web content from the mod's folder running [`webgpu-brush`](https://github.com/lklyne/webgpu-brush) in CEF, with the stroke's points as the item's props. This needs web content as a texture source and ADR 0055's page bridge.
 3. **`media`.** A video recorder (a camera or screen source, saving to the space folder), then a phone mirror (a source from a helper process).
 
 ## What is not known
 
 - Whether a preview one frame behind is acceptable for drawing, or the preview has to be kept host-side between script calls.
-- Whether the web viewer and peers should draw a mod item's last display list. It would have to be saved in the item's fields, which makes the file larger and syncs every redraw. The placeholder comes first.
+- Where "Install mods" gets a mod from: a `mods/` folder in the space folder that travels with the canvas, a URL, or both. A folder in the space is the simplest and keeps everything on disk.
+- Whether a still snapshot is enough for the web viewer and peers, or they should draw a display-list item's saved list.
 - What a canvas of many mod items costs: how many display lists the canvas pass keeps, and how many sources it imports at once.
 - Whether web content in a mod item can share the page pipeline without a page's own state, or needs its own host.
 
@@ -63,4 +71,4 @@ Mods are trusted (ADR 0055, "Trust"), and a `.canvas` file never loads one.
 - A new kind of canvas item or a new tool needs no Rust change unless it needs a native capability `media` does not have.
 - Pointer events enter script while a scripted tool is armed or a mod item is entered. Pan, zoom and the built-in tools never do.
 - `update` stays pure. The cost is a frame of latency on a scripted tool's preview.
-- A `.canvas` file can hold items that need a mod the reader does not have. They show as placeholders and keep their data, and other JSON Canvas tools see the fallback node.
+- A `.canvas` file can hold items that need a mod the reader does not have. The reader is offered the mods, the items show a snapshot or a placeholder until then and keep their data, and other JSON Canvas tools see the fallback node.
