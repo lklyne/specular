@@ -108,16 +108,66 @@ S7 ran the toolbar as a Luau script (181 lines; the Rust one is 273) beside the 
 - What `gpui-shell` costs inside the Kit shell: build time, binary size, and a render of the sidebar on a canvas with hundreds of items.
 - How a scripted tool's pointer moves stay cheap: coalesced to the display rate, or with the preview kept host-side between script calls.
 - Whether a pen tool can commit a useful path to today's kinds, or needs a path kind.
-- Whether `specular mod check`'s element tree is enough for the headless runner to retire the built-in renderer (ADR 0044's open blocker).
+- Whether `specular mod check`'s element tree is enough for the headless runner to press controls a mod adds that no Rust model lists.
 - How pages in lane 4 get the bridge: CEF's message router, or the devtools channel `dom_query` already uses.
 
-## First steps
+## How much of Herdr is mods
 
-1. Add `gpui-shell` 0.11 to the Kit shell and run one mod in the sidebar region. Measure build time and size.
-2. The toolbar as a mod over `toolbar(&App)`, with `check` and a snapshot test.
-3. The layout file with `hidden`, `ui.toggle` and the reset key.
-4. A pen tool as a mod, through `Tool::Mod`.
-5. The CPU budget and heap cap, and the render counters.
+The header of Herdr's `src/window.rs` says it: "Every visible part that isn't a terminal is a mod." What stays in Rust is the part that has to be fast or has to be the app's own:
+
+- **Native (about 37,000 lines of app Rust).** The layout engine and its locked primitives (blocks, splits, stacks, floats, windows, pane drag and resize), the title bar, overlay hosting, terminal drawing and the VT (about 8,000 lines), key dispatch, the command table (101 commands), the model and its sync with herdr-core, settings, updates, and the mod host itself (about 2,200 lines). The `gpui-shell` fork underneath is another 84,000 lines, and herdr-core is a separate Rust program.
+- **Mods (about 6,000 lines of JavaScript, 21 mods).** The spaces sidebar, the agents list, the tab bar, menus, pickers, the prompt, the confirm dialog, the toast, the files and changes panels, the worktree flow, and the pane header. A further 3,000-line `win98` mod is a showcase theme.
+- **The app's own screens (about 2,200 lines of JavaScript in `frame/`).** Settings, welcome, the palette, feedback and what's new are written on the same runtime but rewritten on every start and not open to editing. This is the one place Herdr bends "nothing shipped is special".
+
+Herdr's terminal is our canvas: the one surface that stays native and that mods place, but do not draw.
+
+## What becomes a mod, what stays native
+
+**Becomes a shipped mod.** Each one replaces a Kit adapter in `specular-shell/src/kit/view`.
+
+| Today | Kit adapter | Becomes |
+|---|---|---|
+| Toolbar | `toolbar.rs`, 334 lines | `mods/toolbar` |
+| Dock (the item and tool popup) | `dock.rs` with `controls.rs`, `dropdown`, `field.rs`, about 1,200 lines shared | `mods/dock`, with the shared controls as a JS module |
+| Tab row (view strip) | `tabs.rs`, 320 | `mods/tabs` |
+| Sidebar | `sidebar.rs`, 324 | `mods/sidebar`, on a virtual list |
+| Canvas context menu | `canvas_menu.rs`, 292 | `mods/menu` |
+| Palette | `palette.rs` and `palette_row.rs`, 320 | `mods/palette` |
+| Share | `share.rs`, 141 | `mods/share` |
+| Onboarding and first run | `onboarding`, 257 | `mods/welcome` |
+| Settings | `settings.rs` and `settings_repos.rs`, 428 | `mods/settings` |
+| Chat panel | `chat` and `chat.rs`, about 2,200 | `mods/chat`, last |
+| Update notice, page notices | small | `mods/toast` |
+
+**Stays native.**
+
+- The canvas: the compositor, the wgpu pass, CEF pages, and everything drawn on an item: selection handles, guides, text editing and IME, edges, comment pins, presence and agent cursors.
+- Gestures and hit tests for the built-in tools, and how each `Kind` draws.
+- The document, `Command`s and undo, sync, persistence, the HTTP API, the agent helper.
+- The window: the region layout engine, the canvas slot, key dispatch, the macOS menu bar (its items come from the command table), the mod host, and the sandbox.
+
+## How the core is refactored
+
+Most of the work is in Rust, and most of it is worth doing whether or not a line of script ever ships.
+
+1. **One command table.** Today what the app can do is spread over the `Action` enum (72 variants), the palette's entries (`interact/src/palette.rs`), the key map (`bindings.rs`), the selection verbs (`verbs.rs`) and the routes in `specular-api`. These become one registry. Each entry has a name, typed arguments, a line of help and an enabled rule. The palette, keys, menus, the HTTP API, the CLI and mods all read it. Its generated schema is the API snapshot the release check compares.
+2. **One published state.** ADR 0052's state document becomes the mod read API. It is split into keys (`selection`, `tool`, `tools`, `items`, `space`, `settings`, `theme`, `panels/*`), and each key gets a version. A mod that read only `selection` re-renders only when `selection` moves. This is the narrow re-render Herdr does not have.
+3. **Models become queries.** `toolbar(&App)`, `dock(&App)` and the rest stay in `specular-interact`, still pure and still tested, but published as data under `panels/*`. The smart part (which properties apply to this selection, and their current values) becomes its own query, `properties(selection)`, so a mod that draws its own dock does not have to redo it.
+4. **A layout tree from a file.** The Kit shell's fixed regions (`shell.rs`, `slot.rs`) become a tree read from `layouts/<name>.json`: rows, columns, stacks, a `canvas` block, a `mod` block, and `hidden` ids. Herdr's locked primitives are the model.
+5. **Stable ids on every control**, so a layout can hide one and a script can name one.
+6. **Tools in a registry.** `Tool::Mod(ModToolId)` and a world-space preview layer in the canvas pass. Tool defaults (ADR 0009) are keyed by tool id, so a scripted tool keeps its own.
+7. **Headless by name, kept.** Headless runs already press controls by name through the models (`named_controls`), with nothing drawn. A scripted panel has to keep that: `specular mod check` gives an element tree with the same ids, so the scenarios can press a mod's own controls too, including ones no Rust model lists.
+
+## Phases
+
+Each phase ships on its own and leaves the app working.
+
+1. **Rust groundwork, no script.** The command table and its schema check, the keyed state, the layout file with `hidden` and `ui.toggle`, stable ids, and the reset key. Hiding and showing anything works at the end of this phase.
+2. **The runtime.** `gpui-shell` 0.11 in the Kit shell, the CPU budget and heap cap, `specular mod check` and `specular shot`, the generated guide and `.d.ts`. The toolbar is the first shipped mod, and its Kit adapter is deleted.
+3. **The small panels.** Dock, tab row, context menu, palette, share, welcome, toast. Each one deletes its Kit adapter in the same PR, and the scenarios press its controls through `check`'s tree.
+4. **Scripted tools.** `Tool::Mod`, the preview layer, and a pen tool as a mod.
+5. **The big panels.** The sidebar on a virtual list, then settings, then chat, the largest and the one with streaming. Chat goes last and can stay native longer without blocking anything else.
+6. **Opening it up.** `specular mod clone`, installing other people's mods with the capability prompt, and the page bridge of lane 4.
 
 ## Consequences
 
