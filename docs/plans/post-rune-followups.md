@@ -78,3 +78,18 @@ Every phase builds on `claude/post-rune-followups`, which sits on `claude/rune-s
 - **After:** `eval` 750 then 898 1.2 s later (120 a second, the display's rate); `screenshot` took 0.24 s and showed frame 927, between the evals around it (898, 950); after `reload` n = 26 and the screenshot (0.23 s) showed frame 54. Paints stopped and turns fell back about 5 s after the last verb.
 - **Idle, minimised, no agent** (ledger, 30 s): 5 to 7 turns/s and 0 paints in both. Visible idle was not rerun; no agent leaves the path as it was.
 - **Seen in both:** CDP screenshots of an 800x500 page come back 1600x1000 with the page tiled 2x2, and `cli-pages.sh` fails the same 6 cases from `find text "Next A" click` onward. Neither is from this change.
+
+### Pan check, 2026-11-25. Panning is the same; pan start has no added delay
+
+- **Run:** release CEF bundles before (`7f239a24`, phase 1 tip) and after (`0bbcda81`), alternated: `bench.sh pan-N` once at 9 pages, three times at 20 and 40 (the first pair at 40 differed, so it was repeated). Pan start: still-20, default paint policy, camera at 0.15, ten 400 ms scroll pans (`pan` script step), each after 3.5 s with no frame drawn, read from the ledger (step time to the first frame's end, then the next five present intervals). On battery (91%), load 4.9 to 6.0: VM, Docker, Claude, another agent's debug Specular.
+- **Results:** median [min to max]. Pan start was ten pans for before and twenty for after.
+
+| case | before | after |
+|---|---|---|
+| pan 9: p50 / p95 / p99 ms, long frames, main ms/frame | 8.33 / 8.86 / 16.63, 22, 1.04 | 8.33 / 8.83 / 16.54, 17, 0.99 |
+| pan 20: same | 8.32 / 8.93 / 16.61, 22 [20 to 26], 1.19 | 8.32 / 9.12 / 16.84, 30 [27 to 65], 1.17 |
+| pan 40: same | 8.33 / 9.10 / 16.50 [10.95 to 16.68], 14 [1 to 26], 1.18 | 8.33 / 9.05 / 16.66, 18 [9 to 20], 1.25 |
+| pan start: input to first present ms, p50 / max | 1.37 / 2.45 | 2.04 / 2.49 |
+| pan start: longest of the first 5 intervals ms | 24.2 [19.4 to 29.0] | 22.8 [14.6 to 29.0] |
+
+- **Reading:** no change beyond the known spread. Main thread time per frame is the same, and so is p99 (about 16.5 ms, a single 60 Hz frame). Pan 20 leans toward more long frames after (30 against 22), but the ranges overlap. The resting link costs about 0.7 ms at most before the first present, under a tenth of a refresh. Both builds have the same hitch near the start of every pan: the first two frames come within 1 ms of each other, then there is a 20 to 29 ms gap before the steady 8.3 ms. That hitch predates the follow-ups. Also seen: on the before build, every scripted run hung at exit until it was killed; the after build exits cleanly.
