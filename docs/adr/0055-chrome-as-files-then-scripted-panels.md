@@ -1,6 +1,6 @@
 # ADR 0055: The interface as mods: scripted chrome and tools on the Kit shell, pages as canvas extensions
 
-**Status:** Proposed, revised 2026-11-26. The first version (2026-11-25) put the scripts on Rune's Luau lane and went on hold when [ADR 0051](./0051-rune-shell-around-the-compositor.md) was deferred. This version moves them to `gpui-shell` on the GPUI Kit shell that stays ([ADR 0040](./0040-gpui-kit-hybrid-shell.md)), and opens the API from "restyle the controls Rust lists" to "show, hide, replace or add any part of the chrome, and add tools". Not built.
+**Status:** Proposed, revised 2026-11-26. The first version (2026-11-25) put the scripts on Rune's Luau lane and went on hold when [ADR 0051](./0051-rune-shell-around-the-compositor.md) was deferred. This version moves them to `gpui-shell` on the GPUI Kit shell that stays ([ADR 0040](./0040-gpui-kit-hybrid-shell.md)), and opens the API from "restyle the controls Rust lists" to "show, hide, replace or add any part of the chrome, and add tools and new kinds of canvas item". Not built.
 **Date:** 2026-11-25
 **Related:** [ADR 0044](./0044-ui-as-pure-models-with-replaceable-renderers.md), the panel models. [ADR 0016](./0016-tools-as-capability-registry.md), tools as a registry. [ADR 0052](./0052-one-runner-one-state-document.md), the state document and action table this reuses. [ADR 0054](./0054-every-editor-is-an-actor.md), actors. [ADR 0051](./0051-rune-shell-around-the-compositor.md), the deferred Rune shell the first version depended on.
 
@@ -38,13 +38,20 @@ Four lanes, two rules, and a sandbox.
 - A mod keeps its own state, and may share small values with other mods (`shared(key)` / `setShared`) in the space's own `specular` fields.
 - Script runs on a snapshot change, an event or a timer, never per frame. The camera is not in the snapshot, so a pan or zoom cannot enter a script. Anything that shows a camera value, such as the zoom readout, is a host element the mod places.
 
-**2. Tools are mods too.**
+**2. Canvas items and tools are mods too.**
 
-- A mod can register a tool: an id, an icon, a cursor, a key, and handlers for pointer down, move and up in world coordinates over the canvas.
-- While the pointer is down, the tool returns a preview description (paths, rects, text, a handle) that the canvas pass draws in world space. The canvas keeps redrawing that description through a pan or zoom without entering the script.
-- On release, the tool commits through `run`: create an item, add points to a drawing, set a property. Its commit is one undo step.
-- `Tool` gets one variant, `Tool::Mod(ModToolId)`, so the no-wildcard rule holds and every place that matches on `Tool` handles scripted tools once. The registry of ADR 0016 lists shipped and scripted tools together, and the toolbar mod reads that list.
-- A pen tool, which places Bézier points and commits a path, is the first test of this lane. Its result has to be an existing kind (a drawing stroke, a shape). How the canvas draws a kind, the hit test and the gestures of the built-in tools stay native. A new kind is a Rust change, and has to pass the core rule below.
+A mod can add a new kind of thing to the canvas, not only arrange the chrome around it. An image feed, a screen mirrored from a phone, a video recorder or a page-like viewer is a mod, and needs no Rust change unless it needs a native capability the host does not have yet (see "Host modules" below).
+
+- **Mod items.** `Kind` gets one variant, `Kind::Mod(ModItem)`: the mod's name, its props as JSON, and the frame every item has. It moves, resizes, groups, syncs, undoes and saves like any other item, because those are done by the canvas on the frame, not by the mod. With one variant the no-wildcard rule holds and the compiler lists every place that must handle mod items once.
+- **In the `.canvas` file.** A mod item is a JSON Canvas node whose `specular` fields name the mod and hold its props. Its base `type` is a fallback other tools can show: a `link` or `file` node when the item wraps a URL or a file, otherwise a `text` node with the mod's name. A space whose mod is missing shows a placeholder and keeps the props untouched.
+- **What an item shows.** Its content is one of three surfaces, all composited by the canvas pass so a pan or zoom never enters the script:
+  - **A description**: rects, paths, text, images and video frames in item space, kept by the canvas and redrawn from the description until the script changes it. This is what an image viewer or a chart uses.
+  - **Web content**: an HTML file from the mod's folder or a granted URL, hosted by CEF the way a page is, with the bridge to read the snapshot and `run`. A page-like viewer is this.
+  - **A frame source**: a stream of frames from a host module (a camera, a screen, a video file, a phone, a local process), drawn through the same import path as a page's frames (`PageSource` in `specular-core`). A recorder or a mirror is this.
+- **Input.** A mod item gets pointer, wheel and key events in item space once it is entered, the way a page is entered, and the canvas keeps select, move and resize when it is not.
+- **State.** Durable state is the item's props, changed through `run("item.set", {id, props})`, so it is one undo step on the actor that made it and syncs through ADR 0054's mirror. Transient state (a playing stream, a scroll offset) stays in the mod.
+- **Tools.** A mod can register a tool: an id, an icon, a cursor, a key, and pointer handlers in world coordinates. While the pointer is down the tool returns a preview description that the canvas draws in world space. On release it commits through `run`, as one undo step, usually by placing one of its own items. `Tool` gets one variant, `Tool::Mod(ModToolId)`, and the registry of ADR 0016 lists shipped and scripted tools together.
+- **The shipped kinds.** "Nothing shipped is special" applies here too, in time. Page, file, text, drawing and shape stay native while their speed depends on it. The test of this lane is that a mod can build a page-like item from the same surfaces, so a shipped kind can move to a mod whenever its native code stops paying for itself.
 
 **3. Arrangement, visibility, keys and theme are files.**
 
@@ -54,7 +61,7 @@ Four lanes, two rules, and a sandbox.
 - A save reloads what changed. A bad layout, keys or theme file keeps the last good version and writes `<name>.error` beside it. A mod that fails at load keeps its old build running; one that loads and then fails in `render` shows an error card in its region until the next save. One fixed key, which nothing can rebind, returns to the shipped layout and keys.
 - `mod.json` can add palette entries, as Herdr's does.
 
-**4. Canvas extensions are pages.**
+**4. The lightest extension is a page.**
 
 - An HTML file in the space folder is already a live page on the canvas. A page from the space gets a bridge: the same snapshot to read, and `run(action, args)` to write.
 - A custom canvas widget is then one HTML file, which an agent can write, on an item that already moves, resizes, syncs and undoes like any other.
@@ -64,6 +71,34 @@ Four lanes, two rules, and a sandbox.
 **Rule: nothing shipped is special.** A capability a shipped mod uses is one a person's mod can use. If the chrome needs something mods cannot do, the API grows; the chrome does not get a private door.
 
 **Rule: the native core answers for itself.** Before a feature goes into Rust, answer Herdr's three questions: does the app itself act on it, can only the app see it, can a mod not do it correctly? Three noes and it is a mod.
+
+## Host modules: the native side of a mod
+
+A mod is JavaScript, but what it can reach is Rust. `gpui-shell` calls these host modules: named imports, written in Rust, that a host gives its scripts (Herdr's is the `herdr` module). Ours start with:
+
+- `specular`: the snapshot, `run`, items, tools, layout, notifications.
+- `net`: `fetch` and sockets, per host.
+- `fs`: files in the space folder and the mod's own folder.
+- `media`: decode images and video, play audio, and turn a stream into a frame source: a URL (HLS, MJPEG, WebRTC), a file, or a local process that writes frames.
+- `capture`: camera, microphone and screen, through the OS's own permission prompts, and recording to a file.
+- `process`: start a helper program and talk to it over its pipes.
+
+Each one is behind a capability in `mod.json`. When a mod needs something no host module offers (a phone's screen over USB, say), the answer is a new host module in Rust, added under the core rule, and every mod gets it. Most needs can be met sooner by `process` plus `media`: a helper program that already speaks to the device writes frames, and the mod shows them.
+
+## Why JavaScript, and where Rust stays
+
+Herdr's app is about 37,000 lines of Rust and 9,000 of JavaScript, and the split is by who writes the code and when:
+
+- **The host is Rust, built and shipped once.** Layout, drawing, terminals, input, system access, speed. `gpui-shell`'s own README puts the line here: "the host owns rendering, layout, input and system capabilities; the script owns composition, presentation and business logic".
+- **Mods are JavaScript because they arrive after the build.** `gpui-shell` exists so that "a new panel, a side tool or a piece of business logic arrives as a script loaded into the same process — no rebuild, no binary to redistribute, and no fork". It chose JavaScript "because application code reads better in it and the language is more widely known". A save reloads a mod in place.
+
+The same split fits us, and the alternatives do not:
+
+- **Mods in Rust** need a Rust toolchain on the person's machine, a rebuild per change, and either a fork of the app or loading native libraries. Rust has no stable ABI, so a library built against one release breaks on the next. A native library cannot be sandboxed, and it cannot hot reload.
+- **WebAssembly mods** can be sandboxed and written in any language, Rust included. Nothing binds GPUI elements to WebAssembly today, and an agent writing a panel would compile on every save.
+- **JavaScript on `gpui-shell`** is what Herdr ships, on the GPUI version we pin, with a capability model that starts empty. It is the language agents write best, and it reloads on save.
+
+So: Rust for the host, the canvas, the document and host modules; JavaScript for the chrome, mod items, tools and everything a person or an agent adds.
 
 ## Sandbox
 
@@ -106,8 +141,9 @@ S7 ran the toolbar as a Luau script (181 lines; the Rust one is 273) beside the 
 ## What is not known
 
 - What `gpui-shell` costs inside the Kit shell: build time, binary size, and a render of the sidebar on a canvas with hundreds of items.
-- How a scripted tool's pointer moves stay cheap: coalesced to the display rate, or with the preview kept host-side between script calls.
-- Whether a pen tool can commit a useful path to today's kinds, or needs a path kind.
+- How a scripted tool's or an entered mod item's pointer moves stay cheap: coalesced to the display rate, or with the preview kept host-side between script calls.
+- What a canvas of many mod items costs: how many descriptions the canvas pass can keep, and how many frame sources it can import at once.
+- Whether web content in a mod item can share the page pipeline (CEF offscreen, frame import) without a page's own state, or needs its own host.
 - Whether `specular mod check`'s element tree is enough for the headless runner to press controls a mod adds that no Rust model lists.
 - How pages in lane 4 get the bridge: CEF's message router, or the devtools channel `dom_query` already uses.
 
@@ -142,7 +178,8 @@ Herdr's terminal is our canvas: the one surface that stays native and that mods 
 **Stays native.**
 
 - The canvas: the compositor, the wgpu pass, CEF pages, and everything drawn on an item: selection handles, guides, text editing and IME, edges, comment pins, presence and agent cursors.
-- Gestures and hit tests for the built-in tools, and how each `Kind` draws.
+- Gestures and hit tests for the built-in tools, and how each native `Kind` draws, until a kind moves to a mod.
+- Host modules: networking, media decode, frame sources, capture, processes.
 - The document, `Command`s and undo, sync, persistence, the HTTP API, the agent helper.
 - The window: the region layout engine, the canvas slot, key dispatch, the macOS menu bar (its items come from the command table), the mod host, and the sandbox.
 
@@ -155,7 +192,7 @@ Most of the work is in Rust, and most of it is worth doing whether or not a line
 3. **Models become queries.** `toolbar(&App)`, `dock(&App)` and the rest stay in `specular-interact`, still pure and still tested, but published as data under `panels/*`. The smart part (which properties apply to this selection, and their current values) becomes its own query, `properties(selection)`, so a mod that draws its own dock does not have to redo it.
 4. **A layout tree from a file.** The Kit shell's fixed regions (`shell.rs`, `slot.rs`) become a tree read from `layouts/<name>.json`: rows, columns, stacks, a `canvas` block, a `mod` block, and `hidden` ids. Herdr's locked primitives are the model.
 5. **Stable ids on every control**, so a layout can hide one and a script can name one.
-6. **Tools in a registry.** `Tool::Mod(ModToolId)` and a world-space preview layer in the canvas pass. Tool defaults (ADR 0009) are keyed by tool id, so a scripted tool keeps its own.
+6. **Mod items and tools in the core.** `Kind::Mod(ModItem)` with its `.canvas` form, and the canvas pass learns to draw a kept description and a frame source on an item. `Tool::Mod(ModToolId)` and a world-space preview layer. Tool defaults (ADR 0009) are keyed by tool id, so a scripted tool keeps its own. The page pipeline's frame import is generalized from pages to any frame source.
 7. **Headless by name, kept.** Headless runs already press controls by name through the models (`named_controls`), with nothing drawn. A scripted panel has to keep that: `specular mod check` gives an element tree with the same ids, so the scenarios can press a mod's own controls too, including ones no Rust model lists.
 
 ## Phases
@@ -165,14 +202,15 @@ Each phase ships on its own and leaves the app working.
 1. **Rust groundwork, no script.** The command table and its schema check, the keyed state, the layout file with `hidden` and `ui.toggle`, stable ids, and the reset key. Hiding and showing anything works at the end of this phase.
 2. **The runtime.** `gpui-shell` 0.11 in the Kit shell, the CPU budget and heap cap, `specular mod check` and `specular shot`, the generated guide and `.d.ts`. The toolbar is the first shipped mod, and its Kit adapter is deleted.
 3. **The small panels.** Dock, tab row, context menu, palette, share, welcome, toast. Each one deletes its Kit adapter in the same PR, and the scenarios press its controls through `check`'s tree.
-4. **Scripted tools.** `Tool::Mod`, the preview layer, and a pen tool as a mod.
+4. **Mod items and tools.** `Kind::Mod`, the three surfaces, the `media`, `net` and `capture` host modules, and `Tool::Mod`. Three mods test it: an image feed (a description, with `net`), a video recorder (a frame source from `capture`, saving to the space folder), and a phone mirror (a frame source from a helper process).
 5. **The big panels.** The sidebar on a virtual list, then settings, then chat, the largest and the one with streaming. Chat goes last and can stay native longer without blocking anything else.
 6. **Opening it up.** `specular mod clone`, installing other people's mods with the capability prompt, and the page bridge of lane 4.
 
 ## Consequences
 
-- A person or an agent can hide, show, rearrange, restyle and replace any part of the window, and add tools, by editing files; and add to the canvas by writing a page.
+- A person or an agent can hide, show, rearrange, restyle and replace any part of the window, and add tools and new kinds of canvas item, by editing files; and add to the canvas by writing a page.
 - The chrome is in JavaScript. The script API is `gpui-shell`'s element vocabulary plus ours, and moves when GPUI Kit's does. We take it as a crates.io dependency and keep any patch upstream, not in a fork.
 - A second language for the chrome, with its own tests: a mod plus a snapshot gives an element tree and the actions it ran, checked with no window.
 - The API has to be kept. The snapshot schema and the action table become public, and the release check makes a break deliberate.
-- Opening tools to mods means pointer events enter script while a scripted tool is active. Pan, zoom and the built-in tools never do.
+- Opening tools and items to mods means pointer events enter script while a scripted tool is active or a mod item is entered. Pan, zoom and the built-in tools never do.
+- A `.canvas` file can hold items that need a mod the reader does not have. They show as placeholders and keep their data, and other JSON Canvas tools see the fallback node.
