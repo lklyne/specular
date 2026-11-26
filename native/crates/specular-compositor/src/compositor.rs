@@ -229,6 +229,21 @@ impl Compositor {
         self.imports.remove(&(page, LayerKind::Popup));
     }
 
+    /// Forgets every page and lets go of all their shared surfaces now,
+    /// waiting for the GPU to finish with them. For the end of a run, before
+    /// the page source stops: CEF's teardown stalls on surfaces still held.
+    pub fn release_pages(&mut self) {
+        let pages: Vec<_> = self.pages.keys().copied().collect();
+        for page in pages {
+            self.remove_page(page);
+        }
+        self.imports.clear();
+        if let Err(error) = self.device.poll(wgpu::PollType::wait_indefinitely()) {
+            tracing::warn!("device poll failed: {error}");
+        }
+        self.retired.reclaim(u64::MAX);
+    }
+
     /// Lets go of what pages that have stopped painting no longer need:
     /// every imported surface but the one each shows, and the surfaces the
     /// GPU has finished with. A view frame kept from another size goes too

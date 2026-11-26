@@ -351,6 +351,10 @@ impl<W: ShellWindow> Runtime<W> {
         self.finish_notes();
         self.flush_files();
         self.hosts.clear();
+        // Page surfaces go back before the source stops.
+        if let Some(gpu) = self.gpu.as_mut() {
+            gpu.compositor_mut().release_pages();
+        }
         self.page_files = PageFiles::default();
         self.closing = true;
     }
