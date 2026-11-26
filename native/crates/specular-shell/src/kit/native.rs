@@ -38,6 +38,8 @@ const FILLS_SUPERVIEW: usize = 2 | 16;
 const BELOW: isize = -1;
 /// `NSFloatingWindowLevel`.
 const FLOATING: isize = 3;
+/// `NSWindowOcclusionStateVisible`.
+const OCCLUSION_VISIBLE: usize = 1 << 1;
 
 extern "C-unwind" fn tick(_this: &AnyObject, _cmd: Sel, _link: Id) {
     crate::canvas::on_display_link();
@@ -320,6 +322,31 @@ impl NativeCanvas {
     pub(crate) fn window_number(&self) -> isize {
         // SAFETY: reading a live window's number.
         unsafe { msg_send![self.window, windowNumber] }
+    }
+
+    /// Whether any of the window can be seen: it is not minimised, is on
+    /// the space shown and is not wholly covered by other windows.
+    pub(crate) fn visible(&self) -> bool {
+        // SAFETY: reading a live window's occlusion state, an
+        // `NSUInteger` bit set.
+        let state: usize = unsafe { msg_send![self.window, occlusionState] };
+        state & OCCLUSION_VISIBLE != 0
+    }
+
+    /// The highest refresh rate of the display showing the window, in Hz,
+    /// or `None` when the window is on no display.
+    pub(crate) fn refresh_rate(&self) -> Option<u32> {
+        // SAFETY: main thread. `screen` returns nil or a live object, which
+        // is checked before use, and `maximumFramesPerSecond` (macOS 12)
+        // returns an `NSInteger`.
+        let hz: isize = unsafe {
+            let screen: *mut AnyObject = msg_send![self.window, screen];
+            if screen.is_null() {
+                return None;
+            }
+            msg_send![screen, maximumFramesPerSecond]
+        };
+        u32::try_from(hz).ok().filter(|&hz| hz > 0)
     }
 
     /// Sets the title and the close button's unsaved dot.

@@ -258,6 +258,11 @@ impl Canvas {
         let now = Instant::now();
         self.last_frame = now;
         if self.runtime.is_closing() {
+            // Shutdown is polled on the idle timer. A rest left from before
+            // the exit is long past, and with the link paused (a minimised
+            // window) it would have the timer poll without a pause and keep
+            // the run loop from the pump timer that stops CEF.
+            self.rest_until = None;
             if !self.finished && self.runtime.poll_shutdown() {
                 self.finished = true;
                 self.wake_now();

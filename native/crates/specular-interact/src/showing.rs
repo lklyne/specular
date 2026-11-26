@@ -92,6 +92,12 @@ impl App {
         self.shown_item().map(|item| self.session.tabs.lens(item))
     }
 
+    /// The item shown filling the view, when its tab is in the Fill lens.
+    pub fn filling_item(&self) -> Option<&EntityId> {
+        self.shown_item()
+            .filter(|item| self.session.tabs.lens(item) == Lens::Fill)
+    }
+
     /// Whether the eye is open: Device draws what is around its item, not
     /// only what is hooked to it. It is one choice for every tab.
     pub fn shows_others(&self) -> bool {

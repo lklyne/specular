@@ -34,7 +34,6 @@ mod pacing;
 #[cfg(target_os = "macos")]
 mod pins;
 #[cfg(target_os = "macos")]
-mod refresh;
 #[cfg(target_os = "macos")]
 mod resize_trace;
 #[cfg(target_os = "macos")]
