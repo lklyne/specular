@@ -117,10 +117,22 @@ pub(crate) fn on_accelerated_paint(
     let Some((layer, viewport)) = layer_for(ctx, kind, size) else {
         return;
     };
-    let Some(lease) = ctx.frames.try_lease() else {
+    // At the cap the oldest frame still queued gives way: the newest paint
+    // is the page as it is now. With none queued, every slot is drawn or
+    // waiting on the GPU, so this paint goes and the page paints again once
+    // one is free.
+    let popup = kind == PaintElementType::POPUP;
+    let lease = ctx.frames.try_lease().or_else(|| {
+        let made_room = ctx.drop_oldest_frame(popup);
+        if made_room {
+            dropped(ctx);
+        }
+        made_room.then(|| ctx.frames.try_lease()).flatten()
+    });
+    let Some(lease) = lease else {
         tracing::debug!(page = %ctx.id, "texture cap reached, dropping paint");
-        specular_core::ledger::record(specular_core::ledger::Entry::PaintDropped(ctx.id.0));
-        ctx.push(specular_core::PageEvent::FrameDropped { page: ctx.id });
+        ctx.frames.dropped();
+        dropped(ctx);
         return;
     };
     // SAFETY: `surface` is this callback's `shared_texture_io_surface`, valid
@@ -133,4 +145,11 @@ pub(crate) fn on_accelerated_paint(
         frame: PageFrame::GpuShared(texture),
         produced_at,
     }));
+}
+
+/// Counts a paint that will never be drawn.
+#[cfg(target_os = "macos")]
+fn dropped(ctx: &PageContext) {
+    specular_core::ledger::record(specular_core::ledger::Entry::PaintDropped(ctx.id.0));
+    ctx.push(specular_core::PageEvent::FrameDropped { page: ctx.id });
 }
