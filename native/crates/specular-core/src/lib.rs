@@ -51,6 +51,6 @@ pub use page::{PageId, PageSpec, validate_texture_scale, validate_viewport};
 pub use source::{
     CapturedElement, DEVTOOLS_CLIENT_ID_BASE, DevtoolsSink, ElementPlace, InspectedNode,
     PageColorScheme, PageDevice, PageElement, PageEvent, PageNav, PageSafeArea, PageSource,
-    PageSourceError, PageUserAgent, PointKind,
+    PageSourceError, PageUserAgent, PaintWake, PointKind,
 };
 pub use synthetic::SyntheticPageSource;

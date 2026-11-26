@@ -16,7 +16,7 @@ use cef::{CefString, ImplBrowser, ImplBrowserHost, ImplFrame, PaintElementType};
 use glam::Vec2;
 use specular_core::{
     CssRect, CssSize, DevtoolsSink, InputEvent, LocatorBundle, PageColorScheme, PageDevice,
-    PageEvent, PageId, PageNav, PageSource, PageSourceError, PageSpec, PointKind,
+    PageEvent, PageId, PageNav, PageSource, PageSourceError, PageSpec, PaintWake, PointKind,
     validate_texture_scale, validate_viewport,
 };
 
@@ -24,7 +24,7 @@ use crate::config::{CefConfig, windowless_frame_rate};
 use crate::devtools::{Asked, Devtools, SinkSlot};
 use crate::error::CefError;
 use crate::host_call::dispatch;
-use crate::page::{GeometryChange, Unsent, drain_events, lock_geometry};
+use crate::page::{GeometryChange, Unsent, drain_events, lock_geometry, set_paint_wake};
 use crate::process::backend_error;
 #[cfg(target_os = "macos")]
 use crate::pump_timer::PumpTimer;
@@ -348,6 +348,10 @@ impl PageSource for CefPageSource {
         if self.running && !timed {
             cef::do_message_loop_work();
         }
+    }
+
+    fn set_paint_wake(&mut self, wake: Option<PaintWake>) {
+        set_paint_wake(wake);
     }
 
     fn drain_events(&mut self, out: &mut Vec<PageEvent>) {

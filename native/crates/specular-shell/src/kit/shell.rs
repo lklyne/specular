@@ -220,15 +220,35 @@ fn follow_system_appearance(window: AnyWindowHandle, cx: &mut App) -> anyhow::Re
     Ok(())
 }
 
+/// What wakes the canvas besides the display link.
+struct Wakes {
+    /// GPUI has something new to show.
+    woken: mpsc::Receiver<()>,
+    /// A late frame asks for the next at once.
+    run_again: mpsc::Receiver<()>,
+    /// An API request is waiting.
+    api_woken: mpsc::Receiver<()>,
+    /// A page queued a frame.
+    painted: mpsc::Receiver<()>,
+}
+
 /// The loops that turn the canvas: on a wake from a page or the agent, on
-/// a catch-up asked by a late frame, on an API request, and on the idle
-/// timer that covers for a window the system gives no refreshes.
-fn spawn_loops(
-    mut woken: mpsc::Receiver<()>,
-    mut run_again: mpsc::Receiver<()>,
-    mut api_woken: mpsc::Receiver<()>,
-    cx: &mut App,
-) {
+/// a catch-up asked by a late frame, on an API request, on a page's paint,
+/// and on the idle timer that covers for a window the system gives no
+/// refreshes.
+fn spawn_loops(wakes: Wakes, cx: &mut App) {
+    let Wakes {
+        mut woken,
+        mut run_again,
+        mut api_woken,
+        mut painted,
+    } = wakes;
+    cx.spawn(async move |_| {
+        while painted.next().await.is_some() {
+            canvas::on_page_paint();
+        }
+    })
+    .detach();
     cx.spawn(async move |cx| {
         while woken.next().await.is_some() {
             cx.update(on_wake);
@@ -298,6 +318,7 @@ pub(crate) fn open(launch: Launch, cx: &mut App) -> anyhow::Result<()> {
     let (wake, woken) = mpsc::channel::<()>(1);
     let (api_wake, api_woken) = mpsc::channel::<()>(1);
     let (again, run_again) = mpsc::channel::<()>(1);
+    let (paint_wake, painted) = mpsc::channel::<()>(0);
     let remembered = remembers_place(&launch);
     let opening = launch.into_opening();
     window.update(cx, |_, window, cx| -> anyhow::Result<()> {
@@ -312,6 +333,13 @@ pub(crate) fn open(launch: Launch, cx: &mut App) -> anyhow::Result<()> {
             "starting the GPUI Kit shell"
         );
         runtime.attach_window(surface);
+        // A full channel means a turn is already on its way.
+        let paint_wake = std::sync::Mutex::new(paint_wake);
+        runtime.on_page_paint(move || {
+            if let Ok(mut wake) = paint_wake.lock() {
+                let _ = wake.try_send(());
+            }
+        });
         say_what_the_kit_draws(&mut runtime, bench.is_some());
         runtime.dispatch(Event::SystemAppearance(theme::system_or_script(
             window.appearance(),
@@ -347,7 +375,13 @@ pub(crate) fn open(launch: Launch, cx: &mut App) -> anyhow::Result<()> {
         });
     })?;
 
-    spawn_loops(woken, run_again, api_woken, cx);
+    let wakes = Wakes {
+        woken,
+        run_again,
+        api_woken,
+        painted,
+    };
+    spawn_loops(wakes, cx);
     debug_input::run_from_env(window, cx);
     cx.activate(true);
     Ok(())
