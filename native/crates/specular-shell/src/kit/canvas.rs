@@ -212,15 +212,16 @@ impl Canvas {
 
     /// Sends `event` through `update`, then brings the models in step.
     pub(crate) fn dispatch(&mut self, event: Event) {
+        self.rest_until = None;
         if matches!(
             event,
             Event::Pointer(_) | Event::Wheel(_) | Event::Pinch { .. } | Event::Key(_)
         ) {
             // Frames keep coming for a moment after the user did something.
-            self.runtime.input();
+            self.runtime.dispatch_input(event);
+        } else {
+            self.runtime.dispatch(event);
         }
-        self.rest_until = None;
-        self.runtime.dispatch(event);
         let paused = self.rest.paused;
         self.refresh_models();
         if paused {

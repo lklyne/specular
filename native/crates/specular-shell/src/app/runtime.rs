@@ -174,6 +174,8 @@ pub struct Runtime<W> {
     pub(crate) demand: FrameDemand,
     /// When the per-turn chores last ran.
     pub(crate) chores_at: Option<Instant>,
+    /// Whether the pages have been graded since the app last changed.
+    pub(crate) pages_settled: bool,
     /// Where the last drawn frame's time went.
     pub(crate) last_work: FrameWork,
     pub(crate) options: RuntimeOptions,
@@ -237,6 +239,7 @@ impl<W: ShellWindow> Runtime<W> {
             latency: InputLatencyProbe::default(),
             demand: FrameDemand::default(),
             chores_at: None,
+            pages_settled: false,
             last_work: FrameWork::default(),
             options,
             error: None,
