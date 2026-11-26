@@ -149,8 +149,7 @@ pub(crate) fn focus_prompt(pill: &Pill) -> Option<String> {
         Pill::Dom { label, page_id, .. } => {
             let place = page_id
                 .as_ref()
-                .map(|id| format!(" on page {id}"))
-                .unwrap_or_default();
+                .map_or_default(|id| format!(" on page {id}"));
             Some(format!(
                 "The user has selected DOM node \"{label}\"{place} and likely wants to focus on that."
             ))

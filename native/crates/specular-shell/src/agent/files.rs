@@ -42,9 +42,8 @@ pub(crate) fn write_index(space: &Path, json: &str) -> io::Result<()> {
 /// skipped; a missing folder is empty.
 pub fn load(space: &Path, now: &str) -> (Vec<Thread>, Index) {
     let dir = threads_dir(space);
-    let index = fs::read_to_string(dir.join("index.json"))
-        .map(|text| parse_index(&text))
-        .unwrap_or_default();
+    let index =
+        fs::read_to_string(dir.join("index.json")).map_or_default(|text| parse_index(&text));
     let mut threads = Vec::new();
     let Ok(tabs) = fs::read_dir(&dir) else {
         return (threads, index);

@@ -221,8 +221,7 @@ impl PhysicalKey {
         let prints = |c: &char| !c.is_control() && !('\u{f700}'..='\u{f8ff}').contains(c);
         (character.filter(prints))
             .or_else(|| self.us_character())
-            .map(String::from)
-            .unwrap_or_default()
+            .map_or_default(String::from)
     }
 
     /// Whether this is a modifier key, whose press and release are a change
