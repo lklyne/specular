@@ -412,3 +412,211 @@ Not verified here (Linux):
 - An `<iframe>` already in a widget when the bridge is first put in keeps
   the raw binding (the attach-time evaluate runs in the main frame only);
   without the nonce its calls are dropped.
+
+## Phase 3: the runtime and the toolbar
+
+**Result: go.** The shipped layout draws the toolbar from a mod,
+`mods/toolbar/`. The gate passes in release by a wide margin. The Kit's
+own toolbar is still there and is drawn when the layout says
+`"toolbar": {"mod": null}`.
+
+Numbers, from `cargo test -p specular-mods --release --test toolbar --
+--nocapture` (Linux x86_64, GPUI's headless test platform). The fixture is a
+real `App` with its keyed state published, and the tool changes at every
+step:
+
+| | Release | Debug |
+|---|---|---|
+| Load and first render | 12.8 ms | 48 ms |
+| Script render, median of 300 | 0.38 ms | 3.9 ms |
+| Script render, p95 | 0.48 ms | 4.1 ms |
+| Script render, slowest | 0.94 ms | 4.9 ms |
+| Script renders in 100 idle frames | 0 | 0 |
+| Script renders on a camera move (pan and zoom) | 0, state dump unchanged | 0, state dump unchanged |
+
+The gate is a median under 2 ms and no render over 8 ms, checked in release
+only. The real toolbar costs about five times the phase 0 spike: it has
+eleven controls, each with an icon, labels shown on group hover and raised
+shadows. It is still five times inside the median and eight times inside
+the slowest. Runs vary: an earlier run had a median of 0.49 ms and a
+slowest of 1.1 ms.
+
+What the end test checks (`crates/specular-mods/tests/toolbar/`):
+
+- **Parity.** The tree holds every control id the model lists: the 9 tools,
+  `zoom` (as `module_component specular.Zoom`) and `theme`. Ids in
+  `props.hidden` are absent. Three hidden sets are tried.
+- **Clicks.** A simulated click on the draw tool reaches the host as
+  `control.press {"id": "tool.draw"}`.
+- **Renders.** The mod reads exactly `mods/toolbar/props`,
+  `panels/tool_options`, `panels/toolbar` and `theme`.
+
+**Built.**
+
+- **The mods folder** is `<app home>/mods/`. Every start writes the shipped
+  mods into it (`specular_mods::shipped`), and writes a file only when its
+  text changed. A folder whose `mod.json` has `cloned_from` is left alone.
+  Every start also writes `specular.d.ts` and `README.md`.
+  - The guide opens with a mod in one screen, then covers where things are,
+    reads, every command by area, host components, and tools and clones.
+  - The d.ts names each state key (a `StateKey` union) and each of the 98
+    commands (a `CommandName` union with args and about), plus the host
+    components.
+  - `tests/shipped.rs` fails when either file misses a command, a key or a
+    host component.
+- **The mod set** is `specular_mods::ModSet`. It owns the mods a layout
+  names.
+  - It publishes each mod's `props` as `mods/<name>/props` and loads mods
+    with hot reload on.
+  - A mod that fails to load gets `<name>.error` and an error card. It is
+    tried again when its files change, and the error is cleared on a good
+    load.
+  - It forgets mods the layout stops naming.
+  - It renders a mod again only when a key it read moved (`refresh`,
+    skipped while the revisions clock has not moved).
+  - It reports `stats()` for `GET /mods` and `palette()` for the palette.
+  - `tests/set.rs` covers a broken mod, a fix, props and the palette entry.
+- **The host** is `ModHost`, whose window implementation is
+  `kit/mods/host.rs`.
+  - `run` resolves the name through `run_named` while the script is
+    calling, so a bad name or bad args reject at once. It does the command
+    in `cx.defer`, after the script call has returned. The command goes
+    through the event or `menus::run_shell`, then the keys go back to the
+    canvas.
+  - `commands()` carries `enabled`. `notify` goes to the log.
+- **Host components** are `specular_mods::Components`.
+  - `Icon {name, size?, color?, tint?, active?, control?}` draws the
+    app's own glyph SVGs, tinted as the Kit tints them.
+  - `Zoom {compact?}` is the window's zoom readout and its dropdown.
+  - `ToolOptions {place}` is the window's options panel for the tool in
+    hand.
+  - Headless, `Zoom` and `ToolOptions` are placeholders. The window
+    replaces them with the real ones.
+- **`colors()`** in the `specular` module gives the toolbar's palette for
+  the current appearance (`toolbar`, `toolbarText`, `popup`, `raisedFill`,
+  ...) as `#rrggbbaa`. `cx.theme()` has only the generic tokens.
+- **The toolbar mod** is `mods/toolbar/main.js` with a `mod.json` of api 1,
+  place `toolbar` and a palette entry "Toggle the toolbar"
+  (`ui.toggle {id: toolbar}`).
+  - Docked, it is the strip down the left edge: the tools in groups with
+    rules between them, then a spacer, the zoom readout and the theme
+    button. Floating, it is the ribbon.
+  - The tool in hand is raised. The others show a hover fill. Names show
+    beside a docked button, and under or over a floating one, on group
+    hover. The options of the tool in hand replace the name.
+  - Every press is `run("control.press", {id})`.
+  - `props().hidden` drops tools, `zoom` and `theme`.
+  - The shipped layout (`Layout::shipped`) now says
+    `"toolbar": {"mod": "toolbar"}`.
+- **Mod palette entries** reach the app as
+  `Event::ModPalette(Vec<ModPaletteEntry>)` and show in the palette's
+  "Mods" group as `PaletteRun::Named {name, args}`. Choosing one runs it
+  through `run_named`. An entry is enabled while its command would run.
+- **Tooling.**
+  - `specular mod check <dir> [--state fixture.json]` execs
+    `specular-mod-check`, a crate of its own. It finds the binary through
+    `SPECULAR_MOD_CHECK`, then beside the CLI, then on the `PATH`.
+    - It loads the mod on GPUI's test platform against the fixture (a fresh
+      app's state when none is given). The fixture's layout gives the
+      props.
+    - It prints the element tree with ids, the commands the mod ran, its
+      notices and its `console` lines.
+    - It exits 1 and writes `<name>.error` on failure, and clears the error
+      on success.
+    - `specular state > fixture.json` writes a fixture.
+  - `specular mod stats` reads `GET /mods`, which returns
+    `{mods: [{id, renders, meanMs, slowestMs, reads}]}`.
+  - `specular mod state [key]` is `specular state`.
+  - `fixtures/scenarios/cli/cases.py` has `mod_verbs_read_the_mods_and_check_one`.
+
+**Where things live.**
+
+- `crates/specular-mods/`:
+  - `src/set.rs` (the set), `src/components.rs`, `src/chrome.rs`
+    (`colors()`), `src/check.rs`, `src/shipped.rs`
+  - `mods/` (the shipped toolbar and the guide), `specular.d.ts`
+- `crates/specular-mod-check/`: the checker binary.
+- `crates/specular-shell/src/kit/`:
+  - `mods.rs`: `Mods`, held by the root view. It is synced as the root view
+    renders, and it pushes the stats to the runtime and the palette to the
+    app.
+  - `mods/host.rs`: `KitHost` and the window's components.
+  - `view/mod_bar.rs`: the docked box and the floating centring.
+  - `canvas.rs`: the shared `Revisions` and `tool_models`.
+- `crates/specular-shell/src/app/`: `api_run.rs` (`set_mod_stats`, the
+  `/mods` host answer) and `layout_run.rs` (`app_home`).
+- `crates/specular-cli/src/mods.rs`, and the route in `specular-api`.
+
+Calls made:
+
+- **The native toolbar stays as the fallback.** `"toolbar": {"mod": null}`
+  in the layout file draws the Kit's own (`view/toolbar.rs`). It goes when
+  the mod has run on macOS for a while.
+- **The zoom readout moves into the ribbon** while a toolbar mod is drawn,
+  and the tab row leaves its own out. This is a visible change from the
+  native layout, where zoom sits at the end of the tab row. The mod is the
+  toolbar, and the zoom is a toolbar control in `panels/toolbar`.
+- **Mods are placed by their `ScriptView`, not by a `ShellRoot`.**
+  `ShellRoot` paints a background, takes the clicks under it and caches its
+  content. The kit gives the docked mod its box and gives the floating
+  ribbon an occluding wrapper. Without a `ShellRoot`, gpui-shell's
+  tooltips do nothing, so the mod names its buttons with `group_hover`, as
+  the Kit's docked ribbon already did.
+- **Only the toolbar region places a mod in the window for now.** The set
+  loads any mod the layout names, but `view.rs` asks only for
+  `Region::Toolbar`. The other regions follow as their mods are written.
+- **`specular-mod-check` is its own crate.** GPUI's test platform needs
+  `gpui-pre/test-support`, which must stay out of the app's build and out
+  of `specular-cli`, which has no GPUI.
+- **`specular-mods` writes files** (the install, the `.error` files) because
+  it is the mod host's own crate. Mod data lives in `mods/.data/<name>`.
+- **`notify` goes to the log.** The app has no toast to show it in.
+- **`Icon` takes a `control` prop.** In the window it adds the Kit's
+  `mark`, so scripted runs and scenarios click a control the mod drew by
+  its id, just as they click the native one.
+- **A failed hot reload writes no `.error`.** gpui-shell keeps the old
+  build and logs the error, but its reload error is private. A failed first
+  load, or a load after a restart, does write the file.
+- **A key that moves with no model changing wakes GPUI too.** The canvas
+  now sets `unseen` when `publish_state` moves a key, so a mod reading a
+  key no native panel draws still renders.
+- **`specular mod check` leaves `jsconfig.json` and `gpui-kit.d.ts`** in
+  the mod's folder. gpui-shell writes them on load for editor support. In
+  this repo they are gitignored under `crates/specular-mods/mods/`.
+
+**Try it by hand on a Mac.**
+
+```sh
+cd native
+cargo run -p specular-shell -- fixtures/kitchen-sink.canvas
+```
+
+1. The toolbar is the mod. It looks like the native strip, with the zoom
+   readout above the theme button and none at the end of the tab row.
+2. Press the tool keys and click the tools. The raised
+   button follows. Hover a tool to see its name, and pick the draw tool to
+   see its options beside it.
+3. `specular mod stats` shows `toolbar` with its render count.
+4. In the app home, edit `mods/toolbar/main.js`: copy the folder to
+   `mods/my-toolbar`, add `"cloned_from": "toolbar"` to its `mod.json`, and
+   set the layout's `toolbar.mod` to `my-toolbar`. A save reloads it. Break
+   it and the old build keeps running.
+5. Set `"mod": null` to get the native toolbar back.
+6. `specular mod check <app home>/mods/toolbar` prints its tree.
+7. Command+K and type "toggle the toolbar" to run the mod's palette entry.
+
+Not verified here (Linux):
+
+- **No Kit code compiled.** `kit/mods.rs`, `kit/mods/host.rs`,
+  `kit/view/mod_bar.rs` and the edits to `canvas.rs`, `models.rs`,
+  `view.rs`, `toolbar.rs`, `tabs.rs`, `palette.rs` and `named.rs` were
+  written against the APIs they call and formatted, but not compiled. This
+  box has no macOS target and about 10 GB free. macOS CI's build is the
+  first compile.
+- **Nothing ran in a real window.** The mod's look next to the native
+  strip, the zoom dropdown inside the ribbon, the options panel's place,
+  hover labels over the canvas and the floating ribbon's centring are
+  unseen.
+- **`cases.py` has not run.** It needs the Kit app.
+- **The headless numbers are not macOS numbers.** CI runs the same release
+  test on macOS.

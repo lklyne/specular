@@ -295,6 +295,33 @@ logs the port it took and the `SPECULAR_DISCOVERY_FILE=` to pass the CLI.
   cursor is there (ADR 0046). `RUST_LOG=specular_shell::app=debug` logs each
   act and its go.
 
+### Mods
+
+A mod (ADR 0055) is a folder of `mod.json` and `main.js`, run by
+`gpui-shell` in `crates/specular-mods`. The run log is
+`docs/plans/mods-run.md`.
+
+- **Where they live.** Mods are in `<app home>/mods/<name>/`. The shipped
+  ones live in `crates/specular-mods/mods/`, with the guide
+  (`mods/README.md`) and `specular.d.ts`. All are written there on every
+  start, except a folder whose `mod.json` has `cloned_from`. A new command
+  or state key must be named in both the guide and the d.ts; the test in
+  `tests/shipped.rs` fails otherwise.
+- **How a mod is placed.** The layout file names the mod for a region
+  (`"toolbar": {"mod": "toolbar", "props": {..}}`); `"mod": null` is the
+  Kit's own panel. `ModSet` loads the mods, publishes `mods/<name>/props`,
+  writes `<name>.error` and renders a mod only when a key it read moved.
+  The window's side is `src/kit/mods.rs` and `src/kit/mods/host.rs`.
+- **What a mod can call.** `run` resolves through `run_named` and the work
+  is deferred out of the script call. Rust-drawn pieces are host
+  components (`Components`): `Icon`, `Zoom`, `ToolOptions`. A new one goes
+  in `HOST_COMPONENTS`, the d.ts and the guide.
+- **Checking and measuring.** `specular mod check <dir> [--state
+  fixture.json]` (the `specular-mod-check` crate) renders a mod headless.
+  `specular mod stats` is `GET /mods`. The toolbar's gate is `cargo test -p
+  specular-mods --release --test toolbar -- --nocapture`: median under
+  2 ms, none over 8 ms, no render while idle or on a camera move.
+
 ## Gate
 
 Run from `native/` before every commit:
