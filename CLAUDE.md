@@ -157,12 +157,20 @@ The specular Claude Code skill lives in three places. Knowing which is which avo
 
 When patching the skill, default to updating both `resources/skills/specular/SKILL.md` and `.claude/skills/specular/SKILL.md` in the same commit.
 
+## Branches
+
+`nightly` is where work lands and the default branch: open PRs against it.
+`main` is stable and only moves at a release, by a `Release vX.Y.Z` PR from
+`nightly` merged with a merge commit (never squash), or by a hotfix PR that is
+then merged back into `nightly`. Never push to `main` directly. See
+[ADR 0057](docs/adr/0057-nightly-and-stable-branches.md).
+
 ## Releases
 
 The version is `[workspace.package] version` in `native/Cargo.toml`. A `v*`
 tag that matches it makes `.github/workflows/release.yml` build, sign,
 notarize and publish the DMG, the updater zip and the Sparkle feed. The
-`release` skill walks it. `docs/native-app-bundle.md` has the bundle's layout.
+`release` skill walks it. Tags are cut on `main` only, after the promotion PR merges. `docs/native-app-bundle.md` has the bundle's layout.
 
 ## Agent skills
 
