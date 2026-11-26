@@ -23,9 +23,9 @@ use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 #[cfg(feature = "cef")]
 use std::thread::{self, ThreadId};
 
-use specular_core::{CssSize, PageSpec, PixelRect, PixelSize};
+use specular_core::{CssSize, FrameLayer, PageEvent, PageId, PageSpec, PixelRect, PixelSize};
 #[cfg(feature = "cef")]
-use specular_core::{PageDevice, PageEvent, PageId, PaintWake};
+use specular_core::{PageDevice, PaintWake};
 
 use crate::coords::place_popup;
 #[cfg(feature = "cef")]
@@ -155,6 +155,22 @@ impl Unsent {
     }
 }
 
+/// Where in `events` the oldest frame of `page`'s view (or popup, with
+/// `popup`) waits. At the texture cap that frame makes room for a newer
+/// one: what is drawn next should be the page as it is now.
+pub(crate) fn oldest_queued_frame(
+    events: &[PageEvent],
+    page: PageId,
+    popup: bool,
+) -> Option<usize> {
+    events.iter().position(|event| match event {
+        PageEvent::Frame(frame) => {
+            frame.page == page && matches!(frame.layer, FrameLayer::Popup { .. }) == popup
+        }
+        _ => false,
+    })
+}
+
 #[cfg(feature = "cef")]
 thread_local! {
     /// Events raised by handlers on the UI thread, drained by the source.
@@ -250,6 +266,19 @@ impl PageContext {
         }
     }
 
+    /// Takes the oldest frame of this page's view (or popup) out of the
+    /// queue, releasing its surface. `false` when none is queued.
+    pub(crate) fn drop_oldest_frame(&self, popup: bool) -> bool {
+        if thread::current().id() != self.ui_thread {
+            return false;
+        }
+        let dropped = EVENTS.with_borrow_mut(|events| {
+            oldest_queued_frame(events, self.id, popup).map(|at| events.remove(at))
+        });
+        // Released outside the borrow: the surface's release runs here.
+        dropped.is_some()
+    }
+
     /// Records that a browser finished closing.
     pub(crate) fn browser_closed(&self) {
         // Saturating: a stray extra OnBeforeClose must not wrap the count.
@@ -270,4 +299,48 @@ const _: fn() = || {
 #[cfg(feature = "cef")]
 pub(crate) fn lock_geometry(geometry: &Mutex<PageGeometry>) -> MutexGuard<'_, PageGeometry> {
     geometry.lock().unwrap_or_else(PoisonError::into_inner)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Instant;
+
+    use specular_core::{CpuFrame, FrameEvent, PageFrame};
+
+    use super::*;
+
+    fn frame(page: u64, layer: FrameLayer) -> PageEvent {
+        PageEvent::Frame(FrameEvent {
+            page: PageId(page),
+            layer,
+            viewport: CssSize::new(10, 10),
+            frame: PageFrame::Cpu(CpuFrame {
+                size: PixelSize::new(1, 1),
+                stride: 4,
+                bgra: vec![0; 4],
+                dirty: Vec::new(),
+            }),
+            produced_at: Instant::now(),
+        })
+    }
+
+    #[test]
+    fn at_the_cap_the_oldest_queued_frame_of_the_same_page_and_layer_gives_way() {
+        let popup = FrameLayer::Popup {
+            rect: PixelRect::new(0, 0, 1, 1),
+        };
+        let events = [
+            PageEvent::Loaded {
+                page: PageId(1),
+                http_status: 200,
+            },
+            frame(2, FrameLayer::View),
+            frame(1, popup),
+            frame(1, FrameLayer::View),
+            frame(1, FrameLayer::View),
+        ];
+        assert_eq!(oldest_queued_frame(&events, PageId(1), false), Some(3));
+        assert_eq!(oldest_queued_frame(&events, PageId(1), true), Some(2));
+        assert_eq!(oldest_queued_frame(&events, PageId(3), false), None);
+    }
 }

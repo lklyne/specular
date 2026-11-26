@@ -7,11 +7,15 @@
 //! new paints are dropped instead of retained, so a slow compositor sheds
 //! frames rather than ballooning GPU memory.
 //!
+//! A paint dropped at the cap leaves the page showing an older frame, so
+//! the cap remembers it and the page is asked to paint again once a slot
+//! is free ([`OutstandingFrames::take_repaint`]).
+//!
 //! Atomic because CEF may release handler objects (which hold a clone) on
 //! any of its threads.
 
 use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use specular_core::MAX_OUTSTANDING_TEXTURES;
 
@@ -19,6 +23,8 @@ use specular_core::MAX_OUTSTANDING_TEXTURES;
 #[derive(Debug, Clone)]
 pub(crate) struct OutstandingFrames {
     live: Arc<AtomicUsize>,
+    /// Set when a paint was dropped at the cap.
+    starved: Arc<AtomicBool>,
     cap: usize,
 }
 
@@ -33,6 +39,7 @@ impl OutstandingFrames {
     pub(crate) fn with_cap(cap: usize) -> Self {
         Self {
             live: Arc::new(AtomicUsize::new(0)),
+            starved: Arc::new(AtomicBool::new(false)),
             cap,
         }
     }
@@ -48,6 +55,17 @@ impl OutstandingFrames {
         Some(FrameLease {
             live: Arc::clone(&self.live),
         })
+    }
+
+    /// A paint was dropped at the cap: the page owes another.
+    pub(crate) fn dropped(&self) {
+        self.starved.store(true, Ordering::Release);
+    }
+
+    /// Whether a paint was dropped at the cap and a slot is free again, so
+    /// the page should paint once more. Clears what it reports.
+    pub(crate) fn take_repaint(&self) -> bool {
+        self.live.load(Ordering::Acquire) < self.cap && self.starved.swap(false, Ordering::AcqRel)
     }
 }
 

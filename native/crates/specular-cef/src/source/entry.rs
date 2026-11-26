@@ -40,6 +40,8 @@ pub(crate) struct PageEntry {
     pub(super) frame_rate: i32,
     /// The elements whose place the page reports.
     pub(crate) tracking: Tracking,
+    /// The page's texture cap, which says when a dropped paint is owed.
+    pub(super) frames: OutstandingFrames,
 }
 
 impl PageEntry {
@@ -137,6 +139,7 @@ impl CefPageSource {
                 unsent: Unsent::default(),
                 frame_rate: windowless_frame_rate(spec.frame_rate),
                 tracking: Tracking::default(),
+                frames: ctx.frames.clone(),
             },
         );
         Ok(id)

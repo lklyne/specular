@@ -336,6 +336,10 @@ impl PageSource for CefPageSource {
             if let Some(change) = entry.unsent.take_at_pump() {
                 entry.send(*page, change);
             }
+            // A paint dropped at the texture cap left an older frame up.
+            if entry.frames.take_repaint() && entry.painting {
+                entry.host.invalidate(PaintElementType::VIEW);
+            }
         }
         self.poll_capture();
         self.poll_tracking();
