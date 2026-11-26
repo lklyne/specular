@@ -61,6 +61,20 @@ impl LatencyTracker {
         resolved
     }
 
+    /// Gives up on every pending event up to and including `seq`: nothing
+    /// will present them (an input the page did not answer). They count as
+    /// unresolved, and a later frame cannot resolve them as slow.
+    pub fn abandon_through(&mut self, seq: InputSeq) {
+        while self
+            .pending
+            .front()
+            .is_some_and(|&(pending, _)| pending <= seq)
+        {
+            self.pending.pop_front();
+            self.dropped += 1;
+        }
+    }
+
     /// Resolved latencies, in resolution order.
     pub fn samples(&self) -> &[Duration] {
         &self.samples
