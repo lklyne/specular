@@ -11,7 +11,7 @@ mod models;
 mod pacing;
 
 pub(crate) use self::models::Models;
-use self::pacing::{LinkRest, ModelGate};
+use self::pacing::{LinkRest, ModelGate, paint_draws_now};
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -47,6 +47,8 @@ pub(crate) struct Canvas {
     wake: mpsc::Sender<()>,
     /// When the canvas last ran a frame.
     last_frame: Instant,
+    /// When the last frame was presented.
+    last_present: Instant,
     /// Asks the shell for another frame at once, without waiting for the
     /// display link.
     again: mpsc::Sender<()>,
@@ -125,6 +127,7 @@ pub(crate) fn install(
         gate: ModelGate::default(),
         wake,
         last_frame: Instant::now(),
+        last_present: Instant::now(),
         again,
         refresh: refresh.unwrap_or(DEFAULT_REFRESH),
         next_tick: Instant::now(),
@@ -185,7 +188,23 @@ pub(crate) fn on_display_link() {
     });
 }
 
+/// A page queued a frame: drawn now, or at the display link's next tick.
+pub(crate) fn on_page_paint() {
+    with(Canvas::page_painted);
+}
+
 impl Canvas {
+    /// A page queued a frame. It goes up at once, unless a frame went up
+    /// less than a refresh ago or the display link's next tick is about to
+    /// take it: many paints between two ticks make one frame.
+    fn page_painted(&mut self) {
+        let now = Instant::now();
+        let at = (self.last_present, self.next_tick);
+        if paint_draws_now(now, at, self.refresh, self.rest.paused) {
+            self.frame();
+        }
+    }
+
     /// The frame a late one asked for, without waiting for the display link.
     pub(crate) fn catch_up(&mut self) {
         self.run_frame();
@@ -313,6 +332,7 @@ impl Canvas {
             bench.presented(&self.runtime, sample);
         }
         let end = Instant::now();
+        self.last_present = end;
         if end >= self.next_tick {
             // This frame ran past the link's next tick, which is lost.
             // The next frame starts at once and not a refresh later; the

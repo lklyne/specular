@@ -72,6 +72,14 @@ impl<W: ShellWindow> Runtime<W> {
         self.take_page_events();
     }
 
+    /// Has the page source call `wake` when a page queues a frame between
+    /// turns, so the shell takes it in and draws it without waiting for its
+    /// next turn. `wake` runs inside the backend's paint callback and may
+    /// only schedule that turn.
+    pub fn on_page_paint(&mut self, wake: impl Fn() + Send + Sync + 'static) {
+        self.source.set_paint_wake(Some(std::sync::Arc::new(wake)));
+    }
+
     /// Pumps the page source and hands on what its pages reported.
     pub(super) fn take_page_events(&mut self) {
         self.source.pump();
