@@ -139,7 +139,7 @@ fn run_command(run: PaletteRun, _: &mut Window, cx: &mut App) {
                     Err(command) => menus::run_shell(command, cx),
                 },
                 Some(Err(error)) => {
-                    tracing::warn!("the palette entry `{name}` did not run: {error}")
+                    tracing::warn!("the palette entry `{name}` did not run: {error}");
                 }
                 None => {}
             }
