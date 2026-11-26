@@ -14,7 +14,7 @@ use specular_interact::ShareLinks;
 use super::account::{Account, Published};
 
 /// The server a share goes to when `SPECULAR_SHARE_SERVER` names none.
-const DEFAULT_SERVER: &str = "https://specular-server.lyle-klyne.workers.dev";
+const DEFAULT_SERVER: &str = "https://share.specular.sh";
 
 /// The server shares go to now.
 pub(crate) fn server() -> String {

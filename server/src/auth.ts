@@ -20,6 +20,10 @@ export function createAuth(env: Env) {
     secret: env.BETTER_AUTH_SECRET,
     baseURL: env.BETTER_AUTH_URL,
     basePath: "/api/auth",
+    trustedOrigins: (env.OTHER_ORIGINS ?? "")
+      .split(",")
+      .map((origin) => origin.trim())
+      .filter(Boolean),
     plugins: [
       anonymous(),
       // Agents present their key via the `x-api-key` header and get resolved

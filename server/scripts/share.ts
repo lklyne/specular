@@ -22,7 +22,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 
-const DEFAULT_SERVER = "https://specular-server.lyle-klyne.workers.dev";
+const DEFAULT_SERVER = "https://share.specular.sh";
 const STATE_FILE = join(homedir(), ".specular", "share.json");
 const DISCOVERY_FILES = ["specular-native-mcp.json", "specular-mcp.json"];
 

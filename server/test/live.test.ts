@@ -6,6 +6,8 @@ import { connect, createLink, ownedEditDoc } from "./helpers";
 
 const STATE = 0;
 const UPDATE = 1;
+/** `MAX_FRAME_BYTES` in live-room.ts, which only loads inside workerd. */
+const MAX_FRAME_BYTES = 2 * 1024 * 1024;
 
 /** One peer's socket into a room, with every frame it has had. */
 class Peer {
@@ -148,6 +150,19 @@ describe("a canvas's live room", () => {
     const other = await room();
     await expect(Peer.open(harness.url, docId, "nope")).rejects.toThrow();
     await expect(Peer.open(harness.url, docId, other.ownerToken)).rejects.toThrow();
+  });
+
+  it("closes a peer that sends a frame past the limit", async () => {
+    const { docId, ownerToken } = await room();
+    const owner = await Peer.open(harness.url, docId, ownerToken);
+    await owner.until(1);
+    owner.send(UPDATE, new Uint8Array(MAX_FRAME_BYTES));
+    await owner.until(99);
+    expect(owner.closed?.code).toBe(4009);
+    const late = await Peer.open(harness.url, docId, ownerToken);
+    await late.until(1);
+    expect(late.frames[0]).toEqual(new Uint8Array([STATE]));
+    late.close();
   });
 
   it("keeps every update when it merges them into one", async () => {

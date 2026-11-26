@@ -8,4 +8,9 @@ export interface Env {
   LIVE_ROOM: DurableObjectNamespace;
   BETTER_AUTH_SECRET: string;
   BETTER_AUTH_URL: string;
+  /**
+   * Other addresses this server answers on, comma-separated, whose origin
+   * owner requests may carry: the host it moved from.
+   */
+  OTHER_ORIGINS?: string;
 }
