@@ -281,17 +281,18 @@ impl Compositor {
     }
 
     /// Submits a frame's commands and asks to hear when the GPU has finished
-    /// them, if any retired surface is waiting on that.
+    /// them. Always asked: a surface retired after this submit, by a frame
+    /// that arrives before the next one, waits on this serial, and a window
+    /// that draws nothing more (covered, minimised) would otherwise never
+    /// hear it finish and hold the surface for good.
     pub(crate) fn submit(&mut self, encoder: wgpu::CommandEncoder) {
         self.queue.submit([encoder.finish()]);
         self.submitted += 1;
-        if !self.retired.is_empty() {
-            let completed = Arc::clone(&self.completed);
-            let serial = self.submitted;
-            self.queue.on_submitted_work_done(move || {
-                completed.fetch_max(serial, Ordering::Release);
-            });
-        }
+        let completed = Arc::clone(&self.completed);
+        let serial = self.submitted;
+        self.queue.on_submitted_work_done(move || {
+            completed.fetch_max(serial, Ordering::Release);
+        });
     }
 
     /// The counters every render reports, taking the ingest counts gathered
