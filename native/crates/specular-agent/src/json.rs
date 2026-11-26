@@ -106,18 +106,18 @@ impl Thread {
             annotation_ids: raw
                 .get("annotationIds")
                 .and_then(Value::as_array)
-                .map(|ids| {
+                .map_or_default(|ids| {
                     ids.iter()
                         .filter_map(Value::as_str)
                         .map(str::to_owned)
                         .collect()
-                })
-                .unwrap_or_default(),
+                }),
             messages: raw
                 .get("messages")
                 .and_then(Value::as_array)
-                .map(|items| items.iter().filter_map(|m| parse_message(m, now)).collect())
-                .unwrap_or_default(),
+                .map_or_default(|items| {
+                    items.iter().filter_map(|m| parse_message(m, now)).collect()
+                }),
         })
     }
 }
@@ -143,13 +143,11 @@ fn parse_message(value: &Value, now: &str) -> Option<Message> {
         images: raw
             .get("images")
             .and_then(Value::as_array)
-            .map(|items| items.iter().filter_map(parse_image).collect())
-            .unwrap_or_default(),
+            .map_or_default(|items| items.iter().filter_map(parse_image).collect()),
         artifacts: raw
             .get("artifacts")
             .and_then(Value::as_array)
-            .map(|items| items.iter().filter_map(parse_artifact).collect())
-            .unwrap_or_default(),
+            .map_or_default(|items| items.iter().filter_map(parse_artifact).collect()),
     })
 }
 
@@ -208,11 +206,10 @@ pub fn parse_index(text: &str) -> Index {
         by_canvas: raw
             .get("activeByCanvas")
             .and_then(Value::as_object)
-            .map(|map| {
+            .map_or_default(|map| {
                 map.iter()
                     .filter_map(|(tab, id)| Some((tab.clone(), ThreadId(id.as_str()?.to_owned()))))
                     .collect()
-            })
-            .unwrap_or_default(),
+            }),
     }
 }

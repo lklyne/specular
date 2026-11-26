@@ -23,7 +23,7 @@ pub fn key_input(
     let text = typed.filter(|_| types).map(String::from);
     match PhysicalKey::from_dom_code(code) {
         Some(physical) => {
-            let characters = typed.map(String::from).unwrap_or_default();
+            let characters = typed.map_or_default(String::from);
             KeyInput {
                 text,
                 ..mac_key_input(

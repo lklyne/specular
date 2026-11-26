@@ -265,11 +265,7 @@ impl ShellView {
                     .relative()
                     .size_full()
                     .child(self.canvas_slot(window, cx))
-                    .children(
-                        models
-                            .map(|models| over_slot(models, window, cx))
-                            .unwrap_or_default(),
-                    ),
+                    .children(models.map_or_default(|models| over_slot(models, window, cx))),
             )
             .when_some(models, |row, models| {
                 row.children(self.chat_panel(&models.chat, window, cx))

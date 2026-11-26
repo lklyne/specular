@@ -55,9 +55,8 @@ pub(super) fn run(app: &mut App, target: &FixTarget, effects: &mut Vec<Effect>) 
         let thread = if let Some(thread) = found.map(|thread| thread.id.clone()) {
             thread
         } else {
-            let text = (app.document.annotation(&id))
-                .map(|annotation| annotation.text.clone())
-                .unwrap_or_default();
+            let text =
+                (app.document.annotation(&id)).map_or_default(|annotation| annotation.text.clone());
             let (stamp, fresh) = (now(app), send::new_thread_id(app));
             let message = format!("tmsg_{}", app.fresh_id());
             let (thread, changed) =

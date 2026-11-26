@@ -108,9 +108,7 @@ fn bubble(app: &App, message: &Message) -> Bubble {
 }
 
 fn composer(app: &App, active: Option<&Thread>) -> Composer {
-    let queued: Vec<&Message> = active
-        .map(|thread| app.threads.queued(&thread.id))
-        .unwrap_or_default();
+    let queued: Vec<&Message> = active.map_or_default(|thread| app.threads.queued(&thread.id));
     let running = active.is_some_and(|thread| app.threads.is_running(&thread.id));
     let draft_chip = app.comment_draft().map(|draft| {
         let (kind, label) = draft::describe(draft);

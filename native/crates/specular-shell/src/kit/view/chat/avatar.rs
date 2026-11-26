@@ -238,7 +238,7 @@ impl ThreadAvatar {
         let frames = match &mut self.frames {
             Some(frames) if frames.size() == pixels => frames,
             slot => {
-                retired.extend(slot.take().map(Frames::into_images).unwrap_or_default());
+                retired.extend(slot.take().map_or_default(Frames::into_images));
                 slot.insert(Frames::new(gpu, pixels))
             }
         };
@@ -290,10 +290,7 @@ impl ThreadAvatar {
 
     /// Every image it holds, as it goes away.
     fn take_images(&mut self) -> Images {
-        self.frames
-            .take()
-            .map(Frames::into_images)
-            .unwrap_or_default()
+        self.frames.take().map_or_default(Frames::into_images)
     }
 }
 

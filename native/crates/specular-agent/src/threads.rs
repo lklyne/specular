@@ -115,7 +115,7 @@ impl Threads {
 
     /// The user messages waiting to be sent.
     pub fn queued(&self, id: &ThreadId) -> Vec<&Message> {
-        self.get(id).map(queued_of).unwrap_or_default()
+        self.get(id).map_or_default(queued_of)
     }
 
     /// The thread a comment belongs to (closed threads do not count).

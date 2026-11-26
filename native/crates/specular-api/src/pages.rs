@@ -82,7 +82,7 @@ pub(crate) fn cdp_target(app: &App, id: &str) -> Result<Step, Response> {
         url: (state.and_then(|state| state.url.clone()))
             .or(stored)
             .unwrap_or_default(),
-        title: state.map(|state| state.title.clone()).unwrap_or_default(),
+        title: state.map_or_default(|state| state.title.clone()),
     };
     Ok(Step::Cdp(CdpAsk::Target { page, target }))
 }

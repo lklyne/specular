@@ -119,7 +119,7 @@ impl<S: EventSink> Driver<S> {
         // page gets the event a shell would give it.
         let input = match PhysicalKey::for_key(key) {
             Some(physical) => {
-                let characters = typed.map(String::from).unwrap_or_default();
+                let characters = typed.map_or_default(String::from);
                 let code = physical.mac_key_code();
                 KeyInput {
                     text,
