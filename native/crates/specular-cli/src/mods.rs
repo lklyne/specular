@@ -1,7 +1,7 @@
 //! The `mod` verbs (ADR 0055): `mod check <dir> [--state fixture.json]`
 //! loads a mod with no app and prints its element tree, `mod stats` prints
 //! what each mod in the running window has cost, and `mod state [key]` is
-//! `state`.
+//! `state`. `mod clone` is in `mod_clone`.
 //!
 //! The check needs a GPUI runtime, which this command keeps out of itself:
 //! it runs `specular-mod-check`, found as `SPECULAR_MOD_CHECK` names it,
@@ -14,7 +14,7 @@ use crate::args::Args;
 use crate::client::Client;
 use crate::{output, refuse, registry, usage};
 
-const USAGE: &str = "specular mod check <dir> [--state fixture.json] | mod stats | mod state [key]";
+const USAGE: &str = "specular mod check <dir> [--state fixture.json] | mod clone <name> [new-name] [--use] | mod stats | mod state [key]";
 
 /// The name of the checker's executable.
 const CHECKER: &str = "specular-mod-check";
