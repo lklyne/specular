@@ -17,7 +17,7 @@ use crate::import::{import_shared, surface_identity};
 use crate::import_cache::ImportCache;
 use crate::instance_buffer::InstanceBuffer;
 use crate::layers::{LayerTexture, PageLayers};
-use crate::pipeline::{Pipelines, SCENE_SAMPLES};
+use crate::pipeline::Pipelines;
 use crate::retire::RetiredTextures;
 use crate::scene::RenderStats;
 use crate::scene_pass::{GlyphMeasure, ScenePass};
@@ -82,19 +82,7 @@ impl Compositor {
         queue: wgpu::Queue,
         target_format: wgpu::TextureFormat,
     ) -> Self {
-        Self::with_samples(device, queue, target_format, SCENE_SAMPLES)
-    }
-
-    /// [`Compositor::new`] with the scene pass at `samples` per pixel. At 1
-    /// it draws straight into the target with no resolve, and tessellated
-    /// edges are aliased: for a backend without multisampling.
-    pub fn with_samples(
-        device: wgpu::Device,
-        queue: wgpu::Queue,
-        target_format: wgpu::TextureFormat,
-        samples: u32,
-    ) -> Self {
-        let pipelines = Pipelines::new(&device, target_format, samples);
+        let pipelines = Pipelines::new(&device, target_format);
         let frame_uniforms = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("frame-uniforms"),
             size: FRAME_UNIFORMS_SIZE,
@@ -111,7 +99,7 @@ impl Compositor {
         });
         let instance_buffer = InstanceBuffer::new(&device, "quad-instances");
         let shape_buffer = InstanceBuffer::new(&device, "shape-instances");
-        let scene_pass = ScenePass::new(&device, samples);
+        let scene_pass = ScenePass::new(&device);
         Self {
             device,
             queue,

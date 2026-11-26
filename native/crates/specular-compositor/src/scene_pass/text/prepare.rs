@@ -15,18 +15,19 @@ impl TextSystem {
         moving: bool,
         counts: &mut TextCounts,
     ) {
-        let (cache, samples) = (&self.cache, self.samples);
+        let cache = &self.cache;
         let layer = match frame.space {
             Space::Canvas => &mut self.canvas,
             Space::Screen => &mut self.screen,
         };
         while layer.slots.len() < batches.len() {
-            let multisample = wgpu::MultisampleState {
-                count: samples,
-                ..wgpu::MultisampleState::default()
-            };
             layer.slots.push(Slot {
-                renderer: TextRenderer::new(&mut layer.atlas, device, multisample, None),
+                renderer: TextRenderer::new(
+                    &mut layer.atlas,
+                    device,
+                    wgpu::MultisampleState::default(),
+                    None,
+                ),
                 viewport: Viewport::new(device, cache),
                 laid: None,
                 placement: None,

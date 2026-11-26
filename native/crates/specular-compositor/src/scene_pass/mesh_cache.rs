@@ -128,7 +128,7 @@ impl MeshCache {
                     vertex.position[0] * scale + pan.x,
                     vertex.position[1] * scale + pan.y,
                 ],
-                color: vertex.color,
+                ..*vertex
             }));
         mesh.indices
             .extend(entry.mesh.indices.iter().map(|index| index + base));

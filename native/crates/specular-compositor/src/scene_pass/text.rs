@@ -113,8 +113,6 @@ pub(crate) struct TextSystem {
     /// Whether this frame's text is drawn only through viewports inside
     /// the target.
     inside_target: bool,
-    /// The scene pass's samples per pixel, which text pipelines match.
-    samples: u32,
 }
 
 impl std::fmt::Debug for TextSystem {
@@ -133,7 +131,6 @@ impl TextSystem {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         target_format: wgpu::TextureFormat,
-        samples: u32,
         fonts: Fonts,
     ) -> Self {
         // Loads the system fonts now, if nothing has yet.
@@ -166,7 +163,6 @@ impl TextSystem {
             column_heights: Vec::new(),
             shaping_time: Duration::ZERO,
             inside_target: false,
-            samples,
         }
     }
 

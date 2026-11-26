@@ -1,10 +1,11 @@
 //! The wgpu compositor.
 //!
 //! [`Compositor::render_scene`] draws a [`specular_scene::Scene`] over a dot
-//! grid in one 4x multisampled pass per window frame. Pages and every other
+//! grid in one single-sampled pass per window frame. Pages and every other
 //! item share one z-order: page frames are textured quads with rounded
 //! corners, rects and ellipses are distance fields, text is glyphon, and
-//! polygons and paths are tessellated by lyon (ADR 0039).
+//! polygons and paths are tessellated by lyon with feathered outlines (ADR
+//! 0039, ADR 0053).
 //!
 //! Frame ingestion: [`Compositor::handle_page_event`] takes every
 //! [`PageEvent`](specular_core::PageEvent) a source emits. GPU shared frames

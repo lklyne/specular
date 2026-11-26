@@ -1,4 +1,4 @@
-//! [`Compositor::render_scene`]: one multisampled pass for a whole scene.
+//! [`Compositor::render_scene`]: one pass for a whole scene.
 
 use web_time::{Duration, Instant};
 
@@ -9,7 +9,6 @@ use specular_scene::{Blend, Draw, Scene, Size};
 use super::batch::Batch;
 use super::build::{DrawOp, Op, Output, QuadTexture, build};
 use super::place::{PlaceCounts, Prim, Scissor, ViewTransform, place};
-use super::target::MultisampledTarget;
 use super::text::{TextBatch, TextCounts, TextDraw, TextItem, TextSystem};
 use super::{FrameView, MeshCacheCounts, ScenePass, SceneStats, StageTimes};
 use crate::Compositor;
@@ -40,7 +39,7 @@ impl Compositor {
     /// [`pages_without_texture`](crate::RenderStats::pages_without_texture)
     /// and left out.
     ///
-    /// The pass is 4x multisampled and resolves into `target`, which may be
+    /// The pass draws one sample a pixel straight into `target`, which may be
     /// any size and is taken to be `frame.viewport * frame.scale_factor`.
     pub fn render_scene(
         &mut self,
@@ -143,12 +142,10 @@ impl Compositor {
             fonts,
             images,
             viewports_inside_target,
-            samples,
             ..
         } = scene_pass;
 
-        let spec = (*target_format, *samples);
-        start_text(text, fonts, device, queue, spec, scene);
+        start_text(text, fonts, device, queue, *target_format, scene);
         if let Some(text) = text {
             text.begin_frame(device, view, zooming, *viewports_inside_target);
         }
@@ -233,26 +230,20 @@ impl Compositor {
             mesh_vertices,
             mesh_indices,
             text,
-            multisampled,
             images,
-            samples,
             ..
         } = &mut self.scene_pass;
-        let gpu = (&self.device, self.target_format, *samples);
-        let (view, resolve_target, store) =
-            MultisampledTarget::attachment(multisampled, gpu, size, target);
         let pipelines = &self.pipelines.scene;
         let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("specular-scene"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view,
+                view: target,
                 depth_slice: None,
-                resolve_target,
+                resolve_target: None,
                 ops: wgpu::Operations {
-                    // The grid overwrites every pixel, and only the target
-                    // is kept.
+                    // The grid overwrites every pixel.
                     load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
-                    store,
+                    store: wgpu::StoreOp::Store,
                 },
             })],
             ..wgpu::RenderPassDescriptor::default()
@@ -340,19 +331,13 @@ fn start_text(
     fonts: &crate::fonts::Fonts,
     device: &wgpu::Device,
     queue: &wgpu::Queue,
-    (target_format, samples): (wgpu::TextureFormat, u32),
+    target_format: wgpu::TextureFormat,
     scene: &Scene,
 ) {
     let has_text =
         (scene.items.iter()).any(|item| matches!(item.draw, Draw::Text(_) | Draw::Column(_)));
     if text.is_none() && has_text {
-        *text = Some(TextSystem::new(
-            device,
-            queue,
-            target_format,
-            samples,
-            fonts.clone(),
-        ));
+        *text = Some(TextSystem::new(device, queue, target_format, fonts.clone()));
     }
 }
 

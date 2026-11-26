@@ -2,7 +2,9 @@
 //!
 //! Everything is tessellated in logical screen pixels for this frame's
 //! camera, so the flattening tolerance and the hairline floor are in pixels
-//! and canvas and screen items share one vertex buffer.
+//! and canvas and screen items share one vertex buffer. The pass draws one
+//! sample a pixel, so each fill and stroke is tessellated half a device
+//! pixel inside its outline and given a feathered band ([`feather`]).
 
 use web_time::{Duration, Instant};
 
@@ -18,12 +20,16 @@ use specular_scene::{Draw, Item, LineCap, LineJoin, PathCommand, PathStroke, Poi
 
 use super::color::linear;
 use super::dash::dashes;
+use super::fringe::feather;
+use super::inset::inset;
 use super::place::ViewTransform;
 use super::shapes::hairline;
 use crate::gpu_types::MeshVertex;
 
 /// Flattening error, in physical pixels.
 const TOLERANCE_PX: f32 = 0.2;
+/// The narrowest a stroke's core is tessellated, in device pixels.
+const MIN_CORE_PX: f32 = 0.25;
 /// A dash pattern repeating more often than this along one path is drawn
 /// solid: the dashes are too small to see and too many to be worth cutting.
 const MAX_DASHES: f32 = 4_096.0;
@@ -93,21 +99,24 @@ impl Mesher {
         let Some(path) = path else {
             return;
         };
-        let tolerance = TOLERANCE_PX / view.scale_factor.max(1.0);
+        let device_pixel = 1.0 / view.scale_factor.max(1.0);
+        let tolerance = TOLERANCE_PX * device_pixel;
         if let Some(fill) = fill {
             let color = linear(fill, item.opacity);
+            let start = (mesh.vertices.len(), mesh.indices.len());
+            let inside = inset(&path, 0.5 * device_pixel, tolerance);
             let result = self.fill.tessellate_path(
-                &path,
+                &inside,
                 // As a 2D canvas fills: a freehand outline crosses itself at
                 // its caps and corners, and the overlap is still ink.
                 &FillOptions::tolerance(tolerance).with_fill_rule(FillRule::NonZero),
-                &mut BuffersBuilder::new(mesh, |vertex: FillVertex<'_>| MeshVertex {
-                    position: vertex.position().to_array(),
-                    color,
+                &mut BuffersBuilder::new(mesh, |vertex: FillVertex<'_>| {
+                    MeshVertex::new(vertex.position().to_array(), color)
                 }),
             );
-            if let Err(error) = result {
-                tracing::debug!("path fill not tessellated: {error}");
+            match result {
+                Ok(()) => feather(mesh, start.0, start.1, device_pixel),
+                Err(error) => tracing::debug!("path fill not tessellated: {error}"),
             }
         }
         if let Some(stroke) = stroke.filter(|stroke| stroke.width > 0.0) {
@@ -125,10 +134,17 @@ impl Mesher {
         scale_factor: f32,
         opacity: f32,
     ) {
-        let tolerance = TOLERANCE_PX / scale_factor.max(1.0);
-        let (width, color) = hairline(stroke.width * scale, stroke.color, scale_factor, opacity);
+        let device_pixel = 1.0 / scale_factor.max(1.0);
+        let tolerance = TOLERANCE_PX * device_pixel;
+        let (width, mut color) =
+            hairline(stroke.width * scale, stroke.color, scale_factor, opacity);
+        // The feathered band adds half a device pixel of ink each side. A
+        // stroke too thin to lose a whole pixel keeps a thin core and fades
+        // by what the band adds past its width.
+        let core = (width - device_pixel).max(MIN_CORE_PX * device_pixel);
+        color[3] *= (width / (core + device_pixel)).min(1.0);
         let options = StrokeOptions::tolerance(tolerance)
-            .with_line_width(width)
+            .with_line_width(core)
             .with_line_cap(match stroke.cap {
                 LineCap::Butt => lyon::path::LineCap::Butt,
                 LineCap::Round => lyon::path::LineCap::Round,
@@ -142,16 +158,17 @@ impl Mesher {
         let dashed = stroke
             .dash
             .and_then(|dash| dashed_path(path, dash.on * scale, dash.off * scale, tolerance));
+        let start = (mesh.vertices.len(), mesh.indices.len());
         let result = self.stroke.tessellate_path(
             dashed.as_ref().unwrap_or(path),
             &options,
-            &mut BuffersBuilder::new(mesh, |vertex: StrokeVertex<'_, '_>| MeshVertex {
-                position: vertex.position().to_array(),
-                color,
+            &mut BuffersBuilder::new(mesh, |vertex: StrokeVertex<'_, '_>| {
+                MeshVertex::new(vertex.position().to_array(), color)
             }),
         );
-        if let Err(error) = result {
-            tracing::debug!("path stroke not tessellated: {error}");
+        match result {
+            Ok(()) => feather(mesh, start.0, start.1, device_pixel),
+            Err(error) => tracing::debug!("path stroke not tessellated: {error}"),
         }
     }
 }

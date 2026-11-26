@@ -244,26 +244,37 @@ fn fs_shape(in: ShapeOut) -> @location(0) vec4<f32> {
 struct MeshOut {
     @builtin(position) position: vec4<f32>,
     @location(0) color: vec4<f32>,
+    @location(1) coverage: f32,
 };
 
-// Mesh vertices are already in logical screen px.
+// Mesh vertices are already in logical screen px. A feathered outline's
+// vertices move by `extrude` device px, so its band is one device pixel
+// wide at any zoom.
 @vertex
-fn vs_mesh(@location(0) position: vec2<f32>, @location(1) color: vec4<f32>) -> MeshOut {
+fn vs_mesh(
+    @location(0) position: vec2<f32>,
+    @location(1) color: vec4<f32>,
+    @location(2) extrude: vec2<f32>,
+    @location(3) coverage: f32,
+) -> MeshOut {
     let logical_viewport = frame.viewport_px / frame.scale_factor;
+    let at = position + extrude / frame.scale_factor;
     var out: MeshOut;
     out.position = vec4<f32>(
-        position / logical_viewport * vec2<f32>(2.0, -2.0) + vec2<f32>(-1.0, 1.0),
+        at / logical_viewport * vec2<f32>(2.0, -2.0) + vec2<f32>(-1.0, 1.0),
         0.0,
         1.0,
     );
     out.color = color;
+    out.coverage = coverage;
     return out;
 }
 
 @fragment
 fn fs_mesh(in: MeshOut) -> @location(0) vec4<f32> {
     let color = to_target(in.color);
-    return vec4<f32>(color.rgb * color.a, color.a);
+    let alpha = color.a * in.coverage;
+    return vec4<f32>(color.rgb * alpha, alpha);
 }
 
 // For the multiply pipeline, whose blend is `target * this`: the colour at
@@ -271,5 +282,5 @@ fn fs_mesh(in: MeshOut) -> @location(0) vec4<f32> {
 @fragment
 fn fs_mesh_multiply(in: MeshOut) -> @location(0) vec4<f32> {
     let color = to_target(in.color);
-    return vec4<f32>(mix(vec3<f32>(1.0), color.rgb, color.a), 1.0);
+    return vec4<f32>(mix(vec3<f32>(1.0), color.rgb, color.a * in.coverage), 1.0);
 }

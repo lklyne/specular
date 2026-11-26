@@ -21,8 +21,8 @@ use specular_core::{
 };
 use specular_doc::EntityId;
 use specular_scene::{
-    Blend, Color, ImageDraw, ImageId, Item, PageDraw, Point, PolygonDraw, Rect, ShadowDraw,
-    SpanStyle, TextRun, TextSpan,
+    Blend, Color, ImageDraw, ImageId, Item, PageDraw, PathDraw, PathStroke, Point, PolygonDraw,
+    Rect, ShadowDraw, SpanStyle, TextRun, TextSpan,
 };
 
 #[test]
@@ -186,6 +186,60 @@ fn a_multiplied_fill_tints_white_and_leaves_black_black() {
             [255, 255, 0, 255],
             [255, 255, 255, 255],
         ]
+    );
+}
+
+/// One sample a pixel, a mesh's edge is anti-aliased by its feathered
+/// band: pixels the edge crosses are part covered, the inside is whole,
+/// and a multiplied fill blends once across its band and nowhere twice.
+#[test]
+fn mesh_edges_are_part_covered_and_blend_once() {
+    let Some(mut harness) = Harness::new() else {
+        return;
+    };
+    let diagonal = PathDraw::polyline(
+        [Point::new(8.0, 56.0), Point::new(56.0, 8.0)],
+        PathStroke::new(Color::WHITE, 6.0),
+    );
+    let stroke = harness.render(vec![Item::canvas(diagonal)]);
+    // White over blue: red is the coverage.
+    let part = stroke.iter().filter(|[r, ..]| (8..248).contains(r)).count();
+    assert_eq!(
+        pixel(&stroke, 32, 32)[0],
+        255,
+        "the stroke's middle is whole"
+    );
+    assert!(part >= 60, "{part} part-covered pixels along the edges");
+
+    let tint = Color::rgb(128, 255, 255);
+    let wedge = PolygonDraw {
+        points: vec![
+            Point::new(4.0, 60.0),
+            Point::new(60.0, 4.0),
+            Point::new(60.0, 60.0),
+        ],
+        fill: Some(tint),
+        stroke: None,
+    };
+    let multiplied = harness.render(vec![
+        Item::canvas(rect(0.0, 0.0, 64.0, 64.0, Color::WHITE)),
+        Item::canvas(wedge).with_blend(Blend::Multiply),
+    ]);
+    let inside = pixel(&multiplied, 52, 52)[0];
+    let reds: Vec<u8> = multiplied.iter().map(|texel| texel[0]).collect();
+    let edge = reds
+        .iter()
+        .filter(|&&r| r > inside.saturating_add(8) && r < 247)
+        .count();
+    assert!(
+        inside.abs_diff(128) <= 2,
+        "the tint multiplies white: {inside}"
+    );
+    assert!(edge >= 30, "{edge} part-tinted pixels along the edge");
+    assert!(
+        reds.iter().all(|&r| r.saturating_add(2) >= inside),
+        "no pixel is multiplied twice: darkest {:?}",
+        reds.iter().min()
     );
 }
 

@@ -6,12 +6,9 @@ use crate::gpu_types::{FRAME_UNIFORMS_SIZE, MeshVertex, QuadInstance, ShapeInsta
 /// WGSL source for all pipelines.
 pub(crate) const SHADER_SOURCE: &str = include_str!("shaders/canvas.wgsl");
 
-/// Samples per pixel of the scene pass unless a compositor is made with
-/// another count. Tessellated edges have no antialiasing of their own
-/// (ADR 0039).
-pub(crate) const SCENE_SAMPLES: u32 = 4;
-
-/// The pipelines of one pass, all built for the same sample count.
+/// The pipelines of the scene pass. It draws one sample a pixel: quads and
+/// shapes anti-alias in the shader, glyphon's glyphs are coverage already,
+/// and meshes carry feathered outlines (ADR 0053).
 #[derive(Debug)]
 pub(crate) struct PassPipelines {
     pub(crate) grid: wgpu::RenderPipeline,
@@ -25,7 +22,7 @@ pub(crate) struct PassPipelines {
 /// Long-lived GPU objects that do not depend on scene content.
 #[derive(Debug)]
 pub(crate) struct Pipelines {
-    /// For the scene pass, at its sample count.
+    /// For the scene pass.
     pub(crate) scene: PassPipelines,
     pub(crate) frame_layout: wgpu::BindGroupLayout,
     pub(crate) texture_layout: wgpu::BindGroupLayout,
@@ -33,11 +30,7 @@ pub(crate) struct Pipelines {
 }
 
 impl Pipelines {
-    pub(crate) fn new(
-        device: &wgpu::Device,
-        target_format: wgpu::TextureFormat,
-        samples: u32,
-    ) -> Self {
+    pub(crate) fn new(device: &wgpu::Device, target_format: wgpu::TextureFormat) -> Self {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("canvas-shader"),
             source: wgpu::ShaderSource::Wgsl(SHADER_SOURCE.into()),
@@ -61,7 +54,6 @@ impl Pipelines {
                 untextured: &untextured,
                 textured: &textured,
                 target_format,
-                samples,
             },
         );
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
@@ -110,7 +102,6 @@ struct PassSpec<'a> {
     untextured: &'a wgpu::PipelineLayout,
     textured: &'a wgpu::PipelineLayout,
     target_format: wgpu::TextureFormat,
-    samples: u32,
 }
 
 impl PassPipelines {
@@ -224,10 +215,7 @@ fn render_pipeline(
             ..wgpu::PrimitiveState::default()
         },
         depth_stencil: None,
-        multisample: wgpu::MultisampleState {
-            count: pass.samples,
-            ..wgpu::MultisampleState::default()
-        },
+        multisample: wgpu::MultisampleState::default(),
         fragment: Some(wgpu::FragmentState {
             module: pass.shader,
             entry_point: Some(spec.entries.1),

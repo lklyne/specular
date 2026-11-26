@@ -4,7 +4,7 @@
 //! A frame goes through four steps. [`place`] resolves items against the
 //! camera and culls. [`batch`] groups the survivors into as few draws as the
 //! z-order allows. [`build`] turns each batch into instances, triangles or
-//! glyph quads. [`render`] encodes one 4x multisampled pass and submits it.
+//! glyph quads. [`render`] encodes one single-sampled pass and submits it.
 //! The first three are pure and tested without a GPU.
 
 mod batch;
@@ -13,7 +13,9 @@ mod color;
 mod column;
 mod dash;
 mod emoji;
+mod fringe;
 mod images;
+mod inset;
 mod mesh;
 mod mesh_cache;
 mod mips;
@@ -21,7 +23,6 @@ mod place;
 mod raster_hold;
 mod render;
 mod shapes;
-mod target;
 mod text;
 mod text_areas;
 mod text_hold;
@@ -46,7 +47,6 @@ use self::mesh_cache::MeshCache;
 pub use self::mesh_cache::MeshCacheCounts;
 pub use self::mips::{ImageMips, ImageSpec};
 use self::place::Placed;
-use self::target::MultisampledTarget;
 pub use self::text::TextCounts;
 use self::text::TextSystem;
 pub use self::text_measure::GlyphMeasure;
@@ -122,9 +122,6 @@ pub(crate) struct ScenePass {
     text: Option<TextSystem>,
     /// The fonts the text system shapes with, and any measure handed out.
     fonts: Fonts,
-    /// Samples per pixel; above 1 the pass draws into `multisampled`.
-    samples: u32,
-    multisampled: Option<MultisampledTarget>,
     images: HashMap<ImageId, ImageTexture>,
     /// Whether text is drawn only through viewports inside the target.
     pub(crate) viewports_inside_target: bool,
@@ -138,10 +135,9 @@ impl ScenePass {
         queue: &wgpu::Queue,
         target_format: wgpu::TextureFormat,
     ) {
-        let (fonts, samples) = (&self.fonts, self.samples);
-        self.text.get_or_insert_with(|| {
-            TextSystem::new(device, queue, target_format, samples, fonts.clone())
-        });
+        let fonts = &self.fonts;
+        self.text
+            .get_or_insert_with(|| TextSystem::new(device, queue, target_format, fonts.clone()));
     }
 
     /// The height of each owned column the latest frame drew.
@@ -154,7 +150,7 @@ impl ScenePass {
         GlyphMeasure::sharing(self.fonts.clone())
     }
 
-    pub(crate) fn new(device: &wgpu::Device, samples: u32) -> Self {
+    pub(crate) fn new(device: &wgpu::Device) -> Self {
         Self {
             placed: Vec::new(),
             batcher: Batcher::default(),
@@ -170,8 +166,6 @@ impl ScenePass {
             ),
             text: None,
             fonts: Fonts::default(),
-            samples,
-            multisampled: None,
             images: HashMap::new(),
             viewports_inside_target: false,
         }

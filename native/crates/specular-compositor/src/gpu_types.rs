@@ -187,10 +187,28 @@ pub(crate) struct MeshVertex {
     pub(crate) position: [f32; 2],
     /// Colour, linear RGBA, straight alpha.
     pub(crate) color: [f32; 4],
+    /// How far the shader moves the vertex from `position`, in device
+    /// pixels: the inner and outer sides of a feathered outline.
+    pub(crate) extrude: [f32; 2],
+    /// How much of the colour shows here: zero on a feathered outline's
+    /// outer side, one everywhere else.
+    pub(crate) coverage: f32,
 }
 
 impl MeshVertex {
-    /// Vertex attributes: `@location(0) position`, `@location(1) color`.
-    pub(crate) const ATTRIBUTES: [wgpu::VertexAttribute; 2] =
-        wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x4];
+    /// An unfeathered vertex.
+    pub(crate) fn new(position: [f32; 2], color: [f32; 4]) -> Self {
+        Self {
+            position,
+            color,
+            extrude: [0.0; 2],
+            coverage: 1.0,
+        }
+    }
+
+    /// Vertex attributes: `@location(0) position`, `@location(1) color`,
+    /// `@location(2) extrude`, `@location(3) coverage`.
+    pub(crate) const ATTRIBUTES: [wgpu::VertexAttribute; 4] = wgpu::vertex_attr_array![
+        0 => Float32x2, 1 => Float32x4, 2 => Float32x2, 3 => Float32
+    ];
 }
