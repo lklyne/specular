@@ -62,10 +62,12 @@ impl ShellView {
             (None, ribbon)
         };
         (self.mods).fill_share_slot(layout, models.shows(Overlay::Share), cx);
-        let toast = (models.shows(Overlay::Toast))
-            .then(|| self.mods.overlay(Overlay::Toast, layout, cx))
-            .flatten()
-            .map(|toast| corner(toast, models.insets.bottom));
+        let toast = if models.shows(Overlay::Toast) {
+            self.mods.overlay(Overlay::Toast, layout, cx)
+        } else {
+            None
+        };
+        let toast = toast.map(|toast| corner(toast, models.insets.bottom));
         ModPanels {
             zoom_in_tabs,
             docked,
