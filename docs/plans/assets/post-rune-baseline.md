@@ -99,3 +99,7 @@ ps -Ao pid,pcpu,pmem,comm -r > "$out/ps-after.txt"
 python3 "$spike/tools/s6_table.py" "$out"
 ```
 
+
+## Page-path bench (phase 3 on)
+
+`assets/page-path-bench/` reruns phase 2 and 3's cases on two bundles, alternated a run at a time: `bench.sh OUT_DIR BEFORE.app AFTER.app [flip entered occluded occluded-full idle pan-9 pan-20 pan-40]` with `ARCHIVE` set as above, then `table.py OUT_DIR`. Copy each release bundle out of `target/` before building the next. `fixtures/` holds the animated and self-flipping pages and the scripts that enter one and minimise the window; `rates.py` reads paints, frames, turns and pumps a second over a stretch of a ledger, `p2p.py` paint to present, `timed.py` runs a window case and stops it if it hangs.

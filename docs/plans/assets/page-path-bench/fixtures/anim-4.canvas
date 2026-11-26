@@ -1,0 +1,9 @@
+{
+  "nodes": [
+    {"id": "a1", "type": "file", "x": 0, "y": 0, "width": 800, "height": 600, "file": "anim.html"},
+    {"id": "a2", "type": "file", "x": 880, "y": 0, "width": 800, "height": 600, "file": "anim.html"},
+    {"id": "a3", "type": "file", "x": 0, "y": 680, "width": 800, "height": 600, "file": "anim.html"},
+    {"id": "a4", "type": "file", "x": 880, "y": 680, "width": 800, "height": 600, "file": "anim.html"}
+  ],
+  "edges": []
+}

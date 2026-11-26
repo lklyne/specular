@@ -1,0 +1,6 @@
+# Four animated pages on screen for 6 s, then the window minimised for 8 s.
+wait 8000
+wait 6000
+menu-choose Window > Minimize
+wait 8000
+quit
