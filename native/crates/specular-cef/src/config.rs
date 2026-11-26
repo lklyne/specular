@@ -100,11 +100,17 @@ pub(crate) fn windowless_frame_rate(fps: u32) -> i32 {
 }
 
 /// The longest the message pump goes without running when CEF has asked
-/// for nothing, in seconds. CEF asks for every piece of work it has, now
-/// or after a delay, through `OnScheduleMessagePumpWork`; this only bounds
+/// for nothing and no page loads, in seconds. Once its pages have loaded,
+/// CEF asks for its work through `OnScheduleMessagePumpWork`; this bounds
 /// the cost of an ask that never came. `cefclient`'s 30 Hz ceiling woke a
 /// still app 30 times a second for nothing.
 pub(crate) const PUMP_FALLBACK_SECONDS: f64 = 1.0;
+
+/// The longest the message pump goes without running while a page loads,
+/// in seconds. A load's work is not all asked for: with only the slow
+/// fallback, 20 local pages took 9 s to load where they take 0.3 s at this
+/// pace, `cefclient`'s.
+pub(crate) const HURRY_SECONDS: f64 = 1.0 / 30.0;
 
 /// Seconds until the message pump should next run, for the delay CEF gave
 /// `OnScheduleMessagePumpWork`: at once for zero or less, and never later
