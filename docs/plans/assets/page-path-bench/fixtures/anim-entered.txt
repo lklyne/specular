@@ -1,0 +1,11 @@
+# Enter the animated page (as S6's flip script enters its page), then let it run 5 s.
+camera 100,100,1
+wait 3000
+click 500 400
+wait 500
+click 500 400
+wait 500
+click 500 400
+wait 1000
+wait 5000
+quit

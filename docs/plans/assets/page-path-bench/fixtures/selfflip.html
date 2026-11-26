@@ -1,0 +1,11 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>selfflip</title>
+<style>html,body{margin:0;height:100%;background:#fff}body.on{background:#e33}</style>
+<body>
+<p style="font:16px system-ui;padding:20px">Phase 2: flips its own background every 1.5 to 2.5 s.</p>
+<script>
+function flip() { document.body.classList.toggle('on'); setTimeout(flip, 1500 + Math.random() * 1000); }
+setTimeout(flip, 1000);
+</script>
+</body>

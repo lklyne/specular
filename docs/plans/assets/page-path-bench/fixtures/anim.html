@@ -1,0 +1,13 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>anim</title>
+<style>html,body{margin:0;height:100%;font:24px system-ui}#n{padding:20px}</style>
+<body>
+<div id="n">0</div>
+<script>
+// Changes every animation frame, so the page paints as often as it is let.
+let n = 0;
+function step() { n++; document.getElementById('n').textContent = n; document.body.style.background = `hsl(${n % 360} 60% 85%)`; requestAnimationFrame(step); }
+requestAnimationFrame(step);
+</script>
+</body>
