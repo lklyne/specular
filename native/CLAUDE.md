@@ -195,9 +195,9 @@ cargo run -p specular-shell -- --script steps.txt FILE.canvas
   (`release x y`), `drag x1 y1 x2 y2`, `hold shift+cmd` (`hold none`),
   `key cmd+z`, `type some text`, `compose にほ`, `commit 日本`,
   `wheel dx dy`, `scroll x y dx dy`, `pinch 0.2`, `tool shape`,
-  `select id ..`, `act ..` (`annotate-selection`, `resolve-comment`,
-  `page-back|forward|reload|stop`, `zoom-to-fit`, `arrange-row|column|grid`,
-  `toggle-sync`, `undo`, `redo`), `sidebar on|off`, `camera ..`, `wait ms`,
+  `select id ..`, `run NAME [json]` (a command of the registry,
+  `specular_interact::commands()`: `run edit.undo`, `run arrange.lay-out
+  {"mode":"row"}`), `sidebar on|off`, `camera ..`, `wait ms`,
   `motion on|off`, `reduce-motion on|off`, `page-opens-tab p1 URL
   [background]`, `control NAME`, `hover-control`, `press-control`. Positions
   are screen pixels.
@@ -252,6 +252,11 @@ logs the port it took and the `SPECULAR_DISCOVERY_FILE=` to pass the CLI.
   `specular-api/tests/api/` keeps what the CLI cannot reach (the page
   proxy, `Api::plan`, a write during a drag); `specular-shell/src/api/tests.rs`
   is the transport over a real socket.
+- What the app can do by name is one table, the command registry
+  (`specular-interact/src/commands/`, ADR 0055): the menus, the palette,
+  the context menu, the scripts' `run` step, `GET /commands`, `POST /run`
+  and the CLI's `commands` and `run` read it. A new command is a row
+  there; its label, if a menu shows it, is written there once.
 - A route the CLI can call and this app lacks gets a row in `unported.rs`,
   so the caller reads which verb is missing instead of a 404.
 - The browse verbs (`snapshot`, `click`, ...) reach a page through its own

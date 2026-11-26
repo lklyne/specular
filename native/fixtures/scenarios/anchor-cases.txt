@@ -127,7 +127,7 @@ key cmd+z
 # or to none
 page-says p2 scrolled 0 25
 select h
-act copy
+run edit.copy
 move 800 200
 key cmd+v
 expect saved /nodes/@top/pageAnchor/pageId = p2
@@ -148,7 +148,7 @@ key cmd+z
 # a copy made with its page is hooked to the page's copy, at its top, and
 # sits on it as it was seen
 select p1
-act copy
+run edit.copy
 move 100 600
 key cmd+v
 expect anchor @top @8

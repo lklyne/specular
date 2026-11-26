@@ -22,6 +22,7 @@ mod act;
 mod annotations;
 mod canvas;
 pub mod cdp;
+mod commands;
 mod facts;
 mod fix;
 mod host;
@@ -237,6 +238,8 @@ impl Api {
             (Get, ["health"]) => Ok(Step::Answer(json!({ "version": VERSION }))),
             (Get, ["canvas"]) => canvas::read(app, user),
             (Get, ["tabs"]) => Ok(Step::Answer(tabs::identity(user))),
+            (Get, ["commands"]) => Ok(Step::Answer(commands::list(app))),
+            (Post, ["run"]) => commands::run(app, request),
             (Get, ["share"]) => Ok(Step::Answer(share::status(user))),
             (Post, ["share"]) => share::start(request),
             (Post, ["share", "stop"]) => Ok(share::stop()),

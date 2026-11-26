@@ -35,6 +35,7 @@ mod chat;
 mod chord;
 mod clipboard;
 mod clone;
+mod commands;
 mod comment;
 mod cursor;
 mod device;
@@ -126,6 +127,7 @@ pub use chat::{
 };
 pub use chord::Chord;
 pub use clipboard::{ClipboardContent, ClipboardImage, Paste};
+pub use commands::{CommandSpec, Run, RunError, command, commands, run_named};
 pub use comment::{
     CommentDrag, CommentMark, FOCUS_RING_OUTSET, FOCUS_RING_STROKE, MarkShape, PILL_HEIGHT,
     PageGrab, PageRegion, element_on_canvas, left_its_page, page_clip, region_annotation,

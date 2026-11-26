@@ -16,6 +16,7 @@ mod edit;
 mod js;
 mod output;
 mod patch;
+mod registry;
 mod session;
 mod spawn;
 
@@ -35,6 +36,7 @@ Tabs: tab, tab new <name>, tab switch <tab-id|tab-name>, tab delete <tab-id|tab-
 Share: share, share <link>, share join <link>, share stop
 Browse: snapshot, click, fill, type, select, screenshot, scroll, wait
 Annotations: annotations, annotation, annotate, annotate-selection, ack, resolve, dismiss, reply
+Commands: commands, run <name> [json-args]   e.g. run tool.set '{\"tool\":\"draw\"}'
 Other: breakpoints, apply, upsert, link, unlink, auto-layout, find-placement
 
 Unknown verbs pass through to the bundled agent-browser as raw commands
@@ -91,6 +93,8 @@ fn verb(name: &str) -> Verb {
         "scroll" => browse::scroll,
         "wait" => browse::wait,
         "skills" => browse::skills,
+        "commands" => registry::commands,
+        "run" => registry::run,
         _ => browse::passthrough,
     }
 }

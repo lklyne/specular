@@ -189,6 +189,11 @@ pub enum Action {
     /// Set one field of the selection, as a dock control does. It applies
     /// to every selected item it means something for, as one undo step.
     SetProperty(Property),
+    /// Do what a click on the control with this name does, as
+    /// [`Event::Control`](crate::Event::Control) does with no keys held:
+    /// how a caller that cannot name an [`Action`] presses a control the
+    /// models show. A name no control has now does nothing.
+    PressControl(crate::ControlId),
     /// Move the selection by exactly this many canvas units.
     Nudge {
         /// Along x. Positive is right.

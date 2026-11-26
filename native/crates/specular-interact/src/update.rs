@@ -8,9 +8,10 @@ pub(crate) use self::document::{document_step, drop_dangling, open_document};
 use self::page_event::on_page_event;
 
 use glam::DVec2;
-use specular_core::{InputEvent, PageNav};
+use specular_core::{InputEvent, Modifiers, PageNav};
 
 use crate::focus::{leave_unless_selected, set_focus};
+use crate::panel::activate_control;
 use crate::stack_order::Move;
 use crate::{
     Action, App, Effect, Event, Focus, ToolDefaultPatch, api, attach, bindings, camera, chat,
@@ -276,6 +277,7 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         Action::Space(action) => crate::first_run::run(action, effects),
         Action::Setting(action) => crate::settings::run(app, action, effects),
         Action::Share(action) => crate::share_button::run(app, action, effects),
+        Action::PressControl(id) => activate_control(app, &id, Modifiers::default(), effects),
     }
 }
 

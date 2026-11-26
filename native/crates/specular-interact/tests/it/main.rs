@@ -4,6 +4,7 @@
 
 mod bindings;
 mod clipboard;
+mod commands;
 mod comment_rules;
 mod flick;
 mod guides;

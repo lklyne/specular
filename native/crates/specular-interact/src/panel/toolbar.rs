@@ -20,20 +20,6 @@ use crate::{Action, App, Appearance, ChatAction, Lens, Showing, Tool, binding_of
 /// The zoom levels the readout offers, in percent.
 const ZOOM_LEVELS: [u16; 7] = [10, 25, 50, 75, 100, 150, 200];
 
-const fn tool_name(tool: Tool) -> &'static str {
-    match tool {
-        Tool::Select => "select",
-        Tool::AddPage => "page",
-        Tool::AddText => "text",
-        Tool::AddSticky => "sticky",
-        Tool::AddDocument => "document",
-        Tool::AddShape => "shape",
-        Tool::Draw => "draw",
-        Tool::Comment => "comment",
-        Tool::Inspect => "inspect",
-    }
-}
-
 /// The glyph of `tool`, and the color it is drawn in when that shows the
 /// tool's current default.
 fn glyph(app: &App, tool: Tool) -> (Icon, Option<Color>) {
@@ -124,7 +110,7 @@ fn button(app: &App, tool: Tool) -> ToolButton {
     let active = app.session.tool == tool;
     let (icon, tint) = glyph(app, tool);
     ToolButton {
-        id: ControlId::new("tool").child(tool_name(tool)),
+        id: ControlId::new("tool").child(tool.name()),
         tool,
         label: tool_label(tool).into(),
         icon,

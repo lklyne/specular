@@ -6,7 +6,7 @@ use specular_doc::ItemId;
 use specular_interact::{App, Focus, Showing};
 
 use super::check::{kind_word, note_of, text_of};
-use super::words::{escaped, tool_word};
+use super::words::escaped;
 
 /// The app's state, one fact a line.
 pub fn dump(app: &App) -> String {
@@ -24,7 +24,7 @@ pub fn dump(app: &App) -> String {
         camera.pan.x, camera.pan.y, camera.zoom
     ));
     line(format!("zoom {:.3}", camera.zoom));
-    line(format!("tool {}", tool_word(session.tool)));
+    line(format!("tool {}", session.tool.name()));
     let selection: Vec<&str> = session
         .selection
         .items()

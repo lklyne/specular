@@ -32,7 +32,7 @@ camera 0,0,0.5
 # a page turned on its side: its rect at once, its shell by a spring, and
 # an undo is not a turn
 select p1
-act landscape
+run page.orientation {"orientation":"landscape"}
 expect entity p1 size 1280 800
 expect motion running
 key cmd+z
@@ -41,7 +41,7 @@ expect motion still
 expect entity p1 size 480 360
 reduce-motion on
 select p1
-act landscape
+run page.orientation {"orientation":"landscape"}
 expect motion still
 key cmd+z
 select p1

@@ -72,6 +72,11 @@ undo-to-start
   the right panel or outside the window. A drag under way may go anywhere.
 - Name controls with `control text.color`, never by where they are drawn.
   Sidebar canvas rows are named by place: `sidebar.canvas.1`.
+- Run a command of the registry by its name, with its JSON arguments on
+  the rest of the line: `run edit.undo`, `run tool.set {"tool":"draw"}`,
+  `run tab.show {"item":"p1"}`. `specular commands` (or
+  `specular_interact::commands()`) lists them. A command with nothing to
+  act on fails the run; `expect command page.reload disabled` says so.
 - Check state with `expect` lines, not pictures. `state out.txt` writes
   every fact a run can check, each line an `expect` without the word, so
   the way to write one is to run a `state`, read it and paste.
@@ -127,7 +132,7 @@ expect sent viewport p 500 300      expect sent no save | sent nothing
 
 With them come the steps `page-says p1 scrolled 0 40` (or `url`, `fit`,
 `element`, `composition`), `appearance dark`, `theme-loaded light`,
-`repeat down`, `menu Edit > Undo`, and `act show:p1`. A headless run
+`repeat down` and `menu Edit > Undo`. A headless run
 does `drop` too, a relative path read from the canvas's folder.
 
 The panel facts read a topic's lines, the ones a `state` step writes as

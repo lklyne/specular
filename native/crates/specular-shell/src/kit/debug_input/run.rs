@@ -345,6 +345,17 @@ pub(super) async fn step(
             canvas::with(|canvas| canvas.runtime.script_clipboard(Some(text)));
         }
         Do::Act(action) => canvas::dispatch(Event::Action(action)),
+        Do::Run(name, args) => {
+            let run = canvas::with(|canvas| {
+                specular_interact::run_named(canvas.runtime.app(), &name, &args)
+            })
+            .ok_or("there is no canvas")?
+            .map_err(|error| error.to_string())?;
+            match run.into_event() {
+                Ok(event) => canvas::dispatch(event),
+                Err(command) => cx.update(|cx| crate::menus::run_shell(command, cx)),
+            }
+        }
         Do::Send(event) => canvas::dispatch(event),
         Do::Panel(step) => panel(&step)?,
         Do::Select(ids) => select(&ids),

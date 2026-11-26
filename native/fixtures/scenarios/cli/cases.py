@@ -601,6 +601,33 @@ def comments_are_made_answered_listed_and_read():
           or on_page["id"] in json.dumps(d), "the comments")
 
 
+# --- the command registry ----------------------------------------------------
+
+
+@case
+def commands_lists_the_registry_and_run_runs_one_by_name():
+    a, b, _c = fresh("Commands", notes=True)
+    listed = {c["name"]: c for c in ok("commands")["commands"]}
+    check({"edit.undo", "tool.set", "control.press"} <= set(listed), f"commands: {sorted(listed)}")
+    equal(listed["tool.set"]["args"].startswith("{tool:"), True, "tool.set's args")
+    check(listed["edit.undo"]["about"], "every command says what it does")
+
+    equal(ok("run", "edit.select", json.dumps({"ids": [a, b]})), {"ok": True, "name": "edit.select"}, "run")
+    x = node(b)["x"]
+    ok("run", "edit.nudge", '{"dx": 10, "dy": 0}')
+    equal(node(b)["x"], x + 10, "run with arguments")
+    ok("run", "edit.undo")
+    equal(node(b)["x"], x, "a command run by name is one undo step")
+    refused("did you mean edit.undo", "run", "edit.undoo")
+    ok("run", "edit.redo")
+    equal(node(b)["x"], x + 10, "and redone")
+    refused("cannot run now", "run", "edit.redo")
+    refused("`dx` is a number", "run", "edit.nudge")
+    refused("not JSON", "run", "edit.nudge", "{dx")
+    refused("usage: specular run", "run")
+    refused("the window's own", "run", "app.quit")
+
+
 # --- browse verbs with no page ------------------------------------------------
 
 

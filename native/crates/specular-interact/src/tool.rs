@@ -44,6 +44,29 @@ impl Tool {
         Self::Inspect,
     ];
 
+    /// The word the tool is named by: its toolbar control is `tool.<name>`,
+    /// and a script and the `tool.set` command take it.
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Select => "select",
+            Self::AddPage => "page",
+            Self::AddText => "text",
+            Self::AddSticky => "sticky",
+            Self::AddDocument => "document",
+            Self::AddShape => "shape",
+            Self::Draw => "draw",
+            Self::Comment => "comment",
+            Self::Inspect => "inspect",
+        }
+    }
+
+    /// The tool [`name`](Self::name) gives `name`.
+    #[must_use]
+    pub fn named(name: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|tool| tool.name() == name)
+    }
+
     /// The cursor shown over the canvas while the tool is active.
     pub(crate) const fn cursor(self) -> Cursor {
         match self {

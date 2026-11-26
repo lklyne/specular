@@ -17,7 +17,7 @@ expect saved /nodes/p1/presetIndex = 1
 expect saved /nodes/p1/metadata/deviceId = iphone-14-pro
 expect effects count 2 set-page-viewport
 expect controls has page.size = iPhone 16
-act undo
+run edit.undo
 key escape
 
 # a turn turns the size about the page's middle, and back
@@ -34,12 +34,12 @@ control page.size.1
 expect entity p1 rect -46 246 852 393
 control page.rotate.portrait
 expect entity p1 size 393 852
-act undo
-act undo
-act undo
-act undo
-act undo
-act undo
+run edit.undo
+run edit.undo
+run edit.undo
+run edit.undo
+run edit.undo
+run edit.undo
 
 # Custom keeps the size and drops the device; a turn still turns it, and
 # the same way twice is no turn
@@ -52,9 +52,9 @@ expect entity p1 rect -46 246 667 375
 control page.rotate.landscape
 expect entity p1 size 667 375
 control page.rotate.portrait
-act undo
-act undo
-act undo
+run edit.undo
+run edit.undo
+run edit.undo
 
 # a typed width or height makes the size custom and keeps the other side;
 # one step each, none for a repeat
@@ -75,11 +75,11 @@ control page.size.height
 key cmd+a
 type 300
 key enter
-act undo
+run edit.undo
 expect entity p1 size 500 852
-act undo
+run edit.undo
 expect entity p1 size 393 852
-act undo
+run edit.undo
 key escape
 
 # the frame and the colour scheme are page settings, and move no host
@@ -98,10 +98,10 @@ expect effects lacks set-page-viewport
 control page.frame.none
 control page.scheme.light
 expect controls has page.frame.none on
-act undo
-act undo
-act undo
-act undo
+run edit.undo
+run edit.undo
+run edit.undo
+run edit.undo
 key escape
 
 # a selected page's keys step its frame, turn and colour scheme
@@ -161,6 +161,6 @@ expect controls has page.frame-color.dark on
 expect saved /nodes/phone/metadata/deviceFrameColor = dark
 key cmd+alt+shift+f
 expect saved /nodes/phone/metadata/deviceFrameColor = light
-act undo
+run edit.undo
 expect controls has page.frame-color.dark on
 undo-to-start

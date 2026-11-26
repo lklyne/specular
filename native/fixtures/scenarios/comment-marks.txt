@@ -98,34 +98,34 @@ expect menubar lacks Edit > Delete disabled
 # with nothing focused, resolve does nothing and records nothing
 key escape
 mark untouched
-act resolve-comment
+run comment.resolve
 expect saved same-as mark untouched
 
 # resolving marks it resolved by the user, in one step
 click 480 250
-act resolve-comment
+run comment.resolve
 expect comments has comment a resolved
 expect comments has comment a metadata {"resolvedBy":"user"}
 expect comments lacks focus
 expect comments lacks mark a\s
-act undo
+run edit.undo
 expect comments has comment a pending
 expect comments has mark a pill
-act redo
-act undo
+run edit.redo
+run edit.undo
 # resolving a dismissed one drops its reason
 click 900 500
-act resolve-comment
+run comment.resolve
 expect comments has comment ack metadata {"pageName":"Home","resolvedBy":"user"}
-act undo
+run edit.undo
 # resolving the focus of a shared pill resolves every comment in it
 click 829 161
 expect comments has focus el-new
-act resolve-comment
+run comment.resolve
 expect comments has comment el-new resolved
 expect comments has comment el-old resolved
 expect comments has comment el-other pending
-act undo
+run edit.undo
 expect comments has comment el-old pending
 expect comments has comment el-new pending
 
@@ -134,11 +134,11 @@ click 480 250
 key backspace
 expect comments lacks comment a\s
 expect comments lacks focus
-act undo
+run edit.undo
 click 480 250
 key delete
 expect comments lacks comment a\s
-act undo
+run edit.undo
 # but not while a comment is being written
 click 480 250
 tool comment
@@ -157,7 +157,7 @@ select p1
 key backspace
 expect comments lacks mark a\s
 expect comments lacks mark pr
-act undo
+run edit.undo
 expect comments has mark a pill 466 237 26 26
 expect comments has mark pr region 150 250 100 30
 
@@ -166,11 +166,11 @@ drag 300 350 500 450
 expect entity p1 rect 300 200 400 300
 expect comments has mark a pill 666 337 26 26
 expect comments has mark pr region 350 350 100 30
-act undo
+run edit.undo
 
 # annotating a selection ends with the new comment focused, nothing selected
 select p2
-act annotate-selection
+run comment.annotate-selection
 type check this
 key enter
 expect count comments 17

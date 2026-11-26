@@ -68,6 +68,7 @@ impl Headless {
             Step::Pinch(delta) => self.drive(|app| app.pinch(delta)),
             Step::Tool(tool) => self.drive(|app| app.tool(tool)),
             Step::Act(action) => self.drive(|app| app.act(action)),
+            Step::Run { name, args } => self.run_command(&name, &args),
             Step::Select(ids) => self.drive(|app| {
                 let ids: Vec<&str> = ids.iter().map(String::as_str).collect();
                 app.select(&ids)
@@ -146,6 +147,17 @@ impl Headless {
     /// button held, where the Kit window draws its chrome: there the window
     /// would hand it to the chrome, not the canvas. A drag already under
     /// way keeps the pointer wherever it goes, as the window does.
+    /// Runs the registry command `name`, refused when it cannot run now.
+    fn run_command(&mut self, name: &str, args: &serde_json::Value) -> anyhow::Result<()> {
+        let run = specular_interact::run_named(self.hands.app(), name, args)?;
+        match run.into_event() {
+            Ok(event) => self.drive(|app| app.send(event)),
+            Err(command) => {
+                anyhow::bail!("`{name}` is the window's own ({command:?}); no window here")
+            }
+        }
+    }
+
     fn clear_of_kit_chrome(&self, step: &Step) -> anyhow::Result<()> {
         let app = self.hands.app();
         let at = match step {

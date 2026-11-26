@@ -18,7 +18,7 @@ use specular_interact::{App, CanvasId, Focus, Showing};
 
 use super::expect::{Expect, Reference};
 use super::saved::{canonical, differences, listed};
-use super::words::{escaped, tool_word};
+use super::words::escaped;
 
 /// How far apart two coordinates may be and still be the same.
 const NEAR: f64 = 0.5;
@@ -75,7 +75,7 @@ impl Checks {
     pub fn check(&self, app: &App, expect: &Expect) -> anyhow::Result<()> {
         let session = app.session();
         match expect {
-            Expect::Tool(tool) => equal("tool", tool_word(session.tool), tool_word(*tool)),
+            Expect::Tool(tool) => equal("tool", session.tool.name(), tool.name()),
             Expect::Selection(ids) => {
                 let mut found: Vec<String> = (session.selection.items().iter())
                     .map(|item| item.as_str().to_owned())
@@ -138,6 +138,11 @@ impl Checks {
             Expect::Menu(open) => equal("menu open", session.panel.menu.is_some(), *open),
             Expect::Undo(some) => equal("something to undo", app.can_undo(), *some),
             Expect::Redo(some) => equal("something to redo", app.can_redo(), *some),
+            Expect::Command(name, enabled) => {
+                let spec = specular_interact::command(name)
+                    .with_context(|| format!("no command `{name}`"))?;
+                equal(&format!("`{name}` enabled"), (spec.enabled)(app), *enabled)
+            }
             Expect::Count(what, count) => equal(&counted_name(what), counted(app, what), *count),
             Expect::Entity(id, fact) => entity_fact(app, id, fact),
             Expect::Saved(path, fact) => saved_fact(app, path, fact),

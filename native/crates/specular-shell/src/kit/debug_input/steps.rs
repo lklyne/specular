@@ -74,6 +74,9 @@ pub(super) enum Do {
     /// A trackpad pinch where the pointer is.
     Pinch(f32),
     Act(Action),
+    /// The registry command of this name, with these arguments, run when it
+    /// is its turn.
+    Run(String, serde_json::Value),
     /// An event as the shell or a page would send it.
     Send(Event),
     /// The shell's or the agent's side of a panel, read against the app
@@ -140,6 +143,7 @@ pub(super) fn lower(step: Step) -> Result<Do, String> {
         Step::Tool(tool) => Do::Act(Action::SetTool(tool)),
         Step::Select(ids) => Do::Select(ids),
         Step::Act(action) => Do::Act(action),
+        Step::Run { name, args } => Do::Run(name, args),
         Step::Camera(CameraArg::Fit) => Do::Act(Action::ZoomToFit),
         Step::Camera(CameraArg::At(camera)) => Do::Act(Action::SetCamera(camera)),
         Step::Wait(ms) => Do::Wait(ms),

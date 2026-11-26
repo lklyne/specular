@@ -3,6 +3,7 @@
 //! document come out.
 
 mod cdp;
+mod commands;
 mod common;
 mod fix;
 mod pages;

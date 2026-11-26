@@ -103,6 +103,13 @@ and reflows its children; it no-ops on unmanaged groups.
 | `specular find-placement` | Find open canvas space for new entities |
 | `specular breakpoints <url>` | Lay a URL out across device breakpoints |
 
+## Run any app command by name
+
+| Command | Purpose |
+|---|---|
+| `specular commands` | List every command the app runs by name: its `name`, `args` help, `about`, and whether it is `enabled` now |
+| `specular run <name> [json-args]` | Run one, as its menu item or key would, as one undo step — e.g. `specular run edit.undo`, `specular run tool.set '{"tool":"draw"}'`, `specular run control.press '{"id":"tool.sticky"}'` |
+
 ## Comment
 
 Annotations are a single concept (a comment thread) discriminated by **anchor
