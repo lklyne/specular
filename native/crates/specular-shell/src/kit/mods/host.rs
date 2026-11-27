@@ -132,8 +132,9 @@ pub(super) fn components(revisions: Rc<RefCell<Revisions>>) -> Components {
             crate::view::zoom_readout(compact).unwrap_or_else(|| div().into_any_element())
         })
         .with("Field", move |args, window, cx| {
+            let style = field_style(args.props());
             let Some(id) = args.props().get("control").and_then(HostValue::as_str) else {
-                return super::text_field::field(args.props(), &revisions, window, cx);
+                return super::text_field::field(args.props(), style, &revisions, window, cx);
             };
             let model = canvas::models().and_then(|models| {
                 [models.dock.as_ref(), models.tool_options.as_ref()]
@@ -142,7 +143,7 @@ pub(super) fn components(revisions: Rc<RefCell<Revisions>>) -> Components {
                     .find_map(|controls| controls.field(id).cloned())
             });
             match model {
-                Some(model) => crate::view::model_field(&model, window, cx),
+                Some(model) => crate::view::model_field(&model, style, window, cx),
                 None => div().into_any_element(),
             }
         })
@@ -165,4 +166,23 @@ fn pattern(props: &HostValue) -> AnyElement {
     let element = div().absolute().left_0().top_0().size_full();
     crate::paint::paint(element, paint.as_ref(), (reach("width"), reach("height")))
         .into_any_element()
+}
+
+/// A `Field`'s `radius`, `background` and `border` props, over the app's
+/// own look of a field.
+fn field_style(props: &HostValue) -> crate::view::FieldStyle {
+    let color = |key: &str| {
+        props
+            .get(key)
+            .and_then(HostValue::as_str)
+            .and_then(crate::paint::hsla)
+    };
+    crate::view::FieldStyle {
+        radius: props
+            .get("radius")
+            .and_then(HostValue::as_number)
+            .map(|radius| radius as f32),
+        background: color("background"),
+        border: color("border"),
+    }
 }

@@ -17,6 +17,7 @@ struct Held {
     colors: BTreeMap<String, u32>,
     font: Option<String>,
     font_size: Option<f32>,
+    radius: Option<f32>,
 }
 
 thread_local! {
@@ -43,6 +44,7 @@ pub(crate) fn set(look: &Look, resolved: &Resolved) -> bool {
             .collect(),
         font: look.font.clone(),
         font_size: look.font_size,
+        radius: look.radius,
     };
     HELD.with_borrow_mut(|now| {
         if *now == held {
@@ -66,6 +68,12 @@ pub(crate) fn font() -> Option<String> {
 /// The chrome's text size, 12 points unless the layout says.
 pub(crate) fn font_size() -> f32 {
     HELD.with_borrow(|held| held.font_size).unwrap_or(12.0)
+}
+
+/// The corner radius of the Kit's controls and popups, 6 points unless the
+/// layout says.
+pub(crate) fn radius() -> f32 {
+    HELD.with_borrow(|held| held.radius).unwrap_or(6.0).max(0.0)
 }
 
 /// A colour a layout writes: `#rrggbb[aa]`, or a colour's name as a mod's

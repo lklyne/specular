@@ -66,6 +66,8 @@ mod updates;
 mod view;
 #[cfg(target_os = "macos")]
 mod whole_shot;
+#[cfg(target_os = "macos")]
+mod window_buttons;
 
 #[cfg(target_os = "macos")]
 fn main() {

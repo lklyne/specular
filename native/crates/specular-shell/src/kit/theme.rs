@@ -370,8 +370,9 @@ pub(crate) fn apply(appearance: Appearance, cx: &mut App) {
         theme.font_family = (crate::look::font())
             .map_or_else(|| specular_compositor::SANS_FAMILY.into(), Into::into);
         theme.mono_font_family = specular_compositor::MONO_FAMILY.into();
-        theme.radius = px(6.0);
-        theme.radius_lg = px(10.0);
+        let radius = crate::look::radius();
+        theme.radius = px(radius);
+        theme.radius_lg = px(radius * 10.0 / 6.0);
         theme.shadow = true;
 
         theme.background = solid(panel());

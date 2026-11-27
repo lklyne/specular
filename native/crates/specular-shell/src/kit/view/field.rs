@@ -12,7 +12,7 @@ use gpui_kit::component::input::{Escape, Input, InputEvent, InputState};
 use gpui_kit::component::{Sizable as _, h_flex};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
-    AnyElement, App, AppContext as _, Entity, FocusHandle, Focusable as _, Global,
+    AnyElement, App, AppContext as _, Entity, FocusHandle, Focusable as _, Global, Hsla,
     InteractiveElement as _, IntoElement, ParentElement as _, SharedString,
     StatefulInteractiveElement as _, Styled, Subscription, Window, div, px,
 };
@@ -134,6 +134,37 @@ pub(super) fn want(id: ControlId, cx: &mut App) {
 /// The input of `model` alone, as wide as what it is put in. `address` is
 /// one set into the dock's bar, which it nearly fills.
 pub(super) fn input(model: &Field, address: bool, window: &mut Window, cx: &mut App) -> AnyElement {
+    input_styled(model, address, FieldStyle::default(), window, cx)
+}
+
+/// How a mod draws a field over the app's own look: its corner radius, its
+/// fill and its edge. Each left out keeps the app's.
+#[derive(Debug, Clone, Copy, Default)]
+pub(crate) struct FieldStyle {
+    /// The corner radius, in points.
+    pub radius: Option<f32>,
+    /// The fill.
+    pub background: Option<Hsla>,
+    /// The edge's colour.
+    pub border: Option<Hsla>,
+}
+
+impl FieldStyle {
+    pub(crate) fn over(self, input: Input) -> Input {
+        input
+            .when_some(self.radius, |this, radius| this.rounded(px(radius)))
+            .when_some(self.background, Styled::bg)
+            .when_some(self.border, Styled::border_color)
+    }
+}
+
+fn input_styled(
+    model: &Field,
+    address: bool,
+    style: FieldStyle,
+    window: &mut Window,
+    cx: &mut App,
+) -> AnyElement {
     let input = input_of(model, window, cx);
     let fields = cx.default_global::<Fields>();
     if fields.wanted.as_ref() == Some(&model.id) {
@@ -159,7 +190,7 @@ pub(super) fn input(model: &Field, address: bool, window: &mut Window, cx: &mut 
         // An address says what it is with its placeholder.
         .when(!address, |this| this.tooltip(crate::tip::view(label)))
         // An address is read and typed into more than a number is.
-        .child(if address {
+        .child(style.over(if address {
             // The Kit fills an input with the panel's colour, which is the
             // bar's own: an address is set into the bar with the input's.
             // The Kit's ring is wider than the room the bar leaves an
@@ -188,7 +219,7 @@ pub(super) fn input(model: &Field, address: bool, window: &mut Window, cx: &mut 
                             .child(caption),
                     )
                 })
-        })
+        }))
         .when(address && focused, |this| {
             this.child(
                 div()
@@ -207,6 +238,16 @@ pub(super) fn input(model: &Field, address: bool, window: &mut Window, cx: &mut 
 /// it asks for. An address takes that as its least width and grows into
 /// whatever room its row has left.
 pub(crate) fn field(model: &Field, window: &mut Window, cx: &mut App) -> AnyElement {
+    field_styled(model, FieldStyle::default(), window, cx)
+}
+
+/// [`field`], drawn with a mod's `style` over the app's look.
+pub(crate) fn field_styled(
+    model: &Field,
+    style: FieldStyle,
+    window: &mut Window,
+    cx: &mut App,
+) -> AnyElement {
     let caption = (model.caption.as_ref())
         .filter(|_| model.width != FieldWidth::Short)
         .map(|text| SharedString::from(text.to_string()));
@@ -221,7 +262,7 @@ pub(crate) fn field(model: &Field, window: &mut Window, cx: &mut App) -> AnyElem
         .child(
             div()
                 .map(|this| if grows { this.flex_1() } else { this.w(least) })
-                .child(input(model, grows, window, cx)),
+                .child(input_styled(model, grows, style, window, cx)),
         )
         .into_any_element()
 }

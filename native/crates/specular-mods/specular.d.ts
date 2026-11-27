@@ -30,7 +30,7 @@
  * - `panels/sidebar`: `{visible, add, sections: [{id, title, folded, rows}]}`: the canvases section's rows are `{id, canvas, label, active, count, rename}`, the others `{id, label, icon, trailing, selected, dimmed, expanded, children}`. A row is pressed with `control.press {id}`, renamed by pressing its `rename` id (1.2)
  * - `panels/chat`: `{available, visible, width, title, threads: [{id, title, draft, active, running}], transcript: {messages: [{id, role, text, images}], streaming, run, error} | null, composer: {placeholder, running, model: {label, options: [{name, description, chosen}]}}}`, driven by the `chat.*` commands (1.2)
  * - `layouts`: `[{name, title, active}]`, every layout; `layout.switch {name}` shows one (1.2)
- * - `look`: `{appearance: "light"|"dark", theme, colors: {name: css color}, font, fontSize, background}`, the layout's resolved look (1.2)
+ * - `look`: `{appearance: "light"|"dark", theme, colors: {name: css color}, font, fontSize, radius, background}`, the layout's resolved look (1.2)
  * - `overlays`: the open overlays, bottom to top `[{id, mod, kind, props, width, height, at, edge, frame}]` (1.2)
  * - `selection`: `{ids: [entity id], edges: [edge id]}` (1.2)
  * - `canvas/items`: every item of the active canvas, back to front `[{id, kind, label, parent, ..detail}]`, without places or sizes: a page adds `url`, text `text`, a shape `shape` and `text`, a mod item `mod` (1.2)
@@ -73,6 +73,8 @@ export type StateKey =
  * - `app.hide-others`: Hide every other app.
  * - `app.minimize`: Minimize the window.
  * - `app.command-palette`: Open the command palette.
+ * - `window.close`: Close the window, as its red button does.
+ * - `window.zoom`: Zoom the window, as its green button does.
  * - `canvas.new`: Add an empty canvas and show it.
  * - `canvas.duplicate` `{canvas?: id}`: Copy a canvas, the active one by default, and show the copy.
  * - `canvas.delete` `{canvas?: id}`: Remove a canvas, the active one by default, and trash its file.
@@ -190,6 +192,8 @@ export type CommandName =
   | "app.hide-others"
   | "app.minimize"
   | "app.command-palette"
+  | "window.close"
+  | "window.zoom"
   | "canvas.new"
   | "canvas.duplicate"
   | "canvas.delete"
@@ -330,13 +334,14 @@ export function colors(): {
   [name: string]: string;
 };
 
-/** The active layout's look: its appearance, theme name, resolved colours, font and background. */
+/** The active layout's look: its appearance, theme name, resolved colours, font, control radius and background. */
 export function look(): {
   appearance: "light" | "dark";
   theme: string | null;
   colors: Record<string, string>;
   font: string | null;
   fontSize: number | null;
+  radius: number | null;
   background: any;
 };
 
@@ -350,8 +355,8 @@ export const Icon: HostComponent<{ name: any; size?: number; color?: string; tin
 export const Zoom: HostComponent<{ compact?: boolean }>;
 /** `ToolOptions`: the options of the tool in hand, beside its button: place it inside the button's `relative()` box. `place` is `panels/toolbar`'s `tools`. */
 export const ToolOptions: HostComponent<{ place: "docked" | "top" | "bottom" }>;
-/** `Field`: a line of text the window holds, so the keys stay in it while a person types. With `control`, the model field of that id in `panels/dock` or `panels/tool_options` (an address, a size), which sends what is typed as the app's own does. Otherwise a mod's own field: what is typed is `shared("field/<id>")`, and each Return moves `shared("field/<id>/submit")` on by one. `value` is where it starts, and `autofocus` gives it the keys as it is made. A field is made once for its `id`: name it anew for a fresh one. Headless it is a placeholder. */
-export const Field: HostComponent<{ control?: string; id?: string; value?: string; placeholder?: string; autofocus?: boolean }>;
+/** `Field`: a line of text the window holds, so the keys stay in it while a person types. With `control`, the model field of that id in `panels/dock` or `panels/tool_options` (an address, a size), which sends what is typed as the app's own does. Otherwise a mod's own field: what is typed is `shared("field/<id>")`, and each Return moves `shared("field/<id>/submit")` on by one. `value` is where it starts, and `autofocus` gives it the keys as it is made. A field is made once for its `id`: name it anew for a fresh one. `radius`, `background` and `border` (colours as `colors()` names them, or `#rrggbb[aa]`) restyle its box, so a layout's fields match its look. Headless it is a placeholder. */
+export const Field: HostComponent<{ control?: string; id?: string; value?: string; placeholder?: string; autofocus?: boolean; radius?: number; background?: string; border?: string }>;
 /** `Swatch`: a dot of a canvas colour as the app's dock draws it. `color` is a colour as the panel keys and the \`.canvas\` file name it (`"neutral"`, `"3"`, `"#e0e0e0"`), never a CSS colour a mod's element takes: pass it here instead of to `bg()`. `palette` and `role` are the swatches control's own; `null` draws the hollow choice. */
 export const Swatch: HostComponent<{ color: string | null; palette?: "soft" | "vivid"; role?: "fill" | "ink"; size?: number }>;
 /** A paint as a layout block takes it: a colour, a gradient, or a repeating pattern over a base colour (1.2). */

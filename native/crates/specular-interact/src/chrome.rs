@@ -20,7 +20,7 @@ mod state;
 mod toggle;
 
 pub use self::layout::{Layout, LayoutError, LayoutFile, RegionNode, SHIPPED, SHIPPED_THEMES};
-pub use self::look::{Look, Resolved, ThemeChoice, ThemeFile};
+pub use self::look::{HiddenWord, Look, Resolved, ThemeChoice, ThemeFile, TrafficLights};
 pub use self::node::{Border, Content, Node, NodeKind, Padding, Size};
 pub use self::solve::{Frame, Gate, Placed, solve};
 pub(crate) use self::state::ChromeState;

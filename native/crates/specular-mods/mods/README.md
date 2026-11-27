@@ -146,7 +146,7 @@ lists the ids of controls to leave out, and a shipped mod honours it:
 `toolbarText`, `popup`, `hover`, `raisedFill`, `accent`, ...), as
 `#rrggbbaa` strings, with the layout's theme and `colors` over it. `look()`
 is the layout's look: `{appearance, theme, colors, font, fontSize,
-background}`.
+radius, background}`.
 `cx.theme().colors` has GPUI Kit's generic tokens too.
 
 `shared(key)` / `setShared(key, value)` pass small values between mods.
@@ -160,6 +160,7 @@ state. `commands()` lists them all; `notify(text, level)` writes a line to the
 app's log. The commands:
 
 - **app**: `app.quit`, `app.open-space`, `app.open`, `app.save`, `app.settings`, `app.hide`, `app.hide-others`, `app.minimize`, `app.command-palette`
+- **window**: `window.close`, `window.zoom`
 - **canvas**: `canvas.new`, `canvas.duplicate` `{canvas?: id}`, `canvas.delete` `{canvas?: id}`, `canvas.switch` `{canvas: id}`, `canvas.rename` `{name: text, canvas?: id}`, `canvas.begin-rename` `{canvas?: id}`
 - **edit**: `edit.cancel`, `edit.undo`, `edit.redo`, `edit.cut`, `edit.copy`, `edit.paste`, `edit.duplicate`, `edit.delete`, `edit.select-all`, `edit.select` `{ids?: [entity id], edges?: [edge id]}`, `edit.nudge` `{dx: number, dy: number}`
 - **item**: `item.add` `{kind: sticky|text|shape|mod, x: number, y: number, text?: string, mod?: name, props?: object, width?: number, height?: number}`, `item.set` `{id: mod item id, props: object}`, `item.draw` `{id: mod item id, draws: [{type: rect|ellipse|path|text|image, ..}]}`
@@ -213,7 +214,13 @@ the canvas is seen between them; blocks below or right sit beside it.
 
 **The look.** On the root: `theme` (a theme file's name, or
 `{ "light": ..., "dark": ... }`), `colors` (names over the theme's),
-`font`, `font_size` and `background` (shown round the canvas). The overlays
+`font`, `font_size`, `radius` (the corners of the app's own controls and
+popups, 6 by default) and `background` (shown round the canvas).
+`traffic_lights` moves the window's close, minimize and zoom buttons
+(`{ "x": 14, "y": 13 }`, the first button's corner from the window's
+top-left) or hides them (`"hidden"`) for a layout that draws its own with
+`window.close`, `app.minimize` and `window.zoom`. Left out, they sit where
+macOS puts them. The overlays
 `menu`, `share`, `toast`, `palette`, `welcome` and `dock` are keys of the
 root too: `{ "mod": name, "props": {} }`, or left out for the app's own.
 
@@ -238,7 +245,8 @@ can open (see their `main.js`).
 text the window holds: the keys stay in it while a person types, what is
 typed is `shared("field/<id>")`, and each Return moves
 `shared("field/<id>/submit")` on. With `{ control }` it is a model field of
-the dock (an address, a size). Commands a mod runs while one of its fields
+the dock (an address, a size). `radius`, `background` and `border` restyle
+its box to match the layout. Commands a mod runs while one of its fields
 has the keys leave them there.
 
 **Keys.** `keys.json` beside the layouts gives keys to commands, over the
@@ -337,7 +345,8 @@ Elements a mod places but cannot draw itself, imported from `specular`:
   its parent, painted with a paint (see "Patterns"): pinstripes, hatching,
   checks. Put it first in a `relative()` box and the content after it.
 - `Field`, `Field.new(id, { id, placeholder, value, autofocus })` or
-  `Field.new(id, { control })`: a line of text (see "Text").
+  `Field.new(id, { control })`: a line of text (see "Text"), restyled by
+  `radius`, `background` and `border`.
 
 ## The CLI
 

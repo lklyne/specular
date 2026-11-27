@@ -4,7 +4,8 @@
 
 use serde_json::json;
 use specular_interact::{
-    Content, Frame, Layout, LayoutFile, Overlay, Region, SHIPPED, Shown, Toggles, place,
+    Content, Frame, HiddenWord, Layout, LayoutFile, Overlay, Region, SHIPPED, Shown, Toggles,
+    TrafficLights, place,
 };
 
 #[test]
@@ -20,6 +21,30 @@ fn every_shipped_layout_reads_back_as_written() {
     let toggles =
         Toggles::parse(r#"{ "hidden": { "dock": true, "tool.page": false } }"#).expect("toggles");
     assert_eq!(Toggles::parse(&toggles.to_text()), Ok(toggles));
+}
+
+#[test]
+fn a_root_moves_or_hides_the_window_buttons_and_rounds_the_controls() {
+    let canvas = r#""children": [{ "id": "canvas", "type": "block", "content": "canvas" }]"#;
+    let read = |root: &str| {
+        Layout::parse(&format!(r#"{{ "type": "column", {root} {canvas} }}"#)).expect("a layout")
+    };
+    let hidden = read(r#""traffic_lights": "hidden", "radius": 0,"#);
+    assert_eq!(
+        hidden.look.traffic_lights,
+        TrafficLights::Hidden(HiddenWord::Hidden)
+    );
+    assert_eq!(hidden.look.radius, Some(0.0));
+    let moved = read(r#""traffic_lights": { "x": 10, "y": 6 },"#);
+    assert_eq!(
+        moved.look.traffic_lights,
+        TrafficLights::At { x: 10.0, y: 6.0 }
+    );
+    let native = read("");
+    assert!(native.look.traffic_lights.is_native());
+    for layout in [hidden, moved, native] {
+        assert_eq!(Layout::parse(&layout.to_text()), Ok(layout.clone()));
+    }
 }
 
 #[test]

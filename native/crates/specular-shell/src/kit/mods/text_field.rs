@@ -58,6 +58,7 @@ fn publish(revisions: &Rc<RefCell<Revisions>>, key: &str, value: Value, cx: &mut
 /// The field `props` asks for, made on first use.
 pub(crate) fn field(
     props: &HostValue,
+    style: crate::view::FieldStyle,
     revisions: &Rc<RefCell<Revisions>>,
     window: &mut Window,
     cx: &mut App,
@@ -116,8 +117,7 @@ pub(crate) fn field(
         });
         input
     });
-    Input::new(&input)
-        .small()
-        .text_size(px(13.0))
+    style
+        .over(Input::new(&input).small().text_size(px(13.0)))
         .into_any_element()
 }

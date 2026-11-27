@@ -60,9 +60,53 @@ pub struct Look {
     /// The chrome's text size, in points.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub font_size: Option<f32>,
+    /// The corner radius of the app's own controls and popups, in points.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub radius: Option<f32>,
     /// Painted behind the whole window where no block paints.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub background: Option<Value>,
+    /// Where macOS draws the window's close, minimize and zoom buttons.
+    #[serde(default, skip_serializing_if = "TrafficLights::is_native")]
+    pub traffic_lights: TrafficLights,
+}
+
+/// Where the window's close, minimize and zoom buttons are: where the app
+/// puts them, `"hidden"` for a layout that draws its own (with the
+/// `window.close`, `app.minimize` and `window.zoom` commands), or the
+/// first button's corner `{ "x": 14, "y": 13 }` in points from the
+/// window's top-left.
+#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum TrafficLights {
+    /// Where the app puts them.
+    #[default]
+    #[serde(skip)]
+    Native,
+    /// Not drawn.
+    Hidden(HiddenWord),
+    /// The first button's corner.
+    At {
+        /// Points from the window's left edge.
+        x: f32,
+        /// Points from the window's top edge.
+        y: f32,
+    },
+}
+
+/// The word `"hidden"`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum HiddenWord {
+    /// `"hidden"`.
+    Hidden,
+}
+
+impl TrafficLights {
+    /// Whether the app puts them where it always does.
+    pub const fn is_native(&self) -> bool {
+        matches!(self, Self::Native)
+    }
 }
 
 /// The look in force: the appearance drawn, the theme behind it, and every
@@ -132,6 +176,7 @@ impl Look {
             "colors": colors,
             "font": self.font,
             "fontSize": self.font_size,
+            "radius": self.radius,
             "background": self.background,
         })
     }

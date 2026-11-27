@@ -23,6 +23,10 @@ pub enum ShellCommand {
     HideOthers,
     /// Minimizes the window.
     Minimize,
+    /// Closes the window, as its close button does.
+    Close,
+    /// Zooms the window, as its zoom button does.
+    Zoom,
     /// Opens the command palette.
     CommandPalette,
 }

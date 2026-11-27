@@ -67,7 +67,7 @@ use gpui_kit::{
 };
 use specular_interact::{Action, CanvasAction, Event, SidebarAction, ToolsPlace};
 
-pub(crate) use self::field::{field as model_field, typed as typed_field};
+pub(crate) use self::field::{FieldStyle, field_styled as model_field, typed as typed_field};
 pub(crate) use self::named::{mark, shown as shown_controls};
 pub(crate) use self::palette::toggle as toggle_palette;
 pub(crate) use self::share::share_slot;
@@ -307,6 +307,9 @@ impl Render for ShellView {
         }
         named::begin_frame();
         let models = canvas::models();
+        if let Some(models) = models.as_ref() {
+            crate::window_buttons::apply(models.layout.look.traffic_lights, window);
+        }
         let size = window.viewport_size();
         let size = (f32::from(size.width), f32::from(size.height));
         let boxes = models.as_ref().map(|models| frame::boxes(models, size));
