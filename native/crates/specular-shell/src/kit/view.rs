@@ -383,6 +383,9 @@ impl Render for ShellView {
                 cx,
             ))
             .children(blocks)
+            .children(models.as_ref().and_then(|models| {
+                frame::window_border(models, crate::window_buttons::corner_radius(window))
+            }))
             .when_some(models.as_ref(), |root, models: &Models| {
                 root.when(models.regions.chat, |root| {
                     root.children(self.chat_resize_handle(&models.chat))

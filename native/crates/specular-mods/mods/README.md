@@ -224,7 +224,11 @@ popups and dialogs, 6 by default) and `background` (shown round the canvas).
 (`{ "x": 14, "y": 13 }`, the first button's corner from the window's
 top-left) or hides them (`"hidden"`) for a layout that draws its own with
 `window.close`, `app.minimize` and `window.zoom`. Left out, they sit where
-macOS puts them. The overlays
+macOS puts them. `window_border` (`{ "width": 1, "color": "#000" }`)
+draws a line round the whole window, over every block, rounded to the
+radius macOS gives the window's corners, so a square-cornered look keeps
+its edge where the corners cut it; with `"padding": [0, 6]` on the root
+the chrome sits clear of the curve. The overlays
 `menu`, `share`, `toast`, `palette`, `welcome` and `dock` are keys of the
 root too: `{ "mod": name, "props": {} }`, or left out for the app's own.
 

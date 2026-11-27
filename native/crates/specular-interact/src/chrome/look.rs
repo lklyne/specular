@@ -15,6 +15,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
 
+use super::node::Border;
 use crate::Appearance;
 
 /// The theme a layout names: one, or one for each appearance.
@@ -66,6 +67,10 @@ pub struct Look {
     /// Painted behind the whole window where no block paints.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub background: Option<Value>,
+    /// A line round the whole window, over every block, rounded as macOS
+    /// rounds the window's corners: `{"width": 1, "color": "#000"}`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub window_border: Option<Border>,
     /// Where macOS draws the window's close, minimize and zoom buttons.
     #[serde(default, skip_serializing_if = "TrafficLights::is_native")]
     pub traffic_lights: TrafficLights,

@@ -1,22 +1,28 @@
 //! The window's close, minimize and zoom buttons as a layout asks for them
 //! (ADR 0059): where the app puts them, somewhere else, or hidden for a
 //! layout whose own title bar draws them and runs `window.close`,
-//! `app.minimize` and `window.zoom`.
+//! `app.minimize` and `window.zoom`. And the radius macOS rounds the
+//! window's corners to, which a layout's window border follows.
 
 use std::cell::Cell;
 
 use gpui_kit::{Window, point, px};
-use objc2::msg_send;
 use objc2::runtime::{AnyObject, Bool};
+use objc2::{msg_send, sel};
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use specular_interact::TrafficLights;
 
 /// Where the app puts the first button's corner, in points.
 pub(crate) const NATIVE: (f32, f32) = (14.0, 13.0);
 
+/// The corner radius when the window will not say: macOS's before 26.
+const CORNER_RADIUS: f32 = 10.0;
+
 thread_local! {
     /// What was applied last, so a frame with the same look does nothing.
     static APPLIED: Cell<Option<TrafficLights>> = const { Cell::new(None) };
+    /// The window's corner radius, once read.
+    static CORNERS: Cell<Option<f32>> = const { Cell::new(None) };
 }
 
 /// The `NSWindow` GPUI's window is.
@@ -75,4 +81,34 @@ pub(crate) fn close(window: &Window) {
         let _: () =
             unsafe { msg_send![ns_window, performClose: std::ptr::null_mut::<AnyObject>()] };
     }
+}
+
+/// The radius, in points, macOS rounds the window's corners to. Read from
+/// the window's private `_cornerRadius`, which changes with the macOS
+/// release and the window's style, when it answers to it.
+pub(crate) fn corner_radius(window: &Window) -> f32 {
+    if let Some(radius) = CORNERS.with(Cell::get) {
+        return radius;
+    }
+    let Some(ns_window) = ns_window(window) else {
+        return CORNER_RADIUS;
+    };
+    // SAFETY: `respondsToSelector:` on a live window, on the main thread.
+    let answers: Bool = unsafe { msg_send![ns_window, respondsToSelector: sel!(_cornerRadius)] };
+    let radius = if answers.as_bool() {
+        // SAFETY: the window answers to `_cornerRadius`, which takes nothing
+        // and returns a `CGFloat`.
+        let radius: f64 = unsafe { msg_send![ns_window, _cornerRadius] };
+        #[expect(clippy::cast_possible_truncation, reason = "a corner radius in points")]
+        let radius = radius as f32;
+        if radius.is_finite() && radius >= 0.0 {
+            radius
+        } else {
+            CORNER_RADIUS
+        }
+    } else {
+        CORNER_RADIUS
+    };
+    CORNERS.with(|corners| corners.set(Some(radius)));
+    radius
 }

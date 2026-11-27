@@ -72,7 +72,7 @@ impl From<serde_json::Error> for LayoutError {
 }
 
 /// The keys only a layout's root has.
-const LOOK_KEYS: [&str; 8] = [
+const LOOK_KEYS: [&str; 9] = [
     "title",
     "theme",
     "colors",
@@ -81,6 +81,7 @@ const LOOK_KEYS: [&str; 8] = [
     "radius",
     "background",
     "traffic_lights",
+    "window_border",
 ];
 
 /// The layouts the app ships, by name, as their files hold them.

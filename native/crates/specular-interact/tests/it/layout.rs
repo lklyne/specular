@@ -24,7 +24,7 @@ fn every_shipped_layout_reads_back_as_written() {
 }
 
 #[test]
-fn a_root_moves_or_hides_the_window_buttons_and_rounds_the_controls() {
+fn a_root_moves_or_hides_the_window_buttons_borders_the_window_and_rounds_the_controls() {
     let canvas = r#""children": [{ "id": "canvas", "type": "block", "content": "canvas" }]"#;
     let read = |root: &str| {
         Layout::parse(&format!(r#"{{ "type": "column", {root} {canvas} }}"#)).expect("a layout")
@@ -35,7 +35,26 @@ fn a_root_moves_or_hides_the_window_buttons_and_rounds_the_controls() {
         TrafficLights::Hidden(HiddenWord::Hidden)
     );
     assert_eq!(hidden.look.radius, Some(0.0));
-    let moved = read(r#""traffic_lights": { "x": 10, "y": 6 },"#);
+    let moved = read(
+        r##""traffic_lights": { "x": 10, "y": 6 }, "padding": [0, 6],
+            "window_border": { "width": 1, "color": "#000" },"##,
+    );
+    let border = moved.look.window_border.as_ref().expect("a window border");
+    assert_eq!((border.width, border.color.as_str()), (1.0, "#000"));
+    let canvas = (place(
+        &moved,
+        &Toggles::default(),
+        shown(),
+        Frame::sized(800.0, 600.0),
+    ))
+    .into_iter()
+    .find(|placed| placed.node.content == Some(Content::Canvas))
+    .map(|placed| placed.frame);
+    assert_eq!(
+        canvas.map(|frame| (frame.x, frame.width)),
+        Some((6.0, 788.0)),
+        "the root's padding insets the chrome from the window's sides"
+    );
     assert_eq!(
         moved.look.traffic_lights,
         TrafficLights::At { x: 10.0, y: 6.0 }

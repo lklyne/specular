@@ -62,6 +62,22 @@ fn painted(node: &Node, frame: Frame) -> gpui_kit::Div {
     element
 }
 
+/// The layout's line round the whole window, over every block, rounded to
+/// `radius` so it follows the edge macOS cuts the window's corners on.
+pub(super) fn window_border(models: &Models, radius: f32) -> Option<AnyElement> {
+    let border = models.layout.look.window_border.as_ref()?;
+    let color = hsla(&border.color)?;
+    Some(
+        div()
+            .absolute()
+            .inset_0()
+            .rounded(px(radius))
+            .border(px(border.width))
+            .border_color(color)
+            .into_any_element(),
+    )
+}
+
 /// The window's background where the canvas is not: the four bands of
 /// `window` round `canvas`, painted with the layout's `background`.
 pub(super) fn backdrop(models: &Models, window: Frame, canvas: Frame) -> Vec<AnyElement> {
