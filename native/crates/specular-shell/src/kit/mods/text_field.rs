@@ -15,8 +15,8 @@ use std::rc::Rc;
 use gpui_kit::component::Sizable as _;
 use gpui_kit::component::input::{Input, InputEvent, InputState};
 use gpui_kit::{
-    AnyElement, App, AppContext as _, Entity, IntoElement as _, SharedString, Styled as _,
-    Subscription, Window, px,
+    AnyElement, App, AppContext as _, Entity, Focusable as _, IntoElement as _, SharedString,
+    Styled as _, Subscription, Window, px,
 };
 use serde_json::Value;
 use specular_mods::{HostValue, Revisions};
@@ -117,7 +117,8 @@ pub(crate) fn field(
         });
         input
     });
+    let focused = input.read(cx).focus_handle(cx).is_focused(window);
     style
-        .over(Input::new(&input).small().text_size(px(13.0)))
+        .over(Input::new(&input).small().text_size(px(13.0)), focused)
         .into_any_element()
 }

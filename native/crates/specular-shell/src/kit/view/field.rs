@@ -138,7 +138,9 @@ pub(super) fn input(model: &Field, address: bool, window: &mut Window, cx: &mut 
 }
 
 /// How a mod draws a field over the app's own look: its corner radius, its
-/// fill and its edge. Each left out keeps the app's.
+/// fill, its edge and its edge's colour while it has the keys. Each left out
+/// keeps the app's. A field a mod styles shows its focus on its own edge:
+/// the Kit's ring sits outside it, rounded, and would undo a square look.
 #[derive(Debug, Clone, Copy, Default)]
 pub(crate) struct FieldStyle {
     /// The corner radius, in points.
@@ -147,14 +149,29 @@ pub(crate) struct FieldStyle {
     pub background: Option<Hsla>,
     /// The edge's colour.
     pub border: Option<Hsla>,
+    /// The edge's colour while the field has the keys.
+    pub focus: Option<Hsla>,
 }
 
 impl FieldStyle {
-    pub(crate) fn over(self, input: Input) -> Input {
+    /// Whether a mod set any of it.
+    pub(crate) fn is_set(self) -> bool {
+        self.radius.is_some()
+            || self.background.is_some()
+            || self.border.is_some()
+            || self.focus.is_some()
+    }
+
+    pub(crate) fn over(self, input: Input, focused: bool) -> Input {
+        let focus = self
+            .focus
+            .unwrap_or_else(|| theme::solid(theme::focus_ring()));
         input
             .when_some(self.radius, |this, radius| this.rounded(px(radius)))
             .when_some(self.background, Styled::bg)
             .when_some(self.border, Styled::border_color)
+            .when(self.is_set(), |this| this.focus_bordered(false))
+            .when(self.is_set() && focused, |this| this.border_color(focus))
     }
 }
 
@@ -190,37 +207,40 @@ fn input_styled(
         // An address says what it is with its placeholder.
         .when(!address, |this| this.tooltip(crate::tip::view(label)))
         // An address is read and typed into more than a number is.
-        .child(style.over(if address {
-            // The Kit fills an input with the panel's colour, which is the
-            // bar's own: an address is set into the bar with the input's.
-            // The Kit's ring is wider than the room the bar leaves an
-            // address, which shows its focus with its edge and a line
-            // around that.
-            // The Kit's own `Input::h` sizes a multi-line input only.
-            Styled::h(Input::new(&input).small(), px(ADDRESS_HEIGHT))
-                .text_size(px(12.0))
-                .rounded_full()
-                .px_3()
-                .bg(theme::solid(theme::input()))
-                .focus_bordered(false)
-                .when(focused, |this| this.border_color(ring))
-        } else if model.width == FieldWidth::Wide {
-            Input::new(&input).small().text_size(px(12.0))
-        } else {
-            // A number sits in a row of a list, which is filled when it is
-            // the current one: the input's own colour sets it apart.
-            Input::new(&input)
-                .xsmall()
-                .bg(theme::solid(theme::input()))
-                .when_some(inside, |this, caption| {
-                    this.prefix(
-                        div()
-                            .text_color(theme::tinted(theme::text_muted()))
-                            .child(caption),
-                    )
-                })
-        }))
-        .when(address && focused, |this| {
+        .child(style.over(
+            if address {
+                // The Kit fills an input with the panel's colour, which is the
+                // bar's own: an address is set into the bar with the input's.
+                // The Kit's ring is wider than the room the bar leaves an
+                // address, which shows its focus with its edge and a line
+                // around that.
+                // The Kit's own `Input::h` sizes a multi-line input only.
+                Styled::h(Input::new(&input).small(), px(ADDRESS_HEIGHT))
+                    .text_size(px(12.0))
+                    .rounded_full()
+                    .px_3()
+                    .bg(theme::solid(theme::input()))
+                    .focus_bordered(false)
+                    .when(focused, |this| this.border_color(ring))
+            } else if model.width == FieldWidth::Wide {
+                Input::new(&input).small().text_size(px(12.0))
+            } else {
+                // A number sits in a row of a list, which is filled when it is
+                // the current one: the input's own colour sets it apart.
+                Input::new(&input)
+                    .xsmall()
+                    .bg(theme::solid(theme::input()))
+                    .when_some(inside, |this, caption| {
+                        this.prefix(
+                            div()
+                                .text_color(theme::tinted(theme::text_muted()))
+                                .child(caption),
+                        )
+                    })
+            },
+            focused,
+        ))
+        .when(address && focused && !style.is_set(), |this| {
             this.child(
                 div()
                     .absolute()

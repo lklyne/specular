@@ -76,6 +76,12 @@ pub(crate) fn radius() -> f32 {
     HELD.with_borrow(|held| held.radius).unwrap_or(6.0).max(0.0)
 }
 
+/// The corner radius of panels that float over the window, such as dialogs:
+/// [`radius`] scaled as the Kit scales its large radius.
+pub(crate) fn radius_large() -> f32 {
+    radius() * 10.0 / 6.0
+}
+
 /// A colour a layout writes: `#rrggbb[aa]`, or a colour's name as a mod's
 /// `colors()` has it (`sidebar`, `toolbarBorder`, `accent`).
 pub(crate) fn color(text: &str) -> Option<u32> {

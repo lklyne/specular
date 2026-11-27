@@ -330,7 +330,7 @@ export function colors(): {
   divider: string; keyText: string; sidebar: string; sidebarRule: string; interactive: string;
   interactiveHover: string; raisedFill: string; raisedRim: string; raisedShadowNear: string;
   raisedShadowFar: string; tabHover: string; primary: string; primaryHover: string;
-  primaryForeground: string; error: string; warning: string; backdrop: string; accent: string;
+  primaryForeground: string; error: string; warning: string; focusRing: string; backdrop: string; accent: string;
   [name: string]: string;
 };
 
@@ -355,8 +355,8 @@ export const Icon: HostComponent<{ name: any; size?: number; color?: string; tin
 export const Zoom: HostComponent<{ compact?: boolean }>;
 /** `ToolOptions`: the options of the tool in hand, beside its button: place it inside the button's `relative()` box. `place` is `panels/toolbar`'s `tools`. */
 export const ToolOptions: HostComponent<{ place: "docked" | "top" | "bottom" }>;
-/** `Field`: a line of text the window holds, so the keys stay in it while a person types. With `control`, the model field of that id in `panels/dock` or `panels/tool_options` (an address, a size), which sends what is typed as the app's own does. Otherwise a mod's own field: what is typed is `shared("field/<id>")`, and each Return moves `shared("field/<id>/submit")` on by one. `value` is where it starts, and `autofocus` gives it the keys as it is made. A field is made once for its `id`: name it anew for a fresh one. `radius`, `background` and `border` (colours as `colors()` names them, or `#rrggbb[aa]`) restyle its box, so a layout's fields match its look. Headless it is a placeholder. */
-export const Field: HostComponent<{ control?: string; id?: string; value?: string; placeholder?: string; autofocus?: boolean; radius?: number; background?: string; border?: string }>;
+/** `Field`: a line of text the window holds, so the keys stay in it while a person types. With `control`, the model field of that id in `panels/dock` or `panels/tool_options` (an address, a size), which sends what is typed as the app's own does. Otherwise a mod's own field: what is typed is `shared("field/<id>")`, and each Return moves `shared("field/<id>/submit")` on by one. `value` is where it starts, and `autofocus` gives it the keys as it is made. A field is made once for its `id`: name it anew for a fresh one. `radius`, `background`, `border` and `focusRing` (colours as `colors()` names them, or `#rrggbb[aa]`) restyle its box, so a layout's fields match its look; a field styled this way shows its focus by turning its own edge `focusRing` (the theme's `focusRing` by default) instead of drawing the app's rounded ring. Headless it is a placeholder. */
+export const Field: HostComponent<{ control?: string; id?: string; value?: string; placeholder?: string; autofocus?: boolean; radius?: number; background?: string; border?: string; focusRing?: string }>;
 /** `Swatch`: a dot of a canvas colour as the app's dock draws it. `color` is a colour as the panel keys and the \`.canvas\` file name it (`"neutral"`, `"3"`, `"#e0e0e0"`), never a CSS colour a mod's element takes: pass it here instead of to `bg()`. `palette` and `role` are the swatches control's own; `null` draws the hollow choice. */
 export const Swatch: HostComponent<{ color: string | null; palette?: "soft" | "vivid"; role?: "fill" | "ink"; size?: number }>;
 /** A paint as a layout block takes it: a colour, a gradient, or a repeating pattern over a base colour (1.2). */

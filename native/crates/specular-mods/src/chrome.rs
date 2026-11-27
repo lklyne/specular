@@ -37,9 +37,9 @@ pub(crate) fn appearance_of(theme: Option<&Value>) -> Appearance {
 /// What only the Kit draws: the raised face of the control that is on and
 /// the primary button, the same values as `specular-shell/src/kit/theme.rs`
 /// (`raised_fill`, `raised_rim`, `raised_shadow`, `tab_hover`, `primary`,
-/// `primary_hover`, `primary_foreground`, `error`), light then dark, and
+/// `primary_hover`, `primary_foreground`, `error`, `focus_ring`), light then dark, and
 /// the warning amber the notices use (Tailwind's amber-600 and -400).
-const RAISED: [(&str, u32, u32); 10] = [
+const RAISED: [(&str, u32, u32); 11] = [
     ("raisedFill", 0xede9_e7ff, 0x5450_4bff),
     ("raisedRim", 0x0000_0014, 0xffff_ff26),
     ("raisedShadowNear", 0x0000_001a, 0x0000_0040),
@@ -50,6 +50,7 @@ const RAISED: [(&str, u32, u32); 10] = [
     ("primaryForeground", 0xfafa_f9ff, 0x1c19_17ff),
     ("error", 0xe700_0bff, 0xff64_67ff),
     ("warning", 0xd977_06ff, 0xfbbf_24ff),
+    ("focusRing", 0x2b7f_ffff, 0x51a2_ffff),
 ];
 
 /// Every colour a mod may draw the chrome with, by name.

@@ -168,7 +168,7 @@ fn pattern(props: &HostValue) -> AnyElement {
         .into_any_element()
 }
 
-/// A `Field`'s `radius`, `background` and `border` props, over the app's
+/// A `Field`'s `radius`, `background`, `border` and `focusRing` props, over the app's
 /// own look of a field.
 fn field_style(props: &HostValue) -> crate::view::FieldStyle {
     let color = |key: &str| {
@@ -184,5 +184,6 @@ fn field_style(props: &HostValue) -> crate::view::FieldStyle {
             .map(|radius| radius as f32),
         background: color("background"),
         border: color("border"),
+        focus: color("focusRing"),
     }
 }

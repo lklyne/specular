@@ -215,7 +215,7 @@ the canvas is seen between them; blocks below or right sit beside it.
 **The look.** On the root: `theme` (a theme file's name, or
 `{ "light": ..., "dark": ... }`), `colors` (names over the theme's),
 `font`, `font_size`, `radius` (the corners of the app's own controls and
-popups, 6 by default) and `background` (shown round the canvas).
+popups and dialogs, 6 by default) and `background` (shown round the canvas).
 `traffic_lights` moves the window's close, minimize and zoom buttons
 (`{ "x": 14, "y": 13 }`, the first button's corner from the window's
 top-left) or hides them (`"hidden"`) for a layout that draws its own with
@@ -245,9 +245,11 @@ can open (see their `main.js`).
 text the window holds: the keys stay in it while a person types, what is
 typed is `shared("field/<id>")`, and each Return moves
 `shared("field/<id>/submit")` on. With `{ control }` it is a model field of
-the dock (an address, a size). `radius`, `background` and `border` restyle
-its box to match the layout. Commands a mod runs while one of its fields
-has the keys leave them there.
+the dock (an address, a size). `radius`, `background`, `border` and
+`focusRing` restyle its box to match the layout; a styled field shows its
+focus by turning its own edge `focusRing`, with no rounded ring outside it.
+A layout's `colors` can rename `focusRing` for every field and control.
+Commands a mod runs while one of its fields has the keys leave them there.
 
 **Keys.** `keys.json` beside the layouts gives keys to commands, over the
 app's: sections `global`, `canvas`, `editing`, `page` and
@@ -346,7 +348,7 @@ Elements a mod places but cannot draw itself, imported from `specular`:
   checks. Put it first in a `relative()` box and the content after it.
 - `Field`, `Field.new(id, { id, placeholder, value, autofocus })` or
   `Field.new(id, { control })`: a line of text (see "Text"), restyled by
-  `radius`, `background` and `border`.
+  `radius`, `background`, `border` and `focusRing`.
 
 ## The CLI
 

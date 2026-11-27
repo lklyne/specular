@@ -125,6 +125,7 @@ macro_rules! panel_colors {
                 "primaryHover" => Some(primary_hover()),
                 "primaryForeground" => Some(primary_foreground()),
                 "error" => Some(error()),
+                "focusRing" => Some(focus_ring()),
                 "accent" => Some(crate::look::over("accent").unwrap_or_else(focus_ring)),
                 _ => None,
             }
@@ -200,9 +201,10 @@ pub(crate) fn raised_shade() -> u32 {
     pick(0x0000_000a, 0x0000_0033)
 }
 
-/// `--surface-focus-ring`: blue-500, blue-400 in the dark.
+/// `--surface-focus-ring`: blue-500, blue-400 in the dark, unless the
+/// layout names a `focusRing`.
 pub(crate) fn focus_ring() -> u32 {
-    pick(0x2b7f_ffff, 0x51a2_ffff)
+    crate::look::over("focusRing").unwrap_or_else(|| pick(0x2b7f_ffff, 0x51a2_ffff))
 }
 
 /// `--surface-primary`: stone-900, stone-100 in the dark.
@@ -370,9 +372,8 @@ pub(crate) fn apply(appearance: Appearance, cx: &mut App) {
         theme.font_family = (crate::look::font())
             .map_or_else(|| specular_compositor::SANS_FAMILY.into(), Into::into);
         theme.mono_font_family = specular_compositor::MONO_FAMILY.into();
-        let radius = crate::look::radius();
-        theme.radius = px(radius);
-        theme.radius_lg = px(radius * 10.0 / 6.0);
+        theme.radius = px(crate::look::radius());
+        theme.radius_lg = px(crate::look::radius_large());
         theme.shadow = true;
 
         theme.background = solid(panel());
