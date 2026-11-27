@@ -245,7 +245,7 @@ popups and dialogs and every mod draw with, so a look is one file:
 all, pills included), `font` and `font_size` set the chrome's text, and
 `colors` renames any colour `colors()` lists (`#rgb`, `#rgba`, `#rrggbb`,
 `#rrggbbaa`). `hover` is a hovered row's fill and `hoverText` its text;
-`on` a selected one's. A layout's own `radius`, `font`, `font_size` and
+`on` and `onText` a selected one's. A layout's own `radius`, `font`, `font_size` and
 `colors` go over its theme's. A mod reads them all through `colors()` and
 `look()`.
 

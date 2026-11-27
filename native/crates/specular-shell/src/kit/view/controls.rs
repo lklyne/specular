@@ -63,12 +63,18 @@ pub(super) fn hint(label: &str, chord: Option<Chord>) -> SharedString {
 /// What a control shows: its glyph, its word, or a dot of its colour. A control that is on is drawn in the full text
 /// colour and one at rest in the muted one.
 pub(super) fn face(face: &Face, on: bool) -> AnyElement {
-    face_in(face, on, None)
+    face_in(face, on, false, None)
 }
 
-/// [`face`] on a row of the group `hovered`, whose word takes the
-/// `hoverText` colour while the pointer is on the row.
-pub(super) fn face_in(face: &Face, on: bool, hovered: Option<SharedString>) -> AnyElement {
+/// [`face`] on a row: `filled` when the row has the `on` fill, whose word
+/// then takes the `onText` colour, and of the group `hovered`, whose word
+/// takes the `hoverText` colour while the pointer is on the row.
+pub(super) fn face_in(
+    face: &Face,
+    on: bool,
+    filled: bool,
+    hovered: Option<SharedString>,
+) -> AnyElement {
     let tint =
         (face.color.as_ref()).map(|color| glyphs::resolved(color, Palette::Vivid, PaintRole::Ink));
     let mut row = h_flex().gap_1().items_center();
@@ -88,7 +94,9 @@ pub(super) fn face_in(face: &Face, on: bool, hovered: Option<SharedString>) -> A
         row = row.child(glyph(icon, current, tint, on, size));
     }
     if let Some(text) = &face.text {
-        let color = if on {
+        let color = if filled {
+            theme::solid(theme::on_text())
+        } else if on {
             theme::solid(theme::text())
         } else {
             theme::tinted(theme::text_muted())

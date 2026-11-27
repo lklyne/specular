@@ -127,6 +127,7 @@ macro_rules! panel_colors {
                 "error" => Some(error()),
                 "focusRing" => Some(focus_ring()),
                 "hoverText" => Some(hover_text()),
+                "onText" => Some(on_text()),
                 "accent" => Some(crate::look::over("accent").unwrap_or_else(focus_ring)),
                 _ => None,
             }
@@ -212,6 +213,12 @@ pub(crate) fn focus_ring() -> u32 {
 /// names a `hoverText` for a `hover` too dark or too light for it.
 pub(crate) fn hover_text() -> u32 {
     crate::look::over("hoverText").unwrap_or_else(text)
+}
+
+/// The text of a row or control that is on, over the `on` fill: the text
+/// colour, unless the theme names an `onText`.
+pub(crate) fn on_text() -> u32 {
+    crate::look::over("onText").unwrap_or_else(text)
 }
 
 /// `--surface-primary`: stone-900, stone-100 in the dark.
@@ -423,7 +430,7 @@ pub(crate) fn apply(appearance: Appearance, cx: &mut App) {
         theme.secondary_active = solid(control_on());
         theme.secondary_foreground = solid(text());
         theme.accent = solid(control_on());
-        theme.accent_foreground = solid(hover_text());
+        theme.accent_foreground = solid(on_text());
 
         theme.popover = solid(popup());
         theme.popover_foreground = solid(text());

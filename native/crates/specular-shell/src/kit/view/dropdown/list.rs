@@ -123,6 +123,7 @@ fn option(
         .child(face_in(
             &model.face,
             model.selected || menu,
+            model.selected && !menu,
             Some(element_id(&model.id)),
         ))
         .child(mark(&model.id))
