@@ -292,6 +292,10 @@ impl Canvas {
         if let Some(scale) = rescaled {
             self.runtime.on_scale_factor_changed(f64::from(scale));
         }
+        if self.runtime.window().map(CanvasSurface::pixel_size) != configured {
+            // A surface at a new size holds nothing until it is drawn.
+            self.runtime.redraw();
+        }
         self.runtime.turn();
         let mut bench_turn = None;
         match self.bench.as_mut() {
@@ -363,6 +367,11 @@ impl Canvas {
     }
 
     /// The canvas slot's place in the window, from GPUI's layout.
+    ///
+    /// During a live resize GPUI lays out and paints inside each step of the
+    /// drag and presents in that step's transaction. So the canvas draws its
+    /// frame for the new size here and now, in the same transaction, rather
+    /// than at the display link's next tick, which is a frame or more late.
     pub(crate) fn set_slot(&mut self, origin: glam::Vec2, size: glam::Vec2) {
         let resized =
             (self.runtime.window_mut()).is_some_and(|surface| surface.set_slot(origin, size));
@@ -372,6 +381,10 @@ impl Canvas {
             if let Some(viewport) = viewport {
                 self.dispatch(Event::ViewportResized(viewport));
             }
+        }
+        if (self.runtime.window()).is_some_and(CanvasSurface::live_resizing) {
+            self.rest_until = None;
+            self.frame();
         }
     }
 }
