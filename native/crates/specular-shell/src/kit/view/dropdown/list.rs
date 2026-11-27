@@ -132,9 +132,14 @@ fn option(
         })
         .when_some(trailing, |this, text| {
             let group = element_id(&model.id);
+            let color = if model.selected && !menu {
+                theme::solid(theme::on_text())
+            } else {
+                theme::tinted(theme::text_muted())
+            };
             this.child(
                 div()
-                    .text_color(theme::tinted(theme::text_muted()))
+                    .text_color(color)
                     .group_hover(group, |this| {
                         this.text_color(theme::solid(theme::hover_text()))
                     })

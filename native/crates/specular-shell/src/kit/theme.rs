@@ -11,7 +11,7 @@ use std::cell::Cell;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use gpui_kit::component::{Theme, ThemeMode};
-use gpui_kit::{App, Hsla, Pixels, Rgba, WindowAppearance, px, rgba};
+use gpui_kit::{App, Hsla, Pixels, Rgba, Styled, WindowAppearance, px, rgba};
 use specular_interact::{Appearance, Theme as Choice};
 use specular_scene::{Color, Colors};
 
@@ -172,6 +172,18 @@ panel_colors! {
     dot_edge => dot_edge, "dotEdge";
     /// The ring of a selected swatch too pale to ring itself.
     ring_gray => ring_gray, "ringGray";
+}
+
+/// Every list that opens over the window, a dropdown's, a submenu's or a
+/// context menu's: the `popup` fill inside a `popupBorder` line, with the
+/// layout's large corner and a shadow, so a theme styles them all at once.
+pub(crate) fn popup_surface<E: Styled>(element: E) -> E {
+    element
+        .bg(solid(popup()))
+        .border_1()
+        .border_color(solid(chrome_border()))
+        .rounded(px(crate::look::radius_large()))
+        .shadow_md()
 }
 
 /// The fill of a raised control (`view/raised.rs`): the tool fill at 60%

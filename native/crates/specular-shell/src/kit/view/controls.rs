@@ -337,7 +337,7 @@ pub(super) fn in_list(model: &Control, window: &mut Window, cx: &mut App) -> Any
     match model {
         Control::Button(model) if labelled(&model.face) => button(model, true),
         Control::Toggle(model) if labelled(&model.face) => toggle(model, true),
-        Control::Dropdown(model) => dropdown_row(model),
+        Control::Dropdown(model) => dropdown_row(model, cx),
         Control::Button(_)
         | Control::Toggle(_)
         | Control::Swatches(_)
