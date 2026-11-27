@@ -34,6 +34,9 @@ impl<W: ShellWindow> Runtime<W> {
     pub(super) fn shoot(&mut self, shot: &Screenshot) -> Result<Value, String> {
         let (png, width, height) = match &shot.area {
             ShotArea::Window => self.shoot_window()?,
+            ShotArea::Whole => (self.gpu.as_mut().ok_or("the window is not open yet")?)
+                .capture_whole()
+                .map_err(|error| format!("{error:#}"))?,
             ShotArea::Canvas(rect) => self.shoot_canvas(*rect, None)?,
             ShotArea::Page {
                 page,

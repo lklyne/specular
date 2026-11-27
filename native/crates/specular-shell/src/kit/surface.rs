@@ -349,6 +349,10 @@ impl ShellWindow for CanvasSurface {
         self.capture_area(camera, self.slot_size, scene, page_of)
     }
 
+    fn capture_whole(&mut self) -> anyhow::Result<(Vec<u8>, u32, u32)> {
+        crate::whole_shot::capture(self.native.window_number())
+    }
+
     fn capture_area(
         &mut self,
         camera: Camera,

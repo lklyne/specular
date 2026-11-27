@@ -352,6 +352,14 @@ export const Zoom: HostComponent<{ compact?: boolean }>;
 export const ToolOptions: HostComponent<{ place: "docked" | "top" | "bottom" }>;
 /** `Field`: a line of text the window holds, so the keys stay in it while a person types. With `control`, the model field of that id in `panels/dock` or `panels/tool_options` (an address, a size), which sends what is typed as the app's own does. Otherwise a mod's own field: what is typed is `shared("field/<id>")`, and each Return moves `shared("field/<id>/submit")` on by one. `value` is where it starts, and `autofocus` gives it the keys as it is made. A field is made once for its `id`: name it anew for a fresh one. Headless it is a placeholder. */
 export const Field: HostComponent<{ control?: string; id?: string; value?: string; placeholder?: string; autofocus?: boolean }>;
+/** A paint as a layout block takes it: a colour, a gradient, or a repeating pattern over a base colour (1.2). */
+export type Paint =
+  | string
+  | { gradient: [string, string]; angle?: number }
+  | { from: string; to: string; angle?: number }
+  | { color?: string; pattern: "stripes" | "hatch" | "checker"; ink: string; width?: number; gap?: number; size?: number; direction?: "horizontal" | "vertical" };
+/** `Pattern`: a box filling its parent (place it in a `relative()` box), painted with `paint`: pinstripes, hatching, a checked desktop. Hatching and checks are one GPU fill; stripes are a box each, at most 400, reaching `width` and `height` (the window's size when left out). Headless it is a placeholder. */
+export const Pattern: HostComponent<{ paint: Paint; width?: number; height?: number }>;
 /** `Favicon`: a tab's glyph: the page's own icon once the window has it, else the panel glyph `icon` (`tabs[].icon`) as `Icon` draws it. `tab` is the tab's id. */
 export const Favicon: HostComponent<{ tab: string; icon: any; size?: number; color?: string; control?: string }>;
 /** `WindowDrag`: bare title bar. A press that moves drags the window, and a double click does what the system says a title bar's does. It fills the box it is put in. */

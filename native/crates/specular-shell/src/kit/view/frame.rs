@@ -8,15 +8,15 @@
 
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
-    AnyElement, Context, Hsla, InteractiveElement as _, IntoElement as _, ParentElement as _,
-    SharedString, Styled as _, Window, div, linear_color_stop, linear_gradient, px,
+    AnyElement, Context, InteractiveElement as _, IntoElement as _, ParentElement as _,
+    SharedString, Styled as _, Window, div, px,
 };
-use serde_json::Value;
 use specular_interact::{Content, Frame, Node, Region, place};
 
 use super::{ShellView, tabs, toolbar};
 use crate::canvas::Models;
-use crate::{look, theme};
+use crate::paint::{hsla, paint};
+use crate::theme;
 
 /// Every node shown in a window `size` points across, and where.
 pub(super) fn boxes(models: &Models, size: (f32, f32)) -> Vec<(Node, Frame)> {
@@ -38,38 +38,6 @@ pub(super) fn canvas_frame(boxes: &[(Node, Frame)]) -> Frame {
         .map_or_else(Frame::default, |(_, frame)| *frame)
 }
 
-fn hsla(text: &str) -> Option<Hsla> {
-    look::color(text).map(theme::solid)
-}
-
-/// `element` painted with `background`: a colour, or a gradient
-/// `{"gradient": [from, to], "angle": deg}`.
-fn background<E: gpui_kit::Styled>(element: E, background: Option<&Value>) -> E {
-    match background {
-        Some(Value::String(color)) => match hsla(color) {
-            Some(color) => element.bg(color),
-            None => element,
-        },
-        Some(Value::Object(fields)) => {
-            let stops: Vec<Hsla> = (fields.get("gradient").and_then(Value::as_array))
-                .into_iter()
-                .flatten()
-                .filter_map(|stop| hsla(stop.as_str()?))
-                .collect();
-            let angle = fields.get("angle").and_then(Value::as_f64).unwrap_or(180.0) as f32;
-            match stops.as_slice() {
-                [from, to, ..] => element.bg(linear_gradient(
-                    angle,
-                    linear_color_stop(*from, 0.0),
-                    linear_color_stop(*to, 1.0),
-                )),
-                _ => element,
-            }
-        }
-        _ => element,
-    }
-}
-
 /// The box `frame`, painted as `node` says.
 fn painted(node: &Node, frame: Frame) -> gpui_kit::Div {
     let mut element = div()
@@ -78,7 +46,11 @@ fn painted(node: &Node, frame: Frame) -> gpui_kit::Div {
         .top(px(frame.y))
         .w(px(frame.width))
         .h(px(frame.height));
-    element = background(element, node.background.as_ref());
+    element = paint(
+        element,
+        node.background.as_ref(),
+        (frame.width, frame.height),
+    );
     if let Some(border) = &node.border
         && let Some(color) = hsla(&border.color)
     {
@@ -93,7 +65,7 @@ fn painted(node: &Node, frame: Frame) -> gpui_kit::Div {
 /// The window's background where the canvas is not: the four bands of
 /// `window` round `canvas`, painted with the layout's `background`.
 pub(super) fn backdrop(models: &Models, window: Frame, canvas: Frame) -> Vec<AnyElement> {
-    let Some(paint) = models.layout.look.background.as_ref() else {
+    let Some(fill) = models.layout.look.background.as_ref() else {
         return Vec::new();
     };
     let bands = [
@@ -120,14 +92,15 @@ pub(super) fn backdrop(models: &Models, window: Frame, canvas: Frame) -> Vec<Any
     (bands.into_iter())
         .filter(|band| band.width > 0.0 && band.height > 0.0)
         .map(|band| {
-            background(
+            paint(
                 div()
                     .absolute()
                     .left(px(band.x))
                     .top(px(band.y))
                     .w(px(band.width))
                     .h(px(band.height)),
-                Some(paint),
+                Some(fill),
+                (band.width, band.height),
             )
             .into_any_element()
         })

@@ -76,4 +76,10 @@ pub trait ShellWindow {
 
     /// The window's title, and whether it shows unsaved changes.
     fn set_title(&self, title: &str, unsaved: bool);
+
+    /// The whole window as the screen shows it, panels and all, as a PNG
+    /// with its size in device pixels. Only a window on screen has one.
+    fn capture_whole(&mut self) -> anyhow::Result<(Vec<u8>, u32, u32)> {
+        anyhow::bail!("only the app's window on screen can be shot whole")
+    }
 }

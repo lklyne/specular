@@ -63,7 +63,7 @@ fn placed(spec: &OverlaySpec, panel: gpui_kit::Div, window: (f32, f32)) -> AnyEl
                 Some("top") => layer.items_start().pt(px(TOP)),
                 _ => layer.items_center(),
             })
-            .bg(theme::tinted(theme::backdrop()))
+            .bg(theme::tinted(theme::scrim()))
             .child(panel)
             .into_any_element(),
         OverlayKind::Popup => layer.child(at(panel)).into_any_element(),

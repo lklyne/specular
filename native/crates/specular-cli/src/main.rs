@@ -45,7 +45,7 @@ Browse: snapshot, click, fill, type, select, screenshot, scroll, wait
 Annotations: annotations, annotation, annotate, annotate-selection, ack, resolve, dismiss, reply
 Commands: commands, run <name> [json-args]   e.g. run tool.set '{\"tool\":\"draw\"}'
 State: state [key]   e.g. state panels/toolbar
-Shot: shot [file.png]   the canvas as the window shows it, as a PNG
+Shot: shot [file.png] [--whole]   the canvas as the window shows it, as a PNG; --whole adds the panels
 Mods: mod check <dir> [--state fixture.json], mod clone <name> [new-name] [--use],
       mod stats, mod state [key]
 Other: breakpoints, apply, upsert, link, unlink, auto-layout, find-placement

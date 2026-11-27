@@ -96,8 +96,9 @@ specular mod stats
 specular shot /tmp/mod.png   # then look at the picture
 ```
 
-`check` loads the mod with no window, renders it once against the app's
-state (or `--state fixture.json`, from `specular state > fixture.json`), and
+`check` loads the mod with no window, renders it once against the running
+app's state (a fresh app's when none answers; it says which on stderr), or
+`--state fixture.json` from `specular state > fixture.json`, and
 prints its element tree and its `console.log` lines. It exits nonzero with
 the exact error and writes `<name>.error`. Never call a mod done without a
 passing check.
@@ -111,9 +112,12 @@ Then run what you built (`specular run tool.set '{"tool":"<mod>/<tool>"}'`,
 
 `specular shot [file.png]` saves the canvas as the window shows it and
 prints its absolute path (default: `specular-shot.png` in your current
-folder). It has your items and your tool's preview, not the panels around
-the canvas: check a panel mod in the window itself, or ask the person to.
-It needs a running app with an open window.
+folder). It has your items and your tool's preview, not the panels.
+`specular shot --whole [file.png]` saves the whole window as the screen
+shows it, panels, layout and theme included: use it to check a panel mod,
+a layout or a look. macOS asks the person once to let Specular record the
+screen; if the shot fails, ask them to allow it. Both need a running app
+with an open window.
 
 ## Problems and safety
 

@@ -110,6 +110,7 @@ pub(super) fn components(revisions: Rc<RefCell<Revisions>>) -> Components {
             marked(control, shown)
         })
         .with("WindowDrag", |_, _, _| crate::view::window_drag())
+        .with("Pattern", |args, _, _| pattern(args.props()))
         .with("Share", |_, _, _| crate::view::share_slot())
         .with("Prism", |_, _, _| {
             crate::mods::hero().map_or_else(
@@ -148,4 +149,20 @@ pub(super) fn components(revisions: Rc<RefCell<Revisions>>) -> Components {
         .with("ToolOptions", |_, window, cx| {
             crate::view::tool_options(window, cx).unwrap_or_else(|| div().into_any_element())
         })
+}
+
+/// `Pattern({ paint, width, height })`: a box filling its parent, painted
+/// as a layout paints a block (`crate::paint`). `width` and `height` say
+/// how far stripes must reach; the window's size when left out.
+fn pattern(props: &HostValue) -> AnyElement {
+    let paint = props.get("paint").map(specular_mods::from_host);
+    let reach = |key: &str| {
+        props
+            .get(key)
+            .and_then(HostValue::as_number)
+            .map_or(1600.0, |value| value as f32)
+    };
+    let element = div().absolute().left_0().top_0().size_full();
+    crate::paint::paint(element, paint.as_ref(), (reach("width"), reach("height")))
+        .into_any_element()
 }

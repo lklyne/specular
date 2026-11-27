@@ -5,7 +5,9 @@
 //!
 //! The check needs a GPUI runtime, which this command keeps out of itself:
 //! it runs `specular-mod-check`, found as `SPECULAR_MOD_CHECK` names it,
-//! else beside this executable, else on the `PATH`.
+//! else beside this executable (the app bundle has it there), else on the
+//! `PATH`. With no `--state` it renders against the running app's state,
+//! or a fresh app's when no app answers, and says which.
 
 use std::path::PathBuf;
 use std::process::Command;
@@ -44,15 +46,39 @@ pub(crate) fn check(args: &Args) -> anyhow::Result<i32> {
     };
     let mut command = Command::new(checker());
     command.arg(dir);
-    if let Some(state) = args.flag("state") {
-        command.args(["--state", state]);
+    let mut scratch = None;
+    match args.flag("state") {
+        Some(state) => {
+            command.args(["--state", state]);
+        }
+        None => match running_state() {
+            Some(path) => {
+                eprintln!("checking against the running app's state");
+                command.arg("--state").arg(&path);
+                scratch = Some(path);
+            }
+            None => eprintln!("no app answered: checking against a fresh app's state"),
+        },
     }
-    match command.status() {
+    let status = command.status();
+    if let Some(path) = scratch {
+        let _ = std::fs::remove_file(path);
+    }
+    match status {
         Ok(status) => Ok(status.code().unwrap_or(1)),
         Err(error) => refuse(&format!(
             "could not run {CHECKER} ({error}); build it with `cargo build -p specular-mod-check`, or name it with SPECULAR_MOD_CHECK"
         )),
     }
+}
+
+/// The running app's state written to a scratch file, or `None` when no
+/// app answers.
+fn running_state() -> Option<PathBuf> {
+    let state = Client::new(None).get("/state").ok()?;
+    let path = std::env::temp_dir().join(format!("specular-mod-check-{}.json", std::process::id()));
+    std::fs::write(&path, serde_json::to_vec(&state).ok()?).ok()?;
+    Some(path)
 }
 
 /// `mod stats` and `mod state [key]`.

@@ -58,7 +58,9 @@ rewritten on every start to match this version.
 and prints its absolute path (default: `specular-shot.png` in your current
 folder). Use it when debugging items and tools: inspect spacing, colours and
 previews. It captures the canvas, not the panels around it, even when the
-window is covered. Specular must be running with an open window.
+window is covered. `specular shot --whole` captures the whole window as the
+screen shows it, panels, layout and look included (macOS asks once to let
+Specular record the screen). Specular must be running with an open window.
 
 ## A mod in one screen
 
@@ -185,8 +187,8 @@ look on it. A node is a `row`, a `column`, a `stack` (shows one child, its
 `{ "mod": name, "props": {} }` or `{ "panel": "tabs"|"toolbar"|"sidebar"|"chat" }`
 (the app's own). Each node may have an `id`, a `size` (`{ "px": 256 }` or
 `{ "weight": 2 }`, the rest shared by weight), `min`, `max`, `hidden`,
-`background` (a colour, a colour name such as `"toolbar"`, or a gradient
-`{ "from": ..., "to": ..., "angle": 90 }`), `border` `{width, color}`,
+`background` (a paint: a colour, a colour name such as `"toolbar"`, a
+gradient `{ "from": ..., "to": ..., "angle": 90 }`, or a pattern, below), `border` `{width, color}`,
 `radius`, `padding` and `gap`. The ids `tabs`, `toolbar`, `sidebar` and
 `chat` follow the app: the sidebar block shows while the sidebar is open,
 the chat block takes the panel's width, and `ui.toggle {id}` hides any
@@ -214,6 +216,14 @@ the canvas is seen between them; blocks below or right sit beside it.
 `font`, `font_size` and `background` (shown round the canvas). The overlays
 `menu`, `share`, `toast`, `palette`, `welcome` and `dock` are keys of the
 root too: `{ "mod": name, "props": {} }`, or left out for the app's own.
+
+**Patterns.** A paint can repeat over a base colour: `{ "color": "#ddd",
+"pattern": "stripes", "ink": "#bbb", "width": 1, "gap": 1 }` for
+pinstripes (`"direction": "vertical"` turns them), `{ "pattern": "hatch",
+"ink": "#0002", "width": 1, "gap": 4 }` for diagonal hatching, and `{
+"pattern": "checker", "ink": "#0001", "size": 2 }` for a checked desktop.
+A layout's `background` and any block's take one; in a mod, the `Pattern`
+host component paints its box with one.
 
 **Overlays.** `openOverlay(name, spec)` (or `overlay.open`) puts a copy of a
 mod over the window and answers its id: a `dialog` in the middle over a
@@ -319,14 +329,18 @@ Elements a mod places but cannot draw itself, imported from `specular`:
   layout names one, else the app's own Share button.
 - `Prism`, `Prism.new(id, {})`: the first-run view's turning Prism, 160
   points square.
+- `Pattern`, `Pattern.new(id, { paint, width, height })`: a box filling
+  its parent, painted with a paint (see "Patterns"): pinstripes, hatching,
+  checks. Put it first in a `relative()` box and the content after it.
 - `Field`, `Field.new(id, { id, placeholder, value, autofocus })` or
   `Field.new(id, { control })`: a line of text (see "Text").
 
 ## The CLI
 
 - `specular mod check <dir> [--state fixture.json]` loads a mod with no
-  window, renders it once against a state dump (`specular state > fixture.json`;
-  a fresh app's state when none is given), and prints its element tree with
+  window, renders it once against the running app's state (or a fresh
+  app's when none answers, or `--state fixture.json` from `specular state >
+  fixture.json`), and prints its element tree with
   ids and its `console.log` lines. It exits non-zero and writes
   `<name>.error` when the mod fails.
 - `specular mod clone <name> [new-name] [--use]` copies a mod to a folder
@@ -336,8 +350,8 @@ Elements a mod places but cannot draw itself, imported from `specular`:
 - `specular mod stats` prints, per loaded mod, its script renders, the mean
   and slowest render and the keys it read. A mod that renders while nothing
   changes is a bug.
-- `specular shot [file.png]` saves the canvas as a PNG (see "Seeing the
-  window").
+- `specular shot [file.png] [--whole]` saves the canvas, or the whole
+  window, as a PNG (see "Seeing the window").
 - `console.log` goes to the app's log (`gpui_shell::script`).
 
 ## The shipped mods

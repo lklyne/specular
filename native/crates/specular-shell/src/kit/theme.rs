@@ -250,6 +250,11 @@ pub(crate) fn glyph_muted() -> u32 {
     pick(0x8181_81ff, 0xa7a5_a6ff)
 }
 
+/// Over the window behind a dialog: a dimming the window shows through.
+pub(crate) fn scrim() -> u32 {
+    pick(0x0000_0024, 0x0000_0066)
+}
+
 /// Behind the first-run view: a step darker than the panel in light, the
 /// panel itself in dark.
 pub(crate) fn backdrop() -> u32 {

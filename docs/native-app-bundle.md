@@ -32,6 +32,7 @@ Specular.app/Contents/
   Info.plist
   MacOS/Specular                                    the `specular` binary
   MacOS/specular-cli                                the `specular` command, from native/crates/specular-cli
+  MacOS/specular-mod-check                          what `specular mod check` runs, from native/crates/specular-mod-check
   MacOS/specular-helper                             the Agent SDK host, from native/helper
   Helpers/claude                                    the Claude Code runtime the SDK runs
   Frameworks/Chromium Embedded Framework.framework  from CEF_PATH

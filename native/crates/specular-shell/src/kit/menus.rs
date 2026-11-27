@@ -318,9 +318,15 @@ fn binding(keys: &str, action: impl Action, context: Option<&str>, cx: &App) -> 
     KeyBinding::load(keys, Box::new(action), predicate, false, None, cx).ok()
 }
 
-/// Does what the menu item for `command` does.
+/// Does what the menu item for `command` does, on the shell's window.
+///
+/// Not `App::dispatch_action`: that goes to the active window, which a
+/// command run from a mod's script or a closing overlay may find mid-update
+/// or not yet active, and the action is dropped.
 pub(crate) fn run_shell(command: ShellCommand, cx: &mut App) {
-    cx.dispatch_action(shell_action(command).as_ref());
+    shell::with_view(cx, move |_, window, cx| {
+        window.dispatch_action(shell_action(command), cx);
+    });
 }
 
 /// Binds the shell's own keys and installs every action's handler.
