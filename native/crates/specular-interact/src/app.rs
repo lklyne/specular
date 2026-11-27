@@ -2,7 +2,7 @@
 
 mod session;
 
-pub use self::session::{Focus, Selection, Session};
+pub use self::session::{Focus, FramePin, Selection, Session};
 
 use std::borrow::Cow;
 

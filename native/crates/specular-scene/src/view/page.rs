@@ -226,6 +226,7 @@ fn screen_and_document(
             // The strips have the screen's corners, and the document's own
             // are square between them.
             corner_radius: if inside { 0.0 } else { screen_radius },
+            pin: frame.app.frame_pin(&entity.id),
         })
     }));
     inside

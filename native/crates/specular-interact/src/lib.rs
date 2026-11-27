@@ -123,7 +123,7 @@ mod zoom_settle;
 pub use add_item::{NewItem, NewKind};
 pub use anchors::Anchor;
 pub use api::{ApiCall, ApiOutcome, ApiRun};
-pub use app::{App, Focus, Selection, Session};
+pub use app::{App, Focus, FramePin, Selection, Session};
 pub use arrange::{ArrangeMode, arrange_command, place_command};
 pub use asset::AssetBytes;
 pub(crate) use bindings::page_edit;

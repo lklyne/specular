@@ -20,7 +20,13 @@ pub struct PageDraw {
     pub viewport: CssSize,
     /// Corner radius the frame is clipped to.
     pub corner_radius: f32,
+    /// The corner a frame of another size is drawn from: the one a
+    /// resize holds still, so the frame does not slide with the moving
+    /// edge.
+    pub pin: FramePin,
 }
+
+pub use specular_interact::FramePin;
 
 /// A handle to pixels the renderer was given earlier: a decoded image, a
 /// video frame or a rendered document preview.

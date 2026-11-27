@@ -317,6 +317,7 @@ fn page() -> Vec<Item> {
         rect: Rect::new(8.0, 8.0, 48.0, 48.0),
         viewport: CssSize::default(),
         corner_radius: CORNER_RADIUS,
+        pin: specular_scene::FramePin::default(),
     })]
 }
 

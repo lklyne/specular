@@ -156,6 +156,8 @@ pub(crate) fn openable(app: &App) -> Option<&EntityId> {
 /// be shown alone changes nothing. Showing an item selects it. Going back
 /// to the canvas leaves the page.
 pub(crate) fn show(app: &mut App, showing: Showing, effects: &mut Vec<Effect>) {
+    // A page shown in a tab is resized with the window, from its top-left.
+    app.session.frame_pins.clear();
     update::verb(app, effects, |app, effects| match showing {
         Showing::Canvas => {
             leave(app);

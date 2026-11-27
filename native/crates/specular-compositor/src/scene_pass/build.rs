@@ -7,7 +7,7 @@ use std::ops::Range;
 use glam::Vec2;
 use specular_core::{CssSize, PageId};
 use specular_scene::OwnerId;
-use specular_scene::{Blend, Draw, ImageId, Item, PageDraw, Rect, Scene, Space};
+use specular_scene::{Blend, Draw, FramePin, ImageId, Item, PageDraw, Rect, Scene, Space};
 
 use super::batch::Batch;
 use super::mesh::{Mesh, Mesher};
@@ -246,25 +246,62 @@ fn page_quads(
         .with_clip(rect_size / 2.0, item.turn);
         return [(info.view, Some(quad)), (LayerKind::Popup, None)];
     }
-    let (size, uv) = unstretched(rect_size, draw.viewport, info.view_css);
-    let popup = popup_quad(origin, size / uv, info);
-    let quad =
-        QuadInstance::new(origin, size, quad.corner_radius).with_uv_rect([0.0, 0.0, uv.x, uv.y]);
+    let shown = unstretched(rect_size, draw.viewport, info.view_css, draw.pin);
+    let popup = popup_quad(origin + shown.frame_origin, shown.frame, info);
+    let quad = QuadInstance::new(origin + shown.offset, shown.size, quad.corner_radius)
+        .with_uv_rect(shown.uv);
     [(info.view, Some(quad)), (LayerKind::Popup, popup)]
 }
 
-/// How much of a rect `size` across a page's frame covers, and how much of
-/// the frame that shows, when the rect is laid out at `wanted` CSS pixels
-/// and the frame was painted at `painted`. A frame of another size keeps its
-/// own pixel size from the top-left corner, as a browser's does while its
-/// window is dragged: the part past the rect is cut off, and the part of the
-/// rect past the frame is left bare. A size nobody stated fills the rect.
-fn unstretched(size: Vec2, wanted: CssSize, painted: CssSize) -> (Vec2, Vec2) {
+/// The part of a page's frame a rect shows, in the rect's units from its
+/// top-left corner.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct Shown {
+    /// Where the part shown starts.
+    offset: Vec2,
+    /// How big it is.
+    size: Vec2,
+    /// Which part of the frame it is, `[x, y, width, height]` in fractions.
+    uv: [f32; 4],
+    /// Where the whole frame's corner sits, and how big the frame is.
+    frame_origin: Vec2,
+    frame: Vec2,
+}
+
+/// What a rect `size` across shows of a page's frame, when the rect is laid
+/// out at `wanted` CSS pixels and the frame was painted at `painted`. A
+/// frame of another size keeps its own pixel size, as a browser's does
+/// while its window is dragged: the part past the rect is cut off, and the
+/// part of the rect past the frame is left bare. It keeps to the corner
+/// `pin` names, the one a resize holds still, so it does not slide with the
+/// edge being dragged. A size nobody stated fills the rect.
+fn unstretched(size: Vec2, wanted: CssSize, painted: CssSize, pin: FramePin) -> Shown {
     let Some(frame) = frame_size(size, wanted, painted) else {
-        return (size, Vec2::ONE);
+        return Shown {
+            offset: Vec2::ZERO,
+            size,
+            uv: [0.0, 0.0, 1.0, 1.0],
+            frame_origin: Vec2::ZERO,
+            frame: size,
+        };
     };
     let shown = frame.min(size);
-    (shown, shown / frame)
+    let toward = Vec2::new(
+        f32::from(u8::from(pin.right)),
+        f32::from(u8::from(pin.bottom)),
+    );
+    // Against the right or bottom edge, the frame's far side meets it.
+    let frame_origin = (size - frame) * toward;
+    let offset = (size - shown) * toward;
+    let start = (offset - frame_origin) / frame;
+    let part = shown / frame;
+    Shown {
+        offset,
+        size: shown,
+        uv: [start.x, start.y, part.x, part.y],
+        frame_origin,
+        frame,
+    }
 }
 
 /// The size of a page's frame painted at `painted` CSS pixels, in the units
@@ -293,3 +330,7 @@ fn canvas_quad(item: &Item, rect: Rect, corner_radius: f32, view: &ViewTransform
         }
     }
 }
+
+#[cfg(test)]
+#[path = "build_tests.rs"]
+mod tests;

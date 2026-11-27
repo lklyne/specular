@@ -162,6 +162,40 @@ pub(crate) fn drag(app: &mut App, drag: &ResizeDrag, world: DVec2, modifiers: Mo
     }
 }
 
+/// The edges `handle` holds still: a left or top handle moves its own edge
+/// and keeps the opposite one.
+const fn pin_of(handle: Handle) -> crate::FramePin {
+    let right = matches!(
+        handle,
+        Handle::Side(EdgeSide::Left) | Handle::Corner(Corner::TopLeft | Corner::BottomLeft)
+    );
+    let bottom = matches!(
+        handle,
+        Handle::Side(EdgeSide::Top) | Handle::Corner(Corner::TopLeft | Corner::TopRight)
+    );
+    crate::FramePin { right, bottom }
+}
+
+/// Remembers, for each page `drag` resizes, the edges its handle holds
+/// still. A page's frame lags its rect while it is resized; drawn against
+/// the held edges it stays put under the pointer instead of sliding with
+/// the moving edge.
+pub(crate) fn pin_frames(app: &mut App, drag: &ResizeDrag) {
+    let pin = pin_of(drag.handle);
+    for start in &drag.starts {
+        app.session.frame_pins.insert(start.id.clone(), pin);
+    }
+}
+
+impl App {
+    /// Which corner of page `id`'s rect a frame painted at another size is
+    /// drawn from: the corner its last handle resize held still, else the
+    /// top-left.
+    pub fn frame_pin(&self, id: &EntityId) -> crate::FramePin {
+        self.session.frame_pins.get(id).copied().unwrap_or_default()
+    }
+}
+
 /// A stored rect where it is seen, `shift` away.
 fn seen(rect: Rect, shift: DVec2) -> Rect {
     rect.translated(-shift.x, -shift.y)
