@@ -339,7 +339,8 @@ A mod (ADR 0055) is a folder of `mod.json` and `main.js`, run by
 - **Checking and measuring.** `specular mod check <dir> [--state
   fixture.json]` (the `specular-mod-check` crate) renders a mod headless.
   `specular mod stats` is `GET /mods`. `specular mod clone <name>
-  [new-name] [--use]` copies a mod to one the person owns. The gates are
+  [new-name] [--use]` copies a mod to one the person owns. `specular shot
+  [file.png]` is `POST /window/screenshot`, the canvas as a PNG. The gates are
   `cargo test -p specular-mods --release --test toolbar` and `--test
   panels` (`-- --nocapture` for the numbers): median under 2 ms, none
   over 8 ms, no render while idle or on a camera move, every id the

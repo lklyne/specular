@@ -160,8 +160,20 @@ specular mod stats                   # renders, render times, keys read
 ```
 
 `specular mod check` renders the mod once with no window and prints its
-element tree and `console.log` lines. `specular mod stats` must show no
-renders while nothing changes; a mod that renders when idle is a bug.
+element tree and `console.log` lines. It exits nonzero with the exact error.
+Never call a mod done without a passing check. `specular mod stats` must show
+no renders while nothing changes; a mod that renders when idle is a bug.
+
+Then look at it in the running app:
+
+```sh
+specular shot /tmp/my-pen.png        # the canvas as the window shows it
+```
+
+Open the picture and look. It shows the canvas with your items and your
+tool's preview, not the panels around it, so check a panel mod in the window
+itself or ask the person to. A still-working screen is not proof a save
+loaded: look for `<name>.error`. Don't claim a visual check you haven't made.
 
 ## Rules that keep a mod fast and safe
 
@@ -188,6 +200,9 @@ renders while nothing changes; a mod that renders when idle is a bug.
   `mods/` folder. Say so when you do it in someone's space.
 - Read ids and values from `specular state` and command results. Don't guess
   item ids.
+- Before you install a mod someone else wrote, from a link, a folder or a
+  canvas's "Install mods" prompt, read every file in it and tell the person
+  what it does with files, the network and processes.
 
 ## What a mod cannot do
 

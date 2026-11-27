@@ -194,6 +194,9 @@ Elements a mod places but cannot draw itself, imported from `specular`:
 - `specular mod stats` prints, per loaded mod, its script renders, the mean
   and slowest render and the keys it read. A mod that renders while nothing
   changes is a bug.
+- `specular shot [file.png]` saves the canvas as the window shows it, with
+  your items and your tool's preview but not the panels, and prints the
+  file's path. Look at the picture before you call a canvas mod done.
 - `console.log` goes to the app's log (`gpui_shell::script`).
 
 ## The shipped mods

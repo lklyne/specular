@@ -687,6 +687,19 @@ def mod_verbs_read_the_mods_and_check_one():
     check(os.path.exists(good + ".error"), "a broken mod gets <name>.error")
 
 
+@case
+def shot_saves_the_canvas_as_a_png():
+    import tempfile
+
+    fresh("Shot", notes=True)
+    path = os.path.join(tempfile.mkdtemp(), "canvas.png")
+    shot = ok("shot", path)
+    equal(shot.get("path"), path, "shot prints where it wrote")
+    check(shot.get("width", 0) > 0 and shot.get("height", 0) > 0, f"and the size: {shot}")
+    with open(path, "rb") as f:
+        equal(f.read(8), b"\x89PNG\r\n\x1a\n", "the file is a PNG")
+
+
 # --- browse verbs with no page ------------------------------------------------
 
 

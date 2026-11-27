@@ -20,6 +20,7 @@ mod output;
 mod patch;
 mod registry;
 mod session;
+mod shot;
 mod spawn;
 
 use std::process::ExitCode;
@@ -40,6 +41,7 @@ Browse: snapshot, click, fill, type, select, screenshot, scroll, wait
 Annotations: annotations, annotation, annotate, annotate-selection, ack, resolve, dismiss, reply
 Commands: commands, run <name> [json-args]   e.g. run tool.set '{\"tool\":\"draw\"}'
 State: state [key]   e.g. state panels/toolbar
+Shot: shot [file.png]   the canvas as the window shows it, as a PNG
 Mods: mod check <dir> [--state fixture.json], mod clone <name> [new-name] [--use],
       mod stats, mod state [key]
 Other: breakpoints, apply, upsert, link, unlink, auto-layout, find-placement
@@ -102,6 +104,7 @@ fn verb(name: &str) -> Verb {
         "run" => registry::run,
         "state" => registry::state,
         "mod" => mods::verb,
+        "shot" => shot::shot,
         _ => browse::passthrough,
     }
 }
