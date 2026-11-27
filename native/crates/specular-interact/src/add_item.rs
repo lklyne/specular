@@ -27,8 +27,9 @@ pub enum NewKind {
 pub struct NewItem {
     /// What it is.
     pub kind: NewKind,
-    /// Its top-left corner, in canvas units.
-    pub at: DVec2,
+    /// Its top-left corner, in canvas units, or `None` to centre it in the
+    /// view.
+    pub at: Option<DVec2>,
     /// What it says. A shape's is its label.
     pub text: String,
 }
@@ -43,7 +44,8 @@ pub(crate) fn add(app: &mut App, item: NewItem, effects: &mut Vec<Effect>) {
         NewKind::Shape => Placing::Shape,
         NewKind::Mod(new) => return mods::add_item(app, *new, item.at, effects),
     };
-    let mut entity = place::default_entity(app, placing, id.clone(), item.at);
+    let at = item.at.unwrap_or_else(|| view_middle(app));
+    let mut entity = place::default_entity(app, placing, id.clone(), at);
     if let Kind::Text(text) = &mut entity.kind {
         text.text = item.text;
         entity.rect = edit::fitted(app, entity.rect, text);
@@ -52,4 +54,10 @@ pub(crate) fn add(app: &mut App, item: NewItem, effects: &mut Vec<Effect>) {
     }
     live::create(app, entity, effects);
     app.session.selection.set([ItemId::Entity(id)]);
+}
+
+/// The canvas point in the middle of the view.
+pub(crate) fn view_middle(app: &App) -> DVec2 {
+    let middle = app.session.viewport / 2.0;
+    app.session.camera.screen_to_world(middle).as_dvec2()
 }

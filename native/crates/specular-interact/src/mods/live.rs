@@ -5,9 +5,7 @@ use std::collections::{BTreeSet, HashMap};
 
 use glam::DVec2;
 use serde_json::Value;
-use specular_doc::{
-    Command, Entity, EntityId, ItemId, JsonMap, Kind, ModDraw, ModItem, ModNeed, Rect,
-};
+use specular_doc::{Command, Entity, EntityId, ItemId, JsonMap, Kind, ModDraw, ModItem, Rect};
 
 use super::{ModCatalog, ModStroke};
 use crate::{App, Effect, Tool, live, pages};
@@ -23,8 +21,9 @@ pub(crate) struct ModState {
     pub(crate) catalog: ModCatalog,
     /// The display list each mod item's mod last sent, by item.
     pub(crate) draws: HashMap<EntityId, Vec<ModDraw>>,
-    /// The props each item had when its snapshot was last written, this run.
-    snapshot_props: HashMap<EntityId, JsonMap>,
+    /// The props and size each item had when its snapshot was last
+    /// written, this run.
+    snapshot_props: HashMap<EntityId, (JsonMap, [f64; 2])>,
     /// The armed mod tool's preview, in canvas units.
     pub(crate) preview: Vec<ModDraw>,
     /// The armed mod tool's stroke, kept after the release until the next
@@ -58,23 +57,24 @@ pub(crate) fn on_catalog(app: &mut App, catalog: ModCatalog, effects: &mut Vec<E
 }
 
 /// The mod of item `id` sent what it draws. The item's snapshot is written
-/// from it when its props changed since the last snapshot this run, or it
-/// has none: so the file follows the props, not every redraw. Returns
+/// from it when its props or size changed since the last snapshot this
+/// run, or it has none: so the file follows the item, not every redraw. Returns
 /// whether the snapshot changed, which is a change to save.
 pub(crate) fn on_draw(app: &mut App, id: EntityId, draws: Vec<ModDraw>) -> bool {
     let Some(Entity {
         kind: Kind::Mod(item),
+        rect,
         ..
     }) = app.document.entity(&id)
     else {
         return false;
     };
-    let due = item.snapshot.is_none() || app.mods.snapshot_props.get(&id) != Some(&item.props);
+    let drawn = (item.props.clone(), [rect.width, rect.height]);
+    let due = item.snapshot.is_none() || app.mods.snapshot_props.get(&id) != Some(&drawn);
     let mut written = false;
     if due {
-        let props = item.props.clone();
         written = app.document.set_mod_snapshot(&id, draws.clone());
-        app.mods.snapshot_props.insert(id.clone(), props);
+        app.mods.snapshot_props.insert(id.clone(), drawn);
     }
     app.mods.draws.insert(id, draws);
     written
@@ -115,28 +115,33 @@ pub struct NewModItem {
 /// and selects it. The canvas lists the mod it needs, and the shell copies
 /// the mod into the space folder so the canvas carries it. Nothing happens
 /// for a mod that is not installed.
-pub(crate) fn add_item(app: &mut App, new: NewModItem, at: DVec2, effects: &mut Vec<Effect>) {
+pub(crate) fn add_item(
+    app: &mut App,
+    new: NewModItem,
+    at: Option<DVec2>,
+    effects: &mut Vec<Effect>,
+) {
     let Some(installed) = app.mods.catalog.get(&new.name) else {
         return;
     };
     let size = (new.size.map(|size| [size.x, size.y]))
         .or_else(|| installed.manifest.items.as_ref()?.size)
         .unwrap_or(DEFAULT_SIZE);
-    let need = ModNeed {
-        name: new.name.clone(),
-        api: installed.manifest.api.to_string(),
-        from: format!("mods/{}", new.name),
-    };
+    let api = installed.manifest.api.to_string();
     let id = EntityId::from(app.fresh_id().as_str());
+    let at = at
+        .unwrap_or_else(|| crate::add_item::view_middle(app) - DVec2::new(size[0], size[1]) / 2.0);
     let rect = Rect::new(at.x, at.y, size[0], size[1]);
-    let entity = Entity::new(
-        id.clone(),
-        rect,
-        Kind::Mod(ModItem::new(&new.name, new.props)),
-    );
-    if app.document.need_mod(&need) {
+    let item = ModItem {
+        api,
+        ..ModItem::new(&new.name, new.props)
+    };
+    // The first of its mod's items on this canvas brings a copy of the mod
+    // into the space, which the canvas then lists.
+    if !(app.document.mod_needs().iter()).any(|need| need.name == new.name) {
         effects.push(Effect::BundleMod(new.name));
     }
+    let entity = Entity::new(id.clone(), rect, Kind::Mod(item));
     app.mods.preview.clear();
     live::create(app, entity, effects);
     app.session.selection.set([ItemId::Entity(id)]);

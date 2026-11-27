@@ -1,0 +1,9 @@
+{
+  "api": "1.1",
+  "title": "Watercolor",
+  "tools": [{ "name": "brush", "title": "Watercolor brush", "icon": "brush-highlighter" }],
+  "items": { "web": "item.html" },
+  "commands": [
+    { "name": "color", "title": "Next watercolor", "icon": "brush-highlighter", "dock": true }
+  ]
+}

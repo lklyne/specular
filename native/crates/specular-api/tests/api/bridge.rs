@@ -65,7 +65,7 @@ fn a_pages_run_is_an_api_event_through_update_and_one_undo_step() {
     };
     let placed = NewItem {
         kind: NewKind::Sticky,
-        at: glam::DVec2::new(400.0, 100.0),
+        at: Some(glam::DVec2::new(400.0, 100.0)),
         text: "hi".to_owned(),
     };
     assert_eq!(*action, Action::AddItem(placed));

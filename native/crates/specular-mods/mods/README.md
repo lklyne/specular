@@ -71,7 +71,8 @@ The camera is in no key, so panning and zooming never run a script; the zoom
 readout is the `Zoom` host component. The keys: `panels/toolbar`,
 `panels/tool_options`, `panels/dock`, `panels/strip`, `panels/menu`,
 `panels/palette`, `panels/share`, `panels/welcome`, `theme`, `settings`, `keys`, `layout`,
-`notices`.
+`notices`, and for canvas items, tools and commands `canvas/mod_items`, `tool` and
+`call` (see below).
 `specular state [key]` prints them from the running app.
 
 `props()` is what the layout hands the mod. By convention `props().hidden`
@@ -95,18 +96,70 @@ app's log. The commands:
 - **app**: `app.quit`, `app.open-space`, `app.open`, `app.save`, `app.settings`, `app.hide`, `app.hide-others`, `app.minimize`, `app.command-palette`
 - **canvas**: `canvas.new`, `canvas.duplicate` `{canvas?: id}`, `canvas.delete` `{canvas?: id}`, `canvas.switch` `{canvas: id}`, `canvas.rename` `{name: text, canvas?: id}`, `canvas.begin-rename` `{canvas?: id}`
 - **edit**: `edit.cancel`, `edit.undo`, `edit.redo`, `edit.cut`, `edit.copy`, `edit.paste`, `edit.duplicate`, `edit.delete`, `edit.select-all`, `edit.select` `{ids?: [entity id], edges?: [edge id]}`, `edit.nudge` `{dx: number, dy: number}`
-- **item**: `item.add` `{kind: sticky|text|shape, x: number, y: number, text?: string}`
+- **item**: `item.add` `{kind: sticky|text|shape|mod, x: number, y: number, text?: string, mod?: name, props?: object, width?: number, height?: number}`, `item.set` `{id: mod item id, props: object}`, `item.draw` `{id: mod item id, draws: [{type: rect|ellipse|path|text|image, ..}]}`
 - **text**: `text.bold`, `text.italic`, `text.code`, `text.strikethrough`, `text.bullet-list`, `text.numbered-list`, `text.task-list`, `text.body`, `text.heading-1`, `text.heading-2`, `text.heading-3`, `text.heading-4`, `text.heading-5`, `text.heading-6`
 - **arrange**: `arrange.bring-forward`, `arrange.send-backward`, `arrange.bring-to-front`, `arrange.send-to-back`, `arrange.group`, `arrange.ungroup`, `arrange.auto-layout`, `arrange.lay-out` `{mode: row|column|grid}`, `arrange.group-layout` `{axis: row|column|none}`, `arrange.group-gap` `{gap: number}`
 - **comment**: `comment.annotate-selection`, `comment.resolve` `{id?: comment id}`, `comment.delete` `{id?: comment id}`, `comment.focus` `{id?: comment id}`, `comment.reveal` `{id: comment id}`
 - **page**: `page.new-tab`, `page.edit-address`, `page.back`, `page.forward`, `page.reload`, `page.stop`, `page.navigate` `{url: address, page?: entity id}`, `page.frame`, `page.frame-color`, `page.rotate`, `page.scheme`, `page.orientation` `{orientation: portrait|landscape}`, `page.toggle-sync`
 - **tab**: `tab.show` `{item?: entity id}`, `tab.open` `{item: entity id}`, `tab.close` `{item?: entity id}`, `tab.next`, `tab.previous`, `tab.lens` `{lens: fill|device}`, `tab.others` `{shown: bool}`
-- **tool**: `tool.set` `{tool: select|page|text|sticky|document|shape|draw|comment|inspect}`, `tool.ellipse`, `tool.diamond`, `tool.highlighter`
+- **tool**: `tool.set` `{tool: select|page|text|sticky|document|shape|draw|comment|inspect|<mod>/<tool>}`, `tool.ellipse`, `tool.diamond`, `tool.highlighter`, `tool.preview` `{draws: [{type: rect|ellipse|path|text|image, ..}]}`
 - **view**: `view.zoom-in`, `view.zoom-out`, `view.zoom-reset`, `view.zoom-to-fit`, `view.zoom` `{percent: number}`, `view.camera` `{x: number, y: number, zoom: number}`, `view.reveal` `{id: entity id}`, `view.theme` `{theme: light|dark|system}`, `view.toggle-sidebar`
 - **ui**: `ui.toggle` `{id: tabs|toolbar|dock|sidebar|chat|menu|share|toast|palette|welcome|<control id>}`, `ui.show` `{id: tabs|toolbar|dock|sidebar|chat|menu|share|toast|palette|welcome|<control id>}`, `ui.hide` `{id: tabs|toolbar|dock|sidebar|chat|menu|share|toast|palette|welcome|<control id>}`, `ui.reset`
 - **notice**: `notice.dismiss` `{id: notice id}`
+- **mods**: `mods.install`
 - **share**: `share.copy-link`, `share.access` `{scope: edit|comment|view|none}`, `share.join` `{link: url, fresh?: bool}`, `share.stop`
 - **control**: `control.press` `{id: control name}`
+
+## Canvas items, tools and commands (API 1.1)
+
+A mod can put its own items on the canvas, add a tool to the toolbar, and
+add commands to the command palette, the keys and the dock. A mod that does
+any of these runs whatever the layout says, out of sight, so its script
+renders when its keys change. Write `"api": "1.1"` in its `mod.json`:
+
+```json
+{ "api": "1.1", "title": "Feed",
+  "items": { "size": [320, 400], "web": "item.html" },
+  "tools": [{ "name": "pen", "title": "Ink pen", "icon": "pen-line" }],
+  "commands": [{ "name": "shuffle", "title": "Shuffle the feed", "icon": "reload",
+                 "key": "cmd+shift+u", "dock": true }] }
+```
+
+**Items.** `run("item.add", { kind: "mod", mod: "feed", x, y, props })` places
+one (one undo step). The `canvas/mod_items` key lists the active canvas's
+items, `[{id, mod, width, height, props}]`, without their positions: a move
+wakes no script. A mod draws each item by sending its display list,
+`run("item.draw", { id, draws })`: rects, ellipses, paths, text and images in
+item space (`ModDraw` in `specular.d.ts`). `run("item.set", { id, props })`
+changes an item's props as one undo step. With `items.web` the item is that
+HTML file of the mod's folder shown as live web content, given its id as
+`#item=<id>`; its display list is then what shows where the mod is not
+installed.
+
+The last display list an item drew is saved in the .canvas file as its
+snapshot, and the canvas lists the mods it needs (copied into the space's
+`mods/` folder when an item is placed). A canvas opened where a mod is not
+installed shows each item's snapshot, or a placeholder card, and offers
+"Install mods" in the `notices` key (`mods.install`). Opening a canvas never
+runs a mod by itself.
+
+**Tools.** A mod tool is armed with `tool.set {tool: "<mod>/<tool>"}` or its
+toolbar button. While it is in hand a drag on the canvas is published as the
+`tool` key, `{tool, number, phase: "down"|"up", points}` in canvas units.
+Show what it would make with `run("tool.preview", { draws })` (canvas units;
+`[]` clears it), and on `phase: "up"` commit it, usually with `item.add`.
+
+**Commands.** Each of `commands` is `<mod>/<name>`: listed in the command
+palette with its key, run by its key on the canvas, by
+`run("<mod>/<name>", args)` or `specular run <mod>/<name>`, and, with
+`"dock": true`, a button in the dock while the mod's tool is in hand or its
+items are selected (run with `{ids}`, the selected items). Running one
+publishes the `call` key, `{command, number, args}`: act once per `number`.
+`key` is modifiers and one character joined by `+` (`cmd`, `shift`, `alt`).
+`icon` is one of the app's glyphs by its kebab-case name.
+
+**Versions.** `api` is `1` (1.0) or `"1.1"`. A mod loads on an app of the
+same generation whose revision is at least its own.
 
 ## Host components
 

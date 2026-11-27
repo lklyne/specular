@@ -24,6 +24,9 @@ pub struct ModItem {
     pub snapshot: Option<Vec<ModDraw>>,
     /// What a JSON Canvas tool that knows no mods shows.
     pub fallback: ModFallback,
+    /// The mod API version its mod was written for when the item was made.
+    /// The canvas lists it in `specular.mods`.
+    pub api: String,
 }
 
 impl ModItem {
@@ -36,6 +39,17 @@ impl ModItem {
             name,
             props,
             snapshot: None,
+            api: "1".to_owned(),
+        }
+    }
+
+    /// What the canvas lists for this item's mod: its copy in the space's
+    /// `mods/` folder.
+    pub fn need(&self) -> ModNeed {
+        ModNeed {
+            name: self.name.clone(),
+            api: self.api.clone(),
+            from: format!("mods/{}", self.name),
         }
     }
 }
@@ -55,7 +69,8 @@ pub enum ModFallback {
 
 /// A mod a canvas lists in its `specular.mods`: what the person is offered
 /// to install when they open the canvas without it. Reading the list loads
-/// nothing.
+/// nothing. The list is written from the canvas's mod items, so it names
+/// exactly the mods they use.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ModNeed {
     /// The mod's folder name.

@@ -1,6 +1,7 @@
 // The `specular` module (ADR 0055): what a mod imports to reach the app.
 // This file is checked in and written into the mods folder on every start.
-// `api` 1. Within a generation the surface only grows.
+// `api` 1.1. Within a generation the surface only grows: 1.1 added canvas
+// items, tools and commands (ADR 0057).
 
 /**
  * Every state key. `panels/*` are the app's own panel models as plain data;
@@ -21,7 +22,10 @@
  * - `settings`: `{showSidebar, showChat, tools, hideAgentCursors, hideSyncedCursors}`
  * - `keys`: `[{keys, context, command, args}]`, every key binding
  * - `layout`: `{file, toggles: {hidden: {id: bool}}, hidden: [region names]}`
- * - `notices`: `[{id, level: "info"|"warning"|"error", text, action: {label, run, args} | null, dismiss}]`: a page that stopped or answered an HTTP error, a share that failed. `notice.dismiss {id}` takes one away when `dismiss` is true
+ * - `notices`: `[{id, level: "info"|"warning"|"error", text, action: {label, run, args} | null, dismiss}]`: a page that stopped or answered an HTTP error, a share that failed, mods a canvas needs (`mods.install`). `notice.dismiss {id}` takes one away when `dismiss` is true
+ * - `canvas/mod_items`: the active canvas's mod items `[{id, mod, width, height, props}]`, without their positions (1.1)
+ * - `tool`: the armed mod tool's stroke `{tool: "<mod>/<tool>", number, phase: "down"|"up", points: [[x, y]]}` in canvas units, or null (1.1)
+ * - `call`: the last mod command run `{command: "<mod>/<command>", number, args}`, or null. Act once per `number` (1.1)
  */
 export type StateKey =
   | "panels/toolbar"
@@ -36,7 +40,10 @@ export type StateKey =
   | "settings"
   | "keys"
   | "layout"
-  | "notices";
+  | "notices"
+  | "canvas/mod_items"
+  | "tool"
+  | "call";
 /**
  * Every command `run` takes, with its arguments and what it does.
  *
@@ -66,7 +73,7 @@ export type StateKey =
  * - `edit.select-all`: Select everything that is not inside a group.
  * - `edit.select` `{ids?: [entity id], edges?: [edge id]}`: Replace the selection; ids that name nothing are dropped.
  * - `edit.nudge` `{dx: number, dy: number}`: Move the selection by exactly this many canvas units.
- * - `item.add` `{kind: sticky|text|shape, x: number, y: number, text?: string}`: Place a new item with its top-left at a canvas point, in the tool's style, and select it.
+ * - `item.add` `{kind: sticky|text|shape|mod, x: number, y: number, text?: string, mod?: name, props?: object, width?: number, height?: number}`: Place a new item with its top-left at a canvas point, in the tool's style, and select it. A `mod` item is one of an installed mod's, with its props.
  * - `text.bold`: Toggle bold on the selected text.
  * - `text.italic`: Toggle italic on the selected text.
  * - `text.code`: Toggle inline code on the selected text.
@@ -116,7 +123,7 @@ export type StateKey =
  * - `tab.previous`: Show the tab before the one showing, going round to the last.
  * - `tab.lens` `{lens: fill|device}`: Look at the item of the tab showing through this lens.
  * - `tab.others` `{shown: bool}`: Whether Device draws what is around its item.
- * - `tool.set` `{tool: select|page|text|sticky|document|shape|draw|comment|inspect}`: Arm a tool.
+ * - `tool.set` `{tool: select|page|text|sticky|document|shape|draw|comment|inspect|<mod>/<tool>}`: Arm a tool.
  * - `tool.ellipse`: Arm the shape tool with ellipses.
  * - `tool.diamond`: Arm the shape tool with diamonds.
  * - `tool.highlighter`: Arm the draw tool with the highlighter.
@@ -134,6 +141,10 @@ export type StateKey =
  * - `ui.hide` `{id: tabs|toolbar|dock|sidebar|chat|menu|share|toast|palette|welcome|<control id>}`: Hide a region of the window or a control, giving its room to the canvas.
  * - `ui.reset`: Set aside what was hidden and shown, and go back to the shipped layout.
  * - `notice.dismiss` `{id: notice id}`: Take away a page's notice in the `notices` key; it comes back if the page fails again.
+ * - `item.set` `{id: mod item id, props: object}`: Set keys of a mod item's props, one undo step; a null takes a key away.
+ * - `item.draw` `{id: mod item id, draws: [{type: rect|ellipse|path|text|image, ..}]}`: Give a mod item the display list it shows, in item space. Not an undo step.
+ * - `tool.preview` `{draws: [{type: rect|ellipse|path|text|image, ..}]}`: Show what the armed mod tool would make, in canvas units; an empty list clears it.
+ * - `mods.install`: Install the mods this canvas uses and the app does not have, from the space folder.
  * - `share.copy-link`: Copy the active canvas's link, publishing it first when it is not shared.
  * - `share.access` `{scope: edit|comment|view|none}`: Choose who the active canvas's link lets in; none stops sharing it.
  * - `share.join` `{link: url, fresh?: bool}`: Share the active canvas through a link's live room, or a new canvas with fresh.
@@ -141,6 +152,7 @@ export type StateKey =
  * - `control.press` `{id: control name}`: Do what a click on the control with this name does.
  */
 export type CommandName =
+  | `${string}/${string}`
   | "app.quit"
   | "app.open-space"
   | "app.open"
@@ -235,6 +247,10 @@ export type CommandName =
   | "ui.hide"
   | "ui.reset"
   | "notice.dismiss"
+  | "item.set"
+  | "item.draw"
+  | "tool.preview"
+  | "mods.install"
   | "share.copy-link"
   | "share.access"
   | "share.join"
@@ -283,3 +299,17 @@ export const WindowDrag: HostComponent<{}>;
 export const Share: HostComponent<{}>;
 /** `Prism`: the turning Prism at the head of the first-run view, 160 points square, drawn on the GPU by the window. */
 export const Prism: HostComponent<{}>;
+
+/**
+ * One mark of a mod item's display list (`item.draw`) or a tool's preview
+ * (`tool.preview`), in item space or canvas units. Colours are `#rrggbb` or
+ * `#rrggbbaa`. An image's `src` is a file in the space folder or an
+ * `http(s)` URL. The last list an item drew is saved in the .canvas file as
+ * its snapshot, which shows where the mod is not installed.
+ */
+export type ModDraw =
+  | { type: "rect"; x: number; y: number; width: number; height: number; fill?: string; stroke?: string; line?: number; radius?: number }
+  | { type: "ellipse"; x: number; y: number; width: number; height: number; fill?: string; stroke?: string; line?: number }
+  | { type: "path"; points: Array<[number, number]>; closed?: boolean; fill?: string; stroke?: string; line?: number }
+  | { type: "text"; x: number; y: number; text: string; size?: number; color?: string; width?: number; align?: "left" | "center" | "right" }
+  | { type: "image"; x: number; y: number; width: number; height: number; src: string; fit?: "contain" | "cover" | "fill"; radius?: number };

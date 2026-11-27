@@ -121,7 +121,10 @@ fn add_item(args: &Value) -> Result<Run, RunError> {
     };
     act(Action::AddItem(NewItem {
         kind,
-        at: DVec2::new(number(args, "x")?, number(args, "y")?),
+        at: match (args.get("x"), args.get("y")) {
+            (None, None) => None,
+            _ => Some(DVec2::new(number(args, "x")?, number(args, "y")?)),
+        },
         text: maybe_text(args, "text").unwrap_or_default(),
     }))
 }
@@ -130,8 +133,8 @@ fn add_item(args: &Value) -> Result<Run, RunError> {
 pub(super) const ITEM: &[CommandSpec] = &[CommandSpec {
     name: "item.add",
     label: "",
-    args: "{kind: sticky|text|shape|mod, x: number, y: number, text?: string, mod?: name, props?: object, width?: number, height?: number}",
-    about: "Place a new item with its top-left at a canvas point, in the tool's style, and select it. A `mod` item is one of an installed mod's, with its props.",
+    args: "{kind: sticky|text|shape|mod, x?: number, y?: number, text?: string, mod?: name, props?: object, width?: number, height?: number}",
+    about: "Place a new item with its top-left at a canvas point (the middle of the view without one), in the tool's style, and select it. A `mod` item is one of an installed mod's, with its props.",
     enabled: idle,
     build: add_item,
 }];

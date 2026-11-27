@@ -94,7 +94,10 @@ fn everything() -> Value {
         "specular": {
             "entityOrder": ["page", "edge", "text", "file", "drawing", "shape", "group", "feed",
                 "clip"],
-            "mods": [{ "name": "feed", "api": "1.1", "from": "mods/feed" }],
+            "mods": [
+                { "name": "feed", "api": "1.1", "from": "mods/feed" },
+                { "name": "recorder", "api": "1", "from": "mods/recorder" }
+            ],
             "otherTool": "kept",
         },
         "annotations": [
@@ -172,11 +175,18 @@ fn modeled_fields_are_read_into_typed_fields_not_extra() {
     );
     assert_eq!(
         document.mod_needs(),
-        [ModNeed {
-            name: "feed".to_owned(),
-            api: "1.1".to_owned(),
-            from: "mods/feed".to_owned(),
-        }]
+        [
+            ModNeed {
+                name: "feed".to_owned(),
+                api: "1.1".to_owned(),
+                from: "mods/feed".to_owned(),
+            },
+            ModNeed {
+                name: "recorder".to_owned(),
+                api: "1".to_owned(),
+                from: "mods/recorder".to_owned(),
+            }
+        ]
     );
 
     let edge = document.edge(&"edge".into()).unwrap();

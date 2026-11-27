@@ -91,7 +91,10 @@ impl<W: ShellWindow> Runtime<W> {
 
     /// Tells the app what is installed now.
     pub fn rescan_mods(&mut self) {
-        let catalog = self.mods_folder.as_deref().map_or_else(Default::default, scan);
+        let catalog = self
+            .mods_folder
+            .as_deref()
+            .map_or_else(Default::default, scan);
         self.dispatch(Event::ModCatalog(catalog));
     }
 

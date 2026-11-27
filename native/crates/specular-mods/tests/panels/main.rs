@@ -11,6 +11,7 @@
 #[path = "../support/mod.rs"]
 mod support;
 
+mod items;
 mod menu;
 mod share;
 mod tabs;

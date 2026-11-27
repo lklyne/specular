@@ -11,6 +11,7 @@ mod flick;
 mod guides;
 mod images;
 mod layout;
+mod mods;
 mod motion;
 mod palette;
 mod physical_key;
