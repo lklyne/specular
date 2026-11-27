@@ -30,8 +30,12 @@ use serde_json::json;
 use crate::args::Args;
 use crate::client::Client;
 
+/// The manual for building mods, printed by `specular --skill`.
+const SKILL: &str = include_str!("SKILL.md");
+
 const HELP: &str = "\
 usage: specular <verb> [args...] [--flag value]
+       specular --skill   Agent Skill: building mods for this version of the app
 
 Canvas: canvas, add, update, delete, arrange, focus, group, ungroup
 Tabs: tab, tab new <name>, tab switch <tab-id|tab-name>, tab delete <tab-id|tab-name>
@@ -122,6 +126,10 @@ fn presence(verb: &str) -> Option<&'static str> {
 fn run(argv: &[String]) -> anyhow::Result<i32> {
     let args = args::parse(argv);
     // `--help` and `-h` are switches, so they leave no verb.
+    if args.verb.is_empty() && args.switch("skill") {
+        output::text_line(SKILL);
+        return Ok(0);
+    }
     if args.verb.is_empty() {
         output::text_line(HELP);
         return Ok(0);

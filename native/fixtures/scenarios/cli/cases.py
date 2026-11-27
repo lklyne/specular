@@ -688,6 +688,13 @@ def mod_verbs_read_the_mods_and_check_one():
 
 
 @case
+def skill_prints_the_mod_manual():
+    manual = cli("--skill").out
+    check(manual.startswith("# specular mods"), f"--skill prints the manual:\n{manual[:200]}")
+    check("specular mod check" in manual, "with the check step")
+
+
+@case
 def shot_saves_the_canvas_as_a_png():
     import tempfile
 

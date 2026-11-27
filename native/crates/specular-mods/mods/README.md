@@ -1,10 +1,58 @@
-# Mods
+# Specular mods
 
-A mod is a folder with a `mod.json` and a `main.js`. It draws a part of the
-Specular window from the app's state and changes the app by running commands
-by name. A save reloads it at once; a save that does not load keeps the last
-good build running. This folder is rewritten on every start: edit a copy (see
-"Your own mods").
+<!-- Written by Specular on every start. Edits here are overwritten. -->
+
+This folder is **where Specular's window and canvas can be changed, as
+files**. A mod is a folder with a `mod.json` and a `main.js`: it draws a part
+of the window, or adds a kind of canvas item, a toolbar tool or commands, from
+the app's state, and changes the app by running commands by name, the same
+commands the palette, the keys and the `specular` CLI run. Save a file and the
+app reloads the mod within a second. Shipped mods are Specular's: clone
+before editing (see "Your own mods"). The toolbar, the tab row, the Share
+button and the notices are built from the same parts you have.
+
+## What you can and can't do
+
+You can: redraw the toolbar, the tab row, the Share button, the notices, the
+canvas menu and the first-run view; hide any region; add kinds of canvas
+items drawn from a display list or shown as a web page; add toolbar tools;
+add commands to the palette, the keys and the dock; run any app command;
+read files, run programs and fetch URLs; keep state shared between mods.
+
+You can't: draw the sidebar, the chat panel, the dock or the palette; change
+the built-in items, tools or the theme's colours; read the camera, the
+selection or a live page's content; get pointer or key input inside an
+item. The full list is "What a mod can't do" at the end.
+
+## What mods are written in
+
+Mods use **gpui-kit** (its gpui-shell): JavaScript that describes **GPUI**
+elements, a native GPU UI (`div()`, flex, children, `.on_click`). There's no
+DOM: the script describes, Rust draws. Canvas items are display lists the
+app draws, or an HTML file (`items.web`). **The type files here are the
+truth**: `gpui-kit.d.ts` (written into a mod's folder when it loads) for
+elements and `specular.d.ts` for the app's state and commands. They're
+rewritten on every start to match this version.
+
+## Changing things safely
+
+- Edits apply at once. If a mod is invalid, the app keeps the last good
+  build running and writes why to `mods/<name>.error`. Check after every
+  edit.
+- `specular mod check <mod folder>` loads a mod once with no window and
+  renders it. Never call a mod done without a passing check; also try it in
+  the app.
+- **Escape hatch:** Control+Option+Shift+Escape always works: it sets your
+  layout aside (`mine.json.aside`) and goes back to the shipped one. Nothing
+  can rebind it.
+
+## Seeing the window
+
+`specular shot [file.png]` saves the canvas as the window shows it as a PNG
+and prints its absolute path (default: `specular-shot.png` in your current
+folder). Use it when debugging items and tools: inspect spacing, colours and
+previews. It captures the canvas, not the panels around it, even when the
+window is covered. Specular must be running with an open window.
 
 ## A mod in one screen
 
@@ -180,7 +228,7 @@ Elements a mod places but cannot draw itself, imported from `specular`:
 - `Prism`, `Prism.new(id, {})`: the first-run view's turning Prism, 160
   points square.
 
-## Tools
+## The CLI
 
 - `specular mod check <dir> [--state fixture.json]` loads a mod with no
   window, renders it once against a state dump (`specular state > fixture.json`;
@@ -194,9 +242,8 @@ Elements a mod places but cannot draw itself, imported from `specular`:
 - `specular mod stats` prints, per loaded mod, its script renders, the mean
   and slowest render and the keys it read. A mod that renders while nothing
   changes is a bug.
-- `specular shot [file.png]` saves the canvas as the window shows it, with
-  your items and your tool's preview but not the panels, and prints the
-  file's path. Look at the picture before you call a canvas mod done.
+- `specular shot [file.png]` saves the canvas as a PNG (see "Seeing the
+  window").
 - `console.log` goes to the app's log (`gpui_shell::script`).
 
 ## The shipped mods
@@ -221,3 +268,127 @@ folder, marks it, and points the layout at it; edit `mods/my-tabs/main.js`
 and each save reloads it. Without `--use`, set a region's `"mod"` yourself.
 Mods are trusted code: a mod has your files, network and processes, like a
 shell script you run.
+
+## Check before you finish
+
+```sh
+specular mod check ~/Library/Application\ Support/Specular/mods/<name>
+specular mod stats
+specular shot /tmp/mod.png
+```
+
+`check` loads and renders the mod. It exits nonzero with the exact error.
+Run it after every change. `stats` must show no renders while nothing
+changes. Then look at the picture.
+
+## A canvas mod
+
+A mod with items, tools or commands runs out of sight whatever the layout says.
+Its `render()` returns an empty `div()` and does its work from state.
+
+**Draw an item once per change.** Keep what you last sent, and send again only
+when the item's size or props change. Moving an item changes no key, so it
+never wakes the script.
+
+```js
+import { View, div } from "gpui-kit";
+import { state, run } from "specular";
+
+const drawn = new Map();
+
+export default class MyItems extends View {
+  render() {
+    const items = (state("canvas/mod_items") || []).filter((item) => item.mod === "my-pen");
+    for (const item of items) {
+      const key = JSON.stringify([item.width, item.height, item.props]);
+      if (drawn.get(item.id) === key) continue;
+      drawn.set(item.id, key);
+      run("item.draw", { id: item.id, draws: [
+        { type: "rect", x: 0, y: 0, width: item.width, height: item.height, fill: "#ffffff", radius: 8 },
+        { type: "text", x: 12, y: 12, text: item.props.title || "Untitled", size: 14 },
+      ] });
+    }
+    return div();
+  }
+}
+```
+
+**Act once per number.** The `tool` and `call` keys carry a `number` that
+counts up. Remember the last one you acted on, and skip the value the script
+first sees when it loads, so a reload does not replay an old stroke or call.
+
+```js
+let lastCall = null;
+// in render():
+const call = state("call");
+const number = call ? call.number : 0;
+if (lastCall !== null && number > lastCall && call.command === "my-pen/clear") {
+  for (const id of (call.args && call.args.ids) || []) run("item.set", { id, props: { points: [] } });
+}
+lastCall = number;
+```
+
+**A tool previews, then commits.** While the tool is in hand the drag is the
+`tool` key, `{tool: "<mod>/<tool>", number, phase: "down"|"up", points}` in
+canvas units. On `down`, send `tool.preview` with a display list in canvas
+units. On `up`, place what the stroke made with `item.add` (one undo step,
+which also clears the preview), with its points made relative to the item's
+top-left. See `ink/main.js`.
+
+**Props are the item's data.** `item.set {id, props}` merges keys into an
+item's props as one undo step (`null` removes a key). Keep everything the item
+needs to draw itself in its props. The last display list is saved in the
+`.canvas` file as the item's snapshot, so a person without the mod still sees
+it.
+
+**Web items read their props through the bridge.** An `items.web` page is
+opened as `file://<mod>/item.html#item=<id>`. Wait for `window.specular` (it
+may arrive after your script, with a `specular-ready` event), then
+`specular.subscribe("canvas/mod_items", ...)` and find your id. See
+`watercolor/item.html`. Still send a display list from `main.js`: it is the
+snapshot and what shows where the mod is not installed.
+
+## What a mod can't do
+
+Check this list before you promise a feature. If something is in neither this
+guide nor the types, assume a mod can't do it.
+
+**The window.** A mod can replace the tab row, the toolbar, the Share button,
+the notices, the canvas context menu and the first-run view. It can only add
+entries to the command palette and buttons to the dock; naming a mod for
+either in the layout only hides it. The layers panel (sidebar) and the chat
+panel can only be hidden: there is no state key for them. A mod can't change
+the contents of tool options popups, the settings window, the macOS menu bar,
+the page inspector, or the theme's colours.
+
+**The canvas.** A mod can't restyle or extend the built-in items and tools,
+change selection outlines, handles, snapping or hit-testing, or read the
+camera, the selection (except the ids the dock passes to its commands), items
+other than its own, or the content of live web pages.
+
+**Items.** An item can't be entered and gets no pointer, wheel or key input.
+A display list has rects, ellipses, paths, text and images only: no
+gradients, shadows, blurs, clipping, transforms, fonts or rich text. Resizing
+doesn't scale it. No video, camera, screen, audio or GPU shaders; use
+`items.web` for anything richer. `item.draw` isn't an undo step, and several
+`run()` calls are several undo steps. The web viewer and sync peers show
+snapshots only.
+
+**Tools.** A tool gets one press-to-release drag in canvas units: no hover,
+double click, modifiers, pressure, wheel or keys. The preview is one render
+behind. A tool's only dock controls are the mod's command buttons.
+
+**Commands and keys.** A key is one character with Command, Shift or Option,
+works only on the canvas, and loses to any built-in key. Palette entries go in
+the Mods group with no ordering, check marks or disabled state. No context
+menu or menu bar entries.
+
+**Running.** A mod runs only when installed in the app's mods folder; a canvas
+never runs one. Install mods installs only from the canvas's space folder.
+
+## Keep in mind
+
+- One mod per idea. Don't edit this guide or the `.d.ts` files (the app
+  rewrites them). Don't touch other mods unless the request needs it.
+- Use `colors()` so the mod follows the person's theme.
+- Read ids from `specular state` and command results; don't guess them.
