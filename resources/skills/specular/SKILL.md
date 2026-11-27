@@ -331,6 +331,15 @@ its event:
 `item.add {kind: sticky|text|shape, x, y, text?}` places an item at a canvas
 point. A working sample is `native/fixtures/bridge/space/widget.html`.
 
+## Mods
+
+To build a mod (a panel, a canvas item type, a tool, or commands for the
+palette, keys and dock), use the `specular-mods` skill. To drive mods that
+exist: `specular run tool.set '{"tool": "ink/pen"}'` arms a mod tool,
+`specular run item.add '{"kind": "mod", "mod": "feed", "props": {...}}'`
+places a mod item, `specular run item.set '{"id": "...", "props": {...}}'`
+changes one, and `specular run <mod>/<command>` runs a mod's own command.
+
 ## Passing URLs
 
 Always pass full URLs (including scheme and host) to `specular add page`. The

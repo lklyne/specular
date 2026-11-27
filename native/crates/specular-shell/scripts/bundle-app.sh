@@ -205,6 +205,7 @@ strip -x "$app/Contents/MacOS/specular-cli"
 mkdir -p "$app/Contents/Resources/bin" "$app/Contents/Resources/skills"
 cp "$agent_browser" "$app/Contents/Resources/bin/agent-browser"
 cp -R "$repo_dir/resources/skills/specular" "$app/Contents/Resources/skills/specular"
+cp -R "$repo_dir/resources/skills/specular-mods" "$app/Contents/Resources/skills/specular-mods"
 cp -R "$core_skill" "$app/Contents/Resources/skills/core"
 mkdir -p "$app/Contents/Helpers"
 # Anthropic's own signature stays on the runtime.

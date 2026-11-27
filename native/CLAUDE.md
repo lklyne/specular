@@ -327,6 +327,15 @@ A mod (ADR 0055) is a folder of `mod.json` and `main.js`, run by
   `WindowDrag`, `Share`, `Prism`. Headless, the window-only ones are
   placeholders. A new one goes in `HOST_COMPONENTS`, the d.ts and the
   guide; the window's version in `kit/mods/host.rs`.
+- **Canvas items, tools and commands (ADR 0057, API 1.1).** The app's
+  side is `specular-interact/src/mods/`: the catalog the shell scans
+  (`Event::ModCatalog`), `ModAction`, the `canvas/mod_items`, `tool` and
+  `call` keys, the install notice. A mod item is `Kind::Mod`
+  (`specular-doc/src/mod_item.rs`, `mod_draw.rs`) drawn by
+  `specular-scene/src/view/mod_item.rs`; the shell's side is
+  `app/mods_run.rs`. Mods with items, tools or commands run out of sight
+  (`ModSet::sync`'s `background`, `Mods::background`). The shipped
+  examples are `feed`, `ink` and `watercolor`.
 - **Checking and measuring.** `specular mod check <dir> [--state
   fixture.json]` (the `specular-mod-check` crate) renders a mod headless.
   `specular mod stats` is `GET /mods`. `specular mod clone <name>

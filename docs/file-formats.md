@@ -150,6 +150,31 @@ Missing `fillStyle` means `solid`; missing text alignment means
 readers that do not support shapes or these optional fields can ignore them,
 while the file stays valid, transparent JSON.
 
+#### Mod items
+
+A mod item ([ADR 0057](./adr/0057-mod-items-and-tools.md)) is a plain JSON
+Canvas node, a `text` node with its mod's name, or a `link` or `file` node when
+it wraps a URL or a file, so other tools show something. Its `specular` fields
+name the mod, hold its props, and keep the display list it last drew:
+
+```json
+{
+  "id": "feed1", "type": "text", "text": "feed",
+  "x": 40, "y": 40, "width": 360, "height": 440,
+  "specular": {
+    "mod": "feed",
+    "props": { "title": "Refs", "urls": ["refs/a.png"] },
+    "snapshot": [{ "type": "rect", "x": 0, "y": 0, "width": 360, "height": 440, "fill": "#ffffff" }]
+  }
+}
+```
+
+The canvas's top-level `specular.mods` lists the mods its items use, written
+from the items on every save: `[{ "name": "feed", "api": "1.1", "from":
+"mods/feed" }]`. `from` is the copy of the mod in the space folder. Reading the
+list runs nothing; the app offers to install a missing mod, and until then the
+item shows its snapshot.
+
 ### Edges
 
 Connections between two nodes:
