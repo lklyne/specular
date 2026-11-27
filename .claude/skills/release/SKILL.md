@@ -39,6 +39,28 @@ Collect in parallel:
 
 If there are zero commits since the last tag, stop — nothing to release.
 
+### Step 2b: Bring the docs and skills up to date
+
+Docs follow releases, not every change. Before the changelog, check what
+the commits since the last tag changed for people and agents who build on
+the app, and bring the docs in step:
+
+- **The mod manual and types**: `native/crates/specular-mods/mods/README.md`
+  (what `specular --skill` prints) and `specular.d.ts`. `cargo test -p
+  specular-mods --test shipped` fails when a command, key or component is
+  missing from either.
+- **The skills**: `resources/skills/*/SKILL.md` and their copies in
+  `.claude/skills/` match (see CLAUDE.md, "Skill files").
+- **The website**: the docs in `lklyne/specular-web` (`src/pages/docs/`,
+  the mod pages under `mods/`). A new layout or theme key, command, CLI
+  verb, host component, settings page or behaviour a mod author or agent
+  meets belongs there, with what was learned using it.
+
+List what is out of date and ask the user before writing. Update the
+manual and skills in this repo in their own commit before the changelog;
+put website changes up as a PR on `lklyne/specular-web` and give its link
+in the report. If nothing user-facing changed, say so and go on.
+
 ### Step 3: Infer version bump, ask user to confirm
 
 Infer the bump from commits — don't present it as an open question. Read the actual changes, not just prefixes:

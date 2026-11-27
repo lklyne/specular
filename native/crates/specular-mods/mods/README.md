@@ -64,7 +64,9 @@ folder). Use it when debugging items and tools: inspect spacing, colours and
 previews. It captures the canvas, not the panels around it, even when the
 window is covered. `specular shot --whole` captures the whole window as the
 screen shows it, panels, layout and look included (macOS asks once to let
-Specular record the screen). Specular must be running with an open window.
+Specular record the screen). Specular must be running with an open window,
+shown on the current Space: a hidden, minimized or other-Space window makes
+`--whole` fail and say so.
 
 ## A mod in one screen
 
@@ -245,9 +247,18 @@ popups and dialogs and every mod draw with, so a look is one file:
 all, pills included), `font` and `font_size` set the chrome's text, and
 `colors` renames any colour `colors()` lists (`#rgb`, `#rgba`, `#rrggbb`,
 `#rrggbbaa`). `hover` is a hovered row's fill and `hoverText` its text;
-`on` and `onText` a selected one's. A layout's own `radius`, `font`, `font_size` and
-`colors` go over its theme's. A mod reads them all through `colors()` and
-`look()`.
+`on` and `onText` a selected one's. A layout's own `radius`, `font`,
+`font_size` and `colors` go over its theme's. A mod reads them all through
+`colors()` and `look()`.
+
+**A square-cornered look** (a retro one, say) takes four things: `radius: 0`
+in its theme, so every corner the app draws is square; `hover`/`hoverText`
+and `on`/`onText` pairs that read on each other (a System 7 menu is
+`"on": "#000", "onText": "#fff", "hover": "#bbb", "hoverText": "#000"`);
+a root `window_border` in the outline colour, which follows the curve
+macOS cuts the window's corners on; and room inside the title and status
+bars' blocks (`padding`), so nothing sits under that curve. Check it with
+`specular shot --whole`, at each corner.
 
 **Patterns.** A paint can repeat over a base colour: `{ "color": "#ddd",
 "pattern": "stripes", "ink": "#bbb", "width": 1, "gap": 1 }` for
