@@ -196,7 +196,7 @@ fn theme_json(app: &App) -> Value {
 }
 
 fn settings_json(app: &App) -> Value {
-    let settings = app.settings;
+    let settings = &app.settings;
     json!({
         "showSidebar": settings.show_sidebar,
         "showChat": settings.show_chat,

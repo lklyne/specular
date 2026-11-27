@@ -2,11 +2,11 @@
 //!
 //! One JSON object in the app's config folder. This shell reads and writes
 //! `toolDefaults`, `spacePath`, `show`, `tools`, `hideAgentCursors`,
-//! `hideSyncedCursors`, `themeMode` and `agentModel`, and keeps
-//! every other
-//! key as it found it. The folder is the one the Electron app used, so its
+//! `hideSyncedCursors`, `modsOff`, `themeMode` and `agentModel`, and keeps
+//! every other key as it found it. The folder is the one the Electron app used, so its
 //! `spacePath` and its other keys are read where they already are.
 
+use std::collections::BTreeSet;
 use std::ffi::OsString;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -25,6 +25,8 @@ const TOOLS_KEY: &str = "tools";
 /// The Electron app's keys for which cursors go undrawn.
 const HIDE_AGENT_CURSORS_KEY: &str = "hideAgentCursors";
 const HIDE_SYNCED_CURSORS_KEY: &str = "hideSyncedCursors";
+/// The installed mods turned off in the settings, by folder name.
+const MODS_OFF_KEY: &str = "modsOff";
 /// The key the Electron app stores its theme under too.
 const THEME_KEY: &str = "themeMode";
 /// The model the canvas agent runs, as the picker names it.
@@ -159,12 +161,20 @@ pub(crate) fn load_settings(path: &Path) -> AppSettings {
             agent: hidden(HIDE_AGENT_CURSORS_KEY),
             synced: hidden(HIDE_SYNCED_CURSORS_KEY),
         },
+        mods_off: (preferences.get(MODS_OFF_KEY))
+            .and_then(Value::as_array)
+            .map_or_else(BTreeSet::new, |names| {
+                (names.iter())
+                    .filter_map(Value::as_str)
+                    .map(str::to_owned)
+                    .collect()
+            }),
     }
 }
 
-/// Writes `settings` under `show`, `tools` and the cursor keys, keeping
+/// Writes `settings` under `show`, `tools`, the cursor keys and `modsOff`, keeping
 /// the file's other keys.
-pub(crate) fn save_settings(path: &Path, settings: AppSettings) -> io::Result<()> {
+pub(crate) fn save_settings(path: &Path, settings: &AppSettings) -> io::Result<()> {
     let show = serde_json::json!({
         "sidebar": settings.show_sidebar,
         "rightPanel": settings.show_chat,
@@ -180,7 +190,11 @@ pub(crate) fn save_settings(path: &Path, settings: AppSettings) -> io::Result<()
         path,
         HIDE_SYNCED_CURSORS_KEY,
         Value::from(settings.hidden_cursors.synced),
-    )
+    )?;
+    let off: Vec<Value> = (settings.mods_off.iter())
+        .map(|name| Value::from(name.as_str()))
+        .collect();
+    save_key(path, MODS_OFF_KEY, Value::Array(off))
 }
 
 /// The hash of the `skill` file this app, or the Electron app, last

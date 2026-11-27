@@ -223,6 +223,21 @@ impl Layout {
         &mut self.overlays[overlay.index()]
     }
 
+    /// It as drawn while the mods `off` are turned off: their blocks show
+    /// the app's own panels, and their overlays the app's own.
+    #[must_use]
+    pub fn without_mods(&self, off: &std::collections::BTreeSet<String>) -> Self {
+        let mut layout = self.clone();
+        layout.root.drop_mods(off);
+        for overlay in &mut layout.overlays {
+            if overlay.fill.as_ref().is_some_and(|name| off.contains(name)) {
+                overlay.fill = None;
+                overlay.props.clear();
+            }
+        }
+        layout
+    }
+
     /// The node with the id `id`.
     pub fn node(&self, id: &str) -> Option<&Node> {
         self.root.find(id)

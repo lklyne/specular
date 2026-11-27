@@ -6,6 +6,8 @@
 //!   "content": { "mod": "sidebar", "props": {} }, "background": "sidebar" }
 //! ```
 
+use std::collections::BTreeSet;
+
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
@@ -252,6 +254,21 @@ impl Node {
     /// The node under it (or it) with the id `id`.
     pub fn find(&self, id: &str) -> Option<&Self> {
         self.walk().into_iter().find(|node| node.is(id))
+    }
+
+    /// Gives every block under it (or it) that holds a mod of `off` the
+    /// app's own panel its id names, or nothing when its id names none.
+    pub(crate) fn drop_mods(&mut self, off: &BTreeSet<String>) {
+        if let Some(Content::Mod { name, .. }) = &self.content
+            && off.contains(name)
+        {
+            self.content = (self.id.as_deref())
+                .and_then(Region::named)
+                .map(Content::Panel);
+        }
+        for child in &mut self.children {
+            child.drop_mods(off);
+        }
     }
 
     /// The node under it (or it) with the id `id`, to change.

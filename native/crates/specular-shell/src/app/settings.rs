@@ -81,7 +81,7 @@ impl<W: ShellWindow> Runtime<W> {
         }
     }
 
-    pub(super) fn save_settings(&self, settings: AppSettings) {
+    pub(super) fn save_settings(&self, settings: &AppSettings) {
         let Some(path) = self.prefs.as_deref() else {
             return;
         };

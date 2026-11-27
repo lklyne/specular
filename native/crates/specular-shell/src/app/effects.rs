@@ -165,7 +165,7 @@ impl<W: ShellWindow> Runtime<W> {
             Effect::OpenSpace(folder) => self.choose_space(std::path::Path::new(&folder)),
             Effect::RevealSpace => self.reveal_space(),
             Effect::Quit => self.exit(),
-            Effect::SaveSettings(settings) => self.save_settings(settings),
+            Effect::SaveSettings(settings) => self.save_settings(&settings),
             effect @ (Effect::SaveLayoutToggles(..)
             | Effect::SaveActiveLayout(_)
             | Effect::ResetLayout) => self.layout(effect),

@@ -13,6 +13,7 @@ mod images;
 mod keys;
 mod layout;
 mod mods;
+mod mods_off;
 mod motion;
 mod overlays;
 mod palette;

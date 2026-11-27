@@ -2,7 +2,7 @@
 //! each; and the gate that turns what the app shows now into the room each
 //! node takes.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use super::layout::{Layout, SHIPPED};
 use super::look::ThemeFile;
@@ -95,8 +95,14 @@ pub fn place<'a>(
 /// files read.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct ChromeState {
-    /// Every layout by name: the shipped ones, then the files read.
+    /// Every layout by name as drawn: [`Self::written`] without the mods
+    /// turned off.
     pub(crate) layouts: BTreeMap<String, Layout>,
+    /// Every layout by name as written: the shipped ones, then the files
+    /// read.
+    written: BTreeMap<String, Layout>,
+    /// The mods turned off in the settings.
+    off: BTreeSet<String>,
     /// The name of the one in force.
     pub(crate) active: String,
     /// What was toggled at run time, by layout.
@@ -109,10 +115,12 @@ pub(crate) struct ChromeState {
 
 impl Default for ChromeState {
     fn default() -> Self {
-        let layouts = (SHIPPED.iter())
+        let layouts: BTreeMap<String, Layout> = (SHIPPED.iter())
             .filter_map(|(name, text)| Some(((*name).to_owned(), Layout::parse(text).ok()?)))
             .collect();
         Self {
+            written: layouts.clone(),
+            off: BTreeSet::new(),
             layouts,
             active: DEFAULT.to_owned(),
             toggles: BTreeMap::new(),
@@ -212,7 +220,8 @@ impl ChromeState {
     /// good version; a kept choice of a layout there is not falls back to
     /// the default.
     pub(crate) fn load(&mut self, read: LayoutsRead) {
-        self.layouts.extend(read.layouts);
+        self.written.extend(read.layouts);
+        self.redraw();
         if !read.toggles.is_empty() {
             self.toggles = read.toggles;
         }
@@ -224,5 +233,26 @@ impl ChromeState {
             };
         }
         self.themes = read.themes;
+    }
+
+    /// The layout in force as written, with the mods turned off still in it.
+    pub(crate) fn written_layout(&self) -> &Layout {
+        (self.written.get(&self.active))
+            .or_else(|| self.written.get(DEFAULT))
+            .unwrap_or(&self.fallback)
+    }
+
+    /// Turns the mods `off` off, and every other mod on.
+    pub(crate) fn set_off(&mut self, off: &BTreeSet<String>) {
+        if self.off != *off {
+            self.off.clone_from(off);
+            self.redraw();
+        }
+    }
+
+    fn redraw(&mut self) {
+        self.layouts = (self.written.iter())
+            .map(|(name, layout)| (name.clone(), layout.without_mods(&self.off)))
+            .collect();
     }
 }

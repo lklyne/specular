@@ -109,7 +109,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         Event::Agent { thread, notice } => chat::on_agent(app, &thread, notice, &mut effects),
         Event::ReposLoaded(repos) => app.repos = *repos,
         Event::Models(news) => app.models.hear(news),
-        Event::SettingsLoaded(settings) => crate::settings::load(app, settings),
+        Event::SettingsLoaded(settings) => crate::settings::load(app, settings, &mut effects),
         Event::About(rows) => app.about = rows,
         Event::SpaceNeeded(ask) => app.space_ask = Some(ask),
         Event::AgentAct(act) => crate::presence::on_act(app, act, &mut effects),

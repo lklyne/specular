@@ -24,7 +24,8 @@ icon_assets!(
         SquareTerminal,
         Sparkles,
         Download,
-        RefreshCw
+        RefreshCw,
+        Blocks
     ]
 );
 
@@ -59,6 +60,8 @@ pub(crate) enum ShellIcon {
     Download,
     /// Reading what is installed again.
     RefreshCw,
+    /// The mods pane.
+    Blocks,
 }
 
 impl IconNamed for ShellIcon {
@@ -78,6 +81,7 @@ impl IconNamed for ShellIcon {
             Self::Sparkles => IconName::Sparkles.path(),
             Self::Download => IconName::Download.path(),
             Self::RefreshCw => IconName::RefreshCw.path(),
+            Self::Blocks => IconName::Blocks.path(),
         }
     }
 }

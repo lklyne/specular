@@ -51,6 +51,10 @@ rewritten on every start to match this version.
 - **Escape hatch:** Control+Option+Shift+Escape always works: it forgets
   what was hidden at run time and shows the shipped `default` layout. Your
   layout files are left as they are. Nothing can rebind it.
+- **Settings > Mods** lists every installed mod with a switch. A mod turned
+  off doesn't run: its tools, commands and items go, and a layout that
+  places it shows the app's own panel there. The choice is kept between
+  launches (`modsOff` in the preferences file).
 
 ## Seeing the window
 
