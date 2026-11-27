@@ -69,7 +69,7 @@ const fn placing(tool: Tool) -> Option<Placing> {
         Tool::AddSticky => Some(Placing::Text(TextStyle::Sticky)),
         Tool::AddShape => Some(Placing::Shape),
         Tool::AddDocument => Some(Placing::Document),
-        Tool::Select | Tool::Draw | Tool::Comment | Tool::Inspect => None,
+        Tool::Select | Tool::Draw | Tool::Comment | Tool::Inspect | Tool::Mod(_) => None,
     }
 }
 
@@ -134,6 +134,7 @@ impl App {
                 | Gesture::TextSelect(_)
                 | Gesture::EdgeDrag(_)
                 | Gesture::Line(_)
+                | Gesture::ModTool
                 | Gesture::Draw(_),
             ) => return None,
         };

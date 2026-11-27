@@ -99,7 +99,7 @@ impl PageStates {
 /// address is written to the page entity, with no undo step, so the file
 /// reopens where the page was left.
 pub(crate) fn on_notice(app: &mut App, page: &EntityId, notice: &PageNotice) -> bool {
-    if !app.document.entity(page).is_some_and(is_page) {
+    if !app.document.entity(page).is_some_and(|it| is_page(app, it)) {
         return false;
     }
     let state = app.session.pages.0.entry(page.clone()).or_default();
@@ -233,7 +233,7 @@ pub(crate) fn target(app: &App) -> Option<&EntityId> {
     let page = session.focus.page().or(session.selection.single_entity())?;
     app.document
         .entity(page)
-        .filter(|it| is_page(it))
+        .filter(|it| is_page(app, it))
         .map(|_| page)
 }
 
@@ -244,7 +244,7 @@ pub(crate) fn addressed(app: &App) -> Vec<EntityId> {
         return vec![page.clone()];
     }
     let selection = &app.session.selection;
-    let page = |id: &EntityId| app.document.entity(id).is_some_and(is_page);
+    let page = |id: &EntityId| app.document.entity(id).is_some_and(|it| is_page(app, it));
     let pages: Vec<EntityId> = selection.entities().cloned().collect();
     if pages.len() == selection.items().len() && pages.iter().all(page) {
         pages
@@ -312,7 +312,7 @@ pub(crate) fn drive(app: &mut App, page: &EntityId, nav: PageNav, effects: &mut 
 /// Whether `nav` can be asked of `page`: it is a page, and for a step back
 /// or forward it has said there is an entry there. The reason, when not.
 pub(crate) fn allows(app: &App, page: &EntityId, nav: &PageNav) -> Result<(), String> {
-    if !app.document.entity(page).is_some_and(is_page) {
+    if !app.document.entity(page).is_some_and(|it| is_page(app, it)) {
         return Err(format!("{} is not a page", page.as_str()));
     }
     let state = app.session.pages.get(page);

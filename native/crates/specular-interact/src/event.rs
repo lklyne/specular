@@ -181,9 +181,9 @@ pub enum Event {
     /// What was toggled over the layout in an earlier run was read.
     /// Replaces the toggles held and asks for no save.
     LayoutToggles(crate::Toggles),
-    /// The palette entries of the mods the window loaded, all of them:
-    /// replaces the ones held.
-    ModPalette(Vec<crate::ModPaletteEntry>),
+    /// The mods installed in the app home, all of them: replaces the list
+    /// held. The shell sends it at startup and after an install.
+    ModCatalog(crate::mods::ModCatalog),
     /// The shell's context menu closed with nothing picked: a press outside
     /// it, or Escape while it had the keys.
     MenuClosed,

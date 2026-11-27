@@ -13,14 +13,14 @@ use std::time::SystemTime;
 
 use gpui::{AnyView, App, Window};
 use serde_json::{Value, json};
-use specular_interact::{Layout, ModPaletteEntry};
+use specular_interact::Layout;
 
 use crate::host::Hosting;
 use crate::runner::Mod;
 use crate::shipped;
 
 enum Slot {
-    Ready(Mod),
+    Ready(Box<Mod>),
     /// Why it did not load, and when its files last changed then.
     Failed {
         error: String,
@@ -82,11 +82,18 @@ impl ModSet {
         &self.hosting
     }
 
-    /// Brings the mods in step with `layout`: publishes each named mod's
-    /// props, loads what is newly named or was fixed since it failed, and
-    /// lets go of what is no longer named. Returns whether the set of mods
-    /// loaded changed.
-    pub fn sync(&mut self, layout: &Layout, window: &mut Window, cx: &mut App) -> bool {
+    /// Brings the mods in step with `layout` and `background` (the mods
+    /// that run out of sight, for their canvas items, tools and commands):
+    /// publishes each mod the layout names its props, loads what is newly
+    /// named or was fixed since it failed, and lets go of what is no longer
+    /// named. Returns whether the set of mods loaded changed.
+    pub fn sync(
+        &mut self,
+        layout: &Layout,
+        background: &[String],
+        window: &mut Window,
+        cx: &mut App,
+    ) -> bool {
         let mut named = Vec::new();
         for (_, node) in layout.nodes() {
             let Some(name) = node.fill.as_deref() else {
@@ -96,6 +103,11 @@ impl ModSet {
             (self.hosting.revisions.borrow_mut()).publish(&format!("mods/{name}/props"), props);
             if !named.iter().any(|seen| seen == name) {
                 named.push(name.to_owned());
+            }
+        }
+        for name in background {
+            if !named.contains(name) {
+                named.push(name.clone());
             }
         }
         let before = self.slots.len();
@@ -131,7 +143,7 @@ impl ModSet {
                 if let Err(error) = shipped::clear_error(dir) {
                     tracing::warn!("mod `{name}`: {error}");
                 }
-                Slot::Ready(loaded)
+                Slot::Ready(Box::new(loaded))
             }
             Err(error) => {
                 let error = format!("{error:#}");
@@ -171,24 +183,23 @@ impl ModSet {
         }
     }
 
+    /// The views of the loaded mods among `names`, to draw out of sight so
+    /// their scripts run.
+    pub fn views(&self, names: &[String], cx: &App) -> Vec<AnyView> {
+        (names.iter())
+            .filter_map(|name| match self.slots.get(name)? {
+                Slot::Ready(loaded) => Some(loaded.view(cx)),
+                Slot::Failed { .. } => None,
+            })
+            .collect()
+    }
+
     /// The loaded mods.
     pub fn loaded(&self) -> impl Iterator<Item = &Mod> {
         self.slots.values().filter_map(|slot| match slot {
-            Slot::Ready(loaded) => Some(loaded),
+            Slot::Ready(loaded) => Some(&**loaded),
             Slot::Failed { .. } => None,
         })
-    }
-
-    /// The palette entries of every loaded mod's `mod.json`.
-    pub fn palette(&self) -> Vec<ModPaletteEntry> {
-        (self.loaded())
-            .flat_map(|loaded| loaded.manifest().palette.iter())
-            .map(|entry| ModPaletteEntry {
-                title: entry.title.clone(),
-                run: entry.run.clone(),
-                args: entry.args.clone(),
-            })
-            .collect()
     }
 
     /// What each loaded mod has cost, `GET /mods`'s body: renders, the mean

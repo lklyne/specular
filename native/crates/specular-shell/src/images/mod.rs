@@ -10,6 +10,7 @@ mod device_frames;
 mod gif;
 #[cfg(target_os = "macos")]
 mod heif;
+mod remote;
 mod svg;
 mod upload;
 
@@ -76,6 +77,8 @@ struct Job {
     fresh: bool,
     /// The bytes, for a drawing the binary holds and no file does.
     embedded: Option<&'static [u8]>,
+    /// The URL to fetch, for a picture that is no file.
+    url: Option<String>,
 }
 
 enum Command {
@@ -111,7 +114,7 @@ impl ImageLoader {
                 loop {
                     match command_queue.recv_timeout(watch::INTERVAL) {
                         Ok(Command::Load(job)) => {
-                            if job.fresh || !watched.contains(&job.key) {
+                            if job.url.is_none() && (job.fresh || !watched.contains(&job.key)) {
                                 watched.watch(job.key, [job.path.clone()]);
                             }
                             let result = load(&job);
@@ -165,8 +168,10 @@ impl ImageLoader {
         fresh: bool,
     ) {
         let drawing = device_frames::drawing(file);
+        let url = remote::is_remote(file).then(|| file.to_owned());
         let path = match &drawing {
             Some(_) => Some(PathBuf::from(file)),
+            None if url.is_some() => Some(PathBuf::from(file)),
             None => specular_interact::resolve_file(file, self.space.as_deref()),
         };
         if path.is_none() {
@@ -180,6 +185,7 @@ impl ImageLoader {
                 want: drawing.as_ref().map(|drawing| drawing.want).or(want),
                 fresh,
                 embedded: drawing.as_ref().map(|drawing| drawing.svg),
+                url: url.clone(),
             })
         };
         let sent = path.is_some_and(|path| self.commands.send(job(path)).is_ok());
@@ -212,6 +218,9 @@ fn load(job: &Job) -> Result<Content, LoadFailure> {
     let read;
     let bytes = if let Some(bytes) = job.embedded {
         bytes
+    } else if let Some(url) = &job.url {
+        read = remote::fetch(url)?;
+        &read
     } else {
         read = std::fs::read(path).map_err(|error| {
             tracing::debug!(path = %path.display(), "image cannot be read: {error}");

@@ -41,11 +41,15 @@ pub use check::{CheckReport, check, fresh_state};
 pub use chrome::chrome_colors;
 pub use components::{Build, Components, HOST_COMPONENTS};
 pub use host::{Hosting, MODULE, ModHost, RunError, specular_module};
-pub use manifest::{API, FILE as MANIFEST_FILE, ManifestError, ModManifest, PaletteEntry};
+pub use manifest::read_manifest;
 pub use reads::Reads;
 pub use runner::{Mod, ModStats};
 pub use set::{ModSet, Placed};
 pub use specular_interact::Revisions;
+pub use specular_interact::mods::{
+    API, ApiVersion, FILE as MANIFEST_FILE, ItemSpec, ManifestError, ModManifest, PaletteEntry,
+    ToolSpec,
+};
 pub use value::{from_host, to_host};
 
 /// The runtime's own types, for a host that embeds a mod's view.

@@ -106,15 +106,19 @@ pub(super) const EDIT: &[CommandSpec] = &[
 ];
 
 fn add_item(args: &Value) -> Result<Run, RunError> {
-    let kind = choice(
-        args,
-        "kind",
-        &[
-            ("sticky", NewKind::Sticky),
-            ("text", NewKind::Text),
-            ("shape", NewKind::Shape),
-        ],
-    )?;
+    let kind = if args.get("kind").and_then(Value::as_str) == Some("mod") {
+        NewKind::Mod(Box::new(super::mods::new_mod_item(args)?))
+    } else {
+        choice(
+            args,
+            "kind",
+            &[
+                ("sticky", NewKind::Sticky),
+                ("text", NewKind::Text),
+                ("shape", NewKind::Shape),
+            ],
+        )?
+    };
     act(Action::AddItem(NewItem {
         kind,
         at: DVec2::new(number(args, "x")?, number(args, "y")?),
@@ -126,8 +130,8 @@ fn add_item(args: &Value) -> Result<Run, RunError> {
 pub(super) const ITEM: &[CommandSpec] = &[CommandSpec {
     name: "item.add",
     label: "",
-    args: "{kind: sticky|text|shape, x: number, y: number, text?: string}",
-    about: "Place a new item with its top-left at a canvas point, in the tool's style, and select it.",
+    args: "{kind: sticky|text|shape|mod, x: number, y: number, text?: string, mod?: name, props?: object, width?: number, height?: number}",
+    about: "Place a new item with its top-left at a canvas point, in the tool's style, and select it. A `mod` item is one of an installed mod's, with its props.",
     enabled: idle,
     build: add_item,
 }];

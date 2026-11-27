@@ -202,6 +202,8 @@ pub enum Action {
     /// Place a new item at a canvas point in the tool defaults' style, as
     /// one undo step, and select it.
     AddItem(crate::NewItem),
+    /// A mod item or tool action (ADR 0057).
+    Mod(Box<crate::mods::ModAction>),
     /// Move the selection by exactly this many canvas units.
     Nudge {
         /// Along x. Positive is right.

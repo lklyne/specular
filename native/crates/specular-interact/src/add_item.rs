@@ -5,11 +5,12 @@
 use glam::DVec2;
 use specular_doc::{EntityId, ItemId, Kind, TextStyle};
 
+use crate::mods::{self, NewModItem};
 use crate::place::{self, Placing};
 use crate::{App, Effect, edit, live};
 
 /// What [`Action::AddItem`](crate::Action::AddItem) places.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum NewKind {
     /// A sticky note.
     Sticky,
@@ -17,6 +18,8 @@ pub enum NewKind {
     Text,
     /// A shape, in the shape tool's style.
     Shape,
+    /// An item of an installed mod (ADR 0057).
+    Mod(Box<NewModItem>),
 }
 
 /// An item to place: its kind, its top-left on the canvas, and its text.
@@ -38,6 +41,7 @@ pub(crate) fn add(app: &mut App, item: NewItem, effects: &mut Vec<Effect>) {
         NewKind::Sticky => Placing::Text(TextStyle::Sticky),
         NewKind::Text => Placing::Text(TextStyle::Plain),
         NewKind::Shape => Placing::Shape,
+        NewKind::Mod(new) => return mods::add_item(app, *new, item.at, effects),
     };
     let mut entity = place::default_entity(app, placing, id.clone(), item.at);
     if let Kind::Text(text) = &mut entity.kind {

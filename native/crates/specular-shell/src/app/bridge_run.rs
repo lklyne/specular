@@ -44,9 +44,15 @@ impl Default for Bridges {
 }
 
 impl<W: ShellWindow> Runtime<W> {
-    /// Whether a page showing `url` may have the bridge in this space.
+    /// Whether a page at `url` gets the bridge: a file in the space folder,
+    /// or in the mods folder, where an installed mod's web items are read
+    /// from (ADR 0057). An installed mod is the person's own code.
     fn bridge_allowed(&self, url: &str) -> bool {
-        (self.space.as_deref()).is_some_and(|root| bridge_allowed(url, root))
+        let roots = [self.space.as_deref(), self.mods_folder.as_deref()];
+        roots
+            .into_iter()
+            .flatten()
+            .any(|root| bridge_allowed(url, root))
     }
 
     /// Puts the bridge in `page`, which shows `url` now, or takes it out.

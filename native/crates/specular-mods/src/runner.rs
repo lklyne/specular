@@ -13,7 +13,8 @@ use gpui_shell::policy::{self, Policy};
 use gpui_shell::{RuntimeMetrics, ScriptView, ShellRoot, ShellRuntime, Watcher};
 
 use crate::host::{Hosting, specular_module};
-use crate::manifest::ModManifest;
+use crate::manifest::read_manifest;
+use specular_interact::mods::ModManifest;
 
 /// A loaded mod.
 pub struct Mod {
@@ -95,7 +96,7 @@ impl Mod {
         window: &mut Window,
         cx: &mut App,
     ) -> anyhow::Result<Self> {
-        let manifest = ModManifest::read(dir)?;
+        let manifest = read_manifest(dir)?;
         let runtime = ShellRuntime::new_isolated()?;
         let policy = policy_for(id, dir, data_dir, hosting)?;
         hosting.reads.borrow_mut().begin(id);
@@ -133,7 +134,7 @@ impl Mod {
         window: &mut Window,
         cx: &mut App,
     ) -> anyhow::Result<String> {
-        ModManifest::read(dir)?;
+        read_manifest(dir)?;
         let runtime = ShellRuntime::new_isolated()?;
         let policy = policy_for(id, dir, data_dir, hosting)?;
         under(policy, || runtime.check(dir, window, cx))

@@ -31,6 +31,7 @@ mod guides;
 mod image;
 mod inspect;
 mod layout_handles;
+mod mod_item;
 mod page;
 pub(crate) mod palette;
 mod place_preview;
@@ -91,6 +92,7 @@ fn build(frame: &Frame<'_>) -> Scene {
         }
     }
     if frame.chrome {
+        mod_item::preview(frame, &mut scene);
         place_preview::draw(frame, &mut scene);
         annotations::draw(frame, &mut scene);
         session::draw(frame, &mut scene);
@@ -154,5 +156,6 @@ fn draw_entity(frame: &Frame<'_>, entity: &Entity, scene: &mut Scene) {
         Kind::Group(group) => group::draw(frame, entity, group, scene),
         Kind::Drawing(drawing) => drawing::draw(frame, entity, drawing, scene),
         Kind::Shape(shape) => shape::draw(frame, entity, shape, scene),
+        Kind::Mod(item) => mod_item::draw(frame, entity, item, scene),
     }
 }

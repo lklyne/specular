@@ -29,7 +29,7 @@ pub(crate) fn draw(frame: &Frame<'_>, scene: &mut Scene) {
             Kind::Page(page) => device(frame, entity, page, &mut ghost),
             Kind::Text(text) => note(frame, &preview, entity, text, &mut ghost),
             Kind::Shape(shape) => shape::draw(frame, entity, shape, &mut ghost),
-            Kind::File(_) | Kind::Group(_) | Kind::Drawing(_) => {}
+            Kind::File(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Mod(_) => {}
         },
     }
     scene.extend(ghost.items.into_iter().map(|item| {

@@ -65,7 +65,7 @@ pub(crate) fn hides_new(app: &App, entity: &Entity) -> bool {
     let Some((view, _)) = narrowed(app) else {
         return false;
     };
-    let page = (app.document.entity(&view.item)).is_some_and(is_page);
+    let page = (app.document.entity(&view.item)).is_some_and(|it| is_page(app, it));
     let hooks = page && entity.parent.is_none() && anchors_to_pages(&entity.kind);
     !hooks
 }
@@ -78,7 +78,12 @@ pub(crate) fn refuses(app: &App, tool: Tool, world: DVec2) -> bool {
         return false;
     };
     let hooks = match tool {
-        Tool::AddText | Tool::AddSticky | Tool::AddShape | Tool::Draw | Tool::Comment => true,
+        Tool::AddText
+        | Tool::AddSticky
+        | Tool::AddShape
+        | Tool::Draw
+        | Tool::Comment
+        | Tool::Mod(_) => true,
         Tool::AddPage | Tool::AddDocument => false,
         Tool::Select | Tool::Inspect => return false,
     };

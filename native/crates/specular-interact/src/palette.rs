@@ -25,8 +25,8 @@ pub enum PaletteRun {
     Action(Action),
     /// The shell does it itself.
     Shell(ShellCommand),
-    /// Run the registry command `name` with `args`, by name: what a mod's
-    /// palette entry does.
+    /// Run the command `name` with `args`, by name: what a mod's palette
+    /// entry or own command does.
     Named {
         /// The command.
         name: String,
@@ -179,24 +179,40 @@ pub fn palette(app: &App) -> Vec<PaletteItem> {
     groups.into_iter().flat_map(|(_, items)| items).collect()
 }
 
-/// The entries the loaded mods add, each enabled while its command could
-/// run. One naming no command is listed, disabled, so its mod's author
-/// sees it and the palette does not hide the mistake.
+/// What the running mods add: their `palette` entries, each enabled while
+/// its registry command could run (one naming no command is listed,
+/// disabled, so its author sees it and the palette does not hide the
+/// mistake), then their own commands with their keys.
 fn mod_items(app: &App) -> Vec<PaletteItem> {
-    (app.chrome.mod_palette.iter())
-        .map(|entry| PaletteItem {
-            label: Cow::Owned(entry.title.clone()),
+    let mods = crate::mods::running_mods(app);
+    let entries = (mods.iter()).flat_map(|installed| installed.manifest.palette.iter());
+    let entries = entries.map(|entry| PaletteItem {
+        label: Cow::Owned(entry.title.clone()),
+        group: MODS_GROUP,
+        run: PaletteRun::Named {
+            name: entry.run.clone(),
+            args: entry.args.clone(),
+        },
+        chord: None,
+        enabled: crate::commands::run_named(app, &entry.run, &entry.args).is_ok(),
+        checked: None,
+        keywords: &[],
+    });
+    let commands = (mods.iter()).flat_map(|installed| {
+        (installed.manifest.commands.iter()).map(|spec| PaletteItem {
+            label: Cow::Owned(spec.title.clone()),
             group: MODS_GROUP,
             run: PaletteRun::Named {
-                name: entry.run.clone(),
-                args: entry.args.clone(),
+                name: crate::mods::word(installed, spec),
+                args: serde_json::Value::Null,
             },
-            chord: None,
-            enabled: crate::commands::run_named(app, &entry.run, &entry.args).is_ok(),
+            chord: spec.key.as_deref().and_then(Chord::parse),
+            enabled: app.session.gesture.is_none(),
             checked: None,
             keywords: &[],
         })
-        .collect()
+    });
+    entries.chain(commands).collect()
 }
 
 /// The registry command `name` as a palette item of `group`.

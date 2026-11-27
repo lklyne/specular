@@ -30,15 +30,18 @@ impl Sort {
         })
     }
 
-    pub(super) const fn of(kind: &Kind) -> Self {
-        match kind {
+    /// The patch kind of `kind`, or `None` for a mod item, whose fields are
+    /// its mod's and change through `item.set`.
+    pub(super) const fn of(kind: &Kind) -> Option<Self> {
+        Some(match kind {
             Kind::Page(_) => Self::Page,
             Kind::Text(_) => Self::Text,
             Kind::File(_) => Self::File,
             Kind::Group(_) => Self::Group,
             Kind::Drawing(_) => Self::Drawing,
             Kind::Shape(_) => Self::Shape,
-        }
+            Kind::Mod(_) => return None,
+        })
     }
 
     /// The kind's name, which is also the prefix of the ids it is given.

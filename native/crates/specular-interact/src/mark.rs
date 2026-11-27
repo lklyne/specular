@@ -34,7 +34,7 @@ impl App {
             (false, true) => Some(Mark::Entered),
             (true, true) => None,
             (true, false) => {
-                let page = self.document.entity(id).is_some_and(is_page);
+                let page = self.document.entity(id).is_some_and(|it| is_page(self, it));
                 (page && self.lens() == Some(Lens::Device)).then_some(Mark::Outline)
             }
         }

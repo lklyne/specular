@@ -20,6 +20,7 @@ mod image_run;
 mod layout_run;
 mod loads;
 mod lod;
+mod mods_run;
 mod note_run;
 mod page_events;
 mod repos_run;

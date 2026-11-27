@@ -15,7 +15,12 @@ pub(super) fn controls(app: &crate::App, entities: &[&Entity]) -> ControlsModel 
     // them fills.
     let all_plain = entities.iter().all(|entity| match &entity.kind {
         Kind::Text(text) => text.resolved_style() == TextStyle::Plain,
-        Kind::Shape(_) | Kind::Page(_) | Kind::File(_) | Kind::Group(_) | Kind::Drawing(_) => false,
+        Kind::Shape(_)
+        | Kind::Mod(_)
+        | Kind::Page(_)
+        | Kind::File(_)
+        | Kind::Group(_)
+        | Kind::Drawing(_) => false,
     });
     let noun = match (entities.len(), all_plain) {
         (1, true) => "text".to_owned(),

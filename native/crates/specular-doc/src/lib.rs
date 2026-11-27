@@ -30,6 +30,8 @@ mod history;
 mod id;
 mod image_frame;
 mod kinds;
+mod mod_draw;
+mod mod_item;
 mod page_fields;
 mod presets;
 mod safe_area;
@@ -52,6 +54,8 @@ pub use kinds::{
     Page, PageSource, Shape, ShapeKind, Stroke, Text, TextAlign, TextFont, TextStyle,
     VerticalAlign, WidthMode,
 };
+pub use mod_draw::{DrawBox, ModDraw, Paint};
+pub use mod_item::{ModFallback, ModItem, ModNeed};
 pub(crate) use presets::device_shell;
 pub use presets::{
     DeviceKind, DeviceShell, LAPTOP, PRESET_MAIN, PRESET_MENU, ShellInsets, VIEWPORT_PRESETS,

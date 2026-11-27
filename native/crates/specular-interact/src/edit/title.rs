@@ -28,7 +28,12 @@ pub const TITLE_GAP: f32 = 4.0;
 pub(super) fn frame(app: &App, entity: &Entity) -> Option<TextFrame> {
     match &entity.kind {
         Kind::Group(_) => {}
-        Kind::Page(_) | Kind::Text(_) | Kind::File(_) | Kind::Drawing(_) | Kind::Shape(_) => {
+        Kind::Page(_)
+        | Kind::Text(_)
+        | Kind::File(_)
+        | Kind::Drawing(_)
+        | Kind::Shape(_)
+        | Kind::Mod(_) => {
             return None;
         }
     }

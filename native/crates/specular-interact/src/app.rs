@@ -48,6 +48,8 @@ pub struct App {
     pub(crate) shares: crate::share_button::Shares,
     /// The layout file in force and what was toggled over it.
     pub(crate) chrome: crate::chrome::ChromeState,
+    /// What is installed, what mod items last drew, the mod tool's stroke.
+    pub(crate) mods: crate::mods::ModState,
 }
 
 impl App {
@@ -106,7 +108,8 @@ impl App {
                 | Gesture::Comment(_)
                 | Gesture::TextSelect(_)
                 | Gesture::EdgeDrag(_)
-                | Gesture::Line(_),
+                | Gesture::Line(_)
+                | Gesture::ModTool,
             )
             | None => None,
         }
@@ -137,7 +140,7 @@ impl App {
     /// area of the screen its rect is, unless its document covers it.
     pub fn page_placement(&self, id: &EntityId) -> Option<PagePlacement> {
         let entity = self.document.entity(id)?;
-        if !is_page(entity) {
+        if !is_page(self, entity) {
             return None;
         }
         if let Some(rect) = crate::showing::presented_rect(self, entity) {
@@ -239,10 +242,20 @@ impl App {
     }
 }
 
-/// The page `entity` is, or `None` for every other kind: a link node, or
-/// an HTML file node with its path resolved against the files folder as
-/// its URL.
+/// The page `entity` is, or `None` for every other kind: a link node, an
+/// HTML file node with its path resolved against the files folder as its
+/// URL, or the item of an installed mod whose items are web content, at
+/// its mod's page with the item's id after `#item=`.
 pub(crate) fn page_of<'a>(app: &App, entity: &'a Entity) -> Option<Cow<'a, Page>> {
+    if let Kind::Mod(item) = &entity.kind {
+        let installed = app.mods.catalog.get(&item.name)?;
+        let web = installed.manifest.items.as_ref()?.web.as_deref()?;
+        let url = crate::space_file::file_page_url(web, Some(&installed.dir));
+        return Some(Cow::Owned(Page {
+            url: format!("{url}#item={}", entity.id.as_str()),
+            ..Page::default()
+        }));
+    }
     let mut page = entity.kind.page_fields()?;
     if let Kind::File(file) = &entity.kind {
         page.to_mut().url = crate::space_file::file_page_url(&file.file, app.files_folder());
@@ -250,11 +263,13 @@ pub(crate) fn page_of<'a>(app: &App, entity: &'a Entity) -> Option<Cow<'a, Page>
     Some(page)
 }
 
-/// Whether `entity` is a page: a link node or an HTML file node.
-pub(crate) fn is_page(entity: &Entity) -> bool {
+/// Whether `entity` is a page: a link node, an HTML file node, or a web item
+/// of an installed mod.
+pub(crate) fn is_page(app: &App, entity: &Entity) -> bool {
     match &entity.kind {
         Kind::Page(_) => true,
         Kind::File(file) => file.is_html(),
+        Kind::Mod(_) => page_of(app, entity).is_some(),
         Kind::Text(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Shape(_) => false,
     }
 }

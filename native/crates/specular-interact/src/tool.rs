@@ -1,6 +1,7 @@
 //! [`Tool`]: what the next click or drag on the canvas does.
 
 use crate::Cursor;
+use crate::mods::ModToolId;
 
 /// The active tool. Exactly one is active at a time. Variants such as the
 /// shape kind or the brush live in tool defaults, not here (ADR 0009).
@@ -28,6 +29,9 @@ pub enum Tool {
     Comment,
     /// Read the DOM node under the pointer, and pick one with a click.
     Inspect,
+    /// A tool a mod adds (ADR 0057): its stroke is the `tool` state key,
+    /// and the mod previews and commits it.
+    Mod(ModToolId),
 }
 
 impl Tool {
@@ -58,6 +62,7 @@ impl Tool {
             Self::Draw => "draw",
             Self::Comment => "comment",
             Self::Inspect => "inspect",
+            Self::Mod(_) => "mod",
         }
     }
 
@@ -78,7 +83,8 @@ impl Tool {
             | Self::AddShape
             | Self::Draw
             | Self::Comment
-            | Self::Inspect => Cursor::Crosshair,
+            | Self::Inspect
+            | Self::Mod(_) => Cursor::Crosshair,
         }
     }
 }

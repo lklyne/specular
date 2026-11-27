@@ -43,7 +43,7 @@ fn a_mod_that_fails_says_why_until_its_files_are_fixed(cx: &mut TestAppContext) 
     let mut set = ModSet::new(mods.clone(), Hosting::new(Rc::new(Quiet)));
     let window = cx.add_window(|_, _| gpui::Empty);
     let mut vcx = VisualTestContext::from_window(*window, cx);
-    vcx.update(|window, cx| set.sync(&layout, window, cx));
+    vcx.update(|window, cx| set.sync(&layout, &[], window, cx));
     vcx.update(|_, cx| {
         assert!(matches!(set.placed("toolbar", cx), Some(Placed::View(_))));
         assert!(matches!(set.placed("dock", cx), Some(Placed::Failed(_))));
@@ -57,21 +57,11 @@ fn a_mod_that_fails_says_why_until_its_files_are_fixed(cx: &mut TestAppContext) 
         Some(&json!({ "hidden": [] })),
         "the layout's props are published"
     );
-    let titles: Vec<String> = set.palette().into_iter().map(|entry| entry.title).collect();
-    assert_eq!(
-        titles,
-        [
-            "Copy the canvas link",
-            "Toggle the tab row",
-            "Toggle the toolbar"
-        ],
-        "the palette entries of the mods the shipped layout names"
-    );
 
     // A save that fixes it loads it.
     std::thread::sleep(std::time::Duration::from_millis(20));
     std::fs::write(dock.join("main.js"), FIXED).expect("fix");
-    let changed = vcx.update(|window, cx| set.sync(&layout, window, cx));
+    let changed = vcx.update(|window, cx| set.sync(&layout, &[], window, cx));
     assert!(changed, "the fixed mod loads");
     vcx.update(|_, cx| assert!(matches!(set.placed("dock", cx), Some(Placed::View(_)))));
     assert!(

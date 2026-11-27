@@ -10,10 +10,11 @@
 use specular_doc::Color;
 
 use super::{
-    Button, Control, ControlId, Dropdown, DropdownOption, DropdownSection, Face, Icon,
+    Button, Control, ControlId, Dropdown, DropdownOption, DropdownSection, Face, Icon, Label,
     OptionLayout, SidebarButton, ThemeButton, Toggle, ToolButton, ToolbarModel, ToolbarSection,
 };
 use crate::menu::{tool_action, tool_label};
+use crate::mods::ModToolId;
 use crate::showing;
 use crate::{Action, App, Appearance, ChatAction, Lens, Showing, Tool, binding_of};
 
@@ -40,7 +41,26 @@ fn glyph(app: &App, tool: Tool) -> (Icon, Option<Color>) {
         }
         Tool::Comment => (Icon::CommentTool, None),
         Tool::Inspect => (Icon::InspectTool, None),
+        Tool::Mod(id) => (mod_icon(app, id), None),
     }
+}
+
+/// A mod tool's glyph: the app glyph its `mod.json` names, else a pen.
+fn mod_icon(app: &App, id: ModToolId) -> Icon {
+    let spec = app.mods.catalog.tool(id).map(|(_, spec)| spec);
+    Icon::named_or(spec.and_then(|spec| spec.icon.as_deref()), Icon::PenLine)
+}
+
+/// The word a tool's control id ends in, and what the toolbar calls it. A
+/// mod tool's are its `<mod>/<tool>` word and its `mod.json` title.
+fn naming(app: &App, tool: Tool) -> (Label, Label) {
+    if let Tool::Mod(id) = tool
+        && let Some((installed, spec)) = app.mods.catalog.tool(id)
+    {
+        let word = format!("{}/{}", installed.name, spec.name);
+        return (word.into(), spec.title.clone().into());
+    }
+    (tool.name().into(), tool_label(tool).into())
 }
 
 fn zoom(app: &App) -> Dropdown {
@@ -96,7 +116,7 @@ const GROUPS: [&[Tool]; 3] = [
 /// Whether pressing the button of `tool` while it is armed puts it down.
 const fn toggles(tool: Tool) -> bool {
     match tool {
-        Tool::Draw | Tool::Comment | Tool::Inspect => true,
+        Tool::Draw | Tool::Comment | Tool::Inspect | Tool::Mod(_) => true,
         Tool::Select
         | Tool::AddPage
         | Tool::AddText
@@ -109,10 +129,11 @@ const fn toggles(tool: Tool) -> bool {
 fn button(app: &App, tool: Tool) -> ToolButton {
     let active = app.session.tool == tool;
     let (icon, tint) = glyph(app, tool);
+    let (word, label) = naming(app, tool);
     ToolButton {
-        id: ControlId::new("tool").child(tool.name()),
+        id: ControlId::new("tool").child(word),
         tool,
-        label: tool_label(tool).into(),
+        label,
         icon,
         tint,
         active,
@@ -216,6 +237,13 @@ pub fn toolbar(app: &App) -> ToolbarModel {
         .iter()
         .map(|tools| ToolbarSection::Tools(tools.iter().map(|&tool| button(app, tool)).collect()))
         .collect();
+    // The installed mods' tools, a group of their own after the app's.
+    let mods: Vec<ToolButton> = (app.mods.catalog.tools())
+        .map(|(id, ..)| button(app, Tool::Mod(id)))
+        .collect();
+    if !mods.is_empty() {
+        sections.push(ToolbarSection::Tools(mods));
+    }
     sections.push(ToolbarSection::Zoom(zoom(app)));
     let chat = app.chat_view().available().then(|| {
         let open = app.chat_view().shown();

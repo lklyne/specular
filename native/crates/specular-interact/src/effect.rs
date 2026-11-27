@@ -13,6 +13,15 @@ use crate::{
 /// run in the order they are returned.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Effect {
+    /// Copy each mod from the space folder (its `from`, relative to the
+    /// space folder) into the app home's `mods/`, then answer with
+    /// [`Event::ModCatalog`](crate::Event::ModCatalog). The person asked
+    /// for it: installing runs the mod's code with their access.
+    InstallMods(Vec<specular_doc::ModNeed>),
+    /// Copy the installed mod `name` into the space folder's `mods/<name>`,
+    /// where the canvas's `specular.mods` says it can be had, so the
+    /// canvas carries what its items need.
+    BundleMod(String),
     /// Answer the [`Event::Api`](crate::Event::Api) that carried `ticket`,
     /// once the event's other effects have run. The document and the
     /// session are by then as the call left them.

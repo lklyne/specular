@@ -324,6 +324,7 @@ pub(crate) fn has_target(app: &App, action: &Action) -> bool {
         | Action::PressControl(_)
         | Action::Layout(_)
         | Action::DismissNotice(_)
+        | Action::Mod(_)
         | Action::Paste
         | Action::ZoomIn
         | Action::ZoomOut
@@ -371,5 +372,6 @@ pub(crate) const fn tool_label(tool: Tool) -> &'static str {
         Tool::Draw => "Draw",
         Tool::Comment => "Comment",
         Tool::Inspect => "Inspect",
+        Tool::Mod(_) => "Mod tool",
     }
 }

@@ -114,7 +114,8 @@ pub(crate) fn note_file(kind: &Kind) -> Option<&str> {
         | Kind::Text(_)
         | Kind::Group(_)
         | Kind::Drawing(_)
-        | Kind::Shape(_) => None,
+        | Kind::Shape(_)
+        | Kind::Mod(_) => None,
     }
 }
 

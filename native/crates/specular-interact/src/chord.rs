@@ -88,6 +88,28 @@ impl Chord {
         Self { alt: true, ..self }
     }
 
+    /// The chord a mod writes, such as `cmd+shift+u` or `alt+1`: modifiers
+    /// (`cmd`, `ctrl`, `shift`, `alt`, `option`) and one character, joined
+    /// by `+`. `None` for anything else.
+    pub fn parse(text: &str) -> Option<Self> {
+        let (modifiers, key) = text.rsplit_once('+').unwrap_or(("", text));
+        let mut characters = key.chars();
+        let character = characters.next()?.to_lowercase().next()?;
+        if characters.next().is_some() {
+            return None;
+        }
+        let mut chord = Self::char(character);
+        for modifier in modifiers.split('+').filter(|word| !word.is_empty()) {
+            chord = match modifier.to_ascii_lowercase().as_str() {
+                "cmd" | "ctrl" | "meta" => chord.cmd(),
+                "shift" => chord.shift(),
+                "alt" | "option" => chord.alt(),
+                _ => return None,
+            };
+        }
+        Some(chord)
+    }
+
     /// The chord `input` is, whether it is a press or a release.
     ///
     /// Escape is Escape whatever is held with it, so it cancels a drag that
@@ -103,5 +125,21 @@ impl Chord {
             shift: modifiers.shift,
             alt: modifiers.alt,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Chord;
+
+    #[test]
+    fn a_mod_writes_a_chord_as_words() {
+        assert_eq!(
+            Chord::parse("cmd+shift+U"),
+            Some(Chord::char('u').cmd().shift())
+        );
+        assert_eq!(Chord::parse("k"), Some(Chord::char('k')));
+        assert_eq!(Chord::parse("hyper+k"), None);
+        assert_eq!(Chord::parse("cmd+up"), None);
     }
 }

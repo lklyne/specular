@@ -8,8 +8,9 @@
 //! key it read moved since the last draw. The keyed state is the canvas's
 //! own [`Revisions`](specular_interact::Revisions), published each time the
 //! models are read, so a pan, which moves no key, never enters a script.
-//! What the mods cost goes to the runtime for `GET /mods`, and their
-//! palette entries to the app. An overlay the layout fills with a mod (the
+//! What the mods cost goes to the runtime for `GET /mods`. The mods with
+//! canvas items, tools or commands (ADR 0057) run whatever the layout
+//! says, drawn out of sight in a box of no size. An overlay the layout fills with a mod (the
 //! context menu, the Share slot, the notices, the first-run view) is drawn
 //! where the app's own one would be.
 
@@ -23,7 +24,7 @@ use gpui_kit::{
     Styled as _, Window, div, px,
 };
 use serde_json::Value;
-use specular_interact::{Event, Layout, ModPaletteEntry, Overlay, Region, RegionNode};
+use specular_interact::{Layout, Overlay, Region, RegionNode};
 use specular_mods::{Hosting, ModSet, Placed, shipped};
 
 use crate::{canvas, theme};
@@ -34,7 +35,9 @@ pub(crate) struct Mods {
     set: Option<ModSet>,
     /// Set once the folder could not be had, so it is not asked again.
     off: bool,
-    palette: Vec<ModPaletteEntry>,
+    /// The mods that run out of sight, for their canvas items, tools and
+    /// commands.
+    background: Vec<String>,
     stats: Option<Value>,
 }
 
@@ -73,6 +76,11 @@ impl Mods {
                         reads: std::rc::Rc::default(),
                     };
                     self.set = Some(ModSet::new(folder, hosting));
+                    // The shipped mods were just written: list them for
+                    // the app. Not from inside the draw.
+                    window.defer(cx, |_, _| {
+                        canvas::with(|canvas| canvas.runtime.rescan_mods());
+                    });
                 }
                 (None, Some(_)) => self.off = true,
                 (_, None) => return,
@@ -81,19 +89,35 @@ impl Mods {
         let Some(set) = self.set.as_mut() else {
             return;
         };
-        if set.sync(layout, window, cx) || set.palette() != self.palette {
-            self.palette = set.palette();
-            let event = Event::ModPalette(self.palette.clone());
-            // Not from inside the draw: the update runs effects that may
-            // reach the window.
-            window.defer(cx, move |_, _| canvas::dispatch(event));
-        }
+        self.background = canvas::with(|canvas| {
+            let catalog = canvas.runtime.app().mod_catalog();
+            (catalog.background())
+                .map(|installed| installed.name.clone())
+                .collect()
+        })
+        .unwrap_or_default();
+        set.sync(layout, &self.background, window, cx);
         set.refresh(cx);
         let stats = set.stats();
         if self.stats.as_ref() != Some(&stats) {
             self.stats = Some(stats.clone());
             canvas::with(|canvas| canvas.runtime.set_mod_stats(stats));
         }
+    }
+
+    /// The mods that run out of sight, in a box of no size: a mod's script
+    /// runs only as its view is drawn.
+    pub(crate) fn background(&self, cx: &App) -> Option<AnyElement> {
+        let views = self.set.as_ref()?.views(&self.background, cx);
+        (!views.is_empty()).then(|| {
+            div()
+                .absolute()
+                .w(px(0.0))
+                .h(px(0.0))
+                .overflow_hidden()
+                .children(views)
+                .into_any_element()
+        })
     }
 
     /// What the layout's node for `region` places, when it names a mod:

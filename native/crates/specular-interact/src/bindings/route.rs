@@ -81,7 +81,14 @@ pub(crate) fn on_key(app: &mut App, input: &KeyInput, effects: &mut Vec<Effect>)
         }
         None => match &app.session.focus {
             Focus::Page(page) => page_input::forward_key(page, input, effects),
-            Focus::Canvas => {}
+            Focus::Canvas => {
+                if let Some(action) = crate::mods::bound_to(app, Chord::of(input))
+                    && input.pressed
+                    && !input.repeat
+                {
+                    run_action(app, action, effects);
+                }
+            }
         },
     }
 }

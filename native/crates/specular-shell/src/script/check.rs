@@ -296,6 +296,7 @@ pub(super) fn text_of(entity: &Entity) -> &str {
         Kind::Shape(shape) => &shape.text,
         Kind::File(file) => &file.file,
         Kind::Page(page) => &page.url,
+        Kind::Mod(item) => &item.name,
         Kind::Group(_) | Kind::Drawing(_) => "",
     }
 }

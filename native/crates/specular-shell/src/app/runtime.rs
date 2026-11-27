@@ -152,6 +152,8 @@ pub struct Runtime<W> {
     /// The layout files. `None` when settings are off, and when there is
     /// no home folder to keep them in.
     pub(crate) layouts: Option<super::layout_run::LayoutFiles>,
+    /// Where mods are installed: `<app home>/mods`, or what a script named.
+    pub(crate) mods_folder: Option<std::path::PathBuf>,
     /// What the window's mods have cost, as `GET /mods` answers it.
     pub(crate) mod_stats: Option<serde_json::Value>,
     /// The repos file. `None` when settings are off, and when no folder
@@ -233,6 +235,8 @@ impl<W: ShellWindow> Runtime<W> {
             prefs,
             layouts: (options.settings.then(prefs::folder).flatten())
                 .map(|home| super::layout_run::LayoutFiles::new(&home)),
+            mods_folder: (options.settings.then(prefs::folder).flatten())
+                .map(|home| home.join("mods")),
             mod_stats: None,
             repos_file: options.settings.then(repos_run::file).flatten(),
             folder_dialog: None,
@@ -313,6 +317,7 @@ impl<W: ShellWindow> Runtime<W> {
         self.load_settings();
         self.load_theme();
         self.load_layout();
+        self.rescan_mods();
         self.load_models();
         self.load_repos();
         if let Some(ask) = opening.ask {

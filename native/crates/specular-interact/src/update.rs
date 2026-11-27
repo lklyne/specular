@@ -100,7 +100,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         Event::ChromeLayout => app.session.panel.chrome_covers = true,
         Event::LayoutLoaded(layout) => app.chrome.layout = *layout,
         Event::LayoutToggles(toggles) => app.chrome.toggles = toggles,
-        Event::ModPalette(entries) => app.chrome.mod_palette = entries,
+        Event::ModCatalog(catalog) => crate::mods::on_catalog(app, catalog, &mut effects),
         Event::MenuClosed => app.session.panel.menu = None,
         Event::ChatPanel(available) => app.session.chat.set_available(available),
         Event::Motion(on) => app.session.motion.enable(on),
@@ -166,11 +166,12 @@ fn settle_tool(app: &mut App, before: crate::Tool) {
     if app.session.tool != before {
         comment::on_tool_change(app);
         inspect::on_tool_change(app);
+        crate::mods::cancel_stroke(app);
     }
 }
 
 /// Takes `tool` in hand, ending a text edit. A gesture in flight keeps its tool.
-fn set_tool(app: &mut App, tool: crate::Tool, effects: &mut Vec<Effect>) {
+pub(crate) fn set_tool(app: &mut App, tool: crate::Tool, effects: &mut Vec<Effect>) {
     if app.session.gesture.is_none() {
         edit::end(app, effects);
         app.session.tool = tool;
@@ -287,9 +288,15 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         Action::Share(action) => crate::share_button::run(app, action, effects),
         Action::PressControl(id) => activate_control(app, &id, Modifiers::default(), effects),
         Action::Layout(action) => crate::chrome::run_layout_action(app, action, effects),
-        Action::DismissNotice(id) => {
-            crate::notices::dismiss(app, &id);
-        }
+        Action::DismissNotice(id) => dismiss_notice(app, &id),
+        Action::Mod(action) => crate::mods::run(app, *action, effects),
+    }
+}
+
+/// Takes a notice away. Dismissing the "Install mods" ask declines it.
+fn dismiss_notice(app: &mut App, id: &str) {
+    if !crate::mods::decline(app, id) {
+        crate::notices::dismiss(app, id);
     }
 }
 

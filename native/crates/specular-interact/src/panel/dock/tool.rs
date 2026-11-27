@@ -7,6 +7,7 @@ use specular_doc::{Color, VIEWPORT_PRESETS};
 use super::super::build::{font_dropdown, groups, size_dropdown, swatches};
 use super::super::{Control, ControlId, ControlsModel, Dropdown, Face, PaintRole, Palette};
 use super::{drawing, shape};
+use crate::tool_defaults::DrawDefaults;
 use crate::{Action, App, Tool, ToolDefaultPatch};
 
 fn set(patch: ToolDefaultPatch) -> Action {
@@ -116,27 +117,30 @@ pub(super) fn controls(app: &App, tool: Tool) -> Option<ControlsModel> {
                 |color| set(ToolDefaultPatch::ShapeColor(color)),
             ))],
         ])),
-        Tool::Draw => {
-            let draw = &defaults.draw;
-            docked(groups(vec![
-                drawing::brushes(Some(&draw.color), Some(draw.brush), |brush| {
-                    set(ToolDefaultPatch::Brush(brush))
-                }),
-                drawing::widths(draw.brush, Some(draw.stroke_width), |width| {
-                    set(ToolDefaultPatch::DrawStrokeWidth(width))
-                }),
-                vec![Control::Swatches(swatches(
-                    ControlId::new("draw.color"),
-                    drawing::palette_of(draw.brush),
-                    PaintRole::Ink,
-                    Some(&draw.color),
-                    None,
-                    |color| set(ToolDefaultPatch::DrawColor(color)),
-                ))],
-            ]))
-        }
+        Tool::Draw => draw_controls(&defaults.draw),
         Tool::AddPage => page_presets(app),
+        Tool::Mod(id) => return super::modded::tool_controls(app, id),
         Tool::Select | Tool::AddDocument | Tool::Comment | Tool::Inspect => return None,
     };
     Some(model)
+}
+
+/// The pen's brushes, widths and colours.
+fn draw_controls(draw: &DrawDefaults) -> ControlsModel {
+    docked(groups(vec![
+        drawing::brushes(Some(&draw.color), Some(draw.brush), |brush| {
+            set(ToolDefaultPatch::Brush(brush))
+        }),
+        drawing::widths(draw.brush, Some(draw.stroke_width), |width| {
+            set(ToolDefaultPatch::DrawStrokeWidth(width))
+        }),
+        vec![Control::Swatches(swatches(
+            ControlId::new("draw.color"),
+            drawing::palette_of(draw.brush),
+            PaintRole::Ink,
+            Some(&draw.color),
+            None,
+            |color| set(ToolDefaultPatch::DrawColor(color)),
+        ))],
+    ]))
 }

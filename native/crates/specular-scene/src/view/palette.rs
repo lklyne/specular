@@ -108,8 +108,8 @@ pub(crate) fn resolve_or_neutral(
     resolve(stored.unwrap_or(&Stored::Neutral), palette, role, colors)
 }
 
-/// `#RRGGBB` or `#RGB` as a colour.
-fn parse_hex(value: &str) -> Option<Color> {
+/// `#RRGGBB`, `#RRGGBBAA` or `#RGB` as a colour.
+pub(crate) fn parse_hex(value: &str) -> Option<Color> {
     let digits = value.strip_prefix('#')?;
     let channel = |at: usize, len: usize| {
         let part = digits.get(at..at + len)?;
@@ -118,6 +118,12 @@ fn parse_hex(value: &str) -> Option<Color> {
     };
     match digits.len() {
         6 => Some(Color::rgb(channel(0, 2)?, channel(2, 2)?, channel(4, 2)?)),
+        8 => Some(Color::rgba(
+            channel(0, 2)?,
+            channel(2, 2)?,
+            channel(4, 2)?,
+            channel(6, 2)?,
+        )),
         3 => Some(Color::rgb(channel(0, 1)?, channel(1, 1)?, channel(2, 1)?)),
         _ => None,
     }

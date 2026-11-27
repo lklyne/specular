@@ -15,6 +15,7 @@
 mod args;
 mod canvas;
 mod edit;
+mod mods;
 mod page;
 mod selection;
 mod ui;
@@ -127,6 +128,7 @@ static ALL: LazyLock<Vec<CommandSpec>> = LazyLock::new(|| {
         view::VIEW,
         ui::UI,
         ui::NOTICE,
+        mods::MODS,
         canvas::SHARE,
         canvas::CONTROL,
     ]
@@ -154,6 +156,9 @@ pub(crate) fn naming(run: &Run) -> Option<&'static CommandSpec> {
 /// for a command with nothing to act on, and for a control that is not
 /// there.
 pub fn run_named(app: &App, name: &str, args: &Value) -> Result<Run, RunError> {
+    if let Some(action) = crate::mods::call_action(app, name, args) {
+        return Ok(Run::Action(action));
+    }
     let spec = command(name).ok_or_else(|| RunError::Unknown {
         name: name.to_owned(),
         closest: closest(name),

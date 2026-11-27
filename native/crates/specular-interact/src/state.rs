@@ -15,7 +15,10 @@
 //! | `settings` | what is kept between launches |
 //! | `keys` | every key binding: its keys, where it fires and the command it runs |
 //! | `layout` | the layout file in force, what was toggled over it, and the regions hidden |
-//! | `notices` | [`notices`]: a page that stopped or failed to load, a share that failed |
+//! | `notices` | [`notices`]: a page that stopped or failed to load, a share that failed, mods to install |
+//! | `canvas/mod_items` | the active canvas's mod items, without their positions (ADR 0057) |
+//! | `tool` | the armed mod tool's stroke, or `null` (ADR 0057) |
+//! | `call` | the last mod command run, `{command, number, args}`, or `null` |
 //!
 //! A control's `action` is left out: a reader presses a control with
 //! `control.press {id}`, by the id written beside it. The camera is in no
@@ -37,7 +40,7 @@ use crate::{
 };
 
 /// Every key, in the order [`state`] lists them.
-pub const STATE_KEYS: [&str; 13] = [
+pub const STATE_KEYS: [&str; 16] = [
     "panels/toolbar",
     "panels/tool_options",
     "panels/dock",
@@ -51,6 +54,9 @@ pub const STATE_KEYS: [&str; 13] = [
     "keys",
     "layout",
     "notices",
+    "canvas/mod_items",
+    "tool",
+    "call",
 ];
 
 fn to_json(value: impl serde::Serialize) -> Value {
@@ -82,6 +88,9 @@ pub fn state(app: &App) -> BTreeMap<&'static str, Value> {
         ("keys", keys::bindings()),
         ("layout", layout_json(app)),
         ("notices", to_json(crate::notices(app))),
+        ("canvas/mod_items", crate::mods::mod_items_json(app)),
+        ("tool", crate::mods::tool_json(app)),
+        ("call", crate::mods::call_json(app)),
     ];
     entries.into_iter().collect()
 }
@@ -121,9 +130,15 @@ fn palette_json(app: &App) -> Value {
     let items: Vec<Value> = (palette(app).into_iter())
         .map(|item| {
             let command = match item.run {
-                PaletteRun::Action(action) => naming(&Run::Action(action)).map(|spec| spec.name),
-                PaletteRun::Shell(command) => naming(&Run::Shell(command)).map(|spec| spec.name),
-                PaletteRun::Named { name, .. } => crate::command(&name).map(|spec| spec.name),
+                PaletteRun::Action(action) => {
+                    naming(&Run::Action(action)).map(|spec| spec.name.to_owned())
+                }
+                PaletteRun::Shell(command) => {
+                    naming(&Run::Shell(command)).map(|spec| spec.name.to_owned())
+                }
+                PaletteRun::Named { name, .. } => crate::command(&name)
+                    .map(|spec| spec.name.to_owned())
+                    .or(Some(name)),
             };
             json!({
                 "label": item.label,

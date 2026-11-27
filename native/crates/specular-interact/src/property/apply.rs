@@ -32,6 +32,7 @@ pub(super) fn entity(
         Kind::Drawing(drawing) => set_drawing(property, drawing, &mut next.rect),
         Kind::Page(page) => page::set(property, page, &mut next.rect),
         Kind::File(file) => image::set(property, file, next.rect),
+        Kind::Mod(_) => false,
     };
     applies.then_some(next)
 }

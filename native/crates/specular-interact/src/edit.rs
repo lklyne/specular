@@ -82,7 +82,7 @@ fn editable<'a>(app: &'a App, entity: &'a Entity) -> Option<(Target, &'a str)> {
             Some((Target::Note, note::text_of(app.session.notes.get(file))?))
         }
         Kind::Group(_) => Some((Target::Title, entity.label.as_deref().unwrap_or_default())),
-        Kind::Page(_) | Kind::Drawing(_) => None,
+        Kind::Page(_) | Kind::Drawing(_) | Kind::Mod(_) => None,
     }
 }
 
@@ -92,7 +92,7 @@ fn with_text(kind: &Kind, text: String) -> Kind {
     match &mut kind {
         Kind::Text(fields) => fields.text = text,
         Kind::Shape(fields) => fields.text = text,
-        Kind::Page(_) | Kind::File(_) | Kind::Group(_) | Kind::Drawing(_) => {}
+        Kind::Page(_) | Kind::File(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Mod(_) => {}
     }
     kind
 }

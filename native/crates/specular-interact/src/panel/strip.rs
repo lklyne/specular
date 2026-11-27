@@ -57,7 +57,9 @@ fn item_tab(app: &App, entity: &Entity) -> Option<ViewTab> {
         Kind::Page(_) => (page_label(app, entity), page_icon(entity.rect.width)),
         Kind::File(file) if file.is_html() => (page_label(app, entity), file_icon(&file.file)),
         Kind::File(file) => (file_label(&file.file), file_icon(&file.file)),
-        Kind::Text(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Shape(_) => return None,
+        Kind::Text(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Shape(_) | Kind::Mod(_) => {
+            return None;
+        }
     };
     Some(ViewTab {
         id: ControlId::new("view.item").child(entity.id.as_str()),
@@ -67,7 +69,7 @@ fn item_tab(app: &App, entity: &Entity) -> Option<ViewTab> {
         active: app.shown_item() == Some(&entity.id),
         action: Action::Show(Showing::Item(entity.id.clone())),
         close: Some(Action::CloseTab(Some(entity.id.clone()))),
-        prepare: is_page(entity).then(|| Action::PrepareShow(Some(entity.id.clone()))),
+        prepare: is_page(app, entity).then(|| Action::PrepareShow(Some(entity.id.clone()))),
     })
 }
 

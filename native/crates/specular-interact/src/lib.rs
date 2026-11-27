@@ -72,6 +72,7 @@ mod live;
 mod mark;
 mod marquee;
 mod menu;
+pub mod mods;
 mod move_drag;
 mod notes;
 mod notices;
@@ -134,8 +135,8 @@ pub use chat::{
 };
 pub use chord::Chord;
 pub use chrome::{
-    Insets, Layout, LayoutAction, LayoutError, LayoutFile, ModPaletteEntry, Overlay, Region,
-    RegionNode, Regions, SIDEBAR_WIDTH, TOOLS_DOCK_WIDTH, Toggles,
+    Insets, Layout, LayoutAction, LayoutError, LayoutFile, Overlay, Region, RegionNode, Regions,
+    SIDEBAR_WIDTH, TOOLS_DOCK_WIDTH, Toggles,
 };
 pub use clipboard::{ClipboardContent, ClipboardImage, Paste};
 pub use commands::{CommandSpec, Run, RunError, command, commands, run_named};

@@ -30,7 +30,7 @@ impl App {
 pub(crate) fn prepare(app: &mut App, item: Option<EntityId>) {
     app.session.prepared = item.filter(|item| {
         let fills = app.session.tabs.lens(item) == Lens::Fill;
-        let page = app.document.entity(item).is_some_and(is_page);
+        let page = app.document.entity(item).is_some_and(|it| is_page(app, it));
         fills && page && app.shown_item() != Some(item) && app.session.gesture.is_none()
     });
 }
@@ -38,7 +38,7 @@ pub(crate) fn prepare(app: &mut App, item: Option<EntityId>) {
 /// The page prepared and the viewport its tab will lay it out at.
 pub(crate) fn prepared(app: &App) -> Option<(EntityId, CssSize)> {
     let entity = app.document.entity(app.prepared_page()?)?;
-    if !is_page(entity) {
+    if !is_page(app, entity) {
         return None;
     }
     let rect = fill_rect(app, entity)?;

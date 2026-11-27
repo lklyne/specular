@@ -1,6 +1,8 @@
 //! [`Entity`]: one canvas item, and [`Kind`]: what sort of item it is.
 
-use crate::{Drawing, EntityId, FileRef, Group, JsonMap, Page, PageAnchor, Rect, Shape, Text};
+use crate::{
+    Drawing, EntityId, FileRef, Group, JsonMap, ModItem, Page, PageAnchor, Rect, Shape, Text,
+};
 
 /// One canvas item. The fields here are common to every kind; the rest live
 /// in [`Kind`].
@@ -38,7 +40,7 @@ impl Entity {
     }
 }
 
-/// The six kinds of canvas item. Match on this without a wildcard arm, so a
+/// The seven kinds of canvas item. Match on this without a wildcard arm, so a
 /// new kind makes the compiler list every place that must handle it.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Kind {
@@ -54,6 +56,8 @@ pub enum Kind {
     Drawing(Drawing),
     /// A geometric shape.
     Shape(Shape),
+    /// An item a mod defines and draws (ADR 0057).
+    Mod(ModItem),
 }
 
 impl Kind {
@@ -66,6 +70,7 @@ impl Kind {
             Self::Group(_) => "group",
             Self::Drawing(_) => "drawing",
             Self::Shape(_) => "shape",
+            Self::Mod(_) => "mod",
         }
     }
 }

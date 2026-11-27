@@ -31,6 +31,8 @@ pub(super) struct ModPanels {
     pub(super) tabs: Option<AnyElement>,
     /// A notices mod, placed over the canvas.
     pub(super) toast: Option<AnyElement>,
+    /// The mods that run out of sight, in a box of no size.
+    pub(super) background: Option<AnyElement>,
 }
 
 impl ShellView {
@@ -50,6 +52,7 @@ impl ShellView {
                 floating: None,
                 tabs: None,
                 toast: None,
+                background: None,
             };
         };
         self.mods.sync(&models.layout, window, cx);
@@ -74,6 +77,7 @@ impl ShellView {
             floating,
             tabs: self.mods.region(Region::Tabs, layout, cx),
             toast,
+            background: self.mods.background(cx),
         }
     }
 }

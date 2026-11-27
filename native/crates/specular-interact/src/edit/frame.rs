@@ -172,7 +172,7 @@ pub(crate) fn of(entity: &Entity, rect: Rect) -> Option<TextFrame> {
     match &entity.kind {
         Kind::Text(text) => Some(text_frame(rect, text)),
         Kind::Shape(shape) => Some(label_frame(rect, shape)),
-        Kind::Page(_) | Kind::File(_) | Kind::Group(_) | Kind::Drawing(_) => None,
+        Kind::Page(_) | Kind::File(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Mod(_) => None,
     }
 }
 

@@ -129,6 +129,11 @@ pub(crate) fn contained(document: &Document, members: &[EntityId]) -> Vec<Entity
 pub(crate) const fn is_group(entity: &Entity) -> bool {
     match entity.kind {
         Kind::Group(_) => true,
-        Kind::Page(_) | Kind::Text(_) | Kind::File(_) | Kind::Drawing(_) | Kind::Shape(_) => false,
+        Kind::Page(_)
+        | Kind::Text(_)
+        | Kind::File(_)
+        | Kind::Drawing(_)
+        | Kind::Shape(_)
+        | Kind::Mod(_) => false,
     }
 }

@@ -7,7 +7,14 @@ mod tests;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use crate::{Annotation, AnnotationId, Edge, EdgeId, Entity, EntityId, ItemId, JsonMap, Kind};
+use serde::Deserialize as _;
+
+use crate::{
+    Annotation, AnnotationId, Edge, EdgeId, Entity, EntityId, ItemId, JsonMap, Kind, ModNeed,
+};
+
+/// The key under the canvas's `specular` that lists the mods it needs.
+const MODS: &str = "mods";
 
 /// A canvas: entities and edges in one stack order, plus annotations.
 ///
@@ -179,6 +186,60 @@ impl Document {
     /// the command system, so changing them is not an undo step.
     pub fn extra_mut(&mut self) -> &mut JsonMap {
         &mut self.extra
+    }
+
+    /// Gives the mod item `id` the display list it last drew. Not an undo
+    /// step: a snapshot follows the item's props, which are. Returns whether
+    /// anything changed; a change moves the [`stamp`](Self::stamp), so it is
+    /// saved.
+    pub fn set_mod_snapshot(&mut self, id: &EntityId, draws: Vec<crate::ModDraw>) -> bool {
+        let Some(Entity {
+            kind: Kind::Mod(item),
+            ..
+        }) = self.entities.get_mut(id)
+        else {
+            return false;
+        };
+        if item.snapshot.as_ref() == Some(&draws) {
+            return false;
+        }
+        item.snapshot = Some(draws);
+        self.stamp = fresh_stamp();
+        true
+    }
+
+    /// The mods the canvas says it needs (`specular.mods`), in the order it
+    /// lists them. An entry that does not read is skipped.
+    pub fn mod_needs(&self) -> Vec<ModNeed> {
+        let listed = (self.extra.get("specular"))
+            .and_then(|specular| specular.get(MODS))
+            .and_then(serde_json::Value::as_array);
+        (listed.into_iter().flatten())
+            .filter_map(|need| ModNeed::deserialize(need).ok())
+            .collect()
+    }
+
+    /// Lists `need` in the canvas's `specular.mods`, in place of an entry of
+    /// the same name. Not an undo step: the list says what the items need
+    /// and reading it loads nothing. Returns whether anything changed.
+    pub fn need_mod(&mut self, need: &ModNeed) -> bool {
+        let mut needs = self.mod_needs();
+        match needs.iter_mut().find(|had| had.name == need.name) {
+            Some(had) if had == need => return false,
+            Some(had) => had.clone_from(need),
+            None => needs.push(need.clone()),
+        }
+        let specular = (self.extra)
+            .entry("specular")
+            .or_insert_with(|| serde_json::Value::Object(JsonMap::new()));
+        if let serde_json::Value::Object(specular) = specular {
+            let list = needs
+                .iter()
+                .filter_map(|need| serde_json::to_value(need).ok());
+            specular.insert(MODS.to_owned(), list.collect());
+        }
+        self.stamp = fresh_stamp();
+        true
     }
 
     /// Whether an entity or edge already uses this id.

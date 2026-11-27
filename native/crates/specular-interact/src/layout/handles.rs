@@ -106,7 +106,7 @@ pub(crate) fn lines(app: &App) -> Vec<(Option<EntityId>, Row)> {
 /// Whether the handles are up: at rest, and during a drag of one of them.
 fn shown(app: &App) -> bool {
     match &app.session.gesture {
-        None | Some(Gesture::Line(_)) => true,
+        None | Some(Gesture::Line(_) | Gesture::ModTool) => true,
         Some(
             Gesture::Move(_)
             | Gesture::Resize(_)

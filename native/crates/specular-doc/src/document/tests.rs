@@ -1,8 +1,8 @@
 use super::Document;
 use crate::{
     Annotation, AnnotationAnchor, AnnotationId, AnnotationStatus, Author, Color, Command, Drawing,
-    Edge, EdgeId, Entity, EntityId, FileRef, Group, ItemId, JsonMap, Kind, Page, PageAnchor, Point,
-    Rect, Shape, ShapeKind, Stroke, Text, TextStyle,
+    Edge, EdgeId, Entity, EntityId, FileRef, Group, ItemId, JsonMap, Kind, ModItem, Page,
+    PageAnchor, Point, Rect, Shape, ShapeKind, Stroke, Text, TextStyle,
 };
 
 fn entity(id: &str, kind: Kind) -> Entity {
@@ -156,6 +156,19 @@ fn every_command_changes_the_document_and_its_inverse_restores_it() {
         ("insert entity", insert(page("p2"), 1), |after| {
             after.order()[1] == ItemId::Entity(EntityId::new("p2"))
         }),
+        (
+            "insert a mod item",
+            insert(
+                entity("m1", Kind::Mod(ModItem::new("feed", JsonMap::new()))),
+                2,
+            ),
+            |after| {
+                matches!(
+                    after.entity(&EntityId::new("m1")).map(|e| &e.kind),
+                    Some(Kind::Mod(_))
+                )
+            },
+        ),
         ("remove entity", Command::RemoveEntity(id("p1")), |after| {
             after.entity(&EntityId::new("p1")).is_none() && after.stack_len() == 6
         }),

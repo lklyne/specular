@@ -1,6 +1,7 @@
 //! [`notices`]: what the app has to tell the person that no panel shows: a
 //! page whose process went away, a load that ended in an HTTP error, a
-//! share that failed. The `notices` state key, which a toast draws.
+//! share that failed, a canvas that needs mods that are not installed. The
+//! `notices` state key, which a toast draws.
 //!
 //! A page's notice goes when a load starts on it, or when it is dismissed
 //! (`notice.dismiss`); a share's goes when the next share works.
@@ -40,12 +41,12 @@ pub struct AppNotice {
 const CRASHED: &str = "crashed";
 const HTTP: &str = "http";
 
-/// The notices of `app` now: the pages' in the order of their ids, then the
-/// share's.
+/// The notices of `app` now: the canvas's mods to install, the pages' in
+/// the order of their ids, then the share's.
 pub fn notices(app: &App) -> Vec<AppNotice> {
     let mut pages: Vec<_> = app.session.pages.iter().collect();
     pages.sort_by(|a, b| a.0.as_str().cmp(b.0.as_str()));
-    let mut out = Vec::new();
+    let mut out: Vec<AppNotice> = crate::mods::install_notice(app).into_iter().collect();
     for (id, state) in pages {
         let Some(entity) = app.document.entity(id) else {
             continue;

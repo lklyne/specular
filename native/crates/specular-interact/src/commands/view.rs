@@ -12,6 +12,11 @@ use crate::{Action, SidebarAction, Theme, Tool, ToolDefaultPatch};
 
 fn tool(args: &Value) -> Result<Run, RunError> {
     let name = text(args, "tool")?;
+    // A mod's tool, `<mod>/<tool>`, is looked up when it runs: what is
+    // installed is the app's to know.
+    if name.contains('/') {
+        return act(Action::Mod(Box::new(crate::mods::ModAction::SetTool(name))));
+    }
     let tool = Tool::named(&name).ok_or_else(|| {
         let names: Vec<&str> = Tool::ALL.iter().map(|tool| tool.name()).collect();
         RunError::Args(format!("`tool` is one of {}", names.join(", ")))
@@ -45,7 +50,7 @@ pub(super) const TOOL: &[CommandSpec] = &[
     CommandSpec {
         name: "tool.set",
         label: "",
-        args: "{tool: select|page|text|sticky|document|shape|draw|comment|inspect}",
+        args: "{tool: select|page|text|sticky|document|shape|draw|comment|inspect|<mod>/<tool>}",
         about: "Arm a tool.",
         enabled: always,
         build: tool,

@@ -78,7 +78,9 @@ impl Entity {
         match &self.kind {
             Kind::File(file) if file.is_image() => file.image_shell(self.rect),
             kind @ (Kind::Page(_) | Kind::File(_)) => kind.page_fields()?.shell(),
-            Kind::Text(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Shape(_) => None,
+            Kind::Text(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Shape(_) | Kind::Mod(_) => {
+                None
+            }
         }
     }
 
@@ -88,7 +90,9 @@ impl Entity {
         match &self.kind {
             Kind::File(file) if file.is_image() => file.image_art(self.rect),
             kind @ (Kind::Page(_) | Kind::File(_)) => kind.page_fields()?.device_art(),
-            Kind::Text(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Shape(_) => None,
+            Kind::Text(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Shape(_) | Kind::Mod(_) => {
+                None
+            }
         }
     }
 
@@ -98,7 +102,9 @@ impl Entity {
         match &self.kind {
             Kind::File(file) if file.is_image() => frame_color_in(file.metadata.as_ref()?),
             kind @ (Kind::Page(_) | Kind::File(_)) => kind.page_fields()?.frame_color(),
-            Kind::Text(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Shape(_) => None,
+            Kind::Text(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Shape(_) | Kind::Mod(_) => {
+                None
+            }
         }
     }
 }

@@ -174,7 +174,7 @@ fn selection(app: &App) -> Vec<Section> {
     let page = selection
         .single_entity()
         .and_then(|id| app.document.entity(id))
-        .is_some_and(crate::app::is_page);
+        .is_some_and(|it| crate::app::is_page(app, it));
     let mut sections: Vec<Section> = Vec::new();
     if page {
         sections.push(
