@@ -163,3 +163,34 @@ fn each_window_mod_renders_on_change_only_and_inside_a_frame(cx: &mut TestAppCon
         assert_renders_inside_a_frame(&mut loaded, &mut app, name, 60, change);
     }
 }
+
+#[gpui::test]
+fn the_palette_runs_the_command_typed_on_return(cx: &mut TestAppContext) {
+    let app = app();
+    let mut loaded = Loaded::new(
+        &app,
+        "palette",
+        json!({ "overlay": "palette" }),
+        (560.0, 480.0),
+        cx,
+    );
+    let field = (loaded.reads("palette").into_iter())
+        .find_map(|key| {
+            key.strip_prefix("shared/field/")
+                .and_then(|rest| rest.strip_suffix("/submit"))
+                .map(str::to_owned)
+        })
+        .expect("the palette reads its field's submit");
+    let publish = |loaded: &Loaded, key: String, value: serde_json::Value| {
+        loaded.hosting.revisions.borrow_mut().publish(&key, value);
+    };
+    publish(&loaded, format!("shared/field/{field}"), json!("settings"));
+    loaded.step(&app);
+    publish(&loaded, format!("shared/field/{field}/submit"), json!(1));
+    loaded.step(&app);
+    let runs = loaded.runs();
+    assert!(
+        runs.iter().any(|run| run.starts_with("app.settings")),
+        "{runs:?}"
+    );
+}

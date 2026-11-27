@@ -127,6 +127,7 @@ const VIEW: &[&str] = &[
     "view.zoom-to-fit",
     "",
     "view.toggle-sidebar",
+    "layout.switch",
 ];
 
 /// The Canvas, Edit, Arrange, Comment, Page, Tools and View menus for `app`

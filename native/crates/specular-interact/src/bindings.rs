@@ -20,7 +20,8 @@ use specular_doc::{BrushType, ItemId, Kind, ShapeKind};
 
 use crate::PageStep;
 use crate::{
-    Action, App, Chord, Focus, Format, Key, SidebarAction, Tool, ToolDefaultPatch, grid, page_state,
+    Action, App, Chord, Focus, Format, Key, LayoutAction, SidebarAction, Tool, ToolDefaultPatch,
+    grid, page_state,
 };
 
 /// How far an arrow key moves the selection, in canvas units. Shift moves it
@@ -325,6 +326,13 @@ pub const BINDINGS: &[Binding] = &[
         Chord::char('l').cmd(),
         Context::PageTarget,
         Action::EditPageUrl,
+    ),
+    // Control+Shift+L folds into this row too: a chord reads Control as
+    // Command.
+    once(
+        Chord::char('l').cmd().shift(),
+        Context::CanvasOrEditing,
+        Action::Layout(LayoutAction::Switch(None)),
     ),
     // How a page is shown. Command+Option keeps them clear of a browser's
     // own keys, which a page expects to get.

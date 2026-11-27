@@ -78,3 +78,32 @@ fn a_file_that_does_not_read_says_where() {
         assert!(error.contains(says), "{text}: {error}");
     }
 }
+
+#[test]
+fn control_shift_l_moves_to_the_next_layout_and_the_view_menu_shows_it() {
+    let mut app = TestApp::empty();
+    let start = app.app().layout_name().to_owned();
+    let held = specular_core::Modifiers {
+        control: true,
+        shift: true,
+        ..Default::default()
+    };
+    app.chord(held, Key::Char('l'));
+    let next = app.app().layout_name().to_owned();
+    assert_ne!(next, start, "Control+Shift+L switched layout");
+    app.chord(held, Key::Char('l'));
+    assert_ne!(app.app().layout_name(), next, "and again");
+
+    let view = menus(app.app())
+        .into_iter()
+        .find(|menu| menu.title == "View");
+    let chord = (view.expect("a View menu").entries.into_iter())
+        .find_map(|entry| match entry {
+            MenuEntry::Item(item) if item.label == "Next Layout" => {
+                Some(item.chord.map(Chord::text))
+            }
+            _ => None,
+        })
+        .expect("listed");
+    assert_eq!(chord.as_deref(), Some("⇧⌘L"));
+}
