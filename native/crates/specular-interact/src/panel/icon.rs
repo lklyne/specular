@@ -40,6 +40,9 @@ pub enum Icon {
     /// A shape silhouette: the path of that kind's row in
     /// `git show bc5253fa:src/shared/shapes.ts`, drawn by `shared/ShapeGlyph.tsx`.
     Shape(ShapeKind),
+    /// A five-pointed star, drawn as a shape's silhouette is, for a mod's
+    /// star tool.
+    Star,
     /// Left-aligned text. Lucide `AlignLeft`.
     AlignLeft,
     /// Centered text. Lucide `AlignCenter`.

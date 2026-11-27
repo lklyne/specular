@@ -1,0 +1,23 @@
+{
+  "title": "Every panel a mod",
+  "id": "root",
+  "type": "column",
+  "share": { "mod": "share" },
+  "toast": { "mod": "toast" },
+  "menu": { "mod": "menu" },
+  "palette": { "mod": "palette" },
+  "dock": { "mod": "dock" },
+  "children": [
+    { "id": "tabs", "type": "block", "size": { "px": 38 }, "background": "toolbar", "content": { "mod": "tabs" } },
+    {
+      "id": "body",
+      "type": "row",
+      "children": [
+        { "id": "sidebar", "type": "block", "size": { "px": 256 }, "content": { "mod": "sidebar" } },
+        { "id": "toolbar", "type": "block", "size": { "px": 36 }, "content": { "mod": "toolbar" } },
+        { "id": "canvas", "type": "block", "content": "canvas" },
+        { "id": "chat", "type": "block", "size": { "px": 400 }, "content": { "mod": "chat" } }
+      ]
+    }
+  ]
+}

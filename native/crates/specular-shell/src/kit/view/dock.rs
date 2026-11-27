@@ -68,3 +68,17 @@ pub(super) fn dock(
             ),
     )
 }
+
+/// A dock mod's bar, where the app's own dock sits: the mod draws all of
+/// it, the lens included.
+pub(super) fn mod_bar(content: gpui_kit::AnyElement, left: f32) -> impl IntoElement {
+    h_flex()
+        .id("dock")
+        .occlude()
+        .absolute()
+        .top(px(theme::chrome_top()))
+        .left(px(left))
+        .right_0()
+        .h(px(theme::DOCK_ROW))
+        .child(content)
+}

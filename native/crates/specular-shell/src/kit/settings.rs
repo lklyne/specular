@@ -1,5 +1,5 @@
 //! The settings dialog (`git show bc5253fa:src/renderer/settings`), from
-//! [`SettingsModel`]: General, Repos, Shortcuts and About.
+//! [`SettingsModel`]: General, Repos, Mods, Shortcuts and About.
 //!
 //! The dialog's content is rebuilt on every frame it is drawn, so each
 //! pane is the model as it is then, and a control sends its row's action.
@@ -12,8 +12,9 @@ use gpui_kit::component::{Icon, IconName, Sizable as _, WindowExt as _, h_flex, 
 use gpui_kit::{
     App, FontWeight, IntoElement, ParentElement as _, SharedString, Styled as _, Window, div, px,
 };
+use specular_interact::mods::ModRow;
 use specular_interact::{
-    AboutRow, Event, GeneralPane, SettingChoice, SettingToggle, SettingsModel, ShortcutRow,
+    AboutRow, Action, Event, GeneralPane, SettingChoice, SettingToggle, SettingsModel, ShortcutRow,
     settings,
 };
 
@@ -78,10 +79,10 @@ fn space(pane: &GeneralPane) -> impl IntoElement + use<> {
         )
 }
 
-fn toggle(toggle: &SettingToggle) -> SettingItem {
-    let (on, action) = (toggle.on, toggle.action.clone());
+/// A switch beside its setting, which sends `action` when flipped.
+fn switch(label: SharedString, detail: SharedString, on: bool, action: Action) -> SettingItem {
     SettingItem::new(
-        toggle.label,
+        label,
         SettingField::switch(
             move |_| on,
             move |_, cx| {
@@ -90,7 +91,42 @@ fn toggle(toggle: &SettingToggle) -> SettingItem {
             },
         ),
     )
-    .description(toggle.detail)
+    .description(detail)
+}
+
+fn toggle(toggle: &SettingToggle) -> SettingItem {
+    switch(
+        toggle.label.into(),
+        toggle.detail.into(),
+        toggle.on,
+        toggle.action.clone(),
+    )
+}
+
+fn mod_switch(row: &ModRow) -> SettingItem {
+    switch(
+        row.title.clone().into(),
+        row.detail.clone().into(),
+        row.on,
+        row.action.clone(),
+    )
+}
+
+fn mods(rows: &[ModRow]) -> SettingPage {
+    let group = SettingGroup::new().description(
+        "A mod turned off does not run: its tools, commands and items go, and a layout \
+         that places it shows the app's own panel there.",
+    );
+    let group = if rows.is_empty() {
+        group.item(SettingItem::render(|_, _, _| {
+            value("No mods are installed.".to_owned())
+        }))
+    } else {
+        group.items(rows.iter().map(mod_switch))
+    };
+    SettingPage::new("Mods")
+        .icon(Icon::new(ShellIcon::Blocks))
+        .group(group)
 }
 
 fn choice(choice: &SettingChoice) -> SettingItem {
@@ -200,6 +236,12 @@ fn about(rows: &[AboutRow]) -> SettingPage {
         .group(SettingGroup::new().items(items))
 }
 
+/// Wide enough, with [`SIDEBAR_WIDTH`], that the page is past the Kit's
+/// 480 point stacking width: each switch and choice sits on its setting's
+/// line, at the right.
+const DIALOG_WIDTH: f32 = 760.0;
+const SIDEBAR_WIDTH: f32 = 180.0;
+
 fn model() -> Option<SettingsModel> {
     canvas::with(|canvas| settings(canvas.runtime.app()))
 }
@@ -208,15 +250,17 @@ fn model() -> Option<SettingsModel> {
 pub(crate) fn open(window: &mut Window, cx: &mut App) {
     let fields = AddFields::default();
     window.open_dialog(cx, move |dialog, _, _| {
-        let dialog = dialog.title("Settings").w(px(720.0));
+        let dialog = dialog.title("Settings").w(px(DIALOG_WIDTH));
         let Some(model) = model() else {
             return dialog;
         };
         dialog.child(
             div().h(px(440.0)).child(
                 Settings::new("settings")
+                    .sidebar_width(px(SIDEBAR_WIDTH))
                     .page(general(&model.general))
                     .page(settings_repos::page(&fields))
+                    .page(mods(&model.mods))
                     .page(shortcuts(&model.shortcuts))
                     .page(about(&model.about)),
             ),

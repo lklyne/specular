@@ -86,12 +86,24 @@ fn layer(menu: Entity<PopupMenu>, corner: Vec2, window: &Window) -> AnyElement {
                     anchored()
                         .position(point(px(corner.x), px(corner.y)))
                         .snap_to_window_with_margin(px(8.0))
-                        .child(menu),
+                        .child(edged(menu)),
                 ),
         ),
     )
     .with_priority(POPUP_PRIORITY)
     .into_any_element()
+}
+
+/// The Kit's menu inside the `popupBorder` line every list that opens has,
+/// over the faint ring the Kit draws, one point out with the corner one
+/// point wider.
+fn edged(menu: Entity<PopupMenu>) -> AnyElement {
+    div()
+        .border_1()
+        .border_color(crate::theme::solid(crate::theme::chrome_border()))
+        .rounded(px(crate::look::radius() + 1.0))
+        .child(menu)
+        .into_any_element()
 }
 
 /// A menu mod with its corner at `corner`, over a layer a press on which

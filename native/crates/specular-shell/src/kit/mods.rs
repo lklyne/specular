@@ -15,6 +15,7 @@
 //! where the app's own one would be.
 
 mod host;
+mod text_field;
 
 use std::cell::RefCell;
 use std::path::PathBuf;
@@ -24,8 +25,8 @@ use gpui_kit::{
     Styled as _, Window, div, px,
 };
 use serde_json::Value;
-use specular_interact::{Layout, Overlay, Region, RegionNode};
-use specular_mods::{Hosting, ModSet, Placed, shipped};
+use specular_interact::{Layout, Overlay};
+use specular_mods::{Hosting, ModCopy, ModSet, Placed, shipped};
 
 use crate::{canvas, theme};
 
@@ -64,7 +65,7 @@ fn folder() -> Option<PathBuf> {
 impl Mods {
     /// Brings the mods in step with `layout` and the state, and tells the
     /// app and the API what changed. Called as the root view draws.
-    pub(crate) fn sync(&mut self, layout: &Layout, window: &mut Window, cx: &mut App) {
+    pub(crate) fn sync(&mut self, models: &canvas::Models, window: &mut Window, cx: &mut App) {
         if self.set.is_none() && !self.off {
             let revisions = canvas::state();
             match (folder(), revisions) {
@@ -89,14 +90,29 @@ impl Mods {
         let Some(set) = self.set.as_mut() else {
             return;
         };
-        self.background = canvas::with(|canvas| {
+        let mut copies = ModCopy::of_layout(&models.layout);
+        // An overlay open by an overlay's own name (the palette) is that
+        // copy, with its overlay props.
+        copies.retain(|copy| !models.mod_overlays.iter().any(|open| open.id == copy.id));
+        copies.extend(models.mod_overlays.iter().map(|spec| ModCopy {
+            id: spec.id.clone(),
+            name: spec.name.clone(),
+            props: spec.copy_props(),
+        }));
+        let background: Vec<String> = canvas::with(|canvas| {
             let catalog = canvas.runtime.app().mod_catalog();
             (catalog.background())
                 .map(|installed| installed.name.clone())
                 .collect()
         })
         .unwrap_or_default();
-        set.sync(layout, &self.background, window, cx);
+        // A mod the layout places already runs: its items, tools and
+        // commands need no second copy.
+        self.background = (background.into_iter())
+            .filter(|name| !copies.iter().any(|copy| copy.name == *name))
+            .collect();
+        copies.extend(self.background.iter().map(|name| ModCopy::background(name)));
+        set.sync(&copies, window, cx);
         set.refresh(cx);
         let stats = set.stats();
         if self.stats.as_ref() != Some(&stats) {
@@ -120,36 +136,37 @@ impl Mods {
         })
     }
 
-    /// What the layout's node for `region` places, when it names a mod:
-    /// the mod's view, or why it did not load. `None` draws the app's own
-    /// panel.
-    pub(crate) fn region(&self, region: Region, layout: &Layout, cx: &App) -> Option<AnyElement> {
-        self.node(layout.node(region), cx).map(Slot::element)
+    /// What the copy `id` shows: its view, or why it did not load.
+    /// `None` when no copy by that id runs.
+    pub(crate) fn copy(&self, id: &str, cx: &App) -> Option<AnyElement> {
+        self.slot(id, cx).map(Slot::element)
     }
 
-    /// What the layout's node for `overlay` places, as [`Mods::region`].
+    fn slot(&self, id: &str, cx: &App) -> Option<Slot> {
+        Some(match self.set.as_ref()?.placed(id, cx)? {
+            Placed::View(view) => Slot::View(view),
+            Placed::Failed(error) => Slot::Failed(id.to_owned(), error.to_owned()),
+        })
+    }
+
+    /// What the layout's mod for `overlay` places, when it names one: the
+    /// mod's view, or why it did not load. `None` draws the app's own.
     pub(crate) fn overlay(
         &self,
         overlay: Overlay,
         layout: &Layout,
         cx: &App,
     ) -> Option<AnyElement> {
-        self.node(layout.overlay(overlay), cx).map(Slot::element)
-    }
-
-    fn node(&self, node: &RegionNode, cx: &App) -> Option<Slot> {
-        let name = node.fill.as_deref()?;
-        Some(match self.set.as_ref()?.placed(name, cx)? {
-            Placed::View(view) => Slot::View(view),
-            Placed::Failed(error) => Slot::Failed(name.to_owned(), error.to_owned()),
-        })
+        layout.overlay(overlay).fill.as_ref()?;
+        self.copy(overlay.name(), cx)
     }
 
     /// Puts what the layout names for the Share slot where this frame's
     /// tab row finds it, the app's own or a mod's.
     pub(crate) fn fill_share_slot(&self, layout: &Layout, shown: bool, cx: &App) {
         let slot = if shown {
-            self.node(layout.overlay(Overlay::Share), cx)
+            (layout.overlay(Overlay::Share).fill.as_ref())
+                .and_then(|_| self.slot(Overlay::Share.name(), cx))
                 .unwrap_or(Slot::Native)
         } else {
             Slot::Hidden
@@ -220,7 +237,7 @@ fn error_card(name: &str, error: &str) -> AnyElement {
         .left(px(8.0))
         .w(px(280.0))
         .p_2()
-        .rounded(px(8.0))
+        .rounded(crate::theme::corner(8.0))
         .bg(theme::solid(theme::popup()))
         .border_1()
         .border_color(theme::solid(theme::error()))

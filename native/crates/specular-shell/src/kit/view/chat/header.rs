@@ -38,7 +38,7 @@ fn icon_button(id: &'static str, icon: impl Into<Icon>, tooltip: &'static str) -
         .ghost()
         .xsmall()
         .size(px(24.0))
-        .rounded(px(4.0))
+        .rounded(crate::theme::corner(4.0))
         .child(icon.into().size(px(13.0)))
         .child(crate::tip::over(id, tooltip))
 }

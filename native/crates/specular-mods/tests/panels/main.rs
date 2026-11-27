@@ -17,3 +17,4 @@ mod share;
 mod tabs;
 mod toast;
 mod welcome;
+mod window;

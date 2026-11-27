@@ -127,7 +127,9 @@ const fn toggles(tool: Tool) -> bool {
 }
 
 fn button(app: &App, tool: Tool) -> ToolButton {
-    let active = app.session.tool == tool;
+    // A mod's shape is the shape tool in hand, under another form.
+    let shape = matches!(app.session.tool, Tool::Mod(id) if app.mods.catalog.is_shape(id));
+    let active = app.session.tool == tool || (shape && tool == Tool::AddShape);
     let (icon, tint) = glyph(app, tool);
     let (word, label) = naming(app, tool);
     ToolButton {
@@ -238,7 +240,9 @@ pub fn toolbar(app: &App) -> ToolbarModel {
         .map(|tools| ToolbarSection::Tools(tools.iter().map(|&tool| button(app, tool)).collect()))
         .collect();
     // The installed mods' tools, a group of their own after the app's.
+    // A shape is listed under the shape tool, not here.
     let mods: Vec<ToolButton> = (app.mods.catalog.tools())
+        .filter(|(_, _, spec)| !spec.is_shape())
         .map(|(id, ..)| button(app, Tool::Mod(id)))
         .collect();
     if !mods.is_empty() {

@@ -115,7 +115,7 @@ fn the_share_button_renders_on_change_only_and_inside_a_frame(cx: &mut TestAppCo
     let mut loaded = timed_load(&app, "share", json!({}), SIZE, cx);
     assert_eq!(
         loaded.reads("share"),
-        ["mods/share/props", "panels/share", "theme"]
+        ["look", "mods/share/props", "panels/share"]
     );
     assert_eq!(loaded.idle_renders(), 0, "no script render while idle");
     let scopes = [Some(LinkScope::View), Some(LinkScope::Edit)];

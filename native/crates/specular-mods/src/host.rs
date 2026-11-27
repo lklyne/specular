@@ -1,7 +1,7 @@
 //! The `specular` host module: what a mod imports to reach the app.
 //!
 //! ```js
-//! import { state, run, commands, shared, setShared, props, notify, colors } from "specular";
+//! import { state, run, commands, shared, setShared, props, notify, colors, look, openOverlay, closeOverlay } from "specular";
 //! import { Icon, Zoom, ToolOptions } from "specular";
 //! ```
 //!
@@ -93,6 +93,15 @@ impl std::fmt::Debug for Hosting {
     }
 }
 
+/// Opens the overlay `spec` asks for and answers its id: the one given, else
+/// the mod's name.
+fn open_overlay(host: &dyn ModHost, spec: &Value) -> Result<HostValue, HostError> {
+    host.run("overlay.open", spec)
+        .map_err(|error| HostError::new(format!("overlay.open: {error}")))?;
+    let id = spec.get("id").or_else(|| spec.get("mod"));
+    Ok(id.map_or(HostValue::Null, to_host))
+}
+
 /// The `specular` module for the mod `id`.
 pub fn specular_module(id: &str, hosting: &Hosting) -> HostModule {
     let Hosting {
@@ -114,8 +123,11 @@ pub fn specular_module(id: &str, hosting: &Hosting) -> HostModule {
     let state = read.clone();
     let shared = read.clone();
     let theme = read.clone();
+    let look = read.clone();
     let props = read;
     let runner = host.clone();
+    let opener = host.clone();
+    let closer = host.clone();
     let lister = host.clone();
     let notifier = host.clone();
     let writer = host;
@@ -124,9 +136,16 @@ pub fn specular_module(id: &str, hosting: &Hosting) -> HostModule {
         .function("state", move |arguments| Ok(state(arguments.string(0)?)))
         .function("props", move |_| Ok(props(&props_key)))
         .function("colors", move |_| {
-            let appearance = appearance_of(Some(&from_host(&theme("theme"))));
-            Ok(to_host(&chrome_colors(appearance)))
+            let look = from_host(&theme("look"));
+            let mut colors = chrome_colors(appearance_of(Some(&look)));
+            if let (Value::Object(colors), Some(Value::Object(over))) =
+                (&mut colors, look.get("colors"))
+            {
+                colors.extend(over.clone());
+            }
+            Ok(to_host(&colors))
         })
+        .function("look", move |_| Ok(look("look")))
         .function("shared", move |arguments| {
             Ok(shared(&format!("shared/{}", arguments.string(0)?)))
         })
@@ -145,6 +164,24 @@ pub fn specular_module(id: &str, hosting: &Hosting) -> HostModule {
             (runner.run(name, &args))
                 .map(|value| to_host(&value))
                 .map_err(|error| HostError::new(format!("{name}: {error}")))
+        })
+        .function("openOverlay", move |arguments| {
+            let name = arguments.string(0)?;
+            let mut fields = match arguments.get(1).map(from_host) {
+                Some(Value::Object(fields)) => fields,
+                _ => serde_json::Map::new(),
+            };
+            fields.insert("mod".to_owned(), Value::String(name.to_owned()));
+            open_overlay(opener.as_ref(), &Value::Object(fields))
+        })
+        .function("closeOverlay", move |arguments| {
+            let args = match arguments.get(0).and_then(HostValue::as_str) {
+                Some(id) => serde_json::json!({ "id": id }),
+                None => serde_json::json!({}),
+            };
+            (closer.run("overlay.close", &args))
+                .map(|_| HostValue::Null)
+                .map_err(|error| HostError::new(format!("overlay.close: {error}")))
         })
         .function("commands", move |_| Ok(to_host(&lister.commands())))
         .function("notify", move |arguments| {

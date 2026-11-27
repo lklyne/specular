@@ -10,7 +10,8 @@ use gpui_kit::{InteractiveElement as _, ParentElement as _, SharedString, Styled
 use specular_interact::{Action, Chord, Control, ControlId, ControlsModel, DropdownSection};
 
 use super::named::mark;
-use crate::theme;
+/// How faint an item's key is beside its word.
+const KEY_FADE: f32 = 0.6;
 
 /// What picking an item does, given the item's name and its action.
 pub(super) type Pick = fn(&ControlId, &Action, &mut gpui_kit::Window, &mut gpui_kit::App);
@@ -43,11 +44,9 @@ pub(super) fn filled(mut menu: PopupMenu, model: &ControlsModel, pick: Pick) -> 
                     .justify_between()
                     .text_size(px(12.0))
                     .child(label.clone())
-                    .children(keys.clone().map(|keys| {
-                        div()
-                            .text_color(theme::tinted(theme::text_muted()))
-                            .child(keys)
-                    }))
+                    // The key takes the row's own colour, `onText` while the
+                    // row is lit, and is fainter than its word.
+                    .children(keys.clone().map(|keys| div().opacity(KEY_FADE).child(keys)))
                     .child(mark(&name))
             })
             .disabled(!option.enabled)

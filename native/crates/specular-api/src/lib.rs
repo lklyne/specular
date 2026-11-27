@@ -139,6 +139,8 @@ pub enum ShotArea {
     /// The canvas as the window shows it.
     #[default]
     Window,
+    /// The whole window as the screen shows it, its panels included.
+    Whole,
     /// This rect of the canvas, with everything on it.
     Canvas(Rect),
     /// One page at its own size.
@@ -294,7 +296,11 @@ impl Api {
             (Delete, ["annotations", id]) => annotations::delete(app, id),
             (Post, ["window", "screenshot"]) => Ok(Step::Screenshot(Screenshot {
                 path: request.text("path").map(PathBuf::from),
-                area: ShotArea::Window,
+                area: if request.body.get("whole").and_then(Value::as_bool) == Some(true) {
+                    ShotArea::Whole
+                } else {
+                    ShotArea::Window
+                },
             })),
             _ => unported::answer(request, segments),
         }

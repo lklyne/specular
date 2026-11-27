@@ -88,6 +88,22 @@ pub(super) const APP: &[CommandSpec] = &[
         build: |_| shell(ShellCommand::Minimize),
     },
     CommandSpec {
+        name: "window.close",
+        label: "",
+        args: "",
+        about: "Close the window, as its close button does: for a layout that draws its own.",
+        enabled: always,
+        build: |_| shell(ShellCommand::Close),
+    },
+    CommandSpec {
+        name: "window.zoom",
+        label: "",
+        args: "",
+        about: "Zoom the window, as its zoom button or a title bar double click does.",
+        enabled: always,
+        build: |_| shell(ShellCommand::Zoom),
+    },
+    CommandSpec {
         name: "app.command-palette",
         label: "Command palette",
         args: "",

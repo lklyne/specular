@@ -1,8 +1,8 @@
-//! Where the mods the layout names are drawn: a toolbar mod in the docked
-//! ribbon's place or floating where the app's own ribbon floats, a tab row
-//! mod in the tab row, and the notices over the canvas's lower right
-//! corner. The mod draws the panel itself; these give it the box and keep
-//! the canvas from taking the clicks it gets.
+//! Where the mods drawn over the canvas go: a toolbar mod floating where
+//! the app's own ribbon floats while the tools float, and the notices over
+//! the canvas's lower right corner. The mod draws the panel itself; these
+//! give it the box and keep the canvas from taking the clicks it gets. The
+//! layout's blocks are placed by `frame.rs`.
 
 use gpui_kit::component::h_flex;
 use gpui_kit::prelude::FluentBuilder as _;
@@ -10,33 +10,29 @@ use gpui_kit::{
     AnyElement, App, Entity, InteractiveElement as _, IntoElement, ParentElement as _, Styled as _,
     Window, div, px,
 };
-use specular_interact::{Overlay, Region, TOOLS_DOCK_WIDTH, ToolsPlace};
+use specular_interact::{Overlay, Region, ToolsPlace};
 
 use super::ShellView;
 use super::onboarding::HeroPrism;
 use super::toolbar::RIBBON_INSET;
 use crate::canvas::Models;
-use crate::theme;
 
-/// The mods drawn this frame in place of the app's own panels.
+/// The mods drawn this frame over the canvas, in place of the app's own.
 pub(super) struct ModPanels {
     /// Whether the tab row keeps its own zoom readout: no toolbar mod
     /// carries it.
     pub(super) zoom_in_tabs: bool,
-    /// A toolbar mod, docked.
-    pub(super) docked: Option<AnyElement>,
-    /// A toolbar mod, floating.
+    /// A toolbar mod, floating while the tools float.
     pub(super) floating: Option<AnyElement>,
-    /// A tab row mod.
-    pub(super) tabs: Option<AnyElement>,
+    /// A dock mod, in the dock's place.
+    pub(super) dock: Option<AnyElement>,
     /// A notices mod, placed over the canvas.
     pub(super) toast: Option<AnyElement>,
 }
 
 impl ShellView {
-    /// Brings the mods in step and gives back those the layout names for
-    /// the regions and overlays drawn in the window's main view. The Share
-    /// slot is filled for the tab row to find.
+    /// Brings the mods in step and gives back those drawn over the canvas.
+    /// The Share slot is filled for the tab row to find.
     pub(super) fn mod_panels(
         &mut self,
         models: Option<&Models>,
@@ -46,21 +42,17 @@ impl ShellView {
         let Some(models) = models else {
             return ModPanels {
                 zoom_in_tabs: true,
-                docked: None,
                 floating: None,
-                tabs: None,
+                dock: None,
                 toast: None,
             };
         };
-        self.mods.sync(&models.layout, window, cx);
+        self.mods.sync(models, window, cx);
         let layout = &models.layout;
-        let ribbon = self.mods.region(Region::Toolbar, layout, cx);
-        let zoom_in_tabs = ribbon.is_none();
-        let (docked, floating) = if models.toolbar.tools == ToolsPlace::Docked {
-            (ribbon, None)
-        } else {
-            (None, ribbon)
-        };
+        let toolbar_mod = layout.fill(Region::Toolbar).is_some();
+        let floating = (toolbar_mod && models.toolbar.tools != ToolsPlace::Docked)
+            .then(|| self.mods.copy(Region::Toolbar.name(), cx))
+            .flatten();
         (self.mods).fill_share_slot(layout, models.shows(Overlay::Share), cx);
         let toast = if models.shows(Overlay::Toast) {
             self.mods.overlay(Overlay::Toast, layout, cx)
@@ -68,11 +60,13 @@ impl ShellView {
             None
         };
         let toast = toast.map(|toast| corner(toast, models.insets.bottom));
+        let dock = (models.shows(Overlay::Dock))
+            .then(|| self.mods.overlay(Overlay::Dock, layout, cx))
+            .flatten();
         ModPanels {
-            zoom_in_tabs,
-            docked,
+            zoom_in_tabs: !toolbar_mod,
             floating,
-            tabs: self.mods.region(Region::Tabs, layout, cx),
+            dock,
             toast,
         }
     }
@@ -89,7 +83,7 @@ impl ShellView {
         cx: &mut App,
     ) -> Option<AnyElement> {
         let models = models?;
-        self.mods.sync(&models.layout, window, cx);
+        self.mods.sync(models, window, cx);
         crate::mods::set_hero(Some(hero.clone().into()));
         let welcome = self.mods.overlay(Overlay::Welcome, &models.layout, cx)?;
         Some(
@@ -102,17 +96,6 @@ impl ShellView {
     }
 }
 
-/// A tab row mod in the tab row's box.
-pub(super) fn tab_row(row: AnyElement) -> AnyElement {
-    div()
-        .id("tabs-mod")
-        .w_full()
-        .h(px(theme::TAB_ROW))
-        .flex_shrink_0()
-        .child(row)
-        .into_any_element()
-}
-
 /// The notices mod over the canvas's lower right corner, `bottom` up from
 /// the window's edge. Only what the mod draws takes clicks.
 fn corner(toast: AnyElement, bottom: f32) -> AnyElement {
@@ -122,19 +105,6 @@ fn corner(toast: AnyElement, bottom: f32) -> AnyElement {
         .bottom(px(bottom + 12.0))
         .child(div().id("toast-mod").occlude().child(toast))
         .into_any_element()
-}
-
-/// The mod in the docked ribbon's box, `left` from the window's edge.
-pub(super) fn docked(ribbon: AnyElement, left: f32) -> impl IntoElement {
-    div()
-        .id("ribbon-mod")
-        .occlude()
-        .absolute()
-        .left(px(left))
-        .top(px(theme::chrome_top()))
-        .bottom_0()
-        .w(px(TOOLS_DOCK_WIDTH))
-        .child(ribbon)
 }
 
 /// The mod centred over the top or the bottom of what the canvas is seen

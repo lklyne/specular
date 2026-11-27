@@ -12,7 +12,7 @@ use gpui_kit::component::input::{Escape, Input, InputEvent, InputState};
 use gpui_kit::component::{Sizable as _, h_flex};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
-    AnyElement, App, AppContext as _, Entity, FocusHandle, Focusable as _, Global,
+    AnyElement, App, AppContext as _, Entity, FocusHandle, Focusable as _, Global, Hsla,
     InteractiveElement as _, IntoElement, ParentElement as _, SharedString,
     StatefulInteractiveElement as _, Styled, Subscription, Window, div, px,
 };
@@ -134,6 +134,56 @@ pub(super) fn want(id: ControlId, cx: &mut App) {
 /// The input of `model` alone, as wide as what it is put in. `address` is
 /// one set into the dock's bar, which it nearly fills.
 pub(super) fn input(model: &Field, address: bool, window: &mut Window, cx: &mut App) -> AnyElement {
+    input_styled(model, address, FieldStyle::default(), window, cx)
+}
+
+/// How a mod draws a field over the app's own look: its corner radius, its
+/// fill, its edge and its edge's colour while it has the keys. Each left out
+/// keeps the app's. A field a mod styles shows its focus on its own edge:
+/// the Kit's ring sits outside it, rounded, and would undo a square look.
+#[derive(Debug, Clone, Copy, Default)]
+pub(crate) struct FieldStyle {
+    /// The corner radius, in points.
+    pub radius: Option<f32>,
+    /// The fill.
+    pub background: Option<Hsla>,
+    /// The edge's colour.
+    pub border: Option<Hsla>,
+    /// The edge's colour while the field has the keys.
+    pub focus: Option<Hsla>,
+}
+
+impl FieldStyle {
+    /// Whether a mod set any of it.
+    pub(crate) fn is_set(self) -> bool {
+        self.radius.is_some()
+            || self.background.is_some()
+            || self.border.is_some()
+            || self.focus.is_some()
+    }
+
+    pub(crate) fn over(self, input: Input, focused: bool) -> Input {
+        let focus = self
+            .focus
+            .unwrap_or_else(|| theme::solid(theme::focus_ring()));
+        input
+            .when_some(self.radius, |this, radius| {
+                this.rounded(crate::theme::corner(radius))
+            })
+            .when_some(self.background, Styled::bg)
+            .when_some(self.border, Styled::border_color)
+            .when(self.is_set(), |this| this.focus_bordered(false))
+            .when(self.is_set() && focused, |this| this.border_color(focus))
+    }
+}
+
+fn input_styled(
+    model: &Field,
+    address: bool,
+    style: FieldStyle,
+    window: &mut Window,
+    cx: &mut App,
+) -> AnyElement {
     let input = input_of(model, window, cx);
     let fields = cx.default_global::<Fields>();
     if fields.wanted.as_ref() == Some(&model.id) {
@@ -159,42 +209,45 @@ pub(super) fn input(model: &Field, address: bool, window: &mut Window, cx: &mut 
         // An address says what it is with its placeholder.
         .when(!address, |this| this.tooltip(crate::tip::view(label)))
         // An address is read and typed into more than a number is.
-        .child(if address {
-            // The Kit fills an input with the panel's colour, which is the
-            // bar's own: an address is set into the bar with the input's.
-            // The Kit's ring is wider than the room the bar leaves an
-            // address, which shows its focus with its edge and a line
-            // around that.
-            // The Kit's own `Input::h` sizes a multi-line input only.
-            Styled::h(Input::new(&input).small(), px(ADDRESS_HEIGHT))
-                .text_size(px(12.0))
-                .rounded_full()
-                .px_3()
-                .bg(theme::solid(theme::input()))
-                .focus_bordered(false)
-                .when(focused, |this| this.border_color(ring))
-        } else if model.width == FieldWidth::Wide {
-            Input::new(&input).small().text_size(px(12.0))
-        } else {
-            // A number sits in a row of a list, which is filled when it is
-            // the current one: the input's own colour sets it apart.
-            Input::new(&input)
-                .xsmall()
-                .bg(theme::solid(theme::input()))
-                .when_some(inside, |this, caption| {
-                    this.prefix(
-                        div()
-                            .text_color(theme::tinted(theme::text_muted()))
-                            .child(caption),
-                    )
-                })
-        })
-        .when(address && focused, |this| {
+        .child(style.over(
+            if address {
+                // The Kit fills an input with the panel's colour, which is the
+                // bar's own: an address is set into the bar with the input's.
+                // The Kit's ring is wider than the room the bar leaves an
+                // address, which shows its focus with its edge and a line
+                // around that.
+                // The Kit's own `Input::h` sizes a multi-line input only.
+                Styled::h(Input::new(&input).small(), px(ADDRESS_HEIGHT))
+                    .text_size(px(12.0))
+                    .rounded(crate::theme::corner_full())
+                    .px_3()
+                    .bg(theme::solid(theme::input()))
+                    .focus_bordered(false)
+                    .when(focused, |this| this.border_color(ring))
+            } else if model.width == FieldWidth::Wide {
+                Input::new(&input).small().text_size(px(12.0))
+            } else {
+                // A number sits in a row of a list, which is filled when it is
+                // the current one: the input's own colour sets it apart.
+                Input::new(&input)
+                    .xsmall()
+                    .bg(theme::solid(theme::input()))
+                    .when_some(inside, |this, caption| {
+                        this.prefix(
+                            div()
+                                .text_color(theme::tinted(theme::text_muted()))
+                                .child(caption),
+                        )
+                    })
+            },
+            focused,
+        ))
+        .when(address && focused && !style.is_set(), |this| {
             this.child(
                 div()
                     .absolute()
                     .inset(px(-1.0))
-                    .rounded_full()
+                    .rounded(crate::theme::corner_full())
                     .border_1()
                     .border_color(ring.opacity(0.5)),
             )
@@ -206,7 +259,17 @@ pub(super) fn input(model: &Field, address: bool, window: &mut Window, cx: &mut 
 /// `model` as a control of a row: its caption, then its input at the width
 /// it asks for. An address takes that as its least width and grows into
 /// whatever room its row has left.
-pub(super) fn field(model: &Field, window: &mut Window, cx: &mut App) -> AnyElement {
+pub(crate) fn field(model: &Field, window: &mut Window, cx: &mut App) -> AnyElement {
+    field_styled(model, FieldStyle::default(), window, cx)
+}
+
+/// [`field`], drawn with a mod's `style` over the app's look.
+pub(crate) fn field_styled(
+    model: &Field,
+    style: FieldStyle,
+    window: &mut Window,
+    cx: &mut App,
+) -> AnyElement {
     let caption = (model.caption.as_ref())
         .filter(|_| model.width != FieldWidth::Short)
         .map(|text| SharedString::from(text.to_string()));
@@ -221,7 +284,7 @@ pub(super) fn field(model: &Field, window: &mut Window, cx: &mut App) -> AnyElem
         .child(
             div()
                 .map(|this| if grows { this.flex_1() } else { this.w(least) })
-                .child(input(model, grows, window, cx)),
+                .child(input_styled(model, grows, style, window, cx)),
         )
         .into_any_element()
 }

@@ -53,3 +53,24 @@ fn a_pan_or_a_zoom_moves_no_panel() {
     assert!(moved.contains(&"panels/toolbar"), "{moved:?}");
     assert!(!moved.contains(&"keys"), "{moved:?}");
 }
+
+#[test]
+fn the_canvas_keys_name_what_is_there_and_a_move_moves_none_of_them() {
+    let mut app = app();
+    let read = state(app.app());
+    assert_eq!(read["selection"]["ids"], serde_json::json!(["s"]));
+    assert!(
+        read["canvas/items"][0]["url"].is_string(),
+        "a page's address"
+    );
+    assert_eq!(read["canvas/items"][1]["text"], "note");
+    assert_eq!(read["canvas/info"]["items"], 2);
+    let mut revisions = Revisions::default();
+    publish_state(&mut revisions, app.app());
+    app.act(Action::Nudge { dx: 40.0, dy: 0.0 });
+    let moved = publish_state(&mut revisions, app.app());
+    for key in ["selection", "canvas/items", "canvas/info", "panels/sidebar"] {
+        assert!(!moved.contains(&key), "a move moved {key}: {moved:?}");
+    }
+    app.assert_undo_returns_to_start();
+}

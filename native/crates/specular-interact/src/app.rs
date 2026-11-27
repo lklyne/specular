@@ -50,6 +50,8 @@ pub struct App {
     pub(crate) chrome: crate::chrome::ChromeState,
     /// What is installed, what mod items last drew, the mod tool's stroke.
     pub(crate) mods: crate::mods::ModState,
+    /// The person's keys from `keys.json`, over the binding table.
+    pub(crate) keymap: crate::Keymap,
 }
 
 impl App {
@@ -90,7 +92,10 @@ impl App {
     /// Light or dark: what the choice and the system's appearance come to,
     /// which is what is drawn.
     pub fn appearance(&self) -> Appearance {
-        self.theme.appearance()
+        let system = self.theme.appearance();
+        (self.layout().look)
+            .appearance(system, &self.chrome.themes)
+            .unwrap_or(system)
     }
 
     /// The entity the gesture in flight is creating: a shape being dragged

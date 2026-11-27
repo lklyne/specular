@@ -33,6 +33,8 @@ pub(crate) struct WindowAsks {
     pub(crate) ime_area: Cell<(Vec2, Vec2)>,
     /// The field of the chrome that is to be given the keys.
     pub(crate) field: RefCell<Option<ControlId>>,
+    /// The window's own command a key of `keys.json` asked for.
+    pub(crate) shell: Cell<Option<specular_interact::ShellCommand>>,
     /// Set when one of the above changed, until GPUI has been told.
     pub(crate) changed: Cell<bool>,
 }
@@ -44,6 +46,7 @@ impl Default for WindowAsks {
             ime_allowed: Cell::new(false),
             ime_area: Cell::new((Vec2::ZERO, Vec2::ZERO)),
             field: RefCell::new(None),
+            shell: Cell::new(None),
             changed: Cell::new(false),
         }
     }
@@ -346,6 +349,10 @@ impl ShellWindow for CanvasSurface {
         self.capture_area(camera, self.slot_size, scene, page_of)
     }
 
+    fn capture_whole(&mut self) -> anyhow::Result<(Vec<u8>, u32, u32)> {
+        crate::whole_shot::capture(self.native.window_number())
+    }
+
     fn capture_area(
         &mut self,
         camera: Camera,
@@ -391,6 +398,11 @@ impl ShellWindow for CanvasSurface {
 
     fn edit_field(&self, field: &ControlId) {
         self.asks.field.replace(Some(field.clone()));
+        self.asks.changed.set(true);
+    }
+
+    fn run_shell(&self, command: specular_interact::ShellCommand) {
+        self.asks.shell.set(Some(command));
         self.asks.changed.set(true);
     }
 

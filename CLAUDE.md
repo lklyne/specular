@@ -164,6 +164,13 @@ tag that matches it makes `.github/workflows/release.yml` build, sign,
 notarize and publish the DMG, the updater zip and the Sparkle feed. The
 `release` skill walks it. `docs/native-app-bundle.md` has the bundle's layout.
 
+Docs follow releases, not every change. Before a release (and before
+merging a feature branch that changes what mod authors or agents meet),
+bring the mod manual (`native/crates/specular-mods/mods/README.md`,
+`specular.d.ts`), the skills (`resources/skills/` and `.claude/skills/`)
+and the website docs (`lklyne/specular-web`, `src/pages/docs/`) up to date.
+The `release` skill's step 2b walks it.
+
 ## Agent skills
 
 ### Issue tracker

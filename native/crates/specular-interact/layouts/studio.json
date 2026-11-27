@@ -1,0 +1,28 @@
+{
+  "title": "Studio",
+  "id": "root",
+  "type": "column",
+  "theme": "studio",
+  "font": "Geist",
+  "font_size": 12,
+  "share": { "mod": "share" },
+  "toast": { "mod": "toast" },
+  "palette": { "mod": "palette" },
+  "dock": { "mod": "dock" },
+  "children": [
+    { "id": "tabs", "type": "block", "size": { "px": 38 }, "background": "toolbar", "content": { "mod": "tabs" } },
+    {
+      "id": "body",
+      "type": "row",
+      "children": [
+        { "id": "toolbar", "type": "block", "size": { "px": 36 }, "content": { "mod": "toolbar" } },
+        { "id": "canvas", "type": "block", "content": "canvas" },
+        { "id": "sidebar", "type": "block", "size": { "px": 260 }, "content": { "mod": "sidebar" },
+          "border": { "width": 1, "color": "sidebarRule" } },
+        { "id": "chat", "type": "block", "size": { "px": 400 }, "content": { "mod": "chat" } }
+      ]
+    },
+    { "id": "status", "type": "block", "size": { "px": 24 }, "content": { "mod": "status" },
+      "background": "toolbar", "border": { "width": 1, "color": "toolbarBorder" } }
+  ]
+}

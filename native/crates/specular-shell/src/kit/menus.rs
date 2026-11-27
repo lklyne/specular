@@ -65,6 +65,8 @@ actions!(
         Minimize,
         /// Zooms the window.
         ZoomWindow,
+        /// Closes the window, as its close button does.
+        CloseWindow,
         /// Opens the command palette.
         CommandPalette,
         /// A key the Kit's root would take for itself, given to the canvas.
@@ -304,6 +306,8 @@ fn shell_action(command: ShellCommand) -> Box<dyn Action> {
         ShellCommand::Hide => Box::new(Hide),
         ShellCommand::HideOthers => Box::new(HideOthers),
         ShellCommand::Minimize => Box::new(Minimize),
+        ShellCommand::Close => Box::new(CloseWindow),
+        ShellCommand::Zoom => Box::new(ZoomWindow),
         ShellCommand::CommandPalette => Box::new(CommandPalette),
     }
 }
@@ -318,9 +322,15 @@ fn binding(keys: &str, action: impl Action, context: Option<&str>, cx: &App) -> 
     KeyBinding::load(keys, Box::new(action), predicate, false, None, cx).ok()
 }
 
-/// Does what the menu item for `command` does.
+/// Does what the menu item for `command` does, on the shell's window.
+///
+/// Not `App::dispatch_action`: that goes to the active window, which a
+/// command run from a mod's script or a closing overlay may find mid-update
+/// or not yet active, and the action is dropped.
 pub(crate) fn run_shell(command: ShellCommand, cx: &mut App) {
-    cx.dispatch_action(shell_action(command).as_ref());
+    shell::with_view(cx, move |_, window, cx| {
+        window.dispatch_action(shell_action(command), cx);
+    });
 }
 
 /// Binds the shell's own keys and installs every action's handler.
@@ -339,6 +349,8 @@ pub(crate) fn install(cx: &mut App) {
                 ShellCommand::Hide => binding(&keys, Hide, None, cx),
                 ShellCommand::HideOthers => binding(&keys, HideOthers, None, cx),
                 ShellCommand::Minimize => binding(&keys, Minimize, None, cx),
+                ShellCommand::Close => binding(&keys, CloseWindow, None, cx),
+                ShellCommand::Zoom => binding(&keys, ZoomWindow, None, cx),
                 ShellCommand::CommandPalette => binding(&keys, CommandPalette, None, cx),
             }
         })
@@ -384,6 +396,9 @@ pub(crate) fn install(cx: &mut App) {
     });
     cx.on_action(|_: &CommandPalette, cx| {
         shell::with_view(cx, |_, window, cx| crate::view::toggle_palette(window, cx));
+    });
+    cx.on_action(|_: &CloseWindow, cx| {
+        shell::with_view(cx, |_, window, _| crate::window_buttons::close(window));
     });
     cx.on_action(|_: &ZoomWindow, cx| {
         shell::with_view(cx, |_, window, _| window.zoom_window());

@@ -12,7 +12,7 @@ use gpui_kit::{
 };
 use specular_interact::{Chord, Control, DropdownOption, DropdownSection, Icon, OptionLayout};
 
-use super::super::controls::{CONTROL, element_id, face, in_list};
+use super::super::controls::{CONTROL, element_id, face_in, in_list};
 use super::super::glyphs::{glyph, ink};
 use super::super::named::mark;
 use super::super::{field, run};
@@ -105,7 +105,7 @@ fn option(
         // Fields end a row as far from its edge as they are from its top.
         .when(fields.is_some(), |this| this.pr(px(FIELD_INSET)))
         .when(!wide, |this| this.w(px(32.0)).justify_center())
-        .rounded(px(6.0))
+        .rounded(crate::theme::corner(6.0))
         .when(model.selected && !menu, |this| {
             this.bg(theme::solid(theme::control_on()))
         })
@@ -120,15 +120,29 @@ fn option(
                     }
                 })
         })
-        .child(face(&model.face, model.selected || menu))
+        .child(face_in(
+            &model.face,
+            model.selected || menu,
+            model.selected && !menu,
+            Some(element_id(&model.id)),
+        ))
         .child(mark(&model.id))
         .when(model.selected && menu, |this| {
             this.child(glyph(Icon::Check, ink(theme::text()), None, false, 12.0))
         })
         .when_some(trailing, |this, text| {
+            let group = element_id(&model.id);
+            let color = if model.selected && !menu {
+                theme::solid(theme::on_text())
+            } else {
+                theme::tinted(theme::text_muted())
+            };
             this.child(
                 div()
-                    .text_color(theme::tinted(theme::text_muted()))
+                    .text_color(color)
+                    .group_hover(group, |this| {
+                        this.text_color(theme::solid(theme::hover_text()))
+                    })
                     .child(text),
             )
         })
@@ -138,7 +152,7 @@ fn option(
                 div()
                     .px_1p5()
                     .py_0p5()
-                    .rounded(px(4.0))
+                    .rounded(crate::theme::corner(4.0))
                     .bg(theme::solid(theme::control_on()))
                     .text_color(theme::solid(theme::key_text()))
                     .child(SharedString::from(keys)),

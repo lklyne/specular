@@ -76,6 +76,7 @@ pub mod mods;
 mod move_drag;
 mod notes;
 mod notices;
+mod overlays;
 mod page_input;
 mod page_state;
 mod pages;
@@ -126,7 +127,10 @@ pub use app::{App, Focus, Selection, Session};
 pub use arrange::{ArrangeMode, arrange_command, place_command};
 pub use asset::AssetBytes;
 pub(crate) use bindings::page_edit;
-pub use bindings::{BINDINGS, Binding, Context, SHELL_KEYS, ShellCommand, kept_from_page};
+pub use bindings::{
+    BINDINGS, Binding, Context, KeyRow, KeySection, Keymap, SHELL_KEYS, ShellCommand,
+    kept_from_page,
+};
 pub use bridge::bridge_allowed;
 pub use chat::{
     ArtifactCard, AutoChip, Bubble, ChatAction, ChatModel, ChatView, Composer, DraftChip,
@@ -135,8 +139,10 @@ pub use chat::{
 };
 pub use chord::Chord;
 pub use chrome::{
-    Insets, Layout, LayoutAction, LayoutError, LayoutFile, Overlay, Region, RegionNode, Regions,
-    SIDEBAR_WIDTH, TOOLS_DOCK_WIDTH, Toggles,
+    Border, Content, Frame, Gate, HiddenWord, Insets, Layout, LayoutAction, LayoutError,
+    LayoutFile, LayoutsRead, Look, Node, NodeKind, Overlay, Padding, Placed, Region, RegionNode,
+    Regions, Resolved, SHIPPED, SHIPPED_THEMES, SIDEBAR_WIDTH, Shown, Size, TOOLS_DOCK_WIDTH,
+    ThemeChoice, ThemeFile, Toggles, TrafficLights, gate, place, solve,
 };
 pub use clipboard::{ClipboardContent, ClipboardImage, Paste};
 pub use commands::{CommandSpec, Run, RunError, command, commands, run_named};
@@ -179,6 +185,7 @@ pub use menu::{Menu, MenuEntry, MenuItem, menus};
 pub use move_drag::{CopyPreview, MoveDrag};
 pub use notes::{NoteNotice, NoteState, is_note_file, note_file_name};
 pub use notices::{AppNotice, NoticeAction, notices};
+pub use overlays::{OverlayAction, OverlayKind, OverlaySpec, Overlays};
 pub use page_state::{PageState, ScreenFit};
 pub use palette::{PaletteItem, PaletteMatch, PaletteRun, palette, search};
 pub use panel::PanelUi;

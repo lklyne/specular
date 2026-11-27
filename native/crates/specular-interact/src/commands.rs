@@ -14,6 +14,7 @@
 
 mod args;
 mod canvas;
+mod chat;
 mod edit;
 mod mods;
 mod page;
@@ -128,6 +129,8 @@ static ALL: LazyLock<Vec<CommandSpec>> = LazyLock::new(|| {
         view::VIEW,
         ui::UI,
         ui::NOTICE,
+        ui::OVERLAY,
+        chat::CHAT,
         mods::MODS,
         canvas::SHARE,
         canvas::CONTROL,

@@ -25,6 +25,8 @@ mod key_bindings;
 #[cfg(target_os = "macos")]
 mod keys;
 #[cfg(target_os = "macos")]
+mod look;
+#[cfg(target_os = "macos")]
 mod menus;
 #[cfg(target_os = "macos")]
 mod mods;
@@ -34,6 +36,8 @@ mod motion;
 mod native;
 #[cfg(target_os = "macos")]
 mod pacing;
+#[cfg(target_os = "macos")]
+mod paint;
 #[cfg(target_os = "macos")]
 mod pins;
 #[cfg(target_os = "macos")]
@@ -60,6 +64,10 @@ mod tip;
 mod updates;
 #[cfg(target_os = "macos")]
 mod view;
+#[cfg(target_os = "macos")]
+mod whole_shot;
+#[cfg(target_os = "macos")]
+mod window_buttons;
 
 #[cfg(target_os = "macos")]
 fn main() {

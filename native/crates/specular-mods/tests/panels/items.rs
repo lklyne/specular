@@ -118,3 +118,39 @@ fn the_ink_pen_previews_its_stroke_and_places_it_on_release(cx: &mut gpui::TestA
     assert!(placed[0].contains("\"mod\":\"ink\""), "{placed:?}");
     assert_eq!(loaded.idle_renders(), 0, "no script render while idle");
 }
+
+#[gpui::test]
+fn a_star_from_the_shape_picker_is_drawn_placed_and_undone(cx: &mut gpui::TestAppContext) {
+    let mut app = window_app();
+    app.send(Event::ModCatalog(ModCatalog {
+        mods: vec![installed("star")],
+    }));
+    run(&mut app, "tool.set", &json!({ "tool": "shape" }));
+    run(
+        &mut app,
+        "control.press",
+        &json!({ "id": "shape.kind.star/star" }),
+    );
+    let mut loaded = timed_load(&app, "star", json!({}), NONE, cx);
+    app.press((100.0, 100.0)).drag_to((220.0, 200.0));
+    assert!(loaded.step(&app), "the drag is a `tool` change");
+    app.release();
+    assert!(loaded.step(&app), "the release is a `tool` change");
+    let runs = loaded.runs();
+    assert!(
+        runs_of(&runs, "tool.preview")[0].contains("\"closed\":true"),
+        "{runs:?}"
+    );
+    let placed = runs_of(&runs, "item.add");
+    assert_eq!(placed.len(), 1, "{placed:?}");
+    // What the mod asked for, run as the window would run it.
+    let args: Value = serde_json::from_str(&placed[0]["item.add ".len()..]).expect("json");
+    run(&mut app, "item.add", &args);
+    assert!(
+        loaded.step(&app),
+        "the new item is a `canvas/mod_items` change"
+    );
+    let draws = runs_of(&loaded.runs(), "item.draw").len();
+    assert_eq!(draws, 1, "the star draws its item");
+    app.assert_undo_returns_to_start();
+}

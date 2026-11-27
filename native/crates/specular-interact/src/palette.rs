@@ -176,6 +176,7 @@ pub fn palette(app: &App) -> Vec<PaletteItem> {
         .collect();
     groups.push((SHELL_GROUP, shell));
     groups.push((MODS_GROUP, mod_items(app)));
+    groups.push((LAYOUTS_GROUP, layout_items(app)));
     groups.into_iter().flat_map(|(_, items)| items).collect()
 }
 
@@ -213,6 +214,30 @@ fn mod_items(app: &App) -> Vec<PaletteItem> {
         })
     });
     entries.chain(commands).collect()
+}
+
+/// The palette's group of layouts, one item a layout, the one shown checked.
+const LAYOUTS_GROUP: &str = "Layouts";
+
+/// Each layout, to switch to.
+fn layout_items(app: &App) -> Vec<PaletteItem> {
+    (app.layouts())
+        .map(|(name, layout)| PaletteItem {
+            label: Cow::Owned(format!(
+                "Layout: {}",
+                layout.title.as_deref().unwrap_or(name)
+            )),
+            group: LAYOUTS_GROUP,
+            run: PaletteRun::Named {
+                name: "layout.switch".to_owned(),
+                args: serde_json::json!({ "name": name }),
+            },
+            chord: None,
+            enabled: true,
+            checked: Some(name == app.layout_name()),
+            keywords: &["layout", "theme", "window"],
+        })
+        .collect()
 }
 
 /// The registry command `name` as a palette item of `group`.

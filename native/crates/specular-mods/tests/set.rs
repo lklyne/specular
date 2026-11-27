@@ -6,8 +6,8 @@ use std::rc::Rc;
 
 use gpui::{TestAppContext, VisualTestContext};
 use serde_json::{Value, json};
-use specular_interact::{Layout, RegionNode};
-use specular_mods::{Hosting, ModHost, ModSet, Placed, RunError, shipped};
+use specular_interact::{Layout, Overlay, RegionNode};
+use specular_mods::{Hosting, ModCopy, ModHost, ModSet, Placed, RunError, shipped};
 
 struct Quiet;
 
@@ -36,14 +36,15 @@ fn a_mod_that_fails_says_why_until_its_files_are_fixed(cx: &mut TestAppContext) 
     std::fs::write(dock.join("main.js"), BROKEN).expect("main.js");
 
     let mut layout = Layout::shipped();
-    layout.dock = RegionNode {
+    *layout.overlay_mut(Overlay::Dock) = RegionNode {
         fill: Some("dock".to_owned()),
         ..RegionNode::default()
     };
+    let copies = ModCopy::of_layout(&layout);
     let mut set = ModSet::new(mods.clone(), Hosting::new(Rc::new(Quiet)));
     let window = cx.add_window(|_, _| gpui::Empty);
     let mut vcx = VisualTestContext::from_window(*window, cx);
-    vcx.update(|window, cx| set.sync(&layout, &[], window, cx));
+    vcx.update(|window, cx| set.sync(&copies, window, cx));
     vcx.update(|_, cx| {
         assert!(matches!(set.placed("toolbar", cx), Some(Placed::View(_))));
         assert!(matches!(set.placed("dock", cx), Some(Placed::Failed(_))));
@@ -61,7 +62,7 @@ fn a_mod_that_fails_says_why_until_its_files_are_fixed(cx: &mut TestAppContext) 
     // A save that fixes it loads it.
     std::thread::sleep(std::time::Duration::from_millis(20));
     std::fs::write(dock.join("main.js"), FIXED).expect("fix");
-    let changed = vcx.update(|window, cx| set.sync(&layout, &[], window, cx));
+    let changed = vcx.update(|window, cx| set.sync(&copies, window, cx));
     assert!(changed, "the fixed mod loads");
     vcx.update(|_, cx| assert!(matches!(set.placed("dock", cx), Some(Placed::View(_)))));
     assert!(

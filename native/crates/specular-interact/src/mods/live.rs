@@ -17,8 +17,10 @@ const DEFAULT_SIZE: [f64; 2] = [320.0, 240.0];
 /// Mod state that is not in the document.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub(crate) struct ModState {
-    /// What is installed.
+    /// What is installed and turned on.
     pub(crate) catalog: ModCatalog,
+    /// What is installed, turned on or not.
+    pub(crate) installed: ModCatalog,
     /// The display list each mod item's mod last sent, by item.
     pub(crate) draws: HashMap<EntityId, Vec<ModDraw>>,
     /// The props and size each item had when its snapshot was last
@@ -39,6 +41,25 @@ pub(crate) struct ModState {
 /// is put down, and the page hosts follow the web items that are now (or no
 /// longer) shown live.
 pub(crate) fn on_catalog(app: &mut App, catalog: ModCatalog, effects: &mut Vec<Effect>) {
+    app.mods.installed = catalog;
+    turn(app, effects);
+}
+
+/// Brings the mods that run in step with what is installed and the mods
+/// the settings turn off: their tools, commands and items go, and the
+/// layouts draw the app's own panels where they were.
+pub(crate) fn turn(app: &mut App, effects: &mut Vec<Effect>) {
+    let off = &app.settings.mods_off;
+    let catalog = ModCatalog {
+        mods: (app.mods.installed.mods.iter())
+            .filter(|installed| !off.contains(&installed.name))
+            .cloned()
+            .collect(),
+    };
+    app.chrome.set_off(off);
+    if catalog == app.mods.catalog {
+        return;
+    }
     let before = pages::snapshot(app);
     let tool = if let Tool::Mod(id) = app.session.tool {
         app.mods.catalog.tool_word(id)
@@ -168,5 +189,10 @@ impl App {
     /// What is installed.
     pub fn mod_catalog(&self) -> &ModCatalog {
         &self.mods.catalog
+    }
+
+    /// Every mod installed, turned on or not.
+    pub fn installed_mods(&self) -> &ModCatalog {
+        &self.mods.installed
     }
 }

@@ -76,6 +76,7 @@ impl<W: ShellWindow> Runtime<W> {
             Effect::SetImeCursorArea { origin, size } => gpu.set_ime_cursor_area(origin, size),
             Effect::SetCursor(cursor) => gpu.set_cursor(cursor),
             Effect::EditField(field) => gpu.edit_field(&field),
+            Effect::RunShell(command) => gpu.run_shell(command),
             _ => {}
         }
     }
@@ -102,7 +103,8 @@ impl<W: ShellWindow> Runtime<W> {
             effect @ (Effect::SetImeAllowed(_)
             | Effect::SetImeCursorArea { .. }
             | Effect::SetCursor(_)
-            | Effect::EditField(_)) => self.to_window(effect),
+            | Effect::EditField(_)
+            | Effect::RunShell(_)) => self.to_window(effect),
             Effect::Save => self.request_save(),
             Effect::WriteCanvas(canvas) => self.write_canvas(&canvas),
             Effect::RenameCanvasFile { canvas, from, to } => {
@@ -163,8 +165,10 @@ impl<W: ShellWindow> Runtime<W> {
             Effect::OpenSpace(folder) => self.choose_space(std::path::Path::new(&folder)),
             Effect::RevealSpace => self.reveal_space(),
             Effect::Quit => self.exit(),
-            Effect::SaveSettings(settings) => self.save_settings(settings),
-            effect @ (Effect::SaveLayoutToggles(_) | Effect::ResetLayout) => self.layout(effect),
+            Effect::SaveSettings(settings) => self.save_settings(&settings),
+            effect @ (Effect::SaveLayoutToggles(..)
+            | Effect::SaveActiveLayout(_)
+            | Effect::ResetLayout) => self.layout(effect),
             Effect::PickRepoFolder { origin } => self.ask_for_folder(FolderAsk::Repo { origin }),
             Effect::QueryRegionGrab { region, pages } => self.query_region_grab(region, &pages),
             Effect::PreviewRegion { pages } => self.preview_region(&pages),

@@ -174,13 +174,13 @@ pub enum Event {
     /// and the docked tools covering its edges, by a caller that draws
     /// none: a headless script, so it means what it means in a window.
     ChromeLayout,
-    /// The layout file was read: at startup, or when it changed on disk
-    /// and still reads as a layout. Replaces the one in force and asks for
-    /// no save.
-    LayoutLoaded(Box<crate::Layout>),
-    /// What was toggled over the layout in an earlier run was read.
-    /// Replaces the toggles held and asks for no save.
-    LayoutToggles(crate::Toggles),
+    /// The layouts folder was read: at startup, or when a file in it
+    /// changed. Each file that still reads replaces its layout; the
+    /// shipped ones stay where no file has them. Asks for no save.
+    LayoutsLoaded(Box<crate::LayoutsRead>),
+    /// `keys.json` was read and holds: the person's keys from now on. A
+    /// file that does not read sends nothing, so the last good one stays.
+    KeymapLoaded(crate::Keymap),
     /// The mods installed in the app home, all of them: replaces the list
     /// held. The shell sends it at startup and after an install.
     ModCatalog(crate::mods::ModCatalog),

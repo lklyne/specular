@@ -43,7 +43,7 @@ fn content(model: &ShareButton) -> AnyElement {
         .outline()
         .w_full()
         .h(px(ROW))
-        .rounded(px(RADIUS))
+        .rounded(crate::theme::corner(RADIUS))
         .child(
             h_flex()
                 .w_full()
@@ -76,7 +76,7 @@ fn content(model: &ShareButton) -> AnyElement {
                 .ghost()
                 .w_full()
                 .h(px(ROW - 4.0))
-                .rounded(px(RADIUS - 2.0))
+                .rounded(crate::theme::corner(RADIUS - 2.0))
                 .child(
                     h_flex()
                         .w_full()
@@ -99,7 +99,7 @@ fn content(model: &ShareButton) -> AnyElement {
         .primary()
         .w_full()
         .h(px(ROW))
-        .rounded(px(RADIUS))
+        .rounded(crate::theme::corner(RADIUS))
         .disabled(!model.copy.enabled)
         .child(text(model.copy.label.to_string()))
         .child(mark(&model.copy.id))
@@ -135,7 +135,7 @@ pub(super) fn share(model: &ShareButton) -> AnyElement {
     let trigger = Button::new(element_id(&model.id.child("trigger")))
         .primary()
         .small()
-        .rounded(px(RADIUS))
+        .rounded(crate::theme::corner(RADIUS))
         .child(div().text_xs().child("Share"))
         .child(mark(&model.id));
     Popover::new(element_id(&model.id))

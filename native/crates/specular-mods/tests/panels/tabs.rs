@@ -93,7 +93,7 @@ fn the_tab_row_renders_on_change_only_and_inside_a_frame(cx: &mut TestAppContext
     let mut loaded = timed_load(&app, "tabs", json!({}), SIZE, cx);
     assert_eq!(
         loaded.reads("tabs"),
-        ["mods/tabs/props", "panels/strip", "theme"]
+        ["look", "mods/tabs/props", "panels/strip"]
     );
     assert_eq!(loaded.idle_renders(), 0, "no script render while idle");
     loaded.assert_camera_moves_nothing(&mut app);

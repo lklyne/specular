@@ -117,7 +117,7 @@ fn repo_card(
     let input = fields.field(&repo.id, window, cx);
     v_flex()
         .gap_2()
-        .rounded(px(8.0))
+        .rounded(crate::theme::corner(8.0))
         .border_1()
         .border_color(theme::solid(theme::zinc_300()))
         .p_3()

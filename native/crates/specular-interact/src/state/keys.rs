@@ -4,7 +4,7 @@ use serde_json::{Value, json};
 
 use crate::chrome::RESET_KEYS;
 use crate::commands::{Run, naming};
-use crate::{Action, BINDINGS, Binding, Context, SHELL_KEYS};
+use crate::{Action, BINDINGS, Binding, Context, KeyRow, Keymap, SHELL_KEYS};
 
 const fn context_name(context: Context) -> &'static str {
     match context {
@@ -20,13 +20,16 @@ const fn context_name(context: Context) -> &'static str {
 
 /// The registry command a binding's action is, with its arguments. `None`
 /// for an action no command says.
-fn command_of(action: &Action) -> Option<(&'static str, Value)> {
+pub(super) fn command_of(action: &Action) -> Option<(&'static str, Value)> {
     if let Some(spec) = naming(&Run::Action(action.clone())) {
         return Some((spec.name, Value::Null));
     }
     match action {
         Action::SetTool(tool) => Some(("tool.set", json!({ "tool": tool.name() }))),
         Action::Nudge { dx, dy } => Some(("edit.nudge", json!({ "dx": dx, "dy": dy }))),
+        Action::Canvas(crate::CanvasAction::Switch(id)) => {
+            Some(("canvas.switch", json!({ "canvas": id.as_str() })))
+        }
         _ => None,
     }
 }
@@ -41,9 +44,23 @@ fn binding(row: &Binding) -> Value {
     })
 }
 
-/// Every binding in the table's order, then the window's own keys, then
-/// the reset key, which nothing can rebind.
-pub(super) fn bindings() -> Value {
+/// A row of `keys.json`: `command` is `null` where it takes a key away.
+fn person(row: &KeyRow) -> Value {
+    let (command, args) = row.command.clone().unzip();
+    json!({
+        "keys": row.chord,
+        "context": row.section.name(),
+        "command": command,
+        "args": args.unwrap_or(Value::Null),
+        "from": "keys.json",
+    })
+}
+
+/// The person's keys from `keys.json`, which come first, then every
+/// binding in the table's order, then the window's own keys, then the
+/// reset key, which nothing can rebind.
+pub(super) fn bindings(keymap: &Keymap) -> Value {
+    let mine = keymap.rows().iter().map(person);
     let table = BINDINGS.iter().map(binding);
     let shell = SHELL_KEYS.iter().map(|(chord, command)| {
         json!({
@@ -60,5 +77,5 @@ pub(super) fn bindings() -> Value {
         "args": Value::Null,
         "fixed": true,
     });
-    Value::Array(table.chain(shell).chain([reset]).collect())
+    Value::Array(mine.chain(table).chain(shell).chain([reset]).collect())
 }

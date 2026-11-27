@@ -197,6 +197,8 @@ pub enum Action {
     /// Hide or show a region of the window or a control, over what the
     /// layout file says, or go back to the shipped layout.
     Layout(crate::LayoutAction),
+    /// Open or close a mod overlay (ADR 0059).
+    Overlay(crate::OverlayAction),
     /// Take away a page's notice by its id (`page.<id>.crashed`).
     DismissNotice(String),
     /// Place a new item at a canvas point in the tool defaults' style, as

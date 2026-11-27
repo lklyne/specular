@@ -12,8 +12,8 @@ use gpui_kit::{
     Styled as _, Window, div, px,
 };
 use specular_interact::{
-    ControlId, ControlsModel, PaintRole, Palette, SidebarButton, TOOLS_DOCK_WIDTH, ThemeButton,
-    ToolButton, ToolbarModel, ToolbarSection, ToolsPlace,
+    ControlId, ControlsModel, PaintRole, Palette, SidebarButton, ThemeButton, ToolButton,
+    ToolbarModel, ToolbarSection, ToolsPlace,
 };
 
 use super::controls::{column, control, hint};
@@ -60,7 +60,7 @@ fn tool(model: &ToolButton, tip: bool) -> impl IntoElement {
         .size(px(TOOL_BUTTON))
         // The Kit's own padding would leave a 20 px glyph 12 px of room.
         .px_0()
-        .rounded(px(6.0))
+        .rounded(crate::theme::corner(6.0))
         .selected(model.active)
         .when(model.active, |this| this.raised(6.0))
         .child(glyph(model.icon, current, tint, model.active, TOOL_GLYPH))
@@ -81,7 +81,7 @@ pub(super) fn panel_toggle(model: &SidebarButton) -> impl IntoElement {
     Button::new(SharedString::from(model.id.as_str().to_owned()))
         .ghost()
         .small()
-        .rounded(px(8.0))
+        .rounded(crate::theme::corner(8.0))
         .child(crate::tip::over(model.id.as_str(), model.label.to_string()))
         .child(
             div()
@@ -117,7 +117,7 @@ fn beside(group: &ControlId, text: SharedString) -> impl IntoElement {
             div()
                 .px_2()
                 .py_1()
-                .rounded(px(6.0))
+                .rounded(crate::theme::corner(6.0))
                 .bg(theme::solid(theme::popup()))
                 .border_1()
                 .border_color(theme::solid(theme::chrome_border()))
@@ -137,7 +137,7 @@ fn theme_button(model: &ThemeButton, tip: bool) -> impl IntoElement {
         .size(px(TOOL_BUTTON))
         // The Kit's own padding would leave a 20 px glyph 12 px of room.
         .px_0()
-        .rounded(px(6.0))
+        .rounded(crate::theme::corner(6.0))
         .when(tip, |this| {
             this.child(crate::tip::over(model.id.as_str(), model.label.to_string()))
         })
@@ -172,7 +172,7 @@ fn floats(id: &'static str) -> gpui_kit::Stateful<gpui_kit::Div> {
         .p(px(RIBBON_PAD))
         .gap_1()
         .items_center()
-        .rounded(px(10.0))
+        .rounded(crate::theme::corner(10.0))
         .bg(theme::solid(theme::toolbar()))
         .border_1()
         .border_color(theme::solid(theme::chrome_border()))
@@ -252,23 +252,19 @@ fn tools(
     out
 }
 
-/// The tools docked: a strip down the canvas's left edge, `left` from the
-/// window's, which the app counts as covered. The theme is at its foot.
+/// The tools docked: a strip filling the layout's `toolbar` block, which
+/// the app counts as covered when it lies left of the canvas. The theme is
+/// at its foot.
 pub(super) fn docked(
     model: &ToolbarModel,
     shown: Option<&ControlsModel>,
-    left: f32,
     window: &mut Window,
     cx: &mut App,
 ) -> impl IntoElement {
     v_flex()
         .id("ribbon")
         .occlude()
-        .absolute()
-        .left(px(left))
-        .top(px(theme::chrome_top()))
-        .bottom_0()
-        .w(px(TOOLS_DOCK_WIDTH))
+        .size_full()
         .py(px(RIBBON_PAD))
         .gap_1()
         .items_center()

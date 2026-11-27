@@ -3,9 +3,9 @@
 use std::time::Instant;
 
 use specular_interact::{
-    Appearance, ChatModel, ControlsModel, Insets, Layout, Menu, OnboardingModel, Overlay, Regions,
-    SidebarModel, Theme, ToolbarModel, ViewStrip, chat, dock, menus, onboarding, publish_state,
-    sidebar, tool_options, toolbar, view_strip,
+    Appearance, ChatModel, ControlsModel, Insets, Layout, Menu, OnboardingModel, Overlay,
+    OverlaySpec, Regions, Resolved, Shown, SidebarModel, Theme, Toggles, ToolbarModel, ViewStrip,
+    chat, dock, menus, onboarding, publish_state, sidebar, tool_options, toolbar, view_strip,
 };
 use specular_shell::Runtime;
 
@@ -46,6 +46,14 @@ pub(crate) struct Models {
     pub(crate) layout: Layout,
     /// The overlays the layout and the toggles let be drawn.
     pub(crate) overlays: Vec<Overlay>,
+    /// What was toggled over the layout, which hides its blocks.
+    pub(crate) toggles: Toggles,
+    /// What the app shows now that decides the room its own ids take.
+    pub(crate) shown: Shown,
+    /// The layout's look, its theme's colours under its own.
+    pub(crate) look: Resolved,
+    /// The mod overlays open, bottom first.
+    pub(crate) mod_overlays: Vec<OverlaySpec>,
 }
 
 impl Models {
@@ -80,6 +88,10 @@ impl Models {
             overlays: (Overlay::ALL.into_iter())
                 .filter(|overlay| !app.is_hidden(overlay.name()))
                 .collect(),
+            toggles: app.layout_toggles().clone(),
+            shown: Shown::of(app),
+            look: app.look(),
+            mod_overlays: app.overlays().to_vec(),
         }
     }
 }

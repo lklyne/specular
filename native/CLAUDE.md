@@ -270,9 +270,14 @@ logs the port it took and the `SPECULAR_DISCOVERY_FILE=` to pass the CLI.
   as JSON from `&App`. `GET /state` (`?key=` for one) and `specular state
   [key]` answer it; the Kit window publishes it into a `Revisions` whose
   per-key revision moves only when the value does. The camera is in no
-  key. The layout file is `<app home>/layouts/default.json`, rewritten on
-  every start, or the person's own `mine.json` beside it when that exists
-  (`specular-shell/src/app/layout_run.rs`).
+  key. Layouts are `<app home>/layouts/<name>.json` (ADR 0059): trees of
+  rows, columns, stacks and blocks with the look at the root, solved by
+  `specular_interact::chrome::solve`. The shipped ones (`default`, `mods`,
+  `classic`, `studio`) are rewritten on every start; any other file is the
+  person's, and `layout.switch` moves between them. `<app home>/keys.json`
+  rebinds keys (`bindings/keymap.rs`, read in `app/keys_run.rs`, a mistake
+  in `keys.error`). The files are watched by
+  `specular-shell/src/app/layout_run.rs`.
 - A page whose address is a file inside the space folder gets the page
   bridge, `window.specular` (`state`, `run`, `commands`, `subscribe`):
   the check is `specular_interact::bridge_allowed`, the messages are
@@ -308,23 +313,27 @@ A mod (ADR 0055) is a folder of `mod.json` and `main.js`, run by
   start, except a folder whose `mod.json` has `cloned_from`. A new command
   or state key must be named in both the guide and the d.ts; the test in
   `tests/shipped.rs` fails otherwise.
-- **How a mod is placed.** The layout file names the mod for a region
-  (`tabs`, `toolbar`, `dock`, `sidebar`, `chat`) or an overlay (`menu`,
-  `share`, `toast`, `palette`, `welcome`): `"toolbar": {"mod": "toolbar",
-  "props": {..}}`; `"mod": null` is the Kit's own panel, and every native
-  adapter stays as that fallback. `ModSet` loads the mods, publishes
+- **How a mod is placed.** A layout block's `content` names a mod
+  (`{"mod": "sidebar", "props": {..}}`) or one of the Kit's own panels
+  (`{"panel": "sidebar"}`), and the root names the overlays (`dock`,
+  `menu`, `share`, `toast`, `palette`, `welcome`) the same way; every
+  native panel stays as the fallback. `overlay.open` opens a copy of a mod
+  over the window (`specular-interact/src/overlays.rs`, drawn by
+  `kit/view/overlay_layer.rs`). `ModSet` loads the mods, publishes
   `mods/<name>/props`, writes `<name>.error` and renders a mod only when a
   key it read moved. The window's side is `src/kit/mods.rs`,
   `src/kit/mods/host.rs` and `src/kit/view/mod_bar.rs` (where each mod is
   drawn); the menu mod is placed in `view/canvas_menu.rs`.
-- **The shipped mods.** `toolbar`, `tabs`, `share` and `toast` are in the
-  shipped layout (`Layout::shipped`); `menu` and `welcome` are opt-in. The
-  palette and the dock have no mod yet (they need a `Field` host
-  component; see the run log's phase 4).
+- **The shipped mods.** `toolbar`, `tabs`, `share` and `toast` are in
+  `default`. The `mods` layout also uses `sidebar`, `dock`, `palette`,
+  `chat`, `menu` and `welcome`; `confirm` and `prompt` are dialogs any mod
+  opens, `status` is `studio`'s status bar, and `star` is the example
+  shape tool. A text field in a mod is the `Field` host component
+  (`kit/mods/text_field.rs`), its text on `shared/field/<id>`.
 - **What a mod can call.** `run` resolves through `run_named` and the work
   is deferred out of the script call. Rust-drawn pieces are host
   components (`Components`): `Icon`, `Zoom`, `ToolOptions`, `Favicon`,
-  `WindowDrag`, `Share`, `Prism`. Headless, the window-only ones are
+  `WindowDrag`, `Share`, `Prism`, `Field`. Headless, the window-only ones are
   placeholders. A new one goes in `HOST_COMPONENTS`, the d.ts and the
   guide; the window's version in `kit/mods/host.rs`.
 - **Canvas items, tools and commands (ADR 0057, API 1.1).** The app's
@@ -336,6 +345,12 @@ A mod (ADR 0055) is a folder of `mod.json` and `main.js`, run by
   `app/mods_run.rs`. Mods with items, tools or commands run out of sight
   (`ModSet::sync`'s `background`, `Mods::background`). The shipped
   examples are `feed`, `ink` and `watercolor`.
+- **The whole window (ADR 0059, API 1.2).** The state keys
+  `panels/sidebar`, `panels/chat`, `selection`, `canvas/items`,
+  `canvas/info`, `layouts`, `look` and `overlays`
+  (`specular-interact/src/state/panels.rs`), the `chat.*` and
+  `overlay.*` commands, and a mod tool with `"group": "shape"` listed in
+  the shape tool's options (`panel/dock/shape.rs`).
 - **Checking and measuring.** `specular mod check <dir> [--state
   fixture.json]` (the `specular-mod-check` crate) renders a mod headless.
   `specular mod stats` is `GET /mods`. `specular mod clone <name>

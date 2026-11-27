@@ -127,6 +127,7 @@ const VIEW: &[&str] = &[
     "view.zoom-to-fit",
     "",
     "view.toggle-sidebar",
+    "layout.switch",
 ];
 
 /// The Canvas, Edit, Arrange, Comment, Page, Tools and View menus for `app`
@@ -240,7 +241,7 @@ pub(crate) fn item(app: &App, label: &'static str, action: Action) -> MenuItem {
     let context = binding.map_or(Context::Canvas, |binding| binding.context);
     MenuItem {
         label: Cow::Borrowed(label),
-        chord: binding.map(|binding| binding.chord),
+        chord: app.keymap.chord_for(&action, binding),
         enabled: context.holds(app) && app.session.gesture.is_none() && has_target(app, &action),
         checked: None,
         action,
@@ -323,6 +324,7 @@ pub(crate) fn has_target(app: &App, action: &Action) -> bool {
         | Action::AddItem(_)
         | Action::PressControl(_)
         | Action::Layout(_)
+        | Action::Overlay(_)
         | Action::DismissNotice(_)
         | Action::Mod(_)
         | Action::Paste

@@ -45,6 +45,11 @@ impl ModCatalog {
         Some((installed, spec))
     }
 
+    /// Whether the tool `id` is one of the shape tool's shapes.
+    pub fn is_shape(&self, id: ModToolId) -> bool {
+        self.tool(id).is_some_and(|(_, spec)| spec.is_shape())
+    }
+
     /// The tool a word such as `ink/pen` names.
     pub fn tool_named(&self, word: &str) -> Option<ModToolId> {
         let (name, tool) = word.split_once('/')?;

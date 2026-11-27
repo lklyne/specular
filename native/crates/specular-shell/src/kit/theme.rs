@@ -11,7 +11,7 @@ use std::cell::Cell;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use gpui_kit::component::{Theme, ThemeMode};
-use gpui_kit::{App, Hsla, Rgba, WindowAppearance, px, rgba};
+use gpui_kit::{App, Hsla, Pixels, Rgba, Styled, WindowAppearance, px, rgba};
 use specular_interact::{Appearance, Theme as Choice};
 use specular_scene::{Color, Colors};
 
@@ -107,51 +107,83 @@ fn pick_pair(light: (u32, u32), dark: (u32, u32)) -> (u32, u32) {
 }
 
 macro_rules! panel_colors {
-    ($($(#[$doc:meta])* $name:ident => $field:ident;)*) => {$(
-        $(#[$doc])*
-        pub(crate) fn $name() -> u32 {
-            packed(colors().panel.$field)
+    ($($(#[$doc:meta])* $name:ident => $field:ident, $key:literal;)*) => {
+        $(
+            $(#[$doc])*
+            pub(crate) fn $name() -> u32 {
+                crate::look::over($key).unwrap_or_else(|| packed(colors().panel.$field))
+            }
+        )*
+
+        /// A panel colour by the name a mod's `colors()` gives it.
+        pub(crate) fn by_name(name: &str) -> Option<u32> {
+            match name {
+                $($key => Some($name()),)*
+                "raisedFill" => Some(raised_fill()),
+                "tabHover" => Some(tab_hover()),
+                "primary" => Some(primary()),
+                "primaryHover" => Some(primary_hover()),
+                "primaryForeground" => Some(primary_foreground()),
+                "error" => Some(error()),
+                "focusRing" => Some(focus_ring()),
+                "hoverText" => Some(hover_text()),
+                "onText" => Some(on_text()),
+                "accent" => Some(crate::look::over("accent").unwrap_or_else(focus_ring)),
+                _ => None,
+            }
         }
-    )*};
+    };
 }
 
 panel_colors! {
     /// `--surface-panel`: the sidebar and a dialog.
-    panel => sidebar;
+    panel => sidebar, "sidebar";
     /// `--surface-foreground`.
-    text => text;
+    text => text, "text";
     /// `--surface-foreground-muted`.
-    text_muted => text_muted;
+    text_muted => text_muted, "textMuted";
     /// `--surface-chrome-border`: the sidebar's edge and a popup's.
-    chrome_border => popup_border;
+    chrome_border => popup_border, "popupBorder";
     /// `--surface-panel-border`.
-    panel_border => sidebar_rule;
+    panel_border => sidebar_rule, "sidebarRule";
     /// `--surface-toolbar`.
-    toolbar => toolbar;
+    toolbar => toolbar, "toolbar";
     /// `--surface-toolbar-border`.
-    toolbar_border => toolbar_border;
+    toolbar_border => toolbar_border, "toolbarBorder";
     /// Toolbar text at rest.
-    toolbar_text => toolbar_text;
+    toolbar_text => toolbar_text, "toolbarText";
     /// Toolbar text when hovered or on.
-    toolbar_text_strong => toolbar_text_strong;
+    toolbar_text_strong => toolbar_text_strong, "toolbarTextStrong";
     /// `--surface-interactive-hover`: a hovered row.
-    row_hover => interactive_hover;
+    row_hover => interactive_hover, "interactiveHover";
     /// `--surface-interactive`: a selected row.
-    row_selected => interactive;
+    row_selected => interactive, "interactive";
     /// `--surface-popup`: a floating panel.
-    popup => popup;
+    popup => popup, "popup";
     /// A hovered popup control.
-    control_hover => hover;
+    control_hover => hover, "hover";
     /// A popup control that is on.
-    control_on => on;
+    control_on => on, "on";
     /// A divider between groups of a popup.
-    divider => divider;
+    divider => divider, "divider";
     /// A key hint's text.
-    key_text => key_text;
+    key_text => key_text, "keyText";
     /// The hairline around a swatch's dot.
-    dot_edge => dot_edge;
+    dot_edge => dot_edge, "dotEdge";
     /// The ring of a selected swatch too pale to ring itself.
-    ring_gray => ring_gray;
+    ring_gray => ring_gray, "ringGray";
+}
+
+/// Every list that opens over the window, a dropdown's, a submenu's or a
+/// context menu's: the `popup` fill inside a `popupBorder` line, with the
+/// layout's large corner and a shadow, so a theme styles them all at once.
+pub(crate) fn popup_surface<E: Styled>(element: E) -> E {
+    element
+        .bg(solid(popup()))
+        .border_1()
+        .border_color(solid(chrome_border()))
+        .rounded(px(crate::look::radius_large()))
+        .shadow_md()
 }
 
 /// The fill of a raised control (`view/raised.rs`): the tool fill at 60%
@@ -159,12 +191,12 @@ panel_colors! {
 /// colour, so the shadow under it does not show through and a label has one
 /// colour to fade into. The rim and the shadow carry the rest of the lift.
 pub(crate) fn raised_fill() -> u32 {
-    pick(0xede9_e7ff, 0x5450_4bff)
+    crate::look::over("raisedFill").unwrap_or_else(|| pick(0xede9_e7ff, 0x5450_4bff))
 }
 
 /// A hovered tab that is not showing, opaque over the tab row.
 pub(crate) fn tab_hover() -> u32 {
-    pick(0xdfdc_daff, 0x4b47_42ff)
+    crate::look::over("tabHover").unwrap_or_else(|| pick(0xdfdc_daff, 0x4b47_42ff))
 }
 
 /// The rim of a raised control, from its top to its bottom: lit above and
@@ -183,19 +215,32 @@ pub(crate) fn raised_shade() -> u32 {
     pick(0x0000_000a, 0x0000_0033)
 }
 
-/// `--surface-focus-ring`: blue-500, blue-400 in the dark.
+/// `--surface-focus-ring`: blue-500, blue-400 in the dark, unless the
+/// layout names a `focusRing`.
 pub(crate) fn focus_ring() -> u32 {
-    pick(0x2b7f_ffff, 0x51a2_ffff)
+    crate::look::over("focusRing").unwrap_or_else(|| pick(0x2b7f_ffff, 0x51a2_ffff))
+}
+
+/// The text of a hovered row or control: the text colour, unless the theme
+/// names a `hoverText` for a `hover` too dark or too light for it.
+pub(crate) fn hover_text() -> u32 {
+    crate::look::over("hoverText").unwrap_or_else(text)
+}
+
+/// The text of a row or control that is on, over the `on` fill: the text
+/// colour, unless the theme names an `onText`.
+pub(crate) fn on_text() -> u32 {
+    crate::look::over("onText").unwrap_or_else(text)
 }
 
 /// `--surface-primary`: stone-900, stone-100 in the dark.
 pub(crate) fn primary() -> u32 {
-    pick(0x1c19_17ff, 0xf5f5_f4ff)
+    crate::look::over("primary").unwrap_or_else(|| pick(0x1c19_17ff, 0xf5f5_f4ff))
 }
 
 /// `--surface-primary-hover`: stone-700, stone-300.
 pub(crate) fn primary_hover() -> u32 {
-    pick(0x4440_3bff, 0xd6d3_d1ff)
+    crate::look::over("primaryHover").unwrap_or_else(|| pick(0x4440_3bff, 0xd6d3_d1ff))
 }
 
 /// `--surface-primary` pressed.
@@ -205,7 +250,7 @@ fn primary_active() -> u32 {
 
 /// `--surface-primary-foreground`: stone-50, stone-900.
 pub(crate) fn primary_foreground() -> u32 {
-    pick(0xfafa_f9ff, 0x1c19_17ff)
+    crate::look::over("primaryForeground").unwrap_or_else(|| pick(0xfafa_f9ff, 0x1c19_17ff))
 }
 
 /// The highlight on selected text. The Kit paints it over the glyphs, so it
@@ -231,6 +276,11 @@ pub(crate) fn input_border() -> u32 {
 /// The muted foreground as an opaque colour over the panel, for a glyph.
 pub(crate) fn glyph_muted() -> u32 {
     pick(0x8181_81ff, 0xa7a5_a6ff)
+}
+
+/// Over the window behind a dialog: a dimming the window shows through.
+pub(crate) fn scrim() -> u32 {
+    pick(0x0000_0024, 0x0000_0066)
 }
 
 /// Behind the first-run view: a step darker than the panel in light, the
@@ -276,7 +326,7 @@ pub(crate) fn label() -> u32 {
 
 /// A failed run's words: red-600, red-400 in the dark.
 pub(crate) fn error() -> u32 {
-    pick(0xe700_0bff, 0xff64_67ff)
+    crate::look::over("error").unwrap_or_else(|| pick(0xe700_0bff, 0xff64_67ff))
 }
 
 /// The chrome's one row, and the bar under it that holds the dock, which
@@ -299,9 +349,6 @@ pub(crate) fn chrome_top() -> f32 {
 pub(crate) fn set_chrome_top(top: f32) {
     CHROME_TOP.set(top);
 }
-
-/// The sidebar's width, `LEFT_SIDEBAR_WIDTH` in `runtime-constants.ts`.
-pub(crate) const SIDEBAR_WIDTH: f32 = 256.0;
 
 /// `0xRRGGBBAA` as a GPUI colour.
 pub(crate) fn solid(hex: u32) -> Hsla {
@@ -337,6 +384,27 @@ pub(crate) fn load_fonts(cx: &App) {
     }
 }
 
+/// `points`, a corner radius drawn at the app's own 6 point radius, scaled
+/// to the layout's or theme's `radius`: the same at the default, square at
+/// 0, so every corner of the app's own panels follows one setting.
+pub(crate) fn corner_points(points: f32) -> f32 {
+    points * crate::look::radius() / 6.0
+}
+
+/// [`corner_points`] as a length.
+pub(crate) fn corner(points: f32) -> Pixels {
+    px(corner_points(points))
+}
+
+/// A pill's or a circle's corners, unless the look squares every corner.
+pub(crate) fn corner_full() -> Pixels {
+    if crate::look::radius() > 0.0 {
+        px(9999.0)
+    } else {
+        px(0.0)
+    }
+}
+
 /// Puts the theme of `appearance` in place. Call after `gpui_kit::init`,
 /// which loads the Kit's own, and again whenever the theme changes.
 pub(crate) fn apply(appearance: Appearance, cx: &mut App) {
@@ -348,10 +416,11 @@ pub(crate) fn apply(appearance: Appearance, cx: &mut App) {
     // Changing the mode loads the Kit's colours, so ours go on afterwards.
     Theme::change(mode, None, cx);
     Theme::update(cx, |theme| {
-        theme.font_family = specular_compositor::SANS_FAMILY.into();
+        theme.font_family = (crate::look::font())
+            .map_or_else(|| specular_compositor::SANS_FAMILY.into(), Into::into);
         theme.mono_font_family = specular_compositor::MONO_FAMILY.into();
-        theme.radius = px(6.0);
-        theme.radius_lg = px(10.0);
+        theme.radius = px(crate::look::radius());
+        theme.radius_lg = px(crate::look::radius_large());
         theme.shadow = true;
 
         theme.background = solid(panel());
@@ -373,7 +442,7 @@ pub(crate) fn apply(appearance: Appearance, cx: &mut App) {
         theme.secondary_active = solid(control_on());
         theme.secondary_foreground = solid(text());
         theme.accent = solid(control_on());
-        theme.accent_foreground = solid(text());
+        theme.accent_foreground = solid(on_text());
 
         theme.popover = solid(popup());
         theme.popover_foreground = solid(text());
