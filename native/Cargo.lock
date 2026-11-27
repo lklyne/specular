@@ -8661,6 +8661,7 @@ dependencies = [
  "glam",
  "gpui-pre",
  "gpui-shell",
+ "libc",
  "serde",
  "serde_json",
  "specular-core",

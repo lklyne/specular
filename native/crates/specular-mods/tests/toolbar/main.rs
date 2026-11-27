@@ -190,14 +190,22 @@ fn the_toolbar_renders_on_change_only_and_inside_a_frame(cx: &mut TestAppContext
     .collect();
     let samples = 300;
     let mut times = Vec::with_capacity(samples);
+    let mut cpu = Vec::with_capacity(samples);
     for i in 0..samples {
         app.act(Action::SetTool(tools[(i + 1) % tools.len()]));
         let before = loaded.toolbar.stats();
+        let cpu_before = thread_cpu();
         assert!(loaded.step(&app), "a tool change renders the toolbar");
+        cpu.push(thread_cpu().saturating_sub(cpu_before));
         let after = loaded.toolbar.stats();
         assert_eq!(after.renders, before.renders + 1);
         times.push(after.render_time.saturating_sub(before.render_time));
     }
+    // Each slow render with the CPU its whole step took on this thread.
+    let slow: Vec<(usize, Duration, Duration)> = (times.iter().copied().enumerate())
+        .filter(|(_, time)| *time > Duration::from_millis(2))
+        .map(|(step, time)| (step, time, cpu[step]))
+        .collect();
     times.sort();
     let (median, p95, max) = (
         percentile(&times, 0.5),
@@ -205,6 +213,7 @@ fn the_toolbar_renders_on_change_only_and_inside_a_frame(cx: &mut TestAppContext
         times[times.len() - 1],
     );
     println!("script render over {samples}: median {median:?}, p95 {p95:?}, max {max:?}");
+    println!("renders over 2 ms (step, script wall, step thread CPU): {slow:?}");
     if !cfg!(debug_assertions) {
         assert!(
             median < Duration::from_millis(2),
@@ -215,4 +224,20 @@ fn the_toolbar_renders_on_change_only_and_inside_a_frame(cx: &mut TestAppContext
             "slowest {max:?} is over 8 ms"
         );
     }
+}
+
+/// CPU time this thread has spent. Beside a wall-clock reading it tells a
+/// render that did a lot of work from one whose thread was preempted, as a
+/// shared CI runner does to it now and then.
+fn thread_cpu() -> Duration {
+    let mut now = libc::timespec {
+        tv_sec: 0,
+        tv_nsec: 0,
+    };
+    // SAFETY: `now` is a valid, writable timespec for the call's duration.
+    let ok = unsafe { libc::clock_gettime(libc::CLOCK_THREAD_CPUTIME_ID, &raw mut now) } == 0;
+    if !ok {
+        return Duration::ZERO;
+    }
+    Duration::new(now.tv_sec as u64, now.tv_nsec as u32)
 }

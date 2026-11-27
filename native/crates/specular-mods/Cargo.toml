@@ -23,6 +23,8 @@ gpui-pre = { workspace = true, features = ["test-support"] }
 glam = { workspace = true }
 specular-core = { workspace = true }
 specular-testkit = { workspace = true }
+# The thread CPU clock, to tell a slow render from a preempted one.
+libc = { workspace = true }
 
 [lints]
 workspace = true

@@ -230,14 +230,22 @@ pub(crate) fn assert_renders_inside_a_frame(
     mut change: impl FnMut(&mut TestApp, usize),
 ) {
     let mut times = Vec::with_capacity(samples);
+    let mut cpu = Vec::with_capacity(samples);
     for i in 0..samples {
         change(app, i);
         let before = loaded.panel.stats();
+        let cpu_before = thread_cpu();
         assert!(loaded.step(app), "{label}: step {i} renders the mod");
+        cpu.push(thread_cpu().saturating_sub(cpu_before));
         let after = loaded.panel.stats();
         assert_eq!(after.renders, before.renders + 1);
         times.push(after.render_time.saturating_sub(before.render_time));
     }
+    // Each slow render with the CPU its whole step took on this thread.
+    let slow: Vec<(usize, Duration, Duration)> = (times.iter().copied().enumerate())
+        .filter(|(_, time)| *time > Duration::from_millis(2))
+        .map(|(step, time)| (step, time, cpu[step]))
+        .collect();
     times.sort();
     let (median, p95, max) = (
         percentile(&times, 0.5),
@@ -245,6 +253,7 @@ pub(crate) fn assert_renders_inside_a_frame(
         times[times.len() - 1],
     );
     println!("{label}: script render over {samples}: median {median:?}, p95 {p95:?}, max {max:?}");
+    println!("{label}: renders over 2 ms (step, script wall, step thread CPU): {slow:?}");
     if !cfg!(debug_assertions) {
         assert!(
             median < Duration::from_millis(2),
@@ -274,4 +283,20 @@ pub(crate) fn timed_load(
         "{name}: one render to start"
     );
     loaded
+}
+
+/// CPU time this thread has spent. Beside a wall-clock reading it tells a
+/// render that did a lot of work from one whose thread was preempted, as a
+/// shared CI runner does to it now and then.
+fn thread_cpu() -> Duration {
+    let mut now = libc::timespec {
+        tv_sec: 0,
+        tv_nsec: 0,
+    };
+    // SAFETY: `now` is a valid, writable timespec for the call's duration.
+    let ok = unsafe { libc::clock_gettime(libc::CLOCK_THREAD_CPUTIME_ID, &raw mut now) } == 0;
+    if !ok {
+        return Duration::ZERO;
+    }
+    Duration::new(now.tv_sec as u64, now.tv_nsec as u32)
 }
