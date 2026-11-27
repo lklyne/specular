@@ -251,6 +251,11 @@ impl NativeCanvas {
             let view: Id = msg_send![view, initWithFrame: frame];
             let layer: Id = msg_send![class!(CAMetalLayer), new];
             let _: () = msg_send![layer, setOpaque: true];
+            // A drawable that is late for a new size is drawn at its own
+            // size from the top left, not stretched to the layer's bounds.
+            // "Top" is the layer's maximum Y, which is up in an unflipped
+            // layer, and the canvas's origin is the window's top left.
+            let _: () = msg_send![layer, setContentsGravity: &*NSString::from_str("topLeft")];
             // Layer-hosting: the layer is set before `wantsLayer`.
             let _: () = msg_send![view, setLayer: layer];
             let _: () = msg_send![view, setWantsLayer: true];
@@ -312,6 +317,23 @@ impl NativeCanvas {
         // SAFETY: setting a property of our own layer.
         unsafe {
             let _: () = msg_send![self.layer, setContentsScale: scale];
+        }
+    }
+
+    /// Whether the user is dragging the window's edge.
+    pub(crate) fn in_live_resize(&self) -> bool {
+        // SAFETY: reading a property of our own live view.
+        let live: Bool = unsafe { msg_send![self.view, inLiveResize] };
+        live.as_bool()
+    }
+
+    /// Makes the layer's drawables reach the screen in the Core Animation
+    /// transaction that is open when they are presented, as GPUI's do
+    /// during a live resize, instead of on their own a moment later.
+    pub(crate) fn set_presents_with_transaction(&self, on: bool) {
+        // SAFETY: setting a property of our own layer.
+        unsafe {
+            let _: () = msg_send![self.layer, setPresentsWithTransaction: on];
         }
     }
 
