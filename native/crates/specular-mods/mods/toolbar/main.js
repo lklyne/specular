@@ -32,17 +32,18 @@ function raised(el, k) {
     ]);
 }
 
-// A name shown while the pointer is over `group`: right of a docked button,
-// under or over a floating one.
-function label(group, text, place, k) {
-  const at = div().absolute().flex().items_center().opacity(0);
+// The name of the button the pointer is over: right of a docked button,
+// under or over a floating one. Only that one is built, so a render costs
+// one label rather than one per button.
+function label(text, place, k) {
+  const at = div().absolute().flex().items_center();
   const placed =
     place === "docked"
       ? at.left(BUTTON + GAP).top(0).h(BUTTON)
       : place === "top"
         ? at.left(0).top(BUTTON + GAP)
         : at.left(0).bottom(BUTTON + GAP);
-  return placed.group_hover(group, (el) => el.opacity(1)).child(
+  return placed.child(
     div()
       .px(8)
       .py(4)
@@ -58,7 +59,7 @@ function label(group, text, place, k) {
 }
 
 function button(id, icon, opts, k) {
-  const { active = false, tint = null, onPress } = opts;
+  const { active = false, tint = null, onPress, onHover } = opts;
   const face = Button.new(id)
     .size(BUTTON)
     .flex()
@@ -66,7 +67,8 @@ function button(id, icon, opts, k) {
     .justify_center()
     .rounded(6)
     .selected(active)
-    .on_click(onPress);
+    .on_click(onPress)
+    .on_hover(onHover);
   const shown = active ? raised(face, k) : face.hover((el) => el.bg(k.hover));
   return shown.child(
     Icon.new(`${id}.glyph`, {
@@ -91,6 +93,39 @@ function rule(place, k) {
 }
 
 export default class Toolbar extends View {
+  init() {
+    this.hovered = null;
+    this.presses = new Map();
+    this.hovers = new Map();
+  }
+
+  // One handler per control, kept across renders.
+  press(id) {
+    let handler = this.presses.get(id);
+    if (!handler) {
+      handler = () => run("control.press", { id });
+      this.presses.set(id, handler);
+    }
+    return handler;
+  }
+
+  // The pointer entering or leaving a button: only the hovered button's
+  // name is drawn, so a change of hover renders again.
+  hover(id) {
+    let handler = this.hovers.get(id);
+    if (!handler) {
+      handler = (hovered, cx) => {
+        const next = hovered ? id : this.hovered === id ? null : this.hovered;
+        if (next !== this.hovered) {
+          this.hovered = next;
+          cx.notify();
+        }
+      };
+      this.hovers.set(id, handler);
+    }
+    return handler;
+  }
+
   render() {
     const bar = state("panels/toolbar");
     const options = state("panels/tool_options");
@@ -99,7 +134,6 @@ export default class Toolbar extends View {
     const place = bar.tools;
     const docked = place === "docked";
 
-    const press = (id) => () => run("control.press", { id });
     const groups = bar.sections
       .filter((section) => section.tools)
       .map((section) => section.tools.filter((tool) => !hidden.has(tool.id)))
@@ -112,16 +146,18 @@ export default class Toolbar extends View {
         const open = tool.active && options != null;
         items.push(
           div()
-            .group(tool.id)
             .relative()
             .child(
               button(tool.id, tool.icon, {
                 active: tool.active,
                 tint: tool.tint,
-                onPress: press(tool.id),
+                onPress: this.press(tool.id),
+                onHover: this.hover(tool.id),
               }, k),
             )
-            .when(!open, (el) => el.child(label(tool.id, hint(tool.label, tool.chord), place, k)))
+            .when(!open && this.hovered === tool.id, (el) =>
+              el.child(label(hint(tool.label, tool.chord), place, k)),
+            )
             .when(open, (el) => el.child(ToolOptions.new("tool-options", { place }))),
         );
       }
@@ -135,10 +171,14 @@ export default class Toolbar extends View {
     const theme = hidden.has(bar.theme.id)
       ? null
       : div()
-          .group(bar.theme.id)
           .relative()
-          .child(button(bar.theme.id, bar.theme.icon, { onPress: press(bar.theme.id) }, k))
-          .child(label(bar.theme.id, bar.theme.label, place, k));
+          .child(
+            button(bar.theme.id, bar.theme.icon, {
+              onPress: this.press(bar.theme.id),
+              onHover: this.hover(bar.theme.id),
+            }, k),
+          )
+          .when(this.hovered === bar.theme.id, (el) => el.child(label(bar.theme.label, place, k)));
 
     if (docked) {
       return v_flex()
