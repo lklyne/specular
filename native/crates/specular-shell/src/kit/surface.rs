@@ -66,6 +66,9 @@ pub(crate) struct CanvasSurface {
     asks: Rc<WindowAsks>,
     /// Whether the last render presented, so a change is logged once.
     presenting: bool,
+    /// Whether the layer presents with the transaction, which it does
+    /// while the window is being resized by hand.
+    with_transaction: bool,
     /// Frame times, when the run asked for them.
     pub(crate) pacing: Option<Pacing>,
 }
@@ -147,6 +150,7 @@ impl CanvasSurface {
             slot_size: size,
             asks,
             presenting: true,
+            with_transaction: false,
             pacing: None,
         })
     }
@@ -179,6 +183,11 @@ impl CanvasSurface {
         resized
     }
 
+    /// Whether the user is dragging the window's edge.
+    pub(crate) fn live_resizing(&self) -> bool {
+        self.native.in_live_resize()
+    }
+
     /// The size the surface is configured at, in pixels.
     pub(crate) fn pixel_size(&self) -> specular_core::PixelSize {
         specular_core::PixelSize::new(self.config.width, self.config.height)
@@ -192,6 +201,14 @@ impl CanvasSurface {
     /// Brings the surface in step with the view's size and the display's
     /// scale. Returns the new scale when the display's changed.
     pub(crate) fn sync(&mut self) -> Option<f32> {
+        // During a live resize GPUI presents its chrome in the window's
+        // resize transaction. The canvas's frames go in the same one, or
+        // the canvas lags the window edge and flickers.
+        let live = self.native.in_live_resize();
+        if live != self.with_transaction {
+            self.with_transaction = live;
+            self.native.set_presents_with_transaction(live);
+        }
         let (width, height) = self.native.content_size();
         let size = Vec2::new(width as f32, height as f32);
         let native_scale = self.native.scale();

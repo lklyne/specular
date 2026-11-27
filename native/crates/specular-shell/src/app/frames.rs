@@ -42,6 +42,12 @@ impl<W: ShellWindow> Runtime<W> {
         self.demand.wanted(Instant::now())
     }
 
+    /// Owes a frame, for a change the app does not see, such as the
+    /// window's surface being resized.
+    pub fn redraw(&mut self) {
+        self.demand.changed();
+    }
+
     /// When to call [`turn`](Self::turn) again if no event comes first.
     pub fn next_turn(&self) -> Instant {
         let now = Instant::now();
