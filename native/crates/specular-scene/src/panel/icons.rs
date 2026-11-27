@@ -190,6 +190,7 @@ fn glyph(icon: Icon) -> Glyph {
         Icon::InspectTool => tools::INSPECT_TOOL,
         Icon::Repo => lucide::FOLDER_CODE,
         Icon::Shape(kind) => popup::shape(kind),
+        Icon::Star => popup::STAR,
         Icon::AlignLeft => lucide::ALIGN_LEFT,
         Icon::AlignCenter => lucide::ALIGN_CENTER,
         Icon::AlignRight => lucide::ALIGN_RIGHT,

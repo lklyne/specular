@@ -178,6 +178,10 @@ fn a_mod_shape_is_one_of_the_shape_tools_shapes() {
     app.act(specular_interact::Action::SetTool(Tool::AddShape));
     let options = state(app.app())["panels/tool_options"].to_string();
     assert!(options.contains("shape.kind.star/star"), "{options}");
+    assert!(
+        options.contains(r#""icon":"star""#),
+        "its own glyph: {options}"
+    );
     run(
         &mut app,
         "control.press",
