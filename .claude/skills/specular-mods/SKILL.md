@@ -1,6 +1,6 @@
 ---
 name: specular-mods
-description: Build, change or debug a Specular mod, a folder of mod.json and main.js that draws part of the window, puts its own items on the canvas, adds a toolbar tool, or adds commands to the palette, keys and dock. Use it when asked to make a mod, a canvas item type, a brush or tool, a panel, or a palette command for Specular.
+description: "Build, change or debug a Specular mod: a folder of mod.json and main.js that draws part of the window, puts its own items on the canvas, adds a toolbar tool, or adds commands to the palette, keys and dock. Use only when the user asks for a Specular mod, a new Specular canvas item type, tool, brush, panel or palette command. To drive the app or its canvas, use the specular skill instead."
 allowed-tools: Bash(specular:*)
 ---
 
@@ -12,7 +12,20 @@ the app by running commands by name, the same commands the palette, the keys
 and the `specular` CLI run. A save reloads a mod at once. A save that does not
 load keeps the last good build running and writes `<name>.error` beside it.
 
-Two files have the whole surface. Read them before you write a mod:
+## Before you start
+
+Check that the app is running and answers:
+
+```sh
+specular state theme
+```
+
+If it fails, say the Specular app isn't running and stop; `specular mod check`
+still works on a folder without the app. Don't start, kill or restart an app
+you didn't start.
+
+The installed files are the authority for the surface, not this skill. Two
+files have all of it. Read them before you write a mod:
 
 - `<app home>/mods/README.md`: the guide, with every state key and command.
 - `<app home>/mods/specular.d.ts`: the `specular` module's types, including
@@ -164,10 +177,52 @@ renders while nothing changes; a mod that renders when idle is a bug.
 - Keep display lists small: tens of marks, not thousands. Thin a stroke's
   points before you save them.
 
-## What a mod cannot do yet
+## Safety rules
 
-- Get pointer or key input inside an item (an item cannot be entered).
-- Draw with its own GPU shaders, or show video, a camera or a screen.
-- Store data outside its item props, `setShared` values and its `.data/`
-  folder.
-- Replace the dock or the command palette as a whole.
+- Edit a clone (`specular mod clone`), never a shipped mod's folder: it is
+  rewritten on every start.
+- A mod runs with the person's access to files, the network and processes.
+  Don't add network calls, file writes outside the mod's `.data/` folder, or
+  processes the person didn't ask for.
+- Placing a mod's first item on a canvas copies the mod into that space's
+  `mods/` folder. Say so when you do it in someone's space.
+- Read ids and values from `specular state` and command results. Don't guess
+  item ids.
+
+## What a mod cannot do
+
+Check this list before you promise a feature. If something is not here and not
+in the guide, assume a mod can't do it.
+
+**The window.** A mod can replace the tab row, the toolbar, the Share button,
+the notices, the canvas context menu and the first-run view. It can only add
+entries to the command palette and buttons to the dock; naming a mod for
+either in the layout only hides it. The layers panel (sidebar) and the chat
+panel can only be hidden: there is no state key for them. A mod can't change
+the contents of tool options popups, the settings window, the macOS menu bar,
+the page inspector, or the theme's colours.
+
+**The canvas.** A mod can't restyle or extend the built-in items and tools,
+change selection outlines, handles, snapping or hit-testing, or read the
+camera, the selection (except the ids the dock passes to its commands), items
+other than its own, or the content of live web pages.
+
+**Items.** An item can't be entered and gets no pointer, wheel or key input.
+A display list has rects, ellipses, paths, text and images only: no
+gradients, shadows, blurs, clipping, transforms, fonts or rich text. Resizing
+doesn't scale it. No video, camera, screen, audio or GPU shaders; use
+`items.web` for anything richer. `item.draw` isn't an undo step, and several
+`run()` calls are several undo steps. The web viewer and sync peers show
+snapshots only.
+
+**Tools.** A tool gets one press-to-release drag in canvas units: no hover,
+double click, modifiers, pressure, wheel or keys. The preview is one render
+behind. A tool's only dock controls are the mod's command buttons.
+
+**Commands and keys.** A key is one character with Command, Shift or Option,
+works only on the canvas, and loses to any built-in key. Palette entries go in
+the Mods group with no ordering, check marks or disabled state. No context
+menu or menu bar entries.
+
+**Running.** A mod runs only when installed in the app's mods folder; a canvas
+never runs one. Install mods installs only from the canvas's space folder.
