@@ -20,7 +20,7 @@ use serde_json::Value;
 /// state keys, the `specular` module's functions, `mod.json`'s keys) only
 /// grows, and each growth is a new revision. A break is a new generation,
 /// decided on purpose. A mod names the version it was written for, as `1`
-/// (revision 0), `"1.1"` or `"1.2"`, and loads on any app of the same generation
+/// (revision 0), `"1.1"`, `"1.2"` or `"1.3"`, and loads on any app of the same generation
 /// whose revision is at least its own.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ApiVersion {
@@ -37,9 +37,10 @@ pub struct ApiVersion {
 /// | 1.0 | chrome mods: keyed state, `run`, `shared`, host components, `palette` |
 /// | 1.1 | mod items and tools: `items` and `tools` in `mod.json`, the `canvas/mod_items` and `tool` keys, `item.add {kind: mod}`, `item.set`, `item.draw`, `tool.preview`, `mods.install`; `commands` in `mod.json` (palette, keys, dock buttons) and the `call` key |
 /// | 1.2 | the whole window (ADR 0059): layout trees and looks, `layout.switch`, `overlay.open`/`overlay.close` with `openOverlay`/`closeOverlay`, `keys.json`, `chat.*`, the `Field` component, a tool's `group`, and the `layouts`, `look`, `overlays`, `panels/sidebar`, `panels/chat`, `selection`, `canvas/items` and `canvas/info` keys |
+/// | 1.3 | threads anywhere: the `chat/threads` key and a `chat/thread/<id>` key a thread, `chat.new-thread {id, open}`, `chat.send {thread}`, `chat.stop {thread}`, and a page bridge `subscribe` to a thread's key |
 pub const API: ApiVersion = ApiVersion {
     generation: 1,
-    revision: 2,
+    revision: 3,
 };
 
 impl ApiVersion {

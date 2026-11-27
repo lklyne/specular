@@ -1,0 +1,246 @@
+<!doctype html>
+<!-- One agent thread, live: its transcript, what the agent is doing and a
+     composer. The item's id is in the address (#item=<id>); its props name
+     the thread (`props.thread`). Through the page bridge it follows
+     `canvas/mod_items` for the props, `chat/thread/<id>` for the thread
+     and `theme` for light or dark, and acts with `chat.send`, `chat.stop`,
+     `chat.new-thread` and `chat.select`, each with the thread's id, so it
+     never touches the thread the agent panel has open.
+     Enter sends, Shift+Enter starts a new line. Enter the item (double
+     click) to type in it, as with any page. -->
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  :root {
+    --bg: #ffffff; --ink: #1f2328; --muted: #6e7781; --rule: #d0d7de;
+    --mine: #f0f3f6; --code: #f6f8fa; --accent: #0969da; --error: #cf222e;
+  }
+  :root.dark {
+    --bg: #1c1d1f; --ink: #e6edf3; --muted: #8b949e; --rule: #30363d;
+    --mine: #2a2c30; --code: #24262a; --accent: #58a6ff; --error: #ff7b72;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    display: flex; flex-direction: column; overflow: hidden;
+    background: var(--bg); color: var(--ink);
+    font: 13px/1.5 -apple-system, BlinkMacSystemFont, "Geist", sans-serif;
+    border: 1px solid var(--rule); border-radius: 12px;
+  }
+  header {
+    display: flex; align-items: center; gap: 6px; padding: 8px 10px;
+    border-bottom: 1px solid var(--rule);
+  }
+  header h1 { flex: 1; margin: 0; font-size: 13px; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent);
+    visibility: hidden; animation: pulse 1.2s ease-in-out infinite; }
+  .dot.on { visibility: visible; }
+  @keyframes pulse { 50% { opacity: 0.3; } }
+  button {
+    font: inherit; font-size: 12px; color: var(--muted); background: none;
+    border: 0; border-radius: 6px; padding: 3px 8px; cursor: pointer;
+  }
+  button:hover { background: var(--mine); color: var(--ink); }
+  main { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 10px; }
+  .msg { max-width: 100%; overflow-wrap: anywhere; }
+  .msg.user { align-self: flex-end; background: var(--mine); padding: 6px 10px;
+    border-radius: 10px; margin-left: 32px; white-space: pre-wrap; }
+  .msg.agent > :first-child { margin-top: 0; }
+  .msg.agent > :last-child { margin-bottom: 0; }
+  .msg p, .msg ul, .msg ol, .msg pre { margin: 0 0 8px; }
+  .msg h1, .msg h2, .msg h3, .msg h4 { margin: 10px 0 6px; font-size: 13px; }
+  .msg h1, .msg h2 { font-size: 14px; }
+  .msg ul, .msg ol { padding-left: 20px; }
+  .msg code { font: 12px ui-monospace, "SF Mono", Menlo, monospace;
+    background: var(--code); padding: 1px 4px; border-radius: 4px; }
+  .msg pre { background: var(--code); padding: 8px; border-radius: 8px; overflow-x: auto; }
+  .msg pre code { padding: 0; background: none; }
+  .msg a { color: var(--accent); }
+  .msg img { max-width: 100%; border-radius: 6px; display: block; margin-top: 6px; }
+  .cards { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+  .card { font-size: 12px; color: var(--muted); border: 1px solid var(--rule);
+    border-radius: 6px; padding: 3px 8px; }
+  .note { color: var(--muted); font-size: 12px; }
+  .error { color: var(--error); font-size: 12px; }
+  .queued { font-size: 12px; color: var(--muted); border: 1px dashed var(--rule);
+    border-radius: 6px; padding: 3px 8px; align-self: flex-end; }
+  footer { border-top: 1px solid var(--rule); padding: 8px; }
+  textarea {
+    width: 100%; resize: none; border: 1px solid var(--rule); border-radius: 8px;
+    padding: 7px 9px; font: inherit; color: var(--ink); background: var(--bg);
+    min-height: 36px; max-height: 140px; outline: none;
+  }
+  textarea:focus { border-color: var(--accent); }
+  .empty { margin: auto; text-align: center; color: var(--muted); padding: 16px; }
+</style>
+</head>
+<body>
+<header>
+  <span class="dot" id="dot"></span>
+  <h1 id="title">Chat thread</h1>
+  <button id="stop" hidden>Stop</button>
+  <button id="panel" title="Open this thread in the agent panel">Panel</button>
+</header>
+<main id="log"></main>
+<footer><textarea id="field" rows="1" placeholder="Write to the agent…"></textarea></footer>
+<script>
+  const item = new URLSearchParams(location.hash.slice(1)).get("item");
+  const log = document.getElementById("log");
+  const field = document.getElementById("field");
+  const $ = (id) => document.getElementById(id);
+  let threadId = null;
+  let thread = null;
+  let unfollow = null;
+
+  // A small markdown reader for the agent's words: fenced and inline code,
+  // headings, lists, bold, italics, links and paragraphs. Text is escaped
+  // first, so nothing the agent writes runs as markup.
+  const escape = (text) => text.replace(/[&<>"']/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+  function inline(text) {
+    return escape(text)
+      .replace(/`([^`]+)`/g, "<code>$1</code>")
+      .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+      .replace(/(^|[^*])\*([^*\s][^*]*)\*/g, "$1<em>$2</em>")
+      .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+  }
+  function markdown(source) {
+    const out = [];
+    const lines = String(source || "").split("\n");
+    let list = null;
+    let para = [];
+    const flush = () => {
+      if (para.length) out.push(`<p>${inline(para.join(" "))}</p>`);
+      para = [];
+    };
+    const close = () => {
+      if (list) out.push(`</${list}>`);
+      list = null;
+    };
+    for (let n = 0; n < lines.length; n += 1) {
+      const line = lines[n];
+      if (/^```/.test(line)) {
+        flush(); close();
+        const code = [];
+        for (n += 1; n < lines.length && !/^```/.test(lines[n]); n += 1) code.push(lines[n]);
+        out.push(`<pre><code>${escape(code.join("\n"))}</code></pre>`);
+        continue;
+      }
+      const heading = /^(#{1,6})\s+(.*)$/.exec(line);
+      const bullet = /^\s*[-*]\s+(.*)$/.exec(line);
+      const numbered = /^\s*\d+[.)]\s+(.*)$/.exec(line);
+      if (heading) {
+        flush(); close();
+        const level = Math.min(heading[1].length, 4);
+        out.push(`<h${level}>${inline(heading[2])}</h${level}>`);
+      } else if (bullet || numbered) {
+        flush();
+        const kind = bullet ? "ul" : "ol";
+        if (list !== kind) { close(); out.push(`<${kind}>`); list = kind; }
+        out.push(`<li>${inline((bullet || numbered)[1])}</li>`);
+      } else if (!line.trim()) {
+        flush(); close();
+      } else {
+        close();
+        para.push(line.trim());
+      }
+    }
+    flush(); close();
+    return out.join("");
+  }
+
+  const fileUrl = (path) => (/^[a-z]+:/i.test(path) ? path : `file://${encodeURI(path)}`);
+  function cards(list) {
+    if (!list || !list.length) return "";
+    const rows = list.map((card) =>
+      `<div class="card">${card.created ? "Made" : "Edited"} ${escape(card.label)} · ${escape(card.detail)}</div>`);
+    return `<div class="cards">${rows.join("")}</div>`;
+  }
+  function message(m) {
+    const images = (m.images || []).map((path) => `<img src="${escape(fileUrl(path))}">`).join("");
+    if (m.role === "user") return `<div class="msg user">${escape(m.text)}${images}</div>`;
+    return `<div class="msg agent">${markdown(m.text)}${images}${cards(m.artifacts)}</div>`;
+  }
+
+  function paint() {
+    const near = log.scrollHeight - log.scrollTop - log.clientHeight < 40;
+    $("dot").classList.toggle("on", Boolean(thread && thread.running));
+    $("stop").hidden = !(thread && thread.running);
+    $("panel").hidden = !thread;
+    if (!threadId || !thread) {
+      $("title").textContent = "Chat thread";
+      field.placeholder = "Write to start a thread…";
+      const why = threadId ? "This thread is closed, or lives on another canvas." : "No thread yet.";
+      log.innerHTML = `<div class="empty">${why}<br>Write below to start one here.</div>`;
+      return;
+    }
+    $("title").textContent = thread.title || "New thread";
+    field.placeholder = thread.placeholder || "Follow up…";
+    const parts = thread.messages.map(message);
+    if (thread.streaming) parts.push(message({ role: "agent", text: thread.streaming, artifacts: thread.making }));
+    if (thread.run) parts.push(`<div class="note">${escape(thread.run.label)}</div>`);
+    if (thread.error) parts.push(`<div class="error">${escape(thread.error)}</div>`);
+    for (const text of thread.queued || []) parts.push(`<div class="queued">Queued: ${escape(text)}</div>`);
+    if (!parts.length) parts.push(`<div class="empty">${escape(thread.emptyHint || "Write below to start.")}</div>`);
+    log.innerHTML = parts.join("");
+    if (near) log.scrollTop = log.scrollHeight;
+  }
+
+  function follow(id) {
+    if (id === threadId && unfollow) return;
+    if (unfollow) unfollow();
+    threadId = id;
+    thread = null;
+    unfollow = id ? specular.subscribe(`chat/thread/${id}`, (value) => { thread = value; paint(); }) : null;
+    paint();
+  }
+
+  function freshThreadId() {
+    return `thread_${Date.now().toString(36)}${Math.floor(Math.random() * 1e8).toString(36)}`;
+  }
+
+  async function send() {
+    const text = field.value.trim();
+    if (!text && !(thread && thread.canSendEmpty)) return;
+    field.value = "";
+    let id = threadId;
+    if (!id || !thread) {
+      // Nothing to send to: start a thread of this block's own and keep it.
+      id = freshThreadId();
+      await specular.run("chat.new-thread", { id, open: false });
+      await specular.run("item.set", { id: item, props: { thread: id } });
+      follow(id);
+    }
+    await specular.run("chat.send", { text, thread: id });
+  }
+
+  field.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+      event.preventDefault();
+      send().catch((error) => console.error(error));
+    }
+  });
+  field.addEventListener("input", () => {
+    field.style.height = "auto";
+    field.style.height = `${field.scrollHeight}px`;
+  });
+  $("stop").addEventListener("click", () => specular.run("chat.stop", { thread: threadId }));
+  $("panel").addEventListener("click", () => specular.run("chat.select", { id: threadId }));
+
+  function start() {
+    specular.subscribe("theme", (theme) => {
+      document.documentElement.classList.toggle("dark", Boolean(theme && theme.appearance === "dark"));
+    });
+    specular.subscribe("canvas/mod_items", (items) => {
+      const mine = (items || []).find((each) => each.id === item);
+      if (mine) follow((mine.props && mine.props.thread) || null);
+    });
+  }
+  paint();
+  if (window.specular) start();
+  else addEventListener("specular-ready", start, { once: true });
+</script>
+</body>
+</html>

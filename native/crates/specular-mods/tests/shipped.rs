@@ -84,6 +84,23 @@ fn a_check_prints_the_tree_or_fails_with_the_reason(cx: &mut TestAppContext) {
         "{}",
         report.tree
     );
+    // A thread block draws its snapshot from its thread's own key.
+    let mut blocks = fixture.clone();
+    let item = serde_json::json!([{ "id": "b1", "mod": "thread", "width": 380, "height": 520,
+        "props": { "thread": "t1" } }]);
+    let thread = serde_json::json!({ "id": "t1", "title": "Layouts", "messages": [
+        { "id": "m1", "role": "user", "text": "Sketch three layouts" }] });
+    blocks.insert("canvas/mod_items".to_owned(), item);
+    blocks.insert("chat/thread/t1".to_owned(), thread);
+    let report = vcx
+        .update(|window, cx| check(&mods.join("thread"), &data, &blocks, window, cx))
+        .expect("the shipped thread block checks");
+    let drew = (report.runs.iter()).find(|run| run.starts_with("item.draw"));
+    let drew = drew.expect("the block's snapshot is drawn");
+    assert!(
+        drew.contains("Layouts") && drew.contains("Sketch three layouts"),
+        "{drew}"
+    );
     let error = vcx
         .update(|window, cx| check(&broken, &data, &fixture, window, cx))
         .expect_err("a mod whose render throws fails its check");

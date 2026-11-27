@@ -1,13 +1,11 @@
-//! The sidebar, the right panel and the canvas as keys (ADR 0059): what a
-//! mod needs to draw them again. A row or a control is written with the id
-//! `control.press {id}` presses; the right panel's acts are `chat.*`
-//! commands. No rect is in any of them, so a drag moves no key.
+//! The sidebar and the canvas as keys (ADR 0059): what a mod needs to draw
+//! them again. A row or a control is written with the id `control.press
+//! {id}` presses. No rect is in any of them, so a drag moves no key.
 
 use serde_json::{Value, json};
-use specular_agent::Role;
 use specular_doc::{EntityId, ItemId, Kind};
 
-use crate::{App, ChatModel, SectionHead, SidebarModel, SidebarRow, chat, sidebar};
+use crate::{App, SectionHead, SidebarModel, SidebarRow, sidebar};
 
 fn head(head: &SectionHead) -> Value {
     json!({ "id": head.id, "title": head.title, "folded": head.folded })
@@ -62,79 +60,6 @@ pub(super) fn sidebar_json(app: &App) -> Value {
         "visible": visible,
         "add": "sidebar.add",
         "sections": [canvas_section, section(&notes_head, &notes), section(&pages_head, &pages)],
-    })
-}
-
-const fn role(role: Role) -> &'static str {
-    match role {
-        Role::User => "user",
-        Role::Agent => "agent",
-    }
-}
-
-/// The `panels/chat` key.
-pub(super) fn chat_json(app: &App) -> Value {
-    let ChatModel {
-        available,
-        visible,
-        width,
-        title,
-        threads,
-        transcript,
-        composer,
-        back,
-        ..
-    } = chat(app);
-    let threads: Vec<Value> = (threads.iter())
-        .map(|thread| {
-            json!({
-                "id": thread.id.0,
-                "title": thread.title,
-                "draft": thread.draft,
-                "active": thread.active,
-                "running": thread.running,
-                "updatedAt": thread.updated_at,
-            })
-        })
-        .collect();
-    let transcript = transcript.map(|transcript| {
-        let messages: Vec<Value> = (transcript.messages.iter())
-            .map(|bubble| {
-                json!({
-                    "id": bubble.id,
-                    "role": role(bubble.role),
-                    "text": bubble.text,
-                    "images": bubble.images,
-                })
-            })
-            .collect();
-        json!({
-            "messages": messages,
-            "streaming": transcript.streaming,
-            "run": transcript.run.map(|run| json!({ "label": run.label, "log": run.log })),
-            "error": transcript.error,
-            "emptyHint": transcript.empty_hint,
-        })
-    });
-    let models: Vec<Value> = (composer.model.options.iter())
-        .map(|option| {
-            json!({ "name": option.name, "description": option.description, "chosen": option.chosen })
-        })
-        .collect();
-    json!({
-        "available": available,
-        "visible": visible,
-        "width": width,
-        "title": title,
-        "canGoBack": back.is_some(),
-        "threads": threads,
-        "transcript": transcript,
-        "composer": {
-            "placeholder": composer.placeholder,
-            "running": composer.running,
-            "canSendEmpty": composer.can_send_empty,
-            "model": { "label": composer.model.label, "options": models },
-        },
     })
 }
 

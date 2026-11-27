@@ -4,6 +4,7 @@
 use std::collections::{BTreeSet, HashMap};
 use std::hash::Hash;
 
+use serde_json::Value;
 use specular_interact::{App, Revisions, state};
 
 use super::push_script;
@@ -11,7 +12,7 @@ use super::push_script;
 /// Every page's subscribed keys, and the values they were last given.
 #[derive(Debug)]
 pub struct Subscriptions<P> {
-    pages: HashMap<P, BTreeSet<&'static str>>,
+    pages: HashMap<P, BTreeSet<String>>,
     /// The subscribed keys only, so a key no page reads never moves.
     revisions: Revisions,
 }
@@ -27,11 +28,12 @@ impl<P> Default for Subscriptions<P> {
 
 impl<P: Clone + Eq + Hash> Subscriptions<P> {
     /// `page` hears of `key` from now on; it was answered with `value`.
-    pub fn subscribe(&mut self, page: P, key: &'static str, value: serde_json::Value) {
+    pub fn subscribe(&mut self, page: P, key: impl Into<String>, value: serde_json::Value) {
+        let key = key.into();
         // While others hear of the key, a move they have not been pushed
         // yet must still reach them, so only a key nobody reads is reset.
-        if !self.pages.values().any(|keys| keys.contains(key)) {
-            self.revisions.publish(key, value);
+        if !self.pages.values().any(|keys| keys.contains(&key)) {
+            self.revisions.publish(&key, value);
         }
         self.pages.entry(page).or_default().insert(key);
     }
@@ -58,18 +60,20 @@ impl<P: Clone + Eq + Hash> Subscriptions<P> {
         if self.pages.is_empty() {
             return Vec::new();
         }
-        let read: BTreeSet<&'static str> = self.pages.values().flatten().copied().collect();
-        let moved: Vec<(&'static str, String)> = (state(app).into_iter())
-            .filter(|(key, _)| read.contains(key))
-            .filter_map(|(key, value)| {
-                let script = push_script(key, &value);
-                self.revisions.publish(key, value).then_some((key, script))
+        let read: BTreeSet<String> = self.pages.values().flatten().cloned().collect();
+        let mut now = state(app);
+        // A thread's key a page reads whose thread is gone reads as null.
+        let moved: Vec<(String, String)> = (read.into_iter())
+            .filter_map(|key| {
+                let value = now.remove(&key).unwrap_or(Value::Null);
+                let script = push_script(&key, &value);
+                self.revisions.publish(&key, value).then_some((key, script))
             })
             .collect();
         let mut out = Vec::new();
         for (key, script) in moved {
             for (page, keys) in &self.pages {
-                if keys.contains(key) {
+                if keys.contains(&key) {
                     out.push((page.clone(), script.clone()));
                 }
             }

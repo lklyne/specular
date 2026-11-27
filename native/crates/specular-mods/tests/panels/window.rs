@@ -212,3 +212,43 @@ fn the_dock_draws_a_drawings_colours_by_their_stored_names(cx: &mut TestAppConte
     let tree = Loaded::new(&app, "dock", json!({}), (900.0, 40.0), cx).tree();
     assert!(tree.contains("Swatch"), "{tree}");
 }
+
+#[gpui::test]
+fn a_chat_pane_starts_a_thread_of_its_own_and_sends_to_it(cx: &mut TestAppContext) {
+    let app = app();
+    let mut loaded = Loaded::new(&app, "chat", json!({ "pane": "a" }), (400.0, 600.0), cx);
+    let read = loaded.reads("chat");
+    assert!(read.iter().any(|key| key == "chat/threads"), "{read:?}");
+    assert!(
+        !read.iter().any(|key| key == "panels/chat"),
+        "a pane does not follow the panel's thread: {read:?}"
+    );
+    let field = (read.into_iter())
+        .find_map(|key| {
+            key.strip_prefix("shared/field/")
+                .and_then(|rest| rest.strip_suffix("/submit"))
+                .map(str::to_owned)
+        })
+        .expect("the pane reads its field's submit");
+    let publish = |loaded: &Loaded, key: String, value: serde_json::Value| {
+        loaded.hosting.revisions.borrow_mut().publish(&key, value);
+    };
+    publish(&loaded, format!("shared/field/{field}"), json!("hello"));
+    loaded.step(&app);
+    publish(&loaded, format!("shared/field/{field}/submit"), json!(1));
+    loaded.step(&app);
+    let runs = loaded.runs();
+    let made = (runs.iter())
+        .find(|run| run.starts_with("chat.new-thread") && run.contains(r#""open":false"#))
+        .expect("the pane starts a thread beside the panel's");
+    let sent = (runs.iter())
+        .find(|run| run.starts_with("chat.send"))
+        .expect("the pane sends what was typed");
+    let id = made
+        .split(r#""id":""#)
+        .nth(1)
+        .and_then(|rest| rest.split('"').next());
+    let id = id.expect("the new thread's id");
+    assert!(sent.contains(&format!(r#""thread":"{id}""#)), "{sent}");
+    assert!(sent.contains("hello"), "{sent}");
+}

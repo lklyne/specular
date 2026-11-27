@@ -69,6 +69,7 @@ pub const MODS: &[Shipped] = &[
     shipped!("ink"),
     shipped!("watercolor", "item.html"),
     shipped!("star"),
+    shipped!("thread", "item.html"),
 ];
 
 /// The `specular` module's declarations, `mods/specular.d.ts`.

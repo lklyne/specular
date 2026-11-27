@@ -1,6 +1,6 @@
 ---
 name: specular-mods
-description: "Use Specular mods whenever you want to change the Specular app itself: redraw a panel (toolbar, tab row, sidebar, dock, palette, chat, menu), make or switch a layout, theme, colours or fonts, rebind keys, open a dialog or popup, add a shape, a kind of canvas item, a tool or brush, or a command in the palette, keys or dock. To put things on a canvas, arrange them or drive pages, use the specular skill instead."
+description: "Use Specular mods whenever you want to change the Specular app itself: redraw a panel (toolbar, tab row, sidebar, dock, palette, chat, menu), show agent chat threads in blocks, side-by-side panes or canvas items, make or switch a layout, theme, colours or fonts, rebind keys, open a dialog or popup, add a shape, a kind of canvas item, a tool or brush, or a command in the palette, keys or dock. To put things on a canvas, arrange them or drive pages, use the specular skill instead."
 allowed-tools: Bash(specular:*)
 ---
 

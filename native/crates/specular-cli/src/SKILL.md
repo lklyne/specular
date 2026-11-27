@@ -68,7 +68,7 @@ the app rewrites them on start. `<app home>` is
   something is in neither the guide nor the types, assume a mod can't do it.
 - Make only the requested change. Don't touch unrelated mods or layouts.
 
-## Common asks (API 1.2)
+## Common asks (API 1.3)
 
 - **A new shape.** A mod with a tool of `"group": "shape"` and an item: the
   tool shows in the shape tool's options, previews with `tool.preview`,
@@ -87,6 +87,15 @@ the app rewrites them on start. `<app home>` is
   to use. Text input is the `Field` host component.
 - **A panel.** Clone the shipped `sidebar`, `dock`, `palette`, `chat` or
   `status` mod and name the clone in a layout.
+- **Chat threads in blocks, panes or on the canvas.** Each thread of the
+  active canvas is a key, `chat/thread/<id>`, beside `chat/threads` (the
+  list, no transcripts). Act on one thread with `chat.send {text,
+  thread}` and `chat.stop {thread}`; start one with `chat.new-thread {id,
+  open: false}`, picking the id yourself. Several chats side by side are
+  several `chat` blocks with `props.pane` (the shipped `chats` layout);
+  a thread on the canvas is the shipped `thread` mod (`specular run
+  thread/new`), a web item to clone for your own look. The guide's "Chat
+  threads anywhere" has the shapes.
 
 ## After every mod change
 

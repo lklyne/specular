@@ -1,8 +1,9 @@
 // The `specular` module (ADR 0055): what a mod imports to reach the app.
 // This file is checked in and written into the mods folder on every start.
-// `api` 1.2. Within a generation the surface only grows: 1.1 added canvas
+// `api` 1.3. Within a generation the surface only grows: 1.1 added canvas
 // items, tools and commands (ADR 0057); 1.2 added the window's own panels,
-// overlays, the look and text fields (ADR 0059).
+// overlays, the look and text fields (ADR 0059); 1.3 added a key for each
+// chat thread and the `thread` arguments of the `chat.*` commands.
 
 /**
  * Every state key. `panels/*` are the app's own panel models as plain data;
@@ -29,6 +30,8 @@
  * - `call`: the last mod command run `{command: "<mod>/<command>", number, args}`, or null. Act once per `number` (1.1)
  * - `panels/sidebar`: `{visible, add, sections: [{id, title, folded, rows}]}`: the canvases section's rows are `{id, canvas, label, active, count, rename}`, the others `{id, label, icon, trailing, selected, dimmed, expanded, children}`. A row is pressed with `control.press {id}`, renamed by pressing its `rename` id (1.2)
  * - `panels/chat`: `{available, visible, width, title, threads: [{id, title, draft, active, running}], transcript: {messages: [{id, role, text, images}], streaming, run, error} | null, composer: {placeholder, running, model: {label, options: [{name, description, chosen}]}}}`, driven by the `chat.*` commands (1.2)
+ * - `chat/threads`: the active canvas's threads with no transcripts, `{open: thread id | null, threads: [{id, key, title, draft, open, running, updatedAt}], model: {label, options}}`; `open` is the thread the panel has open. Moves when a thread starts, is renamed, opens or starts or stops working, not per word (1.3)
+ * - `chat/thread/<id>`: one thread of the active canvas, `{id, title, draft, open, running, updatedAt, messages: [{id, role, text, images, artifacts: [{label, detail, created}]}], streaming, making, run: {label, log} | null, error, queued: [text], canSendEmpty, placeholder, emptyHint}`, or null while it is closed, on another canvas or not made yet. Moves only with its thread (1.3)
  * - `layouts`: `[{name, title, active}]`, every layout; `layout.switch {name}` shows one (1.2)
  * - `look`: `{appearance: "light"|"dark", theme, colors: {name: css color}, font, fontSize, radius, background}`, the layout's resolved look (1.2)
  * - `overlays`: the open overlays, bottom to top `[{id, mod, kind, props, width, height, at, edge, frame}]` (1.2)
@@ -60,7 +63,9 @@ export type StateKey =
   | "overlays"
   | "selection"
   | "canvas/items"
-  | "canvas/info";
+  | "canvas/info"
+  | "chat/threads"
+  | `chat/thread/${string}`;
 /**
  * Every command `run` takes, with its arguments and what it does.
  *
@@ -173,12 +178,12 @@ export type StateKey =
  * - `overlay.open` `{mod, id?, props?, kind?: dialog|popup|drawer|window, width?, height?, at?: [x, y], edge?: left|right|top|bottom, frame?: none}`: Open a mod above the window (1.2).
  * - `overlay.close` `{id?: overlay id}`: Close an overlay, the top one by default (1.2).
  * - `chat.toggle`: Show the right panel if it is hidden, hide it if shown (1.2).
- * - `chat.new-thread`: Start a thread on the canvas showing (1.2).
+ * - `chat.new-thread` `{id?: thread id, open?: bool}`: Start a thread on the canvas showing (1.2), named `id` and opened in the panel unless `open` is false (1.3). Pick the id (letters, digits, `_`, `-`) to know it at once.
  * - `chat.select` `{id: thread id}`: Show a thread of `panels/chat` (1.2).
  * - `chat.back`: Go back from a thread to the list (1.2).
  * - `chat.close` `{id?: thread id}`: Close the thread named, or the one showing (1.2).
- * - `chat.send` `{text: message}`: Send a message to the thread showing, or to a new one (1.2).
- * - `chat.stop`: Stop the agent's run on the thread showing (1.2).
+ * - `chat.send` `{text: message, thread?: thread id}`: Send a message to the thread showing, or to a new one (1.2); with `thread`, to that thread whichever is showing (1.3).
+ * - `chat.stop` `{thread?: thread id}`: Stop the agent's run on the thread showing, or on `thread` (1.3).
  * - `chat.model` `{name: model name}`: Choose the model new runs use, by a name `panels/chat` lists (1.2).
  */
 export type CommandName =

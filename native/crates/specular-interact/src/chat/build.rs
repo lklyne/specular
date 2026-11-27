@@ -40,7 +40,10 @@ pub fn chat(app: &App) -> ChatModel {
         toggle: act(ChatAction::Toggle),
         title: active.map_or_else(|| "Threads".to_owned(), |thread| thread.title.clone()),
         threads,
-        new_thread: act(ChatAction::NewThread),
+        new_thread: act(ChatAction::NewThread {
+            id: None,
+            open: true,
+        }),
         back: active.map(|_| act(ChatAction::Back)),
         close: active.map(|thread| act(ChatAction::CloseThread(Some(thread.id.clone())))),
         transcript: active.map(|thread| transcript(app, thread)),
@@ -48,7 +51,8 @@ pub fn chat(app: &App) -> ChatModel {
     }
 }
 
-fn transcript(app: &App, thread: &Thread) -> Transcript {
+/// The conversation of `thread`, open or not.
+pub(crate) fn transcript(app: &App, thread: &Thread) -> Transcript {
     let run = app.threads.run(&thread.id);
     let running = app.threads.is_running(&thread.id);
     let messages: Vec<Bubble> = (thread.messages.iter())
@@ -64,7 +68,7 @@ fn transcript(app: &App, thread: &Thread) -> Transcript {
     let bar = run.filter(|_| running).map(|run| RunBar {
         label: run.current_label().to_owned(),
         log: run.events.iter().map(|event| event.text.clone()).collect(),
-        stop: Action::Chat(ChatAction::Stop),
+        stop: Action::Chat(ChatAction::Stop(Some(thread.id.clone()))),
     });
     let error = run.and_then(|run| match &run.state {
         RunState::Failed(error) => Some(error.clone()),
@@ -155,7 +159,8 @@ fn composer(app: &App, active: Option<&Thread>) -> Composer {
     }
 }
 
-fn model_chip(app: &App) -> ModelChip {
+/// The model chip: the model runs use, and the others.
+pub(crate) fn model_chip(app: &App) -> ModelChip {
     let models = &app.models;
     ModelChip {
         label: models.chosen_name().to_owned(),
@@ -186,7 +191,8 @@ fn auto_chip(app: &App, target: &WriteTarget) -> Option<AutoChip> {
     })
 }
 
-fn queued_chip(message: &Message) -> QueuedChip {
+/// A queued message as its chip shows it.
+pub(crate) fn queued_chip(message: &Message) -> QueuedChip {
     let text = message.text.trim();
     QueuedChip {
         text: if text.is_empty() {

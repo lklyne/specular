@@ -177,3 +177,27 @@ fn a_subscribed_key_is_pushed_when_it_moves_and_only_to_its_subscribers() {
     app.send(Event::Action(Action::SetTool(Tool::Select)));
     assert!(subscriptions.changes(app.app()).is_empty(), "unsubscribed");
 }
+
+#[test]
+fn a_page_follows_a_thread_by_its_key_before_and_after_it_is_made() {
+    let mut app = one_note();
+    let mut api = Api::new(1);
+    let mut subscriptions = Subscriptions::default();
+    let payload = call(1, "subscribe", json!({ "key": "chat/thread/t1" }));
+    let BridgeStep::Subscribe { key, value, .. } = api.bridge(app.app(), &payload, NONCE) else {
+        panic!("a thread's key is a key, made or not");
+    };
+    assert_eq!(value, Value::Null, "no thread t1 yet");
+    subscriptions.subscribe("block", key, value);
+    let start = specular_interact::ChatAction::NewThread {
+        id: Some(specular_interact::ThreadId("t1".to_owned())),
+        open: false,
+    };
+    app.act(Action::Chat(start));
+    let pushed = subscriptions.changes(app.app());
+    assert_eq!(pushed.len(), 1, "{pushed:?}");
+    assert_eq!(message(&pushed[0].1)["value"]["id"], "t1");
+    let bare = call(2, "subscribe", json!({ "key": "chat/thread/" }));
+    let refused = reply(api.bridge(app.app(), &bare, NONCE));
+    assert_eq!(refused["ok"], false, "{refused}");
+}

@@ -118,8 +118,9 @@ Then check it with no window: `specular mod check ~/path/to/mods/hello`.
   command. `gpui-kit.d.ts`, written into a mod's folder when it loads, has the
   element and style surface (`div`, `h_flex`, `Button`, `.bg(..)`, ...).
 - `../layouts/<name>.json`: one whole window each (see "The whole
-  window"). `default`, `classic` (every panel the app's own), `studio` and
-  `mods` (every panel a mod) are shipped and written again on every start;
+  window"). `default`, `classic` (every panel the app's own), `studio`,
+  `mods` (every panel a mod) and `chats` (two chat panes beside the
+  canvas) are shipped and written again on every start;
   any other file is yours and never written. A save applies at once; a bad
   one keeps the last good layout and writes `<name>.error` beside it.
 - `../layouts/.state/`: what was hidden and shown at run time
@@ -141,7 +142,8 @@ readout is the `Zoom` host component. The keys: `panels/toolbar`,
 item, back to front, with its kind, label, parent and words, but no place or
 size), `canvas/info` (the canvas showing, its counts and every canvas), and
 for canvas items, tools and commands `canvas/mod_items`, `tool` and `call`
-(see below).
+(see below), and for agent threads `chat/threads` and a
+`chat/thread/<id>` key for each thread (see "Chat threads anywhere").
 `specular state [key]` prints them from the running app.
 
 `props()` is what the layout hands the mod. By convention `props().hidden`
@@ -180,7 +182,7 @@ app's log. The commands:
 - **ui**: `ui.toggle` `{id: tabs|toolbar|dock|sidebar|chat|menu|share|toast|palette|welcome|<control id>}`, `ui.show` `{id: tabs|toolbar|dock|sidebar|chat|menu|share|toast|palette|welcome|<control id>}`, `ui.hide` `{id: tabs|toolbar|dock|sidebar|chat|menu|share|toast|palette|welcome|<control id>}`, `ui.reset`
 - **layout**: `layout.switch` `{name?: layout name}` (the next one without a name)
 - **overlay**: `overlay.open` `{mod: name, id?, props?, kind?: dialog|popup|drawer|window, width?, height?, at?: [x, y], edge?: left|right|top|bottom, frame?: none}`, `overlay.close` `{id?: overlay id}`
-- **chat**: `chat.toggle`, `chat.new-thread`, `chat.select` `{id: thread id}`, `chat.back`, `chat.close` `{id?: thread id}`, `chat.send` `{text: message}`, `chat.stop`, `chat.model` `{name: model name}`
+- **chat**: `chat.toggle`, `chat.new-thread` `{id?: thread id, open?: bool}`, `chat.select` `{id: thread id}`, `chat.back`, `chat.close` `{id?: thread id}`, `chat.send` `{text: message, thread?: thread id}`, `chat.stop` `{thread?: thread id}`, `chat.model` `{name: model name}`
 - **notice**: `notice.dismiss` `{id: notice id}`
 - **mods**: `mods.install`
 - **share**: `share.copy-link`, `share.access` `{scope: edit|comment|view|none}`, `share.join` `{link: url, fresh?: bool}`, `share.stop`
@@ -353,9 +355,81 @@ publishes the `call` key, `{command, number, args}`: act once per `number`.
 `key` is modifiers and one character joined by `+` (`cmd`, `shift`, `alt`).
 `icon` is one of the app's glyphs by its kebab-case name.
 
-**Versions.** `api` is `1` (1.0), `"1.1"` or `"1.2"` (the whole window,
-above). A mod loads on an app of the same generation whose revision is at
+**Versions.** `api` is `1` (1.0), `"1.1"`, `"1.2"` (the whole window,
+above) or `"1.3"` (chat threads anywhere, below). A mod loads on an app of the same generation whose revision is at
 least its own.
+
+## Chat threads anywhere (API 1.3)
+
+The agent panel shows one thread at a time. A mod can show any number,
+each on its own: in a canvas item, in a pane beside the panel, in an
+overlay window, several side by side.
+
+**Reading.** `chat/threads` is the active canvas's threads with no
+transcripts: `{open, threads: [{id, key, title, draft, open, running,
+updatedAt}], model: {label, options}}`. `open` is the thread the panel has
+open, if any. It moves when a thread starts, is renamed, opens, or starts
+or stops working, not on every word. Each thread of the active canvas
+also has its own key, `chat/thread/<id>`:
+
+```
+{ id, title, draft, open, running, updatedAt,
+  messages: [{id, role: "user"|"agent", text, images, artifacts}],
+  streaming, making, run: {label, log} | null, error,
+  queued: [text], canSendEmpty, placeholder, emptyHint }
+```
+
+A thread's key moves only with that thread, so a pane showing one thread
+does not render while another streams. It reads `null` for a thread that
+is closed, on another canvas, or not made yet.
+
+**Acting on one thread.** `chat.send {text, thread}` sends to that thread
+whichever the panel has open (the panel's comment draft is left alone),
+and `chat.stop {thread}` stops its run. `chat.new-thread {id, open: false}`
+starts a thread without opening it in the panel. The mod picks the id
+(letters, digits, `_` and `-`, at most 64), so it knows it at once, since
+`run` answers before the command runs:
+
+```js
+const id = `thread_${Date.now().toString(36)}`;
+run("chat.new-thread", { id, open: false });
+run("chat.send", { text: "Sketch three layouts", thread: id });
+```
+
+`chat.select {id}` opens a thread in the panel, and `chat.close {id}`
+archives it.
+
+**Panes.** The shipped `chat` mod with `props.pane` is a pane of its own:
+it keeps its thread in `shared("chat/pane/<pane>")`, lists threads from
+`chat/threads`, and sends to its thread, so two blocks with two panes
+show two threads side by side. `props.thread` pins a pane to one
+thread. The shipped `chats` layout is the canvas with two panes:
+
+```json
+{ "id": "chats", "type": "row", "size": { "px": 760 }, "children": [
+  { "id": "chat.a", "type": "block", "content": { "mod": "chat", "props": { "pane": "a" } } },
+  { "id": "chat.b", "type": "block", "content": { "mod": "chat", "props": { "pane": "b" } } } ] }
+```
+
+A pane opens as a floating window too:
+`openOverlay("chat", { kind: "window", width: 380, height: 520, props: { pane: "float" } })`.
+
+**Threads on the canvas.** The shipped `thread` mod makes each thread a
+canvas item: `thread/new` (the palette's "Add a chat thread block") starts
+a thread and places a block showing it, `thread/place {thread?}` places
+one for a thread (the panel's open one by default), and `thread/panel`
+(the dock button) opens a block's thread in the panel. A block is an
+`items.web` page (`thread/item.html`): it follows `canvas/mod_items` for
+its `props.thread`, `chat/thread/<id>` through the page bridge, and
+draws the transcript with markdown, images and what the agent made, and a
+composer (enter the item to type; Return sends, Shift+Return is a new
+line). Its display list is the title and the last few messages, the
+snapshot a saved canvas keeps. Copy it (`specular mod clone thread`) to
+draw threads your own way.
+
+The panel itself draws markdown, images and comment chips natively. A mod
+that shows a thread draws them itself: a web item or overlay in HTML, a
+panel mod in GPUI elements (the shipped `chat` mod shows plain text).
 
 ## Host components
 
@@ -418,10 +492,11 @@ Elements a mod places but cannot draw itself, imported from `specular`:
 | `sidebar` | the canvases, notes and pages | `panels/sidebar` | `mods`, `studio` |
 | `dock` | the selection's or the tool's controls, and the lens | `panels/dock`, `panels/tool_options`, `panels/toolbar` | `mods`, `studio` |
 | `palette` | the command palette, in an overlay | `panels/palette` | `mods`, `studio` |
-| `chat` | the agent threads, transcript and composer | `panels/chat` | `mods`, `studio` |
+| `chat` | the agent threads, transcript and composer; with `props.pane`, one thread of its own | `panels/chat`, or `chat/threads` and `chat/thread/<id>` | `mods`, `studio`; panes in `chats` |
 | `status` | a status line: canvas, counts, selection, layout | `canvas/info`, `selection`, `layouts` | `studio` |
 | `confirm`, `prompt` | dialogs a mod or agent opens with `openOverlay` | `props()` | opened when asked |
 | `star` | a star among the shape tool's shapes | `tool`, `canvas/mod_items`, `call` | always (a canvas mod) |
+| `thread` | a chat thread as a canvas item, live, with a composer | `canvas/mod_items`, `chat/thread/<id>`, `call` | always (a canvas mod) |
 
 The menu mod leaves the keys with the canvas: Escape closes it, but the
 arrows and Return do not move through it as the app's own menu's do.
@@ -526,6 +601,9 @@ inspector and the page tools' own popups stay the app's. The shipped panel
 mods cover the common paths; the app's own panels still do more (dragging
 rows, a canvas row's menu, images and comment chips in the composer,
 markdown in the transcript), so `default` keeps them until the mods catch up.
+Threads are read for the active canvas only: a thread of another canvas
+reads `null` until that canvas shows, and a thread is sent the panel's
+context (the canvas and the selection) whichever view sent to it.
 
 **The canvas.** A mod can't restyle the built-in items or tools, or read the
 camera, item positions, or the content of live web pages. `canvas/items`

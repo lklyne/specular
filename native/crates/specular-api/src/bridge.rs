@@ -23,7 +23,7 @@ pub use self::subscriptions::Subscriptions;
 use serde::Deserialize;
 use serde_json::{Value, json};
 use specular_core::BRIDGE_BINDING;
-use specular_interact::{ApiOutcome, App, Event, STATE_KEYS};
+use specular_interact::{ApiOutcome, App, Event, STATE_KEYS, THREAD_KEY, is_state_key};
 
 use crate::{Api, Method, Pending, Plan, Request, Response};
 
@@ -59,7 +59,7 @@ pub enum BridgeStep {
     /// `reply` in it now.
     Subscribe {
         /// The key.
-        key: &'static str,
+        key: String,
         /// Its value now.
         value: Value,
         /// The answer, which carries the value.
@@ -170,17 +170,17 @@ fn state_request(key: Option<&str>) -> Request {
 }
 
 fn subscribe(id: u64, key: Option<&str>, app: &App) -> BridgeStep {
-    let Some(key) = STATE_KEYS.iter().find(|known| Some(**known) == key) else {
+    let Some(key) = key.filter(|key| is_state_key(key)) else {
         let named = key.unwrap_or("");
         let reason = format!(
-            "no state key `{named}`; the keys: {}",
+            "no state key `{named}`; the keys: {}, {THREAD_KEY}<thread id>",
             STATE_KEYS.join(", ")
         );
         return BridgeStep::Reply(failed(id, &reason));
     };
     let value = specular_interact::state_key(app, key).unwrap_or(Value::Null);
     BridgeStep::Subscribe {
-        key,
+        key: key.to_owned(),
         reply: settled(id, Ok(value.clone())),
         value,
     }

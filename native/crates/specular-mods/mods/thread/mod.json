@@ -1,0 +1,10 @@
+{
+  "api": "1.3",
+  "title": "Thread block",
+  "items": { "size": [380, 520], "web": "item.html" },
+  "commands": [
+    { "name": "new", "title": "Add a chat thread block", "icon": "message-square" },
+    { "name": "place", "title": "Put the open chat thread on the canvas", "icon": "message-square" },
+    { "name": "panel", "title": "Open the thread in the agent panel", "icon": "panel-right", "dock": true }
+  ]
+}

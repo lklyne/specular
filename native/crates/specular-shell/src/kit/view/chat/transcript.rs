@@ -297,7 +297,7 @@ impl ShellView {
             *run = Some(RunBar {
                 label: "List build folder and Leva files".to_owned(),
                 log: Vec::new(),
-                stop: Action::Chat(ChatAction::Stop),
+                stop: Action::Chat(ChatAction::Stop(None)),
             });
         }
         let avatar = active.map(|row| {

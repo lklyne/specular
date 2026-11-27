@@ -50,6 +50,7 @@ impl ShellView {
         canvas::dispatch(Event::Action(Action::Chat(ChatAction::Send {
             text,
             images,
+            thread: None,
         })));
         self.chat.input.update(cx, |state, cx| {
             state.set_value("", window, cx);

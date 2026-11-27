@@ -45,6 +45,8 @@ A goal came with it: an agent told "add this new shape" can do it with the mods 
 
 The mod API is 1.2.
 
+**Threads anywhere (1.3).** The panel shows one thread; a mod can show any number. Each thread of the active canvas is a key of its own, `chat/thread/<id>`, beside `chat/threads` (the list, with no transcripts), so a block showing one thread does not render while another streams. The `chat.*` commands take a `thread`, and `chat.new-thread` takes the `id` and `open: false`: the mod picks the id, because `run` answers before the command runs and so cannot hand one back. The `chat` mod's `props.pane` is a pane with its own thread (the `chats` layout shows two), and the shipped `thread` mod makes a thread a canvas item, a live page with its own composer. The keys are built for every thread of the active canvas on each publish, not only for the ones read: simpler than a key that exists once asked for, and about the cost of `canvas/items`. Threads of other canvases are not keys. The mod API is 1.3.
+
 ## Alternatives
 
 - **Lay out with GPUI's flexbox.** Simpler to draw, but a headless run, which draws nothing, could not know where the canvas is. The tree is solved once in pure code and the window draws absolutely positioned boxes.

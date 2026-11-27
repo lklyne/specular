@@ -58,9 +58,7 @@ pub fn fresh_state() -> Map<String, Value> {
     let mut app = specular_interact::App::new(0);
     update(&mut app, Event::ShellChrome);
     update(&mut app, Event::ChatPanel(true));
-    (state(&app).into_iter())
-        .map(|(key, value)| (key.to_owned(), value))
-        .collect()
+    state(&app).into_iter().collect()
 }
 
 /// The props the fixture's layout hands the mod `name`: those of the

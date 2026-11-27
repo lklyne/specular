@@ -273,7 +273,7 @@ logs the port it took and the `SPECULAR_DISCOVERY_FILE=` to pass the CLI.
   key. Layouts are `<app home>/layouts/<name>.json` (ADR 0059): trees of
   rows, columns, stacks and blocks with the look at the root, solved by
   `specular_interact::chrome::solve`. The shipped ones (`default`, `mods`,
-  `classic`, `studio`) are rewritten on every start; any other file is the
+  `classic`, `studio`, `chats`) are rewritten on every start; any other file is the
   person's, and `layout.switch` moves between them. `<app home>/keys.json`
   rebinds keys (`bindings/keymap.rs`, read in `app/keys_run.rs`, a mistake
   in `keys.error`). The files are watched by
@@ -357,6 +357,13 @@ A mod (ADR 0055) is a folder of `mod.json` and `main.js`, run by
   (`specular-interact/src/state/panels.rs`), the `chat.*` and
   `overlay.*` commands, and a mod tool with `"group": "shape"` listed in
   the shape tool's options (`panel/dock/shape.rs`).
+- **Threads anywhere (API 1.3).** `chat/threads` and a `chat/thread/<id>`
+  key for each thread of the active canvas
+  (`specular-interact/src/state/chat.rs`), published beside the fixed
+  keys (`is_state_key` names both); `chat.new-thread {id, open}`,
+  `chat.send {thread}` and `chat.stop {thread}`. The `chat` mod's
+  `props.pane` is a pane with a thread of its own (the `chats` layout), and
+  the `thread` mod makes a thread a web canvas item.
 - **Checking and measuring.** `specular mod check <dir> [--state
   fixture.json]` (the `specular-mod-check` crate) renders a mod headless.
   `specular mod stats` is `GET /mods`. `specular mod clone <name>

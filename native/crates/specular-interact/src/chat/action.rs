@@ -21,8 +21,16 @@ pub enum ChatAction {
     Toggle,
     /// Make the panel this wide, in logical pixels, within its limits.
     Resize(f32),
-    /// Start an empty thread on the active canvas and open it.
-    NewThread,
+    /// Start an empty thread on the active canvas. `id` names it (a fresh
+    /// one when `None`; refused when taken), and `open` makes it the
+    /// canvas's open thread, as the panel's New does. A view that shows a
+    /// thread of its own starts one with `open: false`.
+    NewThread {
+        /// Its id.
+        id: Option<ThreadId>,
+        /// Whether it becomes the open thread.
+        open: bool,
+    },
     /// Open one of the active canvas's threads.
     SelectThread(ThreadId),
     /// Go back to the list of threads. Nothing is archived.
@@ -35,16 +43,21 @@ pub enum ChatAction {
     /// Otherwise the text and images join the open thread's queue, and the
     /// agent is run on the queue, or once the run in flight ends. With no
     /// text and no images it sends the queue as it is.
+    ///
+    /// With `thread` the words go to that thread instead, open or not, and
+    /// a comment draft is left alone: a view showing one thread sends there.
     Send {
         /// The words typed.
         text: String,
         /// The images pasted.
         images: Vec<ImageUpload>,
+        /// The thread to send to, when not the open one.
+        thread: Option<ThreadId>,
     },
     /// Drop the comment draft; nothing is saved.
     DropDraft,
-    /// Stop the open thread's run.
-    Stop,
+    /// Stop a thread's run: the one named, or the open one.
+    Stop(Option<ThreadId>),
     /// Run the agent on this model from the next run on, in every thread.
     SetModel(String),
     /// Resolve every open comment of the open thread that was sent, as one
@@ -59,9 +72,10 @@ pub(crate) fn run(app: &mut App, action: ChatAction, effects: &mut Vec<Effect>) 
     match action {
         ChatAction::Toggle => app.session.chat.toggle(),
         ChatAction::Resize(width) => app.session.chat.resize(width),
-        ChatAction::NewThread => {
-            let (tab, now, id) = (comments::tab(app), now(app), send::new_thread_id(app));
-            let changed = app.threads.new_thread(&tab, id, &now);
+        ChatAction::NewThread { id, open } => {
+            let (tab, now) = (comments::tab(app), now(app));
+            let id = id.unwrap_or_else(|| send::new_thread_id(app));
+            let changed = app.threads.new_thread(&tab, id, &now, open);
             effects::emit(&changed, effects);
         }
         ChatAction::SelectThread(id) => {
@@ -80,18 +94,21 @@ pub(crate) fn run(app: &mut App, action: ChatAction, effects: &mut Vec<Effect>) 
                 effects::emit(&changed, effects);
             }
         }
-        ChatAction::Send { text, images } => send::run(app, &text, images, effects),
+        ChatAction::Send {
+            text,
+            images,
+            thread: Some(thread),
+        } => send::to_thread(app, &thread, &text, images, effects),
+        ChatAction::Send { text, images, .. } => send::run(app, &text, images, effects),
         ChatAction::DropDraft => {
             if app.session.comment_draft.is_some() {
                 crate::comment::cancel(app, effects);
             }
         }
-        ChatAction::Stop => {
-            let active = app
-                .threads
-                .active(&comments::tab(app))
-                .map(|t| t.id.clone());
-            if let Some(id) = active.filter(|id| app.threads.is_running(id)) {
+        ChatAction::Stop(thread) => {
+            let target =
+                thread.or_else(|| (app.threads.active(&comments::tab(app))).map(|t| t.id.clone()));
+            if let Some(id) = target.filter(|id| app.threads.is_running(id)) {
                 effects.push(Effect::CancelAgent(id));
             }
         }

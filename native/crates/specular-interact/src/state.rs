@@ -13,6 +13,8 @@
 //! | `panels/welcome` | [`onboarding`](crate::onboarding): the first-run view while no space is open, or `null` |
 //! | `panels/sidebar` | the sidebar: shown or not, and its sections of rows by control id (ADR 0059) |
 //! | `panels/chat` | the right panel: its threads, the transcript showing and the composer; `chat.*` commands act on it (ADR 0059) |
+//! | `chat/threads` | the active canvas's threads with no transcript, the one the panel has open, and the model |
+//! | `chat/thread/<id>` | one thread of the active canvas on its own: transcript, queue, run; one key a thread |
 //! | `theme` | the appearance drawn and the choice behind it |
 //! | `settings` | what is kept between launches |
 //! | `keys` | every key binding: its keys, where it fires and the command it runs, the person's `keys.json` first |
@@ -33,10 +35,12 @@
 //! key, so a pan or a pinch moves no revision; the zoom readout is written
 //! as its id alone.
 
+mod chat;
 mod keys;
 mod panels;
 mod revisions;
 
+pub use self::chat::THREAD_KEY;
 pub use self::revisions::Revisions;
 
 use std::collections::BTreeMap;
@@ -48,8 +52,10 @@ use crate::{
     App, Appearance, PaletteRun, context_menu, dock, palette, tool_options, toolbar, view_strip,
 };
 
-/// Every key, in the order [`state`] lists them.
-pub const STATE_KEYS: [&str; 24] = [
+/// Every fixed key, in the order [`state`] lists them. Beside them, each
+/// thread of the active canvas has a key of its own, [`THREAD_KEY`] and
+/// its id: see [`is_state_key`].
+pub const STATE_KEYS: [&str; 25] = [
     "panels/toolbar",
     "panels/tool_options",
     "panels/dock",
@@ -60,6 +66,7 @@ pub const STATE_KEYS: [&str; 24] = [
     "panels/welcome",
     "panels/sidebar",
     "panels/chat",
+    "chat/threads",
     "theme",
     "settings",
     "keys",
@@ -80,8 +87,18 @@ fn to_json(value: impl serde::Serialize) -> Value {
     serde_json::to_value(value).unwrap_or(Value::Null)
 }
 
-/// Every key of `app` and its value now.
-pub fn state(app: &App) -> BTreeMap<&'static str, Value> {
+/// Whether `key` names a key: a fixed one, or a thread's. A thread's key
+/// may name a thread there is not (yet): it reads as null.
+pub fn is_state_key(key: &str) -> bool {
+    STATE_KEYS.contains(&key)
+        || key
+            .strip_prefix(THREAD_KEY)
+            .is_some_and(|id| !id.is_empty())
+}
+
+/// Every key of `app` and its value now: the fixed keys, then a key for
+/// each thread of the active canvas.
+pub fn state(app: &App) -> BTreeMap<String, Value> {
     let bar = toolbar(app);
     let options = tool_options(app);
     let docked = if options.is_some() { None } else { dock(app) };
@@ -101,7 +118,8 @@ pub fn state(app: &App) -> BTreeMap<&'static str, Value> {
         ("panels/share", to_json(&bar.share)),
         ("panels/welcome", to_json(crate::onboarding(app))),
         ("panels/sidebar", panels::sidebar_json(app)),
-        ("panels/chat", panels::chat_json(app)),
+        ("panels/chat", chat::panel_json(app)),
+        ("chat/threads", chat::threads_json(app)),
         ("theme", theme_json(app)),
         ("settings", settings_json(app)),
         ("keys", keys::bindings(&app.keymap)),
@@ -120,19 +138,31 @@ pub fn state(app: &App) -> BTreeMap<&'static str, Value> {
         ("tool", crate::mods::tool_json(app)),
         ("call", crate::mods::call_json(app)),
     ];
-    entries.into_iter().collect()
+    (entries.into_iter())
+        .map(|(key, value)| (key.to_owned(), value))
+        .chain(chat::thread_keys(app))
+        .collect()
 }
 
-/// The value of `key` now, or `None` for a key there is not.
+/// The value of `key` now, or `None` for a key there is not. A thread's
+/// key reads as null while its thread is not on the active canvas.
 pub fn state_key(app: &App, key: &str) -> Option<Value> {
-    state(app).remove(key)
+    let value = state(app).remove(key);
+    value.or_else(|| is_state_key(key).then_some(Value::Null))
 }
 
 /// Publishes every key of `app` into `revisions`. Returns the keys whose
-/// revision moved.
-pub fn publish(revisions: &mut Revisions, app: &App) -> Vec<&'static str> {
-    (state(app).into_iter())
-        .filter_map(|(key, value)| revisions.publish(key, value).then_some(key))
+/// revision moved. A thread's key that was published and is gone now (the
+/// thread was closed, or another canvas shows) moves to null.
+pub fn publish(revisions: &mut Revisions, app: &App) -> Vec<String> {
+    let now = state(app);
+    let gone: Vec<String> = (revisions.keys())
+        .filter(|key| key.starts_with(THREAD_KEY) && !now.contains_key(*key))
+        .map(str::to_owned)
+        .collect();
+    let gone = gone.into_iter().map(|key| (key, Value::Null));
+    (now.into_iter().chain(gone))
+        .filter_map(|(key, value)| revisions.publish(&key, value).then_some(key))
         .collect()
 }
 

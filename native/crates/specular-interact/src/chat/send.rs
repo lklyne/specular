@@ -96,6 +96,29 @@ fn send_thread(app: &mut App, text: &str, images: Vec<ImageUpload>, effects: &mu
     effects::run_started(app, started, changed, effects);
 }
 
+/// Send to one thread by id, whichever is open: the words join its queue
+/// and the queue is sent. A closed or missing thread takes nothing.
+pub(super) fn to_thread(
+    app: &mut App,
+    thread: &ThreadId,
+    text: &str,
+    images: Vec<ImageUpload>,
+    effects: &mut Vec<Effect>,
+) {
+    let Some(tab) = app.threads.get(thread).map(|t| t.tab_id.clone()) else {
+        return;
+    };
+    let now = now(app);
+    let stored = store_images(app, &tab, thread, images, effects);
+    let message = format!("tmsg_{}", app.fresh_id());
+    let queued = (app.threads).queue_message_to(thread, &message, text, stored, &now);
+    let Some(changed) = queued else {
+        return;
+    };
+    let started = begin(app, thread, None);
+    effects::run_started(app, started, changed, effects);
+}
+
 /// Sends the queue of `thread` if no run is in flight. `aim` is the pin the
 /// turn is about; without one the live pill is.
 pub(super) fn begin(app: &mut App, thread: &ThreadId, aim: Option<&str>) -> Option<Started> {

@@ -34,6 +34,7 @@ pub(crate) use self::action::run;
 pub use self::action::{ChatAction, ImageUpload};
 pub(crate) use self::artifacts::note_changes;
 pub use self::build::chat;
+pub(crate) use self::build::{model_chip, queued_chip, transcript};
 pub(crate) use self::commit::comment as commit_comment;
 pub use self::fix::{FixTarget, fixable};
 pub use self::model::{
