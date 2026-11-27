@@ -12,8 +12,8 @@ use gpui_kit::{
     Styled as _, Window, div, px,
 };
 use specular_interact::{
-    ControlId, ControlsModel, PaintRole, Palette, SidebarButton, TOOLS_DOCK_WIDTH, ThemeButton,
-    ToolButton, ToolbarModel, ToolbarSection, ToolsPlace,
+    ControlId, ControlsModel, PaintRole, Palette, SidebarButton, ThemeButton, ToolButton,
+    ToolbarModel, ToolbarSection, ToolsPlace,
 };
 
 use super::controls::{column, control, hint};
@@ -252,23 +252,19 @@ fn tools(
     out
 }
 
-/// The tools docked: a strip down the canvas's left edge, `left` from the
-/// window's, which the app counts as covered. The theme is at its foot.
+/// The tools docked: a strip filling the layout's `toolbar` block, which
+/// the app counts as covered when it lies left of the canvas. The theme is
+/// at its foot.
 pub(super) fn docked(
     model: &ToolbarModel,
     shown: Option<&ControlsModel>,
-    left: f32,
     window: &mut Window,
     cx: &mut App,
 ) -> impl IntoElement {
     v_flex()
         .id("ribbon")
         .occlude()
-        .absolute()
-        .left(px(left))
-        .top(px(theme::chrome_top()))
-        .bottom_0()
-        .w(px(TOOLS_DOCK_WIDTH))
+        .size_full()
         .py(px(RIBBON_PAD))
         .gap_1()
         .items_center()

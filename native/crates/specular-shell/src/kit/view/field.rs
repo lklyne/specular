@@ -206,7 +206,7 @@ pub(super) fn input(model: &Field, address: bool, window: &mut Window, cx: &mut 
 /// `model` as a control of a row: its caption, then its input at the width
 /// it asks for. An address takes that as its least width and grows into
 /// whatever room its row has left.
-pub(super) fn field(model: &Field, window: &mut Window, cx: &mut App) -> AnyElement {
+pub(crate) fn field(model: &Field, window: &mut Window, cx: &mut App) -> AnyElement {
     let caption = (model.caption.as_ref())
         .filter(|_| model.width != FieldWidth::Short)
         .map(|text| SharedString::from(text.to_string()));

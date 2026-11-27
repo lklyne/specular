@@ -85,7 +85,7 @@ fn a_dismissed_notice_goes_and_comes_back_when_the_page_fails_again(cx: &mut Tes
     let mut loaded = timed_load(&app, "toast", json!({}), SIZE, cx);
     assert_eq!(
         loaded.reads("toast"),
-        ["mods/toast/props", "notices", "theme"]
+        ["look", "mods/toast/props", "notices"]
     );
     assert_eq!(loaded.idle_renders(), 0, "no script render while idle");
     app.act(specular_interact::Action::DismissNotice(

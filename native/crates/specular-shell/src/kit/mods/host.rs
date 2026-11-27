@@ -87,11 +87,11 @@ fn marked(control: Option<ControlId>, glyph: AnyElement) -> AnyElement {
     }
 }
 
-/// The host components, with the window's own `Zoom`, `ToolOptions`,
+/// The host components, with the window's own `Zoom`, `ToolOptions`, `Field`,
 /// `WindowDrag`, `Share` and `Prism`, a `Favicon` that shows the page's
 /// own icon, and an `Icon` that notes where the control it names is.
 pub(super) fn components(revisions: Rc<RefCell<Revisions>>) -> Components {
-    let standard = Components::standard(revisions);
+    let standard = Components::standard(revisions.clone());
     let icon = standard.get("Icon");
     let glyph = standard.get("Favicon");
     standard
@@ -129,6 +129,21 @@ pub(super) fn components(revisions: Rc<RefCell<Revisions>>) -> Components {
             let compact =
                 (args.props().get("compact").and_then(HostValue::as_bool)).unwrap_or(false);
             crate::view::zoom_readout(compact).unwrap_or_else(|| div().into_any_element())
+        })
+        .with("Field", move |args, window, cx| {
+            let Some(id) = args.props().get("control").and_then(HostValue::as_str) else {
+                return super::text_field::field(args.props(), &revisions, window, cx);
+            };
+            let model = canvas::models().and_then(|models| {
+                [models.dock.as_ref(), models.tool_options.as_ref()]
+                    .into_iter()
+                    .flatten()
+                    .find_map(|controls| controls.field(id).cloned())
+            });
+            match model {
+                Some(model) => crate::view::model_field(&model, window, cx),
+                None => div().into_any_element(),
+            }
         })
         .with("ToolOptions", |_, window, cx| {
             crate::view::tool_options(window, cx).unwrap_or_else(|| div().into_any_element())

@@ -4,8 +4,8 @@
 use serde::Serialize;
 use specular_doc::Color;
 
-use super::model::{Button, Control, Dropdown, Label};
-use super::{ControlId, Icon};
+use super::model::{Button, Control, Dropdown, DropdownSection, Label};
+use super::{ControlId, Field, Icon};
 use crate::{Action, Chord, Tool, ToolsPlace};
 
 /// A tool button of the toolbar.
@@ -138,4 +138,27 @@ pub struct ControlsModel {
     pub controls: Vec<Control>,
 }
 
-impl ControlsModel {}
+impl ControlsModel {
+    /// The field named `id`, in a row or a list's rows.
+    pub fn field(&self, id: &str) -> Option<&Field> {
+        fn find<'a>(controls: &'a [Control], id: &str) -> Option<&'a Field> {
+            controls.iter().find_map(|control| match control {
+                Control::Field(field) if field.id.as_str() == id => Some(field),
+                Control::Dropdown(Dropdown { content, .. }) => {
+                    (content.iter()).find_map(|section| match section {
+                        DropdownSection::Controls(controls) => find(controls, id),
+                        DropdownSection::Options { .. } => None,
+                    })
+                }
+                Control::Button(_)
+                | Control::Toggle(_)
+                | Control::Swatches(_)
+                | Control::Stepper(_)
+                | Control::Field(_)
+                | Control::Choices(_)
+                | Control::Separator => None,
+            })
+        }
+        find(&self.controls, id)
+    }
+}

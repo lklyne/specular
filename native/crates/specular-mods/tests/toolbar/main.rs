@@ -150,10 +150,10 @@ fn the_toolbar_renders_on_change_only_and_inside_a_frame(cx: &mut TestAppContext
     assert_eq!(
         loaded.hosting.reads.borrow().read_by("toolbar"),
         [
+            "look",
             "mods/toolbar/props",
             "panels/tool_options",
-            "panels/toolbar",
-            "theme"
+            "panels/toolbar"
         ]
     );
 

@@ -73,7 +73,7 @@ fn the_welcome_renders_on_change_only_and_inside_a_frame(cx: &mut TestAppContext
     let mut loaded = timed_load(&app, "welcome", json!({}), SIZE, cx);
     assert_eq!(
         loaded.reads("welcome"),
-        ["mods/welcome/props", "panels/welcome", "theme"]
+        ["look", "mods/welcome/props", "panels/welcome"]
     );
     assert_eq!(loaded.idle_renders(), 0, "no script render while idle");
     crate::support::assert_renders_inside_a_frame(

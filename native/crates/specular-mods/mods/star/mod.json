@@ -1,0 +1,9 @@
+{
+  "api": "1.2",
+  "title": "Star",
+  "tools": [{ "name": "star", "title": "Star", "icon": "shape-tool", "group": "shape" }],
+  "items": { "size": [120, 120] },
+  "commands": [
+    { "name": "points", "title": "More star points", "icon": "plus", "dock": true }
+  ]
+}

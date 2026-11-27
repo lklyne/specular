@@ -10,7 +10,10 @@
 use crate::{App, Effect};
 
 /// Light or dark: what is drawn.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, Default, serde::Serialize, serde::Deserialize,
+)]
+#[serde(rename_all = "lowercase")]
 pub enum Appearance {
     /// The light theme.
     #[default]

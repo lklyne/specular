@@ -9,6 +9,7 @@ use super::super::{
     OptionLayout, PaintRole, Palette,
 };
 use super::actions::Actions;
+use crate::mods::ModToolId;
 use crate::property::read;
 use crate::{Action, Property};
 
@@ -58,6 +59,57 @@ pub(super) fn kind_dropdown(
         }],
         id,
     })
+}
+
+/// The shape tool's dropdown: the app's silhouettes, then every installed
+/// mod's shape (a tool with `"group": "shape"`). `armed` is the mod shape
+/// in hand, which a silhouette's choice puts down for the shape tool.
+pub(super) fn tool_kind_dropdown(app: &crate::App, armed: Option<ModToolId>) -> Control {
+    let kind = app.tool_defaults().shape.kind;
+    let set = |kind| {
+        let patch = crate::ToolDefaultPatch::ShapeKind(kind);
+        match armed {
+            Some(_) => Action::SetToolVariant(patch),
+            None => Action::SetToolDefault(patch),
+        }
+    };
+    let id = ControlId::new("shape.kind");
+    let mut dropdown = kind_dropdown(
+        id.clone(),
+        "Set default shape",
+        armed.is_none().then_some(kind),
+        set,
+    );
+    let catalog = app.mod_catalog();
+    let mods: Vec<DropdownOption> = (catalog.tools())
+        .filter(|(_, _, spec)| spec.is_shape())
+        .map(|(tool, installed, spec)| {
+            let word = format!("{}/{}", installed.name, spec.name);
+            DropdownOption {
+                id: id.child(&word),
+                label: spec.title.clone().into(),
+                face: Face::icon(Icon::named_or(spec.icon.as_deref(), Icon::Code)),
+                trailing: None,
+                fields: Vec::new(),
+                chord: None,
+                selected: armed == Some(tool),
+                enabled: true,
+                action: Action::Mod(Box::new(crate::mods::ModAction::SetTool(word))),
+            }
+        })
+        .collect();
+    if let Control::Dropdown(Dropdown {
+        content, summary, ..
+    }) = &mut dropdown
+    {
+        if let Some(chosen) = mods.iter().find(|option| option.selected) {
+            *summary = chosen.face.clone();
+        }
+        if let Some(DropdownSection::Options { options, .. }) = content.first_mut() {
+            options.extend(mods);
+        }
+    }
+    dropdown
 }
 
 fn align_dropdown(app: &crate::App) -> Control {

@@ -98,8 +98,8 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         Event::ContextMenu(screen) => crate::panel::open_menu_at(app, screen),
         Event::ShellChrome => app.session.panel = crate::PanelUi::drawn_by_shell(),
         Event::ChromeLayout => app.session.panel.chrome_covers = true,
-        Event::LayoutLoaded(layout) => app.chrome.layout = *layout,
-        Event::LayoutToggles(toggles) => app.chrome.toggles = toggles,
+        Event::LayoutsLoaded(read) => app.chrome.load(*read),
+        Event::KeymapLoaded(keymap) => app.keymap = keymap,
         Event::ModCatalog(catalog) => crate::mods::on_catalog(app, catalog, &mut effects),
         Event::MenuClosed => app.session.panel.menu = None,
         Event::ChatPanel(available) => app.session.chat.set_available(available),
@@ -288,6 +288,7 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         Action::Share(action) => crate::share_button::run(app, action, effects),
         Action::PressControl(id) => activate_control(app, &id, Modifiers::default(), effects),
         Action::Layout(action) => crate::chrome::run_layout_action(app, action, effects),
+        Action::Overlay(action) => crate::overlays::run(app, action),
         Action::DismissNotice(id) => dismiss_notice(app, &id),
         Action::Mod(action) => crate::mods::run(app, *action, effects),
     }

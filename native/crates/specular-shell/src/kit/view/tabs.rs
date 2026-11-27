@@ -311,8 +311,7 @@ pub(super) fn tabs(
         favicons.retain(|id, _| model.tabs.iter().any(|tab| tab.id == *id));
     });
     h_flex()
-        .h(px(theme::TAB_ROW))
-        .flex_shrink_0()
+        .size_full()
         .pl(px(TRAFFIC_LIGHTS))
         .items_center()
         .child(

@@ -93,36 +93,38 @@ pub(super) fn controls(app: &App, tool: Tool) -> Option<ControlsModel> {
                 |color| set(ToolDefaultPatch::StickyColor(color)),
             ))],
         ])),
-        Tool::AddShape => docked(groups(vec![
-            vec![
-                shape::kind_dropdown(
-                    ControlId::new("shape.kind"),
-                    "Set default shape",
-                    Some(defaults.shape.kind),
-                    |kind| set(ToolDefaultPatch::ShapeKind(kind)),
-                ),
-                size_dropdown(
-                    ControlId::new("shape.size"),
-                    "Set default label size",
-                    Some(defaults.shape.text_size),
-                    |size| set(ToolDefaultPatch::ShapeTextSize(size)),
-                ),
-            ],
-            vec![Control::Swatches(swatches(
-                ControlId::new("shape.color"),
-                Palette::Soft,
-                PaintRole::Fill,
-                Some(&defaults.shape.color),
-                None,
-                |color| set(ToolDefaultPatch::ShapeColor(color)),
-            ))],
-        ])),
+        Tool::AddShape => shape_tool(app, None),
+        Tool::Mod(id) if app.mod_catalog().is_shape(id) => shape_tool(app, Some(id)),
         Tool::Draw => draw_controls(&defaults.draw),
         Tool::AddPage => page_presets(app),
         Tool::Mod(id) => return super::modded::tool_controls(app, id),
         Tool::Select | Tool::AddDocument | Tool::Comment | Tool::Inspect => return None,
     };
     Some(model)
+}
+
+/// The shape tool's options, with `armed` the mod shape in hand if one is.
+fn shape_tool(app: &App, armed: Option<crate::mods::ModToolId>) -> ControlsModel {
+    let defaults = app.tool_defaults();
+    docked(groups(vec![
+        vec![
+            shape::tool_kind_dropdown(app, armed),
+            size_dropdown(
+                ControlId::new("shape.size"),
+                "Set default label size",
+                Some(defaults.shape.text_size),
+                |size| set(ToolDefaultPatch::ShapeTextSize(size)),
+            ),
+        ],
+        vec![Control::Swatches(swatches(
+            ControlId::new("shape.color"),
+            Palette::Soft,
+            PaintRole::Fill,
+            Some(&defaults.shape.color),
+            None,
+            |color| set(ToolDefaultPatch::ShapeColor(color)),
+        ))],
+    ]))
 }
 
 /// The pen's brushes, widths and colours.

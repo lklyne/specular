@@ -42,8 +42,9 @@ the app rewrites them on start. `<app home>` is
   `specular mod clone <name> <new-name>` before editing. A clone is never
   overwritten; a shipped mod's folder is rewritten on every start.
 - `mod.json` says what the mod adds: `items`, `tools`, `commands`,
-  `palette`. Write `"api": "1.1"` for items, tools or commands. Unknown
-  fields are refused, and the error says which.
+  `palette`. Write `"api": "1.2"`: it adds overlays, `Field`, the look,
+  shape tools and the window's keys to 1.1's items, tools and commands.
+  Unknown fields are refused, and the error says which.
 - A mod renders from state only. `state(key)` subscribes it to that key; it
   renders again when the key changes and at no other time. Never loop, poll
   or set a timer to redraw.
@@ -66,6 +67,26 @@ the app rewrites them on start. `<app home>` is
 - Before you promise a feature, check the guide's "What a mod can't do". If
   something is in neither the guide nor the types, assume a mod can't do it.
 - Make only the requested change. Don't touch unrelated mods or layouts.
+
+## Common asks (API 1.2)
+
+- **A new shape.** A mod with a tool of `"group": "shape"` and an item: the
+  tool shows in the shape tool's options, previews with `tool.preview`,
+  places with `item.add {kind: "mod"}`, and its commands show in the dock.
+  The shipped `star` mod is the pattern: `specular mod clone star <name>`.
+- **A layout, theme, colours or fonts.** Copy a file from
+  `<app home>/layouts/` to a new name, edit the tree and its root's
+  `theme`, `colors`, `font` and `font_size`, then `specular run
+  layout.switch '{"name":"<name>"}'`. The shipped layouts are rewritten
+  on start; your copy is not.
+- **A key.** Add it to `<app home>/keys.json` under `global`, `canvas`,
+  `editing`, `page` or `layout:<name>`. A mistake is written to
+  `keys.error`; `specular state keys` shows the result.
+- **A dialog, popup or drawer.** `run("overlay.open", {mod, kind, props})`
+  opens a copy of a mod; the shipped `confirm` and `prompt` mods are ready
+  to use. Text input is the `Field` host component.
+- **A panel.** Clone the shipped `sidebar`, `dock`, `palette`, `chat` or
+  `status` mod and name the clone in a layout.
 
 ## After every mod change
 

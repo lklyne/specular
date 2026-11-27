@@ -92,7 +92,7 @@ fn the_menu_renders_on_change_only_and_inside_a_frame(cx: &mut TestAppContext) {
     let mut loaded = timed_load(&app, "menu", json!({}), SIZE, cx);
     assert_eq!(
         loaded.reads("menu"),
-        ["mods/menu/props", "panels/menu", "theme"]
+        ["look", "mods/menu/props", "panels/menu"]
     );
     assert_eq!(loaded.idle_renders(), 0, "no script render while idle");
     crate::support::assert_renders_inside_a_frame(&mut loaded, &mut app, "menu", 300, |app, i| {

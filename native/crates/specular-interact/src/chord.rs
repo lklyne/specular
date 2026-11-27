@@ -88,17 +88,17 @@ impl Chord {
         Self { alt: true, ..self }
     }
 
-    /// The chord a mod writes, such as `cmd+shift+u` or `alt+1`: modifiers
-    /// (`cmd`, `ctrl`, `shift`, `alt`, `option`) and one character, joined
-    /// by `+`. `None` for anything else.
+    /// The chord a mod or `keys.json` writes, such as `cmd+shift+u`,
+    /// `alt+1` or `shift+tab`: modifiers (`cmd`, `ctrl`, `shift`, `alt`,
+    /// `option`) and one character or a key's name, joined by `+`. `None`
+    /// for anything else.
     pub fn parse(text: &str) -> Option<Self> {
         let (modifiers, key) = text.rsplit_once('+').unwrap_or(("", text));
-        let mut characters = key.chars();
-        let character = characters.next()?.to_lowercase().next()?;
-        if characters.next().is_some() {
-            return None;
-        }
-        let mut chord = Self::char(character);
+        let mut chord = Self::key(named_key(key).or_else(|| {
+            let mut characters = key.chars();
+            let character = characters.next()?.to_lowercase().next()?;
+            characters.next().is_none().then_some(Key::Char(character))
+        })?);
         for modifier in modifiers.split('+').filter(|word| !word.is_empty()) {
             chord = match modifier.to_ascii_lowercase().as_str() {
                 "cmd" | "ctrl" | "meta" => chord.cmd(),
@@ -128,9 +128,31 @@ impl Chord {
     }
 }
 
+/// A key by the name `keys.json` writes it.
+fn named_key(name: &str) -> Option<Key> {
+    Some(match name.to_ascii_lowercase().as_str() {
+        "escape" | "esc" => Key::Escape,
+        "enter" | "return" => Key::Enter,
+        "tab" => Key::Tab,
+        "backspace" => Key::Backspace,
+        "delete" => Key::Delete,
+        "space" => Key::Space,
+        "left" => Key::ArrowLeft,
+        "right" => Key::ArrowRight,
+        "up" => Key::ArrowUp,
+        "down" => Key::ArrowDown,
+        "home" => Key::Home,
+        "end" => Key::End,
+        "pageup" => Key::PageUp,
+        "pagedown" => Key::PageDown,
+        _ => return None,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::Chord;
+    use crate::Key;
 
     #[test]
     fn a_mod_writes_a_chord_as_words() {
@@ -140,6 +162,7 @@ mod tests {
         );
         assert_eq!(Chord::parse("k"), Some(Chord::char('k')));
         assert_eq!(Chord::parse("hyper+k"), None);
-        assert_eq!(Chord::parse("cmd+up"), None);
+        assert_eq!(Chord::parse("cmd+up"), Some(Chord::key(Key::ArrowUp).cmd()));
+        assert_eq!(Chord::parse("cmd+upper"), None);
     }
 }

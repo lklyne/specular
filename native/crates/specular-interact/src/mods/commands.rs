@@ -28,7 +28,7 @@ pub(crate) struct ModCall {
 /// [`ModCatalog::background`]: super::ModCatalog::background
 pub fn running(app: &App) -> Vec<String> {
     let mut names: Vec<String> = Vec::new();
-    let filled = (app.chrome.layout.nodes()).filter_map(|(_, node)| node.fill.clone());
+    let filled = (app.layout().mods().into_iter()).map(|(_, name, _)| name.to_owned());
     let background = (app.mods.catalog.background()).map(|installed| installed.name.clone());
     for name in filled.chain(background) {
         if !names.contains(&name) {

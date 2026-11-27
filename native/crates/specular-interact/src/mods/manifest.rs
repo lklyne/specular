@@ -20,7 +20,7 @@ use serde_json::Value;
 /// state keys, the `specular` module's functions, `mod.json`'s keys) only
 /// grows, and each growth is a new revision. A break is a new generation,
 /// decided on purpose. A mod names the version it was written for, as `1`
-/// (revision 0) or `"1.1"`, and loads on any app of the same generation
+/// (revision 0), `"1.1"` or `"1.2"`, and loads on any app of the same generation
 /// whose revision is at least its own.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ApiVersion {
@@ -36,9 +36,10 @@ pub struct ApiVersion {
 /// |---|---|
 /// | 1.0 | chrome mods: keyed state, `run`, `shared`, host components, `palette` |
 /// | 1.1 | mod items and tools: `items` and `tools` in `mod.json`, the `canvas/mod_items` and `tool` keys, `item.add {kind: mod}`, `item.set`, `item.draw`, `tool.preview`, `mods.install`; `commands` in `mod.json` (palette, keys, dock buttons) and the `call` key |
+/// | 1.2 | the whole window (ADR 0059): layout trees and looks, `layout.switch`, `overlay.open`/`overlay.close` with `openOverlay`/`closeOverlay`, `keys.json`, `chat.*`, the `Field` component, a tool's `group`, and the `layouts`, `look`, `overlays`, `panels/sidebar`, `panels/chat`, `selection`, `canvas/items` and `canvas/info` keys |
 pub const API: ApiVersion = ApiVersion {
     generation: 1,
-    revision: 1,
+    revision: 2,
 };
 
 impl ApiVersion {
@@ -146,6 +147,17 @@ pub struct ToolSpec {
     /// One of the app's own glyphs, by the name `Icon` takes.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub icon: Option<String>,
+    /// The app tool it sits under instead of a button of its own (API
+    /// 1.2): `shape` lists it among the shape tool's shapes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group: Option<String>,
+}
+
+impl ToolSpec {
+    /// Whether it is one of the shape tool's shapes.
+    pub fn is_shape(&self) -> bool {
+        self.group.as_deref() == Some("shape")
+    }
 }
 
 /// A command a mod adds and handles itself (API 1.1): it is listed in the

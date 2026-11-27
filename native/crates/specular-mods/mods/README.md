@@ -8,21 +8,27 @@ of the window, or adds a kind of canvas item, a toolbar tool or commands, from
 the app's state, and changes the app by running commands by name, the same
 commands the palette, the keys and the `specular` CLI run. Save a file and the
 app reloads the mod within a second. Shipped mods are Specular's: clone
-before editing (see "Your own mods"). The toolbar, the tab row, the Share
-button and the notices are built from the same parts you have.
+before editing (see "Your own mods"). Every panel of the window has a
+shipped mod built from the same parts you have, and a layout file says
+which mod (or the app's own panel) goes where.
 
 ## What you can and can't do
 
-You can: redraw the toolbar, the tab row, the Share button, the notices, the
-canvas menu and the first-run view; hide any region; add kinds of canvas
-items drawn from a display list or shown as a web page; add toolbar tools;
-add commands to the palette, the keys and the dock; run any app command;
-read files, run programs and fetch URLs; keep state shared between mods.
+You can: lay out the whole window as a tree of rows, columns and blocks
+in a layout file, several of them, switched at run time; give a layout its
+own theme, colours, font and background; redraw every panel (tab row,
+toolbar, sidebar, dock, agent panel, palette, menu, notices, Share, first
+run) or add your own blocks (a status line); open dialogs, popups, drawers
+and windows over the window; type into fields; rebind any key in
+`keys.json`; add kinds of canvas items drawn from a display list or shown
+as a web page; add toolbar tools and shapes to the shape tool; add commands
+to the palette, the keys and the dock; run any app command; read files, run
+programs and fetch URLs; keep state shared between mods.
 
-You can't: draw the sidebar, the chat panel, the dock or the palette; change
-the built-in items, tools or the theme's colours; read the camera, the
-selection or a live page's content; get pointer or key input inside an
-item. The full list is "What a mod can't do" at the end.
+You can't: draw the canvas itself or change the built-in items; read the
+camera or a live page's content; get pointer or key input inside a
+display-list item (a web item gets both). The full list is "What a mod
+can't do" at the end.
 
 ## What mods are written in
 
@@ -42,9 +48,9 @@ rewritten on every start to match this version.
 - `specular mod check <mod folder>` loads a mod once with no window and
   renders it. Never call a mod done without a passing check; also try it in
   the app.
-- **Escape hatch:** Control+Option+Shift+Escape always works: it sets your
-  layout aside (`mine.json.aside`) and goes back to the shipped one. Nothing
-  can rebind it.
+- **Escape hatch:** Control+Option+Shift+Escape always works: it forgets
+  what was hidden at run time and shows the shipped `default` layout. Your
+  layout files are left as they are. Nothing can rebind it.
 
 ## Seeing the window
 
@@ -84,12 +90,15 @@ export default class Hello extends View {
 }
 ```
 
-Put it in a region with your own layout file, `../layouts/mine.json` (copy
-`default.json` to start it):
+Put it in a block of your own layout, `../layouts/mine.json` (copy
+`default.json` to start it, and change the toolbar block's content):
 
 ```json
-{ "toolbar": { "mod": "hello", "props": {} } }
+{ "id": "toolbar", "type": "block", "size": { "px": 36 },
+  "content": { "mod": "hello", "props": {} } }
 ```
+
+`layout.switch {name: "mine"}` (or the palette's "Layout: …") shows it.
 
 Then check it with no window: `specular mod check ~/path/to/mods/hello`.
 
@@ -100,16 +109,16 @@ Then check it with no window: `specular mod check ~/path/to/mods/hello`.
 - `mods/specular.d.ts`: the whole `specular` module, with every state key and
   command. `gpui-kit.d.ts`, written into a mod's folder when it loads, has the
   element and style surface (`div`, `h_flex`, `Button`, `.bg(..)`, ...).
-- `../layouts/default.json`: which mod fills which region (`tabs`, `toolbar`,
-  `dock`, `sidebar`, `chat`) and which overlay (`menu`, `share`, `toast`,
-  `palette`, `welcome`), whether it is hidden, and the `props` each mod gets.
-  `"mod": null` is the app's own panel. The app writes the shipped layout
-  over this file on every start, so an edit lasts until the next start.
-- `../layouts/mine.json`: your own layout. When it is there it is the one
-  in force, and the app never writes it. Control+Option+Shift+Escape sets it
-  aside as `mine.json.aside` and brings the shipped layout back.
+- `../layouts/<name>.json`: one whole window each (see "The whole
+  window"). `default`, `classic` (every panel the app's own), `studio` and
+  `mods` (every panel a mod) are shipped and written again on every start;
+  any other file is yours and never written. A save applies at once; a bad
+  one keeps the last good layout and writes `<name>.error` beside it.
 - `../layouts/.state/`: what was hidden and shown at run time
-  (`ui.toggle`), apart from the file you edit.
+  (`ui.toggle`) for each layout, and `active`, the layout shown last.
+- `../themes/<name>.json`: a theme a layout names: `{ "appearance":
+  "dark", "colors": { "toolbar": "#1d1d20", ... } }`.
+- `../keys.json`: your own keys (see "Keys").
 
 ## What a mod reads
 
@@ -118,9 +127,13 @@ renders again when that key changes and at no other time, never per frame.
 The camera is in no key, so panning and zooming never run a script; the zoom
 readout is the `Zoom` host component. The keys: `panels/toolbar`,
 `panels/tool_options`, `panels/dock`, `panels/strip`, `panels/menu`,
-`panels/palette`, `panels/share`, `panels/welcome`, `theme`, `settings`, `keys`, `layout`,
-`notices`, and for canvas items, tools and commands `canvas/mod_items`, `tool` and
-`call` (see below).
+`panels/palette`, `panels/share`, `panels/welcome`, `panels/sidebar`,
+`panels/chat`, `theme`, `settings`, `keys`, `layout`, `layouts`, `look`,
+`overlays`, `notices`, `selection` (`{ids, edges}`), `canvas/items` (every
+item, back to front, with its kind, label, parent and words, but no place or
+size), `canvas/info` (the canvas showing, its counts and every canvas), and
+for canvas items, tools and commands `canvas/mod_items`, `tool` and `call`
+(see below).
 `specular state [key]` prints them from the running app.
 
 `props()` is what the layout hands the mod. By convention `props().hidden`
@@ -128,7 +141,10 @@ lists the ids of controls to leave out, and a shipped mod honours it:
 `{ "mod": "toolbar", "props": { "hidden": ["tool.inspect", "zoom"] } }`.
 
 `colors()` is the chrome's palette for the theme drawn now (`toolbar`,
-`toolbarText`, `popup`, `hover`, `raisedFill`, ...), as `#rrggbbaa` strings.
+`toolbarText`, `popup`, `hover`, `raisedFill`, `accent`, ...), as
+`#rrggbbaa` strings, with the layout's theme and `colors` over it. `look()`
+is the layout's look: `{appearance, theme, colors, font, fontSize,
+background}`.
 `cx.theme().colors` has GPUI Kit's generic tokens too.
 
 `shared(key)` / `setShared(key, value)` pass small values between mods.
@@ -153,10 +169,85 @@ app's log. The commands:
 - **tool**: `tool.set` `{tool: select|page|text|sticky|document|shape|draw|comment|inspect|<mod>/<tool>}`, `tool.ellipse`, `tool.diamond`, `tool.highlighter`, `tool.preview` `{draws: [{type: rect|ellipse|path|text|image, ..}]}`
 - **view**: `view.zoom-in`, `view.zoom-out`, `view.zoom-reset`, `view.zoom-to-fit`, `view.zoom` `{percent: number}`, `view.camera` `{x: number, y: number, zoom: number}`, `view.reveal` `{id: entity id}`, `view.theme` `{theme: light|dark|system}`, `view.toggle-sidebar`
 - **ui**: `ui.toggle` `{id: tabs|toolbar|dock|sidebar|chat|menu|share|toast|palette|welcome|<control id>}`, `ui.show` `{id: tabs|toolbar|dock|sidebar|chat|menu|share|toast|palette|welcome|<control id>}`, `ui.hide` `{id: tabs|toolbar|dock|sidebar|chat|menu|share|toast|palette|welcome|<control id>}`, `ui.reset`
+- **layout**: `layout.switch` `{name?: layout name}` (the next one without a name)
+- **overlay**: `overlay.open` `{mod: name, id?, props?, kind?: dialog|popup|drawer|window, width?, height?, at?: [x, y], edge?: left|right|top|bottom, frame?: none}`, `overlay.close` `{id?: overlay id}`
+- **chat**: `chat.toggle`, `chat.new-thread`, `chat.select` `{id: thread id}`, `chat.back`, `chat.close` `{id?: thread id}`, `chat.send` `{text: message}`, `chat.stop`, `chat.model` `{name: model name}`
 - **notice**: `notice.dismiss` `{id: notice id}`
 - **mods**: `mods.install`
 - **share**: `share.copy-link`, `share.access` `{scope: edit|comment|view|none}`, `share.join` `{link: url, fresh?: bool}`, `share.stop`
 - **control**: `control.press` `{id: control name}`
+
+## The whole window (API 1.2)
+
+**A layout is a tree.** `layouts/<name>.json` is a root node with the
+look on it. A node is a `row`, a `column`, a `stack` (shows one child, its
+`active` id) or a `block` with `content`: `"canvas"` (exactly one),
+`{ "mod": name, "props": {} }` or `{ "panel": "tabs"|"toolbar"|"sidebar"|"chat" }`
+(the app's own). Each node may have an `id`, a `size` (`{ "px": 256 }` or
+`{ "weight": 2 }`, the rest shared by weight), `min`, `max`, `hidden`,
+`background` (a colour, a colour name such as `"toolbar"`, or a gradient
+`{ "from": ..., "to": ..., "angle": 90 }`), `border` `{width, color}`,
+`radius`, `padding` and `gap`. The ids `tabs`, `toolbar`, `sidebar` and
+`chat` follow the app: the sidebar block shows while the sidebar is open,
+the chat block takes the panel's width, and `ui.toggle {id}` hides any
+block by its id. Blocks above or left of the canvas lie over its edge and
+the canvas is seen between them; blocks below or right sit beside it.
+
+```json
+{ "title": "Mine", "id": "root", "type": "column",
+  "theme": "studio", "font": "Geist", "font_size": 12,
+  "palette": { "mod": "palette" }, "dock": { "mod": "dock" },
+  "toast": { "mod": "toast" }, "share": { "mod": "share" },
+  "children": [
+    { "id": "tabs", "type": "block", "size": { "px": 38 }, "background": "toolbar",
+      "content": { "mod": "tabs" } },
+    { "id": "body", "type": "row", "children": [
+      { "id": "toolbar", "type": "block", "size": { "px": 36 }, "content": { "mod": "toolbar" } },
+      { "id": "canvas", "type": "block", "content": "canvas" },
+      { "id": "sidebar", "type": "block", "size": { "px": 260 }, "content": { "mod": "sidebar" } },
+      { "id": "chat", "type": "block", "size": { "px": 400 }, "content": { "mod": "chat" } } ] },
+    { "id": "status", "type": "block", "size": { "px": 24 }, "content": { "mod": "status" } } ] }
+```
+
+**The look.** On the root: `theme` (a theme file's name, or
+`{ "light": ..., "dark": ... }`), `colors` (names over the theme's),
+`font`, `font_size` and `background` (shown round the canvas). The overlays
+`menu`, `share`, `toast`, `palette`, `welcome` and `dock` are keys of the
+root too: `{ "mod": name, "props": {} }`, or left out for the app's own.
+
+**Overlays.** `openOverlay(name, spec)` (or `overlay.open`) puts a copy of a
+mod over the window and answers its id: a `dialog` in the middle over a
+scrim (`edge: "top"` keeps it near the top), a `popup` at `at` that a press
+outside closes, a `drawer` along an `edge`, or a `window` that stays. The
+copy reads its id as `props().overlay` and closes itself with
+`closeOverlay(props().overlay)`. Escape closes the top dialog, popup or
+drawer. The shipped `confirm` and `prompt` mods are dialogs any mod or agent
+can open (see their `main.js`).
+
+**Text.** `Field.new(id, { id, placeholder, value, autofocus })` is a line of
+text the window holds: the keys stay in it while a person types, what is
+typed is `shared("field/<id>")`, and each Return moves
+`shared("field/<id>/submit")` on. With `{ control }` it is a model field of
+the dock (an address, a size). Commands a mod runs while one of its fields
+has the keys leave them there.
+
+**Keys.** `keys.json` beside the layouts gives keys to commands, over the
+app's: sections `global`, `canvas`, `editing`, `page` and
+`layout:<name>`; each key names a command (`"layout.switch"`), a command
+with arguments (`"tool.set:{\"tool\":\"shape\"}"` or
+`{ "command": ..., "args": {} }`), or `null` to take the app's key away.
+Keys are written as `cmd+shift+k`, `alt+1`, `shift+tab`, `escape`. The
+`keys` key lists yours first, and the menus show them.
+
+```json
+{ "global": { "cmd+shift+l": "layout.switch" },
+  "canvas": { "s": "tool.set:{\"tool\":\"shape\"}", "r": null } }
+```
+
+**Shapes.** A tool with `"group": "shape"` is listed among the shape tool's
+shapes instead of having a button: picking it arms the mod's tool, and the
+shape button stays on. See the shipped `star` mod: a tool and an item kind
+that make a new shape in about eighty lines.
 
 ## Canvas items, tools and commands (API 1.1)
 
@@ -206,8 +297,9 @@ publishes the `call` key, `{command, number, args}`: act once per `number`.
 `key` is modifiers and one character joined by `+` (`cmd`, `shift`, `alt`).
 `icon` is one of the app's glyphs by its kebab-case name.
 
-**Versions.** `api` is `1` (1.0) or `"1.1"`. A mod loads on an app of the
-same generation whose revision is at least its own.
+**Versions.** `api` is `1` (1.0), `"1.1"` or `"1.2"` (the whole window,
+above). A mod loads on an app of the same generation whose revision is at
+least its own.
 
 ## Host components
 
@@ -227,6 +319,8 @@ Elements a mod places but cannot draw itself, imported from `specular`:
   layout names one, else the app's own Share button.
 - `Prism`, `Prism.new(id, {})`: the first-run view's turning Prism, 160
   points square.
+- `Field`, `Field.new(id, { id, placeholder, value, autofocus })` or
+  `Field.new(id, { control })`: a line of text (see "Text").
 
 ## The CLI
 
@@ -254,8 +348,15 @@ Elements a mod places but cannot draw itself, imported from `specular`:
 | `tabs` | the tab row: tabs, add, title bar, zoom, Share, right panel toggle | `panels/strip` | yes |
 | `share` | the Share button and its popover | `panels/share` | yes |
 | `toast` | the notices, in the canvas's lower right corner | `notices` | yes |
-| `menu` | the canvas's context menu | `panels/menu` | no: `"menu": { "mod": "menu" }` |
+| `menu` | the canvas's context menu | `panels/menu` | `mods` layout |
 | `welcome` | the first-run view | `panels/welcome` | no: `"welcome": { "mod": "welcome" }` |
+| `sidebar` | the canvases, notes and pages | `panels/sidebar` | `mods`, `studio` |
+| `dock` | the selection's or the tool's controls, and the lens | `panels/dock`, `panels/tool_options`, `panels/toolbar` | `mods`, `studio` |
+| `palette` | the command palette, in an overlay | `panels/palette` | `mods`, `studio` |
+| `chat` | the agent threads, transcript and composer | `panels/chat` | `mods`, `studio` |
+| `status` | a status line: canvas, counts, selection, layout | `canvas/info`, `selection`, `layouts` | `studio` |
+| `confirm`, `prompt` | dialogs a mod or agent opens with `openOverlay` | `props()` | opened when asked |
+| `star` | a star among the shape tool's shapes | `tool`, `canvas/mod_items`, `call` | always (a canvas mod) |
 
 The menu mod leaves the keys with the canvas: Escape closes it, but the
 arrows and Return do not move through it as the app's own menu's do.
@@ -353,35 +454,37 @@ snapshot and what shows where the mod is not installed.
 Check this list before you promise a feature. If something is in neither this
 guide nor the types, assume a mod can't do it.
 
-**The window.** A mod can replace the tab row, the toolbar, the Share button,
-the notices, the canvas context menu and the first-run view. It can only add
-entries to the command palette and buttons to the dock; naming a mod for
-either in the layout only hides it. The layers panel (sidebar) and the chat
-panel can only be hidden: there is no state key for them. A mod can't change
-the contents of tool options popups, the settings window, the macOS menu bar,
-the page inspector, or the theme's colours.
+**The window.** Every panel can be a mod, but the canvas itself is the
+app's: a mod can't draw into it, change selection outlines, handles,
+snapping or hit-testing. The settings window, the macOS menu bar, the page
+inspector and the page tools' own popups stay the app's. The shipped panel
+mods cover the common paths; the app's own panels still do more (dragging
+rows, a canvas row's menu, images and comment chips in the composer,
+markdown in the transcript), so `default` keeps them until the mods catch up.
 
-**The canvas.** A mod can't restyle or extend the built-in items and tools,
-change selection outlines, handles, snapping or hit-testing, or read the
-camera, the selection (except the ids the dock passes to its commands), items
-other than its own, or the content of live web pages.
+**The canvas.** A mod can't restyle the built-in items or tools, or read the
+camera, item positions, or the content of live web pages. `canvas/items`
+says what is there, not where.
 
-**Items.** An item can't be entered and gets no pointer, wheel or key input.
-A display list has rects, ellipses, paths, text and images only: no
-gradients, shadows, blurs, clipping, transforms, fonts or rich text. Resizing
-doesn't scale it. No video, camera, screen, audio or GPU shaders; use
-`items.web` for anything richer. `item.draw` isn't an undo step, and several
+**Items.** A display-list item can't be entered and gets no pointer, wheel
+or key input; an `items.web` item is a live page and gets all of them once
+entered. A display list has rects, ellipses, paths, text and images only: no
+gradients, shadows, blurs, clipping, transforms, fonts or rich text.
+Resizing doesn't scale it. `item.draw` isn't an undo step, and several
 `run()` calls are several undo steps. The web viewer and sync peers show
 snapshots only.
 
-**Tools.** A tool gets one press-to-release drag in canvas units: no hover,
-double click, modifiers, pressure, wheel or keys. The preview is one render
-behind. A tool's only dock controls are the mod's command buttons.
+**Tools and shapes.** A tool gets one press-to-release drag in canvas units:
+no hover, double click, modifiers, pressure, wheel or keys. The preview is
+one render behind. A mod shape is a mod item, not a built-in shape: it has
+no label to type in and none of the shape dock's controls unless its mod
+adds them, and its glyph is one of the app's.
 
-**Commands and keys.** A key is one character with Command, Shift or Option,
-works only on the canvas, and loses to any built-in key. Palette entries go in
-the Mods group with no ordering, check marks or disabled state. No context
-menu or menu bar entries.
+**Keys and focus.** `keys.json` can rebind every key but the reset key. The
+window's own keys (Quit, Open, Save, Settings, Hide, Minimize, the palette)
+stay menu keys: a `keys.json` key for one of their chords works over the
+canvas but the menu still takes it elsewhere. A mod can't take the keys
+except through a `Field`, or read a key pressed elsewhere.
 
 **Running.** A mod runs only when installed in the app's mods folder; a canvas
 never runs one. Install mods installs only from the canvas's space folder.

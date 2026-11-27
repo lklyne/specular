@@ -65,7 +65,7 @@ fn family(kind: &Kind) -> Family {
 fn has_options(app: &App, tool: Tool) -> bool {
     match tool {
         Tool::AddPage | Tool::AddText | Tool::AddSticky | Tool::AddShape | Tool::Draw => true,
-        Tool::Mod(id) => modded::tool_has_options(app, id),
+        Tool::Mod(id) => app.mod_catalog().is_shape(id) || modded::tool_has_options(app, id),
         Tool::Select | Tool::AddDocument | Tool::Comment | Tool::Inspect => false,
     }
 }

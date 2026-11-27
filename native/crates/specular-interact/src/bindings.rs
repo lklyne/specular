@@ -8,9 +8,11 @@
 //! An entered page has every key but the ones [`kept_from_page`] lists, as
 //! a browser's content has every key its chrome does not keep.
 
+mod keymap;
 mod route;
 mod shell;
 
+pub use self::keymap::{KeyRow, KeySection, Keymap};
 pub(crate) use self::route::{binding_for, on_key, page_edit, page_edit_for};
 pub use self::shell::{SHELL_KEYS, ShellCommand, kept_from_page};
 

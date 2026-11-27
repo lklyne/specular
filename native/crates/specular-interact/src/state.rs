@@ -11,11 +11,19 @@
 //! | `panels/palette` | [`palette`]: every command a person can pick, with its command name |
 //! | `panels/share` | the Share button and its popover |
 //! | `panels/welcome` | [`onboarding`](crate::onboarding): the first-run view while no space is open, or `null` |
+//! | `panels/sidebar` | the sidebar: shown or not, and its sections of rows by control id (ADR 0059) |
+//! | `panels/chat` | the right panel: its threads, the transcript showing and the composer; `chat.*` commands act on it (ADR 0059) |
 //! | `theme` | the appearance drawn and the choice behind it |
 //! | `settings` | what is kept between launches |
-//! | `keys` | every key binding: its keys, where it fires and the command it runs |
-//! | `layout` | the layout file in force, what was toggled over it, and the regions hidden |
+//! | `keys` | every key binding: its keys, where it fires and the command it runs, the person's `keys.json` first |
+//! | `layout` | the layout in force by name, its file, what was toggled over it, and the regions hidden |
+//! | `layouts` | every layout, `{name, title, active}` (ADR 0059) |
+//! | `look` | the look in force: appearance, theme, colours by name, font, text size (ADR 0059) |
+//! | `overlays` | the mod overlays open, bottom first: `{id, mod, props, kind, ...}` (ADR 0059) |
 //! | `notices` | [`notices`]: a page that stopped or failed to load, a share that failed, mods to install |
+//! | `selection` | `{ids, edges}`: what is selected (ADR 0059) |
+//! | `canvas/items` | every item of the active canvas, back to front, without place or size (ADR 0059) |
+//! | `canvas/info` | the canvas showing, its counts, and every canvas of the space (ADR 0059) |
 //! | `canvas/mod_items` | the active canvas's mod items, without their positions (ADR 0057) |
 //! | `tool` | the armed mod tool's stroke, or `null` (ADR 0057) |
 //! | `call` | the last mod command run, `{command, number, args}`, or `null` |
@@ -26,6 +34,7 @@
 //! as its id alone.
 
 mod keys;
+mod panels;
 mod revisions;
 
 pub use self::revisions::Revisions;
@@ -40,7 +49,7 @@ use crate::{
 };
 
 /// Every key, in the order [`state`] lists them.
-pub const STATE_KEYS: [&str; 16] = [
+pub const STATE_KEYS: [&str; 24] = [
     "panels/toolbar",
     "panels/tool_options",
     "panels/dock",
@@ -49,11 +58,19 @@ pub const STATE_KEYS: [&str; 16] = [
     "panels/palette",
     "panels/share",
     "panels/welcome",
+    "panels/sidebar",
+    "panels/chat",
     "theme",
     "settings",
     "keys",
     "layout",
+    "layouts",
+    "look",
+    "overlays",
     "notices",
+    "selection",
+    "canvas/items",
+    "canvas/info",
     "canvas/mod_items",
     "tool",
     "call",
@@ -83,11 +100,22 @@ pub fn state(app: &App) -> BTreeMap<&'static str, Value> {
         ("panels/palette", palette_json(app)),
         ("panels/share", to_json(&bar.share)),
         ("panels/welcome", to_json(crate::onboarding(app))),
+        ("panels/sidebar", panels::sidebar_json(app)),
+        ("panels/chat", panels::chat_json(app)),
         ("theme", theme_json(app)),
         ("settings", settings_json(app)),
-        ("keys", keys::bindings()),
+        ("keys", keys::bindings(&app.keymap)),
         ("layout", layout_json(app)),
+        ("layouts", layouts_json(app)),
+        (
+            "look",
+            app.layout().look.to_json(&app.look(), app.appearance()),
+        ),
+        ("overlays", crate::overlays::overlays_json(app)),
         ("notices", to_json(crate::notices(app))),
+        ("selection", panels::selection_json(app)),
+        ("canvas/items", panels::items_json(app)),
+        ("canvas/info", panels::info_json(app)),
         ("canvas/mod_items", crate::mods::mod_items_json(app)),
         ("tool", crate::mods::tool_json(app)),
         ("call", crate::mods::call_json(app)),
@@ -117,8 +145,7 @@ fn strip_json(app: &App, bar: &crate::ToolbarModel) -> Value {
         fields.insert("chat".to_owned(), to_json(&bar.chat));
         let zoom = app
             .layout()
-            .toolbar
-            .fill
+            .fill(crate::Region::Toolbar)
             .is_none()
             .then(|| json!({ "id": "zoom" }));
         fields.insert("zoom".to_owned(), zoom.unwrap_or(Value::Null));
@@ -129,21 +156,21 @@ fn strip_json(app: &App, bar: &crate::ToolbarModel) -> Value {
 fn palette_json(app: &App) -> Value {
     let items: Vec<Value> = (palette(app).into_iter())
         .map(|item| {
-            let command = match item.run {
-                PaletteRun::Action(action) => {
-                    naming(&Run::Action(action)).map(|spec| spec.name.to_owned())
-                }
-                PaletteRun::Shell(command) => {
-                    naming(&Run::Shell(command)).map(|spec| spec.name.to_owned())
-                }
-                PaletteRun::Named { name, .. } => crate::command(&name)
-                    .map(|spec| spec.name.to_owned())
-                    .or(Some(name)),
+            let (command, args) = match item.run {
+                PaletteRun::Action(action) => keys::command_of(&action)
+                    .map(|(name, args)| (name.to_owned(), args))
+                    .unzip(),
+                PaletteRun::Shell(command) => (
+                    naming(&Run::Shell(command)).map(|spec| spec.name.to_owned()),
+                    None,
+                ),
+                PaletteRun::Named { name, args } => (Some(name), Some(args)),
             };
             json!({
                 "label": item.label,
                 "group": item.group,
                 "command": command,
+                "args": args.unwrap_or(Value::Null),
                 "chord": item.chord,
                 "enabled": item.enabled,
                 "checked": item.checked,
@@ -179,14 +206,29 @@ fn settings_json(app: &App) -> Value {
     })
 }
 
+fn layouts_json(app: &App) -> Value {
+    let layouts: Vec<Value> = (app.layouts())
+        .map(|(name, layout)| {
+            json!({
+                "name": name,
+                "title": layout.title.as_deref().unwrap_or(name),
+                "active": name == app.layout_name(),
+            })
+        })
+        .collect();
+    Value::Array(layouts)
+}
+
 fn layout_json(app: &App) -> Value {
     let regions = app.regions();
     let hidden: Vec<&str> = (crate::Region::ALL.into_iter())
         .filter(|region| !regions.shows(*region))
         .map(crate::Region::name)
         .collect();
+    let file: Value = serde_json::from_str(&app.layout().to_text()).unwrap_or(Value::Null);
     json!({
-        "file": to_json(app.layout()),
+        "name": app.layout_name(),
+        "file": file,
         "toggles": to_json(app.layout_toggles()),
         "hidden": hidden,
     })

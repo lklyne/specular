@@ -137,5 +137,7 @@ impl ShellWindow for HeadlessWindow {
 
     fn edit_field(&self, _: &ControlId) {}
 
+    fn run_shell(&self, _: specular_interact::ShellCommand) {}
+
     fn set_title(&self, _: &str, _: bool) {}
 }

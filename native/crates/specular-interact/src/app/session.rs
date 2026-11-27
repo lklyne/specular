@@ -30,6 +30,8 @@ pub struct Session {
     pub hover: Option<EntityId>,
     /// What keys go to.
     pub focus: Focus,
+    /// The mod overlays open, bottom first.
+    pub(crate) overlays: crate::overlays::Overlays,
     /// The item a tab shows under the chrome, with the camera the canvas
     /// gets back. `None` while the canvas is shown.
     pub(crate) item_view: Option<crate::showing::ItemView>,

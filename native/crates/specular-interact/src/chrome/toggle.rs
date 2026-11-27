@@ -59,6 +59,8 @@ pub enum LayoutAction {
     Show(String),
     /// Hide it.
     Hide(String),
+    /// Show the layout named, or with none the next one by name.
+    Switch(Option<String>),
     /// Set the toggles aside and go back to the shipped layout.
     Reset,
 }
@@ -69,12 +71,23 @@ impl ChromeState {
         if self.hidden(&id) == hidden {
             return false;
         }
-        if self.layout.hides(&id) == hidden {
-            self.toggles.hidden.remove(&id);
+        if self.layout().hides(&id) == hidden {
+            self.toggles_mut().hidden.remove(&id);
         } else {
-            self.toggles.hidden.insert(id, hidden);
+            self.toggles_mut().hidden.insert(id, hidden);
         }
         true
+    }
+
+    /// The layout `name` names, or the one after the one in force.
+    fn next(&self, name: Option<&str>) -> Option<String> {
+        if let Some(name) = name {
+            return self.layouts.contains_key(name).then(|| name.to_owned());
+        }
+        let names: Vec<&String> = self.layouts.keys().collect();
+        let at = names.iter().position(|name| **name == self.active);
+        let next = at.map_or(0, |at| (at + 1) % names.len().max(1));
+        names.get(next).map(|name| (*name).clone())
     }
 }
 
@@ -89,13 +102,24 @@ pub(crate) fn run(app: &mut App, action: LayoutAction, effects: &mut Vec<Effect>
         }
         LayoutAction::Show(id) => chrome.set(id, false),
         LayoutAction::Hide(id) => chrome.set(id, true),
+        LayoutAction::Switch(name) => {
+            if let Some(next) = chrome.next(name.as_deref())
+                && next != chrome.active
+            {
+                chrome.active.clone_from(&next);
+                effects.push(Effect::SaveActiveLayout(next));
+            }
+            return;
+        }
         LayoutAction::Reset => {
-            *chrome = ChromeState::default();
+            chrome.toggles.clear();
+            super::state::DEFAULT.clone_into(&mut chrome.active);
             effects.push(Effect::ResetLayout);
             return;
         }
     };
     if changed {
-        effects.push(Effect::SaveLayoutToggles(chrome.toggles.clone()));
+        let toggles = chrome.toggles().clone();
+        effects.push(Effect::SaveLayoutToggles(chrome.active.clone(), toggles));
     }
 }

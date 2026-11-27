@@ -1,7 +1,8 @@
 // The `specular` module (ADR 0055): what a mod imports to reach the app.
 // This file is checked in and written into the mods folder on every start.
-// `api` 1.1. Within a generation the surface only grows: 1.1 added canvas
-// items, tools and commands (ADR 0057).
+// `api` 1.2. Within a generation the surface only grows: 1.1 added canvas
+// items, tools and commands (ADR 0057); 1.2 added the window's own panels,
+// overlays, the look and text fields (ADR 0059).
 
 /**
  * Every state key. `panels/*` are the app's own panel models as plain data;
@@ -26,6 +27,14 @@
  * - `canvas/mod_items`: the active canvas's mod items `[{id, mod, width, height, props}]`, without their positions (1.1)
  * - `tool`: the armed mod tool's stroke `{tool: "<mod>/<tool>", number, phase: "down"|"up", points: [[x, y]]}` in canvas units, or null (1.1)
  * - `call`: the last mod command run `{command: "<mod>/<command>", number, args}`, or null. Act once per `number` (1.1)
+ * - `panels/sidebar`: `{visible, add, sections: [{id, title, folded, rows}]}`: the canvases section's rows are `{id, canvas, label, active, count, rename}`, the others `{id, label, icon, trailing, selected, dimmed, expanded, children}`. A row is pressed with `control.press {id}`, renamed by pressing its `rename` id (1.2)
+ * - `panels/chat`: `{available, visible, width, title, threads: [{id, title, draft, active, running}], transcript: {messages: [{id, role, text, images}], streaming, run, error} | null, composer: {placeholder, running, model: {label, options: [{name, description, chosen}]}}}`, driven by the `chat.*` commands (1.2)
+ * - `layouts`: `[{name, title, active}]`, every layout; `layout.switch {name}` shows one (1.2)
+ * - `look`: `{appearance: "light"|"dark", theme, colors: {name: css color}, font, fontSize, background}`, the layout's resolved look (1.2)
+ * - `overlays`: the open overlays, bottom to top `[{id, mod, kind, props, width, height, at, edge, frame}]` (1.2)
+ * - `selection`: `{ids: [entity id], edges: [edge id]}` (1.2)
+ * - `canvas/items`: every item of the active canvas, back to front `[{id, kind, label, parent, ..detail}]`, without places or sizes: a page adds `url`, text `text`, a shape `shape` and `text`, a mod item `mod` (1.2)
+ * - `canvas/info`: `{id, name, items, edges, canvases: [{id, name, active}]}` (1.2)
  */
 export type StateKey =
   | "panels/toolbar"
@@ -43,7 +52,15 @@ export type StateKey =
   | "notices"
   | "canvas/mod_items"
   | "tool"
-  | "call";
+  | "call"
+  | "panels/sidebar"
+  | "panels/chat"
+  | "layouts"
+  | "look"
+  | "overlays"
+  | "selection"
+  | "canvas/items"
+  | "canvas/info";
 /**
  * Every command `run` takes, with its arguments and what it does.
  *
@@ -150,6 +167,17 @@ export type StateKey =
  * - `share.join` `{link: url, fresh?: bool}`: Share the active canvas through a link's live room, or a new canvas with fresh.
  * - `share.stop`: Stop sharing the active canvas, keeping its document as it is.
  * - `control.press` `{id: control name}`: Do what a click on the control with this name does.
+ * - `layout.switch` `{name?: layout name}`: Show another layout, or the next one (1.2).
+ * - `overlay.open` `{mod, id?, props?, kind?: dialog|popup|drawer|window, width?, height?, at?: [x, y], edge?: left|right|top|bottom, frame?: none}`: Open a mod above the window (1.2).
+ * - `overlay.close` `{id?: overlay id}`: Close an overlay, the top one by default (1.2).
+ * - `chat.toggle`: Show the right panel if it is hidden, hide it if shown (1.2).
+ * - `chat.new-thread`: Start a thread on the canvas showing (1.2).
+ * - `chat.select` `{id: thread id}`: Show a thread of `panels/chat` (1.2).
+ * - `chat.back`: Go back from a thread to the list (1.2).
+ * - `chat.close` `{id?: thread id}`: Close the thread named, or the one showing (1.2).
+ * - `chat.send` `{text: message}`: Send a message to the thread showing, or to a new one (1.2).
+ * - `chat.stop`: Stop the agent's run on the thread showing (1.2).
+ * - `chat.model` `{name: model name}`: Choose the model new runs use, by a name `panels/chat` lists (1.2).
  */
 export type CommandName =
   | `${string}/${string}`
@@ -255,7 +283,18 @@ export type CommandName =
   | "share.access"
   | "share.join"
   | "share.stop"
-  | "control.press";
+  | "control.press"
+  | "layout.switch"
+  | "overlay.open"
+  | "overlay.close"
+  | "chat.toggle"
+  | "chat.new-thread"
+  | "chat.select"
+  | "chat.back"
+  | "chat.close"
+  | "chat.send"
+  | "chat.stop"
+  | "chat.model";
 
 /** The value of a state key, or null. Reading a key subscribes the mod to it: the mod renders again when it changes, and only then. */
 export function state(key: StateKey): any;
@@ -267,6 +306,15 @@ export function shared(key: string): any;
 export function setShared(key: string, value: any): boolean;
 /** Runs a command by name, as the palette, a key or the CLI would. Throws when the command is unknown, its arguments are wrong, or it cannot run now. The command itself runs just after the call returns. */
 export function run(name: CommandName, args?: object): { ok: true; name: string };
+/** How an overlay sits: a dialog is centred over a scrim, a popup sits at `at` and closes on a press outside, a drawer runs along `edge`, a window stays until closed. Escape closes the top dialog, popup or drawer. */
+export type OverlayKind = "dialog" | "popup" | "drawer" | "window";
+/** Opens a copy of the mod `name` over the window and answers its id (the `id` given, else the mod's name). The copy reads its id as `props().overlay`. Opening an id already open moves it to the top with the new spec. */
+export function openOverlay(name: string, spec?: {
+  id?: string; props?: object; kind?: OverlayKind; width?: number; height?: number;
+  at?: [number, number]; edge?: "left" | "right" | "top" | "bottom"; frame?: "none";
+}): string;
+/** Closes the overlay `id`, or the top one. */
+export function closeOverlay(id?: string): void;
 /** Every command: `{ name, args, about, enabled }`. */
 export function commands(): Array<{ name: CommandName; args: string; about: string; enabled: boolean }>;
 /** Shows a line to the person (today: the app's log). */
@@ -278,7 +326,18 @@ export function colors(): {
   divider: string; keyText: string; sidebar: string; sidebarRule: string; interactive: string;
   interactiveHover: string; raisedFill: string; raisedRim: string; raisedShadowNear: string;
   raisedShadowFar: string; tabHover: string; primary: string; primaryHover: string;
-  primaryForeground: string; error: string; warning: string; backdrop: string;
+  primaryForeground: string; error: string; warning: string; backdrop: string; accent: string;
+  [name: string]: string;
+};
+
+/** The active layout's look: its appearance, theme name, resolved colours, font and background. */
+export function look(): {
+  appearance: "light" | "dark";
+  theme: string | null;
+  colors: Record<string, string>;
+  font: string | null;
+  fontSize: number | null;
+  background: any;
 };
 
 /** A Rust-built element: give it an id and its props, and style the box it sits in. */
@@ -291,6 +350,8 @@ export const Icon: HostComponent<{ name: any; size?: number; color?: string; tin
 export const Zoom: HostComponent<{ compact?: boolean }>;
 /** `ToolOptions`: the options of the tool in hand, beside its button: place it inside the button's `relative()` box. `place` is `panels/toolbar`'s `tools`. */
 export const ToolOptions: HostComponent<{ place: "docked" | "top" | "bottom" }>;
+/** `Field`: a line of text the window holds, so the keys stay in it while a person types. With `control`, the model field of that id in `panels/dock` or `panels/tool_options` (an address, a size), which sends what is typed as the app's own does. Otherwise a mod's own field: what is typed is `shared("field/<id>")`, and each Return moves `shared("field/<id>/submit")` on by one. `value` is where it starts, and `autofocus` gives it the keys as it is made. A field is made once for its `id`: name it anew for a fresh one. Headless it is a placeholder. */
+export const Field: HostComponent<{ control?: string; id?: string; value?: string; placeholder?: string; autofocus?: boolean }>;
 /** `Favicon`: a tab's glyph: the page's own icon once the window has it, else the panel glyph `icon` (`tabs[].icon`) as `Icon` draws it. `tab` is the tab's id. */
 export const Favicon: HostComponent<{ tab: string; icon: any; size?: number; color?: string; control?: string }>;
 /** `WindowDrag`: bare title bar. A press that moves drags the window, and a double click does what the system says a title bar's does. It fills the box it is put in. */

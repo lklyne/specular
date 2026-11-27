@@ -1,7 +1,7 @@
-//! [`ModSet`]: the mods a window's layout names, loaded and kept in step.
+//! [`ModSet`]: the copies of mods a window runs, loaded and kept in step.
 //!
-//! The window hands it the layout each time it draws. It publishes each
-//! named mod's `props`, loads a mod the first time a region names it
+//! The window hands it every copy it runs each time it draws. It publishes
+//! each copy's `props`, loads a copy the first time it is named
 //! (watched, so a save reloads it in place and a bad save keeps the old
 //! build), writes `<name>.error` beside a mod that does not load and takes
 //! it away on a good load, tries a failed mod again when its files change,
@@ -13,7 +13,6 @@ use std::time::SystemTime;
 
 use gpui::{AnyView, App, Window};
 use serde_json::{Value, json};
-use specular_interact::Layout;
 
 use crate::host::Hosting;
 use crate::runner::Mod;
@@ -28,7 +27,42 @@ enum Slot {
     },
 }
 
-/// What a region shows for the mod it names.
+/// One copy of a mod the window runs: in a block (its id is the block's),
+/// an overlay, or out of sight (its id is the mod's name).
+#[derive(Debug, Clone, PartialEq)]
+pub struct ModCopy {
+    /// The name the copy goes by, which keys its props and its reads.
+    pub id: String,
+    /// The mod it is a copy of.
+    pub name: String,
+    /// What it is handed, as `props()`.
+    pub props: Value,
+}
+
+impl ModCopy {
+    /// Every copy `layout` places, in its blocks and its overlays.
+    pub fn of_layout(layout: &specular_interact::Layout) -> Vec<Self> {
+        (layout.mods().into_iter())
+            .map(|(id, name, props)| Self {
+                id,
+                name: name.to_owned(),
+                props: Value::Object(props.clone()),
+            })
+            .collect()
+    }
+
+    /// A copy of the mod `name` run out of sight, for its canvas items,
+    /// tools and commands.
+    pub fn background(name: &str) -> Self {
+        Self {
+            id: name.to_owned(),
+            name: name.to_owned(),
+            props: Value::Null,
+        }
+    }
+}
+
+/// What a block shows for the copy it names.
 #[derive(Debug)]
 pub enum Placed<'a> {
     /// The mod's view.
@@ -41,7 +75,8 @@ pub enum Placed<'a> {
 pub struct ModSet {
     folder: PathBuf,
     hosting: Hosting,
-    slots: BTreeMap<String, Slot>,
+    /// Each copy by its id, with the mod it is a copy of.
+    slots: BTreeMap<String, (String, Slot)>,
     /// The state's clock when the mods were last brought in step.
     seen: Option<u64>,
 }
@@ -82,63 +117,47 @@ impl ModSet {
         &self.hosting
     }
 
-    /// Brings the mods in step with `layout` and `background` (the mods
-    /// that run out of sight, for their canvas items, tools and commands):
-    /// publishes each mod the layout names its props, loads what is newly
-    /// named or was fixed since it failed, and lets go of what is no longer
-    /// named. Returns whether the set of mods loaded changed.
-    pub fn sync(
-        &mut self,
-        layout: &Layout,
-        background: &[String],
-        window: &mut Window,
-        cx: &mut App,
-    ) -> bool {
-        let mut named = Vec::new();
-        for (_, node) in layout.nodes() {
-            let Some(name) = node.fill.as_deref() else {
-                continue;
-            };
-            let props = Value::Object(node.props.clone());
-            (self.hosting.revisions.borrow_mut()).publish(&format!("mods/{name}/props"), props);
-            if !named.iter().any(|seen| seen == name) {
-                named.push(name.to_owned());
-            }
-        }
-        for name in background {
-            if !named.contains(name) {
-                named.push(name.clone());
-            }
+    /// Brings the mods in step with `copies`, every copy the window runs
+    /// now: publishes each copy's props, loads what is newly named or was
+    /// fixed since it failed, and lets go of what is no longer named.
+    /// Returns whether the set of copies loaded changed.
+    pub fn sync(&mut self, copies: &[ModCopy], window: &mut Window, cx: &mut App) -> bool {
+        for copy in copies {
+            (self.hosting.revisions.borrow_mut())
+                .publish(&format!("mods/{}/props", copy.id), copy.props.clone());
         }
         let before = self.slots.len();
         let reads = self.hosting.reads.clone();
-        self.slots.retain(|name, _| {
-            let keep = named.contains(name);
+        self.slots.retain(|id, (name, _)| {
+            let keep = copies
+                .iter()
+                .any(|copy| copy.id == *id && copy.name == *name);
             if !keep {
-                reads.borrow_mut().forget(name);
+                reads.borrow_mut().forget(id);
             }
             keep
         });
         let mut changed = self.slots.len() != before;
-        for name in named {
-            let dir = self.folder.join(&name);
-            let due = match self.slots.get(&name) {
+        for copy in copies {
+            let dir = self.folder.join(&copy.name);
+            let due = match self.slots.get(&copy.id) {
                 None => true,
-                Some(Slot::Ready(_)) => false,
-                Some(Slot::Failed { stamp: then, .. }) => stamp(&dir) != *then,
+                Some((_, Slot::Ready(_))) => false,
+                Some((_, Slot::Failed { stamp: then, .. })) => stamp(&dir) != *then,
             };
             if due {
-                let slot = self.load(&name, &dir, window, cx);
+                let slot = self.load(&copy.id, &copy.name, &dir, window, cx);
                 changed |= matches!(slot, Slot::Ready(_));
-                self.slots.insert(name, slot);
+                self.slots
+                    .insert(copy.id.clone(), (copy.name.clone(), slot));
             }
         }
         changed
     }
 
-    fn load(&self, name: &str, dir: &Path, window: &mut Window, cx: &mut App) -> Slot {
+    fn load(&self, id: &str, name: &str, dir: &Path, window: &mut Window, cx: &mut App) -> Slot {
         let data = self.folder.join(".data").join(name);
-        match Mod::load(name, dir, &data, &self.hosting, true, window, cx) {
+        match Mod::load(id, dir, &data, &self.hosting, true, window, cx) {
             Ok(loaded) => {
                 if let Err(error) = shipped::clear_error(dir) {
                     tracing::warn!("mod `{name}`: {error}");
@@ -167,36 +186,36 @@ impl ModSet {
             return;
         }
         self.seen = Some(clock);
-        for slot in self.slots.values() {
+        for (_, slot) in self.slots.values() {
             if let Slot::Ready(loaded) = slot {
                 loaded.refresh_if_stale(&self.hosting, cx);
             }
         }
     }
 
-    /// What the region filled by the mod `name` shows, or `None` when no
-    /// mod by that name is loaded or failing.
-    pub fn placed(&self, name: &str, cx: &App) -> Option<Placed<'_>> {
-        match self.slots.get(name)? {
+    /// What the copy `id` shows, or `None` when no copy by that id is
+    /// loaded or failing.
+    pub fn placed(&self, id: &str, cx: &App) -> Option<Placed<'_>> {
+        match &self.slots.get(id)?.1 {
             Slot::Ready(loaded) => Some(Placed::View(loaded.view(cx))),
             Slot::Failed { error, .. } => Some(Placed::Failed(error)),
         }
     }
 
-    /// The views of the loaded mods among `names`, to draw out of sight so
+    /// The views of the loaded copies among `ids`, to draw out of sight so
     /// their scripts run.
-    pub fn views(&self, names: &[String], cx: &App) -> Vec<AnyView> {
-        (names.iter())
-            .filter_map(|name| match self.slots.get(name)? {
+    pub fn views(&self, ids: &[String], cx: &App) -> Vec<AnyView> {
+        (ids.iter())
+            .filter_map(|id| match &self.slots.get(id)?.1 {
                 Slot::Ready(loaded) => Some(loaded.view(cx)),
                 Slot::Failed { .. } => None,
             })
             .collect()
     }
 
-    /// The loaded mods.
+    /// The loaded copies.
     pub fn loaded(&self) -> impl Iterator<Item = &Mod> {
-        self.slots.values().filter_map(|slot| match slot {
+        self.slots.values().filter_map(|(_, slot)| match slot {
             Slot::Ready(loaded) => Some(&**loaded),
             Slot::Failed { .. } => None,
         })

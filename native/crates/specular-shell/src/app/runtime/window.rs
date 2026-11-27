@@ -70,6 +70,10 @@ pub trait ShellWindow {
     /// selected. Only a window that draws the chrome itself is asked.
     fn edit_field(&self, field: &specular_interact::ControlId);
 
+    /// Runs the window's own command, as its menu item does. A window with
+    /// no menus does nothing.
+    fn run_shell(&self, command: specular_interact::ShellCommand);
+
     /// The window's title, and whether it shows unsaved changes.
     fn set_title(&self, title: &str, unsaved: bool);
 }

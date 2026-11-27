@@ -1,6 +1,6 @@
 //! The chrome's colours as a mod reads them (`colors()` in the `specular`
 //! module): the panel colours the canvas and the Kit window draw with,
-//! light or dark as the `theme` key says, as `#rrggbbaa` strings.
+//! light or dark as the `look` key says, with the colours the layout or its theme renames over them, as `#rrggbbaa` strings.
 //!
 //! The Kit's theme carries only GPUI Kit's generic tokens (`background`,
 //! `primary`, ...); the toolbar's own strip, its text and the raised face of
@@ -90,5 +90,11 @@ pub fn chrome_colors(appearance: Appearance) -> Value {
         Appearance::Dark => hex(panel.sidebar),
     };
     colors.insert("backdrop".to_owned(), Value::String(backdrop));
+    // The focus ring's blue, which a layout or theme may rename.
+    let accent = match appearance {
+        Appearance::Light => packed(0x2b7f_ffff),
+        Appearance::Dark => packed(0x51a2_ffff),
+    };
+    colors.insert("accent".to_owned(), Value::String(accent));
     Value::Object(colors)
 }

@@ -13,6 +13,8 @@ use crate::{
 /// run in the order they are returned.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Effect {
+    /// Run the window's own command (a `keys.json` key bound to one).
+    RunShell(crate::ShellCommand),
     /// Copy each mod from the space folder (its `from`, relative to the
     /// space folder) into the app home's `mods/`, then answer with
     /// [`Event::ModCatalog`](crate::Event::ModCatalog). The person asked
@@ -321,10 +323,12 @@ pub enum Effect {
     Quit,
     /// Write the settings to the preferences file, under `show`.
     SaveSettings(AppSettings),
-    /// Keep what was toggled over the layout, apart from the layout file.
-    SaveLayoutToggles(crate::Toggles),
-    /// Set the toggles' file aside and write the shipped layout file again:
-    /// the app is back on the shipped layout.
+    /// Keep what was toggled over the layout named, apart from its file.
+    SaveLayoutToggles(String, crate::Toggles),
+    /// Keep which layout is shown, for the next start.
+    SaveActiveLayout(String),
+    /// Set every toggles' file aside and write the shipped layouts again:
+    /// the app is back on the shipped default.
     ResetLayout,
     /// Count the elements each page has inside a comment region and answer
     /// with [`Event::RegionGrab`](crate::Event::RegionGrab), which repeats

@@ -44,7 +44,7 @@ pub use host::{Hosting, MODULE, ModHost, RunError, specular_module};
 pub use manifest::read_manifest;
 pub use reads::Reads;
 pub use runner::{Mod, ModStats};
-pub use set::{ModSet, Placed};
+pub use set::{ModCopy, ModSet, Placed};
 pub use specular_interact::Revisions;
 pub use specular_interact::mods::{
     API, ApiVersion, FILE as MANIFEST_FILE, ItemSpec, ManifestError, ModManifest, PaletteEntry,

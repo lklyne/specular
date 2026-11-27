@@ -25,6 +25,8 @@ mod key_bindings;
 #[cfg(target_os = "macos")]
 mod keys;
 #[cfg(target_os = "macos")]
+mod look;
+#[cfg(target_os = "macos")]
 mod menus;
 #[cfg(target_os = "macos")]
 mod mods;

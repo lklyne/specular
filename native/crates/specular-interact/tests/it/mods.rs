@@ -157,3 +157,55 @@ fn a_mod_command_is_in_the_palette_on_its_key_and_in_the_dock() {
     assert_eq!(state(app.app())["call"]["args"], json!({ "ids": [id] }));
     app.assert_undo_returns_to_start();
 }
+
+#[test]
+fn a_mod_shape_is_one_of_the_shape_tools_shapes() {
+    let star = InstalledMod {
+        name: "star".to_owned(),
+        dir: "/mods/star".to_owned(),
+        manifest: ModManifest::parse(
+            r#"{ "api": "1.2", "title": "Star", "items": { "size": [120, 120] },
+                 "tools": [{ "name": "star", "title": "Star", "icon": "star", "group": "shape" }] }"#,
+            Path::new("mod.json"),
+        )
+        .expect("manifest"),
+    };
+    let mut app = TestApp::empty();
+    app.send(Event::ModCatalog(ModCatalog { mods: vec![star] }));
+    let toolbar = state(app.app())["panels/toolbar"].to_string();
+    assert!(!toolbar.contains("tool.star/star"), "no button of its own");
+
+    app.act(specular_interact::Action::SetTool(Tool::AddShape));
+    let options = state(app.app())["panels/tool_options"].to_string();
+    assert!(options.contains("shape.kind.star/star"), "{options}");
+    run(
+        &mut app,
+        "control.press",
+        &json!({ "id": "shape.kind.star/star" }),
+    );
+    assert!(
+        matches!(app.session().tool, Tool::Mod(_)),
+        "the star in hand"
+    );
+    let options = state(app.app())["panels/tool_options"].clone();
+    assert!(
+        options.to_string().contains("shape.kind.rectangle"),
+        "the shapes stay offered"
+    );
+    let shape_on = state(app.app())["panels/toolbar"].to_string();
+    assert!(
+        shape_on.contains(r#""active":true"#),
+        "the shape button is on"
+    );
+    run(
+        &mut app,
+        "control.press",
+        &json!({ "id": "shape.kind.rectangle" }),
+    );
+    assert_eq!(
+        app.session().tool,
+        Tool::AddShape,
+        "a silhouette puts the star down"
+    );
+    app.assert_undo_returns_to_start();
+}
