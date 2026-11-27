@@ -4,7 +4,9 @@
 given page p 400 100 400 300
 given sticky n 100 100 200 200 hello
 given shape s 900 100 200 200
+given text t 100 400 200 24 plain
 given edge e1 n s
+given edge e2 t s
 camera 0,0,1
 
 # one click selects, a double click edits with all of the text selected
@@ -104,22 +106,36 @@ key cmd+z
 expect entity n rect 100 100 200 247
 key escape
 
-# a text left empty is deleted with its edges, in one step
+# a sticky left empty stays, with its edges, in one step
 double-click 150 250
 key backspace
 key space
 key space
 key escape
-expect entity n gone
-expect count edges 0
-expect selection none
+expect entity n kind sticky
+expect entity n text \s\s
+expect count edges 2
 run edit.undo
 expect entity n kind sticky
-expect count edges 1
+expect count edges 2
 run edit.redo
 run edit.undo
 
-# a sticky placed and typed into is one step; one left empty is no step
+# plain text left empty is deleted with its edges, in one step
+double-click 150 410
+key backspace
+key escape
+expect entity t gone
+expect count edges 1
+expect selection none
+run edit.undo
+expect entity t kind text
+expect count edges 2
+run edit.redo
+run edit.undo
+
+# a sticky placed is one step, typed into or left empty; plain text left
+# empty is no step
 mark before-placing
 tool sticky
 click 200 600
@@ -133,13 +149,22 @@ expect count sticky 1
 expect saved same-as mark before-placing
 run edit.redo
 run edit.undo
+tool sticky
+click 200 600
+expect count sticky 2
+key escape
+expect count sticky 2
+expect editing none
+expect effects has save
+run edit.undo
+expect count sticky 1
 tool text
 click 200 600
-expect count entities 4
+expect count entities 5
 type x
 key backspace
 key escape
-expect count entities 3
+expect count entities 4
 expect editing none
 expect selection none
 expect effects lacks save

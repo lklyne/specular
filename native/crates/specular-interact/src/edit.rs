@@ -44,7 +44,7 @@ use std::sync::Arc;
 
 use glam::Vec2;
 use specular_core::ImeEvent;
-use specular_doc::{Command, Entity, EntityId, ItemId, Kind};
+use specular_doc::{Command, Entity, EntityId, ItemId, Kind, TextStyle};
 
 pub(crate) use blink::{caret_state, restart_blink};
 pub use buffer::TextEdit;
@@ -218,9 +218,10 @@ pub(crate) fn edited(app: &App) -> Option<&EntityId> {
 }
 
 /// Ends the edit session, if there is one, and turns it into at most one
-/// undo step: the new text with the rect that fits it. A text entity left
-/// with nothing in it is deleted, and one that was placed for this session
-/// then leaves no step at all.
+/// undo step: the new text with the rect that fits it. Plain text left with
+/// nothing in it is deleted, since nothing of it would be left to see, and
+/// one that was placed for this session then leaves no step at all. A sticky
+/// is a card on its own and stays, empty, with its edges.
 pub(crate) fn end(app: &mut App, effects: &mut Vec<Effect>) {
     let Some(edit) = app.session.editing.take() else {
         return;
@@ -246,7 +247,7 @@ pub(crate) fn end(app: &mut App, effects: &mut Vec<Effect>) {
     if edit.target == Target::Title {
         return title::end(app, &entity, &edit, effects);
     }
-    let emptied = edit.target == Target::Text && edit.text.trim().is_empty();
+    let emptied = is_plain_text(&entity.kind) && edit.text.trim().is_empty();
     let kind = with_text(&entity.kind, edit.text);
     if edit.origin.created {
         live::take(&mut app.document, &id);
@@ -282,6 +283,12 @@ pub(crate) fn end(app: &mut App, effects: &mut Vec<Effect>) {
         live::batch(commands)
     };
     update::document_step(app, command, effects);
+}
+
+/// Whether `kind` is plain text: unbacked, so it is gone from sight once
+/// its text is.
+fn is_plain_text(kind: &Kind) -> bool {
+    matches!(kind, Kind::Text(text) if text.resolved_style() == TextStyle::Plain)
 }
 
 /// Drops the edit session without keeping any of it: the document it was

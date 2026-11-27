@@ -40,12 +40,9 @@ key escape
 release
 key escape
 
-# a text placed and left empty, a Document placed and left
+# a text placed and left empty
 tool text
 click 500 400
-key escape
-tool sticky
-click 700 400
 key escape
 
 # Escape mid-marquee, mid-move, mid-resize, mid-option-drag
