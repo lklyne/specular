@@ -352,6 +352,8 @@ export const Zoom: HostComponent<{ compact?: boolean }>;
 export const ToolOptions: HostComponent<{ place: "docked" | "top" | "bottom" }>;
 /** `Field`: a line of text the window holds, so the keys stay in it while a person types. With `control`, the model field of that id in `panels/dock` or `panels/tool_options` (an address, a size), which sends what is typed as the app's own does. Otherwise a mod's own field: what is typed is `shared("field/<id>")`, and each Return moves `shared("field/<id>/submit")` on by one. `value` is where it starts, and `autofocus` gives it the keys as it is made. A field is made once for its `id`: name it anew for a fresh one. Headless it is a placeholder. */
 export const Field: HostComponent<{ control?: string; id?: string; value?: string; placeholder?: string; autofocus?: boolean }>;
+/** `Swatch`: a dot of a canvas colour as the app's dock draws it. `color` is a colour as the panel keys and the \`.canvas\` file name it (`"neutral"`, `"3"`, `"#e0e0e0"`), never a CSS colour a mod's element takes: pass it here instead of to `bg()`. `palette` and `role` are the swatches control's own; `null` draws the hollow choice. */
+export const Swatch: HostComponent<{ color: string | null; palette?: "soft" | "vivid"; role?: "fill" | "ink"; size?: number }>;
 /** A paint as a layout block takes it: a colour, a gradient, or a repeating pattern over a base colour (1.2). */
 export type Paint =
   | string

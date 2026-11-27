@@ -194,3 +194,21 @@ fn the_palette_runs_the_command_typed_on_return(cx: &mut TestAppContext) {
         "{runs:?}"
     );
 }
+
+#[gpui::test]
+fn the_dock_draws_a_drawings_colours_by_their_stored_names(cx: &mut TestAppContext) {
+    use specular_testkit::drawing;
+    let mut app = TestApp::with_entities([drawing(
+        "d1",
+        specular_doc::Rect::new(100.0, 100.0, 200.0, 200.0),
+    )]);
+    app.send(Event::ShellChrome);
+    app.select(&["d1"]);
+    let colours = &state(app.app())["panels/dock"];
+    assert!(
+        colours.to_string().contains("\"neutral\""),
+        "the drawing's swatches name neutral: {colours}"
+    );
+    let tree = Loaded::new(&app, "dock", json!({}), (900.0, 40.0), cx).tree();
+    assert!(tree.contains("Swatch"), "{tree}");
+}

@@ -7,7 +7,7 @@
 //   "dock": { "mod": "dock", "props": { "hidden": ["comment.annotate"] } }
 import { View, div } from "gpui-kit";
 import { h_flex, v_flex, Button } from "gpui-base";
-import { state, props, run, colors, Icon, Field } from "specular";
+import { state, props, run, colors, Icon, Field, Swatch } from "specular";
 
 const H = 28;
 
@@ -18,14 +18,7 @@ function face(id, face, k) {
   if (face == null) return div();
   if (face.icon) return Icon.new(`${id}.glyph`, { name: face.icon, size: 16, color: k.toolbarText });
   if (face.text) return div().text_size(12).child(face.text);
-  return div().size(12).rounded_full().bg(face.color || "transparent").border_1().border_color(k.popupBorder);
-}
-
-// A colour choice: its own colour when it is written as one, else a dot in
-// the muted text colour (a palette name such as "3").
-function swatch(color, k) {
-  const fill = typeof color === "string" && color.startsWith("#") ? color : k.textMuted;
-  return div().size(14).rounded_full().bg(fill).border_1().border_color(k.popupBorder);
+  return Swatch.new(`${id}.dot`, { color: face.color ?? null, size: 12 });
 }
 
 function plain(id, child, on, k, onPress) {
@@ -63,7 +56,7 @@ export default class Dock extends View {
         });
       case "swatches":
         return h_flex().gap(2).children(control.options.map((option) =>
-          plain(option.id, swatch(option.color, k), option.selected, k, () => press(option.id))));
+          plain(option.id, Swatch.new(`${option.id}.dot`, { color: option.color ?? null, palette: control.palette, role: control.role }), option.selected, k, () => press(option.id))));
       case "stepper":
         return h_flex()
           .gap(2)

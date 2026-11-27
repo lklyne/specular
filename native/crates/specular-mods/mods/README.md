@@ -329,6 +329,10 @@ Elements a mod places but cannot draw itself, imported from `specular`:
   layout names one, else the app's own Share button.
 - `Prism`, `Prism.new(id, {})`: the first-run view's turning Prism, 160
   points square.
+- `Swatch`, `Swatch.new(id, { color, palette, role, size })`: a dot of a
+  canvas colour. The panel keys name colours as the `.canvas` file stores
+  them (`"neutral"`, `"3"`), which `bg()` refuses: draw them with this, with
+  the swatches control's `palette` and `role`.
 - `Pattern`, `Pattern.new(id, { paint, width, height })`: a box filling
   its parent, painted with a paint (see "Patterns"): pinstripes, hatching,
   checks. Put it first in a `relative()` box and the content after it.

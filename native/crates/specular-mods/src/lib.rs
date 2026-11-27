@@ -35,6 +35,7 @@ mod reads;
 mod runner;
 mod set;
 pub mod shipped;
+mod swatch;
 mod value;
 
 pub use check::{CheckReport, check, fresh_state};
