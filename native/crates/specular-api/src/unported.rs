@@ -1,4 +1,4 @@
-//! The routes this app answers without doing anything: the presence
+//! The routes this app answers without doing anything: the session
 //! bookkeeping the CLI sends with every verb, and every Electron route not
 //! ported yet, which says so by name instead of `404`.
 
@@ -32,15 +32,13 @@ fn verbs(method: Method, segments: &[&str]) -> Option<(&'static str, &'static st
 
 pub(crate) fn answer(request: &Request, segments: &[&str]) -> Result<Step, Response> {
     match (request.method, segments) {
-        // The CLI reports a presence cursor and an MCP heartbeat. There is
-        // no presence layer here, so they are accepted and dropped.
+        // The cursor a browse verb aims is told by agent-browser itself
+        // (ADR 0046), so the CLI's head start for it is not needed, and an
+        // MCP heartbeat has nothing to keep alive.
         (Method::Get, ["session", "presence"]) => Ok(Step::Answer(json!({ "cursors": [] }))),
-        (
-            Method::Post,
-            ["session", "presence"]
-            | ["session", "presence", "intent"]
-            | ["mcp", "session", "open" | "ping" | "close"],
-        ) => Ok(Step::Answer(json!({ "ok": true }))),
+        (Method::Post, ["session", "presence", "intent"] | ["mcp", "session", "open" | "ping"]) => {
+            Ok(Step::Answer(json!({ "ok": true })))
+        }
         _ => Err(match verbs(request.method, segments) {
             Some((what, why)) => Response::error(
                 501,

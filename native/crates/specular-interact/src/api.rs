@@ -11,7 +11,7 @@ use specular_agent::ThreadId;
 use specular_core::PageNav;
 use specular_doc::{Command, Document, EntityId, ItemId, Kind, Rect, TextStyle};
 
-use crate::{Action, App, CanvasId, Effect, chat, edit, live, page_state, space, update};
+use crate::{Action, App, CanvasId, Effect, chat, edit, live, page_state, presence, space, update};
 
 /// One change the HTTP API asks for.
 #[derive(Debug, Clone, PartialEq)]
@@ -85,6 +85,13 @@ pub enum ApiRun {
     },
     /// Stop sharing the active canvas. Its document stays as it is.
     Unshare,
+    /// What the calling agent says it is doing, by Electron's presence
+    /// label key (`scan_workspace`, `thinking`, ...). Moves its cursor and
+    /// nothing else.
+    Report {
+        /// The label key.
+        key: String,
+    },
 }
 
 /// How an [`ApiCall`] went.
@@ -103,15 +110,34 @@ pub(crate) fn run(app: &mut App, call: ApiCall, effects: &mut Vec<Effect>) {
         thread,
         run,
     } = call;
+    // Any caller that names itself has a cursor; only the app's own runs
+    // have a thread to note changes on.
+    let agent = thread.as_ref().map(|id| id.0.clone());
     let thread = thread.filter(|id| app.threads.is_running(id));
     let background = canvas.filter(|id| *id != app.space.active().id);
     let Some(id) = background else {
-        let outcome = run_noting(app, thread.as_ref(), run, effects);
+        if let ApiRun::Report { key } = &run {
+            if let Some(agent) = &agent {
+                presence::canvas::on_report(app, agent, key, effects);
+            }
+            effects.push(Effect::ApiReply {
+                ticket,
+                outcome: ApiOutcome::Done,
+            });
+            return;
+        }
+        let watch =
+            (agent.as_deref()).and_then(|agent| presence::canvas::Watch::new(app, agent, &run));
+        let before = watch.as_ref().map(|watch| &watch.before);
+        let outcome = run_noting(app, thread.as_ref(), before, run, effects);
+        if let Some(watch) = watch.filter(|_| outcome == ApiOutcome::Done) {
+            presence::canvas::after(app, &watch, effects);
+        }
         effects.push(Effect::ApiReply { ticket, outcome });
         return;
     };
     let ran = space::in_background(app, &id, effects, |app, effects| {
-        let outcome = run_noting(app, thread.as_ref(), run, effects);
+        let outcome = run_noting(app, thread.as_ref(), None, run, effects);
         effects.push(Effect::ApiReply { ticket, outcome });
     });
     if !ran {
@@ -121,18 +147,26 @@ pub(crate) fn run(app: &mut App, call: ApiCall, effects: &mut Vec<Effect>) {
 }
 
 /// [`run_call`], with what it made or edited noted on the run of `thread`.
+/// `before` is the document as it was, when the caller has a copy.
 fn run_noting(
     app: &mut App,
     thread: Option<&ThreadId>,
+    before: Option<&Document>,
     run: ApiRun,
     effects: &mut Vec<Effect>,
 ) -> ApiOutcome {
     let Some(thread) = thread else {
         return run_call(app, run, effects);
     };
-    let before = app.document.clone();
+    let copy;
+    let before = if let Some(before) = before {
+        before
+    } else {
+        copy = app.document.clone();
+        &copy
+    };
     let outcome = run_call(app, run, effects);
-    chat::note_changes(app, thread, &before);
+    chat::note_changes(app, thread, before);
     outcome
 }
 
@@ -171,6 +205,8 @@ fn run_call(app: &mut App, run: ApiRun, effects: &mut Vec<Effect>) -> ApiOutcome
         }
         ApiRun::Share { link, fresh } => return crate::shared::connect(app, link, fresh, effects),
         ApiRun::Unshare => crate::shared::on_event(app, crate::ShareEvent::Stop, effects),
+        // Taken before the call runs: it changes nothing but a cursor.
+        ApiRun::Report { .. } => {}
     }
     ApiOutcome::Done
 }

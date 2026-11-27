@@ -300,6 +300,12 @@ logs the port it took and the `SPECULAR_DISCOVERY_FILE=` to pass the CLI.
   answer, and `specular-interact/src/presence.rs` releases it when the
   cursor is there (ADR 0046). `RUST_LOG=specular_shell::app=debug` logs each
   act and its go.
+- The canvas verbs move the same cursor: `specular-interact/src/api.rs`
+  compares the document before and after a write whose caller sent a
+  session id (`x-specular-session-id`) and `presence/canvas.rs` sends the
+  cursor to what changed. A route needs no presence code of its own.
+  `POST /session/presence` with a `labelKey` (`scan_workspace`, `thinking`,
+  `departing`, ...) is `ApiRun::Report`.
 
 ### Mods
 

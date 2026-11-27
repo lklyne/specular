@@ -265,7 +265,7 @@ fn what_is_not_ported_says_so_by_name() {
         404,
         "Unknown route: POST /nope",
     );
-    // The CLI's presence and heartbeat calls are taken and dropped.
+    // A presence report with no label and a heartbeat change nothing.
     assert_eq!(
         answer(plan(Method::Post, "/session/presence")).body,
         json!({ "ok": true })
@@ -311,5 +311,26 @@ fn a_tab_ref_must_name_the_open_canvas_on_a_route_that_takes_one() {
         tabbed("/selection", "Canvas 1"),
         400,
         "--tab is not supported for GET /selection",
+    );
+}
+
+#[test]
+fn a_presence_report_and_a_closed_session_move_the_callers_cursor() {
+    let app = notes();
+    let mut api = api();
+    let mut post = |path: &str, body: Value| api.plan(app.app(), &Request::post(path, body));
+    let report = |key: &str| ApiRun::Report {
+        key: key.to_owned(),
+    };
+    assert_eq!(
+        run(post(
+            "/session/presence",
+            json!({ "labelKey": "scan_workspace" })
+        )),
+        report("scan_workspace")
+    );
+    assert_eq!(
+        run(post("/mcp/session/close", json!({}))),
+        report("departing")
     );
 }
