@@ -274,6 +274,8 @@ impl ShellView {
         h_flex()
             .size_full()
             .items_start()
+            // The mods that run out of sight, in a box of no size.
+            .children(self.mods.background(cx))
             .child(
                 div()
                     .relative()
@@ -341,7 +343,6 @@ impl Render for ShellView {
             floating: floating_ribbon,
             tabs: tab_row_mod,
             toast,
-            background: background_mods,
         } = panels;
         div()
             .id("shell")
@@ -357,7 +358,6 @@ impl Render for ShellView {
                 });
             })
             .child(self.slot_row(models.as_ref(), (floating_ribbon, toast), window, cx))
-            .children(background_mods)
             .when_some(models.as_ref(), |root, models: &Models| {
                 let regions = models.regions;
                 root.when(regions.sidebar && models.sidebar.visible, |root| {
