@@ -24,6 +24,13 @@ pub enum ToolsPlace {
     FloatBottom,
 }
 
+/// A place is written by its name.
+impl serde::Serialize for ToolsPlace {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.name())
+    }
+}
+
 impl ToolsPlace {
     /// Every place, in the order the setting lists them.
     pub(crate) const ALL: [Self; 3] = [Self::Docked, Self::FloatTop, Self::FloatBottom];
@@ -51,10 +58,6 @@ impl ToolsPlace {
         }
     }
 }
-
-/// The width of the tools' ribbon while it is docked: a square button and
-/// the room either side of it.
-pub const TOOLS_DOCK_WIDTH: f32 = 36.0;
 
 /// What the app keeps between launches that is not in any canvas or tool.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -198,17 +201,6 @@ impl App {
     /// What is kept between launches.
     pub fn settings(&self) -> AppSettings {
         self.settings
-    }
-
-    /// How much of the canvas's left edge the docked ribbon takes, for a
-    /// shell that draws the chrome itself.
-    /// tools in a row of their own.
-    pub(crate) fn tools_dock_width(&self) -> f32 {
-        if self.session.panel.chrome_covers && self.settings.tools == ToolsPlace::Docked {
-            TOOLS_DOCK_WIDTH
-        } else {
-            0.0
-        }
     }
 }
 

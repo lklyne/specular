@@ -149,6 +149,11 @@ pub struct Runtime<W> {
     /// The preferences file. `None` when settings are off, and when there
     /// is no home folder to keep it in.
     pub(crate) prefs: Option<PathBuf>,
+    /// The layout files. `None` when settings are off, and when there is
+    /// no home folder to keep them in.
+    pub(crate) layouts: Option<super::layout_run::LayoutFiles>,
+    /// What the window's mods have cost, as `GET /mods` answers it.
+    pub(crate) mod_stats: Option<serde_json::Value>,
     /// The repos file. `None` when settings are off, and when no folder
     /// can be found for it.
     pub(crate) repos_file: Option<PathBuf>,
@@ -158,6 +163,8 @@ pub struct Runtime<W> {
     pub(crate) dropped: Vec<PathBuf>,
     /// Where they were dropped, in logical pixels of the viewport.
     pub(crate) dropped_at: Option<Vec2>,
+    /// The page bridge in each page from the space folder.
+    pub(crate) bridges: super::bridge_run::Bridges,
     /// The HTTP API. `None` until started, and when it could not start.
     pub(crate) api: Option<ApiHost>,
     /// Each page's CDP websocket. Started and stopped with the API.
@@ -224,10 +231,14 @@ impl<W: ShellWindow> Runtime<W> {
             loads: super::loads::Loads::default(),
             sent: None,
             prefs,
+            layouts: (options.settings.then(prefs::folder).flatten())
+                .map(|home| super::layout_run::LayoutFiles::new(&home)),
+            mod_stats: None,
             repos_file: options.settings.then(repos_run::file).flatten(),
             folder_dialog: None,
             dropped: Vec::new(),
             dropped_at: None,
+            bridges: super::bridge_run::Bridges::default(),
             api: None,
             cdp: None,
             api_outcome: None,
@@ -301,6 +312,7 @@ impl<W: ShellWindow> Runtime<W> {
         self.load_tool_defaults();
         self.load_settings();
         self.load_theme();
+        self.load_layout();
         self.load_models();
         self.load_repos();
         if let Some(ask) = opening.ask {

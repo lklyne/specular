@@ -200,6 +200,7 @@ impl Compositor {
             | PageEvent::Cursor { .. }
             | PageEvent::Favicon { .. }
             | PageEvent::Url { .. }
+            | PageEvent::BridgeCall { .. }
             | PageEvent::OpenTab { .. }
             | PageEvent::Loading { .. }
             | PageEvent::Scrolled { .. }

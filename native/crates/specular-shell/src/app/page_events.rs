@@ -24,6 +24,7 @@ impl<W: ShellWindow> Runtime<W> {
         match &event {
             PageEvent::Loaded { page, http_status } => {
                 tracing::info!(%page, http_status, "page loaded");
+                self.bridge_loaded(*page);
             }
             PageEvent::Crashed { page, reason } => {
                 let entity = self.entity_of(*page);
@@ -46,6 +47,10 @@ impl<W: ShellWindow> Runtime<W> {
                 if let (Some(cdp), Some(entity)) = (&self.cdp, self.entity_of(*page)) {
                     cdp.navigated(&entity, url);
                 }
+                self.check_bridge(*page, url);
+            }
+            PageEvent::BridgeCall { page, url, payload } => {
+                self.answer_bridge(*page, url, payload);
             }
             PageEvent::Inspected { request, node, .. } => {
                 if let Some(answer) = self.queries.inspect_answer(*request, node.clone()) {

@@ -601,6 +601,92 @@ def comments_are_made_answered_listed_and_read():
           or on_page["id"] in json.dumps(d), "the comments")
 
 
+# --- the command registry ----------------------------------------------------
+
+
+@case
+def commands_lists_the_registry_and_run_runs_one_by_name():
+    a, b, _c = fresh("Commands", notes=True)
+    listed = {c["name"]: c for c in ok("commands")["commands"]}
+    check({"edit.undo", "tool.set", "control.press"} <= set(listed), f"commands: {sorted(listed)}")
+    equal(listed["tool.set"]["args"].startswith("{tool:"), True, "tool.set's args")
+    check(listed["edit.undo"]["about"], "every command says what it does")
+
+    equal(ok("run", "edit.select", json.dumps({"ids": [a, b]})), {"ok": True, "name": "edit.select"}, "run")
+    x = node(b)["x"]
+    ok("run", "edit.nudge", '{"dx": 10, "dy": 0}')
+    equal(node(b)["x"], x + 10, "run with arguments")
+    ok("run", "edit.undo")
+    equal(node(b)["x"], x, "a command run by name is one undo step")
+    refused("did you mean edit.undo", "run", "edit.undoo")
+    ok("run", "edit.redo")
+    equal(node(b)["x"], x + 10, "and redone")
+    refused("cannot run now", "run", "edit.redo")
+    refused("`dx` is a number", "run", "edit.nudge")
+    refused("not JSON", "run", "edit.nudge", "{dx")
+    refused("usage: specular run", "run")
+    refused("the window's own", "run", "app.quit")
+
+
+
+@case
+def state_reads_the_keyed_state_and_ui_toggle_moves_it():
+    fresh("State", notes=True)
+    every = ok("state")
+    for key in ("panels/toolbar", "panels/dock", "panels/strip", "theme", "settings", "keys", "layout"):
+        check(key in every, f"state has {key}: {sorted(every)}")
+    toolbar = ok("state", "panels/toolbar")
+    check("zoom" in json.dumps(toolbar), "the zoom readout is named")
+    check("%" not in json.dumps(toolbar["sections"]), "and carries no camera value")
+    check(any(k["command"] == "ui.reset" and k.get("fixed") for k in ok("state", "keys")), "the reset key")
+    equal(ok("state", "layout")["hidden"], [], "nothing hidden")
+    ok("run", "ui.toggle", '{"id": "toolbar"}')
+    equal(ok("state", "layout")["hidden"], ["toolbar"], "ui.toggle hides a region")
+    ok("run", "ui.reset")
+    equal(ok("state", "layout")["hidden"], [], "ui.reset shows it again")
+    refused("no state key `nope`", "state", "nope")
+
+
+@case
+def mod_verbs_read_the_mods_and_check_one():
+    fresh("Mods", notes=True)
+    equal(ok("mod", "state", "panels/toolbar"), ok("state", "panels/toolbar"), "mod state is state")
+    refused("no state key `nope`", "mod", "state", "nope")
+    stats = ok("mod", "stats")
+    check(isinstance(stats.get("mods"), list), f"mod stats lists the mods: {stats}")
+    for entry in stats["mods"]:
+        for field in ("id", "renders", "meanMs", "slowestMs", "reads"):
+            check(field in entry, f"a mod's stats have {field}: {entry}")
+    refused("usage: specular mod", "mod")
+
+    import tempfile
+
+    work = tempfile.mkdtemp()
+    fixture = os.path.join(work, "state.json")
+    with open(fixture, "w") as f:
+        f.write(cli("state").out)
+    good = os.path.join(work, "hello")
+    os.makedirs(good)
+    with open(os.path.join(good, "mod.json"), "w") as f:
+        json.dump({"api": 1, "title": "Hello", "place": "dock"}, f)
+    with open(os.path.join(good, "main.js"), "w") as f:
+        f.write(
+            'import { View, div } from "gpui-kit";\n'
+            'import { state } from "specular";\n'
+            'export default class Hello extends View {\n'
+            '  render() { console.log("rendered"); return div().id("hello").child(state("theme").appearance); }\n'
+            "}\n"
+        )
+    ran = cli("mod", "check", good, "--state", fixture)
+    check('"hello"' in ran.out, f"mod check prints the tree with ids:\n{ran.out}")
+    check("rendered" in ran.out, f"and the console:\n{ran.out}")
+    check(not os.path.exists(good + ".error"), "a good mod leaves no error file")
+    with open(os.path.join(good, "main.js"), "w") as f:
+        f.write("export default class {\n")
+    cli("mod", "check", good, code=1)
+    check(os.path.exists(good + ".error"), "a broken mod gets <name>.error")
+
+
 # --- browse verbs with no page ------------------------------------------------
 
 

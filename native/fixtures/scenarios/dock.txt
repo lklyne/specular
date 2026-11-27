@@ -41,17 +41,16 @@ expect saved /nodes/b/specular/textFont = mono
 mark styled
 # a press that changes nothing records nothing
 control text.color.swatches.red
-act undo
+run edit.undo
 expect saved changed-from mark styled at /nodes/a/specular/textFont /nodes/b/specular/textFont
-act undo
-act undo
-act undo
+run edit.undo
+run edit.undo
 expect undo none
 # a size outside the range is held to it
 select a
 control text.size.custom.dec
 expect saved /nodes/a/specular/textSize = 13
-act undo
+run edit.undo
 
 # a shape: its silhouette, label size and alignment, fill and border
 select s r
@@ -71,12 +70,12 @@ expect controls has shape.border.color.red disabled
 control shape.color.swatches.red
 expect saved /nodes/s/color = "1"
 expect saved /nodes/s/specular/fillStyle = solid
-act undo
-act undo
-act undo
-act undo
-act undo
-act undo
+run edit.undo
+run edit.undo
+run edit.undo
+run edit.undo
+run edit.undo
+run edit.undo
 
 # an edge: colour, line, arrowheads, a label, and delete
 select e
@@ -111,13 +110,13 @@ key cmd+a
 key backspace
 key enter
 expect saved /edges/e/label absent
-act undo
-act undo
+run edit.undo
+run edit.undo
 expect saved /edges/e/label absent
 control edge.delete
 expect count edges 0
 expect controls lacks edge.
-act undo
+run edit.undo
 
 # a property waits while a drag is in flight
 select a
@@ -126,7 +125,7 @@ drag-to 200 200
 control text.color.swatches.blue
 release
 expect saved /nodes/a/color absent
-act undo
+run edit.undo
 
 # a property set during an edit survives the edit's end, and is its own step
 double-click 200 250
@@ -137,11 +136,11 @@ expect editing new
 key escape
 expect saved /nodes/a/color = "4"
 expect saved /nodes/a/specular/textSize = 56
-act undo
+run edit.undo
 expect saved /nodes/a/color = "4"
-act undo
-act undo
-act undo
+run edit.undo
+run edit.undo
+run edit.undo
 
 # the formatting buttons: on inside a run, off outside, and a press formats
 # the selection and keeps the edit and the selection
@@ -222,8 +221,8 @@ expect controls has brush.highlighter on
 control brush.pen
 expect saved /nodes/@top/strokes/0/width = 4
 expect saved /nodes/@top/strokes/0/brushType = pen
-act undo
-act undo
+run edit.undo
+run edit.undo
 tool page
 expect controls has page.preset.0 on
 control page.preset.7

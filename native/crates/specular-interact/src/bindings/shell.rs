@@ -27,24 +27,6 @@ pub enum ShellCommand {
     CommandPalette,
 }
 
-impl ShellCommand {
-    /// The command's name in the command palette. The palette itself has no
-    /// entry: it is already open when a command is picked.
-    pub(crate) const fn label(self) -> &'static str {
-        match self {
-            Self::Quit => "Quit",
-            Self::OpenSpace => "Open space",
-            Self::OpenCanvas => "Open",
-            Self::Save => "Save",
-            Self::Settings => "Settings",
-            Self::Hide => "Hide",
-            Self::HideOthers => "Hide others",
-            Self::Minimize => "Minimize",
-            Self::CommandPalette => "Command palette",
-        }
-    }
-}
-
 /// The window's own keys. They fire wherever the keys are, an entered page
 /// and a text field included, so none may be a chord of [`BINDINGS`].
 pub const SHELL_KEYS: &[(Chord, ShellCommand)] = &[

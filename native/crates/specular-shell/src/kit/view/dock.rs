@@ -35,7 +35,7 @@ pub(super) fn dock(
             .id("dock")
             .occlude()
             .absolute()
-            .top(px(theme::CHROME_HEIGHT))
+            .top(px(theme::chrome_top()))
             .left(px(left))
             .right_0()
             .h(px(theme::DOCK_ROW))

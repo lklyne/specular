@@ -6,7 +6,7 @@ given page p-wide 0 0 800 500 {site}/sync-site/index.html
 given page p-narrow 900 0 400 500 {site}/sync-site/index.html
 camera 40,80,0.75
 select p-wide p-narrow
-act toggle-sync
+run page.toggle-sync
 wait 1500
 # Enter the wide page and click Menu: the narrow page's Menu button is
 # elsewhere, and its panel opens too.
@@ -24,7 +24,7 @@ wait 2500
 expect entity p-wide text {site}/sync-site/second.html
 expect entity p-narrow text {site}/sync-site/second.html
 # Back from the wide page takes the narrow one back.
-act page-back
+run page.back
 wait 2500
 expect entity p-narrow text {site}/sync-site/index.html
 # Scroll the wide page: the narrow page, a longer document, goes to the

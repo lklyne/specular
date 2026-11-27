@@ -23,9 +23,9 @@ key enter
 expect count comments 1
 expect comments lacks draft
 expect comments has focus
-act undo
+run edit.undo
 expect count comments 0
-act redo
+run edit.redo
 
 # a click on a sticky or a shape is a canvas point, and no page is asked
 click 250 200
@@ -165,13 +165,13 @@ camera 0,0,1
 # annotating one selected page is a region of the canvas, though a page
 # fills it; two pages are one region round both
 select p1
-act annotate-selection
+run comment.annotate-selection
 expect comments has draft canvas-region 100 100 400 300
 expect comments has draft page none
 type tighten this
 key enter
 select p1 p2
-act annotate-selection
+run comment.annotate-selection
 expect comments has draft canvas-region 100 100 1000 300
 key escape
 undo-to-start

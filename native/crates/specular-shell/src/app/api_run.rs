@@ -29,6 +29,11 @@ impl<W: ShellWindow> Runtime<W> {
         }
     }
 
+    /// Keeps what the window's mods have cost, for `GET /mods`.
+    pub fn set_mod_stats(&mut self, stats: Value) {
+        self.mod_stats = Some(stats);
+    }
+
     /// Answers the requests the API has queued, and sends on what CDP
     /// clients have said to their pages.
     pub fn serve_api(&mut self) {
@@ -133,6 +138,10 @@ impl<W: ShellWindow> Host for Runtime<W> {
 
     fn inspect_file(&self, path: &str) -> Option<DroppedFile> {
         self.inspect_space_file(path)
+    }
+
+    fn mods(&self) -> Value {
+        (self.mod_stats.clone()).unwrap_or_else(|| json!({ "mods": [] }))
     }
 
     fn space_entries(&self) -> Vec<String> {

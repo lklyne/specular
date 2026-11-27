@@ -8,10 +8,6 @@ use std::collections::HashSet;
 
 use specular_doc::EntityId;
 
-/// The width the sidebar covers when it is shown: `LEFT_SIDEBAR_WIDTH` in
-/// `runtime-constants.ts`.
-pub const SIDEBAR_WIDTH: f32 = 256.0;
-
 /// The three folds of the sidebar.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SidebarSection {
@@ -53,11 +49,6 @@ impl SidebarView {
     /// Whether the sidebar is shown. It starts hidden.
     pub fn shown(&self) -> bool {
         self.shown
-    }
-
-    /// How much of the canvas viewport's left edge the sidebar covers.
-    pub(crate) fn covered_width(&self) -> f32 {
-        if self.shown { SIDEBAR_WIDTH } else { 0.0 }
     }
 
     /// Whether `section` is folded away.

@@ -15,6 +15,13 @@ pub struct Chord {
     pub alt: bool,
 }
 
+/// A chord is written as macOS writes it, `⇧⌘Z`.
+impl serde::Serialize for Chord {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&self.text())
+    }
+}
+
 impl Chord {
     /// The chord as macOS writes it: `⇧⌘Z`.
     pub fn text(self) -> String {

@@ -257,7 +257,7 @@ fn at_default_size(app: &mut App, drag: &PlaceDrag) -> Entity {
 }
 
 /// What `what` is at its default size with its top-left at `at`.
-fn default_entity(app: &App, what: Placing, id: EntityId, at: DVec2) -> Entity {
+pub(crate) fn default_entity(app: &App, what: Placing, id: EntityId, at: DVec2) -> Entity {
     match what {
         // A Document is placed by the shell's answer, not from here.
         Placing::Page | Placing::Document => page(app, id, at),

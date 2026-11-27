@@ -773,6 +773,8 @@ impl Viewer {
             | Effect::RevealSpace
             | Effect::Quit
             | Effect::SaveSettings(_)
+            | Effect::SaveLayoutToggles(_)
+            | Effect::ResetLayout
             | Effect::PreviewRegion { .. }
             | Effect::CaptureElement { .. }
             | Effect::TrackElements { .. }

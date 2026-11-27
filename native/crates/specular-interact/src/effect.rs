@@ -312,6 +312,11 @@ pub enum Effect {
     Quit,
     /// Write the settings to the preferences file, under `show`.
     SaveSettings(AppSettings),
+    /// Keep what was toggled over the layout, apart from the layout file.
+    SaveLayoutToggles(crate::Toggles),
+    /// Set the toggles' file aside and write the shipped layout file again:
+    /// the app is back on the shipped layout.
+    ResetLayout,
     /// Count the elements each page has inside a comment region and answer
     /// with [`Event::RegionGrab`](crate::Event::RegionGrab), which repeats
     /// the region and lists the pages in this order.

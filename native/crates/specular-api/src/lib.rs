@@ -20,8 +20,10 @@
 
 mod act;
 mod annotations;
+pub mod bridge;
 mod canvas;
 pub mod cdp;
+mod commands;
 mod facts;
 mod fix;
 mod host;
@@ -34,6 +36,7 @@ mod placement;
 mod presets;
 mod reply;
 mod share;
+mod state;
 mod tabs;
 mod tasks;
 mod unported;
@@ -113,6 +116,9 @@ pub enum Plan {
     },
     /// Ask the shell about a page's devtools endpoint, which it serves.
     Cdp(CdpAsk),
+    /// Answer with the mods the window loaded and their cost, which only
+    /// the window knows.
+    Mods,
     /// Run a script in a page and answer with what it returns, once the
     /// page has answered.
     PageScript(PageScript),
@@ -155,6 +161,7 @@ pub(crate) enum Step {
     Annotated(Value, Screenshot),
     Cdp(CdpAsk),
     PageScript(PageScript),
+    Mods,
 }
 
 /// The API's state between requests: the sequences ids and tickets are
@@ -216,6 +223,7 @@ impl Api {
             Ok(Step::Annotated(body, shot)) => Plan::Annotated { body, shot },
             Ok(Step::Cdp(ask)) => Plan::Cdp(ask),
             Ok(Step::PageScript(script)) => Plan::PageScript(script),
+            Ok(Step::Mods) => Plan::Mods,
             Err(response) => Plan::Answer(response),
         }
     }
@@ -237,6 +245,10 @@ impl Api {
             (Get, ["health"]) => Ok(Step::Answer(json!({ "version": VERSION }))),
             (Get, ["canvas"]) => canvas::read(app, user),
             (Get, ["tabs"]) => Ok(Step::Answer(tabs::identity(user))),
+            (Get, ["commands"]) => Ok(Step::Answer(commands::list(app))),
+            (Post, ["run"]) => commands::run(app, request),
+            (Get, ["state"]) => state::read(app, request),
+            (Get, ["mods"]) => Ok(Step::Mods),
             (Get, ["share"]) => Ok(Step::Answer(share::status(user))),
             (Post, ["share"]) => share::start(request),
             (Post, ["share", "stop"]) => Ok(share::stop()),

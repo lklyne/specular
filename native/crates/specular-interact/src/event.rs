@@ -174,6 +174,16 @@ pub enum Event {
     /// and the docked tools covering its edges, by a caller that draws
     /// none: a headless script, so it means what it means in a window.
     ChromeLayout,
+    /// The layout file was read: at startup, or when it changed on disk
+    /// and still reads as a layout. Replaces the one in force and asks for
+    /// no save.
+    LayoutLoaded(Box<crate::Layout>),
+    /// What was toggled over the layout in an earlier run was read.
+    /// Replaces the toggles held and asks for no save.
+    LayoutToggles(crate::Toggles),
+    /// The palette entries of the mods the window loaded, all of them:
+    /// replaces the ones held.
+    ModPalette(Vec<crate::ModPaletteEntry>),
     /// The shell's context menu closed with nothing picked: a press outside
     /// it, or Escape while it had the keys.
     MenuClosed,

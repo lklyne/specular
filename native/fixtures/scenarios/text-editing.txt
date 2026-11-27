@@ -30,10 +30,10 @@ expect selection n
 expect entity n text hello there\nfriend
 expect effects has set-ime-allowed(false)
 expect effects has save
-act undo
+run edit.undo
 expect entity n text hello
 expect undo none
-act redo
+run edit.redo
 key escape
 expect selection none
 
@@ -45,9 +45,9 @@ key backspace
 key escape
 expect effects lacks save
 expect entity n rect 100 100 200 200
-act undo
+run edit.undo
 expect entity n text hello
-act redo
+run edit.redo
 
 # a press anywhere else ends the edit and then does what it does
 double-click 150 250
@@ -79,10 +79,10 @@ expect entity n text c
 double-click 150 250
 type d
 select n s
-act arrange-row
+run arrange.lay-out {"mode":"row"}
 expect editing none
 expect entity n text d
-act undo
+run edit.undo
 
 # the sticky grows downward with its text, live, and its undo shrinks it
 double-click 150 250
@@ -113,11 +113,11 @@ key escape
 expect entity n gone
 expect count edges 0
 expect selection none
-act undo
+run edit.undo
 expect entity n kind sticky
 expect count edges 1
-act redo
-act undo
+run edit.redo
+run edit.undo
 
 # a sticky placed and typed into is one step; one left empty is no step
 mark before-placing
@@ -128,11 +128,11 @@ type note
 key escape
 expect entity @top text note
 expect effects has save
-act undo
+run edit.undo
 expect count sticky 1
 expect saved same-as mark before-placing
-act redo
-act undo
+run edit.redo
+run edit.undo
 tool text
 click 200 600
 expect count entities 4

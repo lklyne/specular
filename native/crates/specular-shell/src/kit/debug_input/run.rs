@@ -75,7 +75,7 @@ fn state(window: AnyWindowHandle, cx: &mut AsyncApp) -> String {
     let mut out = canvas::with(|canvas| {
         let app = canvas.runtime.app();
         let mut out = script::dump(app);
-        let _ = writeln!(out, "# covered-left {}", app.covered_left());
+        let _ = writeln!(out, "# covered-left {}", app.insets().left);
         let _ = writeln!(out, "# gesture {}", app.session().gesture.is_some());
         let _ = writeln!(out, "# tool-defaults {:?}", app.tool_defaults());
         for (id, _) in app.pages() {
@@ -289,6 +289,29 @@ fn show_sidebar(shown: bool) {
     });
 }
 
+/// Picks the first-run view's choice called `name`.
+fn choose(name: &str) -> Result<(), String> {
+    let action = canvas::models()
+        .and_then(|models| models.onboarding)
+        .and_then(|view| view.choices.into_iter().find(|choice| choice.name == name))
+        .map(|choice| choice.action)
+        .ok_or_else(|| format!("the first-run view has no choice `{name}`"))?;
+    canvas::dispatch(Event::Action(action));
+    Ok(())
+}
+
+/// Runs the command `name` from the registry, as `POST /run` does.
+fn run_command(name: &str, args: &serde_json::Value, cx: &mut AsyncApp) -> Result<(), String> {
+    let run = canvas::with(|canvas| specular_interact::run_named(canvas.runtime.app(), name, args))
+        .ok_or("there is no canvas")?
+        .map_err(|error| error.to_string())?;
+    match run.into_event() {
+        Ok(event) => canvas::dispatch(event),
+        Err(command) => cx.update(|cx| crate::menus::run_shell(command, cx)),
+    }
+    Ok(())
+}
+
 /// Does `step`. An error is why it could not be done.
 pub(super) async fn step(
     step: Do,
@@ -345,6 +368,7 @@ pub(super) async fn step(
             canvas::with(|canvas| canvas.runtime.script_clipboard(Some(text)));
         }
         Do::Act(action) => canvas::dispatch(Event::Action(action)),
+        Do::Run(name, args) => run_command(&name, &args, cx)?,
         Do::Send(event) => canvas::dispatch(event),
         Do::Panel(step) => panel(&step)?,
         Do::Select(ids) => select(&ids),
@@ -369,14 +393,7 @@ pub(super) async fn step(
                 }
             });
         }),
-        Do::Choose(name) => {
-            let action = canvas::models()
-                .and_then(|models| models.onboarding)
-                .and_then(|view| view.choices.into_iter().find(|choice| choice.name == name))
-                .map(|choice| choice.action)
-                .ok_or_else(|| format!("the first-run view has no choice `{name}`"))?;
-            canvas::dispatch(Event::Action(action));
-        }
+        Do::Choose(name) => choose(&name)?,
         Do::Resize(size) => window::resize(f64::from(size.x), f64::from(size.y)),
         Do::MoveWindow(to) => window::move_to(f64::from(to.x), f64::from(to.y)),
         Do::FullScreen => window::toggle_full_screen(),

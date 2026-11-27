@@ -2,6 +2,7 @@
 //! one follows for each page and Document of the active canvas that has
 //! been opened in a tab, which a press shows alone.
 
+use serde::Serialize;
 use std::sync::Arc;
 
 use specular_doc::{Entity, Kind};
@@ -12,7 +13,7 @@ use crate::labels::{file_icon, file_label, page_icon, page_label};
 use crate::{Action, App, Showing, binding_of, showing};
 
 /// One tab of the tab row.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct ViewTab {
     /// Its name.
     pub id: ControlId,
@@ -22,22 +23,26 @@ pub struct ViewTab {
     pub icon: Icon,
     /// A page's own icon as a PNG, which a renderer that draws images
     /// shows in place of the glyph.
+    #[serde(skip)]
     pub favicon: Option<Arc<[u8]>>,
     /// Whether it is what the window shows now.
     pub active: bool,
     /// What pressing it does: show the canvas, or its item alone.
+    #[serde(skip)]
     pub action: Action,
     /// What its close button does: take the tab away and leave the item
     /// on the canvas. `None` for the Canvas tab, which stays.
+    #[serde(skip)]
     pub close: Option<Action>,
     /// What the press does before the click, for a renderer that sees the
     /// button go down: lay its page out for the tab. `None` for a tab with
     /// nothing to lay out.
+    #[serde(skip)]
     pub prepare: Option<Action>,
 }
 
 /// The tab row as it is now.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct ViewStrip {
     /// The tabs, left to right: the canvas first.
     pub tabs: Vec<ViewTab>,

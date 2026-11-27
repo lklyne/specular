@@ -11,6 +11,7 @@ use specular_core::{PageDevice, PageId, PageSource, PageSourceError, PageSpec};
 
 use super::{CefPageSource, OPAQUE_WHITE};
 use crate::attach_host::Tracking;
+use crate::bridge_host::BridgeState;
 use crate::client::new_client;
 use crate::config::windowless_frame_rate;
 use crate::devtools::{Asked, Devtools, Pending};
@@ -40,6 +41,8 @@ pub(crate) struct PageEntry {
     pub(super) frame_rate: i32,
     /// The elements whose place the page reports.
     pub(crate) tracking: Tracking,
+    /// What of the page bridge it has.
+    pub(crate) bridge: BridgeState,
 }
 
 impl PageEntry {
@@ -137,6 +140,7 @@ impl CefPageSource {
                 unsent: Unsent::default(),
                 frame_rate: windowless_frame_rate(spec.frame_rate),
                 tracking: Tracking::default(),
+                bridge: BridgeState::default(),
             },
         );
         Ok(id)

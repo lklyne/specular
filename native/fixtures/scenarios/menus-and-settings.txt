@@ -35,7 +35,7 @@ key cmd+d
 expect menubar is Edit > Undo ⌘Z
 expect menubar is Edit > Duplicate ⌘D
 expect menubar is Arrange > Send to back ⇧⌘[
-act undo
+run edit.undo
 expect menubar is Edit > Redo ⇧⌘Z
 expect menubar is Edit > Undo disabled ⌘Z
 # an edge cannot be copied, only deleted
@@ -93,7 +93,7 @@ right-click 650 150
 control menu.duplicate
 expect menu closed
 expect count sticky 2
-act undo
+run edit.undo
 expect count sticky 1
 # a tool in hand has no menu
 key r

@@ -283,7 +283,7 @@ impl ShellView {
             .occlude()
             .absolute()
             .left_0()
-            .top(px(theme::CHROME_HEIGHT))
+            .top(px(theme::chrome_top()))
             .bottom_0()
             .w(px(theme::SIDEBAR_WIDTH))
             .bg(theme::solid(theme::panel()))

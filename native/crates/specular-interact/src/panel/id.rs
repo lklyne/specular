@@ -28,6 +28,12 @@ impl ControlId {
     }
 }
 
+impl serde::Serialize for ControlId {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&self.0)
+    }
+}
+
 impl From<String> for ControlId {
     fn from(name: String) -> Self {
         Self(Cow::Owned(name))

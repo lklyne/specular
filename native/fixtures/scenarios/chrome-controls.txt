@@ -96,7 +96,7 @@ right-click 1300 700
 control menu.paste
 expect entity @top text pasted here
 expect entity @top at 1300 700
-act undo
+run edit.undo
 # an item that is off does nothing, and the menu stays
 right-click 1300 700
 expect controls lacks menu.delete

@@ -1,0 +1,27 @@
+# Commands run by name from the registry, as the palette, the CLI and
+# `POST /run` run them: their JSON arguments, a control pressed by name, and
+# a command with nothing to act on refused.
+given sticky a 100 100 200 200 one
+given sticky b 400 100 200 200 two
+run tool.set {"tool":"draw"}
+expect tool draw
+run control.press {"id":"tool.sticky"}
+expect tool sticky
+run edit.cancel
+expect tool select
+expect command edit.undo disabled
+run edit.select {"ids":["a","b"]}
+expect selection a b
+run arrange.lay-out {"mode":"column"}
+expect entity b at 100 400
+run edit.nudge {"dx":10,"dy":-5}
+expect entity a at 110 95
+expect entity b at 110 395
+run view.zoom {"percent":50}
+expect zoom 0.5
+run edit.undo
+expect entity b at 100 400
+expect command edit.redo enabled
+run edit.redo
+expect entity b at 110 395
+undo-to-start

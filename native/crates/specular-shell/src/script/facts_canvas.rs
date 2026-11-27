@@ -55,7 +55,6 @@
 //! theme-loaded light                   # the choice read from preferences
 //! repeat down                          # a key held down repeats
 //! menu Edit > Undo                     # a menu bar item chosen
-//! act show:p1                          # p1 alone in its tab; `act show-canvas`
 //! ```
 
 mod read;
@@ -65,7 +64,7 @@ mod step;
 use self::read::read;
 pub(crate) use self::sent::check_sent;
 pub use self::step::CanvasStep;
-pub(super) use self::step::{action_named, step};
+pub(super) use self::step::step;
 
 use anyhow::{bail, ensure};
 use glam::Vec2;

@@ -1,0 +1,22 @@
+<!doctype html><meta charset=utf-8><title>Bridge probe</title>
+<style>body{font:18px system-ui;margin:24px}</style>
+<h1>A web page</h1>
+<p id=out>probing</p>
+<script>
+  // A page from the web must never reach the app. It tries everything a
+  // bridged page has, and the scenario checks nothing was placed.
+  const tries = [];
+  const place = { kind: 'sticky', x: 560, y: 420, text: 'from the web' };
+  if (window.specular) {
+    tries.push('specular');
+    window.specular.run('item.add', place).catch(() => {});
+  }
+  if (typeof window.__specular === 'function') {
+    tries.push('binding');
+    window.__specular(JSON.stringify({ id: 1, op: 'run', nonce: '', name: 'item.add', args: place }));
+  }
+  addEventListener('specular-ready', () => tries.push('ready'));
+  setTimeout(() => {
+    document.getElementById('out').textContent = tries.length ? 'reached: ' + tries.join(', ') : 'no bridge';
+  }, 300);
+</script>

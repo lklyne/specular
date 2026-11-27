@@ -51,6 +51,8 @@ tests and the headless modes below need no window.
 | `specular-prism` | lib | The Prism, the thread avatar, rendered on wgpu from three's own WGSL at parity with the web build (ADR 0047). Depends on wgpu alone |
 | `specular-cef` | lib | The CEF offscreen `PageSource` (feature `cef`) and the CEF-free helpers it is built from. See [`crates/specular-cef/README.md`](crates/specular-cef/README.md) |
 | `specular-shell` | lib + bin | The library is `Runtime`, which owns the `App` and runs every effect: page hosts, space files, images, Documents, clipboard, the HTTP and CDP servers, the agent runner. Also the command line, the headless `--snapshot` and `--script` modes (a `Runtime` over an offscreen window) and `--bench`. The binary `specular` (`src/kit/`, ADR 0040) is the GPUI Kit window: the Kit draws the chrome (tab row, toolbar, dock), sidebar, menus, settings, first run and the chat panel from the models, and the compositor draws the canvas in a view under GPUI's |
+| `specular-mods` | lib | The mod host (ADR 0055): mods (`mod.json` + `main.js`) run by `gpui-shell`, the `specular` host module and its host components (`Icon`, `Zoom`, `ToolOptions`), which keys each mod read, the `ModSet` a layout names, and the shipped mods with their guide and `specular.d.ts` (`mods/`), written into `<app home>/mods/` on every start. Builds and tests headless on any OS; the Kit window hosts it from `src/kit/mods.rs` |
+| `specular-mod-check` | bin | `specular mod check <dir> [--state fixture.json]`: loads a mod on GPUI's test platform against a state fixture and prints its tree, the commands it ran and its console. Its own crate so GPUI's `test-support` stays out of the app and the CLI |
 | `specular-bench` | lib + bin | Gesture profiles, frame stats, per-frame work times, process-tree memory and `assemble`. See [`crates/specular-bench/README.md`](crates/specular-bench/README.md) |
 | `specular-testkit` | lib, dev only | `TestApp`, snapshot macros and entity builders for tests |
 
@@ -72,6 +74,9 @@ everything above  <-  shell  ->  prism
   only in its tests.
 - `shell` depends on all of the above except the testkit, and on `prism`,
   which depends on no other crate here.
+- `mods` depends on `interact`, `scene` and `doc`, with `gpui-shell`;
+  `mod-check` on `mods`. Only the Kit window (macOS) links `mods` into the
+  shell.
 - `core`, `doc`, `agent`, `interact`, `scene` and `api` have no GPU, window,
   CEF or file I/O.
 
