@@ -97,5 +97,7 @@ pub fn chrome_colors(appearance: Appearance) -> Value {
         Appearance::Dark => packed(0x51a2_ffff),
     };
     colors.insert("accent".to_owned(), Value::String(accent));
+    // A hovered row's text: the text colour, unless a theme renames it.
+    colors.insert("hoverText".to_owned(), Value::String(hex(panel.text)));
     Value::Object(colors)
 }

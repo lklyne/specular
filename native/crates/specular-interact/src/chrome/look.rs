@@ -33,7 +33,9 @@ pub enum ThemeChoice {
     },
 }
 
-/// A theme file, `themes/<name>.json`.
+/// A theme file, `themes/<name>.json`: everything that styles the app's
+/// own panels, menus and popups and every mod, set once. A layout's own
+/// keys of the same names go over it.
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ThemeFile {
@@ -43,6 +45,15 @@ pub struct ThemeFile {
     /// Its colours, by name.
     #[serde(default)]
     pub colors: BTreeMap<String, String>,
+    /// The chrome's font family.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub font: Option<String>,
+    /// The chrome's text size, in points.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub font_size: Option<f32>,
+    /// The corner radius of the app's controls, menus, popups and dialogs.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub radius: Option<f32>,
 }
 
 /// What a layout's root sets of the look.
@@ -124,6 +135,12 @@ pub struct Resolved {
     pub appearance: Option<Appearance>,
     /// Colours by name, the theme's then the layout's.
     pub colors: BTreeMap<String, String>,
+    /// The chrome's font family: the layout's, else the theme's.
+    pub font: Option<String>,
+    /// The chrome's text size: the layout's, else the theme's.
+    pub font_size: Option<f32>,
+    /// The corner radius: the layout's, else the theme's.
+    pub radius: Option<f32>,
 }
 
 impl Look {
@@ -139,6 +156,11 @@ impl Look {
             theme: name.map(str::to_owned),
             appearance: self.appearance(system, themes),
             colors,
+            font: (self.font.clone()).or_else(|| file.and_then(|file| file.font.clone())),
+            font_size: self
+                .font_size
+                .or_else(|| file.and_then(|file| file.font_size)),
+            radius: self.radius.or_else(|| file.and_then(|file| file.radius)),
         }
     }
 
@@ -179,9 +201,9 @@ impl Look {
             },
             "theme": resolved.theme,
             "colors": colors,
-            "font": self.font,
-            "fontSize": self.font_size,
-            "radius": self.radius,
+            "font": resolved.font,
+            "fontSize": resolved.font_size,
+            "radius": resolved.radius,
             "background": self.background,
         })
     }

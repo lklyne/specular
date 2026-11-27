@@ -97,7 +97,7 @@ fn status_tag(item: &Item, status: &Status) -> Tag {
         Status::Missing => Tag::secondary().child("Not installed"),
         Status::Differs(_) => Tag::warning().child(item.differs),
     }
-    .rounded_full()
+    .rounded(crate::theme::corner_full())
 }
 
 /// What a card says under its description: where the installed one is, or

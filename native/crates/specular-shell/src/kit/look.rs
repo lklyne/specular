@@ -9,7 +9,7 @@
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 
-use specular_interact::{Look, Resolved};
+use specular_interact::Resolved;
 
 /// What the window draws with now.
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -24,27 +24,36 @@ thread_local! {
     static HELD: RefCell<Held> = RefCell::new(Held::default());
 }
 
-/// `#rrggbb` or `#rrggbbaa` as `0xRRGGBBAA`.
+/// `#rgb`, `#rgba`, `#rrggbb` or `#rrggbbaa` as `0xRRGGBBAA`.
 pub(crate) fn hex(text: &str) -> Option<u32> {
     let digits = text.strip_prefix('#')?;
-    let value = u32::from_str_radix(digits, 16).ok()?;
-    match digits.len() {
-        6 => Some(value << 8 | 0xff),
-        8 => Some(value),
-        _ => None,
+    if !digits.chars().all(|digit| digit.is_ascii_hexdigit()) {
+        return None;
     }
+    // A short form doubles each digit: `#0af` is `#00aaff`.
+    let long: String = match digits.len() {
+        3 | 4 => digits.chars().flat_map(|digit| [digit, digit]).collect(),
+        6 | 8 => digits.to_owned(),
+        _ => return None,
+    };
+    let value = u32::from_str_radix(&long, 16).ok()?;
+    Some(if long.len() == 6 {
+        value << 8 | 0xff
+    } else {
+        value
+    })
 }
 
-/// Puts the look `resolved` and `look` in place. Returns whether it
+/// Puts the look `resolved` in place. Returns whether it
 /// changed, so the Kit's theme is applied again.
-pub(crate) fn set(look: &Look, resolved: &Resolved) -> bool {
+pub(crate) fn set(resolved: &Resolved) -> bool {
     let held = Held {
         colors: (resolved.colors.iter())
             .filter_map(|(name, value)| Some((name.clone(), hex(value)?)))
             .collect(),
-        font: look.font.clone(),
-        font_size: look.font_size,
-        radius: look.radius,
+        font: resolved.font.clone(),
+        font_size: resolved.font_size,
+        radius: resolved.radius,
     };
     HELD.with_borrow_mut(|now| {
         if *now == held {
@@ -88,4 +97,17 @@ pub(crate) fn color(text: &str) -> Option<u32> {
     hex(text)
         .or_else(|| over(text))
         .or_else(|| crate::theme::by_name(text))
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn a_colour_reads_in_its_short_and_long_forms() {
+        assert_eq!(super::hex("#000"), Some(0x0000_00ff));
+        assert_eq!(super::hex("#0af8"), Some(0x00aa_ff88));
+        assert_eq!(super::hex("#00aaff"), Some(0x00aa_ffff));
+        assert_eq!(super::hex("#00aaff80"), Some(0x00aa_ff80));
+        assert_eq!(super::hex("#00aaf"), None);
+        assert_eq!(super::hex("#00g"), None);
+    }
 }

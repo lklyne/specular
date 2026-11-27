@@ -11,7 +11,7 @@ use std::cell::Cell;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use gpui_kit::component::{Theme, ThemeMode};
-use gpui_kit::{App, Hsla, Rgba, WindowAppearance, px, rgba};
+use gpui_kit::{App, Hsla, Pixels, Rgba, WindowAppearance, px, rgba};
 use specular_interact::{Appearance, Theme as Choice};
 use specular_scene::{Color, Colors};
 
@@ -126,6 +126,7 @@ macro_rules! panel_colors {
                 "primaryForeground" => Some(primary_foreground()),
                 "error" => Some(error()),
                 "focusRing" => Some(focus_ring()),
+                "hoverText" => Some(hover_text()),
                 "accent" => Some(crate::look::over("accent").unwrap_or_else(focus_ring)),
                 _ => None,
             }
@@ -205,6 +206,12 @@ pub(crate) fn raised_shade() -> u32 {
 /// layout names a `focusRing`.
 pub(crate) fn focus_ring() -> u32 {
     crate::look::over("focusRing").unwrap_or_else(|| pick(0x2b7f_ffff, 0x51a2_ffff))
+}
+
+/// The text of a hovered row or control: the text colour, unless the theme
+/// names a `hoverText` for a `hover` too dark or too light for it.
+pub(crate) fn hover_text() -> u32 {
+    crate::look::over("hoverText").unwrap_or_else(text)
 }
 
 /// `--surface-primary`: stone-900, stone-100 in the dark.
@@ -358,6 +365,27 @@ pub(crate) fn load_fonts(cx: &App) {
     }
 }
 
+/// `points`, a corner radius drawn at the app's own 6 point radius, scaled
+/// to the layout's or theme's `radius`: the same at the default, square at
+/// 0, so every corner of the app's own panels follows one setting.
+pub(crate) fn corner_points(points: f32) -> f32 {
+    points * crate::look::radius() / 6.0
+}
+
+/// [`corner_points`] as a length.
+pub(crate) fn corner(points: f32) -> Pixels {
+    px(corner_points(points))
+}
+
+/// A pill's or a circle's corners, unless the look squares every corner.
+pub(crate) fn corner_full() -> Pixels {
+    if crate::look::radius() > 0.0 {
+        px(9999.0)
+    } else {
+        px(0.0)
+    }
+}
+
 /// Puts the theme of `appearance` in place. Call after `gpui_kit::init`,
 /// which loads the Kit's own, and again whenever the theme changes.
 pub(crate) fn apply(appearance: Appearance, cx: &mut App) {
@@ -395,7 +423,7 @@ pub(crate) fn apply(appearance: Appearance, cx: &mut App) {
         theme.secondary_active = solid(control_on());
         theme.secondary_foreground = solid(text());
         theme.accent = solid(control_on());
-        theme.accent_foreground = solid(text());
+        theme.accent_foreground = solid(hover_text());
 
         theme.popover = solid(popup());
         theme.popover_foreground = solid(text());

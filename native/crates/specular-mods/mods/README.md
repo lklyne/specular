@@ -122,8 +122,8 @@ Then check it with no window: `specular mod check ~/path/to/mods/hello`.
   one keeps the last good layout and writes `<name>.error` beside it.
 - `../layouts/.state/`: what was hidden and shown at run time
   (`ui.toggle`) for each layout, and `active`, the layout shown last.
-- `../themes/<name>.json`: a theme a layout names: `{ "appearance":
-  "dark", "colors": { "toolbar": "#1d1d20", ... } }`.
+- `../themes/<name>.json`: a theme a layout names, the one place a look's
+  tokens are set (see "Themes").
 - `../keys.json`: your own keys (see "Keys").
 
 ## What a mod reads
@@ -231,6 +231,23 @@ its edge where the corners cut it; with `"padding": [0, 6]` on the root
 the chrome sits clear of the curve. The overlays
 `menu`, `share`, `toast`, `palette`, `welcome` and `dock` are keys of the
 root too: `{ "mod": name, "props": {} }`, or left out for the app's own.
+
+**Themes.** A theme file holds every token the app's own panels, menus,
+popups and dialogs and every mod draw with, so a look is one file:
+
+```json
+{ "appearance": "light", "radius": 0, "font": "Geneva", "font_size": 12,
+  "colors": { "popup": "#fff", "popupBorder": "#000", "hover": "#000",
+              "hoverText": "#fff", "on": "#ddd", "text": "#000" } }
+```
+
+`radius` scales every corner the app draws (6 is its own; 0 squares them
+all, pills included), `font` and `font_size` set the chrome's text, and
+`colors` renames any colour `colors()` lists (`#rgb`, `#rgba`, `#rrggbb`,
+`#rrggbbaa`). `hover` is a hovered row's fill and `hoverText` its text;
+`on` a selected one's. A layout's own `radius`, `font`, `font_size` and
+`colors` go over its theme's. A mod reads them all through `colors()` and
+`look()`.
 
 **Patterns.** A paint can repeat over a base colour: `{ "color": "#ddd",
 "pattern": "stripes", "ink": "#bbb", "width": 1, "gap": 1 }` for

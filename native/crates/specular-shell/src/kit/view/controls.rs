@@ -63,6 +63,12 @@ pub(super) fn hint(label: &str, chord: Option<Chord>) -> SharedString {
 /// What a control shows: its glyph, its word, or a dot of its colour. A control that is on is drawn in the full text
 /// colour and one at rest in the muted one.
 pub(super) fn face(face: &Face, on: bool) -> AnyElement {
+    face_in(face, on, None)
+}
+
+/// [`face`] on a row of the group `hovered`, whose word takes the
+/// `hoverText` colour while the pointer is on the row.
+pub(super) fn face_in(face: &Face, on: bool, hovered: Option<SharedString>) -> AnyElement {
     let tint =
         (face.color.as_ref()).map(|color| glyphs::resolved(color, Palette::Vivid, PaintRole::Ink));
     let mut row = h_flex().gap_1().items_center();
@@ -92,6 +98,11 @@ pub(super) fn face(face: &Face, on: bool) -> AnyElement {
                 .text_color(color)
                 .when(face.font == Some(TextFont::Mono), |this| {
                     this.font_family(specular_compositor::MONO_FAMILY)
+                })
+                .when_some(hovered, |this, group| {
+                    this.group_hover(group, |this| {
+                        this.text_color(theme::solid(theme::hover_text()))
+                    })
                 })
                 .child(SharedString::from(text.to_string())),
         );

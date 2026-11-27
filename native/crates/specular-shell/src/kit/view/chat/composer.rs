@@ -86,7 +86,7 @@ impl ShellView {
                 .size(px(48.0))
                 .flex_shrink_0()
                 .overflow_hidden()
-                .rounded(px(6.0))
+                .rounded(crate::theme::corner(6.0))
                 .border_1()
                 .border_color(theme::solid(theme::zinc_300()))
                 .child(
@@ -126,7 +126,7 @@ impl ShellView {
         let arrow = div().text_size(px(12.0)).child("↑");
         let button = Button::new("chat-send")
             .size(px(28.0))
-            .rounded(px(14.0))
+            .rounded(crate::theme::corner(14.0))
             .flex_shrink_0()
             .tooltip("Send")
             .child(arrow)
@@ -218,7 +218,7 @@ impl ShellView {
         });
         let box_ = v_flex()
             .id("chat-composer")
-            .rounded(px(16.0))
+            .rounded(crate::theme::corner(16.0))
             .border_1()
             .border_color(theme::solid(theme::input_border()))
             .bg(theme::solid(theme::input()))

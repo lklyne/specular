@@ -309,7 +309,7 @@ fn canvases_head(model: &SidebarModel) -> impl IntoElement {
                 .flex_shrink_0()
                 .items_center()
                 .justify_center()
-                .rounded(px(8.0))
+                .rounded(crate::theme::corner(8.0))
                 .cursor_pointer()
                 .hover(|this| this.bg(theme::tinted(theme::row_selected())))
                 .tooltip(crate::tip::view("New canvas"))

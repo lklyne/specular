@@ -237,7 +237,7 @@ fn error_card(name: &str, error: &str) -> AnyElement {
         .left(px(8.0))
         .w(px(280.0))
         .p_2()
-        .rounded(px(8.0))
+        .rounded(crate::theme::corner(8.0))
         .bg(theme::solid(theme::popup()))
         .border_1()
         .border_color(theme::solid(theme::error()))

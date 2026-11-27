@@ -120,7 +120,7 @@ fn mix(from: u32, to: u32, amount: f32) -> Hsla {
 /// looks like the field it came from.
 fn surface() -> BubbleContent {
     BubbleContent::new()
-        .rounded(px(16.0))
+        .rounded(crate::theme::corner(16.0))
         .border_color(theme::solid(theme::input_border()))
         .bg(theme::solid(theme::input()))
         .text_color(theme::solid(theme::text()))
@@ -139,7 +139,7 @@ fn thumbnails(images: &[String]) -> impl IntoElement + use<> {
             img(PathBuf::from(path))
                 .size(px(48.0))
                 .flex_shrink_0()
-                .rounded(px(6.0))
+                .rounded(crate::theme::corner(6.0))
                 .border_1()
                 .border_color(theme::solid(theme::zinc_300()))
                 .object_fit(ObjectFit::Cover)

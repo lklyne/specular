@@ -102,7 +102,7 @@ fn on_wake(cx: &mut App) {
         if let Some(system) = theme::choose(models.theme) {
             canvas::dispatch(Event::SystemAppearance(system));
         }
-        let restyled = crate::look::set(&models.layout.look, &models.look);
+        let restyled = crate::look::set(&models.look);
         if restyled || models.appearance != theme::appearance() {
             theme::apply(models.appearance, cx);
             cx.refresh_windows();

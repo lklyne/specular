@@ -2,10 +2,12 @@
 //! in the old five-region shape read as the tree it means, where the tree
 //! puts the canvas, and a bad save that leaves the last good layout in force.
 
+use std::collections::BTreeMap;
+
 use serde_json::json;
 use specular_interact::{
-    Content, Frame, HiddenWord, Layout, LayoutFile, Overlay, Region, SHIPPED, Shown, Toggles,
-    TrafficLights, place,
+    Appearance, Content, Frame, HiddenWord, Layout, LayoutFile, Overlay, Region, SHIPPED, Shown,
+    ThemeFile, Toggles, TrafficLights, place,
 };
 
 #[test]
@@ -64,6 +66,40 @@ fn a_root_moves_or_hides_the_window_buttons_borders_the_window_and_rounds_the_co
     for layout in [hidden, moved, native] {
         assert_eq!(Layout::parse(&layout.to_text()), Ok(layout.clone()));
     }
+}
+
+#[test]
+fn a_theme_sets_the_radius_and_fonts_once_and_a_layout_goes_over_it() {
+    let retro: ThemeFile = serde_json::from_str(
+        r##"{ "appearance": "light", "radius": 0, "font": "Geneva", "font_size": 12,
+              "colors": { "hover": "#000", "hoverText": "#fff" } }"##,
+    )
+    .expect("a theme");
+    let themes = BTreeMap::from([("retro".to_owned(), retro)]);
+    let root = |keys: &str| {
+        Layout::parse(&format!(
+            r#"{{ "type": "column", "theme": "retro", {keys}
+                "children": [{{ "id": "canvas", "type": "block", "content": "canvas" }}] }}"#
+        ))
+        .expect("a layout")
+    };
+    let themed = root("").look.resolve(Appearance::Dark, &themes);
+    assert_eq!(
+        (themed.radius, themed.font.as_deref(), themed.font_size),
+        (Some(0.0), Some("Geneva"), Some(12.0))
+    );
+    assert_eq!(themed.appearance, Some(Appearance::Light));
+    assert_eq!(
+        themed.colors.get("hoverText").map(String::as_str),
+        Some("#fff")
+    );
+    let over = root(r#""font": "Monaco", "radius": 2,"#)
+        .look
+        .resolve(Appearance::Light, &themes);
+    assert_eq!(
+        (over.radius, over.font.as_deref(), over.font_size),
+        (Some(2.0), Some("Monaco"), Some(12.0))
+    );
 }
 
 #[test]

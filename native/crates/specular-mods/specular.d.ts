@@ -330,7 +330,7 @@ export function colors(): {
   divider: string; keyText: string; sidebar: string; sidebarRule: string; interactive: string;
   interactiveHover: string; raisedFill: string; raisedRim: string; raisedShadowNear: string;
   raisedShadowFar: string; tabHover: string; primary: string; primaryHover: string;
-  primaryForeground: string; error: string; warning: string; focusRing: string; backdrop: string; accent: string;
+  primaryForeground: string; error: string; warning: string; focusRing: string; hoverText: string; backdrop: string; accent: string;
   [name: string]: string;
 };
 

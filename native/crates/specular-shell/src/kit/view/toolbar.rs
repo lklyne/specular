@@ -60,7 +60,7 @@ fn tool(model: &ToolButton, tip: bool) -> impl IntoElement {
         .size(px(TOOL_BUTTON))
         // The Kit's own padding would leave a 20 px glyph 12 px of room.
         .px_0()
-        .rounded(px(6.0))
+        .rounded(crate::theme::corner(6.0))
         .selected(model.active)
         .when(model.active, |this| this.raised(6.0))
         .child(glyph(model.icon, current, tint, model.active, TOOL_GLYPH))
@@ -81,7 +81,7 @@ pub(super) fn panel_toggle(model: &SidebarButton) -> impl IntoElement {
     Button::new(SharedString::from(model.id.as_str().to_owned()))
         .ghost()
         .small()
-        .rounded(px(8.0))
+        .rounded(crate::theme::corner(8.0))
         .child(crate::tip::over(model.id.as_str(), model.label.to_string()))
         .child(
             div()
@@ -117,7 +117,7 @@ fn beside(group: &ControlId, text: SharedString) -> impl IntoElement {
             div()
                 .px_2()
                 .py_1()
-                .rounded(px(6.0))
+                .rounded(crate::theme::corner(6.0))
                 .bg(theme::solid(theme::popup()))
                 .border_1()
                 .border_color(theme::solid(theme::chrome_border()))
@@ -137,7 +137,7 @@ fn theme_button(model: &ThemeButton, tip: bool) -> impl IntoElement {
         .size(px(TOOL_BUTTON))
         // The Kit's own padding would leave a 20 px glyph 12 px of room.
         .px_0()
-        .rounded(px(6.0))
+        .rounded(crate::theme::corner(6.0))
         .when(tip, |this| {
             this.child(crate::tip::over(model.id.as_str(), model.label.to_string()))
         })
@@ -172,7 +172,7 @@ fn floats(id: &'static str) -> gpui_kit::Stateful<gpui_kit::Div> {
         .p(px(RIBBON_PAD))
         .gap_1()
         .items_center()
-        .rounded(px(10.0))
+        .rounded(crate::theme::corner(10.0))
         .bg(theme::solid(theme::toolbar()))
         .border_1()
         .border_color(theme::solid(theme::chrome_border()))

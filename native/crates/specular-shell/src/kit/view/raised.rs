@@ -33,6 +33,7 @@ fn layer(drop: f32, blur: f32, spread: f32, color: u32, inset: bool) -> BoxShado
 /// The rim and the face, filling the control they are a child of. The face
 /// darkens a little into its bottom edge.
 fn surface(radius: f32) -> impl IntoElement {
+    let radius = theme::corner_points(radius);
     canvas(
         |_, _, _| (),
         move |bounds, (), window, _| {
@@ -48,12 +49,12 @@ fn surface(radius: f32) -> impl IntoElement {
                 );
             }
             let face = bounds.dilate(px(-RIM));
-            if let Some(fill) = squircle(face, radius - RIM) {
+            if let Some(fill) = squircle(face, (radius - RIM).max(0.0)) {
                 window.paint_path(fill, theme::solid(theme::raised_fill()));
             }
             window.paint_inset_shadows(
                 face,
-                Corners::all(px(radius - RIM)),
+                Corners::all(px((radius - RIM).max(0.0))),
                 &[layer(-2.0, 3.0, -2.0, theme::raised_shade(), true)],
             );
         },
@@ -68,6 +69,7 @@ fn surface(radius: f32) -> impl IntoElement {
 /// A flat squircle of `fill` and corners of `radius`, filling the element
 /// it is a child of: what a control that is not on shows under the pointer.
 pub(super) fn plate(radius: f32, fill: u32) -> impl IntoElement {
+    let radius = theme::corner_points(radius);
     canvas(
         |_, _, _| (),
         move |bounds, (), window, _| {

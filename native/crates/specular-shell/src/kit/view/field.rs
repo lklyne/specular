@@ -167,7 +167,9 @@ impl FieldStyle {
             .focus
             .unwrap_or_else(|| theme::solid(theme::focus_ring()));
         input
-            .when_some(self.radius, |this, radius| this.rounded(px(radius)))
+            .when_some(self.radius, |this, radius| {
+                this.rounded(crate::theme::corner(radius))
+            })
             .when_some(self.background, Styled::bg)
             .when_some(self.border, Styled::border_color)
             .when(self.is_set(), |this| this.focus_bordered(false))
@@ -217,7 +219,7 @@ fn input_styled(
                 // The Kit's own `Input::h` sizes a multi-line input only.
                 Styled::h(Input::new(&input).small(), px(ADDRESS_HEIGHT))
                     .text_size(px(12.0))
-                    .rounded_full()
+                    .rounded(crate::theme::corner_full())
                     .px_3()
                     .bg(theme::solid(theme::input()))
                     .focus_bordered(false)
@@ -245,7 +247,7 @@ fn input_styled(
                 div()
                     .absolute()
                     .inset(px(-1.0))
-                    .rounded_full()
+                    .rounded(crate::theme::corner_full())
                     .border_1()
                     .border_color(ring.opacity(0.5)),
             )
