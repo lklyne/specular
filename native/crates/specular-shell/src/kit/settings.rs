@@ -26,6 +26,12 @@ use crate::assets::ShellIcon;
 use crate::canvas;
 use crate::theme;
 
+/// Runs `action` and has the dialog read the model again.
+fn send(action: &Action, window: &mut Window) {
+    canvas::dispatch(Event::Action(action.clone()));
+    window.refresh();
+}
+
 fn muted() -> gpui_kit::Hsla {
     theme::tinted(theme::text_muted())
 }
