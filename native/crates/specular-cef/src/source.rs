@@ -94,7 +94,7 @@ impl PageSource for CefPageSource {
     fn set_viewport(&mut self, page: PageId, viewport: CssSize) -> Result<(), PageSourceError> {
         validate_viewport(viewport)?;
         let entry = self.entry_mut(page)?;
-        lock_geometry(&entry.geometry).viewport = viewport;
+        lock_geometry(&entry.geometry).set_viewport(viewport);
         if entry.painting {
             entry.unsent.changed(GeometryChange::Viewport);
         }
@@ -104,7 +104,7 @@ impl PageSource for CefPageSource {
     fn set_texture_scale(&mut self, page: PageId, scale: f32) -> Result<(), PageSourceError> {
         validate_texture_scale(scale)?;
         let entry = self.entry_mut(page)?;
-        lock_geometry(&entry.geometry).scale = scale;
+        lock_geometry(&entry.geometry).set_scale(scale);
         // A hidden browser picks the scale up when it is shown: resizing it
         // while hidden leaves it without frames after the show.
         if entry.painting {

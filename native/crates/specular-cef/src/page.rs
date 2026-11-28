@@ -33,13 +33,21 @@ use crate::devtools::Pending;
 #[cfg(feature = "cef")]
 use crate::pool::OutstandingFrames;
 
+/// `scale` for `viewport`, within the largest texture a GPU makes.
+fn fit(viewport: CssSize, scale: f32) -> f32 {
+    viewport.scale_within(scale, specular_core::MAX_TEXTURE_SIDE)
+}
+
 /// Geometry the render handler reports to CEF and uses to place popups.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct PageGeometry {
     /// CSS viewport (`GetViewRect`).
     pub(crate) viewport: CssSize,
-    /// Device scale factor (`GetScreenInfo`).
-    pub(crate) scale: f32,
+    /// Device scale factor (`GetScreenInfo`): the scale asked for, lowered
+    /// so the frame fits a texture ([`CssSize::scale_within`]).
+    scale: f32,
+    /// The scale asked for.
+    wanted: f32,
     /// Last `OnPopupSize` rect in CSS, kept to re-place on scale changes.
     popup_css: Option<PixelRect>,
     /// The scale of the last frame that came at the size asked for.
@@ -51,10 +59,28 @@ impl PageGeometry {
     pub(crate) fn new(spec: &PageSpec) -> Self {
         Self {
             viewport: spec.viewport,
-            scale: spec.texture_scale,
+            scale: fit(spec.viewport, spec.texture_scale),
+            wanted: spec.texture_scale,
             popup_css: None,
-            painted_scale: spec.texture_scale,
+            painted_scale: fit(spec.viewport, spec.texture_scale),
         }
+    }
+
+    /// The device scale factor CEF is told.
+    pub(crate) fn scale(&self) -> f32 {
+        self.scale
+    }
+
+    /// Sizes the view to `viewport`, keeping the frame inside a texture.
+    pub(crate) fn set_viewport(&mut self, viewport: CssSize) {
+        self.viewport = viewport;
+        self.scale = fit(viewport, self.wanted);
+    }
+
+    /// Asks for `scale`, lowered as far as the frame needs to fit a texture.
+    pub(crate) fn set_scale(&mut self, scale: f32) {
+        self.wanted = scale;
+        self.scale = fit(self.viewport, scale);
     }
 
     /// View frame size in texels.

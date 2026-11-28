@@ -35,7 +35,31 @@ impl CssSize {
             (self.height as f32 * scale).ceil() as u32,
         )
     }
+
+    /// `texture_scale`, lowered as far as needed for neither side of the
+    /// frame to pass `max_side` texels. A GPU cannot make a texture past its
+    /// limit, and Chromium ends the whole process when its GPU process fails
+    /// at that more than a few times, so a tall page rasters coarser
+    /// instead.
+    pub fn scale_within(self, texture_scale: f32, max_side: u32) -> f32 {
+        let longest = self.width.max(self.height);
+        if longest == 0 {
+            return texture_scale;
+        }
+        let fits = max_side as f32 / longest as f32;
+        let fitted = texture_scale.min(fits);
+        // Rounding up in `to_pixels` must not carry a side over the limit.
+        let frame = self.to_pixels(fitted);
+        if frame.width.max(frame.height) > max_side {
+            (max_side - 1) as f32 / longest as f32
+        } else {
+            fitted
+        }
+    }
 }
+
+/// The longest side, in texels, of a texture every Mac GPU can make.
+pub const MAX_TEXTURE_SIDE: u32 = 16_384;
 
 /// Size of a painted frame in texels.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]

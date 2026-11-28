@@ -53,7 +53,7 @@ wrap_render_handler! {
             // The "screen" is the view itself, so Chromium keeps popups
             // (<select> lists, date pickers) inside the page's texture.
             let rect = view_rect(&self.ctx);
-            info.device_scale_factor = self.ctx.geometry().scale;
+            info.device_scale_factor = self.ctx.geometry().scale();
             info.rect = rect.clone();
             info.available_rect = rect;
             1
@@ -143,7 +143,7 @@ wrap_render_handler! {
         /// CEF reports the root scroll in device pixels, so a page drawn at
         /// twice the scale says twice the offset. The app keeps CSS pixels.
         fn on_scroll_offset_changed(&self, _browser: Option<&mut Browser>, x: f64, y: f64) {
-            let scale = f64::from(self.ctx.geometry().scale);
+            let scale = f64::from(self.ctx.geometry().scale());
             self.ctx.push(PageEvent::Scrolled {
                 page: self.ctx.id,
                 offset: glam::Vec2::new((x / scale) as f32, (y / scale) as f32),

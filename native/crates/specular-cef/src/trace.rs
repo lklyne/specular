@@ -16,7 +16,7 @@ pub(crate) fn asked(page: PageId, geometry: &PageGeometry, why: &'static str) {
     if !ledger::enabled() {
         return;
     }
-    ledger::ask(page.0, geometry.viewport, geometry.scale, why);
+    ledger::ask(page.0, geometry.viewport, geometry.scale(), why);
     let mut unread = UNREAD.lock().unwrap_or_else(PoisonError::into_inner);
     if !unread.contains(&page.0) {
         unread.push(page.0);
