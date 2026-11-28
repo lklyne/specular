@@ -141,8 +141,12 @@ function projectHead(section, k) {
       onHover(
         div()
           .w(20)
+          .h(20)
           .flex()
+          .items_center()
           .justify_center()
+          .rounded(4)
+          .hover((el) => el.bg(k.interactiveHover))
           .child(Icon.new(`${section.id}.chevron`, {
             name: section.folded ? "chevron-right" : "chevron-down",
             size: 12,
@@ -192,7 +196,7 @@ export default class Sidebar extends View {
       .flex_1()
       .min_h_0()
       .p(8)
-      .gap(12)
+      .gap(16)
       .overflow_y_scroll()
       .children(sections.map((each) => (each.kind === "project" ? section(each, hidden, k) : canvases(each, hidden, k))))
       .child(SidebarSections.new("sidebar.sections", {}));

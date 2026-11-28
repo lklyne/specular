@@ -35,6 +35,9 @@ const HEAD: f32 = 36.0;
 const HEAD_PAD: f32 = 12.0;
 /// The add button: `p-1.5` around a 14 px glyph.
 const ADD: f32 = 26.0;
+/// A project head's buttons, smaller than the add button so the pair sits
+/// close.
+const HEAD_BUTTON: f32 = 22.0;
 /// A row: 28 px tall, 22 in from the left and 16 from the right.
 const ROW: f32 = 28.0;
 const PAD_LEFT: f32 = 22.0;
@@ -174,13 +177,17 @@ impl ShellView {
         if !folded {
             let mut canvases: Vec<AnyElement> = Vec::new();
             if model.projects.len() > 1 || (!titled && !model.projects.is_empty()) {
-                for project in &model.projects {
-                    canvases.push(project_head(project).into_any_element());
+                for (n, project) in model.projects.iter().enumerate() {
+                    let mut group = v_flex()
+                        .flex_shrink_0()
+                        .when(n > 0, |this| this.pt(crate::theme::space(3.0)))
+                        .child(project_head(project));
                     if !project.folded {
-                        canvases.extend(
+                        group = group.children(
                             (project.canvases.iter()).map(|row| Self::canvas_row(row, window, cx)),
                         );
                     }
+                    canvases.push(group.into_any_element());
                 }
             } else {
                 canvases
@@ -282,6 +289,19 @@ fn canvases_head(model: &SidebarModel) -> impl IntoElement {
 /// A project's head in the canvases list: its name and branch, which fold
 /// it. Under the pointer it shows a button for a new canvas in it and, at
 /// the far right, the fold chevron.
+/// A button on a project's head: a glyph in a box filled under the pointer.
+fn head_button(id: &ControlId) -> gpui_kit::Stateful<gpui_kit::Div> {
+    div()
+        .id(element_id(id))
+        .size(px(HEAD_BUTTON))
+        .flex()
+        .flex_shrink_0()
+        .items_center()
+        .justify_center()
+        .rounded(crate::theme::corner(6.0))
+        .hover(|this| this.bg(theme::tinted(theme::row_selected())))
+}
+
 fn project_head(project: &ProjectSection) -> impl IntoElement {
     const HOVERED: &str = "project-head";
     let toggle = project.toggle.clone();
@@ -319,36 +339,27 @@ fn project_head(project: &ProjectSection) -> impl IntoElement {
                 .child(SharedString::from(title)),
         )
         .child(
-            div()
-                .id(element_id(&add_id))
+            h_flex()
+                .flex_shrink_0()
+                .gap(crate::theme::space(0.5))
                 .invisible()
                 .group_hover(HOVERED, gpui_kit::Styled::visible)
-                .size(px(ADD))
-                .flex()
-                .flex_shrink_0()
-                .items_center()
-                .justify_center()
-                .rounded(crate::theme::corner(8.0))
-                .hover(|this| this.bg(theme::tinted(theme::row_selected())))
-                .tooltip(crate::tip::view("New canvas in this project"))
-                .child(small(Icon::Plus, theme::text_muted(), ICON))
-                .child(mark(&add_id))
-                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                .on_click(move |_, window, cx| {
-                    cx.stop_propagation();
-                    run(&add, window, cx);
-                }),
-        )
-        .child(
-            div()
-                .invisible()
-                .group_hover(HOVERED, gpui_kit::Styled::visible)
-                .size(px(ADD))
-                .flex()
-                .flex_shrink_0()
-                .items_center()
-                .justify_center()
-                .child(small(chevron, theme::text_muted(), FOLD)),
+                .child(
+                    head_button(&add_id)
+                        .tooltip(crate::tip::view("New canvas in this project"))
+                        .child(small(Icon::Plus, theme::text_muted(), ICON))
+                        .child(mark(&add_id))
+                        .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                        .on_click(move |_, window, cx| {
+                            cx.stop_propagation();
+                            run(&add, window, cx);
+                        }),
+                )
+                .child(head_button(&project.control.child("fold")).child(small(
+                    chevron,
+                    theme::text_muted(),
+                    FOLD,
+                ))),
         )
         .child(mark(&project.control))
         .on_click(move |_, window, cx| run(&toggle, window, cx))
