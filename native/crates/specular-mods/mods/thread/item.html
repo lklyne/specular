@@ -1,100 +1,43 @@
 <!doctype html>
-<!-- One agent thread, live: its transcript, what the agent is doing and a
-     composer. The item's id is in the address (#item=<id>); its props name
-     the thread (`props.thread`). Through the page bridge it follows
-     `canvas/mod_items` for the props, `chat/thread/<id>` for the thread
-     and `theme` for light or dark, and acts with `chat.send`, `chat.stop`,
-     `chat.new-thread` and `chat.select`, each with the thread's id, so it
-     never touches the thread the agent panel has open.
-     Enter sends, Shift+Enter starts a new line. A pasted image
-     waits above the field until it is sent with the words. Enter the item (double
-     click) to type in it, as with any page. -->
+<!-- One agent thread, live, as a canvas item. The item's id is in the
+     address (#item=<id>); its props name the thread (`props.thread`). The
+     transcript and the composer are the shared <specular-thread> and
+     <specular-composer> from ../lib/chat.js, which any web mod page can
+     use; this page adds the header and keeps the thread's id in the props.
+     Enter the item (double click) to type in it, as with any page. -->
 <html>
 <head>
 <meta charset="utf-8">
+<script src="../lib/chat.js"></script>
 <style>
-  :root {
-    --bg: #ffffff; --ink: #1f2328; --muted: #6e7781; --rule: #d0d7de;
-    --mine: #f0f3f6; --code: #f6f8fa; --accent: #0969da; --error: #cf222e;
-  }
-  :root.dark {
-    --bg: #1c1d1f; --ink: #e6edf3; --muted: #8b949e; --rule: #30363d;
-    --mine: #2a2c30; --code: #24262a; --accent: #58a6ff; --error: #ff7b72;
-  }
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; overflow: hidden; }
   /* Fixed, so nothing (a focused field, a long line) can scroll the
-     document itself: the transcript scrolls inside <main>. */
+     document itself: the transcript scrolls inside itself. */
   body {
     position: fixed; inset: 0;
     display: flex; flex-direction: column;
-    background: var(--bg); color: var(--ink);
+    background: var(--sc-bg); color: var(--sc-ink);
     font: 13px/1.5 -apple-system, BlinkMacSystemFont, "Geist", sans-serif;
-    border: 1px solid var(--rule); border-radius: 12px;
+    border: 1px solid var(--sc-rule); border-radius: 12px;
   }
   header {
     display: flex; align-items: center; gap: 6px; padding: 8px 10px;
-    border-bottom: 1px solid var(--rule);
+    border-bottom: 1px solid var(--sc-rule);
   }
   header h1 { flex: 1; margin: 0; font-size: 13px; font-weight: 600;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent);
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--sc-accent);
     visibility: hidden; animation: pulse 1.2s ease-in-out infinite; }
   .dot.on { visibility: visible; }
   @keyframes pulse { 50% { opacity: 0.3; } }
-  button {
-    font: inherit; font-size: 12px; color: var(--muted); background: none;
+  header button {
+    font: inherit; font-size: 12px; color: var(--sc-muted); background: none;
     border: 0; border-radius: 6px; padding: 3px 8px; cursor: pointer;
   }
-  button:hover { background: var(--mine); color: var(--ink); }
-  main { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 10px; }
-  .msg { max-width: 100%; overflow-wrap: anywhere; }
-  .msg.user { align-self: flex-end; background: var(--mine); padding: 6px 10px;
-    border-radius: 10px; margin-left: 32px; white-space: pre-wrap; }
-  .msg.agent > :first-child { margin-top: 0; }
-  .msg.agent > :last-child { margin-bottom: 0; }
-  .msg p, .msg ul, .msg ol, .msg pre { margin: 0 0 8px; }
-  .msg h1, .msg h2, .msg h3, .msg h4 { margin: 10px 0 6px; font-size: 13px; }
-  .msg h1, .msg h2 { font-size: 14px; }
-  .msg ul, .msg ol { padding-left: 20px; }
-  .msg code { font: 12px ui-monospace, "SF Mono", Menlo, monospace;
-    background: var(--code); padding: 1px 4px; border-radius: 4px; }
-  .msg pre { background: var(--code); padding: 8px; border-radius: 8px; overflow-x: auto; }
-  .msg pre code { padding: 0; background: none; }
-  .msg a { color: var(--accent); }
-  .msg img { max-width: 100%; border-radius: 6px; display: block; margin-top: 6px; }
-  .cards { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
-  .card { font-size: 12px; color: var(--muted); border: 1px solid var(--rule);
-    border-radius: 6px; padding: 3px 8px; }
-  .note { color: var(--muted); font-size: 12px; }
-  .error { color: var(--error); font-size: 12px; }
-  .queued { font-size: 12px; color: var(--muted); border: 1px dashed var(--rule);
-    border-radius: 6px; padding: 3px 8px; align-self: flex-end; }
-  footer { border-top: 1px solid var(--rule); padding: 8px; display: flex; flex-direction: column; gap: 6px; }
-  .row { display: flex; align-items: center; gap: 4px; min-width: 0; }
-  .chip { font-size: 11px; color: var(--muted); border: 1px solid var(--rule); border-radius: 999px;
-    padding: 1px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 45%; }
-  .chip:empty { display: none; }
-  .spacer { flex: 1; }
-  select { font: inherit; font-size: 11px; color: var(--muted); background: none; border: 0;
-    max-width: 110px; cursor: pointer; }
-  #send { background: var(--accent); color: #fff; font-weight: 600; padding: 3px 10px; }
-  #send:disabled { opacity: 0.4; cursor: default; }
-  textarea {
-    width: 100%; resize: none; border: 1px solid var(--rule); border-radius: 8px;
-    padding: 7px 9px; font: inherit; color: var(--ink); background: var(--bg);
-    min-height: 36px; max-height: 140px; outline: none;
-  }
-  textarea:focus { border-color: var(--accent); }
-  .thumbs { display: flex; flex-wrap: wrap; gap: 6px; }
-  .thumbs:empty { display: none; }
-  .thumb { position: relative; width: 48px; height: 48px; }
-  .thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: 6px;
-    border: 1px solid var(--rule); display: block; }
-  .thumb button { position: absolute; top: -6px; right: -6px; width: 18px; height: 18px;
-    padding: 0; line-height: 16px; border-radius: 50%; background: var(--ink); color: var(--bg);
-    font-size: 12px; }
-  .empty { margin: auto; text-align: center; color: var(--muted); padding: 16px; }
+  header button:hover { background: var(--sc-mine); color: var(--sc-ink); }
+  specular-thread { flex: 1; }
+  footer { border-top: 1px solid var(--sc-rule); padding: 8px; }
 </style>
 </head>
 <body>
@@ -102,244 +45,58 @@
   <span class="dot" id="dot"></span>
   <h1 id="title">Chat thread</h1>
   <button id="stop" hidden>Stop</button>
-  <button id="panel" title="Open this thread in the agent panel">Panel</button>
+  <button id="panel" title="Open this thread in the agent panel" hidden>Panel</button>
 </header>
-<main id="log"></main>
-<footer>
-  <div class="thumbs" id="thumbs"></div>
-  <textarea id="field" rows="1" placeholder="Write to the agent…"></textarea>
-  <div class="row">
-    <span class="chip" id="pill" title="What this message goes with"></span>
-    <span class="chip" id="folder"></span>
-    <span class="spacer"></span>
-    <select id="model" title="The model runs use"></select>
-    <button id="send" disabled>Send</button>
-  </div>
-</footer>
+<specular-thread id="log"></specular-thread>
+<footer><specular-composer id="composer"></specular-composer></footer>
 <script>
   const item = new URLSearchParams(location.hash.slice(1)).get("item");
-  const log = document.getElementById("log");
-  const field = document.getElementById("field");
   const $ = (id) => document.getElementById(id);
+  // The thread in the props, or until there is one, an id picked here: the
+  // composer's first message starts it and the props keep it.
   let threadId = null;
-  let thread = null;
-  let unfollow = null;
-  // Images waiting to go with the next message: { type, data } as
-  // `chat.send` takes them, `data` a data: URL that is also the thumbnail.
-  let pasted = [];
+  let saved = false;
 
-  // A small markdown reader for the agent's words: fenced and inline code,
-  // headings, lists, bold, italics, links and paragraphs. Text is escaped
-  // first, so nothing the agent writes runs as markup.
-  const escape = (text) => text.replace(/[&<>"']/g,
-    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
-  function inline(text) {
-    return escape(text)
-      .replace(/`([^`]+)`/g, "<code>$1</code>")
-      .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-      .replace(/(^|[^*])\*([^*\s][^*]*)\*/g, "$1<em>$2</em>")
-      .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+  function show(id, kept) {
+    saved = kept;
+    if (id === threadId) return;
+    threadId = id;
+    $("log").setAttribute("thread", id);
+    $("composer").setAttribute("thread", id);
   }
-  function markdown(source) {
-    const out = [];
-    const lines = String(source || "").split("\n");
-    let list = null;
-    let para = [];
-    const flush = () => {
-      if (para.length) out.push(`<p>${inline(para.join(" "))}</p>`);
-      para = [];
-    };
-    const close = () => {
-      if (list) out.push(`</${list}>`);
-      list = null;
-    };
-    for (let n = 0; n < lines.length; n += 1) {
-      const line = lines[n];
-      if (/^```/.test(line)) {
-        flush(); close();
-        const code = [];
-        for (n += 1; n < lines.length && !/^```/.test(lines[n]); n += 1) code.push(lines[n]);
-        out.push(`<pre><code>${escape(code.join("\n"))}</code></pre>`);
-        continue;
-      }
-      const heading = /^(#{1,6})\s+(.*)$/.exec(line);
-      const bullet = /^\s*[-*]\s+(.*)$/.exec(line);
-      const numbered = /^\s*\d+[.)]\s+(.*)$/.exec(line);
-      if (heading) {
-        flush(); close();
-        const level = Math.min(heading[1].length, 4);
-        out.push(`<h${level}>${inline(heading[2])}</h${level}>`);
-      } else if (bullet || numbered) {
-        flush();
-        const kind = bullet ? "ul" : "ol";
-        if (list !== kind) { close(); out.push(`<${kind}>`); list = kind; }
-        out.push(`<li>${inline((bullet || numbered)[1])}</li>`);
-      } else if (!line.trim()) {
-        flush(); close();
-      } else {
-        close();
-        para.push(line.trim());
-      }
-    }
-    flush(); close();
-    return out.join("");
-  }
+  const freshThreadId = () =>
+    `thread_${Date.now().toString(36)}${Math.floor(Math.random() * 1e8).toString(36)}`;
 
-  const fileUrl = (path) => (/^[a-z]+:/i.test(path) ? path : `file://${encodeURI(path)}`);
-  function cards(list) {
-    if (!list || !list.length) return "";
-    const rows = list.map((card) =>
-      `<div class="card">${card.created ? "Made" : "Edited"} ${escape(card.label)} · ${escape(card.detail)}</div>`);
-    return `<div class="cards">${rows.join("")}</div>`;
-  }
-  function message(m) {
-    const images = (m.images || []).map((path) => `<img src="${escape(fileUrl(path))}">`).join("");
-    if (m.role === "user") return `<div class="msg user">${escape(m.text)}${images}</div>`;
-    return `<div class="msg agent">${markdown(m.text)}${images}${cards(m.artifacts)}</div>`;
-  }
-
-  function paint() {
-    const near = log.scrollHeight - log.scrollTop - log.clientHeight < 40;
+  $("log").addEventListener("thread", (event) => {
+    const thread = event.detail;
     $("dot").classList.toggle("on", Boolean(thread && thread.running));
     $("stop").hidden = !(thread && thread.running);
     $("panel").hidden = !thread;
-    if (!threadId || !thread) {
-      $("title").textContent = "Chat thread";
-      field.placeholder = "Write to start a thread…";
-      const why = threadId ? "This thread is closed, or lives on another canvas." : "No thread yet.";
-      log.innerHTML = `<div class="empty">${why}<br>Write below to start one here.</div>`;
-      return;
+    $("title").textContent = thread ? thread.title || "New thread" : "Chat thread";
+    $("composer").setAttribute("placeholder", (thread && thread.placeholder) || "Write to start a thread…");
+  });
+  $("composer").addEventListener("send", (event) => {
+    // A thread kept in the props that reads null was closed, or is on
+    // another canvas: this message starts a new one here instead.
+    if (saved && !$("log").value) {
+      show(freshThreadId(), false);
+      event.detail.thread = threadId;
     }
-    $("title").textContent = thread.title || "New thread";
-    field.placeholder = thread.placeholder || "Follow up…";
-    const parts = thread.messages.map(message);
-    if (thread.streaming) parts.push(message({ role: "agent", text: thread.streaming, artifacts: thread.making }));
-    if (thread.run) parts.push(`<div class="note">${escape(thread.run.label)}</div>`);
-    if (thread.error) parts.push(`<div class="error">${escape(thread.error)}</div>`);
-    for (const text of thread.queued || []) parts.push(`<div class="queued">Queued: ${escape(text)}</div>`);
-    if (!parts.length) parts.push(`<div class="empty">${escape(thread.emptyHint || "Write below to start.")}</div>`);
-    log.innerHTML = parts.join("");
-    if (near) log.scrollTop = log.scrollHeight;
-    ready();
-  }
-
-  function follow(id) {
-    if (id === threadId && unfollow) return;
-    if (unfollow) unfollow();
-    threadId = id;
-    thread = null;
-    unfollow = id ? specular.subscribe(`chat/thread/${id}`, (value) => { thread = value; paint(); }) : null;
-    paint();
-  }
-
-  function freshThreadId() {
-    return `thread_${Date.now().toString(36)}${Math.floor(Math.random() * 1e8).toString(36)}`;
-  }
-
-  async function send() {
-    const text = field.value.trim();
-    const images = pasted;
-    if (!text && !images.length && !(thread && thread.canSendEmpty)) return;
-    field.value = "";
-    field.style.height = "auto";
-    pasted = [];
-    thumbs();
-    ready();
-    let id = threadId;
-    if (!id || !thread) {
-      // Nothing to send to: start a thread of this block's own and keep it.
-      id = freshThreadId();
-      await specular.run("chat.new-thread", { id, open: false });
-      await specular.run("item.set", { id: item, props: { thread: id } });
-      follow(id);
-    }
-    await specular.run("chat.send", { text, images, thread: id });
-  }
-
-  field.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
-      event.preventDefault();
-      send().catch((error) => console.error(error));
-    }
+    if (!saved) specular.run("item.set", { id: item, props: { thread: threadId } });
+    saved = true;
   });
-  const ready = () => {
-    $("send").disabled = !(field.value.trim() || pasted.length || (thread && thread.canSendEmpty));
-  };
-
-  // The formats a thread takes; anything else pasted is left to the field.
-  const TAKES = ["image/png", "image/jpeg", "image/gif", "image/webp"];
-  function thumbs() {
-    $("thumbs").innerHTML = pasted
-      .map((image, n) => `<div class="thumb"><img src="${image.data}"><button data-n="${n}" title="Remove">×</button></div>`)
-      .join("");
-  }
-  $("thumbs").addEventListener("click", (event) => {
-    const n = event.target.dataset && event.target.dataset.n;
-    if (n === undefined) return;
-    pasted.splice(Number(n), 1);
-    thumbs();
-    ready();
-  });
-  function take(files) {
-    const images = [...files].filter((file) => TAKES.includes(file.type));
-    for (const file of images) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        pasted.push({ type: file.type, data: reader.result });
-        thumbs();
-        ready();
-      };
-      reader.readAsDataURL(file);
-    }
-    return images.length > 0;
-  }
-  field.addEventListener("paste", (event) => {
-    const files = event.clipboardData ? event.clipboardData.files : [];
-    if (take(files)) event.preventDefault();
-  });
-  field.addEventListener("input", () => {
-    field.style.height = "auto";
-    field.style.height = `${field.scrollHeight}px`;
-    ready();
-  });
-  $("send").addEventListener("click", () => {
-    send().catch((error) => console.error(error));
-    field.focus();
-  });
-  $("model").addEventListener("change", (event) => specular.run("chat.model", { name: event.target.value }));
-
-  // What the message goes with, as the agent panel's composer shows it: the
-  // pill (an element, a comment, the selection or the canvas), the folder
-  // the agent writes to, and the model.
-  const PILL = { dom: "Element", comment: "Comment", selection: "Selection", canvas: "Canvas" };
-  function context(value) {
-    if (!value) return;
-    const pill = value.pill || {};
-    $("pill").textContent = pill.label ? `${PILL[pill.kind] || "Canvas"} · ${pill.label}` : "";
-    $("folder").textContent = value.folder || "";
-    $("folder").title = value.folderPath || "";
-    const options = (value.model && value.model.options) || [];
-    $("model").innerHTML = options
-      .map((option) => `<option value="${escape(option.value || option.name)}"${option.chosen ? " selected" : ""}>${escape(option.name)}</option>`)
-      .join("");
-    $("model").hidden = options.length === 0;
-  }
   $("stop").addEventListener("click", () => specular.run("chat.stop", { thread: threadId }));
   $("panel").addEventListener("click", () => specular.run("chat.select", { id: threadId }));
 
-  function start() {
-    specular.subscribe("theme", (theme) => {
-      document.documentElement.classList.toggle("dark", Boolean(theme && theme.appearance === "dark"));
-    });
-    specular.subscribe("chat/context", context);
+  SpecularChat.followTheme();
+  SpecularChat.ready((specular) => {
     specular.subscribe("canvas/mod_items", (items) => {
       const mine = (items || []).find((each) => each.id === item);
-      if (mine) follow((mine.props && mine.props.thread) || null);
+      if (!mine) return;
+      const kept = mine.props && mine.props.thread;
+      show(kept || threadId || freshThreadId(), Boolean(kept) || saved);
     });
-  }
-  paint();
-  if (window.specular) start();
-  else addEventListener("specular-ready", start, { once: true });
+  });
 </script>
 </body>
 </html>

@@ -339,7 +339,7 @@ A mod (ADR 0055) is a folder of `mod.json` and `main.js`, run by
 - **What a mod can call.** `run` resolves through `run_named` and the work
   is deferred out of the script call. Rust-drawn pieces are host
   components (`Components`): `Icon`, `Zoom`, `ToolOptions`, `Favicon`,
-  `WindowDrag`, `Share`, `Prism`, `Field`. Headless, the window-only ones are
+  `WindowDrag`, `Share`, `Prism`, `Field`, `Composer`. Headless, the window-only ones are
   placeholders. A new one goes in `HOST_COMPONENTS`, the d.ts and the
   guide; the window's version in `kit/mods/host.rs`.
 - **Canvas items, tools and commands (ADR 0057, API 1.1).** The app's
@@ -361,7 +361,7 @@ A mod (ADR 0055) is a folder of `mod.json` and `main.js`, run by
   key for each thread of the active canvas
   (`specular-interact/src/state/chat.rs`), published beside the fixed
   keys (`is_state_key` names both); `chat.new-thread {id, open}`,
-  `chat.send {thread}` and `chat.stop {thread}`. The `chat` mod's
+  `chat.send {thread, images}` (starting a thread not made yet) and `chat.stop {thread}`. The panel's composer is the `Composer` host component (`kit/mods/composer.rs`, on `view/chat/composer_box.rs`), and web pages load `mods/lib/chat.js` (`<specular-thread>`, `<specular-composer>`). The `chat` mod's
   `props.pane` is a pane with a thread of its own (the `chats` layout), and
   the `thread` mod makes a thread a web canvas item.
 - **Checking and measuring.** `specular mod check <dir> [--state

@@ -156,10 +156,9 @@ fn a_thread_a_mod_starts_has_a_key_of_its_own_and_the_panel_keeps_its_thread() {
 }
 
 #[test]
-fn a_block_sends_pasted_images_with_its_words() {
+fn a_view_sends_words_and_images_to_a_thread_it_names_and_that_starts_it() {
     let mut app = app();
-    let args = serde_json::json!({ "id": "block_1", "open": false });
-    run(&mut app, "chat.new-thread", &args);
+    let open = state(app.app())["chat/threads"]["open"].clone();
     // A one-pixel PNG's first bytes are enough: the image is stored, not read.
     let image =
         serde_json::json!({ "type": "image/png", "data": "data:image/png;base64,iVBORw0KGgo=" });
@@ -175,6 +174,12 @@ fn a_block_sends_pasted_images_with_its_words() {
         message["images"].as_array().map(Vec::len),
         Some(1),
         "{message}"
+    );
+
+    assert_eq!(read["chat/thread/block_1"]["open"], false);
+    assert_eq!(
+        read["chat/threads"]["open"], open,
+        "the panel's thread stays"
     );
 
     let wrong = serde_json::json!({ "text": "", "images": [{ "type": "image/bmp", "data": "" }] });

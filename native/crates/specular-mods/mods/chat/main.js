@@ -6,12 +6,13 @@
 // panes: it keeps the thread it shows in `shared("chat/pane/<pane>")`,
 // lists threads from `chat/threads`, draws the thread from
 // `chat/thread/<id>` and sends with `chat.send {thread}`, so several panes
-// show several threads side by side. `props.thread` pins a pane to one
+// show several threads side by side. Each draws its composer with the
+// `Composer` host component, the panel's own. `props.thread` pins a pane to one
 // thread. The `chats` layout puts two panes beside the canvas:
 //   { "id": "chat.a", "type": "block", "content": { "mod": "chat", "props": { "pane": "a" } } }
 import { View, div } from "gpui-kit";
 import { h_flex, v_flex, Button } from "gpui-base";
-import { state, props, run, shared, setShared, notify, colors, Field } from "specular";
+import { state, props, run, shared, setShared, notify, colors, Composer } from "specular";
 
 function bar(id, text, k, onPress) {
   return Button.new(id)
@@ -29,6 +30,9 @@ function bar(id, text, k, onPress) {
 
 /** Threads this mod started, which read as null until the app has them. */
 const started = new Set();
+
+/** Each pane's id for the thread its composer starts, before it has one. */
+const pending = new Map();
 
 function freshThreadId() {
   const id = `thread_${Date.now().toString(36)}${Math.floor(Math.random() * 1e8).toString(36)}`;
@@ -102,9 +106,7 @@ function panelView(model) {
         ? transcript(model.transcript, k)
         : threadRows(model.threads, (each) => each.active, (id) => run("chat.select", { id }), "chat", k),
     placeholder: model.composer.placeholder,
-    canSendEmpty: model.composer.canSendEmpty,
-    model: model.composer.model.label,
-    send: (text) => run("chat.send", { text }),
+    thread: null,
   };
 }
 
@@ -117,6 +119,17 @@ function paneView(pane, pinned) {
   // A thread closed, or left on another canvas, gives the list back.
   const id = thread || pinned || started.has(chosen) ? chosen : null;
   const choose = (next) => setShared(slot, next);
+  // With no thread the composer sends to a fresh id, which `chat.send`
+  // starts; once the app lists it the pane shows it.
+  let next = null;
+  if (!id) {
+    next = pending.get(pane) || freshThreadId();
+    pending.set(pane, next);
+    if (list.threads.some((each) => each.id === next)) {
+      pending.delete(pane);
+      choose(next);
+    }
+  }
   const start = () => {
     const fresh = freshThreadId();
     run("chat.new-thread", { id: fresh, open: false });
@@ -136,23 +149,11 @@ function paneView(pane, pinned) {
       return threadRows(list.threads, () => false, choose, `chat.${pane}`, k);
     },
     placeholder: (thread && thread.placeholder) || "Write to the agent…",
-    canSendEmpty: Boolean(thread && thread.canSendEmpty),
-    model: list.model.label,
-    send: (text) => run("chat.send", { text, thread: id || start() }),
+    thread: id || next,
   };
 }
 
 export default class Chat extends View {
-  init() {
-    this.round = 0;
-    this.sent = shared(`field/${this.field()}/submit`) || 0;
-  }
-
-  field() {
-    const pane = (props() || {}).pane;
-    return `chat.composer${pane ? `.${pane}` : ""}.${this.round}`;
-  }
-
   render() {
     const given = props() || {};
     const pane = given.pane || (given.thread ? `thread.${given.thread}` : null);
@@ -160,14 +161,6 @@ export default class Chat extends View {
     if (!pane && model == null) return div();
     const view = pane ? paneView(pane, given.thread) : panelView(model);
     const k = colors();
-    const submit = shared(`field/${this.field()}/submit`) || 0;
-    if (submit !== this.sent) {
-      const text = (shared(`field/${this.field()}`) || "").trim();
-      if (text || view.canSendEmpty) view.send(text);
-      // A field keeps its text; a fresh one is empty.
-      this.round += 1;
-      this.sent = 0;
-    }
     const head = h_flex()
       .h(36)
       .px(8)
@@ -190,19 +183,19 @@ export default class Chat extends View {
       .child(head)
       .child(v_flex().id(`${view.prefix}.body`).flex_1().p(8).gap(8).overflow_y_scroll().children(view.body(k)))
       .child(
-        v_flex()
+        div()
           .p(8)
-          .gap(6)
           .border_t_1()
           .border_color(k.sidebarRule)
           .child(
-            Field.new(this.field(), {
-              id: this.field(),
+            // The panel's own composer: context pill, folder, model, Send
+            // and pasted images, sending to the pane's thread.
+            Composer.new(`${view.prefix}.composer`, {
+              id: `${view.prefix}.composer`,
+              thread: view.thread,
               placeholder: view.placeholder,
-              autofocus: this.round > 0,
             }),
-          )
-          .child(div().text_size(11).text_color(k.textMuted).child(view.model)),
+          ),
       );
   }
 }

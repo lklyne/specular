@@ -391,10 +391,12 @@ context. `chat.model {name}` takes an option's `value`.
 
 **Acting on one thread.** `chat.send {text, thread}` sends to that thread
 whichever the panel has open (the panel's comment draft is left alone),
-and `chat.stop {thread}` stops its run. `images` sends pasted images with
+and starts it under that id, not opened, if it is not made yet, so a view
+can name its thread before the first message. `chat.stop {thread}` stops
+its run. `images` sends pasted images with
 the words, each `{type, data}`: a MIME type (`image/png`, `image/jpeg`,
 `image/gif` or `image/webp`) and the bytes in base64, bare or as the `data:`
-URL a `FileReader` gives. The shipped `thread` block takes them from a paste. `chat.new-thread {id, open: false}`
+URL a `FileReader` gives. `chat.new-thread {id, open: false}`
 starts a thread without opening it in the panel. The mod picks the id
 (letters, digits, `_` and `-`, at most 64), so it knows it at once, since
 `run` answers before the command runs:
@@ -408,9 +410,34 @@ run("chat.send", { text: "Sketch three layouts", thread: id });
 `chat.select {id}` opens a thread in the panel, and `chat.close {id}`
 archives it.
 
+**Don't draw a composer yourself.** A panel mod places the `Composer` host
+component (see "Host components"): the panel's own composer, sending to
+the thread you name. A web page (a web item or an overlay) loads the
+shared library beside the mods, `mods/lib/chat.js`, with a classic script
+(a `file://` page cannot import a module):
+
+```html
+<script src="../lib/chat.js"></script>
+<specular-thread thread="thread_abc"></specular-thread>
+<specular-composer thread="thread_abc"></specular-composer>
+```
+
+`<specular-thread thread empty>` draws a thread live from its key, with
+markdown, images, what the agent made, the run, the error and the queue,
+and fires `thread` with the thread's value each time it changes.
+`<specular-composer thread placeholder>` is the panel's composer in HTML:
+the field, pasted images, the pill and folder from `chat/context`, the
+model and Send. It fires a cancelable `send` with `{text, images, thread}`
+before it runs `chat.send`; a listener may change `thread`.
+`SpecularChat.ready(fn)`, `SpecularChat.followTheme()`,
+`SpecularChat.markdown(text)` and `SpecularChat.escape(text)` are there
+too, and the colours are CSS variables (`--sc-bg`, `--sc-ink`,
+`--sc-muted`, `--sc-rule`, `--sc-mine`, `--sc-code`, `--sc-accent`,
+`--sc-error`) a page may set. The app rewrites `mods/lib/` on every start.
+
 **Panes.** The shipped `chat` mod with `props.pane` is a pane of its own:
 it keeps its thread in `shared("chat/pane/<pane>")`, lists threads from
-`chat/threads`, and sends to its thread, so two blocks with two panes
+`chat/threads`, and sends to its thread with a `Composer`, so two blocks with two panes
 show two threads side by side. `props.thread` pins a pane to one
 thread. The shipped `chats` layout is the canvas with two panes:
 
@@ -430,15 +457,16 @@ one for a thread (the panel's open one by default), and `thread/panel`
 (the dock button) opens a block's thread in the panel. A block is an
 `items.web` page (`thread/item.html`): it follows `canvas/mod_items` for
 its `props.thread`, `chat/thread/<id>` through the page bridge, and
-draws the transcript with markdown, images and what the agent made, and a
-composer with the panel's context pill, folder, model and Send (enter the
-item to type; Return sends, Shift+Return is a new line). Its display list is the title and the last few messages, the
+draws it with `<specular-thread>` and `<specular-composer>` from
+`mods/lib/chat.js` (enter the item to type; Return sends, Shift+Return is
+a new line). Until its first message it names a thread nobody has, which
+that message starts, and keeps it in its props. Its display list is the title and the last few messages, the
 snapshot a saved canvas keeps. Copy it (`specular mod clone thread`) to
 draw threads your own way.
 
 The panel itself draws markdown, images and comment chips natively. A mod
-that shows a thread draws them itself: a web item or overlay in HTML, a
-panel mod in GPUI elements (the shipped `chat` mod shows plain text).
+that shows a transcript draws it itself in a panel mod (the shipped
+`chat` mod shows plain text), or with `<specular-thread>` in a web page.
 
 ## Host components
 
@@ -465,6 +493,12 @@ Elements a mod places but cannot draw itself, imported from `specular`:
 - `Pattern`, `Pattern.new(id, { paint, width, height })`: a box filling
   its parent, painted with a paint (see "Patterns"): pinstripes, hatching,
   checks. Put it first in a `relative()` box and the content after it.
+- `Composer`, `Composer.new(id, { id, thread, placeholder, autofocus })`:
+  the agent panel's composer for any thread: the field, pasted images, the
+  context pill, the folder, the send mode, the model and Send. Return or
+  Send sends to `thread` (started under that id if it is not made yet), or
+  to the thread the panel has open when there is none. The window keeps it
+  by `id`, so it redraws as a person types without the mod rendering.
 - `Field`, `Field.new(id, { id, placeholder, value, autofocus })` or
   `Field.new(id, { control })`: a line of text (see "Text"), restyled by
   `radius`, `background`, `border` and `focusRing`.

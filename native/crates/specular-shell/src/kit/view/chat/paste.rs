@@ -14,12 +14,12 @@ use specular_interact::{ImageUpload, MediaType};
 use crate::view::ShellView;
 
 /// One pasted image, waiting to be sent.
-pub(super) struct Pasted {
+pub(crate) struct Pasted {
     /// What Send carries.
-    pub(super) upload: ImageUpload,
+    pub(crate) upload: ImageUpload,
     /// The same bytes as GPUI draws them. The `Arc` is kept so its decoded
     /// form is cached across frames.
-    pub(super) thumbnail: Arc<Image>,
+    pub(crate) thumbnail: Arc<Image>,
 }
 
 /// The formats a thread takes, as GPUI names them.
@@ -84,7 +84,7 @@ impl Pasted {
 }
 
 /// The images `item` carries, in the formats a thread takes.
-fn images_of(item: &ClipboardItem) -> Vec<Pasted> {
+pub(crate) fn images_of(item: &ClipboardItem) -> Vec<Pasted> {
     let mut images = Vec::new();
     for entry in item.entries() {
         match entry {

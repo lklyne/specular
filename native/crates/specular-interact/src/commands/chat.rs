@@ -111,7 +111,7 @@ pub(super) const CHAT: &[CommandSpec] = &[
         name: "chat.send",
         label: "",
         args: "{text: message, images?: [{type, data}], thread?: thread id}",
-        about: "Send a message, with any images (a MIME type and base64 bytes), to the thread named, or to the thread showing, or to a new one.",
+        about: "Send a message, with any images (a MIME type and base64 bytes), to the thread named (started under that id when there is none), or to the thread showing, or to a new one.",
         enabled: always,
         build: |args| {
             chat(ChatAction::Send {

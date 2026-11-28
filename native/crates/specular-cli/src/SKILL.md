@@ -91,11 +91,21 @@ the app rewrites them on start. `<app home>` is
   active canvas is a key, `chat/thread/<id>`, beside `chat/threads` (the
   list, no transcripts). Act on one thread with `chat.send {text,
   thread}` and `chat.stop {thread}`; start one with `chat.new-thread {id,
-  open: false}`, picking the id yourself. Several chats side by side are
-  several `chat` blocks with `props.pane` (the shipped `chats` layout);
-  a thread on the canvas is the shipped `thread` mod (`specular run
-  thread/new`), a web item to clone for your own look. The guide's "Chat
-  threads anywhere" has the shapes.
+  open: false}`, picking the id yourself, or just `chat.send` to an id
+  nobody has, which starts it. Don't build a composer or transcript: a
+  panel mod places the `Composer` host component (`Composer.new(id, {id,
+  thread})`, the panel's own: pill, folder, model, pasted images, Send),
+  and a web page loads `../lib/chat.js` for `<specular-thread thread>` and
+  `<specular-composer thread>`. Several chats side by side are several
+  `chat` blocks with `props.pane` (the shipped `chats` layout); a thread
+  on the canvas is the shipped `thread` mod (`specular run thread/new`),
+  a web item to clone for your own look. The guide's "Chat threads
+  anywhere" has the shapes.
+- **Reuse before you rebuild.** If a mod needs something the app already
+  draws (a field, a composer, a zoom readout, an icon), look for a host
+  component in the guide's "Host components" or a shared file in
+  `mods/lib/` first. If none fits, say what is missing rather than copying
+  the app's look by hand.
 
 ## After every mod change
 
