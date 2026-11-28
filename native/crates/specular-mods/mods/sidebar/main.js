@@ -3,11 +3,10 @@
 // the section mods (`"section": "sidebar"`), such as Notes and Pages, where
 // `SidebarSections` is placed. Each section folds at its head. Under the
 // pointer a project's head shows a + for a new canvas in it and, at the far
-// right, its fold chevron. Its details (its folder, whether a repo's
-// canvases go into git, and the sites bound to it) show under it while
-// `detailsShown`. A footer has a +
-// that opens a folder or a repo as a project. A click presses a row by its id, as the app's own sidebar does;
-// a double click on a canvas asks for its new name in the `prompt` dialog.
+// right, its fold chevron. A footer has a + that opens a folder or a repo
+// as a project. A click presses a row by its id, as the app's own sidebar
+// does; a double click on a canvas asks for its new name in the `prompt`
+// dialog.
 // A right press on a canvas opens its menu at the pointer (`menu.open`),
 // whose Rename types the name in place; on a project's head it opens the
 // project's card (the `project` mod) beside the sidebar.
@@ -90,70 +89,6 @@ function canvasRow(row, k) {
     );
 }
 
-function bindSite(section) {
-  openOverlay("prompt", {
-    id: "sidebar.bind",
-    props: {
-      title: `Bind a site to ${section.title}`,
-      value: "http://localhost:3000",
-      confirm: "Bind",
-      command: "project.bind",
-      args: { project: section.project },
-      key: "origin",
-    },
-  });
-}
-
-function small(id, text, k, onPress, on) {
-  return Button.new(id)
-    .h(20)
-    .px(6)
-    .flex()
-    .items_center()
-    .rounded(4)
-    .text_size(11)
-    .text_color(on ? k.text : k.textMuted)
-    .when(on, (el) => el.bg(k.interactive))
-    .hover((el) => el.bg(k.interactiveHover))
-    .on_click((event, cx) => {
-      // The project head under it has a press of its own.
-      if (cx) cx.stop_propagation();
-      onPress();
-    })
-    .child(text);
-}
-
-function details(section, k) {
-  const out = v_flex().gap(4).px(8).py(6).rounded(6).bg(k.interactive).text_size(11).text_color(k.textMuted);
-  out.child(div().truncate().child(section.folder));
-  const actions = h_flex().gap(2).child(small(section.reveal, "Show in Finder", k, () => press(section.reveal)));
-  if (section.close != null) actions.child(small(section.close, "Close project", k, () => press(section.close)));
-  out.child(actions);
-  if (section.git != null) {
-    const choice = section.git.choice;
-    out.child(
-      h_flex()
-        .gap(2)
-        .items_center()
-        .child(div().flex_1().child(choice == null ? "Canvases in git? Not set" : "Canvases in git"))
-        .child(small(section.git.commit, "Commit", k, () => press(section.git.commit), choice === "commit"))
-        .child(small(section.git.ignore, "Ignore", k, () => press(section.git.ignore), choice === "ignore")),
-    );
-  }
-  for (const site of section.origins) {
-    out.child(
-      h_flex()
-        .gap(2)
-        .items_center()
-        .child(div().flex_1().truncate().child(site.origin))
-        .child(small(site.auto, "Auto", k, () => press(site.auto), site.autoFix))
-        .child(small(site.remove, "×", k, () => press(site.remove))),
-    );
-  }
-  out.child(small(`${section.id}.bind`, "+ Bind a site…", k, () => bindSite(section)));
-  return out;
-}
-
 // A button on a project's head: a glyph in a box filled under the pointer.
 // With no `onPress` (the chevron) a press on it is the head's, which folds.
 function headButton(id, icon, size, k, onPress) {
@@ -203,7 +138,6 @@ function projectHead(section, k) {
 
 function section(section, hidden, n, k) {
   const out = v_flex().flex_shrink_0().when(n > 0, (el) => el.pt(12)).child(projectHead(section, k));
-  if (section.detailsShown) out.child(div().px(8).py(4).child(details(section, k)));
   return out.children(section.rows.filter((row) => !hidden.has(row.id)).map((row) => canvasRow(row, k)));
 }
 

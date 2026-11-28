@@ -90,7 +90,6 @@ fn project(app: &App, section: &ProjectSection) -> Value {
         "folded": section.folded,
         "add": head.child("add"),
         "details": head.child("details"),
-        "detailsShown": section.details,
         "reveal": head.child("reveal"),
         "close": section.close.as_ref().map(|_| head.child("close")),
         "git": git,

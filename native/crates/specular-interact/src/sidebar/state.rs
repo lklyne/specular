@@ -38,9 +38,6 @@ pub enum SidebarAction {
     },
     /// Fold a project's canvases away, or show them.
     Project(ProjectId),
-    /// Show a project's details under its head (its folder, its git
-    /// choice, the sites bound to it), or hide them.
-    Details(ProjectId),
     /// Make it this wide, within its limits: its right edge dragged.
     Resize(f32),
 }
@@ -58,7 +55,6 @@ pub struct SidebarView {
     /// Rows whose state is the opposite of what their kind starts as.
     flipped: HashSet<(SidebarSection, EntityId)>,
     folded_projects: HashSet<ProjectId>,
-    details: Option<ProjectId>,
     /// The width it was dragged to, or none for the layout's.
     width: Option<f32>,
 }
@@ -82,11 +78,6 @@ impl SidebarView {
     /// Whether the project `id`'s canvases are folded away.
     pub(crate) fn is_project_folded(&self, id: &ProjectId) -> bool {
         self.folded_projects.contains(id)
-    }
-
-    /// Whether the project `id`'s details are shown.
-    pub(crate) fn shows_details(&self, id: &ProjectId) -> bool {
-        self.details.as_ref() == Some(id)
     }
 
     /// Whether the row for `entity` in `section` is open. A page starts
@@ -118,13 +109,6 @@ impl SidebarView {
                 if !self.folded_projects.remove(&id) {
                     self.folded_projects.insert(id);
                 }
-            }
-            SidebarAction::Details(id) => {
-                self.details = if self.details.as_ref() == Some(&id) {
-                    None
-                } else {
-                    Some(id)
-                };
             }
             SidebarAction::Row { section, entity } => {
                 let key = (section, entity);

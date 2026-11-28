@@ -9,7 +9,10 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
-use crate::App;
+use crate::{Action, App, ProjectId};
+
+/// The project card's width, as the sidebar mod opens it.
+const CARD_WIDTH: f32 = 300.0;
 
 /// How an overlay sits over the window.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -120,6 +123,25 @@ pub enum OverlayAction {
     Open(Box<OverlaySpec>),
     /// Close the one named, or the top one.
     Close(Option<String>),
+}
+
+/// Opens the card of the project `id` (the `project` mod) as a popup. The
+/// sidebar mod opens it beside the project's head; by a name or from the
+/// palette it sits at the window's corner.
+pub(crate) fn project_card(id: &ProjectId) -> Action {
+    let mut props = Map::new();
+    props.insert("project".to_owned(), Value::from(id.as_str()));
+    Action::Overlay(OverlayAction::Open(Box::new(OverlaySpec {
+        id: "project".to_owned(),
+        name: "project".to_owned(),
+        props,
+        kind: OverlayKind::Popup,
+        width: Some(CARD_WIDTH),
+        height: None,
+        at: None,
+        edge: None,
+        frame: None,
+    })))
 }
 
 /// Runs `action`.

@@ -67,9 +67,9 @@ pub(super) const PROJECT: &[CommandSpec] = &[
         name: "project.details",
         label: "",
         args: "{project: id}",
-        about: "Show a project's folder, git choice and bound sites under its head in the sidebar, or hide them.",
+        about: "Open a project's card: its folder, git choice and bound sites.",
         enabled: idle,
-        build: |args| act(Action::Sidebar(SidebarAction::Details(project(args)?))),
+        build: |args| act(crate::overlays::project_card(&project(args)?)),
     },
     CommandSpec {
         name: "project.bind",

@@ -1,5 +1,5 @@
 //! The sidebar's projects (ADR 0062): a head for each folder open, its
-//! canvases under it, and its details when asked for.
+//! canvases under it, and its card (the `project` mod) when asked for.
 
 use super::CanvasRow;
 use crate::panel::ControlId;
@@ -9,10 +9,6 @@ use crate::{
 
 /// One project and its canvases.
 #[derive(Debug, Clone, PartialEq)]
-#[expect(
-    clippy::struct_excessive_bools,
-    reason = "a plain model a renderer reads: each flag is a fact it draws"
-)]
 pub struct ProjectSection {
     /// The project.
     pub id: ProjectId,
@@ -32,10 +28,8 @@ pub struct ProjectSection {
     pub folded: bool,
     /// What a click on the head sends: fold or unfold.
     pub toggle: Action,
-    /// Whether its details are shown under the head.
-    pub details: bool,
-    /// What shows or hides the details.
-    pub toggle_details: Action,
+    /// What opens its card: its folder, git choice and bound sites.
+    pub card: Action,
     /// Its canvases, as the flat list has them.
     pub canvases: Vec<CanvasRow>,
     /// What its add button sends: a new canvas in it.
@@ -94,8 +88,7 @@ pub(super) fn sections(app: &App, canvases: &[CanvasRow]) -> Vec<ProjectSection>
                 active: project.id == *active,
                 folded: view.is_project_folded(&project.id),
                 toggle: Action::Sidebar(SidebarAction::Project(project.id.clone())),
-                details: view.shows_details(&project.id),
-                toggle_details: Action::Sidebar(SidebarAction::Details(project.id.clone())),
+                card: crate::overlays::project_card(&project.id),
                 canvases: (canvases.iter())
                     .filter(|row| row.project == project.id)
                     .cloned()
@@ -111,16 +104,16 @@ pub(super) fn sections(app: &App, canvases: &[CanvasRow]) -> Vec<ProjectSection>
         .collect()
 }
 
-/// Every control of a project's head and details, by the name a click on
-/// it presses: `sidebar.project.<n>` folds it, and `.add`, `.details`,
-/// `.reveal`, `.close`, `.git.commit`, `.git.ignore`,
+/// Every control of a project's head and card, by the name a click on
+/// it presses: `sidebar.project.<n>` folds it, `.details` opens its card,
+/// and `.add`, `.reveal`, `.close`, `.git.commit`, `.git.ignore`,
 /// `.origin.<k>.auto` and `.origin.<k>.remove` are beside it.
 pub(crate) fn project_controls(section: &ProjectSection) -> Vec<(ControlId, Action)> {
     let head = &section.control;
     let mut out = vec![
         (head.clone(), section.toggle.clone()),
         (head.child("add"), section.add_canvas.clone()),
-        (head.child("details"), section.toggle_details.clone()),
+        (head.child("details"), section.card.clone()),
         (head.child("reveal"), section.reveal.clone()),
     ];
     if let Some(close) = &section.close {
