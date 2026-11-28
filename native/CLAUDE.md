@@ -242,8 +242,9 @@ cargo run -p specular-shell -- --script steps.txt FILE.canvas
   `runs/scenarios/<mode>/`. `cargo test --workspace` runs every headless
   scenario too (`specular-shell/tests/scenarios.rs`; `SCENARIO=name` for
   one). Add to them when a bug only showed up in use.
-- `fixtures/kitchen-sink.canvas` has every kind in every style. Snapshot it
-  after changing `specular-scene` or `specular-compositor` and open the PNG
+- `fixtures/kitchen-sink.canvas` has every kind in every style. It and the
+  scenario scripts are lasting reference fixtures: keep them loading as the
+  format changes, and keep them when pruning tests. Snapshot it after changing `specular-scene` or `specular-compositor` and open the PNG
   with the Read tool. A scene snapshot test cannot see a wrong colour or a
   hole in a fill.
 
@@ -404,7 +405,8 @@ A mod (ADR 0055) is a folder of `mod.json` and `main.js`, run by
 
 ## Gate
 
-Run from `native/`:
+Per change, `cargo check` the crates you touched. Before a PR, run from
+`native/`:
 
 ```sh
 cargo fmt --all --check

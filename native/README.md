@@ -119,6 +119,17 @@ cargo clippy --workspace --all-targets --features specular-shell/cef,specular-ce
 
 ## Run
 
+Touch pages on CEF (see `specular-interact/src/flick.rs` for fling and
+overscroll): Chromium drops synthetic mouse moves in its mouse-to-touch
+emulator unless a real event comes between them, so touch pages get real
+touch events (`send_touch_event`) and that emulation is off. Device
+emulation overrides stick only when sent during a navigation, so they are
+sent again on every main-frame load, and a phone page's first load is
+issued twice to carry the mobile user agent. `Emulation.setDeviceMetricsOverride`
+changes `devicePixelRatio`, not the texture's scale. Reproduce touch
+behaviour with the `swipe DX DY MS [LATE]` script step in a windowed debug
+bundle; headless runs are too slow to flick.
+
 ```sh
 cargo run -p specular-shell -- [OPTIONS] [FOLDER | FILE.canvas]   # binary `specular`
 ```
@@ -275,6 +286,13 @@ APP="$PWD/target/release/specular.app/Contents/MacOS/specular"
 BENCH="$PWD/target/release/specular-bench"
 "$APP" --pages 4 --bench slow-pan --warmup-ms 5000   # want "representative":true, "drawsWithoutTexture":0
 ```
+
+Runs that went wrong look like zero-frame or over-1000-fps phases: display
+sleep, a locked screen, a covered window or another Space. Hold the display
+with `caffeinate -d -u`, and discard runs with `draws == 0` or fps over 130.
+A ProMotion display drops to 60 Hz after the app stops presenting, so the
+first frames after a rest are slow. Sample idle memory 12 s or more after
+launch, once page surfaces have settled.
 
 `representative` is false when a presented frame came through a CPU upload.
 A failing IOSurface import shows as `drawsWithoutTexture` above 0.

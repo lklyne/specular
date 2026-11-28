@@ -52,7 +52,15 @@ Dev app workflow:
   stopped independently of other work.
 - Don't kill or restart an app you didn't start.
 
-Debug builds unless a task says otherwise.
+Debug builds unless a task says otherwise. A debug build janks on zoom,
+so on a performance report check which binary is running first
+(`ps -axo command | grep -i specular`, look for `target/debug`).
+
+Each worktree keeps its own `native/target`. A shared `CARGO_TARGET_DIR`
+across worktrees gives false compile results: cargo names a workspace
+crate's artifacts the same in every checkout and judges freshness by
+mtime. To free disk, delete `target/` in finished worktrees and run
+`cargo sweep --time 2` in live ones.
 
 ## Crash logs
 
@@ -91,6 +99,14 @@ The crates and their dependency direction are in `native/README.md`. The rules:
 - Workspace lints are the contract: no `unwrap`/`expect` outside tests,
   `#[expect(lint, reason = "...")]` instead of `#[allow]`, docs on public
   items, `// SAFETY:` on every `unsafe` block.
+
+## UI copy
+
+Menus, context menus, buttons and dialogs use sentence case: "Rename",
+"Delete project…", "Reveal codebase in Finder". Text that narrates an
+agent's action (cursor labels, the status line, live captions) is
+lowercase gerunds with bare targets: "clicking submit", "typing into
+email", no quotes, colons or arrows.
 
 ## File format principles
 
