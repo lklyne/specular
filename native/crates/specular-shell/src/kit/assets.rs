@@ -19,7 +19,6 @@ icon_assets!(
         Image,
         Zap,
         ListEnd,
-        FolderCode,
         Keyboard,
         SquareTerminal,
         Sparkles,
@@ -48,8 +47,6 @@ pub(crate) enum ShellIcon {
     Zap,
     /// Comments for the origin wait in the queue.
     ListEnd,
-    /// A connected repo.
-    FolderCode,
     /// The shortcuts pane.
     Keyboard,
     /// The `specular` command.
@@ -75,7 +72,6 @@ impl IconNamed for ShellIcon {
             Self::Image => IconName::Image.path(),
             Self::Zap => IconName::Zap.path(),
             Self::ListEnd => IconName::ListEnd.path(),
-            Self::FolderCode => IconName::FolderCode.path(),
             Self::Keyboard => IconName::Keyboard.path(),
             Self::SquareTerminal => IconName::SquareTerminal.path(),
             Self::Sparkles => IconName::Sparkles.path(),
