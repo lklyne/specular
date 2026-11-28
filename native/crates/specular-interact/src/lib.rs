@@ -226,7 +226,7 @@ pub use specular_agent::{
     WriteTarget, origin_of,
 };
 pub use specular_core::Cursor;
-pub use state::{Revisions, STATE_KEYS, publish as publish_state, state, state_key};
+pub use state::{Revisions, STATE_KEYS, publish as publish_state, publish_live, state, state_key};
 pub(crate) use theme::ThemeState;
 pub use theme::{Appearance, Theme};
 pub use time::iso8601;

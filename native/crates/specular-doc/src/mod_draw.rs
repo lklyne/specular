@@ -41,9 +41,13 @@ pub enum ModDraw {
         #[serde(flatten)]
         paint: Paint,
     },
-    /// A line through `points`, closed into a polygon when `closed`.
+    /// A line through `points`, closed into a polygon when `closed`. An open
+    /// line with `taper` or `speed` is drawn as a brush stroke: filled in
+    /// its `stroke` colour, `line` wide where it is widest.
     Path {
-        /// Its points, `[x, y]` each.
+        /// Its points, `[x, y]` each. Empty in a tool's `stroke`, where the
+        /// live stroke supplies them.
+        #[serde(default)]
         points: Vec<[f64; 2]>,
         /// Whether the last point joins the first.
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
@@ -51,6 +55,14 @@ pub enum ModDraw {
         /// How it is filled and outlined.
         #[serde(flatten)]
         paint: Paint,
+        /// Whether the line narrows to a point at both ends (API 1.2).
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        taper: bool,
+        /// How much a fast part of the line thins it, from 0 (not at all)
+        /// to 1 (to a fifth of `line`), the gap between points standing for
+        /// the pointer's speed (API 1.2).
+        #[serde(default, skip_serializing_if = "is_zero")]
+        speed: f64,
     },
     /// A run of text, its top-left at `x`, `y`, wrapped at `width` when set.
     Text {
@@ -87,6 +99,14 @@ pub enum ModDraw {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         radius: Option<f64>,
     },
+}
+
+#[expect(
+    clippy::trivially_copy_pass_by_ref,
+    reason = "serde passes a reference"
+)]
+fn is_zero(value: &f64) -> bool {
+    *value == 0.0
 }
 
 /// A box in item space.
@@ -127,6 +147,30 @@ impl ModDraw {
                 .filter_map(|entry| Self::deserialize(entry).ok())
                 .collect(),
         )
+    }
+
+    /// This draw with `points` in place of its own, when it is a path: a
+    /// tool's `stroke` entry over the live stroke.
+    #[must_use]
+    pub fn along(&self, points: &[[f64; 2]]) -> Option<Self> {
+        match self {
+            Self::Path {
+                closed,
+                paint,
+                taper,
+                speed,
+                ..
+            } => Some(Self::Path {
+                points: points.to_vec(),
+                closed: *closed,
+                paint: paint.clone(),
+                taper: *taper,
+                speed: *speed,
+            }),
+            Self::Rect { .. } | Self::Ellipse { .. } | Self::Text { .. } | Self::Image { .. } => {
+                None
+            }
+        }
     }
 
     /// The image paths and URLs `draws` show, in order.

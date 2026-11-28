@@ -45,7 +45,7 @@ impl ModCatalog {
         Some((installed, spec))
     }
 
-    /// The tool a word such as `ink/pen` names.
+    /// The tool a word such as `watercolor/brush` names.
     pub fn tool_named(&self, word: &str) -> Option<ModToolId> {
         let (name, tool) = word.split_once('/')?;
         let (id, ..) = (self.tools())

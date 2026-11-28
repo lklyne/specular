@@ -18,12 +18,13 @@ use specular_interact::mods::{InstalledMod, ModCatalog, ModManifest};
 use specular_interact::{Control, Event, Key, PaletteRun, Tool, dock, palette, run_named, state};
 use specular_testkit::TestApp;
 
-const STAMP: &str = r#"{
-  "api": "1.1", "title": "Stamp",
+const STAMP: &str = r##"{
+  "api": "1.2", "title": "Stamp",
   "items": { "size": [100, 80] },
-  "tools": [{ "name": "pen", "title": "Stamp pen" }],
+  "tools": [{ "name": "pen", "title": "Stamp pen",
+              "stroke": [{ "type": "path", "stroke": "#112233", "line": 4, "taper": true }] }],
   "commands": [{ "name": "spin", "title": "Spin the stamp", "key": "alt+shift+s", "dock": true }]
-}"#;
+}"##;
 
 fn stamp() -> InstalledMod {
     InstalledMod {
@@ -102,8 +103,14 @@ fn a_canvas_whose_mod_is_missing_offers_to_install_it() {
     app.assert_undo_returns_to_start();
 }
 
+/// The colour of the live stroke's first brush pass, when it is drawn.
+fn trail_color(app: &TestApp) -> Option<Value> {
+    let trail = serde_json::to_value(app.app().mod_trail()).expect("draws");
+    trail.get(0).map(|pass| pass["stroke"].clone())
+}
+
 #[test]
-fn a_mod_tool_publishes_its_stroke() {
+fn a_mod_tool_publishes_its_stroke_and_the_app_draws_it_with_its_brush() {
     let mut app = with_stamp(TestApp::empty());
     run(&mut app, "tool.set", &json!({ "tool": "stamp/pen" }));
     assert!(matches!(app.session().tool, Tool::Mod(_)));
@@ -111,12 +118,29 @@ fn a_mod_tool_publishes_its_stroke() {
     let stroke = state(app.app())["tool"].clone();
     assert_eq!(stroke["tool"], "stamp/pen");
     assert_eq!(stroke["phase"], "down");
+    let trail = serde_json::to_value(app.app().mod_trail()).expect("draws");
+    assert_eq!(
+        trail[0]["points"], stroke["points"],
+        "drawn along the live stroke"
+    );
+    assert_eq!(trail[0]["taper"], true);
+
+    let brush = json!({ "draws": [{ "type": "path", "stroke": "#445566", "line": 4 }] });
+    run(&mut app, "tool.stroke", &brush);
+    assert_eq!(
+        trail_color(&app),
+        Some(json!("#445566")),
+        "tool.stroke sets the brush"
+    );
     app.release();
     assert_eq!(state(app.app())["tool"]["phase"], "up");
+    assert!(trail_color(&app).is_some(), "kept until the mod commits");
     assert!(
         app.document().entities().next().is_none(),
         "the mod places what it makes"
     );
+    place(&mut app);
+    assert_eq!(trail_color(&app), None, "placing an item ends the trail");
     app.assert_undo_returns_to_start();
 }
 

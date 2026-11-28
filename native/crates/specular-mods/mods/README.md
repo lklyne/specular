@@ -150,7 +150,7 @@ app's log. The commands:
 - **comment**: `comment.annotate-selection`, `comment.resolve` `{id?: comment id}`, `comment.delete` `{id?: comment id}`, `comment.focus` `{id?: comment id}`, `comment.reveal` `{id: comment id}`
 - **page**: `page.new-tab`, `page.edit-address`, `page.back`, `page.forward`, `page.reload`, `page.stop`, `page.navigate` `{url: address, page?: entity id}`, `page.frame`, `page.frame-color`, `page.rotate`, `page.scheme`, `page.orientation` `{orientation: portrait|landscape}`, `page.toggle-sync`
 - **tab**: `tab.show` `{item?: entity id}`, `tab.open` `{item: entity id}`, `tab.close` `{item?: entity id}`, `tab.next`, `tab.previous`, `tab.lens` `{lens: fill|device}`, `tab.others` `{shown: bool}`
-- **tool**: `tool.set` `{tool: select|page|text|sticky|document|shape|draw|comment|inspect|<mod>/<tool>}`, `tool.ellipse`, `tool.diamond`, `tool.highlighter`, `tool.preview` `{draws: [{type: rect|ellipse|path|text|image, ..}]}`
+- **tool**: `tool.set` `{tool: select|page|text|sticky|document|shape|draw|comment|inspect|<mod>/<tool>}`, `tool.ellipse`, `tool.diamond`, `tool.highlighter`, `tool.preview` `{draws: [{type: rect|ellipse|path|text|image, ..}]}`, `tool.stroke` `{tool?: <mod>/<tool>, draws: [{type: path, stroke, line, taper?, speed?}]}`
 - **view**: `view.zoom-in`, `view.zoom-out`, `view.zoom-reset`, `view.zoom-to-fit`, `view.zoom` `{percent: number}`, `view.camera` `{x: number, y: number, zoom: number}`, `view.reveal` `{id: entity id}`, `view.theme` `{theme: light|dark|system}`, `view.toggle-sidebar`
 - **ui**: `ui.toggle` `{id: tabs|toolbar|dock|sidebar|chat|menu|share|toast|palette|welcome|<control id>}`, `ui.show` `{id: tabs|toolbar|dock|sidebar|chat|menu|share|toast|palette|welcome|<control id>}`, `ui.hide` `{id: tabs|toolbar|dock|sidebar|chat|menu|share|toast|palette|welcome|<control id>}`, `ui.reset`
 - **notice**: `notice.dismiss` `{id: notice id}`
@@ -158,17 +158,18 @@ app's log. The commands:
 - **share**: `share.copy-link`, `share.access` `{scope: edit|comment|view|none}`, `share.join` `{link: url, fresh?: bool}`, `share.stop`
 - **control**: `control.press` `{id: control name}`
 
-## Canvas items, tools and commands (API 1.1)
+## Canvas items, tools and commands (API 1.2)
 
 A mod can put its own items on the canvas, add a tool to the toolbar, and
 add commands to the command palette, the keys and the dock. A mod that does
 any of these runs whatever the layout says, out of sight, so its script
-renders when its keys change. Write `"api": "1.1"` in its `mod.json`:
+renders when its keys change. Write `"api": "1.2"` in its `mod.json`:
 
 ```json
-{ "api": "1.1", "title": "Feed",
+{ "api": "1.2", "title": "Feed",
   "items": { "size": [320, 400], "web": "item.html" },
-  "tools": [{ "name": "pen", "title": "Ink pen", "icon": "pen-line" }],
+  "tools": [{ "name": "pen", "title": "Pen", "icon": "pen-line",
+              "stroke": [{ "type": "path", "stroke": "#1f2328", "line": 4, "taper": true, "speed": 0.6 }] }],
   "commands": [{ "name": "shuffle", "title": "Shuffle the feed", "icon": "reload",
                  "key": "cmd+shift+u", "dock": true }] }
 ```
@@ -194,8 +195,19 @@ runs a mod by itself.
 **Tools.** A mod tool is armed with `tool.set {tool: "<mod>/<tool>"}` or its
 toolbar button. While it is in hand a drag on the canvas is published as the
 `tool` key, `{tool, number, phase: "down"|"up", points}` in canvas units.
-Show what it would make with `run("tool.preview", { draws })` (canvas units;
-`[]` clears it), and on `phase: "up"` commit it, usually with `item.add`.
+Give the tool a `stroke` (API 1.2): paths with no points, which the app
+draws over the live stroke every frame, as fast as its own tools. Then the
+script has nothing to do until `phase: "up"`, when it commits, usually with
+`item.add`; the app draws the stroke until then. `run("tool.stroke", {
+tool, draws })` changes the brush for this run (a colour button). A tool
+with no `stroke` draws its own preview with `run("tool.preview", { draws })`
+(canvas units; `[]` clears it): that follows the `tool` key, so it trails
+the pointer by the frames the script takes.
+
+**Brush paths.** An open path with `taper: true` narrows to a point at both
+ends; `speed` (0 to 1) thins it where its points are far apart, where the
+pointer moved fast. It is filled in its `stroke` colour, `line` wide at its
+widest. Layer several, faint and wide under dark and narrow, for a wash.
 
 **Commands.** Each of `commands` is `<mod>/<name>`: listed in the command
 palette with its key, run by its key on the canvas, by
@@ -206,7 +218,7 @@ publishes the `call` key, `{command, number, args}`: act once per `number`.
 `key` is modifiers and one character joined by `+` (`cmd`, `shift`, `alt`).
 `icon` is one of the app's glyphs by its kebab-case name.
 
-**Versions.** `api` is `1` (1.0) or `"1.1"`. A mod loads on an app of the
+**Versions.** `api` is `1` (1.0), `"1.1"` or `"1.2"`. A mod loads on an app of the
 same generation whose revision is at least its own.
 
 ## Host components
@@ -256,6 +268,8 @@ Elements a mod places but cannot draw itself, imported from `specular`:
 | `toast` | the notices, in the canvas's lower right corner | `notices` | yes |
 | `menu` | the canvas's context menu | `panels/menu` | no: `"menu": { "mod": "menu" }` |
 | `welcome` | the first-run view | `panels/welcome` | no: `"welcome": { "mod": "welcome" }` |
+| `feed` | image-feed canvas items, a palette entry and a Shuffle command | `canvas/mod_items`, `call` | runs out of sight |
+| `watercolor` | a brush the app draws, its strokes as items, a colour command | `tool`, `canvas/mod_items`, `call` | runs out of sight |
 
 The menu mod leaves the keys with the canvas: Escape closes it, but the
 arrows and Return do not move through it as the app's own menu's do.
@@ -328,12 +342,14 @@ if (lastCall !== null && number > lastCall && call.command === "my-pen/clear") {
 lastCall = number;
 ```
 
-**A tool previews, then commits.** While the tool is in hand the drag is the
+**The app draws the stroke, the mod commits it.** Give the tool a `stroke`
+in `mod.json`, and draw the item with the same paths, so the stroke looks
+the same before and after release. While the tool is in hand the drag is the
 `tool` key, `{tool: "<mod>/<tool>", number, phase: "down"|"up", points}` in
-canvas units. On `down`, send `tool.preview` with a display list in canvas
-units. On `up`, place what the stroke made with `item.add` (one undo step,
-which also clears the preview), with its points made relative to the item's
-top-left. See `ink/main.js`.
+canvas units. Ignore `down`. On `up`, place what the stroke made with
+`item.add` (one undo step, which also ends the app's drawing of it), with
+its points made relative to the item's top-left; send `tool.preview` with
+`[]` instead when there is nothing to place. See `watercolor/main.js`.
 
 **Props are the item's data.** `item.set {id, props}` merges keys into an
 item's props as one undo step (`null` removes a key). Keep everything the item
@@ -344,8 +360,7 @@ it.
 **Web items read their props through the bridge.** An `items.web` page is
 opened as `file://<mod>/item.html#item=<id>`. Wait for `window.specular` (it
 may arrive after your script, with a `specular-ready` event), then
-`specular.subscribe("canvas/mod_items", ...)` and find your id. See
-`watercolor/item.html`. Still send a display list from `main.js`: it is the
+`specular.subscribe("canvas/mod_items", ...)` and find your id. Still send a display list from `main.js`: it is the
 snapshot and what shows where the mod is not installed.
 
 ## What a mod can't do
@@ -375,8 +390,11 @@ doesn't scale it. No video, camera, screen, audio or GPU shaders; use
 snapshots only.
 
 **Tools.** A tool gets one press-to-release drag in canvas units: no hover,
-double click, modifiers, pressure, wheel or keys. The preview is one render
-behind. A tool's only dock controls are the mod's command buttons.
+double click, modifiers, pressure, wheel or keys. A brush is paths only, and
+its width follows the gaps between points, not pen pressure. A preview the
+script sends (`tool.preview`) trails the pointer by the frames the script
+takes; only a `stroke` keeps up. A tool's only dock controls are the mod's
+command buttons.
 
 **Commands and keys.** A key is one character with Command, Shift or Option,
 works only on the canvas, and loses to any built-in key. Palette entries go in

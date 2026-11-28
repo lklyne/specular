@@ -100,6 +100,23 @@ pub(super) const MODS: &[CommandSpec] = &[
         build: |args| run(ModAction::Preview(draws(args)?)),
     },
     CommandSpec {
+        name: "tool.stroke",
+        label: "",
+        args: "{tool?: <mod>/<tool>, draws: [{type: path, stroke, line, taper?, speed?}]}",
+        about: "Set how the app draws a mod tool's live stroke, for this run: paths with no points.",
+        enabled: always,
+        build: |args| {
+            let tool = match args.get("tool") {
+                None | Some(Value::Null) => None,
+                Some(_) => Some(text(args, "tool")?),
+            };
+            run(ModAction::Stroke {
+                tool,
+                draws: draws(args)?,
+            })
+        },
+    },
+    CommandSpec {
         name: "mods.install",
         label: "Install mods",
         args: "",

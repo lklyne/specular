@@ -36,9 +36,10 @@ pub struct ApiVersion {
 /// |---|---|
 /// | 1.0 | chrome mods: keyed state, `run`, `shared`, host components, `palette` |
 /// | 1.1 | mod items and tools: `items` and `tools` in `mod.json`, the `canvas/mod_items` and `tool` keys, `item.add {kind: mod}`, `item.set`, `item.draw`, `tool.preview`, `mods.install`; `commands` in `mod.json` (palette, keys, dock buttons) and the `call` key |
+/// | 1.2 | a tool's `stroke` in `mod.json`, drawn by the app over the live stroke; `tool.stroke`; `taper` and `speed` on display-list paths |
 pub const API: ApiVersion = ApiVersion {
     generation: 1,
-    revision: 1,
+    revision: 2,
 };
 
 impl ApiVersion {
@@ -146,6 +147,11 @@ pub struct ToolSpec {
     /// One of the app's own glyphs, by the name `Icon` takes.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub icon: Option<String>,
+    /// How the app draws the stroke while the tool is in hand (API 1.2):
+    /// display-list paths with no points, drawn in order over the live
+    /// stroke every frame, so the mod's script runs only on release.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub stroke: Vec<specular_doc::ModDraw>,
 }
 
 /// A command a mod adds and handles itself (API 1.1): it is listed in the
@@ -227,6 +233,14 @@ impl ModManifest {
         let manifest: Self = serde_json::from_str(source).map_err(|e| refuse(e.to_string()))?;
         if let Some(problem) = manifest.api.refusal(API) {
             return Err(refuse(problem));
+        }
+        for tool in &manifest.tools {
+            if (tool.stroke.iter()).any(|draw| draw.along(&[]).is_none()) {
+                return Err(refuse(format!(
+                    "tool `{}`: a `stroke` holds only `path` entries",
+                    tool.name
+                )));
+            }
         }
         Ok(manifest)
     }

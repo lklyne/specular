@@ -108,6 +108,17 @@ pub fn publish(revisions: &mut Revisions, app: &App) -> Vec<&'static str> {
         .collect()
 }
 
+/// Publishes the keys a mod acts on as they happen, which cannot wait for
+/// the next full [`publish`]: the `call` key, and the `tool` key while its
+/// stroke is live (see [`crate::mods::tool_is_live`]). Building them walks
+/// no document. Returns whether one moved.
+pub fn publish_live(revisions: &mut Revisions, app: &App) -> bool {
+    let call = revisions.publish("call", crate::mods::call_json(app));
+    let tool =
+        crate::mods::tool_is_live(app) && revisions.publish("tool", crate::mods::tool_json(app));
+    call || tool
+}
+
 /// The tab row as it draws: its tabs and its add button, then what ends
 /// the row. The zoom readout is there only while the tools are the app's
 /// own: a toolbar mod carries it in its ribbon.

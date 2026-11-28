@@ -29,10 +29,30 @@ pub(crate) struct ModState {
     /// The armed mod tool's stroke, kept after the release until the next
     /// press so the mod sees `up` and commits.
     pub(crate) stroke: Option<ModStroke>,
+    /// Whether the app still draws the stroke with its tool's brush: from
+    /// the press until the mod places an item, sends a preview, or the
+    /// stroke is dropped.
+    pub(crate) trail: bool,
+    /// Brushes a mod set with `tool.stroke` in place of its `mod.json`
+    /// ones, by `<mod>/<tool>`, for this run.
+    pub(crate) brushes: HashMap<String, Vec<ModDraw>>,
     /// The canvases whose "Install mods" ask was declined, by canvas id.
     pub(crate) declined: BTreeSet<String>,
     /// The last mod command run, the `call` key.
     pub(crate) call: Option<super::commands::ModCall>,
+}
+
+impl ModState {
+    /// The brush of the tool `word`: what `tool.stroke` set, else its
+    /// `mod.json` `stroke`.
+    pub(crate) fn brush(&self, word: &str) -> &[ModDraw] {
+        if let Some(set) = self.brushes.get(word) {
+            return set;
+        }
+        (self.catalog.tool_named(word))
+            .and_then(|id| self.catalog.tool(id))
+            .map_or(&[], |(_, spec)| spec.stroke.as_slice())
+    }
 }
 
 /// The shell listed what is installed. A mod tool that is no longer there
@@ -143,6 +163,7 @@ pub(crate) fn add_item(
     }
     let entity = Entity::new(id.clone(), rect, Kind::Mod(item));
     app.mods.preview.clear();
+    app.mods.trail = false;
     live::create(app, entity, effects);
     app.session.selection.set([ItemId::Entity(id)]);
 }
@@ -163,6 +184,17 @@ impl App {
     /// The armed mod tool's preview, in canvas units.
     pub fn mod_preview(&self) -> &[ModDraw] {
         &self.mods.preview
+    }
+
+    /// The live stroke drawn with its tool's brush, in canvas units: empty
+    /// when the tool has no `stroke` or the mod has taken over.
+    pub fn mod_trail(&self) -> Vec<ModDraw> {
+        let Some(stroke) = self.mods.stroke.as_ref().filter(|_| self.mods.trail) else {
+            return Vec::new();
+        };
+        (self.mods.brush(&stroke.tool).iter())
+            .filter_map(|draw| draw.along(&stroke.points))
+            .collect()
     }
 
     /// What is installed.

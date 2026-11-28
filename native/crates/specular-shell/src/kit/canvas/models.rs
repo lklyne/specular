@@ -4,8 +4,8 @@ use std::time::Instant;
 
 use specular_interact::{
     Appearance, ChatModel, ControlsModel, Insets, Layout, Menu, OnboardingModel, Overlay, Regions,
-    SidebarModel, Theme, ToolbarModel, ViewStrip, chat, dock, menus, onboarding, publish_state,
-    sidebar, tool_options, toolbar, view_strip,
+    SidebarModel, Theme, ToolbarModel, ViewStrip, chat, dock, menus, onboarding, publish_live,
+    publish_state, sidebar, tool_options, toolbar, view_strip,
 };
 use specular_shell::Runtime;
 
@@ -104,6 +104,10 @@ impl Canvas {
             if std::mem::take(&mut self.unseen) {
                 self.wake_now();
             }
+        } else if publish_live(&mut self.state.borrow_mut(), self.runtime.app()) {
+            // A mod acts on a stroke or a call as it happens; the panels
+            // wait for the gate.
+            self.wake_now();
         }
         let menu = &self.runtime.app().session().panel.menu;
         if *menu != self.menu {
