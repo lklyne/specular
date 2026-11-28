@@ -4,7 +4,9 @@
 //!
 //! The canvas is seen through a slot from the window's top-left corner to
 //! the canvas block's bottom-right one; every other block lies over that
-//! slot or beside it, and takes the clicks it gets.
+//! slot or beside it, and takes the clicks it gets. A block with a
+//! `material` holds the system's glass or blur under its paint
+//! (`material.rs`), and the canvas under it shows through.
 
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
@@ -13,7 +15,7 @@ use gpui_kit::{
 };
 use specular_interact::{Content, Frame, Node, Region, place};
 
-use super::{ShellView, tabs, toolbar};
+use super::{ShellView, material, tabs, toolbar};
 use crate::canvas::Models;
 use crate::paint::{hsla, paint};
 use crate::theme;
@@ -138,27 +140,33 @@ impl ShellView {
         for (node, frame) in boxes {
             let content = match &node.content {
                 Some(Content::Canvas) => continue,
-                None if node.background.is_none() && node.border.is_none() => continue,
+                None if node.background.is_none()
+                    && node.border.is_none()
+                    && node.material.is_none() =>
+                {
+                    continue;
+                }
                 None => None,
                 Some(Content::Mod { name, .. }) => {
                     let id = node.id.as_deref().unwrap_or(name);
                     self.mods.copy(id, cx)
                 }
-                Some(Content::Panel(region)) => {
+                Some(Content::Panel(region)) => material::built_on(node.material.is_some(), || {
                     self.panel(*region, models, zoom_in_tabs, window, cx)
-                }
+                }),
             };
-            let id = SharedString::from(format!(
-                "block-{}",
-                node.id.as_deref().unwrap_or("anonymous")
-            ));
+            let name = node.id.as_deref().unwrap_or("anonymous");
+            let surface = (node.material).map(|kind| {
+                material::material(format!("material-{name}"), kind, node.radius.unwrap_or(0.0))
+            });
             out.push(
                 painted(node, *frame)
-                    .id(id)
+                    .id(SharedString::from(format!("block-{name}")))
                     .when(
-                        node.content.is_some(),
+                        node.content.is_some() || node.material.is_some(),
                         gpui_kit::Stateful::<gpui_kit::Div>::occlude,
                     )
+                    .children(surface)
                     .children(content)
                     .into_any_element(),
             );
@@ -182,7 +190,7 @@ impl ShellView {
             Region::Tabs => Some(
                 div()
                     .size_full()
-                    .bg(theme::solid(theme::toolbar()))
+                    .bg(super::material::panel_fill(theme::toolbar()))
                     .child(tabs::tabs(&models.strip, &models.toolbar, zoom_in_tabs))
                     .into_any_element(),
             ),

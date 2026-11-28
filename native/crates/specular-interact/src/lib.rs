@@ -140,9 +140,9 @@ pub use chat::{
 pub use chord::Chord;
 pub use chrome::{
     Border, Content, Frame, Gate, HiddenWord, Insets, Layout, LayoutAction, LayoutError,
-    LayoutFile, LayoutsRead, Look, Node, NodeKind, Overlay, Padding, Placed, Region, RegionNode,
-    Regions, Resolved, SHIPPED, SHIPPED_THEMES, SIDEBAR_WIDTH, Shown, Size, TOOLS_DOCK_WIDTH,
-    ThemeChoice, ThemeFile, Toggles, TrafficLights, gate, place, solve,
+    LayoutFile, LayoutsRead, Look, Material, Node, NodeKind, Overlay, Padding, Placed, Region,
+    RegionNode, Regions, Resolved, SHIPPED, SHIPPED_THEMES, SIDEBAR_WIDTH, Shown, Size,
+    TOOLS_DOCK_WIDTH, ThemeChoice, ThemeFile, Toggles, TrafficLights, gate, place, solve,
 };
 pub use clipboard::{ClipboardContent, ClipboardImage, Paste};
 pub use commands::{CommandSpec, Run, RunError, command, commands, run_named};

@@ -339,7 +339,9 @@ A mod (ADR 0055) is a folder of `mod.json` and `main.js`, run by
 - **What a mod can call.** `run` resolves through `run_named` and the work
   is deferred out of the script call. Rust-drawn pieces are host
   components (`Components`): `Icon`, `Zoom`, `ToolOptions`, `Favicon`,
-  `WindowDrag`, `Share`, `Prism`, `Field`. Headless, the window-only ones are
+  `WindowDrag`, `Share`, `Prism`, `Field`, `Material`. A layout node's
+  `material` and `Material` are system views under GPUI
+  (`kit/view/material.rs`, ADR 0061). Headless, the window-only ones are
   placeholders. A new one goes in `HOST_COMPONENTS`, the d.ts and the
   guide; the window's version in `kit/mods/host.rs`.
 - **Canvas items, tools and commands (ADR 0057, API 1.1).** The app's

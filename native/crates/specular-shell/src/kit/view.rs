@@ -39,6 +39,7 @@ mod field;
 mod frame;
 mod glyphs;
 mod ime;
+mod material;
 mod menu;
 mod mod_bar;
 mod named;
@@ -68,6 +69,7 @@ use gpui_kit::{
 use specular_interact::{Action, CanvasAction, Event, SidebarAction, ToolsPlace};
 
 pub(crate) use self::field::{FieldStyle, field_styled as model_field, typed as typed_field};
+pub(crate) use self::material::material;
 pub(crate) use self::named::{mark, shown as shown_controls};
 pub(crate) use self::palette::toggle as toggle_palette;
 pub(crate) use self::share::share_slot;

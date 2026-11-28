@@ -288,7 +288,7 @@ impl ShellView {
             .id("sidebar")
             .occlude()
             .size_full()
-            .bg(theme::solid(theme::panel()))
+            .bg(super::material::panel_fill(theme::panel()))
             .border_r(crate::theme::line())
             .border_color(theme::solid(theme::chrome_border()))
             .child(canvases_head(model))

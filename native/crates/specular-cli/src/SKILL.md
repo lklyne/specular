@@ -85,7 +85,9 @@ the app rewrites them on start. `<app home>` is
   `theme`, `colors`, `font`, `font_size`, `spacing` (the Kit's step,
   4 by default) and `border_width`, then `specular run
   layout.switch '{"name":"<name>"}'`. The shipped layouts are rewritten
-  on start; your copy is not.
+  on start; your copy is not. Glass or blur under a panel is the block's
+  `"material": "glass" | "blur"` (a translucent `background` tints it, an
+  opaque one hides it); inside a mod it is the `Material` component.
 - **A key.** Add it to `<app home>/keys.json` under `global`, `canvas`,
   `editing`, `page` or `layout:<name>`. A mistake is written to
   `keys.error`; `specular state keys` shows the result.
