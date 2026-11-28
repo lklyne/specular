@@ -8,7 +8,8 @@ use std::process::{Command, Output};
 
 use serde_json::{Value, json};
 
-/// An app home holding a shipped `tabs` mod and the shipped layout.
+/// An app home holding shipped `tabs`, `toolbar` and `toast` mods and the
+/// shipped layout.
 fn home(name: &str) -> PathBuf {
     let home = std::env::temp_dir().join(format!("specular-clone-{name}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&home);
@@ -19,9 +20,25 @@ fn home(name: &str) -> PathBuf {
     std::fs::write(tabs.join("mod.json"), manifest.to_string()).expect("mod.json");
     std::fs::write(tabs.join("main.js"), "// the tab row\n").expect("main.js");
     std::fs::write(tabs.join("gpui-kit.d.ts"), "// written on load\n").expect("d.ts");
+    for name in ["toolbar", "toast"] {
+        let folder = home.join("mods").join(name);
+        std::fs::create_dir_all(&folder).expect("a mod folder");
+        let manifest = json!({ "api": 1, "title": name });
+        std::fs::write(folder.join("mod.json"), manifest.to_string()).expect("mod.json");
+    }
     let layout = json!({
-        "tabs": { "mod": "tabs", "hidden": false, "props": { "hidden": [] } },
-        "toolbar": { "mod": "toolbar", "hidden": false, "props": {} },
+        "id": "root",
+        "type": "column",
+        "toast": { "mod": "toast" },
+        "children": [
+            { "id": "tabs", "type": "block",
+              "content": { "mod": "tabs", "props": { "hidden": [] } } },
+            { "id": "body", "type": "row", "children": [
+                { "id": "toolbar", "type": "block",
+                  "content": { "mod": "toolbar", "props": { "hidden": [] } } },
+                { "id": "canvas", "type": "block", "content": "canvas" },
+            ] },
+        ],
     });
     std::fs::write(home.join("layouts/default.json"), layout.to_string()).expect("layout");
     home
@@ -62,13 +79,50 @@ fn a_clone_is_marked_and_with_use_the_layout_names_it() {
         "what a load writes is left out"
     );
     let layout = read(&home.join("layouts/mine.json"));
-    assert_eq!(layout["tabs"]["mod"], "my-tabs", "the person's own layout");
-    assert_eq!(
-        layout["tabs"]["props"],
-        json!({ "hidden": [] }),
-        "the rest is kept"
+    let tabs = &layout["children"][0]["content"];
+    assert_eq!(tabs["mod"], "my-tabs", "the person's own layout");
+    assert_eq!(tabs["props"], json!({ "hidden": [] }), "the rest is kept");
+    let toolbar = &layout["children"][1]["children"][0]["content"];
+    assert_eq!(toolbar["mod"], "toolbar");
+    assert!(layout.get("my-tabs").is_none() && layout.get("tabs").is_none());
+    assert!(
+        stdout.contains("layout.switch"),
+        "it says how to show it: {stdout}"
     );
-    assert_eq!(layout["toolbar"]["mod"], "toolbar");
+    // A block in the tree, and an overlay at the top, are each found.
+    for (from, at) in [
+        (
+            "toolbar",
+            &["children", "1", "children", "0", "content"][..],
+        ),
+        ("toast", &["toast"][..]),
+    ] {
+        let out = clone(&home, &[from, "--use"]);
+        assert!(out.status.success(), "{out:?}");
+        let layout = read(&home.join("layouts/mine.json"));
+        let node = at
+            .iter()
+            .fold(&layout, |node, key| match key.parse::<usize>() {
+                Ok(index) => &node[index],
+                Err(_) => &node[*key],
+            });
+        assert_eq!(node["mod"], format!("my-{from}"), "{layout}");
+    }
+    let _ = std::fs::remove_dir_all(&home);
+}
+
+#[test]
+fn a_clone_of_a_mod_the_layout_does_not_name_goes_in_its_place() {
+    let home = home("place");
+    let dock = home.join("mods/dock");
+    std::fs::create_dir_all(&dock).expect("dock");
+    let manifest = json!({ "api": 1, "title": "Dock", "place": "canvas" });
+    std::fs::write(dock.join("mod.json"), manifest.to_string()).expect("mod.json");
+    let out = clone(&home, &["dock", "--use"]);
+    assert!(out.status.success(), "{out:?}");
+    let layout = read(&home.join("layouts/mine.json"));
+    let canvas = &layout["children"][1]["children"][1];
+    assert_eq!(canvas["content"], json!({ "mod": "my-dock" }), "{layout}");
     let _ = std::fs::remove_dir_all(&home);
 }
 

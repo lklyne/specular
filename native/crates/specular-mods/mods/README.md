@@ -469,9 +469,12 @@ Elements a mod places but cannot draw itself, imported from `specular`:
   ids and its `console.log` lines. It exits non-zero and writes
   `<name>.error` when the mod fails.
 - `specular mod clone <name> [new-name] [--use]` copies a mod to a folder
-  you own (`my-<name>` by default) and prints where it is. `--use` points
-  the layout at the copy; the app writes its shipped layout over the file
-  on its next start, so run it again then (or keep your own layout edit).
+  you own (`my-<name>` by default) and prints where it is. `--use` names
+  the copy wherever your own layout, `layouts/mine.json` (started from the
+  shipped one), named the original: a block's `content` or an overlay. A
+  mod the layout does not name goes in the block its `mod.json` `place`
+  names. It then asks a running app to show `mine`, which the app never
+  writes over.
 - `specular mod stats` prints, per loaded mod, its script renders, the mean
   and slowest render and the keys it read. A mod that renders while nothing
   changes is a bug.
@@ -506,7 +509,8 @@ arrows and Return do not move through it as the app's own menu's do.
 A mod folder whose `mod.json` has `"cloned_from"` is yours and is never
 replaced. `specular mod clone tabs my-tabs --use` copies a mod to a new
 folder, marks it, and points the layout at it; edit `mods/my-tabs/main.js`
-and each save reloads it. Without `--use`, set a region's `"mod"` yourself.
+and each save reloads it. Without `--use`, set a block's
+`"content": {"mod": "my-tabs"}` yourself.
 Mods are trusted code: a mod has your files, network and processes, like a
 shell script you run.
 
