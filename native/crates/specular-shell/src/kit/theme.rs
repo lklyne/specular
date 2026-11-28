@@ -218,7 +218,13 @@ pub(crate) fn raised_rim() -> (u32, u32) {
 
 /// The two shadows under a raised control, the nearer first.
 pub(crate) fn raised_shadow() -> (u32, u32) {
-    pick_pair((0x0000_001a, 0x0000_000d), (0x0000_0040, 0x0000_0026))
+    pick_pair((0x0000_000f, 0x0000_000d), (0x0000_0040, 0x0000_0033))
+}
+
+/// The hairline ring round a raised control, which keeps it apart from a
+/// bar of nearly its colour where the soft shadow is faint.
+pub(crate) fn raised_ring() -> u32 {
+    pick(0x0000_0012, 0x0000_0059)
 }
 
 /// The shade a raised control's face takes into its bottom edge.

@@ -365,7 +365,7 @@ export function colors(): {
   toolbar: string; toolbarBorder: string; toolbarText: string; toolbarTextStrong: string;
   popup: string; popupBorder: string; text: string; textMuted: string; hover: string; on: string;
   divider: string; keyText: string; sidebar: string; sidebarRule: string; interactive: string;
-  interactiveHover: string; raisedFill: string; raisedRim: string; raisedShadowNear: string;
+  interactiveHover: string; raisedFill: string; raisedRim: string; raisedRimLit: string; raisedShadowNear: string;
   raisedShadowFar: string; tabHover: string; primary: string; primaryHover: string;
   primaryForeground: string; error: string; warning: string; focusRing: string; hoverText: string; onText: string; backdrop: string; accent: string;
   [name: string]: string;

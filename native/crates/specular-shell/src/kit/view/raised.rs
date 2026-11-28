@@ -84,16 +84,18 @@ pub(super) fn plate(radius: f32, fill: u32) -> impl IntoElement {
 pub(super) trait Raised: Styled + ParentElement + Sized {
     /// Draws this control, whose corners are of `radius`, as the one that
     /// is on. The surface goes under the children added after it, and takes
-    /// the place of the control's own fill. The shadow under it is two
-    /// short ones, each drawn in from the sides so it shows below the
-    /// control and not around it. GPUI takes a blur as the gaussian's
-    /// deviation, half of what CSS calls the blur radius.
+    /// the place of the control's own fill. Under it are a hairline ring and
+    /// two soft shadows, the far one drawn in from the sides. GPUI takes a
+    /// blur as the gaussian's deviation, half of what CSS calls the blur
+    /// radius; a drop of 1 px under a deviation of 1 px reads as a hard line
+    /// at this size, so neither is that tight.
     fn raised(self, radius: f32) -> Self {
         let (near, far) = theme::raised_shadow();
         self.bg(transparent_black())
             .shadow(vec![
-                layer(1.0, 1.0, -1.0, near, false),
-                layer(2.0, 2.0, -2.0, far, false),
+                layer(0.0, 0.0, 0.5, theme::raised_ring(), false),
+                layer(1.0, 1.5, 0.0, near, false),
+                layer(2.0, 4.0, -1.0, far, false),
             ])
             .child(surface(radius))
     }

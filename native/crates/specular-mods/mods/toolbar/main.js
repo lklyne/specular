@@ -20,15 +20,19 @@ function hint(label, chord) {
   return chord ? `${label}  ${chord}` : label;
 }
 
-// The fill, rim and shadow of the button that is on.
+// The fill, rim and shadow of the one that is on: a face lit along its
+// top, a hairline ring that keeps to its corners, and a soft shadow under
+// it. No shadow has a hard edge: GPUI blurs as CSS does, but a 1 px drop
+// with a 1 px blur reads as a line at this size.
 function raised(el, k) {
   return el
     .bg(k.raisedFill)
-    .border_1()
-    .border_color(k.raisedRim)
+    .border_t_1()
+    .border_color(k.raisedRimLit)
     .shadow([
-      { y: 1, blur: 2, spread: -1, color: k.raisedShadowNear },
-      { y: 2, blur: 4, spread: -2, color: k.raisedShadowFar },
+      { spread: 0.5, color: k.raisedRim },
+      { y: 1, blur: 3, color: k.raisedShadowNear },
+      { y: 2, blur: 8, spread: -1, color: k.raisedShadowFar },
     ]);
 }
 

@@ -36,14 +36,15 @@ pub(crate) fn appearance_of(theme: Option<&Value>) -> Appearance {
 
 /// What only the Kit draws: the raised face of the control that is on and
 /// the primary button, the same values as `specular-shell/src/kit/theme.rs`
-/// (`raised_fill`, `raised_rim`, `raised_shadow`, `tab_hover`, `primary`,
+/// (`raised_fill`, `raised_ring`, `raised_rim`, `raised_shadow`, `tab_hover`, `primary`,
 /// `primary_hover`, `primary_foreground`, `error`, `focus_ring`), light then dark, and
 /// the warning amber the notices use (Tailwind's amber-600 and -400).
-const RAISED: [(&str, u32, u32); 11] = [
+const RAISED: [(&str, u32, u32); 12] = [
     ("raisedFill", 0xede9_e7ff, 0x5450_4bff),
-    ("raisedRim", 0x0000_0014, 0xffff_ff26),
-    ("raisedShadowNear", 0x0000_001a, 0x0000_0040),
-    ("raisedShadowFar", 0x0000_000d, 0x0000_0026),
+    ("raisedRim", 0x0000_0012, 0x0000_0059),
+    ("raisedRimLit", 0xffff_ffcc, 0xffff_ff1f),
+    ("raisedShadowNear", 0x0000_000f, 0x0000_0040),
+    ("raisedShadowFar", 0x0000_000d, 0x0000_0033),
     ("tabHover", 0xdfdc_daff, 0x4b47_42ff),
     ("primary", 0x1c19_17ff, 0xf5f5_f4ff),
     ("primaryHover", 0x4440_3bff, 0xd6d3_d1ff),
