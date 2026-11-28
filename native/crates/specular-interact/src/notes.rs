@@ -48,6 +48,31 @@ pub enum NoteNotice {
     },
 }
 
+/// What the renderer found when it laid out a Document's rows.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct NoteLayout {
+    /// How tall the rows came out.
+    pub height: f32,
+    /// Where each task's tick box is.
+    pub ticks: Vec<TickBox>,
+}
+
+/// Where one task's tick box is in a Document, measured in canvas units from
+/// the top-left of its text before scrolling.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct TickBox {
+    /// Which task, counting the source's tasks from the top.
+    pub task: u32,
+    /// Left edge.
+    pub x: f32,
+    /// Top edge.
+    pub y: f32,
+    /// Width.
+    pub width: f32,
+    /// Height.
+    pub height: f32,
+}
+
 /// The markdown files asked for so far, by the `file` path as the document
 /// writes it, and the scroll offset of each Document that has one.
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -58,6 +83,8 @@ pub(crate) struct Notes {
     scroll: BTreeMap<EntityId, f32>,
     /// How tall the renderer found each Document's rows, in canvas units.
     heights: BTreeMap<EntityId, f32>,
+    /// Where the renderer found each Document's tick boxes.
+    ticks: BTreeMap<EntityId, Vec<TickBox>>,
 }
 
 impl Notes {
@@ -67,6 +94,11 @@ impl Notes {
 
     pub(crate) fn scroll(&self, entity: &EntityId) -> f32 {
         self.scroll.get(entity).copied().unwrap_or(0.0)
+    }
+
+    /// The tick boxes the Document `entity` was last drawn with.
+    pub(crate) fn ticks(&self, entity: &EntityId) -> &[TickBox] {
+        self.ticks.get(entity).map_or(&[], Vec::as_slice)
     }
 
     /// Makes `text` what is known of `file`, asked for or not.
@@ -152,6 +184,7 @@ pub(crate) fn reopen(app: &mut App, effects: &mut Vec<Effect>) {
     };
     notes.scroll.retain(|entity, _| shows_note(entity));
     notes.heights.retain(|entity, _| shows_note(entity));
+    notes.ticks.retain(|entity, _| shows_note(entity));
     request_new(app, effects);
 }
 
@@ -213,12 +246,14 @@ pub(crate) fn scroll_to(app: &mut App, entity: &EntityId, offset: f32) {
 /// The renderer measured the rows of the Documents it drew. A Document
 /// scrolled past its end, because its text got shorter or its card taller,
 /// comes back to it.
-pub(crate) fn on_heights(app: &mut App, heights: Vec<(EntityId, f32)>) {
-    for (entity, height) in heights {
+pub(crate) fn on_layouts(app: &mut App, layouts: Vec<(EntityId, NoteLayout)>) {
+    for (entity, layout) in layouts {
         if app.document.entity(&entity).is_none() {
             continue;
         }
-        app.session.notes.heights.insert(entity.clone(), height);
+        let notes = &mut app.session.notes;
+        notes.heights.insert(entity.clone(), layout.height);
+        notes.ticks.insert(entity.clone(), layout.ticks);
         let offset = app.session.notes.scroll(&entity);
         scroll_to(app, &entity, offset);
     }
