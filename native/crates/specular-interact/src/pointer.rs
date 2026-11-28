@@ -294,5 +294,11 @@ fn tool_takes_press(
             app.session.gesture = Some(Gesture::Draw(stroke));
             true
         }
+        Tool::Mod(id) => {
+            if let Some(word) = app.mods.catalog.tool_word(id) {
+                crate::mods::begin_stroke(app, word, world);
+            }
+            true
+        }
     }
 }

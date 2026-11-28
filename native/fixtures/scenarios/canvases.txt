@@ -17,7 +17,7 @@ camera -50,20,0.5
 
 # a new canvas is named in sequence, shown and written; the pages of the
 # one left are closed, and showing it changes no document
-act new-canvas
+run canvas.new
 expect count canvases 2
 expect canvas Canvas 2
 expect count entities 0
@@ -73,30 +73,30 @@ expect canvas Landing page
 expect sent no rename-canvas-file
 
 # a duplicate sits after its source, is shown, and starts with no history
-act duplicate-canvas
+run canvas.duplicate
 expect count canvases 3
 expect canvas Landing page Copy
 expect entity @top text hello
 expect undo none
 expect sent write-canvas
 control sidebar.canvas.2
-act duplicate-canvas
+run canvas.duplicate
 expect canvas Landing page Copy 2
 expect count canvases 4
 
 # deleting the active canvas shows its neighbour and trashes its file; the
 # last in the list falls back to the one before it
 control sidebar.canvas.2
-act delete-canvas
+run canvas.delete
 expect count canvases 3
 expect canvas Landing page Copy 2
 expect sent trash-canvas-file
 control sidebar.canvas.3
-act delete-canvas
+run canvas.delete
 expect canvas Landing page Copy 2
 # deleting the only canvas leaves an empty Canvas 1
-act delete-canvas
-act delete-canvas
+run canvas.delete
+run canvas.delete
 expect count canvases 1
 expect canvas Canvas 1
 expect count entities 0

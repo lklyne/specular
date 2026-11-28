@@ -33,9 +33,12 @@ impl Kind {
                 color_scheme: file.color_scheme,
                 metadata: file.metadata.clone(),
             })),
-            Self::File(_) | Self::Text(_) | Self::Group(_) | Self::Drawing(_) | Self::Shape(_) => {
-                None
-            }
+            Self::File(_)
+            | Self::Text(_)
+            | Self::Group(_)
+            | Self::Drawing(_)
+            | Self::Shape(_)
+            | Self::Mod(_) => None,
         }
     }
 
@@ -52,9 +55,12 @@ impl Kind {
                 metadata: page.metadata,
                 ..file.clone()
             })),
-            Self::File(_) | Self::Text(_) | Self::Group(_) | Self::Drawing(_) | Self::Shape(_) => {
-                None
-            }
+            Self::File(_)
+            | Self::Text(_)
+            | Self::Group(_)
+            | Self::Drawing(_)
+            | Self::Shape(_)
+            | Self::Mod(_) => None,
         }
     }
 }

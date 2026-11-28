@@ -60,7 +60,12 @@ fn sync_id<'a>(document: &'a Document, page: &EntityId) -> Option<&'a str> {
     match &document.entity(page)?.kind {
         Kind::Page(page) => page.sync_id.as_deref(),
         Kind::File(file) if file.is_html() => file.sync_id.as_deref(),
-        Kind::File(_) | Kind::Text(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Shape(_) => None,
+        Kind::File(_)
+        | Kind::Text(_)
+        | Kind::Group(_)
+        | Kind::Drawing(_)
+        | Kind::Shape(_)
+        | Kind::Mod(_) => None,
     }
 }
 
@@ -105,7 +110,7 @@ impl App {
 fn selected_pages(app: &App) -> Option<Vec<EntityId>> {
     let selection = &app.session.selection;
     let pages: Vec<EntityId> = (selection.entities())
-        .filter(|id| app.document.entity(id).is_some_and(is_page))
+        .filter(|id| app.document.entity(id).is_some_and(|it| is_page(app, it)))
         .cloned()
         .collect();
     let file = |id: &EntityId| {

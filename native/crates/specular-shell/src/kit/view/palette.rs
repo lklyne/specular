@@ -124,11 +124,26 @@ impl Render for PaletteView {
 }
 
 /// Runs a command of the palette: an action as a chosen menu item, a shell
-/// command as its menu item.
+/// command as its menu item, and a mod's entry as the command it names.
 fn run_command(run: PaletteRun, _: &mut Window, cx: &mut App) {
     match run {
         PaletteRun::Action(action) => menus::run_action(action, cx),
         PaletteRun::Shell(command) => menus::run_shell(command, cx),
+        PaletteRun::Named { name, args } => {
+            let named = canvas::with(|canvas| {
+                specular_interact::run_named(canvas.runtime.app(), &name, &args)
+            });
+            match named {
+                Some(Ok(run)) => match run.into_event() {
+                    Ok(event) => canvas::dispatch(event),
+                    Err(command) => menus::run_shell(command, cx),
+                },
+                Some(Err(error)) => {
+                    tracing::warn!("the palette entry `{name}` did not run: {error}");
+                }
+                None => {}
+            }
+        }
     }
 }
 

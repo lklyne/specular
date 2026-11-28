@@ -238,9 +238,11 @@ fn body_among(app: &App, screen: Vec2, edges: bool) -> Hit {
                         };
                         drawing_rect(rect).contains(screen) && on_drawing(app, id, ink, screen)
                     }
-                    Kind::Page(_) | Kind::Text(_) | Kind::File(_) | Kind::Shape(_) => {
-                        rect.contains(screen)
-                    }
+                    Kind::Page(_)
+                    | Kind::Text(_)
+                    | Kind::File(_)
+                    | Kind::Shape(_)
+                    | Kind::Mod(_) => rect.contains(screen),
                 };
                 if inside {
                     return entity_hit(app, entity, screen);
@@ -292,7 +294,7 @@ fn entity_hit(app: &App, entity: &Entity, screen: Vec2) -> Hit {
 /// whatever is on top of it.
 pub(crate) fn page_at(app: &App, world: glam::DVec2) -> Option<(EntityId, PagePlacement)> {
     let entity = app.document.entities().rev().find(|entity| {
-        is_page(entity)
+        is_page(app, entity)
             && crate::shown_rect(app, entity)
                 .is_some_and(|rect| rect.contains(specular_doc::Point::new(world.x, world.y)))
     })?;
@@ -343,7 +345,12 @@ fn drawing_rect(rect: ScreenRect) -> ScreenRect {
 fn group_label_rect(entity: &Entity, rect: ScreenRect, zoom: f32) -> Option<ScreenRect> {
     let label = match &entity.kind {
         Kind::Group(_) => entity.label.as_deref().filter(|label| !label.is_empty())?,
-        Kind::Page(_) | Kind::Text(_) | Kind::File(_) | Kind::Drawing(_) | Kind::Shape(_) => {
+        Kind::Page(_)
+        | Kind::Text(_)
+        | Kind::File(_)
+        | Kind::Drawing(_)
+        | Kind::Shape(_)
+        | Kind::Mod(_) => {
             return None;
         }
     };

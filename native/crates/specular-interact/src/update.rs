@@ -8,9 +8,10 @@ pub(crate) use self::document::{document_step, drop_dangling, open_document};
 use self::page_event::on_page_event;
 
 use glam::DVec2;
-use specular_core::{InputEvent, PageNav};
+use specular_core::{InputEvent, Modifiers, PageNav};
 
 use crate::focus::{leave_unless_selected, set_focus};
+use crate::panel::activate_control;
 use crate::stack_order::Move;
 use crate::{
     Action, App, Effect, Event, Focus, ToolDefaultPatch, api, attach, bindings, camera, chat,
@@ -97,6 +98,9 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         Event::ContextMenu(screen) => crate::panel::open_menu_at(app, screen),
         Event::ShellChrome => app.session.panel = crate::PanelUi::drawn_by_shell(),
         Event::ChromeLayout => app.session.panel.chrome_covers = true,
+        Event::LayoutLoaded(layout) => app.chrome.layout = *layout,
+        Event::LayoutToggles(toggles) => app.chrome.toggles = toggles,
+        Event::ModCatalog(catalog) => crate::mods::on_catalog(app, catalog, &mut effects),
         Event::MenuClosed => app.session.panel.menu = None,
         Event::ChatPanel(available) => app.session.chat.set_available(available),
         Event::Motion(on) => app.session.motion.enable(on),
@@ -162,14 +166,25 @@ fn settle_tool(app: &mut App, before: crate::Tool) {
     if app.session.tool != before {
         comment::on_tool_change(app);
         inspect::on_tool_change(app);
+        crate::mods::cancel_stroke(app);
     }
 }
 
 /// Takes `tool` in hand, ending a text edit. A gesture in flight keeps its tool.
-fn set_tool(app: &mut App, tool: crate::Tool, effects: &mut Vec<Effect>) {
+pub(crate) fn set_tool(app: &mut App, tool: crate::Tool, effects: &mut Vec<Effect>) {
     if app.session.gesture.is_none() {
         edit::end(app, effects);
         app.session.tool = tool;
+    }
+}
+
+/// Takes the variant's tool in hand with the variant as its default. A
+/// gesture in flight keeps its tool.
+fn set_tool_variant(app: &mut App, patch: ToolDefaultPatch, effects: &mut Vec<Effect>) {
+    if app.session.gesture.is_none() {
+        edit::end(app, effects);
+        app.session.tool = patch.tool();
+        set_tool_default(app, patch, effects);
     }
 }
 
@@ -183,13 +198,7 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         Action::SetTool(tool) => set_tool(app, tool, effects),
         Action::SetTheme(theme) => theme::choose(app, theme, true, effects),
         Action::SetToolDefault(patch) => set_tool_default(app, patch, effects),
-        Action::SetToolVariant(patch) => {
-            if app.session.gesture.is_none() {
-                edit::end(app, effects);
-                app.session.tool = patch.tool();
-                set_tool_default(app, patch, effects);
-            }
-        }
+        Action::SetToolVariant(patch) => set_tool_variant(app, patch, effects),
         Action::PageEdit(edit) => crate::page_input::edit(app, edit, effects),
         // While text is edited, undo and redo are the editor's own.
         Action::Undo | Action::Redo if app.session.editing.is_some() => {
@@ -217,6 +226,7 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         Action::Nudge { dx, dy } => verb(app, effects, |app, effects| {
             verbs::nudge(app, DVec2::new(dx, dy), effects);
         }),
+        Action::AddItem(item) => verb(app, effects, |app, fx| crate::add_item::add(app, item, fx)),
         Action::SetProperty(property) => property::set(app, &property, effects),
         Action::StepPage(step) => property::set(app, &step.next(app), effects),
         Action::Format(format) if app.session.gesture.is_none() => edit::format(app, format),
@@ -276,6 +286,17 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         Action::Space(action) => crate::first_run::run(action, effects),
         Action::Setting(action) => crate::settings::run(app, action, effects),
         Action::Share(action) => crate::share_button::run(app, action, effects),
+        Action::PressControl(id) => activate_control(app, &id, Modifiers::default(), effects),
+        Action::Layout(action) => crate::chrome::run_layout_action(app, action, effects),
+        Action::DismissNotice(id) => dismiss_notice(app, &id),
+        Action::Mod(action) => crate::mods::run(app, *action, effects),
+    }
+}
+
+/// Takes a notice away. Dismissing the "Install mods" ask declines it.
+fn dismiss_notice(app: &mut App, id: &str) {
+    if !crate::mods::decline(app, id) {
+        crate::notices::dismiss(app, id);
     }
 }
 

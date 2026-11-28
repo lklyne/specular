@@ -14,6 +14,8 @@ const VALUE_FLAGS: &[&str] = &[
     // The canvas a verb targets. Only the tab-scoped routes take it; the
     // rest answer 400 rather than write to the canvas the user is on.
     "--tab",
+    // `mod check`'s state fixture.
+    "--state",
     "--preset",
     "--presets",
     "--at",
@@ -91,6 +93,16 @@ impl Args {
     /// The positional at `index`.
     pub(crate) fn nth(&self, index: usize) -> Option<&str> {
         self.positional.get(index).map(String::as_str)
+    }
+
+    /// These arguments with the first positional as the verb: a verb's
+    /// own verbs (`mod state panels/toolbar` read as `state panels/toolbar`).
+    pub(crate) fn shifted(&self) -> Self {
+        Self {
+            verb: self.nth(0).unwrap_or_default().to_owned(),
+            positional: self.positional.get(1..).unwrap_or_default().to_vec(),
+            ..self.clone()
+        }
     }
 
     /// The page a browse verb drives: `--page` or `-f`.

@@ -1,0 +1,7 @@
+{
+  "nodes": [
+    {"id": "w", "type": "file", "file": "widget.html", "x": 100, "y": 100, "width": 400, "height": 300}
+  ],
+  "edges": [],
+  "specular": {"entityOrder": ["w"]}
+}

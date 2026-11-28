@@ -773,6 +773,8 @@ impl Viewer {
             | Effect::RevealSpace
             | Effect::Quit
             | Effect::SaveSettings(_)
+            | Effect::SaveLayoutToggles(_)
+            | Effect::ResetLayout
             | Effect::PreviewRegion { .. }
             | Effect::CaptureElement { .. }
             | Effect::TrackElements { .. }
@@ -789,7 +791,9 @@ impl Viewer {
             | Effect::WriteThread(_)
             | Effect::WriteThreadIndex
             | Effect::RunAgent(_)
-            | Effect::CancelAgent(_) => {}
+            | Effect::CancelAgent(_)
+            | Effect::InstallMods(_)
+            | Effect::BundleMod(_) => {}
         }
     }
 

@@ -21,7 +21,12 @@ pub(super) fn refit(app: &mut App) {
     };
     let rect = match &entity.kind {
         Kind::Text(text) => frame::fitted(entity.rect, text, &edit.text, app.measure.0.as_ref()),
-        Kind::Shape(_) | Kind::Page(_) | Kind::File(_) | Kind::Group(_) | Kind::Drawing(_) => {
+        Kind::Shape(_)
+        | Kind::Mod(_)
+        | Kind::Page(_)
+        | Kind::File(_)
+        | Kind::Group(_)
+        | Kind::Drawing(_) => {
             return;
         }
     };
@@ -58,9 +63,12 @@ pub(crate) fn fit_all(app: &mut App) {
                 let fitted = fitted(app, entity.rect, text);
                 Some((entity.id.clone(), entity.rect, fitted))
             }
-            Kind::Shape(_) | Kind::Page(_) | Kind::File(_) | Kind::Group(_) | Kind::Drawing(_) => {
-                None
-            }
+            Kind::Shape(_)
+            | Kind::Mod(_)
+            | Kind::Page(_)
+            | Kind::File(_)
+            | Kind::Group(_)
+            | Kind::Drawing(_) => None,
         })
         .collect();
     for (id, read, fitted) in fits {

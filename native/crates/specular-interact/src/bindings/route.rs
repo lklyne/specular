@@ -49,6 +49,14 @@ pub(crate) fn binding_for(app: &App, input: &KeyInput) -> Option<&'static Bindin
 
 pub(crate) fn on_key(app: &mut App, input: &KeyInput, effects: &mut Vec<Effect>) {
     app.session.modifiers = input.modifiers;
+    // The way back from a layout that hid what was needed to undo it:
+    // nothing, a field or a page included, has this key first.
+    if crate::chrome::is_reset(input) {
+        if input.pressed && !input.repeat {
+            run_action(app, Action::Layout(crate::LayoutAction::Reset), effects);
+        }
+        return;
+    }
     // A drag reads Shift, Option and Command, so one that changes while the
     // pointer is still takes effect at once.
     if let (Some(_), Some(screen)) = (&app.session.gesture, app.session.pointer) {
@@ -73,7 +81,14 @@ pub(crate) fn on_key(app: &mut App, input: &KeyInput, effects: &mut Vec<Effect>)
         }
         None => match &app.session.focus {
             Focus::Page(page) => page_input::forward_key(page, input, effects),
-            Focus::Canvas => {}
+            Focus::Canvas => {
+                if let Some(action) = crate::mods::bound_to(app, Chord::of(input))
+                    && input.pressed
+                    && !input.repeat
+                {
+                    run_action(app, action, effects);
+                }
+            }
         },
     }
 }

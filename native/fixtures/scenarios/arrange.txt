@@ -40,19 +40,19 @@ camera 0,0,1
 
 # forward and backward move a block past the next item
 select b c
-act bring-forward
+run arrange.bring-forward
 expect order a d b c m n g x r1 r2 r3 c1 c2 c3 g1 g2 g3 s1 s2 s3 t1 t2 t3 big in out am ag as lone x2 hm hn h
 key cmd+z
-act send-backward
+run arrange.send-backward
 expect order b c a d m n g x r1 r2 r3 c1 c2 c3 g1 g2 g3 s1 s2 s3 t1 t2 t3 big in out am ag as lone x2 hm hn h
 key cmd+z
 # to front and to back keep the selection in its own order
 select d b
-act bring-to-front
+run arrange.bring-to-front
 expect order a c m n g x r1 r2 r3 c1 c2 c3 g1 g2 g3 s1 s2 s3 t1 t2 t3 big in out am ag as lone x2 hm hn h b d
 key cmd+z
 select b d
-act send-to-back
+run arrange.send-to-back
 expect order b d a c m n g x r1 r2 r3 c1 c2 c3 g1 g2 g3 s1 s2 s3 t1 t2 t3 big in out am ag as lone x2 hm hn h
 key cmd+z
 # the keys run the verbs
@@ -72,19 +72,19 @@ key cmd+z
 expect saved same-as start
 # a group moves with its members as one unit
 select g
-act bring-forward
+run arrange.bring-forward
 expect order a b c d x m n g r1 r2 r3 c1 c2 c3 g1 g2 g3 s1 s2 s3 t1 t2 t3 big in out am ag as lone x2 hm hn h
 key cmd+z
 # a member that would step past its group's own slot drags the run with it,
 # so nothing changes and no step is recorded
 select hn
-act bring-forward
+run arrange.bring-forward
 expect undo none
 expect saved same-as start
 
 # a row, a column and a grid even the spacing as one step
 select r1 r2 r3
-act arrange-row
+run arrange.lay-out {"mode":"row"}
 expect entity r1 rect 1000 0 100 80
 expect entity r2 rect 1200 0 100 80
 expect entity r3 rect 1400 0 100 80
@@ -94,14 +94,14 @@ key cmd+shift+z
 expect entity r2 rect 1200 0 100 80
 key cmd+z
 select c1 c2 c3
-act arrange-column
+run arrange.lay-out {"mode":"column"}
 expect entity c1 at 2000 0
 expect entity c2 at 2000 250
 expect entity c3 at 2000 500
 key cmd+z
 # a grid: two columns and two rows, the gaps floored at 80 and on the grid
 select g1 g2 g3
-act arrange-grid
+run arrange.lay-out {"mode":"grid"}
 expect entity g1 at 3000 0
 expect entity g2 at 3200 0
 expect entity g3 at 3000 220
@@ -109,38 +109,38 @@ key cmd+z
 # a cluster collapsed on the axis spreads over its other extent, on the
 # grid: 500 down makes a gap of 100, 470 a gap of 85 put at 80
 select s1 s2 s3
-act arrange-row
+run arrange.lay-out {"mode":"row"}
 expect entity s1 at 4000 0
 expect entity s2 at 4200 0
 expect entity s3 at 4400 0
 key cmd+z
 select t1 t2 t3
-act arrange-row
+run arrange.lay-out {"mode":"row"}
 expect entity t2 at 5180 0
 expect entity t3 at 5360 0
 key cmd+z
 # a grid keeps items inside a wide one in its band
 select big in out
-act arrange-grid
+run arrange.lay-out {"mode":"grid"}
 expect entity big at 6000 0
 expect entity in at 6060 140
 expect entity out at 6200 280
 key cmd+z
 # a group takes what is inside it along
 select ag as
-act arrange-row
+run arrange.lay-out {"mode":"row"}
 expect entity ag at 7000 0
 expect entity as at 7700 0
 expect entity am at 7020 20
 key cmd+z
 # one item has nothing to arrange, and a tidy row records no second step
 select lone
-act arrange-row
+expect command arrange.lay-out disabled
 expect entity lone at 8007 3
 expect undo none
 select r1 r2 r3
-act arrange-row
-act arrange-row
+run arrange.lay-out {"mode":"row"}
+run arrange.lay-out {"mode":"row"}
 key cmd+z
 expect entity r2 rect 1150 40 100 80
 undo-to-start

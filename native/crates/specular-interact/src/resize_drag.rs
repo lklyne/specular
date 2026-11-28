@@ -123,7 +123,8 @@ pub(crate) fn drag(app: &mut App, drag: &ResizeDrag, world: DVec2, modifiers: Mo
                 | Kind::File(_)
                 | Kind::Group(_)
                 | Kind::Drawing(_)
-                | Kind::Shape(_) => (lock, min),
+                | Kind::Shape(_)
+                | Kind::Mod(_) => (lock, min),
             };
             let rect = resize::resized(from, drag.handle, target, min, lock);
             // A handle that has not moved its edges changes nothing, so a
@@ -149,7 +150,8 @@ pub(crate) fn drag(app: &mut App, drag: &ResizeDrag, world: DVec2, modifiers: Mo
                         | Kind::Text(_)
                         | Kind::File(_)
                         | Kind::Group(_)
-                        | Kind::Shape(_),
+                        | Kind::Shape(_)
+                        | Kind::Mod(_),
                     )
                     | None => None,
                 };
@@ -182,9 +184,8 @@ fn resized_kind(
             (rect, Some(scaled(drawing, start.rect, stored)))
         }
         Some(Kind::Text(text)) => resized_text(app, text, from, handle, rect),
-        Some(Kind::Page(_) | Kind::File(_) | Kind::Group(_) | Kind::Shape(_)) | None => {
-            (rect, None)
-        }
+        Some(Kind::Page(_) | Kind::File(_) | Kind::Group(_) | Kind::Shape(_) | Kind::Mod(_))
+        | None => (rect, None),
     }
 }
 

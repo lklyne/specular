@@ -39,7 +39,7 @@ pub(crate) fn matches_page_url(recorded: Option<&str>, current: Option<&str>) ->
 /// Whether placement can hook an entity of this kind to a page.
 pub(crate) const fn anchors_to_pages(kind: &Kind) -> bool {
     match kind {
-        Kind::Text(_) | Kind::Drawing(_) | Kind::Shape(_) => true,
+        Kind::Text(_) | Kind::Drawing(_) | Kind::Shape(_) | Kind::Mod(_) => true,
         Kind::Page(_) | Kind::File(_) | Kind::Group(_) => false,
     }
 }

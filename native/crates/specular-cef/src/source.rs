@@ -354,6 +354,14 @@ impl PageSource for CefPageSource {
         drain_events(out);
     }
 
+    fn set_bridge(&mut self, page: PageId, script: Option<&str>) -> Result<(), PageSourceError> {
+        self.put_bridge(page, script)
+    }
+
+    fn bridge_send(&mut self, page: PageId, script: &str) -> Result<(), PageSourceError> {
+        self.run_in_page(page, script)
+    }
+
     fn devtools_port(&self) -> Option<u16> {
         self.config
             .remote_debugging_port

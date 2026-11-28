@@ -1,18 +1,8 @@
 //! What the app remembers about the chrome between events, whoever draws
-//! it, and the heights of the chrome's rows that the canvas lays out under.
+//! it.
 
 use super::{ContextMenu, ControlId, context_menu, named_controls};
 use crate::App;
-
-/// The first row of the chrome: the window's title bar strip, where the
-/// tabs go. Tall enough to centre the traffic lights a window puts at
-/// (14, 13).
-pub const TAB_ROW: f32 = 38.0;
-/// The bar under the chrome that holds the dock while a tab shows its item.
-pub const DOCK_ROW: f32 = 36.0;
-/// The chrome across the top of a window that draws it: the tab row alone.
-/// Its tools are a ribbon and its dock a bar over the canvas.
-pub const CHROME_HEIGHT: f32 = TAB_ROW;
 
 /// What the chrome remembers between events.
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -36,15 +26,6 @@ pub struct PanelUi {
 }
 
 impl PanelUi {
-    /// How much of the viewport's top edge the chrome covers.
-    pub(crate) const fn chrome_height(&self) -> f32 {
-        if self.chrome_covers {
-            CHROME_HEIGHT
-        } else {
-            0.0
-        }
-    }
-
     /// The chrome drawn by the shell, with nothing open.
     pub(crate) fn drawn_by_shell() -> Self {
         Self {

@@ -43,40 +43,34 @@ page-reports p2 url https://example.org/other
 expect pages has p2 scroll 0 0
 
 # the verbs act on the single selected page, or none
-act page-reload
-expect effects lacks navigate
+expect command page.reload disabled
 select p1 p2
-act page-reload
-expect effects lacks navigate
+expect command page.reload disabled
 select p2
-act page-reload
+run page.reload
 expect effects has navigate { page: EntityId("p2"), nav: Reload }
 # back and forward wait for the page to say there is somewhere to go
 page-reports p2 loading off
-act page-back
-act page-forward
-expect effects lacks navigate
+expect command page.back disabled
+expect command page.forward disabled
 page-reports p2 loading off back
-act page-back
+run page.back
 expect effects has navigate { page: EntityId("p2"), nav: Back }
-act page-forward
-expect effects lacks navigate
+expect command page.forward disabled
 page-reports p2 loading off back forward
 expect controls is page.back "Back"
 expect controls is page.forward "Forward"
-act page-forward
+run page.forward
 expect effects has navigate { page: EntityId("p2"), nav: Forward }
 # stop only while it loads
-act page-stop
-expect effects lacks navigate
+expect command page.stop disabled
 page-reports p2 loading on
 # the dock offers Stop while it loads
 expect controls has page.reload "Stop loading"
-act page-stop
+run page.stop
 expect effects has navigate { page: EntityId("p2"), nav: Stop }
 page-reports p2 loading off
-act page-stop
-expect effects lacks navigate
+expect command page.stop disabled
 # Command-R reloads a selected page
 key cmd+r
 expect effects has navigate { page: EntityId("p2"), nav: Reload }
@@ -84,7 +78,7 @@ expect effects has navigate { page: EntityId("p2"), nav: Reload }
 key cmd+[
 expect effects lacks navigate
 expect order p2 p1
-act undo
+run edit.undo
 expect order p1 p2
 
 # entered, the page is the target, and Command-[ and ] and R walk its
@@ -92,7 +86,7 @@ expect order p1 p2
 double-click 200 150
 expect focus page p1
 expect pages has p1 mark entered
-act page-reload
+run page.reload
 expect effects has navigate { page: EntityId("p1"), nav: Reload }
 key cmd+[
 expect effects has navigate { page: EntityId("p1"), nav: Back }

@@ -1,0 +1,204 @@
+//! [`ModState`]: what the app holds for mods between events, and the
+//! changes `update` makes to mod items.
+
+use std::collections::{BTreeSet, HashMap};
+
+use glam::DVec2;
+use serde_json::Value;
+use specular_doc::{Command, Entity, EntityId, ItemId, JsonMap, Kind, ModDraw, ModItem, Rect};
+
+use super::{ModCatalog, ModStroke};
+use crate::{App, Effect, Tool, live, pages};
+
+/// The size a mod item gets when neither the command nor the mod's
+/// `items.size` names one.
+const DEFAULT_SIZE: [f64; 2] = [320.0, 240.0];
+
+/// Mod state that is not in the document.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub(crate) struct ModState {
+    /// What is installed.
+    pub(crate) catalog: ModCatalog,
+    /// The display list each mod item's mod last sent, by item.
+    pub(crate) draws: HashMap<EntityId, Vec<ModDraw>>,
+    /// The props and size each item had when its snapshot was last
+    /// written, this run.
+    snapshot_props: HashMap<EntityId, (JsonMap, [f64; 2])>,
+    /// The armed mod tool's preview, in canvas units.
+    pub(crate) preview: Vec<ModDraw>,
+    /// The armed mod tool's stroke, kept after the release until the next
+    /// press so the mod sees `up` and commits.
+    pub(crate) stroke: Option<ModStroke>,
+    /// Whether the app still draws the stroke with its tool's brush: from
+    /// the press until the mod places an item, sends a preview, or the
+    /// stroke is dropped.
+    pub(crate) trail: bool,
+    /// Brushes a mod set with `tool.stroke` in place of its `mod.json`
+    /// ones, by `<mod>/<tool>`, for this run.
+    pub(crate) brushes: HashMap<String, Vec<ModDraw>>,
+    /// The canvases whose "Install mods" ask was declined, by canvas id.
+    pub(crate) declined: BTreeSet<String>,
+    /// The last mod command run, the `call` key.
+    pub(crate) call: Option<super::commands::ModCall>,
+}
+
+impl ModState {
+    /// The brush of the tool `word`: what `tool.stroke` set, else its
+    /// `mod.json` `stroke`.
+    pub(crate) fn brush(&self, word: &str) -> &[ModDraw] {
+        if let Some(set) = self.brushes.get(word) {
+            return set;
+        }
+        (self.catalog.tool_named(word))
+            .and_then(|id| self.catalog.tool(id))
+            .map_or(&[], |(_, spec)| spec.stroke.as_slice())
+    }
+}
+
+/// The shell listed what is installed. A mod tool that is no longer there
+/// is put down, and the page hosts follow the web items that are now (or no
+/// longer) shown live.
+pub(crate) fn on_catalog(app: &mut App, catalog: ModCatalog, effects: &mut Vec<Effect>) {
+    let before = pages::snapshot(app);
+    let tool = if let Tool::Mod(id) = app.session.tool {
+        app.mods.catalog.tool_word(id)
+    } else {
+        None
+    };
+    app.mods.catalog = catalog;
+    if let Some(word) = tool {
+        app.session.tool = app
+            .mods
+            .catalog
+            .tool_named(&word)
+            .map_or(Tool::Select, Tool::Mod);
+    }
+    pages::reconcile(&before, app, effects);
+}
+
+/// The mod of item `id` sent what it draws. The item's snapshot is written
+/// from it when its props or size changed since the last snapshot this
+/// run, or it has none: so the file follows the item, not every redraw. Returns
+/// whether the snapshot changed, which is a change to save.
+pub(crate) fn on_draw(app: &mut App, id: EntityId, draws: Vec<ModDraw>) -> bool {
+    let Some(Entity {
+        kind: Kind::Mod(item),
+        rect,
+        ..
+    }) = app.document.entity(&id)
+    else {
+        return false;
+    };
+    let drawn = (item.props.clone(), [rect.width, rect.height]);
+    let due = item.snapshot.is_none() || app.mods.snapshot_props.get(&id) != Some(&drawn);
+    let mut written = false;
+    if due {
+        written = app.document.set_mod_snapshot(&id, draws.clone());
+        app.mods.snapshot_props.insert(id.clone(), drawn);
+    }
+    app.mods.draws.insert(id, draws);
+    written
+}
+
+/// The command that sets the keys of `patch` on mod item `id`'s props, a
+/// `null` taking its key away, or `None` when `id` is no mod item or nothing
+/// would change.
+pub(crate) fn set_props(app: &App, id: &EntityId, patch: &JsonMap) -> Option<Command> {
+    let Kind::Mod(item) = &app.document.entity(id)?.kind else {
+        return None;
+    };
+    let mut next = item.clone();
+    for (key, value) in patch {
+        match value {
+            Value::Null => next.props.shift_remove(key),
+            value => next.props.insert(key.clone(), value.clone()),
+        };
+    }
+    (next.props != item.props).then(|| Command::SetKind {
+        id: id.clone(),
+        kind: Box::new(Kind::Mod(next)),
+    })
+}
+
+/// What `item.add {kind: mod}` places.
+#[derive(Debug, Clone, PartialEq)]
+pub struct NewModItem {
+    /// The mod.
+    pub name: String,
+    /// The item's props.
+    pub props: JsonMap,
+    /// Its size, or the mod's own.
+    pub size: Option<DVec2>,
+}
+
+/// Places a mod item with its top-left at `at`, in front, as one undo step,
+/// and selects it. The canvas lists the mod it needs, and the shell copies
+/// the mod into the space folder so the canvas carries it. Nothing happens
+/// for a mod that is not installed.
+pub(crate) fn add_item(
+    app: &mut App,
+    new: NewModItem,
+    at: Option<DVec2>,
+    effects: &mut Vec<Effect>,
+) {
+    let Some(installed) = app.mods.catalog.get(&new.name) else {
+        return;
+    };
+    let size = (new.size.map(|size| [size.x, size.y]))
+        .or_else(|| installed.manifest.items.as_ref()?.size)
+        .unwrap_or(DEFAULT_SIZE);
+    let api = installed.manifest.api.to_string();
+    let id = EntityId::from(app.fresh_id().as_str());
+    let at = at
+        .unwrap_or_else(|| crate::add_item::view_middle(app) - DVec2::new(size[0], size[1]) / 2.0);
+    let rect = Rect::new(at.x, at.y, size[0], size[1]);
+    let item = ModItem {
+        api,
+        ..ModItem::new(&new.name, new.props)
+    };
+    // The first of its mod's items on this canvas brings a copy of the mod
+    // into the space, which the canvas then lists.
+    if !(app.document.mod_needs().iter()).any(|need| need.name == new.name) {
+        effects.push(Effect::BundleMod(new.name));
+    }
+    let entity = Entity::new(id.clone(), rect, Kind::Mod(item));
+    app.mods.preview.clear();
+    app.mods.trail = false;
+    live::create(app, entity, effects);
+    app.session.selection.set([ItemId::Entity(id)]);
+}
+
+impl App {
+    /// What the mod item `id` shows: the display list its mod last sent,
+    /// else the snapshot it was saved with. `None` until either exists.
+    pub fn mod_draws(&self, id: &EntityId) -> Option<&[ModDraw]> {
+        if let Some(sent) = self.mods.draws.get(id) {
+            return Some(sent);
+        }
+        let Kind::Mod(item) = &self.document.entity(id)?.kind else {
+            return None;
+        };
+        item.snapshot.as_deref()
+    }
+
+    /// The armed mod tool's preview, in canvas units.
+    pub fn mod_preview(&self) -> &[ModDraw] {
+        &self.mods.preview
+    }
+
+    /// The live stroke drawn with its tool's brush, in canvas units: empty
+    /// when the tool has no `stroke` or the mod has taken over.
+    pub fn mod_trail(&self) -> Vec<ModDraw> {
+        let Some(stroke) = self.mods.stroke.as_ref().filter(|_| self.mods.trail) else {
+            return Vec::new();
+        };
+        (self.mods.brush(&stroke.tool).iter())
+            .filter_map(|draw| draw.along(&stroke.points))
+            .collect()
+    }
+
+    /// What is installed.
+    pub fn mod_catalog(&self) -> &ModCatalog {
+        &self.mods.catalog
+    }
+}

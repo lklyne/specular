@@ -1,0 +1,35 @@
+# canvas: ../../bridge/space/Widget.canvas
+# The page bridge (ADR 0055): the widget, a file in the space folder, shows
+# the tool it reads through `window.specular` and places a sticky through
+# `run`, which one Cmd+Z takes back. Taken to a web page, the same page has
+# no bridge, and what the web page tries places nothing. The widget is at
+# screen x 100..500, y 100..400 with this camera, its button at 124..324,
+# 260..308.
+camera 0,0,1
+wait 1000
+expect count sticky 0
+# Enter the widget on its blank top right, then press its button.
+click 450 130
+click 450 130
+expect focus page w
+click 220 284
+wait 500
+expect count sticky 1
+expect entity @top text From the widget
+expect entity @top at 560 100
+snapshot 01-placed.png
+# The sticky is selected, so the canvas has the keys: one undo takes it.
+key cmd+z
+expect count sticky 0
+# The tool it shows follows the toolbar, pushed with no polling.
+tool draw
+wait 300
+snapshot 02-draw-tool.png
+tool select
+# The same page on the web: the bridge is taken out, and the probe's
+# `window.specular` and raw binding both place nothing.
+run page.navigate {"page":"w","url":"{site}/site/bridge-probe.html"}
+wait 1500
+expect count sticky 0
+snapshot 03-web-page.png
+undo-to-start

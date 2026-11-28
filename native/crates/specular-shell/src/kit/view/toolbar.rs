@@ -17,7 +17,7 @@ use specular_interact::{
 };
 
 use super::controls::{column, control, hint};
-use super::dropdown::dropdown;
+use super::dropdown::{dropdown, dropdown_compact};
 use super::glyphs::{self, glyph, ink};
 use super::named::mark;
 use super::raised::Raised;
@@ -30,7 +30,7 @@ const TOOL_GLYPH: f32 = 20.0;
 const PANEL_GLYPH: f32 = 14.0;
 /// From the canvas's edge to a floating ribbon, and from a ribbon's own
 /// edge to its buttons.
-const RIBBON_INSET: f32 = 8.0;
+pub(super) const RIBBON_INSET: f32 = 8.0;
 const RIBBON_PAD: f32 = 4.0;
 /// From a tool's button to its options.
 const OPTIONS_GAP: f32 = 10.0;
@@ -266,7 +266,7 @@ pub(super) fn docked(
         .occlude()
         .absolute()
         .left(px(left))
-        .top(px(theme::CHROME_HEIGHT))
+        .top(px(theme::chrome_top()))
         .bottom_0()
         .w(px(TOOLS_DOCK_WIDTH))
         .py(px(RIBBON_PAD))
@@ -324,6 +324,24 @@ pub(super) fn zoom(model: &ToolbarModel) -> Option<AnyElement> {
         ToolbarSection::Zoom(zoom) => Some(dropdown(zoom)),
         ToolbarSection::Tools(_) => None,
     })
+}
+
+/// The zoom readout, for a mod's `Zoom`: the narrow one where the ribbon
+/// is docked.
+pub(crate) fn zoom_readout(compact: bool) -> Option<AnyElement> {
+    let (model, _) = crate::canvas::tool_models()?;
+    model.sections.iter().find_map(|section| match section {
+        ToolbarSection::Zoom(zoom) if compact => Some(dropdown_compact(zoom)),
+        ToolbarSection::Zoom(zoom) => Some(dropdown(zoom)),
+        ToolbarSection::Tools(_) => None,
+    })
+}
+
+/// The options of the tool in hand, for a mod's `ToolOptions`, placed as
+/// they are beside the app's own button.
+pub(crate) fn tool_options(window: &mut Window, cx: &mut App) -> Option<AnyElement> {
+    let (model, shown) = crate::canvas::tool_models()?;
+    Some(options(&shown?, model.tools, window, cx).into_any_element())
 }
 
 /// Minimize and the lenses of the tab showing, for the end of the dock's bar.

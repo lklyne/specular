@@ -2,6 +2,7 @@
 //! one follows for each page and Document of the active canvas that has
 //! been opened in a tab, which a press shows alone.
 
+use serde::Serialize;
 use std::sync::Arc;
 
 use specular_doc::{Entity, Kind};
@@ -12,7 +13,7 @@ use crate::labels::{file_icon, file_label, page_icon, page_label};
 use crate::{Action, App, Showing, binding_of, showing};
 
 /// One tab of the tab row.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct ViewTab {
     /// Its name.
     pub id: ControlId,
@@ -22,22 +23,26 @@ pub struct ViewTab {
     pub icon: Icon,
     /// A page's own icon as a PNG, which a renderer that draws images
     /// shows in place of the glyph.
+    #[serde(skip)]
     pub favicon: Option<Arc<[u8]>>,
     /// Whether it is what the window shows now.
     pub active: bool,
     /// What pressing it does: show the canvas, or its item alone.
+    #[serde(skip)]
     pub action: Action,
     /// What its close button does: take the tab away and leave the item
     /// on the canvas. `None` for the Canvas tab, which stays.
+    #[serde(skip)]
     pub close: Option<Action>,
     /// What the press does before the click, for a renderer that sees the
     /// button go down: lay its page out for the tab. `None` for a tab with
     /// nothing to lay out.
+    #[serde(skip)]
     pub prepare: Option<Action>,
 }
 
 /// The tab row as it is now.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct ViewStrip {
     /// The tabs, left to right: the canvas first.
     pub tabs: Vec<ViewTab>,
@@ -52,7 +57,9 @@ fn item_tab(app: &App, entity: &Entity) -> Option<ViewTab> {
         Kind::Page(_) => (page_label(app, entity), page_icon(entity.rect.width)),
         Kind::File(file) if file.is_html() => (page_label(app, entity), file_icon(&file.file)),
         Kind::File(file) => (file_label(&file.file), file_icon(&file.file)),
-        Kind::Text(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Shape(_) => return None,
+        Kind::Text(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Shape(_) | Kind::Mod(_) => {
+            return None;
+        }
     };
     Some(ViewTab {
         id: ControlId::new("view.item").child(entity.id.as_str()),
@@ -62,7 +69,7 @@ fn item_tab(app: &App, entity: &Entity) -> Option<ViewTab> {
         active: app.shown_item() == Some(&entity.id),
         action: Action::Show(Showing::Item(entity.id.clone())),
         close: Some(Action::CloseTab(Some(entity.id.clone()))),
-        prepare: is_page(entity).then(|| Action::PrepareShow(Some(entity.id.clone()))),
+        prepare: is_page(app, entity).then(|| Action::PrepareShow(Some(entity.id.clone()))),
     })
 }
 

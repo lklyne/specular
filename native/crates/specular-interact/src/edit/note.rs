@@ -180,7 +180,8 @@ pub(crate) fn keep_both(
         | Kind::Text(_)
         | Kind::Group(_)
         | Kind::Drawing(_)
-        | Kind::Shape(_) => None,
+        | Kind::Shape(_)
+        | Kind::Mod(_) => None,
     });
     if let Some((rect, shown)) = beside {
         let id = EntityId::from(app.fresh_id().as_str());

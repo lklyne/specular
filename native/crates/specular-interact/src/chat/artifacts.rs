@@ -63,7 +63,12 @@ fn showing_file<'a>(app: &'a App, path: &str) -> Option<&'a Entity> {
         .map_or(path, |rest| rest.trim_start_matches('/'));
     app.document.entities().find(|entity| match &entity.kind {
         Kind::File(file) => file.file == relative,
-        Kind::Page(_) | Kind::Text(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Shape(_) => false,
+        Kind::Page(_)
+        | Kind::Text(_)
+        | Kind::Group(_)
+        | Kind::Drawing(_)
+        | Kind::Shape(_)
+        | Kind::Mod(_) => false,
     })
 }
 
@@ -109,6 +114,11 @@ fn item_card(app: &App, entity: &Entity, created: bool) -> ArtifactCard {
                 .to_owned(),
             "Shape",
             Icon::Shape(shape.shape),
+        ),
+        Kind::Mod(item) => (
+            named.unwrap_or(&item.name).to_owned(),
+            "Mod item",
+            Icon::Code,
         ),
     };
     let item = ItemId::Entity(entity.id.clone());

@@ -32,13 +32,13 @@ expect saved /annotations/0/pageAnchor/pageUrl = assets/demo.html
 key escape
 key escape
 # its own tab fills the view with it, laid out at the tab's size
-act show:h1
+run tab.show {"item":"h1"}
 expect showing h1
 expect sent viewport h1
-act show-canvas
+run tab.show
 # a sync set is links or HTML files, never both
 select h1 p1
-act toggle-sync
+expect command page.toggle-sync disabled
 expect synced h1 no
 expect synced p1 no
 undo-to-start

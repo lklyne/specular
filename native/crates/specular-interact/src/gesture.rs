@@ -60,6 +60,9 @@ pub enum Gesture {
     EdgeDrag(EdgeDrag),
     /// Dragging a reorder dot or a gap strip of a line (ADR 0015).
     Line(LineDrag),
+    /// Pressed with a mod's tool: the stroke grows in the `tool` state key
+    /// until the release.
+    ModTool,
 }
 
 /// The pointer moved mid-drag, or a modifier changed under it.
@@ -104,6 +107,10 @@ pub(crate) fn drag(app: &mut App, input: &PointerInput) {
             line_drag::drag(app, &mut drag, world);
             app.session.gesture = Some(Gesture::Line(drag));
         }
+        Some(Gesture::ModTool) => {
+            crate::mods::drag_stroke(app, world);
+            app.session.gesture = Some(Gesture::ModTool);
+        }
     }
 }
 
@@ -134,6 +141,7 @@ pub(crate) fn finish(
         Gesture::TextSelect(_) => {}
         Gesture::EdgeDrag(drag) => edge_drag::finish(app, &drag, effects),
         Gesture::Line(drag) => line_drag::finish(app, &drag, effects),
+        Gesture::ModTool => crate::mods::finish_stroke(app),
     }
 }
 
@@ -152,6 +160,7 @@ pub(crate) fn cancel(app: &mut App, effects: &mut Vec<Effect>) {
         Some(Gesture::Draw(stroke)) => draw::cancel(app, &stroke),
         Some(Gesture::EdgeDrag(drag)) => edge_drag::cancel(app, &drag, effects),
         Some(Gesture::Line(drag)) => line_drag::cancel(app, &drag),
+        Some(Gesture::ModTool) => crate::mods::cancel_stroke(app),
     }
 }
 

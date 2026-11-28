@@ -1,0 +1,23 @@
+# `item.add` places an item at a canvas point by name, as a page's bridge,
+# the CLI and `POST /run` run it: in the tool's style, selected, one undo
+# step each, and refused arguments place nothing.
+given sticky a 100 100 200 200 one
+run item.add {"kind":"sticky","x":400,"y":120,"text":"from a widget"}
+expect count sticky 2
+expect entity @selected kind sticky
+expect entity @selected at 400 120
+expect entity @selected text from a widget
+expect order a @selected
+run item.add {"kind":"shape","x":100,"y":400,"text":"box"}
+expect count shape 1
+expect entity @selected kind shape
+expect entity @selected at 100 400
+expect entity @selected text box
+run edit.undo
+expect count shape 0
+expect count sticky 2
+run edit.undo
+expect count sticky 1
+run edit.redo
+expect count sticky 2
+undo-to-start

@@ -12,8 +12,8 @@ use std::fmt::Write as _;
 
 use specular_doc::Rect;
 use specular_interact::{
-    App, Chord, Effect, MenuEntry, PaletteRun, ScreenRect, menus, onboarding, palette, repos_pane,
-    settings,
+    App, Chord, Effect, MenuEntry, PaletteRun, Region, ScreenRect, menus, onboarding, palette,
+    repos_pane, settings,
 };
 
 use super::Topic;
@@ -28,6 +28,7 @@ pub(super) fn lines(app: &App, topic: Topic) -> Vec<String> {
         Topic::Editor => editor(app, &mut out),
         Topic::Effects => {}
         Topic::Inspect => inspect(app, &mut out),
+        Topic::Layout => layout(app, &mut out),
         Topic::Menubar => menubar(app, &mut out),
         Topic::Onboarding => first_run(app, &mut out),
         Topic::Pages => pages(app, &mut out),
@@ -43,6 +44,34 @@ pub(super) fn lines(app: &App, topic: Topic) -> Vec<String> {
         Topic::Tabs => tabs(app, &mut out),
     }
     out
+}
+
+/// `region toolbar shown`, a line a region; `toggled ID hidden`, a line a
+/// toggle; and `insets LEFT TOP RIGHT BOTTOM`.
+fn layout(app: &App, out: &mut Vec<String>) {
+    let regions = app.regions();
+    for region in Region::ALL {
+        let state = if regions.shows(region) {
+            "shown"
+        } else {
+            "hidden"
+        };
+        out.push(format!("region {} {state}", region.name()));
+    }
+    for (id, hidden) in &app.layout_toggles().hidden {
+        let state = if *hidden { "hidden" } else { "shown" };
+        out.push(format!("toggled {id} {state}"));
+    }
+    let insets = app.insets();
+    let [left, top, right, bottom] =
+        [insets.left, insets.top, insets.right, insets.bottom].map(f64::from);
+    out.push(format!(
+        "insets {} {} {} {}",
+        n(left),
+        n(top),
+        n(right),
+        n(bottom)
+    ));
 }
 
 /// A number rounded to a tenth, written without a needless `.0`.

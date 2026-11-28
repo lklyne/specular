@@ -1,3 +1,8 @@
 /target/
 # bench output from the morning run (see README.md)
 /runs/
+
+# Written by gpui-shell beside a mod that loads; an output, never a source.
+gpui-kit.d.ts
+crates/specular-mods/mods/*/jsconfig.json
+crates/specular-mods/mods/*.error

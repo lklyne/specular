@@ -189,6 +189,21 @@ pub enum Action {
     /// Set one field of the selection, as a dock control does. It applies
     /// to every selected item it means something for, as one undo step.
     SetProperty(Property),
+    /// Do what a click on the control with this name does, as
+    /// [`Event::Control`](crate::Event::Control) does with no keys held:
+    /// how a caller that cannot name an [`Action`] presses a control the
+    /// models show. A name no control has now does nothing.
+    PressControl(crate::ControlId),
+    /// Hide or show a region of the window or a control, over what the
+    /// layout file says, or go back to the shipped layout.
+    Layout(crate::LayoutAction),
+    /// Take away a page's notice by its id (`page.<id>.crashed`).
+    DismissNotice(String),
+    /// Place a new item at a canvas point in the tool defaults' style, as
+    /// one undo step, and select it.
+    AddItem(crate::NewItem),
+    /// A mod item or tool action (ADR 0057).
+    Mod(Box<crate::mods::ModAction>),
     /// Move the selection by exactly this many canvas units.
     Nudge {
         /// Along x. Positive is right.

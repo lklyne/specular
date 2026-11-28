@@ -15,10 +15,12 @@ a whole and `docs/plans/rust-cef-spike.md` for what it measures.
 | `page` | always (`PageContext`: `cef`) | per-page view/popup geometry shared by handlers and the source |
 | `cpu_frame` | always | `OnPaint` buffer -> owned `CpuFrame` |
 | `dom_query` | always | the devtools messages that ask a page for the element under a point, the elements in a rect and its own target id, and reading the answers |
+| `bridge_query` | always | the page bridge's messages: `Runtime.addBinding`, the install script for new documents and the one shown, `Runtime.removeBinding`, and reading a `Runtime.bindingCalled` |
 | `process` | `cef` | `run_subprocess_if_needed`, API-version declaration, macOS framework load/unload |
 | `app_protocol` | `cef` + macOS | adds `CefAppProtocol` (`isHandlingSendEvent` / `setHandlingSendEvent:`) to the window toolkit's `NSApp` class before `cef_initialize` |
 | `client` | `cef` | `wrap_*!` handler objects: app (switches), render, display, load, request, life-span, client |
 | `devtools` | `cef` | one page's in-process devtools channel: `SendDevToolsMessage`, the message observer, answers -> `PageEvent` |
+| `bridge_host` | `cef` | putting the page bridge in a page and taking it out, and running the app's answers in it |
 | `paint` | `cef` | `OnPaint` / `OnAcceleratedPaint` -> `FrameEvent` |
 | `iosurface` | `cef` + macOS | the one unsafe IOSurface module: retain/use-count/release and its ownership rules |
 | `source` | `cef` | `CefPageSource`: browser lifecycle, `PageSource` methods, `HostCall` dispatch |
@@ -88,6 +90,18 @@ cargo clippy -p specular-cef --all-targets --features cef-dox \
   follow the Electron preload's rules: an `nth-of-type` selector up to the
   nearest unique id, a four-segment readable path, and a region grabs the
   visible interactive elements it wholly contains, 15 at most.
+- **The page bridge** (ADR 0055). `set_bridge` sends `Runtime.addBinding`
+  (`__specular`), `Page.addScriptToEvaluateOnNewDocument` with the app's
+  install script (once per page) and a `Runtime.evaluate` of it in the
+  document shown; `set_bridge(None)` sends `Runtime.removeBinding`, after
+  which the script finds nothing to wrap. The observer turns a
+  `Runtime.bindingCalled` on that name into `PageEvent::BridgeCall` with
+  the main frame's URL as the browser reports it, and never hands it to a
+  devtools client. `bridge_send` evaluates the app's answer. Unverified on
+  a Mac so far: whether the new-document script and the binding events
+  need `Page.enable` / `Runtime.enable` on this channel (the app also
+  evaluates the script on every address change and load end, so a page
+  gets the bridge either way).
 - **`window.open`** is blocked (`OnBeforePopup` returns 1). Otherwise it would
   open a native window off the canvas.
 - **Agents.** `CefConfig.remote_debugging_port` -> `cef_settings_t.remote_debugging_port`

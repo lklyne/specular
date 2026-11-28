@@ -4,14 +4,15 @@
 //! The list is the menu bar's items, so a label, a key, and whether the item
 //! can run now are the menu's, plus what has a key and no menu item (the
 //! formatting keys, the tool variants, the tab keys) and the window's own
-//! commands. The view renders [`palette`] and filters it with [`search`];
+//! commands. Every label is the command registry's. The view renders [`palette`] and filters it with [`search`];
 //! choosing an item sends its [`PaletteRun`].
 
 use std::borrow::Cow;
 
 use specular_doc::{BrushType, ShapeKind};
 
-use crate::menu::{has_target, item};
+use crate::commands::{Run, naming};
+use crate::menu::{command_item, has_target};
 use crate::{
     Action, App, BINDINGS, Chord, Format, MenuEntry, SHELL_KEYS, ShellCommand, ToolDefaultPatch,
     menus,
@@ -24,6 +25,14 @@ pub enum PaletteRun {
     Action(Action),
     /// The shell does it itself.
     Shell(ShellCommand),
+    /// Run the command `name` with `args`, by name: what a mod's palette
+    /// entry or own command does.
+    Named {
+        /// The command.
+        name: String,
+        /// Its arguments.
+        args: serde_json::Value,
+    },
 }
 
 /// One command in the palette.
@@ -46,68 +55,41 @@ pub struct PaletteItem {
     pub keywords: &'static [&'static str],
 }
 
-/// A bound action with no menu item, picked from the palette by `label`.
-struct Extra {
-    label: &'static str,
-    group: &'static str,
-    action: Action,
-}
-
-const fn extra(group: &'static str, label: &'static str, action: Action) -> Extra {
-    Extra {
-        label,
-        group,
-        action,
-    }
-}
-
-/// The bound actions the menus lack. An action a menu item already runs is
-/// skipped, so a row here can never list one twice.
+/// The registry commands with a key and no menu item, and the palette group
+/// each joins. A command a menu item already runs is skipped, so a row here
+/// can never list one twice.
 ///
-/// `Cancel` and the arrow-key nudges are in no row: Escape means "back out"
-/// of whatever is happening, which a command that closes the palette cannot
+/// `edit.cancel` and `edit.nudge` are in no row: Escape means "back out" of
+/// whatever is happening, which a command that closes the palette cannot
 /// say, and a nudge needs the key's direction and a held selection to mean
 /// anything.
-const EXTRAS: &[Extra] = &[
-    extra(
-        "Tools",
-        "Ellipse",
-        Action::SetToolVariant(ToolDefaultPatch::ShapeKind(ShapeKind::Ellipse)),
-    ),
-    extra(
-        "Tools",
-        "Diamond",
-        Action::SetToolVariant(ToolDefaultPatch::ShapeKind(ShapeKind::Diamond)),
-    ),
-    extra(
-        "Tools",
-        "Highlighter",
-        Action::SetToolVariant(ToolDefaultPatch::Brush(BrushType::Highlight)),
-    ),
-    extra("Page", "Show next tab", Action::ShowNext),
-    extra("Page", "Show previous tab", Action::ShowPrevious),
-    extra("Text", "Bold", Action::Format(Format::Bold)),
-    extra("Text", "Italic", Action::Format(Format::Italic)),
-    extra("Text", "Code", Action::Format(Format::Code)),
-    extra("Text", "Strikethrough", Action::Format(Format::Strike)),
-    extra("Text", "Bullet list", Action::Format(Format::BulletList)),
-    extra(
-        "Text",
-        "Numbered list",
-        Action::Format(Format::NumberedList),
-    ),
-    extra("Text", "Task list", Action::Format(Format::TaskList)),
-    extra("Text", "Body text", Action::Format(Format::Heading(0))),
-    extra("Text", "Heading 1", Action::Format(Format::Heading(1))),
-    extra("Text", "Heading 2", Action::Format(Format::Heading(2))),
-    extra("Text", "Heading 3", Action::Format(Format::Heading(3))),
-    extra("Text", "Heading 4", Action::Format(Format::Heading(4))),
-    extra("Text", "Heading 5", Action::Format(Format::Heading(5))),
-    extra("Text", "Heading 6", Action::Format(Format::Heading(6))),
+const EXTRAS: &[(&str, &str)] = &[
+    ("Tools", "tool.ellipse"),
+    ("Tools", "tool.diamond"),
+    ("Tools", "tool.highlighter"),
+    ("Page", "tab.next"),
+    ("Page", "tab.previous"),
+    ("Text", "text.bold"),
+    ("Text", "text.italic"),
+    ("Text", "text.code"),
+    ("Text", "text.strikethrough"),
+    ("Text", "text.bullet-list"),
+    ("Text", "text.numbered-list"),
+    ("Text", "text.task-list"),
+    ("Text", "text.body"),
+    ("Text", "text.heading-1"),
+    ("Text", "text.heading-2"),
+    ("Text", "text.heading-3"),
+    ("Text", "text.heading-4"),
+    ("Text", "text.heading-5"),
+    ("Text", "text.heading-6"),
 ];
 
 /// The group of the window's own commands.
 const SHELL_GROUP: &str = "App";
+
+/// The group of the entries the loaded mods add.
+const MODS_GROUP: &str = "Mods";
 
 /// Words besides the label that find an action: what a person calls it
 /// where the menu calls it something else.
@@ -143,9 +125,10 @@ fn keywords(action: &Action) -> &'static [&'static str] {
 
 /// Every command, grouped, for `app` as it is now: one group per menu in
 /// the menu bar's order, in which the extra commands that belong with a
-/// menu come last; then a group for each of the others; then the window's.
-/// The list's membership never changes with the state of the app, except
-/// for the Canvas group's canvases. Only `enabled` and `checked` do.
+/// menu come last; then a group for each of the others; then the window's;
+/// then the loaded mods' entries. The list's membership never changes with
+/// the state of the app, except for the Canvas group's canvases and the
+/// mods loaded. Only `enabled` and `checked` do.
 pub fn palette(app: &App) -> Vec<PaletteItem> {
     let mut groups: Vec<(&'static str, Vec<PaletteItem>)> = Vec::new();
     for menu in menus(app) {
@@ -165,55 +148,92 @@ pub fn palette(app: &App) -> Vec<PaletteItem> {
             .collect();
         groups.push((menu.title, items));
     }
-    for extra in EXTRAS {
-        let run = PaletteRun::Action(extra.action.clone());
-        if groups
-            .iter()
-            .flat_map(|(_, items)| items)
-            .any(|it| it.run == run)
-        {
+    for &(group, name) in EXTRAS {
+        let Some(palette_item) = extra_item(app, group, name) else {
+            continue;
+        };
+        if (groups.iter().flat_map(|(_, items)| items)).any(|it| it.run == palette_item.run) {
             continue;
         }
-        let palette_item = extra_item(app, extra);
-        match groups.iter_mut().find(|(title, _)| *title == extra.group) {
+        match groups.iter_mut().find(|(title, _)| *title == group) {
             Some((_, items)) => items.push(palette_item),
-            None => groups.push((extra.group, vec![palette_item])),
+            None => groups.push((group, vec![palette_item])),
         }
     }
     let shell = (SHELL_KEYS.iter())
         .filter(|(_, command)| *command != ShellCommand::CommandPalette)
-        .map(|&(chord, command)| PaletteItem {
-            label: Cow::Borrowed(command.label()),
-            group: SHELL_GROUP,
-            run: PaletteRun::Shell(command),
-            chord: Some(chord),
-            enabled: true,
-            checked: None,
-            keywords: &[],
+        .filter_map(|&(chord, command)| {
+            Some(PaletteItem {
+                label: Cow::Borrowed(naming(&Run::Shell(command))?.label),
+                group: SHELL_GROUP,
+                run: PaletteRun::Shell(command),
+                chord: Some(chord),
+                enabled: true,
+                checked: None,
+                keywords: &[],
+            })
         })
         .collect();
     groups.push((SHELL_GROUP, shell));
+    groups.push((MODS_GROUP, mod_items(app)));
     groups.into_iter().flat_map(|(_, items)| items).collect()
 }
 
-fn extra_item(app: &App, extra: &Extra) -> PaletteItem {
-    let menu_item = item(app, extra.label, extra.action.clone());
+/// What the running mods add: their `palette` entries, each enabled while
+/// its registry command could run (one naming no command is listed,
+/// disabled, so its author sees it and the palette does not hide the
+/// mistake), then their own commands with their keys.
+fn mod_items(app: &App) -> Vec<PaletteItem> {
+    let mods = crate::mods::running_mods(app);
+    let entries = (mods.iter()).flat_map(|installed| installed.manifest.palette.iter());
+    let entries = entries.map(|entry| PaletteItem {
+        label: Cow::Owned(entry.title.clone()),
+        group: MODS_GROUP,
+        run: PaletteRun::Named {
+            name: entry.run.clone(),
+            args: entry.args.clone(),
+        },
+        chord: None,
+        enabled: crate::commands::run_named(app, &entry.run, &entry.args).is_ok(),
+        checked: None,
+        keywords: &[],
+    });
+    let commands = (mods.iter()).flat_map(|installed| {
+        (installed.manifest.commands.iter()).map(|spec| PaletteItem {
+            label: Cow::Owned(spec.title.clone()),
+            group: MODS_GROUP,
+            run: PaletteRun::Named {
+                name: crate::mods::word(installed, spec),
+                args: serde_json::Value::Null,
+            },
+            chord: spec.key.as_deref().and_then(Chord::parse),
+            enabled: app.session.gesture.is_none(),
+            checked: None,
+            keywords: &[],
+        })
+    });
+    entries.chain(commands).collect()
+}
+
+/// The registry command `name` as a palette item of `group`.
+fn extra_item(app: &App, group: &'static str, name: &str) -> Option<PaletteItem> {
+    let menu_item = command_item(app, name)?;
     // A key bound in two contexts (the tab keys, on the canvas and in an
     // entered page) works wherever either holds.
     let enabled = app.session.gesture.is_none()
-        && has_target(app, &extra.action)
+        && has_target(app, &menu_item.action)
         && (BINDINGS.iter())
-            .filter(|binding| binding.action == extra.action)
+            .filter(|binding| binding.action == menu_item.action)
             .any(|binding| binding.context.holds(app));
-    PaletteItem {
+    Some(PaletteItem {
         label: menu_item.label,
-        group: extra.group,
+        group,
         chord: menu_item.chord,
         enabled,
         checked: None,
-        keywords: keywords(&extra.action),
+        keywords: keywords(&menu_item.action),
         run: PaletteRun::Action(menu_item.action),
-    }
+    })
 }
 
 /// An item that matched a query.

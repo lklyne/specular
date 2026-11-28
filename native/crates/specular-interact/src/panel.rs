@@ -21,6 +21,7 @@ mod strip;
 mod toolbar;
 mod ui;
 
+pub use crate::chrome::{CHROME_HEIGHT, DOCK_ROW, TAB_ROW};
 pub use context::{ContextMenu, MenuTarget, context_menu};
 pub(crate) use context::{
     open as open_menu_for_right_press, open_for_press as open_menu_for_press,
@@ -43,5 +44,5 @@ pub use named::{UnknownControl, control_named};
 pub(crate) use named::{activate as activate_control, open_menu as open_menu_at};
 pub use strip::{ViewStrip, ViewTab, view_strip};
 pub use toolbar::toolbar;
-pub use ui::{CHROME_HEIGHT, DOCK_ROW, PanelUi, TAB_ROW};
+pub use ui::PanelUi;
 pub(crate) use ui::{cancel, tidy};

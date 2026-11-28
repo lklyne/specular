@@ -3,7 +3,7 @@ use serde_json::{Value, json};
 use super::CanvasError;
 use crate::{
     Color, ColorPreset, Command, Document, EdgeId, EdgeKind, EntityId, ItemId, JsonMap, Kind,
-    LayoutMode, TextStyle,
+    LayoutMode, ModFallback, ModNeed, TextStyle,
 };
 
 fn load(value: &Value) -> Document {
@@ -68,6 +68,22 @@ fn everything() -> Value {
               "parentGroupId": "outer", "managedLayout": true, "groupColor": "#00ff00",
               "sourceTaskId": "task-1", "groupMetadata": { "k": 1 },
               "background": "bg.png" },
+            { "id": "feed", "type": "text", "x": 40, "y": 40, "width": 300, "height": 200,
+              "text": "feed",
+              "specular": { "mod": "feed", "props": { "urls": ["https://example.com/a.jpg"] },
+                "snapshot": [
+                  { "type": "rect", "x": 0, "y": 0, "width": 300, "height": 200, "fill": "#ffffff",
+                    "radius": 8 },
+                  { "type": "image", "x": 8, "y": 8, "width": 284, "height": 184,
+                    "src": "https://example.com/a.jpg", "fit": "cover" },
+                  { "type": "path", "points": [[0, 0], [10, 5.5]], "stroke": "#ff0000", "line": 2 },
+                  { "type": "text", "x": 8, "y": 8, "text": "Feed", "size": 12 },
+                ],
+                "pageAnchor": anchor, "parentGroupId": "group", "label": "Pictures" } },
+            { "id": "clip", "type": "link", "x": 0, "y": 300, "width": 320, "height": 240,
+              "url": "https://example.com/clip.mp4",
+              "specular": { "mod": "recorder", "props": {}, "parentGroupId": "group",
+                "label": "Clip" } },
         ],
         "edges": [
             { "id": "edge", "fromNode": "page", "toNode": "shape", "fromSide": "right",
@@ -76,7 +92,12 @@ fn everything() -> Value {
               "edgeKind": "connection", "edgeMetadata": { "k": 1 }, "otherTool": 1 },
         ],
         "specular": {
-            "entityOrder": ["page", "edge", "text", "file", "drawing", "shape", "group"],
+            "entityOrder": ["page", "edge", "text", "file", "drawing", "shape", "group", "feed",
+                "clip"],
+            "mods": [
+                { "name": "feed", "api": "1.1", "from": "mods/feed" },
+                { "name": "recorder", "api": "1", "from": "mods/recorder" }
+            ],
             "otherTool": "kept",
         },
         "annotations": [
@@ -122,7 +143,7 @@ fn modeled_fields_are_read_into_typed_fields_not_extra() {
         let parent = if entity.id == group { "outer" } else { "group" };
         assert_eq!(entity.parent, Some(EntityId::from(parent)), "{}", entity.id);
     }
-    assert_eq!(document.children(&group).count(), 5);
+    assert_eq!(document.children(&group).count(), 7);
 
     let text = document.entity(&"text".into()).unwrap();
     assert_eq!(text.extra["specular"], json!({ "otherTool": true }));
@@ -138,6 +159,35 @@ fn modeled_fields_are_read_into_typed_fields_not_extra() {
     };
     assert_eq!(fields.layout_mode, Some(LayoutMode::Row));
     assert_eq!(fields.color, Some(Color::Custom("#00ff00".to_owned())));
+
+    let Kind::Mod(feed) = &document.entity(&"feed".into()).unwrap().kind else {
+        panic!("not a mod item");
+    };
+    assert_eq!(feed.name, "feed");
+    assert_eq!(feed.fallback, ModFallback::Text("feed".to_owned()));
+    assert_eq!(feed.snapshot.as_ref().map(Vec::len), Some(4));
+    let Kind::Mod(clip) = &document.entity(&"clip".into()).unwrap().kind else {
+        panic!("not a mod item");
+    };
+    assert_eq!(
+        clip.fallback,
+        ModFallback::Link("https://example.com/clip.mp4".to_owned())
+    );
+    assert_eq!(
+        document.mod_needs(),
+        [
+            ModNeed {
+                name: "feed".to_owned(),
+                api: "1.1".to_owned(),
+                from: "mods/feed".to_owned(),
+            },
+            ModNeed {
+                name: "recorder".to_owned(),
+                api: "1".to_owned(),
+                from: "mods/recorder".to_owned(),
+            }
+        ]
+    );
 
     let edge = document.edge(&"edge".into()).unwrap();
     assert_eq!(edge.kind, Some(EdgeKind::Connection));
@@ -384,7 +434,7 @@ fn removed_edge_leaves_the_saved_order() {
     assert_eq!(saved["edges"], json!([]));
     assert_eq!(
         saved["specular"]["entityOrder"].as_array().unwrap().len(),
-        6
+        8
     );
     assert_eq!(saved["specular"]["otherTool"], "kept");
 }

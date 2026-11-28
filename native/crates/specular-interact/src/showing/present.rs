@@ -28,7 +28,7 @@ pub(super) const WINDOW_CORNER_RADIUS: f64 = 16.0;
 /// a fixed measure, as tall as the fit leaves room for, so the camera sits
 /// on it at 100% and the text scrolls inside.
 pub(super) fn fill_rect(app: &App, entity: &Entity) -> Option<Rect> {
-    if is_page(entity) {
+    if is_page(app, entity) {
         let room = area(app).size - DVec2::splat(2.0 * FILL_MARGIN);
         let size = room.round().max(DVec2::ONE);
         return Some(Rect::new(entity.rect.x, entity.rect.y, size.x, size.y));
@@ -100,7 +100,7 @@ pub(super) fn framed(entity: &Entity) -> Rect {
 pub(super) fn fitted(app: &App, entity: &Entity) -> Camera {
     let free = area(app);
     let presented = presented_rect(app, entity);
-    if let Some(rect) = presented.filter(|_| is_page(entity)) {
+    if let Some(rect) = presented.filter(|_| is_page(app, entity)) {
         let corner = free.min + DVec2::splat(FILL_MARGIN);
         return Camera::new((corner - geometry::origin(rect)).as_vec2(), 1.0);
     }

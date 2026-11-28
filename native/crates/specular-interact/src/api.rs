@@ -208,7 +208,12 @@ fn with_text_fits(app: &App, after: &Document, command: Command) -> Command {
     let fits = after.entities().filter_map(|entity| {
         let text = match &entity.kind {
             Kind::Text(text) => text,
-            Kind::Page(_) | Kind::File(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Shape(_) => {
+            Kind::Page(_)
+            | Kind::File(_)
+            | Kind::Group(_)
+            | Kind::Drawing(_)
+            | Kind::Shape(_)
+            | Kind::Mod(_) => {
                 return None;
             }
         };

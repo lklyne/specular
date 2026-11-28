@@ -22,9 +22,12 @@ mod cursors;
 mod debug_input;
 #[cfg(target_os = "macos")]
 mod key_bindings;
+#[cfg(target_os = "macos")]
 mod keys;
 #[cfg(target_os = "macos")]
 mod menus;
+#[cfg(target_os = "macos")]
+mod mods;
 #[cfg(target_os = "macos")]
 mod motion;
 #[cfg(target_os = "macos")]
@@ -51,6 +54,7 @@ mod spaces;
 mod surface;
 #[cfg(target_os = "macos")]
 mod theme;
+#[cfg(target_os = "macos")]
 mod tip;
 #[cfg(target_os = "macos")]
 mod updates;

@@ -111,7 +111,8 @@ impl App {
                 | crate::Gesture::Draw(_)
                 | crate::Gesture::TextSelect(_)
                 | crate::Gesture::EdgeDrag(_)
-                | crate::Gesture::Line(_),
+                | crate::Gesture::Line(_)
+                | crate::Gesture::ModTool,
             )
             | None => None,
         }
@@ -130,7 +131,8 @@ impl App {
                 | crate::Gesture::Draw(_)
                 | crate::Gesture::TextSelect(_)
                 | crate::Gesture::EdgeDrag(_)
-                | crate::Gesture::Line(_),
+                | crate::Gesture::Line(_)
+                | crate::Gesture::ModTool,
             )
             | None => None,
         }
@@ -148,7 +150,12 @@ pub(crate) fn begin(
     let entity = app.document.entity(pressed)?;
     let snaps = match &entity.kind {
         Kind::Drawing(_) => false,
-        Kind::Page(_) | Kind::Text(_) | Kind::File(_) | Kind::Group(_) | Kind::Shape(_) => true,
+        Kind::Page(_)
+        | Kind::Text(_)
+        | Kind::File(_)
+        | Kind::Group(_)
+        | Kind::Shape(_)
+        | Kind::Mod(_) => true,
     };
     let operands = app.move_scope().operands;
     let starts = live::starts(&app.document, &operands);

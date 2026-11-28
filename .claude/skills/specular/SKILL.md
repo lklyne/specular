@@ -32,6 +32,7 @@ while the mutation path stays singular (see [ADR 0019](../../../docs/adr/0019-ca
 | `specular snapshot -i -c -f <id>` | Capture a compact interactive-elements snapshot of a page, with refs |
 | `specular snapshot -i -s "<selector>" -f <id>` | Scope a snapshot to one section/container |
 | `specular screenshot -f <id>` | Screenshot a page |
+| `specular shot [file.png]` | Save the canvas as the window shows it, as a PNG |
 
 ## Targeting a tab
 
@@ -102,6 +103,13 @@ and reflows its children; it no-ops on unmanaged groups.
 | `specular unlink <edgeId…>` | Remove edges |
 | `specular find-placement` | Find open canvas space for new entities |
 | `specular breakpoints <url>` | Lay a URL out across device breakpoints |
+
+## Run any app command by name
+
+| Command | Purpose |
+|---|---|
+| `specular commands` | List every command the app runs by name: its `name`, `args` help, `about`, and whether it is `enabled` now |
+| `specular run <name> [json-args]` | Run one, as its menu item or key would, as one undo step — e.g. `specular run edit.undo`, `specular run tool.set '{"tool":"draw"}'`, `specular run control.press '{"id":"tool.sticky"}'` |
 
 ## Comment
 
@@ -289,6 +297,49 @@ off against the rest of the workspace.
 Drop a `.html` file onto the canvas to render it inline (charts, mockups,
 generated visualizations): `specular add file /abs/path/viz.html`. Rendered
 display-only; edit the file to update.
+
+## Widget pages: the page bridge
+
+An HTML file inside the open space folder gets `window.specular`, so a
+canvas widget is one file you write and place with `specular add file`.
+Only a `file://` page inside the space folder has it: a web page, a file
+elsewhere on disk, or the same page after it navigates away never does.
+
+```js
+specular.state(key)              // Promise: the keyed state value (`specular state` lists the keys)
+specular.run(name, args)         // Promise: runs a registry command (`specular commands`), one undo step; rejects with why
+specular.commands()              // Promise: every command, with `name`, `args`, `about`, `enabled`
+specular.subscribe(key, cb)      // cb(value) now and on every change, pushed; returns an unsubscribe function
+```
+
+The bridge can arrive after the page's first script, so start on it or on
+its event:
+
+```html
+<script>
+  const start = () => {
+    specular.subscribe('panels/toolbar', (bar) => {
+      const tool = bar.sections.flatMap((s) => s.tools).find((t) => t.active);
+      document.title = tool ? tool.label : 'none';
+    });
+    button.onclick = () =>
+      specular.run('item.add', { kind: 'sticky', x: 560, y: 100, text: 'Hello' });
+  };
+  if (window.specular) start(); else addEventListener('specular-ready', start, { once: true });
+</script>
+```
+
+`item.add {kind: sticky|text|shape, x, y, text?}` places an item at a canvas
+point. A working sample is `native/fixtures/bridge/space/widget.html`.
+
+## Mods
+
+To build a mod (a panel, a canvas item type, a tool, or commands for the
+palette, keys and dock), use the `specular-mods` skill or run `specular --skill`. To drive mods that
+exist: `specular run tool.set '{"tool": "watercolor/brush"}'` arms a mod tool,
+`specular run item.add '{"kind": "mod", "mod": "feed", "props": {...}}'`
+places a mod item, `specular run item.set '{"id": "...", "props": {...}}'`
+changes one, and `specular run <mod>/<command>` runs a mod's own command.
 
 ## Passing URLs
 

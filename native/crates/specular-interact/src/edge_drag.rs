@@ -69,7 +69,8 @@ impl App {
                 | Gesture::Place(_)
                 | Gesture::Draw(_)
                 | Gesture::TextSelect(_)
-                | Gesture::Line(_),
+                | Gesture::Line(_)
+                | Gesture::ModTool,
             )
             | None => None,
         }

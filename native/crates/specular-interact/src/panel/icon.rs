@@ -4,10 +4,12 @@
 //! Electron app's glyph lived (under `git show bc5253fa:src/renderer/`), so
 //! the shape can be lifted from there. Lucide names are from `lucide-react`.
 
+use serde::{Deserialize, Serialize};
 use specular_doc::ShapeKind;
 
 /// A glyph.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum Icon {
     /// The select tool. `shared/icons/toolbar/select.svg`.
     SelectTool,
@@ -149,4 +151,15 @@ pub enum Icon {
     Tablet,
     /// A desktop-sized page. Lucide `Laptop`.
     Laptop,
+}
+
+impl Icon {
+    /// The glyph a mod names by its kebab-case name (`pen-line`), or
+    /// `fallback` when it names none or one the app lacks.
+    pub(crate) fn named_or(name: Option<&str>, fallback: Self) -> Self {
+        name.and_then(|name| {
+            serde_json::from_value(serde_json::Value::String(name.to_owned())).ok()
+        })
+        .unwrap_or(fallback)
+    }
 }

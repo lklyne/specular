@@ -14,9 +14,13 @@ mod client;
 mod command;
 mod edit;
 mod js;
+mod mod_clone;
+mod mods;
 mod output;
 mod patch;
+mod registry;
 mod session;
+mod shot;
 mod spawn;
 
 use std::process::ExitCode;
@@ -26,8 +30,12 @@ use serde_json::json;
 use crate::args::Args;
 use crate::client::Client;
 
+/// The manual for building mods, printed by `specular --skill`.
+const SKILL: &str = include_str!("SKILL.md");
+
 const HELP: &str = "\
 usage: specular <verb> [args...] [--flag value]
+       specular --skill   Agent Skill: building mods for this version of the app
 
 Canvas: canvas, add, update, delete, arrange, focus, group, ungroup
 Tabs: tab, tab new <name>, tab switch <tab-id|tab-name>, tab delete <tab-id|tab-name>
@@ -35,6 +43,11 @@ Tabs: tab, tab new <name>, tab switch <tab-id|tab-name>, tab delete <tab-id|tab-
 Share: share, share <link>, share join <link>, share stop
 Browse: snapshot, click, fill, type, select, screenshot, scroll, wait
 Annotations: annotations, annotation, annotate, annotate-selection, ack, resolve, dismiss, reply
+Commands: commands, run <name> [json-args]   e.g. run tool.set '{\"tool\":\"draw\"}'
+State: state [key]   e.g. state panels/toolbar
+Shot: shot [file.png]   the canvas as the window shows it, as a PNG
+Mods: mod check <dir> [--state fixture.json], mod clone <name> [new-name] [--use],
+      mod stats, mod state [key]
 Other: breakpoints, apply, upsert, link, unlink, auto-layout, find-placement
 
 Unknown verbs pass through to the bundled agent-browser as raw commands
@@ -91,6 +104,11 @@ fn verb(name: &str) -> Verb {
         "scroll" => browse::scroll,
         "wait" => browse::wait,
         "skills" => browse::skills,
+        "commands" => registry::commands,
+        "run" => registry::run,
+        "state" => registry::state,
+        "mod" => mods::verb,
+        "shot" => shot::shot,
         _ => browse::passthrough,
     }
 }
@@ -108,9 +126,19 @@ fn presence(verb: &str) -> Option<&'static str> {
 fn run(argv: &[String]) -> anyhow::Result<i32> {
     let args = args::parse(argv);
     // `--help` and `-h` are switches, so they leave no verb.
+    if args.verb.is_empty() && args.switch("skill") {
+        output::text_line(SKILL);
+        return Ok(0);
+    }
     if args.verb.is_empty() {
         output::text_line(HELP);
         return Ok(0);
+    }
+    if mods::is_check(&args) {
+        return mods::check(&args);
+    }
+    if mod_clone::is_clone(&args) {
+        return mod_clone::clone(&args);
     }
     let client = Client::new(args.flag("tab"));
     client.open_session();

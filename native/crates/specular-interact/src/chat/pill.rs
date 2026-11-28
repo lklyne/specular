@@ -102,6 +102,7 @@ fn entity_label(app: &App, entity: &Entity) -> String {
         Kind::Text(text) => first_words(&text.text, "text"),
         Kind::Shape(shape) => first_words(&shape.text, "shape"),
         Kind::Drawing(_) => "drawing".to_owned(),
+        Kind::Mod(item) => named(entity.label.as_deref().unwrap_or(""), &item.name),
     }
 }
 

@@ -23,7 +23,7 @@ fn wanted(app: &App) -> Cursor {
         Some(Gesture::Resize(drag)) => return of_handle(drag.handle()),
         Some(Gesture::TextSelect(_)) => return Cursor::Text,
         Some(Gesture::EdgeDrag(_)) => return Cursor::Crosshair,
-        Some(Gesture::Line(_)) => return Cursor::Grabbing,
+        Some(Gesture::Line(_) | Gesture::ModTool) => return Cursor::Grabbing,
         Some(
             Gesture::Move(_)
             | Gesture::Marquee { .. }
@@ -67,7 +67,8 @@ fn wanted(app: &App) -> Cursor {
             | Tool::AddShape
             | Tool::Draw
             | Tool::Comment
-            | Tool::Inspect,
+            | Tool::Inspect
+            | Tool::Mod(_),
             _,
         ) => session.tool.cursor(),
     }

@@ -95,9 +95,12 @@ fn seed_annotations(count: usize, document: &Document) -> Vec<Annotation> {
         .entities()
         .filter_map(|entity| match &entity.kind {
             Kind::Page(page) => Some((entity, page)),
-            Kind::Text(_) | Kind::File(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Shape(_) => {
-                None
-            }
+            Kind::Text(_)
+            | Kind::File(_)
+            | Kind::Group(_)
+            | Kind::Drawing(_)
+            | Kind::Shape(_)
+            | Kind::Mod(_) => None,
         })
         .collect();
     if pages.is_empty() {

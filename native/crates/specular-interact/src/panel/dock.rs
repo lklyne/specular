@@ -8,6 +8,7 @@ mod drawing;
 mod edge;
 mod file;
 mod group;
+mod modded;
 mod page;
 mod shape;
 mod text;
@@ -42,6 +43,8 @@ enum Family {
     Group,
     File,
     Page,
+    /// Mod items: the controls every kind shares, as a mixed selection has.
+    Mod,
 }
 
 fn family(kind: &Kind) -> Family {
@@ -53,21 +56,23 @@ fn family(kind: &Kind) -> Family {
         Kind::File(file) if file.is_html() => Family::Page,
         Kind::File(_) => Family::File,
         Kind::Page(_) => Family::Page,
+        Kind::Mod(_) => Family::Mod,
     }
 }
 
 /// Whether `tool` has options of its own, which then take the place of any
 /// selection's controls.
-const fn has_options(tool: Tool) -> bool {
+fn has_options(app: &App, tool: Tool) -> bool {
     match tool {
         Tool::AddPage | Tool::AddText | Tool::AddSticky | Tool::AddShape | Tool::Draw => true,
+        Tool::Mod(id) => modded::tool_has_options(app, id),
         Tool::Select | Tool::AddDocument | Tool::Comment | Tool::Inspect => false,
     }
 }
 
 fn subject(app: &App) -> Subject<'_> {
     let session = &app.session;
-    if has_options(session.tool) {
+    if has_options(app, session.tool) {
         return Subject::Tool(session.tool);
     }
     if session
@@ -126,6 +131,7 @@ pub fn dock(app: &App) -> Option<ControlsModel> {
             Family::Group => group::controls(app, &entities),
             Family::File => file::controls(app, &entities),
             Family::Page => page::controls(app, &entities),
+            Family::Mod => modded::controls(app, &entities),
         }),
         Subject::Mixed(entities) => mixed(&entities),
         Subject::Nothing => None,

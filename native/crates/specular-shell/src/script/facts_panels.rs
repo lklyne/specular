@@ -12,7 +12,7 @@
 //! ```
 //!
 //! The topics are `chat`, `comments`, `controls`, `editor`, `effects`,
-//! `inspect`, `menubar`, `onboarding`, `pages`, `palette`, `pointer`, `repos`,
+//! `inspect`, `layout`, `menubar`, `onboarding`, `pages`, `palette`, `pointer`, `repos`,
 //! `settings`, `sidebar` and `tabs` (see [`lines`]). A `state` step writes
 //! every line of every topic, each as the `expect .. has` that holds it.
 //! `effects` are the ones the step before asked of the shell (the same ones
@@ -44,6 +44,9 @@ pub(crate) enum Topic {
     Effects,
     /// The inspect tool's outline and popover, and the pick.
     Inspect,
+    /// Which regions of the window are drawn, what was toggled, and the
+    /// insets the canvas is seen between.
+    Layout,
     /// The menu bar's items.
     Menubar,
     /// The first-run view.
@@ -64,13 +67,14 @@ pub(crate) enum Topic {
     Tabs,
 }
 
-const TOPICS: [(&str, Topic); 15] = [
+const TOPICS: [(&str, Topic); 16] = [
     ("chat", Topic::Chat),
     ("comments", Topic::Comments),
     ("controls", Topic::Controls),
     ("editor", Topic::Editor),
     ("effects", Topic::Effects),
     ("inspect", Topic::Inspect),
+    ("layout", Topic::Layout),
     ("menubar", Topic::Menubar),
     ("onboarding", Topic::Onboarding),
     ("pages", Topic::Pages),

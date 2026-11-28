@@ -229,7 +229,8 @@ pub(crate) fn on_tool_change(app: &mut App) {
 /// Drops what is on a page that is gone, or on a canvas that was left.
 pub(crate) fn settle(app: &mut App, switched: bool) {
     let gone = |app: &App, target: &InspectTarget| {
-        switched || !(app.document.entity(&target.page)).is_some_and(crate::app::is_page)
+        switched
+            || !(app.document.entity(&target.page)).is_some_and(|it| crate::app::is_page(app, it))
     };
     let state = &app.session.inspect;
     if state.selected.as_ref().is_some_and(|t| gone(app, t)) {

@@ -21,21 +21,21 @@ control page.sync
 expect pages is sync p2 p3
 expect pages lacks p1 p
 # one undo puts the first set back whole
-act undo
+run edit.undo
 expect pages is sync p1 p2
 # a whole set selected leaves it, and so does one page of a set
 select p1 p2
 control page.sync
 expect pages lacks sync
-act undo
+run edit.undo
 select p1
 control page.sync
 expect pages lacks sync
-act undo
+run edit.undo
 # a page in no set has no chain button, and the action does nothing
 select p4
 expect controls lacks page.sync
-act toggle-sync
+expect command page.toggle-sync disabled
 expect pages is sync p1 p2
 
 # a page copied alone joins its set; pages copied together are a set of
@@ -47,8 +47,8 @@ expect pages count 1 sync
 select p1 p2
 key cmd+d
 expect pages count 2 sync
-act undo
-act undo
+run edit.undo
+run edit.undo
 key escape
 camera 0,0,0.8
 

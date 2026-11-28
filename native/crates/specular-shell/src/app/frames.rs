@@ -100,12 +100,14 @@ impl<W: ShellWindow> Runtime<W> {
             gpu.compositor_mut().release_idle(now);
         }
         self.sync_files();
+        self.poll_layout(now);
         self.reload_changed_pages(now);
         self.take_loaded_image();
         self.take_read_notes();
         self.take_agent_notices();
         self.take_share_notices();
         self.flush_drops();
+        self.push_bridge_changes();
     }
 
     /// Renders and presents one frame of the app as it stands. `None` when

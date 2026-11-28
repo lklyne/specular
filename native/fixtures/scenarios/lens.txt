@@ -27,7 +27,7 @@ key escape
 control page.size
 control page.size.0
 expect effects lacks set-page-viewport
-act undo
+run edit.undo
 
 # Device: the page at its own size, the camera held on it; what is hooked
 # to it is seen, the eye shut

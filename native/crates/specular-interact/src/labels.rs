@@ -34,7 +34,7 @@ pub(crate) fn page_label(app: &App, entity: &Entity) -> String {
     let fallback = || match &entity.kind {
         Kind::File(file) => Some(file_label(&file.file)),
         Kind::Page(page) => host_label(&page.url),
-        Kind::Text(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Shape(_) => None,
+        Kind::Text(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Shape(_) | Kind::Mod(_) => None,
     };
     (title.or(named).map(str::to_owned))
         .or_else(fallback)

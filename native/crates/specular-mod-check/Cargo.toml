@@ -1,0 +1,21 @@
+[package]
+name = "specular-mod-check"
+description = "`specular mod check` (ADR 0055): loads a mod with no window, on GPUI's headless test platform, renders it once against a state fixture and prints its element tree."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# Its own crate, not a binary of specular-mods: GPUI's headless platform is
+# its test platform, and a feature a binary turns on is turned on for the
+# library everywhere it is linked, the window's build included.
+[dependencies]
+anyhow = { workspace = true }
+gpui-pre = { workspace = true, features = ["test-support"] }
+serde_json = { workspace = true }
+specular-mods = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+[lints]
+workspace = true

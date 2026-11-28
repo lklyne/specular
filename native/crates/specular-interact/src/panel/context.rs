@@ -130,6 +130,7 @@ fn canvas(app: &App, id: &CanvasId) -> Option<Vec<Section>> {
         .canvases
         .into_iter()
         .find(|row| row.id == *id)?;
+    let label = |name| crate::command(name).map_or("", |spec| spec.label);
     let item = |part: &str, label: &'static str, action| {
         let item = MenuItem {
             label: label.into(),
@@ -143,66 +144,76 @@ fn canvas(app: &App, id: &CanvasId) -> Option<Vec<Section>> {
     Some(vec![vec![
         item(
             "rename",
-            "Rename canvas",
+            label("canvas.begin-rename"),
             Action::Canvas(CanvasAction::BeginRename(Some(row.id.clone()))),
         ),
-        item("delete", "Delete canvas", row.delete.clone()),
+        item("delete", label("canvas.delete"), row.delete.clone()),
     ]])
+}
+
+/// The items of the registry commands `names`, in order.
+fn commands(app: &App, names: &[&str]) -> Section {
+    (names.iter())
+        .filter_map(|name| menu::command_item(app, name))
+        .map(named)
+        .collect()
 }
 
 fn empty(app: &App) -> Vec<Section> {
     vec![
-        vec![named(menu::item(app, "Paste", Action::Paste))],
-        vec![named(menu::item(app, "Select all", Action::SelectAll))],
+        commands(app, &["edit.paste"]),
+        commands(app, &["edit.select-all"]),
     ]
 }
 
 /// The items for what is selected: the page's history, the clipboard and
 /// duplicate for entities, the stack order, grouping and annotating, delete.
 fn selection(app: &App) -> Vec<Section> {
-    let item = |label, action| named(menu::item(app, label, action));
     let selection = &app.session.selection;
     let entities = selection.entities().count();
     let page = selection
         .single_entity()
         .and_then(|id| app.document.entity(id))
-        .is_some_and(crate::app::is_page);
+        .is_some_and(|it| crate::app::is_page(app, it));
     let mut sections: Vec<Section> = Vec::new();
     if page {
-        sections.push(vec![
-            named(menu::page_menu_item(app, "Back", Action::PageBack)),
-            named(menu::page_menu_item(app, "Forward", Action::PageForward)),
-            named(menu::page_menu_item(app, "Reload", Action::PageReload)),
-        ]);
+        sections.push(
+            ["page.back", "page.forward", "page.reload"]
+                .into_iter()
+                .filter_map(|name| menu::page_command_item(app, name))
+                .map(named)
+                .collect(),
+        );
     }
     if entities > 0 {
-        sections.push(vec![
-            item("Cut", Action::Cut),
-            item("Copy", Action::Copy),
-            item("Paste", Action::Paste),
-            item("Duplicate", Action::Duplicate),
-        ]);
+        sections.push(commands(
+            app,
+            &["edit.cut", "edit.copy", "edit.paste", "edit.duplicate"],
+        ));
     }
-    sections.push(vec![
-        item("Bring forward", Action::BringForward),
-        item("Send backward", Action::SendBackward),
-        item("Bring to front", Action::BringToFront),
-        item("Send to back", Action::SendToBack),
-    ]);
+    sections.push(commands(
+        app,
+        &[
+            "arrange.bring-forward",
+            "arrange.send-backward",
+            "arrange.bring-to-front",
+            "arrange.send-to-back",
+        ],
+    ));
     let mut arrange = Vec::new();
     if entities > 1 {
-        arrange.push(item("Group", Action::Group));
+        arrange.push("arrange.group");
     }
     if groups::lone_group(app).is_some() {
-        arrange.push(item("Ungroup", Action::Ungroup));
+        arrange.push("arrange.ungroup");
     }
     if entities > 0 {
-        arrange.push(item("Annotate selection", Action::AnnotateSelection));
+        arrange.push("comment.annotate-selection");
     }
     if !arrange.is_empty() {
-        sections.push(arrange);
+        sections.push(commands(app, &arrange));
     }
-    sections.push(vec![item("Delete", Action::Delete)]);
+    sections.push(commands(app, &["edit.delete"]));
     sections
 }
 

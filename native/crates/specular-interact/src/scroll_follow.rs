@@ -221,7 +221,8 @@ fn shifted(entity: &Entity, delta: DVec2) -> Entity {
         | Kind::Text(_)
         | Kind::File(_)
         | Kind::Group(_)
-        | Kind::Shape(_)) => other.clone(),
+        | Kind::Shape(_)
+        | Kind::Mod(_)) => other.clone(),
     };
     Entity {
         rect: entity.rect.translated(delta.x, delta.y),
