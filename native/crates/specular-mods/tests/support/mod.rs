@@ -35,6 +35,9 @@ impl ModHost for Recorder {
     fn notify(&self, _: &str, _: &str) {}
 }
 
+/// What makes the app a case of a table starts from.
+pub(crate) type Fixture = fn() -> TestApp;
+
 /// An app as the Kit window starts one: its own chrome, a right panel.
 pub(crate) fn window_app() -> TestApp {
     let mut app = TestApp::with_pages(1);
@@ -188,10 +191,21 @@ impl Loaded {
         points: impl IntoIterator<Item = Point<Pixels>>,
         wanted: &str,
     ) -> Vec<String> {
+        self.click_until_run(points, |run| run == wanted)
+    }
+
+    /// Clicks at each of `points` in turn until the host has been asked to
+    /// run a command `wanted` accepts. Returns every command it was asked
+    /// to run.
+    pub(crate) fn click_until_run(
+        &mut self,
+        points: impl IntoIterator<Item = Point<Pixels>>,
+        wanted: impl Fn(&str) -> bool,
+    ) -> Vec<String> {
         for at in points {
             self.vcx.simulate_click(at, Modifiers::default());
             self.vcx.run_until_parked();
-            if self.runs().iter().any(|run| run == wanted) {
+            if self.runs().iter().any(|run| wanted(run)) {
                 break;
             }
         }

@@ -1,4 +1,4 @@
-//! The phase 4 gates (ADR 0055): each small panel's shipped mod over the
+//! The phase 4 gates (ADR 0055): each panel's shipped mod over the
 //! keyed state of a real app. Each shows every control the native panel's
 //! model lists, leaves out what its props hide, presses a control through
 //! the host, renders only when a key it read moves (never while idle,
@@ -11,9 +11,13 @@
 #[path = "../support/mod.rs"]
 mod support;
 
+mod chat;
+mod dock;
 mod items;
 mod menu;
+mod palette;
 mod share;
+mod sidebar;
 mod tabs;
 mod toast;
 mod welcome;
