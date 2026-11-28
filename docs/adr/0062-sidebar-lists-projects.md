@@ -83,6 +83,24 @@ and listed under it, with untagged canvases in a Loose section. Small to
 build on today's data, but it makes the repo the only grouping, which suits
 developers and not the designers in `docs/product.md` who have no repo.
 
+## Prior art: Rex
+
+Rex's sidebar is one flat level: a header per workspace ("Onboarding", a
+repo name, a generated worktree name like `great-fermi`), and under each its
+terminals, every row showing its own working folder. No nesting, no
+separate repo settings. The workspace is a named group; the folder belongs
+to each terminal, so one group can hold terminals in different folders.
+
+Mapped to Specular, a header is a project and a row is a canvas. That is
+option A's shape, drawn flat: headers, not a tree, which the sidebar mod's
+`section()` already draws. Where Rex and A differ is where the folder sits.
+In Rex it is per row; in A it is per project, because a canvas's files and
+its agent's working folder should not disagree within one project. So A
+shows the folder (and branch) once, on the header, not on every row. Rex's
+throwaway worktree groups suggest one more thing worth keeping open: a
+project should be cheap to add and remove from the list (closing one hides
+it and deletes nothing), so a branch or worktree can come and go.
+
 ## Recommendation
 
 **A**, built in three steps so each one ships on its own:
