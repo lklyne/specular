@@ -15,12 +15,16 @@
 //!   for each layout, and the layout shown last is `.state/active`, apart
 //!   from the files they edit, so a click never rewrites one. Before a
 //!   choice is kept, the person's own `mine.json` is shown when it is there.
+//! - A layout no longer shipped is removed on start while its file still
+//!   holds a text the app wrote ([`RETIRED`]); an edited one is the
+//!   person's and stays. A kept choice of it falls back to `default`.
 
 use std::collections::BTreeMap;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::time::{Instant, SystemTime};
 
+use sha2::{Digest as _, Sha256};
 use specular_interact::{
     Effect, Event, Layout, LayoutFile, LayoutsRead, SHIPPED, SHIPPED_THEMES, ThemeFile, Toggles,
 };
@@ -32,6 +36,16 @@ use crate::watch;
 /// What a folder held when it was last read: each JSON file's name, size
 /// and time of change.
 type Listing = Vec<(String, u64, Option<SystemTime>)>;
+
+/// Layouts the app shipped and no longer does, by name, with the SHA-256
+/// of every text it wrote to the file.
+const RETIRED: &[(&str, &[&str])] = &[(
+    "mods",
+    &[
+        "643885dc799b6305421f7f4d816599a4b7a04cf8c64d1473a2672e5330731ba4",
+        "c50b376fbfaeae5e868facb295cf5a04ab9113fe367c0560d46ef9c964956384",
+    ],
+)];
 
 /// The layouts and themes folders and what was last read from them.
 #[derive(Debug)]
@@ -91,9 +105,11 @@ impl LayoutFiles {
         self.state_folder().join("active")
     }
 
-    /// Writes the shipped layouts and themes over their files.
+    /// Writes the shipped layouts and themes over their files, and takes
+    /// away the retired ones nobody edited.
     fn write_shipped(&self) -> io::Result<()> {
         std::fs::create_dir_all(&self.folder)?;
+        remove_retired(&self.folder);
         std::fs::create_dir_all(&self.themes)?;
         for (name, text) in SHIPPED {
             write_atomic(&self.folder.join(format!("{name}.json")), text)?;
@@ -188,6 +204,24 @@ impl LayoutFiles {
         }
         self.seen = now;
         true
+    }
+}
+
+/// Removes each [`RETIRED`] layout in `folder` whose file holds a text the
+/// app wrote, with the toggles kept for it.
+fn remove_retired(folder: &Path) {
+    for (name, wrote) in RETIRED {
+        let path = folder.join(format!("{name}.json"));
+        let Ok(bytes) = std::fs::read(&path) else {
+            continue;
+        };
+        let digest: String = (Sha256::digest(&bytes).iter())
+            .map(|byte| format!("{byte:02x}"))
+            .collect();
+        if wrote.contains(&digest.as_str()) {
+            remove(&path);
+            remove(&folder.join(".state").join(format!("{name}.json")));
+        }
     }
 }
 
@@ -288,4 +322,30 @@ impl<W: ShellWindow> Runtime<W> {
 /// Writes `text` to `path`, making its folder.
 fn write_in(path: &Path, text: &str) -> io::Result<()> {
     (path.parent().map_or(Ok(()), std::fs::create_dir_all)).and_then(|()| write_atomic(path, text))
+}
+
+#[cfg(test)]
+mod tests {
+    #![expect(clippy::expect_used, reason = "a test fails by panicking")]
+
+    use super::*;
+
+    #[test]
+    fn a_retired_layout_goes_only_while_it_holds_what_the_app_wrote() {
+        let home = std::env::temp_dir().join(format!("specular-retired-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&home);
+        let files = LayoutFiles::new(&home);
+        let shipped = include_str!("../../../../fixtures/layouts/retired-mods.json");
+        let mods = files.folder.join("mods.json");
+        for (text, kept) in [
+            (shipped.to_owned(), false),
+            (shipped.replace("256", "300"), true),
+        ] {
+            std::fs::create_dir_all(&files.folder).expect("folder");
+            std::fs::write(&mods, &text).expect("written");
+            files.write_shipped().expect("shipped");
+            assert_eq!(mods.is_file(), kept, "{text}");
+        }
+        let _ = std::fs::remove_dir_all(&home);
+    }
 }
