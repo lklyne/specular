@@ -155,8 +155,9 @@ function details(section, k) {
 }
 
 // A button on a project's head: a glyph in a box filled under the pointer.
+// With no `onPress` (the chevron) a press on it is the head's, which folds.
 function headButton(id, icon, size, k, onPress) {
-  return Button.new(id)
+  const button = Button.new(id)
     .size(HEAD_BUTTON)
     .flex()
     .flex_shrink_0()
@@ -164,12 +165,13 @@ function headButton(id, icon, size, k, onPress) {
     .justify_center()
     .rounded(6)
     .hover((el) => el.bg(k.interactive))
-    .on_click((event, cx) => {
-      // The project head under it has a press of its own.
-      if (cx) cx.stop_propagation();
-      if (onPress) onPress();
-    })
     .child(Icon.new(`${id}.glyph`, { name: icon, size, color: k.textMuted }));
+  if (onPress == null) return button;
+  return button.on_click((event, cx) => {
+    // The project head under it has a press of its own.
+    if (cx) cx.stop_propagation();
+    onPress();
+  });
 }
 
 // A project's head: its name and branch, which fold it. Under the pointer

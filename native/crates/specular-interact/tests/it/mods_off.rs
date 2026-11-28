@@ -8,9 +8,7 @@
 use std::path::Path;
 
 use specular_interact::mods::{InstalledMod, ModCatalog, ModManifest, SectionPlace};
-use specular_interact::{
-    Action, Content, Effect, Event, LayoutAction, Overlay, Region, SettingAction, settings,
-};
+use specular_interact::{Action, Content, Effect, Event, Overlay, Region, SettingAction, settings};
 use specular_testkit::TestApp;
 
 fn installed(name: &str, manifest: &str) -> InstalledMod {
@@ -23,9 +21,6 @@ fn installed(name: &str, manifest: &str) -> InstalledMod {
 
 fn app() -> TestApp {
     let mut app = TestApp::empty();
-    app.act(Action::Layout(LayoutAction::Switch(Some(
-        "mods".to_owned(),
-    ))));
     let panel = r#"{ "api": "1.2", "title": "Panel" }"#;
     let stamp = r#"{ "api": "1.2", "title": "Stamp",
         "tools": [{ "name": "pen", "title": "Stamp pen" }] }"#;

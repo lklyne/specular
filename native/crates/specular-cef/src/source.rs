@@ -94,9 +94,14 @@ impl PageSource for CefPageSource {
     fn set_viewport(&mut self, page: PageId, viewport: CssSize) -> Result<(), PageSourceError> {
         validate_viewport(viewport)?;
         let entry = self.entry_mut(page)?;
-        lock_geometry(&entry.geometry).set_viewport(viewport);
+        let rescaled = lock_geometry(&entry.geometry).set_viewport(viewport);
         if entry.painting {
-            entry.unsent.changed(GeometryChange::Viewport);
+            // A viewport that crosses the texture limit moves the scale too.
+            entry.unsent.changed(if rescaled {
+                GeometryChange::Both
+            } else {
+                GeometryChange::Viewport
+            });
         }
         Ok(())
     }

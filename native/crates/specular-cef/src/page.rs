@@ -72,9 +72,13 @@ impl PageGeometry {
     }
 
     /// Sizes the view to `viewport`, keeping the frame inside a texture.
-    pub(crate) fn set_viewport(&mut self, viewport: CssSize) {
+    /// Returns whether that moved the scale CEF is told, which the host
+    /// then has to hear of as a scale change.
+    pub(crate) fn set_viewport(&mut self, viewport: CssSize) -> bool {
+        let before = self.scale;
         self.viewport = viewport;
         self.scale = fit(viewport, self.wanted);
+        self.scale.to_bits() != before.to_bits()
     }
 
     /// Asks for `scale`, lowered as far as the frame needs to fit a texture.
