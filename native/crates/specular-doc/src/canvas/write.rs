@@ -127,21 +127,10 @@ pub(super) fn write_node(entity: &Entity) -> Result<JsonMap, CanvasError> {
             node.put("pageAnchor", anchor)?;
         }
         Kind::Shape(shape) => {
-            node.set("shapeKind", &shape.shape)?;
-            node.set("text", &shape.text)?;
-            put_node_color(&mut node, shape.color.as_ref())?;
-            node.put("strokeWidth", shape.stroke_width.as_ref())?;
-            node.put("borderStyle", shape.border_style.as_ref())?;
-            node.put("borderColor", shape.border_color.as_ref())?;
-            node.put("theme", shape.theme.as_ref())?;
+            write_shape(&mut node, &mut ext, shape)?;
             node.put("label", label)?;
             node.put("parentGroupId", parent)?;
             node.put("pageAnchor", anchor)?;
-            put_color_role(&mut ext, shape.color.as_ref())?;
-            ext.put("textSize", shape.text_size.as_ref())?;
-            ext.put("fillStyle", shape.fill_style.as_ref())?;
-            ext.put("textAlign", shape.text_align.as_ref())?;
-            ext.put("textVerticalAlign", shape.text_vertical_align.as_ref())?;
         }
         Kind::Mod(item) => {
             write_mod(&mut node, &mut ext, item)?;
@@ -156,6 +145,28 @@ pub(super) fn write_node(entity: &Entity) -> Result<JsonMap, CanvasError> {
         node.map.insert("specular".to_owned(), Value::Object(ext));
     }
     Ok(node.finish())
+}
+
+/// A shape's own fields, on the node and its `specular` extension.
+fn write_shape(
+    node: &mut Object<'_>,
+    ext: &mut Object<'_>,
+    shape: &crate::Shape,
+) -> Result<(), CanvasError> {
+    node.set("shapeKind", &shape.shape)?;
+    node.set("text", &shape.text)?;
+    put_node_color(node, shape.color.as_ref())?;
+    node.put("strokeWidth", shape.stroke_width.as_ref())?;
+    node.put("borderStyle", shape.border_style.as_ref())?;
+    node.put("borderColor", shape.border_color.as_ref())?;
+    node.put("theme", shape.theme.as_ref())?;
+    put_color_role(ext, shape.color.as_ref())?;
+    ext.put("textSize", shape.text_size.as_ref())?;
+    ext.put("fillStyle", shape.fill_style.as_ref())?;
+    ext.put("textAlign", shape.text_align.as_ref())?;
+    ext.put("textVerticalAlign", shape.text_vertical_align.as_ref())?;
+    let custom = shape.custom.as_ref().map(crate::CustomShape::to_json);
+    ext.put("customShape", custom.as_ref())
 }
 
 /// A mod item's fallback field, and its mod, props and snapshot under

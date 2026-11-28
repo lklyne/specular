@@ -445,3 +445,34 @@ fn strip_order(mut canvas: Value) -> Value {
     canvas.as_object_mut().unwrap().remove("specular");
     canvas
 }
+
+#[test]
+fn a_mod_shape_keeps_its_outline_and_values_and_a_bad_outline_is_dropped() {
+    let star = json!({ "shape": "star/star", "params": { "points": 5 },
+        "path": "M50,0 L61,35 L98,35 L68,57 L79,91 L50,70 L21,91 L32,57 L2,35 L39,35 Z" });
+    let file = canvas(
+        json!([
+            { "id": "s", "type": "shape", "x": 0, "y": 0, "width": 120, "height": 120,
+              "shapeKind": "custom", "text": "", "color": "4",
+              "specular": { "customShape": star } },
+            { "id": "bad", "type": "shape", "x": 0, "y": 0, "width": 120, "height": 120,
+              "shapeKind": "custom", "text": "",
+              "specular": { "customShape": { "shape": "star/star", "path": "A1,1 0 0 1 2,2" } } },
+        ]),
+        json!([]),
+    );
+    let document = load(&file);
+    let Some(Kind::Shape(shape)) = document.entity(&"s".into()).map(|e| &e.kind) else {
+        panic!("a shape");
+    };
+    let custom = shape.custom.as_ref().expect("its outline");
+    assert_eq!(
+        (custom.name.as_str(), custom.outline().len()),
+        ("star/star", 11)
+    );
+    let written = saved(&document);
+    assert_eq!(written["nodes"][0]["specular"]["customShape"], star);
+    assert_eq!(written["nodes"][0]["shapeKind"], "custom");
+    assert!(written["nodes"][1]["specular"].get("customShape").is_none());
+    assert_eq!(saved(&load(&written)), written, "a second save is the same");
+}

@@ -41,9 +41,10 @@ the app rewrites them on start. `<app home>` is
 - Shipped mods belong to Specular: copy one with
   `specular mod clone <name> <new-name>` before editing. A clone is never
   overwritten; a shipped mod's folder is rewritten on every start.
-- `mod.json` says what the mod adds: `items`, `tools`, `commands`,
-  `palette`. Write `"api": "1.2"`: it adds overlays, `Field`, the look,
-  shape tools and the window's keys to 1.1's items, tools and commands.
+- `mod.json` says what the mod adds: `shapes`, `items`, `tools`,
+  `commands`, `palette`. Write `"api": "1.4"`: 1.2 added overlays,
+  `Field`, the look and the window's keys, 1.3 chat threads anywhere and
+  1.4 shapes, over 1.1's items, tools and commands.
   Unknown fields are refused, and the error says which.
 - A mod renders from state only. `state(key)` subscribes it to that key; it
   renders again when the key changes and at no other time. Never loop, poll
@@ -68,12 +69,17 @@ the app rewrites them on start. `<app home>` is
   something is in neither the guide nor the types, assume a mod can't do it.
 - Make only the requested change. Don't touch unrelated mods or layouts.
 
-## Common asks (API 1.3)
+## Common asks (API 1.4)
 
-- **A new shape.** A mod with a tool of `"group": "shape"` and an item: the
-  tool shows in the shape tool's options, previews with `tool.preview`,
-  places with `item.add {kind: "mod"}`, and its commands show in the dock.
-  The shipped `star` mod is the pattern: `specular mod clone star <name>`.
+- **A new shape.** A shape, never a mod item: list it under `shapes` in
+  `mod.json` with its outline, SVG path data in a 0 to 100 box. The app
+  draws it in the shape tool's list and on the canvas with the palette's
+  colours, fill and border styles, label and theme, and keeps the outline
+  in the `.canvas` file. Put no colours in a shape. To reshape selected
+  ones, add a dock command and answer its `call` with `shape.set {ids,
+  params, path}`. The shipped `star` mod is the pattern: `specular mod
+  clone star <name>`. A display-list item with hard-coded colours is the
+  wrong tool for a shape: it gets none of the shape tool's style.
 - **A layout, theme, colours or fonts.** Copy a file from
   `<app home>/layouts/` to a new name, edit the tree and its root's
   `theme`, `colors`, `font` and `font_size`, then `specular run
@@ -125,8 +131,9 @@ folder). It has your items and your tool's preview, not the panels.
 `specular shot --whole [file.png]` saves the whole window as the screen
 shows it, panels, layout and theme included: use it to check a panel mod,
 a layout or a look. macOS asks the person once to let Specular record the
-screen; if the shot fails, ask them to allow it. Both need a running app
-with an open window.
+screen. A minimized window still captures; `--whole` fails when the window
+is on another Space or the permission is missing, and the error says which
+to fix. Both need a running app with an open window.
 
 ## Problems and safety
 

@@ -64,9 +64,9 @@ folder). Use it when debugging items and tools: inspect spacing, colours and
 previews. It captures the canvas, not the panels around it, even when the
 window is covered. `specular shot --whole` captures the whole window as the
 screen shows it, panels, layout and look included (macOS asks once to let
-Specular record the screen). Specular must be running with an open window,
-shown on the current Space: a hidden, minimized or other-Space window makes
-`--whole` fail and say so.
+Specular record the screen). Specular must be running with an open window
+on the current Space; a minimized window still captures, and one on another
+Space makes `--whole` fail and say so.
 
 ## A mod in one screen
 
@@ -302,10 +302,10 @@ Keys are written as `cmd+shift+k`, `alt+1`, `shift+tab`, `escape`. The
   "canvas": { "s": "tool.set:{\"tool\":\"shape\"}", "r": null } }
 ```
 
-**Shapes.** A tool with `"group": "shape"` is listed among the shape tool's
-shapes instead of having a button: picking it arms the mod's tool, and the
-shape button stays on. See the shipped `star` mod: a tool and an item kind
-that make a new shape in about eighty lines.
+**Shape tools.** A tool with `"group": "shape"` is listed among the shape
+tool's shapes instead of having a button: picking it arms the mod's tool,
+and the shape button stays on. Use it for a tool that needs its own drag;
+for a new silhouette, add a shape instead (below).
 
 ## Canvas items, tools and commands (API 1.1)
 
@@ -356,8 +356,39 @@ publishes the `call` key, `{command, number, args}`: act once per `number`.
 `icon` is one of the app's glyphs by its kebab-case name.
 
 **Versions.** `api` is `1` (1.0), `"1.1"`, `"1.2"` (the whole window,
-above) or `"1.3"` (chat threads anywhere, below). A mod loads on an app of the same generation whose revision is at
+above), `"1.3"` (chat threads anywhere, below) or `"1.4"` (shapes, below). A mod loads on an app of the same generation whose revision is at
 least its own.
+
+## Shapes (API 1.4)
+
+A new silhouette is a shape, not a mod item. List it under `shapes` and
+the app does the rest as it does for a hexagon: the shape tool's list
+shows it, a drag draws it, and it takes the palette's colours, the fill
+and border styles, the border width, a label and the theme. Its outline is
+kept in the `.canvas` file, so a person without the mod still sees it
+drawn and styled.
+
+```json
+{ "api": "1.4", "title": "Star",
+  "shapes": [{ "name": "star", "title": "Star", "icon": "star",
+               "path": "M50,0 L63.2,31.8 L97.6,34.5 L71.4,57 L79.4,90.5 L50,72.5 L20.6,90.5 L28.6,57 L2.4,34.5 L36.8,31.8 Z",
+               "params": { "points": 5 } }],
+  "commands": [{ "name": "points", "title": "More star points", "icon": "plus", "dock": true }] }
+```
+
+`path` is SVG path data in a 0 to 100 box, stretched to the shape's rect:
+`M`, `L`, `H`, `V`, `Q`, `C` and `Z`, absolute or relative (no arcs; write
+a curve with its control points). Colours, widths and dashes are the
+app's: don't put them in the path. `params` are the values a new shape
+starts with; only your mod reads them.
+
+To change shapes after they are drawn, add a dock command (it shows
+beside their style while they are selected) and answer its `call` with
+`run("shape.set", { ids, params, path })`: new values and a new outline,
+one undo step. `canvas/items` gives each shape's `custom`, `{shape,
+params}`, to read the values back. `item.add {kind: "shape", shape:
+"star/star"}` places one by name. The shipped `star` mod is the whole
+example, in about thirty lines.
 
 ## Chat threads anywhere (API 1.3)
 
@@ -619,9 +650,9 @@ snapshots only.
 
 **Tools and shapes.** A tool gets one press-to-release drag in canvas units:
 no hover, double click, modifiers, pressure, wheel or keys. The preview is
-one render behind. A mod shape is a mod item, not a built-in shape: it has
-no label to type in and none of the shape dock's controls unless its mod
-adds them, and its glyph is one of the app's.
+one render behind. A shape's outline is one closed silhouette: no arcs,
+no inner lines drawn apart from it, and no style of its own. Its glyph in
+the shape tool's list is one of the app's.
 
 **Keys and focus.** `keys.json` can rebind every key but the reset key. The
 window's own keys (Quit, Open, Save, Settings, Hide, Minimize, the palette)

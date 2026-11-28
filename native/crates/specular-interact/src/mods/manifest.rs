@@ -13,6 +13,7 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
+use specular_doc::{CustomShape, OutlineError};
 
 /// A version of the mod API: a generation and a revision within it.
 ///
@@ -38,9 +39,10 @@ pub struct ApiVersion {
 /// | 1.1 | mod items and tools: `items` and `tools` in `mod.json`, the `canvas/mod_items` and `tool` keys, `item.add {kind: mod}`, `item.set`, `item.draw`, `tool.preview`, `mods.install`; `commands` in `mod.json` (palette, keys, dock buttons) and the `call` key |
 /// | 1.2 | the whole window (ADR 0059): layout trees and looks, `layout.switch`, `overlay.open`/`overlay.close` with `openOverlay`/`closeOverlay`, `keys.json`, `chat.*`, the `Field` component, a tool's `group`, and the `layouts`, `look`, `overlays`, `panels/sidebar`, `panels/chat`, `selection`, `canvas/items` and `canvas/info` keys |
 /// | 1.3 | threads anywhere: the `chat/threads` key and a `chat/thread/<id>` key a thread, `chat.new-thread {id, open}`, `chat.send {thread}`, `chat.stop {thread}`, and a page bridge `subscribe` to a thread's key |
+/// | 1.4 | mod shapes (ADR 0060): `shapes` in `mod.json`, `shape.set`, and a shape's `custom` in `canvas/items` |
 pub const API: ApiVersion = ApiVersion {
     generation: 1,
-    revision: 3,
+    revision: 4,
 };
 
 impl ApiVersion {
@@ -161,6 +163,37 @@ impl ToolSpec {
     }
 }
 
+/// A shape a mod adds to the shape tool (API 1.4): a silhouette the app
+/// draws, styles and themes as its own, made by the shape tool like any
+/// other shape.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ShapeSpec {
+    /// Its name within the mod. The shape is `<mod>/<name>`.
+    pub name: String,
+    /// What the shape tool's list calls it.
+    pub title: String,
+    /// One of the app's own glyphs, by the name `Icon` takes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub icon: Option<String>,
+    /// Its outline as SVG path data in a 0 to 100 box (`M`, `L`, `H`, `V`,
+    /// `Q`, `C`, `Z`), stretched to the shape's rect.
+    pub path: String,
+    /// The values a new shape starts with, which the mod reads back from
+    /// `canvas/items` to make another outline with `shape.set`.
+    #[serde(default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub params: serde_json::Map<String, Value>,
+}
+
+impl ShapeSpec {
+    /// A new shape of this kind, from the mod `mod_name`, or why its path is
+    /// no outline.
+    pub fn custom(&self, mod_name: &str) -> Result<CustomShape, OutlineError> {
+        let name = format!("{mod_name}/{}", self.name);
+        CustomShape::new(name, self.params.clone(), &self.path)
+    }
+}
+
 /// A command a mod adds and handles itself (API 1.1): it is listed in the
 /// command palette like the app's own, can have a key, and can be a button
 /// in the dock while the mod's tool is in hand or its items are selected.
@@ -206,6 +239,9 @@ pub struct ModManifest {
     /// The commands it adds and handles, if any (API 1.1).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub commands: Vec<ModCommand>,
+    /// The shapes it adds to the shape tool, if any (API 1.4).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub shapes: Vec<ShapeSpec>,
     /// The shipped mod this one was cloned from, written by `specular mod
     /// clone`. A clone is never replaced on start.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -240,6 +276,11 @@ impl ModManifest {
         let manifest: Self = serde_json::from_str(source).map_err(|e| refuse(e.to_string()))?;
         if let Some(problem) = manifest.api.refusal(API) {
             return Err(refuse(problem));
+        }
+        for shape in &manifest.shapes {
+            if let Err(problem) = shape.custom("") {
+                return Err(refuse(format!("shape `{}`: {problem}", shape.name)));
+            }
         }
         Ok(manifest)
     }

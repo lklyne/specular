@@ -54,7 +54,7 @@ pub(super) fn switch(args: &Value, key: &str) -> Result<bool, RunError> {
 }
 
 /// The texts of the list under `key`. None is an empty list.
-fn texts(args: &Value, key: &str) -> Result<Vec<String>, RunError> {
+pub(super) fn texts(args: &Value, key: &str) -> Result<Vec<String>, RunError> {
     match args.get(key) {
         None | Some(Value::Null) => Ok(Vec::new()),
         Some(Value::Array(items)) => (items.iter())

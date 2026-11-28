@@ -2,8 +2,8 @@
 //! layer over them. Read a `.snap` before accepting a change to it.
 
 use specular_doc::{
-    Color, ColorPreset, Command, Edge, EdgeEnd, Entity, EntityId, Kind, LineStyle, Rect, Shape,
-    ShapeKind, Text,
+    Color, ColorPreset, Command, CustomShape, Edge, EdgeEnd, Entity, EntityId, JsonMap, Kind,
+    LineStyle, Rect, Shape, ShapeKind, Text,
 };
 use specular_interact::{Action, Event, ImageNotice, Theme};
 use specular_testkit::{
@@ -65,7 +65,15 @@ fn every_shape_kind_draws_its_silhouette() {
         let rect = Rect::new(100.0 + 140.0 * index as f64, 100.0, 120.0, 80.0);
         Entity::new(format!("{kind:?}"), rect, Kind::Shape(Shape::new(kind)))
     });
-    assert_scene_snapshot!(TestApp::with_entities(shapes));
+    // A mod's outline (ADR 0060), with a curve, stretched to its rect.
+    let outline = "M50,0 L100,100 Q50,70 0,100 Z";
+    let custom = CustomShape::new("star/star", JsonMap::new(), outline).expect("an outline");
+    let custom = Entity::new(
+        "Custom",
+        Rect::new(100.0, 300.0, 120.0, 80.0),
+        Kind::Shape(Shape::custom(custom)),
+    );
+    assert_scene_snapshot!(TestApp::with_entities(shapes.chain([custom])));
 }
 
 #[test]

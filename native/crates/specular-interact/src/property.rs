@@ -17,9 +17,9 @@ mod step;
 pub use step::PageStep;
 
 use specular_doc::{
-    BorderStyle, BrushType, Color, ColorScheme, Command, DeviceFrameColor, DeviceFrameStyle,
-    EdgeEnd, Entity, EntityId, FillStyle, ItemId, LineStyle, ShapeKind, TextAlign, TextFont,
-    TextStyle, VerticalAlign,
+    BorderStyle, BrushType, Color, ColorScheme, Command, CustomShape, DeviceFrameColor,
+    DeviceFrameStyle, EdgeEnd, Entity, EntityId, FillStyle, ItemId, LineStyle, ShapeKind,
+    TextAlign, TextFont, TextStyle, VerticalAlign,
 };
 
 use crate::showing::turn;
@@ -57,6 +57,8 @@ pub enum Property {
     TextVerticalAlign(VerticalAlign),
     /// A shape's silhouette.
     ShapeKind(ShapeKind),
+    /// A mod's silhouette for a shape (ADR 0060).
+    CustomShape(Box<CustomShape>),
     /// Whether a shape's body is painted. The color is kept.
     FillStyle(FillStyle),
     /// A shape's border style.

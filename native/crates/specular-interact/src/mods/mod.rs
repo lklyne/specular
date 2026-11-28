@@ -25,6 +25,7 @@ mod install;
 mod live;
 pub mod manifest;
 mod pane;
+mod shape;
 mod state;
 mod tool;
 
@@ -37,10 +38,13 @@ pub(crate) use self::install::{decline, install_missing, install_notice, missing
 pub use self::live::NewModItem;
 pub(crate) use self::live::{ModState, add_item, on_catalog, on_draw, set_props, turn};
 pub use self::manifest::{
-    API, ApiVersion, FILE, ItemSpec, ManifestError, ModCommand, ModManifest, PaletteEntry, ToolSpec,
+    API, ApiVersion, FILE, ItemSpec, ManifestError, ModCommand, ModManifest, PaletteEntry,
+    ShapeSpec, ToolSpec,
 };
 pub use self::pane::ModRow;
 pub(crate) use self::pane::mods_pane;
+pub use self::shape::ShapeChange;
+pub(crate) use self::shape::set_shapes;
 pub(crate) use self::state::{mod_items_json, tool_json};
 pub use self::tool::{ModStroke, ModToolId, StrokePhase};
 pub(crate) use self::tool::{begin_stroke, cancel_stroke, drag_stroke, finish_stroke};
