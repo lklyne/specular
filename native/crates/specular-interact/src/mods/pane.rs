@@ -26,7 +26,7 @@ pub(crate) fn mods_pane(app: &App) -> Vec<ModRow> {
         .collect();
     (app.mods.installed.mods.iter())
         .map(|installed| {
-            let on = !app.settings.mods_off.contains(&installed.name);
+            let on = app.settings.mod_on(installed);
             let manifest = &installed.manifest;
             let mut adds = Vec::new();
             if placed.contains(&installed.name) {

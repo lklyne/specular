@@ -51,13 +51,6 @@ pub struct SidebarModel {
     pub pages: Vec<SidebarRow>,
 }
 
-impl SidebarModel {
-    /// Whether the canvas has nothing for either section to list.
-    pub fn is_empty(&self) -> bool {
-        self.notes.is_empty() && self.pages.is_empty()
-    }
-}
-
 /// The head of a section: the title that folds it.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SectionHead {

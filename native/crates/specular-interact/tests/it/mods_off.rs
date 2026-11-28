@@ -1,12 +1,13 @@
 //! Turning an installed mod off in the settings: it stops running, its
 //! tools go, a layout that places it draws the app's own panel there, and
-//! the choice is saved. Turning it on brings it all back.
+//! the choice is saved. Turning it on brings it all back. A mod that starts
+//! off runs only once turned on.
 
 #![expect(clippy::expect_used, reason = "a test fails by panicking")]
 
 use std::path::Path;
 
-use specular_interact::mods::{InstalledMod, ModCatalog, ModManifest};
+use specular_interact::mods::{InstalledMod, ModCatalog, ModManifest, SectionPlace};
 use specular_interact::{
     Action, Content, Effect, Event, LayoutAction, Overlay, Region, SettingAction, settings,
 };
@@ -84,4 +85,38 @@ fn a_mod_turned_off_stops_running_and_its_panels_are_the_apps_own() {
     );
     assert!(app.app().mod_catalog().tool_named("stamp/pen").is_some());
     assert!(app.app().settings().mods_off.is_empty());
+}
+
+#[test]
+fn a_section_mod_that_starts_off_runs_only_once_turned_on() {
+    let mut app = app();
+    let notes = r#"{ "api": "1.8", "title": "Notes", "section": "sidebar", "starts_off": true }"#;
+    let mut mods = app.app().installed_mods().mods.clone();
+    mods.push(installed("notes", notes));
+    app.send(Event::ModCatalog(ModCatalog { mods }));
+    let sections = |app: &TestApp| -> Vec<String> {
+        (app.app().mod_catalog())
+            .sections(SectionPlace::Sidebar)
+            .map(|installed| installed.name.clone())
+            .collect()
+    };
+    assert_eq!(sections(&app), Vec::<String>::new(), "off until turned on");
+    let row = |app: &TestApp| {
+        (settings(app.app()).mods.into_iter())
+            .find(|row| row.name == "notes")
+            .expect("listed")
+    };
+    assert!(!row(&app).on);
+
+    let saved = turn(&mut app, "notes", true);
+    assert_eq!(sections(&app), ["notes"]);
+    assert!(row(&app).on);
+    assert!(saved.iter().any(|effect| matches!(
+        effect,
+        Effect::SaveSettings(settings) if settings.mods_on.contains("notes")
+    )));
+
+    turn(&mut app, "notes", false);
+    assert_eq!(sections(&app), Vec::<String>::new());
+    assert!(app.app().settings().mods_on.is_empty());
 }

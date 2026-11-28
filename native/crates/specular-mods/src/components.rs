@@ -10,6 +10,7 @@
 //! WindowDrag.new("tabs-bare", {})
 //! Share.new("share", {})
 //! Prism.new("prism", {})
+//! SidebarSections.new("sections", {})
 //! Popover.new("dock.choices", { top: 36 }).child(list)
 //! ```
 //!
@@ -18,7 +19,8 @@
 //! carries. `Zoom` shows the camera, which is in no state key so that a pan
 //! never enters a script; `ToolOptions` is the dock's own controls;
 //! `WindowDrag` is bare title bar the window is dragged and zoomed by; and
-//! `Share` is whatever the layout puts in the Share slot; `Prism` is the
+//! `Share` is whatever the layout puts in the Share slot; `SidebarSections`
+//! is the section mods (`"section": "sidebar"`); `Prism` is the
 //! first-run view's turning Prism, drawn on the GPU; `Popover` is a box
 //! over the rest of the window that keeps a press from what is under it,
 //! which a mod's own elements cannot. Only the window
@@ -48,7 +50,7 @@ pub type Build = Rc<dyn for<'a> Fn(ComponentArgs<'a>, &mut Window, &mut App) -> 
 const PRISM: f32 = 160.0;
 
 /// The names of the host components every mod can import.
-pub const HOST_COMPONENTS: [&str; 13] = [
+pub const HOST_COMPONENTS: [&str; 14] = [
     "Composer",
     "Favicon",
     "Field",
@@ -58,6 +60,7 @@ pub const HOST_COMPONENTS: [&str; 13] = [
     "Popover",
     "Prism",
     "Share",
+    "SidebarSections",
     "Swatch",
     "ToolOptions",
     "WindowDrag",
@@ -111,6 +114,7 @@ impl Components {
             Rc::new(|_, _, _| div().size_full().into_any_element()),
         );
         by_name.insert("Share", placeholder("Share"));
+        by_name.insert("SidebarSections", placeholder(""));
         by_name.insert(
             "Prism",
             Rc::new(|_, _, _| div().size(px(PRISM)).into_any_element()),

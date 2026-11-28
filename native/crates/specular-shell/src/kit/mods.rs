@@ -27,6 +27,7 @@ use gpui_kit::{
     Styled as _, Window, div, px,
 };
 use serde_json::Value;
+use specular_interact::mods::SectionPlace;
 use specular_interact::{Layout, Overlay};
 use specular_mods::{Hosting, ModCopy, ModSet, Placed};
 
@@ -41,6 +42,8 @@ pub(crate) struct Mods {
     /// The mods that run out of sight, for their canvas items, tools and
     /// commands.
     background: Vec<String>,
+    /// The mods that add a section to the sidebar, in name order.
+    sections: Vec<String>,
     stats: Option<Value>,
     /// Draws the window again when a mod's source changes, so a save loads
     /// it again with nothing else moving.
@@ -128,18 +131,27 @@ impl Mods {
             name: spec.name.clone(),
             props: spec.copy_props(),
         }));
-        let background: Vec<String> = canvas::with(|canvas| {
+        let (sections, background): (Vec<String>, Vec<String>) = canvas::with(|canvas| {
             let catalog = canvas.runtime.app().mod_catalog();
-            (catalog.background())
+            let sections = (catalog.sections(SectionPlace::Sidebar))
                 .map(|installed| installed.name.clone())
-                .collect()
+                .collect();
+            let background = (catalog.background())
+                .map(|installed| installed.name.clone())
+                .collect();
+            (sections, background)
         })
         .unwrap_or_default();
         // A mod the layout places already runs: its items, tools and
-        // commands need no second copy.
-        self.background = (background.into_iter())
-            .filter(|name| !copies.iter().any(|copy| copy.name == *name))
-            .collect();
+        // commands need no second copy, and it is not a section too.
+        let unplaced = |names: Vec<String>, copies: &[ModCopy]| -> Vec<String> {
+            (names.into_iter())
+                .filter(|name| !copies.iter().any(|copy| copy.name == *name))
+                .collect()
+        };
+        self.sections = unplaced(sections, &copies);
+        copies.extend(self.sections.iter().map(|name| ModCopy::background(name)));
+        self.background = unplaced(background, &copies);
         copies.extend(self.background.iter().map(|name| ModCopy::background(name)));
         set.sync(&copies, window, cx);
         set.refresh(cx);
@@ -163,6 +175,16 @@ impl Mods {
                 .children(views)
                 .into_any_element()
         })
+    }
+
+    /// Puts the sidebar's section mods, each its view or why it did not
+    /// load, where this frame's sidebar finds them, the app's own or a
+    /// mod's `SidebarSections`.
+    pub(crate) fn fill_sections(&self, cx: &App) {
+        let slots = (self.sections.iter())
+            .filter_map(|id| self.slot(id, cx))
+            .collect();
+        SECTIONS.with_borrow_mut(|sections| *sections = slots);
     }
 
     /// What the copy `id` shows: its view, or why it did not load.
@@ -228,6 +250,8 @@ impl Slot {
 }
 
 thread_local! {
+    /// The sidebar's section mods as the root view last filled them.
+    static SECTIONS: RefCell<Vec<Slot>> = const { RefCell::new(Vec::new()) };
     /// The Share slot as the root view last filled it.
     static SHARE: RefCell<Option<Slot>> = const { RefCell::new(None) };
     /// The first-run view's Prism while that view is shown, for a welcome
@@ -253,6 +277,25 @@ pub(crate) fn share_slot() -> Option<AnyElement> {
         Slot::Native => None,
         slot => Some(slot.element()),
     }
+}
+
+/// The sidebar's section mods for this frame, in name order: each a mod's
+/// view, or a line saying why it did not load.
+pub(crate) fn sidebar_sections() -> Vec<AnyElement> {
+    SECTIONS.with_borrow(|sections| {
+        (sections.iter().cloned())
+            .map(|slot| match slot {
+                Slot::Failed(name, error) => div()
+                    .px(px(16.0))
+                    .py(px(4.0))
+                    .text_size(px(11.0))
+                    .text_color(theme::solid(theme::error()))
+                    .child(format!("The mod `{name}` did not load: {error}"))
+                    .into_any_element(),
+                slot => slot.element(),
+            })
+            .collect()
+    })
 }
 
 /// What a region shows while its mod does not load: the reason, which is

@@ -54,6 +54,7 @@ impl ShellView {
             .then(|| self.mods.copy(Region::Toolbar.name(), cx))
             .flatten();
         (self.mods).fill_share_slot(layout, models.shows(Overlay::Share), cx);
+        self.mods.fill_sections(cx);
         let toast = if models.shows(Overlay::Toast) {
             self.mods.overlay(Overlay::Toast, layout, cx)
         } else {

@@ -1,19 +1,21 @@
 // The sidebar, drawn from `panels/sidebar`: a section for each project
 // (ADR 0062), a plain folder or a repo, with its canvases under it; then
-// the active canvas's notes and pages. Each section folds at its head. A
-// project's head has a + for a new canvas in it and a ⋯ for its details:
-// its folder, whether a repo's canvases go into git, and the sites bound
-// to it. A click presses a row by its id, as the app's own sidebar does;
+// the section mods (`"section": "sidebar"`), such as Notes and Pages, where
+// `SidebarSections` is placed. Each section folds at its head. Under the
+// pointer a project's head shows a ⋯ for its details (its folder, whether a
+// repo's canvases go into git, and the sites bound to it), a + for a new
+// canvas in it and, at the far right, its fold chevron. A footer has a +
+// that opens a folder or a repo as a project. A click presses a row by its id, as the app's own sidebar does;
 // a double click on a canvas asks for its new name in the `prompt` dialog.
 //
 // A layout hides a section or a row by listing its id in this mod's props:
-//   { "mod": "sidebar", "props": { "hidden": ["sidebar.head.notes"] } }
+//   { "mod": "sidebar", "props": { "hidden": ["sidebar.open"] } }
 import { View, div } from "gpui-kit";
 import { h_flex, v_flex, Button } from "gpui-base";
-import { state, props, run, colors, openOverlay, Icon } from "specular";
+import { state, props, run, colors, openOverlay, Icon, SidebarSections } from "specular";
 
 const ROW = 26;
-const INDENT = 14;
+const HOVERED = "project-head";
 
 const press = (id) => run("control.press", { id });
 
@@ -46,32 +48,6 @@ function canvasRow(row, k) {
     .child(div().text_color(k.textMuted).text_size(11).child(String(row.count)));
 }
 
-function itemRow(row, depth, hidden, k) {
-  const out = [
-    Button.new(row.id)
-      .h(ROW)
-      .pl(8 + depth * INDENT)
-      .pr(8)
-      .flex()
-      .items_center()
-      .gap(6)
-      .rounded(6)
-      .when(row.selected, (el) => el.bg(k.interactive))
-      .when(row.dimmed, (el) => el.opacity(0.5))
-      .hover((el) => el.bg(k.interactiveHover))
-      .on_click(() => press(row.id))
-      .child(Icon.new(`${row.id}.glyph`, { name: row.icon, size: 14, color: k.textMuted }))
-      .child(div().flex_1().truncate().child(row.label))
-      .when(row.trailing != null, (el) => el.child(div().text_color(k.textMuted).text_size(11).child(row.trailing))),
-  ];
-  if (row.expanded) {
-    for (const child of row.children) {
-      if (!hidden.has(child.id)) out.push(...itemRow(child, depth + 1, hidden, k));
-    }
-  }
-  return out;
-}
-
 function bindSite(section) {
   openOverlay("prompt", {
     id: "sidebar.bind",
@@ -97,7 +73,11 @@ function small(id, text, k, onPress, on) {
     .text_color(on ? k.text : k.textMuted)
     .when(on, (el) => el.bg(k.interactive))
     .hover((el) => el.bg(k.interactiveHover))
-    .on_click(onPress)
+    .on_click((event, cx) => {
+      // The project head under it has a press of its own.
+      if (cx) cx.stop_propagation();
+      onPress();
+    })
     .child(text);
 }
 
@@ -132,37 +112,54 @@ function details(section, k) {
   return out;
 }
 
+// Shown only while the pointer is over the project's head, unless `on`.
+const onHover = (el, on) => (on ? el : el.invisible().group_hover(HOVERED, (el) => el.visible()));
+
 function projectHead(section, k) {
-  return h_flex()
+  return Button.new(section.id)
+    .group(HOVERED)
     .h(ROW)
+    .px(8)
+    .flex()
     .items_center()
     .gap(2)
+    .rounded(6)
+    .text_size(11)
+    .text_color(section.active ? k.text : k.textMuted)
+    .on_click(() => press(section.id))
     .child(
-      Button.new(section.id)
+      h_flex()
         .flex_1()
-        .h(ROW)
-        .px(8)
-        .flex()
-        .items_center()
+        .min_w_0()
         .gap(6)
-        .rounded(6)
-        .text_size(11)
-        .text_color(section.active ? k.text : k.textMuted)
-        .hover((el) => el.bg(k.interactiveHover))
-        .on_click(() => press(section.id))
         .child(div().truncate().child(section.title))
         .when(section.branch != null, (el) => el.child(div().text_color(k.textMuted).truncate().child(section.branch))),
     )
-    .child(small(section.details, "⋯", k, () => press(section.details), section.detailsShown))
-    .child(small(section.add, "+", k, () => press(section.add)));
+    .child(onHover(small(section.details, "⋯", k, () => press(section.details), section.detailsShown), section.detailsShown))
+    .child(onHover(small(section.add, "+", k, () => press(section.add)), false))
+    .child(
+      onHover(
+        div()
+          .w(20)
+          .flex()
+          .justify_center()
+          .child(Icon.new(`${section.id}.chevron`, {
+            name: section.folded ? "chevron-right" : "chevron-down",
+            size: 12,
+            color: k.textMuted,
+          })),
+        false,
+      ),
+    );
 }
 
 function section(section, hidden, k) {
-  if (section.kind === "project") {
-    const out = v_flex().gap(1).child(projectHead(section, k));
-    if (section.detailsShown) out.child(details(section, k));
-    return out.children(section.rows.filter((row) => !hidden.has(row.id)).map((row) => canvasRow(row, k)));
-  }
+  const out = v_flex().gap(1).child(projectHead(section, k));
+  if (section.detailsShown) out.child(details(section, k));
+  return out.children(section.rows.filter((row) => !hidden.has(row.id)).map((row) => canvasRow(row, k)));
+}
+
+function canvases(section, hidden, k) {
   const head = Button.new(section.id)
     .h(ROW)
     .px(8)
@@ -176,11 +173,7 @@ function section(section, hidden, k) {
     .on_click(() => press(section.id))
     .child(section.title.toUpperCase())
     .child(section.folded ? "+" : "−");
-  const rows = section.folded
-    ? []
-    : section.rows
-        .filter((row) => !hidden.has(row.id))
-        .flatMap((row) => (row.canvas != null ? [canvasRow(row, k)] : itemRow(row, 0, hidden, k)));
+  const rows = section.folded ? [] : section.rows.filter((row) => !hidden.has(row.id)).map((row) => canvasRow(row, k));
   return v_flex().gap(1).child(head).children(rows);
 }
 
@@ -190,32 +183,48 @@ export default class Sidebar extends View {
     const hidden = new Set((props() || {}).hidden || []);
     const k = colors();
     if (model == null) return div();
-    const sections = model.sections.filter((each) => !hidden.has(each.id));
+    // The notes and pages are the `notes` and `pages` section mods' to draw.
+    const sections = model.sections.filter(
+      (each) => !hidden.has(each.id) && each.kind !== "notes" && each.kind !== "pages",
+    );
+    const list = v_flex()
+      .id("sidebar.list")
+      .flex_1()
+      .min_h_0()
+      .p(8)
+      .gap(12)
+      .overflow_y_scroll()
+      .children(sections.map((each) => (each.kind === "project" ? section(each, hidden, k) : canvases(each, hidden, k))))
+      .child(SidebarSections.new("sidebar.sections", {}));
+    // The foot: a + that opens a folder or a repo as a project.
+    const footer = h_flex()
+      .flex_shrink_0()
+      .p(8)
+      .border_t_1()
+      .border_color(k.sidebarRule)
+      .child(
+        Button.new(model.open)
+          .h(ROW)
+          .px(8)
+          .flex()
+          .items_center()
+          .gap(6)
+          .rounded(6)
+          .text_color(k.textMuted)
+          .hover((el) => el.bg(k.interactiveHover))
+          .on_click(() => press(model.open))
+          .child(Icon.new(`${model.open}.glyph`, { name: "plus", size: 14, color: k.textMuted }))
+          .child("New project"),
+      );
     return v_flex()
       .id("sidebar")
       .size_full()
-      .p(8)
-      .gap(12)
       .bg(k.sidebar)
       .border_r_1()
       .border_color(k.sidebarRule)
       .text_size(13)
       .text_color(k.text)
-      .overflow_y_scroll()
-      .children(sections.map((each) => section(each, hidden, k)))
-      .when(!hidden.has(model.open), (el) =>
-        el.child(
-          Button.new(model.open)
-            .h(ROW)
-            .px(8)
-            .flex()
-            .items_center()
-            .rounded(6)
-            .text_color(k.textMuted)
-            .hover((el) => el.bg(k.interactiveHover))
-            .on_click(() => press(model.open))
-            .child("+ Open project…"),
-        ),
-      );
+      .child(list)
+      .when(!hidden.has(model.open), (el) => el.child(footer));
   }
 }

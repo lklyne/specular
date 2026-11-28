@@ -41,7 +41,7 @@ pub use self::live::NewModItem;
 pub(crate) use self::live::{ModState, add_item, on_catalog, on_draw, set_props, turn};
 pub use self::manifest::{
     API, ApiVersion, FILE, ItemSpec, ManifestError, ModCommand, ModManifest, PaletteEntry,
-    ShapeSpec, ToolSpec,
+    SectionPlace, ShapeSpec, ToolSpec,
 };
 pub use self::pane::ModRow;
 pub(crate) use self::pane::mods_pane;

@@ -69,14 +69,12 @@ pub(crate) fn on_catalog(app: &mut App, catalog: ModCatalog, effects: &mut Vec<E
 /// the settings turn off: their tools, commands and items go, and the
 /// layouts draw the app's own panels where they were.
 pub(crate) fn turn(app: &mut App, effects: &mut Vec<Effect>) {
-    let off = &app.settings.mods_off;
-    let catalog = ModCatalog {
-        mods: (app.mods.installed.mods.iter())
-            .filter(|installed| !off.contains(&installed.name))
-            .cloned()
-            .collect(),
-    };
-    app.chrome.set_off(off);
+    let (on, off): (Vec<_>, Vec<_>) = (app.mods.installed.mods.iter())
+        .cloned()
+        .partition(|installed| app.settings.mod_on(installed));
+    let catalog = ModCatalog { mods: on };
+    let off: BTreeSet<String> = off.into_iter().map(|installed| installed.name).collect();
+    app.chrome.set_off(&off);
     if catalog == app.mods.catalog {
         return;
     }

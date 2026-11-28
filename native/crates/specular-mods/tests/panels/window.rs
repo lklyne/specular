@@ -1,4 +1,5 @@
-//! The window's own panels as mods (ADR 0059): the sidebar, the dock, the
+//! The window's own panels as mods (ADR 0059): the sidebar and its Pages
+//! section, the dock, the
 //! command palette, the agent panel and the status line against the keys
 //! they read. Each shows what its model lists but what its props hide,
 //! presses through the host, and renders only when a key it read moves,
@@ -21,16 +22,31 @@ fn app() -> TestApp {
     app
 }
 
-fn sidebar_ids(app: &TestApp) -> Vec<String> {
+/// The ids of the sidebar's sections of `kinds` and their rows.
+fn section_ids(app: &TestApp, kinds: &[Option<&str>]) -> Vec<String> {
     let model = &state(app.app())["panels/sidebar"];
     let mut ids = Vec::new();
     for section in model["sections"].as_array().into_iter().flatten() {
+        if !kinds.contains(&section["kind"].as_str()) {
+            continue;
+        }
         ids.extend(section["id"].as_str().map(str::to_owned));
         for row in section["rows"].as_array().into_iter().flatten() {
             ids.extend(row["id"].as_str().map(str::to_owned));
         }
     }
     ids
+}
+
+/// The sidebar mod's: the projects and their canvases, and its footer.
+fn sidebar_ids(app: &TestApp) -> Vec<String> {
+    let mut ids = section_ids(app, &[None, Some("project")]);
+    ids.push("sidebar.open".to_owned());
+    ids
+}
+
+fn pages_ids(app: &TestApp) -> Vec<String> {
+    section_ids(app, &[Some("pages")])
 }
 
 fn dock_ids(app: &TestApp) -> Vec<String> {
@@ -47,25 +63,35 @@ fn dock_ids(app: &TestApp) -> Vec<String> {
 }
 
 /// A panel's row of the table: its mod, the box it is drawn in, the ids
-/// it must show, and a press it must send.
+/// it must show, whether its props hide them, and a press it must send.
 struct Panel {
     name: &'static str,
     size: (f32, f32),
     ids: fn(&TestApp) -> Vec<String>,
+    hides: bool,
     press: &'static str,
 }
 
-const PANELS: [Panel; 2] = [
+const PANELS: [Panel; 3] = [
     Panel {
         name: "sidebar",
         size: (256.0, 600.0),
         ids: sidebar_ids,
+        hides: true,
+        press: r#"control.press {"id":"sidebar.open"}"#,
+    },
+    Panel {
+        name: "pages",
+        size: (256.0, 300.0),
+        ids: pages_ids,
+        hides: false,
         press: r#"control.press {"id":"sidebar.pages.p2"}"#,
     },
     Panel {
         name: "dock",
         size: (900.0, 40.0),
         ids: dock_ids,
+        hides: true,
         press: "control.press",
     },
 ];
@@ -78,7 +104,10 @@ fn each_panel_shows_what_its_model_lists_but_those_hidden_and_presses_through_th
     for panel in &PANELS {
         let ids = (panel.ids)(&app);
         assert!(ids.len() >= 3, "{}: the model lists {ids:?}", panel.name);
-        let last: Vec<&str> = ids.iter().last().map(String::as_str).into_iter().collect();
+        let last: Vec<&str> = (ids.iter().last().map(String::as_str))
+            .filter(|_| panel.hides)
+            .into_iter()
+            .collect();
         for hidden in [&[][..], &last[..]] {
             let props = json!({ "hidden": hidden });
             let tree = Loaded::new(&app, panel.name, props, panel.size, cx).tree();

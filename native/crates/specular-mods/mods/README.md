@@ -557,6 +557,25 @@ their comments to the agent working in its folder.
 - `project.*` acts on them by id, and `canvas.new {project}` makes a canvas
   in one.
 
+## Sidebar sections (API 1.8)
+
+A mod adds a section to the sidebar, under the projects and their canvases,
+with `"section": "sidebar"` in its `mod.json`. It runs whatever the layout
+says, and is drawn there in name order: in the app's own sidebar, or where
+a sidebar mod places `SidebarSections`. The shipped `notes` and `pages`
+mods are the canvas's Notes and Pages, drawn from the `kind: "notes"` and
+`kind: "pages"` sections of `panels/sidebar`.
+
+`"starts_off": true` keeps a mod off until a person turns it on in
+Settings > Mods (`modsOn` in the preferences file). `notes` and `pages`
+start off, so the sidebar is just the projects until one is turned on.
+With no section on, the app's own sidebar drops its Canvases head and shows
+each project's head.
+
+```json
+{ "api": "1.8", "title": "Recent", "section": "sidebar", "starts_off": true }
+```
+
 ## Host components
 
 Elements a mod places but cannot draw itself, imported from `specular`:
@@ -573,6 +592,8 @@ Elements a mod places but cannot draw itself, imported from `specular`:
   by; a double click zooms it as the system says. It fills its box.
 - `Share`, `Share.new(id, {})`: the Share slot: the `share` mod when the
   layout names one, else the app's own Share button.
+- `SidebarSections`, `SidebarSections.new(id, {})`: the section mods (see
+  "Sidebar sections"), one under the other. A sidebar mod places it.
 - `Prism`, `Prism.new(id, {})`: the first-run view's turning Prism, 160
   points square.
 - `Swatch`, `Swatch.new(id, { color, palette, role, size })`: a dot of a
@@ -634,7 +655,8 @@ Elements a mod places but cannot draw itself, imported from `specular`:
 | `toast` | the notices, in the canvas's lower right corner | `notices` | yes |
 | `menu` | the canvas's context menu | `panels/menu` | `mods` layout |
 | `welcome` | the first-run view | `panels/welcome` | no: `"welcome": { "mod": "welcome" }` |
-| `sidebar` | the projects and their canvases, then the notes and pages | `panels/sidebar` | `mods`, `studio` |
+| `sidebar` | the projects and their canvases, a New project footer, and the section mods | `panels/sidebar` | `mods`, `studio` |
+| `notes`, `pages` | the canvas's Notes and Pages, as sidebar sections | `panels/sidebar` | off until turned on (`starts_off`) |
 | `dock` | the selection's or the tool's controls, and the lens | `panels/dock`, `panels/tool_options`, `panels/toolbar` | `mods`, `studio` |
 | `palette` | the command palette, in an overlay | `panels/palette` | `mods`, `studio` |
 | `chat` | the agent threads, transcript and composer | `panels/chat` | `mods`, `studio` |

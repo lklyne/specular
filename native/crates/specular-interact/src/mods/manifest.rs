@@ -21,7 +21,7 @@ use specular_doc::{CustomShape, OutlineError};
 /// state keys, the `specular` module's functions, `mod.json`'s keys) only
 /// grows, and each growth is a new revision. A break is a new generation,
 /// decided on purpose. A mod names the version it was written for, as `1`
-/// (revision 0), `"1.1"`, `"1.2"`, `"1.3"` or `"1.4"`, and loads on any app of the same generation
+/// (revision 0) or `"1.<revision>"`, and loads on any app of the same generation
 /// whose revision is at least its own.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ApiVersion {
@@ -43,9 +43,10 @@ pub struct ApiVersion {
 /// | 1.5 | agents on the canvas: the `agents` key and `view.follow {agent}` |
 /// | 1.6 | a tool's `stroke` in `mod.json`, drawn by the app over the live stroke; `tool.stroke`; `taper` and `speed` on display-list paths; the `tool` and `call` keys published as they change |
 /// | 1.7 | projects (ADR 0062): the `projects` key, a project section for each project in `panels/sidebar`, the `project.*` commands, `canvas.new {project}`, and `project` in `canvas/info` |
+/// | 1.8 | sidebar sections: `section` and `starts_off` in `mod.json`, and the `SidebarSections` host component |
 pub const API: ApiVersion = ApiVersion {
     generation: 1,
-    revision: 7,
+    revision: 8,
 };
 
 impl ApiVersion {
@@ -228,6 +229,14 @@ pub struct ModCommand {
     pub chat: bool,
 }
 
+/// The panel a section mod is drawn in (API 1.8).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SectionPlace {
+    /// The sidebar, under the projects and their canvases, in name order.
+    Sidebar,
+}
+
 /// A mod's `mod.json`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -254,6 +263,13 @@ pub struct ModManifest {
     /// The shapes it adds to the shape tool, if any (API 1.4).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub shapes: Vec<ShapeSpec>,
+    /// The panel it adds a section to, whatever the layout says (API 1.8).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub section: Option<SectionPlace>,
+    /// Whether it is off until a person turns it on in Settings > Mods
+    /// (API 1.8).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub starts_off: bool,
     /// The shipped mod this one was cloned from, written by `specular mod
     /// clone`. A clone is never replaced on start.
     #[serde(default, skip_serializing_if = "Option::is_none")]

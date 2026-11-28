@@ -160,7 +160,9 @@ What a script can name, beyond the steps in "Looking at what it draws":
   by place; `.add`, `.details`, `.reveal`, `.close`, `.git.commit`,
   `.git.ignore`, `.origin.<k>.auto|remove` beside it),
   `sidebar.head.<canvases|notes|pages>`, `sidebar.<notes|pages>.<entity id>`
-  (`.toggle` its chevron) and `sidebar.pages.comment.<id>`. Shift- and
+  (`.toggle` its chevron) and `sidebar.pages.comment.<id>`. The Notes and
+  Pages rows are drawn by the `notes` and `pages` section mods, off until
+  turned on in Settings > Mods. Shift- and
   Command-clicks on rows widen the selection, from the row picked last.
 - A right click opens the context menu for what is under it; its items
   are `menu.<label in lower case, dashes>`.

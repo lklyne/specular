@@ -24,8 +24,9 @@ fn row(row: &SidebarRow) -> Value {
     })
 }
 
-fn section(head: &SectionHead, rows: &[SidebarRow]) -> Value {
+fn section(kind: &str, head: &SectionHead, rows: &[SidebarRow]) -> Value {
     let mut out = self::head(head);
+    out["kind"] = Value::from(kind);
     out["rows"] = rows.iter().map(row).collect();
     out
 }
@@ -113,8 +114,8 @@ pub(super) fn sidebar_json(app: &App) -> Value {
     } else {
         projects.iter().map(project).collect()
     };
-    sections.push(section(&notes_head, &notes));
-    sections.push(section(&pages_head, &pages));
+    sections.push(section("notes", &notes_head, &notes));
+    sections.push(section("pages", &pages_head, &pages));
     json!({
         "visible": visible,
         "add": "sidebar.add",

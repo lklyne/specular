@@ -113,6 +113,11 @@ pub(super) fn components(revisions: Rc<RefCell<Revisions>>) -> Components {
         .with("Pattern", |args, _, _| pattern(args.props()))
         .with("Material", |args, _, _| material(args.props()))
         .with("Share", |_, _, _| crate::view::share_slot())
+        .with("SidebarSections", |_, _, _| {
+            gpui_kit::component::v_flex()
+                .children(crate::mods::sidebar_sections())
+                .into_any_element()
+        })
         .with("Prism", |_, _, _| {
             crate::mods::hero().map_or_else(
                 || div().into_any_element(),

@@ -73,6 +73,21 @@ pub struct AppSettings {
     /// The installed mods turned off, by folder name: they do not run, and
     /// a layout that places one draws the app's own panel there.
     pub mods_off: BTreeSet<String>,
+    /// The installed mods that start off (`starts_off` in `mod.json`) and
+    /// were turned on, by folder name.
+    pub mods_on: BTreeSet<String>,
+}
+
+impl AppSettings {
+    /// Whether `installed` runs: turned on, or not turned off when it
+    /// starts on.
+    pub fn mod_on(&self, installed: &crate::mods::InstalledMod) -> bool {
+        if installed.manifest.starts_off {
+            self.mods_on.contains(&installed.name)
+        } else {
+            !self.mods_off.contains(&installed.name)
+        }
+    }
 }
 
 /// The cursors the user has chosen not to see. Hiding one only stops
@@ -379,12 +394,14 @@ pub(crate) fn run(app: &mut App, action: SettingAction, effects: &mut Vec<Effect
         SettingAction::Mod(name, on) => {
             if on {
                 app.settings.mods_off.remove(&name);
+                app.settings.mods_on.insert(name);
             } else {
+                app.settings.mods_on.remove(&name);
                 app.settings.mods_off.insert(name);
             }
         }
     }
-    if app.settings.mods_off != before.mods_off {
+    if (&app.settings.mods_off, &app.settings.mods_on) != (&before.mods_off, &before.mods_on) {
         crate::mods::turn(app, effects);
     }
     if app.settings != before {

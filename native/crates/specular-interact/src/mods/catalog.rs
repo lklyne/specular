@@ -3,7 +3,7 @@
 
 use specular_doc::CustomShape;
 
-use super::{ModCommand, ModManifest, ModToolId, ShapeSpec, ToolSpec};
+use super::{ModCommand, ModManifest, ModToolId, SectionPlace, ShapeSpec, ToolSpec};
 
 /// One installed mod.
 #[derive(Debug, Clone, PartialEq)]
@@ -111,5 +111,11 @@ impl ModCatalog {
             let manifest = &installed.manifest;
             manifest.items.is_some() || !manifest.tools.is_empty() || !manifest.commands.is_empty()
         })
+    }
+
+    /// The mods that add a section to `place`, in name order: each runs
+    /// whatever the layout says, drawn where that panel draws its sections.
+    pub fn sections(&self, place: SectionPlace) -> impl Iterator<Item = &InstalledMod> {
+        (self.mods.iter()).filter(move |installed| installed.manifest.section == Some(place))
     }
 }
