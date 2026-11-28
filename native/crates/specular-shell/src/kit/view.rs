@@ -67,6 +67,7 @@ use gpui_kit::{
 };
 use specular_interact::{Action, CanvasAction, Event, SidebarAction, ToolsPlace};
 
+pub(crate) use self::chat::{composer_box, paste};
 pub(crate) use self::field::{FieldStyle, field_styled as model_field, typed as typed_field};
 pub(crate) use self::named::{mark, shown as shown_controls};
 pub(crate) use self::palette::toggle as toggle_palette;

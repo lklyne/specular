@@ -72,6 +72,23 @@ pub const MODS: &[Shipped] = &[
     shipped!("thread", "item.html"),
 ];
 
+/// The folder beside the mods that holds what any mod's web page can load,
+/// `mods/lib/`: a page in a mod's folder names it as `../lib/<file>`. It
+/// has no `mod.json`, so it is no mod.
+pub const LIBRARY_FOLDER: &str = "lib";
+
+/// The shared files of [`LIBRARY_FOLDER`].
+pub const LIBRARY: &[File] = &[
+    File {
+        name: "chat.js",
+        text: include_str!("../mods/lib/chat.js"),
+    },
+    File {
+        name: "chat.css",
+        text: include_str!("../mods/lib/chat.css"),
+    },
+];
+
 /// The `specular` module's declarations, `mods/specular.d.ts`.
 pub const DECLARATIONS: &str = include_str!("../specular.d.ts");
 
@@ -106,7 +123,8 @@ fn write(path: &Path, text: &str) -> io::Result<()> {
     std::fs::rename(&staged, path)
 }
 
-/// Writes the shipped mods, the guide and the declarations into `mods`,
+/// Writes the shipped mods, the shared library, the guide and the
+/// declarations into `mods`,
 /// creating it. A file already holding what would be written is left
 /// alone, so a mod's watcher is not woken for nothing. Returns the names
 /// of the mods left alone as clones.
@@ -114,6 +132,11 @@ pub fn install(mods: &Path) -> io::Result<Vec<&'static str>> {
     std::fs::create_dir_all(mods)?;
     write(&mods.join("README.md"), GUIDE)?;
     write(&mods.join("specular.d.ts"), DECLARATIONS)?;
+    let library = mods.join(LIBRARY_FOLDER);
+    std::fs::create_dir_all(&library)?;
+    for file in LIBRARY {
+        write(&library.join(file.name), file.text)?;
+    }
     let mut kept = Vec::new();
     for shipped in MODS {
         let dir = mods.join(shipped.name);

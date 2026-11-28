@@ -1,0 +1,112 @@
+/* The agent panel's look for web pages, loaded by chat.js. The colours are
+   the panel's own, named as `colors()` names them (`--sc-<name>`): the
+   defaults mirror the Kit's theme (specular-scene's panel colours and
+   specular-shell/src/kit/theme.rs), and chat.js sets the ones the active
+   layout or theme renames, from the `look` key. */
+:root {
+  --sc-sidebar: #f2f2f2; --sc-sidebarRule: #e7e5e4; --sc-toolbar: #ecedee;
+  --sc-toolbarBorder: #dbdcdd; --sc-text: #303030; --sc-textMuted: #30303094;
+  --sc-popup: #fafaf9; --sc-popupBorder: #cac6c3; --sc-interactiveHover: #e7e5e466;
+  --sc-primary: #1c1917; --sc-primaryForeground: #fafaf9; --sc-error: #e7000b;
+  --sc-input: #fafaf9; --sc-inputBorder: #d6d3d1; --sc-zinc100: #f4f4f5;
+  --sc-zinc300: #d4d4d8; --sc-chipHover: #e4e4e7b3; --sc-queued: #e4e4e799;
+  --sc-font: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+}
+:root.dark {
+  --sc-sidebar: #292524; --sc-sidebarRule: #3f3f3f; --sc-toolbar: #2b2b2b;
+  --sc-toolbarBorder: #3f3f3f; --sc-text: #f4f4f5; --sc-textMuted: #f4f4f59e;
+  --sc-popup: #2b2b2b; --sc-popupBorder: #3f3f3f; --sc-interactiveHover: #1c191759;
+  --sc-primary: #f5f5f4; --sc-primaryForeground: #1c1917; --sc-error: #ff6467;
+  --sc-input: #332f2d; --sc-inputBorder: #3f3f3f; --sc-zinc100: #27272a;
+  --sc-zinc300: #52525c; --sc-chipHover: #3f3f47b3; --sc-queued: #3f3f4799;
+}
+[hidden].sc-ghost, specular-chat [hidden], specular-composer [hidden] { display: none !important; }
+.sc-icon { width: 13px; height: 13px; flex-shrink: 0; display: block; }
+
+specular-chat { display: flex; flex-direction: column; min-height: 0; height: 100%;
+  background: var(--sc-sidebar); color: var(--sc-text); font: 12px/1.5 var(--sc-font); }
+specular-chat > header { display: flex; align-items: center; gap: 2px; height: 40px; flex-shrink: 0;
+  padding: 0 8px 0 4px; background: var(--sc-toolbar); border-bottom: 1px solid var(--sc-toolbarBorder); }
+specular-chat > header .title { flex: 1; min-width: 0; display: flex; }
+specular-chat .sc-ghost { font: inherit; color: inherit; background: none; border: 0; border-radius: 6px;
+  display: inline-flex; align-items: center; gap: 4px; cursor: pointer; padding: 0 8px; height: 24px; min-width: 0; }
+specular-chat .sc-ghost:hover { background: var(--sc-chipHover); }
+specular-chat > header .switch { font-size: 12px; font-weight: 500; max-width: 100%; }
+specular-chat > header .switch span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+specular-chat > header .act { width: 24px; padding: 0; justify-content: center; }
+
+specular-thread { display: flex; flex-direction: column; gap: 16px; overflow-y: auto; flex: 1;
+  min-height: 0; padding: 10px 12px 16px; color: var(--sc-text); font: 12px/1.625 var(--sc-font); }
+specular-thread .msg { max-width: 100%; overflow-wrap: anywhere; }
+specular-thread .msg.user { align-self: flex-start; background: var(--sc-input); border: 1px solid var(--sc-inputBorder);
+  border-radius: 16px; padding: 6px 12px; white-space: pre-wrap; line-height: 1.5; }
+specular-thread .msg.agent > :first-child { margin-top: 0; }
+specular-thread .msg.agent > :last-child { margin-bottom: 0; }
+specular-thread .msg p, specular-thread .msg ul, specular-thread .msg ol,
+specular-thread .msg pre { margin: 0 0 8px; }
+specular-thread .msg h1, specular-thread .msg h2, specular-thread .msg h3,
+specular-thread .msg h4 { margin: 12px 0 6px; font-size: 13px; font-weight: 600; }
+specular-thread .msg ul, specular-thread .msg ol { padding-left: 18px; }
+specular-thread code { font: 11px ui-monospace, "SF Mono", Menlo, monospace;
+  background: var(--sc-zinc100); padding: 1px 4px; border-radius: 4px; }
+specular-thread pre { background: var(--sc-zinc100); padding: 8px 10px; border-radius: 8px; overflow-x: auto; }
+specular-thread pre code { padding: 0; background: none; }
+specular-thread a { color: inherit; text-decoration: underline; }
+specular-thread .thumbs { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 0; }
+specular-thread .thumbs img { width: 48px; height: 48px; object-fit: cover; border-radius: 6px;
+  border: 1px solid var(--sc-zinc300); }
+specular-thread .card { font-size: 12px; border: 1px solid var(--sc-inputBorder); background: var(--sc-input);
+  border-radius: 10px; padding: 6px 10px; margin-top: 10px; }
+specular-thread .card b { font-weight: 500; }
+specular-thread .card span { color: var(--sc-textMuted); }
+specular-thread .note { color: var(--sc-textMuted); }
+specular-thread .error { color: var(--sc-error); }
+specular-thread .agent-row { display: flex; align-items: center; gap: 8px; color: var(--sc-textMuted); }
+specular-thread .avatar { width: 24px; height: 24px; border-radius: 7px; flex-shrink: 0;
+  background: radial-gradient(circle at 30% 30%, #8b3cf6 0 28%, transparent 46%),
+    linear-gradient(135deg, #f97316, #f59e0b 60%, #fb923c);
+  box-shadow: inset 0 0 0 1px #fde68a99; }
+specular-thread .avatar.working { animation: sc-breathe 1.6s ease-in-out infinite; }
+@keyframes sc-breathe { 50% { transform: scale(0.88); filter: saturate(1.4); } }
+
+specular-composer { display: block; padding: 8px; border-top: 1px solid var(--sc-sidebarRule); }
+specular-composer .box { display: flex; flex-direction: column; border-radius: 16px; padding: 6px 8px;
+  border: 1px solid var(--sc-inputBorder); background: var(--sc-input); color: var(--sc-text); }
+specular-composer textarea { width: 100%; resize: none; border: 0; outline: none; padding: 2px 4px;
+  font: 12px/24px var(--sc-font); color: inherit; background: none; min-height: 52px; max-height: 148px; }
+specular-composer textarea::placeholder { color: var(--sc-textMuted); }
+specular-composer .row { display: flex; align-items: center; gap: 4px; min-width: 0; padding-top: 2px; }
+specular-composer .chips { flex: 1; min-width: 0; display: flex; align-items: center; gap: 4px; }
+specular-composer .chip { display: inline-flex; align-items: center; gap: 4px; min-width: 0; padding: 2px 6px;
+  border-radius: 999px; font-size: 11px; font-weight: 500; color: var(--sc-textMuted); white-space: nowrap; }
+specular-composer .chip:hover { background: var(--sc-chipHover); }
+specular-composer .chip .sc-icon { width: 11px; height: 11px; }
+specular-composer .chip span { overflow: hidden; text-overflow: ellipsis; }
+specular-composer .chip[hidden] { display: none; }
+specular-composer .model { font-size: 11px; font-weight: 500; color: var(--sc-textMuted); border-radius: 999px; }
+specular-composer .send { width: 28px; height: 28px; border-radius: 14px; border: 0; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+  background: var(--sc-primary); color: var(--sc-primaryForeground); }
+specular-composer .send:disabled { background: var(--sc-zinc100); color: var(--sc-textMuted); cursor: default; }
+specular-composer .send .sc-icon { width: 12px; height: 12px; }
+specular-composer .pasted { display: flex; flex-wrap: wrap; gap: 6px; padding-bottom: 6px; }
+specular-composer .pasted:empty { display: none; }
+specular-composer .thumb { position: relative; width: 48px; height: 48px; border-radius: 6px; overflow: hidden;
+  border: 1px solid var(--sc-zinc300); }
+specular-composer .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+specular-composer .thumb button { position: absolute; top: 2px; right: 2px; width: 16px; height: 16px; padding: 0;
+  border: 0; border-radius: 50%; background: #000000b3; color: #fff; font-size: 11px; line-height: 16px;
+  cursor: pointer; opacity: 0; }
+specular-composer .thumb:hover button { opacity: 1; }
+specular-composer .queued { display: flex; flex-wrap: wrap; gap: 4px; padding-bottom: 6px; }
+specular-composer .queued:empty { display: none; }
+specular-composer .queued span { font-size: 11px; background: var(--sc-queued); border-radius: 6px; padding: 1px 6px; }
+
+.sc-menu { position: fixed; z-index: 10; min-width: 160px; max-width: 320px; max-height: 60vh; overflow-y: auto;
+  padding: 4px; background: var(--sc-popup); border: 1px solid var(--sc-popupBorder); border-radius: 8px;
+  box-shadow: 0 8px 24px #0000001f; font: 12px/1.4 var(--sc-font); color: var(--sc-text); }
+.sc-menu button { display: flex; width: 100%; gap: 8px; align-items: flex-start; text-align: left; font: inherit;
+  color: inherit; background: none; border: 0; border-radius: 5px; padding: 5px 8px; cursor: pointer; }
+.sc-menu button:hover { background: var(--sc-interactiveHover); }
+.sc-menu .check { width: 12px; flex-shrink: 0; }
+.sc-menu small { display: block; color: var(--sc-textMuted); font-size: 11px; }

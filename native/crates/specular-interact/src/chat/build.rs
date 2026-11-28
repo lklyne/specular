@@ -46,6 +46,9 @@ pub fn chat(app: &App) -> ChatModel {
         }),
         back: active.map(|_| act(ChatAction::Back)),
         close: active.map(|thread| act(ChatAction::CloseThread(Some(thread.id.clone())))),
+        actions: active.map_or_else(Vec::new, |thread| {
+            crate::mods::chat_buttons(app, thread.id.as_str())
+        }),
         transcript: active.map(|thread| transcript(app, thread)),
         composer: composer(app, active),
     }
@@ -167,6 +170,7 @@ pub(crate) fn model_chip(app: &App) -> ModelChip {
         options: (models.list().iter())
             .map(|model| ModelOption {
                 name: model.name.clone(),
+                value: model.value.clone(),
                 description: model.description.clone(),
                 chosen: model.value == models.chosen(),
                 choose: Action::Chat(ChatAction::SetModel(model.value.clone())),

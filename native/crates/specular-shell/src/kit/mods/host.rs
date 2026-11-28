@@ -87,7 +87,7 @@ fn marked(control: Option<ControlId>, glyph: AnyElement) -> AnyElement {
     }
 }
 
-/// The host components, with the window's own `Zoom`, `ToolOptions`, `Field`,
+/// The host components, with the window's own `Zoom`, `ToolOptions`, `Field`, `Composer`,
 /// `WindowDrag`, `Share` and `Prism`, a `Favicon` that shows the page's
 /// own icon, and an `Icon` that notes where the control it names is.
 pub(super) fn components(revisions: Rc<RefCell<Revisions>>) -> Components {
@@ -146,6 +146,9 @@ pub(super) fn components(revisions: Rc<RefCell<Revisions>>) -> Components {
                 Some(model) => crate::view::model_field(&model, style, window, cx),
                 None => div().into_any_element(),
             }
+        })
+        .with("Composer", |args, window, cx| {
+            super::composer::composer(args.props(), window, cx)
         })
         .with("ToolOptions", |_, window, cx| {
             crate::view::tool_options(window, cx).unwrap_or_else(|| div().into_any_element())

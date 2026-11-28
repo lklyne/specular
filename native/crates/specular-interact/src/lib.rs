@@ -135,8 +135,8 @@ pub use bindings::{
 pub use bridge::bridge_allowed;
 pub use chat::{
     ArtifactCard, AutoChip, Bubble, ChatAction, ChatModel, ChatView, Composer, DraftChip,
-    DraftKind, FixTarget, ImageUpload, ModelChip, ModelOption, OpenComments, PillChip, PillKind,
-    QueuedChip, RunBar, ThreadRow, Transcript, chat, fixable,
+    DraftKind, FixTarget, HeaderAction, ImageUpload, ModelChip, ModelOption, OpenComments,
+    PillChip, PillKind, QueuedChip, RunBar, ThreadRow, Transcript, chat, fixable,
 };
 pub use chord::Chord;
 pub use chrome::{

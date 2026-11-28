@@ -14,6 +14,7 @@
 //! context menu, the Share slot, the notices, the first-run view) is drawn
 //! where the app's own one would be.
 
+mod composer;
 mod host;
 mod text_field;
 
