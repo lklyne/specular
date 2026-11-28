@@ -20,6 +20,7 @@
 //!   person's and stays. A kept choice of it falls back to `default`.
 
 use std::collections::BTreeMap;
+use std::fmt::Write as _;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::time::{Instant, SystemTime};
@@ -215,9 +216,10 @@ fn remove_retired(folder: &Path) {
         let Ok(bytes) = std::fs::read(&path) else {
             continue;
         };
-        let digest: String = (Sha256::digest(&bytes).iter())
-            .map(|byte| format!("{byte:02x}"))
-            .collect();
+        let digest = (Sha256::digest(&bytes).iter()).fold(String::new(), |mut hex, byte| {
+            let _ = write!(hex, "{byte:02x}");
+            hex
+        });
         if wrote.contains(&digest.as_str()) {
             remove(&path);
             remove(&folder.join(".state").join(format!("{name}.json")));
@@ -326,8 +328,6 @@ fn write_in(path: &Path, text: &str) -> io::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    #![expect(clippy::expect_used, reason = "a test fails by panicking")]
-
     use super::*;
 
     #[test]
