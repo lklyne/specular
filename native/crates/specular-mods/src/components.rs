@@ -11,7 +11,7 @@
 //! Share.new("share", {})
 //! Prism.new("prism", {})
 //! SidebarSections.new("sections", {})
-//! Popover.new("dock.choices", { top: 36 }).child(list)
+//! Field.new("sidebar.canvas.2.name", { control: "sidebar.canvas.2.name" })
 //! ```
 //!
 //! `Icon` is drawn here from the panel glyphs, and `Favicon` is a tab's
