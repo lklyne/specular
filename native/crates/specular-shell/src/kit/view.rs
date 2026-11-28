@@ -299,6 +299,21 @@ impl ShellView {
     }
 }
 
+impl ShellView {
+    /// The strips over the side panels' inner edges that drag them wider.
+    fn resize_handles(&self, models: &Models) -> Vec<AnyElement> {
+        let chat = (models.regions.chat)
+            .then(|| self.chat_resize_handle(&models.chat))
+            .flatten()
+            .map(IntoElement::into_any_element);
+        let sidebar = (models.regions.sidebar)
+            .then(|| sidebar_resize::handle(&models.sidebar))
+            .flatten()
+            .map(IntoElement::into_any_element);
+        chat.into_iter().chain(sidebar).collect()
+    }
+}
+
 impl Render for ShellView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<'_, Self>) -> impl IntoElement {
         // What effects asked of the window is applied by this render.
@@ -390,14 +405,11 @@ impl Render for ShellView {
             .children(models.as_ref().and_then(|models| {
                 frame::window_border(models, crate::window_buttons::corner_radius(window))
             }))
-            .when_some(models.as_ref(), |root, models: &Models| {
-                root.when(models.regions.chat, |root| {
-                    root.children(self.chat_resize_handle(&models.chat))
-                })
-                .when(models.regions.sidebar, |root| {
-                    root.children(sidebar_resize::handle(&models.sidebar))
-                })
-            })
+            .children(
+                models
+                    .as_ref()
+                    .map_or_default(|models| self.resize_handles(models)),
+            )
             // A drag that began on the canvas is the canvas's until it ends:
             // nothing it passes over hovers, opens a tooltip or scrolls.
             .when(self.pointer.held(), |root| {
