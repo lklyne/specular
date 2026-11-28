@@ -653,13 +653,13 @@ Elements a mod places but cannot draw itself, imported from `specular`:
 | `tabs` | the tab row: tabs, add, title bar, zoom, the agents on the canvas, Share, right panel toggle | `panels/strip`, `agents` | yes |
 | `share` | the Share button and its popover | `panels/share` | yes |
 | `toast` | the notices, in the canvas's lower right corner | `notices` | yes |
-| `menu` | the canvas's context menu | `panels/menu` | `mods` layout |
+| `menu` | the canvas's context menu | `panels/menu` | yes |
 | `welcome` | the first-run view | `panels/welcome` | no: `"welcome": { "mod": "welcome" }` |
-| `sidebar` | the projects and their canvases, a New project footer, and the section mods | `panels/sidebar` | `mods`, `studio` |
+| `sidebar` | the projects and their canvases, a New project footer, and the section mods | `panels/sidebar` | yes, and `studio` |
 | `notes`, `pages` | the canvas's Notes and Pages, as sidebar sections | `panels/sidebar` | off until turned on (`starts_off`) |
-| `dock` | the selection's or the tool's controls, and the lens | `panels/dock`, `panels/tool_options`, `panels/toolbar` | `mods`, `studio` |
-| `palette` | the command palette, in an overlay | `panels/palette` | `mods`, `studio` |
-| `chat` | the agent threads, transcript and composer | `panels/chat` | `mods`, `studio` |
+| `dock` | the selection's or the tool's controls, and the lens | `panels/dock`, `panels/tool_options`, `panels/toolbar` | yes, and `studio` |
+| `palette` | the command palette, in an overlay | `panels/palette` | yes, and `studio` |
+| `chat` | the agent threads, transcript and composer | `panels/chat` | yes, and `studio` |
 | `status` | a status line: canvas, counts, selection, layout | `canvas/info`, `selection`, `layouts` | `studio` |
 | `confirm`, `prompt` | dialogs a mod or agent opens with `openOverlay` | `props()` | opened when asked |
 | `star` | a star among the shape tool's shapes | `tool`, `canvas/mod_items`, `call` | always (a canvas mod) |

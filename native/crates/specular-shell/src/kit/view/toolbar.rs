@@ -27,7 +27,7 @@ use crate::theme;
 /// The side of a tool's button, which is square.
 const TOOL_BUTTON: f32 = 28.0;
 const TOOL_GLYPH: f32 = 20.0;
-const PANEL_GLYPH: f32 = 16.0;
+const PANEL_GLYPH: f32 = 14.0;
 /// From the canvas's edge to a floating ribbon, and from a ribbon's own
 /// edge to its buttons.
 pub(super) const RIBBON_INSET: f32 = 8.0;

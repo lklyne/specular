@@ -87,11 +87,10 @@ const LOOK_KEYS: [&str; 11] = [
 ];
 
 /// The layouts the app ships, by name, as their files hold them.
-pub const SHIPPED: [(&str, &str); 4] = [
+pub const SHIPPED: [(&str, &str); 3] = [
     ("default", include_str!("../../layouts/default.json")),
     ("classic", include_str!("../../layouts/classic.json")),
     ("studio", include_str!("../../layouts/studio.json")),
-    ("mods", include_str!("../../layouts/mods.json")),
 ];
 
 /// The themes the app ships, by name, as their files hold them.

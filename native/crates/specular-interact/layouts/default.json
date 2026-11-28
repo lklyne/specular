@@ -4,8 +4,11 @@
   "type": "row",
   "share": { "mod": "share" },
   "toast": { "mod": "toast", "props": { "hidden": [] } },
+  "menu": { "mod": "menu" },
+  "palette": { "mod": "palette" },
+  "dock": { "mod": "dock" },
   "children": [
-    { "id": "sidebar", "type": "block", "size": { "px": 256 }, "content": { "panel": "sidebar" } },
+    { "id": "sidebar", "type": "block", "size": { "px": 256 }, "content": { "mod": "sidebar" } },
     {
       "id": "main",
       "type": "column",
@@ -18,7 +21,7 @@
           "children": [
             { "id": "toolbar", "type": "block", "size": { "px": 36 }, "content": { "mod": "toolbar", "props": { "hidden": [] } } },
             { "id": "canvas", "type": "block", "content": "canvas" },
-            { "id": "chat", "type": "block", "size": { "px": 400 }, "content": { "panel": "chat" } }
+            { "id": "chat", "type": "block", "size": { "px": 400 }, "content": { "mod": "chat" } }
           ]
         }
       ]

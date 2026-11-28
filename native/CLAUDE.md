@@ -279,7 +279,7 @@ logs the port it took and the `SPECULAR_DISCOVERY_FILE=` to pass the CLI.
   per-key revision moves only when the value does. The camera is in no
   key. Layouts are `<app home>/layouts/<name>.json` (ADR 0059): trees of
   rows, columns, stacks and blocks with the look at the root, solved by
-  `specular_interact::chrome::solve`. The shipped ones (`default`, `mods`,
+  `specular_interact::chrome::solve`. The shipped ones (`default`,
   `classic`, `studio`) are rewritten on every start; any other file is the
   person's, and `layout.switch` moves between them. `<app home>/keys.json`
   rebinds keys (`bindings/keymap.rs`, read in `app/keys_run.rs`, a mistake
@@ -344,9 +344,9 @@ A mod (ADR 0055) is a folder of `mod.json` and `main.js`, run by
   key it read moved. The window's side is `src/kit/mods.rs`,
   `src/kit/mods/host.rs` and `src/kit/view/mod_bar.rs` (where each mod is
   drawn); the menu mod is placed in `view/canvas_menu.rs`.
-- **The shipped mods.** `toolbar`, `tabs`, `share` and `toast` are in
-  `default`. The `mods` layout also uses `sidebar`, `dock`, `palette`,
-  `chat`, `menu` and `welcome`; `confirm` and `prompt` are dialogs any mod
+- **The shipped mods.** `default` draws every panel with a mod:
+  `toolbar`, `tabs`, `share`, `toast`, `sidebar`, `dock`, `palette`,
+  `chat` and `menu`; `welcome` is opt-in; `confirm` and `prompt` are dialogs any mod
   opens, `status` is `studio`'s status bar, and `star` is the example
   mod shape. A text field in a mod is the `Field` host component
   (`kit/mods/text_field.rs`), its text on `shared/field/<id>`.

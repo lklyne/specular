@@ -251,7 +251,7 @@ export default class Sidebar extends View {
                     .child(Icon.new(`${model.title.id}.glyph`, {
                       control: model.title.id,
                       name: model.title.icon,
-                      size: 16,
+                      size: 14,
                       color: k.toolbarText,
                     })),
                 ),

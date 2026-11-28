@@ -34,9 +34,9 @@ use crate::theme;
 /// take at its left.
 const TITLE: f32 = 38.0;
 const TRAFFIC_LIGHTS: f32 = 86.0;
-/// The toggle on the title bar, as the tab row's: a 28 px box, a 16 px glyph.
+/// The toggle on the title bar, as the tab row's: a 28 px box, a 14 px glyph.
 const TITLE_BUTTON: f32 = 28.0;
-const TITLE_GLYPH: f32 = 16.0;
+const TITLE_GLYPH: f32 = 14.0;
 /// A head: `h-9 px-3`, its chevron `gap-1.5` after the title.
 const HEAD: f32 = 36.0;
 const HEAD_PAD: f32 = 12.0;
