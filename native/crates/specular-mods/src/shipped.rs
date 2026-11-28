@@ -66,7 +66,7 @@ pub const MODS: &[Shipped] = &[
     shipped!("sidebar"),
     shipped!("notes"),
     shipped!("pages"),
-    shipped!("dock"),
+    shipped!("dock", "list.js"),
     shipped!("chat"),
     shipped!("status"),
     shipped!("feed"),
