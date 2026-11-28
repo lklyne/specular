@@ -43,9 +43,9 @@ fn log(run: &RunBar, bar: &RunBarView, cx: &App) -> impl IntoElement + use<> {
         .max_h(px(160.0))
         .overflow_y_scroll()
         .track_scroll(&bar.scroll)
-        .px_3()
-        .py_2()
-        .gap_1()
+        .px(crate::theme::space(3.0))
+        .py(crate::theme::space(2.0))
+        .gap(crate::theme::space(1.0))
         .font_family(cx.theme().mono_font_family.clone())
         .text_size(px(11.0))
         .line_height(relative(1.625))
@@ -61,8 +61,8 @@ fn strip(bar: &RunBarView) -> Div {
     h_flex()
         .h(px(36.0))
         .w_full()
-        .pr_2()
-        .gap_1()
+        .pr(crate::theme::space(2.0))
+        .gap(crate::theme::space(1.0))
         .items_center()
         // The avatar's picture is wider than the cube at rest, for the
         // corners to swing out into: the cube lines up with the

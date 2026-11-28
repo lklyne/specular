@@ -5,9 +5,9 @@ use glam::DVec2;
 use serde_json::Value;
 use specular_doc::{JsonMap, ModDraw};
 
-use super::args::{act, always, entity, idle, text};
+use super::args::{act, always, entity, idle, maybe_text, text, texts};
 use super::{CommandSpec, Run, RunError};
-use crate::mods::{ModAction, NewModItem};
+use crate::mods::{ModAction, NewModItem, ShapeChange};
 use crate::{Action, App};
 
 fn wrong(reason: &str) -> RunError {
@@ -76,6 +76,25 @@ pub(super) const MODS: &[CommandSpec] = &[
                 id: entity(args, "id")?,
                 props,
             })
+        },
+    },
+    CommandSpec {
+        name: "shape.set",
+        label: "",
+        args: "{ids: [shape id], params?: object, path?: outline}",
+        about: "Set keys of mod shapes' values and give them a new outline (SVG path data in a 0 to 100 box), one undo step; a null takes a key away.",
+        enabled: idle,
+        build: |args| {
+            let path = maybe_text(args, "path");
+            if let Some(path) = &path {
+                specular_doc::CustomShape::new("", JsonMap::new(), path)
+                    .map_err(|problem| wrong(&format!("`path`: {problem}")))?;
+            }
+            run(ModAction::SetShapes(ShapeChange {
+                ids: texts(args, "ids")?.into_iter().map(Into::into).collect(),
+                params: object(args, "params")?.unwrap_or_default(),
+                path,
+            }))
         },
     },
     CommandSpec {

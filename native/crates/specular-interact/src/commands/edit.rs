@@ -108,6 +108,11 @@ pub(super) const EDIT: &[CommandSpec] = &[
 fn add_item(args: &Value) -> Result<Run, RunError> {
     let kind = if args.get("kind").and_then(Value::as_str) == Some("mod") {
         NewKind::Mod(Box::new(super::mods::new_mod_item(args)?))
+    } else if let (Some("shape"), Some(name)) = (
+        args.get("kind").and_then(Value::as_str),
+        maybe_text(args, "shape"),
+    ) {
+        NewKind::CustomShape(name)
     } else {
         choice(
             args,
@@ -133,8 +138,8 @@ fn add_item(args: &Value) -> Result<Run, RunError> {
 pub(super) const ITEM: &[CommandSpec] = &[CommandSpec {
     name: "item.add",
     label: "",
-    args: "{kind: sticky|text|shape|mod, x?: number, y?: number, text?: string, mod?: name, props?: object, width?: number, height?: number}",
-    about: "Place a new item with its top-left at a canvas point (the middle of the view without one), in the tool's style, and select it. A `mod` item is one of an installed mod's, with its props.",
+    args: "{kind: sticky|text|shape|mod, x?: number, y?: number, text?: string, shape?: <mod>/<shape>, mod?: name, props?: object, width?: number, height?: number}",
+    about: "Place a new item with its top-left at a canvas point (the middle of the view without one), in the tool's style, and select it. A `shape` may name a mod's shape; a `mod` item is one of an installed mod's, with its props.",
     enabled: idle,
     build: add_item,
 }];

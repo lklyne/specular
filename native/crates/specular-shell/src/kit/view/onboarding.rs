@@ -78,18 +78,24 @@ pub(super) fn onboarding(model: &OnboardingModel, hero: Entity<HeroPrism>) -> im
                         .text_center()
                         .child(model.title),
                 )
-                .child(v_flex().mt_2().gap_2().items_center().children(body))
+                .child(
+                    v_flex()
+                        .mt_2()
+                        .gap(crate::theme::space(2.0))
+                        .items_center()
+                        .children(body),
+                )
                 .child(
                     h_flex()
                         .mt_8()
-                        .gap_3()
+                        .gap(crate::theme::space(3.0))
                         .justify_center()
                         .children(buttons.iter().map(button)),
                 )
                 .child(
                     h_flex()
                         .mt_3()
-                        .gap_2()
+                        .gap(crate::theme::space(2.0))
                         .justify_center()
                         .children(links.iter().map(link)),
                 )

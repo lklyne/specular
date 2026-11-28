@@ -5,7 +5,7 @@
 //! stretch with the rect. The rounded kinds keep true circular corners at
 //! any aspect ratio.
 
-use specular_doc::ShapeKind;
+use specular_doc::{OutlineCommand, Shape, ShapeKind};
 
 use crate::{PathCommand, Point, Rect};
 
@@ -29,8 +29,10 @@ pub(crate) enum Silhouette {
     Path(Vec<PathCommand>),
 }
 
-/// The outline of `kind` filling `rect`.
-pub(crate) fn silhouette(kind: ShapeKind, rect: Rect) -> Silhouette {
+/// The outline of `shape` filling `rect`. A custom shape without its
+/// outline is drawn as a rectangle.
+pub(crate) fn silhouette(shape: &Shape, rect: Rect) -> Silhouette {
+    let kind = shape.shape;
     let at = |x: f32, y: f32| normalized(rect, x, y);
     let polygon = |corners: &[(f32, f32)]| {
         Silhouette::Polygon(corners.iter().map(|&(x, y)| at(x, y)).collect())
@@ -70,7 +72,54 @@ pub(crate) fn silhouette(kind: ShapeKind, rect: Rect) -> Silhouette {
             quarter(at(50.0, 100.0), at(0.0, 100.0), at(0.0, 85.0)),
             PathCommand::Close,
         ]),
+        ShapeKind::Custom => shape
+            .custom
+            .as_ref()
+            .map_or(Silhouette::Rect(0.0), |custom| {
+                Silhouette::Path(custom_path(custom.outline(), rect))
+            }),
     }
+}
+
+/// A mod's outline, given in the 0 to 100 box, placed in `rect`. Every
+/// sub-path is closed, as a silhouette is.
+fn custom_path(outline: &[OutlineCommand], rect: Rect) -> Vec<PathCommand> {
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "an outline's coordinates are a 0 to 100 box"
+    )]
+    let at = |[x, y]: [f64; 2]| normalized(rect, x as f32, y as f32);
+    let mut out = Vec::with_capacity(outline.len() + 1);
+    let mut open = false;
+    for command in outline {
+        match *command {
+            OutlineCommand::MoveTo(to) => {
+                if open {
+                    out.push(PathCommand::Close);
+                }
+                out.push(PathCommand::MoveTo(at(to)));
+                open = true;
+            }
+            OutlineCommand::LineTo(to) => out.push(PathCommand::LineTo(at(to))),
+            OutlineCommand::QuadTo { control, to } => out.push(PathCommand::QuadTo {
+                control: at(control),
+                to: at(to),
+            }),
+            OutlineCommand::CubicTo { first, second, to } => out.push(PathCommand::CubicTo {
+                control1: at(first),
+                control2: at(second),
+                to: at(to),
+            }),
+            OutlineCommand::Close => {
+                out.push(PathCommand::Close);
+                open = false;
+            }
+        }
+    }
+    if open {
+        out.push(PathCommand::Close);
+    }
+    out
 }
 
 /// A stroke-only line drawn over the silhouette: the front of a cylinder's
@@ -91,7 +140,8 @@ pub(crate) fn overlay(kind: ShapeKind, rect: Rect) -> Option<Vec<PathCommand>> {
         | ShapeKind::Hexagon
         | ShapeKind::Pill
         | ShapeKind::Parallelogram
-        | ShapeKind::Chevron => None,
+        | ShapeKind::Chevron
+        | ShapeKind::Custom => None,
     }
 }
 
@@ -108,7 +158,8 @@ pub(crate) fn label_box(kind: ShapeKind, rect: Rect) -> Rect {
         | ShapeKind::Ellipse
         | ShapeKind::Hexagon
         | ShapeKind::Pill
-        | ShapeKind::Parallelogram => return rect,
+        | ShapeKind::Parallelogram
+        | ShapeKind::Custom => return rect,
     };
     let origin = normalized(rect, x, y);
     Rect::new(

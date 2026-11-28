@@ -1,7 +1,9 @@
 //! [`ModCatalog`]: the mods installed in the app home, as the shell found
 //! them.
 
-use super::{ModCommand, ModManifest, ModToolId, ToolSpec};
+use specular_doc::CustomShape;
+
+use super::{ModCommand, ModManifest, ModToolId, ShapeSpec, ToolSpec};
 
 /// One installed mod.
 #[derive(Debug, Clone, PartialEq)]
@@ -80,6 +82,26 @@ impl ModCatalog {
         let (name, command) = word.split_once('/')?;
         self.commands()
             .find(|(installed, spec)| installed.name == name && spec.name == command)
+    }
+
+    /// Every shape a mod adds, with its mod, in name order.
+    pub fn shapes(&self) -> impl Iterator<Item = (&InstalledMod, &ShapeSpec)> {
+        (self.mods.iter()).flat_map(|installed| {
+            installed
+                .manifest
+                .shapes
+                .iter()
+                .map(move |s| (installed, s))
+        })
+    }
+
+    /// A new shape of the kind a word such as `star/star` names, as its
+    /// mod's `mod.json` gives it.
+    pub fn shape_named(&self, word: &str) -> Option<CustomShape> {
+        let (name, shape) = word.split_once('/')?;
+        let (installed, spec) = (self.shapes())
+            .find(|(installed, spec)| installed.name == name && spec.name == shape)?;
+        spec.custom(&installed.name).ok()
     }
 
     /// The mods that run whatever the layout says, because they make canvas

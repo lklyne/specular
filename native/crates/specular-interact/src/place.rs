@@ -274,7 +274,8 @@ pub(crate) fn default_entity(app: &App, what: Placing, id: EntityId, at: DVec2) 
                 | ShapeKind::Hexagon
                 | ShapeKind::Parallelogram
                 | ShapeKind::Chevron
-                | ShapeKind::Cylinder => DEFAULT_SHAPE_SIZE,
+                | ShapeKind::Cylinder
+                | ShapeKind::Custom => DEFAULT_SHAPE_SIZE,
             };
             shape(app, id, geometry::rect(at, size))
         }
@@ -287,6 +288,7 @@ fn shape(app: &App, id: EntityId, rect: Rect) -> Entity {
         color: Some(defaults.color.clone()),
         stroke_width: Some(defaults.stroke_width),
         text_size: Some(defaults.text_size),
+        custom: defaults.custom.clone(),
         ..Shape::new(defaults.kind)
     };
     Entity::new(id, rect, Kind::Shape(shape))

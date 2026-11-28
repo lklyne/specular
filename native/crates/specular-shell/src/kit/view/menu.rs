@@ -40,7 +40,7 @@ pub(super) fn filled(mut menu: PopupMenu, model: &ControlsModel, pick: Pick) -> 
                 h_flex()
                     .id(id.clone())
                     .w_full()
-                    .gap_6()
+                    .gap(crate::theme::space(6.0))
                     .justify_between()
                     .text_size(px(12.0))
                     .child(label.clone())

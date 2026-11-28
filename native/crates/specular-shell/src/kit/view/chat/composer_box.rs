@@ -178,9 +178,9 @@ pub(crate) fn frame(id: impl Into<gpui_kit::ElementId>) -> gpui_kit::Stateful<gp
     gpui_kit::component::v_flex()
         .id(id)
         .rounded(crate::theme::corner(16.0))
-        .border_1()
+        .border(crate::theme::line())
         .border_color(theme::solid(theme::input_border()))
         .bg(theme::solid(theme::input()))
-        .px_2()
+        .px(crate::theme::space(2.0))
         .py(px(6.0))
 }

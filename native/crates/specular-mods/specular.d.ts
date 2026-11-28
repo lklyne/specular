@@ -1,9 +1,10 @@
 // The `specular` module (ADR 0055): what a mod imports to reach the app.
 // This file is checked in and written into the mods folder on every start.
-// `api` 1.3. Within a generation the surface only grows: 1.1 added canvas
+// `api` 1.4. Within a generation the surface only grows: 1.1 added canvas
 // items, tools and commands (ADR 0057); 1.2 added the window's own panels,
 // overlays, the look and text fields (ADR 0059); 1.3 added a key for each
-// chat thread and the `thread` arguments of the `chat.*` commands.
+// chat thread and the `thread` arguments of the `chat.*` commands; 1.4
+// added mod shapes (ADR 0060): `shapes` in `mod.json` and `shape.set`.
 
 /**
  * Every state key. `panels/*` are the app's own panel models as plain data;
@@ -34,10 +35,10 @@
  * - `chat/context`: what the next message goes with, as the panel's composer shows it: `{pill: {label, kind: "dom"|"comment"|"selection"|"canvas"}, folder, folderPath, auto: {origin, on} | null, model: {label, options: [{name, value, description, chosen}]}}` (1.3)
  * - `chat/thread/<id>`: one thread of the active canvas, `{id, title, draft, open, running, updatedAt, messages: [{id, role, text, images, artifacts: [{label, detail, created}]}], streaming, making, run: {label, log} | null, error, queued: [text], canSendEmpty, placeholder, emptyHint}`, or null while it is closed, on another canvas or not made yet. Moves only with its thread (1.3)
  * - `layouts`: `[{name, title, active}]`, every layout; `layout.switch {name}` shows one (1.2)
- * - `look`: `{appearance: "light"|"dark", theme, colors: {name: css color}, font, fontSize, radius, background}`, the layout's resolved look (1.2)
+ * - `look`: `{appearance: "light"|"dark", theme, colors: {name: css color}, font, fontSize, radius, spacing, borderWidth, background}`, the layout's resolved look (1.2; `spacing` and `borderWidth` 1.4)
  * - `overlays`: the open overlays, bottom to top `[{id, mod, kind, props, width, height, at, edge, frame}]` (1.2)
  * - `selection`: `{ids: [entity id], edges: [edge id]}` (1.2)
- * - `canvas/items`: every item of the active canvas, back to front `[{id, kind, label, parent, ..detail}]`, without places or sizes: a page adds `url`, text `text`, a shape `shape` and `text`, a mod item `mod` (1.2)
+ * - `canvas/items`: every item of the active canvas, back to front `[{id, kind, label, parent, ..detail}]`, without places or sizes: a page adds `url`, text `text`, a shape `shape`, `text` and `custom` (`{shape: <mod>/<shape>, params}` for a mod's shape, else null, 1.4), a mod item `mod` (1.2)
  * - `canvas/info`: `{id, name, items, edges, canvases: [{id, name, active}]}` (1.2)
  */
 export type StateKey =
@@ -99,7 +100,7 @@ export type StateKey =
  * - `edit.select-all`: Select everything that is not inside a group.
  * - `edit.select` `{ids?: [entity id], edges?: [edge id]}`: Replace the selection; ids that name nothing are dropped.
  * - `edit.nudge` `{dx: number, dy: number}`: Move the selection by exactly this many canvas units.
- * - `item.add` `{kind: sticky|text|shape|mod, x: number, y: number, text?: string, mod?: name, props?: object, width?: number, height?: number}`: Place a new item with its top-left at a canvas point, in the tool's style, and select it. A `mod` item is one of an installed mod's, with its props.
+ * - `item.add` `{kind: sticky|text|shape|mod, x?: number, y?: number, text?: string, shape?: <mod>/<shape>, mod?: name, props?: object, width?: number, height?: number}`: Place a new item with its top-left at a canvas point (the middle of the view without one), in the tool's style, and select it. A `shape` may name a mod's shape (1.4); a `mod` item is one of an installed mod's, with its props.
  * - `text.bold`: Toggle bold on the selected text.
  * - `text.italic`: Toggle italic on the selected text.
  * - `text.code`: Toggle inline code on the selected text.
@@ -168,6 +169,7 @@ export type StateKey =
  * - `ui.reset`: Set aside what was hidden and shown, and go back to the shipped layout.
  * - `notice.dismiss` `{id: notice id}`: Take away a page's notice in the `notices` key; it comes back if the page fails again.
  * - `item.set` `{id: mod item id, props: object}`: Set keys of a mod item's props, one undo step; a null takes a key away.
+ * - `shape.set` `{ids: [shape id], params?: object, path?: outline}`: Set keys of mod shapes' values and give them a new outline (SVG path data in a 0 to 100 box), one undo step; a null takes a key away (1.4).
  * - `item.draw` `{id: mod item id, draws: [{type: rect|ellipse|path|text|image, ..}]}`: Give a mod item the display list it shows, in item space. Not an undo step.
  * - `tool.preview` `{draws: [{type: rect|ellipse|path|text|image, ..}]}`: Show what the armed mod tool would make, in canvas units; an empty list clears it.
  * - `mods.install`: Install the mods this canvas uses and the app does not have, from the space folder.
@@ -341,7 +343,7 @@ export function colors(): {
   [name: string]: string;
 };
 
-/** The active layout's look: its appearance, theme name, resolved colours, font, control radius and background. */
+/** The active layout's look: its appearance, theme name, resolved colours, font, control radius, spacing unit (padding and gaps are multiples of it; null means 4), line width (null means 1) and background. Use them so a panel mod follows the theme as the app's own panels do. */
 export function look(): {
   appearance: "light" | "dark";
   theme: string | null;
@@ -349,6 +351,8 @@ export function look(): {
   font: string | null;
   fontSize: number | null;
   radius: number | null;
+  spacing: number | null;
+  borderWidth: number | null;
   background: any;
 };
 

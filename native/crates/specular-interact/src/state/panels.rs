@@ -81,7 +81,14 @@ fn detail(kind: &Kind) -> Value {
     match kind {
         Kind::Page(page) => json!({ "url": page.url }),
         Kind::Text(text) => json!({ "text": text.text }),
-        Kind::Shape(shape) => json!({ "shape": shape.shape, "text": shape.text }),
+        Kind::Shape(shape) => json!({
+            "shape": shape.shape,
+            "text": shape.text,
+            "custom": shape.custom.as_ref().map(|custom| json!({
+                "shape": custom.name,
+                "params": custom.params,
+            })),
+        }),
         Kind::Mod(item) => json!({ "mod": item.name }),
         Kind::File(_) | Kind::Group(_) | Kind::Drawing(_) => json!({}),
     }

@@ -99,7 +99,7 @@ fn layer(menu: Entity<PopupMenu>, corner: Vec2, window: &Window) -> AnyElement {
 /// point wider.
 fn edged(menu: Entity<PopupMenu>) -> AnyElement {
     div()
-        .border_1()
+        .border(crate::theme::line())
         .border_color(crate::theme::solid(crate::theme::chrome_border()))
         .rounded(px(crate::look::radius() + 1.0))
         .child(menu)

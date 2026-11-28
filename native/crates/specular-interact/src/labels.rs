@@ -122,5 +122,6 @@ pub(crate) const fn shape_label(shape: ShapeKind) -> &'static str {
         ShapeKind::Parallelogram => "Parallelogram",
         ShapeKind::Chevron => "Chevron",
         ShapeKind::Cylinder => "Cylinder",
+        ShapeKind::Custom => "Shape",
     }
 }

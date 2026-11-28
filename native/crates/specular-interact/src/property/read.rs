@@ -120,6 +120,16 @@ pub(crate) fn shape_kind(app: &App) -> Option<ShapeKind> {
     })
 }
 
+/// The mod shape every selected shape is, by its `<mod>/<shape>` name.
+pub(crate) fn custom_shape(app: &App) -> Option<String> {
+    of_entities(app, |entity, out| {
+        if let Kind::Shape(shape) = &entity.kind {
+            out.push(shape.custom.as_ref().map(|custom| custom.name.clone()));
+        }
+    })
+    .flatten()
+}
+
 /// Whether shapes are painted.
 pub(crate) fn fill_style(app: &App) -> Option<FillStyle> {
     of_entities(app, |entity, out| {

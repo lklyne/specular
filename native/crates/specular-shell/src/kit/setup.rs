@@ -126,14 +126,14 @@ fn card(
     };
     v_flex()
         .w_full()
-        .gap_3()
-        .p_4()
-        .border_1()
+        .gap(crate::theme::space(3.0))
+        .p(crate::theme::space(4.0))
+        .border(crate::theme::line())
         .border_color(rule())
         .rounded(cx.theme().radius_lg)
         .child(
             h_flex()
-                .gap_3()
+                .gap(crate::theme::space(3.0))
                 .child(
                     div()
                         .flex()
@@ -141,7 +141,7 @@ fn card(
                         .justify_center()
                         .size(px(32.0))
                         .rounded(cx.theme().radius)
-                        .border_1()
+                        .border(crate::theme::line())
                         .border_color(rule())
                         .bg(cx.theme().muted)
                         .child(Icon::new(item.icon).small()),
@@ -156,13 +156,13 @@ fn card(
         )
         .child(
             v_flex()
-                .gap_0p5()
+                .gap(crate::theme::space(0.5))
                 .child(note(item.detail))
                 .children(status_note(status).map(note)),
         )
         .child(
             h_flex()
-                .gap_2()
+                .gap(crate::theme::space(2.0))
                 .children(action.map(|label| {
                     Button::new(SharedString::from(format!("setup-install-{index}")))
                         .small()
@@ -193,7 +193,7 @@ fn card(
 }
 
 fn content(state: &Rc<RefCell<State>>, cx: &App) -> impl IntoElement + use<> {
-    let body = v_flex().w_full().gap_3().child(note(
+    let body = v_flex().w_full().gap(crate::theme::space(3.0)).child(note(
         "Agents work with Specular through a command and a skill. Install them here, or \
          skip this and come back from the Specular menu.",
     ));

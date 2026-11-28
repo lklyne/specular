@@ -31,7 +31,7 @@ fn picture(card: &ArtifactCard) -> impl IntoElement + use<> {
         .p(px(6.0))
         .gap(px(4.0))
         .rounded(crate::theme::corner(6.0))
-        .border_1()
+        .border(crate::theme::line())
         .border_color(theme::solid(theme::input_border()))
         .bg(theme::solid(theme::input()))
         .child(glyph(card.glyph, ink(theme::text()), None, false, 12.0))
@@ -65,7 +65,7 @@ fn card(id: SharedString, card: &ArtifactCard) -> AnyElement {
         .p(px(4.0))
         .gap(px(4.0))
         .rounded(crate::theme::corner(12.0))
-        .border_1()
+        .border(crate::theme::line())
         .border_color(theme::solid(theme::input_border()))
         .child(picture(card))
         .child(

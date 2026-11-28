@@ -9,6 +9,7 @@
 use std::path::Path;
 
 use serde_json::{Value, json};
+use specular_doc::{Color, ColorPreset, Kind, ShapeKind};
 use specular_interact::mods::{InstalledMod, ModCatalog, ModManifest};
 use specular_interact::{Event, run_named};
 use specular_mods::shipped;
@@ -120,7 +121,7 @@ fn the_ink_pen_previews_its_stroke_and_places_it_on_release(cx: &mut gpui::TestA
 }
 
 #[gpui::test]
-fn a_star_from_the_shape_picker_is_drawn_placed_and_undone(cx: &mut gpui::TestAppContext) {
+fn a_star_is_a_shape_in_the_tools_style_and_its_mod_reshapes_it(cx: &mut gpui::TestAppContext) {
     let mut app = window_app();
     app.send(Event::ModCatalog(ModCatalog {
         mods: vec![installed("star")],
@@ -131,26 +132,56 @@ fn a_star_from_the_shape_picker_is_drawn_placed_and_undone(cx: &mut gpui::TestAp
         "control.press",
         &json!({ "id": "shape.kind.star/star" }),
     );
+    run(
+        &mut app,
+        "control.press",
+        &json!({ "id": "shape.color.cyan" }),
+    );
     let mut loaded = timed_load(&app, "star", json!({}), NONE, cx);
-    app.press((100.0, 100.0)).drag_to((220.0, 200.0));
-    assert!(loaded.step(&app), "the drag is a `tool` change");
-    app.release();
-    assert!(loaded.step(&app), "the release is a `tool` change");
+    app.press((100.0, 100.0)).drag_to((220.0, 200.0)).release();
+    assert!(!loaded.step(&app), "the app places the star, not the mod");
+    let star = app.selected_ids()[0].to_owned();
+    let shape = |app: &TestApp| match &app
+        .document()
+        .entity(&star.as_str().into())
+        .expect("star")
+        .kind
+    {
+        Kind::Shape(shape) => shape.clone(),
+        other => panic!("a star is a shape, not {other:?}"),
+    };
+    let placed = shape(&app);
+    assert_eq!(placed.shape, ShapeKind::Custom);
+    assert_eq!(
+        placed.color,
+        Some(Color::Preset(ColorPreset::Cyan)),
+        "the tool's colour"
+    );
+    let custom = placed.custom.expect("its outline");
+    assert_eq!(
+        (custom.name.as_str(), &custom.params["points"]),
+        ("star/star", &json!(5))
+    );
+
+    run(
+        &mut app,
+        "control.press",
+        &json!({ "id": "mod.star/points" }),
+    );
+    assert!(loaded.step(&app), "the dock button is a `call`");
     let runs = loaded.runs();
-    assert!(
-        runs_of(&runs, "tool.preview")[0].contains("\"closed\":true"),
-        "{runs:?}"
+    let asked = runs_of(&runs, "shape.set");
+    assert_eq!(asked.len(), 1, "{asked:?}");
+    let args: Value = serde_json::from_str(&asked[0]["shape.set ".len()..]).expect("json");
+    run(&mut app, "shape.set", &args);
+    let reshaped = shape(&app);
+    let custom = reshaped.custom.expect("its outline");
+    assert_eq!(custom.params["points"], json!(6));
+    assert_eq!(
+        custom.path().matches('L').count(),
+        11,
+        "six points, twelve corners"
     );
-    let placed = runs_of(&runs, "item.add");
-    assert_eq!(placed.len(), 1, "{placed:?}");
-    // What the mod asked for, run as the window would run it.
-    let args: Value = serde_json::from_str(&placed[0]["item.add ".len()..]).expect("json");
-    run(&mut app, "item.add", &args);
-    assert!(
-        loaded.step(&app),
-        "the new item is a `canvas/mod_items` change"
-    );
-    let draws = runs_of(&loaded.runs(), "item.draw").len();
-    assert_eq!(draws, 1, "the star draws its item");
+    assert_eq!(reshaped.color, placed.color, "the style stays");
     app.assert_undo_returns_to_start();
 }

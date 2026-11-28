@@ -45,6 +45,28 @@ pub(super) fn tool_controls(app: &App, id: ModToolId) -> Option<ControlsModel> {
     (!controls.is_empty()).then_some(ControlsModel { controls })
 }
 
+/// The dock buttons of the mod whose shapes every one of `entities` is,
+/// so a mod's commands sit beside the style of the shapes it gave.
+pub(super) fn shape_buttons(app: &App, entities: &[&Entity]) -> Vec<Control> {
+    let name = |entity: &&Entity| match &entity.kind {
+        Kind::Shape(shape) => (shape.custom.as_ref()).map(|custom| custom.mod_name().to_owned()),
+        Kind::Page(_)
+        | Kind::Text(_)
+        | Kind::File(_)
+        | Kind::Group(_)
+        | Kind::Drawing(_)
+        | Kind::Mod(_) => None,
+    };
+    let first = entities.first().and_then(name);
+    let Some(shared) =
+        first.filter(|first| entities.iter().all(|e| name(e).as_ref() == Some(first)))
+    else {
+        return Vec::new();
+    };
+    let ids: Vec<&str> = entities.iter().map(|entity| entity.id.as_str()).collect();
+    buttons(app, &shared, &json!({ "ids": ids }))
+}
+
 /// The dock for selected mod items: their mod's buttons when they share
 /// one, then arranging and annotating.
 pub(super) fn controls(app: &App, entities: &[&Entity]) -> ControlsModel {

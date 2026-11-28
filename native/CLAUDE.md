@@ -334,7 +334,7 @@ A mod (ADR 0055) is a folder of `mod.json` and `main.js`, run by
   `default`. The `mods` layout also uses `sidebar`, `dock`, `palette`,
   `chat`, `menu` and `welcome`; `confirm` and `prompt` are dialogs any mod
   opens, `status` is `studio`'s status bar, and `star` is the example
-  shape tool. A text field in a mod is the `Field` host component
+  mod shape. A text field in a mod is the `Field` host component
   (`kit/mods/text_field.rs`), its text on `shared/field/<id>`.
 - **What a mod can call.** `run` resolves through `run_named` and the work
   is deferred out of the script call. Rust-drawn pieces are host
@@ -357,6 +357,10 @@ A mod (ADR 0055) is a folder of `mod.json` and `main.js`, run by
   (`specular-interact/src/state/panels.rs`), the `chat.*` and
   `overlay.*` commands, and a mod tool with `"group": "shape"` listed in
   the shape tool's options (`panel/dock/shape.rs`).
+- **Mod shapes (ADR 0060, API 1.4).** `shapes` in `mod.json` give
+  `ShapeKind::Custom` shapes (`specular-doc/src/custom_shape.rs`) that the
+  shape tool, the dock (`panel/dock/shape.rs`) and `view` treat as any
+  shape; `shape.set` (`specular-interact/src/mods/shape.rs`) reshapes them.
 - **Threads anywhere (API 1.3).** `chat/threads` and a `chat/thread/<id>`
   key for each thread of the active canvas
   (`specular-interact/src/state/chat.rs`), published beside the fixed

@@ -39,7 +39,7 @@ fn framed(spec: &OverlaySpec, content: AnyElement) -> gpui_kit::Div {
     }
     body.rounded(px(crate::look::radius_large()))
         .bg(theme::solid(theme::popup()))
-        .border_1()
+        .border(crate::theme::line())
         .border_color(theme::solid(theme::chrome_border()))
         .shadow_lg()
 }

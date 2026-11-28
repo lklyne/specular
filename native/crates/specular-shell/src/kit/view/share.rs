@@ -106,8 +106,8 @@ fn content(model: &ShareButton) -> AnyElement {
         .on_click(move |_, window, cx| run(&action, window, cx));
     v_flex()
         .w(px(WIDTH))
-        .p_1()
-        .gap_2()
+        .p(crate::theme::space(1.0))
+        .gap(crate::theme::space(2.0))
         .child(trigger)
         .children(choices)
         .child(copy)
@@ -139,7 +139,7 @@ pub(super) fn share(model: &ShareButton) -> AnyElement {
         .child(div().text_xs().child("Share"))
         .child(mark(&model.id));
     Popover::new(element_id(&model.id))
-        .p_2()
+        .p(crate::theme::space(2.0))
         .trigger(trigger)
         .on_open_change(|_, _, _| CHOOSING.set(false))
         .content(move |_, _, _| {

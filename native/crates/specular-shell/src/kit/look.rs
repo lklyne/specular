@@ -18,6 +18,8 @@ struct Held {
     font: Option<String>,
     font_size: Option<f32>,
     radius: Option<f32>,
+    spacing: Option<f32>,
+    border_width: Option<f32>,
 }
 
 thread_local! {
@@ -54,6 +56,8 @@ pub(crate) fn set(resolved: &Resolved) -> bool {
         font: resolved.font.clone(),
         font_size: resolved.font_size,
         radius: resolved.radius,
+        spacing: resolved.spacing,
+        border_width: resolved.border_width,
     };
     HELD.with_borrow_mut(|now| {
         if *now == held {
@@ -89,6 +93,21 @@ pub(crate) fn radius() -> f32 {
 /// [`radius`] scaled as the Kit scales its large radius.
 pub(crate) fn radius_large() -> f32 {
     radius() * 10.0 / 6.0
+}
+
+/// The chrome's spacing unit, 4 points unless the layout says: padding and
+/// gaps are multiples of it.
+pub(crate) fn spacing() -> f32 {
+    HELD.with_borrow(|held| held.spacing)
+        .unwrap_or(4.0)
+        .max(0.0)
+}
+
+/// The width of the chrome's lines, 1 point unless the layout says.
+pub(crate) fn border_width() -> f32 {
+    HELD.with_borrow(|held| held.border_width)
+        .unwrap_or(1.0)
+        .max(0.0)
 }
 
 /// A colour a layout writes: `#rrggbb[aa]`, or a colour's name as a mod's

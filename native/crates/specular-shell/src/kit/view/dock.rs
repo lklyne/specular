@@ -39,12 +39,12 @@ pub(super) fn dock(
             .left(px(left))
             .right_0()
             .h(px(theme::DOCK_ROW))
-            .pl_2()
-            .pr_3()
-            .gap_1()
+            .pl(crate::theme::space(2.0))
+            .pr(crate::theme::space(3.0))
+            .gap(crate::theme::space(1.0))
             .items_center()
             .bg(theme::solid(theme::toolbar()))
-            .border_b_1()
+            .border_b(crate::theme::line())
             .border_color(theme::solid(theme::toolbar_border()))
             .child(
                 // A focused field's ring is drawn outside it, so the row
@@ -53,8 +53,8 @@ pub(super) fn dock(
                     .flex_1()
                     .min_w_0()
                     .h_full()
-                    .px_1()
-                    .gap_1()
+                    .px(crate::theme::space(1.0))
+                    .gap(crate::theme::space(1.0))
                     .items_center()
                     .overflow_hidden()
                     .children(controls),
@@ -62,7 +62,7 @@ pub(super) fn dock(
             .child(
                 h_flex()
                     .flex_shrink_0()
-                    .gap_1()
+                    .gap(crate::theme::space(1.0))
                     .items_center()
                     .children(toolbar::lens(toolbar, window, cx)),
             ),

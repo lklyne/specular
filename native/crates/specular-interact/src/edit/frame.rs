@@ -70,7 +70,8 @@ fn label_box(kind: ShapeKind, rect: Rect) -> Rect {
         | ShapeKind::Ellipse
         | ShapeKind::Hexagon
         | ShapeKind::Pill
-        | ShapeKind::Parallelogram => return rect,
+        | ShapeKind::Parallelogram
+        | ShapeKind::Custom => return rect,
     };
     Rect::new(
         rect.x + rect.width * x / 100.0,
