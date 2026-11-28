@@ -36,7 +36,7 @@ pub(crate) fn answer(request: &Request, segments: &[&str]) -> Result<Step, Respo
         // (ADR 0046), so the CLI's head start for it is not needed, and an
         // MCP heartbeat has nothing to keep alive.
         (Method::Get, ["session", "presence"]) => Ok(Step::Answer(json!({ "cursors": [] }))),
-        (Method::Post, ["session", "presence", "intent"] | ["mcp", "session", "open" | "ping"]) => {
+        (Method::Post, ["session", "presence", "intent"] | ["mcp", "session", "ping"]) => {
             Ok(Step::Answer(json!({ "ok": true })))
         }
         _ => Err(match verbs(request.method, segments) {

@@ -68,7 +68,7 @@ the app rewrites them on start. `<app home>` is
   something is in neither the guide nor the types, assume a mod can't do it.
 - Make only the requested change. Don't touch unrelated mods or layouts.
 
-## Common asks (API 1.3)
+## Common asks (API 1.4)
 
 - **A new shape.** A mod with a tool of `"group": "shape"` and an item: the
   tool shows in the shape tool's options, previews with `tool.preview`,
@@ -96,6 +96,12 @@ the app rewrites them on start. `<app home>` is
   a thread on the canvas is the shipped `thread` mod (`specular run
   thread/new`), a web item to clone for your own look. The guide's "Chat
   threads anywhere" has the shapes.
+- **Show who is on the canvas, or follow an agent.** The `agents` key lists
+  the agents with a cursor here (`{agents: [{id, name, color, label}],
+  following}`, no positions). `run("view.follow", {agent: id})` keeps the
+  camera on one until the person pans, zooms or presses Escape. The
+  shipped `tabs` mod draws them as badges beside Share; hide those with
+  `"hidden": ["agents"]` and draw your own anywhere.
 
 ## After every mod change
 

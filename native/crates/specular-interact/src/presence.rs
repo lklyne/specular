@@ -20,11 +20,18 @@
 
 pub(crate) mod canvas;
 mod cursor;
+pub(crate) mod follow;
+mod roster;
+
+pub use self::roster::{AGENT_COLORS, AgentBadge, agent_color};
+pub(crate) use self::roster::{agents_json, name as name_agent};
+
+use std::collections::BTreeMap;
 
 use glam::DVec2;
-use specular_doc::EntityId;
+use specular_doc::{EntityId, Rect};
 
-use self::cursor::{Anchor, Cursor, IDLE_MS, NEGLIGIBLE_PX, RIPPLE_MS, travel_ms};
+use self::cursor::{Anchor, Cursor, GLOW_MS, IDLE_MS, NEGLIGIBLE_PX, RIPPLE_MS, travel_ms};
 use crate::{App, Effect};
 
 /// agent-browser is about to act on a page and is waiting to be told to.
@@ -59,6 +66,9 @@ pub struct AgentCursor {
     pub trail: Vec<DVec2>,
     /// How far the ring of its landing has spread, from 0 to 1.
     pub ripple: Option<f32>,
+    /// The items it read lately, in canvas space, each with how lit it
+    /// still is, from 1 to 0.
+    pub read: Vec<(Rect, f32)>,
 }
 
 /// Every agent cursor of the session.
@@ -69,6 +79,10 @@ pub(crate) struct Presence {
     seen: usize,
     /// Counts the ticks that moved a cursor or took one away.
     epoch: u64,
+    /// The agent the camera follows.
+    following: Option<String>,
+    /// The names agents gave themselves.
+    names: BTreeMap<String, String>,
 }
 
 impl Presence {
@@ -157,7 +171,7 @@ pub(crate) fn on_act(app: &mut App, act: AgentAct, effects: &mut Vec<Effect>) {
     } else {
         let from = placement.to_canvas(DVec2::ZERO);
         let mut cursor = Cursor::new(agent, anchor, from, label);
-        cursor.travel_ms = travel_ms(app, from, target);
+        cursor.travel_ms = travel_ms(app, from, target, label);
         cursor
     };
     cursor.acted_ms = None;
@@ -182,18 +196,25 @@ pub(crate) fn on_tick(app: &mut App, effects: &mut Vec<Effect>) {
     let mut changed = false;
     let mut onward = Vec::new();
     for (index, cursor) in app.session.presence.cursors.iter_mut().enumerate() {
-        changed |= !cursor.arrived(now) || cursor.ripple(now).is_some();
+        cursor
+            .read
+            .retain(|(_, at)| now.saturating_sub(*at) < GLOW_MS);
+        changed |= !cursor.arrived(now) || cursor.ripple(now).is_some() || !cursor.read.is_empty();
         cursor.started_ms.get_or_insert(now);
         cursor.acted_ms.get_or_insert(now);
         if cursor.arrived(now) && cursor.landed_ms.is_none() {
             cursor.landed_ms = Some(now);
             cursor.acted_ms = Some(now);
+            cursor
+                .read
+                .extend(cursor.item.take().map(|item| (item, now)));
             effects.extend((cursor.waiting.take()).map(|ticket| Effect::AgentGo { ticket }));
         }
         let thinking = cursor.thinking(now);
         changed |= thinking != cursor.drawn_thinking;
         cursor.drawn_thinking = thinking;
-        let dwelt = (cursor.landed_ms).is_some_and(|landed| now >= landed + canvas::STOP_DWELL_MS);
+        let dwell = canvas::dwell_ms(cursor.label);
+        let dwelt = (cursor.landed_ms).is_some_and(|landed| now >= landed + dwell);
         if dwelt && !cursor.stops.is_empty() {
             onward.push(index);
         }
@@ -210,6 +231,7 @@ pub(crate) fn on_tick(app: &mut App, effects: &mut Vec<Effect>) {
                 },
                 stop.label,
             );
+            cursor.item = stop.item;
             cursor.started_ms = Some(now);
         }
         app.session.presence.cursors[index] = cursor;
@@ -254,6 +276,7 @@ impl App {
                     alpha: cursor.alpha(now),
                     trail: cursor.trail(self),
                     ripple: cursor.ripple(now),
+                    read: cursor.glow(now),
                 })
             })
             .collect()
@@ -267,17 +290,20 @@ impl App {
         }
     }
 
-    /// Whether an agent cursor is on its way or rippling, so the shell keeps
-    /// ticking and drawing a frame at a time until it settles.
+    /// Whether an agent cursor is on its way, rippling or lighting what it
+    /// read, or the camera is catching up with a followed one, so the shell
+    /// keeps ticking and drawing a frame at a time until it settles.
     pub fn agent_cursor_travelling(&self) -> bool {
         let now = self.session.now_ms;
-        (self.session.presence.cursors.iter()).any(|cursor| {
+        let cursors = (self.session.presence.cursors.iter()).any(|cursor| {
             !cursor.arrived(now)
                 || !cursor.stops.is_empty()
+                || !cursor.read.is_empty()
                 || cursor
                     .landed_ms
                     .is_some_and(|landed| cursor.ripples && now.saturating_sub(landed) < RIPPLE_MS)
-        })
+        });
+        cursors || follow::moving(self)
     }
 
     /// Counts the ticks that moved an agent cursor or took one away, so a

@@ -53,6 +53,9 @@ pub enum Action {
     Sidebar(SidebarAction),
     /// Move the camera.
     SetCamera(Camera),
+    /// Keep the camera on this agent's cursor, by its session, or stop
+    /// following with `None`.
+    Follow(Option<String>),
     /// Remove the selection, with what is inside its groups, what is hooked
     /// to its pages and the edges that would lose an end.
     Delete,

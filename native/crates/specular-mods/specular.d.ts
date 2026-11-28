@@ -3,7 +3,8 @@
 // `api` 1.3. Within a generation the surface only grows: 1.1 added canvas
 // items, tools and commands (ADR 0057); 1.2 added the window's own panels,
 // overlays, the look and text fields (ADR 0059); 1.3 added a key for each
-// chat thread and the `thread` arguments of the `chat.*` commands.
+// chat thread and the `thread` arguments of the `chat.*` commands; 1.4 added
+// the `agents` key and `view.follow`.
 
 /**
  * Every state key. `panels/*` are the app's own panel models as plain data;
@@ -38,6 +39,7 @@
  * - `selection`: `{ids: [entity id], edges: [edge id]}` (1.2)
  * - `canvas/items`: every item of the active canvas, back to front `[{id, kind, label, parent, ..detail}]`, without places or sizes: a page adds `url`, text `text`, a shape `shape` and `text`, a mod item `mod` (1.2)
  * - `canvas/info`: `{id, name, items, edges, canvases: [{id, name, active}]}` (1.2)
+ * - `agents`: the agents with a cursor on the canvas showing, in the order they first acted, `{agents: [{id, name, color: "#rrggbb", label}], following: agent id | null}`. `label` is what the cursor's chip says ("moving", "reading", "thinking" ..). No positions, so a cursor's travel wakes no mod; `view.follow {agent: id}` keeps the camera on one (1.4)
  */
 export type StateKey =
   | "panels/toolbar"
@@ -65,7 +67,8 @@ export type StateKey =
   | "canvas/items"
   | "canvas/info"
   | "chat/threads"
-  | `chat/thread/${string}`;
+  | `chat/thread/${string}`
+  | "agents";
 /**
  * Every command `run` takes, with its arguments and what it does.
  *
@@ -157,6 +160,7 @@ export type StateKey =
  * - `view.zoom-to-fit`: Show everything on the canvas, centred.
  * - `view.zoom` `{percent: number}`: Zoom to this many percent about the middle of the viewport.
  * - `view.camera` `{x: number, y: number, zoom: number}`: Move the camera: the pan in screen pixels, and the zoom.
+ * - `view.follow` `{agent?: agent id from `agents`}`: Keep the camera on an agent's cursor, with a frame in its colour, until the person pans, zooms or presses Escape; with no agent, stop following (1.4).
  * - `view.reveal` `{id: entity id}`: Select an entity and pan it into view.
  * - `view.theme` `{theme: light|dark|system}`: Choose the theme and save the choice.
  * - `view.toggle-sidebar`: Show the sidebar, or hide it.
@@ -276,6 +280,7 @@ export type CommandName =
   | "view.zoom-to-fit"
   | "view.zoom"
   | "view.camera"
+  | "view.follow"
   | "view.reveal"
   | "view.theme"
   | "view.toggle-sidebar"

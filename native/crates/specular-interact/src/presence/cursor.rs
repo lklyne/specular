@@ -4,7 +4,7 @@
 use std::collections::VecDeque;
 
 use glam::DVec2;
-use specular_doc::EntityId;
+use specular_doc::{EntityId, Rect};
 
 use crate::{App, CanvasId};
 
@@ -14,6 +14,10 @@ const TRAVEL_BASE_MS: f64 = 90.0;
 const TRAVEL_MS_PER_PX: f64 = 0.35;
 /// The longest travel, however far.
 const TRAVEL_MAX_MS: f64 = 320.0;
+/// The longest travel while reading, which hops from item to item quickly.
+const READ_TRAVEL_MAX_MS: f64 = 120.0;
+/// How long an item the cursor read stays lit.
+pub(super) const GLOW_MS: u64 = 700;
 /// The screen distance, in pixels, under which a cursor is already there.
 pub(super) const NEGLIGIBLE_PX: f64 = 2.0;
 /// How long a cursor rests on its target before the act, so the arrival is
@@ -56,6 +60,8 @@ pub(super) enum Anchor {
 pub(super) struct Stop {
     pub(super) at: DVec2,
     pub(super) label: &'static str,
+    /// The item it reads, lit once the cursor lands on it.
+    pub(super) item: Option<Rect>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -82,6 +88,10 @@ pub(super) struct Cursor {
     pub(super) stops: VecDeque<Stop>,
     pub(super) slot: usize,
     pub(super) seed: u32,
+    /// The item the travel reads, lit when it lands.
+    pub(super) item: Option<Rect>,
+    /// The items it has read lately, and when.
+    pub(super) read: Vec<(Rect, u64)>,
     /// Whether the last frame drew it thinking, so the turn to "thinking"
     /// is drawn even with no drift to draw it.
     pub(super) drawn_thinking: bool,
@@ -106,6 +116,8 @@ impl Cursor {
             stops: VecDeque::new(),
             slot: 0,
             seed,
+            item: None,
+            read: Vec::new(),
             drawn_thinking: false,
         }
     }
@@ -144,6 +156,22 @@ impl Cursor {
         let control = self.from.midpoint(target) + span.perp() * BEND * self.side;
         let rest = 1.0 - share;
         self.from * rest * rest + control * 2.0 * rest * share + target * share * share
+    }
+
+    /// Where the tip is on its path now, with no drift: what a follow
+    /// keeps in view.
+    pub(super) fn resting(&self, app: &App) -> Option<DVec2> {
+        Some(self.along(self.target(app)?, self.progress(app.session.now_ms)))
+    }
+
+    /// The items read lately, each with how lit it still is, from 1 to 0.
+    pub(super) fn glow(&self, now_ms: u64) -> Vec<(Rect, f32)> {
+        (self.read.iter())
+            .filter_map(|(rect, at)| {
+                let spent = now_ms.saturating_sub(*at);
+                (spent < GLOW_MS).then(|| (*rect, 1.0 - spent as f32 / GLOW_MS as f32))
+            })
+            .collect()
     }
 
     /// Where the tip is drawn now, drift included.
@@ -253,18 +281,27 @@ impl Cursor {
         self.label = label;
         self.started_ms = None;
         self.landed_ms = None;
-        self.travel_ms = self.target(app).map_or(0, |to| travel_ms(app, from, to));
+        self.travel_ms = self
+            .target(app)
+            .map_or(0, |to| travel_ms(app, from, to, label));
         self.side = -self.side;
+        self.item = None;
     }
 }
 
 /// How long a travel from `from` to `to` takes to show.
-pub(super) fn travel_ms(app: &App, from: DVec2, to: DVec2) -> u64 {
+/// Reading hops quicker than an act travels.
+pub(super) fn travel_ms(app: &App, from: DVec2, to: DVec2, label: &str) -> u64 {
     let distance_px = (to - from).length() * f64::from(app.session.camera.zoom);
     if !app.session.motion.enabled() || distance_px < NEGLIGIBLE_PX {
         return 0;
     }
-    (TRAVEL_BASE_MS + TRAVEL_MS_PER_PX * distance_px).min(TRAVEL_MAX_MS) as u64
+    let most = if label == "reading" {
+        READ_TRAVEL_MAX_MS
+    } else {
+        TRAVEL_MAX_MS
+    };
+    (TRAVEL_BASE_MS + TRAVEL_MS_PER_PX * distance_px).min(most) as u64
 }
 
 /// Two sines a golden ratio apart, so the wander never shows a short loop,

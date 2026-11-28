@@ -306,6 +306,10 @@ logs the port it took and the `SPECULAR_DISCOVERY_FILE=` to pass the CLI.
   cursor to what changed. A route needs no presence code of its own.
   `POST /session/presence` with a `labelKey` (`scan_workspace`, `thinking`,
   `departing`, ...) is `ApiRun::Report`.
+- Who is on the canvas is `App::agents()` and the `agents` state key
+  (`presence/roster.rs`); `view.follow` is `Action::Follow`
+  (`presence/follow.rs`). A camera move the person makes, or Escape, ends a
+  follow.
 
 ### Mods
 
