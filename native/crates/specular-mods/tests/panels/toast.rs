@@ -58,6 +58,11 @@ fn the_toast_shows_every_notice_the_model_lists_but_those_hidden(cx: &mut TestAp
             !hidden.contains(&"page.p1.crashed"),
             "the stopped page offers Reload:\n{tree}"
         );
+        assert_eq!(
+            tree.contains("Button \"page.p2.http.show\""),
+            !hidden.contains(&"page.p2.http"),
+            "a page's notice offers Show:\n{tree}"
+        );
     }
     let mut quiet = window_app();
     let mut loaded = Loaded::new(&quiet, "toast", json!({}), SIZE, cx);
