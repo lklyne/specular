@@ -19,6 +19,7 @@ use specular_bench::{FrameWork, PaintPolicy};
 use specular_core::{PageEvent, PageId, PageSource};
 use specular_doc::{Document, EntityId};
 use specular_interact::{Action, ApiOutcome, App, Event, ImageKey, SpaceAsk, update};
+use specular_scene::ColumnMeasure;
 
 use super::demand::FrameDemand;
 use super::{START_CAMERA, agent_run, image_run, note_run, repos_run};
@@ -126,8 +127,8 @@ pub struct Runtime<W> {
     /// The thread that reads and watches markdown files. `None` if it could
     /// not be started; every Document then stays on its loading line.
     pub(crate) note_loader: Option<NoteLoader>,
-    /// The Document heights the app was last told, to tell it only changes.
-    pub(crate) note_heights: HashMap<EntityId, f32>,
+    /// The Document layouts the app was last told, to tell it only changes.
+    pub(crate) note_layouts: HashMap<EntityId, ColumnMeasure>,
     /// What `view` keeps from one frame to the next.
     pub(crate) view_cache: specular_scene::ViewCache,
     /// The live room connection of each shared canvas.
@@ -223,7 +224,7 @@ impl<W: ShellWindow> Runtime<W> {
             images: HashSet::new(),
             uploaded: Uploaded::default(),
             note_loader: note_run::start_loader(space_folder),
-            note_heights: HashMap::new(),
+            note_layouts: HashMap::new(),
             view_cache: specular_scene::ViewCache::default(),
             shares: super::share_run::Shares::default(),
             agents: agent_run::start_runs(options.agents),

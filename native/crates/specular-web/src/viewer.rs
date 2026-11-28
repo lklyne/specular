@@ -688,7 +688,7 @@ impl Viewer {
         // its text, changes without input: that is accepted as it comes.
         let unprompted = matches!(
             event,
-            Event::Note { .. } | Event::Image { .. } | Event::NoteHeights(_)
+            Event::Note { .. } | Event::Image { .. } | Event::NoteLayouts(_)
         );
         let mut queue = vec![event];
         while let Some(event) = queue.pop() {

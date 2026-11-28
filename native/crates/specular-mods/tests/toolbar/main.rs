@@ -97,7 +97,7 @@ impl Loaded {
         let window = {
             let (slot, hosting) = (slot.clone(), hosting.clone());
             cx.add_window(move |window, cx| {
-                let toolbar = Mod::load("toolbar", &dir, &data, &hosting, false, window, cx)
+                let toolbar = Mod::load("toolbar", &dir, &data, &hosting, window, cx)
                     .expect("the shipped toolbar loads");
                 let root = Root(toolbar.view(cx));
                 *slot.borrow_mut() = Some(toolbar);

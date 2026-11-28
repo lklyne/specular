@@ -1,7 +1,8 @@
 // The notices, drawn from `notices` in the canvas's lower right corner: a
 // page that stopped or answered an HTTP error, a share that failed. Each
-// card offers what its notice offers (Reload, Try again) and, when the
-// notice can be dismissed, a close button that runs `notice.dismiss`.
+// card offers what its notice offers (Reload, Try again), Show when the
+// notice is about an item (`view.reveal`), and, when the notice can be
+// dismissed, a close button that runs `notice.dismiss`.
 //
 // A layout hides a notice by listing its id in this mod's props:
 //   { "mod": "toast", "props": { "hidden": ["share.failed"] } }
@@ -11,21 +12,29 @@ import { state, props, run, colors, Icon } from "specular";
 
 const WIDTH = 320;
 
+function button(id, label, onClick, k) {
+  return Button.new(id)
+    .h(24)
+    .px(10)
+    .flex()
+    .items_center()
+    .rounded(6)
+    .border_1()
+    .border_color(k.popupBorder)
+    .hover((el) => el.bg(k.hover))
+    .on_click(onClick)
+    .child(div().text_xs().child(label));
+}
+
 function card(notice, k) {
   const tone = notice.level === "error" ? k.error : notice.level === "warning" ? k.warning : k.textMuted;
-  const action = notice.action
-    ? Button.new(`${notice.id}.action`)
-        .h(24)
-        .px(10)
-        .flex()
-        .items_center()
-        .rounded(6)
-        .border_1()
-        .border_color(k.popupBorder)
-        .hover((el) => el.bg(k.hover))
-        .on_click(() => run(notice.action.run, notice.action.args))
-        .child(div().text_xs().child(notice.action.label))
-    : null;
+  const buttons = [];
+  if (notice.about) {
+    buttons.push(button(`${notice.id}.show`, "Show", () => run("view.reveal", { id: notice.about }), k));
+  }
+  if (notice.action) {
+    buttons.push(button(`${notice.id}.action`, notice.action.label, () => run(notice.action.run, notice.action.args), k));
+  }
   const dismiss = notice.dismiss
     ? Button.new(`${notice.id}.dismiss`)
         .size(20)
@@ -57,7 +66,7 @@ function card(notice, k) {
         .min_w(0)
         .gap(8)
         .child(div().text_sm().child(notice.text))
-        .when(action != null, (el) => el.child(h_flex().child(action))),
+        .when(buttons.length > 0, (el) => el.child(h_flex().gap(6).children(buttons))),
     )
     .when(dismiss != null, (el) => el.child(dismiss));
 }

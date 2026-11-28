@@ -23,8 +23,8 @@ use super::{editing, palette};
 use crate::cache::NoteRows;
 use crate::markdown::{self, Block, BlockKind, ColumnAlign, Inline, InlineSpan, Marker, Table};
 use crate::{
-    Color, Colors, ColumnDraw, FontFamily, Item, Point, RectDraw, Row, RowRule, RuleHeight, Scene,
-    SpanStyle, TextAlign, TextRun, TextSpan,
+    Color, Colors, ColumnDraw, FontFamily, Item, Point, RectDraw, Row, RowRule, RowTarget,
+    RuleHeight, Scene, SpanStyle, TextAlign, TextRun, TextSpan,
 };
 
 const CORNER_RADIUS: f32 = 4.0;
@@ -190,6 +190,7 @@ fn kept_rows(frame: &Frame<'_>, id: &EntityId, text: &Arc<str>, width: f32) -> V
 fn rows(blocks: &[Block], width: f32, tones: Tones) -> Vec<Row> {
     let mut rows = Vec::with_capacity(blocks.len());
     let mut above: Option<&Block> = None;
+    let mut tasks = 0;
     for block in blocks {
         let place = Place::new(block, above, width, tones);
         match &block.kind {
@@ -206,7 +207,12 @@ fn rows(blocks: &[Block], width: f32, tones: Tones) -> Vec<Row> {
                 if !text.text.is_empty() {
                     cells.push(place.run(text, SIZE));
                 }
-                rows.push(place.row(cells));
+                let mut row = place.row(cells);
+                if let Marker::Task { .. } = marker {
+                    row.target = Some(place.tick_box(tasks));
+                    tasks += 1;
+                }
+                rows.push(row);
             }
             BlockKind::Code(code) => {
                 let run = TextRun {
@@ -331,6 +337,17 @@ impl Place {
             align: TextAlign::Right,
             line_height: SIZE * LINE,
             ..TextRun::new(text, Point::new(self.left - MARKER_GAP, 0.0), SIZE, color)
+        }
+    }
+
+    /// The hanging space of a task's tick box, numbered `task` counting the
+    /// document's tasks from the top: the order the source has them in.
+    fn tick_box(&self, task: u32) -> RowTarget {
+        RowTarget {
+            id: task,
+            x: (self.left - LIST_INDENT).max(0.0),
+            width: LIST_INDENT.min(self.left),
+            height: SIZE * LINE,
         }
     }
 

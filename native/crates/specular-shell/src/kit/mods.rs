@@ -41,6 +41,12 @@ pub(crate) struct Mods {
     /// commands.
     background: Vec<String>,
     stats: Option<Value>,
+    /// Draws the window again when a mod's source changes, so a save loads
+    /// it again with nothing else moving.
+    watch: Option<gpui_kit::Task<()>>,
+    /// The overlays open at the last sync, to start each one that opens
+    /// afresh.
+    open: Vec<String>,
 }
 
 /// `<app home>/mods`, written with the shipped mods, or `None` when the
@@ -63,6 +69,29 @@ fn folder() -> Option<PathBuf> {
     }
 }
 
+/// Asks `window` to draw again each time the source of a mod in `folder`
+/// changes. The folder is looked at off the main thread.
+fn watch(folder: PathBuf, window: &mut Window, cx: &mut App) -> gpui_kit::Task<()> {
+    window.spawn(cx, async move |cx| {
+        let mut seen = None;
+        loop {
+            cx.background_executor()
+                .timer(specular_mods::SOURCE_POLL)
+                .await;
+            let looked = folder.clone();
+            let now = (cx.background_executor())
+                .spawn(async move { specular_mods::source_stamp(&looked) })
+                .await;
+            if seen.is_some_and(|seen| seen != now)
+                && cx.update(|window, _| window.refresh()).is_err()
+            {
+                break;
+            }
+            seen = Some(now);
+        }
+    })
+}
+
 impl Mods {
     /// Brings the mods in step with `layout` and the state, and tells the
     /// app and the API what changed. Called as the root view draws.
@@ -71,6 +100,7 @@ impl Mods {
             let revisions = canvas::state();
             match (folder(), revisions) {
                 (Some(folder), Some(revisions)) => {
+                    self.watch = Some(watch(folder.clone(), window, cx));
                     let hosting = Hosting {
                         host: std::rc::Rc::new(host::KitHost),
                         components: host::components(revisions.clone()),
@@ -91,6 +121,16 @@ impl Mods {
         let Some(set) = self.set.as_mut() else {
             return;
         };
+        // An overlay that opens is a new instance of its mod, as if loaded
+        // for the first time: its fields are empty and the one it focuses
+        // has the keys.
+        let open: Vec<String> = (models.mod_overlays.iter())
+            .map(|spec| spec.id.clone())
+            .collect();
+        for id in open.iter().filter(|id| !self.open.contains(id)) {
+            set.restart(id);
+        }
+        self.open = open;
         let mut copies = ModCopy::of_layout(&models.layout);
         // An overlay open by an overlay's own name (the palette) is that
         // copy, with its overlay props.

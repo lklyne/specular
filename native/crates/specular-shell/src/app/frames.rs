@@ -162,7 +162,7 @@ impl<W: ShellWindow> Runtime<W> {
         if let Some(latency) = sample.input_to_present {
             tracing::debug!(?latency, "input to present");
         }
-        self.report_note_heights();
+        self.report_note_layouts();
         Some(sample)
     }
 }

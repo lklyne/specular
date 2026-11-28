@@ -36,6 +36,8 @@ pub struct AppNotice {
     pub action: Option<NoticeAction>,
     /// Whether `notice.dismiss` takes it away.
     pub dismiss: bool,
+    /// The entity it is about, which `view.reveal` takes, if it is about one.
+    pub about: Option<String>,
 }
 
 const CRASHED: &str = "crashed";
@@ -51,7 +53,7 @@ pub fn notices(app: &App) -> Vec<AppNotice> {
         let Some(entity) = app.document.entity(id) else {
             continue;
         };
-        let name = labels::page_label(app, entity);
+        let name = page_name(app, entity, state.url.as_deref());
         let reload = state.url.as_ref().map(|url| NoticeAction {
             label: "Reload",
             run: "page.navigate",
@@ -64,6 +66,7 @@ pub fn notices(app: &App) -> Vec<AppNotice> {
                 text: format!("{name} stopped ({reason})."),
                 action: reload.clone(),
                 dismiss: true,
+                about: Some(id.as_str().to_owned()),
             });
         }
         if let Some(status) = state.http_error {
@@ -73,6 +76,7 @@ pub fn notices(app: &App) -> Vec<AppNotice> {
                 text: format!("{name} answered HTTP {status}."),
                 action: reload,
                 dismiss: true,
+                about: Some(id.as_str().to_owned()),
             });
         }
     }
@@ -88,9 +92,22 @@ pub fn notices(app: &App) -> Vec<AppNotice> {
                 args: Value::Null,
             }),
             dismiss: false,
+            about: None,
         });
     }
     out
+}
+
+/// A page as a notice names it: its label in quotes, and the address it is
+/// at, so two pages with one title are told apart.
+fn page_name(app: &App, entity: &specular_doc::Entity, url: Option<&str>) -> String {
+    let label = labels::page_label(app, entity);
+    let Some(url) = url else {
+        return format!("“{label}”");
+    };
+    let bare = url.split_once("://").map_or(url, |(_, rest)| rest);
+    let bare = bare.strip_suffix('/').unwrap_or(bare);
+    format!("“{label}” ({bare})")
 }
 
 /// Takes the page notice `id` away. Returns whether there was one.

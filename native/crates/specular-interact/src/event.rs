@@ -15,7 +15,7 @@ use specular_doc::{Document, EntityId, Rect};
 
 use crate::{
     AboutRow, ApiCall, AppSettings, CanvasId, ClipboardContent, DroppedFile, ImageKey, ImageNotice,
-    NoteNotice, OpenedSpace, PageGrab, SpaceAsk, ToolDefaults,
+    NoteLayout, NoteNotice, OpenedSpace, PageGrab, SpaceAsk, ToolDefaults,
 };
 
 /// One input to [`update`](crate::update). Window input arrives in logical
@@ -69,8 +69,9 @@ pub enum Event {
         rect: Rect,
     },
     /// The renderer stacked the rows of the Documents it drew and found how
-    /// tall each one's text is, in canvas units. Sent when a height changes.
-    NoteHeights(Vec<(EntityId, f32)>),
+    /// tall each one's text is and where its tick boxes are, in canvas
+    /// units. Sent when a layout changes.
+    NoteLayouts(Vec<(EntityId, NoteLayout)>),
     /// The wall clock, sent once per loop turn. Milliseconds since the Unix
     /// epoch.
     Tick {

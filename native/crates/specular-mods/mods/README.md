@@ -7,7 +7,9 @@ files**. A mod is a folder with a `mod.json` and a `main.js`: it draws a part
 of the window, or adds a kind of canvas item, a toolbar tool or commands, from
 the app's state, and changes the app by running commands by name, the same
 commands the palette, the keys and the `specular` CLI run. Save a file and the
-app reloads the mod within a second. Shipped mods are Specular's: clone
+app reloads the mod within a second. A save that does not load keeps the
+old build running and writes why to `mods/<name>.error`, which the next
+good save takes away. Shipped mods are Specular's: clone
 before editing (see "Your own mods"). Every panel of the window has a
 shipped mod built from the same parts you have, and a layout file says
 which mod (or the app's own panel) goes where.
@@ -276,13 +278,17 @@ scrim (`edge: "top"` keeps it near the top), a `popup` at `at` that a press
 outside closes, a `drawer` along an `edge`, or a `window` that stays. The
 copy reads its id as `props().overlay` and closes itself with
 `closeOverlay(props().overlay)`. Escape closes the top dialog, popup or
-drawer. The shipped `confirm` and `prompt` mods are dialogs any mod or agent
+drawer. Each open is a new instance of the mod, its `init()` run again, so
+an overlay starts empty every time; keep what should outlast it with
+`shared(...)` or its store. The shipped `confirm` and `prompt` mods are dialogs any mod or agent
 can open (see their `main.js`).
 
 **Text.** `Field.new(id, { id, placeholder, value, autofocus })` is a line of
 text the window holds: the keys stay in it while a person types, what is
 typed is `shared("field/<id>")`, and each Return moves
-`shared("field/<id>/submit")` on. With `{ control }` it is a model field of
+`shared("field/<id>/submit")` on. A field is made once for its id and
+`autofocus` takes the keys when it is made, so a field that should start
+empty and focused each time (a palette's) takes a new id in `init()`. With `{ control }` it is a model field of
 the dock (an address, a size). `radius`, `background`, `border` and
 `focusRing` restyle its box to match the layout; a styled field shows its
 focus by turning its own edge `focusRing`, with no rounded ring outside it.
@@ -497,6 +503,11 @@ Elements a mod places but cannot draw itself, imported from `specular`:
   Send sends to `thread` (started under that id if it is not made yet), or
   to the thread the panel has open when there is none. The window keeps it
   by `id`, so it redraws as a person types without the mod rendering.
+- `Popover`, `Popover.new(id, { top, left, right, bottom }).child(...)`: a
+  box over the rest of the window, out of the flow at those offsets from its
+  `relative()` box. A press on it is its children's alone, so a dropdown
+  that hangs over the canvas does not also press the canvas (and drop the
+  selection). Put a mod's dropdowns and menus in one.
 - `Field`, `Field.new(id, { id, placeholder, value, autofocus })` or
   `Field.new(id, { control })`: a line of text (see "Text"), restyled by
   `radius`, `background`, `border` and `focusRing`.
@@ -510,9 +521,12 @@ Elements a mod places but cannot draw itself, imported from `specular`:
   ids and its `console.log` lines. It exits non-zero and writes
   `<name>.error` when the mod fails.
 - `specular mod clone <name> [new-name] [--use]` copies a mod to a folder
-  you own (`my-<name>` by default) and prints where it is. `--use` points
-  the layout at the copy; the app writes its shipped layout over the file
-  on its next start, so run it again then (or keep your own layout edit).
+  you own (`my-<name>` by default) and prints where it is. `--use` names
+  the copy wherever your own layout, `layouts/mine.json` (started from the
+  shipped one), named the original: a block's `content` or an overlay. A
+  mod the layout does not name goes in the block its `mod.json` `place`
+  names. It then asks a running app to show `mine`, which the app never
+  writes over.
 - `specular mod stats` prints, per loaded mod, its script renders, the mean
   and slowest render and the keys it read. A mod that renders while nothing
   changes is a bug.
@@ -547,7 +561,8 @@ arrows and Return do not move through it as the app's own menu's do.
 A mod folder whose `mod.json` has `"cloned_from"` is yours and is never
 replaced. `specular mod clone tabs my-tabs --use` copies a mod to a new
 folder, marks it, and points the layout at it; edit `mods/my-tabs/main.js`
-and each save reloads it. Without `--use`, set a region's `"mod"` yourself.
+and each save reloads it. Without `--use`, set a block's
+`"content": {"mod": "my-tabs"}` yourself.
 Mods are trusted code: a mod has your files, network and processes, like a
 shell script you run.
 

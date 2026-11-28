@@ -16,6 +16,8 @@ use crate::args::Args;
 use crate::{output, refuse, usage};
 
 const USAGE: &str = "specular mod clone <name> [new-name] [--use]";
+/// The person's own layout, which the app never writes over.
+const MINE: &str = "mine";
 
 /// Files a mod's runtime writes into its folder on load, which a copy
 /// gets again when it loads.
@@ -26,12 +28,19 @@ pub(crate) fn is_clone(args: &Args) -> bool {
     args.verb == "mod" && args.nth(0) == Some("clone")
 }
 
-/// The app's own data folder, which holds `mods/` and `layouts/`.
-fn app_home() -> Option<PathBuf> {
+/// The app's own data folder, which holds `mods/` and `layouts/`, and
+/// whether it was named by `SPECULAR_NATIVE_CONFIG_DIR`.
+fn app_home() -> Option<(PathBuf, bool)> {
     let set = |name: &str| std::env::var_os(name).filter(|value| !value.is_empty());
     if let Some(folder) = set("SPECULAR_NATIVE_CONFIG_DIR") {
-        return Some(PathBuf::from(folder));
+        return Some((PathBuf::from(folder), true));
     }
+    standard_home().map(|home| (home, false))
+}
+
+/// Where the app keeps its data when nothing says otherwise.
+fn standard_home() -> Option<PathBuf> {
+    let set = |name: &str| std::env::var_os(name).filter(|value| !value.is_empty());
     let home = set("HOME").map(PathBuf::from);
     if cfg!(target_os = "macos") {
         return Some(home?.join("Library/Application Support/Specular"));
@@ -106,8 +115,10 @@ fn write_object(path: &Path, object: Map<String, Value>) -> Result<(), String> {
         .map_err(|error| format!("writing {}: {error}", path.display()))
 }
 
-/// Points `layout` at `to` wherever it names `from`, or else in the region
-/// `place`. Returns the regions it now names `to` for.
+/// Points `layout` at `to` wherever it names `from`: a block of its tree
+/// whose content is the mod, or an overlay at its top level. When it names
+/// `from` nowhere, the block or overlay `place` gets `to`. Returns the
+/// blocks and overlays it now names `to` for.
 fn point_layout(
     layout: &Path,
     from: &str,
@@ -116,32 +127,87 @@ fn point_layout(
 ) -> Result<Vec<String>, String> {
     let mut file = read_object(layout)?;
     let mut named = Vec::new();
-    for (region, node) in &mut file {
-        if let Some(node) = node.as_object_mut()
-            && node.get("mod").and_then(Value::as_str) == Some(from)
+    for (key, node) in &mut file {
+        if let Some(overlay) = node.as_object_mut()
+            && names_mod(overlay, from)
         {
-            node.insert("mod".to_owned(), Value::String(to.to_owned()));
-            named.push(region.clone());
+            overlay.insert("mod".to_owned(), Value::String(to.to_owned()));
+            named.push(key.clone());
         }
     }
+    rename_in_tree(&mut file, from, to, &mut named);
     if named.is_empty() {
         let Some(place) = place else {
             return Err(format!(
-                "the layout does not name `{from}` and its mod.json has no `place`; set a region's \"mod\" to \"{to}\" in {}",
+                "the layout does not name `{from}` and its mod.json has no `place`; set a block's \"content\" to {{\"mod\": \"{to}\"}} in {}",
                 layout.display()
             ));
         };
-        let node = file
-            .entry(place.to_owned())
-            .or_insert_with(|| Value::Object(Map::new()));
-        let Some(node) = node.as_object_mut() else {
-            return Err(format!("the layout's `{place}` is not an object"));
-        };
-        node.insert("mod".to_owned(), Value::String(to.to_owned()));
+        if !fill_block(&mut file, place, to) {
+            match file.get_mut(place).and_then(Value::as_object_mut) {
+                Some(overlay) => {
+                    overlay.insert("mod".to_owned(), Value::String(to.to_owned()));
+                }
+                None => {
+                    return Err(format!(
+                        "the layout has no block or overlay `{place}` for `{to}`; set a block's \"content\" to {{\"mod\": \"{to}\"}} in {}",
+                        layout.display()
+                    ));
+                }
+            }
+        }
         named.push(place.to_owned());
     }
     write_object(layout, file)?;
     Ok(named)
+}
+
+/// Whether `object` (a block's content or an overlay) is the mod `name`.
+fn names_mod(object: &Map<String, Value>, name: &str) -> bool {
+    object.get("mod").and_then(Value::as_str) == Some(name)
+}
+
+/// The children of a tree node, if it has any.
+fn children(node: &mut Map<String, Value>) -> impl Iterator<Item = &mut Map<String, Value>> {
+    (node.get_mut("children").and_then(Value::as_array_mut))
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_object_mut)
+}
+
+/// Names `to` in every block under `node` whose content is `from`, and
+/// adds each block's id to `named`.
+fn rename_in_tree(node: &mut Map<String, Value>, from: &str, to: &str, named: &mut Vec<String>) {
+    let id = node.get("id").and_then(Value::as_str).map(str::to_owned);
+    if let Some(content) = node.get_mut("content").and_then(Value::as_object_mut)
+        && names_mod(content, from)
+    {
+        content.insert("mod".to_owned(), Value::String(to.to_owned()));
+        named.push(id.unwrap_or_else(|| from.to_owned()));
+    }
+    for child in children(node) {
+        rename_in_tree(child, from, to, named);
+    }
+}
+
+/// Makes the block `id` under `node` show the mod `to`, keeping its props.
+/// Returns whether there is such a block.
+fn fill_block(node: &mut Map<String, Value>, id: &str, to: &str) -> bool {
+    if node.get("id").and_then(Value::as_str) == Some(id)
+        && node.get("type").and_then(Value::as_str) == Some("block")
+    {
+        let props = (node.get("content").and_then(Value::as_object))
+            .and_then(|content| content.get("props"))
+            .cloned();
+        let mut content = Map::new();
+        content.insert("mod".to_owned(), Value::String(to.to_owned()));
+        if let Some(props) = props {
+            content.insert("props".to_owned(), props);
+        }
+        node.insert("content".to_owned(), Value::Object(content));
+        return true;
+    }
+    children(node).any(|child| fill_block(child, id, to))
 }
 
 /// Copies the mod `from` in `home`'s mods folder to `to`, marks the copy
@@ -189,7 +255,7 @@ fn clone_mod(home: &Path, from: &str, to: &str, use_it: bool) -> Result<Cloned, 
 /// to be this one.
 fn own_layout(home: &std::path::Path) -> Result<PathBuf, String> {
     let folder = home.join("layouts");
-    let mine = folder.join("mine.json");
+    let mine = folder.join(format!("{MINE}.json"));
     if !mine.exists() {
         std::fs::copy(folder.join("default.json"), &mine).map_err(|error| {
             format!(
@@ -201,6 +267,22 @@ fn own_layout(home: &std::path::Path) -> Result<PathBuf, String> {
     Ok(mine)
 }
 
+/// Asks a running app to show `mine`, and says what came of it. A home
+/// named by `SPECULAR_NATIVE_CONFIG_DIR` may not be the running app's, so
+/// that app is left alone.
+fn show_mine(named_home: bool) -> String {
+    let how = format!("`specular run layout.switch '{{\"name\":\"{MINE}\"}}'` shows it");
+    if named_home {
+        return format!("in the app that uses this folder, {how}");
+    }
+    let client = crate::client::Client::new(None);
+    let body = serde_json::json!({ "name": "layout.switch", "args": { "name": MINE } });
+    match client.post("/run", &body) {
+        Ok(_) => format!("the app now shows the `{MINE}` layout"),
+        Err(_) => format!("the app is not running; once it is, {how}"),
+    }
+}
+
 /// `mod clone <name> [new-name] [--use]`.
 pub(crate) fn clone(args: &Args) -> anyhow::Result<i32> {
     let Some(from) = args.nth(1) else {
@@ -209,7 +291,7 @@ pub(crate) fn clone(args: &Args) -> anyhow::Result<i32> {
     let to = args
         .nth(2)
         .map_or_else(|| format!("my-{from}"), str::to_owned);
-    let Some(home) = app_home() else {
+    let Some((home, named)) = app_home() else {
         return refuse("no home folder to find the app's mods in; set SPECULAR_NATIVE_CONFIG_DIR");
     };
     match clone_mod(&home, from, &to, args.switch("use")) {
@@ -217,10 +299,11 @@ pub(crate) fn clone(args: &Args) -> anyhow::Result<i32> {
             output::text_line(&format!("{}", cloned.dir.display()));
             if let Some((layout, regions)) = cloned.layout {
                 output::text_line(&format!(
-                    "{} now names `{to}` for {}; the app writes its shipped layout over it on its next start",
+                    "{} now names `{to}` for {}",
                     layout.display(),
                     regions.join(", ")
                 ));
+                output::text_line(&show_mine(named));
             }
             Ok(0)
         }

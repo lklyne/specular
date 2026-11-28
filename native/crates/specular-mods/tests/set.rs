@@ -1,6 +1,7 @@
 //! The mods a layout names, as the window keeps them: loaded with their
 //! props, a mod that fails shown as failed with `<name>.error` beside it,
-//! and loaded once its files are fixed, with that file taken away.
+//! and loaded once its files are fixed, with that file taken away. A save
+//! that breaks a running mod keeps it running and writes the file too.
 
 use std::rc::Rc;
 
@@ -60,7 +61,7 @@ fn a_mod_that_fails_says_why_until_its_files_are_fixed(cx: &mut TestAppContext) 
     );
 
     // A save that fixes it loads it.
-    std::thread::sleep(std::time::Duration::from_millis(20));
+    std::thread::sleep(specular_mods::SOURCE_POLL);
     std::fs::write(dock.join("main.js"), FIXED).expect("fix");
     let changed = vcx.update(|window, cx| set.sync(&copies, window, cx));
     assert!(changed, "the fixed mod loads");
@@ -69,5 +70,28 @@ fn a_mod_that_fails_says_why_until_its_files_are_fixed(cx: &mut TestAppContext) 
         !shipped::error_file(&dock).exists(),
         "dock.error is taken away"
     );
+
+    // A save that breaks it keeps the build running and says why.
+    std::thread::sleep(specular_mods::SOURCE_POLL);
+    std::fs::write(dock.join("main.js"), BROKEN).expect("break");
+    let changed = vcx.update(|window, cx| set.sync(&copies, window, cx));
+    assert!(!changed, "the old build stays");
+    vcx.update(|_, cx| assert!(matches!(set.placed("dock", cx), Some(Placed::View(_)))));
+    assert!(
+        shipped::error_file(&dock).is_file(),
+        "dock.error is written on a broken reload"
+    );
+    // Nothing more to load until it changes again; the next save mends it.
+    assert!(!vcx.update(|window, cx| set.sync(&copies, window, cx)));
+    std::thread::sleep(specular_mods::SOURCE_POLL);
+    std::fs::write(dock.join("main.js"), FIXED).expect("mend");
+    assert!(vcx.update(|window, cx| set.sync(&copies, window, cx)));
+    assert!(!shipped::error_file(&dock).exists());
+
+    // A copy let go of loads afresh at the next sync, as an overlay does
+    // each time it opens.
+    set.restart("dock");
+    assert!(vcx.update(|window, cx| set.sync(&copies, window, cx)));
+    vcx.update(|_, cx| assert!(matches!(set.placed("dock", cx), Some(Placed::View(_)))));
     let _ = std::fs::remove_dir_all(&mods);
 }
