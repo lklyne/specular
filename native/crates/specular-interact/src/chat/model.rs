@@ -165,6 +165,8 @@ pub struct ModelChip {
 pub struct ModelOption {
     /// Its name, with its version.
     pub name: String,
+    /// What `chat.model` takes to choose it.
+    pub value: String,
     /// One line on what it is for; empty when the runtime gave none.
     pub description: String,
     /// Whether it is the chosen one.

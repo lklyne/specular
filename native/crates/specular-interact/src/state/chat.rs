@@ -10,7 +10,7 @@
 use serde_json::{Value, json};
 use specular_agent::{Role, Status, Thread};
 
-use crate::{App, ArtifactCard, ChatModel, ModelChip, Transcript, chat};
+use crate::{App, ArtifactCard, ChatModel, ModelChip, PillKind, Transcript, chat};
 
 /// The prefix of a thread's own key; the thread's id follows it.
 pub const THREAD_KEY: &str = "chat/thread/";
@@ -53,7 +53,7 @@ fn transcript_json(transcript: &Transcript) -> Value {
 fn model_json(model: &ModelChip) -> Value {
     let options: Vec<Value> = (model.options.iter())
         .map(|option| {
-            json!({ "name": option.name, "description": option.description, "chosen": option.chosen })
+            json!({ "name": option.name, "value": option.value, "description": option.description, "chosen": option.chosen })
         })
         .collect();
     json!({ "label": model.label, "options": options })
@@ -131,6 +131,31 @@ pub(super) fn threads_json(app: &App) -> Value {
         "open": open,
         "threads": threads,
         "model": model_json(&crate::chat::model_chip(app)),
+    })
+}
+
+const fn pill_kind(kind: PillKind) -> &'static str {
+    match kind {
+        PillKind::Dom => "dom",
+        PillKind::Comment => "comment",
+        PillKind::Selection => "selection",
+        PillKind::Canvas => "canvas",
+    }
+}
+
+/// The `chat/context` key: what the next message goes with, as the panel's
+/// composer shows it under its field: the pill (an element, a comment, the
+/// selection or the canvas), the folder the agent writes to, whether
+/// comments on its origin send themselves, and the model. Any view's
+/// message goes with the same context.
+pub(super) fn context_json(app: &App) -> Value {
+    let composer = chat(app).composer;
+    json!({
+        "pill": { "label": composer.pill.label, "kind": pill_kind(composer.pill.kind) },
+        "folder": composer.folder,
+        "folderPath": composer.folder_path,
+        "auto": (composer.auto.as_ref()).map(|auto| json!({ "origin": auto.origin, "on": auto.on })),
+        "model": model_json(&composer.model),
     })
 }
 

@@ -31,6 +31,7 @@
  * - `panels/sidebar`: `{visible, add, sections: [{id, title, folded, rows}]}`: the canvases section's rows are `{id, canvas, label, active, count, rename}`, the others `{id, label, icon, trailing, selected, dimmed, expanded, children}`. A row is pressed with `control.press {id}`, renamed by pressing its `rename` id (1.2)
  * - `panels/chat`: `{available, visible, width, title, threads: [{id, title, draft, active, running}], transcript: {messages: [{id, role, text, images}], streaming, run, error} | null, composer: {placeholder, running, model: {label, options: [{name, description, chosen}]}}}`, driven by the `chat.*` commands (1.2)
  * - `chat/threads`: the active canvas's threads with no transcripts, `{open: thread id | null, threads: [{id, key, title, draft, open, running, updatedAt}], model: {label, options}}`; `open` is the thread the panel has open. Moves when a thread starts, is renamed, opens or starts or stops working, not per word (1.3)
+ * - `chat/context`: what the next message goes with, as the panel's composer shows it: `{pill: {label, kind: "dom"|"comment"|"selection"|"canvas"}, folder, folderPath, auto: {origin, on} | null, model: {label, options: [{name, value, description, chosen}]}}` (1.3)
  * - `chat/thread/<id>`: one thread of the active canvas, `{id, title, draft, open, running, updatedAt, messages: [{id, role, text, images, artifacts: [{label, detail, created}]}], streaming, making, run: {label, log} | null, error, queued: [text], canSendEmpty, placeholder, emptyHint}`, or null while it is closed, on another canvas or not made yet. Moves only with its thread (1.3)
  * - `layouts`: `[{name, title, active}]`, every layout; `layout.switch {name}` shows one (1.2)
  * - `look`: `{appearance: "light"|"dark", theme, colors: {name: css color}, font, fontSize, radius, background}`, the layout's resolved look (1.2)
@@ -65,6 +66,7 @@ export type StateKey =
   | "canvas/items"
   | "canvas/info"
   | "chat/threads"
+  | "chat/context"
   | `chat/thread/${string}`;
 /**
  * Every command `run` takes, with its arguments and what it does.
@@ -182,9 +184,9 @@ export type StateKey =
  * - `chat.select` `{id: thread id}`: Show a thread of `panels/chat` (1.2).
  * - `chat.back`: Go back from a thread to the list (1.2).
  * - `chat.close` `{id?: thread id}`: Close the thread named, or the one showing (1.2).
- * - `chat.send` `{text: message, thread?: thread id}`: Send a message to the thread showing, or to a new one (1.2); with `thread`, to that thread whichever is showing (1.3).
+ * - `chat.send` `{text: message, images?: [{type, data}], thread?: thread id}`: Send a message to the thread showing, or to a new one (1.2); with `thread`, to that thread whichever is showing (1.3). `images` go with it: each a MIME type (`image/png`, `image/jpeg`, `image/gif` or `image/webp`) and its bytes in base64, bare or as a `data:` URL (1.3).
  * - `chat.stop` `{thread?: thread id}`: Stop the agent's run on the thread showing, or on `thread` (1.3).
- * - `chat.model` `{name: model name}`: Choose the model new runs use, by a name `panels/chat` lists (1.2).
+ * - `chat.model` `{name: model name}`: Choose the model new runs use, by an option's `value` in `chat/context` or `panels/chat` (1.2).
  */
 export type CommandName =
   | `${string}/${string}`

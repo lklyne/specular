@@ -2,12 +2,13 @@
 //! again from the `panels/chat` key, or show any thread on its own from
 //! `chat/thread/<id>`, and act on it.
 
+use base64::Engine as _;
 use serde_json::Value;
-use specular_agent::ThreadId;
+use specular_agent::{MediaType, ThreadId};
 
 use super::args::{act, always, maybe_text, text};
 use super::{CommandSpec, Run, RunError};
-use crate::{Action, ChatAction};
+use crate::{Action, ChatAction, ImageUpload};
 
 fn chat(action: ChatAction) -> Result<Run, RunError> {
     act(Action::Chat(action))
@@ -15,6 +16,33 @@ fn chat(action: ChatAction) -> Result<Run, RunError> {
 
 fn thread(args: &Value) -> Option<ThreadId> {
     maybe_text(args, "id").map(ThreadId)
+}
+
+/// The images under `images`: each `{type, data}`, a MIME type a thread
+/// takes and the file's bytes in base64, bare or as a `data:` URL.
+fn images(args: &Value) -> Result<Vec<ImageUpload>, RunError> {
+    let Some(items) = args.get("images").filter(|v| !v.is_null()) else {
+        return Ok(Vec::new());
+    };
+    let wrong = |reason: &str| RunError::Args(format!("`images`: {reason}"));
+    let items = items
+        .as_array()
+        .ok_or_else(|| wrong("a list of {type, data}"))?;
+    (items.iter())
+        .map(|item| {
+            let kind = item.get("type").and_then(Value::as_str).unwrap_or_default();
+            let media_type = MediaType::parse(kind)
+                .ok_or_else(|| wrong("`type` is image/png, image/jpeg, image/gif or image/webp"))?;
+            let data = item.get("data").and_then(Value::as_str).unwrap_or_default();
+            let data = data.split_once("base64,").map_or(data, |(_, rest)| rest);
+            let bytes = (base64::engine::general_purpose::STANDARD.decode(data.trim()))
+                .map_err(|_| wrong("`data` is base64"))?;
+            Ok(ImageUpload {
+                media_type,
+                bytes: bytes.into(),
+            })
+        })
+        .collect()
 }
 
 /// The thread `key` names. A thread's id is its file's name, so a new one
@@ -82,13 +110,13 @@ pub(super) const CHAT: &[CommandSpec] = &[
     CommandSpec {
         name: "chat.send",
         label: "",
-        args: "{text: message, thread?: thread id}",
-        about: "Send a message to the thread named, or to the thread showing, or to a new one.",
+        args: "{text: message, images?: [{type, data}], thread?: thread id}",
+        about: "Send a message, with any images (a MIME type and base64 bytes), to the thread named, or to the thread showing, or to a new one.",
         enabled: always,
         build: |args| {
             chat(ChatAction::Send {
                 text: text(args, "text")?,
-                images: Vec::new(),
+                images: images(args)?,
                 thread: thread_named(args, "thread")?,
             })
         },
@@ -105,7 +133,7 @@ pub(super) const CHAT: &[CommandSpec] = &[
         name: "chat.model",
         label: "",
         args: "{name: model name}",
-        about: "Choose the model new runs use, by a name `panels/chat` lists.",
+        about: "Choose the model new runs use, by an option's `value` in `chat/context` or `panels/chat`.",
         enabled: always,
         build: |args| chat(ChatAction::SetModel(text(args, "name")?)),
     },

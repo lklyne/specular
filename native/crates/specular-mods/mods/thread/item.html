@@ -6,7 +6,8 @@
      and `theme` for light or dark, and acts with `chat.send`, `chat.stop`,
      `chat.new-thread` and `chat.select`, each with the thread's id, so it
      never touches the thread the agent panel has open.
-     Enter sends, Shift+Enter starts a new line. Enter the item (double
+     Enter sends, Shift+Enter starts a new line. A pasted image
+     waits above the field until it is sent with the words. Enter the item (double
      click) to type in it, as with any page. -->
 <html>
 <head>
@@ -21,9 +22,12 @@
     --mine: #2a2c30; --code: #24262a; --accent: #58a6ff; --error: #ff7b72;
   }
   * { box-sizing: border-box; }
-  html, body { margin: 0; height: 100%; }
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  /* Fixed, so nothing (a focused field, a long line) can scroll the
+     document itself: the transcript scrolls inside <main>. */
   body {
-    display: flex; flex-direction: column; overflow: hidden;
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
     background: var(--bg); color: var(--ink);
     font: 13px/1.5 -apple-system, BlinkMacSystemFont, "Geist", sans-serif;
     border: 1px solid var(--rule); border-radius: 12px;
@@ -66,13 +70,30 @@
   .error { color: var(--error); font-size: 12px; }
   .queued { font-size: 12px; color: var(--muted); border: 1px dashed var(--rule);
     border-radius: 6px; padding: 3px 8px; align-self: flex-end; }
-  footer { border-top: 1px solid var(--rule); padding: 8px; }
+  footer { border-top: 1px solid var(--rule); padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+  .row { display: flex; align-items: center; gap: 4px; min-width: 0; }
+  .chip { font-size: 11px; color: var(--muted); border: 1px solid var(--rule); border-radius: 999px;
+    padding: 1px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 45%; }
+  .chip:empty { display: none; }
+  .spacer { flex: 1; }
+  select { font: inherit; font-size: 11px; color: var(--muted); background: none; border: 0;
+    max-width: 110px; cursor: pointer; }
+  #send { background: var(--accent); color: #fff; font-weight: 600; padding: 3px 10px; }
+  #send:disabled { opacity: 0.4; cursor: default; }
   textarea {
     width: 100%; resize: none; border: 1px solid var(--rule); border-radius: 8px;
     padding: 7px 9px; font: inherit; color: var(--ink); background: var(--bg);
     min-height: 36px; max-height: 140px; outline: none;
   }
   textarea:focus { border-color: var(--accent); }
+  .thumbs { display: flex; flex-wrap: wrap; gap: 6px; }
+  .thumbs:empty { display: none; }
+  .thumb { position: relative; width: 48px; height: 48px; }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: 6px;
+    border: 1px solid var(--rule); display: block; }
+  .thumb button { position: absolute; top: -6px; right: -6px; width: 18px; height: 18px;
+    padding: 0; line-height: 16px; border-radius: 50%; background: var(--ink); color: var(--bg);
+    font-size: 12px; }
   .empty { margin: auto; text-align: center; color: var(--muted); padding: 16px; }
 </style>
 </head>
@@ -84,7 +105,17 @@
   <button id="panel" title="Open this thread in the agent panel">Panel</button>
 </header>
 <main id="log"></main>
-<footer><textarea id="field" rows="1" placeholder="Write to the agent…"></textarea></footer>
+<footer>
+  <div class="thumbs" id="thumbs"></div>
+  <textarea id="field" rows="1" placeholder="Write to the agent…"></textarea>
+  <div class="row">
+    <span class="chip" id="pill" title="What this message goes with"></span>
+    <span class="chip" id="folder"></span>
+    <span class="spacer"></span>
+    <select id="model" title="The model runs use"></select>
+    <button id="send" disabled>Send</button>
+  </div>
+</footer>
 <script>
   const item = new URLSearchParams(location.hash.slice(1)).get("item");
   const log = document.getElementById("log");
@@ -93,6 +124,9 @@
   let threadId = null;
   let thread = null;
   let unfollow = null;
+  // Images waiting to go with the next message: { type, data } as
+  // `chat.send` takes them, `data` a data: URL that is also the thumbnail.
+  let pasted = [];
 
   // A small markdown reader for the agent's words: fenced and inline code,
   // headings, lists, bold, italics, links and paragraphs. Text is escaped
@@ -186,6 +220,7 @@
     if (!parts.length) parts.push(`<div class="empty">${escape(thread.emptyHint || "Write below to start.")}</div>`);
     log.innerHTML = parts.join("");
     if (near) log.scrollTop = log.scrollHeight;
+    ready();
   }
 
   function follow(id) {
@@ -203,8 +238,13 @@
 
   async function send() {
     const text = field.value.trim();
-    if (!text && !(thread && thread.canSendEmpty)) return;
+    const images = pasted;
+    if (!text && !images.length && !(thread && thread.canSendEmpty)) return;
     field.value = "";
+    field.style.height = "auto";
+    pasted = [];
+    thumbs();
+    ready();
     let id = threadId;
     if (!id || !thread) {
       // Nothing to send to: start a thread of this block's own and keep it.
@@ -213,7 +253,7 @@
       await specular.run("item.set", { id: item, props: { thread: id } });
       follow(id);
     }
-    await specular.run("chat.send", { text, thread: id });
+    await specular.run("chat.send", { text, images, thread: id });
   }
 
   field.addEventListener("keydown", (event) => {
@@ -222,10 +262,68 @@
       send().catch((error) => console.error(error));
     }
   });
+  const ready = () => {
+    $("send").disabled = !(field.value.trim() || pasted.length || (thread && thread.canSendEmpty));
+  };
+
+  // The formats a thread takes; anything else pasted is left to the field.
+  const TAKES = ["image/png", "image/jpeg", "image/gif", "image/webp"];
+  function thumbs() {
+    $("thumbs").innerHTML = pasted
+      .map((image, n) => `<div class="thumb"><img src="${image.data}"><button data-n="${n}" title="Remove">×</button></div>`)
+      .join("");
+  }
+  $("thumbs").addEventListener("click", (event) => {
+    const n = event.target.dataset && event.target.dataset.n;
+    if (n === undefined) return;
+    pasted.splice(Number(n), 1);
+    thumbs();
+    ready();
+  });
+  function take(files) {
+    const images = [...files].filter((file) => TAKES.includes(file.type));
+    for (const file of images) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        pasted.push({ type: file.type, data: reader.result });
+        thumbs();
+        ready();
+      };
+      reader.readAsDataURL(file);
+    }
+    return images.length > 0;
+  }
+  field.addEventListener("paste", (event) => {
+    const files = event.clipboardData ? event.clipboardData.files : [];
+    if (take(files)) event.preventDefault();
+  });
   field.addEventListener("input", () => {
     field.style.height = "auto";
     field.style.height = `${field.scrollHeight}px`;
+    ready();
   });
+  $("send").addEventListener("click", () => {
+    send().catch((error) => console.error(error));
+    field.focus();
+  });
+  $("model").addEventListener("change", (event) => specular.run("chat.model", { name: event.target.value }));
+
+  // What the message goes with, as the agent panel's composer shows it: the
+  // pill (an element, a comment, the selection or the canvas), the folder
+  // the agent writes to, and the model.
+  const PILL = { dom: "Element", comment: "Comment", selection: "Selection", canvas: "Canvas" };
+  function context(value) {
+    if (!value) return;
+    const pill = value.pill || {};
+    $("pill").textContent = pill.label ? `${PILL[pill.kind] || "Canvas"} · ${pill.label}` : "";
+    $("folder").textContent = value.folder || "";
+    $("folder").title = value.folderPath || "";
+    const options = (value.model && value.model.options) || [];
+    $("model").innerHTML = options
+      .map((option) => `<option value="${escape(option.value || option.name)}"${option.chosen ? " selected" : ""}>${escape(option.name)}</option>`)
+      .join("");
+    $("model").hidden = options.length === 0;
+  }
   $("stop").addEventListener("click", () => specular.run("chat.stop", { thread: threadId }));
   $("panel").addEventListener("click", () => specular.run("chat.select", { id: threadId }));
 
@@ -233,6 +331,7 @@
     specular.subscribe("theme", (theme) => {
       document.documentElement.classList.toggle("dark", Boolean(theme && theme.appearance === "dark"));
     });
+    specular.subscribe("chat/context", context);
     specular.subscribe("canvas/mod_items", (items) => {
       const mine = (items || []).find((each) => each.id === item);
       if (mine) follow((mine.props && mine.props.thread) || null);

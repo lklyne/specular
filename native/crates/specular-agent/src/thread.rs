@@ -67,7 +67,7 @@ impl MediaType {
     }
 
     /// The format a MIME string names.
-    pub(crate) fn parse(value: &str) -> Option<Self> {
+    pub fn parse(value: &str) -> Option<Self> {
         [Self::Png, Self::Jpeg, Self::Gif, Self::Webp]
             .into_iter()
             .find(|kind| kind.as_str() == value)

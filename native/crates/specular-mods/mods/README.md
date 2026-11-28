@@ -142,7 +142,7 @@ readout is the `Zoom` host component. The keys: `panels/toolbar`,
 item, back to front, with its kind, label, parent and words, but no place or
 size), `canvas/info` (the canvas showing, its counts and every canvas), and
 for canvas items, tools and commands `canvas/mod_items`, `tool` and `call`
-(see below), and for agent threads `chat/threads` and a
+(see below), and for agent threads `chat/threads`, `chat/context` and a
 `chat/thread/<id>` key for each thread (see "Chat threads anywhere").
 `specular state [key]` prints them from the running app.
 
@@ -182,7 +182,7 @@ app's log. The commands:
 - **ui**: `ui.toggle` `{id: tabs|toolbar|dock|sidebar|chat|menu|share|toast|palette|welcome|<control id>}`, `ui.show` `{id: tabs|toolbar|dock|sidebar|chat|menu|share|toast|palette|welcome|<control id>}`, `ui.hide` `{id: tabs|toolbar|dock|sidebar|chat|menu|share|toast|palette|welcome|<control id>}`, `ui.reset`
 - **layout**: `layout.switch` `{name?: layout name}` (the next one without a name)
 - **overlay**: `overlay.open` `{mod: name, id?, props?, kind?: dialog|popup|drawer|window, width?, height?, at?: [x, y], edge?: left|right|top|bottom, frame?: none}`, `overlay.close` `{id?: overlay id}`
-- **chat**: `chat.toggle`, `chat.new-thread` `{id?: thread id, open?: bool}`, `chat.select` `{id: thread id}`, `chat.back`, `chat.close` `{id?: thread id}`, `chat.send` `{text: message, thread?: thread id}`, `chat.stop` `{thread?: thread id}`, `chat.model` `{name: model name}`
+- **chat**: `chat.toggle`, `chat.new-thread` `{id?: thread id, open?: bool}`, `chat.select` `{id: thread id}`, `chat.back`, `chat.close` `{id?: thread id}`, `chat.send` `{text: message, images?: [{type, data}], thread?: thread id}`, `chat.stop` `{thread?: thread id}`, `chat.model` `{name: model name}`
 - **notice**: `notice.dismiss` `{id: notice id}`
 - **mods**: `mods.install`
 - **share**: `share.copy-link`, `share.access` `{scope: edit|comment|view|none}`, `share.join` `{link: url, fresh?: bool}`, `share.stop`
@@ -383,9 +383,18 @@ A thread's key moves only with that thread, so a pane showing one thread
 does not render while another streams. It reads `null` for a thread that
 is closed, on another canvas, or not made yet.
 
+`chat/context` is what the next message goes with, as the panel's composer
+shows it under its field: `{pill: {label, kind: "dom"|"comment"|"selection"|"canvas"},
+folder, folderPath, auto: {origin, on} | null, model: {label, options: [{name,
+value, description, chosen}]}}`. Every view's message goes with the same
+context. `chat.model {name}` takes an option's `value`.
+
 **Acting on one thread.** `chat.send {text, thread}` sends to that thread
 whichever the panel has open (the panel's comment draft is left alone),
-and `chat.stop {thread}` stops its run. `chat.new-thread {id, open: false}`
+and `chat.stop {thread}` stops its run. `images` sends pasted images with
+the words, each `{type, data}`: a MIME type (`image/png`, `image/jpeg`,
+`image/gif` or `image/webp`) and the bytes in base64, bare or as the `data:`
+URL a `FileReader` gives. The shipped `thread` block takes them from a paste. `chat.new-thread {id, open: false}`
 starts a thread without opening it in the panel. The mod picks the id
 (letters, digits, `_` and `-`, at most 64), so it knows it at once, since
 `run` answers before the command runs:
@@ -422,8 +431,8 @@ one for a thread (the panel's open one by default), and `thread/panel`
 `items.web` page (`thread/item.html`): it follows `canvas/mod_items` for
 its `props.thread`, `chat/thread/<id>` through the page bridge, and
 draws the transcript with markdown, images and what the agent made, and a
-composer (enter the item to type; Return sends, Shift+Return is a new
-line). Its display list is the title and the last few messages, the
+composer with the panel's context pill, folder, model and Send (enter the
+item to type; Return sends, Shift+Return is a new line). Its display list is the title and the last few messages, the
 snapshot a saved canvas keeps. Copy it (`specular mod clone thread`) to
 draw threads your own way.
 

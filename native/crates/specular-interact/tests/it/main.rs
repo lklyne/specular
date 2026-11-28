@@ -20,6 +20,7 @@ mod palette;
 mod physical_key;
 mod presence;
 mod resizes;
+mod self_anchor;
 mod shared;
 mod space;
 mod state;

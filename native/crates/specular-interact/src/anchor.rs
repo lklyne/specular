@@ -45,7 +45,8 @@ pub(crate) const fn anchors_to_pages(kind: &Kind) -> bool {
 }
 
 /// The anchor `entity` gets from where it sits: the frontmost page whose body
-/// holds the entity's centre, or `None` on empty canvas. An entity in a
+/// holds the entity's centre, or `None` on empty canvas or for an entity
+/// that is a page itself. An entity in a
 /// group never anchors, because the group already owns its movement.
 ///
 /// A page an item view hides is not there to hook to. While a page is shown
@@ -59,7 +60,9 @@ pub(crate) fn page_anchor_for(
     scrolls: &Scrolls,
     entity: &Entity,
 ) -> Option<PageAnchor> {
-    if entity.parent.is_some() || !anchors_to_pages(&entity.kind) {
+    // A web mod item is a page itself, and a page is never carried.
+    let is_page = scrolls.anchor_url(&entity.id).is_some();
+    if entity.parent.is_some() || !anchors_to_pages(&entity.kind) || is_page {
         return None;
     }
     let rect = entity.rect;

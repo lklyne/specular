@@ -13,6 +13,7 @@
 //! | `panels/welcome` | [`onboarding`](crate::onboarding): the first-run view while no space is open, or `null` |
 //! | `panels/sidebar` | the sidebar: shown or not, and its sections of rows by control id (ADR 0059) |
 //! | `panels/chat` | the right panel: its threads, the transcript showing and the composer; `chat.*` commands act on it (ADR 0059) |
+//! | `chat/context` | what the next message goes with: the pill, the folder, the auto-fix mode and the model |
 //! | `chat/threads` | the active canvas's threads with no transcript, the one the panel has open, and the model |
 //! | `chat/thread/<id>` | one thread of the active canvas on its own: transcript, queue, run; one key a thread |
 //! | `theme` | the appearance drawn and the choice behind it |
@@ -55,7 +56,7 @@ use crate::{
 /// Every fixed key, in the order [`state`] lists them. Beside them, each
 /// thread of the active canvas has a key of its own, [`THREAD_KEY`] and
 /// its id: see [`is_state_key`].
-pub const STATE_KEYS: [&str; 25] = [
+pub const STATE_KEYS: [&str; 26] = [
     "panels/toolbar",
     "panels/tool_options",
     "panels/dock",
@@ -67,6 +68,7 @@ pub const STATE_KEYS: [&str; 25] = [
     "panels/sidebar",
     "panels/chat",
     "chat/threads",
+    "chat/context",
     "theme",
     "settings",
     "keys",
@@ -120,6 +122,7 @@ pub fn state(app: &App) -> BTreeMap<String, Value> {
         ("panels/sidebar", panels::sidebar_json(app)),
         ("panels/chat", chat::panel_json(app)),
         ("chat/threads", chat::threads_json(app)),
+        ("chat/context", chat::context_json(app)),
         ("theme", theme_json(app)),
         ("settings", settings_json(app)),
         ("keys", keys::bindings(&app.keymap)),

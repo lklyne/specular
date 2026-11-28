@@ -154,3 +154,29 @@ fn a_thread_a_mod_starts_has_a_key_of_its_own_and_the_panel_keeps_its_thread() {
         Some(&serde_json::Value::Null)
     );
 }
+
+#[test]
+fn a_block_sends_pasted_images_with_its_words() {
+    let mut app = app();
+    let args = serde_json::json!({ "id": "block_1", "open": false });
+    run(&mut app, "chat.new-thread", &args);
+    // A one-pixel PNG's first bytes are enough: the image is stored, not read.
+    let image =
+        serde_json::json!({ "type": "image/png", "data": "data:image/png;base64,iVBORw0KGgo=" });
+    run(
+        &mut app,
+        "chat.send",
+        &serde_json::json!({ "text": "this", "images": [image], "thread": "block_1" }),
+    );
+    let read = state(app.app());
+    let message = &read["chat/thread/block_1"]["messages"][0];
+    assert_eq!(message["text"], "this");
+    assert_eq!(
+        message["images"].as_array().map(Vec::len),
+        Some(1),
+        "{message}"
+    );
+
+    let wrong = serde_json::json!({ "text": "", "images": [{ "type": "image/bmp", "data": "" }] });
+    assert!(specular_interact::run_named(app.app(), "chat.send", &wrong).is_err());
+}
