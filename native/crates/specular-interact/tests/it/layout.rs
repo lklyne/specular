@@ -338,3 +338,27 @@ fn the_sidebar_is_dragged_wider_within_its_limits() {
     app.act(Action::Sidebar(SidebarAction::Resize(4000.0)));
     assert_eq!(width(&app), Some(520.0), "no wider than its most");
 }
+
+#[test]
+fn a_layout_chosen_is_kept_even_before_the_kept_choice_is_read() {
+    use specular_interact::{Action, Effect, Event, LayoutAction, LayoutsRead};
+    let mut app = specular_testkit::TestApp::with_pages(1);
+    app.take_effects();
+    app.act(Action::Layout(LayoutAction::Switch(Some(
+        "default".to_owned(),
+    ))));
+    assert!(
+        (app.take_effects().iter())
+            .any(|effect| matches!(effect, Effect::SaveActiveLayout(name) if name == "default")),
+        "the layout in force is still written as the choice"
+    );
+    app.send(Event::LayoutsLoaded(Box::new(LayoutsRead {
+        active: Some("classic".to_owned()),
+        ..LayoutsRead::default()
+    })));
+    assert_eq!(
+        app.app().layout_name(),
+        "default",
+        "the choice of this run stands"
+    );
+}

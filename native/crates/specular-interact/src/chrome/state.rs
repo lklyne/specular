@@ -115,6 +115,9 @@ pub(crate) struct ChromeState {
     pub(crate) themes: BTreeMap<String, ThemeFile>,
     fallback: Layout,
     none: Toggles,
+    /// Whether a layout was chosen in this run, which the choice an
+    /// earlier run kept, read after it, does not undo.
+    pub(crate) chosen: bool,
 }
 
 impl Default for ChromeState {
@@ -129,8 +132,9 @@ impl Default for ChromeState {
             active: DEFAULT.to_owned(),
             toggles: BTreeMap::new(),
             themes: BTreeMap::new(),
-            fallback: Layout::classic(),
+            fallback: Layout::shipped(),
             none: Toggles::default(),
+            chosen: false,
         }
     }
 }
@@ -229,7 +233,7 @@ impl ChromeState {
         if !read.toggles.is_empty() {
             self.toggles = read.toggles;
         }
-        if let Some(active) = read.active {
+        if let Some(active) = read.active.filter(|_| !self.chosen) {
             self.active = if self.layouts.contains_key(&active) {
                 active
             } else {

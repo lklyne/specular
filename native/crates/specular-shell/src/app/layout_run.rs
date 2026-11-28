@@ -114,7 +114,7 @@ impl LayoutFiles {
                 continue;
             };
             let file = (self.files.entry(name.clone()))
-                .or_insert_with(|| LayoutFile::new(Layout::classic()));
+                .or_insert_with(|| LayoutFile::new(Layout::shipped()));
             let error_path = path.with_extension("error");
             if let Some(error) = file.read(&text) {
                 tracing::warn!(path = %error_path.display(), "layout not read: {error}");

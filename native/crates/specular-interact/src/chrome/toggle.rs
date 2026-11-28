@@ -102,16 +102,18 @@ pub(crate) fn run(app: &mut App, action: LayoutAction, effects: &mut Vec<Effect>
         }
         LayoutAction::Show(id) => chrome.set(id, false),
         LayoutAction::Hide(id) => chrome.set(id, true),
+        // The choice is written even when it is the layout in force: that
+        // may be the default the app starts on, not the choice on disk.
         LayoutAction::Switch(name) => {
-            if let Some(next) = chrome.next(name.as_deref())
-                && next != chrome.active
-            {
+            if let Some(next) = chrome.next(name.as_deref()) {
                 chrome.active.clone_from(&next);
+                chrome.chosen = true;
                 effects.push(Effect::SaveActiveLayout(next));
             }
             return;
         }
         LayoutAction::Reset => {
+            chrome.chosen = true;
             chrome.toggles.clear();
             super::state::DEFAULT.clone_into(&mut chrome.active);
             effects.push(Effect::ResetLayout);
