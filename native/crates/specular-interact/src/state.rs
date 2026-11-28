@@ -57,7 +57,7 @@ use crate::{
 /// Every fixed key, in the order [`state`] lists them. Beside them, each
 /// thread of the active canvas has a key of its own, [`THREAD_KEY`] and
 /// its id: see [`is_state_key`].
-pub const STATE_KEYS: [&str; 26] = [
+pub const STATE_KEYS: [&str; 27] = [
     "panels/toolbar",
     "panels/tool_options",
     "panels/dock",
