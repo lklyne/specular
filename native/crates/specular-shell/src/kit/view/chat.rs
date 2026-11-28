@@ -158,7 +158,7 @@ impl ShellView {
                 .id("chat-panel")
                 .occlude()
                 .size_full()
-                .bg(theme::solid(theme::panel()))
+                .bg(super::material::panel_fill(theme::panel()))
                 .border_l(crate::theme::line())
                 .border_color(theme::solid(theme::chrome_border()))
                 .child(self.chat_header(model, cx))

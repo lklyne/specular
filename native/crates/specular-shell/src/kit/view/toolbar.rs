@@ -268,7 +268,7 @@ pub(super) fn docked(
         .py(px(RIBBON_PAD))
         .gap(crate::theme::space(1.0))
         .items_center()
-        .bg(theme::solid(theme::toolbar()))
+        .bg(super::material::panel_fill(theme::toolbar()))
         .border_r(crate::theme::line())
         .border_color(theme::solid(theme::toolbar_border()))
         .text_color(theme::solid(theme::toolbar_text()))

@@ -88,7 +88,7 @@ fn marked(control: Option<ControlId>, glyph: AnyElement) -> AnyElement {
 }
 
 /// The host components, with the window's own `Zoom`, `ToolOptions`, `Field`, `Composer`,
-/// `WindowDrag`, `Share` and `Prism`, a `Favicon` that shows the page's
+/// `WindowDrag`, `Share`, `Prism` and `Material`, a `Favicon` that shows the page's
 /// own icon, and an `Icon` that notes where the control it names is.
 pub(super) fn components(revisions: Rc<RefCell<Revisions>>) -> Components {
     let standard = Components::standard(revisions.clone());
@@ -111,6 +111,7 @@ pub(super) fn components(revisions: Rc<RefCell<Revisions>>) -> Components {
         })
         .with("WindowDrag", |_, _, _| crate::view::window_drag())
         .with("Pattern", |args, _, _| pattern(args.props()))
+        .with("Material", |args, _, _| material(args.props()))
         .with("Share", |_, _, _| crate::view::share_slot())
         .with("Prism", |_, _, _| {
             crate::mods::hero().map_or_else(
@@ -169,6 +170,24 @@ fn pattern(props: &HostValue) -> AnyElement {
     let element = div().absolute().left_0().top_0().size_full();
     crate::paint::paint(element, paint.as_ref(), (reach("width"), reach("height")))
         .into_any_element()
+}
+
+/// `Material({ kind, radius, id })`: the system's glass or blur filling
+/// its parent, as a layout block's `material` is. `id` tells two in one
+/// mod apart; a kind that is neither `glass` nor `blur` draws nothing.
+fn material(props: &HostValue) -> AnyElement {
+    let kind = match props.get("kind").and_then(HostValue::as_str) {
+        Some("glass") | None => specular_interact::Material::Glass,
+        Some("blur") => specular_interact::Material::Blur,
+        Some(_) => return div().into_any_element(),
+    };
+    let radius = (props.get("radius").and_then(HostValue::as_number)).unwrap_or(0.0) as f32;
+    let id = (props.get("id").and_then(HostValue::as_str)).unwrap_or("material");
+    crate::view::material(
+        gpui_kit::SharedString::from(format!("mod-material-{id}")),
+        kind,
+        radius,
+    )
 }
 
 /// A `Field`'s `radius`, `background`, `border` and `focusRing` props, over the app's

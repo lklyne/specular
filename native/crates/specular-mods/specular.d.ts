@@ -385,6 +385,8 @@ export type Paint =
   | { color?: string; pattern: "stripes" | "hatch" | "checker"; ink: string; width?: number; gap?: number; size?: number; direction?: "horizontal" | "vertical" };
 /** `Pattern`: a box filling its parent (place it in a `relative()` box), painted with `paint`: pinstripes, hatching, a checked desktop. Hatching and checks are one GPU fill; stripes are a box each, at most 400, reaching `width` and `height` (the window's size when left out). Headless it is a placeholder. */
 export const Pattern: HostComponent<{ paint: Paint; width?: number; height?: number }>;
+/** `Material`: the system's Liquid Glass (`kind: "glass"`, the default; a blur before macOS 26) or a frosted blur (`"blur"`) filling its parent, the canvas behind it showing through. It is a system view under everything the window paints, so leave the boxes over it clear or translucent. `id` tells two in one mod apart. Headless it is a placeholder. A layout block takes the same as `"material": "glass" | "blur"`. */
+export const Material: HostComponent<{ kind?: "glass" | "blur"; radius?: number; id?: string }>;
 /** `Favicon`: a tab's glyph: the page's own icon once the window has it, else the panel glyph `icon` (`tabs[].icon`) as `Icon` draws it. `tab` is the tab's id. */
 export const Favicon: HostComponent<{ tab: string; icon: any; size?: number; color?: string; control?: string }>;
 /** `Popover`: a box over the rest of the window around its children, placed out of the flow at `top`/`left`/`right`/`bottom` from the `relative()` box it is in. A press on it is its children's alone: the canvas under a dropdown that hangs below its bar never sees it. Put a mod's own dropdowns and menus in one. */

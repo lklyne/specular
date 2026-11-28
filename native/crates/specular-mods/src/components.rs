@@ -48,11 +48,12 @@ pub type Build = Rc<dyn for<'a> Fn(ComponentArgs<'a>, &mut Window, &mut App) -> 
 const PRISM: f32 = 160.0;
 
 /// The names of the host components every mod can import.
-pub const HOST_COMPONENTS: [&str; 12] = [
+pub const HOST_COMPONENTS: [&str; 13] = [
     "Composer",
     "Favicon",
     "Field",
     "Icon",
+    "Material",
     "Pattern",
     "Popover",
     "Prism",
@@ -102,6 +103,7 @@ impl Components {
         by_name.insert("Field", placeholder(""));
         by_name.insert("Composer", placeholder(""));
         by_name.insert("Pattern", placeholder(""));
+        by_name.insert("Material", placeholder(""));
         by_name.insert("Swatch", swatch);
         by_name.insert("Popover", Rc::new(|args, _, _| popover(args)));
         by_name.insert(

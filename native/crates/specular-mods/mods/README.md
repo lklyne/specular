@@ -202,11 +202,23 @@ look on it. A node is a `row`, a `column`, a `stack` (shows one child, its
 `{ "weight": 2 }`, the rest shared by weight), `min`, `max`, `hidden`,
 `background` (a paint: a colour, a colour name such as `"toolbar"`, a
 gradient `{ "from": ..., "to": ..., "angle": 90 }`, or a pattern, below), `border` `{width, color}`,
-`radius`, `padding` and `gap`. The ids `tabs`, `toolbar`, `sidebar` and
+`radius`, `padding`, `gap` and `material`. The ids `tabs`, `toolbar`, `sidebar` and
 `chat` follow the app: the sidebar block shows while the sidebar is open,
 the chat block takes the panel's width, and `ui.toggle {id}` hides any
 block by its id. Blocks above or left of the canvas lie over its edge and
 the canvas is seen between them; blocks below or right sit beside it.
+
+**Glass and blur.** `"material": "glass"` puts macOS's Liquid Glass under a
+block (macOS 26; a blur on an earlier macOS) and `"material": "blur"` a
+frosted blur; the canvas behind the block shows through, bent or frosted,
+and the block's `radius` rounds it. The material is the system's own view
+under everything the window paints, so it shows only where the paint over
+it is clear: the app's own panels leave their fill off on a material, a
+`background` such as `"#ffffff14"` tints it, and an opaque one hides it.
+A mod on a material leaves its own `bg()` off, or translucent. The layout
+root's `background` paints round the canvas, under the blocks, so leave it
+off where a material should show the canvas. Inside a mod, the `Material`
+host component is the same surface in any box.
 
 ```json
 { "title": "Mine", "id": "root", "type": "column",
@@ -549,6 +561,11 @@ Elements a mod places but cannot draw itself, imported from `specular`:
   Send sends to `thread` (started under that id if it is not made yet), or
   to the thread the panel has open when there is none. The window keeps it
   by `id`, so it redraws as a person types without the mod rendering.
+- `Material`, `Material.new(id, { kind, radius, id })`: glass (`kind:
+  "glass"`, the default) or a blur (`"blur"`) filling its parent, as a
+  block's `material` is (see "Glass and blur"). Put it first in a
+  `relative()` box and leave the boxes over it clear or translucent; give
+  each one in a mod its own `id`. Headless it is a placeholder.
 - `Field`, `Field.new(id, { id, placeholder, value, autofocus })` or
   `Field.new(id, { control })`: a line of text (see "Text"), restyled by
   `radius`, `background`, `border` and `focusRing`.

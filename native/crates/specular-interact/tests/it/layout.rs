@@ -6,8 +6,8 @@ use std::collections::BTreeMap;
 
 use serde_json::json;
 use specular_interact::{
-    Appearance, Content, Frame, HiddenWord, Layout, LayoutFile, Overlay, Region, SHIPPED, Shown,
-    ThemeFile, Toggles, TrafficLights, place,
+    Appearance, Content, Frame, HiddenWord, Layout, LayoutFile, Material, Overlay, Region, SHIPPED,
+    Shown, ThemeFile, Toggles, TrafficLights, place,
 };
 
 #[test]
@@ -106,6 +106,24 @@ fn a_theme_sets_the_radius_spacing_lines_and_fonts_once_and_a_layout_goes_over_i
         (Some(2.0), Some("Monaco"), Some(12.0))
     );
     assert_eq!((over.spacing, over.border_width), (Some(3.0), Some(1.0)));
+}
+
+#[test]
+fn a_block_is_glass_or_blur_and_keeps_it_through_a_save() {
+    let layout = Layout::parse(
+        r##"{ "type": "row", "children": [
+            { "id": "chat", "type": "block", "content": { "panel": "chat" },
+              "material": "glass", "background": "#ffffff14" },
+            { "id": "canvas", "type": "block", "content": "canvas" },
+            { "id": "card", "type": "block", "material": "blur" } ] }"##,
+    )
+    .expect("a layout");
+    let material = |id: &str| layout.root.find(id).and_then(|node| node.material);
+    assert_eq!(
+        (material("chat"), material("card"), material("canvas")),
+        (Some(Material::Glass), Some(Material::Blur), None)
+    );
+    assert_eq!(Layout::parse(&layout.to_text()), Ok(layout.clone()));
 }
 
 #[test]
@@ -252,6 +270,10 @@ fn a_bad_save_keeps_the_last_good_layout_and_says_why() {
         (
             r#"{ "type": "row", "children": [{ "id": "a", "type": "block", "content": "canvas" }, { "id": "a", "type": "block" }] }"#,
             "two nodes have the id `a`",
+        ),
+        (
+            r#"{ "type": "row", "children": [{ "type": "block", "content": "canvas" }, { "type": "block", "material": "frost" }] }"#,
+            "unknown variant `frost`",
         ),
     ] {
         let error = file.read(bad).map_or_default(ToString::to_string);
