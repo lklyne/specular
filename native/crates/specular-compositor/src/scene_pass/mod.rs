@@ -145,8 +145,10 @@ impl ScenePass {
     }
 
     /// The height of each owned column the latest frame drew.
-    pub(crate) fn column_heights(&self) -> &[(specular_scene::OwnerId, f32)] {
-        (self.text.as_ref()).map_or(&[], TextSystem::column_heights)
+    pub(crate) fn column_measures(
+        &self,
+    ) -> &[(specular_scene::OwnerId, specular_scene::ColumnMeasure)] {
+        (self.text.as_ref()).map_or(&[], TextSystem::column_measures)
     }
 
     /// A text measure on the fonts this pass draws with.

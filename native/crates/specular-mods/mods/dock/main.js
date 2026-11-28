@@ -7,7 +7,7 @@
 //   "dock": { "mod": "dock", "props": { "hidden": ["comment.annotate"] } }
 import { View, div } from "gpui-kit";
 import { h_flex, v_flex, Button } from "gpui-base";
-import { state, props, run, colors, Icon, Field, Swatch } from "specular";
+import { state, props, run, colors, Icon, Field, Swatch, Popover } from "specular";
 
 const H = 28;
 
@@ -102,9 +102,7 @@ export default class Dock extends View {
         rows.push(h_flex().gap(2).p(4).children(section.controls.map((each) => this.control(each, k))));
       }
     }
-    return v_flex()
-      .absolute()
-      .top(H + 8)
+    const list = v_flex()
       .min_w(180)
       .p(4)
       .rounded(8)
@@ -113,6 +111,8 @@ export default class Dock extends View {
       .border_color(k.popupBorder)
       .shadow_md()
       .children(rows);
+    // A press on the list must not reach the canvas under it.
+    return Popover.new("dock.choices", { top: H + 8 }).child(list);
   }
 
   render() {

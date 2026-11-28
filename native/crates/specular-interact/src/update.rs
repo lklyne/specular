@@ -67,7 +67,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         Event::Image { image, notice } => images::on_notice(app, image, notice, &mut effects),
         Event::Note { file, notice } => notes::on_notice(app, &file, notice, &mut effects),
         Event::NoteCreated { file, rect } => edit::note::created(app, file, rect, &mut effects),
-        Event::NoteHeights(heights) => notes::on_heights(app, heights),
+        Event::NoteLayouts(layouts) => notes::on_layouts(app, layouts),
         Event::Tick { unix_ms } => on_tick(app, unix_ms, &mut effects),
         Event::ViewportResized(size) => app.session.viewport = size,
         Event::DocumentOpened(document) => open_document(app, *document, &mut effects),

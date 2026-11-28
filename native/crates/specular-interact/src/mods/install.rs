@@ -61,6 +61,7 @@ pub(crate) fn install_notice(app: &App) -> Option<AppNotice> {
             args: serde_json::Value::Null,
         }),
         dismiss: true,
+        about: None,
     })
 }
 

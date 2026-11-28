@@ -10,7 +10,7 @@ use std::rc::Rc;
 use anyhow::Context as _;
 use gpui::{AnyView, App, Entity, Window};
 use gpui_shell::policy::{self, Policy};
-use gpui_shell::{RuntimeMetrics, ScriptView, ShellRoot, ShellRuntime, Watcher};
+use gpui_shell::{RuntimeMetrics, ScriptView, ShellRoot, ShellRuntime};
 
 use crate::host::{Hosting, specular_module};
 use crate::manifest::read_manifest;
@@ -23,7 +23,6 @@ pub struct Mod {
     manifest: ModManifest,
     runtime: Rc<ShellRuntime>,
     root: Entity<ShellRoot>,
-    _watcher: Option<Watcher>,
 }
 
 impl std::fmt::Debug for Mod {
@@ -85,14 +84,13 @@ fn under<R>(policy: Policy, body: impl FnOnce() -> R) -> R {
 
 impl Mod {
     /// Loads the mod in `dir` under the id `id`, with `data_dir` for its own
-    /// state. With `watch`, a save to its files reloads it in place; a load
-    /// that fails keeps the old build running and shows why.
+    /// state. [`ModSet`](crate::ModSet) loads it again when its source
+    /// changes.
     pub fn load(
         id: &str,
         dir: &Path,
         data_dir: &Path,
         hosting: &Hosting,
-        watch: bool,
         window: &mut Window,
         cx: &mut App,
     ) -> anyhow::Result<Self> {
@@ -102,24 +100,12 @@ impl Mod {
         hosting.reads.borrow_mut().begin(id);
         let root = under(policy, || runtime.try_load(dir, window, cx))
             .with_context(|| format!("loading mod `{id}`"))?;
-        let watcher = if watch {
-            match runtime.watch(&root, window, cx) {
-                Ok(watcher) => Some(watcher),
-                Err(error) => {
-                    tracing::warn!("mod `{id}` will not reload on save: {error:#}");
-                    None
-                }
-            }
-        } else {
-            None
-        };
         Ok(Self {
             id: id.to_owned(),
             dir: dir.to_path_buf(),
             manifest,
             runtime,
             root,
-            _watcher: watcher,
         })
     }
 

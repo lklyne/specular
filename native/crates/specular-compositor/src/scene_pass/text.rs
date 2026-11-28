@@ -30,7 +30,7 @@ use glyphon::{
 };
 use specular_core::Camera;
 use specular_scene::OwnerId;
-use specular_scene::{Size, Space, TextRun};
+use specular_scene::{ColumnMeasure, Size, Space, TextRun};
 
 use super::place::ViewTransform;
 use super::raster_hold::RasterHold;
@@ -76,7 +76,7 @@ struct Slot {
     placement: Option<Placement>,
     glyphs: u32,
     /// How tall each owned column of the layout came out.
-    heights: Vec<(OwnerId, f32)>,
+    heights: Vec<(OwnerId, ColumnMeasure)>,
 }
 
 /// The text of one space: its glyph atlas and a slot for each batch.
@@ -107,7 +107,7 @@ pub(crate) struct TextSystem {
     last_camera: Option<Camera>,
     /// How tall each owned column drawn this frame came out, in its own
     /// units.
-    column_heights: Vec<(OwnerId, f32)>,
+    column_measures: Vec<(OwnerId, ColumnMeasure)>,
     /// Time spent shaping this frame.
     shaping_time: Duration,
     /// Whether this frame's text is drawn only through viewports inside
@@ -163,7 +163,7 @@ impl TextSystem {
             raster_zoom: 1.0,
             stretch: 1.0,
             last_camera: None,
-            column_heights: Vec::new(),
+            column_measures: Vec::new(),
             shaping_time: Duration::ZERO,
             inside_target: false,
             samples,
@@ -180,7 +180,7 @@ impl TextSystem {
     ) {
         self.frame += 1;
         self.inside_target = inside_target;
-        self.column_heights.clear();
+        self.column_measures.clear();
         self.shaping_time = Duration::ZERO;
         let zoom = view.camera.zoom;
         self.raster_zoom = self.hold.raster_zoom(zoom, zooming);
@@ -310,8 +310,8 @@ impl TextSystem {
 
     /// The height of the rows of each column drawn this frame that names an
     /// owner.
-    pub(crate) fn column_heights(&self) -> &[(OwnerId, f32)] {
-        &self.column_heights
+    pub(crate) fn column_measures(&self) -> &[(OwnerId, ColumnMeasure)] {
+        &self.column_measures
     }
 
     /// Time spent shaping since the frame began.

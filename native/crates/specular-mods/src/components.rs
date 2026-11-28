@@ -10,6 +10,7 @@
 //! WindowDrag.new("tabs-bare", {})
 //! Share.new("share", {})
 //! Prism.new("prism", {})
+//! Popover.new("dock.choices", { top: 36 }).child(list)
 //! ```
 //!
 //! `Icon` is drawn here from the panel glyphs, and `Favicon` is a tab's
@@ -18,7 +19,9 @@
 //! never enters a script; `ToolOptions` is the dock's own controls;
 //! `WindowDrag` is bare title bar the window is dragged and zoomed by; and
 //! `Share` is whatever the layout puts in the Share slot; `Prism` is the
-//! first-run view's turning Prism, drawn on the GPU. Only the window
+//! first-run view's turning Prism, drawn on the GPU; `Popover` is a box
+//! over the rest of the window that keeps a press from what is under it,
+//! which a mod's own elements cannot. Only the window
 //! has those, so here they are placeholders the window replaces
 //! ([`Components::with`]).
 
@@ -28,8 +31,8 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use gpui::{
-    AnyElement, App, Image, ImageFormat, IntoElement as _, ParentElement as _, Styled as _, Window,
-    div, img, px,
+    AnyElement, App, Image, ImageFormat, InteractiveElement as _, IntoElement as _,
+    ParentElement as _, Styled as _, Window, div, img, px,
 };
 use gpui_shell::{ComponentArgs, HostValue};
 use specular_interact::{Appearance, Icon, PaintRole, Palette, Revisions};
@@ -45,12 +48,13 @@ pub type Build = Rc<dyn for<'a> Fn(ComponentArgs<'a>, &mut Window, &mut App) -> 
 const PRISM: f32 = 160.0;
 
 /// The names of the host components every mod can import.
-pub const HOST_COMPONENTS: [&str; 11] = [
+pub const HOST_COMPONENTS: [&str; 12] = [
     "Favicon",
     "Field",
     "Icon",
     "Material",
     "Pattern",
+    "Popover",
     "Prism",
     "Share",
     "Swatch",
@@ -99,6 +103,7 @@ impl Components {
         by_name.insert("Pattern", placeholder(""));
         by_name.insert("Material", placeholder(""));
         by_name.insert("Swatch", swatch);
+        by_name.insert("Popover", Rc::new(|args, _, _| popover(args)));
         by_name.insert(
             "WindowDrag",
             Rc::new(|_, _, _| div().size_full().into_any_element()),
@@ -148,6 +153,39 @@ fn favicon_as_icon(props: &HostValue) -> HostValue {
 }
 
 /// A component only a window can draw, standing in with `text`.
+/// `Popover {top?, left?, right?, bottom?}` around its children: placed
+/// out of the flow at those offsets from the `relative()` box it is in, and
+/// a press anywhere on it is its children's alone. The canvas under a
+/// dropdown that hangs below its bar never sees the press that picks from
+/// it.
+fn popover(mut args: ComponentArgs<'_>) -> AnyElement {
+    let offset =
+        |key: &str| (args.props().get(key).and_then(HostValue::as_number)).map(|at| px(at as f32));
+    let (top, left, right, bottom) = (
+        offset("top"),
+        offset("left"),
+        offset("right"),
+        offset("bottom"),
+    );
+    let mut layer = div()
+        .id(gpui::SharedString::from(args.id().to_owned()))
+        .occlude()
+        .absolute();
+    if let Some(top) = top {
+        layer = layer.top(top);
+    }
+    if let Some(left) = left {
+        layer = layer.left(left);
+    }
+    if let Some(right) = right {
+        layer = layer.right(right);
+    }
+    if let Some(bottom) = bottom {
+        layer = layer.bottom(bottom);
+    }
+    layer.children(args.take_children()).into_any_element()
+}
+
 fn placeholder(text: &'static str) -> Build {
     Rc::new(move |_, _, _| div().child(text).into_any_element())
 }

@@ -17,7 +17,7 @@ use crate::{
 const ARROW: [(f32, f32); 4] = [(0.0, 0.0), (0.0, 16.0), (4.4, 12.2), (11.6, 11.6)];
 const ARROW_EDGE: f32 = 1.5;
 /// The chip's top-left corner from the tip.
-const CHIP_OFFSET: (f32, f32) = (10.0, 16.0);
+const CHIP_OFFSET: (f32, f32) = (7.0, 11.0);
 const CHIP_HEIGHT: f32 = 18.0;
 const CHIP_PADDING: f32 = 6.0;
 const CHIP_RADIUS: f32 = 9.0;

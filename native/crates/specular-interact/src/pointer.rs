@@ -271,6 +271,7 @@ fn tool_takes_press(
         }
         Tool::Select => {
             comment::press(app, input.screen, effects)
+                || crate::note_tasks::press(app, input, effects)
                 || select::press(app, input, click_count, effects)
         }
         tool @ (Tool::AddPage

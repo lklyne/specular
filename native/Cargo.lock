@@ -8630,6 +8630,7 @@ name = "specular-interact"
 version = "0.11.2"
 dependencies = [
  "glam",
+ "pulldown-cmark",
  "serde",
  "serde_json",
  "specular-agent",

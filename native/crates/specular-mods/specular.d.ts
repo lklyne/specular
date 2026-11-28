@@ -25,7 +25,7 @@
  * - `settings`: `{showSidebar, showChat, tools, hideAgentCursors, hideSyncedCursors}`
  * - `keys`: `[{keys, context, command, args}]`, every key binding
  * - `layout`: `{file, toggles: {hidden: {id: bool}}, hidden: [region names]}`
- * - `notices`: `[{id, level: "info"|"warning"|"error", text, action: {label, run, args} | null, dismiss}]`: a page that stopped or answered an HTTP error, a share that failed, mods a canvas needs (`mods.install`). `notice.dismiss {id}` takes one away when `dismiss` is true
+ * - `notices`: `[{id, level: "info"|"warning"|"error", text, action: {label, run, args} | null, dismiss, about: entity id | null}]`: a page that stopped or answered an HTTP error, a share that failed, mods a canvas needs (`mods.install`). `notice.dismiss {id}` takes one away when `dismiss` is true; `view.reveal {id: about}` shows the item a notice is about
  * - `canvas/mod_items`: the active canvas's mod items `[{id, mod, width, height, props}]`, without their positions (1.1)
  * - `tool`: the armed mod tool's stroke `{tool: "<mod>/<tool>", number, phase: "down"|"up", points: [[x, y]]}` in canvas units, or null (1.1)
  * - `call`: the last mod command run `{command: "<mod>/<command>", number, args}`, or null. Act once per `number` (1.1)
@@ -380,6 +380,8 @@ export const Pattern: HostComponent<{ paint: Paint; width?: number; height?: num
 export const Material: HostComponent<{ kind?: "glass" | "blur"; radius?: number; id?: string }>;
 /** `Favicon`: a tab's glyph: the page's own icon once the window has it, else the panel glyph `icon` (`tabs[].icon`) as `Icon` draws it. `tab` is the tab's id. */
 export const Favicon: HostComponent<{ tab: string; icon: any; size?: number; color?: string; control?: string }>;
+/** `Popover`: a box over the rest of the window around its children, placed out of the flow at `top`/`left`/`right`/`bottom` from the `relative()` box it is in. A press on it is its children's alone: the canvas under a dropdown that hangs below its bar never sees it. Put a mod's own dropdowns and menus in one. */
+export const Popover: HostComponent<{ top?: number; left?: number; right?: number; bottom?: number }>;
 /** `WindowDrag`: bare title bar. A press that moves drags the window, and a double click does what the system says a title bar's does. It fills the box it is put in. */
 export const WindowDrag: HostComponent<{}>;
 /** `Share`: what the layout puts in the Share slot: the `share` mod when the layout names one, else the app's own Share button and popover. */

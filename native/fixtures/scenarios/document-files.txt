@@ -226,4 +226,26 @@ key cmd+a
 control format.bold
 expect editing **back**
 key escape
+
+# a click on a tick box of a Document being read ticks that task in the
+# file as one step, and selects nothing; once measured, as the wheel is
+note-text Untitled\sNote.md - [ ] one\n- [ ] two
+camera 0,0,1
+click 1300 200
+wait 10
+wait 10
+click 220 140
+expect effects has write-note { file: "Untitled Note.md", text: "- [ ] one
+expect effects has - [x] two" }
+click 220 120
+expect effects has text: "- [x] one
+# the text beside the box is the card's, as before
+click 300 120
+expect effects lacks write-note
+expect count selected 1
+run edit.undo
+expect effects has text: "- [ ] one
+expect effects has - [x] two" }
+run edit.undo
+expect effects has - [ ] two" }
 undo-to-start

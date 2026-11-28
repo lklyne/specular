@@ -2,7 +2,7 @@
 //! turns out to be. Only the renderer measures text, so `view` says what the
 //! rows hold and the renderer finds where each one starts.
 
-use crate::{Color, OwnerId, Point, TextRun};
+use crate::{Color, OwnerId, Point, Rect, TextRun};
 
 /// Rows of text stacked top to bottom from `origin`.
 ///
@@ -45,6 +45,32 @@ pub struct Row {
     /// Straight lines drawn with the row: a quote's bar, a divider, a table
     /// border.
     pub rules: Vec<RowRule>,
+    /// A place in the row a click acts on, reported back with the column's
+    /// height when the column has an owner.
+    pub target: Option<RowTarget>,
+}
+
+/// A clickable stretch of a [`Row`]: a task's tick box.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct RowTarget {
+    /// What the click acts on, as the view numbered it.
+    pub id: u32,
+    /// Left edge, measured from the column's left.
+    pub x: f32,
+    /// Width.
+    pub width: f32,
+    /// Height from the row's top, cut to the row's own height.
+    pub height: f32,
+}
+
+/// What the renderer found when it laid out an owned [`ColumnDraw`].
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct ColumnMeasure {
+    /// Height of all the rows and gaps.
+    pub height: f32,
+    /// Each row target and where it landed, measured from the column's
+    /// origin before scrolling.
+    pub targets: Vec<(u32, Rect)>,
 }
 
 /// A thin filled rect placed against a [`Row`]. The renderer draws it with

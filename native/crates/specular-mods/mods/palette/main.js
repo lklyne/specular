@@ -20,7 +20,7 @@ function matches(item, words) {
 
 export default class Palette extends View {
   init() {
-    // A fresh field each time the palette opens.
+    // An overlay is a new instance each time it opens, so this runs then.
     this.field = `palette-${Date.now()}`;
     this.pick = 0;
     this.submitted = shared(`field/${this.field}/submit`) || 0;

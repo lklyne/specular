@@ -104,7 +104,7 @@ impl Loaded {
         let window = {
             let (slot, hosting) = (slot.clone(), hosting.clone());
             cx.add_window(move |window, cx| {
-                let panel = Mod::load(name, &dir, &data, &hosting, false, window, cx)
+                let panel = Mod::load(name, &dir, &data, &hosting, window, cx)
                     .expect("the shipped mod loads");
                 let root = Root {
                     view: panel.view(cx),
