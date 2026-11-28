@@ -311,6 +311,7 @@ pub(crate) fn has_target(app: &App, action: &Action) -> bool {
         | Action::RevealComment(_)
         | Action::Sidebar(_)
         | Action::SetCamera(_)
+        | Action::Follow(_)
         | Action::FocusComment(_)
         | Action::Show(_)
         | Action::OpenTab(_)

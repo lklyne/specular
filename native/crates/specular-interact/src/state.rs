@@ -30,6 +30,7 @@
 //! | `canvas/mod_items` | the active canvas's mod items, without their positions (ADR 0057) |
 //! | `tool` | the armed mod tool's stroke, or `null` (ADR 0057) |
 //! | `call` | the last mod command run, `{command, number, args}`, or `null` |
+//! | `agents` | the agents with a cursor on the canvas shown, `{agents: [{id, name, color, label}], following}`, without positions |
 //!
 //! A control's `action` is left out: a reader presses a control with
 //! `control.press {id}`, by the id written beside it. The camera is in no
@@ -83,6 +84,7 @@ pub const STATE_KEYS: [&str; 26] = [
     "canvas/mod_items",
     "tool",
     "call",
+    "agents",
 ];
 
 fn to_json(value: impl serde::Serialize) -> Value {
@@ -140,6 +142,7 @@ pub fn state(app: &App) -> BTreeMap<String, Value> {
         ("canvas/mod_items", crate::mods::mod_items_json(app)),
         ("tool", crate::mods::tool_json(app)),
         ("call", crate::mods::call_json(app)),
+        ("agents", crate::presence::agents_json(app)),
     ];
     (entries.into_iter())
         .map(|(key, value)| (key.to_owned(), value))

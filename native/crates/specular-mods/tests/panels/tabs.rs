@@ -2,9 +2,10 @@
 
 use gpui::TestAppContext;
 use serde_json::{Value, json};
+use specular_doc::Command;
 use specular_doc::EntityId;
 use specular_interact::panel::TAB_ROW;
-use specular_interact::{Action, Showing, state};
+use specular_interact::{Action, ApiCall, ApiRun, Event, Showing, ThreadId, state};
 
 use crate::support::{Loaded, along, timed_load, window_app};
 
@@ -93,7 +94,7 @@ fn the_tab_row_renders_on_change_only_and_inside_a_frame(cx: &mut TestAppContext
     let mut loaded = timed_load(&app, "tabs", json!({}), SIZE, cx);
     assert_eq!(
         loaded.reads("tabs"),
-        ["look", "mods/tabs/props", "panels/strip"]
+        ["agents", "look", "mods/tabs/props", "panels/strip"]
     );
     assert_eq!(loaded.idle_renders(), 0, "no script render while idle");
     loaded.assert_camera_moves_nothing(&mut app);
@@ -105,4 +106,40 @@ fn the_tab_row_renders_on_change_only_and_inside_a_frame(cx: &mut TestAppContext
         };
         app.act(Action::Show(showing));
     });
+}
+
+/// `app` with `count` agents, each having just renamed the page.
+fn with_agents(app: &mut specular_testkit::TestApp, count: usize) {
+    for n in 0..count {
+        let label = Command::SetLabel {
+            id: EntityId::from("p1"),
+            label: Some(format!("by {n}")),
+        };
+        app.send(Event::Api(ApiCall {
+            ticket: 0,
+            canvas: None,
+            thread: Some(ThreadId(format!("agent-{n}"))),
+            run: ApiRun::Apply {
+                command: label,
+                select: None,
+            },
+        }));
+    }
+    app.tick(1_000_000).tick(1_000_100);
+}
+
+#[gpui::test]
+fn agents_on_the_canvas_show_as_badges_unless_hidden(cx: &mut TestAppContext) {
+    let mut app = app_with_a_tab();
+    let tree = Loaded::new(&app, "tabs", json!({}), SIZE, cx).tree();
+    assert!(!shows(&tree, "agents"), "no agents, no badges:\n{tree}");
+    with_agents(&mut app, 5);
+    let tree = Loaded::new(&app, "tabs", json!({}), SIZE, cx).tree();
+    assert!(shows(&tree, "agents"), "{tree}");
+    assert!(
+        tree.contains("+2"),
+        "three badges and a count for the rest:\n{tree}"
+    );
+    let hidden = Loaded::new(&app, "tabs", json!({ "hidden": ["agents"] }), SIZE, cx).tree();
+    assert!(!shows(&hidden, "agents"), "{hidden}");
 }

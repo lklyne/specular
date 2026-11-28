@@ -21,10 +21,24 @@ use crate::showing::Showing;
 use crate::{Action, ApiRun, App, Effect};
 
 /// How long the cursor rests on a stop before it goes on to the next.
-pub(super) const STOP_DWELL_MS: u64 = 160;
+const STOP_DWELL_MS: u64 = 160;
+/// The rest on an item while reading: a glance.
+const READ_DWELL_MS: u64 = 30;
 /// The most stops one act visits: enough to show a spread, few enough that
 /// an arrange of fifty items does not keep the cursor busy for seconds.
 const MAX_STOPS: usize = 5;
+/// The most items a read visits, spread over everything in view, so a full
+/// canvas reads as a scan of all of it in about two seconds.
+const MAX_READ_STOPS: usize = 24;
+
+/// How long the cursor rests on a stop with this label.
+pub(super) fn dwell_ms(label: &str) -> u64 {
+    if label == "reading" {
+        READ_DWELL_MS
+    } else {
+        STOP_DWELL_MS
+    }
+}
 /// How far inside an item's corner the cursor points, in canvas units.
 const CORNER_INSET: f64 = 24.0;
 /// Where a cursor that was not on the canvas comes in from, in screen
@@ -98,6 +112,9 @@ pub(crate) fn after(app: &mut App, watch: &Watch, effects: &mut Vec<Effect>) {
 /// What the CLI reports with a canvas verb that reads, by the key Electron
 /// named it with.
 pub(crate) fn on_report(app: &mut App, agent: &str, key: &str, effects: &mut Vec<Effect>) {
+    if key == "open" {
+        return;
+    }
     let now = app.session.now_ms;
     let centre = || {
         let view = view_rect(app);
@@ -108,10 +125,12 @@ pub(crate) fn on_report(app: &mut App, agent: &str, key: &str, effects: &mut Vec
         "find_placement" => vec![Stop {
             at: centre(),
             label: "finding space",
+            item: None,
         }],
         "add_annotation" => vec![Stop {
             at: centre(),
             label: "commenting",
+            item: None,
         }],
         "thinking" | "idle" | "departing" => {
             let rest = if key == "thinking" {
@@ -153,9 +172,10 @@ fn go(app: &mut App, agent: &str, stops: Vec<Stop>, effects: &mut Vec<Effect>) {
         let zoom = f64::from(app.session.camera.zoom);
         let from = first.at + ENTRY / zoom;
         let mut cursor = Cursor::new(agent, anchor, from, first.label);
-        cursor.travel_ms = travel_ms(app, from, first.at);
+        cursor.travel_ms = travel_ms(app, from, first.at, first.label);
         cursor
     };
+    cursor.item = first.item;
     cursor.stops = stops;
     cursor.ripples = first.label != "reading";
     cursor.acted_ms = None;
@@ -193,7 +213,16 @@ fn changes(app: &App, before: &Document) -> Vec<Stop> {
             Some(old) if old == edge => continue,
             Some(_) => "editing",
         };
-        found.extend(edge_point(after, edge).map(|at| (Stop { at, label }, false)));
+        found.extend(edge_point(after, edge).map(|at| {
+            (
+                Stop {
+                    at,
+                    label,
+                    item: None,
+                },
+                false,
+            )
+        }));
     }
     for edge in before.edges() {
         if after.edge(&edge.id).is_none() {
@@ -203,6 +232,7 @@ fn changes(app: &App, before: &Document) -> Vec<Stop> {
                     Stop {
                         at,
                         label: "deleting",
+                        item: None,
                     },
                     false,
                 )
@@ -217,6 +247,7 @@ fn changes(app: &App, before: &Document) -> Vec<Stop> {
                     Stop {
                         at,
                         label: "commenting",
+                        item: None,
                     },
                     false,
                 )
@@ -231,6 +262,7 @@ fn changes(app: &App, before: &Document) -> Vec<Stop> {
                     Stop {
                         at,
                         label: "deleting",
+                        item: None,
                     },
                     false,
                 )
@@ -260,6 +292,7 @@ fn stop(rect: Rect, label: &'static str) -> Stop {
             rect.y + (rect.height / 2.0).min(CORNER_INSET),
         ),
         label,
+        item: None,
     }
 }
 
@@ -269,7 +302,11 @@ fn item_stops(app: &App, items: &[ItemId], label: &'static str) -> Vec<Stop> {
             ItemId::Entity(id) => entity_rect(app, id).map(|rect| stop(rect, label)),
             ItemId::Edge(id) => (app.document.edge(id))
                 .and_then(|edge| edge_point(&app.document, edge))
-                .map(|at| Stop { at, label }),
+                .map(|at| Stop {
+                    at,
+                    label,
+                    item: None,
+                }),
         })
         .collect();
     in_reading_order(stops)
@@ -314,16 +351,28 @@ fn annotation_point(app: &App, document: &Document, annotation: &Annotation) -> 
     }
 }
 
-/// What a read sweeps over: the items in view, groups left out.
+/// What a read sweeps over: the items in view, groups left out, each lit
+/// as the cursor lands on it. A full view is sampled evenly, so the scan
+/// crosses all of it rather than stopping at its top row.
 fn in_view(app: &App, label: &'static str) -> Vec<Stop> {
     let view = view_rect(app);
-    let stops = (app.document.entities())
+    let mut stops: Vec<Stop> = (app.document.entities())
         .filter(|entity| !is_group(entity))
         .filter_map(|entity| crate::shown_rect(app, entity))
         .filter(|rect| overlaps(*rect, view))
-        .map(|rect| stop(rect, label))
+        .map(|rect| Stop {
+            item: Some(rect),
+            ..stop(rect, label)
+        })
         .collect();
-    in_reading_order(stops)
+    stops.sort_by(|a, b| a.at.y.total_cmp(&b.at.y).then(a.at.x.total_cmp(&b.at.x)));
+    let count = stops.len();
+    if count <= MAX_READ_STOPS {
+        return stops;
+    }
+    (0..MAX_READ_STOPS)
+        .map(|step| stops[step * (count - 1) / (MAX_READ_STOPS - 1)].clone())
+        .collect()
 }
 
 /// Top to bottom, then left to right, close stops merged, at most

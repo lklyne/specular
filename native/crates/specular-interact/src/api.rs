@@ -89,8 +89,10 @@ pub enum ApiRun {
     /// label key (`scan_workspace`, `thinking`, ...). Moves its cursor and
     /// nothing else.
     Report {
-        /// The label key.
+        /// The label key, or `open` for a session that only says who it is.
         key: String,
+        /// The name the caller gives itself.
+        name: Option<String>,
     },
 }
 
@@ -116,8 +118,9 @@ pub(crate) fn run(app: &mut App, call: ApiCall, effects: &mut Vec<Effect>) {
     let thread = thread.filter(|id| app.threads.is_running(id));
     let background = canvas.filter(|id| *id != app.space.active().id);
     let Some(id) = background else {
-        if let ApiRun::Report { key } = &run {
+        if let ApiRun::Report { key, name } = &run {
             if let Some(agent) = &agent {
+                presence::name_agent(app, agent, name.as_deref());
                 presence::canvas::on_report(app, agent, key, effects);
             }
             effects.push(Effect::ApiReply {

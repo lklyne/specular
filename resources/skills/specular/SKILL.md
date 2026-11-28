@@ -341,6 +341,15 @@ exist: `specular run tool.set '{"tool": "ink/pen"}'` arms a mod tool,
 places a mod item, `specular run item.set '{"id": "...", "props": {...}}'`
 changes one, and `specular run <mod>/<command>` runs a mod's own command.
 
+## Your cursor
+
+The person sees your work as one cursor on the canvas: it goes to what each
+command changes, sweeps over what a read takes in, and reads "thinking"
+between commands. The person can see you in the agents list beside Share
+and follow your cursor. Set `SPECULAR_CLIENT_NAME` (for example
+`export SPECULAR_CLIENT_NAME="Claude: checkout redesign"`) to name yourself
+there; otherwise you are "Agent N".
+
 ## Passing URLs
 
 Always pass full URLs (including scheme and host) to `specular add page`. The

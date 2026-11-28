@@ -145,7 +145,9 @@ item, back to front, with its kind, label, parent and words, but no place or
 size), `canvas/info` (the canvas showing, its counts and every canvas), and
 for canvas items, tools and commands `canvas/mod_items`, `tool` and `call`
 (see below), and for agent threads `chat/threads`, `chat/context` and a
-`chat/thread/<id>` key for each thread (see "Chat threads anywhere").
+`chat/thread/<id>` key for each thread (see "Chat threads anywhere"), and
+`agents`, the agents with a cursor on the canvas (see "Agents on the
+canvas").
 `specular state [key]` prints them from the running app.
 
 `props()` is what the layout hands the mod. By convention `props().hidden`
@@ -180,7 +182,7 @@ app's log. The commands:
 - **page**: `page.new-tab`, `page.edit-address`, `page.back`, `page.forward`, `page.reload`, `page.stop`, `page.navigate` `{url: address, page?: entity id}`, `page.frame`, `page.frame-color`, `page.rotate`, `page.scheme`, `page.orientation` `{orientation: portrait|landscape}`, `page.toggle-sync`
 - **tab**: `tab.show` `{item?: entity id}`, `tab.open` `{item: entity id}`, `tab.close` `{item?: entity id}`, `tab.next`, `tab.previous`, `tab.lens` `{lens: fill|device}`, `tab.others` `{shown: bool}`
 - **tool**: `tool.set` `{tool: select|page|text|sticky|document|shape|draw|comment|inspect|<mod>/<tool>}`, `tool.ellipse`, `tool.diamond`, `tool.highlighter`, `tool.preview` `{draws: [{type: rect|ellipse|path|text|image, ..}]}`
-- **view**: `view.zoom-in`, `view.zoom-out`, `view.zoom-reset`, `view.zoom-to-fit`, `view.zoom` `{percent: number}`, `view.camera` `{x: number, y: number, zoom: number}`, `view.reveal` `{id: entity id}`, `view.theme` `{theme: light|dark|system}`, `view.toggle-sidebar`
+- **view**: `view.zoom-in`, `view.zoom-out`, `view.zoom-reset`, `view.zoom-to-fit`, `view.zoom` `{percent: number}`, `view.camera` `{x: number, y: number, zoom: number}`, `view.follow` `{agent?: agent id}`, `view.reveal` `{id: entity id}`, `view.theme` `{theme: light|dark|system}`, `view.toggle-sidebar`
 - **ui**: `ui.toggle` `{id: tabs|toolbar|dock|sidebar|chat|menu|share|toast|palette|welcome|<control id>}`, `ui.show` `{id: tabs|toolbar|dock|sidebar|chat|menu|share|toast|palette|welcome|<control id>}`, `ui.hide` `{id: tabs|toolbar|dock|sidebar|chat|menu|share|toast|palette|welcome|<control id>}`, `ui.reset`
 - **layout**: `layout.switch` `{name?: layout name}` (the next one without a name)
 - **overlay**: `overlay.open` `{mod: name, id?, props?, kind?: dialog|popup|drawer|window, width?, height?, at?: [x, y], edge?: left|right|top|bottom, frame?: none}`, `overlay.close` `{id?: overlay id}`
@@ -578,7 +580,7 @@ Elements a mod places but cannot draw itself, imported from `specular`:
 | Mod | Draws | Reads | In the shipped layout |
 |---|---|---|---|
 | `toolbar` | the tools, the zoom readout, the theme button | `panels/toolbar`, `panels/tool_options` | yes |
-| `tabs` | the tab row: tabs, add, title bar, zoom, Share, right panel toggle | `panels/strip` | yes |
+| `tabs` | the tab row: tabs, add, title bar, zoom, the agents on the canvas, Share, right panel toggle | `panels/strip`, `agents` | yes |
 | `share` | the Share button and its popover | `panels/share` | yes |
 | `toast` | the notices, in the canvas's lower right corner | `notices` | yes |
 | `menu` | the canvas's context menu | `panels/menu` | `mods` layout |
@@ -733,3 +735,26 @@ never runs one. Install mods installs only from the canvas's space folder.
   rewrites them). Don't touch other mods unless the request needs it.
 - Use `colors()` so the mod follows the person's theme.
 - Read ids from `specular state` and command results; don't guess them.
+
+## Agents on the canvas
+
+Every agent that drives the app (the CLI in a Claude Code session, or a
+thread in the chat panel) has one cursor, on pages and on the canvas alike.
+The `agents` key lists the agents with a cursor on the canvas showing:
+
+```json
+{ "agents": [{ "id": "…", "name": "Agent 1", "color": "#3b82f6", "label": "moving" }],
+  "following": null }
+```
+
+`name` is the thread's title for a chat thread, the name the caller gave
+(`SPECULAR_CLIENT_NAME`) or "Agent N". `color` is the cursor's. The key holds
+no positions, so it moves when an agent comes, goes or starts doing something
+else, never per frame.
+
+`run("view.follow", { agent: id })` keeps the camera on that agent's cursor,
+with a frame in its colour round the canvas, until the person pans, zooms or
+presses Escape, or the agent goes; `run("view.follow", {})` stops. The shipped
+`tabs` mod draws the agents as badges beside Share (`"hidden": ["agents"]`
+leaves them out); a mod draws them anywhere else from the same key.
+

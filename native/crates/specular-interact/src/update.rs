@@ -50,6 +50,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
     // unless it ended the drag: the hover is not kept up during one.
     let pointing = matches!(event, Event::Pointer(_));
     let opened = attach::opens(&event);
+    let by_person = crate::presence::follow::by_person(&event);
     let layouts = pages::layouts(app);
     match event {
         Event::Pointer(input) => pointer::on_pointer(app, &input, &mut effects),
@@ -115,6 +116,10 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         Event::AgentAct(act) => crate::presence::on_act(app, act, &mut effects),
         Event::Api(call) => api::run(app, call, &mut effects),
         Event::Share(event) => crate::shared::on_event(app, event, &mut effects),
+    }
+    // The person moving the camera takes it back from a follow.
+    if by_person && app.session.camera != camera {
+        crate::presence::follow::stop(app);
     }
     crate::showing::motion::interrupt(app, leaving, camera, app.space.switches() != switches);
     crate::showing::settle(app);
@@ -216,6 +221,7 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         Action::RevealComment(id) => reveal::comment(app, &id, effects),
         Action::Sidebar(action) => app.session.sidebar.apply(action),
         Action::SetCamera(camera) => app.session.camera = camera,
+        Action::Follow(agent) => crate::presence::follow::set(app, agent),
         // The focus and the selection are never both set, so Delete has one
         // thing to remove.
         Action::Delete if app.session.focused_comment.is_some() => {
@@ -376,6 +382,7 @@ fn on_tick(app: &mut App, unix_ms: u64, effects: &mut Vec<Effect>) {
     crate::showing::turn::on_tick(app);
     sync::on_tick(app, effects);
     crate::presence::on_tick(app, effects);
+    crate::presence::follow::on_tick(app, elapsed);
     crate::flick::on_tick(app, effects);
     // A camera transition has taken this tick's step, which an svg's raster
     // waits out like any other zoom.
