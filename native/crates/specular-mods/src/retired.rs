@@ -88,17 +88,25 @@ pub(crate) fn sweep(mods: &Path) -> io::Result<Vec<String>> {
     Ok(removed)
 }
 
-/// Whether the shipped mod's folder `dir` was edited in place: it has a
-/// marker, and holds neither what the app last wrote nor `files`, what it
-/// is about to write. A folder from before the marker is not.
+/// Whether the shipped mod's folder `dir` was edited in place: a file the
+/// marker says the app wrote holds neither what it wrote then nor what is
+/// in `files`, what it is about to write. Other files in the folder, such
+/// as one an older release wrote, are not edits. A folder from before the
+/// marker is not edited.
 pub(crate) fn edited(dir: &Path, files: &[File]) -> bool {
     let Some(last) = marked(dir) else {
         return false;
     };
-    let next: Vec<(String, Vec<u64>)> = (files.iter())
-        .map(|file| (file.name.to_owned(), vec![hash(file.text.as_bytes())]))
-        .collect();
-    !holds(dir, &last) && !holds(dir, &next)
+    last.iter().any(|(name, hashes)| {
+        let Ok(bytes) = std::fs::read(dir.join(name)) else {
+            return false;
+        };
+        let now = hash(&bytes);
+        let next = (files.iter())
+            .find(|file| file.name == name)
+            .map(|file| hash(file.text.as_bytes()));
+        !hashes.contains(&now) && next != Some(now)
+    })
 }
 
 /// What the marker in `dir` says the app wrote there.

@@ -57,11 +57,12 @@ fn a_start_replaces_shipped_mods_but_not_a_clone() {
     assert!(shipped::is_clone(&edited));
     assert!(mods.join("README.md").is_file() && mods.join("specular.d.ts").is_file());
 
+    std::fs::write(mods.join("toolbar/notes.md"), "left by an older release").expect("stray");
     std::fs::write(mods.join("toolbar/.shipped"), "main.js\t0000000000000000\n").expect("old");
     let again = shipped::install(&mods).expect("a start after an update");
     assert!(
         again.set_aside.is_empty() && edited.is_dir(),
-        "a folder already holding what is written is not an edit, and a copy stays"
+        "a file holding what is about to be written is not an edit, nor is a file the app did not write, and a copy stays"
     );
 
     let manifest = r#"{ "api": 1, "title": "Mine", "cloned_from": "toolbar" }"#;
