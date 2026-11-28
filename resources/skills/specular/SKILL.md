@@ -34,23 +34,34 @@ while the mutation path stays singular (see [ADR 0019](../../../docs/adr/0019-ca
 | `specular screenshot -f <id>` | Screenshot a page |
 | `specular shot [file.png]` | Save the canvas as the window shows it, as a PNG |
 
-## Targeting a tab
+## Which canvas to write to
 
-Every verb writes to the canvas the **user is looking at** unless you say
-otherwise. Name the target instead of inheriting their focus:
+**Add to the canvas the user is looking at.** Every verb writes there unless
+you say otherwise, and that is almost always right: the user is watching it,
+and a result on another canvas is one they have to go looking for.
+
+**Do not create canvases unless the user asks for one.** Each canvas is a row
+in the user's sidebar, and canvases an agent makes on its own pile up there.
+A new topic, a comparison, a set of variants or "a clean place to work" is
+not a reason: put it on the current canvas, in a free spot
+(`specular find-placement`), grouped if it helps (`specular group`). Make one
+only when the user's words ask for it ("make a new canvas", "put this on its
+own canvas"). Write to another existing canvas only when the user names it.
 
 ```bash
 specular canvas                           # appState.activeTab + appState.tabs (ids, names)
-specular tab new "sync-roads"             # create a canvas; prints its id; does NOT switch focus
-specular tab switch <tab-id|tab-name>     # the only command that moves the user's view
-specular tab delete <tab-id|tab-name>     # remove a canvas; deleting a background one does NOT move the user
-specular add note "…" --tab <tab-id>      # write to that canvas in the background
+specular add note "…" --tab <tab-id>      # write to a canvas the user named, in the background
 specular apply --tab <tab-id> < patch.json
+specular tab switch <tab-id|tab-name>     # the only command that moves the user's view
+specular tab new "<name>"                 # ONLY when the user asked for a new canvas; prints its id; does NOT switch focus
+specular tab delete <tab-id|tab-name>     # remove a canvas; deleting a background one does NOT move the user
 ```
 
 `--tab` takes a tab id or an exact tab name; an ambiguous or unknown ref errors
 with the candidates rather than guessing. Snapshot the tab id from `canvas`
 before a batch and confirm it after — the user can switch canvases mid-session.
+If they do, keep writing to the canvas the work started on rather than
+making a new one.
 
 Not every verb takes it. `canvas` reads, `apply`, and `add` (including the
 placement lookups `add` runs) are tab-scoped; the rest — `unlink`, `ungroup`,
@@ -149,7 +160,7 @@ part of the region, so a selection larger than the window comes back with
 canvas-background fill where the offscreen part was.
 
 **Results belong on the canvas.** The canvas is the surface the user works
-on, so anything you create while acting on a comment — a new route, a
+on (the one they have open, not a new one), so anything you create while acting on a comment — a new route, a
 duplicated prototype, a variant — is invisible until it is placed there
 (`specular find-placement` for a free spot, then `specular add page <url>`
 or `specular add file <path> --at x,y`). Pages already on the canvas reload

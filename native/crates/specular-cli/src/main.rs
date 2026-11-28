@@ -38,7 +38,9 @@ usage: specular <verb> [args...] [--flag value]
        specular --skill   Agent Skill: building mods for this version of the app
 
 Canvas: canvas, add, update, delete, arrange, focus, group, ungroup
-Tabs: tab, tab new <name>, tab switch <tab-id|tab-name>, tab delete <tab-id|tab-name>
+Tabs: tab, tab switch <tab-id|tab-name>, tab delete <tab-id|tab-name>, tab new <name>
+  Verbs write to the canvas the user has open. Agents: add there, and run
+  `tab new` only when the user asks for a new canvas.
   --tab <tab-id|tab-name> targets another canvas without switching focus
 Share: share, share <link>, share join <link>, share stop
 Browse: snapshot, click, fill, type, select, screenshot, scroll, wait

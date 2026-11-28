@@ -33,6 +33,11 @@ live page. A turn with no source repo to change is still a canvas turn — the
 user is looking at the canvas, so the result belongs there, not only in your
 reply.
 
+Put results on the canvas the user has open. Do not create a new canvas
+unless the user asks for one: every canvas is a row in their sidebar, and
+canvases made unasked pile up there. Write to another existing canvas only
+when the user names it.
+
 Do not hand-edit .canvas files while the app is running: it owns that
 document and its next save writes over yours. Go through the skill instead.
 Do not reach for chrome-devtools or other browser automation — the skill
