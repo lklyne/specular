@@ -31,7 +31,7 @@
  * - `canvas/mod_items`: the active canvas's mod items `[{id, mod, width, height, props}]`, without their positions (1.1)
  * - `tool`: the armed mod tool's stroke `{tool: "<mod>/<tool>", number, phase: "down"|"up", points: [[x, y]]}` in canvas units, or null (1.1)
  * - `call`: the last mod command run `{command: "<mod>/<command>", number, args}`, or null. Act once per `number` (1.1)
- * - `panels/sidebar`: `{visible, add, sections: [{id, title, folded, rows}]}`: the canvases section's rows are `{id, canvas, label, active, count, rename}`, the others `{id, label, icon, trailing, selected, dimmed, expanded, children}`. A row is pressed with `control.press {id}`, renamed by pressing its `rename` id (1.2)
+ * - `panels/sidebar`: `{visible, add, open, sections: [{id, title, folded, rows}]}`: a section for each project, then the notes and the pages. A project section (1.7) also has `kind: "project"`, `project` (its id), `folder`, `repo`, `branch`, `active`, and the ids `add` (a new canvas in it), `details` (shows `detailsShown`), `reveal` and `close` (null for the last project); `git` is null or `{choice: "commit"|"ignore"|null, commit, ignore}` for a repo that keeps its canvases in `.specular/canvases/`, and `origins` is `[{origin, autoFix, auto, remove}]`, the sites bound to it, each control by id. Its rows are canvases, `{id, canvas, project, label, active, count, rename}`; with no project there is one canvases section of them. The other rows are `{id, label, icon, trailing, selected, dimmed, expanded, children}`. `open` asks for a folder to open as a project. A row is pressed with `control.press {id}`, renamed by pressing its `rename` id (1.2)
  * - `panels/chat`: `{available, visible, width, title, threads: [{id, title, draft, active, running}], transcript: {messages: [{id, role, text, images}], streaming, run, error} | null, composer: {placeholder, running, model: {label, options: [{name, description, chosen}]}}}`, driven by the `chat.*` commands (1.2)
  * - `chat/threads`: the active canvas's threads with no transcripts, `{open: thread id | null, threads: [{id, key, title, draft, open, running, updatedAt}], model: {label, options}}`; `open` is the thread the panel has open. Moves when a thread starts, is renamed, opens or starts or stops working, not per word (1.3)
  * - `chat/context`: what the next message goes with, as the panel's composer shows it: `{pill: {label, kind: "dom"|"comment"|"selection"|"canvas"}, folder, folderPath, auto: {origin, on} | null, model: {label, options: [{name, value, description, chosen}]}}` (1.3)
@@ -41,7 +41,8 @@
  * - `overlays`: the open overlays, bottom to top `[{id, mod, kind, props, width, height, at, edge, frame}]` (1.2)
  * - `selection`: `{ids: [entity id], edges: [edge id]}` (1.2)
  * - `canvas/items`: every item of the active canvas, back to front `[{id, kind, label, parent, ..detail}]`, without places or sizes: a page adds `url`, text `text`, a shape `shape`, `text` and `custom` (`{shape: <mod>/<shape>, params}` for a mod's shape, else null, 1.4), a mod item `mod` (1.2)
- * - `canvas/info`: `{id, name, items, edges, canvases: [{id, name, active}]}` (1.2)
+ * - `canvas/info`: `{id, name, project, items, edges, canvases: [{id, name, project, active}]}` (1.2; `project` 1.7)
+ * - `projects`: every project open, in the sidebar's order, `[{id, label, folder, canvasFolder, repo, branch, git: "commit"|"ignore"|null, active, canvases: [{id, name, active}]}]`. A repo keeps its canvases in `canvasFolder`, `.specular/canvases/` inside it (1.7)
  * - `agents`: the agents with a cursor on the canvas showing, in the order they first acted, `{agents: [{id, name, color: "#rrggbb", label}], following: agent id | null}`. `label` is what the cursor's chip says ("moving", "reading", "thinking" ..). No positions, so a cursor's travel wakes no mod; `view.follow {agent: id}` keeps the camera on one (1.5)
  */
 export type StateKey =
@@ -69,6 +70,7 @@ export type StateKey =
   | "selection"
   | "canvas/items"
   | "canvas/info"
+  | "projects"
   | "chat/threads"
   | "chat/context"
   | `chat/thread/${string}`
@@ -87,7 +89,16 @@ export type StateKey =
  * - `app.command-palette`: Open the command palette.
  * - `window.close`: Close the window, as its red button does.
  * - `window.zoom`: Zoom the window, as its green button does.
- * - `canvas.new`: Add an empty canvas and show it.
+ * - `canvas.new` `{project?: id}`: Add an empty canvas to a project, the active canvas's by default, and show it.
+ * - `project.open`: Ask for a folder, a plain folder or a code repo, and add it to the sidebar as a project.
+ * - `project.close` `{project: id}`: Take a project out of the sidebar. Its folder and canvases stay on disk; the last project stays.
+ * - `project.reveal` `{project: id}`: Show a project's folder in Finder.
+ * - `project.git` `{project: id, canvases: commit|ignore}`: Say whether a repo project's canvases go into git: commit them with the code, or keep .specular/ out of git.
+ * - `project.fold` `{project: id}`: Fold a project's canvases away in the sidebar, or show them.
+ * - `project.details` `{project: id}`: Show a project's folder, git choice and bound sites under its head in the sidebar, or hide them.
+ * - `project.bind` `{project: id, origin: url}`: Bind a site to a project: comments on its pages run the agent in the project's folder.
+ * - `project.unbind` `{origin: url}`: Drop a site's binding to its project.
+ * - `project.auto-fix` `{origin: url, on: bool}`: Whether comments on a bound site send themselves to the agent the moment they are placed.
  * - `canvas.duplicate` `{canvas?: id}`: Copy a canvas, the active one by default, and show the copy.
  * - `canvas.delete` `{canvas?: id}`: Remove a canvas, the active one by default, and trash its file.
  * - `canvas.switch` `{canvas: id}`: Show another canvas of the space.
@@ -215,6 +226,15 @@ export type CommandName =
   | "canvas.switch"
   | "canvas.rename"
   | "canvas.begin-rename"
+  | "project.open"
+  | "project.close"
+  | "project.reveal"
+  | "project.git"
+  | "project.fold"
+  | "project.details"
+  | "project.bind"
+  | "project.unbind"
+  | "project.auto-fix"
   | "edit.cancel"
   | "edit.undo"
   | "edit.redo"

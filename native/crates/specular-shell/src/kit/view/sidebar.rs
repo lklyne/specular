@@ -1,5 +1,6 @@
-//! The left sidebar, from [`SidebarModel`]: the space's canvases, then the
-//! Notes and Pages of the one that is showing.
+//! The left sidebar, from [`SidebarModel`]: the projects' canvases, each
+//! project under a head of its own when there are several (ADR 0062), then
+//! the Notes and Pages of the one that is showing.
 //!
 //! Everything it shows and does is the model's: whether it is there at all,
 //! which sections are folded and which rows are open, each row's glyph and
@@ -18,8 +19,8 @@ use gpui_kit::{
     SharedString, StatefulInteractiveElement as _, Styled as _, Window, div, px,
 };
 use specular_interact::{
-    Action, CanvasRow, ControlId, Event, Icon, MenuTarget, SectionHead, SidebarModel, SidebarRow,
-    context_menu,
+    Action, CanvasRow, ControlId, Event, Icon, MenuTarget, ProjectSection, SectionHead,
+    SidebarModel, SidebarRow, context_menu,
 };
 
 use super::glyphs::{glyph, ink};
@@ -266,9 +267,20 @@ impl ShellView {
             .min_h_0()
             .overflow_y_scroll();
         if !folded {
-            let canvases: Vec<AnyElement> = (model.canvases.iter())
-                .map(|row| Self::canvas_row(row, window, cx))
-                .collect();
+            let mut canvases: Vec<AnyElement> = Vec::new();
+            if model.projects.len() > 1 {
+                for project in &model.projects {
+                    canvases.push(project_head(project).into_any_element());
+                    if !project.folded {
+                        canvases.extend(
+                            (project.canvases.iter()).map(|row| Self::canvas_row(row, window, cx)),
+                        );
+                    }
+                }
+            } else {
+                canvases
+                    .extend((model.canvases.iter()).map(|row| Self::canvas_row(row, window, cx)));
+            }
             list = list.child(
                 v_flex()
                     .flex_shrink_0()
@@ -321,6 +333,67 @@ fn canvases_head(model: &SidebarModel) -> impl IntoElement {
                 .tooltip(crate::tip::view("New canvas"))
                 .child(small(Icon::Plus, theme::text(), ICON))
                 .child(mark(&ControlId::new("sidebar.add")))
+                .on_click(move |_, window, cx| run(&add, window, cx)),
+        )
+}
+
+/// A project's head in the canvases list: its name and branch, which fold
+/// it, and a button for a new canvas in it.
+fn project_head(project: &ProjectSection) -> impl IntoElement {
+    let toggle = project.toggle.clone();
+    let add = project.add_canvas.clone();
+    let add_id = project.control.child("add");
+    let title = match &project.branch {
+        Some(branch) => format!("{} \u{b7} {branch}", project.label),
+        None => project.label.clone(),
+    };
+    h_flex()
+        .h(px(ROW))
+        .flex_shrink_0()
+        .pl(px(HEAD_PAD))
+        .pr(px(HEAD_PAD))
+        .gap(crate::theme::space(1.0))
+        .items_center()
+        .child(
+            h_flex()
+                .id(element_id(&project.control))
+                .flex_1()
+                .min_w_0()
+                .gap(crate::theme::space(1.5))
+                .items_center()
+                .cursor_pointer()
+                .text_color(if project.active {
+                    theme::tinted(theme::text())
+                } else {
+                    muted()
+                })
+                .child(div().min_w_0().truncate().child(SharedString::from(title)))
+                .child(small(
+                    if project.folded {
+                        Icon::ChevronRight
+                    } else {
+                        Icon::ChevronDown
+                    },
+                    theme::text_muted(),
+                    FOLD,
+                ))
+                .child(mark(&project.control))
+                .on_click(move |_, window, cx| run(&toggle, window, cx)),
+        )
+        .child(
+            div()
+                .id(element_id(&add_id))
+                .size(px(ADD))
+                .flex()
+                .flex_shrink_0()
+                .items_center()
+                .justify_center()
+                .rounded(crate::theme::corner(8.0))
+                .cursor_pointer()
+                .hover(|this| this.bg(theme::tinted(theme::row_selected())))
+                .tooltip(crate::tip::view("New canvas in this project"))
+                .child(small(Icon::Plus, theme::text_muted(), ICON))
+                .child(mark(&add_id))
                 .on_click(move |_, window, cx| run(&add, window, cx)),
         )
 }

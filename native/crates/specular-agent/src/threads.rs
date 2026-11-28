@@ -67,6 +67,23 @@ impl Threads {
         self.runs.clear();
     }
 
+    /// Adds the threads of a project just opened beside the others, and
+    /// their canvases' active threads. Threads already held, and the runs
+    /// in flight, stay as they are.
+    pub fn add(&mut self, threads: Vec<Thread>, index: &Index) {
+        let threads: Vec<Thread> = (threads.into_iter())
+            .filter(|thread| !self.items.iter().any(|held| held.id == thread.id))
+            .collect();
+        for (tab, id) in &index.by_canvas {
+            let open = (threads.iter())
+                .any(|t| &t.id == id && &t.tab_id == tab && t.status != Status::Closed);
+            if open {
+                self.active.entry(tab.clone()).or_insert_with(|| id.clone());
+            }
+        }
+        self.items.extend(threads);
+    }
+
     /// The text for `index.json`, naming `tab`'s active thread as the single
     /// active id Electron reads.
     pub fn index_json(&self, tab: Option<&str>) -> String {

@@ -34,6 +34,7 @@ mod pages;
 mod patch;
 mod placement;
 mod presets;
+mod projects;
 mod reply;
 mod share;
 mod state;
@@ -247,6 +248,9 @@ impl Api {
             (Get, ["health"]) => Ok(Step::Answer(json!({ "version": VERSION }))),
             (Get, ["canvas"]) => canvas::read(app, user),
             (Get, ["tabs"]) => Ok(Step::Answer(tabs::identity(user))),
+            (Get, ["projects"]) => Ok(Step::Answer(projects::list(user))),
+            (Post, ["projects"]) => projects::open(request),
+            (Post, ["projects", "close"]) => projects::close(user, request),
             (Get, ["commands"]) => Ok(Step::Answer(commands::list(app))),
             (Post, ["run"]) => commands::run(app, request),
             (Get, ["state"]) => state::read(app, request),

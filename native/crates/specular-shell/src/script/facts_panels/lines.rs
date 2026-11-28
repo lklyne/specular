@@ -13,7 +13,7 @@ use std::fmt::Write as _;
 use specular_doc::Rect;
 use specular_interact::{
     App, Chord, Effect, MenuEntry, PaletteRun, Region, ScreenRect, menus, onboarding, palette,
-    repos_pane, settings,
+    settings,
 };
 
 use super::Topic;
@@ -246,9 +246,9 @@ fn palette_lines(app: &App, out: &mut Vec<String>) {
 }
 
 fn repos(app: &App, out: &mut Vec<String>) {
-    for repo in repos_pane(app).repos {
-        out.push(format!("repo {} {}", repo.label, repo.path));
-        for origin in repo.origins {
+    for repo in app.repos().all() {
+        out.push(format!("repo {} {}", repo.label, repo.absolute_path));
+        for origin in &repo.bound_origins {
             out.push(format!(
                 "origin {} auto {}",
                 origin.origin,

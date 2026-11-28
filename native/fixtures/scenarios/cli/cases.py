@@ -214,6 +214,48 @@ def tabs_are_made_shown_written_in_the_background_and_deleted():
     check(all(t["name"] != "Back room" for t in ok("tab")["tabs"]), "it is gone")
 
 
+@case
+def projects_open_a_repo_beside_the_space_and_close_it():
+    listed = ok("project")
+    equal(len(listed), 1, "the space is the one project")
+    space = listed[0]
+    check(not space["repo"], "the space is a plain folder")
+    repo = os.path.join(os.path.dirname(SPACE), "site-repo")
+    os.makedirs(os.path.join(repo, ".git"), exist_ok=True)
+    with open(os.path.join(repo, ".git", "HEAD"), "w") as head:
+        head.write("ref: refs/heads/main\n")
+    refused("usage: specular project open <folder>", "project", "open")
+    ok("project", "open", repo)
+    for _ in range(50):
+        listed = ok("project")
+        if len(listed) == 2:
+            break
+        time.sleep(0.1)
+    equal(len(listed), 2, "the repo is a second project")
+    site = listed[1]
+    equal(site["label"], "site-repo", "named for its folder")
+    check(site["repo"], "it is a repo")
+    equal(site["branch"], "main", "on its branch")
+    equal(site["canvasFolder"], os.path.join(repo, ".specular/canvases"), "canvases apart")
+    equal(site["git"], None, "the git choice waits for the person")
+    made = ok("tab", "new", "Homepage", "--project", "site-repo")
+    equal(made["name"], "Homepage", "a canvas in the repo")
+    for _ in range(50):
+        if glob.glob(os.path.join(repo, ".specular/canvases/Homepage-*.canvas")):
+            break
+        time.sleep(0.1)
+    check(glob.glob(os.path.join(repo, ".specular/canvases/Homepage-*.canvas")), "written in the repo")
+    check(not glob.glob(os.path.join(SPACE, "Homepage-*.canvas")), "not in the space")
+    ok("project", "close", "site-repo")
+    for _ in range(50):
+        if len(ok("project")) == 1:
+            break
+        time.sleep(0.1)
+    equal(len(ok("project")), 1, "closed")
+    check(glob.glob(os.path.join(repo, ".specular/canvases/Homepage-*.canvas")), "its files stay")
+    refused("the last project stays open", "project", "close", space["id"])
+
+
 # --- share ------------------------------------------------------------------
 
 

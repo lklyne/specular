@@ -18,7 +18,12 @@ pub(crate) fn identity(app: &App) -> Value {
         .map(|canvas| {
             let entities =
                 (app.canvas_document(&canvas.id)).map_or(0, |document| document.entities().count());
-            json!({ "id": canvas.id.as_str(), "name": canvas.name, "entityCount": entities })
+            let mut tab =
+                json!({ "id": canvas.id.as_str(), "name": canvas.name, "entityCount": entities });
+            if let Some(project) = space.project(&canvas.project) {
+                tab["project"] = json!(project.label);
+            }
+            tab
         })
         .collect();
     json!({ "activeTab": named(space.active()), "tabs": tabs })
@@ -37,8 +42,11 @@ fn resolved<'a>(app: &'a App, request: &Request) -> Result<&'a Canvas, Response>
 /// `POST /tabs`: a new empty canvas, in the background.
 pub(crate) fn create(request: &Request) -> Step {
     let name = request.text("name").unwrap_or_default().trim().to_owned();
+    let project = (request.text("project").map(str::trim))
+        .filter(|project| !project.is_empty())
+        .map(str::to_owned);
     let reply = Reply::NewTab { name: name.clone() };
-    Step::Run(ApiRun::NewCanvas { name }, reply)
+    Step::Run(ApiRun::NewCanvas { name, project }, reply)
 }
 
 /// `POST /tabs/delete`: remove a canvas. The last one cannot go, so it is

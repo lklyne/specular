@@ -38,10 +38,13 @@ usage: specular <verb> [args...] [--flag value]
        specular --skill   Agent Skill: building mods for this version of the app
 
 Canvas: canvas, add, update, delete, arrange, focus, group, ungroup
-Tabs: tab, tab switch <tab-id|tab-name>, tab delete <tab-id|tab-name>, tab new <name>
+Tabs: tab, tab switch <tab-id|tab-name>, tab delete <tab-id|tab-name>,
+      tab new <name> [--project <id|name>]
   Verbs write to the canvas the user has open. Agents: add there, and run
   `tab new` only when the user asks for a new canvas.
-  --tab <tab-id|tab-name> targets another canvas without switching focus
+  --tab <tab-id|tab-name|project/name> targets another canvas without switching focus
+Projects: project, project open <folder>, project close <id|name>
+  the folders and repos in the sidebar, each with its canvases
 Share: share, share <link>, share join <link>, share stop
 Browse: snapshot, click, fill, type, select, screenshot, scroll, wait
 Annotations: annotations, annotation, annotate, annotate-selection, ack, resolve, dismiss, reply
@@ -79,6 +82,7 @@ fn verb(name: &str) -> Verb {
         // `workspace` is the verb's older name, kept for skills that use it.
         "canvas" | "workspace" => canvas::canvas,
         "tab" => canvas::tab,
+        "project" => canvas::project,
         "share" => canvas::share,
         "selection" => canvas::selection,
         "find-placement" => canvas::find_placement,

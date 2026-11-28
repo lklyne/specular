@@ -8,6 +8,8 @@ use std::collections::HashSet;
 
 use specular_doc::EntityId;
 
+use crate::ProjectId;
+
 /// The three folds of the sidebar.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SidebarSection {
@@ -34,6 +36,11 @@ pub enum SidebarAction {
         /// The group or page.
         entity: EntityId,
     },
+    /// Fold a project's canvases away, or show them.
+    Project(ProjectId),
+    /// Show a project's details under its head (its folder, its git
+    /// choice, the sites bound to it), or hide them.
+    Details(ProjectId),
 }
 
 /// The sidebar's state.
@@ -43,6 +50,8 @@ pub struct SidebarView {
     folded: HashSet<SidebarSection>,
     /// Rows whose state is the opposite of what their kind starts as.
     flipped: HashSet<(SidebarSection, EntityId)>,
+    folded_projects: HashSet<ProjectId>,
+    details: Option<ProjectId>,
 }
 
 impl SidebarView {
@@ -54,6 +63,16 @@ impl SidebarView {
     /// Whether `section` is folded away.
     pub(crate) fn is_folded(&self, section: SidebarSection) -> bool {
         self.folded.contains(&section)
+    }
+
+    /// Whether the project `id`'s canvases are folded away.
+    pub(crate) fn is_project_folded(&self, id: &ProjectId) -> bool {
+        self.folded_projects.contains(id)
+    }
+
+    /// Whether the project `id`'s details are shown.
+    pub(crate) fn shows_details(&self, id: &ProjectId) -> bool {
+        self.details.as_ref() == Some(id)
     }
 
     /// Whether the row for `entity` in `section` is open. A page starts
@@ -75,6 +94,18 @@ impl SidebarView {
                 if !self.folded.remove(&section) {
                     self.folded.insert(section);
                 }
+            }
+            SidebarAction::Project(id) => {
+                if !self.folded_projects.remove(&id) {
+                    self.folded_projects.insert(id);
+                }
+            }
+            SidebarAction::Details(id) => {
+                self.details = if self.details.as_ref() == Some(&id) {
+                    None
+                } else {
+                    Some(id)
+                };
             }
             SidebarAction::Row { section, entity } => {
                 let key = (section, entity);

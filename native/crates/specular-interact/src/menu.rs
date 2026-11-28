@@ -296,6 +296,7 @@ pub(crate) fn has_target(app: &App, action: &Action) -> bool {
         // Choosing the canvas already showing is harmless, and its item
         // has to stay enabled to keep its check mark readable.
         Action::Canvas(_)
+        | Action::Project(_)
         | Action::Chat(_)
         | Action::Repo(_)
         | Action::Space(_)

@@ -5,7 +5,7 @@
 use serde_json::{Value, json};
 use specular_doc::{EntityId, ItemId, Kind};
 
-use crate::{App, SectionHead, SidebarModel, SidebarRow, sidebar};
+use crate::{App, CanvasRow, ProjectSection, SectionHead, SidebarModel, SidebarRow, sidebar};
 
 fn head(head: &SectionHead) -> Value {
     json!({ "id": head.id, "title": head.title, "folded": head.folded })
@@ -30,36 +30,96 @@ fn section(head: &SectionHead, rows: &[SidebarRow]) -> Value {
     out
 }
 
-/// The `panels/sidebar` key.
-pub(super) fn sidebar_json(app: &App) -> Value {
-    let SidebarModel {
-        visible,
-        canvases_head,
-        canvases,
-        notes_head,
-        notes,
-        pages_head,
-        pages,
-        ..
-    } = sidebar(app);
-    let canvases: Vec<Value> = (canvases.iter())
+fn canvas_rows(canvases: &[CanvasRow]) -> Value {
+    (canvases.iter())
         .map(|canvas| {
             json!({
                 "id": canvas.control,
                 "canvas": canvas.id.as_str(),
+                "project": canvas.project.as_str(),
                 "label": canvas.label,
                 "active": canvas.active,
                 "count": canvas.entity_count,
                 "rename": canvas.rename.id,
             })
         })
+        .collect()
+}
+
+/// A project as a section of the sidebar (ADR 0062): its head is the
+/// section's, its canvases its rows, and its details' controls by id.
+fn project(section: &ProjectSection) -> Value {
+    let head = &section.control;
+    let git = match section.git {
+        None => Value::Null,
+        Some(None) => {
+            json!({ "choice": null, "commit": head.child("git").child("commit"), "ignore": head.child("git").child("ignore") })
+        }
+        Some(Some(choice)) => {
+            json!({ "choice": choice.as_str(), "commit": head.child("git").child("commit"), "ignore": head.child("git").child("ignore") })
+        }
+    };
+    let origins: Vec<Value> = (section.origins.iter().enumerate())
+        .map(|(index, origin)| {
+            let id = head.child("origin").child(index + 1);
+            json!({
+                "origin": origin.origin,
+                "autoFix": origin.auto_fix,
+                "auto": id.child("auto"),
+                "remove": id.child("remove"),
+            })
+        })
         .collect();
-    let mut canvas_section = head(&canvases_head);
-    canvas_section["rows"] = Value::Array(canvases);
+    json!({
+        "id": head,
+        "kind": "project",
+        "project": section.id.as_str(),
+        "title": section.label,
+        "folder": section.folder,
+        "repo": section.repo,
+        "branch": section.branch,
+        "active": section.active,
+        "folded": section.folded,
+        "add": head.child("add"),
+        "details": head.child("details"),
+        "detailsShown": section.details,
+        "reveal": head.child("reveal"),
+        "close": section.close.as_ref().map(|_| head.child("close")),
+        "git": git,
+        "origins": origins,
+        "rows": if section.folded { json!([]) } else { canvas_rows(&section.canvases) },
+    })
+}
+
+/// The `panels/sidebar` key: a section for each project, then the active
+/// canvas's notes and pages. Canvases in no folder are one Canvases
+/// section.
+pub(super) fn sidebar_json(app: &App) -> Value {
+    let SidebarModel {
+        visible,
+        canvases_head,
+        canvases,
+        projects,
+        notes_head,
+        notes,
+        pages_head,
+        pages,
+        ..
+    } = sidebar(app);
+    let mut sections: Vec<Value> = if projects.is_empty() {
+        let mut canvas_section = head(&canvases_head);
+        canvas_section["rows"] = canvas_rows(&canvases);
+        vec![canvas_section]
+    } else {
+        projects.iter().map(project).collect()
+    };
+    sections.push(section(&notes_head, &notes));
+    sections.push(section(&pages_head, &pages));
     json!({
         "visible": visible,
         "add": "sidebar.add",
-        "sections": [canvas_section, section(&notes_head, &notes), section(&pages_head, &pages)],
+        "open": "sidebar.open",
+        "sections": sections,
     })
 }
 
@@ -112,15 +172,40 @@ pub(super) fn items_json(app: &App) -> Value {
     Value::Array(items.collect())
 }
 
+/// The `projects` key (ADR 0062): every project open, in the sidebar's
+/// order, without controls.
+pub(super) fn projects_json(app: &App) -> Value {
+    let active = &app.space.active().project;
+    (app.space.projects().iter())
+        .map(|project| {
+            let canvases: Vec<Value> = (app.space.canvases_of(&project.id))
+                .map(|canvas| json!({ "id": canvas.id.as_str(), "name": canvas.name, "active": canvas.is_active() }))
+                .collect();
+            json!({
+                "id": project.id.as_str(),
+                "label": project.label,
+                "folder": project.folder,
+                "canvasFolder": project.canvases,
+                "repo": project.repo,
+                "branch": project.branch,
+                "git": project.git.map(crate::GitChoice::as_str),
+                "active": project.id == *active,
+                "canvases": canvases,
+            })
+        })
+        .collect()
+}
+
 /// The `canvas/info` key: the canvas showing, and every canvas of the space.
 pub(super) fn info_json(app: &App) -> Value {
     let active = app.space.active();
     let canvases: Vec<Value> = (app.space.canvases().iter())
-        .map(|canvas| json!({ "id": canvas.id.as_str(), "name": canvas.name, "active": canvas.is_active() }))
+        .map(|canvas| json!({ "id": canvas.id.as_str(), "name": canvas.name, "project": canvas.project.as_str(), "active": canvas.is_active() }))
         .collect();
     json!({
         "id": active.id.as_str(),
         "name": active.name,
+        "project": app.space.active_project().map(|project| project.id.as_str()),
         "items": app.document.entities().count(),
         "edges": app.document.edges().count(),
         "canvases": canvases,

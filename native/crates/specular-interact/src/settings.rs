@@ -10,7 +10,6 @@ use std::collections::BTreeSet;
 
 use crate::first_run::SpaceAction;
 use crate::menu::{MenuEntry, menus};
-use crate::repos::{ReposPane, repos_pane};
 use crate::{Action, App, BINDINGS, Context, Effect, Format, SidebarAction, ToolDefaultPatch};
 
 /// Where the tools' ribbon is.
@@ -195,8 +194,6 @@ pub struct ShortcutRow {
 pub struct SettingsModel {
     /// The space folder and the launch defaults.
     pub general: GeneralPane,
-    /// The connected repos and the origins bound to them.
-    pub(crate) repos: ReposPane,
     /// Every installed mod and its switch.
     pub mods: Vec<crate::mods::ModRow>,
     /// Every key binding, in the table's order.
@@ -241,7 +238,6 @@ pub fn settings(app: &App) -> SettingsModel {
             },
             cursors,
         },
-        repos: repos_pane(app),
         mods: crate::mods::mods_pane(app),
         shortcuts: shortcuts(app),
         about: app.about.clone(),

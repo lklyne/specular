@@ -1,5 +1,6 @@
 //! The settings dialog (`git show bc5253fa:src/renderer/settings`), from
-//! [`SettingsModel`]: General, Repos, Mods, Shortcuts and About.
+//! [`SettingsModel`]: General, Mods, Shortcuts and About. Repos are
+//! projects in the sidebar (ADR 0062), so they have no page here.
 //!
 //! The dialog's content is rebuilt on every frame it is drawn, so each
 //! pane is the model as it is then, and a control sends its row's action.
@@ -23,7 +24,6 @@ use specular_interact::{
 
 use crate::assets::ShellIcon;
 use crate::canvas;
-use crate::settings_repos::{self, AddFields, send};
 use crate::theme;
 
 fn muted() -> gpui_kit::Hsla {
@@ -259,7 +259,6 @@ const TITLE_INSET: f32 = 12.0;
 /// Opens the dialog over the window: the title, a rule the dialog's width
 /// under it, then the sidebar and the page, edge to edge.
 pub(crate) fn open(window: &mut Window, cx: &mut App) {
-    let fields = AddFields::default();
     window.open_dialog(cx, move |dialog, _, cx| {
         let dialog = dialog.w(px(DIALOG_WIDTH)).p_0();
         let Some(model) = model() else {
@@ -270,7 +269,6 @@ pub(crate) fn open(window: &mut Window, cx: &mut App) {
         let page_header = StyleRefinement::default().border_b_0();
         let pages = [
             general(&model.general),
-            settings_repos::page(&fields),
             mods(&model.mods),
             shortcuts(&model.shortcuts),
             about(&model.about),

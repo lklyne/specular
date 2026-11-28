@@ -202,6 +202,9 @@ fn sidebar(app: &App, out: &mut Vec<Named>) {
     out.push(head(&model.canvases_head));
     let add = ControlId::new("sidebar.add");
     out.push(run(&add, &model.add_canvas, true, true, &plain));
+    let open = ControlId::new("sidebar.open");
+    let open_project = crate::Action::Project(crate::ProjectAction::Open);
+    out.push(run(&open, &open_project, true, true, &plain));
     if !model.canvases_head.folded {
         for canvas in &model.canvases {
             out.push(run(&canvas.control, &canvas.action, true, true, &plain));
@@ -211,6 +214,11 @@ fn sidebar(app: &App, out: &mut Vec<Named>) {
                 inside: Inside::Nothing,
             });
             menu(app, &MenuTarget::Canvas(canvas.id.clone()), out);
+        }
+    }
+    for project in &model.projects {
+        for (id, action) in crate::sidebar::project_controls(project) {
+            out.push(run(&id, &action, true, true, &plain));
         }
     }
     for (section, listed) in [

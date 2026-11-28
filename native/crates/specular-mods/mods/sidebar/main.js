@@ -1,7 +1,10 @@
-// The sidebar, drawn from `panels/sidebar`: the space's canvases, then the
-// active canvas's notes and pages, each section folding at its head. A
-// click presses a row by its id, as the app's own sidebar does; a double
-// click on a canvas asks for its new name in the `prompt` dialog.
+// The sidebar, drawn from `panels/sidebar`: a section for each project
+// (ADR 0062), a plain folder or a repo, with its canvases under it; then
+// the active canvas's notes and pages. Each section folds at its head. A
+// project's head has a + for a new canvas in it and a ⋯ for its details:
+// its folder, whether a repo's canvases go into git, and the sites bound
+// to it. A click presses a row by its id, as the app's own sidebar does;
+// a double click on a canvas asks for its new name in the `prompt` dialog.
 //
 // A layout hides a section or a row by listing its id in this mod's props:
 //   { "mod": "sidebar", "props": { "hidden": ["sidebar.head.notes"] } }
@@ -69,7 +72,97 @@ function itemRow(row, depth, hidden, k) {
   return out;
 }
 
+function bindSite(section) {
+  openOverlay("prompt", {
+    id: "sidebar.bind",
+    props: {
+      title: `Bind a site to ${section.title}`,
+      value: "http://localhost:3000",
+      confirm: "Bind",
+      command: "project.bind",
+      args: { project: section.project },
+      key: "origin",
+    },
+  });
+}
+
+function small(id, text, k, onPress, on) {
+  return Button.new(id)
+    .h(20)
+    .px(6)
+    .flex()
+    .items_center()
+    .rounded(4)
+    .text_size(11)
+    .text_color(on ? k.text : k.textMuted)
+    .when(on, (el) => el.bg(k.interactive))
+    .hover((el) => el.bg(k.interactiveHover))
+    .on_click(onPress)
+    .child(text);
+}
+
+function details(section, k) {
+  const out = v_flex().gap(4).px(8).py(6).rounded(6).bg(k.interactive).text_size(11).text_color(k.textMuted);
+  out.child(div().truncate().child(section.folder));
+  const actions = h_flex().gap(2).child(small(section.reveal, "Show in Finder", k, () => press(section.reveal)));
+  if (section.close != null) actions.child(small(section.close, "Close project", k, () => press(section.close)));
+  out.child(actions);
+  if (section.git != null) {
+    const choice = section.git.choice;
+    out.child(
+      h_flex()
+        .gap(2)
+        .items_center()
+        .child(div().flex_1().child(choice == null ? "Canvases in git? Not set" : "Canvases in git"))
+        .child(small(section.git.commit, "Commit", k, () => press(section.git.commit), choice === "commit"))
+        .child(small(section.git.ignore, "Ignore", k, () => press(section.git.ignore), choice === "ignore")),
+    );
+  }
+  for (const site of section.origins) {
+    out.child(
+      h_flex()
+        .gap(2)
+        .items_center()
+        .child(div().flex_1().truncate().child(site.origin))
+        .child(small(site.auto, "Auto", k, () => press(site.auto), site.autoFix))
+        .child(small(site.remove, "×", k, () => press(site.remove))),
+    );
+  }
+  out.child(small(`${section.id}.bind`, "+ Bind a site…", k, () => bindSite(section)));
+  return out;
+}
+
+function projectHead(section, k) {
+  return h_flex()
+    .h(ROW)
+    .items_center()
+    .gap(2)
+    .child(
+      Button.new(section.id)
+        .flex_1()
+        .h(ROW)
+        .px(8)
+        .flex()
+        .items_center()
+        .gap(6)
+        .rounded(6)
+        .text_size(11)
+        .text_color(section.active ? k.text : k.textMuted)
+        .hover((el) => el.bg(k.interactiveHover))
+        .on_click(() => press(section.id))
+        .child(div().truncate().child(section.title))
+        .when(section.branch != null, (el) => el.child(div().text_color(k.textMuted).truncate().child(section.branch))),
+    )
+    .child(small(section.details, "⋯", k, () => press(section.details), section.detailsShown))
+    .child(small(section.add, "+", k, () => press(section.add)));
+}
+
 function section(section, hidden, k) {
+  if (section.kind === "project") {
+    const out = v_flex().gap(1).child(projectHead(section, k));
+    if (section.detailsShown) out.child(details(section, k));
+    return out.children(section.rows.filter((row) => !hidden.has(row.id)).map((row) => canvasRow(row, k)));
+  }
   const head = Button.new(section.id)
     .h(ROW)
     .px(8)
@@ -110,9 +203,9 @@ export default class Sidebar extends View {
       .text_color(k.text)
       .overflow_y_scroll()
       .children(sections.map((each) => section(each, hidden, k)))
-      .when(!hidden.has(model.add), (el) =>
+      .when(!hidden.has(model.open), (el) =>
         el.child(
-          Button.new(model.add)
+          Button.new(model.open)
             .h(ROW)
             .px(8)
             .flex()
@@ -120,8 +213,8 @@ export default class Sidebar extends View {
             .rounded(6)
             .text_color(k.textMuted)
             .hover((el) => el.bg(k.interactiveHover))
-            .on_click(() => press(model.add))
-            .child("+ New canvas"),
+            .on_click(() => press(model.open))
+            .child("+ Open project…"),
         ),
       );
   }

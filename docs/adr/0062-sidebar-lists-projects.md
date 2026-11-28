@@ -1,6 +1,6 @@
 # 0062: The sidebar lists projects, and a repo is a project
 
-**Status:** Accepted (option A), 2026-11-28, by Lyle. Not built yet.
+**Status:** Accepted (option A), 2026-11-28, by Lyle. Built: see "As built".
 **Date:** 2026-11-28
 **Related:** [ADR 0033](./0033-user-chosen-space-folder.md) (one space per window, the folder is the space), [ADR 0043](./0043-per-canvas-state-in-a-space.md) (each canvas keeps its state in a Space), [ADR 0059](./0059-the-whole-window-from-mods.md) (the sidebar is a mod).
 **Code today:** `specular-interact/src/space*`, `specular-interact/src/sidebar*`, `specular-interact/src/state/panels.rs` (`panels/sidebar`), `specular-mods/mods/sidebar/main.js`, `specular-agent/src/repos.rs`, `specular-shell/src/app/repos_run.rs`, `specular-shell/src/kit/settings_repos.rs`.
@@ -161,6 +161,36 @@ The sidebar is a shipped mod, so the model is the API.
   window; a window per project is ADR 0033's growth direction and could follow.
 - Does a project ever hold more than one folder (a monorepo's app plus its
   design folder)? A says no: one project, one folder.
+
+## As built
+
+All three steps, in one change, with these choices where the plan above
+left room or was changed:
+
+- **One `Space`, many projects.** `Space` keeps one list of canvases across
+  every project, each canvas naming its `project`, so switching, parking
+  and undo (ADR 0043) are unchanged. `Space::folder()` is the canvas folder
+  of the active canvas's project: what relative paths, assets and threads
+  start from. A switch into another project sends `Effect::ProjectEntered`
+  first, and the shell re-roots its image and note loaders.
+- **Ids.** A canvas keeps its index's id unless a canvas of another project
+  had it first; then it is known as `<id>~<project>` and its index still
+  writes the old id (`Canvas::tab`). Names are unique per project, and a
+  tab ref may be `<project>/<name>`.
+- **Bindings stay in `repos.json`.** Origins are not moved to a
+  `project.json`: the sidebar shows a project's bindings by its folder, and
+  the Electron app keeps reading the same file. Connecting or binding a
+  folder opens it as a project.
+- **The git choice is in the preferences** (`projectGit`) and written as
+  `.specular/.gitignore`; until the person picks, nothing is written.
+- **Not done:** folded projects are read in full at open (no lazy load),
+  and a project is one window's; a window per project is still open.
+- **Mods (API 1.7):** the `projects` key, a project section per project in
+  `panels/sidebar` with its controls by id, the `project.*` commands and
+  `canvas.new {project}`. The shipped sidebar mod draws Rex-style headers
+  with a + and a ⋯ for details.
+- **CLI and API:** `specular project [open <folder> | close <id|name>]`
+  (`GET/POST /projects`, `POST /projects/close`) and `tab new --project`.
 
 ## Consequences
 

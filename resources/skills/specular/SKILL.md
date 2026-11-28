@@ -54,14 +54,25 @@ specular add note "…" --tab <tab-id>      # write to a canvas the user named, 
 specular apply --tab <tab-id> < patch.json
 specular tab switch <tab-id|tab-name>     # the only command that moves the user's view
 specular tab new "<name>"                 # ONLY when the user asked for a new canvas; prints its id; does NOT switch focus
+specular project                          # the projects in the sidebar and their canvases
 specular tab delete <tab-id|tab-name>     # remove a canvas; deleting a background one does NOT move the user
 ```
 
-`--tab` takes a tab id or an exact tab name; an ambiguous or unknown ref errors
-with the candidates rather than guessing. Snapshot the tab id from `canvas`
+`--tab` takes a tab id, an exact tab name, or `<project>/<name>`; an
+ambiguous or unknown ref errors with the candidates rather than guessing. Snapshot the tab id from `canvas`
 before a batch and confirm it after — the user can switch canvases mid-session.
 If they do, keep writing to the canvas the work started on rather than
 making a new one.
+
+**Projects.** The sidebar lists projects: folders and code repos, each with
+its canvases (`specular project` lists them; `specular canvas` names each
+tab's project). A repo keeps its canvases in `<repo>/.specular/canvases/`,
+and when the user's canvas is in a repo project your working directory is
+that repo. Canvas names are unique per project, so the same name can be in
+two projects: use the tab id or `<project>/<name>` then. If the user asks
+for a new canvas in a particular project, `specular tab new "<name>"
+--project <id|name>`. Open or close a project (`specular project open
+<folder>`, `specular project close <id|name>`) only when the user asks.
 
 Not every verb takes it. `canvas` reads, `apply`, and `add` (including the
 placement lookups `add` runs) are tab-scoped; the rest — `unlink`, `ungroup`,

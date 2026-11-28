@@ -73,6 +73,9 @@ pub enum ApiRun {
     NewCanvas {
         /// The name.
         name: String,
+        /// The project it goes in, by id or label; `None` is the active
+        /// canvas's.
+        project: Option<String>,
     },
     /// Share the active canvas through the live room `link` opens, or,
     /// with `fresh`, a new empty canvas made and shown first, so joining a
@@ -201,8 +204,15 @@ fn run_call(app: &mut App, run: ApiRun, effects: &mut Vec<Effect>) -> ApiOutcome
             command,
             select,
         } => return apply(app, command, select, files, effects),
-        ApiRun::NewCanvas { name } => {
-            if let Err(reason) = space::create(app, Some(&name), false, effects) {
+        ApiRun::NewCanvas { name, project } => {
+            let project = match project {
+                None => app.space.active().project.clone(),
+                Some(wanted) => match app.space.find_project(&wanted) {
+                    Some(project) => project.id.clone(),
+                    None => return ApiOutcome::Refused(format!("unknown project '{wanted}'")),
+                },
+            };
+            if let Err(reason) = space::create(app, &project, Some(&name), false, effects) {
                 return ApiOutcome::Refused(reason);
             }
         }

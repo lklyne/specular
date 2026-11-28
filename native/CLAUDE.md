@@ -156,6 +156,9 @@ What a script can name, beyond the steps in "Looking at what it draws":
 - The sidebar starts hidden (`sidebar on`, or Command+B). Its controls are
   `sidebar.canvas.<n>` (by place, from 1; `.name` is the rename field,
   `.menu.rename` and `.menu.delete` its menu), `sidebar.add`,
+  `sidebar.open` (Open project), `sidebar.project.<n>` (a project's head,
+  by place; `.add`, `.details`, `.reveal`, `.close`, `.git.commit`,
+  `.git.ignore`, `.origin.<k>.auto|remove` beside it),
   `sidebar.head.<canvases|notes|pages>`, `sidebar.<notes|pages>.<entity id>`
   (`.toggle` its chevron) and `sidebar.pages.comment.<id>`. Shift- and
   Command-clicks on rows widen the selection, from the row picked last.

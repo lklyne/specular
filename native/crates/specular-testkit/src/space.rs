@@ -24,7 +24,7 @@ pub(crate) fn space<'a>(canvases: impl IntoIterator<Item = (&'a str, Document)>)
         })
         .collect();
     OpenedSpace {
-        folder: Some("/space".to_owned()),
+        project: Some(specular_interact::Project::folder("/space")),
         canvases,
         active: None,
     }

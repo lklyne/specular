@@ -118,10 +118,13 @@ pub(super) const CANVAS: &[CommandSpec] = &[
     CommandSpec {
         name: "canvas.new",
         label: "New canvas",
-        args: "",
-        about: "Add an empty canvas and show it.",
+        args: "{project?: id}",
+        about: "Add an empty canvas to a project, the active canvas's by default, and show it.",
         enabled: idle,
-        build: |_| act(Action::Canvas(CanvasAction::New)),
+        build: |args| {
+            let project = maybe_text(args, "project").map(crate::ProjectId::new);
+            act(Action::Canvas(CanvasAction::New(project)))
+        },
     },
     CommandSpec {
         name: "canvas.duplicate",

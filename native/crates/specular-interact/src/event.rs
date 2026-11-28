@@ -4,7 +4,7 @@ mod action;
 mod input;
 mod notice;
 
-pub use self::action::{Action, CanvasAction};
+pub use self::action::{Action, CanvasAction, ProjectAction};
 pub use self::input::{Key, KeyInput, PointerInput, WheelInput};
 pub use self::notice::PageNotice;
 
@@ -89,6 +89,12 @@ pub enum Event {
     /// A space folder was read: at startup, or when another is chosen.
     /// Replaces every canvas and shows the space's active one.
     SpaceOpened(Box<OpenedSpace>),
+    /// The shell read a folder to open as another project beside the ones
+    /// open (ADR 0062). Its canvases go into the background.
+    ProjectOpened(Box<OpenedSpace>),
+    /// The shell wrote what was unsaved in a project being closed: take it
+    /// and its canvases out of the list.
+    ProjectClosed(crate::ProjectId),
     /// The file of one canvas of the space changed on disk and was read
     /// again. Replaces that canvas's document and clears its history,
     /// whether it is the active one or not.
@@ -208,6 +214,15 @@ pub enum Event {
         /// The threads read, closed ones included.
         threads: Vec<Thread>,
         /// `index.json`, or the empty index when there is none.
+        index: Index,
+    },
+    /// The threads of a project just opened: the answer to an
+    /// [`Effect::LoadProjectThreads`](crate::Effect::LoadProjectThreads).
+    /// Added to the threads held.
+    ThreadsAdded {
+        /// The threads read, closed ones included.
+        threads: Vec<Thread>,
+        /// The project's `index.json`.
         index: Index,
     },
     /// A run reported something: output of an

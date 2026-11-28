@@ -1,5 +1,5 @@
-//! [`SpaceFiles`]: the `.canvas` files of the open space, one
-//! [`Persistence`] a canvas. Every canvas is followed, shown or not: a save
+//! [`SpaceFiles`]: the `.canvas` files of every open project, one
+//! [`Persistence`] a canvas, each in its project's canvas folder. Every canvas is followed, shown or not: a save
 //! goes to whichever canvas changed, and a file another tool edits is read
 //! again whether its canvas is the active one or in the background.
 
@@ -12,21 +12,23 @@ use specular_interact::{App, CanvasId, Space, iso8601};
 use super::listing;
 use crate::persist::Persistence;
 
-/// The files of the open space.
+/// The files of the open projects.
 #[derive(Debug)]
 pub(crate) struct SpaceFiles {
-    folder: PathBuf,
     files: HashMap<CanvasId, Persistence>,
+    /// The canvas folder each followed canvas's file is in, kept so a
+    /// canvas already gone from the app can still be trashed.
+    folders: HashMap<CanvasId, PathBuf>,
     /// Sends a file to the trash. A test puts its own in.
     trash: fn(&Path) -> Result<(), String>,
 }
 
 impl SpaceFiles {
-    /// The files of the space at `folder`, following none yet.
-    pub(crate) fn new(folder: &Path) -> Self {
+    /// The files of the open projects, following none yet.
+    pub(crate) fn new() -> Self {
         Self {
-            folder: folder.to_owned(),
             files: HashMap::new(),
+            folders: HashMap::new(),
             trash: system_trash,
         }
     }
@@ -41,14 +43,29 @@ impl SpaceFiles {
     /// followed yet. Each was just read.
     pub(crate) fn follow(&mut self, space: &Space) {
         for canvas in space.canvases() {
-            let path = self.folder.join(&canvas.file);
+            let Some(folder) = folder_of(space, &canvas.id) else {
+                continue;
+            };
+            let path = folder.join(&canvas.file);
+            self.folders.insert(canvas.id.clone(), folder);
             (self.files.entry(canvas.id.clone())).or_insert_with(|| Persistence::open(&path));
         }
     }
 
+    /// Stops following every canvas the app no longer has: a project was
+    /// closed. Its files were flushed first.
+    pub(crate) fn prune(&mut self, space: &Space) {
+        self.files.retain(|id, _| space.canvas(id).is_some());
+        self.folders.retain(|id, _| space.canvas(id).is_some());
+    }
+
     /// Where the canvas `id`'s file is.
+    #[expect(
+        clippy::unused_self,
+        reason = "asked of the files, which only a run that writes has"
+    )]
     pub(crate) fn path_of(&self, app: &App, id: &CanvasId) -> Option<PathBuf> {
-        Some(self.folder.join(&app.space().canvas(id)?.file))
+        app.space().canvas_path(id).map(PathBuf::from)
     }
 
     /// The canvas `id` changed: save it once changes stop.
@@ -89,10 +106,10 @@ impl SpaceFiles {
 
     /// Writes the canvas `id` now, making its file if it has none.
     pub(crate) fn write_now(&mut self, app: &App, id: &CanvasId) {
-        let Some(canvas) = app.space().canvas(id) else {
+        let (Some(path), Some(folder)) = (self.path_of(app, id), folder_of(app.space(), id)) else {
             return;
         };
-        let path = self.folder.join(&canvas.file);
+        self.folders.insert(id.clone(), folder);
         (self.files.entry(id.clone()))
             .or_insert_with(|| Persistence::new_file(&path))
             .save(app, id);
@@ -102,7 +119,10 @@ impl SpaceFiles {
     /// What is unsaved is written to the old name first, so the move
     /// carries it.
     pub(crate) fn rename(&mut self, app: &App, id: &CanvasId, from: &str, to: &str) {
-        let (old, new) = (self.folder.join(from), self.folder.join(to));
+        let Some(folder) = folder_of(app.space(), id) else {
+            return;
+        };
+        let (old, new) = (folder.join(from), folder.join(to));
         let Some(file) = self.files.get_mut(id) else {
             return;
         };
@@ -127,7 +147,10 @@ impl SpaceFiles {
     /// to the trash.
     pub(crate) fn trash(&mut self, id: &CanvasId, file: &str) {
         self.files.remove(id);
-        let path = self.folder.join(file);
+        let Some(folder) = self.folders.remove(id) else {
+            return;
+        };
+        let path = folder.join(file);
         if !path.exists() {
             return;
         }
@@ -136,14 +159,30 @@ impl SpaceFiles {
         }
     }
 
-    /// Writes the space's index: which canvases there are and which is
-    /// active.
+    /// Writes each project's index: which canvases it has, and which is
+    /// active when the canvas showing is one of them.
+    #[expect(
+        clippy::unused_self,
+        reason = "asked of the files, which only a run that writes has"
+    )]
     pub(crate) fn save_meta(&self, app: &App) {
         let now = iso8601(app.session().now_ms);
-        if let Err(error) = listing::write_meta(&self.folder, app.space(), &now) {
-            tracing::warn!(folder = %self.folder.display(), "space index not written: {error}");
+        let space = app.space();
+        for project in space.projects() {
+            let folder = Path::new(&project.canvases);
+            if let Err(error) = listing::write_meta(folder, space, &project.id, &now) {
+                tracing::warn!(folder = %folder.display(), "project index not written: {error}");
+            }
         }
     }
+}
+
+/// The canvas folder of the canvas `id`'s project.
+fn folder_of(space: &Space, id: &CanvasId) -> Option<PathBuf> {
+    let canvas = space.canvas(id)?;
+    space
+        .project(&canvas.project)
+        .map(|project| PathBuf::from(&project.canvases))
 }
 
 fn system_trash(path: &Path) -> Result<(), String> {

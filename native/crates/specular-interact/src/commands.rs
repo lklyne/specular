@@ -18,6 +18,7 @@ mod chat;
 mod edit;
 mod mods;
 mod page;
+mod project;
 mod selection;
 mod ui;
 mod view;
@@ -118,6 +119,7 @@ static ALL: LazyLock<Vec<CommandSpec>> = LazyLock::new(|| {
     [
         canvas::APP,
         canvas::CANVAS,
+        project::PROJECT,
         edit::EDIT,
         edit::ITEM,
         edit::TEXT,

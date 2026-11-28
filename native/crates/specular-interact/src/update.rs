@@ -78,6 +78,8 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
             pages::reconcile(&before, app, &mut effects);
         }
         Event::SpaceOpened(opened) => space::open(app, *opened, &mut effects),
+        Event::ProjectOpened(opened) => space::add_project(app, *opened, &mut effects),
+        Event::ProjectClosed(id) => space::remove_project(app, &id, &mut effects),
         Event::CanvasFileChanged { canvas, document } => {
             space::file_changed(app, &canvas, *document, &mut effects);
         }
@@ -107,6 +109,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         Event::Motion(on) => app.session.motion.enable(on),
         Event::ReduceMotion(on) => app.session.motion.reduce(on),
         Event::ThreadsLoaded { threads, index } => chat::on_loaded(app, threads, &index),
+        Event::ThreadsAdded { threads, index } => app.threads.add(threads, &index),
         Event::Agent { thread, notice } => chat::on_agent(app, &thread, notice, &mut effects),
         Event::ReposLoaded(repos) => app.repos = *repos,
         Event::Models(news) => app.models.hear(news),
@@ -287,6 +290,7 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         Action::PageNavigate(url) => page_state::navigate(app, PageNav::To(url), effects),
         Action::ToggleSync => sync::toggle(app, effects),
         Action::Canvas(action) => space::act(app, action, effects),
+        Action::Project(action) => space::project_act(app, action, effects),
         Action::Chat(action) => chat::run(app, action, effects),
         Action::Repo(action) => crate::repos::run(app, action, effects),
         Action::Space(action) => crate::first_run::run(action, effects),

@@ -163,7 +163,9 @@ pub use edit::{
     TextMeasure, TextSelectDrag, TextSpec, source_rows,
 };
 pub use effect::Effect;
-pub use event::{Action, CanvasAction, Event, Key, KeyInput, PageNotice, PointerInput, WheelInput};
+pub use event::{
+    Action, CanvasAction, Event, Key, KeyInput, PageNotice, PointerInput, ProjectAction, WheelInput,
+};
 pub use first_run::{OnboardingModel, SpaceAction, SpaceAsk, SpaceChoice, onboarding};
 pub use geometry::{ScreenRect, to_canvas_rect};
 pub use gesture::Gesture;
@@ -202,7 +204,7 @@ pub use place::{PlaceDrag, PlacePreview};
 pub use placement::PagePlacement;
 pub use presence::{AGENT_COLORS, AgentAct, AgentBadge, AgentCursor, agent_color};
 pub use property::{Orientation, PageStep, Property};
-pub use repos::{BoundOriginRow, RepoAction, RepoRow, ReposPane, repos_pane};
+pub use repos::RepoAction;
 pub use resize_drag::ResizeDrag;
 pub use safe_area::within as within_safe_area;
 pub use scope::SelectionScope;
@@ -219,12 +221,12 @@ pub use shared::ShareEvent;
 pub use showing::turn::Turning;
 pub use showing::{Lens, SavedTab, Showing};
 pub use sidebar::{
-    CanvasRow, RowKind, RowTarget, SectionHead, SidebarAction, SidebarModel, SidebarRow,
-    SidebarSection, SidebarView, sidebar,
+    CanvasRow, OriginRow, ProjectSection, RowKind, RowTarget, SectionHead, SidebarAction,
+    SidebarModel, SidebarRow, SidebarSection, SidebarView, sidebar,
 };
 pub use space::{
-    Canvas, CanvasId, OpenedCanvas, OpenedSpace, SavedCanvas, Space, TabRefError, canvas_file_name,
-    legacy_canvas_file_name,
+    Canvas, CanvasId, GitChoice, OpenedCanvas, OpenedSpace, Project, ProjectId, SavedCanvas, Space,
+    TabRefError, canvas_file_name, folder_label, legacy_canvas_file_name,
 };
 pub use space_file::{file_url_path, resolve_file};
 pub use specular_agent::{

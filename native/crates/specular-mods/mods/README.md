@@ -142,7 +142,8 @@ readout is the `Zoom` host component. The keys: `panels/toolbar`,
 `panels/chat`, `theme`, `settings`, `keys`, `layout`, `layouts`, `look`,
 `overlays`, `notices`, `selection` (`{ids, edges}`), `canvas/items` (every
 item, back to front, with its kind, label, parent and words, but no place or
-size), `canvas/info` (the canvas showing, its counts and every canvas), and
+size), `canvas/info` (the canvas showing, its project, its counts and every
+canvas), `projects` (every project open, see "Projects"), and
 for canvas items, tools and commands `canvas/mod_items`, `tool` and `call`
 (see below), and for agent threads `chat/threads`, `chat/context` and a
 `chat/thread/<id>` key for each thread (see "Chat threads anywhere"), and
@@ -173,7 +174,8 @@ app's log. The commands:
 
 - **app**: `app.quit`, `app.open-space`, `app.open`, `app.save`, `app.settings`, `app.hide`, `app.hide-others`, `app.minimize`, `app.command-palette`
 - **window**: `window.close`, `window.zoom`
-- **canvas**: `canvas.new`, `canvas.duplicate` `{canvas?: id}`, `canvas.delete` `{canvas?: id}`, `canvas.switch` `{canvas: id}`, `canvas.rename` `{name: text, canvas?: id}`, `canvas.begin-rename` `{canvas?: id}`
+- **project** (1.7): `project.open`, `project.close` `{project: id}`, `project.reveal` `{project: id}`, `project.git` `{project: id, canvases: commit|ignore}`, `project.fold` `{project: id}`, `project.details` `{project: id}`, `project.bind` `{project: id, origin: url}`, `project.unbind` `{origin: url}`, `project.auto-fix` `{origin: url, on: bool}`
+- **canvas**: `canvas.new` `{project?: id}`, `canvas.duplicate` `{canvas?: id}`, `canvas.delete` `{canvas?: id}`, `canvas.switch` `{canvas: id}`, `canvas.rename` `{name: text, canvas?: id}`, `canvas.begin-rename` `{canvas?: id}`
 - **edit**: `edit.cancel`, `edit.undo`, `edit.redo`, `edit.cut`, `edit.copy`, `edit.paste`, `edit.duplicate`, `edit.delete`, `edit.select-all`, `edit.select` `{ids?: [entity id], edges?: [edge id]}`, `edit.nudge` `{dx: number, dy: number}`
 - **item**: `item.add` `{kind: sticky|text|shape|mod, x: number, y: number, text?: string, mod?: name, props?: object, width?: number, height?: number}`, `item.set` `{id: mod item id, props: object}`, `item.draw` `{id: mod item id, draws: [{type: rect|ellipse|path|text|image, ..}]}`
 - **text**: `text.bold`, `text.italic`, `text.code`, `text.strikethrough`, `text.bullet-list`, `text.numbered-list`, `text.task-list`, `text.body`, `text.heading-1`, `text.heading-2`, `text.heading-3`, `text.heading-4`, `text.heading-5`, `text.heading-6`
@@ -538,6 +540,23 @@ The panel itself draws markdown, images and comment chips natively. A mod
 that shows a transcript draws it itself in a panel mod (the shipped
 `chat` mod shows plain text), or with `<specular-thread>` in a web page.
 
+## Projects (API 1.7)
+
+The sidebar's top level is projects (ADR 0062): folders the person opened,
+each a plain folder of canvases or a code repo, with its canvases under it.
+A repo keeps its canvases in `.specular/canvases/`, and the person says
+whether they go into git (`project.git`). The sites bound to a project send
+their comments to the agent working in its folder.
+
+- `projects` lists them: `[{id, label, folder, canvasFolder, repo, branch,
+  git, active, canvases: [{id, name, active}]}]`.
+- In `panels/sidebar`, each project is a section with `kind: "project"`:
+  its head folds it, and `add`, `details`, `reveal`, `close`, `git.commit`,
+  `git.ignore` and each origin's `auto` and `remove` are control ids to
+  press. `open` asks for a folder to open as another project.
+- `project.*` acts on them by id, and `canvas.new {project}` makes a canvas
+  in one.
+
 ## Host components
 
 Elements a mod places but cannot draw itself, imported from `specular`:
@@ -615,7 +634,7 @@ Elements a mod places but cannot draw itself, imported from `specular`:
 | `toast` | the notices, in the canvas's lower right corner | `notices` | yes |
 | `menu` | the canvas's context menu | `panels/menu` | `mods` layout |
 | `welcome` | the first-run view | `panels/welcome` | no: `"welcome": { "mod": "welcome" }` |
-| `sidebar` | the canvases, notes and pages | `panels/sidebar` | `mods`, `studio` |
+| `sidebar` | the projects and their canvases, then the notes and pages | `panels/sidebar` | `mods`, `studio` |
 | `dock` | the selection's or the tool's controls, and the lens | `panels/dock`, `panels/tool_options`, `panels/toolbar` | `mods`, `studio` |
 | `palette` | the command palette, in an overlay | `panels/palette` | `mods`, `studio` |
 | `chat` | the agent threads, transcript and composer | `panels/chat` | `mods`, `studio` |

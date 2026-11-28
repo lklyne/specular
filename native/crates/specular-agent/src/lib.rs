@@ -25,7 +25,7 @@ pub use models::{Model, Models, ModelsNews, parse_models};
 pub use pill::{CanvasSelection, FocusedAnnotation, InspectNode, Pill, PillInput, resolve};
 pub use prompt::{CommentContext, PromptContext, WriteTarget, thread_prompt};
 pub use reply::{Reply, parse_output};
-pub use repos::{Binding, BoundOrigin, Repo, Repos, origin_of};
+pub use repos::{Binding, BoundOrigin, Repo, Repos, id_for as folder_id, origin_of};
 pub use run::{Run, RunState};
 pub use stream::{Notice, Progress, ProgressKind, parse_line};
 pub use thread::{

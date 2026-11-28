@@ -26,7 +26,8 @@
 //! | `notices` | [`notices`]: a page that stopped or failed to load, a share that failed, mods to install |
 //! | `selection` | `{ids, edges}`: what is selected (ADR 0059) |
 //! | `canvas/items` | every item of the active canvas, back to front, without place or size (ADR 0059) |
-//! | `canvas/info` | the canvas showing, its counts, and every canvas of the space (ADR 0059) |
+//! | `canvas/info` | the canvas showing, its project, its counts, and every canvas of the space (ADR 0059) |
+//! | `projects` | every project open: its folder, where its canvases are, whether it is a repo and its git choice, and its canvases (ADR 0062) |
 //! | `canvas/mod_items` | the active canvas's mod items, without their positions (ADR 0057) |
 //! | `tool` | the armed mod tool's stroke, or `null` (ADR 0057) |
 //! | `call` | the last mod command run, `{command, number, args}`, or `null` |
@@ -57,7 +58,7 @@ use crate::{
 /// Every fixed key, in the order [`state`] lists them. Beside them, each
 /// thread of the active canvas has a key of its own, [`THREAD_KEY`] and
 /// its id: see [`is_state_key`].
-pub const STATE_KEYS: [&str; 27] = [
+pub const STATE_KEYS: [&str; 28] = [
     "panels/toolbar",
     "panels/tool_options",
     "panels/dock",
@@ -81,6 +82,7 @@ pub const STATE_KEYS: [&str; 27] = [
     "selection",
     "canvas/items",
     "canvas/info",
+    "projects",
     "canvas/mod_items",
     "tool",
     "call",
@@ -139,6 +141,7 @@ pub fn state(app: &App) -> BTreeMap<String, Value> {
         ("selection", panels::selection_json(app)),
         ("canvas/items", panels::items_json(app)),
         ("canvas/info", panels::info_json(app)),
+        ("projects", panels::projects_json(app)),
         ("canvas/mod_items", crate::mods::mod_items_json(app)),
         ("tool", crate::mods::tool_json(app)),
         ("call", crate::mods::call_json(app)),

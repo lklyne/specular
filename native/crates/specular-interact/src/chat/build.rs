@@ -142,6 +142,7 @@ fn composer(app: &App, active: Option<&Thread>) -> Composer {
     let target = prompt::write_target(app, &live);
     let folder = match &target {
         WriteTarget::Repo { repo_path, .. } => Some(repo_path.as_str()),
+        WriteTarget::Project { folder } => Some(folder.as_str()),
         WriteTarget::Space => app.space.folder(),
     };
     Composer {

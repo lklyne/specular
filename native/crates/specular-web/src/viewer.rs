@@ -771,6 +771,14 @@ impl Viewer {
             | Effect::ChooseSpace { .. }
             | Effect::OpenSpace(_)
             | Effect::RevealSpace
+            | Effect::ChooseProject
+            | Effect::OpenProject(_)
+            | Effect::RevealProject(_)
+            | Effect::SaveProjects
+            | Effect::WriteGitChoice(_)
+            | Effect::ProjectEntered
+            | Effect::CloseProject(_)
+            | Effect::LoadProjectThreads(_)
             | Effect::Quit
             | Effect::SaveSettings(_)
             | Effect::SaveLayoutToggles(..)

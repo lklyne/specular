@@ -177,6 +177,8 @@ pub enum Action {
     /// Change the space's canvases: show another, add, rename, copy or
     /// remove one.
     Canvas(CanvasAction),
+    /// Open, close or set up a project (ADR 0062).
+    Project(ProjectAction),
     /// Something done in the right panel: its threads, its composer.
     Chat(ChatAction),
     /// A change to the connected repos and the origins bound to them.
@@ -218,14 +220,42 @@ pub enum Action {
     },
 }
 
+/// Something done to a project of the sidebar (ADR 0062).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ProjectAction {
+    /// Ask for a folder and open it as a project.
+    Open,
+    /// Open the folder at this path as a project, unless it is one.
+    OpenFolder(String),
+    /// Take a project out of the sidebar. Nothing on disk changes.
+    Close(crate::ProjectId),
+    /// Show a project's folder in the file manager.
+    Reveal(crate::ProjectId),
+    /// Bind a site to a project's folder.
+    Bind {
+        /// The project.
+        project: crate::ProjectId,
+        /// The origin, or any URL of it.
+        origin: String,
+    },
+    /// Say whether a repo's canvases go into git.
+    SetGit {
+        /// The project.
+        project: crate::ProjectId,
+        /// The choice.
+        choice: crate::GitChoice,
+    },
+}
+
 /// Something done to the canvases of the space.
 #[derive(Debug, Clone, PartialEq)]
 pub enum CanvasAction {
     /// Show another canvas. The one being left keeps its document, its
     /// undo history, its camera and its selection.
     Switch(CanvasId),
-    /// Add an empty canvas named `Canvas N` and show it.
-    New,
+    /// Add an empty canvas named `Canvas N` to a project and show it.
+    /// `None` is the active canvas's project.
+    New(Option<crate::ProjectId>),
     /// Give a canvas another name, and its file with it. `None` is the
     /// active canvas. Does nothing when the name is empty or taken.
     Rename {

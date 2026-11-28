@@ -75,7 +75,9 @@ fn normalize(origin: &str) -> String {
     origin_of(origin).unwrap_or_else(|| origin.trim().trim_end_matches('/').to_owned())
 }
 
-fn id_for(absolute_path: &str) -> String {
+/// The id a folder is known by, as a repo and as a project: the first 16 hex
+/// digits of the SHA-256 of its absolute path.
+pub fn id_for(absolute_path: &str) -> String {
     let digest = Sha256::digest(absolute_path.as_bytes());
     (digest.iter().take(8)).fold(String::new(), |mut hex, byte| {
         let _ = write!(hex, "{byte:02x}");

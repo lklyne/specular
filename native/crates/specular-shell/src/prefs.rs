@@ -1,7 +1,8 @@
 //! The preferences file: app settings that are not part of any canvas.
 //!
 //! One JSON object in the app's config folder. This shell reads and writes
-//! `toolDefaults`, `spacePath`, `show`, `tools`, `hideAgentCursors`,
+//! `toolDefaults`, `spacePath`, `projects`, `projectGit`,
+//! `projectsFromRepos`, `show`, `tools`, `hideAgentCursors`,
 //! `hideSyncedCursors`, `modsOff`, `themeMode` and `agentModel`, and keeps
 //! every other key as it found it. The folder is the one the Electron app used, so its
 //! `spacePath` and its other keys are read where they already are.
@@ -19,6 +20,14 @@ use crate::persist::write_atomic;
 const FILE_NAME: &str = "preferences.json";
 const TOOL_DEFAULTS_KEY: &str = "toolDefaults";
 const SPACE_PATH_KEY: &str = "spacePath";
+/// The projects open beside the one `spacePath` names, in the sidebar's
+/// order (ADR 0062): their folders.
+const PROJECTS_KEY: &str = "projects";
+/// Each repo project's choice for its canvases, by folder: `commit` or
+/// `ignore`.
+const PROJECT_GIT_KEY: &str = "projectGit";
+/// Set once the connected repos have been opened as projects.
+const PROJECTS_FROM_REPOS_KEY: &str = "projectsFromRepos";
 /// What is shown when the app opens: `{"sidebar": bool, "rightPanel": bool}`.
 const SHOW_KEY: &str = "show";
 const TOOLS_KEY: &str = "tools";
@@ -137,6 +146,78 @@ pub(crate) fn load_space_path(path: &Path) -> Option<PathBuf> {
 /// Writes `folder` under `spacePath`, keeping the file's other keys.
 pub(crate) fn save_space_path(path: &Path, folder: &Path) -> io::Result<()> {
     save_key(path, SPACE_PATH_KEY, Value::from(folder.to_string_lossy()))
+}
+
+/// What the preferences keep of the projects (ADR 0062).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub(crate) struct SavedProjects {
+    /// The folders open beside the first, in order.
+    pub(crate) others: Vec<PathBuf>,
+    /// Each repo's git choice, by folder.
+    pub(crate) git: Vec<(String, specular_interact::GitChoice)>,
+    /// Whether the connected repos were opened as projects already.
+    pub(crate) from_repos: bool,
+}
+
+impl SavedProjects {
+    /// The git choice kept for the project at `folder`.
+    pub(crate) fn git_of(&self, folder: &Path) -> Option<specular_interact::GitChoice> {
+        let folder = folder.to_string_lossy();
+        (self.git.iter())
+            .find(|(path, _)| *path == folder)
+            .map(|(_, choice)| *choice)
+    }
+}
+
+/// The projects the preferences keep.
+pub(crate) fn load_projects(path: &Path) -> SavedProjects {
+    let preferences = read(path).unwrap_or_default();
+    let others = (preferences.get(PROJECTS_KEY).and_then(Value::as_array))
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .filter(|folder| !folder.is_empty())
+        .map(PathBuf::from)
+        .collect();
+    let git = (preferences.get(PROJECT_GIT_KEY).and_then(Value::as_object))
+        .into_iter()
+        .flatten()
+        .filter_map(|(folder, choice)| {
+            let choice = specular_interact::GitChoice::parse(choice.as_str()?)?;
+            Some((folder.clone(), choice))
+        })
+        .collect();
+    let from_repos = preferences
+        .get(PROJECTS_FROM_REPOS_KEY)
+        .and_then(Value::as_bool)
+        == Some(true);
+    SavedProjects {
+        others,
+        git,
+        from_repos,
+    }
+}
+
+/// Writes the projects, keeping the file's other keys.
+pub(crate) fn save_projects(path: &Path, saved: &SavedProjects) -> io::Result<()> {
+    let mut preferences = read(path).unwrap_or_default();
+    let others: Vec<Value> = (saved.others.iter())
+        .map(|folder| Value::from(folder.to_string_lossy()))
+        .collect();
+    let git: Map<String, Value> = (saved.git.iter())
+        .map(|(folder, choice)| (folder.clone(), Value::from(choice.as_str())))
+        .collect();
+    preferences.insert(PROJECTS_KEY.to_owned(), Value::Array(others));
+    preferences.insert(PROJECT_GIT_KEY.to_owned(), Value::Object(git));
+    preferences.insert(
+        PROJECTS_FROM_REPOS_KEY.to_owned(),
+        Value::Bool(saved.from_repos),
+    );
+    let text = serde_json::to_string_pretty(&Value::Object(preferences))?;
+    if let Some(folder) = path.parent() {
+        std::fs::create_dir_all(folder)?;
+    }
+    write_atomic(path, &format!("{text}\n"))
 }
 
 /// The saved settings. A missing key is its default.

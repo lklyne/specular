@@ -1,5 +1,5 @@
-//! The left sidebar, as data: the Canvases list and the Notes and Pages
-//! sections of the active canvas.
+//! The left sidebar, as data: the projects and their canvases (ADR 0062),
+//! and the Notes and Pages sections of the active canvas.
 //!
 //! Like [`menus`](crate::menus), this is a pure reading of the [`App`].
 //! Every row and control carries the [`Action`] a click on it sends, and
@@ -9,12 +9,15 @@
 //! none of it.
 
 mod pick;
+mod projects;
 mod rows;
 mod state;
 
 use specular_doc::EntityId;
 
 pub(crate) use self::pick::picked;
+pub(crate) use self::projects::project_controls;
+pub use self::projects::{OriginRow, ProjectSection};
 use self::rows::{Tree, leaves};
 pub use self::state::{SidebarAction, SidebarSection, SidebarView};
 use crate::panel::{ControlId, Field, FieldSubmit, FieldWidth, Icon};
@@ -29,8 +32,11 @@ pub struct SidebarModel {
     pub(crate) toggle: Action,
     /// The head of the Canvases list.
     pub canvases_head: SectionHead,
-    /// The canvases of the space, in its order.
+    /// The canvases of the space, in its order: each project's in turn.
     pub canvases: Vec<CanvasRow>,
+    /// The projects, each with its canvases, in the sidebar's order. Empty
+    /// for canvases in no folder.
+    pub projects: Vec<ProjectSection>,
     /// What the add button next to the Canvases head sends.
     pub add_canvas: Action,
     /// The head of the Notes section.
@@ -80,6 +86,8 @@ pub struct CanvasRow {
     pub active: bool,
     /// How many entities it holds.
     pub entity_count: usize,
+    /// The project it is in.
+    pub project: crate::ProjectId,
     /// What a click sends: a switch to it.
     pub action: Action,
     /// The field that renames it in place. Its value is the name, and an
@@ -175,6 +183,7 @@ pub fn sidebar(app: &App) -> SidebarModel {
                 active: canvas.is_active(),
                 entity_count: (app.canvas_document(&canvas.id))
                     .map_or(0, |document| document.entities().count()),
+                project: canvas.project.clone(),
                 action: Action::Canvas(CanvasAction::Switch(canvas.id.clone())),
                 rename: Field {
                     id: id.child("name"),
@@ -203,12 +212,14 @@ pub fn sidebar(app: &App) -> SidebarModel {
         canvases_head.title.clone_from(&active.label);
     }
     let rows = Tree::new(app).top_rows();
+    let projects = projects::sections(app, &canvases);
     SidebarModel {
         visible: view.shown(),
         toggle: Action::Sidebar(SidebarAction::Toggle),
         canvases_head,
         canvases,
-        add_canvas: Action::Canvas(CanvasAction::New),
+        projects,
+        add_canvas: Action::Canvas(CanvasAction::New(None)),
         notes_head: head(SidebarSection::Notes, "notes", "Notes"),
         notes: partition(&rows, SidebarSection::Notes, view),
         pages_head: head(SidebarSection::Pages, "pages", "Pages"),

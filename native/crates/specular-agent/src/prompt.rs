@@ -13,6 +13,12 @@ pub enum WriteTarget {
         /// The repo on disk.
         repo_path: String,
     },
+    /// The repo the canvas's project is (ADR 0062): the canvas lives in it,
+    /// so no site needs binding to reach its source.
+    Project {
+        /// The repo on disk.
+        folder: String,
+    },
 }
 
 impl WriteTarget {
@@ -21,6 +27,7 @@ impl WriteTarget {
         match self {
             Self::Space => None,
             Self::Repo { repo_path, .. } => Some(repo_path),
+            Self::Project { folder } => Some(folder),
         }
     }
 }
@@ -91,7 +98,7 @@ fn reply_format(out: &mut Vec<String>) {
 fn image_path(ctx: &PromptContext, path: &str) -> String {
     match ctx.write_target {
         WriteTarget::Space => path.to_owned(),
-        WriteTarget::Repo { .. } => {
+        WriteTarget::Repo { .. } | WriteTarget::Project { .. } => {
             format!("{}/{path}", ctx.space_path.trim_end_matches('/'))
         }
     }
@@ -109,6 +116,13 @@ pub fn thread_prompt(thread: &Thread, ctx: &PromptContext) -> String {
             ));
             lines.push("Edit that repo. Pages already on the canvas reload from source.".into());
             lines.push("Anything new reaches the user only once it is on the canvas: `specular add page <full url> --at x,y`.".into());
+        }
+        WriteTarget::Project { folder } => {
+            lines.push(format!("Working directory (the project's repo): {folder}"));
+            lines.push(format!("Canvas folder: {}", ctx.space_path));
+            lines.push("The canvas the user has open lives in this repo. Edit its source here; pages already on the canvas reload from source.".into());
+            lines.push("Use `specular add` / `update` / `delete` / `arrange` to change what the user sees.".into());
+            lines.push("Anything new reaches the user only once it is on the canvas: `specular add page <full url> --at x,y` or `specular add file <path> --at x,y`.".into());
         }
         WriteTarget::Space => {
             lines.push(format!(

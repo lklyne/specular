@@ -138,6 +138,7 @@ impl<W: ShellWindow> Runtime<W> {
             }
             Effect::SetPageDevice { page, device } => self.set_page_device(&page, device),
             Effect::LoadThreads => self.load_threads(),
+            Effect::LoadProjectThreads(project) => self.load_project_threads(&project),
             Effect::WriteThread(thread) => self.write_thread(&thread),
             Effect::WriteThreadIndex => self.write_thread_index(),
             Effect::RunAgent(request) => self.run_agent(&request),
@@ -164,6 +165,13 @@ impl<W: ShellWindow> Runtime<W> {
             Effect::ChooseSpace { create } => self.ask_for_folder(FolderAsk::Space { create }),
             Effect::OpenSpace(folder) => self.choose_space(std::path::Path::new(&folder)),
             Effect::RevealSpace => self.reveal_space(),
+            Effect::ChooseProject => self.ask_for_folder(FolderAsk::Project),
+            Effect::OpenProject(folder) => self.open_project(std::path::Path::new(&folder)),
+            Effect::RevealProject(project) => self.reveal_project(&project),
+            Effect::SaveProjects => self.save_projects(false),
+            Effect::WriteGitChoice(project) => self.write_git_choice(&project),
+            Effect::ProjectEntered => self.project_entered(),
+            Effect::CloseProject(project) => self.close_project(&project),
             Effect::Quit => self.exit(),
             Effect::SaveSettings(settings) => self.save_settings(&settings),
             effect @ (Effect::SaveLayoutToggles(..)
@@ -185,6 +193,7 @@ const fn leaves_memory(effect: &Effect) -> bool {
         Effect::WriteAsset { .. }
             | Effect::CopyAsset { .. }
             | Effect::LoadThreads
+            | Effect::LoadProjectThreads(_)
             | Effect::WriteThread(_)
             | Effect::WriteThreadIndex
             | Effect::RunAgent(_)
@@ -192,6 +201,11 @@ const fn leaves_memory(effect: &Effect) -> bool {
             | Effect::ChooseSpace { .. }
             | Effect::OpenSpace(_)
             | Effect::RevealSpace
+            | Effect::ChooseProject
+            | Effect::OpenProject(_)
+            | Effect::RevealProject(_)
+            | Effect::SaveProjects
+            | Effect::WriteGitChoice(_)
             | Effect::PickRepoFolder { .. }
             | Effect::SaveRepos
             | Effect::ShareConnect { .. }

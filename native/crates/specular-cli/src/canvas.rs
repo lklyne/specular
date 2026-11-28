@@ -1,5 +1,5 @@
 //! The verbs that read the canvas or act on what is on it without a patch:
-//! `canvas`, `tab`, `selection`, `find-placement`, `breakpoints`,
+//! `canvas`, `tab`, `project`, `selection`, `find-placement`, `breakpoints`,
 //! `arrange`, `focus`, `unlink`, `ungroup` and `auto-layout`.
 
 use serde_json::{Value, json};
@@ -24,7 +24,13 @@ pub(crate) fn tab(client: &Client, args: &Args) -> anyhow::Result<i32> {
     let answer = match args.nth(0) {
         None => client.get("/tabs")?,
         Some("new") if rest.is_empty() => return usage("specular tab new <name>"),
-        Some("new") => client.post("/tabs", &json!({ "name": rest }))?,
+        Some("new") => {
+            let mut body = json!({ "name": rest });
+            if let Some(project) = args.flag("project") {
+                body["project"] = json!(project);
+            }
+            client.post("/tabs", &body)?
+        }
         Some(sub @ ("switch" | "delete")) if rest.is_empty() => {
             return usage(&format!("specular tab {sub} <tab-id|tab-name>"));
         }
@@ -33,9 +39,36 @@ pub(crate) fn tab(client: &Client, args: &Args) -> anyhow::Result<i32> {
         }
         Some(_) => {
             return usage(
-                "specular tab [new <name> | switch <tab-id|tab-name> | delete <tab-id|tab-name>]",
+                "specular tab [new <name> [--project <id|name>] | switch <tab-id|tab-name> | delete <tab-id|tab-name>]",
             );
         }
+    };
+    output::json(&answer);
+    Ok(0)
+}
+
+/// `project`, `project open <folder>`, `project close <id|name>`: the
+/// projects in the sidebar (ADR 0062). Opening and closing leave the
+/// user on the canvas they are on.
+pub(crate) fn project(client: &Client, args: &Args) -> anyhow::Result<i32> {
+    let rest = args.words(1);
+    let answer = match args.nth(0) {
+        None | Some("list") => client.get("/projects")?,
+        Some(sub @ ("open" | "close")) if rest.is_empty() => {
+            let what = if sub == "open" {
+                "<folder>"
+            } else {
+                "<id|name>"
+            };
+            return usage(&format!("specular project {sub} {what}"));
+        }
+        Some("open") => {
+            let folder =
+                std::path::absolute(&rest).map_or(rest, |path| path.to_string_lossy().into_owned());
+            client.post("/projects", &json!({ "folder": folder }))?
+        }
+        Some("close") => client.post("/projects/close", &json!({ "project": rest }))?,
+        Some(_) => return usage("specular project [open <folder> | close <id|name>]"),
     };
     output::json(&answer);
     Ok(0)
