@@ -87,5 +87,11 @@ fn a_mod_that_fails_says_why_until_its_files_are_fixed(cx: &mut TestAppContext) 
     std::fs::write(dock.join("main.js"), FIXED).expect("mend");
     assert!(vcx.update(|window, cx| set.sync(&copies, window, cx)));
     assert!(!shipped::error_file(&dock).exists());
+
+    // A copy let go of loads afresh at the next sync, as an overlay does
+    // each time it opens.
+    set.restart("dock");
+    assert!(vcx.update(|window, cx| set.sync(&copies, window, cx)));
+    vcx.update(|_, cx| assert!(matches!(set.placed("dock", cx), Some(Placed::View(_)))));
     let _ = std::fs::remove_dir_all(&mods);
 }

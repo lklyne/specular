@@ -278,13 +278,17 @@ scrim (`edge: "top"` keeps it near the top), a `popup` at `at` that a press
 outside closes, a `drawer` along an `edge`, or a `window` that stays. The
 copy reads its id as `props().overlay` and closes itself with
 `closeOverlay(props().overlay)`. Escape closes the top dialog, popup or
-drawer. The shipped `confirm` and `prompt` mods are dialogs any mod or agent
+drawer. Each open is a new instance of the mod, its `init()` run again, so
+an overlay starts empty every time; keep what should outlast it with
+`shared(...)` or its store. The shipped `confirm` and `prompt` mods are dialogs any mod or agent
 can open (see their `main.js`).
 
 **Text.** `Field.new(id, { id, placeholder, value, autofocus })` is a line of
 text the window holds: the keys stay in it while a person types, what is
 typed is `shared("field/<id>")`, and each Return moves
-`shared("field/<id>/submit")` on. With `{ control }` it is a model field of
+`shared("field/<id>/submit")` on. A field is made once for its id and
+`autofocus` takes the keys when it is made, so a field that should start
+empty and focused each time (a palette's) takes a new id in `init()`. With `{ control }` it is a model field of
 the dock (an address, a size). `radius`, `background`, `border` and
 `focusRing` restyle its box to match the layout; a styled field shows its
 focus by turning its own edge `focusRing`, with no rounded ring outside it.

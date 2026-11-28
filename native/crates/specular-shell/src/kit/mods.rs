@@ -43,6 +43,9 @@ pub(crate) struct Mods {
     /// Draws the window again when a mod's source changes, so a save loads
     /// it again with nothing else moving.
     watch: Option<gpui_kit::Task<()>>,
+    /// The overlays open at the last sync, to start each one that opens
+    /// afresh.
+    open: Vec<String>,
 }
 
 /// `<app home>/mods`, written with the shipped mods, or `None` when the
@@ -117,6 +120,16 @@ impl Mods {
         let Some(set) = self.set.as_mut() else {
             return;
         };
+        // An overlay that opens is a new instance of its mod, as if loaded
+        // for the first time: its fields are empty and the one it focuses
+        // has the keys.
+        let open: Vec<String> = (models.mod_overlays.iter())
+            .map(|spec| spec.id.clone())
+            .collect();
+        for id in open.iter().filter(|id| !self.open.contains(id)) {
+            set.restart(id);
+        }
+        self.open = open;
         let mut copies = ModCopy::of_layout(&models.layout);
         // An overlay open by an overlay's own name (the palette) is that
         // copy, with its overlay props.

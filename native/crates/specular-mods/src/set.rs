@@ -273,6 +273,15 @@ impl ModSet {
         }
     }
 
+    /// Lets go of the copy `id`, so the next [`sync`](Self::sync) that
+    /// names it loads it afresh: a new instance, its constructor run
+    /// again. An overlay starts this way each time it opens.
+    pub fn restart(&mut self, id: &str) {
+        if self.slots.remove(id).is_some() {
+            self.hosting.reads.borrow_mut().forget(id);
+        }
+    }
+
     /// Renders again each mod that read a key which moved since the last
     /// call. Cheap when nothing moved, so it may be called on every draw.
     pub fn refresh(&mut self, cx: &mut App) {
