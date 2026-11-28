@@ -36,8 +36,8 @@ const TRAIL_STEP: f64 = 0.06;
 /// The wander of a thinking cursor, in screen pixels, and how long one
 /// lazy loop takes. A cursor that last read wanders further, as if
 /// scanning what it read.
-const DRIFT: (f64, f64) = (8.0, 4_600.0);
-const READING_DRIFT: (f64, f64) = (18.0, 3_100.0);
+const DRIFT: (f64, f64) = (2.5, 5_200.0);
+const READING_DRIFT: (f64, f64) = (4.0, 4_200.0);
 /// How long the drift takes to grow from nothing.
 const DRIFT_RAMP_MS: f64 = 450.0;
 
