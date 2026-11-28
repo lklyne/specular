@@ -101,12 +101,9 @@ pub enum ModDraw {
     },
 }
 
-#[expect(
-    clippy::trivially_copy_pass_by_ref,
-    reason = "serde passes a reference"
-)]
-fn is_zero(value: &f64) -> bool {
-    *value == 0.0
+/// Whether `value` is its type's default, for `skip_serializing_if`.
+fn is_zero<T: Default + PartialEq>(value: &T) -> bool {
+    *value == T::default()
 }
 
 /// A box in item space.
