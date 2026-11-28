@@ -126,7 +126,7 @@ pub struct ToolbarModel {
     pub theme: ThemeButton,
     /// The blocks, left to right.
     pub sections: Vec<ToolbarSection>,
-    /// Where the tools' ribbon is.
+    /// Where the tools' ribbon is now ([`crate::App::tools_place`]).
     pub tools: ToolsPlace,
     /// How the tab showing looks at its item, at the right end: a toggle
     /// Minimize, then a toggle for each lens. On the Canvas tab, the

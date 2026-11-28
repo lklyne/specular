@@ -15,7 +15,7 @@
  * `Zoom` host component. A mod's own props are not a key it names: read them
  * with `props()`.
  *
- * - `panels/toolbar`: `{chat, theme, sections: [{tools: [..]}, {zoom: {id}}], tools: "docked"|"top"|"bottom", view}`
+ * - `panels/toolbar`: `{chat, theme, sections: [{tools: [..]}, {zoom: {id}}], tools: "docked"|"top"|"bottom"|"left", view}` (`"left"`: docked tools floating down the canvas's left edge while the sidebar is hidden)
  * - `panels/tool_options`: the armed tool's options `{controls: [..]}`, or null
  * - `panels/dock`: the selection's controls `{controls: [..]}`, or null while a tool has options
  * - `panels/strip`: the tab row `{tabs: [{id, label, icon, active}], add, chat, sidebar, lights, zoom}`: `chat` is the right panel's toggle or null, `sidebar` the sidebar's toggle or null while the sidebar holds it (1.8), `lights` whether the row holds the traffic lights in its left padding (false while the sidebar is shown up to the window's top, 1.8), `zoom` is `{id}` while no mod draws the tools, else null
@@ -393,7 +393,7 @@ export const Icon: HostComponent<{ name: any; size?: number; color?: string; tin
 /** `Zoom`: the zoom readout and its levels' list, which follow the camera with no script render. `compact` drops the caret, for a narrow column. */
 export const Zoom: HostComponent<{ compact?: boolean }>;
 /** `ToolOptions`: the options of the tool in hand, beside its button: place it inside the button's `relative()` box. `place` is `panels/toolbar`'s `tools`. */
-export const ToolOptions: HostComponent<{ place: "docked" | "top" | "bottom" }>;
+export const ToolOptions: HostComponent<{ place: "docked" | "top" | "bottom" | "left" }>;
 /** `Composer`: the agent panel's composer for any thread: the field, pasted images, the context pill, the folder, the send mode, the model and Send. Return or Send sends the words and images to `thread`, which is started under that id if it is not made yet, or to the thread the panel has open when no `thread` is given. The window keeps it by `id`, so it redraws as a person types or pastes without the mod rendering; `autofocus` gives it the keys as it is made. Headless it is a placeholder. For a web page, `mods/lib/chat.js` has `<specular-composer>`. */
 export const Composer: HostComponent<{ id?: string; thread?: string | null; placeholder?: string; autofocus?: boolean }>;
 /** `Field`: a line of text the window holds, so the keys stay in it while a person types. With `control`, the model field of that id in `panels/dock` or `panels/tool_options` (an address, a size), which sends what is typed as the app's own does. Otherwise a mod's own field: what is typed is `shared("field/<id>")`, and each Return moves `shared("field/<id>/submit")` on by one. `value` is where it starts, and `autofocus` gives it the keys as it is made. A field is made once for its `id`: name it anew for a fresh one. `radius`, `background`, `border` and `focusRing` (colours as `colors()` names them, or `#rrggbb[aa]`) restyle its box, so a layout's fields match its look; a field styled this way shows its focus by turning its own edge `focusRing` (the theme's `focusRing` by default) instead of drawing the app's rounded ring. Headless it is a placeholder. */

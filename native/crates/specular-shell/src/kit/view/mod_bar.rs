@@ -4,7 +4,7 @@
 //! give it the box and keep the canvas from taking the clicks it gets. The
 //! layout's blocks are placed by `frame.rs`.
 
-use gpui_kit::component::h_flex;
+use gpui_kit::component::{h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
     AnyElement, App, Entity, InteractiveElement as _, IntoElement, ParentElement as _, Styled as _,
@@ -108,24 +108,50 @@ fn corner(toast: AnyElement, bottom: f32) -> AnyElement {
         .into_any_element()
 }
 
-/// The mod centred over the top or the bottom of what the canvas is seen
-/// through, as [`super::toolbar::floating`] places the app's own ribbon.
-/// Only the ribbon takes clicks, not the row it is centred in.
-pub(super) fn floating(
-    ribbon: AnyElement,
-    place: ToolsPlace,
-    (left, top): (f32, f32),
-) -> impl IntoElement {
-    h_flex()
-        .absolute()
-        .left(px(left))
-        .right_0()
-        .when(place == ToolsPlace::FloatTop, |this| {
-            this.top(px(top + RIBBON_INSET))
-        })
-        .when(place == ToolsPlace::FloatBottom, |this| {
-            this.bottom(px(RIBBON_INSET))
-        })
-        .justify_center()
-        .child(div().id("ribbon-mod").occlude().child(ribbon))
+/// The edges of what the canvas is seen through that a floating ribbon is
+/// placed against.
+#[derive(Debug, Clone, Copy)]
+pub(super) struct SlotEdges {
+    /// The canvas's left edge, from the window's.
+    pub(super) left: f32,
+    /// The canvas's top edge, from the window's.
+    pub(super) top: f32,
+    /// The foot of what lies over the canvas's top: the tab row and the
+    /// dock's bar while it is shown.
+    pub(super) under: f32,
+}
+
+/// The toolbar mod floating where the app's own ribbon floats. Only the
+/// ribbon takes clicks, not the row or column it is centred in.
+pub(super) fn floating_mod(ribbon: AnyElement, place: ToolsPlace, edges: SlotEdges) -> AnyElement {
+    let ribbon = div().id("ribbon-mod").occlude().child(ribbon);
+    floating(ribbon.into_any_element(), place, edges)
+}
+
+/// `ribbon` placed as the tools float: centred over the top or the bottom
+/// of what the canvas is seen through, or centred down its left edge.
+pub(super) fn floating(ribbon: AnyElement, place: ToolsPlace, edges: SlotEdges) -> AnyElement {
+    match place {
+        ToolsPlace::FloatLeft => v_flex()
+            .absolute()
+            .left(px(edges.left + RIBBON_INSET))
+            .top(px(edges.top))
+            .bottom_0()
+            .justify_center()
+            .child(ribbon)
+            .into_any_element(),
+        ToolsPlace::Docked | ToolsPlace::FloatTop | ToolsPlace::FloatBottom => h_flex()
+            .absolute()
+            .left(px(edges.left))
+            .right_0()
+            .when(place == ToolsPlace::FloatTop, |this| {
+                this.top(px(edges.under + RIBBON_INSET))
+            })
+            .when(place == ToolsPlace::FloatBottom, |this| {
+                this.bottom(px(RIBBON_INSET))
+            })
+            .justify_center()
+            .child(ribbon)
+            .into_any_element(),
+    }
 }

@@ -6,7 +6,7 @@ use gpui::{Modifiers, TestAppContext, point, px};
 use serde_json::Value;
 use specular_interact::state;
 
-use super::{Loaded, window_app};
+use super::{Loaded, floating_app, window_app};
 
 /// Every control id `panels/toolbar` lists for the toolbar region: the
 /// tools, the theme button and the zoom readout.
@@ -33,25 +33,27 @@ fn shows(tree: &str, id: &str) -> bool {
 
 #[gpui::test]
 fn the_toolbar_shows_every_control_the_model_lists_but_those_hidden(cx: &mut TestAppContext) {
-    let app = window_app();
-    let listed = listed_ids(&state(app.app())["panels/toolbar"]);
-    assert!(
-        listed.len() >= 11,
-        "the model lists the tools, the theme and the zoom: {listed:?}"
-    );
-    for hidden in [
-        &[][..],
-        &["tool.inspect", "zoom"],
-        &["theme", "tool.select"],
-    ] {
-        let tree = Loaded::new(&app, hidden, cx).tree();
-        for id in &listed {
-            let hide = hidden.contains(&id.as_str());
-            assert_eq!(
-                shows(&tree, id),
-                !hide,
-                "`{id}` with {hidden:?} hidden:\n{tree}"
-            );
+    for app in [window_app(), floating_app()] {
+        let place = state(app.app())["panels/toolbar"]["tools"].clone();
+        let listed = listed_ids(&state(app.app())["panels/toolbar"]);
+        assert!(
+            listed.len() >= 11,
+            "the model lists the tools, the theme and the zoom: {listed:?}"
+        );
+        for hidden in [
+            &[][..],
+            &["tool.inspect", "zoom"],
+            &["theme", "tool.select"],
+        ] {
+            let tree = Loaded::new(&app, hidden, cx).tree();
+            for id in &listed {
+                let hide = hidden.contains(&id.as_str());
+                assert_eq!(
+                    shows(&tree, id),
+                    !hide,
+                    "`{id}` with {hidden:?} hidden, tools {place}:\n{tree}"
+                );
+            }
         }
     }
 }

@@ -170,12 +170,14 @@ fn over_slot(
     let mut out: Vec<AnyElement> = dock.into_iter().collect();
     if models.regions.toolbar && models.toolbar.tools != ToolsPlace::Docked {
         let shown = models.tool_options.as_ref();
+        let edges = mod_bar::SlotEdges {
+            left,
+            top: models.insets.top,
+            under: top,
+        };
         out.push(match ribbon {
-            Some(ribbon) => {
-                mod_bar::floating(ribbon, models.toolbar.tools, (left, top)).into_any_element()
-            }
-            None => toolbar::floating(&models.toolbar, shown, (left, top), window, cx)
-                .into_any_element(),
+            Some(ribbon) => mod_bar::floating_mod(ribbon, models.toolbar.tools, edges),
+            None => toolbar::floating(&models.toolbar, shown, edges, window, cx),
         });
     }
     out

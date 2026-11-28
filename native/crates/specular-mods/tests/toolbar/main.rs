@@ -19,7 +19,7 @@ use std::time::{Duration, Instant};
 use glam::Vec2;
 use gpui::{AnyView, ParentElement as _, Styled as _, TestAppContext, VisualTestContext, div, px};
 use serde_json::{Value, json};
-use specular_interact::{Action, Event, Tool, WheelInput, publish_state, state};
+use specular_interact::{Action, Event, SidebarAction, Tool, WheelInput, publish_state, state};
 use specular_mods::{Hosting, Mod, ModHost, RunError, shipped};
 use specular_testkit::TestApp;
 
@@ -38,11 +38,21 @@ impl ModHost for Recorder {
     fn notify(&self, _: &str, _: &str) {}
 }
 
-/// An app as the Kit window starts one: its own chrome, a right panel.
+/// An app as the Kit window starts one: its own chrome, a right panel,
+/// and the sidebar open, which keeps the tools docked.
 fn window_app() -> TestApp {
+    let mut app = floating_app();
+    app.act(Action::Sidebar(SidebarAction::Toggle));
+    assert_eq!(state(app.app())["panels/toolbar"]["tools"], "docked");
+    app
+}
+
+/// The same app with the sidebar hidden: the tools float down the left.
+fn floating_app() -> TestApp {
     let mut app = TestApp::with_pages(1);
     app.send(Event::ShellChrome);
     app.send(Event::ChatPanel(true));
+    assert_eq!(state(app.app())["panels/toolbar"]["tools"], "left");
     app
 }
 
@@ -142,7 +152,15 @@ fn percentile(sorted: &[Duration], q: f64) -> Duration {
 
 #[gpui::test]
 fn the_toolbar_renders_on_change_only_and_inside_a_frame(cx: &mut TestAppContext) {
-    let mut app = window_app();
+    renders_on_change_only_and_inside_a_frame(window_app(), cx);
+}
+
+#[gpui::test]
+fn the_floating_toolbar_renders_on_change_only_and_inside_a_frame(cx: &mut TestAppContext) {
+    renders_on_change_only_and_inside_a_frame(floating_app(), cx);
+}
+
+fn renders_on_change_only_and_inside_a_frame(mut app: TestApp, cx: &mut TestAppContext) {
     let started = Instant::now();
     let mut loaded = Loaded::new(&app, &[], cx);
     println!("load and first render: {:?}", started.elapsed());

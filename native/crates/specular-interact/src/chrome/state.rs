@@ -44,7 +44,7 @@ impl Shown {
         Self {
             covers: app.session.panel.chrome_covers,
             sidebar: app.session.sidebar.shown(),
-            tools_docked: app.settings.tools == ToolsPlace::Docked,
+            tools_docked: app.tools_place() == ToolsPlace::Docked,
             item_dock: app.lens().is_some(),
             chat: chat.shown().then(|| chat.width()),
             sidebar_width: app.session.sidebar.width(),

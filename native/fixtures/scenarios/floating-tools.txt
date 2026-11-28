@@ -1,0 +1,30 @@
+# Docked tools float while the sidebar is hidden: the canvas takes their
+# column and the tools are a panel over its left edge. Opening the sidebar
+# docks them again beside it. The setting is not changed by either.
+given page p1 400 100 400 300
+wait 50
+
+# the sidebar hidden: the tools float down the left, the canvas starts at
+# the window's edge
+expect layout is tools left
+expect layout is insets 0 38 0 0
+
+# the sidebar open: the tools dock beside it and take their column
+sidebar on
+expect layout is tools docked
+expect layout is insets 292 38 0 0
+
+# hidden again: floating, and the canvas has the room back
+sidebar off
+expect layout is tools left
+expect layout is insets 0 38 0 0
+
+# a layout whose sidebar is hidden by name keeps the tools docked: there
+# is no sidebar to collapse
+run ui.hide {"id":"sidebar"}
+expect layout is tools docked
+expect layout is insets 36 38 0 0
+run ui.reset
+expect layout is tools left
+expect saved same-as start
+undo-to-start

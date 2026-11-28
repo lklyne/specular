@@ -22,6 +22,10 @@ pub enum ToolsPlace {
     FloatTop,
     /// Over the bottom of the canvas.
     FloatBottom,
+    /// A column over the canvas's left edge. Not a choice of the setting:
+    /// what [`Self::Docked`] becomes while the sidebar is hidden
+    /// ([`App::tools_place`]).
+    FloatLeft,
 }
 
 /// A place is written by its name.
@@ -41,10 +45,11 @@ impl ToolsPlace {
             Self::Docked => "docked",
             Self::FloatTop => "top",
             Self::FloatBottom => "bottom",
+            Self::FloatLeft => "left",
         }
     }
 
-    /// The place named `name`.
+    /// The place of the setting named `name`.
     pub fn named(name: &str) -> Option<Self> {
         Self::ALL.into_iter().find(|place| place.name() == name)
     }
@@ -55,6 +60,15 @@ impl ToolsPlace {
             Self::Docked => "Docked on the left",
             Self::FloatTop => "Floating at the top",
             Self::FloatBottom => "Floating at the bottom",
+            Self::FloatLeft => "Floating on the left",
+        }
+    }
+
+    /// Whether the tools run down a column rather than across a row.
+    pub const fn upright(self) -> bool {
+        match self {
+            Self::Docked | Self::FloatLeft => true,
+            Self::FloatTop | Self::FloatBottom => false,
         }
     }
 }

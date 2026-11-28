@@ -1,8 +1,10 @@
 // The toolbar: the tools, the theme button and the zoom readout, drawn from
 // `panels/toolbar`. Docked, it fills the strip down the canvas's left edge
 // the window gives it, each button named beside it; floating, it is the
-// ribbon the window centres over the top or the bottom of the canvas. The
-// options of the tool in hand open beside its button.
+// ribbon the window centres over the top or the bottom of the canvas, or
+// the column it centres down the left edge while the sidebar is hidden
+// (`tools` is "left"). The options of the tool in hand open beside its
+// button.
 //
 // A layout hides a control by listing its id in this mod's props:
 //   { "mod": "toolbar", "props": { "hidden": ["tool.inspect", "zoom"] } }
@@ -36,13 +38,18 @@ function raised(el, k) {
     ]);
 }
 
-// The name of the button the pointer is over: right of a docked button,
-// under or over a floating one. Only that one is built, so a render costs
-// one label rather than one per button.
+// Whether the tools run down a column: docked, or floating on the left.
+function upright(place) {
+  return place === "docked" || place === "left";
+}
+
+// The name of the button the pointer is over: right of a button in a
+// column, under or over one in a row. Only that one is built, so a render
+// costs one label rather than one per button.
 function label(text, place, k) {
   const at = div().absolute().flex().items_center();
   const placed =
-    place === "docked"
+    upright(place)
       ? at.left(BUTTON + GAP).top(0).h(BUTTON)
       : place === "top"
         ? at.left(0).top(BUTTON + GAP)
@@ -60,6 +67,22 @@ function label(text, place, k) {
       .text_color(k.text)
       .child(text),
   );
+}
+
+// The surface of the tools floating over the canvas: rounded, a hairline
+// rim and a soft shadow.
+function floating(el, k) {
+  return el
+    .id("ribbon")
+    .p(PAD)
+    .gap(4)
+    .items_center()
+    .rounded(10)
+    .bg(k.toolbar)
+    .border_1()
+    .border_color(k.popupBorder)
+    .shadow_md()
+    .text_color(k.toolbarText);
 }
 
 function button(id, icon, opts, k) {
@@ -87,11 +110,11 @@ function button(id, icon, opts, k) {
 }
 
 function rule(place, k) {
-  const upright = place !== "docked";
+  const across = !upright(place);
   return div()
     .m_1()
-    .w(upright ? 1 : 16)
-    .h(upright ? 16 : 1)
+    .w(across ? 1 : 16)
+    .h(across ? 16 : 1)
     .flex_shrink_0()
     .bg(k.divider);
 }
@@ -170,7 +193,7 @@ export default class Toolbar extends View {
     const zoom = bar.sections.find((section) => section.zoom);
     const readout =
       zoom && !hidden.has(zoom.zoom.id)
-        ? Zoom.new(zoom.zoom.id, { compact: docked })
+        ? Zoom.new(zoom.zoom.id, { compact: upright(place) })
         : null;
     const theme = hidden.has(bar.theme.id)
       ? null
@@ -201,20 +224,16 @@ export default class Toolbar extends View {
         .when(theme != null, (el) => el.child(theme));
     }
 
-    // Floating, the window centres the ribbon over the canvas.
-    return h_flex()
-      .id("ribbon")
-      .p(PAD)
-      .gap(4)
-      .items_center()
-      .rounded(10)
-      .bg(k.toolbar)
-      .border_1()
-      .border_color(k.popupBorder)
-      .shadow_md()
-      .text_color(k.toolbarText)
+    // Floating, the window centres the panel over the canvas.
+    const panel = floating(upright(place) ? v_flex() : h_flex(), k)
       .children(items)
-      .when(theme != null || readout != null, (el) => el.child(rule(place, k)))
+      .when(theme != null || readout != null, (el) => el.child(rule(place, k)));
+    if (upright(place)) {
+      return panel
+        .when(readout != null, (el) => el.child(div().w_full().child(readout)))
+        .when(theme != null, (el) => el.child(theme));
+    }
+    return panel
       .when(theme != null, (el) => el.child(theme))
       .when(readout != null, (el) => el.child(readout));
   }

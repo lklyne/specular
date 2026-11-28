@@ -47,7 +47,7 @@ key cmd+z
 select p1
 control view.open
 # with Reduce motion on, it is there at once
-expect camera 478,257,1
+expect camera 460,257,1
 control settings.agent-cursors
 control settings.synced-cursors
 expect saved same-as start

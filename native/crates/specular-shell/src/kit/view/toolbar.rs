@@ -5,7 +5,7 @@
 //! tab showing at the end of the dock's bar.
 
 use gpui_kit::component::button::{Button, ButtonVariants as _};
-use gpui_kit::component::{Selectable as _, Sizable as _, h_flex, v_flex};
+use gpui_kit::component::{Selectable as _, Sizable as _, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
     AnyElement, App, InteractiveElement as _, IntoElement, ParentElement as _, SharedString,
@@ -180,8 +180,8 @@ fn floats(id: &'static str) -> gpui_kit::Stateful<gpui_kit::Div> {
         .text_color(theme::solid(theme::toolbar_text()))
 }
 
-/// The options of the tool in hand, beside its button: a column right of a
-/// docked ribbon, a row under one floating at the top and over one at the
+/// The options of the tool in hand, beside its button: a column right of an
+/// upright ribbon, a row under one floating at the top and over one at the
 /// bottom.
 fn options(
     model: &ControlsModel,
@@ -191,7 +191,7 @@ fn options(
 ) -> impl IntoElement {
     let panel = floats("tool-options").absolute();
     match place {
-        ToolsPlace::Docked => panel
+        ToolsPlace::Docked | ToolsPlace::FloatLeft => panel
             .flex_col()
             .top(px(-RIBBON_PAD))
             .left(px(TOOL_BUTTON + OPTIONS_GAP))
@@ -221,7 +221,7 @@ fn tools(
     window: &mut Window,
     cx: &mut App,
 ) -> Vec<AnyElement> {
-    let upright = model.tools != ToolsPlace::Docked;
+    let upright = model.tools.upright();
     let groups = model.sections.iter().filter_map(|section| match section {
         ToolbarSection::Tools(tools) => Some(tools),
         ToolbarSection::Zoom(_) => None,
@@ -229,20 +229,19 @@ fn tools(
     let mut out = Vec::new();
     for (index, group) in groups.enumerate() {
         if index > 0 {
-            out.push(rule(upright).into_any_element());
+            out.push(rule(!upright).into_any_element());
         }
-        let docked = model.tools == ToolsPlace::Docked;
         for button in group {
             let open = shown.filter(|_| button.active);
-            // Docked, a button is named beside the ribbon, where its
+            // Upright, a button is named beside the ribbon, where its
             // options are when it has them open.
-            let name = (docked && open.is_none())
+            let name = (upright && open.is_none())
                 .then(|| beside(&button.id, hint(&button.label, button.chord)));
             out.push(
                 div()
                     .group(SharedString::from(button.id.as_str().to_owned()))
                     .relative()
-                    .child(tool(button, !docked))
+                    .child(tool(button, !upright))
                     .children(name)
                     .children(open.map(|shown| options(shown, model.tools, window, cx)))
                     .into_any_element(),
@@ -286,32 +285,22 @@ pub(super) fn docked(
         )
 }
 
-/// The tools floating: a ribbon centred over the top or the bottom of what
-/// the canvas is seen through, which starts `left` from the slot's edge and
-/// `top` from its top. It covers nothing the app counts.
+/// The tools floating, placed by [`super::mod_bar::floating`] over what
+/// the canvas is seen through. It covers nothing the app counts.
 pub(super) fn floating(
     model: &ToolbarModel,
     shown: Option<&ControlsModel>,
-    (left, top): (f32, f32),
+    edges: super::mod_bar::SlotEdges,
     window: &mut Window,
     cx: &mut App,
-) -> impl IntoElement {
+) -> AnyElement {
+    let upright = model.tools.upright();
     let ribbon = floats("ribbon")
+        .when(upright, gpui_kit::Styled::flex_col)
         .children(tools(model, shown, window, cx))
-        .child(rule(true))
-        .child(theme_button(&model.theme, true));
-    h_flex()
-        .absolute()
-        .left(px(left))
-        .right_0()
-        .when(model.tools == ToolsPlace::FloatTop, |this| {
-            this.top(px(top + RIBBON_INSET))
-        })
-        .when(model.tools == ToolsPlace::FloatBottom, |this| {
-            this.bottom(px(RIBBON_INSET))
-        })
-        .justify_center()
-        .child(ribbon)
+        .child(rule(!upright))
+        .child(theme_button(&model.theme, !upright));
+    super::mod_bar::floating(ribbon.into_any_element(), model.tools, edges)
 }
 
 /// The zoom readout, for the end of the tab row.

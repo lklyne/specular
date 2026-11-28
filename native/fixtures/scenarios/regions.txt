@@ -6,10 +6,10 @@ given page p1 100 100 400 300
 given sticky s 700 100 200 200 note
 wait 50
 
-# the shipped layout: every region drawn, the tab row across the top and
-# the docked tools down the left
+# the shipped layout: every region drawn and the tab row across the top;
+# with the sidebar hidden the tools float over the canvas's left edge
 expect layout is region toolbar shown
-expect layout is insets 36 38 0 0
+expect layout is insets 0 38 0 0
 
 run ui.toggle {"id":"toolbar"}
 expect layout is region toolbar hidden
@@ -51,11 +51,11 @@ key ctrl+alt+shift+escape
 expect layout lacks toggled
 expect layout is region toolbar shown
 expect layout is region dock shown
-expect layout is insets 36 38 0 0
+expect layout is insets 0 38 0 0
 
 # and so does ui.reset
 run ui.toggle {"id":"toolbar"}
 run ui.reset
-expect layout is insets 36 38 0 0
+expect layout is insets 0 38 0 0
 expect saved same-as start
 undo-to-start

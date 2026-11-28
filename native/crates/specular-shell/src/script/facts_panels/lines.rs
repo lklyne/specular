@@ -47,7 +47,8 @@ pub(super) fn lines(app: &App, topic: Topic) -> Vec<String> {
 }
 
 /// `region toolbar shown`, a line a region; `toggled ID hidden`, a line a
-/// toggle; and `insets LEFT TOP RIGHT BOTTOM`.
+/// toggle; `tools docked|left|top|bottom`, where the tools are now; and
+/// `insets LEFT TOP RIGHT BOTTOM`.
 fn layout(app: &App, out: &mut Vec<String>) {
     let regions = app.regions();
     for region in Region::ALL {
@@ -62,6 +63,7 @@ fn layout(app: &App, out: &mut Vec<String>) {
         let state = if *hidden { "hidden" } else { "shown" };
         out.push(format!("toggled {id} {state}"));
     }
+    out.push(format!("tools {}", app.tools_place().name()));
     let insets = app.insets();
     let [left, top, right, bottom] =
         [insets.left, insets.top, insets.right, insets.bottom].map(f64::from);

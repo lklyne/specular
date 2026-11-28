@@ -273,7 +273,7 @@ pub fn toolbar(app: &App) -> ToolbarModel {
         lights,
         share: super::share::button(app),
         sections,
-        tools: app.settings().tools,
+        tools: app.tools_place(),
         view: view_controls(app),
     }
 }
