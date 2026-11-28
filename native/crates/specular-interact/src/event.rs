@@ -191,6 +191,9 @@ pub enum Event {
     /// The mods installed in the app home, all of them: replaces the list
     /// held. The shell sends it at startup and after an install.
     ModCatalog(crate::mods::ModCatalog),
+    /// The shipped mods a start moved aside because someone edited them in
+    /// place, each now a copy of its own.
+    ModsSetAside(Vec<crate::mods::SetAside>),
     /// The shell's context menu closed with nothing picked: a press outside
     /// it, or Escape while it had the keys.
     MenuClosed,

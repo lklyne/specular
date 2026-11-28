@@ -17,6 +17,8 @@
 //!   ([`install`]).
 //! - A mod's own commands join the palette, the keys and the dock, and
 //!   reach the mod as the `call` key ([`commands`]).
+//! - A shipped mod edited in place is moved aside at start, and the
+//!   `notices` key says where ([`set_aside`]).
 
 mod action;
 mod catalog;
@@ -25,6 +27,7 @@ mod install;
 mod live;
 pub mod manifest;
 mod pane;
+mod set_aside;
 mod shape;
 mod state;
 mod tool;
@@ -45,6 +48,8 @@ pub use self::manifest::{
 };
 pub use self::pane::ModRow;
 pub(crate) use self::pane::mods_pane;
+pub use self::set_aside::SetAside;
+pub(crate) use self::set_aside::{dismiss as dismiss_set_aside, notice as set_aside_notice};
 pub use self::shape::ShapeChange;
 pub(crate) use self::shape::set_shapes;
 pub(crate) use self::state::{mod_items_json, tool_json};

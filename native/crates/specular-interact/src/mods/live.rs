@@ -40,6 +40,9 @@ pub(crate) struct ModState {
     pub(crate) brushes: HashMap<String, Vec<ModDraw>>,
     /// The canvases whose "Install mods" ask was declined, by canvas id.
     pub(crate) declined: BTreeSet<String>,
+    /// The shipped mods the last start moved aside as edited copies, until
+    /// their notice is dismissed.
+    pub(crate) set_aside: Vec<super::SetAside>,
     /// The last mod command run, the `call` key.
     pub(crate) call: Option<super::commands::ModCall>,
 }

@@ -39,20 +39,36 @@ fn a_start_replaces_shipped_mods_but_not_a_clone() {
     let mods = scratch("install");
     shipped::install(&mods).expect("first start");
     let main = mods.join("toolbar/main.js");
+    let shipped_main = shipped::named("toolbar").expect("shipped").files[1].text;
     std::fs::write(&main, "// an edit").expect("edit");
-    shipped::install(&mods).expect("second start");
+    let second = shipped::install(&mods).expect("second start");
     assert_eq!(
         std::fs::read_to_string(&main).expect("main.js"),
-        shipped::named("toolbar").expect("shipped").files[1].text,
+        shipped_main,
         "an edit to a shipped mod is replaced"
     );
+    assert_eq!(second.set_aside, [("toolbar", "toolbar-edited".to_owned())]);
+    let edited = mods.join("toolbar-edited");
+    assert_eq!(
+        std::fs::read_to_string(edited.join("main.js")).expect("kept"),
+        "// an edit",
+        "the edit is kept beside it, as a clone"
+    );
+    assert!(shipped::is_clone(&edited));
     assert!(mods.join("README.md").is_file() && mods.join("specular.d.ts").is_file());
+
+    std::fs::write(mods.join("toolbar/.shipped"), "main.js\t0000000000000000\n").expect("old");
+    let again = shipped::install(&mods).expect("a start after an update");
+    assert!(
+        again.set_aside.is_empty() && edited.is_dir(),
+        "a folder already holding what is written is not an edit, and a copy stays"
+    );
 
     let manifest = r#"{ "api": 1, "title": "Mine", "cloned_from": "toolbar" }"#;
     std::fs::write(mods.join("toolbar/mod.json"), manifest).expect("clone");
     std::fs::write(&main, "// mine").expect("edit");
     let kept = shipped::install(&mods).expect("third start");
-    assert_eq!(kept, ["toolbar"]);
+    assert_eq!(kept.kept, ["toolbar"]);
     assert_eq!(std::fs::read_to_string(&main).expect("main.js"), "// mine");
     let _ = std::fs::remove_dir_all(&mods);
 }

@@ -125,13 +125,23 @@ fn write(path: &Path, text: &str) -> io::Result<()> {
     std::fs::rename(&staged, path)
 }
 
+/// What a start did to the mods folder besides writing the shipped mods.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct Installed {
+    /// The shipped mods left alone because their folder is a clone.
+    pub kept: Vec<&'static str>,
+    /// The shipped mods whose folder was edited in place, each with the
+    /// folder name its edited copy was moved to.
+    pub set_aside: Vec<(&'static str, String)>,
+}
+
 /// Writes the shipped mods, the shared library, the guide and the
-/// declarations into `mods`,
-/// creating it. A file already holding what would be written is left
-/// alone, so a mod's watcher is not woken for nothing. Removes the folders
-/// of mods no longer shipped that the person never changed. Returns the
-/// names of the mods left alone as clones.
-pub fn install(mods: &Path) -> io::Result<Vec<&'static str>> {
+/// declarations into `mods`, creating it. A file already holding what
+/// would be written is left alone, so a mod's watcher is not woken for
+/// nothing. A shipped mod's folder someone edited is moved to
+/// `<name>-edited` first, as their clone. Removes the folders of mods no
+/// longer shipped that the person never changed.
+pub fn install(mods: &Path) -> io::Result<Installed> {
     std::fs::create_dir_all(mods)?;
     write(&mods.join("README.md"), GUIDE)?;
     write(&mods.join("specular.d.ts"), DECLARATIONS)?;
@@ -140,12 +150,16 @@ pub fn install(mods: &Path) -> io::Result<Vec<&'static str>> {
     for file in LIBRARY {
         write(&library.join(file.name), file.text)?;
     }
-    let mut kept = Vec::new();
+    let mut installed = Installed::default();
     for shipped in MODS {
         let dir = mods.join(shipped.name);
         if is_clone(&dir) {
-            kept.push(shipped.name);
+            installed.kept.push(shipped.name);
             continue;
+        }
+        if crate::retired::edited(&dir, shipped.files) {
+            let to = set_aside(mods, shipped.name)?;
+            installed.set_aside.push((shipped.name, to));
         }
         std::fs::create_dir_all(&dir)?;
         for file in shipped.files {
@@ -154,7 +168,33 @@ pub fn install(mods: &Path) -> io::Result<Vec<&'static str>> {
         crate::retired::mark(&dir, shipped.files)?;
     }
     crate::retired::sweep(mods)?;
-    Ok(kept)
+    Ok(installed)
+}
+
+/// Moves the edited folder of the shipped mod `name` to the first free
+/// `<name>-edited`, `<name>-edited-2`, ..., and marks it a clone of `name`
+/// so no later start writes over it. Returns its new folder name.
+fn set_aside(mods: &Path, name: &str) -> io::Result<String> {
+    let to = (1..u32::MAX)
+        .map(|n| match n {
+            1 => format!("{name}-edited"),
+            n => format!("{name}-edited-{n}"),
+        })
+        .find(|to| !mods.join(to).exists())
+        .ok_or_else(|| io::Error::other(format!("no free folder for `{name}`")))?;
+    let dir = mods.join(&to);
+    std::fs::rename(mods.join(name), &dir)?;
+    let _ = std::fs::remove_file(dir.join(crate::retired::MARKER));
+    let manifest = dir.join(crate::MANIFEST_FILE);
+    let parsed = std::fs::read_to_string(&manifest)
+        .ok()
+        .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok());
+    if let Some(serde_json::Value::Object(mut fields)) = parsed {
+        fields.insert("cloned_from".to_owned(), name.into());
+        let text = serde_json::to_string_pretty(&fields).map_err(io::Error::other)?;
+        std::fs::write(&manifest, text + "\n")?;
+    }
+    Ok(to)
 }
 
 /// Where the reason the mod in `dir` did not load is written: beside its

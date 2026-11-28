@@ -104,6 +104,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         Event::LayoutsLoaded(read) => app.chrome.load(*read),
         Event::KeymapLoaded(keymap) => app.keymap = keymap,
         Event::ModCatalog(catalog) => crate::mods::on_catalog(app, catalog, &mut effects),
+        Event::ModsSetAside(moved) => app.mods.set_aside = moved,
         Event::MenuClosed => app.session.panel.menu = None,
         Event::ChatPanel(available) => app.session.chat.set_available(available),
         Event::Motion(on) => app.session.motion.enable(on),
@@ -306,7 +307,7 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
 
 /// Takes a notice away. Dismissing the "Install mods" ask declines it.
 fn dismiss_notice(app: &mut App, id: &str) {
-    if !crate::mods::decline(app, id) {
+    if !crate::mods::decline(app, id) && !crate::mods::dismiss_set_aside(app, id) {
         crate::notices::dismiss(app, id);
     }
 }

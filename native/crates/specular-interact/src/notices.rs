@@ -48,7 +48,9 @@ const HTTP: &str = "http";
 pub fn notices(app: &App) -> Vec<AppNotice> {
     let mut pages: Vec<_> = app.session.pages.iter().collect();
     pages.sort_by(|a, b| a.0.as_str().cmp(b.0.as_str()));
-    let mut out: Vec<AppNotice> = crate::mods::install_notice(app).into_iter().collect();
+    let mut out: Vec<AppNotice> = (crate::mods::install_notice(app).into_iter())
+        .chain(crate::mods::set_aside_notice(app))
+        .collect();
     for (id, state) in pages {
         let Some(entity) = app.document.entity(id) else {
             continue;

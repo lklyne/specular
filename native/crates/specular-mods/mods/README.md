@@ -120,9 +120,8 @@ Then check it with no window: `specular mod check ~/path/to/mods/hello`.
   command. `gpui-kit.d.ts`, written into a mod's folder when it loads, has the
   element and style surface (`div`, `h_flex`, `Button`, `.bg(..)`, ...).
 - `../layouts/<name>.json`: one whole window each (see "The whole
-  window"). `default`, `classic` (every panel the app's own), `studio`
-  and `mods` (every panel a mod) are shipped and written again on every
-  start;
+  window"). `default` (every panel a mod), `classic` (every panel the
+  app's own) and `studio` are shipped and written again on every start;
   any other file is yours and never written. A save applies at once; a bad
   one keeps the last good layout and writes `<name>.error` beside it.
 - `../layouts/.state/`: what was hidden and shown at run time
@@ -677,6 +676,10 @@ replaced. `specular mod clone tabs my-tabs --use` copies a mod to a new
 folder, marks it, and points the layout at it; edit `mods/my-tabs/main.js`
 and each save reloads it. Without `--use`, set a block's
 `"content": {"mod": "my-tabs"}` yourself.
+If you edit a shipped mod in place anyway, the next start moves its
+folder to `<name>-edited` (a number is added if taken), marks it a clone,
+writes Specular's version back, and says so in a notice. Point a layout
+at the copy to use it.
 When a release stops shipping a mod, its folder goes on the next start,
 unless you changed or added a file there; then it stays, as yours.
 Mods are trusted code: a mod has your files, network and processes, like a

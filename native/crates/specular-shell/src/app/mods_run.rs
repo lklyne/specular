@@ -99,9 +99,21 @@ impl<W: ShellWindow> Runtime<W> {
             return;
         };
         match specular_mods::shipped::install(folder) {
-            Ok(kept) => {
-                for name in kept {
+            Ok(installed) => {
+                for name in installed.kept {
                     tracing::info!("mod `{name}` is a clone and was left as it is");
+                }
+                let moved: Vec<_> = (installed.set_aside.into_iter())
+                    .map(|(name, to)| {
+                        tracing::info!("mod `{name}` was edited in place and moved to `{to}`");
+                        specular_interact::mods::SetAside {
+                            name: name.to_owned(),
+                            to,
+                        }
+                    })
+                    .collect();
+                if !moved.is_empty() {
+                    self.dispatch(Event::ModsSetAside(moved));
                 }
             }
             Err(error) => {

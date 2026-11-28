@@ -1,5 +1,6 @@
 //! Mod items, tools and commands (ADR 0057) as the app keeps them: an item
-//! placed, changed and drawn, a canvas that needs a mod it lacks, a tool's
+//! placed, changed and drawn, a canvas that needs a mod it lacks, a
+//! shipped mod set aside as an edited copy, a tool's
 //! stroke in the `tool` key, and a mod's own commands in the palette, on
 //! their keys and in the dock. Each ends where undo returns to the start.
 
@@ -14,7 +15,7 @@ use std::path::Path;
 use serde_json::{Value, json};
 use specular_core::Modifiers;
 use specular_doc::Kind;
-use specular_interact::mods::{InstalledMod, ModCatalog, ModManifest};
+use specular_interact::mods::{InstalledMod, ModCatalog, ModManifest, SetAside};
 use specular_interact::{Control, Event, Key, PaletteRun, Tool, dock, palette, run_named, state};
 use specular_testkit::TestApp;
 
@@ -103,6 +104,28 @@ fn a_canvas_whose_mod_is_missing_offers_to_install_it() {
         json!([]),
         "declined for this canvas"
     );
+    app.assert_undo_returns_to_start();
+}
+
+#[test]
+fn a_shipped_mod_set_aside_at_start_says_where_until_dismissed() {
+    let mut app = TestApp::empty();
+    app.send(Event::ModsSetAside(vec![SetAside {
+        name: "sidebar".to_owned(),
+        to: "sidebar-edited".to_owned(),
+    }]));
+    let notices = &state(app.app())["notices"];
+    assert_eq!(notices[0]["id"], "mods.set-aside", "{notices}");
+    assert!(
+        (notices[0]["text"].as_str()).is_some_and(|text| text.contains("`sidebar-edited`")),
+        "{notices}"
+    );
+    run(
+        &mut app,
+        "notice.dismiss",
+        &json!({ "id": "mods.set-aside" }),
+    );
+    assert_eq!(state(app.app())["notices"], json!([]));
     app.assert_undo_returns_to_start();
 }
 

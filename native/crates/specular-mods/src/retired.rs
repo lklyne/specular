@@ -88,22 +88,49 @@ pub(crate) fn sweep(mods: &Path) -> io::Result<Vec<String>> {
     Ok(removed)
 }
 
-/// Whether `dir` holds exactly the files the app wrote, unchanged.
-fn untouched(dir: &Path, name: &str) -> bool {
-    let wrote: Vec<(String, Vec<u64>)> = match std::fs::read_to_string(dir.join(MARKER)) {
-        Ok(marker) => (marker.lines())
+/// Whether the shipped mod's folder `dir` was edited in place: it has a
+/// marker, and holds neither what the app last wrote nor `files`, what it
+/// is about to write. A folder from before the marker is not.
+pub(crate) fn edited(dir: &Path, files: &[File]) -> bool {
+    let Some(last) = marked(dir) else {
+        return false;
+    };
+    let next: Vec<(String, Vec<u64>)> = (files.iter())
+        .map(|file| (file.name.to_owned(), vec![hash(file.text.as_bytes())]))
+        .collect();
+    !holds(dir, &last) && !holds(dir, &next)
+}
+
+/// What the marker in `dir` says the app wrote there.
+fn marked(dir: &Path) -> Option<Vec<(String, Vec<u64>)>> {
+    let marker = std::fs::read_to_string(dir.join(MARKER)).ok()?;
+    Some(
+        (marker.lines())
             .filter_map(|line| {
                 let (file, hex) = line.split_once('\t')?;
                 Some((file.to_owned(), vec![u64::from_str_radix(hex, 16).ok()?]))
             })
             .collect(),
-        Err(_) => match RETIRED.iter().find(|(retired, _)| *retired == name) {
+    )
+}
+
+/// Whether `dir` holds exactly the files the app wrote, unchanged.
+fn untouched(dir: &Path, name: &str) -> bool {
+    let wrote: Vec<(String, Vec<u64>)> = match marked(dir) {
+        Some(wrote) => wrote,
+        None => match RETIRED.iter().find(|(retired, _)| *retired == name) {
             Some((_, files)) => (files.iter())
                 .map(|(file, hashes)| ((*file).to_owned(), hashes.to_vec()))
                 .collect(),
             None => return false,
         },
     };
+    holds(dir, &wrote)
+}
+
+/// Whether `dir` holds exactly the files `wrote` names, each with one of
+/// its hashes, besides the marker and what a load writes.
+fn holds(dir: &Path, wrote: &[(String, Vec<u64>)]) -> bool {
     let Ok(entries) = std::fs::read_dir(dir) else {
         return false;
     };
