@@ -154,7 +154,9 @@ impl ControlsModel {
                 Control::Dropdown(Dropdown { content, .. }) => {
                     (content.iter()).find_map(|section| match section {
                         DropdownSection::Controls(controls) => find(controls, id),
-                        DropdownSection::Options { .. } => None,
+                        DropdownSection::Options { options, .. } => (options.iter())
+                            .flat_map(|option| &option.fields)
+                            .find(|field| field.id.as_str() == id),
                     })
                 }
                 Control::Button(_)
