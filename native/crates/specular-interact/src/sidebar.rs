@@ -52,6 +52,9 @@ pub struct SidebarModel {
     /// The sidebar's own toggle, beside the traffic lights at its top,
     /// while it reaches the window's top edge. Otherwise the tab row has it.
     pub title: Option<SidebarButton>,
+    /// Where it is drawn, `[x, top, width]`, for the strip over its right
+    /// edge that drags it wider, while it is drawn.
+    pub edge: Option<[f32; 3]>,
 }
 
 /// The button that shows or hides the sidebar.
@@ -238,6 +241,7 @@ pub fn sidebar(app: &App) -> SidebarModel {
         pages_head: head(SidebarSection::Pages, "pages", "Pages"),
         pages: partition(&rows, SidebarSection::Pages, view),
         title: app.sidebar_holds_title().then(|| sidebar_toggle(app)),
+        edge: (app.sidebar_frame()).map(|frame| [frame.x, frame.y, frame.width]),
     }
 }
 

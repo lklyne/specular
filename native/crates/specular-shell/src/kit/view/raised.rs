@@ -87,15 +87,15 @@ pub(super) trait Raised: Styled + ParentElement + Sized {
     /// the place of the control's own fill. Under it are a hairline ring and
     /// two soft shadows, the far one drawn in from the sides. GPUI takes a
     /// blur as the gaussian's deviation, half of what CSS calls the blur
-    /// radius; a drop of 1 px under a deviation of 1 px reads as a hard line
-    /// at this size, so neither is that tight.
+    /// radius. All of it stays inside the 5 px round a tab in its row or a
+    /// tool in its column, so nothing drawn beside them cuts it off.
     fn raised(self, radius: f32) -> Self {
         let (near, far) = theme::raised_shadow();
         self.bg(transparent_black())
             .shadow(vec![
                 layer(0.0, 0.0, 0.5, theme::raised_ring(), false),
-                layer(1.0, 1.5, 0.0, near, false),
-                layer(2.0, 4.0, -1.0, far, false),
+                layer(1.0, 1.0, 0.0, near, false),
+                layer(1.0, 1.5, -1.0, far, false),
             ])
             .child(surface(radius))
     }

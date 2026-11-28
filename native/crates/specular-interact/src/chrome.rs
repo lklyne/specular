@@ -216,9 +216,8 @@ impl App {
         insets
     }
 
-    /// Whether the sidebar is shown up to the window's top edge, so it, not
-    /// the tab row, holds the traffic lights and its own toggle.
-    pub fn sidebar_holds_title(&self) -> bool {
+    /// Where the sidebar is drawn in the window, while it is.
+    pub fn sidebar_frame(&self) -> Option<solve::Frame> {
         let shown = Shown::of(self);
         let size = self.session.viewport;
         let (width, height) = if size.x > 0.0 && size.y > 0.0 {
@@ -227,12 +226,19 @@ impl App {
             (1200.0, 800.0)
         };
         let window = solve::Frame::sized(width, height);
-        (self.chrome.solve(window, shown).into_iter()).any(|placed| {
-            placed.node.is(Region::Sidebar.name())
-                && placed.frame.y <= 0.0
-                && placed.frame.width > 0.0
-                && placed.frame.height > 0.0
-        })
+        (self.chrome.solve(window, shown).into_iter())
+            .find(|placed| {
+                placed.node.is(Region::Sidebar.name())
+                    && placed.frame.width > 0.0
+                    && placed.frame.height > 0.0
+            })
+            .map(|placed| placed.frame)
+    }
+
+    /// Whether the sidebar is shown up to the window's top edge, so it, not
+    /// the tab row, holds the traffic lights and its own toggle.
+    pub fn sidebar_holds_title(&self) -> bool {
+        self.sidebar_frame().is_some_and(|frame| frame.y <= 0.0)
     }
 
     /// The layout in force.

@@ -41,8 +41,8 @@ const press = (id) => (_event, cx) => {
 
 // The fill, rim and shadow of the one that is on: a face lit along its
 // top, a hairline ring that keeps to its corners, and a soft shadow under
-// it. No shadow has a hard edge: GPUI blurs as CSS does, but a 1 px drop
-// with a 1 px blur reads as a line at this size.
+// it, short enough to stay inside the 5 px round a tab in its row or a
+// tool in its column, so nothing drawn beside them cuts it off.
 function raised(el, k) {
   return el
     .bg(k.raisedFill)
@@ -50,8 +50,8 @@ function raised(el, k) {
     .border_color(k.raisedRimLit)
     .shadow([
       { spread: 0.5, color: k.raisedRim },
-      { y: 1, blur: 3, color: k.raisedShadowNear },
-      { y: 2, blur: 8, spread: -1, color: k.raisedShadowFar },
+      { y: 1, blur: 2, color: k.raisedShadowNear },
+      { y: 1, blur: 3, spread: -1, color: k.raisedShadowFar },
     ]);
 }
 
@@ -252,14 +252,18 @@ export default class Tabs extends View {
       .id("tab-row")
       .size_full()
       .h(ROW)
-      .pl(strip.lights === false ? 12 : TRAFFIC_LIGHTS)
+      .pl(strip.lights === false ? 8 : TRAFFIC_LIGHTS - 4)
       .items_center()
       .bg(k.toolbar)
-      .when(shown(strip.sidebar), (el) => el.child(div().pr(8).flex_shrink_0().child(panelToggle(strip.sidebar, k))))
+      .when(shown(strip.sidebar), (el) => el.child(div().pl(4).pr(4).flex_shrink_0().child(panelToggle(strip.sidebar, k))))
       .child(
+        // The tabs are cut off past the row's room, but not their shadows:
+        // the box they are cut to reaches 5 px round each.
         h_flex()
           .min_w(0)
           .flex_shrink_1()
+          .px(4)
+          .py(5)
           .gap(4)
           .items_center()
           .overflow_hidden()

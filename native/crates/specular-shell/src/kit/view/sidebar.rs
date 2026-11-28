@@ -34,6 +34,9 @@ use crate::theme;
 /// take at its left.
 const TITLE: f32 = 38.0;
 const TRAFFIC_LIGHTS: f32 = 86.0;
+/// The toggle on the title bar, as the tab row's: a 28 px box, a 16 px glyph.
+const TITLE_BUTTON: f32 = 28.0;
+const TITLE_GLYPH: f32 = 16.0;
 /// A head: `h-9 px-3`, its chevron `gap-1.5` after the title.
 const HEAD: f32 = 36.0;
 const HEAD_PAD: f32 = 12.0;
@@ -257,8 +260,34 @@ fn title_bar(toggle: &SidebarButton) -> impl IntoElement {
                 .left(px(TRAFFIC_LIGHTS))
                 .h(px(TITLE))
                 .items_center()
-                .child(super::toolbar::panel_toggle(toggle)),
+                .child(title_toggle(toggle)),
         )
+}
+
+/// The sidebar's toggle on its title bar: the same box and glyph as the
+/// tab row's mod draws while the sidebar is hidden, so it does not change
+/// as the sidebar opens and closes.
+fn title_toggle(toggle: &SidebarButton) -> impl IntoElement {
+    let action = toggle.action.clone();
+    div()
+        .id(element_id(&toggle.id))
+        .size(px(TITLE_BUTTON))
+        .flex()
+        .items_center()
+        .justify_center()
+        .rounded(crate::theme::corner(8.0))
+        .cursor_pointer()
+        .hover(|this| this.bg(theme::tinted(theme::row_selected())))
+        .tooltip(crate::tip::view(toggle.label.to_string()))
+        .child(glyph(
+            toggle.icon,
+            ink(theme::toolbar_text()),
+            None,
+            false,
+            TITLE_GLYPH,
+        ))
+        .child(mark(&toggle.id))
+        .on_click(move |_, window, cx| run(&action, window, cx))
 }
 
 /// The foot of the sidebar: a button that opens a folder or a repo as a

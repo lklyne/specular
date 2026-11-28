@@ -252,7 +252,7 @@ export default class Sidebar extends View {
                       control: model.title.id,
                       name: model.title.icon,
                       size: 16,
-                      color: k.textMuted,
+                      color: k.toolbarText,
                     })),
                 ),
             );

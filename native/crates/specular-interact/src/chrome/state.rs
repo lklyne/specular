@@ -33,6 +33,8 @@ pub struct Shown {
     pub item_dock: bool,
     /// The right panel's width while it is shown.
     pub chat: Option<f32>,
+    /// The width the sidebar was dragged to, or none for the layout's.
+    pub sidebar_width: Option<f32>,
 }
 
 impl Shown {
@@ -45,6 +47,7 @@ impl Shown {
             tools_docked: app.settings.tools == ToolsPlace::Docked,
             item_dock: app.lens().is_some(),
             chat: chat.shown().then(|| chat.width()),
+            sidebar_width: app.session.sidebar.width(),
         }
     }
 }
@@ -63,6 +66,7 @@ pub fn gate(node: &Node, shown: Shown, hidden: &dyn Fn(&Node) -> bool) -> Gate {
     }
     match node.id.as_deref() {
         Some("sidebar") if !shown.sidebar => Gate::Hidden,
+        Some("sidebar") => shown.sidebar_width.map_or(Gate::AsIs, Gate::Px),
         Some("toolbar") if !shown.tools_docked => Gate::Hidden,
         Some("chat") => shown.chat.map_or(Gate::Hidden, Gate::Px),
         _ => Gate::AsIs,

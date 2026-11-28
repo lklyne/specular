@@ -50,6 +50,7 @@ mod palette_row;
 mod raised;
 mod share;
 mod sidebar;
+mod sidebar_resize;
 mod slot;
 mod squircle;
 mod tabs;
@@ -392,6 +393,9 @@ impl Render for ShellView {
             .when_some(models.as_ref(), |root, models: &Models| {
                 root.when(models.regions.chat, |root| {
                     root.children(self.chat_resize_handle(&models.chat))
+                })
+                .when(models.regions.sidebar, |root| {
+                    root.children(sidebar_resize::handle(&models.sidebar))
                 })
             })
             // A drag that began on the canvas is the canvas's until it ends:

@@ -164,6 +164,7 @@ fn shown() -> Shown {
         tools_docked: true,
         item_dock: false,
         chat: Some(300.0),
+        sidebar_width: None,
     }
 }
 
@@ -312,4 +313,28 @@ fn a_sidebar_shown_up_to_the_top_holds_the_traffic_lights_and_its_toggle() {
     app.act(Action::Sidebar(SidebarAction::Toggle));
     assert_eq!(strip(&app)["lights"], json!(true));
     assert_eq!(title(&app), json!(null));
+}
+
+#[test]
+fn the_sidebar_is_dragged_wider_within_its_limits() {
+    use specular_interact::{Action, Event, SidebarAction};
+    let mut app = specular_testkit::TestApp::with_pages(1);
+    app.send(Event::ShellChrome);
+    app.act(Action::Sidebar(SidebarAction::Toggle));
+    let width =
+        |app: &specular_testkit::TestApp| app.app().sidebar_frame().map(|frame| frame.width);
+    assert_eq!(width(&app), Some(256.0), "the layout's width to start");
+    let canvas = app.app().insets().left;
+
+    app.act(Action::Sidebar(SidebarAction::Resize(320.0)));
+    assert_eq!(width(&app), Some(320.0));
+    assert_eq!(
+        app.app().insets().left,
+        canvas + 64.0,
+        "the canvas moves over"
+    );
+    app.act(Action::Sidebar(SidebarAction::Resize(40.0)));
+    assert_eq!(width(&app), Some(200.0), "no narrower than its least");
+    app.act(Action::Sidebar(SidebarAction::Resize(4000.0)));
+    assert_eq!(width(&app), Some(520.0), "no wider than its most");
 }

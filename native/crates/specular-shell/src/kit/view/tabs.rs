@@ -313,14 +313,14 @@ pub(super) fn tabs(
     h_flex()
         .size_full()
         .pl(if toolbar.lights {
-            px(TRAFFIC_LIGHTS)
+            px(TRAFFIC_LIGHTS - 4.0)
         } else {
-            crate::theme::space(3.0)
+            crate::theme::space(2.0)
         })
         .items_center()
         .children(toolbar.sidebar.as_ref().map(|toggle| {
             div()
-                .pr(crate::theme::space(2.0))
+                .px(px(4.0))
                 .flex_shrink_0()
                 .child(panel_toggle(toggle))
         }))
@@ -328,6 +328,10 @@ pub(super) fn tabs(
             h_flex()
                 .min_w_0()
                 .flex_shrink(1.0)
+                // The tabs are cut off past the row's room, but not their
+                // shadows: the box they are cut to reaches 5 px round each.
+                .px(px(4.0))
+                .py(px(5.0))
                 .gap(crate::theme::space(1.0))
                 .items_center()
                 .overflow_hidden()
