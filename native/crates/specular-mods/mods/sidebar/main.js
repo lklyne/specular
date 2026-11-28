@@ -2,9 +2,10 @@
 // (ADR 0062), a plain folder or a repo, with its canvases under it; then
 // the section mods (`"section": "sidebar"`), such as Notes and Pages, where
 // `SidebarSections` is placed. Each section folds at its head. Under the
-// pointer a project's head shows a ⋯ for its details (its folder, whether a
-// repo's canvases go into git, and the sites bound to it), a + for a new
-// canvas in it and, at the far right, its fold chevron. A footer has a +
+// pointer a project's head shows a + for a new canvas in it and, at the far
+// right, its fold chevron. Its details (its folder, whether a repo's
+// canvases go into git, and the sites bound to it) show under it while
+// `detailsShown`. A footer has a +
 // that opens a folder or a repo as a project. A click presses a row by its id, as the app's own sidebar does;
 // a double click on a canvas asks for its new name in the `prompt` dialog.
 //
@@ -14,7 +15,16 @@ import { View, div } from "gpui-kit";
 import { h_flex, v_flex, Button } from "gpui-base";
 import { state, props, run, colors, openOverlay, Icon, SidebarSections, WindowDrag } from "specular";
 
-const ROW = 26;
+// The sizes are the app's own sidebar's (`kit/view/sidebar.rs`).
+const ROW = 28;
+const ROW_LEFT = 22;
+const ROW_RIGHT = 16;
+const HEAD = 36;
+const HEAD_PAD = 12;
+const HEAD_BUTTON = 22;
+const ADD = 26;
+const ICON = 14;
+const FOLD = 12;
 const HOVERED = "project-head";
 const TITLE = 38;
 const TRAFFIC_LIGHTS = 86;
@@ -35,19 +45,21 @@ function rename(row) {
   });
 }
 
+// A canvas: its glyph, its name, and a check while it is the one shown.
 function canvasRow(row, k) {
   return Button.new(row.id)
     .h(ROW)
-    .px(8)
+    .flex_shrink_0()
+    .pl(ROW_LEFT)
+    .pr(ROW_RIGHT)
     .flex()
     .items_center()
-    .justify_between()
-    .rounded(6)
-    .when(row.active, (el) => el.bg(k.interactive))
+    .gap(8)
     .hover((el) => el.bg(k.interactiveHover))
     .on_click((event) => (event.click_count >= 2 ? rename(row) : press(row.id)))
-    .child(div().truncate().child(row.label))
-    .child(div().text_color(k.textMuted).text_size(11).child(String(row.count)));
+    .child(Icon.new(`${row.id}.glyph`, { name: "file", size: ICON, color: k.textMuted }))
+    .child(div().flex_1().min_w(0).truncate().child(row.label))
+    .when(row.active, (el) => el.child(Icon.new(`${row.id}.check`, { name: "check", size: ICON, color: k.text })));
 }
 
 function bindSite(section) {
@@ -114,73 +126,93 @@ function details(section, k) {
   return out;
 }
 
-// Shown only while the pointer is over the project's head, unless `on`.
-const onHover = (el, on) => (on ? el : el.invisible().group_hover(HOVERED, (el) => el.visible()));
+// A button on a project's head: a glyph in a box filled under the pointer.
+function headButton(id, icon, size, k, onPress) {
+  return Button.new(id)
+    .size(HEAD_BUTTON)
+    .flex()
+    .flex_shrink_0()
+    .items_center()
+    .justify_center()
+    .rounded(6)
+    .hover((el) => el.bg(k.interactive))
+    .on_click((event, cx) => {
+      // The project head under it has a press of its own.
+      if (cx) cx.stop_propagation();
+      if (onPress) onPress();
+    })
+    .child(Icon.new(`${id}.glyph`, { name: icon, size, color: k.textMuted }));
+}
 
+// A project's head: its name and branch, which fold it. Under the pointer
+// it shows a + for a new canvas in it and, at the far right, the chevron.
 function projectHead(section, k) {
+  const title = section.branch != null ? `${section.title} \u00b7 ${section.branch}` : section.title;
   return Button.new(section.id)
     .group(HOVERED)
     .h(ROW)
-    .px(8)
+    .flex_shrink_0()
+    .px(HEAD_PAD)
     .flex()
     .items_center()
-    .gap(2)
-    .rounded(6)
-    .text_size(11)
+    .gap(4)
     .text_color(section.active ? k.text : k.textMuted)
     .on_click(() => press(section.id))
+    .child(div().flex_1().min_w(0).truncate().child(title))
     .child(
       h_flex()
-        .flex_1()
-        .min_w_0()
-        .gap(6)
-        .child(div().truncate().child(section.title))
-        .when(section.branch != null, (el) => el.child(div().text_color(k.textMuted).truncate().child(section.branch))),
-    )
-    .child(onHover(small(section.details, "⋯", k, () => press(section.details), section.detailsShown), section.detailsShown))
-    .child(onHover(small(section.add, "+", k, () => press(section.add)), false))
-    .child(
-      onHover(
-        div()
-          .w(20)
-          .h(20)
-          .flex()
-          .items_center()
-          .justify_center()
-          .rounded(4)
-          .hover((el) => el.bg(k.interactiveHover))
-          .child(Icon.new(`${section.id}.chevron`, {
-            name: section.folded ? "chevron-right" : "chevron-down",
-            size: 12,
-            color: k.textMuted,
-          })),
-        false,
-      ),
+        .flex_shrink_0()
+        .gap(2)
+        .invisible()
+        .group_hover(HOVERED, (el) => el.visible())
+        .child(headButton(section.add, "plus", ICON, k, () => press(section.add)))
+        .child(headButton(`${section.id}.fold`, section.folded ? "chevron-right" : "chevron-down", FOLD, k)),
     );
 }
 
-function section(section, hidden, k) {
-  const out = v_flex().gap(1).child(projectHead(section, k));
-  if (section.detailsShown) out.child(details(section, k));
+function section(section, hidden, n, k) {
+  const out = v_flex().flex_shrink_0().when(n > 0, (el) => el.pt(12)).child(projectHead(section, k));
+  if (section.detailsShown) out.child(div().px(8).py(4).child(details(section, k)));
   return out.children(section.rows.filter((row) => !hidden.has(row.id)).map((row) => canvasRow(row, k)));
 }
 
-function canvases(section, hidden, k) {
-  const head = Button.new(section.id)
-    .h(ROW)
-    .px(8)
-    .flex()
+// Canvases in no project: a head with a + for a new one, then the rows.
+function canvases(section, model, hidden, k) {
+  const head = h_flex()
+    .h(HEAD)
+    .flex_shrink_0()
+    .px(HEAD_PAD)
+    .gap(4)
     .items_center()
-    .justify_between()
-    .rounded(6)
-    .text_size(11)
-    .text_color(k.textMuted)
-    .hover((el) => el.bg(k.interactiveHover))
-    .on_click(() => press(section.id))
-    .child(section.title.toUpperCase())
-    .child(section.folded ? "+" : "−");
+    .child(
+      Button.new(section.id)
+        .h(HEAD)
+        .flex_1()
+        .min_w(0)
+        .flex()
+        .items_center()
+        .gap(6)
+        .font_weight(500)
+        .on_click(() => press(section.id))
+        .child(div().min_w(0).truncate().child(section.title))
+        .child(Icon.new(`${section.id}.glyph`, { name: section.folded ? "chevron-right" : "chevron-down", size: FOLD, color: k.text })),
+    )
+    .when(!hidden.has(model.add), (el) =>
+      el.child(
+        Button.new(model.add)
+          .size(ADD)
+          .flex()
+          .flex_shrink_0()
+          .items_center()
+          .justify_center()
+          .rounded(8)
+          .hover((el) => el.bg(k.interactive))
+          .on_click(() => press(model.add))
+          .child(Icon.new(`${model.add}.glyph`, { name: "plus", size: ICON, color: k.text })),
+      ),
+    );
   const rows = section.folded ? [] : section.rows.filter((row) => !hidden.has(row.id)).map((row) => canvasRow(row, k));
-  return v_flex().gap(1).child(head).children(rows);
+  return v_flex().flex_shrink_0().child(head).children(rows);
 }
 
 export default class Sidebar extends View {
@@ -197,27 +229,35 @@ export default class Sidebar extends View {
       .id("sidebar.list")
       .flex_1()
       .min_h_0()
-      .p(8)
-      .gap(16)
       .overflow_y_scroll()
-      .children(sections.map((each) => (each.kind === "project" ? section(each, hidden, k) : canvases(each, hidden, k))))
+      .child(
+        v_flex()
+          .flex_shrink_0()
+          .pt(8)
+          .pb(8)
+          .children(
+            sections.map((each, n) => (each.kind === "project" ? section(each, hidden, n, k) : canvases(each, model, hidden, k))),
+          ),
+      )
       .child(SidebarSections.new("sidebar.sections", {}));
     // The foot: a + that opens a folder or a repo as a project.
     const footer = h_flex()
+      .h(HEAD)
       .flex_shrink_0()
-      .p(8)
+      .px(HEAD_PAD)
+      .items_center()
       .border_t_1()
       .border_color(k.sidebarRule)
       .child(
         Button.new(model.open)
-          .h(ROW)
-          .px(8)
+          .h(ADD)
+          .px(6)
           .flex()
           .items_center()
           .gap(6)
-          .rounded(6)
+          .rounded(8)
           .text_color(k.textMuted)
-          .hover((el) => el.bg(k.interactiveHover))
+          .hover((el) => el.bg(k.interactive))
           .on_click(() => press(model.open))
           .child(Icon.new(`${model.open}.glyph`, { name: "plus", size: 14, color: k.textMuted }))
           .child("New project"),
@@ -246,8 +286,14 @@ export default class Sidebar extends View {
                     .items_center()
                     .justify_center()
                     .rounded(8)
-                    .hover((el) => el.bg(k.interactiveHover))
-                    .on_click(() => press(model.title.id))
+                    .hover((el) => el.bg(k.interactive))
+                    .on_click((_event, cx) => {
+                      // The bar to drag the window by is under it: a second
+                      // press must not reach it as a double click, which
+                      // zooms the window.
+                      if (cx) cx.stop_propagation();
+                      press(model.title.id);
+                    })
                     .child(Icon.new(`${model.title.id}.glyph`, {
                       control: model.title.id,
                       name: model.title.icon,
@@ -261,8 +307,7 @@ export default class Sidebar extends View {
       .size_full()
       .bg(k.sidebar)
       .border_r_1()
-      .border_color(k.sidebarRule)
-      .text_size(13)
+      .border_color(k.popupBorder)
       .text_color(k.text)
       .when(title != null, (el) => el.child(title))
       .child(list)
