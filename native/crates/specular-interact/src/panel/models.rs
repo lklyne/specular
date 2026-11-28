@@ -112,6 +112,13 @@ pub struct ToolbarModel {
     /// The button for the right panel, at the right edge. Only a shell that
     /// has a right panel gets one.
     pub chat: Option<SidebarButton>,
+    /// The button for the sidebar, after the traffic lights, while the
+    /// layout has a sidebar that is not shown up to the window's top (which
+    /// then holds it).
+    pub sidebar: Option<SidebarButton>,
+    /// Whether the tab row holds the traffic lights: the sidebar does while
+    /// it is shown up to the window's top.
+    pub lights: bool,
     /// The Share button, just before the right panel's.
     #[serde(skip)]
     pub share: ShareButton,

@@ -43,7 +43,7 @@ pub struct ApiVersion {
 /// | 1.5 | agents on the canvas: the `agents` key and `view.follow {agent}` |
 /// | 1.6 | a tool's `stroke` in `mod.json`, drawn by the app over the live stroke; `tool.stroke`; `taper` and `speed` on display-list paths; the `tool` and `call` keys published as they change |
 /// | 1.7 | projects (ADR 0062): the `projects` key, a project section for each project in `panels/sidebar`, the `project.*` commands, `canvas.new {project}`, and `project` in `canvas/info` |
-/// | 1.8 | sidebar sections: `section` and `starts_off` in `mod.json`, and the `SidebarSections` host component |
+/// | 1.8 | sidebar sections: `section` and `starts_off` in `mod.json`, the `SidebarSections` host component, `kind` on the notes and pages sections, `title` in `panels/sidebar`, and `sidebar` and `lights` in `panels/strip` |
 pub const API: ApiVersion = ApiVersion {
     generation: 1,
     revision: 8,

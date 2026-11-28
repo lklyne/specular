@@ -105,6 +105,7 @@ pub(super) fn sidebar_json(app: &App) -> Value {
         notes,
         pages_head,
         pages,
+        title,
         ..
     } = sidebar(app);
     let mut sections: Vec<Value> = if projects.is_empty() {
@@ -120,6 +121,7 @@ pub(super) fn sidebar_json(app: &App) -> Value {
         "visible": visible,
         "add": "sidebar.add",
         "open": "sidebar.open",
+        "title": serde_json::to_value(&title).unwrap_or(Value::Null),
         "sections": sections,
     })
 }

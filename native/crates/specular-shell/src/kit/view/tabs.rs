@@ -312,8 +312,18 @@ pub(super) fn tabs(
     });
     h_flex()
         .size_full()
-        .pl(px(TRAFFIC_LIGHTS))
+        .pl(if toolbar.lights {
+            px(TRAFFIC_LIGHTS)
+        } else {
+            crate::theme::space(3.0)
+        })
         .items_center()
+        .children(toolbar.sidebar.as_ref().map(|toggle| {
+            div()
+                .pr(crate::theme::space(2.0))
+                .flex_shrink_0()
+                .child(panel_toggle(toggle))
+        }))
         .child(
             h_flex()
                 .min_w_0()

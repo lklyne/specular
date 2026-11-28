@@ -1,6 +1,7 @@
 //! The layout files (ADR 0055, ADR 0059): what they read and write, a file
 //! in the old five-region shape read as the tree it means, where the tree
-//! puts the canvas, and a bad save that leaves the last good layout in force.
+//! puts the canvas, a bad save that leaves the last good layout in force, and
+//! the sidebar holding the title bar while it reaches the window's top.
 
 use std::collections::BTreeMap;
 
@@ -283,4 +284,32 @@ fn a_bad_save_keeps_the_last_good_layout_and_says_why() {
     assert_eq!(file.read("{}"), None);
     assert!(!file.layout().hides("dock"), "a good save replaces it");
     assert!(file.error().is_none());
+}
+
+#[test]
+fn a_sidebar_shown_up_to_the_top_holds_the_traffic_lights_and_its_toggle() {
+    use specular_interact::{Action, Event, SidebarAction, state};
+    let mut app = specular_testkit::TestApp::with_pages(1);
+    app.send(Event::ShellChrome);
+    let strip = |app: &specular_testkit::TestApp| state(app.app())["panels/strip"].clone();
+    let title =
+        |app: &specular_testkit::TestApp| state(app.app())["panels/sidebar"]["title"].clone();
+
+    assert_eq!(
+        strip(&app)["lights"],
+        json!(true),
+        "the sidebar starts hidden"
+    );
+    assert_eq!(strip(&app)["sidebar"]["id"], json!("sidebar.toggle"));
+    assert_eq!(title(&app), json!(null));
+
+    app.act(Action::Sidebar(SidebarAction::Toggle));
+    assert!(app.app().sidebar_holds_title());
+    assert_eq!(strip(&app)["lights"], json!(false));
+    assert_eq!(strip(&app)["sidebar"], json!(null));
+    assert_eq!(title(&app)["id"], json!("sidebar.toggle"));
+
+    app.act(Action::Sidebar(SidebarAction::Toggle));
+    assert_eq!(strip(&app)["lights"], json!(true));
+    assert_eq!(title(&app), json!(null));
 }

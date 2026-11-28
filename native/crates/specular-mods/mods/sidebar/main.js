@@ -12,10 +12,12 @@
 //   { "mod": "sidebar", "props": { "hidden": ["sidebar.open"] } }
 import { View, div } from "gpui-kit";
 import { h_flex, v_flex, Button } from "gpui-base";
-import { state, props, run, colors, openOverlay, Icon, SidebarSections } from "specular";
+import { state, props, run, colors, openOverlay, Icon, SidebarSections, WindowDrag } from "specular";
 
 const ROW = 26;
 const HOVERED = "project-head";
+const TITLE = 38;
+const TRAFFIC_LIGHTS = 86;
 
 const press = (id) => run("control.press", { id });
 
@@ -220,6 +222,40 @@ export default class Sidebar extends View {
           .child(Icon.new(`${model.open}.glyph`, { name: "plus", size: 14, color: k.textMuted }))
           .child("New project"),
       );
+    // While the sidebar reaches the window's top it is the title bar there:
+    // the traffic lights, then its own toggle, over bare bar to drag by.
+    const title =
+      model.title == null
+        ? null
+        : div()
+            .relative()
+            .flex_shrink_0()
+            .h(TITLE)
+            .child(div().absolute().top(0).left(0).size_full().child(WindowDrag.new("sidebar.drag", {})))
+            .child(
+              h_flex()
+                .absolute()
+                .top(0)
+                .left(TRAFFIC_LIGHTS)
+                .h(TITLE)
+                .items_center()
+                .child(
+                  Button.new(model.title.id)
+                    .size(28)
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .rounded(8)
+                    .hover((el) => el.bg(k.interactiveHover))
+                    .on_click(() => press(model.title.id))
+                    .child(Icon.new(`${model.title.id}.glyph`, {
+                      control: model.title.id,
+                      name: model.title.icon,
+                      size: 16,
+                      color: k.textMuted,
+                    })),
+                ),
+            );
     return v_flex()
       .id("sidebar")
       .size_full()
@@ -228,6 +264,7 @@ export default class Sidebar extends View {
       .border_color(k.sidebarRule)
       .text_size(13)
       .text_color(k.text)
+      .when(title != null, (el) => el.child(title))
       .child(list)
       .when(!hidden.has(model.open), (el) => el.child(footer));
   }

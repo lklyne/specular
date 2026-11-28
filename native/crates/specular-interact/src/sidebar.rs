@@ -20,7 +20,7 @@ pub(crate) use self::projects::project_controls;
 pub use self::projects::{OriginRow, ProjectSection};
 use self::rows::{Tree, leaves};
 pub use self::state::{SidebarAction, SidebarSection, SidebarView};
-use crate::panel::{ControlId, Field, FieldSubmit, FieldWidth, Icon};
+use crate::panel::{ControlId, Field, FieldSubmit, FieldWidth, Icon, SidebarButton};
 use crate::{Action, App, CanvasAction, CanvasId};
 
 /// Everything the sidebar shows.
@@ -49,6 +49,26 @@ pub struct SidebarModel {
     /// The Pages section: the active canvas's pages, front of the stack
     /// first, each with what is hooked to it.
     pub pages: Vec<SidebarRow>,
+    /// The sidebar's own toggle, beside the traffic lights at its top,
+    /// while it reaches the window's top edge. Otherwise the tab row has it.
+    pub title: Option<SidebarButton>,
+}
+
+/// The button that shows or hides the sidebar.
+pub(crate) fn sidebar_toggle(app: &App) -> SidebarButton {
+    let open = app.session.sidebar.shown();
+    SidebarButton {
+        id: ControlId::new("sidebar.toggle"),
+        label: if open {
+            "Collapse left panel"
+        } else {
+            "Expand left panel"
+        }
+        .into(),
+        icon: Icon::PanelLeft,
+        open,
+        action: Action::Sidebar(SidebarAction::Toggle),
+    }
 }
 
 /// The head of a section: the title that folds it.
@@ -217,6 +237,7 @@ pub fn sidebar(app: &App) -> SidebarModel {
         notes: partition(&rows, SidebarSection::Notes, view),
         pages_head: head(SidebarSection::Pages, "pages", "Pages"),
         pages: partition(&rows, SidebarSection::Pages, view),
+        title: app.sidebar_holds_title().then(|| sidebar_toggle(app)),
     }
 }
 

@@ -264,9 +264,13 @@ pub fn toolbar(app: &App) -> ToolbarModel {
             action: Action::Chat(ChatAction::Toggle),
         }
     });
+    let lights = !app.sidebar_holds_title();
+    let sidebar = (app.regions().sidebar && lights).then(|| crate::sidebar::sidebar_toggle(app));
     ToolbarModel {
         theme: theme_button(app),
         chat,
+        sidebar,
+        lights,
         share: super::share::button(app),
         sections,
         tools: app.settings().tools,

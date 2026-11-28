@@ -193,6 +193,8 @@ fn strip_json(app: &App, bar: &crate::ToolbarModel) -> Value {
     let mut strip = to_json(view_strip(app));
     if let Value::Object(fields) = &mut strip {
         fields.insert("chat".to_owned(), to_json(&bar.chat));
+        fields.insert("sidebar".to_owned(), to_json(&bar.sidebar));
+        fields.insert("lights".to_owned(), Value::Bool(bar.lights));
         let zoom = app
             .layout()
             .fill(crate::Region::Toolbar)

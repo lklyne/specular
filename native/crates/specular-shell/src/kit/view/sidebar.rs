@@ -21,7 +21,7 @@ use gpui_kit::{
 };
 use specular_interact::{
     Action, CanvasRow, ControlId, Icon, MenuTarget, ProjectAction, ProjectSection, SectionHead,
-    SidebarModel, context_menu,
+    SidebarButton, SidebarModel, context_menu,
 };
 
 use super::glyphs::{glyph, ink};
@@ -30,6 +30,10 @@ use super::{ShellView, field, menu, run};
 use crate::canvas;
 use crate::theme;
 
+/// The title bar's height, the tab row's, and the room the traffic lights
+/// take at its left.
+const TITLE: f32 = 38.0;
+const TRAFFIC_LIGHTS: f32 = 86.0;
 /// A head: `h-9 px-3`, its chevron `gap-1.5` after the title.
 const HEAD: f32 = 36.0;
 const HEAD_PAD: f32 = 12.0;
@@ -214,6 +218,7 @@ impl ShellView {
             .bg(super::material::panel_fill(theme::panel()))
             .border_r(crate::theme::line())
             .border_color(theme::solid(theme::chrome_border()))
+            .children(model.title.as_ref().map(title_bar))
             .when(titled, |this| this.child(canvases_head(model)))
             .when(folded, |this| this.child(rule()))
             .child(list.when(titled, |this| {
@@ -227,6 +232,33 @@ impl ShellView {
             .child(rule())
             .child(footer())
     }
+}
+
+/// The sidebar's top while it reaches the window's top edge: bare title
+/// bar to drag the window by, with the traffic lights and then the
+/// sidebar's own toggle on it.
+fn title_bar(toggle: &SidebarButton) -> impl IntoElement {
+    div()
+        .relative()
+        .h(px(TITLE))
+        .flex_shrink_0()
+        .child(
+            div()
+                .absolute()
+                .top_0()
+                .left_0()
+                .size_full()
+                .child(super::tabs::window_drag()),
+        )
+        .child(
+            h_flex()
+                .absolute()
+                .top_0()
+                .left(px(TRAFFIC_LIGHTS))
+                .h(px(TITLE))
+                .items_center()
+                .child(super::toolbar::panel_toggle(toggle)),
+        )
 }
 
 /// The foot of the sidebar: a button that opens a folder or a repo as a

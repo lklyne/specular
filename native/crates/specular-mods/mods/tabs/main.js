@@ -1,5 +1,7 @@
 // The tab row, drawn from `panels/strip`: the window's title bar, with the
-// traffic lights in its left padding, then a tab for the canvas and one for
+// traffic lights in its left padding (unless the sidebar is shown up to the
+// window's top and holds them: `lights` is false) and the sidebar's toggle
+// (`sidebar`, null while the sidebar holds it), then a tab for the canvas and one for
 // each page and Document, the add button, bare title bar to drag the window
 // by, and at the far end the zoom readout (while the tools are the app's
 // own), the agents on the canvas, the Share button and the right panel's
@@ -11,7 +13,7 @@
 // the camera or presses Escape.
 //
 // A layout hides a control by listing its id in this mod's props:
-//   { "mod": "tabs", "props": { "hidden": ["view.add", "chat.toggle", "agents"] } }
+//   { "mod": "tabs", "props": { "hidden": ["view.add", "chat.toggle", "sidebar.toggle", "agents"] } }
 import { View, div } from "gpui-kit";
 import { h_flex, v_flex, Button, Popover } from "gpui-base";
 import { state, props, run, colors, Icon, Favicon, Zoom, Share, WindowDrag } from "specular";
@@ -246,9 +248,10 @@ export default class Tabs extends View {
       .id("tab-row")
       .size_full()
       .h(ROW)
-      .pl(TRAFFIC_LIGHTS)
+      .pl(strip.lights === false ? 12 : TRAFFIC_LIGHTS)
       .items_center()
       .bg(k.toolbar)
+      .when(shown(strip.sidebar), (el) => el.child(div().pr(8).flex_shrink_0().child(panelToggle(strip.sidebar, k))))
       .child(
         h_flex()
           .min_w(0)

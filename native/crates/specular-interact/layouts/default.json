@@ -1,20 +1,26 @@
 {
   "title": "Specular",
   "id": "root",
-  "type": "column",
+  "type": "row",
   "share": { "mod": "share" },
   "toast": { "mod": "toast", "props": { "hidden": [] } },
   "children": [
-    { "id": "tabs", "type": "block", "size": { "px": 38 }, "background": "toolbar",
-      "content": { "mod": "tabs", "props": { "hidden": [] } } },
+    { "id": "sidebar", "type": "block", "size": { "px": 256 }, "content": { "panel": "sidebar" } },
     {
-      "id": "body",
-      "type": "row",
+      "id": "main",
+      "type": "column",
       "children": [
-        { "id": "sidebar", "type": "block", "size": { "px": 256 }, "content": { "panel": "sidebar" } },
-        { "id": "toolbar", "type": "block", "size": { "px": 36 }, "content": { "mod": "toolbar", "props": { "hidden": [] } } },
-        { "id": "canvas", "type": "block", "content": "canvas" },
-        { "id": "chat", "type": "block", "size": { "px": 400 }, "content": { "panel": "chat" } }
+        { "id": "tabs", "type": "block", "size": { "px": 38 }, "background": "toolbar",
+          "content": { "mod": "tabs", "props": { "hidden": [] } } },
+        {
+          "id": "body",
+          "type": "row",
+          "children": [
+            { "id": "toolbar", "type": "block", "size": { "px": 36 }, "content": { "mod": "toolbar", "props": { "hidden": [] } } },
+            { "id": "canvas", "type": "block", "content": "canvas" },
+            { "id": "chat", "type": "block", "size": { "px": 400 }, "content": { "panel": "chat" } }
+          ]
+        }
       ]
     }
   ]

@@ -248,6 +248,14 @@ fn named(app: &App) -> Vec<Named> {
     out.push(run(&strip.add.id, &strip.add.action, true, true, &plain));
     let bar = toolbar(app);
     out.extend((bar.chat.iter()).map(|button| run(&button.id, &button.action, true, true, &plain)));
+    let sidebar_toggle = crate::sidebar::sidebar_toggle(app);
+    out.push(run(
+        &sidebar_toggle.id,
+        &sidebar_toggle.action,
+        true,
+        true,
+        &plain,
+    ));
     for section in &bar.sections {
         match section {
             ToolbarSection::Tools(tools) => {

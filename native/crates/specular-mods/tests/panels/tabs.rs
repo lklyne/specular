@@ -82,9 +82,17 @@ fn a_click_on_a_tab_presses_it_through_the_host(cx: &mut TestAppContext) {
     let runs = loaded.click_until(along(TAB_ROW / 2.0, (90, 1200), 6), wanted);
     assert!(runs.contains(&wanted.to_owned()), "{runs:?}");
     assert_eq!(
-        runs.first().map(String::as_str),
-        Some(r#"control.press {"id":"view.canvas"}"#),
-        "the first tab along the row is the canvas"
+        {
+            let mut distinct: Vec<&str> = runs.iter().map(String::as_str).collect();
+            distinct.dedup();
+            distinct.truncate(2);
+            distinct
+        },
+        [
+            r#"control.press {"id":"sidebar.toggle"}"#,
+            r#"control.press {"id":"view.canvas"}"#
+        ],
+        "the sidebar's toggle comes first along the row, then the canvas's tab"
     );
 }
 

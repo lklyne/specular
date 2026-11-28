@@ -153,7 +153,9 @@ What a script can name, beyond the steps in "Looking at what it draws":
   page shown is entered, so send Escape before a canvas key, and a
   Document shown is a reading column that one click edits. See `tabs.txt`,
   `item-view.txt` and `lens.txt`.
-- The sidebar starts hidden (`sidebar on`, or Command+B). Its controls are
+- The sidebar starts hidden (`sidebar on`, Command+B, or `sidebar.toggle`,
+  in the tab row or, while the sidebar reaches the window's top, in the
+  sidebar beside the traffic lights). Its controls are
   `sidebar.canvas.<n>` (by place, from 1; `.name` is the rename field,
   `.menu.rename` and `.menu.delete` its menu), `sidebar.add`,
   `sidebar.open` (Open project), `sidebar.project.<n>` (a project's head,
