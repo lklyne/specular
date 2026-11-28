@@ -16,7 +16,10 @@ use serde_json::{Value, json};
 use specular_core::Modifiers;
 use specular_doc::Kind;
 use specular_interact::mods::{InstalledMod, ModCatalog, ModManifest, SetAside};
-use specular_interact::{Control, Event, Key, PaletteRun, Tool, dock, palette, run_named, state};
+use specular_interact::{
+    Action, Control, Effect, Event, Key, PaletteRun, SettingAction, Tool, dock, palette, run_named,
+    state,
+};
 use specular_testkit::TestApp;
 
 const STAMP: &str = r##"{
@@ -110,15 +113,65 @@ fn a_canvas_whose_mod_is_missing_offers_to_install_it() {
 #[test]
 fn a_shipped_mod_set_aside_at_start_says_where_until_dismissed() {
     let mut app = TestApp::empty();
-    app.send(Event::ModsSetAside(vec![SetAside {
-        name: "sidebar".to_owned(),
-        to: "sidebar-edited".to_owned(),
-    }]));
+    let set_aside = |name: &str| SetAside {
+        name: name.to_owned(),
+        to: format!("{name}-edited"),
+    };
+    app.send(Event::ModsSetAside(vec![
+        set_aside("sidebar"),
+        set_aside("stamp"),
+    ]));
+    let copy = |name: &str, manifest: &str| InstalledMod {
+        name: name.to_owned(),
+        dir: format!("/mods/{name}"),
+        manifest: ModManifest::parse(manifest, Path::new("mod.json")).expect("manifest"),
+    };
+    let panel = r#"{ "api": "1.2", "title": "Sidebar" }"#;
+    app.take_effects();
+    app.send(Event::ModCatalog(ModCatalog {
+        mods: vec![
+            copy("sidebar", panel),
+            copy("sidebar-edited", panel),
+            stamp(),
+            copy("stamp-edited", STAMP),
+        ],
+    }));
+    let off = &app.app().settings().mods_off;
+    assert!(
+        off.contains("stamp-edited"),
+        "a copy that runs unplaced starts off"
+    );
+    assert!(
+        !off.contains("sidebar-edited"),
+        "a panel copy runs only where placed"
+    );
+    assert_eq!(
+        app.app().mod_catalog().tools().count(),
+        1,
+        "the shipped tool, not its copy too"
+    );
+    assert!(app.take_effects().iter().any(|effect| matches!(
+        effect,
+        Effect::SaveSettings(settings) if settings.mods_off.contains("stamp-edited")
+    )));
     let notices = &state(app.app())["notices"];
     assert_eq!(notices[0]["id"], "mods.set-aside", "{notices}");
-    assert!(
-        (notices[0]["text"].as_str()).is_some_and(|text| text.contains("`sidebar-edited`")),
-        "{notices}"
+    assert_eq!(
+        notices[0]["text"],
+        "Your edits to shipped mods were kept as copies: `sidebar` to `sidebar-edited`, \
+         `stamp` to `stamp-edited`. Turn on `stamp-edited` in Settings > Mods to use it. \
+         Point a layout at `sidebar-edited` to use it.",
+    );
+
+    app.act(Action::Setting(SettingAction::Mod(
+        "stamp-edited".to_owned(),
+        true,
+    )));
+    app.send(Event::ModCatalog(app.app().installed_mods().clone()));
+    assert_eq!(
+        app.app().mod_catalog().tools().count(),
+        2,
+        "turned on, it stays on"
     );
     run(
         &mut app,

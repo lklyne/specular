@@ -321,4 +321,14 @@ impl ModManifest {
         }
         Ok(manifest)
     }
+
+    /// Whether the mod runs with no layout placing it: it adds canvas
+    /// items, tools, commands, shapes or a section.
+    pub fn runs_unplaced(&self) -> bool {
+        self.items.is_some()
+            || !self.tools.is_empty()
+            || !self.commands.is_empty()
+            || !self.shapes.is_empty()
+            || self.section.is_some()
+    }
 }

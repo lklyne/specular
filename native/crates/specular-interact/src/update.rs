@@ -104,7 +104,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         Event::LayoutsLoaded(read) => app.chrome.load(*read),
         Event::KeymapLoaded(keymap) => app.keymap = keymap,
         Event::ModCatalog(catalog) => crate::mods::on_catalog(app, catalog, &mut effects),
-        Event::ModsSetAside(moved) => app.mods.set_aside = moved,
+        Event::ModsSetAside(moved) => crate::mods::on_set_aside(app, moved),
         Event::MenuClosed => app.session.panel.menu = None,
         Event::ChatPanel(available) => app.session.chat.set_available(available),
         Event::Motion(on) => app.session.motion.enable(on),

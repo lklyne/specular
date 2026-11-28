@@ -688,7 +688,9 @@ and each save reloads it. Without `--use`, set a block's
 If you edit a shipped mod in place anyway, the next start moves its
 folder to `<name>-edited` (a number is added if taken), marks it a clone,
 writes Specular's version back, and says so in a notice. Point a layout
-at the copy to use it.
+at the copy to use it. A copy that adds canvas items, tools, commands,
+shapes or a section starts turned off, so it does not run beside the
+shipped one: turn it on in Settings > Mods.
 When a release stops shipping a mod, its folder goes on the next start,
 unless you changed or added a file there; then it stays, as yours.
 Mods are trusted code: a mod has your files, network and processes, like a

@@ -43,6 +43,9 @@ pub(crate) struct ModState {
     /// The shipped mods the last start moved aside as edited copies, until
     /// their notice is dismissed.
     pub(crate) set_aside: Vec<super::SetAside>,
+    /// The folders of those copies the catalog has not listed yet. Each
+    /// that runs unplaced is turned off when it is listed.
+    pub(crate) unsettled: Vec<String>,
     /// The last mod command run, the `call` key.
     pub(crate) call: Option<super::commands::ModCall>,
 }
@@ -65,6 +68,7 @@ impl ModState {
 /// longer) shown live.
 pub(crate) fn on_catalog(app: &mut App, catalog: ModCatalog, effects: &mut Vec<Effect>) {
     app.mods.installed = catalog;
+    super::set_aside::settle(app, effects);
     turn(app, effects);
 }
 

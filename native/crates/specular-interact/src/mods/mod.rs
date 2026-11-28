@@ -49,7 +49,9 @@ pub use self::manifest::{
 pub use self::pane::ModRow;
 pub(crate) use self::pane::mods_pane;
 pub use self::set_aside::SetAside;
-pub(crate) use self::set_aside::{dismiss as dismiss_set_aside, notice as set_aside_notice};
+pub(crate) use self::set_aside::{
+    dismiss as dismiss_set_aside, notice as set_aside_notice, on_set_aside,
+};
 pub use self::shape::ShapeChange;
 pub(crate) use self::shape::set_shapes;
 pub(crate) use self::state::{mod_items_json, tool_json};
