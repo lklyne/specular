@@ -404,7 +404,7 @@ A mod (ADR 0055) is a folder of `mod.json` and `main.js`, run by
 
 ## Gate
 
-Run from `native/` before every commit:
+Run from `native/`:
 
 ```sh
 cargo fmt --all --check

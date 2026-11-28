@@ -52,8 +52,7 @@ Dev app workflow:
   stopped independently of other work.
 - Don't kill or restart an app you didn't start.
 
-Run the full gate before every commit. Debug builds unless a task says
-otherwise.
+Debug builds unless a task says otherwise.
 
 ## Crash logs
 
