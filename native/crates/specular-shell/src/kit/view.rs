@@ -67,7 +67,7 @@ use gpui_kit::{
     InteractiveElement as _, IntoElement, ParentElement as _, Render, Styled as _, Window, div, px,
     size,
 };
-use specular_interact::{Action, CanvasAction, Event, SidebarAction, ToolsPlace};
+use specular_interact::{Action, CanvasAction, Event, Region, SidebarAction, ToolsPlace};
 
 pub(crate) use self::chat::{composer_box, paste};
 pub(crate) use self::field::{FieldStyle, field_styled as model_field, typed as typed_field};
@@ -92,9 +92,9 @@ impl Global for CanvasFocus {}
 /// Runs `action` through `update` and gives the keys back to the canvas,
 /// unless a list it was chosen in is still open and has them.
 ///
-/// Renaming a canvas is the one action a renderer answers itself: the model
-/// asks for the row's name field to be typed in, and here that field is the
-/// Kit's.
+/// Renaming a canvas is the one action a renderer answers itself while the
+/// Kit's own sidebar is drawn: the model asks for the row's name field to
+/// be typed in, and there that field is the Kit's.
 pub(crate) fn run(action: &Action, window: &mut Window, cx: &mut App) {
     if let Action::Canvas(CanvasAction::BeginRename(canvas)) = action {
         begin_rename(canvas.as_ref(), window, cx);
@@ -128,6 +128,12 @@ fn begin_rename(canvas: Option<&specular_interact::CanvasId>, window: &mut Windo
     let Some(models) = canvas::models() else {
         return;
     };
+    // A mod's sidebar draws the row's field from the app's own rename.
+    if models.layout.fill(Region::Sidebar).is_some() {
+        let begin = CanvasAction::BeginRename(canvas.cloned());
+        canvas::dispatch(Event::Action(Action::Canvas(begin)));
+        return;
+    }
     let row = (models.sidebar.canvases.iter()).find(|row| match canvas {
         Some(canvas) => row.id == *canvas,
         None => row.active,

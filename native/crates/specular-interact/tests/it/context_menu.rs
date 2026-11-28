@@ -12,8 +12,8 @@ use serde_json::{Value, json};
 use specular_core::Camera;
 use specular_doc::Document;
 use specular_interact::{
-    Action, App, CanvasId, Event, OpenedCanvas, OpenedSpace, Project, SidebarAction, run_named,
-    state,
+    Action, App, CanvasAction, CanvasId, ControlId, Effect, Event, OpenedCanvas, OpenedSpace,
+    Project, SidebarAction, run_named, state,
 };
 use specular_testkit::TestApp;
 
@@ -117,4 +117,46 @@ fn a_canvas_menu_opens_at_the_point_and_its_items_do_what_the_row_does() {
         &json!({ "target": "canvas", "id": "gone", "at": [0, 0] }),
     );
     assert!(state(app.app())["panels/menu"].is_null());
+}
+
+/// Under the shell's chrome, Rename gives the row's field to the shell,
+/// and the row is a row again once the shell's field closes: on Return
+/// after a new name, and on Escape.
+#[test]
+fn a_rename_in_the_shells_field_ends_when_the_field_closes() {
+    let renaming =
+        |app: &App| state(app)["panels/sidebar"]["sections"][0]["rows"][1]["renaming"].clone();
+    for name in [Some("Second"), None] {
+        let mut app = three_canvases();
+        app.send(Event::ShellChrome);
+        let open = json!({ "target": "canvas", "id": "c2", "at": [40, 120] });
+        run(&mut app, "menu.open", &open);
+        run(
+            &mut app,
+            "control.press",
+            &json!({ "id": "sidebar.canvas.2.menu.rename" }),
+        );
+        let field = ControlId::new("sidebar.canvas.2.name");
+        assert!(
+            app.take_effects()
+                .contains(&Effect::EditField(field.clone()))
+        );
+        assert_eq!(renaming(app.app()), true, "the row holds the field");
+        app.send(Event::FieldClosed(field));
+        if let Some(name) = name {
+            app.act(Action::Canvas(CanvasAction::Rename {
+                canvas: Some(CanvasId::new("c2")),
+                name: name.to_owned(),
+            }));
+        }
+        let rows = &state(app.app())["panels/sidebar"]["sections"][0]["rows"];
+        let labels: Vec<&str> = (rows.as_array().into_iter().flatten())
+            .map(|row| row["label"].as_str().unwrap_or_default())
+            .collect();
+        assert!(labels.contains(&name.unwrap_or("Two")), "{labels:?}");
+        assert!(
+            (rows.as_array().into_iter().flatten()).all(|row| row["renaming"] == false),
+            "{name:?}: every row is a row again"
+        );
+    }
 }

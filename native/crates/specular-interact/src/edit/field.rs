@@ -79,6 +79,16 @@ pub(super) fn end(app: &mut App, edit: &TextEdit, effects: &mut Vec<Effect>) {
     }
 }
 
+/// The shell's own field `id` closed: Return, Escape or a press
+/// elsewhere. What its text asked for comes as an action of its own, so
+/// the edit held here for it ends asking for nothing.
+pub(crate) fn closed(app: &mut App, id: &ControlId, effects: &mut Vec<Effect>) {
+    if editing(app).is_some_and(|edit| control_of(edit) == *id) {
+        app.session.editing = None;
+        effects.push(Effect::SetImeAllowed(false));
+    }
+}
+
 /// Escape in a field: the typed text is dropped and the old value shows
 /// again. Returns whether a field was being edited.
 pub(crate) fn cancel(app: &mut App, effects: &mut Vec<Effect>) -> bool {

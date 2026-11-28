@@ -347,5 +347,10 @@ pub(crate) fn begin_rename(
         .map(|row| row.rename.id);
     if let Some(field) = field {
         crate::edit::begin_field(app, &field, effects);
+        // The edit marks the row as renamed; a shell drawing the row types
+        // in its own field until it sends `FieldClosed`.
+        if app.session.panel.shell_chrome {
+            effects.push(crate::Effect::EditField(field));
+        }
     }
 }

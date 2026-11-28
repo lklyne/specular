@@ -52,7 +52,9 @@ pub(crate) use buffer::{Origin, Target};
 pub use edge_label::LABEL_SIZE as EDGE_LABEL_SIZE;
 pub(crate) use edge_label::begin as begin_edge_label;
 pub(crate) use edge_label::selected_key as selected_edge_key;
-pub(crate) use field::{begin as begin_field, cancel as cancel_field, focus as focus_field};
+pub(crate) use field::{
+    begin as begin_field, cancel as cancel_field, closed as field_closed, focus as focus_field,
+};
 pub(crate) use fit::{fit_all, fitted, refit_edited};
 use fit::{refit, set_rect};
 pub use formatting::Format;

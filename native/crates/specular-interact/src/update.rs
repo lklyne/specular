@@ -106,6 +106,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         Event::ModCatalog(catalog) => crate::mods::on_catalog(app, catalog, &mut effects),
         Event::ModsSetAside(moved) => crate::mods::on_set_aside(app, moved),
         Event::MenuClosed => app.session.panel.menu = None,
+        Event::FieldClosed(id) => edit::field_closed(app, &id, &mut effects),
         Event::ChatPanel(available) => app.session.chat.set_available(available),
         Event::Motion(on) => app.session.motion.enable(on),
         Event::ReduceMotion(on) => app.session.motion.reduce(on),

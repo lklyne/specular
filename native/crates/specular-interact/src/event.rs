@@ -197,6 +197,10 @@ pub enum Event {
     /// The shell's context menu closed with nothing picked: a press outside
     /// it, or Escape while it had the keys.
     MenuClosed,
+    /// The shell's field with this name stopped being typed in: Return,
+    /// Escape or a press elsewhere. Its text, if it asked for anything,
+    /// came first as an action of its own.
+    FieldClosed(crate::ControlId),
     /// Whether the shell draws a right panel. A shell that does sends `true`
     /// once at startup: a comment draft is then finished in the panel's
     /// field, and the canvas draws only its marker. Without it the draft is

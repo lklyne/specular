@@ -74,6 +74,9 @@ fn end(id: &ControlId, how: End, cx: &mut App) {
         fields.inline = None;
     }
     let text = held.input.read(cx).value().to_string();
+    // First, while the field's name still names the row it was opened on:
+    // a rename can move the canvas to another place.
+    canvas::dispatch(Event::FieldClosed(id.clone()));
     if how != End::Cancel
         && text != held.model.value
         && let Some(action) = held.model.submit.action(&text)
