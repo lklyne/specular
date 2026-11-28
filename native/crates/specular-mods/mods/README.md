@@ -118,9 +118,9 @@ Then check it with no window: `specular mod check ~/path/to/mods/hello`.
   command. `gpui-kit.d.ts`, written into a mod's folder when it loads, has the
   element and style surface (`div`, `h_flex`, `Button`, `.bg(..)`, ...).
 - `../layouts/<name>.json`: one whole window each (see "The whole
-  window"). `default`, `classic` (every panel the app's own), `studio`,
-  `mods` (every panel a mod) and `chats` (two chat panes beside the
-  canvas) are shipped and written again on every start;
+  window"). `default`, `classic` (every panel the app's own), `studio`
+  and `mods` (every panel a mod) are shipped and written again on every
+  start;
   any other file is yours and never written. A save applies at once; a bad
   one keeps the last good layout and writes `<name>.error` beside it.
 - `../layouts/.state/`: what was hidden and shown at run time
@@ -349,7 +349,8 @@ Show what it would make with `run("tool.preview", { draws })` (canvas units;
 **Commands.** Each of `commands` is `<mod>/<name>`: listed in the command
 palette with its key, run by its key on the canvas, by
 `run("<mod>/<name>", args)` or `specular run <mod>/<name>`, and, with
-`"dock": true`, a button in the dock while the mod's tool is in hand or its
+`"chat": true`, a button in the agent panel's header for the open thread
+(see "Chat threads anywhere"); `"dock": true`, a button in the dock while the mod's tool is in hand or its
 items are selected (run with `{ids}`, the selected items). Running one
 publishes the `call` key, `{command, number, args}`: act once per `number`.
 `key` is modifiers and one character joined by `+` (`cmd`, `shift`, `alt`).
@@ -418,37 +419,35 @@ shared library beside the mods, `mods/lib/chat.js`, with a classic script
 
 ```html
 <script src="../lib/chat.js"></script>
-<specular-thread thread="thread_abc"></specular-thread>
-<specular-composer thread="thread_abc"></specular-composer>
+<specular-chat thread="thread_abc"></specular-chat>
 ```
 
-`<specular-thread thread empty>` draws a thread live from its key, with
-markdown, images, what the agent made, the run, the error and the queue,
-and fires `thread` with the thread's value each time it changes.
-`<specular-composer thread placeholder>` is the panel's composer in HTML:
-the field, pasted images, the pill and folder from `chat/context`, the
-model and Send. It fires a cancelable `send` with `{text, images, thread}`
-before it runs `chat.send`; a listener may change `thread`.
-`SpecularChat.ready(fn)`, `SpecularChat.followTheme()`,
-`SpecularChat.markdown(text)` and `SpecularChat.escape(text)` are there
-too, and the colours are CSS variables (`--sc-bg`, `--sc-ink`,
-`--sc-muted`, `--sc-rule`, `--sc-mine`, `--sc-code`, `--sc-accent`,
-`--sc-error`) a page may set. The app rewrites `mods/lib/` on every start.
+`<specular-chat thread closable>` is the agent panel's thread view whole,
+in the panel's look: the header (the title, which switches thread, then
+New, Archive, and Close with `closable`), the transcript and the composer.
+It changes its own `thread` as a person switches or starts one and fires
+`thread-change` with `{thread}`, so the page can keep it; Close fires
+`close`. Its parts stand alone too: `<specular-thread thread empty>` draws
+a thread live from its key (markdown, images, what the agent made, the
+run, the error) and fires `thread` with the thread's value each time it
+changes, and `<specular-composer thread placeholder>` is the panel's
+composer: queued words, pasted images, the field, the pill and folder from
+`chat/context`, the model and Send. It fires a cancelable `send` with
+`{text, images, thread}` before it runs `chat.send`; a listener may change
+`thread`. `SpecularChat.ready(fn)`, `.followTheme()` (the appearance and
+the layout's colours and font), `.markdown(text)`, `.escape(text)` and
+`.freshThreadId()` are there too. The colours are the panel's, as CSS
+variables named as `colors()` names them (`--sc-sidebar`, `--sc-text`,
+`--sc-textMuted`, `--sc-toolbar`, `--sc-input`, `--sc-inputBorder`, ...,
+in `mods/lib/chat.css`), which a page may set. The app rewrites
+`mods/lib/` on every start.
 
-**Panes.** The shipped `chat` mod with `props.pane` is a pane of its own:
-it keeps its thread in `shared("chat/pane/<pane>")`, lists threads from
-`chat/threads`, and sends to its thread with a `Composer`, so two blocks with two panes
-show two threads side by side. `props.thread` pins a pane to one
-thread. The shipped `chats` layout is the canvas with two panes:
-
-```json
-{ "id": "chats", "type": "row", "size": { "px": 760 }, "children": [
-  { "id": "chat.a", "type": "block", "content": { "mod": "chat", "props": { "pane": "a" } } },
-  { "id": "chat.b", "type": "block", "content": { "mod": "chat", "props": { "pane": "b" } } } ] }
-```
-
-A pane opens as a floating window too:
-`openOverlay("chat", { kind: "window", width: 380, height: 520, props: { pane: "float" } })`.
+**Buttons in the agent panel.** A mod command with `"chat": true` in
+`mod.json` is a button in the agent panel's header while a thread is open,
+the app's panel and the `chat` mod alike, run with `{thread}`: the open
+thread's id. `panels/chat` lists them as `actions: [{command, title,
+args}]`. The shipped `thread` mod's `place` is one ("Put this thread on
+the canvas").
 
 **Threads on the canvas.** The shipped `thread` mod makes each thread a
 canvas item: `thread/new` (the palette's "Add a chat thread block") starts
@@ -457,8 +456,7 @@ one for a thread (the panel's open one by default), and `thread/panel`
 (the dock button) opens a block's thread in the panel. A block is an
 `items.web` page (`thread/item.html`): it follows `canvas/mod_items` for
 its `props.thread`, `chat/thread/<id>` through the page bridge, and
-draws it with `<specular-thread>` and `<specular-composer>` from
-`mods/lib/chat.js` (enter the item to type; Return sends, Shift+Return is
+draws it with `<specular-chat>` from `mods/lib/chat.js` (enter the item to type; Return sends, Shift+Return is
 a new line). Until its first message it names a thread nobody has, which
 that message starts, and keeps it in its props. Its display list is the title and the last few messages, the
 snapshot a saved canvas keeps. Copy it (`specular mod clone thread`) to
@@ -535,7 +533,7 @@ Elements a mod places but cannot draw itself, imported from `specular`:
 | `sidebar` | the canvases, notes and pages | `panels/sidebar` | `mods`, `studio` |
 | `dock` | the selection's or the tool's controls, and the lens | `panels/dock`, `panels/tool_options`, `panels/toolbar` | `mods`, `studio` |
 | `palette` | the command palette, in an overlay | `panels/palette` | `mods`, `studio` |
-| `chat` | the agent threads, transcript and composer; with `props.pane`, one thread of its own | `panels/chat`, or `chat/threads` and `chat/thread/<id>` | `mods`, `studio`; panes in `chats` |
+| `chat` | the agent threads, transcript and composer | `panels/chat` | `mods`, `studio` |
 | `status` | a status line: canvas, counts, selection, layout | `canvas/info`, `selection`, `layouts` | `studio` |
 | `confirm`, `prompt` | dialogs a mod or agent opens with `openOverlay` | `props()` | opened when asked |
 | `star` | a star among the shape tool's shapes | `tool`, `canvas/mod_items`, `call` | always (a canvas mod) |

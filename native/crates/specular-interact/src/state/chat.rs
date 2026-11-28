@@ -70,8 +70,12 @@ pub(super) fn panel_json(app: &App) -> Value {
         transcript,
         composer,
         back,
+        actions,
         ..
     } = chat(app);
+    let actions: Vec<Value> = (actions.iter())
+        .map(|button| json!({ "command": button.command, "title": button.title, "args": button.args }))
+        .collect();
     let threads: Vec<Value> = (threads.iter())
         .map(|thread| {
             json!({
@@ -90,6 +94,7 @@ pub(super) fn panel_json(app: &App) -> Value {
         "width": width,
         "title": title,
         "canGoBack": back.is_some(),
+        "actions": actions,
         "threads": threads,
         "transcript": transcript.as_ref().map(transcript_json),
         "composer": {

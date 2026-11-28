@@ -28,10 +28,28 @@ pub struct ChatModel {
     pub back: Option<Action>,
     /// Archives the open thread.
     pub close: Option<Action>,
+    /// The buttons mods add to the header for the open thread.
+    pub actions: Vec<HeaderAction>,
     /// The open thread's conversation. `None` shows the list instead.
     pub transcript: Option<Transcript>,
     /// The field and what hangs above it.
     pub composer: Composer,
+}
+
+/// A button a mod adds to the panel's header (`"chat": true` on a command
+/// in its `mod.json`), for the open thread.
+#[derive(Debug, Clone, PartialEq)]
+pub struct HeaderAction {
+    /// `<mod>/<command>`.
+    pub command: String,
+    /// What its tooltip says.
+    pub title: String,
+    /// Its glyph.
+    pub icon: Icon,
+    /// What the command is run with: `{thread}`.
+    pub args: serde_json::Value,
+    /// Runs it.
+    pub action: Action,
 }
 
 /// One thread in the list.

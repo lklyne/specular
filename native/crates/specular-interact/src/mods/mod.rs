@@ -32,7 +32,9 @@ pub use self::action::ModAction;
 pub(crate) use self::action::run;
 pub use self::catalog::{InstalledMod, ModCatalog};
 pub use self::commands::running;
-pub(crate) use self::commands::{bound_to, call_action, call_json, running_mods, word};
+pub(crate) use self::commands::{
+    bound_to, call_action, call_json, chat_buttons, running_mods, word,
+};
 pub(crate) use self::install::{decline, install_missing, install_notice, missing};
 pub use self::live::NewModItem;
 pub(crate) use self::live::{ModState, add_item, on_catalog, on_draw, set_props, turn};

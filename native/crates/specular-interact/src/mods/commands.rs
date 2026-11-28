@@ -62,6 +62,31 @@ pub(crate) fn call_action(app: &App, word: &str, args: &Value) -> Option<Action>
     })
 }
 
+/// The agent panel header's buttons for the open thread `thread`: each
+/// running mod command with `"chat": true`, run with `{thread}`.
+pub(crate) fn chat_buttons(app: &App, thread: &str) -> Vec<crate::chat::HeaderAction> {
+    let args = json!({ "thread": thread });
+    let mut buttons = Vec::new();
+    for installed in running_mods(app) {
+        for spec in installed.manifest.commands.iter().filter(|spec| spec.chat) {
+            let command = word(installed, spec);
+            if let Some(action) = call_action(app, &command, &args) {
+                buttons.push(crate::chat::HeaderAction {
+                    icon: crate::panel::Icon::named_or(
+                        spec.icon.as_deref(),
+                        crate::panel::Icon::Code,
+                    ),
+                    title: spec.title.clone(),
+                    args: args.clone(),
+                    command,
+                    action,
+                });
+            }
+        }
+    }
+    buttons
+}
+
 /// Publishes a call of `command` for its mod to act on.
 pub(crate) fn call(app: &mut App, command: String, args: Value) {
     let number = app.mods.call.as_ref().map_or(1, |last| last.number + 1);

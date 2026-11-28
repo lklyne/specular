@@ -78,10 +78,16 @@ pub const MODS: &[Shipped] = &[
 pub const LIBRARY_FOLDER: &str = "lib";
 
 /// The shared files of [`LIBRARY_FOLDER`].
-pub const LIBRARY: &[File] = &[File {
-    name: "chat.js",
-    text: include_str!("../mods/lib/chat.js"),
-}];
+pub const LIBRARY: &[File] = &[
+    File {
+        name: "chat.js",
+        text: include_str!("../mods/lib/chat.js"),
+    },
+    File {
+        name: "chat.css",
+        text: include_str!("../mods/lib/chat.css"),
+    },
+];
 
 /// The `specular` module's declarations, `mods/specular.d.ts`.
 pub const DECLARATIONS: &str = include_str!("../specular.d.ts");

@@ -96,9 +96,10 @@ the app rewrites them on start. `<app home>` is
   panel mod places the `Composer` host component (`Composer.new(id, {id,
   thread})`, the panel's own: pill, folder, model, pasted images, Send),
   and a web page loads `../lib/chat.js` for `<specular-thread thread>` and
-  `<specular-composer thread>`. Several chats side by side are several
-  `chat` blocks with `props.pane` (the shipped `chats` layout); a thread
-  on the canvas is the shipped `thread` mod (`specular run thread/new`),
+  `<specular-composer thread>`, or `<specular-chat thread>` for the whole
+  panel thread. A button in the agent panel's header for the open thread
+  is a mod command with `"chat": true`. A thread on the canvas is the
+  shipped `thread` mod (`specular run thread/new`),
   a web item to clone for your own look. The guide's "Chat threads
   anywhere" has the shapes.
 - **Reuse before you rebuild.** If a mod needs something the app already

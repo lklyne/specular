@@ -273,7 +273,7 @@ logs the port it took and the `SPECULAR_DISCOVERY_FILE=` to pass the CLI.
   key. Layouts are `<app home>/layouts/<name>.json` (ADR 0059): trees of
   rows, columns, stacks and blocks with the look at the root, solved by
   `specular_interact::chrome::solve`. The shipped ones (`default`, `mods`,
-  `classic`, `studio`, `chats`) are rewritten on every start; any other file is the
+  `classic`, `studio`) are rewritten on every start; any other file is the
   person's, and `layout.switch` moves between them. `<app home>/keys.json`
   rebinds keys (`bindings/keymap.rs`, read in `app/keys_run.rs`, a mistake
   in `keys.error`). The files are watched by
@@ -361,9 +361,10 @@ A mod (ADR 0055) is a folder of `mod.json` and `main.js`, run by
   key for each thread of the active canvas
   (`specular-interact/src/state/chat.rs`), published beside the fixed
   keys (`is_state_key` names both); `chat.new-thread {id, open}`,
-  `chat.send {thread, images}` (starting a thread not made yet) and `chat.stop {thread}`. The panel's composer is the `Composer` host component (`kit/mods/composer.rs`, on `view/chat/composer_box.rs`), and web pages load `mods/lib/chat.js` (`<specular-thread>`, `<specular-composer>`). The `chat` mod's
-  `props.pane` is a pane with a thread of its own (the `chats` layout), and
-  the `thread` mod makes a thread a web canvas item.
+  `chat.send {thread, images}` (starting a thread not made yet) and `chat.stop {thread}`. The panel's composer is the `Composer` host component (`kit/mods/composer.rs`, on `view/chat/composer_box.rs`), and web pages load `mods/lib/chat.js` (`<specular-chat>`, `<specular-thread>`, `<specular-composer>`). A mod command with
+  `"chat": true` is a button in the agent panel's header (`HeaderAction`,
+  `mods::chat_buttons`), and the `thread` mod makes a thread a web canvas
+  item.
 - **Checking and measuring.** `specular mod check <dir> [--state
   fixture.json]` (the `specular-mod-check` crate) renders a mod headless.
   `specular mod stats` is `GET /mods`. `specular mod clone <name>

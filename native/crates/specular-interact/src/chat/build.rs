@@ -46,6 +46,9 @@ pub fn chat(app: &App) -> ChatModel {
         }),
         back: active.map(|_| act(ChatAction::Back)),
         close: active.map(|thread| act(ChatAction::CloseThread(Some(thread.id.clone())))),
+        actions: active.map_or_else(Vec::new, |thread| {
+            crate::mods::chat_buttons(app, thread.id.as_str())
+        }),
         transcript: active.map(|thread| transcript(app, thread)),
         composer: composer(app, active),
     }

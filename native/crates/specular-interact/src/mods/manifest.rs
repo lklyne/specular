@@ -181,6 +181,10 @@ pub struct ModCommand {
     /// Whether the dock shows it as a button.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub dock: bool,
+    /// Whether the agent panel's header shows it as a button while a thread
+    /// is open, run with `{thread}` (API 1.3).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub chat: bool,
 }
 
 /// A mod's `mod.json`.
