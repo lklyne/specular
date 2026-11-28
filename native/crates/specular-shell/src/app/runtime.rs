@@ -318,6 +318,8 @@ impl<W: ShellWindow> Runtime<W> {
         self.load_settings();
         self.load_theme();
         self.load_layout();
+        #[cfg(target_os = "macos")]
+        self.install_shipped_mods();
         self.rescan_mods();
         self.load_models();
         self.load_repos();

@@ -2,7 +2,8 @@
 //! drawn in its region in place of the app's own panel.
 //!
 //! [`Mods`] is held by the root view, which brings it in step as it draws:
-//! the mods folder is written with the shipped mods on the first draw, a
+//! the mods folder (which the runtime wrote the shipped mods into as it
+//! opened) is taken on the first draw, a
 //! region whose layout node names a mod loads it (and its `props` are
 //! published as `mods/<name>/props`), and a mod renders again only when a
 //! key it read moved since the last draw. The keyed state is the canvas's
@@ -27,7 +28,7 @@ use gpui_kit::{
 };
 use serde_json::Value;
 use specular_interact::{Layout, Overlay};
-use specular_mods::{Hosting, ModCopy, ModSet, Placed, shipped};
+use specular_mods::{Hosting, ModCopy, ModSet, Placed};
 
 use crate::{canvas, theme};
 
@@ -49,24 +50,16 @@ pub(crate) struct Mods {
     open: Vec<String>,
 }
 
-/// `<app home>/mods`, written with the shipped mods, or `None` when the
-/// window keeps no settings (a scripted run) or the folder cannot be
-/// written.
+/// The mods folder, which the runtime wrote the shipped mods into as it
+/// opened, or `None` when the window keeps no settings (a scripted run) or
+/// the folder could not be written.
 fn folder() -> Option<PathBuf> {
-    let home = canvas::with(|canvas| canvas.runtime.app_home().map(std::path::Path::to_path_buf))??;
-    let folder = home.join("mods");
-    match shipped::install(&folder) {
-        Ok(kept) => {
-            for name in kept {
-                tracing::info!("mod `{name}` is a clone and was left as it is");
-            }
-            Some(folder)
-        }
-        Err(error) => {
-            tracing::warn!(folder = %folder.display(), "the shipped mods were not written: {error}");
-            None
-        }
-    }
+    canvas::with(|canvas| {
+        canvas
+            .runtime
+            .mods_folder()
+            .map(std::path::Path::to_path_buf)
+    })?
 }
 
 /// Asks `window` to draw again each time the source of a mod in `folder`
@@ -108,11 +101,6 @@ impl Mods {
                         reads: std::rc::Rc::default(),
                     };
                     self.set = Some(ModSet::new(folder, hosting));
-                    // The shipped mods were just written: list them for
-                    // the app. Not from inside the draw.
-                    window.defer(cx, |_, _| {
-                        canvas::with(|canvas| canvas.runtime.rescan_mods());
-                    });
                 }
                 (None, Some(_)) => self.off = true,
                 (_, None) => return,

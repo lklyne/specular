@@ -54,7 +54,9 @@ pub(crate) fn mark(dir: &Path, files: &[File]) -> io::Result<()> {
 }
 
 /// Removes from `mods` the folders of mods no longer shipped that hold just
-/// what the app wrote, and their error files. Returns their names.
+/// what the app wrote, and every error file whose mod folder is gone.
+/// Returns the names of the folders removed. One that cannot be removed is
+/// logged and left.
 pub(crate) fn sweep(mods: &Path) -> io::Result<Vec<String>> {
     let mut removed = Vec::new();
     for entry in std::fs::read_dir(mods)?.flatten() {
@@ -67,10 +69,20 @@ pub(crate) fn sweep(mods: &Path) -> io::Result<Vec<String>> {
             && !MODS.iter().any(|shipped| shipped.name == name)
             && !is_clone(&dir)
             && untouched(&dir, &name);
-        if ours {
-            std::fs::remove_dir_all(&dir)?;
-            let _ = std::fs::remove_file(crate::shipped::error_file(&dir));
-            removed.push(name);
+        if !ours {
+            continue;
+        }
+        match std::fs::remove_dir_all(&dir) {
+            Ok(()) => removed.push(name),
+            Err(error) => tracing::warn!("mod `{name}` is no longer shipped: {error}"),
+        }
+    }
+    for entry in std::fs::read_dir(mods)?.flatten() {
+        let path = entry.path();
+        let stray =
+            path.extension().is_some_and(|ext| ext == "error") && !path.with_extension("").is_dir();
+        if stray {
+            let _ = std::fs::remove_file(&path);
         }
     }
     Ok(removed)

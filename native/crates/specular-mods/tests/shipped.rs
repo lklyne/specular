@@ -81,10 +81,16 @@ fn a_start_removes_a_mod_no_longer_shipped_unless_someone_changed_it() {
     std::fs::write(added.join("notes.md"), "mine").expect("add");
     let unmarked = copy("unmarked");
     std::fs::remove_file(unmarked.join(".shipped")).expect("unmark");
+    std::fs::write(mods.join("gone.error"), "no mod.json").expect("stray error");
+    std::fs::write(mods.join("unmarked.error"), "failed").expect("kept error");
 
     shipped::install(&mods).expect("second start");
     assert!(!retired.exists() && !mods.join("retired.error").exists());
     assert!(edited.is_dir() && added.is_dir() && unmarked.is_dir());
+    assert!(
+        !mods.join("gone.error").exists() && mods.join("unmarked.error").exists(),
+        "an error file goes with its folder, and only then"
+    );
     assert!(mods.join("star/main.js").is_file(), "a shipped mod stays");
     let _ = std::fs::remove_dir_all(&mods);
 }

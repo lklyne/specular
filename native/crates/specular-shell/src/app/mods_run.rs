@@ -89,6 +89,28 @@ impl<W: ShellWindow> Runtime<W> {
         self.rescan_mods();
     }
 
+    /// Writes the shipped mods into the mods folder, and takes away the
+    /// ones no longer shipped, before anything lists or loads it. A folder
+    /// that cannot be written leaves the run without mods. Only the window
+    /// runs mods, and it builds on macOS alone.
+    #[cfg(target_os = "macos")]
+    pub(super) fn install_shipped_mods(&mut self) {
+        let Some(folder) = self.mods_folder.as_deref() else {
+            return;
+        };
+        match specular_mods::shipped::install(folder) {
+            Ok(kept) => {
+                for name in kept {
+                    tracing::info!("mod `{name}` is a clone and was left as it is");
+                }
+            }
+            Err(error) => {
+                tracing::warn!(folder = %folder.display(), "the shipped mods were not written: {error}");
+                self.mods_folder = None;
+            }
+        }
+    }
+
     /// Tells the app what is installed now.
     pub fn rescan_mods(&mut self) {
         let catalog = self
