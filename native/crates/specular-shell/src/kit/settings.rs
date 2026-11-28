@@ -8,9 +8,12 @@ use gpui_kit::component::button::Button;
 use gpui_kit::component::setting::{
     SettingField, SettingGroup, SettingItem, SettingPage, Settings,
 };
-use gpui_kit::component::{Icon, IconName, Sizable as _, WindowExt as _, h_flex, v_flex};
+use gpui_kit::component::{
+    ActiveTheme as _, Icon, IconName, Sizable as _, WindowExt as _, h_flex, v_flex,
+};
 use gpui_kit::{
-    App, FontWeight, IntoElement, ParentElement as _, SharedString, Styled as _, Window, div, px,
+    App, FontWeight, IntoElement, ParentElement as _, SharedString, StyleRefinement, Styled as _,
+    Window, div, px,
 };
 use specular_interact::mods::ModRow;
 use specular_interact::{
@@ -246,24 +249,53 @@ fn model() -> Option<SettingsModel> {
     canvas::with(|canvas| settings(canvas.runtime.app()))
 }
 
-/// Opens the dialog over the window.
+/// The title row's height. The dialog's close button sits 8 points in from
+/// its corner, which centres it in a row this tall.
+const TITLE_HEIGHT: f32 = 40.0;
+/// The title's inset, matching the sidebar's own, so the title, the search
+/// field and the pages' names share one left edge.
+const TITLE_INSET: f32 = 12.0;
+
+/// Opens the dialog over the window: the title, a rule the dialog's width
+/// under it, then the sidebar and the page, edge to edge.
 pub(crate) fn open(window: &mut Window, cx: &mut App) {
     let fields = AddFields::default();
-    window.open_dialog(cx, move |dialog, _, _| {
-        let dialog = dialog.title("Settings").w(px(DIALOG_WIDTH));
+    window.open_dialog(cx, move |dialog, _, cx| {
+        let dialog = dialog.w(px(DIALOG_WIDTH)).p_0();
         let Some(model) = model() else {
-            return dialog;
+            return dialog.child(title());
         };
+        // The rule is under the title, so a page's name needs none of its
+        // own.
+        let page_header = StyleRefinement::default().border_b_0();
+        let pages = [
+            general(&model.general),
+            settings_repos::page(&fields),
+            mods(&model.mods),
+            shortcuts(&model.shortcuts),
+            about(&model.about),
+        ]
+        .map(|page| page.header_style(&page_header));
         dialog.child(
-            div().h(px(440.0)).child(
-                Settings::new("settings")
-                    .sidebar_width(px(SIDEBAR_WIDTH))
-                    .page(general(&model.general))
-                    .page(settings_repos::page(&fields))
-                    .page(mods(&model.mods))
-                    .page(shortcuts(&model.shortcuts))
-                    .page(about(&model.about)),
-            ),
+            v_flex()
+                .child(title())
+                .child(div().h(px(1.0)).w_full().bg(cx.theme().border))
+                .child(
+                    div().h(px(440.0)).child(
+                        Settings::new("settings")
+                            .sidebar_width(px(SIDEBAR_WIDTH))
+                            .pages(pages),
+                    ),
+                ),
         )
     });
+}
+
+fn title() -> impl IntoElement {
+    h_flex()
+        .h(px(TITLE_HEIGHT))
+        .px(px(TITLE_INSET))
+        .items_center()
+        .font_weight(FontWeight::SEMIBOLD)
+        .child("Settings")
 }
