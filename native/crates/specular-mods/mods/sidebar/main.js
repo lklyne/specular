@@ -8,12 +8,15 @@
 // `detailsShown`. A footer has a +
 // that opens a folder or a repo as a project. A click presses a row by its id, as the app's own sidebar does;
 // a double click on a canvas asks for its new name in the `prompt` dialog.
+// A right press on a canvas opens its menu at the pointer (`menu.open`),
+// whose Rename types the name in place; on a project's head it opens the
+// project's card (the `project` mod) beside the sidebar.
 //
 // A layout hides a section or a row by listing its id in this mod's props:
 //   { "mod": "sidebar", "props": { "hidden": ["sidebar.open"] } }
 import { View, div } from "gpui-kit";
 import { h_flex, v_flex, Button } from "gpui-base";
-import { state, props, run, colors, openOverlay, Icon, SidebarSections, WindowDrag } from "specular";
+import { state, props, run, colors, openOverlay, Field, Icon, SidebarSections, WindowDrag } from "specular";
 
 // The sizes are the app's own sidebar's (`kit/view/sidebar.rs`).
 const ROW = 28;
@@ -30,6 +33,20 @@ const TITLE = 38;
 const TRAFFIC_LIGHTS = 86;
 
 const press = (id) => run("control.press", { id });
+
+// Opens the app's menu for a canvas where the pointer is.
+const canvasMenu = (row) => (event) =>
+  run("menu.open", { target: "canvas", id: row.canvas, at: [event.position.x, event.position.y] });
+
+// Opens a project's card beside its head, past the sidebar's right edge.
+const CARD_GAP = 8;
+const projectCard = (section) => (event) => {
+  const head = event.bounds;
+  const at = head
+    ? [head.x + head.width + CARD_GAP, head.y]
+    : [event.position.x + CARD_GAP, event.position.y];
+  openOverlay("project", { kind: "popup", at, width: 300, props: { project: section.project } });
+};
 
 function rename(row) {
   openOverlay("prompt", {
@@ -56,10 +73,21 @@ function canvasRow(row, k) {
     .items_center()
     .gap(8)
     .hover((el) => el.bg(k.interactiveHover))
-    .on_click((event) => (event.click_count >= 2 ? rename(row) : press(row.id)))
+    .on_click((event) => {
+      if (row.renaming) return;
+      if (event.click_count >= 2) rename(row);
+      else press(row.id);
+    })
+    .on_mouse_down("right", canvasMenu(row))
     .child(Icon.new(`${row.id}.glyph`, { name: "file", size: ICON, color: k.textMuted }))
-    .child(div().flex_1().min_w(0).truncate().child(row.label))
-    .when(row.active, (el) => el.child(Icon.new(`${row.id}.check`, { name: "check", size: ICON, color: k.text })));
+    .child(
+      row.renaming
+        ? div().flex_1().min_w(0).child(Field.new(row.rename, { control: row.rename }))
+        : div().flex_1().min_w(0).truncate().child(row.label),
+    )
+    .when(row.active && !row.renaming, (el) =>
+      el.child(Icon.new(`${row.id}.check`, { name: "check", size: ICON, color: k.text })),
+    );
 }
 
 function bindSite(section) {
@@ -158,6 +186,7 @@ function projectHead(section, k) {
     .gap(4)
     .text_color(section.active ? k.text : k.textMuted)
     .on_click(() => press(section.id))
+    .on_mouse_down("right", projectCard(section))
     .child(div().flex_1().min_w(0).truncate().child(title))
     .child(
       h_flex()

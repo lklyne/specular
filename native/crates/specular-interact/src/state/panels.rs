@@ -31,7 +31,13 @@ fn section(kind: &str, head: &SectionHead, rows: &[SidebarRow]) -> Value {
     out
 }
 
-fn canvas_rows(canvases: &[CanvasRow]) -> Value {
+/// The name of the field being typed in, if one is.
+fn typing(app: &App) -> Option<String> {
+    (app.text_edit().filter(|edit| edit.is_field())).map(|edit| edit.entity().as_str().to_owned())
+}
+
+fn canvas_rows(app: &App, canvases: &[CanvasRow]) -> Value {
+    let typing = typing(app);
     (canvases.iter())
         .map(|canvas| {
             json!({
@@ -42,6 +48,7 @@ fn canvas_rows(canvases: &[CanvasRow]) -> Value {
                 "active": canvas.active,
                 "count": canvas.entity_count,
                 "rename": canvas.rename.id,
+                "renaming": typing.as_deref() == Some(canvas.rename.id.as_str()),
             })
         })
         .collect()
@@ -49,7 +56,7 @@ fn canvas_rows(canvases: &[CanvasRow]) -> Value {
 
 /// A project as a section of the sidebar (ADR 0062): its head is the
 /// section's, its canvases its rows, and its details' controls by id.
-fn project(section: &ProjectSection) -> Value {
+fn project(app: &App, section: &ProjectSection) -> Value {
     let head = &section.control;
     let git = match section.git {
         None => Value::Null,
@@ -88,7 +95,7 @@ fn project(section: &ProjectSection) -> Value {
         "close": section.close.as_ref().map(|_| head.child("close")),
         "git": git,
         "origins": origins,
-        "rows": if section.folded { json!([]) } else { canvas_rows(&section.canvases) },
+        "rows": if section.folded { json!([]) } else { canvas_rows(app, &section.canvases) },
     })
 }
 
@@ -110,10 +117,10 @@ pub(super) fn sidebar_json(app: &App) -> Value {
     } = sidebar(app);
     let mut sections: Vec<Value> = if projects.is_empty() {
         let mut canvas_section = head(&canvases_head);
-        canvas_section["rows"] = canvas_rows(&canvases);
+        canvas_section["rows"] = canvas_rows(app, &canvases);
         vec![canvas_section]
     } else {
-        projects.iter().map(project).collect()
+        projects.iter().map(|each| project(app, each)).collect()
     };
     sections.push(section("notes", &notes_head, &notes));
     sections.push(section("pages", &pages_head, &pages));

@@ -327,6 +327,7 @@ pub(crate) fn has_target(app: &App, action: &Action) -> bool {
         | Action::PressControl(_)
         | Action::Layout(_)
         | Action::Overlay(_)
+        | Action::OpenMenu(_)
         | Action::DismissNotice(_)
         | Action::Mod(_)
         | Action::Paste

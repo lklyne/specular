@@ -83,12 +83,12 @@ fn app_without_a_project() -> TestApp {
 ///
 /// GAP: `sidebar.add` (the model's `add`, a new canvas beside the Canvases
 /// head) is not drawn by the mod, so canvases in no folder have no new
-/// canvas button. A canvas row's context menu (`sidebar.canvas.<n>.menu`,
-/// Rename and Delete) is not there either: a double click renames through
-/// the prompt, and nothing deletes. A project's details button
+/// canvas button. A project's details button
 /// (`sidebar.project.<n>.details`, in the key and among the named
 /// controls) is not drawn, as the native sidebar does not draw it either:
-/// the details show only once something else toggles them.
+/// the details show only once something else toggles them; what they hold
+/// is in the project's card (the `project` mod), which a right press on
+/// its head opens.
 fn listed_ids(sidebar: &Value) -> Vec<String> {
     let text = |value: &Value| value.as_str().map(str::to_owned);
     let mut ids: Vec<String> = Vec::new();
@@ -216,6 +216,94 @@ fn a_click_on_a_row_or_a_button_presses_it_through_the_host(cx: &mut TestAppCont
         let wanted = format!(r#"control.press {{"id":"{id}"}}"#);
         let runs = loaded.click_until(grid((256, 600), 4), &wanted);
         assert!(runs.contains(&wanted), "{id}: {runs:?}");
+    }
+}
+
+#[gpui::test]
+fn a_right_press_opens_a_canvas_menu_or_a_project_card_through_the_host(cx: &mut TestAppContext) {
+    let mut app = app_with_projects();
+    let sidebar = state(app.app())["panels/sidebar"].clone();
+    let project = sidebar["sections"][0]["project"]
+        .as_str()
+        .unwrap_or_default();
+    let rows: [(&str, Vec<String>); 3] = [
+        (
+            "canvas c2",
+            vec![
+                "menu.open {".into(),
+                r#""target":"canvas""#.into(),
+                r#""id":"c2""#.into(),
+            ],
+        ),
+        (
+            "canvas c3",
+            vec!["menu.open {".into(), r#""id":"c3""#.into()],
+        ),
+        (
+            "project",
+            vec![
+                "overlay.open {".into(),
+                r#""mod":"project""#.into(),
+                r#""kind":"popup""#.into(),
+                format!(r#""project":"{project}""#),
+            ],
+        ),
+    ];
+    for (name, parts) in rows {
+        let mut loaded = Loaded::new(&app, "sidebar", json!({}), SIZE, cx);
+        let wanted = |run: &str| {
+            parts.iter().all(|part| run.contains(part.as_str())) && run.contains(r#""at":["#)
+        };
+        let runs = loaded.right_press_until_run(grid((256, 600), 4), wanted);
+        assert!(runs.iter().any(|run| wanted(run)), "{name}: {runs:?}");
+    }
+
+    // While a canvas's name is typed, its row holds the app's name field.
+    app.act(Action::Canvas(
+        specular_interact::CanvasAction::BeginRename(Some(CanvasId::new("c2"))),
+    ));
+    let tree = Loaded::new(&app, "sidebar", json!({}), SIZE, cx).tree();
+    assert!(tree.contains("sidebar.canvas.2.name"), "{tree}");
+}
+
+/// The project card holds what the project's details hold, and a press on
+/// one of its buttons reaches the host.
+#[gpui::test]
+fn the_project_card_shows_the_details_and_presses_them(cx: &mut TestAppContext) {
+    let app = app_with_projects();
+    let sidebar = state(app.app())["panels/sidebar"].clone();
+    let project = sidebar["sections"][0]["project"]
+        .as_str()
+        .unwrap_or_default();
+    let props = json!({ "project": project, "overlay": "project" });
+    let card = (300, 260);
+    let size = (card.0 as f32, card.1 as f32);
+    let tree = Loaded::new(&app, "project", props.clone(), size, cx).tree();
+    for id in [
+        "sidebar.project.1.reveal",
+        "sidebar.project.1.close",
+        "sidebar.project.1.git.commit",
+        "sidebar.project.1.git.ignore",
+        "sidebar.project.1.origin.1.auto",
+        "sidebar.project.1.origin.1.remove",
+        "sidebar.project.1.bind",
+    ] {
+        assert!(shows(&tree, id), "`{id}`:\n{tree}");
+    }
+    assert!(tree.contains("site"), "the project's name: {tree}");
+    for (id, wanted) in [
+        (
+            "reveal",
+            r#"control.press {"id":"sidebar.project.1.reveal"}"#.to_owned(),
+        ),
+        ("bind", r#""command":"project.bind""#.to_owned()),
+    ] {
+        let mut loaded = Loaded::new(&app, "project", props.clone(), size, cx);
+        let runs = loaded.click_until_run(grid(card, 4), |run| run.contains(wanted.as_str()));
+        assert!(
+            runs.iter().any(|run| run.contains(wanted.as_str())),
+            "{id}: {runs:?}"
+        );
     }
 }
 

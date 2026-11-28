@@ -187,6 +187,7 @@ app's log. The commands:
 - **ui**: `ui.toggle` `{id: tabs|toolbar|dock|sidebar|chat|menu|share|toast|palette|welcome|<control id>}`, `ui.show` `{id: tabs|toolbar|dock|sidebar|chat|menu|share|toast|palette|welcome|<control id>}`, `ui.hide` `{id: tabs|toolbar|dock|sidebar|chat|menu|share|toast|palette|welcome|<control id>}`, `ui.reset`
 - **layout**: `layout.switch` `{name?: layout name}` (the next one without a name)
 - **overlay**: `overlay.open` `{mod: name, id?, props?, kind?: dialog|popup|drawer|window, width?, height?, at?: [x, y], edge?: left|right|top|bottom, frame?: none}`, `overlay.close` `{id?: overlay id}`
+- **menu** (1.9): `menu.open` `{target: canvas, id: canvas id, at: [x, y]}` (window points): open a sidebar canvas's context menu, which `panels/menu` then holds
 - **chat**: `chat.toggle`, `chat.new-thread` `{id?: thread id, open?: bool}`, `chat.select` `{id: thread id}`, `chat.back`, `chat.close` `{id?: thread id}`, `chat.send` `{text: message, images?: [{type, data}], thread?: thread id}`, `chat.stop` `{thread?: thread id}`, `chat.model` `{name: model name}`
 - **notice**: `notice.dismiss` `{id: notice id}`
 - **mods**: `mods.install`
@@ -312,7 +313,7 @@ typed is `shared("field/<id>")`, and each Return moves
 `shared("field/<id>/submit")` on. A field is made once for its id and
 `autofocus` takes the keys when it is made, so a field that should start
 empty and focused each time (a palette's) takes a new id in `init()`. With `{ control }` it is a model field of
-the dock (an address, a size). `radius`, `background`, `border` and
+the dock (an address, a size) or a sidebar canvas's name (its `rename`). `radius`, `background`, `border` and
 `focusRing` restyle its box to match the layout; a styled field shows its
 focus by turning its own edge `focusRing`, with no rounded ring outside it.
 A layout's `colors` can rename `focusRing` for every field and control.
@@ -553,6 +554,13 @@ their comments to the agent working in its folder.
   its head folds it, and `add`, `details`, `reveal`, `close`, `git.commit`,
   `git.ignore` and each origin's `auto` and `remove` are control ids to
   press. `open` asks for a folder to open as another project.
+- A right press on a canvas row opens its menu with `menu.open` (1.9),
+  at the pointer's `position`: Rename and Delete, named
+  `sidebar.canvas.<n>.menu.rename` and `.delete`. A right press on a
+  project's head opens the `project` mod as a popup beside it, a card of
+  the project's details.
+- A canvas row's `renaming` (1.9) is true while its name is being typed:
+  draw `Field.new(id, { control: row.rename })` in place of its label.
 - `project.*` acts on them by id, and `canvas.new {project}` makes a canvas
   in one.
 
@@ -661,6 +669,7 @@ Elements a mod places but cannot draw itself, imported from `specular`:
 | `chat` | the agent threads, transcript and composer | `panels/chat` | yes, and `studio` |
 | `status` | a status line: canvas, counts, selection, layout | `canvas/info`, `selection`, `layouts` | `studio` |
 | `confirm`, `prompt` | dialogs a mod or agent opens with `openOverlay` | `props()` | opened when asked |
+| `project` | a project's details as a card: folder, git choice, bound sites | `panels/sidebar`, `props()` | opened by the sidebar's right press |
 | `star` | a star among the shape tool's shapes | `tool`, `canvas/mod_items`, `call` | always (a canvas mod) |
 | `thread` | a chat thread as a canvas item, live, with a composer | `canvas/mod_items`, `chat/thread/<id>`, `call` | always (a canvas mod) |
 | `feed` | image-feed canvas items, a palette entry and a Shuffle command | `canvas/mod_items`, `call` | always (a canvas mod) |

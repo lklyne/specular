@@ -197,6 +197,7 @@ fn set_tool_variant(app: &mut App, patch: ToolDefaultPatch, effects: &mut Vec<Ef
     }
 }
 
+#[expect(clippy::too_many_lines, reason = "one arm per action")]
 pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect>) {
     match action {
         // Escape puts a field's old value back before it does anything else,
@@ -300,6 +301,7 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         Action::PressControl(id) => activate_control(app, &id, Modifiers::default(), effects),
         Action::Layout(action) => crate::chrome::run_layout_action(app, action, effects),
         Action::Overlay(action) => crate::overlays::run(app, action),
+        Action::OpenMenu(menu) => crate::panel::open_menu_for(app, menu),
         Action::DismissNotice(id) => dismiss_notice(app, &id),
         Action::Mod(action) => crate::mods::run(app, *action, effects),
     }

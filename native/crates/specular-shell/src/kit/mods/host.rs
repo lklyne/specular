@@ -143,10 +143,16 @@ pub(super) fn components(revisions: Rc<RefCell<Revisions>>) -> Components {
                 return super::text_field::field(args.props(), style, &revisions, window, cx);
             };
             let model = canvas::models().and_then(|models| {
-                [models.dock.as_ref(), models.tool_options.as_ref()]
-                    .into_iter()
-                    .flatten()
+                let controls = [models.dock.as_ref(), models.tool_options.as_ref()];
+                (controls.into_iter().flatten())
                     .find_map(|controls| controls.field(id).cloned())
+                    .or_else(|| {
+                        // A canvas's name field, while its row is renamed.
+                        (models.sidebar.canvases.iter())
+                            .map(|row| &row.rename)
+                            .find(|field| field.id.as_str() == id)
+                            .cloned()
+                    })
             });
             match model {
                 Some(model) => crate::view::model_field(&model, style, window, cx),

@@ -87,6 +87,12 @@ pub(crate) fn open_for_press(app: &mut App, screen: Vec2, hit: &Hit) -> bool {
     true
 }
 
+/// Opens `menu`, closing any list open, unless its target is not there.
+pub(crate) fn open_target(app: &mut App, menu: ContextMenu) {
+    app.session.panel.open = None;
+    app.session.panel.menu = context_menu(app, &menu.target).map(|_| menu);
+}
+
 /// An item with the name its control has.
 type Entry = (ControlId, MenuItem);
 

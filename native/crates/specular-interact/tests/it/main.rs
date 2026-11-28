@@ -7,6 +7,7 @@ mod bridge;
 mod clipboard;
 mod commands;
 mod comment_rules;
+mod context_menu;
 mod flick;
 mod guides;
 mod images;

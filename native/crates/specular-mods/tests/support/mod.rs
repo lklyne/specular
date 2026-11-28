@@ -12,8 +12,8 @@ use std::time::{Duration, Instant};
 
 use glam::Vec2;
 use gpui::{
-    AnyView, Modifiers, ParentElement as _, Pixels, Point, Styled as _, TestAppContext,
-    VisualTestContext, div, point, px,
+    AnyView, Modifiers, MouseButton, ParentElement as _, Pixels, Point, Styled as _,
+    TestAppContext, VisualTestContext, div, point, px,
 };
 use serde_json::{Value, json};
 use specular_interact::{Event, WheelInput, publish_state, state};
@@ -204,6 +204,28 @@ impl Loaded {
     ) -> Vec<String> {
         for at in points {
             self.vcx.simulate_click(at, Modifiers::default());
+            self.vcx.run_until_parked();
+            if self.runs().iter().any(|run| wanted(run)) {
+                break;
+            }
+        }
+        self.runs()
+    }
+}
+
+impl Loaded {
+    /// Presses the right button at each of `points` in turn until the host
+    /// has been asked to run a command `wanted` accepts. Returns every
+    /// command it was asked to run.
+    pub(crate) fn right_press_until_run(
+        &mut self,
+        points: impl IntoIterator<Item = Point<Pixels>>,
+        wanted: impl Fn(&str) -> bool,
+    ) -> Vec<String> {
+        for at in points {
+            let none = Modifiers::default();
+            self.vcx.simulate_mouse_down(at, MouseButton::Right, none);
+            self.vcx.simulate_mouse_up(at, MouseButton::Right, none);
             self.vcx.run_until_parked();
             if self.runs().iter().any(|run| wanted(run)) {
                 break;

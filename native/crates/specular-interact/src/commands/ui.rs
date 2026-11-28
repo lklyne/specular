@@ -3,9 +3,10 @@
 
 use serde_json::Value;
 
-use super::args::{act, always, maybe_text, text};
+use super::args::{act, always, choice, maybe_text, text};
 use super::{CommandSpec, Run, RunError};
-use crate::{Action, LayoutAction, OverlayAction, OverlaySpec};
+use crate::panel::{ContextMenu, MenuTarget};
+use crate::{Action, CanvasId, LayoutAction, OverlayAction, OverlaySpec};
 
 /// The `id` argument: a node's, an overlay's or a control's id.
 fn id(args: &Value) -> Result<String, RunError> {
@@ -102,3 +103,33 @@ pub(super) const OVERLAY: &[CommandSpec] = &[
         },
     },
 ];
+
+/// The `at` argument: a point in window points.
+fn point(args: &Value) -> Result<glam::Vec2, RunError> {
+    let at = (args.get("at").and_then(Value::as_array))
+        .filter(|at| at.len() == 2)
+        .and_then(|at| {
+            Some(glam::Vec2::new(
+                at[0].as_f64()? as f32,
+                at[1].as_f64()? as f32,
+            ))
+        });
+    at.ok_or_else(|| RunError::Args("`at` is [x, y] in window points".to_owned()))
+}
+
+/// The context menu of something a mod draws.
+pub(super) const MENU: &[CommandSpec] = &[CommandSpec {
+    name: "menu.open",
+    label: "",
+    args: "{target: canvas, id: canvas id, at: [x, y]}",
+    about: "Open the context menu of a canvas of the sidebar with its corner at a point in the window, as a right press on its row does.",
+    enabled: always,
+    build: |args| {
+        choice(args, "target", &[("canvas", ())])?;
+        let target = MenuTarget::Canvas(CanvasId::new(text(args, "id")?));
+        act(Action::OpenMenu(ContextMenu {
+            target,
+            at: point(args)?,
+        }))
+    },
+}];

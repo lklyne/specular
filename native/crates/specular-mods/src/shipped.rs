@@ -62,6 +62,7 @@ pub const MODS: &[Shipped] = &[
     shipped!("palette"),
     shipped!("confirm"),
     shipped!("prompt"),
+    shipped!("project"),
     shipped!("sidebar"),
     shipped!("notes"),
     shipped!("pages"),

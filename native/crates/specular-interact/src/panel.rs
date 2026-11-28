@@ -25,6 +25,7 @@ pub use crate::chrome::{CHROME_HEIGHT, DOCK_ROW, TAB_ROW};
 pub use context::{ContextMenu, MenuTarget, context_menu};
 pub(crate) use context::{
     open as open_menu_for_right_press, open_for_press as open_menu_for_press,
+    open_target as open_menu_for,
 };
 pub use dock::{dock, tool_options};
 pub use field::{Field, FieldSubmit, FieldWidth};

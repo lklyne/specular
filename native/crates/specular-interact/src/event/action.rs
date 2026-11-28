@@ -204,6 +204,10 @@ pub enum Action {
     Layout(crate::LayoutAction),
     /// Open or close a mod overlay (ADR 0059).
     Overlay(crate::OverlayAction),
+    /// Open the context menu for a target at a point, as a right press on
+    /// it does: how a mod's sidebar opens a canvas's or a project's menu.
+    /// A target there is not opens nothing.
+    OpenMenu(crate::panel::ContextMenu),
     /// Take away a page's notice by its id (`page.<id>.crashed`).
     DismissNotice(String),
     /// Place a new item at a canvas point in the tool defaults' style, as
