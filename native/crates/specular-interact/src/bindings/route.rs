@@ -79,6 +79,10 @@ pub(crate) fn on_key(app: &mut App, input: &KeyInput, effects: &mut Vec<Effect>)
     if input.key == crate::Key::Escape && input.pressed && crate::overlays::escape(app) {
         return;
     }
+    // Escape lets go of a followed agent before it backs out of anything.
+    if input.key == crate::Key::Escape && input.pressed && crate::presence::follow::stop(app) {
+        return;
+    }
     if let Some(row) = app.keymap.row_for(app, Chord::of(input)) {
         // The person's key, or the table's taken away: what is under it
         // has the key.

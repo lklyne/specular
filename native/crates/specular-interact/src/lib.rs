@@ -141,9 +141,9 @@ pub use chat::{
 pub use chord::Chord;
 pub use chrome::{
     Border, Content, Frame, Gate, HiddenWord, Insets, Layout, LayoutAction, LayoutError,
-    LayoutFile, LayoutsRead, Look, Node, NodeKind, Overlay, Padding, Placed, Region, RegionNode,
-    Regions, Resolved, SHIPPED, SHIPPED_THEMES, SIDEBAR_WIDTH, Shown, Size, TOOLS_DOCK_WIDTH,
-    ThemeChoice, ThemeFile, Toggles, TrafficLights, gate, place, solve,
+    LayoutFile, LayoutsRead, Look, Material, Node, NodeKind, Overlay, Padding, Placed, Region,
+    RegionNode, Regions, Resolved, SHIPPED, SHIPPED_THEMES, SIDEBAR_WIDTH, Shown, Size,
+    TOOLS_DOCK_WIDTH, ThemeChoice, ThemeFile, Toggles, TrafficLights, gate, place, solve,
 };
 pub use clipboard::{ClipboardContent, ClipboardImage, Paste};
 pub use commands::{CommandSpec, Run, RunError, command, commands, run_named};
@@ -200,7 +200,7 @@ pub use panel::{
 pub use physical_key::{PhysicalKey, mac_key_input};
 pub use place::{PlaceDrag, PlacePreview};
 pub use placement::PagePlacement;
-pub use presence::{AgentAct, AgentCursor};
+pub use presence::{AGENT_COLORS, AgentAct, AgentBadge, AgentCursor, agent_color};
 pub use property::{Orientation, PageStep, Property};
 pub use repos::{BoundOriginRow, RepoAction, RepoRow, ReposPane, repos_pane};
 pub use resize_drag::ResizeDrag;

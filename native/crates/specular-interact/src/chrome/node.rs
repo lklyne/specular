@@ -4,6 +4,8 @@
 //! ```json
 //! { "id": "sidebar", "type": "block", "size": { "px": 256 },
 //!   "content": { "mod": "sidebar", "props": {} }, "background": "sidebar" }
+//! { "id": "chat", "type": "block", "content": { "panel": "chat" },
+//!   "material": "glass", "background": "#ffffff14" }
 //! ```
 
 use std::collections::BTreeSet;
@@ -152,6 +154,22 @@ pub struct Node {
     /// Room between a row's or column's children.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub gap: Option<f32>,
+    /// What it is made of under its paint, the window's content behind it
+    /// showing through.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub material: Option<Material>,
+}
+
+/// A surface the system draws under a node: what lies behind it in the
+/// window, the canvas most of all, shows through it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Material {
+    /// macOS 26's Liquid Glass, which bends and lights what is behind it.
+    /// Blur stands in for it on an earlier macOS.
+    Glass,
+    /// A frosted blur of what is behind it.
+    Blur,
 }
 
 /// A line round a node.
@@ -207,6 +225,7 @@ impl Node {
             radius: None,
             padding: None,
             gap: None,
+            material: None,
         }
     }
 

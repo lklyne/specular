@@ -64,7 +64,7 @@ impl ComposerBox<'_> {
                 .flex_shrink_0()
                 .overflow_hidden()
                 .rounded(crate::theme::corner(6.0))
-                .border_1()
+                .border(crate::theme::line())
                 .border_color(theme::solid(theme::zinc_300()))
                 .child(
                     img(pasted.thumbnail.clone())
@@ -150,14 +150,14 @@ impl ComposerBox<'_> {
         });
         h_flex()
             .min_w_0()
-            .gap_1()
+            .gap(crate::theme::space(1.0))
             .pt(px(2.0))
             .items_center()
             .child(
                 h_flex()
                     .flex_1()
                     .min_w_0()
-                    .gap_1()
+                    .gap(crate::theme::space(1.0))
                     .items_center()
                     .child(chip(
                         "chat-pill",
@@ -178,9 +178,9 @@ pub(crate) fn frame(id: impl Into<gpui_kit::ElementId>) -> gpui_kit::Stateful<gp
     gpui_kit::component::v_flex()
         .id(id)
         .rounded(crate::theme::corner(16.0))
-        .border_1()
+        .border(crate::theme::line())
         .border_color(theme::solid(theme::input_border()))
         .bg(theme::solid(theme::input()))
-        .px_2()
+        .px(crate::theme::space(2.0))
         .py(px(6.0))
 }

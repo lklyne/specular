@@ -1,8 +1,15 @@
 {
-  "api": "1.2",
+  "api": "1.4",
   "title": "Star",
-  "tools": [{ "name": "star", "title": "Star", "icon": "star", "group": "shape" }],
-  "items": { "size": [120, 120] },
+  "shapes": [
+    {
+      "name": "star",
+      "title": "Star",
+      "icon": "star",
+      "path": "M50,0 L63.23,31.8 L97.55,34.55 L71.4,56.95 L79.39,90.45 L50,72.5 L20.61,90.45 L28.6,56.95 L2.45,34.55 L36.77,31.8 Z",
+      "params": { "points": 5 }
+    }
+  ],
   "commands": [
     { "name": "points", "title": "More star points", "icon": "plus", "dock": true }
   ]

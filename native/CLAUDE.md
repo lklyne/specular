@@ -306,6 +306,10 @@ logs the port it took and the `SPECULAR_DISCOVERY_FILE=` to pass the CLI.
   cursor to what changed. A route needs no presence code of its own.
   `POST /session/presence` with a `labelKey` (`scan_workspace`, `thinking`,
   `departing`, ...) is `ApiRun::Report`.
+- Who is on the canvas is `App::agents()` and the `agents` state key
+  (`presence/roster.rs`); `view.follow` is `Action::Follow`
+  (`presence/follow.rs`). A camera move the person makes, or Escape, ends a
+  follow.
 
 ### Mods
 
@@ -334,12 +338,14 @@ A mod (ADR 0055) is a folder of `mod.json` and `main.js`, run by
   `default`. The `mods` layout also uses `sidebar`, `dock`, `palette`,
   `chat`, `menu` and `welcome`; `confirm` and `prompt` are dialogs any mod
   opens, `status` is `studio`'s status bar, and `star` is the example
-  shape tool. A text field in a mod is the `Field` host component
+  mod shape. A text field in a mod is the `Field` host component
   (`kit/mods/text_field.rs`), its text on `shared/field/<id>`.
 - **What a mod can call.** `run` resolves through `run_named` and the work
   is deferred out of the script call. Rust-drawn pieces are host
   components (`Components`): `Icon`, `Zoom`, `ToolOptions`, `Favicon`,
-  `WindowDrag`, `Share`, `Prism`, `Field`, `Composer`. Headless, the window-only ones are
+  `WindowDrag`, `Share`, `Prism`, `Field`, `Composer`, `Material`. A layout node's
+  `material` and `Material` are system views under GPUI
+  (`kit/view/material.rs`, ADR 0061). Headless, the window-only ones are
   placeholders. A new one goes in `HOST_COMPONENTS`, the d.ts and the
   guide; the window's version in `kit/mods/host.rs`.
 - **Canvas items, tools and commands (ADR 0057, API 1.1).** The app's
@@ -357,6 +363,10 @@ A mod (ADR 0055) is a folder of `mod.json` and `main.js`, run by
   (`specular-interact/src/state/panels.rs`), the `chat.*` and
   `overlay.*` commands, and a mod tool with `"group": "shape"` listed in
   the shape tool's options (`panel/dock/shape.rs`).
+- **Mod shapes (ADR 0060, API 1.4).** `shapes` in `mod.json` give
+  `ShapeKind::Custom` shapes (`specular-doc/src/custom_shape.rs`) that the
+  shape tool, the dock (`panel/dock/shape.rs`) and `view` treat as any
+  shape; `shape.set` (`specular-interact/src/mods/shape.rs`) reshapes them.
 - **Threads anywhere (API 1.3).** `chat/threads` and a `chat/thread/<id>`
   key for each thread of the active canvas
   (`specular-interact/src/state/chat.rs`), published beside the fixed

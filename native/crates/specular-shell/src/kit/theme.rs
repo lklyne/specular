@@ -174,13 +174,24 @@ panel_colors! {
     ring_gray => ring_gray, "ringGray";
 }
 
+/// `units` of the layout's spacing unit (4 points by default): the padding
+/// and gaps of the app's chrome.
+pub(crate) fn space(units: f32) -> Pixels {
+    px(units * crate::look::spacing())
+}
+
+/// The width of the chrome's lines: panel edges, rules and popup borders.
+pub(crate) fn line() -> Pixels {
+    px(crate::look::border_width())
+}
+
 /// Every list that opens over the window, a dropdown's, a submenu's or a
 /// context menu's: the `popup` fill inside a `popupBorder` line, with the
 /// layout's large corner and a shadow, so a theme styles them all at once.
 pub(crate) fn popup_surface<E: Styled>(element: E) -> E {
     element
         .bg(solid(popup()))
-        .border_1()
+        .border(line())
         .border_color(solid(chrome_border()))
         .rounded(px(crate::look::radius_large()))
         .shadow_md()

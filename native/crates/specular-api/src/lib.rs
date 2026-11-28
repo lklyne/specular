@@ -294,8 +294,9 @@ impl Api {
             (Post, ["annotations", "fix"]) => fix::fix(app, request),
             (Post, ["annotations", id, verb]) => annotations::respond(app, request, id, verb),
             (Delete, ["annotations", id]) => annotations::delete(app, id),
-            (Post, ["session", "presence"]) => Ok(report(request.text("labelKey"))),
-            (Post, ["mcp", "session", "close"]) => Ok(report(Some("departing"))),
+            (Post, ["session", "presence"]) => Ok(report(request, request.text("labelKey"))),
+            (Post, ["mcp", "session", "open"]) => Ok(report(request, Some("open"))),
+            (Post, ["mcp", "session", "close"]) => Ok(report(request, Some("departing"))),
             (Post, ["window", "screenshot"]) => Ok(Step::Screenshot(Screenshot {
                 path: request.text("path").map(PathBuf::from),
                 area: if request.body.get("whole").and_then(Value::as_bool) == Some(true) {
@@ -311,12 +312,15 @@ impl Api {
 
 /// What the CLI says its agent is doing, for that agent's cursor. A report
 /// with no label moves nothing.
-fn report(key: Option<&str>) -> Step {
+/// Every report carries the name the caller gives itself, which names its
+/// badge; `open` carries nothing else.
+fn report(request: &Request, key: Option<&str>) -> Step {
     let done = json!({ "ok": true });
     match key {
         Some(key) => Step::Run(
             ApiRun::Report {
                 key: key.to_owned(),
+                name: request.text("clientName").map(str::to_owned),
             },
             Reply::Fixed(done),
         ),

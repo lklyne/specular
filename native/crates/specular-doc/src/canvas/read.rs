@@ -95,19 +95,10 @@ pub(super) fn read_node(mut node: JsonMap) -> Result<Entity, JsonMap> {
             entity.anchor = take(&mut node, "pageAnchor");
         }
         Kind::Shape(shape) => {
-            shape.text = take(&mut node, "text").unwrap_or_default();
-            shape.color = take_node_color(&mut node, &mut ext);
-            shape.stroke_width = take(&mut node, "strokeWidth");
-            shape.border_style = take(&mut node, "borderStyle");
-            shape.border_color = take(&mut node, "borderColor");
-            shape.theme = take(&mut node, "theme");
+            read_shape(shape, &mut node, &mut ext);
             entity.label = take(&mut node, "label");
             entity.parent = take(&mut node, "parentGroupId");
             entity.anchor = take(&mut node, "pageAnchor");
-            shape.text_size = take(&mut ext, "textSize");
-            shape.fill_style = take(&mut ext, "fillStyle");
-            shape.text_align = take(&mut ext, "textAlign");
-            shape.text_vertical_align = take(&mut ext, "textVerticalAlign");
         }
         Kind::Mod(item) => {
             // Its base type is a JSON Canvas one, so everything of its own
@@ -189,4 +180,20 @@ fn take_node_color(node: &mut JsonMap, ext: &mut JsonMap) -> Option<Color> {
         return Some(Color::Neutral);
     }
     take(node, "color")
+}
+
+/// A shape's own fields, from the node and its `specular` extension.
+fn read_shape(shape: &mut crate::Shape, node: &mut JsonMap, ext: &mut JsonMap) {
+    shape.text = take(node, "text").unwrap_or_default();
+    shape.color = take_node_color(node, ext);
+    shape.stroke_width = take(node, "strokeWidth");
+    shape.border_style = take(node, "borderStyle");
+    shape.border_color = take(node, "borderColor");
+    shape.theme = take(node, "theme");
+    shape.text_size = take(ext, "textSize");
+    shape.fill_style = take(ext, "fillStyle");
+    shape.text_align = take(ext, "textAlign");
+    shape.text_vertical_align = take(ext, "textVerticalAlign");
+    shape.custom =
+        take::<Value>(ext, "customShape").and_then(|value| crate::CustomShape::from_json(&value));
 }

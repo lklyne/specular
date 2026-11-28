@@ -18,6 +18,9 @@ pub enum NewKind {
     Text,
     /// A shape, in the shape tool's style.
     Shape,
+    /// A mod's shape by its `<mod>/<shape>` name, in the shape tool's
+    /// style (ADR 0060).
+    CustomShape(String),
     /// An item of an installed mod (ADR 0057).
     Mod(Box<NewModItem>),
 }
@@ -41,8 +44,15 @@ pub(crate) fn add(app: &mut App, item: NewItem, effects: &mut Vec<Effect>) {
     let placing = match item.kind {
         NewKind::Sticky => Placing::Text(TextStyle::Sticky),
         NewKind::Text => Placing::Text(TextStyle::Plain),
-        NewKind::Shape => Placing::Shape,
+        NewKind::Shape | NewKind::CustomShape(_) => Placing::Shape,
         NewKind::Mod(new) => return mods::add_item(app, *new, item.at, effects),
+    };
+    let custom = match &item.kind {
+        NewKind::CustomShape(name) => match app.mod_catalog().shape_named(name) {
+            Some(custom) => Some(custom),
+            None => return,
+        },
+        NewKind::Sticky | NewKind::Text | NewKind::Shape | NewKind::Mod(_) => None,
     };
     let at = item.at.unwrap_or_else(|| view_middle(app));
     let mut entity = place::default_entity(app, placing, id.clone(), at);
@@ -51,6 +61,10 @@ pub(crate) fn add(app: &mut App, item: NewItem, effects: &mut Vec<Effect>) {
         entity.rect = edit::fitted(app, entity.rect, text);
     } else if let Kind::Shape(shape) = &mut entity.kind {
         shape.text = item.text;
+        if let Some(custom) = custom {
+            shape.shape = specular_doc::ShapeKind::Custom;
+            shape.custom = Some(custom);
+        }
     }
     live::create(app, entity, effects);
     app.session.selection.set([ItemId::Entity(id)]);

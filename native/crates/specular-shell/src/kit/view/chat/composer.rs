@@ -126,8 +126,8 @@ impl ShellView {
             .child(parts.chips(on_send));
         div()
             .flex_shrink_0()
-            .p_2()
-            .border_t_1()
+            .p(crate::theme::space(2.0))
+            .border_t(crate::theme::line())
             .border_color(theme::solid(theme::panel_border()))
             .child(box_)
     }

@@ -66,9 +66,9 @@ folder). Use it when debugging items and tools: inspect spacing, colours and
 previews. It captures the canvas, not the panels around it, even when the
 window is covered. `specular shot --whole` captures the whole window as the
 screen shows it, panels, layout and look included (macOS asks once to let
-Specular record the screen). Specular must be running with an open window,
-shown on the current Space: a hidden, minimized or other-Space window makes
-`--whole` fail and say so.
+Specular record the screen). Specular must be running with an open window
+on the current Space; a minimized window still captures, and one on another
+Space makes `--whole` fail and say so.
 
 ## A mod in one screen
 
@@ -145,7 +145,9 @@ item, back to front, with its kind, label, parent and words, but no place or
 size), `canvas/info` (the canvas showing, its counts and every canvas), and
 for canvas items, tools and commands `canvas/mod_items`, `tool` and `call`
 (see below), and for agent threads `chat/threads`, `chat/context` and a
-`chat/thread/<id>` key for each thread (see "Chat threads anywhere").
+`chat/thread/<id>` key for each thread (see "Chat threads anywhere"), and
+`agents`, the agents with a cursor on the canvas (see "Agents on the
+canvas").
 `specular state [key]` prints them from the running app.
 
 `props()` is what the layout hands the mod. By convention `props().hidden`
@@ -180,7 +182,7 @@ app's log. The commands:
 - **page**: `page.new-tab`, `page.edit-address`, `page.back`, `page.forward`, `page.reload`, `page.stop`, `page.navigate` `{url: address, page?: entity id}`, `page.frame`, `page.frame-color`, `page.rotate`, `page.scheme`, `page.orientation` `{orientation: portrait|landscape}`, `page.toggle-sync`
 - **tab**: `tab.show` `{item?: entity id}`, `tab.open` `{item: entity id}`, `tab.close` `{item?: entity id}`, `tab.next`, `tab.previous`, `tab.lens` `{lens: fill|device}`, `tab.others` `{shown: bool}`
 - **tool**: `tool.set` `{tool: select|page|text|sticky|document|shape|draw|comment|inspect|<mod>/<tool>}`, `tool.ellipse`, `tool.diamond`, `tool.highlighter`, `tool.preview` `{draws: [{type: rect|ellipse|path|text|image, ..}]}`
-- **view**: `view.zoom-in`, `view.zoom-out`, `view.zoom-reset`, `view.zoom-to-fit`, `view.zoom` `{percent: number}`, `view.camera` `{x: number, y: number, zoom: number}`, `view.reveal` `{id: entity id}`, `view.theme` `{theme: light|dark|system}`, `view.toggle-sidebar`
+- **view**: `view.zoom-in`, `view.zoom-out`, `view.zoom-reset`, `view.zoom-to-fit`, `view.zoom` `{percent: number}`, `view.camera` `{x: number, y: number, zoom: number}`, `view.follow` `{agent?: agent id}`, `view.reveal` `{id: entity id}`, `view.theme` `{theme: light|dark|system}`, `view.toggle-sidebar`
 - **ui**: `ui.toggle` `{id: tabs|toolbar|dock|sidebar|chat|menu|share|toast|palette|welcome|<control id>}`, `ui.show` `{id: tabs|toolbar|dock|sidebar|chat|menu|share|toast|palette|welcome|<control id>}`, `ui.hide` `{id: tabs|toolbar|dock|sidebar|chat|menu|share|toast|palette|welcome|<control id>}`, `ui.reset`
 - **layout**: `layout.switch` `{name?: layout name}` (the next one without a name)
 - **overlay**: `overlay.open` `{mod: name, id?, props?, kind?: dialog|popup|drawer|window, width?, height?, at?: [x, y], edge?: left|right|top|bottom, frame?: none}`, `overlay.close` `{id?: overlay id}`
@@ -200,11 +202,23 @@ look on it. A node is a `row`, a `column`, a `stack` (shows one child, its
 `{ "weight": 2 }`, the rest shared by weight), `min`, `max`, `hidden`,
 `background` (a paint: a colour, a colour name such as `"toolbar"`, a
 gradient `{ "from": ..., "to": ..., "angle": 90 }`, or a pattern, below), `border` `{width, color}`,
-`radius`, `padding` and `gap`. The ids `tabs`, `toolbar`, `sidebar` and
+`radius`, `padding`, `gap` and `material`. The ids `tabs`, `toolbar`, `sidebar` and
 `chat` follow the app: the sidebar block shows while the sidebar is open,
 the chat block takes the panel's width, and `ui.toggle {id}` hides any
 block by its id. Blocks above or left of the canvas lie over its edge and
 the canvas is seen between them; blocks below or right sit beside it.
+
+**Glass and blur.** `"material": "glass"` puts macOS's Liquid Glass under a
+block (macOS 26; a blur on an earlier macOS) and `"material": "blur"` a
+frosted blur; the canvas behind the block shows through, bent or frosted,
+and the block's `radius` rounds it. The material is the system's own view
+under everything the window paints, so it shows only where the paint over
+it is clear: the app's own panels leave their fill off on a material, a
+`background` such as `"#ffffff14"` tints it, and an opaque one hides it.
+A mod on a material leaves its own `bg()` off, or translucent. The layout
+root's `background` paints round the canvas, under the blocks, so leave it
+off where a material should show the canvas. Inside a mod, the `Material`
+host component is the same surface in any box.
 
 ```json
 { "title": "Mine", "id": "root", "type": "column",
@@ -225,7 +239,10 @@ the canvas is seen between them; blocks below or right sit beside it.
 **The look.** On the root: `theme` (a theme file's name, or
 `{ "light": ..., "dark": ... }`), `colors` (names over the theme's),
 `font`, `font_size`, `radius` (the corners of the app's own controls and
-popups and dialogs, 6 by default) and `background` (shown round the canvas).
+popups and dialogs, 6 by default), `spacing` (the unit the app's padding
+and gaps are multiples of, 4 by default), `border_width` (its panel edges,
+rules and popup borders, 1 by default) and `background` (shown round the
+canvas).
 `traffic_lights` moves the window's close, minimize and zoom buttons
 (`{ "x": 14, "y": 13 }`, the first button's corner from the window's
 top-left) or hides them (`"hidden"`) for a layout that draws its own with
@@ -243,17 +260,22 @@ popups and dialogs and every mod draw with, so a look is one file:
 
 ```json
 { "appearance": "light", "radius": 0, "font": "Geneva", "font_size": 12,
+  "spacing": 4, "border_width": 1,
   "colors": { "popup": "#fff", "popupBorder": "#000", "hover": "#000",
               "hoverText": "#fff", "on": "#ddd", "text": "#000" } }
 ```
 
 `radius` scales every corner the app draws (6 is its own; 0 squares them
-all, pills included), `font` and `font_size` set the chrome's text, and
+all, pills included), `spacing` scales the app's padding and gaps (3 is
+denser, 5 roomier), `border_width` its lines (2 for a heavy outline, 0 for
+none), `font` and `font_size` set the chrome's text, and
 `colors` renames any colour `colors()` lists (`#rgb`, `#rgba`, `#rrggbb`,
 `#rrggbbaa`). `hover` is a hovered row's fill and `hoverText` its text;
-`on` and `onText` a selected one's. A layout's own `radius`, `font`,
-`font_size` and `colors` go over its theme's. A mod reads them all through
-`colors()` and `look()`.
+`on` and `onText` a selected one's. A layout's own `radius`, `spacing`,
+`border_width`, `font`, `font_size` and `colors` go over its theme's. A mod
+reads them all through `colors()` and `look()`: build a panel mod's padding
+from `look().spacing` and its lines from `look().borderWidth`, and it
+follows the theme as the app's own panels do.
 
 **A square-cornered look** (a retro one, say) takes four things: `radius: 0`
 in its theme, so every corner the app draws is square; `hover`/`hoverText`
@@ -308,10 +330,10 @@ Keys are written as `cmd+shift+k`, `alt+1`, `shift+tab`, `escape`. The
   "canvas": { "s": "tool.set:{\"tool\":\"shape\"}", "r": null } }
 ```
 
-**Shapes.** A tool with `"group": "shape"` is listed among the shape tool's
-shapes instead of having a button: picking it arms the mod's tool, and the
-shape button stays on. See the shipped `star` mod: a tool and an item kind
-that make a new shape in about eighty lines.
+**Shape tools.** A tool with `"group": "shape"` is listed among the shape
+tool's shapes instead of having a button: picking it arms the mod's tool,
+and the shape button stays on. Use it for a tool that needs its own drag;
+for a new silhouette, add a shape instead (below).
 
 ## Canvas items, tools and commands (API 1.1)
 
@@ -363,8 +385,39 @@ publishes the `call` key, `{command, number, args}`: act once per `number`.
 `icon` is one of the app's glyphs by its kebab-case name.
 
 **Versions.** `api` is `1` (1.0), `"1.1"`, `"1.2"` (the whole window,
-above) or `"1.3"` (chat threads anywhere, below). A mod loads on an app of the same generation whose revision is at
+above), `"1.3"` (chat threads anywhere, below) or `"1.4"` (shapes, below). A mod loads on an app of the same generation whose revision is at
 least its own.
+
+## Shapes (API 1.4)
+
+A new silhouette is a shape, not a mod item. List it under `shapes` and
+the app does the rest as it does for a hexagon: the shape tool's list
+shows it, a drag draws it, and it takes the palette's colours, the fill
+and border styles, the border width, a label and the theme. Its outline is
+kept in the `.canvas` file, so a person without the mod still sees it
+drawn and styled.
+
+```json
+{ "api": "1.4", "title": "Star",
+  "shapes": [{ "name": "star", "title": "Star", "icon": "star",
+               "path": "M50,0 L63.2,31.8 L97.6,34.5 L71.4,57 L79.4,90.5 L50,72.5 L20.6,90.5 L28.6,57 L2.4,34.5 L36.8,31.8 Z",
+               "params": { "points": 5 } }],
+  "commands": [{ "name": "points", "title": "More star points", "icon": "plus", "dock": true }] }
+```
+
+`path` is SVG path data in a 0 to 100 box, stretched to the shape's rect:
+`M`, `L`, `H`, `V`, `Q`, `C` and `Z`, absolute or relative (no arcs; write
+a curve with its control points). Colours, widths and dashes are the
+app's: don't put them in the path. `params` are the values a new shape
+starts with; only your mod reads them.
+
+To change shapes after they are drawn, add a dock command (it shows
+beside their style while they are selected) and answer its `call` with
+`run("shape.set", { ids, params, path })`: new values and a new outline,
+one undo step. `canvas/items` gives each shape's `custom`, `{shape,
+params}`, to read the values back. `item.add {kind: "shape", shape:
+"star/star"}` places one by name. The shipped `star` mod is the whole
+example, in about thirty lines.
 
 ## Chat threads anywhere (API 1.3)
 
@@ -497,17 +550,22 @@ Elements a mod places but cannot draw itself, imported from `specular`:
 - `Pattern`, `Pattern.new(id, { paint, width, height })`: a box filling
   its parent, painted with a paint (see "Patterns"): pinstripes, hatching,
   checks. Put it first in a `relative()` box and the content after it.
+- `Popover`, `Popover.new(id, { top, left, right, bottom }).child(...)`: a
+  box over the rest of the window, out of the flow at those offsets from its
+  `relative()` box. A press on it is its children's alone, so a dropdown
+  that hangs over the canvas does not also press the canvas (and drop the
+  selection). Put a mod's dropdowns and menus in one.
 - `Composer`, `Composer.new(id, { id, thread, placeholder, autofocus })`:
   the agent panel's composer for any thread: the field, pasted images, the
   context pill, the folder, the send mode, the model and Send. Return or
   Send sends to `thread` (started under that id if it is not made yet), or
   to the thread the panel has open when there is none. The window keeps it
   by `id`, so it redraws as a person types without the mod rendering.
-- `Popover`, `Popover.new(id, { top, left, right, bottom }).child(...)`: a
-  box over the rest of the window, out of the flow at those offsets from its
-  `relative()` box. A press on it is its children's alone, so a dropdown
-  that hangs over the canvas does not also press the canvas (and drop the
-  selection). Put a mod's dropdowns and menus in one.
+- `Material`, `Material.new(id, { kind, radius, id })`: glass (`kind:
+  "glass"`, the default) or a blur (`"blur"`) filling its parent, as a
+  block's `material` is (see "Glass and blur"). Put it first in a
+  `relative()` box and leave the boxes over it clear or translucent; give
+  each one in a mod its own `id`. Headless it is a placeholder.
 - `Field`, `Field.new(id, { id, placeholder, value, autofocus })` or
   `Field.new(id, { control })`: a line of text (see "Text"), restyled by
   `radius`, `background`, `border` and `focusRing`.
@@ -539,7 +597,7 @@ Elements a mod places but cannot draw itself, imported from `specular`:
 | Mod | Draws | Reads | In the shipped layout |
 |---|---|---|---|
 | `toolbar` | the tools, the zoom readout, the theme button | `panels/toolbar`, `panels/tool_options` | yes |
-| `tabs` | the tab row: tabs, add, title bar, zoom, Share, right panel toggle | `panels/strip` | yes |
+| `tabs` | the tab row: tabs, add, title bar, zoom, the agents on the canvas, Share, right panel toggle | `panels/strip`, `agents` | yes |
 | `share` | the Share button and its popover | `panels/share` | yes |
 | `toast` | the notices, in the canvas's lower right corner | `notices` | yes |
 | `menu` | the canvas's context menu | `panels/menu` | `mods` layout |
@@ -675,9 +733,9 @@ snapshots only.
 
 **Tools and shapes.** A tool gets one press-to-release drag in canvas units:
 no hover, double click, modifiers, pressure, wheel or keys. The preview is
-one render behind. A mod shape is a mod item, not a built-in shape: it has
-no label to type in and none of the shape dock's controls unless its mod
-adds them, and its glyph is one of the app's.
+one render behind. A shape's outline is one closed silhouette: no arcs,
+no inner lines drawn apart from it, and no style of its own. Its glyph in
+the shape tool's list is one of the app's.
 
 **Keys and focus.** `keys.json` can rebind every key but the reset key. The
 window's own keys (Quit, Open, Save, Settings, Hide, Minimize, the palette)
@@ -694,3 +752,26 @@ never runs one. Install mods installs only from the canvas's space folder.
   rewrites them). Don't touch other mods unless the request needs it.
 - Use `colors()` so the mod follows the person's theme.
 - Read ids from `specular state` and command results; don't guess them.
+
+## Agents on the canvas
+
+Every agent that drives the app (the CLI in a Claude Code session, or a
+thread in the chat panel) has one cursor, on pages and on the canvas alike.
+The `agents` key lists the agents with a cursor on the canvas showing:
+
+```json
+{ "agents": [{ "id": "…", "name": "Agent 1", "color": "#3b82f6", "label": "moving" }],
+  "following": null }
+```
+
+`name` is the thread's title for a chat thread, the name the caller gave
+(`SPECULAR_CLIENT_NAME`) or "Agent N". `color` is the cursor's. The key holds
+no positions, so it moves when an agent comes, goes or starts doing something
+else, never per frame.
+
+`run("view.follow", { agent: id })` keeps the camera on that agent's cursor,
+with a frame in its colour round the canvas, until the person pans, zooms or
+presses Escape, or the agent goes; `run("view.follow", {})` stops. The shipped
+`tabs` mod draws the agents as badges beside Share (`"hidden": ["agents"]`
+leaves them out); a mod draws them anywhere else from the same key.
+

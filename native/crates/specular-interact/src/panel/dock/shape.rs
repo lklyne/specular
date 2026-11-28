@@ -1,7 +1,7 @@
 //! The dock's controls for shapes (`ShapePopup.tsx`), and the shape-kind dropdown the
 //! shape tool's options share.
 
-use specular_doc::{BorderStyle, Entity, FillStyle, ShapeKind, TextAlign};
+use specular_doc::{BorderStyle, CustomShape, Entity, FillStyle, ShapeKind, TextAlign};
 
 use super::super::build::{color_dropdown, groups, noun, size_dropdown, swatches, toggle};
 use super::super::{
@@ -30,29 +30,62 @@ const KINDS: [(ShapeKind, &str, &str); 10] = [
 /// The border thicknesses on offer.
 const BORDER_WIDTHS: [f64; 4] = [1.0, 2.0, 3.0, 4.0];
 
-/// A grid of every silhouette; closed it shows the current one.
+/// What a shape-kind list picks: one of the app's silhouettes or a mod's.
+pub(super) enum Pick {
+    /// One of the app's.
+    Kind(ShapeKind),
+    /// A mod's, as its `mod.json` gives a new one.
+    Custom(CustomShape),
+}
+
+/// A grid of every silhouette, the app's and then each installed mod's
+/// shapes; closed it shows the current one. `custom` names the mod shape
+/// that is current, when one is.
 pub(super) fn kind_dropdown(
+    app: &crate::App,
     id: ControlId,
     label: &'static str,
     selected: Option<ShapeKind>,
-    set: impl Fn(ShapeKind) -> Action,
+    custom: Option<&str>,
+    set: impl Fn(Pick) -> Action,
 ) -> Control {
-    let options = (KINDS.into_iter())
-        .map(|(kind, name, label)| DropdownOption {
-            id: id.child(name),
-            label: label.into(),
-            face: Face::icon(Icon::Shape(kind)),
+    let builtin = (KINDS.into_iter()).map(|(kind, name, label)| DropdownOption {
+        id: id.child(name),
+        label: label.into(),
+        face: Face::icon(Icon::Shape(kind)),
+        trailing: None,
+        fields: Vec::new(),
+        chord: None,
+        selected: selected == Some(kind),
+        enabled: true,
+        action: set(Pick::Kind(kind)),
+    });
+    let catalog = app.mod_catalog();
+    let mods = (catalog.shapes()).filter_map(|(installed, spec)| {
+        let shape = spec.custom(&installed.name).ok()?;
+        Some(DropdownOption {
+            id: id.child(&shape.name),
+            label: spec.title.clone().into(),
+            face: Face::icon(Icon::named_or(
+                spec.icon.as_deref(),
+                Icon::Shape(ShapeKind::Custom),
+            )),
             trailing: None,
             fields: Vec::new(),
             chord: None,
-            selected: selected == Some(kind),
+            selected: custom == Some(shape.name.as_str()),
             enabled: true,
-            action: set(kind),
+            action: set(Pick::Custom(shape)),
         })
-        .collect();
+    });
+    let options: Vec<DropdownOption> = builtin.chain(mods).collect();
+    let summary = (options.iter().find(|option| option.selected)).map_or_else(
+        || Face::icon(Icon::Shape(selected.unwrap_or(ShapeKind::Rectangle))),
+        |option| option.face.clone(),
+    );
     Control::Dropdown(Dropdown {
         label: label.into(),
-        summary: Face::icon(Icon::Shape(selected.unwrap_or(ShapeKind::Rectangle))),
+        summary,
         content: vec![DropdownSection::Options {
             layout: OptionLayout::Grid { columns: 5 },
             options,
@@ -61,27 +94,34 @@ pub(super) fn kind_dropdown(
     })
 }
 
-/// The shape tool's dropdown: the app's silhouettes, then every installed
-/// mod's shape (a tool with `"group": "shape"`). `armed` is the mod shape
-/// in hand, which a silhouette's choice puts down for the shape tool.
+/// The shape tool's dropdown: every silhouette, then every installed mod
+/// tool that sits among the shapes (a tool with `"group": "shape"`).
+/// `armed` is the mod tool in hand, which a silhouette's choice puts down
+/// for the shape tool.
 pub(super) fn tool_kind_dropdown(app: &crate::App, armed: Option<ModToolId>) -> Control {
-    let kind = app.tool_defaults().shape.kind;
-    let set = |kind| {
-        let patch = crate::ToolDefaultPatch::ShapeKind(kind);
+    let defaults = &app.tool_defaults().shape;
+    let set = |pick| {
+        let patch = match pick {
+            Pick::Kind(kind) => crate::ToolDefaultPatch::ShapeKind(kind),
+            Pick::Custom(shape) => crate::ToolDefaultPatch::CustomShape(Box::new(shape)),
+        };
         match armed {
             Some(_) => Action::SetToolVariant(patch),
             None => Action::SetToolDefault(patch),
         }
     };
     let id = ControlId::new("shape.kind");
+    let custom = (defaults.custom.as_ref()).map(|custom| custom.name.as_str());
     let mut dropdown = kind_dropdown(
+        app,
         id.clone(),
         "Set default shape",
-        armed.is_none().then_some(kind),
+        armed.is_none().then_some(defaults.kind),
+        custom.filter(|_| armed.is_none()),
         set,
     );
     let catalog = app.mod_catalog();
-    let mods: Vec<DropdownOption> = (catalog.tools())
+    let tools: Vec<DropdownOption> = (catalog.tools())
         .filter(|(_, _, spec)| spec.is_shape())
         .map(|(tool, installed, spec)| {
             let word = format!("{}/{}", installed.name, spec.name);
@@ -102,11 +142,11 @@ pub(super) fn tool_kind_dropdown(app: &crate::App, armed: Option<ModToolId>) -> 
         content, summary, ..
     }) = &mut dropdown
     {
-        if let Some(chosen) = mods.iter().find(|option| option.selected) {
+        if let Some(chosen) = tools.iter().find(|option| option.selected) {
             *summary = chosen.face.clone();
         }
         if let Some(DropdownSection::Options { options, .. }) = content.first_mut() {
-            options.extend(mods);
+            options.extend(tools);
         }
     }
     dropdown
@@ -223,11 +263,17 @@ pub(super) fn controls(app: &crate::App, entities: &[&Entity]) -> ControlsModel 
     );
     let controls = groups(vec![
         vec![kind_dropdown(
+            app,
             ControlId::new("shape.kind"),
             "Set shape",
             read::shape_kind(app),
-            |kind| Action::SetProperty(Property::ShapeKind(kind)),
+            read::custom_shape(app).as_deref(),
+            |pick| match pick {
+                Pick::Kind(kind) => Action::SetProperty(Property::ShapeKind(kind)),
+                Pick::Custom(shape) => Action::SetProperty(Property::CustomShape(Box::new(shape))),
+            },
         )],
+        super::modded::shape_buttons(app, entities),
         vec![size_dropdown(
             ControlId::new("shape.size"),
             "Set label size",

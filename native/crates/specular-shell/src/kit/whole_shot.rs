@@ -23,9 +23,9 @@ pub(crate) fn capture(window: isize) -> anyhow::Result<(Vec<u8>, u32, u32)> {
     let _ = std::fs::remove_file(&path);
     anyhow::ensure!(
         status.success(),
-        "screencapture failed ({status}): the window must be shown on the current Space, not \
-         hidden, minimized or on another one, and Specular needs Screen Recording permission \
-         in System Settings > Privacy & Security"
+        "screencapture failed ({status}): the window must be on the current Space, not on \
+         another one, and Specular needs Screen Recording permission in System Settings > \
+         Privacy & Security"
     );
     let png = png.context("screencapture wrote no picture; allow Specular to record the screen in System Settings, Privacy & Security")?;
     let (width, height) = size(&png).context("screencapture wrote something other than a PNG")?;

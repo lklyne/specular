@@ -144,6 +144,14 @@ pub(super) const VIEW: &[CommandSpec] = &[
         build: camera,
     },
     CommandSpec {
+        name: "view.follow",
+        label: "",
+        args: "{agent?: agent id from `agents`}",
+        about: "Keep the camera on an agent's cursor until the camera is moved or Escape is pressed; with no agent, stop following.",
+        enabled: always,
+        build: |args| act(Action::Follow(super::args::maybe_text(args, "agent"))),
+    },
+    CommandSpec {
         name: "view.reveal",
         label: "",
         args: "{id: entity id}",

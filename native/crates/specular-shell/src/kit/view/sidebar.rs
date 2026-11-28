@@ -69,7 +69,7 @@ fn head(model: &SectionHead) -> impl IntoElement {
         .h(px(HEAD))
         .flex_1()
         .min_w_0()
-        .gap_1p5()
+        .gap(crate::theme::space(1.5))
         .items_center()
         .cursor_pointer()
         .font_weight(gpui_kit::FontWeight::MEDIUM)
@@ -94,7 +94,7 @@ fn row_shell(id: &ControlId, selected: bool, depth: u8) -> gpui_kit::Stateful<gp
         .flex_shrink_0()
         .pl(px(PAD_LEFT + f32::from(depth) * STEP))
         .pr(px(PAD_RIGHT))
-        .gap_2()
+        .gap(crate::theme::space(2.0))
         .items_center()
         .cursor_pointer()
         .when(selected, |this| {
@@ -225,7 +225,7 @@ impl ShellView {
 
     /// The notes and pages sections, each under its head unless folded.
     fn item_sections(model: &SidebarModel, cx: &mut Context<'_, Self>) -> impl IntoElement {
-        let mut sections = v_flex().flex_shrink_0().py_2();
+        let mut sections = v_flex().flex_shrink_0().py(crate::theme::space(2.0));
         for (section, rows) in [
             (&model.notes_head, &model.notes),
             (&model.pages_head, &model.pages),
@@ -243,7 +243,7 @@ impl ShellView {
             sections = sections.child(
                 div()
                     .px(px(PAD_LEFT))
-                    .py_1()
+                    .py(crate::theme::space(1.0))
                     .text_color(muted())
                     .child("No items"),
             );
@@ -269,7 +269,13 @@ impl ShellView {
             let canvases: Vec<AnyElement> = (model.canvases.iter())
                 .map(|row| Self::canvas_row(row, window, cx))
                 .collect();
-            list = list.child(v_flex().flex_shrink_0().pt_0p5().pb_2().children(canvases));
+            list = list.child(
+                v_flex()
+                    .flex_shrink_0()
+                    .pt(crate::theme::space(0.5))
+                    .pb(crate::theme::space(2.0))
+                    .children(canvases),
+            );
         }
         let sections = Self::item_sections(model, cx);
         let rule = || {
@@ -282,8 +288,8 @@ impl ShellView {
             .id("sidebar")
             .occlude()
             .size_full()
-            .bg(theme::solid(theme::panel()))
-            .border_r_1()
+            .bg(super::material::panel_fill(theme::panel()))
+            .border_r(crate::theme::line())
             .border_color(theme::solid(theme::chrome_border()))
             .child(canvases_head(model))
             .when(folded, |this| this.child(rule()))
@@ -298,7 +304,7 @@ fn canvases_head(model: &SidebarModel) -> impl IntoElement {
         .h(px(HEAD))
         .flex_shrink_0()
         .px(px(HEAD_PAD))
-        .gap_1()
+        .gap(crate::theme::space(1.0))
         .items_center()
         .child(head(&model.canvases_head))
         .child(

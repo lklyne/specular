@@ -97,7 +97,7 @@ impl Render for PaletteView {
             .max_h(px(380.0))
             .empty(|_, _, _| {
                 div()
-                    .p_4()
+                    .p(crate::theme::space(4.0))
                     .text_size(px(13.0))
                     .text_color(theme::tinted(theme::text_muted()))
                     .child("No commands match")

@@ -75,7 +75,7 @@ fn origin_row(row: &BoundOriginRow, index: usize) -> impl IntoElement + use<> {
     let remove = row.remove.clone();
     let toggle_auto_fix = row.toggle_auto_fix.clone();
     h_flex()
-        .gap_2()
+        .gap(crate::theme::space(2.0))
         .items_center()
         .text_size(px(12.0))
         .child(
@@ -116,14 +116,14 @@ fn repo_card(
     let disconnect = repo.disconnect.clone();
     let input = fields.field(&repo.id, window, cx);
     v_flex()
-        .gap_2()
+        .gap(crate::theme::space(2.0))
         .rounded(crate::theme::corner(8.0))
-        .border_1()
+        .border(crate::theme::line())
         .border_color(theme::solid(theme::zinc_300()))
-        .p_3()
+        .p(crate::theme::space(3.0))
         .child(
             h_flex()
-                .gap_2()
+                .gap(crate::theme::space(2.0))
                 .items_center()
                 .child(
                     v_flex()
@@ -170,7 +170,7 @@ fn pane_body(
 ) -> impl IntoElement + use<> {
     let connect = pane.connect.clone();
     v_flex()
-        .gap_3()
+        .gap(crate::theme::space(3.0))
         .child(div().text_size(px(12.0)).text_color(muted()).child(INTRO))
         .child(
             h_flex().child(

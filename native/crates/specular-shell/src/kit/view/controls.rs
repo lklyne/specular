@@ -77,7 +77,7 @@ pub(super) fn face_in(
 ) -> AnyElement {
     let tint =
         (face.color.as_ref()).map(|color| glyphs::resolved(color, Palette::Vivid, PaintRole::Ink));
-    let mut row = h_flex().gap_1().items_center();
+    let mut row = h_flex().gap(crate::theme::space(1.0)).items_center();
     if let Some(icon) = face.icon {
         let current = ink(if on {
             theme::text()
@@ -138,7 +138,7 @@ fn dot(
             .size(px(size))
             .rounded_full()
             .bg(theme::of_scene(glyphs::resolved(color, palette, role)))
-            .border_1()
+            .border(crate::theme::line())
             .border_color(theme::tinted(theme::dot_edge()))
             .into_any_element(),
         None => glyph(
@@ -234,7 +234,7 @@ fn swatch(
 
 fn swatches(model: &Swatches) -> AnyElement {
     h_flex()
-        .gap_1()
+        .gap(crate::theme::space(1.0))
         .children(
             (model.options.iter())
                 .map(|option| swatch(option, model.palette, model.role, model.enabled, SWATCH)),
@@ -258,7 +258,7 @@ fn stepper(model: &Stepper) -> AnyElement {
     };
     h_flex()
         .id(element_id(&model.id))
-        .gap_0p5()
+        .gap(crate::theme::space(0.5))
         .items_center()
         .child(step("dec", IconName::Minus, model.can_decrement, decrement))
         .child(
@@ -284,7 +284,7 @@ pub(super) fn column(controls: &[Control], window: &mut Window, cx: &mut App) ->
         h_flex()
             .w(px(COLUMN))
             .flex_wrap()
-            .gap_1()
+            .gap(crate::theme::space(1.0))
             .justify_center()
             .children(cells)
             .into_any_element()

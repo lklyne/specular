@@ -9,7 +9,7 @@
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::{Map, Value, json};
-use specular_doc::{BrushType, Color, ColorPreset, ShapeKind, TextFont};
+use specular_doc::{BrushType, Color, ColorPreset, CustomShape, ShapeKind, TextFont};
 
 use crate::Tool;
 
@@ -73,6 +73,8 @@ pub struct ShapeDefaults {
     pub(crate) stroke_width: f64,
     /// Label size in pixels.
     pub(crate) text_size: f64,
+    /// The mod's outline, while `kind` is [`ShapeKind::Custom`].
+    pub(crate) custom: Option<CustomShape>,
 }
 
 /// What `draw` stamps on each stroke.
@@ -116,6 +118,7 @@ impl Default for ShapeDefaults {
             color: Color::Preset(ColorPreset::Red),
             stroke_width: DEFAULT_STROKE_WIDTH,
             text_size: DEFAULT_TEXT_SIZE,
+            custom: None,
         }
     }
 }
@@ -147,6 +150,8 @@ pub enum ToolDefaultPatch {
     StickyFont(TextFont),
     /// Which shape `add-shape` places.
     ShapeKind(ShapeKind),
+    /// A mod's shape for `add-shape` to place.
+    CustomShape(Box<CustomShape>),
     /// Shape fill.
     ShapeColor(Color),
     /// Shape border width.
@@ -172,6 +177,7 @@ impl ToolDefaultPatch {
             Self::TextColor(_) | Self::TextSize(_) | Self::TextFont(_) => Tool::AddText,
             Self::StickyColor(_) | Self::StickySize(_) | Self::StickyFont(_) => Tool::AddSticky,
             Self::ShapeKind(_)
+            | Self::CustomShape(_)
             | Self::ShapeColor(_)
             | Self::ShapeStrokeWidth(_)
             | Self::ShapeTextSize(_) => Tool::AddShape,
@@ -191,6 +197,7 @@ impl ToolDefaultPatch {
             | Self::StickySize(_)
             | Self::StickyFont(_)
             | Self::ShapeKind(_)
+            | Self::CustomShape(_)
             | Self::ShapeColor(_)
             | Self::ShapeStrokeWidth(_)
             | Self::ShapeTextSize(_)
@@ -231,7 +238,14 @@ impl ToolDefaults {
             ToolDefaultPatch::StickyColor(color) => self.sticky.color = color,
             ToolDefaultPatch::StickySize(size) => self.sticky.size = size,
             ToolDefaultPatch::StickyFont(font) => self.sticky.font = font,
-            ToolDefaultPatch::ShapeKind(kind) => self.shape.kind = kind,
+            ToolDefaultPatch::ShapeKind(kind) => {
+                self.shape.kind = kind;
+                self.shape.custom = None;
+            }
+            ToolDefaultPatch::CustomShape(custom) => {
+                self.shape.kind = ShapeKind::Custom;
+                self.shape.custom = Some(*custom);
+            }
             ToolDefaultPatch::ShapeColor(color) => self.shape.color = color,
             ToolDefaultPatch::ShapeStrokeWidth(width) => self.shape.stroke_width = width,
             ToolDefaultPatch::ShapeTextSize(size) => self.shape.text_size = size,
@@ -283,6 +297,10 @@ impl ToolDefaults {
             set(&mut defaults.shape.color, shape, "color");
             set(&mut defaults.shape.stroke_width, shape, "strokeWidth");
             set(&mut defaults.shape.text_size, shape, "textSize");
+            defaults.shape.custom = shape.get("customShape").and_then(CustomShape::from_json);
+        }
+        if defaults.shape.kind == ShapeKind::Custom && defaults.shape.custom.is_none() {
+            defaults.shape.kind = ShapeKind::Rectangle;
         }
         if let Some(draw) = scope("draw") {
             set(&mut defaults.draw.brush, draw, "brushType");
@@ -311,6 +329,7 @@ impl ToolDefaults {
                 "color": self.shape.color.as_str(),
                 "strokeWidth": self.shape.stroke_width,
                 "textSize": self.shape.text_size,
+                "customShape": self.shape.custom.as_ref().map(CustomShape::to_json),
             },
             "draw": {
                 "brushType": stored(&self.draw.brush),

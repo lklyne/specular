@@ -118,7 +118,7 @@ pub(super) fn dropdown_row(model: &Dropdown, cx: &App) -> AnyElement {
         .xsmall()
         .h(px(CONTROL))
         .w_full()
-        .px_2()
+        .px(crate::theme::space(2.0))
         .child(
             h_flex()
                 .flex_1()
@@ -215,7 +215,7 @@ fn opens(model: &Dropdown, trigger: Button) -> AnyElement {
             theme::popup_surface(div())
                 // The room a Kit menu leaves around its rows, so every list
                 // that opens has the same edge.
-                .p_1()
+                .p(crate::theme::space(1.0))
                 .text_color(cx.theme().popover_foreground)
                 .child(sections(&content.unwrap_or_default(), &dismiss, window, cx))
         })

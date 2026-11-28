@@ -143,6 +143,15 @@ pub(super) const fn shape(kind: ShapeKind) -> Glyph {
                 ]
             }
         }
+        // A mod's shape is shown by its mod's own glyph; this stands in
+        // where none is known.
+        ShapeKind::Custom => {
+            const {
+                &[silhouette(
+                    "M50,4 L62,38 L98,38 L69,60 L80,95 L50,74 L20,95 L31,60 L2,38 L38,38 Z",
+                )]
+            }
+        }
     };
     Glyph {
         view: [-6.0, -6.0, 112.0, 112.0],

@@ -19,6 +19,8 @@ pub enum ModAction {
         /// The keys to set.
         props: JsonMap,
     },
+    /// Change the values and outline of mod shapes, one undo step.
+    SetShapes(super::ShapeChange),
     /// A mod item's mod sent what the item shows. Not an undo step.
     Draw {
         /// The mod item.
@@ -50,6 +52,11 @@ pub(crate) fn run(app: &mut App, action: ModAction, effects: &mut Vec<Effect>) {
         }
         ModAction::SetProps { id, props } => verb(app, effects, |app, fx| {
             if let Some(command) = super::set_props(app, &id, &props) {
+                document_step(app, command, fx);
+            }
+        }),
+        ModAction::SetShapes(change) => verb(app, effects, |app, fx| {
+            if let Some(command) = super::set_shapes(app, &change) {
                 document_step(app, command, fx);
             }
         }),

@@ -6,8 +6,8 @@ use std::collections::BTreeMap;
 
 use serde_json::json;
 use specular_interact::{
-    Appearance, Content, Frame, HiddenWord, Layout, LayoutFile, Overlay, Region, SHIPPED, Shown,
-    ThemeFile, Toggles, TrafficLights, place,
+    Appearance, Content, Frame, HiddenWord, Layout, LayoutFile, Material, Overlay, Region, SHIPPED,
+    Shown, ThemeFile, Toggles, TrafficLights, place,
 };
 
 #[test]
@@ -69,9 +69,10 @@ fn a_root_moves_or_hides_the_window_buttons_borders_the_window_and_rounds_the_co
 }
 
 #[test]
-fn a_theme_sets_the_radius_and_fonts_once_and_a_layout_goes_over_it() {
+fn a_theme_sets_the_radius_spacing_lines_and_fonts_once_and_a_layout_goes_over_it() {
     let retro: ThemeFile = serde_json::from_str(
         r##"{ "appearance": "light", "radius": 0, "font": "Geneva", "font_size": 12,
+              "spacing": 3, "border_width": 2,
               "colors": { "hover": "#000", "hoverText": "#fff" } }"##,
     )
     .expect("a theme");
@@ -88,18 +89,41 @@ fn a_theme_sets_the_radius_and_fonts_once_and_a_layout_goes_over_it() {
         (themed.radius, themed.font.as_deref(), themed.font_size),
         (Some(0.0), Some("Geneva"), Some(12.0))
     );
+    assert_eq!(
+        (themed.spacing, themed.border_width),
+        (Some(3.0), Some(2.0))
+    );
     assert_eq!(themed.appearance, Some(Appearance::Light));
     assert_eq!(
         themed.colors.get("hoverText").map(String::as_str),
         Some("#fff")
     );
-    let over = root(r#""font": "Monaco", "radius": 2,"#)
+    let over = root(r#""font": "Monaco", "radius": 2, "border_width": 1,"#)
         .look
         .resolve(Appearance::Light, &themes);
     assert_eq!(
         (over.radius, over.font.as_deref(), over.font_size),
         (Some(2.0), Some("Monaco"), Some(12.0))
     );
+    assert_eq!((over.spacing, over.border_width), (Some(3.0), Some(1.0)));
+}
+
+#[test]
+fn a_block_is_glass_or_blur_and_keeps_it_through_a_save() {
+    let layout = Layout::parse(
+        r##"{ "type": "row", "children": [
+            { "id": "chat", "type": "block", "content": { "panel": "chat" },
+              "material": "glass", "background": "#ffffff14" },
+            { "id": "canvas", "type": "block", "content": "canvas" },
+            { "id": "card", "type": "block", "material": "blur" } ] }"##,
+    )
+    .expect("a layout");
+    let material = |id: &str| layout.root.find(id).and_then(|node| node.material);
+    assert_eq!(
+        (material("chat"), material("card"), material("canvas")),
+        (Some(Material::Glass), Some(Material::Blur), None)
+    );
+    assert_eq!(Layout::parse(&layout.to_text()), Ok(layout.clone()));
 }
 
 #[test]
@@ -246,6 +270,10 @@ fn a_bad_save_keeps_the_last_good_layout_and_says_why() {
         (
             r#"{ "type": "row", "children": [{ "id": "a", "type": "block", "content": "canvas" }, { "id": "a", "type": "block" }] }"#,
             "two nodes have the id `a`",
+        ),
+        (
+            r#"{ "type": "row", "children": [{ "type": "block", "content": "canvas" }, { "type": "block", "material": "frost" }] }"#,
+            "unknown variant `frost`",
         ),
     ] {
         let error = file.read(bad).map_or_default(ToString::to_string);

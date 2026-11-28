@@ -220,7 +220,7 @@ fn input_styled(
                 Styled::h(Input::new(&input).small(), px(ADDRESS_HEIGHT))
                     .text_size(px(12.0))
                     .rounded(crate::theme::corner_full())
-                    .px_3()
+                    .px(crate::theme::space(3.0))
                     .bg(theme::solid(theme::input()))
                     .focus_bordered(false)
                     .when(focused, |this| this.border_color(ring))
@@ -248,7 +248,7 @@ fn input_styled(
                     .absolute()
                     .inset(px(-1.0))
                     .rounded(crate::theme::corner_full())
-                    .border_1()
+                    .border(crate::theme::line())
                     .border_color(ring.opacity(0.5)),
             )
         })
@@ -276,7 +276,7 @@ pub(crate) fn field_styled(
     let grows = model.width == FieldWidth::Wide;
     let least = px(width(model.width));
     h_flex()
-        .gap_1()
+        .gap(crate::theme::space(1.0))
         .items_center()
         .text_size(px(12.0))
         .when(grows, |this| this.flex_1().min_w(least))

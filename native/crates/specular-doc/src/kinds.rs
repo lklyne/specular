@@ -6,7 +6,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Color, JsonMap, Point};
+use crate::{Color, CustomShape, JsonMap, Point};
 
 /// A live web page (a `link` node).
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -300,6 +300,8 @@ pub struct Shape {
     pub text_vertical_align: Option<VerticalAlign>,
     /// Named style preset.
     pub theme: Option<String>,
+    /// The mod's outline, for a [`ShapeKind::Custom`] shape.
+    pub custom: Option<CustomShape>,
 }
 
 impl Shape {
@@ -317,6 +319,15 @@ impl Shape {
             text_align: None,
             text_vertical_align: None,
             theme: None,
+            custom: None,
+        }
+    }
+
+    /// A [`ShapeKind::Custom`] shape with `custom`'s outline and no style.
+    pub fn custom(custom: CustomShape) -> Self {
+        Self {
+            custom: Some(custom),
+            ..Self::new(ShapeKind::Custom)
         }
     }
 }
@@ -345,6 +356,8 @@ pub enum ShapeKind {
     Chevron,
     /// Cylinder.
     Cylinder,
+    /// An outline a mod gives, kept in [`Shape::custom`].
+    Custom,
 }
 
 /// Whether a shape's fill is drawn.
