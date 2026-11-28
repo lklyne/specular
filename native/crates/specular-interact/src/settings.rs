@@ -12,9 +12,10 @@ use crate::first_run::SpaceAction;
 use crate::menu::{MenuEntry, menus};
 use crate::{Action, App, BINDINGS, Context, Effect, Format, SidebarAction, ToolDefaultPatch};
 
-/// Where the tools' ribbon is.
+/// Where the setting puts the tools' ribbon. Where it is drawn now is
+/// [`App::tools_place`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum ToolsPlace {
+pub enum ToolsSetting {
     /// Down the canvas's left edge, taking that room from it.
     #[default]
     Docked,
@@ -22,20 +23,16 @@ pub enum ToolsPlace {
     FloatTop,
     /// Over the bottom of the canvas.
     FloatBottom,
-    /// A column over the canvas's left edge. Not a choice of the setting:
-    /// what [`Self::Docked`] becomes while the sidebar is hidden
-    /// ([`App::tools_place`]).
-    FloatLeft,
 }
 
 /// A place is written by its name.
-impl serde::Serialize for ToolsPlace {
+impl serde::Serialize for ToolsSetting {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         serializer.serialize_str(self.name())
     }
 }
 
-impl ToolsPlace {
+impl ToolsSetting {
     /// Every place, in the order the setting lists them.
     pub(crate) const ALL: [Self; 3] = [Self::Docked, Self::FloatTop, Self::FloatBottom];
 
@@ -45,11 +42,10 @@ impl ToolsPlace {
             Self::Docked => "docked",
             Self::FloatTop => "top",
             Self::FloatBottom => "bottom",
-            Self::FloatLeft => "left",
         }
     }
 
-    /// The place of the setting named `name`.
+    /// The place named `name`.
     pub fn named(name: &str) -> Option<Self> {
         Self::ALL.into_iter().find(|place| place.name() == name)
     }
@@ -60,15 +56,6 @@ impl ToolsPlace {
             Self::Docked => "Docked on the left",
             Self::FloatTop => "Floating at the top",
             Self::FloatBottom => "Floating at the bottom",
-            Self::FloatLeft => "Floating on the left",
-        }
-    }
-
-    /// Whether the tools run down a column rather than across a row.
-    pub const fn upright(self) -> bool {
-        match self {
-            Self::Docked | Self::FloatLeft => true,
-            Self::FloatTop | Self::FloatBottom => false,
         }
     }
 }
@@ -81,7 +68,7 @@ pub struct AppSettings {
     /// Whether the right panel is shown when the app opens.
     pub show_chat: bool,
     /// Where the tools' ribbon is.
-    pub tools: ToolsPlace,
+    pub tools: ToolsSetting,
     /// Which cursors go undrawn.
     pub hidden_cursors: HiddenCursors,
     /// The installed mods turned off, by folder name: they do not run, and
@@ -123,7 +110,7 @@ pub enum SettingAction {
     /// Show the right panel at launch, or do not.
     ShowChat(bool),
     /// Put the tools' ribbon somewhere else.
-    Tools(ToolsPlace),
+    Tools(ToolsSetting),
     /// Draw agent cursors, or do not.
     ShowAgentCursors(bool),
     /// Draw the synced cursor, or do not.
@@ -256,7 +243,7 @@ pub fn settings(app: &App) -> SettingsModel {
             tools: SettingChoice {
                 label: "Tools",
                 detail: "Docked, the tools take a strip beside the canvas. Floating, they sit over it.",
-                options: (ToolsPlace::ALL.into_iter())
+                options: (ToolsSetting::ALL.into_iter())
                     .map(|place| SettingOption {
                         name: place.name(),
                         label: place.label(),

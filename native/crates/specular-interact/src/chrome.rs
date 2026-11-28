@@ -18,6 +18,7 @@ mod node;
 mod solve;
 mod state;
 mod toggle;
+mod tools;
 
 pub use self::layout::{Layout, LayoutError, LayoutFile, RegionNode, SHIPPED, SHIPPED_THEMES};
 pub use self::look::{HiddenWord, Look, Resolved, ThemeChoice, ThemeFile, TrafficLights};
@@ -27,8 +28,12 @@ pub(crate) use self::state::ChromeState;
 pub use self::state::{LayoutsRead, Shown, gate, place};
 pub use self::toggle::{LayoutAction, RESET_KEYS, Toggles};
 pub(crate) use self::toggle::{is_reset, run as run_layout_action};
+pub use self::tools::{
+    OPTIONS_GAP, RIBBON_INSET, RIBBON_PAD, TOOL_BUTTON, ToolsPlace, float_left_column,
+    float_left_span,
+};
 
-use crate::{App, ToolsPlace};
+use crate::App;
 
 /// The first row of the chrome: the window's title bar strip, where the
 /// tabs go. Tall enough to centre the traffic lights a window puts at
@@ -202,18 +207,6 @@ impl App {
     /// Which regions the layout and the toggles let be drawn.
     pub fn regions(&self) -> Regions {
         self.chrome.regions()
-    }
-
-    /// Where the tools are now: the setting, except that tools docked
-    /// beside a sidebar the layout has but hides float down the canvas's
-    /// left edge, and the canvas takes their column.
-    pub fn tools_place(&self) -> ToolsPlace {
-        match self.settings.tools {
-            ToolsPlace::Docked if !self.session.sidebar.shown() && self.regions().sidebar => {
-                ToolsPlace::FloatLeft
-            }
-            place => place,
-        }
     }
 
     /// How far in from each edge the canvas is seen. Everything that

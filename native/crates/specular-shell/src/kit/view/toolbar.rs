@@ -11,6 +11,7 @@ use gpui_kit::{
     AnyElement, App, InteractiveElement as _, IntoElement, ParentElement as _, SharedString,
     Styled as _, Window, div, px,
 };
+use specular_interact::chrome::{OPTIONS_GAP, RIBBON_PAD, TOOL_BUTTON};
 use specular_interact::{
     ControlId, ControlsModel, PaintRole, Palette, SidebarButton, ThemeButton, ToolButton,
     ToolbarModel, ToolbarSection, ToolsPlace,
@@ -24,16 +25,8 @@ use super::raised::Raised;
 use super::run;
 use crate::theme;
 
-/// The side of a tool's button, which is square.
-const TOOL_BUTTON: f32 = 28.0;
 const TOOL_GLYPH: f32 = 20.0;
 const PANEL_GLYPH: f32 = 14.0;
-/// From the canvas's edge to a floating ribbon, and from a ribbon's own
-/// edge to its buttons.
-pub(super) const RIBBON_INSET: f32 = 8.0;
-const RIBBON_PAD: f32 = 4.0;
-/// From a tool's button to its options.
-const OPTIONS_GAP: f32 = 10.0;
 
 /// The surface a tool glyph's colour is resolved for: the pens show their
 /// ink, the sticky and the shape their fill.

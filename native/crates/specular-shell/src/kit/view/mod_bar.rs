@@ -1,8 +1,9 @@
-//! Where the mods drawn over the canvas go: a toolbar mod floating where
-//! the app's own ribbon floats while the tools float, and the notices over
-//! the canvas's lower right corner. The mod draws the panel itself; these
-//! give it the box and keep the canvas from taking the clicks it gets. The
-//! layout's blocks are placed by `frame.rs`.
+//! Where the panels floating over the canvas go: the tools' ribbon while
+//! the tools float, the app's own or a toolbar mod's, centred over the top
+//! or the bottom of the canvas or down its left edge; and a notices mod
+//! over the canvas's lower right corner. A mod draws the panel itself;
+//! these give it the box and keep the canvas from taking the clicks it
+//! gets. The layout's blocks are placed by `frame.rs`.
 
 use gpui_kit::component::{h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
@@ -10,11 +11,11 @@ use gpui_kit::{
     AnyElement, App, Entity, InteractiveElement as _, IntoElement, ParentElement as _, Styled as _,
     Window, div, px,
 };
+use specular_interact::chrome::{RIBBON_INSET, float_left_column};
 use specular_interact::{Overlay, Region, ToolsPlace};
 
 use super::ShellView;
 use super::onboarding::HeroPrism;
-use super::toolbar::RIBBON_INSET;
 use crate::canvas::Models;
 
 /// The mods drawn this frame over the canvas, in place of the app's own.
@@ -134,7 +135,7 @@ pub(super) fn floating(ribbon: AnyElement, place: ToolsPlace, edges: SlotEdges) 
     match place {
         ToolsPlace::FloatLeft => v_flex()
             .absolute()
-            .left(px(edges.left + RIBBON_INSET))
+            .left(px(float_left_column(edges.left).start))
             .top(px(edges.top))
             .bottom_0()
             .justify_center()

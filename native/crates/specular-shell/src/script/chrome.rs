@@ -7,10 +7,13 @@
 //! headless keeps one script meaning one thing in both runners.
 
 use glam::Vec2;
+use specular_interact::chrome::{float_left_column, float_left_span};
 use specular_interact::panel::{DOCK_ROW, TAB_ROW};
-use specular_interact::{App, ToolsPlace, dock, tool_options, toolbar};
+use specular_interact::{
+    App, ToolbarModel, ToolbarSection, ToolsPlace, dock, tool_options, toolbar,
+};
 
-/// How far right of the docked tools the armed tool's options reach, with
+/// How far right of an upright ribbon the armed tool's options reach, with
 /// room to spare: two columns of buttons and the panel's padding.
 const TOOL_OPTIONS_REACH: f32 = 72.0;
 
@@ -33,10 +36,26 @@ pub(crate) fn kit_chrome_at(app: &App, at: Vec2) -> Option<&'static str> {
             "under the docked tools"
         });
     }
-    // The armed tool's options stand in a column beside its docked button.
+    // The armed tool's options stand in a column beside its button, in a
+    // docked ribbon or one floating down the canvas's left edge.
     let bar = toolbar(app);
-    let docked = regions.toolbar && bar.tools == ToolsPlace::Docked;
-    if docked && tool_options(app).is_some() && at.x < insets.left + TOOL_OPTIONS_REACH {
+    let ribbon_right = match bar.tools {
+        _ if !regions.toolbar => None,
+        ToolsPlace::Docked => Some(insets.left),
+        ToolsPlace::FloatLeft => {
+            let column = float_left_column(insets.left);
+            let span = floating_span(&bar, insets.top, viewport.y);
+            if column.contains(&at.x) && span.contains(&at.y) {
+                return Some("under the floating tools");
+            }
+            span.contains(&at.y).then_some(column.end)
+        }
+        ToolsPlace::FloatTop | ToolsPlace::FloatBottom => None,
+    };
+    if let Some(right) = ribbon_right
+        && tool_options(app).is_some()
+        && at.x < right + TOOL_OPTIONS_REACH
+    {
         return Some("under the armed tool's options");
     }
     if at.x >= viewport.x {
@@ -49,4 +68,19 @@ pub(crate) fn kit_chrome_at(app: &App, at: Vec2) -> Option<&'static str> {
         return Some("under the dock");
     }
     None
+}
+
+/// The span down the window of the ribbon floating down the canvas's left
+/// edge, between `top` and `bottom`: its tools, a rule between groups, then
+/// a rule, the zoom readout a mod puts there and the theme button.
+fn floating_span(bar: &ToolbarModel, top: f32, bottom: f32) -> std::ops::Range<f32> {
+    let groups: Vec<usize> = (bar.sections.iter())
+        .filter_map(|section| match section {
+            ToolbarSection::Tools(tools) => Some(tools.len()),
+            ToolbarSection::Zoom(_) => None,
+        })
+        .collect();
+    let items = groups.iter().sum::<usize>() + 2;
+    let rules = groups.len();
+    float_left_span(top, bottom, items, rules)
 }

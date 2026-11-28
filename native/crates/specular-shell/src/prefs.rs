@@ -13,7 +13,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use serde_json::{Map, Value};
-use specular_interact::{AppSettings, HiddenCursors, Theme, ToolDefaults, ToolsPlace};
+use specular_interact::{AppSettings, HiddenCursors, Theme, ToolDefaults, ToolsSetting};
 
 use crate::persist::write_atomic;
 
@@ -232,7 +232,7 @@ pub(crate) fn load_settings(path: &Path) -> AppSettings {
     };
     let tools = (preferences.get(TOOLS_KEY))
         .and_then(Value::as_str)
-        .and_then(ToolsPlace::named)
+        .and_then(ToolsSetting::named)
         .unwrap_or_default();
     let hidden = |key: &str| preferences.get(key).and_then(Value::as_bool) == Some(true);
     AppSettings {
