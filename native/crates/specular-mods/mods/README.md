@@ -7,7 +7,9 @@ files**. A mod is a folder with a `mod.json` and a `main.js`: it draws a part
 of the window, or adds a kind of canvas item, a toolbar tool or commands, from
 the app's state, and changes the app by running commands by name, the same
 commands the palette, the keys and the `specular` CLI run. Save a file and the
-app reloads the mod within a second. Shipped mods are Specular's: clone
+app reloads the mod within a second. A save that does not load keeps the
+old build running and writes why to `mods/<name>.error`, which the next
+good save takes away. Shipped mods are Specular's: clone
 before editing (see "Your own mods"). Every panel of the window has a
 shipped mod built from the same parts you have, and a layout file says
 which mod (or the app's own panel) goes where.
