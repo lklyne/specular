@@ -38,8 +38,9 @@ pub(crate) use self::build::{model_chip, queued_chip, transcript};
 pub(crate) use self::commit::comment as commit_comment;
 pub use self::fix::{FixTarget, fixable};
 pub use self::model::{
-    ArtifactCard, AutoChip, Bubble, ChatModel, Composer, DraftChip, DraftKind, ModelChip,
-    ModelOption, OpenComments, PillChip, PillKind, QueuedChip, RunBar, ThreadRow, Transcript,
+    ArtifactCard, AutoChip, Bubble, ChatModel, Composer, DraftChip, DraftKind, HeaderAction,
+    ModelChip, ModelOption, OpenComments, PillChip, PillKind, QueuedChip, RunBar, ThreadRow,
+    Transcript,
 };
 pub(crate) use self::notice::{on_agent, on_loaded, open_thread_of};
 use crate::App;

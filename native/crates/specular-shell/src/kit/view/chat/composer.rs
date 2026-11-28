@@ -8,31 +8,22 @@
 //! draft and leaves what was typed; with no draft it hands the keys back
 //! to the canvas.
 
-use gpui_kit::component::button::{Button, ButtonVariants as _};
-use gpui_kit::component::input::{Escape, Textarea};
+use std::rc::Rc;
+
+use gpui_kit::component::input::Escape;
 use gpui_kit::component::message_scroller::MessageScrollerState;
-use gpui_kit::component::tooltip::Tooltip;
-use gpui_kit::component::{Disableable as _, Icon, IconName, Sizable as _, h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
-    AnyElement, Context, InteractiveElement as _, IntoElement, ObjectFit, ParentElement as _,
-    SharedString, StatefulInteractiveElement as _, Styled as _, StyledImage as _, Window, div, img,
-    px,
+    Context, InteractiveElement as _, IntoElement, ParentElement as _, SharedString, Styled as _,
+    Window, div,
 };
 use specular_interact::{Action, ChatAction, Composer, Event};
 
-use super::chips::{
-    auto_chip, chip, draft_chip, model_chip, muted, open_comments, pill_icon, queued, remove_button,
-};
+use super::chips::{draft_chip, open_comments, queued};
+use super::composer_box::{self, ComposerBox, OnPaste, OnRemove, OnSend};
 use crate::canvas;
 use crate::theme;
 use crate::view::{ShellView, focus_canvas};
-
-/// The field is two lines tall when empty and grows to six: `min-h-[48px]`
-/// and `max-h-[160px]` at a 24 px line.
-pub(super) const MIN_ROWS: usize = 2;
-pub(super) const MAX_ROWS: usize = 6;
-const LINE: f32 = 24.0;
 
 impl ShellView {
     /// Sends what the composer holds: the field's text and the pasted
@@ -74,114 +65,6 @@ impl ShellView {
         }
     }
 
-    /// Thumbnails of the pasted images, each removable (`PastedImages`).
-    fn pasted_images(&self, cx: &mut Context<'_, Self>) -> Option<impl IntoElement + use<>> {
-        if self.chat.images.is_empty() {
-            return None;
-        }
-        let thumbnails = (self.chat.images.iter().enumerate()).map(|(index, pasted)| {
-            let group = SharedString::from(format!("chat-pasted-{index}"));
-            div()
-                .group(group.clone())
-                .relative()
-                .size(px(48.0))
-                .flex_shrink_0()
-                .overflow_hidden()
-                .rounded(crate::theme::corner(6.0))
-                .border(crate::theme::line())
-                .border_color(theme::solid(theme::zinc_300()))
-                .child(
-                    img(pasted.thumbnail.clone())
-                        .size_full()
-                        .object_fit(ObjectFit::Cover),
-                )
-                .child(
-                    remove_button(
-                        SharedString::from(format!("chat-pasted-remove-{index}")),
-                        group,
-                        0x0000_00b3,
-                        0xffff_ffff,
-                    )
-                    .right(px(2.0))
-                    .top(px(2.0))
-                    .tooltip(|window, cx| Tooltip::new("Remove image").build(window, cx))
-                    .on_click(cx.listener(move |this, _, _, cx| {
-                        if index < this.chat.images.len() {
-                            this.chat.images.remove(index);
-                            cx.notify();
-                        }
-                    })),
-                )
-        });
-        Some(
-            h_flex()
-                .flex_wrap()
-                .gap(px(6.0))
-                .pb(px(6.0))
-                .children(thumbnails),
-        )
-    }
-
-    /// The round Send button: filled once there is something to send.
-    fn send_button(ready: bool, cx: &mut Context<'_, Self>) -> AnyElement {
-        let arrow = div().text_size(px(12.0)).child("↑");
-        let button = Button::new("chat-send")
-            .size(px(28.0))
-            .rounded(crate::theme::corner(14.0))
-            .flex_shrink_0()
-            .tooltip("Send")
-            .child(arrow)
-            .on_click(cx.listener(|this, _, window, cx| this.send_chat(window, cx)));
-        if ready {
-            button.primary().into_any_element()
-        } else {
-            button
-                .ghost()
-                .disabled(true)
-                .bg(theme::solid(theme::zinc_100()))
-                .text_color(muted())
-                .into_any_element()
-        }
-    }
-
-    /// The row under the field: what a message goes with, the folder it
-    /// writes to, the model, and the send button.
-    fn composer_chips(
-        &self,
-        model: &Composer,
-        ready: bool,
-        cx: &mut Context<'_, Self>,
-    ) -> AnyElement {
-        let folder = model.folder.as_ref().map(|folder| {
-            let target = model.folder_path.as_ref().unwrap_or(folder);
-            let written = SharedString::from(format!("Changes are written to {target}"));
-            chip("chat-folder", Icon::new(IconName::FolderOpen), folder)
-                .tooltip(move |window, cx| Tooltip::new(written.clone()).build(window, cx))
-        });
-        h_flex()
-            .min_w_0()
-            .gap(crate::theme::space(1.0))
-            .pt(px(2.0))
-            .items_center()
-            .child(
-                h_flex()
-                    .flex_1()
-                    .min_w_0()
-                    .gap(crate::theme::space(1.0))
-                    .items_center()
-                    .child(chip(
-                        "chat-pill",
-                        pill_icon(model.pill.kind),
-                        &model.pill.label,
-                    ))
-                    .children(folder)
-                    .children(model.auto.as_ref().map(auto_chip)),
-            )
-            .child(model_chip(&model.model, &self.chat.input))
-            .child(Self::send_button(ready, cx))
-            .into_any_element()
-    }
-
     /// The composer for `model`.
     pub(super) fn composer(
         &mut self,
@@ -200,31 +83,34 @@ impl ShellView {
         let ready = typed || !self.chat.images.is_empty() || model.can_send_empty;
 
         let view = cx.entity().downgrade();
-        // The smallest size has the smallest inset around the text; the type
-        // is the composer's own.
-        let field = Textarea::new(&self.chat.input)
-            .xsmall()
-            .appearance(false)
-            .bordered(false)
-            .text_size(px(12.0))
-            .line_height(px(LINE))
-            .on_paste(move |item, _, cx| {
+        let on_paste: OnPaste = {
+            let view = view.clone();
+            Rc::new(move |item, _, cx| {
                 view.update(cx, |this, cx| this.take_pasted(item, cx))
                     .unwrap_or(false)
+            })
+        };
+        let on_send: OnSend = {
+            let view = view.clone();
+            Rc::new(move |window, cx| {
+                let _ = view.update(cx, |this, cx| this.send_chat(window, cx));
+            })
+        };
+        let on_remove: OnRemove = Rc::new(move |index, _, cx| {
+            let _ = view.update(cx, |this, cx| {
+                if index < this.chat.images.len() {
+                    this.chat.images.remove(index);
+                    cx.notify();
+                }
             });
-        let bottom = self.composer_chips(model, ready, cx);
-
-        let focus_field = cx.listener(|this, _: &gpui_kit::ClickEvent, window, cx| {
-            this.focus_composer(window, cx);
         });
-        let box_ = v_flex()
-            .id("chat-composer")
-            .rounded(crate::theme::corner(16.0))
-            .border(crate::theme::line())
-            .border_color(theme::solid(theme::input_border()))
-            .bg(theme::solid(theme::input()))
-            .px(crate::theme::space(2.0))
-            .py(px(6.0))
+        let parts = ComposerBox {
+            model,
+            input: &self.chat.input,
+            images: &self.chat.images,
+            ready,
+        };
+        let box_ = composer_box::frame("chat-composer")
             // The field has had its turn by the time Escape reaches here: an
             // input method's composition is closed first.
             .on_action(cx.listener(|_, _: &Escape, window, cx| {
@@ -235,17 +121,9 @@ impl ShellView {
             .when(!model.queued.is_empty(), |this| {
                 this.child(queued(&model.queued))
             })
-            .children(self.pasted_images(cx))
-            .child(
-                div()
-                    .id("chat-field")
-                    .min_h(px(LINE * MIN_ROWS as f32))
-                    .p(px(2.0))
-                    .cursor_text()
-                    .on_click(focus_field)
-                    .child(field),
-            )
-            .child(bottom);
+            .children(parts.thumbnails(&on_remove))
+            .child(parts.field(on_paste))
+            .child(parts.chips(on_send));
         div()
             .flex_shrink_0()
             .p(crate::theme::space(2.0))

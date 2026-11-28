@@ -97,7 +97,9 @@ fn send_thread(app: &mut App, text: &str, images: Vec<ImageUpload>, effects: &mu
 }
 
 /// Send to one thread by id, whichever is open: the words join its queue
-/// and the queue is sent. A closed or missing thread takes nothing.
+/// and the queue is sent. A thread not made yet is started on the active
+/// canvas under that id, not opened, so a view can name its thread before
+/// the first message. A closed thread takes nothing.
 pub(super) fn to_thread(
     app: &mut App,
     thread: &ThreadId,
@@ -105,6 +107,11 @@ pub(super) fn to_thread(
     images: Vec<ImageUpload>,
     effects: &mut Vec<Effect>,
 ) {
+    if app.threads.get(thread).is_none() {
+        let (tab, now) = (comments::tab(app), now(app));
+        let changed = app.threads.new_thread(&tab, thread.clone(), &now, false);
+        effects::emit(&changed, effects);
+    }
     let Some(tab) = app.threads.get(thread).map(|t| t.tab_id.clone()) else {
         return;
     };

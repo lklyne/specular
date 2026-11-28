@@ -39,6 +39,13 @@ pub(crate) fn viewport_to_doc(viewport: Rect, scroll: DVec2) -> Rect {
     viewport.translated(scroll.x, scroll.y)
 }
 
+/// The anchor of the page that carries `entity`. A page cannot carry
+/// itself: a web mod item is a page, and one saved hooked to itself would
+/// otherwise slide with its own scroll and be cut to its own frame.
+fn carrier(entity: &Entity) -> Option<&PageAnchor> {
+    (entity.anchor.as_ref()).filter(|anchor| anchor.page_id != entity.id)
+}
+
 /// The scroll an anchor recorded, or `None` for an anchor pinned to the
 /// page's frame or hooked to a fixed element, which the scroll does not
 /// move.
@@ -168,7 +175,7 @@ impl Scrolls {
 
     /// How far `entity` is shifted, in canvas units.
     pub(crate) fn shift(&self, entity: &Entity) -> DVec2 {
-        let Some(anchor) = &entity.anchor else {
+        let Some(anchor) = carrier(entity) else {
             return DVec2::ZERO;
         };
         self.pages.get(&anchor.page_id).map_or(DVec2::ZERO, |page| {
@@ -320,7 +327,7 @@ pub(crate) fn placed_rect(app: &App, entity: &Entity) -> Rect {
 
 /// How far `entity` is shifted, in canvas units.
 pub(crate) fn shift_for(app: &App, entity: &Entity) -> DVec2 {
-    let Some(anchor) = &entity.anchor else {
+    let Some(anchor) = carrier(entity) else {
         return DVec2::ZERO;
     };
     let Some(placement) = app.page_placement(&anchor.page_id) else {

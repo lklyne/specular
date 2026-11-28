@@ -4,7 +4,8 @@
 // items, tools and commands (ADR 0057); 1.2 added the window's own panels,
 // overlays, the look and text fields (ADR 0059); 1.3 added a key for each
 // chat thread and the `thread` arguments of the `chat.*` commands; 1.4
-// added mod shapes (ADR 0060): `shapes` in `mod.json` and `shape.set`.
+// added mod shapes (ADR 0060): `shapes` in `mod.json` and `shape.set`; 1.5 added
+// the `agents` key and `view.follow`.
 
 /**
  * Every state key. `panels/*` are the app's own panel models as plain data;
@@ -32,6 +33,7 @@
  * - `panels/sidebar`: `{visible, add, sections: [{id, title, folded, rows}]}`: the canvases section's rows are `{id, canvas, label, active, count, rename}`, the others `{id, label, icon, trailing, selected, dimmed, expanded, children}`. A row is pressed with `control.press {id}`, renamed by pressing its `rename` id (1.2)
  * - `panels/chat`: `{available, visible, width, title, threads: [{id, title, draft, active, running}], transcript: {messages: [{id, role, text, images}], streaming, run, error} | null, composer: {placeholder, running, model: {label, options: [{name, description, chosen}]}}}`, driven by the `chat.*` commands (1.2)
  * - `chat/threads`: the active canvas's threads with no transcripts, `{open: thread id | null, threads: [{id, key, title, draft, open, running, updatedAt}], model: {label, options}}`; `open` is the thread the panel has open. Moves when a thread starts, is renamed, opens or starts or stops working, not per word (1.3)
+ * - `chat/context`: what the next message goes with, as the panel's composer shows it: `{pill: {label, kind: "dom"|"comment"|"selection"|"canvas"}, folder, folderPath, auto: {origin, on} | null, model: {label, options: [{name, value, description, chosen}]}}` (1.3)
  * - `chat/thread/<id>`: one thread of the active canvas, `{id, title, draft, open, running, updatedAt, messages: [{id, role, text, images, artifacts: [{label, detail, created}]}], streaming, making, run: {label, log} | null, error, queued: [text], canSendEmpty, placeholder, emptyHint}`, or null while it is closed, on another canvas or not made yet. Moves only with its thread (1.3)
  * - `layouts`: `[{name, title, active}]`, every layout; `layout.switch {name}` shows one (1.2)
  * - `look`: `{appearance: "light"|"dark", theme, colors: {name: css color}, font, fontSize, radius, spacing, borderWidth, background}`, the layout's resolved look (1.2; `spacing` and `borderWidth` 1.4)
@@ -39,6 +41,7 @@
  * - `selection`: `{ids: [entity id], edges: [edge id]}` (1.2)
  * - `canvas/items`: every item of the active canvas, back to front `[{id, kind, label, parent, ..detail}]`, without places or sizes: a page adds `url`, text `text`, a shape `shape`, `text` and `custom` (`{shape: <mod>/<shape>, params}` for a mod's shape, else null, 1.4), a mod item `mod` (1.2)
  * - `canvas/info`: `{id, name, items, edges, canvases: [{id, name, active}]}` (1.2)
+ * - `agents`: the agents with a cursor on the canvas showing, in the order they first acted, `{agents: [{id, name, color: "#rrggbb", label}], following: agent id | null}`. `label` is what the cursor's chip says ("moving", "reading", "thinking" ..). No positions, so a cursor's travel wakes no mod; `view.follow {agent: id}` keeps the camera on one (1.5)
  */
 export type StateKey =
   | "panels/toolbar"
@@ -66,7 +69,9 @@ export type StateKey =
   | "canvas/items"
   | "canvas/info"
   | "chat/threads"
-  | `chat/thread/${string}`;
+  | "chat/context"
+  | `chat/thread/${string}`
+  | "agents";
 /**
  * Every command `run` takes, with its arguments and what it does.
  *
@@ -158,6 +163,7 @@ export type StateKey =
  * - `view.zoom-to-fit`: Show everything on the canvas, centred.
  * - `view.zoom` `{percent: number}`: Zoom to this many percent about the middle of the viewport.
  * - `view.camera` `{x: number, y: number, zoom: number}`: Move the camera: the pan in screen pixels, and the zoom.
+ * - `view.follow` `{agent?: agent id from `agents`}`: Keep the camera on an agent's cursor, with a frame in its colour, until the person pans, zooms or presses Escape; with no agent, stop following (1.5).
  * - `view.reveal` `{id: entity id}`: Select an entity and pan it into view.
  * - `view.theme` `{theme: light|dark|system}`: Choose the theme and save the choice.
  * - `view.toggle-sidebar`: Show the sidebar, or hide it.
@@ -184,9 +190,9 @@ export type StateKey =
  * - `chat.select` `{id: thread id}`: Show a thread of `panels/chat` (1.2).
  * - `chat.back`: Go back from a thread to the list (1.2).
  * - `chat.close` `{id?: thread id}`: Close the thread named, or the one showing (1.2).
- * - `chat.send` `{text: message, thread?: thread id}`: Send a message to the thread showing, or to a new one (1.2); with `thread`, to that thread whichever is showing (1.3).
+ * - `chat.send` `{text: message, images?: [{type, data}], thread?: thread id}`: Send a message to the thread showing, or to a new one (1.2); with `thread`, to that thread whichever is showing (1.3). `images` go with it: each a MIME type (`image/png`, `image/jpeg`, `image/gif` or `image/webp`) and its bytes in base64, bare or as a `data:` URL (1.3).
  * - `chat.stop` `{thread?: thread id}`: Stop the agent's run on the thread showing, or on `thread` (1.3).
- * - `chat.model` `{name: model name}`: Choose the model new runs use, by a name `panels/chat` lists (1.2).
+ * - `chat.model` `{name: model name}`: Choose the model new runs use, by an option's `value` in `chat/context` or `panels/chat` (1.2).
  */
 export type CommandName =
   | `${string}/${string}`
@@ -278,6 +284,7 @@ export type CommandName =
   | "view.zoom-to-fit"
   | "view.zoom"
   | "view.camera"
+  | "view.follow"
   | "view.reveal"
   | "view.theme"
   | "view.toggle-sidebar"
@@ -364,6 +371,8 @@ export const Icon: HostComponent<{ name: any; size?: number; color?: string; tin
 export const Zoom: HostComponent<{ compact?: boolean }>;
 /** `ToolOptions`: the options of the tool in hand, beside its button: place it inside the button's `relative()` box. `place` is `panels/toolbar`'s `tools`. */
 export const ToolOptions: HostComponent<{ place: "docked" | "top" | "bottom" }>;
+/** `Composer`: the agent panel's composer for any thread: the field, pasted images, the context pill, the folder, the send mode, the model and Send. Return or Send sends the words and images to `thread`, which is started under that id if it is not made yet, or to the thread the panel has open when no `thread` is given. The window keeps it by `id`, so it redraws as a person types or pastes without the mod rendering; `autofocus` gives it the keys as it is made. Headless it is a placeholder. For a web page, `mods/lib/chat.js` has `<specular-composer>`. */
+export const Composer: HostComponent<{ id?: string; thread?: string | null; placeholder?: string; autofocus?: boolean }>;
 /** `Field`: a line of text the window holds, so the keys stay in it while a person types. With `control`, the model field of that id in `panels/dock` or `panels/tool_options` (an address, a size), which sends what is typed as the app's own does. Otherwise a mod's own field: what is typed is `shared("field/<id>")`, and each Return moves `shared("field/<id>/submit")` on by one. `value` is where it starts, and `autofocus` gives it the keys as it is made. A field is made once for its `id`: name it anew for a fresh one. `radius`, `background`, `border` and `focusRing` (colours as `colors()` names them, or `#rrggbb[aa]`) restyle its box, so a layout's fields match its look; a field styled this way shows its focus by turning its own edge `focusRing` (the theme's `focusRing` by default) instead of drawing the app's rounded ring. Headless it is a placeholder. */
 export const Field: HostComponent<{ control?: string; id?: string; value?: string; placeholder?: string; autofocus?: boolean; radius?: number; background?: string; border?: string; focusRing?: string }>;
 /** `Swatch`: a dot of a canvas colour as the app's dock draws it. `color` is a colour as the panel keys and the \`.canvas\` file name it (`"neutral"`, `"3"`, `"#e0e0e0"`), never a CSS colour a mod's element takes: pass it here instead of to `bg()`. `palette` and `role` are the swatches control's own; `null` draws the hollow choice. */

@@ -15,7 +15,7 @@ use gpui_kit::{
     ParentElement as _, SharedString, StatefulInteractiveElement as _, Styled as _, Window, div,
     px,
 };
-use specular_interact::{Action, ChatModel, ThreadRow};
+use specular_interact::{Action, ChatModel, HeaderAction, ThreadRow};
 
 use super::avatar::ThreadAvatar;
 use super::date::short_date;
@@ -45,6 +45,25 @@ fn icon_button(id: &'static str, icon: impl Into<Icon>, tooltip: &'static str) -
 
 /// One thread in the switcher's menu: its title, a tag while it is a draft,
 /// and a check on the open one.
+/// A button a mod adds for the open thread, drawn as the header's own.
+fn mod_button(button: &HeaderAction) -> Button {
+    let action = button.action.clone();
+    let tip = SharedString::from(button.title.clone());
+    Button::new(SharedString::from(format!("chat-mod-{}", button.command)))
+        .ghost()
+        .xsmall()
+        .size(px(24.0))
+        .child(super::super::glyphs::glyph(
+            button.icon,
+            super::super::glyphs::ink(theme::text()),
+            None,
+            false,
+            13.0,
+        ))
+        .tooltip(tip)
+        .on_click(move |_, window, cx| run(&action, window, cx))
+}
+
 fn menu_item(row: &ThreadRow, input: &Entity<TextareaState>) -> PopupMenuItem {
     let (select, input) = (row.select.clone(), input.clone());
     let title = SharedString::from(row.title.clone());
@@ -118,6 +137,7 @@ impl ShellView {
             .flex_shrink_0()
             .gap(px(2.0))
             .items_center()
+            .children(model.actions.iter().map(mod_button))
             .child(
                 icon_button("chat-new", IconName::Plus, "New thread").on_click(
                     move |_, window, cx| run_keeping_field(&new_thread, &input, window, cx),

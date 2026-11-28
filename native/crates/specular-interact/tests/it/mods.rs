@@ -22,7 +22,10 @@ const STAMP: &str = r#"{
   "api": "1.1", "title": "Stamp",
   "items": { "size": [100, 80] },
   "tools": [{ "name": "pen", "title": "Stamp pen" }],
-  "commands": [{ "name": "spin", "title": "Spin the stamp", "key": "alt+shift+s", "dock": true }]
+  "commands": [
+    { "name": "spin", "title": "Spin the stamp", "key": "alt+shift+s", "dock": true },
+    { "name": "pin", "title": "Pin the thread", "chat": true }
+  ]
 }"#;
 
 fn stamp() -> InstalledMod {
@@ -156,6 +159,28 @@ fn a_mod_command_is_in_the_palette_on_its_key_and_in_the_dock() {
     app.act(button.action);
     assert_eq!(state(app.app())["call"]["args"], json!({ "ids": [id] }));
     app.assert_undo_returns_to_start();
+}
+
+#[test]
+fn a_mod_command_for_the_chat_is_a_button_on_the_open_thread() {
+    let mut app = with_stamp(TestApp::empty());
+    assert_eq!(
+        state(app.app())["panels/chat"]["actions"],
+        json!([]),
+        "no thread open"
+    );
+    run(&mut app, "chat.new-thread", &json!({}));
+    let thread = state(app.app())["chat/threads"]["open"].clone();
+    assert_eq!(
+        state(app.app())["panels/chat"]["actions"],
+        json!([{ "command": "stamp/pin", "title": "Pin the thread", "args": { "thread": thread } }])
+    );
+    let button = specular_interact::chat(app.app()).actions.remove(0);
+    app.act(button.action);
+    assert_eq!(
+        state(app.app())["call"]["args"],
+        json!({ "thread": thread })
+    );
 }
 
 #[test]

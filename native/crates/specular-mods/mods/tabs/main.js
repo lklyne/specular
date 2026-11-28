@@ -2,12 +2,18 @@
 // traffic lights in its left padding, then a tab for the canvas and one for
 // each page and Document, the add button, bare title bar to drag the window
 // by, and at the far end the zoom readout (while the tools are the app's
-// own), the Share button and the right panel's toggle.
+// own), the agents on the canvas, the Share button and the right panel's
+// toggle.
+//
+// The agents are badges drawn from the `agents` key, up to three overlapping
+// and a count for the rest. A click lists them all; picking one runs
+// `view.follow`, which keeps the camera on its cursor until the person moves
+// the camera or presses Escape.
 //
 // A layout hides a control by listing its id in this mod's props:
-//   { "mod": "tabs", "props": { "hidden": ["view.add", "chat.toggle"] } }
+//   { "mod": "tabs", "props": { "hidden": ["view.add", "chat.toggle", "agents"] } }
 import { View, div } from "gpui-kit";
-import { h_flex, Button } from "gpui-base";
+import { h_flex, v_flex, Button, Popover } from "gpui-base";
 import { state, props, run, colors, Icon, Favicon, Zoom, Share, WindowDrag } from "specular";
 
 const ROW = 38;
@@ -20,6 +26,11 @@ const CLOSE = 18;
 const CLOSE_GLYPH = 12;
 const BARE = 80;
 const PANEL_GLYPH = 16;
+const BADGE = 22;
+const BADGE_STEP = 14;
+const BADGES = 3;
+const LIST_WIDTH = 240;
+const LIST_ROW = 30;
 
 const press = (id) => (_event, cx) => {
   if (cx) cx.stop_propagation();
@@ -128,7 +139,100 @@ function panelToggle(model, k) {
     );
 }
 
+// What a badge shows: the number of an "Agent 2", else the first letter.
+function initial(name) {
+  const number = /^Agent (\d+)$/.exec(name);
+  return number ? number[1] : (name.trim()[0] || "?").toUpperCase();
+}
+
+function badge(agent, k) {
+  return div()
+    .size(BADGE)
+    .flex()
+    .items_center()
+    .justify_center()
+    .rounded(BADGE / 2)
+    .border_1()
+    .border_color(k.toolbar)
+    .bg(agent.color)
+    .text_color("#ffffff")
+    .text_xs()
+    .child(initial(agent.name));
+}
+
+function agentRow(agent, following, close, k) {
+  const followed = agent.id === following;
+  return Button.new(`agents.${agent.id}`)
+    .w_full()
+    .h(LIST_ROW)
+    .px(8)
+    .flex()
+    .items_center()
+    .gap(8)
+    .rounded(6)
+    .hover((el) => el.bg(k.hover))
+    .on_click((_event, cx) => {
+      close(cx);
+      run("view.follow", followed ? {} : { agent: agent.id });
+    })
+    .child(div().size(10).flex_shrink_0().rounded(5).bg(agent.color))
+    .child(div().flex_1().min_w(0).truncate().text_sm().child(agent.name))
+    .child(div().flex_shrink_0().text_xs().text_color(k.textMuted).child(followed ? "following" : agent.label));
+}
+
 export default class Tabs extends View {
+  init() {
+    this.agentsOpen = false;
+  }
+
+  // The badges, overlapping, and the list a click opens.
+  agents(roster, k) {
+    const shown = roster.agents.slice(0, BADGES);
+    const more = roster.agents.length - shown.length;
+    const width = BADGE + (shown.length - 1) * BADGE_STEP;
+    const stack = div()
+      .relative()
+      .w(width)
+      .h(BADGE)
+      .children(shown.map((agent, index) => div().absolute().top(0).left(index * BADGE_STEP).child(badge(agent, k))));
+    const trigger = Button.new("agents")
+      .h(BADGE + 4)
+      .px(2)
+      .flex()
+      .items_center()
+      .gap(4)
+      .rounded(BADGE / 2 + 2)
+      .hover((el) => el.bg(k.hover))
+      .child(stack)
+      .when(more > 0, (el) => el.child(div().pr(4).text_xs().text_color(k.toolbarText).child(`+${more}`)));
+    const close = (cx) => {
+      this.agentsOpen = false;
+      cx.notify();
+    };
+    const list = v_flex()
+      .id("agents-list")
+      .w(LIST_WIDTH)
+      .p(6)
+      .gap(2)
+      .rounded(10)
+      .bg(k.popup)
+      .border_1()
+      .border_color(k.popupBorder)
+      .shadow_md()
+      .text_color(k.text)
+      .child(div().px(8).py(4).text_xs().text_color(k.textMuted).child("Agents on this canvas"))
+      .children(roster.agents.map((agent) => agentRow(agent, roster.following, close, k)));
+    return Popover.new("agents-surface")
+      .anchor("top_right")
+      .open(this.agentsOpen)
+      .on_open_change((open, cx) => {
+        this.agentsOpen = open;
+        cx.notify();
+      })
+      .trigger(trigger)
+      .content(list);
+  }
+
   render() {
     const strip = state("panels/strip");
     const hidden = new Set((props() || {}).hidden || []);
@@ -136,6 +240,8 @@ export default class Tabs extends View {
     const shown = (control) => control != null && !hidden.has(control.id);
 
     const tabs = strip.tabs.filter(shown).map((model) => tab(model, k));
+    const roster = state("agents");
+    const agents = !hidden.has("agents") && roster != null && roster.agents.length > 0;
     return h_flex()
       .id("tab-row")
       .size_full()
@@ -169,6 +275,7 @@ export default class Tabs extends View {
           .items_center()
           .text_color(k.toolbarText)
           .when(shown(strip.zoom), (el) => el.child(Zoom.new(strip.zoom.id, { compact: false })))
+          .when(agents, (el) => el.child(this.agents(roster, k)))
           .when(!hidden.has("share"), (el) => el.child(Share.new("share", {})))
           .when(shown(strip.chat), (el) => el.child(panelToggle(strip.chat, k))),
       );

@@ -273,7 +273,7 @@ logs the port it took and the `SPECULAR_DISCOVERY_FILE=` to pass the CLI.
   key. Layouts are `<app home>/layouts/<name>.json` (ADR 0059): trees of
   rows, columns, stacks and blocks with the look at the root, solved by
   `specular_interact::chrome::solve`. The shipped ones (`default`, `mods`,
-  `classic`, `studio`, `chats`) are rewritten on every start; any other file is the
+  `classic`, `studio`) are rewritten on every start; any other file is the
   person's, and `layout.switch` moves between them. `<app home>/keys.json`
   rebinds keys (`bindings/keymap.rs`, read in `app/keys_run.rs`, a mistake
   in `keys.error`). The files are watched by
@@ -306,6 +306,10 @@ logs the port it took and the `SPECULAR_DISCOVERY_FILE=` to pass the CLI.
   cursor to what changed. A route needs no presence code of its own.
   `POST /session/presence` with a `labelKey` (`scan_workspace`, `thinking`,
   `departing`, ...) is `ApiRun::Report`.
+- Who is on the canvas is `App::agents()` and the `agents` state key
+  (`presence/roster.rs`); `view.follow` is `Action::Follow`
+  (`presence/follow.rs`). A camera move the person makes, or Escape, ends a
+  follow.
 
 ### Mods
 
@@ -339,7 +343,7 @@ A mod (ADR 0055) is a folder of `mod.json` and `main.js`, run by
 - **What a mod can call.** `run` resolves through `run_named` and the work
   is deferred out of the script call. Rust-drawn pieces are host
   components (`Components`): `Icon`, `Zoom`, `ToolOptions`, `Favicon`,
-  `WindowDrag`, `Share`, `Prism`, `Field`, `Material`. A layout node's
+  `WindowDrag`, `Share`, `Prism`, `Field`, `Composer`, `Material`. A layout node's
   `material` and `Material` are system views under GPUI
   (`kit/view/material.rs`, ADR 0061). Headless, the window-only ones are
   placeholders. A new one goes in `HOST_COMPONENTS`, the d.ts and the
@@ -367,9 +371,10 @@ A mod (ADR 0055) is a folder of `mod.json` and `main.js`, run by
   key for each thread of the active canvas
   (`specular-interact/src/state/chat.rs`), published beside the fixed
   keys (`is_state_key` names both); `chat.new-thread {id, open}`,
-  `chat.send {thread}` and `chat.stop {thread}`. The `chat` mod's
-  `props.pane` is a pane with a thread of its own (the `chats` layout), and
-  the `thread` mod makes a thread a web canvas item.
+  `chat.send {thread, images}` (starting a thread not made yet) and `chat.stop {thread}`. The panel's composer is the `Composer` host component (`kit/mods/composer.rs`, on `view/chat/composer_box.rs`), and web pages load `mods/lib/chat.js` (`<specular-chat>`, `<specular-thread>`, `<specular-composer>`). A mod command with
+  `"chat": true` is a button in the agent panel's header (`HeaderAction`,
+  `mods::chat_buttons`), and the `thread` mod makes a thread a web canvas
+  item.
 - **Checking and measuring.** `specular mod check <dir> [--state
   fixture.json]` (the `specular-mod-check` crate) renders a mod headless.
   `specular mod stats` is `GET /mods`. `specular mod clone <name>

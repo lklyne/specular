@@ -16,9 +16,10 @@ mod artifacts;
 mod avatar;
 mod chips;
 mod composer;
+pub(crate) mod composer_box;
 mod date;
 mod header;
-mod paste;
+pub(crate) mod paste;
 mod run_bar;
 mod transcript;
 
@@ -76,7 +77,7 @@ impl ChatUi {
         // plain Enter and inserts nothing for it.
         let input = cx.new(|cx| {
             TextareaState::new(window, cx)
-                .auto_grow(composer::MIN_ROWS, composer::MAX_ROWS)
+                .auto_grow(composer_box::MIN_ROWS, composer_box::MAX_ROWS)
                 .submit_on_enter(true)
         });
         let events =

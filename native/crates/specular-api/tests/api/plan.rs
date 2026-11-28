@@ -321,6 +321,7 @@ fn a_presence_report_and_a_closed_session_move_the_callers_cursor() {
     let mut post = |path: &str, body: Value| api.plan(app.app(), &Request::post(path, body));
     let report = |key: &str| ApiRun::Report {
         key: key.to_owned(),
+        name: None,
     };
     assert_eq!(
         run(post(

@@ -135,8 +135,8 @@ pub use bindings::{
 pub use bridge::bridge_allowed;
 pub use chat::{
     ArtifactCard, AutoChip, Bubble, ChatAction, ChatModel, ChatView, Composer, DraftChip,
-    DraftKind, FixTarget, ImageUpload, ModelChip, ModelOption, OpenComments, PillChip, PillKind,
-    QueuedChip, RunBar, ThreadRow, Transcript, chat, fixable,
+    DraftKind, FixTarget, HeaderAction, ImageUpload, ModelChip, ModelOption, OpenComments,
+    PillChip, PillKind, QueuedChip, RunBar, ThreadRow, Transcript, chat, fixable,
 };
 pub use chord::Chord;
 pub use chrome::{
@@ -200,7 +200,7 @@ pub use panel::{
 pub use physical_key::{PhysicalKey, mac_key_input};
 pub use place::{PlaceDrag, PlacePreview};
 pub use placement::PagePlacement;
-pub use presence::{AgentAct, AgentCursor};
+pub use presence::{AGENT_COLORS, AgentAct, AgentBadge, AgentCursor, agent_color};
 pub use property::{Orientation, PageStep, Property};
 pub use repos::{BoundOriginRow, RepoAction, RepoRow, ReposPane, repos_pane};
 pub use resize_drag::ResizeDrag;
