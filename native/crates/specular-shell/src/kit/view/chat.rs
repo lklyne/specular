@@ -158,7 +158,7 @@ impl ShellView {
                 .occlude()
                 .size_full()
                 .bg(theme::solid(theme::panel()))
-                .border_l_1()
+                .border_l(crate::theme::line())
                 .border_color(theme::solid(theme::chrome_border()))
                 .child(self.chat_header(model, cx))
                 .child(body)

@@ -72,13 +72,15 @@ impl From<serde_json::Error> for LayoutError {
 }
 
 /// The keys only a layout's root has.
-const LOOK_KEYS: [&str; 9] = [
+const LOOK_KEYS: [&str; 11] = [
     "title",
     "theme",
     "colors",
     "font",
     "font_size",
     "radius",
+    "spacing",
+    "border_width",
     "background",
     "traffic_lights",
     "window_border",

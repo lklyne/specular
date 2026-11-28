@@ -82,7 +82,8 @@ the app rewrites them on start. `<app home>` is
   wrong tool for a shape: it gets none of the shape tool's style.
 - **A layout, theme, colours or fonts.** Copy a file from
   `<app home>/layouts/` to a new name, edit the tree and its root's
-  `theme`, `colors`, `font` and `font_size`, then `specular run
+  `theme`, `colors`, `font`, `font_size`, `spacing` (the Kit's step,
+  4 by default) and `border_width`, then `specular run
   layout.switch '{"name":"<name>"}'`. The shipped layouts are rewritten
   on start; your copy is not.
 - **A key.** Add it to `<app home>/keys.json` under `global`, `canvas`,

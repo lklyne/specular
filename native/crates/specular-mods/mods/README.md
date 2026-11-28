@@ -223,7 +223,10 @@ the canvas is seen between them; blocks below or right sit beside it.
 **The look.** On the root: `theme` (a theme file's name, or
 `{ "light": ..., "dark": ... }`), `colors` (names over the theme's),
 `font`, `font_size`, `radius` (the corners of the app's own controls and
-popups and dialogs, 6 by default) and `background` (shown round the canvas).
+popups and dialogs, 6 by default), `spacing` (the unit the app's padding
+and gaps are multiples of, 4 by default), `border_width` (its panel edges,
+rules and popup borders, 1 by default) and `background` (shown round the
+canvas).
 `traffic_lights` moves the window's close, minimize and zoom buttons
 (`{ "x": 14, "y": 13 }`, the first button's corner from the window's
 top-left) or hides them (`"hidden"`) for a layout that draws its own with
@@ -241,17 +244,22 @@ popups and dialogs and every mod draw with, so a look is one file:
 
 ```json
 { "appearance": "light", "radius": 0, "font": "Geneva", "font_size": 12,
+  "spacing": 4, "border_width": 1,
   "colors": { "popup": "#fff", "popupBorder": "#000", "hover": "#000",
               "hoverText": "#fff", "on": "#ddd", "text": "#000" } }
 ```
 
 `radius` scales every corner the app draws (6 is its own; 0 squares them
-all, pills included), `font` and `font_size` set the chrome's text, and
+all, pills included), `spacing` scales the app's padding and gaps (3 is
+denser, 5 roomier), `border_width` its lines (2 for a heavy outline, 0 for
+none), `font` and `font_size` set the chrome's text, and
 `colors` renames any colour `colors()` lists (`#rgb`, `#rgba`, `#rrggbb`,
 `#rrggbbaa`). `hover` is a hovered row's fill and `hoverText` its text;
-`on` and `onText` a selected one's. A layout's own `radius`, `font`,
-`font_size` and `colors` go over its theme's. A mod reads them all through
-`colors()` and `look()`.
+`on` and `onText` a selected one's. A layout's own `radius`, `spacing`,
+`border_width`, `font`, `font_size` and `colors` go over its theme's. A mod
+reads them all through `colors()` and `look()`: build a panel mod's padding
+from `look().spacing` and its lines from `look().borderWidth`, and it
+follows the theme as the app's own panels do.
 
 **A square-cornered look** (a retro one, say) takes four things: `radius: 0`
 in its theme, so every corner the app draws is square; `hover`/`hoverText`

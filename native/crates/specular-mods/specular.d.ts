@@ -34,7 +34,7 @@
  * - `chat/threads`: the active canvas's threads with no transcripts, `{open: thread id | null, threads: [{id, key, title, draft, open, running, updatedAt}], model: {label, options}}`; `open` is the thread the panel has open. Moves when a thread starts, is renamed, opens or starts or stops working, not per word (1.3)
  * - `chat/thread/<id>`: one thread of the active canvas, `{id, title, draft, open, running, updatedAt, messages: [{id, role, text, images, artifacts: [{label, detail, created}]}], streaming, making, run: {label, log} | null, error, queued: [text], canSendEmpty, placeholder, emptyHint}`, or null while it is closed, on another canvas or not made yet. Moves only with its thread (1.3)
  * - `layouts`: `[{name, title, active}]`, every layout; `layout.switch {name}` shows one (1.2)
- * - `look`: `{appearance: "light"|"dark", theme, colors: {name: css color}, font, fontSize, radius, background}`, the layout's resolved look (1.2)
+ * - `look`: `{appearance: "light"|"dark", theme, colors: {name: css color}, font, fontSize, radius, spacing, borderWidth, background}`, the layout's resolved look (1.2; `spacing` and `borderWidth` 1.4)
  * - `overlays`: the open overlays, bottom to top `[{id, mod, kind, props, width, height, at, edge, frame}]` (1.2)
  * - `selection`: `{ids: [entity id], edges: [edge id]}` (1.2)
  * - `canvas/items`: every item of the active canvas, back to front `[{id, kind, label, parent, ..detail}]`, without places or sizes: a page adds `url`, text `text`, a shape `shape`, `text` and `custom` (`{shape: <mod>/<shape>, params}` for a mod's shape, else null, 1.4), a mod item `mod` (1.2)
@@ -341,7 +341,7 @@ export function colors(): {
   [name: string]: string;
 };
 
-/** The active layout's look: its appearance, theme name, resolved colours, font, control radius and background. */
+/** The active layout's look: its appearance, theme name, resolved colours, font, control radius, spacing unit (padding and gaps are multiples of it; null means 4), line width (null means 1) and background. Use them so a panel mod follows the theme as the app's own panels do. */
 export function look(): {
   appearance: "light" | "dark";
   theme: string | null;
@@ -349,6 +349,8 @@ export function look(): {
   font: string | null;
   fontSize: number | null;
   radius: number | null;
+  spacing: number | null;
+  borderWidth: number | null;
   background: any;
 };
 

@@ -67,12 +67,12 @@ pub(super) fn draft_chip(draft: &DraftChip) -> impl IntoElement + use<> {
             .gap(px(6.0))
             .items_center()
             .rounded(crate::theme::corner_full())
-            .border_1()
+            .border(crate::theme::line())
             .border_color(theme::solid(theme::zinc_300()))
             .bg(theme::solid(theme::zinc_100()))
-            .py_1()
-            .pl_2()
-            .pr_6()
+            .py(crate::theme::space(1.0))
+            .pl(crate::theme::space(2.0))
+            .pr(crate::theme::space(6.0))
             .text_size(px(12.0))
             .font_weight(FontWeight::MEDIUM)
             .child(Icon::new(icon).size(px(12.0)).text_color(muted()))
@@ -103,8 +103,8 @@ pub(super) fn open_comments(open: &OpenComments) -> impl IntoElement + use<> {
     let resolve = open.resolve.clone();
     h_flex()
         .px(px(2.0))
-        .pb_1()
-        .gap_2()
+        .pb(crate::theme::space(1.0))
+        .gap(crate::theme::space(2.0))
         .items_center()
         .justify_between()
         .text_size(px(11.0))
@@ -129,36 +129,39 @@ pub(super) fn open_comments(open: &OpenComments) -> impl IntoElement + use<> {
 
 /// What waits to be sent, stacked above the field (`QueuedComments`).
 pub(super) fn queued(chips: &[QueuedChip]) -> impl IntoElement + use<> {
-    v_flex().gap_1().pb_1().children(chips.iter().map(|chip| {
-        let icon = if chip.annotation.is_some() || !is_image_label(&chip.text) {
-            ShellIcon::MessageSquare
-        } else {
-            ShellIcon::Image
-        };
-        h_flex()
-            .items_start()
-            .gap(px(6.0))
-            .rounded(crate::theme::corner(8.0))
-            .px(px(6.0))
-            .py_1()
-            .text_size(px(12.0))
-            .line_height(px(20.0))
-            .bg(theme::tinted(theme::queued()))
-            .child(
-                Icon::new(icon)
-                    .size(px(11.0))
-                    .mt(px(5.0))
-                    .flex_shrink_0()
-                    .text_color(muted()),
-            )
-            .child(
-                div()
-                    .flex_1()
-                    .min_w_0()
-                    .line_clamp(3)
-                    .child(SharedString::from(chip.text.clone())),
-            )
-    }))
+    v_flex()
+        .gap(crate::theme::space(1.0))
+        .pb(crate::theme::space(1.0))
+        .children(chips.iter().map(|chip| {
+            let icon = if chip.annotation.is_some() || !is_image_label(&chip.text) {
+                ShellIcon::MessageSquare
+            } else {
+                ShellIcon::Image
+            };
+            h_flex()
+                .items_start()
+                .gap(px(6.0))
+                .rounded(crate::theme::corner(8.0))
+                .px(px(6.0))
+                .py(crate::theme::space(1.0))
+                .text_size(px(12.0))
+                .line_height(px(20.0))
+                .bg(theme::tinted(theme::queued()))
+                .child(
+                    Icon::new(icon)
+                        .size(px(11.0))
+                        .mt(px(5.0))
+                        .flex_shrink_0()
+                        .text_color(muted()),
+                )
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w_0()
+                        .line_clamp(3)
+                        .child(SharedString::from(chip.text.clone())),
+                )
+        }))
 }
 
 /// Whether a queued chip's words are the stand-in for a message that is
@@ -176,7 +179,7 @@ pub(super) fn chip(id: &'static str, icon: Icon, label: &str) -> gpui_kit::State
     h_flex()
         .id(id)
         .min_w_0()
-        .gap_1()
+        .gap(crate::theme::space(1.0))
         .items_center()
         .rounded(crate::theme::corner_full())
         .px(px(6.0))

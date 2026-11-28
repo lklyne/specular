@@ -51,7 +51,7 @@ fn menu_item(row: &ThreadRow, input: &Entity<TextareaState>) -> PopupMenuItem {
     let item = if row.draft {
         PopupMenuItem::element(move |_, _| {
             h_flex()
-                .gap_2()
+                .gap(crate::theme::space(2.0))
                 .items_center()
                 .child(div().min_w_0().truncate().child(title.clone()))
                 .child(Tag::secondary().xsmall().child("draft"))
@@ -140,11 +140,11 @@ impl ShellView {
         h_flex()
             .h(px(theme::DOCK_ROW))
             .flex_shrink_0()
-            .px_3()
+            .px(crate::theme::space(3.0))
             .gap(px(6.0))
             .items_center()
             .bg(theme::solid(theme::toolbar()))
-            .border_b_1()
+            .border_b(crate::theme::line())
             .border_color(theme::solid(theme::toolbar_border()))
             // The panel's edge is the chrome border, which is lost against
             // the toolbar's fill, so beside the header it is the toolbar's.
@@ -168,9 +168,9 @@ impl ShellView {
         let item = h_flex()
             .id(id.clone())
             .w_full()
-            .px_3()
+            .px(crate::theme::space(3.0))
             .py(px(6.0))
-            .gap_2()
+            .gap(crate::theme::space(2.0))
             .items_center()
             .cursor_pointer()
             .hover(|this| this.bg(theme::solid(theme::zinc_100())))
@@ -230,10 +230,16 @@ impl ShellView {
             .id("chat-threads-list")
             .flex_1()
             .min_h_0()
-            .py_1()
+            .py(crate::theme::space(1.0))
             .overflow_y_scroll()
             .when(rows.is_empty(), |this| {
-                this.child(div().px_3().py_2().text_color(muted()).child(NO_THREADS))
+                this.child(
+                    div()
+                        .px(crate::theme::space(3.0))
+                        .py(crate::theme::space(2.0))
+                        .text_color(muted())
+                        .child(NO_THREADS),
+                )
             })
             .children(rows)
     }

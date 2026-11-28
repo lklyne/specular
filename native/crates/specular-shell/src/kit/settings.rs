@@ -44,7 +44,7 @@ fn space(pane: &GeneralPane) -> impl IntoElement + use<> {
     let reveal = pane.space.as_ref().map(|space| space.reveal.clone());
     h_flex()
         .w_full()
-        .gap_3()
+        .gap(crate::theme::space(3.0))
         .items_center()
         .child(
             v_flex()
@@ -192,7 +192,7 @@ fn general(pane: &GeneralPane) -> SettingPage {
 
 fn shortcut(row: &ShortcutRow) -> impl IntoElement + use<> {
     h_flex()
-        .gap_3()
+        .gap(crate::theme::space(3.0))
         .items_center()
         .py(px(3.0))
         .text_size(px(12.0))

@@ -69,9 +69,10 @@ fn a_root_moves_or_hides_the_window_buttons_borders_the_window_and_rounds_the_co
 }
 
 #[test]
-fn a_theme_sets_the_radius_and_fonts_once_and_a_layout_goes_over_it() {
+fn a_theme_sets_the_radius_spacing_lines_and_fonts_once_and_a_layout_goes_over_it() {
     let retro: ThemeFile = serde_json::from_str(
         r##"{ "appearance": "light", "radius": 0, "font": "Geneva", "font_size": 12,
+              "spacing": 3, "border_width": 2,
               "colors": { "hover": "#000", "hoverText": "#fff" } }"##,
     )
     .expect("a theme");
@@ -88,18 +89,23 @@ fn a_theme_sets_the_radius_and_fonts_once_and_a_layout_goes_over_it() {
         (themed.radius, themed.font.as_deref(), themed.font_size),
         (Some(0.0), Some("Geneva"), Some(12.0))
     );
+    assert_eq!(
+        (themed.spacing, themed.border_width),
+        (Some(3.0), Some(2.0))
+    );
     assert_eq!(themed.appearance, Some(Appearance::Light));
     assert_eq!(
         themed.colors.get("hoverText").map(String::as_str),
         Some("#fff")
     );
-    let over = root(r#""font": "Monaco", "radius": 2,"#)
+    let over = root(r#""font": "Monaco", "radius": 2, "border_width": 1,"#)
         .look
         .resolve(Appearance::Light, &themes);
     assert_eq!(
         (over.radius, over.font.as_deref(), over.font_size),
         (Some(2.0), Some("Monaco"), Some(12.0))
     );
+    assert_eq!((over.spacing, over.border_width), (Some(3.0), Some(1.0)));
 }
 
 #[test]

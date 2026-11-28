@@ -54,6 +54,14 @@ pub struct ThemeFile {
     /// The corner radius of the app's controls, menus, popups and dialogs.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub radius: Option<f32>,
+    /// The chrome's spacing unit in points: padding and gaps are multiples
+    /// of it (4 is the app's own).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spacing: Option<f32>,
+    /// The width of the chrome's lines in points: panel edges, rules and
+    /// popup borders (1 is the app's own).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border_width: Option<f32>,
 }
 
 /// What a layout's root sets of the look.
@@ -75,6 +83,12 @@ pub struct Look {
     /// The corner radius of the app's own controls and popups, in points.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub radius: Option<f32>,
+    /// The chrome's spacing unit, in points.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spacing: Option<f32>,
+    /// The width of the chrome's lines, in points.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border_width: Option<f32>,
     /// Painted behind the whole window where no block paints.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub background: Option<Value>,
@@ -141,6 +155,10 @@ pub struct Resolved {
     pub font_size: Option<f32>,
     /// The corner radius: the layout's, else the theme's.
     pub radius: Option<f32>,
+    /// The spacing unit: the layout's, else the theme's.
+    pub spacing: Option<f32>,
+    /// The line width: the layout's, else the theme's.
+    pub border_width: Option<f32>,
 }
 
 impl Look {
@@ -161,6 +179,8 @@ impl Look {
                 .font_size
                 .or_else(|| file.and_then(|file| file.font_size)),
             radius: self.radius.or_else(|| file.and_then(|file| file.radius)),
+            spacing: self.spacing.or_else(|| file.and_then(|file| file.spacing)),
+            border_width: (self.border_width).or_else(|| file.and_then(|file| file.border_width)),
         }
     }
 
@@ -204,6 +224,8 @@ impl Look {
             "font": resolved.font,
             "fontSize": resolved.font_size,
             "radius": resolved.radius,
+            "spacing": resolved.spacing,
+            "borderWidth": resolved.border_width,
             "background": self.background,
         })
     }
