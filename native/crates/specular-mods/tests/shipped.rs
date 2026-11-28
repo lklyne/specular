@@ -1,7 +1,8 @@
 //! What the app writes into its mods folder on every start: the shipped
 //! mods, replacing an older copy but never a person's clone, and a guide
 //! and declarations that name the whole surface. And `specular mod check`'s
-//! library half, over the shipped toolbar and over a mod that fails.
+//! library half, over the shipped toolbar and over a mod that fails. A mod
+//! the app stops shipping goes too, unless someone changed its folder.
 
 use std::path::PathBuf;
 
@@ -53,6 +54,38 @@ fn a_start_replaces_shipped_mods_but_not_a_clone() {
     let kept = shipped::install(&mods).expect("third start");
     assert_eq!(kept, ["toolbar"]);
     assert_eq!(std::fs::read_to_string(&main).expect("main.js"), "// mine");
+    let _ = std::fs::remove_dir_all(&mods);
+}
+
+#[test]
+fn a_start_removes_a_mod_no_longer_shipped_unless_someone_changed_it() {
+    let mods = scratch("retire");
+    shipped::install(&mods).expect("first start");
+    let copy = |name: &str| {
+        let dir = mods.join(name);
+        std::fs::create_dir_all(&dir).expect("folder");
+        for entry in std::fs::read_dir(mods.join("star"))
+            .expect("star")
+            .flatten()
+        {
+            std::fs::copy(entry.path(), dir.join(entry.file_name())).expect("copy");
+        }
+        dir
+    };
+    let retired = copy("retired");
+    std::fs::write(retired.join("jsconfig.json"), "{}").expect("written on load");
+    std::fs::write(mods.join("retired.error"), "failed").expect("error file");
+    let edited = copy("edited");
+    std::fs::write(edited.join("main.js"), "// mine").expect("edit");
+    let added = copy("added");
+    std::fs::write(added.join("notes.md"), "mine").expect("add");
+    let unmarked = copy("unmarked");
+    std::fs::remove_file(unmarked.join(".shipped")).expect("unmark");
+
+    shipped::install(&mods).expect("second start");
+    assert!(!retired.exists() && !mods.join("retired.error").exists());
+    assert!(edited.is_dir() && added.is_dir() && unmarked.is_dir());
+    assert!(mods.join("star/main.js").is_file(), "a shipped mod stays");
     let _ = std::fs::remove_dir_all(&mods);
 }
 

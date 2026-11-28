@@ -323,7 +323,10 @@ A mod (ADR 0055) is a folder of `mod.json` and `main.js`, run by
 - **Where they live.** Mods are in `<app home>/mods/<name>/`. The shipped
   ones live in `crates/specular-mods/mods/`, with the guide
   (`mods/README.md`) and `specular.d.ts`. All are written there on every
-  start, except a folder whose `mod.json` has `cloned_from`. A new command
+  start, except a folder whose `mod.json` has `cloned_from`. Each gets a
+  `.shipped` marker of what was written, so a mod no longer shipped is
+  removed only while its folder is untouched (`src/retired.rs`; mods
+  retired before the marker are listed there by hash). A new command
   or state key must be named in both the guide and the d.ts; the test in
   `tests/shipped.rs` fails otherwise.
 - **How a mod is placed.** A layout block's `content` names a mod

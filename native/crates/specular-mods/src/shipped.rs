@@ -3,7 +3,8 @@
 //! They are compiled in and written into the app's mods folder on every
 //! start, replacing what was there, so a release that changes one reaches
 //! everyone. A folder whose `mod.json` says `cloned_from` is a person's own
-//! copy and is never touched.
+//! copy and is never touched. A mod a release stops shipping is removed when
+//! its folder still holds just what the app wrote (`retired`).
 
 use std::io;
 use std::path::{Path, PathBuf};
@@ -125,8 +126,9 @@ fn write(path: &Path, text: &str) -> io::Result<()> {
 /// Writes the shipped mods, the shared library, the guide and the
 /// declarations into `mods`,
 /// creating it. A file already holding what would be written is left
-/// alone, so a mod's watcher is not woken for nothing. Returns the names
-/// of the mods left alone as clones.
+/// alone, so a mod's watcher is not woken for nothing. Removes the folders
+/// of mods no longer shipped that the person never changed. Returns the
+/// names of the mods left alone as clones.
 pub fn install(mods: &Path) -> io::Result<Vec<&'static str>> {
     std::fs::create_dir_all(mods)?;
     write(&mods.join("README.md"), GUIDE)?;
@@ -147,7 +149,9 @@ pub fn install(mods: &Path) -> io::Result<Vec<&'static str>> {
         for file in shipped.files {
             write(&dir.join(file.name), file.text)?;
         }
+        crate::retired::mark(&dir, shipped.files)?;
     }
+    crate::retired::sweep(mods)?;
     Ok(kept)
 }
 

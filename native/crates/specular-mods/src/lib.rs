@@ -32,6 +32,7 @@ mod grant;
 mod host;
 mod manifest;
 mod reads;
+mod retired;
 mod runner;
 mod set;
 pub mod shipped;

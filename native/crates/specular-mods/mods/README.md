@@ -655,6 +655,8 @@ replaced. `specular mod clone tabs my-tabs --use` copies a mod to a new
 folder, marks it, and points the layout at it; edit `mods/my-tabs/main.js`
 and each save reloads it. Without `--use`, set a block's
 `"content": {"mod": "my-tabs"}` yourself.
+When a release stops shipping a mod, its folder goes on the next start,
+unless you changed or added a file there; then it stays, as yours.
 Mods are trusted code: a mod has your files, network and processes, like a
 shell script you run.
 
